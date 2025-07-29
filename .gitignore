@@ -36,6 +36,19 @@
 *.exe
 *.out
 *.app
+main
+test_integration
+test_eval
+
+# bison/flex生成物
+*.dSYM
+src/parser.c
+src/parser.h
+src/lexer.c
+
+# その他
+*~
+.DS_Store
 
 # debug information files
 *.dwo
