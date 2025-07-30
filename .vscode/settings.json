@@ -1,5 +1,8 @@
 {
     "C_Cpp.errorSquiggles": "disabled",
     "C_Cpp.clang_format_style": "{ BasedOnStyle: K&R, IndentWidth: 4, TabWidth: 4, UseTab: Never }",
-    "editor.defaultFormatter": "xaver.clang-format"
+    "editor.defaultFormatter": "xaver.clang-format",
+    "files.associations": {
+        "bitset": "cpp"
+    }
 }

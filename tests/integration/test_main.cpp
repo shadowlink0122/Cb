@@ -1,0 +1,27 @@
+void yyerror(const char *) {}
+void yyerror(const char *, const char *) {}
+#include "arithmetic/test_arithmetic_case.h"
+#include "assign/test_assign_case.h"
+#include "boundary/test_boundary_case.h"
+#include "cross_type/test_cross_type_case.h"
+#include <iostream>
+
+int main() {
+    int fail = 0;
+    try {
+        test_integration_arithmetic();
+        test_integration_assign();
+        test_integration_boundary();
+        test_integration_cross_type();
+    } catch (const std::exception &e) {
+        std::cerr << "[integration] test failed: " << e.what() << std::endl;
+        fail = 1;
+    } catch (...) {
+        std::cerr << "[integration] test failed: unknown error" << std::endl;
+        fail = 1;
+    }
+    if (fail == 0) {
+        std::cout << "[integration] all tests passed" << std::endl;
+    }
+    return fail;
+}

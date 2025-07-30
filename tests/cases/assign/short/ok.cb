@@ -1,0 +1,4 @@
+// short型の代入（正常系）
+int i = 32767;
+short s = i;
+print s;

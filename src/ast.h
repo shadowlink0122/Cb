@@ -1,4 +1,6 @@
+
 #pragma once
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -11,12 +13,16 @@ struct ASTNode {
         AST_PRINT,
         AST_STMTLIST
     } type;
-    int ival;
+    int32_t type_info = 0; // 型情報: 1=tiny, 2=short, 3=int, 4=long
+    int64_t lval64 = 0;    // 整数値（常にint64_tで保持）
     std::string sval;
     std::string op;
     ASTNode *lhs, *rhs;
     std::vector<ASTNode *> stmts;
-    ASTNode(Type t) : type(t), ival(0), lhs(nullptr), rhs(nullptr) {}
+    ASTNode()
+        : type(AST_VAR), type_info(0), lval64(0), lhs(nullptr), rhs(nullptr) {}
+    ASTNode(Type t)
+        : type(t), type_info(0), lval64(0), lhs(nullptr), rhs(nullptr) {}
     ~ASTNode() {
         delete lhs;
         delete rhs;
