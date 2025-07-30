@@ -58,7 +58,3 @@ factor:
     | IDENTIFIER { $$ = (void*)(new ASTNode(ASTNode::AST_VAR)); ((ASTNode*)$$)->sval = std::string($1); free($1); }
     ;
 %%
-
-void yyerror(const char *s) {
-    fprintf(stderr, "Error: %s\n", s);
-}

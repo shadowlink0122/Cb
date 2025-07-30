@@ -2,10 +2,12 @@
 
 %{
 #include "parser.h"
+extern int yylineno;
 %}
 
 %%
-[ \t\n]+           ;
+[ \t]+           ;
+\n               { yylineno++; }
 [0-9]+            { yylval.ival = atoi(yytext); return NUMBER; }
 [a-zA-Z_][a-zA-Z0-9_]* {
     if (strcmp(yytext, "print") == 0) return PRINT;
