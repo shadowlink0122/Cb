@@ -28,12 +28,11 @@ void yyerror(const char *s, const char *error) {
             fclose(fp);
         }
     }
+    exit(1);
 }
 
 // Bison用のシグネチャ
 void yyerror(const char *s) { yyerror("構文エラー", s); }
-
-std::map<std::string, int> vars;
 
 int main(int argc, char **argv) {
     if (argc > 1) {
