@@ -5,10 +5,12 @@
 
 #ifndef UNIT_TEST_BUILD
 extern std::map<std::string, int> vars;
+void yyerror(const char *s, const char *error);
 #else
 #include <map>
 #include <string>
 std::map<std::string, int> vars;
+void yyerror(const char *s, const char *error);
 #endif
 
 int eval_num(ASTNode *node) { return node->ival; }
@@ -23,8 +25,13 @@ int eval_binop(ASTNode *node) {
         return l - r;
     if (node->op == "*")
         return l * r;
-    if (node->op == "/")
+    if (node->op == "/") {
+        if (r == 0) {
+            yyerror("Error", "0除算が発生しました");
+            exit(1);
+        }
         return l / r;
+    }
     return 0;
 }
 

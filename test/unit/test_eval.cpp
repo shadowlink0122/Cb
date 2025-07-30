@@ -1,3 +1,9 @@
+#include <cstdio>
+
+// ユニットテスト用ダミー
+void yyerror(const char *s, const char *error) {
+    fprintf(stderr, "%s: %s\n", s, error);
+}
 #include "eval.h"
 #include <cassert>
 #include <iostream>
