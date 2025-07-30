@@ -37,8 +37,7 @@
 *.out
 *.app
 main
-test_integration
-test_eval
+test_main
 
 # bison/flex生成物
 *.dSYM

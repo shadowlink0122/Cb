@@ -1,0 +1,4 @@
+// tiny型の代入（異常系）
+int i = 128;
+tiny t = i;
+print t;

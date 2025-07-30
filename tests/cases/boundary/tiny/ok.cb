@@ -1,0 +1,5 @@
+// tiny型の境界値（正常系）
+tiny t1 = 127;
+tiny t2 = -128;
+print t1;
+print t2;
