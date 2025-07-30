@@ -1,4 +1,4 @@
-a = 1 + 2;
-b = a * 3;
+int a = 1 + 2;
+long b = a * 3;
 print a;
 print b;
