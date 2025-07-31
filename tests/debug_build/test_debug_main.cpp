@@ -1,8 +1,16 @@
+#include <cstdarg>
+extern "C" void vdebug_printf(const char *fmt, va_list args);
 #include <cstdio>
 #include <iostream>
 
-// debug_printラッパーのextern宣言
-extern void debug_print(const char *fmt, ...);
+// vdebug_printfのみ参照
+// debug_printラッパー実装
+void debug_print(const char *fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    vdebug_printf(fmt, args);
+    va_end(args);
+}
 
 int main() {
     std::cerr << "[debug_build] debug_print test: should see DEBUG line below "

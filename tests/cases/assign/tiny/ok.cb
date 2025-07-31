@@ -1,4 +1,6 @@
 // tiny型の代入（正常系）
-int i = 127;
-tiny t = i;
-print t;
+int main(){
+    int i = 127;
+    tiny t = i;
+    print t;
+}

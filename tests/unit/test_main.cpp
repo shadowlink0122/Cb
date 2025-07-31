@@ -1,6 +1,13 @@
 #include <iostream>
-extern "C" void yyerror(const char *) {}
-void yyerror(const char *, const char *) {}
+#ifdef __cplusplus
+extern "C" {
+#endif
+void yyerror(const char *, const char *);
+#ifdef __cplusplus
+}
+// C++用ラッパー
+inline void yyerror(const char *s) { yyerror(s, ""); }
+#endif
 #include <exception>
 #include <iostream>
 

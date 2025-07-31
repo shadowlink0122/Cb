@@ -1,0 +1,5 @@
+int main() {
+    tiny t1 = 127;
+    t1 = 128; // tiny型範囲外（異常系）
+    return 0;
+}
