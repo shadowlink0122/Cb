@@ -6,15 +6,18 @@ extern int yylineno;
 %}
 
 %%
+[ 	]+           ;
 [ \t]+           ;
 [\/][\/].*         ; // C++スタイルコメント無視
 [/][*]([^*]*[*]+)*?[/]   ; // Cスタイルコメント無視
 \n               { yylineno++; }
+void             { return VOID; }
 tiny             { return TINY; }
 short            { return SHORT; }
 int              { return INT; }
 long             { return LONG; }
 [0-9]+            { yylval.lval = strtoll(yytext, NULL, 10); return NUMBER; }
+return            { return RETURN; }
 [a-zA-Z_][a-zA-Z0-9_]* {
     if (strcmp(yytext, "print") == 0) return PRINT;
     yylval.sval = strdup(yytext);
@@ -24,6 +27,12 @@ long             { return LONG; }
 \-                { return MINUS; }
 \*                { return MUL; }
 \/                 { return DIV; }
+\(                { return '('; }
+\)                { return ')'; }
+\{                { return '{'; }
+\}                { return '}'; }
+\[                { return '['; }
+\]                { return ']'; }
 =                 { return ASSIGN; }
 ;                 { return SEMICOLON; }
 .                 { return yytext[0]; }

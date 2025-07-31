@@ -1,4 +1,7 @@
-// int型の代入（異常系）
-long l = 2147483648;
-int i = l;
-print i;
+
+int main() {
+  // int型の代入（異常系）
+  long l = 2147483648;
+  int i = l;
+  print i;
+}

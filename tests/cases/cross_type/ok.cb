@@ -1,0 +1,6 @@
+int main() {
+    tiny t = 42;
+    int i = t;
+    print i;
+    return 0;
+}

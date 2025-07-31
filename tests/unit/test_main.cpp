@@ -1,16 +1,45 @@
 #include <iostream>
-extern "C" void yyerror(const char *) {}
-void yyerror(const char *, const char *) {}
+#ifdef __cplusplus
+extern "C" {
+#endif
+void yyerror(const char *, const char *);
+#ifdef __cplusplus
+}
+// C++用ラッパー
+inline void yyerror(const char *s) { yyerror(s, ""); }
+#endif
 #include <exception>
 #include <iostream>
 
 void test_unit_type();
+#ifdef __cplusplus
+extern "C" {
+#endif
 void test_unit_assign();
+#ifdef __cplusplus
+}
+#endif
+// boundary
+#ifdef __cplusplus
+extern "C" {
+#endif
 void test_unit_boundary();
+#ifdef __cplusplus
+}
+#endif
 void test_unit_arithmetic();
+// cross_type
+#ifdef __cplusplus
+extern "C" {
+#endif
 void test_unit_cross_type();
+#ifdef __cplusplus
+}
+#endif
 
 int main() {
+    extern void set_debug_mode_from_env();
+    set_debug_mode_from_env();
     int fail = 0;
     try {
         test_unit_type();
