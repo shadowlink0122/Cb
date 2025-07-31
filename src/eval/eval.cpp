@@ -13,8 +13,13 @@ extern int yylineno;
 #include <stdio.h>
 #include <stdlib.h>
 
-// デバッグモードフラグ
-bool debug_mode = true;
+// デバッグモードフラグ（CB_DEBUG_MODE=1なら有効化）
+#include <cstdlib>
+bool debug_mode = false;
+void set_debug_mode_from_env() {
+    const char* env = std::getenv("CB_DEBUG_MODE");
+    if (env && env[0] == '1') debug_mode = true;
+}
 
 #include "eval.h"
 
