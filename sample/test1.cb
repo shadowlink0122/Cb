@@ -1,4 +1,11 @@
-int a = 1 + 2;
-long b = a * 3;
-print a;
-print b;
+print 1;
+
+short test1() {
+    return 100 / 5;
+}
+
+short test2() {
+    return 100 / 2;
+}
+
+print test1() + test2();
