@@ -1,5 +1,5 @@
 #pragma once
-#include "ast.h"
+#include "../ast/ast.h"
 // テスト用バイナリでもリンクできるようにエラー関数extern宣言
 extern void yyerror(const char *s, const char *error);
 

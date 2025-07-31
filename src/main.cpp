@@ -1,5 +1,5 @@
-#include "ast.h"
-#include "eval.h"
+#include "ast/util.h"
+#include "eval/eval.h"
 #include "parser.h"
 #include <map>
 #include <stdio.h>
@@ -9,44 +9,17 @@ extern int yyparse();
 extern FILE *yyin;
 extern ASTNode *root;
 extern int yylineno;
-char *yyfilename = NULL;
-
-void yyerror(const char *s, const char *error) {
-    fprintf(stderr, "%s: %s\n", s, error);
-    if (yyfilename) {
-        FILE *fp = fopen(yyfilename, "r");
-        if (fp) {
-            char buf[1024];
-            int line = 1;
-            while (fgets(buf, sizeof(buf), fp)) {
-                if (line == yylineno) {
-                    fprintf(stderr, "%s:%d\n>> %s", yyfilename, line, buf);
-                    break;
-                }
-                line++;
-            }
-            fclose(fp);
-        }
-    }
-    exit(1);
-}
-
-// Bison用のシグネチャ
-void yyerror(const char *s) { yyerror("構文エラー", s); }
 
 int main(int argc, char **argv) {
     if (argc > 1) {
-        yyin = fopen(argv[1], "r");
-        yyfilename = argv[1];
-        if (!yyin) {
-            perror(argv[1]);
+        ASTNode *ast = parse_to_ast(argv[1]);
+        if (!ast)
             return 1;
-        }
+        eval(ast);
+        delete ast;
+        return 0;
+    } else {
+        fprintf(stderr, "Usage: %s <input.cb>\n", argv[0]);
+        return 1;
     }
-    yyparse();
-    eval(root);
-    if (argc > 1)
-        fclose(yyin);
-    delete root;
-    return 0;
 }

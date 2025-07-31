@@ -1,4 +1,3 @@
-
 #pragma once
 #include <cstdint>
 #include <string>
@@ -31,3 +30,6 @@ struct ASTNode {
             delete *it;
     }
 };
+
+// CbソースファイルからASTを生成する関数
+ASTNode *parse_to_ast(const std::string &filename);
