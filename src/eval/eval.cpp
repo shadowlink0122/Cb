@@ -1,7 +1,7 @@
 #include <cstdarg>
 #include <stdio.h>
 // DEBUG用printラッパー
-void debug_print(const char* fmt, ...) {
+void debug_print(const char *fmt, ...) {
 #ifdef DEBUG
     va_list args;
     va_start(args, fmt);
@@ -21,7 +21,7 @@ struct Variable {
 };
 static std::map<std::string, Variable> symbol_table;
 // 関数定義用: 関数名→ASTNode*（関数定義ノード）
-static std::map<std::string, ASTNode*> function_table;
+static std::map<std::string, ASTNode *> function_table;
 
 // 関数呼び出し時のreturn値伝搬用例外
 struct ReturnException {
@@ -31,7 +31,8 @@ struct ReturnException {
 
 void yyerror(const char *s, const char *error);
 
-// 型情報: 0=void, 1=tiny(int8_t), 2=short(int16_t), 3=int(int32_t), 4=long(int64_t)
+// 型情報: 0=void, 1=tiny(int8_t), 2=short(int16_t), 3=int(int32_t),
+// 4=long(int64_t)
 int64_t eval_num(ASTNode *node) {
     // 型ごとのキャストはeval_assignで行う。ここでは常にlval64を返す。
     return node->lval64;
@@ -149,7 +150,7 @@ int eval_stmtlist(ASTNode *node) {
             }
             eval(*it);
         }
-    } catch (const ReturnException& e) {
+    } catch (const ReturnException &e) {
         throw; // return値を上位に伝搬
     }
     return 0;
@@ -167,10 +168,12 @@ int64_t eval_funccall(ASTNode *node) {
         yyerror("未定義の関数です", node->sval.c_str());
         return 0;
     }
-    ASTNode* func = it->second;
-    debug_print("DEBUG: funccall %s, rettypes.size=%zu\n", node->sval.c_str(), func->rettypes.size());
+    ASTNode *func = it->second;
+    debug_print("DEBUG: funccall %s, rettypes.size=%zu\n", node->sval.c_str(),
+                func->rettypes.size());
     if (!func->rettypes.empty() && func->rettypes[0]) {
-        debug_print("DEBUG: funccall %s, rettypes[0]->type_info=%d\n", node->sval.c_str(), func->rettypes[0]->type_info);
+        debug_print("DEBUG: funccall %s, rettypes[0]->type_info=%d\n",
+                    node->sval.c_str(), func->rettypes[0]->type_info);
     }
     if (!func) {
         return 0;
@@ -186,7 +189,7 @@ int64_t eval_funccall(ASTNode *node) {
     std::map<std::string, Variable> old_symbol_table = symbol_table;
     // 仮引数に実引数を束縛
     for (size_t i = 0; i < func_param_size; ++i) {
-        ASTNode* param = func->params[i];
+        ASTNode *param = func->params[i];
         if (!param) {
             yyerror("仮引数ノードが不正です", node->sval.c_str());
             continue;
@@ -202,17 +205,20 @@ int64_t eval_funccall(ASTNode *node) {
     }
     int64_t ret = 0;
     bool is_void = false;
-    if (!func->rettypes.empty() && func->rettypes[0] && func->rettypes[0]->type_info == 0) {
+    if (!func->rettypes.empty() && func->rettypes[0] &&
+        func->rettypes[0]->type_info == 0) {
         is_void = true;
     }
-    debug_print("DEBUG: funccall %s, is_void=%d\n", node->sval.c_str(), (int)is_void);
+    debug_print("DEBUG: funccall %s, is_void=%d\n", node->sval.c_str(),
+                (int)is_void);
     try {
         eval(func->body);
         if (is_void) {
             ret = 0; // void型は値なし
         }
-    } catch (const ReturnException& e) {
-        debug_print("DEBUG: ReturnException caught in %s, value=%lld\n", func->sval.c_str(), e.value);
+    } catch (const ReturnException &e) {
+        debug_print("DEBUG: ReturnException caught in %s, value=%lld\n",
+                    func->sval.c_str(), e.value);
         if (is_void) {
             yyerror("void型関数で値を返すことはできません", func->sval.c_str());
             ret = 0;
@@ -226,15 +232,18 @@ int64_t eval_funccall(ASTNode *node) {
                 ret = 0;
                 break;
             case 1: // tiny(int8_t)
-                if (ret < -128 || ret > 127) out_of_range = true;
+                if (ret < -128 || ret > 127)
+                    out_of_range = true;
                 ret = (int8_t)ret;
                 break;
             case 2: // short(int16_t)
-                if (ret < -32768 || ret > 32767) out_of_range = true;
+                if (ret < -32768 || ret > 32767)
+                    out_of_range = true;
                 ret = (int16_t)ret;
                 break;
             case 3: // int(int32_t)
-                if (ret < -2147483648LL || ret > 2147483647LL) out_of_range = true;
+                if (ret < -2147483648LL || ret > 2147483647LL)
+                    out_of_range = true;
                 ret = (int32_t)ret;
                 break;
             case 4: // long(int64_t)
@@ -246,7 +255,9 @@ int64_t eval_funccall(ASTNode *node) {
                 break;
             }
             if (out_of_range) {
-                debug_print("DEBUG: return value out_of_range for %s value=%lld type=%d\n", func->sval.c_str(), e.value, rettype);
+                debug_print("DEBUG: return value out_of_range for %s "
+                            "value=%lld type=%d\n",
+                            func->sval.c_str(), e.value, rettype);
                 yyerror("関数戻り値が型の範囲外です", func->sval.c_str());
             }
         }

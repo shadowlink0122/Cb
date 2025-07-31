@@ -9,8 +9,9 @@ CFLAGS=-Wall -g
 
 LINT_FILES=src/**/*.cpp src/**/*.h tests/**/*.cpp
 
-.PHONY: all clean lint fmt unit-test integration-test test cgen main debug
-all: main
+
+.PHONY: all clean lint fmt unit-test integration-test test cgen main debug debug-build-test
+all: main test debug-build-test
 
 # デバッグビルド
 debug: src/parser.c src/lexer.c src/main.cpp src/eval/eval.cpp src/ast/util.cpp
@@ -35,6 +36,7 @@ unit-test:
 		tests/unit/boundary/test_boundary.cpp \
 		tests/unit/arithmetic/test_arithmetic.cpp \
 		tests/unit/cross_type/test_cross_type.cpp \
+		tests/unit/func/test_func.cpp \
 		src/eval/eval.cpp
 	tests/unit/test_main
 
@@ -49,10 +51,16 @@ integration-test: main
 		src/eval/eval.cpp
 	tests/integration/test_main
 
+# debug_buildテスト
+debug-build-test: debug
+	$(CC) $(CFLAGS_DEBUG) -I. -o tests/debug_build/test_debug_main tests/debug_build/test_debug_main.cpp src/eval/eval.cpp src/ast/util.cpp src/parser.c src/lexer.c
+	tests/debug_build/test_debug_main
+
 # 両方まとめて実行
 test:
 	$(MAKE) unit-test
 	$(MAKE) integration-test
+	$(MAKE) debug-build-test
 
 src/lexer.c: src/lexer.l
 	$(LEX) -o src/lexer.c src/lexer.l
@@ -70,6 +78,5 @@ cgen:
 
 clean:
 	rm -rf src/*.o src/*.c src/parser.h main cgen_main \
-		tests/integration/test_main tests/unit/test_main \
-		tests/integration/*.dSYM tests/unit/*.dSYM *.dSYM \
-		cgen/*.dSYM
+	  tests/*/test_main tests/debug_build/test_debug_main \
+	  **/*.dSYM *.dSYM
