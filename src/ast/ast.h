@@ -24,9 +24,9 @@ struct ASTNode {
     ASTNode *lhs, *rhs;
     std::vector<ASTNode *> stmts;
     // 関数定義用
-    std::vector<ASTNode *> params;    // 引数リスト
-    std::vector<ASTNode *> rettypes;  // 戻り値型リスト
-    ASTNode *body = nullptr;          // 関数本体
+    std::vector<ASTNode *> params;   // 引数リスト
+    std::vector<ASTNode *> rettypes; // 戻り値型リスト
+    ASTNode *body = nullptr;         // 関数本体
     ASTNode()
         : type(AST_VAR), type_info(0), lval64(0), lhs(nullptr), rhs(nullptr) {}
     ASTNode(Type t)
