@@ -12,12 +12,34 @@ inline void yyerror(const char *s) { yyerror(s, ""); }
 #include <iostream>
 
 void test_unit_type();
+#ifdef __cplusplus
+extern "C" {
+#endif
 void test_unit_assign();
+#ifdef __cplusplus
+}
+#endif
+// boundary
+#ifdef __cplusplus
+extern "C" {
+#endif
 void test_unit_boundary();
+#ifdef __cplusplus
+}
+#endif
 void test_unit_arithmetic();
+// cross_type
+#ifdef __cplusplus
+extern "C" {
+#endif
 void test_unit_cross_type();
+#ifdef __cplusplus
+}
+#endif
 
 int main() {
+    extern void set_debug_mode_from_env();
+    set_debug_mode_from_env();
     int fail = 0;
     try {
         test_unit_type();

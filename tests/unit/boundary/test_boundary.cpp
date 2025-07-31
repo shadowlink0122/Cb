@@ -1,15 +1,15 @@
 #include <cassert>
 #include <iostream>
-#include <limits>
 
-void test_boundary_basic() {
-    // TODO: 型ごとの境界値テストをここに追加
-    int max = std::numeric_limits<int>::max();
-    int min = std::numeric_limits<int>::min();
-    assert(max > min);
-}
+extern "C" void test_unit_boundary_tiny();
+extern "C" void test_unit_boundary_short();
+extern "C" void test_unit_boundary_int();
+extern "C" void test_unit_boundary_long();
 
-void test_unit_boundary() {
-    test_boundary_basic();
+extern "C" void test_unit_boundary() {
+    test_unit_boundary_tiny();
+    test_unit_boundary_short();
+    test_unit_boundary_int();
+    test_unit_boundary_long();
     std::cout << "[boundary] all tests passed" << std::endl;
 }

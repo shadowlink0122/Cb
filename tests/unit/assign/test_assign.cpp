@@ -1,15 +1,20 @@
 #include <cassert>
 #include <iostream>
 
-void test_assign_basic() {
-    // TODO: 実装例: 型ごとの代入テストをここに追加
-    int a = 1;
-    int b = 2;
-    a = b;
-    assert(a == 2);
-}
+// Cb ASTノードを直接生成して代入・参照をテスト
+#include "src/ast/ast.h"
+#include "src/eval/eval.h"
 
-void test_unit_assign() {
-    test_assign_basic();
-    std::cout << "[assign] all tests passed" << std::endl;
+// 各型ごとのassignテスト関数の宣言
+extern "C" void test_unit_assign_tiny();
+extern "C" void test_unit_assign_short();
+extern "C" void test_unit_assign_int();
+extern "C" void test_unit_assign_long();
+
+// assignテスト統合関数
+extern "C" void test_unit_assign() {
+    test_unit_assign_tiny();
+    test_unit_assign_short();
+    test_unit_assign_int();
+    test_unit_assign_long();
 }
