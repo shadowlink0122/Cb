@@ -1,5 +1,3 @@
-
-
 CC=g++
 LEX=flex
 YACC=bison
@@ -14,7 +12,8 @@ all: main
 
 
 # デバッグ実行例（--debugオプションでデバッグ出力有効）
-debug: main
+debug:
+	CB_DEBUG_MODE=1 $(MAKE) main
 	@echo '例: ./main <file>.cb --debug'
 
 lint:
@@ -26,21 +25,33 @@ fmt:
 # unitテスト
 unit-test: src/parser.c src/lexer.c
 	$(CC) $(CFLAGS) -I. -o tests/unit/test_main \
-		tests/unit/test_main.cpp \
+		tests/unit/assign/tiny/test_assign_tiny.cpp \
+		tests/unit/assign/short/test_assign_short.cpp \
+		tests/unit/assign/int/test_assign_int.cpp \
+		tests/unit/assign/long/test_assign_long.cpp \
+		tests/unit/assign/test_assign.cpp \
 		tests/unit/type/test_type.cpp \
 		tests/unit/type/tiny/test_tiny.cpp \
 		tests/unit/type/short/test_short.cpp \
 		tests/unit/type/int/test_int.cpp \
 		tests/unit/type/long/test_long.cpp \
-		tests/unit/assign/test_assign.cpp \
+		tests/unit/boundary/tiny/test_boundary_tiny.cpp \
+		tests/unit/boundary/short/test_boundary_short.cpp \
+		tests/unit/boundary/int/test_boundary_int.cpp \
+		tests/unit/boundary/long/test_boundary_long.cpp \
 		tests/unit/boundary/test_boundary.cpp \
 		tests/unit/arithmetic/test_arithmetic.cpp \
+		tests/unit/cross_type/tiny/test_cross_type_tiny.cpp \
+		tests/unit/cross_type/short/test_cross_type_short.cpp \
+		tests/unit/cross_type/int/test_cross_type_int.cpp \
+		tests/unit/cross_type/long/test_cross_type_long.cpp \
 		tests/unit/cross_type/test_cross_type.cpp \
 		tests/unit/func/test_func.cpp \
 		src/eval/eval.cpp \
 		src/parser.c \
 		src/lexer.c \
-		src/ast/util.cpp
+		src/ast/util.cpp \
+		tests/unit/test_main.cpp
 	tests/unit/test_main
 
 # 結合テスト
