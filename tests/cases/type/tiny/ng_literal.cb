@@ -1,0 +1,4 @@
+int main() {
+    tiny t = 128; // 範囲外リテラル
+    return 0;
+}

@@ -1,5 +1,4 @@
-# デバッグビルド用CFLAGS
-CFLAGS_DEBUG=$(CFLAGS) -DDEBUG
+
 
 CC=g++
 LEX=flex
@@ -11,11 +10,12 @@ LINT_FILES=src/**/*.cpp src/**/*.h tests/**/*.cpp
 
 
 .PHONY: all clean lint fmt unit-test integration-test test cgen main debug debug-build-test
-all: main test debug-build-test
+all: main
 
-# デバッグビルド
-debug: src/parser.c src/lexer.c src/main.cpp src/eval/eval.cpp src/ast/util.cpp
-	$(CC) $(CFLAGS_DEBUG) -I. -o main src/parser.c src/lexer.c src/main.cpp src/eval/eval.cpp src/ast/util.cpp
+
+# デバッグ実行例（--debugオプションでデバッグ出力有効）
+debug: main
+	@echo '例: ./main <file>.cb --debug'
 
 lint:
 	clang-format --dry-run --Werror $(LINT_FILES)
@@ -37,7 +37,10 @@ unit-test:
 		tests/unit/arithmetic/test_arithmetic.cpp \
 		tests/unit/cross_type/test_cross_type.cpp \
 		tests/unit/func/test_func.cpp \
-		src/eval/eval.cpp
+		src/eval/eval.cpp \
+		src/parser.c \
+		src/lexer.c \
+		src/ast/util.cpp
 	tests/unit/test_main
 
 # 結合テスト
@@ -48,7 +51,10 @@ integration-test: main
 		tests/integration/boundary/test_boundary.cpp \
 		tests/integration/assign/test_assign.cpp \
 		tests/integration/cross_type/test_cross_type.cpp \
-		src/eval/eval.cpp
+		src/eval/eval.cpp \
+		src/parser.c \
+		src/lexer.c \
+		src/ast/util.cpp
 	tests/integration/test_main
 
 # debug_buildテスト
@@ -67,7 +73,6 @@ src/lexer.c: src/lexer.l
 
 src/parser.c src/parser.h: src/parser.y
 	$(YACC) -d -o src/parser.c src/parser.y
-
 
 main: src/parser.c src/lexer.c src/main.cpp src/eval/eval.cpp src/ast/util.cpp
 	$(CC) $(CFLAGS) -I. -o main src/parser.c src/lexer.c src/main.cpp src/eval/eval.cpp src/ast/util.cpp

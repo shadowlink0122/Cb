@@ -1,0 +1,5 @@
+// short型の範囲外（負側）
+int main() {
+    short s = -32769;
+    return 0;
+}

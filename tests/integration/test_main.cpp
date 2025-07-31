@@ -1,5 +1,11 @@
-void yyerror(const char *) {}
-void yyerror(const char *, const char *) {}
+#ifdef __cplusplus
+extern "C" {
+#endif
+void yyerror(const char *, const char *);
+#ifdef __cplusplus
+}
+inline void yyerror(const char *s) { yyerror(s, ""); }
+#endif
 #include "arithmetic/test_arithmetic_case.h"
 #include "assign/test_assign_case.h"
 #include "boundary/test_boundary_case.h"

@@ -1,4 +1,6 @@
 // short型の代入（異常系）
-int i = 32768;
-short s = i;
-print s;
+int main(){
+    int i = 32768;
+    short s = i;
+    print s;
+}

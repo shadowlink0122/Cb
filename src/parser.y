@@ -1,20 +1,25 @@
 %{
 // C++ヘッダ
 #include <stdio.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <map>
 #include <string>
 
 #include "ast/ast.h"
+#include "ast/util.h"
 using namespace std;
 
-void yyerror(const char *s);
-// eval.cppのdebug_printを利用
-extern void debug_print(const char* fmt, ...);
+extern void yyerror(const char *s);
+extern void yyerror(const char *s, const char *error);
+// eval.cppのdebug_printfを利用
+extern void debug_printf(const char* fmt, ...);
 int yylex();
-
 ASTNode* root = nullptr;
+extern "C" {
+    char *yyfilename = NULL;
+}
 %}
 
 %union {
@@ -69,7 +74,7 @@ funcdef:
     | type IDENTIFIER '(' paramlist ')' '{' program '}' {
         ASTNode* fn = new ASTNode(ASTNode::AST_FUNCDEF);
         ASTNode* typelist = (ASTNode*)$1;
-        debug_print("DEBUG: funcdef %s, typelist=%p, type_info=%d\n", $2, typelist, typelist ? typelist->type_info : -1);
+        debug_printf("DEBUG: funcdef %s, typelist=%p, type_info=%d\n", $2, typelist, typelist ? typelist->type_info : -1);
         fn->rettypes.push_back(typelist);
         fn->sval = std::string($2);
         fn->params = * ((std::vector<ASTNode*>*)$4); delete (std::vector<ASTNode*>*)$4;
@@ -181,14 +186,51 @@ paramlist_nonempty:
 
 
 expr:
-      expr PLUS term { $$ = (void*)(new ASTNode(ASTNode::AST_BINOP)); ((ASTNode*)$$)->op = "+"; ((ASTNode*)$$)->lhs = (ASTNode*)$1; ((ASTNode*)$$)->rhs = (ASTNode*)$3; }
-    | expr MINUS term { $$ = (void*)(new ASTNode(ASTNode::AST_BINOP)); ((ASTNode*)$$)->op = "-"; ((ASTNode*)$$)->lhs = (ASTNode*)$1; ((ASTNode*)$$)->rhs = (ASTNode*)$3; }
+      expr PLUS term {
+        ASTNode* node = new ASTNode(ASTNode::AST_BINOP);
+        node->op = "+";
+        node->lhs = (ASTNode*)$1;
+        node->rhs = (ASTNode*)$3;
+        // 型情報の大きい方を伝播
+        int ltype = node->lhs ? node->lhs->type_info : 3;
+        int rtype = node->rhs ? node->rhs->type_info : 3;
+        node->type_info = (ltype > rtype) ? ltype : rtype;
+        $$ = (void*)node;
+      }
+    | expr MINUS term {
+        ASTNode* node = new ASTNode(ASTNode::AST_BINOP);
+        node->op = "-";
+        node->lhs = (ASTNode*)$1;
+        node->rhs = (ASTNode*)$3;
+        int ltype = node->lhs ? node->lhs->type_info : 3;
+        int rtype = node->rhs ? node->rhs->type_info : 3;
+        node->type_info = (ltype > rtype) ? ltype : rtype;
+        $$ = (void*)node;
+      }
     | term { $$ = $1; }
     ;
 
 term:
-      term MUL factor { $$ = (void*)(new ASTNode(ASTNode::AST_BINOP)); ((ASTNode*)$$)->op = "*"; ((ASTNode*)$$)->lhs = (ASTNode*)$1; ((ASTNode*)$$)->rhs = (ASTNode*)$3; }
-    | term DIV factor { $$ = (void*)(new ASTNode(ASTNode::AST_BINOP)); ((ASTNode*)$$)->op = "/"; ((ASTNode*)$$)->lhs = (ASTNode*)$1; ((ASTNode*)$$)->rhs = (ASTNode*)$3; }
+      term MUL factor {
+        ASTNode* node = new ASTNode(ASTNode::AST_BINOP);
+        node->op = "*";
+        node->lhs = (ASTNode*)$1;
+        node->rhs = (ASTNode*)$3;
+        int ltype = node->lhs ? node->lhs->type_info : 3;
+        int rtype = node->rhs ? node->rhs->type_info : 3;
+        node->type_info = (ltype > rtype) ? ltype : rtype;
+        $$ = (void*)node;
+      }
+    | term DIV factor {
+        ASTNode* node = new ASTNode(ASTNode::AST_BINOP);
+        node->op = "/";
+        node->lhs = (ASTNode*)$1;
+        node->rhs = (ASTNode*)$3;
+        int ltype = node->lhs ? node->lhs->type_info : 3;
+        int rtype = node->rhs ? node->rhs->type_info : 3;
+        node->type_info = (ltype > rtype) ? ltype : rtype;
+        $$ = (void*)node;
+      }
     | factor { $$ = $1; }
     ;
 
@@ -198,6 +240,26 @@ factor:
         ASTNode* num = new ASTNode(ASTNode::AST_NUM);
         num->lval64 = $2;
         num->type_info = ((ASTNode*)$1)->type_info;
+        // 型範囲チェック
+        bool out_of_range = false;
+        switch (num->type_info) {
+          case 1: // tiny
+            if (num->lval64 < -128 || num->lval64 > 127) out_of_range = true;
+            break;
+          case 2: // short
+            if (num->lval64 < -32768 || num->lval64 > 32767) out_of_range = true;
+            break;
+          case 3: // int
+            if (num->lval64 < -2147483648LL || num->lval64 > 2147483647LL) out_of_range = true;
+            break;
+          case 4: // long
+            // int64_tの範囲は十分広いのでチェック不要
+            break;
+        }
+        if (out_of_range) {
+          yyerror("型の範囲外の値を代入しようとしました", "");
+          YYABORT;
+        }
         delete (ASTNode*)$1;
         $$ = (void*)num;
       }
