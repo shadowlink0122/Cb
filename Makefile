@@ -24,7 +24,7 @@ fmt:
 	clang-format -i $(LINT_FILES)
 
 # unitテスト
-unit-test:
+unit-test: src/parser.c src/lexer.c
 	$(CC) $(CFLAGS) -I. -o tests/unit/test_main \
 		tests/unit/test_main.cpp \
 		tests/unit/type/test_type.cpp \
