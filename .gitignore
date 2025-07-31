@@ -37,6 +37,7 @@
 *.out
 *.app
 main
+cgen_main
 test_main
 
 # bison/flex生成物

@@ -7,7 +7,7 @@
 #include <map>
 #include <string>
 
-#include "ast.h"
+#include "ast/ast.h"
 using namespace std;
 
 void yyerror(const char *s);
