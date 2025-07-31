@@ -17,8 +17,9 @@ extern int yylineno;
 #include <cstdlib>
 bool debug_mode = false;
 void set_debug_mode_from_env() {
-    const char* env = std::getenv("CB_DEBUG_MODE");
-    if (env && env[0] == '1') debug_mode = true;
+    const char *env = std::getenv("CB_DEBUG_MODE");
+    if (env && env[0] == '1')
+        debug_mode = true;
 }
 
 #include "eval.h"
