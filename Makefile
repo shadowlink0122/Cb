@@ -1,3 +1,6 @@
+# デバッグビルド用CFLAGS
+CFLAGS_DEBUG=$(CFLAGS) -DDEBUG
+
 CC=g++
 LEX=flex
 YACC=bison
@@ -6,7 +9,12 @@ CFLAGS=-Wall -g
 
 LINT_FILES=src/**/*.cpp src/**/*.h tests/**/*.cpp
 
+.PHONY: all clean lint fmt unit-test integration-test test cgen main debug
 all: main
+
+# デバッグビルド
+debug: src/parser.c src/lexer.c src/main.cpp src/eval/eval.cpp src/ast/util.cpp
+	$(CC) $(CFLAGS_DEBUG) -I. -o main src/parser.c src/lexer.c src/main.cpp src/eval/eval.cpp src/ast/util.cpp
 
 lint:
 	clang-format --dry-run --Werror $(LINT_FILES)
@@ -57,7 +65,6 @@ main: src/parser.c src/lexer.c src/main.cpp src/eval/eval.cpp src/ast/util.cpp
 	$(CC) $(CFLAGS) -I. -o main src/parser.c src/lexer.c src/main.cpp src/eval/eval.cpp src/ast/util.cpp
 
 # Cb→Cコード変換ツール
-.PHONY: cgen
 cgen:
 	$(CC) $(CFLAGS) -I. -o cgen_main cgen/cgen_main.cpp src/ast/util.cpp src/parser.c src/lexer.c
 
