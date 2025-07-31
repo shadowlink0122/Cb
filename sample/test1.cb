@@ -1,15 +1,22 @@
 print 1;
 
 short test1() {
-    return 100 / 5;
+    short a = 100 / 5;
+    return a;
 }
 
 short test2() {
     return 100 / 2;
 }
 
-void call(){
+void call() {
     print test1() + test2();
 }
 
-call();
+int is_zero(){}
+
+int main() {
+    call();
+    print is_zero();
+    return 0;
+}
