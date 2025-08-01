@@ -62,6 +62,7 @@ integration-test: main
 		tests/integration/boundary/test_boundary.cpp \
 		tests/integration/assign/test_assign.cpp \
 		tests/integration/cross_type/test_cross_type.cpp \
+		tests/integration/string/test_string.cpp \
 		src/eval/eval.cpp \
 		src/parser.c \
 		src/lexer.c \

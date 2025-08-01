@@ -30,7 +30,7 @@ extern "C" {
 }
 
 %token <lval> NUMBER
-%token <sval> IDENTIFIER
+%token <sval> IDENTIFIER STRING STRING_LITERAL
 %token VOID TINY SHORT INT LONG
 %token PLUS MINUS MUL DIV ASSIGN SEMICOLON PRINT RETURN
 %token '{' '}' '(' ')' '[' ']'
@@ -115,6 +115,7 @@ type:
     | SHORT  { $$ = (void*)(new ASTNode(ASTNode::AST_TYPELIST)); ((ASTNode*)$$)->type_info = 2; }
     | INT    { $$ = (void*)(new ASTNode(ASTNode::AST_TYPELIST)); ((ASTNode*)$$)->type_info = 3; }
     | LONG   { $$ = (void*)(new ASTNode(ASTNode::AST_TYPELIST)); ((ASTNode*)$$)->type_info = 4; }
+    | STRING { $$ = (void*)(new ASTNode(ASTNode::AST_TYPELIST)); ((ASTNode*)$$)->type_info = 5; }
     ;
 
 // return文
@@ -122,6 +123,27 @@ returnstmt:
       RETURN expr SEMICOLON {
         ASTNode* ret = new ASTNode(ASTNode::AST_RETURN);
         ret->lhs = (ASTNode*)$2;
+        // 戻り値型チェック: 関数定義ノードのrettypes[0]->type_infoと比較
+        extern ASTNode* root;
+        ASTNode* func = nullptr;
+        // スタックの一番上の関数定義ノードを探索
+        for (auto it = root->stmts.rbegin(); it != root->stmts.rend(); ++it) {
+          if (*it && ((ASTNode*)*it)->type == ASTNode::AST_FUNCDEF) {
+            func = (ASTNode*)*it;
+            break;
+          }
+        }
+        debug_printf("DEBUG: returnstmt expected=%d, actual=%d\n", func && !func->rettypes.empty() && func->rettypes[0] ? func->rettypes[0]->type_info : -1, ((ASTNode*)$2)->type_info);
+        if (func && !func->rettypes.empty() && func->rettypes[0]) {
+          int expected = func->rettypes[0]->type_info;
+          int actual = ((ASTNode*)$2)->type_info;
+          if (expected != actual) {
+            // string型(5)同士はOK
+            if (!(expected == 5 && actual == 5)) {
+              yyerror("return文の型が関数の戻り値型と一致しません", "");
+            }
+          }
+        }
         $$ = (void*)ret;
       }
     | RETURN SEMICOLON {
@@ -187,6 +209,7 @@ paramlist_nonempty:
 
 expr:
       expr PLUS term {
+        debug_printf("DEBUG: expr PLUS term\n");
         ASTNode* node = new ASTNode(ASTNode::AST_BINOP);
         node->op = "+";
         node->lhs = (ASTNode*)$1;
@@ -198,6 +221,7 @@ expr:
         $$ = (void*)node;
       }
     | expr MINUS term {
+        debug_printf("DEBUG: expr MINUS term\n");
         ASTNode* node = new ASTNode(ASTNode::AST_BINOP);
         node->op = "-";
         node->lhs = (ASTNode*)$1;
@@ -207,11 +231,15 @@ expr:
         node->type_info = (ltype > rtype) ? ltype : rtype;
         $$ = (void*)node;
       }
-    | term { $$ = $1; }
+    | term {
+        debug_printf("DEBUG: expr -> term\n");
+        $$ = $1;
+      }
     ;
 
 term:
       term MUL factor {
+        debug_printf("DEBUG: term MUL factor\n");
         ASTNode* node = new ASTNode(ASTNode::AST_BINOP);
         node->op = "*";
         node->lhs = (ASTNode*)$1;
@@ -222,6 +250,7 @@ term:
         $$ = (void*)node;
       }
     | term DIV factor {
+        debug_printf("DEBUG: term DIV factor\n");
         ASTNode* node = new ASTNode(ASTNode::AST_BINOP);
         node->op = "/";
         node->lhs = (ASTNode*)$1;
@@ -231,7 +260,10 @@ term:
         node->type_info = (ltype > rtype) ? ltype : rtype;
         $$ = (void*)node;
       }
-    | factor { $$ = $1; }
+    | factor {
+        debug_printf("DEBUG: term -> factor\n");
+        $$ = $1;
+      }
     ;
 
 // 型情報を持つリテラルをサポート
@@ -262,6 +294,15 @@ factor:
         }
         delete (ASTNode*)$1;
         $$ = (void*)num;
+      }
+    | STRING_LITERAL {
+        debug_printf("DEBUG: factor STRING_LITERAL sval=%s\n", $1 ? $1 : "NULL");
+        ASTNode* str = new ASTNode(ASTNode::AST_STRING_LITERAL);
+        str->sval = std::string($1);
+        str->type_info = 5; // string型
+        debug_printf("DEBUG: factor STRING_LITERAL type_info=%d\n", str->type_info);
+        $$ = (void*)str;
+        free($1);
       }
     | MINUS factor {
         ASTNode* num = new ASTNode(ASTNode::AST_NUM);
