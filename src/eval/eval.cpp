@@ -29,8 +29,9 @@ void set_debug_mode_from_env() {
 #include <string>
 
 struct Variable {
-    int type;      // 0=void, 1=tiny, 2=short, 3=int, 4=long
-    int64_t value; // 値は常にint64_tで保持
+    int type;           // 0=void, 1=tiny, 2=short, 3=int, 4=long, 5=string
+    int64_t value;      // 整数値
+    std::string svalue; // 文字列値（string型用）
 };
 
 std::map<std::string, Variable> symbol_table;
@@ -86,10 +87,10 @@ static void propagate_type_info(ASTNode *node, int type_info) {
     }
 }
 
-// 関数呼び出し時のreturn値伝搬用例外
+// 関数呼び出し時のreturn値伝搬用例外（ASTNode*で値を伝搬）
 struct ReturnException {
-    int64_t value;
-    ReturnException(int64_t v) : value(v) {}
+    ASTNode *value;
+    ReturnException(ASTNode *v) : value(v) {}
 };
 
 // 1引数版（bison生成Cコード用）
@@ -155,6 +156,13 @@ int64_t eval_var(ASTNode *node) {
         return 0;
     }
     const Variable &var = it->second;
+    if (var.type == 5) {
+        // string型の場合はnode->svalに値をセットし、type_info/typeも更新
+        node->type_info = 5;
+        node->type = ASTNode::AST_STRING_LITERAL;
+        node->sval = var.svalue;
+        return 0; // print等でsvalを参照する
+    }
     // 型に応じてキャストして返す
     switch (var.type) {
     case 0:
@@ -209,71 +217,97 @@ int64_t eval_assign(ASTNode *node) {
     }
     propagate_type_info(rhs, lhs_type);
     int64_t value = eval(rhs);
-    // デバッグ出力: 代入時の型・値
-    debug_printf("DEBUG: assign %s value=%lld lhs_type=%d rhs_type=%d\n",
-                 node->sval.c_str(), value, lhs_type, rhs->type_info);
-    // fprintf(stderr, "DBG_ASSIGN: %s value=%lld lhs_type=%d rhs_type=%d\n",
-    //         node->sval.c_str(), value, lhs_type, rhs->type_info);
-    fflush(stderr);
-    // 型ごとに範囲チェックし、範囲外ならエラー（キャスト前に必ずチェック）
     Variable var;
     var.type = lhs_type;
     bool out_of_range = false;
-    switch (lhs_type) {
-    case 0: // void
+    if (lhs_type == 5) {
+        // string型: rhsの内容をデバッグ出力
+        debug_printf("DEBUG: assign string rhs type=%d type_info=%d sval=%s\n",
+                     rhs->type, rhs->type_info, rhs->sval.c_str());
+        var.svalue = rhs->sval;
         var.value = 0;
-        break;
-    case 1: // tiny(int8_t)
-        if (value < -128 || value > 127)
-            out_of_range = true;
-        break;
-    case 2: // short(int16_t)
-        if (value < -32768 || value > 32767)
-            out_of_range = true;
-        break;
-    case 3: // int(int32_t)
-        if (value < -2147483648LL || value > 2147483647LL)
-            out_of_range = true;
-        break;
-    case 4: // long(int64_t)
-        // int64_tの範囲は十分広いのでチェック不要
-        break;
-    default:
-        break;
-    }
-    debug_printf("DEBUG: out_of_range=%d\n", out_of_range);
-    if (out_of_range) {
-        debug_printf("DEBUG: out_of_range for %s value=%lld type=%d\n",
-                     node->sval.c_str(), value, lhs_type);
-        yyerror("型の範囲外の値を代入しようとしました", node->sval.c_str());
-    }
-    // 範囲内ならキャストして代入
-    switch (lhs_type) {
-    case 0:
-        var.value = 0;
-        break;
-    case 1:
-        var.value = (int8_t)value;
-        break;
-    case 2:
-        var.value = (int16_t)value;
-        break;
-    case 3:
-        var.value = (int32_t)value;
-        break;
-    case 4:
-        var.value = (int64_t)value;
-        break;
-    default:
-        var.value = (int32_t)value;
-        break;
+    } else {
+        // デバッグ出力: 代入時の型・値
+        debug_printf("DEBUG: assign %s value=%lld lhs_type=%d rhs_type=%d\n",
+                     node->sval.c_str(), value, lhs_type, rhs->type_info);
+        fflush(stderr);
+        // 型ごとに範囲チェックし、範囲外ならエラー（キャスト前に必ずチェック）
+        switch (lhs_type) {
+        case 0: // void
+            var.value = 0;
+            break;
+        case 1: // tiny(int8_t)
+            if (value < -128 || value > 127)
+                out_of_range = true;
+            break;
+        case 2: // short(int16_t)
+            if (value < -32768 || value > 32767)
+                out_of_range = true;
+            break;
+        case 3: // int(int32_t)
+            if (value < -2147483648LL || value > 2147483647LL)
+                out_of_range = true;
+            break;
+        case 4: // long(int64_t)
+            // int64_tの範囲は十分広いのでチェック不要
+            break;
+        default:
+            break;
+        }
+        debug_printf("DEBUG: out_of_range=%d\n", out_of_range);
+        if (out_of_range) {
+            debug_printf("DEBUG: out_of_range for %s value=%lld type=%d\n",
+                         node->sval.c_str(), value, lhs_type);
+            yyerror("型の範囲外の値を代入しようとしました", node->sval.c_str());
+        }
+        // 範囲内ならキャストして代入
+        switch (lhs_type) {
+        case 0:
+            var.value = 0;
+            break;
+        case 1:
+            var.value = (int8_t)value;
+            break;
+        case 2:
+            var.value = (int16_t)value;
+            break;
+        case 3:
+            var.value = (int32_t)value;
+            break;
+        case 4:
+            var.value = (int64_t)value;
+            break;
+        default:
+            var.value = (int32_t)value;
+            break;
+        }
+        var.svalue = "";
     }
     symbol_table[node->sval] = var;
     return var.value;
 }
 
 int eval_print(ASTNode *node) {
-    int64_t value = eval(node->lhs);
+    if (!node->lhs) {
+        printf("(null)\n");
+        return 0;
+    }
+    debug_printf("DEBUG: eval_print lhs type=%d type_info=%d sval=%s\n",
+                 node->lhs->type, node->lhs->type_info,
+                 node->lhs->sval.c_str());
+    ASTNode *result = node->lhs;
+    // すべてのprint対象で必ずevalを呼ぶ（変数参照時も値をセット）
+    eval(result);
+    if (result->type == ASTNode::AST_STRING_LITERAL || result->type_info == 5) {
+        if (result->sval.empty()) {
+            printf("\n");
+        } else {
+            printf("%s\n", result->sval.c_str());
+        }
+        return 0;
+    }
+    // それ以外は数値として評価
+    int64_t value = eval(result);
     printf("%lld\n", value);
     return 0;
 }
@@ -345,7 +379,7 @@ int64_t eval_funccall(ASTNode *node) {
         var.value = argval;
         symbol_table[param->sval] = var;
     }
-    int64_t ret = 0;
+    ASTNode *ret_node = nullptr;
     bool is_void = false;
     if (!func->rettypes.empty() && func->rettypes[0] &&
         func->rettypes[0]->type_info == 0) {
@@ -356,69 +390,47 @@ int64_t eval_funccall(ASTNode *node) {
     try {
         eval(func->body);
         if (is_void) {
-            ret = 0; // void型は値なし
+            ret_node = nullptr; // void型は値なし
         }
     } catch (const ReturnException &e) {
-        debug_printf("DEBUG: ReturnException caught in %s, value=%lld\n",
-                     func->sval.c_str(), e.value);
+        debug_printf("DEBUG: ReturnException caught in %s, node type=%d\n",
+                     func->sval.c_str(), e.value ? e.value->type : -1);
         if (is_void) {
             yyerror("void型関数で値を返すことはできません", func->sval.c_str());
-            ret = 0;
+            ret_node = nullptr;
         } else {
-            ret = e.value;
-            // 戻り値型に従い型変換・範囲チェック
-            int rettype = func->rettypes[0] ? func->rettypes[0]->type_info : 3;
-            bool out_of_range = false;
-            switch (rettype) {
-            case 0: // void
-                ret = 0;
-                break;
-            case 1: // tiny(int8_t)
-                if (ret < -128 || ret > 127)
-                    out_of_range = true;
-                ret = (int8_t)ret;
-                break;
-            case 2: // short(int16_t)
-                if (ret < -32768 || ret > 32767)
-                    out_of_range = true;
-                ret = (int16_t)ret;
-                break;
-            case 3: // int(int32_t)
-                if (ret < -2147483648LL || ret > 2147483647LL)
-                    out_of_range = true;
-                ret = (int32_t)ret;
-                break;
-            case 4: // long(int64_t)
-                // int64_tの範囲は十分広いのでチェック不要
-                ret = (int64_t)ret;
-                break;
-            default:
-                ret = (int32_t)ret;
-                break;
-            }
-            if (out_of_range) {
-                debug_printf("DEBUG: return value out_of_range for %s "
-                             "value=%lld type=%d\n",
-                             func->sval.c_str(), e.value, rettype);
-                yyerror("関数戻り値が型の範囲外です", func->sval.c_str());
-            }
+            ret_node = e.value;
         }
     }
     symbol_table = old_symbol_table; // スコープ復元
-    return ret;
+    if (!ret_node)
+        return 0;
+    int rettype = func->rettypes[0] ? func->rettypes[0]->type_info : 3;
+    if (rettype == 5 && ret_node->type == ASTNode::AST_STRING_LITERAL) {
+        node->sval = ret_node->sval; // 呼び出しノードに文字列をセット
+        node->type_info = 5;         // ここでtype_infoも必ずセット
+        return 0;                    // print等でsvalを参照
+    } else {
+        return eval(ret_node);
+    }
 }
 
 // return文
 int64_t eval_return(ASTNode *node) {
-    // 呼び出し中の関数の型情報を取得するには、AST的にはfunc->rettypes[0]->type_infoを参照する必要があるが、
-    // ここではreturn文のlhsがnullptrならvoid型とみなす
     if (!node->lhs) {
         debug_printf("DEBUG: eval_return void\n");
-        throw ReturnException(0); // void型return
+        throw ReturnException(nullptr); // void型return
+    } else if (node->lhs->type == ASTNode::AST_STRING_LITERAL) {
+        debug_printf("DEBUG: eval_return string node type=%d type_info=%d\n",
+                     node->lhs->type, node->lhs->type_info);
+        throw ReturnException(node->lhs);
     } else {
         int64_t val = eval(node->lhs);
         debug_printf("DEBUG: eval_return value=%lld\n", val);
-        throw ReturnException(val);
+        ASTNode *num = new ASTNode(ASTNode::AST_NUM);
+        num->lval64 = val;
+        num->type_info = node->lhs->type_info;
+        throw ReturnException(num);
     }
 }
 
@@ -450,6 +462,9 @@ int64_t eval(ASTNode *node) {
         return eval_funccall(node);
     case ASTNode::AST_RETURN:
         return eval_return(node);
+    case ASTNode::AST_STRING_LITERAL:
+        // 文字列リテラルは値としては0、svalは文字列本体
+        return 0;
     default:
         return 0;
     }
