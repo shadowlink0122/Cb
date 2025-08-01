@@ -1,4 +1,7 @@
 %{
+#include <vector>
+#include "ast/ast.h"
+
 // C++ヘッダ
 #include <stdio.h>
 #include <stdint.h>
@@ -7,7 +10,6 @@
 #include <map>
 #include <string>
 
-#include "ast/ast.h"
 #include "ast/util.h"
 using namespace std;
 
@@ -31,11 +33,14 @@ extern "C" {
 
 %token <lval> NUMBER
 %token <sval> IDENTIFIER STRING STRING_LITERAL
-%token VOID TINY SHORT INT LONG
+%token VOID TINY SHORT INT LONG BOOL
+%token TRUE FALSE NULL_LIT
 %token PLUS MINUS MUL DIV ASSIGN SEMICOLON PRINT RETURN
+%token EQ NEQ OR AND
 %token '{' '}' '(' ')' '[' ']'
 
 %type <ptr> expr term factor statement program funcdef typelist paramlist paramlist_nonempty returnstmt type type_list_items arglist
+
 
 %%
 program:
@@ -110,12 +115,13 @@ type_list_items:
 
 
 type:
-      VOID   { $$ = (void*)(new ASTNode(ASTNode::AST_TYPELIST)); ((ASTNode*)$$)->type_info = 0; }
-    | TINY   { $$ = (void*)(new ASTNode(ASTNode::AST_TYPELIST)); ((ASTNode*)$$)->type_info = 1; }
-    | SHORT  { $$ = (void*)(new ASTNode(ASTNode::AST_TYPELIST)); ((ASTNode*)$$)->type_info = 2; }
-    | INT    { $$ = (void*)(new ASTNode(ASTNode::AST_TYPELIST)); ((ASTNode*)$$)->type_info = 3; }
-    | LONG   { $$ = (void*)(new ASTNode(ASTNode::AST_TYPELIST)); ((ASTNode*)$$)->type_info = 4; }
-    | STRING { $$ = (void*)(new ASTNode(ASTNode::AST_TYPELIST)); ((ASTNode*)$$)->type_info = 5; }
+      VOID   { ASTNode* n = new ASTNode(ASTNode::AST_TYPELIST); n->type_info = 0; $$ = (void*)n; }
+    | TINY   { ASTNode* n = new ASTNode(ASTNode::AST_TYPELIST); n->type_info = 1; $$ = (void*)n; }
+    | SHORT  { ASTNode* n = new ASTNode(ASTNode::AST_TYPELIST); n->type_info = 2; $$ = (void*)n; }
+    | INT    { ASTNode* n = new ASTNode(ASTNode::AST_TYPELIST); n->type_info = 3; $$ = (void*)n; }
+    | LONG   { ASTNode* n = new ASTNode(ASTNode::AST_TYPELIST); n->type_info = 4; $$ = (void*)n; }
+    | STRING { ASTNode* n = new ASTNode(ASTNode::AST_TYPELIST); n->type_info = 5; $$ = (void*)n; }
+    | BOOL   { ASTNode* n = new ASTNode(ASTNode::AST_TYPELIST); n->type_info = 6; $$ = (void*)n; }
     ;
 
 // return文
@@ -208,13 +214,44 @@ paramlist_nonempty:
 
 
 expr:
-      expr PLUS term {
+      expr EQ term {
+        ASTNode* node = new ASTNode(ASTNode::AST_BINOP);
+        node->op = "==";
+        node->lhs = (ASTNode*)$1;
+        node->rhs = (ASTNode*)$3;
+        node->type_info = 6; // bool
+        $$ = (void*)node;
+      }
+    | expr NEQ term {
+        ASTNode* node = new ASTNode(ASTNode::AST_BINOP);
+        node->op = "!=";
+        node->lhs = (ASTNode*)$1;
+        node->rhs = (ASTNode*)$3;
+        node->type_info = 6; // bool
+        $$ = (void*)node;
+      }
+    | expr OR term {
+        ASTNode* node = new ASTNode(ASTNode::AST_BINOP);
+        node->op = "||";
+        node->lhs = (ASTNode*)$1;
+        node->rhs = (ASTNode*)$3;
+        node->type_info = 6; // bool
+        $$ = (void*)node;
+      }
+    | expr AND term {
+        ASTNode* node = new ASTNode(ASTNode::AST_BINOP);
+        node->op = "&&";
+        node->lhs = (ASTNode*)$1;
+        node->rhs = (ASTNode*)$3;
+        node->type_info = 6; // bool
+        $$ = (void*)node;
+      }
+    | expr PLUS term {
         debug_printf("DEBUG: expr PLUS term\n");
         ASTNode* node = new ASTNode(ASTNode::AST_BINOP);
         node->op = "+";
         node->lhs = (ASTNode*)$1;
         node->rhs = (ASTNode*)$3;
-        // 型情報の大きい方を伝播
         int ltype = node->lhs ? node->lhs->type_info : 3;
         int rtype = node->rhs ? node->rhs->type_info : 3;
         node->type_info = (ltype > rtype) ? ltype : rtype;
@@ -287,6 +324,11 @@ factor:
           case 4: // long
             // int64_tの範囲は十分広いのでチェック不要
             break;
+          case 6: // bool
+            num->lval64 = (num->lval64 != 0) ? 1 : 0;
+            break;
+          default:
+            break;
         }
         if (out_of_range) {
           yyerror("型の範囲外の値を代入しようとしました", "");
@@ -294,6 +336,24 @@ factor:
         }
         delete (ASTNode*)$1;
         $$ = (void*)num;
+      }
+    | TRUE {
+        ASTNode* b = new ASTNode(ASTNode::AST_NUM);
+        b->lval64 = 1;
+        b->type_info = 6;
+        $$ = (void*)b;
+      }
+    | FALSE {
+        ASTNode* b = new ASTNode(ASTNode::AST_NUM);
+        b->lval64 = 0;
+        b->type_info = 6;
+        $$ = (void*)b;
+      }
+    | NULL_LIT {
+        ASTNode* b = new ASTNode(ASTNode::AST_NUM);
+        b->lval64 = 0;
+        b->type_info = 6;
+        $$ = (void*)b;
       }
     | STRING_LITERAL {
         debug_printf("DEBUG: factor STRING_LITERAL sval=%s\n", $1 ? $1 : "NULL");

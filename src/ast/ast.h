@@ -8,6 +8,7 @@ struct ASTNode {
         AST_NUM,
         AST_VAR,
         AST_BINOP,
+        AST_UNARYOP, // 単項演算子
         AST_ASSIGN,
         AST_PRINT,
         AST_STMTLIST,
@@ -18,9 +19,10 @@ struct ASTNode {
         AST_FUNCCALL,      // 関数呼び出し
         AST_STRING_LITERAL // 文字列リテラル
     } type;
-    int32_t type_info = 0; // 型情報: 1=tiny, 2=short, 3=int, 4=long, 5=string
-    int64_t lval64 = 0;    // 整数値（常にint64_tで保持）
-    std::string sval;      // 変数名・関数名など
+    int32_t type_info =
+        0; // 型情報: 1=tiny, 2=short, 3=int, 4=long, 5=string, 6=bool(1bit)
+    int64_t lval64 = 0; // 整数値（常にint64_tで保持）
+    std::string sval;   // 変数名・関数名など
     std::string op;
     ASTNode *lhs, *rhs;
     std::vector<ASTNode *> stmts;

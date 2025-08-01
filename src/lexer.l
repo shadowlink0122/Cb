@@ -17,9 +17,17 @@ short            { return SHORT; }
 int              { return INT; }
 long             { return LONG; }
 string           { return STRING; }
+bool             { return BOOL; }
+true             { return TRUE; }
+false            { return FALSE; }
+null             { return NULL_LIT; }
 \"([^\\\"]|\\.)*\"  { yylval.sval = strdup(yytext); return STRING_LITERAL; }
 [0-9]+            { yylval.lval = strtoll(yytext, NULL, 10); return NUMBER; }
 return            { return RETURN; }
+==                { return EQ; }
+!=                { return NEQ; }
+\|\|              { return OR; }
+&&                { return AND; }
 [a-zA-Z_][a-zA-Z0-9_]* {
     if (strcmp(yytext, "print") == 0) return PRINT;
     yylval.sval = strdup(yytext);
@@ -28,7 +36,7 @@ return            { return RETURN; }
 \+                { return PLUS; }
 \-                { return MINUS; }
 \*                { return MUL; }
-\/                 { return DIV; }
+\/                { return DIV; }
 \(                { return '('; }
 \)                { return ')'; }
 \{                { return '{'; }
