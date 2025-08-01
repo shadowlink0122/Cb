@@ -41,7 +41,6 @@ extern "C" {
 
 %type <ptr> expr term factor statement program funcdef typelist paramlist paramlist_nonempty returnstmt type type_list_items arglist
 
-
 %%
 program:
       /* 空 */ {
@@ -305,7 +304,8 @@ term:
 
 // 型情報を持つリテラルをサポート
 factor:
-      type NUMBER {
+      '(' expr ')' { $$ = $2; }
+      | type NUMBER {
         ASTNode* num = new ASTNode(ASTNode::AST_NUM);
         num->lval64 = $2;
         num->type_info = ((ASTNode*)$1)->type_info;
