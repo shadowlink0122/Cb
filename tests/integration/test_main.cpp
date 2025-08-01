@@ -23,6 +23,8 @@ int main() {
         test_integration_cross_type();
         test_integration_func();
         test_integration_string();
+        extern void test_bool_expr_basic();
+        test_bool_expr_basic();
     } catch (const std::exception &e) {
         std::cerr << "[integration] test failed: " << e.what() << std::endl;
         fail = 1;

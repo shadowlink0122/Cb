@@ -1,3 +1,5 @@
 // int型の境界値（負の異常系）
-int i = -2147483649;
-print i;
+int main(){
+    int i = -2147483649;
+    print i;
+}
