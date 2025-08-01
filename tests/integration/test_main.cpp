@@ -11,6 +11,7 @@ inline void yyerror(const char *s) { yyerror(s, ""); }
 #include "boundary/test_boundary_case.h"
 #include "cross_type/test_cross_type_case.h"
 #include "func/test_func_case.h"
+#include "string/test_string.h"
 #include <iostream>
 
 int main() {
@@ -21,6 +22,7 @@ int main() {
         test_integration_boundary();
         test_integration_cross_type();
         test_integration_func();
+        test_integration_string();
     } catch (const std::exception &e) {
         std::cerr << "[integration] test failed: " << e.what() << std::endl;
         fail = 1;

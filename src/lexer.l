@@ -16,6 +16,8 @@ tiny             { return TINY; }
 short            { return SHORT; }
 int              { return INT; }
 long             { return LONG; }
+string           { return STRING; }
+\"([^\\\"]|\\.)*\"  { yylval.sval = strdup(yytext); return STRING_LITERAL; }
 [0-9]+            { yylval.lval = strtoll(yytext, NULL, 10); return NUMBER; }
 return            { return RETURN; }
 [a-zA-Z_][a-zA-Z0-9_]* {
