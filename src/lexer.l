@@ -34,6 +34,11 @@ return            { return RETURN; }
 !                 { return NOT; }
 \|\|              { return OR; }
 &&                { return AND; }
+\+=               { return ADD_ASSIGN; }
+\-=               { return SUB_ASSIGN; }
+\*=               { return MUL_ASSIGN; }
+\/=               { return DIV_ASSIGN; }
+\%=               { return MOD_ASSIGN; }
 [a-zA-Z_][a-zA-Z0-9_]* {
     if (strcmp(yytext, "print") == 0) return PRINT;
     yylval.sval = strdup(yytext);
