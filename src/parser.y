@@ -41,9 +41,10 @@ extern "C" {
 %token EQ NEQ GE LE GT LT OR AND NOT MOD
 %token ADD_ASSIGN SUB_ASSIGN MUL_ASSIGN DIV_ASSIGN MOD_ASSIGN
 %token INC_OP DEC_OP
-%token '{' '}' '(' ')' '[' ']'
+%token '{' '}' '(' ')' '[' ']' ','
 
-%type <ptr> expr term factor statement program funcdef typelist paramlist paramlist_nonempty returnstmt type type_list_items arglist opt_statement opt_expr init_statement opt_update if_stmt compound_assign
+%type <ptr> expr term factor statement program funcdef typelist paramlist paramlist_nonempty returnstmt type type_list_items arglist opt_statement opt_expr init_statement opt_update
+%type <ptr> if_stmt compound_assign array_literal array_init_list
 
 %%
 program:
@@ -174,11 +175,44 @@ statement:
         delete (ASTNode*)$1;
         free($2);
     }
+    // 配列宣言: int a[5];
+    | type IDENTIFIER '[' NUMBER ']' SEMICOLON {
+        ASTNode* arr = new ASTNode(ASTNode::AST_ARRAY_DECL);
+        arr->sval = std::string($2);
+        arr->array_size = $4;
+        arr->elem_type_info = ((ASTNode*)$1)->type_info;
+        $$ = (void*)arr;
+        delete (ASTNode*)$1;
+        free($2);
+    }
+    // 配列宣言＋初期化: int a[] = [1,2,3];
+    | type IDENTIFIER '[' ']' ASSIGN array_literal SEMICOLON {
+        ASTNode* arr = new ASTNode(ASTNode::AST_ARRAY_DECL);
+        arr->sval = std::string($2);
+        arr->array_size = ((ASTNode*)$6)->elements.size();
+        arr->elem_type_info = ((ASTNode*)$1)->type_info;
+        arr->elements = ((ASTNode*)$6)->elements;
+        $$ = (void*)arr;
+        delete (ASTNode*)$1;
+        delete (ASTNode*)$6;
+        free($2);
+    }
     | IDENTIFIER ASSIGN expr SEMICOLON {
         ASTNode* assign = new ASTNode(ASTNode::AST_ASSIGN);
         assign->sval = std::string($1);
         assign->rhs = (ASTNode*)$3;
         assign->type_info = ((ASTNode*)$3)->type_info;
+        $$ = (void*)assign;
+        free($1);
+      }
+    | IDENTIFIER '[' expr ']' ASSIGN expr SEMICOLON {
+        ASTNode* assign = new ASTNode(ASTNode::AST_ASSIGN);
+        assign->sval = ""; // 通常変数代入以外は空
+        assign->lhs = new ASTNode(ASTNode::AST_ARRAY_REF);
+        assign->lhs->sval = std::string($1);
+        assign->lhs->array_index = (ASTNode*)$3;
+        assign->rhs = (ASTNode*)$6;
+        assign->type_info = ((ASTNode*)$6)->type_info;
         $$ = (void*)assign;
         free($1);
       }
@@ -209,6 +243,7 @@ statement:
         whileNode->for_body = (ASTNode*)$6;
         $$ = (void*)whileNode;
       }
+    | '{' program '}' { $$ = $2; }
     ;
 
 // if文
@@ -580,6 +615,14 @@ factor:
         node->type_info = 6; // bool
         $$ = (void*)node;
       }
+    | IDENTIFIER '[' expr ']' {
+        ASTNode* ref = new ASTNode(ASTNode::AST_ARRAY_REF);
+        ref->sval = std::string($1);
+        ref->array_index = (ASTNode*)$3;
+        $$ = (void*)ref;
+        free($1);
+    }
+    | array_literal { $$ = $1; }
     | '(' expr ')' { $$ = $2; }
     | type NUMBER {
         ASTNode* num = new ASTNode(ASTNode::AST_NUM);
@@ -680,5 +723,34 @@ factor:
 arglist:
       expr { std::vector<ASTNode*>* v = new std::vector<ASTNode*>(); v->push_back((ASTNode*)$1); $$ = (void*)v; }
     | arglist ',' expr { std::vector<ASTNode*>* v = (std::vector<ASTNode*>*)$1; v->push_back((ASTNode*)$3); $$ = (void*)v; }
+    ;
+
+// 配列リテラル: [expr, expr, ...]
+array_literal:
+      '[' array_init_list ']' {
+        ASTNode* arr = new ASTNode(ASTNode::AST_ARRAY_LITERAL);
+        arr->elements = ((ASTNode*)$2)->elements;
+        delete (ASTNode*)$2;
+        $$ = (void*)arr;
+      }
+    | '[' ']' {
+        ASTNode* arr = new ASTNode(ASTNode::AST_ARRAY_LITERAL);
+        arr->elements = std::vector<ASTNode*>();
+        $$ = (void*)arr;
+      }
+    ;
+
+// 配列初期化リスト: expr, expr, ...
+array_init_list:
+      expr {
+        ASTNode* arr = new ASTNode(ASTNode::AST_ARRAY_LITERAL);
+        arr->elements.push_back((ASTNode*)$1);
+        $$ = (void*)arr;
+      }
+    | array_init_list ',' expr {
+        ASTNode* arr = (ASTNode*)$1;
+        arr->elements.push_back((ASTNode*)$3);
+        $$ = (void*)arr;
+      }
     ;
 %%

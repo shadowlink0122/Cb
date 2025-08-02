@@ -24,7 +24,15 @@ struct ASTNode {
         AST_IF,             // if文
         AST_PRE_INCDEC,     // 前置インクリメント/デクリメント
         AST_POST_INCDEC,    // 後置インクリメント/デクリメント
+        AST_ARRAY_DECL,     // 配列宣言
+        AST_ARRAY_LITERAL,  // 配列リテラル
+        AST_ARRAY_REF       // 配列要素アクセス a[n]
     } type;
+    // 配列用
+    int array_size = -1;             // 宣言時サイズ（-1は未指定）
+    std::vector<ASTNode *> elements; // 配列リテラル・初期化子
+    ASTNode *array_index = nullptr;  // 要素アクセス用
+    int elem_type_info = 0;          // 配列要素の型情報
     // if文用: 条件式、then, else
     ASTNode *if_cond = nullptr;
     ASTNode *if_then = nullptr;

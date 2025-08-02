@@ -64,4 +64,5 @@ return            { return RETURN; }
 \=                { return ASSIGN; }
 \;                { return SEMICOLON; }
 \.                { return yytext[0]; }
+\,                { return ','; }
 %%
