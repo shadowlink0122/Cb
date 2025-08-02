@@ -42,7 +42,7 @@ extern "C" {
 %token ADD_ASSIGN SUB_ASSIGN MUL_ASSIGN DIV_ASSIGN MOD_ASSIGN
 %token '{' '}' '(' ')' '[' ']'
 
-%type <ptr> expr term factor statement program funcdef typelist paramlist paramlist_nonempty returnstmt type type_list_items arglist opt_statement opt_expr init_statement opt_update if_stmt
+%type <ptr> expr term factor statement program funcdef typelist paramlist paramlist_nonempty returnstmt type type_list_items arglist opt_statement opt_expr init_statement opt_update if_stmt compound_assign
 
 %%
 program:
@@ -286,66 +286,7 @@ init_statement:
         $$ = (void*)assign;
         free($1);
       }
-    | IDENTIFIER ADD_ASSIGN expr {
-        ASTNode* node = new ASTNode(ASTNode::AST_ASSIGN);
-        node->sval = std::string($1);
-        ASTNode* rhs = new ASTNode(ASTNode::AST_BINOP);
-        rhs->op = "+";
-        rhs->lhs = new ASTNode(ASTNode::AST_VAR); rhs->lhs->sval = std::string($1);
-        rhs->rhs = (ASTNode*)$3;
-        node->rhs = rhs;
-        node->type_info = ((ASTNode*)$3)->type_info;
-        $$ = (void*)node;
-        free($1);
-      }
-    | IDENTIFIER SUB_ASSIGN expr {
-        ASTNode* node = new ASTNode(ASTNode::AST_ASSIGN);
-        node->sval = std::string($1);
-        ASTNode* rhs = new ASTNode(ASTNode::AST_BINOP);
-        rhs->op = "-";
-        rhs->lhs = new ASTNode(ASTNode::AST_VAR); rhs->lhs->sval = std::string($1);
-        rhs->rhs = (ASTNode*)$3;
-        node->rhs = rhs;
-        node->type_info = ((ASTNode*)$3)->type_info;
-        $$ = (void*)node;
-        free($1);
-      }
-    | IDENTIFIER MUL_ASSIGN expr {
-        ASTNode* node = new ASTNode(ASTNode::AST_ASSIGN);
-        node->sval = std::string($1);
-        ASTNode* rhs = new ASTNode(ASTNode::AST_BINOP);
-        rhs->op = "*";
-        rhs->lhs = new ASTNode(ASTNode::AST_VAR); rhs->lhs->sval = std::string($1);
-        rhs->rhs = (ASTNode*)$3;
-        node->rhs = rhs;
-        node->type_info = ((ASTNode*)$3)->type_info;
-        $$ = (void*)node;
-        free($1);
-      }
-    | IDENTIFIER DIV_ASSIGN expr {
-        ASTNode* node = new ASTNode(ASTNode::AST_ASSIGN);
-        node->sval = std::string($1);
-        ASTNode* rhs = new ASTNode(ASTNode::AST_BINOP);
-        rhs->op = "/";
-        rhs->lhs = new ASTNode(ASTNode::AST_VAR); rhs->lhs->sval = std::string($1);
-        rhs->rhs = (ASTNode*)$3;
-        node->rhs = rhs;
-        node->type_info = ((ASTNode*)$3)->type_info;
-        $$ = (void*)node;
-        free($1);
-      }
-    | IDENTIFIER MOD_ASSIGN expr {
-        ASTNode* node = new ASTNode(ASTNode::AST_ASSIGN);
-        node->sval = std::string($1);
-        ASTNode* rhs = new ASTNode(ASTNode::AST_BINOP);
-        rhs->op = "%";
-        rhs->lhs = new ASTNode(ASTNode::AST_VAR); rhs->lhs->sval = std::string($1);
-        rhs->rhs = (ASTNode*)$3;
-        node->rhs = rhs;
-        node->type_info = ((ASTNode*)$3)->type_info;
-        $$ = (void*)node;
-        free($1);
-      }
+    | compound_assign { $$ = $1; }
     | /* 空 */ { $$ = nullptr; }
     ;
 
@@ -357,66 +298,7 @@ opt_statement:
 
 opt_expr:
       expr { $$ = $1; }
-    | IDENTIFIER ADD_ASSIGN expr {
-        ASTNode* node = new ASTNode(ASTNode::AST_ASSIGN);
-        node->sval = std::string($1);
-        ASTNode* rhs = new ASTNode(ASTNode::AST_BINOP);
-        rhs->op = "+";
-        rhs->lhs = new ASTNode(ASTNode::AST_VAR); rhs->lhs->sval = std::string($1);
-        rhs->rhs = (ASTNode*)$3;
-        node->rhs = rhs;
-        node->type_info = ((ASTNode*)$3)->type_info;
-        $$ = (void*)node;
-        free($1);
-      }
-    | IDENTIFIER SUB_ASSIGN expr {
-        ASTNode* node = new ASTNode(ASTNode::AST_ASSIGN);
-        node->sval = std::string($1);
-        ASTNode* rhs = new ASTNode(ASTNode::AST_BINOP);
-        rhs->op = "-";
-        rhs->lhs = new ASTNode(ASTNode::AST_VAR); rhs->lhs->sval = std::string($1);
-        rhs->rhs = (ASTNode*)$3;
-        node->rhs = rhs;
-        node->type_info = ((ASTNode*)$3)->type_info;
-        $$ = (void*)node;
-        free($1);
-      }
-    | IDENTIFIER MUL_ASSIGN expr {
-        ASTNode* node = new ASTNode(ASTNode::AST_ASSIGN);
-        node->sval = std::string($1);
-        ASTNode* rhs = new ASTNode(ASTNode::AST_BINOP);
-        rhs->op = "*";
-        rhs->lhs = new ASTNode(ASTNode::AST_VAR); rhs->lhs->sval = std::string($1);
-        rhs->rhs = (ASTNode*)$3;
-        node->rhs = rhs;
-        node->type_info = ((ASTNode*)$3)->type_info;
-        $$ = (void*)node;
-        free($1);
-      }
-    | IDENTIFIER DIV_ASSIGN expr {
-        ASTNode* node = new ASTNode(ASTNode::AST_ASSIGN);
-        node->sval = std::string($1);
-        ASTNode* rhs = new ASTNode(ASTNode::AST_BINOP);
-        rhs->op = "/";
-        rhs->lhs = new ASTNode(ASTNode::AST_VAR); rhs->lhs->sval = std::string($1);
-        rhs->rhs = (ASTNode*)$3;
-        node->rhs = rhs;
-        node->type_info = ((ASTNode*)$3)->type_info;
-        $$ = (void*)node;
-        free($1);
-      }
-    | IDENTIFIER MOD_ASSIGN expr {
-        ASTNode* node = new ASTNode(ASTNode::AST_ASSIGN);
-        node->sval = std::string($1);
-        ASTNode* rhs = new ASTNode(ASTNode::AST_BINOP);
-        rhs->op = "%";
-        rhs->lhs = new ASTNode(ASTNode::AST_VAR); rhs->lhs->sval = std::string($1);
-        rhs->rhs = (ASTNode*)$3;
-        node->rhs = rhs;
-        node->type_info = ((ASTNode*)$3)->type_info;
-        $$ = (void*)node;
-        free($1);
-      }
+    | compound_assign { $$ = $1; }
     | /* 空 */ { $$ = nullptr; }
     ;
     ;
@@ -452,74 +334,15 @@ paramlist_nonempty:
 
 
 expr:
-    IDENTIFIER ASSIGN expr {
-        ASTNode* assign = new ASTNode(ASTNode::AST_ASSIGN);
-        assign->sval = std::string($1);
-        assign->rhs = (ASTNode*)$3;
-        assign->type_info = ((ASTNode*)$3)->type_info;
-        $$ = (void*)assign;
-        free($1);
-    }
-    | IDENTIFIER ADD_ASSIGN expr {
-        ASTNode* node = new ASTNode(ASTNode::AST_ASSIGN);
-        node->sval = std::string($1);
-        ASTNode* rhs = new ASTNode(ASTNode::AST_BINOP);
-        rhs->op = "+";
-        rhs->lhs = new ASTNode(ASTNode::AST_VAR); rhs->lhs->sval = std::string($1);
-        rhs->rhs = (ASTNode*)$3;
-        node->rhs = rhs;
-        node->type_info = ((ASTNode*)$3)->type_info;
-        $$ = (void*)node;
-        free($1);
-    }
-    | IDENTIFIER SUB_ASSIGN expr {
-        ASTNode* node = new ASTNode(ASTNode::AST_ASSIGN);
-        node->sval = std::string($1);
-        ASTNode* rhs = new ASTNode(ASTNode::AST_BINOP);
-        rhs->op = "-";
-        rhs->lhs = new ASTNode(ASTNode::AST_VAR); rhs->lhs->sval = std::string($1);
-        rhs->rhs = (ASTNode*)$3;
-        node->rhs = rhs;
-        node->type_info = ((ASTNode*)$3)->type_info;
-        $$ = (void*)node;
-        free($1);
-    }
-    | IDENTIFIER MUL_ASSIGN expr {
-        ASTNode* node = new ASTNode(ASTNode::AST_ASSIGN);
-        node->sval = std::string($1);
-        ASTNode* rhs = new ASTNode(ASTNode::AST_BINOP);
-        rhs->op = "*";
-        rhs->lhs = new ASTNode(ASTNode::AST_VAR); rhs->lhs->sval = std::string($1);
-        rhs->rhs = (ASTNode*)$3;
-        node->rhs = rhs;
-        node->type_info = ((ASTNode*)$3)->type_info;
-        $$ = (void*)node;
-        free($1);
-    }
-    | IDENTIFIER DIV_ASSIGN expr {
-        ASTNode* node = new ASTNode(ASTNode::AST_ASSIGN);
-        node->sval = std::string($1);
-        ASTNode* rhs = new ASTNode(ASTNode::AST_BINOP);
-        rhs->op = "/";
-        rhs->lhs = new ASTNode(ASTNode::AST_VAR); rhs->lhs->sval = std::string($1);
-        rhs->rhs = (ASTNode*)$3;
-        node->rhs = rhs;
-        node->type_info = ((ASTNode*)$3)->type_info;
-        $$ = (void*)node;
-        free($1);
-    }
-    | IDENTIFIER MOD_ASSIGN expr {
-        ASTNode* node = new ASTNode(ASTNode::AST_ASSIGN);
-        node->sval = std::string($1);
-        ASTNode* rhs = new ASTNode(ASTNode::AST_BINOP);
-        rhs->op = "%";
-        rhs->lhs = new ASTNode(ASTNode::AST_VAR); rhs->lhs->sval = std::string($1);
-        rhs->rhs = (ASTNode*)$3;
-        node->rhs = rhs;
-        node->type_info = ((ASTNode*)$3)->type_info;
-        $$ = (void*)node;
-        free($1);
-    }
+      IDENTIFIER ASSIGN expr {
+          ASTNode* assign = new ASTNode(ASTNode::AST_ASSIGN);
+          assign->sval = std::string($1);
+          assign->rhs = (ASTNode*)$3;
+          assign->type_info = ((ASTNode*)$3)->type_info;
+          $$ = (void*)assign;
+          free($1);
+      }
+    | compound_assign { $$ = $1; }
     | expr EQ term {
         ASTNode* node = new ASTNode(ASTNode::AST_BINOP);
         node->op = "==";
@@ -611,6 +434,68 @@ expr:
         $$ = $1;
       }
     ;
+
+compound_assign:
+      IDENTIFIER ADD_ASSIGN expr {
+        ASTNode* node = new ASTNode(ASTNode::AST_ASSIGN);
+        node->sval = std::string($1);
+        ASTNode* rhs = new ASTNode(ASTNode::AST_BINOP);
+        rhs->op = "+";
+        rhs->lhs = new ASTNode(ASTNode::AST_VAR); rhs->lhs->sval = std::string($1);
+        rhs->rhs = (ASTNode*)$3;
+        node->rhs = rhs;
+        node->type_info = ((ASTNode*)$3)->type_info;
+        $$ = (void*)node;
+        free($1);
+      }
+    | IDENTIFIER SUB_ASSIGN expr {
+        ASTNode* node = new ASTNode(ASTNode::AST_ASSIGN);
+        node->sval = std::string($1);
+        ASTNode* rhs = new ASTNode(ASTNode::AST_BINOP);
+        rhs->op = "-";
+        rhs->lhs = new ASTNode(ASTNode::AST_VAR); rhs->lhs->sval = std::string($1);
+        rhs->rhs = (ASTNode*)$3;
+        node->rhs = rhs;
+        node->type_info = ((ASTNode*)$3)->type_info;
+        $$ = (void*)node;
+        free($1);
+    }
+    | IDENTIFIER MUL_ASSIGN expr {
+        ASTNode* node = new ASTNode(ASTNode::AST_ASSIGN);
+        node->sval = std::string($1);
+        ASTNode* rhs = new ASTNode(ASTNode::AST_BINOP);
+        rhs->op = "*";
+        rhs->lhs = new ASTNode(ASTNode::AST_VAR); rhs->lhs->sval = std::string($1);
+        rhs->rhs = (ASTNode*)$3;
+        node->rhs = rhs;
+        node->type_info = ((ASTNode*)$3)->type_info;
+        $$ = (void*)node;
+        free($1);
+    }
+    | IDENTIFIER DIV_ASSIGN expr {
+        ASTNode* node = new ASTNode(ASTNode::AST_ASSIGN);
+        node->sval = std::string($1);
+        ASTNode* rhs = new ASTNode(ASTNode::AST_BINOP);
+        rhs->op = "/";
+        rhs->lhs = new ASTNode(ASTNode::AST_VAR); rhs->lhs->sval = std::string($1);
+        rhs->rhs = (ASTNode*)$3;
+        node->rhs = rhs;
+        node->type_info = ((ASTNode*)$3)->type_info;
+        $$ = (void*)node;
+        free($1);
+    }
+    | IDENTIFIER MOD_ASSIGN expr {
+        ASTNode* node = new ASTNode(ASTNode::AST_ASSIGN);
+        node->sval = std::string($1);
+        ASTNode* rhs = new ASTNode(ASTNode::AST_BINOP);
+        rhs->op = "%";
+        rhs->lhs = new ASTNode(ASTNode::AST_VAR); rhs->lhs->sval = std::string($1);
+        rhs->rhs = (ASTNode*)$3;
+        node->rhs = rhs;
+        node->type_info = ((ASTNode*)$3)->type_info;
+        $$ = (void*)node;
+        free($1);
+    }
 
 term:
       term MUL factor {
