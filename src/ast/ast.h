@@ -29,16 +29,17 @@ struct ASTNode {
         AST_ARRAY_REF       // 配列要素アクセス a[n]
     } type;
     // 配列用
-    int array_size = -1;             // 宣言時サイズ（-1は未指定）
-    std::vector<ASTNode *> elements; // 配列リテラル・初期化子
-    ASTNode *array_index = nullptr;  // 要素アクセス用
-    int elem_type_info = 0;          // 配列要素の型情報
+    int array_size = -1; // 宣言時サイズ（-1は未指定）
+    ASTNode *array_size_expr = nullptr; // 配列サイズ式（int a[expr]; 用）
+    std::vector<ASTNode *> elements;    // 配列リテラル・初期化子
+    ASTNode *array_index = nullptr;     // 要素アクセス用
+    int elem_type_info = 0;             // 配列要素の型情報
     // if文用: 条件式、then, else
     ASTNode *if_cond = nullptr;
     ASTNode *if_then = nullptr;
     ASTNode *if_else = nullptr;
-    int32_t type_info =
-        0; // 型情報: 1=tiny, 2=short, 3=int, 4=long, 5=string, 6=bool(1bit)
+    // 型情報: 1=tiny, 2=short, 3=int, 4=long, 5=string, 6=bool(1bit)
+    int32_t type_info = 0;
     int64_t lval64 = 0; // 整数値（常にint64_tで保持）
     std::string sval;   // 変数名・関数名など
     std::string op;

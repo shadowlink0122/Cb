@@ -2,7 +2,7 @@ CC=g++
 LEX=flex
 YACC=bison
 
-CFLAGS=-Wall -g
+CFLAGS=-Wall -g -std=c++11
 
 LINT_FILES=src/**/*.cpp src/**/*.h tests/**/*.cpp
 

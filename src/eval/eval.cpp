@@ -203,11 +203,11 @@ int64_t eval_var(ASTNode *node) {
     }
     const Variable &var = it->second;
     if (var.type == 5) {
-        // string型の場合はnode->svalに値をセットし、type_info/typeも更新
+        // string型の場合はtype_info/typeを更新し、値をsvalにセット（print用）
         node->type_info = 5;
         node->type = ASTNode::AST_STRING_LITERAL;
         node->sval = var.svalue;
-        return 0; // print等でsvalを参照する
+        return 0;
     }
     if (var.type == 6) {
         node->type_info = 6;
@@ -296,11 +296,32 @@ int64_t eval_assign(ASTNode *node) {
     if (node->lhs && node->lhs->type == ASTNode::AST_ARRAY_REF) {
         ASTNode *arr_ref = node->lhs;
         auto it = symbol_table.find(arr_ref->sval);
-        if (it == symbol_table.end() || !it->second.is_array) {
-            yyerror("未定義の配列です", arr_ref->sval.c_str());
+        if (it == symbol_table.end()) {
+            yyerror("未定義の配列または変数です", arr_ref->sval.c_str());
         }
         Variable &var = it->second;
         int64_t idx = eval(arr_ref->array_index);
+        // string型の要素代入
+        if (var.type == 5) {
+            if (idx < 0 || idx >= (int64_t)var.svalue.size()) {
+                yyerror("stringの範囲外アクセスです", arr_ref->sval.c_str());
+            }
+            propagate_type_info(node->rhs, 5);
+            eval(node->rhs);
+            if (node->rhs->sval.size() != 1) {
+                yyerror("string要素代入は1文字のみ可能です",
+                        arr_ref->sval.c_str());
+            }
+            var.svalue[idx] = node->rhs->sval[0];
+            debug_printf("DEBUG: string assign %s[%lld] = %c\n",
+                         arr_ref->sval.c_str(), idx, node->rhs->sval[0]);
+            return 0;
+        }
+        // 配列の場合
+        if (!var.is_array) {
+            yyerror("配列またはstring以外の要素代入はできません",
+                    arr_ref->sval.c_str());
+        }
         if (idx < 0 || idx >= var.array_size) {
             yyerror("配列の範囲外アクセスです", arr_ref->sval.c_str());
         }
@@ -423,6 +444,17 @@ int eval_print(ASTNode *node) {
                      "value=%lld\n",
                      result->sval.c_str(), result->type_info,
                      result->sval.c_str(), value);
+        // string要素アクセス時はeval側で直接出力済みなので何も出力しない
+        if (value == INT64_MIN) {
+            return 0;
+        }
+        // 配列要素参照はevalの戻り値を出力
+        if (value >= 32 && value <= 126) {
+            printf("%c\n", (char)value);
+        } else {
+            printf("%lld\n", value);
+        }
+        return 0;
     }
     if (result->type == ASTNode::AST_STRING_LITERAL || result->type_info == 5) {
         if (result->sval.empty()) {
@@ -430,11 +462,6 @@ int eval_print(ASTNode *node) {
         } else {
             printf("%s\n", result->sval.c_str());
         }
-        return 0;
-    }
-    // 配列要素参照は必ずevalの戻り値を出力
-    if (result->type == ASTNode::AST_ARRAY_REF) {
-        printf("%lld\n", value);
         return 0;
     }
     // それ以外は数値として評価
@@ -730,90 +757,135 @@ int64_t eval(ASTNode *node) {
     case ASTNode::AST_ARRAY_LITERAL:
         // 配列リテラル自体は値を返さない
         return 0;
-    case ASTNode::AST_ARRAY_DECL:
+    case ASTNode::AST_ARRAY_DECL: {
         // 配列宣言: シンボルテーブルに登録
-        {
-            Variable var;
-            var.is_array = true;
-            var.array_size = node->array_size;
-            var.elem_type = node->elem_type_info;
-            var.type = 100 + node->elem_type_info;
-            if (var.elem_type == 5) {
-                var.arr_svalue.resize(var.array_size,
-                                      default_str_value(var.elem_type));
-            } else {
-                var.arr_value.resize(var.array_size,
-                                     default_int_value(var.elem_type));
-            }
-            // 初期化子があればセット
-            if (!node->elements.empty()) {
-                for (size_t i = 0;
-                     i < node->elements.size() && i < (size_t)var.array_size;
-                     ++i) {
-                    ASTNode *elem = node->elements[i];
-                    if (var.elem_type == 5) {
-                        eval(elem);
-                        var.arr_svalue[i] = elem->sval;
-                    } else if (var.elem_type == 6) {
-                        int64_t v = eval(elem);
-                        var.arr_value[i] = (v != 0) ? 1 : 0;
-                    } else {
-                        int64_t v = eval(elem);
-                        check_range(var.elem_type, v, node->sval.c_str());
-                        var.arr_value[i] = v;
-                    }
+        Variable var;
+        var.is_array = true;
+        int arr_size = node->array_size;
+        if (node->array_size_expr) {
+            arr_size = (int)eval(node->array_size_expr);
+        }
+        if (arr_size < 0) {
+            yyerror("配列サイズが負です", node->sval.c_str());
+        }
+        var.array_size = arr_size;
+        var.elem_type = node->elem_type_info;
+        var.type = 100 + node->elem_type_info;
+        if (var.elem_type == 5) {
+            var.arr_svalue.resize(var.array_size,
+                                  default_str_value(var.elem_type));
+        } else {
+            var.arr_value.resize(var.array_size,
+                                 default_int_value(var.elem_type));
+        }
+        // 初期化子があればセット
+        if (!node->elements.empty()) {
+            for (size_t i = 0;
+                 i < node->elements.size() && i < (size_t)var.array_size; ++i) {
+                ASTNode *elem = node->elements[i];
+                if (var.elem_type == 5) {
+                    eval(elem);
+                    var.arr_svalue[i] = elem->sval;
+                } else if (var.elem_type == 6) {
+                    int64_t v = eval(elem);
+                    var.arr_value[i] = (v != 0) ? 1 : 0;
+                } else {
+                    int64_t v = eval(elem);
+                    check_range(var.elem_type, v, node->sval.c_str());
+                    var.arr_value[i] = v;
                 }
             }
-            symbol_table[node->sval] = var;
+        }
+        symbol_table[node->sval] = var;
+        return 0;
+    }
+    case ASTNode::AST_ARRAY_REF: {
+        debug_printf("DEBUG: AST_ARRAY_REF node->sval=%s\n",
+                     node->sval.c_str());
+        auto it = symbol_table.find(node->sval);
+        if (it == symbol_table.end()) {
+            yyerror("未定義の配列または変数です", node->sval.c_str());
             return 0;
         }
-    case ASTNode::AST_ARRAY_REF:
-        // 配列要素アクセス
-        {
-            auto it = symbol_table.find(node->sval);
-            if (it == symbol_table.end() || !it->second.is_array) {
-                yyerror("未定義の配列です", node->sval.c_str());
+        Variable &var = it->second;
+        int64_t idx = eval(node->array_index);
+        // string型の要素アクセス
+        if (var.type == 5) {
+            // UTF-8の1文字単位でアクセスできるよう分割
+            std::vector<std::string> chars;
+            const std::string &s = var.svalue;
+            for (size_t i = 0; i < s.size();) {
+                unsigned char c = s[i];
+                size_t char_len = 1;
+                if ((c & 0x80) == 0x00)
+                    char_len = 1; // ASCII
+                else if ((c & 0xE0) == 0xC0)
+                    char_len = 2; // 2バイト
+                else if ((c & 0xF0) == 0xE0)
+                    char_len = 3; // 3バイト
+                else if ((c & 0xF8) == 0xF0)
+                    char_len = 4; // 4バイト
+                else {
+                    char_len = 1;
+                } // 不正バイト
+                chars.push_back(s.substr(i, char_len));
+                i += char_len;
+            }
+            if (idx < 0 || idx >= (int64_t)chars.size()) {
+                yyerror("stringの範囲外アクセスです", node->sval.c_str());
                 return 0;
             }
-            Variable &var = it->second;
-            int64_t idx = eval(node->array_index);
-            debug_printf("DEBUG: eval array ref %s[%lld] (elem_type=%d, "
-                         "arr_value.size=%zu)\n",
-                         node->sval.c_str(), idx, var.elem_type,
-                         var.arr_value.size());
-            if (idx < 0 || idx >= var.array_size) {
-                yyerror("配列の範囲外アクセスです", node->sval.c_str());
-                return 0;
-            }
-            if (var.elem_type == 5) {
-                node->type_info = 5;
-                node->sval = var.arr_svalue[idx];
-                debug_printf("DEBUG: eval array ref string value = %s\n",
-                             var.arr_svalue[idx].c_str());
-                return 0;
-            } else if (var.elem_type == 6) {
-                node->type_info = 6;
-                debug_printf("DEBUG: eval array ref bool value = %lld\n",
-                             (var.arr_value[idx] != 0) ? 1 : 0);
-                return (var.arr_value[idx] != 0) ? 1 : 0;
-            } else {
-                node->type_info = var.elem_type;
-                debug_printf("DEBUG: eval array ref int value = %lld\n",
-                             var.arr_value[idx]);
-                switch (var.elem_type) {
-                case 1:
-                    return (int8_t)var.arr_value[idx];
-                case 2:
-                    return (int16_t)var.arr_value[idx];
-                case 3:
-                    return (int32_t)var.arr_value[idx];
-                case 4:
-                    return (int64_t)var.arr_value[idx];
-                default:
-                    return (int32_t)var.arr_value[idx];
-                }
+            node->type_info = 5;
+            // UTF-8文字列をそのまま出力
+            debug_printf("DEBUG: eval string ref %s[%lld] = %s\n",
+                         node->sval.c_str(), idx, chars[idx].c_str());
+            printf("%s\n", chars[idx].c_str());
+            // print文の戻り値出力を抑止するため、特別な値を返す
+            return INT64_MIN; // sentinel value
+        }
+        // 配列の場合
+        if (!var.is_array) {
+            yyerror("配列またはstring以外の要素アクセスはできません",
+                    node->sval.c_str());
+            return 0;
+        }
+        debug_printf("DEBUG: eval array ref %s[%lld] (elem_type=%d, "
+                     "arr_value.size=%zu)\n",
+                     node->sval.c_str(), idx, var.elem_type,
+                     var.arr_value.size());
+        if (idx < 0 || idx >= var.array_size) {
+            yyerror("配列の範囲外アクセスです", node->sval.c_str());
+            return 0;
+        }
+        if (var.elem_type == 5) {
+            node->type_info = 5;
+            // node->svalは絶対に上書きしない
+            debug_printf("DEBUG: eval array ref string value = %s\n",
+                         var.arr_svalue[idx].c_str());
+            return 0;
+        } else if (var.elem_type == 6) {
+            node->type_info = 6;
+            debug_printf("DEBUG: eval array ref bool value = %lld\n",
+                         (var.arr_value[idx] != 0) ? 1 : 0);
+            return (var.arr_value[idx] != 0) ? 1 : 0;
+        } else {
+            node->type_info = var.elem_type;
+            debug_printf("DEBUG: eval array ref int value = %lld\n",
+                         var.arr_value[idx]);
+            switch (var.elem_type) {
+            case 1:
+                return (int8_t)var.arr_value[idx];
+            case 2:
+                return (int16_t)var.arr_value[idx];
+            case 3:
+                return (int32_t)var.arr_value[idx];
+            case 4:
+                return (int64_t)var.arr_value[idx];
+            default:
+                return (int32_t)var.arr_value[idx];
             }
         }
+    }
     default:
         return 0;
     }

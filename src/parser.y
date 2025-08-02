@@ -9,10 +9,22 @@
 #include <string.h>
 #include <map>
 #include <string>
-
 #include "ast/util.h"
 using namespace std;
-
+// 文字列リテラルの両端の"を除去し、\"や\\を展開
+static std::string parse_string_literal(const char* raw) {
+    int len = std::strlen(raw);
+    if (len < 2 || raw[0] != '"' || raw[len-1] != '"') return std::string(raw);
+    std::string out;
+    for (int i = 1; i < len-1; ++i) {
+        if (raw[i] == '\\' && i+1 < len-1) {
+            if (raw[i+1] == '"') { out.push_back('"'); ++i; continue; }
+            if (raw[i+1] == '\\') { out.push_back('\\'); ++i; continue; }
+        }
+        out.push_back(raw[i]);
+    }
+    return out;
+}
 extern void yyerror(const char *s);
 extern void yyerror(const char *s, const char *error);
 // eval.cppのdebug_printfを利用
@@ -175,11 +187,11 @@ statement:
         delete (ASTNode*)$1;
         free($2);
     }
-    // 配列宣言: int a[5];
-    | type IDENTIFIER '[' NUMBER ']' SEMICOLON {
+    // 配列宣言: int a[5]; または int a[SIZE];
+    | type IDENTIFIER '[' expr ']' SEMICOLON {
         ASTNode* arr = new ASTNode(ASTNode::AST_ARRAY_DECL);
         arr->sval = std::string($2);
-        arr->array_size = $4;
+        arr->array_size_expr = (ASTNode*)$4;
         arr->elem_type_info = ((ASTNode*)$1)->type_info;
         $$ = (void*)arr;
         delete (ASTNode*)$1;
@@ -677,7 +689,7 @@ factor:
     | STRING_LITERAL {
         debug_printf("DEBUG: factor STRING_LITERAL sval=%s\n", $1 ? $1 : "NULL");
         ASTNode* str = new ASTNode(ASTNode::AST_STRING_LITERAL);
-        str->sval = std::string($1);
+        str->sval = parse_string_literal($1);
         str->type_info = 5; // string型
         debug_printf("DEBUG: factor STRING_LITERAL type_info=%d\n", str->type_info);
         $$ = (void*)str;
