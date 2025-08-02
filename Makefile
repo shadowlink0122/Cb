@@ -56,19 +56,20 @@ unit-test: src/parser.c src/lexer.c
 
 # 結合テスト
 integration-test: main
-	$(CC) $(CFLAGS) -I. -o tests/integration/test_main \
-		tests/integration/test_main.cpp \
-		tests/integration/arithmetic/test_arithmetic.cpp \
-		tests/integration/boundary/test_boundary.cpp \
-		tests/integration/assign/test_assign.cpp \
-		tests/integration/cross_type/test_cross_type.cpp \
-		tests/integration/string/test_string.cpp \
-		tests/integration/bool_expr/test_bool_expr.cpp \
-		tests/integration/loop/test_loop.cpp \
-		src/eval/eval.cpp \
-		src/parser.c \
-		src/lexer.c \
-		src/ast/util.cpp
+	   $(CC) $(CFLAGS) -I. -o tests/integration/test_main \
+			   tests/integration/test_main.cpp \
+			   tests/integration/arithmetic/test_arithmetic.cpp \
+			   tests/integration/boundary/test_boundary.cpp \
+			   tests/integration/assign/test_assign.cpp \
+			   tests/integration/cross_type/test_cross_type.cpp \
+			   tests/integration/string/test_string.cpp \
+			   tests/integration/bool_expr/test_bool_expr.cpp \
+			   tests/integration/loop/test_loop.cpp \
+			   tests/integration/if/test_if.cpp \
+			   src/eval/eval.cpp \
+			   src/parser.c \
+			   src/lexer.c \
+			   src/ast/util.cpp
 	tests/integration/test_main
 
 # debug_buildテスト

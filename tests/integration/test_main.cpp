@@ -1,16 +1,10 @@
-#ifdef __cplusplus
-extern "C" {
-#endif
-void yyerror(const char *, const char *);
-#ifdef __cplusplus
-}
-inline void yyerror(const char *s) { yyerror(s, ""); }
-#endif
 #include "arithmetic/test_arithmetic_case.h"
 #include "assign/test_assign_case.h"
+#include "bool_expr/test_bool_expr.h"
 #include "boundary/test_boundary_case.h"
 #include "cross_type/test_cross_type_case.h"
 #include "func/test_func_case.h"
+#include "if/test_if_case.h"
 #include "loop/test_loop.h"
 #include "string/test_string.h"
 #include <iostream>
@@ -24,9 +18,9 @@ int main() {
         test_integration_cross_type();
         test_integration_func();
         test_integration_string();
-        extern void test_bool_expr_basic();
         test_bool_expr_basic();
         test_integration_loop();
+        test_integration_if_basic();
     } catch (const std::exception &e) {
         std::cerr << "[integration] test failed: " << e.what() << std::endl;
         fail = 1;
