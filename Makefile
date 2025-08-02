@@ -2,7 +2,7 @@ CC=g++
 LEX=flex
 YACC=bison
 
-CFLAGS=-Wall -g
+CFLAGS=-Wall -g -std=c++17
 
 LINT_FILES=src/**/*.cpp src/**/*.h tests/**/*.cpp
 
@@ -68,6 +68,7 @@ integration-test: main
 			   tests/integration/if/test_if.cpp \
 			   tests/integration/self_assign/test_self_assign.cpp \
 			   tests/integration/incdec/test_incdec.cpp \
+			   tests/integration/array/test_array.cpp \
 			   src/eval/eval.cpp \
 			   src/parser.c \
 			   src/lexer.c \

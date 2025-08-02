@@ -1,0 +1,9 @@
+int main(){
+    tiny SIZE = 10;
+
+    string str = "あaいiうuえeおo";
+    print str;
+    for(int i = 0;i < SIZE;i++){
+        print str[i];
+    }
+}

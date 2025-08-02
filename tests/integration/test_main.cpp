@@ -1,4 +1,5 @@
 #include "arithmetic/test_arithmetic_case.h"
+#include "array/test_array.h"
 #include "assign/test_assign_case.h"
 #include "bool_expr/test_bool_expr.h"
 #include "boundary/test_boundary_case.h"
@@ -22,6 +23,7 @@ int main() {
         test_integration_incdec();
         test_integration_self_assign();
         test_integration_string();
+        test_integration_array();
         test_bool_expr_basic();
         test_integration_loop();
         test_integration_if_basic();

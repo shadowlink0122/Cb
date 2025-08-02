@@ -1,0 +1,16 @@
+int main() {
+    tiny size = 5;
+    int a[size];
+    for(tiny i = 0;i < size;i++){
+        a[i] = 10 * (i + 1);
+    }
+    print a[0]; // 10
+    print a[4]; // 50
+    a[2] = 99;
+    print a[2]; // 99
+    int sum = 0;
+    for(int i = 0; i < size; i++) {
+        sum = sum + a[i];
+    }
+    print sum; // 10+20+99+40+50 = 219
+}
