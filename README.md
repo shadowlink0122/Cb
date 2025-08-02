@@ -10,24 +10,24 @@ flex(lex)とbison(yacc)を利用し、AST（抽象構文木）を構築し、C++
 ## 特徴
 
 - 静的型付き言語（型は宣言時に決定され、型違反は実行時にエラーとなります）
-- 整数型の明示的な型宣言をサポート
-    - tiny (int8_t), short (int16_t), int (int32_t), long (int64_t)
+- 整数型の明示的な型宣言: tiny (int8_t), short (int16_t), int (int32_t), long (int64_t)
     - 例: `int a = 123;`, `long b = 1234567890123;`
+- Cライクな制御構造: if/else, else if, for, while, break, ブロックなし単文もサポート
+- Cライクな演算子優先順位（&&, ||, ==, !=, <, >, +, -, *, /, % など）
+- printによる標準出力
+- サンプル・テストケースが豊富
 
 ## 追加予定機能
 
 - 型
-    - bool
+    - bool（部分実装済み）
     - 浮動小数点数
-    - 文字列
-- ループ
-- 分岐
+    - 文字列（部分実装済み）
 - 構造体
-- 関数定義
-    - ⭐️main関数から実行されること
+- 関数定義の拡張（引数・戻り値型推論や多戻り値など）
 - ポインタ
-- interface
-- trait
+- interface/trait
+- 標準ライブラリの拡充
 
 ## ディレクトリ構成
 
@@ -47,23 +47,25 @@ make
 
 ## テスト方法
 
-ユニットテストは型ごとに分割されており、ASTノード＋evalによる評価ロジックの単体テストを行っています。
+### ユニットテスト
+型ごと・機能ごとにASTノード＋evalによる評価ロジックの単体テストを行っています。
 
 ```sh
 make unit-test
 ```
 
-テストは `tests/unit/` 以下に型ごと・機能ごとに分割されており、assign/cross_type/boundary などはASTノードを直接生成し `eval` で評価します。
+`tests/unit/` 以下にassign/cross_type/boundary などのテストがあり、ASTノードを直接生成し `eval` で評価します。
 
+### 結合テスト（integration test）
+実際の.cbファイル（サンプルコード）をmainで解釈・実行し、出力やエラーを検証します。
+
+```sh
+make integration-test
+```
+
+`tests/integration/` 以下に各種制御構造（if/else, for, while, break, 演算子優先順位など）のテストがあり、`tests/cases/` 以下の.cbファイルを使って動作検証します。
 
 デバッグ出力は `CB_DEBUG_MODE=1` で有効、未設定時はデフォルトで無効です。
-
-### テスト構成例
-
-- `tests/unit/assign/` : 代入文の型ごとテスト
-- `tests/unit/cross_type/` : 型変換のテスト
-- `tests/unit/boundary/` : 各型の境界値テスト
-- それぞれ `test_*.cpp` でASTノードを生成し `eval` で評価
 
 ## 実行方法
 
@@ -74,10 +76,19 @@ make unit-test
 ## サンプルコード例
 
 ```cb
-int a = 1 + 2;
-long b = a * 10000000000;
-print a;
-print b;
+int main() {
+    for (int i = 1; i <= 15; i = i + 1) {
+        if ((i % 3 == 0) && (i % 5 == 0))
+            print "FizzBuzz";
+        else if (i % 3 == 0)
+            print "Fizz";
+        else if (i % 5 == 0)
+            print "Buzz";
+        else
+            print i;
+    }
+    return 0;
+}
 ```
 
 ## 注意事項
