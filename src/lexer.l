@@ -43,6 +43,7 @@ return            { return RETURN; }
 \-                { return MINUS; }
 \*                { return MUL; }
 \/                { return DIV; }
+%                 { return MOD; }
 \(                { return '('; }
 \)                { return ')'; }
 \{                { return '{'; }

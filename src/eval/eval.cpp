@@ -209,6 +209,12 @@ int64_t eval_binop(ASTNode *node) {
         } else {
             result = l / r;
         }
+    } else if (node->op == "%") {
+        if (r == 0) {
+            yyerror("Error", "0除算が発生しました");
+        } else {
+            result = l % r;
+        }
     } else if (node->op == "==") {
         result = (l == r) ? 1 : 0;
         node->type_info = 6;
@@ -228,9 +234,13 @@ int64_t eval_binop(ASTNode *node) {
         result = (l <= r) ? 1 : 0;
         node->type_info = 6;
     } else if (node->op == "||") {
+        l = (l != 0) ? 1 : 0;
+        r = (r != 0) ? 1 : 0;
         result = (l || r) ? 1 : 0;
         node->type_info = 6;
     } else if (node->op == "&&") {
+        l = (l != 0) ? 1 : 0;
+        r = (r != 0) ? 1 : 0;
         result = (l && r) ? 1 : 0;
         node->type_info = 6;
     }
@@ -562,6 +572,7 @@ int64_t eval(ASTNode *node) {
     }
     case ASTNode::AST_IF: {
         int64_t cond = eval(node->if_cond);
+        cond = (cond != 0) ? 1 : 0; // 0以外はtrueとして扱う
         if (cond) {
             if (node->if_then)
                 eval(node->if_then);

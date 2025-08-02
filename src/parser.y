@@ -38,7 +38,7 @@ extern "C" {
 %token PLUS MINUS MUL DIV ASSIGN SEMICOLON PRINT RETURN
 %token FOR WHILE BREAK
 %token IF ELSE
-%token EQ NEQ GE LE GT LT OR AND NOT
+%token EQ NEQ GE LE GT LT OR AND NOT MOD
 %token '{' '}' '(' ')' '[' ']'
 
 %type <ptr> expr term factor statement program funcdef typelist paramlist paramlist_nonempty returnstmt type type_list_items arglist opt_statement opt_expr init_statement opt_update if_stmt
@@ -208,6 +208,7 @@ statement:
         $$ = (void*)whileNode;
       }
     ;
+
 // if文
 if_stmt:
     IF '(' expr ')' statement {
@@ -446,6 +447,17 @@ term:
         debug_printf("DEBUG: term DIV factor\n");
         ASTNode* node = new ASTNode(ASTNode::AST_BINOP);
         node->op = "/";
+        node->lhs = (ASTNode*)$1;
+        node->rhs = (ASTNode*)$3;
+        int ltype = node->lhs ? node->lhs->type_info : 3;
+        int rtype = node->rhs ? node->rhs->type_info : 3;
+        node->type_info = (ltype > rtype) ? ltype : rtype;
+        $$ = (void*)node;
+      }
+    | term MOD factor {
+        debug_printf("DEBUG: term MOD factor\n");
+        ASTNode* node = new ASTNode(ASTNode::AST_BINOP);
+        node->op = "%";
         node->lhs = (ASTNode*)$1;
         node->rhs = (ASTNode*)$3;
         int ltype = node->lhs ? node->lhs->type_info : 3;
