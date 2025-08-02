@@ -40,6 +40,7 @@ extern "C" {
 %token IF ELSE
 %token EQ NEQ GE LE GT LT OR AND NOT MOD
 %token ADD_ASSIGN SUB_ASSIGN MUL_ASSIGN DIV_ASSIGN MOD_ASSIGN
+%token INC_OP DEC_OP
 %token '{' '}' '(' ')' '[' ']'
 
 %type <ptr> expr term factor statement program funcdef typelist paramlist paramlist_nonempty returnstmt type type_list_items arglist opt_statement opt_expr init_statement opt_update if_stmt compound_assign
@@ -539,7 +540,39 @@ term:
 
 // 型情報を持つリテラルをサポート
 factor:
-      NOT factor {
+    INC_OP IDENTIFIER {
+        // 前置インクリメント ++a
+        ASTNode* node = new ASTNode(ASTNode::AST_PRE_INCDEC);
+        node->op = "++";
+        node->lhs = new ASTNode(ASTNode::AST_VAR); node->lhs->sval = std::string($2);
+        $$ = (void*)node;
+        free($2);
+    }
+    | DEC_OP IDENTIFIER {
+        // 前置デクリメント --a
+        ASTNode* node = new ASTNode(ASTNode::AST_PRE_INCDEC);
+        node->op = "--";
+        node->lhs = new ASTNode(ASTNode::AST_VAR); node->lhs->sval = std::string($2);
+        $$ = (void*)node;
+        free($2);
+    }
+    | IDENTIFIER INC_OP {
+        // 後置インクリメント a++
+        ASTNode* node = new ASTNode(ASTNode::AST_POST_INCDEC);
+        node->op = "++";
+        node->lhs = new ASTNode(ASTNode::AST_VAR); node->lhs->sval = std::string($1);
+        $$ = (void*)node;
+        free($1);
+    }
+    | IDENTIFIER DEC_OP {
+        // 後置デクリメント a--
+        ASTNode* node = new ASTNode(ASTNode::AST_POST_INCDEC);
+        node->op = "--";
+        node->lhs = new ASTNode(ASTNode::AST_VAR); node->lhs->sval = std::string($1);
+        $$ = (void*)node;
+        free($1);
+    }
+    | NOT factor {
         // NOTは右結合で、factorの先頭でのみ受け付けることで優先順位を正しくする
         ASTNode* node = new ASTNode(ASTNode::AST_UNARYOP);
         node->op = "!";

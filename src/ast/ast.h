@@ -21,7 +21,9 @@ struct ASTNode {
         AST_FOR,            // for文
         AST_WHILE,          // while文
         AST_BREAK,          // break文
-        AST_IF              // if文
+        AST_IF,             // if文
+        AST_PRE_INCDEC,     // 前置インクリメント/デクリメント
+        AST_POST_INCDEC,    // 後置インクリメント/デクリメント
     } type;
     // if文用: 条件式、then, else
     ASTNode *if_cond = nullptr;

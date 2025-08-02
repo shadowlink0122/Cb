@@ -34,6 +34,8 @@ return            { return RETURN; }
 !                 { return NOT; }
 \|\|              { return OR; }
 &&                { return AND; }
+\+\+               { return INC_OP; }
+\-\-               { return DEC_OP; }
 \+=               { return ADD_ASSIGN; }
 \-=               { return SUB_ASSIGN; }
 \*=               { return MUL_ASSIGN; }

@@ -121,6 +121,29 @@ void yyerror(const char *s, const char *error) {
     exit(1);
 }
 
+// 型ごとの範囲チェック関数
+void check_range(int type, int64_t value, const char *name) {
+    switch (type) {
+    case 1:
+        if (value < -128 || value > 127)
+            yyerror("tiny型の範囲外の値を代入しようとしました", name);
+        break;
+    case 2:
+        if (value < -32768 || value > 32767)
+            yyerror("short型の範囲外の値を代入しようとしました", name);
+        break;
+    case 3:
+        if (value < -2147483648LL || value > 2147483647LL)
+            yyerror("int型の範囲外の値を代入しようとしました", name);
+        break;
+    case 4:
+        // long: チェック不要
+        break;
+    default:
+        break;
+    }
+}
+
 // 型情報: 0=void, 1=tiny(int8_t), 2=short(int16_t), 3=int(int32_t),
 // 4=long(int64_t)
 int64_t eval_num(ASTNode *node) {
@@ -277,33 +300,8 @@ int64_t eval_assign(ASTNode *node) {
                      node->sval.c_str(), value, lhs_type, rhs->type_info);
         fflush(stderr);
         // 型ごとに範囲チェックし、範囲外ならエラー（キャスト前に必ずチェック）
-        switch (lhs_type) {
-        case 0: // void
-            var.value = 0;
-            break;
-        case 1: // tiny(int8_t)
-            if (value < -128 || value > 127)
-                out_of_range = true;
-            break;
-        case 2: // short(int16_t)
-            if (value < -32768 || value > 32767)
-                out_of_range = true;
-            break;
-        case 3: // int(int32_t)
-            if (value < -2147483648LL || value > 2147483647LL)
-                out_of_range = true;
-            break;
-        case 4: // long(int64_t)
-            // int64_tの範囲は十分広いのでチェック不要
-            break;
-        default:
-            break;
-        }
-        debug_printf("DEBUG: out_of_range=%d\n", out_of_range);
-        if (out_of_range) {
-            debug_printf("DEBUG: out_of_range for %s value=%lld type=%d\n",
-                         node->sval.c_str(), value, lhs_type);
-            yyerror("型の範囲外の値を代入しようとしました", node->sval.c_str());
+        if (lhs_type != 0) {
+            check_range(lhs_type, value, node->sval.c_str());
         }
         // 範囲内ならキャストして代入
         switch (lhs_type) {
@@ -487,6 +485,47 @@ int64_t eval(ASTNode *node) {
     if (!node)
         return 0;
     switch (node->type) {
+    case ASTNode::AST_PRE_INCDEC: {
+        // ++a, --a
+        if (!node->lhs || node->lhs->type != ASTNode::AST_VAR)
+            yyerror("インクリメント/デクリメントの対象が変数ではありません",
+                    "");
+        auto it = symbol_table.find(node->lhs->sval);
+        if (it == symbol_table.end())
+            yyerror("未定義の変数です", node->lhs->sval.c_str());
+        Variable &var = it->second;
+        if (node->op == "++") {
+            var.value += 1;
+        } else if (node->op == "--") {
+            var.value -= 1;
+        } else {
+            yyerror("未知のインクリメント/デクリメント演算子です",
+                    node->op.c_str());
+        }
+        check_range(var.type, var.value, node->lhs->sval.c_str());
+        return var.value;
+    }
+    case ASTNode::AST_POST_INCDEC: {
+        // a++, a--
+        if (!node->lhs || node->lhs->type != ASTNode::AST_VAR)
+            yyerror("インクリメント/デクリメントの対象が変数ではありません",
+                    "");
+        auto it = symbol_table.find(node->lhs->sval);
+        if (it == symbol_table.end())
+            yyerror("未定義の変数です", node->lhs->sval.c_str());
+        Variable &var = it->second;
+        int64_t old = var.value;
+        if (node->op == "++") {
+            var.value += 1;
+        } else if (node->op == "--") {
+            var.value -= 1;
+        } else {
+            yyerror("未知のインクリメント/デクリメント演算子です",
+                    node->op.c_str());
+        }
+        check_range(var.type, var.value, node->lhs->sval.c_str());
+        return old;
+    }
     case ASTNode::AST_NUM:
         return eval_num(node);
     case ASTNode::AST_VAR:
