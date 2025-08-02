@@ -8,67 +8,52 @@
 // tiny
 void test_integration_assign_tiny_ok() {
     int exit_code = 0;
-    char tmpfile[] = "/tmp/assign_tiny_ok_XXXXXX";
-    int fd = mkstemp(tmpfile);
-    std::string cmd = std::string("./main ./tests/cases/assign/tiny/ok.cb >") + tmpfile + " 2>&1";
+    std::string cmd = "./main ./tests/cases/assign/tiny/ok.cb > /tmp/assign_tiny_ok_out.txt 2>&1";
     run_and_capture(cmd.c_str(), &exit_code);
-    FILE* fp = fopen(tmpfile, "r");
+    FILE* fp = fopen("/tmp/assign_tiny_ok_out.txt", "r");
     std::string output;
     if (fp) {
         char buf[4096];
         while (fgets(buf, sizeof(buf), fp)) output += buf;
         fclose(fp);
     }
-    remove(tmpfile);
+    remove("/tmp/assign_tiny_ok_out.txt");
     assert(exit_code == 0);
     assert(output.find("127") != std::string::npos);
     assert(output.find("型の範囲外の値を代入しようとしました") == std::string::npos);
-    std::cout << "[integration] assign tiny ok test passed" << std::endl;
 }
 void test_integration_assign_tiny_ng() {
     // 標準エラーも含めて出力を取得
     int exit_code = 0;
-    char tmpfile[] = "/tmp/assign_tiny_ng_XXXXXX";
-    int fd = mkstemp(tmpfile);
-    std::string cmd = std::string("./main ./tests/cases/assign/tiny/ng.cb >") + tmpfile + " 2>&1";
+    std::string cmd = "./main ./tests/cases/assign/tiny/ng.cb > /tmp/assign_tiny_ng_out.txt 2>&1";
     run_and_capture(cmd.c_str(), &exit_code);
-    FILE* fp = fopen(tmpfile, "r");
+    FILE* fp = fopen("/tmp/assign_tiny_ng_out.txt", "r");
     std::string output;
     if (fp) {
         char buf[4096];
         while (fgets(buf, sizeof(buf), fp)) output += buf;
         fclose(fp);
     }
-    remove(tmpfile);
+    remove("/tmp/assign_tiny_ng_out.txt");
     const char* expected = "型の範囲外の値を代入しようとしました";
     bool ok = (exit_code != 0) && (output.find(expected) != std::string::npos);
-    if (ok) {
-        std::cout << "[integration] assign tiny ng test passed (error detected)" << std::endl;
-    } else {
-        assert(false);
-    }
+    assert(ok);
 }
 void test_integration_assign_tiny_ng_neg() {
     int exit_code = 0;
-    char tmpfile[] = "/tmp/assign_tiny_ng_neg_XXXXXX";
-    int fd = mkstemp(tmpfile);
-    std::string cmd = std::string("./main ./tests/cases/assign/tiny/ng_neg.cb >") + tmpfile + " 2>&1";
+    std::string cmd = "./main ./tests/cases/assign/tiny/ng_neg.cb > /tmp/assign_tiny_ng_neg_out.txt 2>&1";
     run_and_capture(cmd.c_str(), &exit_code);
-    FILE* fp = fopen(tmpfile, "r");
+    FILE* fp = fopen("/tmp/assign_tiny_ng_neg_out.txt", "r");
     std::string output;
     if (fp) {
         char buf[4096];
         while (fgets(buf, sizeof(buf), fp)) output += buf;
         fclose(fp);
     }
-    remove(tmpfile);
+    remove("/tmp/assign_tiny_ng_neg_out.txt");
     const char* expected = "型の範囲外の値を代入しようとしました";
     bool ok = (exit_code != 0) && (output.find(expected) != std::string::npos);
-    if (ok) {
-        std::cout << "[integration] assign tiny ng_neg test passed (error detected)" << std::endl;
-    } else {
-        assert(false);
-    }
+    assert(ok);
 }
 
 // short

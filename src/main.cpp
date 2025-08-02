@@ -32,8 +32,16 @@ int main(int argc, char **argv) {
         ast = parse_to_ast(argv[file_arg]);
         if (!ast)
             return 1;
-        // まず全体ASTを評価（関数定義をfunction_tableに登録）
-        eval(ast);
+        // 関数定義ノードのみfunction_tableに登録（副作用のある実行はしない）
+        if (ast && ast->type == ASTNode::AST_STMTLIST) {
+            for (auto *stmt : ast->stmts) {
+                if (stmt && stmt->type == ASTNode::AST_FUNCDEF) {
+                    eval(stmt); // function_tableに登録のみ
+                }
+            }
+        } else if (ast && ast->type == ASTNode::AST_FUNCDEF) {
+            eval(ast);
+        }
         // main関数ASTのbodyをデバッグ出力（デバッグモード時のみ）
         if (debug_mode) {
             extern std::map<std::string, ASTNode*> function_table;

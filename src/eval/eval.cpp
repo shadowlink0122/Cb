@@ -29,7 +29,7 @@ void set_debug_mode_from_env() {
 #include <string>
 
 struct Variable {
-    int type;           // 0=void, 1=tiny, 2=short, 3=int, 4=long, 5=string
+    int type; // 0=void, 1=tiny, 2=short, 3=int, 4=long, 5=string, 6=bool(1bit)
     int64_t value;      // 整数値
     std::string svalue; // 文字列値（string型用）
 };
@@ -142,6 +142,9 @@ int64_t eval_num(ASTNode *node) {
     case 4: // long
         // int64_tの範囲は十分広いのでチェック不要
         break;
+    case 6: // bool
+        v = (v != 0) ? 1 : 0;
+        break;
     default:
         break;
     }
@@ -162,6 +165,10 @@ int64_t eval_var(ASTNode *node) {
         node->type = ASTNode::AST_STRING_LITERAL;
         node->sval = var.svalue;
         return 0; // print等でsvalを参照する
+    }
+    if (var.type == 6) {
+        node->type_info = 6;
+        return (var.value != 0) ? 1 : 0;
     }
     // 型に応じてキャストして返す
     switch (var.type) {
@@ -202,6 +209,30 @@ int64_t eval_binop(ASTNode *node) {
         } else {
             result = l / r;
         }
+    } else if (node->op == "==") {
+        result = (l == r) ? 1 : 0;
+        node->type_info = 6;
+    } else if (node->op == "!=") {
+        result = (l != r) ? 1 : 0;
+        node->type_info = 6;
+    } else if (node->op == ">") {
+        result = (l > r) ? 1 : 0;
+        node->type_info = 6;
+    } else if (node->op == "<") {
+        result = (l < r) ? 1 : 0;
+        node->type_info = 6;
+    } else if (node->op == ">=") {
+        result = (l >= r) ? 1 : 0;
+        node->type_info = 6;
+    } else if (node->op == "<=") {
+        result = (l <= r) ? 1 : 0;
+        node->type_info = 6;
+    } else if (node->op == "||") {
+        result = (l || r) ? 1 : 0;
+        node->type_info = 6;
+    } else if (node->op == "&&") {
+        result = (l && r) ? 1 : 0;
+        node->type_info = 6;
     }
     // 結果はint64_tで返す
     return result;
@@ -226,6 +257,10 @@ int64_t eval_assign(ASTNode *node) {
                      rhs->type, rhs->type_info, rhs->sval.c_str());
         var.svalue = rhs->sval;
         var.value = 0;
+    } else if (lhs_type == 6) {
+        // bool型: 1bitに正規化
+        var.value = (value != 0) ? 1 : 0;
+        var.svalue = "";
     } else {
         // デバッグ出力: 代入時の型・値
         debug_printf("DEBUG: assign %s value=%lld lhs_type=%d rhs_type=%d\n",
@@ -297,7 +332,7 @@ int eval_print(ASTNode *node) {
                  node->lhs->sval.c_str());
     ASTNode *result = node->lhs;
     // すべてのprint対象で必ずevalを呼ぶ（変数参照時も値をセット）
-    eval(result);
+    int64_t value = eval(result);
     if (result->type == ASTNode::AST_STRING_LITERAL || result->type_info == 5) {
         if (result->sval.empty()) {
             printf("\n");
@@ -307,7 +342,6 @@ int eval_print(ASTNode *node) {
         return 0;
     }
     // それ以外は数値として評価
-    int64_t value = eval(result);
     printf("%lld\n", value);
     return 0;
 }
@@ -444,6 +478,12 @@ int64_t eval(ASTNode *node) {
         return eval_var(node);
     case ASTNode::AST_BINOP:
         return eval_binop(node);
+    case ASTNode::AST_UNARYOP:
+        if (node->op == "!") {
+            int64_t v = eval(node->lhs);
+            return (v == 0) ? 1 : 0;
+        }
+        return 0;
     case ASTNode::AST_ASSIGN:
         return eval_assign(node);
     case ASTNode::AST_PRINT:
