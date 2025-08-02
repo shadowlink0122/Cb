@@ -66,6 +66,7 @@ integration-test: main
 			   tests/integration/bool_expr/test_bool_expr.cpp \
 			   tests/integration/loop/test_loop.cpp \
 			   tests/integration/if/test_if.cpp \
+			   tests/integration/self_assign/test_self_assign.cpp \
 			   src/eval/eval.cpp \
 			   src/parser.c \
 			   src/lexer.c \

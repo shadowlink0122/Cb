@@ -6,6 +6,7 @@
 #include "func/test_func_case.h"
 #include "if/test_if_case.h"
 #include "loop/test_loop.h"
+#include "self_assign/test_self_assign_case.h"
 #include "string/test_string.h"
 #include <iostream>
 
@@ -17,6 +18,7 @@ int main() {
         test_integration_boundary();
         test_integration_cross_type();
         test_integration_func();
+        test_integration_self_assign();
         test_integration_string();
         test_bool_expr_basic();
         test_integration_loop();
