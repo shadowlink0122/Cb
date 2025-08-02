@@ -42,4 +42,22 @@ inline void dump_ast(const ASTNode *node, int indent = 0) {
         printf("%s  body:\n", ind.c_str());
         dump_ast(node->body, indent + 4);
     }
+    if (node->type == ASTNode::AST_FOR) {
+        if (node->for_init) {
+            printf("%s  for_init:\n", ind.c_str());
+            dump_ast(node->for_init, indent + 4);
+        }
+        if (node->for_cond) {
+            printf("%s  for_cond:\n", ind.c_str());
+            dump_ast(node->for_cond, indent + 4);
+        }
+        if (node->for_update) {
+            printf("%s  for_update:\n", ind.c_str());
+            dump_ast(node->for_update, indent + 4);
+        }
+        if (node->for_body) {
+            printf("%s  for_body:\n", ind.c_str());
+            dump_ast(node->for_body, indent + 4);
+        }
+    }
 }

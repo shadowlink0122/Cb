@@ -17,7 +17,8 @@ struct ASTNode {
         AST_TYPELIST,      // 型リスト（タプル型）
         AST_RETURN,        // return文
         AST_FUNCCALL,      // 関数呼び出し
-        AST_STRING_LITERAL // 文字列リテラル
+        AST_STRING_LITERAL, // 文字列リテラル
+        AST_FOR            // for文
     } type;
     int32_t type_info =
         0; // 型情報: 1=tiny, 2=short, 3=int, 4=long, 5=string, 6=bool(1bit)
@@ -45,6 +46,11 @@ struct ASTNode {
             delete *it;
         delete body;
     }
+    // for文用: for(init; cond; update) { body }
+    ASTNode *for_init = nullptr;   // 初期化文
+    ASTNode *for_cond = nullptr;   // 条件式
+    ASTNode *for_update = nullptr; // 更新式
+    ASTNode *for_body = nullptr;   // 本体
     // return文用: lhsに返す式を格納
 };
 

@@ -36,10 +36,11 @@ extern "C" {
 %token VOID TINY SHORT INT LONG BOOL
 %token TRUE FALSE NULL_LIT
 %token PLUS MINUS MUL DIV ASSIGN SEMICOLON PRINT RETURN
+%token FOR
 %token EQ NEQ GE LE GT LT OR AND NOT
 %token '{' '}' '(' ')' '[' ']'
 
-%type <ptr> expr term factor statement program funcdef typelist paramlist paramlist_nonempty returnstmt type type_list_items arglist
+%type <ptr> expr term factor statement program funcdef typelist paramlist paramlist_nonempty returnstmt type type_list_items arglist opt_statement opt_expr init_statement opt_update
 
 %%
 program:
@@ -180,6 +181,51 @@ statement:
     | PRINT expr SEMICOLON { $$ = (void*)(new ASTNode(ASTNode::AST_PRINT)); ((ASTNode*)$$)->lhs = (ASTNode*)$2; }
     | expr SEMICOLON { $$ = $1; }
     | returnstmt { $$ = $1; }
+    | FOR '(' init_statement SEMICOLON opt_expr SEMICOLON opt_update ')' '{' program '}' {
+        ASTNode* forNode = new ASTNode(ASTNode::AST_FOR);
+        forNode->for_init = (ASTNode*)$3;
+        forNode->for_cond = (ASTNode*)$5;
+        forNode->for_update = (ASTNode*)$7;
+        forNode->for_body = (ASTNode*)$10;
+        $$ = (void*)forNode;
+      }
+
+opt_update:
+      expr { $$ = $1; }
+    | /* 空 */ { $$ = nullptr; }
+    ;
+
+init_statement:
+      type IDENTIFIER ASSIGN expr { 
+        ASTNode* assign = new ASTNode(ASTNode::AST_ASSIGN);
+        assign->sval = std::string($2);
+        assign->rhs = (ASTNode*)$4;
+        assign->type_info = ((ASTNode*)$1)->type_info;
+        $$ = (void*)assign;
+        delete (ASTNode*)$1;
+        free($2);
+      }
+    | IDENTIFIER ASSIGN expr {
+        ASTNode* assign = new ASTNode(ASTNode::AST_ASSIGN);
+        assign->sval = std::string($1);
+        assign->rhs = (ASTNode*)$3;
+        assign->type_info = ((ASTNode*)$3)->type_info;
+        $$ = (void*)assign;
+        free($1);
+      }
+    | /* 空 */ { $$ = nullptr; }
+    ;
+
+opt_statement:
+      statement { $$ = $1; }
+    | expr { $$ = $1; }
+    | /* 空 */ { $$ = nullptr; }
+    ;
+
+opt_expr:
+      expr { $$ = $1; }
+    | /* 空 */ { $$ = nullptr; }
+    ;
     ;
 
 // 引数リスト: (型 ident, ...)
@@ -213,7 +259,15 @@ paramlist_nonempty:
 
 
 expr:
-      expr EQ term {
+    IDENTIFIER ASSIGN expr {
+        ASTNode* assign = new ASTNode(ASTNode::AST_ASSIGN);
+        assign->sval = std::string($1);
+        assign->rhs = (ASTNode*)$3;
+        assign->type_info = ((ASTNode*)$3)->type_info;
+        $$ = (void*)assign;
+        free($1);
+    }
+    | expr EQ term {
         ASTNode* node = new ASTNode(ASTNode::AST_BINOP);
         node->op = "==";
         node->lhs = (ASTNode*)$1;
