@@ -468,6 +468,11 @@ int64_t eval_return(ASTNode *node) {
     }
 }
 
+// break文用例外
+struct BreakException {
+    BreakException() {}
+};
+
 int64_t eval(ASTNode *node) {
     if (!node)
         return 0;
@@ -505,6 +510,56 @@ int64_t eval(ASTNode *node) {
     case ASTNode::AST_STRING_LITERAL:
         // 文字列リテラルは値としては0、svalは文字列本体
         return 0;
+    case ASTNode::AST_WHILE: {
+        // while(cond) { body }
+        try {
+            while (true) {
+                if (node->for_cond) {
+                    int64_t cond = eval(node->for_cond);
+                    if (!cond)
+                        break;
+                }
+                if (node->for_body)
+                    eval(node->for_body);
+            }
+        } catch (const BreakException &) {
+            // break文でループ脱出
+        }
+        return 0;
+    }
+    case ASTNode::AST_FOR: {
+        // for(init; cond; update) { body }
+        if (node->for_init)
+            eval(node->for_init);
+        try {
+            while (true) {
+                if (node->for_cond) {
+                    int64_t cond = eval(node->for_cond);
+                    if (!cond)
+                        break; // 条件がfalseなら終了
+                }
+                if (node->for_body)
+                    eval(node->for_body);
+                if (node->for_update)
+                    eval(node->for_update);
+            }
+        } catch (const BreakException &) {
+            // break文でループ脱出
+        }
+        return 0;
+    }
+    case ASTNode::AST_BREAK: {
+        // break; または break expr;
+        if (!node->lhs) {
+            throw BreakException();
+        } else {
+            int64_t cond = eval(node->lhs);
+            if (cond) {
+                throw BreakException();
+            }
+        }
+        return 0;
+    }
     default:
         return 0;
     }
