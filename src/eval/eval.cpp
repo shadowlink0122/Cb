@@ -516,9 +516,11 @@ int64_t eval(ASTNode *node) {
             while (true) {
                 if (node->for_cond) {
                     int64_t cond = eval(node->for_cond);
-                    if (!cond) break;
+                    if (!cond)
+                        break;
                 }
-                if (node->for_body) eval(node->for_body);
+                if (node->for_body)
+                    eval(node->for_body);
             }
         } catch (const BreakException &) {
             // break文でループ脱出
@@ -527,15 +529,19 @@ int64_t eval(ASTNode *node) {
     }
     case ASTNode::AST_FOR: {
         // for(init; cond; update) { body }
-        if (node->for_init) eval(node->for_init);
+        if (node->for_init)
+            eval(node->for_init);
         try {
             while (true) {
                 if (node->for_cond) {
                     int64_t cond = eval(node->for_cond);
-                    if (!cond) break; // 条件がfalseなら終了
+                    if (!cond)
+                        break; // 条件がfalseなら終了
                 }
-                if (node->for_body) eval(node->for_body);
-                if (node->for_update) eval(node->for_update);
+                if (node->for_body)
+                    eval(node->for_body);
+                if (node->for_update)
+                    eval(node->for_update);
             }
         } catch (const BreakException &) {
             // break文でループ脱出
