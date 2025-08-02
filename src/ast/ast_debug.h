@@ -70,4 +70,11 @@ inline void dump_ast(const ASTNode *node, int indent = 0) {
             dump_ast(node->for_body, indent + 4);
         }
     }
+    if (node->type == ASTNode::AST_BREAK) {
+        printf("%s  break\n", ind.c_str());
+        if (node->lhs) {
+            printf("%s  break_expr:\n", ind.c_str());
+            dump_ast(node->lhs, indent + 4);
+        }
+    }
 }

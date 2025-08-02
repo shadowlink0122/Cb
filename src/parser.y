@@ -36,7 +36,7 @@ extern "C" {
 %token VOID TINY SHORT INT LONG BOOL
 %token TRUE FALSE NULL_LIT
 %token PLUS MINUS MUL DIV ASSIGN SEMICOLON PRINT RETURN
-%token FOR WHILE
+%token FOR WHILE BREAK
 %token EQ NEQ GE LE GT LT OR AND NOT
 %token '{' '}' '(' ')' '[' ']'
 
@@ -181,6 +181,16 @@ statement:
     | PRINT expr SEMICOLON { $$ = (void*)(new ASTNode(ASTNode::AST_PRINT)); ((ASTNode*)$$)->lhs = (ASTNode*)$2; }
     | expr SEMICOLON { $$ = $1; }
     | returnstmt { $$ = $1; }
+    | BREAK SEMICOLON {
+        ASTNode* br = new ASTNode(ASTNode::AST_BREAK);
+        br->lhs = nullptr;
+        $$ = (void*)br;
+      }
+    | BREAK expr SEMICOLON {
+        ASTNode* br = new ASTNode(ASTNode::AST_BREAK);
+        br->lhs = (ASTNode*)$2;
+        $$ = (void*)br;
+      }
     | FOR '(' init_statement SEMICOLON opt_expr SEMICOLON opt_update ')' '{' program '}' {
         ASTNode* forNode = new ASTNode(ASTNode::AST_FOR);
         forNode->for_init = (ASTNode*)$3;

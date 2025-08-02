@@ -19,7 +19,8 @@ struct ASTNode {
         AST_FUNCCALL,      // 関数呼び出し
         AST_STRING_LITERAL, // 文字列リテラル
         AST_FOR,           // for文
-        AST_WHILE          // while文
+        AST_WHILE,         // while文
+        AST_BREAK          // break文
     } type;
     int32_t type_info =
         0; // 型情報: 1=tiny, 2=short, 3=int, 4=long, 5=string, 6=bool(1bit)

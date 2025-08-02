@@ -20,6 +20,7 @@ string           { return STRING; }
 bool             { return BOOL; }
 true             { return TRUE; }
 false            { return FALSE; }
+break            { return BREAK; }
 while            { return WHILE; }
 null             { return NULL_LIT; }
 for              { return FOR; }
