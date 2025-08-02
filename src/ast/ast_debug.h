@@ -60,4 +60,14 @@ inline void dump_ast(const ASTNode *node, int indent = 0) {
             dump_ast(node->for_body, indent + 4);
         }
     }
+    if (node->type == ASTNode::AST_WHILE) {
+        if (node->for_cond) {
+            printf("%s  while_cond:\n", ind.c_str());
+            dump_ast(node->for_cond, indent + 4);
+        }
+        if (node->for_body) {
+            printf("%s  while_body:\n", ind.c_str());
+            dump_ast(node->for_body, indent + 4);
+        }
+    }
 }

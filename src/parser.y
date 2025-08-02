@@ -36,7 +36,7 @@ extern "C" {
 %token VOID TINY SHORT INT LONG BOOL
 %token TRUE FALSE NULL_LIT
 %token PLUS MINUS MUL DIV ASSIGN SEMICOLON PRINT RETURN
-%token FOR
+%token FOR WHILE
 %token EQ NEQ GE LE GT LT OR AND NOT
 %token '{' '}' '(' ')' '[' ']'
 
@@ -188,6 +188,12 @@ statement:
         forNode->for_update = (ASTNode*)$7;
         forNode->for_body = (ASTNode*)$10;
         $$ = (void*)forNode;
+      }
+    | WHILE '(' expr ')' '{' program '}' {
+        ASTNode* whileNode = new ASTNode(ASTNode::AST_WHILE);
+        whileNode->for_cond = (ASTNode*)$3;
+        whileNode->for_body = (ASTNode*)$6;
+        $$ = (void*)whileNode;
       }
 
 opt_update:

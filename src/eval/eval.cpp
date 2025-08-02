@@ -505,6 +505,17 @@ int64_t eval(ASTNode *node) {
     case ASTNode::AST_STRING_LITERAL:
         // 文字列リテラルは値としては0、svalは文字列本体
         return 0;
+    case ASTNode::AST_WHILE: {
+        // while(cond) { body }
+        while (true) {
+            if (node->for_cond) {
+                int64_t cond = eval(node->for_cond);
+                if (!cond) break;
+            }
+            if (node->for_body) eval(node->for_body);
+        }
+        return 0;
+    }
     case ASTNode::AST_FOR: {
         // for(init; cond; update) { body }
         if (node->for_init) eval(node->for_init);

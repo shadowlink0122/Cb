@@ -20,6 +20,7 @@ string           { return STRING; }
 bool             { return BOOL; }
 true             { return TRUE; }
 false            { return FALSE; }
+while            { return WHILE; }
 null             { return NULL_LIT; }
 for              { return FOR; }
 \"([^\\\"]|\\.)*\"  { yylval.sval = strdup(yytext); return STRING_LITERAL; }
