@@ -1,0 +1,12 @@
+// break expr文のテスト（break 条件式;）
+int main() {
+    int i = 0;
+    int sum = 0;
+    while (i < 10) {
+        break i == 5;
+        sum = sum + i;
+        i = i + 1;
+    }
+    print sum; // 0+1+2+3+4 = 10
+    return 0;
+}
