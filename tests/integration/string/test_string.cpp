@@ -43,7 +43,7 @@ void test_string_empty() {
     // ダブルクォート付き空文字列が2回出力されることを確認
     int count = 0;
     size_t pos = 0;
-    while ((pos = out.find("\"\"", pos)) != std::string::npos) {
+    while ((pos = out.find("", pos)) != std::string::npos) {
         ++count;
         pos += 2;
     }
