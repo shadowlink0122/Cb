@@ -37,10 +37,13 @@ extern "C" {
 %token TRUE FALSE NULL_LIT
 %token PLUS MINUS MUL DIV ASSIGN SEMICOLON PRINT RETURN
 %token FOR WHILE BREAK
-%token EQ NEQ GE LE GT LT OR AND NOT
+%token IF ELSE
+%token EQ NEQ GE LE GT LT OR AND NOT MOD
+%token ADD_ASSIGN SUB_ASSIGN MUL_ASSIGN DIV_ASSIGN MOD_ASSIGN
+%token INC_OP DEC_OP
 %token '{' '}' '(' ')' '[' ']'
 
-%type <ptr> expr term factor statement program funcdef typelist paramlist paramlist_nonempty returnstmt type type_list_items arglist opt_statement opt_expr init_statement opt_update
+%type <ptr> expr term factor statement program funcdef typelist paramlist paramlist_nonempty returnstmt type type_list_items arglist opt_statement opt_expr init_statement opt_update if_stmt compound_assign
 
 %%
 program:
@@ -161,7 +164,8 @@ returnstmt:
 
 // 文（ステートメント）
 statement:
-    type IDENTIFIER ASSIGN expr SEMICOLON {
+    if_stmt { $$ = $1; }
+    | type IDENTIFIER ASSIGN expr SEMICOLON {
         ASTNode* assign = new ASTNode(ASTNode::AST_ASSIGN);
         assign->sval = std::string($2);
         assign->rhs = (ASTNode*)$4;
@@ -205,6 +209,60 @@ statement:
         whileNode->for_body = (ASTNode*)$6;
         $$ = (void*)whileNode;
       }
+    ;
+
+// if文
+if_stmt:
+    IF '(' expr ')' statement {
+        ASTNode* ifnode = new ASTNode(ASTNode::AST_IF);
+        ifnode->if_cond = (ASTNode*)$3;
+        ifnode->if_then = (ASTNode*)$5;
+        ifnode->if_else = nullptr;
+        $$ = (void*)ifnode;
+    }
+    | IF '(' expr ')' '{' program '}' {
+        ASTNode* ifnode = new ASTNode(ASTNode::AST_IF);
+        ifnode->if_cond = (ASTNode*)$3;
+        ifnode->if_then = (ASTNode*)$6;
+        ifnode->if_else = nullptr;
+        $$ = (void*)ifnode;
+    }
+    | IF '(' expr ')' statement ELSE statement {
+        ASTNode* ifnode = new ASTNode(ASTNode::AST_IF);
+        ifnode->if_cond = (ASTNode*)$3;
+        ifnode->if_then = (ASTNode*)$5;
+        ifnode->if_else = (ASTNode*)$7;
+        $$ = (void*)ifnode;
+    }
+    | IF '(' expr ')' statement ELSE if_stmt {
+        ASTNode* ifnode = new ASTNode(ASTNode::AST_IF);
+        ifnode->if_cond = (ASTNode*)$3;
+        ifnode->if_then = (ASTNode*)$5;
+        ifnode->if_else = (ASTNode*)$7;
+        $$ = (void*)ifnode;
+    }
+    | IF '(' expr ')' '{' program '}' ELSE statement {
+        ASTNode* ifnode = new ASTNode(ASTNode::AST_IF);
+        ifnode->if_cond = (ASTNode*)$3;
+        ifnode->if_then = (ASTNode*)$6;
+        ifnode->if_else = (ASTNode*)$9;
+        $$ = (void*)ifnode;
+    }
+    | IF '(' expr ')' '{' program '}' ELSE '{' program '}' {
+        ASTNode* ifnode = new ASTNode(ASTNode::AST_IF);
+        ifnode->if_cond = (ASTNode*)$3;
+        ifnode->if_then = (ASTNode*)$6;
+        ifnode->if_else = (ASTNode*)$10;
+        $$ = (void*)ifnode;
+    }
+    | IF '(' expr ')' '{' program '}' ELSE if_stmt {
+        ASTNode* ifnode = new ASTNode(ASTNode::AST_IF);
+        ifnode->if_cond = (ASTNode*)$3;
+        ifnode->if_then = (ASTNode*)$6;
+        ifnode->if_else = (ASTNode*)$9;
+        $$ = (void*)ifnode;
+    }
+  ;
 
 opt_update:
       expr { $$ = $1; }
@@ -229,6 +287,7 @@ init_statement:
         $$ = (void*)assign;
         free($1);
       }
+    | compound_assign { $$ = $1; }
     | /* 空 */ { $$ = nullptr; }
     ;
 
@@ -240,6 +299,7 @@ opt_statement:
 
 opt_expr:
       expr { $$ = $1; }
+    | compound_assign { $$ = $1; }
     | /* 空 */ { $$ = nullptr; }
     ;
     ;
@@ -275,14 +335,15 @@ paramlist_nonempty:
 
 
 expr:
-    IDENTIFIER ASSIGN expr {
-        ASTNode* assign = new ASTNode(ASTNode::AST_ASSIGN);
-        assign->sval = std::string($1);
-        assign->rhs = (ASTNode*)$3;
-        assign->type_info = ((ASTNode*)$3)->type_info;
-        $$ = (void*)assign;
-        free($1);
-    }
+      IDENTIFIER ASSIGN expr {
+          ASTNode* assign = new ASTNode(ASTNode::AST_ASSIGN);
+          assign->sval = std::string($1);
+          assign->rhs = (ASTNode*)$3;
+          assign->type_info = ((ASTNode*)$3)->type_info;
+          $$ = (void*)assign;
+          free($1);
+      }
+    | compound_assign { $$ = $1; }
     | expr EQ term {
         ASTNode* node = new ASTNode(ASTNode::AST_BINOP);
         node->op = "==";
@@ -375,6 +436,68 @@ expr:
       }
     ;
 
+compound_assign:
+      IDENTIFIER ADD_ASSIGN expr {
+        ASTNode* node = new ASTNode(ASTNode::AST_ASSIGN);
+        node->sval = std::string($1);
+        ASTNode* rhs = new ASTNode(ASTNode::AST_BINOP);
+        rhs->op = "+";
+        rhs->lhs = new ASTNode(ASTNode::AST_VAR); rhs->lhs->sval = std::string($1);
+        rhs->rhs = (ASTNode*)$3;
+        node->rhs = rhs;
+        node->type_info = ((ASTNode*)$3)->type_info;
+        $$ = (void*)node;
+        free($1);
+      }
+    | IDENTIFIER SUB_ASSIGN expr {
+        ASTNode* node = new ASTNode(ASTNode::AST_ASSIGN);
+        node->sval = std::string($1);
+        ASTNode* rhs = new ASTNode(ASTNode::AST_BINOP);
+        rhs->op = "-";
+        rhs->lhs = new ASTNode(ASTNode::AST_VAR); rhs->lhs->sval = std::string($1);
+        rhs->rhs = (ASTNode*)$3;
+        node->rhs = rhs;
+        node->type_info = ((ASTNode*)$3)->type_info;
+        $$ = (void*)node;
+        free($1);
+    }
+    | IDENTIFIER MUL_ASSIGN expr {
+        ASTNode* node = new ASTNode(ASTNode::AST_ASSIGN);
+        node->sval = std::string($1);
+        ASTNode* rhs = new ASTNode(ASTNode::AST_BINOP);
+        rhs->op = "*";
+        rhs->lhs = new ASTNode(ASTNode::AST_VAR); rhs->lhs->sval = std::string($1);
+        rhs->rhs = (ASTNode*)$3;
+        node->rhs = rhs;
+        node->type_info = ((ASTNode*)$3)->type_info;
+        $$ = (void*)node;
+        free($1);
+    }
+    | IDENTIFIER DIV_ASSIGN expr {
+        ASTNode* node = new ASTNode(ASTNode::AST_ASSIGN);
+        node->sval = std::string($1);
+        ASTNode* rhs = new ASTNode(ASTNode::AST_BINOP);
+        rhs->op = "/";
+        rhs->lhs = new ASTNode(ASTNode::AST_VAR); rhs->lhs->sval = std::string($1);
+        rhs->rhs = (ASTNode*)$3;
+        node->rhs = rhs;
+        node->type_info = ((ASTNode*)$3)->type_info;
+        $$ = (void*)node;
+        free($1);
+    }
+    | IDENTIFIER MOD_ASSIGN expr {
+        ASTNode* node = new ASTNode(ASTNode::AST_ASSIGN);
+        node->sval = std::string($1);
+        ASTNode* rhs = new ASTNode(ASTNode::AST_BINOP);
+        rhs->op = "%";
+        rhs->lhs = new ASTNode(ASTNode::AST_VAR); rhs->lhs->sval = std::string($1);
+        rhs->rhs = (ASTNode*)$3;
+        node->rhs = rhs;
+        node->type_info = ((ASTNode*)$3)->type_info;
+        $$ = (void*)node;
+        free($1);
+    }
+
 term:
       term MUL factor {
         debug_printf("DEBUG: term MUL factor\n");
@@ -398,6 +521,17 @@ term:
         node->type_info = (ltype > rtype) ? ltype : rtype;
         $$ = (void*)node;
       }
+    | term MOD factor {
+        debug_printf("DEBUG: term MOD factor\n");
+        ASTNode* node = new ASTNode(ASTNode::AST_BINOP);
+        node->op = "%";
+        node->lhs = (ASTNode*)$1;
+        node->rhs = (ASTNode*)$3;
+        int ltype = node->lhs ? node->lhs->type_info : 3;
+        int rtype = node->rhs ? node->rhs->type_info : 3;
+        node->type_info = (ltype > rtype) ? ltype : rtype;
+        $$ = (void*)node;
+      }
     | factor {
         debug_printf("DEBUG: term -> factor\n");
         $$ = $1;
@@ -406,7 +540,39 @@ term:
 
 // 型情報を持つリテラルをサポート
 factor:
-      NOT factor {
+    INC_OP IDENTIFIER {
+        // 前置インクリメント ++a
+        ASTNode* node = new ASTNode(ASTNode::AST_PRE_INCDEC);
+        node->op = "++";
+        node->lhs = new ASTNode(ASTNode::AST_VAR); node->lhs->sval = std::string($2);
+        $$ = (void*)node;
+        free($2);
+    }
+    | DEC_OP IDENTIFIER {
+        // 前置デクリメント --a
+        ASTNode* node = new ASTNode(ASTNode::AST_PRE_INCDEC);
+        node->op = "--";
+        node->lhs = new ASTNode(ASTNode::AST_VAR); node->lhs->sval = std::string($2);
+        $$ = (void*)node;
+        free($2);
+    }
+    | IDENTIFIER INC_OP {
+        // 後置インクリメント a++
+        ASTNode* node = new ASTNode(ASTNode::AST_POST_INCDEC);
+        node->op = "++";
+        node->lhs = new ASTNode(ASTNode::AST_VAR); node->lhs->sval = std::string($1);
+        $$ = (void*)node;
+        free($1);
+    }
+    | IDENTIFIER DEC_OP {
+        // 後置デクリメント a--
+        ASTNode* node = new ASTNode(ASTNode::AST_POST_INCDEC);
+        node->op = "--";
+        node->lhs = new ASTNode(ASTNode::AST_VAR); node->lhs->sval = std::string($1);
+        $$ = (void*)node;
+        free($1);
+    }
+    | NOT factor {
         // NOTは右結合で、factorの先頭でのみ受け付けることで優先順位を正しくする
         ASTNode* node = new ASTNode(ASTNode::AST_UNARYOP);
         node->op = "!";

@@ -77,4 +77,14 @@ inline void dump_ast(const ASTNode *node, int indent = 0) {
             dump_ast(node->lhs, indent + 4);
         }
     }
+    if (node->type == ASTNode::AST_IF) {
+        printf("%s  if_cond:\n", ind.c_str());
+        dump_ast(node->if_cond, indent + 4);
+        printf("%s  if_then:\n", ind.c_str());
+        dump_ast(node->if_then, indent + 4);
+        if (node->if_else) {
+            printf("%s  if_else:\n", ind.c_str());
+            dump_ast(node->if_else, indent + 4);
+        }
+    }
 }

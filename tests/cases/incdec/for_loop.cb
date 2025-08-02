@@ -1,0 +1,12 @@
+int main() {
+    int sum = 0;
+    for(tiny i = 0; i < 3; ++i) {
+        sum += i;
+    }
+    print sum; // 3
+    for(tiny j = 3; j > 0; j--) {
+        sum += j;
+    }
+    print sum; // 9
+    return 0;
+}

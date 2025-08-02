@@ -1,4 +1,4 @@
-bool ok() {
+bool check_bool_type() {
     print "bool check";
     bool a = true;
     print a;
@@ -9,7 +9,7 @@ bool ok() {
     return true;
 }
 
-int ng() {
+int check_bool() {
     print "評価チェック";
     print "==";
     print true == true;
@@ -100,35 +100,10 @@ void test_bool_and_expr() {
     print ((1 < 2) && (2 < 3)) || false; // 1
 }
 
-void h() {
-    print "h";
-    bool a = true;
-    bool b = false;
-    print a && b;
-    print !a && b;
-    print a && !b;
-    print !a && !b;
-}
-
 int main() {
-    // print ok();
-    // ng();
-    // calc();
-    // test_bool_and_expr();
-    // h();
-    tiny i = 1;
-    print "while";
-    while(true){
-        print i;
-        i = i + 1;
-        break;
-    }
-    print "for";
-    for(;;i = i + 1){
-        print i;
-        break i >= 10;
-    }
-    print "exit for";
-    print i;
+    check_bool_type();
+    check_bool();
+    calc();
+    test_bool_and_expr();
     return 0;
 }

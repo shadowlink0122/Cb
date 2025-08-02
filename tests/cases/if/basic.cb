@@ -1,0 +1,21 @@
+int main() {
+    int x = 0;
+    if (1) x = 1;
+    if (0) x = 2;
+    if (1) {
+        x = x + 3;
+    }
+    if (0) {
+        x = x + 100;
+    }
+    if (x == 4) {
+        print "ok";
+    } else {
+        print "ng";
+    }
+    if (x == 4) print "ok2";
+    else print "ng2";
+    if (x == 0) print "ng3";
+    else if (x == 4) print "ok3";
+    else print "ng4";
+}

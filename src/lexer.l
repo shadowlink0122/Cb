@@ -24,6 +24,8 @@ break            { return BREAK; }
 while            { return WHILE; }
 null             { return NULL_LIT; }
 for              { return FOR; }
+if               { return IF; }
+else             { return ELSE; }
 \"([^\\\"]|\\.)*\"  { yylval.sval = strdup(yytext); return STRING_LITERAL; }
 [0-9]+            { yylval.lval = strtoll(yytext, NULL, 10); return NUMBER; }
 return            { return RETURN; }
@@ -32,6 +34,13 @@ return            { return RETURN; }
 !                 { return NOT; }
 \|\|              { return OR; }
 &&                { return AND; }
+\+\+               { return INC_OP; }
+\-\-               { return DEC_OP; }
+\+=               { return ADD_ASSIGN; }
+\-=               { return SUB_ASSIGN; }
+\*=               { return MUL_ASSIGN; }
+\/=               { return DIV_ASSIGN; }
+\%=               { return MOD_ASSIGN; }
 [a-zA-Z_][a-zA-Z0-9_]* {
     if (strcmp(yytext, "print") == 0) return PRINT;
     yylval.sval = strdup(yytext);
@@ -41,6 +50,7 @@ return            { return RETURN; }
 \-                { return MINUS; }
 \*                { return MUL; }
 \/                { return DIV; }
+%                 { return MOD; }
 \(                { return '('; }
 \)                { return ')'; }
 \{                { return '{'; }
