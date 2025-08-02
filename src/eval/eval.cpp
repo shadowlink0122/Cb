@@ -203,32 +203,18 @@ int64_t eval_var(ASTNode *node) {
     }
     const Variable &var = it->second;
     if (var.type == 5) {
-        // string型の場合はtype_info/typeを更新し、値をsvalにセット（print用）
+        // string型の場合のみtype/svalをセット
         node->type_info = 5;
         node->type = ASTNode::AST_STRING_LITERAL;
         node->sval = var.svalue;
         return 0;
     }
+    // string型以外はtype_infoを上書きしない
     if (var.type == 6) {
-        node->type_info = 6;
         return (var.value != 0) ? 1 : 0;
     }
-    // 型に応じてキャストして返す
-    switch (var.type) {
-    case 0:
-        yyerror("void型の値は参照できません", node->sval.c_str());
-        return 0;
-    case 1:
-        return (int8_t)var.value;
-    case 2:
-        return (int16_t)var.value;
-    case 3:
-        return (int32_t)var.value;
-    case 4:
-        return (int64_t)var.value;
-    default:
-        return (int32_t)var.value;
-    }
+    // int型などは値をそのまま返す
+    return var.value;
 }
 
 int64_t eval_binop(ASTNode *node) {
@@ -372,10 +358,22 @@ int64_t eval_assign(ASTNode *node) {
             lhs_type = it->second.type;
         }
     }
+    // lhs_typeが未設定（0）の場合はrhsのtype_infoを使う（int型デフォルト）
+    if (lhs_type == 0) {
+        lhs_type = rhs->type_info ? rhs->type_info : 3;
+    }
     propagate_type_info(rhs, lhs_type);
     int64_t value = eval(rhs);
     Variable var;
-    var.type = lhs_type;
+    auto it2 = symbol_table.find(node->sval);
+    if (it2 != symbol_table.end()) {
+        var = it2->second; // 既存変数をコピー
+        if (var.type == 0) {
+            var.type = lhs_type;
+        }
+    } else {
+        var.type = lhs_type;
+    }
     if (lhs_type == 5) {
         // string型: rhsの内容をデバッグ出力
         debug_printf("DEBUG: assign string rhs type=%d type_info=%d sval=%s\n",
@@ -464,6 +462,11 @@ int eval_print(ASTNode *node) {
         }
         return 0;
     }
+    if (result->type == ASTNode::AST_VAR) {
+        // 変数参照は必ずeval_varの戻り値を出力
+        printf("%lld\n", value);
+        return 0;
+    }
     // それ以外は数値として評価
     printf("%lld\n", value);
     return 0;
@@ -491,11 +494,9 @@ int eval_stmtlist(ASTNode *node) {
         throw; // return値を上位に伝搬
     }
     if (!is_global) {
-        // スコープ復元時、配列変数は値をマージして失われないようにする
+        // スコープ復元時、すべての変数（配列・スカラ）で値をマージして失われないようにする
         for (auto &kv : symbol_table) {
-            if (kv.second.is_array) {
-                old_symbol_table[kv.first] = kv.second;
-            }
+            old_symbol_table[kv.first] = kv.second;
         }
         symbol_table = old_symbol_table;
     }
