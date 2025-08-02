@@ -560,6 +560,17 @@ int64_t eval(ASTNode *node) {
         }
         return 0;
     }
+    case ASTNode::AST_IF: {
+        int64_t cond = eval(node->if_cond);
+        if (cond) {
+            if (node->if_then)
+                eval(node->if_then);
+        } else {
+            if (node->if_else)
+                eval(node->if_else);
+        }
+        return 0;
+    }
     default:
         return 0;
     }

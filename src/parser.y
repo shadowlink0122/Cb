@@ -37,10 +37,11 @@ extern "C" {
 %token TRUE FALSE NULL_LIT
 %token PLUS MINUS MUL DIV ASSIGN SEMICOLON PRINT RETURN
 %token FOR WHILE BREAK
+%token IF ELSE
 %token EQ NEQ GE LE GT LT OR AND NOT
 %token '{' '}' '(' ')' '[' ']'
 
-%type <ptr> expr term factor statement program funcdef typelist paramlist paramlist_nonempty returnstmt type type_list_items arglist opt_statement opt_expr init_statement opt_update
+%type <ptr> expr term factor statement program funcdef typelist paramlist paramlist_nonempty returnstmt type type_list_items arglist opt_statement opt_expr init_statement opt_update if_stmt
 
 %%
 program:
@@ -161,7 +162,8 @@ returnstmt:
 
 // 文（ステートメント）
 statement:
-    type IDENTIFIER ASSIGN expr SEMICOLON {
+    if_stmt { $$ = $1; }
+    | type IDENTIFIER ASSIGN expr SEMICOLON {
         ASTNode* assign = new ASTNode(ASTNode::AST_ASSIGN);
         assign->sval = std::string($2);
         assign->rhs = (ASTNode*)$4;
@@ -205,6 +207,59 @@ statement:
         whileNode->for_body = (ASTNode*)$6;
         $$ = (void*)whileNode;
       }
+    ;
+// if文
+if_stmt:
+    IF '(' expr ')' statement {
+        ASTNode* ifnode = new ASTNode(ASTNode::AST_IF);
+        ifnode->if_cond = (ASTNode*)$3;
+        ifnode->if_then = (ASTNode*)$5;
+        ifnode->if_else = nullptr;
+        $$ = (void*)ifnode;
+    }
+    | IF '(' expr ')' '{' program '}' {
+        ASTNode* ifnode = new ASTNode(ASTNode::AST_IF);
+        ifnode->if_cond = (ASTNode*)$3;
+        ifnode->if_then = (ASTNode*)$6;
+        ifnode->if_else = nullptr;
+        $$ = (void*)ifnode;
+    }
+    | IF '(' expr ')' statement ELSE statement {
+        ASTNode* ifnode = new ASTNode(ASTNode::AST_IF);
+        ifnode->if_cond = (ASTNode*)$3;
+        ifnode->if_then = (ASTNode*)$5;
+        ifnode->if_else = (ASTNode*)$7;
+        $$ = (void*)ifnode;
+    }
+    | IF '(' expr ')' statement ELSE if_stmt {
+        ASTNode* ifnode = new ASTNode(ASTNode::AST_IF);
+        ifnode->if_cond = (ASTNode*)$3;
+        ifnode->if_then = (ASTNode*)$5;
+        ifnode->if_else = (ASTNode*)$7;
+        $$ = (void*)ifnode;
+    }
+    | IF '(' expr ')' '{' program '}' ELSE statement {
+        ASTNode* ifnode = new ASTNode(ASTNode::AST_IF);
+        ifnode->if_cond = (ASTNode*)$3;
+        ifnode->if_then = (ASTNode*)$6;
+        ifnode->if_else = (ASTNode*)$9;
+        $$ = (void*)ifnode;
+    }
+    | IF '(' expr ')' '{' program '}' ELSE '{' program '}' {
+        ASTNode* ifnode = new ASTNode(ASTNode::AST_IF);
+        ifnode->if_cond = (ASTNode*)$3;
+        ifnode->if_then = (ASTNode*)$6;
+        ifnode->if_else = (ASTNode*)$10;
+        $$ = (void*)ifnode;
+    }
+    | IF '(' expr ')' '{' program '}' ELSE if_stmt {
+        ASTNode* ifnode = new ASTNode(ASTNode::AST_IF);
+        ifnode->if_cond = (ASTNode*)$3;
+        ifnode->if_then = (ASTNode*)$6;
+        ifnode->if_else = (ASTNode*)$9;
+        $$ = (void*)ifnode;
+    }
+  ;
 
 opt_update:
       expr { $$ = $1; }

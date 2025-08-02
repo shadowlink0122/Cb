@@ -20,8 +20,13 @@ struct ASTNode {
         AST_STRING_LITERAL, // 文字列リテラル
         AST_FOR,            // for文
         AST_WHILE,          // while文
-        AST_BREAK           // break文
+        AST_BREAK,          // break文
+        AST_IF              // if文
     } type;
+    // if文用: 条件式、then, else
+    ASTNode *if_cond = nullptr;
+    ASTNode *if_then = nullptr;
+    ASTNode *if_else = nullptr;
     int32_t type_info =
         0; // 型情報: 1=tiny, 2=short, 3=int, 4=long, 5=string, 6=bool(1bit)
     int64_t lval64 = 0; // 整数値（常にint64_tで保持）
