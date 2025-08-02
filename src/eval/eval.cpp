@@ -447,8 +447,14 @@ int eval_print(ASTNode *node) {
             return 0;
         }
         // 配列要素参照はevalの戻り値を出力
-        if (value >= 32 && value <= 126) {
-            printf("%c\n", (char)value);
+        // string型要素なら文字列出力、それ以外は数値出力
+        if (result->type_info == 5) {
+            // 文字列型要素
+            if (!result->sval.empty()) {
+                printf("%s\n", result->sval.c_str());
+            } else {
+                printf("\n");
+            }
         } else {
             printf("%lld\n", value);
         }
