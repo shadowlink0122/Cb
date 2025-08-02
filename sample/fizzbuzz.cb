@@ -1,5 +1,5 @@
-void fizzbuzz(){
-    for(tiny i = 0;i <= 30;i = i + 1){
+void fizzbuzz(int n){
+    for(tiny i = 1;i <= n;i += 1){
         // && 左から順に実行されるので、&&でバグる
         // print i % 3 == 0 && i % 5 == 0;
         if ((i % 3 == 0) && (i % 5 == 0)) print "FizzBuzz";
@@ -10,7 +10,7 @@ void fizzbuzz(){
 }
 
 int main() {
-    fizzbuzz();
-    
+    fizzbuzz(30);
+    calc(10);
     return 0;
 }
