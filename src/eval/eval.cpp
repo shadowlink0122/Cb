@@ -27,18 +27,19 @@ void set_debug_mode_from_env() {
 #include <cstdint>
 #include <map>
 #include <string>
+#include "../ast/util.h"
 
+// struct Variableはeval.hで定義
 struct Variable {
-    int type; // 0=void, 1=tiny, 2=short, 3=int, 4=long, 5=string, 6=bool(1bit),
-              // 100+で配列
-    int64_t value;      // 整数値
-    std::string svalue; // 文字列値（string型用）
-    // 配列用
-    std::vector<int64_t> arr_value;      // 整数・bool配列
-    std::vector<std::string> arr_svalue; // 文字列配列
-    int array_size = -1;                 // 配列サイズ
-    int elem_type = 0;                   // 配列要素型
-    bool is_array = false;
+    int type;
+    int64_t value;
+    std::string svalue;
+    std::vector<int64_t> arr_value;
+    std::vector<std::string> arr_svalue;
+    int array_size;
+    int elem_type;
+    bool is_array;
+    bool is_const;
 };
 
 // 配列のデフォルト値を型ごとに返す
@@ -113,34 +114,6 @@ struct ReturnException {
     ReturnException(ASTNode *v) : value(v) {}
 };
 
-// 1引数版（bison生成Cコード用）
-void yyerror(const char *s) {
-    yyerror(s, ""); // exit(1);
-}
-
-// 2引数版（C++評価系・型エラー用）
-void yyerror(const char *s, const char *error) {
-    fprintf(stderr, "%s: %s\n", s, error);
-    fflush(stderr);
-    if (yyfilename) {
-        FILE *fp = fopen(yyfilename, "r");
-        if (fp) {
-            char buf[1024];
-            int line = 1;
-            while (fgets(buf, sizeof(buf), fp)) {
-                if (line == yylineno) {
-                    fprintf(stderr, "%s:%d\n>> %s", yyfilename, line, buf);
-                    break;
-                }
-                line++;
-            }
-            fclose(fp);
-        }
-    }
-    fflush(stderr);
-    exit(1);
-}
-
 // 型ごとの範囲チェック関数
 void check_range(int type, int64_t value, const char *name) {
     switch (type) {
@@ -199,7 +172,6 @@ int64_t eval_var(ASTNode *node) {
     auto it = symbol_table.find(node->sval);
     if (it == symbol_table.end()) {
         yyerror("未定義の変数です", node->sval.c_str());
-        return 0;
     }
     const Variable &var = it->second;
     if (var.type == 5) {
@@ -286,6 +258,10 @@ int64_t eval_assign(ASTNode *node) {
             yyerror("未定義の配列または変数です", arr_ref->sval.c_str());
         }
         Variable &var = it->second;
+        // const配列/const stringの要素変更禁止
+        if (var.is_const) {
+            yyerror("constで定義された配列・stringの要素は変更できません", arr_ref->sval.c_str());
+        }
         int64_t idx = eval(arr_ref->array_index);
         // string型の要素代入
         if (var.type == 5) {
@@ -350,6 +326,10 @@ int64_t eval_assign(ASTNode *node) {
     int lhs_type = node->type_info;
     auto it = symbol_table.find(node->sval);
     if (it != symbol_table.end()) {
+        // const変数の再代入禁止
+        if (it->second.is_const) {
+            yyerror("constで定義された変数は再代入できません", node->sval.c_str());
+        }
         // 配列変数名への直接代入はエラー
         if (it->second.is_array) {
             yyerror("配列変数名への直接代入はできません。要素指定してください",
@@ -625,6 +605,42 @@ int64_t eval(ASTNode *node) {
     if (!node)
         return 0;
     switch (node->type) {
+    case ASTNode::AST_VAR_DECL: {
+        // 型 変数 = 値; の宣言（初期化付き変数宣言）
+        // 既に同名変数が存在する場合はエラー
+        if (symbol_table.find(node->sval) != symbol_table.end()) {
+            yyerror("変数の再宣言はできません", node->sval.c_str());
+            exit(1);
+        }
+        Variable var;
+        var.type = node->type_info;
+        var.is_const = node->is_const;
+        var.is_array = false;
+        var.svalue = "";
+        var.value = 0;
+        // 初期値があれば評価
+        if (node->rhs) {
+            propagate_type_info(node->rhs, node->type_info);
+            int64_t v = eval(node->rhs);
+            if (node->type_info == 5) {
+                // string型
+                var.svalue = node->rhs->sval;
+            } else if (node->type_info == 6) {
+                var.value = (v != 0) ? 1 : 0;
+            } else {
+                check_range(node->type_info, v, node->sval.c_str());
+                switch (node->type_info) {
+                case 1: var.value = (int8_t)v; break;
+                case 2: var.value = (int16_t)v; break;
+                case 3: var.value = (int32_t)v; break;
+                case 4: var.value = (int64_t)v; break;
+                default: var.value = (int32_t)v; break;
+                }
+            }
+        }
+        symbol_table[node->sval] = var;
+        return 0;
+    }
     case ASTNode::AST_PRE_INCDEC: {
         // ++a, --a
         if (!node->lhs || node->lhs->type != ASTNode::AST_VAR)

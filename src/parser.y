@@ -32,9 +32,7 @@ extern void yyerror(const char *s, const char *error);
 extern void debug_printf(const char* fmt, ...);
 int yylex();
 ASTNode* root = nullptr;
-extern "C" {
-    char *yyfilename = NULL;
-}
+char *yyfilename = NULL;
 %}
 
 %union {
@@ -47,6 +45,7 @@ extern "C" {
 %token <lval> NUMBER
 %token <sval> IDENTIFIER STRING STRING_LITERAL
 %token VOID TINY SHORT INT LONG BOOL
+%token CONST
 %token TRUE FALSE NULL_LIT
 %token PLUS MINUS MUL DIV ASSIGN SEMICOLON PRINT RETURN
 %token FOR WHILE BREAK
@@ -56,35 +55,66 @@ extern "C" {
 %token INC_OP DEC_OP
 %token '{' '}' '(' ')' '[' ']' ','
 
-%type <ptr> expr term factor statement program funcdef typelist paramlist paramlist_nonempty returnstmt type type_list_items arglist opt_statement opt_expr init_statement opt_update
-%type <ptr> if_stmt compound_assign array_literal array_init_list
+%left OR
+%left AND
+%left EQ NEQ
+%left GT LT GE LE
+%left PLUS MINUS
+%left MUL DIV MOD
+%left INC_OP DEC_OP
+
+%type <ptr> block expr term factor statement program funcdef typelist paramlist paramlist_nonempty returnstmt type type_list_items arglist opt_statement opt_expr init_statement opt_update decl_statement nondecl_statement decls stmts
+%type <ptr> if_stmt compound_assign array_literal array_init_list type_decl
 
 %%
 program:
-      /* 空 */ {
-        std::vector<ASTNode*>* stmts = new std::vector<ASTNode*>();
+    decls stmts {
+        std::vector<ASTNode*>* all = new std::vector<ASTNode*>();
+        std::vector<ASTNode*>* decls = (std::vector<ASTNode*>*)$1;
+        std::vector<ASTNode*>* stmts = (std::vector<ASTNode*>*)$2;
+        all->insert(all->end(), decls->begin(), decls->end());
+        all->insert(all->end(), stmts->begin(), stmts->end());
         ASTNode* list = new ASTNode(ASTNode::AST_STMTLIST);
-        list->stmts = *stmts;
+        list->stmts = *all;
+        delete all;
+        delete decls;
         delete stmts;
         $$ = (void*)list;
         root = list;
-      }
-    | program statement {
-        ASTNode* list = (ASTNode*)$1;
-        list->stmts.push_back((ASTNode*)$2);
-        $$ = $1;
+    }
+    | funcdef {
+        ASTNode* list = new ASTNode(ASTNode::AST_STMTLIST);
+        list->stmts.push_back((ASTNode*)$1);
+        $$ = (void*)list;
         root = list;
-      }
-    | program funcdef {
-        ASTNode* list = (ASTNode*)$1;
-        list->stmts.push_back((ASTNode*)$2);
+    }
+    ;
+
+decls:
+    /* 空 */ { $$ = (void*)(new std::vector<ASTNode*>()); }
+    | decls decl_statement {
+        std::vector<ASTNode*>* decls = (std::vector<ASTNode*>*)$1;
+        decls->push_back((ASTNode*)$2);
         $$ = $1;
-        root = list;
-      }
+    }
+    ;
+
+stmts:
+    /* 空 */ { $$ = (void*)(new std::vector<ASTNode*>()); }
+    | stmts nondecl_statement {
+        std::vector<ASTNode*>* stmts = (std::vector<ASTNode*>*)$1;
+        stmts->push_back((ASTNode*)$2);
+        $$ = $1;
+    }
+    | stmts funcdef {
+        std::vector<ASTNode*>* stmts = (std::vector<ASTNode*>*)$1;
+        stmts->push_back((ASTNode*)$2);
+        $$ = $1;
+    }
     ;
 // 関数定義: (型,...) fname(引数,...) { ... } または 型 fname(引数,...) { ... }
 funcdef:
-      typelist IDENTIFIER '(' paramlist ')' '{' program '}' {
+      typelist IDENTIFIER '(' paramlist ')' '{' block '}' {
         ASTNode* fn = new ASTNode(ASTNode::AST_FUNCDEF);
         fn->rettypes = ((ASTNode*)$1)->rettypes; delete (ASTNode*)$1;
         fn->sval = std::string($2);
@@ -93,7 +123,7 @@ funcdef:
         $$ = (void*)fn;
         free($2);
       }
-    | type IDENTIFIER '(' paramlist ')' '{' program '}' {
+    | type IDENTIFIER '(' paramlist ')' '{' block '}' {
         ASTNode* fn = new ASTNode(ASTNode::AST_FUNCDEF);
         ASTNode* typelist = (ASTNode*)$1;
         debug_printf("DEBUG: funcdef %s, typelist=%p, type_info=%d\n", $2, typelist, typelist ? typelist->type_info : -1);
@@ -105,6 +135,21 @@ funcdef:
         free($2);
       }
 
+block:
+    decls stmts {
+        std::vector<ASTNode*>* all = new std::vector<ASTNode*>();
+        std::vector<ASTNode*>* decls = (std::vector<ASTNode*>*)$1;
+        std::vector<ASTNode*>* stmts = (std::vector<ASTNode*>*)$2;
+        all->insert(all->end(), decls->begin(), decls->end());
+        all->insert(all->end(), stmts->begin(), stmts->end());
+        ASTNode* list = new ASTNode(ASTNode::AST_STMTLIST);
+        list->stmts = *all;
+        delete all;
+        delete decls;
+        delete stmts;
+        $$ = (void*)list;
+    };
+
 // 型リスト: (型,型,...)
 typelist:
       '(' type_list_items ')' {
@@ -113,6 +158,12 @@ typelist:
         $$ = (void*)tlist;
       }
     | type { $$ = $1; }
+    ;
+
+// --- const修飾子付き型宣言 ---
+type_decl:
+      type { $$ = $1; ((ASTNode*)$$)->is_const = false; }
+    | CONST type { $$ = $2; ((ASTNode*)$$)->is_const = true; }
     ;
 
 type_list_items:
@@ -132,13 +183,13 @@ type_list_items:
 
 
 type:
-      VOID   { ASTNode* n = new ASTNode(ASTNode::AST_TYPELIST); n->type_info = 0; $$ = (void*)n; }
-    | TINY   { ASTNode* n = new ASTNode(ASTNode::AST_TYPELIST); n->type_info = 1; $$ = (void*)n; }
-    | SHORT  { ASTNode* n = new ASTNode(ASTNode::AST_TYPELIST); n->type_info = 2; $$ = (void*)n; }
-    | INT    { ASTNode* n = new ASTNode(ASTNode::AST_TYPELIST); n->type_info = 3; $$ = (void*)n; }
-    | LONG   { ASTNode* n = new ASTNode(ASTNode::AST_TYPELIST); n->type_info = 4; $$ = (void*)n; }
-    | STRING { ASTNode* n = new ASTNode(ASTNode::AST_TYPELIST); n->type_info = 5; $$ = (void*)n; }
-    | BOOL   { ASTNode* n = new ASTNode(ASTNode::AST_TYPELIST); n->type_info = 6; $$ = (void*)n; }
+      VOID   { ASTNode* n = new ASTNode(ASTNode::AST_TYPE); n->type_info = 0; $$ = (void*)n; }
+    | TINY   { ASTNode* n = new ASTNode(ASTNode::AST_TYPE); n->type_info = 1; $$ = (void*)n; }
+    | SHORT  { ASTNode* n = new ASTNode(ASTNode::AST_TYPE); n->type_info = 2; $$ = (void*)n; }
+    | INT    { ASTNode* n = new ASTNode(ASTNode::AST_TYPE); n->type_info = 3; $$ = (void*)n; }
+    | LONG   { ASTNode* n = new ASTNode(ASTNode::AST_TYPE); n->type_info = 4; $$ = (void*)n; }
+    | STRING { ASTNode* n = new ASTNode(ASTNode::AST_TYPE); n->type_info = 5; $$ = (void*)n; }
+    | BOOL   { ASTNode* n = new ASTNode(ASTNode::AST_TYPE); n->type_info = 6; $$ = (void*)n; }
     ;
 
 // return文
@@ -149,11 +200,12 @@ returnstmt:
         // 戻り値型チェック: 関数定義ノードのrettypes[0]->type_infoと比較
         extern ASTNode* root;
         ASTNode* func = nullptr;
-        // スタックの一番上の関数定義ノードを探索
-        for (auto it = root->stmts.rbegin(); it != root->stmts.rend(); ++it) {
-          if (*it && ((ASTNode*)*it)->type == ASTNode::AST_FUNCDEF) {
-            func = (ASTNode*)*it;
-            break;
+        if (root && !root->stmts.empty()) {
+          for (auto it = root->stmts.rbegin(); it != root->stmts.rend(); ++it) {
+            if (*it && ((ASTNode*)*it)->type == ASTNode::AST_FUNCDEF) {
+              func = (ASTNode*)*it;
+              break;
+            }
           }
         }
         debug_printf("DEBUG: returnstmt expected=%d, actual=%d\n", func && !func->rettypes.empty() && func->rettypes[0] ? func->rettypes[0]->type_info : -1, ((ASTNode*)$2)->type_info);
@@ -178,39 +230,58 @@ returnstmt:
 
 // 文（ステートメント）
 statement:
-    if_stmt { $$ = $1; }
-    | type IDENTIFIER ASSIGN expr SEMICOLON {
-        ASTNode* assign = new ASTNode(ASTNode::AST_ASSIGN);
-        assign->sval = std::string($2);
-        assign->rhs = (ASTNode*)$4;
-        assign->type_info = ((ASTNode*)$1)->type_info;
-        $$ = (void*)assign;
+    decl_statement
+  | nondecl_statement
+  | funcdef
+  ;
+
+decl_statement:
+    type_decl IDENTIFIER SEMICOLON {
+        ASTNode* decl = new ASTNode(ASTNode::AST_VAR_DECL);
+        decl->sval = std::string($2);
+        decl->type_info = ((ASTNode*)$1)->type_info;
+        decl->is_const = ((ASTNode*)$1)->is_const;
+        $$ = (void*)decl;
         delete (ASTNode*)$1;
         free($2);
     }
-    // 配列宣言: int a[5]; または int a[SIZE];
-    | type IDENTIFIER '[' expr ']' SEMICOLON {
+    | type_decl IDENTIFIER ASSIGN expr SEMICOLON {
+        ASTNode* decl = new ASTNode(ASTNode::AST_VAR_DECL);
+        decl->sval = std::string($2);
+        decl->type_info = ((ASTNode*)$1)->type_info;
+        decl->is_const = ((ASTNode*)$1)->is_const;
+        decl->rhs = (ASTNode*)$4; // 初期値
+        $$ = (void*)decl;
+        delete (ASTNode*)$1;
+        free($2);
+        /* $4はdeleteしない: decl->rhsで管理 */
+    }
+    | type_decl IDENTIFIER '[' expr ']' SEMICOLON {
         ASTNode* arr = new ASTNode(ASTNode::AST_ARRAY_DECL);
         arr->sval = std::string($2);
         arr->array_size_expr = (ASTNode*)$4;
         arr->elem_type_info = ((ASTNode*)$1)->type_info;
+        arr->is_const = ((ASTNode*)$1)->is_const;
         $$ = (void*)arr;
         delete (ASTNode*)$1;
         free($2);
     }
-    // 配列宣言＋初期化: int a[] = [1,2,3];
-    | type IDENTIFIER '[' ']' ASSIGN array_literal SEMICOLON {
+    | type_decl IDENTIFIER '[' ']' ASSIGN array_literal SEMICOLON {
         ASTNode* arr = new ASTNode(ASTNode::AST_ARRAY_DECL);
         arr->sval = std::string($2);
         arr->array_size = ((ASTNode*)$6)->elements.size();
         arr->elem_type_info = ((ASTNode*)$1)->type_info;
         arr->elements = ((ASTNode*)$6)->elements;
+        arr->is_const = ((ASTNode*)$1)->is_const;
         $$ = (void*)arr;
         delete (ASTNode*)$1;
         delete (ASTNode*)$6;
         free($2);
     }
-    | IDENTIFIER ASSIGN expr SEMICOLON {
+    ;
+
+nondecl_statement:
+    IDENTIFIER ASSIGN expr SEMICOLON {
         ASTNode* assign = new ASTNode(ASTNode::AST_ASSIGN);
         assign->sval = std::string($1);
         assign->rhs = (ASTNode*)$3;
@@ -230,7 +301,6 @@ statement:
         free($1);
       }
     | PRINT expr SEMICOLON { $$ = (void*)(new ASTNode(ASTNode::AST_PRINT)); ((ASTNode*)$$)->lhs = (ASTNode*)$2; }
-    | expr SEMICOLON { $$ = $1; }
     | returnstmt { $$ = $1; }
     | BREAK SEMICOLON {
         ASTNode* br = new ASTNode(ASTNode::AST_BREAK);
@@ -257,6 +327,8 @@ statement:
         $$ = (void*)whileNode;
       }
     | '{' program '}' { $$ = $2; }
+    | if_stmt { $$ = $1; }
+    | expr SEMICOLON { $$ = $1; }
     ;
 
 // if文
@@ -318,15 +390,16 @@ opt_update:
     ;
 
 init_statement:
-      type IDENTIFIER ASSIGN expr { 
+    type_decl IDENTIFIER ASSIGN expr {
         ASTNode* assign = new ASTNode(ASTNode::AST_ASSIGN);
         assign->sval = std::string($2);
         assign->rhs = (ASTNode*)$4;
         assign->type_info = ((ASTNode*)$1)->type_info;
+        assign->is_const = ((ASTNode*)$1)->is_const;
         $$ = (void*)assign;
         delete (ASTNode*)$1;
         free($2);
-      }
+    }
     | IDENTIFIER ASSIGN expr {
         ASTNode* assign = new ASTNode(ASTNode::AST_ASSIGN);
         assign->sval = std::string($1);
@@ -334,7 +407,7 @@ init_statement:
         assign->type_info = ((ASTNode*)$3)->type_info;
         $$ = (void*)assign;
         free($1);
-      }
+    }
     | compound_assign { $$ = $1; }
     | /* 空 */ { $$ = nullptr; }
     ;
@@ -359,25 +432,27 @@ paramlist:
     ;
 
 paramlist_nonempty:
-      type IDENTIFIER {
+      type_decl IDENTIFIER {
         std::vector<ASTNode*>* params = new std::vector<ASTNode*>();
-        ASTNode* param = new ASTNode(ASTNode::AST_FUNCPARAM);
-        param->type_info = ((ASTNode*)$1)->type_info;
-        param->sval = std::string($2);
-        params->push_back(param);
+        ASTNode* decl = new ASTNode(ASTNode::AST_FUNCPARAM);
+        decl->sval = std::string($2);
+        decl->type_info = ((ASTNode*)$1)->type_info;
+        decl->is_const = ((ASTNode*)$1)->is_const;
+        params->push_back(decl);
+        $$ = (void*)params;
         delete (ASTNode*)$1;
         free($2);
-        $$ = (void*)params;
       }
-    | paramlist_nonempty ',' type IDENTIFIER {
+    | paramlist_nonempty ',' type_decl IDENTIFIER {
         std::vector<ASTNode*>* params = (std::vector<ASTNode*>*)$1;
-        ASTNode* param = new ASTNode(ASTNode::AST_FUNCPARAM);
-        param->type_info = ((ASTNode*)$3)->type_info;
-        param->sval = std::string($4);
-        params->push_back(param);
+        ASTNode* decl = new ASTNode(ASTNode::AST_FUNCPARAM);
+        decl->sval = std::string($4);
+        decl->type_info = ((ASTNode*)$3)->type_info;
+        decl->is_const = ((ASTNode*)$3)->is_const;
+        params->push_back(decl);
+        $$ = (void*)params;
         delete (ASTNode*)$3;
         free($4);
-        $$ = (void*)params;
       }
     ;
 
@@ -480,6 +555,10 @@ expr:
       }
     | term {
         debug_printf("DEBUG: expr -> term\n");
+        $$ = $1;
+      }
+    | factor {
+        debug_printf("DEBUG: expr -> factor\n");
         $$ = $1;
       }
     ;
