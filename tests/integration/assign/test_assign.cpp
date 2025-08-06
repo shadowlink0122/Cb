@@ -39,6 +39,100 @@ void test_integration_assign_tiny_ng() {
     bool ok = (exit_code != 0) && (output.find(expected) != std::string::npos);
     assert(ok);
 }
+
+// const tiny 正常系
+void test_integration_assign_const_ok() {
+    int exit_code = 0;
+    std::string cmd = "./main ./tests/cases/assign/const/ok.cb > /tmp/assign_const_ok_out.txt 2>&1";
+    run_and_capture(cmd.c_str(), &exit_code);
+    FILE* fp = fopen("/tmp/assign_const_ok_out.txt", "r");
+    std::string output;
+    if (fp) {
+        char buf[4096];
+        while (fgets(buf, sizeof(buf), fp)) output += buf;
+        fclose(fp);
+    }
+    remove("/tmp/assign_const_ok_out.txt");
+    assert(exit_code == 0);
+    assert(output.find("42") != std::string::npos);
+    assert(output.find("再代入できません") == std::string::npos);
+    std::cout << "[integration] assign const ok test passed" << std::endl;
+}
+
+// const tiny 異常系（再代入）
+void test_integration_assign_const_ng() {
+    int exit_code = 0;
+    std::string cmd = "./main ./tests/cases/assign/const/ng.cb > /tmp/assign_const_ng_out.txt 2>&1";
+    run_and_capture(cmd.c_str(), &exit_code);
+    FILE* fp = fopen("/tmp/assign_const_ng_out.txt", "r");
+    std::string output;
+    if (fp) {
+        char buf[4096];
+        while (fgets(buf, sizeof(buf), fp)) output += buf;
+        fclose(fp);
+    }
+    remove("/tmp/assign_const_ng_out.txt");
+    bool ok = (exit_code != 0) && (output.find("再代入できません") != std::string::npos);
+    assert(ok);
+    std::cout << "[integration] assign const ng test passed" << std::endl;
+}
+
+// const tiny 正常系
+void test_integration_assign_const_tiny_ok() {
+    int exit_code = 0;
+    std::string cmd = "./main ./tests/cases/assign/const/ok_const_tiny.cb > /tmp/assign_const_tiny_ok_out.txt 2>&1";
+    run_and_capture(cmd.c_str(), &exit_code);
+    FILE* fp = fopen("/tmp/assign_const_tiny_ok_out.txt", "r");
+    std::string output;
+    if (fp) {
+        char buf[4096];
+        while (fgets(buf, sizeof(buf), fp)) output += buf;
+        fclose(fp);
+    }
+    remove("/tmp/assign_const_tiny_ok_out.txt");
+    assert(exit_code == 0);
+    assert(output.find("42") != std::string::npos);
+    assert(output.find("再代入できません") == std::string::npos);
+    std::cout << "[integration] assign const tiny ok test passed" << std::endl;
+}
+
+// const tiny 異常系（再代入）
+void test_integration_assign_const_tiny_reassign_ng() {
+    int exit_code = 0;
+    std::string cmd = "./main ./tests/cases/assign/const/ng_const_tiny_reassign.cb > /tmp/assign_const_tiny_reassign_ng_out.txt 2>&1";
+    run_and_capture(cmd.c_str(), &exit_code);
+    FILE* fp = fopen("/tmp/assign_const_tiny_reassign_ng_out.txt", "r");
+    std::string output;
+    if (fp) {
+        char buf[4096];
+        while (fgets(buf, sizeof(buf), fp)) output += buf;
+        fclose(fp);
+    }
+    remove("/tmp/assign_const_tiny_reassign_ng_out.txt");
+    bool ok = (exit_code != 0) && (output.find("再代入できません") != std::string::npos);
+    assert(ok);
+    std::cout << "[integration] assign const tiny reassign ng test passed" << std::endl;
+}
+
+// const string 要素変更禁止
+void test_integration_assign_const_string_element_ng() {
+    int exit_code = 0;
+    std::string cmd = "./main ./tests/cases/assign/const/ng_const_string_element.cb > /tmp/assign_const_string_element_ng_out.txt 2>&1";
+    run_and_capture(cmd.c_str(), &exit_code);
+    FILE* fp = fopen("/tmp/assign_const_string_element_ng_out.txt", "r");
+    std::string output;
+    if (fp) {
+        char buf[4096];
+        while (fgets(buf, sizeof(buf), fp)) output += buf;
+        fclose(fp);
+    }
+    remove("/tmp/assign_const_string_element_ng_out.txt");
+    bool ok = (exit_code != 0) && (output.find("要素は変更できません") != std::string::npos);
+    assert(ok);
+    std::cout << "[integration] assign const string element ng test passed" << std::endl;
+}
+
+// const string 要素変更禁止（文字列リテラル）
 void test_integration_assign_tiny_ng_neg() {
     int exit_code = 0;
     std::string cmd = "./main ./tests/cases/assign/tiny/ng_neg.cb > /tmp/assign_tiny_ng_neg_out.txt 2>&1";
@@ -223,4 +317,7 @@ void test_integration_assign() {
     test_integration_assign_long_ok();
     test_integration_assign_long_ng();
     test_integration_assign_long_ng_neg();
+    test_integration_assign_const_tiny_ok();
+    test_integration_assign_const_tiny_reassign_ng();
+    test_integration_assign_const_string_element_ng();
 }

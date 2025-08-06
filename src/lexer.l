@@ -11,6 +11,7 @@ extern int yylineno;
 [\/][\/].*         ; // C++スタイルコメント無視
 [/][*]([^*]*[*]+)*?[/]   ; // Cスタイルコメント無視
 \n               { yylineno++; }
+const            { return CONST; }
 void             { return VOID; }
 tiny             { return TINY; }
 short            { return SHORT; }
