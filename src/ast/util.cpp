@@ -28,3 +28,27 @@ ASTNode *parse_to_ast(const std::string &filename) {
     root = nullptr; // 呼び出し側でdeleteすること
     return result;
 }
+
+// 2引数版（C++評価系・型エラー用）
+void yyerror(const char *s, const char *error) {
+    fprintf(stderr, "%s: %s\n", s, error);
+    fflush(stderr);
+    if (yyfilename) {
+        FILE *fp = fopen(yyfilename, "r");
+        if (fp) {
+            char buf[1024];
+            int line = 1;
+            while (fgets(buf, sizeof(buf), fp)) {
+                if (line == yylineno) {
+                    fprintf(stderr, "%s:%d\n>> %s", yyfilename, line, buf);
+                    break;
+                }
+                line++;
+            }
+            fclose(fp);
+        }
+    }
+    fflush(stderr);
+    exit(1);
+}
+

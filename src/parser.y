@@ -46,6 +46,7 @@ extern "C" {
 
 %token <lval> NUMBER
 %token <sval> IDENTIFIER STRING STRING_LITERAL
+%token CONST
 %token VOID TINY SHORT INT LONG BOOL
 %token TRUE FALSE NULL_LIT
 %token PLUS MINUS MUL DIV ASSIGN SEMICOLON PRINT RETURN
@@ -56,7 +57,7 @@ extern "C" {
 %token INC_OP DEC_OP
 %token '{' '}' '(' ')' '[' ']' ','
 
-%type <ptr> expr term factor statement program funcdef typelist paramlist paramlist_nonempty returnstmt type type_list_items arglist opt_statement opt_expr init_statement opt_update
+%type <ptr> expr term factor statement program funcdef typelist paramlist paramlist_nonempty returnstmt type qualified_type type_list_items arglist opt_statement opt_expr init_statement opt_update
 %type <ptr> if_stmt compound_assign array_literal array_init_list
 
 %%
@@ -93,7 +94,7 @@ funcdef:
         $$ = (void*)fn;
         free($2);
       }
-    | type IDENTIFIER '(' paramlist ')' '{' program '}' {
+    | qualified_type IDENTIFIER '(' paramlist ')' '{' program '}' {
         ASTNode* fn = new ASTNode(ASTNode::AST_FUNCDEF);
         ASTNode* typelist = (ASTNode*)$1;
         debug_printf("DEBUG: funcdef %s, typelist=%p, type_info=%d\n", $2, typelist, typelist ? typelist->type_info : -1);
@@ -112,17 +113,17 @@ typelist:
         tlist->rettypes = ((ASTNode*)$2)->rettypes; delete (ASTNode*)$2;
         $$ = (void*)tlist;
       }
-    | type { $$ = $1; }
+    | qualified_type { $$ = $1; }
     ;
 
 type_list_items:
-      type { 
+      qualified_type { 
         ASTNode* tlist = new ASTNode(ASTNode::AST_TYPELIST);
         tlist->type_info = ((ASTNode*)$1)->type_info;
         tlist->rettypes.push_back((ASTNode*)$1);
         $$ = (void*)tlist;
       }
-    | type_list_items ',' type {
+    | type_list_items ',' qualified_type {
         ASTNode* tlist = (ASTNode*)$1;
         ASTNode* t = (ASTNode*)$3;
         tlist->rettypes.push_back(t);
@@ -130,6 +131,11 @@ type_list_items:
       }
     ;
 
+
+qualified_type:
+      type { $$ = $1; ((ASTNode*)$$)->is_const = false; }
+    | CONST type { $$ = $2; ((ASTNode*)$$)->is_const = true; }
+    ;
 
 type:
       VOID   { ASTNode* n = new ASTNode(ASTNode::AST_TYPELIST); n->type_info = 0; $$ = (void*)n; }
@@ -179,17 +185,18 @@ returnstmt:
 // 文（ステートメント）
 statement:
     if_stmt { $$ = $1; }
-    | type IDENTIFIER ASSIGN expr SEMICOLON {
+    | qualified_type IDENTIFIER ASSIGN expr SEMICOLON {
         ASTNode* assign = new ASTNode(ASTNode::AST_ASSIGN);
         assign->sval = std::string($2);
         assign->rhs = (ASTNode*)$4;
         assign->type_info = ((ASTNode*)$1)->type_info;
+        assign->is_const = ((ASTNode*)$1)->is_const; // const属性伝搬
         $$ = (void*)assign;
         delete (ASTNode*)$1;
         free($2);
     }
     // 配列宣言: int a[5]; または int a[SIZE];
-    | type IDENTIFIER '[' expr ']' SEMICOLON {
+    | qualified_type IDENTIFIER '[' expr ']' SEMICOLON {
         ASTNode* arr = new ASTNode(ASTNode::AST_ARRAY_DECL);
         arr->sval = std::string($2);
         arr->array_size_expr = (ASTNode*)$4;
@@ -199,7 +206,7 @@ statement:
         free($2);
     }
     // 配列宣言＋初期化: int a[] = [1,2,3];
-    | type IDENTIFIER '[' ']' ASSIGN array_literal SEMICOLON {
+    | qualified_type IDENTIFIER '[' ']' ASSIGN array_literal SEMICOLON {
         ASTNode* arr = new ASTNode(ASTNode::AST_ARRAY_DECL);
         arr->sval = std::string($2);
         arr->array_size = ((ASTNode*)$6)->elements.size();
@@ -318,7 +325,7 @@ opt_update:
     ;
 
 init_statement:
-      type IDENTIFIER ASSIGN expr { 
+      qualified_type IDENTIFIER ASSIGN expr { 
         ASTNode* assign = new ASTNode(ASTNode::AST_ASSIGN);
         assign->sval = std::string($2);
         assign->rhs = (ASTNode*)$4;
@@ -359,7 +366,7 @@ paramlist:
     ;
 
 paramlist_nonempty:
-      type IDENTIFIER {
+      qualified_type IDENTIFIER {
         std::vector<ASTNode*>* params = new std::vector<ASTNode*>();
         ASTNode* param = new ASTNode(ASTNode::AST_FUNCPARAM);
         param->type_info = ((ASTNode*)$1)->type_info;
@@ -369,7 +376,7 @@ paramlist_nonempty:
         free($2);
         $$ = (void*)params;
       }
-    | paramlist_nonempty ',' type IDENTIFIER {
+    | paramlist_nonempty ',' qualified_type IDENTIFIER {
         std::vector<ASTNode*>* params = (std::vector<ASTNode*>*)$1;
         ASTNode* param = new ASTNode(ASTNode::AST_FUNCPARAM);
         param->type_info = ((ASTNode*)$3)->type_info;
@@ -380,7 +387,6 @@ paramlist_nonempty:
         $$ = (void*)params;
       }
     ;
-
 
 expr:
       IDENTIFIER ASSIGN expr {

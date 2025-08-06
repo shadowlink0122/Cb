@@ -12,6 +12,7 @@ struct ASTNode {
         AST_ASSIGN,
         AST_PRINT,
         AST_STMTLIST,
+        AST_VAR_DECL,      // 変数宣言
         AST_FUNCDEF,        // 関数定義
         AST_FUNCPARAM,      // 引数リスト
         AST_TYPELIST,       // 型リスト（タプル型）
@@ -28,6 +29,7 @@ struct ASTNode {
         AST_ARRAY_LITERAL,  // 配列リテラル
         AST_ARRAY_REF       // 配列要素アクセス a[n]
     } type;
+    bool is_const = false; // 定数かどうか（変数宣言時のみ）
     // 配列用
     int array_size = -1; // 宣言時サイズ（-1は未指定）
     ASTNode *array_size_expr = nullptr; // 配列サイズ式（int a[expr]; 用）
