@@ -50,6 +50,7 @@ src/lexer.c
 # その他
 *~
 .DS_Store
+*.output
 
 # debug information files
 *.dwo
