@@ -19,7 +19,7 @@ struct Variable {
     int array_size = -1;                 // 配列サイズ
     int elem_type = 0;                   // 配列要素型
     bool is_array = false;
-    bool is_const = false; // const変数かどうか
+    bool is_const = false;    // const変数かどうか
     bool is_assigned = false; // 初回代入済みかどうか
 };
 

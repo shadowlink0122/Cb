@@ -24,10 +24,10 @@ void set_debug_mode_from_env() {
 
 #include "eval.h"
 
+#include "../ast/util.h"
 #include <cstdint>
 #include <map>
 #include <string>
-#include "../ast/util.h"
 
 // struct Variableはeval.hで定義
 
@@ -239,15 +239,19 @@ int64_t eval_binop(ASTNode *node) {
 }
 
 int64_t eval_assign(ASTNode *node) {
-    debug_printf("DEBUG: Variable %s is %s\n", node->sval.c_str(), node->is_const ? "const" : "not const");
+    debug_printf("DEBUG: Variable %s is %s\n", node->sval.c_str(),
+                 node->is_const ? "const" : "not const");
     // 変数テーブルから該当変数を検索
-    auto it = symbol_table.find(node->sval); // 既に宣言済みの場合はsymbol_tableから取得
+    auto it = symbol_table.find(
+        node->sval); // 既に宣言済みの場合はsymbol_tableから取得
     if (it != symbol_table.end()) {
         Variable &var = it->second;
         // const変数の再代入禁止（宣言時はOK、2回目以降はNG）
-        debug_printf("DEBUG: assign check %s is_const=%d is_assigned=%d\n", node->sval.c_str(), var.is_const, var.is_assigned);
+        debug_printf("DEBUG: assign check %s is_const=%d is_assigned=%d\n",
+                     node->sval.c_str(), var.is_const, var.is_assigned);
         if (var.is_const && var.is_assigned) {
-            yyerror("constで定義された変数は再代入できません", node->sval.c_str());
+            yyerror("constで定義された変数は再代入できません",
+                    node->sval.c_str());
         }
     }
     // 配列要素代入: lhsがAST_ARRAY_REFの場合
@@ -260,7 +264,8 @@ int64_t eval_assign(ASTNode *node) {
         Variable &var = it->second;
         // const配列/const stringの要素変更禁止
         if (var.is_const) {
-            yyerror("constで定義された配列・stringの要素は変更できません", arr_ref->sval.c_str());
+            yyerror("constで定義された配列・stringの要素は変更できません",
+                    arr_ref->sval.c_str());
         }
         int64_t idx = eval(arr_ref->array_index);
         // string型の要素代入
@@ -345,16 +350,18 @@ int64_t eval_assign(ASTNode *node) {
             var.type = lhs_type;
         }
         if (lhs_type == 5) {
-            debug_printf("DEBUG: assign string rhs type=%d type_info=%d sval=%s\n",
-                         rhs->type, rhs->type_info, rhs->sval.c_str());
+            debug_printf(
+                "DEBUG: assign string rhs type=%d type_info=%d sval=%s\n",
+                rhs->type, rhs->type_info, rhs->sval.c_str());
             var.svalue = rhs->sval;
             var.value = 0;
         } else if (lhs_type == 6) {
             var.value = (value != 0) ? 1 : 0;
             var.svalue = "";
         } else {
-            debug_printf("DEBUG: assign %s value=%lld lhs_type=%d rhs_type=%d\n",
-                         node->sval.c_str(), value, lhs_type, rhs->type_info);
+            debug_printf(
+                "DEBUG: assign %s value=%lld lhs_type=%d rhs_type=%d\n",
+                node->sval.c_str(), value, lhs_type, rhs->type_info);
             fflush(stderr);
             if (lhs_type != 0) {
                 check_range(lhs_type, value, node->sval.c_str());
@@ -393,16 +400,18 @@ int64_t eval_assign(ASTNode *node) {
             var.is_const = node->is_const;
         }
         if (lhs_type == 5) {
-            debug_printf("DEBUG: assign string rhs type=%d type_info=%d sval=%s\n",
-                         rhs->type, rhs->type_info, rhs->sval.c_str());
+            debug_printf(
+                "DEBUG: assign string rhs type=%d type_info=%d sval=%s\n",
+                rhs->type, rhs->type_info, rhs->sval.c_str());
             var.svalue = rhs->sval;
             var.value = 0;
         } else if (lhs_type == 6) {
             var.value = (value != 0) ? 1 : 0;
             var.svalue = "";
         } else {
-            debug_printf("DEBUG: assign %s value=%lld lhs_type=%d rhs_type=%d\n",
-                         node->sval.c_str(), value, lhs_type, rhs->type_info);
+            debug_printf(
+                "DEBUG: assign %s value=%lld lhs_type=%d rhs_type=%d\n",
+                node->sval.c_str(), value, lhs_type, rhs->type_info);
             fflush(stderr);
             if (lhs_type != 0) {
                 check_range(lhs_type, value, node->sval.c_str());
@@ -647,7 +656,8 @@ int64_t eval(ASTNode *node) {
             yyerror("変数の再宣言はできません", node->sval.c_str());
             exit(1);
         }
-        debug_printf("DEBUG: AST_VAR_DECL %s node->is_const=%d\n", node->sval.c_str(), node->is_const);
+        debug_printf("DEBUG: AST_VAR_DECL %s node->is_const=%d\n",
+                     node->sval.c_str(), node->is_const);
         Variable var;
         var.type = node->type_info;
         var.is_const = node->is_const;
@@ -666,11 +676,21 @@ int64_t eval(ASTNode *node) {
             } else {
                 check_range(node->type_info, v, node->sval.c_str());
                 switch (node->type_info) {
-                case 1: var.value = (int8_t)v; break;
-                case 2: var.value = (int16_t)v; break;
-                case 3: var.value = (int32_t)v; break;
-                case 4: var.value = (int64_t)v; break;
-                default: var.value = (int32_t)v; break;
+                case 1:
+                    var.value = (int8_t)v;
+                    break;
+                case 2:
+                    var.value = (int16_t)v;
+                    break;
+                case 3:
+                    var.value = (int32_t)v;
+                    break;
+                case 4:
+                    var.value = (int64_t)v;
+                    break;
+                default:
+                    var.value = (int32_t)v;
+                    break;
                 }
             }
             var.is_assigned = true;

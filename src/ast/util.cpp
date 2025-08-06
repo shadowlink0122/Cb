@@ -51,4 +51,3 @@ void yyerror(const char *s, const char *error) {
     fflush(stderr);
     exit(1);
 }
-

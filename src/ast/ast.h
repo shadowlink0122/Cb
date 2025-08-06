@@ -12,7 +12,7 @@ struct ASTNode {
         AST_ASSIGN,
         AST_PRINT,
         AST_STMTLIST,
-        AST_VAR_DECL,      // 変数宣言
+        AST_VAR_DECL,       // 変数宣言
         AST_FUNCDEF,        // 関数定義
         AST_FUNCPARAM,      // 引数リスト
         AST_TYPELIST,       // 型リスト（タプル型）

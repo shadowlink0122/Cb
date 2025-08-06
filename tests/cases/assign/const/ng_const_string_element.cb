@@ -1,0 +1,5 @@
+int main() {
+    const string s = "abc";
+    s[1] = "x";
+    print(s);
+}
