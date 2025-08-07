@@ -29,6 +29,7 @@ struct ASTNode {
         AST_ARRAY_LITERAL,  // 配列リテラル
         AST_ARRAY_REF       // 配列要素アクセス a[n]
     } type;
+    bool is_static = false; // static修飾子がついているかどうか
     bool is_const = false; // 定数かどうか（変数宣言時のみ）
     // 配列用
     int array_size = -1; // 宣言時サイズ（-1は未指定）
