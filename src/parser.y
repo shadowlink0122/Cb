@@ -46,7 +46,7 @@ extern "C" {
 
 %token <lval> NUMBER
 %token <sval> IDENTIFIER STRING STRING_LITERAL
-%token CONST
+%token CONST STATIC
 %token VOID TINY SHORT INT LONG BOOL
 %token TRUE FALSE NULL_LIT
 %token PLUS MINUS MUL DIV ASSIGN SEMICOLON PRINT RETURN
@@ -57,8 +57,8 @@ extern "C" {
 %token INC_OP DEC_OP
 %token '{' '}' '(' ')' '[' ']' ','
 
-%type <ptr> expr term factor statement program funcdef typelist paramlist paramlist_nonempty returnstmt type qualified_type type_list_items arglist opt_statement opt_expr init_statement opt_update
-%type <ptr> if_stmt compound_assign array_literal array_init_list
+%type <ptr> expr term factor statement program funcdef typelist paramlist paramlist_nonempty returnstmt type type_list_items arglist opt_statement opt_expr init_statement opt_update
+%type <ptr> if_stmt compound_assign array_literal array_init_list static_type qualified_type
 
 %%
 program:
@@ -113,7 +113,7 @@ typelist:
         tlist->rettypes = ((ASTNode*)$2)->rettypes; delete (ASTNode*)$2;
         $$ = (void*)tlist;
       }
-    | qualified_type { $$ = $1; }
+    | type { $$ = $1; }
     ;
 
 type_list_items:
@@ -131,6 +131,9 @@ type_list_items:
       }
     ;
 
+static_type:
+      qualified_type { $$ = $1; ((ASTNode*)$$)->is_static = false; }
+    | STATIC qualified_type { $$ = $2; ((ASTNode*)$$)->is_static = true; }
 
 qualified_type:
       type { $$ = $1; ((ASTNode*)$$)->is_const = false; }
@@ -184,19 +187,20 @@ returnstmt:
 
 // 文（ステートメント）
 statement:
-    if_stmt { $$ = $1; }
-    | qualified_type IDENTIFIER ASSIGN expr SEMICOLON {
-        ASTNode* assign = new ASTNode(ASTNode::AST_ASSIGN);
-        assign->sval = std::string($2);
-        assign->rhs = (ASTNode*)$4;
-        assign->type_info = ((ASTNode*)$1)->type_info;
-        assign->is_const = ((ASTNode*)$1)->is_const; // const属性伝搬
-        $$ = (void*)assign;
+      if_stmt { $$ = $1; }
+    | static_type IDENTIFIER ASSIGN expr SEMICOLON {
+        ASTNode* decl = new ASTNode(ASTNode::AST_VAR_DECL);
+        decl->sval = std::string($2);
+        decl->rhs = (ASTNode*)$4;
+        decl->type_info = ((ASTNode*)$1)->type_info;
+        decl->is_const = ((ASTNode*)$1)->is_const;
+        decl->is_static = ((ASTNode*)$1)->is_static;
+        $$ = (void*)decl;
         delete (ASTNode*)$1;
         free($2);
     }
     // 配列宣言: int a[5]; または int a[SIZE];
-    | qualified_type IDENTIFIER '[' expr ']' SEMICOLON {
+    | static_type IDENTIFIER '[' expr ']' SEMICOLON {
         ASTNode* arr = new ASTNode(ASTNode::AST_ARRAY_DECL);
         arr->sval = std::string($2);
         arr->array_size_expr = (ASTNode*)$4;
@@ -206,7 +210,7 @@ statement:
         free($2);
     }
     // 配列宣言＋初期化: int a[] = [1,2,3];
-    | qualified_type IDENTIFIER '[' ']' ASSIGN array_literal SEMICOLON {
+    | static_type IDENTIFIER '[' ']' ASSIGN array_literal SEMICOLON {
         ASTNode* arr = new ASTNode(ASTNode::AST_ARRAY_DECL);
         arr->sval = std::string($2);
         arr->array_size = ((ASTNode*)$6)->elements.size();
@@ -325,12 +329,14 @@ opt_update:
     ;
 
 init_statement:
-      qualified_type IDENTIFIER ASSIGN expr { 
-        ASTNode* assign = new ASTNode(ASTNode::AST_ASSIGN);
-        assign->sval = std::string($2);
-        assign->rhs = (ASTNode*)$4;
-        assign->type_info = ((ASTNode*)$1)->type_info;
-        $$ = (void*)assign;
+      static_type IDENTIFIER ASSIGN expr {
+        ASTNode* decl = new ASTNode(ASTNode::AST_VAR_DECL);
+        decl->sval = std::string($2);
+        decl->rhs = (ASTNode*)$4;
+        decl->type_info = ((ASTNode*)$1)->type_info;
+        decl->is_const = ((ASTNode*)$1)->is_const;
+        decl->is_static = ((ASTNode*)$1)->is_static;
+        $$ = (void*)decl;
         delete (ASTNode*)$1;
         free($2);
       }

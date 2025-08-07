@@ -1,3 +1,7 @@
+// break文用例外
+struct BreakException {
+    BreakException() {}
+};
 // 右辺AST全体のtype_infoを再帰的に上書き
 #include <vector>
 #ifdef __cplusplus
@@ -13,7 +17,11 @@ extern int yylineno;
 #include <stdio.h>
 #include <stdlib.h>
 
-// デバッグモードフラグ（CB_DEBUG_MODE=1なら有効化）
+// 関数呼び出し時のreturn値伝搬用例外（int64_tで値を伝搬）
+struct ReturnException {
+    int64_t value;
+    ReturnException(int64_t v) : value(v) {}
+};
 #include <cstdlib>
 bool debug_mode = false;
 void set_debug_mode_from_env() {
@@ -39,6 +47,7 @@ static int64_t default_int_value(int type) {
 }
 static std::string default_str_value(int type) { return ""; }
 
+std::map<std::string, Variable> static_symbol_table;
 std::map<std::string, Variable> symbol_table;
 // 関数定義用: 関数名→ASTNode*（関数定義ノード）
 std::map<std::string, ASTNode *> function_table;
@@ -97,11 +106,6 @@ static void propagate_type_info(ASTNode *node, int type_info) {
     }
 }
 
-// 関数呼び出し時のreturn値伝搬用例外（ASTNode*で値を伝搬）
-struct ReturnException {
-    ASTNode *value;
-    ReturnException(ASTNode *v) : value(v) {}
-};
 
 // 型ごとの範囲チェック関数
 void check_range(int type, int64_t value, const char *name) {
@@ -156,13 +160,26 @@ int64_t eval_num(ASTNode *node) {
     return v;
 }
 
+// static変数・通常変数を統一的に取得する関数
+Variable* get_variable(const std::string& name) {
+    auto sit = static_symbol_table.find(name);
+    if (sit != static_symbol_table.end()) {
+        return &sit->second;
+    }
+    auto it = symbol_table.find(name);
+    if (it != symbol_table.end()) {
+        return &it->second;
+    }
+    return nullptr;
+}
+
 int64_t eval_var(ASTNode *node) {
     // シンボルテーブルから変数を取得
-    auto it = symbol_table.find(node->sval);
-    if (it == symbol_table.end()) {
+    Variable* varp = get_variable(node->sval);
+    if (!varp) {
         yyerror("未定義の変数です", node->sval.c_str());
     }
-    const Variable &var = it->second;
+    Variable &var = *varp;
     if (var.type == 5) {
         // string型の場合のみtype/svalをセット
         node->type_info = 5;
@@ -242,26 +259,15 @@ int64_t eval_assign(ASTNode *node) {
     debug_printf("DEBUG: Variable %s is %s\n", node->sval.c_str(),
                  node->is_const ? "const" : "not const");
     // 変数テーブルから該当変数を検索
-    auto it = symbol_table.find(
-        node->sval); // 既に宣言済みの場合はsymbol_tableから取得
-    if (it != symbol_table.end()) {
-        Variable &var = it->second;
-        // const変数の再代入禁止（宣言時はOK、2回目以降はNG）
-        debug_printf("DEBUG: assign check %s is_const=%d is_assigned=%d\n",
-                     node->sval.c_str(), var.is_const, var.is_assigned);
-        if (var.is_const && var.is_assigned) {
-            yyerror("constで定義された変数は再代入できません",
-                    node->sval.c_str());
-        }
-    }
+    Variable *varp = get_variable(node->sval);
     // 配列要素代入: lhsがAST_ARRAY_REFの場合
     if (node->lhs && node->lhs->type == ASTNode::AST_ARRAY_REF) {
         ASTNode *arr_ref = node->lhs;
-        auto it = symbol_table.find(arr_ref->sval);
-        if (it == symbol_table.end()) {
+        Variable *arr_varp = get_variable(arr_ref->sval);
+        if (!arr_varp) {
             yyerror("未定義の配列または変数です", arr_ref->sval.c_str());
         }
-        Variable &var = it->second;
+        Variable &var = *arr_varp;
         // const配列/const stringの要素変更禁止
         if (var.is_const) {
             yyerror("constで定義された配列・stringの要素は変更できません",
@@ -327,25 +333,22 @@ int64_t eval_assign(ASTNode *node) {
     }
     // 通常の変数代入
     ASTNode *rhs = node->rhs;
-    // 左辺変数の型情報はsymbol_tableから取得（未定義ならnode->type_infoを使う）
     int lhs_type = node->type_info;
-    if (it != symbol_table.end()) {
-        // 配列変数名への直接代入はエラー
-        if (it->second.is_array) {
+    if (varp) {
+        if (varp->is_array) {
             yyerror("配列変数名への直接代入はできません。要素指定してください",
                     node->sval.c_str());
         } else {
-            lhs_type = it->second.type;
+            lhs_type = varp->type;
         }
     }
-    // lhs_typeが未設定（0）の場合はrhsのtype_infoを使う（int型デフォルト）
     if (lhs_type == 0) {
         lhs_type = rhs->type_info ? rhs->type_info : 3;
     }
     propagate_type_info(rhs, lhs_type);
     int64_t value = eval(rhs);
-    if (it != symbol_table.end()) {
-        Variable &var = it->second;
+    if (varp) {
+        Variable &var = *varp;
         if (var.type == 0) {
             var.type = lhs_type;
         }
@@ -393,12 +396,7 @@ int64_t eval_assign(ASTNode *node) {
     } else {
         Variable var;
         var.type = lhs_type;
-        // 既存変数があればis_constを維持
-        if (it != symbol_table.end()) {
-            var.is_const = it->second.is_const;
-        } else {
-            var.is_const = node->is_const;
-        }
+        var.is_const = node->is_const;
         if (lhs_type == 5) {
             debug_printf(
                 "DEBUG: assign string rhs type=%d type_info=%d sval=%s\n",
@@ -439,7 +437,12 @@ int64_t eval_assign(ASTNode *node) {
             var.svalue = "";
         }
         var.is_assigned = true;
-        symbol_table[node->sval] = var;
+        // static変数ならstatic_symbol_tableに登録
+        if (node->is_static) {
+            static_symbol_table[node->sval] = var;
+        } else {
+            symbol_table[node->sval] = var;
+        }
         return var.value;
     }
 }
@@ -452,15 +455,21 @@ int eval_print(ASTNode *node) {
     debug_printf("DEBUG: eval_print lhs type=%d type_info=%d sval=%s\n",
                  node->lhs->type, node->lhs->type_info,
                  node->lhs->sval.c_str());
-    if (node->lhs->type == ASTNode::AST_ARRAY_REF) {
-        debug_printf("DEBUG: print array ref %s, array_index type=%d\n",
-                     node->lhs->sval.c_str(),
-                     node->lhs->array_index ? node->lhs->array_index->type
-                                            : -1);
-    }
     ASTNode *result = node->lhs;
     // すべてのprint対象で必ずevalを呼ぶ（変数参照時も値をセット）
     int64_t value = eval(result);
+    if (result->type == ASTNode::AST_VAR) {
+        Variable* varp = get_variable(result->sval);
+        if (varp) {
+            printf("%lld\n", varp->value);
+        } else {
+            printf("%lld\n", value);
+        }
+        return 0;
+    } else if (result->type == ASTNode::AST_FUNCCALL) {
+        printf("%lld\n", value);
+        return 0;
+    }
     if (result->type == ASTNode::AST_ARRAY_REF) {
         debug_printf("DEBUG: after eval array ref %s, type_info=%d, sval=%s, "
                      "value=%lld\n",
@@ -585,7 +594,7 @@ int64_t eval_funccall(ASTNode *node) {
         var.value = argval;
         symbol_table[param->sval] = var;
     }
-    ASTNode *ret_node = nullptr;
+    int64_t ret_value = 0;
     bool is_void = false;
     if (!func->rettypes.empty() && func->rettypes[0] &&
         func->rettypes[0]->type_info == 0) {
@@ -596,54 +605,33 @@ int64_t eval_funccall(ASTNode *node) {
     try {
         eval(func->body);
         if (is_void) {
-            ret_node = nullptr; // void型は値なし
+            ret_value = 0; // void型は値なし
         }
     } catch (const ReturnException &e) {
-        debug_printf("DEBUG: ReturnException caught in %s, node type=%d\n",
-                     func->sval.c_str(), e.value ? e.value->type : -1);
+        debug_printf("DEBUG: ReturnException caught in %s, return value=%lld\n",
+                     func->sval.c_str(), e.value);
         if (is_void) {
             yyerror("void型関数で値を返すことはできません", func->sval.c_str());
-            ret_node = nullptr;
+            ret_value = 0;
         } else {
-            ret_node = e.value;
+            ret_value = e.value;
         }
     }
     symbol_table = old_symbol_table; // スコープ復元
-    if (!ret_node)
-        return 0;
-    int rettype = func->rettypes[0] ? func->rettypes[0]->type_info : 3;
-    if (rettype == 5 && ret_node->type == ASTNode::AST_STRING_LITERAL) {
-        node->sval = ret_node->sval; // 呼び出しノードに文字列をセット
-        node->type_info = 5;         // ここでtype_infoも必ずセット
-        return 0;                    // print等でsvalを参照
-    } else {
-        return eval(ret_node);
-    }
+    return ret_value;
 }
-
 // return文
 int64_t eval_return(ASTNode *node) {
     if (!node->lhs) {
         debug_printf("DEBUG: eval_return void\n");
-        throw ReturnException(nullptr); // void型return
-    } else if (node->lhs->type == ASTNode::AST_STRING_LITERAL) {
-        debug_printf("DEBUG: eval_return string node type=%d type_info=%d\n",
-                     node->lhs->type, node->lhs->type_info);
-        throw ReturnException(node->lhs);
+        throw ReturnException(0); // void型return
     } else {
         int64_t val = eval(node->lhs);
         debug_printf("DEBUG: eval_return value=%lld\n", val);
-        ASTNode *num = new ASTNode(ASTNode::AST_NUM);
-        num->lval64 = val;
-        num->type_info = node->lhs->type_info;
-        throw ReturnException(num);
+        throw ReturnException(val);
     }
 }
 
-// break文用例外
-struct BreakException {
-    BreakException() {}
-};
 
 int64_t eval(ASTNode *node) {
     if (!node)
@@ -651,13 +639,20 @@ int64_t eval(ASTNode *node) {
     switch (node->type) {
     case ASTNode::AST_VAR_DECL: {
         // 型 変数 = 値; の宣言（初期化付き変数宣言）
-        // 既に同名変数が存在する場合はエラー
-        if (symbol_table.find(node->sval) != symbol_table.end()) {
-            yyerror("変数の再宣言はできません", node->sval.c_str());
-            exit(1);
+        // static変数はstatic_symbol_table、通常変数はsymbol_tableに登録
+        if (node->is_static) {
+            if (static_symbol_table.find(node->sval) != static_symbol_table.end()) {
+                // 既にstatic変数が存在する場合は再初期化せずスキップ
+                return 0;
+            }
+        } else {
+            if (symbol_table.find(node->sval) != symbol_table.end()) {
+                yyerror("変数の再宣言はできません", node->sval.c_str());
+                exit(1);
+            }
         }
-        debug_printf("DEBUG: AST_VAR_DECL %s node->is_const=%d\n",
-                     node->sval.c_str(), node->is_const);
+        debug_printf("DEBUG: AST_VAR_DECL %s node->is_const=%d is_static=%d\n",
+                     node->sval.c_str(), node->is_const, node->is_static);
         Variable var;
         var.type = node->type_info;
         var.is_const = node->is_const;
@@ -695,7 +690,11 @@ int64_t eval(ASTNode *node) {
             }
             var.is_assigned = true;
         }
-        symbol_table[node->sval] = var;
+        if (node->is_static) {
+            static_symbol_table[node->sval] = var;
+        } else {
+            symbol_table[node->sval] = var;
+        }
         return 0;
     }
     case ASTNode::AST_PRE_INCDEC: {
@@ -703,10 +702,9 @@ int64_t eval(ASTNode *node) {
         if (!node->lhs || node->lhs->type != ASTNode::AST_VAR)
             yyerror("インクリメント/デクリメントの対象が変数ではありません",
                     "");
-        auto it = symbol_table.find(node->lhs->sval);
-        if (it == symbol_table.end())
-            yyerror("未定義の変数です", node->lhs->sval.c_str());
-        Variable &var = it->second;
+        Variable *varp = get_variable(node->lhs->sval);
+        if (!varp) yyerror("未定義の変数です", node->lhs->sval.c_str());
+        Variable &var = *varp;
         if (node->op == "++") {
             var.value += 1;
         } else if (node->op == "--") {
@@ -723,10 +721,9 @@ int64_t eval(ASTNode *node) {
         if (!node->lhs || node->lhs->type != ASTNode::AST_VAR)
             yyerror("インクリメント/デクリメントの対象が変数ではありません",
                     "");
-        auto it = symbol_table.find(node->lhs->sval);
-        if (it == symbol_table.end())
-            yyerror("未定義の変数です", node->lhs->sval.c_str());
-        Variable &var = it->second;
+        Variable *varp = get_variable(node->lhs->sval);
+        if (!varp) yyerror("未定義の変数です", node->lhs->sval.c_str());
+        Variable &var = *varp;
         int64_t old = var.value;
         if (node->op == "++") {
             var.value += 1;
@@ -838,7 +835,7 @@ int64_t eval(ASTNode *node) {
         // 配列リテラル自体は値を返さない
         return 0;
     case ASTNode::AST_ARRAY_DECL: {
-        // 配列宣言: シンボルテーブルに登録
+        // 配列宣言: static配列はstatic_symbol_table、通常配列はsymbol_tableに登録
         Variable var;
         var.is_array = true;
         int arr_size = node->array_size;
@@ -876,18 +873,22 @@ int64_t eval(ASTNode *node) {
                 }
             }
         }
-        symbol_table[node->sval] = var;
+        if (node->is_static) {
+            static_symbol_table[node->sval] = var;
+        } else {
+            symbol_table[node->sval] = var;
+        }
         return 0;
     }
     case ASTNode::AST_ARRAY_REF: {
         debug_printf("DEBUG: AST_ARRAY_REF node->sval=%s\n",
                      node->sval.c_str());
-        auto it = symbol_table.find(node->sval);
-        if (it == symbol_table.end()) {
+        Variable *varp = get_variable(node->sval);
+        if (!varp) {
             yyerror("未定義の配列または変数です", node->sval.c_str());
             return 0;
         }
-        Variable &var = it->second;
+        Variable &var = *varp;
         int64_t idx = eval(node->array_index);
         // string型の要素アクセス
         if (var.type == 5) {
