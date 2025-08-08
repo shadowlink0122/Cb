@@ -242,7 +242,7 @@ statement:
         arr->array_size = -1; // 推論が必要
         $$ = (void*)arr;
         delete (ASTNode*)$1;
-        delete (ASTNode*)$3;
+        delete (std::vector<int>*)$3; // empty_dimensionsは std::vector<int>*
         delete (ASTNode*)$5;
         free($2);
     }
