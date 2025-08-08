@@ -58,7 +58,7 @@ extern "C" {
 %token '{' '}' '(' ')' '[' ']' ','
 
 %type <ptr> expr term factor statement program funcdef typelist paramlist paramlist_nonempty returnstmt type qualified_type type_list_items arglist opt_statement opt_expr init_statement opt_update
-%type <ptr> if_stmt compound_assign array_literal array_init_list
+%type <ptr> if_stmt compound_assign array_literal array_init_list array_dimensions array_indices empty_dimensions
 
 %%
 program:
@@ -201,6 +201,20 @@ statement:
         arr->sval = std::string($2);
         arr->array_size_expr = (ASTNode*)$4;
         arr->elem_type_info = ((ASTNode*)$1)->type_info;
+        // 1次元配列は従来の方法のみ使用（重複を避ける）
+        $$ = (void*)arr;
+        delete (ASTNode*)$1;
+        free($2);
+    }
+    // 多次元配列宣言: int a[5][3]; int a[5][3][2]; など
+    | qualified_type IDENTIFIER array_dimensions SEMICOLON {
+        ASTNode* arr = new ASTNode(ASTNode::AST_ARRAY_DECL);
+        arr->sval = std::string($2);
+        arr->elem_type_info = ((ASTNode*)$1)->type_info;
+        // array_dimensionsから次元情報をコピー
+        std::vector<ASTNode*>* dims = (std::vector<ASTNode*>*)$3;
+        arr->array_size_exprs = *dims;
+        delete dims;
         $$ = (void*)arr;
         delete (ASTNode*)$1;
         free($2);
@@ -215,6 +229,21 @@ statement:
         $$ = (void*)arr;
         delete (ASTNode*)$1;
         delete (ASTNode*)$6;
+        free($2);
+    }
+    // 多次元配列宣言＋初期化: int a[][] = [[1,2], [3,4]];
+    | qualified_type IDENTIFIER empty_dimensions ASSIGN array_literal SEMICOLON {
+        ASTNode* arr = new ASTNode(ASTNode::AST_ARRAY_DECL);
+        arr->sval = std::string($2);
+        arr->elem_type_info = ((ASTNode*)$1)->type_info;
+        arr->elements = ((ASTNode*)$5)->elements;
+        // サイズを初期化子から推論する
+        // TODO: 多次元サイズ推論の実装
+        arr->array_size = -1; // 推論が必要
+        $$ = (void*)arr;
+        delete (ASTNode*)$1;
+        delete (ASTNode*)$3;
+        delete (ASTNode*)$5;
         free($2);
     }
     | IDENTIFIER ASSIGN expr SEMICOLON {
@@ -233,6 +262,19 @@ statement:
         assign->lhs->array_index = (ASTNode*)$3;
         assign->rhs = (ASTNode*)$6;
         assign->type_info = ((ASTNode*)$6)->type_info;
+        $$ = (void*)assign;
+        free($1);
+      }
+    | IDENTIFIER array_indices ASSIGN expr SEMICOLON {
+        ASTNode* assign = new ASTNode(ASTNode::AST_ASSIGN);
+        assign->sval = ""; // 通常変数代入以外は空
+        assign->lhs = new ASTNode(ASTNode::AST_ARRAY_REF);
+        assign->lhs->sval = std::string($1);
+        std::vector<ASTNode*>* indices = (std::vector<ASTNode*>*)$2;
+        assign->lhs->array_indices = *indices;
+        delete indices;
+        assign->rhs = (ASTNode*)$4;
+        assign->type_info = ((ASTNode*)$4)->type_info;
         $$ = (void*)assign;
         free($1);
       }
@@ -641,6 +683,15 @@ factor:
         $$ = (void*)ref;
         free($1);
     }
+    | IDENTIFIER array_indices {
+        ASTNode* ref = new ASTNode(ASTNode::AST_ARRAY_REF);
+        ref->sval = std::string($1);
+        std::vector<ASTNode*>* indices = (std::vector<ASTNode*>*)$2;
+        ref->array_indices = *indices;
+        delete indices;
+        $$ = (void*)ref;
+        free($1);
+    }
     | array_literal { $$ = $1; }
     | '(' expr ')' { $$ = $2; }
     | type NUMBER {
@@ -770,6 +821,51 @@ array_init_list:
         ASTNode* arr = (ASTNode*)$1;
         arr->elements.push_back((ASTNode*)$3);
         $$ = (void*)arr;
+      }
+    ;
+
+// 多次元配列の次元リスト: [expr][expr][expr]...
+array_dimensions:
+      '[' expr ']' '[' expr ']' {
+        std::vector<ASTNode*>* dims = new std::vector<ASTNode*>();
+        dims->push_back((ASTNode*)$2);
+        dims->push_back((ASTNode*)$5);
+        $$ = (void*)dims;
+      }
+    | array_dimensions '[' expr ']' {
+        std::vector<ASTNode*>* dims = (std::vector<ASTNode*>*)$1;
+        dims->push_back((ASTNode*)$3);
+        $$ = (void*)dims;
+      }
+    ;
+
+// 多次元配列のインデックスリスト: [expr][expr][expr]...
+array_indices:
+      '[' expr ']' '[' expr ']' {
+        std::vector<ASTNode*>* indices = new std::vector<ASTNode*>();
+        indices->push_back((ASTNode*)$2);
+        indices->push_back((ASTNode*)$5);
+        $$ = (void*)indices;
+      }
+    | array_indices '[' expr ']' {
+        std::vector<ASTNode*>* indices = (std::vector<ASTNode*>*)$1;
+        indices->push_back((ASTNode*)$3);
+        $$ = (void*)indices;
+      }
+    ;
+
+// 空の多次元配列次元リスト: [][]...
+empty_dimensions:
+      '[' ']' '[' ']' {
+        std::vector<int>* dims = new std::vector<int>();
+        dims->push_back(-1); // -1は未指定サイズ
+        dims->push_back(-1);
+        $$ = (void*)dims;
+      }
+    | empty_dimensions '[' ']' {
+        std::vector<int>* dims = (std::vector<int>*)$1;
+        dims->push_back(-1);
+        $$ = (void*)dims;
       }
     ;
 %%

@@ -16,7 +16,8 @@ struct Variable {
     // 配列用
     std::vector<int64_t> arr_value;      // 整数・bool配列
     std::vector<std::string> arr_svalue; // 文字列配列
-    int array_size = -1;                 // 配列サイズ
+    int array_size = -1;                 // 配列サイズ（1次元互換性）
+    std::vector<int> array_sizes;        // 多次元配列のサイズ（各次元のサイズ）
     int elem_type = 0;                   // 配列要素型
     bool is_array = false;
     bool is_const = false;    // const変数かどうか

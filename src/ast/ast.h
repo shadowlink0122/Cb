@@ -31,10 +31,13 @@ struct ASTNode {
     } type;
     bool is_const = false; // 定数かどうか（変数宣言時のみ）
     // 配列用
-    int array_size = -1; // 宣言時サイズ（-1は未指定）
-    ASTNode *array_size_expr = nullptr; // 配列サイズ式（int a[expr]; 用）
+    int array_size = -1; // 宣言時サイズ（-1は未指定、1次元配列用の互換性）
+    std::vector<int> array_sizes; // 多次元配列のサイズ（各次元のサイズ）
+    ASTNode *array_size_expr = nullptr; // 配列サイズ式（int a[expr]; 用、1次元互換性）
+    std::vector<ASTNode *> array_size_exprs; // 多次元配列のサイズ式
     std::vector<ASTNode *> elements;    // 配列リテラル・初期化子
-    ASTNode *array_index = nullptr;     // 要素アクセス用
+    ASTNode *array_index = nullptr;     // 要素アクセス用（1次元互換性）
+    std::vector<ASTNode *> array_indices; // 多次元配列のインデックス
     int elem_type_info = 0;             // 配列要素の型情報
     // if文用: 条件式、then, else
     ASTNode *if_cond = nullptr;
