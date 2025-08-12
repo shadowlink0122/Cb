@@ -7,6 +7,8 @@
 
 // 関数定義テーブル（main.cpp等から参照する場合用）
 extern std::map<std::string, ASTNode *> function_table;
+// グローバル宣言(変数/配列/関数)を一括登録する初期化パス
+void register_globals(ASTNode *root);
 
 struct Variable {
     int type; // 0=void, 1=tiny, 2=short, 3=int, 4=long, 5=string, 6=bool(1bit),
