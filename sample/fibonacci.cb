@@ -1,0 +1,21 @@
+long ans[1000];
+
+long fib(int n){
+    if(n < 0) return 0;
+    if(n == 0){
+        return 0;
+    }
+    if(n == 1){
+        return 1;
+    }
+    if(ans[n] > 0)return ans[n];
+    // メモ化（希望があれば判定追加可能）
+    ans[n] = fib(n - 1) + fib(n - 2);
+    print(ans[n]);
+    return ans[n];
+}
+
+int main(){
+    fib(92);
+    return 0;
+}
