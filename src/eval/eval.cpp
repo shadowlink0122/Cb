@@ -45,26 +45,11 @@ std::map<std::string, ASTNode *> function_table;
 // グローバル変数テーブル
 std::map<std::string, Variable> global_symbol_table;
 static bool in_global_scope = false;
+static bool globals_inited = false;
+extern ASTNode *root; // ルートAST（parser側で定義）
 
-void register_globals(ASTNode *root) {
-    if (!root)
-        return;
-    if (root->type != ASTNode::AST_STMTLIST)
-        return;
-    // 1周目: 変数/配列/関数を登録
-    bool saved = in_global_scope;
-    in_global_scope = true;
-    for (auto *stmt : root->stmts) {
-        if (!stmt)
-            continue;
-        if (stmt->type == ASTNode::AST_VAR_DECL ||
-            stmt->type == ASTNode::AST_ARRAY_DECL ||
-            stmt->type == ASTNode::AST_FUNCDEF) {
-            eval(stmt); // 登録のみ（副作用: print 等が無い前提）
-        }
-    }
-    in_global_scope = saved;
-}
+// ensure_globalsの再入防止用
+static bool ensure_in_progress = false;
 
 // va_list対応のデバッグ用printfラッパー
 extern "C" void vdebug_printf(const char *fmt, va_list args) {
@@ -81,6 +66,29 @@ void debug_printf(const char *fmt, ...) {
     va_start(args, fmt);
     vfprintf(stderr, fmt, args);
     va_end(args);
+}
+
+// 型ごとの範囲チェック関数
+void check_range(int type, int64_t value, const char *name) {
+    switch (type) {
+    case 1:
+        if (value < -128 || value > 127)
+            yyerror("tiny型の範囲外の値を代入しようとしました", name);
+        break;
+    case 2:
+        if (value < -32768 || value > 32767)
+            yyerror("short型の範囲外の値を代入しようとしました", name);
+        break;
+    case 3:
+        if (value < -2147483648LL || value > 2147483647LL)
+            yyerror("int型の範囲外の値を代入しようとしました", name);
+        break;
+    case 4:
+        // long: チェック不要
+        break;
+    default:
+        break;
+    }
 }
 
 // 右辺AST全体のtype_infoを再帰的に上書き
@@ -120,34 +128,137 @@ static void propagate_type_info(ASTNode *node, int type_info) {
     }
 }
 
+// 先行宣言扱いヘルパ（AST_ASSIGN を変数宣言として登録）
+static void register_assign_decl(ASTNode *stmt) {
+    if (!stmt)
+        return;
+    // 既に存在すればエラー（グローバル再宣言禁止）
+    if (global_symbol_table.find(stmt->sval) != global_symbol_table.end() ||
+        symbol_table.find(stmt->sval) != symbol_table.end()) {
+        yyerror("変数の再宣言はできません", stmt->sval.c_str());
+        exit(1);
+    }
+    // 型情報が無ければ宣言とみなさない
+    if (stmt->type_info == 0 && (!stmt->rhs || stmt->rhs->type_info == 0))
+        return;
+    Variable var;
+    var.is_array = false;
+    var.type = stmt->type_info ? stmt->type_info
+                               : (stmt->rhs ? stmt->rhs->type_info : 3);
+    var.is_const = stmt->is_const;
+    var.is_assigned = false;
+    var.value = 0;
+    var.svalue = "";
+    if (stmt->rhs) {
+        propagate_type_info(stmt->rhs, var.type);
+        int64_t v = eval(stmt->rhs);
+        if (var.type == 5) {
+            var.svalue = stmt->rhs->sval;
+        } else if (var.type == 6) {
+            var.value = (v != 0) ? 1 : 0;
+        } else {
+            check_range(var.type, v, stmt->sval.c_str());
+            switch (var.type) {
+            case 1:
+                var.value = (int8_t)v;
+                break;
+            case 2:
+                var.value = (int16_t)v;
+                break;
+            case 3:
+                var.value = (int32_t)v;
+                break;
+            case 4:
+                var.value = (int64_t)v;
+                break;
+            default:
+                var.value = (int32_t)v;
+                break;
+            }
+        }
+        var.is_assigned = true;
+    }
+    global_symbol_table[stmt->sval] = var;
+}
+
+static void ensure_globals() {
+    if (globals_inited || ensure_in_progress)
+        return;
+    if (!root)
+        return;
+    if (root->type != ASTNode::AST_STMTLIST) {
+        globals_inited = true;
+        return;
+    }
+    ensure_in_progress = true;
+    bool saved = in_global_scope;
+    in_global_scope = true;
+    for (auto *stmt : root->stmts) {
+        if (!stmt)
+            continue;
+        switch (stmt->type) {
+        case ASTNode::AST_VAR_DECL:
+        case ASTNode::AST_ARRAY_DECL:
+        case ASTNode::AST_FUNCDEF:
+            // 既に登録済みならスキップ
+            if ((stmt->type == ASTNode::AST_VAR_DECL ||
+                 stmt->type == ASTNode::AST_ARRAY_DECL) &&
+                (global_symbol_table.find(stmt->sval) !=
+                 global_symbol_table.end()))
+                continue;
+            eval(stmt);
+            break;
+        case ASTNode::AST_ASSIGN:
+            // 型付き初期化: int a = 1; を宣言として扱う
+            register_assign_decl(stmt);
+            break;
+        default:
+            break;
+        }
+    }
+    in_global_scope = saved;
+    globals_inited = true;
+    ensure_in_progress = false;
+}
+
+void register_globals(ASTNode *root) {
+    // 既存の先行登録関数。ensure_globalsで遅延初期化も行うので必須ではない。
+    if (!root)
+        return;
+    if (root->type != ASTNode::AST_STMTLIST)
+        return;
+    bool saved = in_global_scope;
+    in_global_scope = true;
+    for (auto *stmt : root->stmts) {
+        if (!stmt)
+            continue;
+        switch (stmt->type) {
+        case ASTNode::AST_VAR_DECL:
+        case ASTNode::AST_ARRAY_DECL:
+        case ASTNode::AST_FUNCDEF:
+            if ((stmt->type == ASTNode::AST_VAR_DECL ||
+                 stmt->type == ASTNode::AST_ARRAY_DECL) &&
+                (global_symbol_table.find(stmt->sval) !=
+                 global_symbol_table.end()))
+                continue;
+            eval(stmt);
+            break;
+        case ASTNode::AST_ASSIGN:
+            register_assign_decl(stmt);
+            break;
+        default:
+            break;
+        }
+    }
+    in_global_scope = saved;
+    globals_inited = true;
+}
+
 // 関数呼び出し時のreturn値伝搬用例外（ASTNode*で値を伝搬）
 struct ReturnException {
     ASTNode *value;
     ReturnException(ASTNode *v) : value(v) {}
 };
-
-// 型ごとの範囲チェック関数
-void check_range(int type, int64_t value, const char *name) {
-    switch (type) {
-    case 1:
-        if (value < -128 || value > 127)
-            yyerror("tiny型の範囲外の値を代入しようとしました", name);
-        break;
-    case 2:
-        if (value < -32768 || value > 32767)
-            yyerror("short型の範囲外の値を代入しようとしました", name);
-        break;
-    case 3:
-        if (value < -2147483648LL || value > 2147483647LL)
-            yyerror("int型の範囲外の値を代入しようとしました", name);
-        break;
-    case 4:
-        // long: チェック不要
-        break;
-    default:
-        break;
-    }
-}
 
 int eval_print(ASTNode *node) {
     if (!node->lhs) {
@@ -277,18 +388,23 @@ int64_t eval_num(ASTNode *node) {
 
 // 変数参照（ローカル→グローバルの順で検索）
 int64_t eval_var(ASTNode *node) {
+    ensure_globals();
     // まずローカル
     auto it = symbol_table.find(node->sval);
     if (it == symbol_table.end()) {
         // グローバル
         it = global_symbol_table.find(node->sval);
         if (it == global_symbol_table.end()) {
-            yyerror("未定義の配列または変数です", node->sval.c_str());
+            // まだ初期化されていない可能性があるので再度ensure（念のため）
+            ensure_globals();
+            it = global_symbol_table.find(node->sval);
+            if (it == global_symbol_table.end()) {
+                yyerror("未定義の配列または変数です", node->sval.c_str());
+            }
         }
     }
     const Variable &var = it->second;
     if (var.is_array) {
-        // 配列変数名だけ参照は不可
         yyerror("配列変数名だけの参照はできません。要素を指定してください",
                 node->sval.c_str());
     }
@@ -531,8 +647,14 @@ int64_t eval_assign(ASTNode *node) {
             return symbol_table[node->sval].value;
         }
     } else {
-        symbol_table[node->sval] = var;
-        return symbol_table[node->sval].value;
+        // 新規作成: グローバルスコープ内ならグローバルへ
+        if (in_global_scope) {
+            global_symbol_table[node->sval] = var;
+            return (var.type == 5) ? 0 : global_symbol_table[node->sval].value;
+        } else {
+            symbol_table[node->sval] = var;
+            return symbol_table[node->sval].value;
+        }
     }
 }
 
@@ -778,8 +900,12 @@ int64_t eval(ASTNode *node) {
         return eval_assign(node);
     case ASTNode::AST_PRINT:
         return eval_print(node);
-    case ASTNode::AST_STMTLIST:
+    case ASTNode::AST_STMTLIST: {
+        // グローバル初期化済みでなければ行う
+        if (!globals_inited)
+            ensure_globals();
         return eval_stmtlist(node);
+    }
     case ASTNode::AST_FUNCDEF:
         // 関数定義: function_tableに登録
         if (!node->sval.empty()) {

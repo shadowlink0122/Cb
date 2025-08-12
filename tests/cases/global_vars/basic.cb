@@ -1,0 +1,36 @@
+int g1 = 10;
+long g2 = 1000;
+int arr[5]; // 初期化はinit()で行う
+string msg = "ok";
+
+void init(){
+    g1 = 10;
+    arr[0]=1;
+    arr[1]=2;
+    arr[2]=3;
+    arr[3]=4;
+    arr[4]=5;
+}
+
+int inc(){
+    g1 = g1 + 1;
+    return g1;
+}
+
+int sum(){
+    int s = 0;
+    s = g1 + g2 + arr[2];
+    return s;
+}
+
+int main(){
+    init();
+    print(g1);      // 10
+    print(inc());   // 11
+    print(g1);      // 11
+    print(sum());   // 11 + 1000 + 3 = 1014
+    arr[2] = 30;
+    print(sum());   // 11 + 1000 + 30 = 1041
+    print(msg);     // ok
+    return 0;
+}
