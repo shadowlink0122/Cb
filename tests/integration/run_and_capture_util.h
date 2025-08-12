@@ -6,19 +6,18 @@
 
 static std::string run_and_capture(const std::string &cmd, int *exit_code = nullptr) {
     std::string result;
-    std::string sh_cmd = "sh -c '" + cmd + "'";
-    // 1. 標準出力・標準エラー出力を取得
+    std::string sh_cmd = "sh -c '" + cmd + "'"; // cmdは既に 2>&1 を含む（呼び出し側で付与）
     FILE *pipe = popen(sh_cmd.c_str(), "r");
-    if (!pipe)
+    if (!pipe) {
+        if (exit_code) *exit_code = 255;
         return "";
+    }
     char buffer[256];
     while (fgets(buffer, sizeof(buffer), pipe)) {
         result += buffer;
     }
-    pclose(pipe);
-    // 2. exit codeだけsystem()で取得
+    int status = pclose(pipe); // ここで終了ステータス取得
     if (exit_code) {
-        int status = system(sh_cmd.c_str());
         if (WIFEXITED(status)) {
             *exit_code = WEXITSTATUS(status);
         } else if (WIFSIGNALED(status)) {

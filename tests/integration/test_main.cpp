@@ -5,6 +5,7 @@
 #include "boundary/test_boundary_case.h"
 #include "cross_type/test_cross_type_case.h"
 #include "func/test_func_case.h"
+#include "global_vars/test_global_vars.h"
 #include "if/test_if_case.h"
 #include "incdec/test_incdec_case.h"
 #include "loop/test_loop.h"
@@ -27,6 +28,7 @@ int main() {
         test_bool_expr_basic();
         test_integration_loop();
         test_integration_if_basic();
+        test_integration_global_vars();
     } catch (const std::exception &e) {
         std::cerr << "[integration] test failed: " << e.what() << std::endl;
         fail = 1;

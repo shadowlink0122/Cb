@@ -32,11 +32,13 @@ int main(int argc, char **argv) {
         ast = parse_to_ast(argv[file_arg]);
         if (!ast)
             return 1;
+        // 先にグローバルを登録
+        register_globals(ast);
         // 関数定義ノードのみfunction_tableに登録（副作用のある実行はしない）
         if (ast && ast->type == ASTNode::AST_STMTLIST) {
             for (auto *stmt : ast->stmts) {
                 if (stmt && stmt->type == ASTNode::AST_FUNCDEF) {
-                    eval(stmt); // function_tableに登録のみ
+                    eval(stmt); // function_tableに登録のみ（既にregister_globalsで通っている可能性あり）
                 }
             }
         } else if (ast && ast->type == ASTNode::AST_FUNCDEF) {

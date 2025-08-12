@@ -1,0 +1,20 @@
+int data[3]; // 初期化はinitで
+
+void init(){
+    data[0]=1;
+    data[1]=2;
+    data[2]=3;
+}
+
+int tweak(){
+    data[1] = data[1] + 10; // -> 12
+    return data[1];
+}
+
+int main(){
+    init();
+    print(data[1]); // 2
+    print(tweak()); // 12
+    print(data[1]); // 12 (グローバル更新されたか)
+    return 0;
+}
