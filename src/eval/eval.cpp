@@ -47,14 +47,19 @@ std::map<std::string, Variable> global_symbol_table;
 static bool in_global_scope = false;
 
 void register_globals(ASTNode *root) {
-    if (!root) return;
-    if (root->type != ASTNode::AST_STMTLIST) return;
+    if (!root)
+        return;
+    if (root->type != ASTNode::AST_STMTLIST)
+        return;
     // 1周目: 変数/配列/関数を登録
     bool saved = in_global_scope;
     in_global_scope = true;
     for (auto *stmt : root->stmts) {
-        if (!stmt) continue;
-        if (stmt->type == ASTNode::AST_VAR_DECL || stmt->type == ASTNode::AST_ARRAY_DECL || stmt->type == ASTNode::AST_FUNCDEF) {
+        if (!stmt)
+            continue;
+        if (stmt->type == ASTNode::AST_VAR_DECL ||
+            stmt->type == ASTNode::AST_ARRAY_DECL ||
+            stmt->type == ASTNode::AST_FUNCDEF) {
             eval(stmt); // 登録のみ（副作用: print 等が無い前提）
         }
     }
@@ -207,7 +212,8 @@ int eval_stmtlist(ASTNode *node) {
     extern ASTNode *root;
     bool is_global = (node == root);
     bool prev_global_flag = in_global_scope;
-    if (is_global) in_global_scope = true;
+    if (is_global)
+        in_global_scope = true;
     std::map<std::string, Variable> old_symbol_table;
     if (!is_global) {
         old_symbol_table = symbol_table;
@@ -223,7 +229,8 @@ int eval_stmtlist(ASTNode *node) {
     } catch (const ReturnException &e) {
         if (!is_global)
             symbol_table = old_symbol_table;
-        if (is_global) in_global_scope = prev_global_flag;
+        if (is_global)
+            in_global_scope = prev_global_flag;
         throw; // return値を上位に伝搬
     }
     if (!is_global) {
@@ -233,7 +240,8 @@ int eval_stmtlist(ASTNode *node) {
         }
         symbol_table = old_symbol_table;
     }
-    if (is_global) in_global_scope = prev_global_flag;
+    if (is_global)
+        in_global_scope = prev_global_flag;
     return 0;
 }
 
@@ -281,7 +289,8 @@ int64_t eval_var(ASTNode *node) {
     const Variable &var = it->second;
     if (var.is_array) {
         // 配列変数名だけ参照は不可
-        yyerror("配列変数名だけの参照はできません。要素を指定してください", node->sval.c_str());
+        yyerror("配列変数名だけの参照はできません。要素を指定してください",
+                node->sval.c_str());
     }
     if (var.type == 5) {
         node->type_info = 5;
@@ -651,8 +660,9 @@ int64_t eval(ASTNode *node) {
             yyerror("変数の再宣言はできません", node->sval.c_str());
             exit(1);
         }
-        debug_printf("DEBUG: AST_VAR_DECL %s node->is_const=%d (in_global_scope=%d)\n",
-                     node->sval.c_str(), node->is_const, (int)in_global_scope);
+        debug_printf(
+            "DEBUG: AST_VAR_DECL %s node->is_const=%d (in_global_scope=%d)\n",
+            node->sval.c_str(), node->is_const, (int)in_global_scope);
         Variable var;
         var.type = node->type_info;
         var.is_const = node->is_const;
@@ -669,11 +679,21 @@ int64_t eval(ASTNode *node) {
             } else {
                 check_range(node->type_info, v, node->sval.c_str());
                 switch (node->type_info) {
-                case 1: var.value = (int8_t)v; break;
-                case 2: var.value = (int16_t)v; break;
-                case 3: var.value = (int32_t)v; break;
-                case 4: var.value = (int64_t)v; break;
-                default: var.value = (int32_t)v; break;
+                case 1:
+                    var.value = (int8_t)v;
+                    break;
+                case 2:
+                    var.value = (int16_t)v;
+                    break;
+                case 3:
+                    var.value = (int32_t)v;
+                    break;
+                case 4:
+                    var.value = (int64_t)v;
+                    break;
+                default:
+                    var.value = (int32_t)v;
+                    break;
                 }
             }
             var.is_assigned = true;
@@ -688,7 +708,8 @@ int64_t eval(ASTNode *node) {
     case ASTNode::AST_PRE_INCDEC: {
         // ++a, --a
         if (!node->lhs || node->lhs->type != ASTNode::AST_VAR)
-            yyerror("インクリメント/デクリメントの対象が変数ではありません", "");
+            yyerror("インクリメント/デクリメントの対象が変数ではありません",
+                    "");
         auto it = symbol_table.find(node->lhs->sval);
         bool used_global = false;
         if (it == symbol_table.end()) {
@@ -698,15 +719,25 @@ int64_t eval(ASTNode *node) {
             used_global = true;
         }
         Variable &var = it->second;
-        if (node->op == "++") var.value += 1; else if (node->op == "--") var.value -= 1; else yyerror("未知のインクリメント/デクリメント演算子です", node->op.c_str());
+        if (node->op == "++")
+            var.value += 1;
+        else if (node->op == "--")
+            var.value -= 1;
+        else
+            yyerror("未知のインクリメント/デクリメント演算子です",
+                    node->op.c_str());
         check_range(var.type, var.value, node->lhs->sval.c_str());
-        if (used_global) global_symbol_table[node->lhs->sval] = var; else symbol_table[node->lhs->sval] = var;
+        if (used_global)
+            global_symbol_table[node->lhs->sval] = var;
+        else
+            symbol_table[node->lhs->sval] = var;
         return var.value;
     }
     case ASTNode::AST_POST_INCDEC: {
         // a++, a--
         if (!node->lhs || node->lhs->type != ASTNode::AST_VAR)
-            yyerror("インクリメント/デクリメントの対象が変数ではありません", "");
+            yyerror("インクリメント/デクリメントの対象が変数ではありません",
+                    "");
         auto it = symbol_table.find(node->lhs->sval);
         bool used_global = false;
         if (it == symbol_table.end()) {
@@ -717,9 +748,18 @@ int64_t eval(ASTNode *node) {
         }
         Variable &var = it->second;
         int64_t old = var.value;
-        if (node->op == "++") var.value += 1; else if (node->op == "--") var.value -= 1; else yyerror("未知のインクリメント/デクリメント演算子です", node->op.c_str());
+        if (node->op == "++")
+            var.value += 1;
+        else if (node->op == "--")
+            var.value -= 1;
+        else
+            yyerror("未知のインクリメント/デクリメント演算子です",
+                    node->op.c_str());
         check_range(var.type, var.value, node->lhs->sval.c_str());
-        if (used_global) global_symbol_table[node->lhs->sval] = var; else symbol_table[node->lhs->sval] = var;
+        if (used_global)
+            global_symbol_table[node->lhs->sval] = var;
+        else
+            symbol_table[node->lhs->sval] = var;
         return old;
     }
     case ASTNode::AST_NUM:
@@ -834,20 +874,33 @@ int64_t eval(ASTNode *node) {
         var.elem_type = node->elem_type_info;
         var.type = 100 + node->elem_type_info;
         if (var.elem_type == 5) {
-            var.arr_svalue.resize(var.array_size, default_str_value(var.elem_type));
+            var.arr_svalue.resize(var.array_size,
+                                  default_str_value(var.elem_type));
         } else {
-            var.arr_value.resize(var.array_size, default_int_value(var.elem_type));
+            var.arr_value.resize(var.array_size,
+                                 default_int_value(var.elem_type));
         }
         if (!node->elements.empty()) {
-            for (size_t i = 0; i < node->elements.size() && i < (size_t)var.array_size; ++i) {
+            for (size_t i = 0;
+                 i < node->elements.size() && i < (size_t)var.array_size; ++i) {
                 ASTNode *elem = node->elements[i];
-                if (var.elem_type == 5) { eval(elem); var.arr_svalue[i] = elem->sval; }
-                else if (var.elem_type == 6) { int64_t v = eval(elem); var.arr_value[i] = (v != 0) ? 1 : 0; }
-                else { int64_t v = eval(elem); check_range(var.elem_type, v, node->sval.c_str()); var.arr_value[i] = v; }
+                if (var.elem_type == 5) {
+                    eval(elem);
+                    var.arr_svalue[i] = elem->sval;
+                } else if (var.elem_type == 6) {
+                    int64_t v = eval(elem);
+                    var.arr_value[i] = (v != 0) ? 1 : 0;
+                } else {
+                    int64_t v = eval(elem);
+                    check_range(var.elem_type, v, node->sval.c_str());
+                    var.arr_value[i] = v;
+                }
             }
         }
-        debug_printf("DEBUG: AST_ARRAY_DECL %s (in_global_scope=%d) size=%d elem_type=%d\n",
-                     node->sval.c_str(), (int)in_global_scope, var.array_size, var.elem_type);
+        debug_printf("DEBUG: AST_ARRAY_DECL %s (in_global_scope=%d) size=%d "
+                     "elem_type=%d\n",
+                     node->sval.c_str(), (int)in_global_scope, var.array_size,
+                     var.elem_type);
         if (in_global_scope) {
             global_symbol_table[node->sval] = var;
         } else {
