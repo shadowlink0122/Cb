@@ -1,6 +1,7 @@
 #include "../backend/interpreter.h"
 #include "../common/ast.h"
 #include "../frontend/parser_utils.h"
+#include "debug.h"
 #include "parser.h"
 #include <cstdarg>
 #include <cstdlib>
@@ -19,34 +20,25 @@ extern int yylineno;
 const char *current_filename = nullptr;
 std::vector<std::string> file_lines;
 
-// デバッグモードフラグ
-bool debug_mode = false;
-
-// debug_print関数
-void debug_print(const char *fmt, ...) {
-    if (!debug_mode)
-        return;
-
-    va_list args;
-    va_start(args, fmt);
-    printf("[DEBUG] ");
-    vprintf(fmt, args);
-    va_end(args);
-}
-
 int main(int argc, char **argv) {
     if (argc < 2) {
-        std::fprintf(stderr, "使用方法: %s <input.cb> [--debug]\n", argv[0]);
+        std::fprintf(stderr, "使用方法: %s <input.cb> [--debug | --debug-ja]\n",
+                     argv[0]);
         return 1;
     }
 
     // コマンドライン引数の解析
     std::string filename;
     debug_mode = false;
+    debug_language = DebugLanguage::ENGLISH;
 
     for (int i = 1; i < argc; ++i) {
         if (std::string(argv[i]) == "--debug") {
             debug_mode = true;
+            debug_language = DebugLanguage::ENGLISH;
+        } else if (std::string(argv[i]) == "--debug-ja") {
+            debug_mode = true;
+            debug_language = DebugLanguage::JAPANESE;
         } else {
             filename = argv[i];
         }
@@ -92,8 +84,7 @@ int main(int argc, char **argv) {
 
         // 構文解析
         if (debug_mode) {
-            std::fprintf(stderr, "[DEBUG] 構文解析を開始します: %s\n",
-                         filename.c_str());
+            debug_msg(DebugMsgId::PARSING_START, filename.c_str());
         }
 
         int parse_result = yyparse();
@@ -111,7 +102,7 @@ int main(int argc, char **argv) {
         }
 
         if (debug_mode) {
-            std::fprintf(stderr, "[DEBUG] ASTが正常に生成されました\n");
+            debug_msg(DebugMsgId::AST_GENERATED);
         }
 
         // インタープリター実行
@@ -120,7 +111,7 @@ int main(int argc, char **argv) {
             interpreter.process(root_node.get());
 
             if (debug_mode) {
-                std::fprintf(stderr, "[DEBUG] 実行が正常に終了しました\n");
+                debug_msg(DebugMsgId::EXECUTION_COMPLETE);
             }
         } catch (const std::exception &e) {
             std::fprintf(stderr, "%s\n", e.what());

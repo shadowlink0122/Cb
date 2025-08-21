@@ -57,12 +57,12 @@ static std::string parse_string_literal(const char *raw) {
 extern "C" {
 
 ASTNode *create_stmt_list() {
-    debug_print("ノード作成: AST_STMT_LIST\n");
+    debug_msg(DebugMsgId::NODE_CREATE_STMTLIST);
     return new ASTNode(ASTNodeType::AST_STMT_LIST);
 }
 
 ASTNode *create_type_node(TypeInfo type) {
-    debug_print("ノード作成: AST_TYPE_SPEC (type=%d)\n", type);
+    debug_msg(DebugMsgId::NODE_CREATE_TYPESPEC, type);
     auto node = new ASTNode(ASTNodeType::AST_TYPE_SPEC);
     node->type_info = type;
     return node;
@@ -76,14 +76,14 @@ ASTNode *create_storage_spec(bool is_static, bool is_const) {
 }
 
 ASTNode *create_var_decl(const char *name) {
-    debug_print("ノード作成: AST_VAR_DECL (name=%s)\n", name);
+    debug_msg(DebugMsgId::NODE_CREATE_VAR_DECL, name);
     auto node = new ASTNode(ASTNodeType::AST_VAR_DECL);
     node->name = std::string(name);
     return node;
 }
 
 ASTNode *create_var_init(const char *name, ASTNode *init_expr) {
-    debug_print("ノード作成: AST_ASSIGN (name=%s, 初期化あり)\n", name);
+    debug_msg(DebugMsgId::NODE_CREATE_ASSIGN, name);
     auto node = new ASTNode(ASTNodeType::AST_ASSIGN);
     node->name = std::string(name);
     node->right = std::unique_ptr<ASTNode>(init_expr);
@@ -91,7 +91,7 @@ ASTNode *create_var_init(const char *name, ASTNode *init_expr) {
 }
 
 ASTNode *create_array_decl(const char *name, ASTNode *size_expr) {
-    debug_print("ノード作成: AST_ARRAY_DECL (name=%s)\n", name);
+    debug_msg(DebugMsgId::NODE_CREATE_ARRAY_DECL, name);
     auto node = new ASTNode(ASTNodeType::AST_ARRAY_DECL);
     node->name = std::string(name);
     node->array_size_expr = std::unique_ptr<ASTNode>(size_expr);
@@ -124,40 +124,37 @@ ASTNode *create_array_init_with_size(const char *name, ASTNode *size_expr,
 
 ASTNode *create_function_def(const char *name, ASTNode *decl_spec,
                              ASTNode *unused, ASTNode *params, ASTNode *body) {
-    debug_print("ノード作成: AST_FUNC_DECL (name=%s)\n", name);
+    debug_msg(DebugMsgId::NODE_CREATE_FUNC_DECL, name);
     auto node = new ASTNode(ASTNodeType::AST_FUNC_DECL);
     node->name = std::string(name);
 
     if (decl_spec) {
-        debug_print("  関数: storage_class=%d, const=%d, type=%d\n",
-                    decl_spec->is_static, decl_spec->is_const,
-                    decl_spec->type_info);
+        // 関数の型情報はデバッグメッセージとして出力しない（詳細すぎるため）
         node->is_static = decl_spec->is_static;
         node->is_const = decl_spec->is_const;
         node->type_info = decl_spec->type_info;
     }
 
     if (params) {
-        debug_print("  パラメータリスト処理開始\n");
-        debug_print("  params->parameters.size() = %zu\n",
-                    params->parameters.size());
+        debug_msg(DebugMsgId::PARAM_LIST_START);
+        debug_msg(DebugMsgId::PARAM_LIST_SIZE, params->parameters.size());
         node->parameters = std::move(params->parameters);
-        debug_print("  パラメータ移動完了\n");
+        debug_msg(DebugMsgId::PARAM_LIST_COMPLETE);
         delete params;
-        debug_print("  paramsノード削除完了\n");
+        debug_msg(DebugMsgId::PARAM_LIST_DELETE);
     } else {
-        debug_print("  パラメータなし\n");
+        debug_msg(DebugMsgId::PARAM_LIST_NONE);
     }
 
-    debug_print("  関数ボディ処理開始\n");
+    debug_msg(DebugMsgId::FUNC_BODY_START);
     if (body) {
-        debug_print("  ボディあり\n");
+        debug_msg(DebugMsgId::FUNC_BODY_EXISTS);
         node->body = std::unique_ptr<ASTNode>(body);
-        debug_print("  ボディ設定完了\n");
+        debug_msg(DebugMsgId::FUNC_BODY_SET_COMPLETE);
     } else {
-        debug_print("  ボディなし\n");
+        debug_msg(DebugMsgId::FUNC_BODY_NONE);
     }
-    debug_print("  関数定義ノード作成完了\n");
+    debug_msg(DebugMsgId::FUNC_DEF_COMPLETE);
     return node;
 }
 

@@ -18,7 +18,7 @@ PARSER_H=$(FRONTEND_DIR)/parser.h
 LEXER_C=$(FRONTEND_DIR)/lexer.c
 
 # オブジェクトファイル
-FRONTEND_OBJS=$(PARSER_C:.c=.o) $(LEXER_C:.c=.o) $(FRONTEND_DIR)/parser_utils.o $(FRONTEND_DIR)/main.o
+FRONTEND_OBJS=$(PARSER_C:.c=.o) $(LEXER_C:.c=.o) $(FRONTEND_DIR)/parser_utils.o $(FRONTEND_DIR)/main.o $(FRONTEND_DIR)/debug_impl.o $(FRONTEND_DIR)/debug_messages.o
 BACKEND_OBJS=$(BACKEND_DIR)/interpreter.o
 
 # 実行ファイル

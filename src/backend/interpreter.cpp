@@ -223,9 +223,9 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
     } break;
 
     case ASTNodeType::AST_FUNC_DECL:
-        debug_print("関数宣言を登録: %s\n", node->name.c_str());
+        debug_msg(DebugMsgId::FUNC_DECL_REGISTER, node->name.c_str());
         global_scope.functions[node->name] = node;
-        debug_print("関数宣言登録完了: %s\n", node->name.c_str());
+        debug_msg(DebugMsgId::FUNC_DECL_REGISTER_COMPLETE, node->name.c_str());
         break;
 
     default:
@@ -234,31 +234,31 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
 }
 
 void Interpreter::process(const ASTNode *ast) {
-    debug_print("Interpreter::process() 開始\n");
+    debug_msg(DebugMsgId::INTERPRETER_START);
     if (!ast) {
-        debug_print("ASTがnullです\n");
+        debug_msg(DebugMsgId::AST_IS_NULL);
         return;
     }
 
-    debug_print("グローバル宣言の登録を開始\n");
+    debug_msg(DebugMsgId::GLOBAL_DECL_START);
     // まずグローバル宣言を登録
     register_global_declarations(ast);
-    debug_print("グローバル宣言の登録が完了\n");
+    debug_msg(DebugMsgId::GLOBAL_DECL_COMPLETE);
 
-    debug_print("main関数を検索中\n");
+    debug_msg(DebugMsgId::MAIN_FUNC_SEARCH);
     // main関数を探して実行
     const ASTNode *main_func = find_function("main");
     if (!main_func) {
         throw std::runtime_error("main関数が見つかりません");
     }
-    debug_print("main関数が見つかりました\n");
+    debug_msg(DebugMsgId::MAIN_FUNC_FOUND);
 
     try {
         push_scope();
         execute_statement(main_func->body.get());
         pop_scope();
     } catch (const ReturnException &e) {
-        debug_print("main関数が値 %lld で終了しました\n", e.value);
+        debug_msg(DebugMsgId::MAIN_FUNC_EXIT, e.value);
     }
 }
 
@@ -441,17 +441,18 @@ int64_t Interpreter::evaluate_expression(const ASTNode *node) {
 
     switch (node->node_type) {
     case ASTNodeType::AST_NUMBER:
-        debug_print("式評価: 数値リテラル = %lld\n", node->int_value);
+        debug_msg(DebugMsgId::EXPR_EVAL_NUMBER, node->int_value);
         return node->int_value;
 
     case ASTNodeType::AST_STRING_LITERAL:
+        // 文字列リテラルのデバッグは既存のdebug_printを維持（詳細情報のため）
         debug_print("式評価: 文字列リテラル = \"%s\"\n",
                     node->str_value.c_str());
         // 文字列は特別な値として0を返す
         return 0;
 
     case ASTNodeType::AST_VARIABLE: {
-        debug_print("式評価: 変数参照 = %s\n", node->name.c_str());
+        debug_msg(DebugMsgId::EXPR_EVAL_VAR_REF, node->name.c_str());
         Variable *var = find_variable(node->name);
         if (!var) {
             throw std::runtime_error("未定義の変数です: " + node->name);
@@ -460,27 +461,27 @@ int64_t Interpreter::evaluate_expression(const ASTNode *node) {
             throw std::runtime_error("配列変数への直接参照はできません: " +
                                      node->name);
         }
-        debug_print("  変数値 = %lld\n", var->value);
+        debug_msg(DebugMsgId::VAR_VALUE, var->value);
         return var->value;
     }
 
     case ASTNodeType::AST_ARRAY_REF: {
-        debug_print("式評価: 配列参照 = %s[...]\n", node->name.c_str());
+        debug_msg(DebugMsgId::EXPR_EVAL_ARRAY_REF, node->name.c_str());
         Variable *var = find_variable(node->name);
         if (!var) {
             throw std::runtime_error("未定義の配列です: " + node->name);
         }
 
         int64_t index = evaluate_expression(node->array_index.get());
-        debug_print("  配列インデックス = %lld\n", index);
+        debug_msg(DebugMsgId::ARRAY_INDEX, index);
 
         if (var->type == TYPE_STRING) {
             // 文字列の個別文字アクセス（UTF-8対応）
-            debug_print("  文字列要素アクセス (UTF-8対応)\n");
+            debug_msg(DebugMsgId::STRING_ELEMENT_ACCESS);
 
             // UTF-8文字数で範囲チェック
             size_t utf8_length = utf8_char_count(var->str_value);
-            debug_print("  文字列長（UTF-8文字数）= %zu\n", utf8_length);
+            debug_msg(DebugMsgId::STRING_LENGTH_UTF8, utf8_length);
 
             if (index < 0 || index >= static_cast<int64_t>(utf8_length)) {
                 throw std::runtime_error(
@@ -494,12 +495,12 @@ int64_t Interpreter::evaluate_expression(const ASTNode *node) {
                 utf8_char_at(var->str_value, static_cast<size_t>(index));
             int64_t result = utf8_char_to_int(utf8_char);
 
-            debug_print("  文字列要素値 = %lld (UTF-8文字: \"%s\")\n", result,
-                        utf8_char.c_str());
+            debug_msg(DebugMsgId::STRING_ELEMENT_VALUE, result,
+                      utf8_char.c_str());
             return result;
         } else if (var->is_array) {
             // 通常の配列アクセス
-            debug_print("  配列要素アクセス\n");
+            debug_msg(DebugMsgId::ARRAY_ELEMENT_ACCESS);
             if (index < 0 || index >= var->array_size) {
                 throw std::runtime_error("配列の範囲外アクセス: " + node->name);
             }
@@ -511,7 +512,7 @@ int64_t Interpreter::evaluate_expression(const ASTNode *node) {
                 return 0; // 仮の実装
             } else {
                 int64_t result = var->array_values[index];
-                debug_print("  配列要素値 = %lld\n", result);
+                debug_msg(DebugMsgId::ARRAY_ELEMENT_VALUE, result);
                 return result;
             }
         } else {
@@ -520,10 +521,10 @@ int64_t Interpreter::evaluate_expression(const ASTNode *node) {
     }
 
     case ASTNodeType::AST_BINARY_OP: {
-        debug_print("式評価: 二項演算 = %s\n", node->op.c_str());
+        debug_msg(DebugMsgId::EXPR_EVAL_BINARY_OP, node->op.c_str());
         int64_t left = evaluate_expression(node->left.get());
         int64_t right = evaluate_expression(node->right.get());
-        debug_print("  左辺 = %lld, 右辺 = %lld\n", left, right);
+        debug_msg(DebugMsgId::BINARY_OP_VALUES, left, right);
 
         int64_t result = 0;
         if (node->op == "+")
@@ -702,11 +703,10 @@ void Interpreter::assign_variable(const std::string &name, int64_t value,
 
 void Interpreter::assign_variable(const std::string &name, int64_t value,
                                   TypeInfo type, bool is_const) {
-    debug_print("変数代入: %s = %lld (type=%d, const=%d)\n", name.c_str(),
-                value, type, is_const);
+    debug_msg(DebugMsgId::VAR_ASSIGN, name.c_str(), value, type, is_const);
     Variable *var = find_variable(name);
     if (!var) {
-        debug_print("  新規変数を作成\n");
+        debug_msg(DebugMsgId::VAR_CREATE_NEW);
         // 新しい変数を作成
         Variable new_var;
         new_var.type = type;
