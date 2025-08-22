@@ -3,6 +3,7 @@
 // 各テストモジュールをインクルード
 #include "arithmetic/test_arithmetic.hpp"
 #include "array/test_array.hpp"
+#include "array_literal/test_array_literal.hpp"
 #include "assign/test_assign.hpp"
 #include "bool_expr/test_bool_expr.hpp"
 #include "boundary/test_boundary.hpp"
@@ -25,6 +26,7 @@ int main() {
         test_integration_func();
         test_integration_string();
         test_integration_array();
+        test_integration_array_literal();
         test_bool_expr_basic();
         test_integration_loop();
         test_integration_if();

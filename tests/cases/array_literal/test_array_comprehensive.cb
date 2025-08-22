@@ -1,0 +1,44 @@
+// 統合的な配列リテラルテスト
+void test_int_arrays() {
+    print("=== Testing int arrays ===");
+    
+    int small[] = [1, 2];
+    print(small[0]);
+    print(small[1]);
+    
+    int large[] = [10, 20, 30, 40, 50];
+    print(large[0]);
+    print(large[4]);
+}
+
+void test_string_arrays() {
+    print("=== Testing string arrays ==="); 
+    
+    string greetings[] = ["hello", "world"];
+    print(greetings[0]);
+    print(greetings[1]);
+}
+
+void test_single_elements() {
+    print("=== Testing single element arrays ===");
+    
+    int single_int[] = [999];
+    print(single_int[0]);
+    
+    string single_str[] = ["only"];
+    print(single_str[0]);
+}
+
+void test_with_numbers() {
+    print("=== Testing arrays with direct numbers ===");
+    int direct[] = [100, 200];
+    print(direct[0]);
+    print(direct[1]);
+}
+
+int main() {
+    test_int_arrays();
+    test_string_arrays(); 
+    test_single_elements();
+    test_with_numbers();
+}

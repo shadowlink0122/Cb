@@ -1,0 +1,5 @@
+// 配列リテラル 失敗ケース - 複数箇所での型不整合
+int main() {
+    int broken[] = ["first", 2, "third", 4, "fifth"];
+    print(broken[1]);
+}
