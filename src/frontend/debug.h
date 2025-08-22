@@ -59,6 +59,9 @@ enum class DebugMsgId {
     // 変数代入関連
     VAR_ASSIGN,
     VAR_CREATE_NEW,
+    VAR_ASSIGN_READABLE,    // 人間が読みやすい形式
+    STRING_ASSIGN_READABLE, // 文字列代入の読みやすい形式
+    STRING_VAR_CREATE_NEW,  // 文字列変数作成
 };
 
 // デバッグモードフラグ（外部宣言）

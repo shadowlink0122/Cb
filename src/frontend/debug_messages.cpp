@@ -131,6 +131,15 @@ const DebugMessageTemplate debug_messages[] = {
          "変数代入: %s = %lld (type=%d, const=%d)"},
     [static_cast<int>(DebugMsgId::VAR_CREATE_NEW)] = {"  Creating new variable",
                                                       "  新規変数を作成"},
+    [static_cast<int>(DebugMsgId::VAR_ASSIGN_READABLE)] =
+        {"Variable assignment: %s = %lld (type=%s, const=%s)",
+         "変数代入: %s = %lld (型=%s, const=%s)"},
+    [static_cast<int>(DebugMsgId::STRING_ASSIGN_READABLE)] =
+        {"String assignment: %s = \"%s\" (const=%s)",
+         "文字列代入: %s = \"%s\" (const=%s)"},
+    [static_cast<int>(
+        DebugMsgId::STRING_VAR_CREATE_NEW)] = {"  Creating new string variable",
+                                               "  新規文字列変数を作成"},
 };
 
 // デバッグメッセージ配列のサイズ

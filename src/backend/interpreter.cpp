@@ -1,4 +1,5 @@
 #include "interpreter.h"
+#include "../common/ast.h"
 #include "../frontend/debug.h"
 #include <codecvt>
 #include <cstdarg>
@@ -703,7 +704,8 @@ void Interpreter::assign_variable(const std::string &name, int64_t value,
 
 void Interpreter::assign_variable(const std::string &name, int64_t value,
                                   TypeInfo type, bool is_const) {
-    debug_msg(DebugMsgId::VAR_ASSIGN, name.c_str(), value, type, is_const);
+    debug_msg(DebugMsgId::VAR_ASSIGN_READABLE, name.c_str(), value,
+              type_info_to_string(type), bool_to_string(is_const));
     Variable *var = find_variable(name);
     if (!var) {
         debug_msg(DebugMsgId::VAR_CREATE_NEW);
@@ -751,11 +753,11 @@ void Interpreter::assign_variable(const std::string &name,
 
 void Interpreter::assign_variable(const std::string &name,
                                   const std::string &value, bool is_const) {
-    debug_print("文字列代入: %s = \"%s\" (const=%d)\n", name.c_str(),
-                value.c_str(), is_const);
+    debug_msg(DebugMsgId::STRING_ASSIGN_READABLE, name.c_str(), value.c_str(),
+              bool_to_string(is_const));
     Variable *var = find_variable(name);
     if (!var) {
-        debug_print("  新規文字列変数を作成\n");
+        debug_msg(DebugMsgId::STRING_VAR_CREATE_NEW);
         Variable new_var;
         new_var.type = TYPE_STRING;
         new_var.str_value = value;

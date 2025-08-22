@@ -16,6 +16,12 @@ enum TypeInfo {
     TYPE_ARRAY_BASE = 100 // 配列型は基底型 + 100
 };
 
+// 型名を文字列に変換する関数
+const char *type_info_to_string(TypeInfo type);
+
+// bool値を文字列に変換する関数
+const char *bool_to_string(bool value);
+
 // ASTノード種別
 enum class ASTNodeType {
     // リテラル・変数
