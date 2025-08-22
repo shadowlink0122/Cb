@@ -1,0 +1,7 @@
+// 文字列配列の基本テスト
+int main() {
+    string words[] = ["hello", "world", "test"];
+    print(words[0]);
+    print(words[1]);
+    print(words[2]);
+}

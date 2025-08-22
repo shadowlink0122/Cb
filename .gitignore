@@ -38,14 +38,18 @@
 *.app
 main
 cgen_main
+
+# Test executables
 test_main
+**/test_main
 test_debug_main
 
 # bison/flex生成物
 *.dSYM
-src/parser.c
-src/parser.h
-src/lexer.c
+**/Contents/Resources/DWARF/*
+src/frontend/parser.c
+src/frontend/parser.h
+src/frontend/lexer.c
 
 # その他
 *~
