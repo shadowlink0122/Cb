@@ -4,6 +4,8 @@
     "editor.defaultFormatter": "xaver.clang-format",
     "files.associations": {
         "bitset": "cpp",
-        "typeinfo": "cpp"
+        "typeinfo": "cpp",
+        "string": "cpp",
+        "atomic": "cpp"
     }
 }

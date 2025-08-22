@@ -1,12 +1,30 @@
 // Cb -> Cコード変換用メイン
-#include "../src/ast/ast.h"
-#include "../src/ast/util.h"
+#include "../src/common/ast.h"
+#include "../src/frontend/parser_utils.h"
 #include <iostream>
 #include <fstream>
 #include <string>
 
-// 仮: ASTノードをC言語コードに変換する関数のプロトタイプ
-void generate_c_code(ASTNode* root, std::ostream& out);
+// ASTノードをC言語コードに変換するクラス
+class CCodeGenerator : public CodeGeneratorInterface {
+public:
+    std::string generate_code(const ASTNode* ast) override {
+        std::ostringstream oss;
+        generate_c_code(ast, oss);
+        return oss.str();
+    }
+    
+    void emit_to_file(const ASTNode* ast, const std::string& filename) override {
+        std::ofstream ofs(filename);
+        if (!ofs) {
+            throw std::runtime_error("Failed to open output file: " + filename);
+        }
+        generate_c_code(ast, ofs);
+    }
+
+private:
+    void generate_c_code(const ASTNode* ast, std::ostream& out);
+};
 
 int main(int argc, char* argv[]) {
     if (argc < 3) {
