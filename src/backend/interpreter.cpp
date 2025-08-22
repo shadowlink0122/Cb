@@ -121,8 +121,8 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
             // グローバル変数の重複宣言チェック
             if (global_scope.variables.find(node->name) !=
                 global_scope.variables.end()) {
-                throw std::runtime_error("変数 '" + node->name +
-                                         "' の再宣言はできません");
+                error_msg(DebugMsgId::VAR_REDECLARE_ERROR, node->name.c_str());
+                throw std::runtime_error("Variable redeclaration error");
             }
 
             // グローバル変数の初期化
@@ -148,8 +148,8 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
             // グローバル変数の重複宣言チェック
             if (global_scope.variables.find(node->name) !=
                 global_scope.variables.end()) {
-                throw std::runtime_error("変数 '" + node->name +
-                                         "' の再宣言はできません");
+                error_msg(DebugMsgId::VAR_REDECLARE_ERROR, node->name.c_str());
+                throw std::runtime_error("Variable redeclaration error");
             }
 
             Variable var;
@@ -176,7 +176,9 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
         }
 
         if (var.array_size < 0) {
-            throw std::runtime_error("配列サイズが負です: " + node->name);
+            error_msg(DebugMsgId::NEGATIVE_ARRAY_SIZE_ERROR,
+                      node->name.c_str());
+            throw std::runtime_error("Negative array size error");
         }
 
         // 配列初期化
@@ -199,7 +201,12 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
                     if (j >= static_cast<size_t>(var.array_size))
                         break;
                     if (elem_type == TYPE_STRING) {
-                        var.array_strings[j] = element->str_value;
+                        if (element->node_type ==
+                            ASTNodeType::AST_STRING_LITERAL) {
+                            var.array_strings[j] = element->str_value;
+                        } else {
+                            var.array_strings[j] = ""; // デフォルト値
+                        }
                     } else {
                         int64_t val = evaluate_expression(element.get());
                         check_type_range(elem_type, val, node->name);
@@ -250,7 +257,8 @@ void Interpreter::process(const ASTNode *ast) {
     // main関数を探して実行
     const ASTNode *main_func = find_function("main");
     if (!main_func) {
-        throw std::runtime_error("main関数が見つかりません");
+        error_msg(DebugMsgId::MAIN_FUNC_NOT_FOUND_ERROR);
+        throw std::runtime_error("Main function not found");
     }
     debug_msg(DebugMsgId::MAIN_FUNC_FOUND);
 
@@ -296,8 +304,9 @@ void Interpreter::execute_statement(const ASTNode *node) {
                         assign_string_element(node->left->name, index,
                                               node->right->str_value);
                     } else {
+                        error_msg(DebugMsgId::NON_STRING_CHAR_ASSIGN_ERROR);
                         throw std::runtime_error(
-                            "文字列要素には文字列リテラルのみ代入可能");
+                            "Non-string character assignment error");
                     }
                 } else {
                     // 通常の配列要素への代入
@@ -341,15 +350,50 @@ void Interpreter::execute_statement(const ASTNode *node) {
         }
 
         if (var.array_size < 0) {
-            throw std::runtime_error("配列サイズが負です: " + node->name);
+            error_msg(DebugMsgId::NEGATIVE_ARRAY_SIZE_ERROR,
+                      node->name.c_str());
+            throw std::runtime_error("Negative array size error");
         }
 
         // 配列初期化
         TypeInfo elem_type = node->type_info;
         if (elem_type == TYPE_STRING) {
-            var.array_strings.resize(var.array_size);
+            var.array_strings.resize(var.array_size, "");
         } else {
             var.array_values.resize(var.array_size, 0);
+        }
+
+        // 初期化リストがある場合
+        for (size_t i = 0; i < node->children.size() &&
+                           i < static_cast<size_t>(var.array_size);
+             ++i) {
+            const auto &child = node->children[i];
+            if (child->node_type == ASTNodeType::AST_STMT_LIST) {
+                // 配列リテラル [1,2,3,...] の場合
+                size_t j = 0;
+                for (const auto &element : child->children) {
+                    if (j >= static_cast<size_t>(var.array_size))
+                        break;
+                    if (elem_type == TYPE_STRING) {
+                        var.array_strings[j] = element->str_value;
+                    } else {
+                        int64_t val = evaluate_expression(element.get());
+                        check_type_range(elem_type, val, node->name);
+                        var.array_values[j] = val;
+                    }
+                    j++;
+                }
+                break; // 配列リテラルは一つだけ
+            } else {
+                // 単一要素の初期化
+                if (elem_type == TYPE_STRING) {
+                    var.array_strings[i] = child->str_value;
+                } else {
+                    int64_t val = evaluate_expression(child.get());
+                    check_type_range(elem_type, val, node->name);
+                    var.array_values[i] = val;
+                }
+            }
         }
 
         current_scope().variables[node->name] = var;
@@ -446,9 +490,8 @@ int64_t Interpreter::evaluate_expression(const ASTNode *node) {
         return node->int_value;
 
     case ASTNodeType::AST_STRING_LITERAL:
-        // 文字列リテラルのデバッグは既存のdebug_printを維持（詳細情報のため）
-        debug_print("式評価: 文字列リテラル = \"%s\"\n",
-                    node->str_value.c_str());
+        // 文字列リテラルのデバッグ出力
+        debug_msg(DebugMsgId::STRING_LITERAL_DEBUG, node->str_value.c_str());
         // 文字列は特別な値として0を返す
         return 0;
 
@@ -456,11 +499,12 @@ int64_t Interpreter::evaluate_expression(const ASTNode *node) {
         debug_msg(DebugMsgId::EXPR_EVAL_VAR_REF, node->name.c_str());
         Variable *var = find_variable(node->name);
         if (!var) {
-            throw std::runtime_error("未定義の変数です: " + node->name);
+            error_msg(DebugMsgId::UNDEFINED_VAR_ERROR, node->name.c_str());
+            throw std::runtime_error("Undefined variable");
         }
         if (var->is_array) {
-            throw std::runtime_error("配列変数への直接参照はできません: " +
-                                     node->name);
+            error_msg(DebugMsgId::DIRECT_ARRAY_REF_ERROR, node->name.c_str());
+            throw std::runtime_error("Direct array reference error");
         }
         debug_msg(DebugMsgId::VAR_VALUE, var->value);
         return var->value;
@@ -470,7 +514,8 @@ int64_t Interpreter::evaluate_expression(const ASTNode *node) {
         debug_msg(DebugMsgId::EXPR_EVAL_ARRAY_REF, node->name.c_str());
         Variable *var = find_variable(node->name);
         if (!var) {
-            throw std::runtime_error("未定義の配列です: " + node->name);
+            error_msg(DebugMsgId::UNDEFINED_ARRAY_ERROR, node->name.c_str());
+            throw std::runtime_error("Undefined array");
         }
 
         int64_t index = evaluate_expression(node->array_index.get());
@@ -485,10 +530,9 @@ int64_t Interpreter::evaluate_expression(const ASTNode *node) {
             debug_msg(DebugMsgId::STRING_LENGTH_UTF8, utf8_length);
 
             if (index < 0 || index >= static_cast<int64_t>(utf8_length)) {
-                throw std::runtime_error(
-                    "文字列の範囲外アクセス: " + node->name +
-                    " (index=" + std::to_string(index) +
-                    ", length=" + std::to_string(utf8_length) + ")");
+                error_msg(DebugMsgId::STRING_OUT_OF_BOUNDS_ERROR,
+                          node->name.c_str(), index, utf8_length);
+                throw std::runtime_error("String out of bounds access");
             }
 
             // UTF-8文字を取得
@@ -503,21 +547,36 @@ int64_t Interpreter::evaluate_expression(const ASTNode *node) {
             // 通常の配列アクセス
             debug_msg(DebugMsgId::ARRAY_ELEMENT_ACCESS);
             if (index < 0 || index >= var->array_size) {
-                throw std::runtime_error("配列の範囲外アクセス: " + node->name);
+                error_msg(DebugMsgId::ARRAY_OUT_OF_BOUNDS_ERROR,
+                          node->name.c_str());
+                throw std::runtime_error("Array out of bounds access");
             }
 
             TypeInfo elem_type =
                 static_cast<TypeInfo>(var->type - TYPE_ARRAY_BASE);
             if (elem_type == TYPE_STRING) {
-                // 文字列配列の場合、特別な処理が必要
-                return 0; // 仮の実装
+                // 文字列配列の場合、文字列をint値として返す（仮実装）
+                // 実際には文字列を返すべきだが、print関数が文字列を処理できるように修正が必要
+                if (index >= 0 &&
+                    index < static_cast<int64_t>(var->array_strings.size())) {
+                    // 文字列の最初の文字のUTF-8コードポイントを返す（デモ用）
+                    std::string &str = var->array_strings[index];
+                    if (!str.empty()) {
+                        return static_cast<int64_t>(str[0]);
+                    } else {
+                        return 0;
+                    }
+                } else {
+                    return 0;
+                }
             } else {
                 int64_t result = var->array_values[index];
                 debug_msg(DebugMsgId::ARRAY_ELEMENT_VALUE, result);
                 return result;
             }
         } else {
-            throw std::runtime_error("配列以外への配列参照です: " + node->name);
+            error_msg(DebugMsgId::NON_ARRAY_REF_ERROR, node->name.c_str());
+            throw std::runtime_error("Non-array reference error");
         }
     }
 
@@ -536,12 +595,14 @@ int64_t Interpreter::evaluate_expression(const ASTNode *node) {
             result = left * right;
         else if (node->op == "/") {
             if (right == 0) {
-                throw std::runtime_error("ゼロ除算エラー");
+                error_msg(DebugMsgId::ZERO_DIVISION_ERROR);
+                throw std::runtime_error("Division by zero");
             }
             result = left / right;
         } else if (node->op == "%") {
             if (right == 0) {
-                throw std::runtime_error("ゼロ除算エラー");
+                error_msg(DebugMsgId::ZERO_DIVISION_ERROR);
+                throw std::runtime_error("Division by zero");
             }
             result = left % right;
         } else if (node->op == "==")
@@ -561,17 +622,18 @@ int64_t Interpreter::evaluate_expression(const ASTNode *node) {
         else if (node->op == "||")
             result = ((left != 0) || (right != 0)) ? 1 : 0;
         else {
-            throw std::runtime_error("未知の二項演算子: " + node->op);
+            error_msg(DebugMsgId::UNKNOWN_BINARY_OP_ERROR, node->op.c_str());
+            throw std::runtime_error("Unknown binary operator");
         }
 
-        debug_print("  演算結果 = %lld\n", result);
+        debug_msg(DebugMsgId::BINARY_OP_RESULT_DEBUG, result);
         return result;
     }
 
     case ASTNodeType::AST_UNARY_OP: {
-        debug_print("式評価: 単項演算 = %s\n", node->op.c_str());
+        debug_msg(DebugMsgId::UNARY_OP_DEBUG, node->op.c_str());
         int64_t operand = evaluate_expression(node->left.get());
-        debug_print("  オペランド = %lld\n", operand);
+        debug_msg(DebugMsgId::UNARY_OP_OPERAND_DEBUG, operand);
 
         int64_t result = 0;
         if (node->op == "!")
@@ -579,10 +641,11 @@ int64_t Interpreter::evaluate_expression(const ASTNode *node) {
         else if (node->op == "-")
             result = -operand;
         else {
-            throw std::runtime_error("未知の単項演算子: " + node->op);
+            error_msg(DebugMsgId::UNKNOWN_UNARY_OP_ERROR, node->op.c_str());
+            throw std::runtime_error("Unknown unary operator");
         }
 
-        debug_print("  単項演算結果 = %lld\n", result);
+        debug_msg(DebugMsgId::UNARY_OP_RESULT_DEBUG, result);
         return result;
     }
 
@@ -590,7 +653,8 @@ int64_t Interpreter::evaluate_expression(const ASTNode *node) {
     case ASTNodeType::AST_POST_INCDEC: {
         Variable *var = find_variable(node->name);
         if (!var) {
-            throw std::runtime_error("未定義の変数です: " + node->name);
+            error_msg(DebugMsgId::UNDEFINED_VAR_ERROR, node->name.c_str());
+            throw std::runtime_error("Undefined variable");
         }
 
         int64_t old_value = var->value;
@@ -609,12 +673,14 @@ int64_t Interpreter::evaluate_expression(const ASTNode *node) {
     case ASTNodeType::AST_FUNC_CALL: {
         const ASTNode *func = find_function(node->name);
         if (!func) {
-            throw std::runtime_error("未定義の関数です: " + node->name);
+            error_msg(DebugMsgId::UNDEFINED_FUNC_ERROR, node->name.c_str());
+            throw std::runtime_error("Undefined function");
         }
 
         // 引数の数チェック
         if (node->arguments.size() != func->parameters.size()) {
-            throw std::runtime_error("引数の数が一致しません: " + node->name);
+            error_msg(DebugMsgId::ARG_COUNT_MISMATCH_ERROR, node->name.c_str());
+            throw std::runtime_error("Argument count mismatch");
         }
 
         // ローカルスコープ作成
@@ -643,11 +709,9 @@ int64_t Interpreter::evaluate_expression(const ASTNode *node) {
     case ASTNodeType::AST_ARRAY_DECL:
         // 配列宣言は式として評価できない
         // デバッグ用：どこから呼び出されたかを調べる
-        debug_print(
-            "AST_ARRAY_DECL が evaluate_expression で呼び出されました: %s\n",
-            node->name.c_str());
-        throw std::runtime_error("配列宣言は式として評価できません: " +
-                                 node->name);
+        debug_msg(DebugMsgId::ARRAY_DECL_EVAL_DEBUG, node->name.c_str());
+        error_msg(DebugMsgId::ARRAY_DECL_AS_EXPR_ERROR, node->name.c_str());
+        throw std::runtime_error("Array declaration as expression error");
 
     case ASTNodeType::AST_STMT_LIST:
         // 配列リテラル処理（パーサーがcreate_array_literalでAST_STMT_LISTを使用）
@@ -672,7 +736,9 @@ int64_t Interpreter::evaluate_expression(const ASTNode *node) {
         std::string node_type_str =
             "unknown(" + std::to_string(static_cast<int>(node->node_type)) +
             ")";
-        throw std::runtime_error("未対応の式ノード: " + node_type_str);
+        error_msg(DebugMsgId::UNSUPPORTED_EXPR_NODE_ERROR,
+                  node_type_str.c_str());
+        throw std::runtime_error("Unsupported expression node");
     }
 }
 
@@ -694,7 +760,8 @@ void Interpreter::assign_variable(const std::string &name, int64_t value,
             std::exit(1);
         }
         if (var->is_array) {
-            throw std::runtime_error("配列変数への直接代入: " + name);
+            error_msg(DebugMsgId::DIRECT_ARRAY_ASSIGN_ERROR, name.c_str());
+            throw std::runtime_error("Direct array assignment error");
         }
         check_type_range(var->type, value, name);
         var->value = value;
@@ -718,13 +785,14 @@ void Interpreter::assign_variable(const std::string &name, int64_t value,
         check_type_range(type, value, name);
         current_scope().variables[name] = new_var;
     } else {
-        debug_print("  既存変数に代入\n");
+        debug_msg(DebugMsgId::EXISTING_VAR_ASSIGN_DEBUG);
         if (var->is_const && var->is_assigned) {
-            std::cerr << "再代入できません: " << name << std::endl;
+            error_msg(DebugMsgId::CONST_REASSIGN_ERROR, name.c_str());
             std::exit(1);
         }
         if (var->is_array) {
-            throw std::runtime_error("配列変数への直接代入: " + name);
+            error_msg(DebugMsgId::DIRECT_ARRAY_ASSIGN_ERROR, name.c_str());
+            throw std::runtime_error("Direct array assignment error");
         }
         check_type_range(var->type, value, name);
         var->value = value;
@@ -765,9 +833,9 @@ void Interpreter::assign_variable(const std::string &name,
         new_var.is_const = is_const;
         current_scope().variables[name] = new_var;
     } else {
-        debug_print("  既存文字列変数に代入\n");
+        debug_msg(DebugMsgId::EXISTING_STRING_VAR_ASSIGN_DEBUG);
         if (var->is_const && var->is_assigned) {
-            std::cerr << "再代入できません: " << name << std::endl;
+            error_msg(DebugMsgId::CONST_REASSIGN_ERROR, name.c_str());
             std::exit(1);
         }
         var->str_value = value;
@@ -779,16 +847,20 @@ void Interpreter::assign_array_element(const std::string &name, int64_t index,
                                        int64_t value) {
     Variable *var = find_variable(name);
     if (!var) {
-        throw std::runtime_error("未定義の配列: " + name);
+        error_msg(DebugMsgId::UNDEFINED_ARRAY_ERROR, name.c_str());
+        throw std::runtime_error("Undefined array");
     }
     if (!var->is_array) {
-        throw std::runtime_error("配列以外への配列代入: " + name);
+        error_msg(DebugMsgId::NON_ARRAY_REF_ERROR, name.c_str());
+        throw std::runtime_error("Non-array reference");
     }
     if (var->is_const) {
-        throw std::runtime_error("const配列への代入: " + name);
+        error_msg(DebugMsgId::CONST_ARRAY_ASSIGN_ERROR, name.c_str());
+        throw std::runtime_error("Assignment to const array");
     }
     if (index < 0 || index >= var->array_size) {
-        throw std::runtime_error("配列の範囲外アクセス: " + name);
+        error_msg(DebugMsgId::ARRAY_OUT_OF_BOUNDS_ERROR, name.c_str());
+        throw std::runtime_error("Array out of bounds");
     }
 
     TypeInfo elem_type = static_cast<TypeInfo>(var->type - TYPE_ARRAY_BASE);
@@ -798,30 +870,31 @@ void Interpreter::assign_array_element(const std::string &name, int64_t index,
 
 void Interpreter::assign_string_element(const std::string &name, int64_t index,
                                         const std::string &value) {
-    debug_print("文字列要素代入: %s[%lld] = \"%s\" (UTF-8対応)\n", name.c_str(),
-                index, value.c_str());
+    debug_msg(DebugMsgId::STRING_ELEMENT_ASSIGN_DEBUG, name.c_str(), index,
+              value.c_str());
 
     Variable *var = find_variable(name);
     if (!var) {
-        throw std::runtime_error("未定義の変数: " + name);
+        error_msg(DebugMsgId::UNDEFINED_VAR_ERROR, name.c_str());
+        throw std::runtime_error("Undefined variable");
     }
     if (var->type != TYPE_STRING) {
-        throw std::runtime_error("文字列以外への文字代入: " + name);
+        error_msg(DebugMsgId::NON_STRING_CHAR_ASSIGN_ERROR);
+        throw std::runtime_error("Non-string character assignment");
     }
     if (var->is_const) {
-        std::cerr << "要素は変更できません: " << name << std::endl;
+        error_msg(DebugMsgId::CONST_STRING_ELEMENT_ASSIGN_ERROR, name.c_str());
         std::exit(1);
     }
 
     // UTF-8文字数で範囲チェック
     size_t utf8_length = utf8_char_count(var->str_value);
-    debug_print("  元の文字列長（UTF-8文字数）= %zu\n", utf8_length);
+    debug_msg(DebugMsgId::STRING_LENGTH_UTF8_DEBUG, utf8_length);
 
     if (index < 0 || index >= static_cast<int64_t>(utf8_length)) {
-        throw std::runtime_error("文字列の範囲外アクセス: " + name +
-                                 " (index=" + std::to_string(index) +
-                                 ", length=" + std::to_string(utf8_length) +
-                                 ")");
+        error_msg(DebugMsgId::STRING_OUT_OF_BOUNDS_ERROR, name.c_str(), index,
+                  utf8_length);
+        throw std::runtime_error("String out of bounds");
     }
 
     // UTF-8文字列の指定位置の文字を置換
@@ -835,8 +908,8 @@ void Interpreter::assign_string_element(const std::string &name, int64_t index,
         if (current_index == static_cast<size_t>(index)) {
             // 置換対象の文字位置
             new_string += value;
-            debug_print("  位置 %lld の文字を \"%s\" に置換\n", index,
-                        value.c_str());
+            debug_msg(DebugMsgId::STRING_ELEMENT_REPLACE_DEBUG, index,
+                      value.c_str());
         } else {
             // 既存の文字をコピー
             new_string += var->str_value.substr(i, len);
@@ -847,7 +920,7 @@ void Interpreter::assign_string_element(const std::string &name, int64_t index,
     }
 
     var->str_value = new_string;
-    debug_print("  置換後の文字列: \"%s\"\n", var->str_value.c_str());
+    debug_msg(DebugMsgId::STRING_AFTER_REPLACE_DEBUG, var->str_value.c_str());
 }
 
 void Interpreter::print_value(const ASTNode *expr) {
@@ -879,10 +952,33 @@ void Interpreter::print_value(const ASTNode *expr) {
                     utf8_char_at(var->str_value, static_cast<size_t>(index));
                 std::cout << utf8_char << std::endl;
             } else {
-                throw std::runtime_error(
-                    "文字列の範囲外アクセス: " + expr->name +
-                    " (index=" + std::to_string(index) +
-                    ", length=" + std::to_string(utf8_length) + ")");
+                error_msg(DebugMsgId::STRING_OUT_OF_BOUNDS_ERROR,
+                          expr->name.c_str(), index, utf8_length);
+                throw std::runtime_error("String out of bounds");
+            }
+        } else if (var && var->is_array) {
+            // 配列アクセスの処理
+            int64_t index = evaluate_expression(expr->array_index.get());
+
+            if (index < 0 || index >= var->array_size) {
+                error_msg(DebugMsgId::ARRAY_OUT_OF_BOUNDS_ERROR,
+                          expr->name.c_str());
+                throw std::runtime_error("Array out of bounds");
+            }
+
+            TypeInfo elem_type =
+                static_cast<TypeInfo>(var->type - TYPE_ARRAY_BASE);
+            if (elem_type == TYPE_STRING) {
+                // 文字列配列の場合は文字列として出力
+                if (index < static_cast<int64_t>(var->array_strings.size())) {
+                    std::cout << var->array_strings[index] << std::endl;
+                } else {
+                    std::cout << "" << std::endl;
+                }
+            } else {
+                // 数値配列は数値として出力
+                int64_t value = var->array_values[index];
+                std::cout << value << std::endl;
             }
         } else {
             // 通常の配列アクセスは数値として出力
@@ -935,17 +1031,20 @@ void Interpreter::check_type_range(TypeInfo type, int64_t value,
     switch (type) {
     case TYPE_TINY:
         if (value < -128 || value > 127) {
-            throw std::runtime_error("型の範囲外の値を代入しようとしました");
+            error_msg(DebugMsgId::TYPE_RANGE_ERROR);
+            throw std::runtime_error("Type range error");
         }
         break;
     case TYPE_SHORT:
         if (value < -32768 || value > 32767) {
-            throw std::runtime_error("型の範囲外の値を代入しようとしました");
+            error_msg(DebugMsgId::TYPE_RANGE_ERROR);
+            throw std::runtime_error("Type range error");
         }
         break;
     case TYPE_INT:
         if (value < -2147483648LL || value > 2147483647LL) {
-            throw std::runtime_error("型の範囲外の値を代入しようとしました");
+            error_msg(DebugMsgId::TYPE_RANGE_ERROR);
+            throw std::runtime_error("Type range error");
         }
         break;
     case TYPE_BOOL:

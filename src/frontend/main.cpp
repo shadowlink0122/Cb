@@ -24,6 +24,10 @@ int main(int argc, char **argv) {
     if (argc < 2) {
         std::fprintf(stderr, "使用方法: %s <input.cb> [--debug | --debug-ja]\n",
                      argv[0]);
+        std::fprintf(stderr,
+                     "  --debug    : デバッグモードを有効にする (英語)\n");
+        std::fprintf(stderr,
+                     "  --debug-ja : デバッグモードを有効にする (日本語)\n");
         return 1;
     }
 

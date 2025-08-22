@@ -11,6 +11,9 @@ extern const char *current_filename;
 }
 extern std::vector<std::string> file_lines;
 
+// 現在の宣言で使用されている型情報（型チェック用）
+static TypeInfo current_declared_type = TYPE_INT;
+
 // 文字列リテラルのパース
 static std::string parse_string_literal(const char *raw) {
     int len = std::strlen(raw);
@@ -65,6 +68,10 @@ ASTNode *create_type_node(TypeInfo type) {
     debug_msg(DebugMsgId::NODE_CREATE_TYPESPEC, type);
     auto node = new ASTNode(ASTNodeType::AST_TYPE_SPEC);
     node->type_info = type;
+
+    // 現在の型として設定
+    set_current_type(type);
+
     return node;
 }
 
@@ -99,15 +106,63 @@ ASTNode *create_array_decl(const char *name, ASTNode *size_expr) {
 }
 
 ASTNode *create_array_init(const char *name, ASTNode *init_list) {
+    debug_msg(DebugMsgId::ARRAY_INIT_CALLED, name);
+
+    // 現在宣言されている型を使用して型チェックを実行
+    TypeInfo expected_type = get_current_type();
+    return create_array_init_with_type(name, expected_type, init_list);
+}
+
+ASTNode *create_array_init_with_type(const char *name, TypeInfo element_type,
+                                     ASTNode *init_list) {
+    debug_msg(DebugMsgId::ARRAY_INIT_WITH_TYPE_CALLED, name, (int)element_type);
     auto node = new ASTNode(ASTNodeType::AST_ARRAY_DECL);
     node->name = std::string(name);
+    node->type_info = element_type;
+
     if (init_list) {
+        debug_msg(DebugMsgId::ARRAY_INIT_ELEMENTS, init_list->children.size());
+
+        // 各要素の型をチェック
+        for (size_t i = 0; i < init_list->children.size(); i++) {
+            ASTNode *element = init_list->children[i].get();
+            TypeInfo actual_type = TYPE_VOID;
+
+            // 要素の型を判定
+            if (element->node_type == ASTNodeType::AST_NUMBER) {
+                actual_type = TYPE_INT; // 数値リテラルはintとして扱う
+            } else if (element->node_type == ASTNodeType::AST_STRING_LITERAL) {
+                actual_type = TYPE_STRING;
+            }
+
+            // 型が不一致の場合エラー
+            if (actual_type != element_type) {
+                const char *expected_str = type_info_to_string(element_type);
+                const char *actual_str = type_info_to_string(actual_type);
+                debug_msg(DebugMsgId::TYPE_MISMATCH_ARRAY_INIT, i, expected_str,
+                          actual_str);
+
+                // エラーメッセージを表示してプログラム終了
+                error_msg(DebugMsgId::TYPE_MISMATCH_ERROR, name, i,
+                          expected_str, actual_str);
+                exit(1);
+            }
+        }
+
         node->children = std::move(init_list->children);
         node->array_size = node->children.size();
         delete init_list;
     }
+    debug_msg(DebugMsgId::ARRAY_INIT_WITH_TYPE_COMPLETED);
     return node;
 }
+
+void set_current_type(TypeInfo type) {
+    current_declared_type = type;
+    debug_msg(DebugMsgId::CURRENT_TYPE_SET, (int)type);
+}
+
+TypeInfo get_current_type() { return current_declared_type; }
 
 ASTNode *create_array_init_with_size(const char *name, ASTNode *size_expr,
                                      ASTNode *init_list) {
@@ -390,11 +445,18 @@ ASTNode *create_arg_list() {
 }
 
 ASTNode *create_array_literal(ASTNode *elements) {
+    debug_msg(DebugMsgId::ARRAY_LITERAL_CALLED);
     auto node = new ASTNode(ASTNodeType::AST_STMT_LIST); // 配列リテラル用
     if (elements) {
-        node->children = std::move(elements->children);
+        debug_msg(DebugMsgId::ARRAY_LITERAL_ELEMENTS,
+                  elements->arguments.size());
+        // argumentsをchildrenに移動
+        for (auto &arg : elements->arguments) {
+            node->children.push_back(std::move(arg));
+        }
         delete elements;
     }
+    debug_msg(DebugMsgId::ARRAY_LITERAL_COMPLETED);
     return node;
 }
 
@@ -447,11 +509,12 @@ void delete_node(ASTNode *node) {
 void yyerror(const char *s) {
     extern int yylineno;
 
-    std::cerr << "パーサーエラー";
+    debug_msg(DebugMsgId::PARSER_ERROR);
+    std::cerr << " ";
     if (current_filename) {
-        std::cerr << " (" << current_filename << ":" << yylineno << ")";
+        std::cerr << "(" << current_filename << ":" << yylineno << ")";
     } else {
-        std::cerr << " (行 " << yylineno << ")";
+        std::cerr << "(行 " << yylineno << ")";
     }
     std::cerr << ": " << s << std::endl;
 

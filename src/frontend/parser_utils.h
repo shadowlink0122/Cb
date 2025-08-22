@@ -13,6 +13,8 @@ ASTNode *create_var_decl(const char *name);
 ASTNode *create_var_init(const char *name, ASTNode *init_expr);
 ASTNode *create_array_decl(const char *name, ASTNode *size_expr);
 ASTNode *create_array_init(const char *name, ASTNode *init_list);
+ASTNode *create_array_init_with_type(const char *name, TypeInfo element_type,
+                                     ASTNode *init_list);
 ASTNode *create_array_init_with_size(const char *name, ASTNode *size_expr,
                                      ASTNode *init_list);
 ASTNode *create_function_def(const char *name, ASTNode *storage, ASTNode *type,
@@ -53,6 +55,8 @@ void add_parameter(ASTNode *list, ASTNode *param);
 void add_argument(ASTNode *list, ASTNode *arg);
 void set_declaration_attributes(ASTNode *decl, ASTNode *storage, ASTNode *type);
 TypeInfo get_type_info(ASTNode *type_node);
+void set_current_type(TypeInfo type);
+TypeInfo get_current_type();
 void delete_node(ASTNode *node);
 
 // エラー処理
