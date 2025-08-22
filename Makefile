@@ -26,7 +26,7 @@ COMMON_OBJS=$(COMMON_DIR)/type_utils.o
 MAIN_TARGET=main
 CGEN_TARGET=cgen_main
 
-.PHONY: all clean lint fmt unit-test integration-test test debug setup-dirs
+.PHONY: all clean lint fmt unit-test integration-test integration-test-old test debug debug-build-test setup-dirs deep-clean clean-all backup-old help
 
 all: setup-dirs $(MAIN_TARGET)
 
@@ -82,44 +82,28 @@ fmt:
 $(TESTS_DIR)/unit/dummy.o: $(TESTS_DIR)/unit/dummy.cpp
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-# 単体テスト（新しいテストフレームワークを使用）
+# 単体テスト
 unit-test: $(MAIN_TARGET) $(FRONTEND_OBJS) $(BACKEND_OBJS) $(COMMON_OBJS) $(TESTS_DIR)/unit/dummy.o
 	@echo "Running unit tests..."
 	@cd tests/unit && $(CC) $(CFLAGS) -o test_main main.cpp dummy.o ../../$(BACKEND_DIR)/interpreter.o ../../$(COMMON_DIR)/type_utils.o ../../$(FRONTEND_DIR)/parser_utils.o ../../$(FRONTEND_DIR)/debug_impl.o ../../$(FRONTEND_DIR)/debug_messages.o
 	@cd tests/unit && ./test_main
 
-# 基本的な機能テスト（旧）
-basic-test: $(MAIN_TARGET)
-	@echo "Running basic unit tests..."
-	@if ./main hello.cb > /dev/null 2>&1; then echo "✓ hello.cb"; else echo "✗ hello.cb"; fi
-
-# 新しい単体テスト（unit-testのエイリアス）
-unit-test-new: unit-test
-
 integration-test: $(MAIN_TARGET)
-	@echo "Running existing integration tests..."
-	$(CC) $(CFLAGS) -I. -o tests/integration/test_main \
-		tests/integration/test_main.cpp \
-		tests/integration/arithmetic/test_arithmetic.cpp \
-		tests/integration/boundary/test_boundary.cpp \
-		tests/integration/assign/test_assign.cpp \
-		tests/integration/cross_type/test_cross_type.cpp \
-		tests/integration/string/test_string.cpp \
-		tests/integration/bool_expr/test_bool_expr.cpp \
-		tests/integration/loop/test_loop.cpp \
-		tests/integration/if/test_if.cpp \
-		tests/integration/self_assign/test_self_assign.cpp \
-		tests/integration/incdec/test_incdec.cpp \
-		tests/integration/array/test_array.cpp \
-		tests/integration/global_vars/test_global_vars.cpp
-	tests/integration/test_main
+	@echo "Running integration tests..."
+	@cd tests/integration && $(CC) $(CFLAGS) -I. -o test_main main.cpp
+	@cd tests/integration && ./test_main
 
-test: basic-test integration-test unit-test
+test: integration-test unit-test
 	@echo "=== Test Summary ==="
-	@echo "Basic functionality tests completed."
-	@echo "Integration tests completed."
-	@echo "Unit tests completed (50 tests, some failures expected for unimplemented features)."
-	@echo "Note: Function-related tests fail due to unimplemented interpreter features."
+	@echo "Integration tests: completed"
+	@echo "Unit tests: 50 tests"
+
+# デバッグ版のテスト実行
+debug-build-test: CFLAGS += -DYYDEBUG=1 -DDEBUG=1
+debug-build-test: clean $(MAIN_TARGET) integration-test unit-test
+	@echo "=== Debug Build Test Summary ==="
+	@echo "Integration tests: completed (debug mode)"
+	@echo "Unit tests: completed (debug mode)"
 
 # クリーンアップ
 clean:
@@ -166,8 +150,7 @@ help:
 	@echo "  lint         - Check code formatting"
 	@echo "  fmt          - Format code"
 	@echo "  test         - Run all tests"
-	@echo "  unit-test    - Run unit tests (54 tests)"
-	@echo "  unit-test-new- Alias for unit-test"
-	@echo "  basic-test   - Run basic functionality tests"
+	@echo "  debug-build-test - Build with debug flags and run all tests"
+	@echo "  unit-test    - Run unit tests (50 tests)"
 	@echo "  integration-test - Run integration tests"
 	@echo "  help         - Show this help"

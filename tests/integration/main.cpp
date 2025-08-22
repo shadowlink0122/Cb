@@ -1,17 +1,19 @@
-#include "arithmetic/test_arithmetic_case.h"
-#include "array/test_array.h"
-#include "assign/test_assign_case.h"
-#include "bool_expr/test_bool_expr.h"
-#include "boundary/test_boundary_case.h"
-#include "cross_type/test_cross_type_case.h"
-#include "func/test_func_case.h"
-#include "global_vars/test_global_vars.h"
-#include "if/test_if_case.h"
-#include "incdec/test_incdec_case.h"
-#include "loop/test_loop.h"
-#include "self_assign/test_self_assign_case.h"
-#include "string/test_string.h"
-#include <iostream>
+#include "framework/integration_test_framework.hpp"
+
+// 各テストモジュールをインクルード
+#include "arithmetic/test_arithmetic.hpp"
+#include "array/test_array.hpp"
+#include "assign/test_assign.hpp"
+#include "bool_expr/test_bool_expr.hpp"
+#include "boundary/test_boundary.hpp"
+#include "cross_type/test_cross_type.hpp"
+#include "func/test_func.hpp"
+#include "global_vars/test_global_vars.hpp"
+#include "if/test_if.hpp"
+#include "incdec/test_incdec.hpp"
+#include "loop/test_loop.hpp"
+#include "self_assign/test_self_assign.hpp"
+#include "string/test_string.hpp"
 
 int main() {
     int fail = 0;
@@ -21,13 +23,13 @@ int main() {
         test_integration_boundary();
         test_integration_cross_type();
         test_integration_func();
-        test_integration_incdec();
-        test_integration_self_assign();
         test_integration_string();
         test_integration_array();
         test_bool_expr_basic();
         test_integration_loop();
-        test_integration_if_basic();
+        test_integration_if();
+        test_integration_self_assign();
+        test_integration_incdec();
         test_integration_global_vars();
     } catch (const std::exception &e) {
         std::cerr << "[integration] test failed: " << e.what() << std::endl;
