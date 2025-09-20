@@ -2,8 +2,10 @@
 #include "../common/ast.h"
 #include "../frontend/debug.h"
 #include <cctype>
+#include <cinttypes>
 #include <codecvt>
 #include <cstdarg>
+#include <cstdio>
 #include <cstdlib>
 #include <iostream>
 #include <locale>
@@ -409,7 +411,7 @@ void Interpreter::execute_statement(const ASTNode *node) {
         break;
 
     case ASTNodeType::AST_PRINTLN_EMPTY:
-        std::cout << std::endl;
+        printf("\n");
         break;
 
     case ASTNodeType::AST_PRINTLN_MULTI_STMT:
@@ -950,19 +952,19 @@ void Interpreter::assign_string_element(const std::string &name, int64_t index,
 
 void Interpreter::print_value(const ASTNode *expr) {
     if (!expr) {
-        std::cout << "(null)";
+        printf("(null)");
         return;
     }
 
     if (expr->node_type == ASTNodeType::AST_STRING_LITERAL) {
-        std::cout << expr->str_value;
+        printf("%s", expr->str_value.c_str());
     } else if (expr->node_type == ASTNodeType::AST_VARIABLE) {
         Variable *var = find_variable(expr->name);
         if (var && var->type == TYPE_STRING) {
-            std::cout << var->str_value;
+            printf("%s", var->str_value.c_str());
         } else {
             int64_t value = evaluate_expression(expr);
-            std::cout << value;
+            printf("%" PRId64, value);
         }
     } else if (expr->node_type == ASTNodeType::AST_ARRAY_REF) {
         // 配列アクセスの特別処理
@@ -975,7 +977,7 @@ void Interpreter::print_value(const ASTNode *expr) {
             if (index >= 0 && index < static_cast<int64_t>(utf8_length)) {
                 std::string utf8_char =
                     utf8_char_at(var->str_value, static_cast<size_t>(index));
-                std::cout << utf8_char;
+                printf("%s", utf8_char.c_str());
             } else {
                 error_msg(DebugMsgId::STRING_OUT_OF_BOUNDS_ERROR,
                           expr->name.c_str(), index, utf8_length);
@@ -996,19 +998,19 @@ void Interpreter::print_value(const ASTNode *expr) {
             if (elem_type == TYPE_STRING) {
                 // 文字列配列の場合は文字列として出力
                 if (index < static_cast<int64_t>(var->array_strings.size())) {
-                    std::cout << var->array_strings[index];
+                    printf("%s", var->array_strings[index].c_str());
                 } else {
-                    std::cout << "";
+                    printf("");
                 }
             } else {
                 // 数値配列は数値として出力
                 int64_t value = var->array_values[index];
-                std::cout << value;
+                printf("%" PRId64, value);
             }
         } else {
             // 通常の配列アクセスは数値として出力
             int64_t value = evaluate_expression(expr);
-            std::cout << value;
+            printf("%" PRId64, value);
         }
     } else if (expr->node_type == ASTNodeType::AST_FUNC_CALL) {
         // 関数呼び出しの特別処理
@@ -1031,47 +1033,47 @@ void Interpreter::print_value(const ASTNode *expr) {
             try {
                 execute_statement(func->body.get());
                 pop_scope();
-                std::cout << ""; // void関数（空文字列）
+                printf(""); // void関数（空文字列）
             } catch (const ReturnException &e) {
                 pop_scope();
                 if (e.type == TYPE_STRING) {
-                    std::cout << e.str_value;
+                    printf("%s", e.str_value.c_str());
                 } else {
-                    std::cout << e.value;
+                    printf("%" PRId64, e.value);
                 }
             }
         } else {
             // 通常の関数（数値を返す）
             int64_t value = evaluate_expression(expr);
-            std::cout << value;
+            printf("%" PRId64, value);
         }
     } else {
         int64_t value = evaluate_expression(expr);
-        std::cout << value;
+        printf("%" PRId64, value);
     }
 }
 
 void Interpreter::print_value_with_newline(const ASTNode *expr) {
     print_value(expr);
-    std::cout << std::endl;
+    printf("\n");
 }
 
 void Interpreter::print_multiple_with_newline(const ASTNode *arg_list) {
     print_multiple(arg_list);
-    std::cout << std::endl;
+    printf("\n");
 }
 
 void Interpreter::print_formatted_with_newline(const ASTNode *format_str,
                                                const ASTNode *arg_list) {
     print_formatted(format_str, arg_list);
-    std::cout << std::endl;
+    printf("\n");
 }
 
 void Interpreter::print_formatted(const ASTNode *format_str,
                                   const ASTNode *arg_list) {
     if (!format_str ||
         format_str->node_type != ASTNodeType::AST_STRING_LITERAL) {
-        std::cout << "(invalid format)";
+        printf("(invalid format)");
         return;
     }
 
@@ -1267,7 +1269,7 @@ void Interpreter::print_formatted(const ASTNode *format_str,
         }
     }
 
-    std::cout << final_result;
+    printf("%s", final_result.c_str());
 }
 
 void Interpreter::print_multiple(const ASTNode *arg_list) {
@@ -1312,11 +1314,11 @@ void Interpreter::print_multiple(const ASTNode *arg_list) {
                 // 前の引数を出力
                 for (size_t k = 0; k < before_outputs.size(); k++) {
                     if (k > 0)
-                        std::cout << " ";
-                    std::cout << before_outputs[k];
+                        printf(" ");
+                    printf("%s", before_outputs[k].c_str());
                 }
                 if (!before_outputs.empty())
-                    std::cout << " ";
+                    printf(" ");
 
                 // 残りの引数でprintf形式処理
                 auto remaining_args =
@@ -1398,9 +1400,9 @@ void Interpreter::print_multiple(const ASTNode *arg_list) {
     // スペース区切りで出力
     for (size_t i = 0; i < outputs.size(); i++) {
         if (i > 0) {
-            std::cout << " ";
+            printf(" ");
         }
-        std::cout << outputs[i];
+        printf("%s", outputs[i].c_str());
     }
 }
 
