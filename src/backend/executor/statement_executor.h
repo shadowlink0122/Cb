@@ -12,6 +12,10 @@ public:
     // Statement実行の主要メソッド
     void execute_statement(const ASTNode *node);
     
+    // 例外処理関連メソッド
+    void execute_try_statement(const ASTNode *node);
+    void execute_throw_statement(const ASTNode *node);
+    
 private:
     Interpreter& interpreter_;  // インタープリターへの参照
 };

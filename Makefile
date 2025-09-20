@@ -29,8 +29,8 @@ LEXER_C=$(FRONTEND_DIR)/lexer.c
 
 # オブジェクトファイル
 FRONTEND_OBJS=$(PARSER_C:.c=.o) $(LEXER_C:.c=.o) $(FRONTEND_DIR)/parser_utils.o $(FRONTEND_DIR)/main.o $(FRONTEND_DIR)/debug_impl.o $(FRONTEND_DIR)/debug_messages.o $(FRONTEND_DIR)/help_messages.o
-BACKEND_OBJS=$(BACKEND_DIR)/interpreter.o $(BACKEND_DIR)/output/output_manager.o $(BACKEND_DIR)/evaluator/expression_evaluator.o $(BACKEND_DIR)/executor/statement_executor.o $(BACKEND_DIR)/variables/variable_manager.o
-COMMON_OBJS=$(COMMON_DIR)/type_utils.o $(COMMON_DIR)/utf8_utils.o $(COMMON_DIR)/io_interface.o
+BACKEND_OBJS=$(BACKEND_DIR)/interpreter.o $(BACKEND_DIR)/output/output_manager.o $(BACKEND_DIR)/evaluator/expression_evaluator.o $(BACKEND_DIR)/executor/statement_executor.o $(BACKEND_DIR)/variables/variable_manager.o $(BACKEND_DIR)/modules/module_resolver.o $(BACKEND_DIR)/error_handler.o
+COMMON_OBJS=$(COMMON_DIR)/type_utils.o $(COMMON_DIR)/utf8_utils.o $(COMMON_DIR)/io_interface.o $(COMMON_DIR)/cb_config.o
 PLATFORM_OBJS=$(SRC_DIR)/platform/native/native_stdio_output.o $(SRC_DIR)/platform/baremetal/baremetal_uart_output.o
 
 # 実行ファイル
@@ -56,7 +56,7 @@ native-build:
 
 # ディレクトリ作成
 setup-dirs:
-	@mkdir -p $(FRONTEND_DIR) $(BACKEND_DIR) $(COMMON_DIR) $(BACKEND_DIR)/output $(BACKEND_DIR)/evaluator $(BACKEND_DIR)/executor $(BACKEND_DIR)/variables
+	@mkdir -p $(FRONTEND_DIR) $(BACKEND_DIR) $(COMMON_DIR) $(BACKEND_DIR)/output $(BACKEND_DIR)/evaluator $(BACKEND_DIR)/executor $(BACKEND_DIR)/variables $(BACKEND_DIR)/modules stdlib lib
 
 # デバッグ実行例（--debugオプションでデバッグ出力有効）
 debug: CFLAGS += -DYYDEBUG=1
@@ -91,6 +91,12 @@ $(BACKEND_DIR)/evaluator/%.o: $(BACKEND_DIR)/evaluator/%.cpp $(COMMON_DIR)/ast.h
 $(BACKEND_DIR)/executor/%.o: $(BACKEND_DIR)/executor/%.cpp $(COMMON_DIR)/ast.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
+$(BACKEND_DIR)/variables/%.o: $(BACKEND_DIR)/variables/%.cpp $(COMMON_DIR)/ast.h
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(BACKEND_DIR)/modules/%.o: $(BACKEND_DIR)/modules/%.cpp $(COMMON_DIR)/ast.h
+	$(CC) $(CFLAGS) -c -o $@ $<
+
 # 共通オブジェクト生成
 $(COMMON_DIR)/%.o: $(COMMON_DIR)/%.cpp $(COMMON_DIR)/ast.h
 	$(CC) $(CFLAGS) -c -o $@ $<
@@ -119,12 +125,14 @@ fmt:
 # 単体テスト（ヘッダーオンリー版）
 unit-test: $(MAIN_TARGET) $(FRONTEND_OBJS) $(BACKEND_OBJS) $(COMMON_OBJS) $(PLATFORM_OBJS)
 	@echo "Running unit tests..."
-	@cd tests/unit && $(CC) $(CFLAGS) -o test_main main.cpp ../../$(BACKEND_DIR)/interpreter.o ../../$(BACKEND_DIR)/output/output_manager.o ../../$(BACKEND_DIR)/evaluator/expression_evaluator.o ../../$(BACKEND_DIR)/executor/statement_executor.o ../../$(BACKEND_DIR)/variables/variable_manager.o ../../$(COMMON_DIR)/type_utils.o ../../$(COMMON_DIR)/utf8_utils.o ../../$(COMMON_DIR)/io_interface.o ../../$(SRC_DIR)/platform/native/native_stdio_output.o ../../$(SRC_DIR)/platform/baremetal/baremetal_uart_output.o ../../$(FRONTEND_DIR)/parser_utils.o ../../$(FRONTEND_DIR)/debug_impl.o ../../$(FRONTEND_DIR)/debug_messages.o
+	@cd tests/unit && $(CC) $(CFLAGS) -o test_main main.cpp ../../$(FRONTEND_DIR)/parser.o ../../$(FRONTEND_DIR)/lexer.o ../../$(BACKEND_DIR)/interpreter.o ../../$(BACKEND_DIR)/output/output_manager.o ../../$(BACKEND_DIR)/evaluator/expression_evaluator.o ../../$(BACKEND_DIR)/executor/statement_executor.o ../../$(BACKEND_DIR)/variables/variable_manager.o ../../$(BACKEND_DIR)/modules/module_resolver.o ../../$(BACKEND_DIR)/error_handler.o ../../$(COMMON_DIR)/type_utils.o ../../$(COMMON_DIR)/utf8_utils.o ../../$(COMMON_DIR)/io_interface.o ../../$(COMMON_DIR)/cb_config.o ../../$(SRC_DIR)/platform/native/native_stdio_output.o ../../$(SRC_DIR)/platform/baremetal/baremetal_uart_output.o ../../$(FRONTEND_DIR)/parser_utils.o ../../$(FRONTEND_DIR)/debug_impl.o ../../$(FRONTEND_DIR)/debug_messages.o
 	@cd tests/unit && ./test_main
 
 integration-test: $(MAIN_TARGET)
 	@echo "Running integration tests..."
-	@cd tests/integration && $(CC) $(CFLAGS) -I. -o test_main main.cpp
+	@cd tests/integration && $(CC) $(CFLAGS) -I. -o test_main main.cpp \
+		error_handling/test_error_handling.cpp \
+		module_functions/test_module_functions.cpp
 	@cd tests/integration && ./test_main
 
 test: integration-test unit-test

@@ -97,6 +97,27 @@ ASTNode *create_var_init(const char *name, ASTNode *init_expr) {
     return node;
 }
 
+ASTNode *create_export_var_init(const char *name, ASTNode *init_expr) {
+    debug_msg(DebugMsgId::NODE_CREATE_VAR_DECL, name);
+    auto node = new ASTNode(ASTNodeType::AST_VAR_DECL);
+    node->name = std::string(name);
+    node->right = std::unique_ptr<ASTNode>(init_expr);
+    // 初期化式から値を取得
+    if (init_expr && init_expr->node_type == ASTNodeType::AST_NUMBER) {
+        node->int_value = init_expr->int_value;
+    }
+    return node;
+}
+}
+
+ASTNode *create_var_decl_with_init(const char *name, ASTNode *init_expr) {
+    debug_msg(DebugMsgId::NODE_CREATE_VAR_DECL, name);
+    auto node = new ASTNode(ASTNodeType::AST_VAR_DECL);
+    node->name = std::string(name);
+    node->right = std::unique_ptr<ASTNode>(init_expr);
+    return node;
+}
+
 ASTNode *create_array_decl(const char *name, ASTNode *size_expr) {
     debug_msg(DebugMsgId::NODE_CREATE_ARRAY_DECL, name);
     auto node = new ASTNode(ASTNodeType::AST_ARRAY_DECL);
@@ -423,6 +444,46 @@ ASTNode *create_func_call(const char *name, ASTNode *args) {
     return node;
 }
 
+ASTNode *create_qualified_func_call(const char *qualified_name, ASTNode *args) {
+    auto node = new ASTNode(ASTNodeType::AST_FUNC_CALL);
+    node->qualified_name = std::string(qualified_name);
+    node->is_qualified_call = true;
+
+    // qualified_nameから関数名を抽出（最後のドット以降）
+    std::string qname = qualified_name;
+    size_t dot_pos = qname.find_last_of('.');
+    if (dot_pos != std::string::npos) {
+        node->name = qname.substr(dot_pos + 1);
+        node->module_name = qname.substr(0, dot_pos);
+    } else {
+        node->name = qname;
+    }
+
+    if (args) {
+        node->arguments = std::move(args->arguments);
+        delete args;
+    }
+    return node;
+}
+
+ASTNode *create_qualified_var_ref(const char *qualified_name) {
+    auto node = new ASTNode(ASTNodeType::AST_VARIABLE);
+    node->qualified_name = std::string(qualified_name);
+    node->is_qualified_call = true; // 修飾された参照であることを示す
+
+    // qualified_nameから変数名を抽出（最後のドット以降）
+    std::string qname = qualified_name;
+    size_t dot_pos = qname.find_last_of('.');
+    if (dot_pos != std::string::npos) {
+        node->name = qname.substr(dot_pos + 1);
+        node->module_name = qname.substr(0, dot_pos);
+    } else {
+        node->name = qname;
+    }
+
+    return node;
+}
+
 ASTNode *create_var_ref(const char *name) {
     auto node = new ASTNode(ASTNodeType::AST_VARIABLE);
     node->name = std::string(name);
@@ -609,5 +670,4 @@ ASTNode *create_decl_spec(ASTNode *storage_class, ASTNode *type_qualifier,
     }
 
     return node;
-}
 }

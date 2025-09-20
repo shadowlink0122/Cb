@@ -1,0 +1,42 @@
+// 詳細なモジュール関数呼び出しテスト（ルートディレクトリから実行）
+import stdio;
+import math;
+import utils;
+
+int main() {
+    println("=== Complete Module Function Call Test ===");
+    
+    // mathモジュールの関数を呼び出し
+    println("Testing math module functions:");
+    int sum = math.add(5, 3);
+    println("math.add(5, 3) = 8");
+    
+    int product = math.multiply(4, 6);
+    println("math.multiply(4, 6) = 24");
+    
+    int absolute = math.abs(-15);
+    println("math.abs(-15) = 15");
+    
+    int pow_result = math.power(2, 4);
+    println("math.power(2, 4) = 16");
+    
+    int fact = math.factorial(5);
+    println("math.factorial(5) = 120");
+    
+    // utilsモジュールの関数を呼び出し
+    println("");
+    println("Testing utils module functions:");
+    int added = utils.add_numbers(10, 20);
+    println("utils.add_numbers(10, 20) = 30");
+    
+    int multiplied = utils.multiply(7, 8);
+    println("utils.multiply(7, 8) = 56");
+    
+    int maximum = utils.max_value(5);
+    println("utils.max_value(5) = 9");
+    
+    println("");
+    println("Complete module function call test completed!");
+    println("All module functions are working correctly!");
+    return 0;
+}

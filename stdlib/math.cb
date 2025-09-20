@@ -1,0 +1,58 @@
+// 数学ライブラリ
+
+// 数学定数
+export const int PI = 3; // 整数版のPI（簡略化）
+export const int E = 2;  // 自然対数の底（簡略化）
+
+// 基本的な数学関数
+export int add(int a, int b) {
+    return a + b;
+}
+
+export int multiply(int a, int b) {
+    return a * b;
+}
+
+export int abs(int x) {
+    if (x < 0) {
+        return -x;
+    }
+    return x;
+}
+
+export int power(int base, int exponent) {
+    if (exponent == 0) {
+        return 1;
+    }
+    int result = 1;
+    for (int i = 0; i < exponent; i++) {
+        result = result * base;
+    }
+    return result;
+}
+
+export int min(int a, int b) {
+    if (a < b) {
+        return a;
+    }
+    return b;
+}
+
+export int max(int a, int b) {
+    if (a > b) {
+        return a;
+    }
+    return b;
+}
+
+// 階乗関数
+export int factorial(int n) {
+    if (n <= 1) {
+        return 1;
+    }
+    int result = 1;
+    for (int i = 2; i <= n; i++) {
+        result = result * i;
+    }
+    return result;
+}

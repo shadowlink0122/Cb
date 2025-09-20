@@ -1,0 +1,40 @@
+// std.io モジュール - 標準入出力機能
+export func print(value: auto) {
+    printf("%s", value);
+}
+
+export func println(value: auto) {
+    printf("%s\n", value);
+}
+
+export func print_int(value: int) {
+    printf("%d", value);
+}
+
+export func println_int(value: int) {
+    printf("%d\n", value);
+}
+
+export func print_float(value: float) {
+    printf("%.6f", value);
+}
+
+export func println_float(value: float) {
+    printf("%.6f\n", value);
+}
+
+export func print_bool(value: bool) {
+    if (value) {
+        printf("true");
+    } else {
+        printf("false");
+    }
+}
+
+export func println_bool(value: bool) {
+    if (value) {
+        printf("true\n");
+    } else {
+        printf("false\n");
+    }
+}

@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <cstring>
+#include <memory>
 
 extern int yylex();
 extern void yyerror(const char* s);
@@ -30,6 +31,8 @@ extern "C" {
 %token TRUE FALSE NULL_LIT
 %token PLUS MINUS MUL DIV ASSIGN SEMICOLON PRINT PRINTLN RETURN
 %token FOR WHILE BREAK IF ELSE
+%token IMPORT EXPORT MODULE
+%token TRY CATCH FINALLY THROW
 %token EQ NEQ GE LE GT LT OR AND NOT MOD
 %token ADD_ASSIGN SUB_ASSIGN MUL_ASSIGN DIV_ASSIGN MOD_ASSIGN
 %token INC_OP DEC_OP
@@ -45,6 +48,9 @@ extern "C" {
 %type <ptr> declarator type_specifier storage_class_specifier type_qualifier
 %type <ptr> declaration_specifiers
 %type <ptr> argument_list initializer
+%type <ptr> import_statement export_statement module_declaration
+%type <ptr> try_statement catch_statement finally_statement throw_statement
+%type <sval> qualified_name
 
 %start program
 
@@ -71,10 +77,21 @@ declaration_list:
 
 declaration:
     function_definition { $$ = $1; }
+    | import_statement { $$ = $1; }
+    | export_statement { $$ = $1; }
+    | module_declaration { $$ = $1; }
     | declaration_specifiers declarator SEMICOLON {
         ASTNode* decl = (ASTNode*)$2;
         set_declaration_attributes(decl, (ASTNode*)$1, nullptr);
         delete_node((ASTNode*)$1);
+        $$ = decl;
+    }
+    | declaration_specifiers declarator '=' initializer SEMICOLON {
+        ASTNode* declarator_node = (ASTNode*)$2;
+        ASTNode* decl = create_var_decl_with_init(declarator_node->name.c_str(), (ASTNode*)$4);
+        set_declaration_attributes(decl, (ASTNode*)$1, (ASTNode*)$4);
+        delete_node((ASTNode*)$1);
+        delete_node(declarator_node);
         $$ = decl;
     }
     | type_specifier declarator SEMICOLON {
@@ -82,6 +99,15 @@ declaration:
         ASTNode* decl_spec = create_decl_spec(nullptr, nullptr, (ASTNode*)$1);
         set_declaration_attributes(decl, decl_spec, nullptr);
         delete_node(decl_spec);
+        $$ = decl;
+    }
+    | type_specifier declarator '=' initializer SEMICOLON {
+        ASTNode* declarator_node = (ASTNode*)$2;
+        ASTNode* decl = create_var_decl_with_init(declarator_node->name.c_str(), (ASTNode*)$4);
+        ASTNode* decl_spec = create_decl_spec(nullptr, nullptr, (ASTNode*)$1);
+        set_declaration_attributes(decl, decl_spec, (ASTNode*)$4);
+        delete_node(decl_spec);
+        delete_node(declarator_node);
         $$ = decl;
     }
     ;
@@ -243,6 +269,8 @@ statement:
     | RETURN SEMICOLON { $$ = create_return_stmt(nullptr); }
     | BREAK SEMICOLON { $$ = create_break_stmt(nullptr); }
     | BREAK expression SEMICOLON { $$ = create_break_stmt((ASTNode*)$2); }
+    | try_statement { $$ = $1; }
+    | throw_statement { $$ = $1; }
     | '{' statement_list '}' { $$ = $2; }
     | SEMICOLON { $$ = nullptr; }
     ;
@@ -370,10 +398,21 @@ postfix_expression:
         $$ = create_func_call($1, nullptr);
         free($1);
     }
+    | qualified_name '(' argument_list ')' {
+        ASTNode* func_call = create_qualified_func_call($1, (ASTNode*)$3);
+        free($1);
+        $$ = func_call;
+    }
+    | qualified_name '(' ')' {
+        ASTNode* func_call = create_qualified_func_call($1, nullptr);
+        free($1);
+        $$ = func_call;
+    }
     ;
 
 primary_expression:
     IDENTIFIER { $$ = create_var_ref($1); free($1); }
+    | qualified_name { $$ = create_qualified_var_ref($1); free($1); }
     | NUMBER {
         // 大きな数値の場合はlongとして処理
         if ($1 > 2147483647LL || $1 < -2147483648LL) {
@@ -412,6 +451,127 @@ initializer:
     assignment_expression { $$ = $1; }
     | '[' argument_list ']' { $$ = create_array_literal((ASTNode*)$2); }
     | '[' ']' { $$ = create_array_literal(nullptr); }
+    ;
+
+/* モジュールシステム */
+qualified_name:
+    IDENTIFIER {
+        $$ = $1; // そのまま返す
+    }
+    | qualified_name '.' IDENTIFIER {
+        // ドット記法を連結
+        std::string result = std::string($1) + "." + std::string($3);
+        char* str = strdup(result.c_str());
+        free($1);
+        free($3);
+        $$ = str;
+    }
+    ;
+
+import_statement:
+    IMPORT qualified_name SEMICOLON {
+        ASTNode* import_node = new ASTNode(ASTNodeType::AST_IMPORT_STMT);
+        import_node->module_name = std::string($2);
+        free($2);
+        $$ = import_node;
+    }
+    ;
+
+export_statement:
+    EXPORT function_definition {
+        ASTNode* func = (ASTNode*)$2;
+        func->is_exported = true;
+        $$ = func;
+    }
+    | EXPORT declaration_specifiers declarator SEMICOLON {
+        ASTNode* decl = (ASTNode*)$3;
+        
+        // declaratorが初期化子を含む場合（AST_ASSIGN）、export const用に変換
+        if (decl->node_type == ASTNodeType::AST_ASSIGN) {
+            ASTNode* export_decl = create_export_var_init(decl->name.c_str(), decl->right.release());
+            set_declaration_attributes(export_decl, (ASTNode*)$2, nullptr);
+            export_decl->is_exported = true;
+            delete_node((ASTNode*)$2);
+            delete_node(decl);
+            $$ = export_decl;
+        } else {
+            set_declaration_attributes(decl, (ASTNode*)$2, nullptr);
+            decl->is_exported = true;
+            delete_node((ASTNode*)$2);
+            $$ = decl;
+        }
+    }
+    | EXPORT declaration_specifiers declarator '=' initializer SEMICOLON {
+        ASTNode* declarator_node = (ASTNode*)$3;
+        ASTNode* decl;
+        
+        // declaratorが既に初期化子を含む場合（AST_ASSIGN）、export const用に変換
+        if (declarator_node->node_type == ASTNodeType::AST_ASSIGN) {
+            decl = create_export_var_init(declarator_node->name.c_str(), declarator_node->right.release());
+        } else {
+            decl = create_export_var_init(declarator_node->name.c_str(), (ASTNode*)$5);
+        }
+        
+        set_declaration_attributes(decl, (ASTNode*)$2, nullptr);
+        decl->is_exported = true;
+        delete_node((ASTNode*)$2);
+        delete_node(declarator_node);
+        $$ = decl;
+    }
+    ;
+
+module_declaration:
+    MODULE IDENTIFIER '{' declaration_list '}' {
+        ASTNode* module_node = new ASTNode(ASTNodeType::AST_MODULE_DECL);
+        module_node->module_name = std::string($2);
+        module_node->body = std::unique_ptr<ASTNode>((ASTNode*)$4);
+        free($2);
+        $$ = module_node;
+    }
+    ;
+
+try_statement:
+    TRY '{' statement_list '}' catch_statement {
+        ASTNode* try_node = new ASTNode(ASTNodeType::AST_TRY_STMT);
+        try_node->try_body = std::unique_ptr<ASTNode>((ASTNode*)$3);
+        try_node->catch_body = std::unique_ptr<ASTNode>((ASTNode*)$5);
+        $$ = try_node;
+    }
+    | TRY '{' statement_list '}' catch_statement finally_statement {
+        ASTNode* try_node = new ASTNode(ASTNodeType::AST_TRY_STMT);
+        try_node->try_body = std::unique_ptr<ASTNode>((ASTNode*)$3);
+        try_node->catch_body = std::unique_ptr<ASTNode>((ASTNode*)$5);
+        try_node->finally_body = std::unique_ptr<ASTNode>((ASTNode*)$6);
+        $$ = try_node;
+    }
+    ;
+
+catch_statement:
+    CATCH '(' IDENTIFIER IDENTIFIER ')' '{' statement_list '}' {
+        ASTNode* catch_node = new ASTNode(ASTNodeType::AST_CATCH_STMT);
+        catch_node->exception_type = std::string($3);
+        catch_node->exception_var = std::string($4);
+        catch_node->catch_body = std::unique_ptr<ASTNode>((ASTNode*)$7);
+        free($3);
+        free($4);
+        $$ = catch_node;
+    }
+    ;
+
+finally_statement:
+    FINALLY '{' statement_list '}' {
+        ASTNode* finally_node = new ASTNode(ASTNodeType::AST_FINALLY_STMT);
+        finally_node->finally_body = std::unique_ptr<ASTNode>((ASTNode*)$3);
+        $$ = finally_node;
+    }
+    ;
+
+throw_statement:
+    THROW expression SEMICOLON {
+        ASTNode* throw_node = new ASTNode(ASTNodeType::AST_THROW_STMT);
+        throw_node->throw_expr = std::unique_ptr<ASTNode>((ASTNode*)$2);
+        $$ = throw_node;
+    }
     ;
 
 %%

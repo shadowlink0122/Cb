@@ -37,6 +37,9 @@ Interpreter::Interpreter(bool debug) : debug_mode(debug) {
 
     // VariableManagerを初期化
     variable_manager_ = std::make_unique<VariableManager>(*this);
+
+    // ModuleResolverを初期化
+    module_resolver_ = std::make_unique<ModuleResolver>();
 }
 
 void Interpreter::push_scope() { scope_stack.push_back(Scope{}); }
@@ -208,6 +211,15 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
         debug_msg(DebugMsgId::FUNC_DECL_REGISTER_COMPLETE, node->name.c_str());
         break;
 
+    case ASTNodeType::AST_IMPORT_STMT:
+        // import文の処理
+        if (debug_mode) {
+            std::cout << "[DEBUG] Processing import during global declaration: "
+                      << node->module_name << std::endl;
+        }
+        process_import(node);
+        break;
+
     default:
         break;
     }
@@ -287,4 +299,75 @@ void Interpreter::assign_string_element(const std::string &name, int64_t index,
 void Interpreter::check_type_range(TypeInfo type, int64_t value,
                                    const std::string &name) {
     variable_manager_->check_type_range(type, value, name);
+}
+
+bool Interpreter::process_import(const ASTNode *import_node) {
+    if (!import_node ||
+        import_node->node_type != ASTNodeType::AST_IMPORT_STMT) {
+        return false;
+    }
+
+    std::string module_name = import_node->module_name;
+    if (module_name.empty()) {
+        std::cerr << "Empty module name in import statement" << std::endl;
+        return false;
+    }
+
+    if (debug_mode) {
+        std::cout << "Processing import: " << module_name << std::endl;
+    }
+
+    // モジュール解決を試行
+    bool success = module_resolver_->resolve_import(module_name);
+    if (!success) {
+        std::cerr << "Failed to resolve import: " << module_name << std::endl;
+        return false;
+    }
+
+    // 組み込みモジュールの場合は特別な処理
+    if (module_name == "stdio" || module_name == "std.io") {
+        if (debug_mode) {
+            std::cout << "Registered builtin module: " << module_name
+                      << std::endl;
+        }
+        return true;
+    }
+
+    // ファイルベースのモジュールの場合、ASTを実行
+    ModuleInfo *module_info = module_resolver_->get_module(module_name);
+    if (module_info && module_info->ast) {
+        if (debug_mode) {
+            std::cout << "Executing module AST: " << module_name << std::endl;
+        }
+
+        // モジュールスコープで実行
+        push_scope();
+        try {
+            statement_executor_->execute_statement(module_info->ast.get());
+            pop_scope();
+            return true;
+        } catch (const std::exception &e) {
+            pop_scope();
+            std::cerr << "Error executing module " << module_name << ": "
+                      << e.what() << std::endl;
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool Interpreter::is_module_loaded(const std::string &module_name) {
+    return module_resolver_->is_module_loaded(module_name);
+}
+
+const ASTNode *
+Interpreter::find_module_function(const std::string &module_name,
+                                  const std::string &function_name) {
+    return module_resolver_->find_module_function(module_name, function_name);
+}
+
+int64_t Interpreter::find_module_variable(const std::string &module_name,
+                                          const std::string &variable_name) {
+    return module_resolver_->find_module_variable(module_name, variable_name);
 }

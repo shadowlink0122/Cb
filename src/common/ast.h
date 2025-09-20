@@ -67,7 +67,18 @@ enum class ASTNodeType {
     // コンパイラ拡張用
     AST_TYPE_SPEC,
     AST_STORAGE_SPEC,
-    STORAGE_SPEC
+    STORAGE_SPEC,
+
+    // モジュールシステム
+    AST_IMPORT_STMT, // import文
+    AST_EXPORT_STMT, // export文
+    AST_MODULE_DECL, // module宣言
+
+    // 例外処理
+    AST_TRY_STMT,     // try文
+    AST_CATCH_STMT,   // catch文
+    AST_FINALLY_STMT, // finally文
+    AST_THROW_STMT    // throw文
 };
 
 // ASTノードの基底クラス
@@ -104,6 +115,23 @@ struct ASTNode {
     int array_size = -1;
     std::unique_ptr<ASTNode> array_index;
     std::unique_ptr<ASTNode> array_size_expr;
+
+    // モジュール関連
+    std::string module_name;               // モジュール名 (std.io等)
+    std::vector<std::string> import_items; // インポートする項目リスト
+    bool is_exported = false;              // export宣言されているか
+
+    // 例外処理関連
+    std::unique_ptr<ASTNode> try_body;     // try block
+    std::unique_ptr<ASTNode> catch_body;   // catch block
+    std::unique_ptr<ASTNode> finally_body; // finally block
+    std::unique_ptr<ASTNode> throw_expr;   // throw expression
+    std::string exception_var;             // catch変数名
+    std::string exception_type;            // 例外型名
+
+    // 関数呼び出し関連（修飾名対応）
+    std::string qualified_name;     // module.function形式の修飾名
+    bool is_qualified_call = false; // 修飾された関数呼び出しか
 
     // コンストラクタ
     ASTNode(ASTNodeType type) : node_type(type), type_info(TYPE_INT) {}

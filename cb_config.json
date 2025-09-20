@@ -1,0 +1,26 @@
+{
+  "version": "1.0",
+  "language": {
+    "name": "Cb",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "stdlib": "./stdlib",
+    "modules": "./lib",
+    "user_modules": "~/.cb/modules"
+  },
+  "search_order": [
+    "stdlib",
+    "modules",
+    "user_modules",
+    "current_directory"
+  ],
+  "compiler": {
+    "default_target": "native",
+    "supported_targets": ["native", "baremetal", "wasm"]
+  },
+  "debug": {
+    "enable_module_debug": false,
+    "verbose_import": true
+  }
+}

@@ -26,6 +26,13 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode *node) {
 
     case ASTNodeType::AST_VARIABLE: {
         debug_msg(DebugMsgId::EXPR_EVAL_VAR_REF, node->name.c_str());
+        
+        // 修飾された変数参照（module.variable）の場合
+        if (node->is_qualified_call) {
+            return evaluate_qualified_variable_ref(node);
+        }
+        
+        // 通常の変数参照
         Variable *var = interpreter_.find_variable(node->name);
         if (!var) {
             error_msg(DebugMsgId::UNDEFINED_VAR_ERROR, node->name.c_str());
@@ -151,6 +158,12 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode *node) {
     }
 
     case ASTNodeType::AST_FUNC_CALL: {
+        // 修飾された関数呼び出し（module.function）の場合
+        if (node->is_qualified_call) {
+            return evaluate_qualified_function_call(node);
+        }
+        
+        // 通常の関数呼び出し
         const ASTNode *func = interpreter_.find_function(node->name);
         if (!func) {
             error_msg(DebugMsgId::UNDEFINED_FUNC_ERROR, node->name.c_str());
@@ -211,6 +224,13 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode *node) {
             return 0;
         }
 
+    case ASTNodeType::AST_TRY_STMT:
+    case ASTNodeType::AST_CATCH_STMT:
+    case ASTNodeType::AST_FINALLY_STMT:
+    case ASTNodeType::AST_THROW_STMT:
+        // これらは文として処理されるべきで、式として評価されるべきではない
+        return 0;
+
     default:
         // デバッグ用: どのノード型が未対応かを表示
         std::string node_type_str =
@@ -220,4 +240,76 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode *node) {
                   node_type_str.c_str());
         throw std::runtime_error("Unsupported expression node");
     }
+}
+
+int64_t ExpressionEvaluator::evaluate_qualified_function_call(const ASTNode *node) {
+    // モジュール名と関数名を分離
+    std::string module_name = node->module_name;
+    std::string function_name = node->name;
+    
+    debug_msg(DebugMsgId::UNDEFINED_FUNC_ERROR, (module_name + "." + function_name).c_str());
+    
+    // モジュールが読み込まれているかチェック
+    if (!interpreter_.is_module_loaded(module_name)) {
+        error_msg(DebugMsgId::UNDEFINED_FUNC_ERROR, (module_name + " module not loaded").c_str());
+        throw std::runtime_error("Module not loaded: " + module_name);
+    }
+    
+    // モジュール内の関数を探す
+    const ASTNode *func = interpreter_.find_module_function(module_name, function_name);
+    if (!func) {
+        error_msg(DebugMsgId::UNDEFINED_FUNC_ERROR, (module_name + "." + function_name).c_str());
+        throw std::runtime_error("Function not found in module: " + module_name + "." + function_name);
+    }
+    
+    // 引数の数チェック
+    if (node->arguments.size() != func->parameters.size()) {
+        error_msg(DebugMsgId::ARG_COUNT_MISMATCH_ERROR, function_name.c_str());
+        throw std::runtime_error("Argument count mismatch in " + module_name + "." + function_name);
+    }
+    
+    // ローカルスコープ作成
+    interpreter_.push_scope();
+    
+    try {
+        // 引数を評価してパラメータに束縛
+        for (size_t i = 0; i < func->parameters.size(); ++i) {
+            int64_t arg_value = evaluate_expression(node->arguments[i].get());
+            Variable param;
+            param.type = func->parameters[i]->type_info;
+            param.value = arg_value;
+            param.is_assigned = true;
+            interpreter_.current_scope().variables[func->parameters[i]->name] = param;
+        }
+        
+        // 関数本体を実行
+        interpreter_.execute_statement(func->body.get());
+        interpreter_.pop_scope();
+        return 0; // void関数
+        
+    } catch (const ReturnException &e) {
+        interpreter_.pop_scope();
+        return e.value;
+    } catch (...) {
+        interpreter_.pop_scope();
+        throw;
+    }
+}
+
+int64_t ExpressionEvaluator::evaluate_qualified_variable_ref(const ASTNode *node) {
+    // モジュール名と変数名を分離
+    std::string module_name = node->module_name;
+    std::string variable_name = node->name;
+    
+    debug_msg(DebugMsgId::UNDEFINED_VAR_ERROR, (module_name + "." + variable_name).c_str());
+    
+    // モジュールが読み込まれているかチェック
+    if (!interpreter_.is_module_loaded(module_name)) {
+        error_msg(DebugMsgId::UNDEFINED_VAR_ERROR, (module_name + " module not loaded").c_str());
+        throw std::runtime_error("Module not loaded: " + module_name);
+    }
+    
+    // モジュール内の変数を探す
+    int64_t value = interpreter_.find_module_variable(module_name, variable_name);
+    return value;
 }

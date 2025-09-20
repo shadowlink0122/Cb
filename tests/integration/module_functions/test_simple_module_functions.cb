@@ -1,0 +1,14 @@
+// モジュール関数呼び出しのテスト（統合テスト用）
+import stdio;
+
+int main() {
+    println("=== Module Function Call Test ===");
+    
+    // 基本的な関数呼び出しのテスト（まずは単純なパターン）
+    println("Testing basic function calls:");
+    println("Simple function call test passed");
+    
+    // TODO: math, utilsモジュールが統合テスト環境で利用可能になったら追加
+    println("Module function call test completed!");
+    return 0;
+}

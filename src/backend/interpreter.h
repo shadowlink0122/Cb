@@ -2,6 +2,7 @@
 #include "../common/ast.h"
 #include "evaluator/expression_evaluator.h"
 #include "executor/statement_executor.h"
+#include "modules/module_resolver.h"
 #include "output/output_manager.h"
 #include "variables/variable_manager.h"
 #include <map>
@@ -69,6 +70,7 @@ class Interpreter : public EvaluatorInterface {
     std::unique_ptr<ExpressionEvaluator> expression_evaluator_;
     std::unique_ptr<StatementExecutor> statement_executor_;
     std::unique_ptr<VariableManager> variable_manager_;
+    std::unique_ptr<ModuleResolver> module_resolver_;
 
     // ヘルパーメソッド
     void register_global_declarations(const ASTNode *node);
@@ -124,4 +126,17 @@ class Interpreter : public EvaluatorInterface {
     void pop_interpreter_scope() { pop_scope(); }
     void exec_statement(const ASTNode *node) { execute_statement(node); }
     Scope &get_current_scope() { return current_scope(); }
+
+    // モジュールシステムサポート
+    bool process_import(const ASTNode *import_node);
+    ModuleResolver *get_module_resolver() const {
+        return module_resolver_.get();
+    }
+
+    // モジュール関数サポート
+    bool is_module_loaded(const std::string &module_name);
+    const ASTNode *find_module_function(const std::string &module_name,
+                                        const std::string &function_name);
+    int64_t find_module_variable(const std::string &module_name,
+                                 const std::string &variable_name);
 };

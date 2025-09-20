@@ -1,0 +1,13 @@
+// std.io モジュール - 標準入出力機能
+
+int MODULE_VERSION = 1;
+
+int print_message() {
+    println("Hello from std.io module!");
+    return 0;
+}
+
+int print_number(int value) {
+    println(value);
+    return 0;
+}

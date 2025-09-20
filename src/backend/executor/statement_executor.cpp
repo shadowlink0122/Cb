@@ -1,6 +1,7 @@
 #include "statement_executor.h"
 #include "../interpreter.h"
 #include "../../frontend/debug_messages.h"
+#include "../error_handler.h"
 #include <stdexcept>
 
 StatementExecutor::StatementExecutor(Interpreter& interpreter) 
@@ -229,9 +230,65 @@ void StatementExecutor::execute_statement(const ASTNode *node) {
         // 実行時の関数定義をグローバルスコープに登録
         interpreter_.get_global_scope().functions[node->name] = node;
         break;
+    
+    case ASTNodeType::AST_IMPORT_STMT:
+        // import文の処理
+        if (!interpreter_.process_import(node)) {
+            throw std::runtime_error("Failed to process import: " + node->module_name);
+        }
+        break;
+    
+    case ASTNodeType::AST_TRY_STMT:
+        execute_try_statement(node);
+        break;
+    
+    case ASTNodeType::AST_THROW_STMT:
+        execute_throw_statement(node);
+        break;
+    
+    case ASTNodeType::AST_CATCH_STMT:
+    case ASTNodeType::AST_FINALLY_STMT:
+        // これらは通常TRY_STMTの一部として処理される
+        // 単独で呼ばれることはないが、安全のため何もしない
+        break;
 
     default:
         interpreter_.evaluate_expression(node); // 式文として評価
         break;
+    }
+}
+
+void StatementExecutor::execute_try_statement(const ASTNode *node) {
+    try {
+        // try blockを実行
+        if (node->try_body) {
+            execute_statement(node->try_body.get());
+        }
+    } catch (const std::exception& e) {
+        // catch blockがある場合は実行
+        if (node->catch_body) {
+            // TODO: 例外変数をスコープに追加
+            execute_statement(node->catch_body.get());
+        }
+    }
+    
+    // finally blockがある場合は必ず実行
+    if (node->finally_body) {
+        execute_statement(node->finally_body.get());
+    }
+}
+
+void StatementExecutor::execute_throw_statement(const ASTNode *node) {
+    if (node->throw_expr) {
+        // throw式を評価してメッセージを取得
+        if (node->throw_expr->node_type == ASTNodeType::AST_STRING_LITERAL) {
+            throw std::runtime_error(node->throw_expr->str_value);
+        } else {
+            // 数値や他の式の場合は文字列化
+            int64_t value = interpreter_.evaluate_expression(node->throw_expr.get());
+            throw std::runtime_error("Exception: " + std::to_string(value));
+        }
+    } else {
+        throw std::runtime_error("Unspecified exception");
     }
 }

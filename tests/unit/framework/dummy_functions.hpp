@@ -11,14 +11,13 @@
 std::vector<std::string> file_lines;
 
 extern "C" {
+    // パーサー関連のグローバル変数の定義
+    char* current_filename = nullptr;
+    
     // ダミーのyylex関数（パーサーテスト用）
     int yylex() {
         return 0; // EOFを返す
     }
-    
-    // パーサー関連のグローバル変数
-    char* current_filename = nullptr;
-    int yylineno = 1;
 }
 
 // ダミーのyyerror関数（オーバーロード版、C++）

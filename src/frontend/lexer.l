@@ -39,6 +39,13 @@ else             { return ELSE; }
 return           { return RETURN; }
 print            { return PRINT; }
 println          { return PRINTLN; }
+import           { return IMPORT; }
+export           { return EXPORT; }
+module           { return MODULE; }
+try              { return TRY; }
+catch            { return CATCH; }
+finally          { return FINALLY; }
+throw            { return THROW; }
 
 \"([^\"\\]|\\.)*\"  { 
     yylval.sval = strdup(yytext + 1);
