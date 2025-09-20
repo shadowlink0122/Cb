@@ -1,52 +1,12 @@
 #include "output_manager.h"
 #include "../interpreter.h"
 #include "../../frontend/debug.h"
+#include "../../common/utf8_utils.h"
 #include <cinttypes>
 #include <cstdio>
 #include <cctype>
 #include <sstream>
 #include <stdexcept>
-
-// UTF-8文字列処理用のヘルパー関数（一時的にここに配置）
-namespace {
-// UTF-8バイト数を取得
-int utf8_char_length(unsigned char byte) {
-    if (byte < 0x80)
-        return 1; // ASCII
-    if ((byte >> 5) == 0x06)
-        return 2; // 110xxxxx
-    if ((byte >> 4) == 0x0E)
-        return 3; // 1110xxxx
-    if ((byte >> 3) == 0x1E)
-        return 4; // 11110xxx
-    return 1;     // 不正なバイトの場合は1バイトとして扱う
-}
-
-// UTF-8文字列の文字数をカウント
-size_t utf8_char_count(const std::string &str) {
-    size_t count = 0;
-    for (size_t i = 0; i < str.size();) {
-        int len = utf8_char_length(static_cast<unsigned char>(str[i]));
-        i += len;
-        count++;
-    }
-    return count;
-}
-
-// UTF-8文字列の指定位置の文字を取得
-std::string utf8_char_at(const std::string &str, size_t index) {
-    size_t current_index = 0;
-    for (size_t i = 0; i < str.size();) {
-        int len = utf8_char_length(static_cast<unsigned char>(str[i]));
-        if (current_index == index) {
-            return str.substr(i, len);
-        }
-        i += len;
-        current_index++;
-    }
-    return ""; // 範囲外
-}
-} // namespace
 
 OutputManager::OutputManager(Interpreter* interpreter) 
     : interpreter_(interpreter) {}
@@ -85,11 +45,11 @@ void OutputManager::print_value(const ASTNode *expr) {
         if (var && var->type == TYPE_STRING) {
             // 文字列要素アクセスの場合は文字として出力（UTF-8対応）
             int64_t index = evaluate_expression(expr->array_index.get());
-            size_t utf8_length = utf8_char_count(var->str_value);
+            size_t utf8_length = utf8_utils::utf8_char_count(var->str_value);
 
             if (index >= 0 && index < static_cast<int64_t>(utf8_length)) {
                 std::string utf8_char =
-                    utf8_char_at(var->str_value, static_cast<size_t>(index));
+                    utf8_utils::utf8_char_at(var->str_value, static_cast<size_t>(index));
                 printf("%s", utf8_char.c_str());
             } else {
                 error_msg(DebugMsgId::STRING_OUT_OF_BOUNDS_ERROR,

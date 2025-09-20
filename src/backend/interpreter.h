@@ -3,6 +3,7 @@
 #include "evaluator/expression_evaluator.h"
 #include "executor/statement_executor.h"
 #include "output/output_manager.h"
+#include "variables/variable_manager.h"
 #include <map>
 #include <memory>
 #include <string>
@@ -67,6 +68,7 @@ class Interpreter : public EvaluatorInterface {
     std::unique_ptr<OutputManager> output_manager_;
     std::unique_ptr<ExpressionEvaluator> expression_evaluator_;
     std::unique_ptr<StatementExecutor> statement_executor_;
+    std::unique_ptr<VariableManager> variable_manager_;
 
     // ヘルパーメソッド
     void register_global_declarations(const ASTNode *node);

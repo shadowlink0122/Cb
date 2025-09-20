@@ -9,7 +9,7 @@ BACKEND_DIR=$(SRC_DIR)/backend
 COMMON_DIR=$(SRC_DIR)/common
 
 # 共通オブジェクトファイル（メインの実行ファイル以外）
-COMMON_OBJS=$(COMMON_DIR)/type_utils.o $(FRONTEND_DIR)/parser_utils.o $(FRONTEND_DIR)/debug_impl.o $(FRONTEND_DIR)/debug_messages.o $(BACKEND_DIR)/interpreter.o
+COMMON_OBJS=$(COMMON_DIR)/type_utils.o $(COMMON_DIR)/utf8_utils.o $(FRONTEND_DIR)/parser_utils.o $(FRONTEND_DIR)/debug_impl.o $(FRONTEND_DIR)/debug_messages.o $(BACKEND_DIR)/interpreter.o $(BACKEND_DIR)/output/output_manager.o $(BACKEND_DIR)/evaluator/expression_evaluator.o $(BACKEND_DIR)/executor/statement_executor.o $(BACKEND_DIR)/variables/variable_manager.o
 
 # 実行ファイル
 TEST_TARGET=test_main
@@ -26,6 +26,9 @@ $(FRONTEND_DIR)/%.o: $(FRONTEND_DIR)/%.cpp
 	@cd ../../ && $(MAKE) $@
 
 $(BACKEND_DIR)/%.o: $(BACKEND_DIR)/%.cpp
+	@cd ../../ && $(MAKE) $@
+
+$(BACKEND_DIR)/%/%.o: $(BACKEND_DIR)/%/%.cpp
 	@cd ../../ && $(MAKE) $@
 
 # テスト実行ファイル（ヘッダーオンリーなのでmain.cppだけをコンパイル）
