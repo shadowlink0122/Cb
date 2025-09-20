@@ -1,25 +1,25 @@
 // printf機能の基本的なフォーマット指定子のテスト
 int main() {
     // %d - 整数
-    print("%d", 42);
-    print("数値: %d", 123);
+    println("%d", 42);
+    println("数値: %d", 123);
     
     // %s - 文字列
-    print("%s", "Hello");
-    print("メッセージ: %s", "World");
+    println("%s", "Hello");
+    println("メッセージ: %s", "World");
     
     // %c - 文字（1文字の文字列リテラル）
-    print("%c", "A");
-    print("文字: %c", "Z");
+    println("%c", "A");
+    println("文字: %c", "Z");
     
     // %lld - long long (64bit整数)
     long value = 1234567890;
-    print("%lld", value);
-    print("長整数: %lld", value);
+    println("%lld", value);
+    println("長整数: %lld", value);
     
     // %% - パーセント記号のエスケープ
-    print("100%%");
-    print("進捗: %d%%", 50);
+    println("100%%");
+    println("進捗: %d%%", 50);
     
     return 0;
 }

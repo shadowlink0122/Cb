@@ -1,14 +1,14 @@
 // 引数が多い場合のテスト
 int main() {
     // フォーマット指定子より引数が多い場合
-    print("Hello %s", "World", "Extra");
-    print("%d", 10, 20, 30);
+    println("Hello %s", "World", "Extra");
+    println("%d", 10, 20, 30);
     
     // フォーマット指定子がない場合（通常のprint関数として動作すべき）
     int a = 1;
     int b = 2;
     int c = 3;
-    print(a, b, c);  // スペース区切りで表示してほしい
+    println(a, b, c);  // スペース区切りで表示してほしい
     
     return 0;
 }

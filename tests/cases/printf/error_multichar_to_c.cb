@@ -1,5 +1,5 @@
 // printf機能のエラーケーステスト - %cに多文字文字列を渡す
 int main() {
-    print("%c", "string");    // %c に複数文字の文字列を渡す
+    println("%c", "string");    // %c に複数文字の文字列を渡す
     return 0;
 }

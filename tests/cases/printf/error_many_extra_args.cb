@@ -1,5 +1,5 @@
 // printf機能のエラーケーステスト - 多数の引数が余る
 int main() {
-    print("%s", "test", "extra", "args"); // 引数が多すぎる
+    println("%s", "test", "extra", "args"); // 引数が多すぎる
     return 0;
 }

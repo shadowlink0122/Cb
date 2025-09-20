@@ -38,6 +38,7 @@ if               { return IF; }
 else             { return ELSE; }
 return           { return RETURN; }
 print            { return PRINT; }
+println          { return PRINTLN; }
 
 \"([^\"\\]|\\.)*\"  { 
     yylval.sval = strdup(yytext + 1);

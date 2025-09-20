@@ -1,18 +1,18 @@
 int main() {
     // 無効なフォーマット指定子
-    print("Invalid: %0xd", 123);
-    print("Invalid: %0.5d", 42);
-    print("Invalid: %0-3d", 5);
+    println("Invalid: %0xd", 123);
+    println("Invalid: %0.5d", 42);
+    println("Invalid: %0-3d", 5);
     
     // 引数不足
-    print("Missing arg: %05d");
+    println("Missing arg: %05d");
     
     // 文字列に対するゼロパディング（無効）
-    print("String zero: %05s", "test");
+    println("String zero: %05s", "test");
     
     // 不正な桁数指定
-    print("Bad width: %0d", 42);
-    print("No width: %0", 42);
+    println("Bad width: %0d", 42);
+    println("No width: %0", 42);
     
     return 0;
 }

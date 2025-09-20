@@ -1,5 +1,5 @@
 // printf機能のエラーケーステスト - %lldに文字列を渡す
 int main() {
-    print("%lld", "text");    // %lld に文字列を渡す
+    println("%lld", "text");    // %lld に文字列を渡す
     return 0;
 }

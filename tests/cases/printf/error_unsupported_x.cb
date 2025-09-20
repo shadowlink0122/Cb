@@ -1,5 +1,5 @@
 // printf機能のエラーケーステスト - 未サポートの%x
 int main() {
-    print("%x", 255);       // %x は未サポート
+    println("%x", 255);       // %x は未サポート
     return 0;
 }

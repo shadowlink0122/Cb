@@ -1,5 +1,5 @@
 // printf機能のエラーケーステスト - 引数が全くない
 int main() {
-    print("%s %d");         // 引数が全くない
+    println("%s %d");         // 引数が全くない
     return 0;
 }

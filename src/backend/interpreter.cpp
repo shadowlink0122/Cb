@@ -404,6 +404,18 @@ void Interpreter::execute_statement(const ASTNode *node) {
         print_value(node->left.get());
         break;
 
+    case ASTNodeType::AST_PRINTLN_STMT:
+        print_value_with_newline(node->left.get());
+        break;
+
+    case ASTNodeType::AST_PRINTLN_MULTI_STMT:
+        print_multiple_with_newline(node->right.get());
+        break;
+
+    case ASTNodeType::AST_PRINTLNF_STMT:
+        print_formatted_with_newline(node->left.get(), node->right.get());
+        break;
+
     case ASTNodeType::AST_PRINTF_STMT:
         print_formatted(node->left.get(), node->right.get());
         break;
@@ -934,19 +946,19 @@ void Interpreter::assign_string_element(const std::string &name, int64_t index,
 
 void Interpreter::print_value(const ASTNode *expr) {
     if (!expr) {
-        std::cout << "(null)" << std::endl;
+        std::cout << "(null)";
         return;
     }
 
     if (expr->node_type == ASTNodeType::AST_STRING_LITERAL) {
-        std::cout << expr->str_value << std::endl;
+        std::cout << expr->str_value;
     } else if (expr->node_type == ASTNodeType::AST_VARIABLE) {
         Variable *var = find_variable(expr->name);
         if (var && var->type == TYPE_STRING) {
-            std::cout << var->str_value << std::endl;
+            std::cout << var->str_value;
         } else {
             int64_t value = evaluate_expression(expr);
-            std::cout << value << std::endl;
+            std::cout << value;
         }
     } else if (expr->node_type == ASTNodeType::AST_ARRAY_REF) {
         // 配列アクセスの特別処理
@@ -959,7 +971,7 @@ void Interpreter::print_value(const ASTNode *expr) {
             if (index >= 0 && index < static_cast<int64_t>(utf8_length)) {
                 std::string utf8_char =
                     utf8_char_at(var->str_value, static_cast<size_t>(index));
-                std::cout << utf8_char << std::endl;
+                std::cout << utf8_char;
             } else {
                 error_msg(DebugMsgId::STRING_OUT_OF_BOUNDS_ERROR,
                           expr->name.c_str(), index, utf8_length);
@@ -980,19 +992,19 @@ void Interpreter::print_value(const ASTNode *expr) {
             if (elem_type == TYPE_STRING) {
                 // 文字列配列の場合は文字列として出力
                 if (index < static_cast<int64_t>(var->array_strings.size())) {
-                    std::cout << var->array_strings[index] << std::endl;
+                    std::cout << var->array_strings[index];
                 } else {
-                    std::cout << "" << std::endl;
+                    std::cout << "";
                 }
             } else {
                 // 数値配列は数値として出力
                 int64_t value = var->array_values[index];
-                std::cout << value << std::endl;
+                std::cout << value;
             }
         } else {
             // 通常の配列アクセスは数値として出力
             int64_t value = evaluate_expression(expr);
-            std::cout << value << std::endl;
+            std::cout << value;
         }
     } else if (expr->node_type == ASTNodeType::AST_FUNC_CALL) {
         // 関数呼び出しの特別処理
@@ -1015,29 +1027,44 @@ void Interpreter::print_value(const ASTNode *expr) {
             try {
                 execute_statement(func->body.get());
                 pop_scope();
-                std::cout << "" << std::endl; // void関数（空文字列）
+                std::cout << ""; // void関数（空文字列）
             } catch (const ReturnException &e) {
                 pop_scope();
                 if (e.type == TYPE_STRING) {
-                    std::cout << e.str_value << std::endl;
+                    std::cout << e.str_value;
                 } else {
-                    std::cout << e.value << std::endl;
+                    std::cout << e.value;
                 }
             }
         } else {
             // 通常の関数（数値を返す）
             int64_t value = evaluate_expression(expr);
-            std::cout << value << std::endl;
+            std::cout << value;
         }
     } else {
         int64_t value = evaluate_expression(expr);
-        std::cout << value << std::endl;
+        std::cout << value;
     }
+}
+
+void Interpreter::print_value_with_newline(const ASTNode *expr) {
+    print_value(expr);
+    std::cout << std::endl;
+}
+
+void Interpreter::print_multiple_with_newline(const ASTNode *arg_list) {
+    print_multiple(arg_list);
+    std::cout << std::endl;
+}
+
+void Interpreter::print_formatted_with_newline(const ASTNode *format_str, const ASTNode *arg_list) {
+    print_formatted(format_str, arg_list);
+    std::cout << std::endl;
 }
 
 void Interpreter::print_formatted(const ASTNode *format_str, const ASTNode *arg_list) {
     if (!format_str || format_str->node_type != ASTNodeType::AST_STRING_LITERAL) {
-        std::cout << "(invalid format)" << std::endl;
+        std::cout << "(invalid format)";
         return;
     }
 
@@ -1203,12 +1230,11 @@ void Interpreter::print_formatted(const ASTNode *format_str, const ASTNode *arg_
         }
     }
 
-    std::cout << final_result << std::endl;
+    std::cout << final_result;
 }
 
 void Interpreter::print_multiple(const ASTNode *arg_list) {
     if (!arg_list || arg_list->node_type != ASTNodeType::AST_STMT_LIST) {
-        std::cout << std::endl;
         return;
     }
 
@@ -1315,7 +1341,6 @@ void Interpreter::print_multiple(const ASTNode *arg_list) {
         }
         std::cout << outputs[i];
     }
-    std::cout << std::endl;
 }
 
 void Interpreter::check_type_range(TypeInfo type, int64_t value,

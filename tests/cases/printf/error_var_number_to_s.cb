@@ -1,6 +1,6 @@
 // printf機能のエラーケーステスト - 数値変数を%sで出力
 int main() {
     int number = 42;
-    print("%s", number);      // 数値変数を%sで出力
+    println("%s", number);      // 数値変数を%sで出力
     return 0;
 }

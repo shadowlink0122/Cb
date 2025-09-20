@@ -4,21 +4,21 @@ int main() {
     int b = 5;
     
     // 計算結果の出力
-    print("%d + %d = %d", a, b, a + b);
-    print("%d - %d = %d", a, b, a - b);
-    print("%d * %d = %d", a, b, a * b);
-    print("%d / %d = %d", a, b, a / b);
+    println("%d + %d = %d", a, b, a + b);
+    println("%d - %d = %d", a, b, a - b);
+    println("%d * %d = %d", a, b, a * b);
+    println("%d / %d = %d", a, b, a / b);
     
     // 複雑な式
-    print("((%d + %d) * 2) = %d", a, b, (a + b) * 2);
+    println("((%d + %d) * 2) = %d", a, b, (a + b) * 2);
     
     // 配列要素
     int numbers[3] = {1, 2, 3};
-    print("配列: [%d, %d, %d]", numbers[0], numbers[1], numbers[2]);
+    println("配列: [%d, %d, %d]", numbers[0], numbers[1], numbers[2]);
     
     // 文字列配列
     string words[2] = {"Hello", "World"};
-    print("文字列配列: %s %s", words[0], words[1]);
+    println("文字列配列: %s %s", words[0], words[1]);
     
     return 0;
 }

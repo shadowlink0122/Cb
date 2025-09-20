@@ -56,6 +56,9 @@ enum class ASTNodeType {
     // その他
     AST_STMT_LIST,
     AST_PRINT_STMT,
+    AST_PRINTLN_STMT,        // 改行付きprint
+    AST_PRINTLN_MULTI_STMT,  // 改行付き複数引数print
+    AST_PRINTLNF_STMT,       // 改行付きprintf形式
     AST_PRINTF_STMT,  // 新しいprintf風print
     AST_PRINT_MULTI_STMT,  // 複数引数print
     AST_COMPOUND_STMT,

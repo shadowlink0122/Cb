@@ -1,8 +1,8 @@
 // %% のデバッグテスト
 int main() {
-    print("single %");
-    print("double %%");
-    print("triple %%%");
-    print("with arg: %d", 42);
+    println("single %");
+    println("double %%");
+    println("triple %%%");
+    println("with arg: %d", 42);
     return 0;
 }

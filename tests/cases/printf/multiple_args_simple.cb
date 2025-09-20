@@ -1,16 +1,16 @@
 // printf機能の複数引数テスト (文字リテラルなし)
 int main() {
     // 複数の値を含むフォーマット
-    print("名前: %s, 年齢: %d", "田中", 25);
-    print("結果: %d + %d = %d", 10, 20, 30);
+    println("名前: %s, 年齢: %d", "田中", 25);
+    println("結果: %d + %d = %d", 10, 20, 30);
     
     // 混合型の引数
-    print("数値1: %d, 数値2: %d, 文字列: %s", 100, 200, "test");
+    println("数値1: %d, 数値2: %d, 文字列: %s", 100, 200, "test");
     
     // 変数を使用
     string name = "鈴木";
     int age = 30;
-    print("生徒情報: %s (%d歳)", name, age);
+    println("生徒情報: %s (%d歳)", name, age);
     
     return 0;
 }

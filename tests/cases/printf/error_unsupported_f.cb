@@ -1,5 +1,5 @@
 // printf機能のエラーケーステスト - 未サポートの%f
 int main() {
-    print("%f", 123);      // %f は未サポート（float型もない）
+    println("%f", 123);      // %f は未サポート（float型もない）
     return 0;
 }
