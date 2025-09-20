@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cb Script in HTML - Demo</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .cb-output { background: #f0f0f0; padding: 10px; margin: 10px 0; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+    </style>
+    
+    <!-- Cb Runtime (将来実装) -->
+    <script src="https://cdn.cblang.org/cb-runtime-1.0.js"></script>
+</head>
+<body>
+    <h1>Cb Language in Browser Demo</h1>
+    
+    <div id="app">
+        <p>Loading Cb application...</p>
+    </div>
+    
+    <div class="cb-output">
+        <h3>Output:</h3>
+        <div id="output">Ready for Cb execution</div>
+    </div>
+    
+    <!-- Cb Script - JavaScript風の書き方 -->
+    <script type="text/cb">
+        // 構造体定義
+        struct Counter {
+            value: i32,
+            element_id: string
+        }
+        
+        impl Counter {
+            fn new(element_id: string) -> Counter {
+                Counter { value: 0, element_id }
+            }
+            
+            fn increment(&mut self) {
+                self.value += 1;
+                self.update_display();
+            }
+            
+            fn decrement(&mut self) {
+                self.value -= 1;
+                self.update_display();
+            }
+            
+            fn update_display(&self) {
+                let element = document.get_by_id(&self.element_id);
+                element.set_inner_html(&format!("Count: {}", self.value));
+            }
+        }
+        
+        // Todo アイテム管理
+        struct TodoApp {
+            items: Vec<string>,
+            next_id: i32
+        }
+        
+        impl TodoApp {
+            fn new() -> TodoApp {
+                TodoApp { items: Vec::new(), next_id: 1 }
+            }
+            
+            fn add_item(&mut self, text: string) {
+                self.items.push(text);
+                self.render();
+            }
+            
+            fn remove_item(&mut self, index: usize) {
+                if index < self.items.len() {
+                    self.items.remove(index);
+                    self.render();
+                }
+            }
+            
+            fn render(&self) {
+                let container = document.get_by_id("todo-list");
+                let mut html = String::new();
+                
+                for (i, item) in self.items.iter().enumerate() {
+                    html += &format!(
+                        "<div class='todo-item'>
+                            <span>{}</span>
+                            <button onclick='todo_app.remove_item({})'>Remove</button>
+                         </div>", 
+                        item, i
+                    );
+                }
+                
+                container.set_inner_html(&html);
+            }
+        }
+        
+        // グローバル変数
+        static mut counter: Counter;
+        static mut todo_app: TodoApp;
+        
+        // メイン関数
+        fn main() {
+            // カウンター初期化
+            counter = Counter::new("counter-display");
+            counter.update_display();
+            
+            // Todo アプリ初期化
+            todo_app = TodoApp::new();
+            
+            // UI構築
+            setup_ui();
+        }
+        
+        fn setup_ui() {
+            let app_container = document.get_by_id("app");
+            app_container.set_inner_html("
+                <div>
+                    <h2>Counter App</h2>
+                    <div id='counter-display'></div>
+                    <button id='increment-btn'>+1</button>
+                    <button id='decrement-btn'>-1</button>
+                </div>
+                
+                <div>
+                    <h2>Todo App</h2>
+                    <input type='text' id='todo-input' placeholder='Add new todo...'>
+                    <button id='add-todo-btn'>Add</button>
+                    <div id='todo-list'></div>
+                </div>
+            ");
+            
+            // イベントリスナー設定
+            document.get_by_id("increment-btn").on_click(|| {
+                counter.increment();
+            });
+            
+            document.get_by_id("decrement-btn").on_click(|| {
+                counter.decrement();
+            });
+            
+            document.get_by_id("add-todo-btn").on_click(|| {
+                let input = document.get_by_id("todo-input");
+                let text = input.get_value();
+                if !text.is_empty() {
+                    todo_app.add_item(text);
+                    input.set_value("");
+                }
+            });
+            
+            // Enter キーでTodo追加
+            document.get_by_id("todo-input").on_keypress(|event| {
+                if event.key == "Enter" {
+                    document.get_by_id("add-todo-btn").click();
+                }
+            });
+        }
+        
+        // 外部から呼び出し可能な関数（JavaScript側から使用）
+        #[export]
+        fn get_counter_value() -> i32 {
+            counter.value
+        }
+        
+        #[export]
+        fn reset_counter() {
+            counter.value = 0;
+            counter.update_display();
+        }
+    </script>
+    
+    <!-- 従来のJavaScriptとの連携例 -->
+    <script type="text/javascript">
+        // Cb実行完了後に呼び出される
+        document.addEventListener('CbReady', function() {
+            console.log('Cb application loaded successfully!');
+            
+            // Cb関数を JavaScript から呼び出し
+            setTimeout(() => {
+                console.log('Current counter value:', CbRuntime.get_counter_value());
+            }, 2000);
+            
+            // 5秒後にリセット
+            setTimeout(() => {
+                CbRuntime.reset_counter();
+                document.getElementById('output').innerHTML = 
+                    'Counter reset from JavaScript!';
+            }, 5000);
+        });
+    </script>
+</body>
+</html>
