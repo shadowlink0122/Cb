@@ -1,5 +1,5 @@
 #pragma once
-#include "../framework/test_framework.h"
+#include "../framework/test_framework.hpp"
 #include "../../../src/common/ast.h"
 #include "../../../src/frontend/parser_utils.h"
 
@@ -92,12 +92,12 @@ inline void test_create_parameter() {
 }
 
 inline void register_parser_utils_tests() {
-    test_runner.add_test("frontend", "create_stmt_list", test_create_stmt_list);
-    test_runner.add_test("frontend", "create_type_node", test_create_type_node);
-    test_runner.add_test("frontend", "create_storage_spec", test_create_storage_spec);
-    test_runner.add_test("frontend", "create_var_decl", test_create_var_decl);
-    test_runner.add_test("frontend", "create_var_init", test_create_var_init);
-    test_runner.add_test("frontend", "create_array_decl", test_create_array_decl);
-    test_runner.add_test("frontend", "create_param_list", test_create_param_list);
-    test_runner.add_test("frontend", "create_parameter", test_create_parameter);
+    RUN_TEST("create_stmt_list", test_create_stmt_list);
+    RUN_TEST("create_type_node", test_create_type_node);
+    RUN_TEST("create_storage_spec", test_create_storage_spec);
+    RUN_TEST("create_var_decl", test_create_var_decl);
+    RUN_TEST("create_var_init", test_create_var_init);
+    RUN_TEST("create_array_decl", test_create_array_decl);
+    RUN_TEST("create_param_list", test_create_param_list);
+    RUN_TEST("create_parameter", test_create_parameter);
 }

@@ -1,6 +1,6 @@
 int main() {
     string s = "abc";
-    print s[0]; // a
-    print s[1]; // b
-    print s[2]; // c
+    print(s[0]); // a
+    print(s[1]); // b
+    print(s[2]); // c
 }

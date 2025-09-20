@@ -3,6 +3,6 @@ int main() {
   // tiny型の境界値（異常系）
   tiny t3 = 128;
   tiny t4 = -129;
-  print t3;
-  print t4;
+  print(t3);
+  print(t4);
 }

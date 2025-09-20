@@ -2,5 +2,5 @@
 int main(){
     int i = 32768;
     short s = i;
-    print s;
+    print(s);
 }

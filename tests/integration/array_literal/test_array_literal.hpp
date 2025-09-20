@@ -2,7 +2,7 @@
 
 #include "../framework/integration_test_framework.hpp"
 
-void test_array_literal_success() {
+inline void test_array_literal_success() {
     run_cb_test_with_output("../cases/array_literal/test_array_success.cb", 
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT(exit_code == 0, "Array success test should pass");
@@ -13,7 +13,7 @@ void test_array_literal_success() {
     integration_test_passed("array_literal_success");
 }
 
-void test_array_literal_string_basic() {
+inline void test_array_literal_string_basic() {
     run_cb_test_with_output("../cases/array_literal/string_basic.cb", 
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT(exit_code == 0, "String array basic test should pass");
@@ -24,7 +24,7 @@ void test_array_literal_string_basic() {
     integration_test_passed("array_literal_string_basic");
 }
 
-void test_array_literal_comprehensive() {
+inline void test_array_literal_comprehensive() {
     run_cb_test_with_output("../cases/array_literal/test_array_comprehensive.cb", 
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT(exit_code == 0, "Comprehensive array test should pass");
@@ -36,7 +36,7 @@ void test_array_literal_comprehensive() {
     integration_test_passed("array_literal_comprehensive");
 }
 
-void test_array_literal_empty() {
+inline void test_array_literal_empty() {
     run_cb_test_with_output("../cases/array_literal/test_array_empty.cb", 
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT(exit_code == 0, "Empty array test should pass");
@@ -44,7 +44,7 @@ void test_array_literal_empty() {
     integration_test_passed("array_literal_empty");
 }
 
-void test_array_literal_type_mismatch_int_string() {
+inline void test_array_literal_type_mismatch_int_string() {
     run_cb_test_with_output("../cases/array_literal/test_array_fail_int_string.cb", 
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT(exit_code != 0, "Type mismatch test should fail");
@@ -59,7 +59,7 @@ void test_array_literal_type_mismatch_int_string() {
     integration_test_passed_with_error("array_literal_type_mismatch_int_string");
 }
 
-void test_array_literal_type_mismatch_string_int() {
+inline void test_array_literal_type_mismatch_string_int() {
     run_cb_test_with_output("../cases/array_literal/test_array_fail_string_int.cb", 
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT(exit_code != 0, "Type mismatch test should fail");
@@ -74,7 +74,7 @@ void test_array_literal_type_mismatch_string_int() {
     integration_test_passed_with_error("array_literal_type_mismatch_string_int");
 }
 
-void test_array_literal_type_mismatch_multiple() {
+inline void test_array_literal_type_mismatch_multiple() {
     run_cb_test_with_output("../cases/array_literal/test_array_fail_multiple.cb", 
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT(exit_code != 0, "Multiple type mismatch test should fail");
@@ -89,7 +89,7 @@ void test_array_literal_type_mismatch_multiple() {
     integration_test_passed_with_error("array_literal_type_mismatch_multiple");
 }
 
-void test_array_literal_bounds() {
+inline void test_array_literal_bounds() {
     run_cb_test_with_output("../cases/array_literal/test_array_bounds.cb", 
         [](const std::string& output, int exit_code) {
             // このテストは範囲外アクセステストなので、実装によって成功する場合もある
@@ -100,7 +100,7 @@ void test_array_literal_bounds() {
 }
 
 // メイン統合テスト関数
-void test_integration_array_literal() {
+inline void test_integration_array_literal() {
     std::cout << "[integration] Testing array literals..." << std::endl;
     
     test_array_literal_success();

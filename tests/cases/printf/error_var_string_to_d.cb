@@ -1,0 +1,6 @@
+// printf機能のエラーケーステスト - 文字列変数を%dで出力
+int main() {
+    string text = "hello";
+    print("%d", text);        // 文字列変数を%dで出力
+    return 0;
+}

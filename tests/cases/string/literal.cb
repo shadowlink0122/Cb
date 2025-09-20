@@ -1,7 +1,7 @@
 int main() {
     // 文字リテラル型のprintテスト
-    print "Hello, World!";
-    print "abc";
-    print "";
+    print("Hello, World!");
+    print("abc");
+    print("");
     return 0;
 }

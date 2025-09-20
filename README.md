@@ -159,13 +159,13 @@ gcc output.c -o output
 int main() {
     for (int i = 1; i <= 15; i = i + 1) {
         if ((i % 3 == 0) && (i % 5 == 0))
-            print "FizzBuzz";
+            print("FizzBuzz");
         else if (i % 3 == 0)
-            print "Fizz";
+            print("Fizz");
         else if (i % 5 == 0)
-            print "Buzz";
+            print("Buzz");
         else
-            print i;
+            print(i);
     }
     return 0;
 }
@@ -177,7 +177,7 @@ int main() {
     int[] numbers = {10, 20, 30, 40, 50};
     
     for (int i = 0; i < 5; i++) {
-        print numbers[i];
+        print(numbers[i]);
     }
     
     return 0;
@@ -190,7 +190,7 @@ int main() {
     string[] messages = {"Hello", "World", "Cb言語"};
     
     for (int i = 0; i < 3; i++) {
-        print messages[i];
+        print(messages[i]);
     }
     
     return 0;
@@ -207,7 +207,7 @@ int fibonacci(int n) {
 
 int main() {
     for (int i = 0; i < 10; i++) {
-        print fibonacci(i);
+        print(fibonacci(i));
     }
     return 0;
 }

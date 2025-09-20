@@ -7,6 +7,6 @@ int main() {
         sum = sum + i;
         i = i + 1;
     }
-    print sum; // 0+1+2+3+4 = 10
+    print(sum); // 0+1+2+3+4 = 10
     return 0;
 }

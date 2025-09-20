@@ -3,5 +3,5 @@ int main() {
   // int型の代入（正常系）
   long l = 2147483647;
   int i = l;
-  print i;
+  print(i);
 }

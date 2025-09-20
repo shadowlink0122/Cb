@@ -1,0 +1,29 @@
+// print機能の包括的なテスト
+int main() {
+    // 1. 通常の単一引数print
+    print("単一引数");
+    print(123);
+    
+    // 2. printf風のフォーマット指定
+    print("数値: %d", 42);
+    print("文字列: %s", "Hello");
+    print("文字: %s", "A");
+    print("複数: %d, %s", 10, "World");
+    
+    // 3. 複数引数print（スペース区切り）
+    print(1, 2, 3);
+    print("A", "B", "C");
+    int x = 100;
+    string y = "test";
+    print(x, y, 200);
+    
+    // 4. 引数不足（フォーマット指定子がそのまま表示される）
+    print("%d %s", 50);
+    print("不足: %d");
+    
+    // 5. 引数過多（余分な引数は無視される）
+    print("%d", 77, 88, 99);
+    print("値: %s", "OK", "Extra");
+    
+    return 0;
+}

@@ -2,5 +2,5 @@
 int main() {
   // long型の代入（正常系）
   long l = 9223372036854775807;
-  print l;
+  print(l);
 }

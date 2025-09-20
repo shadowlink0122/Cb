@@ -1,0 +1,5 @@
+// printf機能のエラーケーステスト - %dに文字列を渡す
+int main() {
+    print("%d", "string");    // %d に文字列を渡す
+    return 0;
+}

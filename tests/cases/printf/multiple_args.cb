@@ -1,0 +1,18 @@
+// printf機能の複数引数テスト
+int main() {
+    // 複数の値を含むフォーマット
+    print("名前: %s, 年齢: %d", "田中", 25);
+    print("結果: %d + %d = %d", 10, 20, 30);
+    print("%c%c%c", "A", "B", "C");
+    
+    // 混合型の引数
+    print("文字: %c, 数値: %d, 文字列: %s", "X", 100, "test");
+    
+    // 変数を使用
+    string name = "鈴木";
+    int age = 30;
+    string grade = "A";
+    print("生徒情報: %s (%d歳) - 成績: %c", name, age, grade);
+    
+    return 0;
+}

@@ -2,5 +2,5 @@
 int main() {
   // short型の境界値（負の異常系）
   short s = -32769;
-  print s;
+  print(s);
 }

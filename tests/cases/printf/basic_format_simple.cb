@@ -1,0 +1,21 @@
+// printf機能の基本的なフォーマット指定子のテスト (文字リテラルなし)
+int main() {
+    // %d - 整数
+    print("%d", 42);
+    print("数値: %d", 123);
+    
+    // %s - 文字列
+    print("%s", "Hello");
+    print("メッセージ: %s", "World");
+    
+    // %lld - long long (64bit整数)
+    long value = 1234567890;
+    print("%lld", value);
+    print("長整数: %lld", value);
+    
+    // %% - パーセント記号のエスケープ
+    print("100%%");
+    print("進捗: %d%%", 50);
+    
+    return 0;
+}

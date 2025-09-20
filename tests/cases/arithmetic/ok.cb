@@ -16,8 +16,8 @@ int main() {
   long l2 = 10000 - 20000;
   long l3 = 2000 * 3;
   long l4 = 10000 / 2;
-  print t1; print t2; print t3; print t4;
-  print s1; print s2; print s3; print s4;
-  print i1; print i2; print i3; print i4;
-  print l1; print l2; print l3; print l4;
+  print(t1); print(t2); print(t3); print(t4);
+  print(s1); print(s2); print(s3); print(s4);
+  print(i1); print(i2); print(i3); print(i4);
+  print(l1); print(l2); print(l3); print(l4);
 }

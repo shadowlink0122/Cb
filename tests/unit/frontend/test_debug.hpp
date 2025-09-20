@@ -1,5 +1,5 @@
 #pragma once
-#include "../framework/test_framework.h"
+#include "../framework/test_framework.hpp"
 #include "../../../src/frontend/debug.h"
 #include "../../../src/frontend/debug_messages.h"
 #include <sstream>
@@ -119,8 +119,8 @@ inline void test_debug_messages_size() {
 }
 
 inline void register_debug_tests() {
-    test_runner.add_test("frontend", "debug_mode_disabled", test_debug_mode_disabled);
-    test_runner.add_test("frontend", "debug_messages_size", test_debug_messages_size);
+    RUN_TEST("debug_mode_disabled", test_debug_mode_disabled);
+    RUN_TEST("debug_messages_size", test_debug_messages_size);
     // NOTE: デバッグ出力テストは統合テストで実施
     // （単体テストでは出力フォーマットが乱れるため）
 }

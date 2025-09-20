@@ -78,14 +78,10 @@ lint:
 fmt:
 	clang-format -i $(SRC_DIR)/**/*.cpp $(SRC_DIR)/**/*.h $(TESTS_DIR)/**/*.cpp
 
-# 単体テスト用のダミーオブジェクト
-$(TESTS_DIR)/unit/dummy.o: $(TESTS_DIR)/unit/dummy.cpp
-	$(CC) $(CFLAGS) -c -o $@ $<
-
-# 単体テスト
-unit-test: $(MAIN_TARGET) $(FRONTEND_OBJS) $(BACKEND_OBJS) $(COMMON_OBJS) $(TESTS_DIR)/unit/dummy.o
+# 単体テスト（ヘッダーオンリー版）
+unit-test: $(MAIN_TARGET) $(FRONTEND_OBJS) $(BACKEND_OBJS) $(COMMON_OBJS)
 	@echo "Running unit tests..."
-	@cd tests/unit && $(CC) $(CFLAGS) -o test_main main.cpp dummy.o ../../$(BACKEND_DIR)/interpreter.o ../../$(COMMON_DIR)/type_utils.o ../../$(FRONTEND_DIR)/parser_utils.o ../../$(FRONTEND_DIR)/debug_impl.o ../../$(FRONTEND_DIR)/debug_messages.o
+	@cd tests/unit && $(CC) $(CFLAGS) -o test_main main.cpp ../../$(BACKEND_DIR)/interpreter.o ../../$(COMMON_DIR)/type_utils.o ../../$(FRONTEND_DIR)/parser_utils.o ../../$(FRONTEND_DIR)/debug_impl.o ../../$(FRONTEND_DIR)/debug_messages.o
 	@cd tests/unit && ./test_main
 
 integration-test: $(MAIN_TARGET)
