@@ -1,6 +1,8 @@
 #pragma once
 #include "../common/ast.h"
+#include "output/output_manager.h"
 #include <map>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -60,6 +62,7 @@ class Interpreter : public EvaluatorInterface {
     std::vector<Scope> scope_stack;
     Scope global_scope;
     bool debug_mode;
+    std::unique_ptr<OutputManager> output_manager_;
 
     // ヘルパーメソッド
     void push_scope();
@@ -85,13 +88,6 @@ class Interpreter : public EvaluatorInterface {
     void assign_string_element(const std::string &name, int64_t index,
                                const std::string &value);
 
-    void print_value(const ASTNode *expr);
-    void print_value_with_newline(const ASTNode *expr);
-    void print_multiple_with_newline(const ASTNode *arg_list);
-    void print_formatted_with_newline(const ASTNode *format_str,
-                                      const ASTNode *arg_list);
-    void print_formatted(const ASTNode *format_str, const ASTNode *arg_list);
-    void print_multiple(const ASTNode *arg_list);
     void check_type_range(TypeInfo type, int64_t value,
                           const std::string &name);
 
@@ -105,4 +101,19 @@ class Interpreter : public EvaluatorInterface {
 
     // デバッグ機能
     void set_debug_mode(bool debug) { debug_mode = debug; }
+
+    // OutputManager用のpublicアクセサ
+    Variable *get_variable(const std::string &name) {
+        return find_variable(name);
+    }
+    const ASTNode *get_function(const std::string &name) {
+        return find_function(name);
+    }
+    int64_t eval_expression(const ASTNode *node) {
+        return evaluate_expression(node);
+    }
+    void push_interpreter_scope() { push_scope(); }
+    void pop_interpreter_scope() { pop_scope(); }
+    void exec_statement(const ASTNode *node) { execute_statement(node); }
+    Scope &get_current_scope() { return current_scope(); }
 };

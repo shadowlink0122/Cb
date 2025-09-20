@@ -19,7 +19,7 @@ LEXER_C=$(FRONTEND_DIR)/lexer.c
 
 # オブジェクトファイル
 FRONTEND_OBJS=$(PARSER_C:.c=.o) $(LEXER_C:.c=.o) $(FRONTEND_DIR)/parser_utils.o $(FRONTEND_DIR)/main.o $(FRONTEND_DIR)/debug_impl.o $(FRONTEND_DIR)/debug_messages.o
-BACKEND_OBJS=$(BACKEND_DIR)/interpreter.o
+BACKEND_OBJS=$(BACKEND_DIR)/interpreter.o $(BACKEND_DIR)/output/output_manager.o
 COMMON_OBJS=$(COMMON_DIR)/type_utils.o
 
 # 実行ファイル
@@ -58,6 +58,9 @@ $(FRONTEND_DIR)/%.o: $(FRONTEND_DIR)/%.cpp $(COMMON_DIR)/ast.h
 $(BACKEND_DIR)/%.o: $(BACKEND_DIR)/%.cpp $(COMMON_DIR)/ast.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
+$(BACKEND_DIR)/output/%.o: $(BACKEND_DIR)/output/%.cpp $(COMMON_DIR)/ast.h
+	$(CC) $(CFLAGS) -c -o $@ $<
+
 # 共通オブジェクト生成
 $(COMMON_DIR)/%.o: $(COMMON_DIR)/%.cpp $(COMMON_DIR)/ast.h
 	$(CC) $(CFLAGS) -c -o $@ $<
@@ -81,7 +84,7 @@ fmt:
 # 単体テスト（ヘッダーオンリー版）
 unit-test: $(MAIN_TARGET) $(FRONTEND_OBJS) $(BACKEND_OBJS) $(COMMON_OBJS)
 	@echo "Running unit tests..."
-	@cd tests/unit && $(CC) $(CFLAGS) -o test_main main.cpp ../../$(BACKEND_DIR)/interpreter.o ../../$(COMMON_DIR)/type_utils.o ../../$(FRONTEND_DIR)/parser_utils.o ../../$(FRONTEND_DIR)/debug_impl.o ../../$(FRONTEND_DIR)/debug_messages.o
+	@cd tests/unit && $(CC) $(CFLAGS) -o test_main main.cpp ../../$(BACKEND_DIR)/interpreter.o ../../$(BACKEND_DIR)/output/output_manager.o ../../$(COMMON_DIR)/type_utils.o ../../$(FRONTEND_DIR)/parser_utils.o ../../$(FRONTEND_DIR)/debug_impl.o ../../$(FRONTEND_DIR)/debug_messages.o
 	@cd tests/unit && ./test_main
 
 integration-test: $(MAIN_TARGET)
