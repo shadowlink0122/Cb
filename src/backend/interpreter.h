@@ -1,5 +1,6 @@
 #pragma once
 #include "../common/ast.h"
+#include "evaluator/expression_evaluator.h"
 #include "output/output_manager.h"
 #include <map>
 #include <memory>
@@ -63,17 +64,10 @@ class Interpreter : public EvaluatorInterface {
     Scope global_scope;
     bool debug_mode;
     std::unique_ptr<OutputManager> output_manager_;
+    std::unique_ptr<ExpressionEvaluator> expression_evaluator_;
 
     // ヘルパーメソッド
-    void push_scope();
-    void pop_scope();
-    Scope &current_scope();
-
-    Variable *find_variable(const std::string &name);
-    const ASTNode *find_function(const std::string &name);
-
     void register_global_declarations(const ASTNode *node);
-    void execute_statement(const ASTNode *node);
     int64_t evaluate_expression(const ASTNode *node);
 
     void assign_variable(const std::string &name, int64_t value,
@@ -88,9 +82,6 @@ class Interpreter : public EvaluatorInterface {
     void assign_string_element(const std::string &name, int64_t index,
                                const std::string &value);
 
-    void check_type_range(TypeInfo type, int64_t value,
-                          const std::string &name);
-
   public:
     Interpreter(bool debug = false);
     virtual ~Interpreter() = default;
@@ -101,6 +92,16 @@ class Interpreter : public EvaluatorInterface {
 
     // デバッグ機能
     void set_debug_mode(bool debug) { debug_mode = debug; }
+
+    // ExpressionEvaluator用のpublicアクセサ
+    Variable *find_variable(const std::string &name);
+    const ASTNode *find_function(const std::string &name);
+    void check_type_range(TypeInfo type, int64_t value,
+                          const std::string &name);
+    void push_scope();
+    void pop_scope();
+    Scope &current_scope();
+    void execute_statement(const ASTNode *node);
 
     // OutputManager用のpublicアクセサ
     Variable *get_variable(const std::string &name) {
