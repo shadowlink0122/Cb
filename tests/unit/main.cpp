@@ -1,4 +1,6 @@
-#include "framework/test_framework.h"
+#include "framework/dummy_functions.hpp"
+#include "framework/test_framework.hpp"
+#include "framework/unit_test_impl.hpp"
 
 // 各テストモジュールをインクルード
 #include "backend/test_arithmetic.hpp"
@@ -11,25 +13,36 @@
 #include "frontend/test_debug.hpp"
 #include "frontend/test_parser_utils.hpp"
 
-// テストランナーのインスタンス
-TestRunner test_runner;
-
 int main() {
     std::cout << "Running unit tests..." << std::endl;
 
-    // 各テストモジュールを登録
-    register_type_utils_tests();
-    register_ast_tests();
-    register_parser_utils_tests();
-    register_debug_tests();
-    register_interpreter_tests();
-    register_boundary_tests();
-    register_arithmetic_tests();
-    register_cross_type_tests();
-    register_function_tests();
+    // テストフレームワークを初期化
+    initialize_test_framework();
 
-    // すべてのテストを実行
-    test_runner.run_all();
+    int test_count = 0;
 
-    return 0;
+    // 各テストモジュールを実行
+    try {
+        register_type_utils_tests();
+        register_ast_tests();
+        register_parser_utils_tests();
+        register_debug_tests();
+        register_interpreter_tests();
+        register_boundary_tests();
+        register_arithmetic_tests();
+        register_cross_type_tests();
+        register_function_tests();
+
+        std::cout << "Running " << test_count << " tests..." << std::endl;
+    } catch (const std::exception &e) {
+        std::cerr << "Error during test execution: " << e.what() << std::endl;
+    }
+
+    // テスト結果を出力
+    int failed_count = print_test_results();
+
+    // クリーンアップ
+    cleanup_test_framework();
+
+    return failed_count > 0 ? 1 : 0;
 }

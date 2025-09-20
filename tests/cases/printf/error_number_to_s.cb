@@ -1,0 +1,5 @@
+// printf機能のエラーケーステスト - %sに数値を渡す
+int main() {
+    println("%s", 123);         // %s に数値を渡す
+    return 0;
+}

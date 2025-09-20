@@ -2,7 +2,7 @@
 string str() { return "Hello, World!"; }
 string greet() { return "こんにちは"; }
 int main() {
-    print str();
-    print greet();
+    print(str());
+    print(greet());
     return 0;
 }

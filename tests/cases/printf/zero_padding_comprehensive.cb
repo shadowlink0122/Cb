@@ -1,0 +1,35 @@
+int main() {
+    // 基本的なゼロパディング
+    println("Basic: %01d", 5);
+    println("Basic: %02d", 5);
+    println("Basic: %03d", 5);
+    println("Basic: %04d", 5);
+    println("Basic: %05d", 5);
+    println("Basic: %010d", 5);
+    
+    // より大きな数値での検証
+    println("Large: %02d", 42);
+    println("Large: %03d", 42);
+    println("Large: %04d", 42);
+    println("Large: %05d", 42);
+    
+    // 数値が桁数以上の場合
+    println("Overflow: %02d", 123);
+    println("Overflow: %03d", 123);
+    println("Overflow: %01d", 123);
+    
+    // 負の数
+    println("Negative: %03d", -5);
+    println("Negative: %04d", -5);
+    println("Negative: %05d", -42);
+    
+    // ゼロの場合
+    println("Zero: %03d", 0);
+    println("Zero: %05d", 0);
+    
+    // 大きな桁数指定
+    println("BigWidth: %015d", 123);
+    println("BigWidth: %020d", 1);
+    
+    return 0;
+}

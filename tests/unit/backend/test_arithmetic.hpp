@@ -1,5 +1,5 @@
 #pragma once
-#include "../framework/test_framework.h"
+#include "../framework/test_framework.hpp"
 #include "../../../src/backend/interpreter.h"
 #include <memory>
 
@@ -135,11 +135,11 @@ inline void test_arithmetic_large_numbers() {
 }
 
 inline void register_arithmetic_tests() {
-    test_runner.add_test("backend", "arithmetic_addition", test_arithmetic_addition);
-    test_runner.add_test("backend", "arithmetic_subtraction", test_arithmetic_subtraction);
-    test_runner.add_test("backend", "arithmetic_multiplication", test_arithmetic_multiplication);
-    test_runner.add_test("backend", "arithmetic_division", test_arithmetic_division);
-    test_runner.add_test("backend", "arithmetic_modulo", test_arithmetic_modulo);
-    test_runner.add_test("backend", "arithmetic_negative_numbers", test_arithmetic_negative_numbers);
-    test_runner.add_test("backend", "arithmetic_large_numbers", test_arithmetic_large_numbers);
+    RUN_TEST("arithmetic_addition", test_arithmetic_addition);
+    RUN_TEST("arithmetic_subtraction", test_arithmetic_subtraction);
+    RUN_TEST("arithmetic_multiplication", test_arithmetic_multiplication);
+    RUN_TEST("arithmetic_division", test_arithmetic_division);
+    RUN_TEST("arithmetic_modulo", test_arithmetic_modulo);
+    RUN_TEST("arithmetic_negative_numbers", test_arithmetic_negative_numbers);
+    RUN_TEST("arithmetic_large_numbers", test_arithmetic_large_numbers);
 }

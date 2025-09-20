@@ -1,6 +1,11 @@
 #pragma once
 #include "../common/ast.h"
+#include "evaluator/expression_evaluator.h"
+#include "executor/statement_executor.h"
+#include "output/output_manager.h"
+#include "variables/variable_manager.h"
 #include <map>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -60,34 +65,13 @@ class Interpreter : public EvaluatorInterface {
     std::vector<Scope> scope_stack;
     Scope global_scope;
     bool debug_mode;
+    std::unique_ptr<OutputManager> output_manager_;
+    std::unique_ptr<ExpressionEvaluator> expression_evaluator_;
+    std::unique_ptr<StatementExecutor> statement_executor_;
+    std::unique_ptr<VariableManager> variable_manager_;
 
     // ヘルパーメソッド
-    void push_scope();
-    void pop_scope();
-    Scope &current_scope();
-
-    Variable *find_variable(const std::string &name);
-    const ASTNode *find_function(const std::string &name);
-
     void register_global_declarations(const ASTNode *node);
-    void execute_statement(const ASTNode *node);
-    int64_t evaluate_expression(const ASTNode *node);
-
-    void assign_variable(const std::string &name, int64_t value,
-                         TypeInfo type = TYPE_INT);
-    void assign_variable(const std::string &name, const std::string &value);
-    void assign_variable(const std::string &name, int64_t value, TypeInfo type,
-                         bool is_const);
-    void assign_variable(const std::string &name, const std::string &value,
-                         bool is_const);
-    void assign_array_element(const std::string &name, int64_t index,
-                              int64_t value);
-    void assign_string_element(const std::string &name, int64_t index,
-                               const std::string &value);
-
-    void print_value(const ASTNode *expr);
-    void check_type_range(TypeInfo type, int64_t value,
-                          const std::string &name);
 
   public:
     Interpreter(bool debug = false);
@@ -99,4 +83,45 @@ class Interpreter : public EvaluatorInterface {
 
     // デバッグ機能
     void set_debug_mode(bool debug) { debug_mode = debug; }
+
+    // ExpressionEvaluator用のpublicアクセサ
+    Variable *find_variable(const std::string &name);
+    const ASTNode *find_function(const std::string &name);
+    void check_type_range(TypeInfo type, int64_t value,
+                          const std::string &name);
+    void push_scope();
+    void pop_scope();
+    Scope &current_scope();
+    void execute_statement(const ASTNode *node);
+    int64_t evaluate_expression(const ASTNode *node);
+
+    // StatementExecutor用のpublicアクセサ
+    Scope &get_global_scope() { return global_scope; }
+    OutputManager &get_output_manager() { return *output_manager_; }
+    void assign_variable(const std::string &name, int64_t value,
+                         TypeInfo type = TYPE_INT);
+    void assign_variable(const std::string &name, const std::string &value,
+                         bool is_const);
+    void assign_variable(const std::string &name, int64_t value, TypeInfo type,
+                         bool is_const);
+    void assign_variable(const std::string &name, const std::string &value);
+    void assign_array_element(const std::string &name, int64_t index,
+                              int64_t value);
+    void assign_string_element(const std::string &name, int64_t index,
+                               const std::string &value);
+
+    // OutputManager用のpublicアクセサ
+    Variable *get_variable(const std::string &name) {
+        return find_variable(name);
+    }
+    const ASTNode *get_function(const std::string &name) {
+        return find_function(name);
+    }
+    int64_t eval_expression(const ASTNode *node) {
+        return evaluate_expression(node);
+    }
+    void push_interpreter_scope() { push_scope(); }
+    void pop_interpreter_scope() { pop_scope(); }
+    void exec_statement(const ASTNode *node) { execute_statement(node); }
+    Scope &get_current_scope() { return current_scope(); }
 };

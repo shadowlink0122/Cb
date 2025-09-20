@@ -28,7 +28,7 @@ extern "C" {
 %token CONST STATIC
 %token VOID TINY SHORT INT LONG BOOL STRING
 %token TRUE FALSE NULL_LIT
-%token PLUS MINUS MUL DIV ASSIGN SEMICOLON PRINT RETURN
+%token PLUS MINUS MUL DIV ASSIGN SEMICOLON PRINT PRINTLN RETURN
 %token FOR WHILE BREAK IF ELSE
 %token EQ NEQ GE LE GT LT OR AND NOT MOD
 %token ADD_ASSIGN SUB_ASSIGN MUL_ASSIGN DIV_ASSIGN MOD_ASSIGN
@@ -201,7 +201,29 @@ statement_list:
 statement:
     declaration { $$ = $1; }
     | expression SEMICOLON { $$ = $1; }
-    | PRINT expression SEMICOLON { $$ = create_print_stmt((ASTNode*)$2); }
+    | PRINT '(' expression ')' SEMICOLON { 
+        $$ = create_print_stmt((ASTNode*)$3);
+    }
+    | PRINTLN '(' expression ')' SEMICOLON { 
+        $$ = create_println_stmt((ASTNode*)$3);
+    }
+    | PRINTLN '(' ')' SEMICOLON { 
+        $$ = create_println_empty();
+    }
+    | PRINTLN '(' argument_list ')' SEMICOLON {
+        $$ = create_println_multi_stmt((ASTNode*)$3);
+    }
+    | PRINTLN '(' STRING_LITERAL ',' argument_list ')' SEMICOLON { 
+        ASTNode* format_str = create_string_literal($3);
+        $$ = create_printlnf_stmt(format_str, (ASTNode*)$5);
+    }
+    | PRINT '(' argument_list ')' SEMICOLON {
+        $$ = create_print_multi_stmt((ASTNode*)$3);
+    }
+    | PRINT '(' STRING_LITERAL ',' argument_list ')' SEMICOLON { 
+        ASTNode* format_str = create_string_literal($3);
+        $$ = create_printf_stmt(format_str, (ASTNode*)$5);
+    }
     | IF '(' expression ')' statement {
         $$ = create_if_stmt((ASTNode*)$3, (ASTNode*)$5, nullptr);
     }

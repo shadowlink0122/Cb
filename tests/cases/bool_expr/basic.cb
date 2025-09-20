@@ -1,37 +1,37 @@
 // bool/number, 比較演算子, 括弧, NOT, 複合式のテスト
 int main(){
-    print (true == 1); // 1
-    print (false == 0); // 1
-    print (true == 0); // 0
-    print (false == 1); // 0
-    print true; // 1
-    print false; // 0
+    print((true == 1)); // 1
+    print((false == 0)); // 1
+    print((true == 0)); // 0
+    print((false == 1)); // 0
+    print(true); // 1
+    print(false); // 0
 
-    print (3 > 2); // 1
-    print (2 > 3); // 0
-    print (2 >= 2); // 1
-    print (2 >= 3); // 0
-    print (2 < 3); // 1
-    print (3 < 2); // 0
-    print (2 <= 2); // 1
-    print (3 <= 2); // 0
+    print((3 > 2)); // 1
+    print((2 > 3)); // 0
+    print((2 >= 2)); // 1
+    print((2 >= 3)); // 0
+    print((2 < 3)); // 1
+    print((3 < 2)); // 0
+    print((2 <= 2)); // 1
+    print((3 <= 2)); // 0
 
-    print 1 + 2 * 3; // 7
-    print (1 + 2) * 3; // 9
-    print (1 + (2 * 3)); // 7
-    print ((1 + 2) * 3); // 9
+    print(1 + 2 * 3); // 7
+    print((1 + 2) * 3); // 9
+    print((1 + (2 * 3))); // 7
+    print(((1 + 2) * 3)); // 9
 
-    print !true; // 0
-    print !false; // 1
-    print !(1 > 2); // 1
-    print !(2 > 1); // 0
-    print !0; // 1
-    print !1; // 0
+    print(!true); // 0
+    print(!false); // 1
+    print(!(1 > 2)); // 1
+    print(!(2 > 1)); // 0
+    print(!0); // 1
+    print(!1); // 0
 
-    print (true && !false); // 1
-    print (false || !false); // 1
-    print (true && false || true); // 1
-    print !(true && false) || (false || true); // 1
-    print !((1 + 2) > 3); // 1
-    print ((1 < 2) && (2 < 3)) || false; // 1
+    print((true && !false)); // 1
+    print((false || !false)); // 1
+    print((true && false || true)); // 1
+    print((!(true && false) || (false || true))); // 1
+    print((!((1 + 2) > 3))); // 1
+    print((((1 < 2) && (2 < 3)) || false)); // 1
 }

@@ -1,0 +1,5 @@
+// printf機能のエラーケーステスト - フォーマット指定子がない
+int main() {
+    println("Hello", "World");     // フォーマット指定子がない
+    return 0;
+}

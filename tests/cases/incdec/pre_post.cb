@@ -1,16 +1,16 @@
 int main() {
     int a = 1;
     int b = ++a; // a=2, b=2
-    print a; // 2
-    print b; // 2
+    print(a); // 2
+    print(b); // 2
     int c = a++;
-    print a; // 3
-    print c; // 2
+    print(a); // 3
+    print(c); // 2
     int d = --a;
-    print a; // 2
-    print d; // 2
+    print(a); // 2
+    print(d); // 2
     int e = a--;
-    print a; // 1
-    print e; // 2
+    print(a); // 1
+    print(e); // 2
     return 0;
 }

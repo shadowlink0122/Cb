@@ -1,9 +1,9 @@
 int main() {
     // string型変数への代入とprintテスト
     string s = "test string";
-    print s;
+    print(s);
     s = "second";
-    print s;
+    print(s);
 
     return 0;
 }

@@ -1,5 +1,5 @@
 #pragma once
-#include "../framework/test_framework.h"
+#include "../framework/test_framework.hpp"
 #include "../../../src/backend/interpreter.h"
 #include <memory>
 
@@ -120,9 +120,9 @@ inline void test_cross_type_comparison() {
 }
 
 inline void register_cross_type_tests() {
-    test_runner.add_test("backend", "cross_type_tiny_to_int", test_cross_type_tiny_to_int);
-    test_runner.add_test("backend", "cross_type_short_to_long", test_cross_type_short_to_long);
-    test_runner.add_test("backend", "cross_type_int_to_long", test_cross_type_int_to_long);
-    test_runner.add_test("backend", "cross_type_mixed_arithmetic", test_cross_type_mixed_arithmetic);
-    test_runner.add_test("backend", "cross_type_comparison", test_cross_type_comparison);
+    RUN_TEST("cross_type_tiny_to_int", test_cross_type_tiny_to_int);
+    RUN_TEST("cross_type_short_to_long", test_cross_type_short_to_long);
+    RUN_TEST("cross_type_int_to_long", test_cross_type_int_to_long);
+    RUN_TEST("cross_type_mixed_arithmetic", test_cross_type_mixed_arithmetic);
+    RUN_TEST("cross_type_comparison", test_cross_type_comparison);
 }

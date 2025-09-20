@@ -3,6 +3,6 @@ int main() {
     for(int i = 0; i < 3; i += 1) {
         a *= 2;
     }
-    print a; // 8
+    print(a); // 8
     return 0;
 }

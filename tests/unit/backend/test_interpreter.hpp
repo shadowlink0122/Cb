@@ -1,5 +1,5 @@
 #pragma once
-#include "../framework/test_framework.h"
+#include "../framework/test_framework.hpp"
 #include "../../../src/backend/interpreter.h"
 #include <memory>
 
@@ -59,8 +59,8 @@ inline void test_simple_ast_evaluation() {
 }
 
 inline void register_interpreter_tests() {
-    test_runner.add_test("backend", "interpreter_creation", test_interpreter_creation);
-    test_runner.add_test("backend", "simple_number_evaluation", test_simple_number_evaluation);
-    test_runner.add_test("backend", "string_literal_evaluation", test_string_literal_evaluation);
-    test_runner.add_test("backend", "simple_ast_evaluation", test_simple_ast_evaluation);
+    RUN_TEST("interpreter_creation", test_interpreter_creation);
+    RUN_TEST("simple_number_evaluation", test_simple_number_evaluation);
+    RUN_TEST("string_literal_evaluation", test_string_literal_evaluation);
+    RUN_TEST("simple_ast_evaluation", test_simple_ast_evaluation);
 }

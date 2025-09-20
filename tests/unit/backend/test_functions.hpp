@@ -1,5 +1,5 @@
 #pragma once
-#include "../framework/test_framework.h"
+#include "../framework/test_framework.hpp"
 #include "../../../src/backend/interpreter.h"
 #include "../../../src/frontend/parser_utils.h"
 #include <memory>
@@ -193,9 +193,9 @@ inline void test_function_return_types() {
 
 inline void register_function_tests() {
     // 関数機能のテストを実行する（簡素化されたバージョン）
-    test_runner.add_test("backend", "function_definition", test_function_definition, false);
-    test_runner.add_test("backend", "function_call", test_function_call, false);
-    test_runner.add_test("backend", "recursive_function", test_recursive_function, false);
-    test_runner.add_test("backend", "function_with_multiple_params", test_function_with_multiple_params, false);
-    test_runner.add_test("backend", "function_return_types", test_function_return_types, false);
+    RUN_TEST("function_definition", test_function_definition);
+    RUN_TEST("function_call", test_function_call);
+    RUN_TEST("recursive_function", test_recursive_function);
+    RUN_TEST("function_with_multiple_params", test_function_with_multiple_params);
+    RUN_TEST("function_return_types", test_function_return_types);
 }

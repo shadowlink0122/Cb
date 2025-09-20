@@ -3,6 +3,6 @@ int main() {
   // short型の境界値（異常系）
   short s3 = 32768;
   short s4 = -32769;
-  print s3;
-  print s4;
+  print(s3);
+  print(s4);
 }

@@ -1,5 +1,5 @@
 #pragma once
-#include "../framework/test_framework.h"
+#include "../framework/test_framework.hpp"
 #include "../../../src/common/ast.h"
 #include <memory>
 
@@ -103,14 +103,14 @@ inline void test_ast_node_children() {
 }
 
 inline void register_ast_tests() {
-    test_runner.add_test("common", "ast_node_creation", test_ast_node_creation);
-    test_runner.add_test("common", "ast_node_number_literal", test_ast_node_number_literal);
-    test_runner.add_test("common", "ast_node_string_literal", test_ast_node_string_literal);
-    test_runner.add_test("common", "ast_node_variable", test_ast_node_variable);
-    test_runner.add_test("common", "ast_node_type_info", test_ast_node_type_info);
-    test_runner.add_test("common", "ast_node_storage_class", test_ast_node_storage_class);
-    test_runner.add_test("common", "ast_node_binary_op", test_ast_node_binary_op);
-    test_runner.add_test("common", "ast_node_function_declaration", test_ast_node_function_declaration);
-    test_runner.add_test("common", "ast_node_parameter", test_ast_node_parameter);
-    test_runner.add_test("common", "ast_node_children", test_ast_node_children);
+    RUN_TEST("ast_node_creation", test_ast_node_creation);
+    RUN_TEST("ast_node_number_literal", test_ast_node_number_literal);
+    RUN_TEST("ast_node_string_literal", test_ast_node_string_literal);
+    RUN_TEST("ast_node_variable", test_ast_node_variable);
+    RUN_TEST("ast_node_type_info", test_ast_node_type_info);
+    RUN_TEST("ast_node_storage_class", test_ast_node_storage_class);
+    RUN_TEST("ast_node_binary_op", test_ast_node_binary_op);
+    RUN_TEST("ast_node_function_declaration", test_ast_node_function_declaration);
+    RUN_TEST("ast_node_parameter", test_ast_node_parameter);
+    RUN_TEST("ast_node_children", test_ast_node_children);
 }

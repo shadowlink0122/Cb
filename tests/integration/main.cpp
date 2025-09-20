@@ -13,6 +13,7 @@
 #include "if/test_if.hpp"
 #include "incdec/test_incdec.hpp"
 #include "loop/test_loop.hpp"
+#include "printf/test_printf.hpp"
 #include "self_assign/test_self_assign.hpp"
 #include "string/test_string.hpp"
 
@@ -33,6 +34,7 @@ int main() {
         test_integration_self_assign();
         test_integration_incdec();
         test_integration_global_vars();
+        test_printf_all();
     } catch (const std::exception &e) {
         std::cerr << "[integration] test failed: " << e.what() << std::endl;
         fail = 1;

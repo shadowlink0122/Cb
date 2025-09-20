@@ -2,5 +2,5 @@
 int main() {
   // tiny型の境界値（負の異常系）
   tiny t = -129;
-  print t;
+  print(t);
 }

@@ -3,6 +3,6 @@ int main() {
   // int型の境界値（異常系）
   int i3 = 2147483648;
   int i4 = -2147483649;
-  print i3;
-  print i4;
+  print(i3);
+  print(i4);
 }

@@ -1,109 +1,132 @@
 bool check_bool_type() {
-    print "bool check";
+    println("=== bool型のテスト ===");
     bool a = true;
-    print a;
-    a = false; print a;
-    a = 1; print a;
-    a = 0; print a;
+    println("bool a = true; の結果: %d", a);
+    a = false; 
+    println("a = false; の結果: %d", a);
+    a = 1; 
+    println("a = 1; の結果: %d", a);
+    a = 0; 
+    println("a = 0; の結果: %d", a);
+    println();
     
     return true;
 }
 
 int check_bool() {
-    print "評価チェック";
-    print "==";
-    print true == true;
-    print true == false;
-    print false == false;
-    print "!=";
-    print true != true;
-    print true != false;
-    print false != false;
-    print ">";
-    print 2 > 1;
-    print 1 > 2;
-    print 2 > 2;
-    print "<";
-    print 1 < 2;
-    print 2 < 1;
-    print 2 < 2;
-    print ">=";
-    print 2 >= 1;
-    print 1 >= 2;
-    print 2 >= 2;
-    print "<=";
-    print 1 <= 2;
-    print 2 <= 1;
-    print 2 <= 2;
-    print "OR";
-    print true || true;
-    print true || false;
-    print false || false;
-    print "AND";
-    print true && true;
-    print true && false;
-    print false && false;
+    println("=== 論理演算子の評価テスト ===");
+    println("== 等価演算子 ==");
+    println("true == true: %d", true == true);
+    println("true == false: %d", true == false);
+    println("false == false: %d", false == false);
+    
+    println("!= 不等価演算子");
+    println("true != true: %d", true != true);
+    println("true != false: %d", true != false);
+    println("false != false: %d", false != false);
+    
+    println("> 大なり演算子");
+    println("2 > 1: %d", 2 > 1);
+    println("1 > 2: %d", 1 > 2);
+    println("2 > 2: %d", 2 > 2);
+    
+    println("< 小なり演算子");
+    println("1 < 2: %d", 1 < 2);
+    println("2 < 1: %d", 2 < 1);
+    println("2 < 2: %d", 2 < 2);
+    
+    println(">= 大なりイコール演算子");
+    println("2 >= 1: %d", 2 >= 1);
+    println("1 >= 2: %d", 1 >= 2);
+    println("2 >= 2: %d", 2 >= 2);
+    
+    println("<= 小なりイコール演算子");
+    println("1 <= 2: %d", 1 <= 2);
+    println("2 <= 1: %d", 2 <= 1);
+    println("2 <= 2: %d", 2 <= 2);
+    
+    println("|| OR演算子");
+    println("true || true: %d", true || true);
+    println("true || false: %d", true || false);
+    println("false || false: %d", false || false);
+    
+    println("&& AND演算子");
+    println("true && true: %d", true && true);
+    println("true && false: %d", true && false);
+    println("false && false: %d", false && false);
+    println();
 }
 
 int calc() {
-    print "calc";
+    println("=== 計算と論理演算の組み合わせ ===");
     int a = 2;
     a = a + 1;
-    print a;
+    println("a = 2 + 1 の結果: %d", a);
     int b = 2;
-    print ((a + a) * b > 10);
-    print ((a - a) * b > 10);
-    print (b * (a * a) > 10);
-    print (b * (a / a) > 10);
+    println("((a + a) * b > 10) = ((%d + %d) * %d > 10): %d", a, a, b, ((a + a) * b > 10));
+    println("((a - a) * b > 10) = ((%d - %d) * %d > 10): %d", a, a, b, ((a - a) * b > 10));
+    println("(b * (a * a) > 10) = (%d * (%d * %d) > 10): %d", b, a, a, (b * (a * a) > 10));
+    println("(b * (a / a) > 10) = (%d * (%d / %d) > 10): %d", b, a, a, (b * (a / a) > 10));
+    println();
 }
 
 
 void test_bool_and_expr() {
-    print "== bool/number";
-    print (true == 1); // 1
-    print (false == 0); // 1
-    print (true == 0); // 0
-    print (false == 1); // 0
-    print true; // 1
-    print false; // 0
+    println("=== bool値と数値の比較 ===");
+    println("(true == 1): %d", (true == 1)); // 1
+    println("(false == 0): %d", (false == 0)); // 1
+    println("(true == 0): %d", (true == 0)); // 0
+    println("(false == 1): %d", (false == 1)); // 0
+    println("true の数値表現: %d", true); // 1
+    println("false の数値表現: %d", false); // 0
 
-    print "比較演算子";
-    print (3 > 2); // 1
-    print (2 > 3); // 0
-    print (2 >= 2); // 1
-    print (2 >= 3); // 0
-    print (2 < 3); // 1
-    print (3 < 2); // 0
-    print (2 <= 2); // 1
-    print (3 <= 2); // 0
+    println("=== 比較演算子のテスト ===");
+    println("(3 > 2): %d", (3 > 2)); // 1
+    println("(2 > 3): %d", (2 > 3)); // 0
+    println("(2 >= 2): %d", (2 >= 2)); // 1
+    println("(2 >= 3): %d", (2 >= 3)); // 0
+    println("(2 < 3): %d", (2 < 3)); // 1
+    println("(3 < 2): %d", (3 < 2)); // 0
+    println("(2 <= 2): %d", (2 <= 2)); // 1
+    println("(3 <= 2): %d", (3 <= 2)); // 0
 
-    print "括弧の優先順位";
-    print 1 + 2 * 3; // 7
-    print (1 + 2) * 3; // 9
-    print (1 + (2 * 3)); // 7
-    print ((1 + 2) * 3); // 9
+    println("=== 演算子の優先順位テスト ===");
+    println("1 + 2 * 3 = %d", 1 + 2 * 3); // 7
+    println("(1 + 2) * 3 = %d", (1 + 2) * 3); // 9
+    println("(1 + (2 * 3)) = %d", (1 + (2 * 3))); // 7
+    println("((1 + 2) * 3) = %d", ((1 + 2) * 3)); // 9
 
-    print "NOT演算子";
-    print !true; // 0
-    print !false; // 1
-    print !(1 > 2); // 1
-    print !(2 > 1); // 0
-    print !0; // 1
-    print !1; // 0
+    println("=== NOT演算子のテスト ===");
+    println("!true = %d", !true); // 0
+    println("!false = %d", !false); // 1
+    println("!(1 > 2) = %d", !(1 > 2)); // 1
+    println("!(2 > 1) = %d", !(2 > 1)); // 0
+    println("!0 = %d", !0); // 1
+    println("!1 = %d", !1); // 0
 
-    print "複合式";
-    print (true && !false); // 1
-    print (false || !false); // 1
-    print (true && false || true); // 1
-    print !(true && false) || (false || true); // 1
-    print !((1 + 2) > 3); // 1
-    print ((1 < 2) && (2 < 3)) || false; // 1
+    println("=== 複合論理式のテスト ===");
+    println("(true && !false) = %d", (true && !false)); // 1
+    println("(false || !false) = %d", (false || !false)); // 1
+    println("(true && false || true) = %d", (true && false || true)); // 1
+    println("!(true && false) || (false || true) = %d", !(true && false) || (false || true)); // 1
+    println("!((1 + 2) > 3) = %d", !((1 + 2) > 3)); // 1
+    println("((1 < 2) && (2 < 3)) || false = %d", ((1 < 2) && (2 < 3)) || false); // 1
 }
 
 int main() {
+    println("=============================================");
+    println("     Cb言語 Bool型と論理演算子のデモ");
+    println("=============================================");
+    println();
+    
     check_bool_type();
     check_bool();
     calc();
     test_bool_and_expr();
+    
+    println();
+    println("=============================================");
+    println("           デモ実行完了");
+    println("=============================================");
     return 0;
 }

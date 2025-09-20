@@ -1,5 +1,5 @@
 #pragma once
-#include "../framework/test_framework.h"
+#include "../framework/test_framework.hpp"
 #include "../../../src/backend/interpreter.h"
 #include <memory>
 #include <climits>
@@ -94,9 +94,9 @@ inline void test_boundary_overflow_detection() {
 }
 
 inline void register_boundary_tests() {
-    test_runner.add_test("backend", "boundary_tiny_values", test_boundary_tiny_values);
-    test_runner.add_test("backend", "boundary_short_values", test_boundary_short_values);
-    test_runner.add_test("backend", "boundary_int_values", test_boundary_int_values);
-    test_runner.add_test("backend", "boundary_long_values", test_boundary_long_values);
-    test_runner.add_test("backend", "boundary_overflow_detection", test_boundary_overflow_detection);
+    RUN_TEST("boundary_tiny_values", test_boundary_tiny_values);
+    RUN_TEST("boundary_short_values", test_boundary_short_values);
+    RUN_TEST("boundary_int_values", test_boundary_int_values);
+    RUN_TEST("boundary_long_values", test_boundary_long_values);
+    RUN_TEST("boundary_overflow_detection", test_boundary_overflow_detection);
 }

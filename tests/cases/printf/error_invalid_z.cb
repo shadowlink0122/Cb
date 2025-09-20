@@ -1,0 +1,5 @@
+// printf機能のエラーケーステスト - 存在しない指定子%z
+int main() {
+    println("%z", "test");    // 存在しない指定子
+    return 0;
+}

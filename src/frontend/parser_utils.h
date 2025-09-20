@@ -22,6 +22,12 @@ ASTNode *create_function_def(const char *name, ASTNode *storage, ASTNode *type,
 ASTNode *create_param_list();
 ASTNode *create_parameter(ASTNode *type, const char *name);
 ASTNode *create_print_stmt(ASTNode *expr);
+ASTNode *create_println_stmt(ASTNode *expr);
+ASTNode *create_println_empty();
+ASTNode *create_println_multi_stmt(ASTNode *arg_list);
+ASTNode *create_printlnf_stmt(ASTNode *format_str, ASTNode *arg_list);
+ASTNode *create_printf_stmt(ASTNode *format_str, ASTNode *arg_list);
+ASTNode *create_print_multi_stmt(ASTNode *arg_list);
 ASTNode *create_if_stmt(ASTNode *condition, ASTNode *then_stmt,
                         ASTNode *else_stmt);
 ASTNode *create_while_stmt(ASTNode *condition, ASTNode *body);

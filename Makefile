@@ -19,8 +19,8 @@ LEXER_C=$(FRONTEND_DIR)/lexer.c
 
 # オブジェクトファイル
 FRONTEND_OBJS=$(PARSER_C:.c=.o) $(LEXER_C:.c=.o) $(FRONTEND_DIR)/parser_utils.o $(FRONTEND_DIR)/main.o $(FRONTEND_DIR)/debug_impl.o $(FRONTEND_DIR)/debug_messages.o
-BACKEND_OBJS=$(BACKEND_DIR)/interpreter.o
-COMMON_OBJS=$(COMMON_DIR)/type_utils.o
+BACKEND_OBJS=$(BACKEND_DIR)/interpreter.o $(BACKEND_DIR)/output/output_manager.o $(BACKEND_DIR)/evaluator/expression_evaluator.o $(BACKEND_DIR)/executor/statement_executor.o $(BACKEND_DIR)/variables/variable_manager.o
+COMMON_OBJS=$(COMMON_DIR)/type_utils.o $(COMMON_DIR)/utf8_utils.o
 
 # 実行ファイル
 MAIN_TARGET=main
@@ -32,7 +32,7 @@ all: setup-dirs $(MAIN_TARGET)
 
 # ディレクトリ作成
 setup-dirs:
-	@mkdir -p $(FRONTEND_DIR) $(BACKEND_DIR) $(COMMON_DIR)
+	@mkdir -p $(FRONTEND_DIR) $(BACKEND_DIR) $(COMMON_DIR) $(BACKEND_DIR)/output $(BACKEND_DIR)/evaluator $(BACKEND_DIR)/executor $(BACKEND_DIR)/variables
 
 # デバッグ実行例（--debugオプションでデバッグ出力有効）
 debug: CFLAGS += -DYYDEBUG=1
@@ -58,6 +58,15 @@ $(FRONTEND_DIR)/%.o: $(FRONTEND_DIR)/%.cpp $(COMMON_DIR)/ast.h
 $(BACKEND_DIR)/%.o: $(BACKEND_DIR)/%.cpp $(COMMON_DIR)/ast.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
+$(BACKEND_DIR)/output/%.o: $(BACKEND_DIR)/output/%.cpp $(COMMON_DIR)/ast.h
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(BACKEND_DIR)/evaluator/%.o: $(BACKEND_DIR)/evaluator/%.cpp $(COMMON_DIR)/ast.h
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(BACKEND_DIR)/executor/%.o: $(BACKEND_DIR)/executor/%.cpp $(COMMON_DIR)/ast.h
+	$(CC) $(CFLAGS) -c -o $@ $<
+
 # 共通オブジェクト生成
 $(COMMON_DIR)/%.o: $(COMMON_DIR)/%.cpp $(COMMON_DIR)/ast.h
 	$(CC) $(CFLAGS) -c -o $@ $<
@@ -78,14 +87,10 @@ lint:
 fmt:
 	clang-format -i $(SRC_DIR)/**/*.cpp $(SRC_DIR)/**/*.h $(TESTS_DIR)/**/*.cpp
 
-# 単体テスト用のダミーオブジェクト
-$(TESTS_DIR)/unit/dummy.o: $(TESTS_DIR)/unit/dummy.cpp
-	$(CC) $(CFLAGS) -c -o $@ $<
-
-# 単体テスト
-unit-test: $(MAIN_TARGET) $(FRONTEND_OBJS) $(BACKEND_OBJS) $(COMMON_OBJS) $(TESTS_DIR)/unit/dummy.o
+# 単体テスト（ヘッダーオンリー版）
+unit-test: $(MAIN_TARGET) $(FRONTEND_OBJS) $(BACKEND_OBJS) $(COMMON_OBJS)
 	@echo "Running unit tests..."
-	@cd tests/unit && $(CC) $(CFLAGS) -o test_main main.cpp dummy.o ../../$(BACKEND_DIR)/interpreter.o ../../$(COMMON_DIR)/type_utils.o ../../$(FRONTEND_DIR)/parser_utils.o ../../$(FRONTEND_DIR)/debug_impl.o ../../$(FRONTEND_DIR)/debug_messages.o
+	@cd tests/unit && $(CC) $(CFLAGS) -o test_main main.cpp ../../$(BACKEND_DIR)/interpreter.o ../../$(BACKEND_DIR)/output/output_manager.o ../../$(BACKEND_DIR)/evaluator/expression_evaluator.o ../../$(BACKEND_DIR)/executor/statement_executor.o ../../$(BACKEND_DIR)/variables/variable_manager.o ../../$(COMMON_DIR)/type_utils.o ../../$(COMMON_DIR)/utf8_utils.o ../../$(FRONTEND_DIR)/parser_utils.o ../../$(FRONTEND_DIR)/debug_impl.o ../../$(FRONTEND_DIR)/debug_messages.o
 	@cd tests/unit && ./test_main
 
 integration-test: $(MAIN_TARGET)
@@ -109,7 +114,9 @@ debug-build-test: clean $(MAIN_TARGET) integration-test unit-test
 clean:
 	rm -f $(MAIN_TARGET) $(CGEN_TARGET)
 	rm -f $(PARSER_C) $(PARSER_H) $(LEXER_C)
-	rm -f $(FRONTEND_DIR)/*.o $(BACKEND_DIR)/*.o $(COMMON_DIR)/*.o
+	find $(FRONTEND_DIR) -name "*.o" -type f -delete 2>/dev/null || true
+	find $(BACKEND_DIR) -name "*.o" -type f -delete 2>/dev/null || true
+	find $(COMMON_DIR) -name "*.o" -type f -delete 2>/dev/null || true
 	rm -f tests/integration/test_main
 	rm -f tests/unit/test_main tests/unit/dummy.o
 	rm -rf **/*.dSYM *.dSYM
