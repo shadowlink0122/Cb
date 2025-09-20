@@ -133,6 +133,15 @@ inline void test_printf_error_cases() {
     });
 }
 
+inline void test_println_empty() {
+    run_cb_test_with_output("../../tests/cases/printf/println_empty_test.cb",
+                           [](const std::string& output, int exit_code) {
+        INTEGRATION_ASSERT_EQ(exit_code, 0, "println empty args test should succeed");
+        std::string expected = "Line1\nLine2\nLine3\n\n\nEnd";
+        INTEGRATION_ASSERT_EQ(output, expected, "println empty args output check");
+    });
+}
+
 inline void test_printf_all() {
     printf("[integration] printf basic format test ... ");
     test_printf_basic();
@@ -161,6 +170,10 @@ inline void test_printf_all() {
     printf("[integration] printf error cases test ... ");
     test_printf_error_cases();
     printf("passed (errors detected)\n");
+    
+    printf("[integration] println empty args test ... ");
+    test_println_empty();
+    printf("passed\n");
 }
 
 #endif // TEST_PRINTF_H

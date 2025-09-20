@@ -408,6 +408,10 @@ void Interpreter::execute_statement(const ASTNode *node) {
         print_value_with_newline(node->left.get());
         break;
 
+    case ASTNodeType::AST_PRINTLN_EMPTY:
+        std::cout << std::endl;
+        break;
+
     case ASTNodeType::AST_PRINTLN_MULTI_STMT:
         print_multiple_with_newline(node->right.get());
         break;

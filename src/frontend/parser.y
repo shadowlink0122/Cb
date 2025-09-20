@@ -207,6 +207,9 @@ statement:
     | PRINTLN '(' expression ')' SEMICOLON { 
         $$ = create_println_stmt((ASTNode*)$3);
     }
+    | PRINTLN '(' ')' SEMICOLON { 
+        $$ = create_println_empty();
+    }
     | PRINTLN '(' argument_list ')' SEMICOLON {
         $$ = create_println_multi_stmt((ASTNode*)$3);
     }

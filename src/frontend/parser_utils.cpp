@@ -236,6 +236,11 @@ ASTNode *create_println_stmt(ASTNode *expr) {
     return node;
 }
 
+ASTNode *create_println_empty() {
+    auto node = new ASTNode(ASTNodeType::AST_PRINTLN_EMPTY);
+    return node;
+}
+
 ASTNode *create_println_multi_stmt(ASTNode *arg_list) {
     auto node = new ASTNode(ASTNodeType::AST_PRINTLN_MULTI_STMT);
     node->right = std::unique_ptr<ASTNode>(arg_list);
