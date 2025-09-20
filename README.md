@@ -34,18 +34,38 @@ flex(lex)とbison(yacc)を利用してAST（抽象構文木）を構築し、C++
 - **詳細なデバッグ機能**: `--debug`（英語）、`--debug-ja`（日本語）オプション
 - **UTF-8文字列処理**: 日本語を含む文字列の適切な処理
 
+### クロスプラットフォーム対応
+- **IO抽象化レイヤー**: プラットフォーム独立の出力システム
+- **実行時ターゲット指定**: `--target=native|baremetal|wasm` オプション
+- **ネイティブ環境**: 標準的なC標準ライブラリを使用（デフォルト）
+- **ベアメタル環境**: libcに依存しないUART出力（組み込み・OS開発向け）
+- **WebAssembly環境**: ブラウザ実行対応（将来拡張）
+
 ### 出力形式
 - **インタープリター**: 直接実行
 - **トランスパイラー**: Cコードへの変換（cgen）
 
 ## 今後の拡張予定
 
-- **浮動小数点数型**: `float`, `double`のサポート
-- **構造体・クラス**: カスタムデータ型の定義
-- **ポインタ・参照**: メモリ管理機能
-- **interface/trait**: 抽象化機能の拡張
-- **標準ライブラリ**: 文字列操作、数学関数、ファイルIO等の拡充
-- **ジェネリクス・テンプレート**: 型パラメータ化機能
+### 短期目標 (Phase 5-6)
+- **型システム強化**: typedef, enum, union, struct実装
+- **コンパイル基盤**: LLVM統合、ネイティブバイナリ生成
+- **switch文**: パターンマッチング分岐制御
+
+### 中長期ビジョン
+- **低レイヤー対応**: ベアメタル・OS開発・組み込みシステム
+- **Webフレームワーク**: フルスタック Web開発環境
+- **WebAssembly統合**: ブラウザでの直接実行対応
+- **並列処理**: goroutine ライク、もしくは Future-Promise による非同期処理
+
+### 最終目標
+**"Write Once, Run Everywhere"** - 単一言語でシステムからWebまで
+
+詳細は以下のドキュメントを参照:
+- 📋 [将来展望ロードマップ](docs/future_roadmap.md) - 包括的発展計画
+- 🔧 [低レイヤー開発アプローチ](docs/low_level_approach.md) - OS・組み込み開発対応  
+- 🌐 [Webフレームワーク構想](docs/webframework_concept.md) - フルスタック Web開発
+- 🖥️ [ブラウザー統合設計](docs/browser_runtime_design.md) - HTML組み込み実行環境
 
 ## ディレクトリ構成
 
@@ -63,7 +83,11 @@ src/
 │   └── codegen.h     # コード生成インターface
 ├── common/           # 共通モジュール
 │   ├── ast.h         # ASTノード定義
+│   ├── io_interface.cpp/h  # IO抽象化レイヤー
 │   └── type_utils.cpp/h  # 型関連ユーティリティ
+├── platform/         # プラットフォーム固有実装
+│   ├── native/       # ネイティブ環境（C標準ライブラリ使用）
+│   └── baremetal/    # ベアメタル環境（UART出力）
 └── ast/              # AST関連の追加定義
     └── ast.h         # 拡張AST定義
 
@@ -140,6 +164,15 @@ make debug-build-test
 
 # デバッグモード（日本語）
 ./main --debug-ja sample/fibonacci.cb
+
+# ターゲット環境指定
+./main --target=native sample/fibonacci.cb    # ネイティブ環境（デフォルト）
+./main --target=baremetal sample/fibonacci.cb # ベアメタル環境
+./main --target=wasm sample/fibonacci.cb      # WebAssembly環境
+
+# ヘルプ表示
+./main --help     # 英語ヘルプ
+./main --help-ja  # 日本語ヘルプ
 ```
 
 ### トランスパイラー（Cb → C変換）
@@ -238,8 +271,15 @@ $ ./main --debug-ja test_error.cb
 ### アーキテクチャ
 - **フロントエンド**: 字句解析 → 構文解析 → AST生成
 - **バックエンド**: インタープリター実行 または Cコード生成
+- **IO抽象化レイヤー**: プラットフォーム独立の出力システム（IOInterface）
 - **多言語サポート**: 英語・日本語でのエラーメッセージ・デバッグ情報
 - **UTF-8対応**: 日本語を含む文字列の適切な処理
+
+### マルチターゲット対応
+- **ネイティブ環境**: C標準ライブラリ（stdio.h）を使用した標準的な実行環境
+- **ベアメタル環境**: libcに依存しないUART出力、組み込みシステム・OS開発向け
+- **WebAssembly環境**: ブラウザでの実行対応（将来実装）
+- **実行時切り替え**: コンパイル時ではなく`--target`オプションで動的に選択
 
 ### テストカバレッジ
 - **40+個の統合テストケース**: 全機能の動作検証

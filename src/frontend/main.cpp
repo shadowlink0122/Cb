@@ -1,7 +1,9 @@
 #include "../backend/interpreter.h"
 #include "../common/ast.h"
+#include "../common/io_interface.h"
 #include "../frontend/parser_utils.h"
 #include "debug.h"
+#include "help_messages.h"
 #include "parser.h"
 #include <cstdarg>
 #include <cstdlib>
@@ -22,42 +24,85 @@ std::vector<std::string> file_lines;
 
 int main(int argc, char **argv) {
     if (argc < 2) {
-        std::fprintf(stderr, "使用方法: %s <input.cb> [--debug | --debug-ja]\n",
-                     argv[0]);
-        std::fprintf(stderr,
-                     "  --debug    : デバッグモードを有効にする (英語)\n");
-        std::fprintf(stderr,
-                     "  --debug-ja : デバッグモードを有効にする (日本語)\n");
+        std::fprintf(stderr, "%s\n",
+                     get_help_message(HelpMsgId::ERROR_INPUT_NOT_SPECIFIED,
+                                      HelpLanguage::ENGLISH));
+        std::fprintf(
+            stderr, "%s\n",
+            get_help_message(HelpMsgId::USE_HELP_INFO, HelpLanguage::ENGLISH));
         return 1;
     }
 
     // コマンドライン引数の解析
     std::string filename;
+    std::string target_platform = "native"; // デフォルトはネイティブ
     debug_mode = false;
     debug_language = DebugLanguage::ENGLISH;
 
     for (int i = 1; i < argc; ++i) {
-        if (std::string(argv[i]) == "--debug") {
+        std::string arg = argv[i];
+        if (arg == "--help") {
+            show_help(HelpLanguage::ENGLISH, argv[0]);
+            return 0;
+        } else if (arg == "--help-ja") {
+            show_help(HelpLanguage::JAPANESE, argv[0]);
+            return 0;
+        } else if (arg == "--debug") {
             debug_mode = true;
             debug_language = DebugLanguage::ENGLISH;
-        } else if (std::string(argv[i]) == "--debug-ja") {
+        } else if (arg == "--debug-ja") {
             debug_mode = true;
             debug_language = DebugLanguage::JAPANESE;
+        } else if (arg.find("--target=") == 0) {
+            target_platform = arg.substr(9); // "--target="の後の部分を取得
+            if (target_platform != "native" && target_platform != "baremetal" &&
+                target_platform != "wasm") {
+                std::fprintf(stderr,
+                             get_help_message(HelpMsgId::ERROR_INVALID_TARGET,
+                                              HelpLanguage::ENGLISH),
+                             target_platform.c_str());
+                std::fprintf(stderr, "\n");
+                std::fprintf(stderr, "%s\n",
+                             get_help_message(HelpMsgId::VALID_TARGETS_INFO,
+                                              HelpLanguage::ENGLISH));
+                std::fprintf(stderr, "%s\n",
+                             get_help_message(HelpMsgId::USE_HELP_INFO,
+                                              HelpLanguage::ENGLISH));
+                return 1;
+            }
+        } else if (arg[0] == '-') {
+            std::fprintf(stderr,
+                         get_help_message(HelpMsgId::ERROR_UNKNOWN_OPTION,
+                                          HelpLanguage::ENGLISH),
+                         arg.c_str());
+            std::fprintf(stderr, "\n");
+            std::fprintf(stderr, "%s\n",
+                         get_help_message(HelpMsgId::USE_HELP_INFO,
+                                          HelpLanguage::ENGLISH));
+            return 1;
         } else {
-            filename = argv[i];
+            filename = arg;
         }
     }
 
     if (filename.empty()) {
-        std::fprintf(stderr, "エラー: 入力ファイルが指定されていません\n");
+        std::fprintf(stderr, "%s\n",
+                     get_help_message(HelpMsgId::ERROR_INPUT_NOT_SPECIFIED,
+                                      HelpLanguage::ENGLISH));
+        std::fprintf(
+            stderr, "%s\n",
+            get_help_message(HelpMsgId::USE_HELP_INFO, HelpLanguage::ENGLISH));
         return 1;
     }
 
     // ファイルを開く
     FILE *file = std::fopen(filename.c_str(), "r");
     if (!file) {
-        std::fprintf(stderr, "エラー: ファイル '%s' を開けません\n",
+        std::fprintf(stderr,
+                     get_help_message(HelpMsgId::ERROR_CANNOT_OPEN_FILE,
+                                      HelpLanguage::ENGLISH),
                      filename.c_str());
+        std::fprintf(stderr, "\n");
         return 1;
     }
 
@@ -95,19 +140,27 @@ int main(int argc, char **argv) {
         std::fclose(file);
 
         if (parse_result != 0) {
-            std::fprintf(stderr, "エラー: 構文解析に失敗しました (行: %d)\n",
+            std::fprintf(stderr,
+                         get_help_message(HelpMsgId::ERROR_PARSING_FAILED,
+                                          HelpLanguage::ENGLISH),
                          yylineno);
+            std::fprintf(stderr, "\n");
             return 1;
         }
 
         if (!root_node) {
-            std::fprintf(stderr, "エラー: ASTが生成されませんでした\n");
+            std::fprintf(stderr, "%s\n",
+                         get_help_message(HelpMsgId::ERROR_AST_NOT_GENERATED,
+                                          HelpLanguage::ENGLISH));
             return 1;
         }
 
         if (debug_mode) {
             debug_msg(DebugMsgId::AST_GENERATED);
         }
+
+        // ターゲットプラットフォームを設定
+        IOFactory::set_target_platform(target_platform);
 
         // インタープリター実行
         try {
@@ -125,11 +178,13 @@ int main(int argc, char **argv) {
         return 0;
 
     } catch (const std::exception &e) {
-        std::fprintf(stderr, "エラー: %s\n", e.what());
+        std::fprintf(stderr, "Error: %s\n", e.what());
         std::fclose(file);
         return 1;
     } catch (...) {
-        std::fprintf(stderr, "エラー: 予期しない例外が発生しました\n");
+        std::fprintf(stderr, "%s\n",
+                     get_help_message(HelpMsgId::ERROR_UNEXPECTED_EXCEPTION,
+                                      HelpLanguage::ENGLISH));
         std::fclose(file);
         return 1;
     }

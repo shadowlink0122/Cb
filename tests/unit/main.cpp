@@ -9,6 +9,7 @@
 #include "backend/test_functions.hpp"
 #include "backend/test_interpreter.hpp"
 #include "common/test_ast.hpp"
+#include "common/test_io_abstraction.hpp"
 #include "common/test_type_utils.hpp"
 #include "frontend/test_debug.hpp"
 #include "frontend/test_parser_utils.hpp"
@@ -25,6 +26,7 @@ int main() {
     try {
         register_type_utils_tests();
         register_ast_tests();
+        register_io_abstraction_tests();
         register_parser_utils_tests();
         register_debug_tests();
         register_interpreter_tests();

@@ -38,11 +38,35 @@ class CCodeGenerator : public CodeGenerator {
     std::string c_type_name(TypeInfo type);
 };
 
-// 将来の拡張用
+// マルチターゲット対応
 class LLVMCodeGenerator : public CodeGenerator {
   public:
     std::string generate_code(const ASTNode *ast) override;
     void emit_to_file(const ASTNode *ast, const std::string &filename) override;
+
+    // ターゲット指定
+    void set_target(const std::string &target); // "x86_64", "arm64", "wasm32"
+
+  private:
+    std::string target_triple_ = "x86_64-unknown-linux-gnu";
+};
+
+class WebAssemblyCodeGenerator : public CodeGenerator {
+  public:
+    std::string generate_code(const ASTNode *ast) override;
+    void emit_to_file(const ASTNode *ast, const std::string &filename) override;
+
+    // WASM特有機能
+    void enable_browser_features(bool enable = true);
+    void set_memory_pages(uint32_t pages);
+
+  private:
+    void generate_wasm_header(std::ostream &out);
+    void generate_wasm_imports(std::ostream &out);
+    void generate_wasm_exports(std::ostream &out);
+    std::string wasm_type_name(TypeInfo type);
+    bool browser_features_ = true;
+    uint32_t memory_pages_ = 1;
 };
 
 class AssemblyCodeGenerator : public CodeGenerator {

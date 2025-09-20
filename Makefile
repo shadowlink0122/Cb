@@ -2,7 +2,17 @@ CC=g++
 LEX=flex
 YACC=bison
 
-CFLAGS=-Wall -g -std=c++17 -I.
+# ターゲット設定（デフォルト: native）
+TARGET ?= native
+
+# ターゲット固有フラグ
+ifeq ($(TARGET),baremetal)
+    CFLAGS=-Wall -g -std=c++17 -I. -DCB_TARGET_BAREMETAL
+else ifeq ($(TARGET),wasm)
+    CFLAGS=-Wall -g -std=c++17 -I. -DCB_TARGET_WASM
+else
+    CFLAGS=-Wall -g -std=c++17 -I.
+endif
 
 # ディレクトリ設定
 SRC_DIR=src
@@ -18,17 +28,31 @@ PARSER_H=$(FRONTEND_DIR)/parser.h
 LEXER_C=$(FRONTEND_DIR)/lexer.c
 
 # オブジェクトファイル
-FRONTEND_OBJS=$(PARSER_C:.c=.o) $(LEXER_C:.c=.o) $(FRONTEND_DIR)/parser_utils.o $(FRONTEND_DIR)/main.o $(FRONTEND_DIR)/debug_impl.o $(FRONTEND_DIR)/debug_messages.o
+FRONTEND_OBJS=$(PARSER_C:.c=.o) $(LEXER_C:.c=.o) $(FRONTEND_DIR)/parser_utils.o $(FRONTEND_DIR)/main.o $(FRONTEND_DIR)/debug_impl.o $(FRONTEND_DIR)/debug_messages.o $(FRONTEND_DIR)/help_messages.o
 BACKEND_OBJS=$(BACKEND_DIR)/interpreter.o $(BACKEND_DIR)/output/output_manager.o $(BACKEND_DIR)/evaluator/expression_evaluator.o $(BACKEND_DIR)/executor/statement_executor.o $(BACKEND_DIR)/variables/variable_manager.o
-COMMON_OBJS=$(COMMON_DIR)/type_utils.o $(COMMON_DIR)/utf8_utils.o
+COMMON_OBJS=$(COMMON_DIR)/type_utils.o $(COMMON_DIR)/utf8_utils.o $(COMMON_DIR)/io_interface.o
+PLATFORM_OBJS=$(SRC_DIR)/platform/native/native_stdio_output.o $(SRC_DIR)/platform/baremetal/baremetal_uart_output.o
 
 # 実行ファイル
 MAIN_TARGET=main
 CGEN_TARGET=cgen_main
 
-.PHONY: all clean lint fmt unit-test integration-test integration-test-old test debug debug-build-test setup-dirs deep-clean clean-all backup-old help
+.PHONY: all clean lint fmt unit-test integration-test integration-test-old test debug debug-build-test setup-dirs deep-clean clean-all backup-old help baremetal-build wasm-build native-build
 
 all: setup-dirs $(MAIN_TARGET)
+
+# ターゲット固有ビルド
+baremetal-build:
+	@echo "Building for bare-metal target..."
+	@$(MAKE) TARGET=baremetal all
+
+wasm-build:
+	@echo "Building for WebAssembly target..."
+	@$(MAKE) TARGET=wasm all
+
+native-build:
+	@echo "Building for native target..."
+	@$(MAKE) TARGET=native all
 
 # ディレクトリ作成
 setup-dirs:
@@ -71,9 +95,14 @@ $(BACKEND_DIR)/executor/%.o: $(BACKEND_DIR)/executor/%.cpp $(COMMON_DIR)/ast.h
 $(COMMON_DIR)/%.o: $(COMMON_DIR)/%.cpp $(COMMON_DIR)/ast.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
+# プラットフォーム固有オブジェクト生成
+$(SRC_DIR)/platform/%.o: $(SRC_DIR)/platform/%.cpp $(COMMON_DIR)/io_interface.h
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -c -o $@ $<
+
 # メイン実行ファイル
-$(MAIN_TARGET): $(FRONTEND_OBJS) $(BACKEND_OBJS) $(COMMON_OBJS)
-	$(CC) $(CFLAGS) -o $(MAIN_TARGET) $(FRONTEND_OBJS) $(BACKEND_OBJS) $(COMMON_OBJS)
+$(MAIN_TARGET): $(FRONTEND_OBJS) $(BACKEND_OBJS) $(COMMON_OBJS) $(PLATFORM_OBJS)
+	$(CC) $(CFLAGS) -o $(MAIN_TARGET) $(FRONTEND_OBJS) $(BACKEND_OBJS) $(COMMON_OBJS) $(PLATFORM_OBJS)
 
 # Cb→Cコード変換ツール（将来の拡張）
 $(CGEN_TARGET):
@@ -88,9 +117,9 @@ fmt:
 	clang-format -i $(SRC_DIR)/**/*.cpp $(SRC_DIR)/**/*.h $(TESTS_DIR)/**/*.cpp
 
 # 単体テスト（ヘッダーオンリー版）
-unit-test: $(MAIN_TARGET) $(FRONTEND_OBJS) $(BACKEND_OBJS) $(COMMON_OBJS)
+unit-test: $(MAIN_TARGET) $(FRONTEND_OBJS) $(BACKEND_OBJS) $(COMMON_OBJS) $(PLATFORM_OBJS)
 	@echo "Running unit tests..."
-	@cd tests/unit && $(CC) $(CFLAGS) -o test_main main.cpp ../../$(BACKEND_DIR)/interpreter.o ../../$(BACKEND_DIR)/output/output_manager.o ../../$(BACKEND_DIR)/evaluator/expression_evaluator.o ../../$(BACKEND_DIR)/executor/statement_executor.o ../../$(BACKEND_DIR)/variables/variable_manager.o ../../$(COMMON_DIR)/type_utils.o ../../$(COMMON_DIR)/utf8_utils.o ../../$(FRONTEND_DIR)/parser_utils.o ../../$(FRONTEND_DIR)/debug_impl.o ../../$(FRONTEND_DIR)/debug_messages.o
+	@cd tests/unit && $(CC) $(CFLAGS) -o test_main main.cpp ../../$(BACKEND_DIR)/interpreter.o ../../$(BACKEND_DIR)/output/output_manager.o ../../$(BACKEND_DIR)/evaluator/expression_evaluator.o ../../$(BACKEND_DIR)/executor/statement_executor.o ../../$(BACKEND_DIR)/variables/variable_manager.o ../../$(COMMON_DIR)/type_utils.o ../../$(COMMON_DIR)/utf8_utils.o ../../$(COMMON_DIR)/io_interface.o ../../$(SRC_DIR)/platform/native/native_stdio_output.o ../../$(SRC_DIR)/platform/baremetal/baremetal_uart_output.o ../../$(FRONTEND_DIR)/parser_utils.o ../../$(FRONTEND_DIR)/debug_impl.o ../../$(FRONTEND_DIR)/debug_messages.o
 	@cd tests/unit && ./test_main
 
 integration-test: $(MAIN_TARGET)

@@ -2,6 +2,7 @@
 #include "../interpreter.h"
 #include "../../frontend/debug.h"
 #include "../../common/utf8_utils.h"
+#include "../../common/io_interface.h"
 #include <cinttypes>
 #include <cstdio>
 #include <cctype>
@@ -9,7 +10,7 @@
 #include <stdexcept>
 
 OutputManager::OutputManager(Interpreter* interpreter) 
-    : interpreter_(interpreter) {}
+    : interpreter_(interpreter), io_interface_(IOFactory::get_instance()) {}
 
 Variable* OutputManager::find_variable(const std::string& name) {
     return interpreter_->get_variable(name);
@@ -25,19 +26,19 @@ const ASTNode* OutputManager::find_function(const std::string& name) {
 
 void OutputManager::print_value(const ASTNode *expr) {
     if (!expr) {
-        printf("(null)");
+        io_interface_->write_string("(null)");
         return;
     }
 
     if (expr->node_type == ASTNodeType::AST_STRING_LITERAL) {
-        printf("%s", expr->str_value.c_str());
+        io_interface_->write_string(expr->str_value.c_str());
     } else if (expr->node_type == ASTNodeType::AST_VARIABLE) {
         Variable *var = find_variable(expr->name);
         if (var && var->type == TYPE_STRING) {
-            printf("%s", var->str_value.c_str());
+            io_interface_->write_string(var->str_value.c_str());
         } else {
             int64_t value = evaluate_expression(expr);
-            printf("%" PRId64, value);
+            io_interface_->write_number(value);
         }
     } else if (expr->node_type == ASTNodeType::AST_ARRAY_REF) {
         // 配列アクセスの特別処理
@@ -50,7 +51,7 @@ void OutputManager::print_value(const ASTNode *expr) {
             if (index >= 0 && index < static_cast<int64_t>(utf8_length)) {
                 std::string utf8_char =
                     utf8_utils::utf8_char_at(var->str_value, static_cast<size_t>(index));
-                printf("%s", utf8_char.c_str());
+                io_interface_->write_string(utf8_char.c_str());
             } else {
                 error_msg(DebugMsgId::STRING_OUT_OF_BOUNDS_ERROR,
                           expr->name.c_str(), index, utf8_length);
@@ -71,19 +72,19 @@ void OutputManager::print_value(const ASTNode *expr) {
             if (elem_type == TYPE_STRING) {
                 // 文字列配列の場合は文字列として出力
                 if (index < static_cast<int64_t>(var->array_strings.size())) {
-                    printf("%s", var->array_strings[index].c_str());
+                    io_interface_->write_string(var->array_strings[index].c_str());
                 } else {
-                    printf("");
+                    io_interface_->write_string("");
                 }
             } else {
                 // 数値配列は数値として出力
                 int64_t value = var->array_values[index];
-                printf("%" PRId64, value);
+                io_interface_->write_number(value);
             }
         } else {
             // 通常の配列アクセスは数値として出力
             int64_t value = evaluate_expression(expr);
-            printf("%" PRId64, value);
+            io_interface_->write_number(value);
         }
     } else if (expr->node_type == ASTNodeType::AST_FUNC_CALL) {
         // 関数呼び出しの特別処理
@@ -106,47 +107,47 @@ void OutputManager::print_value(const ASTNode *expr) {
             try {
                 interpreter_->exec_statement(func->body.get());
                 interpreter_->pop_interpreter_scope();
-                printf(""); // void関数（空文字列）
+                // void関数（空文字列）
             } catch (const ReturnException &e) {
                 interpreter_->pop_interpreter_scope();
                 if (e.type == TYPE_STRING) {
-                    printf("%s", e.str_value.c_str());
+                    io_interface_->write_string(e.str_value.c_str());
                 } else {
-                    printf("%" PRId64, e.value);
+                    io_interface_->write_number(e.value);
                 }
             }
         } else {
             // 通常の関数（数値を返す）
             int64_t value = evaluate_expression(expr);
-            printf("%" PRId64, value);
+            io_interface_->write_number(value);
         }
     } else {
         int64_t value = evaluate_expression(expr);
-        printf("%" PRId64, value);
+        io_interface_->write_number(value);
     }
 }
 
 void OutputManager::print_value_with_newline(const ASTNode *expr) {
     print_value(expr);
-    printf("\n");
+    io_interface_->write_newline();
 }
 
 void OutputManager::print_multiple_with_newline(const ASTNode *arg_list) {
     print_multiple(arg_list);
-    printf("\n");
+    io_interface_->write_newline();
 }
 
 void OutputManager::print_formatted_with_newline(const ASTNode *format_str,
                                                const ASTNode *arg_list) {
     print_formatted(format_str, arg_list);
-    printf("\n");
+    io_interface_->write_newline();
 }
 
 void OutputManager::print_formatted(const ASTNode *format_str,
                                   const ASTNode *arg_list) {
     if (!format_str ||
         format_str->node_type != ASTNodeType::AST_STRING_LITERAL) {
-        printf("(invalid format)");
+        io_interface_->write_string("(invalid format)");
         return;
     }
 
@@ -342,7 +343,7 @@ void OutputManager::print_formatted(const ASTNode *format_str,
         }
     }
 
-    printf("%s", final_result.c_str());
+    io_interface_->write_string(final_result.c_str());
 }
 
 void OutputManager::print_multiple(const ASTNode *arg_list) {
@@ -387,11 +388,11 @@ void OutputManager::print_multiple(const ASTNode *arg_list) {
                 // 前の引数を出力
                 for (size_t k = 0; k < before_outputs.size(); k++) {
                     if (k > 0)
-                        printf(" ");
-                    printf("%s", before_outputs[k].c_str());
+                        io_interface_->write_char(' ');
+                    io_interface_->write_string(before_outputs[k].c_str());
                 }
                 if (!before_outputs.empty())
-                    printf(" ");
+                    io_interface_->write_char(' ');
 
                 // 残りの引数でprintf形式処理
                 auto remaining_args =
@@ -473,8 +474,8 @@ void OutputManager::print_multiple(const ASTNode *arg_list) {
     // スペース区切りで出力
     for (size_t i = 0; i < outputs.size(); i++) {
         if (i > 0) {
-            printf(" ");
+            io_interface_->write_char(' ');
         }
-        printf("%s", outputs[i].c_str());
+        io_interface_->write_string(outputs[i].c_str());
     }
 }
