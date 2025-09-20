@@ -4,6 +4,11 @@
 // これらは実際のプログラムで使用される外部関数のダミー実装です
 
 #include <iostream>
+#include <vector>
+#include <string>
+
+// file_lines のダミー実装
+std::vector<std::string> file_lines;
 
 extern "C" {
     // ダミーのyylex関数（パーサーテスト用）
@@ -13,7 +18,6 @@ extern "C" {
     
     // パーサー関連のグローバル変数
     char* current_filename = nullptr;
-    char** file_lines = nullptr;
     int yylineno = 1;
 }
 

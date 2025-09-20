@@ -1148,22 +1148,29 @@ void Interpreter::print_formatted(const ASTNode *format_str,
                 case 'd':
                 case 'i': {
                     std::string num_str = std::to_string(int_args[arg_index]);
-                    if (width > 0 && zero_pad && num_str.length() < width) {
+                    if (width > 0 && zero_pad &&
+                        num_str.length() < static_cast<size_t>(width)) {
                         // ゼロパディング（負の数の場合は符号を最初に出力）
                         if (int_args[arg_index] < 0) {
                             // 負の数の場合: -000123 の形式
                             std::string abs_str =
                                 num_str.substr(1); // マイナス記号を除去
-                            std::string padding(width - num_str.length(), '0');
+                            std::string padding(static_cast<size_t>(width) -
+                                                    num_str.length(),
+                                                '0');
                             result += "-" + padding + abs_str;
                         } else {
                             // 正の数の場合: 000123 の形式
-                            std::string padding(width - num_str.length(), '0');
+                            std::string padding(static_cast<size_t>(width) -
+                                                    num_str.length(),
+                                                '0');
                             result += padding + num_str;
                         }
-                    } else if (width > 0 && num_str.length() < width) {
+                    } else if (width > 0 &&
+                               num_str.length() < static_cast<size_t>(width)) {
                         // スペースパディング
-                        std::string padding(width - num_str.length(), ' ');
+                        std::string padding(
+                            static_cast<size_t>(width) - num_str.length(), ' ');
                         result += padding + num_str;
                     } else {
                         result += num_str;
