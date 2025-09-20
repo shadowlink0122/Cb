@@ -1,6 +1,6 @@
+#include "framework/dummy_functions.hpp"
 #include "framework/test_framework.hpp"
 #include "framework/unit_test_impl.hpp"
-#include "framework/dummy_functions.hpp"
 
 // 各テストモジュールをインクルード
 #include "backend/test_arithmetic.hpp"
@@ -15,10 +15,10 @@
 
 int main() {
     std::cout << "Running unit tests..." << std::endl;
-    
+
     // テストフレームワークを初期化
     initialize_test_framework();
-    
+
     int test_count = 0;
 
     // 各テストモジュールを実行
@@ -32,15 +32,15 @@ int main() {
         register_arithmetic_tests();
         register_cross_type_tests();
         register_function_tests();
-        
+
         std::cout << "Running " << test_count << " tests..." << std::endl;
-    } catch (const std::exception& e) {
+    } catch (const std::exception &e) {
         std::cerr << "Error during test execution: " << e.what() << std::endl;
     }
 
     // テスト結果を出力
     int failed_count = print_test_results();
-    
+
     // クリーンアップ
     cleanup_test_framework();
 

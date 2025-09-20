@@ -249,21 +249,21 @@ ASTNode *create_println_multi_stmt(ASTNode *arg_list) {
 
 ASTNode *create_printlnf_stmt(ASTNode *format_str, ASTNode *arg_list) {
     auto node = new ASTNode(ASTNodeType::AST_PRINTLNF_STMT);
-    node->left = std::unique_ptr<ASTNode>(format_str);  // フォーマット文字列
-    node->right = std::unique_ptr<ASTNode>(arg_list);   // 引数リスト
+    node->left = std::unique_ptr<ASTNode>(format_str); // フォーマット文字列
+    node->right = std::unique_ptr<ASTNode>(arg_list); // 引数リスト
     return node;
 }
 
 ASTNode *create_printf_stmt(ASTNode *format_str, ASTNode *arg_list) {
     auto node = new ASTNode(ASTNodeType::AST_PRINTF_STMT);
-    node->left = std::unique_ptr<ASTNode>(format_str);  // フォーマット文字列
-    node->right = std::unique_ptr<ASTNode>(arg_list);   // 引数リスト
+    node->left = std::unique_ptr<ASTNode>(format_str); // フォーマット文字列
+    node->right = std::unique_ptr<ASTNode>(arg_list); // 引数リスト
     return node;
 }
 
 ASTNode *create_print_multi_stmt(ASTNode *arg_list) {
     auto node = new ASTNode(ASTNodeType::AST_PRINT_MULTI_STMT);
-    node->right = std::unique_ptr<ASTNode>(arg_list);   // 引数リスト
+    node->right = std::unique_ptr<ASTNode>(arg_list); // 引数リスト
     return node;
 }
 

@@ -88,7 +88,8 @@ class Interpreter : public EvaluatorInterface {
     void print_value(const ASTNode *expr);
     void print_value_with_newline(const ASTNode *expr);
     void print_multiple_with_newline(const ASTNode *arg_list);
-    void print_formatted_with_newline(const ASTNode *format_str, const ASTNode *arg_list);
+    void print_formatted_with_newline(const ASTNode *format_str,
+                                      const ASTNode *arg_list);
     void print_formatted(const ASTNode *format_str, const ASTNode *arg_list);
     void print_multiple(const ASTNode *arg_list);
     void check_type_range(TypeInfo type, int64_t value,
