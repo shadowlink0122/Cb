@@ -86,6 +86,8 @@ class Interpreter : public EvaluatorInterface {
                                const std::string &value);
 
     void print_value(const ASTNode *expr);
+    void print_formatted(const ASTNode *format_str, const ASTNode *arg_list);
+    void print_multiple(const ASTNode *arg_list);
     void check_type_range(TypeInfo type, int64_t value,
                           const std::string &name);
 

@@ -201,7 +201,16 @@ statement_list:
 statement:
     declaration { $$ = $1; }
     | expression SEMICOLON { $$ = $1; }
-    | PRINT expression SEMICOLON { $$ = create_print_stmt((ASTNode*)$2); }
+    | PRINT '(' expression ')' SEMICOLON { 
+        $$ = create_print_stmt((ASTNode*)$3);
+    }
+    | PRINT '(' argument_list ')' SEMICOLON {
+        $$ = create_print_multi_stmt((ASTNode*)$3);
+    }
+    | PRINT '(' STRING_LITERAL ',' argument_list ')' SEMICOLON { 
+        ASTNode* format_str = create_string_literal($3);
+        $$ = create_printf_stmt(format_str, (ASTNode*)$5);
+    }
     | IF '(' expression ')' statement {
         $$ = create_if_stmt((ASTNode*)$3, (ASTNode*)$5, nullptr);
     }

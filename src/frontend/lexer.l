@@ -42,6 +42,32 @@ print            { return PRINT; }
 \"([^\"\\]|\\.)*\"  { 
     yylval.sval = strdup(yytext + 1);
     yylval.sval[strlen(yylval.sval) - 1] = '\0';
+    
+    // エスケープシーケンスを処理
+    char *src = yylval.sval;
+    char *dst = yylval.sval;
+    while (*src) {
+        if (*src == '\\' && *(src + 1)) {
+            switch (*(src + 1)) {
+                case 'n': *dst++ = '\n'; src += 2; break;
+                case 't': *dst++ = '\t'; src += 2; break;
+                case 'r': *dst++ = '\r'; src += 2; break;
+                case '\\': *dst++ = '\\'; src += 2; break;
+                case '"': *dst++ = '"'; src += 2; break;
+                case '\'': *dst++ = '\''; src += 2; break;
+                case '0': *dst++ = '\0'; src += 2; break;
+                case 'a': *dst++ = '\a'; src += 2; break;
+                case 'b': *dst++ = '\b'; src += 2; break;
+                case 'f': *dst++ = '\f'; src += 2; break;
+                case 'v': *dst++ = '\v'; src += 2; break;
+                default: *dst++ = *src++; break;
+            }
+        } else {
+            *dst++ = *src++;
+        }
+    }
+    *dst = '\0';
+    
     return STRING_LITERAL; 
 }
 
