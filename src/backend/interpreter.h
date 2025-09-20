@@ -1,6 +1,7 @@
 #pragma once
 #include "../common/ast.h"
 #include "evaluator/expression_evaluator.h"
+#include "executor/statement_executor.h"
 #include "output/output_manager.h"
 #include <map>
 #include <memory>
@@ -65,22 +66,10 @@ class Interpreter : public EvaluatorInterface {
     bool debug_mode;
     std::unique_ptr<OutputManager> output_manager_;
     std::unique_ptr<ExpressionEvaluator> expression_evaluator_;
+    std::unique_ptr<StatementExecutor> statement_executor_;
 
     // ヘルパーメソッド
     void register_global_declarations(const ASTNode *node);
-    int64_t evaluate_expression(const ASTNode *node);
-
-    void assign_variable(const std::string &name, int64_t value,
-                         TypeInfo type = TYPE_INT);
-    void assign_variable(const std::string &name, const std::string &value);
-    void assign_variable(const std::string &name, int64_t value, TypeInfo type,
-                         bool is_const);
-    void assign_variable(const std::string &name, const std::string &value,
-                         bool is_const);
-    void assign_array_element(const std::string &name, int64_t index,
-                              int64_t value);
-    void assign_string_element(const std::string &name, int64_t index,
-                               const std::string &value);
 
   public:
     Interpreter(bool debug = false);
@@ -102,6 +91,22 @@ class Interpreter : public EvaluatorInterface {
     void pop_scope();
     Scope &current_scope();
     void execute_statement(const ASTNode *node);
+    int64_t evaluate_expression(const ASTNode *node);
+
+    // StatementExecutor用のpublicアクセサ
+    Scope &get_global_scope() { return global_scope; }
+    OutputManager &get_output_manager() { return *output_manager_; }
+    void assign_variable(const std::string &name, int64_t value,
+                         TypeInfo type = TYPE_INT);
+    void assign_variable(const std::string &name, const std::string &value,
+                         bool is_const);
+    void assign_variable(const std::string &name, int64_t value, TypeInfo type,
+                         bool is_const);
+    void assign_variable(const std::string &name, const std::string &value);
+    void assign_array_element(const std::string &name, int64_t index,
+                              int64_t value);
+    void assign_string_element(const std::string &name, int64_t index,
+                               const std::string &value);
 
     // OutputManager用のpublicアクセサ
     Variable *get_variable(const std::string &name) {
