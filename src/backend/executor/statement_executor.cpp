@@ -111,6 +111,19 @@ void StatementExecutor::execute_statement(const ASTNode *node) {
             var.type = (resolved_type != TYPE_UNKNOWN) ? resolved_type : node->type_info;
             var.is_const = node->is_const;
             var.is_assigned = false;
+            
+            // 初期化式がある場合は評価
+            if (node->right) {
+                int64_t value = interpreter_.evaluate_expression(node->right.get());
+                if (var.type == TYPE_STRING) {
+                    var.string_value = node->right->str_value;
+                } else {
+                    var.int_value = value;
+                    interpreter_.check_type_range(var.type, value, node->name);
+                }
+                var.is_assigned = true;
+            }
+            
             // printf("[DEBUG] AST_VAR_DECL '%s': type_info=%d, str_value='%s', array_type_info.is_array=%s\n", 
             //        node->name.c_str(), (int)node->type_info, node->str_value.c_str(), 
             //        node->array_type_info.is_array() ? "true" : "false");

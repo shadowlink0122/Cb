@@ -151,6 +151,18 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
             var.is_const = node->is_const;
             var.is_assigned = false;
 
+            // 初期化式がある場合は評価
+            if (node->right) {
+                int64_t value = evaluate_expression(node->right.get());
+                if (var.type == TYPE_STRING) {
+                    var.string_value = node->right->str_value;
+                } else {
+                    var.int_value = value;
+                    check_type_range(var.type, value, node->name);
+                }
+                var.is_assigned = true;
+            }
+
             // 配列typedef変数の場合、配列情報を設定
             if (node->array_type_info.is_array()) {
                 var.is_array = true;

@@ -9,6 +9,8 @@ extern "C" {
 ASTNode *create_stmt_list();
 ASTNode *create_type_node(TypeInfo type);
 ASTNode *create_type_alias_node(const char *type_name);
+ASTNode *create_array_type_node(ASTNode *base_type, ASTNode *size_expr);
+ASTNode *create_dynamic_array_type_node(ASTNode *base_type);
 ASTNode *create_storage_spec(bool is_static, bool is_const);
 ASTNode *create_var_decl(const char *name);
 ASTNode *create_var_init(const char *name, ASTNode *init_expr);
@@ -18,6 +20,9 @@ ASTNode *create_array_decl(const char *name, ASTNode *size_expr);
 ASTNode *create_array_init(const char *name, ASTNode *init_list);
 ASTNode *create_array_init_with_type(const char *name, TypeInfo element_type,
                                      ASTNode *init_list);
+ASTNode *create_array_init_with_type_and_size(const char *name,
+                                              ASTNode *type_node,
+                                              ASTNode *init_list);
 ASTNode *create_array_init_with_size(const char *name, ASTNode *size_expr,
                                      ASTNode *init_list);
 ASTNode *create_function_def(const char *name, ASTNode *storage, ASTNode *type,

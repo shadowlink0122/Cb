@@ -100,6 +100,72 @@ ASTNode *create_type_alias_node(const char *type_name) {
     return node;
 }
 
+ASTNode *create_array_type_node(ASTNode *base_type, ASTNode *size_expr) {
+    // 型中心の配列型ノード作成: int[3], string[5] など
+    auto node = new ASTNode(ASTNodeType::AST_TYPE_SPEC);
+
+    // 配列型情報を設定
+    if (base_type && base_type->node_type == ASTNodeType::AST_TYPE_SPEC) {
+        // 基底型の情報を取得
+        TypeInfo base_type_info = base_type->type_info;
+
+        // 配列型として設定
+        node->type_info =
+            static_cast<TypeInfo>(TYPE_ARRAY_BASE + base_type_info);
+
+        // 配列型情報を設定
+        node->array_type_info.base_type = base_type_info;
+
+        // サイズ情報を設定
+        if (size_expr) {
+            int size = -1;
+            if (size_expr->node_type == ASTNodeType::AST_NUMBER) {
+                size = static_cast<int>(size_expr->int_value);
+            } else {
+                // 数値以外の式の場合は実行時評価に委ねる
+                size = -1; // 実行時評価を示す
+            }
+            node->array_type_info.dimensions.emplace_back(size, size == -1);
+            node->array_size_expr = std::unique_ptr<ASTNode>(size_expr);
+        }
+    }
+
+    // 基底型ノードをクリーンアップ
+    if (base_type) {
+        delete base_type;
+    }
+
+    return node;
+}
+
+ASTNode *create_dynamic_array_type_node(ASTNode *base_type) {
+    // 型中心の動的配列型ノード作成: int[], string[] など
+    auto node = new ASTNode(ASTNodeType::AST_TYPE_SPEC);
+
+    // 配列型情報を設定
+    if (base_type && base_type->node_type == ASTNodeType::AST_TYPE_SPEC) {
+        // 基底型の情報を取得
+        TypeInfo base_type_info = base_type->type_info;
+
+        // 配列型として設定
+        node->type_info =
+            static_cast<TypeInfo>(TYPE_ARRAY_BASE + base_type_info);
+
+        // 配列型情報を設定
+        node->array_type_info.base_type = base_type_info;
+
+        // 動的サイズの次元を追加
+        node->array_type_info.dimensions.emplace_back(-1, true);
+    }
+
+    // 基底型ノードをクリーンアップ
+    if (base_type) {
+        delete base_type;
+    }
+
+    return node;
+}
+
 ASTNode *create_storage_spec(bool is_static, bool is_const) {
     auto node = new ASTNode(ASTNodeType::AST_STORAGE_SPEC);
     node->is_static = is_static;
@@ -220,6 +286,37 @@ ASTNode *create_array_init_with_size(const char *name, ASTNode *size_expr,
         // サイズ式と初期化リストの両方がある場合は、明示的なサイズを優先
         delete init_list;
     }
+    return node;
+}
+
+ASTNode *create_array_init_with_type_and_size(const char *name,
+                                              ASTNode *type_node,
+                                              ASTNode *init_list) {
+    // 型中心の配列リテラル初期化: int[3] arr = [1,2,3]; IntArray arr = [1,2,3];
+    auto node = new ASTNode(ASTNodeType::AST_ARRAY_DECL);
+    node->name = std::string(name);
+
+    // 型情報を設定
+    if (type_node) {
+        node->type_info = type_node->type_info;
+
+        // 配列型情報をコピー
+        if (type_node->array_type_info.base_type != TYPE_UNKNOWN) {
+            node->array_type_info = type_node->array_type_info;
+        }
+
+        // サイズ式をポインターとして移動
+        if (type_node->array_size_expr) {
+            node->array_size_expr = std::move(type_node->array_size_expr);
+        }
+    }
+
+    // 初期化リストを設定
+    if (init_list && init_list->node_type == ASTNodeType::AST_ARRAY_LITERAL) {
+        node->children = std::move(init_list->children);
+        delete init_list;
+    }
+
     return node;
 }
 
