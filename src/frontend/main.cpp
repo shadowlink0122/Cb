@@ -1,8 +1,8 @@
 #include "../backend/interpreter.h"
 #include "../common/ast.h"
+#include "../common/debug.h"
 #include "../common/io_interface.h"
 #include "../frontend/parser_utils.h"
-#include "debug.h"
 #include "help_messages.h"
 #include "parser.h"
 #include <cstdarg>

@@ -21,8 +21,14 @@ public:
     void assign_array_element(const std::string &name, int64_t index, int64_t value);
     void assign_string_element(const std::string &name, int64_t index, const std::string &value);
     
+    // 配列リテラル代入
+    void assign_array_literal(const std::string &name, ASTNode* array_literal);
+    
     // 型範囲チェック
     void check_type_range(TypeInfo type, int64_t value, const std::string &name);
+    
+    // 型エイリアス解決
+    TypeInfo resolve_type_with_alias(TypeInfo type_info, const std::string& type_name);
     
 private:
     Interpreter& interpreter_;  // インタープリターへの参照

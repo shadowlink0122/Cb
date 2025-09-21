@@ -1,0 +1,7 @@
+// typedef未定義型エラーテスト  
+typedef UnknownType MyType;
+
+int main() {
+    MyType value = 42;
+    return 0;
+}

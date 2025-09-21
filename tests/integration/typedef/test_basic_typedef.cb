@@ -1,0 +1,34 @@
+// typedef統合テスト - 基本機能
+typedef int MyInt;
+typedef string MyString;
+typedef bool MyBool;
+
+int main() {
+    println("=== Typedef Integration Test ===");
+    
+    // 現在サポートされている構文で宣言と代入を分離
+    MyInt number;
+    number = 42;
+    
+    MyString text;
+    text = "Hello, World!";
+    
+    MyBool flag;
+    flag = true;
+    
+    println("Testing basic typedef usage:");
+    print("MyInt number = ");
+    print(number);
+    println("");
+    
+    print("MyString text = ");
+    print(text);
+    println("");
+    
+    print("MyBool flag = ");
+    print(flag);
+    println("");
+    
+    println("Typedef integration test completed!");
+    return 0;
+}

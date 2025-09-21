@@ -26,7 +26,7 @@ extern "C" {
 
 %token <lval> NUMBER
 %token <sval> IDENTIFIER STRING_LITERAL
-%token CONST STATIC
+%token CONST STATIC TYPEDEF
 %token VOID TINY SHORT INT LONG BOOL STRING
 %token TRUE FALSE NULL_LIT
 %token PLUS MINUS MUL DIV ASSIGN SEMICOLON PRINT PRINTLN RETURN
@@ -50,6 +50,7 @@ extern "C" {
 %type <ptr> argument_list initializer
 %type <ptr> import_statement export_statement module_declaration
 %type <ptr> try_statement catch_statement finally_statement throw_statement
+%type <ptr> typedef_declaration array_dimensions
 %type <sval> qualified_name
 
 %start program
@@ -80,6 +81,7 @@ declaration:
     | import_statement { $$ = $1; }
     | export_statement { $$ = $1; }
     | module_declaration { $$ = $1; }
+    | typedef_declaration { $$ = $1; }
     | declaration_specifiers declarator SEMICOLON {
         ASTNode* decl = (ASTNode*)$2;
         set_declaration_attributes(decl, (ASTNode*)$1, nullptr);
@@ -113,9 +115,7 @@ declaration:
     ;
 
 declaration_specifiers:
-    storage_class_specifier { $$ = $1; }
-    | type_qualifier { $$ = $1; }
-    | type_specifier { $$ = create_decl_spec(nullptr, nullptr, (ASTNode*)$1); }
+    type_specifier { $$ = create_decl_spec(nullptr, nullptr, (ASTNode*)$1); }
     | storage_class_specifier type_qualifier type_specifier {
         $$ = create_decl_spec((ASTNode*)$1, (ASTNode*)$2, (ASTNode*)$3);
         delete_node((ASTNode*)$1);
@@ -147,6 +147,11 @@ type_specifier:
     | LONG   { $$ = create_type_node(TYPE_LONG); }
     | STRING { $$ = create_type_node(TYPE_STRING); }
     | BOOL   { $$ = create_type_node(TYPE_BOOL); }
+    | IDENTIFIER { 
+        // 型エイリアスかチェック
+        $$ = create_type_alias_node($1); 
+        free($1);
+    }
     ;
 
 declarator:
@@ -571,6 +576,64 @@ throw_statement:
         ASTNode* throw_node = new ASTNode(ASTNodeType::AST_THROW_STMT);
         throw_node->throw_expr = std::unique_ptr<ASTNode>((ASTNode*)$2);
         $$ = throw_node;
+    }
+    ;
+
+typedef_declaration:
+    TYPEDEF type_specifier IDENTIFIER SEMICOLON {
+        ASTNode* typedef_node = create_typedef_decl($3, (ASTNode*)$2);
+        free($3);
+        $$ = typedef_node;
+    }
+    | TYPEDEF type_specifier array_dimensions IDENTIFIER SEMICOLON {
+        // 配列typedef: typedef int[10][20] ArrayType;
+        std::vector<std::unique_ptr<ASTNode>> dims;
+        ASTNode* current = (ASTNode*)$3;
+        
+        // array_dimensionsから次元情報を抽出
+        while (current) {
+            if (current->array_size_expr) {
+                dims.push_back(std::unique_ptr<ASTNode>(current->array_size_expr.release()));
+            } else {
+                // 空の括弧[] = 動的サイズ
+                dims.push_back(nullptr);
+            }
+            current = current->left.get();
+        }
+        
+        ASTNode* typedef_node = create_typedef_array_decl($4, (ASTNode*)$2, dims);
+        free($4);
+        delete (ASTNode*)$3; // array_dimensionsノードを削除
+        $$ = typedef_node;
+    }
+    ;
+
+array_dimensions:
+    '[' expression ']' {
+        // 固定サイズ次元: [10]
+        ASTNode* dim_node = new ASTNode(ASTNodeType::AST_ARRAY_DECL);
+        dim_node->array_size_expr = std::unique_ptr<ASTNode>((ASTNode*)$2);
+        $$ = dim_node;
+    }
+    | '[' ']' {
+        // 動的サイズ次元: []
+        ASTNode* dim_node = new ASTNode(ASTNodeType::AST_ARRAY_DECL);
+        // array_size_exprがnullptrなら動的サイズ
+        $$ = dim_node;
+    }
+    | array_dimensions '[' expression ']' {
+        // 多次元固定サイズ: [3][4]
+        ASTNode* dim_node = new ASTNode(ASTNodeType::AST_ARRAY_DECL);
+        dim_node->array_size_expr = std::unique_ptr<ASTNode>((ASTNode*)$3);
+        dim_node->left = std::unique_ptr<ASTNode>((ASTNode*)$1);
+        $$ = dim_node;
+    }
+    | array_dimensions '[' ']' {
+        // 多次元動的サイズ: [3][]
+        ASTNode* dim_node = new ASTNode(ASTNodeType::AST_ARRAY_DECL);
+        // array_size_exprがnullptrなら動的サイズ
+        dim_node->left = std::unique_ptr<ASTNode>((ASTNode*)$1);
+        $$ = dim_node;
     }
     ;
 

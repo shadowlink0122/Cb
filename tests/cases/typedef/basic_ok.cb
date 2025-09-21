@@ -1,0 +1,24 @@
+// typedef基本テスト - 正常系
+typedef int MyInt;
+typedef string MyString;
+typedef bool MyBool;
+
+int main() {
+    MyInt x = 42;
+    MyString name = "Hello";
+    MyBool flag = true;
+    
+    print("x = ");
+    print(x);
+    println();
+    
+    print("name = ");
+    print(name);
+    println();
+    
+    print("flag = ");
+    print(flag);
+    println();
+    
+    return 0;
+}

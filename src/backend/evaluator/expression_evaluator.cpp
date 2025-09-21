@@ -1,6 +1,6 @@
 #include "expression_evaluator.h"
 #include "../interpreter.h"
-#include "../../frontend/debug_messages.h"
+#include "../../common/debug_messages.h"
 #include <stdexcept>
 
 ExpressionEvaluator::ExpressionEvaluator(Interpreter& interpreter) 
@@ -38,8 +38,8 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode *node) {
             error_msg(DebugMsgId::UNDEFINED_VAR_ERROR, node->name.c_str());
             throw std::runtime_error("Undefined variable");
         }
-        debug_msg(DebugMsgId::VAR_VALUE, var->value);
-        return var->value;
+        debug_msg(DebugMsgId::VAR_VALUE, var->int_value);
+        return var->int_value;
     }
 
     case ASTNodeType::AST_ARRAY_REF: {
@@ -58,13 +58,13 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode *node) {
         int64_t index = evaluate_expression(node->array_index.get());
         debug_msg(DebugMsgId::ARRAY_INDEX, index);
 
-        if (index < 0 || index >= (int64_t)var->array_values.size()) {
+        if (index < 0 || index >= (int64_t)var->array_values().size()) {
             error_msg(DebugMsgId::ARRAY_OUT_OF_BOUNDS_ERROR, node->name.c_str());
             throw std::runtime_error("Array index out of bounds");
         }
 
-        debug_msg(DebugMsgId::ARRAY_ELEMENT_VALUE, var->array_values[index]);
-        return var->array_values[index];
+        debug_msg(DebugMsgId::ARRAY_ELEMENT_VALUE, var->array_values()[index]);
+        return var->array_values()[index];
     }
 
     case ASTNodeType::AST_BINARY_OP: {
@@ -144,16 +144,16 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode *node) {
             throw std::runtime_error("Undefined variable");
         }
 
-        int64_t old_value = var->value;
+        int64_t old_value = var->int_value;
         if (node->op == "++") {
-            var->value += 1;
+            var->int_value += 1;
         } else if (node->op == "--") {
-            var->value -= 1;
+            var->int_value -= 1;
         }
 
-        interpreter_.check_type_range(var->type, var->value, node->name);
+        interpreter_.check_type_range(var->type, var->int_value, node->name);
 
-        return (node->node_type == ASTNodeType::AST_PRE_INCDEC) ? var->value
+        return (node->node_type == ASTNodeType::AST_PRE_INCDEC) ? var->int_value
                                                                 : old_value;
     }
 
@@ -184,9 +184,9 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode *node) {
             int64_t arg_value = evaluate_expression(node->arguments[i].get());
             Variable param;
             param.type = func->parameters[i]->type_info;
-            param.value = arg_value;
+            param.int_value = arg_value;
             param.is_assigned = true;
-            interpreter_.current_scope().variables[func->parameters[i]->name] = param;
+            interpreter_.current_scope().variables.insert_or_assign(func->parameters[i]->name, std::move(param));
         }
 
         try {
@@ -212,12 +212,12 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode *node) {
             // これは配列リテラル [1,2,3,...] として扱う
             // node->childrenには各要素のノードが含まれている
             Variable result;
-            result.array_values.clear();
+            result.array_values().clear();
 
             // 各要素を評価して配列に追加
             for (auto &child : node->children) {
                 int64_t element_value = evaluate_expression(child.get());
-                result.array_values.push_back(element_value);
+                result.array_values().push_back(element_value);
             }
 
             // 配列として返す（値としては0）
@@ -277,9 +277,9 @@ int64_t ExpressionEvaluator::evaluate_qualified_function_call(const ASTNode *nod
             int64_t arg_value = evaluate_expression(node->arguments[i].get());
             Variable param;
             param.type = func->parameters[i]->type_info;
-            param.value = arg_value;
+            param.int_value = arg_value;
             param.is_assigned = true;
-            interpreter_.current_scope().variables[func->parameters[i]->name] = param;
+            interpreter_.current_scope().variables.insert_or_assign(func->parameters[i]->name, std::move(param));
         }
         
         // 関数本体を実行

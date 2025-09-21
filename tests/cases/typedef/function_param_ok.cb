@@ -1,0 +1,15 @@
+// typedef 関数パラメータテスト
+typedef int Counter;
+
+void increment(Counter count) {
+    Counter result = count + 1;
+    print("Incremented: ");
+    print(result);
+    println();
+}
+
+int main() {
+    Counter value = 5;
+    increment(value);
+    return 0;
+}

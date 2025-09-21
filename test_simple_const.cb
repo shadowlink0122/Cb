@@ -1,6 +1,0 @@
-// 簡単な定数テスト
-export const int PI = 3;
-
-export int get_pi() {
-    return PI;
-}

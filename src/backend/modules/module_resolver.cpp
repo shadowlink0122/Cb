@@ -2,6 +2,7 @@
 #include "../../frontend/parser_utils.h"
 #include "../../common/ast.h"
 #include "../../common/cb_config.h"
+#include <algorithm>
 #include <fstream>
 #include <iostream>
 #include <filesystem>

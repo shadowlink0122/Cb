@@ -1,7 +1,9 @@
 #include "interpreter.h"
 #include "../common/ast.h"
+#include "../common/debug.h"
+#include "../common/debug_messages.h"
+#include "../common/io_interface.h"
 #include "../common/utf8_utils.h"
-#include "../frontend/debug.h"
 #include "evaluator/expression_evaluator.h"
 #include "executor/statement_executor.h"
 #include "output/output_manager.h"
@@ -24,7 +26,7 @@ Interpreter::Interpreter(bool debug) : debug_mode(debug) {
     }
 
     // グローバルスコープを初期化
-    scope_stack.push_back(global_scope);
+    scope_stack.emplace_back(std::move(global_scope));
 
     // OutputManagerを初期化
     output_manager_ = std::make_unique<OutputManager>(this);
@@ -40,9 +42,13 @@ Interpreter::Interpreter(bool debug) : debug_mode(debug) {
 
     // ModuleResolverを初期化
     module_resolver_ = std::make_unique<ModuleResolver>();
+
+    // SemanticAnalyzerを初期化
+    semantic_analyzer_ =
+        std::make_unique<SemanticAnalyzer>(*this, *variable_manager_);
 }
 
-void Interpreter::push_scope() { scope_stack.push_back(Scope{}); }
+void Interpreter::push_scope() { scope_stack.emplace_back(); }
 
 void Interpreter::pop_scope() {
     if (scope_stack.size() > 1) {
@@ -85,9 +91,22 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
 
     switch (node->node_type) {
     case ASTNodeType::AST_STMT_LIST:
+        // 最初にtypedef宣言をすべて処理
         for (const auto &stmt : node->statements) {
-            register_global_declarations(stmt.get());
+            if (stmt->node_type == ASTNodeType::AST_TYPEDEF_DECL) {
+                statement_executor_->execute_typedef_statement(stmt.get());
+            }
         }
+        // その後に他の宣言を処理
+        for (const auto &stmt : node->statements) {
+            if (stmt->node_type != ASTNodeType::AST_TYPEDEF_DECL) {
+                register_global_declarations(stmt.get());
+            }
+        }
+        break;
+
+    case ASTNodeType::AST_TYPEDEF_DECL:
+        // typedef宣言は上記で既に処理済み
         break;
 
     case ASTNodeType::AST_VAR_DECL:
@@ -110,15 +129,15 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
             if (node->right) {
                 int64_t value = evaluate_expression(node->right.get());
                 if (var.type == TYPE_STRING) {
-                    var.str_value = node->right->str_value;
+                    var.string_value = node->right->str_value;
                 } else {
-                    var.value = value;
+                    var.int_value = value;
                     check_type_range(var.type, value, node->name);
                 }
                 var.is_assigned = true;
             }
 
-            global_scope.variables[node->name] = var;
+            global_scope.variables.insert_or_assign(node->name, std::move(var));
         } else if (node->node_type == ASTNodeType::AST_VAR_DECL) {
             // グローバル変数の重複宣言チェック
             if (global_scope.variables.find(node->name) !=
@@ -131,7 +150,24 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
             var.type = node->type_info;
             var.is_const = node->is_const;
             var.is_assigned = false;
-            global_scope.variables[node->name] = var;
+
+            // 配列typedef変数の場合、配列情報を設定
+            if (node->array_type_info.is_array()) {
+                var.is_array = true;
+                // 1次元目のサイズを設定（多次元配列は将来拡張）
+                if (!node->array_type_info.dimensions.empty()) {
+                    auto &first_dim = node->array_type_info.dimensions[0];
+                    var.array_size = first_dim.is_dynamic ? -1 : first_dim.size;
+                } else {
+                    var.array_size = -1; // 動的サイズ
+                }
+                // 配列typedef変数として認識されたことをデバッグ出力
+                debug_msg(DebugMsgId::VAR_ASSIGN_READABLE, node->name.c_str());
+            } else {
+                var.is_array = false;
+            }
+
+            global_scope.variables.insert_or_assign(node->name, std::move(var));
         }
         break;
 
@@ -159,9 +195,9 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
         // 配列初期化
         TypeInfo elem_type = node->type_info;
         if (elem_type == TYPE_STRING) {
-            var.array_strings.resize(var.array_size, "");
+            var.array_strings().resize(var.array_size, "");
         } else {
-            var.array_values.resize(var.array_size, 0);
+            var.array_values().resize(var.array_size, 0);
         }
 
         // 初期化リストがある場合
@@ -178,14 +214,14 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
                     if (elem_type == TYPE_STRING) {
                         if (element->node_type ==
                             ASTNodeType::AST_STRING_LITERAL) {
-                            var.array_strings[j] = element->str_value;
+                            var.array_strings()[j] = element->str_value;
                         } else {
-                            var.array_strings[j] = ""; // デフォルト値
+                            var.array_strings()[j] = ""; // デフォルト値
                         }
                     } else {
                         int64_t val = evaluate_expression(element.get());
                         check_type_range(elem_type, val, node->name);
-                        var.array_values[j] = val;
+                        var.array_values()[j] = val;
                     }
                     j++;
                 }
@@ -193,16 +229,16 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
             } else {
                 // 単一要素の初期化
                 if (elem_type == TYPE_STRING) {
-                    var.array_strings[i] = child->str_value;
+                    var.array_strings()[i] = child->str_value;
                 } else {
                     int64_t val = evaluate_expression(child.get());
                     check_type_range(elem_type, val, node->name);
-                    var.array_values[i] = val;
+                    var.array_values()[i] = val;
                 }
             }
         }
 
-        current_scope().variables[node->name] = var;
+        current_scope().variables.insert_or_assign(node->name, std::move(var));
     } break;
 
     case ASTNodeType::AST_FUNC_DECL:
@@ -236,6 +272,11 @@ void Interpreter::process(const ASTNode *ast) {
     // まずグローバル宣言を登録
     register_global_declarations(ast);
     debug_msg(DebugMsgId::GLOBAL_DECL_COMPLETE);
+
+    // 意味解析フェーズを実行
+    if (!perform_semantic_analysis(ast)) {
+        throw std::runtime_error("Semantic analysis failed");
+    }
 
     debug_msg(DebugMsgId::MAIN_FUNC_SEARCH);
     // main関数を探して実行
@@ -296,9 +337,20 @@ void Interpreter::assign_string_element(const std::string &name, int64_t index,
     variable_manager_->assign_string_element(name, index, value);
 }
 
+void Interpreter::assign_array_literal(const std::string &name,
+                                       ASTNode *array_literal) {
+    variable_manager_->assign_array_literal(name, array_literal);
+}
+
 void Interpreter::check_type_range(TypeInfo type, int64_t value,
                                    const std::string &name) {
     variable_manager_->check_type_range(type, value, name);
+}
+
+// 型エイリアス解決
+TypeInfo Interpreter::resolve_type_alias(TypeInfo type_info,
+                                         const std::string &type_name) {
+    return variable_manager_->resolve_type_with_alias(type_info, type_name);
 }
 
 bool Interpreter::process_import(const ASTNode *import_node) {
@@ -370,4 +422,24 @@ Interpreter::find_module_function(const std::string &module_name,
 int64_t Interpreter::find_module_variable(const std::string &module_name,
                                           const std::string &variable_name) {
     return module_resolver_->find_module_variable(module_name, variable_name);
+}
+
+bool Interpreter::perform_semantic_analysis(const ASTNode *ast) {
+    if (!ast || !semantic_analyzer_) {
+        return false;
+    }
+
+    SemanticAnalysisResult result =
+        semantic_analyzer_->analyze_declarations(const_cast<ASTNode *>(ast));
+
+    if (!result.success) {
+        std::cerr << "Semantic Analysis Error: " << result.error_message
+                  << std::endl;
+        if (!result.error_location.empty()) {
+            std::cerr << "Location: " << result.error_location << std::endl;
+        }
+        return false;
+    }
+
+    return true;
 }

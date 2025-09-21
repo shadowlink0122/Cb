@@ -1,0 +1,6 @@
+// 循環import エラーテスト用のモジュール B
+import "circular_a.cb";
+
+export int function_b() {
+    return function_a() + 1;  // 循環参照エラー
+}

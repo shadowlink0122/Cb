@@ -1,0 +1,7 @@
+// 存在しないファイルのimportエラーテスト
+import "non_existent_module.cb";
+
+int main() {
+    println("This should not execute");
+    return 0;
+}

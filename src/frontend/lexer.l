@@ -21,6 +21,7 @@ extern int yydebug;
 
 const            { return CONST; }
 static           { return STATIC; }
+typedef          { return TYPEDEF; }
 void             { return VOID; }
 tiny             { return TINY; }
 short            { return SHORT; }

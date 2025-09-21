@@ -179,6 +179,29 @@ const DebugMessageTemplate debug_messages[] = {
         {"Error: Array '%s' element %zu: %s type expected but %s type provided",
          "エラー: 配列'%s'の要素%zu: %s型が期待されましたが%s型が渡されました"},
 
+    // 型システム関連
+    [static_cast<int>(
+        DebugMsgId::TYPEDEF_REGISTER)] = {"Registering type alias: %s -> %s",
+                                          "型エイリアスを登録: %s -> %s"},
+    [static_cast<int>(DebugMsgId::TYPEDEF_REGISTER_SUCCESS)] =
+        {"Type alias registered successfully: %s",
+         "型エイリアスの登録が完了: %s"},
+    [static_cast<int>(
+        DebugMsgId::TYPE_ALIAS_RESOLVE)] = {"Resolving type alias: %s",
+                                            "型エイリアスを解決: %s"},
+    [static_cast<int>(
+        DebugMsgId::TYPE_ALIAS_CREATE_NODE)] = {"Creating type alias node: %s",
+                                                "型エイリアスノードを作成: %s"},
+    [static_cast<int>(DebugMsgId::TYPE_ALIAS_RUNTIME_RESOLVE)] =
+        {"Runtime type alias resolution: %s -> %s",
+         "実行時型エイリアス解決: %s -> %s"},
+    [static_cast<int>(DebugMsgId::TYPE_RESOLVING)] =
+        {"Resolving type - type_info: %d, type_name: %s",
+         "型解決中 - type_info: %d, type_name: %s"},
+    [static_cast<int>(
+        DebugMsgId::TYPE_ALREADY_RESOLVED)] = {"Type already resolved: %s",
+                                               "型は既に解決済み: %s"},
+
     // インタープリターエラー関連
     [static_cast<int>(DebugMsgId::VAR_REDECLARE_ERROR)] =
         {"Variable '%s' redeclaration not allowed",
@@ -273,6 +296,51 @@ const DebugMessageTemplate debug_messages[] = {
     [static_cast<int>(DebugMsgId::ARRAY_DECL_EVAL_DEBUG)] =
         {"AST_ARRAY_DECL called in evaluate_expression: %s",
          "AST_ARRAY_DECL が evaluate_expression で呼び出されました: %s"},
+
+    // 新しい配列デバッグメッセージ
+    [static_cast<int>(DebugMsgId::VAR_DECLARATION_DEBUG)] =
+        {"Variable declaration: name=%s, type_info=%d, type_name='%s', "
+         "resolved_type=%d",
+         "変数宣言: name=%s, type_info=%d, type_name='%s', resolved_type=%d"},
+    [static_cast<int>(DebugMsgId::ARRAY_TYPEDEF_DETECTED_DEBUG)] =
+        {"Array typedef detected from node->array_type_info",
+         "node->array_type_info から配列typedef検出"},
+    [static_cast<int>(DebugMsgId::NORMAL_ARRAY_TYPE_DEBUG)] =
+        {"Normal array type detected, type=%d", "通常の配列型検出, type=%d"},
+    [static_cast<int>(
+        DebugMsgId::ARRAY_SIZE_DEBUG)] = {"Array size=%d, base_type=%d",
+                                          "配列サイズ=%d, 基底型=%d"},
+    [static_cast<int>(DebugMsgId::ARRAY_LITERAL_ASSIGN_DEBUG)] =
+        {"Array literal assignment to variable: %s", "配列リテラル代入: %s"},
+
+    // 意味解析デバッグメッセージ
+    [static_cast<int>(DebugMsgId::DEBUG_SEMANTIC_ANALYSIS_START)] =
+        {"Starting semantic analysis phase", "意味解析フェーズ開始"},
+    [static_cast<int>(DebugMsgId::DEBUG_SEMANTIC_ANALYSIS_COMPLETE)] =
+        {"Semantic analysis complete", "意味解析完了"},
+    [static_cast<int>(DebugMsgId::DEBUG_TYPEDEF_SEMANTIC_ANALYSIS)] =
+        {"Analyzing typedef: %s", "typedef解析中: %s"},
+    [static_cast<int>(DebugMsgId::DEBUG_TYPEDEF_REGISTERED)] =
+        {"Typedef registered: %s -> type %s", "typedef登録: %s -> 型 %s"},
+    [static_cast<int>(DebugMsgId::DEBUG_ARRAY_TYPEDEF_REGISTERED)] =
+        {"Array typedef registered: %s with %s dimensions",
+         "配列typedef登録: %s (%s次元)"},
+    [static_cast<int>(DebugMsgId::DEBUG_VAR_SEMANTIC_ANALYSIS)] =
+        {"Analyzing variable declaration: %s", "変数宣言解析中: %s"},
+    [static_cast<int>(DebugMsgId::DEBUG_VAR_SEMANTIC_COMPLETE)] =
+        {"Variable semantic analysis complete: %s", "変数意味解析完了: %s"},
+    [static_cast<int>(DebugMsgId::DEBUG_ARRAY_LITERAL_VALIDATED)] =
+        {"Array literal validated: %s (%s elements)",
+         "配列リテラル検証完了: %s (%s要素)"},
+
+    // 配列メモリ管理デバッグメッセージ
+    [static_cast<int>(DebugMsgId::ARRAY_ALLOC)] =
+        {"Array memory allocated: name=%s, size=%zu bytes",
+         "配列メモリ確保: name=%s, size=%zu バイト"},
+    [static_cast<int>(DebugMsgId::ARRAY_CREATE)] = {"Array created: name=%s",
+                                                    "配列作成: name=%s"},
+    [static_cast<int>(DebugMsgId::ARRAY_DESTROY)] = {"Array destroyed: name=%s",
+                                                     "配列破棄: name=%s"},
 };
 
 // デバッグメッセージ配列のサイズ

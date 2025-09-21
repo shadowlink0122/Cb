@@ -21,6 +21,6 @@
   },
   "debug": {
     "enable_module_debug": false,
-    "verbose_import": true
+    "verbose_import": false
   }
 }

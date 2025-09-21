@@ -1,7 +1,9 @@
 #include "variable_manager.h"
 #include "../interpreter.h"
-#include "../../frontend/debug_messages.h"
+#include "../../common/debug.h"
+#include "../../common/debug_messages.h"
 #include "../../common/utf8_utils.h"
+#include "../../common/type_alias.h"
 #include <stdexcept>
 #include <iostream>
 #include <cstdlib>
@@ -16,11 +18,11 @@ void VariableManager::assign_variable(const std::string &name, int64_t value,
         // 新しい変数を作成
         Variable new_var;
         new_var.type = type;
-        new_var.value = value;
+        new_var.int_value = value;
         new_var.is_assigned = true;
         new_var.is_const = false; // デフォルトはnon-const
         check_type_range(type, value, name);
-        interpreter_.current_scope().variables[name] = new_var;
+        interpreter_.current_scope().variables.insert_or_assign(name, std::move(new_var));
     } else {
         if (var->is_const && var->is_assigned) {
             std::cerr << "再代入できません: " << name << std::endl;
@@ -31,13 +33,19 @@ void VariableManager::assign_variable(const std::string &name, int64_t value,
             throw std::runtime_error("Direct array assignment error");
         }
         check_type_range(var->type, value, name);
-        var->value = value;
+        var->int_value = value;
         var->is_assigned = true;
     }
 }
 
 void VariableManager::assign_variable(const std::string &name, int64_t value,
                                      TypeInfo type, bool is_const) {
+    // 型エイリアス解決を試行
+    TypeInfo resolved_type = resolve_type_with_alias(type, "");
+    if (resolved_type != TYPE_UNKNOWN) {
+        type = resolved_type;
+    }
+    
     debug_msg(DebugMsgId::VAR_ASSIGN_READABLE, name.c_str(), value,
               type_info_to_string(type), bool_to_string(is_const));
     Variable *var = interpreter_.find_variable(name);
@@ -46,11 +54,11 @@ void VariableManager::assign_variable(const std::string &name, int64_t value,
         // 新しい変数を作成
         Variable new_var;
         new_var.type = type;
-        new_var.value = value;
+        new_var.int_value = value;
         new_var.is_assigned = true;
         new_var.is_const = is_const;
         check_type_range(type, value, name);
-        interpreter_.current_scope().variables[name] = new_var;
+        interpreter_.current_scope().variables.insert_or_assign(name, std::move(new_var));
     } else {
         debug_msg(DebugMsgId::EXISTING_VAR_ASSIGN_DEBUG);
         if (var->is_const && var->is_assigned) {
@@ -62,7 +70,7 @@ void VariableManager::assign_variable(const std::string &name, int64_t value,
             throw std::runtime_error("Direct array assignment error");
         }
         check_type_range(var->type, value, name);
-        var->value = value;
+        var->int_value = value;
         var->is_assigned = true;
     }
 }
@@ -73,15 +81,15 @@ void VariableManager::assign_variable(const std::string &name,
     if (!var) {
         Variable new_var;
         new_var.type = TYPE_STRING;
-        new_var.str_value = value;
+        new_var.string_value = value;
         new_var.is_assigned = true;
-        interpreter_.current_scope().variables[name] = new_var;
+        interpreter_.current_scope().variables.insert_or_assign(name, std::move(new_var));
     } else {
         if (var->is_const && var->is_assigned) {
             std::cerr << "再代入できません: " << name << std::endl;
             std::exit(1);
         }
-        var->str_value = value;
+        var->string_value = value;
         var->is_assigned = true;
     }
 }
@@ -95,17 +103,17 @@ void VariableManager::assign_variable(const std::string &name,
         debug_msg(DebugMsgId::STRING_VAR_CREATE_NEW);
         Variable new_var;
         new_var.type = TYPE_STRING;
-        new_var.str_value = value;
+        new_var.string_value = value;
         new_var.is_assigned = true;
         new_var.is_const = is_const;
-        interpreter_.current_scope().variables[name] = new_var;
+        interpreter_.current_scope().variables.insert_or_assign(name, std::move(new_var));
     } else {
         debug_msg(DebugMsgId::EXISTING_STRING_VAR_ASSIGN_DEBUG);
         if (var->is_const && var->is_assigned) {
             error_msg(DebugMsgId::CONST_REASSIGN_ERROR, name.c_str());
             std::exit(1);
         }
-        var->str_value = value;
+        var->string_value = value;
         var->is_assigned = true;
     }
 }
@@ -117,10 +125,14 @@ void VariableManager::assign_array_element(const std::string &name, int64_t inde
         error_msg(DebugMsgId::UNDEFINED_ARRAY_ERROR, name.c_str());
         throw std::runtime_error("Undefined array");
     }
-    if (!var->is_array) {
+    
+    // 配列型チェック（typedef配列型も含む）
+    bool is_array_type = var->is_array || (var->type >= TYPE_ARRAY_BASE);
+    if (!is_array_type) {
         error_msg(DebugMsgId::NON_ARRAY_REF_ERROR, name.c_str());
         throw std::runtime_error("Non-array reference");
     }
+    
     if (var->is_const) {
         error_msg(DebugMsgId::CONST_ARRAY_ASSIGN_ERROR, name.c_str());
         throw std::runtime_error("Assignment to const array");
@@ -132,7 +144,7 @@ void VariableManager::assign_array_element(const std::string &name, int64_t inde
 
     TypeInfo elem_type = static_cast<TypeInfo>(var->type - TYPE_ARRAY_BASE);
     check_type_range(elem_type, value, name);
-    var->array_values[index] = value;
+    var->array_values()[index] = value;
 }
 
 void VariableManager::assign_string_element(const std::string &name, int64_t index,
@@ -155,7 +167,7 @@ void VariableManager::assign_string_element(const std::string &name, int64_t ind
     }
 
     // UTF-8文字数で範囲チェック
-    size_t utf8_length = utf8_utils::utf8_char_count(var->str_value);
+    size_t utf8_length = utf8_utils::utf8_char_count(var->string_value);
     debug_msg(DebugMsgId::STRING_LENGTH_UTF8_DEBUG, utf8_length);
 
     if (index < 0 || index >= static_cast<int64_t>(utf8_length)) {
@@ -168,9 +180,9 @@ void VariableManager::assign_string_element(const std::string &name, int64_t ind
     // 新しい文字列を構築
     std::string new_string;
     size_t current_index = 0;
-    for (size_t i = 0; i < var->str_value.size();) {
+    for (size_t i = 0; i < var->string_value.size();) {
         int len =
-            utf8_utils::utf8_char_length(static_cast<unsigned char>(var->str_value[i]));
+            utf8_utils::utf8_char_length(static_cast<unsigned char>(var->string_value[i]));
 
         if (current_index == static_cast<size_t>(index)) {
             // 置換対象の文字位置
@@ -179,15 +191,15 @@ void VariableManager::assign_string_element(const std::string &name, int64_t ind
                       value.c_str());
         } else {
             // 既存の文字をコピー
-            new_string += var->str_value.substr(i, len);
+            new_string += var->string_value.substr(i, len);
         }
 
         i += len;
         current_index++;
     }
 
-    var->str_value = new_string;
-    debug_msg(DebugMsgId::STRING_AFTER_REPLACE_DEBUG, var->str_value.c_str());
+    var->string_value = new_string;
+    debug_msg(DebugMsgId::STRING_AFTER_REPLACE_DEBUG, var->string_value.c_str());
 }
 
 void VariableManager::check_type_range(TypeInfo type, int64_t value,
@@ -217,4 +229,80 @@ void VariableManager::check_type_range(TypeInfo type, int64_t value,
     default:
         break;
     }
+}
+
+// 型エイリアス解決のためのヘルパー関数
+TypeInfo VariableManager::resolve_type_with_alias(TypeInfo type_info, const std::string& type_name) {
+    const char* display_name = type_name.empty() ? "(none)" : type_name.c_str();
+    debug_msg(DebugMsgId::TYPE_RESOLVING, type_info, display_name);
+    
+    // 既に基本型の場合はそのまま返す
+    if (type_info != TYPE_UNKNOWN) {
+        debug_msg(DebugMsgId::TYPE_ALREADY_RESOLVED, type_info_to_string_basic(type_info));
+        return type_info;
+    }
+    
+    // 型名からエイリアス解決を試行
+    if (!type_name.empty()) {
+        auto& registry = get_global_type_alias_registry();
+        TypeInfo resolved = registry.resolve_alias(type_name);
+        if (resolved != TYPE_UNKNOWN) {
+            debug_msg(DebugMsgId::TYPE_ALIAS_RUNTIME_RESOLVE, type_name.c_str(), type_info_to_string(resolved));
+            return resolved;
+        }
+    }
+    
+    return TYPE_UNKNOWN;
+}
+
+void VariableManager::assign_array_literal(const std::string &name, ASTNode* array_literal) {
+    Variable *var = interpreter_.find_variable(name);
+    if (!var) {
+        throw std::runtime_error("Variable not found: " + name);
+    }
+    
+    if (!var->is_array) {
+        throw std::runtime_error("Variable is not an array: " + name);
+    }
+    
+    if (array_literal->node_type != ASTNodeType::AST_ARRAY_LITERAL) {
+        throw std::runtime_error("Not an array literal");
+    }
+    
+    // 配列要素を取得
+    std::vector<int64_t> int_values;
+    std::vector<std::string> str_values;
+    bool is_string_array = false;
+    
+    // 基底型を判定
+    TypeInfo base_type = static_cast<TypeInfo>(var->type - TYPE_ARRAY_BASE);
+    is_string_array = (base_type == TYPE_STRING);
+    
+    // 配列リテラルの要素を評価
+    if (!array_literal->arguments.empty()) {
+        for (size_t i = 0; i < array_literal->arguments.size(); i++) {
+            auto& arg = array_literal->arguments[i];
+            if (is_string_array) {
+                // 文字列配列
+                if (arg->node_type == ASTNodeType::AST_STRING_LITERAL) {
+                    str_values.push_back(arg->str_value);
+                } else {
+                    throw std::runtime_error("Type mismatch in string array literal");
+                }
+            } else {
+                // 数値配列
+                int64_t value = interpreter_.evaluate_expression(arg.get());
+                int_values.push_back(value);
+            }
+        }
+    }
+    
+    // 配列に値を代入
+    if (is_string_array) {
+        var->array_strings() = str_values;
+    } else {
+        var->array_values() = int_values;
+    }
+    
+    var->is_assigned = true;
 }

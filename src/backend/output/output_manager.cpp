@@ -1,6 +1,6 @@
 #include "output_manager.h"
 #include "../interpreter.h"
-#include "../../frontend/debug.h"
+#include "../../common/debug.h"
 #include "../../common/utf8_utils.h"
 #include "../../common/io_interface.h"
 #include <cinttypes>
@@ -35,7 +35,7 @@ void OutputManager::print_value(const ASTNode *expr) {
     } else if (expr->node_type == ASTNodeType::AST_VARIABLE) {
         Variable *var = find_variable(expr->name);
         if (var && var->type == TYPE_STRING) {
-            io_interface_->write_string(var->str_value.c_str());
+            io_interface_->write_string(var->string_value.c_str());
         } else {
             int64_t value = evaluate_expression(expr);
             io_interface_->write_number(value);
@@ -46,11 +46,11 @@ void OutputManager::print_value(const ASTNode *expr) {
         if (var && var->type == TYPE_STRING) {
             // 文字列要素アクセスの場合は文字として出力（UTF-8対応）
             int64_t index = evaluate_expression(expr->array_index.get());
-            size_t utf8_length = utf8_utils::utf8_char_count(var->str_value);
+            size_t utf8_length = utf8_utils::utf8_char_count(var->string_value);
 
             if (index >= 0 && index < static_cast<int64_t>(utf8_length)) {
                 std::string utf8_char =
-                    utf8_utils::utf8_char_at(var->str_value, static_cast<size_t>(index));
+                    utf8_utils::utf8_char_at(var->string_value, static_cast<size_t>(index));
                 io_interface_->write_string(utf8_char.c_str());
             } else {
                 error_msg(DebugMsgId::STRING_OUT_OF_BOUNDS_ERROR,
@@ -71,14 +71,14 @@ void OutputManager::print_value(const ASTNode *expr) {
                 static_cast<TypeInfo>(var->type - TYPE_ARRAY_BASE);
             if (elem_type == TYPE_STRING) {
                 // 文字列配列の場合は文字列として出力
-                if (index < static_cast<int64_t>(var->array_strings.size())) {
-                    io_interface_->write_string(var->array_strings[index].c_str());
+                if (index < static_cast<int64_t>(var->array_strings().size())) {
+                    io_interface_->write_string(var->array_strings()[index].c_str());
                 } else {
                     io_interface_->write_string("");
                 }
             } else {
                 // 数値配列は数値として出力
-                int64_t value = var->array_values[index];
+                int64_t value = var->array_values()[index];
                 io_interface_->write_number(value);
             }
         } else {
@@ -99,9 +99,9 @@ void OutputManager::print_value(const ASTNode *expr) {
                     evaluate_expression(expr->arguments[i].get());
                 Variable param;
                 param.type = func->parameters[i]->type_info;
-                param.value = arg_value;
+                param.int_value = arg_value;
                 param.is_assigned = true;
-                interpreter_->get_current_scope().variables[func->parameters[i]->name] = param;
+                interpreter_->get_current_scope().variables.insert_or_assign(func->parameters[i]->name, std::move(param));
             }
 
             try {
@@ -166,7 +166,7 @@ void OutputManager::print_formatted(const ASTNode *format_str,
             } else if (arg->node_type == ASTNodeType::AST_VARIABLE) {
                 Variable *var = find_variable(arg->name);
                 if (var && var->type == TYPE_STRING) {
-                    str_args.push_back(var->str_value);
+                    str_args.push_back(var->string_value);
                     int_args.push_back(0); // プレースホルダー
                 } else {
                     int64_t value = evaluate_expression(arg.get());
@@ -372,7 +372,7 @@ void OutputManager::print_multiple(const ASTNode *arg_list) {
                                ASTNodeType::AST_VARIABLE) {
                         Variable *var = find_variable(before_arg->name);
                         if (var && var->type == TYPE_STRING) {
-                            output = var->str_value;
+                            output = var->string_value;
                         } else {
                             int64_t value =
                                 evaluate_expression(before_arg.get());
@@ -458,7 +458,7 @@ void OutputManager::print_multiple(const ASTNode *arg_list) {
         } else if (arg->node_type == ASTNodeType::AST_VARIABLE) {
             Variable *var = find_variable(arg->name);
             if (var && var->type == TYPE_STRING) {
-                output = var->str_value;
+                output = var->string_value;
             } else {
                 int64_t value = evaluate_expression(arg.get());
                 output = std::to_string(value);

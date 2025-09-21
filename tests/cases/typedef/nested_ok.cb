@@ -1,0 +1,11 @@
+// typedef ネストテスト
+typedef int MyInt;
+typedef MyInt MyNestedInt;
+
+int main() {
+    MyNestedInt value = 100;
+    print("Nested typedef value = ");
+    print(value);
+    println();
+    return 0;
+}

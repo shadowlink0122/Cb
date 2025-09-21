@@ -1,4 +1,6 @@
 #include "parser_utils.h"
+#include "../common/debug.h"
+#include "../common/type_alias.h"
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
@@ -71,6 +73,29 @@ ASTNode *create_type_node(TypeInfo type) {
 
     // 現在の型として設定
     set_current_type(type);
+
+    return node;
+}
+
+ASTNode *create_type_alias_node(const char *type_name) {
+    debug_msg(DebugMsgId::TYPE_ALIAS_CREATE_NODE, type_name);
+
+    // 型エイリアスを解決してTYPE_SPECノードを作成
+    auto node = new ASTNode(ASTNodeType::AST_TYPE_SPEC);
+    node->type_name = std::string(type_name); // 型名を新しいフィールドに保存
+
+    // 型エイリアス解決を試行（パース時）
+    auto &registry = get_global_type_alias_registry();
+    TypeInfo resolved = registry.resolve_alias(type_name);
+
+    if (resolved != TYPE_UNKNOWN) {
+        node->type_info = resolved;
+        debug_msg(DebugMsgId::TYPE_ALIAS_RUNTIME_RESOLVE, type_name,
+                  type_info_to_string_basic(resolved));
+    } else {
+        node->type_info = TYPE_UNKNOWN;
+        debug_msg(DebugMsgId::TYPE_RESOLVING, TYPE_UNKNOWN, type_name);
+    }
 
     return node;
 }
@@ -587,6 +612,15 @@ void set_declaration_attributes(ASTNode *decl, ASTNode *decl_spec,
         decl->is_const = decl_spec->is_const;
         decl->type_info = decl_spec->type_info;
 
+        // 型エイリアス解決
+        if (decl_spec->type_info == TYPE_UNKNOWN &&
+            !decl_spec->type_name.empty()) {
+            // 型エイリアス名を保存（実行時に解決）
+            decl->type_name = decl_spec->type_name;
+            debug_msg(DebugMsgId::TYPE_ALIAS_RUNTIME_RESOLVE,
+                      decl_spec->type_name.c_str(), "delayed resolution");
+        }
+
         // 配列の場合、要素型も設定
         if (decl->node_type == ASTNodeType::AST_ARRAY_DECL &&
             decl_spec->type_info < TYPE_ARRAY_BASE) {
@@ -651,6 +685,9 @@ ASTNode *create_decl_spec(ASTNode *storage_class, ASTNode *type_qualifier,
     // type_specifierの情報をコピー
     if (type_spec) {
         node->type_info = type_spec->type_info;
+        node->str_value = type_spec->str_value; // 型エイリアス名も保存
+        node->type_name =
+            type_spec->type_name; // 型エイリアス名をtype_nameにもコピー
     } else {
         node->type_info = TYPE_INT; // デフォルト
     }
@@ -669,5 +706,82 @@ ASTNode *create_decl_spec(ASTNode *storage_class, ASTNode *type_qualifier,
         node->is_const = false;
     }
 
+    return node;
+}
+
+// typedef宣言ノード作成
+ASTNode *create_typedef_decl(const char *alias_name, ASTNode *type_node) {
+    auto node = new ASTNode(ASTNodeType::AST_TYPEDEF_DECL);
+    node->name = std::string(alias_name);
+
+    if (type_node) {
+        node->type_info = type_node->type_info;
+        // type_nodeは使用済みなので削除
+        delete type_node;
+    } else {
+        node->type_info = TYPE_INT; // デフォルト
+    }
+
+    return node;
+}
+
+// 配列typedef宣言ノード作成
+ASTNode *create_typedef_array_decl(
+    const char *alias_name, ASTNode *type_node,
+    const std::vector<std::unique_ptr<ASTNode>> &dimensions) {
+    auto node = new ASTNode(ASTNodeType::AST_TYPEDEF_DECL);
+    node->name = std::string(alias_name);
+
+    if (type_node) {
+        // 配列型情報を設定
+        ArrayTypeInfo array_info;
+        array_info.base_type = type_node->type_info;
+
+        for (const auto &dim : dimensions) {
+            if (dim && dim->node_type == ASTNodeType::AST_NUMBER) {
+                // 固定サイズ配列
+                array_info.dimensions.push_back(
+                    ArrayDimension(dim->int_value, false));
+            } else {
+                // 動的サイズ配列
+                array_info.dimensions.push_back(ArrayDimension(-1, true));
+            }
+        }
+
+        node->array_type_info = array_info;
+        // 下位互換性のためTYPE_ARRAY_BASEも設定
+        node->type_info =
+            static_cast<TypeInfo>(TYPE_ARRAY_BASE + type_node->type_info);
+
+        delete type_node;
+    } else {
+        node->type_info = TYPE_INT; // デフォルト
+    }
+
+    return node;
+}
+
+// 配列型ノード作成
+ASTNode *create_array_type_node(TypeInfo base_type, ASTNode *size_expr) {
+    auto node = new ASTNode(ASTNodeType::AST_TYPE_SPEC);
+    node->type_info = static_cast<TypeInfo>(TYPE_ARRAY_BASE + base_type);
+    node->array_size_expr = std::unique_ptr<ASTNode>(size_expr);
+    return node;
+}
+
+// 型エイリアスから配列型ノード作成
+ASTNode *create_array_type_node_from_alias(ASTNode *alias_node,
+                                           ASTNode *size_expr) {
+    auto node = new ASTNode(ASTNodeType::AST_TYPE_SPEC);
+    if (alias_node) {
+        node->type_info =
+            static_cast<TypeInfo>(TYPE_ARRAY_BASE + alias_node->type_info);
+        node->type_name = alias_node->type_name; // エイリアス名を保持
+        delete alias_node;
+    } else {
+        node->type_info =
+            static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_INT); // デフォルト
+    }
+    node->array_size_expr = std::unique_ptr<ASTNode>(size_expr);
     return node;
 }

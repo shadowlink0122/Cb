@@ -1,6 +1,6 @@
 #pragma once
 #include "../common/ast.h"
-#include "debug.h"
+#include "../common/debug.h"
 
 // パーサーヘルパー関数の宣言
 extern "C" {
@@ -8,6 +8,7 @@ extern "C" {
 // ノード作成関数
 ASTNode *create_stmt_list();
 ASTNode *create_type_node(TypeInfo type);
+ASTNode *create_type_alias_node(const char *type_name);
 ASTNode *create_storage_spec(bool is_static, bool is_const);
 ASTNode *create_var_decl(const char *name);
 ASTNode *create_var_init(const char *name, ASTNode *init_expr);
@@ -58,6 +59,7 @@ ASTNode *create_decl_spec(ASTNode *storage_class, ASTNode *type_qualifier,
                           ASTNode *type_spec);
 ASTNode *create_arg_list();
 ASTNode *create_array_literal(ASTNode *elements);
+ASTNode *create_type_alias_node(const char *type_name);
 
 // ユーティリティ関数
 void add_statement(ASTNode *list, ASTNode *stmt);
@@ -72,3 +74,14 @@ void delete_node(ASTNode *node);
 // エラー処理
 void yyerror(const char *s);
 }
+
+// typedef関連（C++）
+ASTNode *create_typedef_decl(const char *alias_name, ASTNode *type_node);
+ASTNode *create_typedef_array_decl(
+    const char *alias_name, ASTNode *type_node,
+    const std::vector<std::unique_ptr<ASTNode>> &dimensions);
+
+// 配列型関数
+ASTNode *create_array_type_node(TypeInfo base_type, ASTNode *size_expr);
+ASTNode *create_array_type_node_from_alias(ASTNode *alias_node,
+                                           ASTNode *size_expr);

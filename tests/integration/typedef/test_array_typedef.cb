@@ -1,0 +1,56 @@
+// typedef配列統合テスト
+typedef int[3] IntArray;
+typedef string[2] StringArray;
+typedef bool[4] BoolArray;
+
+int main() {
+    println("=== Typedef Array Integration Test ===");
+    
+    // 配列の宣言と配列リテラル代入
+    IntArray numbers;
+    numbers = [10, 20, 30];
+    
+    StringArray texts;
+    texts = ["first", "second"];
+    
+    BoolArray flags;
+    flags = [true, false, true, false];
+    
+    println("Testing typedef array usage:");
+    
+    println("IntArray numbers:");
+    print("  numbers[0] = ");
+    print(numbers[0]);
+    println("");
+    print("  numbers[1] = ");
+    print(numbers[1]);
+    println("");
+    print("  numbers[2] = ");
+    print(numbers[2]);
+    println("");
+    
+    println("StringArray texts:");
+    print("  texts[0] = ");
+    print(texts[0]);
+    println("");
+    print("  texts[1] = ");
+    print(texts[1]);
+    println("");
+    
+    println("BoolArray flags:");
+    print("  flags[0] = ");
+    print(flags[0]);
+    println("");
+    print("  flags[1] = ");
+    print(flags[1]);
+    println("");
+    print("  flags[2] = ");
+    print(flags[2]);
+    println("");
+    print("  flags[3] = ");
+    print(flags[3]);
+    println("");
+    
+    println("Typedef array integration test completed!");
+    return 0;
+}

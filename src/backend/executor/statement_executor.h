@@ -16,6 +16,9 @@ public:
     void execute_try_statement(const ASTNode *node);
     void execute_throw_statement(const ASTNode *node);
     
+    // typedef処理メソッド
+    void execute_typedef_statement(const ASTNode *node);
+    
 private:
     Interpreter& interpreter_;  // インタープリターへの参照
 };

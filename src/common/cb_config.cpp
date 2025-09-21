@@ -31,6 +31,10 @@ bool CbConfig::load_config(const std::string &config_path) {
         // デフォルトの設定ファイルを検索
         std::vector<std::string> default_paths = {
             "./cb_config.json", get_executable_directory() + "cb_config.json",
+            "../../cb_config.json",    // 単体テスト用 (tests/unit
+                                       // から見た相対パス)
+            "../../../cb_config.json", // 統合テスト用 (tests/integration
+                                       // から見た相対パス)
             "~/.cb/config.json"};
 
         for (const auto &path : default_paths) {
@@ -48,7 +52,15 @@ bool CbConfig::load_config(const std::string &config_path) {
     }
 
     if (config_file.empty()) {
-        std::cout << "No configuration file found, using defaults" << std::endl;
+        // デバッグモードまたは明示的にverboseが有効な場合のみメッセージを出力
+        // 単体テストやサイレント実行時は出力しない
+        char *env_debug = std::getenv("CB_DEBUG_MODE");
+        char *env_verbose = std::getenv("CB_VERBOSE");
+        if ((env_debug && env_debug[0] == '1') ||
+            (env_verbose && env_verbose[0] == '1')) {
+            std::cout << "No configuration file found, using defaults"
+                      << std::endl;
+        }
         return true; // デフォルト設定を使用
     }
 
