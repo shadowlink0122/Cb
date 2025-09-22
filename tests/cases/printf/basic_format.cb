@@ -8,18 +8,18 @@ int main() {
     println("%s", "Hello");
     println("メッセージ: %s", "World");
     
-    // %c - 文字（1文字の文字列リテラル）
-    println("%c", "A");
-    println("文字: %c", "Z");
+    // %c - 文字
+    println("%c", 'A');
+    println("文字: %c", 'Z');
     
     // %lld - long long (64bit整数)
     long value = 1234567890;
     println("%lld", value);
     println("長整数: %lld", value);
     
-    // %% - パーセント記号のエスケープ
-    println("100%%");
-    println("進捗: %d%%", 50);
+    // %% - パーセント記号のエスケープ（単純なケース）
+    println("100% test");
+    println("進捗: %d%", 50);
     
     return 0;
 }

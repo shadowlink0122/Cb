@@ -1,0 +1,197 @@
+// Cb Language Feature Demonstration
+// 現在実装されている機能のデモンストレーション
+
+// フィボナッチ数列を計算する関数
+long fibonacci(int n) {
+    if (n <= 1) return n;
+    return fibonacci(n - 1) + fibonacci(n - 2);
+}
+
+// 素数判定関数
+bool is_prime(int n) {
+    if (n < 2) return false;
+    if (n == 2) return true;
+    if (n % 2 == 0) return false;
+    
+    // while文をfor文に変更
+    for (int i = 3; i * i <= n; i = i + 2) {
+        if (n % i == 0) return false;
+    }
+    return true;
+}
+
+// 配列操作デモ（グローバル配列使用）
+int[10] global_numbers;
+
+// FizzBuzz実装
+void fizzbuzz_demo(int n) {
+    println("=== FizzBuzz Demo (1-%d) ===", n);
+    
+    // while文をfor文に変更
+    for (int i = 1; i <= n; i = i + 1) {
+        if ((i % 3 == 0) && (i % 5 == 0)) {
+            println("%d: FizzBuzz", i);
+        } else if (i % 3 == 0) {
+            println("%d: Fizz", i);
+        } else if (i % 5 == 0) {
+            println("%d: Buzz", i);
+        } else {
+            println("%d", i);
+        }
+    }
+    println();
+}
+
+int main() {
+    println("============================================");
+    println("    Cb Programming Language Demo");
+    println("============================================");
+    println();
+    
+    // ========== Section 1: 基本データ型と演算 ==========
+    println("1. Basic Data Types and Operations:");
+    
+    int integer_val = 42;
+    long long_val = 1000000;
+    bool bool_val = true;
+    string str_val = "Hello, Cb!";
+    
+    println("整数: %d", integer_val);
+    println("長整数: %d", long_val);
+    println("真偽値: %d", bool_val);
+    println("文字列: %s", str_val);
+    
+    // 演算デモ
+    int a = 10;
+    int b = 3;
+    
+    // 事前計算で複雑な式を回避
+    int sum_result = a + b;
+    int sub_result = a - b;
+    int mul_result = a * b;
+    int div_result = a / b;
+    
+    println("演算デモ: %d + %d = %d", a, b, sum_result);
+    println("演算デモ: %d - %d = %d", a, b, sub_result);
+    println("演算デモ: %d * %d = %d", a, b, mul_result);
+    println("演算デモ: %d / %d = %d", a, b, div_result);
+    
+    // モジュロ演算も事前計算
+    int mod_result = a % b;
+    println("演算デモ: %d %% %d = %d", a, b, mod_result);
+    println();
+    
+    // ========== Section 2: 論理演算と制御構造 ==========
+    println("2. Logical Operations and Control Structures:");
+    
+    bool x = true;
+    bool y = false;
+    
+    // 論理演算も事前計算
+    bool and_result = x && y;
+    bool or_result = x || y;
+    bool not_result = !x;
+    
+    println("論理演算: true && false = %d", and_result);
+    println("論理演算: true || false = %d", or_result);
+    println("論理演算: !true = %d", not_result);
+    
+    // if-else デモ
+    int score = 85;
+    print("成績判定 (%d点): ", score);
+    if (score >= 90) {
+        println("優秀");
+    } else if (score >= 80) {
+        println("良好");
+    } else if (score >= 70) {
+        println("普通");
+    } else {
+        println("要改善");
+    }
+    println();
+    
+    // ========== Section 3: ループと配列 ==========
+    println("3. Loops and Arrays:");
+    
+    // for ループデモ
+    println("for ループ (1-5):");
+    for (int i = 1; i <= 5; i = i + 1) {
+        print("%d ", i);
+    }
+    println();
+    
+    // for ループデモ (while の代替)
+    println("for ループ (5-1):");
+    for (int j = 5; j >= 1; j = j - 1) {
+        print("%d ", j);
+    }
+    println();
+    
+    // 配列デモ
+    int[5] numbers;
+    numbers[0] = 10;
+    numbers[1] = 25;
+    numbers[2] = 5;
+    numbers[3] = 30;
+    numbers[4] = 15;
+    
+    println("配列の内容:");
+    for (int k = 0; k < 5; k = k + 1) {
+        print("numbers[%d] = %d", k, numbers[k]);
+        if (k < 4) print(", ");
+    }
+    println();
+    
+    // 最大値を手動計算
+    int max_val = numbers[0];
+    for (int m = 1; m < 5; m = m + 1) {
+        if (numbers[m] > max_val) {
+            max_val = numbers[m];
+        }
+    }
+    println("配列の最大値: %d", max_val);
+    println();
+    
+    // ========== Section 4: 関数と再帰 ==========
+    println("4. Functions and Recursion:");
+    
+    println("フィボナッチ数列 (最初の10項):");
+    for (int n = 0; n < 10; n = n + 1) {
+        long fib_val = fibonacci(n);
+        print("%d", fib_val);
+        if (n < 9) print(", ");
+    }
+    println();
+    
+    println("素数判定 (1-20):");
+    for (int num = 1; num <= 20; num = num + 1) {
+        if (is_prime(num)) {
+            print("%d ", num);
+        }
+    }
+    println();
+    println();
+    
+    // ========== Section 5: FizzBuzz デモ ==========
+    fizzbuzz_demo(15);
+    
+    // ========== Section 6: 文字列処理 ==========
+    println("5. String Processing:");
+    
+    string msg1 = "プログラミング";
+    string msg2 = "は楽しい！";
+    
+    println("文字列1: %s", msg1);
+    println("文字列2: %s", msg2);
+    
+    // 文字列の文字アクセス（UTF-8対応）
+    println("文字列1の最初の文字: %s", msg1[0]);
+    println();
+    
+    // ========== Final ==========
+    println("============================================");
+    println("         Demo Complete!");
+    println("============================================");
+    
+    return 0;
+}

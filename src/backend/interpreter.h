@@ -1,133 +1,38 @@
 #pragma once
 #include "../common/ast.h"
-#include "../common/debug_messages.h"
-#include "../common/type_alias.h"
-#include "evaluator/expression_evaluator.h"
-#include "executor/statement_executor.h"
-#include "memory/array_memory_manager.h"
-#include "modules/module_resolver.h"
 #include "output/output_manager.h"
-#include "variables/semantic_analyzer.h"
-#include "variables/variable_manager.h"
 #include <map>
-#include <memory>
 #include <string>
 #include <vector>
 
 // 前方宣言
-class ArrayMemoryBlock;
+class OutputManager;
 
+// 変数・関数の格納構造
 struct Variable {
     TypeInfo type;
-    std::string name;
-    std::string string_value;
-    int64_t int_value;
-
-    // 配列データ：2つのシステムをサポート
-    // Array management members
-    ArrayMemoryBlock *array_block;
-    std::string array_name;
-    std::unique_ptr<std::vector<int64_t>> array_values_ptr;
-    std::unique_ptr<std::vector<std::string>> array_strings_ptr;
-
-    int array_size;
-    bool is_array;
-    bool use_new_array_system; // どちらのシステムを使うか
-
-    // Array typedef サポート
-    ArrayTypeInfo array_type_info;
-
     bool is_const;
+    bool is_array;
     bool is_assigned;
 
+    // 値
+    int64_t value;
+    std::string str_value;
+
+    // 配列用
+    int array_size;
+    std::vector<int64_t> array_values;
+    std::vector<std::string> array_strings;
+
     Variable()
-        : type(TYPE_INT), int_value(0), array_block(nullptr), array_name(""),
-          array_values_ptr(nullptr), array_strings_ptr(nullptr), array_size(0),
-          is_array(false), use_new_array_system(true), is_const(false),
-          is_assigned(false) {}
-
-    // ムーブコンストラクタ
-    Variable(Variable &&other) noexcept
-        : type(other.type), name(std::move(other.name)),
-          string_value(std::move(other.string_value)),
-          int_value(other.int_value), array_block(other.array_block),
-          array_name(std::move(other.array_name)),
-          array_values_ptr(std::move(other.array_values_ptr)),
-          array_strings_ptr(std::move(other.array_strings_ptr)),
-          array_size(other.array_size), is_array(other.is_array),
-          use_new_array_system(other.use_new_array_system),
-          array_type_info(other.array_type_info), is_const(other.is_const),
-          is_assigned(other.is_assigned) {
-        other.array_block = nullptr;
-    }
-
-    // ムーブ代入演算子
-    Variable &operator=(Variable &&other) noexcept {
-        if (this != &other) {
-            type = other.type;
-            name = std::move(other.name);
-            string_value = std::move(other.string_value);
-            int_value = other.int_value;
-            array_block = other.array_block;
-            array_name = std::move(other.array_name);
-            array_values_ptr = std::move(other.array_values_ptr);
-            array_strings_ptr = std::move(other.array_strings_ptr);
-            array_size = other.array_size;
-            is_array = other.is_array;
-            use_new_array_system = other.use_new_array_system;
-            array_type_info = other.array_type_info;
-            is_const = other.is_const;
-            is_assigned = other.is_assigned;
-            other.array_block = nullptr;
-        }
-        return *this;
-    }
-
-    // コピーコンストラクタとコピー代入演算子を削除
-    Variable(const Variable &) = delete;
-    Variable &operator=(const Variable &) = delete;
-
-    // 旧システム用の後方互換アクセサ
-    std::vector<int64_t> &array_values() {
-        if (!array_values_ptr) {
-            array_values_ptr = std::make_unique<std::vector<int64_t>>();
-        }
-        return *array_values_ptr;
-    }
-
-    std::vector<std::string> &array_strings() {
-        if (!array_strings_ptr) {
-            array_strings_ptr = std::make_unique<std::vector<std::string>>();
-        }
-        return *array_strings_ptr;
-    }
+        : type(TYPE_INT), is_const(false), is_array(false), is_assigned(false),
+          value(0), array_size(0) {}
 };
 
 // スコープ管理
 struct Scope {
     std::map<std::string, Variable> variables;
     std::map<std::string, const ASTNode *> functions;
-
-    // デフォルトコンストラクタ
-    Scope() = default;
-
-    // ムーブコンストラクタ
-    Scope(Scope &&other) noexcept
-        : variables(std::move(other.variables)),
-          functions(std::move(other.functions)) {}
-
-    // ムーブ代入演算子
-    Scope &operator=(Scope &&other) noexcept {
-        if (this != &other) {
-            variables = std::move(other.variables);
-            functions = std::move(other.functions);
-        }
-        return *this;
-    }
-
-    // コピーコンストラクタとコピー代入演算子を削除
-    Scope(const Scope &) = delete;
-    Scope &operator=(const Scope &) = delete;
 
     void clear() {
         variables.clear();
@@ -153,24 +58,21 @@ class BreakException {
     BreakException(int64_t cond = 1) : condition(cond) {}
 };
 
+class ContinueException {
+  public:
+    int64_t condition;
+    ContinueException(int64_t cond = 1) : condition(cond) {}
+};
+
 // インタープリター実装
 class Interpreter : public EvaluatorInterface {
   private:
     std::vector<Scope> scope_stack;
     Scope global_scope;
     bool debug_mode;
-    std::unique_ptr<OutputManager> output_manager_;
-    std::unique_ptr<ExpressionEvaluator> expression_evaluator_;
-    std::unique_ptr<StatementExecutor> statement_executor_;
-    std::unique_ptr<VariableManager> variable_manager_;
-    std::unique_ptr<ModuleResolver> module_resolver_;
-    std::unique_ptr<SemanticAnalyzer> semantic_analyzer_;
-
-    // ヘルパーメソッド
-    void register_global_declarations(const ASTNode *node);
-
-    // 新しい意味解析フェーズ
-    bool perform_semantic_analysis(const ASTNode *ast);
+    OutputManager output_manager_;
+    std::map<std::string, std::string>
+        typedef_map; // typedef alias -> base type mapping
 
   public:
     Interpreter(bool debug = false);
@@ -180,66 +82,74 @@ class Interpreter : public EvaluatorInterface {
     void process(const ASTNode *ast) override;
     int64_t evaluate(const ASTNode *node) override;
 
-    // デバッグ機能
-    void set_debug_mode(bool debug) { debug_mode = debug; }
-    bool get_debug_mode() const { return debug_mode; }
+    // 出力管理
+    OutputManager &get_output_manager() { return output_manager_; }
 
-    // ExpressionEvaluator用のpublicアクセサ
-    Variable *find_variable(const std::string &name);
-    const ASTNode *find_function(const std::string &name);
-    void check_type_range(TypeInfo type, int64_t value,
-                          const std::string &name);
+    // スコープ管理
     void push_scope();
     void pop_scope();
+    void push_interpreter_scope() { push_scope(); }
+    void pop_interpreter_scope() { pop_scope(); }
     Scope &current_scope();
-    void execute_statement(const ASTNode *node);
-    int64_t evaluate_expression(const ASTNode *node);
+    Scope &get_current_scope() { return current_scope(); }
 
-    // StatementExecutor用のpublicアクセサ
-    Scope &get_global_scope() { return global_scope; }
-    OutputManager &get_output_manager() { return *output_manager_; }
+    // 変数・関数アクセス
+    Variable *find_variable(const std::string &name);
+    Variable *get_variable(const std::string &name) {
+        return find_variable(name);
+    }
+    const ASTNode *find_function(const std::string &name);
+    const ASTNode *get_function(const std::string &name) {
+        return find_function(name);
+    }
+
+    // AST処理
+    void register_global_declarations(const ASTNode *node);
+    void execute_statement(const ASTNode *node);
+    void exec_statement(const ASTNode *node) { execute_statement(node); }
+    int64_t evaluate_expression(const ASTNode *node);
+    int64_t eval_expression(const ASTNode *node) {
+        return evaluate_expression(node);
+    }
+
+    // 変数操作 (publicに移動)
     void assign_variable(const std::string &name, int64_t value,
                          TypeInfo type = TYPE_INT);
-    void assign_variable(const std::string &name, const std::string &value,
-                         bool is_const);
+    void assign_variable(const std::string &name, const std::string &value);
     void assign_variable(const std::string &name, int64_t value, TypeInfo type,
                          bool is_const);
-    void assign_variable(const std::string &name, const std::string &value);
+    void assign_variable(const std::string &name, const std::string &value,
+                         bool is_const);
     void assign_array_element(const std::string &name, int64_t index,
                               int64_t value);
     void assign_string_element(const std::string &name, int64_t index,
                                const std::string &value);
-    void assign_array_literal(const std::string &name, ASTNode *array_literal);
 
-    // 型エイリアス解決
-    TypeInfo resolve_type_alias(TypeInfo type_info,
-                                const std::string &type_name = "");
-
-    // OutputManager用のpublicアクセサ
-    Variable *get_variable(const std::string &name) {
-        return find_variable(name);
-    }
-    const ASTNode *get_function(const std::string &name) {
-        return find_function(name);
-    }
-    int64_t eval_expression(const ASTNode *node) {
-        return evaluate_expression(node);
-    }
-    void push_interpreter_scope() { push_scope(); }
-    void pop_interpreter_scope() { pop_scope(); }
-    void exec_statement(const ASTNode *node) { execute_statement(node); }
-    Scope &get_current_scope() { return current_scope(); }
-
-    // モジュールシステムサポート
-    bool process_import(const ASTNode *import_node);
-    ModuleResolver *get_module_resolver() const {
-        return module_resolver_.get();
+    // 配列リテラル割り当て（プレースホルダー）
+    void assign_array_literal(const std::string &name,
+                              const ASTNode *literal_node) {
+        // TODO: 実装が必要
     }
 
-    // モジュール関数サポート
-    bool is_module_loaded(const std::string &module_name);
-    const ASTNode *find_module_function(const std::string &module_name,
-                                        const std::string &function_name);
-    int64_t find_module_variable(const std::string &module_name,
-                                 const std::string &variable_name);
+    // 型解決
+    TypeInfo resolve_type_alias(TypeInfo base_type,
+                                const std::string &type_name) {
+        // TODO: 実装が必要
+        return base_type;
+    }
+
+    // typedef処理
+    std::string resolve_typedef(const std::string &type_name);
+    TypeInfo string_to_type_info(const std::string &type_str);
+
+  private:
+    void print_value(const ASTNode *expr);
+    void print_formatted(const ASTNode *format_str, const ASTNode *arg_list);
+
+  public:
+    void check_type_range(TypeInfo type, int64_t value,
+                          const std::string &name);
+
+    // デバッグ機能
+    void set_debug_mode(bool debug) { debug_mode = debug; }
 };

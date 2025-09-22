@@ -50,6 +50,8 @@ test_debug_main
 src/frontend/parser.c
 src/frontend/parser.h
 src/frontend/lexer.c
+parser.tab.c
+parser.output
 
 # その他
 *~

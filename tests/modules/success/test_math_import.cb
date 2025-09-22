@@ -1,0 +1,15 @@
+// mathモジュールインポートテスト
+import math;
+
+int main() {
+    int a = 10;
+    int b = 20;
+    
+    int sum = add(a, b);
+    int diff = subtract(a, b);
+    
+    print("add(%d, %d) = %d", a, b, sum);
+    print("subtract(%d, %d) = %d", a, b, diff);
+    
+    return 0;
+}

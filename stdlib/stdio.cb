@@ -1,40 +1,17 @@
-// std.io モジュール - 標準入出力機能
-export func print(value: auto) {
-    printf("%s", value);
-}
+// stdio.cb - Standard I/O library for Cb language
 
-export func println(value: auto) {
-    printf("%s\n", value);
-}
+// Basic print functions
+export void print(string message);
+export void print(int value);
+export void print(string format, ...);
 
-export func print_int(value: int) {
-    printf("%d", value);
-}
+// Future implementations
+// export void println(string message);
+// export void printf(string format, ...);
+// export int scanf(string format, ...);
 
-export func println_int(value: int) {
-    printf("%d\n", value);
-}
-
-export func print_float(value: float) {
-    printf("%.6f", value);
-}
-
-export func println_float(value: float) {
-    printf("%.6f\n", value);
-}
-
-export func print_bool(value: bool) {
-    if (value) {
-        printf("true");
-    } else {
-        printf("false");
-    }
-}
-
-export func println_bool(value: bool) {
-    if (value) {
-        printf("true\n");
-    } else {
-        printf("false\n");
-    }
-}
+// File I/O (future implementation)
+// export int open(string filename, string mode);
+// export void close(int fd);
+// export string read(int fd);
+// export void write(int fd, string data);

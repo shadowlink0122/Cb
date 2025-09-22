@@ -1,6 +1,7 @@
-// 循環import エラーテスト用のモジュール A
-import "circular_b.cb";
+// Circular import A - should cause error
+import circular_b;
 
-export int function_a() {
-    return function_b() + 1;
+int main() {
+    print("This should not work");
+    return 0;
 }

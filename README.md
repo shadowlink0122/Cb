@@ -1,71 +1,101 @@
-# Cb (C-flat) 自作プログラミング言語・コンパイラ
+# Cb (C-flat) プログラミング言語
 
 ## 概要
 
-C++で作成した静的型付きの簡易プログラミング言語です。
-読み方はシーフラット(C++, C#があるのであえて逆を行ってみました)
+C++で作成した静的型付きプログラミング言語です。
+読み方は「シーフラット」（C++, C#があるので敢えて逆を行ってみました）
 
-flex(lex)とbison(yacc)を利用してAST（抽象構文木）を構築し、C++でASTを逐次実行するインタープリター、またはCコードに変換するトランスパイラーとして動作します。
+flex(lex)とbison(yacc)を利用してAST（抽象構文木）を構築し、C++でASTを逐次実行するインタープリターとして動作します。
 
 ## 特徴
 
-### 型システム
-- **静的型付き言語**（型は宣言時に決定され、型チェックはパース時・実行時に行われます）
-- **整数型**: `tiny` (int8_t), `short` (int16_t), `int` (int32_t), `long` (int64_t)
-- **文字列型**: UTF-8対応の文字列処理
-- **配列型**: 各型の配列をサポート（例: `int[]`, `string[]`）
-- **配列リテラル**: `{1, 2, 3}` 形式での初期化と包括的な型チェック
-- **bool型**: 真偽値の扱い
+### 型システム ✅
+- **静的型付き言語** - 型は宣言時に決定、型チェックはパース時・実行時
+- **整数型**: `tiny` (8bit), `short` (16bi### 関数定義
+```cb
+int fibonacci(int n) {
+    if (n <= 1)
+        return n;
+    return fibonacci(n - 1) + fibonacci(n - 2);
+}
+
+int main() {
+    for (int i = 0; i < 10; i++) {
+        print("fibonacci(%d) = %d", i, fibonacci(i));
+    }
+    return 0;
+}
+```
+
+### const修飾子
+```cb
+int main() {
+    const int MAX_SIZE = 100;
+    const string MESSAGE = "Hello, Cb!";
+    
+    int[MAX_SIZE] buffer;  // const値を配列サイズに使用
+    
+    print("%s (配列サイズ: %d)", MESSAGE, MAX_SIZE);
+    
+    return 0;
+}
+```t), `long` (64bit)
+- **文字列型**: UTF-8対応の文字列処理 (`string`)
+- **文字型**: ASCII文字型 (`char`) - 0-255の範囲をサポート
+- **論理型**: 真偽値型 (`bool`)
+- **配列型**: 各型の静的配列をサポート（例: `int[10]`, `string[5]`）
+- **配列リテラル**: `[1, 2, 3]` 形式での初期化と包括的な型チェック
 - **const修飾子**: 定数宣言のサポート
 
-### 制御構造
+### 制御構造 ✅
 - **Cライクな制御構造**: `if`/`else`, `else if`, `for`, `while`, `break`, `return`
 - **ブロック文とブロックなし単文**の両方をサポート
 - **関数定義と呼び出し**
 
-### 演算子
+### 演算子 ✅
 - **Cライクな演算子優先順位**（`&&`, `||`, `==`, `!=`, `<`, `>`, `+`, `-`, `*`, `/`, `%` など）
 - **自己代入演算子**（`+=`, `-=`, `*=`, `/=`, `%=`）
 - **インクリメント・デクリメント**（`++`, `--`、前置・後置両方対応）
 
-### エラーハンドリング・デバッグ
+### 入出力機能 ✅
+- **print関数**: printf風フォーマット指定子対応
+  - `%d`: 整数 (tiny, short, int)
+  - `%lld`: 長整数 (long)  
+  - `%s`: 文字列 (string)
+  - `%c`: 文字 (char)
+  - `%%`: パーセント記号のエスケープ
+
+### エラーハンドリング・デバッグ ✅
 - **多言語対応エラーメッセージ**: 英語・日本語でのエラー表示
 - **包括的な型範囲チェック**: 全整数型で自動範囲チェック
 - **詳細なデバッグ機能**: `--debug`（英語）、`--debug-ja`（日本語）オプション
 - **UTF-8文字列処理**: 日本語を含む文字列の適切な処理
 
-### クロスプラットフォーム対応
-- **IO抽象化レイヤー**: プラットフォーム独立の出力システム
-- **実行時ターゲット指定**: `--target=native|baremetal|wasm` オプション
-- **ネイティブ環境**: 標準的なC標準ライブラリを使用（デフォルト）
-- **ベアメタル環境**: libcに依存しないUART出力（組み込み・OS開発向け）
-- **WebAssembly環境**: ブラウザ実行対応（将来拡張）
+### テストフレームワーク ✅
+- **統合テスト**: 50+個の包括的テストケース
+- **単体テスト**: 26個のモジュール別詳細テスト
+- **自動テスト実行**: `make test`で全テスト実行
 
-### 出力形式
-- **インタープリター**: 直接実行
-- **トランスパイラー**: Cコードへの変換（cgen）
+## 実装状況
 
-## 今後の拡張予定
+### ✅ 完成機能
+- プリミティブ型（tiny, short, int, long, string, char, bool）
+- 変数宣言・初期化・配列
+- 関数定義・呼び出し
+- 制御構造（if/else, for, while, break, return）
+- 演算子（算術、比較、論理、代入、インクリメント）
+- ストレージ修飾子（const, static）
+- 標準出力（print, printf風フォーマット）
+- 包括的テストフレームワーク
 
-### 短期目標 (Phase 5-6)
-- **型システム強化**: typedef, enum, union, struct実装
-- **コンパイル基盤**: LLVM統合、ネイティブバイナリ生成
-- **switch文**: パターンマッチング分岐制御
-
-### 中長期ビジョン
-- **低レイヤー対応**: ベアメタル・OS開発・組み込みシステム
-- **Webフレームワーク**: フルスタック Web開発環境
-- **WebAssembly統合**: ブラウザでの直接実行対応
-- **並列処理**: goroutine ライク、もしくは Future-Promise による非同期処理
-
-### 最終目標
-**"Write Once, Run Everywhere"** - 単一言語でシステムからWebまで
-
-詳細は以下のドキュメントを参照:
-- 📋 [将来展望ロードマップ](docs/future_roadmap.md) - 包括的発展計画
-- 🔧 [低レイヤー開発アプローチ](docs/low_level_approach.md) - OS・組み込み開発対応  
-- 🌐 [Webフレームワーク構想](docs/webframework_concept.md) - フルスタック Web開発
-- 🖥️ [ブラウザー統合設計](docs/browser_runtime_design.md) - HTML組み込み実行環境
+### 🚧 将来の拡張予定
+- **浮動小数点数型**: `float`, `double`のサポート
+- **構造体・クラス**: カスタムデータ型の定義
+- **typedef**: 型エイリアス機能
+- **enum**: 列挙型
+- **interface/trait**: 抽象化機能
+- **ジェネリクス・テンプレート**: 型パラメータ化機能
+- **標準ライブラリ**: 文字列操作、数学関数、ファイルIO等の拡充
 
 ## ディレクトリ構成
 
@@ -77,46 +107,62 @@ src/
 │   ├── parser_utils.cpp/h  # パーサー支援関数
 │   ├── debug.h       # デバッグ機能定義
 │   ├── debug_messages.cpp/h  # 多言語エラーメッセージ
+│   ├── help_messages.cpp/h   # ヘルプメッセージ
 │   └── main.cpp      # メインプログラム
 ├── backend/          # バックエンド（実行エンジン）
-│   ├── interpreter.cpp/h  # ASTインタープリター
-│   └── codegen.h     # コード生成インターface
+│   ├── interpreter.cpp/h     # ASTインタープリター
+│   ├── error_handler.cpp/h   # エラー処理
+│   ├── evaluator/           # 式評価エンジン
+│   ├── executor/            # 文実行エンジン
+│   ├── memory/              # メモリ管理
+│   ├── modules/             # モジュールシステム
+│   ├── output/              # 出力処理
+│   └── variables/           # 変数管理
 ├── common/           # 共通モジュール
 │   ├── ast.h         # ASTノード定義
-│   ├── io_interface.cpp/h  # IO抽象化レイヤー
-│   └── type_utils.cpp/h  # 型関連ユーティリティ
-├── platform/         # プラットフォーム固有実装
-│   ├── native/       # ネイティブ環境（C標準ライブラリ使用）
-│   └── baremetal/    # ベアメタル環境（UART出力）
-└── ast/              # AST関連の追加定義
-    └── ast.h         # 拡張AST定義
+│   ├── type_utils.cpp/h     # 型関連ユーティリティ
+│   ├── debug_impl.cpp       # デバッグ実装
+│   ├── debug_messages.cpp/h # デバッグメッセージ
+│   ├── io_interface.cpp/h   # I/Oインターフェース
+│   ├── type_alias.cpp/h     # 型エイリアス
+│   ├── utf8_utils.cpp/h     # UTF-8処理
+│   └── cb_config.cpp/h      # 設定管理
+└── platform/         # プラットフォーム固有
+    ├── native/       # ネイティブ実行環境
+    └── baremetal/    # ベアメタル環境
 
-cgen/                 # Cコード生成器
+cgen/                 # Cコード生成器（将来拡張）
 └── cgen_main.cpp     # トランスパイラー本体
 
 tests/
-├── unit/             # ユニットテスト
+├── unit/             # 単体テスト（26テスト）
+│   ├── framework/    # テストフレームワーク
+│   ├── backend/      # バックエンドテスト
+│   ├── common/       # 共通モジュールテスト
+│   └── frontend/     # フロントエンドテスト
 ├── integration/      # 統合テスト（.hppファイル）
 └── cases/            # テストケース（.cbファイル）
     ├── array_literal/  # 配列リテラルテスト
     ├── arithmetic/     # 算術演算テスト
     ├── string/         # 文字列処理テスト
+    ├── printf/         # printf機能テスト
     └── ...            # その他機能別テスト
 
+docs/                 # ドキュメント
+└── spec.md           # 言語仕様書
+
 sample/               # サンプルコード
+stdlib/               # 標準ライブラリ
+lib/                  # ライブラリモジュール
+modules/              # モジュールファイル
 Makefile             # ビルド設定
 ```
 
 ## ビルド方法
 
-### インタープリター版
+### インタープリター版（メイン）
 ```sh
 make
-```
-
-### トランスパイラー版（Cb → C変換）
-```sh
-make cgen
 ```
 
 ### デバッグ版
@@ -124,25 +170,35 @@ make cgen
 make debug-build
 ```
 
-### 全体ビルド
+### 全体ビルド（インタープリター + テスト）
 ```sh
 make all
 ```
 
+### クリーンビルド
+```sh
+make clean
+make
+```
+
 ## テスト方法
 
-### ユニットテスト
-型ごと・機能ごとにASTノード生成と評価ロジックの単体テストを実行します。
-
+### 全テスト実行（推奨）
+統合テスト（50+テスト）と単体テスト（26テスト）を全て実行：
 ```sh
-make unit-test
+make test
 ```
 
 ### 統合テスト（Integration Test）
-実際の.cbファイルをインタープリターで実行し、出力やエラーを検証します。
-
+実際の.cbファイルをインタープリターで実行し、出力やエラーを検証：
 ```sh
 make integration-test
+```
+
+### 単体テスト（Unit Test）
+型ごと・機能ごとにASTノード生成と評価ロジックのテスト：
+```sh
+make unit-test
 ```
 
 ### デバッグ付きテスト
@@ -164,28 +220,38 @@ make debug-build-test
 
 # デバッグモード（日本語）
 ./main --debug-ja sample/fibonacci.cb
-
-# ターゲット環境指定
-./main --target=native sample/fibonacci.cb    # ネイティブ環境（デフォルト）
-./main --target=baremetal sample/fibonacci.cb # ベアメタル環境
-./main --target=wasm sample/fibonacci.cb      # WebAssembly環境
-
-# ヘルプ表示
-./main --help     # 英語ヘルプ
-./main --help-ja  # 日本語ヘルプ
-```
-
-### トランスパイラー（Cb → C変換）
-```sh
-# Cコードに変換
-./cgen_main sample/fibonacci.cb output.c
-
-# 変換後のCコードをコンパイル・実行
-gcc output.c -o output
-./output
 ```
 
 ## サンプルコード例
+
+### char型と文字リテラル
+```cb
+int main() {
+    char letter = 'A';
+    char newline = '\n';
+    char tab = '\t';
+    
+    print("文字: %c", letter);
+    print("改行: %c", newline);
+    print("タブ: %c", tab);
+    
+    return 0;
+}
+```
+
+### printf風フォーマット出力
+```cb
+int main() {
+    int age = 25;
+    string name = "太郎";
+    char grade = 'A';
+    
+    print("名前: %s, 年齢: %d歳, 成績: %c", name, age, grade);
+    print("パーセント記号: %%");
+    
+    return 0;
+}
+```
 
 ### FizzBuzz
 ```cb
@@ -198,7 +264,7 @@ int main() {
         else if (i % 5 == 0)
             print("Buzz");
         else
-            print(i);
+            print("%d", i);
     }
     return 0;
 }
@@ -207,10 +273,10 @@ int main() {
 ### 配列とループ
 ```cb
 int main() {
-    int[] numbers = {10, 20, 30, 40, 50};
+    int[5] numbers = [10, 20, 30, 40, 50];
     
     for (int i = 0; i < 5; i++) {
-        print(numbers[i]);
+        print("numbers[%d] = %d", i, numbers[i]);
     }
     
     return 0;
@@ -220,10 +286,10 @@ int main() {
 ### 文字列配列
 ```cb
 int main() {
-    string[] messages = {"Hello", "World", "Cb言語"};
+    string[3] messages = ["Hello", "World", "Cb言語"];
     
     for (int i = 0; i < 3; i++) {
-        print(messages[i]);
+        print("メッセージ %d: %s", i, messages[i]);
     }
     
     return 0;
@@ -260,6 +326,12 @@ $ ./main --debug-ja test_error.cb
 エラー: 配列'mixed'の要素1: int型が期待されましたがstring型が渡されました
 ```
 
+### char型範囲外エラー
+```
+$ ./main --debug test_char_error.cb
+Error: char type value out of range (0-255): 300
+```
+
 ## 技術仕様
 
 ### 開発言語・ツール
@@ -270,23 +342,19 @@ $ ./main --debug-ja test_error.cb
 
 ### アーキテクチャ
 - **フロントエンド**: 字句解析 → 構文解析 → AST生成
-- **バックエンド**: インタープリター実行 または Cコード生成
-- **IO抽象化レイヤー**: プラットフォーム独立の出力システム（IOInterface）
+- **バックエンド**: インタープリター実行エンジン
 - **多言語サポート**: 英語・日本語でのエラーメッセージ・デバッグ情報
 - **UTF-8対応**: 日本語を含む文字列の適切な処理
-
-### マルチターゲット対応
-- **ネイティブ環境**: C標準ライブラリ（stdio.h）を使用した標準的な実行環境
-- **ベアメタル環境**: libcに依存しないUART出力、組み込みシステム・OS開発向け
-- **WebAssembly環境**: ブラウザでの実行対応（将来実装）
-- **実行時切り替え**: コンパイル時ではなく`--target`オプションで動的に選択
+- **モジュール化設計**: 機能別ディレクトリ構成
 
 ### テストカバレッジ
-- **40+個の統合テストケース**: 全機能の動作検証
+- **50+個の統合テストケース**: 全機能の動作検証
+- **26個の単体テスト**: モジュール別詳細テスト
 - **型安全性テスト**: 境界値・型不整合の検出確認
 - **国際化テスト**: 多言語エラーメッセージの検証
+- **自動テストフレームワーク**: `make test`で完全自動化
 
-## 貢献・開発
+## 開発・貢献
 
 ### 開発環境セットアップ
 ```sh
@@ -301,7 +369,7 @@ brew install flex bison
 git clone <repository-url>
 cd Cb
 make all
-make integration-test
+make test
 ```
 
 ### デバッグ方法
@@ -312,8 +380,18 @@ make integration-test
 ## 注意事項・制限事項
 
 - **C++17以降推奨**: modern C++の機能を利用
-- **整数型オーバーフロー**: 自動的に検出しエラー終了
+- **整数型範囲チェック**: 自動的に検出しエラー終了
+- **文字型範囲**: char型は0-255の範囲（ASCII互換）
 - **UTF-8文字列**: 内部的にUTF-8で処理（表示は環境依存）
 - **メモリ管理**: スマートポインタ使用、手動メモリ管理なし
 - **関数オーバーロード**: 未サポート
 - **例外処理構文**: 未サポート（`try`/`catch`なし）
+- **配列**: 静的サイズのみサポート（動的配列は将来実装予定）
+
+## ドキュメント
+
+詳細な言語仕様については[docs/spec.md](docs/spec.md)を参照してください。
+
+---
+
+*このプロジェクトは継続的に開発中です。バグ報告や機能提案はIssuesまでお願いします。*

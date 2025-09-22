@@ -55,54 +55,60 @@ inline void run_cb_test_with_output(const std::string& test_file,
 // 基本的なアサーション（ファイル名と行数付き）
 #define INTEGRATION_ASSERT(condition, message) \
     do { \
+        IntegrationTestCounter::increment_total(); \
         if (!(condition)) { \
             std::cerr << "[integration] ASSERTION FAILED at " << __FILE__ << ":" << __LINE__ << std::endl; \
             std::cerr << "[integration] " << message << std::endl; \
+            IntegrationTestCounter::increment_failed(); \
             throw std::runtime_error(std::string(__FILE__) + ":" + std::to_string(__LINE__) + " - " + message); \
+        } else { \
+            IntegrationTestCounter::increment_passed(); \
         } \
     } while(0)
 
 // より詳細なアサーションマクロ
 #define INTEGRATION_ASSERT_EQ(expected, actual, message) \
     do { \
+        IntegrationTestCounter::increment_total(); \
         if (!((expected) == (actual))) { \
             std::cerr << "[integration] ASSERTION FAILED at " << __FILE__ << ":" << __LINE__ << std::endl; \
             std::cerr << "[integration] Expected: " << (expected) << std::endl; \
             std::cerr << "[integration] Actual: " << (actual) << std::endl; \
             std::cerr << "[integration] " << message << std::endl; \
+            IntegrationTestCounter::increment_failed(); \
             throw std::runtime_error(std::string(__FILE__) + ":" + std::to_string(__LINE__) + " - " + message); \
+        } else { \
+            IntegrationTestCounter::increment_passed(); \
         } \
     } while(0)
 
 #define INTEGRATION_ASSERT_CONTAINS(haystack, needle, message) \
     do { \
+        IntegrationTestCounter::increment_total(); \
         if (!contains((haystack), (needle))) { \
             std::cerr << "[integration] ASSERTION FAILED at " << __FILE__ << ":" << __LINE__ << std::endl; \
             std::cerr << "[integration] Expected to find: " << (needle) << std::endl; \
             std::cerr << "[integration] In output: " << (haystack) << std::endl; \
             std::cerr << "[integration] " << message << std::endl; \
+            IntegrationTestCounter::increment_failed(); \
             throw std::runtime_error(std::string(__FILE__) + ":" + std::to_string(__LINE__) + " - " + message); \
+        } else { \
+            IntegrationTestCounter::increment_passed(); \
         } \
     } while(0)
 
 #define INTEGRATION_ASSERT_NOT_CONTAINS(haystack, needle, message) \
     do { \
+        IntegrationTestCounter::increment_total(); \
         if (contains((haystack), (needle))) { \
             std::cerr << "[integration] ASSERTION FAILED at " << __FILE__ << ":" << __LINE__ << std::endl; \
             std::cerr << "[integration] Did not expect to find: " << (needle) << std::endl; \
             std::cerr << "[integration] In output: " << (haystack) << std::endl; \
             std::cerr << "[integration] " << message << std::endl; \
+            IntegrationTestCounter::increment_failed(); \
             throw std::runtime_error(std::string(__FILE__) + ":" + std::to_string(__LINE__) + " - " + message); \
-        } \
-    } while(0)
-
-#define INTEGRATION_ASSERT_GT(actual, expected, message) \
-    do { \
-        if (!((actual) > (expected))) { \
-            std::cerr << "[integration] ASSERTION FAILED at " << __FILE__ << ":" << __LINE__ << std::endl; \
-            std::cerr << "[integration] Expected " << (actual) << " > " << (expected) << std::endl; \
-            std::cerr << "[integration] " << message << std::endl; \
-            throw std::runtime_error(std::string(__FILE__) + ":" + std::to_string(__LINE__) + " - " + message); \
+        } else { \
+            IntegrationTestCounter::increment_passed(); \
         } \
     } while(0)
 
@@ -141,3 +147,34 @@ inline void integration_test_failed(const std::string& test_name, const std::str
     std::cerr << "[integration] " << test_name << " (" << test_file << ") ... FAILED" << std::endl;
     std::cerr << "[integration] Error: " << error_message << std::endl;
 }
+
+// Test counter for integration tests
+class IntegrationTestCounter {
+private:
+    static int total_tests;
+    static int passed_tests;
+    static int failed_tests;
+
+public:
+    static void increment_total() { total_tests++; }
+    static void increment_passed() { passed_tests++; }
+    static void increment_failed() { failed_tests++; }
+    static void reset() { total_tests = 0; passed_tests = 0; failed_tests = 0; }
+    
+    static int get_total() { return total_tests; }
+    static int get_passed() { return passed_tests; }
+    static int get_failed() { return failed_tests; }
+    
+    static void print_summary() {
+        std::cout << "=== Integration Test Summary ===" << std::endl;
+        std::cout << "  Total:  " << total_tests << std::endl;
+        std::cout << "  Passed: " << passed_tests << std::endl;
+        std::cout << "  Failed: " << failed_tests << std::endl;
+        std::cout << std::endl;
+    }
+};
+
+// Initialize static members
+int IntegrationTestCounter::total_tests = 0;
+int IntegrationTestCounter::passed_tests = 0;
+int IntegrationTestCounter::failed_tests = 0;

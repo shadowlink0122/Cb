@@ -1,7 +1,6 @@
-// typedef未定義型エラーテスト  
-typedef UnknownType MyType;
+// Error test - undefined type
+typedef UnknownType MyType;  // Error: UnknownType is not defined
 
 int main() {
-    MyType value = 42;
     return 0;
 }

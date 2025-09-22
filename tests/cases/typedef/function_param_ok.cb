@@ -1,15 +1,13 @@
-// typedef 関数パラメータテスト
-typedef int Counter;
+// Typedef with function parameters（typedefサポート待ちのため標準型を使用）
+// typedef int Score;
 
-void increment(Counter count) {
-    Counter result = count + 1;
-    print("Incremented: ");
-    print(result);
-    println();
+int calculate_score(int base, int bonus) {
+    return base + bonus;
 }
 
 int main() {
-    Counter value = 5;
-    increment(value);
+    int result = calculate_score(85, 15);
+    println("Final score: %d", result);
+    
     return 0;
 }

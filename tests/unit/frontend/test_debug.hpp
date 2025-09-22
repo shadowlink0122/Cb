@@ -1,7 +1,7 @@
 #pragma once
 #include "../framework/test_framework.hpp"
-#include "../../../src/common/debug.h"
-#include "../../../src/common/debug_messages.h"
+#include "../../../src/frontend/debug.h"
+#include "../../../src/frontend/debug_messages.h"
 #include <sstream>
 #include <iostream>
 

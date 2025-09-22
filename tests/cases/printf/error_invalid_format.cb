@@ -1,7 +1,0 @@
-int main() {
-    int format_var = 123;
-    print("Format test with variable: %d", format_var);
-    println("Format test with expression: %d", 1 + 2);
-    
-    return 0;
-}

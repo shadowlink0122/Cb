@@ -1,6 +1,6 @@
 #pragma once
 #include "../common/ast.h"
-#include "../common/debug.h"
+#include "debug.h"
 
 // パーサーヘルパー関数の宣言
 extern "C" {
@@ -8,21 +8,13 @@ extern "C" {
 // ノード作成関数
 ASTNode *create_stmt_list();
 ASTNode *create_type_node(TypeInfo type);
-ASTNode *create_type_alias_node(const char *type_name);
-ASTNode *create_array_type_node(ASTNode *base_type, ASTNode *size_expr);
-ASTNode *create_dynamic_array_type_node(ASTNode *base_type);
 ASTNode *create_storage_spec(bool is_static, bool is_const);
 ASTNode *create_var_decl(const char *name);
 ASTNode *create_var_init(const char *name, ASTNode *init_expr);
-ASTNode *create_export_var_init(const char *name, ASTNode *init_expr);
-ASTNode *create_var_decl_with_init(const char *name, ASTNode *init_expr);
 ASTNode *create_array_decl(const char *name, ASTNode *size_expr);
 ASTNode *create_array_init(const char *name, ASTNode *init_list);
 ASTNode *create_array_init_with_type(const char *name, TypeInfo element_type,
                                      ASTNode *init_list);
-ASTNode *create_array_init_with_type_and_size(const char *name,
-                                              ASTNode *type_node,
-                                              ASTNode *init_list);
 ASTNode *create_array_init_with_size(const char *name, ASTNode *size_expr,
                                      ASTNode *init_list);
 ASTNode *create_function_def(const char *name, ASTNode *storage, ASTNode *type,
@@ -32,10 +24,8 @@ ASTNode *create_parameter(ASTNode *type, const char *name);
 ASTNode *create_print_stmt(ASTNode *expr);
 ASTNode *create_println_stmt(ASTNode *expr);
 ASTNode *create_println_empty();
-ASTNode *create_println_multi_stmt(ASTNode *arg_list);
-ASTNode *create_printlnf_stmt(ASTNode *format_str, ASTNode *arg_list);
 ASTNode *create_printf_stmt(ASTNode *format_str, ASTNode *arg_list);
-ASTNode *create_print_multi_stmt(ASTNode *arg_list);
+ASTNode *create_printlnf_stmt(ASTNode *format_str, ASTNode *arg_list);
 ASTNode *create_if_stmt(ASTNode *condition, ASTNode *then_stmt,
                         ASTNode *else_stmt);
 ASTNode *create_while_stmt(ASTNode *condition, ASTNode *body);
@@ -55,8 +45,6 @@ ASTNode *create_pre_incdec(const char *op, const char *name);
 ASTNode *create_post_incdec(const char *op, const char *name);
 ASTNode *create_array_ref(const char *name, ASTNode *index);
 ASTNode *create_func_call(const char *name, ASTNode *args);
-ASTNode *create_qualified_func_call(const char *qualified_name, ASTNode *args);
-ASTNode *create_qualified_var_ref(const char *qualified_name);
 ASTNode *create_var_ref(const char *name);
 ASTNode *create_number(int64_t value, TypeInfo type);
 ASTNode *create_string_literal(const char *str);
@@ -64,7 +52,6 @@ ASTNode *create_decl_spec(ASTNode *storage_class, ASTNode *type_qualifier,
                           ASTNode *type_spec);
 ASTNode *create_arg_list();
 ASTNode *create_array_literal(ASTNode *elements);
-ASTNode *create_type_alias_node(const char *type_name);
 
 // ユーティリティ関数
 void add_statement(ASTNode *list, ASTNode *stmt);
@@ -79,14 +66,3 @@ void delete_node(ASTNode *node);
 // エラー処理
 void yyerror(const char *s);
 }
-
-// typedef関連（C++）
-ASTNode *create_typedef_decl(const char *alias_name, ASTNode *type_node);
-ASTNode *create_typedef_array_decl(
-    const char *alias_name, ASTNode *type_node,
-    const std::vector<std::unique_ptr<ASTNode>> &dimensions);
-
-// 配列型関数
-ASTNode *create_array_type_node(TypeInfo base_type, ASTNode *size_expr);
-ASTNode *create_array_type_node_from_alias(ASTNode *alias_node,
-                                           ASTNode *size_expr);

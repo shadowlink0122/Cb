@@ -1,5 +1,5 @@
 // 配列リテラル 失敗ケース - int配列に文字列混入
 int main() {
-    int mixed[] = [1, "invalid", 3];
+    int[3] mixed = [1, "invalid", 3];
     print(mixed[0]);
 }

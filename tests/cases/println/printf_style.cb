@@ -1,0 +1,7 @@
+// println with printf-style formatting test
+int main() {
+    println("Number: %d", 42);
+    println("String: %s", "Hello");
+    println("Multiple: %d, %s", 123, "World");
+    return 0;
+}

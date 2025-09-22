@@ -1,0 +1,19 @@
+// utils.cb - Utility functions for Cb language
+
+// String utilities (future implementation)
+// export int string_length(string s);
+// export string string_concat(string a, string b);
+// export bool string_equals(string a, string b);
+// export string string_substring(string s, int start, int end);
+
+// Array utilities (future implementation)
+// export int array_length(int[] arr);
+// export void array_sort(int[] arr);
+// export int array_search(int[] arr, int value);
+// export void array_reverse(int[] arr);
+
+// Type conversion utilities (future implementation)
+// export string int_to_string(int value);
+// export int string_to_int(string s);
+// export string char_to_string(char c);
+// export char string_to_char(string s);

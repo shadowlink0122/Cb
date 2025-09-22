@@ -1,26 +1,24 @@
 {
-  "version": "1.0",
-  "language": {
-    "name": "Cb",
-    "version": "0.1.0"
+  "language": "Cb",
+  "version": "0.1.0",
+  "description": "Cb programming language configuration",
+  "features": {
+    "char_type": true,
+    "printf_formatting": true,
+    "array_literals": true,
+    "const_support": true,
+    "debug_messages": true,
+    "multilingual_errors": true
   },
-  "paths": {
-    "stdlib": "./stdlib",
-    "modules": "./lib",
-    "user_modules": "~/.cb/modules"
-  },
-  "search_order": [
-    "stdlib",
-    "modules",
-    "user_modules",
-    "current_directory"
-  ],
   "compiler": {
-    "default_target": "native",
-    "supported_targets": ["native", "baremetal", "wasm"]
+    "debug_mode": false,
+    "error_handling": "immediate",
+    "memory_management": "raii"
   },
-  "debug": {
-    "enable_module_debug": false,
-    "verbose_import": false
+  "stdlib": {
+    "stdio": true,
+    "math": false,
+    "string": false,
+    "io": false
   }
 }

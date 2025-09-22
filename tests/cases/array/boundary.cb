@@ -1,5 +1,5 @@
 int main() {
-    int a[3];
+    int[3] a;
     for(tiny i = 0;i < 3;i++){
         a[i] = i + 1;
     }

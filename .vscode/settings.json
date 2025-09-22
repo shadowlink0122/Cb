@@ -7,5 +7,6 @@
         "typeinfo": "cpp",
         "string": "cpp",
         "atomic": "cpp"
-    }
+    },
+    "makefile.configureOnOpen": false
 }

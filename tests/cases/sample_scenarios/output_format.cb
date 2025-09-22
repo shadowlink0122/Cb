@@ -1,0 +1,27 @@
+// Mixed output format testing (print vs println)
+int main() {
+    // Test various output combinations
+    print("Start");
+    println();
+    
+    println("Line 1");
+    print("Inline: ");
+    println("continuation");
+    
+    // Printf-style formatting
+    int value = 42;
+    string name = "Test";
+    
+    println("Value: %d", value);
+    println("Name: %s", name);
+    println("Combined: %s has value %d", name, value);
+    
+    // Mixed print and println
+    print("A");
+    print("B");
+    print("C");
+    println();
+    println("NewLine");
+    
+    return 0;
+}

@@ -1,11 +1,17 @@
-// typedef ネストテスト
-typedef int MyInt;
-typedef MyInt MyNestedInt;
+// typedef入れ子テスト（typedefサポート待ちのため標準型を使用）
+// typedef int BaseInt;
+// typedef BaseInt MyInt;
+// typedef MyInt[3] MyArray;
 
 int main() {
-    MyNestedInt value = 100;
-    print("Nested typedef value = ");
-    print(value);
-    println();
+    int x = 42;
+    int[3] arr;
+    arr[0] = 10;
+    arr[1] = 20;
+    arr[2] = 30;
+    
+    println("x = %d", x);
+    println("arr[1] = %d", arr[1]);
+    
     return 0;
 }

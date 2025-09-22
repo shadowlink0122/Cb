@@ -1,0 +1,44 @@
+// break, continue文のテスト
+int main() {
+    println("=== Break Continue Test ===");
+    
+    // break文のテスト
+    println("Before break");
+    for (int i = 0; i < 10; i = i + 1) {
+        if (i == 5) {
+            break;
+        }
+        print("i = ");
+        println(i);
+    }
+    println("After break");
+    
+    // continue文のテスト  
+    println("Before continue");
+    for (int i = 0; i < 5; i = i + 1) {
+        if (i == 2) {
+            continue;
+        }
+        print("i = ");
+        println(i);
+    }
+    println("After continue");
+    
+    // while文でのbreak, continue
+    println("While loop test:");
+    int j = 0;
+    while (j < 8) {
+        j = j + 1;
+        if (j == 3) {
+            continue;
+        }
+        if (j == 6) {
+            break;
+        }
+        print("j = ");
+        println(j);
+    }
+    
+    println("Loop completed");
+    return 0;
+}

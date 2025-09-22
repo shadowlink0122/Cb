@@ -12,8 +12,9 @@ enum TypeInfo {
     TYPE_SHORT = 2,
     TYPE_INT = 3,
     TYPE_LONG = 4,
-    TYPE_STRING = 5,
-    TYPE_BOOL = 6,
+    TYPE_CHAR = 5,
+    TYPE_STRING = 6,
+    TYPE_BOOL = 7,
     TYPE_ARRAY_BASE = 100 // 配列型は基底型 + 100（下位互換のため保持）
 };
 
@@ -76,10 +77,12 @@ enum class ASTNodeType {
     AST_WHILE_STMT,
     AST_FOR_STMT,
     AST_BREAK_STMT,
+    AST_CONTINUE_STMT,
     AST_RETURN_STMT,
 
     // 宣言
     AST_VAR_DECL,
+    AST_MULTIPLE_VAR_DECL, // 複数変数宣言
     AST_ARRAY_DECL,
     AST_FUNC_DECL,
     AST_PARAM_DECL,
@@ -94,12 +97,10 @@ enum class ASTNodeType {
     // その他
     AST_STMT_LIST,
     AST_PRINT_STMT,
-    AST_PRINTLN_STMT,       // 改行付きprint
-    AST_PRINTLN_EMPTY,      // 引数なし改行のみ
-    AST_PRINTLN_MULTI_STMT, // 改行付き複数引数print
-    AST_PRINTLNF_STMT,      // 改行付きprintf形式
-    AST_PRINTF_STMT,        // 新しいprintf風print
-    AST_PRINT_MULTI_STMT,   // 複数引数print
+    AST_PRINTLN_STMT,  // 改行付きprint
+    AST_PRINTLN_EMPTY, // 引数なし改行のみ
+    AST_PRINTF_STMT,   // 新しいprintf風print
+    AST_PRINTLNF_STMT, // 改行付きprintf風print
     AST_COMPOUND_STMT,
 
     // コンパイラ拡張用

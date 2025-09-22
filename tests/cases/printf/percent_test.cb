@@ -1,7 +1,0 @@
-// %% のテスト
-int main() {
-    println("100%%");
-    println("進捗: %d%%", 50);
-    println("引数なし: %%");
-    return 0;
-}

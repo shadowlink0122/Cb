@@ -1,0 +1,17 @@
+// シンプルなutils モジュール
+
+func max(a, b) {
+    if (a > b) {
+        return a;
+    } else {
+        return b;
+    }
+}
+
+func min(a, b) {
+    if (a < b) {
+        return a;
+    } else {
+        return b;
+    }
+}

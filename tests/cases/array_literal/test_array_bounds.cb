@@ -1,6 +1,6 @@
 // 配列リテラル 境界ケース - 範囲外アクセス
 int main() {
-    int small[] = [10, 20];
+    int[2] small = [10, 20];
     print(small[0]);  // OK
     print(small[1]);  // OK
     print(small[2]);  // 範囲外アクセスエラーになるはず

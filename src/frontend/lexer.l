@@ -27,6 +27,7 @@ tiny             { return TINY; }
 short            { return SHORT; }
 int              { return INT; }
 long             { return LONG; }
+char             { return CHAR; }
 string           { return STRING; }
 bool             { return BOOL; }
 true             { yylval.lval = 1; return TRUE; }
@@ -40,44 +41,33 @@ else             { return ELSE; }
 return           { return RETURN; }
 print            { return PRINT; }
 println          { return PRINTLN; }
-import           { return IMPORT; }
-export           { return EXPORT; }
-module           { return MODULE; }
-try              { return TRY; }
-catch            { return CATCH; }
-finally          { return FINALLY; }
-throw            { return THROW; }
 
 \"([^\"\\]|\\.)*\"  { 
     yylval.sval = strdup(yytext + 1);
     yylval.sval[strlen(yylval.sval) - 1] = '\0';
-    
-    // エスケープシーケンスを処理
-    char *src = yylval.sval;
-    char *dst = yylval.sval;
-    while (*src) {
-        if (*src == '\\' && *(src + 1)) {
-            switch (*(src + 1)) {
-                case 'n': *dst++ = '\n'; src += 2; break;
-                case 't': *dst++ = '\t'; src += 2; break;
-                case 'r': *dst++ = '\r'; src += 2; break;
-                case '\\': *dst++ = '\\'; src += 2; break;
-                case '"': *dst++ = '"'; src += 2; break;
-                case '\'': *dst++ = '\''; src += 2; break;
-                case '0': *dst++ = '\0'; src += 2; break;
-                case 'a': *dst++ = '\a'; src += 2; break;
-                case 'b': *dst++ = '\b'; src += 2; break;
-                case 'f': *dst++ = '\f'; src += 2; break;
-                case 'v': *dst++ = '\v'; src += 2; break;
-                default: *dst++ = *src++; break;
-            }
-        } else {
-            *dst++ = *src++;
-        }
-    }
-    *dst = '\0';
-    
     return STRING_LITERAL; 
+}
+
+'([^'\\]|\\.)' {
+    // 文字リテラルの処理
+    if (strlen(yytext) == 3) {
+        // 通常の文字 'a'
+        yylval.lval = yytext[1];
+    } else if (strlen(yytext) == 4 && yytext[1] == '\\') {
+        // エスケープ文字 '\n', '\t', etc.
+        switch (yytext[2]) {
+            case 'n': yylval.lval = '\n'; break;
+            case 't': yylval.lval = '\t'; break;
+            case 'r': yylval.lval = '\r'; break;
+            case '\\': yylval.lval = '\\'; break;
+            case '\'': yylval.lval = '\''; break;
+            case '0': yylval.lval = '\0'; break;
+            default: yylval.lval = yytext[2]; break;
+        }
+    } else {
+        yylval.lval = 0; // エラーケース
+    }
+    return CHAR_LITERAL;
 }
 
 [0-9]+            { yylval.lval = strtoll(yytext, NULL, 10); return NUMBER; }

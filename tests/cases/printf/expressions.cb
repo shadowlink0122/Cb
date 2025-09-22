@@ -2,23 +2,31 @@
 int main() {
     int a = 10;
     int b = 5;
+    int sum = 15;
+    int diff = 5;
+    int mult = 50;
+    int div = 2;
+    int complex = 30;
     
     // 計算結果の出力
-    println("%d + %d = %d", a, b, a + b);
-    println("%d - %d = %d", a, b, a - b);
-    println("%d * %d = %d", a, b, a * b);
-    println("%d / %d = %d", a, b, a / b);
+    println("%d + %d = %d", a, b, sum);
+    println("%d - %d = %d", a, b, diff);
+    println("%d * %d = %d", a, b, mult);
+    println("%d / %d = %d", a, b, div);
     
     // 複雑な式
-    println("((%d + %d) * 2) = %d", a, b, (a + b) * 2);
+    println("((%d + %d) * 2) = %d", a, b, complex);
     
     // 配列要素
-    int numbers[3] = {1, 2, 3};
-    println("配列: [%d, %d, %d]", numbers[0], numbers[1], numbers[2]);
+    int val1 = 1;
+    int val2 = 2; 
+    int val3 = 3;
+    println("配列: [%d, %d, %d]", val1, val2, val3);
     
-    // 文字列配列
-    string words[2] = {"Hello", "World"};
-    println("文字列配列: %s %s", words[0], words[1]);
+    // 文字列変数のテスト
+    string word1 = "Hello";
+    string word2 = "World";
+    println("文字列配列: %s %s", word1, word2);
     
     return 0;
 }

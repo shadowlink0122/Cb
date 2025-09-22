@@ -1,7 +1,7 @@
-// 存在しないファイルのimportエラーテスト
-import "non_existent_module.cb";
+// Error test - import non-existent file
+import "nonexistent_file.cb";
 
 int main() {
-    println("This should not execute");
+    print("This should cause import error");
     return 0;
 }

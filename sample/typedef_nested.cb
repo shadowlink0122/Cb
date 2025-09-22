@@ -1,0 +1,68 @@
+// Nested typedef and type alias chains
+typedef int BaseType;
+typedef BaseType Level1Type;
+typedef Level1Type Level2Type;
+typedef Level2Type FinalType;
+
+typedef string Message;
+typedef Message InfoMessage;
+typedef InfoMessage LogMessage;
+
+FinalType process_number(FinalType input) {
+    FinalType result = input * 2;
+    if (result > 100) {
+        result = 100;  // Cap at 100
+    }
+    return result;
+}
+
+int main() {
+    println("=== Nested Typedef Demo ===");
+    
+    // Using nested typedefs
+    FinalType original = 35;
+    FinalType processed = process_number(original);
+    
+    print("元の値: ");
+    print(original);
+    println();
+    print("処理後: ");
+    print(processed);
+    println();
+    
+    // String typedef chain
+    LogMessage system_log = "システム開始";
+    InfoMessage user_info = "ユーザー認証完了";
+    Message simple_msg = "処理完了";
+    
+    println("");
+    println("ログメッセージ:");
+    print("- ");
+    print(system_log);
+    println();
+    print("- ");
+    print(user_info);
+    println();
+    print("- ");
+    print(simple_msg);
+    println();
+    
+    // Type compatibility test
+    BaseType base_val = 42;
+    Level1Type level1_val = base_val;
+    Level2Type level2_val = level1_val;
+    FinalType final_val = level2_val;
+    
+    println("");
+    print("型チェーン: ");
+    print(base_val);
+    print(" -> ");
+    print(level1_val);
+    print(" -> ");
+    print(level2_val);
+    print(" -> ");
+    print(final_val);
+    println();
+    
+    return 0;
+}

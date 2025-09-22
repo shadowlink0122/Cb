@@ -1,6 +1,4 @@
 #include "parser_utils.h"
-#include "../common/debug.h"
-#include "../common/type_alias.h"
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
@@ -77,95 +75,6 @@ ASTNode *create_type_node(TypeInfo type) {
     return node;
 }
 
-ASTNode *create_type_alias_node(const char *type_name) {
-    debug_msg(DebugMsgId::TYPE_ALIAS_CREATE_NODE, type_name);
-
-    // 型エイリアスを解決してTYPE_SPECノードを作成
-    auto node = new ASTNode(ASTNodeType::AST_TYPE_SPEC);
-    node->type_name = std::string(type_name); // 型名を新しいフィールドに保存
-
-    // 型エイリアス解決を試行（パース時）
-    auto &registry = get_global_type_alias_registry();
-    TypeInfo resolved = registry.resolve_alias(type_name);
-
-    if (resolved != TYPE_UNKNOWN) {
-        node->type_info = resolved;
-        debug_msg(DebugMsgId::TYPE_ALIAS_RUNTIME_RESOLVE, type_name,
-                  type_info_to_string_basic(resolved));
-    } else {
-        node->type_info = TYPE_UNKNOWN;
-        debug_msg(DebugMsgId::TYPE_RESOLVING, TYPE_UNKNOWN, type_name);
-    }
-
-    return node;
-}
-
-ASTNode *create_array_type_node(ASTNode *base_type, ASTNode *size_expr) {
-    // 型中心の配列型ノード作成: int[3], string[5] など
-    auto node = new ASTNode(ASTNodeType::AST_TYPE_SPEC);
-
-    // 配列型情報を設定
-    if (base_type && base_type->node_type == ASTNodeType::AST_TYPE_SPEC) {
-        // 基底型の情報を取得
-        TypeInfo base_type_info = base_type->type_info;
-
-        // 配列型として設定
-        node->type_info =
-            static_cast<TypeInfo>(TYPE_ARRAY_BASE + base_type_info);
-
-        // 配列型情報を設定
-        node->array_type_info.base_type = base_type_info;
-
-        // サイズ情報を設定
-        if (size_expr) {
-            int size = -1;
-            if (size_expr->node_type == ASTNodeType::AST_NUMBER) {
-                size = static_cast<int>(size_expr->int_value);
-            } else {
-                // 数値以外の式の場合は実行時評価に委ねる
-                size = -1; // 実行時評価を示す
-            }
-            node->array_type_info.dimensions.emplace_back(size, size == -1);
-            node->array_size_expr = std::unique_ptr<ASTNode>(size_expr);
-        }
-    }
-
-    // 基底型ノードをクリーンアップ
-    if (base_type) {
-        delete base_type;
-    }
-
-    return node;
-}
-
-ASTNode *create_dynamic_array_type_node(ASTNode *base_type) {
-    // 型中心の動的配列型ノード作成: int[], string[] など
-    auto node = new ASTNode(ASTNodeType::AST_TYPE_SPEC);
-
-    // 配列型情報を設定
-    if (base_type && base_type->node_type == ASTNodeType::AST_TYPE_SPEC) {
-        // 基底型の情報を取得
-        TypeInfo base_type_info = base_type->type_info;
-
-        // 配列型として設定
-        node->type_info =
-            static_cast<TypeInfo>(TYPE_ARRAY_BASE + base_type_info);
-
-        // 配列型情報を設定
-        node->array_type_info.base_type = base_type_info;
-
-        // 動的サイズの次元を追加
-        node->array_type_info.dimensions.emplace_back(-1, true);
-    }
-
-    // 基底型ノードをクリーンアップ
-    if (base_type) {
-        delete base_type;
-    }
-
-    return node;
-}
-
 ASTNode *create_storage_spec(bool is_static, bool is_const) {
     auto node = new ASTNode(ASTNodeType::AST_STORAGE_SPEC);
     node->is_static = is_static;
@@ -188,27 +97,6 @@ ASTNode *create_var_init(const char *name, ASTNode *init_expr) {
     return node;
 }
 
-ASTNode *create_export_var_init(const char *name, ASTNode *init_expr) {
-    debug_msg(DebugMsgId::NODE_CREATE_VAR_DECL, name);
-    auto node = new ASTNode(ASTNodeType::AST_VAR_DECL);
-    node->name = std::string(name);
-    node->right = std::unique_ptr<ASTNode>(init_expr);
-    // 初期化式から値を取得
-    if (init_expr && init_expr->node_type == ASTNodeType::AST_NUMBER) {
-        node->int_value = init_expr->int_value;
-    }
-    return node;
-}
-}
-
-ASTNode *create_var_decl_with_init(const char *name, ASTNode *init_expr) {
-    debug_msg(DebugMsgId::NODE_CREATE_VAR_DECL, name);
-    auto node = new ASTNode(ASTNodeType::AST_VAR_DECL);
-    node->name = std::string(name);
-    node->right = std::unique_ptr<ASTNode>(init_expr);
-    return node;
-}
-
 ASTNode *create_array_decl(const char *name, ASTNode *size_expr) {
     debug_msg(DebugMsgId::NODE_CREATE_ARRAY_DECL, name);
     auto node = new ASTNode(ASTNodeType::AST_ARRAY_DECL);
@@ -222,6 +110,13 @@ ASTNode *create_array_init(const char *name, ASTNode *init_list) {
 
     // 現在宣言されている型を使用して型チェックを実行
     TypeInfo expected_type = get_current_type();
+
+    // 型が不正な場合はデフォルトを使用
+    if (expected_type < TYPE_VOID || expected_type > TYPE_BOOL) {
+        expected_type = TYPE_INT;
+        debug_msg(DebugMsgId::CURRENT_TYPE_SET, (int)expected_type);
+    }
+
     return create_array_init_with_type(name, expected_type, init_list);
 }
 
@@ -232,12 +127,15 @@ ASTNode *create_array_init_with_type(const char *name, TypeInfo element_type,
     node->name = std::string(name);
     node->type_info = element_type;
 
-    if (init_list) {
+    if (init_list && init_list->children.size() > 0) {
         debug_msg(DebugMsgId::ARRAY_INIT_ELEMENTS, init_list->children.size());
 
         // 各要素の型をチェック
         for (size_t i = 0; i < init_list->children.size(); i++) {
             ASTNode *element = init_list->children[i].get();
+            if (!element)
+                continue; // nullポインタチェック
+
             TypeInfo actual_type = TYPE_VOID;
 
             // 要素の型を判定
@@ -248,15 +146,16 @@ ASTNode *create_array_init_with_type(const char *name, TypeInfo element_type,
             }
 
             // 型が不一致の場合エラー
-            if (actual_type != element_type) {
+            if (actual_type != TYPE_VOID && actual_type != element_type) {
                 const char *expected_str = type_info_to_string(element_type);
                 const char *actual_str = type_info_to_string(actual_type);
                 debug_msg(DebugMsgId::TYPE_MISMATCH_ARRAY_INIT, i, expected_str,
                           actual_str);
 
-                // エラーメッセージを表示してプログラム終了
-                error_msg(DebugMsgId::TYPE_MISMATCH_ERROR, name, i,
-                          expected_str, actual_str);
+                // エラーメッセージを標準エラーに出力
+                std::cerr << "Error: Array '" << name << "' element " << i
+                          << ": " << expected_str << " type expected but "
+                          << actual_str << " type provided" << std::endl;
                 exit(1);
             }
         }
@@ -264,6 +163,13 @@ ASTNode *create_array_init_with_type(const char *name, TypeInfo element_type,
         node->children = std::move(init_list->children);
         node->array_size = node->children.size();
         delete init_list;
+    } else if (init_list) {
+        // 空配列の場合
+        node->array_size = 0;
+        delete init_list;
+    } else {
+        // init_listがnullの場合
+        node->array_size = 0;
     }
     debug_msg(DebugMsgId::ARRAY_INIT_WITH_TYPE_COMPLETED);
     return node;
@@ -286,37 +192,6 @@ ASTNode *create_array_init_with_size(const char *name, ASTNode *size_expr,
         // サイズ式と初期化リストの両方がある場合は、明示的なサイズを優先
         delete init_list;
     }
-    return node;
-}
-
-ASTNode *create_array_init_with_type_and_size(const char *name,
-                                              ASTNode *type_node,
-                                              ASTNode *init_list) {
-    // 型中心の配列リテラル初期化: int[3] arr = [1,2,3]; IntArray arr = [1,2,3];
-    auto node = new ASTNode(ASTNodeType::AST_ARRAY_DECL);
-    node->name = std::string(name);
-
-    // 型情報を設定
-    if (type_node) {
-        node->type_info = type_node->type_info;
-
-        // 配列型情報をコピー
-        if (type_node->array_type_info.base_type != TYPE_UNKNOWN) {
-            node->array_type_info = type_node->array_type_info;
-        }
-
-        // サイズ式をポインターとして移動
-        if (type_node->array_size_expr) {
-            node->array_size_expr = std::move(type_node->array_size_expr);
-        }
-    }
-
-    // 初期化リストを設定
-    if (init_list && init_list->node_type == ASTNodeType::AST_ARRAY_LITERAL) {
-        node->children = std::move(init_list->children);
-        delete init_list;
-    }
-
     return node;
 }
 
@@ -384,19 +259,6 @@ ASTNode *create_println_empty() {
     return node;
 }
 
-ASTNode *create_println_multi_stmt(ASTNode *arg_list) {
-    auto node = new ASTNode(ASTNodeType::AST_PRINTLN_MULTI_STMT);
-    node->right = std::unique_ptr<ASTNode>(arg_list);
-    return node;
-}
-
-ASTNode *create_printlnf_stmt(ASTNode *format_str, ASTNode *arg_list) {
-    auto node = new ASTNode(ASTNodeType::AST_PRINTLNF_STMT);
-    node->left = std::unique_ptr<ASTNode>(format_str); // フォーマット文字列
-    node->right = std::unique_ptr<ASTNode>(arg_list); // 引数リスト
-    return node;
-}
-
 ASTNode *create_printf_stmt(ASTNode *format_str, ASTNode *arg_list) {
     auto node = new ASTNode(ASTNodeType::AST_PRINTF_STMT);
     node->left = std::unique_ptr<ASTNode>(format_str); // フォーマット文字列
@@ -404,8 +266,9 @@ ASTNode *create_printf_stmt(ASTNode *format_str, ASTNode *arg_list) {
     return node;
 }
 
-ASTNode *create_print_multi_stmt(ASTNode *arg_list) {
-    auto node = new ASTNode(ASTNodeType::AST_PRINT_MULTI_STMT);
+ASTNode *create_printlnf_stmt(ASTNode *format_str, ASTNode *arg_list) {
+    auto node = new ASTNode(ASTNodeType::AST_PRINTLNF_STMT);
+    node->left = std::unique_ptr<ASTNode>(format_str); // フォーマット文字列
     node->right = std::unique_ptr<ASTNode>(arg_list); // 引数リスト
     return node;
 }
@@ -566,46 +429,6 @@ ASTNode *create_func_call(const char *name, ASTNode *args) {
     return node;
 }
 
-ASTNode *create_qualified_func_call(const char *qualified_name, ASTNode *args) {
-    auto node = new ASTNode(ASTNodeType::AST_FUNC_CALL);
-    node->qualified_name = std::string(qualified_name);
-    node->is_qualified_call = true;
-
-    // qualified_nameから関数名を抽出（最後のドット以降）
-    std::string qname = qualified_name;
-    size_t dot_pos = qname.find_last_of('.');
-    if (dot_pos != std::string::npos) {
-        node->name = qname.substr(dot_pos + 1);
-        node->module_name = qname.substr(0, dot_pos);
-    } else {
-        node->name = qname;
-    }
-
-    if (args) {
-        node->arguments = std::move(args->arguments);
-        delete args;
-    }
-    return node;
-}
-
-ASTNode *create_qualified_var_ref(const char *qualified_name) {
-    auto node = new ASTNode(ASTNodeType::AST_VARIABLE);
-    node->qualified_name = std::string(qualified_name);
-    node->is_qualified_call = true; // 修飾された参照であることを示す
-
-    // qualified_nameから変数名を抽出（最後のドット以降）
-    std::string qname = qualified_name;
-    size_t dot_pos = qname.find_last_of('.');
-    if (dot_pos != std::string::npos) {
-        node->name = qname.substr(dot_pos + 1);
-        node->module_name = qname.substr(0, dot_pos);
-    } else {
-        node->name = qname;
-    }
-
-    return node;
-}
-
 ASTNode *create_var_ref(const char *name) {
     auto node = new ASTNode(ASTNodeType::AST_VARIABLE);
     node->name = std::string(name);
@@ -709,15 +532,6 @@ void set_declaration_attributes(ASTNode *decl, ASTNode *decl_spec,
         decl->is_const = decl_spec->is_const;
         decl->type_info = decl_spec->type_info;
 
-        // 型エイリアス解決
-        if (decl_spec->type_info == TYPE_UNKNOWN &&
-            !decl_spec->type_name.empty()) {
-            // 型エイリアス名を保存（実行時に解決）
-            decl->type_name = decl_spec->type_name;
-            debug_msg(DebugMsgId::TYPE_ALIAS_RUNTIME_RESOLVE,
-                      decl_spec->type_name.c_str(), "delayed resolution");
-        }
-
         // 配列の場合、要素型も設定
         if (decl->node_type == ASTNodeType::AST_ARRAY_DECL &&
             decl_spec->type_info < TYPE_ARRAY_BASE) {
@@ -782,9 +596,6 @@ ASTNode *create_decl_spec(ASTNode *storage_class, ASTNode *type_qualifier,
     // type_specifierの情報をコピー
     if (type_spec) {
         node->type_info = type_spec->type_info;
-        node->str_value = type_spec->str_value; // 型エイリアス名も保存
-        node->type_name =
-            type_spec->type_name; // 型エイリアス名をtype_nameにもコピー
     } else {
         node->type_info = TYPE_INT; // デフォルト
     }
@@ -805,80 +616,4 @@ ASTNode *create_decl_spec(ASTNode *storage_class, ASTNode *type_qualifier,
 
     return node;
 }
-
-// typedef宣言ノード作成
-ASTNode *create_typedef_decl(const char *alias_name, ASTNode *type_node) {
-    auto node = new ASTNode(ASTNodeType::AST_TYPEDEF_DECL);
-    node->name = std::string(alias_name);
-
-    if (type_node) {
-        node->type_info = type_node->type_info;
-        // type_nodeは使用済みなので削除
-        delete type_node;
-    } else {
-        node->type_info = TYPE_INT; // デフォルト
-    }
-
-    return node;
-}
-
-// 配列typedef宣言ノード作成
-ASTNode *create_typedef_array_decl(
-    const char *alias_name, ASTNode *type_node,
-    const std::vector<std::unique_ptr<ASTNode>> &dimensions) {
-    auto node = new ASTNode(ASTNodeType::AST_TYPEDEF_DECL);
-    node->name = std::string(alias_name);
-
-    if (type_node) {
-        // 配列型情報を設定
-        ArrayTypeInfo array_info;
-        array_info.base_type = type_node->type_info;
-
-        for (const auto &dim : dimensions) {
-            if (dim && dim->node_type == ASTNodeType::AST_NUMBER) {
-                // 固定サイズ配列
-                array_info.dimensions.push_back(
-                    ArrayDimension(dim->int_value, false));
-            } else {
-                // 動的サイズ配列
-                array_info.dimensions.push_back(ArrayDimension(-1, true));
-            }
-        }
-
-        node->array_type_info = array_info;
-        // 下位互換性のためTYPE_ARRAY_BASEも設定
-        node->type_info =
-            static_cast<TypeInfo>(TYPE_ARRAY_BASE + type_node->type_info);
-
-        delete type_node;
-    } else {
-        node->type_info = TYPE_INT; // デフォルト
-    }
-
-    return node;
-}
-
-// 配列型ノード作成
-ASTNode *create_array_type_node(TypeInfo base_type, ASTNode *size_expr) {
-    auto node = new ASTNode(ASTNodeType::AST_TYPE_SPEC);
-    node->type_info = static_cast<TypeInfo>(TYPE_ARRAY_BASE + base_type);
-    node->array_size_expr = std::unique_ptr<ASTNode>(size_expr);
-    return node;
-}
-
-// 型エイリアスから配列型ノード作成
-ASTNode *create_array_type_node_from_alias(ASTNode *alias_node,
-                                           ASTNode *size_expr) {
-    auto node = new ASTNode(ASTNodeType::AST_TYPE_SPEC);
-    if (alias_node) {
-        node->type_info =
-            static_cast<TypeInfo>(TYPE_ARRAY_BASE + alias_node->type_info);
-        node->type_name = alias_node->type_name; // エイリアス名を保持
-        delete alias_node;
-    } else {
-        node->type_info =
-            static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_INT); // デフォルト
-    }
-    node->array_size_expr = std::unique_ptr<ASTNode>(size_expr);
-    return node;
 }

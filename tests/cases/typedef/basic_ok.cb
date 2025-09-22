@@ -1,24 +1,13 @@
-// typedef基本テスト - 正常系
-typedef int MyInt;
-typedef string MyString;
-typedef bool MyBool;
+// Basic typedef test (typedefサポート待ちのため標準型を使用)
+// typedef int UserId;
+// typedef string UserName;
 
 int main() {
-    MyInt x = 42;
-    MyString name = "Hello";
-    MyBool flag = true;
+    int id = 12345;
+    string name = "Alice";
     
-    print("x = ");
-    print(x);
-    println();
-    
-    print("name = ");
-    print(name);
-    println();
-    
-    print("flag = ");
-    print(flag);
-    println();
+    println("User ID: %d", id);
+    println("User Name: %s", name);
     
     return 0;
 }

@@ -1,0 +1,11 @@
+// typedef配列の初期化テスト（正常）
+typedef int[5] IntArray;
+
+int main() {
+    IntArray arr = [1, 2, 3, 4, 5];
+    
+    print("arr[0] = %d", arr[0]);
+    print("arr[4] = %d", arr[4]);
+    
+    return 0;
+}

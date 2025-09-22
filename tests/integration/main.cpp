@@ -10,19 +10,28 @@
 #include "cross_type/test_cross_type.hpp"
 #include "error_handling/test_error_handling.hpp"
 #include "func/test_func.hpp"
+#include "global_array/test_global_array.hpp"
 #include "global_vars/test_global_vars.hpp"
 #include "if/test_if.hpp"
 #include "import_export/test_import_export.hpp"
 #include "incdec/test_incdec.hpp"
 #include "loop/test_loop.hpp"
 #include "module_functions/test_module_functions.hpp"
+#include "multiple_var_decl/test_multiple_var_decl.hpp"
 #include "printf/test_printf.hpp"
+#include "println/test_println.hpp"
+#include "sample_scenarios/test_sample_scenarios.hpp"
+#include "samples/test_actual_samples.hpp"
 #include "self_assign/test_self_assign.hpp"
 #include "string/test_string.hpp"
 #include "typedef/test_typedef.hpp"
 
 int main() {
     int fail = 0;
+
+    // Reset test counters
+    IntegrationTestCounter::reset();
+
     try {
         test_integration_arithmetic();
         test_integration_assign();
@@ -34,19 +43,20 @@ int main() {
         test_integration_array_literal();
         test_bool_expr_basic();
         test_integration_loop();
+        test_integration_multiple_var_decl();
         test_integration_if();
         test_integration_self_assign();
         test_integration_incdec();
         test_integration_global_vars();
-        // test_printf_all();  // 一時的に無効化 -
-        // デバッグ出力の期待値調整が必要
-        test_error_handling_basic();
-        test_try_catch_syntax();
-        test_module_function_calls();
-        test_typedef_basic();
-        test_typedef_advanced();
-        // test_import_export_basic();  // importの構文実装が必要
-        // test_typedef_import_combo(); // importの構文実装が必要
+        test_printf_all();
+        test_integration_println();
+        test_integration_global_array();
+        test_integration_sample_scenarios();
+        test_integration_actual_samples();
+        test_integration_error_handling();
+        test_integration_import_export();
+        test_integration_module_functions();
+        test_integration_typedef();
     } catch (const std::exception &e) {
         std::cerr << "[integration] test failed: " << e.what() << std::endl;
         fail = 1;
@@ -54,8 +64,12 @@ int main() {
         std::cerr << "[integration] test failed: unknown error" << std::endl;
         fail = 1;
     }
+
+    // Print test results summary
     if (fail == 0) {
         std::cout << "[integration] all tests passed" << std::endl;
     }
+    IntegrationTestCounter::print_summary();
+
     return fail;
 }

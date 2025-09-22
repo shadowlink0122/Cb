@@ -1,6 +1,6 @@
 int g1 = 10;
 long g2 = 1000;
-int arr[5]; // 初期化はinit()で行う
+int[5] arr; // 初期化はinit()で行う
 string msg = "ok";
 
 void init(){

@@ -31,8 +31,8 @@ inline void test_bool_to_string() {
 }
 
 inline void register_type_utils_tests() {
-    RUN_TEST("type_info_to_string basic types", test_type_info_to_string_basic_types);
-    RUN_TEST("type_info_to_string array types", test_type_info_to_string_array_types);
-    RUN_TEST("type_info_to_string unknown type", test_type_info_to_string_unknown_type);
-    RUN_TEST("bool_to_string", test_bool_to_string);
+    test_runner.add_test("common", "type_info_to_string basic types", test_type_info_to_string_basic_types);
+    test_runner.add_test("common", "type_info_to_string array types", test_type_info_to_string_array_types);
+    test_runner.add_test("common", "type_info_to_string unknown type", test_type_info_to_string_unknown_type);
+    test_runner.add_test("common", "bool_to_string", test_bool_to_string);
 }

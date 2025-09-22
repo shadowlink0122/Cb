@@ -1,0 +1,7 @@
+// println with single argument test
+int main() {
+    print("A");
+    println("B");
+    print("C");
+    return 0;
+}

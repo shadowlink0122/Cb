@@ -1,131 +1,111 @@
-#pragma once
+#ifndef TEST_FRAMEWORK_HPP
+#define TEST_FRAMEWORK_HPP
 
 #include <iostream>
 #include <string>
 #include <vector>
 #include <functional>
-#include <cassert>
-#include <sstream>
+#include <stdexcept>
 
-// 単体テスト用のアサーションマクロ
-#define UNIT_ASSERT(condition, message) \
-    do { \
-        if (!(condition)) { \
-            std::cerr << "[unit] ASSERTION FAILED at " << __FILE__ << ":" << __LINE__ << std::endl; \
-            std::cerr << "[unit] " << message << std::endl; \
-            throw std::runtime_error(std::string(__FILE__) + ":" + std::to_string(__LINE__) + " - " + message); \
-        } \
-    } while(0)
+// テスト結果の統計
+struct TestStats {
+    int passed = 0;
+    int failed = 0;
+    int total() const { return passed + failed; }
+};
 
-#define UNIT_ASSERT_EQ(expected, actual, message) \
-    do { \
-        if (!((expected) == (actual))) { \
-            std::cerr << "[unit] ASSERTION FAILED at " << __FILE__ << ":" << __LINE__ << std::endl; \
-            std::cerr << "[unit] Expected: " << (expected) << std::endl; \
-            std::cerr << "[unit] Actual: " << (actual) << std::endl; \
-            std::cerr << "[unit] " << message << std::endl; \
-            throw std::runtime_error(std::string(__FILE__) + ":" + std::to_string(__LINE__) + " - " + message); \
-        } \
-    } while(0)
+// テストケースの定義
+struct TestCase {
+    std::string name;
+    std::function<void()> test_func;
+};
 
-#define UNIT_ASSERT_NE(not_expected, actual, message) \
-    do { \
-        if ((not_expected) == (actual)) { \
-            std::cerr << "[unit] ASSERTION FAILED at " << __FILE__ << ":" << __LINE__ << std::endl; \
-            std::cerr << "[unit] Not expected: " << (not_expected) << std::endl; \
-            std::cerr << "[unit] Actual: " << (actual) << std::endl; \
-            std::cerr << "[unit] " << message << std::endl; \
-            throw std::runtime_error(std::string(__FILE__) + ":" + std::to_string(__LINE__) + " - " + message); \
-        } \
-    } while(0)
-
-#define UNIT_ASSERT_NULL(ptr, message) \
-    do { \
-        if ((ptr) != nullptr) { \
-            std::cerr << "[unit] ASSERTION FAILED at " << __FILE__ << ":" << __LINE__ << std::endl; \
-            std::cerr << "[unit] Expected null pointer, got: " << (ptr) << std::endl; \
-            std::cerr << "[unit] " << message << std::endl; \
-            throw std::runtime_error(std::string(__FILE__) + ":" + std::to_string(__LINE__) + " - " + message); \
-        } \
-    } while(0)
-
-#define UNIT_ASSERT_NOT_NULL(ptr, message) \
-    do { \
-        if ((ptr) == nullptr) { \
-            std::cerr << "[unit] ASSERTION FAILED at " << __FILE__ << ":" << __LINE__ << std::endl; \
-            std::cerr << "[unit] Expected non-null pointer, got null" << std::endl; \
-            std::cerr << "[unit] " << message << std::endl; \
-            throw std::runtime_error(std::string(__FILE__) + ":" + std::to_string(__LINE__) + " - " + message); \
-        } \
-    } while(0)
-
-// 後方互換性のためのマクロ
-#define ASSERT_STREQ(expected, actual) \
-    UNIT_ASSERT_EQ(std::string(expected), std::string(actual), "String comparison failed")
-
-#define ASSERT_EQ(expected, actual) \
-    UNIT_ASSERT_EQ(expected, actual, "Value comparison failed")
-
-#define ASSERT_NE(not_expected, actual) \
-    UNIT_ASSERT_NE(not_expected, actual, "Value should not be equal")
-
-#define ASSERT_TRUE(condition) \
-    UNIT_ASSERT(condition, "Expected true condition")
-
-#define ASSERT_FALSE(condition) \
-    UNIT_ASSERT(!(condition), "Expected false condition")
-
-#define ASSERT_NULL(ptr) \
-    UNIT_ASSERT_NULL(ptr, "Expected null pointer")
-
-#define ASSERT_NOT_NULL(ptr) \
-    UNIT_ASSERT_NOT_NULL(ptr, "Expected non-null pointer")
-
-// テスト実行フレームワーク
-class UnitTestFramework {
+// テストランナークラス
+class TestRunner {
 private:
-    int passed_tests = 0;
-    int failed_tests = 0;
+    std::vector<TestCase> test_cases;
+    TestStats stats;
     
 public:
-    void run_test(const std::string& test_name, std::function<void()> test_func) {
-        try {
-            test_func();
-            std::cout << "[unit] " << test_name << " ... passed" << std::endl;
-            passed_tests++;
-        } catch (const std::exception& e) {
-            std::cout << "[unit] " << test_name << " ... failed" << std::endl;
-            std::cerr << "[unit] Error: " << e.what() << std::endl;
-            failed_tests++;
+    void add_test(const std::string& name, std::function<void()> test_func) {
+        test_cases.push_back({name, test_func});
+    }
+    
+    void run_all() {
+        std::cout << "Starting unit tests..." << std::endl;
+        std::cout << "======================" << std::endl;
+        
+        for (const auto& test_case : test_cases) {
+            std::cout << "Running: " << test_case.name << " ... ";
+            try {
+                test_case.test_func();
+                std::cout << "PASSED" << std::endl;
+                stats.passed++;
+            } catch (const std::exception& e) {
+                std::cout << "FAILED" << std::endl;
+                std::cout << "  Error: " << e.what() << std::endl;
+                stats.failed++;
+            }
+        }
+        
+        std::cout << "======================" << std::endl;
+        std::cout << "Test Results:" << std::endl;
+        std::cout << "  Total:  " << stats.total() << std::endl;
+        std::cout << "  Passed: " << stats.passed << std::endl;
+        std::cout << "  Failed: " << stats.failed << std::endl;
+        
+        if (stats.failed > 0) {
+            std::cout << "\nSome tests failed!" << std::endl;
+        } else {
+            std::cout << "\nAll tests passed!" << std::endl;
         }
     }
     
-    void print_results() {
-        std::cout << "[unit] Results: " << passed_tests << " passed, " << failed_tests << " failed" << std::endl;
-    }
-    
-    int get_failed_count() const {
-        return failed_tests;
-    }
+    bool all_passed() const { return stats.failed == 0; }
 };
 
-// グローバルインスタンス
-extern UnitTestFramework* g_test_framework;
+// グローバルテストランナーインスタンス
+extern TestRunner test_runner;
 
-// テスト登録マクロ
-#define RUN_TEST(test_name, test_func) \
-    g_test_framework->run_test(test_name, test_func)
+// テストマクロの定義
+#define ASSERT_EQ(expected, actual) \
+    do { \
+        if ((expected) != (actual)) { \
+            throw std::runtime_error("Assertion failed: expected " + std::to_string(expected) + " but got " + std::to_string(actual)); \
+        } \
+    } while(0)
 
-// ユーティリティ関数
-inline bool contains(const std::string& str, const std::string& substr) {
-    return str.find(substr) != std::string::npos;
-}
+#define ASSERT_STREQ(expected, actual) \
+    do { \
+        std::string exp_str = (expected); \
+        std::string act_str = (actual); \
+        if (exp_str != act_str) { \
+            throw std::runtime_error("Assertion failed: expected \"" + exp_str + "\" but got \"" + act_str + "\""); \
+        } \
+    } while(0)
 
-// テスト用のヘルパー関数
-inline void unit_test_passed(const std::string& test_name) {
-    // プライベート関数として使用される
-}
+#define ASSERT_NOT_NULL(ptr) \
+    do { \
+        if ((ptr) == nullptr) { \
+            throw std::runtime_error("Assertion failed: expected non-null pointer but got nullptr"); \
+        } \
+    } while(0)
 
-inline void unit_test_failed(const std::string& test_name, const std::string& error) {
-    throw std::runtime_error("Test failed: " + test_name + " - " + error);
-}
+#define ASSERT_TRUE(condition) \
+    do { \
+        if (!(condition)) { \
+            throw std::runtime_error("Assertion failed: expected true but got false"); \
+        } \
+    } while(0)
+
+#define ASSERT_FALSE(condition) \
+    do { \
+        if (condition) { \
+            throw std::runtime_error("Assertion failed: expected false but got true"); \
+        } \
+    } while(0)
+
+#define RUN_TEST(name, test_func) \
+    test_runner.add_test(name, test_func)
+
+#endif // TEST_FRAMEWORK_HPP

@@ -1,0 +1,25 @@
+// ネストされたループでのbreak文テスト
+int main() {
+    println("=== Nested Loop Break Test ===");
+    
+    int i, j;
+    for (i = 0; i < 3; i = i + 1) {
+        println("Outer loop i: " + i);
+        
+        for (j = 0; j < 3; j = j + 1) {
+            if (j == 1) {
+                println("Breaking inner loop at j: " + j);
+                break;
+            }
+            println("Inner loop j: " + j);
+        }
+        
+        if (i == 1) {
+            println("Breaking outer loop at i: " + i);
+            break;
+        }
+    }
+    
+    println("Nested loop test completed");
+    return 0;
+}

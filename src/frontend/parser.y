@@ -5,7 +5,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <cstring>
-#include <memory>
 
 extern int yylex();
 extern void yyerror(const char* s);
@@ -24,23 +23,33 @@ extern "C" {
     void* ptr;
 }
 
-%token <lval> NUMBER
+%token <lval> NUMBER CHAR_LITERAL
 %token <sval> IDENTIFIER STRING_LITERAL
 %token CONST STATIC TYPEDEF
-%token VOID TINY SHORT INT LONG BOOL STRING
+%token VOID TINY SHORT INT LONG CHAR BOOL STRING
 %token TRUE FALSE NULL_LIT
 %token PLUS MINUS MUL DIV ASSIGN SEMICOLON PRINT PRINTLN RETURN
 %token FOR WHILE BREAK IF ELSE
-%token IMPORT EXPORT MODULE
-%token TRY CATCH FINALLY THROW
 %token EQ NEQ GE LE GT LT OR AND NOT MOD
 %token ADD_ASSIGN SUB_ASSIGN MUL_ASSIGN DIV_ASSIGN MOD_ASSIGN
 %token INC_OP DEC_OP
 %token '{' '}' '(' ')' '[' ']' ','
 
-%right '='
-%left '['
-%nonassoc LOWER_THAN_BRACKET
+// 演算子優先順位の定義（下に行くほど高優先順位）
+%right ASSIGN ADD_ASSIGN SUB_ASSIGN MUL_ASSIGN DIV_ASSIGN MOD_ASSIGN
+%left OR
+%left AND  
+%left EQ NEQ
+%left LT LE GT GE
+%left PLUS MINUS
+%left MUL DIV MOD
+%right NOT
+%left '[' ']' '(' ')'
+%right INC_OP DEC_OP
+
+// else shift/reduce conflict resolution
+%nonassoc LOWER_THAN_ELSE
+%nonassoc ELSE
 
 %type <ptr> program declaration_list declaration
 %type <ptr> function_definition parameter_list
@@ -49,13 +58,9 @@ extern "C" {
 %type <ptr> logical_or_expression logical_and_expression equality_expression
 %type <ptr> relational_expression additive_expression multiplicative_expression
 %type <ptr> unary_expression postfix_expression primary_expression
-%type <ptr> declarator type_specifier basic_type_specifier storage_class_specifier type_qualifier
+%type <ptr> declarator type_specifier storage_class_specifier type_qualifier
 %type <ptr> declaration_specifiers
 %type <ptr> argument_list initializer
-%type <ptr> import_statement export_statement module_declaration
-%type <ptr> try_statement catch_statement finally_statement throw_statement
-%type <ptr> typedef_declaration array_dimensions
-%type <sval> qualified_name
 
 %start program
 
@@ -82,166 +87,46 @@ declaration_list:
 
 declaration:
     function_definition { $$ = $1; }
-    | import_statement { $$ = $1; }
-    | export_statement { $$ = $1; }
-    | module_declaration { $$ = $1; }
-    | typedef_declaration { $$ = $1; }
-    | basic_type_specifier '[' expression ']' IDENTIFIER SEMICOLON {
-        // Go/Rust style array declaration: int[3] arr;
-        ASTNode* array_decl = new ASTNode(ASTNodeType::AST_ARRAY_DECL);
-        array_decl->name = std::string($5);
-        
-        // 基底型を設定
-        ASTNode* base_type = (ASTNode*)$1;
-        array_decl->type_info = static_cast<TypeInfo>(TYPE_ARRAY_BASE + base_type->type_info);
-        array_decl->array_type_info.base_type = base_type->type_info;
-        
-        // サイズを設定
-        ASTNode* size_expr = (ASTNode*)$3;
-        if (size_expr->node_type == ASTNodeType::AST_NUMBER) {
-            array_decl->array_size = static_cast<int>(size_expr->int_value);
-            array_decl->array_type_info.dimensions.emplace_back(array_decl->array_size, false);
-        } else {
-            // 実行時評価
-            array_decl->array_size = -1;
-            array_decl->array_size_expr = std::unique_ptr<ASTNode>(size_expr);
-            array_decl->array_type_info.dimensions.emplace_back(-1, true);
-        }
-        
-        delete base_type;
-        free($5);
-        $$ = array_decl;
-    }
-    | basic_type_specifier '[' expression ']' IDENTIFIER ASSIGN initializer SEMICOLON {
-        // Go/Rust style array with initialization: int[3] arr = {1,2,3};
-        ASTNode* array_decl = new ASTNode(ASTNodeType::AST_ARRAY_DECL);
-        array_decl->name = std::string($5);
-        array_decl->init_expr = std::unique_ptr<ASTNode>((ASTNode*)$7);
-        
-        // 基底型を設定
-        ASTNode* base_type = (ASTNode*)$1;
-        array_decl->type_info = static_cast<TypeInfo>(TYPE_ARRAY_BASE + base_type->type_info);
-        array_decl->array_type_info.base_type = base_type->type_info;
-        
-        // サイズを設定
-        ASTNode* size_expr = (ASTNode*)$3;
-        if (size_expr->node_type == ASTNodeType::AST_NUMBER) {
-            array_decl->array_size = static_cast<int>(size_expr->int_value);
-            array_decl->array_type_info.dimensions.emplace_back(array_decl->array_size, false);
-        } else {
-            // 実行時評価
-            array_decl->array_size = -1;
-            array_decl->array_size_expr = std::unique_ptr<ASTNode>(size_expr);
-            array_decl->array_type_info.dimensions.emplace_back(-1, true);
-        }
-        
-        delete base_type;
-        free($5);
-        $$ = array_decl;
-    }
-    | type_qualifier basic_type_specifier '[' expression ']' IDENTIFIER SEMICOLON {
-        // Go/Rust style array with qualifier: const int[3] arr;
-        ASTNode* array_decl = new ASTNode(ASTNodeType::AST_ARRAY_DECL);
-        array_decl->name = std::string($6);
-        array_decl->is_const = true; // type_qualifier is CONST
-        
-        // 基底型を設定
-        ASTNode* base_type = (ASTNode*)$2;
-        array_decl->type_info = static_cast<TypeInfo>(TYPE_ARRAY_BASE + base_type->type_info);
-        array_decl->array_type_info.base_type = base_type->type_info;
-        
-        // サイズを設定
-        ASTNode* size_expr = (ASTNode*)$4;
-        if (size_expr->node_type == ASTNodeType::AST_NUMBER) {
-            array_decl->array_size = static_cast<int>(size_expr->int_value);
-            array_decl->array_type_info.dimensions.emplace_back(array_decl->array_size, false);
-        } else {
-            array_decl->array_size = -1;
-            array_decl->array_size_expr = std::unique_ptr<ASTNode>(size_expr);
-            array_decl->array_type_info.dimensions.emplace_back(-1, true);
-        }
-        
-        delete_node((ASTNode*)$1); // type_qualifier
-        delete base_type;
-        free($6);
-        $$ = array_decl;
-    }
     | declaration_specifiers declarator SEMICOLON {
         ASTNode* decl = (ASTNode*)$2;
-        ASTNode* decl_spec = (ASTNode*)$1;
-        
-        // 配列型の場合は AST_ARRAY_DECL に変換
-        if (decl_spec && decl_spec->type_info >= TYPE_ARRAY_BASE) {
-            ASTNode* array_decl = new ASTNode(ASTNodeType::AST_ARRAY_DECL);
-            array_decl->name = decl->name;
-            array_decl->type_info = decl_spec->type_info;
-            array_decl->is_const = decl_spec->is_const;
-            array_decl->is_static = decl_spec->is_static;
-            
-            // 配列型情報を転送
-            if (decl_spec->array_type_info.base_type != TYPE_UNKNOWN) {
-                array_decl->array_type_info = decl_spec->array_type_info;
-                
-                // 配列サイズを設定（dimensionsから取得、または実行時評価）
-                if (!decl_spec->array_type_info.dimensions.empty()) {
-                    array_decl->array_size = decl_spec->array_type_info.dimensions[0].size;
-                } else {
-                    array_decl->array_size = -1; // 実行時評価
-                }
-            }
-            
-            // サイズ式を転送
-            if (decl_spec->array_size_expr) {
-                array_decl->array_size_expr = std::move(decl_spec->array_size_expr);
-            } else {
-                // array_size_exprがない場合は、実行時評価は不可能
-                // その場合はarray_sizeを使用
-                array_decl->array_size_expr = nullptr;
-            }
-            
-            delete decl;
-            delete_node(decl_spec);
-            $$ = array_decl;
-        } else {
-            // 通常の変数宣言
-            set_declaration_attributes(decl, decl_spec, nullptr);
-            delete_node(decl_spec);
-            $$ = decl;
-        }
-    }
-    | declaration_specifiers declarator ASSIGN initializer SEMICOLON {
-        ASTNode* declarator_node = (ASTNode*)$2;
-        ASTNode* decl = create_var_decl_with_init(declarator_node->name.c_str(), (ASTNode*)$4);
-        set_declaration_attributes(decl, (ASTNode*)$1, (ASTNode*)$4);
+        set_declaration_attributes(decl, (ASTNode*)$1, nullptr);
         delete_node((ASTNode*)$1);
-        delete_node(declarator_node);
         $$ = decl;
+    }
+    | type_specifier declarator SEMICOLON {
+        ASTNode* decl = (ASTNode*)$2;
+        ASTNode* decl_spec = create_decl_spec(nullptr, nullptr, (ASTNode*)$1);
+        set_declaration_attributes(decl, decl_spec, nullptr);
+        delete_node(decl_spec);
+        $$ = decl;
+    }
+    | type_specifier '[' expression ']' IDENTIFIER SEMICOLON {
+        ASTNode* array_decl = create_array_decl($5, (ASTNode*)$3);
+        ASTNode* decl_spec = create_decl_spec(nullptr, nullptr, (ASTNode*)$1);
+        set_declaration_attributes(array_decl, decl_spec, nullptr);
+        delete_node(decl_spec);
+        free($5);
+        $$ = array_decl;
     }
     ;
 
 declaration_specifiers:
-    basic_type_specifier %prec LOWER_THAN_BRACKET { $$ = create_decl_spec(nullptr, nullptr, (ASTNode*)$1); }
-    | basic_type_specifier '[' expression ']' {
-        // Go/Rust style array type - process at declaration_specifiers level
-        ASTNode* type_node = (ASTNode*)$1;
-        ASTNode* size_expr = (ASTNode*)$3;
-        ASTNode* array_type = create_array_type_node(type_node, size_expr);
-        $$ = create_decl_spec(nullptr, nullptr, array_type);
-    }
-    | type_qualifier basic_type_specifier {
-        $$ = create_decl_spec(nullptr, (ASTNode*)$1, (ASTNode*)$2);
-        delete_node((ASTNode*)$1);
-    }
-    | storage_class_specifier type_qualifier basic_type_specifier {
+    storage_class_specifier { $$ = $1; }
+    | type_qualifier { $$ = $1; }
+    | type_specifier { $$ = create_decl_spec(nullptr, nullptr, (ASTNode*)$1); }
+    | storage_class_specifier type_qualifier type_specifier {
         $$ = create_decl_spec((ASTNode*)$1, (ASTNode*)$2, (ASTNode*)$3);
         delete_node((ASTNode*)$1);
         delete_node((ASTNode*)$2);
     }
-    | storage_class_specifier basic_type_specifier {
+    | storage_class_specifier type_specifier {
         $$ = create_decl_spec((ASTNode*)$1, nullptr, (ASTNode*)$2);
         delete_node((ASTNode*)$1);
     }
-    ;
+    | type_qualifier type_specifier {
+        $$ = create_decl_spec(nullptr, (ASTNode*)$1, (ASTNode*)$2);
+        delete_node((ASTNode*)$1);
+    }
     ;
 
 storage_class_specifier:
@@ -253,28 +138,14 @@ type_qualifier:
     ;
 
 type_specifier:
-    basic_type_specifier { $$ = $1; }
-    | basic_type_specifier '[' expression ']' {
-        // Go/Rust style array type - direct processing
-        ASTNode* type_node = (ASTNode*)$1;
-        ASTNode* size_expr = (ASTNode*)$3;
-        $$ = create_array_type_node(type_node, size_expr);
-    }
-    ;
-
-basic_type_specifier:
     VOID   { $$ = create_type_node(TYPE_VOID); }
     | TINY   { $$ = create_type_node(TYPE_TINY); }
     | SHORT  { $$ = create_type_node(TYPE_SHORT); }
     | INT    { $$ = create_type_node(TYPE_INT); }
     | LONG   { $$ = create_type_node(TYPE_LONG); }
+    | CHAR   { $$ = create_type_node(TYPE_CHAR); }
     | STRING { $$ = create_type_node(TYPE_STRING); }
     | BOOL   { $$ = create_type_node(TYPE_BOOL); }
-    | IDENTIFIER { 
-        // 型エイリアスかチェック
-        $$ = create_type_alias_node($1); 
-        free($1);
-    }
     ;
 
 declarator:
@@ -282,8 +153,20 @@ declarator:
         $$ = create_var_decl($1);
         free($1);
     }
+    | IDENTIFIER ASSIGN assignment_expression {
+        $$ = create_var_init($1, (ASTNode*)$3);
+        free($1);
+    }
     | IDENTIFIER '[' expression ']' {
         $$ = create_array_decl($1, (ASTNode*)$3);
+        free($1);
+    }
+    | IDENTIFIER '[' ']' ASSIGN initializer {
+        $$ = create_array_init($1, (ASTNode*)$5);
+        free($1);
+    }
+    | IDENTIFIER '[' expression ']' ASSIGN initializer {
+        $$ = create_array_init_with_size($1, (ASTNode*)$3, (ASTNode*)$6);
         free($1);
     }
     ;
@@ -352,21 +235,15 @@ statement:
     | PRINTLN '(' ')' SEMICOLON { 
         $$ = create_println_empty();
     }
-    | PRINTLN '(' argument_list ')' SEMICOLON {
-        $$ = create_println_multi_stmt((ASTNode*)$3);
+    | PRINT '(' STRING_LITERAL ',' argument_list ')' SEMICOLON { 
+        ASTNode* format_str = create_string_literal($3);
+        $$ = create_printf_stmt(format_str, (ASTNode*)$5);
     }
     | PRINTLN '(' STRING_LITERAL ',' argument_list ')' SEMICOLON { 
         ASTNode* format_str = create_string_literal($3);
         $$ = create_printlnf_stmt(format_str, (ASTNode*)$5);
     }
-    | PRINT '(' argument_list ')' SEMICOLON {
-        $$ = create_print_multi_stmt((ASTNode*)$3);
-    }
-    | PRINT '(' STRING_LITERAL ',' argument_list ')' SEMICOLON { 
-        ASTNode* format_str = create_string_literal($3);
-        $$ = create_printf_stmt(format_str, (ASTNode*)$5);
-    }
-    | IF '(' expression ')' statement {
+    | IF '(' expression ')' statement %prec LOWER_THAN_ELSE {
         $$ = create_if_stmt((ASTNode*)$3, (ASTNode*)$5, nullptr);
     }
     | IF '(' expression ')' statement ELSE statement {
@@ -385,8 +262,6 @@ statement:
     | RETURN SEMICOLON { $$ = create_return_stmt(nullptr); }
     | BREAK SEMICOLON { $$ = create_break_stmt(nullptr); }
     | BREAK expression SEMICOLON { $$ = create_break_stmt((ASTNode*)$2); }
-    | try_statement { $$ = $1; }
-    | throw_statement { $$ = $1; }
     | '{' statement_list '}' { $$ = $2; }
     | SEMICOLON { $$ = nullptr; }
     ;
@@ -514,21 +389,10 @@ postfix_expression:
         $$ = create_func_call($1, nullptr);
         free($1);
     }
-    | qualified_name '(' argument_list ')' {
-        ASTNode* func_call = create_qualified_func_call($1, (ASTNode*)$3);
-        free($1);
-        $$ = func_call;
-    }
-    | qualified_name '(' ')' {
-        ASTNode* func_call = create_qualified_func_call($1, nullptr);
-        free($1);
-        $$ = func_call;
-    }
     ;
 
 primary_expression:
     IDENTIFIER { $$ = create_var_ref($1); free($1); }
-    | qualified_name { $$ = create_qualified_var_ref($1); free($1); }
     | NUMBER {
         // 大きな数値の場合はlongとして処理
         if ($1 > 2147483647LL || $1 < -2147483648LL) {
@@ -544,6 +408,9 @@ primary_expression:
     | STRING_LITERAL {
         $$ = create_string_literal($1);
         free($1);
+    }
+    | CHAR_LITERAL {
+        $$ = create_number($1, TYPE_CHAR);
     }
     | TRUE { $$ = create_number(1, TYPE_BOOL); }
     | FALSE { $$ = create_number(0, TYPE_BOOL); }
@@ -567,185 +434,6 @@ initializer:
     assignment_expression { $$ = $1; }
     | '[' argument_list ']' { $$ = create_array_literal((ASTNode*)$2); }
     | '[' ']' { $$ = create_array_literal(nullptr); }
-    ;
-
-/* モジュールシステム */
-qualified_name:
-    IDENTIFIER {
-        $$ = $1; // そのまま返す
-    }
-    | qualified_name '.' IDENTIFIER {
-        // ドット記法を連結
-        std::string result = std::string($1) + "." + std::string($3);
-        char* str = strdup(result.c_str());
-        free($1);
-        free($3);
-        $$ = str;
-    }
-    ;
-
-import_statement:
-    IMPORT qualified_name SEMICOLON {
-        ASTNode* import_node = new ASTNode(ASTNodeType::AST_IMPORT_STMT);
-        import_node->module_name = std::string($2);
-        free($2);
-        $$ = import_node;
-    }
-    ;
-
-export_statement:
-    EXPORT function_definition {
-        ASTNode* func = (ASTNode*)$2;
-        func->is_exported = true;
-        $$ = func;
-    }
-    | EXPORT declaration_specifiers declarator SEMICOLON {
-        ASTNode* decl = (ASTNode*)$3;
-        
-        // declaratorが初期化子を含む場合（AST_ASSIGN）、export const用に変換
-        if (decl->node_type == ASTNodeType::AST_ASSIGN) {
-            ASTNode* export_decl = create_export_var_init(decl->name.c_str(), decl->right.release());
-            set_declaration_attributes(export_decl, (ASTNode*)$2, nullptr);
-            export_decl->is_exported = true;
-            delete_node((ASTNode*)$2);
-            delete_node(decl);
-            $$ = export_decl;
-        } else {
-            set_declaration_attributes(decl, (ASTNode*)$2, nullptr);
-            decl->is_exported = true;
-            delete_node((ASTNode*)$2);
-            $$ = decl;
-        }
-    }
-    | EXPORT declaration_specifiers declarator '=' initializer SEMICOLON {
-        ASTNode* declarator_node = (ASTNode*)$3;
-        ASTNode* decl;
-        
-        // declaratorが既に初期化子を含む場合（AST_ASSIGN）、export const用に変換
-        if (declarator_node->node_type == ASTNodeType::AST_ASSIGN) {
-            decl = create_export_var_init(declarator_node->name.c_str(), declarator_node->right.release());
-        } else {
-            decl = create_export_var_init(declarator_node->name.c_str(), (ASTNode*)$5);
-        }
-        
-        set_declaration_attributes(decl, (ASTNode*)$2, nullptr);
-        decl->is_exported = true;
-        delete_node((ASTNode*)$2);
-        delete_node(declarator_node);
-        $$ = decl;
-    }
-    ;
-
-module_declaration:
-    MODULE IDENTIFIER '{' declaration_list '}' {
-        ASTNode* module_node = new ASTNode(ASTNodeType::AST_MODULE_DECL);
-        module_node->module_name = std::string($2);
-        module_node->body = std::unique_ptr<ASTNode>((ASTNode*)$4);
-        free($2);
-        $$ = module_node;
-    }
-    ;
-
-try_statement:
-    TRY '{' statement_list '}' catch_statement {
-        ASTNode* try_node = new ASTNode(ASTNodeType::AST_TRY_STMT);
-        try_node->try_body = std::unique_ptr<ASTNode>((ASTNode*)$3);
-        try_node->catch_body = std::unique_ptr<ASTNode>((ASTNode*)$5);
-        $$ = try_node;
-    }
-    | TRY '{' statement_list '}' catch_statement finally_statement {
-        ASTNode* try_node = new ASTNode(ASTNodeType::AST_TRY_STMT);
-        try_node->try_body = std::unique_ptr<ASTNode>((ASTNode*)$3);
-        try_node->catch_body = std::unique_ptr<ASTNode>((ASTNode*)$5);
-        try_node->finally_body = std::unique_ptr<ASTNode>((ASTNode*)$6);
-        $$ = try_node;
-    }
-    ;
-
-catch_statement:
-    CATCH '(' IDENTIFIER IDENTIFIER ')' '{' statement_list '}' {
-        ASTNode* catch_node = new ASTNode(ASTNodeType::AST_CATCH_STMT);
-        catch_node->exception_type = std::string($3);
-        catch_node->exception_var = std::string($4);
-        catch_node->catch_body = std::unique_ptr<ASTNode>((ASTNode*)$7);
-        free($3);
-        free($4);
-        $$ = catch_node;
-    }
-    ;
-
-finally_statement:
-    FINALLY '{' statement_list '}' {
-        ASTNode* finally_node = new ASTNode(ASTNodeType::AST_FINALLY_STMT);
-        finally_node->finally_body = std::unique_ptr<ASTNode>((ASTNode*)$3);
-        $$ = finally_node;
-    }
-    ;
-
-throw_statement:
-    THROW expression SEMICOLON {
-        ASTNode* throw_node = new ASTNode(ASTNodeType::AST_THROW_STMT);
-        throw_node->throw_expr = std::unique_ptr<ASTNode>((ASTNode*)$2);
-        $$ = throw_node;
-    }
-    ;
-
-typedef_declaration:
-    TYPEDEF type_specifier IDENTIFIER SEMICOLON {
-        ASTNode* typedef_node = create_typedef_decl($3, (ASTNode*)$2);
-        free($3);
-        $$ = typedef_node;
-    }
-    | TYPEDEF type_specifier array_dimensions IDENTIFIER SEMICOLON {
-        // 配列typedef: typedef int[10][20] ArrayType;
-        std::vector<std::unique_ptr<ASTNode>> dims;
-        ASTNode* current = (ASTNode*)$3;
-        
-        // array_dimensionsから次元情報を抽出
-        while (current) {
-            if (current->array_size_expr) {
-                dims.push_back(std::unique_ptr<ASTNode>(current->array_size_expr.release()));
-            } else {
-                // 空の括弧[] = 動的サイズ
-                dims.push_back(nullptr);
-            }
-            current = current->left.get();
-        }
-        
-        ASTNode* typedef_node = create_typedef_array_decl($4, (ASTNode*)$2, dims);
-        free($4);
-        delete (ASTNode*)$3; // array_dimensionsノードを削除
-        $$ = typedef_node;
-    }
-    ;
-
-array_dimensions:
-    '[' expression ']' {
-        // 固定サイズ次元: [10]
-        ASTNode* dim_node = new ASTNode(ASTNodeType::AST_ARRAY_DECL);
-        dim_node->array_size_expr = std::unique_ptr<ASTNode>((ASTNode*)$2);
-        $$ = dim_node;
-    }
-    | '[' ']' {
-        // 動的サイズ次元: []
-        ASTNode* dim_node = new ASTNode(ASTNodeType::AST_ARRAY_DECL);
-        // array_size_exprがnullptrなら動的サイズ
-        $$ = dim_node;
-    }
-    | array_dimensions '[' expression ']' {
-        // 多次元固定サイズ: [3][4]
-        ASTNode* dim_node = new ASTNode(ASTNodeType::AST_ARRAY_DECL);
-        dim_node->array_size_expr = std::unique_ptr<ASTNode>((ASTNode*)$3);
-        dim_node->left = std::unique_ptr<ASTNode>((ASTNode*)$1);
-        $$ = dim_node;
-    }
-    | array_dimensions '[' ']' {
-        // 多次元動的サイズ: [3][]
-        ASTNode* dim_node = new ASTNode(ASTNodeType::AST_ARRAY_DECL);
-        // array_size_exprがnullptrなら動的サイズ
-        dim_node->left = std::unique_ptr<ASTNode>((ASTNode*)$1);
-        $$ = dim_node;
-    }
     ;
 
 %%
