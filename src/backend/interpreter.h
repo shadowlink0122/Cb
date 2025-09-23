@@ -1,6 +1,7 @@
 #pragma once
 #include "../common/ast.h"
 #include "output/output_manager.h"
+#include <iostream>
 #include <map>
 #include <string>
 #include <vector>
@@ -14,6 +15,7 @@ struct Variable {
     bool is_const;
     bool is_array;
     bool is_assigned;
+    bool is_multidimensional; // 多次元配列フラグ
 
     // 値
     int64_t value;
@@ -24,9 +26,60 @@ struct Variable {
     std::vector<int64_t> array_values;
     std::vector<std::string> array_strings;
 
+    // 多次元配列用
+    ArrayTypeInfo array_type_info;     // 多次元配列の型情報
+    std::vector<int> array_dimensions; // 各次元のサイズ
+    std::vector<int64_t>
+        multidim_array_values; // 多次元配列データ（フラット化）
+    std::vector<std::string> multidim_array_strings; // 多次元文字列配列データ
+
     Variable()
         : type(TYPE_INT), is_const(false), is_array(false), is_assigned(false),
-          value(0), array_size(0) {}
+          is_multidimensional(false), value(0), array_size(0) {}
+
+    // 多次元配列用コンストラクタ
+    Variable(const ArrayTypeInfo &array_info)
+        : type(TYPE_INT), is_const(false), is_array(true), is_assigned(false),
+          is_multidimensional(true), value(0), array_size(0),
+          array_type_info(array_info) {}
+
+    // 多次元配列のフラットインデックス計算
+    int calculate_flat_index(const std::vector<int> &indices) const {
+        if (indices.size() != array_type_info.dimensions.size()) {
+            throw std::runtime_error("Dimension mismatch in array access");
+        }
+
+        int flat_index = 0;
+        int multiplier = 1;
+
+        // 最後の次元から計算（row-major order）
+        for (int i = static_cast<int>(indices.size()) - 1; i >= 0; --i) {
+            if (indices[i] < 0 ||
+                indices[i] >= array_type_info.dimensions[i].size) {
+                throw std::runtime_error("Array index out of bounds");
+            }
+            flat_index += indices[i] * multiplier;
+            multiplier *= array_type_info.dimensions[i].size;
+        }
+
+        return flat_index;
+    }
+
+    // 多次元配列のサイズ検証
+    bool validate_indices(const std::vector<int> &indices) const {
+        if (indices.size() != array_type_info.dimensions.size()) {
+            return false;
+        }
+
+        for (size_t i = 0; i < indices.size(); ++i) {
+            if (indices[i] < 0 ||
+                indices[i] >= array_type_info.dimensions[i].size) {
+                return false;
+            }
+        }
+
+        return true;
+    }
 };
 
 // スコープ管理

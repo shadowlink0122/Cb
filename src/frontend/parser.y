@@ -61,6 +61,8 @@ extern "C" {
 %type <ptr> declarator type_specifier storage_class_specifier type_qualifier
 %type <ptr> declaration_specifiers
 %type <ptr> argument_list initializer
+%type <ptr> array_dimensions multidim_initializer nested_initializer_list nested_initializer
+%type <ptr> array_index_list typedef_declaration
 
 %start program
 
@@ -100,6 +102,7 @@ declaration:
         delete_node(decl_spec);
         $$ = decl;
     }
+    | typedef_declaration { $$ = $1; }
     | type_specifier '[' expression ']' IDENTIFIER SEMICOLON {
         ASTNode* array_decl = create_array_decl($5, (ASTNode*)$3);
         ASTNode* decl_spec = create_decl_spec(nullptr, nullptr, (ASTNode*)$1);
@@ -146,6 +149,18 @@ type_specifier:
     | CHAR   { $$ = create_type_node(TYPE_CHAR); }
     | STRING { $$ = create_type_node(TYPE_STRING); }
     | BOOL   { $$ = create_type_node(TYPE_BOOL); }
+    | IDENTIFIER { $$ = create_typedef_type($1); free($1); }
+    ;
+
+typedef_declaration:
+    TYPEDEF type_specifier IDENTIFIER SEMICOLON {
+        $$ = create_typedef_decl($3, (ASTNode*)$2, nullptr);
+        free($3);
+    }
+    | TYPEDEF type_specifier array_dimensions IDENTIFIER SEMICOLON {
+        $$ = create_typedef_array_decl($4, (ASTNode*)$2, (ASTNode*)$3);
+        free($4);
+    }
     ;
 
 declarator:
@@ -167,6 +182,18 @@ declarator:
     }
     | IDENTIFIER '[' expression ']' ASSIGN initializer {
         $$ = create_array_init_with_size($1, (ASTNode*)$3, (ASTNode*)$6);
+        free($1);
+    }
+    | IDENTIFIER array_dimensions {
+        $$ = create_multidim_array_decl($1, (ASTNode*)$2);
+        free($1);
+    }
+    | IDENTIFIER array_dimensions ASSIGN multidim_initializer {
+        $$ = create_multidim_array_init($1, (ASTNode*)$2, (ASTNode*)$4);
+        free($1);
+    }
+    | IDENTIFIER '[' expression ']' {
+        $$ = create_typedef_array_var($1, (ASTNode*)$3);
         free($1);
     }
     ;
@@ -280,6 +307,10 @@ assignment_expression:
         $$ = create_array_assign($1, (ASTNode*)$3, (ASTNode*)$6);
         free($1);
     }
+    | IDENTIFIER array_index_list ASSIGN assignment_expression {
+        $$ = create_multidim_array_assign($1, (ASTNode*)$2, (ASTNode*)$4);
+        free($1);
+    }
     | IDENTIFIER ADD_ASSIGN assignment_expression {
         $$ = create_compound_assign($1, "+", (ASTNode*)$3);
         free($1);
@@ -381,6 +412,10 @@ postfix_expression:
         $$ = create_array_ref($1, (ASTNode*)$3);
         free($1);
     }
+    | IDENTIFIER array_index_list {
+        $$ = create_multidim_array_ref($1, (ASTNode*)$2);
+        free($1);
+    }
     | IDENTIFIER '(' argument_list ')' {
         $$ = create_func_call($1, (ASTNode*)$3);
         free($1);
@@ -434,6 +469,63 @@ initializer:
     assignment_expression { $$ = $1; }
     | '[' argument_list ']' { $$ = create_array_literal((ASTNode*)$2); }
     | '[' ']' { $$ = create_array_literal(nullptr); }
+    ;
+
+array_dimensions:
+    '[' expression ']' {
+        ASTNode* dims = create_dimension_list();
+        add_dimension(dims, (ASTNode*)$2);
+        $$ = dims;
+    }
+    | array_dimensions '[' expression ']' {
+        add_dimension((ASTNode*)$1, (ASTNode*)$3);
+        $$ = $1;
+    }
+    | '[' ']' {
+        ASTNode* dims = create_dimension_list();
+        add_dimension(dims, nullptr); // 動的サイズ
+        $$ = dims;
+    }
+    | array_dimensions '[' ']' {
+        add_dimension((ASTNode*)$1, nullptr); // 動的サイズ
+        $$ = $1;
+    }
+    ;
+
+multidim_initializer:
+    '{' nested_initializer_list '}' { $$ = $2; }
+    | '{' '}' { $$ = create_nested_init_list(); }
+    ;
+
+nested_initializer_list:
+    nested_initializer {
+        ASTNode* list = create_nested_init_list();
+        add_nested_initializer(list, (ASTNode*)$1);
+        $$ = list;
+    }
+    | nested_initializer_list ',' nested_initializer {
+        add_nested_initializer((ASTNode*)$1, (ASTNode*)$3);
+        $$ = $1;
+    }
+    ;
+
+nested_initializer:
+    '{' argument_list '}' { $$ = create_array_literal((ASTNode*)$2); }
+    | '{' '}' { $$ = create_array_literal(nullptr); }
+    | multidim_initializer { $$ = $1; }
+    ;
+
+array_index_list:
+    '[' expression ']' '[' expression ']' {
+        ASTNode* indices = create_index_list();
+        add_index(indices, (ASTNode*)$2);
+        add_index(indices, (ASTNode*)$5);
+        $$ = indices;
+    }
+    | array_index_list '[' expression ']' {
+        add_index((ASTNode*)$1, (ASTNode*)$3);
+        $$ = $1;
+    }
     ;
 
 %%

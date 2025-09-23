@@ -2,9 +2,18 @@
 #include "../common/ast.h"
 #include <functional>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <unordered_map>
 #include <vector>
+
+// カスタム例外クラス（詳細なエラー表示済みを示すフラグ付き）
+class DetailedErrorException : public std::runtime_error {
+  public:
+    DetailedErrorException(const std::string &message)
+        : std::runtime_error(message), detailed_shown(true) {}
+    bool detailed_shown;
+};
 
 // 例外の種類
 enum class ExceptionType {
@@ -129,3 +138,18 @@ void throw_function_not_found(const std::string &function_name,
                               const std::string &location = "");
 void throw_runtime_error(const std::string &message,
                          const std::string &location = "");
+
+// 詳細なエラー表示機能
+void print_error_with_location(const std::string &message,
+                               const std::string &filename, int line,
+                               int column, const std::string &source_line = "");
+
+// ASTノードの位置情報を使ったエラー表示
+void print_error_with_ast_location(const std::string &message,
+                                   const ASTNode *node);
+
+// ソースファイルから指定行を読み取る
+std::string get_source_line(const std::string &filename, int line_number);
+
+// カラム位置にマーカーを追加
+std::string create_column_marker(int column, int length = 1);

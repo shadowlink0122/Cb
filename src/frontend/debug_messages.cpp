@@ -203,6 +203,9 @@ const DebugMessageTemplate debug_messages[] = {
     [static_cast<int>(
         DebugMsgId::NEGATIVE_ARRAY_SIZE_ERROR)] = {"Array size is negative: %s",
                                                    "配列サイズが負です: %s"},
+    [static_cast<int>(DebugMsgId::DYNAMIC_ARRAY_NOT_SUPPORTED)] =
+        {"Dynamic multidimensional arrays not supported: %s",
+         "動的多次元配列はサポートされていません: %s"},
     [static_cast<int>(
         DebugMsgId::MAIN_FUNC_NOT_FOUND_ERROR)] = {"main function not found",
                                                    "main関数が見つかりません"},

@@ -178,6 +178,9 @@ const DebugMessageTemplate debug_messages[] = {
     [static_cast<int>(DebugMsgId::TYPE_MISMATCH_ERROR)] =
         {"Error: Array '%s' element %zu: %s type expected but %s type provided",
          "エラー: 配列'%s'の要素%zu: %s型が期待されましたが%s型が渡されました"},
+    [static_cast<int>(DebugMsgId::STRING_IN_INT_ARRAY_ERROR)] =
+        {"Found string literal in integer array - throwing error",
+         "整数配列内に文字列リテラルを検出 - エラーをスロー"},
 
     // 型システム関連
     [static_cast<int>(
@@ -290,6 +293,90 @@ const DebugMessageTemplate debug_messages[] = {
     [static_cast<int>(DebugMsgId::ARRAY_DECL_EVAL_DEBUG)] =
         {"AST_ARRAY_DECL called in evaluate_expression: %s",
          "AST_ARRAY_DECL が evaluate_expression で呼び出されました: %s"},
+
+    // 多次元配列関連
+    [static_cast<int>(
+        DebugMsgId::ARRAY_DECL_DEBUG)] = {"Processing array declaration: %s",
+                                          "配列宣言を処理: %s"},
+    [static_cast<int>(
+        DebugMsgId::ARRAY_DIMENSIONS_COUNT)] = {"Array dimensions count: %zu",
+                                                "配列次元数: %zu"},
+    [static_cast<int>(DebugMsgId::MULTIDIM_ARRAY_PROCESSING)] =
+        {"Processing as multidimensional array", "多次元配列として処理"},
+    [static_cast<int>(DebugMsgId::SINGLE_DIM_ARRAY_PROCESSING)] =
+        {"Processing as single dimensional array", "単一次元配列として処理"},
+    [static_cast<int>(DebugMsgId::MULTIDIM_ARRAY_ASSIGNMENT_DETECTED)] =
+        {"Multidimensional array assignment detected", "多次元配列代入を検出"},
+    [static_cast<int>(DebugMsgId::MULTIDIM_ARRAY_ACCESS_INFO)] =
+        {"Multidimensional array access: %s", "多次元配列アクセス: %s"},
+    [static_cast<int>(
+        DebugMsgId::FLAT_INDEX_CALCULATED)] = {"Calculated flat index: %d",
+                                               "フラットインデックス計算: %d"},
+    [static_cast<int>(DebugMsgId::MULTIDIM_ARRAY_ASSIGNMENT_COMPLETED)] =
+        {"Multidimensional array assignment completed", "多次元配列代入完了"},
+    [static_cast<int>(DebugMsgId::ARRAY_ELEMENT_ASSIGN_DEBUG)] =
+        {"Array element assignment: %s[%lld] = %lld",
+         "配列要素代入: %s[%lld] = %lld"},
+    [static_cast<int>(
+        DebugMsgId::VARIABLE_NOT_FOUND)] = {"Variable not found: %s",
+                                            "変数が見つかりません: %s"},
+    [static_cast<int>(DebugMsgId::ARRAY_INFO)] =
+        {"Array info: is_array=%d, array_size=%d, values_size=%zu",
+         "配列情報: is_array=%d, array_size=%d, values_size=%zu"},
+    [static_cast<int>(DebugMsgId::ARRAY_INDEX_OUT_OF_BOUNDS)] =
+        {"Array index out of bounds: index=%lld, size=%d",
+         "配列インデックス範囲外: index=%lld, size=%d"},
+    [static_cast<int>(DebugMsgId::ARRAY_ELEMENT_ASSIGN_START)] =
+        {"About to assign to array element[%lld]", "配列要素[%lld]に代入開始"},
+    [static_cast<int>(DebugMsgId::ARRAY_ELEMENT_ASSIGN_SUCCESS)] =
+        {"Array element assignment completed successfully",
+         "配列要素代入が正常に完了"},
+
+    // 配列宣言関連（追加）
+    [static_cast<int>(DebugMsgId::ARRAY_DECL_START)] =
+        {"Starting array declaration: %s", "配列宣言開始: %s"},
+    [static_cast<int>(DebugMsgId::MULTIDIM_ARRAY_DECL_INFO)] =
+        {"Multidimensional array declaration with %d dimensions",
+         "%d次元配列を宣言します"},
+    [static_cast<int>(DebugMsgId::ARRAY_TOTAL_SIZE)] = {"Array total size: %d",
+                                                        "配列の総サイズ: %d"},
+    [static_cast<int>(DebugMsgId::MULTIDIM_ARRAY_DECL_SUCCESS)] =
+        {"Multidimensional array declaration successful: %s",
+         "多次元配列宣言完了: %s"},
+    [static_cast<int>(DebugMsgId::ARRAY_DECL_SUCCESS)] =
+        {"Array declaration successful: %s", "配列宣言完了: %s"},
+
+    // printf出力関連デバッグ
+    [static_cast<int>(DebugMsgId::PRINTF_OFFSET_CALLED)] =
+        {"print_formatted with offset called, start_index=%zu",
+         "オフセット付きprint_formatted呼び出し, start_index=%zu"},
+    [static_cast<int>(DebugMsgId::PRINTF_ARG_LIST_INFO)] =
+        {"arg_list size=%zu, start_index=%zu",
+         "引数リストサイズ=%zu, 開始インデックス=%zu"},
+    [static_cast<int>(DebugMsgId::PRINTF_ARG_PROCESSING)] =
+        {"Processing argument %zu, type=%d", "引数%zu処理中, 型=%d"},
+    [static_cast<int>(DebugMsgId::PRINTF_ARRAY_REF_DEBUG)] =
+        {"AST_ARRAY_REF detected: left=%p, array_index=%p",
+         "AST_ARRAY_REF検出: left=%p, array_index=%p"},
+
+    // 配列参照詳細デバッグ
+    [static_cast<int>(DebugMsgId::ARRAY_REF_EVAL_START)] =
+        {"AST_ARRAY_REF evaluation started", "AST_ARRAY_REF評価開始"},
+    [static_cast<int>(
+        DebugMsgId::ARRAY_REF_NODE_POINTER)] = {"node pointer: %p",
+                                                "ノードポインター: %p"},
+    [static_cast<int>(
+        DebugMsgId::ARRAY_REF_LEFT_POINTER)] = {"node->left pointer: %p",
+                                                "node->leftポインター: %p"},
+    [static_cast<int>(DebugMsgId::ARRAY_REF_NAME_DEBUG)] = {"node->name: '%s'",
+                                                            "node->name: '%s'"},
+    [static_cast<int>(DebugMsgId::ARRAY_REF_INDEX_POINTER)] =
+        {"node->array_index pointer: %p", "node->array_indexポインター: %p"},
+
+    // const変数再代入エラー
+    [static_cast<int>(DebugMsgId::CONST_VAR_REASSIGN_ERROR)] =
+        {"Cannot reassign to const variable: %s",
+         "const変数への再代入はできません: %s"},
 };
 
 // デバッグメッセージ配列のサイズ

@@ -1,7 +1,6 @@
 #pragma once
 #include "../framework/test_framework.hpp"
 #include "../../../src/backend/interpreter.h"
-#include "../../../src/frontend/parser_utils.h"
 #include <memory>
 
 inline void test_function_definition() {

@@ -1,5 +1,6 @@
 #include "statement_executor.h"
 #include "../interpreter.h"
+#include "../error_handler.h"
 #include "../../common/debug.h"
 #include "../../common/type_alias.h"
 
@@ -31,19 +32,42 @@ void StatementExecutor::execute(const ASTNode *node) {
 void StatementExecutor::execute_assignment(const ASTNode *node) {
     if (node->left->node_type == ASTNodeType::AST_ARRAY_REF) {
         // 配列要素への代入
-        int64_t index = interpreter_.evaluate_expression(node->left->array_index.get());
         int64_t rvalue = interpreter_.evaluate_expression(node->right.get());
         
-        Variable *var = interpreter_.find_variable(node->left->name);
-        if (!var) {
-            throw std::runtime_error("Undefined variable: " + node->left->name);
-        }
-        
-        if (var->type == TYPE_STRING) {
-            interpreter_.assign_string_element(node->left->name, index, 
-                                             std::string(1, static_cast<char>(rvalue)));
+        // 多次元配列アクセスかチェック
+        if (node->left->left && node->left->left->node_type == ASTNodeType::AST_ARRAY_REF) {
+            // 多次元配列要素への代入
+            throw std::runtime_error("Multidimensional array assignment not yet implemented");
         } else {
-            interpreter_.assign_array_element(node->left->name, index, rvalue);
+            // 単一次元配列要素への代入
+            int64_t index_value = interpreter_.evaluate_expression(node->left->array_index.get());
+            int index = static_cast<int>(index_value);
+            
+            std::string var_name;
+            if (node->left->left && node->left->left->node_type == ASTNodeType::AST_VARIABLE) {
+                var_name = node->left->left->name;
+            } else if (!node->left->name.empty()) {
+                var_name = node->left->name;
+            } else {
+                throw std::runtime_error("Invalid array reference in assignment");
+            }
+            
+            Variable *var = interpreter_.find_variable(var_name);
+            if (!var) {
+                // 詳細なエラー表示
+                print_error_with_ast_location(
+                    "Undefined variable '" + var_name + "'", 
+                    node);
+                    
+                throw DetailedErrorException("Undefined variable: " + var_name);
+            }
+            
+            if (var->type == TYPE_STRING) {
+                interpreter_.assign_string_element(var_name, index, 
+                                                 std::string(1, static_cast<char>(rvalue)));
+            } else {
+                interpreter_.assign_array_element(var_name, index, rvalue);
+            }
         }
     } else {
         // 通常の変数代入

@@ -1,4 +1,6 @@
 #include "error_handler.h"
+#include "../common/ast.h"
+#include <fstream>
 #include <iostream>
 #include <sstream>
 
@@ -238,4 +240,67 @@ void throw_runtime_error(const std::string &message,
     }
     global_error_context->throw_exception(ExceptionType::RUNTIME_ERROR, message,
                                           location);
+}
+
+// 詳細なエラー表示機能の実装
+void print_error_with_location(const std::string &message,
+                               const std::string &filename, int line,
+                               int column, const std::string &source_line) {
+    std::cerr << "Error: " << message << std::endl;
+    std::cerr << "Location: " << filename << ":" << line << ":" << column
+              << std::endl;
+
+    if (!source_line.empty()) {
+        std::cerr << "Source:" << std::endl;
+        std::cerr << "  " << line << " | " << source_line << std::endl;
+
+        // カラム位置にマーカーを追加（line番号と" | "を考慮）
+        int line_prefix_length =
+            std::to_string(line).length() + 3; // "  line | "の長さ
+        std::string marker = create_column_marker(
+            column + line_prefix_length + 2,
+            1); // column位置に^マーカー1個（プレフィックス考慮）
+        std::cerr << marker << std::endl;
+    }
+}
+
+void print_error_with_ast_location(const std::string &message,
+                                   const ASTNode *node) {
+    if (node && !node->location.filename.empty()) {
+        std::string source_line = node->location.source_line;
+        if (source_line.empty()) {
+            source_line =
+                get_source_line(node->location.filename, node->location.line);
+        }
+        print_error_with_location(message, node->location.filename,
+                                  node->location.line, node->location.column,
+                                  source_line);
+    } else {
+        std::cerr << "Error: " << message << std::endl;
+    }
+}
+
+std::string get_source_line(const std::string &filename, int line_number) {
+    std::ifstream file(filename);
+    if (!file.is_open()) {
+        return "";
+    }
+
+    std::string line;
+    int current_line = 1;
+
+    while (std::getline(file, line) && current_line <= line_number) {
+        if (current_line == line_number) {
+            return line;
+        }
+        current_line++;
+    }
+
+    return "";
+}
+
+std::string create_column_marker(int column, int length) {
+    std::string marker(column - 1, ' ');
+    marker += std::string(length, '^');
+    return marker;
 }

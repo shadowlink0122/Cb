@@ -50,6 +50,9 @@ struct ArrayTypeInfo {
 
     // 型情報文字列を生成（例: "int[10][20]"）
     std::string to_string() const;
+
+    // ArrayTypeInfoから単一の型IDを生成（TYPE_ARRAY_BASEベースのレガシー互換性用）
+    TypeInfo to_legacy_type_id() const;
 };
 
 // 型名を文字列に変換する関数
@@ -120,10 +123,31 @@ enum class ASTNodeType {
     AST_THROW_STMT    // throw文
 };
 
+// 位置情報構造体
+struct SourceLocation {
+    std::string filename;
+    int line = 0;
+    int column = 0;
+    std::string source_line; // 該当行の内容
+
+    SourceLocation() = default;
+    SourceLocation(const std::string &file, int l, int c,
+                   const std::string &line = "")
+        : filename(file), line(l), column(c), source_line(line) {}
+
+    std::string to_string() const {
+        return filename + ":" + std::to_string(line) + ":" +
+               std::to_string(column);
+    }
+};
+
 // ASTノードの基底クラス
 struct ASTNode {
     ASTNodeType node_type;
     TypeInfo type_info;
+
+    // 位置情報
+    SourceLocation location;
 
     // ストレージ属性
     bool is_const = false;
@@ -158,6 +182,10 @@ struct ASTNode {
     std::vector<std::unique_ptr<ASTNode>>
         array_dimensions;          // 多次元配列の各次元のサイズ式
     ArrayTypeInfo array_type_info; // 詳細な配列型情報
+
+    // 多次元配列アクセス用
+    std::vector<std::unique_ptr<ASTNode>>
+        array_indices; // 多次元配列インデックス [i][j][k]
 
     // モジュール関連
     std::string module_name;               // モジュール名 (std.io等)

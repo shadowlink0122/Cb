@@ -53,6 +53,28 @@ ASTNode *create_decl_spec(ASTNode *storage_class, ASTNode *type_qualifier,
 ASTNode *create_arg_list();
 ASTNode *create_array_literal(ASTNode *elements);
 
+// 多次元配列用関数
+ASTNode *create_multidim_array_decl(const char *name, ASTNode *dimensions);
+ASTNode *create_multidim_array_init(const char *name, ASTNode *dimensions,
+                                    ASTNode *init);
+ASTNode *create_multidim_array_ref(const char *name, ASTNode *indices);
+ASTNode *create_multidim_array_assign(const char *name, ASTNode *indices,
+                                      ASTNode *expr);
+ASTNode *create_dimension_list();
+ASTNode *create_index_list();
+ASTNode *create_nested_init_list();
+void add_dimension(ASTNode *list, ASTNode *size_expr);
+void add_index(ASTNode *list, ASTNode *index_expr);
+void add_nested_initializer(ASTNode *list, ASTNode *init);
+
+// typedef用関数
+ASTNode *create_typedef_decl(const char *alias_name, ASTNode *base_type,
+                             ASTNode *unused);
+ASTNode *create_typedef_array_decl(const char *alias_name, ASTNode *base_type,
+                                   ASTNode *dimensions);
+ASTNode *create_typedef_type(const char *type_name);
+ASTNode *create_typedef_array_var(const char *name, ASTNode *size_expr);
+
 // ユーティリティ関数
 void add_statement(ASTNode *list, ASTNode *stmt);
 void add_parameter(ASTNode *list, ASTNode *param);

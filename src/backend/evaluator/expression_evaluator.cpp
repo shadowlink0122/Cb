@@ -1,6 +1,7 @@
 #include "expression_evaluator.h"
 #include "../interpreter.h"
 #include "../../common/debug_messages.h"
+#include "../error_handler.h"
 #include <stdexcept>
 
 ExpressionEvaluator::ExpressionEvaluator(Interpreter& interpreter) 
@@ -35,36 +36,72 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode *node) {
         // 通常の変数参照
         Variable *var = interpreter_.find_variable(node->name);
         if (!var) {
-            error_msg(DebugMsgId::UNDEFINED_VAR_ERROR, node->name.c_str());
-            throw std::runtime_error("Undefined variable");
+            // 詳細なエラー表示
+            print_error_with_ast_location(
+                "Undefined variable '" + node->name + "'", 
+                node);
+            
+            throw DetailedErrorException("Undefined variable");
         }
         debug_msg(DebugMsgId::VAR_VALUE, var->value);
         return var->value;
     }
 
     case ASTNodeType::AST_ARRAY_REF: {
-        debug_msg(DebugMsgId::EXPR_EVAL_ARRAY_REF, node->name.c_str());
-        Variable *var = interpreter_.find_variable(node->name);
-        if (!var) {
-            error_msg(DebugMsgId::UNDEFINED_VAR_ERROR, node->name.c_str());
-            throw std::runtime_error("Undefined variable");
+        // 多次元配列アクセスを再帰的に処理
+        if (node->left && node->left->node_type == ASTNodeType::AST_ARRAY_REF) {
+            // 左側が配列アクセス（多次元）の場合
+            // まだ実装されていない - 将来のサポート予定
+            throw std::runtime_error("Multidimensional array access not yet fully supported");
+        } else {
+            // 単一次元配列アクセスまたは変数の配列アクセス
+            std::string var_name;
+            
+            // 新構造（node->left）と旧構造（node->name）の両方に対応
+            if (node->left && node->left->node_type == ASTNodeType::AST_VARIABLE) {
+                // 新しい構造: node->left が変数
+                var_name = node->left->name;
+            } else if (!node->name.empty()) {
+                // 旧構造: node->name が直接変数名を持つ
+                var_name = node->name;
+            } else {
+                throw std::runtime_error("Invalid array reference structure");
+            }
+            
+            debug_msg(DebugMsgId::EXPR_EVAL_ARRAY_REF, var_name.c_str());
+            Variable *var = interpreter_.find_variable(var_name);
+            if (!var) {
+                // 詳細なエラー表示
+                print_error_with_ast_location(
+                    "Undefined variable '" + var_name + "'", 
+                    node);
+                    
+                throw DetailedErrorException("Undefined variable");
+            }
+
+            if (!var->is_array) {
+                // 詳細なエラー表示
+                print_error_with_ast_location(
+                    "Variable '" + var_name + "' is not an array", 
+                    node);
+                    
+                throw DetailedErrorException("Variable is not an array");
+            }
+
+            int64_t index_value = evaluate_expression(node->array_index.get());
+            int index = static_cast<int>(index_value);
+
+            if (index < 0 || index >= static_cast<int>(var->array_values.size())) {
+                // 詳細なエラー表示
+                print_error_with_ast_location(
+                    "Array index out of bounds (index=" + std::to_string(index) + ", size=" + std::to_string(var->array_values.size()) + ")", 
+                    node);
+                    
+                throw DetailedErrorException("Array index out of bounds");
+            }
+
+            return var->array_values[index];
         }
-
-        if (!var->is_array) {
-            error_msg(DebugMsgId::NON_ARRAY_REF_ERROR, node->name.c_str());
-            throw std::runtime_error("Not an array");
-        }
-
-        int64_t index = evaluate_expression(node->array_index.get());
-        debug_msg(DebugMsgId::ARRAY_INDEX, index);
-
-        if (index < 0 || index >= (int64_t)var->array_values.size()) {
-            error_msg(DebugMsgId::ARRAY_OUT_OF_BOUNDS_ERROR, node->name.c_str());
-            throw std::runtime_error("Array index out of bounds");
-        }
-
-        debug_msg(DebugMsgId::ARRAY_ELEMENT_VALUE, var->array_values[index]);
-        return var->array_values[index];
     }
 
     case ASTNodeType::AST_BINARY_OP: {
@@ -248,6 +285,34 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode *node) {
         debug_msg(DebugMsgId::ARRAY_DECL_EVAL_DEBUG, node->name.c_str());
         error_msg(DebugMsgId::ARRAY_DECL_AS_EXPR_ERROR, node->name.c_str());
         throw std::runtime_error("Array declaration as expression error");
+
+    case ASTNodeType::AST_ARRAY_LITERAL:
+        // 配列リテラル処理 [elem1, elem2, ...] or [[...], [...], ...]
+        {
+            // これは配列リテラル [1,2,3,...] として扱う
+            // node->argumentsには各要素のノードが含まれている
+            Variable result;
+            result.array_values.clear();
+
+            // 各要素を評価して配列に追加
+            for (auto &arg : node->arguments) {
+                if (arg->node_type == ASTNodeType::AST_ARRAY_LITERAL) {
+                    // ネストした配列リテラル（多次元配列）
+                    // 現在は簡略化して最初の要素のみ取得
+                    if (!arg->arguments.empty()) {
+                        int64_t element_value = evaluate_expression(arg->arguments[0].get());
+                        result.array_values.push_back(element_value);
+                    }
+                } else {
+                    // 通常の要素
+                    int64_t element_value = evaluate_expression(arg.get());
+                    result.array_values.push_back(element_value);
+                }
+            }
+
+            // 配列として返す（値としては0）
+            return 0;
+        }
 
     case ASTNodeType::AST_STMT_LIST:
         // 配列リテラル処理（パーサーがcreate_array_literalでAST_STMT_LISTを使用）

@@ -1,11 +1,19 @@
 #include "recursive_parser.h"
-#include "../debug.h"
+#include "../../backend/error_handler.h"
+#include "../../common/debug.h"
 #include <iostream>
+#include <sstream>
 
 using namespace RecursiveParserNS;
 
-RecursiveParser::RecursiveParser(const std::string& source) 
-    : lexer_(source), current_token_(TokenType::TOK_EOF, "", 0, 0) {
+RecursiveParser::RecursiveParser(const std::string& source, const std::string& filename) 
+    : lexer_(source), current_token_(TokenType::TOK_EOF, "", 0, 0), filename_(filename), source_(source) {
+    // ソースコードを行ごとに分割
+    std::istringstream iss(source);
+    std::string line;
+    while (std::getline(iss, line)) {
+        source_lines_.push_back(line);
+    }
     advance();
 }
 
@@ -48,14 +56,17 @@ void RecursiveParser::consume(TokenType type, const std::string& message) {
 }
 
 void RecursiveParser::error(const std::string& message) {
-    std::cerr << "=== PARSE ERROR ===" << std::endl;
-    std::cerr << "Location: Line " << current_token_.line 
-              << ", Column " << current_token_.column << std::endl;
-    std::cerr << "Error: " << message << std::endl;
-    std::cerr << "Current token: '" << current_token_.value 
-              << "' (type: " << (int)current_token_.type << ")" << std::endl;
-    std::cerr << "==================" << std::endl;
-    throw std::runtime_error(message);
+    // 詳細なエラー表示
+    std::string source_line = getSourceLine(current_token_.line);
+    print_error_with_location(
+        message,
+        filename_,
+        current_token_.line,
+        current_token_.column,
+        source_line
+    );
+    
+    throw DetailedErrorException(message);
 }
 
 ASTNode* RecursiveParser::parseProgram() {
@@ -123,17 +134,23 @@ ASTNode* RecursiveParser::parseStatement() {
         
         advance(); // consume type
         
-        // 配列型の場合: int[size] identifier
+        // 配列型の場合: int[size][size2]... identifier
         if (check(TokenType::TOK_LBRACKET)) {
-            // これは配列型宣言
-            advance(); // consume '['
+            // これは配列型宣言（多次元対応）
+            std::vector<std::string> array_sizes;
             
-            std::string array_size = "";
-            if (check(TokenType::TOK_NUMBER)) {
-                array_size = advance().value;
+            // 全ての配列次元を解析
+            while (check(TokenType::TOK_LBRACKET)) {
+                advance(); // consume '['
+                
+                std::string size = "";
+                if (check(TokenType::TOK_NUMBER)) {
+                    size = advance().value;
+                }
+                array_sizes.push_back(size);
+                
+                consume(TokenType::TOK_RBRACKET, "Expected ']' in array type");
             }
-            
-            consume(TokenType::TOK_RBRACKET, "Expected ']' in array type");
             
             if (!check(TokenType::TOK_IDENTIFIER)) {
                 error("Expected variable name after array type");
@@ -144,7 +161,13 @@ ASTNode* RecursiveParser::parseStatement() {
             
             ASTNode* node = new ASTNode(ASTNodeType::AST_ARRAY_DECL);
             node->name = var_name;
-            node->type_name = type_name + "[" + array_size + "]";
+            
+            // 型名構築（例: "int[2][3]"）
+            std::string full_type_name = type_name;
+            for (const auto& size : array_sizes) {
+                full_type_name += "[" + size + "]";
+            }
+            node->type_name = full_type_name;
             
             // Set appropriate type_info for arrays
             TypeInfo base_type = TYPE_INT; // default
@@ -158,9 +181,34 @@ ASTNode* RecursiveParser::parseStatement() {
             
             node->type_info = base_type;
             
-            // 配列サイズの設定
-            if (!array_size.empty()) {
-                node->array_size = std::stoi(array_size);
+            // ArrayTypeInfoを構築
+            std::vector<ArrayDimension> dimensions;
+            for (const auto& size : array_sizes) {
+                if (!size.empty()) {
+                    int dim_size = std::stoi(size);
+                    dimensions.push_back(ArrayDimension(dim_size, false));
+                } else {
+                    // 動的サイズ（現在はサポートされていない）
+                    dimensions.push_back(ArrayDimension(-1, true));
+                }
+            }
+            node->array_type_info = ArrayTypeInfo(base_type, dimensions);
+            
+            // 配列次元をASTノードに設定
+            for (const auto& size : array_sizes) {
+                if (!size.empty()) {
+                    ASTNode* size_expr = new ASTNode(ASTNodeType::AST_NUMBER);
+                    size_expr->int_value = std::stoll(size);
+                    node->array_dimensions.push_back(std::unique_ptr<ASTNode>(size_expr));
+                } else {
+                    // 動的サイズ（現在はサポートされていない）
+                    node->array_dimensions.push_back(std::unique_ptr<ASTNode>(nullptr));
+                }
+            }
+            
+            // 1次元配列の場合は従来の方式も設定（互換性のため）
+            if (array_sizes.size() == 1 && !array_sizes[0].empty()) {
+                node->array_size = std::stoi(array_sizes[0]);
             }
             
             // 配列初期化をチェック int[SIZE] var = [...]
@@ -172,8 +220,10 @@ ASTNode* RecursiveParser::parseStatement() {
                     advance(); // consume '['
                     
                     ASTNode* array_literal = new ASTNode(ASTNodeType::AST_ARRAY_LITERAL);
+                    setLocation(array_literal, current_token_.line, current_token_.column);
                     while (!check(TokenType::TOK_RBRACKET) && !isAtEnd()) {
                         ASTNode* element = parseExpression();
+                        setLocation(element, current_token_.line, current_token_.column);
                         array_literal->arguments.push_back(std::unique_ptr<ASTNode>(element));
                         
                         if (check(TokenType::TOK_COMMA)) {
@@ -186,12 +236,12 @@ ASTNode* RecursiveParser::parseStatement() {
                     
                     consume(TokenType::TOK_RBRACKET, "Expected ']' after array literal");
                     
-                    // サイズと要素数の検証
-                    if (!array_size.empty()) {
-                        int declared_size = std::stoi(array_size);
+                    // サイズと要素数の検証（1次元配列の場合のみ）
+                    if (array_sizes.size() == 1 && !array_sizes[0].empty()) {
+                        int declared_size = std::stoi(array_sizes[0]);
                         if (declared_size != static_cast<int>(array_literal->arguments.size())) {
                             error("Array literal size (" + std::to_string(array_literal->arguments.size()) + 
-                                  ") does not match declared size (" + array_size + ")");
+                                  ") does not match declared size (" + array_sizes[0] + ")");
                             return nullptr;
                         }
                     }
@@ -329,165 +379,47 @@ ASTNode* RecursiveParser::parseStatement() {
     
     // return文の処理
     if (check(TokenType::TOK_RETURN)) {
-        advance(); // consume 'return'
-        ASTNode* return_node = new ASTNode(ASTNodeType::AST_RETURN_STMT);
-        
-        // return値があるかチェック
-        if (!check(TokenType::TOK_SEMICOLON)) {
-            return_node->left = std::unique_ptr<ASTNode>(parseExpression());
-        }
-        
-        consume(TokenType::TOK_SEMICOLON, "Expected ';' after return statement");
-        return return_node;
+        return parseReturnStatement();
     }
     
     // break文の処理
     if (check(TokenType::TOK_BREAK)) {
-        advance(); // consume 'break'
-        ASTNode* break_node = new ASTNode(ASTNodeType::AST_BREAK_STMT);
-        consume(TokenType::TOK_SEMICOLON, "Expected ';' after break statement");
-        return break_node;
+        return parseBreakStatement();
     }
     
     // continue文の処理
     if (check(TokenType::TOK_CONTINUE)) {
-        advance(); // consume 'continue'
-        ASTNode* continue_node = new ASTNode(ASTNodeType::AST_CONTINUE_STMT);
-        consume(TokenType::TOK_SEMICOLON, "Expected ';' after continue statement");
-        return continue_node;
+        return parseContinueStatement();
     }
     
     // if文の処理
     if (check(TokenType::TOK_IF)) {
-        advance(); // consume 'if'
-        consume(TokenType::TOK_LPAREN, "Expected '(' after if");
-        
-        ASTNode* if_node = new ASTNode(ASTNodeType::AST_IF_STMT);
-        if_node->condition = std::unique_ptr<ASTNode>(parseExpression());
-        
-        consume(TokenType::TOK_RPAREN, "Expected ')' after if condition");
-        
-        // if本体をパース（then節はleftに格納してinterpreterと統一）
-        if_node->left = std::unique_ptr<ASTNode>(parseStatement());
-        
-        // else節があるかチェック
-        if (match(TokenType::TOK_ELSE)) {
-            if_node->right = std::unique_ptr<ASTNode>(parseStatement());
-        }
-        
-        return if_node;
+        return parseIfStatement();
     }
     
     // for文の処理
     if (check(TokenType::TOK_FOR)) {
-        advance(); // consume 'for'
-        consume(TokenType::TOK_LPAREN, "Expected '(' after for");
-        
-        ASTNode* for_node = new ASTNode(ASTNodeType::AST_FOR_STMT);
-        
-        // 初期化部分 (int i = 0;) - 文として扱う
-        for_node->init_expr = std::unique_ptr<ASTNode>(parseStatement());
-        
-        // 条件部分 (i < 5) - 式として扱う
-        for_node->condition = std::unique_ptr<ASTNode>(parseExpression());
-        consume(TokenType::TOK_SEMICOLON, "Expected ';' after for condition");
-        
-        // 更新部分 - 一般的な式として処理（i++, i--, i=i+1など）
-        for_node->update_expr = std::unique_ptr<ASTNode>(parseExpression());
-        
-        consume(TokenType::TOK_RPAREN, "Expected ')' after for update");
-        
-        // for本体
-        for_node->body = std::unique_ptr<ASTNode>(parseStatement());
-        
-        return for_node;
+        return parseForStatement();
     }
     
     // while文の処理
     if (check(TokenType::TOK_WHILE)) {
-        advance(); // consume 'while'
-        consume(TokenType::TOK_LPAREN, "Expected '(' after while");
-        
-        ASTNode* while_node = new ASTNode(ASTNodeType::AST_WHILE_STMT);
-        
-        // 条件部分
-        while_node->condition = std::unique_ptr<ASTNode>(parseExpression());
-        
-        consume(TokenType::TOK_RPAREN, "Expected ')' after while condition");
-        
-        // while本体
-        while_node->body = std::unique_ptr<ASTNode>(parseStatement());
-        
-        return while_node;
+        return parseWhileStatement();
     }
     
     // ブレース文 { statements }
     if (check(TokenType::TOK_LBRACE)) {
-        advance(); // consume '{'
-        
-        ASTNode* compound = new ASTNode(ASTNodeType::AST_COMPOUND_STMT);
-        
-        while (!check(TokenType::TOK_RBRACE) && !isAtEnd()) {
-            ASTNode* stmt = parseStatement();
-            if (stmt) {
-                compound->statements.push_back(std::unique_ptr<ASTNode>(stmt));
-            }
-        }
-        
-        consume(TokenType::TOK_RBRACE, "Expected '}'");
-        return compound;
+        return parseCompoundStatement();
     }
     
     // println文の処理
     if (check(TokenType::TOK_PRINTLN)) {
-        advance(); // consume 'println'
-        consume(TokenType::TOK_LPAREN, "Expected '(' after println");
-        
-        ASTNode* print_node = new ASTNode(ASTNodeType::AST_PRINTLN_STMT);
-        
-        // 複数の引数をパース
-        if (!check(TokenType::TOK_RPAREN)) {
-            do {
-                ASTNode* arg = parseExpression();
-                print_node->arguments.push_back(std::unique_ptr<ASTNode>(arg));
-            } while (match(TokenType::TOK_COMMA));
-        }
-        
-        consume(TokenType::TOK_RPAREN, "Expected ')' after println arguments");
-        consume(TokenType::TOK_SEMICOLON, "Expected ';' after println statement");
-        return print_node;
+        return parsePrintlnStatement();
     }
     
     // print文の処理
     if (check(TokenType::TOK_PRINT)) {
-        advance(); // consume 'print'
-        
-        ASTNode* print_node = new ASTNode(ASTNodeType::AST_PRINT_STMT);
-        
-        // 引数をパース - 任意の式を受け入れる
-        if (check(TokenType::TOK_LPAREN)) {
-            // print(expression[, expression, ...]); 形式
-            advance(); // consume '('
-            
-            // 複数の引数をパース
-            if (!check(TokenType::TOK_RPAREN)) {
-                do {
-                    ASTNode* arg = parseExpression();
-                    print_node->arguments.push_back(std::unique_ptr<ASTNode>(arg));
-                } while (match(TokenType::TOK_COMMA));
-            }
-            
-            consume(TokenType::TOK_RPAREN, "Expected ')' after print arguments");
-        } else if (!check(TokenType::TOK_SEMICOLON)) {
-            // print expression; 形式（括弧なし）
-            print_node->left = std::unique_ptr<ASTNode>(parseExpression());
-        } else {
-            error("Expected expression after print");
-            return nullptr;
-        }
-        
-        consume(TokenType::TOK_SEMICOLON, "Expected ';' after print statement");
-        return print_node;
+        return parsePrintStatement();
     }
     
     // identifier で始まる文 (代入文、配列要素への代入、関数呼び出し、typedef alias変数宣言等)
@@ -512,23 +444,33 @@ ASTNode* RecursiveParser::parseStatement() {
             consume(TokenType::TOK_SEMICOLON, "Expected ';'");
             return node;
         }
-        // 配列要素への代入をチェック arr[0] = value
+        // 配列要素への代入をチェック arr[0] = value または arr[0][0] = value
         else if (check(TokenType::TOK_LBRACKET)) {
-            advance(); // consume '['
-            ASTNode* index_expr = parseExpression();
-            consume(TokenType::TOK_RBRACKET, "Expected ']'");
+            // 変数ノードを作成
+            ASTNode* var_node = new ASTNode(ASTNodeType::AST_VARIABLE);
+            var_node->name = name;
+            setLocation(var_node, current_token_.line, current_token_.column);
+            
+            // 配列アクセスチェーンを解析（parsePostfixロジックを使用）
+            ASTNode* left_expr = var_node;
+            while (check(TokenType::TOK_LBRACKET)) {
+                advance(); // consume '['
+                ASTNode* index = parseExpression();
+                consume(TokenType::TOK_RBRACKET, "Expected ']'");
+                
+                ASTNode* array_ref = new ASTNode(ASTNodeType::AST_ARRAY_REF);
+                array_ref->left = std::unique_ptr<ASTNode>(left_expr);
+                array_ref->array_index = std::unique_ptr<ASTNode>(index);
+                left_expr = array_ref;
+            }
+            
             consume(TokenType::TOK_ASSIGN, "Expected '='");
             ASTNode* value_expr = parseExpression();
             consume(TokenType::TOK_SEMICOLON, "Expected ';'");
             
-            // 配列参照ノードを作成
-            ASTNode* array_ref = new ASTNode(ASTNodeType::AST_ARRAY_REF);
-            array_ref->name = name;
-            array_ref->array_index = std::unique_ptr<ASTNode>(index_expr);
-            
             // 代入ノードを作成
             ASTNode* assignment = new ASTNode(ASTNodeType::AST_ASSIGN);
-            assignment->left = std::unique_ptr<ASTNode>(array_ref);
+            assignment->left = std::unique_ptr<ASTNode>(left_expr);
             assignment->right = std::unique_ptr<ASTNode>(value_expr);
             
             return assignment;
@@ -542,8 +484,10 @@ ASTNode* RecursiveParser::parseStatement() {
                 advance(); // consume '['
                 
                 ASTNode* array_literal = new ASTNode(ASTNodeType::AST_ARRAY_LITERAL);
+                setLocation(array_literal, current_token_.line, current_token_.column);
                 while (!check(TokenType::TOK_RBRACKET) && !isAtEnd()) {
                     ASTNode* element = parseExpression();
+                    setLocation(element, current_token_.line, current_token_.column);
                     array_literal->arguments.push_back(std::unique_ptr<ASTNode>(element));
                     
                     if (check(TokenType::TOK_COMMA)) {
@@ -578,6 +522,7 @@ ASTNode* RecursiveParser::parseStatement() {
             
             ASTNode* identifier_node = new ASTNode(ASTNodeType::AST_VARIABLE);
             identifier_node->name = name;
+            setLocation(identifier_node, current_token_.line, current_token_.column);
             
             // 関数呼び出しかどうかチェック
             if (check(TokenType::TOK_LPAREN)) {
@@ -905,6 +850,26 @@ ASTNode* RecursiveParser::parseUnary() {
 ASTNode* RecursiveParser::parsePostfix() {
     ASTNode* primary = parsePrimary();
     
+    // 配列アクセスチェーン: arr[i][j][k]...
+    while (check(TokenType::TOK_LBRACKET)) {
+        advance(); // consume '['
+        ASTNode* index = parseExpression();
+        consume(TokenType::TOK_RBRACKET, "Expected ']'");
+        
+        ASTNode* array_ref = new ASTNode(ASTNodeType::AST_ARRAY_REF);
+        array_ref->left = std::unique_ptr<ASTNode>(primary); // 左側を設定
+        array_ref->array_index = std::unique_ptr<ASTNode>(index);
+        
+        // デバッグ: 配列アクセスノード作成をログ出力
+        if (debug_mode && primary && primary->node_type == ASTNodeType::AST_VARIABLE) {
+            std::cerr << "[DEBUG] Creating array access: " << primary->name << "[...]" << std::endl;
+            std::cerr << "[DEBUG] array_ref->left: " << array_ref->left.get() << std::endl;
+            std::cerr << "[DEBUG] array_ref->array_index: " << array_ref->array_index.get() << std::endl;
+        }
+        
+        primary = array_ref; // 次のアクセスのベースとして設定
+    }
+    
     // Postfix operators: ++, --
     if (check(TokenType::TOK_INCR) || check(TokenType::TOK_DECR)) {
         Token op = advance();
@@ -934,6 +899,7 @@ ASTNode* RecursiveParser::parsePrimary() {
         Token token = advance();
         ASTNode* node = new ASTNode(ASTNodeType::AST_STRING_LITERAL);
         node->str_value = token.value;
+        setLocation(node, token.line, token.column);
         return node;
     }
     
@@ -977,19 +943,11 @@ ASTNode* RecursiveParser::parsePrimary() {
             consume(TokenType::TOK_RPAREN, "Expected ')' after function arguments");
             return call_node;
         }
-        // 配列アクセスをチェック
-        else if (check(TokenType::TOK_LBRACKET)) {
-            advance(); // consume '['
-            ASTNode* index = parseExpression();
-            consume(TokenType::TOK_RBRACKET, "Expected ']'");
-            
-            ASTNode* array_ref = new ASTNode(ASTNodeType::AST_ARRAY_REF);
-            array_ref->name = token.value;
-            array_ref->array_index = std::unique_ptr<ASTNode>(index);
-            return array_ref;
-        } else {
+        // 配列アクセスは parsePostfix で処理
+        else {
             ASTNode* node = new ASTNode(ASTNodeType::AST_VARIABLE);
             node->name = token.value;
+            setLocation(node, token.line, token.column);
             return node;
         }
     }
@@ -1164,46 +1122,53 @@ ASTNode* RecursiveParser::parseTypedefDeclaration() {
     consume(TokenType::TOK_TYPEDEF, "Expected 'typedef'");
     
     // 基底型を解析
-    std::string base_type;
+    TypeInfo base_type = TYPE_UNKNOWN;
     if (check(TokenType::TOK_INT)) {
-        base_type = "int";
+        base_type = TYPE_INT;
         advance();
     } else if (check(TokenType::TOK_LONG)) {
-        base_type = "long";
+        base_type = TYPE_LONG;
         advance();
     } else if (check(TokenType::TOK_SHORT)) {
-        base_type = "short";
+        base_type = TYPE_SHORT;
         advance();
     } else if (check(TokenType::TOK_TINY)) {
-        base_type = "tiny";
+        base_type = TYPE_TINY;
         advance();
     } else if (check(TokenType::TOK_BOOL)) {
-        base_type = "bool";
+        base_type = TYPE_BOOL;
         advance();
     } else if (check(TokenType::TOK_STRING_TYPE)) {
-        base_type = "string";
+        base_type = TYPE_STRING;
         advance();
     } else if (check(TokenType::TOK_CHAR_TYPE)) {
-        base_type = "char";
+        base_type = TYPE_CHAR;
         advance();
     } else if (check(TokenType::TOK_VOID)) {
-        base_type = "void";
+        base_type = TYPE_VOID;
         advance();
     } else {
         error("Expected type after typedef");
         return nullptr;
     }
     
-    // 配列型の場合: typedef int[size] alias
-    std::string array_info = "";
-    if (check(TokenType::TOK_LBRACKET)) {
+    // typedef ASTノードを作成
+    ASTNode* typedef_node = new ASTNode(ASTNodeType::AST_TYPEDEF_DECL);
+    typedef_node->type_info = base_type;
+    
+    // 配列次元の解析
+    while (check(TokenType::TOK_LBRACKET)) {
         advance(); // consume '['
         
+        ASTNode* size_expr = nullptr;
         if (check(TokenType::TOK_NUMBER)) {
-            array_info = advance().value;
+            size_expr = new ASTNode(ASTNodeType::AST_NUMBER);
+            size_expr->int_value = std::stoll(advance().value);
         }
         
         consume(TokenType::TOK_RBRACKET, "Expected ']' after array size");
+        
+        typedef_node->array_dimensions.push_back(std::unique_ptr<ASTNode>(size_expr));
     }
     
     // エイリアス名
@@ -1212,18 +1177,212 @@ ASTNode* RecursiveParser::parseTypedefDeclaration() {
         return nullptr;
     }
     
-    std::string alias_name = advance().value;
+    typedef_node->name = advance().value;  // エイリアス名
     
     consume(TokenType::TOK_SEMICOLON, "Expected ';' after typedef");
     
-    // typedef ASTノードを作成
-    ASTNode* typedef_node = new ASTNode(ASTNodeType::AST_TYPEDEF_DECL);
-    typedef_node->name = alias_name;  // エイリアス名
-    typedef_node->type_name = base_type; // 基底型
+    return typedef_node;
+}
+
+TypeInfo RecursiveParser::getTypeInfoFromString(const std::string& type_name) {
+    if (type_name == "int") {
+        return TYPE_INT;
+    } else if (type_name == "long") {
+        return TYPE_LONG;
+    } else if (type_name == "short") {
+        return TYPE_SHORT;
+    } else if (type_name == "tiny") {
+        return TYPE_TINY;
+    } else if (type_name == "bool") {
+        return TYPE_BOOL;
+    } else if (type_name == "string") {
+        return TYPE_STRING;
+    } else if (type_name == "char") {
+        return TYPE_CHAR;
+    } else if (type_name == "void") {
+        return TYPE_VOID;
+    } else {
+        return TYPE_UNKNOWN;
+    }
+}
+
+ASTNode* RecursiveParser::parseReturnStatement() {
+    advance(); // consume 'return'
+    ASTNode* return_node = new ASTNode(ASTNodeType::AST_RETURN_STMT);
     
-    if (!array_info.empty()) {
-        typedef_node->type_name += "[" + array_info + "]";
+    // return値があるかチェック
+    if (!check(TokenType::TOK_SEMICOLON)) {
+        return_node->left = std::unique_ptr<ASTNode>(parseExpression());
     }
     
-    return typedef_node;
+    consume(TokenType::TOK_SEMICOLON, "Expected ';' after return statement");
+    return return_node;
+}
+
+ASTNode* RecursiveParser::parseBreakStatement() {
+    advance(); // consume 'break'
+    ASTNode* break_node = new ASTNode(ASTNodeType::AST_BREAK_STMT);
+    consume(TokenType::TOK_SEMICOLON, "Expected ';' after break statement");
+    return break_node;
+}
+
+ASTNode* RecursiveParser::parseContinueStatement() {
+    advance(); // consume 'continue'
+    ASTNode* continue_node = new ASTNode(ASTNodeType::AST_CONTINUE_STMT);
+    consume(TokenType::TOK_SEMICOLON, "Expected ';' after continue statement");
+    return continue_node;
+}
+
+ASTNode* RecursiveParser::parseIfStatement() {
+    advance(); // consume 'if'
+    consume(TokenType::TOK_LPAREN, "Expected '(' after if");
+    
+    ASTNode* if_node = new ASTNode(ASTNodeType::AST_IF_STMT);
+    if_node->condition = std::unique_ptr<ASTNode>(parseExpression());
+    
+    consume(TokenType::TOK_RPAREN, "Expected ')' after if condition");
+    
+    // if本体をパース（then節はleftに格納してinterpreterと統一）
+    if_node->left = std::unique_ptr<ASTNode>(parseStatement());
+    
+    // else節があるかチェック
+    if (match(TokenType::TOK_ELSE)) {
+        if_node->right = std::unique_ptr<ASTNode>(parseStatement());
+    }
+    
+    return if_node;
+}
+
+ASTNode* RecursiveParser::parseForStatement() {
+    advance(); // consume 'for'
+    consume(TokenType::TOK_LPAREN, "Expected '(' after for");
+    
+    ASTNode* for_node = new ASTNode(ASTNodeType::AST_FOR_STMT);
+    
+    // 初期化部分 (int i = 0;) - 文として扱う
+    for_node->init_expr = std::unique_ptr<ASTNode>(parseStatement());
+    
+    // 条件部分 (i < 5) - 式として扱う
+    for_node->condition = std::unique_ptr<ASTNode>(parseExpression());
+    consume(TokenType::TOK_SEMICOLON, "Expected ';' after for condition");
+    
+    // 更新部分 - 一般的な式として処理（i++, i--, i=i+1など）
+    for_node->update_expr = std::unique_ptr<ASTNode>(parseExpression());
+    
+    consume(TokenType::TOK_RPAREN, "Expected ')' after for update");
+    
+    // for本体
+    for_node->body = std::unique_ptr<ASTNode>(parseStatement());
+    
+    return for_node;
+}
+
+ASTNode* RecursiveParser::parseWhileStatement() {
+    advance(); // consume 'while'
+    consume(TokenType::TOK_LPAREN, "Expected '(' after while");
+    
+    ASTNode* while_node = new ASTNode(ASTNodeType::AST_WHILE_STMT);
+    
+    // 条件部分
+    while_node->condition = std::unique_ptr<ASTNode>(parseExpression());
+    
+    consume(TokenType::TOK_RPAREN, "Expected ')' after while condition");
+    
+    // while本体
+    while_node->body = std::unique_ptr<ASTNode>(parseStatement());
+    
+    return while_node;
+}
+
+ASTNode* RecursiveParser::parseCompoundStatement() {
+    advance(); // consume '{'
+    
+    ASTNode* compound = new ASTNode(ASTNodeType::AST_COMPOUND_STMT);
+    
+    while (!check(TokenType::TOK_RBRACE) && !isAtEnd()) {
+        ASTNode* stmt = parseStatement();
+        if (stmt) {
+            compound->statements.push_back(std::unique_ptr<ASTNode>(stmt));
+        }
+    }
+    
+    consume(TokenType::TOK_RBRACE, "Expected '}'");
+    return compound;
+}
+
+ASTNode* RecursiveParser::parsePrintlnStatement() {
+    advance(); // consume 'println'
+    consume(TokenType::TOK_LPAREN, "Expected '(' after println");
+    
+    ASTNode* print_node = new ASTNode(ASTNodeType::AST_PRINTLN_STMT);
+    
+    // 複数の引数をパース
+    if (!check(TokenType::TOK_RPAREN)) {
+        do {
+            ASTNode* arg = parseExpression();
+            print_node->arguments.push_back(std::unique_ptr<ASTNode>(arg));
+        } while (match(TokenType::TOK_COMMA));
+    }
+    
+    consume(TokenType::TOK_RPAREN, "Expected ')' after println arguments");
+    consume(TokenType::TOK_SEMICOLON, "Expected ';' after println statement");
+    return print_node;
+}
+
+ASTNode* RecursiveParser::parsePrintStatement() {
+    advance(); // consume 'print'
+    
+    ASTNode* print_node = new ASTNode(ASTNodeType::AST_PRINT_STMT);
+    
+    // 引数をパース - 任意の式を受け入れる
+    if (check(TokenType::TOK_LPAREN)) {
+        // print(expression[, expression, ...]); 形式
+        advance(); // consume '('
+        
+        // 複数の引数をパース
+        if (!check(TokenType::TOK_RPAREN)) {
+            do {
+                ASTNode* arg = parseExpression();
+                print_node->arguments.push_back(std::unique_ptr<ASTNode>(arg));
+            } while (match(TokenType::TOK_COMMA));
+        }
+        
+        consume(TokenType::TOK_RPAREN, "Expected ')' after print arguments");
+    } else if (!check(TokenType::TOK_SEMICOLON)) {
+        // print expression; 形式（括弧なし）
+        print_node->left = std::unique_ptr<ASTNode>(parseExpression());
+    } else {
+        error("Expected expression after print");
+        return nullptr;
+    }
+    
+    consume(TokenType::TOK_SEMICOLON, "Expected ';' after print statement");
+    return print_node;
+}
+
+// 位置情報設定のヘルパーメソッド
+void RecursiveParser::setLocation(ASTNode* node, const Token& token) {
+    if (node) {
+        node->location.filename = filename_;
+        node->location.line = token.line;
+        node->location.column = token.column;
+        node->location.source_line = getSourceLine(token.line);
+    }
+}
+
+void RecursiveParser::setLocation(ASTNode* node, int line, int column) {
+    if (node) {
+        node->location.filename = filename_;
+        node->location.line = line;
+        node->location.column = column;
+        node->location.source_line = getSourceLine(line);
+    }
+}
+
+std::string RecursiveParser::getSourceLine(int line_number) {
+    // 1-based line numberを0-basedインデックスに変換
+    if (line_number < 1 || line_number > static_cast<int>(source_lines_.size())) {
+        return "";
+    }
+    return source_lines_[line_number - 1];
 }

@@ -136,7 +136,7 @@ int main() {
     numbers[4] = 15;
     
     println("配列の内容:");
-    for (int k = 0; k < 5; k = k + 1) {
+    for (int k = 0; k < 5; k++) {
         print("numbers[%d] = %d", k, numbers[k]);
         if (k < 4) print(", ");
     }

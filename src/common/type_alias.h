@@ -18,6 +18,10 @@ class TypeAliasRegistry {
     // 型エイリアスを登録
     bool register_alias(const std::string &alias_name, TypeInfo actual_type);
 
+    // 配列型エイリアスを登録
+    bool register_array_alias(const std::string &alias_name,
+                              const ArrayTypeInfo &array_type);
+
     // 型エイリアスを解決（存在しない場合はTYPE_INTを返す）
     TypeInfo resolve_alias(const std::string &alias_name) const;
 

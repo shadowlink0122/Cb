@@ -5,41 +5,13 @@
 C++で作成した静的型付きプログラミング言語です。
 読み方は「シーフラット」（C++, C#があるので敢えて逆を行ってみました）
 
-flex(lex)とbison(yacc)を利用してAST（抽象構文木）を構築し、C++でASTを逐次実行するインタープリターとして動作します。
+再帰下降パーサーを使用してAST（抽象構文木）を構築し、C++でASTを逐次実行するインタープリターとして動作します。
 
 ## 特徴
 
 ### 型システム ✅
 - **静的型付き言語** - 型は宣言時に決定、型チェックはパース時・実行時
-- **整数型**: `tiny` (8bit), `short` (16bi### 関数定義
-```cb
-int fibonacci(int n) {
-    if (n <= 1)
-        return n;
-    return fibonacci(n - 1) + fibonacci(n - 2);
-}
-
-int main() {
-    for (int i = 0; i < 10; i++) {
-        print("fibonacci(%d) = %d", i, fibonacci(i));
-    }
-    return 0;
-}
-```
-
-### const修飾子
-```cb
-int main() {
-    const int MAX_SIZE = 100;
-    const string MESSAGE = "Hello, Cb!";
-    
-    int[MAX_SIZE] buffer;  // const値を配列サイズに使用
-    
-    print("%s (配列サイズ: %d)", MESSAGE, MAX_SIZE);
-    
-    return 0;
-}
-```t), `long` (64bit)
+- **整数型**: `tiny` (8bit), `short` (16bit), `int` (32bit), `long` (64bit)
 - **文字列型**: UTF-8対応の文字列処理 (`string`)
 - **文字型**: ASCII文字型 (`char`) - 0-255の範囲をサポート
 - **論理型**: 真偽値型 (`bool`)
@@ -48,9 +20,15 @@ int main() {
 - **const修飾子**: 定数宣言のサポート
 
 ### 制御構造 ✅
-- **Cライクな制御構造**: `if`/`else`, `else if`, `for`, `while`, `break`, `return`
+- **Cライクな制御構造**: `if`/`else`, `else if`, `for`, `while`, `break`, `continue`, `return`
 - **ブロック文とブロックなし単文**の両方をサポート
 - **関数定義と呼び出し**
+- **ループ制御**: `break`と`continue`でのループフロー制御
+
+### 変数宣言 ✅
+- **複数変数同時宣言**: `int a, b, c;` 形式での一度に複数変数の宣言
+- **初期化付き宣言**: `int x = 5, y = 10;` 形式での初期化
+- **配列宣言**: `int[5] arr1, arr2;` 形式での複数配列宣言
 
 ### 演算子 ✅
 - **Cライクな演算子優先順位**（`&&`, `||`, `==`, `!=`, `<`, `>`, `+`, `-`, `*`, `/`, `%` など）
@@ -72,7 +50,7 @@ int main() {
 - **UTF-8文字列処理**: 日本語を含む文字列の適切な処理
 
 ### テストフレームワーク ✅
-- **統合テスト**: 50+個の包括的テストケース
+- **統合テスト**: 130個の包括的テストケース
 - **単体テスト**: 26個のモジュール別詳細テスト
 - **自動テスト実行**: `make test`で全テスト実行
 
@@ -80,9 +58,9 @@ int main() {
 
 ### ✅ 完成機能
 - プリミティブ型（tiny, short, int, long, string, char, bool）
-- 変数宣言・初期化・配列
+- 変数宣言・初期化・配列（複数変数同時宣言対応）
 - 関数定義・呼び出し
-- 制御構造（if/else, for, while, break, return）
+- 制御構造（if/else, for, while, break, continue, return）
 - 演算子（算術、比較、論理、代入、インクリメント）
 - ストレージ修飾子（const, static）
 - 標準出力（print, printf風フォーマット）
@@ -102,25 +80,24 @@ int main() {
 ```
 src/
 ├── frontend/          # フロントエンド（字句・構文解析）
-│   ├── lexer.l       # 字句解析（flex）
-│   ├── parser.y      # 構文解析・AST構築（bison）
-│   ├── parser_utils.cpp/h  # パーサー支援関数
-│   ├── debug.h       # デバッグ機能定義
-│   ├── debug_messages.cpp/h  # 多言語エラーメッセージ
-│   ├── help_messages.cpp/h   # ヘルプメッセージ
+│   ├── recursive_parser/   # 再帰下降パーサー
+│   │   ├── recursive_lexer.cpp/h    # 字句解析
+│   │   └── recursive_parser.cpp/h   # 構文解析・AST構築
+│   ├── help_messages.cpp/h  # ヘルプメッセージ
 │   └── main.cpp      # メインプログラム
 ├── backend/          # バックエンド（実行エンジン）
 │   ├── interpreter.cpp/h     # ASTインタープリター
 │   ├── error_handler.cpp/h   # エラー処理
 │   ├── evaluator/           # 式評価エンジン
+│   │   └── expression_evaluator.cpp/h
 │   ├── executor/            # 文実行エンジン
-│   ├── memory/              # メモリ管理
-│   ├── modules/             # モジュールシステム
-│   ├── output/              # 出力処理
-│   └── variables/           # 変数管理
+│   │   └── statement_executor.cpp/h
+│   └── output/              # 出力処理
+│       └── output_manager.cpp/h
 ├── common/           # 共通モジュール
 │   ├── ast.h         # ASTノード定義
 │   ├── type_utils.cpp/h     # 型関連ユーティリティ
+│   ├── debug.h              # デバッグ機能定義
 │   ├── debug_impl.cpp       # デバッグ実装
 │   ├── debug_messages.cpp/h # デバッグメッセージ
 │   ├── io_interface.cpp/h   # I/Oインターフェース
@@ -129,7 +106,9 @@ src/
 │   └── cb_config.cpp/h      # 設定管理
 └── platform/         # プラットフォーム固有
     ├── native/       # ネイティブ実行環境
+    │   └── native_stdio_output.cpp
     └── baremetal/    # ベアメタル環境
+        └── baremetal_uart_output.cpp
 
 cgen/                 # Cコード生成器（将来拡張）
 └── cgen_main.cpp     # トランスパイラー本体
@@ -138,12 +117,13 @@ tests/
 ├── unit/             # 単体テスト（26テスト）
 │   ├── framework/    # テストフレームワーク
 │   ├── backend/      # バックエンドテスト
-│   ├── common/       # 共通モジュールテスト
-│   └── frontend/     # フロントエンドテスト
+│   └── common/       # 共通モジュールテスト
 ├── integration/      # 統合テスト（.hppファイル）
 └── cases/            # テストケース（.cbファイル）
     ├── array_literal/  # 配列リテラルテスト
     ├── arithmetic/     # 算術演算テスト
+    ├── loop/           # ループ制御テスト（break/continue）
+    ├── multiple_var_decl/ # 複数変数宣言テスト
     ├── string/         # 文字列処理テスト
     ├── printf/         # printf機能テスト
     └── ...            # その他機能別テスト
@@ -184,7 +164,7 @@ make
 ## テスト方法
 
 ### 全テスト実行（推奨）
-統合テスト（50+テスト）と単体テスト（26テスト）を全て実行：
+統合テスト（130テスト）と単体テスト（26テスト）を全て実行：
 ```sh
 make test
 ```
@@ -223,6 +203,45 @@ make debug-build-test
 ```
 
 ## サンプルコード例
+
+### 複数変数宣言
+```cb
+int main() {
+    // 複数変数の同時宣言
+    int a, b, c;
+    int x = 10, y = 20, z = 30;
+    
+    // 配列の複数宣言
+    int[5] arr1, arr2;
+    string[3] names = ["Alice", "Bob", "Charlie"];
+    
+    print("x: %d, y: %d, z: %d", x, y, z);
+    return 0;
+}
+```
+
+### ループ制御（break/continue）
+```cb
+int main() {
+    // continue文でスキップ
+    for (int i = 1; i <= 10; i++) {
+        if (i % 2 == 0) {
+            continue;  // 偶数をスキップ
+        }
+        print("奇数: %d", i);
+    }
+    
+    // break文でループ脱出
+    for (int j = 1; j <= 100; j++) {
+        if (j > 5) {
+            break;  // 5を超えたら終了
+        }
+        print("値: %d", j);
+    }
+    
+    return 0;
+}
+```
 
 ### char型と文字リテラル
 ```cb
@@ -306,8 +325,22 @@ int fibonacci(int n) {
 
 int main() {
     for (int i = 0; i < 10; i++) {
-        print(fibonacci(i));
+        print("fibonacci(%d) = %d", i, fibonacci(i));
     }
+    return 0;
+}
+```
+
+### const修飾子
+```cb
+int main() {
+    const int MAX_SIZE = 100;
+    const string MESSAGE = "Hello, Cb!";
+    
+    int[MAX_SIZE] buffer;  // const値を配列サイズに使用
+    
+    print("%s (配列サイズ: %d)", MESSAGE, MAX_SIZE);
+    
     return 0;
 }
 ```
@@ -336,19 +369,18 @@ Error: char type value out of range (0-255): 300
 
 ### 開発言語・ツール
 - **C++17**: メイン実装言語
-- **flex**: 字句解析器生成
-- **bison**: 構文解析器生成
+- **再帰下降パーサー**: 字句・構文解析
 - **Make**: ビルドシステム
 
 ### アーキテクチャ
-- **フロントエンド**: 字句解析 → 構文解析 → AST生成
+- **フロントエンド**: 字句解析 → 構文解析 → AST生成（再帰下降パーサー）
 - **バックエンド**: インタープリター実行エンジン
 - **多言語サポート**: 英語・日本語でのエラーメッセージ・デバッグ情報
 - **UTF-8対応**: 日本語を含む文字列の適切な処理
 - **モジュール化設計**: 機能別ディレクトリ構成
 
 ### テストカバレッジ
-- **50+個の統合テストケース**: 全機能の動作検証
+- **130個の統合テストケース**: 全機能の動作検証
 - **26個の単体テスト**: モジュール別詳細テスト
 - **型安全性テスト**: 境界値・型不整合の検出確認
 - **国際化テスト**: 多言語エラーメッセージの検証
@@ -360,10 +392,10 @@ Error: char type value out of range (0-255): 300
 ```sh
 # 必要な依存関係をインストール
 # Ubuntu/Debian:
-sudo apt-get install flex bison build-essential
+sudo apt-get install build-essential
 
 # macOS:
-brew install flex bison
+xcode-select --install
 
 # プロジェクトのクローン・ビルド
 git clone <repository-url>

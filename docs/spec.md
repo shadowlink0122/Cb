@@ -69,14 +69,15 @@
 
 ### Phase 1: 基本機能 ✅（完成）
 - ✅ 型システム（プリミティブ型：tiny, short, int, long, string, char, bool）
-- ✅ 変数宣言・初期化
+- ✅ 変数宣言・初期化（複数変数同時宣言対応）
 - ✅ 配列（静的サイズ）・配列リテラル
 - ✅ 関数定義・呼び出し
-- ✅ 制御構造（if/else, for, while, break, return）
+- ✅ 制御構造（if/else, for, while, break, continue, return）
 - ✅ 演算子（算術、比較、論理、代入、インクリメント）
 - ✅ ストレージ修飾子（const, static）
 - ✅ 標準出力（print, printf風フォーマット指定子）
-- ✅ 包括的テストフレームワーク（統合テスト50+、単体テスト26個）
+- ✅ 包括的テストフレームワーク（統合テスト130個、単体テスト26個）
+- ✅ 再帰下降パーサーによる構文解析
 
 ### Phase 2: 中期目標 🚧（実装中）
 - 🚧 typedef システム
@@ -176,6 +177,7 @@ iteration_statement ::= "while" "(" expression ")" statement
                       | "for" "(" variable_declaration expression ";" expression ")" statement
 
 jump_statement  ::= "break" ";"
+                  | "continue" ";"
                   | "return" ";"  
                   | "return" expression ";"
 

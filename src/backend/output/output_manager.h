@@ -24,6 +24,7 @@ public:
     void print_multiple_with_newline(const ASTNode *arg_list);
     void print_formatted_with_newline(const ASTNode *format_str, const ASTNode *arg_list);
     void print_formatted(const ASTNode *format_str, const ASTNode *arg_list);
+    void print_formatted(const ASTNode *format_str, const ASTNode *arg_list, size_t start_index);
     void print_multiple(const ASTNode *arg_list);
 
 private:

@@ -16,7 +16,29 @@ bool TypeAliasRegistry::register_alias(const std::string &alias_name,
         return false;
     }
 
+    // 重複定義チェック
+    if (aliases_.find(alias_name) != aliases_.end() ||
+        array_aliases_.find(alias_name) != array_aliases_.end()) {
+        return false; // 既に存在する
+    }
+
     aliases_[alias_name] = actual_type;
+    return true;
+}
+
+bool TypeAliasRegistry::register_array_alias(const std::string &alias_name,
+                                             const ArrayTypeInfo &array_type) {
+    if (!array_type.is_array()) {
+        return false;
+    }
+
+    // 重複定義チェック
+    if (aliases_.find(alias_name) != aliases_.end() ||
+        array_aliases_.find(alias_name) != array_aliases_.end()) {
+        return false; // 既に存在する
+    }
+
+    array_aliases_[alias_name] = array_type;
     return true;
 }
 
