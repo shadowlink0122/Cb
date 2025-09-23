@@ -1,0 +1,281 @@
+#include "array_manager.h"
+#include "../backend/interpreter.h" // Variable の定義のため
+#include "../common/debug_messages.h"
+#include "error_handler.h"
+#include <stdexcept>
+
+void ArrayManager::processMultidimensionalArrayLiteral(
+    Variable &var, const ASTNode *literal_node, TypeInfo elem_type) {
+    if (!literal_node ||
+        literal_node->node_type != ASTNodeType::AST_ARRAY_LITERAL) {
+        throw std::runtime_error("Invalid array literal node");
+    }
+
+    // 空の配列リテラルのチェック
+    if (literal_node->arguments.empty()) {
+        throw std::runtime_error(
+            "Empty array literal for multidimensional array");
+    }
+
+    // 多次元配列の次元を検証
+    std::vector<int> dimensions;
+    dimensions.push_back(literal_node->arguments.size()); // 最外側の次元
+
+    // 最初のサブ配列から内部次元を取得
+    if (literal_node->arguments[0]->node_type ==
+        ASTNodeType::AST_ARRAY_LITERAL) {
+        dimensions.push_back(literal_node->arguments[0]->arguments.size());
+    } else {
+        throw std::runtime_error(
+            "Expected nested array literal for multidimensional array");
+    }
+
+    // 宣言された次元と一致するかチェック
+    if (dimensions.size() != var.array_type_info.dimensions.size()) {
+        debug_msg(DebugMsgId::TYPE_MISMATCH_ERROR,
+                  ("Dimension mismatch: literal=" +
+                   std::to_string(dimensions.size()) + ", declared=" +
+                   std::to_string(var.array_type_info.dimensions.size()))
+                      .c_str());
+        throw std::runtime_error(
+            "Array literal dimensions don't match declaration");
+    }
+
+    for (size_t i = 0; i < dimensions.size(); ++i) {
+        if (dimensions[i] != var.array_type_info.dimensions[i].size) {
+            debug_msg(DebugMsgId::TYPE_MISMATCH_ERROR,
+                      ("Size mismatch at dimension " + std::to_string(i) +
+                       ": literal=" + std::to_string(dimensions[i]) +
+                       ", declared=" +
+                       std::to_string(var.array_type_info.dimensions[i].size))
+                          .c_str());
+            throw std::runtime_error(
+                "Array literal size doesn't match declaration");
+        }
+    }
+
+    // 総要素数を計算
+    std::vector<int> dim_sizes;
+    for (const auto &dim : var.array_type_info.dimensions) {
+        dim_sizes.push_back(dim.size);
+    }
+    int total_size = calculateTotalSize(dim_sizes);
+
+    // データ配列を初期化
+    if (elem_type == TYPE_STRING) {
+        var.multidim_array_strings.resize(total_size);
+    } else {
+        var.multidim_array_values.resize(total_size);
+    }
+
+    // 配列リテラルの値を設定
+    std::vector<int> current_indices;
+    processArrayLiteralRecursive(var, literal_node, elem_type, 0,
+                                 current_indices);
+}
+
+void ArrayManager::processNDimensionalArrayLiteral(Variable &var,
+                                                   const ASTNode *literal_node,
+                                                   TypeInfo base_type) {
+    if (!literal_node ||
+        literal_node->node_type != ASTNodeType::AST_ARRAY_LITERAL) {
+        throw std::runtime_error(
+            "Invalid array literal for N-dimensional array");
+    }
+
+    // 空配列の場合
+    if (literal_node->arguments.empty()) {
+        throw std::runtime_error(
+            "Empty array literal not allowed for N-dimensional arrays");
+    }
+
+    // リテラルから次元情報を推定
+    std::vector<int> inferred_dimensions;
+    const ASTNode *current = literal_node;
+
+    while (current && current->node_type == ASTNodeType::AST_ARRAY_LITERAL) {
+        inferred_dimensions.push_back(current->arguments.size());
+        if (!current->arguments.empty() && current->arguments[0]->node_type ==
+                                               ASTNodeType::AST_ARRAY_LITERAL) {
+            current = current->arguments[0].get();
+        } else {
+            break;
+        }
+    }
+
+    // 宣言された次元との照合
+    validateArrayDimensions(var.array_dimensions, inferred_dimensions);
+
+    // 総要素数計算と初期化
+    int total_size = calculateTotalSize(inferred_dimensions);
+    var.array_dimensions = inferred_dimensions;
+
+    if (base_type == TYPE_STRING) {
+        var.multidim_array_strings.resize(total_size);
+    } else {
+        var.multidim_array_values.resize(total_size);
+    }
+
+    // データを再帰的に処理
+    std::vector<int> current_indices;
+    processArrayLiteralRecursive(var, literal_node, base_type, 0,
+                                 current_indices);
+}
+
+void ArrayManager::processArrayLiteralRecursive(
+    Variable &var, const ASTNode *node, TypeInfo base_type, int current_dim,
+    std::vector<int> &current_indices) {
+    if (!node)
+        return;
+
+    if (node->node_type == ASTNodeType::AST_ARRAY_LITERAL) {
+        // 現在の次元のインデックスをセット
+        for (int i = 0; i < static_cast<int>(node->arguments.size()); ++i) {
+            current_indices.resize(current_dim + 1);
+            current_indices[current_dim] = i;
+
+            // 再帰的に処理
+            processArrayLiteralRecursive(var, node->arguments[i].get(),
+                                         base_type, current_dim + 1,
+                                         current_indices);
+        }
+    } else {
+        // 葉ノード（実際の値）
+        int flat_index = var.calculate_flat_index(current_indices);
+
+        if (base_type == TYPE_STRING) {
+            var.multidim_array_strings[flat_index] = node->str_value;
+        } else {
+            var.multidim_array_values[flat_index] = node->int_value;
+        }
+    }
+}
+
+int64_t ArrayManager::getMultidimensionalArrayElement(
+    const Variable &var, const std::vector<int64_t> &indices) {
+    if (!var.is_multidimensional) {
+        throw std::runtime_error("Variable is not a multidimensional array");
+    }
+
+    std::vector<int> int_indices;
+    for (int64_t idx : indices) {
+        int_indices.push_back(static_cast<int>(idx));
+    }
+
+    int flat_index = var.calculate_flat_index(int_indices);
+
+    if (var.array_type_info.base_type == TYPE_STRING) {
+        // 文字列配列の場合、文字列を数値として扱うのは適切でない
+        throw std::runtime_error("Cannot get string array element as integer");
+    }
+
+    return var.multidim_array_values[flat_index];
+}
+
+void ArrayManager::setMultidimensionalArrayElement(
+    Variable &var, const std::vector<int64_t> &indices, int64_t value) {
+    if (!var.is_multidimensional) {
+        throw std::runtime_error("Variable is not a multidimensional array");
+    }
+
+    std::vector<int> int_indices;
+    for (int64_t idx : indices) {
+        int_indices.push_back(static_cast<int>(idx));
+    }
+
+    int flat_index = var.calculate_flat_index(int_indices);
+
+    if (var.array_type_info.base_type == TYPE_STRING) {
+        throw std::runtime_error(
+            "Cannot set string array element with integer value");
+    }
+
+    var.multidim_array_values[flat_index] = value;
+}
+
+void ArrayManager::initializeArray(Variable &var, TypeInfo base_type,
+                                   const std::vector<int> &dimensions) {
+    var.is_array = true;
+    var.array_dimensions = dimensions;
+
+    if (dimensions.size() > 1) {
+        var.is_multidimensional = true;
+        // ArrayTypeInfoを設定
+        var.array_type_info.base_type = base_type;
+        var.array_type_info.dimensions.clear();
+        for (int dim : dimensions) {
+            ArrayDimension array_dim;
+            array_dim.size = dim;
+            var.array_type_info.dimensions.push_back(array_dim);
+        }
+    }
+
+    int total_size = calculateTotalSize(dimensions);
+
+    if (base_type == TYPE_STRING) {
+        if (var.is_multidimensional) {
+            var.multidim_array_strings.resize(total_size, "");
+        } else {
+            var.array_strings.resize(total_size, "");
+        }
+    } else {
+        if (var.is_multidimensional) {
+            var.multidim_array_values.resize(total_size, 0);
+        } else {
+            var.array_values.resize(total_size, 0);
+        }
+    }
+}
+
+void ArrayManager::initializeMultidimensionalArray(
+    Variable &var, const ArrayTypeInfo &array_info) {
+    var.is_array = true;
+    var.is_multidimensional = true;
+    var.array_type_info = array_info;
+
+    // 次元サイズをコピー
+    var.array_dimensions.clear();
+    for (const auto &dim : array_info.dimensions) {
+        var.array_dimensions.push_back(dim.size);
+    }
+
+    int total_size = calculateTotalSize(var.array_dimensions);
+
+    if (array_info.base_type == TYPE_STRING) {
+        var.multidim_array_strings.resize(total_size, "");
+    } else {
+        var.multidim_array_values.resize(total_size, 0);
+    }
+}
+
+int ArrayManager::calculateTotalSize(const std::vector<int> &dimensions) {
+    int total = 1;
+    for (int dim : dimensions) {
+        total *= dim;
+    }
+    return total;
+}
+
+std::vector<int> ArrayManager::extractDimensionSizes(
+    const std::vector<ArrayDimension> &dimensions) {
+    std::vector<int> sizes;
+    for (const auto &dim : dimensions) {
+        sizes.push_back(dim.size);
+    }
+    return sizes;
+}
+
+void ArrayManager::validateArrayDimensions(const std::vector<int> &expected,
+                                           const std::vector<int> &actual) {
+    if (expected.size() != actual.size()) {
+        throw std::runtime_error("Array dimension count mismatch");
+    }
+
+    for (size_t i = 0; i < expected.size(); ++i) {
+        if (expected[i] != actual[i]) {
+            throw std::runtime_error(
+                "Array dimension size mismatch at dimension " +
+                std::to_string(i));
+        }
+    }
+}

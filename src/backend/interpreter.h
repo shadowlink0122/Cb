@@ -92,8 +92,6 @@ struct Scope {
         functions.clear();
     }
 };
-
-// 例外クラス
 class ReturnException {
   public:
     int64_t value;
@@ -123,7 +121,7 @@ class Interpreter : public EvaluatorInterface {
     std::vector<Scope> scope_stack;
     Scope global_scope;
     bool debug_mode;
-    OutputManager output_manager_;
+    std::unique_ptr<OutputManager> output_manager_;
     std::map<std::string, std::string>
         typedef_map; // typedef alias -> base type mapping
 
@@ -136,7 +134,7 @@ class Interpreter : public EvaluatorInterface {
     int64_t evaluate(const ASTNode *node) override;
 
     // 出力管理
-    OutputManager &get_output_manager() { return output_manager_; }
+    OutputManager &get_output_manager() { return *output_manager_; }
 
     // スコープ管理
     void push_scope();
@@ -199,20 +197,9 @@ class Interpreter : public EvaluatorInterface {
     void print_value(const ASTNode *expr);
     void print_formatted(const ASTNode *format_str, const ASTNode *arg_list);
 
-    // 多次元配列リテラル処理
-    void processMultidimensionalArrayLiteral(Variable &var,
-                                             const ASTNode *literal_node,
-                                             TypeInfo elem_type);
-
-    // N次元配列リテラル処理（再帰的）
-    void processNDimensionalArrayLiteral(Variable &var,
-                                         const ASTNode *literal_node,
-                                         const std::vector<int> &dimensions,
-                                         int current_dim, int &flat_index);
-
   public:
-    void check_type_range(TypeInfo type, int64_t value, const std::string &name,
-                          const ASTNode *node = nullptr);
+    void check_type_range(TypeInfo type, int64_t value,
+                          const std::string &name);
 
     // デバッグ機能
     void set_debug_mode(bool debug) { debug_mode = debug; }

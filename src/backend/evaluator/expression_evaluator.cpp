@@ -41,6 +41,7 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode *node) {
                 "Undefined variable '" + node->name + "'", 
                 node);
             
+            error_msg(DebugMsgId::UNDEFINED_VAR_ERROR, node->name.c_str());
             throw DetailedErrorException("Undefined variable");
         }
         debug_msg(DebugMsgId::VAR_VALUE, var->value);
@@ -76,6 +77,7 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode *node) {
                     "Undefined variable '" + var_name + "'", 
                     node);
                     
+                error_msg(DebugMsgId::UNDEFINED_VAR_ERROR, var_name.c_str());
                 throw DetailedErrorException("Undefined variable");
             }
 
@@ -85,6 +87,7 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode *node) {
                     "Variable '" + var_name + "' is not an array", 
                     node);
                     
+                error_msg(DebugMsgId::NON_ARRAY_REF_ERROR, var_name.c_str());
                 throw DetailedErrorException("Variable is not an array");
             }
 
@@ -97,6 +100,7 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode *node) {
                     "Array index out of bounds (index=" + std::to_string(index) + ", size=" + std::to_string(var->array_values.size()) + ")", 
                     node);
                     
+                error_msg(DebugMsgId::ARRAY_OUT_OF_BOUNDS_ERROR, std::to_string(index).c_str());
                 throw DetailedErrorException("Array index out of bounds");
             }
 
@@ -132,12 +136,14 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode *node) {
             result = left * right;
         else if (node->op == "/") {
             if (right == 0) {
-                throw_detailed_runtime_error("Division by zero", node);
+                error_msg(DebugMsgId::ZERO_DIVISION_ERROR);
+                throw std::runtime_error("Division by zero");
             }
             result = left / right;
         } else if (node->op == "%") {
             if (right == 0) {
-                throw_detailed_runtime_error("Division by zero", node);
+                error_msg(DebugMsgId::ZERO_DIVISION_ERROR);
+                throw std::runtime_error("Division by zero");
             }
             result = left % right;
         } else if (node->op == "==")
@@ -161,7 +167,7 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode *node) {
                 printf("[DEBUG] Unknown binary operator: %s\n", node->op.c_str());
             }
             error_msg(DebugMsgId::UNKNOWN_BINARY_OP_ERROR, node->op.c_str());
-            throw_detailed_runtime_error("Unknown binary operator: " + node->op, node);
+            throw std::runtime_error("Unknown binary operator");
         }
 
         if (debug_mode) {
@@ -176,12 +182,14 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode *node) {
         // ポストフィックス演算子の場合
         if (node->op == "++_post" || node->op == "--_post") {
             if (!node->left || node->left->node_type != ASTNodeType::AST_VARIABLE) {
-                throw_detailed_runtime_error("Invalid postfix operation on " + node->op, node);
+                error_msg(DebugMsgId::DIRECT_ARRAY_REF_ERROR, node->op.c_str());
+                throw std::runtime_error("Invalid postfix operation");
             }
             
             Variable *var = interpreter_.find_variable(node->left->name);
             if (!var) {
-                throw_detailed_runtime_error("Undefined variable: " + node->left->name, node);
+                error_msg(DebugMsgId::UNDEFINED_VAR_ERROR, node->left->name.c_str());
+                throw std::runtime_error("Undefined variable");
             }
 
             int64_t old_value = var->value;
@@ -191,7 +199,7 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode *node) {
                 var->value -= 1;
             }
 
-            interpreter_.check_type_range(var->type, var->value, node->left->name, node->left.get());
+            // interpreter_.check_type_range(var->type, var->value, node->left->name);
             return old_value; // ポストフィックスは古い値を返す
         }
         
@@ -204,7 +212,8 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode *node) {
         else if (node->op == "-")
             result = -operand;
         else {
-            throw_detailed_runtime_error("Unknown unary operator: " + node->op, node);
+            error_msg(DebugMsgId::UNKNOWN_UNARY_OP_ERROR, node->op.c_str());
+            throw std::runtime_error("Unknown unary operator");
         }
 
         debug_msg(DebugMsgId::UNARY_OP_RESULT_DEBUG, result);
@@ -215,7 +224,8 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode *node) {
     case ASTNodeType::AST_POST_INCDEC: {
         Variable *var = interpreter_.find_variable(node->name);
         if (!var) {
-            throw_detailed_runtime_error("Undefined variable: " + node->name, node);
+            error_msg(DebugMsgId::UNDEFINED_VAR_ERROR, node->name.c_str());
+            throw std::runtime_error("Undefined variable");
         }
 
         int64_t old_value = var->value;
@@ -225,7 +235,7 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode *node) {
             var->value -= 1;
         }
 
-        interpreter_.check_type_range(var->type, var->value, node->name, node);
+        // interpreter_.check_type_range(var->type, var->value, node->name);
 
         return (node->node_type == ASTNodeType::AST_PRE_INCDEC) ? var->value
                                                                 : old_value;
@@ -240,12 +250,14 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode *node) {
         // 通常の関数呼び出し
         const ASTNode *func = interpreter_.find_function(node->name);
         if (!func) {
-            throw_detailed_runtime_error("Undefined function: " + node->name, node);
+            error_msg(DebugMsgId::UNDEFINED_FUNC_ERROR, node->name.c_str());
+            throw std::runtime_error("Undefined function");
         }
 
         // 引数の数チェック
         if (node->arguments.size() != func->parameters.size()) {
-            throw_detailed_runtime_error("Argument count mismatch for function: " + node->name, node);
+            error_msg(DebugMsgId::ARG_COUNT_MISMATCH_ERROR, node->name.c_str());
+            throw std::runtime_error("Argument count mismatch");
         }
 
         // ローカルスコープ作成
@@ -275,7 +287,8 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode *node) {
         // 配列宣言は式として評価できない
         // デバッグ用：どこから呼び出されたかを調べる
         debug_msg(DebugMsgId::ARRAY_DECL_EVAL_DEBUG, node->name.c_str());
-        throw_detailed_runtime_error("Array declaration cannot be used as expression: " + node->name, node);
+        error_msg(DebugMsgId::ARRAY_DECL_AS_EXPR_ERROR, node->name.c_str());
+        throw std::runtime_error("Array declaration as expression error");
 
     case ASTNodeType::AST_ARRAY_LITERAL:
         // 配列リテラル処理 [elem1, elem2, ...] or [[...], [...], ...]
@@ -328,7 +341,9 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode *node) {
         std::string node_type_str =
             "unknown(" + std::to_string(static_cast<int>(node->node_type)) +
             ")";
-        throw_detailed_runtime_error("Unsupported expression node type: " + node_type_str, node);
+        error_msg(DebugMsgId::UNSUPPORTED_EXPR_NODE_ERROR,
+                  node_type_str.c_str());
+        throw std::runtime_error("Unsupported expression node");
     }
 }
 
