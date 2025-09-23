@@ -148,6 +148,16 @@ void print_error_with_location(const std::string &message,
 void print_error_with_ast_location(const std::string &message,
                                    const ASTNode *node);
 
+// 統一的なランタイムエラー（詳細表示付き）
+void throw_detailed_runtime_error(const std::string &message,
+                                  const ASTNode *node = nullptr);
+
+// 統一的なランタイムエラー（位置情報付き）
+void throw_detailed_runtime_error(const std::string &message,
+                                  const std::string &filename, int line,
+                                  int column,
+                                  const std::string &source_line = "");
+
 // ソースファイルから指定行を読み取る
 std::string get_source_line(const std::string &filename, int line_number);
 

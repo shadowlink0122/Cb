@@ -199,9 +199,20 @@ class Interpreter : public EvaluatorInterface {
     void print_value(const ASTNode *expr);
     void print_formatted(const ASTNode *format_str, const ASTNode *arg_list);
 
+    // 多次元配列リテラル処理
+    void processMultidimensionalArrayLiteral(Variable &var,
+                                             const ASTNode *literal_node,
+                                             TypeInfo elem_type);
+
+    // N次元配列リテラル処理（再帰的）
+    void processNDimensionalArrayLiteral(Variable &var,
+                                         const ASTNode *literal_node,
+                                         const std::vector<int> &dimensions,
+                                         int current_dim, int &flat_index);
+
   public:
-    void check_type_range(TypeInfo type, int64_t value,
-                          const std::string &name);
+    void check_type_range(TypeInfo type, int64_t value, const std::string &name,
+                          const ASTNode *node = nullptr);
 
     // デバッグ機能
     void set_debug_mode(bool debug) { debug_mode = debug; }

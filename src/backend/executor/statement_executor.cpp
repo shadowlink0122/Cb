@@ -101,7 +101,7 @@ void StatementExecutor::execute_variable_declaration(const ASTNode *node) {
             var.str_value = node->right->str_value;
         } else {
             var.value = value;
-            interpreter_.check_type_range(var.type, value, node->name);
+            interpreter_.check_type_range(var.type, value, node->name, node);
         }
         var.is_assigned = true;
     }

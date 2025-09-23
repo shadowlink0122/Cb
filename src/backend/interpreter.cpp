@@ -131,8 +131,9 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
             // グローバル変数の重複宣言チェック
             if (global_scope.variables.find(node->name) !=
                 global_scope.variables.end()) {
-                error_msg(DebugMsgId::VAR_REDECLARE_ERROR, node->name.c_str());
-                throw std::runtime_error("Variable redeclaration error");
+                throw_detailed_runtime_error("Variable '" + node->name +
+                                                 "' redeclaration not allowed",
+                                             node);
             }
 
             // グローバル変数の初期化
@@ -148,7 +149,7 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
                     var.str_value = node->right->str_value;
                 } else {
                     var.value = value;
-                    check_type_range(var.type, value, node->name);
+                    check_type_range(var.type, value, node->name, node);
                 }
                 var.is_assigned = true;
             }
@@ -158,8 +159,9 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
             // グローバル変数の重複宣言チェック
             if (global_scope.variables.find(node->name) !=
                 global_scope.variables.end()) {
-                error_msg(DebugMsgId::VAR_REDECLARE_ERROR, node->name.c_str());
-                throw std::runtime_error("Variable redeclaration error");
+                throw_detailed_runtime_error("Variable '" + node->name +
+                                                 "' redeclaration not allowed",
+                                             node);
             }
 
             Variable var;
@@ -254,8 +256,13 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
             var.is_array = true;
             var.is_assigned = false;
 
-            // 配列サイズ決定
-            if (node->array_size_expr) {
+            // 配列サイズ決定 - 新しいシステムを優先
+            if (!node->array_dimensions.empty()) {
+                // 新システム: array_dimensionsから最初の次元を使用
+                int dim_size = static_cast<int>(
+                    evaluate_expression(node->array_dimensions[0].get()));
+                var.array_size = dim_size;
+            } else if (node->array_size_expr) {
                 var.array_size = static_cast<int>(
                     evaluate_expression(node->array_size_expr.get()));
             } else {
@@ -263,9 +270,10 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
             }
 
             if (var.array_size < 0) {
-                error_msg(DebugMsgId::NEGATIVE_ARRAY_SIZE_ERROR,
-                          node->name.c_str());
-                throw std::runtime_error("Negative array size error");
+                throw_detailed_runtime_error(
+                    "Array size cannot be negative for array '" + node->name +
+                        "'",
+                    node);
             }
 
             // 配列初期化
@@ -357,8 +365,8 @@ void Interpreter::process(const ASTNode *ast) {
     // main関数を探して実行
     const ASTNode *main_func = find_function("main");
     if (!main_func) {
-        error_msg(DebugMsgId::MAIN_FUNC_NOT_FOUND_ERROR);
-        throw std::runtime_error("Main function not found");
+        throw_detailed_runtime_error("Main function not found",
+                                     static_cast<const ASTNode *>(nullptr));
     }
     debug_msg(DebugMsgId::MAIN_FUNC_FOUND);
 
@@ -549,9 +557,10 @@ void Interpreter::execute_statement(const ASTNode *node) {
                             assign_string_element(var_name, index,
                                                   node->right->str_value);
                         } else {
-                            error_msg(DebugMsgId::NON_STRING_CHAR_ASSIGN_ERROR);
-                            throw std::runtime_error(
-                                "Non-string character assignment error");
+                            throw_detailed_runtime_error(
+                                "Cannot assign character to non-string "
+                                "variable",
+                                node);
                         }
                     } else {
                         // 通常の配列要素への代入
@@ -716,21 +725,30 @@ void Interpreter::execute_statement(const ASTNode *node) {
         var.is_array = true;
         var.is_assigned = false;
 
-        // 多次元配列かどうかチェック
-        if (node->array_dimensions.size() > 1) {
-            debug_msg(DebugMsgId::MULTIDIM_ARRAY_PROCESSING);
-            // 多次元配列の場合
+        // 新しい配列次元システムを使用（パーサーと統合）
+        if (!node->array_dimensions.empty()) {
+            // 配列次元が指定されている場合（新システム）
+
             // 各次元のサイズを評価して整数配列に変換
             std::vector<ArrayDimension> dimensions;
             for (const auto &dim_expr : node->array_dimensions) {
                 int dim_size =
                     static_cast<int>(evaluate_expression(dim_expr.get()));
+                if (dim_size < 0) {
+                    std::string message =
+                        "Array size cannot be negative for array '" +
+                        node->name + "'";
+                    if (node && !node->location.filename.empty()) {
+                        throw_detailed_runtime_error(message, node);
+                    } else {
+                        error_msg(DebugMsgId::NEGATIVE_ARRAY_SIZE_ERROR,
+                                  node->name.c_str());
+                        throw std::runtime_error("Negative array size error");
+                    }
+                }
                 var.array_dimensions.push_back(dim_size);
                 dimensions.push_back(ArrayDimension(dim_size, false));
             }
-
-            // ArrayTypeInfoを作成
-            var.array_type_info = ArrayTypeInfo(node->type_info, dimensions);
 
             // 総要素数を計算
             int total_size = 1;
@@ -739,22 +757,37 @@ void Interpreter::execute_statement(const ASTNode *node) {
             }
             var.array_size = total_size;
 
-            // 要素の型
-            TypeInfo elem_type = node->type_info;
-            if (elem_type == TYPE_STRING) {
-                var.multidim_array_strings.resize(total_size, "");
+            // 多次元配列かどうかの判定
+            if (node->array_dimensions.size() > 1) {
+                debug_msg(DebugMsgId::MULTIDIM_ARRAY_PROCESSING);
+                var.is_multidimensional = true;
+
+                // ArrayTypeInfoを作成
+                var.array_type_info =
+                    ArrayTypeInfo(node->type_info, dimensions);
+
+                // 要素の型
+                TypeInfo elem_type = node->type_info;
+                if (elem_type == TYPE_STRING) {
+                    var.multidim_array_strings.resize(total_size, "");
+                } else {
+                    var.multidim_array_values.resize(total_size, 0);
+                }
             } else {
-                var.multidim_array_values.resize(total_size, 0);
+                debug_msg(DebugMsgId::SINGLE_DIM_ARRAY_PROCESSING);
+                // 単一次元配列として初期化
+                TypeInfo elem_type = node->type_info;
+                if (elem_type == TYPE_STRING) {
+                    var.array_strings.resize(var.array_size, "");
+                } else {
+                    var.array_values.resize(var.array_size, 0);
+                }
             }
         } else {
             debug_msg(DebugMsgId::SINGLE_DIM_ARRAY_PROCESSING);
-            // 単一次元配列の処理（既存のロジック）
-            // 配列サイズ決定
-            if (node->array_size_expr) {
-                var.array_size = static_cast<int>(
-                    evaluate_expression(node->array_size_expr.get()));
-            } else if (node->init_expr && node->init_expr->node_type ==
-                                              ASTNodeType::AST_ARRAY_LITERAL) {
+            // 旧システム対応（配列リテラルからの推測など）
+            if (node->init_expr &&
+                node->init_expr->node_type == ASTNodeType::AST_ARRAY_LITERAL) {
                 // 配列リテラルからサイズを推測
                 var.array_size =
                     static_cast<int>(node->init_expr->arguments.size());
@@ -780,51 +813,71 @@ void Interpreter::execute_statement(const ASTNode *node) {
         // 初期化リストがある場合（新しい形式：配列リテラル）
         if (node->init_expr &&
             node->init_expr->node_type == ASTNodeType::AST_ARRAY_LITERAL) {
-            debug_msg(DebugMsgId::PRINTF_OFFSET_CALLED,
-                      0); // デバッグ用メッセージ
-            debug_msg(DebugMsgId::INTERPRETER_START,
-                      "Processing array literal initialization");
 
-            TypeInfo elem_type = node->type_info; // ここで再定義
-            for (size_t i = 0; i < node->init_expr->arguments.size() &&
-                               i < static_cast<size_t>(var.array_size);
-                 ++i) {
-                const auto &element = node->init_expr->arguments[i];
+            // 多次元配列の場合の初期化処理
+            if (var.is_multidimensional) {
+                // N次元配列リテラル処理
+                const ASTNode *literal = node->init_expr.get();
+                if (!literal ||
+                    literal->node_type != ASTNodeType::AST_ARRAY_LITERAL) {
+                    throw std::runtime_error(
+                        "Invalid array literal for multidimensional array");
+                }
+
+                int flat_index = 0;
+                processNDimensionalArrayLiteral(
+                    var, literal, var.array_dimensions, 0, flat_index);
+            } else {
+                // 単一次元配列の初期化処理（既存のロジック）
+                debug_msg(DebugMsgId::PRINTF_OFFSET_CALLED, 0);
                 debug_msg(DebugMsgId::INTERPRETER_START,
-                          ("Processing element " + std::to_string(i) +
-                           ", type: " +
-                           std::to_string(static_cast<int>(element->node_type)))
-                              .c_str());
+                          "Processing array literal initialization");
 
-                if (elem_type == TYPE_STRING) {
-                    // string配列の場合、要素はstring型である必要がある
-                    if (element->node_type != ASTNodeType::AST_STRING_LITERAL) {
-                        error_msg(
-                            DebugMsgId::TYPE_MISMATCH_ERROR,
-                            "String array element must be string literal");
-                        throw std::runtime_error(
-                            "Type mismatch in string array initialization");
+                TypeInfo elem_type = node->type_info;
+                for (size_t i = 0; i < node->init_expr->arguments.size() &&
+                                   i < static_cast<size_t>(var.array_size);
+                     ++i) {
+                    const auto &element = node->init_expr->arguments[i];
+                    debug_msg(
+                        DebugMsgId::INTERPRETER_START,
+                        ("Processing element " + std::to_string(i) +
+                         ", type: " +
+                         std::to_string(static_cast<int>(element->node_type)))
+                            .c_str());
+
+                    if (elem_type == TYPE_STRING) {
+                        // string配列の場合、要素はstring型である必要がある
+                        if (element->node_type !=
+                            ASTNodeType::AST_STRING_LITERAL) {
+                            error_msg(
+                                DebugMsgId::TYPE_MISMATCH_ERROR,
+                                "String array element must be string literal");
+                            throw std::runtime_error(
+                                "Type mismatch in string array initialization");
+                        }
+                        var.array_strings[i] = element->str_value;
+                    } else {
+                        // 数値配列の場合、要素は数値型である必要がある
+                        if (element->node_type ==
+                            ASTNodeType::AST_STRING_LITERAL) {
+                            debug_msg(DebugMsgId::STRING_IN_INT_ARRAY_ERROR);
+
+                            // 詳細なエラー表示
+                            print_error_with_ast_location(
+                                "Integer array cannot contain string literals",
+                                element.get());
+
+                            throw DetailedErrorException(
+                                "Type mismatch in integer array "
+                                "initialization");
+                        }
+                        debug_msg(DebugMsgId::PRINTF_ARG_PROCESSING, i,
+                                  element->node_type);
+                        int64_t val = evaluate_expression(element.get());
+                        debug_msg(DebugMsgId::EXPR_EVAL_NUMBER, val);
+                        check_type_range(elem_type, val, node->name);
+                        var.array_values[i] = val;
                     }
-                    var.array_strings[i] = element->str_value;
-                } else {
-                    // 数値配列の場合、要素は数値型である必要がある
-                    if (element->node_type == ASTNodeType::AST_STRING_LITERAL) {
-                        debug_msg(DebugMsgId::STRING_IN_INT_ARRAY_ERROR);
-
-                        // 詳細なエラー表示
-                        print_error_with_ast_location(
-                            "Integer array cannot contain string literals",
-                            element.get());
-
-                        throw DetailedErrorException(
-                            "Type mismatch in integer array initialization");
-                    }
-                    debug_msg(DebugMsgId::PRINTF_ARG_PROCESSING, i,
-                              element->node_type);
-                    int64_t val = evaluate_expression(element.get());
-                    debug_msg(DebugMsgId::EXPR_EVAL_NUMBER, val);
-                    check_type_range(elem_type, val, node->name);
-                    var.array_values[i] = val;
                 }
             }
         }
@@ -909,7 +962,7 @@ void Interpreter::execute_statement(const ASTNode *node) {
         break;
 
     case ASTNodeType::AST_PRINTF_STMT:
-        print_formatted(node->left.get(), node->right.get());
+        output_manager_.print_formatted(node->left.get(), node->right.get());
         break;
 
     case ASTNodeType::AST_PRINTLNF_STMT:
@@ -1084,17 +1137,14 @@ int64_t Interpreter::evaluate_expression(const ASTNode *node) {
             // 変数を取得
             Variable *var = find_variable(var_name);
             if (!var) {
-                error_msg(DebugMsgId::UNDEFINED_VAR_ERROR, var_name.c_str());
-                throw std::runtime_error("Undefined variable: " + var_name);
+                throw_detailed_runtime_error("Undefined variable: " + var_name);
             }
 
             // インデックスをintベクターに変換
             std::vector<int> int_indices;
             for (int64_t idx : indices) {
                 int_indices.push_back(static_cast<int>(idx));
-            }
-
-            // フラットインデックスを計算
+            } // フラットインデックスを計算
             int flat_index = var->calculate_flat_index(int_indices);
             debug_msg(DebugMsgId::FLAT_INDEX_CALCULATED, flat_index);
 
@@ -1179,9 +1229,8 @@ int64_t Interpreter::evaluate_expression(const ASTNode *node) {
                 debug_msg(DebugMsgId::STRING_LENGTH_UTF8, utf8_length);
 
                 if (index < 0 || index >= static_cast<int64_t>(utf8_length)) {
-                    error_msg(DebugMsgId::STRING_OUT_OF_BOUNDS_ERROR,
-                              var_name.c_str(), index, utf8_length);
-                    throw std::runtime_error("String out of bounds access");
+                    throw_detailed_runtime_error(
+                        "String index out of bounds for variable: " + var_name);
                 }
 
                 // UTF-8文字を取得
@@ -1196,9 +1245,8 @@ int64_t Interpreter::evaluate_expression(const ASTNode *node) {
                 // 通常の配列アクセス
                 debug_msg(DebugMsgId::ARRAY_ELEMENT_ACCESS);
                 if (index < 0 || index >= var->array_size) {
-                    error_msg(DebugMsgId::ARRAY_OUT_OF_BOUNDS_ERROR,
-                              var_name.c_str());
-                    throw std::runtime_error("Array out of bounds access");
+                    throw_detailed_runtime_error(
+                        "Array index out of bounds for variable: " + var_name);
                 }
 
                 TypeInfo elem_type =
@@ -1402,33 +1450,100 @@ int64_t Interpreter::evaluate_expression(const ASTNode *node) {
         throw std::runtime_error("Array declaration as expression error");
 
     case ASTNodeType::AST_ARRAY_LITERAL:
-        // 配列リテラル処理 [1,2,3,...]
+        // 配列リテラル処理 [1,2,3,...] または [[1,2],[3,4],...]
         {
-            // これは配列リテラル [1,2,3,...] として扱う
-            // node->argumentsには各要素のノードが含まれている
-            Variable result;
-            result.array_values.clear();
-
-            // 各要素を評価して配列に追加
+            // 多次元配列リテラルかどうかをチェック
+            bool is_multidimensional = false;
             for (auto &element : node->arguments) {
-                // 文字列リテラルが混入していないかチェック
-                if (element->node_type == ASTNodeType::AST_STRING_LITERAL) {
-                    // 詳細なエラー表示
-                    print_error_with_ast_location(
-                        "Cannot mix string literals in numeric array literal",
-                        element.get());
-
-                    throw DetailedErrorException(
-                        "Type mismatch in array literal: string in numeric "
-                        "array");
+                if (element->node_type == ASTNodeType::AST_ARRAY_LITERAL) {
+                    is_multidimensional = true;
+                    break;
                 }
-
-                int64_t element_value = evaluate_expression(element.get());
-                result.array_values.push_back(element_value);
             }
 
-            // 配列として返す（値としては0）
-            return 0;
+            if (is_multidimensional) {
+                // 多次元配列リテラルとして処理
+                std::vector<int64_t> flattened_values;
+                std::vector<int> dimensions;
+
+                // 最初の次元のサイズ
+                dimensions.push_back(node->arguments.size());
+
+                // 各サブ配列を平坦化
+                for (auto &sub_array : node->arguments) {
+                    if (sub_array->node_type !=
+                        ASTNodeType::AST_ARRAY_LITERAL) {
+                        print_error_with_ast_location(
+                            "Inconsistent array literal structure: mixing "
+                            "arrays and scalars",
+                            sub_array.get());
+                        throw DetailedErrorException(
+                            "Inconsistent array literal structure");
+                    }
+
+                    // サブ配列のサイズをチェック（すべて同じでなければならない）
+                    if (dimensions.size() == 1) {
+                        dimensions.push_back(sub_array->arguments.size());
+                    } else if (dimensions[1] !=
+                               static_cast<int>(sub_array->arguments.size())) {
+                        print_error_with_ast_location(
+                            "Inconsistent sub-array sizes in multidimensional "
+                            "array literal",
+                            sub_array.get());
+                        throw DetailedErrorException(
+                            "Inconsistent sub-array sizes");
+                    }
+
+                    // サブ配列の要素を評価
+                    for (auto &element : sub_array->arguments) {
+                        if (element->node_type ==
+                            ASTNodeType::AST_STRING_LITERAL) {
+                            print_error_with_ast_location(
+                                "Cannot mix string literals in numeric array "
+                                "literal",
+                                element.get());
+                            throw DetailedErrorException(
+                                "Type mismatch in array literal: string in "
+                                "numeric array");
+                        }
+
+                        int64_t element_value =
+                            evaluate_expression(element.get());
+                        flattened_values.push_back(element_value);
+                    }
+                }
+
+                // 結果を一時的な配列として返す（実際の使用はinterpreterで処理）
+                debug_msg(DebugMsgId::ARRAY_LITERAL_ELEMENTS,
+                          flattened_values.size());
+                return 0; // 配列リテラルの評価値は0
+            } else {
+                // 単一次元配列リテラル処理（既存のロジック）
+                Variable result;
+                result.array_values.clear();
+
+                // 各要素を評価して配列に追加
+                for (auto &element : node->arguments) {
+                    // 文字列リテラルが混入していないかチェック
+                    if (element->node_type == ASTNodeType::AST_STRING_LITERAL) {
+                        // 詳細なエラー表示
+                        print_error_with_ast_location(
+                            "Cannot mix string literals in numeric array "
+                            "literal",
+                            element.get());
+
+                        throw DetailedErrorException(
+                            "Type mismatch in array literal: string in numeric "
+                            "array");
+                    }
+
+                    int64_t element_value = evaluate_expression(element.get());
+                    result.array_values.push_back(element_value);
+                }
+
+                // 配列として返す（値としては0）
+                return 0;
+            }
         }
 
     case ASTNodeType::AST_STMT_LIST:
@@ -1587,8 +1702,8 @@ void Interpreter::assign_array_element(const std::string &name, int64_t index,
     if (index < 0 || index >= var->array_size) {
         debug_msg(DebugMsgId::ARRAY_INDEX_OUT_OF_BOUNDS, index,
                   var->array_size);
-        error_msg(DebugMsgId::ARRAY_OUT_OF_BOUNDS_ERROR, name.c_str());
-        throw std::runtime_error("Array out of bounds");
+        throw_detailed_runtime_error(
+            "Array index out of bounds for variable: " + name);
     }
 
     debug_msg(DebugMsgId::ARRAY_ELEMENT_ASSIGN_START, index);
@@ -1622,9 +1737,8 @@ void Interpreter::assign_string_element(const std::string &name, int64_t index,
     debug_msg(DebugMsgId::STRING_LENGTH_UTF8_DEBUG, utf8_length);
 
     if (index < 0 || index >= static_cast<int64_t>(utf8_length)) {
-        error_msg(DebugMsgId::STRING_OUT_OF_BOUNDS_ERROR, name.c_str(), index,
-                  utf8_length);
-        throw std::runtime_error("String out of bounds");
+        throw_detailed_runtime_error(
+            "String index out of bounds for variable: " + name);
     }
 
     // UTF-8文字列の指定位置の文字を置換
@@ -1696,29 +1810,33 @@ void Interpreter::print_formatted(const ASTNode *format_str,
     // フォーマット文字列を処理
     std::string result;
     size_t arg_index = 0;
-    for (size_t i = 0; i < format.length(); i++) {
+    for (size_t i = 0; i < format.length();) {
         if (format[i] == '%' && i + 1 < format.length()) {
             char specifier = format[i + 1];
 
             if (specifier == '%') {
                 // %% の場合は常に % を追加（引数不要）
                 result += '%';
-                i++; // %% をスキップ
+                i += 2; // %% をスキップ
             } else if (arg_index < int_args.size()) {
                 switch (specifier) {
                 case 'd':
                 case 'i':
                     result += std::to_string(int_args[arg_index]);
+                    arg_index++;
+                    i += 2; // %d をスキップ
                     break;
                 case 'l':
                     // %lld の処理
                     if (i + 3 < format.length() && format[i + 2] == 'l' &&
                         format[i + 3] == 'd') {
                         result += std::to_string(int_args[arg_index]);
-                        i += 2; // 追加の 'll' をスキップ
+                        i += 4; // '%lld' をスキップ
                     } else {
                         result += std::to_string(int_args[arg_index]);
+                        i += 2; // '%l' をスキップ
                     }
+                    arg_index++; // 引数インデックスを増やす
                     break;
                 case 's':
                     if (arg_index < str_args.size() &&
@@ -1727,22 +1845,28 @@ void Interpreter::print_formatted(const ASTNode *format_str,
                     } else {
                         result += std::to_string(int_args[arg_index]);
                     }
+                    arg_index++;
+                    i += 2; // %s をスキップ
                     break;
                 case 'c':
                     result += static_cast<char>(int_args[arg_index]);
+                    arg_index++;
+                    i += 2; // %c をスキップ
                     break;
                 default:
                     result += '%';
                     result += specifier;
+                    i += 2; // %? をスキップ
                     break;
                 }
-                arg_index++;
-                i++; // specifier をスキップ
             } else {
-                result += format[i];
+                result += '%';
+                result += specifier;
+                i += 2; // %? をスキップ
             }
         } else {
             result += format[i];
+            i++; // 通常の文字を1つスキップ
         }
     }
 
@@ -1750,30 +1874,56 @@ void Interpreter::print_formatted(const ASTNode *format_str,
 }
 
 void Interpreter::check_type_range(TypeInfo type, int64_t value,
-                                   const std::string &name) {
+                                   const std::string &name,
+                                   const ASTNode *node) {
     switch (type) {
     case TYPE_TINY:
         if (value < -128 || value > 127) {
-            error_msg(DebugMsgId::TYPE_RANGE_ERROR);
-            throw std::runtime_error("Type range error");
+            std::string message = "Value " + std::to_string(value) +
+                                  " out of tiny type range (-128 to 127)";
+            if (node && !node->location.filename.empty()) {
+                throw_detailed_runtime_error(message, node);
+            } else {
+                error_msg(DebugMsgId::TYPE_RANGE_ERROR);
+                throw std::runtime_error("Type range error");
+            }
         }
         break;
     case TYPE_SHORT:
         if (value < -32768 || value > 32767) {
-            error_msg(DebugMsgId::TYPE_RANGE_ERROR);
-            throw std::runtime_error("Type range error");
+            std::string message = "Value " + std::to_string(value) +
+                                  " out of short type range (-32768 to 32767)";
+            if (node && !node->location.filename.empty()) {
+                throw_detailed_runtime_error(message, node);
+            } else {
+                error_msg(DebugMsgId::TYPE_RANGE_ERROR);
+                throw std::runtime_error("Type range error");
+            }
         }
         break;
     case TYPE_INT:
         if (value < -2147483648LL || value > 2147483647LL) {
-            error_msg(DebugMsgId::TYPE_RANGE_ERROR);
-            throw std::runtime_error("Type range error");
+            std::string message =
+                "Value " + std::to_string(value) +
+                " out of int type range (-2147483648 to 2147483647)";
+            if (node && !node->location.filename.empty()) {
+                throw_detailed_runtime_error(message, node);
+            } else {
+                error_msg(DebugMsgId::TYPE_RANGE_ERROR);
+                throw std::runtime_error("Type range error");
+            }
         }
         break;
     case TYPE_CHAR:
         if (value < 0 || value > 255) {
-            error_msg(DebugMsgId::TYPE_RANGE_ERROR);
-            throw std::runtime_error("Type range error");
+            std::string message = "Value " + std::to_string(value) +
+                                  " out of char type range (0 to 255)";
+            if (node && !node->location.filename.empty()) {
+                throw_detailed_runtime_error(message, node);
+            } else {
+                error_msg(DebugMsgId::TYPE_RANGE_ERROR);
+                throw std::runtime_error("Type range error");
+            }
         }
         break;
     case TYPE_BOOL:
@@ -1821,4 +1971,206 @@ TypeInfo Interpreter::string_to_type_info(const std::string &type_str) {
     }
 
     return TYPE_UNKNOWN;
+}
+
+// 多次元配列リテラル処理メソッド
+void Interpreter::processMultidimensionalArrayLiteral(
+    Variable &var, const ASTNode *literal_node, TypeInfo elem_type) {
+    if (!literal_node ||
+        literal_node->node_type != ASTNodeType::AST_ARRAY_LITERAL) {
+        throw std::runtime_error("Invalid array literal node");
+    }
+
+    // 空の配列リテラルのチェック
+    if (literal_node->arguments.empty()) {
+        throw std::runtime_error(
+            "Empty array literal for multidimensional array");
+    }
+
+    // 多次元配列の次元を検証
+    std::vector<int> dimensions;
+    dimensions.push_back(literal_node->arguments.size()); // 最外側の次元
+
+    // 最初のサブ配列から内部次元を取得
+    if (literal_node->arguments[0]->node_type ==
+        ASTNodeType::AST_ARRAY_LITERAL) {
+        dimensions.push_back(literal_node->arguments[0]->arguments.size());
+    } else {
+        throw std::runtime_error(
+            "Expected nested array literal for multidimensional array");
+    }
+
+    // 宣言された次元と一致するかチェック
+    if (dimensions.size() != var.array_type_info.dimensions.size()) {
+        debug_msg(DebugMsgId::TYPE_MISMATCH_ERROR,
+                  ("Dimension mismatch: literal=" +
+                   std::to_string(dimensions.size()) + ", declared=" +
+                   std::to_string(var.array_type_info.dimensions.size()))
+                      .c_str());
+        throw std::runtime_error(
+            "Array literal dimensions don't match declaration");
+    }
+
+    for (size_t i = 0; i < dimensions.size(); ++i) {
+        if (dimensions[i] != var.array_type_info.dimensions[i].size) {
+            debug_msg(DebugMsgId::TYPE_MISMATCH_ERROR,
+                      ("Size mismatch at dimension " + std::to_string(i) +
+                       ": literal=" + std::to_string(dimensions[i]) +
+                       ", declared=" +
+                       std::to_string(var.array_type_info.dimensions[i].size))
+                          .c_str());
+            throw std::runtime_error(
+                "Array literal size doesn't match declared size");
+        }
+    }
+
+    // 平坦化されたインデックス
+    int flat_index = 0;
+
+    // ネストした配列リテラルを処理
+    for (size_t i = 0; i < literal_node->arguments.size(); ++i) {
+        const auto &sub_array = literal_node->arguments[i];
+
+        if (!sub_array ||
+            sub_array->node_type != ASTNodeType::AST_ARRAY_LITERAL) {
+            throw std::runtime_error(
+                "Expected nested array literal in multidimensional array");
+        }
+
+        // サブ配列のサイズチェック
+        if (sub_array->arguments.size() != static_cast<size_t>(dimensions[1])) {
+            throw std::runtime_error(
+                "Inconsistent sub-array size in multidimensional array");
+        }
+
+        // サブ配列の各要素を処理
+        for (size_t j = 0; j < sub_array->arguments.size(); ++j) {
+            const auto &element = sub_array->arguments[j];
+
+            if (!element) {
+                throw std::runtime_error(
+                    "Null element in array literal at index " +
+                    std::to_string(j));
+            }
+
+            // デバッグ情報
+            if (debug_mode) {
+                printf(
+                    "[DEBUG] Processing element at [%zu][%zu], node_type=%d\n",
+                    i, j, static_cast<int>(element->node_type));
+            }
+
+            // フラットインデックスの境界チェック
+            if (elem_type == TYPE_STRING) {
+                if (flat_index >=
+                    static_cast<int>(var.multidim_array_strings.size())) {
+                    throw std::runtime_error(
+                        "Array index out of bounds for string array");
+                }
+                if (element->node_type != ASTNodeType::AST_STRING_LITERAL) {
+                    print_error_with_ast_location(
+                        "String array element must be string literal",
+                        element.get());
+                    throw DetailedErrorException(
+                        "Type mismatch in string array initialization");
+                }
+                var.multidim_array_strings[flat_index] = element->str_value;
+            } else {
+                if (flat_index >=
+                    static_cast<int>(var.multidim_array_values.size())) {
+                    throw std::runtime_error(
+                        "Array index out of bounds for numeric array");
+                }
+                if (element->node_type == ASTNodeType::AST_STRING_LITERAL) {
+                    print_error_with_ast_location(
+                        "Integer array cannot contain string literals",
+                        element.get());
+                    throw DetailedErrorException(
+                        "Type mismatch in integer array initialization");
+                }
+
+                // セグフォルト回避のための安全性チェック
+                try {
+                    if (debug_mode) {
+                        printf("[DEBUG] About to evaluate element at "
+                               "flat_index=%d\n",
+                               flat_index);
+                    }
+                    int64_t val = evaluate_expression(element.get());
+                    check_type_range(elem_type, val,
+                                     "multidimensional array element");
+                    var.multidim_array_values[flat_index] = val;
+                    if (debug_mode) {
+                        printf("[DEBUG] Successfully evaluated element: %lld\n",
+                               val);
+                    }
+                } catch (const std::exception &e) {
+                    printf("[ERROR] Failed to evaluate expression at "
+                           "[%zu][%zu]: %s\n",
+                           i, j, e.what());
+                    throw;
+                }
+            }
+
+            flat_index++;
+        }
+    }
+
+    debug_msg(DebugMsgId::MULTIDIM_ARRAY_ASSIGNMENT_COMPLETED);
+}
+
+// N次元配列リテラル処理（再帰的）
+void Interpreter::processNDimensionalArrayLiteral(
+    Variable &var, const ASTNode *literal_node,
+    const std::vector<int> &dimensions, int current_dim, int &flat_index) {
+    if (!literal_node ||
+        literal_node->node_type != ASTNodeType::AST_ARRAY_LITERAL) {
+        throw std::runtime_error("Expected array literal node");
+    }
+
+    // 最終次元の場合、要素を直接処理
+    if (current_dim == dimensions.size() - 1) {
+        // 配列要素を処理
+        for (const auto &element : literal_node->arguments) {
+            if (!element) {
+                throw std::runtime_error("Null element in array literal");
+            }
+
+            if (flat_index >=
+                static_cast<int>(var.multidim_array_values.size())) {
+                throw std::runtime_error(
+                    "Array index out of bounds during initialization");
+            }
+
+            if (element->node_type == ASTNodeType::AST_NUMBER) {
+                var.multidim_array_values[flat_index] = element->int_value;
+            } else if (element->node_type == ASTNodeType::AST_STRING_LITERAL &&
+                       var.type >= TYPE_ARRAY_BASE + TYPE_STRING) {
+                // 文字列配列の場合
+                if (flat_index >=
+                    static_cast<int>(var.multidim_array_strings.size())) {
+                    throw std::runtime_error(
+                        "String array index out of bounds");
+                }
+                var.multidim_array_strings[flat_index] = element->str_value;
+            } else {
+                throw std::runtime_error(
+                    "Invalid element type in multidimensional array literal");
+            }
+
+            flat_index++;
+        }
+    } else {
+        // 中間次元の場合、再帰的に処理
+        for (const auto &sub_array : literal_node->arguments) {
+            if (!sub_array ||
+                sub_array->node_type != ASTNodeType::AST_ARRAY_LITERAL) {
+                throw std::runtime_error("Expected nested array literal");
+            }
+
+            // 再帰呼び出し
+            processNDimensionalArrayLiteral(var, sub_array.get(), dimensions,
+                                            current_dim + 1, flat_index);
+        }
+    }
 }

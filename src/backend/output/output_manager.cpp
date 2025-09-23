@@ -495,6 +495,51 @@ void OutputManager::print_formatted(const ASTNode *format_str, const ASTNode *ar
                         result += std::to_string(int_args[arg_index]);
                     }
                     break;
+                case 'c':
+                    if (arg_index < str_args.size() && !str_args[arg_index].empty()) {
+                        // 文字列が渡された場合、最初の文字を使用
+                        result += str_args[arg_index][0];
+                    } else if (arg_index < int_args.size()) {
+                        // 数値が渡された場合、ASCII文字として変換
+                        char ch = static_cast<char>(int_args[arg_index]);
+                        result += ch;
+                    }
+                    break;
+                case 'l':
+                    // %lld の処理
+                    if (spec_end + 2 < format.length() && 
+                        format[spec_end + 1] == 'l' && format[spec_end + 2] == 'd') {
+                        int64_t value;
+                        if (arg_index < str_args.size() && !str_args[arg_index].empty()) {
+                            try {
+                                value = std::stoll(str_args[arg_index]);
+                            } catch (const std::exception&) {
+                                value = 0;
+                            }
+                        } else if (arg_index < int_args.size()) {
+                            value = int_args[arg_index];
+                        } else {
+                            value = 0;
+                        }
+                        result += std::to_string(value);
+                        spec_end += 2; // 'lld' の 'll' 部分をスキップ
+                    } else {
+                        // 単なる 'l' の場合は long として処理
+                        int64_t value;
+                        if (arg_index < str_args.size() && !str_args[arg_index].empty()) {
+                            try {
+                                value = std::stoll(str_args[arg_index]);
+                            } catch (const std::exception&) {
+                                value = 0;
+                            }
+                        } else if (arg_index < int_args.size()) {
+                            value = int_args[arg_index];
+                        } else {
+                            value = 0;
+                        }
+                        result += std::to_string(value);
+                    }
+                    break;
                 default:
                     result += format[i];
                     continue;

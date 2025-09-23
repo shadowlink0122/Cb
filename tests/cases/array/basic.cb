@@ -1,6 +1,6 @@
 int main() {
     tiny size = 5;
-    int[5] a;
+    int[size] a;
     for(tiny i = 0;i < size;i++){
         a[i] = 10 * (i + 1);
     }

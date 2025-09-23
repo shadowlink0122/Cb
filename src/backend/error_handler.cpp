@@ -304,3 +304,23 @@ std::string create_column_marker(int column, int length) {
     marker += std::string(length, '^');
     return marker;
 }
+
+// 統一的なランタイムエラー（ASTノード付き）
+void throw_detailed_runtime_error(const std::string &message,
+                                  const ASTNode *node) {
+    if (node && !node->location.filename.empty()) {
+        print_error_with_ast_location(message, node);
+        throw DetailedErrorException(message);
+    } else {
+        std::cerr << "Error: " << message << std::endl;
+        throw std::runtime_error(message);
+    }
+}
+
+// 統一的なランタイムエラー（位置情報付き）
+void throw_detailed_runtime_error(const std::string &message,
+                                  const std::string &filename, int line,
+                                  int column, const std::string &source_line) {
+    print_error_with_location(message, filename, line, column, source_line);
+    throw DetailedErrorException(message);
+}

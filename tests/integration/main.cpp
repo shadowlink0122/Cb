@@ -17,6 +17,7 @@
 #include "incdec/test_incdec.hpp"
 #include "loop/test_loop.hpp"
 #include "module_functions/test_module_functions.hpp"
+#include "multidim_array/test_multidim_array.hpp"
 #include "multiple_var_decl/test_multiple_var_decl.hpp"
 #include "printf/test_printf.hpp"
 #include "println/test_println.hpp"
@@ -41,6 +42,7 @@ int main() {
         test_integration_string();
         test_integration_array();
         test_integration_array_literal();
+        test_integration_multidim_array();
         test_bool_expr_basic();
         test_integration_loop();
         test_integration_multiple_var_decl();
