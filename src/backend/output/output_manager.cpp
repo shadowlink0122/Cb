@@ -7,6 +7,7 @@
 #include <cinttypes>
 #include <cstdio>
 #include <cctype>
+#include <iostream>
 #include <sstream>
 #include <stdexcept>
 
@@ -180,6 +181,8 @@ void OutputManager::print_formatted(const ASTNode *format_str,
 
     std::vector<int64_t> int_args;
     std::vector<std::string> str_args;
+    
+
 
     // 引数リストを評価
     if (arg_list && arg_list->node_type == ASTNodeType::AST_STMT_LIST) {
@@ -204,6 +207,8 @@ void OutputManager::print_formatted(const ASTNode *format_str,
             }
         }
     }
+
+
 
     // フォーマット文字列を処理
     std::string result;
@@ -353,7 +358,10 @@ void OutputManager::print_formatted(const ASTNode *format_str,
                 arg_index++;
                 i = spec_end; // specifierの位置に移動
             } else {
-                result += format[i];
+                // 引数が不足している場合、フォーマット指定子をそのまま出力
+                result += '%';
+                result += specifier;
+                i = spec_end; // specifierの位置に移動
             }
         } else {
             result += format[i];
@@ -413,9 +421,15 @@ void OutputManager::print_formatted(const ASTNode *format_str, const ASTNode *ar
                 int_args.push_back(0); // プレースホルダー
             } else if (arg->node_type == ASTNodeType::AST_VARIABLE) {
                 Variable *var = find_variable(arg->name);
-                if (var && var->type == TYPE_STRING) {
-                    str_args.push_back(var->str_value);
-                    int_args.push_back(0); // プレースホルダー
+                if (var) {
+                    if (var->type == TYPE_STRING) {
+                        str_args.push_back(var->str_value);
+                        int_args.push_back(0); // プレースホルダー
+                    } else {
+                        int64_t value = evaluate_expression(arg.get());
+                        int_args.push_back(value);
+                        str_args.push_back(""); // プレースホルダー
+                    }
                 } else {
                     int64_t value = evaluate_expression(arg.get());
                     int_args.push_back(value);
@@ -428,6 +442,8 @@ void OutputManager::print_formatted(const ASTNode *format_str, const ASTNode *ar
             }
         }
     }
+
+
 
     // フォーマット文字列を処理（既存のロジックを再利用）
     std::string result;
@@ -507,14 +523,16 @@ void OutputManager::print_formatted(const ASTNode *format_str, const ASTNode *ar
                     break;
                 case 'l':
                     // %lld の処理
-                    if (spec_end + 2 < format.length() && 
-                        format[spec_end + 1] == 'l' && format[spec_end + 2] == 'd') {
+                    if (spec_end + 2 < format.length() &&
+                        format[spec_end + 1] == 'l' &&
+                        format[spec_end + 2] == 'd') {
                         int64_t value;
+                        // 文字列が渡された場合の型変換
                         if (arg_index < str_args.size() && !str_args[arg_index].empty()) {
                             try {
                                 value = std::stoll(str_args[arg_index]);
                             } catch (const std::exception&) {
-                                value = 0;
+                                value = 0; // 変換できない場合は0
                             }
                         } else if (arg_index < int_args.size()) {
                             value = int_args[arg_index];
@@ -522,15 +540,15 @@ void OutputManager::print_formatted(const ASTNode *format_str, const ASTNode *ar
                             value = 0;
                         }
                         result += std::to_string(value);
-                        spec_end += 2; // 'lld' の 'll' 部分をスキップ
+                        spec_end += 2; // 追加の 'll' をスキップ
                     } else {
-                        // 単なる 'l' の場合は long として処理
                         int64_t value;
+                        // 文字列が渡された場合の型変換
                         if (arg_index < str_args.size() && !str_args[arg_index].empty()) {
                             try {
                                 value = std::stoll(str_args[arg_index]);
                             } catch (const std::exception&) {
-                                value = 0;
+                                value = 0; // 変換できない場合は0
                             }
                         } else if (arg_index < int_args.size()) {
                             value = int_args[arg_index];
@@ -611,9 +629,16 @@ bool OutputManager::has_unescaped_format_specifiers(const std::string& str) {
             // 次の文字がフォーマット指定子かチェック
             if (i + 1 < str.length()) {
                 char next = str[i + 1];
-                if (next == 'd' || next == 's' || next == 'c' || next == 'l' || next == '%') {
+                if (next == 'd' || next == 's' || next == 'c' || next == '%') {
                     if (debug_mode) {
                         printf("[DEBUG] has_unescaped_format_specifiers: found specifier %%%c\n", next);
+                    }
+                    return true;
+                }
+                // %lld のチェック
+                if (next == 'l' && i + 3 < str.length() && str[i + 2] == 'l' && str[i + 3] == 'd') {
+                    if (debug_mode) {
+                        printf("[DEBUG] has_unescaped_format_specifiers: found specifier %%lld\n");
                     }
                     return true;
                 }

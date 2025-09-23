@@ -219,8 +219,6 @@ Token RecursiveLexer::makeString() {
 }
 
 Token RecursiveLexer::makeChar() {
-    size_t start = current_ - 1;
-    
     if (isAtEnd()) {
         return makeToken(TokenType::TOK_ERROR, "Unterminated character");
     }

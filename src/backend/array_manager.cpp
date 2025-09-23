@@ -2,6 +2,7 @@
 #include "../backend/interpreter.h" // Variable の定義のため
 #include "../common/debug_messages.h"
 #include "error_handler.h"
+#include "variable_manager.h"
 #include <stdexcept>
 
 void ArrayManager::processMultidimensionalArrayLiteral(
@@ -193,6 +194,49 @@ void ArrayManager::setMultidimensionalArrayElement(
     var.multidim_array_values[flat_index] = value;
 }
 
+std::string ArrayManager::getMultidimensionalStringArrayElement(
+    const Variable &var, const std::vector<int64_t> &indices) {
+    if (!var.is_multidimensional) {
+        throw std::runtime_error("Variable is not a multidimensional array");
+    }
+
+    std::vector<int> int_indices;
+    for (int64_t idx : indices) {
+        int_indices.push_back(static_cast<int>(idx));
+    }
+
+    int flat_index = var.calculate_flat_index(int_indices);
+
+    if (var.array_type_info.base_type != TYPE_STRING) {
+        throw std::runtime_error(
+            "Cannot get non-string array element as string");
+    }
+
+    return var.multidim_array_strings[flat_index];
+}
+
+void ArrayManager::setMultidimensionalStringArrayElement(
+    Variable &var, const std::vector<int64_t> &indices,
+    const std::string &value) {
+    if (!var.is_multidimensional) {
+        throw std::runtime_error("Variable is not a multidimensional array");
+    }
+
+    std::vector<int> int_indices;
+    for (int64_t idx : indices) {
+        int_indices.push_back(static_cast<int>(idx));
+    }
+
+    int flat_index = var.calculate_flat_index(int_indices);
+
+    if (var.array_type_info.base_type != TYPE_STRING) {
+        throw std::runtime_error(
+            "Cannot set non-string array element with string value");
+    }
+
+    var.multidim_array_strings[flat_index] = value;
+}
+
 void ArrayManager::initializeArray(Variable &var, TypeInfo base_type,
                                    const std::vector<int> &dimensions) {
     var.is_array = true;
@@ -277,5 +321,80 @@ void ArrayManager::validateArrayDimensions(const std::vector<int> &expected,
                 "Array dimension size mismatch at dimension " +
                 std::to_string(i));
         }
+    }
+}
+
+void ArrayManager::declare_array(const ASTNode *node) {
+    Variable var;
+
+    debug_msg(DebugMsgId::ARRAY_DECL_START, node->name.c_str());
+
+    // 多次元配列かどうかを確認
+    if (node->array_type_info.dimensions.size() > 1) {
+        debug_msg(DebugMsgId::MULTIDIM_ARRAY_DECL_INFO,
+                  static_cast<int>(node->array_type_info.dimensions.size()));
+
+        // 多次元配列の場合
+        var.is_array = true;
+        var.is_multidimensional = true;
+        var.array_type_info = node->array_type_info;
+        var.type = static_cast<TypeInfo>(TYPE_ARRAY_BASE +
+                                         node->array_type_info.base_type);
+        var.is_const = node->is_const;
+        var.is_assigned = false;
+
+        // 全次元のサイズを計算して平坦化された配列を作成
+        int total_size = 1;
+        var.array_dimensions.clear();
+        for (const ArrayDimension &dim : node->array_type_info.dimensions) {
+            total_size *= dim.size;
+            var.array_dimensions.push_back(dim.size);
+        }
+
+        var.array_size = total_size; // array_sizeを設定
+
+        debug_msg(DebugMsgId::ARRAY_TOTAL_SIZE, total_size);
+
+        // 多次元配列用のストレージを初期化
+        if (node->array_type_info.base_type == TYPE_STRING) {
+            var.multidim_array_strings.resize(total_size, "");
+        } else {
+            var.multidim_array_values.resize(total_size, 0);
+        }
+
+        // グローバルスコープに保存（AST_ARRAY_DECLはグローバル配列宣言のみ）
+        variable_manager_->getInterpreter()
+            ->global_scope.variables[node->name] = var;
+        debug_msg(DebugMsgId::MULTIDIM_ARRAY_DECL_SUCCESS, node->name.c_str());
+    } else {
+        // 単一次元配列の場合
+        debug_msg(DebugMsgId::ARRAY_DECL_DEBUG);
+
+        var.is_array = true;
+        var.is_multidimensional = false;
+        var.type = static_cast<TypeInfo>(TYPE_ARRAY_BASE +
+                                         node->array_type_info.base_type);
+        var.is_const = node->is_const;
+        var.is_assigned = false;
+
+        int size = node->array_type_info.dimensions[0].size;
+        var.array_size = size; // array_sizeを設定
+        debug_msg(DebugMsgId::ARRAY_TOTAL_SIZE, size);
+
+        // 単一次元配列の場合もarray_dimensionsを設定
+        var.array_dimensions.clear();
+        var.array_dimensions.push_back(size);
+
+        // 単一次元配列用のストレージを初期化
+        if (node->array_type_info.base_type == TYPE_STRING) {
+            var.array_strings.resize(size, "");
+        } else {
+            var.array_values.resize(size, 0);
+        }
+
+        // グローバルスコープに保存（AST_ARRAY_DECLはグローバル配列宣言のみ）
+        variable_manager_->getInterpreter()
+            ->global_scope.variables[node->name] = var;
+        debug_msg(DebugMsgId::ARRAY_DECL_SUCCESS, node->name.c_str());
     }
 }

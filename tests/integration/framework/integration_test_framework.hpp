@@ -174,7 +174,7 @@ public:
     }
 };
 
-// Initialize static members - use inline to avoid duplicate symbols in header-only lib
-inline int IntegrationTestCounter::total_tests = 0;
-inline int IntegrationTestCounter::passed_tests = 0;
-inline int IntegrationTestCounter::failed_tests = 0;
+// Initialize static members
+int IntegrationTestCounter::total_tests = 0;
+int IntegrationTestCounter::passed_tests = 0;
+int IntegrationTestCounter::failed_tests = 0;

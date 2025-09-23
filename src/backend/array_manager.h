@@ -31,6 +31,15 @@ class ArrayManager {
                                          const std::vector<int64_t> &indices,
                                          int64_t value);
 
+    // 多次元文字列配列アクセス
+    std::string
+    getMultidimensionalStringArrayElement(const Variable &var,
+                                          const std::vector<int64_t> &indices);
+    void
+    setMultidimensionalStringArrayElement(Variable &var,
+                                          const std::vector<int64_t> &indices,
+                                          const std::string &value);
+
     // 配列初期化
     void initializeArray(Variable &var, TypeInfo base_type,
                          const std::vector<int> &dimensions);
@@ -41,6 +50,9 @@ class ArrayManager {
     int calculateTotalSize(const std::vector<int> &dimensions);
     std::vector<int>
     extractDimensionSizes(const std::vector<ArrayDimension> &dimensions);
+
+    // 配列宣言処理
+    void declare_array(const ASTNode *node);
 
   private:
     // ヘルパー関数

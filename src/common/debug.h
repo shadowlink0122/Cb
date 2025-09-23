@@ -80,7 +80,6 @@ enum class DebugMsgId {
     // エラーメッセージ
     PARSER_ERROR,
     TYPE_MISMATCH_ERROR,
-    STRING_IN_INT_ARRAY_ERROR,
 
     // 型システム関連
     TYPEDEF_REGISTER,
@@ -156,16 +155,6 @@ enum class DebugMsgId {
     PRINTF_ARG_LIST_INFO,
     PRINTF_ARG_PROCESSING,
     PRINTF_ARRAY_REF_DEBUG,
-
-    // 配列参照詳細デバッグ
-    ARRAY_REF_EVAL_START,
-    ARRAY_REF_NODE_POINTER,
-    ARRAY_REF_LEFT_POINTER,
-    ARRAY_REF_NAME_DEBUG,
-    ARRAY_REF_INDEX_POINTER,
-
-    // const変数再代入エラー
-    CONST_VAR_REASSIGN_ERROR,
 };
 
 // デバッグモードフラグ（外部宣言）

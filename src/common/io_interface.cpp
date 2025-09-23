@@ -34,7 +34,8 @@ IOInterface *IOFactory::get_instance() {
         if (target_platform_ == "baremetal") {
             instance_ = create_baremetal_uart_output();
         } else if (target_platform_ == "wasm") {
-            // TODO: WebAssembly実装を追加する場合
+            // 将来のWebAssembly対応予定
+            // 現在は未実装のため、ネイティブ実装を暫定使用
             instance_ =
                 create_native_stdio_output(); // 暫定的にネイティブを使用
         } else {

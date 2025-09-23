@@ -9,10 +9,10 @@ struct DebugMessageTemplate {
     const char *ja;
 };
 
-// デバッグメッセージテンプレート配列（外部宣言）
-extern const DebugMessageTemplate debug_messages[];
+// デバッグメッセージ取得関数
+const DebugMessageTemplate &get_debug_message(DebugMsgId msg_id);
 
-// デバッグメッセージ配列のサイズ
+// デバッグメッセージ配列のサイズ（後方互換性のため）
 extern const int debug_messages_size;
 
 #endif // DEBUG_MESSAGES_H

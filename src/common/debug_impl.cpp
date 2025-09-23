@@ -24,12 +24,7 @@ void debug_msg(DebugMsgId msg_id, ...) {
     if (!debug_mode)
         return;
 
-    int msg_index = static_cast<int>(msg_id);
-    if (msg_index >= debug_messages_size) {
-        return; // 範囲外アクセスを防止
-    }
-
-    const DebugMessageTemplate &msg = debug_messages[msg_index];
+    const DebugMessageTemplate &msg = get_debug_message(msg_id);
     const char *format =
         (debug_language == DebugLanguage::JAPANESE) ? msg.ja : msg.en;
 
@@ -43,12 +38,7 @@ void debug_msg(DebugMsgId msg_id, ...) {
 
 // error_msg関数（新規 - stderrに直接出力、常時有効）
 void error_msg(DebugMsgId msg_id, ...) {
-    int msg_index = static_cast<int>(msg_id);
-    if (msg_index >= debug_messages_size) {
-        return; // 範囲外アクセスを防止
-    }
-
-    const DebugMessageTemplate &msg = debug_messages[msg_index];
+    const DebugMessageTemplate &msg = get_debug_message(msg_id);
     const char *format =
         (debug_language == DebugLanguage::JAPANESE) ? msg.ja : msg.en;
 

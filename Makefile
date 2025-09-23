@@ -25,7 +25,10 @@ FRONTEND_OBJS=$(FRONTEND_DIR)/main.o $(FRONTEND_DIR)/help_messages.o $(FRONTEND_
 BACKEND_OBJS=$(BACKEND_DIR)/interpreter.o $(BACKEND_DIR)/error_handler.o \
              $(BACKEND_DIR)/evaluator/expression_evaluator.o \
              $(BACKEND_DIR)/executor/statement_executor.o \
-             $(BACKEND_DIR)/output/output_manager.o
+             $(BACKEND_DIR)/output/output_manager.o \
+             $(BACKEND_DIR)/variable_manager.o \
+             $(BACKEND_DIR)/array_manager.o \
+             $(BACKEND_DIR)/type_manager.o
 PLATFORM_OBJS=$(NATIVE_DIR)/native_stdio_output.o $(BAREMETAL_DIR)/baremetal_uart_output.o
 COMMON_OBJS=$(COMMON_DIR)/type_utils.o $(COMMON_DIR)/type_alias.o $(COMMON_DIR)/array_type_info.o $(COMMON_DIR)/utf8_utils.o $(COMMON_DIR)/io_interface.o $(COMMON_DIR)/cb_config.o $(COMMON_DIR)/debug_impl.o $(COMMON_DIR)/debug_messages.o $(COMMON_DIR)/message_manager.o $(PLATFORM_OBJS)
 
@@ -109,7 +112,7 @@ $(TESTS_DIR)/unit/dummy.o: $(TESTS_DIR)/unit/dummy.cpp
 # 単体テスト
 unit-test: $(MAIN_TARGET) $(FRONTEND_OBJS) $(BACKEND_OBJS) $(COMMON_OBJS) $(PLATFORM_OBJS) $(TESTS_DIR)/unit/dummy.o
 	@echo "Running unit tests..."
-	@cd tests/unit && $(CC) $(CFLAGS) -o test_main main.cpp dummy.o ../../$(BACKEND_DIR)/interpreter.o ../../$(BACKEND_DIR)/error_handler.o ../../$(BACKEND_DIR)/output/output_manager.o ../../$(BACKEND_DIR)/evaluator/expression_evaluator.o ../../$(BACKEND_DIR)/executor/statement_executor.o ../../$(COMMON_DIR)/type_utils.o ../../$(COMMON_DIR)/type_alias.o ../../$(COMMON_DIR)/array_type_info.o ../../$(COMMON_DIR)/utf8_utils.o ../../$(COMMON_DIR)/io_interface.o ../../$(COMMON_DIR)/cb_config.o ../../$(COMMON_DIR)/debug_impl.o ../../$(COMMON_DIR)/debug_messages.o ../../$(COMMON_DIR)/message_manager.o ../../$(PLATFORM_DIR)/native/native_stdio_output.o ../../$(PLATFORM_DIR)/baremetal/baremetal_uart_output.o
+	@cd tests/unit && $(CC) $(CFLAGS) -o test_main main.cpp dummy.o ../../$(BACKEND_DIR)/interpreter.o ../../$(BACKEND_DIR)/error_handler.o ../../$(BACKEND_DIR)/output/output_manager.o ../../$(BACKEND_DIR)/variable_manager.o ../../$(BACKEND_DIR)/array_manager.o ../../$(BACKEND_DIR)/type_manager.o ../../$(BACKEND_DIR)/evaluator/expression_evaluator.o ../../$(BACKEND_DIR)/executor/statement_executor.o ../../$(COMMON_DIR)/type_utils.o ../../$(COMMON_DIR)/type_alias.o ../../$(COMMON_DIR)/array_type_info.o ../../$(COMMON_DIR)/utf8_utils.o ../../$(COMMON_DIR)/io_interface.o ../../$(COMMON_DIR)/cb_config.o ../../$(COMMON_DIR)/debug_impl.o ../../$(COMMON_DIR)/debug_messages.o ../../$(COMMON_DIR)/message_manager.o ../../$(PLATFORM_DIR)/native/native_stdio_output.o ../../$(PLATFORM_DIR)/baremetal/baremetal_uart_output.o
 	@cd tests/unit && ./test_main
 
 integration-test: $(MAIN_TARGET)

@@ -8,6 +8,10 @@
 
 // 前方宣言
 class OutputManager;
+class VariableManager;
+class ArrayManager;
+class TypeManager;
+class ExpressionEvaluator;
 
 // 変数・関数の格納構造
 struct Variable {
@@ -125,9 +129,20 @@ class Interpreter : public EvaluatorInterface {
     std::map<std::string, std::string>
         typedef_map; // typedef alias -> base type mapping
 
+    // Manager instances
+    std::unique_ptr<VariableManager> variable_manager_;
+    std::unique_ptr<ArrayManager> array_manager_;
+    std::unique_ptr<TypeManager> type_manager_;
+    std::unique_ptr<ExpressionEvaluator> expression_evaluator_;
+
+    // Grant access to managers
+    friend class VariableManager;
+    friend class ArrayManager;
+    friend class TypeManager;
+
   public:
     Interpreter(bool debug = false);
-    virtual ~Interpreter() = default;
+    virtual ~Interpreter();
 
     // EvaluatorInterface実装
     void process(const ASTNode *ast) override;
@@ -143,6 +158,7 @@ class Interpreter : public EvaluatorInterface {
     void pop_interpreter_scope() { pop_scope(); }
     Scope &current_scope();
     Scope &get_current_scope() { return current_scope(); }
+    Scope &get_global_scope() { return global_scope; }
 
     // 変数・関数アクセス
     Variable *find_variable(const std::string &name);
@@ -158,10 +174,7 @@ class Interpreter : public EvaluatorInterface {
     void register_global_declarations(const ASTNode *node);
     void execute_statement(const ASTNode *node);
     void exec_statement(const ASTNode *node) { execute_statement(node); }
-    int64_t evaluate_expression(const ASTNode *node);
-    int64_t eval_expression(const ASTNode *node) {
-        return evaluate_expression(node);
-    }
+    int64_t eval_expression(const ASTNode *node) { return evaluate(node); }
 
     // 変数操作 (publicに移動)
     void assign_variable(const std::string &name, int64_t value,
@@ -171,23 +184,20 @@ class Interpreter : public EvaluatorInterface {
                          bool is_const);
     void assign_variable(const std::string &name, const std::string &value,
                          bool is_const);
+    void assign_function_parameter(const std::string &name, int64_t value,
+                                   TypeInfo type);
     void assign_array_element(const std::string &name, int64_t index,
                               int64_t value);
     void assign_string_element(const std::string &name, int64_t index,
                                const std::string &value);
 
-    // 配列リテラル割り当て（プレースホルダー）
+    // 配列リテラル割り当て
     void assign_array_literal(const std::string &name,
-                              const ASTNode *literal_node) {
-        // TODO: 実装が必要
-    }
+                              const ASTNode *literal_node);
 
     // 型解決
     TypeInfo resolve_type_alias(TypeInfo base_type,
-                                const std::string &type_name) {
-        // TODO: 実装が必要
-        return base_type;
-    }
+                                const std::string &type_name);
 
     // typedef処理
     std::string resolve_typedef(const std::string &type_name);
@@ -203,4 +213,30 @@ class Interpreter : public EvaluatorInterface {
 
     // デバッグ機能
     void set_debug_mode(bool debug) { debug_mode = debug; }
+
+    // N次元配列アクセス用のヘルパー関数
+    std::string extract_array_name(const ASTNode *node);
+    std::vector<int64_t> extract_array_indices(const ASTNode *node);
+
+    // ArrayManagerへのアクセス
+    int64_t
+    getMultidimensionalArrayElement(const Variable &var,
+                                    const std::vector<int64_t> &indices);
+
+    // ArrayManagerへのアクセス
+    int64_t
+    getMultidimensionalArrayElement(Variable &var,
+                                    const std::vector<int64_t> &indices);
+    void setMultidimensionalArrayElement(Variable &var,
+                                         const std::vector<int64_t> &indices,
+                                         int64_t value);
+
+    // 文字列配列アクセス
+    std::string
+    getMultidimensionalStringArrayElement(Variable &var,
+                                          const std::vector<int64_t> &indices);
+    void
+    setMultidimensionalStringArrayElement(Variable &var,
+                                          const std::vector<int64_t> &indices,
+                                          const std::string &value);
 };

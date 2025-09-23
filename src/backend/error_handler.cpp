@@ -246,21 +246,23 @@ void throw_runtime_error(const std::string &message,
 void print_error_with_location(const std::string &message,
                                const std::string &filename, int line,
                                int column, const std::string &source_line) {
-    std::cerr << "Error: " << message << std::endl;
     std::cerr << "Location: " << filename << ":" << line << ":" << column
               << std::endl;
+    std::cerr << "Error: " << message << std::endl;
 
     if (!source_line.empty()) {
         std::cerr << "Source:" << std::endl;
-        std::cerr << "  " << line << " | " << source_line << std::endl;
+        // 行番号の桁数を計算
+        int line_width = std::to_string(line).length();
+        std::cerr << "  " << line << " |" << source_line << std::endl;
 
-        // カラム位置にマーカーを追加（line番号と" | "を考慮）
-        int line_prefix_length =
-            std::to_string(line).length() + 3; // "  line | "の長さ
-        std::string marker = create_column_marker(
-            column + line_prefix_length + 2,
-            1); // column位置に^マーカー1個（プレフィックス考慮）
-        std::cerr << marker << std::endl;
+        // カラム位置にマーカーを追加
+        // プレフィックス "  line "
+        // の長さを計算して、正確にcolumn位置にマーカーを配置
+        int spaces_count =
+            2 + line_width + 4 + column - 1; // "  " + line + " " + (column-1)
+        std::string spaces(spaces_count, ' ');
+        std::cerr << spaces << "^" << std::endl;
     }
 }
 
@@ -303,24 +305,4 @@ std::string create_column_marker(int column, int length) {
     std::string marker(column - 1, ' ');
     marker += std::string(length, '^');
     return marker;
-}
-
-// 統一的なランタイムエラー（ASTノード付き）
-void throw_detailed_runtime_error(const std::string &message,
-                                  const ASTNode *node) {
-    if (node && !node->location.filename.empty()) {
-        print_error_with_ast_location(message, node);
-        throw DetailedErrorException(message);
-    } else {
-        std::cerr << "Error: " << message << std::endl;
-        throw std::runtime_error(message);
-    }
-}
-
-// 統一的なランタイムエラー（位置情報付き）
-void throw_detailed_runtime_error(const std::string &message,
-                                  const std::string &filename, int line,
-                                  int column, const std::string &source_line) {
-    print_error_with_location(message, filename, line, column, source_line);
-    throw DetailedErrorException(message);
 }

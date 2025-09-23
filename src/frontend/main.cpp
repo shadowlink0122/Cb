@@ -85,30 +85,9 @@ int main(int argc, char **argv) {
             return 1;
         }
 
-        // デバッグ情報: ASTの構造を表示
-        if (debug_mode) {
-            std::cout << "Generated AST structure:" << std::endl;
-            std::cout << "Root node type: " << static_cast<int>(root->node_type)
-                      << std::endl;
-            std::cout << "Root children count: " << root->children.size()
-                      << std::endl;
-            std::cout << "Root name: '" << root->name << "'" << std::endl;
-
-            if (root->children.size() > 0) {
-                for (size_t i = 0; i < root->children.size(); ++i) {
-                    if (root->children[i]) {
-                        std::cout
-                            << "Child " << i << " type: "
-                            << static_cast<int>(root->children[i]->node_type)
-                            << " name: '" << root->children[i]->name << "'"
-                            << std::endl;
-                    }
-                }
-            }
-        }
-
         // インタープリターでASTを実行
         if (debug_mode) {
+            std::fprintf(stderr, "Debug mode is enabled\n");
             debug_msg(DebugMsgId::INTERPRETER_START);
         }
 

@@ -1,6 +1,7 @@
 #include "cb_config.h"
 #include <fstream>
 #include <iostream>
+#include <limits.h>
 #include <pwd.h>
 #include <sstream>
 #include <sys/stat.h>

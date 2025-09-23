@@ -22,25 +22,50 @@ void StatementExecutor::execute(const ASTNode *node) {
             execute_variable_declaration(node);
             break;
         }
-        // 他のノードタイプは後で実装
+        // 他のstatement types（AST_FUNC_DECL, AST_IF_STMT等）は
+        // Interpreterクラスで直接処理されるため、ここでは未対応
         default:
-            // TODO: 他のstatement types
+            // StatementExecutorが対応していないノード型は
+            // Interpreterで処理される想定
             break;
     }
 }
 
 void StatementExecutor::execute_assignment(const ASTNode *node) {
+    // 右辺が配列リテラルの場合の特別処理
+    if (node->right && node->right->node_type == ASTNodeType::AST_ARRAY_LITERAL) {
+        if (node->left->node_type == ASTNodeType::AST_VARIABLE) {
+            // 変数への配列リテラル代入
+            interpreter_.assign_array_literal(node->left->name, node->right.get());
+            return;
+        } else {
+            throw std::runtime_error("Array literal can only be assigned to simple variables");
+        }
+    }
+
     if (node->left->node_type == ASTNodeType::AST_ARRAY_REF) {
         // 配列要素への代入
-        int64_t rvalue = interpreter_.evaluate_expression(node->right.get());
+        int64_t rvalue = interpreter_.evaluate(node->right.get());
         
         // 多次元配列アクセスかチェック
         if (node->left->left && node->left->left->node_type == ASTNodeType::AST_ARRAY_REF) {
             // 多次元配列要素への代入
-            throw std::runtime_error("Multidimensional array assignment not yet implemented");
+            std::string var_name = interpreter_.extract_array_name(node->left.get());
+            std::vector<int64_t> indices = interpreter_.extract_array_indices(node->left.get());
+            
+            Variable *var = interpreter_.find_variable(var_name);
+            if (!var) {
+                throw std::runtime_error("Variable not found: " + var_name);
+            }
+            
+            if (!var->is_multidimensional) {
+                throw std::runtime_error("Variable is not a multidimensional array: " + var_name);
+            }
+            
+            interpreter_.setMultidimensionalArrayElement(*var, indices, rvalue);
         } else {
             // 単一次元配列要素への代入
-            int64_t index_value = interpreter_.evaluate_expression(node->left->array_index.get());
+            int64_t index_value = interpreter_.evaluate(node->left->array_index.get());
             int index = static_cast<int>(index_value);
             
             std::string var_name;
@@ -71,7 +96,7 @@ void StatementExecutor::execute_assignment(const ASTNode *node) {
         }
     } else {
         // 通常の変数代入
-        int64_t value = interpreter_.evaluate_expression(node->right.get());
+        int64_t value = interpreter_.evaluate(node->right.get());
         if (node->right->node_type == ASTNodeType::AST_STRING_LITERAL) {
             interpreter_.assign_variable(node->name, node->right->str_value);
         } else {
@@ -96,7 +121,7 @@ void StatementExecutor::execute_variable_declaration(const ASTNode *node) {
 
     // 初期化
     if (node->right) {
-        int64_t value = interpreter_.evaluate_expression(node->right.get());
+        int64_t value = interpreter_.evaluate(node->right.get());
         if (var.type == TYPE_STRING) {
             var.str_value = node->right->str_value;
         } else {

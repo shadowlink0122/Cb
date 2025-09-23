@@ -4,18 +4,22 @@ int main() {
     
     int i, j;
     for (i = 0; i < 3; i = i + 1) {
-        println("Outer loop i: " + i);
+        print("Outer loop i: ");
+        println(i);
         
         for (j = 0; j < 3; j = j + 1) {
             if (j == 1) {
-                println("Breaking inner loop at j: " + j);
+                print("Breaking inner loop at j: ");
+                println(j);
                 break;
             }
-            println("Inner loop j: " + j);
+            print("Inner loop j: ");
+            println(j);
         }
         
         if (i == 1) {
-            println("Breaking outer loop at i: " + i);
+            print("Breaking outer loop at i: ");
+            println(i);
             break;
         }
     }
