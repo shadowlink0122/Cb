@@ -9,6 +9,7 @@
 #include "assign/test_assign.hpp"
 #include "bool_expr/test_bool_expr.hpp"
 #include "boundary/test_boundary.hpp"
+#include "const_array/test_const_array.hpp"
 #include "cross_type/test_cross_type.hpp"
 #include "dynamic_array_error/test_dynamic_array_error.hpp"
 #include "error_handling/test_error_handling.hpp"
@@ -40,6 +41,7 @@ int main() {
         test_integration_arithmetic();
         test_integration_assign();
         test_integration_boundary();
+        test_integration_const_array();
         test_integration_cross_type();
         test_integration_func();
         test_integration_string();

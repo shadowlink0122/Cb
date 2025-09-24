@@ -205,6 +205,9 @@ ASTNode* RecursiveParser::parseStatement() {
             
             node->type_info = base_type;
             
+            // const修飾子を設定
+            node->is_const = isConst;
+            
             // ArrayTypeInfoを構築
             std::vector<ArrayDimension> dimensions;
             for (const auto& size : array_sizes) {

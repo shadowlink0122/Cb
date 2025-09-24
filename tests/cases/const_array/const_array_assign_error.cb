@@ -1,0 +1,15 @@
+// const配列の要素への代入エラーテスト
+
+int main() {
+    println("Testing const array element assignment error:");
+    
+    // const配列を宣言・初期化
+    const int[3] const_array = [10, 20, 30];
+    println("Const array created: [10, 20, 30]");
+    
+    // const配列の要素を変更しようとする（エラーが発生するはず）
+    const_array[0] = 100;  // ERROR: const配列への代入
+    
+    println("This line should not be reached");
+    return 0;
+}

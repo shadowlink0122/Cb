@@ -43,7 +43,7 @@ void StatementExecutor::execute_assignment(const ASTNode *node) {
         }
     }
 
-    if (node->left->node_type == ASTNodeType::AST_ARRAY_REF) {
+    if (node->left && node->left->node_type == ASTNodeType::AST_ARRAY_REF) {
         // 配列要素への代入
         int64_t rvalue = interpreter_.evaluate(node->right.get());
         

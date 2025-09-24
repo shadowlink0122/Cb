@@ -643,7 +643,6 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
 
             // 多次元配列の場合
             if (var->is_multidimensional && indices.size() > 1) {
-
                 interpreter_->array_manager_->setMultidimensionalArrayElement(
                     *var, indices, value);
             } else if (indices.size() == 1) {
