@@ -128,11 +128,12 @@ void StatementExecutor::execute_variable_declaration(const ASTNode *node) {
         var.type = node->type_info;
     }
 
-    // 初期化
-    if (node->right) {
-        int64_t value = interpreter_.evaluate(node->right.get());
+    // 初期化（init_exprまたはrightを使用）
+    ASTNode* init_node = node->init_expr ? node->init_expr.get() : node->right.get();
+    if (init_node) {
+        int64_t value = interpreter_.evaluate(init_node);
         if (var.type == TYPE_STRING) {
-            var.str_value = node->right->str_value;
+            var.str_value = init_node->str_value;
         } else {
             var.value = value;
             // interpreter_.check_type_range(var.type, value, node->name);

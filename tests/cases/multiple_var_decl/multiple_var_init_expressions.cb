@@ -1,0 +1,16 @@
+// 複数変数宣言のエラーケーステスト
+int main() {
+    // 正常ケース：異なる初期化パターン
+    int valid1 = 1, valid2 = 2;
+    println("Valid case:", valid1, valid2);
+    
+    // 数式での初期化
+    int calc1 = 5 + 3, calc2 = 10 * 2;
+    println("With expressions:", calc1, calc2);
+    
+    // 大きな数値
+    long big1 = 999999, big2 = 123456789;
+    println("Large numbers:", big1, big2);
+    
+    return 0;
+}

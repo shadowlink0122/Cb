@@ -1,0 +1,16 @@
+// 基本的な初期化付き複数変数宣言テスト
+int main() {
+    // 整数型の複数初期化
+    int a = 1, b = 2, c = 3;
+    println("int a, b, c:", a, b, c);
+    
+    // 負の数も含む
+    int x = -5, y = 0, z = 42;
+    println("negative/zero/positive:", x, y, z);
+    
+    // 長整数型
+    long p = 1000, q = 2000;
+    println("long p, q:", p, q);
+    
+    return 0;
+}
