@@ -637,6 +637,25 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                 throw std::runtime_error("Undefined array: " + array_name);
             }
 
+            // 文字列要素への代入の場合
+            if (var->type == TYPE_STRING && !var->is_array) {
+                if (indices.size() != 1) {
+                    throw std::runtime_error("Invalid string element access");
+                }
+
+                if (var->is_const) {
+                    throw std::runtime_error(
+                        "Cannot assign to const string element: " + array_name);
+                }
+
+                int64_t index = indices[0];
+                // 文字列要素代入は interpreter_.assign_string_element を使用
+                interpreter_->assign_string_element(
+                    array_name, index,
+                    std::string(1, static_cast<char>(value)));
+                return;
+            }
+
             if (!var->is_array) {
                 throw std::runtime_error("Not an array: " + array_name);
             }

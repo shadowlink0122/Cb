@@ -1,0 +1,27 @@
+// const数値変数の再代入エラーテスト
+
+int main() {
+    println("Testing const numeric variables reassignment error:");
+    
+    // const int変数
+    const int num = 42;
+    println("Const int created: " + num);
+    
+    // const tiny変数  
+    const tiny small = 5;
+    println("Const tiny created: " + small);
+    
+    // const short変数
+    const short medium = 1000;
+    println("Const short created: " + medium);
+    
+    // const long変数
+    const long big = 1000000;
+    println("Const long created: " + big);
+    
+    // const int変数を再代入しようとする（エラーが発生するはず）
+    num = 100;  // ERROR: const変数への再代入
+    
+    println("This line should not be reached");
+    return 0;
+}
