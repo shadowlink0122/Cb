@@ -265,6 +265,8 @@ class Interpreter : public EvaluatorInterface {
     std::vector<int64_t> extract_array_indices(const ASTNode *node);
 
     // ArrayManagerへのアクセス
+    ArrayManager *get_array_manager() { return array_manager_.get(); }
+
     int64_t
     getMultidimensionalArrayElement(const Variable &var,
                                     const std::vector<int64_t> &indices);

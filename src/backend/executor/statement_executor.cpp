@@ -1,6 +1,7 @@
 #include "statement_executor.h"
 #include "../interpreter.h"
 #include "../error_handler.h"
+#include "../array_manager.h"
 #include "../../common/debug.h"
 #include "../../common/type_alias.h"
 
@@ -20,6 +21,14 @@ void StatementExecutor::execute(const ASTNode *node) {
         }
         case ASTNodeType::AST_VAR_DECL: {
             execute_variable_declaration(node);
+            break;
+        }
+        case ASTNodeType::AST_MULTIPLE_VAR_DECL: {
+            execute_multiple_var_decl(node);
+            break;
+        }
+        case ASTNodeType::AST_ARRAY_DECL: {
+            execute_array_decl(node);
             break;
         }
         // 他のstatement types（AST_FUNC_DECL, AST_IF_STMT等）は
@@ -131,6 +140,24 @@ void StatementExecutor::execute_variable_declaration(const ASTNode *node) {
         var.is_assigned = true;
     }
 
+    // 変数を現在のスコープに登録
+    interpreter_.current_scope().variables[node->name] = var;
+}
+
+void StatementExecutor::execute_multiple_var_decl(const ASTNode *node) {
+    // 複数変数宣言の処理
+    for (const auto &child : node->children) {
+        if (child->node_type == ASTNodeType::AST_VAR_DECL) {
+            execute_variable_declaration(child.get());
+        }
+    }
+}
+
+void StatementExecutor::execute_array_decl(const ASTNode *node) {
+    // 配列宣言をArrayManagerに委譲
+    Variable var;
+    interpreter_.get_array_manager()->processArrayDeclaration(var, node);
+    
     // 変数を現在のスコープに登録
     interpreter_.current_scope().variables[node->name] = var;
 }

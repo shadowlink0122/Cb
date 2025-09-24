@@ -4,16 +4,25 @@
 
 // 前方宣言
 class VariableManager;
+class ExpressionEvaluator;
 struct Variable;
 
 // 配列管理クラス
 class ArrayManager {
   private:
     VariableManager *variable_manager_;
+    ExpressionEvaluator *expression_evaluator_;
+
+    // 配列リテラルから次元を抽出する関数
+    std::vector<int> extractArrayDimensions(const ASTNode *literal_node);
 
   public:
-    ArrayManager(VariableManager *vm) : variable_manager_(vm) {}
+    ArrayManager(VariableManager *vm, ExpressionEvaluator *ee)
+        : variable_manager_(vm), expression_evaluator_(ee) {}
     ~ArrayManager() = default;
+
+    // 配列宣言処理
+    void processArrayDeclaration(Variable &var, const ASTNode *node);
 
     // 多次元配列リテラル処理
     void processMultidimensionalArrayLiteral(Variable &var,
