@@ -1,5 +1,6 @@
 #pragma once
 #include "../common/ast.h"
+#include "executor/statement_executor.h"
 #include "output/output_manager.h"
 #include <iostream>
 #include <map>
@@ -12,6 +13,7 @@ class VariableManager;
 class ArrayManager;
 class TypeManager;
 class ExpressionEvaluator;
+class StatementExecutor;
 
 // 変数・関数の格納構造
 struct Variable {
@@ -160,6 +162,7 @@ class Interpreter : public EvaluatorInterface {
     std::unique_ptr<ArrayManager> array_manager_;
     std::unique_ptr<TypeManager> type_manager_;
     std::unique_ptr<ExpressionEvaluator> expression_evaluator_;
+    std::unique_ptr<StatementExecutor> statement_executor_;
 
     // Grant access to managers
     friend class VariableManager;

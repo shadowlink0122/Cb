@@ -1193,96 +1193,7 @@ void Interpreter::print_value(const ASTNode *expr) {
 
 void Interpreter::print_formatted(const ASTNode *format_str,
                                   const ASTNode *arg_list) {
-    if (!format_str ||
-        format_str->node_type != ASTNodeType::AST_STRING_LITERAL) {
-        std::cout << "(invalid format)" << std::endl;
-        return;
-    }
-
-    std::string format = format_str->str_value;
-    std::vector<int64_t> int_args;
-    std::vector<std::string> str_args;
-
-    // 引数リストを評価
-    if (arg_list && arg_list->node_type == ASTNodeType::AST_STMT_LIST) {
-        for (const auto &arg : arg_list->arguments) {
-            if (arg->node_type == ASTNodeType::AST_STRING_LITERAL) {
-                str_args.push_back(arg->str_value);
-                int_args.push_back(0); // プレースホルダー
-            } else if (arg->node_type == ASTNodeType::AST_VARIABLE) {
-                Variable *var = find_variable(arg->name);
-                if (var && var->type == TYPE_STRING) {
-                    str_args.push_back(var->str_value);
-                    int_args.push_back(0); // プレースホルダー
-                } else {
-                    int64_t value =
-                        expression_evaluator_->evaluate_expression(arg.get());
-                    int_args.push_back(value);
-                    str_args.push_back(""); // プレースホルダー
-                }
-            } else {
-                int64_t value =
-                    expression_evaluator_->evaluate_expression(arg.get());
-                int_args.push_back(value);
-                str_args.push_back(""); // プレースホルダー
-            }
-        }
-    }
-
-    // フォーマット文字列を処理
-    std::string result;
-    size_t arg_index = 0;
-    for (size_t i = 0; i < format.length(); i++) {
-        if (format[i] == '%' && i + 1 < format.length()) {
-            char specifier = format[i + 1];
-
-            if (specifier == '%') {
-                // %% の場合は常に % を追加（引数不要）
-                result += '%';
-                i++; // %% をスキップ
-            } else if (arg_index < int_args.size()) {
-                switch (specifier) {
-                case 'd':
-                case 'i':
-                    result += std::to_string(int_args[arg_index]);
-                    break;
-                case 'l':
-                    // %lld の処理
-                    if (i + 3 < format.length() && format[i + 2] == 'l' &&
-                        format[i + 3] == 'd') {
-                        result += std::to_string(int_args[arg_index]);
-                        i += 2; // 追加の 'll' をスキップ
-                    } else {
-                        result += std::to_string(int_args[arg_index]);
-                    }
-                    break;
-                case 's':
-                    if (arg_index < str_args.size() &&
-                        !str_args[arg_index].empty()) {
-                        result += str_args[arg_index];
-                    } else {
-                        result += std::to_string(int_args[arg_index]);
-                    }
-                    break;
-                case 'c':
-                    result += static_cast<char>(int_args[arg_index]);
-                    break;
-                default:
-                    result += '%';
-                    result += specifier;
-                    break;
-                }
-                arg_index++;
-                i++; // specifier をスキップ
-            } else {
-                result += format[i];
-            }
-        } else {
-            result += format[i];
-        }
-    }
-
-    std::cout << result << std::endl;
+    output_manager_->print_formatted(format_str, arg_list);
 }
 
 void Interpreter::check_type_range(TypeInfo type, int64_t value,
@@ -1293,35 +1204,13 @@ void Interpreter::check_type_range(TypeInfo type, int64_t value,
 // エラー表示ヘルパー関数の実装
 void Interpreter::throw_runtime_error_with_location(const std::string &message,
                                                     const ASTNode *node) {
-    if (node && !node->location.filename.empty()) {
-        std::string source_line =
-            get_source_line(node->location.filename, node->location.line);
-        print_error_with_location(message, node->location.filename,
-                                  node->location.line, node->location.column,
-                                  source_line);
-    } else {
-        std::string error_prefix = (debug_language == DebugLanguage::JAPANESE)
-                                       ? "エラー: "
-                                       : "Error: ";
-        std::cerr << error_prefix << message << std::endl;
-    }
+    print_error_with_ast_location(message, node);
     throw std::runtime_error(message);
 }
 
 void Interpreter::print_error_at_node(const std::string &message,
                                       const ASTNode *node) {
-    if (node && !node->location.filename.empty()) {
-        std::string source_line =
-            get_source_line(node->location.filename, node->location.line);
-        print_error_with_location(message, node->location.filename,
-                                  node->location.line, node->location.column,
-                                  source_line);
-    } else {
-        std::string error_prefix = (debug_language == DebugLanguage::JAPANESE)
-                                       ? "エラー: "
-                                       : "Error: ";
-        std::cerr << error_prefix << message << std::endl;
-    }
+    print_error_with_ast_location(message, node);
 }
 
 int64_t Interpreter::getMultidimensionalArrayElement(
