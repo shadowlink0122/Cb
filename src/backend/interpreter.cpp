@@ -308,6 +308,13 @@ void Interpreter::execute_statement(const ASTNode *node) {
             // 各次元のサイズを評価して整数配列に変換
             std::vector<ArrayDimension> dimensions;
             for (const auto &dim_expr : node->array_dimensions) {
+                if (dim_expr.get() == nullptr) {
+                    // 動的配列（TYPE[]）はサポートされていない
+                    error_msg(DebugMsgId::DYNAMIC_ARRAY_NOT_SUPPORTED,
+                              node->name.c_str());
+                    throw std::runtime_error(
+                        "Dynamic arrays are not supported yet");
+                }
                 int dim_size = static_cast<int>(
                     expression_evaluator_->evaluate_expression(dim_expr.get()));
                 var.array_dimensions.push_back(dim_size);
@@ -415,6 +422,10 @@ void Interpreter::execute_statement(const ASTNode *node) {
                 // 配列リテラルからサイズを推測
                 var.array_size =
                     static_cast<int>(node->init_expr->arguments.size());
+            } else if (node->init_expr && node->init_expr->node_type ==
+                                              ASTNodeType::AST_FUNC_CALL) {
+                // 関数呼び出しの場合は一旦0に設定し、後で動的に決定
+                var.array_size = 0;
             } else {
                 var.array_size = node->array_size;
             }
@@ -425,17 +436,29 @@ void Interpreter::execute_statement(const ASTNode *node) {
                 throw std::runtime_error("Negative array size error");
             }
 
-            // 配列初期化
-            TypeInfo elem_type = node->type_info;
-            if (elem_type == TYPE_STRING) {
-                var.array_strings.resize(var.array_size, "");
-            } else {
-                var.array_values.resize(var.array_size, 0);
+            // 動的配列（サイズが0で初期化がない）のチェック
+            if (var.array_size == 0 && !node->init_expr) {
+                error_msg(DebugMsgId::DYNAMIC_ARRAY_NOT_SUPPORTED,
+                          node->name.c_str());
+                throw std::runtime_error(
+                    "Dynamic arrays are not supported yet");
             }
 
-            // 1次元配列の場合、array_dimensionsも設定
-            var.array_dimensions.clear();
-            var.array_dimensions.push_back(var.array_size);
+            // 配列初期化（セグメンテーションフォルト回避のため、関数呼び出しでも事前に初期化）
+            if (var.array_size > 0) {
+                TypeInfo elem_type = node->type_info;
+                if (elem_type == TYPE_STRING) {
+                    // 文字列配列は常に初期化
+                    var.array_strings.resize(var.array_size, "");
+                } else {
+                    // 整数配列も常に初期化（関数戻り値でのセグメンテーションフォルト回避）
+                    var.array_values.resize(var.array_size, 0);
+                }
+
+                // 1次元配列の場合、array_dimensionsも設定
+                var.array_dimensions.clear();
+                var.array_dimensions.push_back(var.array_size);
+            }
         }
 
         // 初期化式がある場合の処理
@@ -448,6 +471,20 @@ void Interpreter::execute_statement(const ASTNode *node) {
 
                 // 事前に型の検証を行う
                 TypeInfo elem_type = node->type_info;
+
+                // 静的配列のサイズチェック
+                bool is_static_array = (var.array_size > 0);
+                int literal_size =
+                    static_cast<int>(node->init_expr->arguments.size());
+
+                if (is_static_array && literal_size != var.array_size) {
+                    std::string error_msg =
+                        "Array literal size mismatch: declared size " +
+                        std::to_string(var.array_size) + " but provided " +
+                        std::to_string(literal_size) + " elements";
+                    throw std::runtime_error(error_msg);
+                }
+
                 for (size_t i = 0; i < node->init_expr->arguments.size() &&
                                    i < static_cast<size_t>(var.array_size);
                      ++i) {
@@ -544,23 +581,63 @@ void Interpreter::execute_statement(const ASTNode *node) {
                                       << std::endl;
                         }
 
-                        // 戻り値の配列を現在の配列変数にコピー
+                        // 戻り値の配列からサイズを決定し、配列をリサイズ
                         TypeInfo elem_type = node->type_info;
+
+                        // 静的配列のサイズチェック
+                        bool is_static_array = (var.array_size > 0);
+                        int expected_size = var.array_size;
+
                         if (elem_type == TYPE_STRING ||
                             elem_type == TYPE_CHAR) {
                             // 文字列配列
                             if (!ret.str_array_3d.empty() &&
                                 !ret.str_array_3d[0].empty()) {
                                 const auto &src_row = ret.str_array_3d[0][0];
+                                int actual_size =
+                                    static_cast<int>(src_row.size());
+
+                                // 静的配列のサイズチェック
+                                if (is_static_array &&
+                                    actual_size != expected_size) {
+                                    std::string error_msg =
+                                        "Array size mismatch: expected " +
+                                        std::to_string(expected_size) +
+                                        " elements, but function returned " +
+                                        std::to_string(actual_size) +
+                                        " elements";
+                                    throw std::runtime_error(error_msg);
+                                }
+
+                                // 動的配列の場合はサイズを決定
+                                if (!is_static_array) {
+                                    var.array_size = actual_size;
+                                    var.array_strings.resize(var.array_size);
+                                    var.array_dimensions.clear();
+                                    var.array_dimensions.push_back(
+                                        var.array_size);
+                                } else {
+                                    // 静的配列でも適切にリサイズ
+                                    if (var.array_strings.size() !=
+                                        static_cast<size_t>(var.array_size)) {
+                                        var.array_strings.resize(var.array_size,
+                                                                 "");
+                                    }
+                                }
+
                                 if (debug_mode) {
                                     std::cerr << "[DEBUG] Copying string "
                                                  "array, size: "
-                                              << src_row.size() << std::endl;
+                                              << src_row.size()
+                                              << " to static array size: "
+                                              << var.array_size << std::endl;
                                 }
-                                for (size_t i = 0;
-                                     i < src_row.size() &&
-                                     i < static_cast<size_t>(var.array_size);
-                                     ++i) {
+
+                                // 安全にコピーする
+                                size_t copy_size = std::min(
+                                    src_row.size(),
+                                    static_cast<size_t>(var.array_size));
+                                for (size_t i = 0; i < copy_size; ++i) {
                                     var.array_strings[i] = src_row[i];
                                 }
                             }
@@ -569,15 +646,50 @@ void Interpreter::execute_statement(const ASTNode *node) {
                             if (!ret.int_array_3d.empty() &&
                                 !ret.int_array_3d[0].empty()) {
                                 const auto &src_row = ret.int_array_3d[0][0];
+                                int actual_size =
+                                    static_cast<int>(src_row.size());
+
+                                // 静的配列のサイズチェック
+                                if (is_static_array &&
+                                    actual_size != expected_size) {
+                                    std::string error_msg =
+                                        "Array size mismatch: expected " +
+                                        std::to_string(expected_size) +
+                                        " elements, but function returned " +
+                                        std::to_string(actual_size) +
+                                        " elements";
+                                    throw std::runtime_error(error_msg);
+                                }
+
+                                // 動的配列の場合はサイズを決定
+                                if (!is_static_array) {
+                                    var.array_size = actual_size;
+                                    var.array_values.resize(var.array_size);
+                                    var.array_dimensions.clear();
+                                    var.array_dimensions.push_back(
+                                        var.array_size);
+                                } else {
+                                    // 静的配列でも適切にリサイズ
+                                    if (var.array_values.size() !=
+                                        static_cast<size_t>(var.array_size)) {
+                                        var.array_values.resize(var.array_size,
+                                                                0);
+                                    }
+                                }
+
                                 if (debug_mode) {
                                     std::cerr << "[DEBUG] Copying integer "
                                                  "array, size: "
-                                              << src_row.size() << std::endl;
+                                              << src_row.size()
+                                              << " to static array size: "
+                                              << var.array_size << std::endl;
                                 }
-                                for (size_t i = 0;
-                                     i < src_row.size() &&
-                                     i < static_cast<size_t>(var.array_size);
-                                     ++i) {
+
+                                // 安全にコピーする
+                                size_t copy_size = std::min(
+                                    src_row.size(),
+                                    static_cast<size_t>(var.array_size));
+                                for (size_t i = 0; i < copy_size; ++i) {
                                     var.array_values[i] = src_row[i];
                                     if (debug_mode) {
                                         std::cerr
@@ -761,7 +873,72 @@ void Interpreter::execute_statement(const ASTNode *node) {
                           << static_cast<int>(node->left->node_type)
                           << std::endl;
             }
-            if (node->left->node_type == ASTNodeType::AST_STRING_LITERAL) {
+            // 配列リテラルの直接返却をサポート
+            if (node->left->node_type == ASTNodeType::AST_ARRAY_LITERAL) {
+                const std::vector<std::unique_ptr<ASTNode>> &elements =
+                    node->left->arguments;
+                if (debug_mode) {
+                    std::cerr << "[DEBUG] Returning array literal with "
+                              << elements.size() << " elements" << std::endl;
+                }
+                // 配列リテラルを処理
+                std::vector<int64_t> array_values;
+                std::vector<std::string> array_strings;
+                bool is_string_array = false;
+
+                // 最初の要素で型を判定
+                if (!elements.empty()) {
+                    if (elements[0]->node_type ==
+                        ASTNodeType::AST_STRING_LITERAL) {
+                        is_string_array = true;
+                    }
+                }
+
+                // 全要素を評価
+                for (size_t i = 0; i < elements.size(); i++) {
+                    const auto &element = elements[i];
+                    if (is_string_array) {
+                        if (element->node_type !=
+                            ASTNodeType::AST_STRING_LITERAL) {
+                            throw std::runtime_error(
+                                "Type mismatch in array literal return: "
+                                "expected string");
+                        }
+                        array_strings.push_back(element->str_value);
+                    } else {
+                        if (element->node_type ==
+                            ASTNodeType::AST_STRING_LITERAL) {
+                            throw std::runtime_error(
+                                "Type mismatch in array literal return: "
+                                "expected number");
+                        }
+                        int64_t value =
+                            expression_evaluator_->evaluate_expression(
+                                element.get());
+                        array_values.push_back(value);
+                    }
+                }
+
+                // ReturnExceptionで配列を返す
+                if (is_string_array) {
+                    // 文字列配列を3D形式に変換
+                    std::vector<std::vector<std::vector<std::string>>>
+                        str_array_3d;
+                    std::vector<std::vector<std::string>> str_array_2d;
+                    str_array_2d.push_back(array_strings);
+                    str_array_3d.push_back(str_array_2d);
+                    throw ReturnException(str_array_3d, "string[]",
+                                          TYPE_STRING);
+                } else {
+                    // 整数配列を3D形式に変換
+                    std::vector<std::vector<std::vector<int64_t>>> int_array_3d;
+                    std::vector<std::vector<int64_t>> int_array_2d;
+                    int_array_2d.push_back(array_values);
+                    int_array_3d.push_back(int_array_2d);
+                    throw ReturnException(int_array_3d, "int[]", TYPE_INT);
+                }
+            } else if (node->left->node_type ==
+                       ASTNodeType::AST_STRING_LITERAL) {
                 throw ReturnException(node->left->str_value);
             } else if (node->left->node_type == ASTNodeType::AST_VARIABLE) {
                 if (debug_mode) {
@@ -1224,6 +1401,78 @@ void Interpreter::assign_array_literal(const std::string &name,
     }
 
     var->is_assigned = true;
+}
+
+void Interpreter::assign_array_from_return(const std::string &name,
+                                           const ReturnException &ret) {
+    if (!ret.is_array) {
+        throw std::runtime_error("Return value is not an array");
+    }
+
+    // 変数を検索
+    Variable *var = find_variable(name);
+    if (!var) {
+        throw std::runtime_error("Variable '" + name + "' not found");
+    }
+
+    if (!var->is_array) {
+        throw std::runtime_error("Variable '" + name +
+                                 "' is not declared as array");
+    }
+
+    debug_msg(DebugMsgId::ARRAY_LITERAL_INIT_PROCESSING,
+              ("Assigning array from return to: " + name).c_str());
+
+    // ReturnExceptionから配列データを取得して変数に代入
+    if (!ret.str_array_3d.empty()) {
+        // 文字列配列の場合
+        debug_msg(DebugMsgId::ARRAY_LITERAL_INIT_PROCESSING,
+                  "Processing string array return value");
+
+        var->array_strings.clear();
+
+        // 3D配列を1D配列に変換
+        for (const auto &plane : ret.str_array_3d) {
+            for (const auto &row : plane) {
+                for (const auto &element : row) {
+                    var->array_strings.push_back(element);
+                }
+            }
+        }
+
+        var->array_size = var->array_strings.size();
+        var->type = static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_STRING);
+        var->array_values.clear();
+
+    } else if (!ret.int_array_3d.empty()) {
+        // 整数配列の場合
+        debug_msg(DebugMsgId::ARRAY_LITERAL_INIT_PROCESSING,
+                  "Processing integer array return value");
+
+        var->array_values.clear();
+
+        // 3D配列を1D配列に変換
+        for (const auto &plane : ret.int_array_3d) {
+            for (const auto &row : plane) {
+                for (const auto &element : row) {
+                    var->array_values.push_back(element);
+                }
+            }
+        }
+
+        var->array_size = var->array_values.size();
+        var->type = static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_INT);
+        var->array_strings.clear();
+    } else {
+        throw std::runtime_error(
+            "Return exception contains no valid array data");
+    }
+
+    var->is_assigned = true;
+    debug_msg(
+        DebugMsgId::ARRAY_LITERAL_INIT_PROCESSING,
+        ("Array assignment completed, size: " + std::to_string(var->array_size))
+            .c_str());
 }
 
 std::string Interpreter::resolve_typedef(const std::string &type_name) {

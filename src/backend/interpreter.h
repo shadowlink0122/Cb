@@ -37,6 +37,14 @@ struct Variable {
         multidim_array_values; // 多次元配列データ（フラット化）
     std::vector<std::string> multidim_array_strings; // 多次元文字列配列データ
 
+    // 将来の拡張計画 (struct/interface実装後):
+    // - 静的配列: int[N] - 固定サイズ、コンパイル時型チェック
+    // - 動的配列: int[] - 可変サイズ、実行時操作
+    // - 共通メソッド: .size(), .len() - サイズ取得
+    // - 動的配列専用メソッド: .push(value), .pop(), .clear() - 要素操作
+    // - 境界チェック: 配列アクセス時の自動境界検証
+    // - 型安全性: 異なるサイズの静的配列間での代入エラー検出
+
     Variable()
         : type(TYPE_INT), is_const(false), is_array(false), is_assigned(false),
           is_multidimensional(false), value(0), array_size(0) {}
@@ -214,6 +222,10 @@ class Interpreter : public EvaluatorInterface {
     // 配列リテラル割り当て
     void assign_array_literal(const std::string &name,
                               const ASTNode *literal_node);
+
+    // 関数戻り値からの配列割り当て
+    void assign_array_from_return(const std::string &name,
+                                  const ReturnException &ret);
 
     // 型解決
     TypeInfo resolve_type_alias(TypeInfo base_type,

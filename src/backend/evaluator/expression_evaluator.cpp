@@ -324,6 +324,45 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                         
                         // 配列をコピーしてパラメータに設定
                         interpreter_.assign_array_parameter(param->name, *source_var, param->type_info);
+                    } else if (arg->node_type == ASTNodeType::AST_ARRAY_LITERAL) {
+                        // 配列リテラルとして直接渡された場合
+                        debug_msg(DebugMsgId::ARRAY_LITERAL_INIT_PROCESSING,
+                                ("Processing array literal argument for parameter: " + param->name).c_str());
+                        
+                        // 一時的な配列変数を作成
+                        std::string temp_var_name = "__temp_array_" + std::to_string(i);
+                        Variable temp_var;
+                        temp_var.is_array = true;
+                        temp_var.type = param->type_info;
+                        temp_var.is_assigned = false;
+                        
+                        // 配列リテラルから値を取得
+                        std::vector<int64_t> values;
+                        std::vector<std::string> str_values;
+                        
+                        for (const auto &element : arg->arguments) {
+                            if (element->node_type == ASTNodeType::AST_STRING_LITERAL) {
+                                str_values.push_back(element->str_value);
+                            } else {
+                                int64_t val = evaluate_expression(element.get());
+                                values.push_back(val);
+                            }
+                        }
+                        
+                        // 一時変数に値を設定
+                        if (!str_values.empty()) {
+                            temp_var.array_strings = str_values;
+                            temp_var.array_size = str_values.size();
+                            temp_var.type = static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_STRING);
+                        } else {
+                            temp_var.array_values = values;
+                            temp_var.array_size = values.size();
+                            temp_var.type = static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_INT);
+                        }
+                        temp_var.is_assigned = true;
+                        
+                        // パラメータに設定
+                        interpreter_.assign_array_parameter(param->name, temp_var, param->type_info);
                     } else {
                         throw std::runtime_error("Only array variables can be passed as array parameters");
                     }
@@ -373,6 +412,45 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                 return 0; // 配列代入の戻り値は0
             } else {
                 throw std::runtime_error("Array literal can only be assigned to variables");
+            }
+        }
+        
+        // 右辺が関数呼び出しで配列を返す可能性がある場合の処理
+        if (node->right && node->right->node_type == ASTNodeType::AST_FUNC_CALL) {
+            debug_msg(DebugMsgId::EXPR_EVAL_BINARY_OP, "Right side is function call, checking for array return");
+            try {
+                int64_t right_value = evaluate_expression(node->right.get());
+                // 通常の値を返した場合
+                if (node->left->node_type == ASTNodeType::AST_VARIABLE) {
+                    interpreter_.assign_variable(node->left->name, right_value, node->left->type_info);
+                } else {
+                    interpreter_.assign_variable(node->name, right_value, node->type_info);
+                }
+                return right_value;
+            } catch (const ReturnException &ret) {
+                // 配列が返された場合
+                if (ret.is_array) {
+                    debug_msg(DebugMsgId::EXPR_EVAL_BINARY_OP, "Function returned array, assigning to variable");
+                    std::string var_name;
+                    if (node->left->node_type == ASTNodeType::AST_VARIABLE) {
+                        var_name = node->left->name;
+                    } else {
+                        var_name = node->name;
+                    }
+                    
+                    // 配列を変数に代入
+                    interpreter_.assign_array_from_return(var_name, ret);
+                    return 0; // 配列代入の戻り値は0
+                } else {
+                    // 通常の値
+                    int64_t right_value = ret.value;
+                    if (node->left->node_type == ASTNodeType::AST_VARIABLE) {
+                        interpreter_.assign_variable(node->left->name, right_value, node->left->type_info);
+                    } else {
+                        interpreter_.assign_variable(node->name, right_value, node->type_info);
+                    }
+                    return right_value;
+                }
             }
         }
         

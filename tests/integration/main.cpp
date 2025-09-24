@@ -10,6 +10,7 @@
 #include "bool_expr/test_bool_expr.hpp"
 #include "boundary/test_boundary.hpp"
 #include "cross_type/test_cross_type.hpp"
+#include "dynamic_array_error/test_dynamic_array_error.hpp"
 #include "error_handling/test_error_handling.hpp"
 #include "func/test_func.hpp"
 #include "global_array/test_global_array.hpp"
@@ -63,6 +64,7 @@ int main() {
         test_integration_import_export();
         test_integration_module_functions();
         test_integration_typedef();
+        test_integration_dynamic_array_error();
     } catch (const std::exception &e) {
         std::cerr << "[integration] test failed: " << e.what() << std::endl;
         fail = 1;

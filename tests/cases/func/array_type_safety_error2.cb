@@ -1,0 +1,16 @@
+// 静的配列の型安全性エラーテスト - 関数戻り値サイズミスマッチ
+
+int main() {
+    println("Testing array type safety errors:");
+    
+    // エラー: 関数が返すサイズと静的配列のサイズが一致しない
+    int[5] staticArray = createThreeElements();  // ERROR: 5要素の配列に3要素の戻り値
+    println("This should not be reached");
+    
+    return 0;
+}
+
+// 3要素の配列を返す関数
+int[] createThreeElements() {
+    return [1, 2, 3];
+}

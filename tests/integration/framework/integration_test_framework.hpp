@@ -82,6 +82,21 @@ inline void run_cb_test_with_output(const std::string& test_file,
         } \
     } while(0)
 
+#define INTEGRATION_ASSERT_NE(not_expected, actual, message) \
+    do { \
+        IntegrationTestCounter::increment_total(); \
+        if ((not_expected) == (actual)) { \
+            std::cerr << "[integration] ASSERTION FAILED at " << __FILE__ << ":" << __LINE__ << std::endl; \
+            std::cerr << "[integration] Expected NOT: " << (not_expected) << std::endl; \
+            std::cerr << "[integration] Actual: " << (actual) << std::endl; \
+            std::cerr << "[integration] " << message << std::endl; \
+            IntegrationTestCounter::increment_failed(); \
+            throw std::runtime_error(std::string(__FILE__) + ":" + std::to_string(__LINE__) + " - " + message); \
+        } else { \
+            IntegrationTestCounter::increment_passed(); \
+        } \
+    } while(0)
+
 #define INTEGRATION_ASSERT_CONTAINS(haystack, needle, message) \
     do { \
         IntegrationTestCounter::increment_total(); \

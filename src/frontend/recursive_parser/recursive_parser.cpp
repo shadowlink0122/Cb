@@ -283,20 +283,25 @@ ASTNode* RecursiveParser::parseStatement() {
             }
             
             // 1次元配列の場合は従来の方式も設定（互換性のため）
-            if (array_sizes.size() == 1 && !array_sizes[0].empty()) {
-                // 数値リテラルかチェック
-                bool is_number = true;
-                for (char c : array_sizes[0]) {
-                    if (!std::isdigit(c)) {
-                        is_number = false;
-                        break;
+            if (array_sizes.size() == 1) {
+                if (!array_sizes[0].empty()) {
+                    // 数値リテラルかチェック
+                    bool is_number = true;
+                    for (char c : array_sizes[0]) {
+                        if (!std::isdigit(c)) {
+                            is_number = false;
+                            break;
+                        }
                     }
-                }
-                if (is_number) {
-                    node->array_size = std::stoi(array_sizes[0]);
+                    if (is_number) {
+                        node->array_size = std::stoi(array_sizes[0]);
+                    } else {
+                        // 変数サイズなので実行時に決定
+                        node->array_size = -1;
+                    }
                 } else {
-                    // 変数サイズなので実行時に決定
-                    node->array_size = -1;
+                    // 動的配列（TYPE[]）の場合
+                    node->array_size = 0;
                 }
             }
             

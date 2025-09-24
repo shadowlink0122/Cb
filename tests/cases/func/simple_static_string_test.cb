@@ -1,0 +1,16 @@
+// 単純な静的文字列配列テスト
+
+int main() {
+    println("Testing static string array:");
+    
+    // 簡単な静的配列テスト
+    string[3] arr = ["Alice", "Bob", "Charlie"];
+    println("Static string array created");
+    
+    // 配列の内容を出力
+    println(arr[0]);
+    println(arr[1]);
+    println(arr[2]);
+    
+    return 0;
+}

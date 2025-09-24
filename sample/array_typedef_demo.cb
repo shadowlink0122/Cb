@@ -10,9 +10,8 @@ typedef string[3] NameArray;
 typedef bool[2][2] BoolMatrix;
 typedef int[3][4] IntMatrix;
 
-// Dynamic array typedef declarations
-typedef int[] DynamicIntArray;
-typedef string[] DynamicStringArray;
+// Note: Dynamic array typedefs (int[], string[]) are not supported yet
+// They will be implemented in a future version
 
 void main() {
     println("=== Cb Language Array Typedef Demo ===");
@@ -23,8 +22,6 @@ void main() {
     println("- NameArray: string[3]");  
     println("- BoolMatrix: bool[2][2]");
     println("- IntMatrix: int[3][4]");
-    println("- DynamicIntArray: int[]");
-    println("- DynamicStringArray: string[]");
     
     println("");
     println("=== Array Typedef Functionality ===");
@@ -34,8 +31,10 @@ void main() {
     NameArray student_names;
     BoolMatrix flags;
     IntMatrix grid;
-    DynamicIntArray numbers;
-    DynamicStringArray words;
+    
+    // Note: Dynamic arrays are not supported yet
+    // DynamicIntArray numbers;    // Would cause error
+    // DynamicStringArray words;   // Would cause error
     
     println("Array variables declared successfully using typedef types!");
     println("");
@@ -45,6 +44,7 @@ void main() {
     println("- Implement runtime array access for typedef arrays");
     println("- Add array initialization support");  
     println("- Extend assignment and arithmetic operations");
+    println("- Support dynamic array types (int[], string[])");
     
     println("");
     println("Array typedef feature implementation: COMPLETE!");

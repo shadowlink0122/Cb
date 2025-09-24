@@ -208,6 +208,15 @@ void VariableManager::declare_global_variable(const ASTNode *node) {
                 array_part[array_part.length() - 1] == ']') {
                 std::string size_str =
                     array_part.substr(1, array_part.length() - 2);
+
+                if (size_str.empty()) {
+                    // 動的配列（TYPE[]）はサポートされていない
+                    error_msg(DebugMsgId::DYNAMIC_ARRAY_NOT_SUPPORTED,
+                              node->name.c_str());
+                    throw std::runtime_error(
+                        "Dynamic arrays are not supported yet");
+                }
+
                 var.array_size = std::stoi(size_str);
 
                 // array_dimensionsを設定
@@ -277,6 +286,10 @@ void VariableManager::declare_local_variable(const ASTNode *node) {
         std::string resolved_type =
             interpreter_->type_manager_->resolve_typedef(node->type_name);
 
+        std::cerr << "[DEBUG] Variable: " << node->name
+                  << ", Type: " << node->type_name
+                  << ", Resolved: " << resolved_type << std::endl;
+
         // 配列typedefの場合
         if (resolved_type.find("[") != std::string::npos) {
             std::string base = resolved_type.substr(0, resolved_type.find("["));
@@ -293,6 +306,15 @@ void VariableManager::declare_local_variable(const ASTNode *node) {
                 array_part[array_part.length() - 1] == ']') {
                 std::string size_str =
                     array_part.substr(1, array_part.length() - 2);
+
+                if (size_str.empty()) {
+                    // 動的配列（TYPE[]）はサポートされていない
+                    error_msg(DebugMsgId::DYNAMIC_ARRAY_NOT_SUPPORTED,
+                              node->name.c_str());
+                    throw std::runtime_error(
+                        "Dynamic arrays are not supported yet");
+                }
+
                 var.array_size = std::stoi(size_str);
             } else {
                 var.array_size = 0; // 動的配列
@@ -409,10 +431,19 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                 var.is_array = true;
 
                 // 配列サイズを解析 [3] -> 3
-                if (array_part.length() > 2 && array_part[0] == '[' &&
+                if (array_part.length() >= 2 && array_part[0] == '[' &&
                     array_part[array_part.length() - 1] == ']') {
                     std::string size_str =
                         array_part.substr(1, array_part.length() - 2);
+
+                    if (size_str.empty()) {
+                        // 動的配列（TYPE[]）はサポートされていない
+                        error_msg(DebugMsgId::DYNAMIC_ARRAY_NOT_SUPPORTED,
+                                  node->name.c_str());
+                        throw std::runtime_error(
+                            "Dynamic arrays are not supported yet");
+                    }
+
                     var.array_size = std::stoi(size_str);
                 } else {
                     var.array_size = 0; // 動的配列
