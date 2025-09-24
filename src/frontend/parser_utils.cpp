@@ -110,6 +110,13 @@ ASTNode *create_array_init(const char *name, ASTNode *init_list) {
 
     // 現在宣言されている型を使用して型チェックを実行
     TypeInfo expected_type = get_current_type();
+
+    // 型が不正な場合はデフォルトを使用
+    if (expected_type < TYPE_VOID || expected_type > TYPE_BOOL) {
+        expected_type = TYPE_INT;
+        debug_msg(DebugMsgId::CURRENT_TYPE_SET, (int)expected_type);
+    }
+
     return create_array_init_with_type(name, expected_type, init_list);
 }
 
@@ -120,12 +127,15 @@ ASTNode *create_array_init_with_type(const char *name, TypeInfo element_type,
     node->name = std::string(name);
     node->type_info = element_type;
 
-    if (init_list) {
+    if (init_list && init_list->children.size() > 0) {
         debug_msg(DebugMsgId::ARRAY_INIT_ELEMENTS, init_list->children.size());
 
         // 各要素の型をチェック
         for (size_t i = 0; i < init_list->children.size(); i++) {
             ASTNode *element = init_list->children[i].get();
+            if (!element)
+                continue; // nullポインタチェック
+
             TypeInfo actual_type = TYPE_VOID;
 
             // 要素の型を判定
@@ -136,15 +146,16 @@ ASTNode *create_array_init_with_type(const char *name, TypeInfo element_type,
             }
 
             // 型が不一致の場合エラー
-            if (actual_type != element_type) {
+            if (actual_type != TYPE_VOID && actual_type != element_type) {
                 const char *expected_str = type_info_to_string(element_type);
                 const char *actual_str = type_info_to_string(actual_type);
                 debug_msg(DebugMsgId::TYPE_MISMATCH_ARRAY_INIT, i, expected_str,
                           actual_str);
 
-                // エラーメッセージを表示してプログラム終了
-                error_msg(DebugMsgId::TYPE_MISMATCH_ERROR, name, i,
-                          expected_str, actual_str);
+                // エラーメッセージを標準エラーに出力
+                std::cerr << "Error: Array '" << name << "' element " << i
+                          << ": " << expected_str << " type expected but "
+                          << actual_str << " type provided" << std::endl;
                 exit(1);
             }
         }
@@ -152,6 +163,13 @@ ASTNode *create_array_init_with_type(const char *name, TypeInfo element_type,
         node->children = std::move(init_list->children);
         node->array_size = node->children.size();
         delete init_list;
+    } else if (init_list) {
+        // 空配列の場合
+        node->array_size = 0;
+        delete init_list;
+    } else {
+        // init_listがnullの場合
+        node->array_size = 0;
     }
     debug_msg(DebugMsgId::ARRAY_INIT_WITH_TYPE_COMPLETED);
     return node;
@@ -170,9 +188,9 @@ ASTNode *create_array_init_with_size(const char *name, ASTNode *size_expr,
     node->name = std::string(name);
     node->array_size_expr = std::unique_ptr<ASTNode>(size_expr);
     if (init_list) {
-        node->children = std::move(init_list->children);
+        // init_list を init_expr に設定（正しいフィールドに設定）
+        node->init_expr = std::unique_ptr<ASTNode>(init_list);
         // サイズ式と初期化リストの両方がある場合は、明示的なサイズを優先
-        delete init_list;
     }
     return node;
 }
@@ -241,19 +259,6 @@ ASTNode *create_println_empty() {
     return node;
 }
 
-ASTNode *create_println_multi_stmt(ASTNode *arg_list) {
-    auto node = new ASTNode(ASTNodeType::AST_PRINTLN_MULTI_STMT);
-    node->right = std::unique_ptr<ASTNode>(arg_list);
-    return node;
-}
-
-ASTNode *create_printlnf_stmt(ASTNode *format_str, ASTNode *arg_list) {
-    auto node = new ASTNode(ASTNodeType::AST_PRINTLNF_STMT);
-    node->left = std::unique_ptr<ASTNode>(format_str); // フォーマット文字列
-    node->right = std::unique_ptr<ASTNode>(arg_list); // 引数リスト
-    return node;
-}
-
 ASTNode *create_printf_stmt(ASTNode *format_str, ASTNode *arg_list) {
     auto node = new ASTNode(ASTNodeType::AST_PRINTF_STMT);
     node->left = std::unique_ptr<ASTNode>(format_str); // フォーマット文字列
@@ -261,8 +266,9 @@ ASTNode *create_printf_stmt(ASTNode *format_str, ASTNode *arg_list) {
     return node;
 }
 
-ASTNode *create_print_multi_stmt(ASTNode *arg_list) {
-    auto node = new ASTNode(ASTNodeType::AST_PRINT_MULTI_STMT);
+ASTNode *create_printlnf_stmt(ASTNode *format_str, ASTNode *arg_list) {
+    auto node = new ASTNode(ASTNodeType::AST_PRINTLNF_STMT);
+    node->left = std::unique_ptr<ASTNode>(format_str); // フォーマット文字列
     node->right = std::unique_ptr<ASTNode>(arg_list); // 引数リスト
     return node;
 }
@@ -494,6 +500,140 @@ ASTNode *create_array_literal(ASTNode *elements) {
         delete elements;
     }
     debug_msg(DebugMsgId::ARRAY_LITERAL_COMPLETED);
+    return node;
+}
+
+// 多次元配列用関数群
+ASTNode *create_multidim_array_decl(const char *name, ASTNode *dimensions) {
+    auto node = new ASTNode(ASTNodeType::AST_ARRAY_DECL);
+    node->name = std::string(name);
+
+    if (dimensions && !dimensions->array_dimensions.empty()) {
+        node->array_dimensions = std::move(dimensions->array_dimensions);
+        delete dimensions;
+    }
+
+    return node;
+}
+
+ASTNode *create_multidim_array_init(const char *name, ASTNode *dimensions,
+                                    ASTNode *init) {
+    auto node = create_multidim_array_decl(name, dimensions);
+
+    if (init) {
+        node->children = std::move(init->children);
+        delete init;
+    }
+
+    return node;
+}
+
+ASTNode *create_multidim_array_ref(const char *name, ASTNode *indices) {
+    auto node = new ASTNode(ASTNodeType::AST_ARRAY_REF);
+    node->name = std::string(name);
+
+    if (indices && !indices->array_indices.empty()) {
+        node->array_indices = std::move(indices->array_indices);
+        delete indices;
+    }
+
+    return node;
+}
+
+ASTNode *create_multidim_array_assign(const char *name, ASTNode *indices,
+                                      ASTNode *expr) {
+    auto node = new ASTNode(ASTNodeType::AST_ASSIGN);
+    node->name = std::string(name);
+
+    auto array_ref = create_multidim_array_ref(name, indices);
+    node->left = std::unique_ptr<ASTNode>(array_ref);
+    node->right = std::unique_ptr<ASTNode>(expr);
+
+    return node;
+}
+
+ASTNode *create_dimension_list() {
+    auto node = new ASTNode(ASTNodeType::AST_STMT_LIST);
+    return node;
+}
+
+ASTNode *create_index_list() {
+    auto node = new ASTNode(ASTNodeType::AST_STMT_LIST);
+    return node;
+}
+
+ASTNode *create_nested_init_list() {
+    auto node = new ASTNode(ASTNodeType::AST_STMT_LIST);
+    return node;
+}
+
+void add_dimension(ASTNode *list, ASTNode *size_expr) {
+    if (list) {
+        list->array_dimensions.push_back(std::unique_ptr<ASTNode>(size_expr));
+    }
+}
+
+void add_index(ASTNode *list, ASTNode *index_expr) {
+    if (list) {
+        list->array_indices.push_back(std::unique_ptr<ASTNode>(index_expr));
+    }
+}
+
+void add_nested_initializer(ASTNode *list, ASTNode *init) {
+    if (list && init) {
+        list->children.push_back(std::unique_ptr<ASTNode>(init));
+    }
+}
+
+// typedef用関数群
+ASTNode *create_typedef_decl(const char *alias_name, ASTNode *base_type,
+                             ASTNode *unused) {
+    auto node = new ASTNode(ASTNodeType::AST_TYPEDEF_DECL);
+    node->name = std::string(alias_name);
+
+    if (base_type) {
+        node->type_info = base_type->type_info;
+        node->type_name = type_info_to_string(base_type->type_info);
+        delete base_type;
+    }
+
+    return node;
+}
+
+ASTNode *create_typedef_array_decl(const char *alias_name, ASTNode *base_type,
+                                   ASTNode *dimensions) {
+    auto node = new ASTNode(ASTNodeType::AST_TYPEDEF_DECL);
+    node->name = std::string(alias_name);
+
+    if (base_type) {
+        node->type_info = base_type->type_info;
+        delete base_type;
+    }
+
+    if (dimensions && !dimensions->array_dimensions.empty()) {
+        node->array_dimensions = std::move(dimensions->array_dimensions);
+        delete dimensions;
+    }
+
+    return node;
+}
+
+ASTNode *create_typedef_type(const char *type_name) {
+    auto node = new ASTNode(ASTNodeType::AST_TYPE_SPEC);
+    node->type_name = std::string(type_name);
+
+    // エイリアス解決を試行
+    TypeInfo resolved_type = parse_type_from_string(type_name);
+    node->type_info = resolved_type;
+
+    return node;
+}
+
+ASTNode *create_typedef_array_var(const char *name, ASTNode *size_expr) {
+    auto node = new ASTNode(ASTNodeType::AST_ARRAY_DECL);
+    node->name = std::string(name);
+    node->array_size_expr = std::unique_ptr<ASTNode>(size_expr);
+
     return node;
 }
 

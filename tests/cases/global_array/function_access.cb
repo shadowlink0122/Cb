@@ -1,0 +1,23 @@
+// Global array with function access
+int[10] shared_data;
+
+void init_data() {
+    for (int i = 0; i < 10; i = i + 1) {
+        shared_data[i] = i * i;
+    }
+}
+
+int sum_data() {
+    int total = 0;
+    for (int i = 0; i < 10; i = i + 1) {
+        total = total + shared_data[i];
+    }
+    return total;
+}
+
+int main() {
+    init_data();
+    int result = sum_data();
+    println("Sum of squares 0-9: %d", result);
+    return 0;
+}

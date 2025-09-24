@@ -1,0 +1,19 @@
+// const配列の読み取り正常テスト
+
+int main() {
+    println("Testing const array read access:");
+    
+    // const配列を宣言・初期化
+    const int[4] const_numbers = [100, 200, 300, 400];
+    println("Const array created: [100, 200, 300, 400]");
+    
+    // const配列の要素を読み取る（正常）
+    println("Reading const array elements:");
+    println(const_numbers[0]);
+    println(const_numbers[1]); 
+    println(const_numbers[2]);
+    println(const_numbers[3]);
+    
+    println("Const array read test completed successfully");
+    return 0;
+}

@@ -1,0 +1,21 @@
+// 複数変数宣言テスト
+int main() {
+    println("=== Multiple Variable Declaration Test ===");
+    
+    // 基本的な複数変数宣言
+    int a, b;
+    a = 1;
+    b = 2;
+    println("Basic multiple declaration:");
+    println(a);
+    println(b);
+    
+    // 初期化付き複数変数宣言
+    int x = 10, y = 20;
+    println("With initialization:");
+    println(x);
+    println(y);
+    
+    println("Multiple variable declaration test completed");
+    return 0;
+}

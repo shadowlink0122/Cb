@@ -1,0 +1,15 @@
+// const文字列配列の要素への代入エラーテスト
+
+int main() {
+    println("Testing const string array element assignment error:");
+    
+    // const文字列配列を宣言・初期化
+    const string[3] const_strings = ["apple", "banana", "orange"];
+    println("Const string array created: [apple, banana, orange]");
+    
+    // const文字列配列の要素を変更しようとする（エラーが発生するはず）
+    const_strings[1] = "grape";  // ERROR: const配列への代入
+    
+    println("This line should not be reached");
+    return 0;
+}

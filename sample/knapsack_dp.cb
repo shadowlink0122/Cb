@@ -1,0 +1,75 @@
+// ナップサック問題の動的プログラミング解法
+// 重みとバリューはリテラルで設定
+
+int main() {
+    println("=== Knapsack DP Problem ===");
+    
+    // アイテム数とナップサックの容量
+    int n = 4;           // アイテム数
+    int capacity = 10;   // ナップサック容量
+    
+    // 重み配列 (リテラルで初期化)
+    int[n] weights = [2, 3, n, 5];
+    
+    // バリュー配列 (リテラルで初期化)
+    int[n] values = [13, 40, 50, 40];
+    
+    // DP テーブル [アイテム数+1][容量+1]
+    int[n+1][capacity+1] dp;
+    
+    println("Items:");
+    for (int i = 0; i < n; i++) {
+        println("Item", i, ": weight =", weights[i], ", value =", values[i]);
+    }
+    
+    // DP計算
+    for (int i = 1; i <= n; i++) {
+        for (int w = 1; w <= capacity; w++) {
+            // アイテム i-1 を考慮（配列は0ベースなので）
+            int weight = weights[i-1];
+            int value = values[i-1];
+            
+            if (weight <= w) {
+                // アイテムを選択する場合と選択しない場合の最大値
+                int with_item = dp[i-1][w - weight] + value;
+                int without_item = dp[i-1][w];
+                
+                if (with_item > without_item) {
+                    dp[i][w] = with_item;
+                } else {
+                    dp[i][w] = without_item;
+                }
+            } else {
+                // アイテムを選択できない場合
+                dp[i][w] = dp[i-1][w];
+            }
+        }
+    }
+    
+    println("");
+    println("DP Table:");
+    for (int i = 0; i <= n; i++) {
+        print("Item", i, ":");
+        for (int w = 0; w <= capacity; w++) {
+            print(" ", dp[i][w]);
+        }
+        println("");
+    }
+    
+    int max_value = dp[n][capacity];
+    println("");
+    println("Maximum value with capacity", capacity, ":", max_value);
+    
+    // 選択されたアイテムを追跡
+    println("");
+    println("Selected items:");
+    int w = capacity;
+    for (int i = n; i > 0; i--) {
+        if (dp[i][w] != dp[i-1][w]) {
+            println("Item", i-1, "(weight:", weights[i-1], ", value:", values[i-1], ")");
+            w = w - weights[i-1];
+        }
+    }
+    
+    return 0;
+}

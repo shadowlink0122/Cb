@@ -1,0 +1,42 @@
+// typedef + import/export 組み合わせテスト
+import "math_module.cb";
+
+typedef int Counter;
+typedef string Label;
+
+export Counter get_item_count() {
+    return 15;
+}
+
+export void display_info(Label name, Counter count) {
+    print("Item: ");
+    print(name);
+    print(", Count: ");
+    print(count);
+    println();
+}
+
+int main() {
+    println("=== Combined Typedef + Import/Export Test ===");
+    
+    // typedefとimportの組み合わせ
+    Counter math_result = multiply(5, MATH_CONSTANT);
+    Label item_name = "Widget";
+    
+    display_info(item_name, math_result);
+    
+    Counter total_items = get_item_count();
+    print("Total items available: ");
+    print(total_items);
+    println();
+    
+    // 計算結果をtypedefで扱う
+    Counter final_count = total_items + math_result;
+    print("Final count: ");
+    print(final_count);
+    println();
+    
+    println("");
+    println("Combined test completed!");
+    return 0;
+}

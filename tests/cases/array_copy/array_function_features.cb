@@ -1,0 +1,28 @@
+// 配列引数と戻り値の詳細テスト
+int main() {
+    // 基本的な配列操作
+    int[3] numbers = [10, 20, 30];
+    print("Basic array:");
+    for (int i = 0; i < 3; i = i + 1) {
+        print(numbers[i]);
+    }
+    
+    // 配列コピー（現在サポートされている方法）
+    int[3] copy_numbers;
+    copy_numbers[0] = numbers[0];
+    copy_numbers[1] = numbers[1];
+    copy_numbers[2] = numbers[2];
+    
+    print("Copied array:");
+    for (int i = 0; i < 3; i = i + 1) {
+        print(copy_numbers[i]);
+    }
+    
+    // const配列
+    const int[2] const_nums = [100, 200];
+    print("Const array:");
+    print(const_nums[0]);
+    print(const_nums[1]);
+    
+    return 0;
+}

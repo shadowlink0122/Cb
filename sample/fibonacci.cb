@@ -1,21 +1,22 @@
-long ans[1000];
+long[1000] ans;
 
 long fib(int n){
-    if(n < 0) return 0;
-    if(ans[n] > 0) return ans[n];
-    if(n == 0){
-        ans[n] = 0;
-    }else if(n == 1){
-        ans[n] = 1;
-    }else{
-        // メモ化（希望があれば判定追加可能）
-        ans[n] = fib(n - 1) + fib(n - 2);
+    if(n <= 0) {
+        return ans[0] = 0;
     }
-    return ans[n];
+    if(n == 1) return ans[1] = 1;
+    if(n >= 1000) return 0;
+    
+    // 既に計算済みなら返す
+    if(ans[n] != 0) return ans[n];
+    
+    // 再帰計算
+    return ans[n] = fib(n - 1) + fib(n - 2);
 }
 
 int main(){
     const int FIB_NUM = 92; // 答えがlongの最大値になる
+    fib(0); // ans[0] = 0 を明示的に設定
     fib(FIB_NUM);
     for(int i = 0;i <= FIB_NUM;i++){
         println(ans[i]);

@@ -1,0 +1,11 @@
+// Mixed print and println test
+int main() {
+    print("A");
+    print("B");
+    println("C");
+    println("D");
+    print("E");
+    println();
+    println("F");
+    return 0;
+}

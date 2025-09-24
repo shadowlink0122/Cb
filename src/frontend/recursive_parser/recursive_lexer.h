@@ -1,0 +1,114 @@
+#pragma once
+#include <string>
+#include <vector>
+
+namespace RecursiveParserNS {
+
+enum class TokenType {
+    // Operators
+    TOK_PLUS,        // +
+    TOK_MINUS,       // -
+    TOK_MUL,         // *
+    TOK_DIV,         // /
+    TOK_MOD,         // %
+    TOK_EQ,          // ==
+    TOK_NE,          // !=
+    TOK_LT,          // <
+    TOK_LE,          // <=
+    TOK_GT,          // >
+    TOK_GE,          // >=
+    TOK_AND,         // &&
+    TOK_OR,          // ||
+    TOK_NOT,         // !
+    TOK_INCR,        // ++
+    TOK_DECR,        // --
+    TOK_ASSIGN,      // =
+    
+    // Punctuation
+    TOK_SEMICOLON,   // ;
+    TOK_COMMA,       // ,
+    TOK_LPAREN,      // (
+    TOK_RPAREN,      // )
+    TOK_LBRACE,      // {
+    TOK_RBRACE,      // }
+    TOK_LBRACKET,    // [
+    TOK_RBRACKET,    // ]
+    
+    // Literals
+    TOK_IDENTIFIER,
+    TOK_NUMBER,
+    TOK_STRING,
+    TOK_CHAR,
+    
+    // Keywords
+    TOK_MAIN,
+    TOK_IF,
+    TOK_ELSE,
+    TOK_FOR,
+    TOK_WHILE,
+    TOK_BREAK,
+    TOK_CONTINUE,
+    TOK_RETURN,
+    TOK_INT,
+    TOK_LONG,
+    TOK_SHORT,
+    TOK_TINY,
+    TOK_VOID,
+    TOK_STRING_TYPE,
+    TOK_CHAR_TYPE,
+    TOK_BOOL,
+    TOK_TRUE,
+    TOK_FALSE,
+    TOK_PRINT,
+    TOK_PRINTLN,
+    TOK_PRINTF,
+    TOK_TYPEDEF,
+    TOK_CONST,
+    
+    // Special
+    TOK_EOF,
+    TOK_ERROR
+};
+
+struct Token {
+    TokenType type;
+    std::string value;
+    int line;
+    int column;
+    
+    Token(TokenType t, const std::string& val, int l, int c)
+        : type(t), value(val), line(l), column(c) {}
+};
+
+class RecursiveLexer {
+public:
+    explicit RecursiveLexer(const std::string& source);
+    Token nextToken();
+    bool isAtEnd() const;
+    Token peekToken();
+
+private:
+    std::string source_;
+    size_t current_;
+    int line_;
+    int column_;
+    Token current_token_;
+    bool has_peeked_;
+    
+    char peek();
+    char peekNext();
+    char advance();
+    void skipWhitespace();
+    void skipComment();
+    Token makeToken(TokenType type, const std::string& value);
+    Token makeIdentifier();
+    Token makeNumber();
+    Token makeString();
+    Token makeChar();
+    TokenType getKeywordType(const std::string& text);
+    bool isAlpha(char c);
+    bool isDigit(char c);
+    bool isAlphaNumeric(char c);
+};
+
+} // namespace RecursiveParserNS

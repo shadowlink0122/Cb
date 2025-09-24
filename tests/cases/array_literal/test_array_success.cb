@@ -4,40 +4,40 @@
 
 // 1. 基本的なint配列
 int main_basic_int() {
-    int numbers[] = [1, 2, 3, 4, 5];
+    int[5] numbers = [1, 2, 3, 4, 5];
     print(numbers[0]);
     print(numbers[4]);
 }
 
 // 2. 基本的なstring配列  
 int main_basic_string() {
-    string words[] = ["hello", "world", "test"];
+    string[3] words = ["hello", "world", "test"];
     print(words[0]);
     print(words[2]);
 }
 
 // 3. 空の配列
 int main_empty() {
-    int empty[] = [];
+    int[0] empty = [];
     // 空配列のサイズは0
 }
 
 // 4. 単一要素配列
 int main_single() {
-    int single[] = [42];
+    int[1] single = [42];
     print(single[0]);
 }
 
 // 5. 大きな配列
 int main_large() {
-    int large[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+    int[10] large = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
     print(large[0]);
     print(large[9]);
 }
 
 // 実際のmain関数（基本テスト実行）
 int main() {
-    int basic[] = [100, 200, 300];
+    int[3] basic = [100, 200, 300];
     print(basic[0]);
     print(basic[1]); 
     print(basic[2]);

@@ -1,0 +1,59 @@
+// 配列機能統合テスト - 期待される出力
+
+int main() {
+    println("Testing array functions:");
+    
+    // テスト1: 配列戻り値
+    int[] myArray = createArray();
+    println("Integer array created and assigned");
+    
+    // テスト2: 配列引数
+    printArray(myArray);
+    
+    // テスト3: 配列リテラル引数
+    processLiteral([10, 20, 30]);
+    println("Direct literal array argument test completed");
+    
+    // テスト4: 文字列配列戻り値
+    string[3] myStringArray = createStringArray();
+    for(int i = 0;i < 3;i++){
+        println(myStringArray[i]);
+    }
+    println("String array created and assigned");
+    
+    // テスト5: 文字列配列引数
+    printStringArray(myStringArray);
+    
+    // テスト6: 文字列配列リテラル引数
+    printStringArray(["test1", "test2", "test3"]);
+    println("Direct string literal array argument test completed");
+    
+    println("All array function tests completed successfully");
+    
+    return 0;
+}
+
+// 配列を返す関数
+int[] createArray() {
+    return [1, 2, 3, 4, 5];
+}
+
+// 配列引数を受け取る関数
+void printArray(int[] arr) {
+    println("Array parameter received successfully");
+}
+
+// 配列リテラルを直接引数として受け取る関数
+void processLiteral(int[] arr) {
+    println("Literal array parameter processed");
+}
+
+// 文字列配列を返す関数
+string[] createStringArray() {
+    return ["hello", "world", "test"];
+}
+
+// 文字列配列引数を受け取る関数
+void printStringArray(string[] arr) {
+    println("String array parameter received");
+}

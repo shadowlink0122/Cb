@@ -1,9 +1,137 @@
 int main(){
-    tiny SIZE = 10;
-
+    println("=== Array Demonstration ===");
+    
+    // 1. 文字列の文字アクセス
+    println("1. String Character Access:");
     string str = "あaいiうuえeおo";
-    print(str);
-    for(int i = 0;i < SIZE;i++){
-        print(str[i]);
+    print("String: ");
+    println(str);
+    print("Characters: ");
+    for(int i = 0; i < 5; i++){
+        print(str[i], " ");
     }
+    println("");
+    
+    // 2. 1次元配列のリテラル初期化
+    println("2. 1D Array Literal Initialization:");
+    int[5] numbers = [10, 20, 30, 40, 50];
+    print("Numbers: ");
+    for(int i = 0; i < 5; i++){
+        print(numbers[i], " ");
+    }
+    println("");
+    
+    // 3. 文字列配列
+    println("3. String Array:");
+    string[3] names = ["Alice", "Bob", "Charlie"];
+    for(int i = 0; i < 3; i++){
+        print("Name ", i, ": ");
+        println(names[i]);
+    }
+    
+    // 4. 2次元配列の定義と使用
+    println("4. 2D Array:");
+    int[3][4] matrix;
+    
+    // 2次元配列に値を設定
+    for(int i = 0; i < 3; i++){
+        for(int j = 0; j < 4; j++){
+            matrix[i][j] = i * 4 + j + 1;
+        }
+    }
+    
+    // 2次元配列の表示
+    println("Matrix:");
+    for(int i = 0; i < 3; i++){
+        for(int j = 0; j < 4; j++){
+            print(matrix[i][j], " ");
+        }
+        println("");
+    }
+    
+    // 5. 動的サイズ配列
+    println("5. Dynamic Size Array:");
+    int size = 4;
+    int[size] dynamic = [100, 200, 300, 400];
+    print("Dynamic array: ");
+    for(int i = 0; i < size; i++){
+        print(dynamic[i], " ");
+    }
+    println("");
+    
+    // 6. 2次元配列のリテラル初期化
+    println("6. 2D Array Literal Initialization:");
+    int[2][3] matrix2d = [[1, 2, 3], [4, 5, 6]];
+    println("2D Matrix with literal initialization:");
+    for(int i = 0; i < 2; i++){
+        for(int j = 0; j < 3; j++){
+            print(matrix2d[i][j], " ");
+        }
+        println("");
+    }
+    
+    // 7. 文字列の2次元配列リテラル初期化
+    println("7. 2D String Array Literal:");
+    // TODO: 文字列配列アクセスの実装が必要
+    // string[2][2] words = [["Hello", "World"], ["Good", "Day"]];
+    // for(int i = 0; i < 2; i++){
+    //     for(int j = 0; j < 2; j++){
+    //         println("words[", i, "][", j, "] =", words[i][j]);
+    //     }
+    // }
+    println("(String array access - TODO)");
+    
+    // 8. 3次元配列の検証
+    println("8. 3D Array (Multi-dimensional):");
+    int[2][3][2] cube;
+    
+    // 3次元配列に値を設定
+    int value = 1;
+    for(int i = 0; i < 2; i++){
+        for(int j = 0; j < 3; j++){
+            for(int k = 0; k < 2; k++){
+                cube[i][j][k] = value;
+                ++value;
+            }
+        }
+    }
+    
+    // 3次元配列の表示
+    println("3D Cube [2][3][2]:");
+    for(int i = 0; i < 2; i++){
+        print("Layer ", i, ":");
+        println("");
+        for(int j = 0; j < 3; j++){
+            print("  Row ", j, ": ");
+            for(int k = 0; k < 2; k++){
+                print(cube[i][j][k], " ");
+            }
+            println("");
+        }
+    }
+    
+    // 9. 配列のアクセスパターンテスト
+    println("9. Array Access Patterns:");
+    
+    // 中間要素のアクセス
+    println("Matrix center element matrix[1][2] =", matrix[1][2]);
+    println("2D literal matrix element matrix2d[1][1] =", matrix2d[1][1]);
+    println("Cube corner element cube[1][2][1] =", cube[1][2][1]);
+    
+    // 境界要素のアクセス
+    println("Matrix boundary matrix[0][0] =", matrix[0][0]);
+    println("Matrix boundary matrix[2][3] =", matrix[2][3]);
+    println("2D literal boundary matrix2d[0][0] =", matrix2d[0][0]);
+    
+    // 10. 文字列配列の文字アクセス
+    println("10. String Array Character Access:");
+    print("First character of names[0]: ");
+    println(names[0][0]);
+    print("Second character of names[1]: ");
+    println(names[1][1]);
+    // words配列はコメントアウトされているため、アクセスも無効化
+    // print("First character of words[0][0]: ");
+    // println(words[0][0][0]);
+    
+    return 0;
 }

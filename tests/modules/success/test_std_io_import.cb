@@ -1,0 +1,11 @@
+// std/ioモジュールインポートテスト
+import std/io;
+
+int main() {
+    // std/ioモジュールの関数を使用
+    println("Testing std/io module");
+    print_number(42);
+    print_string("Hello World");
+    
+    return 0;
+}

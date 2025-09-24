@@ -1,0 +1,5 @@
+// Printf エラーケーステスト
+int main() {
+    tiny small = 200;  // エラー: tiny型は127まで
+    return 0;
+}

@@ -1,0 +1,11 @@
+// 静的配列の型安全性エラーテスト - サイズミスマッチ
+
+int main() {
+    println("Testing array type safety errors:");
+    
+    // エラー: 静的配列のサイズミスマッチ
+    int[2] staticArray = [1, 2, 3];  // ERROR: 2要素の配列に3要素を代入
+    println("This should not be reached");
+    
+    return 0;
+}

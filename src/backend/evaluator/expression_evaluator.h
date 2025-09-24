@@ -16,6 +16,12 @@ public:
     // 式評価の主要メソッド
     int64_t evaluate_expression(const ASTNode *node);
     
+    // 修飾された関数呼び出し評価
+    int64_t evaluate_qualified_function_call(const ASTNode *node);
+    
+    // 修飾された変数参照評価
+    int64_t evaluate_qualified_variable_ref(const ASTNode *node);
+    
 private:
     Interpreter& interpreter_;  // インタープリターへの参照
 };

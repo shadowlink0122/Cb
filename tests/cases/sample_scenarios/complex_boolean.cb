@@ -1,0 +1,51 @@
+// Complex boolean expressions and control flow
+int main() {
+    println("=== Boolean Expression Tests ===");
+    
+    // Test complex boolean expressions
+    bool a = true;
+    bool b = false;
+    
+    // Pre-calculate complex expressions for printf
+    bool complex_result1 = (a && !b) || (b && !a);
+    bool complex_result2 = !(a && b) && (a || b);
+    
+    println("Complex AND/OR: %d", complex_result1);
+    println("Nested conditions: %d", complex_result2);
+    
+    // Test with numeric comparisons
+    int x = 10;
+    int y = 20;
+    
+    // Pre-calculate comparison results
+    bool cond1 = (x < y) && (y > 15);
+    bool cond2_left = (x + y == 30);
+    bool cond2_right = (x * 2 == y);
+    bool cond2 = cond2_left || cond2_right;
+    
+    if (cond1) {
+        println("Condition 1 passed");
+    }
+    
+    if (cond2) {
+        println("Condition 2 passed");
+    }
+    
+    // Test with loops and conditions
+    for (int i = 1; i <= 5; i = i + 1) {
+        // Pre-calculate complex conditions
+        int remainder = i % 2;
+        bool is_even = (remainder == 0);
+        bool is_odd = (remainder == 1);
+        bool even_and_gt2 = is_even && (i > 2);
+        bool odd_and_lt4 = is_odd && (i < 4);
+        
+        if (even_and_gt2) {
+            println("Even number > 2: %d", i);
+        } else if (odd_and_lt4) {
+            println("Odd number < 4: %d", i);
+        }
+    }
+    
+    return 0;
+}

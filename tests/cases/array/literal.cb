@@ -1,10 +1,10 @@
 int main() {
-    int a[3];
+    int[3] a;
     a[0] = 5; a[1] = 6; a[2] = 7;
     print(a[0]); // 5
     print(a[1]); // 6
     print(a[2]); // 7
-    int b[2];
+    int[2] b;
     b[0] = 10; b[1] = 20;
     print(b[0]); // 10
     print(b[1]); // 20

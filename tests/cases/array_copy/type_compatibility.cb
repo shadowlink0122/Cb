@@ -1,0 +1,25 @@
+// 配列型互換性テスト
+int main() {
+    // 同一型配列の互換性
+    int[3] src = [10, 20, 30];
+    int[3] dest;
+    
+    // 手動コピー
+    dest[0] = src[0];
+    dest[1] = src[1];
+    dest[2] = src[2];
+    
+    for (int i = 0; i < 3; i = i + 1) {
+        print(dest[i]);
+    }
+    
+    // 異なるサイズでも要素ごとなら可能
+    int[2] small_dest;
+    small_dest[0] = src[0];
+    small_dest[1] = src[1];
+    
+    print(small_dest[0]);
+    print(small_dest[1]);
+    
+    return 0;
+}

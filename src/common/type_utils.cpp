@@ -13,6 +13,8 @@ const char *type_info_to_string(TypeInfo type) {
         return "int";
     case TYPE_LONG:
         return "long";
+    case TYPE_CHAR:
+        return "char";
     case TYPE_STRING:
         return "string";
     case TYPE_BOOL:
@@ -30,6 +32,8 @@ const char *type_info_to_string(TypeInfo type) {
                 return "int[]";
             case TYPE_LONG:
                 return "long[]";
+            case TYPE_CHAR:
+                return "char[]";
             case TYPE_STRING:
                 return "string[]";
             case TYPE_BOOL:

@@ -1,0 +1,18 @@
+// 2次元配列戻り値テスト
+int[2][3] create_2d_array() {
+    int[2][3] result = [[1, 2, 3], [4, 5, 6]];
+    return result;
+}
+
+int main() {
+    int[2][3] arr = create_2d_array();
+    
+    println("2D array:");
+    for (int i = 0; i < 2; i = i + 1) {
+        for (int j = 0; j < 3; j = j + 1) {
+            println(arr[i][j]);
+        }
+    }
+    
+    return 0;
+}

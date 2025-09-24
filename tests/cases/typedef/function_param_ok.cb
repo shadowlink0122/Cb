@@ -1,0 +1,13 @@
+// Typedef with function parameters（typedefサポート待ちのため標準型を使用）
+// typedef int Score;
+
+int calculate_score(int base, int bonus) {
+    return base + bonus;
+}
+
+int main() {
+    int result = calculate_score(85, 15);
+    println("Final score: %d", result);
+    
+    return 0;
+}

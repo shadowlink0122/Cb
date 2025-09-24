@@ -1,0 +1,16 @@
+// 基本的な配列戻り値テスト
+int[3] create_simple_array() {
+    int[3] result = [100, 200, 300];
+    return result;
+}
+
+int main() {
+    int[3] arr = create_simple_array();
+    
+    // 期待される出力: 100, 200, 300
+    for (int i = 0; i < 3; i = i + 1) {
+        println(arr[i]);
+    }
+    
+    return 0;
+}

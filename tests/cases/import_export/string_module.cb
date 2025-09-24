@@ -1,0 +1,12 @@
+// string utility モジュール
+export int string_length(string str) {
+    // 文字列長の簡易実装
+    int len = 0;
+    // ここで実際の文字列長計算を行う
+    return len;
+}
+
+export string concat_strings(string a, string b) {
+    // 文字列連結の簡易実装
+    return a + b;  // 仮実装
+}

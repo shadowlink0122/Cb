@@ -1,0 +1,24 @@
+{
+  "language": "Cb",
+  "version": "0.1.0",
+  "description": "Cb programming language configuration",
+  "features": {
+    "char_type": true,
+    "printf_formatting": true,
+    "array_literals": true,
+    "const_support": true,
+    "debug_messages": true,
+    "multilingual_errors": true
+  },
+  "compiler": {
+    "debug_mode": false,
+    "error_handling": "immediate",
+    "memory_management": "raii"
+  },
+  "stdlib": {
+    "stdio": true,
+    "math": false,
+    "string": false,
+    "io": false
+  }
+}

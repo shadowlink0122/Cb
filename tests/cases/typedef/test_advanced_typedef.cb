@@ -1,0 +1,31 @@
+// typedef複雑なテスト（typedefサポート待ちのため標準型を使用）
+// typedef int Counter;
+// typedef string Name;
+
+void process_data(int count, string identifier) {
+    println("Processing: %s with count: %d", identifier, count);
+}
+
+int main() {
+    println("=== Advanced Typedef Test (using standard types) ===");
+    
+    int items = 10;
+    string category = "Electronics";
+    
+    process_data(items, category);
+    
+    // 型エイリアスでの演算
+    int total = items * 2;
+    println("Total after doubling: %d", total);
+    
+    // 型エイリアスでの条件分岐
+    if (total > 15) {
+        println("High quantity detected");
+    } else {
+        println("Low quantity");
+    }
+    
+    println("");
+    println("Advanced typedef test completed!");
+    return 0;
+}

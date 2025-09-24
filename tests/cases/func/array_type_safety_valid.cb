@@ -1,0 +1,31 @@
+// 静的配列の型安全性テスト（有効なケース）
+
+int main() {
+    println("Testing array type safety:");
+    
+    // 1. 正常な静的配列（サイズが一致）
+    int[3] staticArray1 = [100, 200, 300];  // OK: サイズが一致
+    println("Static array with matching size: OK");
+    
+    // 配列の内容を出力
+    println(staticArray1[0]);
+    println(staticArray1[1]);
+    println(staticArray1[2]);
+    
+    // 2. 関数戻り値での正常な静的配列
+    int[3] staticArray2 = createThreeElements();  // OK: サイズが一致
+    println("Function return array assignment: OK");
+    
+    // 3. 静的文字列配列
+    string[2] staticStringArray = ["valid", "array"];  // OK: サイズが一致
+    println("Static string array assignment: OK");
+    
+    println("All valid array operations completed successfully");
+    
+    return 0;
+}
+
+// 3要素の整数配列を返す関数
+int[3] createThreeElements() {
+    return [10, 20, 30];
+}

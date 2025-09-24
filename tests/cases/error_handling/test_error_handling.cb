@@ -1,0 +1,34 @@
+// エラーハンドリングの基本テスト
+import stdio;
+
+int main() {
+    println("=== Error Handling Test ===");
+    
+    // 基本的なtry-catch文のテスト
+    try {
+        println("In try block");
+        int x = 10;
+        int y = 0;
+        // ゼロ除算エラーを意図的に発生させる
+        int result = x / y;
+        println("This should not be reached");
+    }
+    catch (RuntimeError e) {
+        println("Caught runtime error!");
+    }
+    
+    println("After try-catch block");
+    
+    // throw文のテスト
+    try {
+        println("Before throwing error");
+        throw "Custom error message";
+        println("This should not be reached");
+    }
+    catch (RuntimeError e) {
+        println("Caught thrown error!");
+    }
+    
+    println("Error handling test completed!");
+    return 0;
+}

@@ -1,0 +1,24 @@
+// while文でのcontinue文テスト
+int main() {
+    println("=== While Loop Continue Test ===");
+    
+    int i = 0;
+    while (i < 5) {
+        i = i + 1;
+        
+        if (i == 2) {
+            println("Skipping i = 2 with continue");
+            continue;
+        }
+        
+        if (i == 4) {
+            println("Processing i = 4, then breaking");
+            break;
+        }
+        
+        println("Processing i: " + i);
+    }
+    
+    println("While loop continue test completed");
+    return 0;
+}

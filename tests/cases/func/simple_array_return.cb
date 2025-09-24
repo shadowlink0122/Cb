@@ -1,0 +1,21 @@
+// 配列戻り値の基本テスト
+
+int main() {
+    
+    // まず基本的な配列戻り値をテスト
+    int[] createSimpleArray() {
+        return [1, 2, 3];
+    }
+    
+    print("Testing simple array return");
+    
+    // 直接配列リテラルのテスト
+    int[] arr = [10, 20, 30];
+    print("Direct array literal assignment completed");
+    
+    // 関数呼び出しによる配列代入
+    int[] myArray = createSimpleArray();
+    print("Function array return assignment completed");
+    
+    return 0;
+}

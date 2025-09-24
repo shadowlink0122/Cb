@@ -1,15 +1,18 @@
 #include "output_manager.h"
 #include "../interpreter.h"
-#include "../../frontend/debug.h"
+#include "../../common/debug.h"
+#include "../../common/debug_messages.h"
 #include "../../common/utf8_utils.h"
+#include "../../common/io_interface.h"
 #include <cinttypes>
 #include <cstdio>
 #include <cctype>
+#include <iostream>
 #include <sstream>
 #include <stdexcept>
 
 OutputManager::OutputManager(Interpreter* interpreter) 
-    : interpreter_(interpreter) {}
+    : interpreter_(interpreter), io_interface_(IOFactory::get_instance()) {}
 
 Variable* OutputManager::find_variable(const std::string& name) {
     return interpreter_->get_variable(name);
@@ -25,23 +28,77 @@ const ASTNode* OutputManager::find_function(const std::string& name) {
 
 void OutputManager::print_value(const ASTNode *expr) {
     if (!expr) {
-        printf("(null)");
+        io_interface_->write_string("(null)");
         return;
     }
 
     if (expr->node_type == ASTNodeType::AST_STRING_LITERAL) {
-        printf("%s", expr->str_value.c_str());
+        io_interface_->write_string(expr->str_value.c_str());
     } else if (expr->node_type == ASTNodeType::AST_VARIABLE) {
         Variable *var = find_variable(expr->name);
         if (var && var->type == TYPE_STRING) {
-            printf("%s", var->str_value.c_str());
+            io_interface_->write_string(var->str_value.c_str());
         } else {
             int64_t value = evaluate_expression(expr);
-            printf("%" PRId64, value);
+            io_interface_->write_number(value);
         }
     } else if (expr->node_type == ASTNodeType::AST_ARRAY_REF) {
-        // 配列アクセスの特別処理
-        Variable *var = find_variable(expr->name);
+        // 配列アクセスの特別処理（新旧構造対応）
+        std::string var_name;
+        
+        // 新構造（expr->left）と旧構造（expr->name）の両方に対応
+        if (expr->left && expr->left->node_type == ASTNodeType::AST_VARIABLE) {
+            // 新しい構造: expr->left が変数
+            var_name = expr->left->name;
+        } else if (!expr->name.empty()) {
+            // 旧構造: expr->name が直接変数名を持つ
+            var_name = expr->name;
+        } else if (expr->left) {
+            // 複雑な左側の式（多次元配列アクセスなど）
+            // 多次元配列の文字列アクセスかチェック
+            if (expr->left->node_type == ASTNodeType::AST_ARRAY_REF) {
+                ASTNode* base_node = expr->left.get();
+                while (base_node && base_node->node_type == ASTNodeType::AST_ARRAY_REF && base_node->left) {
+                    base_node = base_node->left.get();
+                }
+                
+                if (base_node && base_node->node_type == ASTNodeType::AST_VARIABLE) {
+                    Variable* var = find_variable(base_node->name);
+                    if (var && var->is_multidimensional && var->array_type_info.base_type == TYPE_STRING) {
+                        // 多次元文字列配列の場合は専用処理
+                        std::vector<int64_t> indices;
+                        
+                        // 最外側のインデックス（current expression）
+                        int64_t outer_index = evaluate_expression(expr->array_index.get());
+                        
+                        // 内側のインデックス（left expression）
+                        int64_t inner_index = evaluate_expression(expr->left->array_index.get());
+                        
+                        indices.push_back(inner_index);
+                        indices.push_back(outer_index);
+                        
+                        try {
+                            std::string result = interpreter_->getMultidimensionalStringArrayElement(*var, indices);
+                            io_interface_->write_string(result.c_str());
+                            return;
+                        } catch (const std::exception& e) {
+                            io_interface_->write_string("(string array access error)");
+                            return;
+                        }
+                    }
+                }
+            }
+            
+            // 通常の数値型多次元配列アクセス
+            int64_t value = evaluate_expression(expr);
+            io_interface_->write_number(value);
+            return;
+        } else {
+            io_interface_->write_string("(invalid array ref)");
+            return;
+        }
+        
+        Variable *var = find_variable(var_name);
         if (var && var->type == TYPE_STRING) {
             // 文字列要素アクセスの場合は文字として出力（UTF-8対応）
             int64_t index = evaluate_expression(expr->array_index.get());
@@ -50,10 +107,10 @@ void OutputManager::print_value(const ASTNode *expr) {
             if (index >= 0 && index < static_cast<int64_t>(utf8_length)) {
                 std::string utf8_char =
                     utf8_utils::utf8_char_at(var->str_value, static_cast<size_t>(index));
-                printf("%s", utf8_char.c_str());
+                io_interface_->write_string(utf8_char.c_str());
             } else {
                 error_msg(DebugMsgId::STRING_OUT_OF_BOUNDS_ERROR,
-                          expr->name.c_str(), index, utf8_length);
+                          var_name.c_str(), index, utf8_length);
                 throw std::runtime_error("String out of bounds");
             }
         } else if (var && var->is_array) {
@@ -62,29 +119,29 @@ void OutputManager::print_value(const ASTNode *expr) {
 
             if (index < 0 || index >= var->array_size) {
                 error_msg(DebugMsgId::ARRAY_OUT_OF_BOUNDS_ERROR,
-                          expr->name.c_str());
-                throw std::runtime_error("Array out of bounds");
-            }
+                          var_name.c_str());
+                    throw std::runtime_error("Array out of bounds");
+                }
 
-            TypeInfo elem_type =
-                static_cast<TypeInfo>(var->type - TYPE_ARRAY_BASE);
-            if (elem_type == TYPE_STRING) {
-                // 文字列配列の場合は文字列として出力
-                if (index < static_cast<int64_t>(var->array_strings.size())) {
-                    printf("%s", var->array_strings[index].c_str());
+                TypeInfo elem_type =
+                    static_cast<TypeInfo>(var->type - TYPE_ARRAY_BASE);
+                if (elem_type == TYPE_STRING) {
+                    // 文字列配列の場合は文字列として出力
+                    if (index < static_cast<int64_t>(var->array_strings.size())) {
+                        io_interface_->write_string(var->array_strings[index].c_str());
+                    } else {
+                        io_interface_->write_string("");
+                    }
                 } else {
-                    printf("");
+                    // 数値配列は数値として出力
+                    int64_t value = var->array_values[index];
+                    io_interface_->write_number(value);
                 }
             } else {
-                // 数値配列は数値として出力
-                int64_t value = var->array_values[index];
-                printf("%" PRId64, value);
+                // 通常の配列アクセスは数値として出力
+                int64_t value = evaluate_expression(expr);
+                io_interface_->write_number(value);
             }
-        } else {
-            // 通常の配列アクセスは数値として出力
-            int64_t value = evaluate_expression(expr);
-            printf("%" PRId64, value);
-        }
     } else if (expr->node_type == ASTNodeType::AST_FUNC_CALL) {
         // 関数呼び出しの特別処理
         const ASTNode *func = find_function(expr->name);
@@ -100,53 +157,57 @@ void OutputManager::print_value(const ASTNode *expr) {
                 param.type = func->parameters[i]->type_info;
                 param.value = arg_value;
                 param.is_assigned = true;
-                interpreter_->get_current_scope().variables[func->parameters[i]->name] = param;
+                interpreter_->get_current_scope().variables.insert_or_assign(func->parameters[i]->name, std::move(param));
             }
 
             try {
                 interpreter_->exec_statement(func->body.get());
                 interpreter_->pop_interpreter_scope();
-                printf(""); // void関数（空文字列）
+                // void関数（空文字列）
             } catch (const ReturnException &e) {
                 interpreter_->pop_interpreter_scope();
                 if (e.type == TYPE_STRING) {
-                    printf("%s", e.str_value.c_str());
+                    io_interface_->write_string(e.str_value.c_str());
                 } else {
-                    printf("%" PRId64, e.value);
+                    io_interface_->write_number(e.value);
                 }
             }
         } else {
             // 通常の関数（数値を返す）
             int64_t value = evaluate_expression(expr);
-            printf("%" PRId64, value);
+            io_interface_->write_number(value);
         }
     } else {
         int64_t value = evaluate_expression(expr);
-        printf("%" PRId64, value);
+        io_interface_->write_number(value);
     }
 }
 
 void OutputManager::print_value_with_newline(const ASTNode *expr) {
     print_value(expr);
-    printf("\n");
+    io_interface_->write_newline();
+}
+
+void OutputManager::print_newline() {
+    io_interface_->write_newline();
 }
 
 void OutputManager::print_multiple_with_newline(const ASTNode *arg_list) {
     print_multiple(arg_list);
-    printf("\n");
+    io_interface_->write_newline();
 }
 
 void OutputManager::print_formatted_with_newline(const ASTNode *format_str,
                                                const ASTNode *arg_list) {
     print_formatted(format_str, arg_list);
-    printf("\n");
+    io_interface_->write_newline();
 }
 
 void OutputManager::print_formatted(const ASTNode *format_str,
                                   const ASTNode *arg_list) {
     if (!format_str ||
         format_str->node_type != ASTNodeType::AST_STRING_LITERAL) {
-        printf("(invalid format)");
+        io_interface_->write_string("(invalid format)");
         return;
     }
 
@@ -155,6 +216,8 @@ void OutputManager::print_formatted(const ASTNode *format_str,
 
     std::vector<int64_t> int_args;
     std::vector<std::string> str_args;
+    
+
 
     // 引数リストを評価
     if (arg_list && arg_list->node_type == ASTNodeType::AST_STMT_LIST) {
@@ -180,11 +243,17 @@ void OutputManager::print_formatted(const ASTNode *format_str,
         }
     }
 
+
+
     // フォーマット文字列を処理
     std::string result;
     size_t arg_index = 0;
     for (size_t i = 0; i < format.length(); i++) {
-        if (format[i] == '%' && i + 1 < format.length()) {
+        if (format[i] == '\\' && i + 1 < format.length() && format[i + 1] == '%') {
+            // \% エスケープの処理
+            result += '%';
+            i++; // 次の文字をスキップ
+        } else if (format[i] == '%' && i + 1 < format.length()) {
             // フォーマット指定子をパース
             size_t spec_start = i + 1;
             size_t spec_end = spec_start;
@@ -222,7 +291,19 @@ void OutputManager::print_formatted(const ASTNode *format_str,
                 switch (specifier) {
                 case 'd':
                 case 'i': {
-                    std::string num_str = std::to_string(int_args[arg_index]);
+                    int64_t value;
+                    // 文字列が渡された場合の型変換
+                    if (arg_index < str_args.size() && !str_args[arg_index].empty()) {
+                        try {
+                            value = std::stoll(str_args[arg_index]);
+                        } catch (const std::exception&) {
+                            value = 0; // 変換できない場合は0
+                        }
+                    } else {
+                        value = int_args[arg_index];
+                    }
+                    
+                    std::string num_str = std::to_string(value);
                     if (width > 0 && zero_pad &&
                         num_str.length() < static_cast<size_t>(width)) {
                         // ゼロパディング（負の数の場合は符号を最初に出力）
@@ -257,28 +338,51 @@ void OutputManager::print_formatted(const ASTNode *format_str,
                     if (spec_end + 2 < format.length() &&
                         format[spec_end + 1] == 'l' &&
                         format[spec_end + 2] == 'd') {
-                        result += std::to_string(int_args[arg_index]);
+                        int64_t value;
+                        // 文字列が渡された場合の型変換
+                        if (arg_index < str_args.size() && !str_args[arg_index].empty()) {
+                            try {
+                                value = std::stoll(str_args[arg_index]);
+                            } catch (const std::exception&) {
+                                value = 0; // 変換できない場合は0
+                            }
+                        } else {
+                            value = int_args[arg_index];
+                        }
+                        result += std::to_string(value);
                         spec_end += 2; // 追加の 'll' をスキップ
                     } else {
-                        result += std::to_string(int_args[arg_index]);
+                        int64_t value;
+                        // 文字列が渡された場合の型変換
+                        if (arg_index < str_args.size() && !str_args[arg_index].empty()) {
+                            try {
+                                value = std::stoll(str_args[arg_index]);
+                            } catch (const std::exception&) {
+                                value = 0; // 変換できない場合は0
+                            }
+                        } else {
+                            value = int_args[arg_index];
+                        }
+                        result += std::to_string(value);
                     }
                     break;
                 case 's':
-                    if (arg_index < str_args.size() &&
-                        !str_args[arg_index].empty()) {
+                    if (arg_index < str_args.size() && !str_args[arg_index].empty()) {
+                        // 文字列が渡された場合
                         result += str_args[arg_index];
                     } else {
+                        // 数値が渡された場合は文字列に変換
                         result += std::to_string(int_args[arg_index]);
                     }
                     break;
                 case 'c':
-                    if (arg_index < str_args.size() &&
-                        !str_args[arg_index].empty()) {
-                        // 文字列の最初の文字を使用
+                    if (arg_index < str_args.size() && !str_args[arg_index].empty()) {
+                        // 文字列が渡された場合、最初の文字を使用
                         result += str_args[arg_index][0];
                     } else {
-                        // 整数値を文字として使用
-                        result += static_cast<char>(int_args[arg_index]);
+                        // 数値が渡された場合、ASCII文字として変換
+                        char ch = static_cast<char>(int_args[arg_index]);
+                        result += ch;
                     }
                     break;
                 default:
@@ -289,7 +393,10 @@ void OutputManager::print_formatted(const ASTNode *format_str,
                 arg_index++;
                 i = spec_end; // specifierの位置に移動
             } else {
-                result += format[i];
+                // 引数が不足している場合、フォーマット指定子をそのまま出力
+                result += '%';
+                result += specifier;
+                i = spec_end; // specifierの位置に移動
             }
         } else {
             result += format[i];
@@ -309,172 +416,464 @@ void OutputManager::print_formatted(const ASTNode *format_str,
     }
 
     // 最終結果にもエスケープシーケンスを適用
-    std::string final_result;
-    for (size_t i = 0; i < result.length(); i++) {
-        if (result[i] == '\\' && i + 1 < result.length()) {
-            switch (result[i + 1]) {
-            case 'n':
-                final_result += '\n';
-                i++;
-                break;
-            case 't':
-                final_result += '\t';
-                i++;
-                break;
-            case 'r':
-                final_result += '\r';
-                i++;
-                break;
-            case '\\':
-                final_result += '\\';
-                i++;
-                break;
-            case '"':
-                final_result += '"';
-                i++;
-                break;
-            default:
-                final_result += result[i];
-                break;
-            }
-        } else {
-            final_result += result[i];
-        }
-    }
+    std::string final_result = process_escape_sequences(result);
 
-    printf("%s", final_result.c_str());
+    io_interface_->write_string(final_result.c_str());
 }
 
-void OutputManager::print_multiple(const ASTNode *arg_list) {
-    if (!arg_list || arg_list->node_type != ASTNodeType::AST_STMT_LIST) {
+// オフセット付きprint_formatted（指定されたインデックスから引数を開始する）
+void OutputManager::print_formatted(const ASTNode *format_str, const ASTNode *arg_list, size_t start_index) {
+    debug_msg(DebugMsgId::PRINTF_OFFSET_CALLED, start_index);
+    
+    if (!format_str || format_str->node_type != ASTNodeType::AST_STRING_LITERAL) {
+        io_interface_->write_string("(invalid format)");
         return;
     }
 
-    // 文字列リテラルにフォーマット指定子があるかチェック
-    for (size_t i = 0; i < arg_list->arguments.size(); i++) {
-        const auto &arg = arg_list->arguments[i];
-        if (arg->node_type == ASTNodeType::AST_STRING_LITERAL) {
-            std::string str_val = arg->str_value;
-            if (str_val.find('%') != std::string::npos) {
-                // フォーマット指定子が見つかった場合、printf形式として処理
+    std::string format = format_str->str_value;
+    
+    std::vector<int64_t> int_args;
+    std::vector<std::string> str_args;
 
-                // 前の引数をまず処理
-                std::vector<std::string> before_outputs;
-                for (size_t j = 0; j < i; j++) {
-                    const auto &before_arg = arg_list->arguments[j];
-                    std::string output;
+    // 引数リストをstart_indexから評価
+    if (arg_list && (arg_list->node_type == ASTNodeType::AST_STMT_LIST || 
+                     arg_list->node_type == ASTNodeType::AST_PRINTLN_STMT ||
+                     arg_list->node_type == ASTNodeType::AST_PRINT_STMT)) {
+        debug_msg(DebugMsgId::PRINTF_ARG_LIST_INFO, arg_list->arguments.size(), start_index);
+        
+        for (size_t i = start_index; i < arg_list->arguments.size(); i++) {
+            const auto &arg = arg_list->arguments[i];
+            
+            debug_msg(DebugMsgId::PRINTF_ARG_PROCESSING, i, static_cast<int>(arg->node_type));
+            
+            if (arg->node_type == ASTNodeType::AST_ARRAY_REF) {
+                debug_msg(DebugMsgId::PRINTF_ARRAY_REF_DEBUG, 
+                         arg->left.get(), arg->array_index.get());
+            }
+            
+            if (arg->node_type == ASTNodeType::AST_STRING_LITERAL) {
+                str_args.push_back(arg->str_value);
+                int_args.push_back(0); // プレースホルダー
+            } else if (arg->node_type == ASTNodeType::AST_VARIABLE) {
+                Variable *var = find_variable(arg->name);
+                if (var) {
+                    if (var->type == TYPE_STRING) {
+                        str_args.push_back(var->str_value);
+                        int_args.push_back(0); // プレースホルダー
+                    } else {
+                        int64_t value = evaluate_expression(arg.get());
+                        int_args.push_back(value);
+                        str_args.push_back(""); // プレースホルダー
+                    }
+                } else {
+                    int64_t value = evaluate_expression(arg.get());
+                    int_args.push_back(value);
+                    str_args.push_back(""); // プレースホルダー
+                }
+            } else {
+                int64_t value = evaluate_expression(arg.get());
+                int_args.push_back(value);
+                str_args.push_back(""); // プレースホルダー
+            }
+        }
+    }
 
-                    if (before_arg->node_type ==
-                        ASTNodeType::AST_STRING_LITERAL) {
-                        output = before_arg->str_value;
-                    } else if (before_arg->node_type ==
-                               ASTNodeType::AST_VARIABLE) {
-                        Variable *var = find_variable(before_arg->name);
-                        if (var && var->type == TYPE_STRING) {
-                            output = var->str_value;
-                        } else {
-                            int64_t value =
-                                evaluate_expression(before_arg.get());
-                            output = std::to_string(value);
+
+
+    // フォーマット文字列を処理（既存のロジックを再利用）
+    std::string result;
+    size_t arg_index = 0;
+    for (size_t i = 0; i < format.length(); i++) {
+        if (format[i] == '%' && i + 1 < format.length()) {
+            if (format[i + 1] == '%') {
+                result += '%';
+                i++; // '%%' をスキップ
+                continue;
+            }
+
+            if (arg_index >= int_args.size() && arg_index >= str_args.size()) {
+                result += format[i];
+                continue;
+            }
+
+            // フォーマット指定子を探す
+            size_t spec_start = i + 1;
+            size_t spec_end = spec_start;
+
+            // 幅指定を探す
+            int width = 0;
+            bool zero_pad = false;
+            if (spec_end < format.length() && format[spec_end] == '0') {
+                zero_pad = true;
+                spec_end++;
+            }
+
+            while (spec_end < format.length() && isdigit(format[spec_end])) {
+                width = width * 10 + (format[spec_end] - '0');
+                spec_end++;
+            }
+
+            if (spec_end < format.length()) {
+                switch (format[spec_end]) {
+                case 'd': {
+                    int64_t value;
+                    if (arg_index < str_args.size() && !str_args[arg_index].empty()) {
+                        try {
+                            value = std::stoll(str_args[arg_index]);
+                        } catch (const std::exception&) {
+                            value = 0;
                         }
                     } else {
-                        int64_t value = evaluate_expression(before_arg.get());
-                        output = std::to_string(value);
+                        value = int_args[arg_index];
                     }
-                    before_outputs.push_back(output);
-                }
+                    std::string num_str = std::to_string(value);
 
-                // 前の引数を出力
-                for (size_t k = 0; k < before_outputs.size(); k++) {
-                    if (k > 0)
-                        printf(" ");
-                    printf("%s", before_outputs[k].c_str());
+                    if (zero_pad && width > 0 && num_str.length() < static_cast<size_t>(width)) {
+                        std::string padding(static_cast<size_t>(width) - num_str.length(), '0');
+                        result += padding + num_str;
+                    } else if (width > 0 && num_str.length() < static_cast<size_t>(width)) {
+                        std::string padding(static_cast<size_t>(width) - num_str.length(), ' ');
+                        result += padding + num_str;
+                    } else {
+                        result += num_str;
+                    }
+                    break;
                 }
-                if (!before_outputs.empty())
-                    printf(" ");
-
-                // 残りの引数でprintf形式処理
-                auto remaining_args =
-                    std::make_unique<ASTNode>(ASTNodeType::AST_STMT_LIST);
-                for (size_t j = i + 1; j < arg_list->arguments.size(); j++) {
-                    // 新しいノードを作成してコピー
-                    auto new_node = std::make_unique<ASTNode>(
-                        arg_list->arguments[j]->node_type);
-                    new_node->name = arg_list->arguments[j]->name;
-                    new_node->str_value = arg_list->arguments[j]->str_value;
-                    new_node->int_value = arg_list->arguments[j]->int_value;
-                    remaining_args->arguments.push_back(std::move(new_node));
+                case 's':
+                    if (arg_index < str_args.size() && !str_args[arg_index].empty()) {
+                        result += str_args[arg_index];
+                    } else if (arg_index < int_args.size()) {
+                        result += std::to_string(int_args[arg_index]);
+                    }
+                    break;
+                case 'c':
+                    if (arg_index < str_args.size() && !str_args[arg_index].empty()) {
+                        // 文字列が渡された場合、最初の文字を使用
+                        result += str_args[arg_index][0];
+                    } else if (arg_index < int_args.size()) {
+                        // 数値が渡された場合、ASCII文字として変換
+                        char ch = static_cast<char>(int_args[arg_index]);
+                        result += ch;
+                    }
+                    break;
+                case 'l':
+                    // %lld の処理
+                    if (spec_end + 2 < format.length() &&
+                        format[spec_end + 1] == 'l' &&
+                        format[spec_end + 2] == 'd') {
+                        int64_t value;
+                        // 文字列が渡された場合の型変換
+                        if (arg_index < str_args.size() && !str_args[arg_index].empty()) {
+                            try {
+                                value = std::stoll(str_args[arg_index]);
+                            } catch (const std::exception&) {
+                                value = 0; // 変換できない場合は0
+                            }
+                        } else if (arg_index < int_args.size()) {
+                            value = int_args[arg_index];
+                        } else {
+                            value = 0;
+                        }
+                        result += std::to_string(value);
+                        spec_end += 2; // 追加の 'll' をスキップ
+                    } else {
+                        int64_t value;
+                        // 文字列が渡された場合の型変換
+                        if (arg_index < str_args.size() && !str_args[arg_index].empty()) {
+                            try {
+                                value = std::stoll(str_args[arg_index]);
+                            } catch (const std::exception&) {
+                                value = 0; // 変換できない場合は0
+                            }
+                        } else if (arg_index < int_args.size()) {
+                            value = int_args[arg_index];
+                        } else {
+                            value = 0;
+                        }
+                        result += std::to_string(value);
+                    }
+                    break;
+                default:
+                    result += format[i];
+                    continue;
                 }
+                arg_index++;
+                i = spec_end;
+            } else {
+                result += format[i];
+            }
+        } else {
+            result += format[i];
+        }
+    }
 
-                print_formatted(arg.get(), remaining_args.get());
+    std::string final_result = process_escape_sequences(result);
+    io_interface_->write_string(final_result.c_str());
+}
+
+std::string OutputManager::process_escape_sequences(const std::string& input) {
+    std::string result;
+    for (size_t i = 0; i < input.length(); i++) {
+        if (input[i] == '\\' && i + 1 < input.length()) {
+            switch (input[i + 1]) {
+            case 'n':
+                result += '\n';
+                i++;
+                break;
+            case 't':
+                result += '\t';
+                i++;
+                break;
+            case 'r':
+                result += '\r';
+                i++;
+                break;
+            case '\\':
+                result += '\\';
+                i++;
+                break;
+            case '"':
+                result += '"';
+                i++;
+                break;
+            case '%':
+                result += '%';
+                i++;
+                break;
+            default:
+                result += input[i];
+                break;
+            }
+        } else {
+            result += input[i];
+        }
+    }
+    return result;
+}
+
+bool OutputManager::has_unescaped_format_specifiers(const std::string& str) {
+    debug_msg(DebugMsgId::PRINT_FORMAT_SPEC_CHECKING, str.c_str());
+    for (size_t i = 0; i < str.length(); i++) {
+        if (str[i] == '%') {
+            // \% でエスケープされているかチェック
+            if (i > 0 && str[i-1] == '\\') {
+                continue; // エスケープされている
+            }
+            // 次の文字がフォーマット指定子かチェック
+            if (i + 1 < str.length()) {
+                char next = str[i + 1];
+                if (next == 'd' || next == 's' || next == 'c' || next == '%') {
+                    if (debug_mode) {
+                        printf("[DEBUG] has_unescaped_format_specifiers: found specifier %%%c\n", next);
+                    }
+                    return true;
+                }
+                // %lld のチェック
+                if (next == 'l' && i + 3 < str.length() && str[i + 2] == 'l' && str[i + 3] == 'd') {
+                    if (debug_mode) {
+                        printf("[DEBUG] has_unescaped_format_specifiers: found specifier %%lld\n");
+                    }
+                    return true;
+                }
+            }
+        }
+    }
+    debug_msg(DebugMsgId::PRINT_NO_FORMAT_SPECIFIERS);
+    return false;
+}
+
+size_t OutputManager::count_format_specifiers(const std::string& str) {
+    size_t count = 0;
+    if (debug_mode) {
+        printf("[DEBUG] count_format_specifiers: counting in string '%s'\n", str.c_str());
+    }
+    for (size_t i = 0; i < str.length(); i++) {
+        if (str[i] == '%') {
+            // \% でエスケープされているかチェック
+            if (i > 0 && str[i-1] == '\\') {
+                continue; // エスケープされている
+            }
+            if (i + 1 < str.length()) {
+                char next = str[i + 1];
+                if (next == 'd' || next == 's' || next == 'c') {
+                    count++;
+                    if (debug_mode) {
+                        printf("[DEBUG] count_format_specifiers: found %c, count now %zu\n", next, count);
+                    }
+                } else if (next == 'l' && i + 3 < str.length() && 
+                          str[i + 2] == 'l' && str[i + 3] == 'd') {
+                    count++;
+                    if (debug_mode) {
+                        printf("[DEBUG] count_format_specifiers: found lld, count now %zu\n", count);
+                    }
+                    i += 3; // %lld をスキップ
+                } else if (next == '%') {
+                    // %% は引数を消費しないのでカウントしない
+                    if (debug_mode) {
+                        printf("[DEBUG] count_format_specifiers: found %%, not counting\n");
+                    }
+                }
+                // %% は引数を消費しないのでカウントしない
+            }
+        }
+    }
+    if (debug_mode) {
+        printf("[DEBUG] count_format_specifiers: final count %zu\n", count);
+    }
+    return count;
+}
+
+void OutputManager::print_multiple(const ASTNode *arg_list) {
+    // AST_PRINT_STMTまたはAST_PRINTLN_STMTノードの場合、引数を直接処理
+    if (arg_list && (arg_list->node_type == ASTNodeType::AST_PRINT_STMT || 
+                     arg_list->node_type == ASTNodeType::AST_PRINTLN_STMT)) {
+        if (debug_mode) {
+            debug_msg(DebugMsgId::PRINT_MULTIPLE_PROCESSING,
+                     (arg_list->node_type == ASTNodeType::AST_PRINT_STMT) ? "AST_PRINT_STMT" : "AST_PRINTLN_STMT",
+                     (int)arg_list->arguments.size());
+        }
+        
+        // 引数がない場合は何もしない
+        if (arg_list->arguments.empty()) {
+            debug_msg(DebugMsgId::PRINT_NO_ARGUMENTS_DEBUG);
+            // 改行なし
+            return;
+        }
+
+        // 引数が1つだけの場合の特別処理
+        if (arg_list->arguments.size() == 1) {
+            const auto &arg = arg_list->arguments[0];
+            if (debug_mode) {
+                debug_msg(DebugMsgId::PRINT_SINGLE_ARG_DEBUG,
+                         "AST_PRINT_STMT", (int)arg->node_type);
+            }
+            if (arg->node_type == ASTNodeType::AST_STRING_LITERAL) {
+                // フォーマット指定子が含まれていても、引数が1つだけの場合はそのまま出力
+                std::string output = process_escape_sequences(arg->str_value);
+                io_interface_->write_string(output.c_str());
+            } else {
+                print_value(arg.get());
+            }
+            // 改行なし
+            return;
+        }
+        
+        // 複数引数の場合：フォーマット文字列を探す
+        for (size_t i = 0; i < arg_list->arguments.size(); i++) {
+            const auto &arg = arg_list->arguments[i];
+            debug_msg(DebugMsgId::PRINT_CHECKING_ARGUMENT, (int)i, (int)arg->node_type);
+            if (arg->node_type == ASTNodeType::AST_STRING_LITERAL) {
+                std::string str_val = arg->str_value;
+                debug_msg(DebugMsgId::PRINT_FOUND_STRING_LITERAL, str_val.c_str());
+                // \% エスケープされていない % を探す
+                if (has_unescaped_format_specifiers(str_val)) {
+                    debug_msg(DebugMsgId::PRINT_PRINTF_FORMAT_FOUND);
+                    // フォーマット指定子が見つかった場合
+
+                    // 前の引数をスペース区切りで出力
+                    for (size_t j = 0; j < i; j++) {
+                        if (j > 0) io_interface_->write_char(' ');
+                        print_value(arg_list->arguments[j].get());
+                    }
+                    if (i > 0) io_interface_->write_char(' ');
+
+                    // printf形式の処理：元のarg_listを使用してコピーを避ける
+                    print_formatted(arg.get(), arg_list, i + 1);
+                    
+                    // 余分な引数処理は不要 - print_formattedが全ての引数を処理する
+                    // 改行なし
+                    return;
+                }
+            }
+        }
+        
+        // フォーマット指定子が見つからない場合は引数を順番に出力
+        for (size_t i = 0; i < arg_list->arguments.size(); ++i) {
+            if (i > 0) io_interface_->write_char(' '); // スペース区切りで出力
+            print_value(arg_list->arguments[i].get());
+        }
+        // 改行なし
+        return;
+    }
+    
+    if (!arg_list || arg_list->node_type != ASTNodeType::AST_STMT_LIST) {
+        if (debug_mode) {
+            printf("[DEBUG] print_multiple: Invalid arg_list or not AST_STMT_LIST (type: %d)\n", 
+                   arg_list ? (int)arg_list->node_type : -1);
+        }
+        return;
+    }
+
+    // 引数がない場合は何もしない
+    if (arg_list->arguments.empty()) {
+        if (debug_mode) {
+            printf("[DEBUG] print_multiple: No arguments\n");
+        }
+        return;
+    }
+
+    if (debug_mode) {
+        printf("[DEBUG] print_multiple: %zu arguments\n", arg_list->arguments.size());
+    }
+
+    // 引数が1つだけの場合の特別処理
+    if (arg_list->arguments.size() == 1) {
+        const auto &arg = arg_list->arguments[0];
+        if (debug_mode) {
+            printf("[DEBUG] print_multiple: Single argument, type: %d\n", (int)arg->node_type);
+        }
+        if (arg->node_type == ASTNodeType::AST_STRING_LITERAL) {
+            // フォーマット指定子が含まれていても、引数が1つだけの場合はそのまま出力
+            std::string output = process_escape_sequences(arg->str_value);
+            io_interface_->write_string(output.c_str());
+        } else {
+            print_value(arg.get());
+        }
+        return;
+    }
+
+    // 複数引数の場合：フォーマット文字列を探す
+    for (size_t i = 0; i < arg_list->arguments.size(); i++) {
+        const auto &arg = arg_list->arguments[i];
+        debug_msg(DebugMsgId::PRINT_CHECKING_ARGUMENT, (int)i, (int)arg->node_type);
+        if (arg->node_type == ASTNodeType::AST_STRING_LITERAL) {
+            std::string str_val = arg->str_value;
+            debug_msg(DebugMsgId::PRINT_FOUND_STRING_LITERAL, str_val.c_str());
+            // \% エスケープされていない % を探す
+            if (has_unescaped_format_specifiers(str_val)) {
+                debug_msg(DebugMsgId::PRINT_PRINTF_FORMAT_FOUND);
+                // フォーマット指定子が見つかった場合
+
+                // 前の引数をスペース区切りで出力
+                for (size_t j = 0; j < i; j++) {
+                    if (j > 0) io_interface_->write_char(' ');
+                    print_value(arg_list->arguments[j].get());
+                }
+                if (i > 0) io_interface_->write_char(' ');
+
+                // printf形式の処理：元のarg_listを使用してコピーを避ける
+                print_formatted(arg.get(), arg_list, i + 1);
+                
+                // 余分な引数処理は不要 - print_formattedが全ての引数を処理する
+                // 改行なし
                 return;
             }
         }
     }
 
-    // フォーマット指定子が見つからない場合、通常の複数引数処理
-    std::vector<std::string> outputs;
+    // フォーマット指定子が見つからない場合、すべてスペース区切りで出力
     for (size_t i = 0; i < arg_list->arguments.size(); i++) {
-        const auto &arg = arg_list->arguments[i];
-        std::string output;
-
-        if (arg->node_type == ASTNodeType::AST_STRING_LITERAL) {
-            // エスケープシーケンスを処理
-            std::string raw_output = arg->str_value;
-            std::string processed_output;
-            for (size_t j = 0; j < raw_output.length(); j++) {
-                if (raw_output[j] == '\\' && j + 1 < raw_output.length()) {
-                    switch (raw_output[j + 1]) {
-                    case 'n':
-                        processed_output += '\n';
-                        j++;
-                        break;
-                    case 't':
-                        processed_output += '\t';
-                        j++;
-                        break;
-                    case 'r':
-                        processed_output += '\r';
-                        j++;
-                        break;
-                    case '\\':
-                        processed_output += '\\';
-                        j++;
-                        break;
-                    case '"':
-                        processed_output += '"';
-                        j++;
-                        break;
-                    default:
-                        processed_output += raw_output[j];
-                        break;
-                    }
-                } else {
-                    processed_output += raw_output[j];
-                }
-            }
-            output = processed_output;
-        } else if (arg->node_type == ASTNodeType::AST_VARIABLE) {
-            Variable *var = find_variable(arg->name);
-            if (var && var->type == TYPE_STRING) {
-                output = var->str_value;
-            } else {
-                int64_t value = evaluate_expression(arg.get());
-                output = std::to_string(value);
-            }
-        } else {
-            int64_t value = evaluate_expression(arg.get());
-            output = std::to_string(value);
-        }
-
-        outputs.push_back(output);
-    }
-
-    // スペース区切りで出力
-    for (size_t i = 0; i < outputs.size(); i++) {
         if (i > 0) {
-            printf(" ");
+            io_interface_->write_char(' ');
         }
-        printf("%s", outputs[i].c_str());
+        
+        const auto &arg = arg_list->arguments[i];
+        if (arg->node_type == ASTNodeType::AST_STRING_LITERAL) {
+            std::string output = process_escape_sequences(arg->str_value);
+            io_interface_->write_string(output.c_str());
+        } else {
+            print_value(arg.get());
+        }
     }
+    // 改行なし
 }

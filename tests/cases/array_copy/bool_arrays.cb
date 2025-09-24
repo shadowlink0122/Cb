@@ -1,0 +1,25 @@
+// bool配列専用テスト
+int main() {
+    // bool 1次元配列
+    bool[4] bool1d = [true, false, true, false];
+    print("Bool 1D:");
+    for (int i = 0; i < 4; i = i + 1) {
+        print(bool1d[i]);
+    }
+    
+    // bool 2次元配列
+    bool[2][2] bool2d = [[true, false], [false, true]];
+    print("Bool 2D:");
+    for (int i = 0; i < 2; i = i + 1) {
+        for (int j = 0; j < 2; j = j + 1) {
+            print(bool2d[i][j]);
+        }
+    }
+    
+    // bool論理演算との組み合わせ
+    bool result = bool1d[0] && bool1d[2];
+    print("Logic result:");
+    print(result);
+    
+    return 0;
+}

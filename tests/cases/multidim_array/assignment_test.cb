@@ -1,0 +1,27 @@
+
+int main() {
+    // 多次元配列の宣言と手動代入
+    int[3][2] data;
+    
+    // 値の設定
+    data[0][0] = 10;
+    data[0][1] = 20;
+    data[1][0] = 30;
+    data[1][1] = 40;
+    data[2][0] = 50;
+    data[2][1] = 60;
+    
+    // 行の合計を計算
+    int total = 0;
+    for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < 2; j++) {
+            total = total + data[i][j];
+        }
+    }
+    
+    // 期待値: 10+20+30+40+50+60 = 210
+    if (total != 210) return 1;
+    
+    return 0;
+}
+    

@@ -1,4 +1,4 @@
-# Unit Test Makefile for Cb Language (Header-only)
+# Unit Test Makefile for Cb Language (Reorganized)
 CXX=g++
 CXXFLAGS=-Wall -g -std=c++17 -I../../src -I.
 
@@ -9,10 +9,13 @@ BACKEND_DIR=$(SRC_DIR)/backend
 COMMON_DIR=$(SRC_DIR)/common
 
 # 共通オブジェクトファイル（メインの実行ファイル以外）
-COMMON_OBJS=$(COMMON_DIR)/type_utils.o $(COMMON_DIR)/utf8_utils.o $(FRONTEND_DIR)/parser_utils.o $(FRONTEND_DIR)/debug_impl.o $(FRONTEND_DIR)/debug_messages.o $(BACKEND_DIR)/interpreter.o $(BACKEND_DIR)/output/output_manager.o $(BACKEND_DIR)/evaluator/expression_evaluator.o $(BACKEND_DIR)/executor/statement_executor.o $(BACKEND_DIR)/variables/variable_manager.o
+COMMON_OBJS=$(COMMON_DIR)/type_utils.o $(COMMON_DIR)/type_alias.o $(COMMON_DIR)/array_type_info.o $(COMMON_DIR)/cb_config.o $(COMMON_DIR)/message_manager.o $(COMMON_DIR)/debug_impl.o $(COMMON_DIR)/debug_messages.o $(BACKEND_DIR)/interpreter.o $(BACKEND_DIR)/error_handler.o $(BACKEND_DIR)/output/output_manager.o $(BACKEND_DIR)/variable_manager.o $(BACKEND_DIR)/array_manager.o $(BACKEND_DIR)/type_manager.o $(BACKEND_DIR)/evaluator/expression_evaluator.o $(BACKEND_DIR)/executor/statement_executor.o $(COMMON_DIR)/io_interface.o $(COMMON_DIR)/utf8_utils.o $(SRC_DIR)/platform/native/native_stdio_output.o $(SRC_DIR)/platform/baremetal/baremetal_uart_output.o
 
 # 実行ファイル
 TEST_TARGET=test_main
+
+# ダミー関数オブジェクト
+DUMMY_OBJS=dummy.o
 
 .PHONY: all test clean help
 
@@ -22,18 +25,35 @@ all: $(TEST_TARGET)
 $(COMMON_DIR)/%.o: $(COMMON_DIR)/%.cpp
 	@cd ../../ && $(MAKE) $@
 
-$(FRONTEND_DIR)/%.o: $(FRONTEND_DIR)/%.cpp
-	@cd ../../ && $(MAKE) $@
+
 
 $(BACKEND_DIR)/%.o: $(BACKEND_DIR)/%.cpp
 	@cd ../../ && $(MAKE) $@
 
-$(BACKEND_DIR)/%/%.o: $(BACKEND_DIR)/%/%.cpp
+# Platform object files
+$(SRC_DIR)/platform/native/%.o: $(SRC_DIR)/platform/native/%.cpp
 	@cd ../../ && $(MAKE) $@
 
+$(SRC_DIR)/platform/baremetal/%.o: $(SRC_DIR)/platform/baremetal/%.cpp
+	@cd ../../ && $(MAKE) $@
+
+# Backend subdirectory object files
+$(BACKEND_DIR)/output/%.o: $(BACKEND_DIR)/output/%.cpp
+	@cd ../../ && $(MAKE) $@
+
+$(BACKEND_DIR)/evaluator/%.o: $(BACKEND_DIR)/evaluator/%.cpp
+	@cd ../../ && $(MAKE) $@
+
+$(BACKEND_DIR)/executor/%.o: $(BACKEND_DIR)/executor/%.cpp
+	@cd ../../ && $(MAKE) $@
+
+# ダミー関数オブジェクト
+dummy.o: dummy.cpp
+	$(CXX) $(CXXFLAGS) -c -o $@ $<
+
 # テスト実行ファイル（ヘッダーオンリーなのでmain.cppだけをコンパイル）
-$(TEST_TARGET): main.cpp $(COMMON_OBJS)
-	$(CXX) $(CXXFLAGS) -o $(TEST_TARGET) main.cpp $(COMMON_OBJS)
+$(TEST_TARGET): main.cpp $(COMMON_OBJS) $(DUMMY_OBJS)
+	$(CXX) $(CXXFLAGS) -o $(TEST_TARGET) main.cpp $(COMMON_OBJS) $(DUMMY_OBJS)
 
 # テスト実行
 test: $(TEST_TARGET)
@@ -43,6 +63,7 @@ test: $(TEST_TARGET)
 # クリーンアップ
 clean:
 	rm -f $(TEST_TARGET)
+	rm -f $(DUMMY_OBJS)
 	rm -rf *.dSYM
 	rm -rf $(TEST_TARGET).dSYM
 
@@ -55,7 +76,7 @@ help:
 	@echo "  help    - Show this help"
 	@echo ""
 	@echo "Test structure:"
-	@echo "  framework/   - Test framework and utilities (header-only)"
+	@echo "  framework/   - Test framework and utilities"
 	@echo "  common/      - Tests for src/common/ modules"
 	@echo "  frontend/    - Tests for src/frontend/ modules"
 	@echo "  backend/     - Tests for src/backend/ modules"

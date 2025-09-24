@@ -1,0 +1,16 @@
+// 基本的な配列コピーテスト
+int main() {
+    int[3] arr1 = [1, 2, 3];
+    int[3] arr2;
+    
+    // 手動コピー
+    for (int i = 0; i < 3; i = i + 1) {
+        arr2[i] = arr1[i];
+    }
+    
+    print(arr2[0]);
+    print(arr2[1]);
+    print(arr2[2]);
+    
+    return 0;
+}

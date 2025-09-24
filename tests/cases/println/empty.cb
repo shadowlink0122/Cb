@@ -1,0 +1,7 @@
+// println with no arguments test
+int main() {
+    print("Before");
+    println();
+    print("After");
+    return 0;
+}

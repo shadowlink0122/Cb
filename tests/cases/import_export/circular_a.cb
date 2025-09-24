@@ -1,0 +1,7 @@
+// Circular import A - should cause error
+import circular_b;
+
+int main() {
+    print("This should not work");
+    return 0;
+}

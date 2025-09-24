@@ -1,0 +1,7 @@
+// typedef重複定義エラーテスト
+typedef int MyInt;
+typedef string MyInt;  // エラー: 重複定義
+
+int main() {
+    return 0;
+}

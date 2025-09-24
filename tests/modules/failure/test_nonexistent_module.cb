@@ -1,0 +1,7 @@
+// 存在しないモジュールのインポート（エラーテスト）
+import nonexistent_module;
+
+int main() {
+    // このファイルはコンパイル時にエラーになるべき
+    return 0;
+}

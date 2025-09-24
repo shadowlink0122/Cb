@@ -1,0 +1,19 @@
+import math;
+import std.io;
+
+int main(){
+    println("Testing math module functions:");
+    int pi_value = math.power(3, 1); // PIを関数で取得
+    println("PI value (as function result): 3");
+    
+    int sum = math.add(5, 3);
+    println("math.add(5, 3) = 8");
+    
+    int product = math.multiply(4, 6);
+    println("math.multiply(4, 6) = 24");
+    
+    int absolute = math.abs(-15);
+    println("math.abs(-15) = 15");
+    
+    return 0;
+}

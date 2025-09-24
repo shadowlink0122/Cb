@@ -1,4 +1,4 @@
-int data[3]; // 初期化はinitで
+int[3] data; // 初期化はinitで
 
 void init(){
     data[0]=1;

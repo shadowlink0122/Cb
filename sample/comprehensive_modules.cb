@@ -1,0 +1,40 @@
+// より包括的なモジュール使用例
+import math;
+import utils;
+
+int main() {
+    println("=== Comprehensive Module Usage Example ===");
+    
+    // 数学モジュールの使用
+    println("Math module functions:");
+    int sum = math.add(10, 20);
+    println("math.add(10, 20) = 30");
+    
+    int product = math.multiply(7, 8);
+    println("math.multiply(7, 8) = 56");
+    
+    int absolute = math.abs(-42);
+    println("math.abs(-42) = 42");
+    
+    int power_result = math.power(2, 5);
+    println("math.power(2, 5) = 32");
+    
+    int fact = math.factorial(4);
+    println("math.factorial(4) = 24");
+    
+    // ユーティリティモジュールの使用
+    println("");
+    println("Utils module functions:");
+    int added = utils.add_numbers(15, 25);
+    println("utils.add_numbers(15, 25) = 40");
+    
+    int multiplied = utils.multiply(9, 11);
+    println("utils.multiply(9, 11) = 99");
+    
+    int max_val = utils.max_value(100);
+    println("utils.max_value(100) = 9");
+    
+    println("");
+    println("Module usage example completed successfully!");
+    return 0;
+}

@@ -1,0 +1,28 @@
+// 文字列配列の高度なテスト
+int main() {
+    // 文字列1次元配列
+    string[3] str1d = ["apple", "banana", "cherry"];
+    print("1D strings:");
+    for (int i = 0; i < 3; i = i + 1) {
+        print(str1d[i]);
+    }
+    
+    // 文字列2次元配列
+    string[2][2] str2d = [["red", "blue"], ["green", "yellow"]];
+    print("2D strings:");
+    for (int i = 0; i < 2; i = i + 1) {
+        for (int j = 0; j < 2; j = j + 1) {
+            print(str2d[i][j]);
+        }
+    }
+    
+    // 文字列配列のコピー
+    string[2] copy_str;
+    copy_str[0] = str1d[0];
+    copy_str[1] = str1d[1];
+    print("Copied:");
+    print(copy_str[0]);
+    print(copy_str[1]);
+    
+    return 0;
+}

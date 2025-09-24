@@ -1,0 +1,24 @@
+// 文字列多次元配列リテラルテスト
+int main() {
+    // 2次元文字列配列
+    string[2][2] str_arr = [["Hello", "World"], ["Good", "Morning"]];
+    println("2D string array:");
+    for (int i = 0; i < 2; i = i + 1) {
+        for (int j = 0; j < 2; j = j + 1) {
+            println(str_arr[i][j]);
+        }
+    }
+    
+    // 3次元文字列配列
+    string[1][2][2] str3d = [[["A", "B"], ["C", "D"]]];
+    println("3D string array:");
+    for (int i = 0; i < 1; i = i + 1) {
+        for (int j = 0; j < 2; j = j + 1) {
+            for (int k = 0; k < 2; k = k + 1) {
+                println(str3d[i][j][k]);
+            }
+        }
+    }
+    
+    return 0;
+}

@@ -1,0 +1,13 @@
+// typedef基本テスト
+typedef int MyInt;
+typedef string MyString;
+
+int main() {
+    MyInt x = 42;
+    MyString s = "Hello";
+    
+    print("x = %d", x);
+    print("s = %s", s);
+    
+    return 0;
+}

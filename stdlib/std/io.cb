@@ -1,0 +1,20 @@
+// std/io.cb - Extended I/O functions for Cb language
+
+// Import basic stdio
+import stdio;
+
+// Extended I/O functions (future implementation)
+// export void print_line();
+// export void print_separator(char separator, int length);
+// export void print_formatted_table(string[] headers, string[][] data);
+
+// Input functions (future implementation)
+// export string read_line();
+// export int read_int();
+// export string read_string();
+
+// File utilities (future implementation)
+// export bool file_exists(string filename);
+// export long file_size(string filename);
+// export string[] read_lines(string filename);
+// export void write_lines(string filename, string[] lines);

@@ -1,0 +1,13 @@
+// Basic typedef test (typedefサポート待ちのため標準型を使用)
+// typedef int UserId;
+// typedef string UserName;
+
+int main() {
+    int id = 12345;
+    string name = "Alice";
+    
+    println("User ID: %d", id);
+    println("User Name: %s", name);
+    
+    return 0;
+}

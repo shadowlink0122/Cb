@@ -1,0 +1,20 @@
+// 3次元配列テスト（手動初期化）
+int main() {
+    int[2][2][2] cube;
+    
+    // 手動初期化
+    cube[0][0][0] = 1; cube[0][0][1] = 2;
+    cube[0][1][0] = 3; cube[0][1][1] = 4;
+    cube[1][0][0] = 5; cube[1][0][1] = 6;
+    cube[1][1][0] = 7; cube[1][1][1] = 8;
+    
+    for (int i = 0; i < 2; i = i + 1) {
+        for (int j = 0; j < 2; j = j + 1) {
+            for (int k = 0; k < 2; k = k + 1) {
+                print(cube[i][j][k]);
+            }
+        }
+    }
+    
+    return 0;
+}

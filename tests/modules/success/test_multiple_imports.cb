@@ -1,0 +1,14 @@
+// 複数モジュールインポートテスト
+import math;
+import stdio;
+
+int main() {
+    // mathモジュールの使用
+    int result = add(5, 3);
+    print("5 + 3 = %d", result);
+    
+    // stdioモジュールの使用
+    println("Hello from stdio module");
+    
+    return 0;
+}

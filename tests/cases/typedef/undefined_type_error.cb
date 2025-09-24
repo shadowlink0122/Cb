@@ -1,0 +1,6 @@
+// Error test - undefined type
+typedef UnknownType MyType;  // Error: UnknownType is not defined
+
+int main() {
+    return 0;
+}

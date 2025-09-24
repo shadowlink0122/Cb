@@ -1,0 +1,43 @@
+// basic import/export テスト
+import "math_module.cb";
+import "string_module.cb";
+
+int main() {
+    println("=== Import/Export Test ===");
+    
+    // 定数のインポートテスト
+    print("Math constant: ");
+    print(MATH_CONSTANT);
+    println();
+    
+    print("Library name: ");
+    print(LIBRARY_NAME);
+    println();
+    
+    // 関数のインポートテスト
+    int result = multiply(6, 7);
+    print("6 * 7 = ");
+    print(result);
+    println();
+    
+    int div_result = divide(20, 4);
+    print("20 / 4 = ");
+    print(div_result);
+    println();
+    
+    // 0除算テスト
+    int zero_div = divide(10, 0);
+    print("10 / 0 = ");
+    print(zero_div);
+    println();
+    
+    // 文字列モジュールテスト
+    string combined = concat_strings("Hello", " World");
+    print("Combined string: ");
+    print(combined);
+    println();
+    
+    println("");
+    println("Import/Export test completed!");
+    return 0;
+}

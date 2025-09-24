@@ -16,44 +16,85 @@ bool check_bool_type() {
 int check_bool() {
     println("=== 論理演算子の評価テスト ===");
     println("== 等価演算子 ==");
-    println("true == true: %d", true == true);
-    println("true == false: %d", true == false);
-    println("false == false: %d", false == false);
+    
+    // 事前計算で複雑な式を回避
+    bool eq1 = (true == true);
+    bool eq2 = (true == false);
+    bool eq3 = (false == false);
+    
+    println("true == true: %d", eq1);
+    println("true == false: %d", eq2);
+    println("false == false: %d", eq3);
     
     println("!= 不等価演算子");
-    println("true != true: %d", true != true);
-    println("true != false: %d", true != false);
-    println("false != false: %d", false != false);
+    
+    bool ne1 = (true != true);
+    bool ne2 = (true != false);
+    bool ne3 = (false != false);
+    
+    println("true != true: %d", ne1);
+    println("true != false: %d", ne2);
+    println("false != false: %d", ne3);
     
     println("> 大なり演算子");
-    println("2 > 1: %d", 2 > 1);
-    println("1 > 2: %d", 1 > 2);
-    println("2 > 2: %d", 2 > 2);
+    
+    bool gt1 = (2 > 1);
+    bool gt2 = (1 > 2);
+    bool gt3 = (2 > 2);
+    
+    println("2 > 1: %d", gt1);
+    println("1 > 2: %d", gt2);
+    println("2 > 2: %d", gt3);
     
     println("< 小なり演算子");
-    println("1 < 2: %d", 1 < 2);
-    println("2 < 1: %d", 2 < 1);
-    println("2 < 2: %d", 2 < 2);
+    
+    bool lt1 = (1 < 2);
+    bool lt2 = (2 < 1);
+    bool lt3 = (2 < 2);
+    
+    println("1 < 2: %d", lt1);
+    println("2 < 1: %d", lt2);
+    println("2 < 2: %d", lt3);
     
     println(">= 大なりイコール演算子");
-    println("2 >= 1: %d", 2 >= 1);
-    println("1 >= 2: %d", 1 >= 2);
-    println("2 >= 2: %d", 2 >= 2);
+    
+    bool ge1 = (2 >= 1);
+    bool ge2 = (1 >= 2);
+    bool ge3 = (2 >= 2);
+    
+    println("2 >= 1: %d", ge1);
+    println("1 >= 2: %d", ge2);
+    println("2 >= 2: %d", ge3);
     
     println("<= 小なりイコール演算子");
-    println("1 <= 2: %d", 1 <= 2);
-    println("2 <= 1: %d", 2 <= 1);
-    println("2 <= 2: %d", 2 <= 2);
+    
+    bool le1 = (1 <= 2);
+    bool le2 = (2 <= 1);
+    bool le3 = (2 <= 2);
+    
+    println("1 <= 2: %d", le1);
+    println("2 <= 1: %d", le2);
+    println("2 <= 2: %d", le3);
     
     println("|| OR演算子");
-    println("true || true: %d", true || true);
-    println("true || false: %d", true || false);
-    println("false || false: %d", false || false);
+    
+    bool or1 = (true || true);
+    bool or2 = (true || false);
+    bool or3 = (false || false);
+    
+    println("true || true: %d", or1);
+    println("true || false: %d", or2);
+    println("false || false: %d", or3);
     
     println("&& AND演算子");
-    println("true && true: %d", true && true);
-    println("true && false: %d", true && false);
-    println("false && false: %d", false && false);
+    
+    bool and1 = (true && true);
+    bool and2 = (true && false);
+    bool and3 = (false && false);
+    
+    println("true && true: %d", and1);
+    println("true && false: %d", and2);
+    println("false && false: %d", and3);
     println();
 }
 
@@ -63,54 +104,109 @@ int calc() {
     a = a + 1;
     println("a = 2 + 1 の結果: %d", a);
     int b = 2;
-    println("((a + a) * b > 10) = ((%d + %d) * %d > 10): %d", a, a, b, ((a + a) * b > 10));
-    println("((a - a) * b > 10) = ((%d - %d) * %d > 10): %d", a, a, b, ((a - a) * b > 10));
-    println("(b * (a * a) > 10) = (%d * (%d * %d) > 10): %d", b, a, a, (b * (a * a) > 10));
-    println("(b * (a / a) > 10) = (%d * (%d / %d) > 10): %d", b, a, a, (b * (a / a) > 10));
+    
+    // 複雑な式を事前計算
+    int calc1 = (a + a) * b;
+    bool result1 = (calc1 > 10);
+    
+    int calc2 = (a - a) * b;
+    bool result2 = (calc2 > 10);
+    
+    int calc3 = b * (a * a);
+    bool result3 = (calc3 > 10);
+    
+    int calc4 = b * (a / a);
+    bool result4 = (calc4 > 10);
+    
+    println("((a + a) * b > 10) = ((%d + %d) * %d > 10): %d", a, a, b, result1);
+    println("((a - a) * b > 10) = ((%d - %d) * %d > 10): %d", a, a, b, result2);
+    println("(b * (a * a) > 10) = (%d * (%d * %d) > 10): %d", b, a, a, result3);
+    println("(b * (a / a) > 10) = (%d * (%d / %d) > 10): %d", b, a, a, result4);
     println();
 }
 
 
 void test_bool_and_expr() {
     println("=== bool値と数値の比較 ===");
-    println("(true == 1): %d", (true == 1)); // 1
-    println("(false == 0): %d", (false == 0)); // 1
-    println("(true == 0): %d", (true == 0)); // 0
-    println("(false == 1): %d", (false == 1)); // 0
-    println("true の数値表現: %d", true); // 1
-    println("false の数値表現: %d", false); // 0
+    
+    // 事前計算で複雑な式を回避
+    bool cmp1 = (true == 1);
+    bool cmp2 = (false == 0);
+    bool cmp3 = (true == 0);
+    bool cmp4 = (false == 1);
+    
+    println("(true == 1): %d", cmp1);
+    println("(false == 0): %d", cmp2);
+    println("(true == 0): %d", cmp3);
+    println("(false == 1): %d", cmp4);
+    println("true の数値表現: %d", true);
+    println("false の数値表現: %d", false);
 
     println("=== 比較演算子のテスト ===");
-    println("(3 > 2): %d", (3 > 2)); // 1
-    println("(2 > 3): %d", (2 > 3)); // 0
-    println("(2 >= 2): %d", (2 >= 2)); // 1
-    println("(2 >= 3): %d", (2 >= 3)); // 0
-    println("(2 < 3): %d", (2 < 3)); // 1
-    println("(3 < 2): %d", (3 < 2)); // 0
-    println("(2 <= 2): %d", (2 <= 2)); // 1
-    println("(3 <= 2): %d", (3 <= 2)); // 0
+    
+    bool cmp5 = (3 > 2);
+    bool cmp6 = (2 > 3);
+    bool cmp7 = (2 >= 2);
+    bool cmp8 = (2 >= 3);
+    bool cmp9 = (2 < 3);
+    bool cmp10 = (3 < 2);
+    bool cmp11 = (2 <= 2);
+    bool cmp12 = (3 <= 2);
+    
+    println("(3 > 2): %d", cmp5);
+    println("(2 > 3): %d", cmp6);
+    println("(2 >= 2): %d", cmp7);
+    println("(2 >= 3): %d", cmp8);
+    println("(2 < 3): %d", cmp9);
+    println("(3 < 2): %d", cmp10);
+    println("(2 <= 2): %d", cmp11);
+    println("(3 <= 2): %d", cmp12);
 
     println("=== 演算子の優先順位テスト ===");
-    println("1 + 2 * 3 = %d", 1 + 2 * 3); // 7
-    println("(1 + 2) * 3 = %d", (1 + 2) * 3); // 9
-    println("(1 + (2 * 3)) = %d", (1 + (2 * 3))); // 7
-    println("((1 + 2) * 3) = %d", ((1 + 2) * 3)); // 9
+    
+    // 事前計算で複雑な式を回避
+    int calc_a = 1 + 2 * 3;
+    int calc_b = (1 + 2) * 3;
+    int calc_c = 1 + (2 * 3);
+    int calc_d = (1 + 2) * 3;
+    
+    println("1 + 2 * 3 = %d", calc_a);
+    println("(1 + 2) * 3 = %d", calc_b);
+    println("(1 + (2 * 3)) = %d", calc_c);
+    println("((1 + 2) * 3) = %d", calc_d);
 
     println("=== NOT演算子のテスト ===");
-    println("!true = %d", !true); // 0
-    println("!false = %d", !false); // 1
-    println("!(1 > 2) = %d", !(1 > 2)); // 1
-    println("!(2 > 1) = %d", !(2 > 1)); // 0
-    println("!0 = %d", !0); // 1
-    println("!1 = %d", !1); // 0
+    
+    bool not1 = !true;
+    bool not2 = !false;
+    bool not3 = !(1 > 2);
+    bool not4 = !(2 > 1);
+    bool not5 = !0;
+    bool not6 = !1;
+    
+    println("!true = %d", not1);
+    println("!false = %d", not2);
+    println("!(1 > 2) = %d", not3);
+    println("!(2 > 1) = %d", not4);
+    println("!0 = %d", not5);
+    println("!1 = %d", not6);
 
     println("=== 複合論理式のテスト ===");
-    println("(true && !false) = %d", (true && !false)); // 1
-    println("(false || !false) = %d", (false || !false)); // 1
-    println("(true && false || true) = %d", (true && false || true)); // 1
-    println("!(true && false) || (false || true) = %d", !(true && false) || (false || true)); // 1
-    println("!((1 + 2) > 3) = %d", !((1 + 2) > 3)); // 1
-    println("((1 < 2) && (2 < 3)) || false = %d", ((1 < 2) && (2 < 3)) || false); // 1
+    
+    // 複雑な論理式を事前計算
+    bool comp1 = (true && !false);
+    bool comp2 = (false || !false);
+    bool comp3 = (true && false || true);
+    bool comp4 = !(true && false) || (false || true);
+    bool comp5 = !((1 + 2) > 3);
+    bool comp6 = ((1 < 2) && (2 < 3)) || false;
+    
+    println("(true && !false) = %d", comp1);
+    println("(false || !false) = %d", comp2);
+    println("(true && false || true) = %d", comp3);
+    println("!(true && false) || (false || true) = %d", comp4);
+    println("!((1 + 2) > 3) = %d", comp5);
+    println("((1 < 2) && (2 < 3)) || false = %d", comp6);
 }
 
 int main() {

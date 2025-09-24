@@ -1,0 +1,40 @@
+// 複数型の配列戻り値テスト
+long[2] create_long_array() {
+    long[2] result = [1000000, 2000000];
+    return result;
+}
+
+bool[3] create_bool_array() {
+    bool[3] result = [true, false, true];
+    return result;
+}
+
+tiny[4] create_tiny_array() {
+    tiny[4] result = [10, 20, 30, 40];
+    return result;
+}
+
+int main() {
+    // long配列テスト
+    long[2] long_arr = create_long_array();
+    println("Long array:");
+    for (int i = 0; i < 2; i = i + 1) {
+        println(long_arr[i]);
+    }
+    
+    // bool配列テスト
+    bool[3] bool_arr = create_bool_array();
+    println("Bool array:");
+    for (int i = 0; i < 3; i = i + 1) {
+        println(bool_arr[i]);
+    }
+    
+    // tiny配列テスト
+    tiny[4] tiny_arr = create_tiny_array();
+    println("Tiny array:");
+    for (int i = 0; i < 4; i = i + 1) {
+        println(tiny_arr[i]);
+    }
+    
+    return 0;
+}
