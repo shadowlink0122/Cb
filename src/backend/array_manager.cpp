@@ -179,6 +179,12 @@ void ArrayManager::setMultidimensionalArrayElement(
         throw std::runtime_error("Variable is not a multidimensional array");
     }
 
+    // const配列への書き込みチェック
+    if (var.is_const) {
+        throw std::runtime_error(
+            "Cannot assign to const multidimensional array");
+    }
+
     std::vector<int> int_indices;
     for (int64_t idx : indices) {
         int_indices.push_back(static_cast<int>(idx));
@@ -220,6 +226,12 @@ void ArrayManager::setMultidimensionalStringArrayElement(
     const std::string &value) {
     if (!var.is_multidimensional) {
         throw std::runtime_error("Variable is not a multidimensional array");
+    }
+
+    // const配列への書き込みチェック
+    if (var.is_const) {
+        throw std::runtime_error(
+            "Cannot assign to const multidimensional string array");
     }
 
     std::vector<int> int_indices;

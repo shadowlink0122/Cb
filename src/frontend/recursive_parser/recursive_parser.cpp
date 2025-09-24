@@ -166,11 +166,22 @@ ASTNode* RecursiveParser::parseStatement() {
             }
             
             if (!check(TokenType::TOK_IDENTIFIER)) {
-                error("Expected variable name after array type");
+                error("Expected identifier after array type");
                 return nullptr;
             }
             
-            std::string var_name = advance().value;
+            Token name_token = advance(); // consume identifier
+            std::string var_name = name_token.value;
+            
+            // 関数宣言かチェック
+            if (check(TokenType::TOK_LPAREN)) {
+                // これは配列戻り値の関数宣言
+                std::string return_type = type_name;
+                for (const auto& size : array_sizes) {
+                    return_type += "[" + size + "]";
+                }
+                return parseFunctionDeclarationAfterName(return_type, var_name);
+            }
             
             ASTNode* node = new ASTNode(ASTNodeType::AST_ARRAY_DECL);
             node->name = var_name;
@@ -1147,7 +1158,29 @@ ASTNode* RecursiveParser::parseFunctionDeclarationAfterName(const std::string& r
     consume(TokenType::TOK_RPAREN, "Expected ')' after parameters");
     
     // return_typeをTypeInfo enum値として設定
-    if (return_type == "int") {
+    if (return_type.find("[") != std::string::npos) {
+        // 配列戻り値型
+        std::string base_type = return_type.substr(0, return_type.find("["));
+        if (base_type == "int") {
+            function_node->return_types.push_back(static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_INT));
+        } else if (base_type == "string") {
+            function_node->return_types.push_back(static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_STRING));
+        } else if (base_type == "bool") {
+            function_node->return_types.push_back(static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_BOOL));
+        } else if (base_type == "long") {
+            function_node->return_types.push_back(static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_LONG));
+        } else if (base_type == "short") {
+            function_node->return_types.push_back(static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_SHORT));
+        } else if (base_type == "tiny") {
+            function_node->return_types.push_back(static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_TINY));
+        } else if (base_type == "char") {
+            function_node->return_types.push_back(static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_CHAR));
+        } else {
+            function_node->return_types.push_back(TYPE_UNKNOWN);
+        }
+        function_node->is_array_return = true;
+        function_node->return_type_name = return_type;
+    } else if (return_type == "int") {
         function_node->return_types.push_back(TYPE_INT);
     } else if (return_type == "long") {
         function_node->return_types.push_back(TYPE_LONG);

@@ -5,6 +5,7 @@
 #include "array/test_array.hpp"
 #include "array_copy/test_array_copy.hpp"
 #include "array_literal/test_array_literal.hpp"
+#include "array_return/test_array_return.hpp"
 #include "assign/test_assign.hpp"
 #include "bool_expr/test_bool_expr.hpp"
 #include "boundary/test_boundary.hpp"
@@ -18,6 +19,7 @@
 #include "incdec/test_incdec.hpp"
 #include "loop/test_loop.hpp"
 #include "module_functions/test_module_functions.hpp"
+#include "multidim_literal/test_multidim_literal.hpp"
 #include "multiple_var_decl/test_multiple_var_decl.hpp"
 #include "printf/test_printf.hpp"
 #include "println/test_println.hpp"
@@ -43,6 +45,8 @@ int main() {
         test_integration_array();
         test_integration_array_literal();
         test_array_copy();
+        test_array_return();
+        test_multidim_literal();
         test_bool_expr_basic();
         test_integration_loop();
         test_integration_multiple_var_decl();

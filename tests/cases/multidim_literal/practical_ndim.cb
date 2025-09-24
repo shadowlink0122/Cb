@@ -1,0 +1,20 @@
+// 実用的なN次元配列リテラルテスト（1D, 2Dのみ）
+int main() {
+    // 1次元配列リテラル
+    int[4] arr1d = [10, 20, 30, 40];
+    println("1D array:");
+    for (int i = 0; i < 4; i = i + 1) {
+        println(arr1d[i]);
+    }
+    
+    // 2次元配列リテラル
+    int[2][3] arr2d = [[1, 2, 3], [4, 5, 6]];
+    println("2D array:");
+    for (int i = 0; i < 2; i = i + 1) {
+        for (int j = 0; j < 3; j = j + 1) {
+            println(arr2d[i][j]);
+        }
+    }
+    
+    return 0;
+}

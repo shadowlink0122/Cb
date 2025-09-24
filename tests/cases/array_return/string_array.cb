@@ -1,0 +1,16 @@
+// 文字列配列戻り値テスト
+string[2] create_string_array() {
+    string[2] result = ["Hello", "World"];
+    return result;
+}
+
+int main() {
+    string[2] arr = create_string_array();
+    
+    // 期待される出力: Hello, World
+    for (int i = 0; i < 2; i = i + 1) {
+        println(arr[i]);
+    }
+    
+    return 0;
+}

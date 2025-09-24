@@ -1,0 +1,32 @@
+// 配列戻り値と多次元リテラルの組み合わせテスト
+int[2][3] create_matrix() {
+    int[2][3] matrix = [[10, 20, 30], [40, 50, 60]];
+    return matrix;
+}
+
+string[2][2] create_string_matrix() {
+    string[2][2] str_matrix = [["Test", "Case"], ["Array", "Return"]];
+    return str_matrix;
+}
+
+int main() {
+    // 2次元整数配列戻り値
+    int[2][3] result_matrix = create_matrix();
+    println("Matrix from function:");
+    for (int i = 0; i < 2; i = i + 1) {
+        for (int j = 0; j < 3; j = j + 1) {
+            println(result_matrix[i][j]);
+        }
+    }
+    
+    // 2次元文字列配列戻り値
+    string[2][2] result_str = create_string_matrix();
+    println("String matrix from function:");
+    for (int i = 0; i < 2; i = i + 1) {
+        for (int j = 0; j < 2; j = j + 1) {
+            println(result_str[i][j]);
+        }
+    }
+    
+    return 0;
+}

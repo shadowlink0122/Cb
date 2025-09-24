@@ -155,13 +155,15 @@ struct ASTNode {
     // ストレージ属性
     bool is_const = false;
     bool is_static = false;
-    bool is_array = false; // 配列パラメータフラグ
+    bool is_array = false;        // 配列パラメータフラグ
+    bool is_array_return = false; // 配列戻り値フラグ
 
     // 値・名前
     int64_t int_value = 0;
     std::string str_value;
     std::string name;
     std::string type_name; // typedef名など、型の文字列表現
+    std::string return_type_name; // 戻り値型の文字列表現（配列型対応）
     std::string op;
 
     // 子ノード

@@ -1,0 +1,31 @@
+// N次元配列リテラルの包括テスト
+int main() {
+    // 1次元配列リテラル
+    int[4] arr1d = [10, 20, 30, 40];
+    println("1D array:");
+    for (int i = 0; i < 4; i = i + 1) {
+        println(arr1d[i]);
+    }
+    
+    // 2次元配列リテラル
+    int[2][3] arr2d = [[1, 2, 3], [4, 5, 6]];
+    println("2D array:");
+    for (int i = 0; i < 2; i = i + 1) {
+        for (int j = 0; j < 3; j = j + 1) {
+            println(arr2d[i][j]);
+        }
+    }
+    
+    // 3次元配列リテラル
+    int[2][2][2] arr3d = [[[1, 2], [3, 4]], [[5, 6], [7, 8]]];
+    println("3D array:");
+    for (int i = 0; i < 2; i = i + 1) {
+        for (int j = 0; j < 2; j = j + 1) {
+            for (int k = 0; k < 2; k = k + 1) {
+                println(arr3d[i][j][k]);
+            }
+        }
+    }
+    
+    return 0;
+}

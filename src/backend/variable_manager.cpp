@@ -86,8 +86,26 @@ void VariableManager::assign_array_parameter(const std::string &name,
                                              TypeInfo type) {
     // 配列パラメータは新しい変数としてコピーを作成
     Variable param_var;
-    interpreter_->array_manager_->copyArray(param_var, source_array);
+
+    // パラメータ変数の基本属性を設定
+    param_var.is_array = true;
+    param_var.is_assigned = true;
     param_var.is_const = false; // パラメータは基本的にconst扱いしない
+    param_var.type = type;
+
+    // source_arrayと同じ次元・サイズの配列を作成
+    if (source_array.is_multidimensional) {
+        param_var.is_multidimensional = true;
+        param_var.array_type_info = source_array.array_type_info;
+        // array_managerのcopyArrayを使用してコピー
+        interpreter_->array_manager_->copyArray(param_var, source_array);
+    } else {
+        param_var.is_multidimensional = false;
+        param_var.array_size = source_array.array_size;
+        param_var.array_values = source_array.array_values;
+        param_var.array_strings = source_array.array_strings;
+    }
+
     current_scope().variables[name] = param_var;
 }
 
@@ -114,6 +132,13 @@ void VariableManager::assign_array_element(const std::string &name,
                                            int64_t index, int64_t value) {
     Variable *var = find_variable(name);
     if (var && var->is_array) {
+        // const配列への書き込みチェック
+        if (var->is_const) {
+            std::cerr << "エラー: const配列 '" << name
+                      << "' への書き込みはできません" << std::endl;
+            throw std::runtime_error("Cannot assign to const array");
+        }
+
         if (index < 0 || index >= var->array_size) {
             error_msg(DebugMsgId::UNDEFINED_VAR_ERROR, name.c_str());
             throw std::runtime_error("Array index out of bounds");
@@ -591,6 +616,12 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                     *var, indices, value);
             } else if (indices.size() == 1) {
                 // 1次元配列の場合
+                // const配列への書き込みチェック
+                if (var->is_const) {
+                    throw std::runtime_error("Cannot assign to const array: " +
+                                             array_name);
+                }
+
                 int64_t index = indices[0];
                 if (index < 0 ||
                     index >= static_cast<int64_t>(var->array_values.size())) {

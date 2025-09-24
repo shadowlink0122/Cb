@@ -1,0 +1,22 @@
+// 非対称多次元配列リテラルテスト
+int main() {
+    // 非対称2次元配列
+    int[3][2] asymmetric_2d = [[1, 2], [3, 4], [5, 6]];
+    println("Asymmetric 2D array (3x2):");
+    for (int i = 0; i < 3; i = i + 1) {
+        for (int j = 0; j < 2; j = j + 1) {
+            println(asymmetric_2d[i][j]);
+        }
+    }
+    
+    // 別の非対称2次元配列
+    int[2][4] asymmetric_2d_alt = [[10, 20, 30, 40], [50, 60, 70, 80]];
+    println("Asymmetric 2D array (2x4):");
+    for (int i = 0; i < 2; i = i + 1) {
+        for (int j = 0; j < 4; j = j + 1) {
+            println(asymmetric_2d_alt[i][j]);
+        }
+    }
+    
+    return 0;
+}

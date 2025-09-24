@@ -102,9 +102,27 @@ class ReturnException {
     std::string str_value;
     TypeInfo type;
 
+    // 配列戻り値サポート
+    bool is_array = false;
+    std::vector<std::vector<std::vector<int64_t>>> int_array_3d;
+    std::vector<std::vector<std::vector<std::string>>> str_array_3d;
+    std::string array_type_name;
+
     ReturnException(int64_t val, TypeInfo t = TYPE_INT) : value(val), type(t) {}
     ReturnException(const std::string &str)
         : value(0), str_value(str), type(TYPE_STRING) {}
+
+    // 配列戻り値用コンストラクタ
+    ReturnException(const std::vector<std::vector<std::vector<int64_t>>> &arr,
+                    const std::string &type_name, TypeInfo t)
+        : value(0), type(t), is_array(true), int_array_3d(arr),
+          array_type_name(type_name) {}
+
+    ReturnException(
+        const std::vector<std::vector<std::vector<std::string>>> &arr,
+        const std::string &type_name, TypeInfo t)
+        : value(0), type(t), is_array(true), str_array_3d(arr),
+          array_type_name(type_name) {}
 };
 
 class BreakException {
@@ -208,6 +226,11 @@ class Interpreter : public EvaluatorInterface {
   private:
     void print_value(const ASTNode *expr);
     void print_formatted(const ASTNode *format_str, const ASTNode *arg_list);
+
+    // N次元配列リテラル処理の再帰関数
+    void process_ndim_array_literal(const ASTNode *literal_node, Variable &var,
+                                    TypeInfo elem_type, int &flat_index,
+                                    int max_size);
 
   public:
     void check_type_range(TypeInfo type, int64_t value,

@@ -176,6 +176,52 @@ int64_t Interpreter::evaluate(const ASTNode *node) {
     return expression_evaluator_->evaluate_expression(node);
 }
 
+// N次元配列リテラル処理の再帰関数
+void Interpreter::process_ndim_array_literal(const ASTNode *literal_node,
+                                             Variable &var, TypeInfo elem_type,
+                                             int &flat_index, int max_size) {
+    if (!literal_node ||
+        literal_node->node_type != ASTNodeType::AST_ARRAY_LITERAL) {
+        return;
+    }
+
+    for (const auto &element : literal_node->arguments) {
+        if (flat_index >= max_size)
+            break;
+
+        if (element->node_type == ASTNodeType::AST_ARRAY_LITERAL) {
+            // 再帰的に処理（より深い次元）
+            process_ndim_array_literal(element.get(), var, elem_type,
+                                       flat_index, max_size);
+        } else {
+            // 最終要素の処理
+            if (elem_type == TYPE_STRING) {
+                if (element->node_type == ASTNodeType::AST_STRING_LITERAL) {
+                    var.multidim_array_strings[flat_index] = element->str_value;
+                    if (debug_mode) {
+                        debug_msg(DebugMsgId::ARRAY_DECL_EVAL_DEBUG,
+                                  ("Set string element[" +
+                                   std::to_string(flat_index) +
+                                   "] = " + element->str_value)
+                                      .c_str());
+                    }
+                }
+            } else {
+                int64_t val =
+                    expression_evaluator_->evaluate_expression(element.get());
+                var.multidim_array_values[flat_index] = val;
+                if (debug_mode) {
+                    debug_msg(DebugMsgId::ARRAY_DECL_EVAL_DEBUG,
+                              ("Set element[" + std::to_string(flat_index) +
+                               "] = " + std::to_string(val))
+                                  .c_str());
+                }
+            }
+            flat_index++;
+        }
+    }
+}
+
 void Interpreter::execute_statement(const ASTNode *node) {
     if (!node)
         return;
@@ -307,57 +353,20 @@ void Interpreter::execute_statement(const ASTNode *node) {
 
                     if (is_multidim) {
                         debug_msg(DebugMsgId::ARRAY_DECL_EVAL_DEBUG,
-                                  "processing 2D literal");
-                        // 2次元配列リテラルの処理
+                                  "processing N-dimensional literal");
+
+                        // N次元配列リテラルの再帰的処理を使用
                         int flat_index = 0;
+                        process_ndim_array_literal(node->init_expr.get(), var,
+                                                   elem_type, flat_index,
+                                                   total_size);
 
-                        for (size_t row = 0;
-                             row < node->init_expr->arguments.size(); ++row) {
-                            const auto &row_element =
-                                node->init_expr->arguments[row];
-
-                            if (row_element->node_type ==
-                                ASTNodeType::AST_ARRAY_LITERAL) {
-                                // 行要素が配列リテラルの場合
-                                for (size_t col = 0;
-                                     col < row_element->arguments.size();
-                                     ++col) {
-                                    if (flat_index >= total_size)
-                                        break;
-
-                                    const auto &element =
-                                        row_element->arguments[col];
-                                    if (elem_type == TYPE_STRING) {
-                                        if (element->node_type ==
-                                            ASTNodeType::AST_STRING_LITERAL) {
-                                            var.multidim_array_strings
-                                                [flat_index] =
-                                                element->str_value;
-                                        }
-                                    } else {
-                                        int64_t val = expression_evaluator_
-                                                          ->evaluate_expression(
-                                                              element.get());
-                                        var.multidim_array_values[flat_index] =
-                                            val;
-
-                                        debug_msg(
-                                            DebugMsgId::ARRAY_DECL_EVAL_DEBUG,
-                                            ("Set element[" +
-                                             std::to_string(flat_index) +
-                                             "] = " + std::to_string(val))
-                                                .c_str());
-                                    }
-                                    flat_index++;
-                                }
-                            } else {
-                                // 行要素が単一値の場合（エラー）
-                                error_msg(DebugMsgId::TYPE_MISMATCH_ERROR,
-                                          "Expected nested array literal for "
-                                          "2D array");
-                                throw std::runtime_error(
-                                    "Inconsistent array literal structure");
-                            }
+                        if (debug_mode) {
+                            debug_msg(DebugMsgId::ARRAY_DECL_EVAL_DEBUG,
+                                      ("N-dimensional array initialization "
+                                       "complete. Total elements: " +
+                                       std::to_string(flat_index))
+                                          .c_str());
                         }
                     } else {
                         if (debug_mode) {
@@ -365,7 +374,7 @@ void Interpreter::execute_statement(const ASTNode *node) {
                                       "Processing 1D array literal in multidim "
                                       "context");
                         }
-                        // 1次元配列リテラル（エラーの可能性があるが処理を試行）
+                        // 1次元配列リテラルの処理
                         for (size_t i = 0;
                              i < node->init_expr->arguments.size() &&
                              i < static_cast<size_t>(total_size);
@@ -429,84 +438,188 @@ void Interpreter::execute_statement(const ASTNode *node) {
             var.array_dimensions.push_back(var.array_size);
         }
 
-        // 初期化リストがある場合（新しい形式：配列リテラル）
+        // 初期化式がある場合の処理
         // 多次元配列の場合は既に初期化済みなのでスキップ
-        if (node->init_expr &&
-            node->init_expr->node_type == ASTNodeType::AST_ARRAY_LITERAL &&
-            node->array_dimensions.size() <= 1) {
-            debug_msg(DebugMsgId::PRINTF_OFFSET_CALLED,
-                      0); // デバッグ用メッセージ
-            if (debug_mode) {
-                std::cerr << "[DEBUG] Processing array literal initialization"
-                          << std::endl;
-            }
-
-            // 事前に型の検証を行う
-            TypeInfo elem_type = node->type_info;
-            for (size_t i = 0; i < node->init_expr->arguments.size() &&
-                               i < static_cast<size_t>(var.array_size);
-                 ++i) {
-                const auto &element = node->init_expr->arguments[i];
-
-                // 型チェック（配列への書き込み前に実行）
-                if (elem_type == TYPE_STRING) {
-                    if (element->node_type != ASTNodeType::AST_STRING_LITERAL) {
-                        if (debug_mode) {
-                            std::cerr
-                                << "[DEBUG] Type mismatch: expected string "
-                                   "literal in string array"
-                                << std::endl;
-                        }
-                        fprintf(stderr, "Type mismatch: string array cannot "
-                                        "contain non-string elements\n");
-                        throw std::runtime_error(
-                            "Type mismatch: string array cannot contain "
-                            "non-string elements");
-                    }
-                } else {
-                    if (element->node_type == ASTNodeType::AST_STRING_LITERAL) {
-                        if (debug_mode) {
-                            std::cerr << "[DEBUG] Type mismatch: found string "
-                                         "literal in integer array"
-                                      << std::endl;
-                        }
-                        fprintf(stderr, "Type mismatch: integer array cannot "
-                                        "contain string elements\n");
-                        throw std::runtime_error(
-                            "Type mismatch: integer array cannot contain "
-                            "string elements");
-                    }
-                }
-            }
-
-            // 型検証が通った場合のみ実際の初期化を行う
-            for (size_t i = 0; i < node->init_expr->arguments.size() &&
-                               i < static_cast<size_t>(var.array_size);
-                 ++i) {
-                const auto &element = node->init_expr->arguments[i];
+        if (node->init_expr && node->array_dimensions.size() <= 1) {
+            if (node->init_expr->node_type == ASTNodeType::AST_ARRAY_LITERAL) {
+                debug_msg(DebugMsgId::PRINTF_OFFSET_CALLED,
+                          0); // デバッグ用メッセージ
                 if (debug_mode) {
                     std::cerr
-                        << "[DEBUG] Processing element " << i
-                        << ", type: " << static_cast<int>(element->node_type)
+                        << "[DEBUG] Processing array literal initialization"
                         << std::endl;
                 }
 
-                if (elem_type == TYPE_STRING) {
-                    var.array_strings[i] = element->str_value;
-                } else {
-                    if (debug_mode) {
-                        std::cerr << "[DEBUG] About to evaluate expression for "
-                                     "element "
-                                  << i << std::endl;
+                // 事前に型の検証を行う
+                TypeInfo elem_type = node->type_info;
+                for (size_t i = 0; i < node->init_expr->arguments.size() &&
+                                   i < static_cast<size_t>(var.array_size);
+                     ++i) {
+                    const auto &element = node->init_expr->arguments[i];
+
+                    // 型チェック（配列への書き込み前に実行）
+                    if (elem_type == TYPE_STRING) {
+                        if (element->node_type !=
+                            ASTNodeType::AST_STRING_LITERAL) {
+                            if (debug_mode) {
+                                std::cerr
+                                    << "[DEBUG] Type mismatch: expected string "
+                                       "literal in string array"
+                                    << std::endl;
+                            }
+                            fprintf(stderr,
+                                    "Type mismatch: string array cannot "
+                                    "contain non-string elements\n");
+                            throw std::runtime_error(
+                                "Type mismatch: string array cannot contain "
+                                "non-string elements");
+                        }
+                    } else {
+                        if (element->node_type ==
+                            ASTNodeType::AST_STRING_LITERAL) {
+                            if (debug_mode) {
+                                std::cerr
+                                    << "[DEBUG] Type mismatch: found string "
+                                       "literal in integer array"
+                                    << std::endl;
+                            }
+                            fprintf(stderr,
+                                    "Type mismatch: integer array cannot "
+                                    "contain string elements\n");
+                            throw std::runtime_error(
+                                "Type mismatch: integer array cannot contain "
+                                "string elements");
+                        }
                     }
-                    int64_t val = expression_evaluator_->evaluate_expression(
-                        element.get());
+                }
+
+                // 型検証が通った場合のみ実際の初期化を行う
+                for (size_t i = 0; i < node->init_expr->arguments.size() &&
+                                   i < static_cast<size_t>(var.array_size);
+                     ++i) {
+                    const auto &element = node->init_expr->arguments[i];
                     if (debug_mode) {
-                        std::cerr << "[DEBUG] Evaluated value: " << val
+                        std::cerr << "[DEBUG] Processing element " << i
+                                  << ", type: "
+                                  << static_cast<int>(element->node_type)
                                   << std::endl;
                     }
-                    check_type_range(elem_type, val, node->name);
-                    var.array_values[i] = val;
+
+                    if (elem_type == TYPE_STRING) {
+                        var.array_strings[i] = element->str_value;
+                    } else {
+                        if (debug_mode) {
+                            std::cerr
+                                << "[DEBUG] About to evaluate expression for "
+                                   "element "
+                                << i << std::endl;
+                        }
+                        int64_t val =
+                            expression_evaluator_->evaluate_expression(
+                                element.get());
+                        if (debug_mode) {
+                            std::cerr << "[DEBUG] Evaluated value: " << val
+                                      << std::endl;
+                        }
+                        check_type_range(elem_type, val, node->name);
+                        var.array_values[i] = val;
+                    }
+                }
+            } else if (node->init_expr->node_type ==
+                       ASTNodeType::AST_FUNC_CALL) {
+                // 関数呼び出しによる配列初期化
+                if (debug_mode) {
+                    std::cerr << "[DEBUG] Processing array initialization from "
+                                 "function call: "
+                              << node->init_expr->name << std::endl;
+                }
+
+                try {
+                    // 関数を実行してReturnExceptionを取得
+                    if (debug_mode) {
+                        std::cerr << "[DEBUG] About to call function: "
+                                  << node->init_expr->name << std::endl;
+                    }
+                    expression_evaluator_->evaluate_expression(
+                        node->init_expr.get());
+                    // 通常の関数呼び出しは値のみを返すので、配列戻り値の場合は例外的に処理される
+                    if (debug_mode) {
+                        std::cerr << "[DEBUG] Function call completed without "
+                                     "exception"
+                                  << std::endl;
+                    }
+                } catch (const ReturnException &ret) {
+                    if (debug_mode) {
+                        std::cerr
+                            << "[DEBUG] Caught ReturnException, is_array: "
+                            << ret.is_array << std::endl;
+                    }
+                    if (ret.is_array) {
+                        if (debug_mode) {
+                            std::cerr << "[DEBUG] Received array return value"
+                                      << std::endl;
+                        }
+
+                        // 戻り値の配列を現在の配列変数にコピー
+                        TypeInfo elem_type = node->type_info;
+                        if (elem_type == TYPE_STRING ||
+                            elem_type == TYPE_CHAR) {
+                            // 文字列配列
+                            if (!ret.str_array_3d.empty() &&
+                                !ret.str_array_3d[0].empty()) {
+                                const auto &src_row = ret.str_array_3d[0][0];
+                                if (debug_mode) {
+                                    std::cerr << "[DEBUG] Copying string "
+                                                 "array, size: "
+                                              << src_row.size() << std::endl;
+                                }
+                                for (size_t i = 0;
+                                     i < src_row.size() &&
+                                     i < static_cast<size_t>(var.array_size);
+                                     ++i) {
+                                    var.array_strings[i] = src_row[i];
+                                }
+                            }
+                        } else {
+                            // 整数配列
+                            if (!ret.int_array_3d.empty() &&
+                                !ret.int_array_3d[0].empty()) {
+                                const auto &src_row = ret.int_array_3d[0][0];
+                                if (debug_mode) {
+                                    std::cerr << "[DEBUG] Copying integer "
+                                                 "array, size: "
+                                              << src_row.size() << std::endl;
+                                }
+                                for (size_t i = 0;
+                                     i < src_row.size() &&
+                                     i < static_cast<size_t>(var.array_size);
+                                     ++i) {
+                                    var.array_values[i] = src_row[i];
+                                    if (debug_mode) {
+                                        std::cerr
+                                            << "[DEBUG] Copied array element ["
+                                            << i << "] = " << src_row[i]
+                                            << std::endl;
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        // 通常の戻り値の場合はエラー
+                        if (debug_mode) {
+                            std::cerr
+                                << "[DEBUG] Function does not return an array"
+                                << std::endl;
+                        }
+                        throw std::runtime_error(
+                            "Function does not return an array");
+                    }
+                } catch (const std::exception &e) {
+                    if (debug_mode) {
+                        std::cerr << "[DEBUG] Exception during function call: "
+                                  << e.what() << std::endl;
+                    }
+                    throw;
                 }
             }
         }
@@ -659,9 +772,100 @@ void Interpreter::execute_statement(const ASTNode *node) {
         break;
 
     case ASTNodeType::AST_RETURN_STMT:
+        if (debug_mode) {
+            std::cerr << "[DEBUG] Processing return statement" << std::endl;
+        }
         if (node->left) {
+            if (debug_mode) {
+                std::cerr << "[DEBUG] Return has expression, type: "
+                          << static_cast<int>(node->left->node_type)
+                          << std::endl;
+            }
             if (node->left->node_type == ASTNodeType::AST_STRING_LITERAL) {
                 throw ReturnException(node->left->str_value);
+            } else if (node->left->node_type == ASTNodeType::AST_VARIABLE) {
+                if (debug_mode) {
+                    std::cerr << "[DEBUG] Return variable: " << node->left->name
+                              << std::endl;
+                }
+                // 変数の場合、配列変数かチェック
+                Variable *var = find_variable(node->left->name);
+                if (var && var->is_array) {
+                    if (debug_mode) {
+                        std::cerr << "[DEBUG] Returning array variable, size: "
+                                  << var->array_values.size() << std::endl;
+                    }
+                    // 配列変数のreturn
+                    TypeInfo type_info = var->type;
+                    std::string type_name =
+                        node->left->name; // 配列名を仮の型名として使用
+
+                    if (type_info ==
+                            static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_INT) ||
+                        type_info == static_cast<TypeInfo>(TYPE_ARRAY_BASE +
+                                                           TYPE_LONG) ||
+                        type_info == static_cast<TypeInfo>(TYPE_ARRAY_BASE +
+                                                           TYPE_SHORT) ||
+                        type_info == static_cast<TypeInfo>(TYPE_ARRAY_BASE +
+                                                           TYPE_TINY) ||
+                        type_info == static_cast<TypeInfo>(TYPE_ARRAY_BASE +
+                                                           TYPE_BOOL)) {
+                        // 整数配列を3D配列として格納
+                        std::vector<std::vector<std::vector<int64_t>>>
+                            int_array_3d;
+                        std::vector<std::vector<int64_t>> int_array_2d;
+                        std::vector<int64_t> int_array_1d;
+
+                        for (size_t i = 0; i < var->array_values.size(); ++i) {
+                            int_array_1d.push_back(var->array_values[i]);
+                            if (debug_mode) {
+                                std::cerr << "[DEBUG] Array element[" << i
+                                          << "] = " << var->array_values[i]
+                                          << std::endl;
+                            }
+                        }
+                        int_array_2d.push_back(int_array_1d);
+                        int_array_3d.push_back(int_array_2d);
+
+                        if (debug_mode) {
+                            std::cerr
+                                << "[DEBUG] Throwing ReturnException with array"
+                                << std::endl;
+                        }
+                        throw ReturnException(int_array_3d, type_name,
+                                              type_info);
+                    } else if (type_info ==
+                                   static_cast<TypeInfo>(TYPE_ARRAY_BASE +
+                                                         TYPE_STRING) ||
+                               type_info == static_cast<TypeInfo>(
+                                                TYPE_ARRAY_BASE + TYPE_CHAR)) {
+                        // 文字列配列を3D配列として格納
+                        std::vector<std::vector<std::vector<std::string>>>
+                            str_array_3d;
+                        std::vector<std::vector<std::string>> str_array_2d;
+                        std::vector<std::string> str_array_1d;
+
+                        for (size_t i = 0; i < var->array_strings.size(); ++i) {
+                            str_array_1d.push_back(var->array_strings[i]);
+                        }
+                        str_array_2d.push_back(str_array_1d);
+                        str_array_3d.push_back(str_array_2d);
+
+                        throw ReturnException(str_array_3d, type_name,
+                                              type_info);
+                    }
+                } else {
+                    if (debug_mode) {
+                        std::cerr
+                            << "[DEBUG] Variable is not array or not found"
+                            << std::endl;
+                    }
+                }
+
+                // 非配列変数または通常の処理
+                int64_t value = expression_evaluator_->evaluate_expression(
+                    node->left.get());
+                throw ReturnException(value);
             } else {
                 int64_t value = expression_evaluator_->evaluate_expression(
                     node->left.get());

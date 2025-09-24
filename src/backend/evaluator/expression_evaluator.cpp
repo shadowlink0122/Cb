@@ -127,9 +127,11 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
     }
 
     case ASTNodeType::AST_ARRAY_LITERAL: {
-        debug_msg(DebugMsgId::EXPR_EVAL_ARRAY_REF, "AST_ARRAY_LITERAL evaluated directly (not in assignment context)");
-        // 配列リテラルは式として評価できない（代入でのみ使用可能）
-        throw std::runtime_error("Array literal cannot be used as expression value");
+        debug_msg(DebugMsgId::EXPR_EVAL_ARRAY_REF, "AST_ARRAY_LITERAL: returning placeholder value for nested array processing");
+        // 配列リテラルは通常は式として評価されないが、
+        // N次元配列処理では内部的に参照される場合があるため
+        // プレースホルダー値として0を返す
+        return 0;
     }
 
     case ASTNodeType::AST_BINARY_OP: {
@@ -335,6 +337,10 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
             } catch (const ReturnException &ret) {
                 // return文で戻り値がある場合
                 interpreter_.pop_scope();
+                if (ret.is_array) {
+                    // 配列戻り値の場合は例外を再度投げる
+                    throw ret;
+                }
                 return ret.value;
             }
         } catch (...) {
