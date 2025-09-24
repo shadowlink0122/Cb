@@ -74,6 +74,7 @@ enum class ASTNodeType {
     AST_BINARY_OP,
     AST_UNARY_OP,
     AST_ASSIGN,
+    AST_ARRAY_ASSIGN, // 配列代入 (arr1 = arr2)
 
     // 制御構造
     AST_IF_STMT,
@@ -94,6 +95,8 @@ enum class ASTNodeType {
     // 式
     AST_FUNC_CALL,
     AST_ARRAY_REF,
+    AST_ARRAY_SLICE, // 配列スライス (arr[0])
+    AST_ARRAY_COPY,  // 配列コピー
     AST_PRE_INCDEC,
     AST_POST_INCDEC,
 
@@ -152,6 +155,7 @@ struct ASTNode {
     // ストレージ属性
     bool is_const = false;
     bool is_static = false;
+    bool is_array = false; // 配列パラメータフラグ
 
     // 値・名前
     int64_t int_value = 0;

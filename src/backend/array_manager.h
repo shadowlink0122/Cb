@@ -54,6 +54,12 @@ class ArrayManager {
     // 配列宣言処理
     void declare_array(const ASTNode *node);
 
+    // 配列コピー機能
+    void copyArray(Variable &dest, const Variable &src);
+    void copyArraySlice(Variable &dest, const Variable &src,
+                        const std::vector<int64_t> &slice_indices);
+    bool isCompatibleArrayType(const Variable &dest, const Variable &src);
+
   private:
     // ヘルパー関数
     void processArrayLiteralRecursive(Variable &var, const ASTNode *node,

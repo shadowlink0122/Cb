@@ -1,0 +1,18 @@
+// 2次元配列（数値型のみ）テスト
+int main() {
+    // 2次元int配列
+    int[2][2] int_matrix = [[1, 2], [3, 4]];
+    print(int_matrix[0][0]);
+    print(int_matrix[0][1]);
+    print(int_matrix[1][0]);
+    print(int_matrix[1][1]);
+    
+    // 2次元long配列
+    long[2][2] long_matrix = [[100, 200], [300, 400]];
+    print(long_matrix[0][0]);
+    print(long_matrix[0][1]);
+    print(long_matrix[1][0]);
+    print(long_matrix[1][1]);
+    
+    return 0;
+}

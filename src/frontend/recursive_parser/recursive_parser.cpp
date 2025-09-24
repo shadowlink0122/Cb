@@ -335,8 +335,9 @@ ASTNode* RecursiveParser::parseStatement() {
                     
                     node->init_expr = std::unique_ptr<ASTNode>(array_literal);
                 } else {
-                    error("Expected array literal after '=' in array declaration");
-                    return nullptr;
+                    // 配列リテラル以外の式（配列スライス等）も許可
+                    ASTNode* expr = parseExpression();
+                    node->init_expr = std::unique_ptr<ASTNode>(expr);
                 }
             }
             
@@ -1109,8 +1110,23 @@ ASTNode* RecursiveParser::parseFunctionDeclarationAfterName(const std::string& r
             param->name = param_name.value;
             param->type_name = param_type;
             
+            // 配列パラメータかチェック
+            param->is_array = (param_type.find("[") != std::string::npos);
+            
             // 型情報を設定
-            if (param_type == "int") {
+            if (param_type.find("[") != std::string::npos) {
+                // 配列パラメータの場合
+                std::string base_type = param_type.substr(0, param_type.find("["));
+                if (base_type == "int") {
+                    param->type_info = static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_INT);
+                } else if (base_type == "string") {
+                    param->type_info = static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_STRING);
+                } else if (base_type == "bool") {
+                    param->type_info = static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_BOOL);
+                } else {
+                    param->type_info = TYPE_UNKNOWN;
+                }
+            } else if (param_type == "int") {
                 param->type_info = TYPE_INT;
             } else if (param_type == "long") {
                 param->type_info = TYPE_LONG;

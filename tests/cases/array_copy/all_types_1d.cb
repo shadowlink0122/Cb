@@ -1,0 +1,39 @@
+// 全ての基本型での1次元配列テスト
+int main() {
+    // tiny配列
+    tiny[2] tiny_arr = [1, 2];
+    print(tiny_arr[0]);
+    print(tiny_arr[1]);
+    
+    // short配列
+    short[2] short_arr = [100, 200];
+    print(short_arr[0]);
+    print(short_arr[1]);
+    
+    // int配列
+    int[2] int_arr = [1000, 2000];
+    print(int_arr[0]);
+    print(int_arr[1]);
+    
+    // long配列
+    long[2] long_arr = [100000, 200000];
+    print(long_arr[0]);
+    print(long_arr[1]);
+    
+    // char配列
+    char[2] char_arr = ['A', 'B'];
+    print(char_arr[0]);
+    print(char_arr[1]);
+    
+    // string配列
+    string[2] string_arr = ["hello", "world"];
+    print(string_arr[0]);
+    print(string_arr[1]);
+    
+    // bool配列
+    bool[2] bool_arr = [true, false];
+    print(bool_arr[0]);
+    print(bool_arr[1]);
+    
+    return 0;
+}

@@ -303,8 +303,25 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                 const auto &param = func->parameters[i];
                 const auto &arg = node->arguments[i];
                 
-                int64_t arg_value = evaluate_expression(arg.get());
-                interpreter_.assign_function_parameter(param->name, arg_value, param->type_info);
+                // 配列パラメータのサポート
+                if (param->is_array) {
+                    if (arg->node_type == ASTNodeType::AST_VARIABLE) {
+                        // 変数として渡された場合
+                        Variable* source_var = interpreter_.find_variable(arg->name);
+                        if (!source_var || !source_var->is_array) {
+                            throw std::runtime_error("Array argument expected for parameter: " + param->name);
+                        }
+                        
+                        // 配列をコピーしてパラメータに設定
+                        interpreter_.assign_array_parameter(param->name, *source_var, param->type_info);
+                    } else {
+                        throw std::runtime_error("Only array variables can be passed as array parameters");
+                    }
+                } else {
+                    // 通常の値パラメータ
+                    int64_t arg_value = evaluate_expression(arg.get());
+                    interpreter_.assign_function_parameter(param->name, arg_value, param->type_info);
+                }
             }
             
             // 関数本体を実行

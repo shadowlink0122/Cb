@@ -55,6 +55,41 @@ void OutputManager::print_value(const ASTNode *expr) {
             var_name = expr->name;
         } else if (expr->left) {
             // 複雑な左側の式（多次元配列アクセスなど）
+            // 多次元配列の文字列アクセスかチェック
+            if (expr->left->node_type == ASTNodeType::AST_ARRAY_REF) {
+                ASTNode* base_node = expr->left.get();
+                while (base_node && base_node->node_type == ASTNodeType::AST_ARRAY_REF && base_node->left) {
+                    base_node = base_node->left.get();
+                }
+                
+                if (base_node && base_node->node_type == ASTNodeType::AST_VARIABLE) {
+                    Variable* var = find_variable(base_node->name);
+                    if (var && var->is_multidimensional && var->array_type_info.base_type == TYPE_STRING) {
+                        // 多次元文字列配列の場合は専用処理
+                        std::vector<int64_t> indices;
+                        
+                        // 最外側のインデックス（current expression）
+                        int64_t outer_index = evaluate_expression(expr->array_index.get());
+                        
+                        // 内側のインデックス（left expression）
+                        int64_t inner_index = evaluate_expression(expr->left->array_index.get());
+                        
+                        indices.push_back(inner_index);
+                        indices.push_back(outer_index);
+                        
+                        try {
+                            std::string result = interpreter_->getMultidimensionalStringArrayElement(*var, indices);
+                            io_interface_->write_string(result.c_str());
+                            return;
+                        } catch (const std::exception& e) {
+                            io_interface_->write_string("(string array access error)");
+                            return;
+                        }
+                    }
+                }
+            }
+            
+            // 通常の数値型多次元配列アクセス
             int64_t value = evaluate_expression(expr);
             io_interface_->write_number(value);
             return;

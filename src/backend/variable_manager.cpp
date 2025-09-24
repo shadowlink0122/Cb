@@ -81,6 +81,16 @@ void VariableManager::assign_function_parameter(const std::string &name,
     current_scope().variables[name] = new_var;
 }
 
+void VariableManager::assign_array_parameter(const std::string &name,
+                                             const Variable &source_array,
+                                             TypeInfo type) {
+    // 配列パラメータは新しい変数としてコピーを作成
+    Variable param_var;
+    interpreter_->array_manager_->copyArray(param_var, source_array);
+    param_var.is_const = false; // パラメータは基本的にconst扱いしない
+    current_scope().variables[name] = param_var;
+}
+
 void VariableManager::assign_variable(const std::string &name,
                                       const std::string &value) {
     Variable *var = find_variable(name);
@@ -175,11 +185,13 @@ void VariableManager::declare_global_variable(const ASTNode *node) {
                     array_part.substr(1, array_part.length() - 2);
                 var.array_size = std::stoi(size_str);
 
+                // array_dimensionsを設定
+                var.array_dimensions.clear();
+                var.array_dimensions.push_back(var.array_size);
+
             } else {
                 var.array_size = 0; // 動的配列
-            }
-
-            // 配列初期化
+            }                       // 配列初期化
             if (base_type == TYPE_STRING) {
                 var.array_strings.resize(var.array_size, "");
             } else {
@@ -407,6 +419,10 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                     bracket_pos + 1, close_bracket_pos - bracket_pos - 1);
                 var.array_size = std::stoi(size_str);
 
+                // array_dimensionsを設定
+                var.array_dimensions.clear();
+                var.array_dimensions.push_back(var.array_size);
+
                 // 配列初期化
                 if (var.type == TYPE_STRING) {
                     var.array_strings.resize(var.array_size, "");
@@ -418,8 +434,44 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
 
         // 初期化式がある場合
         if (node->init_expr) {
-            if (var.type == TYPE_STRING &&
-                node->init_expr->node_type == ASTNodeType::AST_STRING_LITERAL) {
+            if (var.is_array &&
+                node->init_expr->node_type == ASTNodeType::AST_ARRAY_REF) {
+                // 配列スライス代入の処理
+                std::string source_var_name = node->init_expr->name;
+                Variable *source_var = find_variable(source_var_name);
+                if (!source_var) {
+                    throw std::runtime_error("Source variable not found: " +
+                                             source_var_name);
+                }
+
+                // インデックスを評価
+                std::vector<int64_t> indices;
+                for (const auto &index_expr : node->init_expr->arguments) {
+                    int64_t index = interpreter_->expression_evaluator_
+                                        ->evaluate_expression(index_expr.get());
+                    indices.push_back(index);
+                }
+
+                // 配列スライスをコピー
+                interpreter_->array_manager_->copyArraySlice(var, *source_var,
+                                                             indices);
+
+            } else if (var.is_array && node->init_expr->node_type ==
+                                           ASTNodeType::AST_VARIABLE) {
+                // 配列全体のコピー
+                std::string source_var_name = node->init_expr->name;
+                Variable *source_var = find_variable(source_var_name);
+                if (!source_var) {
+                    throw std::runtime_error("Source variable not found: " +
+                                             source_var_name);
+                }
+
+                // 配列をコピー
+                interpreter_->array_manager_->copyArray(var, *source_var);
+
+            } else if (var.type == TYPE_STRING &&
+                       node->init_expr->node_type ==
+                           ASTNodeType::AST_STRING_LITERAL) {
                 // 文字列初期化の処理
                 var.str_value = node->init_expr->str_value;
                 var.value = 0; // プレースホルダー

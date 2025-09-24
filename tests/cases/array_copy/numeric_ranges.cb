@@ -1,0 +1,25 @@
+// 数値型範囲テスト
+int main() {
+    // tiny型の範囲テスト
+    tiny[3] tiny_arr = [127, -128, 0];
+    print("Tiny range:");
+    for (int i = 0; i < 3; i = i + 1) {
+        print(tiny_arr[i]);
+    }
+    
+    // short型の範囲テスト  
+    short[3] short_arr = [32767, -32768, 1000];
+    print("Short range:");
+    for (int i = 0; i < 3; i = i + 1) {
+        print(short_arr[i]);
+    }
+    
+    // long型の大きな数値
+    long[2] long_arr = [999999999, -999999999];
+    print("Long range:");
+    for (int i = 0; i < 2; i = i + 1) {
+        print(long_arr[i]);
+    }
+    
+    return 0;
+}

@@ -186,6 +186,8 @@ class Interpreter : public EvaluatorInterface {
                          bool is_const);
     void assign_function_parameter(const std::string &name, int64_t value,
                                    TypeInfo type);
+    void assign_array_parameter(const std::string &name,
+                                const Variable &source_array, TypeInfo type);
     void assign_array_element(const std::string &name, int64_t index,
                               int64_t value);
     void assign_string_element(const std::string &name, int64_t index,

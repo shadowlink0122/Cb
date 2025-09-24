@@ -1,0 +1,19 @@
+// 混合次元配列テスト
+int main() {
+    // 1次元から2次元への要素コピー
+    int[4] src1d = [10, 20, 30, 40];
+    int[2][2] dest2d;
+    
+    dest2d[0][0] = src1d[0];
+    dest2d[0][1] = src1d[1];
+    dest2d[1][0] = src1d[2];
+    dest2d[1][1] = src1d[3];
+    
+    for (int i = 0; i < 2; i = i + 1) {
+        for (int j = 0; j < 2; j = j + 1) {
+            print(dest2d[i][j]);
+        }
+    }
+    
+    return 0;
+}

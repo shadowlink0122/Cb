@@ -124,6 +124,10 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
         type_manager_->register_typedef(node->name, node->type_name);
         break;
 
+    case ASTNodeType::AST_ARRAY_ASSIGN:
+        // 配列代入は実行時に処理
+        break;
+
     default:
         break;
     }
@@ -722,6 +726,12 @@ void Interpreter::assign_variable(const std::string &name,
 void Interpreter::assign_function_parameter(const std::string &name,
                                             int64_t value, TypeInfo type) {
     variable_manager_->assign_function_parameter(name, value, type);
+}
+
+void Interpreter::assign_array_parameter(const std::string &name,
+                                         const Variable &source_array,
+                                         TypeInfo type) {
+    variable_manager_->assign_array_parameter(name, source_array, type);
 }
 
 void Interpreter::assign_array_element(const std::string &name, int64_t index,

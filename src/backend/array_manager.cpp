@@ -398,3 +398,107 @@ void ArrayManager::declare_array(const ASTNode *node) {
         debug_msg(DebugMsgId::ARRAY_DECL_SUCCESS, node->name.c_str());
     }
 }
+
+// 配列コピー機能の実装
+void ArrayManager::copyArray(Variable &dest, const Variable &src) {
+    if (!isCompatibleArrayType(dest, src)) {
+        throw std::runtime_error("Incompatible array types for copy operation");
+    }
+
+    // 型情報をコピー
+    dest.type = src.type;
+    dest.is_array = src.is_array;
+    dest.is_multidimensional = src.is_multidimensional;
+    dest.array_dimensions = src.array_dimensions;
+    dest.array_size = src.array_size;
+    dest.array_type_info = src.array_type_info;
+
+    // データをコピー
+    if (src.is_multidimensional) {
+        if (src.array_type_info.base_type == TYPE_STRING) {
+            dest.multidim_array_strings = src.multidim_array_strings;
+        } else {
+            dest.multidim_array_values = src.multidim_array_values;
+        }
+    } else {
+        if (static_cast<int>(src.type) == TYPE_ARRAY_BASE + TYPE_STRING) {
+            dest.array_strings = src.array_strings;
+        } else {
+            dest.array_values = src.array_values;
+        }
+    }
+
+    dest.is_assigned = true;
+}
+
+void ArrayManager::copyArraySlice(Variable &dest, const Variable &src,
+                                  const std::vector<int64_t> &slice_indices) {
+    if (!src.is_multidimensional ||
+        slice_indices.size() >= src.array_dimensions.size()) {
+        throw std::runtime_error("Invalid array slice operation");
+    }
+
+    // スライスのサイズを計算
+    std::vector<int> slice_dimensions;
+    for (size_t i = slice_indices.size(); i < src.array_dimensions.size();
+         i++) {
+        slice_dimensions.push_back(src.array_dimensions[i]);
+    }
+
+    // 目的配列が単一次元の場合
+    if (slice_dimensions.size() == 1) {
+        dest.is_array = true;
+        dest.is_multidimensional = false;
+        dest.array_size = slice_dimensions[0];
+        dest.array_dimensions = slice_dimensions;
+        dest.type = static_cast<TypeInfo>(TYPE_ARRAY_BASE +
+                                          src.array_type_info.base_type);
+
+        // データをコピー
+        if (src.array_type_info.base_type == TYPE_STRING) {
+            dest.array_strings.resize(slice_dimensions[0]);
+            for (int i = 0; i < slice_dimensions[0]; i++) {
+                std::vector<int64_t> full_indices = slice_indices;
+                full_indices.push_back(i);
+                dest.array_strings[i] =
+                    getMultidimensionalStringArrayElement(src, full_indices);
+            }
+        } else {
+            dest.array_values.resize(slice_dimensions[0]);
+            for (int i = 0; i < slice_dimensions[0]; i++) {
+                std::vector<int64_t> full_indices = slice_indices;
+                full_indices.push_back(i);
+                dest.array_values[i] =
+                    getMultidimensionalArrayElement(src, full_indices);
+            }
+        }
+    } else {
+        // 多次元スライス（将来の拡張用）
+        throw std::runtime_error(
+            "Multi-dimensional array slicing not yet supported");
+    }
+
+    dest.is_assigned = true;
+}
+
+bool ArrayManager::isCompatibleArrayType(const Variable &dest,
+                                         const Variable &src) {
+    // 基本的な配列型チェック
+    if (!dest.is_array || !src.is_array) {
+        return false;
+    }
+
+    // 配列スライスの場合は次元数チェックを緩和
+    // 例: int[3] = int[3][3][0] のような場合を許可
+
+    // 基本型チェック
+    TypeInfo dest_base =
+        dest.is_multidimensional
+            ? dest.array_type_info.base_type
+            : static_cast<TypeInfo>(dest.type - TYPE_ARRAY_BASE);
+    TypeInfo src_base = src.is_multidimensional
+                            ? src.array_type_info.base_type
+                            : static_cast<TypeInfo>(src.type - TYPE_ARRAY_BASE);
+
+    return dest_base == src_base;
+}
