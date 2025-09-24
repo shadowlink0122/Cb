@@ -78,6 +78,7 @@ int main(int argc, char **argv) {
         }
 
         RecursiveParser parser(source, filename);
+        parser.setDebugMode(debug_mode);
         root = parser.parseProgram();
 
         if (!root) {

@@ -53,6 +53,9 @@ void OutputManager::print_value(const ASTNode *expr) {
         } else if (!expr->name.empty()) {
             // 旧構造: expr->name が直接変数名を持つ
             var_name = expr->name;
+        } else if (!expr->name.empty()) {
+            // 旧構造: expr->name が直接変数名を持つ
+            var_name = expr->name;
         } else if (expr->left) {
             // 複雑な左側の式（多次元配列アクセスなど）
             // 多次元配列の文字列アクセスかチェック
@@ -99,7 +102,37 @@ void OutputManager::print_value(const ASTNode *expr) {
         }
         
         Variable *var = find_variable(var_name);
-        if (var && var->type == TYPE_STRING) {
+        if (var && var->is_array) {
+            // 配列アクセスの処理（文字列配列を含む）
+            int64_t index = evaluate_expression(expr->array_index.get());
+
+            if (index < 0 || index >= var->array_size) {
+                error_msg(DebugMsgId::ARRAY_OUT_OF_BOUNDS_ERROR,
+                          var_name.c_str());
+                throw std::runtime_error("Array out of bounds");
+            }
+
+            // 配列型を確認
+            if (var->type >= TYPE_ARRAY_BASE) {
+                TypeInfo elem_type = static_cast<TypeInfo>(var->type - TYPE_ARRAY_BASE);
+                if (elem_type == TYPE_STRING) {
+                    // 文字列配列の場合は文字列として出力
+                    if (!var->array_strings.empty() && index < static_cast<int64_t>(var->array_strings.size())) {
+                        io_interface_->write_string(var->array_strings[index].c_str());
+                    } else {
+                        io_interface_->write_string("");
+                    }
+                } else {
+                    // 数値配列は数値として出力
+                    if (!var->array_values.empty() && index < static_cast<int64_t>(var->array_values.size())) {
+                        int64_t value = var->array_values[index];
+                        io_interface_->write_number(value);
+                    } else {
+                        io_interface_->write_number(0);
+                    }
+                }
+            }
+        } else if (var && var->type == TYPE_STRING && !var->is_array) {
             // 文字列要素アクセスの場合は文字として出力（UTF-8対応）
             int64_t index = evaluate_expression(expr->array_index.get());
             size_t utf8_length = utf8_utils::utf8_char_count(var->str_value);
@@ -113,31 +146,7 @@ void OutputManager::print_value(const ASTNode *expr) {
                           var_name.c_str(), index, utf8_length);
                 throw std::runtime_error("String out of bounds");
             }
-        } else if (var && var->is_array) {
-            // 配列アクセスの処理
-            int64_t index = evaluate_expression(expr->array_index.get());
-
-            if (index < 0 || index >= var->array_size) {
-                error_msg(DebugMsgId::ARRAY_OUT_OF_BOUNDS_ERROR,
-                          var_name.c_str());
-                    throw std::runtime_error("Array out of bounds");
-                }
-
-                TypeInfo elem_type =
-                    static_cast<TypeInfo>(var->type - TYPE_ARRAY_BASE);
-                if (elem_type == TYPE_STRING) {
-                    // 文字列配列の場合は文字列として出力
-                    if (index < static_cast<int64_t>(var->array_strings.size())) {
-                        io_interface_->write_string(var->array_strings[index].c_str());
-                    } else {
-                        io_interface_->write_string("");
-                    }
-                } else {
-                    // 数値配列は数値として出力
-                    int64_t value = var->array_values[index];
-                    io_interface_->write_number(value);
-                }
-            } else {
+        } else {
                 // 通常の配列アクセスは数値として出力
                 int64_t value = evaluate_expression(expr);
                 io_interface_->write_number(value);
@@ -234,6 +243,23 @@ void OutputManager::print_formatted(const ASTNode *format_str,
                     int64_t value = evaluate_expression(arg.get());
                     int_args.push_back(value);
                     str_args.push_back(""); // プレースホルダー
+                }
+            } else if (arg->node_type == ASTNodeType::AST_FUNC_CALL) {
+                // 関数呼び出しの処理
+                try {
+                    int64_t value = evaluate_expression(arg.get());
+                    int_args.push_back(value);
+                    str_args.push_back(""); // プレースホルダー
+                } catch (const ReturnException& ret) {
+                    if (ret.type == TYPE_STRING) {
+                        // 文字列戻り値の関数
+                        str_args.push_back(ret.str_value);
+                        int_args.push_back(0); // プレースホルダー
+                    } else {
+                        // 数値戻り値の関数
+                        int_args.push_back(ret.value);
+                        str_args.push_back(""); // プレースホルダー
+                    }
                 }
             } else {
                 int64_t value = evaluate_expression(arg.get());
@@ -876,4 +902,129 @@ void OutputManager::print_multiple(const ASTNode *arg_list) {
         }
     }
     // 改行なし
+}
+
+// 文字列フォーマット機能（戻り値として返す）
+std::string OutputManager::format_string(const ASTNode *format_str, const ASTNode *arg_list) {
+    if (!format_str || format_str->node_type != ASTNodeType::AST_STRING_LITERAL) {
+        return "(invalid format)";
+    }
+
+    std::string format = format_str->str_value;
+    std::vector<int64_t> int_args;
+    std::vector<std::string> str_args;
+
+    // 引数リストを評価
+    if (arg_list && arg_list->node_type == ASTNodeType::AST_STMT_LIST) {
+        for (const auto &arg : arg_list->arguments) {
+            if (arg->node_type == ASTNodeType::AST_STRING_LITERAL) {
+                str_args.push_back(arg->str_value);
+                int_args.push_back(0); // プレースホルダー
+            } else if (arg->node_type == ASTNodeType::AST_VARIABLE) {
+                Variable *var = find_variable(arg->name);
+                if (var && var->type == TYPE_STRING) {
+                    str_args.push_back(var->str_value);
+                    int_args.push_back(0); // プレースホルダー
+                } else {
+                    int64_t value = evaluate_expression(arg.get());
+                    int_args.push_back(value);
+                    str_args.push_back(""); // プレースホルダー
+                }
+            } else if (arg->node_type == ASTNodeType::AST_FUNC_CALL) {
+                // 関数呼び出しの処理
+                try {
+                    int64_t value = evaluate_expression(arg.get());
+                    int_args.push_back(value);
+                    str_args.push_back(""); // プレースホルダー
+                } catch (const ReturnException& ret) {
+                    if (ret.type == TYPE_STRING) {
+                        // 文字列戻り値の関数
+                        str_args.push_back(ret.str_value);
+                        int_args.push_back(0); // プレースホルダー
+                    } else {
+                        // 数値戻り値の関数
+                        int_args.push_back(ret.value);
+                        str_args.push_back(""); // プレースホルダー
+                    }
+                }
+            } else {
+                int64_t value = evaluate_expression(arg.get());
+                int_args.push_back(value);
+                str_args.push_back(""); // プレースホルダー
+            }
+        }
+    }
+
+    // フォーマット文字列を処理
+    std::string result;
+    size_t arg_index = 0;
+    for (size_t i = 0; i < format.length(); i++) {
+        if (format[i] == '\\' && i + 1 < format.length() && format[i + 1] == '%') {
+            result += '%';
+            i++;
+        } else if (format[i] == '%' && i + 1 < format.length()) {
+            size_t spec_start = i + 1;
+            size_t spec_end = spec_start;
+            int width = 0;
+            bool zero_pad = false;
+
+            if (spec_end < format.length() && format[spec_end] == '0') {
+                zero_pad = true;
+                spec_end++;
+            }
+
+            while (spec_end < format.length() && std::isdigit(format[spec_end])) {
+                width = width * 10 + (format[spec_end] - '0');
+                spec_end++;
+            }
+
+            if (spec_end >= format.length()) {
+                result += format[i];
+                continue;
+            }
+
+            char specifier = format[spec_end];
+
+            if (specifier == '%') {
+                result += '%';
+                i = spec_end;
+                continue;
+            }
+
+            if (arg_index < int_args.size()) {
+                switch (specifier) {
+                case 'd':
+                case 'i': {
+                    int64_t value = int_args[arg_index];
+                    std::string num_str = std::to_string(value);
+                    if (width > 0 && num_str.length() < static_cast<size_t>(width)) {
+                        char pad_char = zero_pad ? '0' : ' ';
+                        num_str = std::string(width - num_str.length(), pad_char) + num_str;
+                    }
+                    result += num_str;
+                    break;
+                }
+                case 's': {
+                    std::string str_value = str_args[arg_index];
+                    if (width > 0 && str_value.length() < static_cast<size_t>(width)) {
+                        str_value = std::string(width - str_value.length(), ' ') + str_value;
+                    }
+                    result += str_value;
+                    break;
+                }
+                default:
+                    result += format[i];
+                    continue;
+                }
+                arg_index++;
+                i = spec_end;
+            } else {
+                result += format[i];
+            }
+        } else {
+            result += format[i];
+        }
+    }
+    
+    return result;
 }

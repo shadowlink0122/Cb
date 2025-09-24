@@ -420,17 +420,23 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                 return 0;
             } catch (const ReturnException &ret) {
                 // return文で戻り値がある場合
-                interpreter_.pop_scope();
                 if (ret.is_array) {
                     // 配列戻り値の場合は例外を再度投げる
+                    interpreter_.pop_scope();
                     throw ret;
                 }
                 // 文字列戻り値の場合は例外を再度投げる
                 if (ret.type == TYPE_STRING) {
+                    interpreter_.pop_scope();
                     throw ret;
                 }
+                // 通常の戻り値の場合
+                interpreter_.pop_scope();
                 return ret.value;
             }
+        } catch (const ReturnException &ret) {
+            // 再投げされたReturnExceptionを処理
+            throw ret;
         } catch (...) {
             interpreter_.pop_scope();
             throw;

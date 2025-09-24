@@ -120,29 +120,134 @@ void StatementExecutor::execute_variable_declaration(const ASTNode *node) {
     var.is_const = node->is_const;
     var.is_array = false;
 
+    // typedef配列の場合の特別処理
+    if (node->array_type_info.base_type != TYPE_UNKNOWN) {
+        // ArrayTypeInfoが設定されている場合は配列として処理
+        var.is_array = true;
+        var.type = node->array_type_info.base_type;
+        
+        // デバッグ出力
+        if (debug_mode) {
+            std::cerr << "DEBUG: Setting array for typedef variable " << node->name 
+                      << " with base_type=" << var.type << " is_array=" << var.is_array << std::endl;
+        }
+        
+        // 配列サイズ情報をコピー
+        for (const auto& dim : node->array_type_info.dimensions) {
+            var.array_dimensions.push_back(dim.size);
+            if (debug_mode) {
+                std::cerr << "DEBUG: Adding dimension size=" << dim.size << std::endl;
+            }
+        }
+        
+        // 配列初期化
+        if (!var.array_dimensions.empty()) {
+            int total_size = 1;
+            for (int dim : var.array_dimensions) {
+                total_size *= dim;
+            }
+            var.array_values.resize(total_size, 0);
+            if (debug_mode) {
+                std::cerr << "DEBUG: Initialized array with total_size=" << total_size << std::endl;
+            }
+        }
+    }
+
     // 型を確定する
     if (node->type_info == TYPE_UNKNOWN && !node->str_value.empty()) {
         // 単純な型エイリアス解決
         var.type = TYPE_INT; // デフォルト
-    } else {
+    } else if (!var.is_array) {  // 配列でない場合のみ設定
         var.type = node->type_info;
     }
 
     // 初期化（init_exprまたはrightを使用）
     ASTNode* init_node = node->init_expr ? node->init_expr.get() : node->right.get();
-    if (init_node) {
-        int64_t value = interpreter_.evaluate(init_node);
-        if (var.type == TYPE_STRING) {
-            var.str_value = init_node->str_value;
-        } else {
-            var.value = value;
-            // interpreter_.check_type_range(var.type, value, node->name);
-        }
-        var.is_assigned = true;
-    }
-
-    // 変数を現在のスコープに登録
+    
+    // 変数を現在のスコープに登録（配列リテラル代入前に必要）
     interpreter_.current_scope().variables[node->name] = var;
+    
+    if (init_node) {
+        if (var.is_array && init_node->node_type == ASTNodeType::AST_ARRAY_LITERAL) {
+            // 配列リテラル初期化
+            interpreter_.assign_array_literal(node->name, init_node);
+            // 代入後に変数を再取得して更新
+            interpreter_.current_scope().variables[node->name].is_assigned = true;
+        } else if (var.is_array && init_node->node_type == ASTNodeType::AST_FUNC_CALL) {
+            // 配列を返す関数呼び出し
+            try {
+                int64_t value = interpreter_.evaluate(init_node);
+                // void関数の場合
+                interpreter_.current_scope().variables[node->name].value = value;
+                interpreter_.current_scope().variables[node->name].is_assigned = true;
+            } catch (const ReturnException& ret) {
+                if (ret.is_array) {
+                    // 配列戻り値の場合
+                    Variable& target_var = interpreter_.current_scope().variables[node->name];
+                    
+                    if (ret.type == TYPE_STRING) {
+                        // 文字列配列
+                        if (!ret.str_array_3d.empty() && 
+                            !ret.str_array_3d[0].empty() && 
+                            !ret.str_array_3d[0][0].empty()) {
+                            target_var.array_strings = ret.str_array_3d[0][0];
+                            target_var.array_size = target_var.array_strings.size();
+                            target_var.type = static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_STRING);
+                        }
+                    } else {
+                        // 数値配列
+                        if (!ret.int_array_3d.empty() && 
+                            !ret.int_array_3d[0].empty() && 
+                            !ret.int_array_3d[0][0].empty()) {
+                            target_var.array_values = ret.int_array_3d[0][0];
+                            target_var.array_size = target_var.array_values.size();
+                            target_var.type = static_cast<TypeInfo>(TYPE_ARRAY_BASE + ret.type);
+                        }
+                    }
+                    target_var.is_assigned = true;
+                } else {
+                    // 非配列戻り値の場合
+                    if (ret.type == TYPE_STRING) {
+                        interpreter_.current_scope().variables[node->name].str_value = ret.str_value;
+                    } else {
+                        interpreter_.current_scope().variables[node->name].value = ret.value;
+                    }
+                    interpreter_.current_scope().variables[node->name].is_assigned = true;
+                }
+            }
+        } else {
+            // 通常の初期化
+            if (init_node->node_type == ASTNodeType::AST_FUNC_CALL) {
+                try {
+                    int64_t value = interpreter_.evaluate(init_node);
+                    if (var.type == TYPE_STRING) {
+                        // 文字列型なのに数値が返された場合
+                        throw std::runtime_error("Type mismatch: expected string but got numeric value");
+                    } else {
+                        interpreter_.current_scope().variables[node->name].value = value;
+                    }
+                    interpreter_.current_scope().variables[node->name].is_assigned = true;
+                } catch (const ReturnException& ret) {
+                    if (ret.type == TYPE_STRING) {
+                        interpreter_.current_scope().variables[node->name].str_value = ret.str_value;
+                        interpreter_.current_scope().variables[node->name].type = TYPE_STRING;
+                    } else {
+                        interpreter_.current_scope().variables[node->name].value = ret.value;
+                    }
+                    interpreter_.current_scope().variables[node->name].is_assigned = true;
+                }
+            } else {
+                int64_t value = interpreter_.evaluate(init_node);
+                if (var.type == TYPE_STRING) {
+                    interpreter_.current_scope().variables[node->name].str_value = init_node->str_value;
+                } else {
+                    interpreter_.current_scope().variables[node->name].value = value;
+                    // interpreter_.check_type_range(var.type, value, node->name);
+                }
+                interpreter_.current_scope().variables[node->name].is_assigned = true;
+            }
+        }
+    }
 }
 
 void StatementExecutor::execute_multiple_var_decl(const ASTNode *node) {

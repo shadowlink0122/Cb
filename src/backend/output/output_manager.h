@@ -26,6 +26,9 @@ public:
     void print_formatted(const ASTNode *format_str, const ASTNode *arg_list);
     void print_formatted(const ASTNode *format_str, const ASTNode *arg_list, size_t start_index);
     void print_multiple(const ASTNode *arg_list);
+    
+    // 文字列フォーマット機能（戻り値として返す）
+    std::string format_string(const ASTNode *format_str, const ASTNode *arg_list);
 
 private:
     Interpreter* interpreter_;  // インタープリターへの参照

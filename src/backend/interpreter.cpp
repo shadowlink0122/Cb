@@ -89,25 +89,32 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
             }
 
             // グローバル変数の初期化
-            Variable var;
-            var.type =
-                node->type_info != TYPE_VOID ? node->type_info : TYPE_INT;
-            var.is_const = node->is_const;
-            var.is_assigned = false;
+            if (node->right &&
+                node->right->node_type == ASTNodeType::AST_ARRAY_LITERAL) {
+                // 配列リテラル初期化の場合 - 既に宣言済みの変数に代入
+                assign_array_literal(node->name, node->right.get());
+            } else {
+                // 通常の初期化
+                Variable var;
+                var.type =
+                    node->type_info != TYPE_VOID ? node->type_info : TYPE_INT;
+                var.is_const = node->is_const;
+                var.is_assigned = false;
 
-            if (node->right) {
-                int64_t value = expression_evaluator_->evaluate_expression(
-                    node->right.get());
-                if (var.type == TYPE_STRING) {
-                    var.str_value = node->right->str_value;
-                } else {
-                    var.value = value;
-                    check_type_range(var.type, value, node->name);
+                if (node->right) {
+                    int64_t value = expression_evaluator_->evaluate_expression(
+                        node->right.get());
+                    if (var.type == TYPE_STRING) {
+                        var.str_value = node->right->str_value;
+                    } else {
+                        var.value = value;
+                        check_type_range(var.type, value, node->name);
+                    }
+                    var.is_assigned = true;
                 }
-                var.is_assigned = true;
-            }
 
-            global_scope.variables[node->name] = var;
+                global_scope.variables[node->name] = var;
+            }
         } else if (node->node_type == ASTNodeType::AST_VAR_DECL) {
             // グローバル変数宣言をVariableManagerに委譲
             variable_manager_->declare_global_variable(node);
@@ -481,10 +488,52 @@ void Interpreter::execute_statement(const ASTNode *node) {
                 Variable *var = find_variable(node->left->name);
                 if (var && var->is_array) {
                     if (debug_mode) {
-                        std::cerr << "[DEBUG] Returning array variable, size: "
-                                  << var->array_values.size() << std::endl;
+                        std::cerr << "[DEBUG] Returning array variable"
+                                  << std::endl;
+                        if (var->is_multidimensional) {
+                            std::cerr
+                                << "[DEBUG] Multidimensional array, size: "
+                                << var->multidim_array_values.size()
+                                << std::endl;
+                        } else {
+                            std::cerr << "[DEBUG] Regular array, size: "
+                                      << var->array_values.size() << std::endl;
+                        }
                     }
-                    // 配列変数のreturn
+
+                    // 多次元配列の場合
+                    if (var->is_multidimensional) {
+                        if (debug_mode) {
+                            std::cerr << "[DEBUG] Processing multidimensional "
+                                         "array return"
+                                      << std::endl;
+                        }
+
+                        // 多次元配列の値を3D配列に変換
+                        std::vector<std::vector<std::vector<int64_t>>>
+                            int_array_3d;
+                        std::vector<std::vector<int64_t>> int_array_2d;
+                        std::vector<int64_t> int_array_1d;
+
+                        for (size_t i = 0;
+                             i < var->multidim_array_values.size(); ++i) {
+                            int_array_1d.push_back(
+                                var->multidim_array_values[i]);
+                            if (debug_mode) {
+                                std::cerr
+                                    << "[DEBUG] Multidim Array element[" << i
+                                    << "] = " << var->multidim_array_values[i]
+                                    << std::endl;
+                            }
+                        }
+                        int_array_2d.push_back(int_array_1d);
+                        int_array_3d.push_back(int_array_2d);
+
+                        throw ReturnException(int_array_3d, node->left->name,
+                                              var->type);
+                    }
+
+                    // 1次元配列の既存処理
                     TypeInfo type_info = var->type;
                     std::string type_name =
                         node->left->name; // 配列名を仮の型名として使用
@@ -552,13 +601,41 @@ void Interpreter::execute_statement(const ASTNode *node) {
                 }
 
                 // 非配列変数または通常の処理
-                int64_t value = expression_evaluator_->evaluate_expression(
-                    node->left.get());
-                throw ReturnException(value);
+                if (node->left->node_type == ASTNodeType::AST_VARIABLE) {
+                    Variable *var = find_variable(node->left->name);
+                    if (var && var->type == TYPE_STRING) {
+                        // 文字列変数を返す
+                        throw ReturnException(var->str_value);
+                    } else {
+                        // 数値変数を返す
+                        int64_t value =
+                            expression_evaluator_->evaluate_expression(
+                                node->left.get());
+                        throw ReturnException(value);
+                    }
+                } else {
+                    int64_t value = expression_evaluator_->evaluate_expression(
+                        node->left.get());
+                    throw ReturnException(value);
+                }
             } else {
-                int64_t value = expression_evaluator_->evaluate_expression(
-                    node->left.get());
-                throw ReturnException(value);
+                if (node->left->node_type == ASTNodeType::AST_VARIABLE) {
+                    Variable *var = find_variable(node->left->name);
+                    if (var && var->type == TYPE_STRING) {
+                        // 文字列変数を返す
+                        throw ReturnException(var->str_value);
+                    } else {
+                        // 数値変数を返す
+                        int64_t value =
+                            expression_evaluator_->evaluate_expression(
+                                node->left.get());
+                        throw ReturnException(value);
+                    }
+                } else {
+                    int64_t value = expression_evaluator_->evaluate_expression(
+                        node->left.get());
+                    throw ReturnException(value);
+                }
             }
         } else {
             throw ReturnException(0);
@@ -784,6 +861,19 @@ void Interpreter::assign_array_literal(const std::string &name,
                                  "' is not declared as array");
     }
 
+    // 多次元配列の場合はarray_managerの処理を使用
+    if (var->is_multidimensional) {
+        // 要素型を取得
+        TypeInfo elem_type = var->array_type_info.base_type;
+        array_manager_->processMultidimensionalArrayLiteral(*var, literal_node,
+                                                            elem_type);
+        var->is_assigned = true;
+        return;
+    }
+
+    // 1次元配列の処理
+
+    // 1次元配列の処理
     // 配列リテラルの要素を取得（argumentsフィールドから）
     std::vector<int64_t> values;
     std::vector<std::string> str_values;
@@ -810,6 +900,10 @@ void Interpreter::assign_array_literal(const std::string &name,
         }
         // 数値配列をクリア
         var->array_values.clear();
+
+        // 1次元配列として次元情報を設定
+        var->array_dimensions.clear();
+        var->array_dimensions.push_back(var->array_size);
     } else {
         var->array_values = values;
         var->array_size = values.size();
@@ -819,6 +913,10 @@ void Interpreter::assign_array_literal(const std::string &name,
         }
         // 文字列配列をクリア
         var->array_strings.clear();
+
+        // 1次元配列として次元情報を設定
+        var->array_dimensions.clear();
+        var->array_dimensions.push_back(var->array_size);
     }
 
     var->is_assigned = true;

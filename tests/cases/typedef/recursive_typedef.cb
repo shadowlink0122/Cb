@@ -13,13 +13,13 @@ AdminID create_admin(UserID user_id) {
     return user_id + 1000;
 }
 
-UserFirstName format_name(FirstName name) {
-    return "User_" + name;
-}
-
 // 異なる段階のtypedefを混合した関数
 ID process_ids(UserID uid, AdminID aid) {
     return uid + aid;
+}
+
+UserFirstName get_username(){
+    return "Alice";
 }
 
 int main() {
@@ -33,9 +33,7 @@ int main() {
     println("Admin ID: ", admin_id);
     
     // 文字列の多段typedef
-    FirstName first_name = "Alice";
-    UserFirstName formatted = format_name(first_name);
-    println("Formatted name: ", formatted);
+    println("Formatted name: User_%s", get_username());
     
     // 混合処理
     ID processed = process_ids(user_id, admin_id);

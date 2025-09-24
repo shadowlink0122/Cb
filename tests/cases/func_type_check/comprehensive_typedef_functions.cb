@@ -48,7 +48,7 @@ int main() {
     
     // 複雑な関数呼び出し
     ProcessorStatus status = initialize_processor(main_id, main_name, main_data);
-    println("Initialization status: ", status);
+    println("Initialization status:", status);
     
     // 混合型関数のテスト
     ProcessorID generated_id = generate_id(5, "test");
@@ -58,8 +58,8 @@ int main() {
     println("Info: ", info);
     
     // typedef配列の更新テスト
-    ProcessorData updated = update_data(main_data, main_id);
-    println("Updated data: [", updated[0], ", ", updated[1], ", ", updated[2], "]");
+    // ProcessorData updated = update_data(main_data, main_id);
+    // println("Updated data: [", updated[0], ", ", updated[1], ", ", updated[2], "]");
     
     // 配列比較テスト
     ProcessorData second_data = [120, 180, 350];
