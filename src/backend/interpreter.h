@@ -236,6 +236,12 @@ class Interpreter : public EvaluatorInterface {
     void check_type_range(TypeInfo type, int64_t value,
                           const std::string &name);
 
+    // エラー表示ヘルパー関数
+    void throw_runtime_error_with_location(const std::string &message,
+                                           const ASTNode *node = nullptr);
+    void print_error_at_node(const std::string &message,
+                             const ASTNode *node = nullptr);
+
     // デバッグ機能
     void set_debug_mode(bool debug) { debug_mode = debug; }
 

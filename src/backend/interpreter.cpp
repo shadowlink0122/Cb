@@ -444,11 +444,7 @@ void Interpreter::execute_statement(const ASTNode *node) {
             if (node->init_expr->node_type == ASTNodeType::AST_ARRAY_LITERAL) {
                 debug_msg(DebugMsgId::PRINTF_OFFSET_CALLED,
                           0); // デバッグ用メッセージ
-                if (debug_mode) {
-                    std::cerr
-                        << "[DEBUG] Processing array literal initialization"
-                        << std::endl;
-                }
+                debug_msg(DebugMsgId::ARRAY_LITERAL_INIT_PROCESSING);
 
                 // 事前に型の検証を行う
                 TypeInfo elem_type = node->type_info;
@@ -498,29 +494,17 @@ void Interpreter::execute_statement(const ASTNode *node) {
                                    i < static_cast<size_t>(var.array_size);
                      ++i) {
                     const auto &element = node->init_expr->arguments[i];
-                    if (debug_mode) {
-                        std::cerr << "[DEBUG] Processing element " << i
-                                  << ", type: "
-                                  << static_cast<int>(element->node_type)
-                                  << std::endl;
-                    }
+                    debug_msg(DebugMsgId::ARRAY_ELEMENT_PROCESSING_DEBUG,
+                              (int)i, (int)element->node_type);
 
                     if (elem_type == TYPE_STRING) {
                         var.array_strings[i] = element->str_value;
                     } else {
-                        if (debug_mode) {
-                            std::cerr
-                                << "[DEBUG] About to evaluate expression for "
-                                   "element "
-                                << i << std::endl;
-                        }
+                        debug_msg(DebugMsgId::ARRAY_ELEMENT_EVAL_START, (int)i);
                         int64_t val =
                             expression_evaluator_->evaluate_expression(
                                 element.get());
-                        if (debug_mode) {
-                            std::cerr << "[DEBUG] Evaluated value: " << val
-                                      << std::endl;
-                        }
+                        debug_msg(DebugMsgId::ARRAY_ELEMENT_EVAL_VALUE, val);
                         check_type_range(elem_type, val, node->name);
                         var.array_values[i] = val;
                     }
@@ -668,14 +652,10 @@ void Interpreter::execute_statement(const ASTNode *node) {
     } break;
 
     case ASTNodeType::AST_PRINT_STMT:
-        if (debug_mode) {
-            printf("[DEBUG] Executing print statement\n");
-        }
+        debug_msg(DebugMsgId::PRINT_EXECUTING_STATEMENT);
         if (!node->arguments.empty()) {
             // 複数引数のprint文（再帰下降パーサー対応）
-            if (debug_mode) {
-                printf("[DEBUG] Print statement has arguments\n");
-            }
+            debug_msg(DebugMsgId::PRINT_STATEMENT_HAS_ARGS);
             output_manager_->print_multiple(node);
         } else if (node->left) {
             // 単一引数のprint文
@@ -1131,6 +1111,40 @@ void Interpreter::print_formatted(const ASTNode *format_str,
 void Interpreter::check_type_range(TypeInfo type, int64_t value,
                                    const std::string &name) {
     type_manager_->check_type_range(type, value, name);
+}
+
+// エラー表示ヘルパー関数の実装
+void Interpreter::throw_runtime_error_with_location(const std::string &message,
+                                                    const ASTNode *node) {
+    if (node && !node->location.filename.empty()) {
+        std::string source_line =
+            get_source_line(node->location.filename, node->location.line);
+        print_error_with_location(message, node->location.filename,
+                                  node->location.line, node->location.column,
+                                  source_line);
+    } else {
+        std::string error_prefix = (debug_language == DebugLanguage::JAPANESE)
+                                       ? "エラー: "
+                                       : "Error: ";
+        std::cerr << error_prefix << message << std::endl;
+    }
+    throw std::runtime_error(message);
+}
+
+void Interpreter::print_error_at_node(const std::string &message,
+                                      const ASTNode *node) {
+    if (node && !node->location.filename.empty()) {
+        std::string source_line =
+            get_source_line(node->location.filename, node->location.line);
+        print_error_with_location(message, node->location.filename,
+                                  node->location.line, node->location.column,
+                                  source_line);
+    } else {
+        std::string error_prefix = (debug_language == DebugLanguage::JAPANESE)
+                                       ? "エラー: "
+                                       : "Error: ";
+        std::cerr << error_prefix << message << std::endl;
+    }
 }
 
 int64_t Interpreter::getMultidimensionalArrayElement(

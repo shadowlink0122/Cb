@@ -51,9 +51,9 @@ static std::vector<DebugMessageTemplate> init_debug_messages() {
     messages[static_cast<int>(DebugMsgId::VAR_ASSIGN_READABLE)] = {
         "Variable assign: %s = %lld", "変数代入: %s = %lld"};
     messages[static_cast<int>(DebugMsgId::VAR_CREATE_NEW)] = {
-        "Creating new variable", "新しい変数を作成"};
+        "Creating new variable", "新しい変数を作成中"};
     messages[static_cast<int>(DebugMsgId::EXISTING_VAR_ASSIGN_DEBUG)] = {
-        "Assigning to existing variable", "既存変数に代入"};
+        "Assigning to existing variable", "既存変数に代入中"};
 
     // Array management messages
     messages[static_cast<int>(DebugMsgId::ARRAY_DECL_START)] = {
@@ -65,6 +65,8 @@ static std::vector<DebugMessageTemplate> init_debug_messages() {
         "多次元配列宣言成功: %s"};
     messages[static_cast<int>(DebugMsgId::ARRAY_TOTAL_SIZE)] = {
         "Array total size: %d", "配列総サイズ: %d"};
+    messages[static_cast<int>(DebugMsgId::SINGLE_DIM_ARRAY_PROCESSING)] = {
+        "Processing as single dimension array", "単次元配列として処理中"};
 
     // Function and parsing messages
     messages[static_cast<int>(DebugMsgId::NODE_CREATE_ASSIGN)] = {
@@ -73,6 +75,58 @@ static std::vector<DebugMessageTemplate> init_debug_messages() {
         "Creating variable declaration node: %s", "変数宣言ノード作成: %s"};
     messages[static_cast<int>(DebugMsgId::NODE_CREATE_FUNC_DECL)] = {
         "Creating function declaration node: %s", "関数宣言ノード作成: %s"};
+
+    // エラーメッセージ
+    messages[static_cast<int>(DebugMsgId::TYPE_MISMATCH_ERROR)] = {
+        "Type mismatch error", "型不一致エラー"};
+    messages[static_cast<int>(DebugMsgId::VAR_REDECLARE_ERROR)] = {
+        "Variable redeclaration error: %s", "変数再宣言エラー: %s"};
+    messages[static_cast<int>(DebugMsgId::CONST_REASSIGN_ERROR)] = {
+        "Cannot reassign const variable: %s",
+        "const変数への再代入はできません: %s"};
+    messages[static_cast<int>(DebugMsgId::ARRAY_OUT_OF_BOUNDS_ERROR)] = {
+        "Array index out of bounds", "配列インデックスが範囲外です"};
+    messages[static_cast<int>(DebugMsgId::UNDEFINED_FUNC_ERROR)] = {
+        "Undefined function: %s", "未定義の関数: %s"};
+    messages[static_cast<int>(DebugMsgId::ARG_COUNT_MISMATCH_ERROR)] = {
+        "Argument count mismatch", "引数の数が一致しません"};
+
+    // 実行時デバッグメッセージ
+    messages[static_cast<int>(DebugMsgId::STRING_LITERAL_DEBUG)] = {
+        "String literal: %s", "文字列リテラル: %s"};
+    messages[static_cast<int>(DebugMsgId::UNARY_OP_DEBUG)] = {
+        "Unary operation: %s", "単項演算: %s"};
+    messages[static_cast<int>(DebugMsgId::UNARY_OP_RESULT_DEBUG)] = {
+        "Unary operation result: %lld", "単項演算結果: %lld"};
+    messages[static_cast<int>(DebugMsgId::ARRAY_ELEMENT_ASSIGN_DEBUG)] = {
+        "Array element assignment: %s[%lld] = %lld",
+        "配列要素代入: %s[%lld] = %lld"};
+    messages[static_cast<int>(DebugMsgId::ARRAY_ELEMENT_ASSIGN_START)] = {
+        "Starting array element assignment", "配列要素代入開始"};
+    messages[static_cast<int>(DebugMsgId::ARRAY_ELEMENT_ASSIGN_SUCCESS)] = {
+        "Array element assignment successful", "配列要素代入成功"};
+
+    // 関数呼び出し関連
+    messages[static_cast<int>(DebugMsgId::FUNC_DECL_REGISTER)] = {
+        "Registering function declaration: %s", "関数宣言登録: %s"};
+    messages[static_cast<int>(DebugMsgId::FUNC_DECL_REGISTER_COMPLETE)] = {
+        "Function declaration registration complete", "関数宣言登録完了"};
+    messages[static_cast<int>(DebugMsgId::PARAM_LIST_START)] = {
+        "Parameter list processing start", "パラメータリスト処理開始"};
+    messages[static_cast<int>(DebugMsgId::PARAM_LIST_SIZE)] = {
+        "Parameter list size: %d", "パラメータリストサイズ: %d"};
+    messages[static_cast<int>(DebugMsgId::PARAM_LIST_COMPLETE)] = {
+        "Parameter list processing complete", "パラメータリスト処理完了"};
+
+    // より多くのメッセージを追加
+    messages[static_cast<int>(DebugMsgId::ARRAY_DECL_COMPLETE_DEBUG)] = {
+        "Array declaration complete", "配列宣言完了"};
+    messages[static_cast<int>(DebugMsgId::MULTIDIM_ARRAY_DECL_COMPLETE_DEBUG)] =
+        {"Multidimensional array declaration complete", "多次元配列宣言完了"};
+    messages[static_cast<int>(DebugMsgId::STRING_ASSIGN_READABLE)] = {
+        "String assign: %s = \"%s\"", "文字列代入: %s = \"%s\""};
+    messages[static_cast<int>(DebugMsgId::STRING_VAR_CREATE_NEW)] = {
+        "Creating new string variable", "新しい文字列変数を作成中"};
 
     // パーサー関連の詳細メッセージ
     messages[static_cast<int>(DebugMsgId::PARSING_START)] = {"Parsing start",
@@ -317,6 +371,44 @@ static std::vector<DebugMessageTemplate> init_debug_messages() {
         "Printf arg processing", "printf引数処理"};
     messages[static_cast<int>(DebugMsgId::PRINTF_ARRAY_REF_DEBUG)] = {
         "Printf array reference debug", "printf配列参照デバッグ"};
+
+    // 配列リテラル処理詳細メッセージ（新規追加）
+    messages[static_cast<int>(DebugMsgId::ARRAY_LITERAL_INIT_PROCESSING)] = {
+        "Processing array literal initialization", "配列リテラル初期化処理中"};
+    messages[static_cast<int>(DebugMsgId::ARRAY_ELEMENT_PROCESSING_DEBUG)] = {
+        "Processing element %d, type: %d", "要素 %d 処理中, 型: %d"};
+    messages[static_cast<int>(DebugMsgId::ARRAY_ELEMENT_EVAL_START)] = {
+        "About to evaluate expression for element %d", "要素 %d の式評価開始"};
+    messages[static_cast<int>(DebugMsgId::ARRAY_ELEMENT_EVAL_VALUE)] = {
+        "Evaluated value: %lld", "評価値: %lld"};
+    messages[static_cast<int>(DebugMsgId::PRINT_MULTIPLE_PROCESSING)] = {
+        "print_multiple: Processing %s with %d arguments",
+        "print_multiple: %s を %d 個の引数で処理"};
+    messages[static_cast<int>(DebugMsgId::PRINT_SINGLE_ARG_DEBUG)] = {
+        "print_multiple: Single argument in %s, type: %d",
+        "print_multiple: %s の単一引数, 型: %d"};
+    messages[static_cast<int>(DebugMsgId::PRINT_PRINTF_FORMAT_FOUND)] = {
+        "print_multiple: format specifiers found, processing as printf",
+        "print_multiple: フォーマット指定子が見つかりました、printfとして処理"};
+    messages[static_cast<int>(DebugMsgId::PRINT_NO_ARGUMENTS_DEBUG)] = {
+        "print_multiple: No arguments in statement",
+        "print_multiple: 文に引数がありません"};
+    messages[static_cast<int>(DebugMsgId::PRINT_EXECUTING_STATEMENT)] = {
+        "Executing print statement", "print文実行中"};
+    messages[static_cast<int>(DebugMsgId::PRINT_STATEMENT_HAS_ARGS)] = {
+        "Print statement has arguments", "print文に引数があります"};
+    messages[static_cast<int>(DebugMsgId::PRINT_CHECKING_ARGUMENT)] = {
+        "print_multiple: checking argument %d, type: %d",
+        "print_multiple: 引数 %d 確認中, 型: %d"};
+    messages[static_cast<int>(DebugMsgId::PRINT_FOUND_STRING_LITERAL)] = {
+        "print_multiple: found string literal '%s'",
+        "print_multiple: 文字列リテラル '%s' 発見"};
+    messages[static_cast<int>(DebugMsgId::PRINT_FORMAT_SPEC_CHECKING)] = {
+        "has_unescaped_format_specifiers: checking string '%s'",
+        "has_unescaped_format_specifiers: 文字列 '%s' 確認中"};
+    messages[static_cast<int>(DebugMsgId::PRINT_NO_FORMAT_SPECIFIERS)] = {
+        "has_unescaped_format_specifiers: no format specifiers found",
+        "has_unescaped_format_specifiers: フォーマット指定子なし"};
 
     // 他の未設定のメッセージにはデフォルト値を設定
     for (size_t i = 0; i < messages.size(); ++i) {

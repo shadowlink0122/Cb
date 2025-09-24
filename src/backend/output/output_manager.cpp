@@ -652,9 +652,7 @@ std::string OutputManager::process_escape_sequences(const std::string& input) {
 }
 
 bool OutputManager::has_unescaped_format_specifiers(const std::string& str) {
-    if (debug_mode) {
-        printf("[DEBUG] has_unescaped_format_specifiers: checking string '%s'\n", str.c_str());
-    }
+    debug_msg(DebugMsgId::PRINT_FORMAT_SPEC_CHECKING, str.c_str());
     for (size_t i = 0; i < str.length(); i++) {
         if (str[i] == '%') {
             // \% でエスケープされているかチェック
@@ -680,9 +678,7 @@ bool OutputManager::has_unescaped_format_specifiers(const std::string& str) {
             }
         }
     }
-    if (debug_mode) {
-        printf("[DEBUG] has_unescaped_format_specifiers: no format specifiers found\n");
-    }
+    debug_msg(DebugMsgId::PRINT_NO_FORMAT_SPECIFIERS);
     return false;
 }
 
@@ -732,16 +728,14 @@ void OutputManager::print_multiple(const ASTNode *arg_list) {
     if (arg_list && (arg_list->node_type == ASTNodeType::AST_PRINT_STMT || 
                      arg_list->node_type == ASTNodeType::AST_PRINTLN_STMT)) {
         if (debug_mode) {
-            printf("[DEBUG] print_multiple: Processing %s with %zu arguments\n", 
-                   (arg_list->node_type == ASTNodeType::AST_PRINT_STMT) ? "AST_PRINT_STMT" : "AST_PRINTLN_STMT",
-                   arg_list->arguments.size());
+            debug_msg(DebugMsgId::PRINT_MULTIPLE_PROCESSING,
+                     (arg_list->node_type == ASTNodeType::AST_PRINT_STMT) ? "AST_PRINT_STMT" : "AST_PRINTLN_STMT",
+                     (int)arg_list->arguments.size());
         }
         
         // 引数がない場合は何もしない
         if (arg_list->arguments.empty()) {
-            if (debug_mode) {
-                printf("[DEBUG] print_multiple: No arguments in statement\n");
-            }
+            debug_msg(DebugMsgId::PRINT_NO_ARGUMENTS_DEBUG);
             // 改行なし
             return;
         }
@@ -750,7 +744,8 @@ void OutputManager::print_multiple(const ASTNode *arg_list) {
         if (arg_list->arguments.size() == 1) {
             const auto &arg = arg_list->arguments[0];
             if (debug_mode) {
-                printf("[DEBUG] print_multiple: Single argument in AST_PRINT_STMT, type: %d\n", (int)arg->node_type);
+                debug_msg(DebugMsgId::PRINT_SINGLE_ARG_DEBUG,
+                         "AST_PRINT_STMT", (int)arg->node_type);
             }
             if (arg->node_type == ASTNodeType::AST_STRING_LITERAL) {
                 // フォーマット指定子が含まれていても、引数が1つだけの場合はそのまま出力
@@ -766,19 +761,13 @@ void OutputManager::print_multiple(const ASTNode *arg_list) {
         // 複数引数の場合：フォーマット文字列を探す
         for (size_t i = 0; i < arg_list->arguments.size(); i++) {
             const auto &arg = arg_list->arguments[i];
-            if (debug_mode) {
-                printf("[DEBUG] print_multiple: checking argument %zu, type: %d\n", i, (int)arg->node_type);
-            }
+            debug_msg(DebugMsgId::PRINT_CHECKING_ARGUMENT, (int)i, (int)arg->node_type);
             if (arg->node_type == ASTNodeType::AST_STRING_LITERAL) {
                 std::string str_val = arg->str_value;
-                if (debug_mode) {
-                    printf("[DEBUG] print_multiple: found string literal '%s'\n", str_val.c_str());
-                }
+                debug_msg(DebugMsgId::PRINT_FOUND_STRING_LITERAL, str_val.c_str());
                 // \% エスケープされていない % を探す
                 if (has_unescaped_format_specifiers(str_val)) {
-                    if (debug_mode) {
-                        printf("[DEBUG] print_multiple: format specifiers found, processing as printf\n");
-                    }
+                    debug_msg(DebugMsgId::PRINT_PRINTF_FORMAT_FOUND);
                     // フォーマット指定子が見つかった場合
 
                     // 前の引数をスペース区切りで出力
@@ -846,19 +835,13 @@ void OutputManager::print_multiple(const ASTNode *arg_list) {
     // 複数引数の場合：フォーマット文字列を探す
     for (size_t i = 0; i < arg_list->arguments.size(); i++) {
         const auto &arg = arg_list->arguments[i];
-        if (debug_mode) {
-            printf("[DEBUG] print_multiple: checking argument %zu, type: %d\n", i, (int)arg->node_type);
-        }
+        debug_msg(DebugMsgId::PRINT_CHECKING_ARGUMENT, (int)i, (int)arg->node_type);
         if (arg->node_type == ASTNodeType::AST_STRING_LITERAL) {
             std::string str_val = arg->str_value;
-            if (debug_mode) {
-                printf("[DEBUG] print_multiple: found string literal '%s'\n", str_val.c_str());
-            }
+            debug_msg(DebugMsgId::PRINT_FOUND_STRING_LITERAL, str_val.c_str());
             // \% エスケープされていない % を探す
             if (has_unescaped_format_specifiers(str_val)) {
-                if (debug_mode) {
-                    printf("[DEBUG] print_multiple: format specifiers found, processing as printf\n");
-                }
+                debug_msg(DebugMsgId::PRINT_PRINTF_FORMAT_FOUND);
                 // フォーマット指定子が見つかった場合
 
                 // 前の引数をスペース区切りで出力

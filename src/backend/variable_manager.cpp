@@ -216,7 +216,8 @@ void VariableManager::declare_global_variable(const ASTNode *node) {
 
             } else {
                 var.array_size = 0; // 動的配列
-            }                       // 配列初期化
+            }
+            // 配列初期化
             if (base_type == TYPE_STRING) {
                 var.array_strings.resize(var.array_size, "");
             } else {

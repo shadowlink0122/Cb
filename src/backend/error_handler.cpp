@@ -1,5 +1,6 @@
 #include "error_handler.h"
 #include "../common/ast.h"
+#include "../common/debug.h"
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -242,16 +243,28 @@ void throw_runtime_error(const std::string &message,
                                           location);
 }
 
-// 詳細なエラー表示機能の実装
+// 詳細なエラー表示機能の実装（日本語対応）
 void print_error_with_location(const std::string &message,
                                const std::string &filename, int line,
                                int column, const std::string &source_line) {
-    std::cerr << "Location: " << filename << ":" << line << ":" << column
-              << std::endl;
-    std::cerr << "Error: " << message << std::endl;
+    // デバッグ言語に応じてメッセージを調整
+    if (debug_language == DebugLanguage::JAPANESE) {
+        std::cerr << "場所: " << filename << ":" << line << ":" << column
+                  << std::endl;
+        std::cerr << "エラー: " << message << std::endl;
+    } else {
+        std::cerr << "Location: " << filename << ":" << line << ":" << column
+                  << std::endl;
+        std::cerr << "Error: " << message << std::endl;
+    }
 
     if (!source_line.empty()) {
-        std::cerr << "Source:" << std::endl;
+        if (debug_language == DebugLanguage::JAPANESE) {
+            std::cerr << "ソースコード:" << std::endl;
+        } else {
+            std::cerr << "Source:" << std::endl;
+        }
+
         // 行番号の桁数を計算
         int line_width = std::to_string(line).length();
         std::cerr << "  " << line << " |" << source_line << std::endl;

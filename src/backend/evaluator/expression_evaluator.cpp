@@ -33,7 +33,10 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
         
         Variable *var = interpreter_.find_variable(node->name);
         if (!var) {
-            throw std::runtime_error("Undefined variable: " + node->name);
+            // エラー時にソースコード位置を表示
+            std::string error_message = (debug_language == DebugLanguage::JAPANESE) ? 
+                "未定義の変数です: " + node->name : "Undefined variable: " + node->name;
+            interpreter_.throw_runtime_error_with_location(error_message, node);
         }
 
         return var->value;
@@ -51,7 +54,9 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
         
         Variable *var = interpreter_.find_variable(array_name);
         if (!var) {
-            throw std::runtime_error("Undefined variable: " + array_name);
+            std::string error_message = (debug_language == DebugLanguage::JAPANESE) ? 
+                "未定義の配列です: " + array_name : "Undefined array: " + array_name;
+            interpreter_.throw_runtime_error_with_location(error_message, node);
         }
 
         // 文字列配列の文字アクセス（例: names[0][0]）
@@ -113,7 +118,10 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
         
         for (int i = var->array_dimensions.size() - 1; i >= 0; i--) {
             if (indices[i] < 0 || indices[i] >= var->array_dimensions[i]) {
-                throw std::runtime_error("Array index out of bounds");
+                std::string error_message = (debug_language == DebugLanguage::JAPANESE) ? 
+                    "配列インデックス範囲外です: " + std::to_string(indices[i]) : 
+                    "Array index out of bounds: " + std::to_string(indices[i]);
+                interpreter_.throw_runtime_error_with_location(error_message, node);
             }
             flat_index += indices[i] * multiplier;
             multiplier *= var->array_dimensions[i];
