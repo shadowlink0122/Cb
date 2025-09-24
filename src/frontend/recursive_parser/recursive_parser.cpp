@@ -533,23 +533,30 @@ ASTNode* RecursiveParser::parseStatement() {
     if (check(TokenType::TOK_IDENTIFIER)) {
         std::string name = advance().value;
         
-        // typedef alias変数宣言の可能性をチェック: TypeAlias variableName;
+        // typedef alias変数宣言または関数宣言の可能性をチェック
         if (check(TokenType::TOK_IDENTIFIER)) {
-            // これはtypedef alias変数宣言: TypeAlias variableName;
-            std::string var_name = advance().value;
+            std::string second_name = peek().value;
+            advance(); // consume second identifier
             
-            ASTNode* node = new ASTNode(ASTNodeType::AST_VAR_DECL);
-            node->name = var_name;
-            node->type_name = name;  // typedef alias名を記録
-            node->type_info = TYPE_UNKNOWN;  // インタープリターで解決
-            node->is_const = isConst;
-            
-            if (match(TokenType::TOK_ASSIGN)) {
-                node->init_expr = std::unique_ptr<ASTNode>(parseExpression());
+            // 関数宣言かチェック: TypeAlias funcName(
+            if (check(TokenType::TOK_LPAREN)) {
+                // これは関数宣言: TypeAlias funcName(
+                return parseFunctionDeclarationAfterName(name, second_name);
+            } else {
+                // これはtypedef alias変数宣言: TypeAlias variableName;
+                ASTNode* node = new ASTNode(ASTNodeType::AST_VAR_DECL);
+                node->name = second_name;
+                node->type_name = name;  // typedef alias名を記録
+                node->type_info = TYPE_UNKNOWN;  // インタープリターで解決
+                node->is_const = isConst;
+                
+                if (match(TokenType::TOK_ASSIGN)) {
+                    node->init_expr = std::unique_ptr<ASTNode>(parseExpression());
+                }
+                
+                consume(TokenType::TOK_SEMICOLON, "Expected ';'");
+                return node;
             }
-            
-            consume(TokenType::TOK_SEMICOLON, "Expected ';'");
-            return node;
         }
         // 配列要素への代入をチェック arr[0] = value または arr[0][0] = value
         else if (check(TokenType::TOK_LBRACKET)) {
@@ -788,7 +795,15 @@ std::string RecursiveParser::parseType() {
         base_type = "char";
     } else if (check(TokenType::TOK_IDENTIFIER)) {
         // typedef aliasの可能性
-        base_type = advance().value; // とりあえずそのまま返す（インタープリターで解決）
+        std::string identifier = peek().value;
+        if (typedef_map_.find(identifier) != typedef_map_.end()) {
+            // typedef aliasが見つかった場合、実際の型に解決
+            advance(); // consume identifier
+            base_type = typedef_map_[identifier];
+        } else {
+            // 未知のidentifier
+            base_type = advance().value; // とりあえずそのまま返す（インタープリターで解決）
+        }
     } else {
         error("Expected type specifier");
         return "";
@@ -1155,6 +1170,8 @@ ASTNode* RecursiveParser::parseFunctionDeclarationAfterName(const std::string& r
                 param->type_info = TYPE_TINY;
             } else if (param_type == "bool") {
                 param->type_info = TYPE_BOOL;
+            } else if (param_type == "string") {
+                param->type_info = TYPE_STRING;
             } else {
                 param->type_info = TYPE_UNKNOWN;
             }
@@ -1200,6 +1217,8 @@ ASTNode* RecursiveParser::parseFunctionDeclarationAfterName(const std::string& r
         function_node->return_types.push_back(TYPE_VOID);
     } else if (return_type == "bool") {
         function_node->return_types.push_back(TYPE_BOOL);
+    } else if (return_type == "string") {
+        function_node->return_types.push_back(TYPE_STRING);
     } else {
         function_node->return_types.push_back(TYPE_UNKNOWN);
     }
@@ -1372,6 +1391,9 @@ ASTNode* RecursiveParser::parseTypedefDeclaration() {
     }
     
     typedef_node->name = advance().value;  // エイリアス名
+    
+    // typedefマップに登録
+    typedef_map_[typedef_node->name] = typedef_node->type_name;
     
     consume(TokenType::TOK_SEMICOLON, "Expected ';' after typedef");
     

@@ -1,0 +1,11 @@
+// 型エラーテスト - 数値を文字列関数に渡す
+string string_func(string s) {
+    return s;
+}
+
+int main() {
+    // エラーケース：数値を文字列関数に渡す
+    string result = string_func(123);
+    println("This should not execute:", result);
+    return 0;
+}

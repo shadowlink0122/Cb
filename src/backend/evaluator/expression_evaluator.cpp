@@ -367,9 +367,46 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                         throw std::runtime_error("Only array variables can be passed as array parameters");
                     }
                 } else {
-                    // 通常の値パラメータ
-                    int64_t arg_value = evaluate_expression(arg.get());
-                    interpreter_.assign_function_parameter(param->name, arg_value, param->type_info);
+                    // 通常の値パラメータの型チェック
+                    // 引数の型を事前にチェック
+                    if (arg->node_type == ASTNodeType::AST_STRING_LITERAL && param->type_info != TYPE_STRING) {
+                        throw std::runtime_error("Type mismatch: cannot pass string literal to non-string parameter '" + param->name + "'");
+                    }
+                    
+                    // 文字列パラメータの場合
+                    if (param->type_info == TYPE_STRING) {
+                        if (arg->node_type == ASTNodeType::AST_STRING_LITERAL) {
+                            // 文字列リテラルを直接代入
+                            Variable param_var;
+                            param_var.type = TYPE_STRING;
+                            param_var.str_value = arg->str_value;
+                            param_var.is_assigned = true;
+                            param_var.is_const = false;
+                            interpreter_.current_scope().variables[param->name] = param_var;
+                        } else if (arg->node_type == ASTNodeType::AST_VARIABLE) {
+                            // 文字列変数を代入
+                            Variable* source_var = interpreter_.find_variable(arg->name);
+                            if (!source_var || source_var->type != TYPE_STRING) {
+                                throw std::runtime_error("Type mismatch: expected string variable for parameter '" + param->name + "'");
+                            }
+                            Variable param_var;
+                            param_var.type = TYPE_STRING;
+                            param_var.str_value = source_var->str_value;
+                            param_var.is_assigned = true;
+                            param_var.is_const = false;
+                            interpreter_.current_scope().variables[param->name] = param_var;
+                        } else {
+                            throw std::runtime_error("Type mismatch: cannot pass non-string expression to string parameter '" + param->name + "'");
+                        }
+                    } else {
+                        // 数値パラメータの場合
+                        if (arg->node_type == ASTNodeType::AST_STRING_LITERAL) {
+                            throw std::runtime_error("Type mismatch: cannot pass string literal to numeric parameter '" + param->name + "'");
+                        }
+                        
+                        int64_t arg_value = evaluate_expression(arg.get());
+                        interpreter_.assign_function_parameter(param->name, arg_value, param->type_info);
+                    }
                 }
             }
             
@@ -386,6 +423,10 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                 interpreter_.pop_scope();
                 if (ret.is_array) {
                     // 配列戻り値の場合は例外を再度投げる
+                    throw ret;
+                }
+                // 文字列戻り値の場合は例外を再度投げる
+                if (ret.type == TYPE_STRING) {
                     throw ret;
                 }
                 return ret.value;

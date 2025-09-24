@@ -2,6 +2,7 @@
 #include "recursive_lexer.h"
 #include "../../common/ast.h"
 #include <memory>
+#include <unordered_map>
 
 using namespace RecursiveParserNS;
 
@@ -17,6 +18,7 @@ private:
     std::string filename_;  // ソースファイル名
     std::string source_;    // 元のソースコード
     std::vector<std::string> source_lines_;  // 行ごとに分割されたソース
+    std::unordered_map<std::string, std::string> typedef_map_; // typedef alias -> actual type mapping
     
     // Helper methods
     bool match(TokenType type);

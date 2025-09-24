@@ -1,0 +1,21 @@
+// シンプルなtypedefテスト
+typedef int CustomInt;
+
+int simple_func(int x) {
+    println("simple_func received:", x);
+    return x * 2;
+}
+
+int main() {
+    println("=== Simple Typedef Test ===");
+    
+    // typedef型の変数宣言
+    CustomInt val = 42;
+    println("CustomInt val:", val);
+    
+    // 通常の関数に渡す
+    int result = simple_func(val);
+    println("Result:", result);
+    
+    return 0;
+}

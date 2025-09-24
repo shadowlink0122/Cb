@@ -1,0 +1,33 @@
+// 配列引数・戻り値テスト
+int[] process_int_array(int[] arr) {
+    println("Processing int array");
+    return arr;
+}
+
+string[] process_string_array(string[] arr) {
+    println("Processing string array");
+    return arr;
+}
+
+int main() {
+    println("=== Array Parameter and Return Tests ===");
+    
+    // 配列リテラルを直接渡す
+    int[] result1 = process_int_array([1, 2, 3]);
+    println("Int array processed");
+    
+    string[] result2 = process_string_array(["hello", "world"]);
+    println("String array processed");
+    
+    // 配列変数を使って渡す
+    int[] numbers = [10, 20, 30];
+    int[] result3 = process_int_array(numbers);
+    println("Int array variable processed");
+    
+    string[] texts = ["foo", "bar"];
+    string[] result4 = process_string_array(texts);
+    println("String array variable processed");
+    
+    println("Array tests completed");
+    return 0;
+}

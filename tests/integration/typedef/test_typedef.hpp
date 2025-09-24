@@ -21,7 +21,7 @@ void test_typedef_advanced() {
             INTEGRATION_ASSERT_EQ(0, exit_code, "Advanced typedef test should execute successfully");
             INTEGRATION_ASSERT_CONTAINS(output, "Advanced typedef test completed!", 
                                       "Test should complete successfully");
-            INTEGRATION_ASSERT_CONTAINS(output, "Processing: 0 with count: 10", 
+            INTEGRATION_ASSERT_CONTAINS(output, "Processing: Electronics with count: 10", 
                                       "Typedef function parameters should work");
             INTEGRATION_ASSERT_CONTAINS(output, "Total after doubling: 20", 
                                       "Typedef arithmetic operations should work");
