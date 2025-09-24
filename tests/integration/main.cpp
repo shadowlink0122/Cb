@@ -15,6 +15,7 @@
 #include "dynamic_array_error/test_dynamic_array_error.hpp"
 #include "error_handling/test_error_handling.hpp"
 #include "func/test_func.hpp"
+#include "func_return_type_check/test_func_return_type_check.hpp"
 #include "func_type_check/test_func_type_check.hpp"
 #include "global_array/test_global_array.hpp"
 #include "global_vars/test_global_vars.hpp"
@@ -57,6 +58,7 @@ int main() {
         test_integration_loop();
         test_integration_multiple_var_decl();
         test_integration_func_type_check();
+        test_integration_func_return_type_check();
         test_integration_if();
         test_integration_self_assign();
         test_integration_incdec();

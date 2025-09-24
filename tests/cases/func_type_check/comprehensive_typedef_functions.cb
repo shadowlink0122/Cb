@@ -1,0 +1,69 @@
+// 関数の引数・戻り値としてのtypedef型の包括テスト
+
+typedef int ProcessorID;
+typedef string ProcessorName;
+typedef bool ProcessorStatus;
+typedef int[3] ProcessorData;
+
+// 複数のtypedef型を組み合わせた複雑な関数
+ProcessorStatus initialize_processor(ProcessorID id, ProcessorName name, ProcessorData data) {
+    println("Initializing processor: ", id, " (", name, ")");
+    println("Data: [", data[0], ", ", data[1], ", ", data[2], "]");
+    return true;
+}
+
+// typedef型を返すが、引数は通常型の関数
+ProcessorID generate_id(int base, string prefix_len) {
+    return base + 1000;
+}
+
+// 通常型を返すが、引数はtypedef型の関数
+string get_processor_info(ProcessorID id, ProcessorData data) {
+    return "Processor_" + id;
+}
+
+// 全てtypedef型の関数
+ProcessorData update_data(ProcessorData original, ProcessorID id) {
+    ProcessorData updated = [original[0] + id, original[1], original[2]];
+    return updated;
+}
+
+// typedef型の配列を複数扱う関数
+void compare_processors(ProcessorData data1, ProcessorData data2) {
+    println("Comparing processors:");
+    for (int i = 0; i < 3; i = i + 1) {
+        if (data1[i] > data2[i]) {
+            println("Data1[", i, "] is larger: ", data1[i], " > ", data2[i]);
+        } else {
+            println("Data2[", i, "] is larger or equal: ", data2[i], " >= ", data1[i]);
+        }
+    }
+}
+
+int main() {
+    // 基本的なtypedef型の使用
+    ProcessorID main_id = 42;
+    ProcessorName main_name = "MainProcessor";
+    ProcessorData main_data = [100, 200, 300];
+    
+    // 複雑な関数呼び出し
+    ProcessorStatus status = initialize_processor(main_id, main_name, main_data);
+    println("Initialization status: ", status);
+    
+    // 混合型関数のテスト
+    ProcessorID generated_id = generate_id(5, "test");
+    println("Generated ID: ", generated_id);
+    
+    string info = get_processor_info(generated_id, main_data);
+    println("Info: ", info);
+    
+    // typedef配列の更新テスト
+    ProcessorData updated = update_data(main_data, main_id);
+    println("Updated data: [", updated[0], ", ", updated[1], ", ", updated[2], "]");
+    
+    // 配列比較テスト
+    ProcessorData second_data = [120, 180, 350];
+    compare_processors(main_data, second_data);
+    
+    return 0;
+}

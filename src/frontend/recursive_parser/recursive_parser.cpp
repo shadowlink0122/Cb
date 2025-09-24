@@ -3,6 +3,7 @@
 #include "../../common/debug.h"
 #include <iostream>
 #include <sstream>
+#include <unordered_set>
 
 using namespace RecursiveParserNS;
 
@@ -1310,32 +1311,55 @@ ASTNode* RecursiveParser::parseTypedefDeclaration() {
     // typedef <type> <alias>;
     consume(TokenType::TOK_TYPEDEF, "Expected 'typedef'");
     
-    // 基底型を解析
+    // 基底型を解析（基本型またはtypedef型）
     TypeInfo base_type = TYPE_UNKNOWN;
+    std::string base_type_name;
+    
     if (check(TokenType::TOK_INT)) {
         base_type = TYPE_INT;
+        base_type_name = "int";
         advance();
     } else if (check(TokenType::TOK_LONG)) {
         base_type = TYPE_LONG;
+        base_type_name = "long";
         advance();
     } else if (check(TokenType::TOK_SHORT)) {
         base_type = TYPE_SHORT;
+        base_type_name = "short";
         advance();
     } else if (check(TokenType::TOK_TINY)) {
         base_type = TYPE_TINY;
+        base_type_name = "tiny";
         advance();
     } else if (check(TokenType::TOK_BOOL)) {
         base_type = TYPE_BOOL;
+        base_type_name = "bool";
         advance();
     } else if (check(TokenType::TOK_STRING_TYPE)) {
         base_type = TYPE_STRING;
+        base_type_name = "string";
         advance();
     } else if (check(TokenType::TOK_CHAR_TYPE)) {
         base_type = TYPE_CHAR;
+        base_type_name = "char";
         advance();
     } else if (check(TokenType::TOK_VOID)) {
         base_type = TYPE_VOID;
+        base_type_name = "void";
         advance();
+    } else if (check(TokenType::TOK_IDENTIFIER)) {
+        // 既存のtypedef型を参照する場合
+        std::string typedef_name = advance().value;
+        
+        // typedef_map_でチェーンを解決
+        std::string resolved_type = resolveTypedefChain(typedef_name);
+        if (resolved_type.empty()) {
+            error("Unknown typedef type: " + typedef_name);
+            return nullptr;
+        }
+        
+        base_type_name = resolved_type;
+        base_type = getTypeInfoFromString(extractBaseType(resolved_type));
     } else {
         error("Expected type after typedef");
         return nullptr;
@@ -1344,20 +1368,6 @@ ASTNode* RecursiveParser::parseTypedefDeclaration() {
     // typedef ASTノードを作成
     ASTNode* typedef_node = new ASTNode(ASTNodeType::AST_TYPEDEF_DECL);
     typedef_node->type_info = base_type;
-    
-    // 基底型名を取得
-    std::string base_type_name;
-    switch (base_type) {
-        case TYPE_INT: base_type_name = "int"; break;
-        case TYPE_LONG: base_type_name = "long"; break;
-        case TYPE_SHORT: base_type_name = "short"; break;
-        case TYPE_TINY: base_type_name = "tiny"; break;
-        case TYPE_BOOL: base_type_name = "bool"; break;
-        case TYPE_STRING: base_type_name = "string"; break;
-        case TYPE_CHAR: base_type_name = "char"; break;
-        case TYPE_VOID: base_type_name = "void"; break;
-        default: base_type_name = "unknown"; break;
-    }
     
     // 配列次元の解析
     std::string array_dimensions_str = "";
@@ -1601,4 +1611,39 @@ std::string RecursiveParser::getSourceLine(int line_number) {
         return "";
     }
     return source_lines_[line_number - 1];
+}
+
+// typedef型のチェーンを解決する
+std::string RecursiveParser::resolveTypedefChain(const std::string& typedef_name) {
+    std::unordered_set<std::string> visited;
+    std::string current = typedef_name;
+    
+    while (typedef_map_.find(current) != typedef_map_.end()) {
+        if (visited.find(current) != visited.end()) {
+            // 循環参照検出
+            return "";
+        }
+        visited.insert(current);
+        
+        std::string next = typedef_map_[current];
+        // 次がtypedef型かチェック
+        if (typedef_map_.find(next) != typedef_map_.end()) {
+            current = next;
+        } else {
+            // 基本型に到達
+            return next;
+        }
+    }
+    
+    return "";
+}
+
+// 型名から基本型部分を抽出する
+std::string RecursiveParser::extractBaseType(const std::string& type_name) {
+    // 配列部分 [n] を除去して基本型を取得
+    size_t bracket_pos = type_name.find('[');
+    if (bracket_pos != std::string::npos) {
+        return type_name.substr(0, bracket_pos);
+    }
+    return type_name;
 }

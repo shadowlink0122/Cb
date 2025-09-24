@@ -98,6 +98,27 @@ void test_func_type_error_array_mismatch() {
     integration_test_passed("test_func_type_error_array_mismatch", "error_array_mismatch.cb (skipped - array type mismatch checking not implemented)");
 }
 
+void test_func_type_complex_typedef_arrays() {
+    run_cb_test_with_output("../../tests/cases/func_type_check/complex_typedef_arrays.cb", 
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "Complex typedef arrays test should succeed");
+            INTEGRATION_ASSERT_CONTAINS(output, "Base score:  85", "Should handle basic typedef score");
+            INTEGRATION_ASSERT_CONTAINS(output, "Bonus score:  95", "Should calculate bonus correctly");
+        });
+    integration_test_passed("test_func_type_complex_typedef_arrays", "complex_typedef_arrays.cb");
+}
+
+void test_func_type_comprehensive_typedef() {
+    run_cb_test_with_output("../../tests/cases/func_type_check/comprehensive_typedef_functions.cb", 
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "Comprehensive typedef functions test should succeed");
+            INTEGRATION_ASSERT_CONTAINS(output, "Initialization status: 1", "Should initialize processor");
+            INTEGRATION_ASSERT_CONTAINS(output, "Generated ID:", "Should generate IDs");
+            INTEGRATION_ASSERT_CONTAINS(output, "Comparing processors:", "Should compare processor data");
+        });
+    integration_test_passed("test_func_type_comprehensive_typedef", "comprehensive_typedef_functions.cb");
+}
+
 inline void test_integration_func_type_check() {
     std::cout << "[integration] Running function type checking tests..." << std::endl;
     
@@ -106,6 +127,8 @@ inline void test_integration_func_type_check() {
     test_func_type_multidim();
     test_func_type_typedef();
     test_func_type_complex_expressions();
+    test_func_type_complex_typedef_arrays();
+    test_func_type_comprehensive_typedef();
     test_func_type_error_string_to_int();
     test_func_type_error_int_to_string();
     test_func_type_error_array_mismatch();

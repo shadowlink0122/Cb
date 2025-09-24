@@ -78,6 +78,26 @@ void test_typedef_errors() {
     integration_test_passed("test_typedef_undefined_error", "undefined_type_error.cb");
 }
 
+void test_typedef_recursive() {
+    run_cb_test_with_output("../../tests/cases/typedef/recursive_typedef.cb", 
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "Recursive typedef test should succeed");
+            INTEGRATION_ASSERT_CONTAINS(output, "Admin ID: 1100", "Should handle nested typedef correctly");
+            INTEGRATION_ASSERT_CONTAINS(output, "Formatted name: User_Alice", "Should process typedef chains");
+        });
+    integration_test_passed("test_typedef_recursive", "recursive_typedef.cb");
+}
+
+void test_typedef_conversion() {
+    run_cb_test_with_output("../../tests/cases/typedef/typedef_conversion_test.cb", 
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "Typedef conversion test should succeed");
+            INTEGRATION_ASSERT_CONTAINS(output, "All conversions completed", "Should handle typedef conversions");
+            INTEGRATION_ASSERT_CONTAINS(output, "Processing user: 123 alice", "Should accept typedef parameters");
+        });
+    integration_test_passed("test_typedef_conversion", "typedef_conversion_test.cb");
+}
+
 // Main typedef test function
 void test_integration_typedef() {
     std::cout << "[integration] Running typedef tests..." << std::endl;
@@ -86,6 +106,8 @@ void test_integration_typedef() {
     test_typedef_array();
     test_typedef_various();
     test_typedef_errors();
+    test_typedef_recursive();
+    test_typedef_conversion();
     std::cout << "[integration] Typedef tests completed" << std::endl;
 }
 

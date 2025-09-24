@@ -45,6 +45,10 @@ private:
     ASTNode* parseFunctionDeclaration();
     ASTNode* parseFunctionDeclarationAfterName(const std::string& return_type, const std::string& function_name);
     
+    // Typedef helper methods
+    std::string resolveTypedefChain(const std::string& typedef_name);
+    std::string extractBaseType(const std::string& type_name);
+    
     // Statement parsing helpers
     ASTNode* parseTypeDeclaration(bool isConst);
     ASTNode* parseArrayDeclaration(const std::string& type_name, bool isConst);

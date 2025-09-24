@@ -1,0 +1,11 @@
+// 戻り値型エラー：int[]にintを返すエラー
+
+int[] should_return_array() {
+    return 123; // エラー：int[]を期待しているのにintを返している
+}
+
+int main() {
+    int[] numbers = should_return_array();
+    println("First number: ", numbers[0]);
+    return 0;
+}

@@ -1,0 +1,60 @@
+// typedef型の戻り値型チェックテスト
+
+// typedef定義
+typedef int UserID;
+typedef bool IsActive;
+typedef long Timestamp;
+
+// typedef型を返す基本的な関数
+UserID get_user_id() {
+    return 12345;
+}
+
+IsActive is_user_active() {
+    return true;
+}
+
+Timestamp get_current_time() {
+    return 1632150000;
+}
+
+// typedef型を使った計算結果を返す関数
+UserID calculate_next_id(UserID current_id) {
+    return current_id + 1;
+}
+
+Timestamp add_days(Timestamp base_time, int days) {
+    return base_time + (days * 86400);
+}
+
+// 複数のtypedef型を組み合わせて処理する関数
+IsActive check_user_status(UserID id, Timestamp last_login) {
+    if (id > 0 && last_login > 1600000000) {
+        return true;
+    }
+    return false;
+}
+
+int main() {
+    // 基本的なtypedef戻り値テスト
+    UserID user_id = get_user_id();
+    IsActive active = is_user_active();
+    Timestamp time = get_current_time();
+    
+    println("User ID: ", user_id);
+    println("Active: ", active);
+    println("Time: ", time);
+    
+    // 計算結果テスト
+    UserID next_id = calculate_next_id(user_id);
+    Timestamp future_time = add_days(time, 7);
+    
+    println("Next ID: ", next_id);
+    println("Future time: ", future_time);
+    
+    // 複合処理テスト
+    IsActive status = check_user_status(next_id, future_time);
+    println("Status: ", status);
+    
+    return 0;
+}

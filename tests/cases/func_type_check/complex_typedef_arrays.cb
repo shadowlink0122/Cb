@@ -1,0 +1,71 @@
+// 複雑なtypedef配列の関数テスト
+
+typedef int Score;
+typedef string Name;
+typedef int[5] ScoreList;
+typedef string[3] NameList;
+
+// 多次元typedef配列
+typedef int[2] Matrix;
+typedef int[2][2] Matrix2D;
+
+// typedef配列を返す関数
+ScoreList get_default_scores() {
+    ScoreList scores = [85, 90, 78, 92, 88];
+    return scores;
+}
+
+NameList get_team_names() {
+    NameList names = ["Alice", "Bob", "Charlie"];
+    return names;
+}
+
+Matrix2D create_matrix() {
+    Matrix2D matrix = [[1, 2], [3, 4]];
+    return matrix;
+}
+
+// typedef配列を引数に取る関数
+Score calculate_average(ScoreList scores) {
+    Score total = 0;
+    for (int i = 0; i < 5; i = i + 1) {
+        total = total + scores[i];
+    }
+    return total / 5;
+}
+
+void print_names(NameList names) {
+    println("Team members:");
+    for (int i = 0; i < 3; i = i + 1) {
+        println("- ", names[i]);
+    }
+}
+
+void print_matrix(Matrix2D matrix) {
+    println("Matrix:");
+    for (int i = 0; i < 2; i = i + 1) {
+        println("Row ", i, ": [", matrix[i][0], ", ", matrix[i][1], "]");
+    }
+}
+
+int main() {
+    // typedef配列の基本テスト
+    ScoreList scores = get_default_scores();
+    Score average = calculate_average(scores);
+    println("Average score: ", average);
+    
+    // typedef文字列配列テスト
+    NameList team = get_team_names();
+    print_names(team);
+    
+    // 多次元typedef配列テスト
+    Matrix2D matrix = create_matrix();
+    print_matrix(matrix);
+    
+    // 直接値の割り当てテスト
+    ScoreList custom_scores = [95, 87, 91, 83, 89];
+    Score custom_average = calculate_average(custom_scores);
+    println("Custom average: ", custom_average);
+    
+    return 0;
+}
