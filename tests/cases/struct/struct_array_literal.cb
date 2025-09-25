@@ -1,7 +1,8 @@
 // Struct配列メンバーのliteral初期化のテスト
+tiny SIZE = 4;
 struct Course {
     string name;
-    int scores[4];
+    int scores[SIZE];
     int credit;
 };
 
@@ -19,8 +20,11 @@ int main() {
             math.scores[2], math.scores[3]);
     
     // 平均計算
-    int sum = math.scores[0] + math.scores[1] + math.scores[2] + math.scores[3];
-    int avg = sum / 4;
+    int sum = 0;
+    for(tiny i = 0;i < SIZE; i++){
+        sum += math.scores[i];
+    }
+    int avg = sum / size;
     println("Average score: %d", avg);
     
     // 期待される出力:
