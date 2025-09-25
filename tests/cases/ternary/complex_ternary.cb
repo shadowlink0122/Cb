@@ -1,0 +1,89 @@
+// 三項演算子の複雑なテスト
+
+// テスト用のヘルパー関数
+int max_func(int a, int b) {
+    return (a > b) ? a : b;
+}
+
+int min_func(int a, int b) {
+    return (a < b) ? a : b;
+}
+
+int abs_func(int x) {
+    return (x < 0) ? -x : x;
+}
+
+bool is_even(int n) {
+    return (n % 2) == 0;
+}
+
+int factorial(int n) {
+    return (n <= 1) ? 1 : n * factorial(n - 1);
+}
+
+main() {
+    int a, b, c, result;
+    
+    // 3つの値の中央値を求める
+    a = 15;
+    b = 10;
+    c = 20;
+    
+    // a, b, cの中央値
+    result = (a >= b) ? 
+                ((b >= c) ? b : (a >= c) ? c : a) :
+                ((a >= c) ? a : (b >= c) ? c : b);
+    println(result);  // 15
+    
+    // 配列サイズ決定（動的）
+    int size = (a > 0) ? a : 10;  // デフォルトサイズ10
+    println(size);  // 15
+    
+    // 符号判定
+    int num = -42;
+    result = (num > 0) ? 1 : (num < 0) ? -1 : 0;
+    println(result);  // -1
+    
+    num = 0;
+    result = (num > 0) ? 1 : (num < 0) ? -1 : 0;
+    println(result);  // 0
+    
+    num = 123;
+    result = (num > 0) ? 1 : (num < 0) ? -1 : 0;
+    println(result);  // 1
+    
+    // 複雑な条件式
+    int x = 8;
+    int y = 12;
+    result = ((x & y) != 0) ? (x | y) : (x ^ y);
+    println(result);  // (8 & 12) = 8 != 0なので、8 | 12 = 12
+    
+    // ここから関数を使った三項演算子のテスト
+    
+    // 1. 条件に関数を使用
+    int val1 = -5;
+    result = is_even(val1) ? 100 : 200;
+    println(result);  // -5は奇数なので200
+    
+    // 2. 値に関数を使用
+    int val2 = -15;
+    result = (val2 < 0) ? abs_func(val2) : val2;
+    println(result);  // 絶対値: 15
+    
+    // 3. 条件と値の両方に関数を使用
+    int val3 = 7;
+    int val4 = 3;
+    result = is_even(val3) ? max_func(val3, val4) : min_func(val3, val4);
+    println(result);  // 7は奇数なので min(7,3) = 3
+    
+    // 4. ネストした関数呼び出し
+    int n = 4;
+    result = (n <= 5) ? factorial(n) : factorial(5);
+    println(result);  // 4! = 24
+    
+    // 5. 複雑な関数組み合わせ
+    int p = 6;
+    int q = -8;
+    result = is_even(p) ? max_func(abs_func(q), p) : min_func(p, abs_func(q));
+    println(result);  // 6は偶数なので max(8, 6) = 8
+}

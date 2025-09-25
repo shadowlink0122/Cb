@@ -8,6 +8,7 @@
 #include "array_return/test_array_return.hpp"
 #include "assign/test_assign.hpp"
 #include "basic/test_basic.hpp"
+#include "bitwise/test_bitwise.hpp"
 #include "bool_expr/test_bool_expr.hpp"
 #include "boundary/test_boundary.hpp"
 #include "const_array/test_const_array.hpp"
@@ -34,6 +35,7 @@
 #include "samples/test_actual_samples.hpp"
 #include "self_assign/test_self_assign.hpp"
 #include "string/test_string.hpp"
+#include "ternary/test_ternary.hpp"
 #include "type/test_type.hpp"
 #include "typedef/test_typedef.hpp"
 
@@ -79,6 +81,10 @@ int main() {
         test_integration_type();
         test_integration_typedef();
         test_integration_dynamic_array_error();
+
+        // 新しく実装した演算子のテスト
+        test_integration_bitwise();
+        test_integration_ternary();
     } catch (const std::exception &e) {
         std::cerr << "[integration] test failed: " << e.what() << std::endl;
         fail = 1;

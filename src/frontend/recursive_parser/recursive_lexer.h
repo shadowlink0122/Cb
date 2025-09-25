@@ -24,6 +24,18 @@ enum class TokenType {
     TOK_DECR,        // --
     TOK_ASSIGN,      // =
     
+    // Bitwise operators
+    TOK_BIT_AND,     // &
+    TOK_BIT_OR,      // |
+    TOK_BIT_XOR,     // ^
+    TOK_BIT_NOT,     // ~
+    TOK_LEFT_SHIFT,  // <<
+    TOK_RIGHT_SHIFT, // >>
+    
+    // Ternary operator
+    TOK_QUESTION,    // ?
+    TOK_COLON,       // :
+    
     // Punctuation
     TOK_SEMICOLON,   // ;
     TOK_COMMA,       // ,

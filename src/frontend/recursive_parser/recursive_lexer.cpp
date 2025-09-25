@@ -82,12 +82,20 @@ Token RecursiveLexer::nextToken() {
                 advance();
                 return makeToken(TokenType::TOK_LE, "<=");
             }
+            if (peek() == '<') {
+                advance();
+                return makeToken(TokenType::TOK_LEFT_SHIFT, "<<");
+            }
             return makeToken(TokenType::TOK_LT, "<");
             
         case '>':
             if (peek() == '=') {
                 advance();
                 return makeToken(TokenType::TOK_GE, ">=");
+            }
+            if (peek() == '>') {
+                advance();
+                return makeToken(TokenType::TOK_RIGHT_SHIFT, ">>");
             }
             return makeToken(TokenType::TOK_GT, ">");
             
@@ -96,14 +104,26 @@ Token RecursiveLexer::nextToken() {
                 advance();
                 return makeToken(TokenType::TOK_AND, "&&");
             }
-            break;
+            return makeToken(TokenType::TOK_BIT_AND, "&");
             
         case '|':
             if (peek() == '|') {
                 advance();
                 return makeToken(TokenType::TOK_OR, "||");
             }
-            break;
+            return makeToken(TokenType::TOK_BIT_OR, "|");
+            
+        case '^':
+            return makeToken(TokenType::TOK_BIT_XOR, "^");
+            
+        case '~':
+            return makeToken(TokenType::TOK_BIT_NOT, "~");
+            
+        case '?':
+            return makeToken(TokenType::TOK_QUESTION, "?");
+            
+        case ':':
+            return makeToken(TokenType::TOK_COLON, ":");
             
         case '"': return makeString();
         case '\'': return makeChar();

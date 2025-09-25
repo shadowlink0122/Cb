@@ -186,6 +186,17 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
             result = (left && right) ? 1 : 0;
         else if (node->op == "||")
             result = (left || right) ? 1 : 0;
+        // ビット演算子
+        else if (node->op == "&")
+            result = left & right;
+        else if (node->op == "|")
+            result = left | right;
+        else if (node->op == "^")
+            result = left ^ right;
+        else if (node->op == "<<")
+            result = left << right;
+        else if (node->op == ">>")
+            result = left >> right;
         else {
             error_msg(DebugMsgId::UNKNOWN_BINARY_OP_ERROR, node->op.c_str());
             throw std::runtime_error("Unknown binary operator: " + node->op);
@@ -193,6 +204,17 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
 
         debug_msg(DebugMsgId::BINARY_OP_RESULT_DEBUG, result);
         return result;
+    }
+
+    case ASTNodeType::AST_TERNARY_OP: {
+        // 三項演算子: condition ? true_expr : false_expr
+        int64_t condition = evaluate_expression(node->left.get());
+        
+        if (condition) {
+            return evaluate_expression(node->right.get());
+        } else {
+            return evaluate_expression(node->third.get());
+        }
     }
 
     case ASTNodeType::AST_UNARY_OP: {
@@ -251,6 +273,8 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
             return -operand;
         } else if (node->op == "!") {
             return operand ? 0 : 1;
+        } else if (node->op == "~") {
+            return ~operand;
         } else {
             error_msg(DebugMsgId::UNKNOWN_UNARY_OP_ERROR, node->op.c_str());
             throw std::runtime_error("Unknown unary operator: " + node->op);

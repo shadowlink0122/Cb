@@ -869,7 +869,7 @@ ASTNode* RecursiveParser::parseExpression() {
 }
 
 ASTNode* RecursiveParser::parseAssignment() {
-    ASTNode* left = parseLogicalOr();
+    ASTNode* left = parseTernary();
     
     if (check(TokenType::TOK_ASSIGN)) {
         advance(); // consume '='
@@ -895,6 +895,26 @@ ASTNode* RecursiveParser::parseAssignment() {
     return left;
 }
 
+ASTNode* RecursiveParser::parseTernary() {
+    ASTNode* condition = parseLogicalOr();
+    
+    if (check(TokenType::TOK_QUESTION)) {
+        advance(); // consume '?'
+        ASTNode* true_expr = parseExpression();
+        consume(TokenType::TOK_COLON, "Expected ':' in ternary expression");
+        ASTNode* false_expr = parseTernary();
+        
+        ASTNode* ternary = new ASTNode(ASTNodeType::AST_TERNARY_OP);
+        ternary->left = std::unique_ptr<ASTNode>(condition);
+        ternary->right = std::unique_ptr<ASTNode>(true_expr);
+        ternary->third = std::unique_ptr<ASTNode>(false_expr);
+        
+        return ternary;
+    }
+    
+    return condition;
+}
+
 ASTNode* RecursiveParser::parseLogicalOr() {
     ASTNode* left = parseLogicalAnd();
     
@@ -914,9 +934,63 @@ ASTNode* RecursiveParser::parseLogicalOr() {
 }
 
 ASTNode* RecursiveParser::parseLogicalAnd() {
-    ASTNode* left = parseComparison();
+    ASTNode* left = parseBitwiseOr();
     
     while (check(TokenType::TOK_AND)) {
+        Token op = advance();
+        ASTNode* right = parseBitwiseOr();
+        
+        ASTNode* binary = new ASTNode(ASTNodeType::AST_BINARY_OP);
+        binary->op = op.value;
+        binary->left = std::unique_ptr<ASTNode>(left);
+        binary->right = std::unique_ptr<ASTNode>(right);
+        
+        left = binary;
+    }
+    
+    return left;
+}
+
+ASTNode* RecursiveParser::parseBitwiseOr() {
+    ASTNode* left = parseBitwiseXor();
+    
+    while (check(TokenType::TOK_BIT_OR)) {
+        Token op = advance();
+        ASTNode* right = parseBitwiseXor();
+        
+        ASTNode* binary = new ASTNode(ASTNodeType::AST_BINARY_OP);
+        binary->op = op.value;
+        binary->left = std::unique_ptr<ASTNode>(left);
+        binary->right = std::unique_ptr<ASTNode>(right);
+        
+        left = binary;
+    }
+    
+    return left;
+}
+
+ASTNode* RecursiveParser::parseBitwiseXor() {
+    ASTNode* left = parseBitwiseAnd();
+    
+    while (check(TokenType::TOK_BIT_XOR)) {
+        Token op = advance();
+        ASTNode* right = parseBitwiseAnd();
+        
+        ASTNode* binary = new ASTNode(ASTNodeType::AST_BINARY_OP);
+        binary->op = op.value;
+        binary->left = std::unique_ptr<ASTNode>(left);
+        binary->right = std::unique_ptr<ASTNode>(right);
+        
+        left = binary;
+    }
+    
+    return left;
+}
+
+ASTNode* RecursiveParser::parseBitwiseAnd() {
+    ASTNode* left = parseComparison();
+    
+    while (check(TokenType::TOK_BIT_AND)) {
         Token op = advance();
         ASTNode* right = parseComparison();
         
@@ -932,11 +1006,29 @@ ASTNode* RecursiveParser::parseLogicalAnd() {
 }
 
 ASTNode* RecursiveParser::parseComparison() {
-    ASTNode* left = parseAdditive();
+    ASTNode* left = parseShift();
     
     while (check(TokenType::TOK_EQ) || check(TokenType::TOK_NE) || 
            check(TokenType::TOK_LT) || check(TokenType::TOK_LE) ||
            check(TokenType::TOK_GT) || check(TokenType::TOK_GE)) {
+        Token op = advance();
+        ASTNode* right = parseShift();
+        
+        ASTNode* binary = new ASTNode(ASTNodeType::AST_BINARY_OP);
+        binary->op = op.value;
+        binary->left = std::unique_ptr<ASTNode>(left);
+        binary->right = std::unique_ptr<ASTNode>(right);
+        
+        left = binary;
+    }
+    
+    return left;
+}
+
+ASTNode* RecursiveParser::parseShift() {
+    ASTNode* left = parseAdditive();
+    
+    while (check(TokenType::TOK_LEFT_SHIFT) || check(TokenType::TOK_RIGHT_SHIFT)) {
         Token op = advance();
         ASTNode* right = parseAdditive();
         
@@ -988,9 +1080,10 @@ ASTNode* RecursiveParser::parseMultiplicative() {
 }
 
 ASTNode* RecursiveParser::parseUnary() {
-    // Prefix operators: !, -, ++, --
+    // Prefix operators: !, -, ++, --, ~
     if (check(TokenType::TOK_NOT) || check(TokenType::TOK_MINUS) || 
-        check(TokenType::TOK_INCR) || check(TokenType::TOK_DECR)) {
+        check(TokenType::TOK_INCR) || check(TokenType::TOK_DECR) || 
+        check(TokenType::TOK_BIT_NOT)) {
         Token op = advance();
         ASTNode* operand = parseUnary();
         
