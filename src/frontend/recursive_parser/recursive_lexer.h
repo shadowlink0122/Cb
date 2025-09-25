@@ -88,6 +88,7 @@ enum class TokenType {
     TOK_PRINTF,
     TOK_TYPEDEF,
     TOK_CONST,
+    TOK_STATIC,
     
     // Special
     TOK_EOF,

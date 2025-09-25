@@ -86,6 +86,13 @@ ASTNode* RecursiveParser::parseProgram() {
 }
 
 ASTNode* RecursiveParser::parseStatement() {
+    // static修飾子のチェック
+    bool isStatic = false;
+    if (check(TokenType::TOK_STATIC)) {
+        isStatic = true;
+        advance(); // consume 'static'
+    }
+    
     // const修飾子のチェック
     bool isConst = false;
     if (check(TokenType::TOK_CONST)) {
@@ -444,6 +451,7 @@ ASTNode* RecursiveParser::parseStatement() {
                     node->name = variables[0].first;
                     node->type_name = type_name;
                     node->is_const = isConst;
+                    node->is_static = isStatic;
                     
                     // 型情報を設定
                     if (type_name == "int") {
@@ -504,6 +512,7 @@ ASTNode* RecursiveParser::parseStatement() {
                         var_node->type_name = type_name;
                         var_node->type_info = node->type_info;
                         var_node->is_const = isConst;
+                        var_node->is_static = isStatic;
                         
                         if (var.second) {
                             var_node->init_expr = std::move(var.second);

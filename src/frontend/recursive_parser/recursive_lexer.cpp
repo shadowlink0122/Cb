@@ -320,7 +320,8 @@ TokenType RecursiveLexer::getKeywordType(const std::string& text) {
         {"println", TokenType::TOK_PRINTLN},
         {"printf", TokenType::TOK_PRINTF},
         {"typedef", TokenType::TOK_TYPEDEF},
-        {"const", TokenType::TOK_CONST}
+        {"const", TokenType::TOK_CONST},
+        {"static", TokenType::TOK_STATIC}
     };
     
     auto it = keywords.find(text);

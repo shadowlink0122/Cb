@@ -327,6 +327,10 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
         // 新しいスコープを作成
         interpreter_.push_scope();
         
+        // 現在の関数名を設定
+        std::string prev_function_name = interpreter_.current_function_name;
+        interpreter_.current_function_name = node->name;
+        
         try {
             // パラメータの評価と設定
             if (func->parameters.size() != node->arguments.size()) {
@@ -441,28 +445,34 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                 }
                 // void関数は0を返す
                 interpreter_.pop_scope();
+                interpreter_.current_function_name = prev_function_name;
                 return 0;
             } catch (const ReturnException &ret) {
                 // return文で戻り値がある場合
                 if (ret.is_array) {
                     // 配列戻り値の場合は例外を再度投げる
                     interpreter_.pop_scope();
+                    interpreter_.current_function_name = prev_function_name;
                     throw ret;
                 }
                 // 文字列戻り値の場合は例外を再度投げる
                 if (ret.type == TYPE_STRING) {
                     interpreter_.pop_scope();
+                    interpreter_.current_function_name = prev_function_name;
                     throw ret;
                 }
                 // 通常の戻り値の場合
                 interpreter_.pop_scope();
+                interpreter_.current_function_name = prev_function_name;
                 return ret.value;
             }
         } catch (const ReturnException &ret) {
             // 再投げされたReturnExceptionを処理
+            interpreter_.current_function_name = prev_function_name;
             throw ret;
         } catch (...) {
             interpreter_.pop_scope();
+            interpreter_.current_function_name = prev_function_name;
             throw;
         }
     }

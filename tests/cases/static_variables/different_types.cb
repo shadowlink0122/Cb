@@ -1,0 +1,22 @@
+// 異なるデータ型のstatic変数テスト
+void test_types(){
+    static int int_val = 42;
+    static bool bool_val = true;
+    static int double_val = 3;
+    
+    println(int_val);
+    println(bool_val);
+    println(double_val);
+    
+    // 値を変更
+    int_val++;
+    bool_val = !bool_val;
+    double_val += 1;
+}
+
+int main(){
+    test_types(); // 初回: 42, true, 3.14
+    test_types(); // 2回目: 43, false, 4.14
+    test_types(); // 3回目: 44, true, 5.14
+    return 0;
+}

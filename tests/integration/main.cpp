@@ -35,6 +35,7 @@
 #include "sample_scenarios/test_sample_scenarios.hpp"
 #include "samples/test_actual_samples.hpp"
 #include "self_assign/test_self_assign.hpp"
+#include "static_variables/test_static_variables.hpp"
 #include "string/test_string.hpp"
 #include "ternary/test_ternary.hpp"
 #include "type/test_type.hpp"
@@ -87,6 +88,9 @@ int main() {
         // 新しく実装した演算子のテスト
         test_integration_bitwise();
         test_integration_ternary();
+
+        // static変数のテスト
+        test_integration_static_variables();
     } catch (const std::exception &e) {
         std::cerr << "[integration] test failed: " << e.what() << std::endl;
         fail = 1;

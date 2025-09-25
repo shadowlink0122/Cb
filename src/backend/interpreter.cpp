@@ -1049,3 +1049,46 @@ int64_t Interpreter::getMultidimensionalArrayElement(
     const Variable &var, const std::vector<int64_t> &indices) {
     return array_manager_->getMultidimensionalArrayElement(var, indices);
 }
+
+// static変数の検索
+Variable *Interpreter::find_static_variable(const std::string &name) {
+    std::string static_key = current_function_name + "::" + name;
+    auto it = static_variables.find(static_key);
+    if (it != static_variables.end()) {
+        return &it->second;
+    }
+    return nullptr;
+}
+
+// static変数の作成
+void Interpreter::create_static_variable(const std::string &name,
+                                         const ASTNode *node) {
+    Variable var;
+    var.type = node->type_info;
+    var.is_const = node->is_const;
+    var.is_array = false;
+    var.is_assigned = false;
+    var.is_multidimensional = false;
+
+    // デフォルト値を設定
+    if (var.type == TYPE_STRING) {
+        var.str_value = "";
+    } else {
+        var.value = 0;
+    }
+
+    // 初期化式があれば評価して設定
+    if (node->init_expr) {
+        if (var.type == TYPE_STRING &&
+            node->init_expr->node_type == ASTNodeType::AST_STRING_LITERAL) {
+            var.str_value = node->init_expr->str_value;
+        } else {
+            var.value = evaluate(node->init_expr.get());
+        }
+        var.is_assigned = true;
+    }
+
+    // static変数をユニークな名前で保存（関数名+変数名）
+    std::string static_key = current_function_name + "::" + name;
+    static_variables[static_key] = var;
+}
