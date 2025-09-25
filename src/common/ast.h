@@ -15,6 +15,7 @@ enum TypeInfo {
     TYPE_CHAR = 5,
     TYPE_STRING = 6,
     TYPE_BOOL = 7,
+    TYPE_STRUCT = 8,
     TYPE_ARRAY_BASE = 100 // 配列型は基底型 + 100（下位互換のため保持）
 };
 
@@ -55,6 +56,43 @@ struct ArrayTypeInfo {
     TypeInfo to_legacy_type_id() const;
 };
 
+// struct定義情報を格納する構造体
+struct StructMember {
+    std::string name;         // メンバ変数名
+    TypeInfo type;            // メンバ型
+    ArrayTypeInfo array_info; // 配列の場合の詳細情報
+    std::string type_alias;   // typedef型の場合のエイリアス名
+
+    StructMember() : type(TYPE_UNKNOWN) {}
+    StructMember(const std::string &n, TypeInfo t,
+                 const std::string &alias = "")
+        : name(n), type(t), type_alias(alias) {}
+};
+
+struct StructDefinition {
+    std::string name;                  // struct名
+    std::vector<StructMember> members; // メンバ変数のリスト
+
+    StructDefinition() {}
+    StructDefinition(const std::string &n) : name(n) {}
+
+    // メンバを追加
+    void add_member(const std::string &member_name, TypeInfo type,
+                    const std::string &type_alias = "") {
+        members.emplace_back(member_name, type, type_alias);
+    }
+
+    // メンバを名前で検索
+    const StructMember *find_member(const std::string &member_name) const {
+        for (const auto &member : members) {
+            if (member.name == member_name) {
+                return &member;
+            }
+        }
+        return nullptr;
+    }
+};
+
 // 型名を文字列に変換する関数
 const char *type_info_to_string(TypeInfo type);
 const char *type_info_to_string_basic(TypeInfo type);
@@ -91,7 +129,9 @@ enum class ASTNodeType {
     AST_ARRAY_DECL,
     AST_FUNC_DECL,
     AST_PARAM_DECL,
-    AST_TYPEDEF_DECL, // typedef宣言
+    AST_TYPEDEF_DECL,        // typedef宣言
+    AST_STRUCT_DECL,         // struct宣言
+    AST_STRUCT_TYPEDEF_DECL, // typedef struct宣言
 
     // 式
     AST_FUNC_CALL,
@@ -100,6 +140,9 @@ enum class ASTNodeType {
     AST_ARRAY_COPY,  // 配列コピー
     AST_PRE_INCDEC,
     AST_POST_INCDEC,
+    AST_MEMBER_ACCESS,       // メンバアクセス (struct.member)
+    AST_MEMBER_ARRAY_ACCESS, // メンバの配列アクセス (struct.member[index])
+    AST_STRUCT_LITERAL,      // 構造体リテラル {a: 1, b: "str"}
 
     // その他
     AST_STMT_LIST,

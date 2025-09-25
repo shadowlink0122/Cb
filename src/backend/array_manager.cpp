@@ -21,7 +21,19 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
     debug_msg(DebugMsgId::ARRAY_DIMENSIONS_COUNT,
               node->array_dimensions.size());
 
-    var.type = static_cast<TypeInfo>(TYPE_ARRAY_BASE + node->type_info);
+    // struct配列の特別処理
+    if (node->type_info == TYPE_STRUCT) {
+        debug_msg(DebugMsgId::ARRAY_DECL_DEBUG, "Processing struct array");
+        debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
+                  ("Struct type: " + node->type_name).c_str());
+
+        var.type = TYPE_STRUCT;
+        var.is_struct = false; // 配列自体はstructではない
+        var.struct_type_name = node->type_name;
+    } else {
+        var.type = static_cast<TypeInfo>(TYPE_ARRAY_BASE + node->type_info);
+    }
+
     var.is_const = node->is_const;
     var.is_array = true;
     var.is_assigned = false;
@@ -428,6 +440,61 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
         }
     }
 
+    // struct配列の要素初期化
+    if (node->type_info == TYPE_STRUCT && var.array_size > 0) {
+        debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
+                  "Initializing struct array elements");
+
+        const StructDefinition *struct_def =
+            variable_manager_->getInterpreter()->find_struct_definition(
+                node->type_name);
+        if (!struct_def) {
+            throw std::runtime_error("Struct definition not found: " +
+                                     node->type_name);
+        }
+
+        debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
+                  ("Found struct definition: " + node->type_name).c_str());
+
+        for (int i = 0; i < var.array_size; i++) {
+            std::string element_name =
+                node->name + "[" + std::to_string(i) + "]";
+            debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
+                      ("Creating struct element: " + element_name).c_str());
+
+            // struct要素変数を作成
+            Variable struct_element(node->type_name);
+            struct_element.is_struct = true;
+            struct_element.struct_type_name = node->type_name;
+
+            // メンバーを初期化
+            for (const auto &member : struct_def->members) {
+                Variable member_var;
+                member_var.type = member.type;
+                member_var.is_assigned = false;
+
+                if (member.type == TYPE_STRING) {
+                    member_var.str_value = "";
+                } else {
+                    member_var.value = 0;
+                }
+
+                struct_element.struct_members[member.name] = member_var;
+                debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
+                          ("Added member: " + member.name).c_str());
+            }
+
+            struct_element.is_assigned = true;
+
+            // 現在のスコープに登録（StatementExecutorが使用するスコープ）
+            variable_manager_->getInterpreter()
+                ->current_scope()
+                .variables[element_name] = struct_element;
+            debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
+                      ("Registered struct element: " + element_name).c_str());
+        }
+    }
+
     // デバッグ: 最終的な配列状態を確認
     std::string debug_info =
         "Final array '" + node->name +
@@ -768,6 +835,18 @@ void ArrayManager::declare_array(const ASTNode *node) {
     Variable var;
 
     debug_msg(DebugMsgId::ARRAY_DECL_START, node->name.c_str());
+    debug_msg(DebugMsgId::ARRAY_DIMENSIONS_COUNT,
+              static_cast<int>(node->array_type_info.dimensions.size()));
+
+    // struct配列のデバッグ情報
+    if (node->type_info == TYPE_STRUCT) {
+        debug_msg(DebugMsgId::ARRAY_DECL_DEBUG, "This is a struct array");
+        debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
+                  ("Struct type: " + node->type_name).c_str());
+        if (node->array_size_expr) {
+            debug_msg(DebugMsgId::ARRAY_DECL_DEBUG, "Has array_size_expr");
+        }
+    }
 
     // 多次元配列かどうかを確認
     if (node->array_type_info.dimensions.size() > 1) {
@@ -806,18 +885,43 @@ void ArrayManager::declare_array(const ASTNode *node) {
         variable_manager_->getInterpreter()
             ->global_scope.variables[node->name] = var;
         debug_msg(DebugMsgId::MULTIDIM_ARRAY_DECL_SUCCESS, node->name.c_str());
-    } else {
-        // 単一次元配列の場合
+    } else if (node->array_type_info.dimensions.size() == 1 ||
+               (node->type_info == TYPE_STRUCT && node->array_size_expr)) {
+        // 単一次元配列の場合またはstruct配列の場合
         debug_msg(DebugMsgId::ARRAY_DECL_DEBUG);
 
         var.is_array = true;
         var.is_multidimensional = false;
-        var.type = static_cast<TypeInfo>(TYPE_ARRAY_BASE +
-                                         node->array_type_info.base_type);
+
+        debug_msg(
+            DebugMsgId::ARRAY_DECL_DEBUG,
+            ("Array type_info: " + std::to_string(node->type_info)).c_str());
+        debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
+                  ("TYPE_STRUCT: " + std::to_string(TYPE_STRUCT)).c_str());
+
+        // struct配列の場合の特別処理
+        if (node->type_info == TYPE_STRUCT) {
+            var.type = TYPE_STRUCT;
+            var.is_struct = false; // 配列自体はstructではないが、要素がstruct
+            var.struct_type_name = node->type_name; // struct型名を保存
+        } else {
+            var.type = static_cast<TypeInfo>(TYPE_ARRAY_BASE +
+                                             node->array_type_info.base_type);
+        }
+
         var.is_const = node->is_const;
         var.is_assigned = false;
 
-        int size = node->array_type_info.dimensions[0].size;
+        // サイズを取得（struct配列の場合はarray_size_exprから評価）
+        int size;
+        if (node->type_info == TYPE_STRUCT && node->array_size_expr) {
+            size = variable_manager_->getInterpreter()
+                       ->expression_evaluator_->evaluate_expression(
+                           node->array_size_expr.get());
+        } else {
+            size = node->array_type_info.dimensions[0].size;
+        }
+
         var.array_size = size; // array_sizeを設定
         debug_msg(DebugMsgId::ARRAY_TOTAL_SIZE, size);
 
@@ -825,8 +929,63 @@ void ArrayManager::declare_array(const ASTNode *node) {
         var.array_dimensions.clear();
         var.array_dimensions.push_back(size);
 
-        // 単一次元配列用のストレージを初期化
-        if (node->array_type_info.base_type == TYPE_STRING) {
+        // 配列用のストレージを初期化
+        if (node->type_info == TYPE_STRUCT) {
+            // struct配列の場合、各要素はstruct変数として管理
+            // 各要素をstruct変数として初期化
+            debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
+                      "Initializing struct array elements");
+
+            const StructDefinition *struct_def =
+                variable_manager_->getInterpreter()->find_struct_definition(
+                    node->type_name);
+            if (!struct_def) {
+                throw std::runtime_error("Struct definition not found: " +
+                                         node->type_name);
+            }
+
+            debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
+                      ("Found struct definition: " + node->type_name).c_str());
+
+            for (int i = 0; i < size; i++) {
+                std::string element_name =
+                    node->name + "[" + std::to_string(i) + "]";
+                debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
+                          ("Creating struct element: " + element_name).c_str());
+
+                // struct要素変数を作成
+                Variable struct_element(node->type_name);
+                struct_element.is_struct = true;
+                struct_element.struct_type_name = node->type_name;
+
+                // メンバーを初期化
+                for (const auto &member : struct_def->members) {
+                    Variable member_var;
+                    member_var.type = member.type;
+                    member_var.is_assigned = false;
+
+                    if (member.type == TYPE_STRING) {
+                        member_var.str_value = "";
+                    } else {
+                        member_var.value = 0;
+                    }
+
+                    struct_element.struct_members[member.name] = member_var;
+                    debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
+                              ("Added member: " + member.name).c_str());
+                }
+
+                struct_element.is_assigned = true;
+
+                // グローバルスコープに登録
+                variable_manager_->getInterpreter()
+                    ->global_scope.variables[element_name] = struct_element;
+                debug_msg(
+                    DebugMsgId::ARRAY_DECL_DEBUG,
+                    ("Registered struct element: " + element_name).c_str());
+            }
+            var.array_values.resize(size, 0); // プレースホルダー
+        } else if (node->array_type_info.base_type == TYPE_STRING) {
             var.array_strings.resize(size, "");
         } else {
             var.array_values.resize(size, 0);
@@ -836,6 +995,10 @@ void ArrayManager::declare_array(const ASTNode *node) {
         variable_manager_->getInterpreter()
             ->global_scope.variables[node->name] = var;
         debug_msg(DebugMsgId::ARRAY_DECL_SUCCESS, node->name.c_str());
+    } else {
+        // 配列情報が不正または未サポートの場合
+        debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
+                  "Unsupported array type or missing dimensions");
     }
 }
 

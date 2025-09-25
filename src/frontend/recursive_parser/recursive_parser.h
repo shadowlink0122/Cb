@@ -43,6 +43,8 @@ private:
     // Type and declaration parsing
     std::string parseType();
     ASTNode* parseTypedefDeclaration();
+    ASTNode* parseStructDeclaration();           // struct宣言
+    ASTNode* parseStructTypedefDeclaration();    // typedef struct宣言
     ASTNode* parseVariableDeclaration();
     ASTNode* parseTypedefVariableDeclaration();
     ASTNode* parseFunctionDeclaration();
@@ -82,8 +84,13 @@ private:
     ASTNode* parseUnary();
     ASTNode* parsePostfix();
     ASTNode* parsePrimary();
+    ASTNode* parseMemberAccess(ASTNode* object);  // メンバアクセス (.member)
+    ASTNode* parseStructLiteral();                // 構造体リテラル {a: 1, b: "str"}
     
     // Utility methods
     TypeInfo getTypeInfoFromString(const std::string& type_name);
     ASTNode* parseArrayLiteral();
+    
+    // struct管理
+    std::unordered_map<std::string, StructDefinition> struct_definitions_; // struct定義の保存
 };

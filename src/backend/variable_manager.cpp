@@ -318,9 +318,11 @@ void VariableManager::declare_local_variable(const ASTNode *node) {
         std::string resolved_type =
             interpreter_->type_manager_->resolve_typedef(node->type_name);
 
-        std::cerr << "[DEBUG] Variable: " << node->name
-                  << ", Type: " << node->type_name
-                  << ", Resolved: " << resolved_type << std::endl;
+        if (interpreter_->debug_mode) {
+            debug_print("Variable: %s, Type: %s, Resolved: %s\n",
+                        node->name.c_str(), node->type_name.c_str(),
+                        resolved_type.c_str());
+        }
 
         // 配列typedefの場合
         if (resolved_type.find("[") != std::string::npos) {
@@ -534,6 +536,91 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                     resolved_type);
             }
         }
+        // struct型の場合の処理
+        else if (node->type_info == TYPE_STRUCT ||
+                 (node->type_info == TYPE_UNKNOWN &&
+                  interpreter_->find_struct_definition(node->type_name) !=
+                      nullptr)) {
+            if (interpreter_->debug_mode) {
+                debug_print("Creating struct variable: %s of type: %s\n",
+                            node->name.c_str(), node->type_name.c_str());
+            }
+            var.type = TYPE_STRUCT;
+            var.is_struct = true;
+            var.struct_type_name = node->type_name;
+
+            // struct定義を取得してメンバ変数を初期化
+            const StructDefinition *struct_def =
+                interpreter_->find_struct_definition(node->type_name);
+            if (struct_def) {
+                if (interpreter_->debug_mode) {
+                    debug_print("Initializing struct %s with %zu members\n",
+                                node->type_name.c_str(),
+                                struct_def->members.size());
+                }
+                for (const auto &member : struct_def->members) {
+                    Variable member_var;
+                    member_var.type = member.type;
+
+                    // 配列メンバーの場合
+                    if (member.array_info.is_array()) {
+                        member_var.is_array = true;
+                        member_var.array_size =
+                            member.array_info.dimensions[0].size;
+
+                        // array_dimensionsを設定
+                        member_var.array_dimensions.clear();
+                        for (const auto &dim : member.array_info.dimensions) {
+                            member_var.array_dimensions.push_back(dim.size);
+                        }
+
+                        if (interpreter_->debug_mode) {
+                            debug_print(
+                                "Creating array member: %s with size %d\n",
+                                member.name.c_str(),
+                                member.array_info.dimensions[0].size);
+                        }
+
+                        // 配列の各要素を個別の変数として作成
+                        for (int i = 0;
+                             i < member.array_info.dimensions[0].size; i++) {
+                            std::string element_name = node->name + "." +
+                                                       member.name + "[" +
+                                                       std::to_string(i) + "]";
+                            Variable element_var;
+                            element_var.type = member.type;
+                            element_var.value = 0;
+                            element_var.str_value = "";
+                            element_var.is_assigned = false;
+                            this->current_scope().variables[element_name] =
+                                element_var;
+
+                            if (interpreter_->debug_mode) {
+                                debug_print(
+                                    "Created struct member array element: %s\n",
+                                    element_name.c_str());
+                            }
+                        }
+                    }
+
+                    // デフォルト値を設定
+                    if (member_var.type == TYPE_STRING) {
+                        member_var.str_value = "";
+                    } else {
+                        member_var.value = 0;
+                    }
+                    member_var.is_assigned = false;
+
+                    var.struct_members[member.name] = member_var;
+                    if (interpreter_->debug_mode) {
+                        debug_print(
+                            "Added member: %s (type: %d, is_array: %s)\n",
+                            member.name.c_str(), (int)member.type,
+                            member.array_info.is_array() ? "true" : "false");
+                    }
+                }
+            }
+        }
 
         // 配列タイプチェック（直接配列宣言の場合）
         if (!var.is_array && node->type_name.find("[") != std::string::npos) {
@@ -564,8 +651,59 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
 
         // 初期化式がある場合
         if (node->init_expr) {
-            if (var.is_array &&
-                node->init_expr->node_type == ASTNodeType::AST_ARRAY_REF) {
+            if (var.is_struct &&
+                node->init_expr->node_type == ASTNodeType::AST_STRUCT_LITERAL) {
+                // struct literal初期化の処理: Person p = {25, "Bob"};
+
+                // まず変数を登録
+                current_scope().variables[node->name] = var;
+
+                // struct literal代入を実行
+                interpreter_->assign_struct_literal(node->name,
+                                                    node->init_expr.get());
+
+                // 代入完了
+                current_scope().variables[node->name].is_assigned = true;
+
+                return; // struct literal処理完了後は早期リターン
+
+            } else if (var.is_struct && node->init_expr->node_type ==
+                                            ASTNodeType::AST_VARIABLE) {
+                // struct to struct代入の処理: Person p2 = p1;
+                std::string source_var_name = node->init_expr->name;
+                Variable *source_var = find_variable(source_var_name);
+                if (!source_var) {
+                    throw std::runtime_error("Source variable not found: " +
+                                             source_var_name);
+                }
+
+                if (!source_var->is_struct) {
+                    throw std::runtime_error(
+                        "Cannot assign non-struct to struct variable");
+                }
+
+                if (source_var->struct_type_name != var.struct_type_name) {
+                    throw std::runtime_error(
+                        "Cannot assign struct of different type");
+                }
+
+                // まず変数を登録
+                current_scope().variables[node->name] = var;
+
+                // 全メンバをコピー
+                for (const auto &member : source_var->struct_members) {
+                    current_scope()
+                        .variables[node->name]
+                        .struct_members[member.first] = member.second;
+                }
+
+                // 代入完了
+                current_scope().variables[node->name].is_assigned = true;
+
+                return; // struct代入処理完了後は早期リターン
+
+            } else if (var.is_array && node->init_expr->node_type ==
+                                           ASTNodeType::AST_ARRAY_REF) {
                 // 配列スライス代入の処理
                 std::string source_var_name = node->init_expr->name;
                 Variable *source_var = find_variable(source_var_name);
@@ -870,6 +1008,122 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
             } else {
                 throw std::runtime_error("Invalid array access");
             }
+        } else if (node->left &&
+                   node->left->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
+            // struct メンバー代入の処理: obj.member = value または
+            // array[index].member = value
+            std::string member_name = node->left->name;
+            Variable *struct_var = nullptr;
+            std::string struct_name;
+
+            if (node->left->left->node_type == ASTNodeType::AST_VARIABLE) {
+                // 通常のstruct変数: obj.member = value
+                struct_name = node->left->left->name;
+                struct_var = find_variable(struct_name);
+            } else if (node->left->left->node_type ==
+                       ASTNodeType::AST_ARRAY_REF) {
+                // struct配列要素: array[index].member = value
+                std::string array_name = node->left->left->left->name;
+                int64_t index =
+                    interpreter_->expression_evaluator_->evaluate_expression(
+                        node->left->left->array_index.get());
+                struct_name = array_name + "[" + std::to_string(index) + "]";
+                struct_var = find_variable(struct_name);
+            }
+
+            if (!struct_var) {
+                throw std::runtime_error("Undefined struct variable: " +
+                                         struct_name);
+            }
+
+            if (!struct_var->is_struct) {
+                throw std::runtime_error(struct_name + " is not a struct");
+            }
+
+            // メンバーが存在するかチェック
+            auto member_it = struct_var->struct_members.find(member_name);
+            if (member_it == struct_var->struct_members.end()) {
+                throw std::runtime_error("Struct " + struct_name +
+                                         " has no member: " + member_name);
+            }
+
+            // 右辺の値を評価
+            Variable &member = member_it->second;
+
+            if (member.type == TYPE_STRING) {
+                // 文字列型メンバーの場合
+                if (node->right->node_type == ASTNodeType::AST_STRING_LITERAL) {
+                    member.str_value = node->right->str_value;
+                } else {
+                    // 数値を文字列に変換
+                    int64_t value =
+                        interpreter_->expression_evaluator_
+                            ->evaluate_expression(node->right.get());
+                    member.str_value = std::to_string(value);
+                }
+            } else {
+                // 数値型メンバーの場合
+                int64_t value =
+                    interpreter_->expression_evaluator_->evaluate_expression(
+                        node->right.get());
+                member.value = value;
+            }
+            member.is_assigned = true;
+        } else if (node->left && node->left->node_type ==
+                                     ASTNodeType::AST_MEMBER_ARRAY_ACCESS) {
+            // struct メンバー配列要素代入の処理: obj.member[index] = value
+            std::string member_name = node->left->name;
+
+            if (!node->left->left ||
+                node->left->left->node_type != ASTNodeType::AST_VARIABLE) {
+                throw std::runtime_error("Invalid struct member array access");
+            }
+
+            std::string struct_name = node->left->left->name;
+            Variable *struct_var = find_variable(struct_name);
+
+            if (!struct_var) {
+                throw std::runtime_error("Undefined struct variable: " +
+                                         struct_name);
+            }
+
+            if (!struct_var->is_struct) {
+                throw std::runtime_error(struct_name + " is not a struct");
+            }
+
+            // インデックスを評価
+            int64_t index =
+                interpreter_->expression_evaluator_->evaluate_expression(
+                    node->left->right.get());
+
+            // メンバー配列要素の変数名を生成: s.grades[0]
+            std::string element_name = struct_name + "." + member_name + "[" +
+                                       std::to_string(index) + "]";
+            Variable *element_var = find_variable(element_name);
+
+            if (!element_var) {
+                throw std::runtime_error("Member array element not found: " +
+                                         element_name);
+            }
+
+            // 右辺の値を評価
+            int64_t value =
+                interpreter_->expression_evaluator_->evaluate_expression(
+                    node->right.get());
+
+            // 型範囲チェック
+            interpreter_->type_manager_->check_type_range(element_var->type,
+                                                          value, element_name);
+
+            // 値を代入
+            element_var->value = value;
+            element_var->is_assigned = true;
+
+            if (interpreter_->debug_mode) {
+                debug_print(
+                    "Assigned %lld to struct member array element: %s\n",
+                    (long long)value, element_name.c_str());
+            }
         }
         // 他の複雑なケースは後で実装
     }
@@ -888,6 +1142,16 @@ std::string VariableManager::extract_array_name(const ASTNode *node) {
         } else if (node->left) {
             return extract_array_name(node->left.get()); // 再帰的に探索
         }
+    } else if (node->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
+        // メンバアクセスの場合: obj.member
+        std::string obj_name;
+        if (node->left && node->left->node_type == ASTNodeType::AST_VARIABLE) {
+            obj_name = node->left->name;
+        } else {
+            return "";
+        }
+        std::string member_name = node->name;
+        return obj_name + "." + member_name;
     }
     return "";
 }

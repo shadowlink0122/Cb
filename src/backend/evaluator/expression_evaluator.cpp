@@ -45,6 +45,22 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
     case ASTNodeType::AST_ARRAY_REF: {
         debug_msg(DebugMsgId::EXPR_EVAL_ARRAY_REF, node->name.c_str());
         
+        // メンバ配列アクセスの特別処理: obj.member[index]
+        if (node->left && node->left->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
+            std::string obj_name = node->left->left->name;
+            std::string member_name = node->left->name;
+            int64_t index = evaluate_expression(node->array_index.get());
+            
+            std::string member_array_element_name = obj_name + "." + member_name + "[" + std::to_string(index) + "]";
+            
+            Variable *var = interpreter_.find_variable(member_array_element_name);
+            if (!var) {
+                throw std::runtime_error("Member array element not found: " + member_array_element_name);
+            }
+            
+            return var->value;
+        }
+        
         std::string array_name = interpreter_.extract_array_name(node);
         if (array_name.empty()) {
             throw std::runtime_error("Cannot determine array name");
@@ -569,6 +585,60 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
         }
         
         return right_value;
+    }
+    
+    case ASTNodeType::AST_MEMBER_ACCESS: {
+        // メンバアクセス: obj.member または array[index].member
+        std::string var_name;
+        std::string member_name = node->name;
+        
+        if (node->left->node_type == ASTNodeType::AST_VARIABLE) {
+            // 通常のstruct変数: obj.member
+            var_name = node->left->name;
+        } else if (node->left->node_type == ASTNodeType::AST_ARRAY_REF) {
+            // struct配列要素: array[index].member
+            std::string array_name = node->left->left->name;
+            int64_t index = evaluate_expression(node->left->array_index.get());
+            var_name = array_name + "[" + std::to_string(index) + "]";
+        } else {
+            throw std::runtime_error("Invalid member access");
+        }
+        
+        Variable* member_var = interpreter_.get_struct_member(var_name, member_name);
+        if (member_var->type == TYPE_STRING) {
+            // 文字列メンバは別途処理が必要
+            return 0; // とりあえず0を返す
+        }
+        return member_var->value;
+    }
+    
+    case ASTNodeType::AST_MEMBER_ARRAY_ACCESS: {
+        // メンバの配列アクセス: obj.member[index]
+        std::string obj_name;
+        if (node->left->node_type == ASTNodeType::AST_VARIABLE) {
+            obj_name = node->left->name;
+        } else {
+            throw std::runtime_error("Invalid object reference in member array access");
+        }
+        
+        std::string member_name = node->name;
+        int64_t index = evaluate_expression(node->right.get());
+        
+        // メンバの配列要素変数名を生成
+        std::string member_array_element_name = obj_name + "." + member_name + "[" + std::to_string(index) + "]";
+        
+        Variable* var = interpreter_.find_variable(member_array_element_name);
+        if (!var) {
+            throw std::runtime_error("Member array element not found: " + member_array_element_name);
+        }
+        
+        return var->value;
+    }
+    
+    case ASTNodeType::AST_STRUCT_LITERAL: {
+        // 構造体リテラルは代入時にのみ処理されるべき
+        // ここでは0を返す
+        return 0;
     }
 
     default:

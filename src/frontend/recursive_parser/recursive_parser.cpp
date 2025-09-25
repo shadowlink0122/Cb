@@ -125,21 +125,34 @@ ASTNode* RecursiveParser::parseStatement() {
         return parseTypedefDeclaration();
     }
     
+    // struct宣言の処理
+    if (check(TokenType::TOK_STRUCT)) {
+        return parseStructDeclaration();
+    }
+    
     // typedef型変数宣言の処理
     if (check(TokenType::TOK_IDENTIFIER)) {
         std::string potential_type = current_token_.value;
-        if (typedef_map_.find(potential_type) != typedef_map_.end()) {
+        
+        // typedef型または構造体型の可能性をチェック
+        bool is_typedef = typedef_map_.find(potential_type) != typedef_map_.end();
+        bool is_struct_type = struct_definitions_.find(potential_type) != struct_definitions_.end();
+        
+        if (is_typedef || is_struct_type) {
             // 簡単な先読み: 現在の位置を保存
             RecursiveLexer temp_lexer = lexer_;
             Token temp_current = current_token_;
             
-            advance(); // typedef型名をスキップ
+            advance(); // 型名をスキップ
             
             bool is_function = false;
             if (check(TokenType::TOK_IDENTIFIER)) {
                 advance(); // 識別子をスキップ
                 if (check(TokenType::TOK_LPAREN)) {
                     is_function = true;
+                } else if (check(TokenType::TOK_LBRACKET)) {
+                    // 配列宣言なので関数ではない
+                    is_function = false;
                 }
             }
             
@@ -148,13 +161,74 @@ ASTNode* RecursiveParser::parseStatement() {
             current_token_ = temp_current;
             
             if (is_function) {
-                // これはtypedef戻り値型の関数宣言
-                std::string return_type = advance().value; // typedef型名を取得
+                // これは戻り値型が構造体またはtypedefの関数宣言
+                std::string return_type = advance().value; // 型名を取得
                 std::string function_name = advance().value; // 関数名を取得
                 return parseFunctionDeclarationAfterName(return_type, function_name);
             } else {
-                // これはtypedef型変数宣言
-                return parseTypedefVariableDeclaration();
+                // これは構造体またはtypedef型変数宣言
+                if (is_struct_type) {
+                    // 構造体変数宣言
+                    std::string struct_type = advance().value;
+                    
+                    // 配列チェック: Person[3] people; または Person people;
+                    if (check(TokenType::TOK_LBRACKET)) {
+                        // struct配列宣言: Person[3] people;
+                        advance(); // consume '['
+                        ASTNode* size_expr = parseExpression();
+                        consume(TokenType::TOK_RBRACKET, "Expected ']' after array size");
+                        
+                        std::string var_name = advance().value; // 変数名を取得
+                        
+                        ASTNode* var_node = new ASTNode(ASTNodeType::AST_ARRAY_DECL);
+                        var_node->name = var_name;
+                        var_node->type_name = struct_type;
+                        var_node->type_info = TYPE_STRUCT;
+                        var_node->array_size_expr = std::unique_ptr<ASTNode>(size_expr);
+                        
+                        // array_type_infoを設定
+                        var_node->array_type_info.base_type = TYPE_STRUCT;
+                        var_node->array_type_info.dimensions.push_back({0}); // サイズは後で評価される
+                        
+                        // 初期化式のチェック
+                        if (match(TokenType::TOK_ASSIGN)) {
+                            if (check(TokenType::TOK_LBRACKET)) {
+                                // struct配列リテラル: Person[3] people = [{25, "Alice"}, {30, "Bob"}];
+                                var_node->init_expr = std::unique_ptr<ASTNode>(parseArrayLiteral());
+                            } else {
+                                var_node->init_expr = std::unique_ptr<ASTNode>(parseExpression());
+                            }
+                        }
+                        
+                        consume(TokenType::TOK_SEMICOLON, "Expected ';' after struct array declaration");
+                        return var_node;
+                    } else {
+                        // 通常のstruct変数宣言: Person people;
+                        std::string var_name = advance().value;
+                        
+                        ASTNode* var_node = new ASTNode(ASTNodeType::AST_VAR_DECL);
+                        var_node->name = var_name;
+                        var_node->type_name = struct_type;
+                        var_node->type_info = TYPE_STRUCT;
+                        
+                        // 初期化式のチェック
+                        if (match(TokenType::TOK_ASSIGN)) {
+                            if (check(TokenType::TOK_LBRACE)) {
+                                // struct literal: Person p = {25, "Bob"};
+                                var_node->init_expr = std::unique_ptr<ASTNode>(parseStructLiteral());
+                            } else {
+                                // その他の初期化式
+                                var_node->init_expr = std::unique_ptr<ASTNode>(parseExpression());
+                            }
+                        }
+                        
+                        consume(TokenType::TOK_SEMICOLON, "Expected ';' after struct variable declaration");
+                        return var_node;
+                    }
+                } else {
+                    // typedef型変数宣言
+                    return parseTypedefVariableDeclaration();
+                }
             }
         }
     }
@@ -624,6 +698,24 @@ ASTNode* RecursiveParser::parseStatement() {
                 left_expr = array_ref;
             }
             
+            // 配列要素のメンバアクセスをチェック: people[0].age
+            if (check(TokenType::TOK_DOT)) {
+                advance(); // consume '.'
+                
+                if (!check(TokenType::TOK_IDENTIFIER)) {
+                    error("Expected member name after '.'");
+                    return nullptr;
+                }
+                
+                std::string member_name = advance().value;
+                
+                // メンバアクセスノードを作成
+                ASTNode* member_access = new ASTNode(ASTNodeType::AST_MEMBER_ACCESS);
+                member_access->left = std::unique_ptr<ASTNode>(left_expr);
+                member_access->name = member_name;
+                left_expr = member_access;
+            }
+            
             // 配列への代入および複合代入の処理
             if (check(TokenType::TOK_ASSIGN) || check(TokenType::TOK_PLUS_ASSIGN) || 
                 check(TokenType::TOK_MINUS_ASSIGN) || check(TokenType::TOK_MUL_ASSIGN) ||
@@ -692,6 +784,81 @@ ASTNode* RecursiveParser::parseStatement() {
                 return assignment;
             } else {
                 error("Expected assignment operator after array access");
+                return nullptr;
+            }
+        } else if (check(TokenType::TOK_DOT)) {
+            // メンバアクセス代入の処理: obj.member = value または obj.member[index] = value
+            advance(); // consume '.'
+            
+            if (!check(TokenType::TOK_IDENTIFIER)) {
+                error("Expected member name after '.'");
+                return nullptr;
+            }
+            
+            std::string member_name = advance().value;
+            
+            // メンバアクセス後の配列アクセスをチェック
+            if (check(TokenType::TOK_LBRACKET)) {
+                advance(); // consume '['
+                
+                ASTNode* index_expr = parseExpression();
+                
+                if (!check(TokenType::TOK_RBRACKET)) {
+                    error("Expected ']' after array index");
+                    return nullptr;
+                }
+                advance(); // consume ']'
+                
+                // 代入演算子をチェック
+                if (check(TokenType::TOK_ASSIGN)) {
+                    advance(); // consume '='
+                    
+                    ASTNode* value_expr = parseExpression();
+                    
+                    // メンバの配列アクセスを表す特別なノードを作成
+                    ASTNode* member_array_access = new ASTNode(ASTNodeType::AST_MEMBER_ARRAY_ACCESS);
+                    member_array_access->name = member_name;
+                    
+                    ASTNode* obj_var = new ASTNode(ASTNodeType::AST_VARIABLE);
+                    obj_var->name = name;
+                    member_array_access->left = std::unique_ptr<ASTNode>(obj_var);
+                    member_array_access->right = std::unique_ptr<ASTNode>(index_expr);
+                    
+                    // 代入ノードを作成
+                    ASTNode* assignment = new ASTNode(ASTNodeType::AST_ASSIGN);
+                    assignment->left = std::unique_ptr<ASTNode>(member_array_access);
+                    assignment->right = std::unique_ptr<ASTNode>(value_expr);
+                    
+                    consume(TokenType::TOK_SEMICOLON, "Expected ';' after assignment");
+                    return assignment;
+                } else {
+                    error("Expected '=' after member array access");
+                    return nullptr;
+                }
+            }
+            // 通常のメンバアクセス代入処理
+            else if (check(TokenType::TOK_ASSIGN)) {
+                advance(); // consume '='
+                
+                ASTNode* value_expr = parseExpression();
+                
+                // メンバアクセスノードを作成
+                ASTNode* member_access = new ASTNode(ASTNodeType::AST_MEMBER_ACCESS);
+                member_access->name = member_name;
+                
+                ASTNode* obj_var = new ASTNode(ASTNodeType::AST_VARIABLE);
+                obj_var->name = name;
+                member_access->left = std::unique_ptr<ASTNode>(obj_var);
+                
+                // 代入ノードを作成
+                ASTNode* assignment = new ASTNode(ASTNodeType::AST_ASSIGN);
+                assignment->left = std::unique_ptr<ASTNode>(member_access);
+                assignment->right = std::unique_ptr<ASTNode>(value_expr);
+                
+                consume(TokenType::TOK_SEMICOLON, "Expected ';'");
+                return assignment;
+            } else {
+                error("Expected '=' after member access");
                 return nullptr;
             }
         } else if (check(TokenType::TOK_ASSIGN) || check(TokenType::TOK_PLUS_ASSIGN) || 
@@ -956,13 +1123,26 @@ std::string RecursiveParser::parseType() {
     } else if (check(TokenType::TOK_CHAR_TYPE)) {
         advance(); // consume 'char'
         base_type = "char";
+    } else if (check(TokenType::TOK_STRUCT)) {
+        advance(); // consume 'struct'
+        if (!check(TokenType::TOK_IDENTIFIER)) {
+            error("Expected struct name after 'struct'");
+            return "";
+        }
+        std::string struct_name = current_token_.value;
+        advance();
+        base_type = "struct " + struct_name;
     } else if (check(TokenType::TOK_IDENTIFIER)) {
-        // typedef aliasの可能性
+        // typedef aliasまたはstruct型名の可能性
         std::string identifier = current_token_.value;
         if (typedef_map_.find(identifier) != typedef_map_.end()) {
             // typedef aliasが見つかった場合、再帰的に型を解決
             advance(); // consume identifier
             base_type = resolveTypedefChain(identifier);
+        } else if (struct_definitions_.find(identifier) != struct_definitions_.end()) {
+            // struct型名として認識
+            advance(); // consume identifier  
+            base_type = identifier; // typedef structの場合のstruct型
         } else {
             // 未知のidentifier
             base_type = advance().value; // とりあえずそのまま返す（インタープリターで解決）
@@ -1098,6 +1278,15 @@ ASTNode* RecursiveParser::parseAssignment() {
                 assign->left = std::unique_ptr<ASTNode>(left);
                 assign->right = std::unique_ptr<ASTNode>(right);
             }
+        } else if (left->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
+            // メンバアクセス代入: obj.member = value
+            // 複合代入は現時点では未対応
+            if (op_type != TokenType::TOK_ASSIGN) {
+                error("Compound assignment not supported for struct members yet");
+                return nullptr;
+            }
+            assign->left = std::unique_ptr<ASTNode>(left);
+            assign->right = std::unique_ptr<ASTNode>(right);
         } else {
             error("Invalid assignment target");
             return nullptr;
@@ -1314,24 +1503,31 @@ ASTNode* RecursiveParser::parseUnary() {
 ASTNode* RecursiveParser::parsePostfix() {
     ASTNode* primary = parsePrimary();
     
-    // 配列アクセスチェーン: arr[i][j][k]...
-    while (check(TokenType::TOK_LBRACKET)) {
-        advance(); // consume '['
-        ASTNode* index = parseExpression();
-        consume(TokenType::TOK_RBRACKET, "Expected ']'");
-        
-        ASTNode* array_ref = new ASTNode(ASTNodeType::AST_ARRAY_REF);
-        array_ref->left = std::unique_ptr<ASTNode>(primary); // 左側を設定
-        array_ref->array_index = std::unique_ptr<ASTNode>(index);
-        
-        // デバッグ: 配列アクセスノード作成をログ出力
-        if (debug_mode && primary && primary->node_type == ASTNodeType::AST_VARIABLE) {
-            std::cerr << "[DEBUG] Creating array access: " << primary->name << "[...]" << std::endl;
-            std::cerr << "[DEBUG] array_ref->left: " << array_ref->left.get() << std::endl;
-            std::cerr << "[DEBUG] array_ref->array_index: " << array_ref->array_index.get() << std::endl;
+    while (true) {
+        if (check(TokenType::TOK_LBRACKET)) {
+            // 配列アクセス: arr[i]
+            advance(); // consume '['
+            ASTNode* index = parseExpression();
+            consume(TokenType::TOK_RBRACKET, "Expected ']'");
+            
+            ASTNode* array_ref = new ASTNode(ASTNodeType::AST_ARRAY_REF);
+            array_ref->left = std::unique_ptr<ASTNode>(primary); // 左側を設定
+            array_ref->array_index = std::unique_ptr<ASTNode>(index);
+            
+            // デバッグ: 配列アクセスノード作成をログ出力
+            if (debug_mode && primary && primary->node_type == ASTNodeType::AST_VARIABLE) {
+                std::cerr << "[DEBUG] Creating array access: " << primary->name << "[...]" << std::endl;
+                std::cerr << "[DEBUG] array_ref->left: " << array_ref->left.get() << std::endl;
+                std::cerr << "[DEBUG] array_ref->array_index: " << array_ref->array_index.get() << std::endl;
+            }
+            
+            primary = array_ref; // 次のアクセスのベースとして設定
+        } else if (check(TokenType::TOK_DOT)) {
+            // メンバアクセス: obj.member
+            primary = parseMemberAccess(primary);
+        } else {
+            break; // どちらでもない場合はループを抜ける
         }
-        
-        primary = array_ref; // 次のアクセスのベースとして設定
     }
     
     // Postfix operators: ++, --
@@ -1450,6 +1646,11 @@ ASTNode* RecursiveParser::parsePrimary() {
         
         consume(TokenType::TOK_RBRACKET, "Expected ']' after array literal");
         return array_literal;
+    }
+    
+    // 構造体リテラルの処理 {member: value, ...}
+    if (check(TokenType::TOK_LBRACE)) {
+        return parseStructLiteral();
     }
     
     error("Unexpected token");
@@ -1707,8 +1908,13 @@ ASTNode* RecursiveParser::parseFunctionDeclaration() {
 
 
 ASTNode* RecursiveParser::parseTypedefDeclaration() {
-    // typedef <type> <alias>;
+    // typedef <type> <alias>; または typedef struct {...} <alias>;
     consume(TokenType::TOK_TYPEDEF, "Expected 'typedef'");
+    
+    // typedef struct の場合
+    if (check(TokenType::TOK_STRUCT)) {
+        return parseStructTypedefDeclaration();
+    }
     
     // 基底型を解析（基本型またはtypedef型）
     TypeInfo base_type = TYPE_UNKNOWN;
@@ -1826,6 +2032,8 @@ TypeInfo RecursiveParser::getTypeInfoFromString(const std::string& type_name) {
         return TYPE_CHAR;
     } else if (type_name == "void") {
         return TYPE_VOID;
+    } else if (type_name.substr(0, 7) == "struct " || struct_definitions_.find(type_name) != struct_definitions_.end()) {
+        return TYPE_STRUCT;
     } else {
         return TYPE_UNKNOWN;
     }
@@ -2148,4 +2356,318 @@ std::string RecursiveParser::extractBaseType(const std::string& type_name) {
         return type_name.substr(0, bracket_pos);
     }
     return type_name;
+}
+
+// struct宣言の解析: struct name { members };
+ASTNode* RecursiveParser::parseStructDeclaration() {
+    consume(TokenType::TOK_STRUCT, "Expected 'struct'");
+    
+    if (!check(TokenType::TOK_IDENTIFIER)) {
+        error("Expected struct name");
+        return nullptr;
+    }
+    
+    std::string struct_name = current_token_.value;
+    advance(); // struct名をスキップ
+    
+    consume(TokenType::TOK_LBRACE, "Expected '{' after struct name");
+    
+    StructDefinition struct_def(struct_name);
+    
+    // メンバ変数の解析
+    while (!check(TokenType::TOK_RBRACE) && !isAtEnd()) {
+        // メンバの型を解析
+        std::string member_type = parseType();
+        
+        if (member_type.empty()) {
+            error("Expected member type in struct definition");
+            return nullptr;
+        }
+        
+        // メンバ名のリストを解析（int a, b, c; のような複数宣言に対応）
+        do {
+            if (!check(TokenType::TOK_IDENTIFIER)) {
+                error("Expected member name");
+                return nullptr;
+            }
+            
+            std::string member_name = current_token_.value;
+            advance();
+            
+            // 配列宣言のチェック ([size])
+            if (check(TokenType::TOK_LBRACKET)) {
+                advance(); // '[' をスキップ
+                
+                if (!check(TokenType::TOK_NUMBER)) {
+                    error("Expected array size in struct member");
+                    return nullptr;
+                }
+                
+                int array_size = std::stoi(current_token_.value);
+                advance(); // サイズをスキップ
+                
+                consume(TokenType::TOK_RBRACKET, "Expected ']' after array size");
+                
+                // 配列メンバを追加 - ArrayTypeInfoを設定
+                TypeInfo member_type_info = getTypeInfoFromString(member_type);
+                StructMember array_member(member_name, member_type_info, member_type);
+                array_member.array_info = ArrayTypeInfo(member_type_info, array_size, false);
+                struct_def.members.push_back(array_member);
+                
+                // デバッグ出力
+                std::cerr << "[DEBUG] Parser: Adding array member: " << member_name 
+                         << " (type: " << (int)member_type_info << ", size: " << array_size << ")" << std::endl;
+            } else {
+                // 通常のメンバを追加
+                TypeInfo member_type_info = getTypeInfoFromString(member_type);
+                struct_def.add_member(member_name, member_type_info, member_type);
+                
+                // デバッグ出力
+                std::cerr << "[DEBUG] Parser: Adding normal member: " << member_name 
+                         << " (type: " << (int)member_type_info << ")" << std::endl;
+            }
+            
+            if (check(TokenType::TOK_COMMA)) {
+                advance(); // カンマをスキップ
+                continue;
+            } else {
+                break;
+            }
+        } while (true);
+        
+        consume(TokenType::TOK_SEMICOLON, "Expected ';' after struct member");
+    }
+    
+    consume(TokenType::TOK_RBRACE, "Expected '}' after struct members");
+    consume(TokenType::TOK_SEMICOLON, "Expected ';' after struct definition");
+    
+    // struct定義をパーサー内に保存（変数宣言の認識のため）
+    struct_definitions_[struct_name] = struct_def;
+    
+    // デバッグ出力
+    std::cerr << "[DEBUG] Parser: Completed struct definition " << struct_name 
+             << " with " << struct_def.members.size() << " members" << std::endl;
+    
+    // ASTノードを作成してstruct定義情報を保存
+    ASTNode* node = new ASTNode(ASTNodeType::AST_STRUCT_DECL);
+    node->name = struct_name;
+    setLocation(node, current_token_);
+    
+    // struct定義情報をASTノードに保存
+    for (const auto& member : struct_def.members) {
+        ASTNode* member_node = new ASTNode(ASTNodeType::AST_VAR_DECL);
+        member_node->name = member.name;
+        member_node->type_name = member.type_alias;
+        member_node->type_info = member.type;
+        member_node->array_type_info = member.array_info;  // 配列情報をコピー
+        node->arguments.push_back(std::unique_ptr<ASTNode>(member_node));
+    }
+    
+    return node;
+}
+
+// typedef struct宣言の解析: typedef struct { members } alias;
+ASTNode* RecursiveParser::parseStructTypedefDeclaration() {
+    consume(TokenType::TOK_STRUCT, "Expected 'struct'");
+    
+    consume(TokenType::TOK_LBRACE, "Expected '{' after 'typedef struct'");
+    
+    StructDefinition struct_def;
+    
+    // メンバ変数の解析
+    while (!check(TokenType::TOK_RBRACE) && !isAtEnd()) {
+        // メンバの型を解析
+        std::string member_type = parseType();
+        
+        if (member_type.empty()) {
+            error("Expected member type in struct definition");
+            return nullptr;
+        }
+        
+        // メンバ名のリストを解析
+        do {
+            if (!check(TokenType::TOK_IDENTIFIER)) {
+                error("Expected member name");
+                return nullptr;
+            }
+            
+            std::string member_name = current_token_.value;
+            advance();
+            
+            // メンバを追加
+            TypeInfo member_type_info = getTypeInfoFromString(member_type);
+            struct_def.add_member(member_name, member_type_info, member_type);
+            
+            if (check(TokenType::TOK_COMMA)) {
+                advance(); // カンマをスキップ
+                continue;
+            } else {
+                break;
+            }
+        } while (true);
+        
+        consume(TokenType::TOK_SEMICOLON, "Expected ';' after struct member");
+    }
+    
+    consume(TokenType::TOK_RBRACE, "Expected '}' after struct members");
+    
+    // typedef エイリアス名を取得
+    if (!check(TokenType::TOK_IDENTIFIER)) {
+        error("Expected typedef alias name");
+        return nullptr;
+    }
+    
+    std::string alias_name = current_token_.value;
+    advance();
+    
+    consume(TokenType::TOK_SEMICOLON, "Expected ';' after typedef struct declaration");
+    
+    // struct定義を保存（エイリアス名で）
+    struct_def.name = alias_name;
+    struct_definitions_[alias_name] = struct_def;
+    
+    // typedef マッピングも追加
+    typedef_map_[alias_name] = "struct " + alias_name;
+    
+    // ASTノードを作成
+    ASTNode* node = new ASTNode(ASTNodeType::AST_STRUCT_TYPEDEF_DECL);
+    node->name = alias_name;
+    setLocation(node, current_token_);
+    
+    return node;
+}
+
+// メンバアクセスの解析: obj.member
+ASTNode* RecursiveParser::parseMemberAccess(ASTNode* object) {
+    consume(TokenType::TOK_DOT, "Expected '.'");
+    
+    if (!check(TokenType::TOK_IDENTIFIER)) {
+        error("Expected member name after '.'");
+        return nullptr;
+    }
+    
+    std::string member_name = current_token_.value;
+    advance();
+    
+    ASTNode* member_access = new ASTNode(ASTNodeType::AST_MEMBER_ACCESS);
+    member_access->left = std::unique_ptr<ASTNode>(object);
+    member_access->name = member_name; // メンバ名を保存
+    setLocation(member_access, current_token_);
+    
+    return member_access;
+}
+
+// 構造体リテラルの解析: {member: value, member2: value2}
+ASTNode* RecursiveParser::parseStructLiteral() {
+    consume(TokenType::TOK_LBRACE, "Expected '{'");
+    
+    ASTNode* struct_literal = new ASTNode(ASTNodeType::AST_STRUCT_LITERAL);
+    
+    // 空の構造体リテラル {}
+    if (check(TokenType::TOK_RBRACE)) {
+        advance(); // consume '}'
+        return struct_literal;
+    }
+    
+    // 最初の要素をチェックして、名前付きか位置ベースかを判断
+    bool is_named_initialization = false;
+    
+    // 先読みして名前付き初期化かチェック
+    if (check(TokenType::TOK_IDENTIFIER)) {
+        RecursiveLexer temp_lexer = lexer_;
+        Token temp_current = current_token_;
+        advance();
+        if (check(TokenType::TOK_COLON)) {
+            is_named_initialization = true;
+        }
+        lexer_ = temp_lexer;
+        current_token_ = temp_current;
+    }
+    
+    if (is_named_initialization) {
+        // 名前付き初期化: {name: "Bob", age: 25}
+        while (!check(TokenType::TOK_RBRACE) && !isAtEnd()) {
+            // メンバ名の解析
+            if (!check(TokenType::TOK_IDENTIFIER)) {
+                error("Expected member name in struct literal");
+                return nullptr;
+            }
+            
+            std::string member_name = current_token_.value;
+            advance();
+            
+            consume(TokenType::TOK_COLON, "Expected ':' after member name");
+            
+            // メンバ値の解析
+            ASTNode* member_value = parseExpression();
+            
+            // メンバ代入ノードを作成（name: valueの形で保存）
+            ASTNode* member_init = new ASTNode(ASTNodeType::AST_ASSIGN);
+            member_init->name = member_name;
+            member_init->right = std::unique_ptr<ASTNode>(member_value);
+            
+            struct_literal->arguments.push_back(std::unique_ptr<ASTNode>(member_init));
+            
+            if (check(TokenType::TOK_COMMA)) {
+                advance(); // consume ','
+            } else if (!check(TokenType::TOK_RBRACE)) {
+                error("Expected ',' or '}' in struct literal");
+                return nullptr;
+            }
+        }
+    } else {
+        // 位置ベース初期化: {25, "Bob"}
+        while (!check(TokenType::TOK_RBRACE) && !isAtEnd()) {
+            ASTNode* value = parseExpression();
+            struct_literal->arguments.push_back(std::unique_ptr<ASTNode>(value));
+            
+            if (check(TokenType::TOK_COMMA)) {
+                advance(); // consume ','
+            } else if (!check(TokenType::TOK_RBRACE)) {
+                error("Expected ',' or '}' in struct literal");
+                return nullptr;
+            }
+        }
+    }
+    
+    consume(TokenType::TOK_RBRACE, "Expected '}' after struct literal");
+    return struct_literal;
+}
+
+// 配列リテラルの解析: [{}, {}, ...] または [1, 2, 3]
+ASTNode* RecursiveParser::parseArrayLiteral() {
+    consume(TokenType::TOK_LBRACKET, "Expected '[' at start of array literal");
+    
+    ASTNode* array_literal = new ASTNode(ASTNodeType::AST_ARRAY_LITERAL);
+    
+    // 空の配列リテラル []
+    if (check(TokenType::TOK_RBRACKET)) {
+        advance(); // consume ']'
+        return array_literal;
+    }
+    
+    // 配列要素を解析
+    while (!check(TokenType::TOK_RBRACKET) && !isAtEnd()) {
+        ASTNode* element;
+        
+        if (check(TokenType::TOK_LBRACE)) {
+            // struct literal要素: {25, "Alice"}
+            element = parseStructLiteral();
+        } else {
+            // 通常の式要素
+            element = parseExpression();
+        }
+        
+        array_literal->arguments.push_back(std::unique_ptr<ASTNode>(element));
+        
+        if (check(TokenType::TOK_COMMA)) {
+            advance(); // consume ','
+        } else if (!check(TokenType::TOK_RBRACKET)) {
+            error("Expected ',' or ']' in array literal");
+            return nullptr;
+        }
+    }
+    
+    consume(TokenType::TOK_RBRACKET, "Expected ']' after array literal");
+    return array_literal;
 }

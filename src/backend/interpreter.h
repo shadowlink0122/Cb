@@ -21,7 +21,9 @@ struct Variable {
     bool is_const;
     bool is_array;
     bool is_assigned;
-    bool is_multidimensional; // 多次元配列フラグ
+    bool is_multidimensional;     // 多次元配列フラグ
+    bool is_struct;               // struct型かどうか
+    std::string struct_type_name; // struct型名
 
     // 値
     int64_t value;
@@ -31,6 +33,9 @@ struct Variable {
     int array_size;
     std::vector<int64_t> array_values;
     std::vector<std::string> array_strings;
+
+    // struct用メンバ変数
+    std::map<std::string, Variable> struct_members;
 
     // 多次元配列用
     ArrayTypeInfo array_type_info;     // 多次元配列の型情報
@@ -49,13 +54,20 @@ struct Variable {
 
     Variable()
         : type(TYPE_INT), is_const(false), is_array(false), is_assigned(false),
-          is_multidimensional(false), value(0), array_size(0) {}
+          is_multidimensional(false), is_struct(false), value(0),
+          array_size(0) {}
 
     // 多次元配列用コンストラクタ
     Variable(const ArrayTypeInfo &array_info)
         : type(TYPE_INT), is_const(false), is_array(true), is_assigned(false),
-          is_multidimensional(true), value(0), array_size(0),
+          is_multidimensional(true), is_struct(false), value(0), array_size(0),
           array_type_info(array_info) {}
+
+    // struct用コンストラクタ
+    Variable(const std::string &struct_name)
+        : type(TYPE_STRUCT), is_const(false), is_array(false),
+          is_assigned(false), is_multidimensional(false), is_struct(true),
+          struct_type_name(struct_name), value(0), array_size(0) {}
 
     // 多次元配列のフラットインデックス計算
     int calculate_flat_index(const std::vector<int> &indices) const {
@@ -157,6 +169,8 @@ class Interpreter : public EvaluatorInterface {
     std::map<std::string, std::string>
         typedef_map; // typedef alias -> base type mapping
     std::map<std::string, Variable> static_variables; // static変数の保存
+    std::map<std::string, StructDefinition>
+        struct_definitions_; // struct定義の保存
 
     // Manager instances
     std::unique_ptr<VariableManager> variable_manager_;
@@ -237,6 +251,23 @@ class Interpreter : public EvaluatorInterface {
 
     // typedef処理
     std::string resolve_typedef(const std::string &type_name);
+
+    // struct処理
+    void register_struct_definition(const std::string &struct_name,
+                                    const StructDefinition &definition);
+    const StructDefinition *
+    find_struct_definition(const std::string &struct_name);
+    void create_struct_variable(const std::string &var_name,
+                                const std::string &struct_type_name);
+    Variable *get_struct_member(const std::string &var_name,
+                                const std::string &member_name);
+    void assign_struct_literal(const std::string &var_name,
+                               const ASTNode *literal_node);
+    void assign_struct_member(const std::string &var_name,
+                              const std::string &member_name, int64_t value);
+    void assign_struct_member(const std::string &var_name,
+                              const std::string &member_name,
+                              const std::string &value);
     TypeInfo string_to_type_info(const std::string &type_str);
 
     // static変数処理

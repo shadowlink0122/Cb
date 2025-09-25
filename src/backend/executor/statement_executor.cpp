@@ -13,6 +13,8 @@ void StatementExecutor::execute_statement(const ASTNode *node) {
 
 void StatementExecutor::execute(const ASTNode *node) {
     if (!node) return;
+    
+    std::cerr << "DEBUG: StatementExecutor::execute - node_type=" << (int)node->node_type << " name='" << node->name << "'" << std::endl;
 
     switch (node->node_type) {
         case ASTNodeType::AST_ASSIGN: {
@@ -20,6 +22,7 @@ void StatementExecutor::execute(const ASTNode *node) {
             break;
         }
         case ASTNodeType::AST_VAR_DECL: {
+            std::cerr << "DEBUG: Executing AST_VAR_DECL" << std::endl;
             execute_variable_declaration(node);
             break;
         }
@@ -103,6 +106,12 @@ void StatementExecutor::execute_assignment(const ASTNode *node) {
                 interpreter_.assign_array_element(var_name, index, rvalue);
             }
         }
+    } else if (node->left && node->left->node_type == ASTNodeType::AST_MEMBER_ARRAY_ACCESS) {
+        // メンバの配列アクセスへの代入 (obj.member[index] = value)
+        execute_member_array_assignment(node);
+    } else if (node->left && node->left->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
+        // メンバアクセスへの代入 (obj.member = value)
+        execute_member_assignment(node);
     } else {
         // 通常の変数代入
         int64_t value = interpreter_.evaluate(node->right.get());
@@ -115,6 +124,8 @@ void StatementExecutor::execute_assignment(const ASTNode *node) {
 }
 
 void StatementExecutor::execute_variable_declaration(const ASTNode *node) {
+    std::cerr << "DEBUG: execute_variable_declaration - name='" << node->name << "' type_info=" << node->type_info << " type_name='" << node->type_name << "'" << std::endl;
+    
     Variable var;
     var.type = node->type_info;
     var.is_const = node->is_const;
@@ -163,6 +174,14 @@ void StatementExecutor::execute_variable_declaration(const ASTNode *node) {
 
     // 初期化（init_exprまたはrightを使用）
     ASTNode* init_node = node->init_expr ? node->init_expr.get() : node->right.get();
+    
+    // struct型の特別処理
+    if (node->type_info == TYPE_STRUCT && !node->type_name.empty()) {
+        // struct変数を作成
+        std::cerr << "DEBUG: Creating struct variable '" << node->name << "' of type '" << node->type_name << "'" << std::endl;
+        interpreter_.create_struct_variable(node->name, node->type_name);
+        return; // struct変数は専用処理で完了
+    }
     
     // 変数を現在のスコープに登録（配列リテラル代入前に必要）
     interpreter_.current_scope().variables[node->name] = var;
@@ -266,4 +285,95 @@ void StatementExecutor::execute_array_decl(const ASTNode *node) {
     
     // 変数を現在のスコープに登録
     interpreter_.current_scope().variables[node->name] = var;
+    
+    // 初期化式がある場合の処理
+    if (node->init_expr) {
+        if (node->type_info == TYPE_STRUCT && node->init_expr->node_type == ASTNodeType::AST_ARRAY_LITERAL) {
+            // struct配列リテラル初期化: Person[3] people = [{25, "Alice"}, {30, "Bob"}];
+            execute_struct_array_literal_init(node->name, node->init_expr.get(), node->type_name);
+        }
+        // 他の配列初期化は既存の処理で対応
+    }
+}
+
+void StatementExecutor::execute_struct_array_literal_init(const std::string& array_name, const ASTNode* array_literal, const std::string& struct_type) {
+    if (!array_literal || array_literal->node_type != ASTNodeType::AST_ARRAY_LITERAL) {
+        throw std::runtime_error("Invalid array literal for struct array initialization");
+    }
+    
+    // 各配列要素（struct literal）を処理
+    for (size_t i = 0; i < array_literal->arguments.size(); i++) {
+        const ASTNode* struct_literal = array_literal->arguments[i].get();
+        if (struct_literal->node_type != ASTNodeType::AST_STRUCT_LITERAL) {
+            throw std::runtime_error("Expected struct literal in struct array initialization");
+        }
+        
+        std::string element_name = array_name + "[" + std::to_string(i) + "]";
+        interpreter_.assign_struct_literal(element_name, struct_literal);
+    }
+}
+
+void StatementExecutor::execute_member_array_assignment(const ASTNode* node) {
+    // obj.member[index] = value の処理
+    const ASTNode* member_array_access = node->left.get();
+    
+    if (!member_array_access || member_array_access->node_type != ASTNodeType::AST_MEMBER_ARRAY_ACCESS) {
+        throw std::runtime_error("Invalid member array access in assignment");
+    }
+    
+    // オブジェクト名を取得
+    std::string obj_name;
+    if (member_array_access->left && member_array_access->left->node_type == ASTNodeType::AST_VARIABLE) {
+        obj_name = member_array_access->left->name;
+    } else {
+        throw std::runtime_error("Invalid object reference in member array access");
+    }
+    
+    // メンバ名を取得
+    std::string member_name = member_array_access->name;
+    
+    // インデックス値を評価
+    int64_t index_value = interpreter_.evaluate(member_array_access->right.get());
+    int index = static_cast<int>(index_value);
+    
+    // 右辺の値を評価
+    int64_t value = interpreter_.evaluate(node->right.get());
+    
+    // メンバの配列要素変数名を生成 (例: "s.grades[0]")
+    std::string member_array_element_name = obj_name + "." + member_name + "[" + std::to_string(index) + "]";
+    
+    // 変数に代入
+    if (node->right->node_type == ASTNodeType::AST_STRING_LITERAL) {
+        interpreter_.assign_variable(member_array_element_name, node->right->str_value);
+    } else {
+        interpreter_.assign_variable(member_array_element_name, value, node->type_info);
+    }
+}
+
+void StatementExecutor::execute_member_assignment(const ASTNode* node) {
+    // obj.member = value の処理
+    const ASTNode* member_access = node->left.get();
+    
+    if (!member_access || member_access->node_type != ASTNodeType::AST_MEMBER_ACCESS) {
+        throw std::runtime_error("Invalid member access in assignment");
+    }
+    
+    // オブジェクト名を取得
+    std::string obj_name;
+    if (member_access->left && member_access->left->node_type == ASTNodeType::AST_VARIABLE) {
+        obj_name = member_access->left->name;
+    } else {
+        throw std::runtime_error("Invalid object reference in member access");
+    }
+    
+    // メンバ名を取得
+    std::string member_name = member_access->name;
+    
+    // struct変数のメンバに直接代入
+    if (node->right->node_type == ASTNodeType::AST_STRING_LITERAL) {
+        interpreter_.assign_struct_member(obj_name, member_name, node->right->str_value);
+    } else {
+        int64_t value = interpreter_.evaluate(node->right.get());
+        interpreter_.assign_struct_member(obj_name, member_name, value);
+    }
 }
