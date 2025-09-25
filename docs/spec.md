@@ -73,10 +73,13 @@
 - ✅ 配列（静的サイズ）・配列リテラル
 - ✅ 関数定義・呼び出し
 - ✅ 制御構造（if/else, for, while, break, continue, return）
-- ✅ 演算子（算術、比較、論理、代入、インクリメント）
+- ✅ **演算子（算術、比較、論理、代入、複合代入、インクリメント）**
+  - ✅ **10種類の複合代入演算子**: `+=`, `-=`, `*=`, `/=`, `%=`, `&=`, `|=`, `^=`, `<<=`, `>>=`
+  - ✅ **前置・後置インクリメント/デクリメント**: `++var`, `--var`, `var++`, `var--`
+  - ✅ **配列要素複合代入**: `arr[index] += value`、`arr[i*2+1] *= (x+y)`
 - ✅ ストレージ修飾子（const, static）
 - ✅ 標準出力（print, printf風フォーマット指定子）
-- ✅ 包括的テストフレームワーク（統合テスト130個、単体テスト26個）
+- ✅ 包括的テストフレームワーク（統合テスト415個、単体テスト26個）
 - ✅ 再帰下降パーサーによる構文解析
 
 ### Phase 2: 中期目標 🚧（実装中）
@@ -192,7 +195,8 @@ expression      ::= assignment_expression
 assignment_expression ::= logical_or_expression
                         | unary_expression assignment_operator assignment_expression
 
-assignment_operator ::= "=" | "+=" | "-=" | "*=" | "/=" | "%="
+assignment_operator ::= "=" | "+=" | "-=" | "*=" | "/=" | "%=" 
+                      | "&=" | "|=" | "^=" | "<<=" | ">>="
 
 logical_or_expression ::= logical_and_expression
                         | logical_or_expression "||" logical_and_expression
@@ -643,6 +647,68 @@ int main() {
 }
 ```
 
+### 複合代入演算子とインクリメント/デクリメント ✅
+```cb
+int main() {
+    // 算術複合代入演算子
+    int a = 10;
+    a += 5;     // a = a + 5 → 15
+    a -= 3;     // a = a - 3 → 12  
+    a *= 2;     // a = a * 2 → 24
+    a /= 4;     // a = a / 4 → 6
+    a %= 5;     // a = a % 5 → 1
+    
+    // ビット演算複合代入演算子
+    int b = 12; // 1100 (binary)
+    b &= 10;    // b = b & 10 → 8 (1000)
+    b |= 3;     // b = b | 3 → 11 (1011)
+    b ^= 5;     // b = b ^ 5 → 14 (1110)
+    
+    // シフト演算複合代入演算子
+    int c = 4;
+    c <<= 2;    // c = c << 2 → 16
+    c >>= 3;    // c = c >> 3 → 2
+    
+    // 配列要素への複合代入（高度な使用法）
+    int[5] arr = [1, 2, 3, 4, 5];
+    arr[0] += 10;           // 基本的な配列要素複合代入
+    arr[1] *= arr[2];       // 配列要素同士の計算
+    arr[i*2+1] += (x+y);    // 複雑なインデックス式と初期化式
+    
+    // 前置インクリメント/デクリメント
+    int x = 5;
+    ++x;        // x = 6 (値を変更してから使用)
+    --x;        // x = 5 (値を変更してから使用)
+    
+    // 後置インクリメント/デクリメント（文として）
+    x++;        // x = 6 (使用してから値を変更)
+    x--;        // x = 5 (使用してから値を変更)
+    
+    // すべての複合代入演算子は右から左への結合（右結合）
+    // a += b += c; は a += (b += c); と解釈される
+    
+    return 0;
+}
+```
+
+**サポートする複合代入演算子（10種類）**:
+1. `+=` - 加算代入
+2. `-=` - 減算代入  
+3. `*=` - 乗算代入
+4. `/=` - 除算代入
+5. `%=` - 剰余代入
+6. `&=` - ビット論理積代入
+7. `|=` - ビット論理和代入
+8. `^=` - ビット排他的論理和代入
+9. `<<=` - 左シフト代入
+10. `>>=` - 右シフト代入
+
+**特徴**:
+- すべてのプリミティブ型（tiny, short, int, long）に対応
+- 配列要素への複合代入サポート
+- 複雑な式での複合代入サポート
+- 型安全性を保った自動型変換
+
 ### 型システムの基本
 ```cb
 int main() {
@@ -688,13 +754,14 @@ int main() {
     print("names[1] = %s", names[1]);
     print("chars[2] = %c", chars[2]);
     
-    // 配列要素の変更
-    numbers[0] = 100;
-    names[1] = "Bobby";
-    chars[2] = 'Z';
+    // 配列要素の変更（複合代入演算子使用）
+    numbers[0] += 90;        // numbers[0] = 100
+    names[1] = "Bobby";      // 文字列代入
+    chars[2] = 'Z';          // 文字代入
     
-    // ループでの配列処理
+    // 配列の複合代入演算子の活用
     for (int i = 0; i < 5; i++) {
+        numbers[i] *= 2;     // 各要素を2倍
         print("numbers[%d] = %d", i, numbers[i]);
     }
     
@@ -718,7 +785,7 @@ int add(int a, int b) {
 int sum_array(int[] arr, int size) {
     int total = 0;
     for (int i = 0; i < size; i++) {
-        total += arr[i];
+        total += arr[i];  // 複合代入演算子を使用
     }
     return total;
 }
@@ -759,14 +826,14 @@ int main() {
     
     print("スコア: %d, グレード: %c", score, grade);
     
-    // while文
+    // while文（後置インクリメント使用）
     int count = 0;
     while (count < 5) {
         print("カウント: %d", count);
-        count++;
+        count++;  // 後置インクリメント
     }
     
-    // for文
+    // for文（複合代入演算子使用）
     for (int i = 1; i <= 10; i++) {
         if (i % 2 == 0) {
             print("%d は偶数", i);
@@ -774,6 +841,13 @@ int main() {
             print("%d は奇数", i);
         }
     }
+    
+    // 複合代入演算子を使った計算
+    int sum = 0;
+    for (int j = 1; j <= 100; j++) {
+        sum += j;  // sum = sum + j と同等
+    }
+    print("1から100までの合計: %d", sum);
     
     return 0;
 }
@@ -816,9 +890,10 @@ int divide_safe(int a, int b) {
 int main() {
     int result;
     
-    // 正常な計算
+    // 正常な計算（複合代入演算子使用）
     result = divide_safe(10, 2);
-    print("10 / 2 = %d", result);
+    result *= 3;  // result = result * 3
+    print("(10 / 2) * 3 = %d", result);
     
     // 型範囲外の値は自動的に検出される
     tiny small = 200; // エラー: tiny型は127まで
@@ -826,8 +901,6 @@ int main() {
     return 0;
 }
 ```
-
-## 開発環境とツール
 
 ### 必要な環境
 - **C++17対応コンパイラ**: g++, clang++
