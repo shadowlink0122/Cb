@@ -1,0 +1,20 @@
+// 複数型・部分初期化テスト
+int main() {
+    // 部分初期化（一部のみ初期化、残りはデフォルト値）
+    int a = 10, b, c = 30;
+    println("partial init int:", a, b, c);
+    
+    // short型での部分初期化
+    short x = 100, y, z = 300;
+    println("partial init short:", x, y, z);
+    
+    // tiny型での完全初期化
+    tiny t1 = 1, t2 = 2, t3 = 3;
+    println("tiny complete:", t1, t2, t3);
+    
+    // bool型での複数初期化
+    bool flag1 = true, flag2 = false;
+    println("bool flags:", flag1, flag2);
+    
+    return 0;
+}

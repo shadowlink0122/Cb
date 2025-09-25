@@ -1,0 +1,11 @@
+// 戻り値型エラー：string[]にstringを返すエラー
+
+string[] should_return_string_array() {
+    return "single string"; // エラー：string[]を期待しているのにstringを返している
+}
+
+int main() {
+    string[] texts = should_return_string_array();
+    println("First text: ", texts[0]);
+    return 0;
+}

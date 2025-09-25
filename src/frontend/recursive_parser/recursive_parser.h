@@ -2,6 +2,7 @@
 #include "recursive_lexer.h"
 #include "../../common/ast.h"
 #include <memory>
+#include <unordered_map>
 
 using namespace RecursiveParserNS;
 
@@ -9,6 +10,7 @@ class RecursiveParser {
 public:
     RecursiveParser(const std::string& source, const std::string& filename = "");
     ASTNode* parse();
+    void setDebugMode(bool debug) { debug_mode_ = debug; }
     ASTNode* parseProgram();
     
 private:
@@ -17,6 +19,8 @@ private:
     std::string filename_;  // ソースファイル名
     std::string source_;    // 元のソースコード
     std::vector<std::string> source_lines_;  // 行ごとに分割されたソース
+    std::unordered_map<std::string, std::string> typedef_map_; // typedef alias -> actual type mapping
+    bool debug_mode_;  // デバッグモードフラグ
     
     // Helper methods
     bool match(TokenType type);
@@ -40,8 +44,13 @@ private:
     std::string parseType();
     ASTNode* parseTypedefDeclaration();
     ASTNode* parseVariableDeclaration();
+    ASTNode* parseTypedefVariableDeclaration();
     ASTNode* parseFunctionDeclaration();
     ASTNode* parseFunctionDeclarationAfterName(const std::string& return_type, const std::string& function_name);
+    
+    // Typedef helper methods
+    std::string resolveTypedefChain(const std::string& typedef_name);
+    std::string extractBaseType(const std::string& type_name);
     
     // Statement parsing helpers
     ASTNode* parseTypeDeclaration(bool isConst);

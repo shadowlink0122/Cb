@@ -1,0 +1,32 @@
+// 多次元配列の型チェックテスト
+int[][] matrix_func(int[][] matrix) {
+    println("matrix_func called with 2D array");
+    return matrix;
+}
+
+string[][][] cube_func(string[][][] cube) {
+    println("cube_func called with 3D array");
+    return cube;
+}
+
+// 多次元配列引数・戻り値テスト
+int[][] process_2d_array(int[][] arr) {
+    println("Processing 2D array");
+    return arr;
+}
+
+int main() {
+    println("=== Multi-dimensional Array Tests ===");
+    
+    // 2次元配列リテラルを直接渡す
+    int[][] result1 = process_2d_array([[1, 2], [3, 4]]);
+    println("2D array processed");
+    
+    // 2次元配列変数を使って渡す
+    int[][] matrix = [[10, 20], [30, 40]];
+    int[][] result2 = process_2d_array(matrix);
+    println("2D array variable processed");
+    
+    println("Multi-dimensional array tests completed");
+    return 0;
+}

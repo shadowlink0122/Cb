@@ -1,0 +1,15 @@
+// 型エラーテスト - 配列型の不一致
+int[] int_array_func(int[] arr) {
+    return arr;
+}
+
+string[] string_array_func(string[] arr) {
+    return arr;
+}
+
+int main() {
+    // エラーケース：文字列配列を数値配列関数に渡す
+    int[] result = int_array_func(["hello", "world"]);
+    println("This should not execute");
+    return 0;
+}

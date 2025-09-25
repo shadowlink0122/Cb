@@ -1,0 +1,11 @@
+// 戻り値型エラー：int関数でstringを返そうとするエラー
+
+int should_return_int() {
+    return "this is a string"; // エラー：intを期待しているのにstringを返している
+}
+
+int main() {
+    int result = should_return_int();
+    println("Result: ", result);
+    return 0;
+}

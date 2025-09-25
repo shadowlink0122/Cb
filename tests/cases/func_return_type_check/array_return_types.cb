@@ -1,0 +1,59 @@
+// 配列の戻り値型チェックテスト
+
+// 1次元配列を返す関数
+int[] return_int_array() {
+    int[] arr = [1, 2, 3, 4, 5];
+    return arr;
+}
+
+string[] return_string_array() {
+    string[] names = ["Alice", "Bob", "Charlie"];
+    return names;
+}
+
+bool[] return_bool_array() {
+    bool[] flags = [true, false, true];
+    return flags;
+}
+
+// 空の配列を返すテスト
+int[] return_empty_int_array() {
+    int[] empty = [];
+    return empty;
+}
+
+// 計算した配列を返すテスト
+int[] generate_sequence(int count) {
+    int[] seq = [0, 0, 0, 0, 0];
+    for (int i = 0; i < count; i = i + 1) {
+        seq[i] = i * 2;
+    }
+    return seq;
+}
+
+// 文字列配列を操作して返すテスト
+// 配列処理テスト
+string[] process_names(string[] input) {
+    string[] result = ["", "", ""];
+    result[0] = "Mr. Alice";
+    result[1] = "Mr. Bob"; 
+    result[2] = "Mr. Charlie";
+    return result;
+}
+
+int main() {
+    // 基本的な配列戻り値テスト
+    int[] numbers = return_int_array();
+    string[] names = return_string_array();
+    bool[] flags = return_bool_array();
+    
+    println("numbers[0]: ", numbers[0]);
+    println("names[1]: ", names[1]);
+    println("flags[2]: ", flags[2]);
+    
+    // 計算結果の配列テスト
+    int[] sequence = generate_sequence(4);
+    println("sequence[3]: ", sequence[3]);
+    
+    return 0;
+}

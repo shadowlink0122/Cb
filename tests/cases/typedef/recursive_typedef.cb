@@ -1,0 +1,43 @@
+// 再帰的typedefのテスト（typedef of typedef）
+
+typedef int ID;
+typedef ID UserID;
+typedef UserID AdminID;
+
+typedef string Name;
+typedef Name FirstName;
+typedef FirstName UserFirstName;
+
+// 多段typedef型を使った関数
+AdminID create_admin(UserID user_id) {
+    return user_id + 1000;
+}
+
+// 異なる段階のtypedefを混合した関数
+ID process_ids(UserID uid, AdminID aid) {
+    return uid + aid;
+}
+
+UserFirstName get_username(){
+    return "Alice";
+}
+
+int main() {
+    // 基本値の定義
+    ID base_id = 100;
+    UserID user_id = base_id;
+    AdminID admin_id = create_admin(user_id);
+    
+    println("Base ID: ", base_id);
+    println("User ID: ", user_id);
+    println("Admin ID: ", admin_id);
+    
+    // 文字列の多段typedef
+    println("Formatted name: User_%s", get_username());
+    
+    // 混合処理
+    ID processed = process_ids(user_id, admin_id);
+    println("Processed ID: ", processed);
+    
+    return 0;
+}

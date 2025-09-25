@@ -1,0 +1,57 @@
+// Typedef型の関数引数・戻り値テスト
+typedef int CustomInt;
+typedef string CustomString;
+typedef bool CustomBool;
+typedef int[4] IntArray;
+typedef string[2] StringArray;
+
+CustomInt custom_int_func(CustomInt x) {
+    println("custom_int_func received:", x);
+    return x * 3;
+}
+
+CustomString custom_string_func(CustomString s) {
+    println("custom_string_func received:", s);
+    return s;
+}
+
+IntArray custom_array_func(IntArray arr) {
+    println("custom_array_func called");
+    return arr;
+}
+
+// typedef型と通常型の混合
+int mixed_func(CustomInt x, string s, int[2] arr) {
+    println("mixed_func called with:", x, s);
+    return x + 10;
+}
+
+int main() {
+    println("=== Typedef Function Tests ===");
+    
+    // typedef型を直接使用
+    CustomInt custom_val = 42;
+    CustomString custom_str = "typedef_test";
+    IntArray custom_arr = [1, 2, 3, 4];
+    
+    CustomInt result1 = custom_int_func(custom_val);
+    println("custom_int_func result:", result1);
+    
+    CustomString result2 = custom_string_func(custom_str);
+    println("custom_string_func result:", result2);
+    
+    IntArray result3 = custom_array_func(custom_arr);
+    println("custom_array_func completed");
+    
+    // typedef型にリテラル値を渡す
+    CustomInt result4 = custom_int_func(100);
+    CustomString result5 = custom_string_func("literal");
+    
+    println("Literal to typedef results:", result4, result5);
+    
+    // 混合型関数
+    int mixed_result = mixed_func(50, "mixed", [10, 20]);
+    println("Mixed function result:", mixed_result);
+    
+    return 0;
+}

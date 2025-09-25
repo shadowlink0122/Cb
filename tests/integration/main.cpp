@@ -7,6 +7,7 @@
 #include "array_literal/test_array_literal.hpp"
 #include "array_return/test_array_return.hpp"
 #include "assign/test_assign.hpp"
+#include "basic/test_basic.hpp"
 #include "bool_expr/test_bool_expr.hpp"
 #include "boundary/test_boundary.hpp"
 #include "const_array/test_const_array.hpp"
@@ -15,6 +16,8 @@
 #include "dynamic_array_error/test_dynamic_array_error.hpp"
 #include "error_handling/test_error_handling.hpp"
 #include "func/test_func.hpp"
+#include "func_return_type_check/test_func_return_type_check.hpp"
+#include "func_type_check/test_func_type_check.hpp"
 #include "global_array/test_global_array.hpp"
 #include "global_vars/test_global_vars.hpp"
 #include "if/test_if.hpp"
@@ -22,6 +25,7 @@
 #include "incdec/test_incdec.hpp"
 #include "loop/test_loop.hpp"
 #include "module_functions/test_module_functions.hpp"
+#include "multidim_array/test_multidim_array.hpp"
 #include "multidim_literal/test_multidim_literal.hpp"
 #include "multiple_var_decl/test_multiple_var_decl.hpp"
 #include "printf/test_printf.hpp"
@@ -30,6 +34,7 @@
 #include "samples/test_actual_samples.hpp"
 #include "self_assign/test_self_assign.hpp"
 #include "string/test_string.hpp"
+#include "type/test_type.hpp"
 #include "typedef/test_typedef.hpp"
 
 int main() {
@@ -39,6 +44,7 @@ int main() {
     IntegrationTestCounter::reset();
 
     try {
+        test_integration_basic();
         test_integration_arithmetic();
         test_integration_assign();
         test_integration_boundary();
@@ -51,10 +57,13 @@ int main() {
         test_integration_array_literal();
         test_array_copy();
         test_array_return();
+        test_integration_multidim_array();
         test_multidim_literal();
         test_bool_expr_basic();
         test_integration_loop();
         test_integration_multiple_var_decl();
+        test_integration_func_type_check();
+        test_integration_func_return_type_check();
         test_integration_if();
         test_integration_self_assign();
         test_integration_incdec();
@@ -67,6 +76,7 @@ int main() {
         test_integration_error_handling();
         test_integration_import_export();
         test_integration_module_functions();
+        test_integration_type();
         test_integration_typedef();
         test_integration_dynamic_array_error();
     } catch (const std::exception &e) {

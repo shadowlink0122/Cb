@@ -1,0 +1,13 @@
+// 戻り値型エラー：typedef UserID（int）にstringを返すエラー
+
+typedef int UserID;
+
+UserID get_user_id() {
+    return "user123"; // エラー：UserID (int)を期待しているのにstringを返している
+}
+
+int main() {
+    UserID id = get_user_id();
+    println("ID: ", id);
+    return 0;
+}

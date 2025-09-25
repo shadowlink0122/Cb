@@ -1,0 +1,37 @@
+// typedefと通常型の相互変換エラーテスト
+
+typedef int UserID;
+typedef string Username;
+
+// 正常ケース：typedef型を引数に取る関数
+void process_user(UserID id, Username name) {
+    println("Processing user: ", id, " ", name);
+}
+
+// エラーケース：通常のint/stringをtypedef型として使うのはOKだが、
+// typedef型を異なるtypedef型として使うのはエラー
+typedef int ProductID;
+
+void process_product(ProductID id) {
+    println("Processing product: ", id);
+}
+
+int main() {
+    UserID user_id = 123;
+    Username username = "alice";
+    ProductID product_id = 456;
+    
+    // 正常ケース
+    process_user(user_id, username);
+    process_user(789, "bob");  // int, stringリテラルはtypedef型に変換可能
+    
+    process_product(product_id);
+    process_product(999);  // intリテラルはProductIDに変換可能
+    
+    // TODO: 以下はエラーになるべき（現在の実装では検出されない可能性）
+    // process_product(user_id);  // UserIDをProductIDとして使うのはエラーであるべき
+    
+    println("All conversions completed");
+    
+    return 0;
+}

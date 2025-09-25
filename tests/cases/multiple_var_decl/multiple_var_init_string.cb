@@ -1,0 +1,12 @@
+// 文字列型の複数変数宣言テスト
+int main() {
+    // 文字列の複数初期化
+    string s1 = "hello", s2 = "world", s3 = "test";
+    println("strings:", s1, s2, s3);
+    
+    // 空文字列も含む
+    string empty = "", full = "content";
+    println("empty/full:", empty, full);
+    
+    return 0;
+}

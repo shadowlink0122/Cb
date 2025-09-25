@@ -6,12 +6,21 @@
 #include "type_manager.h"
 
 void VariableManager::push_scope() {
+    // std::cerr << "DEBUG: push_scope called, stack size: " <<
+    // interpreter_->scope_stack.size() << " -> " <<
+    // (interpreter_->scope_stack.size() + 1) << std::endl;
     interpreter_->scope_stack.push_back(Scope{});
 }
 
 void VariableManager::pop_scope() {
     if (interpreter_->scope_stack.size() > 1) {
+        // std::cerr << "DEBUG: pop_scope called, stack size: " <<
+        // interpreter_->scope_stack.size() << " -> " <<
+        // (interpreter_->scope_stack.size() - 1) << std::endl;
         interpreter_->scope_stack.pop_back();
+    } else {
+        // std::cerr << "DEBUG: pop_scope called but size is " <<
+        // interpreter_->scope_stack.size() << ", not popping" << std::endl;
     }
 }
 
@@ -20,20 +29,32 @@ Scope &VariableManager::current_scope() {
 }
 
 Variable *VariableManager::find_variable(const std::string &name) {
+    // std::cerr << "DEBUG: find_variable called for: " << name << std::endl;
+
     // ローカルスコープから検索
+    // std::cerr << "DEBUG: Searching in " << interpreter_->scope_stack.size()
+    // << " local scopes" << std::endl;
     for (auto it = interpreter_->scope_stack.rbegin();
          it != interpreter_->scope_stack.rend(); ++it) {
         auto var_it = it->variables.find(name);
         if (var_it != it->variables.end()) {
+            // std::cerr << "DEBUG: Found " << name << " in local scope" <<
+            // std::endl;
             return &var_it->second;
         }
     }
 
     // グローバルスコープから検索
+    // std::cerr << "DEBUG: Searching in global scope" << std::endl;
     auto global_var_it = interpreter_->global_scope.variables.find(name);
     if (global_var_it != interpreter_->global_scope.variables.end()) {
+        // std::cerr << "DEBUG: Found " << name << " in global scope" <<
+        // std::endl;
         return &global_var_it->second;
     }
+
+    // std::cerr << "DEBUG: Variable " << name << " not found anywhere" <<
+    // std::endl;
 
     return nullptr;
 }
@@ -84,6 +105,9 @@ void VariableManager::assign_function_parameter(const std::string &name,
 void VariableManager::assign_array_parameter(const std::string &name,
                                              const Variable &source_array,
                                              TypeInfo type) {
+    (void)
+        type; // パラメータは型チェック用に渡されるが、現在の実装ではsource_arrayの型を使用
+
     // 配列パラメータは新しい変数としてコピーを作成
     Variable param_var;
 
@@ -91,7 +115,7 @@ void VariableManager::assign_array_parameter(const std::string &name,
     param_var.is_array = true;
     param_var.is_assigned = true;
     param_var.is_const = false; // パラメータは基本的にconst扱いしない
-    param_var.type = type;
+    param_var.type = source_array.type; // 元の配列と同じ型を使用
 
     // source_arrayと同じ次元・サイズの配列を作成
     if (source_array.is_multidimensional) {
@@ -102,6 +126,8 @@ void VariableManager::assign_array_parameter(const std::string &name,
     } else {
         param_var.is_multidimensional = false;
         param_var.array_size = source_array.array_size;
+        param_var.array_dimensions =
+            source_array.array_dimensions; // 次元情報をコピー
         param_var.array_values = source_array.array_values;
         param_var.array_strings = source_array.array_strings;
     }
@@ -404,6 +430,7 @@ void VariableManager::assign_variable(const std::string &name,
 }
 
 void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
+    // std::cerr << "DEBUG: Creating variable: " << node->name << std::endl;
     if (node->node_type == ASTNodeType::AST_VAR_DECL) {
         // 変数宣言の処理
         Variable var;
@@ -413,8 +440,48 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
         var.is_array = false;
         var.array_size = 0;
 
-        // typedef解決の処理を追加
-        if (node->type_info == TYPE_UNKNOWN && !node->type_name.empty()) {
+        // 新しいArrayTypeInfoが設定されている場合の処理
+        if (node->array_type_info.base_type != TYPE_UNKNOWN) {
+            // ArrayTypeInfoが設定されている場合は配列として処理
+            var.is_array = true;
+            var.type = node->array_type_info.base_type;
+            var.array_type_info = node->array_type_info;
+
+            // 配列サイズ情報をコピー
+            if (!node->array_type_info.dimensions.empty()) {
+                var.array_size = node->array_type_info.dimensions[0].size;
+                var.array_dimensions.clear();
+                for (const auto &dim : node->array_type_info.dimensions) {
+                    var.array_dimensions.push_back(dim.size);
+                }
+
+                // 多次元配列かどうかをチェック
+                if (var.array_dimensions.size() > 1) {
+                    var.is_multidimensional = true;
+                }
+
+                // 配列初期化
+                int total_size = 1;
+                for (int dim : var.array_dimensions) {
+                    total_size *= dim;
+                }
+                if (var.type == TYPE_STRING) {
+                    if (var.is_multidimensional) {
+                        var.multidim_array_strings.resize(total_size, "");
+                    } else {
+                        var.array_strings.resize(total_size, "");
+                    }
+                } else {
+                    if (var.is_multidimensional) {
+                        var.multidim_array_values.resize(total_size, 0);
+                    } else {
+                        var.array_values.resize(total_size, 0);
+                    }
+                }
+            }
+        }
+        // 既存のtypedef解決処理（ArrayTypeInfoが設定されていない場合のみ）
+        else if (node->type_info == TYPE_UNKNOWN && !node->type_name.empty()) {
             std::string resolved_type =
                 interpreter_->type_manager_->resolve_typedef(node->type_name);
 
@@ -514,6 +581,22 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                                                              indices);
 
             } else if (var.is_array && node->init_expr->node_type ==
+                                           ASTNodeType::AST_ARRAY_LITERAL) {
+                // 配列リテラル初期化の処理
+
+                // まず変数を登録
+                current_scope().variables[node->name] = var;
+
+                // 配列リテラル代入を実行
+                interpreter_->assign_array_literal(node->name,
+                                                   node->init_expr.get());
+
+                // 代入後に変数を再取得して更新
+                current_scope().variables[node->name].is_assigned = true;
+
+                return; // 配列リテラル処理完了後は早期リターン
+
+            } else if (var.is_array && node->init_expr->node_type ==
                                            ASTNodeType::AST_VARIABLE) {
                 // 配列全体のコピー
                 std::string source_var_name = node->init_expr->name;
@@ -533,21 +616,106 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                 var.str_value = node->init_expr->str_value;
                 var.value = 0; // プレースホルダー
                 var.is_assigned = true;
+            } else if (var.is_array && node->init_expr->node_type ==
+                                           ASTNodeType::AST_FUNC_CALL) {
+                // 配列を返す関数呼び出し
+                try {
+                    int64_t value =
+                        interpreter_->expression_evaluator_
+                            ->evaluate_expression(node->init_expr.get());
+                    var.value = value;
+                    var.is_assigned = true;
+                } catch (const ReturnException &ret) {
+                    if (ret.is_array) {
+                        // 配列戻り値の場合
+                        if (ret.type == TYPE_STRING) {
+                            // 文字列配列
+                            if (!ret.str_array_3d.empty() &&
+                                !ret.str_array_3d[0].empty() &&
+                                !ret.str_array_3d[0][0].empty()) {
+                                var.array_strings = ret.str_array_3d[0][0];
+                                var.array_size = var.array_strings.size();
+                                var.type = static_cast<TypeInfo>(
+                                    TYPE_ARRAY_BASE + TYPE_STRING);
+                            }
+                        } else {
+                            // 数値配列
+                            if (!ret.int_array_3d.empty() &&
+                                !ret.int_array_3d[0].empty() &&
+                                !ret.int_array_3d[0][0].empty()) {
+
+                                // 多次元配列の場合
+                                if (var.is_multidimensional &&
+                                    var.array_type_info.dimensions.size() > 1) {
+                                    var.multidim_array_values =
+                                        ret.int_array_3d[0][0];
+                                    var.array_size =
+                                        var.multidim_array_values.size();
+                                } else {
+                                    var.array_values = ret.int_array_3d[0][0];
+                                    var.array_size = var.array_values.size();
+                                }
+                                var.type = static_cast<TypeInfo>(
+                                    TYPE_ARRAY_BASE + ret.type);
+                            }
+                        }
+                        var.is_assigned = true;
+                    } else {
+                        // 非配列戻り値の場合
+                        if (ret.type == TYPE_STRING) {
+                            var.str_value = ret.str_value;
+                        } else {
+                            var.value = ret.value;
+                        }
+                        var.is_assigned = true;
+                    }
+                }
             } else {
                 // 数値初期化の処理
-                int64_t value =
-                    interpreter_->expression_evaluator_->evaluate_expression(
-                        node->init_expr.get());
-                var.value = value;
-                var.is_assigned = true;
+                if (node->init_expr->node_type == ASTNodeType::AST_FUNC_CALL) {
+                    // 関数呼び出しの場合、ReturnExceptionをキャッチ
+                    try {
+                        int64_t value =
+                            interpreter_->expression_evaluator_
+                                ->evaluate_expression(node->init_expr.get());
+                        // ReturnExceptionがキャッチされない場合のみここに到達
+                        var.value = value;
+                        var.is_assigned = true;
+                    } catch (const ReturnException &ret) {
+                        if (ret.type == TYPE_STRING) {
+                            var.str_value = ret.str_value;
+                            var.type = TYPE_STRING;
+                        } else {
+                            var.value = ret.value;
+                        }
+                        var.is_assigned = true;
+                    }
+
+                    // 型チェック（ReturnExceptionがキャッチされた場合はスキップ）
+                    if (!var.is_assigned && var.type == TYPE_STRING) {
+                        throw std::runtime_error(
+                            "Type mismatch: expected string but got numeric "
+                            "value");
+                    }
+                } else {
+                    int64_t value =
+                        interpreter_->expression_evaluator_
+                            ->evaluate_expression(node->init_expr.get());
+                    var.value = value;
+                    var.is_assigned = true;
+                }
 
                 // 型範囲チェック
-                interpreter_->type_manager_->check_type_range(var.type, value,
-                                                              node->name);
+                if (var.type != TYPE_STRING) {
+                    interpreter_->type_manager_->check_type_range(
+                        var.type, var.value, node->name);
+                }
             }
         }
 
         current_scope().variables[node->name] = var;
+        // std::cerr << "DEBUG: Variable created: " << node->name << ",
+        // is_array=" << var.is_array << std::endl;
 
     } else if (node->node_type == ASTNodeType::AST_ASSIGN) {
         // 変数代入の処理

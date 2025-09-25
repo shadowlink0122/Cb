@@ -1,0 +1,58 @@
+// 基本的な関数引数・戻り値型チェックテスト
+int int_func(int x) {
+    println("int_func received:", x);
+    return x * 2;
+}
+
+string string_func(string s) {
+    println("string_func received:", s);
+    return s;
+}
+
+long long_func(long x) {
+    println("long_func received:", x);
+    return x + 1000;
+}
+
+bool bool_func(bool b) {
+    println("bool_func received:", b);
+    return !b;
+}
+
+tiny tiny_func(tiny t) {
+    println("tiny_func received:", t);
+    return t + 1;
+}
+
+int main() {
+    println("=== Basic Type Function Tests ===");
+    
+    // 正常なケース
+    int result1 = int_func(42);
+    println("int_func(42) =", result1);
+    
+    string result2 = string_func("hello");
+    println("string_func result:", result2);
+    
+    long result3 = long_func(999);
+    println("long_func(999) =", result3);
+    
+    bool result4 = bool_func(true);
+    println("bool_func(true) =", result4);
+    
+    tiny result5 = tiny_func(5);
+    println("tiny_func(5) =", result5);
+    
+    // 変数を使った呼び出し
+    int num = 100;
+    string text = "world";
+    bool flag = false;
+    
+    int result6 = int_func(num);
+    string result7 = string_func(text);
+    bool result8 = bool_func(flag);
+    
+    println("Variable calls:", result6, result7, result8);
+    
+    return 0;
+}

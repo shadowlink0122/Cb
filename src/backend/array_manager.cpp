@@ -1,6 +1,7 @@
 #include "array_manager.h"
 #include "../backend/interpreter.h" // Variable の定義のため
 #include "../common/debug_messages.h"
+#include "../common/type_alias.h"
 #include "error_handler.h"
 #include "evaluator/expression_evaluator.h"
 #include "variable_manager.h"
@@ -297,11 +298,26 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
 
                         // 配列データを設定
                         if (!ret.int_array_3d.empty()) {
-                            var.array_values.clear();
-                            for (const auto &plane : ret.int_array_3d) {
-                                for (const auto &row : plane) {
-                                    for (const auto &element : row) {
-                                        var.array_values.push_back(element);
+
+                            // 多次元配列かどうかを判定（元のArrayTypeInfoがあれば使用）
+                            if (var.array_type_info.dimensions.size() > 1) {
+                                var.is_multidimensional = true;
+                                var.multidim_array_values.clear();
+                                for (const auto &plane : ret.int_array_3d) {
+                                    for (const auto &row : plane) {
+                                        for (const auto &element : row) {
+                                            var.multidim_array_values.push_back(
+                                                element);
+                                        }
+                                    }
+                                }
+                            } else {
+                                var.array_values.clear();
+                                for (const auto &plane : ret.int_array_3d) {
+                                    for (const auto &row : plane) {
+                                        for (const auto &element : row) {
+                                            var.array_values.push_back(element);
+                                        }
                                     }
                                 }
                             }
@@ -552,7 +568,14 @@ void ArrayManager::processArrayLiteralRecursive(
         if (base_type == TYPE_STRING) {
             var.multidim_array_strings[flat_index] = node->str_value;
         } else {
-            var.multidim_array_values[flat_index] = node->int_value;
+            // 数値の場合、expression_evaluatorを使用して評価
+            int64_t value = 0;
+            if (node->node_type == ASTNodeType::AST_NUMBER) {
+                value = node->int_value;
+            } else {
+                value = expression_evaluator_->evaluate_expression(node);
+            }
+            var.multidim_array_values[flat_index] = value;
         }
     }
 }
@@ -917,7 +940,19 @@ bool ArrayManager::isCompatibleArrayType(const Variable &dest,
                             ? src.array_type_info.base_type
                             : static_cast<TypeInfo>(src.type - TYPE_ARRAY_BASE);
 
-    return dest_base == src_base;
+    // 基本型が一致する場合は許可
+    if (dest_base == src_base) {
+        return true;
+    }
+
+    // typedef配列の場合を考慮した緩和的なチェック
+    // 両方が配列で、サイズが一致していれば typedef の可能性として許可
+    if (dest.is_array && src.is_array && dest.array_size == src.array_size &&
+        dest.array_dimensions == src.array_dimensions) {
+        return true;
+    }
+
+    return false;
 }
 
 // 配列リテラルから次元を再帰的に抽出する関数

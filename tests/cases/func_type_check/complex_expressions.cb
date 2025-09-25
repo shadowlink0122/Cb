@@ -1,0 +1,54 @@
+// 複雑な式と計算結果の関数引数テスト
+int math_func(int x) {
+    println("math_func received:", x);
+    return x * x;
+}
+
+string concat_func(string s) {
+    println("concat_func received:", s);
+    return s;
+}
+
+bool logic_func(bool b) {
+    println("logic_func received:", b);
+    return !b;
+}
+
+int add(int a, int b) {
+    return a + b;
+}
+
+int main() {
+    println("=== Complex Expression Function Tests ===");
+    
+    // 算術式を引数として渡す
+    int result1 = math_func(5 + 3);
+    println("math_func(5+3) =", result1);
+    
+    int result2 = math_func(10 * 2 - 5);
+    println("math_func(10*2-5) =", result2);
+    
+    // 関数の戻り値を別の関数の引数として渡す
+    int result3 = math_func(add(10, 20));
+    println("math_func(add(10,20)) =", result3);
+    
+    // 変数を使った計算結果を引数として渡す
+    int a = 15;
+    int b = 25;
+    int result4 = math_func(a + b);
+    println("math_func(a+b) =", result4);
+    
+    // 論理演算結果を引数として渡す
+    bool flag1 = true;
+    bool flag2 = false;
+    bool result5 = logic_func(flag1 && flag2);
+    bool result6 = logic_func(flag1 || flag2);
+    
+    println("Logic results:", result5, result6);
+    
+    // ネストした関数呼び出し
+    int nested_result = math_func(math_func(3));
+    println("Nested function result:", nested_result);
+    
+    return 0;
+}

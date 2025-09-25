@@ -1,0 +1,83 @@
+// returnでのtypedef型チェーンの複雑なテスト
+
+typedef int BaseType;
+typedef BaseType MiddleType;
+typedef MiddleType FinalType;
+
+typedef string StringBase;
+typedef StringBase StringMiddle;
+typedef StringMiddle StringFinal;
+
+typedef bool[2] BoolArray;
+typedef BoolArray BoolArrayAlias;
+
+// チェーン化されたtypedefの戻り値テスト
+FinalType process_chain(MiddleType input) {
+    BaseType base = input * 2;
+    MiddleType middle = base + 10;
+    FinalType final = middle - 5;
+    return final;
+}
+
+StringFinal format_string_chain(StringMiddle input) {
+    StringBase base = "Processed: ";
+    StringMiddle middle = base + input;
+    StringFinal final = middle + " (completed)";
+    return final;
+}
+
+BoolArrayAlias create_bool_array() {
+    BoolArray original = [true, false];
+    BoolArrayAlias alias = original;
+    return alias;
+}
+
+// 異なる段階のtypedefを混合して返す
+MiddleType complex_calculation(FinalType a, BaseType b) {
+    FinalType temp1 = a + b;
+    MiddleType temp2 = temp1 * 3;
+    BaseType temp3 = temp2 - 50;
+    return temp3;  // BaseTypeをMiddleTypeとして返す（同じ基底型なのでOK）
+}
+
+// 条件分岐でのtypedef戻り値
+FinalType conditional_return(bool condition, BaseType value) {
+    if (condition) {
+        MiddleType middle_val = value + 100;
+        return middle_val;
+    } else {
+        FinalType final_val = value - 100;
+        return final_val;
+    }
+}
+
+int main() {
+    println("=== Typedef Chain Return Tests ===");
+    
+    // 基本的なチェーン処理
+    MiddleType input = 15;
+    FinalType result = process_chain(input);
+    println("Chain result: ", result);
+    
+    // 文字列チェーン
+    StringMiddle str_input = "Test";
+    StringFinal str_result = format_string_chain(str_input);
+    println("String chain: ", str_result);
+    
+    // 配列typedef
+    BoolArrayAlias bool_array = create_bool_array();
+    println("Bool array: [", bool_array[0], ", ", bool_array[1], "]");
+    
+    // 複雑な計算
+    FinalType a = 50;
+    BaseType b = 25;
+    MiddleType complex_result = complex_calculation(a, b);
+    println("Complex result: ", complex_result);
+    
+    // 条件分岐テスト
+    FinalType cond_result1 = conditional_return(true, 10);
+    FinalType cond_result2 = conditional_return(false, 20);
+    println("Conditional results: ", cond_result1, ", ", cond_result2);
+    
+    return 0;
+}

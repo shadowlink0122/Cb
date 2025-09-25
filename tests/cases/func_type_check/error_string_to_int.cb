@@ -1,0 +1,11 @@
+// 型エラーテスト - 文字列を数値関数に渡す
+int int_func(int x) {
+    return x * 2;
+}
+
+int main() {
+    // エラーケース：文字列リテラルを数値関数に渡す
+    int result = int_func("should_error");
+    println("This should not execute:", result);
+    return 0;
+}

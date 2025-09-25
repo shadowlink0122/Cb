@@ -1,0 +1,58 @@
+// 基本的な戻り値型チェックテスト
+
+// 正しい戻り値型のテスト
+int return_int() {
+    return 42;
+}
+
+long return_long() {
+    return 1000000;
+}
+
+bool return_bool() {
+    return true;
+}
+
+tiny return_tiny() {
+    return 127;
+}
+
+short return_short() {
+    return 32767;
+}
+
+// 計算結果を返すテスト
+int calc_sum(int a, int b) {
+    return a + b;
+}
+
+bool is_positive(int value) {
+    if (value > 0) {
+        return true;
+    }
+    return false;
+}
+
+int main() {
+    // 基本的な戻り値テスト
+    int i = return_int();
+    long l = return_long();
+    bool b = return_bool();
+    tiny t = return_tiny();
+    short sh = return_short();
+    
+    println("int: ", i);
+    println("long: ", l);
+    println("bool: ", b);
+    println("tiny: ", t);
+    println("short: ", sh);
+    
+    // 計算結果テスト
+    int sum = calc_sum(10, 20);
+    bool positive = is_positive(5);
+    
+    println("sum: ", sum);
+    println("positive: ", positive);
+    
+    return 0;
+}
