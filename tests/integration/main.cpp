@@ -11,6 +11,7 @@
 #include "bitwise/test_bitwise.hpp"
 #include "bool_expr/test_bool_expr.hpp"
 #include "boundary/test_boundary.hpp"
+#include "compound_assign/test_compound_assign.hpp"
 #include "const_array/test_const_array.hpp"
 #include "const_variables/test_const_variables.hpp"
 #include "cross_type/test_cross_type.hpp"
@@ -50,6 +51,7 @@ int main() {
         test_integration_arithmetic();
         test_integration_assign();
         test_integration_boundary();
+        test_integration_compound_assign();
         test_integration_const_array();
         test_integration_const_variables();
         test_integration_cross_type();

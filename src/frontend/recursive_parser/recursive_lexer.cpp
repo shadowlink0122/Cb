@@ -38,21 +38,43 @@ Token RecursiveLexer::nextToken() {
                 advance(); // consume second '+'
                 return makeToken(TokenType::TOK_INCR, "++");
             }
+            if (peek() == '=') {
+                advance(); // consume '='
+                return makeToken(TokenType::TOK_PLUS_ASSIGN, "+=");
+            }
             return makeToken(TokenType::TOK_PLUS, "+");
         case '-': 
             if (peek() == '-') {
                 advance(); // consume second '-'
                 return makeToken(TokenType::TOK_DECR, "--");
             }
+            if (peek() == '=') {
+                advance(); // consume '='
+                return makeToken(TokenType::TOK_MINUS_ASSIGN, "-=");
+            }
             return makeToken(TokenType::TOK_MINUS, "-");
-        case '*': return makeToken(TokenType::TOK_MUL, "*");
+        case '*': 
+            if (peek() == '=') {
+                advance(); // consume '='
+                return makeToken(TokenType::TOK_MUL_ASSIGN, "*=");
+            }
+            return makeToken(TokenType::TOK_MUL, "*");
         case '/': 
             if (peek() == '/') {
                 skipComment();
                 return nextToken();
             }
+            if (peek() == '=') {
+                advance(); // consume '='
+                return makeToken(TokenType::TOK_DIV_ASSIGN, "/=");
+            }
             return makeToken(TokenType::TOK_DIV, "/");
-        case '%': return makeToken(TokenType::TOK_MOD, "%");
+        case '%': 
+            if (peek() == '=') {
+                advance(); // consume '='
+                return makeToken(TokenType::TOK_MOD_ASSIGN, "%=");
+            }
+            return makeToken(TokenType::TOK_MOD, "%");
         case ';': return makeToken(TokenType::TOK_SEMICOLON, ";");
         case ',': return makeToken(TokenType::TOK_COMMA, ",");
         case '(': return makeToken(TokenType::TOK_LPAREN, "(");
@@ -84,6 +106,10 @@ Token RecursiveLexer::nextToken() {
             }
             if (peek() == '<') {
                 advance();
+                if (peek() == '=') {
+                    advance(); // consume '='
+                    return makeToken(TokenType::TOK_LSHIFT_ASSIGN, "<<=");
+                }
                 return makeToken(TokenType::TOK_LEFT_SHIFT, "<<");
             }
             return makeToken(TokenType::TOK_LT, "<");
@@ -95,6 +121,10 @@ Token RecursiveLexer::nextToken() {
             }
             if (peek() == '>') {
                 advance();
+                if (peek() == '=') {
+                    advance(); // consume '='
+                    return makeToken(TokenType::TOK_RSHIFT_ASSIGN, ">>=");
+                }
                 return makeToken(TokenType::TOK_RIGHT_SHIFT, ">>");
             }
             return makeToken(TokenType::TOK_GT, ">");
@@ -104,6 +134,10 @@ Token RecursiveLexer::nextToken() {
                 advance();
                 return makeToken(TokenType::TOK_AND, "&&");
             }
+            if (peek() == '=') {
+                advance(); // consume '='
+                return makeToken(TokenType::TOK_AND_ASSIGN, "&=");
+            }
             return makeToken(TokenType::TOK_BIT_AND, "&");
             
         case '|':
@@ -111,9 +145,17 @@ Token RecursiveLexer::nextToken() {
                 advance();
                 return makeToken(TokenType::TOK_OR, "||");
             }
+            if (peek() == '=') {
+                advance(); // consume '='
+                return makeToken(TokenType::TOK_OR_ASSIGN, "|=");
+            }
             return makeToken(TokenType::TOK_BIT_OR, "|");
             
         case '^':
+            if (peek() == '=') {
+                advance(); // consume '='
+                return makeToken(TokenType::TOK_XOR_ASSIGN, "^=");
+            }
             return makeToken(TokenType::TOK_BIT_XOR, "^");
             
         case '~':

@@ -547,7 +547,15 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
             interpreter_.assign_array_element(var_name, static_cast<int>(index_value), right_value);
         } else {
             // 通常の変数への代入
-            interpreter_.assign_variable(node->name, right_value, node->type_info);
+            std::string var_name;
+            if (!node->name.empty()) {
+                var_name = node->name;
+            } else if (node->left && node->left->node_type == ASTNodeType::AST_VARIABLE) {
+                var_name = node->left->name;
+            } else {
+                throw std::runtime_error("Invalid assignment target in evaluator");
+            }
+            interpreter_.assign_variable(var_name, right_value, node->type_info);
         }
         
         return right_value;
