@@ -16,6 +16,7 @@ enum TypeInfo {
     TYPE_STRING = 6,
     TYPE_BOOL = 7,
     TYPE_STRUCT = 8,
+    TYPE_POINTER = 9, // ポインタ型（将来実装）
     TYPE_ARRAY_BASE = 100 // 配列型は基底型 + 100（下位互換のため保持）
 };
 

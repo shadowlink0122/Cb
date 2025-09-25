@@ -1,0 +1,21 @@
+// Structエラーハンドリングのテスト（コンパイルエラーをテスト）
+struct TestStruct {
+    int valid_member;
+    string name;
+};
+
+int main() {
+    TestStruct t;
+    t.valid_member = 42;
+    t.name = "Valid";
+    
+    // 正常なケース
+    println("Valid member: %d", t.valid_member);
+    println("Name: %s", t.name);
+    
+    // 以下のケースはコンパイルエラーになるべき（コメントアウト）:
+    // t.invalid_member = 100;  // 存在しないメンバーアクセス
+    // TestStruct t2 = {invalid: 1};  // 存在しないメンバーでの初期化
+    
+    return 0;
+}

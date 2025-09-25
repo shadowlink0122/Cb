@@ -152,7 +152,8 @@ void VariableManager::assign_variable(const std::string &name,
         current_scope().variables[name] = new_var;
     } else {
         if (var->is_const && var->is_assigned) {
-            std::cerr << "再代入できません: " << name << std::endl;
+            std::cerr << "Cannot reassign const variable: " << name
+                      << std::endl;
             std::exit(1);
         }
         var->str_value = value;
@@ -166,8 +167,8 @@ void VariableManager::assign_array_element(const std::string &name,
     if (var && var->is_array) {
         // const配列への書き込みチェック
         if (var->is_const) {
-            std::cerr << "エラー: const配列 '" << name
-                      << "' への書き込みはできません" << std::endl;
+            std::cerr << "Error: Cannot assign to const array '" << name << "'"
+                      << std::endl;
             throw std::runtime_error("Cannot assign to const array");
         }
 
@@ -549,74 +550,161 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
             var.is_struct = true;
             var.struct_type_name = node->type_name;
 
+            // 構造体配列かどうかをチェック（型名に[サイズ]が含まれている場合）
+            std::string base_struct_type = node->type_name;
+            bool is_struct_array = false;
+            int struct_array_size = 0;
+
+            size_t bracket_pos = node->type_name.find("[");
+            if (bracket_pos != std::string::npos) {
+                is_struct_array = true;
+                base_struct_type = node->type_name.substr(0, bracket_pos);
+
+                size_t close_bracket_pos = node->type_name.find("]");
+                if (close_bracket_pos != std::string::npos) {
+                    std::string size_str = node->type_name.substr(
+                        bracket_pos + 1, close_bracket_pos - bracket_pos - 1);
+                    struct_array_size = std::stoi(size_str);
+                }
+
+                var.is_array = true;
+                var.array_size = struct_array_size;
+                var.array_dimensions.push_back(struct_array_size);
+            }
+
             // struct定義を取得してメンバ変数を初期化
             const StructDefinition *struct_def =
-                interpreter_->find_struct_definition(node->type_name);
+                interpreter_->find_struct_definition(base_struct_type);
             if (struct_def) {
                 if (interpreter_->debug_mode) {
-                    debug_print("Initializing struct %s with %zu members\n",
-                                node->type_name.c_str(),
-                                struct_def->members.size());
+                    debug_print(
+                        "Initializing struct %s with %zu members (array: %s, "
+                        "size: %d)\n",
+                        base_struct_type.c_str(), struct_def->members.size(),
+                        is_struct_array ? "yes" : "no", struct_array_size);
                 }
-                for (const auto &member : struct_def->members) {
-                    Variable member_var;
-                    member_var.type = member.type;
 
-                    // 配列メンバーの場合
-                    if (member.array_info.is_array()) {
-                        member_var.is_array = true;
-                        member_var.array_size =
-                            member.array_info.dimensions[0].size;
+                if (is_struct_array) {
+                    // 構造体配列の場合：各配列要素を独立した構造体変数として作成
+                    for (int array_idx = 0; array_idx < struct_array_size;
+                         array_idx++) {
+                        std::string element_name =
+                            node->name + "[" + std::to_string(array_idx) + "]";
 
-                        // array_dimensionsを設定
-                        member_var.array_dimensions.clear();
-                        for (const auto &dim : member.array_info.dimensions) {
-                            member_var.array_dimensions.push_back(dim.size);
+                        Variable element_var;
+                        element_var.type = TYPE_STRUCT;
+                        element_var.is_struct = true;
+                        element_var.struct_type_name = base_struct_type;
+
+                        // 各構造体要素にメンバ変数を作成
+                        for (const auto &member : struct_def->members) {
+                            std::string member_name =
+                                element_name + "." + member.name;
+                            Variable member_var;
+                            member_var.type = member.type;
+
+                            // デフォルト値を設定
+                            if (member_var.type == TYPE_STRING) {
+                                member_var.str_value = "";
+                            } else {
+                                member_var.value = 0;
+                            }
+                            member_var.is_assigned = false;
+
+                            // メンバ配列の場合の処理も追加可能だが、今回は基本メンバのみ
+                            current_scope().variables[member_name] = member_var;
                         }
 
-                        if (interpreter_->debug_mode) {
-                            debug_print(
-                                "Creating array member: %s with size %d\n",
-                                member.name.c_str(),
-                                member.array_info.dimensions[0].size);
-                        }
+                        // 構造体要素自体も変数として登録
+                        current_scope().variables[element_name] = element_var;
+                    }
+                } else {
+                    // 通常の構造体の場合：既存の処理
+                    for (const auto &member : struct_def->members) {
+                        Variable member_var;
+                        member_var.type = member.type;
 
-                        // 配列の各要素を個別の変数として作成
-                        for (int i = 0;
-                             i < member.array_info.dimensions[0].size; i++) {
-                            std::string element_name = node->name + "." +
-                                                       member.name + "[" +
-                                                       std::to_string(i) + "]";
-                            Variable element_var;
-                            element_var.type = member.type;
-                            element_var.value = 0;
-                            element_var.str_value = "";
-                            element_var.is_assigned = false;
-                            this->current_scope().variables[element_name] =
-                                element_var;
+                        // 配列メンバーの場合
+                        if (member.array_info.is_array()) {
+                            member_var.is_array = true;
+
+                            // 多次元配列の総サイズを計算
+                            int total_size = 1;
+                            for (const auto &dim :
+                                 member.array_info.dimensions) {
+                                total_size *= dim.size;
+                            }
+                            member_var.array_size = total_size;
+
+                            // array_dimensionsを設定
+                            member_var.array_dimensions.clear();
+                            for (const auto &dim :
+                                 member.array_info.dimensions) {
+                                member_var.array_dimensions.push_back(dim.size);
+                            }
 
                             if (interpreter_->debug_mode) {
                                 debug_print(
-                                    "Created struct member array element: %s\n",
-                                    element_name.c_str());
+                                    "Creating array member: %s with total size "
+                                    "%d (dims: %zu)\n",
+                                    member.name.c_str(), total_size,
+                                    member.array_info.dimensions.size());
                             }
+
+                            // 配列の各要素を個別の変数として作成（多次元対応）
+                            for (int i = 0; i < total_size; i++) {
+                                std::string element_name =
+                                    node->name + "." + member.name + "[" +
+                                    std::to_string(i) + "]";
+                                Variable element_var;
+                                element_var.type = member.type;
+                                element_var.value = 0;
+                                element_var.str_value = "";
+                                element_var.is_assigned = false;
+                                this->current_scope().variables[element_name] =
+                                    element_var;
+
+                                if (interpreter_->debug_mode) {
+                                    debug_print("Created struct member array "
+                                                "element: %s\n",
+                                                element_name.c_str());
+                                }
+                            }
+
+                            // 配列メンバー自体もstruct_membersに追加
+                            member_var.array_values.resize(total_size, 0);
+                            if (member.type == TYPE_STRING) {
+                                member_var.array_strings.resize(total_size, "");
+                            }
+                            var.struct_members[member.name] = member_var;
+                        } else {
+                            // 通常のメンバーの場合
+
+                            // デフォルト値を設定
+                            if (member_var.type == TYPE_STRING) {
+                                member_var.str_value = "";
+                            } else {
+                                member_var.value = 0;
+                            }
+                            member_var.is_assigned = false;
+
+                            var.struct_members[member.name] = member_var;
                         }
-                    }
 
-                    // デフォルト値を設定
-                    if (member_var.type == TYPE_STRING) {
-                        member_var.str_value = "";
-                    } else {
-                        member_var.value = 0;
-                    }
-                    member_var.is_assigned = false;
+                        // 通常のstruct変数でもメンバー直接アクセス変数を作成
+                        std::string member_path =
+                            node->name + "." + member.name;
+                        Variable member_direct_var = member_var;
+                        current_scope().variables[member_path] =
+                            member_direct_var;
 
-                    var.struct_members[member.name] = member_var;
-                    if (interpreter_->debug_mode) {
-                        debug_print(
-                            "Added member: %s (type: %d, is_array: %s)\n",
-                            member.name.c_str(), (int)member.type,
-                            member.array_info.is_array() ? "true" : "false");
+                        if (interpreter_->debug_mode) {
+                            debug_print(
+                                "Added member: %s (type: %d, is_array: %s)\n",
+                                member.name.c_str(), (int)member.type,
+                                member.array_info.is_array() ? "true"
+                                                             : "false");
+                        }
                     }
                 }
             }

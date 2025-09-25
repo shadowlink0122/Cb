@@ -45,7 +45,7 @@ int main(int argc, char **argv) {
     }
 
     if (filename.empty()) {
-        std::fprintf(stderr, "エラー: 入力ファイルが指定されていません\n");
+        std::fprintf(stderr, "Error: No input file specified\n");
         return 1;
     }
 
@@ -64,7 +64,7 @@ int main(int argc, char **argv) {
         // RecursiveParserを使用
         std::ifstream input(filename);
         if (!input) {
-            std::fprintf(stderr, "エラー: ファイル '%s' を読み込めません\n",
+            std::fprintf(stderr, "Error: Cannot read file '%s'\n",
                          filename.c_str());
             return 1;
         }
@@ -74,7 +74,7 @@ int main(int argc, char **argv) {
         input.close();
 
         if (debug_mode) {
-            std::cout << "再帰下降パーサーを使用してパースします...\n";
+            std::cout << "Using recursive descent parser...\n";
         }
 
         RecursiveParser parser(source, filename);
@@ -82,7 +82,7 @@ int main(int argc, char **argv) {
         root = parser.parseProgram();
 
         if (!root) {
-            std::fprintf(stderr, "エラー: ASTが生成されませんでした\n");
+            std::fprintf(stderr, "Error: AST generation failed\n");
             return 1;
         }
 
@@ -101,10 +101,10 @@ int main(int argc, char **argv) {
         // 詳細なエラー表示は既に完了しているので何もしない
         return 1;
     } catch (const std::exception &e) {
-        std::fprintf(stderr, "エラー: %s\n", e.what());
+        std::fprintf(stderr, "Error: %s\n", e.what());
         return 1;
     } catch (...) {
-        std::fprintf(stderr, "エラー: 不明なエラーが発生しました\n");
+        std::fprintf(stderr, "Error: Unknown error occurred\n");
         return 1;
     }
 

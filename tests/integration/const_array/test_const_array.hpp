@@ -12,7 +12,7 @@ inline void test_integration_const_array() {
     run_cb_test_with_output(test_file_assign_error, 
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_NE(0, exit_code, "Expected error exit code for const array assignment");
-            INTEGRATION_ASSERT_CONTAINS(output, "Cannot assign to const array", "should contain const array error message");
+            INTEGRATION_ASSERT_CONTAINS(output, "Assignment to const array", "should contain const array error message");
         });
     integration_test_passed("const array assign error test", test_file_assign_error);
     
@@ -20,7 +20,7 @@ inline void test_integration_const_array() {
     run_cb_test_with_output(test_file_string_assign_error, 
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_NE(0, exit_code, "Expected error exit code for const string array assignment");
-            INTEGRATION_ASSERT_CONTAINS(output, "Cannot assign to const array", "should contain const array error message");
+            INTEGRATION_ASSERT_CONTAINS(output, "Assignment to const array", "should contain const array error message");
         });
     integration_test_passed("const string array assign error test", test_file_string_assign_error);
     

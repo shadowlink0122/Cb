@@ -482,6 +482,13 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
                 struct_element.struct_members[member.name] = member_var;
                 debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
                           ("Added member: " + member.name).c_str());
+
+                // メンバー変数の直接アクセス用変数も作成
+                std::string member_path = element_name + "." + member.name;
+                Variable member_direct_var = member_var;
+                variable_manager_->getInterpreter()
+                    ->current_scope()
+                    .variables[member_path] = member_direct_var;
             }
 
             struct_element.is_assigned = true;
@@ -885,6 +892,15 @@ void ArrayManager::declare_array(const ASTNode *node) {
         variable_manager_->getInterpreter()
             ->global_scope.variables[node->name] = var;
         debug_msg(DebugMsgId::MULTIDIM_ARRAY_DECL_SUCCESS, node->name.c_str());
+
+        // 初期化式がある場合は配列リテラル初期化を実行
+        if (node->init_expr &&
+            node->init_expr->node_type == ASTNodeType::AST_ARRAY_LITERAL) {
+            debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
+                      "Processing multidim array literal initialization");
+            variable_manager_->getInterpreter()->assign_array_literal(
+                node->name, node->init_expr.get());
+        }
     } else if (node->array_type_info.dimensions.size() == 1 ||
                (node->type_info == TYPE_STRUCT && node->array_size_expr)) {
         // 単一次元配列の場合またはstruct配列の場合
@@ -995,6 +1011,15 @@ void ArrayManager::declare_array(const ASTNode *node) {
         variable_manager_->getInterpreter()
             ->global_scope.variables[node->name] = var;
         debug_msg(DebugMsgId::ARRAY_DECL_SUCCESS, node->name.c_str());
+
+        // 初期化式がある場合は配列リテラル初期化を実行
+        if (node->init_expr &&
+            node->init_expr->node_type == ASTNodeType::AST_ARRAY_LITERAL) {
+            debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
+                      "Processing array literal initialization");
+            variable_manager_->getInterpreter()->assign_array_literal(
+                node->name, node->init_expr.get());
+        }
     } else {
         // 配列情報が不正または未サポートの場合
         debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,

@@ -20,7 +20,7 @@ inline void test_integration_const_variables() {
     run_cb_test_with_output(test_file_string_element, 
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_NE(0, exit_code, "Expected error exit code for const string element assignment");
-            INTEGRATION_ASSERT_CONTAINS(output, "Cannot assign to const string element", "should contain const string element error message");
+            INTEGRATION_ASSERT_CONTAINS(output, "Const string element assignment error", "should contain const string element error message");
         });
     integration_test_passed("const string element error test", test_file_string_element);
     
@@ -28,7 +28,7 @@ inline void test_integration_const_variables() {
     run_cb_test_with_output(test_file_numeric_reassign, 
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_NE(0, exit_code, "Expected error exit code for const numeric reassignment");
-            INTEGRATION_ASSERT_CONTAINS(output, "Cannot reassign const variable", "should contain const reassignment error message");
+            INTEGRATION_ASSERT_CONTAINS(output, "Const reassignment error: num", "should contain const reassignment error message");
         });
     integration_test_passed("const numeric reassign error test", test_file_numeric_reassign);
     

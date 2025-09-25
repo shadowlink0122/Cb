@@ -5,11 +5,12 @@ int main() {
     
     // const string変数を宣言・初期化
     const string text = "Hello";
-    println("Const string created: " + text);
+    println("Const string created: ", text);
     
     // const string要素を変更しようとする（エラーが発生するはず）
     text[0] = "W";  // ERROR: const string要素への代入
     
+    println(text);
     println("This line should not be reached");
     return 0;
 }

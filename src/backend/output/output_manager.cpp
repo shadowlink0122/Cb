@@ -52,6 +52,10 @@ void OutputManager::print_value(const ASTNode *expr) {
             struct_name = expr->left->name;
         } else if (expr->left && expr->left->node_type == ASTNodeType::AST_ARRAY_REF) {
             // struct配列要素: array[index].member
+            if (!expr->left->left) {
+                io_interface_->write_string("(null array reference)");
+                return;
+            }
             std::string array_name = expr->left->left->name;
             int64_t index = evaluate_expression(expr->left->array_index.get());
             struct_name = array_name + "[" + std::to_string(index) + "]";
@@ -83,21 +87,10 @@ void OutputManager::print_value(const ASTNode *expr) {
         std::string member_name = expr->name;
         int64_t index = evaluate_expression(expr->right.get());
         
-        // メンバの配列要素変数名を生成
-        std::string member_array_element_name = obj_name + "." + member_name + "[" + std::to_string(index) + "]";
-        
         try {
-            Variable* var = interpreter_->find_variable(member_array_element_name);
-            if (!var) {
-                io_interface_->write_string("(member array element not found)");
-                return;
-            }
-            
-            if (var->type == TYPE_STRING) {
-                io_interface_->write_string(var->str_value.c_str());
-            } else {
-                io_interface_->write_number(var->value);
-            }
+            // 構造体メンバーの配列要素を直接取得
+            int64_t value = interpreter_->get_struct_member_array_element(obj_name, member_name, static_cast<int>(index));
+            io_interface_->write_number(value);
         } catch (const std::exception& e) {
             io_interface_->write_string("(member array access error)");
         }
@@ -189,6 +182,21 @@ void OutputManager::print_value(const ASTNode *expr) {
                     } else {
                         io_interface_->write_number(0);
                     }
+                }
+            } else if (var->type == TYPE_STRING && var->is_array) {
+                // typedef文字列配列の特別ケース（type=TYPE_STRINGだがis_array=true）
+                if (!var->array_strings.empty() && index < static_cast<int64_t>(var->array_strings.size())) {
+                    io_interface_->write_string(var->array_strings[index].c_str());
+                } else {
+                    io_interface_->write_string("");
+                }
+            } else {
+                // その他の配列型
+                if (!var->array_values.empty() && index < static_cast<int64_t>(var->array_values.size())) {
+                    int64_t value = var->array_values[index];
+                    io_interface_->write_number(value);
+                } else {
+                    io_interface_->write_number(0);
                 }
             }
         } else if (var && var->type == TYPE_STRING && !var->is_array) {
@@ -556,23 +564,111 @@ void OutputManager::print_formatted(const ASTNode *format_str, const ASTNode *ar
                     str_args.push_back(""); // プレースホルダー
                 }
             } else if (arg->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
-                // struct メンバーアクセス: obj.member
-                std::string struct_name = arg->left->name;
+                // struct メンバーアクセス: obj.member または array[idx].member
                 std::string member_name = arg->name;
+                std::string struct_name;
                 
-                try {
-                    Variable* member_var = interpreter_->get_struct_member(struct_name, member_name);
-                    if (member_var->type == TYPE_STRING) {
-                        str_args.push_back(member_var->str_value);
-                        int_args.push_back(0); // プレースホルダー
-                    } else {
-                        int_args.push_back(member_var->value);
-                        str_args.push_back(""); // プレースホルダー
-                    }
-                } catch (const std::exception& e) {
+                if (arg->left && arg->left->node_type == ASTNodeType::AST_ARRAY_REF) {
+                    // 配列要素のメンバアクセス: team[0].name
+                    struct_name = interpreter_->extract_array_element_name(arg->left.get());
+                } else if (arg->left && arg->left->node_type == ASTNodeType::AST_VARIABLE) {
+                    // 通常の構造体メンバアクセス: obj.member
+                    struct_name = arg->left->name;
+                } else {
+                    // その他の場合は通常の式評価
                     int64_t value = evaluate_expression(arg.get());
                     int_args.push_back(value);
                     str_args.push_back(""); // プレースホルダー
+                    continue;
+                }
+                
+                try {
+                    Variable* member_var = interpreter_->get_struct_member(struct_name, member_name);
+                    if (member_var && member_var->type == TYPE_STRING) {
+                        str_args.push_back(member_var->str_value);
+                        int_args.push_back(0); // プレースホルダー
+                    } else if (member_var) {
+                        int_args.push_back(member_var->value);
+                        str_args.push_back(""); // プレースホルダー
+                    } else {
+                        // メンバ変数が見つからない場合は通常の式評価
+                        int64_t value = evaluate_expression(arg.get());
+                        int_args.push_back(value);
+                        str_args.push_back(""); // プレースホルダー
+                    }
+                } catch (const std::exception& e) {
+                    std::cerr << "DEBUG: Exception in member access: " << e.what() << std::endl;
+                    int64_t value = evaluate_expression(arg.get());
+                    int_args.push_back(value);
+                    str_args.push_back(""); // プレースホルダー
+                }
+            } else if (arg->node_type == ASTNodeType::AST_ARRAY_REF) {
+                // 配列要素の処理
+                
+                // まず、構造体メンバー配列アクセスかどうかチェック
+                if (arg->left && arg->left->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
+                    // 構造体メンバー配列アクセス: obj.member[index]
+                    std::string obj_name = arg->left->left->name;
+                    std::string member_name = arg->left->name;
+                    int64_t index = evaluate_expression(arg->array_index.get());
+                    
+                    try {
+                        int64_t value = interpreter_->get_struct_member_array_element(obj_name, member_name, static_cast<int>(index));
+                        int_args.push_back(value);
+                        str_args.push_back("");
+                    } catch (const std::exception& e) {
+                        int_args.push_back(0);
+                        str_args.push_back("");
+                    }
+                } else {
+                    // 通常の配列アクセス
+                    Variable *var = find_variable(arg->left->name);
+                    if (var && var->is_array) {
+                        int64_t index = evaluate_expression(arg->array_index.get());
+                        // 文字列配列かどうかの判定を修正
+                        if (!var->array_strings.empty()) {
+                            if (index >= 0 && index < static_cast<int64_t>(var->array_strings.size())) {
+                                str_args.push_back(var->array_strings[index]);
+                                int_args.push_back(0); // プレースホルダー
+                            } else {
+                                str_args.push_back("");
+                                int_args.push_back(0);
+                            }
+                        } else {
+                            if (index >= 0 && index < static_cast<int64_t>(var->array_values.size())) {
+                                int_args.push_back(var->array_values[index]);
+                                str_args.push_back("");
+                            } else {
+                                int_args.push_back(0);
+                                str_args.push_back("");
+                            }
+                        }
+                    } else {
+                        int_args.push_back(0);
+                        str_args.push_back("");
+                    }
+                }
+            } else if (arg->node_type == ASTNodeType::AST_MEMBER_ARRAY_ACCESS) {
+                // 構造体メンバー配列アクセス: obj.member[index]
+                std::string obj_name;
+                if (arg->left && arg->left->node_type == ASTNodeType::AST_VARIABLE) {
+                    obj_name = arg->left->name;
+                } else {
+                    int_args.push_back(0);
+                    str_args.push_back("");
+                    continue;
+                }
+                
+                std::string member_name = arg->name;
+                int64_t index = evaluate_expression(arg->right.get());
+                
+                try {
+                    int64_t value = interpreter_->get_struct_member_array_element(obj_name, member_name, static_cast<int>(index));
+                    int_args.push_back(value);
+                    str_args.push_back("");
+                } catch (const std::exception& e) {
+                    int_args.push_back(0);
+                    str_args.push_back("");
                 }
             } else {
                 int64_t value = evaluate_expression(arg.get());

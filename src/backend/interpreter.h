@@ -55,7 +55,13 @@ struct Variable {
     Variable()
         : type(TYPE_INT), is_const(false), is_array(false), is_assigned(false),
           is_multidimensional(false), is_struct(false), value(0),
-          array_size(0) {}
+          array_size(0) {
+        // デバッグ用
+        extern bool debug_mode;
+        if (debug_mode) {
+            printf("[DEBUG] Variable default constructor called\n");
+        }
+    }
 
     // 多次元配列用コンストラクタ
     Variable(const ArrayTypeInfo &array_info)
@@ -67,7 +73,14 @@ struct Variable {
     Variable(const std::string &struct_name)
         : type(TYPE_STRUCT), is_const(false), is_array(false),
           is_assigned(false), is_multidimensional(false), is_struct(true),
-          struct_type_name(struct_name), value(0), array_size(0) {}
+          struct_type_name(struct_name), value(0), array_size(0) {
+        // デバッグ用
+        extern bool debug_mode;
+        if (debug_mode) {
+            printf("[DEBUG] Variable struct constructor called for: %s\n",
+                   struct_name.c_str());
+        }
+    }
 
     // 多次元配列のフラットインデックス計算
     int calculate_flat_index(const std::vector<int> &indices) const {
@@ -268,6 +281,19 @@ class Interpreter : public EvaluatorInterface {
     void assign_struct_member(const std::string &var_name,
                               const std::string &member_name,
                               const std::string &value);
+    void assign_struct_member_array_element(const std::string &var_name,
+                                            const std::string &member_name,
+                                            int index, int64_t value);
+    void assign_struct_member_array_element(const std::string &var_name,
+                                            const std::string &member_name,
+                                            int index,
+                                            const std::string &value);
+    int64_t get_struct_member_array_element(const std::string &var_name,
+                                            const std::string &member_name,
+                                            int index);
+    void assign_struct_member_array_literal(const std::string &var_name,
+                                            const std::string &member_name,
+                                            const ASTNode *array_literal);
     TypeInfo string_to_type_info(const std::string &type_str);
 
     // static変数処理
@@ -302,6 +328,7 @@ class Interpreter : public EvaluatorInterface {
     // N次元配列アクセス用のヘルパー関数
     std::string extract_array_name(const ASTNode *node);
     std::vector<int64_t> extract_array_indices(const ASTNode *node);
+    std::string extract_array_element_name(const ASTNode *node);
 
     // ArrayManagerへのアクセス
     ArrayManager *get_array_manager() { return array_manager_.get(); }

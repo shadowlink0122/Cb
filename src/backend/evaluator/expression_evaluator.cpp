@@ -51,14 +51,20 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
             std::string member_name = node->left->name;
             int64_t index = evaluate_expression(node->array_index.get());
             
-            std::string member_array_element_name = obj_name + "." + member_name + "[" + std::to_string(index) + "]";
-            
-            Variable *var = interpreter_.find_variable(member_array_element_name);
-            if (!var) {
-                throw std::runtime_error("Member array element not found: " + member_array_element_name);
+            // 構造体メンバー配列の場合は直接取得
+            try {
+                return interpreter_.get_struct_member_array_element(obj_name, member_name, static_cast<int>(index));
+            } catch (const std::exception& e) {
+                // 失敗した場合は従来の方式を試す
+                std::string member_array_element_name = obj_name + "." + member_name + "[" + std::to_string(index) + "]";
+                
+                Variable *var = interpreter_.find_variable(member_array_element_name);
+                if (!var) {
+                    throw std::runtime_error("Member array element not found: " + member_array_element_name);
+                }
+                
+                return var->value;
             }
-            
-            return var->value;
         }
         
         std::string array_name = interpreter_.extract_array_name(node);
@@ -111,6 +117,19 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
         if (var->is_multidimensional) {
             // 多次元配列専用の処理
             return interpreter_.getMultidimensionalArrayElement(*var, indices);
+        }
+        
+        // 1次元文字列配列のアクセス
+        if (var->is_array && !var->array_strings.empty() && indices.size() == 1) {
+            int64_t array_index = indices[0];
+            
+            if (array_index < 0 || array_index >= static_cast<int64_t>(var->array_strings.size())) {
+                throw std::runtime_error("Array index out of bounds");
+            }
+            
+            // 文字列配列の要素は数値として評価できないため、特別な処理が必要
+            // printf処理では別途文字列として取得される
+            return 0; // 文字列の場合は0を返すが、実際の文字列は別途取得される
         }
         
         if (var->array_values.empty()) {
@@ -604,16 +623,24 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
             throw std::runtime_error("Invalid member access");
         }
         
-        Variable* member_var = interpreter_.get_struct_member(var_name, member_name);
+        // 個別変数として直接アクセスを試す（構造体配列の場合）
+        std::string full_member_path = var_name + "." + member_name;
+        Variable* member_var = interpreter_.find_variable(full_member_path);
+        
+        if (!member_var) {
+            // struct_membersから探す（通常の構造体の場合）
+            member_var = interpreter_.get_struct_member(var_name, member_name);
+        }
+        
         if (member_var->type == TYPE_STRING) {
-            // 文字列メンバは別途処理が必要
-            return 0; // とりあえず0を返す
+            // 文字列メンバは別途処理が必要（呼び出し元で処理される）
+            return 0; // 文字列の場合は0を返すが、実際の文字列は別途取得される
         }
         return member_var->value;
     }
     
     case ASTNodeType::AST_MEMBER_ARRAY_ACCESS: {
-        // メンバの配列アクセス: obj.member[index]
+        // メンバの配列アクセス: obj.member[index] または obj.member[i][j]
         std::string obj_name;
         if (node->left->node_type == ASTNodeType::AST_VARIABLE) {
             obj_name = node->left->name;
@@ -622,17 +649,11 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
         }
         
         std::string member_name = node->name;
+        
         int64_t index = evaluate_expression(node->right.get());
         
-        // メンバの配列要素変数名を生成
-        std::string member_array_element_name = obj_name + "." + member_name + "[" + std::to_string(index) + "]";
-        
-        Variable* var = interpreter_.find_variable(member_array_element_name);
-        if (!var) {
-            throw std::runtime_error("Member array element not found: " + member_array_element_name);
-        }
-        
-        return var->value;
+        // 構造体メンバーの配列要素を直接取得
+        return interpreter_.get_struct_member_array_element(obj_name, member_name, static_cast<int>(index));
     }
     
     case ASTNodeType::AST_STRUCT_LITERAL: {

@@ -37,6 +37,7 @@
 #include "self_assign/test_self_assign.hpp"
 #include "static_variables/test_static_variables.hpp"
 #include "string/test_string.hpp"
+#include "struct/struct_tests.hpp"
 #include "ternary/test_ternary.hpp"
 #include "type/test_type.hpp"
 #include "typedef/test_typedef.hpp"
@@ -91,6 +92,9 @@ int main() {
 
         // static変数のテスト
         test_integration_static_variables();
+
+        // struct統合テスト
+        StructTests::run_all_struct_tests();
     } catch (const std::exception &e) {
         std::cerr << "[integration] test failed: " << e.what() << std::endl;
         fail = 1;

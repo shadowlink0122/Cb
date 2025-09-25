@@ -1,0 +1,36 @@
+// 複雑なstruct（入れ子構造）のテスト
+struct Address {
+    string street;
+    string city;
+    int zipcode;
+};
+
+struct Company {
+    string name;
+    Address address;
+    int employee_count;
+};
+
+int main() {
+    Company tech_corp;
+    tech_corp.name = "Tech Corp";
+    tech_corp.employee_count = 150;
+    
+    // 入れ子構造の初期化
+    tech_corp.address.street = "123 Main St";
+    tech_corp.address.city = "San Francisco";
+    tech_corp.address.zipcode = 94105;
+    
+    println("Company: %s", tech_corp.name);
+    println("Address: %s, %s %d", 
+            tech_corp.address.street, 
+            tech_corp.address.city, 
+            tech_corp.address.zipcode);
+    println("Employees: %d", tech_corp.employee_count);
+    
+    // 期待される出力:
+    // Company: Tech Corp
+    // Address: 123 Main St, San Francisco 94105
+    // Employees: 150
+    return 0;
+}

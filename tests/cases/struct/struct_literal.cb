@@ -1,0 +1,21 @@
+// Struct literal初期化のテスト
+struct Person {
+    string name;
+    int age;
+    int height;
+};
+
+int main() {
+    // 名前付き初期化
+    Person p1 = {name: "Alice", age: 25, height: 165};
+    println("Person 1: %s, %d years old, %d cm", p1.name, p1.age, p1.height);
+    
+    // 位置ベース初期化
+    Person p2 = {"Bob", 30, 180};
+    println("Person 2: %s, %d years old, %d cm", p2.name, p2.age, p2.height);
+    
+    // 期待される出力:
+    // Person 1: Alice, 25 years old, 165 cm
+    // Person 2: Bob, 30 years old, 180 cm
+    return 0;
+}

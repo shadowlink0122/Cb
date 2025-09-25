@@ -1,0 +1,43 @@
+// 大きなstruct パフォーマンステスト
+struct LargeStruct {
+    string name;
+    int data[10];
+    string labels[5];
+    int metadata[3];
+    int id;
+};
+
+int main() {
+    LargeStruct large;
+    large.name = "Large Data Structure";
+    large.id = 999;
+    
+    // 大きなデータ配列の初期化
+    int i;
+    for (i = 0; i < 10; i = i + 1) {
+        large.data[i] = i * 10;
+    }
+    
+    // メタデータの初期化
+    large.metadata[0] = 100;
+    large.metadata[1] = 200;
+    large.metadata[2] = 300;
+    
+    // ラベルの初期化
+    large.labels[0] = "first";
+    large.labels[1] = "second";
+    large.labels[2] = "third";
+    large.labels[3] = "fourth";
+    large.labels[4] = "fifth";
+    
+    println("Large Struct: %s (ID: %d)", large.name, large.id);
+    println("First 5 data values: [%d, %d, %d, %d, %d]", 
+            large.data[0], large.data[1], large.data[2], 
+            large.data[3], large.data[4]);
+    println("Metadata: [%d, %d, %d]", 
+            large.metadata[0], large.metadata[1], large.metadata[2]);
+    println("First 3 labels: [%s, %s, %s]", 
+            large.labels[0], large.labels[1], large.labels[2]);
+    
+    return 0;
+}

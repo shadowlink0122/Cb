@@ -247,16 +247,10 @@ void throw_runtime_error(const std::string &message,
 void print_error_with_location(const std::string &message,
                                const std::string &filename, int line,
                                int column, const std::string &source_line) {
-    // デバッグ言語に応じてメッセージを調整
-    if (debug_language == DebugLanguage::JAPANESE) {
-        std::cerr << "場所: " << filename << ":" << line << ":" << column
-                  << std::endl;
-        std::cerr << "エラー: " << message << std::endl;
-    } else {
-        std::cerr << "Location: " << filename << ":" << line << ":" << column
-                  << std::endl;
-        std::cerr << "Error: " << message << std::endl;
-    }
+    // Use English for error messages
+    std::cerr << "Location: " << filename << ":" << line << ":" << column
+              << std::endl;
+    std::cerr << "Error: " << message << std::endl;
 
     if (!source_line.empty()) {
         if (debug_language == DebugLanguage::JAPANESE) {

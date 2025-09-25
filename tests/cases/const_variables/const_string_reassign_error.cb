@@ -5,7 +5,7 @@ int main() {
     
     // const string変数を宣言・初期化
     const string greeting = "Hello";
-    println("Const string created: " + greeting);
+    println("Const string created:", greeting);
     
     // const string変数を再代入しようとする（エラーが発生するはず）
     greeting = "World";  // ERROR: const変数への再代入

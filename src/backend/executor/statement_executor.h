@@ -26,4 +26,5 @@ private:
     void execute_variable_declaration(const ASTNode* node);
     void execute_member_array_assignment(const ASTNode* node);
     void execute_member_assignment(const ASTNode* node);
+    void execute_member_array_literal_assignment(const ASTNode* node);
 };

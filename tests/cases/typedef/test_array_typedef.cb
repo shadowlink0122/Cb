@@ -19,37 +19,19 @@ int main() {
     println("Testing typedef array usage:");
     
     println("IntArray numbers:");
-    print("  numbers[0] = ");
-    print(numbers[0]);
-    println("");
-    print("  numbers[1] = ");
-    print(numbers[1]);
-    println("");
-    print("  numbers[2] = ");
-    print(numbers[2]);
-    println("");
+    println("  numbers[0] =", numbers[0]);
+    println("  numbers[1] =", numbers[1]);
+    println("  numbers[2] =", numbers[2]);
     
     println("StringArray texts:");
-    print("  texts[0] = ");
-    print(texts[0]);
-    println("");
-    print("  texts[1] = ");
-    print(texts[1]);
-    println("");
+    println("  texts[0] =", texts[0]);
+    println("  texts[1] =", texts[1]);
     
     println("BoolArray flags:");
-    print("  flags[0] = ");
-    print(flags[0]);
-    println("");
-    print("  flags[1] = ");
-    print(flags[1]);
-    println("");
-    print("  flags[2] = ");
-    print(flags[2]);
-    println("");
-    print("  flags[3] = ");
-    print(flags[3]);
-    println("");
+    println("  flags[0] =", flags[0]);
+    println("  flags[1] =", flags[1]);
+    println("  flags[2] =", flags[2]);
+    println("  flags[3] =", flags[3]);
     
     println("Typedef array integration test completed!");
     return 0;

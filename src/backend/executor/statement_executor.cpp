@@ -14,7 +14,7 @@ void StatementExecutor::execute_statement(const ASTNode *node) {
 void StatementExecutor::execute(const ASTNode *node) {
     if (!node) return;
     
-    std::cerr << "DEBUG: StatementExecutor::execute - node_type=" << (int)node->node_type << " name='" << node->name << "'" << std::endl;
+    // Debug output removed - use --debug option if needed
 
     switch (node->node_type) {
         case ASTNodeType::AST_ASSIGN: {
@@ -22,7 +22,7 @@ void StatementExecutor::execute(const ASTNode *node) {
             break;
         }
         case ASTNodeType::AST_VAR_DECL: {
-            std::cerr << "DEBUG: Executing AST_VAR_DECL" << std::endl;
+            // Debug output removed - use --debug option if needed
             execute_variable_declaration(node);
             break;
         }
@@ -44,14 +44,76 @@ void StatementExecutor::execute(const ASTNode *node) {
 }
 
 void StatementExecutor::execute_assignment(const ASTNode *node) {
+    if (debug_mode) {
+        std::cerr << "DEBUG: execute_assignment called" << std::endl;
+        std::cerr << "DEBUG: node=" << (void*)node << std::endl;
+        std::cerr << "DEBUG: node->left=" << (void*)node->left.get() << std::endl;
+        std::cerr << "DEBUG: node->right=" << (void*)node->right.get() << std::endl;
+        std::cerr << "DEBUG: node->name=" << node->name << std::endl;
+        
+        if (node->left) {
+            std::cerr << "DEBUG: Left node type: " << (int)node->left->node_type << std::endl;
+            if (node->left->node_type == ASTNodeType::AST_VARIABLE) {
+                std::cerr << "DEBUG: Variable name from left: " << node->left->name << std::endl;
+            }
+        }
+        if (node->right) {
+            std::cerr << "DEBUG: Right node type: " << (int)node->right->node_type << std::endl;
+        }
+    }
+    
     // 右辺が配列リテラルの場合の特別処理
     if (node->right && node->right->node_type == ASTNodeType::AST_ARRAY_LITERAL) {
-        if (node->left->node_type == ASTNodeType::AST_VARIABLE) {
-            // 変数への配列リテラル代入
-            interpreter_.assign_array_literal(node->left->name, node->right.get());
+        if (node->left && node->left->node_type == ASTNodeType::AST_VARIABLE) {
+            // 通常の変数への配列リテラル代入
+            std::string var_name = node->left->name;
+            if (debug_mode) {
+                std::cerr << "DEBUG: Calling assign_array_literal for variable: " << var_name << std::endl;
+            }
+            interpreter_.assign_array_literal(var_name, node->right.get());
+            return;
+        } else if (node->left && node->left->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
+            // 構造体メンバーへの配列リテラル代入 (obj.member = [1, 2, 3])
+            execute_member_array_literal_assignment(node);
+            return;
+        } else if (!node->name.empty()) {
+            // 名前による直接代入
+            if (debug_mode) {
+                std::cerr << "DEBUG: Calling assign_array_literal for variable: " << node->name << std::endl;
+            }
+            interpreter_.assign_array_literal(node->name, node->right.get());
             return;
         } else {
-            throw std::runtime_error("Array literal can only be assigned to simple variables");
+            throw std::runtime_error("Array literal can only be assigned to variables or struct members");
+        }
+    }
+
+    // 右辺が構造体リテラルの場合の特別処理
+    if (node->right && node->right->node_type == ASTNodeType::AST_STRUCT_LITERAL) {
+        // Debug output for struct literal assignment
+        if (debug_mode) {
+            std::cerr << "DEBUG: Struct literal assignment detected" << std::endl;
+        }
+        if (node->left->node_type == ASTNodeType::AST_VARIABLE) {
+            // 変数への構造体リテラル代入
+            if (debug_mode) {
+                std::cerr << "DEBUG: Struct literal assignment to variable: " << node->left->name << std::endl;
+            }
+            interpreter_.assign_struct_literal(node->left->name, node->right.get());
+            return;
+        } else if (node->left->node_type == ASTNodeType::AST_ARRAY_REF) {
+            // 配列要素への構造体リテラル代入 (team[0] = {})
+            if (debug_mode) {
+                std::cerr << "DEBUG: Struct literal assignment to array element" << std::endl;
+            }
+            std::string element_name = interpreter_.extract_array_element_name(node->left.get());
+            if (debug_mode) {
+                std::cerr << "DEBUG: Array element name: " << element_name << std::endl;
+            }
+            interpreter_.assign_struct_literal(element_name, node->right.get());
+            return;
+        } else {
+            throw std::runtime_error("Struct literal can only be assigned to variables or array elements");
         }
     }
 
@@ -124,7 +186,7 @@ void StatementExecutor::execute_assignment(const ASTNode *node) {
 }
 
 void StatementExecutor::execute_variable_declaration(const ASTNode *node) {
-    std::cerr << "DEBUG: execute_variable_declaration - name='" << node->name << "' type_info=" << node->type_info << " type_name='" << node->type_name << "'" << std::endl;
+    // Debug output removed - use --debug option if needed
     
     Variable var;
     var.type = node->type_info;
@@ -157,9 +219,18 @@ void StatementExecutor::execute_variable_declaration(const ASTNode *node) {
             for (int dim : var.array_dimensions) {
                 total_size *= dim;
             }
-            var.array_values.resize(total_size, 0);
-            if (debug_mode) {
-                std::cerr << "DEBUG: Initialized array with total_size=" << total_size << std::endl;
+            
+            // 文字列配列の場合は array_strings を初期化
+            if (var.type == TYPE_STRING) {
+                var.array_strings.resize(total_size, "");
+                if (debug_mode) {
+                    std::cerr << "DEBUG: Initialized string array with size=" << total_size << std::endl;
+                }
+            } else {
+                var.array_values.resize(total_size, 0);
+                if (debug_mode) {
+                    std::cerr << "DEBUG: Initialized numeric array with size=" << total_size << std::endl;
+                }
             }
         }
     }
@@ -178,7 +249,7 @@ void StatementExecutor::execute_variable_declaration(const ASTNode *node) {
     // struct型の特別処理
     if (node->type_info == TYPE_STRUCT && !node->type_name.empty()) {
         // struct変数を作成
-        std::cerr << "DEBUG: Creating struct variable '" << node->name << "' of type '" << node->type_name << "'" << std::endl;
+        // Debug output removed - use --debug option if needed
         interpreter_.create_struct_variable(node->name, node->type_name);
         return; // struct変数は専用処理で完了
     }
@@ -336,17 +407,12 @@ void StatementExecutor::execute_member_array_assignment(const ASTNode* node) {
     int64_t index_value = interpreter_.evaluate(member_array_access->right.get());
     int index = static_cast<int>(index_value);
     
-    // 右辺の値を評価
-    int64_t value = interpreter_.evaluate(node->right.get());
-    
-    // メンバの配列要素変数名を生成 (例: "s.grades[0]")
-    std::string member_array_element_name = obj_name + "." + member_name + "[" + std::to_string(index) + "]";
-    
-    // 変数に代入
+    // 右辺の値を評価して構造体メンバー配列要素に代入
     if (node->right->node_type == ASTNodeType::AST_STRING_LITERAL) {
-        interpreter_.assign_variable(member_array_element_name, node->right->str_value);
+        interpreter_.assign_struct_member_array_element(obj_name, member_name, index, node->right->str_value);
     } else {
-        interpreter_.assign_variable(member_array_element_name, value, node->type_info);
+        int64_t value = interpreter_.evaluate(node->right.get());
+        interpreter_.assign_struct_member_array_element(obj_name, member_name, index, value);
     }
 }
 
@@ -376,4 +442,31 @@ void StatementExecutor::execute_member_assignment(const ASTNode* node) {
         int64_t value = interpreter_.evaluate(node->right.get());
         interpreter_.assign_struct_member(obj_name, member_name, value);
     }
+}
+
+void StatementExecutor::execute_member_array_literal_assignment(const ASTNode* node) {
+    // obj.member = [1, 2, 3] の処理
+    const ASTNode* member_access = node->left.get();
+    
+    if (!member_access || member_access->node_type != ASTNodeType::AST_MEMBER_ACCESS) {
+        throw std::runtime_error("Invalid member access in array literal assignment");
+    }
+    
+    // オブジェクト名を取得
+    std::string obj_name;
+    if (member_access->left && member_access->left->node_type == ASTNodeType::AST_VARIABLE) {
+        obj_name = member_access->left->name;
+    } else {
+        throw std::runtime_error("Invalid object reference in member array literal assignment");
+    }
+    
+    // メンバ名を取得
+    std::string member_name = member_access->name;
+    
+    if (debug_mode) {
+        std::cerr << "DEBUG: Member array literal assignment: " << obj_name << "." << member_name << std::endl;
+    }
+    
+    // 構造体メンバー配列への配列リテラル代入
+    interpreter_.assign_struct_member_array_literal(obj_name, member_name, node->right.get());
 }

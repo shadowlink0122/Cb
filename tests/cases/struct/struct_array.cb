@@ -1,0 +1,39 @@
+// 構造体の配列のテスト
+struct Employee {
+    string name;
+    int salary;
+    int department_id;
+};
+
+string[3] department = [
+    "HR", "Dev", "CEO"
+];
+
+int main() {
+    Employee[3] team;
+    
+    // 各要素を個別に初期化
+    team[0] = {name: "Alice", salary: 50000, department_id: 0};
+    team[1] = {name: "Bob", salary: 55000, department_id: 2};
+    team[2] = {name: "Charlie", salary: 60000, department_id: 1};
+    
+    println("Team Members:");
+    println("1. %s - $%d (Dept: %s)", team[0].name, team[0].salary, department[team[0].department_id]);
+    println("2. %s - $%d (Dept: %s)", team[1].name, team[1].salary, department[team[1].department_id]);
+    println("3. %s - $%d (Dept: %s)", team[2].name, team[2].salary, department[team[2].department_id]);
+    
+    // 総給与計算
+    int total_salary = 0;
+    for(tiny i = 0;i < 3;i++){
+        total_salary += team[i].salary;
+    }
+    println("Total salary: $%d", total_salary);
+    
+    // 期待される出力:
+    // Team Members:
+    // 1. Alice - $50000 (Dept: 1)
+    // 2. Bob - $55000 (Dept: 2)
+    // 3. Charlie - $60000 (Dept: 1)
+    // Total salary: $165000
+    return 0;
+}
