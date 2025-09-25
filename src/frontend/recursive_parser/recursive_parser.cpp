@@ -86,6 +86,13 @@ ASTNode* RecursiveParser::parseProgram() {
 }
 
 ASTNode* RecursiveParser::parseStatement() {
+    // static修飾子のチェック
+    bool isStatic = false;
+    if (check(TokenType::TOK_STATIC)) {
+        isStatic = true;
+        advance(); // consume 'static'
+    }
+    
     // const修飾子のチェック
     bool isConst = false;
     if (check(TokenType::TOK_CONST)) {
@@ -120,7 +127,7 @@ ASTNode* RecursiveParser::parseStatement() {
     
     // typedef型変数宣言の処理
     if (check(TokenType::TOK_IDENTIFIER)) {
-        std::string potential_type = peek().value;
+        std::string potential_type = current_token_.value;
         if (typedef_map_.find(potential_type) != typedef_map_.end()) {
             // 簡単な先読み: 現在の位置を保存
             RecursiveLexer temp_lexer = lexer_;
@@ -444,6 +451,7 @@ ASTNode* RecursiveParser::parseStatement() {
                     node->name = variables[0].first;
                     node->type_name = type_name;
                     node->is_const = isConst;
+                    node->is_static = isStatic;
                     
                     // 型情報を設定
                     if (type_name == "int") {
@@ -504,6 +512,7 @@ ASTNode* RecursiveParser::parseStatement() {
                         var_node->type_name = type_name;
                         var_node->type_info = node->type_info;
                         var_node->is_const = isConst;
+                        var_node->is_static = isStatic;
                         
                         if (var.second) {
                             var_node->init_expr = std::move(var.second);
@@ -572,7 +581,7 @@ ASTNode* RecursiveParser::parseStatement() {
         
         // typedef alias変数宣言または関数宣言の可能性をチェック
         if (check(TokenType::TOK_IDENTIFIER)) {
-            std::string second_name = peek().value;
+            std::string second_name = current_token_.value;
             advance(); // consume second identifier
             
             // 関数宣言かチェック: TypeAlias funcName(
@@ -615,22 +624,89 @@ ASTNode* RecursiveParser::parseStatement() {
                 left_expr = array_ref;
             }
             
-            consume(TokenType::TOK_ASSIGN, "Expected '='");
-            ASTNode* value_expr = parseExpression();
-            consume(TokenType::TOK_SEMICOLON, "Expected ';'");
+            // 配列への代入および複合代入の処理
+            if (check(TokenType::TOK_ASSIGN) || check(TokenType::TOK_PLUS_ASSIGN) || 
+                check(TokenType::TOK_MINUS_ASSIGN) || check(TokenType::TOK_MUL_ASSIGN) ||
+                check(TokenType::TOK_DIV_ASSIGN) || check(TokenType::TOK_MOD_ASSIGN) ||
+                check(TokenType::TOK_AND_ASSIGN) || check(TokenType::TOK_OR_ASSIGN) ||
+                check(TokenType::TOK_XOR_ASSIGN) || check(TokenType::TOK_LSHIFT_ASSIGN) ||
+                check(TokenType::TOK_RSHIFT_ASSIGN)) {
+                
+                TokenType op_type = current_token_.type;
+                advance(); // consume assignment operator
+                
+                ASTNode* value_expr = parseExpression();
+                
+                ASTNode* assignment = new ASTNode(ASTNodeType::AST_ASSIGN);
+                
+                if (op_type != TokenType::TOK_ASSIGN) {
+                    // 複合代入: arr[i] += b を arr[i] = arr[i] + b に変換
+                    std::string binary_op;
+                    switch (op_type) {
+                        case TokenType::TOK_PLUS_ASSIGN: binary_op = "+"; break;
+                        case TokenType::TOK_MINUS_ASSIGN: binary_op = "-"; break;
+                        case TokenType::TOK_MUL_ASSIGN: binary_op = "*"; break;
+                        case TokenType::TOK_DIV_ASSIGN: binary_op = "/"; break;
+                        case TokenType::TOK_MOD_ASSIGN: binary_op = "%"; break;
+                        case TokenType::TOK_AND_ASSIGN: binary_op = "&"; break;
+                        case TokenType::TOK_OR_ASSIGN: binary_op = "|"; break;
+                        case TokenType::TOK_XOR_ASSIGN: binary_op = "^"; break;
+                        case TokenType::TOK_LSHIFT_ASSIGN: binary_op = "<<"; break;
+                        case TokenType::TOK_RSHIFT_ASSIGN: binary_op = ">>"; break;
+                        default: break;
+                    }
+                    
+                    // arr[i] = arr[i] op value の形に変換
+                    ASTNode* array_ref_copy = new ASTNode(ASTNodeType::AST_ARRAY_REF);
+                    
+                    // 配列変数をコピー
+                    ASTNode* var_copy = new ASTNode(ASTNodeType::AST_VARIABLE);
+                    var_copy->name = static_cast<ASTNode*>(left_expr->left.get())->name;
+                    array_ref_copy->left = std::unique_ptr<ASTNode>(var_copy);
+                    
+                    // インデックスをコピー (簡単なケースのみサポート)
+                    ASTNode* index_copy = nullptr;
+                    if (left_expr->array_index->node_type == ASTNodeType::AST_NUMBER) {
+                        index_copy = new ASTNode(ASTNodeType::AST_NUMBER);
+                        index_copy->int_value = left_expr->array_index->int_value;
+                    } else if (left_expr->array_index->node_type == ASTNodeType::AST_VARIABLE) {
+                        index_copy = new ASTNode(ASTNodeType::AST_VARIABLE);
+                        index_copy->name = left_expr->array_index->name;
+                    }
+                    array_ref_copy->array_index = std::unique_ptr<ASTNode>(index_copy);
+                    
+                    ASTNode* binop = new ASTNode(ASTNodeType::AST_BINARY_OP);
+                    binop->op = binary_op;
+                    binop->left = std::unique_ptr<ASTNode>(array_ref_copy);
+                    binop->right = std::unique_ptr<ASTNode>(value_expr);
+                    
+                    assignment->left = std::unique_ptr<ASTNode>(left_expr);
+                    assignment->right = std::unique_ptr<ASTNode>(binop);
+                } else {
+                    // 通常の代入
+                    assignment->left = std::unique_ptr<ASTNode>(left_expr);
+                    assignment->right = std::unique_ptr<ASTNode>(value_expr);
+                }
+                
+                consume(TokenType::TOK_SEMICOLON, "Expected ';'");
+                return assignment;
+            } else {
+                error("Expected assignment operator after array access");
+                return nullptr;
+            }
+        } else if (check(TokenType::TOK_ASSIGN) || check(TokenType::TOK_PLUS_ASSIGN) || 
+                   check(TokenType::TOK_MINUS_ASSIGN) || check(TokenType::TOK_MUL_ASSIGN) ||
+                   check(TokenType::TOK_DIV_ASSIGN) || check(TokenType::TOK_MOD_ASSIGN) ||
+                   check(TokenType::TOK_AND_ASSIGN) || check(TokenType::TOK_OR_ASSIGN) ||
+                   check(TokenType::TOK_XOR_ASSIGN) || check(TokenType::TOK_LSHIFT_ASSIGN) ||
+                   check(TokenType::TOK_RSHIFT_ASSIGN)) {
+            // 通常の代入と複合代入: identifier = value or identifier += value
+            TokenType op_type = current_token_.type;
+            std::string op_value = current_token_.value;
+            advance(); // consume assignment operator
             
-            // 代入ノードを作成
-            ASTNode* assignment = new ASTNode(ASTNodeType::AST_ASSIGN);
-            assignment->left = std::unique_ptr<ASTNode>(left_expr);
-            assignment->right = std::unique_ptr<ASTNode>(value_expr);
-            
-            return assignment;
-        } else if (check(TokenType::TOK_ASSIGN)) {
-            // 通常の代入: identifier = value
-            consume(TokenType::TOK_ASSIGN, "Expected '='");
-            
-            // 配列リテラルかどうかをチェック
-            if (check(TokenType::TOK_LBRACKET)) {
+            // 配列リテラルかどうかをチェック (通常の代入の場合のみ)
+            if (op_type == TokenType::TOK_ASSIGN && check(TokenType::TOK_LBRACKET)) {
                 // 配列リテラル代入: identifier = [val1, val2, ...]
                 advance(); // consume '['
                 
@@ -655,14 +731,52 @@ ASTNode* RecursiveParser::parseStatement() {
                 assignment->right = std::unique_ptr<ASTNode>(array_literal);
                 return assignment;
             } else {
-                // 通常の式
-                ASTNode* expr = parseExpression();
-                consume(TokenType::TOK_SEMICOLON, "Expected ';'");
-                
-                ASTNode* assignment = new ASTNode(ASTNodeType::AST_ASSIGN);
-                assignment->name = name;
-                assignment->right = std::unique_ptr<ASTNode>(expr);
-                return assignment;
+                // 複合代入または通常の式
+                if (op_type != TokenType::TOK_ASSIGN) {
+                    // 複合代入: a += b を a = a + b に変換
+                    std::string binary_op;
+                    switch (op_type) {
+                        case TokenType::TOK_PLUS_ASSIGN: binary_op = "+"; break;
+                        case TokenType::TOK_MINUS_ASSIGN: binary_op = "-"; break;
+                        case TokenType::TOK_MUL_ASSIGN: binary_op = "*"; break;
+                        case TokenType::TOK_DIV_ASSIGN: binary_op = "/"; break;
+                        case TokenType::TOK_MOD_ASSIGN: binary_op = "%"; break;
+                        case TokenType::TOK_AND_ASSIGN: binary_op = "&"; break;
+                        case TokenType::TOK_OR_ASSIGN: binary_op = "|"; break;
+                        case TokenType::TOK_XOR_ASSIGN: binary_op = "^"; break;
+                        case TokenType::TOK_LSHIFT_ASSIGN: binary_op = "<<"; break;
+                        case TokenType::TOK_RSHIFT_ASSIGN: binary_op = ">>"; break;
+                        default: break;
+                    }
+                    
+                    // 右辺の式を解析
+                    ASTNode* right_expr = parseExpression();
+                    
+                    // a = a op right_expr の形に変換
+                    ASTNode* var_ref = new ASTNode(ASTNodeType::AST_VARIABLE);
+                    var_ref->name = name;
+                    
+                    ASTNode* binop = new ASTNode(ASTNodeType::AST_BINARY_OP);
+                    binop->op = binary_op;
+                    binop->left = std::unique_ptr<ASTNode>(var_ref);
+                    binop->right = std::unique_ptr<ASTNode>(right_expr);
+                    
+                    ASTNode* assignment = new ASTNode(ASTNodeType::AST_ASSIGN);
+                    assignment->name = name;
+                    assignment->right = std::unique_ptr<ASTNode>(binop);
+                    
+                    consume(TokenType::TOK_SEMICOLON, "Expected ';'");
+                    return assignment;
+                } else {
+                    // 通常の式 (identifier = expression)
+                    ASTNode* expr = parseExpression();
+                    consume(TokenType::TOK_SEMICOLON, "Expected ';'");
+                    
+                    ASTNode* assignment = new ASTNode(ASTNodeType::AST_ASSIGN);
+                    assignment->name = name;
+                    assignment->right = std::unique_ptr<ASTNode>(expr);
+                    return assignment;
+                }
             }
         } else {
             // 関数呼び出しなど他の式（identifierを戻す必要があるが、
@@ -692,6 +806,18 @@ ASTNode* RecursiveParser::parseStatement() {
                 consume(TokenType::TOK_SEMICOLON, "Expected ';'");
                 
                 return func_call;
+            }
+            // 後置インクリメント/デクリメントのチェック
+            else if (check(TokenType::TOK_INCR) || check(TokenType::TOK_DECR)) {
+                TokenType op_type = current_token_.type;
+                advance(); // consume '++' or '--'
+                
+                ASTNode* postfix_node = new ASTNode(ASTNodeType::AST_POST_INCDEC);
+                postfix_node->op = (op_type == TokenType::TOK_INCR) ? "++" : "--";
+                postfix_node->left = std::unique_ptr<ASTNode>(identifier_node);
+                
+                consume(TokenType::TOK_SEMICOLON, "Expected ';'");
+                return postfix_node;
             } else {
                 // その他の単純な識別子式
                 consume(TokenType::TOK_SEMICOLON, "Expected ';'");
@@ -832,7 +958,7 @@ std::string RecursiveParser::parseType() {
         base_type = "char";
     } else if (check(TokenType::TOK_IDENTIFIER)) {
         // typedef aliasの可能性
-        std::string identifier = peek().value;
+        std::string identifier = current_token_.value;
         if (typedef_map_.find(identifier) != typedef_map_.end()) {
             // typedef aliasが見つかった場合、再帰的に型を解決
             advance(); // consume identifier
@@ -869,30 +995,138 @@ ASTNode* RecursiveParser::parseExpression() {
 }
 
 ASTNode* RecursiveParser::parseAssignment() {
-    ASTNode* left = parseLogicalOr();
+    ASTNode* left = parseTernary();
     
-    if (check(TokenType::TOK_ASSIGN)) {
-        advance(); // consume '='
+    // 通常の代入と複合代入演算子をチェック
+    if (check(TokenType::TOK_ASSIGN) || check(TokenType::TOK_PLUS_ASSIGN) || 
+        check(TokenType::TOK_MINUS_ASSIGN) || check(TokenType::TOK_MUL_ASSIGN) ||
+        check(TokenType::TOK_DIV_ASSIGN) || check(TokenType::TOK_MOD_ASSIGN) ||
+        check(TokenType::TOK_AND_ASSIGN) || check(TokenType::TOK_OR_ASSIGN) ||
+        check(TokenType::TOK_XOR_ASSIGN) || check(TokenType::TOK_LSHIFT_ASSIGN) ||
+        check(TokenType::TOK_RSHIFT_ASSIGN)) {
+        
+        TokenType op_type = current_token_.type;
+        std::string op_value = current_token_.value;
+        advance(); // consume assignment operator
+        
         ASTNode* right = parseAssignment(); // Right associative
         
         ASTNode* assign = new ASTNode(ASTNodeType::AST_ASSIGN);
         
         // leftが変数か配列参照でない場合はエラー
         if (left->node_type == ASTNodeType::AST_VARIABLE) {
-            assign->name = left->name;
+            // 複合代入の場合、a += b を a = a + b に変換
+            if (op_type != TokenType::TOK_ASSIGN) {
+                std::string binary_op;
+                switch (op_type) {
+                    case TokenType::TOK_PLUS_ASSIGN: binary_op = "+"; break;
+                    case TokenType::TOK_MINUS_ASSIGN: binary_op = "-"; break;
+                    case TokenType::TOK_MUL_ASSIGN: binary_op = "*"; break;
+                    case TokenType::TOK_DIV_ASSIGN: binary_op = "/"; break;
+                    case TokenType::TOK_MOD_ASSIGN: binary_op = "%"; break;
+                    case TokenType::TOK_AND_ASSIGN: binary_op = "&"; break;
+                    case TokenType::TOK_OR_ASSIGN: binary_op = "|"; break;
+                    case TokenType::TOK_XOR_ASSIGN: binary_op = "^"; break;
+                    case TokenType::TOK_LSHIFT_ASSIGN: binary_op = "<<"; break;
+                    case TokenType::TOK_RSHIFT_ASSIGN: binary_op = ">>"; break;
+                    default: break;
+                }
+                
+                // a = a op b の形に変換
+                ASTNode* var_ref = new ASTNode(ASTNodeType::AST_VARIABLE);
+                var_ref->name = left->name;
+                
+                ASTNode* binop = new ASTNode(ASTNodeType::AST_BINARY_OP);
+                binop->op = binary_op;
+                binop->left = std::unique_ptr<ASTNode>(var_ref);
+                binop->right = std::unique_ptr<ASTNode>(right);
+                
+                assign->name = left->name;
+                assign->right = std::unique_ptr<ASTNode>(binop);
+            } else {
+                assign->name = left->name;
+                assign->right = std::unique_ptr<ASTNode>(right);
+            }
             delete left; // leftノードはもう不要
         } else if (left->node_type == ASTNodeType::AST_ARRAY_REF) {
-            assign->left = std::unique_ptr<ASTNode>(left);
+            // 配列要素への複合代入の場合
+            if (op_type != TokenType::TOK_ASSIGN) {
+                std::string binary_op;
+                switch (op_type) {
+                    case TokenType::TOK_PLUS_ASSIGN: binary_op = "+"; break;
+                    case TokenType::TOK_MINUS_ASSIGN: binary_op = "-"; break;
+                    case TokenType::TOK_MUL_ASSIGN: binary_op = "*"; break;
+                    case TokenType::TOK_DIV_ASSIGN: binary_op = "/"; break;
+                    case TokenType::TOK_MOD_ASSIGN: binary_op = "%"; break;
+                    case TokenType::TOK_AND_ASSIGN: binary_op = "&"; break;
+                    case TokenType::TOK_OR_ASSIGN: binary_op = "|"; break;
+                    case TokenType::TOK_XOR_ASSIGN: binary_op = "^"; break;
+                    case TokenType::TOK_LSHIFT_ASSIGN: binary_op = "<<"; break;
+                    case TokenType::TOK_RSHIFT_ASSIGN: binary_op = ">>"; break;
+                    default: break;
+                }
+                
+                // arr[i] = arr[i] op b の形に変換
+                ASTNode* array_ref_copy = new ASTNode(ASTNodeType::AST_ARRAY_REF);
+                // 配列参照をコピー（左辺と右辺で同じものを参照）
+                ASTNode* var_copy = new ASTNode(ASTNodeType::AST_VARIABLE);
+                var_copy->name = static_cast<ASTNode*>(left->left.get())->name;
+                array_ref_copy->left = std::unique_ptr<ASTNode>(var_copy);
+                
+                // インデックス式をディープコピー
+                ASTNode* index_copy = nullptr;
+                if (left->array_index) {
+                    // 簡単なケースのみサポート（変数やリテラル）
+                    if (left->array_index->node_type == ASTNodeType::AST_VARIABLE) {
+                        index_copy = new ASTNode(ASTNodeType::AST_VARIABLE);
+                        index_copy->name = left->array_index->name;
+                    } else if (left->array_index->node_type == ASTNodeType::AST_NUMBER) {
+                        index_copy = new ASTNode(ASTNodeType::AST_NUMBER);
+                        index_copy->int_value = left->array_index->int_value;
+                    }
+                }
+                array_ref_copy->array_index = std::unique_ptr<ASTNode>(index_copy);
+                
+                ASTNode* binop = new ASTNode(ASTNodeType::AST_BINARY_OP);
+                binop->op = binary_op;
+                binop->left = std::unique_ptr<ASTNode>(array_ref_copy);
+                binop->right = std::unique_ptr<ASTNode>(right);
+                
+                assign->left = std::unique_ptr<ASTNode>(left);
+                assign->right = std::unique_ptr<ASTNode>(binop);
+            } else {
+                assign->left = std::unique_ptr<ASTNode>(left);
+                assign->right = std::unique_ptr<ASTNode>(right);
+            }
         } else {
             error("Invalid assignment target");
             return nullptr;
         }
         
-        assign->right = std::unique_ptr<ASTNode>(right);
         return assign;
     }
     
     return left;
+}
+
+ASTNode* RecursiveParser::parseTernary() {
+    ASTNode* condition = parseLogicalOr();
+    
+    if (check(TokenType::TOK_QUESTION)) {
+        advance(); // consume '?'
+        ASTNode* true_expr = parseExpression();
+        consume(TokenType::TOK_COLON, "Expected ':' in ternary expression");
+        ASTNode* false_expr = parseTernary();
+        
+        ASTNode* ternary = new ASTNode(ASTNodeType::AST_TERNARY_OP);
+        ternary->left = std::unique_ptr<ASTNode>(condition);
+        ternary->right = std::unique_ptr<ASTNode>(true_expr);
+        ternary->third = std::unique_ptr<ASTNode>(false_expr);
+        
+        return ternary;
+    }
+    
+    return condition;
 }
 
 ASTNode* RecursiveParser::parseLogicalOr() {
@@ -914,9 +1148,63 @@ ASTNode* RecursiveParser::parseLogicalOr() {
 }
 
 ASTNode* RecursiveParser::parseLogicalAnd() {
-    ASTNode* left = parseComparison();
+    ASTNode* left = parseBitwiseOr();
     
     while (check(TokenType::TOK_AND)) {
+        Token op = advance();
+        ASTNode* right = parseBitwiseOr();
+        
+        ASTNode* binary = new ASTNode(ASTNodeType::AST_BINARY_OP);
+        binary->op = op.value;
+        binary->left = std::unique_ptr<ASTNode>(left);
+        binary->right = std::unique_ptr<ASTNode>(right);
+        
+        left = binary;
+    }
+    
+    return left;
+}
+
+ASTNode* RecursiveParser::parseBitwiseOr() {
+    ASTNode* left = parseBitwiseXor();
+    
+    while (check(TokenType::TOK_BIT_OR)) {
+        Token op = advance();
+        ASTNode* right = parseBitwiseXor();
+        
+        ASTNode* binary = new ASTNode(ASTNodeType::AST_BINARY_OP);
+        binary->op = op.value;
+        binary->left = std::unique_ptr<ASTNode>(left);
+        binary->right = std::unique_ptr<ASTNode>(right);
+        
+        left = binary;
+    }
+    
+    return left;
+}
+
+ASTNode* RecursiveParser::parseBitwiseXor() {
+    ASTNode* left = parseBitwiseAnd();
+    
+    while (check(TokenType::TOK_BIT_XOR)) {
+        Token op = advance();
+        ASTNode* right = parseBitwiseAnd();
+        
+        ASTNode* binary = new ASTNode(ASTNodeType::AST_BINARY_OP);
+        binary->op = op.value;
+        binary->left = std::unique_ptr<ASTNode>(left);
+        binary->right = std::unique_ptr<ASTNode>(right);
+        
+        left = binary;
+    }
+    
+    return left;
+}
+
+ASTNode* RecursiveParser::parseBitwiseAnd() {
+    ASTNode* left = parseComparison();
+    
+    while (check(TokenType::TOK_BIT_AND)) {
         Token op = advance();
         ASTNode* right = parseComparison();
         
@@ -932,11 +1220,29 @@ ASTNode* RecursiveParser::parseLogicalAnd() {
 }
 
 ASTNode* RecursiveParser::parseComparison() {
-    ASTNode* left = parseAdditive();
+    ASTNode* left = parseShift();
     
     while (check(TokenType::TOK_EQ) || check(TokenType::TOK_NE) || 
            check(TokenType::TOK_LT) || check(TokenType::TOK_LE) ||
            check(TokenType::TOK_GT) || check(TokenType::TOK_GE)) {
+        Token op = advance();
+        ASTNode* right = parseShift();
+        
+        ASTNode* binary = new ASTNode(ASTNodeType::AST_BINARY_OP);
+        binary->op = op.value;
+        binary->left = std::unique_ptr<ASTNode>(left);
+        binary->right = std::unique_ptr<ASTNode>(right);
+        
+        left = binary;
+    }
+    
+    return left;
+}
+
+ASTNode* RecursiveParser::parseShift() {
+    ASTNode* left = parseAdditive();
+    
+    while (check(TokenType::TOK_LEFT_SHIFT) || check(TokenType::TOK_RIGHT_SHIFT)) {
         Token op = advance();
         ASTNode* right = parseAdditive();
         
@@ -988,9 +1294,10 @@ ASTNode* RecursiveParser::parseMultiplicative() {
 }
 
 ASTNode* RecursiveParser::parseUnary() {
-    // Prefix operators: !, -, ++, --
+    // Prefix operators: !, -, ++, --, ~
     if (check(TokenType::TOK_NOT) || check(TokenType::TOK_MINUS) || 
-        check(TokenType::TOK_INCR) || check(TokenType::TOK_DECR)) {
+        check(TokenType::TOK_INCR) || check(TokenType::TOK_DECR) || 
+        check(TokenType::TOK_BIT_NOT)) {
         Token op = advance();
         ASTNode* operand = parseUnary();
         

@@ -1,0 +1,41 @@
+// ビット演算の複合代入演算子のテスト
+main() {
+    int flags, mask, value;
+    
+    // ビットAND代入
+    flags = 15;  // 1111
+    mask = 10;   // 1010
+    flags &= mask;
+    println(flags);  // 10 (1010)
+    
+    // ビットOR代入
+    flags = 12;  // 1100
+    mask = 3;    // 0011
+    flags |= mask;
+    println(flags);  // 15 (1111)
+    
+    // ビットXOR代入
+    flags = 12;  // 1100
+    mask = 10;   // 1010
+    flags ^= mask;
+    println(flags);  // 6 (0110)
+    
+    // 左シフト代入
+    value = 5;   // 0101
+    value <<= 2;
+    println(value);  // 20 (10100)
+    
+    // 右シフト代入
+    value = 20;  // 10100
+    value >>= 2;
+    println(value);  // 5 (0101)
+    
+    // フラグ操作の実例
+    int status = 0;
+    status |= 4;   // フラグ4をON
+    status |= 1;   // フラグ1をON
+    println(status);  // 5
+    
+    status &= ~4;  // フラグ4をOFF
+    println(status);  // 1
+}

@@ -186,6 +186,17 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
             result = (left && right) ? 1 : 0;
         else if (node->op == "||")
             result = (left || right) ? 1 : 0;
+        // ビット演算子
+        else if (node->op == "&")
+            result = left & right;
+        else if (node->op == "|")
+            result = left | right;
+        else if (node->op == "^")
+            result = left ^ right;
+        else if (node->op == "<<")
+            result = left << right;
+        else if (node->op == ">>")
+            result = left >> right;
         else {
             error_msg(DebugMsgId::UNKNOWN_BINARY_OP_ERROR, node->op.c_str());
             throw std::runtime_error("Unknown binary operator: " + node->op);
@@ -193,6 +204,17 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
 
         debug_msg(DebugMsgId::BINARY_OP_RESULT_DEBUG, result);
         return result;
+    }
+
+    case ASTNodeType::AST_TERNARY_OP: {
+        // 三項演算子: condition ? true_expr : false_expr
+        int64_t condition = evaluate_expression(node->left.get());
+        
+        if (condition) {
+            return evaluate_expression(node->right.get());
+        } else {
+            return evaluate_expression(node->third.get());
+        }
     }
 
     case ASTNodeType::AST_UNARY_OP: {
@@ -251,6 +273,8 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
             return -operand;
         } else if (node->op == "!") {
             return operand ? 0 : 1;
+        } else if (node->op == "~") {
+            return ~operand;
         } else {
             error_msg(DebugMsgId::UNKNOWN_UNARY_OP_ERROR, node->op.c_str());
             throw std::runtime_error("Unknown unary operator: " + node->op);
@@ -302,6 +326,10 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
         
         // 新しいスコープを作成
         interpreter_.push_scope();
+        
+        // 現在の関数名を設定
+        std::string prev_function_name = interpreter_.current_function_name;
+        interpreter_.current_function_name = node->name;
         
         try {
             // パラメータの評価と設定
@@ -417,28 +445,34 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                 }
                 // void関数は0を返す
                 interpreter_.pop_scope();
+                interpreter_.current_function_name = prev_function_name;
                 return 0;
             } catch (const ReturnException &ret) {
                 // return文で戻り値がある場合
                 if (ret.is_array) {
                     // 配列戻り値の場合は例外を再度投げる
                     interpreter_.pop_scope();
+                    interpreter_.current_function_name = prev_function_name;
                     throw ret;
                 }
                 // 文字列戻り値の場合は例外を再度投げる
                 if (ret.type == TYPE_STRING) {
                     interpreter_.pop_scope();
+                    interpreter_.current_function_name = prev_function_name;
                     throw ret;
                 }
                 // 通常の戻り値の場合
                 interpreter_.pop_scope();
+                interpreter_.current_function_name = prev_function_name;
                 return ret.value;
             }
         } catch (const ReturnException &ret) {
             // 再投げされたReturnExceptionを処理
+            interpreter_.current_function_name = prev_function_name;
             throw ret;
         } catch (...) {
             interpreter_.pop_scope();
+            interpreter_.current_function_name = prev_function_name;
             throw;
         }
     }
@@ -523,7 +557,15 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
             interpreter_.assign_array_element(var_name, static_cast<int>(index_value), right_value);
         } else {
             // 通常の変数への代入
-            interpreter_.assign_variable(node->name, right_value, node->type_info);
+            std::string var_name;
+            if (!node->name.empty()) {
+                var_name = node->name;
+            } else if (node->left && node->left->node_type == ASTNodeType::AST_VARIABLE) {
+                var_name = node->left->name;
+            } else {
+                throw std::runtime_error("Invalid assignment target in evaluator");
+            }
+            interpreter_.assign_variable(var_name, right_value, node->type_info);
         }
         
         return right_value;

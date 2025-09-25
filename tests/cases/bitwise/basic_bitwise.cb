@@ -1,0 +1,37 @@
+// ビット演算子の基本テスト
+main() {
+    int a, b, result;
+    
+    // ビット AND
+    a = 12;  // 1100
+    b = 10;  // 1010
+    result = a & b;  // 1000 = 8
+    println(result);
+    
+    // ビット OR
+    a = 12;  // 1100
+    b = 10;  // 1010
+    result = a | b;  // 1110 = 14
+    println(result);
+    
+    // ビット XOR
+    a = 12;  // 1100
+    b = 10;  // 1010
+    result = a ^ b;  // 0110 = 6
+    println(result);
+    
+    // ビット NOT
+    a = 5;   // ...00000101
+    result = ~a;  // ...11111010 = -6 (2の補数表現)
+    println(result);
+    
+    // 左シフト
+    a = 5;   // 101
+    result = a << 2;  // 10100 = 20
+    println(result);
+    
+    // 右シフト
+    a = 20;  // 10100
+    result = a >> 2;  // 101 = 5
+    println(result);
+}

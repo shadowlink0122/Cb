@@ -1,0 +1,21 @@
+// static変数での複数値操作のテスト
+void multi_static(){
+    static int val0 = 1;
+    static int val1 = 2;
+    static int val2 = 3;
+    
+    println(val0);
+    println(val1);
+    println(val2);
+    
+    val0 += 10;
+    val1 += 10;
+    val2 += 10;
+}
+
+int main(){
+    multi_static(); // 初回: 1, 2, 3
+    multi_static(); // 2回目: 11, 12, 13
+    multi_static(); // 3回目: 21, 22, 23
+    return 0;
+}

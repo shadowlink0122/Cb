@@ -1,0 +1,20 @@
+// 再帰関数でのstatic変数テスト
+int recursive_counter(int n){
+    static int call_count = 0;
+    call_count++;
+    
+    println(call_count);
+    println(n);
+    
+    if(n <= 1){
+        return n;
+    }
+    
+    return recursive_counter(n-1) + recursive_counter(n-2);
+}
+
+int main(){
+    int result = recursive_counter(4);
+    println(result);
+    return 0;
+}

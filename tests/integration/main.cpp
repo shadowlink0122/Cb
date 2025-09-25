@@ -8,8 +8,10 @@
 #include "array_return/test_array_return.hpp"
 #include "assign/test_assign.hpp"
 #include "basic/test_basic.hpp"
+#include "bitwise/test_bitwise.hpp"
 #include "bool_expr/test_bool_expr.hpp"
 #include "boundary/test_boundary.hpp"
+#include "compound_assign/test_compound_assign.hpp"
 #include "const_array/test_const_array.hpp"
 #include "const_variables/test_const_variables.hpp"
 #include "cross_type/test_cross_type.hpp"
@@ -33,7 +35,9 @@
 #include "sample_scenarios/test_sample_scenarios.hpp"
 #include "samples/test_actual_samples.hpp"
 #include "self_assign/test_self_assign.hpp"
+#include "static_variables/test_static_variables.hpp"
 #include "string/test_string.hpp"
+#include "ternary/test_ternary.hpp"
 #include "type/test_type.hpp"
 #include "typedef/test_typedef.hpp"
 
@@ -48,6 +52,7 @@ int main() {
         test_integration_arithmetic();
         test_integration_assign();
         test_integration_boundary();
+        test_integration_compound_assign();
         test_integration_const_array();
         test_integration_const_variables();
         test_integration_cross_type();
@@ -79,6 +84,13 @@ int main() {
         test_integration_type();
         test_integration_typedef();
         test_integration_dynamic_array_error();
+
+        // 新しく実装した演算子のテスト
+        test_integration_bitwise();
+        test_integration_ternary();
+
+        // static変数のテスト
+        test_integration_static_variables();
     } catch (const std::exception &e) {
         std::cerr << "[integration] test failed: " << e.what() << std::endl;
         fail = 1;

@@ -7,6 +7,26 @@
 #include <cstdlib>
 #include <fstream>
 #include <cassert>
+#include <sstream>
+
+// ユーティリティ関数: 文字列を行に分割
+inline std::vector<std::string> split_lines(const std::string& str) {
+    std::vector<std::string> lines;
+    std::stringstream ss(str);
+    std::string line;
+    
+    while (std::getline(ss, line)) {
+        // 行末の改行文字を削除
+        if (!line.empty() && line.back() == '\r') {
+            line.pop_back();
+        }
+        if (!line.empty()) { // 空行は除外
+            lines.push_back(line);
+        }
+    }
+    
+    return lines;
+}
 
 // テスト用のユーティリティ関数
 inline int run_command_and_capture(const std::string& command, std::string& output) {

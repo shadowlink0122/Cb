@@ -69,9 +69,14 @@ private:
     
     // Expression parsing
     ASTNode* parseAssignment();
+    ASTNode* parseTernary();        // 三項演算子 condition ? value1 : value2
     ASTNode* parseLogicalOr();
     ASTNode* parseLogicalAnd();
+    ASTNode* parseBitwiseOr();      // ビット OR |
+    ASTNode* parseBitwiseXor();     // ビット XOR ^
+    ASTNode* parseBitwiseAnd();     // ビット AND &
     ASTNode* parseComparison();
+    ASTNode* parseShift();          // ビットシフト << >>
     ASTNode* parseAdditive();
     ASTNode* parseMultiplicative();
     ASTNode* parseUnary();

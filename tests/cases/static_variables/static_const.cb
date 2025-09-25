@@ -1,0 +1,19 @@
+// static const変数のテスト
+int process(){
+    static const int MAX_VALUE = 100;
+    static int counter = 0;
+    
+    if(counter + 15 <= MAX_VALUE){
+        counter += 15;
+    }
+    
+    return counter;
+}
+
+int main(){
+    // static const値は変更できないが、static変数は変更可能
+    for(int i = 0; i < 8; i++){
+        println(process());
+    }
+    return 0;
+}

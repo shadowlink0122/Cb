@@ -1,0 +1,35 @@
+// 三項演算子の基本テスト
+main() {
+    int a, b, result;
+    
+    // 基本的な三項演算子
+    a = 10;
+    b = 20;
+    result = (a > b) ? a : b;  // aとbの最大値
+    println(result);  // 20
+    
+    result = (a < b) ? a : b;  // aとbの最小値
+    println(result);  // 10
+    
+    // 条件判定
+    int score = 85;
+    result = (score >= 60) ? 1 : 0;  // 合格判定
+    println(result);  // 1
+    
+    score = 45;
+    result = (score >= 60) ? 1 : 0;  // 不合格判定
+    println(result);  // 0
+    
+    // ネストした三項演算子
+    int x = 5;
+    result = (x > 10) ? 1 : (x > 0) ? 0 : -1;
+    println(result);  // 0
+    
+    x = 15;
+    result = (x > 10) ? 1 : (x > 0) ? 0 : -1;
+    println(result);  // 1
+    
+    x = -5;
+    result = (x > 10) ? 1 : (x > 0) ? 0 : -1;
+    println(result);  // -1
+}

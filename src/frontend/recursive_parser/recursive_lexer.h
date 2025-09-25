@@ -24,6 +24,30 @@ enum class TokenType {
     TOK_DECR,        // --
     TOK_ASSIGN,      // =
     
+    // Compound assignment operators
+    TOK_PLUS_ASSIGN,   // +=
+    TOK_MINUS_ASSIGN,  // -=
+    TOK_MUL_ASSIGN,    // *=
+    TOK_DIV_ASSIGN,    // /=
+    TOK_MOD_ASSIGN,    // %=
+    TOK_AND_ASSIGN,    // &=
+    TOK_OR_ASSIGN,     // |=
+    TOK_XOR_ASSIGN,    // ^=
+    TOK_LSHIFT_ASSIGN, // <<=
+    TOK_RSHIFT_ASSIGN, // >>=
+    
+    // Bitwise operators
+    TOK_BIT_AND,     // &
+    TOK_BIT_OR,      // |
+    TOK_BIT_XOR,     // ^
+    TOK_BIT_NOT,     // ~
+    TOK_LEFT_SHIFT,  // <<
+    TOK_RIGHT_SHIFT, // >>
+    
+    // Ternary operator
+    TOK_QUESTION,    // ?
+    TOK_COLON,       // :
+    
     // Punctuation
     TOK_SEMICOLON,   // ;
     TOK_COMMA,       // ,
@@ -64,6 +88,7 @@ enum class TokenType {
     TOK_PRINTF,
     TOK_TYPEDEF,
     TOK_CONST,
+    TOK_STATIC,
     
     // Special
     TOK_EOF,

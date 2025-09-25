@@ -156,6 +156,7 @@ class Interpreter : public EvaluatorInterface {
     std::unique_ptr<OutputManager> output_manager_;
     std::map<std::string, std::string>
         typedef_map; // typedef alias -> base type mapping
+    std::map<std::string, Variable> static_variables; // static変数の保存
 
     // Manager instances
     std::unique_ptr<VariableManager> variable_manager_;
@@ -237,6 +238,13 @@ class Interpreter : public EvaluatorInterface {
     // typedef処理
     std::string resolve_typedef(const std::string &type_name);
     TypeInfo string_to_type_info(const std::string &type_str);
+
+    // static変数処理
+    Variable *find_static_variable(const std::string &name);
+    void create_static_variable(const std::string &name, const ASTNode *node);
+
+    // 関数コンテキスト
+    std::string current_function_name; // 現在実行中の関数名
 
   private:
     void print_value(const ASTNode *expr);

@@ -53,6 +53,12 @@ Variable *VariableManager::find_variable(const std::string &name) {
         return &global_var_it->second;
     }
 
+    // static変数から検索
+    Variable *static_var = interpreter_->find_static_variable(name);
+    if (static_var) {
+        return static_var;
+    }
+
     // std::cerr << "DEBUG: Variable " << name << " not found anywhere" <<
     // std::endl;
 
@@ -710,6 +716,21 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                     interpreter_->type_manager_->check_type_range(
                         var.type, var.value, node->name);
                 }
+            }
+        }
+
+        // static変数の場合は特別処理
+        if (node->is_static) {
+            // static変数として登録
+            Variable *existing_static =
+                interpreter_->find_static_variable(node->name);
+            if (existing_static) {
+                // 既にstatic変数が存在する場合は何もしない（初期化は最初の1回のみ）
+                return;
+            } else {
+                // 新しいstatic変数を作成
+                interpreter_->create_static_variable(node->name, node);
+                return;
             }
         }
 

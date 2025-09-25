@@ -1,0 +1,29 @@
+// ビット演算子の複合テスト
+main() {
+    int flags, mask, result;
+    
+    // フラグ設定テスト
+    flags = 0;
+    flags = flags | 4;  // フラグ4をON (100)
+    flags = flags | 1;  // フラグ1をON (001)
+    println(flags);  // 5 (101)
+    
+    // フラグ確認テスト
+    mask = 4;
+    result = (flags & mask) != 0 ? 1 : 0;
+    println(result);  // 1 (フラグ4はON)
+    
+    mask = 2;
+    result = (flags & mask) != 0 ? 1 : 0;
+    println(result);  // 0 (フラグ2はOFF)
+    
+    // フラグクリアテスト
+    flags = flags & (~4);  // フラグ4をOFF
+    println(flags);  // 1 (001)
+    
+    // 複合演算
+    int x = 15;  // 1111
+    int y = 7;   // 0111
+    result = (x ^ y) & (x | y);
+    println(result);  // (1000) & (1111) = 1000 = 8
+}

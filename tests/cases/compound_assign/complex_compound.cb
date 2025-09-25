@@ -1,0 +1,39 @@
+// 複合代入演算子とその他の演算子の組み合わせテスト
+main() {
+    int a, b, c, result;
+    
+    // 複合代入と三項演算子の組み合わせ
+    a = 10;
+    b = 5;
+    a += (b > 3) ? 10 : 5;
+    println(a);  // 20
+    
+    // 複合代入と前置インクリメントの組み合わせ
+    c = 8;
+    result = 0;
+    c++;    // ++c の代わり
+    result += c;  // result = 0 + 9 = 9
+    println(result);  // 9
+    println(c);       // 9
+    
+    // 複合代入と後置インクリメントの組み合わせ
+    c = 8;
+    result = 0;
+    result += c;  // result = 0 + 8 = 8
+    c++;    // c++ の代わり  
+    println(result);  // 8
+    println(c);       // 9
+    
+    // ビット演算と複合代入の組み合わせ
+    int flags = 5;   // 0101
+    int mask = 3;    // 0011
+    flags &= (mask | 8);  // mask | 8 = 3 | 8 = 11 (1011), flags = 5 & 11 = 1 (0001)
+    println(flags);  // 1
+    
+    // 複雑な式での複合代入
+    a = 5;
+    b = 3;
+    c = 2;
+    a *= (b + c) * 2;  // a = 5 * (3 + 2) * 2 = 5 * 10 = 50
+    println(a);  // 50
+}

@@ -73,6 +73,7 @@ enum class ASTNodeType {
     // 演算子
     AST_BINARY_OP,
     AST_UNARY_OP,
+    AST_TERNARY_OP, // 三項演算子 condition ? value1 : value2
     AST_ASSIGN,
     AST_ARRAY_ASSIGN, // 配列代入 (arr1 = arr2)
 
@@ -169,6 +170,7 @@ struct ASTNode {
     // 子ノード
     std::unique_ptr<ASTNode> left;
     std::unique_ptr<ASTNode> right;
+    std::unique_ptr<ASTNode> third; // 三項演算子用の第三オペランド
     std::unique_ptr<ASTNode> condition;
     std::unique_ptr<ASTNode> init_expr;
     std::unique_ptr<ASTNode> update_expr;
