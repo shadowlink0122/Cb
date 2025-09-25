@@ -1,19 +1,19 @@
-#include "interpreter.h"
-#include "../common/ast.h"
-#include "../common/debug.h"
-#include "../common/utf8_utils.h"
-// DRY統合: 旧版ヘッダーから新版ヘッダーへ移行
-#include "interpreter/core/error_handler.h"
-#include "interpreter/evaluator/expression_evaluator.h"
-#include "interpreter/executor/statement_executor.h"
-#include "interpreter/managers/array_manager.h"     // 新版ArrayManager
-#include "interpreter/managers/common_operations.h" // 新版CommonOperations
-#include "interpreter/managers/type_manager.h"      // 新版TypeManager
-#include "interpreter/managers/variable_manager.h"  // 新版VariableManager
-#include "interpreter/output/output_manager.h"
-#include "interpreter/services/debug_service.h" // 統一デバッグサービス
-#include "interpreter/services/expression_service.h" // 統一式評価サービス
-#include "interpreter/services/variable_access_service.h" // 統一変数アクセスサービス
+#include "core/interpreter.h"
+#include "../../../common/ast.h"
+#include "../../../common/debug.h"
+#include "../../../common/utf8_utils.h"
+#include "managers/array_manager.h"
+#include "managers/common_operations.h"
+#include "services/debug_service.h" // DRY効率化: 統一デバッグサービス
+#include "services/array_processing_service.h" // DRY効率化: 統一配列処理サービス
+#include "core/error_handler.h"
+#include "evaluator/expression_evaluator.h"
+#include "executor/statement_executor.h" // ヘッダーから移動
+#include "services/expression_service.h"    // DRY効率化: 統一式評価サービス
+#include "output/output_manager.h" // ヘッダーから移動
+#include "managers/type_manager.h"
+#include "services/variable_access_service.h" // DRY効率化: 統一変数アクセスサービス
+#include "managers/variable_manager.h"
 #include <cstdlib>
 #include <iostream>
 #include <stdexcept>
@@ -41,6 +41,9 @@ Interpreter::Interpreter(bool debug)
 
     // DRY効率化: 統一式評価サービスを初期化
     expression_service_ = std::make_unique<ExpressionService>(this);
+
+    // DRY効率化: 統一配列処理サービスを初期化
+    array_processing_service_ = std::make_unique<ArrayProcessingService>(this, common_operations_.get());
 
     // 環境変数からデバッグモード設定
     const char *env_debug = std::getenv("CB_DEBUG_MODE");
@@ -100,9 +103,10 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
         default:
             break;
         }
-        // DRY統合: DebugServiceを使用した統一デバッグ出力
-        DEBUG_DEBUG(GENERAL,
-                    "register_global_declarations processing: %s (name: %s)",
+        debug_print("register_global_declarations processing: %s (name: %s)\n",
+                    node_type_name, node->name.c_str());
+        // DRY効率化: 統一デバッグサービスでの出力例（将来的に移行）
+        DEBUG_DEBUG(GENERAL, "Processing global declaration: %s (name: %s)",
                     node_type_name, node->name.c_str());
     }
 
@@ -136,7 +140,9 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
         // struct定義を登録
         {
             if (debug_mode) {
-                // DRY統合: DebugServiceを使用した統一デバッグ出力
+                debug_print("Registering struct definition: %s\n",
+                            node->name.c_str());
+                // DRY効率化: 統一デバッグサービス（併用期間）
                 DEBUG_DEBUG(STRUCT, "Registering struct definition: %s",
                             node->name.c_str());
             }
@@ -225,9 +231,8 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
                 var.is_assigned = false;
 
                 if (node->right) {
-                    // DRY統合: ExpressionServiceを使用した統一式評価
-                    int64_t value = expression_service_->evaluate_safe(
-                        node->right.get(), "変数初期化");
+                    int64_t value = expression_evaluator_->evaluate_expression(
+                        node->right.get());
                     if (var.type == TYPE_STRING) {
                         var.str_value = node->right->str_value;
                     } else {
@@ -317,14 +322,15 @@ void Interpreter::process(const ASTNode *ast) {
 }
 
 int64_t Interpreter::evaluate(const ASTNode *node) {
-    // DRY統合: ExpressionServiceを使用した統一式評価
-    return expression_service_->evaluate_safe(node, "evaluate()");
+    return expression_evaluator_->evaluate_expression(node);
 }
 
 // N次元配列リテラル処理の再帰関数
 void Interpreter::process_ndim_array_literal(const ASTNode *literal_node,
                                              Variable &var, TypeInfo elem_type,
                                              int &flat_index, int max_size) {
+    // NOTE: この実装はArrayManager::processMultidimensionalArrayLiteralと重複する機能
+    // 将来的にはArrayProcessingService経由での統一処理が推奨されます
     if (!literal_node ||
         literal_node->node_type != ASTNodeType::AST_ARRAY_LITERAL) {
         return;
@@ -352,9 +358,8 @@ void Interpreter::process_ndim_array_literal(const ASTNode *literal_node,
                     }
                 }
             } else {
-                // DRY統合: ExpressionServiceを使用した統一式評価
-                int64_t val = expression_service_->evaluate_safe(
-                    element.get(), "N次元配列リテラル要素");
+                int64_t val =
+                    expression_evaluator_->evaluate_expression(element.get());
                 var.multidim_array_values[flat_index] = val;
                 if (debug_mode) {
                     debug_msg(DebugMsgId::ARRAY_DECL_EVAL_DEBUG,
@@ -519,9 +524,8 @@ void Interpreter::execute_statement(const ASTNode *node) {
         break;
 
     case ASTNodeType::AST_IF_STMT: {
-        // DRY統合: ExpressionServiceを使用した統一条件式評価
-        int64_t cond = expression_service_->evaluate_condition(
-            node->condition.get(), "IF文条件");
+        int64_t cond =
+            expression_evaluator_->evaluate_expression(node->condition.get());
         if (cond) {
             execute_statement(node->left.get());
         } else if (node->right) {
@@ -532,9 +536,8 @@ void Interpreter::execute_statement(const ASTNode *node) {
     case ASTNodeType::AST_WHILE_STMT:
         try {
             while (true) {
-                // DRY統合: ExpressionServiceを使用した統一条件式評価
-                int64_t cond = expression_service_->evaluate_condition(
-                    node->condition.get(), "WHILE文条件");
+                int64_t cond = expression_evaluator_->evaluate_expression(
+                    node->condition.get());
                 if (!cond)
                     break;
                 try {
@@ -556,9 +559,8 @@ void Interpreter::execute_statement(const ASTNode *node) {
             }
             while (true) {
                 if (node->condition) {
-                    // DRY統合: ExpressionServiceを使用した統一条件式評価
-                    int64_t cond = expression_service_->evaluate_condition(
-                        node->condition.get(), "FOR文条件");
+                    int64_t cond = expression_evaluator_->evaluate_expression(
+                        node->condition.get());
                     if (!cond)
                         break;
                 }
@@ -983,29 +985,60 @@ void Interpreter::print_error_at_node(const std::string &message,
     print_error_with_ast_location(message, node);
 }
 
-// Priority 3: 旧版重複メソッド - ArrayProcessingServiceに統合済み
-/*
 int64_t Interpreter::getMultidimensionalArrayElement(
     Variable &var, const std::vector<int64_t> &indices) {
-    return array_manager_->getMultidimensionalArrayElement(var, indices);
+    // Priority 3: ArrayProcessingServiceを使用した統一アクセス
+    std::string var_name = find_variable_name(&var);
+    if (var_name.empty()) {
+        // 名前が見つからない場合は従来の方法にフォールバック
+        return array_manager_->getMultidimensionalArrayElement(var, indices);
+    }
+    return array_processing_service_->getArrayElement(var_name, indices, ArrayProcessingService::ArrayContext::MULTIDIMENSIONAL);
 }
 
 void Interpreter::setMultidimensionalArrayElement(
     Variable &var, const std::vector<int64_t> &indices, int64_t value) {
-    array_manager_->setMultidimensionalArrayElement(var, indices, value);
+    // Priority 3: ArrayProcessingServiceを使用した統一アクセス
+    std::string var_name = find_variable_name(&var);
+    if (var_name.empty()) {
+        // 名前が見つからない場合は従来の方法にフォールバック
+        array_manager_->setMultidimensionalArrayElement(var, indices, value);
+        return;
+    }
+    array_processing_service_->setArrayElement(var_name, indices, value, ArrayProcessingService::ArrayContext::MULTIDIMENSIONAL);
 }
 
 std::string Interpreter::getMultidimensionalStringArrayElement(
     Variable &var, const std::vector<int64_t> &indices) {
-    return array_manager_->getMultidimensionalStringArrayElement(var, indices);
+    // Priority 3: ArrayProcessingServiceを使用した統一アクセス
+    std::string var_name = find_variable_name(&var);
+    if (var_name.empty()) {
+        // 名前が見つからない場合は従来の方法にフォールバック
+        return array_manager_->getMultidimensionalStringArrayElement(var, indices);
+    }
+    return array_processing_service_->getStringArrayElement(var_name, indices, ArrayProcessingService::ArrayContext::MULTIDIMENSIONAL);
 }
 
 void Interpreter::setMultidimensionalStringArrayElement(
     Variable &var, const std::vector<int64_t> &indices,
     const std::string &value) {
-    array_manager_->setMultidimensionalStringArrayElement(var, indices, value);
+    // Priority 3: ArrayProcessingServiceを使用した統一アクセス
+    std::string var_name = find_variable_name(&var);
+    if (var_name.empty()) {
+        // 名前が見つからない場合は従来の方法にフォールバック
+        array_manager_->setMultidimensionalStringArrayElement(var, indices, value);
+        return;
+    }
+    array_processing_service_->setStringArrayElement(var_name, indices, value, ArrayProcessingService::ArrayContext::MULTIDIMENSIONAL);
 }
-*/
+
+// Priority 3: 変数ポインターから名前を取得するヘルパー
+std::string Interpreter::find_variable_name(const Variable* target_var) {
+    if (!target_var) return "";
+    
+    // VariableManagerから変数名を取得
+    return variable_manager_->find_variable_name(target_var);
+}
 
 void Interpreter::assign_array_literal(const std::string &name,
                                        const ASTNode *literal_node) {
@@ -1014,40 +1047,29 @@ void Interpreter::assign_array_literal(const std::string &name,
                   << std::endl;
     }
 
-    // 変数を検索
-    Variable *var = find_variable(name);
-    if (!var) {
-        if (debug_mode) {
-            std::cerr << "DEBUG: Variable '" << name
-                      << "' not found in assign_array_literal" << std::endl;
-        }
-        throw std::runtime_error("Variable '" + name + "' not found");
+    // 変数のコンテキストを判定
+    ArrayProcessingService::ArrayContext context;
+    if (variable_manager_->is_global_variable(name)) {
+        context = ArrayProcessingService::ArrayContext::GLOBAL_VARIABLE;
+    } else {
+        context = ArrayProcessingService::ArrayContext::LOCAL_VARIABLE;
     }
 
-    // 多次元配列の場合は従来の処理を使用
-    if (var->is_multidimensional) {
-        TypeInfo elem_type = var->array_type_info.base_type;
-        array_manager_->processMultidimensionalArrayLiteral(*var, literal_node,
-                                                            elem_type);
-        var->is_assigned = true;
-        return;
+    // ArrayProcessingServiceを使用して統一処理
+    auto result = array_processing_service_->processArrayLiteral(
+        name, literal_node, context);
+    
+    if (!result.success) {
+        if (debug_mode) {
+            std::cerr << "DEBUG: ArrayProcessingService failed for '" << name
+                      << "': " << result.error_message << std::endl;
+        }
+        throw std::runtime_error("Array assignment failed: " + result.error_message);
     }
-
-    // 1次元配列の場合は共通実装を使用
-    try {
-        auto result = common_operations_->parse_array_literal(literal_node);
-        common_operations_->assign_array_literal_to_variable(var, result);
-
-        if (debug_mode) {
-            std::cerr << "DEBUG: Successfully assigned array literal to '"
-                      << name << "' using common operations" << std::endl;
-        }
-    } catch (const std::exception &e) {
-        if (debug_mode) {
-            std::cerr << "DEBUG: Failed to assign array literal to '" << name
-                      << "': " << e.what() << std::endl;
-        }
-        throw;
+    
+    if (debug_mode) {
+        std::cerr << "DEBUG: Successfully assigned array literal to '"
+                  << name << "' using ArrayProcessingService" << std::endl;
     }
 }
 
@@ -1186,13 +1208,11 @@ std::string Interpreter::extract_array_element_name(const ASTNode *node) {
     return element_name;
 }
 
-// Priority 3: 旧版重複メソッド - ArrayProcessingServiceに統合済み
-/*
+// ArrayManagerへのアクセス
 int64_t Interpreter::getMultidimensionalArrayElement(
     const Variable &var, const std::vector<int64_t> &indices) {
     return array_manager_->getMultidimensionalArrayElement(var, indices);
 }
-*/
 
 // static変数の検索
 Variable *Interpreter::find_static_variable(const std::string &name) {

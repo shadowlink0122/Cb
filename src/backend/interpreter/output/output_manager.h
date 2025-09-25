@@ -1,17 +1,24 @@
 #pragma once
-#include "../../common/ast.h"
-#include "../../common/io_interface.h"
+#include "../../../common/ast.h"
+#include "../../../common/io_interface.h"
 #include <string>
+#include <memory> // スマートポインタ用
 
 // 前方宣言
 class Interpreter;
 struct Variable;
 class ReturnException;
+class ExpressionService; // DRY効率化: 式評価サービス
+class Interpreter;
+struct Variable;
+class ReturnException;
+// class ExpressionService; // DRY効率化: 式評価サービス（一時コメントアウト）
 
 // 出力管理クラス
 class OutputManager {
 public:
     OutputManager(Interpreter* interpreter);
+    // ~OutputManager(); // 一時コメントアウト
     
     // IOInterface設定（抽象化レイヤー）
     void set_io_interface(IOInterface* io) { io_interface_ = io; }
@@ -33,6 +40,7 @@ public:
 private:
     Interpreter* interpreter_;  // インタープリターへの参照
     IOInterface* io_interface_; // 出力抽象化レイヤー
+    ExpressionService* expression_service_; // DRY効率化: 統一式評価サービス（Interpreterから取得）
     
     // ヘルパーメソッド
     Variable* find_variable(const std::string& name);

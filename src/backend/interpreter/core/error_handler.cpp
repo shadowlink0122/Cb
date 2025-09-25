@@ -1,6 +1,6 @@
-#include "error_handler.h"
-#include "../common/ast.h"
-#include "../common/debug.h"
+#include "core/error_handler.h"
+#include "../../../common/ast.h"
+#include "../../../common/debug.h"
 #include <fstream>
 #include <iostream>
 #include <sstream>

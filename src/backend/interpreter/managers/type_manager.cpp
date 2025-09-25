@@ -1,6 +1,7 @@
-#include "type_manager.h"
-#include "../common/debug_messages.h"
-#include "interpreter.h"
+#include "managers/type_manager.h"
+#include "../../../common/debug_messages.h"
+#include "services/expression_service.h" // DRY効率化: 統一式評価サービス
+#include "core/interpreter.h"
 #include <stdexcept>
 
 void TypeManager::register_typedef(const std::string &name,
@@ -48,27 +49,31 @@ TypeInfo TypeManager::string_to_type_info(const std::string &type_str) {
 
 void TypeManager::check_type_range(TypeInfo type, int64_t value,
                                    const std::string &var_name) {
-    bool out_of_range = false;
+    // DRY効率化: 統一式評価サービスを使用した安全な型範囲チェック
+    interpreter_->get_expression_service()->evaluate_safe(
+        nullptr, "type_range_check_" + var_name, [&](const std::string &error) {
+            bool out_of_range = false;
 
-    switch (type) {
-    case TYPE_TINY:
-        out_of_range = (value < -128 || value > 127);
-        break;
-    case TYPE_SHORT:
-        out_of_range = (value < -32768 || value > 32767);
-        break;
-    case TYPE_INT:
-        out_of_range = (value < INT32_MIN || value > INT32_MAX);
-        break;
-    case TYPE_LONG:
-        // int64_tの範囲内なので常にOK
-        break;
-    default:
-        return; // 他の型はチェックしない
-    }
+            switch (type) {
+            case TYPE_TINY:
+                out_of_range = (value < -128 || value > 127);
+                break;
+            case TYPE_SHORT:
+                out_of_range = (value < -32768 || value > 32767);
+                break;
+            case TYPE_INT:
+                out_of_range = (value < INT32_MIN || value > INT32_MAX);
+                break;
+            case TYPE_LONG:
+                // int64_tの範囲内なので常にOK
+                break;
+            default:
+                return; // 他の型はチェックしない
+            }
 
-    if (out_of_range) {
-        error_msg(DebugMsgId::TYPE_RANGE_ERROR, var_name.c_str());
-        throw std::runtime_error("Value out of range for type");
-    }
+            if (out_of_range) {
+                error_msg(DebugMsgId::TYPE_RANGE_ERROR, var_name.c_str());
+                throw std::runtime_error("Value out of range for type");
+            }
+        });
 }

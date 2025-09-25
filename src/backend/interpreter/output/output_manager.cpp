@@ -1,9 +1,11 @@
-#include "output_manager.h"
-#include "../interpreter.h"
-#include "../../common/debug.h"
-#include "../../common/debug_messages.h"
-#include "../../common/utf8_utils.h"
-#include "../../common/io_interface.h"
+#include "output/output_manager.h"
+#include "core/interpreter.h"
+#include "services/expression_service.h" // DRY効率化: 統一式評価サービス
+// #include "services/expression_service.h" // DRY効率化: 循環依存解決まで一時コメントアウト
+#include "../../../common/debug.h"
+#include "../../../common/debug_messages.h"
+#include "../../../common/utf8_utils.h"
+#include "../../../common/io_interface.h"
 #include <cinttypes>
 #include <cstdio>
 #include <cctype>
@@ -12,14 +14,31 @@
 #include <stdexcept>
 
 OutputManager::OutputManager(Interpreter* interpreter) 
-    : interpreter_(interpreter), io_interface_(IOFactory::get_instance()) {}
+    : interpreter_(interpreter), 
+      io_interface_(IOFactory::get_instance()),
+      expression_service_(nullptr) { // DRY効率化: 初期化時にnullptr、後でInterpreterから取得
+}
+
+// OutputManager::~OutputManager() {
+//     // スマートポインタが自動的にリソース解放
+// }
 
 Variable* OutputManager::find_variable(const std::string& name) {
     return interpreter_->get_variable(name);
 }
 
 int64_t OutputManager::evaluate_expression(const ASTNode* node) {
-    return interpreter_->eval_expression(node);
+    // DRY効率化: 統一式評価サービスを遅延初期化して使用
+    if (!expression_service_) {
+        expression_service_ = interpreter_->get_expression_service();
+    }
+    
+    if (expression_service_) {
+        return expression_service_->evaluate_safe(node, "OutputManager");
+    } else {
+        // フォールバック: 従来方式
+        return interpreter_->eval_expression(node);
+    }
 }
 
 const ASTNode* OutputManager::find_function(const std::string& name) {
@@ -155,13 +174,22 @@ void OutputManager::print_value(const ASTNode *expr) {
         
         Variable *var = find_variable(var_name);
         if (var && var->is_array) {
-            // 配列アクセスの処理（文字列配列を含む）
-            int64_t index = evaluate_expression(expr->array_index.get());
-
-            if (index < 0 || index >= var->array_size) {
-                error_msg(DebugMsgId::ARRAY_OUT_OF_BOUNDS_ERROR,
-                          var_name.c_str());
-                throw std::runtime_error("Array out of bounds");
+            // DRY効率化: 境界チェック付き配列インデックス評価を統一サービスで処理
+            if (!expression_service_) {
+                expression_service_ = interpreter_->get_expression_service();
+            }
+            
+            int64_t index;
+            if (expression_service_) {
+                index = expression_service_->evaluate_array_index(
+                    expr->array_index.get(), var->array_size, var_name);
+            } else {
+                // フォールバック: 従来の境界チェック
+                index = evaluate_expression(expr->array_index.get());
+                if (index < 0 || index >= var->array_size) {
+                    error_msg(DebugMsgId::ARRAY_OUT_OF_BOUNDS_ERROR, var_name.c_str());
+                    throw std::runtime_error("Array out of bounds");
+                }
             }
 
             // 配列型を確認

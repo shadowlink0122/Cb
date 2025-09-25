@@ -1,9 +1,10 @@
-#include "expression_evaluator.h"
-#include "../interpreter.h"
-#include "../../common/debug_messages.h"
-#include "../../common/utf8_utils.h"
-#include "../error_handler.h"
-#include "../array_manager.h"
+#include "evaluator/expression_evaluator.h"
+#include "core/interpreter.h"
+#include "../../../common/debug_messages.h"
+#include "../../../common/utf8_utils.h"
+#include "core/error_handler.h"
+#include "managers/array_manager.h"
+#include "services/array_processing_service.h"
 #include <stdexcept>
 #include <iostream>
 

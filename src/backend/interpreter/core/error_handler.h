@@ -1,5 +1,5 @@
 #pragma once
-#include "../common/ast.h"
+#include "../../../common/ast.h"
 #include <functional>
 #include <memory>
 #include <stdexcept>

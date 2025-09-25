@@ -1,18 +1,12 @@
-#include "array_manager.h"
-#include "../backend/interpreter.h" // Variable の定義のため
-#include "../common/debug_messages.h"
-#include "../common/type_alias.h"
-#include "error_handler.h"
+#include "managers/array_manager.h"
+#include "core/interpreter.h" // Variable の定義のため
+#include "../../../common/debug_messages.h"
+#include "../../../common/type_alias.h"
+#include "core/error_handler.h"
 #include "evaluator/expression_evaluator.h"
-#include "expression_service.h" // DRY効率化: 統一式評価サービス
-#include "variable_manager.h"
+#include "services/expression_service.h" // DRY効率化: 統一式評価サービス
+#include "managers/variable_manager.h"
 #include <stdexcept>
-
-// ===============================================================================
-// 注意: このファイルは旧版ArrayManager実装です
-// 新版統合により段階的に機能を新版（src/backend/interpreter/managers/array_manager.*）に移行中
-// Priority 3で多次元配列アクセス機能は既にArrayProcessingServiceに統合済み
-// ===============================================================================
 
 void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
     if (!node) {
@@ -522,9 +516,6 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
 
 void ArrayManager::processMultidimensionalArrayLiteral(
     Variable &var, const ASTNode *literal_node, TypeInfo elem_type) {
-    // NOTE: この実装は src/backend/interpreter/managers/array_manager.cpp
-    // の実装と重複
-    // 統一化により将来的にはArrayProcessingService経由での処理が推奨されます
     if (!literal_node ||
         literal_node->node_type != ASTNodeType::AST_ARRAY_LITERAL) {
         throw std::runtime_error("Invalid array literal node");
@@ -586,9 +577,6 @@ void ArrayManager::processMultidimensionalArrayLiteral(
 void ArrayManager::processNDimensionalArrayLiteral(Variable &var,
                                                    const ASTNode *literal_node,
                                                    TypeInfo base_type) {
-    // NOTE: この実装は src/backend/interpreter/managers/array_manager.cpp
-    // の実装と重複
-    // 統一化により将来的にはArrayProcessingService経由での処理が推奨されます
     if (!literal_node ||
         literal_node->node_type != ASTNodeType::AST_ARRAY_LITERAL) {
         throw std::runtime_error(
@@ -670,8 +658,6 @@ void ArrayManager::processArrayLiteralRecursive(
     }
 }
 
-// Priority 3: 旧版重複メソッド - ArrayProcessingServiceに統合済み
-/*
 int64_t ArrayManager::getMultidimensionalArrayElement(
     const Variable &var, const std::vector<int64_t> &indices) {
     if (!var.is_multidimensional) {
@@ -768,7 +754,6 @@ void ArrayManager::setMultidimensionalStringArrayElement(
 
     var.multidim_array_strings[flat_index] = value;
 }
-*/
 
 void ArrayManager::initializeArray(Variable &var, TypeInfo base_type,
                                    const std::vector<int> &dimensions) {
@@ -858,6 +843,9 @@ void ArrayManager::validateArrayDimensions(const std::vector<int> &expected,
 }
 
 void ArrayManager::declare_array(const ASTNode *node) {
+    // NOTE: このメソッドはprocessArrayDeclarationと一部機能が重複しています。
+    // 将来的にはArrayProcessingServiceによる統一化が推奨されます。
+    // 現在はstruct配列処理等の特殊ケースのために維持されています。
     Variable var;
 
     debug_msg(DebugMsgId::ARRAY_DECL_START, node->name.c_str());

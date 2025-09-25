@@ -22,11 +22,13 @@ enum TypeInfo {
 
 // 配列次元情報を格納する構造体
 struct ArrayDimension {
-    int size;        // 配列サイズ（-1は動的サイズ）
-    bool is_dynamic; // 動的サイズかどうか
+    int size;              // 配列サイズ（-1は動的サイズ）
+    bool is_dynamic;       // 動的サイズかどうか
+    std::string size_expr; // サイズ式（定数識別子など）
 
-    ArrayDimension(int s = -1, bool dynamic = true)
-        : size(s), is_dynamic(dynamic) {}
+    ArrayDimension(int s = -1, bool dynamic = true,
+                   const std::string &expr = "")
+        : size(s), is_dynamic(dynamic), size_expr(expr) {}
 };
 
 // 配列型情報を格納する構造体

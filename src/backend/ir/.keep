@@ -1,0 +1,2 @@
+# This file ensures the ir/ directory is tracked in Git
+# This directory will contain intermediate representation (IR) related code

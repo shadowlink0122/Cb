@@ -24,7 +24,7 @@ int main() {
     for(tiny i = 0;i < SIZE; i++){
         sum += math.scores[i];
     }
-    int avg = sum / size;
+    int avg = sum / SIZE;
     println("Average score: %d", avg);
     
     // 期待される出力:

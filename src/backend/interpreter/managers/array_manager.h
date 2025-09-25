@@ -1,10 +1,12 @@
 #pragma once
-#include "../common/ast.h"
+#include "../../../common/ast.h"
 #include <vector>
 
 // 前方宣言
 class VariableManager;
 class ExpressionEvaluator;
+class ExpressionService; // DRY効率化: 統一式評価サービス
+class Interpreter;
 struct Variable;
 
 // 配列管理クラス
@@ -12,13 +14,20 @@ class ArrayManager {
   private:
     VariableManager *variable_manager_;
     ExpressionEvaluator *expression_evaluator_;
+    Interpreter *interpreter_; // DRY効率化: 統一サービスアクセス用
 
     // 配列リテラルから次元を抽出する関数
     std::vector<int> extractArrayDimensions(const ASTNode *literal_node);
 
+    // DRY効率化: 統一式評価メソッド
+    int64_t evaluate_expression_safe(const ASTNode *node,
+                                     const std::string &context = "");
+
   public:
-    ArrayManager(VariableManager *vm, ExpressionEvaluator *ee)
-        : variable_manager_(vm), expression_evaluator_(ee) {}
+    ArrayManager(VariableManager *vm, ExpressionEvaluator *ee,
+                 Interpreter *interpreter = nullptr)
+        : variable_manager_(vm), expression_evaluator_(ee),
+          interpreter_(interpreter) {}
     ~ArrayManager() = default;
 
     // 配列宣言処理

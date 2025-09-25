@@ -1,7 +1,5 @@
 #pragma once
-#include "../common/ast.h"
-#include "executor/statement_executor.h"
-#include "output/output_manager.h"
+#include "../../../common/ast.h"
 #include <iostream>
 #include <map>
 #include <string>
@@ -9,11 +7,17 @@
 
 // 前方宣言
 class OutputManager;
+class StatementExecutor;
 class VariableManager;
 class ArrayManager;
 class TypeManager;
 class ExpressionEvaluator;
 class StatementExecutor;
+class CommonOperations;
+class VariableAccessService; // DRY効率化: 統一変数アクセスサービス
+class ExpressionService;     // DRY効率化: 統一式評価サービス
+class ArrayProcessingService; // DRY効率化: 統一配列処理サービス
+class CommonOperations;
 
 // 変数・関数の格納構造
 struct Variable {
@@ -191,11 +195,19 @@ class Interpreter : public EvaluatorInterface {
     std::unique_ptr<TypeManager> type_manager_;
     std::unique_ptr<ExpressionEvaluator> expression_evaluator_;
     std::unique_ptr<StatementExecutor> statement_executor_;
+    std::unique_ptr<CommonOperations> common_operations_;
+    std::unique_ptr<VariableAccessService>
+        variable_access_service_; // DRY効率化: 統一変数アクセス
+    std::unique_ptr<ExpressionService>
+        expression_service_; // DRY効率化: 統一式評価
+    std::unique_ptr<ArrayProcessingService>
+        array_processing_service_; // DRY効率化: 統一配列処理
 
     // Grant access to managers
     friend class VariableManager;
     friend class ArrayManager;
     friend class TypeManager;
+    friend class ArrayProcessingService; // DRY効率化: 配列処理統合サービス
 
   public:
     Interpreter(bool debug = false);
@@ -229,6 +241,7 @@ class Interpreter : public EvaluatorInterface {
 
     // AST処理
     void register_global_declarations(const ASTNode *node);
+    void initialize_global_variables(const ASTNode *node);
     void execute_statement(const ASTNode *node);
     void exec_statement(const ASTNode *node) { execute_statement(node); }
     int64_t eval_expression(const ASTNode *node) { return evaluate(node); }
@@ -324,20 +337,48 @@ class Interpreter : public EvaluatorInterface {
 
     // デバッグ機能
     void set_debug_mode(bool debug) { debug_mode = debug; }
+    bool is_debug_mode() const { return debug_mode; }
+
+    // 共通操作へのアクセス
+    CommonOperations *get_common_operations() {
+        return common_operations_.get();
+    }
+
+    // ExpressionEvaluatorへのアクセス
+    ExpressionEvaluator *get_expression_evaluator() {
+        return expression_evaluator_.get();
+    }
+
+    // TypeManagerへのアクセス
+    TypeManager *get_type_manager() { return type_manager_.get(); }
 
     // N次元配列アクセス用のヘルパー関数
     std::string extract_array_name(const ASTNode *node);
     std::vector<int64_t> extract_array_indices(const ASTNode *node);
     std::string extract_array_element_name(const ASTNode *node);
+    
+    // Priority 3: 変数ポインターから名前を取得するヘルパー
+    std::string find_variable_name(const Variable* var);
 
     // ArrayManagerへのアクセス
     ArrayManager *get_array_manager() { return array_manager_.get(); }
+
+    // DRY効率化: サービスクラスへのアクセサ
+    ExpressionService *get_expression_service() {
+        return expression_service_.get();
+    }
+    VariableAccessService *get_variable_access_service() {
+        return variable_access_service_.get();
+    }
+    ArrayProcessingService *get_array_processing_service() {
+        return array_processing_service_.get();
+    }
 
     int64_t
     getMultidimensionalArrayElement(const Variable &var,
                                     const std::vector<int64_t> &indices);
 
-    // ArrayManagerへのアクセス
+    // Priority 3: 統一された配列要素アクセス (ArrayProcessingService経由)
     int64_t
     getMultidimensionalArrayElement(Variable &var,
                                     const std::vector<int64_t> &indices);
@@ -345,7 +386,7 @@ class Interpreter : public EvaluatorInterface {
                                          const std::vector<int64_t> &indices,
                                          int64_t value);
 
-    // 文字列配列アクセス
+    // Priority 3: 統一された文字列配列アクセス (ArrayProcessingService経由)
     std::string
     getMultidimensionalStringArrayElement(Variable &var,
                                           const std::vector<int64_t> &indices);

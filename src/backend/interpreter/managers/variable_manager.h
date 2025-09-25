@@ -1,6 +1,6 @@
 #pragma once
-#include "../common/ast.h"
-#include "interpreter.h"
+#include "../../../common/ast.h"
+#include "core/interpreter.h"
 #include <map>
 #include <string>
 #include <vector>
@@ -24,6 +24,7 @@ class VariableManager {
 
     // 変数検索
     Variable *find_variable(const std::string &name);
+    bool is_global_variable(const std::string &name);
 
     // 変数宣言
     void declare_global_variable(const ASTNode *node);
@@ -50,6 +51,9 @@ class VariableManager {
     // 配列名抽出関数（N次元配列対応）
     std::string extract_array_name(const ASTNode *node);
     std::vector<int64_t> extract_array_indices(const ASTNode *node);
+    
+    // Priority 3: 変数ポインターから名前を検索
+    std::string find_variable_name(const Variable* target_var);
 
     // Interpreterアクセス
     Interpreter *getInterpreter() { return interpreter_; }

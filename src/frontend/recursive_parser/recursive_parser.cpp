@@ -1,5 +1,5 @@
 #include "recursive_parser.h"
-#include "../../backend/error_handler.h"
+#include "../../backend/interpreter/core/error_handler.h"
 #include "../../common/debug.h"
 #include <iostream>
 #include <sstream>
@@ -2416,6 +2416,10 @@ ASTNode* RecursiveParser::parseTypedefVariableDeclaration() {
             if (!size.empty() && std::all_of(size.begin(), size.end(), ::isdigit)) {
                 int dim_size = std::stoi(size);
                 dimensions.push_back(ArrayDimension(dim_size, false));
+            } else if (!size.empty()) {
+                // 定数識別子の可能性があるので、解決を試みる
+                // 現在は動的配列として扱うが、後でランタイムで解決される
+                dimensions.push_back(ArrayDimension(-1, true, size));
             } else {
                 dimensions.push_back(ArrayDimension(-1, true));
             }
@@ -2518,17 +2522,21 @@ ASTNode* RecursiveParser::parseStructDeclaration() {
                 while (check(TokenType::TOK_LBRACKET)) {
                     advance(); // '[' をスキップ
                     
-                    if (!check(TokenType::TOK_NUMBER)) {
-                        error("Expected array size in struct member");
+                    if (check(TokenType::TOK_NUMBER)) {
+                        int array_size = std::stoi(current_token_.value);
+                        advance(); // サイズをスキップ
+                        dimensions.push_back(ArrayDimension(array_size, false));
+                    } else if (check(TokenType::TOK_IDENTIFIER)) {
+                        std::string size_expr = current_token_.value;
+                        advance(); // 識別子をスキップ
+                        // 定数識別子として扱い、後でランタイムで解決
+                        dimensions.push_back(ArrayDimension(-1, true, size_expr));
+                    } else {
+                        error("Expected array size or constant identifier in struct member");
                         return nullptr;
                     }
                     
-                    int array_size = std::stoi(current_token_.value);
-                    advance(); // サイズをスキップ
-                    
                     consume(TokenType::TOK_RBRACKET, "Expected ']' after array size");
-                    
-                    dimensions.push_back(ArrayDimension(array_size, false));
                 }
                 
                 // 多次元配列メンバを追加

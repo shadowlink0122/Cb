@@ -1,9 +1,10 @@
-#include "variable_manager.h"
-#include "../common/debug_messages.h"
-#include "array_manager.h"
+#include "managers/variable_manager.h"
+#include "../../../common/debug_messages.h"
+#include "managers/array_manager.h"
+#include "managers/common_operations.h"
 #include "evaluator/expression_evaluator.h"
-#include "interpreter.h"
-#include "type_manager.h"
+#include "core/interpreter.h"
+#include "managers/type_manager.h"
 
 void VariableManager::push_scope() {
     // std::cerr << "DEBUG: push_scope called, stack size: " <<
@@ -63,6 +64,12 @@ Variable *VariableManager::find_variable(const std::string &name) {
     // std::endl;
 
     return nullptr;
+}
+
+bool VariableManager::is_global_variable(const std::string &name) {
+    // グローバルスコープに存在するかチェック
+    auto global_var_it = interpreter_->global_scope.variables.find(name);
+    return (global_var_it != interpreter_->global_scope.variables.end());
 }
 
 void VariableManager::assign_variable(const std::string &name, int64_t value,
@@ -164,27 +171,19 @@ void VariableManager::assign_variable(const std::string &name,
 void VariableManager::assign_array_element(const std::string &name,
                                            int64_t index, int64_t value) {
     Variable *var = find_variable(name);
-    if (var && var->is_array) {
-        // const配列への書き込みチェック
-        if (var->is_const) {
-            std::cerr << "Error: Cannot assign to const array '" << name << "'"
-                      << std::endl;
-            throw std::runtime_error("Cannot assign to const array");
-        }
-
-        if (index < 0 || index >= var->array_size) {
-            error_msg(DebugMsgId::UNDEFINED_VAR_ERROR, name.c_str());
-            throw std::runtime_error("Array index out of bounds");
-        }
-
-        // 型チェック
-        TypeInfo elem_type = static_cast<TypeInfo>(var->type - TYPE_ARRAY_BASE);
-        interpreter_->check_type_range(elem_type, value, name);
-
-        var->array_values[index] = value;
-    } else {
+    if (!var) {
         error_msg(DebugMsgId::UNDEFINED_VAR_ERROR, name.c_str());
-        throw std::runtime_error("Variable not found or not an array");
+        throw std::runtime_error("Variable not found");
+    }
+
+    // 共通実装を使用
+    try {
+        interpreter_->get_common_operations()->assign_array_element_safe(
+            var, index, value, name);
+    } catch (const std::exception &e) {
+        error_msg(DebugMsgId::UNDEFINED_VAR_ERROR, name.c_str());
+        throw std::runtime_error("Array element assignment failed: " +
+                                 std::string(e.what()));
     }
 }
 
@@ -628,19 +627,75 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                         if (member.array_info.is_array()) {
                             member_var.is_array = true;
 
-                            // 多次元配列の総サイズを計算
+                            // 多次元配列の総サイズを計算（定数解決を含む）
                             int total_size = 1;
                             for (const auto &dim :
                                  member.array_info.dimensions) {
-                                total_size *= dim.size;
+                                int resolved_size = dim.size;
+
+                                // 動的サイズの場合は定数識別子を解決
+                                if (resolved_size == -1 && dim.is_dynamic &&
+                                    !dim.size_expr.empty()) {
+                                    Variable *const_var =
+                                        interpreter_->find_variable(
+                                            dim.size_expr);
+                                    if (const_var && const_var->is_assigned) {
+                                        // const変数または初期化済み変数を許可
+                                        resolved_size =
+                                            static_cast<int>(const_var->value);
+                                        if (interpreter_->debug_mode) {
+                                            debug_print(
+                                                "Resolved constant %s to %d "
+                                                "for struct member %s\n",
+                                                dim.size_expr.c_str(),
+                                                resolved_size,
+                                                member.name.c_str());
+                                        }
+                                    } else {
+                                        throw std::runtime_error(
+                                            "Cannot resolve constant '" +
+                                            dim.size_expr +
+                                            "' for struct member array size");
+                                    }
+                                }
+
+                                if (resolved_size <= 0) {
+                                    throw std::runtime_error(
+                                        "Invalid array size for struct "
+                                        "member " +
+                                        member.name);
+                                }
+
+                                total_size *= resolved_size;
                             }
                             member_var.array_size = total_size;
 
-                            // array_dimensionsを設定
+                            // array_dimensionsを設定（定数解決済み）
                             member_var.array_dimensions.clear();
                             for (const auto &dim :
                                  member.array_info.dimensions) {
-                                member_var.array_dimensions.push_back(dim.size);
+                                int resolved_size = dim.size;
+
+                                // 動的サイズの場合は定数識別子を解決
+                                if (resolved_size == -1 && dim.is_dynamic &&
+                                    !dim.size_expr.empty()) {
+                                    Variable *const_var =
+                                        interpreter_->find_variable(
+                                            dim.size_expr);
+                                    if (const_var && const_var->is_assigned) {
+                                        // const変数または初期化済み変数を許可
+                                        resolved_size =
+                                            static_cast<int>(const_var->value);
+                                    } else {
+                                        throw std::runtime_error(
+                                            "Cannot resolve constant '" +
+                                            dim.size_expr +
+                                            "' for struct member array size");
+                                    }
+                                }
+
+                                member_var.array_dimensions.push_back(
+                                    resolved_size);
                             }
 
                             if (interpreter_->debug_mode) {
@@ -1271,4 +1326,14 @@ VariableManager::extract_array_indices(const ASTNode *node) {
     }
 
     return indices;
+}
+
+// Priority 3: 変数ポインターから名前を検索
+std::string VariableManager::find_variable_name(const Variable* target_var) {
+    if (!target_var) return "";
+    
+    // 実装を簡素化：変数名の逆引きは複雑なので、
+    // フォールバック戦略として空文字列を返す
+    // これにより、呼び出し元は従来の方法にフォールバックする
+    return "";
 }

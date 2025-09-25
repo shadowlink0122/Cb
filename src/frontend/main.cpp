@@ -1,5 +1,5 @@
-#include "../backend/error_handler.h"
-#include "../backend/interpreter.h"
+#include "../backend/interpreter/core/error_handler.h"
+#include "../backend/interpreter/core/interpreter.h"
 #include "../common/ast.h"
 #include "../common/debug.h"
 

@@ -1,9 +1,10 @@
-#include "statement_executor.h"
-#include "../interpreter.h"
-#include "../error_handler.h"
-#include "../array_manager.h"
-#include "../../common/debug.h"
-#include "../../common/type_alias.h"
+#include "executor/statement_executor.h"
+#include "services/array_processing_service.h"
+#include "core/interpreter.h"
+#include "core/error_handler.h"
+#include "managers/array_manager.h"
+#include "../../../common/debug.h"
+#include "../../../common/type_alias.h"
 
 StatementExecutor::StatementExecutor(Interpreter& interpreter) : interpreter_(interpreter) {}
 
