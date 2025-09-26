@@ -45,6 +45,8 @@ private:
     ASTNode* parseTypedefDeclaration();
     ASTNode* parseStructDeclaration();           // struct宣言
     ASTNode* parseStructTypedefDeclaration();    // typedef struct宣言
+    ASTNode* parseEnumDeclaration();             // enum宣言
+    ASTNode* parseEnumTypedefDeclaration();      // typedef enum宣言
     ASTNode* parseVariableDeclaration();
     ASTNode* parseTypedefVariableDeclaration();
     ASTNode* parseFunctionDeclaration();
@@ -86,6 +88,7 @@ private:
     ASTNode* parsePrimary();
     ASTNode* parseMemberAccess(ASTNode* object);  // メンバアクセス (.member)
     ASTNode* parseStructLiteral();                // 構造体リテラル {a: 1, b: "str"}
+    ASTNode* parseEnumAccess();                   // enum値アクセス (EnumName::member)
     
     // Utility methods
     TypeInfo getTypeInfoFromString(const std::string& type_name);
@@ -93,4 +96,18 @@ private:
     
     // struct管理
     std::unordered_map<std::string, StructDefinition> struct_definitions_; // struct定義の保存
+    
+    // enum管理  
+    std::unordered_map<std::string, EnumDefinition> enum_definitions_; // enum定義の保存
+    
+public:
+    // enum定義へのアクセサ
+    const std::unordered_map<std::string, EnumDefinition>& get_enum_definitions() const {
+        return enum_definitions_;
+    }
+    
+    // struct定義へのアクセサ
+    const std::unordered_map<std::string, StructDefinition>& get_struct_definitions() const {
+        return struct_definitions_;
+    }
 };

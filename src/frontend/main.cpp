@@ -93,6 +93,13 @@ int main(int argc, char **argv) {
         }
 
         Interpreter interpreter(debug_mode);
+
+        // Parserからenum定義を同期
+        interpreter.sync_enum_definitions_from_parser(&parser);
+
+        // Parserからstruct定義を同期
+        interpreter.sync_struct_definitions_from_parser(&parser);
+
         interpreter.process(root);
 
         delete root;

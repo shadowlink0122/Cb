@@ -130,6 +130,11 @@ ASTNode* RecursiveParser::parseStatement() {
         return parseStructDeclaration();
     }
     
+    // enum宣言の処理
+    if (check(TokenType::TOK_ENUM)) {
+        return parseEnumDeclaration();
+    }
+    
     // typedef型変数宣言の処理
     if (check(TokenType::TOK_IDENTIFIER)) {
         std::string potential_type = current_token_.value;
@@ -1249,7 +1254,7 @@ std::string RecursiveParser::parseType() {
         advance();
         base_type = "struct " + struct_name;
     } else if (check(TokenType::TOK_IDENTIFIER)) {
-        // typedef aliasまたはstruct型名の可能性
+        // typedef aliasまたはstruct型名、enum型名の可能性
         std::string identifier = current_token_.value;
         if (typedef_map_.find(identifier) != typedef_map_.end()) {
             // typedef aliasが見つかった場合、再帰的に型を解決
@@ -1259,6 +1264,10 @@ std::string RecursiveParser::parseType() {
             // struct型名として認識
             advance(); // consume identifier  
             base_type = identifier; // typedef structの場合のstruct型
+        } else if (enum_definitions_.find(identifier) != enum_definitions_.end()) {
+            // enum型名として認識
+            advance(); // consume identifier
+            base_type = identifier; // enum型名をそのまま返す
         } else {
             // 未知のidentifier
             base_type = advance().value; // とりあえずそのまま返す（インタープリターで解決）
@@ -1700,6 +1709,26 @@ ASTNode* RecursiveParser::parsePrimary() {
     if (check(TokenType::TOK_IDENTIFIER)) {
         Token token = advance();
         
+        // enum値アクセス（EnumName::member）をチェック
+        if (check(TokenType::TOK_SCOPE)) {
+            advance(); // consume '::'
+            
+            if (!check(TokenType::TOK_IDENTIFIER)) {
+                error("Expected enum member name after '::'");
+                return nullptr;
+            }
+            
+            std::string member_name = current_token_.value;
+            advance(); // consume member name
+            
+            ASTNode* enum_access = new ASTNode(ASTNodeType::AST_ENUM_ACCESS);
+            enum_access->enum_name = token.value;
+            enum_access->enum_member = member_name;
+            setLocation(enum_access, token.line, token.column);
+            
+            return enum_access;
+        }
+        
         // 関数呼び出しをチェック
         if (check(TokenType::TOK_LPAREN)) {
             advance(); // consume '('
@@ -1810,7 +1839,8 @@ ASTNode* RecursiveParser::parseFunctionDeclarationAfterName(const std::string& r
             
             // 型情報を設定（typedef解決を含む）
             std::string resolved_param_type = resolveTypedefChain(param_type);
-            param->type_name = resolved_param_type;  // 解決された型名を保存
+            // 元のtypedef名を保持（interpreterで解決するため）
+            // param->type_name = resolved_param_type;  // この行をコメントアウト
             
             if (resolved_param_type.find("[") != std::string::npos) {
                 // 配列パラメータの場合
@@ -1845,6 +1875,15 @@ ASTNode* RecursiveParser::parseFunctionDeclarationAfterName(const std::string& r
                 param->type_info = TYPE_BOOL;
             } else if (resolved_param_type == "string") {
                 param->type_info = TYPE_STRING;
+            } else if (struct_definitions_.find(resolved_param_type) != struct_definitions_.end() ||
+                       struct_definitions_.find(param_type) != struct_definitions_.end() ||
+                       (resolved_param_type.substr(0, 7) == "struct " && 
+                        struct_definitions_.find(resolved_param_type.substr(7)) != struct_definitions_.end())) {
+                // struct型の場合（解決後の型名、元のtypedef名、または"struct Name"形式で検索）
+                param->type_info = TYPE_STRUCT;
+            } else if (enum_definitions_.find(resolved_param_type) != enum_definitions_.end()) {
+                // enum型の場合  
+                param->type_info = TYPE_INT; // enumは内部的にintとして扱う
             } else {
                 param->type_info = TYPE_UNKNOWN;
             }
@@ -2024,12 +2063,17 @@ ASTNode* RecursiveParser::parseFunctionDeclaration() {
 
 
 ASTNode* RecursiveParser::parseTypedefDeclaration() {
-    // typedef <type> <alias>; または typedef struct {...} <alias>;
+    // typedef <type> <alias>; または typedef struct {...} <alias>; または typedef enum {...} <alias>;
     consume(TokenType::TOK_TYPEDEF, "Expected 'typedef'");
     
     // typedef struct の場合
     if (check(TokenType::TOK_STRUCT)) {
         return parseStructTypedefDeclaration();
+    }
+    
+    // typedef enum の場合
+    if (check(TokenType::TOK_ENUM)) {
+        return parseEnumTypedefDeclaration();
     }
     
     // 基底型を解析（基本型またはtypedef型）
@@ -2069,18 +2113,35 @@ ASTNode* RecursiveParser::parseTypedefDeclaration() {
         base_type_name = "void";
         advance();
     } else if (check(TokenType::TOK_IDENTIFIER)) {
-        // 既存のtypedef型を参照する場合
-        std::string typedef_name = advance().value;
+        // 既存のstruct/enum型またはtypedef型を参照する場合
+        std::string identifier = advance().value;
         
-        // typedef_map_でチェーンを解決
-        std::string resolved_type = resolveTypedefChain(typedef_name);
-        if (resolved_type.empty()) {
-            error("Unknown typedef type: " + typedef_name);
-            throw std::runtime_error("Unknown typedef type: " + typedef_name);
+        // struct定義が存在するかチェック
+        if (struct_definitions_.find(identifier) != struct_definitions_.end()) {
+            base_type = TYPE_STRUCT;
+            base_type_name = identifier;
+            
+            // struct typedef用の特別な処理が必要な場合
+            // この場合は通常のtypedef処理で十分
         }
-        
-        base_type_name = resolved_type;
-        base_type = getTypeInfoFromString(extractBaseType(resolved_type));
+        // enum定義が存在するかチェック
+        else if (enum_definitions_.find(identifier) != enum_definitions_.end()) {
+            base_type = TYPE_INT; // enumは内部的にintとして扱う
+            base_type_name = identifier;
+        }
+        // 既存のtypedef型を参照する場合
+        else if (typedef_map_.find(identifier) != typedef_map_.end()) {
+            std::string resolved_type = resolveTypedefChain(identifier);
+            if (resolved_type.empty()) {
+                error("Unknown typedef type: " + identifier);
+                throw std::runtime_error("Unknown typedef type: " + identifier);
+            }
+            base_type_name = resolved_type;
+            base_type = getTypeInfoFromString(extractBaseType(resolved_type));
+        } else {
+            error("Unknown type: " + identifier);
+            throw std::runtime_error("Unknown type: " + identifier);
+        }
     } else {
         error("Expected type after typedef");
         return nullptr;
@@ -2150,6 +2211,8 @@ TypeInfo RecursiveParser::getTypeInfoFromString(const std::string& type_name) {
         return TYPE_VOID;
     } else if (type_name.substr(0, 7) == "struct " || struct_definitions_.find(type_name) != struct_definitions_.end()) {
         return TYPE_STRUCT;
+    } else if (type_name.substr(0, 5) == "enum " || enum_definitions_.find(type_name) != enum_definitions_.end()) {
+        return TYPE_ENUM;
     } else {
         return TYPE_UNKNOWN;
     }
@@ -2365,6 +2428,14 @@ std::string RecursiveParser::resolveTypedefChain(const std::string& typedef_name
         return current;
     }
     
+    // "struct StructName"形式のチェック
+    if (current.substr(0, 7) == "struct " && current.length() > 7) {
+        std::string struct_name = current.substr(7);
+        if (struct_definitions_.find(struct_name) != struct_definitions_.end()) {
+            return current; // "struct StructName"のまま返す
+        }
+    }
+    
     // 未定義型の場合は空文字列を返す
     return "";
 }
@@ -2440,7 +2511,10 @@ ASTNode* RecursiveParser::parseTypedefVariableDeclaration() {
     if (check(TokenType::TOK_ASSIGN)) {
         advance(); // consume '='
         
-        if (check(TokenType::TOK_LBRACKET)) {
+        if (check(TokenType::TOK_LBRACE)) {
+            // 構造体リテラル初期化
+            node->init_expr = std::unique_ptr<ASTNode>(parseStructLiteral());
+        } else if (check(TokenType::TOK_LBRACKET)) {
             // 配列リテラル初期化
             advance(); // consume '['
             
@@ -2659,6 +2733,112 @@ ASTNode* RecursiveParser::parseStructTypedefDeclaration() {
     node->name = alias_name;
     setLocation(node, current_token_);
     
+    // struct定義のメンバー情報をASTノードに保存
+    for (const auto& member : struct_def.members) {
+        ASTNode* member_node = new ASTNode(ASTNodeType::AST_VAR_DECL);
+        member_node->name = member.name;
+        member_node->type_name = member.type_alias;
+        member_node->type_info = member.type;
+        node->arguments.push_back(std::unique_ptr<ASTNode>(member_node));
+    }
+    
+    return node;
+}
+
+// typedef enum宣言の解析: typedef enum { values } alias;
+ASTNode* RecursiveParser::parseEnumTypedefDeclaration() {
+    consume(TokenType::TOK_ENUM, "Expected 'enum'");
+    
+    consume(TokenType::TOK_LBRACE, "Expected '{' after 'typedef enum'");
+    
+    EnumDefinition enum_def;
+    int64_t next_value = 0;
+    
+    // enumメンバの解析
+    while (!check(TokenType::TOK_RBRACE) && !isAtEnd()) {
+        if (!check(TokenType::TOK_IDENTIFIER)) {
+            error("Expected enum member name");
+            return nullptr;
+        }
+        
+        std::string member_name = current_token_.value;
+        advance();
+        
+        int64_t member_value = next_value;
+        bool explicit_value = false;
+        
+        // 明示的な値の指定があるかチェック
+        if (check(TokenType::TOK_ASSIGN)) {
+            advance(); // consume '='
+            
+            // 負の数をサポート
+            bool is_negative = false;
+            if (check(TokenType::TOK_MINUS)) {
+                is_negative = true;
+                advance(); // consume '-'
+            }
+            
+            if (!check(TokenType::TOK_NUMBER)) {
+                error("Expected number after '=' in enum member");
+                return nullptr;
+            }
+            
+            member_value = std::stoll(current_token_.value);
+            if (is_negative) {
+                member_value = -member_value;
+            }
+            explicit_value = true;
+            advance();
+        }
+        
+        // enumメンバを追加
+        enum_def.add_member(member_name, member_value, explicit_value);
+        next_value = member_value + 1;
+        
+        if (check(TokenType::TOK_COMMA)) {
+            advance(); // consume ','
+        } else if (!check(TokenType::TOK_RBRACE)) {
+            error("Expected ',' or '}' after enum member");
+            return nullptr;
+        }
+    }
+    
+    consume(TokenType::TOK_RBRACE, "Expected '}' after enum members");
+    
+    // typedef エイリアス名を取得
+    if (!check(TokenType::TOK_IDENTIFIER)) {
+        error("Expected typedef alias name");
+        return nullptr;
+    }
+    
+    std::string alias_name = current_token_.value;
+    advance();
+    
+    consume(TokenType::TOK_SEMICOLON, "Expected ';' after typedef enum declaration");
+    
+    // enum定義を保存（エイリアス名で）
+    enum_def.name = alias_name;
+    enum_definitions_[alias_name] = enum_def;
+    
+    // typedef マッピングも追加
+    typedef_map_[alias_name] = "enum " + alias_name;
+    
+    // ASTノードを作成
+    ASTNode* node = new ASTNode(ASTNodeType::AST_ENUM_TYPEDEF_DECL);
+    node->name = alias_name;
+    node->type_info = TYPE_ENUM;
+    
+    // enum定義情報をASTに格納
+    for (const auto& member : enum_def.members) {
+        ASTNode* member_node = new ASTNode(ASTNodeType::AST_VAR_DECL);
+        member_node->name = member.name;
+        member_node->int_value = member.value;
+        member_node->type_info = TYPE_INT; // enum値は整数
+        node->arguments.push_back(std::unique_ptr<ASTNode>(member_node));
+    }
+    
+    setLocation(node, current_token_);
+    
     return node;
 }
 
@@ -2801,4 +2981,101 @@ ASTNode* RecursiveParser::parseArrayLiteral() {
     
     consume(TokenType::TOK_RBRACKET, "Expected ']' after array literal");
     return array_literal;
+}
+
+ASTNode* RecursiveParser::parseEnumDeclaration() {
+    consume(TokenType::TOK_ENUM, "Expected 'enum'");
+    
+    if (!check(TokenType::TOK_IDENTIFIER)) {
+        error("Expected enum name");
+        return nullptr;
+    }
+    
+    std::string enum_name = current_token_.value;
+    advance(); // consume enum name
+    
+    consume(TokenType::TOK_LBRACE, "Expected '{' after enum name");
+    
+    ASTNode* enum_decl = new ASTNode(ASTNodeType::AST_ENUM_DECL);
+    enum_decl->name = enum_name;
+    setLocation(enum_decl, current_token_);
+    
+    EnumDefinition enum_def(enum_name);
+    int64_t current_value = 0;  // デフォルトの開始値
+    
+    // 空のenumはエラー
+    if (check(TokenType::TOK_RBRACE)) {
+        error("Empty enum is not allowed");
+        return nullptr;
+    }
+    
+    // enumメンバーをパース
+    while (!check(TokenType::TOK_RBRACE) && !isAtEnd()) {
+        if (!check(TokenType::TOK_IDENTIFIER)) {
+            error("Expected enum member name");
+            return nullptr;
+        }
+        
+        std::string member_name = current_token_.value;
+        advance(); // consume member name
+        
+        bool explicit_value = false;
+        int64_t member_value = current_value;
+        
+        // 明示的な値の指定をチェック
+        if (match(TokenType::TOK_ASSIGN)) {
+            // 負の数値をチェック
+            bool is_negative = false;
+            if (check(TokenType::TOK_MINUS)) {
+                is_negative = true;
+                advance(); // consume '-'
+            }
+            
+            if (!check(TokenType::TOK_NUMBER)) {
+                error("Expected number after '=' in enum member");
+                return nullptr;
+            }
+            
+            member_value = std::stoll(current_token_.value);
+            if (is_negative) {
+                member_value = -member_value;
+            }
+            explicit_value = true;
+            current_value = member_value;
+            advance(); // consume number
+        }
+        
+        // enumメンバーを追加
+        enum_def.add_member(member_name, member_value, explicit_value);
+        current_value++; // 次の暗黙的な値を準備
+        
+        // カンマまたは }をチェック
+        if (match(TokenType::TOK_COMMA)) {
+            // 次のメンバーがある場合は続行
+            if (check(TokenType::TOK_RBRACE)) {
+                error("Trailing comma in enum is not allowed");
+                return nullptr;
+            }
+        } else if (!check(TokenType::TOK_RBRACE)) {
+            error("Expected ',' or '}' after enum member");
+            return nullptr;
+        }
+    }
+    
+    consume(TokenType::TOK_RBRACE, "Expected '}' after enum members");
+    consume(TokenType::TOK_SEMICOLON, "Expected ';' after enum declaration");
+    
+    // 値の重複チェック
+    if (enum_def.has_duplicate_values()) {
+        error("Enum has duplicate values - this is not allowed");
+        return nullptr;
+    }
+    
+    // enum定義を保存
+    enum_definitions_[enum_name] = enum_def;
+    
+    // ASTノードにenum定義情報を埋め込む
+    enum_decl->enum_definition = enum_def;
+    
+    return enum_decl;
 }

@@ -16,7 +16,8 @@ enum TypeInfo {
     TYPE_STRING = 6,
     TYPE_BOOL = 7,
     TYPE_STRUCT = 8,
-    TYPE_POINTER = 9, // ポインタ型（将来実装）
+    TYPE_ENUM = 9,
+    TYPE_POINTER = 10, // ポインタ型（将来実装）
     TYPE_ARRAY_BASE = 100 // 配列型は基底型 + 100（下位互換のため保持）
 };
 
@@ -57,6 +58,53 @@ struct ArrayTypeInfo {
 
     // ArrayTypeInfoから単一の型IDを生成（TYPE_ARRAY_BASEベースのレガシー互換性用）
     TypeInfo to_legacy_type_id() const;
+};
+
+// enum定義情報を格納する構造体
+struct EnumMember {
+    std::string name;    // enum メンバー名
+    int64_t value;       // enum メンバーの値
+    bool explicit_value; // 明示的に値が指定されたかどうか
+
+    EnumMember() : value(0), explicit_value(false) {}
+    EnumMember(const std::string &n, int64_t v, bool explicit_val = true)
+        : name(n), value(v), explicit_value(explicit_val) {}
+};
+
+struct EnumDefinition {
+    std::string name;                // enum名
+    std::vector<EnumMember> members; // enumメンバーのリスト
+
+    EnumDefinition() {}
+    EnumDefinition(const std::string &n) : name(n) {}
+
+    // メンバを追加
+    void add_member(const std::string &member_name, int64_t value,
+                    bool explicit_value = true) {
+        members.emplace_back(member_name, value, explicit_value);
+    }
+
+    // メンバを名前で検索
+    const EnumMember *find_member(const std::string &member_name) const {
+        for (const auto &member : members) {
+            if (member.name == member_name) {
+                return &member;
+            }
+        }
+        return nullptr;
+    }
+
+    // 値の重複チェック
+    bool has_duplicate_values() const {
+        for (size_t i = 0; i < members.size(); ++i) {
+            for (size_t j = i + 1; j < members.size(); ++j) {
+                if (members[i].value == members[j].value) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
 };
 
 // struct定義情報を格納する構造体
@@ -135,6 +183,9 @@ enum class ASTNodeType {
     AST_TYPEDEF_DECL,        // typedef宣言
     AST_STRUCT_DECL,         // struct宣言
     AST_STRUCT_TYPEDEF_DECL, // typedef struct宣言
+    AST_ENUM_DECL,           // enum宣言
+    AST_ENUM_TYPEDEF_DECL,   // typedef enum宣言
+    AST_ENUM_ACCESS,         // enum値アクセス (EnumName::member)
 
     // 式
     AST_FUNC_CALL,
@@ -257,6 +308,11 @@ struct ASTNode {
     // 関数呼び出し関連（修飾名対応）
     std::string qualified_name;     // module.function形式の修飾名
     bool is_qualified_call = false; // 修飾された関数呼び出しか
+
+    // enum関連
+    std::string enum_name;          // enum型名 (Job::a の Job部分)
+    std::string enum_member;        // enumメンバー名 (Job::a の a部分)
+    EnumDefinition enum_definition; // enum定義情報（AST_ENUM_DECLノード用）
 
     // コンストラクタ
     ASTNode(ASTNodeType type) : node_type(type), type_info(TYPE_INT) {}

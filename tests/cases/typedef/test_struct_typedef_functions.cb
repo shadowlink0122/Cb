@@ -1,0 +1,42 @@
+// Function parameter and return value struct typedef test
+typedef struct {
+    int x;
+    int y;
+} Point;
+
+typedef struct {
+    int id;
+    int score;
+    bool active;
+} GameEntity;
+
+int get_sum(Point p) {
+    return p.x + p.y;
+}
+
+Point create_point(int x, int y) {
+    Point result = {x, y};
+    return result;
+}
+
+GameEntity create_entity(int entity_id, int initial_score) {
+    GameEntity entity = {entity_id, initial_score, true};
+    return entity;
+}
+
+int main() {
+    Point p1 = {3, 4};
+    Point p2 = create_point(1, 2);
+    
+    int sum1 = get_sum(p1);
+    int sum2 = get_sum(p2);
+    
+    GameEntity player = create_entity(1, 100);
+    
+    println("Point1 sum:", sum1);
+    println("Point2:", p2.x, p2.y);
+    println("Point2 sum:", sum2);
+    println("Player:", player.id, player.score);
+    println("Struct typedef function test passed");
+    return 0;
+}

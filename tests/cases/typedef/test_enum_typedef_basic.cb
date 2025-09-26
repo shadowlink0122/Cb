@@ -1,0 +1,20 @@
+// Basic enum typedef test
+typedef enum { SUCCESS = 0, ERROR = 1, PENDING = -1 } Status;
+
+Status get_status(int code) {
+    if (code == 0) return Status::SUCCESS;
+    if (code == 1) return Status::ERROR;
+    return Status::PENDING;
+}
+
+int main() {
+    Status s1 = Status::SUCCESS;
+    Status s2 = get_status(1);
+    Status s3 = get_status(-1);
+    
+    println("Status:", s1);
+    println("Error:", s2);
+    println("Negative:", s3);
+    
+    return 0;
+}

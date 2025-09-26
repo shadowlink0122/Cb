@@ -1,0 +1,49 @@
+// Comprehensive enum typedef test
+// Test both inline and separated typedef styles
+
+// Inline typedef
+typedef enum { HTTP_OK = 200, HTTP_ERROR = 404, HTTP_SERVER_ERROR = 500 } HttpStatus;
+
+// Separated typedef
+enum Priority {
+    LOW = 1,
+    MEDIUM = 5,
+    HIGH = 10,
+    CRITICAL = -1
+};
+typedef Priority Prio;
+
+HttpStatus check_response(int code) {
+    if (code == 200) return HttpStatus::HTTP_OK;
+    if (code == 404) return HttpStatus::HTTP_ERROR;
+    return HttpStatus::HTTP_SERVER_ERROR;
+}
+
+Prio get_priority(int level) {
+    if (level < 0) return Prio::CRITICAL;
+    if (level < 3) return Prio::LOW;
+    if (level < 8) return Prio::MEDIUM;
+    return Prio::HIGH;
+}
+
+int main() {
+    // Test inline typedef
+    HttpStatus status1 = check_response(200);
+    HttpStatus status2 = HttpStatus::HTTP_ERROR;
+    
+    // Test separated typedef  
+    Prio p1 = get_priority(-1);
+    Prio p2 = get_priority(5);
+    Prio p3 = Prio::HIGH;
+    
+    // Test values
+    if (status1 == HttpStatus::HTTP_OK && 
+        status2 == HttpStatus::HTTP_ERROR &&
+        p1 == Prio::CRITICAL &&
+        p2 == Prio::MEDIUM &&
+        p3 == Prio::HIGH) {
+        println("All enum typedef tests passed");
+    }
+    
+    return 0;
+}

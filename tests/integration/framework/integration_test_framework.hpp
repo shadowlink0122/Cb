@@ -165,9 +165,9 @@ inline bool contains(const std::string& haystack, const std::string& needle) {
 // Test counter for integration tests
 class IntegrationTestCounter {
 private:
-    static int total_tests;
-    static int passed_tests;
-    static int failed_tests;
+    static inline int total_tests = 0;
+    static inline int passed_tests = 0;
+    static inline int failed_tests = 0;
 
 public:
     static void increment_total() { total_tests++; }
@@ -186,11 +186,6 @@ public:
         std::cout << "Failed: " << failed_tests << std::endl;
     }
 };
-
-// Initialize static members
-int IntegrationTestCounter::total_tests = 0;
-int IntegrationTestCounter::passed_tests = 0;
-int IntegrationTestCounter::failed_tests = 0;
 
 // テスト結果の出力（クラス定義後）
 inline void integration_test_passed(const std::string& test_name) {

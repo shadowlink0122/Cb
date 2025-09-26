@@ -1,0 +1,25 @@
+// Separated enum typedef test
+enum Color {
+    RED = 1,
+    GREEN = 2,
+    BLUE = 3
+};
+typedef Color Col;
+
+Col get_primary_color(int index) {
+    if (index == 1) return Col::RED;
+    if (index == 2) return Col::GREEN;
+    return Col::BLUE;
+}
+
+int main() {
+    Col c1 = get_primary_color(1);
+    Col c2 = get_primary_color(2);
+    Col c3 = get_primary_color(3);
+    
+    println("Color1:", c1);
+    println("Color2:", c2);
+    println("Color3:", c3);
+    
+    return 0;
+}

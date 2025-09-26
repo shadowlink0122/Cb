@@ -2,10 +2,12 @@
 #include "../../../common/ast.h"
 #include "../../../common/debug.h"
 #include "../../../common/utf8_utils.h"
+#include "../../../frontend/recursive_parser/recursive_parser.h"
 #include "managers/array_manager.h"
 #include "managers/common_operations.h"
 #include "services/debug_service.h" // DRY効率化: 統一デバッグサービス
 #include "services/array_processing_service.h" // DRY効率化: 統一配列処理サービス
+#include "managers/enum_manager.h"     // enum管理サービス
 #include "core/error_handler.h"
 #include "evaluator/expression_evaluator.h"
 #include "executor/statement_executor.h" // ヘッダーから移動
@@ -44,6 +46,9 @@ Interpreter::Interpreter(bool debug)
 
     // DRY効率化: 統一配列処理サービスを初期化
     array_processing_service_ = std::make_unique<ArrayProcessingService>(this, common_operations_.get());
+
+    // enum管理サービスを初期化
+    enum_manager_ = std::make_unique<EnumManager>();
 
     // 環境変数からデバッグモード設定
     const char *env_debug = std::getenv("CB_DEBUG_MODE");
@@ -97,6 +102,9 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
         case ASTNodeType::AST_STRUCT_TYPEDEF_DECL:
             node_type_name = "AST_STRUCT_TYPEDEF_DECL";
             break;
+        case ASTNodeType::AST_ENUM_DECL:
+            node_type_name = "AST_ENUM_DECL";
+            break;
         case ASTNodeType::AST_FUNC_DECL:
             node_type_name = "AST_FUNC_DECL";
             break;
@@ -125,11 +133,18 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
                 register_global_declarations(stmt.get());
             }
         }
+        // enumの定義を処理
+        for (const auto &stmt : node->statements) {
+            if (stmt->node_type == ASTNodeType::AST_ENUM_DECL) {
+                register_global_declarations(stmt.get());
+            }
+        }
         // 最後にその他の宣言（関数など）を処理
         for (const auto &stmt : node->statements) {
             if (stmt->node_type != ASTNodeType::AST_VAR_DECL &&
                 stmt->node_type != ASTNodeType::AST_STRUCT_DECL &&
-                stmt->node_type != ASTNodeType::AST_STRUCT_TYPEDEF_DECL) {
+                stmt->node_type != ASTNodeType::AST_STRUCT_TYPEDEF_DECL &&
+                stmt->node_type != ASTNodeType::AST_ENUM_DECL) {
                 register_global_declarations(stmt.get());
             }
         }
@@ -195,6 +210,28 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
                 debug_print(
                     "Registered struct definition: %s with %zu members\n",
                     struct_name.c_str(), struct_def.members.size());
+            }
+        }
+        break;
+
+    case ASTNodeType::AST_ENUM_DECL:
+        // enum定義を登録
+        {
+            if (debug_mode) {
+                debug_print("Registering enum definition: %s\n",
+                            node->name.c_str());
+                DEBUG_DEBUG(GENERAL, "Registering enum definition: %s",
+                            node->name.c_str());
+            }
+
+            // ASTノードからenum定義情報を取得
+            const EnumDefinition& enum_def = node->enum_definition;
+            
+            enum_manager_->register_enum(node->name, enum_def);
+            
+            if (debug_mode) {
+                debug_print("Successfully registered enum: %s\n",
+                            node->name.c_str());
             }
         }
         break;
@@ -662,7 +699,13 @@ void Interpreter::execute_statement(const ASTNode *node) {
                 }
                 // 変数の場合、配列変数かチェック
                 Variable *var = find_variable(node->left->name);
-                if (var && var->is_array) {
+                if (var && var->is_struct) {
+                    // struct変数を返す
+                    if (debug_mode) {
+                        std::cerr << "[DEBUG] Returning struct variable" << std::endl;
+                    }
+                    throw ReturnException(*var);
+                } else if (var && var->is_array) {
                     if (debug_mode) {
                         std::cerr << "[DEBUG] Returning array variable"
                                   << std::endl;
@@ -1910,5 +1953,42 @@ void Interpreter::initialize_global_variables(const ASTNode *node) {
 
     default:
         break;
+    }
+}
+
+
+void Interpreter::sync_enum_definitions_from_parser(RecursiveParser* parser) {
+    if (!parser) return;
+    
+    auto& parser_enums = parser->get_enum_definitions();
+    for (const auto& pair : parser_enums) {
+        const std::string& enum_name = pair.first;
+        const EnumDefinition& enum_def = pair.second;
+        
+        // EnumManagerに登録
+        enum_manager_->register_enum(enum_name, enum_def);
+        
+        if (debug_mode) {
+            debug_print("Synced enum definition: %s with %zu members\\n",
+                      enum_name.c_str(), enum_def.members.size());
+        }
+    }
+}
+
+void Interpreter::sync_struct_definitions_from_parser(RecursiveParser* parser) {
+    if (!parser) return;
+    
+    auto& parser_structs = parser->get_struct_definitions();
+    for (const auto& pair : parser_structs) {
+        const std::string& struct_name = pair.first;
+        const StructDefinition& struct_def = pair.second;
+        
+        // Interpreterのstruct_definitions_に登録
+        struct_definitions_[struct_name] = struct_def;
+        
+        if (debug_mode) {
+            debug_print("Synced struct definition: %s with %zu members\\n",
+                      struct_name.c_str(), struct_def.members.size());
+        }
     }
 }

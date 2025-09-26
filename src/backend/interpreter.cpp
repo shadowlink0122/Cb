@@ -8,6 +8,7 @@
 #include "interpreter/executor/statement_executor.h"
 #include "interpreter/managers/array_manager.h"     // 新版ArrayManager
 #include "interpreter/managers/common_operations.h" // 新版CommonOperations
+#include "interpreter/managers/enum_manager.h"      // 新版EnumManager
 #include "interpreter/managers/type_manager.h"      // 新版TypeManager
 #include "interpreter/managers/variable_manager.h"  // 新版VariableManager
 #include "interpreter/output/output_manager.h"
@@ -21,7 +22,9 @@
 Interpreter::Interpreter(bool debug)
     : debug_mode(debug), output_manager_(std::make_unique<OutputManager>(this)),
       variable_manager_(std::make_unique<VariableManager>(this)),
-      type_manager_(std::make_unique<TypeManager>(this)) {
+      type_manager_(std::make_unique<TypeManager>(this)),
+      enum_manager_(std::make_unique<EnumManager>()),
+      parser_(nullptr) { // enum定義アクセス用のparser初期化
 
     // ExpressionEvaluatorを最初に初期化
     expression_evaluator_ = std::make_unique<ExpressionEvaluator>(*this);
@@ -94,6 +97,12 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
         case ASTNodeType::AST_STRUCT_TYPEDEF_DECL:
             node_type_name = "AST_STRUCT_TYPEDEF_DECL";
             break;
+        case ASTNodeType::AST_ENUM_DECL:
+            node_type_name = "AST_ENUM_DECL";
+            break;
+        case ASTNodeType::AST_ENUM_TYPEDEF_DECL:
+            node_type_name = "AST_ENUM_TYPEDEF_DECL";
+            break;
         case ASTNodeType::AST_FUNC_DECL:
             node_type_name = "AST_FUNC_DECL";
             break;
@@ -114,10 +123,12 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
                 register_global_declarations(stmt.get());
             }
         }
-        // 次にstruct定義を処理
+        // 次にstruct定義とenum定義を処理
         for (const auto &stmt : node->statements) {
             if (stmt->node_type == ASTNodeType::AST_STRUCT_DECL ||
-                stmt->node_type == ASTNodeType::AST_STRUCT_TYPEDEF_DECL) {
+                stmt->node_type == ASTNodeType::AST_STRUCT_TYPEDEF_DECL ||
+                stmt->node_type == ASTNodeType::AST_ENUM_DECL ||
+                stmt->node_type == ASTNodeType::AST_ENUM_TYPEDEF_DECL) {
                 register_global_declarations(stmt.get());
             }
         }
@@ -125,7 +136,9 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
         for (const auto &stmt : node->statements) {
             if (stmt->node_type != ASTNodeType::AST_VAR_DECL &&
                 stmt->node_type != ASTNodeType::AST_STRUCT_DECL &&
-                stmt->node_type != ASTNodeType::AST_STRUCT_TYPEDEF_DECL) {
+                stmt->node_type != ASTNodeType::AST_STRUCT_TYPEDEF_DECL &&
+                stmt->node_type != ASTNodeType::AST_ENUM_DECL &&
+                stmt->node_type != ASTNodeType::AST_ENUM_TYPEDEF_DECL) {
                 register_global_declarations(stmt.get());
             }
         }
@@ -189,6 +202,48 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
                 debug_print(
                     "Registered struct definition: %s with %zu members\n",
                     struct_name.c_str(), struct_def.members.size());
+            }
+        }
+        break;
+
+    case ASTNodeType::AST_ENUM_DECL:
+    case ASTNodeType::AST_ENUM_TYPEDEF_DECL:
+        // enum定義を登録
+        {
+            std::cerr << "[DEBUG] Processing enum definition node: "
+                      << node->name << std::endl;
+            if (debug_mode) {
+                DEBUG_DEBUG(GENERAL, "Registering enum definition: %s",
+                            node->name.c_str());
+            }
+            std::string enum_name = node->name;
+            EnumDefinition enum_def(enum_name);
+
+            // ASTノードからenum定義を復元
+            for (const auto &member_node : node->arguments) {
+                if (member_node->node_type == ASTNodeType::AST_VAR_DECL) {
+                    enum_def.add_member(member_node->name,
+                                        member_node->int_value, true);
+                    if (debug_mode) {
+                        debug_print("Adding enum member: %s = %lld\n",
+                                    member_node->name.c_str(),
+                                    member_node->int_value);
+                    }
+                }
+            }
+
+            enum_definitions_[enum_name] = enum_def;
+
+            // EnumManagerにも登録
+            std::cerr << "[DEBUG] Registering enum in EnumManager: "
+                      << enum_name << " with " << enum_def.members.size()
+                      << " members" << std::endl;
+            enum_manager_->register_enum(enum_name, enum_def);
+
+            if (debug_mode) {
+                debug_print("Registered enum definition: %s with %zu members\n",
+                            enum_name.c_str(),
+                            enum_definitions_[enum_name].members.size());
             }
         }
         break;
@@ -402,6 +457,12 @@ void Interpreter::execute_statement(const ASTNode *node) {
         case ASTNodeType::AST_STRUCT_TYPEDEF_DECL:
             node_type_name = "AST_STRUCT_TYPEDEF_DECL";
             break;
+        case ASTNodeType::AST_ENUM_DECL:
+            node_type_name = "AST_ENUM_DECL";
+            break;
+        case ASTNodeType::AST_ENUM_TYPEDEF_DECL:
+            node_type_name = "AST_ENUM_TYPEDEF_DECL";
+            break;
         case ASTNodeType::AST_FOR_STMT:
             node_type_name = "AST_FOR_STMT";
             break;
@@ -471,6 +532,12 @@ void Interpreter::execute_statement(const ASTNode *node) {
                       << " with " << struct_def.members.size() << " members"
                       << std::endl;
         }
+        break;
+
+    case ASTNodeType::AST_ENUM_DECL:
+    case ASTNodeType::AST_ENUM_TYPEDEF_DECL:
+        // enum定義は既にregister_global_declarationsで処理済み
+        // 実行時は何もしない
         break;
 
     case ASTNodeType::AST_PRINT_STMT:
@@ -1890,5 +1957,33 @@ void Interpreter::initialize_global_variables(const ASTNode *node) {
 
     default:
         break;
+    }
+}
+
+void Interpreter::sync_enum_definitions_from_parser(RecursiveParser *parser) {
+    if (!parser)
+        return;
+
+    auto &parser_enums = parser->enum_definitions_;
+    for (const auto &pair : parser_enums) {
+        const std::string &enum_name = pair.first;
+        const EnumDefinition &enum_def = pair.second;
+
+        std::cerr << "[DEBUG] Syncing enum definition: " << enum_name
+                  << " with " << enum_def.members.size() << " members"
+                  << std::endl;
+
+        // Interpreterのenum定義に追加
+        enum_definitions_[enum_name] = enum_def;
+
+        // EnumManagerにも登録
+        enum_manager_->register_enum(enum_name, enum_def);
+
+        if (debug_mode) {
+            debug_print("Synced enum definition: %s with %zu members
+                        ",
+                        enum_name.c_str(),
+                        enum_def.members.size());
+        }
     }
 }

@@ -1,0 +1,4 @@
+int main() {
+    int val = NonExistentEnum::value; // エラー：存在しないenum
+    return 0;
+}

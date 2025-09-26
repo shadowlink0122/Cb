@@ -1,5 +1,7 @@
 #include "evaluator/expression_evaluator.h"
 #include "core/interpreter.h"
+#include "managers/enum_manager.h"    // EnumManager定義が必要
+#include "managers/type_manager.h"    // TypeManager定義が必要
 #include "../../../common/debug_messages.h"
 #include "../../../common/utf8_utils.h"
 #include "core/error_handler.h"
@@ -463,13 +465,63 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                             throw std::runtime_error("Type mismatch: cannot pass non-string expression to string parameter '" + param->name + "'");
                         }
                     } else {
-                        // 数値パラメータの場合
-                        if (arg->node_type == ASTNodeType::AST_STRING_LITERAL) {
-                            throw std::runtime_error("Type mismatch: cannot pass string literal to numeric parameter '" + param->name + "'");
+                        // struct型パラメータかチェック
+                        if (param->type_info == TYPE_STRUCT) {
+                            if (arg->node_type == ASTNodeType::AST_VARIABLE) {
+                                // struct変数を引数として渡す場合
+                                Variable* source_var = interpreter_.find_variable(arg->name);
+                                if (!source_var || !source_var->is_struct) {
+                                    throw std::runtime_error("Type mismatch: expected struct variable for parameter '" + param->name + "'");
+                                }
+                                
+                                // typedef名を実際のstruct名に解決
+                                std::string resolved_struct_type = interpreter_.resolve_typedef(param->type_name);
+                                std::string source_resolved_type = interpreter_.resolve_typedef(source_var->struct_type_name);
+                                
+                                // struct型の互換性チェック
+                                // "struct Point"と"Point"は同じ型として扱う
+                                std::string normalized_resolved = resolved_struct_type;
+                                std::string normalized_source = source_resolved_type;
+                                
+                                // "struct StructName"を"StructName"に正規化
+                                if (normalized_resolved.substr(0, 7) == "struct " && normalized_resolved.length() > 7) {
+                                    normalized_resolved = normalized_resolved.substr(7);
+                                }
+                                if (normalized_source.substr(0, 7) == "struct " && normalized_source.length() > 7) {
+                                    normalized_source = normalized_source.substr(7);
+                                }
+                                
+                                if (normalized_resolved != normalized_source) {
+                                    throw std::runtime_error("Type mismatch: cannot pass struct type '" + source_var->struct_type_name + 
+                                                            "' to parameter '" + param->name + "' of type '" + param->type_name + "'");
+                                }
+                                
+                                // struct変数をコピーしてパラメータに設定
+                                Variable param_var = *source_var;
+                                param_var.is_const = false;
+                                param_var.is_struct = true; // 明示的にstructフラグを設定
+                                param_var.type = TYPE_STRUCT; // 型情報も設定
+                                // 解決されたstruct型名を設定
+                                param_var.struct_type_name = resolved_struct_type;
+                                interpreter_.current_scope().variables[param->name] = param_var;
+                                
+                                // 個別メンバー変数も作成
+                                for (const auto& member_pair : source_var->struct_members) {
+                                    std::string full_member_name = param->name + "." + member_pair.first;
+                                    interpreter_.current_scope().variables[full_member_name] = member_pair.second;
+                                }
+                            } else {
+                                throw std::runtime_error("Type mismatch: cannot pass non-struct expression to struct parameter '" + param->name + "'");
+                            }
+                        } else {
+                            // 数値パラメータの場合
+                            if (arg->node_type == ASTNodeType::AST_STRING_LITERAL) {
+                                throw std::runtime_error("Type mismatch: cannot pass string literal to numeric parameter '" + param->name + "'");
+                            }
+                            
+                            int64_t arg_value = evaluate_expression(arg.get());
+                            interpreter_.assign_function_parameter(param->name, arg_value, param->type_info);
                         }
-                        
-                        int64_t arg_value = evaluate_expression(arg.get());
-                        interpreter_.assign_function_parameter(param->name, arg_value, param->type_info);
                     }
                 }
             }
@@ -485,7 +537,12 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                 return 0;
             } catch (const ReturnException &ret) {
                 // return文で戻り値がある場合
-                if (ret.is_array) {
+                if (ret.is_struct) {
+                    // struct戻り値の場合は例外を再度投げる
+                    interpreter_.pop_scope();
+                    interpreter_.current_function_name = prev_function_name;
+                    throw ret;
+                } else if (ret.is_array) {
                     // 配列戻り値の場合は例外を再度投げる
                     interpreter_.pop_scope();
                     interpreter_.current_function_name = prev_function_name;
@@ -661,6 +718,24 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
         // 構造体リテラルは代入時にのみ処理されるべき
         // ここでは0を返す
         return 0;
+    }
+
+    case ASTNodeType::AST_ENUM_ACCESS: {
+        // enum値アクセス (EnumName::member)
+        EnumManager* enum_manager = interpreter_.get_enum_manager();
+        int64_t enum_value;
+        
+        // typedef名を実際のenum名に解決
+        std::string resolved_enum_name = interpreter_.get_type_manager()->resolve_typedef(node->enum_name);
+        
+        if (enum_manager->get_enum_value(resolved_enum_name, node->enum_member, enum_value)) {
+            debug_msg(DebugMsgId::EXPR_EVAL_NUMBER, enum_value);
+            return enum_value;
+        } else {
+            std::string error_message = "Undefined enum value: " + 
+                                       node->enum_name + "::" + node->enum_member;
+            throw std::runtime_error(error_message);
+        }
     }
 
     default:

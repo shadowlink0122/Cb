@@ -1,0 +1,13 @@
+// Struct literal with typedef test
+typedef struct {
+    int hour;
+    int minute;
+    int second;
+} Time;
+
+int main() {
+    Time morning = {9, 30, 0};
+    Time evening = {18, 45, 30};
+    println("Struct literal typedef test passed");
+    return 0;
+}

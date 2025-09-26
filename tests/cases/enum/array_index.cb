@@ -1,0 +1,21 @@
+enum Job {
+    a = 0,
+    b,
+    c,
+    d = 10,
+    e
+};
+
+int main() {
+    int test_a = Job::a;  // 0
+    int test_b = Job::b;  // 1
+    int test_c = Job::c;  // 2  
+    int test_d = Job::d;  // 10
+    int test_e = Job::e;  // 11
+    
+    // 配列インデックスとしてenumを使用
+    int[5] numbers = [100, 200, 300, 400, 500];
+    int value = numbers[Job::c]; // numbers[2] = 300
+    
+    return Job::e;  // 11を返す
+}

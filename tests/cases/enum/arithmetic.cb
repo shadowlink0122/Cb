@@ -1,0 +1,19 @@
+enum Math {
+    base = 5,
+    multiplier = 3,
+    offset = 2
+};
+
+int main() {
+    // enum値を算術演算で使用
+    int result1 = Math::base + Math::offset;          // 5 + 2 = 7
+    int result2 = Math::base * Math::multiplier;      // 5 * 3 = 15
+    int result3 = Math::base - Math::offset;          // 5 - 2 = 3
+    int result4 = Math::multiplier * Math::offset;    // 3 * 2 = 6
+    
+    // 比較演算での使用
+    bool is_greater = Math::base > Math::offset;      // true
+    bool is_equal = Math::multiplier == Math::offset; // false
+    
+    return 0;
+}

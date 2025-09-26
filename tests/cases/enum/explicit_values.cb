@@ -1,0 +1,9 @@
+enum Job {
+    a = 0,
+    b = 1
+};
+
+int main() {
+    int test = Job::a;
+    return 0;
+}

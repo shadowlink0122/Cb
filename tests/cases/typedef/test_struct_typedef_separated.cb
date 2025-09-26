@@ -1,0 +1,12 @@
+// Separated struct declaration + typedef test
+struct Rectangle {
+    int width;
+    int height;
+};
+typedef Rectangle Rect;
+
+int main() {
+    Rect r1 = {100, 50};
+    println("Separated struct typedef test passed");
+    return 0;
+}

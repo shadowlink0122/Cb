@@ -20,6 +20,7 @@
 #include "const_variables/test_const_variables.hpp"
 #include "cross_type/test_cross_type.hpp"
 #include "dynamic_array_error/test_dynamic_array_error.hpp"
+#include "enum/test_enum.hpp"
 #include "error_handling/test_error_handling.hpp"
 #include "func/test_func.hpp"
 #include "func_return_type_check/test_func_return_type_check.hpp"
@@ -44,6 +45,8 @@
 #include "struct/struct_tests.hpp"
 #include "ternary/test_ternary.hpp"
 #include "type/test_type.hpp"
+#include "typedef/test_enum_typedef.hpp"
+#include "typedef/test_struct_typedef.hpp"
 #include "typedef/test_typedef.hpp"
 
 // 失敗継続対応のテスト実行関数（マクロをリファクタリング）
@@ -185,8 +188,13 @@ int main() {
     std::cout << "\n[integration-test] === Type System Tests ===" << std::endl;
     run_test_with_continue(test_integration_typedef, "Typedef Tests",
                            failed_tests);
+    run_test_with_continue(test_integration_enum_typedef, "Enum Typedef Tests",
+                           failed_tests);
+    run_test_with_continue(test_integration_struct_typedef,
+                           "Struct Typedef Tests", failed_tests);
     run_test_with_continue(test_integration_cross_type, "Cross Type Tests",
                            failed_tests);
+    run_test_with_continue(test_integration_enum, "Enum Tests", failed_tests);
 
     // 構造体テスト群
     std::cout << "\n[integration-test] === Advanced Features ===" << std::endl;

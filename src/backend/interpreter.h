@@ -1,5 +1,5 @@
 #pragma once
-#include "../../../common/ast.h"
+#include "../common/ast.h"
 #include <iostream>
 #include <map>
 #include <string>
@@ -11,15 +11,14 @@ class StatementExecutor;
 class VariableManager;
 class ArrayManager;
 class TypeManager;
+class EnumManager;
 class ExpressionEvaluator;
 class StatementExecutor;
 class CommonOperations;
 class VariableAccessService; // DRY効率化: 統一変数アクセスサービス
 class ExpressionService;     // DRY効率化: 統一式評価サービス
-class ArrayProcessingService; // DRY効率化: 統一配列処理サービス
-class EnumManager;           // enum管理サービス
 class CommonOperations;
-class RecursiveParser;       // enum定義同期用
+class RecursiveParser; // enum定義アクセス用
 
 // 変数・関数の格納構造
 struct Variable {
@@ -148,10 +147,6 @@ class ReturnException {
     std::vector<std::vector<std::vector<int64_t>>> int_array_3d;
     std::vector<std::vector<std::vector<std::string>>> str_array_3d;
     std::string array_type_name;
-    
-    // struct戻り値サポート
-    bool is_struct = false;
-    Variable struct_value;
 
     ReturnException(int64_t val, TypeInfo t = TYPE_INT) : value(val), type(t) {}
     ReturnException(const std::string &str)
@@ -168,10 +163,6 @@ class ReturnException {
         const std::string &type_name, TypeInfo t)
         : value(0), type(t), is_array(true), str_array_3d(arr),
           array_type_name(type_name) {}
-    
-    // struct戻り値用コンストラクタ  
-    ReturnException(const Variable &struct_var)
-        : value(0), type(TYPE_STRUCT), is_struct(true), struct_value(struct_var) {}
 };
 
 class BreakException {
@@ -198,11 +189,13 @@ class Interpreter : public EvaluatorInterface {
     std::map<std::string, Variable> static_variables; // static変数の保存
     std::map<std::string, StructDefinition>
         struct_definitions_; // struct定義の保存
+    std::map<std::string, EnumDefinition> enum_definitions_; // enum定義の保存
 
     // Manager instances
     std::unique_ptr<VariableManager> variable_manager_;
     std::unique_ptr<ArrayManager> array_manager_;
     std::unique_ptr<TypeManager> type_manager_;
+    std::unique_ptr<EnumManager> enum_manager_;
     std::unique_ptr<ExpressionEvaluator> expression_evaluator_;
     std::unique_ptr<StatementExecutor> statement_executor_;
     std::unique_ptr<CommonOperations> common_operations_;
@@ -210,17 +203,13 @@ class Interpreter : public EvaluatorInterface {
         variable_access_service_; // DRY効率化: 統一変数アクセス
     std::unique_ptr<ExpressionService>
         expression_service_; // DRY効率化: 統一式評価
-    std::unique_ptr<ArrayProcessingService>
-        array_processing_service_; // DRY効率化: 統一配列処理
-    std::unique_ptr<EnumManager>
-        enum_manager_; // enum管理サービス
+
+    RecursiveParser *parser_; // enum定義アクセス用
 
     // Grant access to managers
     friend class VariableManager;
     friend class ArrayManager;
     friend class TypeManager;
-    friend class ArrayProcessingService; // DRY効率化: 配列処理統合サービス
-    friend class EnumManager;            // enum管理サービス
 
   public:
     Interpreter(bool debug = false);
@@ -364,23 +353,21 @@ class Interpreter : public EvaluatorInterface {
 
     // TypeManagerへのアクセス
     TypeManager *get_type_manager() { return type_manager_.get(); }
-    
+
     // EnumManagerへのアクセス
     EnumManager *get_enum_manager() { return enum_manager_.get(); }
-    
+
+    // Parserへのアクセス
+    RecursiveParser *get_parser() { return parser_; }
+    void set_parser(RecursiveParser *parser) { parser_ = parser; }
+
     // Parserからのenum定義同期
-    void sync_enum_definitions_from_parser(RecursiveParser* parser);
-    
-    // Parserからのstruct定義同期
-    void sync_struct_definitions_from_parser(RecursiveParser* parser);
+    void sync_enum_definitions_from_parser(RecursiveParser *parser);
 
     // N次元配列アクセス用のヘルパー関数
     std::string extract_array_name(const ASTNode *node);
     std::vector<int64_t> extract_array_indices(const ASTNode *node);
     std::string extract_array_element_name(const ASTNode *node);
-    
-    // Priority 3: 変数ポインターから名前を取得するヘルパー
-    std::string find_variable_name(const Variable* var);
 
     // ArrayManagerへのアクセス
     ArrayManager *get_array_manager() { return array_manager_.get(); }
@@ -392,15 +379,12 @@ class Interpreter : public EvaluatorInterface {
     VariableAccessService *get_variable_access_service() {
         return variable_access_service_.get();
     }
-    ArrayProcessingService *get_array_processing_service() {
-        return array_processing_service_.get();
-    }
 
     int64_t
     getMultidimensionalArrayElement(const Variable &var,
                                     const std::vector<int64_t> &indices);
 
-    // Priority 3: 統一された配列要素アクセス (ArrayProcessingService経由)
+    // ArrayManagerへのアクセス
     int64_t
     getMultidimensionalArrayElement(Variable &var,
                                     const std::vector<int64_t> &indices);
@@ -408,7 +392,7 @@ class Interpreter : public EvaluatorInterface {
                                          const std::vector<int64_t> &indices,
                                          int64_t value);
 
-    // Priority 3: 統一された文字列配列アクセス (ArrayProcessingService経由)
+    // 文字列配列アクセス
     std::string
     getMultidimensionalStringArrayElement(Variable &var,
                                           const std::vector<int64_t> &indices);
@@ -416,4 +400,12 @@ class Interpreter : public EvaluatorInterface {
     setMultidimensionalStringArrayElement(Variable &var,
                                           const std::vector<int64_t> &indices,
                                           const std::string &value);
+
+    // Type Manager用のアクセサ
+    std::map<std::string, StructDefinition> &get_struct_definitions() {
+        return struct_definitions_;
+    }
+    std::map<std::string, EnumDefinition> &get_enum_definitions() {
+        return enum_definitions_;
+    }
 };

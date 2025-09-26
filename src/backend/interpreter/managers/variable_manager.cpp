@@ -539,29 +539,32 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
         // struct型の場合の処理
         else if (node->type_info == TYPE_STRUCT ||
                  (node->type_info == TYPE_UNKNOWN &&
-                  interpreter_->find_struct_definition(node->type_name) !=
-                      nullptr)) {
+                  (interpreter_->find_struct_definition(node->type_name) != nullptr ||
+                   interpreter_->find_struct_definition(interpreter_->type_manager_->resolve_typedef(node->type_name)) != nullptr))) {
             if (interpreter_->debug_mode) {
                 debug_print("Creating struct variable: %s of type: %s\n",
                             node->name.c_str(), node->type_name.c_str());
             }
             var.type = TYPE_STRUCT;
             var.is_struct = true;
-            var.struct_type_name = node->type_name;
+            
+            // typedef名を実際のstruct名に解決
+            std::string resolved_struct_type = interpreter_->type_manager_->resolve_typedef(node->type_name);
+            var.struct_type_name = resolved_struct_type;
 
             // 構造体配列かどうかをチェック（型名に[サイズ]が含まれている場合）
-            std::string base_struct_type = node->type_name;
+            std::string base_struct_type = resolved_struct_type;
             bool is_struct_array = false;
             int struct_array_size = 0;
 
-            size_t bracket_pos = node->type_name.find("[");
+            size_t bracket_pos = resolved_struct_type.find("[");
             if (bracket_pos != std::string::npos) {
                 is_struct_array = true;
-                base_struct_type = node->type_name.substr(0, bracket_pos);
+                base_struct_type = resolved_struct_type.substr(0, bracket_pos);
 
-                size_t close_bracket_pos = node->type_name.find("]");
+                size_t close_bracket_pos = resolved_struct_type.find("]");
                 if (close_bracket_pos != std::string::npos) {
-                    std::string size_str = node->type_name.substr(
+                    std::string size_str = resolved_struct_type.substr(
                         bracket_pos + 1, close_bracket_pos - bracket_pos - 1);
                     struct_array_size = std::stoi(size_str);
                 }
@@ -947,6 +950,10 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                             }
                         }
                         var.is_assigned = true;
+                    } else if (ret.is_struct) {
+                        // struct戻り値の場合
+                        var = ret.struct_value;
+                        var.is_assigned = true;
                     } else {
                         // 非配列戻り値の場合
                         if (ret.type == TYPE_STRING) {
@@ -969,7 +976,10 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                         var.value = value;
                         var.is_assigned = true;
                     } catch (const ReturnException &ret) {
-                        if (ret.type == TYPE_STRING) {
+                        if (ret.is_struct) {
+                            var = ret.struct_value;
+                            var.is_assigned = true;
+                        } else if (ret.type == TYPE_STRING) {
                             var.str_value = ret.str_value;
                             var.type = TYPE_STRING;
                         } else {

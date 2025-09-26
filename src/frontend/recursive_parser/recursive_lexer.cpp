@@ -165,6 +165,10 @@ Token RecursiveLexer::nextToken() {
             return makeToken(TokenType::TOK_QUESTION, "?");
             
         case ':':
+            if (peek() == ':') {
+                advance(); // consume second ':'
+                return makeToken(TokenType::TOK_SCOPE, "::");
+            }
             return makeToken(TokenType::TOK_COLON, ":");
             
         case '.':
@@ -325,7 +329,8 @@ TokenType RecursiveLexer::getKeywordType(const std::string& text) {
         {"typedef", TokenType::TOK_TYPEDEF},
         {"const", TokenType::TOK_CONST},
         {"static", TokenType::TOK_STATIC},
-        {"struct", TokenType::TOK_STRUCT}
+        {"struct", TokenType::TOK_STRUCT},
+        {"enum", TokenType::TOK_ENUM}
     };
     
     auto it = keywords.find(text);
