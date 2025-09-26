@@ -1,0 +1,57 @@
+// 構造体の配列メンバと関数戻り値のテスト
+typedef struct {
+    int id;
+    string name;
+    int[3] scores;
+    string[2] tags;
+} Student;
+
+Student createStudent(int id, string name) {
+    Student s;
+    s.id = id;
+    s.name = name;
+    s.scores[0] = 85;
+    s.scores[1] = 90;
+    s.scores[2] = 78;
+    s.tags[0] = "honor";
+    s.tags[1] = "active";
+    return s;
+}
+
+Student processStudent(Student original) {
+    Student result;
+    result.id = original.id + 100;
+    result.name = original.name;
+    result.scores[0] = original.scores[0] + 10;
+    result.scores[1] = original.scores[1] + 10;
+    result.scores[2] = original.scores[2] + 10;
+    result.tags[0] = original.tags[0];
+    result.tags[1] = original.tags[1];
+    return result;
+}
+
+int main() {
+    // テスト1: 関数戻り値での配列メンバ初期化
+    Student student1 = createStudent(1, "Alice");
+    println("Student 1 - ID: %d, Name: %s", student1.id, student1.name);
+    println("Scores: [%d, %d, %d]", student1.scores[0], student1.scores[1], student1.scores[2]);
+    println("Tags: [%s, %s]", student1.tags[0], student1.tags[1]);
+    
+    // 期待される出力:
+    // Student 1 - ID: 1, Name: Alice
+    // Scores: [85, 90, 78]
+    // Tags: [honor, active]
+    
+    // テスト2: 構造体パラメータから配列要素へのアクセス
+    Student student2 = processStudent(student1);
+    println("Student 2 - ID: %d, Name: %s", student2.id, student2.name);
+    println("Scores: [%d, %d, %d]", student2.scores[0], student2.scores[1], student2.scores[2]);
+    println("Tags: [%s, %s]", student2.tags[0], student2.tags[1]);
+    
+    // 期待される出力:
+    // Student 2 - ID: 101, Name: Alice
+    // Scores: [95, 100, 88]
+    // Tags: [honor, active]
+    
+    return 0;
+}

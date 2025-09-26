@@ -10,33 +10,36 @@ namespace StructTests {
 inline void test_basic_struct() {
     std::cout << "[integration] Running test_basic_struct..." << std::endl;
     
-    run_cb_test_with_output("../../tests/cases/struct/basic_struct.cb", 
+    double execution_time;
+    run_cb_test_with_output_and_time("../../tests/cases/struct/basic_struct.cb", 
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_EQ(0, exit_code, "Basic struct test should exit with code 0");
             INTEGRATION_ASSERT(output.find("Point: (10, 20)") != std::string::npos, 
                               "Output should contain 'Point: (10, 20)'");
-        });
+        }, execution_time);
 }
 
 // Struct literal初期化のテスト
 inline void test_struct_literal() {
     std::cout << "[integration] Running test_struct_literal..." << std::endl;
     
-    run_cb_test_with_output("../../tests/cases/struct/struct_literal.cb", 
+    double execution_time;
+    run_cb_test_with_output_and_time("../../tests/cases/struct/struct_literal.cb", 
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_EQ(0, exit_code, "Struct literal test should exit with code 0");
             INTEGRATION_ASSERT(output.find("Person 1: Alice, 25 years old, 165 cm") != std::string::npos, 
                               "Output should contain named initialization result");
             INTEGRATION_ASSERT(output.find("Person 2: Bob, 30 years old, 180 cm") != std::string::npos, 
                               "Output should contain positional initialization result");
-        });
+        }, execution_time);
 }
 
 // Struct配列メンバーのテスト
 inline void test_struct_array_member() {
     std::cout << "[integration] Running test_struct_array_member..." << std::endl;
     
-    run_cb_test_with_output("../../tests/cases/struct/struct_array_member.cb", 
+    double execution_time;
+    run_cb_test_with_output_and_time("../../tests/cases/struct/struct_array_member.cb", 
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_EQ(0, exit_code, "Struct array member test should exit with code 0");
             INTEGRATION_ASSERT(output.find("Student: Charlie (ID: 12345)") != std::string::npos, 
@@ -45,14 +48,14 @@ inline void test_struct_array_member() {
                               "Output should contain grades array");
             INTEGRATION_ASSERT(output.find("Average: 85") != std::string::npos, 
                               "Output should contain calculated average");
-        });
+        }, execution_time);
 }
 
 // Struct配列メンバーのliteral初期化のテスト
 inline void test_struct_array_literal() {
     std::cout << "[integration] Running test_struct_array_literal..." << std::endl;
     
-    run_cb_test_with_output("../../tests/cases/struct/struct_array_literal.cb", 
+    run_cb_test_with_output_and_time_auto("../../tests/cases/struct/struct_array_literal.cb", 
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_EQ(0, exit_code, "Struct array literal test should exit with code 0");
             INTEGRATION_ASSERT(output.find("Course: Mathematics (3 credits)") != std::string::npos, 
@@ -68,7 +71,7 @@ inline void test_struct_array_literal() {
 inline void test_struct_array() {
     std::cout << "[integration] Running test_struct_array..." << std::endl;
     
-    run_cb_test_with_output("../../tests/cases/struct/struct_array.cb", 
+    run_cb_test_with_output_and_time_auto("../../tests/cases/struct/struct_array.cb", 
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_EQ(0, exit_code, "Struct array test should exit with code 0");
             INTEGRATION_ASSERT(output.find("Team Members:") != std::string::npos, 
@@ -88,7 +91,7 @@ inline void test_struct_array() {
 inline void test_nested_struct() {
     std::cout << "[integration] Running test_nested_struct..." << std::endl;
     
-    run_cb_test_with_output("../../tests/cases/struct/nested_struct.cb", 
+    run_cb_test_with_output_and_time_auto("../../tests/cases/struct/nested_struct.cb", 
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_EQ(256, exit_code, "Nested struct test should exit with error code (256) - not implemented yet");
             INTEGRATION_ASSERT(output.find("Nested member access assignment") != std::string::npos, 
@@ -102,7 +105,7 @@ inline void test_nested_struct() {
 inline void test_nested_struct_flat() {
     std::cout << "[integration] Running test_nested_struct_flat..." << std::endl;
     
-    run_cb_test_with_output("../../tests/cases/struct/nested_struct_flat.cb", 
+    run_cb_test_with_output_and_time_auto("../../tests/cases/struct/nested_struct_flat.cb", 
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_EQ(0, exit_code, "Nested struct flat test should exit with code 0");
             INTEGRATION_ASSERT(output.find("Company: Tech Corp") != std::string::npos, 
@@ -118,7 +121,7 @@ inline void test_nested_struct_flat() {
 inline void test_multidim_array_member() {
     std::cout << "[integration] Running test_multidim_array_member..." << std::endl;
     
-    run_cb_test_with_output("../../tests/cases/struct/multidim_array_member.cb", 
+    run_cb_test_with_output_and_time_auto("../../tests/cases/struct/multidim_array_member.cb", 
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_EQ(0, exit_code, "Multidim array member test should exit with code 0");
             INTEGRATION_ASSERT(output.find("Matrix: Sample Matrix (2x3)") != std::string::npos, 
@@ -137,23 +140,88 @@ inline void test_struct_function_param() {
     
     // 構造体の関数引数は複雑な機能のため、現在はスキップ
     // TODO: 将来実装予定
-    // run_cb_test_with_output("../../tests/cases/struct/struct_function_param.cb", ...);
+    // run_cb_test_with_output_and_time_auto("../../tests/cases/struct/struct_function_param.cb", ...);
 }
 
-// Struct関数戻り値のテスト（現在は未実装）
+// Struct関数戻り値のテスト
 inline void test_struct_function_return() {
-    std::cout << "[integration] Running test_struct_function_return (skipped - struct function returns not implemented)..." << std::endl;
+    std::cout << "[integration] Running test_struct_function_return..." << std::endl;
     
-    // 構造体の関数戻り値は複雑な機能のため、現在はスキップ
-    // TODO: 将来実装予定
-    // run_cb_test_with_output("../../tests/cases/struct/struct_function_return.cb", ...);
+    // 基本的な構造体関数戻り値テスト（数値のみ）
+    run_cb_test_with_output_and_time_auto("../../tests/cases/struct/struct_function_return.cb", 
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "Struct function return test should exit with code 0");
+            INTEGRATION_ASSERT(output.find("Point 1: (3, 4)") != std::string::npos, 
+                              "Output should contain Point 1 coordinates");
+            INTEGRATION_ASSERT(output.find("Point 2: (1, 2)") != std::string::npos, 
+                              "Output should contain Point 2 coordinates");
+            INTEGRATION_ASSERT(output.find("Sum: (4, 6)") != std::string::npos, 
+                              "Output should contain sum coordinates");
+        });
+}
+
+// Struct関数での文字列メンバテスト
+inline void test_struct_function_string_members() {
+    std::cout << "[integration] Running test_struct_function_string_members..." << std::endl;
+    
+    run_cb_test_with_output_and_time_auto("../../tests/cases/struct/struct_function_string_members.cb", 
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "Struct function string members test should exit with code 0");
+            INTEGRATION_ASSERT(output.find("Person 1 - ID: 1, Name: Alice, Description: Software Engineer") != std::string::npos, 
+                              "Output should contain Person 1 details");
+            INTEGRATION_ASSERT(output.find("Person 2 - ID: 1, Name: Alice, Description: Software Engineer") != std::string::npos, 
+                              "Output should contain Person 2 details (copied from Person 1)");
+            INTEGRATION_ASSERT(output.find("Person 3 - ID: 2, Name: Bob, Description: Data Scientist") != std::string::npos, 
+                              "Output should contain Person 3 details");
+            
+            // バグ検出: 文字列メンバが数値0になっている場合はエラー
+            if (output.find("Person 2 - ID: 1, Name: 0, Description: 0") != std::string::npos) {
+                throw std::runtime_error("BUG DETECTED: String members in struct parameters are returning 0 instead of actual string values");
+            }
+        });
+}
+
+// Struct関数での配列メンバテスト
+inline void test_struct_function_array_members() {
+    std::cout << "[integration] Running test_struct_function_array_members..." << std::endl;
+    
+    run_cb_test_with_output_and_time_auto("../../tests/cases/struct/struct_function_array_members.cb", 
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "Struct function array members test should exit with code 0");
+            
+            // 基本的な出力の検証
+            INTEGRATION_ASSERT(output.find("Student 1 - ID: 1, Name: Alice") != std::string::npos, 
+                              "Output should contain Student 1 basic info");
+            INTEGRATION_ASSERT(output.find("Scores: [85, 90, 78]") != std::string::npos, 
+                              "Output should contain Student 1 scores");
+            INTEGRATION_ASSERT(output.find("Tags: [honor, active]") != std::string::npos, 
+                              "Output should contain Student 1 tags with actual string values");
+            
+            // processStudent関数の結果検証
+            INTEGRATION_ASSERT(output.find("Student 2 - ID: 101, Name: Alice") != std::string::npos, 
+                              "Output should contain Student 2 processed info");
+            
+            // バグ検出: 構造体パラメータの配列アクセスに関するバグを検出
+            if (output.find("Scores: [10, 10, 10]") != std::string::npos) {
+                throw std::runtime_error("BUG DETECTED: Numeric array members in struct parameters are returning 0 instead of actual values (85+10=95, 90+10=100, 78+10=88 expected, but got 0+10=10 for all)");
+            }
+            if (output.find("Tags: [0, 0]") != std::string::npos) {
+                throw std::runtime_error("BUG DETECTED: String array members in struct parameters are returning 0 instead of actual string values");
+            }
+            
+            // 正しい期待値
+            INTEGRATION_ASSERT(output.find("Scores: [95, 100, 88]") != std::string::npos, 
+                              "Output should contain Student 2 processed scores");
+            INTEGRATION_ASSERT(output.find("Tags: [honor, active]") != std::string::npos, 
+                              "Output should contain Student 2 tags copied from original");
+        });
 }
 
 // 混合データ型のテスト
 inline void test_mixed_types() {
     std::cout << "[integration] Running test_mixed_types..." << std::endl;
     
-    run_cb_test_with_output("../../tests/cases/struct/mixed_types.cb", 
+    run_cb_test_with_output_and_time_auto("../../tests/cases/struct/mixed_types.cb", 
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_EQ(0, exit_code, "Mixed types test should exit with code 0");
             INTEGRATION_ASSERT(output.find("Label: Test Data (Count: 5)") != std::string::npos, 
@@ -169,7 +237,7 @@ inline void test_mixed_types() {
 inline void test_typedef_struct() {
     std::cout << "[integration] Running test_typedef_struct..." << std::endl;
     
-    run_cb_test_with_output("../../tests/cases/struct/typedef_struct.cb", 
+    run_cb_test_with_output_and_time_auto("../../tests/cases/struct/typedef_struct.cb", 
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_EQ(0, exit_code, "Typedef struct test should exit with code 0");
             INTEGRATION_ASSERT(output.find("Vertex 1: Origin at (0, 0)") != std::string::npos, 
@@ -187,7 +255,7 @@ inline void test_typedef_struct() {
 inline void test_struct_error_handling() {
     std::cout << "[integration] Running test_struct_error_handling..." << std::endl;
     
-    run_cb_test_with_output("../../tests/cases/struct/struct_error_handling.cb", 
+    run_cb_test_with_output_and_time_auto("../../tests/cases/struct/struct_error_handling.cb", 
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_EQ(0, exit_code, "Struct error handling test should exit with code 0");
             INTEGRATION_ASSERT(output.find("Valid member: 42") != std::string::npos, 
@@ -201,7 +269,7 @@ inline void test_struct_error_handling() {
 inline void test_large_struct() {
     std::cout << "[integration] Running test_large_struct..." << std::endl;
     
-    run_cb_test_with_output("../../tests/cases/struct/large_struct.cb", 
+    run_cb_test_with_output_and_time_auto("../../tests/cases/struct/large_struct.cb", 
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_EQ(0, exit_code, "Large struct test should exit with code 0");
             INTEGRATION_ASSERT(output.find("Large Struct: Large Data Structure (ID: 999)") != std::string::npos, 
@@ -219,7 +287,7 @@ inline void test_large_struct() {
 inline void test_comprehensive() {
     std::cout << "[integration] Running test_comprehensive..." << std::endl;
     
-    run_cb_test_with_output("../../tests/cases/struct/comprehensive_test.cb", 
+    run_cb_test_with_output_and_time_auto("../../tests/cases/struct/comprehensive_test.cb", 
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_EQ(0, exit_code, "Comprehensive test should exit with code 0");
             INTEGRATION_ASSERT(output.find("Course: Mathematics (Max Students: 2)") != std::string::npos, 
@@ -260,11 +328,13 @@ inline void run_all_struct_tests() {
         test_multidim_array_member();
         test_struct_function_param();
         test_struct_function_return();
-        // test_mixed_types(); // スキップ - 複雑な機能
-        // test_typedef_struct(); // スキップ - 複雑な機能  
-        // test_struct_error_handling(); // スキップ - 複雑な機能
-        // test_large_struct(); // スキップ - 複雑な機能
-        // test_comprehensive(); // スキップ - 複雑な機能
+        test_struct_function_string_members(); // 新しい文字列メンバテスト
+        test_struct_function_array_members();  // 新しい配列メンバテスト
+        test_mixed_types(); // 複雑な機能
+        test_typedef_struct(); // 複雑な機能  
+        test_struct_error_handling(); // 複雑な機能
+        test_large_struct(); // 複雑な機能
+        // test_comprehensive(); // 複雑な機能
         
         std::cout << "[integration] ========================================" << std::endl;
         std::cout << "[integration] All Struct tests completed successfully!" << std::endl;

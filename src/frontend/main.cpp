@@ -73,9 +73,7 @@ int main(int argc, char **argv) {
                            std::istreambuf_iterator<char>());
         input.close();
 
-        if (debug_mode) {
-            std::cout << "Using recursive descent parser...\n";
-        }
+        debug_msg(DebugMsgId::PARSE_USING_RECURSIVE_PARSER);
 
         RecursiveParser parser(source, filename);
         parser.setDebugMode(debug_mode);
@@ -89,8 +87,8 @@ int main(int argc, char **argv) {
         // インタープリターでASTを実行
         if (debug_mode) {
             std::fprintf(stderr, "Debug mode is enabled\n");
-            debug_msg(DebugMsgId::INTERPRETER_START);
         }
+        debug_msg(DebugMsgId::INTERPRETER_START);
 
         Interpreter interpreter(debug_mode);
 

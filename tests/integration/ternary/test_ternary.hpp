@@ -9,7 +9,7 @@ inline void test_integration_ternary() {
     
     // 三項演算子の基本テスト
     const std::string test_file_basic = "../../tests/cases/ternary/basic_ternary.cb";
-    run_cb_test_with_output(test_file_basic, 
+    run_cb_test_with_output_and_time_auto(test_file_basic, 
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_CONTAINS(output, "20", "Expected '20' for max(10, 20)");
             INTEGRATION_ASSERT_CONTAINS(output, "10", "Expected '10' for min(10, 20)");
@@ -21,11 +21,11 @@ inline void test_integration_ternary() {
             INTEGRATION_ASSERT(pos != std::string::npos, "Expected nested ternary results");
             INTEGRATION_ASSERT_EQ(0, exit_code, "Expected successful exit code for ternary basic test");
         });
-    integration_test_passed("ternary basic test", test_file_basic);
+    integration_test_passed_with_time_auto("ternary basic test", test_file_basic);
     
     // 三項演算子の複雑なテスト
     const std::string test_file_complex = "../../tests/cases/ternary/complex_ternary.cb";
-    run_cb_test_with_output(test_file_complex, 
+    run_cb_test_with_output_and_time_auto(test_file_complex, 
         [](const std::string& output, int exit_code) {
             // 出力を行ごとに分割して順序をチェック
             std::vector<std::string> lines;
@@ -56,7 +56,7 @@ inline void test_integration_ternary() {
             
             INTEGRATION_ASSERT_EQ(0, exit_code, "Expected successful exit code for ternary complex test");
         });
-    integration_test_passed("ternary complex test", test_file_complex);
+    integration_test_passed_with_time_auto("ternary complex test", test_file_complex);
     
     std::cout << "[integration] Ternary tests completed" << std::endl;
 }

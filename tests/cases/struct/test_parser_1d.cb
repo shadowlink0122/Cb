@@ -1,0 +1,11 @@
+// パーサーテスト：1次元配列代入
+struct Matrix2x2 {
+    int[2][2] data;
+};
+
+int main() {
+    Matrix2x2 m;
+    // この行でnullノードエラーが発生するか確認
+    m.data[0] = 0;  // これがエラーの原因?
+    return 0;
+}

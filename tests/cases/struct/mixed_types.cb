@@ -1,8 +1,8 @@
 // 混合データ型のテスト
 struct MixedData {
     string label;
-    int numbers[3];
-    string tags[2];
+    int[3] numbers;
+    string[2] tags;
     int count;
 };
 

@@ -15,7 +15,9 @@ void StatementExecutor::execute_statement(const ASTNode *node) {
 void StatementExecutor::execute(const ASTNode *node) {
     if (!node) return;
     
-    // Debug output removed - use --debug option if needed
+    if(debug_mode){
+        std::cerr << "[DEBUG_EXECUTE] Executing node type: " << (int)node->node_type << std::endl;
+    }
 
     switch (node->node_type) {
         case ASTNodeType::AST_ASSIGN: {
@@ -45,32 +47,11 @@ void StatementExecutor::execute(const ASTNode *node) {
 }
 
 void StatementExecutor::execute_assignment(const ASTNode *node) {
-    if (debug_mode) {
-        std::cerr << "DEBUG: execute_assignment called" << std::endl;
-        std::cerr << "DEBUG: node=" << (void*)node << std::endl;
-        std::cerr << "DEBUG: node->left=" << (void*)node->left.get() << std::endl;
-        std::cerr << "DEBUG: node->right=" << (void*)node->right.get() << std::endl;
-        std::cerr << "DEBUG: node->name=" << node->name << std::endl;
-        
-        if (node->left) {
-            std::cerr << "DEBUG: Left node type: " << (int)node->left->node_type << std::endl;
-            if (node->left->node_type == ASTNodeType::AST_VARIABLE) {
-                std::cerr << "DEBUG: Variable name from left: " << node->left->name << std::endl;
-            }
-        }
-        if (node->right) {
-            std::cerr << "DEBUG: Right node type: " << (int)node->right->node_type << std::endl;
-        }
-    }
-    
     // 右辺が配列リテラルの場合の特別処理
     if (node->right && node->right->node_type == ASTNodeType::AST_ARRAY_LITERAL) {
         if (node->left && node->left->node_type == ASTNodeType::AST_VARIABLE) {
             // 通常の変数への配列リテラル代入
             std::string var_name = node->left->name;
-            if (debug_mode) {
-                std::cerr << "DEBUG: Calling assign_array_literal for variable: " << var_name << std::endl;
-            }
             interpreter_.assign_array_literal(var_name, node->right.get());
             return;
         } else if (node->left && node->left->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
@@ -79,9 +60,6 @@ void StatementExecutor::execute_assignment(const ASTNode *node) {
             return;
         } else if (!node->name.empty()) {
             // 名前による直接代入
-            if (debug_mode) {
-                std::cerr << "DEBUG: Calling assign_array_literal for variable: " << node->name << std::endl;
-            }
             interpreter_.assign_array_literal(node->name, node->right.get());
             return;
         } else {
@@ -124,20 +102,72 @@ void StatementExecutor::execute_assignment(const ASTNode *node) {
         
         // 多次元配列アクセスかチェック
         if (node->left->left && node->left->left->node_type == ASTNodeType::AST_ARRAY_REF) {
-            // 多次元配列要素への代入
-            std::string var_name = interpreter_.extract_array_name(node->left.get());
-            std::vector<int64_t> indices = interpreter_.extract_array_indices(node->left.get());
-            
-            Variable *var = interpreter_.find_variable(var_name);
-            if (!var) {
-                throw std::runtime_error("Variable not found: " + var_name);
+            // 構造体メンバーの多次元配列かチェック
+            ASTNode* deepest_left = node->left.get();
+            while (deepest_left->left && deepest_left->left->node_type == ASTNodeType::AST_ARRAY_REF) {
+                deepest_left = deepest_left->left.get();
             }
             
-            if (!var->is_multidimensional) {
-                throw std::runtime_error("Variable is not a multidimensional array: " + var_name);
+            if (deepest_left->left && deepest_left->left->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
+                // 構造体メンバーの多次元配列への代入: obj.member[i][j] = value
+                debug_msg(DebugMsgId::MULTIDIM_ARRAY_ASSIGNMENT_DETECTED);
+                std::string obj_name = deepest_left->left->left->name;
+                std::string member_name = deepest_left->left->name;
+                debug_msg(DebugMsgId::VAR_MANAGER_STRUCT_CREATE, obj_name.c_str(), member_name.c_str());
+                
+                // インデックスを収集（ネストしたAST_ARRAY_REFから）
+                std::vector<int64_t> indices;
+                ASTNode* current_ref = node->left.get();
+                
+                // 逆順でインデックスを収集（最外層から最内層へ）
+                std::vector<const ASTNode*> refs;
+                while (current_ref && current_ref->node_type == ASTNodeType::AST_ARRAY_REF) {
+                    refs.push_back(current_ref);
+                    current_ref = current_ref->left.get();
+                }
+                
+                // 順序を逆にして、インデックスを正しい順序で収集
+                for (auto it = refs.rbegin(); it != refs.rend(); ++it) {
+                    if (!(*it)->array_index) {
+                        std::cerr << "[ERROR] Null array_index in nested AST_ARRAY_REF" << std::endl;
+                        std::cerr << "[ERROR] Node type: " << (int)(*it)->node_type << std::endl;
+                        std::cerr << "[ERROR] This suggests parser failed to properly construct AST for multidimensional access" << std::endl;
+                        throw std::runtime_error("Null array_index in multidimensional access");
+                    }
+                    debug_msg(DebugMsgId::ARRAY_ELEMENT_EVAL_START);
+                    int64_t index = interpreter_.evaluate((*it)->array_index.get());
+                    debug_msg(DebugMsgId::ARRAY_ELEMENT_EVAL_VALUE, std::to_string(index).c_str());
+                    indices.push_back(index);
+                }
+                
+                // 構造体メンバー変数を取得
+                Variable *member_var = interpreter_.get_struct_member(obj_name, member_name);
+                if (!member_var) {
+                    throw std::runtime_error("Struct member not found: " + member_name);
+                }
+                
+                // 多次元配列の要素に代入
+                if (member_var->is_multidimensional && indices.size() > 1) {
+                    interpreter_.setMultidimensionalArrayElement(*member_var, indices, rvalue);
+                } else {
+                    throw std::runtime_error("Invalid multidimensional member array access");
+                }
+            } else {
+                // 通常の多次元配列要素への代入
+                std::string var_name = interpreter_.extract_array_name(node->left.get());
+                std::vector<int64_t> indices = interpreter_.extract_array_indices(node->left.get());
+                
+                Variable *var = interpreter_.find_variable(var_name);
+                if (!var) {
+                    throw std::runtime_error("Variable not found: " + var_name);
+                }
+                
+                if (!var->is_multidimensional) {
+                    throw std::runtime_error("Variable is not a multidimensional array: " + var_name);
+                }
+                
+                interpreter_.setMultidimensionalArrayElement(*var, indices, rvalue);
             }
-            
-            interpreter_.setMultidimensionalArrayElement(*var, indices, rvalue);
         } else {
             // 単一次元配列要素への代入
             int64_t index_value = interpreter_.evaluate(node->left->array_index.get());
@@ -187,6 +217,11 @@ void StatementExecutor::execute_assignment(const ASTNode *node) {
 }
 
 void StatementExecutor::execute_variable_declaration(const ASTNode *node) {
+    if (debug_mode) {
+        std::cerr << "[DEBUG_EXEC] Executing variable declaration: " << node->name
+                  << ", type_info: " << (int)node->type_info
+                  << ", type_name: " << node->type_name << std::endl;
+    }
     // Debug output removed - use --debug option if needed
     
     Variable var;
@@ -250,7 +285,8 @@ void StatementExecutor::execute_variable_declaration(const ASTNode *node) {
     // struct型の特別処理
     if (node->type_info == TYPE_STRUCT && !node->type_name.empty()) {
         // struct変数を作成
-        // Debug output removed - use --debug option if needed
+        std::cerr << "[DEBUG_STMT] Creating struct variable: " << node->name 
+                  << " of type: " << node->type_name << std::endl;
         interpreter_.create_struct_variable(node->name, node->type_name);
         return; // struct変数は専用処理で完了
     }
@@ -409,8 +445,70 @@ void StatementExecutor::execute_member_array_assignment(const ASTNode* node) {
     int index = static_cast<int>(index_value);
     
     // 右辺の値を評価して構造体メンバー配列要素に代入
+    debug_print("DEBUG: execute_member_array_assignment - right type=%d\n", static_cast<int>(node->right->node_type));
     if (node->right->node_type == ASTNodeType::AST_STRING_LITERAL) {
         interpreter_.assign_struct_member_array_element(obj_name, member_name, index, node->right->str_value);
+    } else if (node->right->node_type == ASTNodeType::AST_ARRAY_REF) {
+        // 構造体メンバ配列アクセスがAST_ARRAY_REFとして解析される場合
+        debug_print("DEBUG: Processing AST_ARRAY_REF on right-hand side in array assignment\n");
+        if (node->right->left && node->right->left->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
+            // original.tags[0] の形式
+            std::string right_obj_name = node->right->left->left->name;
+            std::string right_member_name = node->right->left->name;
+            int64_t array_index = interpreter_.evaluate(node->right->array_index.get());
+            
+            Variable* right_member_var = interpreter_.get_struct_member(right_obj_name, right_member_name);
+            debug_print("DEBUG: AST_ARRAY_REF right_member_var type=%d, is_array=%d\n", 
+                       static_cast<int>(right_member_var->type), right_member_var->is_array ? 1 : 0);
+            if ((right_member_var->type == TYPE_STRING && right_member_var->is_array) || 
+                right_member_var->type == static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_STRING)) {
+                debug_print("DEBUG: Using string array element access via AST_ARRAY_REF\n");
+                std::string str_value = interpreter_.get_struct_member_array_string_element(right_obj_name, right_member_name, static_cast<int>(array_index));
+                interpreter_.assign_struct_member_array_element(obj_name, member_name, index, str_value);
+            } else {
+                debug_print("DEBUG: Using numeric array element access via AST_ARRAY_REF\n");
+                int64_t value = interpreter_.get_struct_member_array_element(right_obj_name, right_member_name, static_cast<int>(array_index));
+                interpreter_.assign_struct_member_array_element(obj_name, member_name, index, value);
+            }
+        } else {
+            // 通常の配列参照として処理
+            int64_t value = interpreter_.evaluate(node->right.get());
+            interpreter_.assign_struct_member_array_element(obj_name, member_name, index, value);
+        }
+    } else if (node->right->node_type == ASTNodeType::AST_MEMBER_ARRAY_ACCESS) {
+        // 構造体メンバ配列アクセスの場合（original.tags[0]等）
+        debug_print("DEBUG: Processing AST_MEMBER_ARRAY_ACCESS on right-hand side in array assignment\n");
+        std::string right_obj_name;
+        std::string right_member_name = node->right->name;
+        
+        if (node->right->left->node_type == ASTNodeType::AST_VARIABLE) {
+            right_obj_name = node->right->left->name;
+        } else if (node->right->left->node_type == ASTNodeType::AST_ARRAY_REF) {
+            // struct配列要素の場合
+            std::string array_name = node->right->left->left->name;
+            int64_t idx = interpreter_.evaluate(node->right->left->array_index.get());
+            right_obj_name = array_name + "[" + std::to_string(idx) + "]";
+        } else {
+            throw std::runtime_error("Invalid right-hand member array access");
+        }
+        
+        // インデックスを評価
+        int64_t array_index = interpreter_.evaluate(node->right->right.get());
+        
+        // 右辺の構造体メンバ配列要素を取得
+        Variable* right_member_var = interpreter_.get_struct_member(right_obj_name, right_member_name);
+        debug_print("DEBUG: right_member_var type=%d, is_array=%d in array assignment\n", 
+                   static_cast<int>(right_member_var->type), right_member_var->is_array ? 1 : 0);
+        if ((right_member_var->type == TYPE_STRING && right_member_var->is_array) || 
+            right_member_var->type == static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_STRING)) {
+            debug_print("DEBUG: Using string array element access in array assignment\n");
+            std::string str_value = interpreter_.get_struct_member_array_string_element(right_obj_name, right_member_name, static_cast<int>(array_index));
+            interpreter_.assign_struct_member_array_element(obj_name, member_name, index, str_value);
+        } else {
+            debug_print("DEBUG: Using numeric array element access in array assignment\n");
+            int64_t value = interpreter_.get_struct_member_array_element(right_obj_name, right_member_name, static_cast<int>(array_index));
+            interpreter_.assign_struct_member_array_element(obj_name, member_name, index, value);
+        }
     } else {
         int64_t value = interpreter_.evaluate(node->right.get());
         interpreter_.assign_struct_member_array_element(obj_name, member_name, index, value);
@@ -418,8 +516,11 @@ void StatementExecutor::execute_member_array_assignment(const ASTNode* node) {
 }
 
 void StatementExecutor::execute_member_assignment(const ASTNode* node) {
-    // obj.member = value の処理
+    // obj.member = value または array[index].member = value の処理
     const ASTNode* member_access = node->left.get();
+    
+    debug_print("DEBUG: execute_member_assignment - left type=%d, right type=%d\n",
+               static_cast<int>(node->left->node_type), static_cast<int>(node->right->node_type));
     
     if (!member_access || member_access->node_type != ASTNodeType::AST_MEMBER_ACCESS) {
         throw std::runtime_error("Invalid member access in assignment");
@@ -428,7 +529,13 @@ void StatementExecutor::execute_member_assignment(const ASTNode* node) {
     // オブジェクト名を取得
     std::string obj_name;
     if (member_access->left && member_access->left->node_type == ASTNodeType::AST_VARIABLE) {
+        // 通常の構造体変数: obj.member
         obj_name = member_access->left->name;
+    } else if (member_access->left && member_access->left->node_type == ASTNodeType::AST_ARRAY_REF) {
+        // 構造体配列要素: array[index].member
+        std::string array_name = member_access->left->left->name;
+        int64_t index = interpreter_.evaluate(member_access->left->array_index.get());
+        obj_name = array_name + "[" + std::to_string(index) + "]";
     } else {
         throw std::runtime_error("Invalid object reference in member access");
     }
@@ -439,6 +546,72 @@ void StatementExecutor::execute_member_assignment(const ASTNode* node) {
     // struct変数のメンバに直接代入
     if (node->right->node_type == ASTNodeType::AST_STRING_LITERAL) {
         interpreter_.assign_struct_member(obj_name, member_name, node->right->str_value);
+    } else if (node->right->node_type == ASTNodeType::AST_VARIABLE) {
+        // 変数参照の場合、文字列変数か数値変数か判断
+        Variable* right_var = interpreter_.find_variable(node->right->name);
+        if (right_var && right_var->type == TYPE_STRING) {
+            interpreter_.assign_struct_member(obj_name, member_name, right_var->str_value);
+        } else {
+            int64_t value = interpreter_.evaluate(node->right.get());
+            interpreter_.assign_struct_member(obj_name, member_name, value);
+        }
+    } else if (node->right->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
+        // 構造体メンバアクセスの場合（original.name等）
+        std::string right_obj_name;
+        std::string right_member_name = node->right->name;
+        
+        if (node->right->left->node_type == ASTNodeType::AST_VARIABLE) {
+            right_obj_name = node->right->left->name;
+        } else if (node->right->left->node_type == ASTNodeType::AST_ARRAY_REF) {
+            // struct配列要素の場合
+            std::string array_name = node->right->left->left->name;
+            int64_t index = interpreter_.evaluate(node->right->left->array_index.get());
+            right_obj_name = array_name + "[" + std::to_string(index) + "]";
+        } else {
+            throw std::runtime_error("Invalid right-hand member access");
+        }
+        
+        // 右辺の構造体メンバを取得
+        Variable* right_member_var = interpreter_.get_struct_member(right_obj_name, right_member_name);
+        if (right_member_var->type == TYPE_STRING) {
+            interpreter_.assign_struct_member(obj_name, member_name, right_member_var->str_value);
+        } else {
+            interpreter_.assign_struct_member(obj_name, member_name, right_member_var->value);
+        }
+    } else if (node->right->node_type == ASTNodeType::AST_MEMBER_ARRAY_ACCESS) {
+        // 構造体メンバ配列アクセスの場合（original.tags[0]等）
+        debug_print("DEBUG: Processing AST_MEMBER_ARRAY_ACCESS on right-hand side\n");
+        std::string right_obj_name;
+        std::string right_member_name = node->right->name;
+        
+        if (node->right->left->node_type == ASTNodeType::AST_VARIABLE) {
+            right_obj_name = node->right->left->name;
+        } else if (node->right->left->node_type == ASTNodeType::AST_ARRAY_REF) {
+            // struct配列要素の場合
+            std::string array_name = node->right->left->left->name;
+            int64_t index = interpreter_.evaluate(node->right->left->array_index.get());
+            right_obj_name = array_name + "[" + std::to_string(index) + "]";
+        } else {
+            throw std::runtime_error("Invalid right-hand member array access");
+        }
+        
+        // インデックスを評価
+        int64_t array_index = interpreter_.evaluate(node->right->right.get());
+        
+        // 右辺の構造体メンバ配列要素を取得
+        Variable* right_member_var = interpreter_.get_struct_member(right_obj_name, right_member_name);
+        debug_print("DEBUG: right_member_var type=%d, is_array=%d\n", 
+                   static_cast<int>(right_member_var->type), right_member_var->is_array ? 1 : 0);
+        if ((right_member_var->type == TYPE_STRING && right_member_var->is_array) || 
+            right_member_var->type == static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_STRING)) {
+            debug_print("DEBUG: Using string array element access\n");
+            std::string str_value = interpreter_.get_struct_member_array_string_element(right_obj_name, right_member_name, static_cast<int>(array_index));
+            interpreter_.assign_struct_member(obj_name, member_name, str_value);
+        } else {
+            debug_print("DEBUG: Using numeric array element access\n");
+            int64_t value = interpreter_.get_struct_member_array_element(right_obj_name, right_member_name, static_cast<int>(array_index));
+            interpreter_.assign_struct_member(obj_name, member_name, value);
+        }
     } else {
         int64_t value = interpreter_.evaluate(node->right.get());
         interpreter_.assign_struct_member(obj_name, member_name, value);
@@ -446,7 +619,7 @@ void StatementExecutor::execute_member_assignment(const ASTNode* node) {
 }
 
 void StatementExecutor::execute_member_array_literal_assignment(const ASTNode* node) {
-    // obj.member = [1, 2, 3] の処理
+    // obj.member = [1, 2, 3] または array[index].member = [1, 2, 3] の処理
     const ASTNode* member_access = node->left.get();
     
     if (!member_access || member_access->node_type != ASTNodeType::AST_MEMBER_ACCESS) {
@@ -456,7 +629,13 @@ void StatementExecutor::execute_member_array_literal_assignment(const ASTNode* n
     // オブジェクト名を取得
     std::string obj_name;
     if (member_access->left && member_access->left->node_type == ASTNodeType::AST_VARIABLE) {
+        // 通常の構造体変数: obj.member
         obj_name = member_access->left->name;
+    } else if (member_access->left && member_access->left->node_type == ASTNodeType::AST_ARRAY_REF) {
+        // 構造体配列要素: array[index].member
+        std::string array_name = member_access->left->left->name;
+        int64_t index = interpreter_.evaluate(member_access->left->array_index.get());
+        obj_name = array_name + "[" + std::to_string(index) + "]";
     } else {
         throw std::runtime_error("Invalid object reference in member array literal assignment");
     }

@@ -14,7 +14,7 @@ void debug_print(const char *fmt, ...) {
 
     va_list args;
     va_start(args, fmt);
-    fprintf(stderr, "[DEBUG] ");
+    fprintf(stderr, "[DEBUG_PRINT] ");
     vfprintf(stderr, fmt, args);
     va_end(args);
 }
@@ -28,7 +28,6 @@ void debug_msg(DebugMsgId msg_id, ...) {
     const char *format =
         (debug_language == DebugLanguage::JAPANESE) ? msg.ja : msg.en;
 
-    fprintf(stderr, "[DEBUG] ");
     va_list args;
     va_start(args, msg_id);
     vfprintf(stderr, format, args);

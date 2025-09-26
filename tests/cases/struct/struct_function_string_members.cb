@@ -1,0 +1,50 @@
+// 構造体の文字列メンバと関数戻り値のテスト
+typedef struct {
+    int id;
+    string name;
+    string description;
+} Person;
+
+Person createPerson(int id, string name, string desc) {
+    Person p;
+    p.id = id;
+    p.name = name;
+    p.description = desc;
+    return p;
+}
+
+Person copyPerson(Person original) {
+    Person copy;
+    copy.id = original.id;
+    copy.name = original.name;
+    copy.description = original.description;
+    return copy;
+}
+
+int main() {
+    // テスト1: 関数戻り値での文字列メンバ
+    Person person1 = createPerson(1, "Alice", "Software Engineer");
+    println("Person 1 - ID: %d, Name: %s, Description: %s", 
+            person1.id, person1.name, person1.description);
+    
+    // 期待される出力: Person 1 - ID: 1, Name: Alice, Description: Software Engineer
+    
+    // テスト2: 構造体パラメータから構造体へのコピー
+    Person person2 = copyPerson(person1);
+    println("Person 2 - ID: %d, Name: %s, Description: %s", 
+            person2.id, person2.name, person2.description);
+    
+    // 期待される出力: Person 2 - ID: 1, Name: Alice, Description: Software Engineer
+    
+    // テスト3: 直接代入での動作確認
+    Person person3;
+    person3.id = 2;
+    person3.name = "Bob";
+    person3.description = "Data Scientist";
+    println("Person 3 - ID: %d, Name: %s, Description: %s", 
+            person3.id, person3.name, person3.description);
+    
+    // 期待される出力: Person 3 - ID: 2, Name: Bob, Description: Data Scientist
+    
+    return 0;
+}

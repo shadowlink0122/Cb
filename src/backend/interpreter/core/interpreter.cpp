@@ -1,6 +1,7 @@
 #include "core/interpreter.h"
 #include "../../../common/ast.h"
 #include "../../../common/debug.h"
+#include "../../../common/debug_messages.h"
 #include "../../../common/utf8_utils.h"
 #include "../../../frontend/recursive_parser/recursive_parser.h"
 #include "managers/array_manager.h"
@@ -111,8 +112,7 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
         default:
             break;
         }
-        debug_print("register_global_declarations processing: %s (name: %s)\n",
-                    node_type_name, node->name.c_str());
+        debug_msg(DebugMsgId::PARSE_REGISTER_GLOBAL_DECL, node_type_name, node->name.c_str());
         // DRY効率化: 統一デバッグサービスでの出力例（将来的に移行）
         DEBUG_DEBUG(GENERAL, "Processing global declaration: %s (name: %s)",
                     node_type_name, node->name.c_str());
@@ -154,13 +154,10 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
     case ASTNodeType::AST_STRUCT_TYPEDEF_DECL:
         // struct定義を登録
         {
-            if (debug_mode) {
-                debug_print("Registering struct definition: %s\n",
-                            node->name.c_str());
-                // DRY効率化: 統一デバッグサービス（併用期間）
-                DEBUG_DEBUG(STRUCT, "Registering struct definition: %s",
-                            node->name.c_str());
-            }
+            debug_msg(DebugMsgId::PARSE_STRUCT_REGISTER, node->name.c_str());
+            // DRY効率化: 統一デバッグサービス（併用期間）
+            DEBUG_DEBUG(STRUCT, "Registering struct definition: %s",
+                        node->name.c_str());
             std::string struct_name = node->name;
             StructDefinition struct_def(struct_name);
 
@@ -175,54 +172,39 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
                         array_member.array_info = member_node->array_type_info;
                         struct_def.members.push_back(array_member);
 
-                        if (debug_mode) {
-                            debug_print(
-                                "Adding array member: %s (type: %d, size: "
-                                "%d)\n",
-                                member_node->name.c_str(),
-                                (int)member_node->type_info,
-                                member_node->array_type_info.dimensions[0]
-                                    .size);
+                        debug_msg(DebugMsgId::INTERPRETER_STRUCT_ARRAY_MEMBER_ADDED, 
+                                 member_node->name.c_str(),
+                                 (int)member_node->type_info,
+                                 member_node->array_type_info.dimensions[0].size);
 
-                            // size_exprのデバッグ出力を追加
-                            const auto &dim =
-                                member_node->array_type_info.dimensions[0];
-                            debug_print("  Array dimension: size=%d, "
-                                        "is_dynamic=%d, size_expr='%s'\n",
-                                        dim.size, dim.is_dynamic ? 1 : 0,
-                                        dim.size_expr.c_str());
-                        }
+                        // Array dimension details
+                        const auto &dim = member_node->array_type_info.dimensions[0];
+                        debug_msg(DebugMsgId::INTERPRETER_ARRAY_DIMENSION_INFO,
+                                 dim.size, dim.is_dynamic ? 1 : 0,
+                                 dim.size_expr.c_str());
                     } else {
                         struct_def.add_member(member_node->name,
                                               member_node->type_info,
                                               member_node->type_name);
-                        if (debug_mode) {
-                            debug_print("Adding member: %s (type: %d)\n",
-                                        member_node->name.c_str(),
-                                        (int)member_node->type_info);
-                        }
+                        debug_msg(DebugMsgId::INTERPRETER_STRUCT_MEMBER_ADDED,
+                                 member_node->name.c_str(),
+                                 (int)member_node->type_info);
                     }
                 }
             }
 
             register_struct_definition(struct_name, struct_def);
-            if (debug_mode) {
-                debug_print(
-                    "Registered struct definition: %s with %zu members\n",
-                    struct_name.c_str(), struct_def.members.size());
-            }
+            debug_msg(DebugMsgId::INTERPRETER_STRUCT_REGISTERED,
+                     struct_name.c_str(), struct_def.members.size());
         }
         break;
 
     case ASTNodeType::AST_ENUM_DECL:
         // enum定義を登録
         {
-            if (debug_mode) {
-                debug_print("Registering enum definition: %s\n",
-                            node->name.c_str());
-                DEBUG_DEBUG(GENERAL, "Registering enum definition: %s",
-                            node->name.c_str());
-            }
+            debug_msg(DebugMsgId::INTERPRETER_ENUM_REGISTERING, node->name.c_str());
+            DEBUG_DEBUG(GENERAL, "Registering enum definition: %s",
+                        node->name.c_str());
 
             // ASTノードからenum定義情報を取得
             const EnumDefinition& enum_def = node->enum_definition;
@@ -241,12 +223,14 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
     case ASTNodeType::AST_ASSIGN:
         if (node->node_type == ASTNodeType::AST_MULTIPLE_VAR_DECL) {
             // 複数変数宣言の場合、各子ノードを処理
+            debug_msg(DebugMsgId::INTERPRETER_MULTIPLE_VAR_DECL_START, node->children.size());
             for (const auto &child : node->children) {
                 if (child->node_type == ASTNodeType::AST_VAR_DECL) {
                     register_global_declarations(child.get());
                 }
             }
         } else if (node->node_type == ASTNodeType::AST_ASSIGN) {
+            debug_msg(DebugMsgId::INTERPRETER_GLOBAL_VAR_INIT_START, node->name.c_str());
             // グローバル変数の重複宣言チェック
             if (global_scope.variables.find(node->name) !=
                 global_scope.variables.end()) {
@@ -258,9 +242,11 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
             if (node->right &&
                 node->right->node_type == ASTNodeType::AST_ARRAY_LITERAL) {
                 // 配列リテラル初期化の場合 - 既に宣言済みの変数に代入
+                debug_msg(DebugMsgId::INTERPRETER_ARRAY_LITERAL_INIT, node->name.c_str());
                 assign_array_literal(node->name, node->right.get());
             } else {
                 // 通常の初期化
+                debug_msg(DebugMsgId::INTERPRETER_NORMAL_VAR_INIT, node->name.c_str());
                 Variable var;
                 var.type =
                     node->type_info != TYPE_VOID ? node->type_info : TYPE_INT;
@@ -324,9 +310,7 @@ void Interpreter::process(const ASTNode *ast) {
     register_global_declarations(ast);
 
     // グローバル変数の初期化を行う
-    if (debug_mode) {
-        debug_print("Initializing global variables\n");
-    }
+    debug_msg(DebugMsgId::INTERPRETER_GLOBAL_VAR_INIT);
     initialize_global_variables(ast);
 
     debug_msg(DebugMsgId::GLOBAL_DECL_COMPLETE);
@@ -342,13 +326,12 @@ void Interpreter::process(const ASTNode *ast) {
 
     try {
         push_scope();
-        debug_msg(DebugMsgId::MAIN_FUNC_FOUND, "main function execute");
+        debug_msg(DebugMsgId::MAIN_FUNC_EXECUTE);
 
         if (main_func->body) {
-            debug_msg(DebugMsgId::MAIN_FUNC_FOUND, "main function body exists");
+            debug_msg(DebugMsgId::MAIN_FUNC_BODY_EXISTS);
         } else {
-            debug_msg(DebugMsgId::MAIN_FUNC_FOUND,
-                      "main function body is null");
+            debug_msg(DebugMsgId::MAIN_FUNC_BODY_NULL);
         }
 
         execute_statement(main_func->body.get());
@@ -386,24 +369,20 @@ void Interpreter::process_ndim_array_literal(const ASTNode *literal_node,
             if (elem_type == TYPE_STRING) {
                 if (element->node_type == ASTNodeType::AST_STRING_LITERAL) {
                     var.multidim_array_strings[flat_index] = element->str_value;
-                    if (debug_mode) {
-                        debug_msg(DebugMsgId::ARRAY_DECL_EVAL_DEBUG,
-                                  ("Set string element[" +
-                                   std::to_string(flat_index) +
-                                   "] = " + element->str_value)
-                                      .c_str());
-                    }
+                    debug_msg(DebugMsgId::ARRAY_DECL_EVAL_DEBUG,
+                              ("Set string element[" +
+                               std::to_string(flat_index) +
+                               "] = " + element->str_value)
+                                  .c_str());
                 }
             } else {
                 int64_t val =
                     expression_evaluator_->evaluate_expression(element.get());
                 var.multidim_array_values[flat_index] = val;
-                if (debug_mode) {
-                    debug_msg(DebugMsgId::ARRAY_DECL_EVAL_DEBUG,
-                              ("Set element[" + std::to_string(flat_index) +
-                               "] = " + std::to_string(val))
-                                  .c_str());
-                }
+                debug_msg(DebugMsgId::ARRAY_DECL_EVAL_DEBUG,
+                          ("Set element[" + std::to_string(flat_index) +
+                           "] = " + std::to_string(val))
+                              .c_str());
             }
             flat_index++;
         }
@@ -413,6 +392,9 @@ void Interpreter::process_ndim_array_literal(const ASTNode *literal_node,
 void Interpreter::execute_statement(const ASTNode *node) {
     if (!node)
         return;
+
+    debug_msg(DebugMsgId::INTERPRETER_EXEC_STMT, (int)node->node_type);
+    debug_msg(DebugMsgId::INTERPRETER_STMT_DETAILS, (int)node->node_type, node->name.c_str());
 
     if (debug_mode) {
         const char *node_type_name = "UNKNOWN";
@@ -453,37 +435,51 @@ void Interpreter::execute_statement(const ASTNode *node) {
         default:
             break;
         }
-        debug_msg(DebugMsgId::VAR_DECLARATION_DEBUG, node_type_name);
+        (void)node_type_name; // Suppress unused variable warning
     }
 
     switch (node->node_type) {
     case ASTNodeType::AST_STMT_LIST:
+        debug_msg(DebugMsgId::INTERPRETER_STMT_LIST_EXEC, node->statements.size());
         for (const auto &stmt : node->statements) {
             execute_statement(stmt.get());
         }
         break;
 
     case ASTNodeType::AST_COMPOUND_STMT:
+        debug_msg(DebugMsgId::INTERPRETER_COMPOUND_STMT_EXEC, node->statements.size());
         for (const auto &stmt : node->statements) {
             execute_statement(stmt.get());
         }
         break;
 
     case ASTNodeType::AST_VAR_DECL:
+        debug_msg(DebugMsgId::INTERPRETER_VAR_DECL, node->name.c_str());
+        debug_msg(DebugMsgId::INTERPRETER_VAR_DECL_TYPE, (int)node->type_info);
         // 変数宣言をVariableManagerに委譲
-        variable_manager_->process_var_decl_or_assign(node);
+        try {
+            variable_manager_->process_var_decl_or_assign(node);
+            debug_msg(DebugMsgId::INTERPRETER_VAR_DECL_SUCCESS, node->name.c_str());
+        } catch (const std::exception& e) {
+            error_msg(DebugMsgId::INTERPRETER_VAR_PROCESS_EXCEPTION, e.what());
+            throw;
+        }
         break;
 
     case ASTNodeType::AST_ASSIGN:
+        debug_msg(DebugMsgId::INTERPRETER_ASSIGNMENT, node->name.c_str());
         // 代入をStatementExecutorに委譲
         statement_executor_->execute(node);
+        debug_msg(DebugMsgId::INTERPRETER_ASSIGNMENT_SUCCESS, node->name.c_str());
         break;
 
     case ASTNodeType::AST_MULTIPLE_VAR_DECL:
+        debug_msg(DebugMsgId::INTERPRETER_MULTIPLE_VAR_DECL_EXEC, "");
         statement_executor_->execute_multiple_var_decl(node);
         break;
 
     case ASTNodeType::AST_ARRAY_DECL:
+        debug_msg(DebugMsgId::INTERPRETER_ARRAY_DECL_EXEC, node->name.c_str());
         statement_executor_->execute_array_decl(node);
         break;
 
@@ -491,8 +487,7 @@ void Interpreter::execute_statement(const ASTNode *node) {
     case ASTNodeType::AST_STRUCT_TYPEDEF_DECL:
         // struct定義を登録
         {
-            std::cerr << "[DEBUG] Processing struct definition: " << node->name
-                      << std::endl;
+            debug_msg(DebugMsgId::PARSE_STRUCT_DEF, node->name.c_str());
             std::string struct_name = node->name;
             StructDefinition struct_def(struct_name);
 
@@ -502,16 +497,12 @@ void Interpreter::execute_statement(const ASTNode *node) {
                     struct_def.add_member(member_node->name,
                                           member_node->type_info,
                                           member_node->type_name);
-                    std::cerr << "[DEBUG] Adding member: " << member_node->name
-                              << " (type: " << (int)member_node->type_info
-                              << ")" << std::endl;
+                    debug_msg(DebugMsgId::PARSE_VAR_DECL, member_node->name.c_str(), member_node->type_name.c_str());
                 }
             }
 
             register_struct_definition(struct_name, struct_def);
-            std::cerr << "[DEBUG] Registered struct definition: " << struct_name
-                      << " with " << struct_def.members.size() << " members"
-                      << std::endl;
+            debug_msg(DebugMsgId::PARSE_STRUCT_DEF, struct_name.c_str());
         }
         break;
 
@@ -523,14 +514,10 @@ void Interpreter::execute_statement(const ASTNode *node) {
             output_manager_->print_multiple(node);
         } else if (node->left) {
             // 単一引数のprint文
-            if (debug_mode) {
-                printf("[DEBUG] Print statement has left node\n");
-            }
+            debug_msg(DebugMsgId::PRINT_STATEMENT_HAS_ARGS);
             print_value(node->left.get());
         } else {
-            if (debug_mode) {
-                printf("[DEBUG] Print statement has no arguments\n");
-            }
+            debug_msg(DebugMsgId::PRINT_NO_ARGUMENTS);
         }
         break;
 
@@ -561,24 +548,35 @@ void Interpreter::execute_statement(const ASTNode *node) {
         break;
 
     case ASTNodeType::AST_IF_STMT: {
+        debug_msg(DebugMsgId::INTERPRETER_IF_STMT_START, "");
         int64_t cond =
             expression_evaluator_->evaluate_expression(node->condition.get());
+        debug_msg(DebugMsgId::INTERPRETER_IF_CONDITION_RESULT, cond);
         if (cond) {
+            debug_msg(DebugMsgId::INTERPRETER_IF_THEN_EXEC, "");
             execute_statement(node->left.get());
         } else if (node->right) {
+            debug_msg(DebugMsgId::INTERPRETER_IF_ELSE_EXEC, "");
             execute_statement(node->right.get());
         }
+        debug_msg(DebugMsgId::INTERPRETER_IF_STMT_END, "");
     } break;
 
     case ASTNodeType::AST_WHILE_STMT:
+        debug_msg(DebugMsgId::INTERPRETER_WHILE_STMT_START, "");
         try {
+            int iteration = 0;
             while (true) {
+                debug_msg(DebugMsgId::INTERPRETER_WHILE_CONDITION_CHECK, iteration);
                 int64_t cond = expression_evaluator_->evaluate_expression(
                     node->condition.get());
+                debug_msg(DebugMsgId::INTERPRETER_WHILE_CONDITION_RESULT, cond);
                 if (!cond)
                     break;
                 try {
+                    debug_msg(DebugMsgId::INTERPRETER_WHILE_BODY_EXEC, iteration);
                     execute_statement(node->body.get());
+                    iteration++;
                 } catch (const ContinueException &e) {
                     // continue文でループ継続
                     continue;
@@ -586,29 +584,40 @@ void Interpreter::execute_statement(const ASTNode *node) {
             }
         } catch (const BreakException &e) {
             // break文でループ脱出
+            debug_msg(DebugMsgId::INTERPRETER_WHILE_BREAK, "");
         }
+        debug_msg(DebugMsgId::INTERPRETER_WHILE_STMT_END, "");
         break;
 
     case ASTNodeType::AST_FOR_STMT:
+        debug_msg(DebugMsgId::INTERPRETER_FOR_STMT_START, "");
         try {
             if (node->init_expr) {
+                debug_msg(DebugMsgId::INTERPRETER_FOR_INIT_EXEC, "");
                 execute_statement(node->init_expr.get());
             }
+            int iteration = 0;
             while (true) {
                 if (node->condition) {
+                    debug_msg(DebugMsgId::INTERPRETER_FOR_CONDITION_CHECK, iteration);
                     int64_t cond = expression_evaluator_->evaluate_expression(
                         node->condition.get());
+                    debug_msg(DebugMsgId::INTERPRETER_FOR_CONDITION_RESULT, cond);
                     if (!cond)
                         break;
                 }
                 try {
+                    debug_msg(DebugMsgId::INTERPRETER_FOR_BODY_EXEC, iteration);
                     execute_statement(node->body.get());
                 } catch (const ContinueException &e) {
                     // continue文でループ継続、update部分だけ実行
+                    debug_msg(DebugMsgId::INTERPRETER_FOR_CONTINUE, iteration);
                 }
                 if (node->update_expr) {
+                    debug_msg(DebugMsgId::INTERPRETER_FOR_UPDATE_EXEC, iteration);
                     execute_statement(node->update_expr.get());
                 }
+                iteration++;
             }
         } catch (const BreakException &e) {
             // break文でループ脱出
@@ -616,23 +625,14 @@ void Interpreter::execute_statement(const ASTNode *node) {
         break;
 
     case ASTNodeType::AST_RETURN_STMT:
-        if (debug_mode) {
-            std::cerr << "[DEBUG] Processing return statement" << std::endl;
-        }
+        debug_msg(DebugMsgId::INTERPRETER_RETURN_STMT);
         if (node->left) {
-            if (debug_mode) {
-                std::cerr << "[DEBUG] Return has expression, type: "
-                          << static_cast<int>(node->left->node_type)
-                          << std::endl;
-            }
+            debug_msg(DebugMsgId::INTERPRETER_RETURN_STMT);
             // 配列リテラルの直接返却をサポート
             if (node->left->node_type == ASTNodeType::AST_ARRAY_LITERAL) {
                 const std::vector<std::unique_ptr<ASTNode>> &elements =
                     node->left->arguments;
-                if (debug_mode) {
-                    std::cerr << "[DEBUG] Returning array literal with "
-                              << elements.size() << " elements" << std::endl;
-                }
+                debug_msg(DebugMsgId::INTERPRETER_RETURN_ARRAY, elements.size());
                 // 配列リテラルを処理
                 std::vector<int64_t> array_values;
                 std::vector<std::string> array_strings;
@@ -693,40 +693,25 @@ void Interpreter::execute_statement(const ASTNode *node) {
                        ASTNodeType::AST_STRING_LITERAL) {
                 throw ReturnException(node->left->str_value);
             } else if (node->left->node_type == ASTNodeType::AST_VARIABLE) {
-                if (debug_mode) {
-                    std::cerr << "[DEBUG] Return variable: " << node->left->name
-                              << std::endl;
-                }
+                debug_msg(DebugMsgId::INTERPRETER_RETURN_VAR, node->left->name.c_str());
                 // 変数の場合、配列変数かチェック
                 Variable *var = find_variable(node->left->name);
                 if (var && var->is_struct) {
-                    // struct変数を返す
-                    if (debug_mode) {
-                        std::cerr << "[DEBUG] Returning struct variable" << std::endl;
-                    }
+                    // struct変数を返す前に直接アクセス変数からstruct_membersに同期
+                    sync_struct_members_from_direct_access(node->left->name);
+                    debug_msg(DebugMsgId::INTERPRETER_RETURN_ARRAY_VAR);
                     throw ReturnException(*var);
                 } else if (var && var->is_array) {
-                    if (debug_mode) {
-                        std::cerr << "[DEBUG] Returning array variable"
-                                  << std::endl;
-                        if (var->is_multidimensional) {
-                            std::cerr
-                                << "[DEBUG] Multidimensional array, size: "
-                                << var->multidim_array_values.size()
-                                << std::endl;
-                        } else {
-                            std::cerr << "[DEBUG] Regular array, size: "
-                                      << var->array_values.size() << std::endl;
-                        }
+                    debug_msg(DebugMsgId::INTERPRETER_RETURN_ARRAY_VAR);
+                    if (var->is_multidimensional) {
+                        debug_msg(DebugMsgId::INTERPRETER_MULTIDIM_ARRAY_SIZE, var->multidim_array_values.size());
+                    } else {
+                        debug_msg(DebugMsgId::INTERPRETER_REGULAR_ARRAY_SIZE, var->array_values.size());
                     }
 
                     // 多次元配列の場合
                     if (var->is_multidimensional) {
-                        if (debug_mode) {
-                            std::cerr << "[DEBUG] Processing multidimensional "
-                                         "array return"
-                                      << std::endl;
-                        }
+                        debug_msg(DebugMsgId::INTERPRETER_MULTIDIM_PROCESSING);
 
                         // 多次元配列の値を3D配列に変換
                         std::vector<std::vector<std::vector<int64_t>>>
@@ -738,12 +723,9 @@ void Interpreter::execute_statement(const ASTNode *node) {
                              i < var->multidim_array_values.size(); ++i) {
                             int_array_1d.push_back(
                                 var->multidim_array_values[i]);
-                            if (debug_mode) {
-                                std::cerr
-                                    << "[DEBUG] Multidim Array element[" << i
-                                    << "] = " << var->multidim_array_values[i]
-                                    << std::endl;
-                            }
+                            debug_msg(DebugMsgId::INTERPRETER_MULTIDIM_ELEMENT,
+                                      (int)i, 
+                                      (long long)var->multidim_array_values[i]);
                         }
                         int_array_2d.push_back(int_array_1d);
                         int_array_3d.push_back(int_array_2d);
@@ -775,20 +757,14 @@ void Interpreter::execute_statement(const ASTNode *node) {
 
                         for (size_t i = 0; i < var->array_values.size(); ++i) {
                             int_array_1d.push_back(var->array_values[i]);
-                            if (debug_mode) {
-                                std::cerr << "[DEBUG] Array element[" << i
-                                          << "] = " << var->array_values[i]
-                                          << std::endl;
-                            }
+                            debug_msg(DebugMsgId::INTERPRETER_ARRAY_ELEMENT,
+                                      (int)i, 
+                                      (long long)var->array_values[i]);
                         }
                         int_array_2d.push_back(int_array_1d);
                         int_array_3d.push_back(int_array_2d);
 
-                        if (debug_mode) {
-                            std::cerr
-                                << "[DEBUG] Throwing ReturnException with array"
-                                << std::endl;
-                        }
+                        debug_msg(DebugMsgId::INTERPRETER_RETURN_EXCEPTION);
                         throw ReturnException(int_array_3d, type_name,
                                               type_info);
                     } else if (type_info ==
@@ -812,17 +788,17 @@ void Interpreter::execute_statement(const ASTNode *node) {
                                               type_info);
                     }
                 } else {
-                    if (debug_mode) {
-                        std::cerr
-                            << "[DEBUG] Variable is not array or not found"
-                            << std::endl;
-                    }
+                    debug_msg(DebugMsgId::INTERPRETER_VAR_NOT_FOUND);
                 }
 
                 // 非配列変数または通常の処理
                 if (node->left->node_type == ASTNodeType::AST_VARIABLE) {
                     Variable *var = find_variable(node->left->name);
-                    if (var && var->type == TYPE_STRING) {
+                    if (var && var->is_struct) {
+                        // 構造体変数を返す場合、直接アクセス変数からstruct_membersに同期
+                        sync_struct_members_from_direct_access(node->left->name);
+                        throw ReturnException(*var);
+                    } else if (var && var->type == TYPE_STRING) {
                         // 文字列変数を返す
                         throw ReturnException(var->str_value);
                     } else {
@@ -840,7 +816,11 @@ void Interpreter::execute_statement(const ASTNode *node) {
             } else {
                 if (node->left->node_type == ASTNodeType::AST_VARIABLE) {
                     Variable *var = find_variable(node->left->name);
-                    if (var && var->type == TYPE_STRING) {
+                    if (var && var->is_struct) {
+                        // 構造体変数を返す場合、直接アクセス変数からstruct_membersに同期
+                        sync_struct_members_from_direct_access(node->left->name);
+                        throw ReturnException(*var);
+                    } else if (var && var->type == TYPE_STRING) {
                         // 文字列変数を返す
                         throw ReturnException(var->str_value);
                     } else {
@@ -1086,8 +1066,7 @@ std::string Interpreter::find_variable_name(const Variable* target_var) {
 void Interpreter::assign_array_literal(const std::string &name,
                                        const ASTNode *literal_node) {
     if (debug_mode) {
-        std::cerr << "DEBUG: assign_array_literal called for variable: " << name
-                  << std::endl;
+        debug_print("assign_array_literal called for variable: %s\n", name.c_str());
     }
 
     // 変数のコンテキストを判定
@@ -1104,15 +1083,15 @@ void Interpreter::assign_array_literal(const std::string &name,
     
     if (!result.success) {
         if (debug_mode) {
-            std::cerr << "DEBUG: ArrayProcessingService failed for '" << name
-                      << "': " << result.error_message << std::endl;
+            debug_print("ArrayProcessingService failed for '%s': %s\n", 
+                       name.c_str(), result.error_message.c_str());
         }
         throw std::runtime_error("Array assignment failed: " + result.error_message);
     }
     
     if (debug_mode) {
-        std::cerr << "DEBUG: Successfully assigned array literal to '"
-                  << name << "' using ArrayProcessingService" << std::endl;
+        debug_print("Successfully assigned array literal to '%s' using ArrayProcessingService\n", 
+                   name.c_str());
     }
 }
 
@@ -1305,11 +1284,7 @@ void Interpreter::register_struct_definition(
     const std::string &struct_name, const StructDefinition &definition) {
     // 構造体定義は定数解決を行わずにそのまま保存
     // 定数解決は実際に構造体変数を作成する時に行う
-    if (debug_mode) {
-        debug_print(
-            "Storing struct definition: %s (constant resolution deferred)\n",
-            struct_name.c_str());
-    }
+    debug_msg(DebugMsgId::INTERPRETER_STRUCT_DEFINITION_STORED, struct_name.c_str());
 
     struct_definitions_[struct_name] = definition;
 }
@@ -1346,15 +1321,73 @@ void Interpreter::create_struct_variable(const std::string &var_name,
     // メンバ変数を初期化
     for (const auto &member : struct_def->members) {
         if (debug_mode) {
-            debug_print("Processing member: %s, is_array: %d\n",
-                        member.name.c_str(), member.array_info.is_array());
+            debug_print("Processing member: %s, is_array: %d\n", 
+                       member.name.c_str(), member.array_info.is_array());
         }
 
         if (member.array_info.is_array()) {
             if (debug_mode) {
-                debug_print("Member %s is an array\n", member.name.c_str());
+                debug_print("Member %s is an array with %zu dimensions\n", 
+                           member.name.c_str(), member.array_info.dimensions.size());
             }
-            // 配列メンバの場合
+            
+            // 多次元配列の処理
+            if (member.array_info.dimensions.size() > 1) {
+                // 多次元配列メンバ
+                if (debug_mode) {
+                    debug_print("Creating multidimensional array member: %s with %zu dimensions\n",
+                               member.name.c_str(), member.array_info.dimensions.size());
+                }
+                
+                Variable multidim_array_member;
+                multidim_array_member.type = member.type;
+                multidim_array_member.is_array = true;
+                multidim_array_member.is_multidimensional = true;
+                
+                if (debug_mode) {
+                    debug_print("Set is_multidimensional = true for %s\n", member.name.c_str());
+                }
+                
+                // 次元情報をコピー
+                multidim_array_member.array_dimensions.clear();
+                int total_size = 1;
+                
+                for (const auto& dim : member.array_info.dimensions) {
+                    int dim_size = dim.size;
+                    
+                    // 動的サイズの場合は解決を試みる
+                    if (dim_size == -1 && dim.is_dynamic && !dim.size_expr.empty()) {
+                        Variable *const_var = find_variable(dim.size_expr);
+                        if (const_var && const_var->is_const && const_var->is_assigned) {
+                            dim_size = static_cast<int>(const_var->value);
+                        } else {
+                            throw std::runtime_error("Cannot resolve constant '" + dim.size_expr + "'");
+                        }
+                    }
+                    
+                    if (dim_size <= 0) {
+                        throw std::runtime_error("Invalid dimension size for struct member " + member.name);
+                    }
+                    
+                    multidim_array_member.array_dimensions.push_back(dim_size);
+                    total_size *= dim_size;
+                }
+                
+                // フラットな配列として初期化
+                multidim_array_member.multidim_array_values.resize(total_size, 0);
+                if (member.type == TYPE_STRING) {
+                    multidim_array_member.multidim_array_strings.resize(total_size, "");
+                }
+                multidim_array_member.is_assigned = false;
+                
+                struct_var.struct_members[member.name] = multidim_array_member;
+                
+                if (debug_mode) {
+                    debug_print("Multidimensional array member created: %s, total_size=%d\n",
+                                member.name.c_str(), total_size);
+                }
+            } else {
+                // 1次元配列メンバの場合（既存コード）
             int array_size = member.array_info.dimensions[0].size;
 
             // 動的サイズ（定数識別子）の場合は解決を試みる
@@ -1482,6 +1515,7 @@ void Interpreter::create_struct_variable(const std::string &var_name,
                                            std::to_string(i) + "]";
                 current_scope().variables[element_name] = array_element;
             }
+            } // 1次元配列処理の終了
         } else {
             if (debug_mode) {
                 debug_print("Member %s is NOT an array\n", member.name.c_str());
@@ -1508,27 +1542,25 @@ void Interpreter::create_struct_variable(const std::string &var_name,
 // structメンバにアクセス
 Variable *Interpreter::get_struct_member(const std::string &var_name,
                                          const std::string &member_name) {
-    if (debug_mode) {
-        debug_print("get_struct_member: var=%s, member=%s\n", var_name.c_str(),
-                    member_name.c_str());
-    }
+    debug_msg(DebugMsgId::EXPR_EVAL_STRUCT_MEMBER, member_name.c_str());
+    debug_msg(DebugMsgId::INTERPRETER_GET_STRUCT_MEMBER, var_name.c_str(), member_name.c_str());
 
     Variable *var = find_variable(var_name);
     if (!var || !var->is_struct) {
+        debug_msg(DebugMsgId::INTERPRETER_VAR_NOT_STRUCT, var_name.c_str());
         throw std::runtime_error("Variable is not a struct: " + var_name);
     }
 
-    if (debug_mode) {
-        debug_print("Found struct variable, struct_members.size()=%zu\n",
-                    var->struct_members.size());
-    }
+    debug_msg(DebugMsgId::INTERPRETER_STRUCT_MEMBERS_FOUND, var->struct_members.size());
 
     auto it = var->struct_members.find(member_name);
     if (it != var->struct_members.end()) {
-        if (debug_mode) {
-            debug_print("Found member in struct_members: %s, is_array=%d\n",
-                        member_name.c_str(), it->second.is_array);
-        }
+        debug_msg(DebugMsgId::EXPR_EVAL_MULTIDIM_ACCESS, 
+                  it->second.is_multidimensional ? 1 : 0,
+                  it->second.array_dimensions.size(),
+                  (size_t)2); // 固定で2インデックス（i,j）
+        debug_msg(DebugMsgId::INTERPRETER_STRUCT_MEMBER_FOUND, 
+                 member_name.c_str(), it->second.is_array);
         return &it->second;
     }
 
@@ -1628,9 +1660,7 @@ void Interpreter::assign_struct_literal(const std::string &var_name,
 
     if (is_named_init) {
         // 名前付き初期化: {name: "Bob", age: 25}
-        if (debug_mode) {
-            debug_print("Processing named struct literal initialization\n");
-        }
+        debug_msg(DebugMsgId::INTERPRETER_NAMED_STRUCT_LITERAL_INIT, var_name.c_str());
 
         for (const auto &member_init : literal_node->arguments) {
             if (member_init->node_type != ASTNodeType::AST_ASSIGN) {
@@ -1638,10 +1668,7 @@ void Interpreter::assign_struct_literal(const std::string &var_name,
             }
 
             std::string member_name = member_init->name;
-            if (debug_mode) {
-                debug_print("Processing member initialization: %s\n",
-                            member_name.c_str());
-            }
+            debug_msg(DebugMsgId::INTERPRETER_MEMBER_INIT_PROCESSING, member_name.c_str());
 
             // 構造体配列要素の場合、個別変数にアクセス
             std::string full_member_name = var_name + "." + member_name;
@@ -1669,7 +1696,7 @@ void Interpreter::assign_struct_literal(const std::string &var_name,
                 // 配列リテラルの各要素を個別変数に代入
                 const auto &array_elements = member_init->right->arguments;
                 for (size_t i = 0; i < array_elements.size() &&
-                                   i < struct_member_var->array_size;
+                                   i < static_cast<size_t>(struct_member_var->array_size);
                      i++) {
                     std::string element_name = var_name + "." + member_name +
                                                "[" + std::to_string(i) + "]";
@@ -1779,15 +1806,44 @@ void Interpreter::assign_struct_member(const std::string &var_name,
     Variable *member_var = get_struct_member(var_name, member_name);
     member_var->value = value;
     member_var->is_assigned = true;
+    
+    // ダイレクトアクセス変数も更新
+    std::string direct_var_name = var_name + "." + member_name;
+    Variable *direct_var = find_variable(direct_var_name);
+    if (direct_var) {
+        direct_var->value = value;
+        direct_var->is_assigned = true;
+    }
 }
 
 // structメンバに値を代入（文字列）
 void Interpreter::assign_struct_member(const std::string &var_name,
                                        const std::string &member_name,
                                        const std::string &value) {
+    if (debug_mode) {
+        debug_print("assign_struct_member (string): var=%s, member=%s, value='%s'\n",
+                    var_name.c_str(), member_name.c_str(), value.c_str());
+    }
+    
     Variable *member_var = get_struct_member(var_name, member_name);
     member_var->str_value = value;
     member_var->is_assigned = true;
+    
+    // ダイレクトアクセス変数も更新
+    std::string direct_var_name = var_name + "." + member_name;
+    Variable *direct_var = find_variable(direct_var_name);
+    if (direct_var) {
+        direct_var->str_value = value;
+        direct_var->is_assigned = true;
+        if (debug_mode) {
+            debug_print("Updated direct access var %s with value '%s'\n",
+                        direct_var_name.c_str(), value.c_str());
+        }
+    } else {
+        if (debug_mode) {
+            debug_print("Direct access var %s not found\n", direct_var_name.c_str());
+        }
+    }
 }
 
 void Interpreter::assign_struct_member_array_element(
@@ -1827,6 +1883,14 @@ void Interpreter::assign_struct_member_array_element(
     member_var->array_values[index] = value;
     member_var->is_assigned = true;
 
+    // ダイレクトアクセス配列要素変数も更新
+    std::string direct_element_name = var_name + "." + member_name + "[" + std::to_string(index) + "]";
+    Variable *direct_element = find_variable(direct_element_name);
+    if (direct_element) {
+        direct_element->value = value;
+        direct_element->is_assigned = true;
+    }
+
     if (debug_mode) {
         debug_print("Assignment completed, array_values[%d] = %lld\n", index,
                     member_var->array_values[index]);
@@ -1836,6 +1900,11 @@ void Interpreter::assign_struct_member_array_element(
 void Interpreter::assign_struct_member_array_element(
     const std::string &var_name, const std::string &member_name, int index,
     const std::string &value) {
+    if (debug_mode) {
+        debug_print("assign_struct_member_array_element (string): var=%s, member=%s, index=%d, value=%s\n",
+                    var_name.c_str(), member_name.c_str(), index, value.c_str());
+    }
+    
     Variable *member_var = get_struct_member(var_name, member_name);
     if (!member_var->is_array) {
         throw std::runtime_error("Member is not an array: " + member_name);
@@ -1846,8 +1915,26 @@ void Interpreter::assign_struct_member_array_element(
         throw std::runtime_error("Array index out of bounds");
     }
 
+    if (debug_mode) {
+        debug_print("Before assignment: array_strings.size()=%zu, index=%d\n",
+                    member_var->array_strings.size(), index);
+    }
+
     member_var->array_strings[index] = value;
     member_var->is_assigned = true;
+    
+    // ダイレクトアクセス配列要素変数も更新
+    std::string direct_element_name = var_name + "." + member_name + "[" + std::to_string(index) + "]";
+    Variable *direct_element = find_variable(direct_element_name);
+    if (direct_element) {
+        direct_element->str_value = value;
+        direct_element->is_assigned = true;
+    }
+    
+    if (debug_mode) {
+        debug_print("After assignment: array_strings[%d]=%s\n",
+                    index, member_var->array_strings[index].c_str());
+    }
 }
 
 int64_t Interpreter::get_struct_member_array_element(
@@ -1863,6 +1950,35 @@ int64_t Interpreter::get_struct_member_array_element(
     }
 
     return member_var->array_values[index];
+}
+
+std::string Interpreter::get_struct_member_array_string_element(
+    const std::string &var_name, const std::string &member_name, int index) {
+    if (debug_mode) {
+        debug_print("get_struct_member_array_string_element: var=%s, member=%s, index=%d\n",
+                    var_name.c_str(), member_name.c_str(), index);
+    }
+    
+    Variable *member_var = get_struct_member(var_name, member_name);
+    if (!member_var->is_array) {
+        throw std::runtime_error("Member is not an array: " + member_name);
+    }
+
+    // 配列インデックスの境界チェック
+    if (index < 0 || index >= member_var->array_size) {
+        throw std::runtime_error("Array index out of bounds");
+    }
+
+    if (member_var->type != TYPE_STRING) {
+        throw std::runtime_error("Member is not a string array: " + member_name);
+    }
+
+    if (debug_mode) {
+        debug_print("Returning string: array_strings[%d]=%s\n",
+                    index, member_var->array_strings[index].c_str());
+    }
+
+    return member_var->array_strings[index];
 }
 
 void Interpreter::assign_struct_member_array_literal(
@@ -1919,8 +2035,13 @@ void Interpreter::initialize_global_variables(const ASTNode *node) {
 
     switch (node->node_type) {
     case ASTNodeType::AST_STMT_LIST:
+        if (node->statements.size() > 0) {
+            debug_msg(DebugMsgId::INTERPRETER_PROCESSING_STMT_LIST, node->statements.size());
+        }
         for (const auto &stmt : node->statements) {
+            debug_msg(DebugMsgId::INTERPRETER_CHECKING_STATEMENT_TYPE, (int)stmt->node_type, stmt->name.c_str());
             if (stmt->node_type == ASTNodeType::AST_VAR_DECL) {
+                debug_msg(DebugMsgId::INTERPRETER_FOUND_VAR_DECL, stmt->name.c_str());
                 initialize_global_variables(stmt.get());
             }
         }
@@ -1986,9 +2107,142 @@ void Interpreter::sync_struct_definitions_from_parser(RecursiveParser* parser) {
         // Interpreterのstruct_definitions_に登録
         struct_definitions_[struct_name] = struct_def;
         
-        if (debug_mode) {
-            debug_print("Synced struct definition: %s with %zu members\\n",
-                      struct_name.c_str(), struct_def.members.size());
+        debug_msg(DebugMsgId::INTERPRETER_STRUCT_SYNCED, struct_name.c_str(), struct_def.members.size());
+    }
+}
+
+void Interpreter::sync_struct_members_from_direct_access(const std::string &var_name) {
+    debug_msg(DebugMsgId::INTERPRETER_SYNC_STRUCT_MEMBERS_START, var_name.c_str());
+    debug_print("SYNC_DEBUG: sync_struct_members_from_direct_access called for %s\n", var_name.c_str());
+    
+    // 変数を取得
+    Variable *var = find_variable(var_name);
+    if (!var) {
+        debug_print("SYNC_DEBUG: Variable %s not found\n", var_name.c_str());
+        return;
+    }
+    if (!var->is_struct) {
+        debug_print("SYNC_DEBUG: Variable %s is not struct (is_struct=%d)\n", var_name.c_str(), var->is_struct ? 1 : 0);
+        return;
+    }
+    
+    // 構造体定義を取得
+    const StructDefinition *struct_def = find_struct_definition(var->struct_type_name);
+    if (!struct_def) {
+        debug_print("sync_struct_members_from_direct_access: Struct definition %s not found\n", var->struct_type_name.c_str());
+        return;
+    }
+    
+    debug_print("sync_struct_members_from_direct_access: Syncing %zu members for %s\n", 
+                struct_def->members.size(), var_name.c_str());
+    
+    // 各メンバについてダイレクトアクセス変数から struct_members に同期
+    for (const auto &member : struct_def->members) {
+        std::string direct_var_name = var_name + "." + member.name;
+        Variable *direct_var = find_variable(direct_var_name);
+        
+        if (direct_var) {
+            debug_print("sync_struct_members_from_direct_access: Syncing member %s\n", member.name.c_str());
+            
+            // struct_membersに保存（配列チェックを先に実行）
+            if (member.type >= TYPE_ARRAY_BASE || member.array_info.base_type != TYPE_UNKNOWN || direct_var->is_array) {
+                var->struct_members[member.name] = Variable();
+                var->struct_members[member.name].type = member.type;
+                var->struct_members[member.name].is_array = true;
+                
+                // 配列サイズを取得
+                int array_size = (member.array_info.base_type != TYPE_UNKNOWN && !member.array_info.dimensions.empty()) ? 
+                                member.array_info.dimensions[0].size : direct_var->array_size;
+                var->struct_members[member.name].array_size = array_size;
+                
+                // 配列要素を個別にチェックして同期
+                var->struct_members[member.name].array_values.resize(array_size);
+                var->struct_members[member.name].array_strings.resize(array_size);
+                
+                for (int i = 0; i < array_size; i++) {
+                    std::string element_name = var_name + "." + member.name + "[" + std::to_string(i) + "]";
+                    Variable *element_var = find_variable(element_name);
+                    debug_print("sync_struct_members_from_direct_access: Looking for element %s, found=%s\n", 
+                               element_name.c_str(), element_var ? "yes" : "no");
+                    if (element_var) {
+                        if (member.type == TYPE_STRING) {
+                            debug_print("sync_struct_members_from_direct_access: Copying string element [%d]='%s'\n", 
+                                       i, element_var->str_value.c_str());
+                            var->struct_members[member.name].array_strings[i] = element_var->str_value;
+                        } else {
+                            debug_print("sync_struct_members_from_direct_access: Copying numeric element [%d]=%ld\n", 
+                                       i, element_var->value);
+                            var->struct_members[member.name].array_values[i] = element_var->value;
+                        }
+                    } else {
+                        debug_print("sync_struct_members_from_direct_access: Element variable %s not found\n", 
+                                   element_name.c_str());
+                    }
+                }
+                
+                var->struct_members[member.name].is_assigned = true;
+                debug_print("sync_struct_members_from_direct_access: Synced array member %s with %d elements\n", 
+                           member.name.c_str(), array_size);
+            } else if (member.type == TYPE_STRING) {
+                var->struct_members[member.name] = Variable();
+                var->struct_members[member.name].type = member.type;
+                var->struct_members[member.name].str_value = direct_var->str_value;
+                var->struct_members[member.name].is_assigned = direct_var->is_assigned;
+                debug_print("sync_struct_members_from_direct_access: Synced string member %s = '%s'\n", 
+                           member.name.c_str(), direct_var->str_value.c_str());
+            } else {
+                var->struct_members[member.name] = Variable();
+                var->struct_members[member.name].type = member.type;
+                var->struct_members[member.name].value = direct_var->value;
+                var->struct_members[member.name].is_assigned = direct_var->is_assigned;
+                debug_print("sync_struct_members_from_direct_access: Synced numeric member %s = %ld\n", 
+                           member.name.c_str(), direct_var->value);
+            }
+        } else {
+            // ダイレクトアクセス変数が見つからない場合、配列メンバーかチェック
+            if (member.array_info.base_type != TYPE_UNKNOWN) {
+                debug_print("sync_struct_members_from_direct_access: Array member %s, checking individual elements\n", 
+                           member.name.c_str());
+                
+                var->struct_members[member.name] = Variable();
+                var->struct_members[member.name].type = member.type;
+                var->struct_members[member.name].is_array = true;
+                
+                int array_size = (!member.array_info.dimensions.empty()) ? 
+                                member.array_info.dimensions[0].size : 1;
+                var->struct_members[member.name].array_size = array_size;
+                
+                // 配列要素を個別にチェックして同期
+                var->struct_members[member.name].array_values.resize(array_size);
+                var->struct_members[member.name].array_strings.resize(array_size);
+                
+                bool found_elements = false;
+                for (int i = 0; i < array_size; i++) {
+                    std::string element_name = var_name + "." + member.name + "[" + std::to_string(i) + "]";
+                    Variable *element_var = find_variable(element_name);
+                    if (element_var) {
+                        found_elements = true;
+                        if (member.type == TYPE_STRING) {
+                            var->struct_members[member.name].array_strings[i] = element_var->str_value;
+                        } else {
+                            var->struct_members[member.name].array_values[i] = element_var->value;
+                        }
+                        debug_print("sync_struct_members_from_direct_access: Found element %s with value %ld\n", 
+                                   element_name.c_str(), element_var->value);
+                    }
+                }
+                
+                if (found_elements) {
+                    var->struct_members[member.name].is_assigned = true;
+                    debug_print("sync_struct_members_from_direct_access: Synced array member %s from individual elements\n", 
+                               member.name.c_str());
+                }
+            } else {
+                debug_print("sync_struct_members_from_direct_access: Direct access variable %s not found\n", 
+                           direct_var_name.c_str());
+            }
         }
     }
+    
+    debug_msg(DebugMsgId::INTERPRETER_SYNC_STRUCT_MEMBERS_END, var_name.c_str());
 }

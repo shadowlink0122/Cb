@@ -1,0 +1,19 @@
+// typedef配列定義で定数を使用するテストケース
+const int SIZE = 10;
+typedef int[SIZE] IntArray;
+
+int main() {
+    IntArray arr;
+    
+    // 配列初期化
+    for (int i = 0; i < SIZE; i++) {
+        arr[i] = i * 2;
+    }
+    
+    // 配列内容確認
+    for (int i = 0; i < SIZE; i++) {
+        println(i, arr[i]);
+    }
+    
+    return 0;
+}

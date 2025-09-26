@@ -1,7 +1,8 @@
 #include "managers/type_manager.h"
 #include "../../../common/debug_messages.h"
 #include "services/expression_service.h" // DRY効率化: 統一式評価サービス
-#include "../../interpreter.h"
+#include "core/interpreter.h"
+#include "managers/enum_manager.h"
 #include <stdexcept>
 
 void TypeManager::register_typedef(const std::string &name,
@@ -55,11 +56,11 @@ TypeInfo TypeManager::string_to_type_info(const std::string &type_str) {
     }
     
     // typedef済みstructやenumの名前だけの場合もチェック
-    if (interpreter_->get_struct_definitions().find(resolved) != interpreter_->get_struct_definitions().end()) {
+    if (interpreter_->find_struct_definition(resolved) != nullptr) {
         return TYPE_STRUCT;
     }
     
-    if (interpreter_->get_enum_definitions().find(resolved) != interpreter_->get_enum_definitions().end()) {
+    if (interpreter_->get_enum_manager()->enum_exists(resolved)) {
         return TYPE_ENUM;
     }
 

@@ -1,0 +1,10 @@
+// 最小テスト：多次元配列メンバなしの構造体
+struct Simple {
+    int x;
+};
+
+int main() {
+    Simple s;
+    s.x = 10;
+    return 0;
+}

@@ -8,7 +8,7 @@ typedef struct {
 typedef struct {
     int id;
     string description;
-    int values[2];
+    int[2] values;
 } DataPoint;
 
 int main() {

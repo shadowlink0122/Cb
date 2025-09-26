@@ -1,7 +1,7 @@
 // Struct配列メンバーのテスト
 struct Student {
     string name;
-    int grades[3];
+    int[3] grades;
     int student_id;
 };
 

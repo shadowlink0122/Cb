@@ -1,5 +1,6 @@
 #pragma once
 #include "../../../common/ast.h"
+#include "../../../common/debug.h"
 #include <iostream>
 #include <map>
 #include <string>
@@ -65,7 +66,7 @@ struct Variable {
         // デバッグ用
         extern bool debug_mode;
         if (debug_mode) {
-            printf("[DEBUG] Variable default constructor called\n");
+            debug_msg(DebugMsgId::VAR_CREATE_NEW);
         }
     }
 
@@ -83,13 +84,15 @@ struct Variable {
         // デバッグ用
         extern bool debug_mode;
         if (debug_mode) {
-            printf("[DEBUG] Variable struct constructor called for: %s\n",
-                   struct_name.c_str());
+            debug_msg(DebugMsgId::VAR_MANAGER_STRUCT_CREATE, struct_name.c_str(), "struct");
         }
     }
 
     // 多次元配列のフラットインデックス計算
     int calculate_flat_index(const std::vector<int> &indices) const {
+        debug_msg(DebugMsgId::FLAT_INDEX_CALCULATED, 
+                  std::to_string(indices.size()).c_str(), 
+                  std::to_string(array_type_info.dimensions.size()).c_str());
         if (indices.size() != array_type_info.dimensions.size()) {
             throw std::runtime_error("Dimension mismatch in array access");
         }
@@ -317,10 +320,14 @@ class Interpreter : public EvaluatorInterface {
     int64_t get_struct_member_array_element(const std::string &var_name,
                                             const std::string &member_name,
                                             int index);
+    std::string get_struct_member_array_string_element(const std::string &var_name,
+                                                      const std::string &member_name,
+                                                      int index);
     void assign_struct_member_array_literal(const std::string &var_name,
                                             const std::string &member_name,
                                             const ASTNode *array_literal);
     TypeInfo string_to_type_info(const std::string &type_str);
+    void sync_struct_members_from_direct_access(const std::string &var_name);
 
     // static変数処理
     Variable *find_static_variable(const std::string &name);

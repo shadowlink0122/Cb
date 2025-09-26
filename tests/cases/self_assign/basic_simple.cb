@@ -1,0 +1,13 @@
+int main() {
+    // 基本的な自己代入テスト（= 演算子のみ使用）
+    int a = 5;
+    println(a); // 5
+    
+    a = a + 5;
+    println(a); // 10
+    
+    a = a + 5;
+    println(a); // 15
+    
+    return 0;
+}

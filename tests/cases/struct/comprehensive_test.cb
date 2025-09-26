@@ -1,13 +1,13 @@
 // Struct統合テスト - 全機能を組み合わせたテスト
 struct Student {
     string name;
-    int grades[3];
+    int[3] grades;
     int student_id;
 };
 
 struct Course {
     string course_name;
-    Student students[2];
+    Student[2] students;
     int max_students;
 };
 
