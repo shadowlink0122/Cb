@@ -4,8 +4,15 @@
 #include "../common/type_alias.h"
 #include "error_handler.h"
 #include "evaluator/expression_evaluator.h"
+#include "expression_service.h" // DRY効率化: 統一式評価サービス
 #include "variable_manager.h"
 #include <stdexcept>
+
+// ===============================================================================
+// 注意: このファイルは旧版ArrayManager実装です
+// 新版統合により段階的に機能を新版（src/backend/interpreter/managers/array_manager.*）に移行中
+// Priority 3で多次元配列アクセス機能は既にArrayProcessingServiceに統合済み
+// ===============================================================================
 
 void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
     if (!node) {
@@ -21,7 +28,19 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
     debug_msg(DebugMsgId::ARRAY_DIMENSIONS_COUNT,
               node->array_dimensions.size());
 
-    var.type = static_cast<TypeInfo>(TYPE_ARRAY_BASE + node->type_info);
+    // struct配列の特別処理
+    if (node->type_info == TYPE_STRUCT) {
+        debug_msg(DebugMsgId::ARRAY_DECL_DEBUG, "Processing struct array");
+        debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
+                  ("Struct type: " + node->type_name).c_str());
+
+        var.type = TYPE_STRUCT;
+        var.is_struct = false; // 配列自体はstructではない
+        var.struct_type_name = node->type_name;
+    } else {
+        var.type = static_cast<TypeInfo>(TYPE_ARRAY_BASE + node->type_info);
+    }
+
     var.is_const = node->is_const;
     var.is_array = true;
     var.is_assigned = false;
@@ -43,7 +62,7 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
                     "ExpressionEvaluator is null during dimension evaluation");
             }
             int dim_size = static_cast<int>(
-                expression_evaluator_->evaluate_expression(dim_expr.get()));
+                evaluate_expression_safe(dim_expr.get(), "dimension_size"));
             var.array_dimensions.push_back(dim_size);
             dimensions.push_back(ArrayDimension(dim_size, false));
         }
@@ -81,9 +100,8 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
                 var.array_size = 0; // 動的配列のサイズは初期化時に決定
             } else {
                 // サイズ計算はExpressionEvaluatorを使用
-                int size =
-                    static_cast<int>(expression_evaluator_->evaluate_expression(
-                        node->array_dimensions[0].get()));
+                int size = static_cast<int>(evaluate_expression_safe(
+                    node->array_dimensions[0].get(), "array_size"));
                 var.array_size = size;
 
                 // 1次元配列でもarray_dimensionsを設定
@@ -99,9 +117,8 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
         } else if (node->array_size_expr) {
             // array_size_expr が設定されている場合（create_array_init_with_size
             // から）
-            int size =
-                static_cast<int>(expression_evaluator_->evaluate_expression(
-                    node->array_size_expr.get()));
+            int size = static_cast<int>(evaluate_expression_safe(
+                node->array_size_expr.get(), "array_size_expr"));
             var.array_size = size;
 
             // 1次元配列でもarray_dimensionsを設定
@@ -175,9 +192,10 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
                                 "Type mismatch in array literal");
                         }
                         // 式評価はExpressionEvaluatorを使用
-                        var.array_values[i] = static_cast<int64_t>(
-                            expression_evaluator_->evaluate_expression(
-                                array_literal->arguments[i].get()));
+                        var.array_values[i] =
+                            static_cast<int64_t>(evaluate_expression_safe(
+                                array_literal->arguments[i].get(),
+                                "array_literal_element"));
                     }
                 }
                 // 配列サイズを更新
@@ -200,16 +218,18 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
                     if (node->array_dimensions.size() == 1 &&
                         node->array_dimensions[0]) {
                         // array_dimensions を使用した場合
-                        declared_size = static_cast<int>(
-                            expression_evaluator_->evaluate_expression(
-                                node->array_dimensions[0].get()));
+                        declared_size =
+                            static_cast<int>(evaluate_expression_safe(
+                                node->array_dimensions[0].get(),
+                                "declared_size"));
                         has_declared_size = true;
                     } else if (node->array_size_expr) {
                         // array_size_expr
                         // を使用した場合（create_array_init_with_size から）
-                        declared_size = static_cast<int>(
-                            expression_evaluator_->evaluate_expression(
-                                node->array_size_expr.get()));
+                        declared_size =
+                            static_cast<int>(evaluate_expression_safe(
+                                node->array_size_expr.get(),
+                                "declared_size_expr"));
                         has_declared_size = true;
                     }
 
@@ -244,8 +264,8 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
 
                 try {
                     // 関数を実行して配列を取得
-                    expression_evaluator_->evaluate_expression(
-                        node->init_expr.get());
+                    evaluate_expression_safe(node->init_expr.get(),
+                                             "function_return");
                 } catch (const ReturnException &ret) {
                     if (ret.is_array) {
                         debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
@@ -272,13 +292,15 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
                         int declared_size = 0;
                         if (node->array_dimensions.size() == 1 &&
                             node->array_dimensions[0]) {
-                            declared_size = static_cast<int>(
-                                expression_evaluator_->evaluate_expression(
-                                    node->array_dimensions[0].get()));
+                            declared_size =
+                                static_cast<int>(evaluate_expression_safe(
+                                    node->array_dimensions[0].get(),
+                                    "multidim_size"));
                         } else if (node->array_size_expr) {
-                            declared_size = static_cast<int>(
-                                expression_evaluator_->evaluate_expression(
-                                    node->array_size_expr.get()));
+                            declared_size =
+                                static_cast<int>(evaluate_expression_safe(
+                                    node->array_size_expr.get(),
+                                    "multidim_size_expr"));
                         }
 
                         // サイズチェック
@@ -357,8 +379,8 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
 
                 try {
                     // 関数を実行して配列を取得
-                    expression_evaluator_->evaluate_expression(
-                        node->init_expr.get());
+                    evaluate_expression_safe(node->init_expr.get(),
+                                             "dynamic_array_return");
                 } catch (const ReturnException &ret) {
                     if (ret.is_array) {
                         debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
@@ -428,6 +450,68 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
         }
     }
 
+    // struct配列の要素初期化
+    if (node->type_info == TYPE_STRUCT && var.array_size > 0) {
+        debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
+                  "Initializing struct array elements");
+
+        const StructDefinition *struct_def =
+            variable_manager_->getInterpreter()->find_struct_definition(
+                node->type_name);
+        if (!struct_def) {
+            throw std::runtime_error("Struct definition not found: " +
+                                     node->type_name);
+        }
+
+        debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
+                  ("Found struct definition: " + node->type_name).c_str());
+
+        for (int i = 0; i < var.array_size; i++) {
+            std::string element_name =
+                node->name + "[" + std::to_string(i) + "]";
+            debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
+                      ("Creating struct element: " + element_name).c_str());
+
+            // struct要素変数を作成
+            Variable struct_element(node->type_name);
+            struct_element.is_struct = true;
+            struct_element.struct_type_name = node->type_name;
+
+            // メンバーを初期化
+            for (const auto &member : struct_def->members) {
+                Variable member_var;
+                member_var.type = member.type;
+                member_var.is_assigned = false;
+
+                if (member.type == TYPE_STRING) {
+                    member_var.str_value = "";
+                } else {
+                    member_var.value = 0;
+                }
+
+                struct_element.struct_members[member.name] = member_var;
+                debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
+                          ("Added member: " + member.name).c_str());
+
+                // メンバー変数の直接アクセス用変数も作成
+                std::string member_path = element_name + "." + member.name;
+                Variable member_direct_var = member_var;
+                variable_manager_->getInterpreter()
+                    ->current_scope()
+                    .variables[member_path] = member_direct_var;
+            }
+
+            struct_element.is_assigned = true;
+
+            // 現在のスコープに登録（StatementExecutorが使用するスコープ）
+            variable_manager_->getInterpreter()
+                ->current_scope()
+                .variables[element_name] = struct_element;
+            debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
+                      ("Registered struct element: " + element_name).c_str());
+        }
+    }
+
     // デバッグ: 最終的な配列状態を確認
     std::string debug_info =
         "Final array '" + node->name +
@@ -438,6 +522,9 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
 
 void ArrayManager::processMultidimensionalArrayLiteral(
     Variable &var, const ASTNode *literal_node, TypeInfo elem_type) {
+    // NOTE: この実装は src/backend/interpreter/managers/array_manager.cpp
+    // の実装と重複
+    // 統一化により将来的にはArrayProcessingService経由での処理が推奨されます
     if (!literal_node ||
         literal_node->node_type != ASTNodeType::AST_ARRAY_LITERAL) {
         throw std::runtime_error("Invalid array literal node");
@@ -499,6 +586,9 @@ void ArrayManager::processMultidimensionalArrayLiteral(
 void ArrayManager::processNDimensionalArrayLiteral(Variable &var,
                                                    const ASTNode *literal_node,
                                                    TypeInfo base_type) {
+    // NOTE: この実装は src/backend/interpreter/managers/array_manager.cpp
+    // の実装と重複
+    // 統一化により将来的にはArrayProcessingService経由での処理が推奨されます
     if (!literal_node ||
         literal_node->node_type != ASTNodeType::AST_ARRAY_LITERAL) {
         throw std::runtime_error(
@@ -573,13 +663,15 @@ void ArrayManager::processArrayLiteralRecursive(
             if (node->node_type == ASTNodeType::AST_NUMBER) {
                 value = node->int_value;
             } else {
-                value = expression_evaluator_->evaluate_expression(node);
+                value = evaluate_expression_safe(node, "array_element");
             }
             var.multidim_array_values[flat_index] = value;
         }
     }
 }
 
+// Priority 3: 旧版重複メソッド - ArrayProcessingServiceに統合済み
+/*
 int64_t ArrayManager::getMultidimensionalArrayElement(
     const Variable &var, const std::vector<int64_t> &indices) {
     if (!var.is_multidimensional) {
@@ -676,6 +768,7 @@ void ArrayManager::setMultidimensionalStringArrayElement(
 
     var.multidim_array_strings[flat_index] = value;
 }
+*/
 
 void ArrayManager::initializeArray(Variable &var, TypeInfo base_type,
                                    const std::vector<int> &dimensions) {
@@ -768,6 +861,18 @@ void ArrayManager::declare_array(const ASTNode *node) {
     Variable var;
 
     debug_msg(DebugMsgId::ARRAY_DECL_START, node->name.c_str());
+    debug_msg(DebugMsgId::ARRAY_DIMENSIONS_COUNT,
+              static_cast<int>(node->array_type_info.dimensions.size()));
+
+    // struct配列のデバッグ情報
+    if (node->type_info == TYPE_STRUCT) {
+        debug_msg(DebugMsgId::ARRAY_DECL_DEBUG, "This is a struct array");
+        debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
+                  ("Struct type: " + node->type_name).c_str());
+        if (node->array_size_expr) {
+            debug_msg(DebugMsgId::ARRAY_DECL_DEBUG, "Has array_size_expr");
+        }
+    }
 
     // 多次元配列かどうかを確認
     if (node->array_type_info.dimensions.size() > 1) {
@@ -806,18 +911,51 @@ void ArrayManager::declare_array(const ASTNode *node) {
         variable_manager_->getInterpreter()
             ->global_scope.variables[node->name] = var;
         debug_msg(DebugMsgId::MULTIDIM_ARRAY_DECL_SUCCESS, node->name.c_str());
-    } else {
-        // 単一次元配列の場合
+
+        // 初期化式がある場合は配列リテラル初期化を実行
+        if (node->init_expr &&
+            node->init_expr->node_type == ASTNodeType::AST_ARRAY_LITERAL) {
+            debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
+                      "Processing multidim array literal initialization");
+            variable_manager_->getInterpreter()->assign_array_literal(
+                node->name, node->init_expr.get());
+        }
+    } else if (node->array_type_info.dimensions.size() == 1 ||
+               (node->type_info == TYPE_STRUCT && node->array_size_expr)) {
+        // 単一次元配列の場合またはstruct配列の場合
         debug_msg(DebugMsgId::ARRAY_DECL_DEBUG);
 
         var.is_array = true;
         var.is_multidimensional = false;
-        var.type = static_cast<TypeInfo>(TYPE_ARRAY_BASE +
-                                         node->array_type_info.base_type);
+
+        debug_msg(
+            DebugMsgId::ARRAY_DECL_DEBUG,
+            ("Array type_info: " + std::to_string(node->type_info)).c_str());
+        debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
+                  ("TYPE_STRUCT: " + std::to_string(TYPE_STRUCT)).c_str());
+
+        // struct配列の場合の特別処理
+        if (node->type_info == TYPE_STRUCT) {
+            var.type = TYPE_STRUCT;
+            var.is_struct = false; // 配列自体はstructではないが、要素がstruct
+            var.struct_type_name = node->type_name; // struct型名を保存
+        } else {
+            var.type = static_cast<TypeInfo>(TYPE_ARRAY_BASE +
+                                             node->array_type_info.base_type);
+        }
+
         var.is_const = node->is_const;
         var.is_assigned = false;
 
-        int size = node->array_type_info.dimensions[0].size;
+        // サイズを取得（struct配列の場合はarray_size_exprから評価）
+        int size;
+        if (node->type_info == TYPE_STRUCT && node->array_size_expr) {
+            size = evaluate_expression_safe(node->array_size_expr.get(),
+                                            "struct_array_size");
+        } else {
+            size = node->array_type_info.dimensions[0].size;
+        }
+
         var.array_size = size; // array_sizeを設定
         debug_msg(DebugMsgId::ARRAY_TOTAL_SIZE, size);
 
@@ -825,8 +963,63 @@ void ArrayManager::declare_array(const ASTNode *node) {
         var.array_dimensions.clear();
         var.array_dimensions.push_back(size);
 
-        // 単一次元配列用のストレージを初期化
-        if (node->array_type_info.base_type == TYPE_STRING) {
+        // 配列用のストレージを初期化
+        if (node->type_info == TYPE_STRUCT) {
+            // struct配列の場合、各要素はstruct変数として管理
+            // 各要素をstruct変数として初期化
+            debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
+                      "Initializing struct array elements");
+
+            const StructDefinition *struct_def =
+                variable_manager_->getInterpreter()->find_struct_definition(
+                    node->type_name);
+            if (!struct_def) {
+                throw std::runtime_error("Struct definition not found: " +
+                                         node->type_name);
+            }
+
+            debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
+                      ("Found struct definition: " + node->type_name).c_str());
+
+            for (int i = 0; i < size; i++) {
+                std::string element_name =
+                    node->name + "[" + std::to_string(i) + "]";
+                debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
+                          ("Creating struct element: " + element_name).c_str());
+
+                // struct要素変数を作成
+                Variable struct_element(node->type_name);
+                struct_element.is_struct = true;
+                struct_element.struct_type_name = node->type_name;
+
+                // メンバーを初期化
+                for (const auto &member : struct_def->members) {
+                    Variable member_var;
+                    member_var.type = member.type;
+                    member_var.is_assigned = false;
+
+                    if (member.type == TYPE_STRING) {
+                        member_var.str_value = "";
+                    } else {
+                        member_var.value = 0;
+                    }
+
+                    struct_element.struct_members[member.name] = member_var;
+                    debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
+                              ("Added member: " + member.name).c_str());
+                }
+
+                struct_element.is_assigned = true;
+
+                // グローバルスコープに登録
+                variable_manager_->getInterpreter()
+                    ->global_scope.variables[element_name] = struct_element;
+                debug_msg(
+                    DebugMsgId::ARRAY_DECL_DEBUG,
+                    ("Registered struct element: " + element_name).c_str());
+            }
+            var.array_values.resize(size, 0); // プレースホルダー
+        } else if (node->array_type_info.base_type == TYPE_STRING) {
             var.array_strings.resize(size, "");
         } else {
             var.array_values.resize(size, 0);
@@ -836,6 +1029,19 @@ void ArrayManager::declare_array(const ASTNode *node) {
         variable_manager_->getInterpreter()
             ->global_scope.variables[node->name] = var;
         debug_msg(DebugMsgId::ARRAY_DECL_SUCCESS, node->name.c_str());
+
+        // 初期化式がある場合は配列リテラル初期化を実行
+        if (node->init_expr &&
+            node->init_expr->node_type == ASTNodeType::AST_ARRAY_LITERAL) {
+            debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
+                      "Processing array literal initialization");
+            variable_manager_->getInterpreter()->assign_array_literal(
+                node->name, node->init_expr.get());
+        }
+    } else {
+        // 配列情報が不正または未サポートの場合
+        debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
+                  "Unsupported array type or missing dimensions");
     }
 }
 
@@ -983,4 +1189,31 @@ ArrayManager::extractArrayDimensions(const ASTNode *literal_node) {
     }
 
     return dimensions;
+}
+
+// DRY効率化: 統一式評価メソッド
+int64_t ArrayManager::evaluate_expression_safe(const ASTNode *node,
+                                               const std::string &context) {
+    if (!node) {
+        throw std::runtime_error(
+            "Null expression node" +
+            (context.empty() ? "" : " in array " + context));
+    }
+
+    try {
+        // ExpressionServiceが利用可能な場合は統一サービス使用
+        if (interpreter_ && interpreter_->get_expression_service()) {
+            return interpreter_->get_expression_service()->evaluate_safe(
+                node, "array_" + context, [&](const std::string &) {
+                    return expression_evaluator_->evaluate_expression(node);
+                });
+        }
+
+        // フォールバック: 従来の評価器使用
+        return expression_evaluator_->evaluate_expression(node);
+    } catch (const std::exception &e) {
+        throw std::runtime_error("Array expression evaluation failed" +
+                                 (context.empty() ? "" : " in " + context) +
+                                 ": " + e.what());
+    }
 }

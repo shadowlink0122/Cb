@@ -1,0 +1,30 @@
+// Struct関数引数のテスト
+struct Rectangle {
+    int width;
+    int height;
+};
+
+int calculate_area(Rectangle rect) {
+    return rect.width * rect.height;
+}
+
+int calculate_perimeter(Rectangle rect) {
+    return 2 * (rect.width + rect.height);
+}
+
+int main() {
+    Rectangle r = {width: 10, height: 5};
+    
+    int area = calculate_area(r);
+    int perimeter = calculate_perimeter(r);
+    
+    println("Rectangle: %dx%d", r.width, r.height);
+    println("Area: %d", area);
+    println("Perimeter: %d", perimeter);
+    
+    // 期待される出力:
+    // Rectangle: 10x5
+    // Area: 50
+    // Perimeter: 30
+    return 0;
+}

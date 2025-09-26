@@ -1,0 +1,16 @@
+// 基本的なstruct宣言と使用のテスト
+struct Point {
+    int x;
+    int y;
+};
+
+int main() {
+    Point p;
+    p.x = 10;
+    p.y = 20;
+    
+    println("Point: (%d, %d)", p.x, p.y);
+    
+    // 期待される出力: Point: (10, 20)
+    return 0;
+}

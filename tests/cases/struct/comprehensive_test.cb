@@ -1,0 +1,75 @@
+// Struct統合テスト - 全機能を組み合わせたテスト
+struct Student {
+    string name;
+    int grades[3];
+    int student_id;
+};
+
+struct Course {
+    string course_name;
+    Student students[2];
+    int max_students;
+};
+
+Student create_student(string name, int id) {
+    Student s = {name: name, student_id: id, grades: [0, 0, 0]};
+    return s;
+}
+
+int calculate_average(Student s) {
+    int total = s.grades[0] + s.grades[1] + s.grades[2];
+    return total / 3;
+}
+
+int main() {
+    // Course構造体の初期化
+    Course math_course;
+    math_course.course_name = "Mathematics";
+    math_course.max_students = 2;
+    
+    // 学生の作成と初期化
+    math_course.students[0] = create_student("Alice", 1001);
+    math_course.students[1] = create_student("Bob", 1002);
+    
+    // 成績の設定
+    math_course.students[0].grades[0] = 85;
+    math_course.students[0].grades[1] = 92;
+    math_course.students[0].grades[2] = 78;
+    
+    math_course.students[1].grades[0] = 90;
+    math_course.students[1].grades[1] = 87;
+    math_course.students[1].grades[2] = 94;
+    
+    println("Course: %s (Max Students: %d)", 
+            math_course.course_name, math_course.max_students);
+    println("");
+    
+    // 各学生の情報を表示
+    int i;
+    for (i = 0; i < 2; i = i + 1) {
+        Student current = math_course.students[i];
+        int avg = calculate_average(current);
+        
+        println("Student %d:", i + 1);
+        println("  Name: %s (ID: %d)", current.name, current.student_id);
+        println("  Grades: [%d, %d, %d]", 
+                current.grades[0], current.grades[1], current.grades[2]);
+        println("  Average: %d", avg);
+        println("");
+    }
+    
+    // 期待される出力:
+    // Course: Mathematics (Max Students: 2)
+    // 
+    // Student 1:
+    //   Name: Alice (ID: 1001)
+    //   Grades: [85, 92, 78]
+    //   Average: 85
+    // 
+    // Student 2:
+    //   Name: Bob (ID: 1002)
+    //   Grades: [90, 87, 94]
+    //   Average: 90
+    
+    return 0;
+}

@@ -19,6 +19,8 @@ const char *type_info_to_string(TypeInfo type) {
         return "string";
     case TYPE_BOOL:
         return "bool";
+    case TYPE_STRUCT:
+        return "struct";
     default:
         // 配列型の場合
         if (type >= TYPE_ARRAY_BASE) {
@@ -38,6 +40,8 @@ const char *type_info_to_string(TypeInfo type) {
                 return "string[]";
             case TYPE_BOOL:
                 return "bool[]";
+            case TYPE_STRUCT:
+                return "struct[]";
             default:
                 return "unknown[]";
             }

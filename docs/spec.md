@@ -82,13 +82,27 @@
 - ✅ 包括的テストフレームワーク（統合テスト415個、単体テスト26個）
 - ✅ 再帰下降パーサーによる構文解析
 
-### Phase 2: 中期目標 🚧（実装中）
-- 🚧 typedef システム
-- 🚧 struct 定義
-- 🚧 enum 定義  
-- 🚧 標準ライブラリ拡充
+### Phase 2: 中期目標 ✅/🚧（実装中）
+- ✅ **struct 定義** - 基本構造体、配列メンバー、リテラル初期化、構造体配列完全実装
+- 🚧 typedef システム（部分実装）
+- 🚧 enum 定義（未実装）
+- 🚧 標準ライブラリ拡充（math.cb, stdio.cb部分実装）
 - ❌ Result型エラー処理
 - ❌ スマートポインタ（unique_ptr, shared_ptr）
+
+#### 構造体機能詳細 ✅
+- **基本構造体定義・使用**: 完全実装
+- **構造体リテラル初期化**: 名前付き・位置指定両対応
+- **構造体配列メンバー**: 個別代入・配列リテラル代入両対応
+- **構造体の配列**: 構造体配列リテラル初期化対応
+- **printf/println統合**: 構造体メンバー・配列要素完全対応
+- **統合テスト**: 459/459 (100%) ✅
+
+#### 構造体未実装機能 ❌
+- **ネストした構造体**: `obj.member.submember` 未サポート
+- **構造体関数引数・戻り値**: 未実装
+- **複雑なネストアクセス**: `obj.array[i].member[j]` 未サポート
+- **構造体継承**: 未実装
 
 ### Phase 3: 長期目標 ❌（未実装）
 - ❌ interface/trait システム
@@ -373,21 +387,206 @@ typedef int UserId;
 typedef string[100] LargeString;
 ```
 
-### 構造体定義 🚧
+### 構造体定義 ✅/🚧
+
+#### 基本構造体（実装済み）✅
 ```cb
-// 基本構造体
 struct 構造体名 { 
     TYPE メンバ1; 
     TYPE メンバ2;
+    TYPE[SIZE] 配列メンバ;
     // ...
 }
 
+// 使用例
+struct Person {
+    string name;
+    int age;
+    int grades[5];
+    bool is_active;
+}
+
+int main() {
+    Person p;
+    p.name = "Alice";
+    p.age = 25;
+    p.is_active = true;
+    
+    // 配列メンバーの個別代入
+    p.grades[0] = 85;
+    p.grades[1] = 92;
+    
+    // 配列リテラル代入
+    p.grades = [85, 92, 78, 90, 88];
+    
+    return 0;
+}
+```
+
+#### 構造体リテラル初期化（実装済み）✅
+```cb
+struct Point {
+    int x;
+    int y;
+    string label;
+}
+
+int main() {
+    // 名前付き初期化
+    Point p1 = {x: 10, y: 20, label: "Origin"};
+    
+    // 位置指定初期化
+    Point p2 = {30, 40, "Target"};
+    
+    // 構造体配列初期化
+    Point[3] points = [
+        {x: 0, y: 0, label: "Start"},
+        {10, 10, "Middle"},
+        {x: 20, y: 20, label: "End"}
+    ];
+    
+    return 0;
+}
+```
+
+#### 構造体配列メンバー（実装済み）✅
+```cb
+struct Matrix {
+    string name;
+    int data[6];  // 2x3行列として使用
+    int rows;
+    int cols;
+}
+
+int main() {
+    Matrix m;
+    m.name = "Sample Matrix";
+    m.rows = 2;
+    m.cols = 3;
+    
+    // 配列リテラル代入
+    m.data = [1, 2, 3, 4, 5, 6];
+    
+    // 個別要素代入
+    m.data[0] = 10;
+    m.data[5] = 60;
+    
+    // printf統合
+    print("Matrix %s: [%d, %d, %d]", m.name, m.data[0], m.data[1], m.data[2]);
+    
+    return 0;
+}
+```
+
+#### 構造体の配列（実装済み）✅
+```cb
+struct Employee {
+    string name;
+    int salary;
+    int department_id;
+}
+
+int main() {
+    Employee team[3];
+    
+    // 構造体配列リテラル初期化
+    team[0] = {name: "Alice", salary: 50000, department_id: 0};
+    team[1] = {name: "Bob", salary: 55000, department_id: 2};
+    team[2] = {name: "Charlie", salary: 60000, department_id: 1};
+    
+    // 配列要素のメンバーアクセス
+    print("Employee: %s, Salary: $%d", team[0].name, team[0].salary);
+    
+    return 0;
+}
+```
+
+#### 未実装機能 🚧/❌
+
+##### ネストした構造体（未実装）❌
+```cb
+struct Address {
+    string street;
+    string city;
+    int zipcode;
+}
+
+struct Company {
+    string name;
+    Address address;  // ❌ ネストした構造体未サポート
+    int employee_count;
+}
+
+int main() {
+    Company tech_corp;
+    tech_corp.name = "Tech Corp";
+    
+    // ❌ エラー: ネストしたメンバーアクセス未サポート
+    tech_corp.address.street = "123 Main St";
+    
+    return 0;
+}
+```
+
+##### 構造体の関数引数・戻り値（未実装）❌
+```cb
+struct Rectangle {
+    int width;
+    int height;
+}
+
+// ❌ 未実装: 構造体引数
+int calculate_area(Rectangle rect) {
+    return rect.width * rect.height;
+}
+
+// ❌ 未実装: 構造体戻り値
+Rectangle create_rectangle(int w, int h) {
+    Rectangle r = {width: w, height: h};
+    return r;
+}
+```
+
+##### 構造体継承（未実装）❌
+```cb
 // 継承（将来実装）
 struct 派生構造体名 extends 基底構造体名 { 
     TYPE 追加メンバ;
     // ...
 }
 ```
+
+##### 複雑なネストした配列アクセス（未実装）❌
+```cb
+struct Student {
+    string name;
+    int grades[3];
+}
+
+struct Course {
+    Student students[2];
+}
+
+int main() {
+    Course math_course;
+    
+    // ❌ エラー: 構造体配列の構造体メンバー配列アクセス
+    math_course.students[0].grades[0] = 85;
+    
+    return 0;
+}
+```
+
+**現在の制限事項**:
+- ネストした構造体メンバーアクセス (`obj.member.submember`) は未サポート
+- 構造体の関数引数・戻り値は未実装
+- 複雑なネストした配列アクセス (`obj.array[i].member[j]`) は未サポート
+- 構造体継承は未実装
+
+**回避策**:
+- フラット構造体を使用してネストを避ける
+- 構造体メンバーを個別に関数に渡す
+- 1次元配列を使用して多次元アクセスを手動計算で実現
 
 ### 列挙型 🚧
 C、TypeScriptライクな列挙型:
@@ -874,6 +1073,177 @@ int main() {
     for (int i = 0; i < 3; i++) {
         print("素数[%d] = %d", i, PRIME_NUMBERS[i]);
     }
+    
+    return 0;
+}
+```
+
+### 構造体の実践的な使用例 ✅
+```cb
+// 学生管理システムの例
+struct Student {
+    string name;
+    int student_id;
+    int grades[5];  // 5科目の成績
+    bool is_enrolled;
+    char grade_letter;
+}
+
+struct Course {
+    string course_name;
+    string instructor;
+    int max_students;
+    int enrolled_count;
+}
+
+int main() {
+    // 個別学生の作成
+    Student alice;
+    alice.name = "Alice Johnson";
+    alice.student_id = 1001;
+    alice.is_enrolled = true;
+    alice.grade_letter = 'A';
+    
+    // 配列リテラル代入
+    alice.grades = [95, 87, 92, 89, 94];
+    
+    // 構造体配列による複数学生管理
+    Student[3] class_roster = [
+        {name: "Bob Smith", student_id: 1002, is_enrolled: true, 
+         grade_letter: 'B', grades: [82, 78, 85, 80, 79]},
+        {name: "Charlie Brown", student_id: 1003, is_enrolled: true,
+         grade_letter: 'A', grades: [91, 93, 89, 95, 92]},
+        {name: "Diana Wilson", student_id: 1004, is_enrolled: false,
+         grade_letter: 'C', grades: [73, 75, 72, 78, 76]}
+    ];
+    
+    // コース情報
+    Course math_course = {
+        course_name: "Advanced Mathematics",
+        instructor: "Dr. Einstein",
+        max_students: 30,
+        enrolled_count: 3
+    };
+    
+    // 学生情報の出力
+    print("=== %s ===", math_course.course_name);
+    print("担当: %s", math_course.instructor);
+    print("登録学生数: %d/%d", math_course.enrolled_count, math_course.max_students);
+    print("");
+    
+    // 個別学生情報出力
+    print("学生: %s (ID: %d)", alice.name, alice.student_id);
+    print("在籍状況: %s", alice.is_enrolled ? "在籍中" : "退学");
+    print("総合評価: %c", alice.grade_letter);
+    print("成績: [%d, %d, %d, %d, %d]", 
+          alice.grades[0], alice.grades[1], alice.grades[2], 
+          alice.grades[3], alice.grades[4]);
+    
+    // クラス全体の成績処理
+    print("\n=== クラス名簿 ===");
+    for (int i = 0; i < 3; i++) {
+        if (class_roster[i].is_enrolled) {
+            int total = 0;
+            for (int j = 0; j < 5; j++) {
+                total += class_roster[i].grades[j];
+            }
+            int average = total / 5;
+            
+            print("%d. %s (ID: %d) - 平均: %d点 (評価: %c)", 
+                  i + 1, class_roster[i].name, class_roster[i].student_id,
+                  average, class_roster[i].grade_letter);
+        }
+    }
+    
+    return 0;
+}
+```
+
+### 構造体と配列の高度な組み合わせ ✅
+```cb
+// 行列演算システムの例
+struct Matrix {
+    string name;
+    int rows;
+    int cols;
+    int data[9];  // 3x3行列として使用
+}
+
+// ベクトル構造体
+struct Vector3D {
+    int x;
+    int y; 
+    int z;
+    string label;
+}
+
+int main() {
+    // 3x3単位行列の作成
+    Matrix identity = {
+        name: "Identity Matrix",
+        rows: 3,
+        cols: 3,
+        data: [1, 0, 0,   // 第1行
+               0, 1, 0,   // 第2行  
+               0, 0, 1]   // 第3行
+    };
+    
+    // 変換行列
+    Matrix transform;
+    transform.name = "Transform Matrix";
+    transform.rows = 3;
+    transform.cols = 3;
+    
+    // 配列リテラル代入
+    transform.data = [2, 0, 0,
+                      0, 2, 0,
+                      0, 0, 1];
+    
+    // ベクトル配列
+    Vector3D[4] vertices = [
+        {x: 1, y: 1, z: 0, label: "Top-Right"},
+        {x: -1, y: 1, z: 0, label: "Top-Left"},
+        {x: -1, y: -1, z: 0, label: "Bottom-Left"}, 
+        {x: 1, y: -1, z: 0, label: "Bottom-Right"}
+    ];
+    
+    // 行列情報出力
+    print("=== %s ===", identity.name);
+    print("サイズ: %dx%d", identity.rows, identity.cols);
+    for (int i = 0; i < 3; i++) {
+        print("[%d %d %d]", 
+              identity.data[i*3], identity.data[i*3+1], identity.data[i*3+2]);
+    }
+    
+    print("\n=== %s ===", transform.name);
+    for (int i = 0; i < 3; i++) {
+        print("[%d %d %d]", 
+              transform.data[i*3], transform.data[i*3+1], transform.data[i*3+2]);
+    }
+    
+    // ベクトル情報出力
+    print("\n=== 頂点座標 ===");
+    for (int i = 0; i < 4; i++) {
+        print("%s: (%d, %d, %d)", 
+              vertices[i].label, vertices[i].x, vertices[i].y, vertices[i].z);
+    }
+    
+    // 簡単な行列-ベクトル積演算（最初の頂点のみ）
+    Vector3D result;
+    result.label = "Transformed";
+    result.x = transform.data[0] * vertices[0].x + 
+               transform.data[1] * vertices[0].y + 
+               transform.data[2] * vertices[0].z;
+    result.y = transform.data[3] * vertices[0].x + 
+               transform.data[4] * vertices[0].y + 
+               transform.data[5] * vertices[0].z;
+    result.z = transform.data[6] * vertices[0].x + 
+               transform.data[7] * vertices[0].y + 
+               transform.data[8] * vertices[0].z;
+    
+    print("\n=== 変換結果 ===");
+    print("元座標: (%d, %d, %d)", vertices[0].x, vertices[0].y, vertices[0].z);
+    print("変換後: (%d, %d, %d)", result.x, result.y, result.z);
     
     return 0;
 }

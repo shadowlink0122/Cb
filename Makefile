@@ -2,7 +2,7 @@ CC=g++
 LEX=flex
 YACC=bison
 
-CFLAGS=-Wall -g -std=c++17 -I.
+CFLAGS=-Wall -g -std=c++17 -I. -Isrc/backend/interpreter
 
 # ディレクトリ設定
 SRC_DIR=src
@@ -22,13 +22,18 @@ CGEN_DIR=cgen
 
 # オブジェクトファイル（RecursiveParserのみ使用）
 FRONTEND_OBJS=$(FRONTEND_DIR)/main.o $(FRONTEND_DIR)/help_messages.o $(FRONTEND_DIR)/recursive_parser/recursive_lexer.o $(FRONTEND_DIR)/recursive_parser/recursive_parser.o
-BACKEND_OBJS=$(BACKEND_DIR)/interpreter.o $(BACKEND_DIR)/error_handler.o \
-             $(BACKEND_DIR)/evaluator/expression_evaluator.o \
-             $(BACKEND_DIR)/executor/statement_executor.o \
-             $(BACKEND_DIR)/output/output_manager.o \
-             $(BACKEND_DIR)/variable_manager.o \
-             $(BACKEND_DIR)/array_manager.o \
-             $(BACKEND_DIR)/type_manager.o
+BACKEND_OBJS=$(BACKEND_DIR)/interpreter/core/interpreter.o $(BACKEND_DIR)/interpreter/core/error_handler.o \
+             $(BACKEND_DIR)/interpreter/evaluator/expression_evaluator.o \
+             $(BACKEND_DIR)/interpreter/executor/statement_executor.o \
+             $(BACKEND_DIR)/interpreter/output/output_manager.o \
+             $(BACKEND_DIR)/interpreter/managers/variable_manager.o \
+             $(BACKEND_DIR)/interpreter/managers/array_manager.o \
+             $(BACKEND_DIR)/interpreter/managers/type_manager.o \
+             $(BACKEND_DIR)/interpreter/managers/common_operations.o \
+             $(BACKEND_DIR)/interpreter/services/expression_service.o \
+             $(BACKEND_DIR)/interpreter/services/variable_access_service.o \
+             $(BACKEND_DIR)/interpreter/services/debug_service.o \
+             $(BACKEND_DIR)/interpreter/services/array_processing_service.o
 PLATFORM_OBJS=$(NATIVE_DIR)/native_stdio_output.o $(BAREMETAL_DIR)/baremetal_uart_output.o
 COMMON_OBJS=$(COMMON_DIR)/type_utils.o $(COMMON_DIR)/type_alias.o $(COMMON_DIR)/array_type_info.o $(COMMON_DIR)/utf8_utils.o $(COMMON_DIR)/io_interface.o $(COMMON_DIR)/debug_impl.o $(COMMON_DIR)/debug_messages.o $(PLATFORM_OBJS)
 
@@ -36,13 +41,17 @@ COMMON_OBJS=$(COMMON_DIR)/type_utils.o $(COMMON_DIR)/type_alias.o $(COMMON_DIR)/
 MAIN_TARGET=main
 CGEN_TARGET=cgen_main
 
-.PHONY: all clean lint fmt unit-test integration-test integration-test-old test debug debug-build-test setup-dirs deep-clean clean-all backup-old help
+.PHONY: all clean lint fmt unit-test integration-test integration-test-verbose integration-test-old test debug debug-build-test setup-dirs deep-clean clean-all backup-old help
 
 all: setup-dirs $(MAIN_TARGET)
 
 # ディレクトリ作成
 setup-dirs:
 	@mkdir -p $(FRONTEND_DIR) $(BACKEND_DIR) $(COMMON_DIR) $(NATIVE_DIR) $(BAREMETAL_DIR)
+	@mkdir -p $(BACKEND_DIR)/interpreter/core $(BACKEND_DIR)/interpreter/managers
+	@mkdir -p $(BACKEND_DIR)/interpreter/evaluator $(BACKEND_DIR)/interpreter/executor
+	@mkdir -p $(BACKEND_DIR)/interpreter/output $(BACKEND_DIR)/interpreter/services
+	@mkdir -p $(BACKEND_DIR)/ir $(BACKEND_DIR)/optimizer $(BACKEND_DIR)/codegen
 
 # デバッグ実行例（--debugオプションでデバッグ出力有効）
 debug: CFLAGS += -DYYDEBUG=1
@@ -112,11 +121,19 @@ $(TESTS_DIR)/unit/dummy.o: $(TESTS_DIR)/unit/dummy.cpp
 # 単体テスト
 unit-test: $(MAIN_TARGET) $(FRONTEND_OBJS) $(BACKEND_OBJS) $(COMMON_OBJS) $(PLATFORM_OBJS) $(TESTS_DIR)/unit/dummy.o
 	@echo "Running unit tests..."
-	@cd tests/unit && $(CC) $(CFLAGS) -o test_main main.cpp dummy.o ../../$(BACKEND_DIR)/interpreter.o ../../$(BACKEND_DIR)/error_handler.o ../../$(BACKEND_DIR)/output/output_manager.o ../../$(BACKEND_DIR)/variable_manager.o ../../$(BACKEND_DIR)/array_manager.o ../../$(BACKEND_DIR)/type_manager.o ../../$(BACKEND_DIR)/evaluator/expression_evaluator.o ../../$(BACKEND_DIR)/executor/statement_executor.o ../../$(COMMON_DIR)/type_utils.o ../../$(COMMON_DIR)/type_alias.o ../../$(COMMON_DIR)/array_type_info.o ../../$(COMMON_DIR)/utf8_utils.o ../../$(COMMON_DIR)/io_interface.o ../../$(COMMON_DIR)/debug_impl.o ../../$(COMMON_DIR)/debug_messages.o ../../$(PLATFORM_DIR)/native/native_stdio_output.o ../../$(PLATFORM_DIR)/baremetal/baremetal_uart_output.o
+	@cd tests/unit && $(CC) $(CFLAGS) -o test_main main.cpp dummy.o ../../$(BACKEND_DIR)/interpreter/core/interpreter.o ../../$(BACKEND_DIR)/interpreter/core/error_handler.o ../../$(BACKEND_DIR)/interpreter/output/output_manager.o ../../$(BACKEND_DIR)/interpreter/managers/variable_manager.o ../../$(BACKEND_DIR)/interpreter/managers/array_manager.o ../../$(BACKEND_DIR)/interpreter/managers/type_manager.o ../../$(BACKEND_DIR)/interpreter/managers/common_operations.o ../../$(BACKEND_DIR)/interpreter/services/expression_service.o ../../$(BACKEND_DIR)/interpreter/services/variable_access_service.o ../../$(BACKEND_DIR)/interpreter/services/debug_service.o ../../$(BACKEND_DIR)/interpreter/services/array_processing_service.o ../../$(BACKEND_DIR)/interpreter/evaluator/expression_evaluator.o ../../$(BACKEND_DIR)/interpreter/executor/statement_executor.o ../../$(COMMON_DIR)/type_utils.o ../../$(COMMON_DIR)/type_alias.o ../../$(COMMON_DIR)/array_type_info.o ../../$(COMMON_DIR)/utf8_utils.o ../../$(COMMON_DIR)/io_interface.o ../../$(COMMON_DIR)/debug_impl.o ../../$(COMMON_DIR)/debug_messages.o ../../$(PLATFORM_DIR)/native/native_stdio_output.o ../../$(PLATFORM_DIR)/baremetal/baremetal_uart_output.o
 	@cd tests/unit && ./test_main
 
 integration-test: $(MAIN_TARGET)
-	@echo "Running integration tests..."
+	@echo "============================================================="
+	@echo "Running Cb Integration Test Suite"
+	@echo "============================================================="
+	@cd tests/integration && $(CC) $(CFLAGS) -I. -o test_main main.cpp
+	@cd tests/integration && ./test_main 2>&1 | fold -s -w 80
+
+# より詳細な出力が必要な場合の統合テスト（フル出力）
+integration-test-verbose: $(MAIN_TARGET)
+	@echo "Running integration tests (verbose mode)..."
 	@cd tests/integration && $(CC) $(CFLAGS) -I. -o test_main main.cpp
 	@cd tests/integration && ./test_main
 
@@ -168,16 +185,17 @@ backup-old:
 # 開発用のヘルプ
 help:
 	@echo "Available targets:"
-	@echo "  all          - Build main executable"
-	@echo "  main         - Build main executable"
-	@echo "  debug        - Build with debug flags"
-	@echo "  clean        - Remove generated files"
-	@echo "  deep-clean   - Remove all generated files (thorough cleanup)"
-	@echo "  clean-all    - Clean all subdirectories too"
-	@echo "  lint         - Check code formatting"
-	@echo "  fmt          - Format code"
-	@echo "  test         - Run all tests"
-	@echo "  debug-build-test - Build with debug flags and run all tests"
-	@echo "  unit-test    - Run unit tests (50 tests)"
-	@echo "  integration-test - Run integration tests"
-	@echo "  help         - Show this help"
+	@echo "  all                    - Build main executable"
+	@echo "  main                   - Build main executable"
+	@echo "  debug                  - Build with debug flags"
+	@echo "  clean                  - Remove generated files"
+	@echo "  deep-clean             - Remove all generated files (thorough cleanup)"
+	@echo "  clean-all              - Clean all subdirectories too"
+	@echo "  lint                   - Check code formatting"
+	@echo "  fmt                    - Format code"
+	@echo "  test                   - Run all tests"
+	@echo "  debug-build-test       - Build with debug flags and run all tests"
+	@echo "  unit-test              - Run unit tests (50 tests)"
+	@echo "  integration-test       - Run integration tests (formatted output)"
+	@echo "  integration-test-verbose - Run integration tests (full output)"
+	@echo "  help                   - Show this help"

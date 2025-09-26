@@ -1,6 +1,6 @@
 #pragma once
 #include "../framework/test_framework.hpp"
-#include "../../../src/backend/interpreter.h"
+#include "../../../src/backend/interpreter/core/interpreter.h"
 #include <memory>
 
 inline void test_arithmetic_addition() {

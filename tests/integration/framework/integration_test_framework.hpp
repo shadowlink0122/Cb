@@ -29,10 +29,20 @@ inline std::vector<std::string> split_lines(const std::string& str) {
 }
 
 // テスト用のユーティリティ関数
+
+// CBインタープリターのパスを補正する関数
+inline std::string fix_cb_interpreter_path(const std::string& original_command) {
+    // パス補正は不要 - 元のコマンドをそのまま使用
+    return original_command;
+}
+
 inline int run_command_and_capture(const std::string& command, std::string& output) {
+    // パスを自動補正
+    std::string fixed_command = fix_cb_interpreter_path(command);
+    
     char buffer[128];
     std::string result = "";
-    FILE* pipe = popen(command.c_str(), "r");
+    FILE* pipe = popen(fixed_command.c_str(), "r");
     if (!pipe) {
         throw std::runtime_error("popen() failed!");
     }
@@ -152,37 +162,6 @@ inline bool contains(const std::string& haystack, const std::string& needle) {
     return haystack.find(needle) != std::string::npos;
 }
 
-// テスト結果の出力
-inline void integration_test_passed(const std::string& test_name) {
-    std::cout << "[integration] " << test_name << " ... passed" << std::endl;
-}
-
-inline void integration_test_passed(const std::string& test_name, const std::string& test_file) {
-    std::cout << "[integration] " << test_name << " (" << test_file << ") ... passed" << std::endl;
-}
-
-inline void integration_test_passed_with_error(const std::string& test_name) {
-    std::cout << "[integration] " << test_name << " ... passed (error detected)" << std::endl;
-}
-
-inline void integration_test_passed_with_error(const std::string& test_name, const std::string& test_file) {
-    std::cout << "[integration] " << test_name << " (" << test_file << ") ... passed (error detected)" << std::endl;
-}
-
-inline void integration_test_passed_with_overflow(const std::string& test_name) {
-    std::cout << "[integration] " << test_name << " ... passed (overflow to negative)" << std::endl;
-}
-
-inline void integration_test_passed_with_overflow(const std::string& test_name, const std::string& test_file) {
-    std::cout << "[integration] " << test_name << " (" << test_file << ") ... passed (overflow to negative)" << std::endl;
-}
-
-inline void integration_test_failed(const std::string& test_name, const std::string& test_file, 
-                                   const std::string& error_message) {
-    std::cerr << "[integration] " << test_name << " (" << test_file << ") ... FAILED" << std::endl;
-    std::cerr << "[integration] Error: " << error_message << std::endl;
-}
-
 // Test counter for integration tests
 class IntegrationTestCounter {
 private:
@@ -201,11 +180,10 @@ public:
     static int get_failed() { return failed_tests; }
     
     static void print_summary() {
-        std::cout << "=== Integration Test Summary ===" << std::endl;
-        std::cout << "  Total:  " << total_tests << std::endl;
-        std::cout << "  Passed: " << passed_tests << std::endl;
-        std::cout << "  Failed: " << failed_tests << std::endl;
-        std::cout << std::endl;
+        std::cout << "=== Test Summary ===" << std::endl;
+        std::cout << "Total:  " << total_tests << std::endl;
+        std::cout << "Passed: " << passed_tests << std::endl;
+        std::cout << "Failed: " << failed_tests << std::endl;
     }
 };
 
@@ -213,3 +191,48 @@ public:
 int IntegrationTestCounter::total_tests = 0;
 int IntegrationTestCounter::passed_tests = 0;
 int IntegrationTestCounter::failed_tests = 0;
+
+// テスト結果の出力（クラス定義後）
+inline void integration_test_passed(const std::string& test_name) {
+    std::cout << "[integration-test] [PASS] " << test_name << std::endl;
+    IntegrationTestCounter::increment_total();
+    IntegrationTestCounter::increment_passed();
+}
+
+inline void integration_test_passed(const std::string& test_name, const std::string& test_file) {
+    std::cout << "[integration-test] [PASS] " << test_name << " (" << test_file << ")" << std::endl;
+    IntegrationTestCounter::increment_total();
+    IntegrationTestCounter::increment_passed();
+}
+
+inline void integration_test_passed_with_error(const std::string& test_name) {
+    std::cout << "[integration-test] [PASS] " << test_name << " (error expected)" << std::endl;
+    IntegrationTestCounter::increment_total();
+    IntegrationTestCounter::increment_passed();
+}
+
+inline void integration_test_passed_with_error(const std::string& test_name, const std::string& test_file) {
+    std::cout << "[integration-test] [PASS] " << test_name << " (" << test_file << ") (error expected)" << std::endl;
+    IntegrationTestCounter::increment_total();
+    IntegrationTestCounter::increment_passed();
+}
+
+inline void integration_test_passed_with_overflow(const std::string& test_name) {
+    std::cout << "[integration-test] [PASS] " << test_name << " (overflow expected)" << std::endl;
+    IntegrationTestCounter::increment_total();
+    IntegrationTestCounter::increment_passed();
+}
+
+inline void integration_test_passed_with_overflow(const std::string& test_name, const std::string& test_file) {
+    std::cout << "[integration-test] [PASS] " << test_name << " (" << test_file << ") (overflow expected)" << std::endl;
+    IntegrationTestCounter::increment_total();
+    IntegrationTestCounter::increment_passed();
+}
+
+inline void integration_test_failed(const std::string& test_name, const std::string& test_file, 
+                                   const std::string& error_message) {
+    std::cerr << "[integration-test] [FAIL] " << test_name << " (" << test_file << ")" << std::endl;
+    std::cerr << "[integration-test] Error: " << error_message << std::endl;
+    IntegrationTestCounter::increment_total();
+    IntegrationTestCounter::increment_failed();
+}

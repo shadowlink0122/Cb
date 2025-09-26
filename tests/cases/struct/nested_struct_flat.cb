@@ -1,0 +1,40 @@
+// 複雑なstruct（入れ子構造）のフラット実装版
+// 現在のメモリ制約を考慮し、ネストした構造体を個別変数で実装
+
+struct Address {
+    string street;
+    string city;
+    int zipcode;
+};
+
+struct Company {
+    string name;
+    int employee_count;
+};
+
+int main() {
+    Company tech_corp;
+    Address corp_address;  // ネストせずに分離
+    
+    // 基本情報の初期化
+    tech_corp.name = "Tech Corp";
+    tech_corp.employee_count = 150;
+    
+    // アドレス情報の初期化（分離された構造体として）
+    corp_address.street = "123 Main St";
+    corp_address.city = "San Francisco";
+    corp_address.zipcode = 94105;
+    
+    println("Company: %s", tech_corp.name);
+    println("Address: %s, %s %d", 
+            corp_address.street, 
+            corp_address.city, 
+            corp_address.zipcode);
+    println("Employees: %d", tech_corp.employee_count);
+    
+    // 期待される出力:
+    // Company: Tech Corp
+    // Address: 123 Main St, San Francisco 94105
+    // Employees: 150
+    return 0;
+}

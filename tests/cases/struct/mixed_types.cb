@@ -1,0 +1,32 @@
+// 混合データ型のテスト
+struct MixedData {
+    string label;
+    int numbers[3];
+    string tags[2];
+    int count;
+};
+
+int main() {
+    MixedData data;
+    data.label = "Test Data";
+    data.count = 5;
+    
+    // 数値配列の初期化
+    data.numbers[0] = 10;
+    data.numbers[1] = 20;
+    data.numbers[2] = 30;
+    
+    // 文字列配列の初期化
+    data.tags[0] = "important";
+    data.tags[1] = "verified";
+    
+    println("Label: %s (Count: %d)", data.label, data.count);
+    println("Numbers: [%d, %d, %d]", data.numbers[0], data.numbers[1], data.numbers[2]);
+    println("Tags: [%s, %s]", data.tags[0], data.tags[1]);
+    
+    // 期待される出力:
+    // Label: Test Data (Count: 5)
+    // Numbers: [10, 20, 30]
+    // Tags: [important, verified]
+    return 0;
+}
