@@ -1,5 +1,6 @@
 #pragma once
 #include "../../../common/ast.h"
+#include "../../../common/debug.h"
 #include <iostream>
 #include <map>
 #include <string>
@@ -17,7 +18,9 @@ class CommonOperations;
 class VariableAccessService; // DRY効率化: 統一変数アクセスサービス
 class ExpressionService;     // DRY効率化: 統一式評価サービス
 class ArrayProcessingService; // DRY効率化: 統一配列処理サービス
+class EnumManager;           // enum管理サービス
 class CommonOperations;
+class RecursiveParser;       // enum定義同期用
 
 // 変数・関数の格納構造
 struct Variable {
@@ -63,7 +66,7 @@ struct Variable {
         // デバッグ用
         extern bool debug_mode;
         if (debug_mode) {
-            printf("[DEBUG] Variable default constructor called\n");
+            debug_msg(DebugMsgId::VAR_CREATE_NEW);
         }
     }
 
@@ -81,13 +84,15 @@ struct Variable {
         // デバッグ用
         extern bool debug_mode;
         if (debug_mode) {
-            printf("[DEBUG] Variable struct constructor called for: %s\n",
-                   struct_name.c_str());
+            debug_msg(DebugMsgId::VAR_MANAGER_STRUCT_CREATE, struct_name.c_str(), "struct");
         }
     }
 
     // 多次元配列のフラットインデックス計算
     int calculate_flat_index(const std::vector<int> &indices) const {
+        debug_msg(DebugMsgId::FLAT_INDEX_CALCULATED, 
+                  std::to_string(indices.size()).c_str(), 
+                  std::to_string(array_type_info.dimensions.size()).c_str());
         if (indices.size() != array_type_info.dimensions.size()) {
             throw std::runtime_error("Dimension mismatch in array access");
         }
@@ -146,22 +151,32 @@ class ReturnException {
     std::vector<std::vector<std::vector<int64_t>>> int_array_3d;
     std::vector<std::vector<std::vector<std::string>>> str_array_3d;
     std::string array_type_name;
+    
+    // struct戻り値サポート
+    bool is_struct = false;
+    Variable struct_value;
 
-    ReturnException(int64_t val, TypeInfo t = TYPE_INT) : value(val), type(t) {}
+    // 完全初期化コンストラクタ群
+    ReturnException(int64_t val, TypeInfo t = TYPE_INT) 
+        : value(val), str_value(""), type(t), is_array(false), is_struct(false) {}
     ReturnException(const std::string &str)
-        : value(0), str_value(str), type(TYPE_STRING) {}
+        : value(0), str_value(str), type(TYPE_STRING), is_array(false), is_struct(false) {}
 
     // 配列戻り値用コンストラクタ
     ReturnException(const std::vector<std::vector<std::vector<int64_t>>> &arr,
                     const std::string &type_name, TypeInfo t)
-        : value(0), type(t), is_array(true), int_array_3d(arr),
-          array_type_name(type_name) {}
+        : value(0), str_value(""), type(t), is_array(true), int_array_3d(arr),
+          array_type_name(type_name), is_struct(false) {}
 
     ReturnException(
         const std::vector<std::vector<std::vector<std::string>>> &arr,
         const std::string &type_name, TypeInfo t)
-        : value(0), type(t), is_array(true), str_array_3d(arr),
-          array_type_name(type_name) {}
+        : value(0), str_value(""), type(t), is_array(true), str_array_3d(arr),
+          array_type_name(type_name), is_struct(false) {}
+    
+    // struct戻り値用コンストラクタ  
+    ReturnException(const Variable &struct_var)
+        : value(0), str_value(""), type(TYPE_STRUCT), is_array(false), is_struct(true), struct_value(struct_var) {}
 };
 
 class BreakException {
@@ -202,12 +217,15 @@ class Interpreter : public EvaluatorInterface {
         expression_service_; // DRY効率化: 統一式評価
     std::unique_ptr<ArrayProcessingService>
         array_processing_service_; // DRY効率化: 統一配列処理
+    std::unique_ptr<EnumManager>
+        enum_manager_; // enum管理サービス
 
     // Grant access to managers
     friend class VariableManager;
     friend class ArrayManager;
     friend class TypeManager;
     friend class ArrayProcessingService; // DRY効率化: 配列処理統合サービス
+    friend class EnumManager;            // enum管理サービス
 
   public:
     Interpreter(bool debug = false);
@@ -304,10 +322,18 @@ class Interpreter : public EvaluatorInterface {
     int64_t get_struct_member_array_element(const std::string &var_name,
                                             const std::string &member_name,
                                             int index);
+    // N次元配列アクセス対応版
+    int64_t get_struct_member_multidim_array_element(const std::string &var_name,
+                                                    const std::string &member_name,
+                                                    const std::vector<int64_t> &indices);
+    std::string get_struct_member_array_string_element(const std::string &var_name,
+                                                      const std::string &member_name,
+                                                      int index);
     void assign_struct_member_array_literal(const std::string &var_name,
                                             const std::string &member_name,
                                             const ASTNode *array_literal);
     TypeInfo string_to_type_info(const std::string &type_str);
+    void sync_struct_members_from_direct_access(const std::string &var_name);
 
     // static変数処理
     Variable *find_static_variable(const std::string &name);
@@ -351,6 +377,15 @@ class Interpreter : public EvaluatorInterface {
 
     // TypeManagerへのアクセス
     TypeManager *get_type_manager() { return type_manager_.get(); }
+    
+    // EnumManagerへのアクセス
+    EnumManager *get_enum_manager() { return enum_manager_.get(); }
+    
+    // Parserからのenum定義同期
+    void sync_enum_definitions_from_parser(RecursiveParser* parser);
+    
+    // Parserからのstruct定義同期
+    void sync_struct_definitions_from_parser(RecursiveParser* parser);
 
     // N次元配列アクセス用のヘルパー関数
     std::string extract_array_name(const ASTNode *node);

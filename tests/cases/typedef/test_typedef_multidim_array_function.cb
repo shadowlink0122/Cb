@@ -1,0 +1,37 @@
+// typedef配列の高度なテストケース
+const int ROWS = 3;
+const int COLS = 4;
+
+typedef int[COLS] Row;
+
+Row createRow(int start) {
+    Row row;
+    for (int i = 0; i < COLS; i++) {
+        row[i] = start + i;
+    }
+    return row;
+}
+
+int main() {
+    // 各行をテスト
+    for (int r = 0; r < ROWS; r++) {
+        Row row = createRow(r * 10);
+        
+        // 値の検証
+        for (int c = 0; c < COLS; c++) {
+            int expected = r * 10 + c;
+            if (row[c] != expected) {
+                println("ERROR: row[%d] should be %d, got %d", c, expected, row[c]);
+                return 1;
+            }
+        }
+        
+        // 出力
+        for (int c = 0; c < COLS; c++) {
+            println("row[%d] = %d", c, row[c]);
+        }
+    }
+    
+    println("Typedef multidim array function test passed");
+    return 0;
+}

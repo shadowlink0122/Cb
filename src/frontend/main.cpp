@@ -73,9 +73,7 @@ int main(int argc, char **argv) {
                            std::istreambuf_iterator<char>());
         input.close();
 
-        if (debug_mode) {
-            std::cout << "Using recursive descent parser...\n";
-        }
+        debug_msg(DebugMsgId::PARSE_USING_RECURSIVE_PARSER);
 
         RecursiveParser parser(source, filename);
         parser.setDebugMode(debug_mode);
@@ -89,13 +87,21 @@ int main(int argc, char **argv) {
         // インタープリターでASTを実行
         if (debug_mode) {
             std::fprintf(stderr, "Debug mode is enabled\n");
-            debug_msg(DebugMsgId::INTERPRETER_START);
         }
+        debug_msg(DebugMsgId::INTERPRETER_START);
 
         Interpreter interpreter(debug_mode);
+
+        // Parserからenum定義を同期
+        interpreter.sync_enum_definitions_from_parser(&parser);
+
+        // Parserからstruct定義を同期
+        interpreter.sync_struct_definitions_from_parser(&parser);
+
         interpreter.process(root);
 
-        delete root;
+        // ASTは実行完了まで保持（delete root; を削除）
+        // インタープリターが内部でASTNode*を参照している間は削除しない
 
     } catch (const DetailedErrorException &e) {
         // 詳細なエラー表示は既に完了しているので何もしない

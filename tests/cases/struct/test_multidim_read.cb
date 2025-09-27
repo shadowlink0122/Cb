@@ -1,0 +1,11 @@
+// 段階的テスト：多次元配列アクセスのみ
+struct Matrix2x2 {
+    int[2][2] data;
+};
+
+int main() {
+    Matrix2x2 m;
+    // 段階1: 値を読み取るだけ（代入なし）
+    int temp = m.data[0][0];
+    return 0;
+}

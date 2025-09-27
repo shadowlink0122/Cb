@@ -1,0 +1,26 @@
+// Enum typedef function test
+typedef enum { SUCCESS = 0, ERROR = 1 } Result;
+
+Result process_data(int value) {
+    if (value > 0) {
+        return Result::SUCCESS;
+    }
+    return Result::ERROR;
+}
+
+Result check_status(Result r) {
+    if (r == Result::SUCCESS) {
+        return Result::SUCCESS;
+    }
+    return Result::ERROR;
+}
+
+int main() {
+    Result r1 = process_data(10);
+    Result r2 = check_status(process_data(-5));
+    
+    println("Function result:", r1);
+    println("Status check:", r2);
+    
+    return 0;
+}

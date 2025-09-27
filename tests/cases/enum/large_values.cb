@@ -1,0 +1,7 @@
+enum Test {
+    value = 42
+};
+
+int main() {
+    return Test::value;
+}

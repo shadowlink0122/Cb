@@ -107,9 +107,24 @@ void OutputManager::print_value(const ASTNode *expr) {
         int64_t index = evaluate_expression(expr->right.get());
         
         try {
-            // 構造体メンバーの配列要素を直接取得
-            int64_t value = interpreter_->get_struct_member_array_element(obj_name, member_name, static_cast<int>(index));
-            io_interface_->write_number(value);
+            // 構造体メンバー変数を取得して型を確認
+            Variable *member_var = interpreter_->get_struct_member(obj_name, member_name);
+            if (member_var && member_var->is_array) {
+                if (member_var->type == TYPE_STRING) {
+                    // 文字列配列の場合
+                    if (index >= 0 && index < static_cast<int64_t>(member_var->array_strings.size())) {
+                        io_interface_->write_string(member_var->array_strings[index].c_str());
+                    } else {
+                        io_interface_->write_string("");
+                    }
+                } else {
+                    // 数値配列の場合
+                    int64_t value = interpreter_->get_struct_member_array_element(obj_name, member_name, static_cast<int>(index));
+                    io_interface_->write_number(value);
+                }
+            } else {
+                io_interface_->write_string("(not an array member)");
+            }
         } catch (const std::exception& e) {
             io_interface_->write_string("(member array access error)");
         }
@@ -129,14 +144,40 @@ void OutputManager::print_value(const ASTNode *expr) {
             var_name = expr->name;
         } else if (expr->left) {
             // 複雑な左側の式（多次元配列アクセスなど）
-            // 多次元配列の文字列アクセスかチェック
+            // まず構造体メンバーの多次元配列アクセスをチェック
             if (expr->left->node_type == ASTNodeType::AST_ARRAY_REF) {
                 ASTNode* base_node = expr->left.get();
                 while (base_node && base_node->node_type == ASTNodeType::AST_ARRAY_REF && base_node->left) {
                     base_node = base_node->left.get();
                 }
                 
-                if (base_node && base_node->node_type == ASTNodeType::AST_VARIABLE) {
+                // 構造体メンバーの多次元配列アクセス: test.data[0][0]
+                if (base_node && base_node->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
+                    debug_msg(DebugMsgId::PRINTF_ARRAY_REF_DEBUG, "struct member multidim access");
+                    
+                    std::string obj_name = base_node->left->name;
+                    std::string member_name = base_node->name;
+                    
+                    // 多次元インデックスを収集
+                    std::vector<int64_t> indices;
+                    const ASTNode* current_node = expr;
+                    while (current_node && current_node->node_type == ASTNodeType::AST_ARRAY_REF) {
+                        int64_t index = evaluate_expression(current_node->array_index.get());
+                        indices.insert(indices.begin(), index); // 先頭に挿入（逆順になるため）
+                        current_node = current_node->left.get();
+                    }
+                    
+                    try {
+                        int64_t value = interpreter_->get_struct_member_multidim_array_element(obj_name, member_name, indices);
+                        io_interface_->write_number(value);
+                        return;
+                    } catch (const std::exception& e) {
+                        io_interface_->write_string("(struct member multidim access error)");
+                        return;
+                    }
+                }
+                // 通常の多次元配列の文字列アクセスをチェック
+                else if (base_node && base_node->node_type == ASTNodeType::AST_VARIABLE) {
                     Variable* var = find_variable(base_node->name);
                     if (var && var->is_multidimensional && var->array_type_info.base_type == TYPE_STRING) {
                         // 多次元文字列配列の場合は専用処理
@@ -625,7 +666,6 @@ void OutputManager::print_formatted(const ASTNode *format_str, const ASTNode *ar
                         str_args.push_back(""); // プレースホルダー
                     }
                 } catch (const std::exception& e) {
-                    std::cerr << "DEBUG: Exception in member access: " << e.what() << std::endl;
                     int64_t value = evaluate_expression(arg.get());
                     int_args.push_back(value);
                     str_args.push_back(""); // プレースホルダー
@@ -633,17 +673,65 @@ void OutputManager::print_formatted(const ASTNode *format_str, const ASTNode *ar
             } else if (arg->node_type == ASTNodeType::AST_ARRAY_REF) {
                 // 配列要素の処理
                 
-                // まず、構造体メンバー配列アクセスかどうかチェック
-                if (arg->left && arg->left->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
+                // まず、多次元構造体メンバー配列アクセスかどうかチェック（test.data[i][j]）
+                if (arg->left && arg->left->node_type == ASTNodeType::AST_ARRAY_REF) {
+                    // 基底ノードを探して、構造体メンバーアクセスかチェック
+                    ASTNode* base_node = arg->left.get();
+                    while (base_node && base_node->node_type == ASTNodeType::AST_ARRAY_REF && base_node->left) {
+                        base_node = base_node->left.get();
+                    }
+                    
+                    if (base_node && base_node->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
+                        // 構造体メンバーの多次元配列アクセス: test.data[i][j]
+                        std::string obj_name = base_node->left->name;
+                        std::string member_name = base_node->name;
+                        
+                        // 多次元インデックスを収集
+                        std::vector<int64_t> indices;
+                        const ASTNode* current_node = arg.get();
+                        while (current_node && current_node->node_type == ASTNodeType::AST_ARRAY_REF) {
+                            int64_t index = evaluate_expression(current_node->array_index.get());
+                            indices.insert(indices.begin(), index); // 先頭に挿入（逆順になるため）
+                            current_node = current_node->left.get();
+                        }
+                        
+                        try {
+                            int64_t value = interpreter_->get_struct_member_multidim_array_element(obj_name, member_name, indices);
+                            int_args.push_back(value);
+                            str_args.push_back(""); // プレースホルダー
+                        } catch (const std::exception& e) {
+                            int_args.push_back(0);
+                            str_args.push_back("");
+                        }
+                    } else {
+                        // 通常の多次元配列アクセス
+                        int64_t value = evaluate_expression(arg.get());
+                        int_args.push_back(value);
+                        str_args.push_back(""); // プレースホルダー
+                    }
+                }
+                // 構造体メンバー配列アクセスかどうかチェック（obj.member[index]）
+                else if (arg->left && arg->left->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
                     // 構造体メンバー配列アクセス: obj.member[index]
                     std::string obj_name = arg->left->left->name;
                     std::string member_name = arg->left->name;
                     int64_t index = evaluate_expression(arg->array_index.get());
                     
                     try {
-                        int64_t value = interpreter_->get_struct_member_array_element(obj_name, member_name, static_cast<int>(index));
-                        int_args.push_back(value);
-                        str_args.push_back("");
+                        // 文字列配列かどうかを判定
+                        Variable* member_var = interpreter_->get_struct_member(obj_name, member_name);
+                        if (member_var->type == TYPE_STRING) {
+                            // 文字列配列の場合
+                            std::string str_value = interpreter_->get_struct_member_array_string_element(
+                                obj_name, member_name, static_cast<int>(index));
+                            str_args.push_back(str_value);
+                            int_args.push_back(0); // プレースホルダー
+                        } else {
+                            // 数値配列の場合
+                            int64_t value = interpreter_->get_struct_member_array_element(obj_name, member_name, static_cast<int>(index));
+                            int_args.push_back(value);
+                            str_args.push_back(""); // プレースホルダー
+                        }
                     } catch (const std::exception& e) {
                         int_args.push_back(0);
                         str_args.push_back("");
@@ -891,16 +979,12 @@ bool OutputManager::has_unescaped_format_specifiers(const std::string& str) {
             if (i + 1 < str.length()) {
                 char next = str[i + 1];
                 if (next == 'd' || next == 's' || next == 'c' || next == '%') {
-                    if (debug_mode) {
-                        printf("[DEBUG] has_unescaped_format_specifiers: found specifier %%%c\n", next);
-                    }
+                    debug_msg(DebugMsgId::OUTPUT_FORMAT_SPEC_FOUND, std::string(1, next).c_str());
                     return true;
                 }
                 // %lld のチェック
                 if (next == 'l' && i + 3 < str.length() && str[i + 2] == 'l' && str[i + 3] == 'd') {
-                    if (debug_mode) {
-                        printf("[DEBUG] has_unescaped_format_specifiers: found specifier %%lld\n");
-                    }
+                    debug_msg(DebugMsgId::OUTPUT_FORMAT_SPEC_FOUND, "lld");
                     return true;
                 }
             }
@@ -912,9 +996,7 @@ bool OutputManager::has_unescaped_format_specifiers(const std::string& str) {
 
 size_t OutputManager::count_format_specifiers(const std::string& str) {
     size_t count = 0;
-    if (debug_mode) {
-        printf("[DEBUG] count_format_specifiers: counting in string '%s'\n", str.c_str());
-    }
+    debug_msg(DebugMsgId::OUTPUT_FORMAT_COUNT, str.c_str());
     for (size_t i = 0; i < str.length(); i++) {
         if (str[i] == '%') {
             // \% でエスケープされているかチェック
@@ -925,29 +1007,21 @@ size_t OutputManager::count_format_specifiers(const std::string& str) {
                 char next = str[i + 1];
                 if (next == 'd' || next == 's' || next == 'c') {
                     count++;
-                    if (debug_mode) {
-                        printf("[DEBUG] count_format_specifiers: found %c, count now %zu\n", next, count);
-                    }
+                    debug_msg(DebugMsgId::OUTPUT_FORMAT_COUNT, std::to_string(count).c_str());
                 } else if (next == 'l' && i + 3 < str.length() && 
                           str[i + 2] == 'l' && str[i + 3] == 'd') {
                     count++;
-                    if (debug_mode) {
-                        printf("[DEBUG] count_format_specifiers: found lld, count now %zu\n", count);
-                    }
+                    debug_msg(DebugMsgId::OUTPUT_FORMAT_COUNT, std::to_string(count).c_str());
                     i += 3; // %lld をスキップ
                 } else if (next == '%') {
                     // %% は引数を消費しないのでカウントしない
-                    if (debug_mode) {
-                        printf("[DEBUG] count_format_specifiers: found %%, not counting\n");
-                    }
+                    debug_msg(DebugMsgId::OUTPUT_FORMAT_SPEC_FOUND, "%%");
                 }
                 // %% は引数を消費しないのでカウントしない
             }
         }
     }
-    if (debug_mode) {
-        printf("[DEBUG] count_format_specifiers: final count %zu\n", count);
-    }
+    debug_msg(DebugMsgId::OUTPUT_FORMAT_COUNT, std::to_string(count).c_str());
     return count;
 }
 
@@ -955,11 +1029,10 @@ void OutputManager::print_multiple(const ASTNode *arg_list) {
     // AST_PRINT_STMTまたはAST_PRINTLN_STMTノードの場合、引数を直接処理
     if (arg_list && (arg_list->node_type == ASTNodeType::AST_PRINT_STMT || 
                      arg_list->node_type == ASTNodeType::AST_PRINTLN_STMT)) {
-        if (debug_mode) {
-            debug_msg(DebugMsgId::PRINT_MULTIPLE_PROCESSING,
-                     (arg_list->node_type == ASTNodeType::AST_PRINT_STMT) ? "AST_PRINT_STMT" : "AST_PRINTLN_STMT",
-                     (int)arg_list->arguments.size());
-        }
+        
+        debug_msg(DebugMsgId::PRINT_MULTIPLE_PROCESSING,
+                    (arg_list->node_type == ASTNodeType::AST_PRINT_STMT) ? "AST_PRINT_STMT" : "AST_PRINTLN_STMT",
+                    (int)arg_list->arguments.size());
         
         // 引数がない場合は何もしない
         if (arg_list->arguments.empty()) {
@@ -971,10 +1044,8 @@ void OutputManager::print_multiple(const ASTNode *arg_list) {
         // 引数が1つだけの場合の特別処理
         if (arg_list->arguments.size() == 1) {
             const auto &arg = arg_list->arguments[0];
-            if (debug_mode) {
-                debug_msg(DebugMsgId::PRINT_SINGLE_ARG_DEBUG,
-                         "AST_PRINT_STMT", (int)arg->node_type);
-            }
+            debug_msg(DebugMsgId::PRINT_SINGLE_ARG_DEBUG,
+                "AST_PRINT_STMT", (int)arg->node_type);
             if (arg->node_type == ASTNodeType::AST_STRING_LITERAL) {
                 // フォーマット指定子が含まれていても、引数が1つだけの場合はそのまま出力
                 std::string output = process_escape_sequences(arg->str_value);
@@ -1025,31 +1096,22 @@ void OutputManager::print_multiple(const ASTNode *arg_list) {
     }
     
     if (!arg_list || arg_list->node_type != ASTNodeType::AST_STMT_LIST) {
-        if (debug_mode) {
-            printf("[DEBUG] print_multiple: Invalid arg_list or not AST_STMT_LIST (type: %d)\n", 
-                   arg_list ? (int)arg_list->node_type : -1);
-        }
+        debug_msg(DebugMsgId::PRINT_NO_ARGUMENTS_DEBUG);
         return;
     }
 
     // 引数がない場合は何もしない
     if (arg_list->arguments.empty()) {
-        if (debug_mode) {
-            printf("[DEBUG] print_multiple: No arguments\n");
-        }
+        debug_msg(DebugMsgId::PRINT_NO_ARGUMENTS_DEBUG);
         return;
     }
 
-    if (debug_mode) {
-        printf("[DEBUG] print_multiple: %zu arguments\n", arg_list->arguments.size());
-    }
+    debug_msg(DebugMsgId::PRINT_MULTIPLE_PROCESSING);
 
     // 引数が1つだけの場合の特別処理
     if (arg_list->arguments.size() == 1) {
         const auto &arg = arg_list->arguments[0];
-        if (debug_mode) {
-            printf("[DEBUG] print_multiple: Single argument, type: %d\n", (int)arg->node_type);
-        }
+        debug_msg(DebugMsgId::PRINT_SINGLE_ARG_DEBUG);
         if (arg->node_type == ASTNodeType::AST_STRING_LITERAL) {
             // フォーマット指定子が含まれていても、引数が1つだけの場合はそのまま出力
             std::string output = process_escape_sequences(arg->str_value);
@@ -1150,11 +1212,46 @@ std::string OutputManager::format_string(const ASTNode *format_str, const ASTNod
                     }
                 }
             } else {
-                int64_t value = evaluate_expression(arg.get());
-                int_args.push_back(value);
-                str_args.push_back(""); // プレースホルダー
-            }
-        }
+                // その他の式（AST_MEMBER_ARRAY_ACCESSなども含む）
+                if (arg->node_type == ASTNodeType::AST_MEMBER_ARRAY_ACCESS) {
+                    // 構造体メンバーの配列アクセス: obj.member[index]
+                    std::string obj_name;
+                    if (arg->left && arg->left->node_type == ASTNodeType::AST_VARIABLE) {
+                        obj_name = arg->left->name;
+                        std::string member_name = arg->name;
+                        int64_t index = evaluate_expression(arg->right.get());
+                        
+                        try {
+                            Variable *member_var = interpreter_->get_struct_member(obj_name, member_name);
+                            if (member_var && member_var->is_array && member_var->type == TYPE_STRING) {
+                                // 文字列配列の場合は文字列を取得
+                                std::string str_value = interpreter_->get_struct_member_array_string_element(obj_name, member_name, static_cast<int>(index));
+                                str_args.push_back(str_value);
+                                int_args.push_back(0); // プレースホルダー
+                            } else {
+                                // 数値配列の場合は通常の評価
+                                int64_t value = evaluate_expression(arg.get());
+                                int_args.push_back(value);
+                                str_args.push_back(""); // プレースホルダー
+                            }
+                        } catch (const std::exception& e) {
+                            // エラーの場合は空文字列
+                            str_args.push_back("");
+                            int_args.push_back(0);
+                        }
+                    } else {
+                        // 通常の評価へフォールバック
+                        int64_t value = evaluate_expression(arg.get());
+                        int_args.push_back(value);
+                        str_args.push_back(""); // プレースホルダー
+                    }
+                } else {
+                    // その他の式は通常の評価
+                    int64_t value = evaluate_expression(arg.get());
+                    int_args.push_back(value);
+                    str_args.push_back(""); // プレースホルダー
+                }
+            }        }
     }
 
     // フォーマット文字列を処理

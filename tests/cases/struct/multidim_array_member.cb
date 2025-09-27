@@ -1,7 +1,7 @@
 // 配列メンバーのテスト（多次元は将来実装予定）
 struct Matrix {
     string name;
-    int data[6];  // 2x3の代わりに1次元配列として扱う
+    int[6] data;  // 2x3の代わりに1次元配列として扱う
     int rows;
     int cols;
 };

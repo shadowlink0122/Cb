@@ -1,0 +1,11 @@
+// 段階的テスト：多次元配列代入テスト（正しい構文）
+struct Matrix2x2 {
+    int[2][2] data;
+};
+
+int main() {
+    Matrix2x2 m;
+    m.data[0][0] = 1;
+    
+    return 0;
+}

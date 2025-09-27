@@ -2,7 +2,7 @@
 tiny SIZE = 4;
 struct Course {
     string name;
-    int scores[SIZE];
+    int[SIZE] scores;
     int credit;
 };
 

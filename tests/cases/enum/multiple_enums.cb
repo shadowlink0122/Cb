@@ -1,0 +1,64 @@
+enum Color {
+    red = 0,
+    green = 1,
+    blue = 2
+};
+
+enum Size {
+    small = 10,
+    medium = 20,
+    large = 30
+};
+
+enum State {
+    off = 0,
+    on = 1
+};
+
+int main() {
+    int color_val = Color::red;    // 0
+    int size_val = Size::large;    // 30
+    int state_val = State::on;     // 1
+    
+    // Verify individual enum values
+    if (color_val != 0) {
+        println("ERROR: Color::red should be 0, got %d", color_val);
+        return 1;
+    }
+    
+    if (size_val != 30) {
+        println("ERROR: Size::large should be 30, got %d", size_val);
+        return 1;
+    }
+    
+    if (state_val != 1) {
+        println("ERROR: State::on should be 1, got %d", state_val);
+        return 1;
+    }
+    
+    // 異なるenumの値を組み合わせ
+    int combined = Color::blue + Size::small; // 2 + 10 = 12
+    
+    // Verify enum combination
+    if (combined != 12) {
+        println("ERROR: Color::blue + Size::small should be 12, got %d", combined);
+        return 1;
+    }
+    
+    // Test more combinations
+    int another_combo = Size::medium - Color::green; // 20 - 1 = 19
+    if (another_combo != 19) {
+        println("ERROR: Size::medium - Color::green should be 19, got %d", another_combo);
+        return 1;
+    }
+    
+    println("Multiple enum values:");
+    println("  Color::red = %d", color_val);
+    println("  Size::large = %d", size_val);
+    println("  State::on = %d", state_val);
+    println("Enum combinations:");
+    println("  Color::blue + Size::small = %d", combined);
+    println("  Size::medium - Color::green = %d", another_combo);
+    println("Multiple enums test passed");
+    return 0;
+}

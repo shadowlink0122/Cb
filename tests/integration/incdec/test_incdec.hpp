@@ -9,11 +9,11 @@ inline void test_integration_incdec() {
     // Current test cases use these operators, so testing only pre/post increment which should work
     
     // Test pre/post increment/decrement
-    run_cb_test_with_output("../../tests/cases/incdec/pre_post.cb", 
+    run_cb_test_with_output_and_time_auto("../../tests/cases/incdec/pre_post.cb", 
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_EQ(0, exit_code, "pre_post.cb should execute successfully");
         });
-    integration_test_passed("incdec pre_post test", "pre_post.cb");
+    integration_test_passed_with_time_auto("incdec pre_post test", "pre_post.cb");
     
     std::cout << "[integration] Incdec tests completed" << std::endl;
 }

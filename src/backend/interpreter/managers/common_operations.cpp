@@ -28,36 +28,27 @@ CommonOperations::parse_array_literal(const ASTNode *literal_node) {
         return result;
     }
 
-    // 最初の要素から型を推測
-    result.element_type = infer_array_element_type(literal_node);
-    result.is_string_array = (result.element_type == TYPE_STRING);
-    result.size = literal_node->arguments.size();
-
-    // 一貫性チェック
-    validate_array_literal_consistency(literal_node);
-
-    // 要素を解析
-    if (result.is_string_array) {
-        result.string_values.reserve(result.size);
-        for (const auto &element : literal_node->arguments) {
-            if (element->node_type == ASTNodeType::AST_STRING_LITERAL) {
-                result.string_values.push_back(element->str_value);
-            } else {
-                throw std::runtime_error(
-                    "Type mismatch in string array literal");
-            }
-        }
+    // ネストした配列リテラルを再帰的にフラット化
+    std::vector<int64_t> flattened_values;
+    std::vector<std::string> flattened_strings;
+    bool is_string_array = false;
+    
+    // 最初の要素から型を判定
+    if (!literal_node->arguments.empty()) {
+        result.element_type = infer_array_element_type(literal_node);
+        is_string_array = (result.element_type == TYPE_STRING);
+    }
+    
+    // 再帰的にフラット化
+    flatten_array_literal(literal_node, flattened_values, flattened_strings, is_string_array);
+    
+    result.is_string_array = is_string_array;
+    if (is_string_array) {
+        result.string_values = flattened_strings;
+        result.size = flattened_strings.size();
     } else {
-        result.int_values.reserve(result.size);
-        for (const auto &element : literal_node->arguments) {
-            if (element->node_type == ASTNodeType::AST_STRING_LITERAL) {
-                throw std::runtime_error(
-                    "Type mismatch in numeric array literal");
-            }
-            int64_t value = evaluate_expression_safe(element.get(),
-                                                     "array literal element");
-            result.int_values.push_back(value);
-        }
+        result.int_values = flattened_values;
+        result.size = flattened_values.size();
     }
 
     return result;
@@ -85,10 +76,18 @@ void CommonOperations::assign_array_literal_to_variable(
 
     // 配列に代入
     if (result.is_string_array) {
-        var->array_strings = result.string_values;
-        // 残りの要素を空文字で埋める
-        var->array_strings.resize(var->array_size, "");
-        var->array_values.clear();
+        // 多次元配列の場合は適切なストレージを使用
+        if (var->is_multidimensional && var->array_dimensions.size() > 1) {
+            var->multidim_array_strings = result.string_values;
+            // 残りの要素を空文字で埋める
+            var->multidim_array_strings.resize(var->array_size, "");
+            var->multidim_array_values.clear();
+        } else {
+            var->array_strings = result.string_values;
+            // 残りの要素を空文字で埋める
+            var->array_strings.resize(var->array_size, "");
+            var->array_values.clear();
+        }
 
         // 型を適切に設定
         if (var->type >= TYPE_ARRAY_BASE) {
@@ -97,10 +96,18 @@ void CommonOperations::assign_array_literal_to_variable(
             var->type = TYPE_STRING;
         }
     } else {
-        var->array_values = result.int_values;
-        // 残りの要素を0で埋める
-        var->array_values.resize(var->array_size, 0);
-        var->array_strings.clear();
+        // 多次元配列の場合は適切なストレージを使用
+        if (var->is_multidimensional && var->array_dimensions.size() > 1) {
+            var->multidim_array_values = result.int_values;
+            // 残りの要素を0で埋める
+            var->multidim_array_values.resize(var->array_size, 0);
+            var->multidim_array_strings.clear();
+        } else {
+            var->array_values = result.int_values;
+            // 残りの要素を0で埋める
+            var->array_values.resize(var->array_size, 0);
+            var->array_strings.clear();
+        }
 
         // 型を適切に設定
         if (var->type < TYPE_ARRAY_BASE) {
@@ -109,8 +116,12 @@ void CommonOperations::assign_array_literal_to_variable(
     }
 
     // 次元情報を設定
-    var->array_dimensions.clear();
-    var->array_dimensions.push_back(var->array_size);
+    // 既に多次元配列として設定されている場合は、その情報を保持
+    if (!var->is_multidimensional || var->array_dimensions.size() <= 1) {
+        var->array_dimensions.clear();
+        var->array_dimensions.push_back(var->array_size);
+    }
+    // 既に多次元配列の場合は、元の次元情報を保持
 
     var->is_assigned = true;
 }
@@ -290,6 +301,31 @@ void CommonOperations::validate_array_literal_consistency(
         if (first_is_string != current_is_string) {
             throw std::runtime_error(
                 "Mixed string and non-string elements in array literal");
+        }
+    }
+}
+
+void CommonOperations::flatten_array_literal(const ASTNode *literal_node,
+                                              std::vector<int64_t> &flattened_values,
+                                              std::vector<std::string> &flattened_strings,
+                                              bool is_string_array) {
+    if (!literal_node || literal_node->node_type != ASTNodeType::AST_ARRAY_LITERAL) {
+        return;
+    }
+    
+    for (const auto &element : literal_node->arguments) {
+        if (element->node_type == ASTNodeType::AST_ARRAY_LITERAL) {
+            // 再帰的にネストした配列リテラルを処理
+            flatten_array_literal(element.get(), flattened_values, flattened_strings, is_string_array);
+        } else if (is_string_array && element->node_type == ASTNodeType::AST_STRING_LITERAL) {
+            // 文字列要素
+            flattened_strings.push_back(element->str_value);
+        } else if (!is_string_array && element->node_type != ASTNodeType::AST_STRING_LITERAL) {
+            // 数値要素
+            int64_t value = evaluate_expression_safe(element.get(), "array literal element");
+            flattened_values.push_back(value);
+        } else {
+            throw std::runtime_error("Type mismatch in array literal");
         }
     }
 }

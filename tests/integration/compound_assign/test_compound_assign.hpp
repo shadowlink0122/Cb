@@ -6,7 +6,7 @@ inline void test_integration_compound_assign() {
     std::cout << "[integration] Running compound assign tests..." << std::endl;
     
     // Basic compound assignment operators
-    run_cb_test_with_output("../../tests/cases/compound_assign/basic_compound.cb", 
+    run_cb_test_with_output_and_time_auto("../../tests/cases/compound_assign/basic_compound.cb", 
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_EQ(0, exit_code, "basic_compound.cb should execute successfully");
             
@@ -21,10 +21,10 @@ inline void test_integration_compound_assign() {
             INTEGRATION_ASSERT_EQ("11", lines[5], "x += y should result in x=11");
             INTEGRATION_ASSERT_EQ("6", lines[6], "y *= 2 should result in y=6");
         });
-    integration_test_passed("compound assign basic test", "basic_compound.cb");
+    integration_test_passed_with_time_auto("compound assign basic test", "basic_compound.cb");
     
     // Bitwise compound assignment operators
-    run_cb_test_with_output("../../tests/cases/compound_assign/bitwise_compound.cb", 
+    run_cb_test_with_output_and_time_auto("../../tests/cases/compound_assign/bitwise_compound.cb", 
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_EQ(0, exit_code, "bitwise_compound.cb should execute successfully");
             
@@ -39,10 +39,10 @@ inline void test_integration_compound_assign() {
             INTEGRATION_ASSERT_EQ("5", lines[5], "status |= 4; status |= 1 should result in 5");
             INTEGRATION_ASSERT_EQ("1", lines[6], "status &= ~4 should result in 1");
         });
-    integration_test_passed("compound assign bitwise test", "bitwise_compound.cb");
+    integration_test_passed_with_time_auto("compound assign bitwise test", "bitwise_compound.cb");
     
     // Array compound assignment
-    run_cb_test_with_output("../../tests/cases/compound_assign/array_compound.cb", 
+    run_cb_test_with_output_and_time_auto("../../tests/cases/compound_assign/array_compound.cb", 
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_EQ(0, exit_code, "array_compound.cb should execute successfully");
             
@@ -62,10 +62,10 @@ inline void test_integration_compound_assign() {
             INTEGRATION_ASSERT_EQ("13", lines[8], "arr[3] += 3 should result in 13");
             INTEGRATION_ASSERT_EQ("5", lines[9], "arr[4] += 4 should result in 5");
         });
-    integration_test_passed("compound assign array test", "array_compound.cb");
+    integration_test_passed_with_time_auto("compound assign array test", "array_compound.cb");
     
     // Complex compound assignment combinations
-    run_cb_test_with_output("../../tests/cases/compound_assign/complex_compound.cb", 
+    run_cb_test_with_output_and_time_auto("../../tests/cases/compound_assign/complex_compound.cb", 
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_EQ(0, exit_code, "complex_compound.cb should execute successfully");
             
@@ -80,7 +80,7 @@ inline void test_integration_compound_assign() {
             INTEGRATION_ASSERT_EQ("1", lines[5], "flags &= (mask | 8) should result in 1");
             INTEGRATION_ASSERT_EQ("50", lines[6], "a *= complex expression should result in 50");
         });
-    integration_test_passed("compound assign complex test", "complex_compound.cb");
+    integration_test_passed_with_time_auto("compound assign complex test", "complex_compound.cb");
     
     std::cout << "[integration] Compound assign tests completed" << std::endl;
 }

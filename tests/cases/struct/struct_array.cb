@@ -17,6 +17,37 @@ int main() {
     team[1] = {name: "Bob", salary: 55000, department_id: 2};
     team[2] = {name: "Charlie", salary: 60000, department_id: 1};
     
+    // Verify struct array element assignments
+    if (team[0].salary != 50000) {
+        println("ERROR: team[0].salary should be 50000, got %d", team[0].salary);
+        return 1;
+    }
+    
+    if (team[0].department_id != 0) {
+        println("ERROR: team[0].department_id should be 0, got %d", team[0].department_id);
+        return 1;
+    }
+    
+    if (team[1].salary != 55000) {
+        println("ERROR: team[1].salary should be 55000, got %d", team[1].salary);
+        return 1;
+    }
+    
+    if (team[1].department_id != 2) {
+        println("ERROR: team[1].department_id should be 2, got %d", team[1].department_id);
+        return 1;
+    }
+    
+    if (team[2].salary != 60000) {
+        println("ERROR: team[2].salary should be 60000, got %d", team[2].salary);
+        return 1;
+    }
+    
+    if (team[2].department_id != 1) {
+        println("ERROR: team[2].department_id should be 1, got %d", team[2].department_id);
+        return 1;
+    }
+    
     println("Team Members:");
     println("1. %s - $%d (Dept: %s)", team[0].name, team[0].salary, department[team[0].department_id]);
     println("2. %s - $%d (Dept: %s)", team[1].name, team[1].salary, department[team[1].department_id]);
@@ -27,13 +58,23 @@ int main() {
     for(tiny i = 0;i < 3;i++){
         total_salary += team[i].salary;
     }
+    
+    // Verify total salary calculation
+    if (total_salary != 165000) {
+        println("ERROR: total_salary should be 165000, got %d", total_salary);
+        return 1;
+    }
+    
     println("Total salary: $%d", total_salary);
     
-    // 期待される出力:
-    // Team Members:
-    // 1. Alice - $50000 (Dept: 1)
-    // 2. Bob - $55000 (Dept: 2)
-    // 3. Charlie - $60000 (Dept: 1)
-    // Total salary: $165000
+    // Test modification of struct array members
+    team[0].salary = team[0].salary + 5000;
+    if (team[0].salary != 55000) {
+        println("ERROR: After modification, team[0].salary should be 55000, got %d", team[0].salary);
+        return 1;
+    }
+    
+    println("Updated Alice's salary: $%d", team[0].salary);
+    println("Struct array test passed");
     return 0;
 }

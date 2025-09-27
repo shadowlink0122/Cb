@@ -1,8 +1,8 @@
 // 混合データ型のテスト
 struct MixedData {
     string label;
-    int numbers[3];
-    string tags[2];
+    int[3] numbers;
+    string[2] tags;
     int count;
 };
 
@@ -11,10 +11,32 @@ int main() {
     data.label = "Test Data";
     data.count = 5;
     
+    // Verify basic assignment
+    if (data.count != 5) {
+        println("ERROR: data.count should be 5, got %d", data.count);
+        return 1;
+    }
+    
     // 数値配列の初期化
     data.numbers[0] = 10;
     data.numbers[1] = 20;
     data.numbers[2] = 30;
+    
+    // Verify array element assignments
+    if (data.numbers[0] != 10) {
+        println("ERROR: data.numbers[0] should be 10, got %d", data.numbers[0]);
+        return 1;
+    }
+    
+    if (data.numbers[1] != 20) {
+        println("ERROR: data.numbers[1] should be 20, got %d", data.numbers[1]);
+        return 1;
+    }
+    
+    if (data.numbers[2] != 30) {
+        println("ERROR: data.numbers[2] should be 30, got %d", data.numbers[2]);
+        return 1;
+    }
     
     // 文字列配列の初期化
     data.tags[0] = "important";
@@ -24,9 +46,14 @@ int main() {
     println("Numbers: [%d, %d, %d]", data.numbers[0], data.numbers[1], data.numbers[2]);
     println("Tags: [%s, %s]", data.tags[0], data.tags[1]);
     
-    // 期待される出力:
-    // Label: Test Data (Count: 5)
-    // Numbers: [10, 20, 30]
-    // Tags: [important, verified]
+    // Test modification of array elements
+    data.numbers[1] = data.numbers[1] + 5;
+    if (data.numbers[1] != 25) {
+        println("ERROR: After modification, data.numbers[1] should be 25, got %d", data.numbers[1]);
+        return 1;
+    }
+    
+    println("Modified Numbers: [%d, %d, %d]", data.numbers[0], data.numbers[1], data.numbers[2]);
+    println("Mixed types test passed");
     return 0;
 }

@@ -11,11 +11,38 @@ int main() {
     string text = "Hello, World!";
     bool flag = true;
     
+    // Verify variable assignments
+    if (number != 42) {
+        println("ERROR: number should be 42, got %d", number);
+        return 1;
+    }
+    
+    if (flag != true) {
+        println("ERROR: flag should be true, got %d", flag);
+        return 1;
+    }
+    
     println("Testing basic typedef usage:");
     println("int number = %d", number);
     println("string text = %s", text);
     println("bool flag = %d", flag);
     
-    println("Typedef integration test completed!");
+    // Test modification
+    number = number * 2;
+    if (number != 84) {
+        println("ERROR: After multiplication, number should be 84, got %d", number);
+        return 1;
+    }
+    
+    flag = !flag;
+    if (flag != false) {
+        println("ERROR: After negation, flag should be false, got %d", flag);
+        return 1;
+    }
+    
+    println("Modified values:");
+    println("int number = %d", number);
+    println("bool flag = %d", flag);
+    println("Typedef integration test passed!");
     return 0;
 }

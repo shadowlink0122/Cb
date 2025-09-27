@@ -1,0 +1,15 @@
+int main() {
+    // 配列を使った自己代入テスト
+    int[3] arr = [1, 2, 3];
+    
+    arr[0] = arr[0] + arr[0]; // 1 + 1 = 2
+    println(arr[0]); // 2
+    
+    arr[1] = arr[1] * 2; // 2 * 2 = 4
+    println(arr[1]); // 4
+    
+    arr[2] = arr[2] + arr[2]; // 3 + 3 = 6
+    println(arr[2]); // 6
+    
+    return 0;
+}

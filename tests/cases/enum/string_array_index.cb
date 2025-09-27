@@ -1,0 +1,17 @@
+enum DayIndex {
+    monday = 0,
+    tuesday,
+    wednesday,
+    thursday,
+    friday
+};
+
+int main() {
+    string[5] days = ["Mon", "Tue", "Wed", "Thu", "Fri"];
+    
+    string mon = days[DayIndex::monday];    // "Mon"
+    string wed = days[DayIndex::wednesday]; // "Wed"
+    string fri = days[DayIndex::friday];    // "Fri"
+    
+    return 0;
+}

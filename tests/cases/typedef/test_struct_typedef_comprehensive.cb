@@ -1,0 +1,110 @@
+// Comprehensive struct typedef test
+// Test both inline and separated typedef styles with integer types only
+
+// Inline typedef
+typedef struct {
+    int x;
+    int y;
+    int z;
+} Point3D;
+
+// Separated typedef
+struct Matrix2x2 {
+    int a11, a12;
+    int a21, a22;
+};
+typedef Matrix2x2 Mat2;
+
+struct Coordinate {
+    int x;
+    int y;
+};
+typedef Coordinate Coord;
+
+Point3D create_point(int x, int y, int z) {
+    Point3D p = {x, y, z};
+    return p;
+}
+
+Mat2 multiply_matrices(Mat2 m1, Mat2 m2) {
+    Mat2 result;
+    result.a11 = m1.a11 * m2.a11 + m1.a12 * m2.a21;
+    result.a12 = m1.a11 * m2.a12 + m1.a12 * m2.a22;
+    result.a21 = m1.a21 * m2.a11 + m1.a22 * m2.a21;
+    result.a22 = m1.a21 * m2.a12 + m1.a22 * m2.a22;
+    return result;
+}
+
+Coord add_coords(Coord c1, Coord c2) {
+    Coord result = {c1.x + c2.x, c1.y + c2.y};
+    return result;
+}
+
+int main() {
+    // Test inline typedef
+    Point3D origin = create_point(0, 0, 0);
+    Point3D p1 = {10, 20, 30};
+    
+    // Test separated typedef
+    Mat2 identity = {1, 0, 0, 1};
+    Mat2 scale = {2, 0, 0, 2};
+    Mat2 scaled = multiply_matrices(identity, scale);
+    
+    Coord c1 = {3, 4};
+    Coord c2 = {1, -2};
+    Coord c3 = add_coords(c1, c2);
+    
+    // Verify Point3D origin values
+    if (origin.x != 0 || origin.y != 0 || origin.z != 0) {
+        println("ERROR: Point3D origin values incorrect");
+        return 1;
+    }
+    
+    // Verify Point3D p1 values
+    if (p1.x != 10 || p1.y != 20 || p1.z != 30) {
+        println("ERROR: Point3D p1 values incorrect");
+        return 1;
+    }
+    
+    // Verify identity matrix values
+    if (identity.a11 != 1 || identity.a12 != 0 || identity.a21 != 0 || identity.a22 != 1) {
+        println("ERROR: Identity matrix values incorrect");
+        return 1;
+    }
+    
+    // Verify scale matrix values
+    if (scale.a11 != 2 || scale.a12 != 0 || scale.a21 != 0 || scale.a22 != 2) {
+        println("ERROR: Scale matrix values incorrect");
+        return 1;
+    }
+    
+    // Verify matrix multiplication result (identity * scale = scale)
+    if (scaled.a11 != 2 || scaled.a12 != 0 || scaled.a21 != 0 || scaled.a22 != 2) {
+        println("ERROR: Matrix multiplication result incorrect");
+        return 1;
+    }
+    
+    // Verify coordinate values
+    if (c1.x != 3 || c1.y != 4) {
+        println("ERROR: Coordinate c1 values incorrect");
+        return 1;
+    }
+    
+    if (c2.x != 1 || c2.y != -2) {
+        println("ERROR: Coordinate c2 values incorrect");
+        return 1;
+    }
+    
+    // Verify coordinate addition result
+    if (c3.x != 4 || c3.y != 2) {
+        println("ERROR: Coordinate addition result incorrect");
+        return 1;
+    }
+    
+    println("Point3D origin:", origin.x, origin.y, origin.z);
+    println("Point3D p1:", p1.x, p1.y, p1.z);
+    println("Matrix result:", scaled.a11, scaled.a22);
+    println("Coord result:", c3.x, c3.y);
+    println("All struct typedef tests passed");
+    return 0;
+}

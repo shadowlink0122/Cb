@@ -1,9 +1,9 @@
 // 大きなstruct パフォーマンステスト
 struct LargeStruct {
     string name;
-    int data[10];
-    string labels[5];
-    int metadata[3];
+    int[10] data;
+    string[5] labels;
+    int[3] metadata;
     int id;
 };
 

@@ -5,6 +5,7 @@
 #include "evaluator/expression_evaluator.h"
 #include "core/interpreter.h"
 #include "managers/type_manager.h"
+#include <algorithm>
 
 void VariableManager::push_scope() {
     // std::cerr << "DEBUG: push_scope called, stack size: " <<
@@ -318,11 +319,8 @@ void VariableManager::declare_local_variable(const ASTNode *node) {
         std::string resolved_type =
             interpreter_->type_manager_->resolve_typedef(node->type_name);
 
-        if (interpreter_->debug_mode) {
-            debug_print("Variable: %s, Type: %s, Resolved: %s\n",
-                        node->name.c_str(), node->type_name.c_str(),
-                        resolved_type.c_str());
-        }
+        debug_msg(DebugMsgId::VAR_MANAGER_TYPE_RESOLVED, 
+                  node->name.c_str(), node->type_name.c_str(), resolved_type.c_str());
 
         // 配列typedefの場合
         if (resolved_type.find("[") != std::string::npos) {
@@ -438,7 +436,19 @@ void VariableManager::assign_variable(const std::string &name,
 }
 
 void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
-    // std::cerr << "DEBUG: Creating variable: " << node->name << std::endl;
+    // debug_msg(DebugMsgId::VAR_MANAGER_PROCESS, (int)node->node_type, node->name.c_str());
+    if (interpreter_->debug_mode) {
+        debug_print("VAR_DEBUG: process_var_decl_or_assign called for %s, node_type=%d\n", 
+                   node->name.c_str(), static_cast<int>(node->node_type));
+        debug_print("VAR_DEBUG: type_info=%d, type_name='%s'\n", 
+                   static_cast<int>(node->type_info), node->type_name.c_str());
+        
+        std::string resolved = interpreter_->type_manager_->resolve_typedef(node->type_name);
+        debug_print("VAR_DEBUG: resolve_typedef('%s') = '%s'\n", 
+                   node->type_name.c_str(), resolved.c_str());
+        debug_print("VAR_DEBUG: condition check: !empty=%d, resolved!=original=%d\n", 
+                   !node->type_name.empty(), resolved != node->type_name);
+    }
     if (node->node_type == ASTNodeType::AST_VAR_DECL) {
         // 変数宣言の処理
         Variable var;
@@ -447,32 +457,59 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
         var.is_assigned = false;
         var.is_array = false;
         var.array_size = 0;
+        
+        // struct変数の場合の追加設定
+        if (node->type_info == TYPE_STRUCT && !node->type_name.empty()) {
+            var.is_struct = true;
+            var.struct_type_name = node->type_name;
+        }
 
         // 新しいArrayTypeInfoが設定されている場合の処理
         if (node->array_type_info.base_type != TYPE_UNKNOWN) {
+            debug_print("VAR_DEBUG: Taking ArrayTypeInfo branch (base_type=%d)\n", static_cast<int>(node->array_type_info.base_type));
+            
             // ArrayTypeInfoが設定されている場合は配列として処理
             var.is_array = true;
-            var.type = node->array_type_info.base_type;
+            var.type = static_cast<TypeInfo>(TYPE_ARRAY_BASE + node->array_type_info.base_type);
             var.array_type_info = node->array_type_info;
 
-            // 配列サイズ情報をコピー
+            // 配列サイズ情報をコピーし、動的サイズを解決
             if (!node->array_type_info.dimensions.empty()) {
-                var.array_size = node->array_type_info.dimensions[0].size;
                 var.array_dimensions.clear();
                 for (const auto &dim : node->array_type_info.dimensions) {
-                    var.array_dimensions.push_back(dim.size);
+                    int resolved_size = dim.size;
+                    
+                    // 動的サイズ（定数識別子）を解決
+                    if (dim.is_dynamic && !dim.size_expr.empty()) {
+                        Variable *const_var = find_variable(dim.size_expr);
+                        if (const_var && const_var->is_const && const_var->type == TYPE_INT) {
+                            resolved_size = static_cast<int>(const_var->value);
+                        } else {
+                            throw std::runtime_error("Array size must be a constant integer: " + dim.size_expr);
+                        }
+                    }
+                    
+                    var.array_dimensions.push_back(resolved_size);
                 }
-
+                
                 // 多次元配列かどうかをチェック
                 if (var.array_dimensions.size() > 1) {
                     var.is_multidimensional = true;
                 }
 
-                // 配列初期化
+                // 配列サイズを計算（多次元の場合は総サイズ、1次元の場合は第一次元のサイズ）
                 int total_size = 1;
                 for (int dim : var.array_dimensions) {
                     total_size *= dim;
                 }
+                var.array_size = total_size;  // 総サイズを設定
+                
+                if (debug_mode) {
+                    debug_print("VAR_DEBUG: ArrayTypeInfo - dimensions=%zu, total_size=%d\n", 
+                                var.array_dimensions.size(), total_size);
+                }
+
+                // 配列初期化
                 if (var.type == TYPE_STRING) {
                     if (var.is_multidimensional) {
                         var.multidim_array_strings.resize(total_size, "");
@@ -488,10 +525,20 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                 }
             }
         }
-        // 既存のtypedef解決処理（ArrayTypeInfoが設定されていない場合のみ）
-        else if (node->type_info == TYPE_UNKNOWN && !node->type_name.empty()) {
+        // typedef解決処理（ArrayTypeInfoが設定されていない場合）
+        // type_infoが基本型でも、type_nameがtypedef名の場合は処理する
+        else if (!node->type_name.empty() && 
+                 interpreter_->type_manager_->resolve_typedef(node->type_name) != node->type_name) {
+            if (debug_mode) {
+                debug_print("TYPEDEF_DEBUG: Entering typedef resolution branch\n");
+            }
             std::string resolved_type =
                 interpreter_->type_manager_->resolve_typedef(node->type_name);
+
+            if (debug_mode) {
+                debug_print("TYPEDEF_DEBUG: Resolving typedef '%s' -> '%s' (type_info=%d)\n", 
+                            node->type_name.c_str(), resolved_type.c_str(), static_cast<int>(node->type_info));
+            }
 
             // 配列typedefの場合
             if (resolved_type.find("[") != std::string::npos) {
@@ -505,12 +552,22 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                 var.type = static_cast<TypeInfo>(TYPE_ARRAY_BASE + base_type);
                 var.is_array = true;
 
-                // 配列サイズを解析 [3] -> 3
-                if (array_part.length() >= 2 && array_part[0] == '[' &&
-                    array_part[array_part.length() - 1] == ']') {
-                    std::string size_str =
-                        array_part.substr(1, array_part.length() - 2);
-
+                // 多次元配列の次元解析 [2][3] -> {2, 3}
+                std::vector<int> dimensions;
+                std::string remaining = array_part;
+                
+                if (debug_mode) {
+                    debug_print("TYPEDEF_DEBUG: Processing typedef array: %s (array_part: %s)\n", 
+                                node->type_name.c_str(), array_part.c_str());
+                }
+                
+                while (!remaining.empty() && remaining[0] == '[') {
+                    size_t close_bracket = remaining.find(']');
+                    if (close_bracket == std::string::npos) {
+                        throw std::runtime_error("Invalid array syntax: missing ']'");
+                    }
+                    
+                    std::string size_str = remaining.substr(1, close_bracket - 1);
                     if (size_str.empty()) {
                         // 動的配列（TYPE[]）はサポートされていない
                         error_msg(DebugMsgId::DYNAMIC_ARRAY_NOT_SUPPORTED,
@@ -519,49 +576,132 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                             "Dynamic arrays are not supported yet");
                     }
 
-                    var.array_size = std::stoi(size_str);
-                } else {
+                    int dimension_size;
+                    // 数値か定数識別子かを判定
+                    if (std::all_of(size_str.begin(), size_str.end(), ::isdigit)) {
+                        dimension_size = std::stoi(size_str);
+                    } else {
+                        // 定数識別子の場合は値を取得
+                        Variable *const_var = find_variable(size_str);
+                        if (const_var && const_var->is_const && const_var->type == TYPE_INT) {
+                            dimension_size = static_cast<int>(const_var->value);
+                        } else {
+                            throw std::runtime_error("Array size must be a constant integer: " + size_str);
+                        }
+                    }
+                    
+                    dimensions.push_back(dimension_size);
+                    remaining = remaining.substr(close_bracket + 1);
+                }
+                
+                if (dimensions.empty()) {
                     var.array_size = 0; // 動的配列
+                } else if (dimensions.size() == 1) {
+                    // 1次元配列
+                    var.array_size = dimensions[0];
+                    var.is_multidimensional = false;
+                } else {
+                    // 多次元配列
+                    var.is_multidimensional = true;
+                    var.array_dimensions = dimensions;
+                    
+                    // 総サイズを計算
+                    int total_size = 1;
+                    for (int dim : dimensions) {
+                        total_size *= dim;
+                    }
+                    var.array_size = total_size;
+                    
+                    if (debug_mode) {
+                        debug_print("TYPEDEF_DEBUG: Multidim array created: dimensions=%zu, total_size=%d\n", 
+                                    dimensions.size(), total_size);
+                    }
                 }
 
                 // 配列初期化
                 if (base_type == TYPE_STRING) {
-                    var.array_strings.resize(var.array_size, "");
+                    if (var.is_multidimensional) {
+                        var.multidim_array_strings.resize(var.array_size, "");
+                    } else {
+                        var.array_strings.resize(var.array_size, "");
+                    }
                 } else {
-                    var.array_values.resize(var.array_size, 0);
+                    if (var.is_multidimensional) {
+                        var.multidim_array_values.resize(var.array_size, 0);
+                    } else {
+                        var.array_values.resize(var.array_size, 0);
+                    }
                 }
 
             } else {
-                var.type = interpreter_->type_manager_->string_to_type_info(
-                    resolved_type);
+                // 構造体typedefかチェック
+                const StructDefinition* struct_def = interpreter_->find_struct_definition(resolved_type);
+                if (struct_def) {
+                    if (debug_mode) {
+                        debug_print("TYPEDEF_DEBUG: Resolving struct typedef '%s' -> '%s'\n", 
+                                    node->type_name.c_str(), resolved_type.c_str());
+                    }
+                    var.type = TYPE_STRUCT;
+                    var.is_struct = true;
+                    var.struct_type_name = resolved_type;
+                    
+                    // struct_membersを初期化
+                    for (const auto &member : struct_def->members) {
+                        Variable member_var;
+                        member_var.type = member.type;
+                        if (member.type == TYPE_STRING) {
+                            member_var.str_value = "";
+                        } else {
+                            member_var.value = 0;
+                        }
+                        member_var.is_assigned = false;
+                        var.struct_members[member.name] = member_var;
+                        
+                        // 個別メンバー変数も作成
+                        std::string member_path = node->name + "." + member.name;
+                        current_scope().variables[member_path] = member_var;
+                        
+                        if (debug_mode) {
+                            debug_print("TYPEDEF_DEBUG: Added struct member: %s (type: %d)\n",
+                                       member.name.c_str(), (int)member.type);
+                        }
+                    }
+                } else {
+                    var.type = interpreter_->type_manager_->string_to_type_info(
+                        resolved_type);
+                }
             }
         }
         // struct型の場合の処理
         else if (node->type_info == TYPE_STRUCT ||
                  (node->type_info == TYPE_UNKNOWN &&
-                  interpreter_->find_struct_definition(node->type_name) !=
-                      nullptr)) {
-            if (interpreter_->debug_mode) {
-                debug_print("Creating struct variable: %s of type: %s\n",
-                            node->name.c_str(), node->type_name.c_str());
+                  (interpreter_->find_struct_definition(node->type_name) != nullptr ||
+                   interpreter_->find_struct_definition(interpreter_->type_manager_->resolve_typedef(node->type_name)) != nullptr))) {
+            if (debug_mode) {
+                debug_print("VAR_DEBUG: Taking STRUCT branch (type_info=%d, TYPE_STRUCT=%d)\n", 
+                           (int)node->type_info, (int)TYPE_STRUCT);
             }
+            debug_msg(DebugMsgId::VAR_MANAGER_STRUCT_CREATE, node->name.c_str(), node->type_name.c_str());
             var.type = TYPE_STRUCT;
             var.is_struct = true;
-            var.struct_type_name = node->type_name;
+            
+            // typedef名を実際のstruct名に解決
+            std::string resolved_struct_type = interpreter_->type_manager_->resolve_typedef(node->type_name);
+            var.struct_type_name = resolved_struct_type;
 
             // 構造体配列かどうかをチェック（型名に[サイズ]が含まれている場合）
-            std::string base_struct_type = node->type_name;
+            std::string base_struct_type = resolved_struct_type;
             bool is_struct_array = false;
             int struct_array_size = 0;
 
-            size_t bracket_pos = node->type_name.find("[");
+            size_t bracket_pos = resolved_struct_type.find("[");
             if (bracket_pos != std::string::npos) {
                 is_struct_array = true;
-                base_struct_type = node->type_name.substr(0, bracket_pos);
+                base_struct_type = resolved_struct_type.substr(0, bracket_pos);
 
-                size_t close_bracket_pos = node->type_name.find("]");
+                size_t close_bracket_pos = resolved_struct_type.find("]");
                 if (close_bracket_pos != std::string::npos) {
-                    std::string size_str = node->type_name.substr(
+                    std::string size_str = resolved_struct_type.substr(
                         bracket_pos + 1, close_bracket_pos - bracket_pos - 1);
                     struct_array_size = std::stoi(size_str);
                 }
@@ -573,7 +713,7 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
 
             // struct定義を取得してメンバ変数を初期化
             const StructDefinition *struct_def =
-                interpreter_->find_struct_definition(base_struct_type);
+                interpreter_->find_struct_definition(interpreter_->type_manager_->resolve_typedef(base_struct_type));
             if (struct_def) {
                 if (interpreter_->debug_mode) {
                     debug_print(
@@ -698,6 +838,25 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                                     resolved_size);
                             }
 
+                            // 多次元配列のフラグを設定
+                            if (member_var.array_dimensions.size() > 1) {
+                                member_var.is_multidimensional = true;
+                                
+                                // array_type_info.dimensionsを設定
+                                member_var.array_type_info.dimensions.clear();
+                                for (const auto& dim_size : member_var.array_dimensions) {
+                                    ArrayDimension dimension(dim_size, false); // 構造体メンバーは静的サイズ
+                                    member_var.array_type_info.dimensions.push_back(dimension);
+                                }
+                                member_var.array_type_info.base_type = member.type;
+                                
+                                debug_msg(DebugMsgId::VAR_MANAGER_MULTIDIM_FLAG, member.name.c_str(), member_var.array_dimensions.size());
+                                if (interpreter_->debug_mode) {
+                                    debug_print("Set multidimensional flag for struct member: %s (dimensions: %zu)\n",
+                                        member.name.c_str(), member_var.array_dimensions.size());
+                                }
+                            }
+
                             if (interpreter_->debug_mode) {
                                 debug_print(
                                     "Creating array member: %s with total size "
@@ -731,7 +890,24 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                             if (member.type == TYPE_STRING) {
                                 member_var.array_strings.resize(total_size, "");
                             }
+                            
+                            // 多次元配列の場合は適切なストレージを使用
+                            if (member_var.is_multidimensional) {
+                                if (member.type == TYPE_STRING) {
+                                    member_var.multidim_array_strings.resize(total_size, "");
+                                } else {
+                                    member_var.multidim_array_values.resize(total_size, 0);
+                                }
+                            }
+                            
                             var.struct_members[member.name] = member_var;
+                            
+                            if (interpreter_->debug_mode) {
+                                debug_print("Added to struct_members[%s]: is_multidimensional=%s, array_dimensions.size()=%zu\n",
+                                    member.name.c_str(),
+                                    member_var.is_multidimensional ? "true" : "false",
+                                    member_var.array_dimensions.size());
+                            }
                         } else {
                             // 通常のメンバーの場合
 
@@ -838,6 +1014,42 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                     current_scope()
                         .variables[node->name]
                         .struct_members[member.first] = member.second;
+                    
+                    // 直接アクセス変数もコピー
+                    std::string source_member_name = source_var_name + "." + member.first;
+                    std::string dest_member_name = node->name + "." + member.first;
+                    Variable *source_member_var = find_variable(source_member_name);
+                    if (source_member_var) {
+                        Variable member_copy = *source_member_var;
+                        current_scope().variables[dest_member_name] = member_copy;
+                        
+                        // 配列メンバの場合、個別要素変数もコピー
+                        if (source_member_var->is_array) {
+                            for (int i = 0; i < source_member_var->array_size; i++) {
+                                std::string source_element_name = source_member_name + "[" + std::to_string(i) + "]";
+                                std::string dest_element_name = dest_member_name + "[" + std::to_string(i) + "]";
+                                Variable *source_element_var = find_variable(source_element_name);
+                                if (source_element_var) {
+                                    Variable element_copy = *source_element_var;
+                                    current_scope().variables[dest_element_name] = element_copy;
+                                    
+                                    if (interpreter_->debug_mode) {
+                                        if (source_element_var->type == TYPE_STRING) {
+                                            debug_print("STRUCT_COPY: Copied array element %s = '%s' to %s\n",
+                                                      source_element_name.c_str(), 
+                                                      source_element_var->str_value.c_str(),
+                                                      dest_element_name.c_str());
+                                        } else {
+                                            debug_print("STRUCT_COPY: Copied array element %s = %lld to %s\n",
+                                                      source_element_name.c_str(), 
+                                                      (long long)source_element_var->value,
+                                                      dest_element_name.c_str());
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
 
                 // 代入完了
@@ -906,6 +1118,7 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
             } else if (var.is_array && node->init_expr->node_type ==
                                            ASTNodeType::AST_FUNC_CALL) {
                 // 配列を返す関数呼び出し
+                debug_print("DEBUG_BRANCH: Array function call for %s\n", node->name.c_str());
                 try {
                     int64_t value =
                         interpreter_->expression_evaluator_
@@ -947,6 +1160,64 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                             }
                         }
                         var.is_assigned = true;
+                    } else if (ret.is_struct) {
+                        // struct戻り値の場合
+                        debug_print("STRUCT_RETURN_DEBUG: Processing struct return value for %s\n", node->name.c_str());
+                        var = ret.struct_value;
+                        var.is_assigned = true;
+                        
+                        // struct変数を登録
+                        current_scope().variables[node->name] = var;
+                        
+                        // 構造体定義を取得して配列メンバの個別要素変数を作成
+                        const StructDefinition *struct_def = interpreter_->find_struct_definition(interpreter_->type_manager_->resolve_typedef(var.struct_type_name));
+                        if (struct_def) {
+                            for (const auto &member_def : struct_def->members) {
+                                // 直接アクセス変数を作成
+                                std::string member_name = node->name + "." + member_def.name;
+                                Variable member_var;
+                                
+                                auto struct_member_it = var.struct_members.find(member_def.name);
+                                if (struct_member_it != var.struct_members.end()) {
+                                    member_var = struct_member_it->second;
+                                    current_scope().variables[member_name] = member_var;
+                                    
+                                    // 配列メンバの場合、個別要素変数も作成
+                                    if (member_var.is_array) {
+                                        for (int i = 0; i < member_var.array_size; i++) {
+                                            std::string element_name = member_name + "[" + std::to_string(i) + "]";
+                                            Variable element_var;
+                                            element_var.type = member_def.array_info.base_type;
+                                            element_var.is_assigned = true;
+                                            
+                                            if (element_var.type == TYPE_STRING) {
+                                                if (i < static_cast<int>(member_var.array_strings.size())) {
+                                                    element_var.str_value = member_var.array_strings[i];
+                                                }
+                                            } else {
+                                                if (i < static_cast<int>(member_var.array_values.size())) {
+                                                    element_var.value = member_var.array_values[i];
+                                                }
+                                            }
+                                            
+                                            current_scope().variables[element_name] = element_var;
+                                            
+                                            if (interpreter_->debug_mode) {
+                                                if (element_var.type == TYPE_STRING) {
+                                                    debug_print("STRUCT_RETURN: Created array element %s = '%s'\n",
+                                                              element_name.c_str(), element_var.str_value.c_str());
+                                                } else {
+                                                    debug_print("STRUCT_RETURN: Created array element %s = %lld\n",
+                                                              element_name.c_str(), (long long)element_var.value);
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        
+                        return; // struct戻り値処理完了後は早期リターン
                     } else {
                         // 非配列戻り値の場合
                         if (ret.type == TYPE_STRING) {
@@ -969,7 +1240,65 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                         var.value = value;
                         var.is_assigned = true;
                     } catch (const ReturnException &ret) {
-                        if (ret.type == TYPE_STRING) {
+                        if (ret.is_struct) {
+                            debug_print("STRUCT_RETURN_DEBUG_2: Processing struct return value for %s\n", node->name.c_str());
+                            var = ret.struct_value;
+                            var.is_assigned = true;
+                            
+                            // 構造体の場合、直接アクセス変数も作成
+                            current_scope().variables[node->name] = var;
+                            
+                            // 構造体定義を取得して配列メンバの個別要素変数を作成
+                            const StructDefinition *struct_def = interpreter_->find_struct_definition(interpreter_->type_manager_->resolve_typedef(var.struct_type_name));
+                            if (struct_def) {
+                                for (const auto &member_def : struct_def->members) {
+                                    std::string member_name = node->name + "." + member_def.name;
+                                    
+                                    auto struct_member_it = var.struct_members.find(member_def.name);
+                                    if (struct_member_it != var.struct_members.end()) {
+                                        Variable member_var = struct_member_it->second;
+                                        current_scope().variables[member_name] = member_var;
+                                        
+                                        // 配列メンバの場合、個別要素変数も作成
+                                        if (member_var.is_array) {
+                                            for (int i = 0; i < member_var.array_size; i++) {
+                                                std::string element_name = member_name + "[" + std::to_string(i) + "]";
+                                                Variable element_var;
+                                                
+                                                if (member_var.type == TYPE_STRING) {
+                                                    element_var.type = TYPE_STRING;
+                                                    if (i < static_cast<int>(member_var.array_strings.size())) {
+                                                        element_var.str_value = member_var.array_strings[i];
+                                                    } else {
+                                                        element_var.str_value = "";
+                                                    }
+                                                } else {
+                                                    element_var.type = member_var.type;
+                                                    if (i < static_cast<int>(member_var.array_values.size())) {
+                                                        element_var.value = member_var.array_values[i];
+                                                    } else {
+                                                        element_var.value = 0;
+                                                    }
+                                                }
+                                                element_var.is_assigned = true;
+                                                current_scope().variables[element_name] = element_var;
+                                                
+                                                if (interpreter_->debug_mode) {
+                                                    if (element_var.type == TYPE_STRING) {
+                                                        debug_print("STRUCT_RETURN_2: Created array element %s = '%s'\n",
+                                                                  element_name.c_str(), element_var.str_value.c_str());
+                                                    } else {
+                                                        debug_print("STRUCT_RETURN_2: Created array element %s = %lld\n",
+                                                                  element_name.c_str(), (long long)element_var.value);
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            return; // 構造体処理完了後は早期リターン
+                        } else if (ret.type == TYPE_STRING) {
                             var.str_value = ret.str_value;
                             var.type = TYPE_STRING;
                         } else {
@@ -1214,7 +1543,7 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
             member.is_assigned = true;
         } else if (node->left && node->left->node_type ==
                                      ASTNodeType::AST_MEMBER_ARRAY_ACCESS) {
-            // struct メンバー配列要素代入の処理: obj.member[index] = value
+            // struct メンバー配列要素代入の処理: obj.member[index] = value または obj.member[i][j] = value
             std::string member_name = node->left->name;
 
             if (!node->left->left ||
@@ -1234,10 +1563,46 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                 throw std::runtime_error(struct_name + " is not a struct");
             }
 
-            // インデックスを評価
-            int64_t index =
-                interpreter_->expression_evaluator_->evaluate_expression(
+            // インデックスを評価（多次元対応）
+            std::vector<int64_t> indices;
+            if (node->left->right) {
+                // 1次元の場合（従来通り）
+                int64_t index = interpreter_->expression_evaluator_->evaluate_expression(
                     node->left->right.get());
+                indices.push_back(index);
+            } else if (!node->left->arguments.empty()) {
+                // 多次元の場合
+                for (const auto& arg : node->left->arguments) {
+                    int64_t index = interpreter_->expression_evaluator_->evaluate_expression(
+                        arg.get());
+                    indices.push_back(index);
+                }
+            } else {
+                throw std::runtime_error("No indices found for array access");
+            }
+
+            // 構造体メンバー変数を取得
+            Variable *member_var = interpreter_->get_struct_member(struct_name, member_name);
+            if (!member_var) {
+                throw std::runtime_error("Struct member not found: " + member_name);
+            }
+
+            // 多次元配列の場合の処理
+            if (member_var->is_multidimensional && indices.size() > 1) {
+                // 多次元配列の要素への代入
+                if (node->right->node_type == ASTNodeType::AST_STRING_LITERAL) {
+                    std::string value = node->right->str_value;
+                    interpreter_->setMultidimensionalStringArrayElement(*member_var, indices, value);
+                } else {
+                    int64_t value = interpreter_->expression_evaluator_->evaluate_expression(
+                        node->right.get());
+                    interpreter_->setMultidimensionalArrayElement(*member_var, indices, value);
+                }
+                return;
+            }
+
+            // 1次元配列または多次元配列の1次元アクセスの場合（従来処理）
+            int64_t index = indices[0];
 
             // メンバー配列要素の変数名を生成: s.grades[0]
             std::string element_name = struct_name + "." + member_name + "[" +

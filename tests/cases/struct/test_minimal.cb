@@ -1,0 +1,9 @@
+// 最小限のテスト：構造体宣言と基本メンバアクセス
+struct Matrix2x2 {
+    int[2][2] data;
+};
+
+int main() {
+    Matrix2x2 m;
+    return 0;
+}

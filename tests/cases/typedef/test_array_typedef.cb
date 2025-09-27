@@ -16,23 +16,68 @@ int main() {
     BoolArray flags;
     flags = [true, false, true, false];
     
+    // Verify IntArray values
+    if (numbers[0] != 10) {
+        println("ERROR: numbers[0] should be 10, got %d", numbers[0]);
+        return 1;
+    }
+    
+    if (numbers[1] != 20) {
+        println("ERROR: numbers[1] should be 20, got %d", numbers[1]);
+        return 1;
+    }
+    
+    if (numbers[2] != 30) {
+        println("ERROR: numbers[2] should be 30, got %d", numbers[2]);
+        return 1;
+    }
+    
+    // Verify BoolArray values
+    if (flags[0] != true) {
+        println("ERROR: flags[0] should be true, got %d", flags[0]);
+        return 1;
+    }
+    
+    if (flags[1] != false) {
+        println("ERROR: flags[1] should be false, got %d", flags[1]);
+        return 1;
+    }
+    
+    if (flags[2] != true) {
+        println("ERROR: flags[2] should be true, got %d", flags[2]);
+        return 1;
+    }
+    
+    if (flags[3] != false) {
+        println("ERROR: flags[3] should be false, got %d", flags[3]);
+        return 1;
+    }
+    
     println("Testing typedef array usage:");
     
     println("IntArray numbers:");
-    println("  numbers[0] =", numbers[0]);
-    println("  numbers[1] =", numbers[1]);
-    println("  numbers[2] =", numbers[2]);
+    println("  numbers[0] = %d", numbers[0]);
+    println("  numbers[1] = %d", numbers[1]);
+    println("  numbers[2] = %d", numbers[2]);
     
     println("StringArray texts:");
-    println("  texts[0] =", texts[0]);
-    println("  texts[1] =", texts[1]);
+    println("  texts[0] = %s", texts[0]);
+    println("  texts[1] = %s", texts[1]);
     
     println("BoolArray flags:");
-    println("  flags[0] =", flags[0]);
-    println("  flags[1] =", flags[1]);
-    println("  flags[2] =", flags[2]);
-    println("  flags[3] =", flags[3]);
+    println("  flags[0] = %d", flags[0]);
+    println("  flags[1] = %d", flags[1]);
+    println("  flags[2] = %d", flags[2]);
+    println("  flags[3] = %d", flags[3]);
     
-    println("Typedef array integration test completed!");
+    // Test modification
+    numbers[1] = numbers[1] + 5;
+    if (numbers[1] != 25) {
+        println("ERROR: After modification, numbers[1] should be 25, got %d", numbers[1]);
+        return 1;
+    }
+    
+    println("Modified numbers[1] = %d", numbers[1]);
+    println("Typedef array integration test passed!");
     return 0;
 }

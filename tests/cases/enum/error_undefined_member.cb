@@ -1,0 +1,8 @@
+enum TestEnum {
+    valid = 10
+};
+
+int main() {
+    int val = TestEnum::invalid; // エラー：存在しないメンバー
+    return 0;
+}

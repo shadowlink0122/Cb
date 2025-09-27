@@ -3,120 +3,159 @@
 
 // デバッグメッセージテンプレート配列を動的に初期化する関数
 static std::vector<DebugMessageTemplate> init_debug_messages() {
-    // enumの最大値まで初期化
-    std::vector<DebugMessageTemplate> messages(200);
+    // MAX_DEBUG_MSG_IDまで初期化
+    std::vector<DebugMessageTemplate> messages(
+        static_cast<int>(DebugMsgId::MAX_DEBUG_MSG_ID));
 
     // 基本的なメッセージのみ設定（使用頻度の高いもの）
     messages[static_cast<int>(DebugMsgId::INTERPRETER_START)] = {
-        "Interpreter::process() starting", "Interpreter::process() 開始"};
-    messages[static_cast<int>(DebugMsgId::MAIN_FUNC_FOUND)] = {
-        "Main function found", "main関数が見つかりました"};
+        "[INTERPRETER_INIT] Interpreter starting",
+        "[INTERPRETER_INIT] インタプリタ 開始"};
     messages[static_cast<int>(DebugMsgId::EXECUTION_COMPLETE)] = {
-        "Execution completed successfully", "実行が正常に終了しました"};
+        "[INTERPRETER_COMPLETE] Execution completed successfully",
+        "[INTERPRETER_COMPLETE] 実行が正常に終了しました"};
     messages[static_cast<int>(DebugMsgId::VAR_DECLARATION_DEBUG)] = {
-        "Variable declaration: %s", "変数宣言: %s"};
+        "[INTERPRETER_VAR] Variable declaration: %s",
+        "[INTERPRETER_VAR] 変数宣言: %s"};
     messages[static_cast<int>(DebugMsgId::ARRAY_DECL_DEBUG)] = {
-        "Processing array declaration: %s", "配列宣言処理: %s"};
+        "[INTERPRETER_ARRAY] Processing array declaration: %s",
+        "[INTERPRETER_ARRAY] 配列宣言処理: %s"};
     messages[static_cast<int>(DebugMsgId::ARRAY_DIMENSIONS_COUNT)] = {
-        "Array dimensions: %d", "配列次元数: %d"};
+        "[INTERPRETER_ARRAY] Array dimensions: %d",
+        "[INTERPRETER_ARRAY] 配列次元数: %d"};
     messages[static_cast<int>(DebugMsgId::MULTIDIM_ARRAY_PROCESSING)] = {
-        "Processing as multidimensional array", "多次元配列として処理"};
+        "[INTERPRETER_ARRAY] Processing as multidimensional array",
+        "[INTERPRETER_ARRAY] 多次元配列として処理"};
     messages[static_cast<int>(DebugMsgId::PRINTF_OFFSET_CALLED)] = {
-        "printf offset called", "printf offset 呼び出し"};
+        "[INTERPRETER_OUTPUT] printf offset called",
+        "[INTERPRETER_OUTPUT] printf offset 呼び出し"};
     messages[static_cast<int>(DebugMsgId::ARRAY_DECL_EVAL_DEBUG)] = {
-        "Array declaration evaluation: %s", "配列宣言評価: %s"};
+        "[INTERPRETER_ARRAY] Array declaration evaluation: %s",
+        "[INTERPRETER_ARRAY] 配列宣言評価: %s"};
     messages[static_cast<int>(DebugMsgId::NEGATIVE_ARRAY_SIZE_ERROR)] = {
-        "Array size is negative: %s", "配列サイズが負です: %s"};
+        "[INTERPRETER_ERROR] Array size is negative: %s",
+        "[INTERPRETER_ERROR] 配列サイズが負です: %s"};
     messages[static_cast<int>(DebugMsgId::UNDEFINED_VAR_ERROR)] = {
-        "Undefined variable: %s", "未定義の変数です: %s"};
+        "[INTERPRETER_ERROR] Undefined variable: %s",
+        "[INTERPRETER_ERROR] 未定義の変数です: %s"};
     messages[static_cast<int>(DebugMsgId::ZERO_DIVISION_ERROR)] = {
-        "Division by zero error", "ゼロ除算エラー"};
-    messages[static_cast<int>(DebugMsgId::PARSER_ERROR)] = {"Parser error",
-                                                            "パーサーエラー"};
+        "[INTERPRETER_ERROR] Division by zero error",
+        "[INTERPRETER_ERROR] ゼロ除算エラー"};
+    messages[static_cast<int>(DebugMsgId::PARSER_ERROR)] = {
+        "[PARSE_ERROR] Parser error", "[PARSE_ERROR] パーサーエラー"};
     messages[static_cast<int>(DebugMsgId::MAIN_FUNC_NOT_FOUND_ERROR)] = {
-        "main function not found", "main関数が見つかりません"};
+        "[INTERPRETER_ERROR] main function not found",
+        "[INTERPRETER_ERROR] main関数が見つかりません"};
 
     // Expression evaluation messages
     messages[static_cast<int>(DebugMsgId::EXPR_EVAL_NUMBER)] = {
-        "Expression eval: number %lld", "式評価: 数値 %lld"};
+        "[INTERPRETER_EXPR] Expression eval: number %lld",
+        "[INTERPRETER_EXPR] 式評価: 数値 %lld"};
     messages[static_cast<int>(DebugMsgId::EXPR_EVAL_BINARY_OP)] = {
-        "Expression eval: binary op %s", "式評価: 二項演算 %s"};
+        "[INTERPRETER_EXPR] Expression eval: binary op %s",
+        "[INTERPRETER_EXPR] 式評価: 二項演算 %s"};
     messages[static_cast<int>(DebugMsgId::BINARY_OP_VALUES)] = {
-        "Binary op values: left=%lld, right=%lld",
-        "二項演算値: 左=%lld, 右=%lld"};
+        "[INTERPRETER_EXPR] Binary op values: left=%lld, right=%lld",
+        "[INTERPRETER_EXPR] 二項演算値: 左=%lld, 右=%lld"};
     messages[static_cast<int>(DebugMsgId::BINARY_OP_RESULT_DEBUG)] = {
-        "Binary op result: %lld", "二項演算結果: %lld"};
+        "[INTERPRETER_EXPR] Binary op result: %lld",
+        "[INTERPRETER_EXPR] 二項演算結果: %lld"};
 
     // Variable management messages
     messages[static_cast<int>(DebugMsgId::VAR_ASSIGN_READABLE)] = {
-        "Variable assign: %s = %lld", "変数代入: %s = %lld"};
+        "[INTERPRETER_VAR] Variable assign: %s = %lld",
+        "[INTERPRETER_VAR] 変数代入: %s = %lld"};
     messages[static_cast<int>(DebugMsgId::VAR_CREATE_NEW)] = {
-        "Creating new variable", "新しい変数を作成中"};
+        "[INTERPRETER_VAR] Creating new variable",
+        "[INTERPRETER_VAR] 新しい変数を作成中"};
     messages[static_cast<int>(DebugMsgId::EXISTING_VAR_ASSIGN_DEBUG)] = {
-        "Assigning to existing variable", "既存変数に代入中"};
+        "[INTERPRETER_VAR] Assigning to existing variable",
+        "[INTERPRETER_VAR] 既存変数に代入中"};
 
     // Array management messages
     messages[static_cast<int>(DebugMsgId::ARRAY_DECL_START)] = {
-        "Array declaration start: %s", "配列宣言開始: %s"};
+        "[INTERPRETER_ARRAY] Array declaration start: %s",
+        "[INTERPRETER_ARRAY] 配列宣言開始: %s"};
     messages[static_cast<int>(DebugMsgId::ARRAY_DECL_SUCCESS)] = {
-        "Array declaration success: %s", "配列宣言成功: %s"};
+        "[INTERPRETER_ARRAY] Array declaration success: %s",
+        "[INTERPRETER_ARRAY] 配列宣言成功: %s"};
     messages[static_cast<int>(DebugMsgId::MULTIDIM_ARRAY_DECL_SUCCESS)] = {
-        "Multidimensional array declaration success: %s",
-        "多次元配列宣言成功: %s"};
+        "[INTERPRETER_ARRAY] Multidimensional array declaration success: %s",
+        "[INTERPRETER_ARRAY] 多次元配列宣言成功: %s"};
     messages[static_cast<int>(DebugMsgId::ARRAY_TOTAL_SIZE)] = {
-        "Array total size: %d", "配列総サイズ: %d"};
+        "[INTERPRETER_ARRAY] Array total size: %d",
+        "[INTERPRETER_ARRAY] 配列総サイズ: %d"};
     messages[static_cast<int>(DebugMsgId::SINGLE_DIM_ARRAY_PROCESSING)] = {
-        "Processing as single dimension array", "単次元配列として処理中"};
+        "[INTERPRETER_ARRAY] Processing as single dimension array",
+        "[INTERPRETER_ARRAY] 単次元配列として処理中"};
 
     // Function and parsing messages
     messages[static_cast<int>(DebugMsgId::NODE_CREATE_ASSIGN)] = {
-        "Creating assignment node: %s", "代入ノード作成: %s"};
+        "[PARSE_NODE] Creating assignment node: %s",
+        "[PARSE_NODE] 代入ノード作成: %s"};
     messages[static_cast<int>(DebugMsgId::NODE_CREATE_VAR_DECL)] = {
-        "Creating variable declaration node: %s", "変数宣言ノード作成: %s"};
+        "[PARSE_NODE] Creating variable declaration node: %s",
+        "[PARSE_NODE] 変数宣言ノード作成: %s"};
     messages[static_cast<int>(DebugMsgId::NODE_CREATE_FUNC_DECL)] = {
-        "Creating function declaration node: %s", "関数宣言ノード作成: %s"};
+        "[PARSE_NODE] Creating function declaration node: %s",
+        "[PARSE_NODE] 関数宣言ノード作成: %s"};
 
     // エラーメッセージ
     messages[static_cast<int>(DebugMsgId::TYPE_MISMATCH_ERROR)] = {
-        "Type mismatch error", "型不一致エラー"};
+        "[INTERPRETER_ERROR] Type mismatch error",
+        "[INTERPRETER_ERROR] 型不一致エラー"};
     messages[static_cast<int>(DebugMsgId::VAR_REDECLARE_ERROR)] = {
-        "Variable redeclaration error: %s", "変数再宣言エラー: %s"};
+        "[INTERPRETER_ERROR] Variable redeclaration error: %s",
+        "[INTERPRETER_ERROR] 変数再宣言エラー: %s"};
     messages[static_cast<int>(DebugMsgId::CONST_REASSIGN_ERROR)] = {
-        "Cannot reassign const variable: %s",
-        "const変数への再代入はできません: %s"};
+        "[INTERPRETER_ERROR] Cannot reassign const variable: %s",
+        "[INTERPRETER_ERROR] const変数への再代入はできません: %s"};
     messages[static_cast<int>(DebugMsgId::ARRAY_OUT_OF_BOUNDS_ERROR)] = {
-        "Array index out of bounds", "配列インデックスが範囲外です"};
+        "[INTERPRETER_ERROR] Array index out of bounds",
+        "[INTERPRETER_ERROR] 配列インデックスが範囲外です"};
     messages[static_cast<int>(DebugMsgId::UNDEFINED_FUNC_ERROR)] = {
-        "Undefined function: %s", "未定義の関数: %s"};
+        "[INTERPRETER_ERROR] Undefined function: %s",
+        "[INTERPRETER_ERROR] 未定義の関数: %s"};
     messages[static_cast<int>(DebugMsgId::ARG_COUNT_MISMATCH_ERROR)] = {
-        "Argument count mismatch", "引数の数が一致しません"};
+        "[INTERPRETER_ERROR] Argument count mismatch",
+        "[INTERPRETER_ERROR] 引数の数が一致しません"};
 
     // 実行時デバッグメッセージ
     messages[static_cast<int>(DebugMsgId::STRING_LITERAL_DEBUG)] = {
-        "String literal: %s", "文字列リテラル: %s"};
+        "[INTERPRETER_EXPR] String literal: %s",
+        "[INTERPRETER_EXPR] 文字列リテラル: %s"};
     messages[static_cast<int>(DebugMsgId::UNARY_OP_DEBUG)] = {
-        "Unary operation: %s", "単項演算: %s"};
+        "[INTERPRETER_EXPR] Unary operation: %s",
+        "[INTERPRETER_EXPR] 単項演算: %s"};
     messages[static_cast<int>(DebugMsgId::UNARY_OP_RESULT_DEBUG)] = {
-        "Unary operation result: %lld", "単項演算結果: %lld"};
+        "[INTERPRETER_EXPR] Unary operation result: %lld",
+        "[INTERPRETER_EXPR] 単項演算結果: %lld"};
     messages[static_cast<int>(DebugMsgId::ARRAY_ELEMENT_ASSIGN_DEBUG)] = {
-        "Array element assignment: %s[%lld] = %lld",
-        "配列要素代入: %s[%lld] = %lld"};
+        "[INTERPRETER_ARRAY] Array element assignment: %s[%lld] = %lld",
+        "[INTERPRETER_ARRAY] 配列要素代入: %s[%lld] = %lld"};
     messages[static_cast<int>(DebugMsgId::ARRAY_ELEMENT_ASSIGN_START)] = {
-        "Starting array element assignment", "配列要素代入開始"};
+        "[INTERPRETER_ARRAY] Starting array element assignment",
+        "[INTERPRETER_ARRAY] 配列要素代入開始"};
     messages[static_cast<int>(DebugMsgId::ARRAY_ELEMENT_ASSIGN_SUCCESS)] = {
-        "Array element assignment successful", "配列要素代入成功"};
+        "[INTERPRETER_ARRAY] Array element assignment successful",
+        "[INTERPRETER_ARRAY] 配列要素代入成功"};
 
     // 関数呼び出し関連
     messages[static_cast<int>(DebugMsgId::FUNC_DECL_REGISTER)] = {
-        "Registering function declaration: %s", "関数宣言登録: %s"};
+        "[INTERPRETER_FUNC] Registering function declaration: %s",
+        "[INTERPRETER_FUNC] 関数宣言登録: %s"};
     messages[static_cast<int>(DebugMsgId::FUNC_DECL_REGISTER_COMPLETE)] = {
-        "Function declaration registration complete", "関数宣言登録完了"};
+        "[INTERPRETER_FUNC] Function declaration registration complete",
+        "[INTERPRETER_FUNC] 関数宣言登録完了"};
     messages[static_cast<int>(DebugMsgId::PARAM_LIST_START)] = {
-        "Parameter list processing start", "パラメータリスト処理開始"};
+        "[INTERPRETER_FUNC] Parameter list processing start",
+        "[INTERPRETER_FUNC] パラメータリスト処理開始"};
     messages[static_cast<int>(DebugMsgId::PARAM_LIST_SIZE)] = {
-        "Parameter list size: %d", "パラメータリストサイズ: %d"};
+        "[INTERPRETER_FUNC] Parameter list size: %d",
+        "[INTERPRETER_FUNC] パラメータリストサイズ: %d"};
     messages[static_cast<int>(DebugMsgId::PARAM_LIST_COMPLETE)] = {
-        "Parameter list processing complete", "パラメータリスト処理完了"};
+        "[INTERPRETER_FUNC] Parameter list processing complete",
+        "[INTERPRETER_FUNC] パラメータリスト処理完了"};
 
     // より多くのメッセージを追加
     messages[static_cast<int>(DebugMsgId::ARRAY_DECL_COMPLETE_DEBUG)] = {
@@ -129,169 +168,244 @@ static std::vector<DebugMessageTemplate> init_debug_messages() {
         "Creating new string variable", "新しい文字列変数を作成中"};
 
     // パーサー関連の詳細メッセージ
-    messages[static_cast<int>(DebugMsgId::PARSING_START)] = {"Parsing start",
-                                                             "解析開始"};
-    messages[static_cast<int>(DebugMsgId::AST_GENERATED)] = {"AST generated",
-                                                             "AST生成完了"};
+    messages[static_cast<int>(DebugMsgId::PARSING_START)] = {
+        "[PARSE_INIT] Parsing start", "[PARSE_INIT] 解析開始"};
+    messages[static_cast<int>(DebugMsgId::AST_GENERATED)] = {
+        "[PARSE_COMPLETE] AST generated", "[PARSE_COMPLETE] AST生成完了"};
     messages[static_cast<int>(DebugMsgId::GLOBAL_DECL_START)] = {
-        "Global declaration start", "グローバル宣言開始"};
+        "[INTERPRETER_INIT] Global declaration start",
+        "[INTERPRETER_INIT] グローバル宣言開始"};
     messages[static_cast<int>(DebugMsgId::GLOBAL_DECL_COMPLETE)] = {
-        "Global declaration complete", "グローバル宣言完了"};
+        "[INTERPRETER_INIT] Global declaration complete",
+        "[INTERPRETER_INIT] グローバル宣言完了"};
     messages[static_cast<int>(DebugMsgId::MAIN_FUNC_SEARCH)] = {
-        "Searching for main function", "main関数を検索中"};
+        "[INTERPRETER_INIT] Searching for main function",
+        "[INTERPRETER_INIT] main関数を検索中"};
 
     // 実行関連のメッセージ
     messages[static_cast<int>(DebugMsgId::EXPR_EVAL_VAR_REF)] = {
-        "Expression eval: variable reference %s", "式評価: 変数参照 %s"};
+        "[INTERPRETER_EXPR] Expression eval: variable reference %s",
+        "[INTERPRETER_EXPR] 式評価: 変数参照 %s"};
     messages[static_cast<int>(DebugMsgId::VAR_VALUE)] = {
-        "Variable value: %s = %lld", "変数値: %s = %lld"};
+        "[INTERPRETER_VAR] Variable value: %s = %lld",
+        "[INTERPRETER_VAR] 変数値: %s = %lld"};
     messages[static_cast<int>(DebugMsgId::EXPR_EVAL_ARRAY_REF)] = {
-        "Expression eval: array reference", "式評価: 配列参照"};
+        "[INTERPRETER_EXPR] Expression eval: array reference",
+        "[INTERPRETER_EXPR] 式評価: 配列参照"};
     messages[static_cast<int>(DebugMsgId::ARRAY_INDEX)] = {
-        "Array index: %lld", "配列インデックス: %lld"};
+        "[INTERPRETER_ARRAY] Array index: %lld",
+        "[INTERPRETER_ARRAY] 配列インデックス: %lld"};
     messages[static_cast<int>(DebugMsgId::ARRAY_ELEMENT_ACCESS)] = {
-        "Array element access: %s[%lld]", "配列要素アクセス: %s[%lld]"};
+        "[INTERPRETER_ARRAY] Array element access: %s[%lld]",
+        "[INTERPRETER_ARRAY] 配列要素アクセス: %s[%lld]"};
     messages[static_cast<int>(DebugMsgId::ARRAY_ELEMENT_VALUE)] = {
-        "Array element value: %lld", "配列要素値: %lld"};
+        "[INTERPRETER_ARRAY] Array element value: %lld",
+        "[INTERPRETER_ARRAY] 配列要素値: %lld"};
 
     // 配列初期化関連
     messages[static_cast<int>(DebugMsgId::ARRAY_INIT_CALLED)] = {
-        "Array initialization called", "配列初期化呼び出し"};
+        "[INTERPRETER_ARRAY] Array initialization called",
+        "[INTERPRETER_ARRAY] 配列初期化呼び出し"};
     messages[static_cast<int>(DebugMsgId::ARRAY_INIT_COMPLETED)] = {
-        "Array initialization completed", "配列初期化完了"};
+        "[INTERPRETER_ARRAY] Array initialization completed",
+        "[INTERPRETER_ARRAY] 配列初期化完了"};
     messages[static_cast<int>(DebugMsgId::ARRAY_LITERAL_CALLED)] = {
-        "Array literal called", "配列リテラル呼び出し"};
+        "[INTERPRETER_ARRAY] Array literal called",
+        "[INTERPRETER_ARRAY] 配列リテラル呼び出し"};
     messages[static_cast<int>(DebugMsgId::ARRAY_LITERAL_COMPLETED)] = {
-        "Array literal completed", "配列リテラル完了"};
+        "[INTERPRETER_ARRAY] Array literal completed",
+        "[INTERPRETER_ARRAY] 配列リテラル完了"};
 
     // 文字列関連
     messages[static_cast<int>(DebugMsgId::STRING_ELEMENT_ACCESS)] = {
-        "String element access: index %lld",
-        "文字列要素アクセス: インデックス %lld"};
+        "[INTERPRETER_STRING] String element access: index %lld",
+        "[INTERPRETER_STRING] 文字列要素アクセス: インデックス %lld"};
     messages[static_cast<int>(DebugMsgId::STRING_LENGTH_UTF8)] = {
-        "String length (UTF-8): %lld", "文字列長 (UTF-8): %lld"};
+        "[INTERPRETER_STRING] String length (UTF-8): %lld",
+        "[INTERPRETER_STRING] 文字列長 (UTF-8): %lld"};
     messages[static_cast<int>(DebugMsgId::STRING_ELEMENT_VALUE)] = {
-        "String element value: %lld", "文字列要素値: %lld"};
+        "[INTERPRETER_STRING] String element value: %lld",
+        "[INTERPRETER_STRING] 文字列要素値: %lld"};
     messages[static_cast<int>(DebugMsgId::STRING_ASSIGN_READABLE)] = {
-        "String assign: %s = \"%s\"", "文字列代入: %s = \"%s\""};
+        "[INTERPRETER_VAR] String assign: %s = \"%s\"",
+        "[INTERPRETER_VAR] 文字列代入: %s = \"%s\""};
     messages[static_cast<int>(DebugMsgId::STRING_VAR_CREATE_NEW)] = {
-        "Creating new string variable", "新しい文字列変数を作成"};
+        "[INTERPRETER_VAR] Creating new string variable",
+        "[INTERPRETER_VAR] 新しい文字列変数を作成"};
 
     // Error messages
     messages[static_cast<int>(DebugMsgId::UNKNOWN_BINARY_OP_ERROR)] = {
-        "Unknown binary operator: %s", "不明な二項演算子: %s"};
+        "[INTERPRETER_ERROR] Unknown binary operator: %s",
+        "[INTERPRETER_ERROR] 不明な二項演算子: %s"};
     messages[static_cast<int>(DebugMsgId::UNSUPPORTED_EXPR_NODE_ERROR)] = {
-        "Unsupported expression node type", "サポートされていない式ノード型"};
+        "[INTERPRETER_ERROR] Unsupported expression node type",
+        "[INTERPRETER_ERROR] サポートされていない式ノード型"};
 
     // 不足している重要なメッセージを追加
     messages[static_cast<int>(DebugMsgId::VAR_DECLARATION_DEBUG)] = {
-        "Variable declaration: %s", "変数宣言: %s"};
+        "[INTERPRETER_VAR] Variable declaration: %s",
+        "[INTERPRETER_VAR] 変数宣言: %s"};
     messages[static_cast<int>(DebugMsgId::UNARY_OP_DEBUG)] = {
-        "Unary operation: %s", "単項演算: %s"};
+        "[INTERPRETER_EXPR] Unary operation: %s",
+        "[INTERPRETER_EXPR] 単項演算: %s"};
     messages[static_cast<int>(DebugMsgId::UNARY_OP_RESULT_DEBUG)] = {
-        "Unary op result: %lld", "単項演算結果: %lld"};
+        "[INTERPRETER_EXPR] Unary op result: %lld",
+        "[INTERPRETER_EXPR] 単項演算結果: %lld"};
     messages[static_cast<int>(DebugMsgId::EXISTING_VAR_ASSIGN_DEBUG)] = {
-        "Assigning to existing variable: %s", "既存変数への代入: %s"};
+        "[INTERPRETER_VAR] Assigning to existing variable: %s",
+        "[INTERPRETER_VAR] 既存変数への代入: %s"};
     messages[static_cast<int>(DebugMsgId::FUNC_DECL_REGISTER)] = {
-        "Registering function: %s", "関数登録: %s"};
+        "[INTERPRETER_FUNC] Registering function: %s",
+        "[INTERPRETER_FUNC] 関数登録: %s"};
     messages[static_cast<int>(DebugMsgId::MAIN_FUNC_FOUND)] = {
-        "Main function found", "main関数発見"};
+        "[INTERPRETER_EXEC] Main function found",
+        "[INTERPRETER_EXEC] main関数発見"};
+    messages[static_cast<int>(DebugMsgId::MAIN_FUNC_EXECUTE)] = {
+        "[INTERPRETER_EXEC] Executing main function",
+        "[INTERPRETER_EXEC] main関数実行"};
+    messages[static_cast<int>(DebugMsgId::MAIN_FUNC_BODY_EXISTS)] = {
+        "[INTERPRETER_EXEC] Main function body exists",
+        "[INTERPRETER_EXEC] main関数本体存在"};
+    messages[static_cast<int>(DebugMsgId::MAIN_FUNC_BODY_NULL)] = {
+        "[INTERPRETER_EXEC] Main function body is null",
+        "[INTERPRETER_EXEC] main関数本体がnull"};
     messages[static_cast<int>(DebugMsgId::MAIN_FUNC_EXIT)] = {
-        "Main function exit", "main関数終了"};
+        "[INTERPRETER_EXEC] Main function exit",
+        "[INTERPRETER_EXEC] main関数終了"};
     messages[static_cast<int>(DebugMsgId::INTERPRETER_START)] = {
-        "Interpreter start", "インタープリター開始"};
+        "[INTERPRETER_INIT] Interpreter start",
+        "[INTERPRETER_INIT] インタープリター開始"};
     messages[static_cast<int>(DebugMsgId::EXECUTION_COMPLETE)] = {
-        "Execution complete", "実行完了"};
-    messages[static_cast<int>(DebugMsgId::AST_IS_NULL)] = {"AST is null",
-                                                           "ASTがnull"};
+        "[INTERPRETER_COMPLETE] Execution complete",
+        "[INTERPRETER_COMPLETE] 実行完了"};
+    messages[static_cast<int>(DebugMsgId::AST_IS_NULL)] = {
+        "[INTERPRETER_ERROR] AST is null", "[INTERPRETER_ERROR] ASTがnull"};
     messages[static_cast<int>(DebugMsgId::STRING_LITERAL_DEBUG)] = {
-        "String literal: %s", "文字列リテラル: %s"};
+        "[INTERPRETER_EXPR] String literal: %s",
+        "[INTERPRETER_EXPR] 文字列リテラル: %s"};
     messages[static_cast<int>(DebugMsgId::ARRAY_ELEMENT_ASSIGN_DEBUG)] = {
-        "Array element assign: %s[%lld] = %lld",
-        "配列要素代入: %s[%lld] = %lld"};
+        "[INTERPRETER_ARRAY] Array element assign: %s[%lld] = %lld",
+        "[INTERPRETER_ARRAY] 配列要素代入: %s[%lld] = %lld"};
     messages[static_cast<int>(DebugMsgId::VARIABLE_NOT_FOUND)] = {
-        "Variable not found: %s", "変数が見つかりません: %s"};
+        "[INTERPRETER_ERROR] Variable not found: %s",
+        "[INTERPRETER_ERROR] 変数が見つかりません: %s"};
     messages[static_cast<int>(DebugMsgId::NODE_CREATE_STMTLIST)] = {
-        "Creating statement list node", "文リストノード作成"};
+        "[PARSE_NODE] Creating statement list node",
+        "[PARSE_NODE] 文リストノード作成"};
     messages[static_cast<int>(DebugMsgId::NODE_CREATE_TYPESPEC)] = {
-        "Creating type spec node", "型指定ノード作成"};
+        "[PARSE_NODE] Creating type spec node",
+        "[PARSE_NODE] 型指定ノード作成"};
 
     // 関数関連のメッセージ
     messages[static_cast<int>(DebugMsgId::FUNC_DECL_REGISTER_COMPLETE)] = {
-        "Function registration complete: %s", "関数登録完了: %s"};
+        "[INTERPRETER_FUNC] Function registration complete: %s",
+        "[INTERPRETER_FUNC] 関数登録完了: %s"};
     messages[static_cast<int>(DebugMsgId::PARAM_LIST_START)] = {
-        "Parameter list start", "パラメータリスト開始"};
+        "[INTERPRETER_FUNC] Parameter list start",
+        "[INTERPRETER_FUNC] パラメータリスト開始"};
     messages[static_cast<int>(DebugMsgId::PARAM_LIST_SIZE)] = {
-        "Parameter list size: %d", "パラメータリストサイズ: %d"};
+        "[INTERPRETER_FUNC] Parameter list size: %d",
+        "[INTERPRETER_FUNC] パラメータリストサイズ: %d"};
     messages[static_cast<int>(DebugMsgId::PARAM_LIST_COMPLETE)] = {
-        "Parameter list complete", "パラメータリスト完了"};
+        "[INTERPRETER_FUNC] Parameter list complete",
+        "[INTERPRETER_FUNC] パラメータリスト完了"};
     messages[static_cast<int>(DebugMsgId::PARAM_LIST_DELETE)] = {
-        "Deleting parameter list", "パラメータリスト削除"};
+        "[INTERPRETER_FUNC] Deleting parameter list",
+        "[INTERPRETER_FUNC] パラメータリスト削除"};
     messages[static_cast<int>(DebugMsgId::PARAM_LIST_NONE)] = {
-        "No parameter list", "パラメータリストなし"};
+        "[INTERPRETER_FUNC] No parameter list",
+        "[INTERPRETER_FUNC] パラメータリストなし"};
     messages[static_cast<int>(DebugMsgId::FUNC_BODY_START)] = {
-        "Function body start", "関数本体開始"};
+        "[INTERPRETER_FUNC] Function body start",
+        "[INTERPRETER_FUNC] 関数本体開始"};
     messages[static_cast<int>(DebugMsgId::FUNC_BODY_EXISTS)] = {
-        "Function body exists", "関数本体存在"};
+        "[INTERPRETER_FUNC] Function body exists",
+        "[INTERPRETER_FUNC] 関数本体存在"};
     messages[static_cast<int>(DebugMsgId::FUNC_BODY_SET_COMPLETE)] = {
-        "Function body set complete", "関数本体設定完了"};
+        "[INTERPRETER_FUNC] Function body set complete",
+        "[INTERPRETER_FUNC] 関数本体設定完了"};
     messages[static_cast<int>(DebugMsgId::FUNC_BODY_NONE)] = {
-        "No function body", "関数本体なし"};
+        "[INTERPRETER_FUNC] No function body",
+        "[INTERPRETER_FUNC] 関数本体なし"};
     messages[static_cast<int>(DebugMsgId::FUNC_DEF_COMPLETE)] = {
-        "Function definition complete", "関数定義完了"};
+        "[INTERPRETER_FUNC] Function definition complete",
+        "[INTERPRETER_FUNC] 関数定義完了"};
 
     // 配列関連の詳細メッセージ
     messages[static_cast<int>(DebugMsgId::ARRAY_DECL_DEBUG)] = {
-        "Array declaration debug: %s", "配列宣言デバッグ: %s"};
+        "[INTERPRETER_ARRAY] Array declaration debug: %s",
+        "[INTERPRETER_ARRAY] 配列宣言デバッグ: %s"};
     messages[static_cast<int>(DebugMsgId::ARRAY_DIMENSIONS_COUNT)] = {
-        "Array dimensions count: %d", "配列次元数: %d"};
+        "[INTERPRETER_ARRAY] Array dimensions count: %d",
+        "[INTERPRETER_ARRAY] 配列次元数: %d"};
     messages[static_cast<int>(DebugMsgId::MULTIDIM_ARRAY_PROCESSING)] = {
-        "Multidimensional array processing", "多次元配列処理"};
+        "[INTERPRETER_ARRAY] Multidimensional array processing",
+        "[INTERPRETER_ARRAY] 多次元配列処理"};
     messages[static_cast<int>(DebugMsgId::SINGLE_DIM_ARRAY_PROCESSING)] = {
-        "Single dimension array processing", "一次元配列処理"};
+        "[INTERPRETER_ARRAY] Single dimension array processing",
+        "[INTERPRETER_ARRAY] 一次元配列処理"};
     messages[static_cast<int>(DebugMsgId::MULTIDIM_ARRAY_ASSIGNMENT_DETECTED)] =
-        {"Multidimensional array assignment detected", "多次元配列代入検出"};
+        {"[INTERPRETER_ARRAY] Multidimensional array assignment detected",
+         "[INTERPRETER_ARRAY] 多次元配列代入検出"};
     messages[static_cast<int>(DebugMsgId::MULTIDIM_ARRAY_ACCESS_INFO)] = {
-        "Multidimensional array access info", "多次元配列アクセス情報"};
+        "[INTERPRETER_ARRAY] Multidimensional array access info",
+        "[INTERPRETER_ARRAY] 多次元配列アクセス情報"};
     messages[static_cast<int>(DebugMsgId::FLAT_INDEX_CALCULATED)] = {
-        "Flat index calculated: %lld", "フラットインデックス計算: %lld"};
+        "[INTERPRETER_ARRAY] Flat index calculated: %lld",
+        "[INTERPRETER_ARRAY] フラットインデックス計算: %lld"};
     messages[static_cast<int>(
         DebugMsgId::MULTIDIM_ARRAY_ASSIGNMENT_COMPLETED)] = {
-        "Multidimensional array assignment completed", "多次元配列代入完了"};
-    messages[static_cast<int>(DebugMsgId::ARRAY_INFO)] = {"Array info: %s",
-                                                          "配列情報: %s"};
+        "[INTERPRETER_ARRAY] Multidimensional array assignment completed",
+        "[INTERPRETER_ARRAY] 多次元配列代入完了"};
+    messages[static_cast<int>(DebugMsgId::ARRAY_INFO)] = {
+        "[INTERPRETER_ARRAY] Array info: %s",
+        "[INTERPRETER_ARRAY] 配列情報: %s"};
     messages[static_cast<int>(DebugMsgId::ARRAY_INDEX_OUT_OF_BOUNDS)] = {
-        "Array index out of bounds", "配列インデックス範囲外"};
+        "[INTERPRETER_ERROR] Array index out of bounds",
+        "[INTERPRETER_ERROR] 配列インデックス範囲外"};
     messages[static_cast<int>(DebugMsgId::ARRAY_ELEMENT_ASSIGN_START)] = {
-        "Array element assignment start", "配列要素代入開始"};
+        "[INTERPRETER_ARRAY] Array element assignment start",
+        "[INTERPRETER_ARRAY] 配列要素代入開始"};
     messages[static_cast<int>(DebugMsgId::ARRAY_ELEMENT_ASSIGN_SUCCESS)] = {
-        "Array element assignment success", "配列要素代入成功"};
+        "[INTERPRETER_ARRAY] Array element assignment success",
+        "[INTERPRETER_ARRAY] 配列要素代入成功"};
     messages[static_cast<int>(DebugMsgId::MULTIDIM_ARRAY_DECL_INFO)] = {
-        "Multidimensional array declaration info", "多次元配列宣言情報"};
+        "[INTERPRETER_ARRAY] Multidimensional array declaration info",
+        "[INTERPRETER_ARRAY] 多次元配列宣言情報"};
 
     // エラーメッセージ
     messages[static_cast<int>(DebugMsgId::PARSER_ERROR)] = {
-        "Parser error: %s", "パーサーエラー: %s"};
+        "[PARSE_ERROR] Parser error: %s", "[PARSE_ERROR] パーサーエラー: %s"};
     messages[static_cast<int>(DebugMsgId::TYPE_MISMATCH_ERROR)] = {
-        "Type mismatch error: %s", "型不一致エラー: %s"};
+        "[INTERPRETER_ERROR] Type mismatch error: %s",
+        "[INTERPRETER_ERROR] 型不一致エラー: %s"};
     messages[static_cast<int>(DebugMsgId::VAR_REDECLARE_ERROR)] = {
-        "Variable redeclaration error: %s", "変数再宣言エラー: %s"};
+        "[INTERPRETER_ERROR] Variable redeclaration error: %s",
+        "[INTERPRETER_ERROR] 変数再宣言エラー: %s"};
     messages[static_cast<int>(DebugMsgId::NEGATIVE_ARRAY_SIZE_ERROR)] = {
-        "Negative array size error", "負の配列サイズエラー"};
+        "[INTERPRETER_ERROR] Negative array size error",
+        "[INTERPRETER_ERROR] 負の配列サイズエラー"};
     messages[static_cast<int>(DebugMsgId::DYNAMIC_ARRAY_NOT_SUPPORTED)] = {
-        "Dynamic array not supported", "動的配列はサポートされていません"};
+        "[INTERPRETER_ERROR] Dynamic array not supported",
+        "[INTERPRETER_ERROR] 動的配列はサポートされていません"};
     messages[static_cast<int>(DebugMsgId::MAIN_FUNC_NOT_FOUND_ERROR)] = {
-        "Main function not found error", "main関数が見つからないエラー"};
+        "[INTERPRETER_ERROR] Main function not found error",
+        "[INTERPRETER_ERROR] main関数が見つからないエラー"};
     messages[static_cast<int>(DebugMsgId::UNDEFINED_VAR_ERROR)] = {
-        "Undefined variable error: %s", "未定義変数エラー: %s"};
+        "[INTERPRETER_ERROR] Undefined variable error: %s",
+        "[INTERPRETER_ERROR] 未定義変数エラー: %s"};
     messages[static_cast<int>(DebugMsgId::DIRECT_ARRAY_REF_ERROR)] = {
-        "Direct array reference error", "直接配列参照エラー"};
+        "[INTERPRETER_ERROR] Direct array reference error",
+        "[INTERPRETER_ERROR] 直接配列参照エラー"};
     messages[static_cast<int>(DebugMsgId::UNDEFINED_ARRAY_ERROR)] = {
-        "Undefined array error: %s", "未定義配列エラー: %s"};
+        "[INTERPRETER_ERROR] Undefined array error: %s",
+        "[INTERPRETER_ERROR] 未定義配列エラー: %s"};
     messages[static_cast<int>(DebugMsgId::STRING_OUT_OF_BOUNDS_ERROR)] = {
-        "String index out of bounds error", "文字列インデックス範囲外エラー"};
+        "[INTERPRETER_ERROR] String index out of bounds error",
+        "[INTERPRETER_ERROR] 文字列インデックス範囲外エラー"};
     messages[static_cast<int>(DebugMsgId::ARRAY_OUT_OF_BOUNDS_ERROR)] = {
-        "Array index out of bounds error", "配列インデックス範囲外エラー"};
+        "[INTERPRETER_ERROR] Array index out of bounds error",
+        "[INTERPRETER_ERROR] 配列インデックス範囲外エラー"};
     messages[static_cast<int>(DebugMsgId::NON_ARRAY_REF_ERROR)] = {
         "Non-array reference error", "非配列参照エラー"};
     messages[static_cast<int>(DebugMsgId::ZERO_DIVISION_ERROR)] = {
@@ -364,7 +478,8 @@ static std::vector<DebugMessageTemplate> init_debug_messages() {
 
     // printf関連
     messages[static_cast<int>(DebugMsgId::PRINTF_OFFSET_CALLED)] = {
-        "Printf offset called", "printfオフセット呼び出し"};
+        "[INTERPRETER_OUTPUT] Printf offset called",
+        "[INTERPRETER_OUTPUT] printfオフセット呼び出し"};
     messages[static_cast<int>(DebugMsgId::PRINTF_ARG_LIST_INFO)] = {
         "Printf arg list info: %d args", "printf引数リスト情報: %d個"};
     messages[static_cast<int>(DebugMsgId::PRINTF_ARG_PROCESSING)] = {
@@ -382,33 +497,436 @@ static std::vector<DebugMessageTemplate> init_debug_messages() {
     messages[static_cast<int>(DebugMsgId::ARRAY_ELEMENT_EVAL_VALUE)] = {
         "Evaluated value: %lld", "評価値: %lld"};
     messages[static_cast<int>(DebugMsgId::PRINT_MULTIPLE_PROCESSING)] = {
-        "print_multiple: Processing %s with %d arguments",
-        "print_multiple: %s を %d 個の引数で処理"};
+        "[INTERPRETER_OUTPUT] Processing %s with %d arguments",
+        "[INTERPRETER_OUTPUT] %s を %d 個の引数で処理"};
     messages[static_cast<int>(DebugMsgId::PRINT_SINGLE_ARG_DEBUG)] = {
-        "print_multiple: Single argument in %s, type: %d",
-        "print_multiple: %s の単一引数, 型: %d"};
+        "[INTERPRETER_OUTPUT] Single argument in %s, type: %d",
+        "[INTERPRETER_OUTPUT] %s の単一引数, 型: %d"};
     messages[static_cast<int>(DebugMsgId::PRINT_PRINTF_FORMAT_FOUND)] = {
-        "print_multiple: format specifiers found, processing as printf",
-        "print_multiple: フォーマット指定子が見つかりました、printfとして処理"};
+        "[INTERPRETER_OUTPUT] Format specifiers found, processing as printf",
+        "[INTERPRETER_OUTPUT] "
+        "フォーマット指定子が見つかりました、printfとして処理"};
     messages[static_cast<int>(DebugMsgId::PRINT_NO_ARGUMENTS_DEBUG)] = {
-        "print_multiple: No arguments in statement",
-        "print_multiple: 文に引数がありません"};
+        "[INTERPRETER_OUTPUT] No arguments in statement",
+        "[INTERPRETER_OUTPUT] 文に引数がありません"};
     messages[static_cast<int>(DebugMsgId::PRINT_EXECUTING_STATEMENT)] = {
         "Executing print statement", "print文実行中"};
     messages[static_cast<int>(DebugMsgId::PRINT_STATEMENT_HAS_ARGS)] = {
         "Print statement has arguments", "print文に引数があります"};
     messages[static_cast<int>(DebugMsgId::PRINT_CHECKING_ARGUMENT)] = {
-        "print_multiple: checking argument %d, type: %d",
-        "print_multiple: 引数 %d 確認中, 型: %d"};
+        "[INTERPRETER_OUTPUT] Checking argument %d, type: %d",
+        "[INTERPRETER_OUTPUT] 引数 %d 確認中, 型: %d"};
     messages[static_cast<int>(DebugMsgId::PRINT_FOUND_STRING_LITERAL)] = {
-        "print_multiple: found string literal '%s'",
-        "print_multiple: 文字列リテラル '%s' 発見"};
+        "[INTERPRETER_OUTPUT] Found string literal '%s'",
+        "[INTERPRETER_OUTPUT] 文字列リテラル '%s' 発見"};
     messages[static_cast<int>(DebugMsgId::PRINT_FORMAT_SPEC_CHECKING)] = {
         "has_unescaped_format_specifiers: checking string '%s'",
         "has_unescaped_format_specifiers: 文字列 '%s' 確認中"};
     messages[static_cast<int>(DebugMsgId::PRINT_NO_FORMAT_SPECIFIERS)] = {
         "has_unescaped_format_specifiers: no format specifiers found",
         "has_unescaped_format_specifiers: フォーマット指定子なし"};
+
+    // 追加のメッセージID（ユーザー要求分）
+    messages[static_cast<int>(DebugMsgId::PARSE_USING_RECURSIVE_PARSER)] = {
+        "[PARSE_INIT] Using recursive descent parser...",
+        "[PARSE_INIT] 再帰下降パーサーを使用..."};
+    messages[static_cast<int>(DebugMsgId::PARSE_TYPE_CHECK)] = {
+        "[PARSE_TYPE] Checking type: %s, is_typedef: %s, is_struct_type: %s",
+        "[PARSE_TYPE] 型チェック: %s, typedef: %s, struct型: %s"};
+    messages[static_cast<int>(DebugMsgId::PARSE_REGISTER_GLOBAL_DECL)] = {
+        "[PARSE_DECL] register_global_declarations processing: %s (name: %s)",
+        "[PARSE_DECL] グローバル宣言処理: %s (名前: %s)"};
+    messages[static_cast<int>(DebugMsgId::PARSE_STRUCT_REGISTER)] = {
+        "[PARSE_STRUCT] Registering struct definition: %s",
+        "[PARSE_STRUCT] struct定義登録: %s"};
+    messages[static_cast<int>(DebugMsgId::INTERPRETER_GLOBAL_VAR_INIT)] = {
+        "[INTERPRETER_INIT] Initializing global variables",
+        "[INTERPRETER_INIT] グローバル変数初期化"};
+    messages[static_cast<int>(DebugMsgId::EXPRESSION_EVAL_ERROR)] = {
+        "[INTERPRETER_ERROR] Expression evaluation error: %s",
+        "[INTERPRETER_ERROR] 式評価エラー: %s"};
+    messages[static_cast<int>(DebugMsgId::EXPR_EVAL_ARRAY_REF_START)] = {
+        "[INTERPRETER_EXPR] AST_ARRAY_REF evaluation started",
+        "[INTERPRETER_EXPR] AST_ARRAY_REF評価開始"};
+    messages[static_cast<int>(DebugMsgId::VAR_MANAGER_TYPE_RESOLVED)] = {
+        "[INTERPRETER_VAR] Variable: %s, Type: %s, Resolved: %s",
+        "[INTERPRETER_VAR] 変数: %s, 型: %s, 解決後: %s"};
+
+    // 不足しているメッセージIDの追加
+    messages[static_cast<int>(DebugMsgId::PARSE_CURRENT_TOKEN)] = {
+        "[PARSE_TOKEN] Current token: %s (type: %s)",
+        "[PARSE_TOKEN] 現在のトークン: %s (型: %s)"};
+    messages[static_cast<int>(DebugMsgId::INTERPRETER_EXEC_STMT)] = {
+        "[INTERPRETER_EXEC] Executing statement: type %d",
+        "[INTERPRETER_EXEC] 文実行: 型 %d"};
+    messages[static_cast<int>(DebugMsgId::INTERPRETER_VAR_DECL)] = {
+        "[INTERPRETER_VAR] Variable declaration: %s",
+        "[INTERPRETER_VAR] 変数宣言: %s"};
+    messages[static_cast<int>(DebugMsgId::VAR_MANAGER_STRUCT_CREATE)] = {
+        "[INTERPRETER_STRUCT] Struct member creation: %s.%s",
+        "[INTERPRETER_STRUCT] 構造体メンバー作成: %s.%s"};
+    messages[static_cast<int>(DebugMsgId::PARSE_VAR_DECL)] = {
+        "[PARSE_VAR] Variable declaration: %s of type %s",
+        "[PARSE_VAR] 変数宣言: %s 型 %s"};
+    messages[static_cast<int>(DebugMsgId::PARSE_EXPR_ARRAY_ACCESS)] = {
+        "[PARSE_EXPR] Array access expression: %s",
+        "[PARSE_EXPR] 配列アクセス式: %s"};
+    messages[static_cast<int>(DebugMsgId::PARSE_FUNCTION_CREATED)] = {
+        "[PARSE_FUNC] Function created: %s", "[PARSE_FUNC] 関数作成: %s"};
+    messages[static_cast<int>(DebugMsgId::PARSE_STRUCT_DEF)] = {
+        "[PARSE_STRUCT] Struct definition: %s",
+        "[PARSE_STRUCT] 構造体定義: %s"};
+    messages[static_cast<int>(DebugMsgId::OUTPUT_FORMAT_SPEC_FOUND)] = {
+        "Format specifier found: %s", "フォーマット指定子発見: %s"};
+    messages[static_cast<int>(DebugMsgId::OUTPUT_FORMAT_COUNT)] = {
+        "Format count: %s", "フォーマット数: %s"};
+    messages[static_cast<int>(DebugMsgId::PRINTF_ARG_LIST_INFO)] = {
+        "[INTERPRETER_OUTPUT] Printf arg list: %d args from index %d",
+        "[INTERPRETER_OUTPUT] Printf引数リスト: %d個 開始インデックス %d"};
+    messages[static_cast<int>(DebugMsgId::PRINTF_ARG_PROCESSING)] = {
+        "[INTERPRETER_OUTPUT] Processing printf arg %d (type: %d)",
+        "[INTERPRETER_OUTPUT] Printf引数 %d 処理 (型: %d)"};
+    messages[static_cast<int>(DebugMsgId::PRINTF_ARRAY_REF_DEBUG)] = {
+        "[INTERPRETER_OUTPUT] Printf array reference debug: %s",
+        "[INTERPRETER_OUTPUT] Printf配列参照デバッグ: %s"};
+
+    // ノード作成関連
+    messages[static_cast<int>(DebugMsgId::NODE_CREATE_STMTLIST)] = {
+        "Creating statement list node", "文リストノード作成"};
+    messages[static_cast<int>(DebugMsgId::NODE_CREATE_TYPESPEC)] = {
+        "Creating type spec node", "型指定ノード作成"};
+    messages[static_cast<int>(DebugMsgId::NODE_CREATE_ARRAY_DECL)] = {
+        "Creating array declaration node", "配列宣言ノード作成"};
+
+    // パーサー関連の追加メッセージ
+    messages[static_cast<int>(DebugMsgId::PARSE_ENUM_DEF)] = {
+        "Enum definition: %s", "列挙型定義: %s"};
+    messages[static_cast<int>(DebugMsgId::PARSE_STRUCT_MEMBER_ARRAY)] = {
+        "Struct member array: %s", "構造体メンバー配列: %s"};
+    messages[static_cast<int>(DebugMsgId::PARSE_STRUCT_MEMBER_REGULAR)] = {
+        "Struct member regular: %s", "構造体メンバー通常: %s"};
+    messages[static_cast<int>(DebugMsgId::PARSE_ENUM_REGISTER)] = {
+        "Enum register: %s", "列挙型登録: %s"};
+    messages[static_cast<int>(DebugMsgId::PARSE_STRUCT_DECL_START)] = {
+        "[PARSE_STRUCT] Struct declaration start at line %d",
+        "[PARSE_STRUCT] 構造体宣言開始 行: %d"};
+    messages[static_cast<int>(DebugMsgId::PARSE_STRUCT_ARRAY_DECL)] = {
+        "[PARSE_STRUCT] Struct array declaration: %s",
+        "[PARSE_STRUCT] 構造体配列宣言: %s"};
+    messages[static_cast<int>(DebugMsgId::PARSE_STRUCT_ARRAY_VAR_NAME)] = {
+        "[PARSE_STRUCT] Struct array variable name: %s",
+        "[PARSE_STRUCT] 構造体配列変数名: %s"};
+
+    // インタープリター関連の追加メッセージ
+    messages[static_cast<int>(DebugMsgId::INTERPRETER_RETURN_STMT)] = {
+        "Interpreter return statement", "インタープリターreturn文"};
+    messages[static_cast<int>(DebugMsgId::INTERPRETER_RETURN_VAR)] = {
+        "Interpreter return variable: %s", "インタープリター変数返却: %s"};
+    messages[static_cast<int>(DebugMsgId::INTERPRETER_RETURN_ARRAY)] = {
+        "Interpreter return array with %zu elements",
+        "インタープリター配列返却 要素数: %zu"};
+    messages[static_cast<int>(DebugMsgId::INTERPRETER_RETURN_ARRAY_VAR)] = {
+        "Interpreter return array variable: %s",
+        "インタープリター配列変数返却: %s"};
+    messages[static_cast<int>(DebugMsgId::INTERPRETER_MULTIDIM_ARRAY_SIZE)] = {
+        "Multidimensional array size: %zu", "多次元配列サイズ: %zu"};
+    messages[static_cast<int>(DebugMsgId::INTERPRETER_REGULAR_ARRAY_SIZE)] = {
+        "Regular array size: %zu", "通常配列サイズ: %zu"};
+    messages[static_cast<int>(DebugMsgId::INTERPRETER_MULTIDIM_PROCESSING)] = {
+        "Multidimensional processing", "多次元処理"};
+    messages[static_cast<int>(DebugMsgId::INTERPRETER_MULTIDIM_ELEMENT)] = {
+        "Multidimensional element[%d]: %lld", "多次元要素[%d]: %lld"};
+    messages[static_cast<int>(DebugMsgId::INTERPRETER_ARRAY_ELEMENT)] = {
+        "Array element[%d]: %lld", "配列要素[%d]: %lld"};
+    messages[static_cast<int>(DebugMsgId::INTERPRETER_RETURN_EXCEPTION)] = {
+        "Interpreter return exception: %s", "インタープリター例外返却: %s"};
+    messages[static_cast<int>(DebugMsgId::INTERPRETER_VAR_NOT_FOUND)] = {
+        "Variable not found in interpreter: %s",
+        "インタープリターで変数が見つかりません: %s"};
+    messages[static_cast<int>(DebugMsgId::INTERPRETER_EXCEPTION_IN_VAR_DECL)] =
+        {"Exception in variable declaration: %s", "変数宣言での例外: %s"};
+
+    // 変数管理関連
+    messages[static_cast<int>(DebugMsgId::VAR_MANAGER_PROCESS)] = {
+        "Variable manager process: type=%d, name=%s",
+        "変数マネージャー処理: 型=%d, 名前=%s"};
+    messages[static_cast<int>(DebugMsgId::VAR_MANAGER_MULTIDIM_FLAG)] = {
+        "Variable manager multidimensional flag: %s (dimensions: %zu)",
+        "変数マネージャー多次元フラグ: %s (次元数: %zu)"};
+    messages[static_cast<int>(DebugMsgId::VAR_MANAGER_STRUCT_VAR_CREATE)] = {
+        "Struct variable creation: %s", "構造体変数作成: %s"};
+    messages[static_cast<int>(DebugMsgId::VAR_MANAGER_MULTIDIM_MEMBER_CREATE)] =
+        {"Multidimensional member creation", "多次元メンバー作成"};
+    messages[static_cast<int>(DebugMsgId::VAR_MANAGER_ARRAY_MEMBER_INIT)] = {
+        "Array member initialization", "配列メンバー初期化"};
+    messages[static_cast<int>(DebugMsgId::VAR_MANAGER_MEMBER_ADDED)] = {
+        "Member added: %s", "メンバー追加: %s"};
+
+    // 構造体関連
+    // パーサー関連の新規メッセージテンプレート
+    messages[static_cast<int>(DebugMsgId::PARSE_PROGRAM_START)] = {
+        "[PARSE_PROGRAM] Starting to parse program in file: %s",
+        "[PARSE_PROGRAM] ファイル %s のプログラム解析開始"};
+    messages[static_cast<int>(DebugMsgId::PARSE_STATEMENT_START)] = {
+        "[PARSE_STATEMENT] Starting statement parse at line %d, column %d",
+        "[PARSE_STATEMENT] 行 %d 列 %d で文の解析開始"};
+    messages[static_cast<int>(DebugMsgId::PARSE_STATEMENT_SUCCESS)] = {
+        "[PARSE_STATEMENT] Successfully parsed statement type: %s, name: %s",
+        "[PARSE_STATEMENT] 文解析成功 - 型: %s, 名前: %s"};
+    messages[static_cast<int>(DebugMsgId::PARSE_PROGRAM_COMPLETE)] = {
+        "[PARSE_PROGRAM] Program parsing complete with %zu statements",
+        "[PARSE_PROGRAM] プログラム解析完了 - 文の数: %zu"};
+    messages[static_cast<int>(DebugMsgId::PARSE_STATIC_MODIFIER)] = {
+        "[PARSE_MODIFIER] Static modifier found at line %d, column %d",
+        "[PARSE_MODIFIER] static修飾子発見 - 行 %d 列 %d"};
+    messages[static_cast<int>(DebugMsgId::PARSE_CONST_MODIFIER)] = {
+        "[PARSE_MODIFIER] Const modifier found at line %d, column %d",
+        "[PARSE_MODIFIER] const修飾子発見 - 行 %d 列 %d"};
+    messages[static_cast<int>(DebugMsgId::PARSE_TYPEDEF_START)] = {
+        "[PARSE_TYPEDEF] Starting typedef declaration parse at line %d",
+        "[PARSE_TYPEDEF] typedef宣言解析開始 - 行 %d"};
+    messages[static_cast<int>(DebugMsgId::PARSE_STRUCT_DECL_START)] = {
+        "[PARSE_STRUCT] Starting struct declaration parse at line %d",
+        "[PARSE_STRUCT] struct宣言解析開始 - 行 %d"};
+    messages[static_cast<int>(DebugMsgId::PARSE_ENUM_DECL_START)] = {
+        "[PARSE_ENUM] Starting enum declaration parse at line %d",
+        "[PARSE_ENUM] enum宣言解析開始 - 行 %d"};
+    messages[static_cast<int>(DebugMsgId::PARSE_TYPEDEF_OR_STRUCT_TYPE_FOUND)] =
+        {"[PARSE_TYPE] Typedef or struct type found: %s",
+         "[PARSE_TYPE] typedef型または構造体型発見: %s"};
+    messages[static_cast<int>(DebugMsgId::PARSE_IDENTIFIER_AFTER_TYPE)] = {
+        "[PARSE_IDENTIFIER] Identifier found after type: %s",
+        "[PARSE_IDENTIFIER] 型の後に識別子発見: %s"};
+    messages[static_cast<int>(DebugMsgId::PARSE_FUNCTION_DETECTED)] = {
+        "[PARSE_FUNCTION] Function declaration detected",
+        "[PARSE_FUNCTION] 関数宣言を検出"};
+    messages[static_cast<int>(DebugMsgId::PARSE_ARRAY_DETECTED)] = {
+        "[PARSE_ARRAY] Array declaration detected",
+        "[PARSE_ARRAY] 配列宣言を検出"};
+    messages[static_cast<int>(DebugMsgId::PARSE_FUNCTION_DECL_FOUND)] = {
+        "[PARSE_FUNCTION] Function declaration found: %s returning %s",
+        "[PARSE_FUNCTION] 関数宣言発見: %s 戻り値型 %s"};
+    messages[static_cast<int>(DebugMsgId::PARSE_STRUCT_VAR_DECL_FOUND)] = {
+        "[PARSE_STRUCT_VAR] Struct variable declaration found for type: %s",
+        "[PARSE_STRUCT_VAR] 構造体変数宣言発見 - 型: %s"};
+    messages[static_cast<int>(DebugMsgId::PARSE_STRUCT_ARRAY_DECL)] = {
+        "[PARSE_STRUCT_ARRAY] Struct array declaration for type: %s",
+        "[PARSE_STRUCT_ARRAY] 構造体配列宣言 - 型: %s"};
+    messages[static_cast<int>(DebugMsgId::PARSE_STRUCT_ARRAY_VAR_NAME)] = {
+        "[PARSE_STRUCT_ARRAY] Struct array variable name: %s",
+        "[PARSE_STRUCT_ARRAY] 構造体配列変数名: %s"};
+
+    // インタープリター構造体関連のメッセージ
+    messages[static_cast<int>(
+        DebugMsgId::INTERPRETER_STRUCT_ARRAY_MEMBER_ADDED)] = {
+        "[INTERPRETER_STRUCT] Array member added: %s (type: %d, size: %d)",
+        "[INTERPRETER_STRUCT] 配列メンバー追加: %s (型: %d, サイズ: %d)"};
+    messages[static_cast<int>(DebugMsgId::INTERPRETER_ARRAY_DIMENSION_INFO)] = {
+        "[INTERPRETER_ARRAY] Dimension info: size=%d, is_dynamic=%d, expr='%s'",
+        "[INTERPRETER_ARRAY] 次元情報: サイズ=%d, 動的=%d, 式='%s'"};
+    messages[static_cast<int>(DebugMsgId::INTERPRETER_STRUCT_MEMBER_ADDED)] = {
+        "[INTERPRETER_STRUCT] Member added: %s (type: %d)",
+        "[INTERPRETER_STRUCT] メンバー追加: %s (型: %d)"};
+    messages[static_cast<int>(DebugMsgId::INTERPRETER_STRUCT_REGISTERED)] = {
+        "[INTERPRETER_STRUCT] Struct registered: %s with %zu members",
+        "[INTERPRETER_STRUCT] 構造体登録: %s (メンバー数: %zu)"};
+    messages[static_cast<int>(DebugMsgId::INTERPRETER_ENUM_REGISTERING)] = {
+        "[INTERPRETER_ENUM] Registering enum: %s",
+        "[INTERPRETER_ENUM] enum登録: %s"};
+    messages[static_cast<int>(
+        DebugMsgId::INTERPRETER_MULTIPLE_VAR_DECL_START)] = {
+        "[INTERPRETER_VAR] Multiple variable declaration with %zu children",
+        "[INTERPRETER_VAR] 複数変数宣言 (子要素数: %zu)"};
+    messages[static_cast<int>(DebugMsgId::INTERPRETER_GLOBAL_VAR_INIT_START)] =
+        {"[INTERPRETER_VAR] Global variable initialization: %s",
+         "[INTERPRETER_VAR] グローバル変数初期化: %s"};
+    messages[static_cast<int>(DebugMsgId::INTERPRETER_ARRAY_LITERAL_INIT)] = {
+        "[INTERPRETER_ARRAY] Array literal initialization: %s",
+        "[INTERPRETER_ARRAY] 配列リテラル初期化: %s"};
+    messages[static_cast<int>(DebugMsgId::INTERPRETER_NORMAL_VAR_INIT)] = {
+        "[INTERPRETER_VAR] Normal variable initialization: %s",
+        "[INTERPRETER_VAR] 通常変数初期化: %s"};
+    messages[static_cast<int>(DebugMsgId::INTERPRETER_GET_STRUCT_MEMBER)] = {
+        "[INTERPRETER_STRUCT] Getting struct member: %s.%s",
+        "[INTERPRETER_STRUCT] 構造体メンバー取得: %s.%s"};
+    messages[static_cast<int>(DebugMsgId::INTERPRETER_VAR_NOT_STRUCT)] = {
+        "[INTERPRETER_STRUCT] Variable is not a struct: %s",
+        "[INTERPRETER_STRUCT] 変数は構造体ではありません: %s"};
+    messages[static_cast<int>(DebugMsgId::INTERPRETER_STRUCT_MEMBERS_FOUND)] = {
+        "[INTERPRETER_STRUCT] Struct members found: %zu",
+        "[INTERPRETER_STRUCT] 構造体メンバー発見: %zu個"};
+    messages[static_cast<int>(DebugMsgId::INTERPRETER_STRUCT_MEMBER_FOUND)] = {
+        "[INTERPRETER_STRUCT] Struct member found: %s, is_array=%d",
+        "[INTERPRETER_STRUCT] 構造体メンバー発見: %s, 配列=%d"};
+    messages[static_cast<int>(
+        DebugMsgId::INTERPRETER_NAMED_STRUCT_LITERAL_INIT)] = {
+        "[INTERPRETER_STRUCT] Named struct literal initialization: %s",
+        "[INTERPRETER_STRUCT] 名前付き構造体リテラル初期化: %s"};
+    messages[static_cast<int>(DebugMsgId::INTERPRETER_MEMBER_INIT_PROCESSING)] =
+        {"[INTERPRETER_STRUCT] Processing member initialization: %s",
+         "[INTERPRETER_STRUCT] メンバー初期化処理: %s"};
+    messages[static_cast<int>(DebugMsgId::INTERPRETER_VAR_PROCESS_EXCEPTION)] =
+        {"[INTERPRETER_ERROR] Variable processing exception: %s",
+         "[INTERPRETER_ERROR] 変数処理例外: %s"};
+    messages[static_cast<int>(DebugMsgId::INTERPRETER_STRUCT_SYNCED)] = {
+        "[INTERPRETER_STRUCT] Synced struct definition: %s with %zu members",
+        "[INTERPRETER_STRUCT] 構造体定義同期: %s (メンバー数: %zu)"};
+    messages[static_cast<int>(
+        DebugMsgId::INTERPRETER_STRUCT_DEFINITION_STORED)] = {
+        "[INTERPRETER_STRUCT] Storing struct definition: %s (constant "
+        "resolution deferred)",
+        "[INTERPRETER_STRUCT] 構造体定義格納: %s (定数解決延期)"};
+    messages[static_cast<int>(DebugMsgId::INTERPRETER_PROCESSING_STMT_LIST)] = {
+        "[INTERPRETER_INIT] Processing AST_STMT_LIST with %zu statements",
+        "[INTERPRETER_INIT] AST_STMT_LIST処理中 (文の数: %zu)"};
+    messages[static_cast<int>(
+        DebugMsgId::INTERPRETER_CHECKING_STATEMENT_TYPE)] = {
+        "[INTERPRETER_INIT] Checking statement type: %d (name: %s)",
+        "[INTERPRETER_INIT] 文の型チェック: %d (名前: %s)"};
+    messages[static_cast<int>(DebugMsgId::INTERPRETER_FOUND_VAR_DECL)] = {
+        "[INTERPRETER_INIT] Found AST_VAR_DECL: %s, recursing",
+        "[INTERPRETER_INIT] AST_VAR_DECL発見: %s, 再帰処理"};
+    messages[static_cast<int>(
+        DebugMsgId::INTERPRETER_SYNC_STRUCT_MEMBERS_START)] = {
+        "[INTERPRETER_STRUCT] Starting sync of struct members for variable: %s",
+        "[INTERPRETER_STRUCT] 構造体メンバー同期開始: %s"};
+    messages[static_cast<int>(
+        DebugMsgId::INTERPRETER_SYNC_STRUCT_MEMBERS_END)] = {
+        "[INTERPRETER_STRUCT] Completed sync of struct members for variable: "
+        "%s",
+        "[INTERPRETER_STRUCT] 構造体メンバー同期完了: %s"};
+
+    // インタープリター実行関連のメッセージ
+    messages[static_cast<int>(DebugMsgId::INTERPRETER_STMT_DETAILS)] = {
+        "[INTERPRETER_EXEC] Executing statement type: %d, name: %s",
+        "[INTERPRETER_EXEC] 文実行 - 型: %d, 名前: %s"};
+    messages[static_cast<int>(DebugMsgId::INTERPRETER_STMT_LIST_EXEC)] = {
+        "[INTERPRETER_STMT_LIST] Executing statement list with %zu statements",
+        "[INTERPRETER_STMT_LIST] 文リスト実行 - 文の数: %zu"};
+    messages[static_cast<int>(DebugMsgId::INTERPRETER_COMPOUND_STMT_EXEC)] = {
+        "[INTERPRETER_COMPOUND] Executing compound statement with %zu "
+        "statements",
+        "[INTERPRETER_COMPOUND] 複合文実行 - 文の数: %zu"};
+    messages[static_cast<int>(DebugMsgId::INTERPRETER_VAR_DECL_TYPE)] = {
+        "[INTERPRETER_VAR] Variable declaration type: %d",
+        "[INTERPRETER_VAR] 変数宣言型: %d"};
+    messages[static_cast<int>(DebugMsgId::INTERPRETER_VAR_DECL_SUCCESS)] = {
+        "[INTERPRETER_VAR] Variable declaration success: %s",
+        "[INTERPRETER_VAR] 変数宣言成功: %s"};
+    messages[static_cast<int>(DebugMsgId::INTERPRETER_ASSIGNMENT)] = {
+        "[INTERPRETER_ASSIGN] Processing assignment to: %s",
+        "[INTERPRETER_ASSIGN] 代入処理: %s"};
+    messages[static_cast<int>(DebugMsgId::INTERPRETER_ASSIGNMENT_SUCCESS)] = {
+        "[INTERPRETER_ASSIGN] Assignment completed successfully: %s",
+        "[INTERPRETER_ASSIGN] 代入完了: %s"};
+    messages[static_cast<int>(DebugMsgId::INTERPRETER_MULTIPLE_VAR_DECL_EXEC)] =
+        {"[INTERPRETER_MULTIPLE_VAR] Executing multiple variable declaration",
+         "[INTERPRETER_MULTIPLE_VAR] 複数変数宣言実行"};
+    messages[static_cast<int>(DebugMsgId::INTERPRETER_ARRAY_DECL_EXEC)] = {
+        "[INTERPRETER_ARRAY] Executing array declaration: %s",
+        "[INTERPRETER_ARRAY] 配列宣言実行: %s"};
+    messages[static_cast<int>(DebugMsgId::INTERPRETER_IF_STMT_START)] = {
+        "[INTERPRETER_IF] Starting if statement execution",
+        "[INTERPRETER_IF] if文実行開始"};
+    messages[static_cast<int>(DebugMsgId::INTERPRETER_IF_CONDITION_RESULT)] = {
+        "[INTERPRETER_IF] Condition result: %lld",
+        "[INTERPRETER_IF] 条件結果: %lld"};
+    messages[static_cast<int>(DebugMsgId::INTERPRETER_IF_THEN_EXEC)] = {
+        "[INTERPRETER_IF] Executing then branch",
+        "[INTERPRETER_IF] then分岐実行"};
+    messages[static_cast<int>(DebugMsgId::INTERPRETER_IF_ELSE_EXEC)] = {
+        "[INTERPRETER_IF] Executing else branch",
+        "[INTERPRETER_IF] else分岐実行"};
+    messages[static_cast<int>(DebugMsgId::INTERPRETER_IF_STMT_END)] = {
+        "[INTERPRETER_IF] If statement execution complete",
+        "[INTERPRETER_IF] if文実行完了"};
+    messages[static_cast<int>(DebugMsgId::INTERPRETER_WHILE_STMT_START)] = {
+        "[INTERPRETER_WHILE] While loop start",
+        "[INTERPRETER_WHILE] whileループ開始"};
+    messages[static_cast<int>(DebugMsgId::INTERPRETER_WHILE_CONDITION_CHECK)] =
+        {"[INTERPRETER_WHILE] Condition check iteration: %d",
+         "[INTERPRETER_WHILE] 条件チェック回数: %d"};
+    messages[static_cast<int>(DebugMsgId::INTERPRETER_WHILE_CONDITION_RESULT)] =
+        {"[INTERPRETER_WHILE] Condition result: %lld",
+         "[INTERPRETER_WHILE] 条件結果: %lld"};
+    messages[static_cast<int>(DebugMsgId::INTERPRETER_WHILE_BODY_EXEC)] = {
+        "[INTERPRETER_WHILE] Executing body iteration: %d",
+        "[INTERPRETER_WHILE] ボディ実行回数: %d"};
+    messages[static_cast<int>(DebugMsgId::INTERPRETER_WHILE_BREAK)] = {
+        "[INTERPRETER_WHILE] Break detected", "[INTERPRETER_WHILE] break検出"};
+    messages[static_cast<int>(DebugMsgId::INTERPRETER_WHILE_STMT_END)] = {
+        "[INTERPRETER_WHILE] While loop complete",
+        "[INTERPRETER_WHILE] whileループ完了"};
+    messages[static_cast<int>(DebugMsgId::INTERPRETER_FOR_STMT_START)] = {
+        "[INTERPRETER_FOR] For loop start", "[INTERPRETER_FOR] forループ開始"};
+    messages[static_cast<int>(DebugMsgId::INTERPRETER_FOR_INIT_EXEC)] = {
+        "[INTERPRETER_FOR] Executing initialization",
+        "[INTERPRETER_FOR] 初期化実行"};
+    messages[static_cast<int>(DebugMsgId::INTERPRETER_FOR_CONDITION_CHECK)] = {
+        "[INTERPRETER_FOR] Condition check iteration: %d",
+        "[INTERPRETER_FOR] 条件チェック回数: %d"};
+    messages[static_cast<int>(DebugMsgId::INTERPRETER_FOR_CONDITION_RESULT)] = {
+        "[INTERPRETER_FOR] Condition result: %lld",
+        "[INTERPRETER_FOR] 条件結果: %lld"};
+    messages[static_cast<int>(DebugMsgId::INTERPRETER_FOR_BODY_EXEC)] = {
+        "[INTERPRETER_FOR] Executing body iteration: %d",
+        "[INTERPRETER_FOR] ボディ実行回数: %d"};
+    messages[static_cast<int>(DebugMsgId::INTERPRETER_FOR_CONTINUE)] = {
+        "[INTERPRETER_FOR] Continue detected at iteration: %d",
+        "[INTERPRETER_FOR] continue検出 回数: %d"};
+    messages[static_cast<int>(DebugMsgId::INTERPRETER_FOR_UPDATE_EXEC)] = {
+        "[INTERPRETER_FOR] Executing update iteration: %d",
+        "[INTERPRETER_FOR] 更新実行回数: %d"};
+
+    // 式評価関連のメッセージ
+    messages[static_cast<int>(DebugMsgId::EXPR_EVAL_START)] = {
+        "[EXPR_EVAL] Starting expression evaluation: %s",
+        "[EXPR_EVAL] 式評価開始: %s"};
+    messages[static_cast<int>(DebugMsgId::EXPR_EVAL_STRING_LITERAL)] = {
+        "[EXPR_EVAL] String literal: %s", "[EXPR_EVAL] 文字列リテラル: %s"};
+    messages[static_cast<int>(DebugMsgId::EXPR_EVAL_VAR_NOT_FOUND)] = {
+        "[EXPR_EVAL] Variable not found: %s",
+        "[EXPR_EVAL] 変数が見つかりません: %s"};
+    messages[static_cast<int>(DebugMsgId::EXPR_EVAL_VAR_VALUE)] = {
+        "[EXPR_EVAL] Variable %s value: %lld",
+        "[EXPR_EVAL] 変数 %s の値: %lld"};
+    messages[static_cast<int>(
+        DebugMsgId::EXPR_EVAL_MULTIDIM_MEMBER_ARRAY_ACCESS)] = {
+        "[EXPR_EVAL] Multidimensional member array access",
+        "[EXPR_EVAL] 多次元メンバー配列アクセス"};
+    messages[static_cast<int>(DebugMsgId::EXPR_EVAL_MEMBER_ACCESS_DETAILS)] = {
+        "[EXPR_EVAL] Member access: object=%s, member=%s",
+        "[EXPR_EVAL] メンバーアクセス: オブジェクト=%s, メンバー=%s"};
+    messages[static_cast<int>(DebugMsgId::EXPR_EVAL_ARRAY_INDEX)] = {
+        "[EXPR_EVAL] Array index: %lld", "[EXPR_EVAL] 配列インデックス: %lld"};
+
+    // 既存のstructおよび式評価関連メッセージ
+    messages[static_cast<int>(DebugMsgId::STRUCT_DEF_STORE)] = {
+        "Struct definition stored: %s", "構造体定義保存: %s"};
+    messages[static_cast<int>(DebugMsgId::STRUCT_VAR_CREATE)] = {
+        "Struct variable created: %s", "構造体変数作成: %s"};
+    messages[static_cast<int>(DebugMsgId::STRUCT_MULTIDIM_ARRAY_CREATE)] = {
+        "Struct multidimensional array created", "構造体多次元配列作成"};
+    messages[static_cast<int>(DebugMsgId::STRUCT_ARRAY_MEMBER_CREATE)] = {
+        "Struct array member created: %s", "構造体配列メンバー作成: %s"};
+    messages[static_cast<int>(DebugMsgId::STRUCT_REGULAR_MEMBER_CREATE)] = {
+        "Struct regular member created: %s", "構造体通常メンバー作成: %s"};
+
+    // 式評価の追加メッセージ
+    messages[static_cast<int>(DebugMsgId::EXPR_EVAL_STRUCT_MEMBER)] = {
+        "[INTERPRETER_STRUCT] Struct member evaluation: %s",
+        "[INTERPRETER_STRUCT] 構造体メンバー評価: %s"};
+    messages[static_cast<int>(DebugMsgId::EXPR_EVAL_MULTIDIM_ACCESS)] = {
+        "[INTERPRETER_ARRAY] Multidimensional access evaluation",
+        "[INTERPRETER_ARRAY] 多次元アクセス評価"};
+    messages[static_cast<int>(DebugMsgId::EXPR_EVAL_CONDITION_FAILED)] = {
+        "Expression evaluation condition failed", "式評価条件失敗"};
+    messages[static_cast<int>(DebugMsgId::VARIABLE_ACCESS_ERROR)] = {
+        "Variable access error: %s", "変数アクセスエラー: %s"};
+
+    // print関連の追加メッセージ
+    messages[static_cast<int>(DebugMsgId::PRINT_NO_ARGUMENTS)] = {
+        "Print with no arguments", "引数なしのprint"};
 
     // 他の未設定のメッセージにはデフォルト値を設定
     for (size_t i = 0; i < messages.size(); ++i) {

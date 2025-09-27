@@ -1,0 +1,31 @@
+// typedef配列を返す関数のテストケース
+const int TEN = 10;
+typedef int[TEN] Array;
+
+Array ten(int n) {
+    Array result;
+    for (int i = 0; i < TEN; i++) {
+        result[i] = n;
+    }
+    return result;
+}
+
+int main() {
+    Array result = ten(8);
+    
+    // 戻り値の配列内容の値検証
+    for (int i = 0; i < TEN; i++) {
+        if (result[i] != 8) {
+            println("ERROR: result[%d] should be 8, got %d", i, result[i]);
+            return 1;
+        }
+    }
+    
+    // 戻り値の配列内容を確認
+    for (int i = 0; i < TEN; i++) {
+        println("%d %d", i, result[i]);
+    }
+    
+    println("Typedef array return test passed");
+    return 0;
+}

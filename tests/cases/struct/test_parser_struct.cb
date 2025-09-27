@@ -1,0 +1,8 @@
+// パーサーテスト：構造体宣言のみ
+struct Matrix2x2 {
+    int[2][2] data;
+};
+
+int main() {
+    return 0;
+}

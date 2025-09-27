@@ -1,0 +1,12 @@
+// Basic struct typedef test
+typedef struct {
+    int x;
+    int y;
+} Point;
+
+int main() {
+    Point p1 = {10, 20};
+    println("Point:", p1.x, p1.y);
+    println("Basic struct typedef test passed");
+    return 0;
+}

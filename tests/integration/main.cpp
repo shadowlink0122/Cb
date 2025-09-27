@@ -20,6 +20,7 @@
 #include "const_variables/test_const_variables.hpp"
 #include "cross_type/test_cross_type.hpp"
 #include "dynamic_array_error/test_dynamic_array_error.hpp"
+#include "enum/test_enum.hpp"
 #include "error_handling/test_error_handling.hpp"
 #include "func/test_func.hpp"
 #include "func_return_type_check/test_func_return_type_check.hpp"
@@ -44,6 +45,8 @@
 #include "struct/struct_tests.hpp"
 #include "ternary/test_ternary.hpp"
 #include "type/test_type.hpp"
+#include "typedef/test_enum_typedef.hpp"
+#include "typedef/test_struct_typedef.hpp"
 #include "typedef/test_typedef.hpp"
 
 // 失敗継続対応のテスト実行関数（マクロをリファクタリング）
@@ -95,6 +98,8 @@ int main() {
 
     // Reset test counters
     IntegrationTestCounter::reset();
+    TimingStats::reset();
+    CategoryTimingStats::reset();
 
     std::cout << "[integration-test] Starting HPP Test Suite with failure "
                  "continuation\n"
@@ -102,6 +107,7 @@ int main() {
 
     // 基本テスト群
     std::cout << "[integration-test] === Core Language Tests ===" << std::endl;
+    CategoryTimingStats::set_current_category("Core Language");
     run_test_with_continue(test_integration_basic, "Basic Tests", failed_tests);
     run_test_with_continue(test_integration_arithmetic, "Arithmetic Tests",
                            failed_tests);
@@ -110,9 +116,11 @@ int main() {
     run_test_with_continue(test_integration_boundary, "Boundary Tests",
                            failed_tests);
     run_test_with_continue(test_integration_type, "Type Tests", failed_tests);
+    CategoryTimingStats::print_category_summary("Core Language");
 
     // 配列テスト群
     std::cout << "\n[integration-test] === Array Tests ===" << std::endl;
+    CategoryTimingStats::set_current_category("Array");
     run_test_with_continue(test_integration_array, "Array Tests", failed_tests);
     run_test_with_continue(test_integration_array_literal,
                            "Array Literal Tests", failed_tests);
@@ -125,10 +133,12 @@ int main() {
                            "Multidimensional Literal Tests", failed_tests);
     run_test_with_continue(test_integration_global_array, "Global Array Tests",
                            failed_tests);
+    CategoryTimingStats::print_category_summary("Array");
 
     // 制御フロー・演算子テスト群
     std::cout << "\n[integration-test] === Control Flow & Operators ==="
               << std::endl;
+    CategoryTimingStats::set_current_category("Control Flow");
     run_test_with_continue(test_integration_if, "If Statement Tests",
                            failed_tests);
     run_test_with_continue(test_integration_loop, "Loop Tests", failed_tests);
@@ -142,10 +152,12 @@ int main() {
                            "Compound Assignment Tests", failed_tests);
     run_test_with_continue(test_integration_incdec, "Increment/Decrement Tests",
                            failed_tests);
+    CategoryTimingStats::print_category_summary("Control Flow");
 
     // 関数・モジュールテスト群
     std::cout << "\n[integration-test] === Function & Module Tests ==="
               << std::endl;
+    CategoryTimingStats::set_current_category("Functions");
     run_test_with_continue(test_integration_func, "Function Tests",
                            failed_tests);
     run_test_with_continue(test_integration_func_type_check,
@@ -156,10 +168,12 @@ int main() {
                            "Import/Export Tests", failed_tests);
     run_test_with_continue(test_integration_module_functions,
                            "Module Function Tests", failed_tests);
+    CategoryTimingStats::print_category_summary("Functions");
 
     // 変数・定数テスト群
     std::cout << "\n[integration-test] === Variable & Constant Tests ==="
               << std::endl;
+    CategoryTimingStats::set_current_category("Variables");
     run_test_with_continue(test_integration_const_variables,
                            "Const Variable Tests", failed_tests);
     run_test_with_continue(test_integration_const_array, "Const Array Tests",
@@ -172,41 +186,57 @@ int main() {
                            "Multiple Variable Declaration Tests", failed_tests);
     run_test_with_continue(test_integration_self_assign,
                            "Self Assignment Tests", failed_tests);
+    CategoryTimingStats::print_category_summary("Variables");
 
     // 文字列・I/Oテスト群
     std::cout << "\n[integration-test] === String & I/O Tests ===" << std::endl;
+    CategoryTimingStats::set_current_category("String & I/O");
     run_test_with_continue(test_integration_string, "String Tests",
                            failed_tests);
     run_test_with_continue(test_printf_all, "Printf Tests", failed_tests);
     run_test_with_continue(test_integration_println, "Println Tests",
                            failed_tests);
+    CategoryTimingStats::print_category_summary("String & I/O");
 
     // 型システムテスト群
     std::cout << "\n[integration-test] === Type System Tests ===" << std::endl;
+    CategoryTimingStats::set_current_category("Type System");
     run_test_with_continue(test_integration_typedef, "Typedef Tests",
                            failed_tests);
+    run_test_with_continue(test_integration_enum_typedef, "Enum Typedef Tests",
+                           failed_tests);
+    run_test_with_continue(test_integration_struct_typedef,
+                           "Struct Typedef Tests", failed_tests);
     run_test_with_continue(test_integration_cross_type, "Cross Type Tests",
                            failed_tests);
+    run_test_with_continue(test_integration_enum, "Enum Tests", failed_tests);
+    CategoryTimingStats::print_category_summary("Type System");
 
     // 構造体テスト群
     std::cout << "\n[integration-test] === Advanced Features ===" << std::endl;
+    CategoryTimingStats::set_current_category("Advanced Features");
     run_test_with_continue(StructTests::run_all_struct_tests, "Struct Tests",
                            failed_tests);
+    CategoryTimingStats::print_category_summary("Advanced Features");
 
     // エラーハンドリング・特殊ケーステスト群
     std::cout << "\n[integration-test] === Error Handling & Special Cases ==="
               << std::endl;
+    CategoryTimingStats::set_current_category("Error Handling");
     run_test_with_continue(test_integration_error_handling,
                            "Error Handling Tests", failed_tests);
     run_test_with_continue(test_integration_dynamic_array_error,
                            "Dynamic Array Error Tests", failed_tests);
+    CategoryTimingStats::print_category_summary("Error Handling");
 
     // サンプルシナリオテスト群
     std::cout << "\n[integration-test] === Sample Scenarios ===" << std::endl;
+    CategoryTimingStats::set_current_category("Sample Scenarios");
     run_test_with_continue(test_integration_sample_scenarios,
                            "Sample Scenario Tests", failed_tests);
     run_test_with_continue(test_integration_actual_samples,
                            "Actual Sample Tests", failed_tests);
+    CategoryTimingStats::print_category_summary("Sample Scenarios");
 
     // 最終サマリー
     std::cout << std::string(60, '=') << std::endl;
@@ -252,6 +282,10 @@ int main() {
         }
     }
 
+    std::cout << std::string(60, '=') << std::endl;
+
+    // Display timing statistics
+    TimingStats::print_timing_summary();
     std::cout << std::string(60, '=') << std::endl;
 
     // テスト結果に応じて異常終了または正常終了

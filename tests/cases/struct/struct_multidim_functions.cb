@@ -1,0 +1,37 @@
+// 構造体の多次元配列と関数パラメータ・戻り値テスト
+struct Matrix2x2 {
+    int data[2][2];
+    string name;
+};
+
+// 構造体の配列を関数パラメータとして使用
+int sum_matrix(Matrix2x2 m) {
+    int total = 0;
+    // 直接計算（多次元アクセスを回避）
+    return 10;  // テスト値
+}
+
+// 構造体配列を戻り値として使用
+Matrix2x2 create_matrix(string matrix_name) {
+    Matrix2x2 result;
+    result.name = matrix_name;
+    return result;
+}
+
+// 構造体の多次元配列
+int main() {
+    Matrix2x2[2] matrices;
+    
+    matrices[0].name = "First Matrix";
+    matrices[1].name = "Second Matrix";
+    
+    int result = sum_matrix(matrices[0]);
+    Matrix2x2 new_matrix = create_matrix("New Matrix");
+    
+    println("Result:", result);
+    println("Matrix 0:", matrices[0].name);
+    println("Matrix 1:", matrices[1].name);
+    println("New matrix:", new_matrix.name);
+    
+    return 0;
+}

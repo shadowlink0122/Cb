@@ -1,0 +1,19 @@
+enum Status {
+    error = -1,
+    ok = 0,
+    warning = 1,
+    info
+};
+
+int main() {
+    int error_code = Status::error;  // -1
+    int success = Status::ok;        // 0  
+    int warn = Status::warning;      // 1
+    int information = Status::info;  // 2
+    
+    if (error_code < 0) {
+        return 1; // エラー状態
+    }
+    
+    return 0; // 成功
+}

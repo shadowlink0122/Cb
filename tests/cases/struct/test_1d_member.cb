@@ -1,0 +1,11 @@
+// 段階的テスト：1次元配列メンバ代入
+struct TestArray {
+    int[3] data;
+};
+
+int main() {
+    TestArray t;
+    t.data[0] = 10;
+    
+    return 0;
+}

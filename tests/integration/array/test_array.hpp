@@ -9,22 +9,25 @@ inline void test_integration_array() {
     const std::string test_file_literal = "../../tests/cases/array/literal.cb";
     
     // 基本的な配列テスト
-    run_cb_test_with_output(test_file_basic, 
+    double execution_time_basic;
+    run_cb_test_with_output_and_time(test_file_basic, 
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_EQ(0, exit_code, "Expected successful exit code for array basic test");
             // 出力に関する具体的なチェックが必要に応じて追加可能
-        });
-    integration_test_passed("array basic test", test_file_basic);
+        }, execution_time_basic);
+    integration_test_passed_with_time("array basic test", test_file_basic, execution_time_basic);
     
     // 配列代入テスト
-    run_cb_test_with_output(test_file_assign, 
+    double execution_time_assign;
+    run_cb_test_with_output_and_time(test_file_assign, 
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_EQ(0, exit_code, "Expected successful exit code for array assign test");
-        });
-    integration_test_passed("array assign test", test_file_assign);
+        }, execution_time_assign);
+    integration_test_passed_with_time("array assign test", test_file_assign, execution_time_assign);
     
-    // 配列境界テスト
-    run_cb_test_with_output(test_file_boundary, 
+    // 配列境界テスト (with timing)
+    double execution_time_boundary;
+    run_cb_test_with_output_and_time(test_file_boundary, 
         [](const std::string& output, int exit_code) {
             // 境界テストでエラーが期待される場合もある
             if (exit_code != 0) {
@@ -32,17 +35,18 @@ inline void test_integration_array() {
                                  contains(output, "エラー"), 
                                  "Expected boundary error message");
             }
-        });
+        }, execution_time_boundary);
     if (true) { // 境界エラーが期待される場合
-        integration_test_passed_with_error("array boundary test", test_file_boundary);
+        integration_test_passed_with_error_and_time("array boundary test", test_file_boundary, execution_time_boundary);
     } else {
-        integration_test_passed("array boundary test", test_file_boundary);
+        integration_test_passed_with_time("array boundary test", test_file_boundary, execution_time_boundary);
     }
     
-    // 配列リテラルテスト
-    run_cb_test_with_output(test_file_literal, 
+    // 配列リテラルテスト (with timing)
+    double execution_time_literal;
+    run_cb_test_with_output_and_time(test_file_literal, 
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_EQ(0, exit_code, "Expected successful exit code for array literal test");
-        });
-    integration_test_passed("array literal test", test_file_literal);
+        }, execution_time_literal);
+    integration_test_passed_with_time("array literal test", test_file_literal, execution_time_literal);
 }

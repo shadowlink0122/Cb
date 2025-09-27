@@ -1,0 +1,14 @@
+// 段階的テスト：基本的な構造体メンバアクセス
+struct Matrix2x2 {
+    int[2][2] data;
+    string name;
+};
+
+int main() {
+    Matrix2x2 m;
+    m.name = "Test";
+    
+    println("Matrix name:", m.name);
+    
+    return 0;
+}

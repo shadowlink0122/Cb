@@ -1,0 +1,20 @@
+// 段階的テスト：1次元配列メンバアクセス
+struct TestArray {
+    int[3] arr;
+    string name;
+};
+
+int main() {
+    TestArray t;
+    t.name = "Test";
+    t.arr[0] = 10;
+    t.arr[1] = 20;
+    t.arr[2] = 30;
+    
+    println("Array name:", t.name);
+    println("Element 0:", t.arr[0]);
+    println("Element 1:", t.arr[1]);
+    println("Element 2:", t.arr[2]);
+    
+    return 0;
+}

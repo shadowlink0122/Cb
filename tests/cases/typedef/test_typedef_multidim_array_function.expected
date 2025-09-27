@@ -1,0 +1,13 @@
+row[0] = 0
+row[1] = 1
+row[2] = 2
+row[3] = 3
+row[0] = 10
+row[1] = 11
+row[2] = 12
+row[3] = 13
+row[0] = 20
+row[1] = 21
+row[2] = 22
+row[3] = 23
+Typedef multidim array function test passed

@@ -58,6 +58,7 @@ enum class TokenType {
     TOK_LBRACKET,    // [
     TOK_RBRACKET,    // ]
     TOK_DOT,         // .
+    TOK_SCOPE,       // ::
     
     // Literals
     TOK_IDENTIFIER,
@@ -91,6 +92,7 @@ enum class TokenType {
     TOK_CONST,
     TOK_STATIC,
     TOK_STRUCT,
+    TOK_ENUM,
     
     // Special
     TOK_EOF,

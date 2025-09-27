@@ -1,0 +1,45 @@
+// 構造体関数引数の文字列処理テスト
+
+typedef struct {
+    int x;
+    int y;
+    string label;
+} Point;
+
+// 文字列引数のテスト
+Point createPointWithString(int x, int y, string label) {
+    println("Function received: x=%d, y=%d, label='%s'", x, y, label);
+    
+    Point p;
+    p.x = x;
+    p.y = y;
+    p.label = label;
+    
+    println("Point created: x=%d, y=%d, label='%s'", p.x, p.y, p.label);
+    
+    return p;
+}
+
+void printPointDebug(Point p) {
+    println("printPointDebug received:");
+    println("  x = %d", p.x);
+    println("  y = %d", p.y);
+    println("  label = '%s'", p.label);
+}
+
+int main() {
+    println("=== String Argument Test ===");
+    
+    // 直接文字列リテラルを渡す
+    Point p1 = createPointWithString(10, 20, "Direct String");
+    printPointDebug(p1);
+    
+    println("\n=== Variable String Test ===");
+    
+    // 文字列変数を渡す
+    string label_var = "Variable String";
+    Point p2 = createPointWithString(30, 40, label_var);
+    printPointDebug(p2);
+    
+    return 0;
+}
