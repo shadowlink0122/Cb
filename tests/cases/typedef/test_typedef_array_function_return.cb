@@ -13,9 +13,18 @@ Array ten(int n) {
 int main() {
     Array result = ten(8);
     
+    // 戻り値の値検証
     for (int i = 0; i < TEN; i++) {
-        println(i, result[i]);
+        if (result[i] != 8) {
+            println("ERROR: result[%d] should be 8, got %d", i, result[i]);
+            return 1;
+        }
     }
     
+    for (int i = 0; i < TEN; i++) {
+        println("%d %d", i, result[i]);
+    }
+    
+    println("Typedef array function return test passed");
     return 0;
 }

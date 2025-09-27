@@ -8,9 +8,24 @@ int main() {
         arr2[i] = arr1[i];
     }
     
+    // コピーされた値の検証
+    if (arr2[0] != 1) {
+        println("ERROR: arr2[0] should be 1, got %d", arr2[0]);
+        return 1;
+    }
+    if (arr2[1] != 2) {
+        println("ERROR: arr2[1] should be 2, got %d", arr2[1]);
+        return 1;
+    }
+    if (arr2[2] != 3) {
+        println("ERROR: arr2[2] should be 3, got %d", arr2[2]);
+        return 1;
+    }
+    
     print(arr2[0]);
     print(arr2[1]);
     print(arr2[2]);
     
+    println("Basic array copy test passed");
     return 0;
 }

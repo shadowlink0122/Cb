@@ -1,0 +1,18 @@
+// 単純なstruct定義テスト（typedef無し）
+// 新しい仕様では、これらは使用できないはず
+
+struct Point {
+    int x;
+    int y;
+};
+
+int main() {
+    // ❌ この宣言はエラーになるべき（typedef無しの構造体は使用不可）
+    Point p;
+    p.x = 10;
+    p.y = 20;
+    
+    println("Point: (%d, %d)", p.x, p.y);
+    
+    return 0;
+}

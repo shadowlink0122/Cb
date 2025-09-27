@@ -10,10 +10,20 @@ int main() {
         arr[i] = i * 2;
     }
     
-    // 配列内容確認
+    // 配列内容の値検証
     for (int i = 0; i < SIZE; i++) {
-        println(i, arr[i]);
+        int expected = i * 2;
+        if (arr[i] != expected) {
+            println("ERROR: arr[%d] should be %d, got %d", i, expected, arr[i]);
+            return 1;
+        }
     }
     
+    // 配列内容確認（出力は最後に）
+    for (int i = 0; i < SIZE; i++) {
+        println("%d %d", i, arr[i]);
+    }
+    
+    println("Typedef array constant test passed");
     return 0;
 }

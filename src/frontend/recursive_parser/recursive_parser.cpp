@@ -2705,42 +2705,10 @@ ASTNode* RecursiveParser::parseStructDeclaration() {
                 struct_def.add_member(member_name, member_type_info, base_type);
             }
             
-            // 旧式の配列宣言もサポート（int data[2][2];）
+            // 旧式の配列宣言をチェック（int data[2][2];）- エラーとして処理
             if (check(TokenType::TOK_LBRACKET)) {
-                // 既に新式で配列として処理されている場合はスキップ
-                if (dimensions.empty()) {
-                    std::vector<ArrayDimension> old_style_dimensions;
-                    
-                    // 多次元配列の各次元を解析
-                    while (check(TokenType::TOK_LBRACKET)) {
-                        advance(); // '[' をスキップ
-                        
-                        if (check(TokenType::TOK_NUMBER)) {
-                            int array_size = std::stoi(current_token_.value);
-                            advance(); // サイズをスキップ
-                            old_style_dimensions.push_back(ArrayDimension(array_size, false));
-                        } else if (check(TokenType::TOK_IDENTIFIER)) {
-                            std::string size_expr = current_token_.value;
-                            advance(); // 識別子をスキップ
-                            // 定数識別子として扱い、後でランタイムで解決
-                            old_style_dimensions.push_back(ArrayDimension(-1, true, size_expr));
-                        } else {
-                            error("Expected array size or constant identifier in struct member");
-                            return nullptr;
-                        }
-                        
-                        consume(TokenType::TOK_RBRACKET, "Expected ']' after array size");
-                    }
-                    
-                    // 旧式の配列メンバを追加
-                    TypeInfo member_type_info = getTypeInfoFromString(base_type);
-                    StructMember array_member(member_name, member_type_info, base_type);
-                    array_member.array_info = ArrayTypeInfo(member_type_info, old_style_dimensions);
-                    struct_def.members.push_back(array_member);
-                } else {
-                    error("Mixed array declaration styles not allowed");
-                    return nullptr;
-                }
+                error("Old-style array declaration is not supported in struct members. Use 'int[2][2] member_name;' instead of 'int member_name[2][2];'");
+                return nullptr;
             }
             
             if (check(TokenType::TOK_COMMA)) {

@@ -1,4 +1,12 @@
-// 構造体メンバの多次元配列と構造体配列の包括的テスト
+// 構造体戻り値とN次元配列のリグレッションテスト
+// このテストは今回の修正で対応した全機能が正常に動作することを保証します
+//
+// 対応機能:
+// 1. 構造体戻り値代入 (points[2] = create_point(5, 6))
+// 2. 構造体パラメータ関数呼び出し (add_coords(points[2]))
+// 3. N次元配列リテラル代入 (matrix.data = [10, 20, 30, 40])
+// 4. N次元配列アクセス (matrix.data[0][0], matrix.data[1][1])
+
 struct Point {
     int x;
     int y;
@@ -28,7 +36,7 @@ int main() {
     points[0] = {1, 2};
     points[1] = {3, 4};
 
-    for(tiny i = 0;i < 3;i++){
+    for(tiny i = 0; i < 3; i++){
         println("points[%d] = [%d, %d]", i, points[i].x, points[i].y);
     }
     
@@ -44,7 +52,7 @@ int main() {
     Matrix2x2 matrix;
     matrix.name = "Test Matrix";
     
-    // 個別要素代入
+    // N次元配列リテラル代入
     matrix.data = [10, 20, 30, 40];
     
     println("Point sums:", sum1, sum2, sum3);

@@ -8,14 +8,43 @@ struct Person {
 int main() {
     // 名前付き初期化
     Person p1 = {name: "Alice", age: 25, height: 165};
+    
+    // Verify named initialization
+    if (p1.age != 25) {
+        println("ERROR: p1.age should be 25, got %d", p1.age);
+        return 1;
+    }
+    
+    if (p1.height != 165) {
+        println("ERROR: p1.height should be 165, got %d", p1.height);
+        return 1;
+    }
+    
     println("Person 1: %s, %d years old, %d cm", p1.name, p1.age, p1.height);
     
     // 位置ベース初期化
     Person p2 = {"Bob", 30, 180};
+    
+    // Verify positional initialization
+    if (p2.age != 30) {
+        println("ERROR: p2.age should be 30, got %d", p2.age);
+        return 1;
+    }
+    
+    if (p2.height != 180) {
+        println("ERROR: p2.height should be 180, got %d", p2.height);
+        return 1;
+    }
+    
     println("Person 2: %s, %d years old, %d cm", p2.name, p2.age, p2.height);
     
-    // 期待される出力:
-    // Person 1: Alice, 25 years old, 165 cm
-    // Person 2: Bob, 30 years old, 180 cm
+    // Test member access and modification
+    p1.age = p1.age + 1;
+    if (p1.age != 26) {
+        println("ERROR: After increment, p1.age should be 26, got %d", p1.age);
+        return 1;
+    }
+    
+    println("Struct literal test passed");
     return 0;
 }

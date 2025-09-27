@@ -1,0 +1,43 @@
+// N次元配列の拡張機能テスト
+// 2次元以上の配列に対する汎用的なサポートをテストします
+
+struct Matrix3D {
+    int[2][2][2] data;
+    string name;
+};
+
+struct Matrix4D {
+    int[2][2][2][2] data;
+    string description;
+};
+
+int main() {
+    println("=== N次元配列拡張テスト ===");
+    
+    // 3次元配列テスト
+    println("3次元配列テスト:");
+    Matrix3D cube;
+    cube.name = "3D Cube";
+    cube.data = [[[1, 2], [3, 4]], [[5, 6], [7, 8]]];
+    
+    println("  %s:", cube.name);
+    println("  [0][0][0] = %d", cube.data[0][0][0]);
+    println("  [0][0][1] = %d", cube.data[0][0][1]);
+    println("  [0][1][0] = %d", cube.data[0][1][0]);
+    println("  [1][1][1] = %d", cube.data[1][1][1]);
+    
+    // 4次元配列テスト（より複雑な次元構成）
+    println("4次元配列テスト:");
+    Matrix4D hyper;
+    hyper.description = "4D Matrix [2][2][2][2]";
+    hyper.data = [[[[10, 20], [30, 40]], [[50, 60], [70, 80]]], [[[11, 21], [31, 41]], [[51, 61], [71, 81]]]];
+    
+    println("  %s:", hyper.description);
+    println("  [0][0][0][0] = %d", hyper.data[0][0][0][0]);
+    println("  [0][0][0][1] = %d", hyper.data[0][0][0][1]);
+    println("  [1][1][1][0] = %d", hyper.data[1][1][1][0]);
+    println("  [1][1][1][1] = %d", hyper.data[1][1][1][1]);
+    
+    println("N次元配列テスト完了");
+    return 0;
+}

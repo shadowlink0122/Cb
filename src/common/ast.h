@@ -314,8 +314,12 @@ struct ASTNode {
     std::string enum_member;        // enumメンバー名 (Job::a の a部分)
     EnumDefinition enum_definition; // enum定義情報（AST_ENUM_DECLノード用）
 
-    // コンストラクタ
-    ASTNode(ASTNodeType type) : node_type(type), type_info(TYPE_INT) {}
+    // コンストラクタ - 全フィールドの明示的初期化
+    ASTNode(ASTNodeType type)
+        : node_type(type), type_info(TYPE_INT), is_const(false),
+          is_static(false), is_array(false), is_array_return(false),
+          int_value(0), array_size(-1), is_exported(false),
+          is_qualified_call(false) {}
 
     // デストラクタは自動管理（unique_ptr使用）
     virtual ~ASTNode() = default;

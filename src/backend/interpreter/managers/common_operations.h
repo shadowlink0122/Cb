@@ -83,4 +83,8 @@ class CommonOperations {
     // 内部ヘルパー関数
     TypeInfo infer_array_element_type(const ASTNode *literal_node);
     void validate_array_literal_consistency(const ASTNode *literal_node);
+    void flatten_array_literal(const ASTNode *literal_node, 
+                               std::vector<int64_t> &flattened_values,
+                               std::vector<std::string> &flattened_strings,
+                               bool is_string_array);
 };

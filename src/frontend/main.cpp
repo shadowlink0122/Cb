@@ -100,7 +100,8 @@ int main(int argc, char **argv) {
 
         interpreter.process(root);
 
-        delete root;
+        // ASTは実行完了まで保持（delete root; を削除）
+        // インタープリターが内部でASTNode*を参照している間は削除しない
 
     } catch (const DetailedErrorException &e) {
         // 詳細なエラー表示は既に完了しているので何もしない

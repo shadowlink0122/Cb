@@ -1,5 +1,6 @@
 #include "managers/array_manager.h"
 #include "core/interpreter.h" // Variable の定義のため
+#include "managers/type_manager.h" // TypeManager の定義のため
 #include "../../../common/debug_messages.h"
 #include "../../../common/type_alias.h"
 #include "core/error_handler.h"
@@ -448,11 +449,15 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
     if (node->type_info == TYPE_STRUCT && var.array_size > 0) {
         debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
                   "Initializing struct array elements");
+        debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
+                  ("Struct array: " + node->name + ", size: " + std::to_string(var.array_size)).c_str());
 
         const StructDefinition *struct_def =
             variable_manager_->getInterpreter()->find_struct_definition(
-                node->type_name);
+                variable_manager_->getInterpreter()->type_manager_->resolve_typedef(node->type_name));
         if (!struct_def) {
+            debug_msg(DebugMsgId::INTERPRETER_VAR_NOT_FOUND,
+                      ("Struct definition not found: " + node->type_name).c_str());
             throw std::runtime_error("Struct definition not found: " +
                                      node->type_name);
         }
@@ -466,10 +471,30 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
             debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
                       ("Creating struct element: " + element_name).c_str());
 
-            // struct要素変数を作成
-            Variable struct_element(node->type_name);
+            // struct要素変数を作成 - 完全な初期化
+            Variable struct_element;
+            // 基本フィールドの明示的初期化
+            struct_element.type = TYPE_STRUCT;
             struct_element.is_struct = true;
             struct_element.struct_type_name = node->type_name;
+            struct_element.is_assigned = false;
+            struct_element.is_array = false;
+            struct_element.is_multidimensional = false;
+            struct_element.is_const = false;
+            struct_element.array_size = 0;
+            struct_element.value = 0;
+            struct_element.str_value = "";
+            
+            // コンテナの明示的初期化
+            struct_element.struct_members.clear();
+            struct_element.array_values.clear();
+            struct_element.array_strings.clear();
+            struct_element.array_dimensions.clear();
+            struct_element.multidim_array_values.clear();
+            struct_element.multidim_array_strings.clear();
+            
+            debug_msg(DebugMsgId::INTERPRETER_STRUCT_REGISTERED,
+                      element_name.c_str(), node->type_name.c_str());
 
             // メンバーを初期化
             for (const auto &member : struct_def->members) {
@@ -669,14 +694,42 @@ int64_t ArrayManager::getMultidimensionalArrayElement(
         int_indices.push_back(static_cast<int>(idx));
     }
 
-    int flat_index = var.calculate_flat_index(int_indices);
+    // 構造体メンバーの場合は array_dimensions を使用してフラットインデックスを計算
+    int flat_index;
+    if (!var.array_dimensions.empty()) {
+        // 構造体メンバーの場合
+        if (indices.size() != var.array_dimensions.size()) {
+            throw std::runtime_error("Dimension mismatch in struct member array access");
+        }
+
+        flat_index = 0;
+        int multiplier = 1;
+
+        // 最後の次元から計算（row-major order）
+        for (int i = static_cast<int>(indices.size()) - 1; i >= 0; --i) {
+            if (int_indices[i] < 0 || int_indices[i] >= static_cast<int>(var.array_dimensions[i])) {
+                throw std::runtime_error("Array index out of bounds in struct member access");
+            }
+            flat_index += int_indices[i] * multiplier;
+            multiplier *= static_cast<int>(var.array_dimensions[i]);
+        }
+        
+    } else {
+        // 通常の配列の場合
+        flat_index = var.calculate_flat_index(int_indices);
+    }
 
     if (var.array_type_info.base_type == TYPE_STRING) {
         // 文字列配列の場合、文字列を数値として扱うのは適切でない
         throw std::runtime_error("Cannot get string array element as integer");
     }
 
-    return var.multidim_array_values[flat_index];
+    if (flat_index >= 0 && flat_index < static_cast<int>(var.multidim_array_values.size())) {
+        int64_t value = var.multidim_array_values[flat_index];
+        return value;
+    } else {
+        throw std::runtime_error("Array index out of bounds: flat_index=" + std::to_string(flat_index));
+    }
 }
 
 void ArrayManager::setMultidimensionalArrayElement(
@@ -696,7 +749,31 @@ void ArrayManager::setMultidimensionalArrayElement(
         int_indices.push_back(static_cast<int>(idx));
     }
 
-    int flat_index = var.calculate_flat_index(int_indices);
+    // 構造体メンバーの場合は array_dimensions を使用してフラットインデックスを計算
+    int flat_index;
+    if (!var.array_dimensions.empty()) {
+        // 構造体メンバーの場合
+        if (indices.size() != var.array_dimensions.size()) {
+            throw std::runtime_error("Dimension mismatch in struct member array access");
+        }
+
+        flat_index = 0;
+        int multiplier = 1;
+
+        // 最後の次元から計算（row-major order）
+        for (int i = static_cast<int>(indices.size()) - 1; i >= 0; --i) {
+            if (int_indices[i] < 0 || int_indices[i] >= static_cast<int>(var.array_dimensions[i])) {
+                throw std::runtime_error("Array index out of bounds in struct member access");
+            }
+            flat_index += int_indices[i] * multiplier;
+            multiplier *= static_cast<int>(var.array_dimensions[i]);
+        }
+        
+        debug_msg(DebugMsgId::FLAT_INDEX_CALCULATED, flat_index);
+    } else {
+        // 通常の配列の場合
+        flat_index = var.calculate_flat_index(int_indices);
+    }
 
     if (var.array_type_info.base_type == TYPE_STRING) {
         throw std::runtime_error(
@@ -717,7 +794,29 @@ std::string ArrayManager::getMultidimensionalStringArrayElement(
         int_indices.push_back(static_cast<int>(idx));
     }
 
-    int flat_index = var.calculate_flat_index(int_indices);
+    // 構造体メンバーの場合は array_dimensions を使用してフラットインデックスを計算
+    int flat_index;
+    if (!var.array_dimensions.empty()) {
+        // 構造体メンバーの場合
+        if (indices.size() != var.array_dimensions.size()) {
+            throw std::runtime_error("Dimension mismatch in struct member array access");
+        }
+
+        flat_index = 0;
+        int multiplier = 1;
+
+        // 最後の次元から計算（row-major order）
+        for (int i = static_cast<int>(indices.size()) - 1; i >= 0; --i) {
+            if (int_indices[i] < 0 || int_indices[i] >= static_cast<int>(var.array_dimensions[i])) {
+                throw std::runtime_error("Array index out of bounds in struct member access");
+            }
+            flat_index += int_indices[i] * multiplier;
+            multiplier *= static_cast<int>(var.array_dimensions[i]);
+        }
+    } else {
+        // 通常の配列の場合
+        flat_index = var.calculate_flat_index(int_indices);
+    }
 
     if (var.array_type_info.base_type != TYPE_STRING) {
         throw std::runtime_error(
@@ -745,7 +844,29 @@ void ArrayManager::setMultidimensionalStringArrayElement(
         int_indices.push_back(static_cast<int>(idx));
     }
 
-    int flat_index = var.calculate_flat_index(int_indices);
+    // 構造体メンバーの場合は array_dimensions を使用してフラットインデックスを計算
+    int flat_index;
+    if (!var.array_dimensions.empty()) {
+        // 構造体メンバーの場合
+        if (indices.size() != var.array_dimensions.size()) {
+            throw std::runtime_error("Dimension mismatch in struct member array access");
+        }
+
+        flat_index = 0;
+        int multiplier = 1;
+
+        // 最後の次元から計算（row-major order）
+        for (int i = static_cast<int>(indices.size()) - 1; i >= 0; --i) {
+            if (int_indices[i] < 0 || int_indices[i] >= static_cast<int>(var.array_dimensions[i])) {
+                throw std::runtime_error("Array index out of bounds in struct member access");
+            }
+            flat_index += int_indices[i] * multiplier;
+            multiplier *= static_cast<int>(var.array_dimensions[i]);
+        }
+    } else {
+        // 通常の配列の場合
+        flat_index = var.calculate_flat_index(int_indices);
+    }
 
     if (var.array_type_info.base_type != TYPE_STRING) {
         throw std::runtime_error(
@@ -960,7 +1081,7 @@ void ArrayManager::declare_array(const ASTNode *node) {
 
             const StructDefinition *struct_def =
                 variable_manager_->getInterpreter()->find_struct_definition(
-                    node->type_name);
+                    variable_manager_->getInterpreter()->type_manager_->resolve_typedef(node->type_name));
             if (!struct_def) {
                 throw std::runtime_error("Struct definition not found: " +
                                          node->type_name);

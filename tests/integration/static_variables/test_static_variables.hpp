@@ -9,7 +9,7 @@ void test_integration_static_variables() {
     run_cb_test_with_output_and_time_auto("../cases/static_variables/basic_static.cb", 
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_EQ(0, exit_code, "basic_static.cb should execute successfully");
-            INTEGRATION_ASSERT_EQ("1\n2\n3\n4\n5\n", output, "basic static variable test output");
+            INTEGRATION_ASSERT_EQ("1\n2\n3\n4\n5\nBasic static test passed\n", output, "basic static variable test output");
         });
     integration_test_passed_with_time_auto("basic static variable", "basic_static.cb");
     
@@ -33,7 +33,7 @@ void test_integration_static_variables() {
     run_cb_test_with_output_and_time_auto("../cases/static_variables/different_types.cb", 
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_EQ(0, exit_code, "different_types.cb should execute successfully");
-            INTEGRATION_ASSERT_EQ("42\n1\n3\n43\n0\n4\n44\n1\n5\n", output, "different data types test output");
+            INTEGRATION_ASSERT_EQ("42\n1\n3\n43\n0\n4\n44\n1\n5\nDifferent types static test passed\n", output, "different data types test output");
         });
     integration_test_passed_with_time_auto("different data types", "different_types.cb");
     

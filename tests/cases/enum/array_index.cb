@@ -13,9 +13,30 @@ int main() {
     int test_d = Job::d;  // 10
     int test_e = Job::e;  // 11
     
+    // Verify enum values
+    if (test_c != 2) {
+        println("ERROR: Job::c should be 2, got %d", test_c);
+        return 1;
+    }
+    
+    if (test_e != 11) {
+        println("ERROR: Job::e should be 11, got %d", test_e);
+        return 1;
+    }
+    
     // 配列インデックスとしてenumを使用
     int[5] numbers = [100, 200, 300, 400, 500];
     int value = numbers[Job::c]; // numbers[2] = 300
+    
+    // Verify enum used as array index
+    if (value != 300) {
+        println("ERROR: numbers[Job::c] should be 300, got %d", value);
+        return 1;
+    }
+    
+    println("Enum values: a=%d, b=%d, c=%d, d=%d, e=%d", test_a, test_b, test_c, test_d, test_e);
+    println("Array access with enum: numbers[Job::c] = %d", value);
+    println("Enum array index test passed");
     
     return Job::e;  // 11を返す
 }

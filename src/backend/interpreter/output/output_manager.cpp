@@ -144,14 +144,40 @@ void OutputManager::print_value(const ASTNode *expr) {
             var_name = expr->name;
         } else if (expr->left) {
             // 複雑な左側の式（多次元配列アクセスなど）
-            // 多次元配列の文字列アクセスかチェック
+            // まず構造体メンバーの多次元配列アクセスをチェック
             if (expr->left->node_type == ASTNodeType::AST_ARRAY_REF) {
                 ASTNode* base_node = expr->left.get();
                 while (base_node && base_node->node_type == ASTNodeType::AST_ARRAY_REF && base_node->left) {
                     base_node = base_node->left.get();
                 }
                 
-                if (base_node && base_node->node_type == ASTNodeType::AST_VARIABLE) {
+                // 構造体メンバーの多次元配列アクセス: test.data[0][0]
+                if (base_node && base_node->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
+                    debug_msg(DebugMsgId::PRINTF_ARRAY_REF_DEBUG, "struct member multidim access");
+                    
+                    std::string obj_name = base_node->left->name;
+                    std::string member_name = base_node->name;
+                    
+                    // 多次元インデックスを収集
+                    std::vector<int64_t> indices;
+                    const ASTNode* current_node = expr;
+                    while (current_node && current_node->node_type == ASTNodeType::AST_ARRAY_REF) {
+                        int64_t index = evaluate_expression(current_node->array_index.get());
+                        indices.insert(indices.begin(), index); // 先頭に挿入（逆順になるため）
+                        current_node = current_node->left.get();
+                    }
+                    
+                    try {
+                        int64_t value = interpreter_->get_struct_member_multidim_array_element(obj_name, member_name, indices);
+                        io_interface_->write_number(value);
+                        return;
+                    } catch (const std::exception& e) {
+                        io_interface_->write_string("(struct member multidim access error)");
+                        return;
+                    }
+                }
+                // 通常の多次元配列の文字列アクセスをチェック
+                else if (base_node && base_node->node_type == ASTNodeType::AST_VARIABLE) {
                     Variable* var = find_variable(base_node->name);
                     if (var && var->is_multidimensional && var->array_type_info.base_type == TYPE_STRING) {
                         // 多次元文字列配列の場合は専用処理
@@ -647,8 +673,45 @@ void OutputManager::print_formatted(const ASTNode *format_str, const ASTNode *ar
             } else if (arg->node_type == ASTNodeType::AST_ARRAY_REF) {
                 // 配列要素の処理
                 
-                // まず、構造体メンバー配列アクセスかどうかチェック
-                if (arg->left && arg->left->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
+                // まず、多次元構造体メンバー配列アクセスかどうかチェック（test.data[i][j]）
+                if (arg->left && arg->left->node_type == ASTNodeType::AST_ARRAY_REF) {
+                    // 基底ノードを探して、構造体メンバーアクセスかチェック
+                    ASTNode* base_node = arg->left.get();
+                    while (base_node && base_node->node_type == ASTNodeType::AST_ARRAY_REF && base_node->left) {
+                        base_node = base_node->left.get();
+                    }
+                    
+                    if (base_node && base_node->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
+                        // 構造体メンバーの多次元配列アクセス: test.data[i][j]
+                        std::string obj_name = base_node->left->name;
+                        std::string member_name = base_node->name;
+                        
+                        // 多次元インデックスを収集
+                        std::vector<int64_t> indices;
+                        const ASTNode* current_node = arg.get();
+                        while (current_node && current_node->node_type == ASTNodeType::AST_ARRAY_REF) {
+                            int64_t index = evaluate_expression(current_node->array_index.get());
+                            indices.insert(indices.begin(), index); // 先頭に挿入（逆順になるため）
+                            current_node = current_node->left.get();
+                        }
+                        
+                        try {
+                            int64_t value = interpreter_->get_struct_member_multidim_array_element(obj_name, member_name, indices);
+                            int_args.push_back(value);
+                            str_args.push_back(""); // プレースホルダー
+                        } catch (const std::exception& e) {
+                            int_args.push_back(0);
+                            str_args.push_back("");
+                        }
+                    } else {
+                        // 通常の多次元配列アクセス
+                        int64_t value = evaluate_expression(arg.get());
+                        int_args.push_back(value);
+                        str_args.push_back(""); // プレースホルダー
+                    }
+                }
+                // 構造体メンバー配列アクセスかどうかチェック（obj.member[index]）
+                else if (arg->left && arg->left->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
                     // 構造体メンバー配列アクセス: obj.member[index]
                     std::string obj_name = arg->left->left->name;
                     std::string member_name = arg->left->name;

@@ -13,5 +13,33 @@ int main() {
     int test_d = Job::d;  // 10
     int test_e = Job::e;  // 11
     
+    // Verify enum value assignments
+    if (test_a != 0) {
+        println("ERROR: Job::a should be 0, got %d", test_a);
+        return 1;
+    }
+    
+    if (test_b != 1) {
+        println("ERROR: Job::b should be 1, got %d", test_b);
+        return 1;
+    }
+    
+    if (test_c != 2) {
+        println("ERROR: Job::c should be 2, got %d", test_c);
+        return 1;
+    }
+    
+    if (test_d != 10) {
+        println("ERROR: Job::d should be 10, got %d", test_d);
+        return 1;
+    }
+    
+    if (test_e != 11) {
+        println("ERROR: Job::e should be 11, got %d", test_e);
+        return 1;
+    }
+    
+    println("Basic enum values: a=%d, b=%d, c=%d, d=%d, e=%d", test_a, test_b, test_c, test_d, test_e);
+    println("Basic enum test passed");
     return 0;
 }

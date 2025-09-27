@@ -6,8 +6,23 @@ int main() {
     int id = 12345;
     string name = "Alice";
     
+    // Verify variable assignments
+    if (id != 12345) {
+        println("ERROR: id should be 12345, got %d", id);
+        return 1;
+    }
+    
     println("User ID: %d", id);
     println("User Name: %s", name);
     
+    // Test modification
+    id = id + 1;
+    if (id != 12346) {
+        println("ERROR: After increment, id should be 12346, got %d", id);
+        return 1;
+    }
+    
+    println("Updated User ID: %d", id);
+    println("Basic typedef test passed");
     return 0;
 }

@@ -11,9 +11,44 @@ int main() {
     int result3 = Math::base - Math::offset;          // 5 - 2 = 3
     int result4 = Math::multiplier * Math::offset;    // 3 * 2 = 6
     
+    // Verify arithmetic operations with enum values
+    if (result1 != 7) {
+        println("ERROR: Math::base + Math::offset should be 7, got %d", result1);
+        return 1;
+    }
+    
+    if (result2 != 15) {
+        println("ERROR: Math::base * Math::multiplier should be 15, got %d", result2);
+        return 1;
+    }
+    
+    if (result3 != 3) {
+        println("ERROR: Math::base - Math::offset should be 3, got %d", result3);
+        return 1;
+    }
+    
+    if (result4 != 6) {
+        println("ERROR: Math::multiplier * Math::offset should be 6, got %d", result4);
+        return 1;
+    }
+    
     // 比較演算での使用
     bool is_greater = Math::base > Math::offset;      // true
     bool is_equal = Math::multiplier == Math::offset; // false
     
+    // Verify comparison operations with enum values
+    if (!is_greater) {
+        println("ERROR: Math::base > Math::offset should be true");
+        return 1;
+    }
+    
+    if (is_equal) {
+        println("ERROR: Math::multiplier == Math::offset should be false");
+        return 1;
+    }
+    
+    println("Arithmetic results: %d, %d, %d, %d", result1, result2, result3, result4);
+    println("Comparison results: is_greater=%d, is_equal=%d", is_greater, is_equal);
+    println("Enum arithmetic test passed");
     return 0;
 }

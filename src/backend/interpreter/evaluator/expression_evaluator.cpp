@@ -15,9 +15,12 @@ ExpressionEvaluator::ExpressionEvaluator(Interpreter& interpreter)
 
 int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
     if (!node) {
-        std::cerr << "[ERROR] Null node in expression evaluation" << std::endl;
-        // スタックトレース的な情報を出力
-        std::cerr << "[ERROR] This usually means a parser error occurred" << std::endl;
+        debug_msg(DebugMsgId::EXPR_EVAL_START, "Null node in expression evaluation");
+        if (debug_mode) {
+            std::cerr << "[ERROR] Null node in expression evaluation" << std::endl;
+            // スタックトレース的な情報を出力
+            std::cerr << "[ERROR] This usually means a parser error occurred" << std::endl;
+        }
         throw std::runtime_error("Null node in expression evaluation");
     }
 
@@ -61,6 +64,19 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
     case ASTNodeType::AST_ARRAY_REF: {
         debug_msg(DebugMsgId::EXPR_EVAL_ARRAY_REF, node->name.c_str());
         
+        if (debug_mode) {
+            debug_print("AST_ARRAY_REF: Processing array access\n");
+            debug_print("  node->left exists: %s\n", node->left ? "true" : "false");
+            if (node->left) {
+                debug_print("  node->left->node_type: %d\n", static_cast<int>(node->left->node_type));
+                debug_print("  node->left has name: %s\n", !node->left->name.empty() ? node->left->name.c_str() : "empty");
+                if (node->left->left) {
+                    debug_print("  node->left->left->node_type: %d\n", static_cast<int>(node->left->left->node_type));
+                    debug_print("  node->left->left has name: %s\n", !node->left->left->name.empty() ? node->left->left->name.c_str() : "empty");
+                }
+            }
+        }
+        
         // 多次元メンバ配列アクセスの処理: obj.member[i][j]
         if (node->left && node->left->node_type == ASTNodeType::AST_ARRAY_REF &&
             node->left->left && node->left->left->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
@@ -71,22 +87,36 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
             std::string member_name = node->left->left->name;
             debug_msg(DebugMsgId::EXPR_EVAL_MEMBER_ACCESS_DETAILS, obj_name.c_str(), member_name.c_str());
             
-            // 多次元インデックスを収集
+            // 多次元インデックスを収集（一般化されたN次元対応）
             std::vector<int64_t> indices;
             
-            // 最初のインデックス (node->left->array_index) 
-            int64_t first_index = evaluate_expression(node->left->array_index.get());
-            indices.push_back(first_index);
-            debug_msg(DebugMsgId::EXPR_EVAL_ARRAY_INDEX, first_index);
+            // ネストした AST_ARRAY_REF から全てのインデックスを再帰的に収集
+            const ASTNode* current_node = node;
+            while (current_node && current_node->node_type == ASTNodeType::AST_ARRAY_REF) {
+                int64_t index = evaluate_expression(current_node->array_index.get());
+                indices.insert(indices.begin(), index); // 先頭に挿入（逆順になるため）
+                debug_msg(DebugMsgId::EXPR_EVAL_ARRAY_INDEX, index);
+                current_node = current_node->left.get();
+            }
             
-            // 現在のインデックス (node->array_index)
-            int64_t second_index = evaluate_expression(node->array_index.get());
-            indices.push_back(second_index);
+            if (debug_mode) {
+                debug_print("Collected %zu indices for multidimensional access\n", indices.size());
+                for (size_t i = 0; i < indices.size(); i++) {
+                    debug_print("  index[%zu] = %lld\n", i, indices[i]);
+                }
+            }
             
             // 構造体メンバー変数を取得
             Variable *member_var = interpreter_.get_struct_member(obj_name, member_name);
             if (!member_var) {
                 throw std::runtime_error("Struct member not found: " + member_name);
+            }
+            
+            if (debug_mode) {
+                debug_print("Member variable found: %s.%s\n", obj_name.c_str(), member_name.c_str());
+                debug_print("  is_multidimensional: %s\n", member_var->is_multidimensional ? "true" : "false");
+                debug_print("  array_dimensions.size(): %zu\n", member_var->array_dimensions.size());
+                debug_print("  indices.size(): %zu\n", indices.size());
             }
             
             debug_msg(DebugMsgId::EXPR_EVAL_STRUCT_MEMBER, member_name.c_str());
@@ -95,9 +125,12 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                       member_var->array_dimensions.size(),
                       indices.size());
             
-            // 多次元配列の場合
-            if (member_var->is_multidimensional && indices.size() > 1) {
-                return interpreter_.getMultidimensionalArrayElement(*member_var, indices);
+            // N次元配列の場合
+            if (member_var->is_multidimensional && indices.size() >= 1) {
+                if (debug_mode) {
+                    debug_print("Calling get_struct_member_multidim_array_element\n");
+                }
+                return interpreter_.get_struct_member_multidim_array_element(obj_name, member_name, indices);
             }
             
             if (debug_mode) {
@@ -527,20 +560,22 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                         // struct型パラメータかチェック
                         if (param->type_info == TYPE_STRUCT) {
                             Variable* source_var = nullptr;
+                            std::string source_var_name;
                             
                             if (arg->node_type == ASTNodeType::AST_VARIABLE) {
                                 // struct変数を引数として渡す場合
+                                source_var_name = arg->name;
                                 source_var = interpreter_.find_variable(arg->name);
                             } else if (arg->node_type == ASTNodeType::AST_ARRAY_REF) {
                                 // 構造体配列要素を引数として渡す場合 (struct_array[0])
                                 std::string array_name = arg->left->name;
                                 int64_t index = evaluate_expression(arg->array_index.get());
-                                std::string element_name = array_name + "[" + std::to_string(index) + "]";
+                                source_var_name = array_name + "[" + std::to_string(index) + "]";
                                 
                                 // 配列要素の最新状態を同期
-                                interpreter_.sync_struct_members_from_direct_access(element_name);
+                                interpreter_.sync_struct_members_from_direct_access(source_var_name);
                                 // 同期後に再度取得
-                                source_var = interpreter_.find_variable(element_name);
+                                source_var = interpreter_.find_variable(source_var_name);
                             }
                             
                             if (source_var && source_var->is_struct) {
@@ -568,15 +603,24 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                                 }
                                 
                                 // ソース構造体の最新状態を同期
-                                interpreter_.sync_struct_members_from_direct_access(arg->name);
-                                // 再度変数を取得して最新データを取得
-                                source_var = interpreter_.find_variable(arg->name);
+                                Variable* sync_source_var = nullptr;
+                                if (!source_var_name.empty()) {
+                                    interpreter_.sync_struct_members_from_direct_access(source_var_name);
+                                    sync_source_var = interpreter_.find_variable(source_var_name);
+                                } else {
+                                    debug_print("WARNING: Empty source_var_name, skipping sync\n");
+                                }
+                                
+                                if (!sync_source_var) {
+                                    throw std::runtime_error("Source struct variable not found: " + source_var_name);
+                                }
                                 
                                 // 文字列配列メンバの場合、追加で確実にarray_stringsを同期
-                                for (auto& source_member_pair : source_var->struct_members) {
+                                for (auto& source_member_pair : sync_source_var->struct_members) {
                                     if (source_member_pair.second.is_array && source_member_pair.second.type == TYPE_STRING) {
                                         // 個別要素変数から文字列配列を再構築
-                                        std::string source_member_name = arg->name + "." + source_member_pair.first;
+                                        std::string base_name = source_var_name.empty() ? "unknown" : source_var_name;
+                                        std::string source_member_name = base_name + "." + source_member_pair.first;
                                         for (int i = 0; i < source_member_pair.second.array_size; i++) {
                                             std::string element_name = source_member_name + "[" + std::to_string(i) + "]";
                                             Variable* element_var = interpreter_.find_variable(element_name);
@@ -591,7 +635,7 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                                 }
                                 
                                 // struct変数をコピーしてパラメータに設定
-                                Variable param_var = *source_var;
+                                Variable param_var = *sync_source_var;
                                 param_var.is_const = false;
                                 param_var.is_struct = true; // 明示的にstructフラグを設定
                                 param_var.type = TYPE_STRUCT; // 型情報も設定
@@ -602,8 +646,8 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                                 for (auto& member_pair : param_var.struct_members) {
                                     if (member_pair.second.is_array && member_pair.second.type == TYPE_STRING) {
                                         // 文字列配列の場合、array_stringsを確実にコピー
-                                        const auto& source_member = source_var->struct_members.find(member_pair.first);
-                                        if (source_member != source_var->struct_members.end()) {
+                                        const auto& source_member = sync_source_var->struct_members.find(member_pair.first);
+                                        if (source_member != sync_source_var->struct_members.end()) {
                                             debug_print("DEBUG: Copying string array %s: size=%d\n", 
                                                        member_pair.first.c_str(), 
                                                        static_cast<int>(source_member->second.array_strings.size()));
@@ -619,7 +663,7 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                                 interpreter_.current_scope().variables[param->name] = param_var;
                                 
                                 // 個別メンバー変数も作成（値を正しく設定）
-                                for (const auto& member_pair : source_var->struct_members) {
+                                for (const auto& member_pair : sync_source_var->struct_members) {
                                     std::string full_member_name = param->name + "." + member_pair.first;
                                     Variable member_var = member_pair.second;
                                     // 値を確実に設定
@@ -639,7 +683,7 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                                     // 配列メンバの場合、個別要素変数も作成
                                     if (member_var.is_array) {
                                         // ソース側の配列要素変数をコピー
-                                        std::string source_member_name = arg->name + "." + member_pair.first;
+                                        std::string source_member_name = source_var_name + "." + member_pair.first;
                                         for (int i = 0; i < member_var.array_size; i++) {
                                             std::string source_element_name = source_member_name + "[" + std::to_string(i) + "]";
                                             std::string param_element_name = full_member_name + "[" + std::to_string(i) + "]";
@@ -652,12 +696,12 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                                             } else {
                                                 // 個別要素変数が存在しない場合、struct_membersの配列から作成
                                                 Variable element_var;
-                                                if (member_var.type == TYPE_STRING && i < static_cast<int>(source_var->struct_members[member_pair.first].array_strings.size())) {
+                                                if (member_var.type == TYPE_STRING && i < static_cast<int>(sync_source_var->struct_members[member_pair.first].array_strings.size())) {
                                                     element_var.type = TYPE_STRING;
-                                                    element_var.str_value = source_var->struct_members[member_pair.first].array_strings[i];
-                                                } else if (member_var.type != TYPE_STRING && i < static_cast<int>(source_var->struct_members[member_pair.first].array_values.size())) {
+                                                    element_var.str_value = sync_source_var->struct_members[member_pair.first].array_strings[i];
+                                                } else if (member_var.type != TYPE_STRING && i < static_cast<int>(sync_source_var->struct_members[member_pair.first].array_values.size())) {
                                                     element_var.type = member_var.type;
-                                                    element_var.value = source_var->struct_members[member_pair.first].array_values[i];
+                                                    element_var.value = sync_source_var->struct_members[member_pair.first].array_values[i];
                                                 } else {
                                                     // デフォルト値を設定
                                                     element_var.type = member_var.type;
@@ -700,25 +744,24 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                 return 0;
             } catch (const ReturnException &ret) {
                 // return文で戻り値がある場合
+                interpreter_.pop_scope();
+                interpreter_.current_function_name = prev_function_name;
+                
                 if (ret.is_struct) {
-                    // struct戻り値の場合は例外を再度投げる
-                    interpreter_.pop_scope();
-                    interpreter_.current_function_name = prev_function_name;
-                    throw ret;
+                    // struct戻り値の場合、構造体を一時的に処理して戻り値として使用
+                    debug_msg(DebugMsgId::INTERPRETER_GET_STRUCT_MEMBER, "Processing struct return value");
+                    // 構造体戻り値は0を返す（実際の構造体はReturnExceptionで管理）
+                    throw ret; // 上位レベルでstruct処理が必要な場合は例外を伝播
                 } else if (ret.is_array) {
                     // 配列戻り値の場合は例外を再度投げる
-                    interpreter_.pop_scope();
-                    interpreter_.current_function_name = prev_function_name;
                     throw ret;
                 }
                 // 文字列戻り値の場合は例外を再度投げる
                 if (ret.type == TYPE_STRING) {
-                    interpreter_.pop_scope();
-                    interpreter_.current_function_name = prev_function_name;
                     throw ret;
                 }
                 // 通常の戻り値の場合
-                interpreter_.pop_scope();
+                return ret.value;
                 interpreter_.current_function_name = prev_function_name;
                 return ret.value;
             }
@@ -871,6 +914,8 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
         
         std::string member_name = node->name;
         
+        std::cerr << "DEBUG_MEMBER_ARRAY: obj=" << obj_name << ", member=" << member_name << std::endl;
+        
         // インデックスを評価（多次元対応）
         std::vector<int64_t> indices;
         if (node->right) {
@@ -895,8 +940,12 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
 
         // 多次元配列の場合
         if (member_var->is_multidimensional && indices.size() > 1) {
+            std::cerr << "DEBUG: Using getMultidimensionalArrayElement - indices.size()=" << indices.size() << std::endl;
             return interpreter_.getMultidimensionalArrayElement(*member_var, indices);
         }
+        
+        std::cerr << "DEBUG: Using 1D access - is_multidimensional=" << member_var->is_multidimensional 
+                  << ", indices.size()=" << indices.size() << std::endl;
         
         // 1次元配列の場合（従来処理）
         int64_t index = indices[0];
@@ -929,7 +978,9 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
 
     default:
         error_msg(DebugMsgId::UNSUPPORTED_EXPR_NODE_ERROR);
-        std::cerr << "[ERROR] Unsupported expression node type: " << static_cast<int>(node->node_type) << std::endl;
+        if (debug_mode) {
+            std::cerr << "[ERROR] Unsupported expression node type: " << static_cast<int>(node->node_type) << std::endl;
+        }
         throw std::runtime_error("Unknown expression node type");
     }
 

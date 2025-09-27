@@ -7,10 +7,39 @@ int counter(){
 
 int main(){
     // static変数は初期化されて、値が保持される
-    println(counter()); // 1
-    println(counter()); // 2
-    println(counter()); // 3
-    println(counter()); // 4
-    println(counter()); // 5
+    int result1 = counter(); // 1
+    int result2 = counter(); // 2
+    int result3 = counter(); // 3
+    int result4 = counter(); // 4
+    int result5 = counter(); // 5
+    
+    // 値の検証
+    if (result1 != 1) {
+        println("ERROR: First counter() should be 1, got %d", result1);
+        return 1;
+    }
+    if (result2 != 2) {
+        println("ERROR: Second counter() should be 2, got %d", result2);
+        return 1;
+    }
+    if (result3 != 3) {
+        println("ERROR: Third counter() should be 3, got %d", result3);
+        return 1;
+    }
+    if (result4 != 4) {
+        println("ERROR: Fourth counter() should be 4, got %d", result4);
+        return 1;
+    }
+    if (result5 != 5) {
+        println("ERROR: Fifth counter() should be 5, got %d", result5);
+        return 1;
+    }
+    
+    println("%d", result1); // 1
+    println("%d", result2); // 2
+    println("%d", result3); // 3
+    println("%d", result4); // 4
+    println("%d", result5); // 5
+    println("Basic static test passed");
     return 0;
 }

@@ -8,7 +8,7 @@ void test_typedef_basic() {
     run_cb_test_with_output_and_time("../../tests/cases/typedef/test_basic_typedef.cb", 
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_EQ(0, exit_code, "Basic typedef test should execute successfully");
-            INTEGRATION_ASSERT_CONTAINS(output, "Typedef integration test completed!", 
+            INTEGRATION_ASSERT_CONTAINS(output, "Typedef integration test passed!", 
                                       "Test should complete successfully");
             INTEGRATION_ASSERT_CONTAINS(output, "int number = 42", 
                                       "Typedef variables should work");
@@ -36,7 +36,7 @@ void test_typedef_array() {
     run_cb_test_with_output_and_time("../../tests/cases/typedef/test_array_typedef.cb", 
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_EQ(0, exit_code, "Array typedef test should execute successfully");
-            INTEGRATION_ASSERT_CONTAINS(output, "Typedef array integration test completed!", 
+            INTEGRATION_ASSERT_CONTAINS(output, "Typedef array integration test passed!", 
                                       "Test should complete successfully");
         }, execution_time);
     integration_test_passed_with_time("test_typedef_array", "test_array_typedef.cb", execution_time);
@@ -130,9 +130,10 @@ void test_typedef_multidim_array_function() {
     run_cb_test_with_output_and_time_auto("../../tests/cases/typedef/test_typedef_multidim_array_function.cb",
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_EQ(0, exit_code, "Typedef multidimensional array function should execute successfully");
-            INTEGRATION_ASSERT_CONTAINS(output, "row[ 0 ] = 0", "Should contain first row first element");
-            INTEGRATION_ASSERT_CONTAINS(output, "row[ 0 ] = 10", "Should contain second row first element");
-            INTEGRATION_ASSERT_CONTAINS(output, "row[ 3 ] = 23", "Should contain third row last element");
+            INTEGRATION_ASSERT_CONTAINS(output, "row[0] = 0", "Should contain first row first element");
+            INTEGRATION_ASSERT_CONTAINS(output, "row[0] = 10", "Should contain second row first element");
+            INTEGRATION_ASSERT_CONTAINS(output, "row[3] = 23", "Should contain third row last element");
+            INTEGRATION_ASSERT_CONTAINS(output, "Typedef multidim array function test passed", "Should contain success message");
         });
     integration_test_passed_with_time_auto("test_typedef_multidim_array_function", "test_typedef_multidim_array_function.cb");
 }

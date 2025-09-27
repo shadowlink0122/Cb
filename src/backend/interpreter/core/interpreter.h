@@ -156,25 +156,27 @@ class ReturnException {
     bool is_struct = false;
     Variable struct_value;
 
-    ReturnException(int64_t val, TypeInfo t = TYPE_INT) : value(val), type(t) {}
+    // 完全初期化コンストラクタ群
+    ReturnException(int64_t val, TypeInfo t = TYPE_INT) 
+        : value(val), str_value(""), type(t), is_array(false), is_struct(false) {}
     ReturnException(const std::string &str)
-        : value(0), str_value(str), type(TYPE_STRING) {}
+        : value(0), str_value(str), type(TYPE_STRING), is_array(false), is_struct(false) {}
 
     // 配列戻り値用コンストラクタ
     ReturnException(const std::vector<std::vector<std::vector<int64_t>>> &arr,
                     const std::string &type_name, TypeInfo t)
-        : value(0), type(t), is_array(true), int_array_3d(arr),
-          array_type_name(type_name) {}
+        : value(0), str_value(""), type(t), is_array(true), int_array_3d(arr),
+          array_type_name(type_name), is_struct(false) {}
 
     ReturnException(
         const std::vector<std::vector<std::vector<std::string>>> &arr,
         const std::string &type_name, TypeInfo t)
-        : value(0), type(t), is_array(true), str_array_3d(arr),
-          array_type_name(type_name) {}
+        : value(0), str_value(""), type(t), is_array(true), str_array_3d(arr),
+          array_type_name(type_name), is_struct(false) {}
     
     // struct戻り値用コンストラクタ  
     ReturnException(const Variable &struct_var)
-        : value(0), type(TYPE_STRUCT), is_struct(true), struct_value(struct_var) {}
+        : value(0), str_value(""), type(TYPE_STRUCT), is_array(false), is_struct(true), struct_value(struct_var) {}
 };
 
 class BreakException {
@@ -320,6 +322,10 @@ class Interpreter : public EvaluatorInterface {
     int64_t get_struct_member_array_element(const std::string &var_name,
                                             const std::string &member_name,
                                             int index);
+    // N次元配列アクセス対応版
+    int64_t get_struct_member_multidim_array_element(const std::string &var_name,
+                                                    const std::string &member_name,
+                                                    const std::vector<int64_t> &indices);
     std::string get_struct_member_array_string_element(const std::string &var_name,
                                                       const std::string &member_name,
                                                       int index);

@@ -1,0 +1,77 @@
+// typedef structでの関数引数・戻り値テスト（基本機能のみ）
+// 新しい仕様: typedef structされた構造体のみ関数で使用可能
+
+// typedef structによる型定義（使用可能）
+typedef struct {
+    int x;
+    int y;
+    string label;
+} Point;
+
+typedef struct {
+    int width;
+    int height;
+    string name;
+} Rectangle;
+
+// 単純なstruct定義（typedef無し - 使用不可）
+struct RawStruct {
+    int value;
+    string desc;
+};
+
+// typedef structは関数引数・戻り値で使用可能
+Point createPoint(int x, int y, string label) {
+    Point p = {x: x, y: y, label: label};
+    return p;
+}
+
+void printPoint(Point p) {
+    println("Point %s: (%d, %d)", p.label, p.x, p.y);
+}
+
+Rectangle createRectangle(int w, int h, string name) {
+    Rectangle r = {width: w, height: h, name: name};
+    return r;
+}
+
+int calculateArea(Rectangle rect) {
+    return rect.width * rect.height;
+}
+
+int main() {
+    println("=== Typedef Struct Function Test ===");
+    
+    // typedef structは変数宣言可能
+    Point origin = createPoint(0, 0, "Origin");
+    Point corner = createPoint(10, 20, "Corner");
+    
+    printPoint(origin);
+    printPoint(corner);
+    
+    // typedef struct配列も宣言可能
+    Point[3] points;
+    
+    // 個別要素の初期化（配列要素は関数引数として渡せない制限あり）
+    points[0] = {x: 0, y: 0, label: "Start"};
+    points[1] = {x: 5, y: 5, label: "Middle"};
+    points[2] = {x: 10, y: 10, label: "End"};
+    
+    println("\n=== Point Array (individual access) ===");
+    println("Point 0: %s (%d, %d)", points[0].label, points[0].x, points[0].y);
+    println("Point 1: %s (%d, %d)", points[1].label, points[1].x, points[1].y);
+    println("Point 2: %s (%d, %d)", points[2].label, points[2].x, points[2].y);
+    
+    // 構造体を引数に使った関数呼び出し
+    Rectangle rect = createRectangle(100, 50, "Sample Rectangle");
+    
+    println("\n=== Rectangle Info ===");
+    println("Rectangle: %s", rect.name);
+    println("Dimensions: %d x %d", rect.width, rect.height);
+    println("Area: %d", calculateArea(rect));
+    
+    // RawStructは使用不可（コンパイルエラーになるべき）
+    // RawStruct raw;  // ❌ これはエラーになるべき
+    
+    return 0;
+}
