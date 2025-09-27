@@ -1,0 +1,178 @@
+// ダイクストラ法の実装 - 最短経路探索アルゴリズム
+// 構造体を使ったシンプルな実装（Cb言語の制限に対応）
+
+// エッジ（辺）を表す構造体
+struct Edge {
+    int to;     // 接続先のノード
+    int weight; // エッジの重み（距離・コスト）
+};
+
+// 無限大を表す定数
+const int INF = 999999;
+const int MAX_NODES = 6;
+const int MAX_EDGES = 20;
+
+// グローバル変数でグラフデータを管理
+int node_count = 6;
+int[6] distances;         // 各ノードへの最短距離
+bool[6] visited;          // 訪問済みフラグ
+Edge[20] edges;           // エッジ配列
+int edge_count = 0;
+int[36] adjacency_matrix; // 6x6の隣接行列（6*6=36）
+
+// グラフの初期化
+void init_graph() {
+    for (int i = 0; i < MAX_NODES; i++) {
+        distances[i] = INF;
+        visited[i] = false;
+    }
+    
+    // 隣接行列を初期化（INFで埋める）
+    for (int i = 0; i < 36; i++) {
+        adjacency_matrix[i] = INF;
+    }
+    
+    // 対角線要素は0（自分自身への距離）
+    for (int i = 0; i < MAX_NODES; i++) {
+        adjacency_matrix[i * MAX_NODES + i] = 0;
+    }
+    
+    edge_count = 0;
+}
+
+// エッジの追加
+void add_edge(int from, int to, int weight) {
+    // 隣接行列に重みを設定
+    adjacency_matrix[from * MAX_NODES + to] = weight;
+    
+    // エッジ配列にも記録
+    edges[edge_count].to = to;
+    edges[edge_count].weight = weight;
+    edge_count++;
+}
+
+// 最小距離のノードを見つける
+int find_min_distance_node() {
+    int min_distance = INF;
+    int min_node = -1;
+    
+    for (int i = 0; i < node_count; i++) {
+        if (!visited[i] && distances[i] < min_distance) {
+            min_distance = distances[i];
+            min_node = i;
+        }
+    }
+    
+    return min_node;
+}
+
+// ダイクストラ法の実行
+void dijkstra(int start) {
+    // 開始ノードの距離を0に設定
+    distances[start] = 0;
+    
+    println("Starting Dijkstra from node %d", start);
+    
+    // すべてのノードを処理するまで繰り返し
+    for (int count = 0; count < node_count; count++) {
+        // 最小距離の未訪問ノードを選択
+        int current = find_min_distance_node();
+        
+        if (current == -1) break; // すべてのノードを処理完了
+        
+        visited[current] = true;
+        
+        println("Processing node %d (distance: %d)", current, distances[current]);
+        
+        // 隣接ノードの距離を更新
+        for (int neighbor = 0; neighbor < node_count; neighbor++) {
+            int weight = adjacency_matrix[current * MAX_NODES + neighbor];
+            
+            if (!visited[neighbor] && weight != INF) {
+                int new_distance = distances[current] + weight;
+                if (new_distance < distances[neighbor]) {
+                    distances[neighbor] = new_distance;
+                    println("  Updated node %d: distance = %d", neighbor, new_distance);
+                }
+            }
+        }
+    }
+}
+
+// 結果の表示
+void print_results(int start) {
+    println("\n=== Dijkstra's Algorithm Results ===");
+    println("Starting from node: %d", start);
+    println("Shortest distances:");
+    
+    for (int i = 0; i < node_count; i++) {
+        if (distances[i] == INF) {
+            println("Node %d: UNREACHABLE", i);
+        } else {
+            println("Node %d: %d", i, distances[i]);
+        }
+    }
+}
+
+// グラフの構造を表示
+void print_graph() {
+    println("=== Graph Structure (Adjacency Matrix) ===");
+    println("Node connections:");
+    
+    for (int i = 0; i < node_count; i++) {
+        println("From node %d:", i);
+        for (int j = 0; j < node_count; j++) {
+            int weight = adjacency_matrix[i * MAX_NODES + j];
+            if (weight != INF && weight != 0) {
+                println("  -> Node %d: weight %d", j, weight);
+            }
+        }
+    }
+    println("");
+}
+
+int main() {
+    println("=== Dijkstra's Shortest Path Algorithm ===");
+    println("Using struct and array-based graph representation\n");
+    
+    // グラフの初期化
+    init_graph();
+    
+    // エッジの追加（サンプルグラフ）
+    // グラフの構造:
+    //     1
+    //   /   \
+    //  0     2
+    //  |  \  |
+    //  3   4-5
+    
+    add_edge(0, 1, 2);   // 0 -> 1: cost 2
+    add_edge(0, 3, 1);   // 0 -> 3: cost 1
+    add_edge(0, 4, 5);   // 0 -> 4: cost 5
+    add_edge(1, 2, 3);   // 1 -> 2: cost 3
+    add_edge(2, 5, 1);   // 2 -> 5: cost 1
+    add_edge(3, 4, 2);   // 3 -> 4: cost 2
+    add_edge(4, 5, 1);   // 4 -> 5: cost 1
+    
+    println("Graph created with %d nodes and %d edges", node_count, edge_count);
+    
+    // グラフ構造の表示
+    print_graph();
+    
+    // ダイクストラ法の実行
+    int start_node = 0;
+    println("Executing Dijkstra's algorithm...");
+    dijkstra(start_node);
+    
+    // 結果の表示
+    print_results(start_node);
+    
+    // パフォーマンス情報
+    println("\n=== Implementation Notes ===");
+    println("Time Complexity: O(V^2) where V is number of vertices");
+    println("Space Complexity: O(V^2) using adjacency matrix");
+    println("This implementation works within Cb language constraints");
+    println("Struct usage: Edge struct for edge representation");
+    
+    return 0;
+}

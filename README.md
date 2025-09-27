@@ -56,9 +56,10 @@ C++で作成した静的型付きプログラミング言語です。
 - **UTF-8文字列処理**: 日本語を含む文字列の適切な処理
 
 ### テストフレームワーク ✅
-- **統合テスト**: 130個の包括的テストケース
+- **統合テスト**: 767個の包括的テストケース（全機能カバレッジ）
 - **単体テスト**: 26個のモジュール別詳細テスト
 - **自動テスト実行**: `make test`で全テスト実行
+- **カテゴリ別テスト実行時間計測**: パフォーマンス分析機能
 
 ## 実装状況
 
@@ -71,15 +72,20 @@ C++で作成した静的型付きプログラミング言語です。
   - **10種類の複合代入演算子**: `+=`, `-=`, `*=`, `/=`, `%=`, `&=`, `|=`, `^=`, `<<=`, `>>=`
   - **前置・後置インクリメント/デクリメント**: `++var`, `--var`, `var++`, `var--`
   - **配列要素複合代入**: `arr[index] += value`
+  - **自己代入機能**: 基本的な自己代入、配列自己代入、ビット演算自己代入
+- **構造体システム**（完全実装）
+  - 基本構造体定義・使用
+  - 構造体リテラル初期化（名前付き・位置指定）
+  - 構造体配列メンバー（個別代入・配列リテラル代入）
+  - 構造体の配列（構造体配列リテラル初期化）
 - ストレージ修飾子（const, static）
 - 標準出力（print, printf風フォーマット）
-- 包括的テストフレームワーク（統合テスト415個、単体テスト26個）
+- 包括的テストフレームワーク（統合テスト767個、単体テスト26個）
 - 再帰下降パーサーによる構文解析
 
 ### 🚧 将来の拡張予定
 - **浮動小数点数型**: `float`, `double`のサポート
-- **構造体・クラス**: カスタムデータ型の定義
-- **typedef**: 型エイリアス機能
+- **typedef**: 型エイリアス機能（部分実装済み）
 - **enum**: 列挙型
 - **interface/trait**: 抽象化機能
 - **ジェネリクス・テンプレート**: 型パラメータ化機能
@@ -174,7 +180,7 @@ make
 ## テスト方法
 
 ### 全テスト実行（推奨）
-統合テスト（130テスト）と単体テスト（26テスト）を全て実行：
+統合テスト（767テスト）と単体テスト（26テスト）を全て実行：
 ```sh
 make test
 ```
@@ -336,6 +342,110 @@ int main() {
 }
 ```
 
+### 構造体システム（完全実装）
+```cb
+// 基本構造体定義
+struct Point {
+    int x;
+    int y;
+    string label;
+}
+
+struct Rectangle {
+    Point top_left;
+    Point bottom_right;  // ❌ ネストした構造体は未サポート
+    int width;
+    int height;
+    string name;
+}
+
+int main() {
+    // 構造体リテラル初期化
+    Point p1 = {x: 10, y: 20, label: "Origin"};     // 名前付き初期化
+    Point p2 = {30, 40, "Target"};                  // 位置指定初期化
+    
+    // 構造体配列
+    Point[3] points = [
+        {x: 0, y: 0, label: "Start"},
+        {10, 10, "Middle"},
+        {x: 20, y: 20, label: "End"}
+    ];
+    
+    // 構造体メンバーアクセス
+    print("Point %s: (%d, %d)", p1.label, p1.x, p1.y);
+    
+    // 構造体配列メンバー
+    Rectangle rect;
+    rect.name = "Sample Rectangle";
+    rect.width = 100;
+    rect.height = 50;
+    
+    // 配列要素のメンバーアクセス
+    for (int i = 0; i < 3; i++) {
+        print("Point %d: %s (%d, %d)", i, points[i].label, 
+              points[i].x, points[i].y);
+    }
+    
+    return 0;
+}
+```
+
+### ダイクストラ法アルゴリズム（構造体活用）
+```cb
+// エッジ（辺）を表す構造体
+struct Edge {
+    int to;     // 接続先のノード
+    int weight; // エッジの重み
+};
+
+const int INF = 999999;
+const int MAX_NODES = 6;
+
+int node_count = 6;
+int[6] distances;         // 各ノードへの最短距離
+bool[6] visited;          // 訪問済みフラグ
+Edge[20] edges;           // エッジ配列
+int[36] adjacency_matrix; // 隣接行列
+
+void dijkstra(int start) {
+    distances[start] = 0;
+    
+    for (int count = 0; count < node_count; count++) {
+        int current = find_min_distance_node();
+        if (current == -1) break;
+        
+        visited[current] = true;
+        
+        for (int neighbor = 0; neighbor < node_count; neighbor++) {
+            int weight = adjacency_matrix[current * MAX_NODES + neighbor];
+            
+            if (!visited[neighbor] && weight != INF) {
+                int new_distance = distances[current] + weight;
+                if (new_distance < distances[neighbor]) {
+                    distances[neighbor] = new_distance;
+                }
+            }
+        }
+    }
+}
+
+int main() {
+    // グラフの初期化とエッジ追加
+    init_graph();
+    add_edge(0, 1, 2);
+    add_edge(0, 3, 1);
+    // ...
+    
+    dijkstra(0);  // ノード0からの最短距離を計算
+    
+    for (int i = 0; i < node_count; i++) {
+        println("Node %d: distance = %d", i, distances[i]);
+    }
+    
+    return 0;
+}
+```
+
 ### 配列とループ
 ```cb
 int main() {
@@ -427,11 +537,14 @@ Error: char type value out of range (0-255): 300
 - **モジュール化設計**: 機能別ディレクトリ構成
 
 ### テストカバレッジ
-- **130個の統合テストケース**: 全機能の動作検証
+- **767個の統合テストケース**: 全機能の動作検証
 - **26個の単体テスト**: モジュール別詳細テスト
 - **型安全性テスト**: 境界値・型不整合の検出確認
+- **構造体機能テスト**: リテラル初期化、配列メンバー、構造体配列の完全検証
+- **自己代入テスト**: 基本、配列、ビット演算による自己代入パターン
 - **国際化テスト**: 多言語エラーメッセージの検証
 - **自動テストフレームワーク**: `make test`で完全自動化
+- **パフォーマンス計測**: カテゴリ別実行時間測定機能
 
 ## 開発・貢献
 
