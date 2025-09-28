@@ -92,7 +92,12 @@
   - ✅ **型安全性**: 型不一致時の適切なエラーメッセージ
   - ✅ **再帰的typedef互換性**: 継承チェーンでの型検証
   - ✅ **包括的エラーハンドリング**: 13種類の異常系テスト
-- ✅ 包括的テストフレームワーク（統合テスト925個、単体テスト26個）
+- ✅ **多次元配列戻り値処理**: typedef配列関数の完全対応
+  - ✅ **Variable Manager**: `ret.int_array_3d[0][0]`問題修正、全要素展開実装
+  - ✅ **Statement Executor**: ReturnException処理での多次元配列判定・次元情報設定
+  - ✅ **Array Manager**: multidim_array_values境界チェック強化
+  - ✅ **型判定ロジック**: typedef配列名から多次元配列の正確な識別
+- ✅ 包括的テストフレームワーク（統合テスト1116個、単体テスト26個）
 - ✅ 再帰下降パーサーによる構文解析
 
 ### Phase 2: 中期目標 ✅/🚧（実装中）
@@ -336,6 +341,11 @@ argument_list   ::= assignment_expression
   - コンパイル時サイズ検証: `int[2] arr = [1, 2, 3];` → エラー
   - 関数戻り値サイズ検証: `int[5] arr = returnThreeElements();` → エラー
   - 明確なエラーメッセージ提供
+- **多次元配列戻り値処理**（新機能）:
+  - typedef配列関数の完全対応: `Matrix2D create_matrix()`等
+  - Variable Manager改善: 配列戻り値で全要素展開・次元情報設定
+  - 境界チェック強化: multidim_array_values配列の安全なアクセス
+  - 型判定ロジック: typedef名と配列構造から多次元配列を正確に識別
 
 ##### 動的配列（将来実装予定）🚧
 - `TYPE[]`: 可変サイズ配列（Goのsliceライク）
@@ -1316,8 +1326,93 @@ int main() {
 }
 ```
 
-### 構造体の実践的な使用例 ✅
+### 多次元配列戻り値処理（新機能） ✅
 ```cb
+// typedef配列の多次元配列関数戻り値
+typedef Matrix2D = int[2][2];
+typedef Matrix3D = int[2][2][2];
+
+// 2次元配列を返す関数
+Matrix2D create_identity_matrix() {
+    Matrix2D result;
+    result[0][0] = 1; result[0][1] = 0;
+    result[1][0] = 0; result[1][1] = 1;
+    return result;
+}
+
+// 2次元配列を受け取って表示する関数
+void print_matrix(Matrix2D matrix) {
+    println("Matrix (2x2):");
+    for (int i = 0; i < 2; i++) {
+        printf("Row %d : [ ", i);
+        for (int j = 0; j < 2; j++) {
+            printf("%d", matrix[i][j]);  // 修正済み: 境界エラー解消
+            if (j < 1) printf(", ");
+        }
+        println(" ]");
+    }
+}
+
+// 3次元配列を返す関数
+Matrix3D create_3d_matrix() {
+    Matrix3D cube;
+    int value = 1;
+    for (int i = 0; i < 2; i++) {
+        for (int j = 0; j < 2; j++) {
+            for (int k = 0; k < 2; k++) {
+                cube[i][j][k] = value++;
+            }
+        }
+    }
+    return cube;
+}
+
+int main() {
+    // 2次元配列戻り値の処理
+    Matrix2D identity = create_identity_matrix();
+    print_matrix(identity);
+    
+    // 個別要素アクセス
+    println("identity[0][0] = %d", identity[0][0]);
+    println("identity[1][1] = %d", identity[1][1]);
+    
+    // 3次元配列戻り値の処理
+    Matrix3D cube = create_3d_matrix();
+    
+    println("\n3D Matrix:");
+    for (int i = 0; i < 2; i++) {
+        for (int j = 0; j < 2; j++) {
+            printf("[");
+            for (int k = 0; k < 2; k++) {
+                printf("%d", cube[i][j][k]);
+                if (k < 1) printf(", ");
+            }
+            printf("] ");
+        }
+        println("");
+    }
+    
+    // 出力:
+    // Matrix (2x2):
+    // Row 0 : [ 1, 0 ]
+    // Row 1 : [ 0, 1 ]
+    // identity[0][0] = 1
+    // identity[1][1] = 1
+    // 
+    // 3D Matrix:
+    // [1, 2] [3, 4] 
+    // [5, 6] [7, 8]
+    
+    return 0;
+}
+```
+
+**技術的改善点**:
+- **Variable Manager**: `ret.int_array_3d[0][0]`のみを処理していた制限を解消
+- **全要素展開**: 多次元配列の全要素を`multidim_array_values`に正確に展開
+- **次元情報設定**: `array_dimensions`配列で行数・列数等の次元情報を保持
+- **境界チェック強化**: 配列アクセス時の境界違反を事前に検出・防止
+- **型判定ロジック**: typedef名と`int_array_3d`構造から多次元配列を自動識別
 // 学生管理システムの例
 struct Student {
     string name;

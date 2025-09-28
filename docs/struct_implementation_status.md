@@ -1,4 +1,49 @@
-# Cb言語 構造体機能 実装状況ドキュメント
+# Cb言語 構造体機能・多次元配列 実装状況ドキュメント
+
+## 最新実装 ✅ v0.7.1
+
+### 🔧 多次元配列戻り値処理（新機能）
+```cb
+// typedef配列の多次元配列関数戻り値
+typedef Matrix2D = int[2][2];
+typedef Matrix3D = int[2][2][2];
+
+Matrix2D create_identity_matrix() {
+    Matrix2D result;
+    result[0][0] = 1; result[0][1] = 0;
+    result[1][0] = 0; result[1][1] = 1;
+    return result;
+}
+
+void print_matrix(Matrix2D matrix) {
+    println("Matrix (2x2):");
+    for (int i = 0; i < 2; i++) {
+        printf("Row %d : [ ", i);
+        for (int j = 0; j < 2; j++) {
+            printf("%d", matrix[i][j]);  // 修正済み: 境界エラー解消
+            if (j < 1) printf(", ");
+        }
+        println(" ]");
+    }
+}
+
+int main() {
+    Matrix2D identity = create_identity_matrix();
+    print_matrix(identity);  // 修正前: 境界エラー → 修正後: 正常動作
+    
+    // 個別要素アクセスも正常動作
+    println("identity[0][0] = %d", identity[0][0]);
+    println("identity[1][1] = %d", identity[1][1]);
+    
+    return 0;
+}
+```
+- ✅ **Variable Manager改善**: `ret.int_array_3d[0][0]`問題修正、全要素展開実装
+- ✅ **Statement Executor強化**: ReturnException処理での多次元配列判定・次元情報設定
+- ✅ **Array Manager**: multidim_array_values境界チェック強化
+- ✅ **型判定ロジック**: typedef配列名から多次元配列の正確な識別
+
+---
 
 ## 実装済み機能 ✅
 
