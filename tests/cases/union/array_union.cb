@@ -1,0 +1,54 @@
+// 配列型ユニオンテスト
+
+// 配列型ユニオン
+typedef ArrayUnion = int[3] | bool[2];
+typedef NumberArrays = int[3] | int[5];
+
+int main() {
+    println("=== 配列型ユニオンテスト ===");
+    
+    // 配列リテラル初期化テスト
+    int[3] numbers = [1, 2, 3];
+    bool[2] flags = [true, false];
+    int[5] sequence = [10, 20, 30, 40, 50];
+    
+    println("Array Literal Initialization:");
+    println("  Numbers: [%d, %d, %d]", numbers[0], numbers[1], numbers[2]);
+    println("  Flags: [%d, %d]", flags[0], flags[1]);
+    println("  Sequence: [%d, %d, %d, %d, %d]", 
+            sequence[0], sequence[1], sequence[2], sequence[3], sequence[4]);
+    
+    // 配列変数をユニオンに代入
+    ArrayUnion array1 = numbers;
+    ArrayUnion array2 = flags;
+    NumberArrays nums1 = numbers;
+    NumberArrays nums2 = sequence;
+    
+    println("Array Union Assignments:");
+    println("  Array1 (int[3]): assigned successfully");
+    println("  Array2 (bool[2]): assigned successfully");
+    println("  Nums1 (int[3]): assigned successfully");
+    println("  Nums2 (int[5]): assigned successfully");
+    
+    // 新しい配列を作成してユニオンに代入
+    int[3] coords = [100, 200, 300];
+    bool[2] options = [false, true];
+    
+    ArrayUnion array3 = coords;
+    ArrayUnion array4 = options;
+    
+    println("Additional Array Assignments:");
+    println("  Array3 (int[3]): assigned successfully");
+    println("  Array4 (bool[2]): assigned successfully");
+    
+    // 配列要素の確認（可能であれば）
+    println("Array Element Access Test:");
+    println("  coords[0]: %d", coords[0]);
+    println("  coords[1]: %d", coords[1]);
+    println("  coords[2]: %d", coords[2]);
+    println("  options[0]: %d", options[0]);
+    println("  options[1]: %d", options[1]);
+    
+    println("=== 配列型ユニオンテスト完了 ===");
+    return 0;
+}

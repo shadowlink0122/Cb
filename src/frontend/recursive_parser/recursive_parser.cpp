@@ -1309,8 +1309,16 @@ std::string RecursiveParser::parseType() {
             advance(); // consume identifier
             base_type = identifier; // enum型名をそのまま返す
         } else {
-            // 未知のidentifier
-            base_type = advance().value; // とりあえずそのまま返す（インタープリターで解決）
+            // 未知のidentifier - ユニオン型定義も確認
+            if (union_definitions_.find(identifier) != union_definitions_.end()) {
+                // ユニオン型名として認識
+                advance(); // consume identifier
+                base_type = identifier; // ユニオン型名をそのまま返す
+            } else {
+                // 完全に未知の型
+                error("Unknown type: " + identifier);
+                throw std::runtime_error("Unknown type: " + identifier);
+            }
         }
     } else {
         error("Expected type specifier");
@@ -2120,7 +2128,7 @@ ASTNode* RecursiveParser::parseFunctionDeclaration() {
 
 
 ASTNode* RecursiveParser::parseTypedefDeclaration() {
-    // typedef <type> <alias>; または typedef struct {...} <alias>; または typedef enum {...} <alias>;
+    // typedef <type> <alias>; または typedef struct {...} <alias>; または typedef enum {...} <alias>; または typedef union (TypeScript-like literal types)
     consume(TokenType::TOK_TYPEDEF, "Expected 'typedef'");
     
     // typedef struct の場合
@@ -2133,7 +2141,174 @@ ASTNode* RecursiveParser::parseTypedefDeclaration() {
         return parseEnumTypedefDeclaration();
     }
     
-    // 基底型を解析（基本型またはtypedef型）
+    // Check for both old and new typedef syntaxes
+    // Old syntax: typedef TYPE ALIAS;
+    // New syntax: typedef ALIAS = TYPE | TYPE2 | ...;
+    
+    // Check if this is new union syntax: typedef ALIAS = TYPE | TYPE2 | ...
+    if (check(TokenType::TOK_IDENTIFIER)) {
+        // Temporarily save current token to check for new syntax
+        Token saved_identifier = current_token_;
+        advance(); // consume identifier
+        
+        if (check(TokenType::TOK_ASSIGN)) {
+            // New syntax: typedef ALIAS = TYPE | TYPE2 | ...
+            std::string alias_name = saved_identifier.value;
+            
+            // Union typedef declaration
+            consume(TokenType::TOK_ASSIGN, "Expected '=' after union typedef alias name");
+            
+            UnionDefinition union_def;
+            union_def.name = alias_name;
+            
+            // Parse first value
+            if (!parseUnionValue(union_def)) {
+                error("Expected value after '=' in union typedef");
+                return nullptr;
+            }
+            
+            // Check if this is actually a union (has '|' separator)
+            bool is_actual_union = false;
+            
+            // Parse additional values separated by '|'
+            while (check(TokenType::TOK_PIPE)) {
+                is_actual_union = true;
+                advance(); // consume '|'
+                if (!parseUnionValue(union_def)) {
+                    error("Expected value after '|' in union typedef");
+                    return nullptr;
+                }
+            }
+            
+            consume(TokenType::TOK_SEMICOLON, "Expected ';' after typedef declaration");
+            
+            // If it's not an actual union (no '|' found), treat as regular typedef
+            if (!is_actual_union) {
+                // This is a single-type alias like: typedef StringOnly = string;
+                // Treat as regular typedef, not union
+                
+                // Check for single basic type
+                if (union_def.allowed_types.size() == 1 && union_def.allowed_custom_types.empty() && 
+                    union_def.allowed_array_types.empty() && !union_def.has_literal_values) {
+                    
+                    TypeInfo single_type = union_def.allowed_types[0];
+                    std::string type_name_str;
+                    switch(single_type) {
+                        case TYPE_INT: type_name_str = "int"; break;
+                        case TYPE_LONG: type_name_str = "long"; break;
+                        case TYPE_SHORT: type_name_str = "short"; break;
+                        case TYPE_TINY: type_name_str = "tiny"; break;
+                        case TYPE_BOOL: type_name_str = "bool"; break;
+                        case TYPE_STRING: type_name_str = "string"; break;
+                        case TYPE_CHAR: type_name_str = "char"; break;
+                        default: type_name_str = "unknown"; break;
+                    }
+                    
+                    // Register as regular typedef
+                    typedef_map_[alias_name] = type_name_str;
+                    
+                    // Create regular typedef AST node
+                    ASTNode* node = new ASTNode(ASTNodeType::AST_TYPEDEF_DECL);
+                    node->name = alias_name;
+                    node->type_name = type_name_str;
+                    node->type_info = single_type;
+                    
+                    setLocation(node, current_token_);
+                    return node;
+                }
+                // Check for single custom type - treat as union to preserve custom type validation
+                else if (union_def.allowed_custom_types.size() == 1 && union_def.allowed_types.empty() && 
+                         union_def.allowed_array_types.empty() && !union_def.has_literal_values) {
+                    
+                    // Single custom type should be treated as union for type validation
+                    // This preserves the semantic that only the specific custom type is allowed
+                    // (not any type that resolves to the same basic type)
+                    
+                    // Store union definition for type checking
+                    union_definitions_[alias_name] = union_def;
+                    
+                    // Create union typedef AST node
+                    ASTNode* node = new ASTNode(ASTNodeType::AST_UNION_TYPEDEF_DECL);
+                    node->name = alias_name;
+                    node->type_info = TYPE_UNION;
+                    node->union_name = alias_name;
+                    node->union_definition = union_def;
+                    
+                    setLocation(node, current_token_);
+                    return node;
+                }
+            }
+            
+            // Store union definition
+            union_definitions_[alias_name] = union_def;
+            
+            // Create AST node
+            ASTNode* node = new ASTNode(ASTNodeType::AST_UNION_TYPEDEF_DECL);
+            node->name = alias_name;
+            node->type_info = TYPE_UNION;
+            node->union_name = alias_name;
+            node->union_definition = union_def;
+            
+            setLocation(node, current_token_);
+            
+            return node;
+        } else {
+            // This is old syntax: typedef TYPE ALIAS;
+            // The identifier we consumed is actually the base type
+            std::string base_type_name = saved_identifier.value;
+            TypeInfo base_type = TYPE_UNKNOWN;
+            
+            // Check if it's a known typedef type
+            if (typedef_map_.find(base_type_name) != typedef_map_.end()) {
+                std::string resolved_type = resolveTypedefChain(base_type_name);
+                if (resolved_type.empty()) {
+                    error("Unknown typedef type: " + base_type_name);
+                    throw std::runtime_error("Unknown typedef type: " + base_type_name);
+                }
+                base_type_name = resolved_type;
+                base_type = getTypeInfoFromString(extractBaseType(resolved_type));
+            }
+            // Check if it's a struct type
+            else if (struct_definitions_.find(base_type_name) != struct_definitions_.end()) {
+                base_type = TYPE_STRUCT;
+            }
+            // Check if it's an enum type
+            else if (enum_definitions_.find(base_type_name) != enum_definitions_.end()) {
+                base_type = TYPE_INT; // enums are treated as int internally
+            }
+            else {
+                error("Unknown type: " + base_type_name);
+                throw std::runtime_error("Unknown type: " + base_type_name);
+            }
+            
+            // Now parse the alias name
+            if (!check(TokenType::TOK_IDENTIFIER)) {
+                error("Expected identifier for typedef alias");
+                return nullptr;
+            }
+            
+            std::string alias_name = current_token_.value;
+            advance();
+            
+            consume(TokenType::TOK_SEMICOLON, "Expected ';' after typedef declaration");
+            
+            // Add typedef mapping
+            typedef_map_[alias_name] = base_type_name;
+            
+            // Create AST node
+            ASTNode* node = new ASTNode(ASTNodeType::AST_TYPEDEF_DECL);
+            node->name = alias_name;
+            node->type_info = base_type;
+            node->type_name = base_type_name;
+            
+            setLocation(node, current_token_);
+            
+            return node;
+        }
+    }
+    
+    // Old syntax: typedef TYPE ALIAS;
+    // Parse base type first
     TypeInfo base_type = TYPE_UNKNOWN;
     std::string base_type_name;
     
@@ -2177,9 +2352,6 @@ ASTNode* RecursiveParser::parseTypedefDeclaration() {
         if (struct_definitions_.find(identifier) != struct_definitions_.end()) {
             base_type = TYPE_STRUCT;
             base_type_name = identifier;
-            
-            // struct typedef用の特別な処理が必要な場合
-            // この場合は通常のtypedef処理で十分
         }
         // enum定義が存在するかチェック
         else if (enum_definitions_.find(identifier) != enum_definitions_.end()) {
@@ -2204,58 +2376,52 @@ ASTNode* RecursiveParser::parseTypedefDeclaration() {
         return nullptr;
     }
     
-    // typedef ASTノードを作成
-    ASTNode* typedef_node = new ASTNode(ASTNodeType::AST_TYPEDEF_DECL);
-    typedef_node->type_info = base_type;
-    
-    // 配列次元の解析
-    std::string array_dimensions_str = "";
+    // Check for array type specification: TYPE[size], TYPE[SIZE_CONSTANT], or multidimensional TYPE[size1][size2]...
     while (check(TokenType::TOK_LBRACKET)) {
         advance(); // consume '['
         
-        std::string dimension_str = "[";
-        
-        ASTNode* size_expr = nullptr;
+        std::string array_size;
         if (check(TokenType::TOK_NUMBER)) {
-            size_expr = new ASTNode(ASTNodeType::AST_NUMBER);
-            size_expr->int_value = std::stoll(advance().value);
-            dimension_str += std::to_string(size_expr->int_value);
+            array_size = current_token_.value;
+            advance(); // consume array size
         } else if (check(TokenType::TOK_IDENTIFIER)) {
-            // 定数識別子を使用した配列サイズ（例: TEN）
-            std::string identifier = advance().value;
-            size_expr = new ASTNode(ASTNodeType::AST_VARIABLE);
-            size_expr->name = identifier;
-            dimension_str += identifier;
-        } else if (!check(TokenType::TOK_RBRACKET)) {
-            error("Expected array size (number or constant identifier)");
+            // Allow identifier (like const variable name) as array size
+            array_size = current_token_.value;
+            advance(); // consume identifier
+        } else {
+            error("Expected array size in typedef");
             return nullptr;
         }
         
-        dimension_str += "]";
-        array_dimensions_str += dimension_str;
-        
         consume(TokenType::TOK_RBRACKET, "Expected ']' after array size");
         
-        typedef_node->array_dimensions.push_back(std::unique_ptr<ASTNode>(size_expr));
+        // Append array dimension to type name
+        base_type_name = base_type_name + "[" + array_size + "]";
     }
     
-    // 完全な型名を設定
-    typedef_node->type_name = base_type_name + array_dimensions_str;
-    
-    // エイリアス名
+    // Now parse the alias name
     if (!check(TokenType::TOK_IDENTIFIER)) {
-        error("Expected typedef alias name");
+        error("Expected identifier for typedef alias");
         return nullptr;
     }
     
-    typedef_node->name = advance().value;  // エイリアス名
+    std::string alias_name = current_token_.value;
+    advance();
     
-    // typedefマップに登録
-    typedef_map_[typedef_node->name] = typedef_node->type_name;
+    consume(TokenType::TOK_SEMICOLON, "Expected ';' after typedef declaration");
     
-    consume(TokenType::TOK_SEMICOLON, "Expected ';' after typedef");
+    // Add typedef mapping
+    typedef_map_[alias_name] = base_type_name;
     
-    return typedef_node;
+    // Create AST node
+    ASTNode* node = new ASTNode(ASTNodeType::AST_TYPEDEF_DECL);
+    node->name = alias_name;
+    node->type_info = base_type;
+    node->type_name = base_type_name;
+    
+    setLocation(node, current_token_);
+    
+    return node;
 }
 
 TypeInfo RecursiveParser::getTypeInfoFromString(const std::string& type_name) {
@@ -2958,6 +3124,235 @@ ASTNode* RecursiveParser::parseEnumTypedefDeclaration() {
     setLocation(node, current_token_);
     
     return node;
+}
+
+// typedef union宣言の解析 (TypeScript-like literal types): typedef NAME = value1 | value2 | ...
+ASTNode* RecursiveParser::parseUnionTypedefDeclaration() {
+    // This method is now integrated into parseTypedefDeclaration()
+    // This function is kept for compatibility but should not be called directly
+    error("parseUnionTypedefDeclaration should not be called directly");
+    return nullptr;
+}
+
+// Union値の解析ヘルパー関数
+bool RecursiveParser::parseUnionValue(UnionDefinition& union_def) {
+    if (check(TokenType::TOK_NUMBER)) {
+        // 数値リテラル (int)
+        std::string value_str = current_token_.value;
+        int64_t int_value = std::stoll(value_str);
+        advance();
+        
+        UnionValue union_val(int_value);
+        union_def.add_literal_value(union_val);
+        return true;
+        
+    } else if (check(TokenType::TOK_STRING)) {
+        // 文字列リテラル
+        std::string str_value = current_token_.value;
+        advance();
+        
+        UnionValue union_val(str_value);
+        union_def.add_literal_value(union_val);
+        return true;
+        
+    } else if (check(TokenType::TOK_CHAR)) {
+        // 文字リテラル
+        std::string char_str = current_token_.value;
+        advance();
+        
+        // Lexer already removed quotes, so char_str contains just the character
+        if (char_str.length() == 1) {
+            char char_value = char_str[0];
+            UnionValue union_val(char_value);
+            union_def.add_literal_value(union_val);
+            return true;
+        } else if (char_str.length() >= 3 && char_str[0] == '\'' && char_str[char_str.length()-1] == '\'') {
+            // Handle case where quotes are still present
+            char char_value = char_str[1];
+            UnionValue union_val(char_value);
+            union_def.add_literal_value(union_val);
+            return true;
+        }
+        error("Invalid character literal: '" + char_str + "' (length: " + std::to_string(char_str.length()) + ")");
+        return false;
+        
+    } else if (check(TokenType::TOK_TRUE)) {
+        // boolean true
+        advance();
+        
+        UnionValue union_val(true);
+        union_def.add_literal_value(union_val);
+        return true;
+        
+    } else if (check(TokenType::TOK_FALSE)) {
+        // boolean false
+        advance();
+        
+        UnionValue union_val(false);
+        union_def.add_literal_value(union_val);
+        return true;
+        
+    } else if (check(TokenType::TOK_INT)) {
+        // int type keyword
+        advance();
+        // Check for array type (int[size])
+        if (check(TokenType::TOK_LBRACKET)) {
+            advance(); // consume '['
+            if (check(TokenType::TOK_NUMBER)) {
+                std::string size = current_token_.value;
+                advance(); // consume the size number
+                if (check(TokenType::TOK_RBRACKET)) {
+                    advance(); // consume ']'
+                    union_def.add_allowed_array_type("int[" + size + "]");
+                    return true;
+                } else {
+                    error("Expected ']' after array size");
+                    return false;
+                }
+            } else {
+                error("Expected array size after '[' in array type");
+                return false;
+            }
+        }
+        union_def.add_allowed_type(TYPE_INT);
+        return true;
+        
+    } else if (check(TokenType::TOK_LONG)) {
+        // long type keyword
+        advance();
+        union_def.add_allowed_type(TYPE_LONG);
+        return true;
+        
+    } else if (check(TokenType::TOK_SHORT)) {
+        // short type keyword
+        advance();
+        union_def.add_allowed_type(TYPE_SHORT);
+        return true;
+        
+    } else if (check(TokenType::TOK_TINY)) {
+        // tiny type keyword
+        advance();
+        union_def.add_allowed_type(TYPE_TINY);
+        return true;
+        
+    } else if (check(TokenType::TOK_BOOL)) {
+        // bool type keyword
+        advance();
+        // Check for array type (bool[size])
+        if (check(TokenType::TOK_LBRACKET)) {
+            advance(); // consume '['
+            if (check(TokenType::TOK_NUMBER)) {
+                std::string size = current_token_.value;
+                advance(); // consume the size number
+                if (check(TokenType::TOK_RBRACKET)) {
+                    advance(); // consume ']'
+                    union_def.add_allowed_array_type("bool[" + size + "]");
+                    return true;
+                } else {
+                    error("Expected ']' after array size");
+                    return false;
+                }
+            } else {
+                error("Expected array size after '[' in array type");
+                return false;
+            }
+        }
+        union_def.add_allowed_type(TYPE_BOOL);
+        return true;
+        
+    } else if (check(TokenType::TOK_STRING_TYPE)) {
+        // string type keyword
+        advance();
+        // Check for array type (string[size])
+        if (check(TokenType::TOK_LBRACKET)) {
+            advance(); // consume '['
+            if (check(TokenType::TOK_NUMBER)) {
+                std::string size = current_token_.value;
+                advance(); // consume the size number
+                if (check(TokenType::TOK_RBRACKET)) {
+                    advance(); // consume ']'
+                    union_def.add_allowed_array_type("string[" + size + "]");
+                    return true;
+                } else {
+                    error("Expected ']' after array size");
+                    return false;
+                }
+            } else {
+                error("Expected array size after '[' in array type");
+                return false;
+            }
+        }
+        union_def.add_allowed_type(TYPE_STRING);
+        return true;
+        
+    } else if (check(TokenType::TOK_CHAR_TYPE)) {
+        // char type keyword
+        advance();
+        union_def.add_allowed_type(TYPE_CHAR);
+        return true;
+        
+    } else if (check(TokenType::TOK_VOID)) {
+        // void type keyword
+        advance();
+        union_def.add_allowed_type(TYPE_VOID);
+        return true;
+        
+    } else if (check(TokenType::TOK_IDENTIFIER)) {
+        // Type name (for type unions like user-defined types)
+        std::string type_name = current_token_.value;
+        advance();
+        
+        // Check for array type (type_name[size])
+        if (check(TokenType::TOK_LBRACKET)) {
+            advance(); // consume '['
+            if (check(TokenType::TOK_NUMBER)) {
+                std::string size = current_token_.value;
+                advance(); // consume the size number
+                if (check(TokenType::TOK_RBRACKET)) {
+                    advance(); // consume ']'
+                    // This is an array type with size
+                    union_def.add_allowed_array_type(type_name + "[" + size + "]");
+                    return true;
+                } else {
+                    error("Expected ']' after array size");
+                    return false;
+                }
+            } else {
+                error("Expected array size after '[' in array type");
+                return false;
+            }
+        }
+        
+        // Could be typedef, struct, or enum type
+        if (typedef_map_.find(type_name) != typedef_map_.end()) {
+            // This is a typedef - add as custom type
+            union_def.add_allowed_custom_type(type_name);
+            debug_print("UNION_PARSE_DEBUG: Added typedef custom type '%s' to union\n", type_name.c_str());
+            return true;
+        }
+        
+        if (struct_definitions_.find(type_name) != struct_definitions_.end()) {
+            // This is a struct - add as custom type
+            union_def.add_allowed_custom_type(type_name);
+            debug_print("UNION_PARSE_DEBUG: Added struct custom type '%s' to union\n", type_name.c_str());
+            return true;
+        }
+        
+        if (enum_definitions_.find(type_name) != enum_definitions_.end()) {
+            // This is an enum - add as custom type
+            union_def.add_allowed_custom_type(type_name);
+            debug_print("UNION_PARSE_DEBUG: Added enum custom type '%s' to union\n", type_name.c_str());
+            return true;
+        }
+        
+        // Unknown custom type - still add it (might be defined later)
+        union_def.add_allowed_custom_type(type_name);
+        debug_print("UNION_PARSE_DEBUG: Added unknown custom type '%s' to union\n", type_name.c_str());
+        return true;
+    }
+    
+    error("Expected literal value or type name in union");
+    return false;
 }
 
 // メンバアクセスの解析: obj.member

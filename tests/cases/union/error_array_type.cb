@@ -1,0 +1,24 @@
+// 配列型エラーテスト
+
+typedef ArrayUnion = int[3];  // bool[2]は許可されていない
+
+int main() {
+    println("=== 配列型エラーテスト ===");
+    
+    // 正常ケース
+    int[3] validArray = [1, 2, 3];
+    bool[2] invalidArray = [true, false];
+    ArrayUnion validUnion = validArray;
+    
+    println("Valid assignments:");
+    println("  int[3]: [%d, %d, %d]", validArray[0], validArray[1], validArray[2]);
+    println("  bool[2]: [%d, %d]", invalidArray[0], invalidArray[1]);
+    println("  ArrayUnion (int[3]): assigned successfully");
+    
+    // エラーケース: 許可されていない配列型を代入
+    // この行は実行時エラーを発生させる
+    ArrayUnion invalidUnion = invalidArray;  // bool[2]は許可されていない
+    println("This should not be reached");
+    
+    return 0;
+}

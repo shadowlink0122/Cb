@@ -24,6 +24,7 @@ private:
     // 個別の実行メソッド
     void execute_assignment(const ASTNode* node);
     void execute_variable_declaration(const ASTNode* node);
+    void execute_union_assignment(const std::string& var_name, const ASTNode* value_node);
     void execute_member_array_assignment(const ASTNode* node);
     void execute_member_assignment(const ASTNode* node);
     void execute_member_array_literal_assignment(const ASTNode* node);

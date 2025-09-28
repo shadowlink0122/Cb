@@ -1,0 +1,39 @@
+// 簡単なカスタム型ユニオンテスト
+
+// カスタム型定義
+typedef MyInt = int;
+typedef MyString = string;
+
+// カスタム型ユニオン（基本型のみ）
+typedef CustomUnion = MyInt | MyString;
+
+int main() {
+    println("=== 簡単カスタム型ユニオンテスト ===");
+    
+    // カスタム型変数の作成
+    MyInt customInt = 777;
+    MyString customString = "Custom Text";
+    
+    println("Custom Type Variables:");
+    println("  MyInt: %d", customInt);
+    println("  MyString: %s", customString);
+    
+    // カスタム型をユニオンに代入
+    CustomUnion union1 = customInt;
+    CustomUnion union2 = customString;
+    
+    println("Custom Union Assignments:");
+    println("  Union1 (MyInt): %d", union1);
+    println("  Union2 (MyString): %s", union2);
+    
+    // 直接リテラル代入テスト
+    CustomUnion direct1 = 888;
+    CustomUnion direct2 = "Direct Text";
+    
+    println("Direct Literal Assignments:");
+    println("  Direct1 (int literal): %d", direct1);
+    println("  Direct2 (string literal): %s", direct2);
+    
+    println("=== 簡単カスタム型ユニオンテスト完了 ===");
+    return 0;
+}

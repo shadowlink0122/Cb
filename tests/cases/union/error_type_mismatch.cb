@@ -1,0 +1,23 @@
+// 型不一致エラーテスト
+
+typedef StringOnly = string;
+typedef IntOnly = int;
+
+int main() {
+    println("=== 型不一致エラーテスト ===");
+    
+    // 正常ケース
+    StringOnly validString = "hello";
+    IntOnly validInt = 123;
+    
+    println("Valid assignments:");
+    println("  StringOnly: %s", validString);
+    println("  IntOnly: %d", validInt);
+    
+    // エラーケース: 許可されていない型を代入
+    // この行は実行時エラーを発生させる
+    StringOnly invalidType = 999;  // intは許可されていない（StringOnlyなので）
+    println("This should not be reached: %s", invalidType);
+    
+    return 0;
+}

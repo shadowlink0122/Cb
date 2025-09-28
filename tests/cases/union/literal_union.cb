@@ -1,0 +1,60 @@
+// 基本的なリテラル値ユニオンテスト
+
+// 数値リテラルユニオン
+typedef StatusCode = 200 | 404 | 500;
+
+// Boolean リテラルユニオン  
+typedef Flag = true | false;
+
+// 文字リテラルユニオン
+typedef Grade = 'A' | 'B' | 'C' | 'D' | 'F';
+
+// 文字列リテラルユニオン
+typedef LogLevel = "DEBUG" | "INFO" | "WARN" | "ERROR";
+
+int main() {
+    println("=== 基本リテラル値ユニオンテスト ===");
+    
+    // 数値リテラルテスト
+    StatusCode ok = 200;
+    StatusCode notFound = 404;
+    StatusCode serverError = 500;
+    println("HTTP Status Codes:");
+    println("  OK: %d", ok);
+    println("  Not Found: %d", notFound);
+    println("  Server Error: %d", serverError);
+    
+    // Boolean リテラルテスト
+    Flag enabled = true;
+    Flag disabled = false;
+    println("Boolean Flags:");
+    println("  Enabled: %d", enabled);
+    println("  Disabled: %d", disabled);
+    
+    // 文字リテラルテスト
+    Grade excellent = 'A';
+    Grade good = 'B';
+    Grade average = 'C';
+    Grade poor = 'D';
+    Grade fail = 'F';
+    println("Grade Letters:");
+    println("  Excellent: %c", excellent);
+    println("  Good: %c", good);
+    println("  Average: %c", average);
+    println("  Poor: %c", poor);
+    println("  Fail: %c", fail);
+    
+    // 文字列リテラルテスト
+    LogLevel debug = "DEBUG";
+    LogLevel info = "INFO";
+    LogLevel warn = "WARN";
+    LogLevel error = "ERROR";
+    println("Log Levels:");
+    println("  Debug: %s", debug);
+    println("  Info: %s", info);
+    println("  Warning: %s", warn);
+    println("  Error: %s", error);
+    
+    println("=== 基本リテラル値ユニオンテスト完了 ===");
+    return 0;
+}

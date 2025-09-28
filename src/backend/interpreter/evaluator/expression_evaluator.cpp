@@ -57,6 +57,19 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
             interpreter_.throw_runtime_error_with_location(error_message, node);
         }
 
+        // ユニオン型変数の場合、current_typeに応じて適切な値を返す
+        if (var->type == TYPE_UNION) {
+            if (var->current_type == TYPE_STRING) {
+                // 文字列の場合は、数値評価コンテキストでは0を返す
+                // 実際の文字列値はstr_valueに格納されている
+                debug_msg(DebugMsgId::EXPR_EVAL_VAR_VALUE, node->name.c_str(), 0);
+                return 0;
+            } else {
+                debug_msg(DebugMsgId::EXPR_EVAL_VAR_VALUE, node->name.c_str(), var->value);
+                return var->value;
+            }
+        }
+
         debug_msg(DebugMsgId::EXPR_EVAL_VAR_VALUE, node->name.c_str(), var->value);
         return var->value;
     }

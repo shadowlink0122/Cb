@@ -1,0 +1,55 @@
+// 構造体型ユニオンテスト
+
+// 構造体定義
+struct Point {
+    int x, y;
+};
+
+struct Person {
+    string name;
+    int age;
+};
+
+// 構造体型ユニオン
+typedef ShapeOrPerson = Point | Person;
+typedef GeometryUnion = Point;
+
+int main() {
+    println("=== 構造体型ユニオンテスト ===");
+    
+    // 構造体リテラル初期化テスト
+    Point origin = {x: 0, y: 0};
+    Point target = {10, 20}; // 位置ベース初期化
+    Person alice = {name: "Alice", age: 25};
+    Person bob = {"Bob", 30}; // 位置ベース初期化
+    
+    println("Struct Literal Initialization:");
+    println("  Origin: (%d, %d)", origin.x, origin.y);
+    println("  Target: (%d, %d)", target.x, target.y);
+    println("  Alice: %s, %d years old", alice.name, alice.age);
+    println("  Bob: %s, %d years old", bob.name, bob.age);
+    
+    // 構造体変数をユニオンに代入
+    ShapeOrPerson item1 = origin;
+    ShapeOrPerson item2 = alice;
+    GeometryUnion geo1 = target;
+    
+    println("Struct Union Assignments:");
+    println("  Item1 (Point): assigned successfully");
+    println("  Item2 (Person): assigned successfully");
+    println("  Geo1 (Point): assigned successfully");
+    
+    // 新しい構造体を直接作成してユニオンに代入
+    Point center = {50, 50};
+    Person charlie = {"Charlie", 35};
+    
+    ShapeOrPerson item3 = center;
+    ShapeOrPerson item4 = charlie;
+    
+    println("Additional Struct Assignments:");
+    println("  Item3 (Point): assigned successfully");
+    println("  Item4 (Person): assigned successfully");
+    
+    println("=== 構造体型ユニオンテスト完了 ===");
+    return 0;
+}

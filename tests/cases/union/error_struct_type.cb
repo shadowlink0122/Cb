@@ -1,0 +1,27 @@
+// 構造体型エラーテスト
+
+struct Point { int x, y; };
+struct Person { string name; int age; };
+
+typedef PointUnion = Point;  // Personは許可されていない
+
+int main() {
+    println("=== 構造体型エラーテスト ===");
+    
+    // 正常ケース
+    Point validPoint = {x: 10, y: 20};
+    Person validPerson = {name: "Alice", age: 25};
+    PointUnion validUnion = validPoint;
+    
+    println("Valid assignments:");
+    println("  Point: (%d, %d)", validPoint.x, validPoint.y);
+    println("  Person: %s, %d", validPerson.name, validPerson.age);
+    println("  PointUnion (Point): assigned successfully");
+    
+    // エラーケース: 許可されていない構造体型を代入
+    // この行は実行時エラーを発生させる
+    PointUnion invalidUnion = validPerson;  // Personは許可されていない
+    println("This should not be reached");
+    
+    return 0;
+}

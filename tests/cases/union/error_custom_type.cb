@@ -1,0 +1,26 @@
+// カスタム型エラーテスト
+
+typedef MyInt = int;
+typedef MyString = string;
+typedef RestrictedUnion = MyInt;  // MyStringは許可されていない
+
+int main() {
+    println("=== カスタム型エラーテスト ===");
+    
+    // 正常ケース
+    MyInt validCustomInt = 777;
+    MyString validCustomString = "test";
+    RestrictedUnion validUnion = validCustomInt;
+    
+    println("Valid assignments:");
+    println("  MyInt: %d", validCustomInt);
+    println("  MyString: %s", validCustomString);
+    println("  RestrictedUnion (MyInt): %d", validUnion);
+    
+    // エラーケース: 許可されていないカスタム型を代入
+    // この行は実行時エラーを発生させる
+    RestrictedUnion invalidUnion = validCustomString;  // MyStringは許可されていない
+    println("This should not be reached: %s", invalidUnion);
+    
+    return 0;
+}

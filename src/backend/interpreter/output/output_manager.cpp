@@ -55,7 +55,14 @@ void OutputManager::print_value(const ASTNode *expr) {
         io_interface_->write_string(expr->str_value.c_str());
     } else if (expr->node_type == ASTNodeType::AST_VARIABLE) {
         Variable *var = find_variable(expr->name);
-        if (var && var->type == TYPE_STRING) {
+        if (var && var->type == TYPE_UNION) {
+            // union型変数の場合、current_typeに基づいて出力
+            if (var->current_type == TYPE_STRING) {
+                io_interface_->write_string(var->str_value.c_str());
+            } else {
+                io_interface_->write_number(var->value);
+            }
+        } else if (var && var->type == TYPE_STRING) {
             io_interface_->write_string(var->str_value.c_str());
         } else {
             int64_t value = evaluate_expression(expr);
@@ -622,6 +629,16 @@ void OutputManager::print_formatted(const ASTNode *format_str, const ASTNode *ar
                     if (var->type == TYPE_STRING) {
                         str_args.push_back(var->str_value);
                         int_args.push_back(0); // プレースホルダー
+                    } else if (var->type == TYPE_UNION) {
+                        // ユニオン型変数の場合、current_typeに基づいて処理
+
+                        if (var->current_type == TYPE_STRING) {
+                            str_args.push_back(var->str_value);
+                            int_args.push_back(0); // プレースホルダー
+                        } else {
+                            int_args.push_back(var->value);
+                            str_args.push_back(""); // プレースホルダー
+                        }
                     } else {
                         int64_t value = evaluate_expression(arg.get());
                         int_args.push_back(value);

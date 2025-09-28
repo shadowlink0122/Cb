@@ -150,15 +150,17 @@ debug-build-test: clean $(MAIN_TARGET) integration-test unit-test
 	@echo "Integration tests: completed (debug mode)"
 	@echo "Unit tests: completed (debug mode)"
 
-# クリーンアップ（古いparser/lexerファイルのクリーンアップは削除）
+# クリーンアップ
 clean:
+	@echo "Cleaning up build artifacts..."
 	rm -f $(MAIN_TARGET) $(CGEN_TARGET)
-	rm -f $(FRONTEND_DIR)/*.o $(FRONTEND_DIR)/recursive_parser/*.o $(BACKEND_DIR)/*.o $(BACKEND_DIR)/*/*.o $(COMMON_DIR)/*.o $(NATIVE_DIR)/*.o $(BAREMETAL_DIR)/*.o
 	rm -f tests/integration/test_main
 	rm -f tests/unit/test_main tests/unit/dummy.o
+	find . -name "*.o" -type f -delete
 	rm -rf **/*.dSYM *.dSYM
 	rm -rf tests/integration/*.dSYM
 	rm -rf tests/unit/*.dSYM
+	@echo "Clean completed."
 
 # ディープクリーン（すべての生成ファイルを削除）
 deep-clean: clean

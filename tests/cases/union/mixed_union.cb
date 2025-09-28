@@ -1,0 +1,83 @@
+// 混合複合型ユニオンテスト - 全種類の組み合わせ
+
+// 構造体とカスタム型定義
+struct Rectangle {
+    int width, height;
+};
+
+typedef UserId = int;
+typedef UserName = string;
+
+// 混合ユニオン型（リテラル + 基本型 + カスタム型 + 構造体 + 配列）
+typedef MixedUnion = 404 | "error" | true | int | UserId | Rectangle | int[2];
+typedef ComplexUnion = UserName | Rectangle | bool[3];
+
+int main() {
+    println("=== 混合複合型ユニオンテスト ===");
+    
+    // 各種データの準備
+    UserId userId = 12345;
+    UserName userName = "JohnDoe";
+    Rectangle rect = {width: 800, height: 600};
+    int[2] coords = [25, 75];
+    bool[3] settings = [true, false, true];
+    
+    println("Data Preparation:");
+    println("  UserId: %d", userId);
+    println("  UserName: %s", userName);
+    println("  Rectangle: %dx%d", rect.width, rect.height);
+    println("  Coords: [%d, %d]", coords[0], coords[1]);
+    println("  Settings: [%d, %d, %d]", settings[0], settings[1], settings[2]);
+    
+    // MixedUnion への各種代入テスト
+    MixedUnion mixed1 = 404;                // リテラル値
+    MixedUnion mixed2 = "error";            // 文字列リテラル
+    MixedUnion mixed3 = true;               // Boolean リテラル
+    MixedUnion mixed4 = 999;                // int型
+    MixedUnion mixed5 = userId;             // カスタム型
+    MixedUnion mixed6 = rect;               // 構造体型
+    MixedUnion mixed7 = coords;             // 配列型
+    
+    println("MixedUnion Assignments:");
+    println("  Mixed1 (404 literal): %d", mixed1);
+    println("  Mixed2 (error literal): %s", mixed2);
+    println("  Mixed3 (true literal): %d", mixed3);
+    println("  Mixed4 (int type): %d", mixed4);
+    println("  Mixed5 (UserId): %d", mixed5);
+    println("  Mixed6 (Rectangle): assigned successfully");
+    println("  Mixed7 (int[2]): assigned successfully");
+    
+    // ComplexUnion への代入テスト
+    ComplexUnion complex1 = userName;       // カスタム型
+    ComplexUnion complex2 = rect;           // 構造体型
+    ComplexUnion complex3 = settings;       // 配列型
+    
+    println("ComplexUnion Assignments:");
+    println("  Complex1 (UserName): %s", complex1);
+    println("  Complex2 (Rectangle): assigned successfully");
+    println("  Complex3 (bool[3]): assigned successfully");
+    
+    // 型の再代入テスト
+    mixed1 = 500;                           // 別のint値
+    mixed2 = "warning";                     // 別の文字列
+    mixed3 = false;                         // 別のBoolean値
+    
+    println("Reassignment Test:");
+    println("  Mixed1 (new int): %d", mixed1);
+    println("  Mixed2 (new string): %s", mixed2);
+    println("  Mixed3 (new bool): %d", mixed3);
+    
+    // 新しいデータでの代入テスト
+    Rectangle square = {100, 100};
+    UserId adminId = 1;
+    
+    mixed6 = square;
+    mixed5 = adminId;
+    
+    println("New Data Assignments:");
+    println("  Mixed6 (Square): assigned successfully");
+    println("  Mixed5 (AdminId): %d", mixed5);
+    
+    println("=== 混合複合型ユニオンテスト完了 ===");
+    return 0;
+}

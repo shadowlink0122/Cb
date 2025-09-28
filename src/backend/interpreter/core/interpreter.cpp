@@ -109,6 +109,12 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
         case ASTNodeType::AST_FUNC_DECL:
             node_type_name = "AST_FUNC_DECL";
             break;
+        case ASTNodeType::AST_TYPEDEF_DECL:
+            node_type_name = "AST_TYPEDEF_DECL";
+            break;
+        case ASTNodeType::AST_UNION_TYPEDEF_DECL:
+            node_type_name = "AST_UNION_TYPEDEF_DECL";
+            break;
         default:
             break;
         }
@@ -139,12 +145,26 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
                 register_global_declarations(stmt.get());
             }
         }
+        // typedef宣言を処理（通常のtypedef）
+        for (const auto &stmt : node->statements) {
+            if (stmt->node_type == ASTNodeType::AST_TYPEDEF_DECL) {
+                register_global_declarations(stmt.get());
+            }
+        }
+        // union typedef宣言を処理
+        for (const auto &stmt : node->statements) {
+            if (stmt->node_type == ASTNodeType::AST_UNION_TYPEDEF_DECL) {
+                register_global_declarations(stmt.get());
+            }
+        }
         // 最後にその他の宣言（関数など）を処理
         for (const auto &stmt : node->statements) {
             if (stmt->node_type != ASTNodeType::AST_VAR_DECL &&
                 stmt->node_type != ASTNodeType::AST_STRUCT_DECL &&
                 stmt->node_type != ASTNodeType::AST_STRUCT_TYPEDEF_DECL &&
-                stmt->node_type != ASTNodeType::AST_ENUM_DECL) {
+                stmt->node_type != ASTNodeType::AST_ENUM_DECL &&
+                stmt->node_type != ASTNodeType::AST_TYPEDEF_DECL &&
+                stmt->node_type != ASTNodeType::AST_UNION_TYPEDEF_DECL) {
                 register_global_declarations(stmt.get());
             }
         }
@@ -287,6 +307,11 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
     case ASTNodeType::AST_TYPEDEF_DECL:
         // typedef宣言をTypeManagerに委譲
         type_manager_->register_typedef(node->name, node->type_name);
+        break;
+
+    case ASTNodeType::AST_UNION_TYPEDEF_DECL:
+        // union typedef宣言をTypeManagerに委譲
+        type_manager_->register_union_typedef(node->name, node->union_definition);
         break;
 
     case ASTNodeType::AST_ARRAY_ASSIGN:
@@ -777,6 +802,7 @@ void Interpreter::execute_statement(const ASTNode *node) {
                         int_array_3d.push_back(int_array_2d);
 
                         debug_msg(DebugMsgId::INTERPRETER_RETURN_EXCEPTION);
+                        // 配列戻り値をReturnException として投げる
                         throw ReturnException(int_array_3d, type_name,
                                               type_info);
                     } else if (type_info ==
@@ -800,21 +826,31 @@ void Interpreter::execute_statement(const ASTNode *node) {
                                               type_info);
                     }
                 } else {
-                    debug_msg(DebugMsgId::INTERPRETER_VAR_NOT_FOUND);
+                    // debug_msg(DebugMsgId::INTERPRETER_VAR_NOT_FOUND);
                 }
 
                 // 非配列変数または通常の処理
                 if (node->left->node_type == ASTNodeType::AST_VARIABLE) {
                     Variable *var = find_variable(node->left->name);
+                    // デバッグ出力を削除
                     if (var && var->is_struct) {
                         // 構造体変数を返す場合、直接アクセス変数からstruct_membersに同期
                         sync_struct_members_from_direct_access(node->left->name);
                         throw ReturnException(*var);
-                    } else if (var && var->type == TYPE_STRING) {
-                        // 文字列変数を返す
+                    } else if (var && (var->type == TYPE_STRING || 
+                                      (var->is_assigned && !var->str_value.empty()))) {
+                        // 文字列変数を返す（typedef型を含む）
+                        // 文字列変数を返す（typedef型を含む）
                         throw ReturnException(var->str_value);
-                    } else {
+                    } else if (var) {
                         // 数値変数を返す
+                        int64_t value =
+                            expression_evaluator_->evaluate_expression(
+                                node->left.get());
+                        throw ReturnException(value);
+                    } else {
+                        // 変数が見つからない場合、式評価で処理を試す
+                        debug_msg(DebugMsgId::INTERPRETER_VAR_NOT_FOUND, node->left->name.c_str());
                         int64_t value =
                             expression_evaluator_->evaluate_expression(
                                 node->left.get());

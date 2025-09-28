@@ -5,6 +5,7 @@
 #include "evaluator/expression_evaluator.h"
 #include "core/interpreter.h"
 #include "managers/type_manager.h"
+#include "managers/enum_manager.h"
 #include <algorithm>
 
 void VariableManager::push_scope() {
@@ -360,7 +361,13 @@ void VariableManager::declare_local_variable(const ASTNode *node) {
             }
         } else {
             var.type = interpreter_->type_manager_->string_to_type_info(
-                node->type_name);
+                resolved_type);
+            // カスタム型名を保持（例：MyString -> string に解決されても MyString を記録）
+            if (resolved_type != node->type_name) {
+                var.type_name = node->type_name;
+                // current_typeも設定（union代入で必要）
+                var.current_type = var.type;
+            }
         }
     } else if (!node->type_name.empty() &&
                node->type_name.find("[") != std::string::npos) {
@@ -540,8 +547,23 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                             node->type_name.c_str(), resolved_type.c_str(), static_cast<int>(node->type_info));
             }
 
+            // union typedefの場合
+            if (interpreter_->type_manager_->is_union_type(node->type_name)) {
+                if (debug_mode) {
+                    debug_print("TYPEDEF_DEBUG: Processing union typedef: %s\n", node->type_name.c_str());
+                }
+                var.type = TYPE_UNION;
+                var.type_name = node->type_name;  // union型名を保存
+                var.current_type = TYPE_UNKNOWN;  // まだ値が設定されていない
+
+                // 初期化値がある場合は検証して代入
+                if (node->right || node->init_expr) {
+                    ASTNode* init_node = node->init_expr ? node->init_expr.get() : node->right.get();
+                    assign_union_value(var, node->type_name, init_node);
+                }
+            }
             // 配列typedefの場合
-            if (resolved_type.find("[") != std::string::npos) {
+            else if (resolved_type.find("[") != std::string::npos) {
                 std::string base =
                     resolved_type.substr(0, resolved_type.find("["));
                 std::string array_part =
@@ -669,6 +691,143 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                 } else {
                     var.type = interpreter_->type_manager_->string_to_type_info(
                         resolved_type);
+                }
+            }
+            
+            // カスタム型の保存（union以外）
+            if (var.type != TYPE_UNION) {
+                var.type_name = node->type_name;
+                var.current_type = var.type;
+            }
+
+            // 初期化処理
+            if (node->right || node->init_expr) {
+                ASTNode* init_node = node->init_expr ? node->init_expr.get() : node->right.get();
+                
+                // 型チェック: typedef変数の初期化値が適切な型かチェック
+                if (var.type == TYPE_STRING && init_node->node_type == ASTNodeType::AST_NUMBER) {
+                    throw std::runtime_error("Type mismatch: Cannot assign integer value " + 
+                                           std::to_string(init_node->int_value) + " to string type '" + 
+                                           node->type_name + "'");
+                } else if ((var.type == TYPE_INT || var.type == TYPE_LONG || var.type == TYPE_SHORT || var.type == TYPE_TINY) 
+                          && init_node->node_type == ASTNodeType::AST_STRING_LITERAL) {
+                    throw std::runtime_error("Type mismatch: Cannot assign string value '" + 
+                                           init_node->str_value + "' to numeric type '" + 
+                                           node->type_name + "'");
+                } else if (var.type == TYPE_BOOL && init_node->node_type == ASTNodeType::AST_NUMBER && 
+                          init_node->int_value != 0 && init_node->int_value != 1) {
+                    throw std::runtime_error("Type mismatch: Cannot assign integer value " + 
+                                           std::to_string(init_node->int_value) + " to boolean type '" + 
+                                           node->type_name + "'");
+                }
+                
+                // カスタム型（typedef）変数代入の型チェック
+                if (init_node->node_type == ASTNodeType::AST_VARIABLE) {
+                    Variable* source_var = find_variable(init_node->name);
+                    if (source_var && !source_var->type_name.empty()) {
+                        // 代入元がカスタム型を持つ場合、型名の整合性をチェック
+                        std::string source_resolved = interpreter_->type_manager_->resolve_typedef(source_var->type_name);
+                        std::string target_resolved = interpreter_->type_manager_->resolve_typedef(node->type_name);
+                        
+                        // 基本型は同じだが、カスタム型名が異なる場合
+                        if (source_resolved == target_resolved && source_var->type_name != node->type_name) {
+                            // 再帰的typedefでは同じ基本型に解決される場合は互換性がある
+                            // 例: ID=int, UserID=ID の場合、IDとUserIDは互換性がある
+                            // この場合は型チェックを通す（TypeScriptの型エイリアス的動作）
+                            if (interpreter_->is_debug_mode()) {
+                                debug_print("RECURSIVE_TYPEDEF_DEBUG: %s and %s both resolve to %s - allowing assignment\n",
+                                           source_var->type_name.c_str(), node->type_name.c_str(), source_resolved.c_str());
+                            }
+                            // 互換性があるものとして処理を続行
+                        }
+                    }
+                }
+                
+                if (var.type == TYPE_STRING && init_node->node_type == ASTNodeType::AST_STRING_LITERAL) {
+                    // 文字列リテラル初期化
+                    var.str_value = init_node->str_value;
+                    var.value = 0; // プレースホルダー
+                    var.is_assigned = true;
+                } else if (var.type == TYPE_STRING && init_node->node_type == ASTNodeType::AST_BINARY_OP && init_node->op == "+") {
+                    // 文字列連結の処理
+                    std::string left_str, right_str;
+                    bool success = true;
+                    
+                    // 左オペランドを取得
+                    if (init_node->left->node_type == ASTNodeType::AST_VARIABLE) {
+                        Variable* left_var = find_variable(init_node->left->name);
+                        if (left_var && (left_var->type == TYPE_STRING || left_var->current_type == TYPE_STRING)) {
+                            left_str = left_var->str_value;
+                        } else {
+                            success = false;
+                        }
+                    } else if (init_node->left->node_type == ASTNodeType::AST_STRING_LITERAL) {
+                        left_str = init_node->left->str_value;
+                    } else {
+                        success = false;
+                    }
+                    
+                    // 右オペランドを取得
+                    if (success) {
+                        if (init_node->right->node_type == ASTNodeType::AST_VARIABLE) {
+                            Variable* right_var = find_variable(init_node->right->name);
+                            if (right_var && (right_var->type == TYPE_STRING || right_var->current_type == TYPE_STRING)) {
+                                right_str = right_var->str_value;
+                            } else {
+                                success = false;
+                            }
+                        } else if (init_node->right->node_type == ASTNodeType::AST_STRING_LITERAL) {
+                            right_str = init_node->right->str_value;
+                        } else {
+                            success = false;
+                        }
+                    }
+                    
+                    if (success) {
+                        // 文字列連結を実行
+                        var.str_value = left_str + right_str;
+                        var.value = 0; // プレースホルダー
+                        var.is_assigned = true;
+                    } else {
+                        // 文字列連結に失敗した場合は通常の処理にフォールバック
+                        throw std::runtime_error("String concatenation failed for typedef variable '" + node->name + "'");
+                    }
+                } else {
+                    // その他の初期化
+                    try {
+                        int64_t value = interpreter_->expression_evaluator_->evaluate_expression(init_node);
+                        var.value = value;
+                        var.is_assigned = true;
+                        
+                        // 型範囲チェック
+                        if (var.type != TYPE_STRING) {
+                            interpreter_->type_manager_->check_type_range(var.type, var.value, node->name);
+                        }
+                    } catch (const ReturnException &ret) {
+                        // 関数戻り値の処理
+                        if (var.type == TYPE_STRING && ret.type == TYPE_STRING) {
+                            // 文字列戻り値の場合
+                            var.str_value = ret.str_value;
+                            var.is_assigned = true;
+                        } else if (ret.is_struct && var.type == TYPE_STRUCT) {
+                            // struct戻り値の場合
+                            var = ret.struct_value;
+                            var.is_assigned = true;
+                        } else if (!ret.is_array && !ret.is_struct) {
+                            // 数値戻り値の場合
+                            var.value = ret.value;
+                            var.is_assigned = true;
+                            
+                            // 型範囲チェック
+                            if (var.type != TYPE_STRING) {
+                                interpreter_->type_manager_->check_type_range(var.type, var.value, node->name);
+                            }
+                        } else {
+                            throw std::runtime_error("Incompatible return type for typedef variable '" + node->name + "'");
+                        }
+                    } catch (const std::exception& e) {
+                        throw std::runtime_error("Failed to initialize typedef variable '" + node->name + "': " + e.what());
+                    }
                 }
             }
         }
@@ -1344,6 +1503,20 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
             }
         }
 
+        // 未定義型のチェック（基本的な変数宣言の場合）
+        if (!node->type_name.empty() && node->type_info == TYPE_UNKNOWN) {
+            // type_nameが指定されているがtype_infoがUNKNOWNの場合、未定義型の可能性
+            std::string resolved = interpreter_->type_manager_->resolve_typedef(node->type_name);
+            bool is_union = interpreter_->type_manager_->is_union_type(node->type_name);
+            bool is_struct = (interpreter_->find_struct_definition(node->type_name) != nullptr);
+            bool is_enum = (interpreter_->get_enum_manager() && interpreter_->get_enum_manager()->enum_exists(node->type_name));
+            
+            // typedef、union、struct、enumのいずれでもない場合はエラー
+            if (resolved == node->type_name && !is_union && !is_struct && !is_enum) {
+                throw std::runtime_error("Undefined type: " + node->type_name);
+            }
+        }
+
         current_scope().variables[node->name] = var;
         // std::cerr << "DEBUG: Variable created: " << node->name << ",
         // is_array=" << var.is_array << std::endl;
@@ -1691,6 +1864,180 @@ VariableManager::extract_array_indices(const ASTNode *node) {
     }
 
     return indices;
+}
+
+void VariableManager::assign_union_value(Variable& var, const std::string& union_type_name, const ASTNode* value_node) {
+    // union型変数への代入を実行
+    if (var.type != TYPE_UNION) {
+        throw std::runtime_error("Variable is not a union type");
+    }
+    
+    // 値の型に応じて検証と代入を実行
+    if (value_node->node_type == ASTNodeType::AST_STRING_LITERAL) {
+        // 文字列値
+        std::string str_value = value_node->str_value;
+        if (interpreter_->get_type_manager()->is_value_allowed_for_union(union_type_name, str_value)) {
+            var.str_value = str_value;
+            var.current_type = TYPE_STRING;
+            var.is_assigned = true;
+            if (debug_mode) {
+                debug_print("UNION_DEBUG: Assigned string '%s' to union variable\n", str_value.c_str());
+            }
+        } else {
+            throw std::runtime_error("String value '" + str_value + "' is not allowed for union type " + union_type_name);
+        }
+    } else if (value_node->node_type == ASTNodeType::AST_NUMBER) {
+        // 数値
+        int64_t int_value = value_node->int_value;
+        if (interpreter_->get_type_manager()->is_value_allowed_for_union(union_type_name, int_value)) {
+            var.value = int_value;
+            var.current_type = TYPE_INT;
+            var.is_assigned = true;
+            if (debug_mode) {
+                debug_print("UNION_DEBUG: Assigned integer %lld to union variable\n", int_value);
+            }
+        } else {
+            throw std::runtime_error("Integer value " + std::to_string(int_value) + " is not allowed for union type " + union_type_name);
+        }
+    } else if (value_node->node_type == ASTNodeType::AST_VARIABLE) {
+        // 変数参照の場合、その変数の型がカスタム型unionで許可されているかチェック
+        std::string var_name = value_node->name;
+        Variable* source_var = find_variable(var_name);
+        if (source_var) {
+            if (debug_mode) {
+                debug_print("UNION_DEBUG: Checking variable reference '%s' (type_name='%s', current_type=%d)\n", 
+                           var_name.c_str(), source_var->type_name.c_str(), static_cast<int>(source_var->current_type));
+            }
+            
+            // 1. カスタム型（typedef型）のチェック
+            if (!source_var->type_name.empty()) {
+                if (interpreter_->get_type_manager()->is_custom_type_allowed_for_union(union_type_name, source_var->type_name)) {
+                    // カスタム型として許可されている場合、値をコピー
+                    var.value = source_var->value;
+                    var.str_value = source_var->str_value;
+                    var.current_type = source_var->current_type;
+                    var.type_name = source_var->type_name;
+                    var.is_assigned = true;
+                    if (debug_mode) {
+                        debug_print("UNION_DEBUG: Assigned custom type '%s' to union variable (current_type=%d, str_value='%s')\n", 
+                                   source_var->type_name.c_str(), static_cast<int>(source_var->current_type), source_var->str_value.c_str());
+                    }
+                    return;
+                } else {
+                    // カスタム型が許可されていない場合はエラー
+                    throw std::runtime_error("Type mismatch: Custom type '" + source_var->type_name + 
+                                           "' is not allowed for union type " + union_type_name);
+                }
+            }
+            
+            // 2. 構造体型のチェック
+            if (source_var->is_struct && !source_var->struct_type_name.empty() && 
+                interpreter_->get_type_manager()->is_custom_type_allowed_for_union(union_type_name, source_var->struct_type_name)) {
+                // 構造体型として許可されている場合、構造体全体をコピー
+                var.value = source_var->value;
+                var.str_value = source_var->str_value;
+                var.current_type = TYPE_STRUCT;
+                var.type_name = source_var->struct_type_name;
+                var.is_struct = true;
+                var.struct_type_name = source_var->struct_type_name;
+                var.struct_members = source_var->struct_members;
+                var.is_assigned = true;
+                if (debug_mode) {
+                    debug_print("UNION_DEBUG: Assigned struct type '%s' to union variable\n", 
+                               source_var->struct_type_name.c_str());
+                }
+                return;
+            }
+            
+            // 3. 配列型のチェック
+            if (source_var->is_array) {
+                // 配列の型名を構築 (例: int[3], bool[2])
+                std::string array_type_name;
+                TypeInfo base_type = static_cast<TypeInfo>(source_var->type - TYPE_ARRAY_BASE);
+                
+                // 基本型を文字列に変換
+                std::string base_type_str;
+                switch (base_type) {
+                    case TYPE_INT: base_type_str = "int"; break;
+                    case TYPE_LONG: base_type_str = "long"; break;
+                    case TYPE_SHORT: base_type_str = "short"; break;
+                    case TYPE_TINY: base_type_str = "tiny"; break;
+                    case TYPE_BOOL: base_type_str = "bool"; break;
+                    case TYPE_STRING: base_type_str = "string"; break;
+                    case TYPE_CHAR: base_type_str = "char"; break;
+                    default: base_type_str = "unknown"; break;
+                }
+                
+                if (source_var->array_dimensions.size() > 0) {
+                    array_type_name = base_type_str;
+                    for (size_t dim : source_var->array_dimensions) {
+                        array_type_name += "[" + std::to_string(dim) + "]";
+                    }
+                } else if (source_var->array_size > 0) {
+                    array_type_name = base_type_str + "[" + std::to_string(source_var->array_size) + "]";
+                }
+                
+                if (!array_type_name.empty() && 
+                    interpreter_->get_type_manager()->is_array_type_allowed_for_union(union_type_name, array_type_name)) {
+                    // 配列型として許可されている場合、配列全体をコピー
+                    var.value = source_var->value;
+                    var.str_value = source_var->str_value;
+                    var.current_type = source_var->type;
+                    var.type_name = array_type_name;
+                    var.is_array = true;
+                    var.array_size = source_var->array_size;
+                    var.array_dimensions = source_var->array_dimensions;
+                    var.array_values = source_var->array_values;
+                    var.array_strings = source_var->array_strings;
+                    var.is_multidimensional = source_var->is_multidimensional;
+                    var.multidim_array_values = source_var->multidim_array_values;
+                    var.is_assigned = true;
+                    if (debug_mode) {
+                        debug_print("UNION_DEBUG: Assigned array type '%s' to union variable\n", 
+                                   array_type_name.c_str());
+                    }
+                    return;
+                }
+            }
+            
+            // If not a custom type, fall through to expression evaluation
+        }
+        
+        // Fall through to expression evaluation for non-custom-type variables
+        try {
+            int64_t int_value = interpreter_->expression_evaluator_->evaluate_expression(value_node);
+            if (interpreter_->get_type_manager()->is_value_allowed_for_union(union_type_name, int_value)) {
+                var.value = int_value;
+                var.current_type = TYPE_INT;
+                var.is_assigned = true;
+                if (debug_mode) {
+                    debug_print("UNION_DEBUG: Assigned evaluated integer %lld to union variable\n", int_value);
+                }
+            } else {
+                throw std::runtime_error("Value " + std::to_string(int_value) + " is not allowed for union type " + union_type_name);
+            }
+        } catch (const std::exception& e) {
+            throw std::runtime_error("Failed to assign variable reference to union: " + std::string(e.what()));
+        }
+    } else {
+        // 式の評価
+        try {
+            // 数値として評価
+            int64_t int_value = interpreter_->expression_evaluator_->evaluate_expression(value_node);
+            if (interpreter_->get_type_manager()->is_value_allowed_for_union(union_type_name, int_value)) {
+                var.value = int_value;
+                var.current_type = TYPE_INT;
+                var.is_assigned = true;
+                if (debug_mode) {
+                    debug_print("UNION_DEBUG: Assigned evaluated integer %lld to union variable\n", int_value);
+                }
+            } else {
+                throw std::runtime_error("Value " + std::to_string(int_value) + " is not allowed for union type " + union_type_name);
+            }
+        } catch (const std::exception& e) {
+            throw std::runtime_error("Failed to assign value to union variable: " + std::string(e.what()));
+        }
+    }
 }
 
 // Priority 3: 変数ポインターから名前を検索

@@ -3,6 +3,7 @@
 #include "core/interpreter.h"
 #include "core/error_handler.h"
 #include "managers/array_manager.h"
+#include "managers/type_manager.h"
 #include "../../../common/debug.h"
 #include "../../../common/type_alias.h"
 
@@ -351,6 +352,23 @@ void StatementExecutor::execute_variable_declaration(const ASTNode *node) {
                   << " of type: " << node->type_name << std::endl;
         interpreter_.create_struct_variable(node->name, node->type_name);
         return; // struct変数は専用処理で完了
+    }
+
+    // union型の特別処理
+    if (!node->type_name.empty() && interpreter_.get_type_manager()->is_union_type(node->type_name)) {
+        std::cerr << "[DEBUG_STMT] Creating union variable: " << node->name 
+                  << " of type: " << node->type_name << std::endl;
+        
+        // union型変数を作成（初期値なし）
+        var.type = TYPE_UNION;
+        var.type_name = node->type_name;  // union型名を保存
+        interpreter_.current_scope().variables[node->name] = var;
+        
+        // 初期化値がある場合は検証して代入
+        if (init_node) {
+            execute_union_assignment(node->name, init_node);
+        }
+        return; // union変数は専用処理で完了
     }
     
     // 変数を現在のスコープに登録（配列リテラル代入前に必要）
@@ -748,4 +766,70 @@ void StatementExecutor::execute_member_array_literal_assignment(const ASTNode* n
     
     // 構造体メンバー配列への配列リテラル代入
     interpreter_.assign_struct_member_array_literal(obj_name, member_name, node->right.get());
+}
+
+void StatementExecutor::execute_union_assignment(const std::string& var_name, const ASTNode* value_node) {
+    // union型変数への代入を実行
+    auto& var = interpreter_.current_scope().variables[var_name];
+    
+    if (var.type != TYPE_UNION) {
+        throw std::runtime_error("Variable is not a union type: " + var_name);
+    }
+    
+    std::string union_type_name = var.type_name;
+    
+    // 値の型に応じて検証と代入を実行
+    if (value_node->node_type == ASTNodeType::AST_STRING_LITERAL) {
+        // 文字列値
+        std::string str_value = value_node->str_value;
+        if (interpreter_.get_type_manager()->is_value_allowed_for_union(union_type_name, str_value)) {
+            var.str_value = str_value;
+            var.current_type = TYPE_STRING;
+        } else {
+            throw std::runtime_error("String value '" + str_value + "' is not allowed for union type " + union_type_name);
+        }
+    } else if (value_node->node_type == ASTNodeType::AST_NUMBER) {
+        // 数値
+        int64_t int_value = value_node->int_value;
+        if (interpreter_.get_type_manager()->is_value_allowed_for_union(union_type_name, int_value)) {
+            var.value = int_value;
+            var.current_type = TYPE_INT;
+        } else {
+            throw std::runtime_error("Integer value " + std::to_string(int_value) + " is not allowed for union type " + union_type_name);
+        }
+    } else {
+        // 式の評価
+        try {
+            // まず文字列として評価してみる
+            if (value_node->node_type == ASTNodeType::AST_VARIABLE) {
+                // 変数参照の場合、変数の値を取得
+                auto& source_var = interpreter_.current_scope().variables[value_node->name];
+                if (source_var.current_type == TYPE_STRING) {
+                    if (interpreter_.get_type_manager()->is_value_allowed_for_union(union_type_name, source_var.str_value)) {
+                        var.str_value = source_var.str_value;
+                        var.current_type = TYPE_STRING;
+                        return;
+                    }
+                } else {
+                    int64_t int_value = source_var.value;
+                    if (interpreter_.get_type_manager()->is_value_allowed_for_union(union_type_name, int_value)) {
+                        var.value = int_value;
+                        var.current_type = TYPE_INT;
+                        return;
+                    }
+                }
+            }
+            
+            // 数値として評価
+            int64_t int_value = interpreter_.evaluate(value_node);
+            if (interpreter_.get_type_manager()->is_value_allowed_for_union(union_type_name, int_value)) {
+                var.value = int_value;
+                var.current_type = TYPE_INT;
+            } else {
+                throw std::runtime_error("Value " + std::to_string(int_value) + " is not allowed for union type " + union_type_name);
+            }
+        } catch (const std::exception& e) {
+            throw std::runtime_error("Failed to assign value to union variable " + var_name + ": " + e.what());
+        }
+    }
 }
