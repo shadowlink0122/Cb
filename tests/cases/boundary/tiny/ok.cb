@@ -1,8 +1,10 @@
 
 int main() {
   // tiny型の境界値（正常系）
+  println("Tiny boundary test:");
   tiny t1 = 127;
   tiny t2 = -128;
-  print(t1);
-  print(t2);
+  print("t1 (max tiny): "); println(t1);
+  print("t2 (min tiny): "); println(t2);
+  println("Tiny boundary test passed");
 }

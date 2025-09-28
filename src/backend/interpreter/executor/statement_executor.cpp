@@ -3,6 +3,7 @@
 #include "core/interpreter.h"
 #include "core/error_handler.h"
 #include "managers/array_manager.h"
+#include "managers/type_manager.h"
 #include "../../../common/debug.h"
 #include "../../../common/type_alias.h"
 
@@ -269,11 +270,38 @@ void StatementExecutor::execute_assignment(const ASTNode *node) {
         execute_member_assignment(node);
     } else {
         // 通常の変数代入
-        int64_t value = interpreter_.evaluate(node->right.get());
-        if (node->right->node_type == ASTNodeType::AST_STRING_LITERAL) {
-            interpreter_.assign_variable(node->name, node->right->str_value);
+        if (node->right && node->right->node_type == ASTNodeType::AST_FUNC_CALL) {
+            // 関数呼び出しの場合、構造体戻り値の可能性を考慮
+            try {
+                int64_t value = interpreter_.evaluate(node->right.get());
+                interpreter_.assign_variable(node->name, value, node->type_info);
+            } catch (const ReturnException& ret) {
+                if (ret.is_struct) {
+                    // 構造体戻り値を通常の変数に代入
+                    interpreter_.current_scope().variables[node->name] = ret.struct_value;
+                    
+                    // 個別メンバー変数も更新
+                    for (const auto& member : ret.struct_value.struct_members) {
+                        std::string member_path = node->name + "." + member.first;
+                        Variable* member_var = interpreter_.find_variable(member_path);
+                        if (member_var) {
+                            member_var->value = member.second.value;
+                            member_var->str_value = member.second.str_value;
+                            member_var->is_assigned = true;
+                        }
+                    }
+                } else {
+                    // その他の戻り値は再投げ
+                    throw;
+                }
+            }
         } else {
-            interpreter_.assign_variable(node->name, value, node->type_info);
+            int64_t value = interpreter_.evaluate(node->right.get());
+            if (node->right->node_type == ASTNodeType::AST_STRING_LITERAL) {
+                interpreter_.assign_variable(node->name, node->right->str_value);
+            } else {
+                interpreter_.assign_variable(node->name, value, node->type_info);
+            }
         }
     }
 }
@@ -352,6 +380,23 @@ void StatementExecutor::execute_variable_declaration(const ASTNode *node) {
         interpreter_.create_struct_variable(node->name, node->type_name);
         return; // struct変数は専用処理で完了
     }
+
+    // union型の特別処理
+    if (!node->type_name.empty() && interpreter_.get_type_manager()->is_union_type(node->type_name)) {
+        std::cerr << "[DEBUG_STMT] Creating union variable: " << node->name 
+                  << " of type: " << node->type_name << std::endl;
+        
+        // union型変数を作成（初期値なし）
+        var.type = TYPE_UNION;
+        var.type_name = node->type_name;  // union型名を保存
+        interpreter_.current_scope().variables[node->name] = var;
+        
+        // 初期化値がある場合は検証して代入
+        if (init_node) {
+            execute_union_assignment(node->name, init_node);
+        }
+        return; // union変数は専用処理で完了
+    }
     
     // 変数を現在のスコープに登録（配列リテラル代入前に必要）
     interpreter_.current_scope().variables[node->name] = var;
@@ -376,20 +421,60 @@ void StatementExecutor::execute_variable_declaration(const ASTNode *node) {
                     
                     if (ret.type == TYPE_STRING) {
                         // 文字列配列
-                        if (!ret.str_array_3d.empty() && 
-                            !ret.str_array_3d[0].empty() && 
-                            !ret.str_array_3d[0][0].empty()) {
-                            target_var.array_strings = ret.str_array_3d[0][0];
-                            target_var.array_size = target_var.array_strings.size();
+                        if (!ret.str_array_3d.empty()) {
+                            // 多次元配列かどうかを判定（typedef配列名に[][]が含まれる場合）
+                            bool is_multidim = (ret.array_type_name.find("[][]") != std::string::npos);
+                            if (is_multidim) {
+                                // 多次元配列の場合は全要素を展開
+                                target_var.array_strings.clear();
+                                for (const auto &plane : ret.str_array_3d) {
+                                    for (const auto &row : plane) {
+                                        for (const auto &element : row) {
+                                            target_var.array_strings.push_back(element);
+                                        }
+                                    }
+                                }
+                                target_var.array_size = target_var.array_strings.size();
+                            } else if (!ret.str_array_3d[0].empty() && 
+                                      !ret.str_array_3d[0][0].empty()) {
+                                // 1次元配列の場合
+                                target_var.array_strings = ret.str_array_3d[0][0];
+                                target_var.array_size = target_var.array_strings.size();
+                            }
                             target_var.type = static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_STRING);
                         }
                     } else {
                         // 数値配列
-                        if (!ret.int_array_3d.empty() && 
-                            !ret.int_array_3d[0].empty() && 
-                            !ret.int_array_3d[0][0].empty()) {
-                            target_var.array_values = ret.int_array_3d[0][0];
-                            target_var.array_size = target_var.array_values.size();
+                        if (!ret.int_array_3d.empty()) {
+                            // 多次元配列かどうかを判定（typedef配列名に[][]が含まれる場合）
+                            bool is_multidim = (ret.array_type_name.find("[][]") != std::string::npos);
+                            if (is_multidim) {
+                                // 多次元配列の場合は全要素を展開してmultidim_array_valuesに設定
+                                target_var.multidim_array_values.clear();
+                                for (const auto &plane : ret.int_array_3d) {
+                                    for (const auto &row : plane) {
+                                        for (const auto &element : row) {
+                                            target_var.multidim_array_values.push_back(element);
+                                        }
+                                    }
+                                }
+                                // 配列の次元情報も設定（2D配列の場合）
+                                target_var.is_multidimensional = true;
+                                target_var.array_size = target_var.multidim_array_values.size();
+                                target_var.array_values.clear(); // 1次元配列はクリア
+                                
+                                // 2次元配列の次元情報を設定
+                                if (!ret.int_array_3d.empty() && !ret.int_array_3d[0].empty()) {
+                                    target_var.array_dimensions.clear();
+                                    target_var.array_dimensions.push_back(ret.int_array_3d[0].size());     // 行数
+                                    target_var.array_dimensions.push_back(ret.int_array_3d[0][0].size()); // 列数
+                                }
+                            } else if (!ret.int_array_3d[0].empty() && 
+                                      !ret.int_array_3d[0][0].empty()) {
+                                // 1次元配列の場合
+                                target_var.array_values = ret.int_array_3d[0][0];
+                                target_var.array_size = target_var.array_values.size();
+                            }
                             target_var.type = static_cast<TypeInfo>(TYPE_ARRAY_BASE + ret.type);
                         }
                     }
@@ -748,4 +833,70 @@ void StatementExecutor::execute_member_array_literal_assignment(const ASTNode* n
     
     // 構造体メンバー配列への配列リテラル代入
     interpreter_.assign_struct_member_array_literal(obj_name, member_name, node->right.get());
+}
+
+void StatementExecutor::execute_union_assignment(const std::string& var_name, const ASTNode* value_node) {
+    // union型変数への代入を実行
+    auto& var = interpreter_.current_scope().variables[var_name];
+    
+    if (var.type != TYPE_UNION) {
+        throw std::runtime_error("Variable is not a union type: " + var_name);
+    }
+    
+    std::string union_type_name = var.type_name;
+    
+    // 値の型に応じて検証と代入を実行
+    if (value_node->node_type == ASTNodeType::AST_STRING_LITERAL) {
+        // 文字列値
+        std::string str_value = value_node->str_value;
+        if (interpreter_.get_type_manager()->is_value_allowed_for_union(union_type_name, str_value)) {
+            var.str_value = str_value;
+            var.current_type = TYPE_STRING;
+        } else {
+            throw std::runtime_error("String value '" + str_value + "' is not allowed for union type " + union_type_name);
+        }
+    } else if (value_node->node_type == ASTNodeType::AST_NUMBER) {
+        // 数値
+        int64_t int_value = value_node->int_value;
+        if (interpreter_.get_type_manager()->is_value_allowed_for_union(union_type_name, int_value)) {
+            var.value = int_value;
+            var.current_type = TYPE_INT;
+        } else {
+            throw std::runtime_error("Integer value " + std::to_string(int_value) + " is not allowed for union type " + union_type_name);
+        }
+    } else {
+        // 式の評価
+        try {
+            // まず文字列として評価してみる
+            if (value_node->node_type == ASTNodeType::AST_VARIABLE) {
+                // 変数参照の場合、変数の値を取得
+                auto& source_var = interpreter_.current_scope().variables[value_node->name];
+                if (source_var.current_type == TYPE_STRING) {
+                    if (interpreter_.get_type_manager()->is_value_allowed_for_union(union_type_name, source_var.str_value)) {
+                        var.str_value = source_var.str_value;
+                        var.current_type = TYPE_STRING;
+                        return;
+                    }
+                } else {
+                    int64_t int_value = source_var.value;
+                    if (interpreter_.get_type_manager()->is_value_allowed_for_union(union_type_name, int_value)) {
+                        var.value = int_value;
+                        var.current_type = TYPE_INT;
+                        return;
+                    }
+                }
+            }
+            
+            // 数値として評価
+            int64_t int_value = interpreter_.evaluate(value_node);
+            if (interpreter_.get_type_manager()->is_value_allowed_for_union(union_type_name, int_value)) {
+                var.value = int_value;
+                var.current_type = TYPE_INT;
+            } else {
+                throw std::runtime_error("Value " + std::to_string(int_value) + " is not allowed for union type " + union_type_name);
+            }
+        } catch (const std::exception& e) {
+            throw std::runtime_error("Failed to assign value to union variable " + var_name + ": " + e.what());
+        }
+    }
 }

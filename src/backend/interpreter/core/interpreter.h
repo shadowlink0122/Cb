@@ -32,6 +32,10 @@ struct Variable {
     bool is_struct;               // struct型かどうか
     std::string struct_type_name; // struct型名
 
+    // union型用
+    std::string type_name;        // union型名（union型の場合）
+    TypeInfo current_type;        // union変数の現在の型
+
     // 値
     int64_t value;
     std::string str_value;
@@ -61,7 +65,7 @@ struct Variable {
 
     Variable()
         : type(TYPE_INT), is_const(false), is_array(false), is_assigned(false),
-          is_multidimensional(false), is_struct(false), value(0),
+          is_multidimensional(false), is_struct(false), current_type(TYPE_UNKNOWN), value(0),
           array_size(0) {
         // デバッグ用
         extern bool debug_mode;
@@ -73,7 +77,7 @@ struct Variable {
     // 多次元配列用コンストラクタ
     Variable(const ArrayTypeInfo &array_info)
         : type(TYPE_INT), is_const(false), is_array(true), is_assigned(false),
-          is_multidimensional(true), is_struct(false), value(0), array_size(0),
+          is_multidimensional(true), is_struct(false), current_type(TYPE_UNKNOWN), value(0), array_size(0),
           array_type_info(array_info) {}
 
     // struct用コンストラクタ

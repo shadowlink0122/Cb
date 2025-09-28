@@ -1,0 +1,51 @@
+// カスタム型ユニオンテスト
+
+// カスタム型定義
+typedef int MyInt;
+typedef string MyString;
+typedef bool MyBool;
+
+// カスタム型ユニオン
+typedef CustomUnion = MyInt | MyString;
+typedef MixedCustom = MyInt | MyBool;
+
+int main() {
+    println("=== カスタム型ユニオンテスト ===");
+    
+    // カスタム型変数の作成
+    MyInt customInt = 777;
+    MyString customString = "Custom Text";
+    MyBool customBool = true;
+    
+    println("Custom Type Variables:");
+    println("  MyInt: %d", customInt);
+    println("  MyString: %s", customString);
+    println("  MyBool: %d", customBool);
+    
+    // カスタム型をユニオンに代入
+    CustomUnion union1 = customInt;
+    CustomUnion union2 = customString;
+    
+    println("Custom Union Assignments:");
+    println("  Union1 (MyInt): %d", union1);
+    println("  Union2 (MyString): %s", union2);
+    
+    // 混合カスタム型ユニオン
+    MixedCustom mixed1 = customInt;
+    MixedCustom mixed2 = customBool;
+    
+    println("Mixed Custom Union:");
+    println("  Mixed1 (MyInt): %d", mixed1);
+    println("  Mixed2 (MyBool): %d", mixed2);
+    
+    // 直接リテラル代入テスト
+    CustomUnion direct1 = 888;
+    MixedCustom direct2 = false;
+    
+    println("Direct Literal Assignments:");
+    println("  Direct1 (int literal): %d", direct1);
+    println("  Direct2 (bool literal): %d", direct2);
+    
+    println("=== カスタム型ユニオンテスト完了 ===");
+    return 0;
+}

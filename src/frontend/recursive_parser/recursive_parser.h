@@ -47,6 +47,7 @@ private:
     ASTNode* parseStructTypedefDeclaration();    // typedef struct宣言
     ASTNode* parseEnumDeclaration();             // enum宣言
     ASTNode* parseEnumTypedefDeclaration();      // typedef enum宣言
+    ASTNode* parseUnionTypedefDeclaration();     // typedef union宣言 (TypeScript-like literal types)
     ASTNode* parseVariableDeclaration();
     ASTNode* parseTypedefVariableDeclaration();
     ASTNode* parseFunctionDeclaration();
@@ -100,6 +101,12 @@ private:
     // enum管理  
     std::unordered_map<std::string, EnumDefinition> enum_definitions_; // enum定義の保存
     
+    // union管理 (TypeScript-like literal types)
+    std::unordered_map<std::string, UnionDefinition> union_definitions_; // union定義の保存
+    
+    // Union parsing helper
+    bool parseUnionValue(UnionDefinition& union_def);
+    
 public:
     // enum定義へのアクセサ
     const std::unordered_map<std::string, EnumDefinition>& get_enum_definitions() const {
@@ -109,5 +116,10 @@ public:
     // struct定義へのアクセサ
     const std::unordered_map<std::string, StructDefinition>& get_struct_definitions() const {
         return struct_definitions_;
+    }
+    
+    // union定義へのアクセサ
+    const std::unordered_map<std::string, UnionDefinition>& get_union_definitions() const {
+        return union_definitions_;
     }
 };

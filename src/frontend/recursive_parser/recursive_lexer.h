@@ -39,6 +39,7 @@ enum class TokenType {
     // Bitwise operators
     TOK_BIT_AND,     // &
     TOK_BIT_OR,      // |
+    TOK_PIPE = TOK_BIT_OR,  // | (alias for union types)
     TOK_BIT_XOR,     // ^
     TOK_BIT_NOT,     // ~
     TOK_LEFT_SHIFT,  // <<

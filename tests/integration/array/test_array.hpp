@@ -13,7 +13,12 @@ inline void test_integration_array() {
     run_cb_test_with_output_and_time(test_file_basic, 
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_EQ(0, exit_code, "Expected successful exit code for array basic test");
-            // 出力に関する具体的なチェックが必要に応じて追加可能
+            INTEGRATION_ASSERT_CONTAINS(output, "Array basic test:", "Expected test header in output");
+            INTEGRATION_ASSERT_CONTAINS(output, "a[0] = 10", "Expected a[0] = 10 in output");
+            INTEGRATION_ASSERT_CONTAINS(output, "a[4] = 50", "Expected a[4] = 50 in output");
+            INTEGRATION_ASSERT_CONTAINS(output, "After modification a[2] = 99", "Expected modified value in output");
+            INTEGRATION_ASSERT_CONTAINS(output, "sum = 219", "Expected sum = 219 in output");
+            INTEGRATION_ASSERT_CONTAINS(output, "Array basic test passed", "Expected success message in output");
         }, execution_time_basic);
     integration_test_passed_with_time("array basic test", test_file_basic, execution_time_basic);
     
@@ -22,6 +27,12 @@ inline void test_integration_array() {
     run_cb_test_with_output_and_time(test_file_assign, 
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_EQ(0, exit_code, "Expected successful exit code for array assign test");
+            INTEGRATION_ASSERT_CONTAINS(output, "Array assignment test:", "Expected test header in output");
+            INTEGRATION_ASSERT_CONTAINS(output, "a[0] = 42", "Expected a[0] = 42 in output");
+            INTEGRATION_ASSERT_CONTAINS(output, "a[1] = 43", "Expected a[1] = 43 in output");
+            INTEGRATION_ASSERT_CONTAINS(output, "a[2] = 86", "Expected a[2] = 86 in output");
+            INTEGRATION_ASSERT_CONTAINS(output, "a[3] = 76", "Expected a[3] = 76 in output");
+            INTEGRATION_ASSERT_CONTAINS(output, "Array assignment test passed", "Expected success message in output");
         }, execution_time_assign);
     integration_test_passed_with_time("array assign test", test_file_assign, execution_time_assign);
     

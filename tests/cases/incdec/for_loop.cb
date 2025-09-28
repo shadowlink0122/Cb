@@ -1,12 +1,17 @@
 int main() {
+    println("Increment/decrement in for loop test:");
     int sum = 0;
+    
     for(tiny i = 0; i < 3; ++i) {
         sum += i;
     }
-    print(sum); // 3
+    print("sum after first loop: "); println(sum); // 3
+    
     for(tiny j = 3; j > 0; j--) {
         sum += j;
     }
-    print(sum); // 9
+    print("sum after second loop: "); println(sum); // 9
+    
+    println("Increment/decrement for loop test passed");
     return 0;
 }

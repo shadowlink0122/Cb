@@ -900,6 +900,30 @@ static std::vector<DebugMessageTemplate> init_debug_messages() {
     messages[static_cast<int>(DebugMsgId::EXPR_EVAL_ARRAY_INDEX)] = {
         "[EXPR_EVAL] Array index: %lld", "[EXPR_EVAL] 配列インデックス: %lld"};
 
+    // 多次元文字列配列アクセス関連
+    messages[static_cast<int>(DebugMsgId::MULTIDIM_STRING_ARRAY_ACCESS)] = {
+        "[MULTIDIM_STRING] Accessing array '%s'",
+        "[MULTIDIM_STRING] 配列 '%s' にアクセス"};
+    messages[static_cast<int>(DebugMsgId::MULTIDIM_STRING_ARRAY_INDICES)] = {
+        "[MULTIDIM_STRING] Indices: %s", "[MULTIDIM_STRING] インデックス: %s"};
+    messages[static_cast<int>(DebugMsgId::MULTIDIM_STRING_ARRAY_VALUE)] = {
+        "[MULTIDIM_STRING] Retrieved value: '%s'",
+        "[MULTIDIM_STRING] 取得された値: '%s'"};
+
+    // printf処理関連
+    messages[static_cast<int>(DebugMsgId::PRINTF_PROCESSING_ARRAY_REF)] = {
+        "[PRINTF] Processing ARRAY_REF for printf",
+        "[PRINTF] printf用のARRAY_REF処理中"};
+    messages[static_cast<int>(DebugMsgId::PRINTF_ARRAY_NAME_FOUND)] = {
+        "[PRINTF] Array name: %s", "[PRINTF] 配列名: %s"};
+    messages[static_cast<int>(DebugMsgId::PRINTF_VARIABLE_FOUND)] = {
+        "[PRINTF] Variable found: %s", "[PRINTF] 変数発見: %s"};
+    messages[static_cast<int>(DebugMsgId::PRINTF_STRING_MULTIDIM_PROCESSING)] =
+        {"[PRINTF] Processing string multidimensional array",
+         "[PRINTF] 文字列多次元配列処理中"};
+    messages[static_cast<int>(DebugMsgId::PRINTF_STRING_VALUE_RETRIEVED)] = {
+        "[PRINTF] Got string value: '%s'", "[PRINTF] 文字列値取得: '%s'"};
+
     // 既存のstructおよび式評価関連メッセージ
     messages[static_cast<int>(DebugMsgId::STRUCT_DEF_STORE)] = {
         "Struct definition stored: %s", "構造体定義保存: %s"};

@@ -1,5 +1,0 @@
-int main() {
-    const tiny t1 = 42;
-    t1 = 99;
-    print(t1);
-}

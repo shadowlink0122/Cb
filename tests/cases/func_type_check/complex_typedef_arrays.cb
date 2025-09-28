@@ -49,7 +49,7 @@ void print_names(NameList names) {
 void print_matrix(Matrix2D matrix) {
     println("Matrix (2x2 with default values):");
     for (int i = 0; i < 2; i = i + 1) {
-        println("Row ", i, ": [", matrix[i][0], ", ", matrix[i][1], "]");
+        println("Row %d : [ %d, %d ]", i , matrix[i][0], matrix[i][1]);
     }
 }
 

@@ -48,6 +48,7 @@
 #include "typedef/test_enum_typedef.hpp"
 #include "typedef/test_struct_typedef.hpp"
 #include "typedef/test_typedef.hpp"
+#include "union/test_union.hpp"
 
 // 失敗継続対応のテスト実行関数（マクロをリファクタリング）
 void run_test_with_continue(void (*test_function)(), const char *test_name,
@@ -210,6 +211,8 @@ int main() {
     run_test_with_continue(test_integration_cross_type, "Cross Type Tests",
                            failed_tests);
     run_test_with_continue(test_integration_enum, "Enum Tests", failed_tests);
+    run_test_with_continue(UnionTests::run_all_union_tests, "Union Type Tests",
+                           failed_tests);
     CategoryTimingStats::print_category_summary("Type System");
 
     // 構造体テスト群

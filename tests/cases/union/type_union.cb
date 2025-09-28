@@ -1,0 +1,40 @@
+// 基本型ユニオンテスト
+
+// 数値型ユニオン
+typedef NumericType = int | long;
+
+// プリミティブ型ユニオン
+typedef PrimitiveType = int | bool | char;
+
+// 文字列・数値型ユニオン
+typedef ValueType = string | int;
+
+int main() {
+    println("=== 基本型ユニオンテスト ===");
+    
+    // 数値型ユニオンテスト
+    NumericType smallNumber = 42;
+    NumericType largeNumber = 1000000;
+    println("Numeric Types:");
+    println("  Small Number (int): %d", smallNumber);
+    println("  Large Number (long): %d", largeNumber);
+    
+    // プリミティブ型ユニオンテスト
+    PrimitiveType intValue = 123;
+    PrimitiveType boolValue = true;
+    PrimitiveType charValue = 'X';
+    println("Primitive Types:");
+    println("  Integer Value: %d", intValue);
+    println("  Boolean Value: %d", boolValue);
+    println("  Character Value: %c", charValue);
+    
+    // 文字列・数値型ユニオンテスト
+    ValueType textValue = "Hello World";
+    ValueType numberValue = 999;
+    println("Value Types:");
+    println("  Text Value: %s", textValue);
+    println("  Number Value: %d", numberValue);
+    
+    println("=== 基本型ユニオンテスト完了 ===");
+    return 0;
+}

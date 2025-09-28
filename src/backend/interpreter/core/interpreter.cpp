@@ -109,6 +109,12 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
         case ASTNodeType::AST_FUNC_DECL:
             node_type_name = "AST_FUNC_DECL";
             break;
+        case ASTNodeType::AST_TYPEDEF_DECL:
+            node_type_name = "AST_TYPEDEF_DECL";
+            break;
+        case ASTNodeType::AST_UNION_TYPEDEF_DECL:
+            node_type_name = "AST_UNION_TYPEDEF_DECL";
+            break;
         default:
             break;
         }
@@ -139,12 +145,26 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
                 register_global_declarations(stmt.get());
             }
         }
+        // typedef宣言を処理（通常のtypedef）
+        for (const auto &stmt : node->statements) {
+            if (stmt->node_type == ASTNodeType::AST_TYPEDEF_DECL) {
+                register_global_declarations(stmt.get());
+            }
+        }
+        // union typedef宣言を処理
+        for (const auto &stmt : node->statements) {
+            if (stmt->node_type == ASTNodeType::AST_UNION_TYPEDEF_DECL) {
+                register_global_declarations(stmt.get());
+            }
+        }
         // 最後にその他の宣言（関数など）を処理
         for (const auto &stmt : node->statements) {
             if (stmt->node_type != ASTNodeType::AST_VAR_DECL &&
                 stmt->node_type != ASTNodeType::AST_STRUCT_DECL &&
                 stmt->node_type != ASTNodeType::AST_STRUCT_TYPEDEF_DECL &&
-                stmt->node_type != ASTNodeType::AST_ENUM_DECL) {
+                stmt->node_type != ASTNodeType::AST_ENUM_DECL &&
+                stmt->node_type != ASTNodeType::AST_TYPEDEF_DECL &&
+                stmt->node_type != ASTNodeType::AST_UNION_TYPEDEF_DECL) {
                 register_global_declarations(stmt.get());
             }
         }
@@ -287,6 +307,11 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
     case ASTNodeType::AST_TYPEDEF_DECL:
         // typedef宣言をTypeManagerに委譲
         type_manager_->register_typedef(node->name, node->type_name);
+        break;
+
+    case ASTNodeType::AST_UNION_TYPEDEF_DECL:
+        // union typedef宣言をTypeManagerに委譲
+        type_manager_->register_union_typedef(node->name, node->union_definition);
         break;
 
     case ASTNodeType::AST_ARRAY_ASSIGN:
@@ -655,6 +680,67 @@ void Interpreter::execute_statement(const ASTNode *node) {
                     if (elements[0]->node_type ==
                         ASTNodeType::AST_STRING_LITERAL) {
                         is_string_array = true;
+                    } else if (elements[0]->node_type ==
+                        ASTNodeType::AST_ARRAY_LITERAL) {
+                        // 多次元配列リテラルの場合
+                        // ネストした配列リテラルの最初の要素をチェック
+                        const auto &nested_elements = elements[0]->arguments;
+                        if (!nested_elements.empty() &&
+                            nested_elements[0]->node_type ==
+                            ASTNodeType::AST_STRING_LITERAL) {
+                            is_string_array = true;
+                        }
+                    }
+                }
+
+                // 多次元配列リテラルの場合の特別処理
+                if (!elements.empty() && 
+                    elements[0]->node_type == ASTNodeType::AST_ARRAY_LITERAL) {
+                    
+                    if (is_string_array) {
+                        // 多次元文字列配列を3D形式に変換
+                        std::vector<std::vector<std::vector<std::string>>> str_array_3d;
+                        std::vector<std::vector<std::string>> str_array_2d;
+                        
+                        for (const auto &row_element : elements) {
+                            if (row_element->node_type != ASTNodeType::AST_ARRAY_LITERAL) {
+                                throw std::runtime_error("Expected nested array literal");
+                            }
+                            
+                            std::vector<std::string> row;
+                            for (const auto &cell_element : row_element->arguments) {
+                                if (cell_element->node_type != ASTNodeType::AST_STRING_LITERAL) {
+                                    throw std::runtime_error("Expected string literal in multidim array");
+                                }
+                                row.push_back(cell_element->str_value);
+                            }
+                            str_array_2d.push_back(row);
+                        }
+                        str_array_3d.push_back(str_array_2d);
+                        
+                        throw ReturnException(str_array_3d, "string[][]", 
+                                              static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_STRING));
+                    } else {
+                        // 多次元整数配列を3D形式に変換
+                        std::vector<std::vector<std::vector<int64_t>>> int_array_3d;
+                        std::vector<std::vector<int64_t>> int_array_2d;
+                        
+                        for (const auto &row_element : elements) {
+                            if (row_element->node_type != ASTNodeType::AST_ARRAY_LITERAL) {
+                                throw std::runtime_error("Expected nested array literal");
+                            }
+                            
+                            std::vector<int64_t> row;
+                            for (const auto &cell_element : row_element->arguments) {
+                                int64_t value = expression_evaluator_->evaluate_expression(
+                                    cell_element.get());
+                                row.push_back(value);
+                            }
+                            int_array_2d.push_back(row);
+                        }
+                        int_array_3d.push_back(int_array_2d);
+                        
+                        throw ReturnException(int_array_3d, "int[][]", TYPE_INT);
                     }
                 }
 
@@ -725,25 +811,88 @@ void Interpreter::execute_statement(const ASTNode *node) {
                     if (var->is_multidimensional) {
                         debug_msg(DebugMsgId::INTERPRETER_MULTIDIM_PROCESSING);
 
-                        // 多次元配列の値を3D配列に変換
-                        std::vector<std::vector<std::vector<int64_t>>>
-                            int_array_3d;
-                        std::vector<std::vector<int64_t>> int_array_2d;
-                        std::vector<int64_t> int_array_1d;
+                        // 文字列配列の場合
+                        if (var->type == static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_STRING) ||
+                            var->type == static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_CHAR)) {
+                            
+                            // 多次元文字列配列の値を正しい次元構造で3D配列に変換
+                            std::vector<std::vector<std::vector<std::string>>> str_array_3d;
+                            
+                            if (var->array_dimensions.size() == 2) {
+                                // 2次元配列の場合
+                                int rows = var->array_dimensions[0];
+                                int cols = var->array_dimensions[1];
+                                
+                                std::vector<std::vector<std::string>> str_array_2d;
+                                for (int i = 0; i < rows; i++) {
+                                    std::vector<std::string> row;
+                                    for (int j = 0; j < cols; j++) {
+                                        int flat_index = i * cols + j;
+                                        if (flat_index < var->multidim_array_strings.size()) {
+                                            row.push_back(var->multidim_array_strings[flat_index]);
+                                        } else {
+                                            row.push_back("");
+                                        }
+                                    }
+                                    str_array_2d.push_back(row);
+                                }
+                                str_array_3d.push_back(str_array_2d);
+                            } else {
+                                // その他の多次元配列（従来の方法で1次元として処理）
+                                std::vector<std::vector<std::string>> str_array_2d;
+                                std::vector<std::string> str_array_1d;
 
-                        for (size_t i = 0;
-                             i < var->multidim_array_values.size(); ++i) {
-                            int_array_1d.push_back(
-                                var->multidim_array_values[i]);
-                            debug_msg(DebugMsgId::INTERPRETER_MULTIDIM_ELEMENT,
-                                      (int)i, 
-                                      (long long)var->multidim_array_values[i]);
+                                for (size_t i = 0; i < var->multidim_array_strings.size(); ++i) {
+                                    str_array_1d.push_back(var->multidim_array_strings[i]);
+                                }
+                                str_array_2d.push_back(str_array_1d);
+                                str_array_3d.push_back(str_array_2d);
+                            }
+                            
+                            throw ReturnException(str_array_3d, node->left->name, var->type);
                         }
-                        int_array_2d.push_back(int_array_1d);
-                        int_array_3d.push_back(int_array_2d);
 
-                        throw ReturnException(int_array_3d, node->left->name,
-                                              var->type);
+                        // 多次元配列の値を正しい次元構造で3D配列に変換
+                        std::vector<std::vector<std::vector<int64_t>>> int_array_3d;
+                        
+                        if (var->array_dimensions.size() == 2) {
+                            // 2次元配列の場合
+                            int rows = var->array_dimensions[0];
+                            int cols = var->array_dimensions[1];
+                            
+                            std::vector<std::vector<int64_t>> int_array_2d;
+                            for (int i = 0; i < rows; i++) {
+                                std::vector<int64_t> row;
+                                for (int j = 0; j < cols; j++) {
+                                    int flat_index = i * cols + j;
+                                    if (flat_index < var->multidim_array_values.size()) {
+                                        row.push_back(var->multidim_array_values[flat_index]);
+                                        debug_msg(DebugMsgId::INTERPRETER_MULTIDIM_ELEMENT,
+                                                  flat_index, 
+                                                  (long long)var->multidim_array_values[flat_index]);
+                                    } else {
+                                        row.push_back(0);
+                                    }
+                                }
+                                int_array_2d.push_back(row);
+                            }
+                            int_array_3d.push_back(int_array_2d);
+                        } else {
+                            // その他の多次元配列（従来の方法で1次元として処理）
+                            std::vector<std::vector<int64_t>> int_array_2d;
+                            std::vector<int64_t> int_array_1d;
+
+                            for (size_t i = 0; i < var->multidim_array_values.size(); ++i) {
+                                int_array_1d.push_back(var->multidim_array_values[i]);
+                                debug_msg(DebugMsgId::INTERPRETER_MULTIDIM_ELEMENT,
+                                          (int)i, 
+                                          (long long)var->multidim_array_values[i]);
+                            }
+                            int_array_2d.push_back(int_array_1d);
+                            int_array_3d.push_back(int_array_2d);
+                        }
+
+                        throw ReturnException(int_array_3d, node->left->name, var->type);
                     }
 
                     // 1次元配列の既存処理
@@ -777,6 +926,7 @@ void Interpreter::execute_statement(const ASTNode *node) {
                         int_array_3d.push_back(int_array_2d);
 
                         debug_msg(DebugMsgId::INTERPRETER_RETURN_EXCEPTION);
+                        // 配列戻り値をReturnException として投げる
                         throw ReturnException(int_array_3d, type_name,
                                               type_info);
                     } else if (type_info ==
@@ -787,34 +937,75 @@ void Interpreter::execute_statement(const ASTNode *node) {
                         // 文字列配列を3D配列として格納
                         std::vector<std::vector<std::vector<std::string>>>
                             str_array_3d;
-                        std::vector<std::vector<std::string>> str_array_2d;
-                        std::vector<std::string> str_array_1d;
+                        
+                        if (var->is_multidimensional && var->array_dimensions.size() == 2) {
+                            // 2次元文字列配列の場合
+                            int rows = var->array_dimensions[0];
+                            int cols = var->array_dimensions[1];
+                            
+                            std::vector<std::vector<std::string>> str_array_2d;
+                            for (int i = 0; i < rows; i++) {
+                                std::vector<std::string> row;
+                                for (int j = 0; j < cols; j++) {
+                                    int flat_index = i * cols + j;
+                                    if (flat_index < var->multidim_array_strings.size()) {
+                                        row.push_back(var->multidim_array_strings[flat_index]);
+                                    } else {
+                                        row.push_back("");
+                                    }
+                                }
+                                str_array_2d.push_back(row);
+                            }
+                            str_array_3d.push_back(str_array_2d);
+                        } else {
+                            // 1次元文字列配列の場合（従来処理）
+                            std::vector<std::vector<std::string>> str_array_2d;
+                            std::vector<std::string> str_array_1d;
 
-                        for (size_t i = 0; i < var->array_strings.size(); ++i) {
-                            str_array_1d.push_back(var->array_strings[i]);
+                            if (var->is_multidimensional) {
+                                // 多次元だが2次元以外の場合
+                                for (size_t i = 0; i < var->multidim_array_strings.size(); ++i) {
+                                    str_array_1d.push_back(var->multidim_array_strings[i]);
+                                }
+                            } else {
+                                // 1次元の場合
+                                for (size_t i = 0; i < var->array_strings.size(); ++i) {
+                                    str_array_1d.push_back(var->array_strings[i]);
+                                }
+                            }
+                            str_array_2d.push_back(str_array_1d);
+                            str_array_3d.push_back(str_array_2d);
                         }
-                        str_array_2d.push_back(str_array_1d);
-                        str_array_3d.push_back(str_array_2d);
 
-                        throw ReturnException(str_array_3d, type_name,
-                                              type_info);
+                        throw ReturnException(str_array_3d, type_name, type_info);
                     }
                 } else {
-                    debug_msg(DebugMsgId::INTERPRETER_VAR_NOT_FOUND);
+                    // debug_msg(DebugMsgId::INTERPRETER_VAR_NOT_FOUND);
                 }
 
                 // 非配列変数または通常の処理
                 if (node->left->node_type == ASTNodeType::AST_VARIABLE) {
                     Variable *var = find_variable(node->left->name);
+                    
+                    // デバッグ出力を削除
                     if (var && var->is_struct) {
                         // 構造体変数を返す場合、直接アクセス変数からstruct_membersに同期
                         sync_struct_members_from_direct_access(node->left->name);
                         throw ReturnException(*var);
-                    } else if (var && var->type == TYPE_STRING) {
-                        // 文字列変数を返す
+                    } else if (var && (var->type == TYPE_STRING || 
+                                      (var->is_assigned && !var->str_value.empty()))) {
+                        // 文字列変数を返す（typedef型を含む）
+                        // 文字列変数を返す（typedef型を含む）
                         throw ReturnException(var->str_value);
-                    } else {
+                    } else if (var) {
                         // 数値変数を返す
+                        int64_t value =
+                            expression_evaluator_->evaluate_expression(
+                                node->left.get());
+                        throw ReturnException(value);
+                    } else {
+                        // 変数が見つからない場合、式評価で処理を試す
+                        debug_msg(DebugMsgId::INTERPRETER_VAR_NOT_FOUND, node->left->name.c_str());
                         int64_t value =
                             expression_evaluator_->evaluate_expression(
                                 node->left.get());
@@ -879,7 +1070,12 @@ void Interpreter::execute_statement(const ASTNode *node) {
         break;
 
     default:
-        expression_evaluator_->evaluate_expression(node); // 式文として評価
+        try {
+            expression_evaluator_->evaluate_expression(node); // 式文として評価
+        } catch (const ReturnException &e) {
+            // 関数呼び出し文でのreturn值は無視する（void文として扱う）
+            // struct、array、stringの戻り値も含めて例外を伝播させない
+        }
         break;
     }
 }
@@ -1109,6 +1305,11 @@ void Interpreter::assign_array_literal(const std::string &name,
 
 void Interpreter::assign_array_from_return(const std::string &name,
                                            const ReturnException &ret) {
+    std::cerr << "[DEBUG_ASSIGN_RETURN] assign_array_from_return called for: " << name << std::endl;
+    std::cerr << "[DEBUG_ASSIGN_RETURN] ret.is_array: " << ret.is_array << std::endl;
+    std::cerr << "[DEBUG_ASSIGN_RETURN] ret.int_array_3d.empty(): " << ret.int_array_3d.empty() << std::endl;
+    std::cerr << "[DEBUG_ASSIGN_RETURN] ret.str_array_3d.empty(): " << ret.str_array_3d.empty() << std::endl;
+    
     if (!ret.is_array) {
         throw std::runtime_error("Return value is not an array");
     }
@@ -1136,20 +1337,39 @@ void Interpreter::assign_array_from_return(const std::string &name,
         // 文字列配列の場合
         debug_msg(DebugMsgId::ARRAY_LITERAL_INIT_PROCESSING,
                   "Processing string array return value");
-
-        var->array_strings.clear();
-
-        // 3D配列を1D配列に変換
-        for (const auto &plane : ret.str_array_3d) {
-            for (const auto &row : plane) {
-                for (const auto &element : row) {
-                    var->array_strings.push_back(element);
+        
+        if (var->is_multidimensional) {
+            // 多次元文字列配列の場合、multidim_array_stringsに設定
+            var->multidim_array_strings.clear();
+            
+            // 3D配列から適切にデータを復元
+            for (const auto &plane : ret.str_array_3d) {
+                for (const auto &row : plane) {
+                    for (const auto &element : row) {
+                        var->multidim_array_strings.push_back(element);
+                    }
                 }
             }
-        }
+            
+            actual_return_size = var->multidim_array_strings.size();
+            var->array_size = actual_return_size;
+            var->array_strings.clear();
+        } else {
+            // 1次元文字列配列の場合（従来処理）
+            var->array_strings.clear();
 
-        actual_return_size = var->array_strings.size();
-        var->array_size = actual_return_size;
+            // 3D配列を1D配列に変換
+            for (const auto &plane : ret.str_array_3d) {
+                for (const auto &row : plane) {
+                    for (const auto &element : row) {
+                        var->array_strings.push_back(element);
+                    }
+                }
+            }
+
+            actual_return_size = var->array_strings.size();
+        }
+        
         var->type = static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_STRING);
         var->array_values.clear();
 
@@ -1158,19 +1378,39 @@ void Interpreter::assign_array_from_return(const std::string &name,
         debug_msg(DebugMsgId::ARRAY_LITERAL_INIT_PROCESSING,
                   "Processing integer array return value");
 
-        var->array_values.clear();
-
-        // 3D配列を1D配列に変換
-        for (const auto &plane : ret.int_array_3d) {
-            for (const auto &row : plane) {
-                for (const auto &element : row) {
-                    var->array_values.push_back(element);
+        if (var->is_multidimensional) {
+            // 多次元配列の場合、multidim_array_valuesに設定
+            var->multidim_array_values.clear();
+            
+            // 3D配列から適切にデータを復元
+            for (const auto &plane : ret.int_array_3d) {
+                for (const auto &row : plane) {
+                    for (const auto &element : row) {
+                        var->multidim_array_values.push_back(element);
+                    }
                 }
             }
-        }
+            
+            actual_return_size = var->multidim_array_values.size();
+            var->array_size = actual_return_size;
+            var->array_values.clear();
+        } else {
+            // 1次元配列の場合（従来処理）
+            var->array_values.clear();
 
-        actual_return_size = var->array_values.size();
-        var->array_size = actual_return_size;
+            // 3D配列を1D配列に変換
+            for (const auto &plane : ret.int_array_3d) {
+                for (const auto &row : plane) {
+                    for (const auto &element : row) {
+                        var->array_values.push_back(element);
+                    }
+                }
+            }
+
+            actual_return_size = var->array_values.size();
+            var->array_size = actual_return_size;
+        }
+        
         var->type = static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_INT);
         var->array_strings.clear();
     } else {
@@ -1500,6 +1740,12 @@ void Interpreter::create_struct_variable(const std::string &var_name,
 
             struct_var.struct_members[member.name] = array_member;
 
+            if (debug_mode) {
+                debug_print("Added to struct_members: %s, final array_size=%d\n",
+                            member.name.c_str(), 
+                            struct_var.struct_members[member.name].array_size);
+            }
+
             // マップにコピーされた後、再度配列を初期化
             struct_var.struct_members[member.name].array_values.resize(
                 array_size, 0);
@@ -1567,6 +1813,9 @@ Variable *Interpreter::get_struct_member(const std::string &var_name,
         debug_msg(DebugMsgId::INTERPRETER_VAR_NOT_STRUCT, var_name.c_str());
         throw std::runtime_error("Variable is not a struct: " + var_name);
     }
+
+    // 構造体メンバーアクセス前に最新状態を同期
+    sync_struct_members_from_direct_access(var_name);
 
     debug_msg(DebugMsgId::INTERPRETER_STRUCT_MEMBERS_FOUND, var->struct_members.size());
 
@@ -1661,7 +1910,9 @@ void Interpreter::assign_struct_literal(const std::string &var_name,
 
     if (!var || !var->is_struct) {
         throw std::runtime_error("Variable is not a struct: " + var_name);
-    } // struct定義を取得してメンバ順序を確認
+    }
+    
+    // struct定義を取得してメンバ順序を確認
     // まずtypedefを解決してから構造体定義を検索
     std::string resolved_struct_name = type_manager_->resolve_typedef(var->struct_type_name);
     const StructDefinition *struct_def = find_struct_definition(resolved_struct_name);
@@ -1687,6 +1938,7 @@ void Interpreter::assign_struct_literal(const std::string &var_name,
             }
 
             std::string member_name = member_init->name;
+            
             debug_msg(DebugMsgId::INTERPRETER_MEMBER_INIT_PROCESSING, member_name.c_str());
 
             // 構造体配列要素の場合、個別変数にアクセス
@@ -1694,6 +1946,7 @@ void Interpreter::assign_struct_literal(const std::string &var_name,
             Variable *member_var = find_variable(full_member_name);
 
             // struct_membersから取得することを優先
+            
             auto member_it = var->struct_members.find(member_name);
             if (member_it == var->struct_members.end()) {
                 throw std::runtime_error("Unknown struct member: " +
@@ -1712,14 +1965,24 @@ void Interpreter::assign_struct_literal(const std::string &var_name,
                                              member_name);
                 }
 
+                // デバッグ: 配列サイズを確認
+                if (debug_mode) {
+                    debug_print("Array member initialization: %s, array_size=%d, elements_count=%zu\n",
+                               member_name.c_str(), struct_member_var->array_size, 
+                               member_init->right->arguments.size());
+                }
+
                 // 配列リテラルの各要素を個別変数に代入
                 const auto &array_elements = member_init->right->arguments;
+                         
                 for (size_t i = 0; i < array_elements.size() &&
                                    i < static_cast<size_t>(struct_member_var->array_size);
                      i++) {
+                    
                     std::string element_name = var_name + "." + member_name +
                                                "[" + std::to_string(i) + "]";
                     Variable *element_var = find_variable(element_name);
+                             
                     int64_t value = expression_evaluator_->evaluate_expression(
                         array_elements[i].get());
 
@@ -1738,6 +2001,7 @@ void Interpreter::assign_struct_literal(const std::string &var_name,
                     // struct_membersの配列要素にも代入
                     if (i < struct_member_var->array_values.size()) {
                         struct_member_var->array_values[i] = value;
+                        
                         if (debug_mode) {
                             debug_print("Updated struct_members array element: "
                                         "%s[%zu] = %lld\n",
@@ -1747,16 +2011,19 @@ void Interpreter::assign_struct_literal(const std::string &var_name,
                     }
                 }
                 struct_member_var->is_assigned = true;
-            } else if (struct_member_var->type == TYPE_STRING &&
+            } else if ((struct_member_var->type == TYPE_STRING || 
+                        (!struct_member_var->type_name.empty() && type_manager_->is_union_type(struct_member_var->type_name))) &&
                        member_init->right->node_type ==
                            ASTNodeType::AST_STRING_LITERAL) {
-                // struct_membersの値を直接更新
+                // struct_membersの値を直接更新（Union型文字列を含む）
                 struct_member_var->str_value = member_init->right->str_value;
+                struct_member_var->type = TYPE_STRING; // Union型の場合は実際の型をセット
                 struct_member_var->is_assigned = true;
 
                 // 直接アクセス変数も更新
                 if (member_var) {
                     member_var->str_value = member_init->right->str_value;
+                    member_var->type = TYPE_STRING; // Union型の場合は実際の型をセット
                     member_var->is_assigned = true;
                 }
             } else {
@@ -1823,6 +2090,17 @@ void Interpreter::assign_struct_member(const std::string &var_name,
                                        const std::string &member_name,
                                        int64_t value) {
     Variable *member_var = get_struct_member(var_name, member_name);
+    
+    // Union型メンバーの場合は制約をチェック
+    if (!member_var->type_name.empty() && type_manager_->is_union_type(member_var->type_name)) {
+        if (!type_manager_->is_value_allowed_for_union(member_var->type_name, value)) {
+            throw std::runtime_error("Integer value " + std::to_string(value) + " is not allowed for union type " + member_var->type_name + " in struct member " + member_name);
+        }
+        // Union型の場合は型を整数型に設定し、文字列値をクリア
+        member_var->type = TYPE_INT;
+        member_var->str_value.clear(); // 文字列値をクリア
+    }
+    
     member_var->value = value;
     member_var->is_assigned = true;
     
@@ -1830,6 +2108,16 @@ void Interpreter::assign_struct_member(const std::string &var_name,
     std::string direct_var_name = var_name + "." + member_name;
     Variable *direct_var = find_variable(direct_var_name);
     if (direct_var) {
+        // Union型の場合は制約をチェック
+        if (!direct_var->type_name.empty() && type_manager_->is_union_type(direct_var->type_name)) {
+            if (!type_manager_->is_value_allowed_for_union(direct_var->type_name, value)) {
+                throw std::runtime_error("Integer value " + std::to_string(value) + " is not allowed for union type " + direct_var->type_name + " in struct member " + member_name);
+            }
+            // Union型の場合は型を整数型に設定し、文字列値をクリア
+            direct_var->type = TYPE_INT;
+            direct_var->str_value.clear(); // 文字列値をクリア
+        }
+        
         direct_var->value = value;
         direct_var->is_assigned = true;
     }
@@ -1845,6 +2133,17 @@ void Interpreter::assign_struct_member(const std::string &var_name,
     }
     
     Variable *member_var = get_struct_member(var_name, member_name);
+    
+    // Union型メンバーの場合は制約をチェック
+    if (!member_var->type_name.empty() && type_manager_->is_union_type(member_var->type_name)) {
+        if (!type_manager_->is_value_allowed_for_union(member_var->type_name, value)) {
+            throw std::runtime_error("String value '" + value + "' is not allowed for union type " + member_var->type_name + " in struct member " + member_name);
+        }
+        // Union型の場合は型を文字列型に設定し、数値をクリア
+        member_var->type = TYPE_STRING;
+        member_var->value = 0; // 数値をクリア
+    }
+    
     member_var->str_value = value;
     member_var->is_assigned = true;
     
@@ -1852,6 +2151,16 @@ void Interpreter::assign_struct_member(const std::string &var_name,
     std::string direct_var_name = var_name + "." + member_name;
     Variable *direct_var = find_variable(direct_var_name);
     if (direct_var) {
+        // Union型の場合は制約をチェック
+        if (!direct_var->type_name.empty() && type_manager_->is_union_type(direct_var->type_name)) {
+            if (!type_manager_->is_value_allowed_for_union(direct_var->type_name, value)) {
+                throw std::runtime_error("String value '" + value + "' is not allowed for union type " + direct_var->type_name + " in struct member " + member_name);
+            }
+            // Union型の場合は型を文字列型に設定し、数値をクリア
+            direct_var->type = TYPE_STRING;
+            direct_var->value = 0; // 数値をクリア
+        }
+        
         direct_var->str_value = value;
         direct_var->is_assigned = true;
         if (debug_mode) {
@@ -2267,22 +2576,22 @@ void Interpreter::sync_struct_definitions_from_parser(RecursiveParser* parser) {
 
 void Interpreter::sync_struct_members_from_direct_access(const std::string &var_name) {
     debug_msg(DebugMsgId::INTERPRETER_SYNC_STRUCT_MEMBERS_START, var_name.c_str());
-    debug_print("SYNC_DEBUG: sync_struct_members_from_direct_access called for %s\n", var_name.c_str());
+    debug_msg(DebugMsgId::INTERPRETER_SYNC_STRUCT_MEMBERS_START, var_name.c_str());
     
     // 空の変数名はスキップ
     if (var_name.empty()) {
-        debug_print("SYNC_DEBUG: Empty variable name, skipping sync\n");
+        debug_msg(DebugMsgId::INTERPRETER_VAR_NOT_FOUND, "empty variable name");
         return;
     }
     
     // 変数を取得
     Variable *var = find_variable(var_name);
     if (!var) {
-        debug_print("SYNC_DEBUG: Variable %s not found\n", var_name.c_str());
+        debug_msg(DebugMsgId::INTERPRETER_VAR_NOT_FOUND, var_name.c_str());
         return;
     }
     if (!var->is_struct) {
-        debug_print("SYNC_DEBUG: Variable %s is not struct (is_struct=%d)\n", var_name.c_str(), var->is_struct ? 1 : 0);
+        debug_msg(DebugMsgId::INTERPRETER_VAR_NOT_STRUCT, var_name.c_str());
         return;
     }
     
@@ -2290,12 +2599,12 @@ void Interpreter::sync_struct_members_from_direct_access(const std::string &var_
     std::string resolved_struct_name = type_manager_->resolve_typedef(var->struct_type_name);
     const StructDefinition *struct_def = find_struct_definition(resolved_struct_name);
     if (!struct_def) {
-        debug_print("sync_struct_members_from_direct_access: Struct definition %s not found\n", var->struct_type_name.c_str());
+        debug_msg(DebugMsgId::INTERPRETER_STRUCT_DEFINITION_STORED, var->struct_type_name.c_str());
         return;
     }
     
-    debug_print("sync_struct_members_from_direct_access: Syncing %zu members for %s\n", 
-                struct_def->members.size(), var_name.c_str());
+    debug_msg(DebugMsgId::INTERPRETER_STRUCT_MEMBERS_FOUND, 
+              var_name.c_str(), struct_def->members.size());
     
     // 各メンバについてダイレクトアクセス変数から struct_members に同期
     for (const auto &member : struct_def->members) {
@@ -2303,67 +2612,57 @@ void Interpreter::sync_struct_members_from_direct_access(const std::string &var_
         Variable *direct_var = find_variable(direct_var_name);
         
         if (direct_var) {
-            debug_print("sync_struct_members_from_direct_access: Syncing member %s\n", member.name.c_str());
+            debug_msg(DebugMsgId::INTERPRETER_STRUCT_MEMBER_FOUND, member.name.c_str());
             
             // struct_membersに保存（配列チェックを先に実行）
             if (member.type >= TYPE_ARRAY_BASE || member.array_info.base_type != TYPE_UNKNOWN || direct_var->is_array) {
+                debug_msg(DebugMsgId::INTERPRETER_STRUCT_ARRAY_MEMBER_ADDED, member.name.c_str());
+                
                 var->struct_members[member.name] = Variable();
                 var->struct_members[member.name].type = member.type;
                 var->struct_members[member.name].is_array = true;
-                
-                // 配列サイズを取得
-                int array_size = (member.array_info.base_type != TYPE_UNKNOWN && !member.array_info.dimensions.empty()) ? 
-                                member.array_info.dimensions[0].size : direct_var->array_size;
-                var->struct_members[member.name].array_size = array_size;
+                var->struct_members[member.name].array_size = direct_var->array_size;
                 
                 // 配列要素を個別にチェックして同期
-                var->struct_members[member.name].array_values.resize(array_size);
-                var->struct_members[member.name].array_strings.resize(array_size);
+                var->struct_members[member.name].array_values.resize(direct_var->array_size);
+                var->struct_members[member.name].array_strings.resize(direct_var->array_size);
                 
-                for (int i = 0; i < array_size; i++) {
+                for (int i = 0; i < direct_var->array_size; i++) {
                     std::string element_name = var_name + "." + member.name + "[" + std::to_string(i) + "]";
                     Variable *element_var = find_variable(element_name);
-                    debug_print("sync_struct_members_from_direct_access: Looking for element %s, found=%s\n", 
-                               element_name.c_str(), element_var ? "yes" : "no");
                     if (element_var) {
                         if (member.type == TYPE_STRING) {
-                            debug_print("sync_struct_members_from_direct_access: Copying string element [%d]='%s'\n", 
-                                       i, element_var->str_value.c_str());
                             var->struct_members[member.name].array_strings[i] = element_var->str_value;
                         } else {
-                            debug_print("sync_struct_members_from_direct_access: Copying numeric element [%d]=%ld\n", 
-                                       i, element_var->value);
                             var->struct_members[member.name].array_values[i] = element_var->value;
                         }
-                    } else {
-                        debug_print("sync_struct_members_from_direct_access: Element variable %s not found\n", 
-                                   element_name.c_str());
                     }
                 }
                 
                 var->struct_members[member.name].is_assigned = true;
-                debug_print("sync_struct_members_from_direct_access: Synced array member %s with %d elements\n", 
-                           member.name.c_str(), array_size);
-            } else if (member.type == TYPE_STRING) {
+                debug_msg(DebugMsgId::INTERPRETER_STRUCT_SYNCED, member.name.c_str(), direct_var->array_size);
+            } else if (member.type == TYPE_STRING || direct_var->type == TYPE_STRING ||
+                       ((!direct_var->type_name.empty() && type_manager_->is_union_type(direct_var->type_name)) || 
+                        (!member.type_alias.empty() && type_manager_->is_union_type(member.type_alias))) && 
+                       (direct_var->type == TYPE_STRING || !direct_var->str_value.empty())) {
                 var->struct_members[member.name] = Variable();
-                var->struct_members[member.name].type = member.type;
+                var->struct_members[member.name].type = TYPE_STRING;
+                // Union型名を設定：direct_varから取得できない場合は構造体定義から取得
+                var->struct_members[member.name].type_name = !direct_var->type_name.empty() ? direct_var->type_name : member.type_alias;
                 var->struct_members[member.name].str_value = direct_var->str_value;
                 var->struct_members[member.name].is_assigned = direct_var->is_assigned;
-                debug_print("sync_struct_members_from_direct_access: Synced string member %s = '%s'\n", 
-                           member.name.c_str(), direct_var->str_value.c_str());
+                debug_msg(DebugMsgId::INTERPRETER_STRUCT_SYNCED, member.name.c_str());
             } else {
                 var->struct_members[member.name] = Variable();
                 var->struct_members[member.name].type = member.type;
                 var->struct_members[member.name].value = direct_var->value;
                 var->struct_members[member.name].is_assigned = direct_var->is_assigned;
-                debug_print("sync_struct_members_from_direct_access: Synced numeric member %s = %ld\n", 
-                           member.name.c_str(), direct_var->value);
+                debug_msg(DebugMsgId::INTERPRETER_STRUCT_SYNCED, member.name.c_str());
             }
         } else {
             // ダイレクトアクセス変数が見つからない場合、配列メンバーかチェック
             if (member.array_info.base_type != TYPE_UNKNOWN) {
-                debug_print("sync_struct_members_from_direct_access: Array member %s, checking individual elements\n", 
-                           member.name.c_str());
+                debug_msg(DebugMsgId::INTERPRETER_STRUCT_ARRAY_MEMBER_ADDED, member.name.c_str());
                 
                 var->struct_members[member.name] = Variable();
                 var->struct_members[member.name].type = member.type;
@@ -2388,19 +2687,13 @@ void Interpreter::sync_struct_members_from_direct_access(const std::string &var_
                         } else {
                             var->struct_members[member.name].array_values[i] = element_var->value;
                         }
-                        debug_print("sync_struct_members_from_direct_access: Found element %s with value %ld\n", 
-                                   element_name.c_str(), element_var->value);
                     }
                 }
                 
                 if (found_elements) {
                     var->struct_members[member.name].is_assigned = true;
-                    debug_print("sync_struct_members_from_direct_access: Synced array member %s from individual elements\n", 
-                               member.name.c_str());
+                    debug_msg(DebugMsgId::INTERPRETER_STRUCT_SYNCED, member.name.c_str());
                 }
-            } else {
-                debug_print("sync_struct_members_from_direct_access: Direct access variable %s not found\n", 
-                           direct_var_name.c_str());
             }
         }
     }

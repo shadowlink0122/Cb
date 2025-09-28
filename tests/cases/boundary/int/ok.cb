@@ -1,8 +1,10 @@
 
 int main() {
   // int型の境界値（正常系）
+  println("Integer boundary test:");
   int i1 = 2147483647;
   int i2 = -2147483648;
-  print(i1);
-  print(i2);
+  print("i1 (max int): "); println(i1);
+  print("i2 (min int): "); println(i2);
+  println("Integer boundary test passed");
 }

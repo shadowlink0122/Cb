@@ -1,0 +1,35 @@
+// 構造体の定数サイズ配列メンバーの個別代入テスト
+// このテストケースは sync_struct_members_from_direct_access の修正を検証
+tiny SIZE = 3;
+
+struct Point {
+    int[SIZE] arr;
+    int x, y;
+};
+
+int main() {
+    Point s;
+    
+    // 定数サイズ配列メンバーに個別代入
+    s.arr[0] = 100;
+    s.arr[1] = 200;  
+    s.arr[2] = 300;
+    s.x = 50;
+    s.y = 75;
+    
+    // 個別アクセスでの出力（これは以前から動作していた）
+    println("Individual access: %d, %d, %d", s.arr[0], s.arr[1], s.arr[2]);
+    
+    // printf内での配列アクセス（修正前は [0,0,0] になっていた）
+    println("Direct printf: [%d, %d, %d]", s.arr[0], s.arr[1], s.arr[2]);
+    
+    // 通常メンバーも正常動作確認
+    println("Other members: x=%d, y=%d", s.x, s.y);
+    
+    // 期待される出力:
+    // Individual access: 100, 200, 300
+    // Direct printf: [100, 200, 300]  
+    // Other members: x=50, y=75
+    
+    return 0;
+}

@@ -9,13 +9,15 @@ inline void test_integration_bitwise() {
     const std::string test_file_basic = "../../tests/cases/bitwise/basic_bitwise.cb";
     run_cb_test_with_output_and_time_auto(test_file_basic, 
         [](const std::string& output, int exit_code) {
-            INTEGRATION_ASSERT_CONTAINS(output, "8", "Expected '8' for bitwise AND: 12 & 10");
-            INTEGRATION_ASSERT_CONTAINS(output, "14", "Expected '14' for bitwise OR: 12 | 10");
-            INTEGRATION_ASSERT_CONTAINS(output, "6", "Expected '6' for bitwise XOR: 12 ^ 10");
-            INTEGRATION_ASSERT_CONTAINS(output, "-6", "Expected '-6' for bitwise NOT: ~5");
-            INTEGRATION_ASSERT_CONTAINS(output, "20", "Expected '20' for left shift: 5 << 2");
-            INTEGRATION_ASSERT_CONTAINS(output, "5", "Expected '5' for right shift: 20 >> 2");
             INTEGRATION_ASSERT_EQ(0, exit_code, "Expected successful exit code for bitwise basic test");
+            INTEGRATION_ASSERT_CONTAINS(output, "Bitwise operations test:", "Expected test header in output");
+            INTEGRATION_ASSERT_CONTAINS(output, "12 & 10: 8", "Expected '12 & 10: 8' for bitwise AND");
+            INTEGRATION_ASSERT_CONTAINS(output, "12 | 10: 14", "Expected '12 | 10: 14' for bitwise OR");
+            INTEGRATION_ASSERT_CONTAINS(output, "12 ^ 10: 6", "Expected '12 ^ 10: 6' for bitwise XOR");
+            INTEGRATION_ASSERT_CONTAINS(output, "~5: -6", "Expected '~5: -6' for bitwise NOT");
+            INTEGRATION_ASSERT_CONTAINS(output, "5 << 2: 20", "Expected '5 << 2: 20' for left shift");
+            INTEGRATION_ASSERT_CONTAINS(output, "20 >> 2: 5", "Expected '20 >> 2: 5' for right shift");
+            INTEGRATION_ASSERT_CONTAINS(output, "Bitwise operations test passed", "Expected success message in output");
         });
     integration_test_passed_with_time_auto("bitwise basic test", test_file_basic);
     

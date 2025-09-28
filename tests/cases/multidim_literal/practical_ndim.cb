@@ -4,7 +4,7 @@ int main() {
     int[4] arr1d = [10, 20, 30, 40];
     println("1D array:");
     for (int i = 0; i < 4; i = i + 1) {
-        println(arr1d[i]);
+        println("arr1d[%d] = %d", i, arr1d[i]);
     }
     
     // 2次元配列リテラル
@@ -12,9 +12,10 @@ int main() {
     println("2D array:");
     for (int i = 0; i < 2; i = i + 1) {
         for (int j = 0; j < 3; j = j + 1) {
-            println(arr2d[i][j]);
+            println("arr2d[%d][%d] = %d", i, j, arr2d[i][j]);
         }
     }
     
+    println("Practical ndim tests passed");
     return 0;
 }

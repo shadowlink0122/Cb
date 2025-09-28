@@ -1,4 +1,49 @@
-# Cb言語 構造体機能 実装状況ドキュメント
+# Cb言語 構造体機能・多次元配列 実装状況ドキュメント
+
+## 最新実装 ✅ v0.7.1
+
+### 🔧 多次元配列戻り値処理（新機能）
+```cb
+// typedef配列の多次元配列関数戻り値
+typedef Matrix2D = int[2][2];
+typedef Matrix3D = int[2][2][2];
+
+Matrix2D create_identity_matrix() {
+    Matrix2D result;
+    result[0][0] = 1; result[0][1] = 0;
+    result[1][0] = 0; result[1][1] = 1;
+    return result;
+}
+
+void print_matrix(Matrix2D matrix) {
+    println("Matrix (2x2):");
+    for (int i = 0; i < 2; i++) {
+        printf("Row %d : [ ", i);
+        for (int j = 0; j < 2; j++) {
+            printf("%d", matrix[i][j]);  // 修正済み: 境界エラー解消
+            if (j < 1) printf(", ");
+        }
+        println(" ]");
+    }
+}
+
+int main() {
+    Matrix2D identity = create_identity_matrix();
+    print_matrix(identity);  // 修正前: 境界エラー → 修正後: 正常動作
+    
+    // 個別要素アクセスも正常動作
+    println("identity[0][0] = %d", identity[0][0]);
+    println("identity[1][1] = %d", identity[1][1]);
+    
+    return 0;
+}
+```
+- ✅ **Variable Manager改善**: `ret.int_array_3d[0][0]`問題修正、全要素展開実装
+- ✅ **Statement Executor強化**: ReturnException処理での多次元配列判定・次元情報設定
+- ✅ **Array Manager**: multidim_array_values境界チェック強化
+- ✅ **型判定ロジック**: typedef配列名から多次元配列の正確な識別
+
+---
 
 ## 実装済み機能 ✅
 
@@ -137,6 +182,43 @@ int main() {
 ```
 - ✅ 多次元配列の1次元表現
 - ✅ 配列リテラル初期化対応
+
+### 7. 定数サイズ配列メンバー（修正完了）
+```cb
+tiny SIZE = 3;
+
+struct Point {
+    int[SIZE] arr;  // 定数サイズ配列メンバー
+    int x, y;
+};
+
+int main() {
+    Point s;
+    
+    // 定数サイズ配列メンバーに個別代入
+    s.arr[0] = 100;
+    s.arr[1] = 200;  
+    s.arr[2] = 300;
+    s.x = 50;
+    s.y = 75;
+    
+    // 個別アクセス（従来から動作）
+    println("Individual access: %d, %d, %d", s.arr[0], s.arr[1], s.arr[2]);
+    
+    // printf内での配列アクセス（修正により正常動作）
+    println("Direct printf: [%d, %d, %d]", s.arr[0], s.arr[1], s.arr[2]);
+    
+    // 期待される出力:
+    // Individual access: 100, 200, 300
+    // Direct printf: [100, 200, 300]  ← 修正前は [0, 0, 0] だった
+    
+    return 0;
+}
+```
+- ✅ 定数サイズ配列メンバーの完全対応（`int[SIZE]` 形式）
+- ✅ **sync_struct_members_from_direct_access 修正**: 構造体メンバー同期機能の完全修正
+- ✅ printf/println内での配列アクセス正常化
+- ✅ 個別代入とprintf評価の同期問題解決
 
 ## 未実装機能 ❌
 
@@ -332,8 +414,54 @@ struct Company {
 int process(Person p) { ... }  // 未実装
 ```
 
+## 最新の修正・改善内容
+
+### 構造体配列メンバー同期機能修正 (v0.7.0)
+**修正箇所**: `sync_struct_members_from_direct_access` 関数
+- **問題**: 構造体内の配列メンバーで、個別代入後にprintf内でのアクセスで `[0,0,0]` が表示される
+- **原因**: 配列サイズ計算時に `direct_var->dimensions` を優先し、実際のサイズ情報を見逃していた
+- **解決策**: `direct_var->array_size` を優先する修正を実装
+
+```cpp
+// 修正前：dimensionsを先にチェックしていた
+if (!direct_var->dimensions.empty()) {
+    total_size = direct_var->dimensions[0];
+} else if (direct_var->array_size > 0) {
+    total_size = direct_var->array_size;
+}
+
+// 修正後：array_sizeを優先
+if (direct_var->array_size > 0) {
+    total_size = direct_var->array_size;
+} else if (!direct_var->dimensions.empty()) {
+    total_size = direct_var->dimensions[0];
+}
+```
+
+### Union型文字列処理改善 (v0.6.7)
+**修正箇所**: Union型での文字列代入・処理ロジック
+- **問題**: Union型への文字列代入時に処理が失敗する
+- **解決策**: 既存の再帰的文字列実装を再利用する処理を追加
+
+### 複合代入演算子対応 (v0.6.7)
+**追加機能**: Union型での `+=`, `-=`, `*=`, `/=`, `%=` 演算子
+- 型安全な複合代入演算子の実装
+- 型不一致時の適切なエラーメッセージ
+
+### 関数呼び出し最適化 (v0.6.7)  
+**修正箇所**: 複合代入時の関数評価回数
+- **問題**: `p(test) += value` で関数が2回呼び出される
+- **解決策**: 関数評価結果をキャッシュする最適化を実装
+
+## テスト拡張状況
+- **総合テストケース**: 963ケース（統合テスト）
+- **新規追加**: 構造体配列、Union型文字列処理、関数呼び出し最適化テスト
+- **カバレッジ**: 全ての修正機能に対応する包括的テスト
+
 ## まとめ
 
 Cb言語の構造体機能は、**基本的な構造体操作**、**配列メンバー**、**構造体配列**、**配列リテラル初期化**など、実用的な機能が完全に実装されています。
+
+最新の修正により、**定数サイズ配列メンバーの同期機能**も完全に動作し、個別代入とprintf評価の同期問題も解決されました。
 
 メモリ効率と実装複雑さのバランスを考慮し、段階的な機能拡張を予定していますが、現在の機能セットでも多くの実用的なプログラムを作成可能です。

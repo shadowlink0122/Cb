@@ -8,9 +8,10 @@ int main() {
     int[2][3] arr = create_2d_array();
     
     println("2D array:");
+    // 2次元配列として正しくアクセス
     for (int i = 0; i < 2; i = i + 1) {
         for (int j = 0; j < 3; j = j + 1) {
-            println(arr[i][j]);
+            println("arr[%d][%d] = %d", i, j, arr[i][j]);
         }
     }
     

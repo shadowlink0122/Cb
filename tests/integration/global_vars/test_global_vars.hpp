@@ -9,6 +9,14 @@ inline void test_integration_global_vars() {
     run_cb_test_with_output_and_time_auto("../../tests/cases/global_vars/basic.cb", 
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_EQ(0, exit_code, "basic.cb should execute successfully");
+            INTEGRATION_ASSERT_CONTAINS(output, "Global variables test:", "Expected test header in output");
+            INTEGRATION_ASSERT_CONTAINS(output, "g1: 10", "Expected initial g1 value in output");
+            INTEGRATION_ASSERT_CONTAINS(output, "inc(): 11", "Expected inc() result in output");
+            INTEGRATION_ASSERT_CONTAINS(output, "g1 after inc: 11", "Expected updated g1 value in output");
+            INTEGRATION_ASSERT_CONTAINS(output, "sum(): 1014", "Expected sum result in output");
+            INTEGRATION_ASSERT_CONTAINS(output, "sum() after arr[2] change: 1041", "Expected updated sum result in output");
+            INTEGRATION_ASSERT_CONTAINS(output, "msg: ok", "Expected global string value in output");
+            INTEGRATION_ASSERT_CONTAINS(output, "Global variables test passed", "Expected success message in output");
         });
     integration_test_passed_with_time_auto("global vars basic test", "basic.cb");
     

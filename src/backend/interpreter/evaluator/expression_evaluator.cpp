@@ -57,6 +57,19 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
             interpreter_.throw_runtime_error_with_location(error_message, node);
         }
 
+        // ユニオン型変数の場合、current_typeに応じて適切な値を返す
+        if (var->type == TYPE_UNION) {
+            if (var->current_type == TYPE_STRING) {
+                // 文字列の場合は、数値評価コンテキストでは0を返す
+                // 実際の文字列値はstr_valueに格納されている
+                debug_msg(DebugMsgId::EXPR_EVAL_VAR_VALUE, node->name.c_str(), 0);
+                return 0;
+            } else {
+                debug_msg(DebugMsgId::EXPR_EVAL_VAR_VALUE, node->name.c_str(), var->value);
+                return var->value;
+            }
+        }
+
         debug_msg(DebugMsgId::EXPR_EVAL_VAR_VALUE, node->name.c_str(), var->value);
         return var->value;
     }
@@ -210,7 +223,14 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
 
         // 多次元配列のアクセス
         if (var->is_multidimensional) {
-            // 多次元配列専用の処理
+            // 文字列多次元配列の場合は専用メソッドを使用
+            if (var->array_type_info.base_type == TYPE_STRING) {
+                // 文字列配列の場合は文字列として取得してから数値変換
+                // 通常、これは printf等で文字列として処理されるべきだが、
+                // int64_t を要求される場面では 0 を返す
+                return 0;
+            }
+            // 数値多次元配列の場合
             return interpreter_.getMultidimensionalArrayElement(*var, indices);
         }
         
@@ -663,11 +683,23 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                                 interpreter_.current_scope().variables[param->name] = param_var;
                                 
                                 // 個別メンバー変数も作成（値を正しく設定）
+                                // 元の構造体定義から type_name 情報を取得
+                                const StructDefinition* struct_def = interpreter_.find_struct_definition(resolved_struct_type);
                                 for (const auto& member_pair : sync_source_var->struct_members) {
                                     std::string full_member_name = param->name + "." + member_pair.first;
                                     Variable member_var = member_pair.second;
                                     // 値を確実に設定
                                     member_var.is_assigned = true;
+                                    
+                                    // 元の構造体定義から type_name を取得して設定
+                                    if (struct_def) {
+                                        for (const auto& member : struct_def->members) {
+                                            if (member.name == member_pair.first) {
+                                                member_var.type_name = member.type_alias;
+                                                break;
+                                            }
+                                        }
+                                    }
                                     
                                     debug_print("DEBUG: Creating param member %s: is_array=%d, array_size=%d\n", 
                                                full_member_name.c_str(), member_var.is_array, member_var.array_size);

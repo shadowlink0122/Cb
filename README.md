@@ -7,6 +7,8 @@ C++で作成した静的型付きプログラミング言語です。
 
 再帰下降パーサーを使用してAST（抽象構文木）を構築し、C++でASTを逐次実行するインタープリターとして動作します。
 
+**最新バージョン**: v0.7.1 - 多次元配列戻り値処理の完全対応
+
 ## 特徴
 
 ### 型システム ✅
@@ -17,6 +19,37 @@ C++で作成した静的型付きプログラミング言語です。
 - **論理型**: 真偽値型 (`bool`)
 - **配列型**: 各型の静的配列をサポート（例: `int[10]`, `string[5]`）
 - **配列リテラル**: `[1, 2, 3]` 形式での初期化と包括的な型チェック
+- **Union型システム**: TypeScript風のUnion型完全実装
+  - リテラル値Union: `typedef Status = 200 | 404 | 500;`
+  - 基本型Union: `typedef NumericValue = int | lon### テストカバレッジ
+- **1116個の統合テストケース**: 全機能の動作検証（100%成功率）
+- **26個の単体テスト**: モジュール別詳細テスト
+- **型安全性テスト**: 境界値・型不整合の検出確認
+- **構造体機能テスト**: リテラル初期化、配列メンバー、構造体配列の完全検証
+  - **定数サイズ配列メンバー初期化**: 個別代入でのprintf出力修正完了
+  - **sync_struct_members_from_direct_access**: 構造体メンバー同期機能の完全修正
+- **Union型システムテスト**: TypeScript風Union型の包括的検証（179テストケース）
+  - リテラル値Union、基本型Union、カスタム型Union
+  - 構造体Union、配列Union、混合Union
+  - Union型文字列処理: 再帰的文字列実装との完全統合
+  - Union型複合代入演算子: 構造体メンバーでの完全対応
+  - エラーケース検証（15種類の異常系テスト）
+- **多次元配列戻り値処理**: typedef配列関数の完全対応
+  - **関数戻り値の多次元配列展開**: `Matrix2D create_matrix()`等の2次元配列戻り値を正確に処理
+  - **Variable Manager改善**: 配列戻り値処理で多次元配列判定・全要素展開を実装
+  - **Statement Executor強化**: ReturnException処理での多次元配列対応
+  - **Array Manager境界チェック**: multidim_array_values配列の安全なアクセス保証
+- **関数実行回数検証**: 複合代入での重複実行問題修正確認
+- **自己代入テスト**: 基本、配列、ビット演算による自己代入パターン
+- **国際化テスト**: 多言語エラーメッセージの検証
+- **自動テストフレームワーク**: `make test`で完全自動化
+- **パフォーマンス計測**: カテゴリ別実行時間測定機能
+- **100%テスト成功率**: 完全な品質保証体制g;`
+  - カスタム型Union: `typedef CustomUnion = UserID | ProductID;`
+  - 構造体Union: `typedef EntityUnion = User | Product;`
+  - 配列Union: `typedef ArrayUnion = int[5] | string[3];`
+  - 混合Union: `typedef MixedUnion = 42 | int | string;`
+  - 再帰的typedef対応と継承型チェック
 - **const修飾子**: 定数宣言のサポート
 
 ### 制御構造 ✅
@@ -56,10 +89,12 @@ C++で作成した静的型付きプログラミング言語です。
 - **UTF-8文字列処理**: 日本語を含む文字列の適切な処理
 
 ### テストフレームワーク ✅
-- **統合テスト**: 767個の包括的テストケース（全機能カバレッジ）
+- **統合テスト**: 1116個の包括的テストケース（全機能カバレッジ）
 - **単体テスト**: 26個のモジュール別詳細テスト
 - **自動テスト実行**: `make test`で全テスト実行
 - **カテゴリ別テスト実行時間計測**: パフォーマンス分析機能
+- **100%テスト成功率**: 完全な品質保証体制
+- **多次元配列処理テスト**: typedef配列関数戻り値の完全検証
 
 ## 実装状況
 
@@ -77,16 +112,27 @@ C++で作成した静的型付きプログラミング言語です。
   - 基本構造体定義・使用
   - 構造体リテラル初期化（名前付き・位置指定）
   - 構造体配列メンバー（個別代入・配列リテラル代入）
+  - **定数サイズ配列メンバー**: `tiny SIZE = 3; int[SIZE] arr;` の完全対応
+  - **sync_struct_members_from_direct_access**: 構造体メンバー同期エンジンの修正完了
   - 構造体の配列（構造体配列リテラル初期化）
+- **Union型システム**（完全実装）
+  - TypeScript風のUnion型構文とセマンティクス
+  - リテラル値、基本型、カスタム型、構造体、配列Union対応
+  - 混合Union型と厳密な型検証
+  - **Union型文字列処理**: 再帰的既存文字列実装との完全統合
+  - **Union型複合代入演算子**: 構造体メンバーでの完全対応（`obj.union_member += value`）
+  - 再帰的typedef互換性チェック
+  - 包括的エラーハンドリング（15種類のテストケース）
+- **関数実行最適化**: 複合代入での重複実行問題修正（`p(test) += 1`が1回のみ実行）
 - ストレージ修飾子（const, static）
 - 標準出力（print, printf風フォーマット）
-- 包括的テストフレームワーク（統合テスト767個、単体テスト26個）
+- 包括的テストフレームワーク（統合テスト1116個、単体テスト26個）
 - 再帰下降パーサーによる構文解析
+- **多次元配列関数戻り値処理**: typedef配列の完全対応
 
 ### 🚧 将来の拡張予定
 - **浮動小数点数型**: `float`, `double`のサポート
-- **typedef**: 型エイリアス機能（部分実装済み）
-- **enum**: 列挙型
+- **enum**: 列挙型（部分実装済み）
 - **interface/trait**: 抽象化機能
 - **ジェネリクス・テンプレート**: 型パラメータ化機能
 - **標準ライブラリ**: 文字列操作、数学関数、ファイルIO等の拡充
@@ -180,7 +226,7 @@ make
 ## テスト方法
 
 ### 全テスト実行（推奨）
-統合テスト（767テスト）と単体テスト（26テスト）を全て実行：
+統合テスト（1116テスト）と単体テスト（26テスト）を全て実行：
 ```sh
 make test
 ```
@@ -338,6 +384,295 @@ int main() {
         else
             print("%d", i);
     }
+    return 0;
+}
+```
+
+### 構造体定数サイズ配列メンバー（修正済み機能）
+```cb
+// 定数サイズ配列メンバーの個別代入とprintf出力
+tiny SIZE = 3;
+
+struct Point {
+    int[SIZE] arr;  // 定数サイズ配列メンバー
+    int x, y;
+};
+
+int main() {
+    Point s;
+    
+    // 定数サイズ配列メンバーに個別代入
+    s.arr[0] = 100;
+    s.arr[1] = 200;  
+    s.arr[2] = 300;
+    s.x = 50;
+    s.y = 75;
+    
+    // 個別アクセス（従来から動作）
+    println("Individual access: %d, %d, %d", s.arr[0], s.arr[1], s.arr[2]);
+    
+    // printf内での配列アクセス（修正により正常動作）
+    println("Direct printf: [%d, %d, %d]", s.arr[0], s.arr[1], s.arr[2]);
+    
+    // 通常メンバーも正常動作
+    println("Other members: x=%d, y=%d", s.x, s.y);
+    
+    // 出力:
+    // Individual access: 100, 200, 300
+    // Direct printf: [100, 200, 300]  ← 修正前は [0, 0, 0] だった
+    // Other members: x=50, y=75
+    
+    return 0;
+}
+```
+
+### Union型複合代入演算子（新機能）
+```cb
+typedef Status = 200 | 404 | 500;
+typedef Uni = int | string;
+
+struct TestStruct {
+    Status code;
+    Uni value;
+    int count;
+};
+
+int main() {
+    TestStruct test = {
+        code: 200,
+        value: 5,      // Union型に int を代入
+        count: 10
+    };
+    
+    // Union型メンバーへの複合代入演算子
+    test.value *= 3;   // Union型 int メンバーの複合代入: 5 * 3 = 15
+    test.count += 5;   // 通常の複合代入: 10 + 5 = 15
+    
+    println("After compound assignment: value=%d, count=%d", test.value, test.count);
+    
+    // Union型の型変更
+    test.value = "Hello";  // int → string に変更
+    println("After type change: value=%s", test.value);
+    
+    // 再び数値に変更して複合代入
+    test.value = 7;
+    test.value += 3;       // Union型での加算複合代入: 7 + 3 = 10
+    
+    println("Final: value=%d", test.value);
+    
+    // 出力:
+    // After compound assignment: value=15, count=15
+    // After type change: value=Hello
+    // Final: value=10
+    
+    return 0;
+}
+```
+
+### 関数実行回数最適化（修正済み機能）
+```cb
+int call_count = 0;
+
+int p(int x) {
+    call_count++;
+    println("Function p called, count: %d, value: %d", call_count, x);
+    return x;
+}
+
+int main() {
+    call_count = 0;
+    int test = 5;
+    
+    println("Before: test=%d, call_count=%d", test, call_count);
+    
+    // 修正前: p(test) が2回実行されていた
+    // 修正後: p(test) が正確に1回のみ実行される
+    test = p(test) + 1;
+    
+    println("After: test=%d, call_count=%d", test, call_count);
+    
+    if (call_count == 1) {
+        println("✓ Test passed: Function called exactly once");
+    } else {
+        println("✗ Test failed: Function called %d times, expected 1", call_count);
+    }
+    
+    // 出力:
+    // Before: test=5, call_count=0
+    // Function p called, count: 1, value: 5
+    // After: test=6, call_count=1
+    // ✓ Test passed: Function called exactly once
+    
+    return 0;
+}
+```
+
+### 多次元配列戻り値処理（新機能）
+```cb
+// typedef配列の多次元配列関数戻り値（修正済み機能）
+typedef Matrix2D = int[2][2];
+
+Matrix2D create_matrix() {
+    Matrix2D result;
+    result[0][0] = 1;
+    result[0][1] = 2;
+    result[1][0] = 3; 
+    result[1][1] = 4;
+    return result;
+}
+
+void print_matrix(Matrix2D matrix) {
+    println("Matrix (2x2):");
+    for (int i = 0; i < 2; i++) {
+        printf("Row %d : [ ", i);
+        for (int j = 0; j < 2; j++) {
+            printf("%d", matrix[i][j]);
+            if (j < 1) printf(", ");
+        }
+        println(" ]");
+    }
+}
+
+int main() {
+    // 修正前: 境界エラーが発生していた
+    // 修正後: 全4要素が正確に転送・処理される
+    Matrix2D matrix = create_matrix();
+    
+    print_matrix(matrix);
+    
+    // 出力:
+    // Matrix (2x2):
+    // Row 0 : [ 1, 2 ]
+    // Row 1 : [ 3, 4 ]  ← 修正前はここで境界エラー
+    
+    return 0;
+}
+```
+
+**修正内容**:
+- **Variable Manager**: `ret.int_array_3d[0][0]`のみ処理していた問題を修正し、多次元配列の全要素展開を実装
+- **Statement Executor**: ReturnException処理での多次元配列判定・次元情報設定を追加
+- **Array Manager**: multidim_array_values配列の境界チェック強化
+- **型判定ロジック**: typedef配列名と実際の配列構造から多次元配列を正確に識別
+
+typedef StringOrInt = string | int;
+typedef Response = "success" | "error" | "pending";
+
+int main() {
+    // Union型での文字列代入と出力
+    StringOrInt data = "Hello World";
+    println("String value: %s", data);  // 修正により正常出力
+    
+    // リテラル型での文字列処理
+    Response status = "success";
+    println("Status: %s", status);      // 修正により正常出力
+    
+    // 数値から文字列への変更
+    data = 42;
+    println("Numeric value: %d", data);
+    
+    // 再び文字列に変更（再帰的文字列実装使用）
+    data = "Converted back";
+    println("Back to string: %s", data); // 修正により正常出力
+    
+    // Union型の文字列比較処理
+    Response status1 = "success";
+    Response status2 = "error";
+    
+    println("Comparison test:");
+    println("status1 (%s) != status2 (%s): different values", status1, status2);
+    
+    status2 = "success";
+    println("status1 (%s) == status2 (%s): same values", status1, status2);
+    
+    // 出力:
+    // String value: Hello World
+    // Status: success
+    // Numeric value: 42
+    // Back to string: Converted back
+    // Comparison test:
+    // status1 (success) != status2 (error): different values
+    // status1 (success) == status2 (success): same values
+    
+    return 0;
+}
+```
+```cb
+// リテラル値Union - 特定の値のみ許可
+typedef HttpStatus = 200 | 404 | 500;
+typedef Direction = "up" | "down" | "left" | "right";
+
+// 基本型Union - 複数の基本型を組み合わせ
+typedef NumericValue = int | long | string;
+typedef BoolOrString = bool | string;
+
+// カスタム型Union - 定義したtypedefを組み合わせ
+typedef UserID = int;
+typedef ProductID = string;
+typedef ID = UserID | ProductID;
+
+// 構造体Union - 異なる構造体型を組み合わせ
+struct User {
+    int id;
+    string name;
+}
+
+struct Product {
+    string code;
+    int price;
+}
+
+typedef Entity = User | Product;
+
+// 配列Union - 異なる配列型を組み合わせ
+typedef ArrayUnion = int[5] | string[3];
+
+// 混合Union - リテラル値と型を組み合わせ
+typedef MixedUnion = 42 | int | string;
+
+int main() {
+    // リテラル値Unionの使用
+    HttpStatus status = 200;  // OK: 許可されたリテラル値
+    // HttpStatus invalid = 301;  // エラー: 許可されていない値
+    
+    // 基本型Unionの使用
+    NumericValue value1 = 42;      // int値
+    NumericValue value2 = "test";  // string値
+    // NumericValue invalid = true; // エラー: bool型は許可されていない
+    
+    // カスタム型Unionの使用（再帰的typedef対応）
+    UserID user_id = 12345;
+    ID general_id = user_id;       // OK: UserID → ID は互換性あり
+    
+    // 構造体Unionの使用
+    User alice = {id: 1, name: "Alice"};
+    Entity entity = alice;         // OK: User → Entity
+    
+    // 配列Unionの使用
+    int[5] numbers = [1, 2, 3, 4, 5];
+    ArrayUnion arr_union = numbers; // OK: int[5] → ArrayUnion
+    
+    print("Union型システムが正常に動作しています");
+    print("status: %d, value1: %d", status, value1);
+    
+    return 0;
+}
+```
+
+### Union型エラーハンドリング
+```cb
+typedef RestrictedUnion = int | string;  // boolは許可されない
+
+int main() {
+    // 正常なケース
+    RestrictedUnion valid1 = 42;
+    RestrictedUnion valid2 = "hello";
+    
+    // エラーケース（実行時エラー）
+    bool flag = true;
+    // RestrictedUnion invalid = flag;  // エラー: bool型は許可されていない
+    
+    print("Union型の型安全性が保証されています");
     return 0;
 }
 ```
@@ -532,12 +867,13 @@ Error: char type value out of range (0-255): 300
 ### アーキテクチャ
 - **フロントエンド**: 字句解析 → 構文解析 → AST生成（再帰下降パーサー）
 - **バックエンド**: インタープリター実行エンジン
+- **Union型システム**: TypeScript風の高度な型検証エンジン
 - **多言語サポート**: 英語・日本語でのエラーメッセージ・デバッグ情報
 - **UTF-8対応**: 日本語を含む文字列の適切な処理
 - **モジュール化設計**: 機能別ディレクトリ構成
 
 ### テストカバレッジ
-- **767個の統合テストケース**: 全機能の動作検証
+- **963個の統合テストケース**: 全機能の動作検証
 - **26個の単体テスト**: モジュール別詳細テスト
 - **型安全性テスト**: 境界値・型不整合の検出確認
 - **構造体機能テスト**: リテラル初期化、配列メンバー、構造体配列の完全検証

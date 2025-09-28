@@ -13,9 +13,10 @@ int main() {
     // 2次元整数配列戻り値
     int[2][3] result_matrix = create_matrix();
     println("Matrix from function:");
+    // 2次元配列として正しくアクセス
     for (int i = 0; i < 2; i = i + 1) {
         for (int j = 0; j < 3; j = j + 1) {
-            println(result_matrix[i][j]);
+            println("matrix[%d][%d] = %d", i, j, result_matrix[i][j]);
         }
     }
     
@@ -24,9 +25,10 @@ int main() {
     println("String matrix from function:");
     for (int i = 0; i < 2; i = i + 1) {
         for (int j = 0; j < 2; j = j + 1) {
-            println(result_str[i][j]);
+            println("str_matrix[%d][%d] = %s", i, j, result_str[i][j]);
         }
     }
+    println("Multidimensional array return test passed");
     
     return 0;
 }

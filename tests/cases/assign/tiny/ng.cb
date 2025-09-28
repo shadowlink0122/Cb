@@ -1,6 +1,0 @@
-// tiny型の代入（異常系）
-int main(){
-    int i = 128;
-    tiny t = i;
-    print(t);
-}

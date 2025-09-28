@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include <iostream>
 #include <memory>
 #include <string>
 #include <vector>
@@ -17,7 +18,8 @@ enum TypeInfo {
     TYPE_BOOL = 7,
     TYPE_STRUCT = 8,
     TYPE_ENUM = 9,
-    TYPE_POINTER = 10, // ポインタ型（将来実装）
+    TYPE_UNION = 10,   // Union型（リテラル型・複合型）
+    TYPE_POINTER = 11, // ポインタ型（将来実装）
     TYPE_ARRAY_BASE = 100 // 配列型は基底型 + 100（下位互換のため保持）
 };
 
@@ -107,6 +109,264 @@ struct EnumDefinition {
     }
 };
 
+// Union型の値を格納する構造体（リテラル型・複合型用）
+struct UnionValue {
+    TypeInfo value_type;      // 値の型
+    int64_t int_value;        // 整数値
+    std::string string_value; // 文字列値
+    bool bool_value;          // ブール値
+
+    UnionValue() : value_type(TYPE_UNKNOWN), int_value(0), bool_value(false) {}
+
+    // 整数値用コンストラクタ
+    UnionValue(int64_t val)
+        : value_type(TYPE_INT), int_value(val), bool_value(false) {}
+
+    // 文字値用コンストラクタ
+    UnionValue(char val)
+        : value_type(TYPE_CHAR), int_value(static_cast<int64_t>(val)),
+          bool_value(false) {}
+
+    // 文字列値用コンストラクタ
+    UnionValue(const std::string &val)
+        : value_type(TYPE_STRING), int_value(0), string_value(val),
+          bool_value(false) {}
+
+    // ブール値用コンストラクタ
+    UnionValue(bool val)
+        : value_type(TYPE_BOOL), int_value(0), bool_value(val) {}
+
+    // 型指定コンストラクタ
+    UnionValue(TypeInfo type, int64_t val)
+        : value_type(type), int_value(val), bool_value(false) {}
+    UnionValue(TypeInfo type, const std::string &val)
+        : value_type(type), int_value(0), string_value(val), bool_value(false) {
+    }
+
+    // 等価性チェック
+    bool equals(const UnionValue &other) const {
+        if (value_type != other.value_type)
+            return false;
+
+        switch (value_type) {
+        case TYPE_INT:
+        case TYPE_LONG:
+        case TYPE_SHORT:
+        case TYPE_TINY:
+        case TYPE_CHAR:
+            return int_value == other.int_value;
+        case TYPE_STRING:
+            return string_value == other.string_value;
+        case TYPE_BOOL:
+            return bool_value == other.bool_value;
+        default:
+            return false;
+        }
+    }
+};
+
+// Union型定義（TypeScriptライクなリテラル型・複合型）
+struct UnionDefinition {
+    std::string name;                       // union型名
+    std::vector<UnionValue> allowed_values; // リテラル値（1 | 2 | "A"など）
+    std::vector<TypeInfo> allowed_types; // 許可される型（int | stringなど）
+    std::vector<std::string>
+        allowed_custom_types; // カスタム型（struct名、typedef名など）
+    std::vector<std::string>
+        allowed_array_types; // 配列型（int[]、MyStruct[]など）
+    bool has_literal_values; // リテラル値があるか
+    bool has_type_values;    // 型値があるか
+    bool has_custom_types;   // カスタム型があるか
+    bool has_array_types;    // 配列型があるか
+
+    UnionDefinition()
+        : has_literal_values(false), has_type_values(false),
+          has_custom_types(false), has_array_types(false) {}
+    UnionDefinition(const std::string &n)
+        : name(n), has_literal_values(false), has_type_values(false),
+          has_custom_types(false), has_array_types(false) {}
+
+    // コピーコンストラクタ（デバッグ用）
+    UnionDefinition(const UnionDefinition &other)
+        : name(other.name), allowed_values(other.allowed_values),
+          allowed_types(other.allowed_types),
+          allowed_custom_types(other.allowed_custom_types),
+          allowed_array_types(other.allowed_array_types),
+          has_literal_values(other.has_literal_values),
+          has_type_values(other.has_type_values),
+          has_custom_types(other.has_custom_types),
+          has_array_types(other.has_array_types) {}
+
+    // 代入演算子（デバッグ用）
+    UnionDefinition &operator=(const UnionDefinition &other) {
+        if (this != &other) {
+            name = other.name;
+            allowed_values = other.allowed_values;
+            allowed_types = other.allowed_types;
+            allowed_custom_types = other.allowed_custom_types;
+            allowed_array_types = other.allowed_array_types;
+            has_literal_values = other.has_literal_values;
+            has_type_values = other.has_type_values;
+            has_custom_types = other.has_custom_types;
+            has_array_types = other.has_array_types;
+        }
+        return *this;
+    }
+
+    // リテラル値を追加
+    void add_literal_value(const UnionValue &value) {
+        allowed_values.push_back(value);
+        has_literal_values = true;
+    }
+
+    // 許可する型を追加（複合型用）
+    void add_allowed_type(TypeInfo type) {
+        allowed_types.push_back(type);
+        has_type_values = true;
+    }
+
+    // カスタム型を追加（struct、typedef等）
+    void add_allowed_custom_type(const std::string &type_name) {
+        allowed_custom_types.push_back(type_name);
+        has_custom_types = true;
+    }
+
+    // 配列型を追加（int[]、MyStruct[]等）
+    void add_allowed_array_type(const std::string &array_type) {
+        allowed_array_types.push_back(array_type);
+        has_array_types = true;
+    }
+
+    // 混合unionかどうか
+    bool is_mixed_union() const {
+        int type_count = 0;
+        if (has_literal_values)
+            type_count++;
+        if (has_type_values)
+            type_count++;
+        if (has_custom_types)
+            type_count++;
+        if (has_array_types)
+            type_count++;
+        return type_count > 1;
+    }
+
+    // 純粋なリテラルunionかどうか
+    bool is_literal_union() const {
+        return has_literal_values && !has_type_values && !has_custom_types &&
+               !has_array_types;
+    }
+
+    // 純粋な型unionかどうか
+    bool is_type_union() const {
+        return !has_literal_values && has_type_values && !has_custom_types &&
+               !has_array_types;
+    }
+
+    // カスタム型のみのunionかどうか
+    bool is_custom_type_union() const {
+        return !has_literal_values && !has_type_values && has_custom_types &&
+               !has_array_types;
+    }
+
+    // 配列型のみのunionかどうか
+    bool is_array_type_union() const {
+        return !has_literal_values && !has_type_values && !has_custom_types &&
+               has_array_types;
+    }
+
+    // 値が許可されているかチェック（リテラル値）
+    bool is_literal_value_allowed(const UnionValue &value) const {
+        if (!has_literal_values)
+            return false;
+
+        for (const auto &allowed : allowed_values) {
+            if (allowed.equals(value)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // 型が許可されているかチェック（複合型）
+    bool is_type_allowed(TypeInfo type) const {
+        // リテラル値から推定される型をチェック
+        if (has_literal_values) {
+            for (const auto &allowed : allowed_values) {
+                if (allowed.value_type == type) {
+                    return true;
+                }
+            }
+        }
+
+        // 明示的な型をチェック
+        if (has_type_values) {
+            for (TypeInfo allowed_type : allowed_types) {
+                if (allowed_type == type) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    // カスタム型が許可されているかチェック
+    bool is_custom_type_allowed(const std::string &type_name) const {
+        if (has_custom_types) {
+            for (const auto &allowed_type : allowed_custom_types) {
+                if (allowed_type == type_name) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    // 配列型が許可されているかチェック
+    bool is_array_type_allowed(const std::string &array_type) const {
+        if (has_array_types) {
+            for (const auto &allowed_array : allowed_array_types) {
+                if (allowed_array == array_type) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    // 値が許可されているかチェック（統合）
+    bool is_value_allowed(TypeInfo type, int64_t int_val) const {
+        UnionValue value(type, int_val);
+        // リテラル値チェック
+        if (has_literal_values && is_literal_value_allowed(value)) {
+            return true;
+        }
+        // 型チェック
+        return is_type_allowed(type);
+    }
+
+    bool is_value_allowed(TypeInfo type, const std::string &str_val) const {
+        UnionValue value(type, str_val);
+        // リテラル値チェック
+        if (has_literal_values && is_literal_value_allowed(value)) {
+            return true;
+        }
+        // 型チェック
+        return is_type_allowed(type);
+    }
+
+    bool is_value_allowed(TypeInfo type, bool bool_val) const {
+        UnionValue value(bool_val);
+        // リテラル値チェック
+        if (has_literal_values && is_literal_value_allowed(value)) {
+            return true;
+        }
+        // 型チェック
+        return is_type_allowed(type);
+    }
+};
+
 // struct定義情報を格納する構造体
 struct StructMember {
     std::string name;         // メンバ変数名
@@ -185,7 +445,8 @@ enum class ASTNodeType {
     AST_STRUCT_TYPEDEF_DECL, // typedef struct宣言
     AST_ENUM_DECL,           // enum宣言
     AST_ENUM_TYPEDEF_DECL,   // typedef enum宣言
-    AST_ENUM_ACCESS,         // enum値アクセス (EnumName::member)
+    AST_UNION_TYPEDEF_DECL, // typedef union宣言 (TypeScript-like literal types)
+    AST_ENUM_ACCESS,        // enum値アクセス (EnumName::member)
 
     // 式
     AST_FUNC_CALL,
@@ -313,6 +574,11 @@ struct ASTNode {
     std::string enum_name;          // enum型名 (Job::a の Job部分)
     std::string enum_member;        // enumメンバー名 (Job::a の a部分)
     EnumDefinition enum_definition; // enum定義情報（AST_ENUM_DECLノード用）
+
+    // union関連（TypeScript-like literal types）
+    std::string union_name; // union型名
+    UnionDefinition
+        union_definition; // union定義情報（AST_UNION_TYPEDEF_DECLノード用）
 
     // コンストラクタ - 全フィールドの明示的初期化
     ASTNode(ASTNodeType type)

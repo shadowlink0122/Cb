@@ -4,8 +4,13 @@ int main() {
     a[1] = a[0] + 1;
     a[2] = a[1] * 2;
     a[3] = a[2] - 10;
-    print(a[0]); // 42
-    print(a[1]); // 43
-    print(a[2]); // 86
-    print(a[3]); // 76
+    
+    println("Array assignment test:");
+    println("a[0] = %d", a[0]); // 42
+    println("a[1] = %d", a[1]); // 43
+    println("a[2] = %d", a[2]); // 86
+    println("a[3] = %d", a[3]); // 76
+    println("Array assignment test passed");
+    
+    return 0;
 }

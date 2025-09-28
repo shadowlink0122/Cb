@@ -45,6 +45,9 @@ class VariableManager {
     void assign_string_element(const std::string &name, int64_t index,
                                char value);
 
+    // union型代入
+    void assign_union_value(Variable& var, const std::string& union_type_name, const ASTNode* value_node);
+
     // 複合処理 (AST_VAR_DECL/AST_ASSIGN ケース)
     void process_var_decl_or_assign(const ASTNode *node);
 

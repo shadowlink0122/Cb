@@ -1,0 +1,22 @@
+// 許可されていないリテラル値エラーテスト
+
+typedef StatusCode = 200 | 404 | 500;
+typedef Grade = 'A' | 'B' | 'C';
+
+int main() {
+    println("=== 許可されていないリテラル値エラーテスト ===");
+    
+    // 正常ケース
+    StatusCode validCode = 200;
+    Grade validGrade = 'A';
+    println("Valid assignments:");
+    println("  StatusCode: %d", validCode);
+    println("  Grade: %c", validGrade);
+    
+    // エラーケース: 許可されていない値を代入
+    // この行は実行時エラーを発生させる
+    StatusCode invalidCode = 999;  // 999は許可されていない
+    println("This should not be reached: %d", invalidCode);
+    
+    return 0;
+}

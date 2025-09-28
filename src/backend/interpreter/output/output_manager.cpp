@@ -1,5 +1,6 @@
 #include "output/output_manager.h"
 #include "core/interpreter.h"
+#include "managers/type_manager.h"
 #include "services/expression_service.h" // DRY効率化: 統一式評価サービス
 // #include "services/expression_service.h" // DRY効率化: 循環依存解決まで一時コメントアウト
 #include "../../../common/debug.h"
@@ -55,7 +56,14 @@ void OutputManager::print_value(const ASTNode *expr) {
         io_interface_->write_string(expr->str_value.c_str());
     } else if (expr->node_type == ASTNodeType::AST_VARIABLE) {
         Variable *var = find_variable(expr->name);
-        if (var && var->type == TYPE_STRING) {
+        if (var && var->type == TYPE_UNION) {
+            // union型変数の場合、current_typeに基づいて出力
+            if (var->current_type == TYPE_STRING) {
+                io_interface_->write_string(var->str_value.c_str());
+            } else {
+                io_interface_->write_number(var->value);
+            }
+        } else if (var && var->type == TYPE_STRING) {
             io_interface_->write_string(var->str_value.c_str());
         } else {
             int64_t value = evaluate_expression(expr);
@@ -85,7 +93,14 @@ void OutputManager::print_value(const ASTNode *expr) {
         
         try {
             Variable* member_var = interpreter_->get_struct_member(struct_name, member_name);
-            if (member_var->type == TYPE_STRING) {
+            
+
+            
+            // Union型の場合は実際の値の型を確認
+            if (member_var->type == TYPE_STRING || 
+                (!member_var->type_name.empty() && 
+                 interpreter_->get_type_manager()->is_union_type(member_var->type_name) &&
+                 !member_var->str_value.empty() && member_var->is_assigned)) {
                 io_interface_->write_string(member_var->str_value.c_str());
             } else {
                 io_interface_->write_number(member_var->value);
@@ -110,7 +125,8 @@ void OutputManager::print_value(const ASTNode *expr) {
             // 構造体メンバー変数を取得して型を確認
             Variable *member_var = interpreter_->get_struct_member(obj_name, member_name);
             if (member_var && member_var->is_array) {
-                if (member_var->type == TYPE_STRING) {
+                if (member_var->type == TYPE_STRING || 
+                    (!member_var->type_name.empty() && interpreter_->get_type_manager()->is_union_type(member_var->type_name) && !member_var->str_value.empty() && member_var->is_assigned)) {
                     // 文字列配列の場合
                     if (index >= 0 && index < static_cast<int64_t>(member_var->array_strings.size())) {
                         io_interface_->write_string(member_var->array_strings[index].c_str());
@@ -180,20 +196,30 @@ void OutputManager::print_value(const ASTNode *expr) {
                 else if (base_node && base_node->node_type == ASTNodeType::AST_VARIABLE) {
                     Variable* var = find_variable(base_node->name);
                     if (var && var->is_multidimensional && var->array_type_info.base_type == TYPE_STRING) {
-                        // 多次元文字列配列の場合は専用処理
+                        // 汎用的な多次元文字列配列処理
+                        debug_msg(DebugMsgId::MULTIDIM_STRING_ARRAY_ACCESS, base_node->name.c_str());
+                        
                         std::vector<int64_t> indices;
+                        const ASTNode* current = expr;
                         
-                        // 最外側のインデックス（current expression）
-                        int64_t outer_index = evaluate_expression(expr->array_index.get());
+                        // 再帰的にインデックスを収集（右から左へ）
+                        while (current && current->node_type == ASTNodeType::AST_ARRAY_REF) {
+                            int64_t index = evaluate_expression(current->array_index.get());
+                            indices.insert(indices.begin(), index); // 先頭に挿入
+                            current = current->left.get();
+                        }
                         
-                        // 内側のインデックス（left expression）
-                        int64_t inner_index = evaluate_expression(expr->left->array_index.get());
-                        
-                        indices.push_back(inner_index);
-                        indices.push_back(outer_index);
+                        // インデックスの情報をデバッグ出力
+                        std::string indices_str;
+                        for (size_t i = 0; i < indices.size(); ++i) {
+                            if (i > 0) indices_str += ", ";
+                            indices_str += std::to_string(indices[i]);
+                        }
+                        debug_msg(DebugMsgId::MULTIDIM_STRING_ARRAY_INDICES, indices_str.c_str());
                         
                         try {
                             std::string result = interpreter_->getMultidimensionalStringArrayElement(*var, indices);
+                            debug_msg(DebugMsgId::MULTIDIM_STRING_ARRAY_VALUE, result.c_str());
                             io_interface_->write_string(result.c_str());
                             return;
                         } catch (const std::exception& e) {
@@ -529,12 +555,15 @@ void OutputManager::print_formatted(const ASTNode *format_str,
                     }
                     break;
                 case 's':
-                    if (arg_index < str_args.size() && !str_args[arg_index].empty()) {
-                        // 文字列が渡された場合
+                    if (arg_index < str_args.size()) {
+                        // 文字列引数がある場合（空文字列も有効）
                         result += str_args[arg_index];
-                    } else {
+                    } else if (arg_index < int_args.size()) {
                         // 数値が渡された場合は文字列に変換
                         result += std::to_string(int_args[arg_index]);
+                    } else {
+                        // 引数がない場合
+                        result += "(null)";
                     }
                     break;
                 case 'c':
@@ -611,6 +640,48 @@ void OutputManager::print_formatted(const ASTNode *format_str, const ASTNode *ar
             if (arg->node_type == ASTNodeType::AST_ARRAY_REF) {
                 debug_msg(DebugMsgId::PRINTF_ARRAY_REF_DEBUG, 
                          arg->left.get(), arg->array_index.get());
+                
+                debug_msg(DebugMsgId::PRINTF_PROCESSING_ARRAY_REF);
+                
+                // 文字列配列の場合の特別処理
+                std::string array_name;
+                const ASTNode* base_node = arg.get();
+                while (base_node && base_node->node_type == ASTNodeType::AST_ARRAY_REF && base_node->left) {
+                    base_node = base_node->left.get();
+                }
+                if (base_node && base_node->node_type == ASTNodeType::AST_VARIABLE) {
+                    array_name = base_node->name;
+                }
+                
+                Variable* var = find_variable(array_name);
+                
+                debug_msg(DebugMsgId::PRINTF_ARRAY_NAME_FOUND, array_name.c_str());
+                debug_msg(DebugMsgId::PRINTF_VARIABLE_FOUND, var ? "true" : "false");
+                
+                if (var && var->is_array && var->array_type_info.base_type == TYPE_STRING) {
+                    debug_msg(DebugMsgId::PRINTF_STRING_MULTIDIM_PROCESSING);
+                    
+                    // 多次元インデックスを収集
+                    std::vector<int64_t> indices;
+                    const ASTNode* current_node = arg.get();
+                    while (current_node && current_node->node_type == ASTNodeType::AST_ARRAY_REF) {
+                        int64_t index = evaluate_expression(current_node->array_index.get());
+                        indices.insert(indices.begin(), index); // 先頭に挿入（逆順になるため）
+                        current_node = current_node->left.get();
+                    }
+                    
+                    try {
+                        std::string str_value = interpreter_->getMultidimensionalStringArrayElement(*var, indices);
+                        debug_msg(DebugMsgId::PRINTF_STRING_VALUE_RETRIEVED, str_value.c_str());
+                        str_args.push_back(str_value);
+                        int_args.push_back(0); // プレースホルダー
+                        continue; // 次の引数へ
+                    } catch (const std::exception& e) {
+                        str_args.push_back("");
+                        int_args.push_back(0);
+                        continue;
+                    }
+                }
             }
             
             if (arg->node_type == ASTNodeType::AST_STRING_LITERAL) {
@@ -622,6 +693,16 @@ void OutputManager::print_formatted(const ASTNode *format_str, const ASTNode *ar
                     if (var->type == TYPE_STRING) {
                         str_args.push_back(var->str_value);
                         int_args.push_back(0); // プレースホルダー
+                    } else if (var->type == TYPE_UNION) {
+                        // ユニオン型変数の場合、current_typeに基づいて処理
+
+                        if (var->current_type == TYPE_STRING) {
+                            str_args.push_back(var->str_value);
+                            int_args.push_back(0); // プレースホルダー
+                        } else {
+                            int_args.push_back(var->value);
+                            str_args.push_back(""); // プレースホルダー
+                        }
                     } else {
                         int64_t value = evaluate_expression(arg.get());
                         int_args.push_back(value);
@@ -653,7 +734,8 @@ void OutputManager::print_formatted(const ASTNode *format_str, const ASTNode *ar
                 
                 try {
                     Variable* member_var = interpreter_->get_struct_member(struct_name, member_name);
-                    if (member_var && member_var->type == TYPE_STRING) {
+                    if (member_var && (member_var->type == TYPE_STRING || 
+                        (!member_var->type_name.empty() && interpreter_->get_type_manager()->is_union_type(member_var->type_name) && !member_var->str_value.empty() && member_var->is_assigned))) {
                         str_args.push_back(member_var->str_value);
                         int_args.push_back(0); // プレースホルダー
                     } else if (member_var) {
@@ -720,7 +802,8 @@ void OutputManager::print_formatted(const ASTNode *format_str, const ASTNode *ar
                     try {
                         // 文字列配列かどうかを判定
                         Variable* member_var = interpreter_->get_struct_member(obj_name, member_name);
-                        if (member_var->type == TYPE_STRING) {
+                        if (member_var->type == TYPE_STRING || 
+                            (!member_var->type_name.empty() && interpreter_->get_type_manager()->is_union_type(member_var->type_name) && !member_var->str_value.empty() && member_var->is_assigned)) {
                             // 文字列配列の場合
                             std::string str_value = interpreter_->get_struct_member_array_string_element(
                                 obj_name, member_name, static_cast<int>(index));
@@ -737,26 +820,56 @@ void OutputManager::print_formatted(const ASTNode *format_str, const ASTNode *ar
                         str_args.push_back("");
                     }
                 } else {
-                    // 通常の配列アクセス
+                    // 通常の配列アクセス（1次元と多次元の両方に対応）
                     Variable *var = find_variable(arg->left->name);
                     if (var && var->is_array) {
-                        int64_t index = evaluate_expression(arg->array_index.get());
-                        // 文字列配列かどうかの判定を修正
-                        if (!var->array_strings.empty()) {
-                            if (index >= 0 && index < static_cast<int64_t>(var->array_strings.size())) {
-                                str_args.push_back(var->array_strings[index]);
-                                int_args.push_back(0); // プレースホルダー
-                            } else {
-                                str_args.push_back("");
+                        if (var->is_multidimensional) {
+                            // 多次元配列のアクセス
+                            // 多次元インデックスを収集
+                            std::vector<int64_t> indices;
+                            const ASTNode* current_node = arg.get();
+                            while (current_node && current_node->node_type == ASTNodeType::AST_ARRAY_REF) {
+                                int64_t index = evaluate_expression(current_node->array_index.get());
+                                indices.insert(indices.begin(), index); // 先頭に挿入（逆順になるため）
+                                current_node = current_node->left.get();
+                            }
+                            
+                            try {
+                                if (var->array_type_info.base_type == TYPE_STRING) {
+                                    // 文字列多次元配列の場合
+                                    std::string str_value = interpreter_->getMultidimensionalStringArrayElement(*var, indices);
+                                    str_args.push_back(str_value);
+                                    int_args.push_back(0); // プレースホルダー
+                                } else {
+                                    // 数値多次元配列の場合
+                                    int64_t value = interpreter_->getMultidimensionalArrayElement(*var, indices);
+                                    int_args.push_back(value);
+                                    str_args.push_back(""); // プレースホルダー
+                                }
+                            } catch (const std::exception& e) {
                                 int_args.push_back(0);
+                                str_args.push_back("");
                             }
                         } else {
-                            if (index >= 0 && index < static_cast<int64_t>(var->array_values.size())) {
-                                int_args.push_back(var->array_values[index]);
-                                str_args.push_back("");
+                            // 1次元配列のアクセス
+                            int64_t index = evaluate_expression(arg->array_index.get());
+                            // 文字列配列かどうかの判定を修正
+                            if (!var->array_strings.empty()) {
+                                if (index >= 0 && index < static_cast<int64_t>(var->array_strings.size())) {
+                                    str_args.push_back(var->array_strings[index]);
+                                    int_args.push_back(0); // プレースホルダー
+                                } else {
+                                    str_args.push_back("");
+                                    int_args.push_back(0);
+                                }
                             } else {
-                                int_args.push_back(0);
-                                str_args.push_back("");
+                                if (index >= 0 && index < static_cast<int64_t>(var->array_values.size())) {
+                                    int_args.push_back(var->array_values[index]);
+                                    str_args.push_back("");
+                                } else {
+                                    int_args.push_back(0);
+                                    str_args.push_back("");
+                                }
                             }
                         }
                     } else {
@@ -787,6 +900,63 @@ void OutputManager::print_formatted(const ASTNode *format_str, const ASTNode *ar
                     str_args.push_back("");
                 }
             } else {
+                // その他の配列アクセスや式
+                // 配列アクセスで文字列型の場合の特別処理
+                if (arg->node_type == ASTNodeType::AST_ARRAY_REF) {
+                    // ベース変数名を取得
+                    std::string base_var_name;
+                    if (arg->left && arg->left->node_type == ASTNodeType::AST_VARIABLE) {
+                        base_var_name = arg->left->name;
+                    } else if (arg->left && arg->left->node_type == ASTNodeType::AST_ARRAY_REF) {
+                        // 多次元配列の場合、再帰的にベース名を取得
+                        const ASTNode* current = arg.get();
+                        while (current && current->node_type == ASTNodeType::AST_ARRAY_REF) {
+                            if (current->left && current->left->node_type == ASTNodeType::AST_VARIABLE) {
+                                base_var_name = current->left->name;
+                                break;
+                            }
+                            current = current->left.get();
+                        }
+                    }
+                    
+                    Variable* var = find_variable(base_var_name);
+                    if (var) {
+                    }
+                    
+                    if (var && var->is_array && var->array_type_info.base_type == TYPE_STRING) {
+                        
+                        // 多次元インデックスを収集
+                        std::vector<int64_t> indices;
+                        const ASTNode* current_node = arg.get();
+                        while (current_node && current_node->node_type == ASTNodeType::AST_ARRAY_REF) {
+                            int64_t index = evaluate_expression(current_node->array_index.get());
+                            indices.insert(indices.begin(), index); // 先頭に挿入（逆順になるため）
+                            current_node = current_node->left.get();
+                        }
+                        
+                        try {
+                            if (var->is_multidimensional) {
+                                std::string str_value = interpreter_->getMultidimensionalStringArrayElement(*var, indices);
+                                str_args.push_back(str_value);
+                                int_args.push_back(0); // プレースホルダー
+                            } else {
+                                // 1次元配列
+                                if (indices.size() == 1 && indices[0] < static_cast<int64_t>(var->array_strings.size())) {
+                                    str_args.push_back(var->array_strings[indices[0]]);
+                                    int_args.push_back(0); // プレースホルダー
+                                } else {
+                                    str_args.push_back("");
+                                    int_args.push_back(0);
+                                }
+                            }
+                        } catch (const std::exception& e) {
+                            str_args.push_back("");
+                            int_args.push_back(0);
+                        }
+                        continue; // 次の引数へ
+                    }
+                }
+                
                 int64_t value = evaluate_expression(arg.get());
                 int_args.push_back(value);
                 str_args.push_back(""); // プレースホルダー
@@ -1223,7 +1393,8 @@ std::string OutputManager::format_string(const ASTNode *format_str, const ASTNod
                         
                         try {
                             Variable *member_var = interpreter_->get_struct_member(obj_name, member_name);
-                            if (member_var && member_var->is_array && member_var->type == TYPE_STRING) {
+                            if (member_var && member_var->is_array && (member_var->type == TYPE_STRING || 
+                                (!member_var->type_name.empty() && interpreter_->get_type_manager()->is_union_type(member_var->type_name) && !member_var->str_value.empty() && member_var->is_assigned))) {
                                 // 文字列配列の場合は文字列を取得
                                 std::string str_value = interpreter_->get_struct_member_array_string_element(obj_name, member_name, static_cast<int>(index));
                                 str_args.push_back(str_value);

@@ -1,0 +1,28 @@
+// 複数エラー組み合わせテスト
+
+typedef MyInt = int;
+struct Point { int x, y; };
+typedef ComplexUnion = 200 | MyInt | Point;
+
+int main() {
+    println("=== 複数エラー組み合わせテスト ===");
+    
+    // 正常ケース
+    MyInt validCustom = 777;
+    Point validStruct = {x: 10, y: 20};
+    
+    ComplexUnion union1 = 200;           // リテラル値 - OK
+    ComplexUnion union2 = validCustom;   // カスタム型 - OK  
+    ComplexUnion union3 = validStruct;   // 構造体 - OK
+    
+    println("Valid assignments:");
+    println("  ComplexUnion (literal): %d", union1);
+    println("  ComplexUnion (MyInt): %d", union2);
+    println("  ComplexUnion (Point): assigned successfully");
+    
+    // エラーケース1: 許可されていないリテラル値
+    ComplexUnion error1 = 404;  // 404は許可されていない
+    println("Error1 should not be reached: %d", error1);
+    
+    return 0;
+}

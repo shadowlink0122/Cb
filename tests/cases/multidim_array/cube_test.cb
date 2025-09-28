@@ -13,6 +13,15 @@ int main() {
     cube[1][1][0] = 106;
     cube[1][1][1] = 107;
     
+    println("3D cube data:");
+    for (int i = 0; i < 2; i++) {
+        for (int j = 0; j < 2; j++) {
+            for (int k = 0; k < 2; k++) {
+                println("cube[%d][%d][%d] = %d", i, j, k, cube[i][j][k]);
+            }
+        }
+    }
+    
     // 値の確認
     if (cube[0][0][0] != 100) return 1;
     if (cube[0][0][1] != 101) return 1;
@@ -23,5 +32,6 @@ int main() {
     if (cube[1][1][0] != 106) return 1;
     if (cube[1][1][1] != 107) return 1;
     
+    println("All cube tests passed");
     return 0;
 }

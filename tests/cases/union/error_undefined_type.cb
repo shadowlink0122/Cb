@@ -1,0 +1,19 @@
+// 未定義ユニオン型エラーテスト
+
+typedef DefinedUnion = int | string;
+
+int main() {
+    println("=== 未定義ユニオン型エラーテスト ===");
+    
+    // 正常ケース
+    DefinedUnion validUnion = 123;
+    println("Valid assignment:");
+    println("  DefinedUnion: %d", validUnion);
+    
+    // エラーケース: 未定義の型を使用
+    // この行はコンパイルエラーを発生させる
+    UndefinedUnion invalidUnion = 999;  // UndefinedUnionは定義されていない
+    println("This should not be reached: %d", invalidUnion);
+    
+    return 0;
+}

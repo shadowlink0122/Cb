@@ -16,8 +16,11 @@ int main() {
   long l2 = 10000 - 20000;
   long l3 = 2000 * 3;
   long l4 = 10000 / 2;
-  println(t1); println(t2); println(t3); println(t4);
-  println(s1); println(s2); println(s3); println(s4);
-  println(i1); println(i2); println(i3); println(i4);
-  println(l1); println(l2); println(l3); println(l4);
+  
+  println("Arithmetic operations test:");
+  println("tiny: t1=%d, t2=%d, t3=%d, t4=%d", t1, t2, t3, t4);
+  println("short: s1=%d, s2=%d, s3=%d, s4=%d", s1, s2, s3, s4);
+  println("int: i1=%d, i2=%d, i3=%d, i4=%d", i1, i2, i3, i4);
+  println("long: l1=%d, l2=%d, l3=%d, l4=%d", l1, l2, l3, l4);
+  println("All arithmetic tests passed");
 }
