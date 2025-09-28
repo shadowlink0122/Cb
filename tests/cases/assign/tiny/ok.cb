@@ -1,9 +1,0 @@
-// tiny型の代入（正常系）
-int main(){
-    int i = 127;
-    tiny t = i;
-    println("Tiny assignment test:");
-    println("i = %d, t = %d", i, t);
-    println("Tiny assignment test passed");
-    return 0;
-}

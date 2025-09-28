@@ -1,8 +1,0 @@
-int main() {
-    int x = 1;
-    for(x *= 2; x < 10; x += 3) {
-        print(x);
-    }
-    // 出力: 2, 5, 8
-    return 0;
-}

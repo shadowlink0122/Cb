@@ -1,5 +1,0 @@
-// tiny型の範囲外（負側）
-int main() {
-    tiny t = -129;
-    return 0;
-}

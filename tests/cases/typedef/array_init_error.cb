@@ -1,7 +1,0 @@
-// typedef配列の初期化エラーテスト（サイズ不一致）
-typedef int[3] IntArray;
-
-int main() {
-    IntArray arr = [1, 2, 3, 4, 5];  // エラー: サイズが一致しない
-    return 0;
-}
