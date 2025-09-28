@@ -1,8 +1,10 @@
 
 int main() {
   // short型の境界値（正常系）
+  println("Short boundary test:");
   short s1 = 32767;
   short s2 = -32768;
-  print(s1);
-  print(s2);
+  print("s1 (max short): "); println(s1);
+  print("s2 (min short): "); println(s2);
+  println("Short boundary test passed");
 }

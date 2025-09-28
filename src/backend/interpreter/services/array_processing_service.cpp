@@ -274,6 +274,18 @@ TypeInfo ArrayProcessingService::inferArrayElementType(const ASTNode* literal_no
     // 最初の要素から型を推論
     const ASTNode* first_element = literal_node->arguments[0].get();
     
+    // 多次元配列の場合、再帰的に最深レベルの要素まで辿る
+    while (first_element && first_element->node_type == ASTNodeType::AST_ARRAY_LITERAL) {
+        if (first_element->arguments.empty()) {
+            return TYPE_UNKNOWN;
+        }
+        first_element = first_element->arguments[0].get();
+    }
+    
+    if (!first_element) {
+        return TYPE_UNKNOWN;
+    }
+    
     if (first_element->node_type == ASTNodeType::AST_STRING_LITERAL) {
         return TYPE_STRING;
     } else if (first_element->node_type == ASTNodeType::AST_NUMBER) {

@@ -18,6 +18,10 @@ inline void test_integration_string() {
     run_cb_test_with_output_and_time("../../tests/cases/string/assign.cb", 
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_EQ(0, exit_code, "assign.cb should execute successfully");
+            INTEGRATION_ASSERT_CONTAINS(output, "String assignment test:", "Expected test header in output");
+            INTEGRATION_ASSERT_CONTAINS(output, "s: test string", "Expected initial string value in output");
+            INTEGRATION_ASSERT_CONTAINS(output, "s after reassignment: second", "Expected reassigned string value in output");
+            INTEGRATION_ASSERT_CONTAINS(output, "String assignment test passed", "Expected success message in output");
         }, execution_time_assign);
     integration_test_passed_with_time("string assign test", "assign.cb", execution_time_assign);
     

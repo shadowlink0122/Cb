@@ -1,0 +1,95 @@
+// 実用的なUnion型使用例: HTTPレスポンス風テスト
+
+typedef HttpStatus = 200 | 201 | 400 | 404 | 500;
+typedef ResponseData = int | string | bool;
+typedef ContentType = "application/json" | "text/plain" | "text/html";
+
+struct HttpResponse {
+    HttpStatus status;
+    ResponseData body;
+    ContentType contentType;
+    int contentLength;
+};
+
+HttpResponse create_success_response(int data) {
+    HttpResponse response = {
+        status: 200,
+        body: data,
+        contentType: "application/json",
+        contentLength: 1
+    };
+    return response;
+}
+
+HttpResponse create_error_response(string error) {
+    HttpResponse response = {
+        status: 500,
+        body: error,
+        contentType: "text/plain",
+        contentLength: 1
+    };
+    return response;
+}
+
+HttpResponse create_not_found_response() {
+    HttpResponse response = {
+        status: 404,
+        body: "Resource not found",
+        contentType: "text/html",
+        contentLength: 1
+    };
+    return response;
+}
+
+void print_response(HttpResponse response) {
+    println("HTTP Response:");
+    println("  Status: %d", response.status);
+    
+    if (response.status == 200) {
+        println("  Body (int): %d", response.body);
+    } else {
+        println("  Body (string): %s", response.body);
+    }
+    
+    println("  Content-Type: %s", response.contentType);
+    println("  Content-Length: %d", response.contentLength);
+    println("");
+}
+
+int main() {
+    println("=== 実用的Union型テスト: HTTPレスポンス風 ===");
+    
+    // 様々なレスポンスの作成
+    HttpResponse success = create_success_response(42);
+    HttpResponse error = create_error_response("Internal Server Error");
+    HttpResponse notFound = create_not_found_response();
+    
+    // レスポンスの表示
+    print_response(success);
+    print_response(error);
+    print_response(notFound);
+    
+    // 動的なレスポンス作成
+    HttpResponse dynamic = {
+        status: 201,
+        body: true,
+        contentType: "application/json",
+        contentLength: 1
+    };
+    
+    println("Dynamic Response:");
+    println("  Status: %d", dynamic.status);
+    println("  Body (bool): %d", dynamic.body);
+    println("  Content-Type: %s", dynamic.contentType);
+    
+    // レスポンスの変更
+    dynamic.body = "Created successfully";
+    dynamic.contentType = "text/plain";
+    
+    println("Modified Dynamic Response:");
+    println("  Status: %d", dynamic.status);
+    println("  Body (string): %s", dynamic.body);
+    println("  Content-Type: %s", dynamic.contentType);
+    
+    return 0;
+}

@@ -76,6 +76,14 @@ void CommonOperations::assign_array_literal_to_variable(
 
     // 配列に代入
     if (result.is_string_array) {
+        // デバッグ出力を追加
+        debug_msg(DebugMsgId::ARRAY_DECL_DEBUG, 
+                  ("Assigning string array with " + std::to_string(result.string_values.size()) + " elements").c_str());
+        for (size_t i = 0; i < result.string_values.size() && i < 10; i++) {
+            debug_msg(DebugMsgId::ARRAY_DECL_DEBUG, 
+                      ("String element [" + std::to_string(i) + "] = '" + result.string_values[i] + "'").c_str());
+        }
+        
         // 多次元配列の場合は適切なストレージを使用
         if (var->is_multidimensional && var->array_dimensions.size() > 1) {
             var->multidim_array_strings = result.string_values;
@@ -270,6 +278,18 @@ CommonOperations::infer_array_element_type(const ASTNode *literal_node) {
     }
 
     const ASTNode *first_element = literal_node->arguments[0].get();
+
+    // 多次元配列の場合、再帰的に最深レベルの要素まで辿る
+    while (first_element && first_element->node_type == ASTNodeType::AST_ARRAY_LITERAL) {
+        if (first_element->arguments.empty()) {
+            return TYPE_UNKNOWN;
+        }
+        first_element = first_element->arguments[0].get();
+    }
+
+    if (!first_element) {
+        return TYPE_UNKNOWN;
+    }
 
     switch (first_element->node_type) {
     case ASTNodeType::AST_STRING_LITERAL:

@@ -67,6 +67,22 @@ inline void test_struct_array_literal() {
         });
 }
 
+// 構造体定数サイズ配列メンバーの個別代入テスト（新規追加）
+inline void test_const_size_array_assignment() {
+    std::cout << "[integration] Running test_const_size_array_assignment..." << std::endl;
+    
+    run_cb_test_with_output_and_time_auto("../../tests/cases/struct/const_size_array_assignment.cb", 
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "Const size array assignment test should exit with code 0");
+            INTEGRATION_ASSERT(output.find("Individual access: 100, 200, 300") != std::string::npos, 
+                              "Output should contain individual access results");
+            INTEGRATION_ASSERT(output.find("Direct printf: [100, 200, 300]") != std::string::npos, 
+                              "Output should contain direct printf results (this was the bug being fixed)");
+            INTEGRATION_ASSERT(output.find("Other members: x=50, y=75") != std::string::npos, 
+                              "Output should contain other member values");
+        });
+}
+
 // 構造体の配列のテスト
 inline void test_struct_array() {
     std::cout << "[integration] Running test_struct_array..." << std::endl;
@@ -322,6 +338,7 @@ inline void run_all_struct_tests() {
         test_struct_literal();
         test_struct_array_member();
         test_struct_array_literal();
+        test_const_size_array_assignment(); // 新規追加テスト
         test_struct_array();
         test_nested_struct();
         test_nested_struct_flat();

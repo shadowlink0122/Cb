@@ -1,0 +1,52 @@
+// Union型での文字列処理テスト - 再帰的文字列実装の使用を検証
+
+typedef StringOrInt = string | int;
+typedef Response = "success" | "error" | "pending";
+
+int main() {
+    println("=== Union型文字列処理テスト ===");
+    
+    // テストケース1: Union型での文字列代入と出力
+    StringOrInt data = "Hello World";
+    println("String value: %s", data);
+    
+    // テストケース2: リテラル型での文字列処理
+    Response status = "success";
+    println("Status: %s", status);
+    
+    // テストケース3: 数値から文字列への変更
+    data = 42;
+    println("Numeric value: %d", data);
+    
+    // テストケース4: 再び文字列に変更
+    data = "Converted back";
+    println("Back to string: %s", data);
+    
+    // テストケース5: 文字列連結のようなテスト（もし実装されていれば）
+    StringOrInt msg1 = "Hello";
+    StringOrInt msg2 = "World";
+    
+    // テストケース6: Union型の比較（文字列）
+    Response status1 = "success";
+    Response status2 = "error";
+    
+    println("Status comparison test:");
+    println("status1 (%s) == status2 (%s): not equal", status1, status2);
+    
+    // テストケース7: 同じ文字列リテラル値の比較
+    status2 = "success";
+    println("status1 (%s) == status2 (%s): equal", status1, status2);
+    
+    println("=== テスト完了 ===");
+    
+    // 期待される出力:
+    // String value: Hello World
+    // Status: success  
+    // Numeric value: 42
+    // Back to string: Converted back
+    // Status comparison test:
+    // status1 (success) == status2 (error): not equal
+    // status1 (success) == status2 (success): equal
+    
+    return 0;
+}

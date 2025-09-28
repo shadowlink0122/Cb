@@ -98,9 +98,9 @@ int main() {
     MegaUnion mega2 = "special";        // 文字列リテラル
     MegaUnion mega3 = true;             // Boolean リテラル
     
-    // int型の直接代入はMegaUnionではサポートされていないため、
-    // 代わりにMyInt型を通じて代入する
+    // int型の直接代入をテスト
     int regularInt = 888;
+    MegaUnion mega4 = regularInt;       // int型直接代入
     MegaUnion mega5 = customInt;        // カスタム型
     MegaUnion mega6 = origin;           // 構造体型
     
@@ -111,6 +111,7 @@ int main() {
     println("   MegaUnion (special): %s", mega2);
     println("   MegaUnion (true): %d", mega3);
     println("   Regular int variable: %d", regularInt);
+    println("   MegaUnion (int): %d", mega4);
     println("   MegaUnion (MyInt): %d", mega5);
     println("   MegaUnion (Point): assigned");
     println("   MegaUnion (int[2]): assigned");

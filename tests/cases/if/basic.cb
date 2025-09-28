@@ -8,14 +8,23 @@ int main() {
     if (0) {
         x = x + 100;
     }
+    
+    println("If statement test:");
+    println("x = %d", x);
+    
     if (x == 4) {
-        print "ok";
+        println("if-else test: ok");
     } else {
-        print "ng";
+        println("if-else test: ng");
     }
-    if (x == 4) print "ok2";
-    else print "ng2";
-    if (x == 0) print "ng3";
-    else if (x == 4) print "ok3";
-    else print "ng4";
+    
+    if (x == 4) println("single line if: ok2");
+    else println("single line if: ng2");
+    
+    if (x == 0) println("if-else-if: ng3");
+    else if (x == 4) println("if-else-if: ok3");
+    else println("if-else-if: ng4");
+    
+    println("If statement test passed");
+    return 0;
 }

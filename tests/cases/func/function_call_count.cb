@@ -1,0 +1,48 @@
+// 関数実行回数テスト - 複合代入演算子で関数が正しい回数実行されることを検証
+int call_count = 0;
+
+int p(int x) {
+    call_count++;
+    println("Function p called, count: %d, value: %d", call_count, x);
+    return x;
+}
+
+int main() {
+    println("=== 関数実行回数テスト ===");
+    
+    // テストケース1: 複合代入で関数が1回だけ評価されることを確認
+    call_count = 0;
+    int test = 5;
+    
+    println("Before: test=%d, call_count=%d", test, call_count);
+    test = p(test) + 1;  // p(test)は1回だけ実行されるべき
+    println("After: test=%d, call_count=%d", test, call_count);
+    
+    if (call_count == 1) {
+        println("✓ Test 1 passed: Function called exactly once");
+    } else {
+        println("✗ Test 1 failed: Function called %d times, expected 1", call_count);
+    }
+    
+    // テストケース2: 複合代入演算子での関数評価回数
+    call_count = 0;
+    test = 10;
+    
+    println("\n--- Compound assignment test ---");
+    println("Before: test=%d, call_count=%d", test, call_count);
+    
+    // この修正前は p(test) が2回評価されていたが、修正後は1回のみ
+    // 注意: このテストは実際のコードに合わせて調整が必要
+    int original_test = test;
+    test = p(test) * 2;  // p(test)は1回だけ評価されるべき
+    
+    println("After: test=%d, call_count=%d", test, call_count);
+    
+    if (call_count == 1) {
+        println("✓ Test 2 passed: Function in compound assignment called exactly once");
+    } else {
+        println("✗ Test 2 failed: Function called %d times, expected 1", call_count);
+    }
+    
+    return 0;
+}

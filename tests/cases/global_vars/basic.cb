@@ -25,12 +25,14 @@ int sum(){
 
 int main(){
     init();
-    print(g1);      // 10
-    print(inc());   // 11
-    print(g1);      // 11
-    print(sum());   // 11 + 1000 + 3 = 1014
+    println("Global variables test:");
+    print("g1: "); println(g1);      // 10
+    print("inc(): "); println(inc());   // 11
+    print("g1 after inc: "); println(g1);      // 11
+    print("sum(): "); println(sum());   // 11 + 1000 + 3 = 1014
     arr[2] = 30;
-    print(sum());   // 11 + 1000 + 30 = 1041
-    print(msg);     // ok
+    print("sum() after arr[2] change: "); println(sum());   // 11 + 1000 + 30 = 1041
+    print("msg: "); println(msg);     // ok
+    println("Global variables test passed");
     return 0;
 }

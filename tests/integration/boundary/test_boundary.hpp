@@ -8,6 +8,10 @@ inline void test_integration_boundary() {
     run_cb_test_with_output_and_time("../../tests/cases/boundary/tiny/ok.cb", 
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT(exit_code == 0, "Tiny boundary ok should succeed");
+            INTEGRATION_ASSERT_CONTAINS(output, "Tiny boundary test:", "Expected test header in output");
+            INTEGRATION_ASSERT_CONTAINS(output, "t1 (max tiny): 127", "Expected max tiny value in output");
+            INTEGRATION_ASSERT_CONTAINS(output, "t2 (min tiny): -128", "Expected min tiny value in output");
+            INTEGRATION_ASSERT_CONTAINS(output, "Tiny boundary test passed", "Expected success message in output");
         }, execution_time_tiny_ok);
     integration_test_passed_with_time("boundary tiny ok test", "tiny/ok.cb", execution_time_tiny_ok);
 
@@ -32,6 +36,10 @@ inline void test_integration_boundary() {
     run_cb_test_with_output_and_time("../../tests/cases/boundary/short/ok.cb", 
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT(exit_code == 0, "Short boundary ok should succeed");
+            INTEGRATION_ASSERT_CONTAINS(output, "Short boundary test:", "Expected test header in output");
+            INTEGRATION_ASSERT_CONTAINS(output, "s1 (max short): 32767", "Expected max short value in output");
+            INTEGRATION_ASSERT_CONTAINS(output, "s2 (min short): -32768", "Expected min short value in output");
+            INTEGRATION_ASSERT_CONTAINS(output, "Short boundary test passed", "Expected success message in output");
         }, execution_time_short_ok);
     integration_test_passed_with_time("boundary short ok test", "short/ok.cb", execution_time_short_ok);
 
@@ -53,6 +61,10 @@ inline void test_integration_boundary() {
     run_cb_test_with_output_and_time_auto("../../tests/cases/boundary/int/ok.cb", 
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT(exit_code == 0, "Int boundary ok should succeed");
+            INTEGRATION_ASSERT_CONTAINS(output, "Integer boundary test:", "Expected test header in output");
+            INTEGRATION_ASSERT_CONTAINS(output, "i1 (max int): 2147483647", "Expected max int value in output");
+            INTEGRATION_ASSERT_CONTAINS(output, "i2 (min int): -2147483648", "Expected min int value in output");
+            INTEGRATION_ASSERT_CONTAINS(output, "Integer boundary test passed", "Expected success message in output");
         });
     integration_test_passed_with_time_auto("boundary int ok test");
 
@@ -74,6 +86,10 @@ inline void test_integration_boundary() {
     run_cb_test_with_output_and_time_auto("../../tests/cases/boundary/long/ok.cb", 
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT(exit_code == 0, "Long boundary ok should succeed");
+            INTEGRATION_ASSERT_CONTAINS(output, "Long boundary test:", "Expected test header in output");
+            INTEGRATION_ASSERT_CONTAINS(output, "l1 (max long): 9223372036854775807", "Expected max long value in output");
+            INTEGRATION_ASSERT_CONTAINS(output, "l2 (min long): -9223372036854775808", "Expected min long value in output");
+            INTEGRATION_ASSERT_CONTAINS(output, "Long boundary test passed", "Expected success message in output");
         });
     integration_test_passed_with_time_auto("boundary long ok test");
 

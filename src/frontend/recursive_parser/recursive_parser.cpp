@@ -885,9 +885,16 @@ ASTNode* RecursiveParser::parseStatement() {
                     return nullptr;
                 }
             }
-            // 通常のメンバアクセス代入処理
-            else if (check(TokenType::TOK_ASSIGN)) {
-                advance(); // consume '='
+            // 通常のメンバアクセス代入処理（複合代入演算子対応）
+            else if (check(TokenType::TOK_ASSIGN) || check(TokenType::TOK_PLUS_ASSIGN) || 
+                     check(TokenType::TOK_MINUS_ASSIGN) || check(TokenType::TOK_MUL_ASSIGN) ||
+                     check(TokenType::TOK_DIV_ASSIGN) || check(TokenType::TOK_MOD_ASSIGN) ||
+                     check(TokenType::TOK_AND_ASSIGN) || check(TokenType::TOK_OR_ASSIGN) ||
+                     check(TokenType::TOK_XOR_ASSIGN) || check(TokenType::TOK_LSHIFT_ASSIGN) ||
+                     check(TokenType::TOK_RSHIFT_ASSIGN)) {
+                
+                TokenType op_type = current_token_.type;
+                advance(); // consume assignment operator
                 
                 ASTNode* value_expr = parseExpression();
                 
@@ -899,10 +906,44 @@ ASTNode* RecursiveParser::parseStatement() {
                 obj_var->name = name;
                 member_access->left = std::unique_ptr<ASTNode>(obj_var);
                 
-                // 代入ノードを作成
-                ASTNode* assignment = new ASTNode(ASTNodeType::AST_ASSIGN);
-                assignment->left = std::unique_ptr<ASTNode>(member_access);
-                assignment->right = std::unique_ptr<ASTNode>(value_expr);
+                ASTNode* assignment;
+                if (op_type != TokenType::TOK_ASSIGN) {
+                    // 複合代入: obj.member += value を obj.member = obj.member + value に変換
+                    std::string binary_op;
+                    switch (op_type) {
+                        case TokenType::TOK_PLUS_ASSIGN: binary_op = "+"; break;
+                        case TokenType::TOK_MINUS_ASSIGN: binary_op = "-"; break;
+                        case TokenType::TOK_MUL_ASSIGN: binary_op = "*"; break;
+                        case TokenType::TOK_DIV_ASSIGN: binary_op = "/"; break;
+                        case TokenType::TOK_MOD_ASSIGN: binary_op = "%"; break;
+                        case TokenType::TOK_AND_ASSIGN: binary_op = "&"; break;
+                        case TokenType::TOK_OR_ASSIGN: binary_op = "|"; break;
+                        case TokenType::TOK_XOR_ASSIGN: binary_op = "^"; break;
+                        case TokenType::TOK_LSHIFT_ASSIGN: binary_op = "<<"; break;
+                        case TokenType::TOK_RSHIFT_ASSIGN: binary_op = ">>"; break;
+                    }
+                    
+                    // 右辺を obj.member op value の形にする
+                    ASTNode* left_copy = new ASTNode(ASTNodeType::AST_MEMBER_ACCESS);
+                    left_copy->name = member_name;
+                    ASTNode* obj_var_copy = new ASTNode(ASTNodeType::AST_VARIABLE);
+                    obj_var_copy->name = name;
+                    left_copy->left = std::unique_ptr<ASTNode>(obj_var_copy);
+                    
+                    ASTNode* binary_op_node = new ASTNode(ASTNodeType::AST_BINARY_OP);
+                    binary_op_node->op = binary_op;
+                    binary_op_node->left = std::unique_ptr<ASTNode>(left_copy);
+                    binary_op_node->right = std::unique_ptr<ASTNode>(value_expr);
+                    
+                    assignment = new ASTNode(ASTNodeType::AST_ASSIGN);
+                    assignment->left = std::unique_ptr<ASTNode>(member_access);
+                    assignment->right = std::unique_ptr<ASTNode>(binary_op_node);
+                } else {
+                    // 通常の代入
+                    assignment = new ASTNode(ASTNodeType::AST_ASSIGN);
+                    assignment->left = std::unique_ptr<ASTNode>(member_access);
+                    assignment->right = std::unique_ptr<ASTNode>(value_expr);
+                }
                 
                 consume(TokenType::TOK_SEMICOLON, "Expected ';'");
                 return assignment;
@@ -1457,11 +1498,7 @@ ASTNode* RecursiveParser::parseAssignment() {
             }
         } else if (left->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
             // メンバアクセス代入: obj.member = value
-            // 複合代入は現時点では未対応
-            if (op_type != TokenType::TOK_ASSIGN) {
-                error("Compound assignment not supported for struct members yet");
-                return nullptr;
-            }
+            // 複合代入もサポート: obj.member += value
             assign->left = std::unique_ptr<ASTNode>(left);
             assign->right = std::unique_ptr<ASTNode>(right);
         } else {

@@ -10,6 +10,7 @@ inline void test_integration_func() {
     const std::string test_file_type_safety_valid = "../../tests/cases/func/array_type_safety_valid.cb";
     const std::string test_file_type_safety_error1 = "../../tests/cases/func/array_type_safety_error1.cb";
     const std::string test_file_type_safety_error2 = "../../tests/cases/func/array_type_safety_error2.cb";
+    const std::string test_file_function_call_count = "../../tests/cases/func/function_call_count.cb";
     
     // 基本的な関数テスト (with timing)
     double execution_time_basic;
@@ -78,4 +79,21 @@ inline void test_integration_func() {
             INTEGRATION_ASSERT_CONTAINS(output, "Array size mismatch", "should contain size mismatch error");
         });
     integration_test_passed_with_time_auto("func type safety error2 test", test_file_type_safety_error2);
+    
+    // 関数実行回数テスト（新規追加）
+    run_cb_test_with_output_and_time_auto(test_file_function_call_count, 
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "Expected successful exit code for function call count test");
+            INTEGRATION_ASSERT_CONTAINS(output, "=== 関数実行回数テスト ===", "Should contain test header");
+            INTEGRATION_ASSERT_CONTAINS(output, "Before: test=5, call_count=0", "Should show initial state");
+            INTEGRATION_ASSERT_CONTAINS(output, "Function p called, count: 1, value: 5", "Should show function call");
+            INTEGRATION_ASSERT_CONTAINS(output, "After: test=6, call_count=1", "Should show result after first test");
+            INTEGRATION_ASSERT_CONTAINS(output, "✓ Test 1 passed: Function called exactly once", "Should show test 1 success");
+            INTEGRATION_ASSERT_CONTAINS(output, "--- Compound assignment test ---", "Should show compound test section");
+            INTEGRATION_ASSERT_CONTAINS(output, "Before: test=10, call_count=0", "Should show second test initial state");
+            INTEGRATION_ASSERT_CONTAINS(output, "Function p called, count: 1, value: 10", "Should show second function call");
+            INTEGRATION_ASSERT_CONTAINS(output, "After: test=20, call_count=1", "Should show result after second test");
+            INTEGRATION_ASSERT_CONTAINS(output, "✓ Test 2 passed: Function in compound assignment called exactly once", "Should show test 2 success");
+        });
+    integration_test_passed_with_time_auto("func function call count test", test_file_function_call_count);
 }

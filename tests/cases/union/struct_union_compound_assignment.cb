@@ -1,0 +1,50 @@
+// 構造体メンバーでのUnion型複合代入演算子テスト
+
+typedef Status = 200 | 404 | 500;
+typedef Uni = int | string;
+
+struct TestStruct {
+    Status code;
+    Uni value;
+    int count;
+};
+
+TestStruct test_compound_assignment(TestStruct obj) {
+    println("=== Before compound assignment ===");
+    println("code: %d, value: %d, count: %d", obj.code, obj.value, obj.count);
+    
+    // 複合代入演算子のテスト
+    obj.count *= 2;
+    obj.value *= 3;  // Union型intメンバーの複合代入
+    
+    println("=== After compound assignment ===");
+    println("code: %d, value: %d, count: %d", obj.code, obj.value, obj.count);
+    
+    return obj;
+}
+
+int main() {
+    println("=== 構造体メンバーUnion型複合代入テスト ===");
+    
+    TestStruct test = {
+        code: 200,
+        value: 5,
+        count: 10
+    };
+    
+    test = test_compound_assignment(test);
+    
+    // Union型の別の型への変更
+    test.value = "Hello";
+    println("=== After string assignment ===");
+    println("code: %d, value: %s, count: %d", test.code, test.value, test.count);
+    
+    // 再び数値への変更と複合代入
+    test.value = 7;
+    test.value += 3;  // Union型での加算複合代入
+    
+    println("=== After numeric reassignment and compound assignment ===");
+    println("code: %d, value: %d, count: %d", test.code, test.value, test.count);
+    
+    return 0;
+}

@@ -41,9 +41,14 @@ void test_self_assign_variable() {
 void test_compound_assign_error() {
     run_cb_test_with_output_and_time_auto("../../tests/cases/self_assign/basic.cb",
         [](const std::string& output, int exit_code) {
-            // 複合代入演算子が未実装の場合、エラーまたは予期しない結果になる
-            // 現在は動作するが期待される結果と異なる可能性がある
-            INTEGRATION_ASSERT_EQ(0, exit_code, "compound assign test executes but may not work correctly");
+            INTEGRATION_ASSERT_EQ(0, exit_code, "compound assign test executes successfully");
+            INTEGRATION_ASSERT_CONTAINS(output, "Self assignment operators test:", "Expected test header in output");
+            INTEGRATION_ASSERT_CONTAINS(output, "a += 2: 3", "Expected += result in output");
+            INTEGRATION_ASSERT_CONTAINS(output, "a -= 1: 2", "Expected -= result in output");
+            INTEGRATION_ASSERT_CONTAINS(output, "a *= 5: 10", "Expected *= result in output");
+            INTEGRATION_ASSERT_CONTAINS(output, "a /= 2: 5", "Expected /= result in output");
+            INTEGRATION_ASSERT_CONTAINS(output, "a %= 3: 2", "Expected %= result in output");
+            INTEGRATION_ASSERT_CONTAINS(output, "Self assignment operators test passed", "Expected success message in output");
         });
     integration_test_passed_with_time_auto("compound assign test (limited support)", "basic.cb");
 }

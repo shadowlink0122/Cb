@@ -1,11 +1,13 @@
 // while文の基本動作テスト
 int main() {
+    println("While loop test:");
     int i = 0;
     int sum = 0;
     while (i < 5) {
         sum = sum + i;
         i = i + 1;
     }
-    print(sum); // 0+1+2+3+4 = 10
+    print("sum (0+1+2+3+4): "); println(sum); // 0+1+2+3+4 = 10
+    println("While loop test passed");
     return 0;
 }

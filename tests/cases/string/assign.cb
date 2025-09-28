@@ -1,9 +1,10 @@
 int main() {
     // string型変数への代入とprintテスト
+    println("String assignment test:");
     string s = "test string";
-    print(s);
+    print("s: "); println(s);
     s = "second";
-    print(s);
-
+    print("s after reassignment: "); println(s);
+    println("String assignment test passed");
     return 0;
 }

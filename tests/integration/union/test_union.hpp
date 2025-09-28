@@ -258,6 +258,46 @@ inline void test_error_multiple() {
     integration_test_passed_with_time_auto("test_error_multiple", "error_multiple.cb (expected error)");
 }
 
+// Union型文字列処理テスト（新規追加）
+inline void test_string_processing() {
+    std::cout << "[integration] Running test_string_processing..." << std::endl;
+    
+    run_cb_test_with_output_and_time_auto("../../tests/cases/union/string_processing.cb", 
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "String processing test should exit with code 0");
+            INTEGRATION_ASSERT_CONTAINS(output, "=== Union型文字列処理テスト ===", "Should contain test header");
+            INTEGRATION_ASSERT_CONTAINS(output, "String value: Hello World", "Should show string value assignment");
+            INTEGRATION_ASSERT_CONTAINS(output, "Status: success", "Should show literal type string assignment");
+            INTEGRATION_ASSERT_CONTAINS(output, "Numeric value: 0", "Should show numeric value after string");
+            INTEGRATION_ASSERT_CONTAINS(output, "Back to string: Converted back", "Should show string reassignment");
+            INTEGRATION_ASSERT_CONTAINS(output, "Status comparison test:", "Should show comparison section");
+            INTEGRATION_ASSERT_CONTAINS(output, "status1 (success) == status2 (error): not equal", "Should show comparison result");
+            INTEGRATION_ASSERT_CONTAINS(output, "status1 (success) == status2 (success): equal", "Should show equal comparison result");
+            INTEGRATION_ASSERT_CONTAINS(output, "=== テスト完了 ===", "Should contain test completion");
+        });
+    integration_test_passed_with_time_auto("test_string_processing", "string_processing.cb");
+}
+
+// 構造体Union型複合代入テスト（既存テストの確認）
+inline void test_struct_union_compound_assignment() {
+    std::cout << "[integration] Running test_struct_union_compound_assignment..." << std::endl;
+    
+    run_cb_test_with_output_and_time_auto("../../tests/cases/union/struct_union_compound_assignment.cb", 
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "Struct union compound assignment test should exit with code 0");
+            INTEGRATION_ASSERT_CONTAINS(output, "=== 構造体メンバーUnion型複合代入テスト ===", "Should contain test header");
+            INTEGRATION_ASSERT_CONTAINS(output, "=== Before compound assignment ===", "Should show before state");
+            INTEGRATION_ASSERT_CONTAINS(output, "code: 200, value: 5, count: 10", "Should show initial values");
+            INTEGRATION_ASSERT_CONTAINS(output, "=== After compound assignment ===", "Should show after state");
+            INTEGRATION_ASSERT_CONTAINS(output, "code: 200, value: 15, count: 20", "Should show modified values after compound assignment");
+            INTEGRATION_ASSERT_CONTAINS(output, "=== After string assignment ===", "Should show string assignment section");
+            INTEGRATION_ASSERT_CONTAINS(output, "code: 200, value: Hello, count: 20", "Should show string value");
+            INTEGRATION_ASSERT_CONTAINS(output, "=== After numeric reassignment and compound assignment ===", "Should show final section");
+            INTEGRATION_ASSERT_CONTAINS(output, "code: 200, value: 10, count: 20", "Should show final values after compound assignment");
+        });
+    integration_test_passed_with_time_auto("test_struct_union_compound_assignment", "struct_union_compound_assignment.cb");
+}
+
 // 包括的統合テスト
 inline void test_comprehensive() {
     std::cout << "[integration] Running test_comprehensive..." << std::endl;
@@ -335,6 +375,8 @@ inline void run_all_union_tests() {
     test_struct_union();
     test_array_union();
     test_mixed_union();
+    test_string_processing(); // 新規追加：文字列処理テスト
+    test_struct_union_compound_assignment(); // 新規追加：複合代入テスト
     test_error_invalid_literal();
     test_error_type_mismatch();
     test_error_undefined_type();

@@ -11,15 +11,16 @@ inline void test_integration_ternary() {
     const std::string test_file_basic = "../../tests/cases/ternary/basic_ternary.cb";
     run_cb_test_with_output_and_time_auto(test_file_basic, 
         [](const std::string& output, int exit_code) {
-            INTEGRATION_ASSERT_CONTAINS(output, "20", "Expected '20' for max(10, 20)");
-            INTEGRATION_ASSERT_CONTAINS(output, "10", "Expected '10' for min(10, 20)");
-            INTEGRATION_ASSERT_CONTAINS(output, "1", "Expected '1' for score 85 >= 60");
-            INTEGRATION_ASSERT_CONTAINS(output, "0", "Expected '0' for score 45 >= 60");
-            // ネストした三項演算子の結果を順番にチェック
-            std::string::size_type pos = output.find("0");
-            pos = output.find("1", pos + 1);
-            INTEGRATION_ASSERT(pos != std::string::npos, "Expected nested ternary results");
             INTEGRATION_ASSERT_EQ(0, exit_code, "Expected successful exit code for ternary basic test");
+            INTEGRATION_ASSERT_CONTAINS(output, "Ternary operator test:", "Expected test header in output");
+            INTEGRATION_ASSERT_CONTAINS(output, "max(10, 20): 20", "Expected max(10, 20): 20 in output");
+            INTEGRATION_ASSERT_CONTAINS(output, "min(10, 20): 10", "Expected min(10, 20): 10 in output");
+            INTEGRATION_ASSERT_CONTAINS(output, "score 85 pass: 1", "Expected score 85 pass: 1 in output");
+            INTEGRATION_ASSERT_CONTAINS(output, "score 45 pass: 0", "Expected score 45 pass: 0 in output");
+            INTEGRATION_ASSERT_CONTAINS(output, "nested ternary x=5: 0", "Expected nested ternary x=5: 0 in output");
+            INTEGRATION_ASSERT_CONTAINS(output, "nested ternary x=15: 1", "Expected nested ternary x=15: 1 in output");
+            INTEGRATION_ASSERT_CONTAINS(output, "nested ternary x=-5: -1", "Expected nested ternary x=-5: -1 in output");
+            INTEGRATION_ASSERT_CONTAINS(output, "Ternary operator test passed", "Expected success message in output");
         });
     integration_test_passed_with_time_auto("ternary basic test", test_file_basic);
     

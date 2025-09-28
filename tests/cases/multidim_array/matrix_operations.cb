@@ -8,14 +8,22 @@ int main() {
         [100, 110, 120]
     ];
     
+    println("Matrix data:");
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 3; j++) {
+            println("data[%d][%d] = %d", i, j, data[i][j]);
+        }
+    }
+    
     // 行の合計を計算
-    int row_sums[4];
+    int[4] row_sums;
     for (int i = 0; i < 4; i++) {
         int sum = 0;
         for (int j = 0; j < 3; j++) {
             sum = sum + data[i][j];
         }
         row_sums[i] = sum;
+        println("row_sums[%d] = %d", i, row_sums[i]);
     }
     
     // 期待値の確認
@@ -24,5 +32,6 @@ int main() {
     if (row_sums[2] != 240) return 1;  // 70+80+90
     if (row_sums[3] != 330) return 1;  // 100+110+120
     
+    println("All tests passed");
     return 0;
 }

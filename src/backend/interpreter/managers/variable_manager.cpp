@@ -748,6 +748,57 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                     var.str_value = init_node->str_value;
                     var.value = 0; // プレースホルダー
                     var.is_assigned = true;
+                } else if (var.type == TYPE_STRING && init_node->node_type == ASTNodeType::AST_ARRAY_REF) {
+                    // 文字列配列アクセス初期化
+                    // 配列名を取得
+                    std::string array_name;
+                    const ASTNode* base_node = init_node;
+                    while (base_node && base_node->node_type == ASTNodeType::AST_ARRAY_REF && base_node->left) {
+                        base_node = base_node->left.get();
+                    }
+                    if (base_node && base_node->node_type == ASTNodeType::AST_VARIABLE) {
+                        array_name = base_node->name;
+                    }
+                    
+                    Variable* array_var = find_variable(array_name);
+                    if (array_var && array_var->is_array && array_var->array_type_info.base_type == TYPE_STRING) {
+                        debug_msg(DebugMsgId::MULTIDIM_STRING_ARRAY_ACCESS, array_name.c_str());
+                        
+                        // 多次元インデックスを収集
+                        std::vector<int64_t> indices;
+                        const ASTNode* current_node = init_node;
+                        while (current_node && current_node->node_type == ASTNodeType::AST_ARRAY_REF) {
+                            int64_t index = interpreter_->expression_evaluator_->evaluate_expression(current_node->array_index.get());
+                            indices.insert(indices.begin(), index); // 先頭に挿入（逆順になるため）
+                            current_node = current_node->left.get();
+                        }
+                        
+                        // インデックス情報をデバッグ出力
+                        std::string indices_str;
+                        for (size_t i = 0; i < indices.size(); ++i) {
+                            if (i > 0) indices_str += ", ";
+                            indices_str += std::to_string(indices[i]);
+                        }
+                        debug_msg(DebugMsgId::MULTIDIM_STRING_ARRAY_INDICES, indices_str.c_str());
+                        
+                        try {
+                            std::string str_value = interpreter_->getMultidimensionalStringArrayElement(*array_var, indices);
+                            debug_msg(DebugMsgId::MULTIDIM_STRING_ARRAY_VALUE, str_value.c_str());
+                            var.str_value = str_value;
+                            var.value = 0; // プレースホルダー
+                            var.is_assigned = true;
+                        } catch (const std::exception& e) {
+                            var.str_value = "";
+                            var.value = 0;
+                            var.is_assigned = true;
+                        }
+                    } else {
+                        // 配列アクセスではない場合は通常の処理にフォールバック
+                        int64_t value = interpreter_->expression_evaluator_->evaluate_expression(init_node);
+                        var.str_value = std::to_string(value);
+                        var.value = value;
+                        var.is_assigned = true;
+                    }
                 } else if (var.type == TYPE_STRING && init_node->node_type == ASTNodeType::AST_BINARY_OP && init_node->op == "+") {
                     // 文字列連結の処理
                     std::string left_str, right_str;
@@ -900,6 +951,7 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                                 element_name + "." + member.name;
                             Variable member_var;
                             member_var.type = member.type;
+                            member_var.type_name = member.type_alias;  // Union型名などを保持
 
                             // デフォルト値を設定
                             if (member_var.type == TYPE_STRING) {
@@ -921,6 +973,7 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                     for (const auto &member : struct_def->members) {
                         Variable member_var;
                         member_var.type = member.type;
+                        member_var.type_name = member.type_alias;  // Union型名などを保持
 
                         // 配列メンバーの場合
                         if (member.array_info.is_array()) {
@@ -1300,17 +1353,38 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                         } else {
                             // 数値配列
                             if (!ret.int_array_3d.empty() &&
-                                !ret.int_array_3d[0].empty() &&
-                                !ret.int_array_3d[0][0].empty()) {
+                                !ret.int_array_3d[0].empty()) {
+                                
+                                // typedef配列名から多次元配列かどうかを判定
+                                // typedefの場合、実際の型を解決して確認
+                                std::string actual_type = interpreter_->type_manager_->resolve_typedef(ret.array_type_name);
+                                bool is_multidim = (actual_type.find("[][]") != std::string::npos || 
+                                                   ret.array_type_name.find("[][]") != std::string::npos ||
+                                                   ret.int_array_3d.size() > 1 || 
+                                                   (ret.int_array_3d.size() == 1 && ret.int_array_3d[0].size() > 1));
 
-                                // 多次元配列の場合
-                                if (var.is_multidimensional &&
-                                    var.array_type_info.dimensions.size() > 1) {
-                                    var.multidim_array_values =
-                                        ret.int_array_3d[0][0];
-                                    var.array_size =
-                                        var.multidim_array_values.size();
-                                } else {
+                                if (is_multidim) {
+                                    // 多次元配列の場合 - 全要素を展開
+                                    var.multidim_array_values.clear();
+                                    for (const auto &plane : ret.int_array_3d) {
+                                        for (const auto &row : plane) {
+                                            for (const auto &element : row) {
+                                                var.multidim_array_values.push_back(element);
+                                            }
+                                        }
+                                    }
+                                    var.array_size = var.multidim_array_values.size();
+                                    var.is_multidimensional = true;
+                                    var.array_values.clear();
+                                    
+                                    // 配列の次元情報を設定
+                                    if (!ret.int_array_3d[0].empty()) {
+                                        var.array_dimensions.clear();
+                                        var.array_dimensions.push_back(ret.int_array_3d[0].size());     // 行数
+                                        var.array_dimensions.push_back(ret.int_array_3d[0][0].size()); // 列数
+                                    }
+                                } else if (!ret.int_array_3d[0][0].empty()) {
+                                    // 1次元配列の場合
                                     var.array_values = ret.int_array_3d[0][0];
                                     var.array_size = var.array_values.size();
                                 }
@@ -1388,8 +1462,58 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                     }
                 }
             } else {
-                // 数値初期化の処理
-                if (node->init_expr->node_type == ASTNodeType::AST_FUNC_CALL) {
+                if (var.type == TYPE_STRING && node->init_expr->node_type == ASTNodeType::AST_ARRAY_REF) {
+                    // 文字列配列アクセス初期化
+                    // 配列名を取得
+                    std::string array_name;
+                    const ASTNode* base_node = node->init_expr.get();
+                    while (base_node && base_node->node_type == ASTNodeType::AST_ARRAY_REF && base_node->left) {
+                        base_node = base_node->left.get();
+                    }
+                    if (base_node && base_node->node_type == ASTNodeType::AST_VARIABLE) {
+                        array_name = base_node->name;
+                    }
+                    
+                    Variable* array_var = find_variable(array_name);
+                    if (array_var && array_var->is_array && array_var->array_type_info.base_type == TYPE_STRING) {
+                        debug_msg(DebugMsgId::MULTIDIM_STRING_ARRAY_ACCESS, array_name.c_str());
+                        
+                        // 多次元インデックスを収集
+                        std::vector<int64_t> indices;
+                        const ASTNode* current_node = node->init_expr.get();
+                        while (current_node && current_node->node_type == ASTNodeType::AST_ARRAY_REF) {
+                            int64_t index = interpreter_->expression_evaluator_->evaluate_expression(current_node->array_index.get());
+                            indices.insert(indices.begin(), index); // 先頭に挿入（逆順になるため）
+                            current_node = current_node->left.get();
+                        }
+                        
+                        // インデックス情報をデバッグ出力
+                        std::string indices_str;
+                        for (size_t i = 0; i < indices.size(); ++i) {
+                            if (i > 0) indices_str += ", ";
+                            indices_str += std::to_string(indices[i]);
+                        }
+                        debug_msg(DebugMsgId::MULTIDIM_STRING_ARRAY_INDICES, indices_str.c_str());
+                        
+                        try {
+                            std::string str_value = interpreter_->getMultidimensionalStringArrayElement(*array_var, indices);
+                            debug_msg(DebugMsgId::MULTIDIM_STRING_ARRAY_VALUE, str_value.c_str());
+                            var.str_value = str_value;
+                            var.value = 0; // プレースホルダー
+                            var.is_assigned = true;
+                        } catch (const std::exception& e) {
+                            var.str_value = "";
+                            var.value = 0;
+                            var.is_assigned = true;
+                        }
+                    } else {
+                        // 配列アクセスではない場合は通常の処理にフォールバック
+                        int64_t value = interpreter_->expression_evaluator_->evaluate_expression(node->init_expr.get());
+                        var.str_value = std::to_string(value);
+                        var.value = value;
+                        var.is_assigned = true;
+                    }
+                } else if (node->init_expr->node_type == ASTNodeType::AST_FUNC_CALL) {
                     // 関数呼び出しの場合、ReturnExceptionをキャッチ
                     try {
                         int64_t value =
@@ -1545,15 +1669,72 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
         if (!node->name.empty() && node->right) {
             // node->nameを使った代入（通常の変数代入）
             std::string var_name = node->name;
-            int64_t value =
-                interpreter_->expression_evaluator_->evaluate_expression(
-                    node->right.get());
-
+            
             Variable *var = find_variable(var_name);
             if (!var) {
                 throw std::runtime_error("Undefined variable: " + var_name);
             }
 
+            if (var->is_const && var->is_assigned) {
+                throw std::runtime_error("Cannot reassign const variable: " +
+                                         var_name);
+            }
+            
+            // 文字列変数への代入で、右辺が多次元配列アクセスの場合の特別処理
+            std::cerr << "[DEBUG] Checking string assignment: var->type=" << var->type << " TYPE_STRING=" << TYPE_STRING << std::endl;
+            std::cerr << "[DEBUG] Right node type: " << static_cast<int>(node->right->node_type) << " AST_ARRAY_REF=" << static_cast<int>(ASTNodeType::AST_ARRAY_REF) << std::endl;
+            
+            if (var->type == TYPE_STRING && node->right->node_type == ASTNodeType::AST_ARRAY_REF) {
+                // 配列名を取得
+                std::string array_name;
+                const ASTNode* base_node = node->right.get();
+                while (base_node && base_node->node_type == ASTNodeType::AST_ARRAY_REF && base_node->left) {
+                    base_node = base_node->left.get();
+                }
+                if (base_node && base_node->node_type == ASTNodeType::AST_VARIABLE) {
+                    array_name = base_node->name;
+                }
+                
+                Variable* array_var = find_variable(array_name);
+                if (array_var && array_var->is_array && array_var->array_type_info.base_type == TYPE_STRING) {
+                    debug_msg(DebugMsgId::MULTIDIM_STRING_ARRAY_ACCESS, array_name.c_str());
+                    
+                    // 多次元インデックスを収集
+                    std::vector<int64_t> indices;
+                    const ASTNode* current_node = node->right.get();
+                    while (current_node && current_node->node_type == ASTNodeType::AST_ARRAY_REF) {
+                        int64_t index = interpreter_->expression_evaluator_->evaluate_expression(current_node->array_index.get());
+                        indices.insert(indices.begin(), index); // 先頭に挿入（逆順になるため）
+                        current_node = current_node->left.get();
+                    }
+                    
+                    // インデックス情報をデバッグ出力
+                    std::string indices_str;
+                    for (size_t i = 0; i < indices.size(); ++i) {
+                        if (i > 0) indices_str += ", ";
+                        indices_str += std::to_string(indices[i]);
+                    }
+                    debug_msg(DebugMsgId::MULTIDIM_STRING_ARRAY_INDICES, indices_str.c_str());
+                    
+                    try {
+                        std::string str_value = interpreter_->getMultidimensionalStringArrayElement(*array_var, indices);
+                        debug_msg(DebugMsgId::MULTIDIM_STRING_ARRAY_VALUE, str_value.c_str());
+                        var->str_value = str_value;
+                        var->is_assigned = true;
+                        return;
+                    } catch (const std::exception& e) {
+                        var->str_value = "";
+                        var->is_assigned = true;
+                        return;
+                    }
+                }
+            }
+            
+            int64_t value =
+                interpreter_->expression_evaluator_->evaluate_expression(
+                    node->right.get());
+
+            // varは既に上で定義済み
             if (var->is_const && var->is_assigned) {
                 throw std::runtime_error("Cannot reassign const variable: " +
                                          var_name);

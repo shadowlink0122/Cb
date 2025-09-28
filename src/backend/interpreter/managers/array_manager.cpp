@@ -10,6 +10,8 @@
 #include <stdexcept>
 
 void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
+    debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
+              ("Processing array declaration for variable: " + node->name).c_str());
     if (!node) {
         throw std::runtime_error(
             "ArrayManager::processArrayDeclaration: node is null");
@@ -143,6 +145,8 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
 
             if (var.is_multidimensional) {
                 // 多次元配列リテラル初期化は既存のメソッドを使用
+                debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
+                          ("Processing multidimensional array literal for: " + node->name).c_str());
                 processMultidimensionalArrayLiteral(var, array_literal,
                                                     node->type_info);
             } else {
@@ -341,13 +345,28 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
                             var.type = static_cast<TypeInfo>(TYPE_ARRAY_BASE +
                                                              TYPE_INT);
                         } else if (!ret.str_array_3d.empty()) {
-                            var.array_strings.clear();
-                            for (const auto &plane : ret.str_array_3d) {
-                                for (const auto &row : plane) {
-                                    for (const auto &element : row) {
-                                        var.array_strings.push_back(element);
+                            if (var.is_multidimensional) {
+                                // 多次元文字列配列の場合
+                                var.multidim_array_strings.clear();
+                                for (const auto &plane : ret.str_array_3d) {
+                                    for (const auto &row : plane) {
+                                        for (const auto &element : row) {
+                                            var.multidim_array_strings.push_back(element);
+                                        }
                                     }
                                 }
+                                var.array_strings.clear();
+                            } else {
+                                // 1次元文字列配列の場合
+                                var.array_strings.clear();
+                                for (const auto &plane : ret.str_array_3d) {
+                                    for (const auto &row : plane) {
+                                        for (const auto &element : row) {
+                                            var.array_strings.push_back(element);
+                                        }
+                                    }
+                                }
+                                var.multidim_array_strings.clear();
                             }
                             var.type = static_cast<TypeInfo>(TYPE_ARRAY_BASE +
                                                              TYPE_STRING);
@@ -400,24 +419,54 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
 
                         // 配列データを設定
                         if (!ret.int_array_3d.empty()) {
-                            var.array_values.clear();
-                            for (const auto &plane : ret.int_array_3d) {
-                                for (const auto &row : plane) {
-                                    for (const auto &element : row) {
-                                        var.array_values.push_back(element);
+                            if (var.is_multidimensional) {
+                                // 多次元配列の場合、multidim_array_valuesに設定
+                                var.multidim_array_values.clear();
+                                for (const auto &plane : ret.int_array_3d) {
+                                    for (const auto &row : plane) {
+                                        for (const auto &element : row) {
+                                            var.multidim_array_values.push_back(element);
+                                        }
                                     }
                                 }
+                                var.array_values.clear();
+                            } else {
+                                // 1次元配列の場合、array_valuesに設定
+                                var.array_values.clear();
+                                for (const auto &plane : ret.int_array_3d) {
+                                    for (const auto &row : plane) {
+                                        for (const auto &element : row) {
+                                            var.array_values.push_back(element);
+                                        }
+                                    }
+                                }
+                                var.multidim_array_values.clear();
                             }
                             var.type = static_cast<TypeInfo>(TYPE_ARRAY_BASE +
                                                              TYPE_INT);
                         } else if (!ret.str_array_3d.empty()) {
-                            var.array_strings.clear();
-                            for (const auto &plane : ret.str_array_3d) {
-                                for (const auto &row : plane) {
-                                    for (const auto &element : row) {
-                                        var.array_strings.push_back(element);
+                            if (var.is_multidimensional) {
+                                // 多次元文字列配列の場合、multidim_array_stringsに設定
+                                var.multidim_array_strings.clear();
+                                for (const auto &plane : ret.str_array_3d) {
+                                    for (const auto &row : plane) {
+                                        for (const auto &element : row) {
+                                            var.multidim_array_strings.push_back(element);
+                                        }
                                     }
                                 }
+                                var.array_strings.clear();
+                            } else {
+                                // 1次元文字列配列の場合、array_stringsに設定
+                                var.array_strings.clear();
+                                for (const auto &plane : ret.str_array_3d) {
+                                    for (const auto &row : plane) {
+                                        for (const auto &element : row) {
+                                            var.array_strings.push_back(element);
+                                        }
+                                    }
+                                }
+                                var.multidim_array_strings.clear();
                             }
                             var.type = static_cast<TypeInfo>(TYPE_ARRAY_BASE +
                                                              TYPE_STRING);
@@ -670,6 +719,8 @@ void ArrayManager::processArrayLiteralRecursive(
 
         if (base_type == TYPE_STRING) {
             var.multidim_array_strings[flat_index] = node->str_value;
+            debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
+                      ("Set multidim string element[" + std::to_string(flat_index) + "] = '" + node->str_value + "'").c_str());
         } else {
             // 数値の場合、expression_evaluatorを使用して評価
             int64_t value = 0;
@@ -728,6 +779,9 @@ int64_t ArrayManager::getMultidimensionalArrayElement(
         int64_t value = var.multidim_array_values[flat_index];
         return value;
     } else {
+        debug_print("[ArrayManager] Array bounds check failed for variable\n");
+        debug_print("[ArrayManager] flat_index: %zu, size: %zu\n", 
+                   flat_index, var.multidim_array_values.size());
         throw std::runtime_error("Array index out of bounds: flat_index=" + std::to_string(flat_index));
     }
 }
@@ -821,6 +875,15 @@ std::string ArrayManager::getMultidimensionalStringArrayElement(
     if (var.array_type_info.base_type != TYPE_STRING) {
         throw std::runtime_error(
             "Cannot get non-string array element as string");
+    }
+
+    debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
+              ("Getting multidim string element at flat_index=" + std::to_string(flat_index) + 
+               ", multidim_array_strings.size()=" + std::to_string(var.multidim_array_strings.size())).c_str());
+    
+    if (flat_index < static_cast<int>(var.multidim_array_strings.size())) {
+        debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
+                  ("Returning string: '" + var.multidim_array_strings[flat_index] + "'").c_str());
     }
 
     return var.multidim_array_strings[flat_index];

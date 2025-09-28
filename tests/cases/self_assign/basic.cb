@@ -1,18 +1,22 @@
 int main() {
+    println("Self assignment operators test:");
     int a = 1;
+    
     a += 2;
-    print(a); // 3
+    print("a += 2: "); println(a); // 3
 
     a -= 1;
-    print(a); // 2
+    print("a -= 1: "); println(a); // 2
 
     a *= 5;
-    print(a); // 10
+    print("a *= 5: "); println(a); // 10
 
     a /= 2;
-    print(a); // 5
+    print("a /= 2: "); println(a); // 5
 
     a %= 3;
-    print(a); // 2
+    print("a %= 3: "); println(a); // 2
+    
+    println("Self assignment operators test passed");
     return 0;
 }

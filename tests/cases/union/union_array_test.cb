@@ -1,0 +1,61 @@
+// Union型配列テスト
+
+typedef StatusCode = 200 | 404 | 500;
+typedef DataUnion = int | string;
+
+struct UnionArrayStruct {
+    StatusCode codes[3];
+    DataUnion values[2];
+    int count;
+};
+
+void print_union_array(DataUnion arr[2]) {
+    println("Union array contents:");
+    println("  arr[0]: %d", arr[0]);  
+    println("  arr[1]: %s", arr[1]);  
+}
+
+int main() {
+    println("=== Union型配列テスト ===");
+    
+    // Union型配列の直接宣言
+    StatusCode codes[3] = [200, 404, 500];
+    DataUnion values[2] = [42, "text"];
+    
+    println("直接宣言されたUnion型配列:");
+    println("  codes[0]: %d", codes[0]);
+    println("  codes[1]: %d", codes[1]);
+    println("  codes[2]: %d", codes[2]);
+    
+    println("  values[0]: %d", values[0]);
+    println("  values[1]: %s", values[1]);
+    
+    // 構造体メンバーとしてのUnion型配列
+    UnionArrayStruct test = {
+        codes: [200, 404, 500],
+        values: [100, "Hello"],
+        count: 2
+    };
+    
+    println("構造体メンバーのUnion型配列:");
+    println("  test.codes[0]: %d", test.codes[0]);
+    println("  test.codes[1]: %d", test.codes[1]);
+    println("  test.codes[2]: %d", test.codes[2]);
+    
+    println("  test.values[0]: %d", test.values[0]);
+    println("  test.values[1]: %s", test.values[1]);
+    println("  test.count: %d", test.count);
+    
+    // 配列要素の動的変更
+    test.values[0] = "Changed";
+    test.values[1] = 999;
+    
+    println("配列要素変更後:");
+    println("  test.values[0]: %s", test.values[0]);
+    println("  test.values[1]: %d", test.values[1]);
+    
+    // 関数に配列を渡すテスト
+    print_union_array(test.values);
+    
+    return 0;
+}

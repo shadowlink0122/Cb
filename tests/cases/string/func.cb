@@ -2,7 +2,9 @@
 string str() { return "Hello, World!"; }
 string greet() { return "こんにちは"; }
 int main() {
-    print(str());
-    print(greet());
+    println("String function return test:");
+    print("str(): "); println(str());
+    print("greet(): "); println(greet());
+    println("String function return test passed");
     return 0;
 }

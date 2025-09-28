@@ -71,7 +71,7 @@
 - ✅ 型システム（プリミティブ型：tiny, short, int, long, string, char, bool）
 - ✅ 変数宣言・初期化（複数変数同時宣言対応）
 - ✅ 配列（静的サイズ）・配列リテラル
-- ✅ 関数定義・呼び出し
+- ✅ 関数定義・呼び出し（複合代入時の最適化済み）
 - ✅ 制御構造（if/else, for, while, break, continue, return）
 - ✅ **演算子（算術、比較、論理、代入、複合代入、インクリメント）**
   - ✅ **10種類の複合代入演算子**: `+=`, `-=`, `*=`, `/=`, `%=`, `&=`, `|=`, `^=`, `<<=`, `>>=`
@@ -80,13 +80,26 @@
   - ✅ **自己代入機能**: 基本的な自己代入、配列自己代入、ビット演算自己代入
 - ✅ ストレージ修飾子（const, static）
 - ✅ 標準出力（print, printf風フォーマット指定子）
-- ✅ 包括的テストフレームワーク（統合テスト767個、単体テスト26個）
+- ✅ **Union型システム**（TypeScript風完全実装）
+  - ✅ **リテラル値Union**: `typedef Status = 200 | 404 | 500;`
+  - ✅ **基本型Union**: `typedef Value = int | string;`
+  - ✅ **カスタム型Union**: `typedef ID = UserID | ProductID;`
+  - ✅ **構造体Union**: `typedef Entity = User | Product;`
+  - ✅ **配列Union**: `typedef ArrayUnion = int[5] | string[3];`
+  - ✅ **混合Union**: `typedef Mixed = 42 | int | string;`
+  - ✅ **文字列処理**: 再帰的文字列実装を活用した完全な文字列対応
+  - ✅ **複合代入**: `+=`, `-=`, `*=`, `/=`, `%=` 演算子完全対応
+  - ✅ **型安全性**: 型不一致時の適切なエラーメッセージ
+  - ✅ **再帰的typedef互換性**: 継承チェーンでの型検証
+  - ✅ **包括的エラーハンドリング**: 13種類の異常系テスト
+- ✅ 包括的テストフレームワーク（統合テスト925個、単体テスト26個）
 - ✅ 再帰下降パーサーによる構文解析
 
 ### Phase 2: 中期目標 ✅/🚧（実装中）
 - ✅ **struct 定義** - 構造体機能完全実装（リテラル初期化、配列メンバー、構造体配列）
-- 🚧 typedef システム（部分実装）
-- 🚧 enum 定義（未実装）
+- ✅ **Union型システム** - TypeScript風Union型完全実装（リテラル値、基本型、カスタム型、構造体、配列Union対応、文字列処理・複合代入演算子完全対応）
+- ✅ **typedef システム** - 基本typedef、Union typedef、recursive typedef対応
+- 🚧 enum 定義（基本実装済み、Union連携は部分実装）
 - 🚧 標準ライブラリ拡充（math.cb, stdio.cb部分実装）
 - ❌ Result型エラー処理
 - ❌ スマートポインタ（unique_ptr, shared_ptr）
@@ -127,6 +140,7 @@ declaration     ::= variable_declaration
                   | function_declaration
                   | struct_declaration
                   | typedef_declaration
+                  | union_typedef_declaration
                   | enum_declaration
 
 type_specifier  ::= "void" | "tiny" | "short" | "int" | "long" 
@@ -158,8 +172,28 @@ initializer_list ::= initializer
                    | initializer_list "," initializer
 ```
 
-### 関数宣言
+### 型宣言・Union型
 ```bnf
+typedef_declaration ::= "typedef" type_specifier identifier ";"
+                      | union_typedef_declaration
+
+union_typedef_declaration ::= "typedef" identifier "=" union_type_list ";"
+
+union_type_list ::= union_type
+                  | union_type_list "|" union_type
+
+union_type ::= literal_value
+             | type_specifier
+             | identifier
+             | array_type_specifier
+
+literal_value ::= integer_constant
+                | string_literal
+                | character_literal
+                | boolean_constant
+
+array_type_specifier ::= type_specifier "[" constant_expression "]"
+```
 function_declaration ::= storage_class* type_specifier identifier 
                         "(" parameter_list ")" compound_statement
 
@@ -379,17 +413,164 @@ TYPE FUNC_NAME(TYPE ARG1, TYPE ARG2, ...) {
 - VALUE の型は TYPE と一致する必要がある
 - 引数も戻り値も配列型に対応
 
-### 型宣言・作成 🚧
+### 型宣言・作成 ✅
 ```cb
-// 型エイリアス（将来実装）
+// 基本型エイリアス
 typedef 既存型 新しい型名;
 
+// Union型宣言（TypeScript風）
+typedef Union型名 = 型1 | 型2 | 型3 | ...;
+
 // 例
-typedef int UserId;
-typedef string[100] LargeString;
+typedef UserId = int;
+typedef UserName = string;
+
+// リテラル値Union
+typedef HttpStatus = 200 | 404 | 500;
+typedef Direction = "up" | "down" | "left" | "right";
+
+// 基本型Union
+typedef NumericValue = int | long | string;
+
+// カスタム型Union
+typedef ID = UserId | ProductId;
+
+// 構造体Union
+typedef Entity = User | Product;
+
+// 配列Union
+typedef ArrayUnion = int[5] | string[3];
+
+// 混合Union（リテラル値と型の組み合わせ）
+typedef MixedUnion = 42 | int | string;
 ```
 
-### 構造体定義 ✅/🚧
+### Union型システム（完全実装） ✅
+
+#### TypeScript風Union型構文
+```cb
+// リテラル値Union - 特定の値のみ許可
+typedef HttpStatus = 200 | 404 | 500;
+typedef Direction = "up" | "down" | "left" | "right";
+typedef Priority = 1 | 2 | 3;
+
+// 基本型Union - 複数の基本型を組み合わせ
+typedef NumericValue = int | long | string;
+typedef BoolOrString = bool | string;
+typedef AnyBasic = int | string | bool;
+
+// カスタム型Union - 定義したtypedefを組み合わせ
+typedef UserID = int;
+typedef ProductID = string;
+typedef ID = UserID | ProductID;  // 再帰的typedef対応
+
+// 構造体Union - 異なる構造体型を組み合わせ
+struct User {
+    int id;
+    string name;
+}
+
+struct Product {
+    string code;
+    int price;
+}
+
+typedef Entity = User | Product;
+
+// 配列Union - 異なる配列型を組み合わせ
+typedef ArrayUnion = int[5] | string[3] | bool[2];
+typedef MultiDimArrayUnion = int[3][3] | string[2][4];
+
+// 混合Union - リテラル値と型を組み合わせ
+typedef MixedUnion = 42 | int | string;
+typedef ComplexMixed = 200 | "success" | int | bool;
+```
+
+#### Union型の型検証システム
+```cb
+int main() {
+    // リテラル値Unionの厳密な検証
+    HttpStatus status = 200;  // OK: 許可されたリテラル値
+    // HttpStatus invalid = 301;  // エラー: 許可されていない値
+    
+    // 基本型Unionの使用
+    NumericValue value1 = 42;        // int値 -> OK
+    NumericValue value2 = "hello";   // string値 -> OK
+    // NumericValue invalid = true;  // bool型 -> エラー
+    
+    // カスタム型Unionの再帰的型検証
+    UserID user_id = 12345;
+    ID general_id = user_id;         // UserID -> ID: 互換性OK
+    
+    // 構造体Unionの型互換性
+    User alice = {id: 1, name: "Alice"};
+    Entity entity = alice;           // User -> Entity: OK
+    
+    // 混合Unionでの型検証
+    MixedUnion mixed1 = 42;          // リテラル42 -> OK
+    MixedUnion mixed2 = 100;         // int型 -> OK
+    MixedUnion mixed3 = "test";      // string型 -> OK
+    // MixedUnion invalid = true;    // bool型 -> エラー
+    
+    return 0;
+}
+```
+
+#### Union型エラーハンドリング
+Union型システムは13種類の包括的エラー検証を提供：
+
+1. **無効なリテラル値エラー**
+```cb
+typedef LimitedValues = 1 | 2 | 3;
+LimitedValues val = 5;  // エラー: 5は許可されていない
+```
+
+2. **型不一致エラー**
+```cb
+typedef IntOrString = int | string;
+bool flag = true;
+IntOrString val = flag;  // エラー: bool型は許可されていない
+```
+
+3. **未定義型エラー**
+```cb
+typedef BadUnion = int | UndefinedType;  // エラー: UndefinedTypeは存在しない
+```
+
+4. **カスタム型互換性エラー**
+```cb
+typedef UserID = int;
+typedef ProductID = string;
+typedef RestrictedID = UserID;  // ProductIDは許可されない
+
+ProductID pid = "P123";
+RestrictedID rid = pid;  // エラー: ProductID -> UserIDの変換は不可
+```
+
+5. **構造体型エラー**
+```cb
+struct User { int id; }
+struct Product { string code; }
+typedef UserOnly = User;
+
+Product prod = {"P123"};
+UserOnly user_val = prod;  // エラー: Product -> Userの変換は不可
+```
+
+6. **配列型不一致エラー**
+```cb
+typedef IntArrayUnion = int[3];
+string[3] str_arr = ["a", "b", "c"];
+IntArrayUnion arr = str_arr;  // エラー: string[3] -> int[3]は不可
+```
+
+**特徴**:
+- **TypeScript風セマンティクス**: 直感的なUnion型構文
+- **厳密な型検証**: リテラル値と明示的型の明確な区別
+- **再帰的typedef対応**: UserID -> ID -> int のような継承チェーン
+- **包括的エラー処理**: 13種類の異常系を完全にカバー
+- **実行時型安全性**: 不正な型代入を実行時に検出
+- **混合Union対応**: リテラル値と型を自由に組み合わせ可能
 
 #### 基本構造体（実装済み）✅
 ```cb

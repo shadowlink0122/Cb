@@ -2,5 +2,8 @@
 int main(){
     int i = 127;
     tiny t = i;
-    print(t);
+    println("Tiny assignment test:");
+    println("i = %d, t = %d", i, t);
+    println("Tiny assignment test passed");
+    return 0;
 }
