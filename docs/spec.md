@@ -16,7 +16,7 @@
     - 配列・スライス
     - 非同期処理（goroutine、channel）
 - **Rust**
-    - interface, trait
+    - interface, trait（✅ Interface/Implシステムとして実装済み）
     - ジェネリクス（ライフタイムは入れない）
     - Result型によるエラー処理（例外処理機構は入れない）
 
@@ -100,11 +100,21 @@
 - ✅ 包括的テストフレームワーク（統合テスト1116個、単体テスト26個）
 - ✅ 再帰下降パーサーによる構文解析
 
-### Phase 2: 中期目標 ✅/🚧（実装中）
+### Phase 2: 中期目標 ✅（完成）
 - ✅ **struct 定義** - 構造体機能完全実装（リテラル初期化、配列メンバー、構造体配列）
 - ✅ **Union型システム** - TypeScript風Union型完全実装（リテラル値、基本型、カスタム型、構造体、配列Union対応、文字列処理・複合代入演算子完全対応）
 - ✅ **typedef システム** - 基本typedef、Union typedef、recursive typedef対応
-- 🚧 enum 定義（基本実装済み、Union連携は部分実装）
+- ✅ **Interface/Implシステム** - 型安全なポリモーフィズム完全実装 🆕
+  - ✅ **プリミティブ型実装**: int, string, bool等への直接impl
+  - ✅ **構造体型実装**: struct型へのメソッド定義
+  - ✅ **配列型実装**: 1次元・多次元配列型への実装
+  - ✅ **Typedef型実装**: typedef型への独立impl実装
+  - ✅ **再帰的Typedef独立性**: 各typedef階層での独立interface実装
+  - ✅ **インターフェース変数**: 型抽象化とポリモーフィズム
+  - ✅ **包括的エラー検出**: 未定義interface、重複実装、署名不一致
+  - ✅ **メソッド呼び出し**: self参照対応の安全なメソッド実行
+  - ✅ **プライベートメソッド**: impl内での詳細制御
+- ✅ enum定義（基本実装済み、Interface連携も完全実装） 🆕
 - 🚧 標準ライブラリ拡充（math.cb, stdio.cb部分実装）
 - ❌ Result型エラー処理
 - ❌ スマートポインタ（unique_ptr, shared_ptr）
@@ -124,8 +134,8 @@
 - **複雑なネストアクセス**: `obj.array[i].member[j]` 未サポート
 - **構造体継承**: 未実装
 
-### Phase 3: 長期目標 ❌（未実装）
-- ❌ interface/trait システム
+### Phase 3: 長期目標 🚧/❌（一部実装・未実装）
+- ✅ **interface/trait システム** - Interface/Implシステム完全実装 🆕
 - ❌ モジュール・インポートシステム
 - ❌ ジェネリクス
 - ❌ 非同期処理（goroutine/channel）
@@ -199,6 +209,28 @@ literal_value ::= integer_constant
 
 array_type_specifier ::= type_specifier "[" constant_expression "]"
 ```
+
+### Interface/Impl宣言 🆕
+```bnf
+interface_declaration ::= "interface" identifier "{" method_signature_list "}"
+
+method_signature_list ::= method_signature
+                        | method_signature_list method_signature
+
+method_signature ::= type_specifier identifier "(" parameter_list ")" ";"
+
+impl_declaration ::= "impl" identifier "for" type_specifier "{" method_definition_list "}"
+
+method_definition_list ::= method_definition
+                         | method_definition_list method_definition
+
+method_definition ::= type_specifier identifier "(" parameter_list ")" compound_statement
+
+interface_variable_declaration ::= identifier identifier "=" assignment_expression ";"
+
+interface_method_call ::= identifier "." identifier "(" argument_list ")"
+```
+
 function_declaration ::= storage_class* type_specifier identifier 
                         "(" parameter_list ")" compound_statement
 
@@ -349,7 +381,7 @@ argument_list   ::= assignment_expression
 
 ##### 動的配列（将来実装予定）🚧
 - `TYPE[]`: 可変サイズ配列（Goのsliceライク）
-- **共通メソッド**（struct/interface実装後）:
+- **共通メソッド**（Interface/Implシステムで実装可能）:
   - `.size()`: 要素数取得
   - `.len()`: 要素数取得（.size()のエイリアス）
   - `.capacity()`: 容量取得
@@ -797,7 +829,7 @@ enum Status {
 }
 ```
 
-### インターフェース定義 ❌
+### インターフェース定義 ✅
 関数シグネチャをまとめて定義:
 ```cb
 interface Drawable {
@@ -806,32 +838,30 @@ interface Drawable {
     int getArea();
 }
 
-// インターフェースの継承
-interface Shape extends Drawable {
-    void resize(int scale);
-}
+// 注意: インターフェースの継承（extends）は未実装
+// 複数インターフェース実装はサポート済み
 ```
 
-### インターフェース実装 ❌
+### インターフェース実装 ✅
 ```cb
-impl Drawable for Rectangle {
+impl Rectangle : Drawable {
     void draw() {
         // 実装
     }
     
     void move(int x, int y) {
-        // 実装  
+        self.x = x;
+        self.y = y;
     }
     
     int getArea() {
-        // 実装
-        return width * height;
+        return self.width * self.height;
     }
 }
 ```
 
 ### アトリビュート ❌
-Rustライクなコンパイル時メタデータ:
+Rustライクなコンパイル時メタデータ（将来実装予定）:
 ```cb
 #[no_std]           // 標準ライブラリを使用しない
 #[derive(Debug)]    // デバッグ出力の自動実装
@@ -852,7 +882,7 @@ export TYPE;                    // 型をエクスポート
 export 変数;                    // 変数をエクスポート  
 export 関数宣言;                // 関数をエクスポート
 export 関数 { /* 実装 */ };     // インライン関数エクスポート
-export interface インターフェース名; // インターフェースをエクスポート
+export interface インターフェース名; // インターフェースをエクスポート（将来実装予定）
 export { 宣言1, 宣言2, ... };   // 複数まとめてエクスポート  
 export default 宣言;            // デフォルトエクスポート
 ```
@@ -1086,6 +1116,150 @@ int main() {
     // a += b += c; は a += (b += c); と解釈される
     
     return 0;
+}
+```
+
+### Interface/Impl システム ✅
+```cb
+// Interface declaration with method signatures
+interface Drawable {
+    void draw();
+    void clear();
+}
+
+// Primitive type implementation
+impl int : Drawable {
+    void draw() {
+        println("Drawing number: %d", self);
+    }
+    
+    void clear() {
+        println("Clearing number display");
+    }
+}
+
+// Struct implementation
+struct Circle {
+    int x, y;
+    int radius;
+}
+
+impl Circle : Drawable {
+    void draw() {
+        println("Drawing circle at (%d, %d) with radius %d", 
+                self.x, self.y, self.radius);
+    }
+    
+    void clear() {
+        println("Clearing circle");
+    }
+}
+
+// Array implementation
+impl int[] : Drawable {
+    void draw() {
+        print("Drawing array: [");
+        for (int i = 0; i < len(self); i++) {
+            if (i > 0) print(", ");
+            print("%d", self[i]);
+        }
+        println("]");
+    }
+    
+    void clear() {
+        println("Clearing array display");
+    }
+}
+
+// Recursive typedef with interface implementation
+typedef TreeNode {
+    int value;
+    TreeNode* left;
+    TreeNode* right;
+}
+
+impl TreeNode : Drawable {
+    void draw() {
+        println("Drawing tree node with value: %d", self.value);
+        if (self.left != null) {
+            println("  Left child exists");
+        }
+        if (self.right != null) {
+            println("  Right child exists");
+        }
+    }
+    
+    void clear() {
+        println("Clearing tree node");
+    }
+}
+
+int main() {
+    // Primitive type usage
+    int number = 42;
+    number.draw();      // "Drawing number: 42"
+    number.clear();     // "Clearing number display"
+    
+    // Struct usage
+    Circle circle;
+    circle.x = 10;
+    circle.y = 20;
+    circle.radius = 5;
+    circle.draw();      // "Drawing circle at (10, 20) with radius 5"
+    circle.clear();     // "Clearing circle"
+    
+    // Array usage
+    int[3] numbers = [1, 2, 3];
+    numbers.draw();     // "Drawing array: [1, 2, 3]"
+    numbers.clear();    // "Clearing array display"
+    
+    // Recursive typedef usage
+    TreeNode root;
+    root.value = 100;
+    root.left = null;
+    root.right = null;
+    root.draw();        // "Drawing tree node with value: 100"
+    root.clear();       // "Clearing tree node"
+    
+    return 0;
+}
+```
+
+### Interface/Impl エラーハンドリング ✅
+```cb
+// エラー検出例：未実装メソッド
+interface Calculator {
+    int add(int a, int b);
+    int multiply(int a, int b);
+}
+
+impl int : Calculator {
+    int add(int a, int b) {
+        return a + b;
+    }
+    // multiply メソッドが未実装 → コンパイルエラー
+}
+
+// エラー検出例：型ミスマッチ
+interface Formatter {
+    void format();
+}
+
+impl int : Formatter {
+    int format() {  // 戻り値型が void でない → コンパイルエラー
+        return 0;
+    }
+}
+
+// エラー検出例：パラメータミスマッチ
+interface Processor {
+    void process(int value);
+}
+
+impl int : Processor {
+    void process(double value) {  // パラメータ型が一致しない → コンパイルエラー
+        println("Processing: %f", value);
+    }
 }
 ```
 
