@@ -39,6 +39,9 @@ private:
     
     // 型推論対応のヘルパー
     TypedValue evaluate_ternary_typed(const ASTNode* node);
+    
+    // 遅延評価されたTypedValueを実際に評価する
+    TypedValue resolve_deferred_evaluation(const TypedValue& deferred_value);
 
 public:
     // 最後の型推論結果にアクセス

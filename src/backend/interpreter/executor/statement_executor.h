@@ -1,8 +1,10 @@
 #pragma once
 #include "../../../common/ast.h"
+#include "../core/type_inference.h"
 
 // 前方宣言
 class Interpreter;
+class ExpressionEvaluator;
 
 // Statement実行エンジンクラス
 class StatementExecutor {
@@ -23,6 +25,8 @@ private:
     
     // 個別の実行メソッド
     void execute_assignment(const ASTNode* node);
+    void execute_ternary_assignment(const ASTNode* node);
+    void execute_ternary_variable_initialization(const ASTNode* var_decl_node, const ASTNode* ternary_node);
     void execute_variable_declaration(const ASTNode* node);
     void execute_union_assignment(const std::string& var_name, const ASTNode* value_node);
     void execute_member_array_assignment(const ASTNode* node);

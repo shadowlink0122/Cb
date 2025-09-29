@@ -1,0 +1,53 @@
+// 三項演算子のメンバアクセスとprintf/println内テスト
+
+struct Person {
+    string name;
+    int age;
+};
+
+Person create_person(string n, int a) {
+    Person p;
+    p.name = n;
+    p.age = a;
+    return p;
+}
+
+int main() {
+    // 1. println内での三項演算子（文字列）
+    bool flag = true;
+    println(flag ? "Success" : "Failure");  // Success
+    
+    // 2. println内での三項演算子（数値）
+    println(flag ? 42 : 99);  // 42
+    
+    // 3. 構造体メンバアクセスの三項演算子
+    Person p1 = create_person("Alice", 25);
+    Person p2 = create_person("Bob", 30);
+    
+    bool use_first = true;
+    
+    // 文字列メンバアクセス
+    println(use_first ? p1.name : p2.name);  // Alice
+    
+    // 数値メンバアクセス
+    println(use_first ? p1.age : p2.age);  // 25
+    
+    // 4. 配列要素アクセスの三項演算子
+    int[3] array1 = [1, 2, 3];
+    int[3] array2 = [4, 5, 6];
+    bool use_array1 = false;
+    
+    println(use_array1 ? array1[0] : array2[0]);  // 4
+    println(use_array1 ? array1[1] : array2[1]);  // 5
+    println(use_array1 ? array1[2] : array2[2]);  // 6
+    
+    // 5. 条件を変更してテスト
+    use_first = false;
+    use_array1 = true;
+    
+    println(use_first ? p1.name : p2.name);  // Bob
+    println(use_first ? p1.age : p2.age);  // 30
+    println(use_array1 ? array1[0] : array2[0]);  // 1
+    
+    return 0;
+}

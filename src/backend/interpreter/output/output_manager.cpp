@@ -370,6 +370,16 @@ void OutputManager::print_value(const ASTNode *expr) {
             int64_t value = evaluate_expression(expr);
             io_interface_->write_number(value);
         }
+    } else if (expr->node_type == ASTNodeType::AST_TERNARY_OP) {
+        // 三項演算子の処理 - 型推論エンジンを使用
+        auto* expression_evaluator = interpreter_->get_expression_evaluator();
+        TypedValue typed_result = expression_evaluator->evaluate_typed_expression(expr);
+        
+        if (typed_result.type.type_info == TYPE_STRING) {
+            io_interface_->write_string(typed_result.string_value.c_str());
+        } else {
+            io_interface_->write_number(typed_result.numeric_value);
+        }
     } else {
         // その他の式の評価
         try {
