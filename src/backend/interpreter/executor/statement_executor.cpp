@@ -2,6 +2,7 @@
 #include "services/array_processing_service.h"
 #include "core/interpreter.h"
 #include "core/error_handler.h"
+#include "evaluator/expression_evaluator.h"
 #include "managers/array_manager.h"
 #include "managers/type_manager.h"
 #include "../../../common/debug.h"
@@ -59,6 +60,12 @@ void StatementExecutor::execute(const ASTNode *node) {
 }
 
 void StatementExecutor::execute_assignment(const ASTNode *node) {
+    // 右辺が三項演算子の場合の特別処理
+    if (node->right && node->right->node_type == ASTNodeType::AST_TERNARY_OP) {
+        execute_ternary_assignment(node);
+        return;
+    }
+
     // 右辺が配列リテラルの場合の特別処理
     if (node->right && node->right->node_type == ASTNodeType::AST_ARRAY_LITERAL) {
         if (node->left && node->left->node_type == ASTNodeType::AST_VARIABLE) {
@@ -407,7 +414,12 @@ void StatementExecutor::execute_variable_declaration(const ASTNode *node) {
     interpreter_.current_scope().variables[node->name] = var;
     
     if (init_node) {
-        if (var.is_array && init_node->node_type == ASTNodeType::AST_ARRAY_LITERAL) {
+        printf("DEBUG: Variable initialization, init_node type = %d\n", static_cast<int>(init_node->node_type));
+        if (init_node->node_type == ASTNodeType::AST_TERNARY_OP) {
+            // 三項演算子による初期化
+            printf("DEBUG: Calling execute_ternary_variable_initialization\n");
+            execute_ternary_variable_initialization(node, init_node);
+        } else if (var.is_array && init_node->node_type == ASTNodeType::AST_ARRAY_LITERAL) {
             // 配列リテラル初期化
             interpreter_.assign_array_literal(node->name, init_node);
             // 代入後に変数を再取得して更新
@@ -1062,4 +1074,113 @@ void StatementExecutor::execute_self_member_assignment(const std::string& member
     }
     
     debug_msg(DebugMsgId::SELF_MEMBER_ACCESS_VALUE, std::to_string(self_member->value).c_str());
+}
+
+void StatementExecutor::execute_ternary_assignment(const ASTNode *node) {
+    // 三項演算子の条件を評価
+    int64_t condition = interpreter_.evaluate(node->right->left.get());
+    
+    // 条件に基づいて選択される分岐を決定
+    const ASTNode* selected_branch = condition ? node->right->right.get() : node->right->third.get();
+    
+    // 選択された分岐の型に基づいて処理を分岐
+    if (selected_branch->node_type == ASTNodeType::AST_ARRAY_LITERAL) {
+        // 配列リテラルの代入
+        if (!node->name.empty()) {
+            interpreter_.assign_array_literal(node->name, selected_branch);
+            return;
+        }
+    } else if (selected_branch->node_type == ASTNodeType::AST_STRUCT_LITERAL) {
+        // 構造体リテラルの代入
+        if (!node->name.empty()) {
+            interpreter_.assign_struct_literal(node->name, selected_branch);
+            return;
+        }
+    } else if (selected_branch->node_type == ASTNodeType::AST_STRING_LITERAL) {
+        // 文字列リテラルの代入
+        if (!node->name.empty()) {
+            Variable* var = interpreter_.get_variable(node->name);
+            if (var) {
+                var->str_value = selected_branch->str_value;
+                var->type = TYPE_STRING;
+                var->is_assigned = true;
+            }
+        }
+        return;
+    } else {
+        // その他（数値、関数呼び出しなど）の場合は通常の評価
+        try {
+            int64_t value = interpreter_.evaluate(selected_branch);
+            Variable* var = interpreter_.get_variable(node->name);
+            if (var) {
+                var->value = value;
+                var->is_assigned = true;
+            }
+        } catch (const ReturnException& ret) {
+            // 関数の戻り値処理
+            if (!node->name.empty()) {
+                Variable* var = interpreter_.get_variable(node->name);
+                if (var) {
+                    if (ret.type == TYPE_STRING) {
+                        var->str_value = ret.str_value;
+                        var->type = TYPE_STRING;
+                    } else {
+                        var->value = ret.value;
+                    }
+                    var->is_assigned = true;
+                }
+            }
+        }
+    }
+}
+
+void StatementExecutor::execute_ternary_variable_initialization(const ASTNode* var_decl_node, const ASTNode* ternary_node) {
+    printf("DEBUG: execute_ternary_variable_initialization called\n");
+    
+    // 三項演算子の条件を評価
+    int64_t condition = interpreter_.evaluate(ternary_node->left.get());
+    printf("DEBUG: Ternary condition = %lld\n", condition);
+    
+    // 条件に基づいて選択される分岐を決定
+    const ASTNode* selected_branch = condition ? ternary_node->right.get() : ternary_node->third.get();
+    printf("DEBUG: Selected branch node_type = %d\n", static_cast<int>(selected_branch->node_type));
+    
+    std::string var_name = var_decl_node->name;
+    Variable* var = interpreter_.get_variable(var_name);
+    
+    if (!var) {
+        throw std::runtime_error("Variable not found during ternary initialization: " + var_name);
+    }
+    
+    // 選択された分岐の型に基づいて処理
+    if (selected_branch->node_type == ASTNodeType::AST_ARRAY_LITERAL) {
+        // 配列リテラルの初期化
+        interpreter_.assign_array_literal(var_name, selected_branch);
+        var->is_assigned = true;
+    } else if (selected_branch->node_type == ASTNodeType::AST_STRUCT_LITERAL) {
+        // 構造体リテラルの初期化
+        interpreter_.assign_struct_literal(var_name, selected_branch);
+        var->is_assigned = true;
+    } else if (selected_branch->node_type == ASTNodeType::AST_STRING_LITERAL) {
+        // 文字列リテラルの初期化
+        var->str_value = selected_branch->str_value;
+        var->type = TYPE_STRING;
+        var->is_assigned = true;
+    } else {
+        // その他（数値、関数呼び出しなど）の場合は通常の評価
+        try {
+            int64_t value = interpreter_.evaluate(selected_branch);
+            var->value = value;
+            var->is_assigned = true;
+        } catch (const ReturnException& ret) {
+            // 関数の戻り値処理
+            if (ret.type == TYPE_STRING) {
+                var->str_value = ret.str_value;
+                var->type = TYPE_STRING;
+            } else {
+                var->value = ret.value;
+            }
+            var->is_assigned = true;
+        }
+    }
 }

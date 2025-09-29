@@ -426,6 +426,12 @@ class Interpreter : public EvaluatorInterface {
     // EnumManagerへのアクセス
     EnumManager *get_enum_manager() { return enum_manager_.get(); }
     
+    // VariableManagerへのアクセス
+    VariableManager *get_variable_manager() { return variable_manager_.get(); }
+    
+    // 関数定義の検索
+    const ASTNode* find_function_definition(const std::string& func_name);
+    
     // Parserからのenum定義同期
     void sync_enum_definitions_from_parser(RecursiveParser* parser);
     

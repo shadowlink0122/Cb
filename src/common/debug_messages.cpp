@@ -998,6 +998,43 @@ static std::vector<DebugMessageTemplate> init_debug_messages() {
         "[INTERFACE] Assigning struct to interface variable: %s <- %s",
         "[INTERFACE] 構造体をinterface変数に代入: %s <- %s"};
 
+    // 三項演算子型推論関連
+    messages[static_cast<int>(DebugMsgId::TERNARY_EVAL_START)] = {
+        "[TERNARY] Evaluating ternary expression with typed inference",
+        "[TERNARY] 型推論付き三項演算子を評価"};
+    messages[static_cast<int>(DebugMsgId::TERNARY_NODE_TYPE)] = {
+        "[TERNARY] Selected node type: %d, inferred type: %d",
+        "[TERNARY] 選択されたノード型: %d, 推論型: %d"};
+    messages[static_cast<int>(DebugMsgId::TERNARY_TYPE_INFERENCE)] = {
+        "[TERNARY] Type inference result - Type: %d, TypeName: %s",
+        "[TERNARY] 型推論結果 - 型: %d, 型名: %s"};
+    messages[static_cast<int>(DebugMsgId::TERNARY_STRING_MEMBER_ACCESS)] = {
+        "[TERNARY] Processing string member access",
+        "[TERNARY] 文字列メンバアクセス処理"};
+    messages[static_cast<int>(DebugMsgId::TERNARY_NUMERIC_EVAL)] = {
+        "[TERNARY] Numeric evaluation result: %lld",
+        "[TERNARY] 数値評価結果: %lld"};
+    messages[static_cast<int>(DebugMsgId::TERNARY_STRING_EVAL)] = {
+        "[TERNARY] String evaluation result: %s",
+        "[TERNARY] 文字列評価結果: %s"};
+
+    // 三項演算子変数初期化関連
+    messages[static_cast<int>(DebugMsgId::TERNARY_VAR_INIT_START)] = {
+        "[TERNARY_VAR] Starting ternary variable initialization",
+        "[TERNARY_VAR] 三項演算子変数初期化開始"};
+    messages[static_cast<int>(DebugMsgId::TERNARY_VAR_CONDITION)] = {
+        "[TERNARY_VAR] Condition evaluated: %lld",
+        "[TERNARY_VAR] 条件評価結果: %lld"};
+    messages[static_cast<int>(DebugMsgId::TERNARY_VAR_BRANCH_TYPE)] = {
+        "[TERNARY_VAR] Selected branch node type: %d",
+        "[TERNARY_VAR] 選択された分岐ノード型: %d"};
+    messages[static_cast<int>(DebugMsgId::TERNARY_VAR_STRING_SET)] = {
+        "[TERNARY_VAR] Setting string value: %s",
+        "[TERNARY_VAR] 文字列値設定: %s"};
+    messages[static_cast<int>(DebugMsgId::TERNARY_VAR_NUMERIC_SET)] = {
+        "[TERNARY_VAR] Setting numeric value: %lld",
+        "[TERNARY_VAR] 数値設定: %lld"};
+
     // 他の未設定のメッセージにはデフォルト値を設定
     for (size_t i = 0; i < messages.size(); ++i) {
         if (messages[i].en == nullptr) {
