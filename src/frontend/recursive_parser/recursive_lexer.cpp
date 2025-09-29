@@ -329,6 +329,7 @@ TokenType RecursiveLexer::getKeywordType(const std::string& text) {
         {"typedef", TokenType::TOK_TYPEDEF},
         {"const", TokenType::TOK_CONST},
         {"static", TokenType::TOK_STATIC},
+        {"private", TokenType::TOK_PRIVATE},
         {"struct", TokenType::TOK_STRUCT},
         {"enum", TokenType::TOK_ENUM},
         {"interface", TokenType::TOK_INTERFACE},

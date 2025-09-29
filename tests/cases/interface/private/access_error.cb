@@ -1,0 +1,30 @@
+// プライベートメソッド外部アクセスエラーテスト
+
+interface ITest {
+    void test();
+};
+
+impl ITest for int {
+    void test() {
+        println("Public method called");
+    }
+    
+    private void privateMethod() {
+        println("This should not be accessible");
+    }
+};
+
+int main() {
+    println("Private method access error test:");
+    
+    int number = 42;
+    ITest obj = number;
+    
+    // パブリックメソッドは成功
+    obj.test();
+    
+    // プライベートメソッドへの外部アクセスはエラー
+    obj.privateMethod(); // これはエラーになるべき
+    
+    return 0;
+}

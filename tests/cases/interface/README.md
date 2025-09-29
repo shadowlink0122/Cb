@@ -1,6 +1,68 @@
-# Interface Error Handling Status
+# Interface/Impl System Statu# 使用方法
+string text = "Hello";
+StringUtils utils = text;
+int length = utils.size();
+```
 
-このディレクトリには、Cbのinterface/implシステムのエラーハンドリングテストが含まれています。
+## 🔄 プライベートメソッド（実装中）
+
+### 現在の状況
+- ✅ **構文解析**: アンダースコアプレフィックス（`_methodName`）をサポート
+- ✅ **警告検出**: interfaceで定義されていないメソッドを警告
+- ❌ **実行時サポート**: まだ実装されていない（`Undefined function`エラー）
+
+### 計画中の機能
+```cb
+impl StringUtils for string {
+    // プライベートメソッド（interfaceで定義されていない）
+    int _countChars() {
+        return 5; // 内部実装
+    }
+    
+    // パブリックメソッド（interfaceで定義されている）
+    int size() {
+        return _countChars(); // プライベートメソッドを呼び出し
+    }
+}
+```
+
+### 実装予定の特徴
+- プライベートメソッドは`variable.method()`としてアクセス不可
+- impl内のパブリックメソッドからのみアクセス可能
+- コードの重複を減らし、実装を整理
+
+## ✅ 現在適切に検出されるエラーレクトリには、Cbのinterface/implシステムの機能とエラーハンドリングテストが含まれています。
+
+## 🚀 新機能: プリミティブ型へのInterface実装
+
+### ✅ サポートされているプリミティブ型
+- `string` - 文字列型
+- `int`, `long`, `short`, `tiny` - 整数型
+- `bool` - ブール型  
+- `char` - 文字型
+
+### 使用例
+```cb
+interface StringUtils {
+    int size();
+    string upper();
+}
+
+impl StringUtils for string {
+    int size() {
+        return 10; // 実装例
+    }
+    
+    string upper() {
+        return self; // 実装例
+    }
+}
+
+// 使用方法
+string text = "Hello";
+StringUtils utils = text;
+int length = utils.size();
+```
 
 ## ✅ 現在適切に検出されるエラー
 
@@ -21,25 +83,27 @@
 - **状況**: 構造体にinterfaceが実装されていない場合のメソッド呼び出し
 - **結果**: 適切にエラーが検出される
 
-## ⚠️ 現在検出されていない（将来改善が必要）
+## ✅ 新規実装済みエラー検出
 
-### 1. 存在しないInterface実装
+### 1. 存在しないInterface実装 🆕
 - **ファイル**: `error_undefined_interface.cb`
 - **状況**: 定義されていないinterfaceを実装しようとする
-- **現在の動作**: 正常に実行される
-- **望ましい動作**: パーサーまたはセマンティック解析段階でエラー検出
+- **現在の動作**: ✅ パーサー段階でエラー検出
+- **エラーメッセージ**: `Interface 'InterfaceName' is not defined`
 
-### 2. メソッド署名の不一致
+### 2. メソッド署名の不一致 🆕
 - **ファイル**: `error_signature_mismatch.cb`
 - **状況**: implでのメソッド署名がinterfaceと一致しない
-- **現在の動作**: 正常に実行される
-- **望ましい動作**: 型チェック段階でエラー検出
+- **現在の動作**: ✅ パーサー段階でエラー検出
+- **検出可能**: 戻り値型、パラメータ数、パラメータ型の不一致
 
-### 3. 重複Impl定義
+### 3. 重複Impl定義 🆕
 - **ファイル**: `error_duplicate_impl.cb`
 - **状況**: 同じinterfaceを同じ構造体に対して複数回実装
-- **現在の動作**: 正常に実行される（最後の実装が使用される）
-- **望ましい動作**: パーサー段階で警告またはエラー
+- **現在の動作**: ✅ パーサー段階でエラー検出
+- **エラーメッセージ**: `Duplicate implementation`
+
+## ⚠️ 将来改善予定
 
 ### 4. Interface外メソッドの実装
 - **ファイル**: `error_extra_methods.cb`

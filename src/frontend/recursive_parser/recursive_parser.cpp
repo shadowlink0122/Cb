@@ -3954,9 +3954,15 @@ ASTNode* RecursiveParser::parseImplDeclaration() {
     } else if (check(TokenType::TOK_CHAR_TYPE)) {
         struct_name = "char";
     } else {
-        struct_name = current_token_.value; // 識別子（構造体名）
+        struct_name = current_token_.value; // 識別子（構造体名またはtypedef名）
     }
     advance();
+    
+    // 生の配列型チェック - 配列記法が続く場合はエラー
+    if (check(TokenType::TOK_LBRACKET)) {
+        error("Cannot implement interface for raw array type '" + struct_name + "[...]'. Use typedef to define array type first.");
+        return nullptr;
+    }
     
     consume(TokenType::TOK_LBRACE, "Expected '{' after type name in impl declaration");
     
@@ -3964,6 +3970,13 @@ ASTNode* RecursiveParser::parseImplDeclaration() {
     
     // メソッド実装の解析
     while (!check(TokenType::TOK_RBRACE) && !isAtEnd()) {
+        // private修飾子のチェック
+        bool is_private_method = false;
+        if (check(TokenType::TOK_PRIVATE)) {
+            is_private_method = true;
+            advance(); // consume 'private'
+        }
+        
         // メソッド実装をパース（関数宣言として）
         // impl内では戻り値の型から始まるメソッド定義
         std::string return_type = parseType();
@@ -3983,54 +3996,59 @@ ASTNode* RecursiveParser::parseImplDeclaration() {
         // 関数宣言として解析
         ASTNode* method_impl = parseFunctionDeclarationAfterName(return_type, method_name);
         if (method_impl) {
-            // ★ 課題2の解決: メソッド署名の不一致の検出
-            auto interface_it = interface_definitions_.find(interface_name);
-            if (interface_it != interface_definitions_.end()) {
-                bool method_found = false;
-                for (const auto& interface_method : interface_it->second.methods) {
-                    if (interface_method.name == method_name) {
-                        method_found = true;
-                        // 戻り値の型をチェック
-                        std::string expected_return_type = type_info_to_string(interface_method.return_type);
-                        std::string actual_return_type = "";
-                        if (!method_impl->return_types.empty()) {
-                            actual_return_type = type_info_to_string(method_impl->return_types[0]);
-                        } else {
-                            actual_return_type = return_type; // フォールバック
-                        }
-                        if (expected_return_type != actual_return_type) {
-                            error("Method signature mismatch: Expected return type '" + 
-                                  expected_return_type + "' but got '" + 
-                                  actual_return_type + "' for method '" + method_name + "'");
-                            return nullptr;
-                        }
-                        // 引数の数をチェック
-                        if (interface_method.parameters.size() != method_impl->parameters.size()) {
-                            error("Method signature mismatch: Expected " + 
-                                  std::to_string(interface_method.parameters.size()) + 
-                                  " parameter(s) but got " + 
-                                  std::to_string(method_impl->parameters.size()) + 
-                                  " for method '" + method_name + "'");
-                            return nullptr;
-                        }
-                        // 引数の型をチェック
-                        for (size_t i = 0; i < interface_method.parameters.size(); ++i) {
-                            std::string expected_param_type = type_info_to_string(interface_method.parameters[i].second);
-                            std::string actual_param_type = type_info_to_string(method_impl->parameters[i]->type_info);
-                            if (expected_param_type != actual_param_type) {
-                                error("Method signature mismatch: Parameter " + std::to_string(i + 1) + 
-                                      " expected type '" + expected_param_type + 
-                                      "' but got '" + actual_param_type + 
-                                      "' for method '" + method_name + "'");
+            // privateフラグを設定
+            method_impl->is_private_method = is_private_method;
+            // privateメソッドの場合はinterface署名チェックをスキップ
+            if (!is_private_method) {
+                // ★ 課題2の解決: メソッド署名の不一致の検出
+                auto interface_it = interface_definitions_.find(interface_name);
+                if (interface_it != interface_definitions_.end()) {
+                    bool method_found = false;
+                    for (const auto& interface_method : interface_it->second.methods) {
+                        if (interface_method.name == method_name) {
+                            method_found = true;
+                            // 戻り値の型をチェック
+                            std::string expected_return_type = type_info_to_string(interface_method.return_type);
+                            std::string actual_return_type = "";
+                            if (!method_impl->return_types.empty()) {
+                                actual_return_type = type_info_to_string(method_impl->return_types[0]);
+                            } else {
+                                actual_return_type = return_type; // フォールバック
+                            }
+                            if (expected_return_type != actual_return_type) {
+                                error("Method signature mismatch: Expected return type '" + 
+                                      expected_return_type + "' but got '" + 
+                                      actual_return_type + "' for method '" + method_name + "'");
                                 return nullptr;
                             }
+                            // 引数の数をチェック
+                            if (interface_method.parameters.size() != method_impl->parameters.size()) {
+                                error("Method signature mismatch: Expected " + 
+                                      std::to_string(interface_method.parameters.size()) + 
+                                      " parameter(s) but got " + 
+                                      std::to_string(method_impl->parameters.size()) + 
+                                      " for method '" + method_name + "'");
+                                return nullptr;
+                            }
+                            // 引数の型をチエック
+                            for (size_t i = 0; i < interface_method.parameters.size(); ++i) {
+                                std::string expected_param_type = type_info_to_string(interface_method.parameters[i].second);
+                                std::string actual_param_type = type_info_to_string(method_impl->parameters[i]->type_info);
+                                if (expected_param_type != actual_param_type) {
+                                    error("Method signature mismatch: Parameter " + std::to_string(i + 1) + 
+                                          " expected type '" + expected_param_type + 
+                                          "' but got '" + actual_param_type + 
+                                          "' for method '" + method_name + "'");
+                                    return nullptr;
+                                }
+                            }
+                            break;
                         }
-                        break;
                     }
-                }
-                if (!method_found) {
-                    // 警告: interfaceに定義されていないメソッドが実装されている
-                    std::cerr << "[WARNING] Method '" << method_name << "' is implemented but not declared in interface '" << interface_name << "'" << std::endl;
+                    if (!method_found) {
+                        // 警告: interfaceに定義されていないメソッドが実装されている
+                        std::cerr << "[WARNING] Method '" << method_name << "' is implemented but not declared in interface '" << interface_name << "'" << std::endl;
+                    }
                 }
             }
             
@@ -4089,6 +4107,7 @@ ASTNode* RecursiveParser::parseImplDeclaration() {
         method_copy->type_info = method->type_info;
         method_copy->type_name = method->type_name;
         method_copy->is_const = method->is_const;
+        method_copy->is_private_method = method->is_private_method; // privateフラグをコピー
         
         // パラメータをコピー
         for (const auto& param : method->parameters) {

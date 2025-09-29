@@ -1,0 +1,17 @@
+// 生の配列型implエラーテスト - このファイルはコンパイルエラーになるべき
+
+interface ITest {
+    void test();
+};
+
+// これはエラーになるべき - 生の配列型への直接impl
+impl ITest for int[5] {
+    void test() {
+        println("This should not compile");
+    }
+};
+
+int main() {
+    println("This should not run");
+    return 0;
+}

@@ -99,6 +99,8 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                 interpreter_.sync_struct_members_from_direct_access("self");
                 throw ReturnException(*self_var);
             } else {
+                // primitive型の場合は適切な値を返す
+                // 文字列の場合、特別な処理が必要な場合があるが、まずは値を返す
                 return self_var->value;
             }
         }
@@ -548,9 +550,24 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                 // interface変数の場合、実際の構造体型名を使用
                 type_name = receiver_var->struct_type_name;
                 debug_msg(DebugMsgId::METHOD_CALL_INTERFACE, node->name.c_str(), type_name.c_str());
+            } else if (receiver_var->type >= TYPE_ARRAY_BASE) {
+                // 配列型（typedef配列を含む）の場合
+                if (!receiver_var->struct_type_name.empty()) {
+                    // typedef名が設定されている場合はそれを使用
+                    type_name = receiver_var->struct_type_name;
+                } else {
+                    // typedef名がない場合は基底型名を生成
+                    TypeInfo base_type = static_cast<TypeInfo>(receiver_var->type - TYPE_ARRAY_BASE);
+                    type_name = type_info_to_string(base_type) + "[]";
+                }
             } else {
                 // プリミティブ型の場合
-                type_name = type_info_to_string(receiver_var->type);
+                if (!receiver_var->struct_type_name.empty()) {
+                    // typedef名が設定されている場合はそれを使用
+                    type_name = receiver_var->struct_type_name;
+                } else {
+                    type_name = type_info_to_string(receiver_var->type);
+                }
             }
             
             // メソッドキーでグローバル関数を探す
@@ -583,6 +600,44 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
         
         if (!func) {
             throw std::runtime_error("Undefined function: " + node->name);
+        }
+
+        // メソッド呼び出しの場合、privateアクセスチェックを実行
+        if (is_method_call) {
+            std::string receiver_name;
+            if (node->left->node_type == ASTNodeType::AST_VARIABLE) {
+                receiver_name = node->left->name;
+            } else if (node->left->node_type == ASTNodeType::AST_IDENTIFIER) {
+                receiver_name = node->left->name;
+            }
+            
+            // selfコンテキスト外からのprivateメソッド呼び出しをチェック
+            if (receiver_name != "self") {
+                // 外部からの呼び出し - privateメソッドかどうかチェック
+                Variable* receiver_var = interpreter_.find_variable(receiver_name);
+                if (receiver_var) {
+                    std::string type_name;
+                    if (receiver_var->type == TYPE_STRUCT) {
+                        type_name = receiver_var->struct_type_name;
+                    } else if (!receiver_var->interface_name.empty()) {
+                        type_name = receiver_var->struct_type_name;
+                    } else {
+                        type_name = type_info_to_string(receiver_var->type);
+                    }
+                    
+                    // impl定義からprivateメソッドかどうかチェック
+                    for (const auto& impl_def : interpreter_.get_impl_definitions()) {
+                        if (impl_def.struct_name == type_name) {
+                            for (const auto& method : impl_def.methods) {
+                                if (method->name == node->name && method->is_private_method) {
+                                    throw std::runtime_error("Cannot access private method '" + node->name + "' from outside the impl block");
+                                }
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
         }
         
         // 新しいスコープを作成

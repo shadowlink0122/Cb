@@ -389,6 +389,13 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
                     std::string method_key = struct_name + "::" + method_node->name;
                     global_scope.functions[method_key] = method_node.get();
                     
+                    // impl定義にもメソッドを追加（privateチェックのため）
+                    auto method_copy = std::make_unique<ASTNode>(method_node->node_type);
+                    method_copy->name = method_node->name;
+                    method_copy->is_private_method = method_node->is_private_method;
+                    method_copy->type_info = method_node->type_info;
+                    impl_def.methods.push_back(std::move(method_copy));
+                    
                     debug_msg(DebugMsgId::IMPL_METHOD_REGISTER, method_full_name.c_str());
                     debug_msg(DebugMsgId::PARSE_VAR_DECL, method_node->name.c_str(), "impl_method");
                 }
@@ -3059,7 +3066,17 @@ void Interpreter::register_impl_definition(const ImplDefinition &impl_def) {
     ImplDefinition moved_impl_def;
     moved_impl_def.interface_name = impl_def.interface_name;
     moved_impl_def.struct_name = impl_def.struct_name;
-    // methodsのコピーは複雑なので、簡単化のため現在は名前のみをコピー
+    
+    // メソッドもコピーする（privateチェックのため）
+    for (const auto& method : impl_def.methods) {
+        // メソッド情報をクローン（unique_ptrのディープコピー）
+        auto cloned_method = std::make_unique<ASTNode>(method->node_type);
+        cloned_method->name = method->name;
+        cloned_method->is_private_method = method->is_private_method;
+        cloned_method->type_info = method->type_info;
+        moved_impl_def.methods.push_back(std::move(cloned_method));
+    }
+    
     impl_definitions_.emplace_back(std::move(moved_impl_def));
     debug_msg(DebugMsgId::PARSE_STRUCT_DEF, 
               (impl_def.interface_name + "_for_" + impl_def.struct_name).c_str());

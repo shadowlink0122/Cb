@@ -325,6 +325,11 @@ void StatementExecutor::execute_variable_declaration(const ASTNode *node) {
         var.is_array = true;
         var.type = node->array_type_info.base_type;
         
+        // typedef名を保存（interfaceでの型マッチングに使用）
+        if (!node->type_name.empty()) {
+            var.struct_type_name = node->type_name;
+        }
+        
         // デバッグ出力
         if (debug_mode) {
             std::cerr << "DEBUG: Setting array for typedef variable " << node->name 

@@ -596,8 +596,9 @@ struct ASTNode {
     // ストレージ属性
     bool is_const = false;
     bool is_static = false;
-    bool is_array = false;        // 配列パラメータフラグ
-    bool is_array_return = false; // 配列戻り値フラグ
+    bool is_array = false;          // 配列パラメータフラグ
+    bool is_array_return = false;   // 配列戻り値フラグ
+    bool is_private_method = false; // privateメソッドフラグ
 
     // 値・名前
     int64_t int_value = 0;
@@ -666,8 +667,8 @@ struct ASTNode {
     ASTNode(ASTNodeType type)
         : node_type(type), type_info(TYPE_INT), is_const(false),
           is_static(false), is_array(false), is_array_return(false),
-          int_value(0), array_size(-1), is_exported(false),
-          is_qualified_call(false) {}
+          is_private_method(false), int_value(0), array_size(-1),
+          is_exported(false), is_qualified_call(false) {}
 
     // デストラクタは自動管理（unique_ptr使用）
     virtual ~ASTNode() = default;

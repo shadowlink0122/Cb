@@ -8,6 +8,28 @@
 #include "managers/enum_manager.h"
 #include <algorithm>
 
+// プリミティブ型かどうかを判定するヘルパー関数
+bool isPrimitiveType(const Variable* var) {
+    return var->type == TYPE_INT || var->type == TYPE_LONG || 
+           var->type == TYPE_SHORT || var->type == TYPE_TINY ||
+           var->type == TYPE_BOOL || var->type == TYPE_STRING ||
+           var->type == TYPE_CHAR;
+}
+
+// プリミティブ型のTypeInfoから型名を取得するヘルパー関数
+std::string getPrimitiveTypeNameForImpl(TypeInfo type_info) {
+    switch (type_info) {
+        case TYPE_INT: return "int";
+        case TYPE_LONG: return "long";
+        case TYPE_SHORT: return "short";
+        case TYPE_TINY: return "tiny";
+        case TYPE_BOOL: return "bool";
+        case TYPE_STRING: return "string";
+        case TYPE_CHAR: return "char";
+        default: return "unknown";
+    }
+}
+
 void VariableManager::push_scope() {
     // std::cerr << "DEBUG: push_scope called, stack size: " <<
     // interpreter_->scope_stack.size() << " -> " <<
@@ -485,6 +507,11 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
             var.type = static_cast<TypeInfo>(TYPE_ARRAY_BASE + node->array_type_info.base_type);
             var.array_type_info = node->array_type_info;
 
+            // typedef名を保存（interfaceでの型マッチングに使用）
+            if (!node->type_name.empty()) {
+                var.struct_type_name = node->type_name;
+            }
+
             // 配列サイズ情報をコピーし、動的サイズを解決
             if (!node->array_type_info.dimensions.empty()) {
                 var.array_dimensions.clear();
@@ -694,8 +721,17 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                         }
                     }
                 } else {
+                    // プリミティブtypedefの場合
                     var.type = interpreter_->type_manager_->string_to_type_info(
                         resolved_type);
+                    
+                    // プリミティブtypedefでもimpl解決のためにstruct_type_nameを設定
+                    var.struct_type_name = node->type_name;
+                    
+                    if (debug_mode) {
+                        debug_print("TYPEDEF_DEBUG: Set primitive typedef '%s' with struct_type_name='%s'\n", 
+                                    node->type_name.c_str(), node->type_name.c_str());
+                    }
                 }
             }
             
@@ -1213,30 +1249,65 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                                              source_var_name);
                 }
 
-                if (!source_var->is_struct) {
+                // プリミティブ型と配列もinterfaceに代入可能にする
+                if (!source_var->is_struct && !isPrimitiveType(source_var) && source_var->type < TYPE_ARRAY_BASE) {
                     throw std::runtime_error(
-                        "Cannot assign non-struct to interface variable");
+                        "Cannot assign non-struct/non-primitive to interface variable");
                 }
 
                 debug_msg(DebugMsgId::INTERFACE_VARIABLE_ASSIGN, var.interface_name.c_str(), source_var_name.c_str());
 
-                // interface変数を登録
-                var.is_struct = true; // interface変数も内部的にはstruct扱い
-                var.struct_type_name = source_var->struct_type_name; // 元の構造体型名を保持
-                
-                // 構造体メンバをコピー（多次元配列情報も含む）
-                for (const auto &member_pair : source_var->struct_members) {
-                    const std::string &member_name = member_pair.first;
-                    const Variable &source_member = member_pair.second;
+                if (source_var->is_struct) {
+                    // 構造体の場合の処理
+                    var.is_struct = true; // interface変数も内部的にはstruct扱い
+                    var.struct_type_name = source_var->struct_type_name; // 元の構造体型名を保持
                     
-                    Variable dest_member = source_member;
-                    if (source_member.is_multidimensional) {
-                        dest_member.is_multidimensional = true;
-                        dest_member.array_dimensions = source_member.array_dimensions;
-                        debug_print("STRUCT_MEMBER_COPY: Preserved multidimensional info for %s (dimensions: %zu)\n",
-                                  member_name.c_str(), source_member.array_dimensions.size());
+                    // 構造体メンバをコピー（多次元配列情報も含む）
+                    for (const auto &member_pair : source_var->struct_members) {
+                        const std::string &member_name = member_pair.first;
+                        const Variable &source_member = member_pair.second;
+                        
+                        Variable dest_member = source_member;
+                        if (source_member.is_multidimensional) {
+                            dest_member.is_multidimensional = true;
+                            dest_member.array_dimensions = source_member.array_dimensions;
+                            debug_print("STRUCT_MEMBER_COPY: Preserved multidimensional info for %s (dimensions: %zu)\n",
+                                      member_name.c_str(), source_member.array_dimensions.size());
+                        }
+                        var.struct_members[member_name] = dest_member;
                     }
-                    var.struct_members[member_name] = dest_member;
+                } else if (source_var->type >= TYPE_ARRAY_BASE) {
+                    // 配列型の場合の処理
+                    var.is_struct = false;
+                    var.type = source_var->type;
+                    var.value = source_var->value;
+                    var.str_value = source_var->str_value;
+                    
+                    // 配列情報をコピー
+                    var.array_dimensions = source_var->array_dimensions;
+                    var.is_multidimensional = source_var->is_multidimensional;
+                    
+                    // typedef名があればそれを使用、なければ基底型名を生成
+                    if (!source_var->struct_type_name.empty()) {
+                        var.struct_type_name = source_var->struct_type_name; // typedef名を使用
+                    } else {
+                        // 配列の基底型を取得
+                        TypeInfo base_type = static_cast<TypeInfo>(source_var->type - TYPE_ARRAY_BASE);
+                        var.struct_type_name = getPrimitiveTypeNameForImpl(base_type) + "[]";
+                    }
+                } else {
+                    // プリミティブ型の場合の処理
+                    var.is_struct = false;
+                    var.type = source_var->type;
+                    var.value = source_var->value;
+                    var.str_value = source_var->str_value;
+                    
+                    // typedef名があればそれを使用、なければ基底型名を生成
+                    if (!source_var->struct_type_name.empty()) {
+                        var.struct_type_name = source_var->struct_type_name; // typedef名を使用
+                    } else {
+                        var.struct_type_name = getPrimitiveTypeNameForImpl(source_var->type);
+                    }
                 }
                 
                 current_scope().variables[node->name] = var;
