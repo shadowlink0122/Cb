@@ -773,12 +773,15 @@ ASTNode* RecursiveParser::parseStatement() {
             if (check(TokenType::TOK_DOT)) {
                 advance(); // consume '.'
                 
-                if (!check(TokenType::TOK_IDENTIFIER)) {
+                std::string member_name;
+                if (check(TokenType::TOK_IDENTIFIER)) {
+                    member_name = advance().value;
+                } else if (check(TokenType::TOK_PRINT) || check(TokenType::TOK_PRINTLN) || check(TokenType::TOK_PRINTF)) {
+                    member_name = advance().value;
+                } else {
                     error("Expected member name after '.'");
                     return nullptr;
                 }
-                
-                std::string member_name = advance().value;
                 
                 // メンバアクセスノードを作成
                 ASTNode* member_access = new ASTNode(ASTNodeType::AST_MEMBER_ACCESS);
@@ -861,12 +864,15 @@ ASTNode* RecursiveParser::parseStatement() {
             // メンバアクセス代入の処理: obj.member = value または obj.member[index] = value
             advance(); // consume '.'
             
-            if (!check(TokenType::TOK_IDENTIFIER)) {
+            std::string member_name;
+            if (check(TokenType::TOK_IDENTIFIER)) {
+                member_name = advance().value;
+            } else if (check(TokenType::TOK_PRINT) || check(TokenType::TOK_PRINTLN) || check(TokenType::TOK_PRINTF)) {
+                member_name = advance().value;
+            } else {
                 error("Expected member name after '.'");
                 return nullptr;
             }
-            
-            std::string member_name = advance().value;
             
             // ネストしたメンバーアクセスの検出 (obj.member.submember = value)
             if (check(TokenType::TOK_DOT)) {
@@ -3533,13 +3539,18 @@ bool RecursiveParser::parseUnionValue(UnionDefinition& union_def) {
 ASTNode* RecursiveParser::parseMemberAccess(ASTNode* object) {
     consume(TokenType::TOK_DOT, "Expected '.'");
     
-    if (!check(TokenType::TOK_IDENTIFIER)) {
+    std::string member_name;
+    if (check(TokenType::TOK_IDENTIFIER)) {
+        member_name = current_token_.value;
+        advance();
+    } else if (check(TokenType::TOK_PRINT) || check(TokenType::TOK_PRINTLN) || check(TokenType::TOK_PRINTF)) {
+        // 予約キーワードだが、メソッド名として許可
+        member_name = current_token_.value;
+        advance();
+    } else {
         error("Expected member name after '.'");
         return nullptr;
     }
-    
-    std::string member_name = current_token_.value;
-    advance();
     
     // メソッド呼び出しかチェック（obj.method()）
     if (check(TokenType::TOK_LPAREN)) {
@@ -3826,16 +3837,19 @@ ASTNode* RecursiveParser::parseInterfaceDeclaration() {
             return nullptr;
         }
         
-        // メソッド名を解析
-        if (!check(TokenType::TOK_IDENTIFIER)) {
+        // メソッド名を解析（予約キーワードも許可）
+        std::string method_name;
+        if (check(TokenType::TOK_IDENTIFIER)) {
+            method_name = current_token_.value;
+            advance();
+        } else if (check(TokenType::TOK_PRINT) || check(TokenType::TOK_PRINTLN) || check(TokenType::TOK_PRINTF)) {
+            // 予約キーワードだが、メソッド名として許可
+            method_name = current_token_.value;
+            advance();
+        } else {
             error("Expected method name in interface declaration");
             return nullptr;
-        }
-        
-        std::string method_name = current_token_.value;
-        advance();
-        
-        // パラメータリストの解析
+        }        // パラメータリストの解析
         consume(TokenType::TOK_LPAREN, "Expected '(' after method name");
         
         InterfaceMember method(method_name, getTypeInfoFromString(return_type));
@@ -3985,13 +3999,19 @@ ASTNode* RecursiveParser::parseImplDeclaration() {
             return nullptr;
         }
         
-        if (!check(TokenType::TOK_IDENTIFIER)) {
+        // メソッド名を解析（予約キーワードも許可）
+        std::string method_name;
+        if (check(TokenType::TOK_IDENTIFIER)) {
+            method_name = current_token_.value;
+            advance();
+        } else if (check(TokenType::TOK_PRINT) || check(TokenType::TOK_PRINTLN) || check(TokenType::TOK_PRINTF)) {
+            // 予約キーワードだが、メソッド名として許可
+            method_name = current_token_.value;
+            advance();
+        } else {
             error("Expected method name in method implementation");
             return nullptr;
         }
-        
-        std::string method_name = current_token_.value;
-        advance(); // メソッド名を消費
         
         // 関数宣言として解析
         ASTNode* method_impl = parseFunctionDeclarationAfterName(return_type, method_name);
