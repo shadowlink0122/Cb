@@ -33,3 +33,17 @@ inline void test_typedef_impl_basic() {
             INTEGRATION_ASSERT_CONTAINS(output, "=== テスト完了 ===", "Test should complete successfully");
         }, execution_time);
 }
+
+inline void test_recursive_typedef_independence() {
+    std::cout << "[integration] Running test_recursive_typedef_independence..." << std::endl;
+    
+    double execution_time;
+    run_cb_test_with_output_and_time("../../tests/cases/interface/recursive_typedef_independence.cb", 
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "Recursive typedef independence test should exit with code 0");
+            
+            INTEGRATION_ASSERT_CONTAINS(output, "INT3 toString: INT3 implementation", "INT3 toString should work");
+            INTEGRATION_ASSERT_CONTAINS(output, "INT3 getValue: 333", "INT3 getValue should work");
+            INTEGRATION_ASSERT_CONTAINS(output, "=== テスト成功 ===", "Test should complete successfully");
+        }, execution_time);
+}

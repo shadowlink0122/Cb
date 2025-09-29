@@ -231,6 +231,9 @@ int main() {
     run_test_with_continue(test_typedef_impl_basic,
                            "Interface Typedef Implementation Tests",
                            failed_tests);
+    run_test_with_continue(test_recursive_typedef_independence,
+                           "Recursive Typedef Independence Tests",
+                           failed_tests);
     CategoryTimingStats::print_category_summary("Advanced Features");
 
     // エラーハンドリング・特殊ケーステスト群

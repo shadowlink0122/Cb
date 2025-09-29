@@ -1257,6 +1257,42 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
 
                 debug_msg(DebugMsgId::INTERFACE_VARIABLE_ASSIGN, var.interface_name.c_str(), source_var_name.c_str());
 
+                // impl定義の存在確認
+                std::string source_type_name;
+                if (source_var->is_struct) {
+                    source_type_name = source_var->struct_type_name;
+                } else if (source_var->type >= TYPE_ARRAY_BASE) {
+                    // 配列型（typedef配列を含む）の場合
+                    if (!source_var->struct_type_name.empty()) {
+                        source_type_name = source_var->struct_type_name;
+                    } else {
+                        TypeInfo base_type = static_cast<TypeInfo>(source_var->type - TYPE_ARRAY_BASE);
+                        source_type_name = std::string(type_info_to_string(base_type)) + "[]";
+                    }
+                } else {
+                    // プリミティブ型の場合
+                    if (!source_var->struct_type_name.empty()) {
+                        source_type_name = source_var->struct_type_name;
+                    } else {
+                        source_type_name = type_info_to_string(source_var->type);
+                    }
+                }
+                
+                // インターフェースに対するimpl定義が存在するかチェック
+                bool impl_found = false;
+                for (const auto& impl_def : interpreter_->get_impl_definitions()) {
+                    if (impl_def.interface_name == var.interface_name && 
+                        impl_def.struct_name == source_type_name) {
+                        impl_found = true;
+                        break;
+                    }
+                }
+                
+                if (!impl_found) {
+                    throw std::runtime_error("No impl found for interface '" + var.interface_name + 
+                                           "' with type '" + source_type_name + "'");
+                }
+
                 if (source_var->is_struct) {
                     // 構造体の場合の処理
                     var.is_struct = true; // interface変数も内部的にはstruct扱い
