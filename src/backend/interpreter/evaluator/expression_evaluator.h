@@ -24,4 +24,8 @@ public:
     
 private:
     Interpreter& interpreter_;  // インタープリターへの参照
+    
+    // ヘルパー関数
+    std::string type_info_to_string(TypeInfo type);
+    void sync_self_changes_to_receiver(const std::string& receiver_name, Variable* receiver_var);
 };

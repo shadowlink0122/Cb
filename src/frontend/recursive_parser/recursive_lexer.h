@@ -94,6 +94,9 @@ enum class TokenType {
     TOK_STATIC,
     TOK_STRUCT,
     TOK_ENUM,
+    TOK_INTERFACE,
+    TOK_IMPL,
+    TOK_SELF,
     
     // Special
     TOK_EOF,

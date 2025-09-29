@@ -1,0 +1,30 @@
+// 重複impl定義の簡単なテストケース
+
+interface Calculator {
+    int add(int a, int b);
+};
+
+struct SimpleCalc {
+    int value;
+};
+
+// 最初のimpl定義
+impl Calculator for SimpleCalc {
+    int add(int a, int b) {
+        return a + b;
+    }
+};
+
+// 重複したimpl定義 - これはエラーになるべき
+impl Calculator for SimpleCalc {
+    int add(int a, int b) {
+        return a + b + 1; // 異なる実装
+    }
+};
+
+int main() {
+    SimpleCalc calc = {10};
+    int result = calc.add(5, 3);
+    println(result);
+    return 0;
+}

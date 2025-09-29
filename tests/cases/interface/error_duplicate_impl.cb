@@ -1,0 +1,42 @@
+// 同じinterfaceを同じstructに対して複数回implする場合のエラーテスト
+
+interface Calculator {
+    int add(int a, int b);
+    int multiply(int a, int b);
+};
+
+struct DuplicateCalc {
+    int value;
+};
+
+// 最初のimpl定義
+impl Calculator for DuplicateCalc {
+    int add(int a, int b) {
+        return a + b;
+    }
+    
+    int multiply(int a, int b) {
+        return a * b;
+    }
+};
+
+// 重複したimpl定義 - これはエラーになるべき
+impl Calculator for DuplicateCalc {
+    int add(int a, int b) {
+        return a + b + 1; // 異なる実装
+    }
+    
+    int multiply(int a, int b) {
+        return a * b * 2; // 異なる実装
+    }
+};
+
+int main() {
+    DuplicateCalc calc;
+    calc.value = 10;
+    
+    int result = calc.add(5, 3);
+    println(result);
+    
+    return 0;
+}

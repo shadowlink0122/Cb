@@ -1,0 +1,112 @@
+// enumを引数・戻り値に使うinterfaceテスト
+
+enum Status {
+    INACTIVE = 0,
+    ACTIVE = 1,
+    PENDING = 2,
+    COMPLETED = 3
+};
+
+enum Priority {
+    LOW = 1,
+    MEDIUM = 2,
+    HIGH = 3,
+    CRITICAL = 4
+};
+
+struct Task {
+    string name;
+    Status status;
+    Priority priority;
+    int id;
+};
+
+interface TaskManager {
+    Status getStatus();
+    Priority getPriority();
+    Task setStatus(Status newStatus);
+    Task setPriority(Priority newPriority);
+    Task updateTask(Status status, Priority priority);
+    int getStatusValue(Status status);
+    Priority getHigherPriority(Priority p1, Priority p2);
+};
+
+impl TaskManager for Task {
+    Status getStatus() {
+        return self.status;
+    }
+    
+    Priority getPriority() {
+        return self.priority;
+    }
+    
+    Task setStatus(Status newStatus) {
+        self.status = newStatus;
+        return self;
+    }
+    
+    Task setPriority(Priority newPriority) {
+        self.priority = newPriority;
+        return self;
+    }
+    
+    Task updateTask(Status status, Priority priority) {
+        self.status = status;
+        self.priority = priority;
+        return self;
+    }
+    
+    int getStatusValue(Status status) {
+        if (status == 0) return 0;
+        if (status == 1) return 1;
+        if (status == 2) return 2;
+        if (status == 3) return 3;
+        return -1;
+    }
+    
+    Priority getHigherPriority(Priority p1, Priority p2) {
+        if (p1 > p2) {
+            return p1;
+        } else {
+            return p2;
+        }
+    }
+};
+
+int main() {
+    Task task = {"TestTask", 0, 1, 1};
+    TaskManager manager = task;
+    
+    // 初期状態の確認
+    Status initialStatus = manager.getStatus();
+    println(initialStatus);
+    Priority initialPriority = manager.getPriority();
+    println(initialPriority);
+    
+    // ステータスを変更
+    Task result1 = manager.setStatus(1);
+    Status newStatus = result1.status;
+    println(newStatus);
+    
+    // 優先度を変更
+    Task result2 = manager.setPriority(3);
+    Priority newPriority = result2.priority;
+    println(newPriority);
+    
+    // 両方を同時に更新
+    Task result3 = manager.updateTask(3, 4);
+    Status finalStatus = result3.status;
+    println(finalStatus);
+    Priority finalPriority = result3.priority;
+    println(finalPriority);
+    
+    // enumを引数にしてintを返す
+    int statusValue = manager.getStatusValue(2);
+    println(statusValue);
+    
+    // 複数のenumを比較して返す
+    Priority higher = manager.getHigherPriority(1, 2);
+    println(higher);
+    
+    return 0;
+}

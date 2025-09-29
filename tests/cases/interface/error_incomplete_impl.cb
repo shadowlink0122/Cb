@@ -1,0 +1,38 @@
+// interfaceで定義されたメソッドの一部がimplで実装されていない場合のエラーテスト
+
+interface Calculator {
+    int add(int a, int b);
+    int multiply(int a, int b);
+    int subtract(int a, int b);
+    int divide(int a, int b);
+};
+
+struct SimpleCalc {
+    int value;
+};
+
+// 一部のメソッドだけ実装（不完全な実装）
+impl Calculator for SimpleCalc {
+    int add(int a, int b) {
+        return a + b;
+    }
+    
+    int multiply(int a, int b) {
+        return a * b;
+    }
+    
+    // subtract と divide が実装されていない - これはエラーになるべき
+};
+
+int main() {
+    SimpleCalc calc;
+    calc.value = 10;
+    
+    int result1 = calc.add(5, 3);
+    println(result1);
+    
+    int result2 = calc.subtract(10, 3); // 実装されていないメソッドの呼び出し
+    println(result2);
+    
+    return 0;
+}

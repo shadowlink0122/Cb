@@ -1,0 +1,27 @@
+// 存在しないinterfaceを実装しようとする場合のエラーテスト
+
+struct Calculator {
+    int value;
+};
+
+// UndefinedInterfaceは定義されていない
+impl UndefinedInterface for Calculator {
+    int calculate(int a, int b) {
+        return a + b;
+    }
+    
+    string getName() {
+        return "Calculator";
+    }
+};
+
+int main() {
+    Calculator calc;
+    calc.value = 10;
+    
+    // これはエラーになるべき
+    int result = calc.calculate(5, 3);
+    println(result);
+    
+    return 0;
+}

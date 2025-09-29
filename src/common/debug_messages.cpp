@@ -952,6 +952,52 @@ static std::vector<DebugMessageTemplate> init_debug_messages() {
     messages[static_cast<int>(DebugMsgId::PRINT_NO_ARGUMENTS)] = {
         "Print with no arguments", "引数なしのprint"};
 
+    // interface/impl関連のメッセージ
+    messages[static_cast<int>(DebugMsgId::INTERFACE_DECL_START)] = {
+        "[INTERFACE] Starting interface declaration: %s",
+        "[INTERFACE] インターフェース宣言開始: %s"};
+    messages[static_cast<int>(DebugMsgId::INTERFACE_DECL_COMPLETE)] = {
+        "[INTERFACE] Interface declaration complete: %s",
+        "[INTERFACE] インターフェース宣言完了: %s"};
+    messages[static_cast<int>(DebugMsgId::INTERFACE_METHOD_FOUND)] = {
+        "[INTERFACE] Method found in interface: %s",
+        "[INTERFACE] インターフェースメソッド発見: %s"};
+    messages[static_cast<int>(DebugMsgId::IMPL_DECL_START)] = {
+        "[IMPL] Starting impl declaration: %s", "[IMPL] impl宣言開始: %s"};
+    messages[static_cast<int>(DebugMsgId::IMPL_DECL_COMPLETE)] = {
+        "[IMPL] Impl declaration complete: %s", "[IMPL] impl宣言完了: %s"};
+    messages[static_cast<int>(DebugMsgId::IMPL_METHOD_REGISTER)] = {
+        "[IMPL] Registering method: %s", "[IMPL] メソッド登録: %s"};
+    messages[static_cast<int>(DebugMsgId::IMPL_METHOD_REGISTER_COMPLETE)] = {
+        "[IMPL] Method registration complete: %s",
+        "[IMPL] メソッド登録完了: %s"};
+    messages[static_cast<int>(DebugMsgId::METHOD_CALL_START)] = {
+        "[METHOD] Method call started: %s",
+        "[METHOD] メソッド呼び出し開始: %s"};
+    messages[static_cast<int>(DebugMsgId::METHOD_CALL_RECEIVER_FOUND)] = {
+        "[METHOD] Receiver found: %s", "[METHOD] レシーバー発見: %s"};
+    messages[static_cast<int>(DebugMsgId::METHOD_CALL_INTERFACE)] = {
+        "[METHOD] Interface method call: %s on type: %s",
+        "[METHOD] interfaceメソッド呼び出し: %s 型: %s"};
+    messages[static_cast<int>(DebugMsgId::METHOD_CALL_SELF_CONTEXT_SET)] = {
+        "[METHOD] Self context set for: %s",
+        "[METHOD] selfコンテキスト設定: %s"};
+    messages[static_cast<int>(DebugMsgId::METHOD_CALL_SELF_MEMBER_SETUP)] = {
+        "[METHOD] Self member setup complete", "[METHOD] selfメンバー設定完了"};
+    messages[static_cast<int>(DebugMsgId::METHOD_CALL_EXECUTE)] = {
+        "[METHOD] Executing method: %s", "[METHOD] メソッド実行: %s"};
+    messages[static_cast<int>(DebugMsgId::SELF_MEMBER_ACCESS_START)] = {
+        "[SELF] Accessing self member: %s", "[SELF] selfメンバーアクセス: %s"};
+    messages[static_cast<int>(DebugMsgId::SELF_MEMBER_ACCESS_FOUND)] = {
+        "[SELF] Self member found: %s", "[SELF] selfメンバー発見: %s"};
+    messages[static_cast<int>(DebugMsgId::SELF_MEMBER_ACCESS_VALUE)] = {
+        "[SELF] Self member value: %d", "[SELF] selfメンバー値: %d"};
+
+    // interface変数代入関連
+    messages[static_cast<int>(DebugMsgId::INTERFACE_VARIABLE_ASSIGN)] = {
+        "[INTERFACE] Assigning struct to interface variable: %s <- %s",
+        "[INTERFACE] 構造体をinterface変数に代入: %s <- %s"};
+
     // 他の未設定のメッセージにはデフォルト値を設定
     for (size_t i = 0; i < messages.size(); ++i) {
         if (messages[i].en == nullptr) {

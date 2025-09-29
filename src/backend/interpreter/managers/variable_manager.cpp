@@ -470,6 +470,11 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
             var.is_struct = true;
             var.struct_type_name = node->type_name;
         }
+        
+        // interface変数の場合の追加設定
+        if (node->type_info == TYPE_INTERFACE && !node->type_name.empty()) {
+            var.interface_name = node->type_name;
+        }
 
         // 新しいArrayTypeInfoが設定されている場合の処理
         if (node->array_type_info.base_type != TYPE_UNKNOWN) {
@@ -1197,6 +1202,103 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                 current_scope().variables[node->name].is_assigned = true;
 
                 return; // struct literal処理完了後は早期リターン
+
+            } else if (!var.interface_name.empty() && node->init_expr->node_type ==
+                                            ASTNodeType::AST_VARIABLE) {
+                // struct to interface代入の処理: Drawable obj = circle;
+                std::string source_var_name = node->init_expr->name;
+                Variable *source_var = find_variable(source_var_name);
+                if (!source_var) {
+                    throw std::runtime_error("Source variable not found: " +
+                                             source_var_name);
+                }
+
+                if (!source_var->is_struct) {
+                    throw std::runtime_error(
+                        "Cannot assign non-struct to interface variable");
+                }
+
+                debug_msg(DebugMsgId::INTERFACE_VARIABLE_ASSIGN, var.interface_name.c_str(), source_var_name.c_str());
+
+                // interface変数を登録
+                var.is_struct = true; // interface変数も内部的にはstruct扱い
+                var.struct_type_name = source_var->struct_type_name; // 元の構造体型名を保持
+                
+                // 構造体メンバをコピー（多次元配列情報も含む）
+                for (const auto &member_pair : source_var->struct_members) {
+                    const std::string &member_name = member_pair.first;
+                    const Variable &source_member = member_pair.second;
+                    
+                    Variable dest_member = source_member;
+                    if (source_member.is_multidimensional) {
+                        dest_member.is_multidimensional = true;
+                        dest_member.array_dimensions = source_member.array_dimensions;
+                        debug_print("STRUCT_MEMBER_COPY: Preserved multidimensional info for %s (dimensions: %zu)\n",
+                                  member_name.c_str(), source_member.array_dimensions.size());
+                    }
+                    var.struct_members[member_name] = dest_member;
+                }
+                
+                current_scope().variables[node->name] = var;
+
+                // 全メンバをコピー
+                for (const auto &member_pair : source_var->struct_members) {
+                    const std::string &member_name = member_pair.first;
+                    const Variable &member_var = member_pair.second;
+                    
+                    std::string source_member_name = source_var_name + "." + member_name;
+                    std::string dest_member_name = node->name + "." + member_name;
+                    
+                    Variable *source_member_var = find_variable(source_member_name);
+                    if (source_member_var) {
+                        Variable dest_member_var = *source_member_var;
+                        
+                        // 多次元配列情報を正しくコピー
+                        if (source_member_var->is_multidimensional) {
+                            dest_member_var.is_multidimensional = true;
+                            dest_member_var.array_dimensions = source_member_var->array_dimensions;
+                            // multidim_array_values もコピー
+                            dest_member_var.multidim_array_values = source_member_var->multidim_array_values;
+                            debug_print("INTERFACE_ASSIGN: Copied multidimensional array info for %s (dimensions: %zu, values: %zu)\n",
+                                      member_name.c_str(), source_member_var->array_dimensions.size(), 
+                                      source_member_var->multidim_array_values.size());
+                        }
+                        
+                        current_scope().variables[dest_member_name] = dest_member_var;
+                        
+                        debug_print("INTERFACE_ASSIGN: Copied member %s from %s to %s\n",
+                                  member_name.c_str(), source_member_name.c_str(), dest_member_name.c_str());
+                    }
+                    
+                    // 配列メンバーの場合は配列要素もコピー
+                    if (member_var.is_array) {
+                        int total_size = 1;
+                        for (const auto &dim : member_var.array_dimensions) {
+                            total_size *= dim;
+                        }
+                        
+                        for (int i = 0; i < total_size; i++) {
+                            std::string source_element_name = source_var_name + "." + member_name + "[" + std::to_string(i) + "]";
+                            std::string dest_element_name = node->name + "." + member_name + "[" + std::to_string(i) + "]";
+                            
+                            Variable *source_element_var = find_variable(source_element_name);
+                            if (source_element_var) {
+                                Variable dest_element_var = *source_element_var;
+                                current_scope().variables[dest_element_name] = dest_element_var;
+                                
+                                debug_print("INTERFACE_ASSIGN: Copied array element %s = %lld to %s\n",
+                                          source_element_name.c_str(), 
+                                          (long long)source_element_var->value,
+                                          dest_element_name.c_str());
+                            }
+                        }
+                    }
+                }
+
+                // 代入完了
+                current_scope().variables[node->name].is_assigned = true;
+
+                return; // interface代入処理完了後は早期リターン
 
             } else if (var.is_struct && node->init_expr->node_type ==
                                             ASTNodeType::AST_VARIABLE) {

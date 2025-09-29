@@ -1,0 +1,107 @@
+// 多次元配列を引数として受け取るinterfaceテスト
+
+struct MatrixProcessor {
+    int result;
+    int operations;
+};
+
+interface ArrayProcessor {
+    int processMatrix(int[2][2] matrix);
+    int sumMatrix(int[2][2] matrix);
+    MatrixProcessor analyzeMatrix(int[2][2] matrix);
+    int findMax(int[2][2] matrix);
+    int processArray3D(int[2][2][2] cube);
+};
+
+impl ArrayProcessor for MatrixProcessor {
+    int processMatrix(int[2][2] matrix) {
+        int sum = 0;
+        sum = sum + matrix[0][0];
+        sum = sum + matrix[0][1];
+        sum = sum + matrix[1][0];
+        sum = sum + matrix[1][1];
+        return sum;
+    }
+    
+    int sumMatrix(int[2][2] matrix) {
+        return matrix[0][0] + matrix[0][1] + matrix[1][0] + matrix[1][1];
+    }
+    
+    MatrixProcessor analyzeMatrix(int[2][2] matrix) {
+        int sum = matrix[0][0] + matrix[0][1] + matrix[1][0] + matrix[1][1];
+        self.result = sum;
+        self.operations = self.operations + 1;
+        return self;
+    }
+    
+    int findMax(int[2][2] matrix) {
+        int max = matrix[0][0];
+        if (matrix[0][1] > max) max = matrix[0][1];
+        if (matrix[1][0] > max) max = matrix[1][0];
+        if (matrix[1][1] > max) max = matrix[1][1];
+        return max;
+    }
+    
+    int processArray3D(int[2][2][2] cube) {
+        int total = 0;
+        total = total + cube[0][0][0];
+        total = total + cube[0][0][1];
+        total = total + cube[0][1][0];
+        total = total + cube[0][1][1];
+        total = total + cube[1][0][0];
+        total = total + cube[1][0][1];
+        total = total + cube[1][1][0];
+        total = total + cube[1][1][1];
+        return total;
+    }
+};
+
+int main() {
+    MatrixProcessor processor = {0, 0};
+    ArrayProcessor arrProc = processor;
+    
+    // 2次元配列を作成
+    int[2][2] matrix1;
+    matrix1[0][0] = 1;
+    matrix1[0][1] = 2;
+    matrix1[1][0] = 3;
+    matrix1[1][1] = 4;
+    
+    // 2次元配列を引数として渡すテスト
+    int sum1 = arrProc.processMatrix(matrix1);
+    println(sum1);  // 10
+    
+    int sum2 = arrProc.sumMatrix(matrix1);
+    println(sum2);  // 10
+    
+    // 別の2次元配列でテスト
+    int[2][2] matrix2;
+    matrix2[0][0] = 5;
+    matrix2[0][1] = 8;
+    matrix2[1][0] = 2;
+    matrix2[1][1] = 9;
+    
+    int max = arrProc.findMax(matrix2);
+    println(max);   // 9
+    
+    // 構造体を返すテスト
+    MatrixProcessor result = arrProc.analyzeMatrix(matrix2);
+    println(result.result);     // 24
+    println(result.operations); // 1
+    
+    // 3次元配列を引数として渡すテスト
+    int[2][2][2] cube;
+    cube[0][0][0] = 1;
+    cube[0][0][1] = 2;
+    cube[0][1][0] = 3;
+    cube[0][1][1] = 4;
+    cube[1][0][0] = 5;
+    cube[1][0][1] = 6;
+    cube[1][1][0] = 7;
+    cube[1][1][1] = 8;
+    
+    int cubeSum = arrProc.processArray3D(cube);
+    println(cubeSum);  // 36
+    
+    return 0;
+}

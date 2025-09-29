@@ -1,0 +1,116 @@
+// 多次元配列を扱うinterfaceテスト
+
+struct Matrix {
+    int[2][2] data;
+    int rows;
+    int cols;
+};
+
+interface MatrixOperations {
+    int getElement(int row, int col);
+    Matrix setElement(int row, int col, int value);
+    int sumAll();
+    int[2] getRow(int row);
+    Matrix addMatrix(int[2][2] other);
+};
+
+impl MatrixOperations for Matrix {
+    int getElement(int row, int col) {
+        if (row >= 0 && row < 2 && col >= 0 && col < 2) {
+            return self.data[row][col];
+        }
+        return 0;
+    }
+    
+    Matrix setElement(int row, int col, int value) {
+        if (row >= 0 && row < 2 && col >= 0 && col < 2) {
+            self.data[row][col] = value;
+        }
+        return self;
+    }
+    
+    int sumAll() {
+        int total = 0;
+        int i = 0;
+        while (i < 2) {
+            int j = 0;
+            while (j < 2) {
+                total = total + self.data[i][j];
+                j = j + 1;
+            }
+            i = i + 1;
+        }
+        return total;
+    }
+    
+    int[2] getRow(int row) {
+        int[2] result;
+        if (row >= 0 && row < 2) {
+            result[0] = self.data[row][0];
+            result[1] = self.data[row][1];
+        }
+        return result;
+    }
+    
+    Matrix addMatrix(int[2][2] other) {
+        int i = 0;
+        while (i < 2) {
+            int j = 0;
+            while (j < 2) {
+                self.data[i][j] = self.data[i][j] + other[i][j];
+                j = j + 1;
+            }
+            i = i + 1;
+        }
+        return self;
+    }
+};
+
+int main() {
+    // 構造体を初期化してから配列要素を設定
+    Matrix matrix;
+    matrix.rows = 2;
+    matrix.cols = 2;
+    matrix.data = [
+        [1, 2],
+        [3, 4]
+    ];
+    
+    MatrixOperations matOps = matrix;
+    
+    // 各要素を取得
+    int elem00 = matOps.getElement(0, 0);
+    println(elem00);
+    int elem01 = matOps.getElement(0, 1);
+    println(elem01);
+    int elem10 = matOps.getElement(1, 0);
+    println(elem10);
+    int elem11 = matOps.getElement(1, 1);
+    println(elem11);
+    
+    // 合計を計算
+    int total = matOps.sumAll();
+    println(total);
+    
+    // 要素を変更
+    Matrix result = matOps.setElement(0, 0, 10);
+    int newElem = matOps.getElement(0, 0);
+    println(newElem);
+    
+    // 行を取得
+    int[2] row0 = matOps.getRow(0);
+    println(row0[0]);
+    println(row0[1]);
+    
+    // 他の行列と加算テスト（引数で多次元配列を受け取る）
+    int[2][2] otherMatrix;
+    otherMatrix[0][0] = 5;
+    otherMatrix[0][1] = 6;
+    otherMatrix[1][0] = 7;
+    otherMatrix[1][1] = 8;
+    Matrix addResult = matOps.addMatrix(otherMatrix);
+    int finalElem = matOps.getElement(1, 1);
+    println(finalElem);
+    
+    return 0;
+}

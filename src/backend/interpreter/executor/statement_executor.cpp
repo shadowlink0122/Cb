@@ -702,15 +702,33 @@ void StatementExecutor::execute_member_assignment(const ASTNode* node) {
     debug_print("DEBUG: execute_member_assignment - left type=%d, right type=%d\n",
                static_cast<int>(node->left->node_type), static_cast<int>(node->right->node_type));
     
+    if (member_access->left) {
+        debug_print("DEBUG: member_access->left->node_type=%d, name='%s'\n", 
+                   static_cast<int>(member_access->left->node_type), 
+                   member_access->left->name.c_str());
+    } else {
+        debug_print("DEBUG: member_access->left is null\n");
+    }
+    
     if (!member_access || member_access->node_type != ASTNodeType::AST_MEMBER_ACCESS) {
         throw std::runtime_error("Invalid member access in assignment");
     }
     
     // オブジェクト名を取得
     std::string obj_name;
-    if (member_access->left && member_access->left->node_type == ASTNodeType::AST_VARIABLE) {
-        // 通常の構造体変数: obj.member
+    if (member_access->left && (member_access->left->node_type == ASTNodeType::AST_VARIABLE || 
+                               member_access->left->node_type == ASTNodeType::AST_IDENTIFIER)) {
+        // 通常の構造体変数: obj.member または self.member
         obj_name = member_access->left->name;
+        
+        // selfの場合は特別処理
+        if (obj_name == "self") {
+            debug_msg(DebugMsgId::SELF_MEMBER_ACCESS_START, member_access->name.c_str());
+            // selfへの代入処理を実行
+            execute_self_member_assignment(member_access->name, node->right.get());
+            return;
+        }
+        
         debug_msg(DebugMsgId::INTERPRETER_STRUCT_MEMBER_FOUND, 
                   "struct_variable", obj_name.c_str());
     } else if (member_access->left && member_access->left->node_type == ASTNodeType::AST_ARRAY_REF) {
@@ -899,4 +917,144 @@ void StatementExecutor::execute_union_assignment(const std::string& var_name, co
             throw std::runtime_error("Failed to assign value to union variable " + var_name + ": " + e.what());
         }
     }
+}
+
+void StatementExecutor::execute_self_member_assignment(const std::string& member_name, const ASTNode* value_node) {
+    debug_msg(DebugMsgId::SELF_MEMBER_ACCESS_START, member_name.c_str());
+    
+    // selfメンバーへのパスを構築
+    std::string self_member_path = "self." + member_name;
+    
+    // selfメンバー変数を検索
+    Variable* self_member = interpreter_.find_variable(self_member_path);
+    if (!self_member) {
+        throw std::runtime_error("Self member not found: " + member_name);
+    }
+    
+    debug_msg(DebugMsgId::SELF_MEMBER_ACCESS_FOUND, member_name.c_str());
+    
+    // 元のレシーバー変数からselfメンバーのパスを取得
+    Variable* self_var = interpreter_.find_variable("self");
+    Variable* receiver_info = interpreter_.find_variable("__self_receiver__");
+    std::string original_receiver_path;
+    
+    if (self_var && receiver_info && !receiver_info->str_value.empty()) {
+        original_receiver_path = receiver_info->str_value + "." + member_name;
+        debug_print("SELF_ASSIGN_DEBUG: Original receiver path: %s\n", original_receiver_path.c_str());
+    }
+    
+    // 値の型に応じて代入処理
+    if (value_node->node_type == ASTNodeType::AST_STRING_LITERAL) {
+        self_member->str_value = value_node->str_value;
+        self_member->type = TYPE_STRING;
+        self_member->is_assigned = true;
+        
+        // 元の変数のメンバーも同時に更新
+        if (!original_receiver_path.empty()) {
+            debug_print("SELF_ASSIGN_DEBUG: Looking for original member: %s\n", original_receiver_path.c_str());
+            Variable* original_member = interpreter_.find_variable(original_receiver_path);
+            if (original_member) {
+                debug_print("SELF_ASSIGN_DEBUG: Found original member, updating string value\n");
+                original_member->str_value = value_node->str_value;
+                original_member->type = TYPE_STRING;
+                original_member->is_assigned = true;
+                debug_print("SELF_ASSIGN_SYNC: %s = \"%s\"\n", original_receiver_path.c_str(), value_node->str_value.c_str());
+            } else {
+                debug_print("SELF_ASSIGN_DEBUG: Could not find original member: %s\n", original_receiver_path.c_str());
+            }
+        }
+        
+        debug_print("SELF_ASSIGN: %s = \"%s\"\n", member_name.c_str(), value_node->str_value.c_str());
+    } else if (value_node->node_type == ASTNodeType::AST_VARIABLE) {
+        // 変数参照の場合
+        Variable* source_var = interpreter_.find_variable(value_node->name);
+        if (source_var && source_var->type == TYPE_STRING) {
+            self_member->str_value = source_var->str_value;
+            self_member->type = TYPE_STRING;
+            
+            // 元の変数のメンバーも同時に更新
+            if (!original_receiver_path.empty()) {
+                debug_print("SELF_ASSIGN_DEBUG: Looking for original member: %s\n", original_receiver_path.c_str());
+                Variable* original_member = interpreter_.find_variable(original_receiver_path);
+                if (original_member) {
+                    debug_print("SELF_ASSIGN_DEBUG: Found original member, updating string value from variable\n");
+                    original_member->str_value = source_var->str_value;
+                    original_member->type = TYPE_STRING;
+                    original_member->is_assigned = true;
+                    debug_print("SELF_ASSIGN_SYNC: %s = \"%s\" (from variable)\n", original_receiver_path.c_str(), source_var->str_value.c_str());
+                } else {
+                    debug_print("SELF_ASSIGN_DEBUG: Could not find original member: %s\n", original_receiver_path.c_str());
+                }
+            }
+            
+            debug_print("SELF_ASSIGN: %s = \"%s\" (from variable)\n", member_name.c_str(), source_var->str_value.c_str());
+        } else {
+            int64_t value = interpreter_.evaluate(value_node);
+            self_member->value = value;
+            if (self_member->type != TYPE_STRING) {
+                self_member->type = TYPE_INT; // デフォルトはint型
+            }
+            
+            // 元の変数のメンバーも同時に更新
+            if (!original_receiver_path.empty()) {
+                debug_print("SELF_ASSIGN_DEBUG: Looking for original member: %s\n", original_receiver_path.c_str());
+                Variable* original_member = interpreter_.find_variable(original_receiver_path);
+                if (original_member) {
+                    debug_print("SELF_ASSIGN_DEBUG: Found original member, updating numeric value from variable\n");
+                    original_member->value = value;
+                    if (original_member->type != TYPE_STRING) {
+                        original_member->type = TYPE_INT;
+                    }
+                    original_member->is_assigned = true;
+                    debug_print("SELF_ASSIGN_SYNC: %s = %lld (from variable)\n", original_receiver_path.c_str(), (long long)value);
+                } else {
+                    debug_print("SELF_ASSIGN_DEBUG: Could not find original member: %s\n", original_receiver_path.c_str());
+                }
+            }
+            
+            debug_print("SELF_ASSIGN: %s = %lld (from variable)\n", member_name.c_str(), (long long)value);
+        }
+        self_member->is_assigned = true;
+    } else {
+        // 式の評価
+        int64_t value = interpreter_.evaluate(value_node);
+        
+        // 複合代入演算子の処理
+        if (value_node->node_type == ASTNodeType::AST_BINARY_OP) {
+            // += -= *= /= などの複合代入かチェック
+            if (value_node->name == "+=" || value_node->name == "-=" || 
+                value_node->name == "*=" || value_node->name == "/=") {
+                // 複合代入は既に評価済みの値として処理
+                debug_print("SELF_COMPOUND_ASSIGN: %s %s= %lld\n", 
+                          member_name.c_str(), value_node->name.c_str(), (long long)value);
+            }
+        }
+        
+        self_member->value = value;
+        if (self_member->type != TYPE_STRING) {
+            self_member->type = TYPE_INT;
+        }
+        self_member->is_assigned = true;
+        
+        // 元の変数のメンバーも同時に更新
+        if (!original_receiver_path.empty()) {
+            debug_print("SELF_ASSIGN_DEBUG: Looking for original member: %s\n", original_receiver_path.c_str());
+            Variable* original_member = interpreter_.find_variable(original_receiver_path);
+            if (original_member) {
+                debug_print("SELF_ASSIGN_DEBUG: Found original member, updating numeric value\n");
+                original_member->value = value;
+                if (original_member->type != TYPE_STRING) {
+                    original_member->type = TYPE_INT;
+                }
+                original_member->is_assigned = true;
+                debug_print("SELF_ASSIGN_SYNC: %s = %lld\n", original_receiver_path.c_str(), (long long)value);
+            } else {
+                debug_print("SELF_ASSIGN_DEBUG: Could not find original member: %s\n", original_receiver_path.c_str());
+            }
+        }
+        
+        debug_print("SELF_ASSIGN: %s = %lld\n", member_name.c_str(), (long long)value);
+    }
+    
+    debug_msg(DebugMsgId::SELF_MEMBER_ACCESS_VALUE, std::to_string(self_member->value).c_str());
 }

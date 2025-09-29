@@ -1,0 +1,143 @@
+// 実用的な多次元配列interfaceの回避策
+
+struct Matrix2x2 {
+    int data00, data01, data10, data11;
+    int rows, cols;
+};
+
+struct Matrix3D {
+    int data000, data001, data010, data011;
+    int data100, data101, data110, data111;
+    int width, height, depth;
+};
+
+interface Matrix2DOperations {
+    int getElement(int row, int col);
+    Matrix2x2 setElement(int row, int col, int value);
+    int getSum();
+    int getDeterminant();
+};
+
+interface Matrix3DOperations {
+    int getElement3D(int x, int y, int z);
+    Matrix3D setElement3D(int x, int y, int z, int value);
+    int getSum3D();
+    int getMax3D();
+};
+
+impl Matrix2DOperations for Matrix2x2 {
+    int getElement(int row, int col) {
+        if (row == 0 && col == 0) return self.data00;
+        if (row == 0 && col == 1) return self.data01;
+        if (row == 1 && col == 0) return self.data10;
+        if (row == 1 && col == 1) return self.data11;
+        return 0;
+    }
+    
+    Matrix2x2 setElement(int row, int col, int value) {
+        if (row == 0 && col == 0) self.data00 = value;
+        if (row == 0 && col == 1) self.data01 = value;
+        if (row == 1 && col == 0) self.data10 = value;
+        if (row == 1 && col == 1) self.data11 = value;
+        return self;
+    }
+    
+    int getSum() {
+        return self.data00 + self.data01 + self.data10 + self.data11;
+    }
+    
+    int getDeterminant() {
+        return self.data00 * self.data11 - self.data01 * self.data10;
+    }
+};
+
+impl Matrix3DOperations for Matrix3D {
+    int getElement3D(int x, int y, int z) {
+        if (x == 0 && y == 0 && z == 0) return self.data000;
+        if (x == 0 && y == 0 && z == 1) return self.data001;
+        if (x == 0 && y == 1 && z == 0) return self.data010;
+        if (x == 0 && y == 1 && z == 1) return self.data011;
+        if (x == 1 && y == 0 && z == 0) return self.data100;
+        if (x == 1 && y == 0 && z == 1) return self.data101;
+        if (x == 1 && y == 1 && z == 0) return self.data110;
+        if (x == 1 && y == 1 && z == 1) return self.data111;
+        return 0;
+    }
+    
+    Matrix3D setElement3D(int x, int y, int z, int value) {
+        if (x == 0 && y == 0 && z == 0) self.data000 = value;
+        if (x == 0 && y == 0 && z == 1) self.data001 = value;
+        if (x == 0 && y == 1 && z == 0) self.data010 = value;
+        if (x == 0 && y == 1 && z == 1) self.data011 = value;
+        if (x == 1 && y == 0 && z == 0) self.data100 = value;
+        if (x == 1 && y == 0 && z == 1) self.data101 = value;
+        if (x == 1 && y == 1 && z == 0) self.data110 = value;
+        if (x == 1 && y == 1 && z == 1) self.data111 = value;
+        return self;
+    }
+    
+    int getSum3D() {
+        return self.data000 + self.data001 + self.data010 + self.data011 +
+               self.data100 + self.data101 + self.data110 + self.data111;
+    }
+    
+    int getMax3D() {
+        int max = self.data000;
+        if (self.data001 > max) max = self.data001;
+        if (self.data010 > max) max = self.data010;
+        if (self.data011 > max) max = self.data011;
+        if (self.data100 > max) max = self.data100;
+        if (self.data101 > max) max = self.data101;
+        if (self.data110 > max) max = self.data110;
+        if (self.data111 > max) max = self.data111;
+        return max;
+    }
+};
+
+int main() {
+    // 2次元行列テスト
+    Matrix2x2 matrix = {1, 2, 3, 4, 2, 2};
+    Matrix2DOperations matOps = matrix;
+    
+    println("2D Matrix Test:");
+    int elem00 = matOps.getElement(0, 0);
+    println(elem00);  // 1
+    int elem01 = matOps.getElement(0, 1);
+    println(elem01);  // 2
+    int elem10 = matOps.getElement(1, 0);
+    println(elem10);  // 3
+    int elem11 = matOps.getElement(1, 1);
+    println(elem11);  // 4
+    
+    int sum2d = matOps.getSum();
+    println(sum2d);   // 10
+    
+    int det = matOps.getDeterminant();
+    println(det);     // 1*4 - 2*3 = -2
+    
+    Matrix2x2 result = matOps.setElement(0, 0, 10);
+    int newElem = matOps.getElement(0, 0);
+    println(newElem); // 10
+    
+    // 3次元立方体テスト
+    Matrix3D cube = {1, 2, 3, 4, 5, 6, 7, 8, 2, 2, 2};
+    Matrix3DOperations cubeOps = cube;
+    
+    println("3D Cube Test:");
+    int elem000 = cubeOps.getElement3D(0, 0, 0);
+    println(elem000);  // 1
+    int elem111 = cubeOps.getElement3D(1, 1, 1);
+    println(elem111);  // 8
+    
+    int sum3d = cubeOps.getSum3D();
+    println(sum3d);    // 36
+    
+    int max3d = cubeOps.getMax3D();
+    println(max3d);    // 8
+    
+    Matrix3D result3d = cubeOps.setElement3D(1, 1, 1, 80);
+    int newElem3d = cubeOps.getElement3D(1, 1, 1);
+    println(newElem3d); // 80
+    
+    return 0;
+}

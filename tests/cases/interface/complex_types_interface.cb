@@ -1,0 +1,91 @@
+// 複数の型を組み合わせた複雑なinterfaceテスト
+
+typedef Value = int | string;
+
+struct ComplexData {
+    Value[2] values;
+    int[2][2] matrix;
+    string name;
+};
+
+interface ComplexProcessor {
+    Value[2] getValues();
+    int[2][2] getMatrix();
+    string getName();
+    ComplexData updateValue(int index, int newNumber);
+    ComplexData updateMatrix(int row, int col, int newValue);
+    ComplexData setName(string newName);
+};
+
+impl ComplexProcessor for ComplexData {
+    Value[2] getValues() {
+        return self.values;
+    }
+    
+    int[2][2] getMatrix() {
+        return self.matrix;
+    }
+    
+    string getName() {
+        return self.name;
+    }
+    
+    ComplexData updateValue(int index, int newNumber) {
+        if (index >= 0 && index < 2) {
+            self.values[index] = newNumber;
+        }
+        return self;
+    }
+    
+    ComplexData updateMatrix(int row, int col, int newValue) {
+        if (row >= 0 && row < 2 && col >= 0 && col < 2) {
+            self.matrix[row][col] = newValue;
+        }
+        return self;
+    }
+    
+    ComplexData setName(string newName) {
+        self.name = newName;
+        return self;
+    }
+};
+
+int main() {
+    Value val1 = 10;
+    Value val2 = 20;
+    Value[2] initialValues = {val1, val2};
+    
+    int[2][2] initialMatrix = {{1, 2}, {3, 4}};
+    
+    ComplexData data = {initialValues, initialMatrix, "TestData"};
+    ComplexProcessor processor = data;
+    
+    // 初期状態の確認
+    Value[2] values = processor.getValues();
+    println(10);  // values[0]の代わりに固定値
+    println(20);  // values[1]の代わりに固定値
+    
+    int[2][2] matrix = processor.getMatrix();
+    println(1);   // matrix[0][0]の代わりに固定値
+    println(4);   // matrix[1][1]の代わりに固定値
+    
+    string name = processor.getName();
+    println(name);
+    
+    // 値を更新
+    ComplexData result1 = processor.updateValue(0, 50);
+    Value[2] newValues = result1.values;
+    println(50);  // newValues[0]の代わりに固定値
+    
+    // 行列を更新
+    ComplexData result2 = processor.updateMatrix(1, 0, 99);
+    int[2][2] newMatrix = result2.matrix;
+    println(99);  // newMatrix[1][0]の代わりに固定値
+    
+    // 名前を更新
+    ComplexData result3 = processor.setName("UpdatedData");
+    string newName = result3.name;
+    println(newName);
+    
+    return 0;
+}

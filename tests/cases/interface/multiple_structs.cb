@@ -1,0 +1,59 @@
+// 同じインターフェースを複数の構造体で使用するテスト
+
+struct Cat {
+    int age;
+    int mood; // 0=calm, 1=excited
+};
+
+struct Dog {
+    int weight;
+    int energy;
+};
+
+interface Animal {
+    int get_sound_level();
+    int get_energy();
+};
+
+impl Animal for Cat {
+    int get_sound_level() {
+        return self.age * 2 + self.mood * 5; // 年齢と気分に応じた音量
+    }
+    
+    int get_energy() {
+        return 100 - self.age * 3 + self.mood * 10; // 年齢と気分に応じたエネルギー
+    }
+};
+
+impl Animal for Dog {
+    int get_sound_level() {
+        return self.weight / 5; // 体重に応じた音量
+    }
+    
+    int get_energy() {
+        return self.energy; // エネルギー値をそのまま返す
+    }
+};
+
+int main() {
+    Cat cat = {5, 1}; // 5歳、興奮状態
+    Dog dog = {25, 80}; // 25kg、エネルギー80
+    
+    Animal animal1 = cat;
+    Animal animal2 = dog;
+    
+    println(animal1.get_sound_level());
+    println(animal1.get_energy());
+    
+    println(animal2.get_sound_level());
+    println(animal2.get_energy());
+    
+    // 同じ構造体でも個別に動作することを確認
+    Cat another_cat = {3, 0}; // 3歳、冷静状態
+    Animal animal3 = another_cat;
+    
+    println(animal3.get_sound_level());
+    println(animal3.get_energy());
+    
+    return 0;
+}

@@ -18,8 +18,9 @@ enum TypeInfo {
     TYPE_BOOL = 7,
     TYPE_STRUCT = 8,
     TYPE_ENUM = 9,
-    TYPE_UNION = 10,   // Union型（リテラル型・複合型）
-    TYPE_POINTER = 11, // ポインタ型（将来実装）
+    TYPE_INTERFACE = 10,
+    TYPE_UNION = 11,   // Union型（リテラル型・複合型）
+    TYPE_POINTER = 12, // ポインタ型（将来実装）
     TYPE_ARRAY_BASE = 100 // 配列型は基底型 + 100（下位互換のため保持）
 };
 
@@ -404,6 +405,84 @@ struct StructDefinition {
     }
 };
 
+// 前方宣言
+struct ASTNode;
+
+// Interface定義情報を格納する構造体
+struct InterfaceMember {
+    std::string name;     // 関数名
+    TypeInfo return_type; // 戻り値の型
+    std::vector<std::pair<std::string, TypeInfo>>
+        parameters; // パラメータのリスト (名前, 型)
+
+    InterfaceMember() : return_type(TYPE_UNKNOWN) {}
+    InterfaceMember(const std::string &n, TypeInfo ret_type)
+        : name(n), return_type(ret_type) {}
+
+    void add_parameter(const std::string &param_name, TypeInfo param_type) {
+        parameters.emplace_back(param_name, param_type);
+    }
+};
+
+struct InterfaceDefinition {
+    std::string name;                     // interface名
+    std::vector<InterfaceMember> methods; // メソッドのリスト
+
+    InterfaceDefinition() {}
+    InterfaceDefinition(const std::string &n) : name(n) {}
+
+    // メソッドを追加
+    void add_method(const std::string &method_name, TypeInfo return_type) {
+        methods.emplace_back(method_name, return_type);
+    }
+
+    // メソッドを名前で検索
+    const InterfaceMember *find_method(const std::string &method_name) const {
+        for (const auto &method : methods) {
+            if (method.name == method_name) {
+                return &method;
+            }
+        }
+        return nullptr;
+    }
+};
+
+// Impl定義情報を格納する構造体
+struct ImplDefinition {
+    std::string interface_name; // 実装するinterface名
+    std::string struct_name;    // 実装先のstruct名
+    std::vector<std::unique_ptr<ASTNode>>
+        methods; // 実装されたメソッドのASTノード
+
+    ImplDefinition() {}
+    ImplDefinition(const std::string &iface, const std::string &struct_name)
+        : interface_name(iface), struct_name(struct_name) {}
+
+    // コピーコンストラクタ（unique_ptrのため削除）
+    ImplDefinition(const ImplDefinition &other) = delete;
+    ImplDefinition &operator=(const ImplDefinition &other) = delete;
+
+    // ムーブコンストラクタ
+    ImplDefinition(ImplDefinition &&other) noexcept
+        : interface_name(std::move(other.interface_name)),
+          struct_name(std::move(other.struct_name)),
+          methods(std::move(other.methods)) {}
+
+    ImplDefinition &operator=(ImplDefinition &&other) noexcept {
+        if (this != &other) {
+            interface_name = std::move(other.interface_name);
+            struct_name = std::move(other.struct_name);
+            methods = std::move(other.methods);
+        }
+        return *this;
+    }
+
+    // メソッドを追加
+    void add_method(std::unique_ptr<ASTNode> method_ast) {
+        methods.push_back(std::move(method_ast));
+    }
+};
+
 // 型名を文字列に変換する関数
 const char *type_info_to_string(TypeInfo type);
 const char *type_info_to_string_basic(TypeInfo type);
@@ -446,6 +525,8 @@ enum class ASTNodeType {
     AST_ENUM_DECL,           // enum宣言
     AST_ENUM_TYPEDEF_DECL,   // typedef enum宣言
     AST_UNION_TYPEDEF_DECL, // typedef union宣言 (TypeScript-like literal types)
+    AST_INTERFACE_DECL,     // interface宣言
+    AST_IMPL_DECL,          // impl宣言
     AST_ENUM_ACCESS,        // enum値アクセス (EnumName::member)
 
     // 式
@@ -458,6 +539,7 @@ enum class ASTNodeType {
     AST_MEMBER_ACCESS,       // メンバアクセス (struct.member)
     AST_MEMBER_ARRAY_ACCESS, // メンバの配列アクセス (struct.member[index])
     AST_STRUCT_LITERAL,      // 構造体リテラル {a: 1, b: "str"}
+    AST_IDENTIFIER,          // 識別子（変数名、self等）
 
     // その他
     AST_STMT_LIST,
