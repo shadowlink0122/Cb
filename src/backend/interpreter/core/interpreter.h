@@ -48,6 +48,10 @@ struct Variable {
     // struct用メンバ変数
     std::map<std::string, Variable> struct_members;
 
+    // interface用
+    std::string interface_name;        // interface型の場合のinterface名
+    std::string implementing_struct;   // interfaceを実装しているstruct名
+
     // 多次元配列用
     ArrayTypeInfo array_type_info;     // 多次元配列の型情報
     std::vector<int> array_dimensions; // 各次元のサイズ
@@ -89,6 +93,18 @@ struct Variable {
         extern bool debug_mode;
         if (debug_mode) {
             debug_msg(DebugMsgId::VAR_MANAGER_STRUCT_CREATE, struct_name.c_str(), "struct");
+        }
+    }
+
+    // interface用コンストラクタ  
+    Variable(const std::string &interface_name, bool is_interface_flag)
+        : type(TYPE_INTERFACE), is_const(false), is_array(false),
+          is_assigned(false), is_multidimensional(false), is_struct(false),
+          value(0), array_size(0), interface_name(interface_name) {
+        // デバッグ用
+        extern bool debug_mode;
+        if (debug_mode) {
+            debug_msg(DebugMsgId::VAR_MANAGER_STRUCT_CREATE, interface_name.c_str(), "interface");
         }
     }
 
@@ -207,6 +223,10 @@ class Interpreter : public EvaluatorInterface {
     std::map<std::string, Variable> static_variables; // static変数の保存
     std::map<std::string, StructDefinition>
         struct_definitions_; // struct定義の保存
+    std::map<std::string, InterfaceDefinition>
+        interface_definitions_; // interface定義の保存
+    std::vector<ImplDefinition>
+        impl_definitions_; // impl定義の保存
 
     // Manager instances
     std::unique_ptr<VariableManager> variable_manager_;
@@ -343,6 +363,27 @@ class Interpreter : public EvaluatorInterface {
     Variable *find_static_variable(const std::string &name);
     void create_static_variable(const std::string &name, const ASTNode *node);
 
+    // interface管理
+    void register_interface_definition(const std::string &interface_name,
+                                      const InterfaceDefinition &definition);
+    const InterfaceDefinition *
+    find_interface_definition(const std::string &interface_name);
+    
+    // impl管理
+    void register_impl_definition(const ImplDefinition &impl_def);
+    const ImplDefinition *find_impl_for_struct(const std::string &struct_name, 
+                                               const std::string &interface_name);
+    
+    // interface型変数管理
+    void create_interface_variable(const std::string &var_name, 
+                                  const std::string &interface_name);
+    Variable *get_interface_variable(const std::string &var_name);
+    
+    // impl定義へのアクセサ
+    const std::vector<ImplDefinition>& get_impl_definitions() const {
+        return impl_definitions_;
+    }
+
     // 関数コンテキスト
     std::string current_function_name; // 現在実行中の関数名
 
@@ -384,6 +425,12 @@ class Interpreter : public EvaluatorInterface {
     
     // EnumManagerへのアクセス
     EnumManager *get_enum_manager() { return enum_manager_.get(); }
+    
+    // VariableManagerへのアクセス
+    VariableManager *get_variable_manager() { return variable_manager_.get(); }
+    
+    // 関数定義の検索
+    const ASTNode* find_function_definition(const std::string& func_name);
     
     // Parserからのenum定義同期
     void sync_enum_definitions_from_parser(RecursiveParser* parser);
@@ -433,4 +480,8 @@ class Interpreter : public EvaluatorInterface {
     setMultidimensionalStringArrayElement(Variable &var,
                                           const std::vector<int64_t> &indices,
                                           const std::string &value);
+                                          
+    // self処理用ヘルパー関数
+    std::string get_self_receiver_path();
+    void sync_self_to_receiver(const std::string& receiver_path);
 };

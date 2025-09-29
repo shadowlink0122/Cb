@@ -50,6 +50,9 @@ class VariableManager {
 
     // 複合処理 (AST_VAR_DECL/AST_ASSIGN ケース)
     void process_var_decl_or_assign(const ASTNode *node);
+    
+    // 三項演算子による変数初期化
+    void handle_ternary_initialization(Variable& var, const ASTNode* ternary_node);
 
     // 配列名抽出関数（N次元配列対応）
     std::string extract_array_name(const ASTNode *node);

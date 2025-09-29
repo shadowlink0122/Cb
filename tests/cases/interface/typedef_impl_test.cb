@@ -1,0 +1,144 @@
+// Typedef型に対するInterface実装のテスト
+
+// 1. 基本的なtypedefテスト
+typedef int MyInt;
+typedef string MyString;
+typedef bool MyBool;
+
+// 2. 配列typedefテスト
+typedef int[5] IntArray;
+typedef string[3] StringArray;
+typedef int[2][2] Matrix;
+
+// 3. インターフェース定義
+interface Printable {
+    string toString();
+    int getSize();
+};
+
+// シンプルなインターフェース（パラメータなし）
+interface Simple {
+    int getValue();
+    bool isValid();
+};
+
+// 比較インターフェース
+interface Comparable {
+    bool equals(int other);
+    int compare(int other);
+};
+
+// 4. typedef型へのimpl実装
+impl Printable for MyInt {
+    string toString() {
+        return "MyInt value";
+    }
+    
+    int getSize() {
+        return 1;
+    }
+};
+
+impl Printable for MyString {
+    string toString() {
+        return "MyString value";
+    }
+    
+    int getSize() {
+        return 10;
+    }
+};
+
+impl Printable for IntArray {
+    string toString() {
+        return "IntArray[5]";
+    }
+    
+    int getSize() {
+        return 5;
+    }
+};
+
+impl Printable for Matrix {
+    string toString() {
+        return "Matrix[2x2]";
+    }
+    
+    int getSize() {
+        return 4;
+    }
+};
+
+// 5. 複数インターフェースの実装
+impl Simple for MyInt {
+    int getValue() {
+        return 42;
+    }
+    
+    bool isValid() {
+        return true;
+    }
+};
+
+impl Comparable for MyInt {
+    bool equals(int other) {
+        return true;  // テスト用の固定値
+    }
+    
+    int compare(int other) {
+        return 0;  // テスト用の固定値
+    }
+};
+
+int main() {
+    println("=== Typedef型のInterface実装テスト ===");
+    
+    // MyInt型のテスト
+    MyInt mi = 42;
+    Printable p1 = mi;
+    string miToString = p1.toString();
+    int miSize = p1.getSize();
+    println("MyInt toString: %s", miToString);
+    println("MyInt getSize: %d", miSize);
+    
+    // MyString型のテスト
+    MyString ms = "test";
+    Printable p2 = ms;
+    string msToString = p2.toString();
+    int msSize = p2.getSize();
+    println("MyString toString: %s", msToString);
+    println("MyString getSize: %d", msSize);
+    
+    // IntArray型のテスト
+    IntArray arr = [1, 2, 3, 4, 5];
+    Printable p3 = arr;
+    string arrToString = p3.toString();
+    int arrSize = p3.getSize();
+    println("IntArray toString: %s", arrToString);
+    println("IntArray getSize: %d", arrSize);
+    
+    // Matrix型のテスト
+    Matrix mat = [[1, 2], [3, 4]];
+    Printable p4 = mat;
+    string matToString = p4.toString();
+    int matSize = p4.getSize();
+    println("Matrix toString: %s", matToString);
+    println("Matrix getSize: %d", matSize);
+    
+    // Simpleインターフェースのテスト
+    Simple s1 = mi;
+    int s1Value = s1.getValue();
+    int s1Valid = s1.isValid();
+    println("MyInt getValue: %d", s1Value);
+    println("MyInt isValid: %d", s1Valid);
+    
+    // Comparableインターフェースのテスト
+    Comparable c1 = mi;
+    bool equalsResult = c1.equals(42);
+    int compareResult = c1.compare(42);
+    println("MyInt equals: %d", equalsResult);
+    println("MyInt compare: %d", compareResult);
+    
+    println("=== テスト完了 ===");
+    return 0;
+}

@@ -1,0 +1,75 @@
+// 同じ構造体に対して複数のインターフェースを実装するテスト
+
+struct Person {
+    int age;
+    int salary;
+    int experience_years;
+};
+
+interface Worker {
+    int get_productivity();
+    int calculate_overtime(int hours);
+};
+
+interface Citizen {
+    int get_tax_rate();
+    int voting_eligibility();
+};
+
+impl Worker for Person {
+    int get_productivity() {
+        if (self.age < 30) {
+            return 80 + self.experience_years * 2;
+        } else if (self.age < 50) {
+            return 100 + self.experience_years;
+        } else {
+            return 60 + self.experience_years;
+        }
+    }
+    
+    int calculate_overtime(int hours) {
+        return self.salary * hours / 100;
+    }
+};
+
+impl Citizen for Person {
+    int get_tax_rate() {
+        if (self.salary < 3000) {
+            return 10;
+        } else if (self.salary < 5000) {
+            return 20;
+        } else {
+            return 30;
+        }
+    }
+    
+    int voting_eligibility() {
+        return self.age >= 18 ? 1 : 0;
+    }
+};
+
+int main() {
+    Person person = {35, 4500, 10}; // 35歳、給与4500、経験10年
+    
+    Worker worker = person;
+    Citizen citizen = person;
+    
+    // Workerインターフェースとしての機能
+    println(worker.get_productivity());
+    println(worker.calculate_overtime(10));
+    
+    // Citizenインターフェースとしての機能
+    println(citizen.get_tax_rate());
+    println(citizen.voting_eligibility());
+    
+    // 別の人でもテスト
+    Person young_person = {17, 2000, 1}; // 17歳、給与2000、経験1年
+    Worker young_worker = young_person;
+    Citizen young_citizen = young_person;
+    
+    println(young_worker.get_productivity());
+    println(young_citizen.get_tax_rate());
+    println(young_citizen.voting_eligibility());
+    
+    return 0;
+}

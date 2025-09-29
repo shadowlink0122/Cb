@@ -2,6 +2,7 @@
 #include "services/array_processing_service.h"
 #include "core/interpreter.h"
 #include "core/error_handler.h"
+#include "evaluator/expression_evaluator.h"
 #include "managers/array_manager.h"
 #include "managers/type_manager.h"
 #include "../../../common/debug.h"
@@ -59,6 +60,12 @@ void StatementExecutor::execute(const ASTNode *node) {
 }
 
 void StatementExecutor::execute_assignment(const ASTNode *node) {
+    // 右辺が三項演算子の場合の特別処理
+    if (node->right && node->right->node_type == ASTNodeType::AST_TERNARY_OP) {
+        execute_ternary_assignment(node);
+        return;
+    }
+
     // 右辺が配列リテラルの場合の特別処理
     if (node->right && node->right->node_type == ASTNodeType::AST_ARRAY_LITERAL) {
         if (node->left && node->left->node_type == ASTNodeType::AST_VARIABLE) {
@@ -325,6 +332,11 @@ void StatementExecutor::execute_variable_declaration(const ASTNode *node) {
         var.is_array = true;
         var.type = node->array_type_info.base_type;
         
+        // typedef名を保存（interfaceでの型マッチングに使用）
+        if (!node->type_name.empty()) {
+            var.struct_type_name = node->type_name;
+        }
+        
         // デバッグ出力
         if (debug_mode) {
             std::cerr << "DEBUG: Setting array for typedef variable " << node->name 
@@ -402,7 +414,12 @@ void StatementExecutor::execute_variable_declaration(const ASTNode *node) {
     interpreter_.current_scope().variables[node->name] = var;
     
     if (init_node) {
-        if (var.is_array && init_node->node_type == ASTNodeType::AST_ARRAY_LITERAL) {
+        printf("DEBUG: Variable initialization, init_node type = %d\n", static_cast<int>(init_node->node_type));
+        if (init_node->node_type == ASTNodeType::AST_TERNARY_OP) {
+            // 三項演算子による初期化
+            printf("DEBUG: Calling execute_ternary_variable_initialization\n");
+            execute_ternary_variable_initialization(node, init_node);
+        } else if (var.is_array && init_node->node_type == ASTNodeType::AST_ARRAY_LITERAL) {
             // 配列リテラル初期化
             interpreter_.assign_array_literal(node->name, init_node);
             // 代入後に変数を再取得して更新
@@ -702,15 +719,33 @@ void StatementExecutor::execute_member_assignment(const ASTNode* node) {
     debug_print("DEBUG: execute_member_assignment - left type=%d, right type=%d\n",
                static_cast<int>(node->left->node_type), static_cast<int>(node->right->node_type));
     
+    if (member_access->left) {
+        debug_print("DEBUG: member_access->left->node_type=%d, name='%s'\n", 
+                   static_cast<int>(member_access->left->node_type), 
+                   member_access->left->name.c_str());
+    } else {
+        debug_print("DEBUG: member_access->left is null\n");
+    }
+    
     if (!member_access || member_access->node_type != ASTNodeType::AST_MEMBER_ACCESS) {
         throw std::runtime_error("Invalid member access in assignment");
     }
     
     // オブジェクト名を取得
     std::string obj_name;
-    if (member_access->left && member_access->left->node_type == ASTNodeType::AST_VARIABLE) {
-        // 通常の構造体変数: obj.member
+    if (member_access->left && (member_access->left->node_type == ASTNodeType::AST_VARIABLE || 
+                               member_access->left->node_type == ASTNodeType::AST_IDENTIFIER)) {
+        // 通常の構造体変数: obj.member または self.member
         obj_name = member_access->left->name;
+        
+        // selfの場合は特別処理
+        if (obj_name == "self") {
+            debug_msg(DebugMsgId::SELF_MEMBER_ACCESS_START, member_access->name.c_str());
+            // selfへの代入処理を実行
+            execute_self_member_assignment(member_access->name, node->right.get());
+            return;
+        }
+        
         debug_msg(DebugMsgId::INTERPRETER_STRUCT_MEMBER_FOUND, 
                   "struct_variable", obj_name.c_str());
     } else if (member_access->left && member_access->left->node_type == ASTNodeType::AST_ARRAY_REF) {
@@ -897,6 +932,255 @@ void StatementExecutor::execute_union_assignment(const std::string& var_name, co
             }
         } catch (const std::exception& e) {
             throw std::runtime_error("Failed to assign value to union variable " + var_name + ": " + e.what());
+        }
+    }
+}
+
+void StatementExecutor::execute_self_member_assignment(const std::string& member_name, const ASTNode* value_node) {
+    debug_msg(DebugMsgId::SELF_MEMBER_ACCESS_START, member_name.c_str());
+    
+    // selfメンバーへのパスを構築
+    std::string self_member_path = "self." + member_name;
+    
+    // selfメンバー変数を検索
+    Variable* self_member = interpreter_.find_variable(self_member_path);
+    if (!self_member) {
+        throw std::runtime_error("Self member not found: " + member_name);
+    }
+    
+    debug_msg(DebugMsgId::SELF_MEMBER_ACCESS_FOUND, member_name.c_str());
+    
+    // 元のレシーバー変数からselfメンバーのパスを取得
+    Variable* self_var = interpreter_.find_variable("self");
+    Variable* receiver_info = interpreter_.find_variable("__self_receiver__");
+    std::string original_receiver_path;
+    
+    if (self_var && receiver_info && !receiver_info->str_value.empty()) {
+        original_receiver_path = receiver_info->str_value + "." + member_name;
+        debug_print("SELF_ASSIGN_DEBUG: Original receiver path: %s\n", original_receiver_path.c_str());
+    }
+    
+    // 値の型に応じて代入処理
+    if (value_node->node_type == ASTNodeType::AST_STRING_LITERAL) {
+        self_member->str_value = value_node->str_value;
+        self_member->type = TYPE_STRING;
+        self_member->is_assigned = true;
+        
+        // 元の変数のメンバーも同時に更新
+        if (!original_receiver_path.empty()) {
+            debug_print("SELF_ASSIGN_DEBUG: Looking for original member: %s\n", original_receiver_path.c_str());
+            Variable* original_member = interpreter_.find_variable(original_receiver_path);
+            if (original_member) {
+                debug_print("SELF_ASSIGN_DEBUG: Found original member, updating string value\n");
+                original_member->str_value = value_node->str_value;
+                original_member->type = TYPE_STRING;
+                original_member->is_assigned = true;
+                debug_print("SELF_ASSIGN_SYNC: %s = \"%s\"\n", original_receiver_path.c_str(), value_node->str_value.c_str());
+            } else {
+                debug_print("SELF_ASSIGN_DEBUG: Could not find original member: %s\n", original_receiver_path.c_str());
+            }
+        }
+        
+        debug_print("SELF_ASSIGN: %s = \"%s\"\n", member_name.c_str(), value_node->str_value.c_str());
+    } else if (value_node->node_type == ASTNodeType::AST_VARIABLE) {
+        // 変数参照の場合
+        Variable* source_var = interpreter_.find_variable(value_node->name);
+        if (source_var && source_var->type == TYPE_STRING) {
+            self_member->str_value = source_var->str_value;
+            self_member->type = TYPE_STRING;
+            
+            // 元の変数のメンバーも同時に更新
+            if (!original_receiver_path.empty()) {
+                debug_print("SELF_ASSIGN_DEBUG: Looking for original member: %s\n", original_receiver_path.c_str());
+                Variable* original_member = interpreter_.find_variable(original_receiver_path);
+                if (original_member) {
+                    debug_print("SELF_ASSIGN_DEBUG: Found original member, updating string value from variable\n");
+                    original_member->str_value = source_var->str_value;
+                    original_member->type = TYPE_STRING;
+                    original_member->is_assigned = true;
+                    debug_print("SELF_ASSIGN_SYNC: %s = \"%s\" (from variable)\n", original_receiver_path.c_str(), source_var->str_value.c_str());
+                } else {
+                    debug_print("SELF_ASSIGN_DEBUG: Could not find original member: %s\n", original_receiver_path.c_str());
+                }
+            }
+            
+            debug_print("SELF_ASSIGN: %s = \"%s\" (from variable)\n", member_name.c_str(), source_var->str_value.c_str());
+        } else {
+            int64_t value = interpreter_.evaluate(value_node);
+            self_member->value = value;
+            if (self_member->type != TYPE_STRING) {
+                self_member->type = TYPE_INT; // デフォルトはint型
+            }
+            
+            // 元の変数のメンバーも同時に更新
+            if (!original_receiver_path.empty()) {
+                debug_print("SELF_ASSIGN_DEBUG: Looking for original member: %s\n", original_receiver_path.c_str());
+                Variable* original_member = interpreter_.find_variable(original_receiver_path);
+                if (original_member) {
+                    debug_print("SELF_ASSIGN_DEBUG: Found original member, updating numeric value from variable\n");
+                    original_member->value = value;
+                    if (original_member->type != TYPE_STRING) {
+                        original_member->type = TYPE_INT;
+                    }
+                    original_member->is_assigned = true;
+                    debug_print("SELF_ASSIGN_SYNC: %s = %lld (from variable)\n", original_receiver_path.c_str(), (long long)value);
+                } else {
+                    debug_print("SELF_ASSIGN_DEBUG: Could not find original member: %s\n", original_receiver_path.c_str());
+                }
+            }
+            
+            debug_print("SELF_ASSIGN: %s = %lld (from variable)\n", member_name.c_str(), (long long)value);
+        }
+        self_member->is_assigned = true;
+    } else {
+        // 式の評価
+        int64_t value = interpreter_.evaluate(value_node);
+        
+        // 複合代入演算子の処理
+        if (value_node->node_type == ASTNodeType::AST_BINARY_OP) {
+            // += -= *= /= などの複合代入かチェック
+            if (value_node->name == "+=" || value_node->name == "-=" || 
+                value_node->name == "*=" || value_node->name == "/=") {
+                // 複合代入は既に評価済みの値として処理
+                debug_print("SELF_COMPOUND_ASSIGN: %s %s= %lld\n", 
+                          member_name.c_str(), value_node->name.c_str(), (long long)value);
+            }
+        }
+        
+        self_member->value = value;
+        if (self_member->type != TYPE_STRING) {
+            self_member->type = TYPE_INT;
+        }
+        self_member->is_assigned = true;
+        
+        // 元の変数のメンバーも同時に更新
+        if (!original_receiver_path.empty()) {
+            debug_print("SELF_ASSIGN_DEBUG: Looking for original member: %s\n", original_receiver_path.c_str());
+            Variable* original_member = interpreter_.find_variable(original_receiver_path);
+            if (original_member) {
+                debug_print("SELF_ASSIGN_DEBUG: Found original member, updating numeric value\n");
+                original_member->value = value;
+                if (original_member->type != TYPE_STRING) {
+                    original_member->type = TYPE_INT;
+                }
+                original_member->is_assigned = true;
+                debug_print("SELF_ASSIGN_SYNC: %s = %lld\n", original_receiver_path.c_str(), (long long)value);
+            } else {
+                debug_print("SELF_ASSIGN_DEBUG: Could not find original member: %s\n", original_receiver_path.c_str());
+            }
+        }
+        
+        debug_print("SELF_ASSIGN: %s = %lld\n", member_name.c_str(), (long long)value);
+    }
+    
+    debug_msg(DebugMsgId::SELF_MEMBER_ACCESS_VALUE, std::to_string(self_member->value).c_str());
+}
+
+void StatementExecutor::execute_ternary_assignment(const ASTNode *node) {
+    // 三項演算子の条件を評価
+    int64_t condition = interpreter_.evaluate(node->right->left.get());
+    
+    // 条件に基づいて選択される分岐を決定
+    const ASTNode* selected_branch = condition ? node->right->right.get() : node->right->third.get();
+    
+    // 選択された分岐の型に基づいて処理を分岐
+    if (selected_branch->node_type == ASTNodeType::AST_ARRAY_LITERAL) {
+        // 配列リテラルの代入
+        if (!node->name.empty()) {
+            interpreter_.assign_array_literal(node->name, selected_branch);
+            return;
+        }
+    } else if (selected_branch->node_type == ASTNodeType::AST_STRUCT_LITERAL) {
+        // 構造体リテラルの代入
+        if (!node->name.empty()) {
+            interpreter_.assign_struct_literal(node->name, selected_branch);
+            return;
+        }
+    } else if (selected_branch->node_type == ASTNodeType::AST_STRING_LITERAL) {
+        // 文字列リテラルの代入
+        if (!node->name.empty()) {
+            Variable* var = interpreter_.get_variable(node->name);
+            if (var) {
+                var->str_value = selected_branch->str_value;
+                var->type = TYPE_STRING;
+                var->is_assigned = true;
+            }
+        }
+        return;
+    } else {
+        // その他（数値、関数呼び出しなど）の場合は通常の評価
+        try {
+            int64_t value = interpreter_.evaluate(selected_branch);
+            Variable* var = interpreter_.get_variable(node->name);
+            if (var) {
+                var->value = value;
+                var->is_assigned = true;
+            }
+        } catch (const ReturnException& ret) {
+            // 関数の戻り値処理
+            if (!node->name.empty()) {
+                Variable* var = interpreter_.get_variable(node->name);
+                if (var) {
+                    if (ret.type == TYPE_STRING) {
+                        var->str_value = ret.str_value;
+                        var->type = TYPE_STRING;
+                    } else {
+                        var->value = ret.value;
+                    }
+                    var->is_assigned = true;
+                }
+            }
+        }
+    }
+}
+
+void StatementExecutor::execute_ternary_variable_initialization(const ASTNode* var_decl_node, const ASTNode* ternary_node) {
+    printf("DEBUG: execute_ternary_variable_initialization called\n");
+    
+    // 三項演算子の条件を評価
+    int64_t condition = interpreter_.evaluate(ternary_node->left.get());
+    printf("DEBUG: Ternary condition = %lld\n", condition);
+    
+    // 条件に基づいて選択される分岐を決定
+    const ASTNode* selected_branch = condition ? ternary_node->right.get() : ternary_node->third.get();
+    printf("DEBUG: Selected branch node_type = %d\n", static_cast<int>(selected_branch->node_type));
+    
+    std::string var_name = var_decl_node->name;
+    Variable* var = interpreter_.get_variable(var_name);
+    
+    if (!var) {
+        throw std::runtime_error("Variable not found during ternary initialization: " + var_name);
+    }
+    
+    // 選択された分岐の型に基づいて処理
+    if (selected_branch->node_type == ASTNodeType::AST_ARRAY_LITERAL) {
+        // 配列リテラルの初期化
+        interpreter_.assign_array_literal(var_name, selected_branch);
+        var->is_assigned = true;
+    } else if (selected_branch->node_type == ASTNodeType::AST_STRUCT_LITERAL) {
+        // 構造体リテラルの初期化
+        interpreter_.assign_struct_literal(var_name, selected_branch);
+        var->is_assigned = true;
+    } else if (selected_branch->node_type == ASTNodeType::AST_STRING_LITERAL) {
+        // 文字列リテラルの初期化
+        var->str_value = selected_branch->str_value;
+        var->type = TYPE_STRING;
+        var->is_assigned = true;
+    } else {
+        // その他（数値、関数呼び出しなど）の場合は通常の評価
+        try {
+            int64_t value = interpreter_.evaluate(selected_branch);
+            var->value = value;
+            var->is_assigned = true;
+        } catch (const ReturnException& ret) {
+            // 関数の戻り値処理
+            if (ret.type == TYPE_STRING) {
+                var->str_value = ret.str_value;
+                var->type = TYPE_STRING;
+            } else {
+                var->value = ret.value;
+            }
+            var->is_assigned = true;
         }
     }
 }

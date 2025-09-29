@@ -1,0 +1,64 @@
+// 配列を含む構造体でのinterfaceテスト
+
+struct NumberHolder {
+    int first;
+    int second; 
+    int third;
+    int count;
+};
+
+interface Collection {
+    int get_sum();
+    int get_count();
+    int get_first();
+    NumberHolder add_number(int value);
+};
+
+impl Collection for NumberHolder {
+    int get_sum() {
+        return self.first + self.second + self.third;
+    }
+    
+    int get_count() {
+        return self.count;
+    }
+    
+    int get_first() {
+        return self.first;
+    }
+    
+    NumberHolder add_number(int value) {
+        if (self.count == 0) {
+            self.first = value;
+            self.count = 1;
+        } else if (self.count == 1) {
+            self.second = value;
+            self.count = 2;
+        } else if (self.count == 2) {
+            self.third = value;
+            self.count = 3;
+        }
+        return self;
+    }
+};
+
+int main() {
+    NumberHolder holder = {10, 20, 30, 3};
+    Collection coll = holder;
+    
+    println(coll.get_sum());
+    println(coll.get_count());
+    println(coll.get_first());
+    
+    NumberHolder result = coll.add_number(40);
+    println(result.count);
+    println(result.third);
+    
+    // 更新された状態で再計算
+    Collection updated_coll = result;
+    println(updated_coll.get_sum());
+    println(updated_coll.get_count());
+    println(updated_coll.get_first());
+    
+    return 0;
+}

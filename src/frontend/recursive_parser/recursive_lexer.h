@@ -92,8 +92,12 @@ enum class TokenType {
     TOK_TYPEDEF,
     TOK_CONST,
     TOK_STATIC,
+    TOK_PRIVATE,
     TOK_STRUCT,
     TOK_ENUM,
+    TOK_INTERFACE,
+    TOK_IMPL,
+    TOK_SELF,
     
     // Special
     TOK_EOF,

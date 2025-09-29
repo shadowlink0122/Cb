@@ -1,6 +1,6 @@
 {
   "language": "Cb",
-  "version": "0.1.0",
+  "version": "0.8.0",
   "description": "Cb programming language configuration",
   "features": {
     "char_type": true,
@@ -8,7 +8,10 @@
     "array_literals": true,
     "const_support": true,
     "debug_messages": true,
-    "multilingual_errors": true
+    "multilingual_errors": true,
+    "interface_impl_system": true,
+    "ternary_operators": true,
+    "multidimensional_arrays": true
   },
   "compiler": {
     "debug_mode": false,
@@ -20,5 +23,18 @@
     "math": false,
     "string": false,
     "io": false
+  },
+  "interface_system": {
+    "enabled": true,
+    "supported_types": [
+      "int", "long", "short", "tiny", "string", "bool", "char",
+      "struct", "typedef", "array", "union"
+    ],
+    "features": {
+      "recursive_typedef_independence": true,
+      "primitive_type_impl": true,
+      "error_detection": true,
+      "method_resolution": true
+    }
   }
 }

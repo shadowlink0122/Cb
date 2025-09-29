@@ -1,0 +1,51 @@
+// プリミティブ型配列でのprivateメソッドテスト（typedef版）
+
+typedef int[5] IntArray;
+
+interface IArrayProcessor {
+    int getSum();
+    string getInfo();
+};
+
+impl IArrayProcessor for IntArray {
+    // パブリックメソッド
+    int getSum() {
+        return self.calculateSum();
+    }
+    
+    string getInfo() {
+        int sum = self.calculateSum();
+        bool valid = self.validateArray();
+        if (valid) {
+            return "Array is valid";
+        }
+        return "Array is invalid";
+    }
+    
+    // プライベートメソッド
+    private int calculateSum() {
+        // 配列の合計を計算（簡略化版）
+        return 100; // テスト用固定値
+    }
+    
+    private bool validateArray() {
+        // 配列の検証（簡略化版）
+        return true; // テスト用固定値
+    }
+};
+
+int main() {
+    println("Primitive array private method test:");
+    
+    IntArray numbers = {1, 2, 3, 4, 5};
+    IArrayProcessor processor = numbers;
+    
+    int sum = processor.getSum();
+    println("Array sum = %d", sum);
+    
+    string info = processor.getInfo();
+    println("Array info = %s", info);
+    
+    println("Primitive array private method test passed");
+    return 0;
+}

@@ -30,6 +30,10 @@
 #include "if/test_if.hpp"
 #include "import_export/test_import_export.hpp"
 #include "incdec/test_incdec.hpp"
+#include "interface/interface_error_tests.hpp"
+#include "interface/interface_tests.hpp"
+#include "interface/test_interface_private.hpp"
+#include "interface/test_typedef_impl.hpp"
 #include "loop/test_loop.hpp"
 #include "module_functions/test_module_functions.hpp"
 #include "multidim_array/test_multidim_array.hpp"
@@ -215,10 +219,20 @@ int main() {
                            failed_tests);
     CategoryTimingStats::print_category_summary("Type System");
 
-    // 構造体テスト群
+    // 構造体・インターフェーステスト群
     std::cout << "\n[integration-test] === Advanced Features ===" << std::endl;
     CategoryTimingStats::set_current_category("Advanced Features");
     run_test_with_continue(StructTests::run_all_struct_tests, "Struct Tests",
+                           failed_tests);
+    run_test_with_continue(InterfaceTests::run_all_interface_tests,
+                           "Interface Tests", failed_tests);
+    run_test_with_continue(test_integration_interface_private,
+                           "Interface Private Method Tests", failed_tests);
+    run_test_with_continue(test_typedef_impl_basic,
+                           "Interface Typedef Implementation Tests",
+                           failed_tests);
+    run_test_with_continue(test_recursive_typedef_independence,
+                           "Recursive Typedef Independence Tests",
                            failed_tests);
     CategoryTimingStats::print_category_summary("Advanced Features");
 
@@ -228,6 +242,8 @@ int main() {
     CategoryTimingStats::set_current_category("Error Handling");
     run_test_with_continue(test_integration_error_handling,
                            "Error Handling Tests", failed_tests);
+    run_test_with_continue(InterfaceErrorTests::run_all_interface_error_tests,
+                           "Interface Error Tests", failed_tests);
     run_test_with_continue(test_integration_dynamic_array_error,
                            "Dynamic Array Error Tests", failed_tests);
     CategoryTimingStats::print_category_summary("Error Handling");

@@ -7,7 +7,7 @@ C++で作成した静的型付きプログラミング言語です。
 
 再帰下降パーサーを使用してAST（抽象構文木）を構築し、C++でASTを逐次実行するインタープリターとして動作します。
 
-**最新バージョン**: v0.7.1 - 多次元配列戻り値処理の完全対応
+**最新バージョン**: v0.8.0 - Interface/Implシステムの完全実装
 
 ## 特徴
 
@@ -22,7 +22,7 @@ C++で作成した静的型付きプログラミング言語です。
 - **Union型システム**: TypeScript風のUnion型完全実装
   - リテラル値Union: `typedef Status = 200 | 404 | 500;`
   - 基本型Union: `typedef NumericValue = int | lon### テストカバレッジ
-- **1116個の統合テストケース**: 全機能の動作検証（100%成功率）
+- **1322個の統合テストケース**: 全機能の動作検証（100%成功率）
 - **26個の単体テスト**: モジュール別詳細テスト
 - **型安全性テスト**: 境界値・型不整合の検出確認
 - **構造体機能テスト**: リテラル初期化、配列メンバー、構造体配列の完全検証
@@ -34,6 +34,12 @@ C++で作成した静的型付きプログラミング言語です。
   - Union型文字列処理: 再帰的文字列実装との完全統合
   - Union型複合代入演算子: 構造体メンバーでの完全対応
   - エラーケース検証（15種類の異常系テスト）
+- **Interface/Implシステムテスト**: 型安全なポリモーフィズムの完全検証（167テストケース）🆕
+  - 基本Interface/Impl機能: プリミティブ型、構造体、配列型への実装
+  - 再帰的Typedef独立性: 各typedef階層での独立実装
+  - インターフェース変数による抽象化とメソッド呼び出し
+  - 包括的エラー検出: 未定義interface、重複実装、署名不一致
+  - プライベートメソッドテスト: impl内での詳細制御
 - **多次元配列戻り値処理**: typedef配列関数の完全対応
   - **関数戻り値の多次元配列展開**: `Matrix2D create_matrix()`等の2次元配列戻り値を正確に処理
   - **Variable Manager改善**: 配列戻り値処理で多次元配列判定・全要素展開を実装
@@ -115,6 +121,13 @@ C++で作成した静的型付きプログラミング言語です。
   - **定数サイズ配列メンバー**: `tiny SIZE = 3; int[SIZE] arr;` の完全対応
   - **sync_struct_members_from_direct_access**: 構造体メンバー同期エンジンの修正完了
   - 構造体の配列（構造体配列リテラル初期化）
+- **Interface/Implシステム**（完全実装） 🆕
+  - プリミティブ型、構造体型、typedef型へのメソッド実装
+  - インターフェース変数による型の抽象化
+  - 再帰的typedefの独立した実装（`typedef int INT; typedef INT INT2;`）
+  - 実装存在チェック付きの型安全な代入
+  - 多重インターフェース実装サポート
+  - デバッグ機能とエラーハンドリング
 - **Union型システム**（完全実装）
   - TypeScript風のUnion型構文とセマンティクス
   - リテラル値、基本型、カスタム型、構造体、配列Union対応
@@ -133,7 +146,6 @@ C++で作成した静的型付きプログラミング言語です。
 ### 🚧 将来の拡張予定
 - **浮動小数点数型**: `float`, `double`のサポート
 - **enum**: 列挙型（部分実装済み）
-- **interface/trait**: 抽象化機能
 - **ジェネリクス・テンプレート**: 型パラメータ化機能
 - **標準ライブラリ**: 文字列操作、数学関数、ファイルIO等の拡充
 
@@ -839,6 +851,95 @@ int main() {
 }
 ```
 
+### Interface/Implシステムの使用例 🆕
+
+```cb
+// インターフェースの定義
+interface Printable {
+    string toString();
+    int getSize();
+};
+
+// Typedef型の定義
+typedef int MyInt;
+typedef int[5] IntArray;
+
+// プリミティブ型への実装
+impl Printable for MyInt {
+    string toString() {
+        return "MyInt value";
+    }
+    
+    int getSize() {
+        return 1;
+    }
+};
+
+// 配列型への実装
+impl Printable for IntArray {
+    string toString() {
+        return "IntArray[5]";
+    }
+    
+    int getSize() {
+        return 5;
+    }
+};
+
+int main() {
+    // 異なる型でも同じインターフェースを使用
+    MyInt mi = 42;
+    IntArray arr = [1, 2, 3, 4, 5];
+    
+    // インターフェース変数による抽象化
+    Printable p1 = mi;
+    Printable p2 = arr;
+    
+    // 統一的なメソッド呼び出し
+    println("MyInt: %s (size: %d)", p1.toString(), p1.getSize());
+    println("IntArray: %s (size: %d)", p2.toString(), p2.getSize());
+    
+    return 0;
+}
+```
+
+### 再帰的Typedef独立性 🆕
+
+```cb
+typedef int INT;
+typedef INT INT2;
+typedef INT2 INT3;
+
+// INT3にのみPrintableを実装
+impl Printable for INT3 {
+    string toString() {
+        return "INT3 implementation";
+    }
+    
+    int getSize() {
+        return 333;
+    }
+};
+
+int main() {
+    int original = 100;   // Printableなし
+    INT int1 = 200;       // Printableなし
+    INT2 int2 = 300;      // Printableなし
+    INT3 int3 = 400;      // Printableあり
+    
+    // これは成功する
+    Printable p3 = int3;
+    println("INT3: %s", p3.toString());
+    
+    // これらはエラーになる
+    // Printable p_orig = original; // Error: No impl found for interface 'Printable' with type 'int'
+    // Printable p1 = int1;        // Error: No impl found for interface 'Printable' with type 'INT'
+    // Printable p2 = int2;        // Error: No impl found for interface 'Printable' with type 'INT2'
+    
+    return 0;
+}
+```
+
 ### 型不整合エラー（英語）
 ```
 $ ./main --debug test_error.cb
@@ -868,6 +969,7 @@ Error: char type value out of range (0-255): 300
 - **フロントエンド**: 字句解析 → 構文解析 → AST生成（再帰下降パーサー）
 - **バックエンド**: インタープリター実行エンジン
 - **Union型システム**: TypeScript風の高度な型検証エンジン
+- **Interface/Implシステム**: 型安全なメソッド実装システム
 - **多言語サポート**: 英語・日本語でのエラーメッセージ・デバッグ情報
 - **UTF-8対応**: 日本語を含む文字列の適切な処理
 - **モジュール化設計**: 機能別ディレクトリ構成
@@ -918,7 +1020,10 @@ make test
 
 ## ドキュメント
 
-詳細な言語仕様については[docs/spec.md](docs/spec.md)を参照してください。
+詳細な言語仕様については以下を参照してください：
+- **基本言語仕様**: [docs/spec.md](docs/spec.md)
+- **Interface/Implシステム**: [docs/interface_system.md](docs/interface_system.md)
+- **リリースノート**: [release_notes/README.md](release_notes/README.md)
 
 ---
 

@@ -1,0 +1,48 @@
+// return selfの動作テスト
+
+struct Counter {
+    int value;
+    int step;
+};
+
+interface Incrementable {
+    Counter increment();
+    Counter add(int amount);
+    Counter reset();
+};
+
+impl Incrementable for Counter {
+    Counter increment() {
+        self.value = self.value + self.step;
+        return self;
+    }
+    
+    Counter add(int amount) {
+        self.value = self.value + amount;
+        return self;
+    }
+    
+    Counter reset() {
+        self.value = 0;
+        return self;
+    }
+};
+
+int main() {
+    Counter counter = {0, 3};
+    Incrementable inc = counter;
+    
+    Counter result1 = inc.increment();
+    println(result1.value);
+    println(result1.step);
+    
+    Counter result2 = inc.add(10);
+    println(result2.value);
+    println(result2.step);
+    
+    Counter result3 = inc.reset();
+    println(result3.value);
+    println(result3.step);
+    
+    return 0;
+}

@@ -1,0 +1,37 @@
+// 統合テスト用：再帰的Typedef独立性テスト
+
+typedef int INT;
+typedef INT INT2;
+typedef INT2 INT3;
+
+interface Printable {
+    string toString();
+    int getValue();
+};
+
+// INT3にのみimplを実装
+impl Printable for INT3 {
+    string toString() {
+        return "INT3 implementation";
+    }
+    
+    int getValue() {
+        return 333;
+    }
+};
+
+int main() {
+    println("=== 再帰的Typedef独立性テスト ===");
+    
+    // INT3のみがPrintableインターフェースを実装している
+    INT3 int3 = 400;
+    Printable p3 = int3;
+    string str3 = p3.toString();
+    int val3 = p3.getValue();
+    println("INT3 toString: %s", str3);
+    println("INT3 getValue: %d", val3);
+    
+    println("=== テスト成功 ===");
+    
+    return 0;
+}

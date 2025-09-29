@@ -1,0 +1,67 @@
+// selfを使わないinterfaceアプローチ
+
+struct Matrix {
+    int[4] data;  // 2x2行列を1次元配列で表現
+    int rows;
+    int cols;
+};
+
+interface MatrixOperations {
+    int getAt(int row, int col);
+    int getSum();
+    Matrix setAt(int row, int col, int value);
+};
+
+impl MatrixOperations for Matrix {
+    int getAt(int row, int col) {
+        if (row >= 0 && row < 2 && col >= 0 && col < 2) {
+            int index = row * 2 + col;
+            // selfの代わりに一時的にコピーを作成
+            Matrix temp = self;
+            return temp.data[index];
+        }
+        return 0;
+    }
+    
+    int getSum() {
+        Matrix temp = self;
+        return temp.data[0] + temp.data[1] + temp.data[2] + temp.data[3];
+    }
+    
+    Matrix setAt(int row, int col, int value) {
+        if (row >= 0 && row < 2 && col >= 0 && col < 2) {
+            int index = row * 2 + col;
+            Matrix result = self;
+            // この代入は失敗するかもしれません
+            result.data[index] = value;
+            return result;
+        }
+        return self;
+    }
+};
+
+int main() {
+    Matrix matrix;
+    matrix.data[0] = 1;
+    matrix.data[1] = 2;
+    matrix.data[2] = 3;
+    matrix.data[3] = 4;
+    matrix.rows = 2;
+    matrix.cols = 2;
+    
+    MatrixOperations matOps = matrix;
+    
+    int elem00 = matOps.getAt(0, 0);
+    println(elem00);  // 1
+    int elem01 = matOps.getAt(0, 1);
+    println(elem01);  // 2
+    int elem10 = matOps.getAt(1, 0);
+    println(elem10);  // 3
+    int elem11 = matOps.getAt(1, 1);
+    println(elem11);  // 4
+    
+    int sum = matOps.getSum();
+    println(sum);     // 10
+    
+    return 0;
+}

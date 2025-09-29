@@ -1,0 +1,38 @@
+// implでメソッドの署名がinterfaceと一致しない場合のエラーテスト
+
+interface Calculator {
+    int add(int a, int b);
+    string format(int value);
+    bool isPositive(int value);
+};
+
+struct MismatchCalc {
+    int value;
+};
+
+impl Calculator for MismatchCalc {
+    // 戻り値の型が違う（int -> string）
+    string add(int a, int b) {
+        return "result";
+    }
+    
+    // 引数の型が違う（int -> string）
+    string format(string value) {
+        return value;
+    }
+    
+    // 引数の数が違う（1個 -> 2個）
+    bool isPositive(int value, int threshold) {
+        return value > threshold;
+    }
+};
+
+int main() {
+    MismatchCalc calc;
+    calc.value = 10;
+    
+    int result = calc.add(5, 3); // 型の不一致エラーが発生すべき
+    println(result);
+    
+    return 0;
+}
