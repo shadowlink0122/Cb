@@ -1345,6 +1345,73 @@ TypedValue ExpressionEvaluator::evaluate_typed_expression(const ASTNode* node) {
             InferredType array_type = type_engine_.infer_type(node);
             return TypedValue(0, array_type);
         }
+        
+        case ASTNodeType::AST_FUNC_CALL: {
+            // 関数呼び出しの場合、ReturnExceptionをキャッチしてTypedValueとして返す
+            try {
+                int64_t numeric_result = evaluate_expression(node);
+                return TypedValue(numeric_result, inferred_type);
+            } catch (const ReturnException& ret) {
+                if (ret.is_struct) {
+                    // 構造体の場合は再スローして変数管理処理でキャッチされるようにする
+                    throw;
+                } else if (ret.type == TYPE_STRING) {
+                    return TypedValue(ret.str_value, InferredType(TYPE_STRING, "string"));
+                } else {
+                    return TypedValue(ret.value, InferredType(ret.type, type_info_to_string(ret.type)));
+                }
+            }
+        }
+        
+        case ASTNodeType::AST_VARIABLE: {
+            // 変数参照の場合、変数の型に応じて適切なTypedValueを返す
+            Variable *var = interpreter_.find_variable(node->name);
+            if (!var) {
+                std::string error_message = (debug_language == DebugLanguage::JAPANESE) ? 
+                    "未定義の変数です: " + node->name : "Undefined variable: " + node->name;
+                interpreter_.throw_runtime_error_with_location(error_message, node);
+            }
+            
+            // 変数の型に基づいて適切なTypedValueを作成
+            if (var->type == TYPE_STRING) {
+                return TypedValue(var->str_value, InferredType(TYPE_STRING, "string"));
+            } else if (var->type == TYPE_UNION) {
+                if (var->current_type == TYPE_STRING) {
+                    return TypedValue(var->str_value, InferredType(TYPE_STRING, "string"));
+                } else {
+                    return TypedValue(var->value, InferredType(var->current_type, type_info_to_string(var->current_type)));
+                }
+            } else {
+                return TypedValue(var->value, InferredType(var->type, type_info_to_string(var->type)));
+            }
+        }
+        
+        case ASTNodeType::AST_MEMBER_ACCESS: {
+            // 構造体メンバアクセスの場合
+            if (inferred_type.type_info == TYPE_STRING) {
+                // 文字列型のメンバアクセス - 直接構造体メンバにアクセス
+                if (node->left && node->left->node_type == ASTNodeType::AST_VARIABLE) {
+                    std::string struct_name = node->left->name;
+                    std::string member_name = node->name;
+                    
+                    // interpreter_.get_struct_member を使用する代わりに、直接値を取得
+                    std::string member_var_name = struct_name + "." + member_name;
+                    Variable* member_var = interpreter_.find_variable(member_var_name);
+                    if (member_var && member_var->type == TYPE_STRING) {
+                        return TypedValue(member_var->str_value, InferredType(TYPE_STRING, "string"));
+                    }
+                }
+            }
+            // 数値型やその他の型の場合は従来の評価を使用
+            int64_t numeric_result = evaluate_expression(node);
+            return TypedValue(numeric_result, inferred_type);
+        }
+        
+        case ASTNodeType::AST_ARRAY_REF: {
+            // 配列要素アクセスの場合は直接評価
+            int64_t numeric_result = evaluate_expression(node);
+            return TypedValue(numeric_result, inferred_type);
+        }
             
         default: {
             // デフォルトは従来の評価結果を数値として返す
@@ -1380,6 +1447,31 @@ TypedValue ExpressionEvaluator::evaluate_ternary_typed(const ASTNode* node) {
         TypedValue result = evaluate_typed_expression(selected_node);
         last_typed_result_ = result;
         return result;
+    } else if (selected_type.type_info == TYPE_STRING && 
+               selected_node->node_type == ASTNodeType::AST_VARIABLE) {
+        // 文字列変数参照の場合
+        TypedValue result = evaluate_typed_expression(selected_node);
+        last_typed_result_ = result;
+        return result;
+    } else if (selected_type.type_info == TYPE_STRING && 
+               selected_node->node_type == ASTNodeType::AST_FUNC_CALL) {
+        // 文字列を返す関数呼び出しの場合
+        try {
+            int64_t dummy_result = evaluate_expression(selected_node);
+            TypedValue result = TypedValue("", InferredType(TYPE_STRING, "string"));
+            last_typed_result_ = result;
+            return result;
+        } catch (const ReturnException& ret) {
+            if (ret.type == TYPE_STRING) {
+                TypedValue result = TypedValue(ret.str_value, InferredType(TYPE_STRING, "string"));
+                last_typed_result_ = result;
+                return result;
+            } else {
+                TypedValue result = TypedValue("", InferredType(TYPE_STRING, "string"));
+                last_typed_result_ = result;
+                return result;
+            }
+        }
     } else if (selected_node->node_type == ASTNodeType::AST_TERNARY_OP) {
         // ネストした三項演算子の場合は再帰的に評価
         TypedValue result = evaluate_ternary_typed(selected_node);
@@ -1400,56 +1492,40 @@ TypedValue ExpressionEvaluator::evaluate_ternary_typed(const ASTNode* node) {
                 std::string struct_name = selected_node->left->name;
                 std::string member_name = selected_node->name;
                 
-                try {
-                    Variable* member_var = interpreter_.get_struct_member(struct_name, member_name);
-                    if (member_var && member_var->type == TYPE_STRING) {
-                        debug_msg(DebugMsgId::TERNARY_STRING_EVAL, member_var->str_value.c_str());
-                        TypedValue result = TypedValue(member_var->str_value, InferredType(TYPE_STRING, "string"));
-                        last_typed_result_ = result;
-                        return result;
-                    }
-                } catch (const std::exception& e) {
-                    // Exception handling without debug output
-                }
-            }
-            
-            // フォールバック: 従来の方法
-            try {
-                int64_t result = evaluate_expression(selected_node);
-                debug_msg(DebugMsgId::TERNARY_NUMERIC_EVAL, result);
-                TypedValue result_tv = TypedValue("", InferredType(TYPE_STRING, "string"));
-                last_typed_result_ = result_tv;
-                return result_tv;
-            } catch (const ReturnException& ret) {
-                if (ret.type == TYPE_STRING) {
-                    debug_msg(DebugMsgId::TERNARY_STRING_EVAL, ret.str_value.c_str());
-                    TypedValue result = TypedValue(ret.str_value, InferredType(TYPE_STRING, "string"));
-                    last_typed_result_ = result;
-                    return result;
-                } else {
-                    TypedValue result = TypedValue("", InferredType(TYPE_STRING, "string"));
+                // interpreter_.get_struct_member を使用する代わりに、直接変数名で検索
+                std::string member_var_name = struct_name + "." + member_name;
+                Variable* member_var = interpreter_.find_variable(member_var_name);
+                
+                if (member_var && member_var->type == TYPE_STRING) {
+                    debug_msg(DebugMsgId::TERNARY_STRING_EVAL, member_var->str_value.c_str());
+                    TypedValue result = TypedValue(member_var->str_value, InferredType(TYPE_STRING, "string"));
                     last_typed_result_ = result;
                     return result;
                 }
             }
-        } else {
-            // 数値型のメンバアクセスの場合
-            try {
-                int64_t numeric_result = evaluate_expression(selected_node);
-                debug_msg(DebugMsgId::TERNARY_NUMERIC_EVAL, numeric_result);
-                TypedValue result = TypedValue(numeric_result, selected_type);
+        }
+        // 数値型の場合は従来の評価を使用
+        int64_t numeric_result = evaluate_expression(selected_node);
+        TypedValue result = TypedValue(numeric_result, selected_type);
+        last_typed_result_ = result;
+        return result;
+    } else if (selected_node->node_type == ASTNodeType::AST_FUNC_CALL) {
+        // 関数呼び出し（メソッド呼び出し含む）の場合
+        try {
+            int64_t numeric_result = evaluate_expression(selected_node);
+            debug_msg(DebugMsgId::TERNARY_NUMERIC_EVAL, numeric_result);
+            TypedValue result = TypedValue(numeric_result, selected_type);
+            last_typed_result_ = result;
+            return result;
+        } catch (const ReturnException& ret) {
+            if (ret.type == TYPE_STRING) {
+                TypedValue result = TypedValue(ret.str_value, InferredType(TYPE_STRING, "string"));
                 last_typed_result_ = result;
                 return result;
-            } catch (const ReturnException& ret) {
-                if (ret.type == TYPE_STRING) {
-                    TypedValue result = TypedValue(ret.str_value, InferredType(TYPE_STRING, "string"));
-                    last_typed_result_ = result;
-                    return result;
-                } else {
-                    TypedValue result = TypedValue(ret.value, selected_type);
-                    last_typed_result_ = result;
-                    return result;
-                }
+            } else {
+                TypedValue result = TypedValue(ret.value, selected_type);
+                last_typed_result_ = result;
+                return result;
             }
         }
     }

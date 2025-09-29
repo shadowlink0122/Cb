@@ -5,6 +5,7 @@
 #include "managers/common_operations.h"
 #include "evaluator/expression_evaluator.h"
 #include "core/interpreter.h"
+#include "core/type_inference.h"
 #include "managers/type_manager.h"
 #include "managers/enum_manager.h"
 #include <algorithm>
@@ -746,9 +747,18 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
             if (node->right || node->init_expr) {
                 ASTNode* init_node = node->init_expr ? node->init_expr.get() : node->right.get();
                 
-                // 三項演算子による初期化の特別処理
+                // 三項演算子による初期化の新しい処理（型推論使用）
                 if (init_node->node_type == ASTNodeType::AST_TERNARY_OP) {
-                    handle_ternary_initialization(var, init_node);
+                    TypedValue ternary_result = interpreter_->evaluate_ternary_typed(init_node);
+                    
+                    if (ternary_result.is_string()) {
+                        var.str_value = ternary_result.string_value;
+                        var.value = 0;
+                    } else {
+                        var.value = ternary_result.numeric_value;
+                        var.str_value = "";
+                    }
+                    
                     interpreter_->current_scope().variables[node->name] = var;
                     return; // 早期リターン
                 }
@@ -1731,13 +1741,18 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                         var.is_assigned = true;
                     }
                 } else if (node->init_expr->node_type == ASTNodeType::AST_FUNC_CALL) {
-                    // 関数呼び出しの場合、ReturnExceptionをキャッチ
+                    // 関数呼び出しの場合、型推論対応評価を使用
                     try {
-                        int64_t value =
-                            interpreter_->expression_evaluator_
-                                ->evaluate_expression(node->init_expr.get());
-                        // ReturnExceptionがキャッチされない場合のみここに到達
-                        var.value = value;
+                        TypedValue typed_result = interpreter_->expression_evaluator_
+                                ->evaluate_typed_expression(node->init_expr.get());
+                        
+                        if (typed_result.is_string()) {
+                            var.str_value = typed_result.string_value;
+                            var.value = 0;
+                        } else {
+                            var.value = typed_result.numeric_value;
+                            var.str_value = "";
+                        }
                         var.is_assigned = true;
                     } catch (const ReturnException &ret) {
                         if (ret.is_struct) {
@@ -1814,10 +1829,17 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                             "value");
                     }
                 } else {
-                    int64_t value =
-                        interpreter_->expression_evaluator_
-                            ->evaluate_expression(node->init_expr.get());
-                    var.value = value;
+                    // 型推論対応の式評価を使用して文字列値も取得
+                    TypedValue typed_result = interpreter_->expression_evaluator_
+                            ->evaluate_typed_expression(node->init_expr.get());
+                    
+                    if (typed_result.is_string()) {
+                        var.str_value = typed_result.string_value;
+                        var.value = 0;
+                    } else {
+                        var.value = typed_result.numeric_value;
+                        var.str_value = "";
+                    }
                     var.is_assigned = true;
                 }
 

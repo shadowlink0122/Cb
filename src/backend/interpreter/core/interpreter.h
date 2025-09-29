@@ -1,6 +1,7 @@
 #pragma once
 #include "../../../common/ast.h"
 #include "../../../common/debug.h"
+#include "type_inference.h"
 #include <iostream>
 #include <map>
 #include <string>
@@ -428,6 +429,9 @@ class Interpreter : public EvaluatorInterface {
     
     // VariableManagerへのアクセス
     VariableManager *get_variable_manager() { return variable_manager_.get(); }
+    
+    // 型推論付き三項演算子評価
+    TypedValue evaluate_ternary_typed(const ASTNode* node);
     
     // 関数定義の検索
     const ASTNode* find_function_definition(const std::string& func_name);

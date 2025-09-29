@@ -434,8 +434,6 @@ void OutputManager::print_formatted(const ASTNode *format_str,
     // 引数リストを評価
     if (arg_list && arg_list->node_type == ASTNodeType::AST_STMT_LIST) {
         for (const auto &arg : arg_list->arguments) {
-            printf("[DEBUG] Processing argument with node_type: %d\n", static_cast<int>(arg->node_type));
-            
             if (arg->node_type == ASTNodeType::AST_STRING_LITERAL) {
                 str_args.push_back(arg->str_value);
                 int_args.push_back(0); // プレースホルダー
@@ -450,48 +448,33 @@ void OutputManager::print_formatted(const ASTNode *format_str,
                     str_args.push_back(""); // プレースホルダー
                 }
             } else if (arg->node_type == ASTNodeType::AST_FUNC_CALL) {
-                // 関数呼び出しの処理
-                try {
-                    int64_t value = evaluate_expression(arg.get());
-                    int_args.push_back(value);
+                // 関数呼び出しの処理（TypedValueを使用）
+                auto* expr_evaluator = interpreter_->get_expression_evaluator();
+                TypedValue typed_result = expr_evaluator->evaluate_typed_expression(arg.get());
+                
+                if (typed_result.is_string()) {
+                    str_args.push_back(typed_result.string_value);
+                    int_args.push_back(0); // プレースホルダー
+                } else {
+                    int_args.push_back(typed_result.numeric_value);
                     str_args.push_back(""); // プレースホルダー
-                } catch (const ReturnException& ret) {
-                    if (ret.type == TYPE_STRING) {
-                        // 文字列戻り値の関数
-                        str_args.push_back(ret.str_value);
-                        int_args.push_back(0); // プレースホルダー
-                    } else {
-                        // 数値戻り値の関数
-                        int_args.push_back(ret.value);
-                        str_args.push_back(""); // プレースホルダー
-                    }
                 }
             } else if (arg->node_type == ASTNodeType::AST_TERNARY_OP) {
                 // 三項演算子の場合は型推論対応評価を使用
                 auto* expr_evaluator = interpreter_->get_expression_evaluator();
                 
-                printf("[DEBUG] Processing ternary operator\n");
-                
                 // 三項演算子を評価（結果はキャッシュされる）
                 int64_t dummy_result = evaluate_expression(arg.get());
-                
-                printf("[DEBUG] Ternary evaluation completed, dummy_result: %lld\n", (long long)dummy_result);
                 
                 // 型推論結果を取得
                 const auto& typed_result = expr_evaluator->get_last_typed_result();
                 
-                printf("[DEBUG] Typed result - is_string: %d, as_string: %s, as_numeric: %lld\n", 
-                       typed_result.is_string(), typed_result.as_string().c_str(), 
-                       (long long)typed_result.as_numeric());
-                
                 if (typed_result.is_string()) {
                     str_args.push_back(typed_result.as_string());
                     int_args.push_back(0); // プレースホルダー
-                    printf("[DEBUG] Added string result: %s\n", typed_result.as_string().c_str());
                 } else {
                     int_args.push_back(typed_result.as_numeric());
                     str_args.push_back(""); // プレースホルダー
-                    printf("[DEBUG] Added numeric result: %lld\n", (long long)typed_result.as_numeric());
                 }
             } else {
                 int64_t value = evaluate_expression(arg.get());
@@ -833,6 +816,33 @@ void OutputManager::print_formatted(const ASTNode *format_str, const ASTNode *ar
                     int64_t value = evaluate_expression(arg.get());
                     int_args.push_back(value);
                     str_args.push_back(""); // プレースホルダー
+                }
+            } else if (arg->node_type == ASTNodeType::AST_FUNC_CALL) {
+                // 関数呼び出しの処理 - TypedValueを使用
+                auto* expression_evaluator = interpreter_->get_expression_evaluator();
+                try {
+                    TypedValue typed_result = expression_evaluator->evaluate_typed_expression(arg.get());
+                    
+                    if (typed_result.is_string()) {
+                        str_args.push_back(typed_result.string_value);
+                        int_args.push_back(0); // プレースホルダー
+                    } else {
+                        int_args.push_back(typed_result.numeric_value);
+                        str_args.push_back(""); // プレースホルダー
+                    }
+                } catch (const ReturnException& ret) {
+                    // 旧形式のReturnExceptionとの互換性
+                    if (ret.type == TYPE_STRING) {
+                        str_args.push_back(ret.str_value);
+                        int_args.push_back(0); // プレースホルダー
+                    } else {
+                        int_args.push_back(ret.value);
+                        str_args.push_back(""); // プレースホルダー
+                    }
+                } catch (const std::exception& e) {
+                    // エラーの場合は空の値を使用
+                    int_args.push_back(0);
+                    str_args.push_back("");
                 }
             } else if (arg->node_type == ASTNodeType::AST_ARRAY_REF) {
                 // 配列要素の処理

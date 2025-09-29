@@ -830,8 +830,10 @@ void Interpreter::execute_statement(const ASTNode *node) {
         break;
 
     case ASTNodeType::AST_RETURN_STMT:
+        // printf("DEBUG: AST_RETURN_STMT processing started\n");
         debug_msg(DebugMsgId::INTERPRETER_RETURN_STMT);
         if (node->left) {
+            // printf("DEBUG: Return statement has left node, type: %d\n", static_cast<int>(node->left->node_type));
             debug_msg(DebugMsgId::INTERPRETER_RETURN_STMT);
             // 配列リテラルの直接返却をサポート
             if (node->left->node_type == ASTNodeType::AST_ARRAY_LITERAL) {
@@ -1211,10 +1213,15 @@ void Interpreter::execute_statement(const ASTNode *node) {
                         }
                     }
                     
-                    // デフォルトの式評価
-                    int64_t value = expression_evaluator_->evaluate_expression(
+                    // デフォルトの式評価（型推論対応）
+                    TypedValue typed_result = expression_evaluator_->evaluate_typed_expression(
                         node->left.get());
-                    throw ReturnException(value);
+                        
+                    if (typed_result.is_string()) {
+                        throw ReturnException(typed_result.string_value);
+                    } else {
+                        throw ReturnException(typed_result.numeric_value);
+                    }
                 }
             } else {
                 if (node->left->node_type == ASTNodeType::AST_VARIABLE) {
@@ -1254,10 +1261,14 @@ void Interpreter::execute_statement(const ASTNode *node) {
                         }
                     }
                     
-                    // デフォルトの式評価
-                    int64_t value = expression_evaluator_->evaluate_expression(
+                    // デフォルトの式評価（TypedValueを使用）
+                    TypedValue result = expression_evaluator_->evaluate_typed_expression(
                         node->left.get());
-                    throw ReturnException(value);
+                    if (result.is_string()) {
+                        throw ReturnException(result.string_value);
+                    } else {
+                        throw ReturnException(result.numeric_value);
+                    }
                 }
             }
         } else {
@@ -3174,4 +3185,8 @@ void Interpreter::sync_self_to_receiver(const std::string& receiver_path) {
 // 関数定義の検索
 const ASTNode* Interpreter::find_function_definition(const std::string& func_name) {
     return find_function(func_name);
+}
+
+TypedValue Interpreter::evaluate_ternary_typed(const ASTNode* node) {
+    return expression_evaluator_->evaluate_ternary_typed(node);
 }

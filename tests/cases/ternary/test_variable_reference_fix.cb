@@ -1,0 +1,45 @@
+// 変数参照とprintf内関数呼び出しの修正を検証するテスト
+
+string check_variable_in_ternary() {
+    string message = "success";
+    int value = 10;
+    
+    // 変数参照が三項演算子で正しく動作するかテスト
+    return (value > 5) ? message : "failure";
+}
+
+string get_status(int score) {
+    return (score >= 80) ? "excellent" : (score >= 60) ? "good" : "poor";
+}
+
+int main() {
+    println("=== Variable Reference and Function Call in Printf Test ===");
+    
+    // 1. 変数参照の三項演算子テスト
+    string result1 = check_variable_in_ternary();
+    println("Variable reference test: %s", result1);
+    
+    // 2. printf内での関数呼び出しテスト
+    println("Function call in printf: %s", get_status(85));
+    println("Function call in printf: %s", get_status(65));
+    println("Function call in printf: %s", get_status(45));
+    
+    // 3. 複雑なケース：変数参照 + 関数呼び出し
+    string base_message = "result";
+    int test_score = 90;
+    
+    string combined_result = (test_score >= 80) ? base_message : "failed";
+    println("Combined test (variable + condition): %s", combined_result);
+    
+    // 4. ネストした変数参照テスト
+    string level1 = "high";
+    string level2 = "medium";
+    string level3 = "low";
+    
+    int priority = 85;
+    string final_level = (priority > 80) ? level1 : (priority > 50) ? level2 : level3;
+    println("Nested variable reference: %s", final_level);
+    
+    println("=== Test Complete ===");
+    return 0;
+}

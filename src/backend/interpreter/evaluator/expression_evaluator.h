@@ -20,6 +20,9 @@ public:
     // 型推論対応の式評価
     TypedValue evaluate_typed_expression(const ASTNode *node);
     
+    // 型推論対応の三項演算子評価
+    TypedValue evaluate_ternary_typed(const ASTNode* node);
+    
     // 修飾された関数呼び出し評価
     int64_t evaluate_qualified_function_call(const ASTNode *node);
     
@@ -36,9 +39,6 @@ private:
     // ヘルパー関数
     std::string type_info_to_string(TypeInfo type);
     void sync_self_changes_to_receiver(const std::string& receiver_name, Variable* receiver_var);
-    
-    // 型推論対応のヘルパー
-    TypedValue evaluate_ternary_typed(const ASTNode* node);
     
     // 遅延評価されたTypedValueを実際に評価する
     TypedValue resolve_deferred_evaluation(const TypedValue& deferred_value);
