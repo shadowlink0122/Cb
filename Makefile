@@ -23,6 +23,7 @@ CGEN_DIR=cgen
 # オブジェクトファイル（RecursiveParserのみ使用）
 FRONTEND_OBJS=$(FRONTEND_DIR)/main.o $(FRONTEND_DIR)/help_messages.o $(FRONTEND_DIR)/recursive_parser/recursive_lexer.o $(FRONTEND_DIR)/recursive_parser/recursive_parser.o
 BACKEND_OBJS=$(BACKEND_DIR)/interpreter/core/interpreter.o $(BACKEND_DIR)/interpreter/core/error_handler.o \
+             $(BACKEND_DIR)/interpreter/core/type_inference.o \
              $(BACKEND_DIR)/interpreter/evaluator/expression_evaluator.o \
              $(BACKEND_DIR)/interpreter/executor/statement_executor.o \
              $(BACKEND_DIR)/interpreter/output/output_manager.o \

@@ -11,7 +11,7 @@
 #include <iostream>
 
 ExpressionEvaluator::ExpressionEvaluator(Interpreter& interpreter) 
-    : interpreter_(interpreter) {}
+    : interpreter_(interpreter), type_engine_(interpreter), last_typed_result_(0, InferredType()) {}
 
 int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
     if (!node) {
@@ -414,13 +414,15 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
     }
 
     case ASTNodeType::AST_TERNARY_OP: {
-        // 三項演算子: condition ? true_expr : false_expr
-        int64_t condition = evaluate_expression(node->left.get());
+        // 三項演算子: condition ? true_expr : false_expr (型推論対応)
+        TypedValue typed_result = evaluate_ternary_typed(node);
         
-        if (condition) {
-            return evaluate_expression(node->right.get());
+        if (typed_result.is_string()) {
+            // 文字列の場合は、プロトコルとして0を返し、実際の文字列値は
+            // 必要に応じて別途取得する（OutputManagerなど）
+            return 0;
         } else {
-            return evaluate_expression(node->third.get());
+            return typed_result.as_numeric();
         }
     }
 
@@ -1312,4 +1314,54 @@ void ExpressionEvaluator::sync_self_changes_to_receiver(const std::string& recei
                        receiver_member->str_value.c_str());
         }
     }
+}
+
+// 型推論対応の式評価
+TypedValue ExpressionEvaluator::evaluate_typed_expression(const ASTNode* node) {
+    if (!node) {
+        return TypedValue(0, InferredType());
+    }
+    
+    // まず型を推論
+    InferredType inferred_type = type_engine_.infer_type(node);
+    
+    switch (node->node_type) {
+        case ASTNodeType::AST_TERNARY_OP:
+            return evaluate_ternary_typed(node);
+            
+        case ASTNodeType::AST_STRING_LITERAL:
+            return TypedValue(node->str_value, InferredType(TYPE_STRING, "string"));
+            
+        case ASTNodeType::AST_NUMBER:
+            return TypedValue(node->int_value, InferredType(TYPE_INT, "int"));
+            
+        case ASTNodeType::AST_ARRAY_LITERAL: {
+            // 配列リテラルの場合、プレースホルダーとして0を返し、型情報を保持
+            InferredType array_type = type_engine_.infer_type(node);
+            return TypedValue(0, array_type);
+        }
+            
+        default: {
+            // デフォルトは従来の評価結果を数値として返す
+            int64_t numeric_result = evaluate_expression(node);
+            return TypedValue(numeric_result, inferred_type);
+        }
+    }
+}
+
+// 型推論対応の三項演算子評価
+TypedValue ExpressionEvaluator::evaluate_ternary_typed(const ASTNode* node) {
+    // 条件式を評価
+    int64_t condition = evaluate_expression(node->left.get());
+    
+    TypedValue result(0, InferredType());
+    if (condition) {
+        result = evaluate_typed_expression(node->right.get());
+    } else {
+        result = evaluate_typed_expression(node->third.get());
+    }
+    
+    // 結果をキャッシュに保存
+    last_typed_result_ = result;
+    return result;
 }

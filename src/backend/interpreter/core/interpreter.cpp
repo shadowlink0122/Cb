@@ -3170,3 +3170,8 @@ void Interpreter::sync_self_to_receiver(const std::string& receiver_path) {
         }
     }
 }
+
+// 関数定義の検索
+const ASTNode* Interpreter::find_function_definition(const std::string& func_name) {
+    return find_function(func_name);
+}
