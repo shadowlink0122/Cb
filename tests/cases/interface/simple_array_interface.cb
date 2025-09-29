@@ -1,0 +1,62 @@
+// 基本的な配列interfaceテスト
+
+struct SimpleArray {
+    int size;
+    int first;
+    int second;
+    int third;
+};
+
+interface ArrayLike {
+    int getSize();
+    int getFirst();
+    SimpleArray setFirst(int value);
+    int getSum();
+};
+
+impl ArrayLike for SimpleArray {
+    int getSize() {
+        return self.size;
+    }
+    
+    int getFirst() {
+        return self.first;
+    }
+    
+    SimpleArray setFirst(int value) {
+        self.first = value;
+        return self;
+    }
+    
+    int getSum() {
+        return self.first + self.second + self.third;
+    }
+};
+
+int main() {
+    SimpleArray arr = {3, 10, 20, 30};
+    ArrayLike arrInterface = arr;
+    
+    // サイズを取得
+    int size = arrInterface.getSize();
+    println(size);
+    
+    // 最初の要素を取得
+    int first = arrInterface.getFirst();
+    println(first);
+    
+    // 合計を計算
+    int sum1 = arrInterface.getSum();
+    println(sum1);
+    
+    // 最初の要素を変更
+    SimpleArray result = arrInterface.setFirst(100);
+    int newFirst = result.first;
+    println(newFirst);
+    
+    // 変更後の合計
+    int sum2 = arrInterface.getSum();
+    println(sum2);
+    
+    return 0;
+}

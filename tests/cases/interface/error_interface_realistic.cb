@@ -1,0 +1,39 @@
+// 改善されたinterfaceエラーテスト - 現在検出可能なエラーに焦点
+
+interface Shape {
+    int area();
+    int perimeter();
+};
+
+struct Rectangle {
+    int width;
+    int height;
+};
+
+// 正しい実装
+impl Shape for Rectangle {
+    int area() {
+        return self.width * self.height;
+    }
+    
+    int perimeter() {
+        return 2 * (self.width + self.height);
+    }
+};
+
+// 別の構造体 - 実装なし
+struct Circle {
+    int radius;
+};
+
+int main() {
+    Rectangle rect = {10, 5};
+    println(rect.area());      // 50 - 正常
+    println(rect.perimeter()); // 30 - 正常
+    
+    Circle circle = {5};
+    // このメソッド呼び出しはエラーになる（実装されていない）
+    println(circle.area());    // エラー: Undefined function
+    
+    return 0;
+}

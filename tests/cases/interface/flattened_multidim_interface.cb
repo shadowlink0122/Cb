@@ -1,0 +1,164 @@
+// 多次元配列を1次元配列で表現するinterfaceテスト
+
+struct Matrix2D {
+    int[4] data;  // 2x2 matrix as 1D array
+    int rows;
+    int cols;
+};
+
+struct Matrix3D {
+    int[8] data;  // 2x2x2 cube as 1D array
+    int width;
+    int height;
+    int depth;
+};
+
+interface MatrixOperations {
+    int get2D(int row, int col);
+    Matrix2D set2D(int row, int col, int value);
+    int sum2D();
+    Matrix2D add2DMatrix(int[4] other);
+};
+
+interface CubeOperations {
+    int get3D(int x, int y, int z);
+    Matrix3D set3D(int x, int y, int z, int value);
+    int sum3D();
+    Matrix3D add3DCube(int[8] other);
+};
+
+impl MatrixOperations for Matrix2D {
+    int get2D(int row, int col) {
+        if (row >= 0 && row < 2 && col >= 0 && col < 2) {
+            int index = row * 2 + col;
+            return self.data[index];
+        }
+        return 0;
+    }
+    
+    Matrix2D set2D(int row, int col, int value) {
+        if (row >= 0 && row < 2 && col >= 0 && col < 2) {
+            int index = row * 2 + col;
+            self.data[index] = value;
+        }
+        return self;
+    }
+    
+    int sum2D() {
+        return self.data[0] + self.data[1] + self.data[2] + self.data[3];
+    }
+    
+    Matrix2D add2DMatrix(int[4] other) {
+        self.data[0] = self.data[0] + other[0];
+        self.data[1] = self.data[1] + other[1];
+        self.data[2] = self.data[2] + other[2];
+        self.data[3] = self.data[3] + other[3];
+        return self;
+    }
+};
+
+impl CubeOperations for Matrix3D {
+    int get3D(int x, int y, int z) {
+        if (x >= 0 && x < 2 && y >= 0 && y < 2 && z >= 0 && z < 2) {
+            int index = x * 4 + y * 2 + z;
+            return self.data[index];
+        }
+        return 0;
+    }
+    
+    Matrix3D set3D(int x, int y, int z, int value) {
+        if (x >= 0 && x < 2 && y >= 0 && y < 2 && z >= 0 && z < 2) {
+            int index = x * 4 + y * 2 + z;
+            self.data[index] = value;
+        }
+        return self;
+    }
+    
+    int sum3D() {
+        int sum = 0;
+        int i = 0;
+        while (i < 8) {
+            sum = sum + self.data[i];
+            i = i + 1;
+        }
+        return sum;
+    }
+    
+    Matrix3D add3DCube(int[8] other) {
+        int i = 0;
+        while (i < 8) {
+            self.data[i] = self.data[i] + other[i];
+            i = i + 1;
+        }
+        return self;
+    }
+};
+
+int main() {
+    // 2次元行列テスト - 個別に初期化
+    Matrix2D matrix;
+    matrix.data[0] = 1;
+    matrix.data[1] = 2;
+    matrix.data[2] = 3;
+    matrix.data[3] = 4;
+    matrix.rows = 2;
+    matrix.cols = 2;
+    MatrixOperations matOps = matrix;
+    
+    println("2D Matrix Test:");
+    int elem00 = matOps.get2D(0, 0);
+    println(elem00);  // 1
+    int elem01 = matOps.get2D(0, 1);
+    println(elem01);  // 2
+    int elem10 = matOps.get2D(1, 0);
+    println(elem10);  // 3
+    int elem11 = matOps.get2D(1, 1);
+    println(elem11);  // 4
+    
+    int sum2d = matOps.sum2D();
+    println(sum2d);   // 10
+    
+    Matrix2D result2d = matOps.set2D(0, 0, 10);
+    int newElem = matOps.get2D(0, 0);
+    println(newElem); // 10
+    
+    // 3次元立方体テスト - 個別に初期化
+    Matrix3D cube;
+    cube.data[0] = 1;
+    cube.data[1] = 2;
+    cube.data[2] = 3;
+    cube.data[3] = 4;
+    cube.data[4] = 5;
+    cube.data[5] = 6;
+    cube.data[6] = 7;
+    cube.data[7] = 8;
+    cube.width = 2;
+    cube.height = 2;
+    cube.depth = 2;
+    CubeOperations cubeOps = cube;
+    
+    println("3D Cube Test:");
+    int elem000 = cubeOps.get3D(0, 0, 0);
+    println(elem000);  // 1
+    int elem111 = cubeOps.get3D(1, 1, 1);
+    println(elem111);  // 8
+    
+    int sum3d = cubeOps.sum3D();
+    println(sum3d);    // 36
+    
+    Matrix3D result3d = cubeOps.set3D(1, 1, 1, 80);
+    int newElem3d = cubeOps.get3D(1, 1, 1);
+    println(newElem3d); // 80
+    
+    // 外部配列との演算 - 個別に初期化
+    int[4] addMatrix;
+    addMatrix[0] = 5;
+    addMatrix[1] = 6;
+    addMatrix[2] = 7;
+    addMatrix[3] = 8;
+    Matrix2D addResult = matOps.add2DMatrix(addMatrix);
+    int finalSum = matOps.sum2D();
+    println(finalSum);  // 増加後の合計
+    
+    return 0;
+}

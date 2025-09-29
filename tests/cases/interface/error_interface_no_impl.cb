@@ -1,0 +1,23 @@
+// interfaceが定義されているが、implがない場合のエラーテスト
+
+interface Calculator {
+    int add(int a, int b);
+    int multiply(int a, int b);
+};
+
+struct SimpleCalc {
+    int value;
+};
+
+// implが定義されていない
+
+int main() {
+    SimpleCalc calc;
+    calc.value = 10;
+    
+    // このメソッド呼び出しはエラーになるべき
+    int result = calc.add(5, 3);
+    println(result);
+    
+    return 0;
+}

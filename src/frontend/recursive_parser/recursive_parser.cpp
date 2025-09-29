@@ -3,11 +3,15 @@
 #include "../../common/debug.h"
 #include "../../common/debug_messages.h"
 #include "../../common/debug.h"
+
 #include <iostream>
 #include <sstream>
 #include <unordered_set>
 #include <algorithm>
 #include <cctype>
+
+// 外部関数宣言
+extern const char *type_info_to_string(TypeInfo type);
 
 using namespace RecursiveParserNS;
 
@@ -144,6 +148,18 @@ ASTNode* RecursiveParser::parseStatement() {
         return parseEnumDeclaration();
     }
     
+    // interface宣言の処理
+    if (check(TokenType::TOK_INTERFACE)) {
+        debug_msg(DebugMsgId::PARSE_ENUM_DECL_START, current_token_.line); // 適切なデバッグIDに変更する必要がある
+        return parseInterfaceDeclaration();
+    }
+    
+    // impl宣言の処理
+    if (check(TokenType::TOK_IMPL)) {
+        debug_msg(DebugMsgId::PARSE_ENUM_DECL_START, current_token_.line); // 適切なデバッグIDに変更する必要がある
+        return parseImplDeclaration();
+    }
+    
     // typedef型変数宣言の処理
     if (check(TokenType::TOK_IDENTIFIER)) {
         std::string potential_type = current_token_.value;
@@ -151,11 +167,12 @@ ASTNode* RecursiveParser::parseStatement() {
         // typedef型または構造体型の可能性をチェック
         bool is_typedef = typedef_map_.find(potential_type) != typedef_map_.end();
         bool is_struct_type = struct_definitions_.find(potential_type) != struct_definitions_.end();
+        bool is_interface_type = interface_definitions_.find(potential_type) != interface_definitions_.end();
         
         debug_msg(DebugMsgId::PARSE_TYPE_CHECK, potential_type.c_str(), 
                   is_typedef ? "true" : "false", is_struct_type ? "true" : "false");
 
-        if (is_typedef || is_struct_type) {
+        if (is_typedef || is_struct_type || is_interface_type) {
             debug_msg(DebugMsgId::PARSE_TYPEDEF_OR_STRUCT_TYPE_FOUND, potential_type.c_str());
             // 簡単な先読み: 現在の位置を保存
             RecursiveLexer temp_lexer = lexer_;
@@ -252,6 +269,33 @@ ASTNode* RecursiveParser::parseStatement() {
                         consume(TokenType::TOK_SEMICOLON, "Expected ';' after struct variable declaration");
                         return var_node;
                     }
+                } else if (is_interface_type) {
+                    debug_msg(DebugMsgId::PARSE_STRUCT_VAR_DECL_FOUND, potential_type.c_str()); // interface専用のデバッグIDが必要
+                    // interface変数宣言
+                    std::string interface_type = advance().value;
+                    
+                    if (!check(TokenType::TOK_IDENTIFIER)) {
+                        error("Expected interface variable name");
+                        return nullptr;
+                    }
+                    
+                    std::string var_name = advance().value;
+                    
+                    debug_msg(DebugMsgId::PARSE_VAR_DECL, var_name.c_str(), interface_type.c_str());
+                    
+                    ASTNode* var_node = new ASTNode(ASTNodeType::AST_VAR_DECL);
+                    var_node->name = var_name;
+                    var_node->type_name = interface_type;
+                    var_node->type_info = TYPE_INTERFACE;
+                    
+                    // 初期化式のチェック（interfaceの場合は構造体インスタンスを受け取る可能性）
+                    if (match(TokenType::TOK_ASSIGN)) {
+                        var_node->init_expr = std::unique_ptr<ASTNode>(parseExpression());
+                    }
+                    
+                    consume(TokenType::TOK_SEMICOLON, "Expected ';' after interface variable declaration");
+                    
+                    return var_node;
                 } else {
                     // typedef型変数宣言
                     return parseTypedefVariableDeclaration();
@@ -729,12 +773,15 @@ ASTNode* RecursiveParser::parseStatement() {
             if (check(TokenType::TOK_DOT)) {
                 advance(); // consume '.'
                 
-                if (!check(TokenType::TOK_IDENTIFIER)) {
+                std::string member_name;
+                if (check(TokenType::TOK_IDENTIFIER)) {
+                    member_name = advance().value;
+                } else if (check(TokenType::TOK_PRINT) || check(TokenType::TOK_PRINTLN) || check(TokenType::TOK_PRINTF)) {
+                    member_name = advance().value;
+                } else {
                     error("Expected member name after '.'");
                     return nullptr;
                 }
-                
-                std::string member_name = advance().value;
                 
                 // メンバアクセスノードを作成
                 ASTNode* member_access = new ASTNode(ASTNodeType::AST_MEMBER_ACCESS);
@@ -817,12 +864,15 @@ ASTNode* RecursiveParser::parseStatement() {
             // メンバアクセス代入の処理: obj.member = value または obj.member[index] = value
             advance(); // consume '.'
             
-            if (!check(TokenType::TOK_IDENTIFIER)) {
+            std::string member_name;
+            if (check(TokenType::TOK_IDENTIFIER)) {
+                member_name = advance().value;
+            } else if (check(TokenType::TOK_PRINT) || check(TokenType::TOK_PRINTLN) || check(TokenType::TOK_PRINTF)) {
+                member_name = advance().value;
+            } else {
                 error("Expected member name after '.'");
                 return nullptr;
             }
-            
-            std::string member_name = advance().value;
             
             // ネストしたメンバーアクセスの検出 (obj.member.submember = value)
             if (check(TokenType::TOK_DOT)) {
@@ -947,8 +997,37 @@ ASTNode* RecursiveParser::parseStatement() {
                 
                 consume(TokenType::TOK_SEMICOLON, "Expected ';'");
                 return assignment;
+            } else if (check(TokenType::TOK_LPAREN)) {
+                // メソッド呼び出し: obj.method()
+                advance(); // consume '('
+                
+                // メソッド呼び出しノードを作成
+                ASTNode* method_call = new ASTNode(ASTNodeType::AST_FUNC_CALL);
+                method_call->name = member_name;
+                
+                // レシーバーを設定
+                ASTNode* obj_var = new ASTNode(ASTNodeType::AST_VARIABLE);
+                obj_var->name = name;
+                method_call->left = std::unique_ptr<ASTNode>(obj_var);
+                
+                // 引数リストをパース
+                while (!check(TokenType::TOK_RPAREN) && !isAtEnd()) {
+                    auto arg = parseExpression();
+                    if (arg) {
+                        method_call->arguments.push_back(std::unique_ptr<ASTNode>(arg));
+                    }
+                    
+                    if (!check(TokenType::TOK_RPAREN)) {
+                        consume(TokenType::TOK_COMMA, "Expected ',' between arguments");
+                    }
+                }
+                
+                consume(TokenType::TOK_RPAREN, "Expected ')' after method arguments");
+                consume(TokenType::TOK_SEMICOLON, "Expected ';' after method call");
+                
+                return method_call;
             } else {
-                error("Expected '=' after member access");
+                error("Expected '=' or '(' after member access");
                 return nullptr;
             }
         } else if (check(TokenType::TOK_ASSIGN) || check(TokenType::TOK_PLUS_ASSIGN) || 
@@ -1349,6 +1428,10 @@ std::string RecursiveParser::parseType() {
             // enum型名として認識
             advance(); // consume identifier
             base_type = identifier; // enum型名をそのまま返す
+        } else if (interface_definitions_.find(identifier) != interface_definitions_.end()) {
+            // interface型名として認識
+            advance(); // consume identifier
+            base_type = identifier; // interface型名をそのまま返す
         } else {
             // 未知のidentifier - ユニオン型定義も確認
             if (union_definitions_.find(identifier) != union_definitions_.end()) {
@@ -1810,6 +1893,14 @@ ASTNode* RecursiveParser::parsePrimary() {
         return node;
     }
     
+    if (check(TokenType::TOK_SELF)) {
+        Token token = advance();
+        ASTNode* node = new ASTNode(ASTNodeType::AST_IDENTIFIER);
+        node->name = "self";
+        setLocation(node, token.line, token.column);
+        return node;
+    }
+    
     if (check(TokenType::TOK_IDENTIFIER)) {
         Token token = advance();
         
@@ -1983,9 +2074,14 @@ ASTNode* RecursiveParser::parseFunctionDeclarationAfterName(const std::string& r
                         struct_definitions_.find(resolved_param_type.substr(7)) != struct_definitions_.end())) {
                 // struct型の場合（解決後の型名、元のtypedef名、または"struct Name"形式で検索）
                 param->type_info = TYPE_STRUCT;
-            } else if (enum_definitions_.find(resolved_param_type) != enum_definitions_.end()) {
+            } else if (enum_definitions_.find(resolved_param_type) != enum_definitions_.end() ||
+                       enum_definitions_.find(param_type) != enum_definitions_.end()) {
                 // enum型の場合  
-                param->type_info = TYPE_INT; // enumは内部的にintとして扱う
+                param->type_info = TYPE_ENUM;
+            } else if (union_definitions_.find(resolved_param_type) != union_definitions_.end() ||
+                       union_definitions_.find(param_type) != union_definitions_.end()) {
+                // ユニオン型の場合
+                param->type_info = TYPE_UNION;
             } else {
                 param->type_info = TYPE_UNKNOWN;
             }
@@ -2076,8 +2172,9 @@ ASTNode* RecursiveParser::parseFunctionDeclarationAfterName(const std::string& r
                 function_node->return_types.push_back(TYPE_UNKNOWN);
             }
         } else {
-            // typedef型でない場合、不明な型として処理
-            function_node->return_types.push_back(TYPE_UNKNOWN);
+            // typedef型でない場合、getTypeInfoFromStringを使って型を判定
+            TypeInfo type_info = getTypeInfoFromString(return_type);
+            function_node->return_types.push_back(type_info);
         }
     }
     
@@ -2462,6 +2559,28 @@ ASTNode* RecursiveParser::parseTypedefDeclaration() {
 }
 
 TypeInfo RecursiveParser::getTypeInfoFromString(const std::string& type_name) {
+    // 配列型のチェック（1次元・多次元両対応）
+    if (type_name.find('[') != std::string::npos) {
+        std::string base_type = type_name.substr(0, type_name.find('['));
+        if (base_type == "int") {
+            return static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_INT);
+        } else if (base_type == "string") {
+            return static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_STRING);
+        } else if (base_type == "bool") {
+            return static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_BOOL);
+        } else if (base_type == "long") {
+            return static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_LONG);
+        } else if (base_type == "short") {
+            return static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_SHORT);
+        } else if (base_type == "tiny") {
+            return static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_TINY);
+        } else if (base_type == "char") {
+            return static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_CHAR);
+        } else {
+            return TYPE_UNKNOWN;
+        }
+    }
+    
     if (type_name == "int") {
         return TYPE_INT;
     } else if (type_name == "long") {
@@ -2482,6 +2601,10 @@ TypeInfo RecursiveParser::getTypeInfoFromString(const std::string& type_name) {
         return TYPE_STRUCT;
     } else if (type_name.substr(0, 5) == "enum " || enum_definitions_.find(type_name) != enum_definitions_.end()) {
         return TYPE_ENUM;
+    } else if (type_name.substr(0, 10) == "interface " || interface_definitions_.find(type_name) != interface_definitions_.end()) {
+        return TYPE_INTERFACE;
+    } else if (union_definitions_.find(type_name) != union_definitions_.end()) {
+        return TYPE_UNION;
     } else {
         return TYPE_UNKNOWN;
     }
@@ -2703,6 +2826,26 @@ std::string RecursiveParser::resolveTypedefChain(const std::string& typedef_name
         if (struct_definitions_.find(struct_name) != struct_definitions_.end()) {
             return current; // "struct StructName"のまま返す
         }
+    }
+    
+    // 構造体型かチェック（裸の構造体名）
+    if (struct_definitions_.find(current) != struct_definitions_.end()) {
+        return current; // 構造体名をそのまま返す
+    }
+    
+    // enum型かチェック（裸のenum名）
+    if (enum_definitions_.find(current) != enum_definitions_.end()) {
+        return current; // enum名をそのまま返す
+    }
+    
+    // 配列型かチェック（int[2], int[2][2]など）
+    if (current.find('[') != std::string::npos) {
+        return current; // 配列型名をそのまま返す
+    }
+    
+    // ユニオン型かチェック（裸のユニオン名）
+    if (union_definitions_.find(current) != union_definitions_.end()) {
+        return current; // ユニオン名をそのまま返す
     }
     
     // 未定義型の場合は空文字列を返す
@@ -3396,13 +3539,50 @@ bool RecursiveParser::parseUnionValue(UnionDefinition& union_def) {
 ASTNode* RecursiveParser::parseMemberAccess(ASTNode* object) {
     consume(TokenType::TOK_DOT, "Expected '.'");
     
-    if (!check(TokenType::TOK_IDENTIFIER)) {
+    std::string member_name;
+    if (check(TokenType::TOK_IDENTIFIER)) {
+        member_name = current_token_.value;
+        advance();
+    } else if (check(TokenType::TOK_PRINT) || check(TokenType::TOK_PRINTLN) || check(TokenType::TOK_PRINTF)) {
+        // 予約キーワードだが、メソッド名として許可
+        member_name = current_token_.value;
+        advance();
+    } else {
         error("Expected member name after '.'");
         return nullptr;
     }
     
-    std::string member_name = current_token_.value;
-    advance();
+    // メソッド呼び出しかチェック（obj.method()）
+    if (check(TokenType::TOK_LPAREN)) {
+        // メソッド呼び出し
+        ASTNode* method_call = new ASTNode(ASTNodeType::AST_FUNC_CALL);
+        method_call->name = member_name;
+        method_call->left = std::unique_ptr<ASTNode>(object); // レシーバー
+        setLocation(method_call, current_token_);
+        
+        // パラメータリストを解析
+        advance(); // consume '('
+        
+        if (!check(TokenType::TOK_RPAREN)) {
+            do {
+                ASTNode* arg = parseExpression();
+                if (!arg) {
+                    error("Expected argument expression");
+                    return nullptr;
+                }
+                method_call->arguments.push_back(std::unique_ptr<ASTNode>(arg));
+                
+                if (!check(TokenType::TOK_COMMA)) {
+                    break;
+                }
+                advance(); // consume ','
+            } while (!check(TokenType::TOK_RPAREN) && !isAtEnd());
+        }
+        
+        consume(TokenType::TOK_RPAREN, "Expected ')' after method arguments");
+        
+        return method_call;
+    }
     
     // ネストしたメンバーアクセスの検出 (obj.member.submember)
     if (check(TokenType::TOK_DOT)) {
@@ -3410,6 +3590,7 @@ ASTNode* RecursiveParser::parseMemberAccess(ASTNode* object) {
         return nullptr;
     }
     
+    // 通常のメンバアクセス
     ASTNode* member_access = new ASTNode(ASTNodeType::AST_MEMBER_ACCESS);
     member_access->left = std::unique_ptr<ASTNode>(object);
     member_access->name = member_name; // メンバ名を保存
@@ -3628,4 +3809,344 @@ ASTNode* RecursiveParser::parseEnumDeclaration() {
     enum_decl->enum_definition = enum_def;
     
     return enum_decl;
+}
+
+// interface宣言の解析: interface name { methods };
+ASTNode* RecursiveParser::parseInterfaceDeclaration() {
+    consume(TokenType::TOK_INTERFACE, "Expected 'interface'");
+    
+    if (!check(TokenType::TOK_IDENTIFIER)) {
+        error("Expected interface name");
+        return nullptr;
+    }
+    
+    std::string interface_name = current_token_.value;
+    advance(); // interface名をスキップ
+    
+    consume(TokenType::TOK_LBRACE, "Expected '{' after interface name");
+    
+    InterfaceDefinition interface_def(interface_name);
+    
+    // メソッド宣言の解析
+    while (!check(TokenType::TOK_RBRACE) && !isAtEnd()) {
+        // メソッドの戻り値型を解析
+        std::string return_type = parseType();
+        
+        if (return_type.empty()) {
+            error("Expected return type in interface method declaration");
+            return nullptr;
+        }
+        
+        // メソッド名を解析（予約キーワードも許可）
+        std::string method_name;
+        if (check(TokenType::TOK_IDENTIFIER)) {
+            method_name = current_token_.value;
+            advance();
+        } else if (check(TokenType::TOK_PRINT) || check(TokenType::TOK_PRINTLN) || check(TokenType::TOK_PRINTF)) {
+            // 予約キーワードだが、メソッド名として許可
+            method_name = current_token_.value;
+            advance();
+        } else {
+            error("Expected method name in interface declaration");
+            return nullptr;
+        }        // パラメータリストの解析
+        consume(TokenType::TOK_LPAREN, "Expected '(' after method name");
+        
+        InterfaceMember method(method_name, getTypeInfoFromString(return_type));
+        
+        // パラメータの解析
+        if (!check(TokenType::TOK_RPAREN)) {
+            do {
+                // パラメータの型
+                std::string param_type = parseType();
+                if (param_type.empty()) {
+                    error("Expected parameter type");
+                    return nullptr;
+                }
+                
+                // パラメータ名（オプション）
+                std::string param_name = "";
+                if (check(TokenType::TOK_IDENTIFIER)) {
+                    param_name = current_token_.value;
+                    advance();
+                }
+                
+                method.add_parameter(param_name, getTypeInfoFromString(param_type));
+                
+                if (!check(TokenType::TOK_COMMA)) {
+                    break;
+                }
+                advance(); // consume comma
+            } while (!check(TokenType::TOK_RPAREN));
+        }
+        
+        consume(TokenType::TOK_RPAREN, "Expected ')' after parameters");
+        consume(TokenType::TOK_SEMICOLON, "Expected ';' after interface method declaration");
+        
+        interface_def.methods.push_back(method);
+    }
+    
+    consume(TokenType::TOK_RBRACE, "Expected '}' after interface methods");
+    consume(TokenType::TOK_SEMICOLON, "Expected ';' after interface definition");
+    
+    // interface定義をパーサー内に保存
+    interface_definitions_[interface_name] = interface_def;
+    
+    // ASTノードを作成
+    ASTNode* node = new ASTNode(ASTNodeType::AST_INTERFACE_DECL);
+    node->name = interface_name;
+    setLocation(node, current_token_);
+    
+    // interface定義情報をASTノードに保存
+    for (const auto& method : interface_def.methods) {
+        ASTNode* method_node = new ASTNode(ASTNodeType::AST_FUNC_DECL);
+        method_node->name = method.name;
+        method_node->type_info = method.return_type;
+        
+        // パラメータ情報を保存
+        for (const auto& param : method.parameters) {
+            ASTNode* param_node = new ASTNode(ASTNodeType::AST_PARAM_DECL);
+            param_node->name = param.first;
+            param_node->type_info = param.second;
+            method_node->arguments.push_back(std::unique_ptr<ASTNode>(param_node));
+        }
+        
+        node->arguments.push_back(std::unique_ptr<ASTNode>(method_node));
+    }
+    
+    return node;
+}
+
+// impl宣言の解析: impl InterfaceName for StructName { methods }
+ASTNode* RecursiveParser::parseImplDeclaration() {
+    consume(TokenType::TOK_IMPL, "Expected 'impl'");
+    
+    if (!check(TokenType::TOK_IDENTIFIER)) {
+        error("Expected interface name after 'impl'");
+        return nullptr;
+    }
+    
+    std::string interface_name = current_token_.value;
+    
+    // ★ 課題1の解決: 存在しないinterfaceを実装しようとする場合のエラー検出
+    if (interface_definitions_.find(interface_name) == interface_definitions_.end()) {
+        error("Interface '" + interface_name + "' is not defined. Please declare the interface before implementing it.");
+        return nullptr;
+    }
+    
+    advance();
+    
+    // 'for' keyword
+    if (!check(TokenType::TOK_FOR) && 
+        !(check(TokenType::TOK_IDENTIFIER) && current_token_.value == "for")) {
+        error("Expected 'for' after interface name in impl declaration");
+        return nullptr;
+    }
+    advance(); // consume 'for'
+    
+    if (!check(TokenType::TOK_IDENTIFIER) && !check(TokenType::TOK_STRING_TYPE) && 
+        !check(TokenType::TOK_INT) && !check(TokenType::TOK_LONG) && 
+        !check(TokenType::TOK_SHORT) && !check(TokenType::TOK_TINY) && 
+        !check(TokenType::TOK_BOOL) && !check(TokenType::TOK_CHAR_TYPE)) {
+        error("Expected type name (struct or primitive type) after 'for'");
+        return nullptr;
+    }
+    
+    std::string struct_name;
+    if (check(TokenType::TOK_STRING_TYPE)) {
+        struct_name = "string";
+    } else if (check(TokenType::TOK_INT)) {
+        struct_name = "int";
+    } else if (check(TokenType::TOK_LONG)) {
+        struct_name = "long";
+    } else if (check(TokenType::TOK_SHORT)) {
+        struct_name = "short";
+    } else if (check(TokenType::TOK_TINY)) {
+        struct_name = "tiny";
+    } else if (check(TokenType::TOK_BOOL)) {
+        struct_name = "bool";
+    } else if (check(TokenType::TOK_CHAR_TYPE)) {
+        struct_name = "char";
+    } else {
+        struct_name = current_token_.value; // 識別子（構造体名またはtypedef名）
+    }
+    advance();
+    
+    // 生の配列型チェック - 配列記法が続く場合はエラー
+    if (check(TokenType::TOK_LBRACKET)) {
+        error("Cannot implement interface for raw array type '" + struct_name + "[...]'. Use typedef to define array type first.");
+        return nullptr;
+    }
+    
+    consume(TokenType::TOK_LBRACE, "Expected '{' after type name in impl declaration");
+    
+    ImplDefinition impl_def(interface_name, struct_name);
+    
+    // メソッド実装の解析
+    while (!check(TokenType::TOK_RBRACE) && !isAtEnd()) {
+        // private修飾子のチェック
+        bool is_private_method = false;
+        if (check(TokenType::TOK_PRIVATE)) {
+            is_private_method = true;
+            advance(); // consume 'private'
+        }
+        
+        // メソッド実装をパース（関数宣言として）
+        // impl内では戻り値の型から始まるメソッド定義
+        std::string return_type = parseType();
+        if (return_type.empty()) {
+            error("Expected return type in method implementation");
+            return nullptr;
+        }
+        
+        // メソッド名を解析（予約キーワードも許可）
+        std::string method_name;
+        if (check(TokenType::TOK_IDENTIFIER)) {
+            method_name = current_token_.value;
+            advance();
+        } else if (check(TokenType::TOK_PRINT) || check(TokenType::TOK_PRINTLN) || check(TokenType::TOK_PRINTF)) {
+            // 予約キーワードだが、メソッド名として許可
+            method_name = current_token_.value;
+            advance();
+        } else {
+            error("Expected method name in method implementation");
+            return nullptr;
+        }
+        
+        // 関数宣言として解析
+        ASTNode* method_impl = parseFunctionDeclarationAfterName(return_type, method_name);
+        if (method_impl) {
+            // privateフラグを設定
+            method_impl->is_private_method = is_private_method;
+            // privateメソッドの場合はinterface署名チェックをスキップ
+            if (!is_private_method) {
+                // ★ 課題2の解決: メソッド署名の不一致の検出
+                auto interface_it = interface_definitions_.find(interface_name);
+                if (interface_it != interface_definitions_.end()) {
+                    bool method_found = false;
+                    for (const auto& interface_method : interface_it->second.methods) {
+                        if (interface_method.name == method_name) {
+                            method_found = true;
+                            // 戻り値の型をチェック
+                            std::string expected_return_type = type_info_to_string(interface_method.return_type);
+                            std::string actual_return_type = "";
+                            if (!method_impl->return_types.empty()) {
+                                actual_return_type = type_info_to_string(method_impl->return_types[0]);
+                            } else {
+                                actual_return_type = return_type; // フォールバック
+                            }
+                            if (expected_return_type != actual_return_type) {
+                                error("Method signature mismatch: Expected return type '" + 
+                                      expected_return_type + "' but got '" + 
+                                      actual_return_type + "' for method '" + method_name + "'");
+                                return nullptr;
+                            }
+                            // 引数の数をチェック
+                            if (interface_method.parameters.size() != method_impl->parameters.size()) {
+                                error("Method signature mismatch: Expected " + 
+                                      std::to_string(interface_method.parameters.size()) + 
+                                      " parameter(s) but got " + 
+                                      std::to_string(method_impl->parameters.size()) + 
+                                      " for method '" + method_name + "'");
+                                return nullptr;
+                            }
+                            // 引数の型をチエック
+                            for (size_t i = 0; i < interface_method.parameters.size(); ++i) {
+                                std::string expected_param_type = type_info_to_string(interface_method.parameters[i].second);
+                                std::string actual_param_type = type_info_to_string(method_impl->parameters[i]->type_info);
+                                if (expected_param_type != actual_param_type) {
+                                    error("Method signature mismatch: Parameter " + std::to_string(i + 1) + 
+                                          " expected type '" + expected_param_type + 
+                                          "' but got '" + actual_param_type + 
+                                          "' for method '" + method_name + "'");
+                                    return nullptr;
+                                }
+                            }
+                            break;
+                        }
+                    }
+                    if (!method_found) {
+                        // 警告: interfaceに定義されていないメソッドが実装されている
+                        std::cerr << "[WARNING] Method '" << method_name << "' is implemented but not declared in interface '" << interface_name << "'" << std::endl;
+                    }
+                }
+            }
+            
+            // メソッド情報を保存
+            impl_def.methods.push_back(std::unique_ptr<ASTNode>(method_impl));
+            debug_msg(DebugMsgId::PARSE_VAR_DECL, method_name.c_str(), "impl_method");
+        }
+    }
+    
+    consume(TokenType::TOK_RBRACE, "Expected '}' after impl methods");
+    consume(TokenType::TOK_SEMICOLON, "Expected ';' after impl declaration");
+    
+    // ★ interfaceの全メソッドが実装されているかチェック
+    auto interface_it = interface_definitions_.find(interface_name);
+    if (interface_it != interface_definitions_.end()) {
+        for (const auto& interface_method : interface_it->second.methods) {
+            bool implemented = false;
+            for (const auto& impl_method : impl_def.methods) {
+                if (impl_method->name == interface_method.name) {
+                    implemented = true;
+                    break;
+                }
+            }
+            if (!implemented) {
+                error("Incomplete implementation: Method '" + interface_method.name + 
+                      "' declared in interface '" + interface_name + "' is not implemented");
+                return nullptr;
+            }
+        }
+    }
+    
+    // ★ 課題3の解決: 重複impl定義の検出
+    for (const auto& existing_impl : impl_definitions_) {
+        if (existing_impl.interface_name == interface_name && 
+            existing_impl.struct_name == struct_name) {
+            error("Duplicate implementation: Interface '" + interface_name + 
+                  "' is already implemented for struct '" + struct_name + "'");
+            return nullptr;
+        }
+    }
+    
+    // impl定義を保存
+    impl_definitions_.emplace_back(std::move(impl_def));
+    
+    // ASTノードを作成
+    ASTNode* node = new ASTNode(ASTNodeType::AST_IMPL_DECL);
+    node->name = interface_name + "_for_" + struct_name;
+    node->type_name = struct_name; // struct名を保存
+    setLocation(node, current_token_);
+    
+    // impl定義のメソッドをASTノードに保存
+    for (const auto& method : impl_definitions_.back().methods) {
+        // メソッドをASTノードにコピー（完全コピー）
+        ASTNode* method_copy = new ASTNode(method->node_type);
+        method_copy->name = method->name;
+        method_copy->type_info = method->type_info;
+        method_copy->type_name = method->type_name;
+        method_copy->is_const = method->is_const;
+        method_copy->is_private_method = method->is_private_method; // privateフラグをコピー
+        
+        // パラメータをコピー
+        for (const auto& param : method->parameters) {
+            ASTNode* param_copy = new ASTNode(param->node_type);
+            param_copy->name = param->name;
+            param_copy->type_info = param->type_info;
+            param_copy->type_name = param->type_name;
+            param_copy->is_array = param->is_array;
+            method_copy->parameters.push_back(std::unique_ptr<ASTNode>(param_copy));
+        }
+        
+        // 関数本体をコピー
+        if (method->body) {
+            // 簡略化: 本体の完全コピーは複雑なので、参照を共有
+            method_copy->body = std::unique_ptr<ASTNode>(method->body.get());
+        }
+        
+        node->arguments.push_back(std::unique_ptr<ASTNode>(method_copy));
+    }
+    
+    return node;
 }

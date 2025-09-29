@@ -1,0 +1,63 @@
+// 複数プライベートメソッドのチェーンテスト
+
+interface IComplexProcessor {
+    int processValue(int input);
+    string getReport();
+};
+
+impl IComplexProcessor for long {
+    // パブリックメソッド
+    int processValue(int input) {
+        int validated = self.validateInput(input);
+        int processed = self.applyTransform(validated);
+        int finalized = self.finalizeResult(processed);
+        return finalized;
+    }
+    
+    string getReport() {
+        bool ready = self.checkReadiness();
+        if (ready) {
+            return "Processor is ready";
+        }
+        return "Processor not ready";
+    }
+    
+    // プライベートメソッドチェーン
+    private int validateInput(int value) {
+        if (value < 0) {
+            return 0;
+        }
+        return value;
+    }
+    
+    private int applyTransform(int value) {
+        return value * 3;
+    }
+    
+    private int finalizeResult(int value) {
+        return value + 10;
+    }
+    
+    private bool checkReadiness() {
+        return true; // テスト用固定値
+    }
+};
+
+int main() {
+    println("Complex private method chain test:");
+    
+    long number = 12345;
+    IComplexProcessor processor = number;
+    
+    int result1 = processor.processValue(5);
+    println("processValue(5) = %d", result1); // (5 * 3) + 10 = 25
+    
+    int result2 = processor.processValue(-3);
+    println("processValue(-3) = %d", result2); // (0 * 3) + 10 = 10
+    
+    string report = processor.getReport();
+    println("report = %s", report);
+    
+    println("Complex private method chain test passed");
+    return 0;
+}

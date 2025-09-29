@@ -1,0 +1,48 @@
+// implでinterfaceに定義されていないメソッドが実装されている場合のエラーテスト
+
+interface Calculator {
+    int add(int a, int b);
+    int multiply(int a, int b);
+};
+
+struct AdvancedCalc {
+    int value;
+};
+
+impl Calculator for AdvancedCalc {
+    int add(int a, int b) {
+        return a + b;
+    }
+    
+    int multiply(int a, int b) {
+        return a * b;
+    }
+    
+    // interfaceに定義されていないメソッド - これは警告またはエラーになるべき
+    int power(int base, int exp) {
+        int result = 1;
+        for (int i = 0; i < exp; i++) {
+            result = result * base;
+        }
+        return result;
+    }
+    
+    // これも同様
+    string toString() {
+        return "AdvancedCalc";
+    }
+};
+
+int main() {
+    AdvancedCalc calc;
+    calc.value = 10;
+    
+    int result1 = calc.add(5, 3);
+    println(result1);
+    
+    // interfaceに定義されていないメソッドの呼び出し
+    int result2 = calc.power(2, 3);
+    println(result2);
+    
+    return 0;
+}

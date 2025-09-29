@@ -48,6 +48,8 @@ private:
     ASTNode* parseEnumDeclaration();             // enum宣言
     ASTNode* parseEnumTypedefDeclaration();      // typedef enum宣言
     ASTNode* parseUnionTypedefDeclaration();     // typedef union宣言 (TypeScript-like literal types)
+    ASTNode* parseInterfaceDeclaration();        // interface宣言
+    ASTNode* parseImplDeclaration();             // impl宣言
     ASTNode* parseVariableDeclaration();
     ASTNode* parseTypedefVariableDeclaration();
     ASTNode* parseFunctionDeclaration();
@@ -104,6 +106,12 @@ private:
     // union管理 (TypeScript-like literal types)
     std::unordered_map<std::string, UnionDefinition> union_definitions_; // union定義の保存
     
+    // interface管理
+    std::unordered_map<std::string, InterfaceDefinition> interface_definitions_; // interface定義の保存
+    
+    // impl管理
+    std::vector<ImplDefinition> impl_definitions_; // impl定義の保存
+    
     // Union parsing helper
     bool parseUnionValue(UnionDefinition& union_def);
     
@@ -116,6 +124,16 @@ public:
     // struct定義へのアクセサ
     const std::unordered_map<std::string, StructDefinition>& get_struct_definitions() const {
         return struct_definitions_;
+    }
+    
+    // interface定義へのアクセサ
+    const std::unordered_map<std::string, InterfaceDefinition>& get_interface_definitions() const {
+        return interface_definitions_;
+    }
+    
+    // impl定義へのアクセサ
+    const std::vector<ImplDefinition>& get_impl_definitions() const {
+        return impl_definitions_;
     }
     
     // union定義へのアクセサ

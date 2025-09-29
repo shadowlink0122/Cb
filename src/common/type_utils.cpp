@@ -23,6 +23,10 @@ const char *type_info_to_string(TypeInfo type) {
         return "struct";
     case TYPE_ENUM:
         return "enum";
+    case TYPE_INTERFACE:
+        return "interface";
+    case TYPE_UNION:
+        return "union";
     default:
         // 配列型の場合
         if (type >= TYPE_ARRAY_BASE) {
@@ -46,6 +50,10 @@ const char *type_info_to_string(TypeInfo type) {
                 return "struct[]";
             case TYPE_ENUM:
                 return "enum[]";
+            case TYPE_INTERFACE:
+                return "interface[]";
+            case TYPE_UNION:
+                return "union[]";
             default:
                 return "unknown[]";
             }
@@ -80,6 +88,10 @@ const char *type_info_to_string_basic(TypeInfo type) {
         return "struct";
     case TYPE_ENUM:
         return "enum";
+    case TYPE_INTERFACE:
+        return "interface";
+    case TYPE_UNION:
+        return "union";
     default:
         return "unknown";
     }

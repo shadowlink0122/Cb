@@ -1,0 +1,48 @@
+// 複雑な引数・戻り値を持つinterfaceテスト
+
+struct Calculator {
+    int a;
+    int b;
+    int result;
+};
+
+interface MathOperations {
+    Calculator add(int x, int y);
+    Calculator multiply(int x, int y);
+    int get_result();
+};
+
+impl MathOperations for Calculator {
+    Calculator add(int x, int y) {
+        self.a = x;
+        self.b = y;
+        self.result = x + y;
+        return self;
+    }
+    
+    Calculator multiply(int x, int y) {
+        self.a = x;
+        self.b = y;
+        self.result = x * y;
+        return self;
+    }
+    
+    int get_result() {
+        return self.result;
+    }
+};
+
+int main() {
+    Calculator calc = {0, 0, 0};
+    MathOperations math = calc;
+    
+    Calculator add_result = math.add(10, 5);
+    println(add_result.result);
+    
+    Calculator mul_result = math.multiply(7, 6);
+    println(mul_result.result);
+    
+    println(math.get_result());
+    
+    return 0;
+}

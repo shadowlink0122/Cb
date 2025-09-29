@@ -1,0 +1,59 @@
+// 多次元配列でのprivateメソッドテスト（typedef版）
+
+typedef int[2][3] Matrix2x3;
+
+interface IMatrixProcessor {
+    int getElement(int row, int col);
+    string getMatrixInfo();
+};
+
+impl IMatrixProcessor for Matrix2x3 {
+    // パブリックメソッド
+    int getElement(int row, int col) {
+        if (self.isValidIndex(row, col)) {
+            return self.accessElement(row, col);
+        }
+        return -1;
+    }
+    
+    string getMatrixInfo() {
+        bool valid = self.validateMatrix();
+        if (valid) {
+            return "2x3 matrix is valid";
+        }
+        return "Matrix is invalid";
+    }
+    
+    // プライベートメソッド
+    private bool isValidIndex(int row, int col) {
+        return row >= 0 && row < 2 && col >= 0 && col < 3;
+    }
+    
+    private int accessElement(int row, int col) {
+        // 簡略化: 固定値を返す
+        return row * 3 + col + 1;
+    }
+    
+    private bool validateMatrix() {
+        return true; // テスト用固定値
+    }
+};
+
+int main() {
+    println("Multidimensional array private method test:");
+    
+    Matrix2x3 matrix = {{1, 2, 3}, {4, 5, 6}};
+    IMatrixProcessor processor = matrix;
+    
+    int element = processor.getElement(1, 2);
+    println("element[1][2] = %d", element);
+    
+    int invalid = processor.getElement(5, 5);
+    println("element[5][5] = %d", invalid);
+    
+    string info = processor.getMatrixInfo();
+    println("info = %s", info);
+    
+    println("Multidimensional array private method test passed");
+    return 0;
+}

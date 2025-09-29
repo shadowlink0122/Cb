@@ -1,0 +1,146 @@
+// 3次元配列を引数に受け取るinterfaceテスト（構造体なしアプローチ）
+
+struct CubeState {
+    int operations;
+    int lastSum;
+};
+
+interface CubeOperations {
+    int getElementAt(int[2][2][2] cube, int x, int y, int z);
+    int sumCube(int[2][2][2] cube);
+    CubeState processCube(int[2][2][2] cube);
+    int findMax(int[2][2][2] cube);
+    int countElements(int[2][2][2] cube, int target);
+};
+
+impl CubeOperations for CubeState {
+    int getElementAt(int[2][2][2] cube, int x, int y, int z) {
+        if (x >= 0 && x < 2 && y >= 0 && y < 2 && z >= 0 && z < 2) {
+            return cube[x][y][z];
+        }
+        return -1;
+    }
+    
+    int sumCube(int[2][2][2] cube) {
+        int total = 0;
+        int x = 0;
+        while (x < 2) {
+            int y = 0;
+            while (y < 2) {
+                int z = 0;
+                while (z < 2) {
+                    total = total + cube[x][y][z];
+                    z = z + 1;
+                }
+                y = y + 1;
+            }
+            x = x + 1;
+        }
+        return total;
+    }
+    
+    CubeState processCube(int[2][2][2] cube) {
+        int sum = 0;
+        int x = 0;
+        while (x < 2) {
+            int y = 0;
+            while (y < 2) {
+                int z = 0;
+                while (z < 2) {
+                    sum = sum + cube[x][y][z];
+                    z = z + 1;
+                }
+                y = y + 1;
+            }
+            x = x + 1;
+        }
+        self.lastSum = sum;
+        self.operations = self.operations + 1;
+        return self;
+    }
+    
+    int findMax(int[2][2][2] cube) {
+        int max = cube[0][0][0];
+        int x = 0;
+        while (x < 2) {
+            int y = 0;
+            while (y < 2) {
+                int z = 0;
+                while (z < 2) {
+                    if (cube[x][y][z] > max) {
+                        max = cube[x][y][z];
+                    }
+                    z = z + 1;
+                }
+                y = y + 1;
+            }
+            x = x + 1;
+        }
+        return max;
+    }
+    
+    int countElements(int[2][2][2] cube, int target) {
+        int count = 0;
+        int x = 0;
+        while (x < 2) {
+            int y = 0;
+            while (y < 2) {
+                int z = 0;
+                while (z < 2) {
+                    if (cube[x][y][z] == target) {
+                        count = count + 1;
+                    }
+                    z = z + 1;
+                }
+                y = y + 1;
+            }
+            x = x + 1;
+        }
+        return count;
+    }
+};
+
+int main() {
+    // 3次元配列を作成
+    int[2][2][2] cube = [
+        [[1, 2], [3, 4]],
+        [[5, 6], [7, 8]]
+    ];
+    
+    CubeState state = {0, 0};
+    CubeOperations cubeOps = state;
+    
+    // 各要素にアクセス
+    int elem000 = cubeOps.getElementAt(cube, 0, 0, 0);
+    println(elem000);  // 1
+    int elem111 = cubeOps.getElementAt(cube, 1, 1, 1);
+    println(elem111);  // 8
+    
+    // 全要素の合計
+    int totalSum = cubeOps.sumCube(cube);
+    println(totalSum);  // 36
+    
+    // 最大値を検索
+    int maxVal = cubeOps.findMax(cube);
+    println(maxVal);   // 8
+    
+    // 特定の値の個数をカウント
+    int count = cubeOps.countElements(cube, 5);
+    println(count);    // 1
+    
+    // 処理結果を構造体で取得
+    CubeState result = cubeOps.processCube(cube);
+    println(result.lastSum);     // 36
+    println(result.operations);  // 1
+    
+    // 別の3次元配列でテスト
+    int[2][2][2] cube2 = [
+        [[10, 20], [30, 40]],
+        [[50, 60], [70, 80]]
+    ];
+    
+    int sum2 = cubeOps.sumCube(cube2);
+    println(sum2);     // 360
+    
+    return 0;
+}

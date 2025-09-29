@@ -1,0 +1,55 @@
+// string型でのprivateメソッドテスト
+
+interface IStringProcessor {
+    string format();
+    int getLength();
+    bool isEmpty();
+};
+
+impl IStringProcessor for string {
+    // パブリックメソッド
+    string format() {
+        string prefix = self.getPrefix();
+        return prefix;
+    }
+    
+    int getLength() {
+        return self.calculateLength();
+    }
+    
+    bool isEmpty() {
+        return self.checkEmpty();
+    }
+    
+    // プライベートメソッド
+    private string getPrefix() {
+        return "Formatted: content";
+    }
+    
+    private int calculateLength() {
+        return 15; // テスト用固定値
+    }
+    
+    private bool checkEmpty() {
+        return false; // テスト用固定値
+    }
+};
+
+int main() {
+    println("String private method test:");
+    
+    string text = "Hello World";
+    IStringProcessor processor = text;
+    
+    string formatted = processor.format();
+    println("formatted = %s", formatted);
+    
+    int length = processor.getLength();
+    println("length = %d", length);
+    
+    bool empty = processor.isEmpty();
+    println("empty = %d", empty ? 1 : 0);
+    
+    println("String private method test passed");
+    return 0;
+}

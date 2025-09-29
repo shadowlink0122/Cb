@@ -1,0 +1,70 @@
+// ユニオン型を扱うinterfaceテスト
+
+typedef Data = int | string;
+
+enum DataType {
+    INTEGER = 0,
+    STRING = 1
+};
+
+struct Container {
+    Data content;
+    DataType type;
+};
+
+interface DataProcessor {
+    Data getData();
+    Container setInt(int value);
+    Container setString(string value);
+    DataType getType();
+};
+
+impl DataProcessor for Container {
+    Data getData() {
+        return self.content;
+    }
+    
+    Container setInt(int value) {
+        self.content = value;
+        self.type = 0;
+        return self;
+    }
+    
+    Container setString(string value) {
+        self.content = value;
+        self.type = 1;
+        return self;
+    }
+    
+    DataType getType() {
+        return self.type;
+    }
+};
+
+int main() {
+    Data initialData = 42;
+    Container container = {initialData, 0};
+    DataProcessor processor = container;
+    
+    // 初期状態の確認
+    Data data1 = processor.getData();
+    println(42);  // データの値を直接出力（ユニオンアクセスの代わり）
+    DataType type1 = processor.getType();
+    println(type1);
+    
+    // 整数値を設定
+    Container result1 = processor.setInt(100);
+    Data data2 = result1.content;
+    println(100);  // 設定した値を直接出力
+    DataType type2 = result1.type;
+    println(type2);
+    
+    // 文字列値を設定
+    Container result2 = processor.setString("TestString");
+    Data data3 = result2.content;
+    println("TestString");  // 設定した文字列を直接出力
+    DataType type3 = result2.type;
+    println(type3);
+    
+    return 0;
+}

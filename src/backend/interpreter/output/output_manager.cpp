@@ -66,8 +66,29 @@ void OutputManager::print_value(const ASTNode *expr) {
         } else if (var && var->type == TYPE_STRING) {
             io_interface_->write_string(var->str_value.c_str());
         } else {
+            // 他の式の場合は評価を試行
+            try {
+                int64_t value = evaluate_expression(expr);
+                io_interface_->write_number(value);
+            } catch (const ReturnException& ret) {
+                if (ret.type == TYPE_STRING) {
+                    io_interface_->write_string(ret.str_value.c_str());
+                } else {
+                    io_interface_->write_number(ret.value);
+                }
+            }
+        }
+    } else if (expr->node_type == ASTNodeType::AST_FUNC_CALL) {
+        // 関数・メソッド呼び出しの戻り値処理
+        try {
             int64_t value = evaluate_expression(expr);
             io_interface_->write_number(value);
+        } catch (const ReturnException& ret) {
+            if (ret.type == TYPE_STRING) {
+                io_interface_->write_string(ret.str_value.c_str());
+            } else {
+                io_interface_->write_number(ret.value);
+            }
         }
     } else if (expr->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
         // struct メンバーアクセス: obj.member または array[index].member
@@ -349,8 +370,17 @@ void OutputManager::print_value(const ASTNode *expr) {
             io_interface_->write_number(value);
         }
     } else {
-        int64_t value = evaluate_expression(expr);
-        io_interface_->write_number(value);
+        // その他の式の評価
+        try {
+            int64_t value = evaluate_expression(expr);
+            io_interface_->write_number(value);
+        } catch (const ReturnException& ret) {
+            if (ret.type == TYPE_STRING) {
+                io_interface_->write_string(ret.str_value.c_str());
+            } else {
+                io_interface_->write_number(ret.value);
+            }
+        }
     }
 }
 
