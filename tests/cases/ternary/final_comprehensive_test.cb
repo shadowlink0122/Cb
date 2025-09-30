@@ -1,0 +1,55 @@
+// 最終テスト: 現在実装済みの機能を確認
+
+typedef struct {
+    string name;
+    int age;
+} Person;
+
+int[3] get_numbers() {
+    int[3] arr = [10, 20, 30];
+    return arr;
+}
+
+string[2] get_names() {
+    string[2] arr = ["Alice", "Bob"];
+    return arr;
+}
+
+int main() {
+    // ✅ 実装完了: 数値配列戻り値のアクセス
+    println("=== Numbers Array Access ===");
+    println(get_numbers()[0]);  // 10
+    println(get_numbers()[1]);  // 20
+    println(get_numbers()[2]);  // 30
+    
+    // ✅ 実装完了: 文字列配列戻り値のアクセス
+    println("=== String Array Access ===");
+    println(get_names()[0]);    // Alice
+    println(get_names()[1]);    // Bob
+    
+    // ✅ 実装完了: 三項演算子での使用
+    println("=== Ternary Operator ===");
+    bool flag = true;
+    println(flag ? get_numbers()[0] : get_numbers()[1]);  // 10
+    println(flag ? get_names()[0] : get_names()[1]);      // Alice
+    
+    // ✅ 実装完了: 構造体配列メンバーアクセス（変数）
+    println("=== Struct Array Members ===");
+    Person[2] people;
+    people[0].name = "Alice";
+    people[0].age = 25;
+    people[1].name = "Bob";
+    people[1].age = 30;
+    
+    println(people[0].name);  // Alice
+    println(people[0].age);   // 25
+    println(people[1].name);  // Bob
+    println(people[1].age);   // 30
+    
+    // ✅ 実装完了: 三項演算子での構造体配列
+    println("=== Struct Array Ternary ===");
+    println(flag ? people[0].name : people[1].name);  // Alice
+    println(flag ? people[0].age : people[1].age);    // 25
+    
+    return 0;
+}

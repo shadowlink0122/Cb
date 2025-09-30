@@ -3584,10 +3584,36 @@ ASTNode* RecursiveParser::parseMemberAccess(ASTNode* object) {
         return method_call;
     }
     
-    // ネストしたメンバーアクセスの検出 (obj.member.submember)
-    if (check(TokenType::TOK_DOT)) {
-        error("Nested member access (obj.member.submember) is not supported yet. Consider using pointers in future implementation.");
-        return nullptr;
+    // ネストしたメンバーアクセスの検出と解析 (obj.member.submember)
+    std::vector<std::string> member_chain;
+    member_chain.push_back(member_name);
+    
+    // 連続するドット記法を解析
+    while (check(TokenType::TOK_DOT)) {
+        advance(); // consume '.'
+        
+        if (!check(TokenType::TOK_IDENTIFIER)) {
+            error("Expected member name after '.' in nested access");
+            return nullptr;
+        }
+        
+        std::string next_member = current_token_.value;
+        member_chain.push_back(next_member);
+        advance();
+    }
+    
+    // ネストした構造体アクセス用の特別なノードタイプ
+    if (member_chain.size() > 1) {
+        // 再帰的メンバーアクセス用の特別なノードタイプ
+        ASTNode* nested_access = new ASTNode(ASTNodeType::AST_MEMBER_ACCESS);
+        nested_access->left = std::unique_ptr<ASTNode>(object);
+        nested_access->name = member_chain[0]; // 最初のメンバー
+        
+        // 残りのメンバーパスを保存（将来の拡張用）
+        nested_access->member_chain = member_chain;
+        setLocation(nested_access, current_token_);
+        
+        return nested_access;
     }
     
     // 通常のメンバアクセス

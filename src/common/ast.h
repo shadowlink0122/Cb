@@ -663,6 +663,9 @@ struct ASTNode {
     UnionDefinition
         union_definition; // union定義情報（AST_UNION_TYPEDEF_DECLノード用）
 
+    // ネストしたメンバーアクセス用（obj.member.submember対応）
+    std::vector<std::string> member_chain; // メンバーアクセスチェーン
+
     // コンストラクタ - 全フィールドの明示的初期化
     ASTNode(ASTNodeType type)
         : node_type(type), type_info(TYPE_INT), is_const(false),

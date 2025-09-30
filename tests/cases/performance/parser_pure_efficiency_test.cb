@@ -1,0 +1,75 @@
+// パーサー効率性特化テスト - 数値計算メイン
+
+int[5] get_numbers() {
+    int[5] arr = [1, 2, 3, 4, 5];
+    return arr;
+}
+
+int complex_calc(int a, int b, int c) {
+    return a * b + c * (a - b) / (b + 1);
+}
+
+int factorial(int n) {
+    return n <= 1 ? 1 : n * factorial(n - 1);
+}
+
+int main() {
+    // === 再帰下降パーサー効率性テスト ===
+    
+    // 1. 複雑な算術式（優先順位の深いチェーン）
+    int result1 = 1 + 2 * 3 - 4 / 2 + (5 * 6) % 7 + 8 << 1 >> 1;
+    println("Complex arithmetic: %d", result1);
+    
+    // 2. 深い括弧ネスト（再帰深度テスト）
+    int result2 = ((((((1 + 2) * 3) - 4) / 2) + 5) * 6) % 7;
+    println("Deep nesting: %d", result2);
+    
+    // 3. 多重三項演算子（右結合性と再帰）
+    int x = 10, y = 20, z = 30;
+    int result3 = x > y ? (y > z ? 1 : (z > 15 ? 2 : 3)) : (z > x ? (x > 5 ? 4 : 5) : 6);
+    println("Multi-ternary: %d", result3);
+    
+    // 4. 複雑な論理式（短絡評価効率性）
+    bool complex_bool = (x < y && y < z) || (z > 25 && x < 15) || (y == 20 && z > x);
+    println("Complex logical: %d", complex_bool ? 1 : 0);
+    
+    // 5. 関数配列アクセスチェーン（型推論効率性）
+    int chain1 = get_numbers()[0] + get_numbers()[1] * get_numbers()[2];
+    int chain2 = get_numbers()[get_numbers()[0]] + get_numbers()[get_numbers()[1]];
+    println("Array chains: %d, %d", chain1, chain2);
+    
+    // 6. 複合代入演算子チェーン
+    int compound = 10;
+    compound += 5 * 2;
+    compound *= 3;
+    compound -= get_numbers()[0];
+    compound /= 2;
+    println("Compound assignments: %d", compound);
+    
+    // 7. 関数呼び出しネスト
+    int nested_func = complex_calc(
+        complex_calc(1, 2, 3), 
+        complex_calc(4, 5, 6), 
+        complex_calc(7, 8, 9)
+    );
+    println("Nested functions: %d", nested_func);
+    
+    // 8. 混合式（全優先順位レベル使用）
+    int mixed = factorial(3) + get_numbers()[factorial(2)] * 
+                (x > y ? complex_calc(1, 2, 3) : get_numbers()[0]) + 
+                ((compound & 255) | (nested_func ^ 15));
+    println("Mixed expression: %d", mixed);
+    
+    // 9. ビット演算の組み合わせ
+    int bits = (255 & 170) | ((85 ^ 51) << 2) | ((15 | 240) >> 1);
+    println("Bit operations: %d", bits);
+    
+    // 10. 大きな配列インデックス計算
+    int index_calc = get_numbers()[
+        (factorial(2) + complex_calc(1, 1, 1)) % 5
+    ];
+    println("Dynamic indexing: %d", index_calc);
+    
+    println("=== Parser efficiency test completed ===");
+    return 0;
+}

@@ -59,7 +59,7 @@ int main() {
     
     // 型の再代入テスト
     mixed1 = 500;                           // 別のint値
-    mixed2 = "warning";                     // 別の文字列
+    mixed2 = "error";                       // 別の文字列（許可されている値）
     mixed3 = false;                         // 別のBoolean値
     
     println("Reassignment Test:");

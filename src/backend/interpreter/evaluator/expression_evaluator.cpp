@@ -95,11 +95,17 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                 interpreter_.throw_runtime_error_with_location(error_message, node);
             }
             
+            // デバッグ出力: self変数の詳細情報
+            debug_print("SELF_DEBUG: self found - type=%d, is_struct=%d, TYPE_STRUCT=%d, TYPE_INTERFACE=%d\n", 
+                       (int)self_var->type, self_var->is_struct, (int)TYPE_STRUCT, (int)TYPE_INTERFACE);
+            
             // selfが構造体またはインターフェース型の場合、ReturnExceptionで構造体を返す
             if (self_var->type == TYPE_STRUCT || self_var->type == TYPE_INTERFACE) {
+                debug_print("SELF_DEBUG: Throwing ReturnException for struct self\n");
                 interpreter_.sync_struct_members_from_direct_access("self");
                 throw ReturnException(*self_var);
             } else {
+                debug_print("SELF_DEBUG: self is not struct, returning primitive value\n");
                 // primitive型の場合は適切な値を返す
                 // 文字列の場合、特別な処理が必要な場合があるが、まずは値を返す
                 return self_var->value;
@@ -126,6 +132,11 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                 debug_msg(DebugMsgId::EXPR_EVAL_VAR_VALUE, node->name.c_str(), var->value);
                 return var->value;
             }
+        }
+
+        // 構造体変数の場合、ReturnExceptionをスローして構造体データを返す
+        if (var->type == TYPE_STRUCT) {
+            throw ReturnException(*var);
         }
 
         debug_msg(DebugMsgId::EXPR_EVAL_VAR_VALUE, node->name.c_str(), var->value);
@@ -211,28 +222,101 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
             throw std::runtime_error("Invalid multidimensional member array access");
         }
         
-        // メンバ配列アクセスの特別処理: obj.member[index]
+        // メンバ配列アクセスの特別処理: obj.member[index] または func().member[index]
         if (node->left && node->left->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
-            std::string obj_name = node->left->left->name;
+            std::string obj_name;
             std::string member_name = node->left->name;
             int64_t index = evaluate_expression(node->array_index.get());
             
-            // 構造体メンバー配列の場合は直接取得
-            try {
-                return interpreter_.get_struct_member_array_element(obj_name, member_name, static_cast<int>(index));
-            } catch (const std::exception& e) {
-                // 失敗した場合は従来の方式を試す
-                std::string member_array_element_name = obj_name + "." + member_name + "[" + std::to_string(index) + "]";
-                
-                Variable *var = interpreter_.find_variable(member_array_element_name);
-                if (!var) {
-                    throw std::runtime_error("Member array element not found: " + member_array_element_name);
+            // 関数呼び出しの場合
+            if (node->left->left && node->left->left->node_type == ASTNodeType::AST_FUNC_CALL) {
+                try {
+                    evaluate_expression(node->left->left.get());
+                    throw std::runtime_error("Function did not return a struct for member array access");
+                } catch (const ReturnException& ret_ex) {
+                    Variable base_struct = ret_ex.struct_value;
+                    Variable member_var_copy = get_struct_member_from_variable(base_struct, member_name);
+                    
+                    if (!member_var_copy.is_array) {
+                        throw std::runtime_error("Member is not an array: " + member_name);
+                    }
+                    
+                    if (index < 0 || index >= static_cast<int>(member_var_copy.array_values.size())) {
+                        throw std::runtime_error("Array index out of bounds");
+                    }
+                    
+                    return member_var_copy.array_values[index];
                 }
-                
-                return var->value;
+            } else {
+                obj_name = node->left->left->name;
+            }
+            
+            // 通常の構造体変数の場合
+            if (!obj_name.empty()) {
+                // 構造体メンバー配列の場合は直接取得
+                try {
+                    return interpreter_.get_struct_member_array_element(obj_name, member_name, static_cast<int>(index));
+                } catch (const std::exception& e) {
+                    // 失敗した場合は従来の方式を試す
+                    std::string member_array_element_name = obj_name + "." + member_name + "[" + std::to_string(index) + "]";
+                    
+                    Variable *var = interpreter_.find_variable(member_array_element_name);
+                    if (!var) {
+                        throw std::runtime_error("Member array element not found: " + member_array_element_name);
+                    }
+                    
+                    return var->value;
+                }
             }
         }
         
+        // 関数呼び出しの戻り値に対する配列アクセス: func()[index]
+        if (node->left && node->left->node_type == ASTNodeType::AST_FUNC_CALL) {
+            debug_print("Processing function call array access: %s\n", node->left->name.c_str());
+            
+            // インデックスを評価
+            int64_t index = evaluate_expression(node->array_index.get());
+            
+            try {
+                // 関数を実行して戻り値を取得（副作用のため実行）
+                (void)evaluate_expression(node->left.get());
+                throw std::runtime_error("Function did not return an array via exception");
+            } catch (const ReturnException& ret) {
+                if (ret.is_array) {
+                    // 構造体配列の戻り値の場合
+                    if (ret.is_struct_array && !ret.struct_array_3d.empty() && 
+                        !ret.struct_array_3d[0].empty() && !ret.struct_array_3d[0][0].empty()) {
+                        
+                        if (index >= 0 && index < static_cast<int64_t>(ret.struct_array_3d[0][0].size())) {
+                            // 構造体要素をReturnExceptionとして投げる
+                            throw ReturnException(ret.struct_array_3d[0][0][index]);
+                        } else {
+                            throw std::runtime_error("Array index out of bounds");
+                        }
+                    }
+                    // 数値配列の戻り値の場合
+                    else if (!ret.int_array_3d.empty() && 
+                        !ret.int_array_3d[0].empty() && !ret.int_array_3d[0][0].empty()) {
+                        
+                        if (index >= 0 && index < static_cast<int64_t>(ret.int_array_3d[0][0].size())) {
+                            return ret.int_array_3d[0][0][index];
+                        } else {
+                            throw std::runtime_error("Array index out of bounds");
+                        }
+                    }
+                    // 文字列配列の戻り値の場合 - 現時点では文字列配列要素を数値として返すことはできない
+                    else if (!ret.str_array_3d.empty() && 
+                             !ret.str_array_3d[0].empty() && !ret.str_array_3d[0][0].empty()) {
+                        throw std::runtime_error("String array element access not supported in numeric context");
+                    } else {
+                        throw std::runtime_error("Empty array returned from function");
+                    }
+                } else {
+                    throw std::runtime_error("Function does not return an array");
+                }
+            }
+        }
+
         std::string array_name = interpreter_.extract_array_name(node);
         if (array_name.empty()) {
             throw std::runtime_error("Cannot determine array name");
@@ -337,6 +421,13 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
 
         if (flat_index >= var->array_values.size()) {
             throw std::runtime_error("Flat index out of bounds");
+        }
+
+        // 配列要素が構造体参照の場合、構造体を取得
+        std::string element_name = array_name + "[" + std::to_string(flat_index) + "]";
+        Variable* element_var = interpreter_.find_variable(element_name);
+        if (element_var && element_var->is_struct) {
+            throw ReturnException(*element_var);
         }
 
         return var->array_values[flat_index];
@@ -523,12 +614,13 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
         // 関数を探す
         const ASTNode *func = nullptr;
         bool is_method_call = (node->left != nullptr); // レシーバーがある場合はメソッド呼び出し
+        bool has_receiver = is_method_call;
+        std::string receiver_name;
         
         if (is_method_call) {
             // メソッド呼び出し: obj.method()
             debug_msg(DebugMsgId::METHOD_CALL_START, node->name.c_str());
             
-            std::string receiver_name;
             if (node->left->node_type == ASTNodeType::AST_VARIABLE) {
                 receiver_name = node->left->name;
             } else if (node->left->node_type == ASTNodeType::AST_IDENTIFIER) {
@@ -1002,8 +1094,36 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                 }
                 // void関数は0を返す
                 
-                // メソッド実行後にselfの変更を元の変数に同期
-                // TODO: sync_self_changes_to_receiver(receiver_name, receiver_var);
+                // メソッド実行後、selfの変更をレシーバーに同期
+                if (has_receiver) {
+                    Variable* receiver_var = interpreter_.find_variable(receiver_name);
+                    if (receiver_var && (receiver_var->type == TYPE_STRUCT || receiver_var->type == TYPE_INTERFACE)) {
+                        // selfの変更を元の構造体/interface変数に同期
+                        Variable* self_var = interpreter_.find_variable("self");
+                        if (self_var) {
+                            // 構造体メンバーを同期
+                            for (auto& receiver_member : receiver_var->struct_members) {
+                                std::string self_member_path = "self." + receiver_member.first;
+                                Variable* self_member_var = interpreter_.find_variable(self_member_path);
+                                if (self_member_var) {
+                                    // selfメンバーの値をレシーバーメンバーにコピー
+                                    receiver_member.second.value = self_member_var->value;
+                                    receiver_member.second.str_value = self_member_var->str_value;
+                                    receiver_member.second.is_assigned = self_member_var->is_assigned;
+                                    
+                                    // ダイレクトアクセス変数も更新
+                                    std::string direct_member_path = receiver_name + "." + receiver_member.first;
+                                    Variable* direct_member_var = interpreter_.find_variable(direct_member_path);
+                                    if (direct_member_var) {
+                                        direct_member_var->value = self_member_var->value;
+                                        direct_member_var->str_value = self_member_var->str_value;
+                                        direct_member_var->is_assigned = self_member_var->is_assigned;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
                 
                 interpreter_.pop_scope();
                 interpreter_.current_function_name = prev_function_name;
@@ -1011,8 +1131,36 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
             } catch (const ReturnException &ret) {
                 // return文で戻り値がある場合
                 
-                // メソッド実行後にselfの変更を元の変数に同期
-                // TODO: sync_self_changes_to_receiver(receiver_name, receiver_var);
+                // メソッド実行後、selfの変更をレシーバーに同期
+                if (has_receiver) {
+                    Variable* receiver_var = interpreter_.find_variable(receiver_name);
+                    if (receiver_var && (receiver_var->type == TYPE_STRUCT || receiver_var->type == TYPE_INTERFACE)) {
+                        // selfの変更を元の構造体/interface変数に同期
+                        Variable* self_var = interpreter_.find_variable("self");
+                        if (self_var) {
+                            // 構造体メンバーを同期
+                            for (auto& receiver_member : receiver_var->struct_members) {
+                                std::string self_member_path = "self." + receiver_member.first;
+                                Variable* self_member_var = interpreter_.find_variable(self_member_path);
+                                if (self_member_var) {
+                                    // selfメンバーの値をレシーバーメンバーにコピー
+                                    receiver_member.second.value = self_member_var->value;
+                                    receiver_member.second.str_value = self_member_var->str_value;
+                                    receiver_member.second.is_assigned = self_member_var->is_assigned;
+                                    
+                                    // ダイレクトアクセス変数も更新
+                                    std::string direct_member_path = receiver_name + "." + receiver_member.first;
+                                    Variable* direct_member_var = interpreter_.find_variable(direct_member_path);
+                                    if (direct_member_var) {
+                                        direct_member_var->value = self_member_var->value;
+                                        direct_member_var->str_value = self_member_var->str_value;
+                                        direct_member_var->is_assigned = self_member_var->is_assigned;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
                 
                 interpreter_.pop_scope();
                 interpreter_.current_function_name = prev_function_name;
@@ -1144,6 +1292,46 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
         // メンバアクセス: obj.member または array[index].member または self.member
         std::string var_name;
         std::string member_name = node->name;
+
+        // ネストしたメンバーアクセスの場合
+        if (!node->member_chain.empty() && node->member_chain.size() > 1) {
+            // 現在は基本機能に制限して、最初の2レベルのみサポート
+            if (node->member_chain.size() > 2) {
+                throw std::runtime_error("Deep nesting (>2 levels) not yet supported");
+            }
+            
+            // ベース変数を取得
+            Variable base_var;
+            if (node->left->node_type == ASTNodeType::AST_VARIABLE) {
+                Variable* var = interpreter_.find_variable(node->left->name);
+                if (!var || var->type != TYPE_STRUCT) {
+                    throw std::runtime_error("Base variable for nested access is not a struct: " + node->left->name);
+                }
+                base_var = *var;
+            } else {
+                throw std::runtime_error("Complex base types for nested access not yet supported");
+            }
+            
+            // 段階的アクセス: base.member1.member2
+            try {
+                Variable intermediate_var = get_struct_member_from_variable(base_var, node->member_chain[0]);
+                
+                if (intermediate_var.type != TYPE_STRUCT) {
+                    throw std::runtime_error("Intermediate member is not a struct: " + node->member_chain[0]);
+                }
+                
+                Variable final_var = get_struct_member_from_variable(intermediate_var, node->member_chain[1]);
+                
+                if (final_var.type == TYPE_STRING) {
+                    last_typed_result_ = TypedValue(final_var.str_value, InferredType(TYPE_STRING, "string"));
+                    return 0;
+                } else {
+                    return final_var.value;
+                }
+            } catch (const std::exception& e) {
+                throw std::runtime_error("Nested member access failed: " + std::string(e.what()));
+            }
+        }
         
         if (node->left->node_type == ASTNodeType::AST_VARIABLE) {
             // 通常のstruct変数: obj.member
@@ -1171,8 +1359,77 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
             var_name = array_name + "[" + std::to_string(index) + "]";
         } else if (node->left->node_type == ASTNodeType::AST_FUNC_CALL) {
             // 関数呼び出し結果でのメンバアクセス: func().member
-            // 現在の実装では段階的に処理するため、この機能は後日実装
-            throw std::runtime_error("Direct function call member access not yet implemented: use intermediate variable");
+            debug_msg(DebugMsgId::EXPR_EVAL_START, "Function call member access");
+            
+            try {
+                // 関数を実行してReturnExceptionを捕捉
+                evaluate_typed_expression(node->left.get());
+                // 通常の戻り値の場合はエラー
+                throw std::runtime_error("Function did not return a struct for member access");
+            } catch (const ReturnException& ret_ex) {
+                // 構造体戻り値からメンバーを取得
+                if (ret_ex.is_struct_array && ret_ex.struct_array_3d.size() > 0) {
+                    // 構造体配列の場合（将来拡張）
+                    throw std::runtime_error("Struct array function return member access not yet fully supported");
+                } else {
+                    // 単一構造体の場合
+                    Variable struct_var = ret_ex.struct_value;
+                    Variable member_var = get_struct_member_from_variable(struct_var, member_name);
+                    
+                    if (member_var.type == TYPE_STRING) {
+                        // 文字列の場合は last_typed_result_ に保存して0を返す
+                        TypedValue typed_result(0, InferredType(TYPE_STRING, "string"));
+                        typed_result.string_value = member_var.str_value;
+                        typed_result.is_numeric_result = false;
+                        last_typed_result_ = typed_result;
+                        return 0;
+                    } else {
+                        return member_var.value;
+                    }
+                }
+            }
+        } else if (node->left->node_type == ASTNodeType::AST_ARRAY_REF && 
+                   node->left->left && node->left->left->node_type == ASTNodeType::AST_FUNC_CALL) {
+            // 関数配列戻り値でのメンバアクセス: func()[index].member
+            debug_msg(DebugMsgId::EXPR_EVAL_START, "Function array member access");
+            
+            try {
+                // 関数を実行してReturnExceptionを捕捉
+                evaluate_expression(node->left->left.get());
+                throw std::runtime_error("Function did not return an array for indexed member access");
+            } catch (const ReturnException& ret_ex) {
+                if (ret_ex.is_struct_array && ret_ex.struct_array_3d.size() > 0) {
+                    // インデックスを評価
+                    int64_t index = evaluate_expression(node->left->array_index.get());
+                    
+                    // 配列境界チェック
+                    if (index < 0 || index >= (int64_t)ret_ex.struct_array_3d.size()) {
+                        throw std::runtime_error("Array index out of bounds in function struct array member access");
+                    }
+                    
+                    // 指定インデックスの構造体からメンバーを取得
+                    if (ret_ex.struct_array_3d.size() > 0 && 
+                        ret_ex.struct_array_3d[0].size() > 0 &&
+                        ret_ex.struct_array_3d[0][0].size() > index) {
+                        Variable struct_var = ret_ex.struct_array_3d[0][0][index];
+                        Variable member_var = get_struct_member_from_variable(struct_var, member_name);
+                        
+                        if (member_var.type == TYPE_STRING) {
+                            TypedValue typed_result(0, InferredType(TYPE_STRING, "string"));
+                            typed_result.string_value = member_var.str_value;
+                            typed_result.is_numeric_result = false;
+                            last_typed_result_ = typed_result;
+                            return 0;
+                        } else {
+                            return member_var.value;
+                        }
+                    } else {
+                        throw std::runtime_error("Invalid struct array structure");
+                    }
+                } else {
+                    throw std::runtime_error("Function did not return a struct array for indexed member access");
+                }
+            }
         } else {
             throw std::runtime_error("Invalid member access");
         }
@@ -1198,17 +1455,37 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
     }
     
     case ASTNodeType::AST_MEMBER_ARRAY_ACCESS: {
-        // メンバの配列アクセス: obj.member[index] または obj.member[i][j]
+        // メンバの配列アクセス: obj.member[index] または func().member[index]
         std::string obj_name;
+        Variable base_struct;
+        bool is_function_call = false;
+        
         if (node->left->node_type == ASTNodeType::AST_VARIABLE) {
             obj_name = node->left->name;
+        } else if (node->left->node_type == ASTNodeType::AST_FUNC_CALL) {
+            // 関数呼び出し結果でのメンバー配列アクセス: func().member[index]
+            is_function_call = true;
+            debug_msg(DebugMsgId::EXPR_EVAL_START, "Function call member array access");
+            
+            try {
+                evaluate_expression(node->left.get());
+                throw std::runtime_error("Function did not return a struct for member array access");
+            } catch (const ReturnException& ret_ex) {
+                if (ret_ex.is_struct_array && ret_ex.struct_array_3d.size() > 0) {
+                    throw std::runtime_error("Struct array function return member array access not yet supported");
+                } else {
+                    base_struct = ret_ex.struct_value;
+                    obj_name = "func_result"; // 仮の名前
+                }
+            }
         } else {
             throw std::runtime_error("Invalid object reference in member array access");
         }
         
         std::string member_name = node->name;
         
-        std::cerr << "DEBUG_MEMBER_ARRAY: obj=" << obj_name << ", member=" << member_name << std::endl;
+        std::cerr << "DEBUG_MEMBER_ARRAY: obj=" << obj_name << ", member=" << member_name 
+                  << ", is_function_call=" << is_function_call << std::endl;
         
         // インデックスを評価（多次元対応）
         std::vector<int64_t> indices;
@@ -1227,23 +1504,69 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
         }
         
         // 構造体メンバー変数を取得
-        Variable *member_var = interpreter_.get_struct_member(obj_name, member_name);
-        if (!member_var) {
-            throw std::runtime_error("Struct member not found: " + member_name);
+        Variable member_var_copy; // 関数呼び出しの場合用のコピー
+        Variable *member_var;
+        
+        if (is_function_call) {
+            // 関数戻り値からメンバーを取得
+            member_var_copy = get_struct_member_from_variable(base_struct, member_name);
+            member_var = &member_var_copy;
+            
+            // デバッグ情報
+            std::cerr << "DEBUG: Function call member array access - member found" << std::endl;
+            std::cerr << "DEBUG: Member is_array: " << member_var->is_array << std::endl;
+            std::cerr << "DEBUG: Member array_values.size(): " << member_var->array_values.size() << std::endl;
+        } else {
+            member_var = interpreter_.get_struct_member(obj_name, member_name);
+            if (!member_var) {
+                throw std::runtime_error("Struct member not found: " + member_name);
+            }
         }
 
         // 多次元配列の場合
         if (member_var->is_multidimensional && indices.size() > 1) {
             std::cerr << "DEBUG: Using getMultidimensionalArrayElement - indices.size()=" << indices.size() << std::endl;
-            return interpreter_.getMultidimensionalArrayElement(*member_var, indices);
+            if (is_function_call) {
+                // 関数戻り値の場合は直接配列要素を取得
+                if (!member_var->is_array || member_var->array_values.empty()) {
+                    throw std::runtime_error("Member is not a valid array for multi-dimensional access");
+                }
+                // 多次元インデックス計算（簡易版）
+                int64_t flat_index = indices[0];
+                if (indices.size() > 1 && member_var->is_multidimensional) {
+                    // 簡易的な多次元計算（正確には別の実装が必要）
+                    flat_index = indices[0] * 10 + indices[1]; // 仮の計算
+                }
+                if (flat_index >= 0 && flat_index < (int64_t)member_var->array_values.size()) {
+                    return member_var->array_values[flat_index];
+                } else {
+                    throw std::runtime_error("Array index out of bounds in function member array access");
+                }
+            } else {
+                return interpreter_.getMultidimensionalArrayElement(*member_var, indices);
+            }
         }
         
         std::cerr << "DEBUG: Using 1D access - is_multidimensional=" << member_var->is_multidimensional 
                   << ", indices.size()=" << indices.size() << std::endl;
         
-        // 1次元配列の場合（従来処理）
+        // 1次元配列の場合
         int64_t index = indices[0];
-        return interpreter_.get_struct_member_array_element(obj_name, member_name, static_cast<int>(index));
+        if (is_function_call) {
+            // 関数戻り値の場合
+            if (!member_var->is_array || member_var->array_values.empty()) {
+                throw std::runtime_error("Member is not a valid array");
+            }
+            if (index >= 0 && index < (int64_t)member_var->array_values.size()) {
+                return member_var->array_values[index];
+            } else {
+                throw std::runtime_error("Array index out of bounds in function member array access");
+            }
+        } else {
+            std::cerr << "DEBUG: Calling interpreter_.get_struct_member_array_element with obj=" 
+                      << obj_name << ", member=" << member_name << ", index=" << index << std::endl;
+            return interpreter_.get_struct_member_array_element(obj_name, member_name, static_cast<int>(index));
+        }
     }
     
     case ASTNodeType::AST_STRUCT_LITERAL: {
@@ -1327,6 +1650,26 @@ TypedValue ExpressionEvaluator::evaluate_typed_expression(const ASTNode* node) {
         return TypedValue(0, InferredType());
     }
     
+    // ReturnExceptionをキャッチして構造体を処理
+    try {
+        return evaluate_typed_expression_internal(node);
+    } catch (const ReturnException& ret_ex) {
+        if (ret_ex.struct_value.type == TYPE_STRUCT) {
+            // 構造体の場合、ReturnExceptionを再スロー（メンバアクセスで処理される）
+            throw;
+        } else {
+            // 通常の値の場合
+            return TypedValue(ret_ex.value, InferredType(TYPE_INT, "int"));
+        }
+    }
+}
+
+// 実際の型推論対応の式評価（内部実装）
+TypedValue ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode* node) {
+    if (!node) {
+        return TypedValue(0, InferredType());
+    }
+    
     // まず型を推論
     InferredType inferred_type = type_engine_.infer_type(node);
     
@@ -1387,6 +1730,37 @@ TypedValue ExpressionEvaluator::evaluate_typed_expression(const ASTNode* node) {
         }
         
         case ASTNodeType::AST_MEMBER_ACCESS: {
+            // func()[index].member パターンをチェック
+            if (node->left && node->left->node_type == ASTNodeType::AST_ARRAY_REF &&
+                node->left->left && node->left->left->node_type == ASTNodeType::AST_FUNC_CALL) {
+                
+                debug_print("Processing func()[index].member pattern: %s[].%s\n", 
+                           node->left->left->name.c_str(), node->name.c_str());
+                
+                try {
+                    // まず func()[index] を評価して構造体を取得
+                    TypedValue array_element = evaluate_typed_expression(node->left.get());
+                    
+                    // この時点で array_element は構造体要素への参照のはずだが、
+                    // 実際には ReturnException が投げられるはず
+                    throw std::runtime_error("Expected struct return exception");
+                    
+                } catch (const ReturnException& struct_ret) {
+                    if (struct_ret.is_struct) {
+                        // 構造体からメンバーを取得
+                        Variable member_var = get_struct_member_from_variable(struct_ret.struct_value, node->name);
+                        
+                        if (member_var.type == TYPE_STRING) {
+                            return TypedValue(member_var.str_value, InferredType(TYPE_STRING, "string"));
+                        } else {
+                            return TypedValue(member_var.value, InferredType(TYPE_INT, "int"));
+                        }
+                    } else {
+                        throw std::runtime_error("Expected struct element from function array access");
+                    }
+                }
+            }
+            
             // 構造体メンバアクセスの場合
             if (inferred_type.type_info == TYPE_STRING) {
                 // 文字列型のメンバアクセス - 直接構造体メンバにアクセス
@@ -1408,7 +1782,59 @@ TypedValue ExpressionEvaluator::evaluate_typed_expression(const ASTNode* node) {
         }
         
         case ASTNodeType::AST_ARRAY_REF: {
-            // 配列要素アクセスの場合は直接評価
+            // 関数呼び出しの戻り値に対する配列アクセス: func()[index]
+            if (node->left && node->left->node_type == ASTNodeType::AST_FUNC_CALL) {
+                debug_print("Processing typed function call array access: %s\n", node->left->name.c_str());
+                
+                // インデックスを評価
+                int64_t index = evaluate_expression(node->array_index.get());
+                
+                try {
+                    // 関数を実行して戻り値を取得（副作用のため実行）
+                    (void)evaluate_expression(node->left.get());
+                    throw std::runtime_error("Function did not return an array via exception");
+                } catch (const ReturnException& ret) {
+                    if (ret.is_array) {
+                        // 構造体配列の戻り値の場合
+                        if (ret.is_struct_array && !ret.struct_array_3d.empty() && 
+                            !ret.struct_array_3d[0].empty() && !ret.struct_array_3d[0][0].empty()) {
+                            
+                            if (index >= 0 && index < static_cast<int64_t>(ret.struct_array_3d[0][0].size())) {
+                                // 構造体要素をReturnExceptionとして投げる
+                                throw ReturnException(ret.struct_array_3d[0][0][index]);
+                            } else {
+                                throw std::runtime_error("Array index out of bounds");
+                            }
+                        }
+                        // 文字列配列の戻り値の場合
+                        else if (!ret.str_array_3d.empty() && 
+                            !ret.str_array_3d[0].empty() && !ret.str_array_3d[0][0].empty()) {
+                            
+                            if (index >= 0 && index < static_cast<int64_t>(ret.str_array_3d[0][0].size())) {
+                                return TypedValue(ret.str_array_3d[0][0][index], TYPE_STRING);
+                            } else {
+                                throw std::runtime_error("Array index out of bounds");
+                            }
+                        }
+                        // 数値配列の戻り値の場合
+                        else if (!ret.int_array_3d.empty() && 
+                                 !ret.int_array_3d[0].empty() && !ret.int_array_3d[0][0].empty()) {
+                            
+                            if (index >= 0 && index < static_cast<int64_t>(ret.int_array_3d[0][0].size())) {
+                                return TypedValue(ret.int_array_3d[0][0][index], TYPE_INT);
+                            } else {
+                                throw std::runtime_error("Array index out of bounds");
+                            }
+                        } else {
+                            throw std::runtime_error("Empty array returned from function");
+                        }
+                    } else {
+                        throw std::runtime_error("Function does not return an array");
+                    }
+                }
+            }
+            
+            // 通常の配列要素アクセスの場合は直接評価
             int64_t numeric_result = evaluate_expression(node);
             return TypedValue(numeric_result, inferred_type);
         }
@@ -1457,7 +1883,8 @@ TypedValue ExpressionEvaluator::evaluate_ternary_typed(const ASTNode* node) {
                selected_node->node_type == ASTNodeType::AST_FUNC_CALL) {
         // 文字列を返す関数呼び出しの場合
         try {
-            int64_t dummy_result = evaluate_expression(selected_node);
+            // 関数を実行（副作用のため実行）
+            (void)evaluate_expression(selected_node);
             TypedValue result = TypedValue("", InferredType(TYPE_STRING, "string"));
             last_typed_result_ = result;
             return result;
@@ -1472,6 +1899,11 @@ TypedValue ExpressionEvaluator::evaluate_ternary_typed(const ASTNode* node) {
                 return result;
             }
         }
+    } else if (selected_node->node_type == ASTNodeType::AST_ARRAY_REF) {
+        // 配列アクセスの場合（関数呼び出し配列アクセスを含む）
+        TypedValue result = evaluate_typed_expression(selected_node);
+        last_typed_result_ = result;
+        return result;
     } else if (selected_node->node_type == ASTNodeType::AST_TERNARY_OP) {
         // ネストした三項演算子の場合は再帰的に評価
         TypedValue result = evaluate_ternary_typed(selected_node);
@@ -1560,5 +1992,197 @@ TypedValue ExpressionEvaluator::resolve_deferred_evaluation(const TypedValue& de
         default:
             // その他の場合は通常の評価
             return evaluate_typed_expression(node);
+    }
+}
+
+// 構造体メンバー取得関数の実装
+Variable ExpressionEvaluator::get_struct_member_from_variable(const Variable& struct_var, const std::string& member_name) {
+    if (struct_var.type != TYPE_STRUCT) {
+        throw std::runtime_error("Variable is not a struct");
+    }
+    
+    // まず struct_members から直接検索
+    auto member_it = struct_var.struct_members.find(member_name);
+    if (member_it != struct_var.struct_members.end()) {
+        return member_it->second;
+    }
+    
+    // 構造体の識別子（struct_type_name）を使用してメンバーを検索
+    std::string member_var_name = struct_var.struct_type_name + "." + member_name;
+    Variable* member_var = interpreter_.find_variable(member_var_name);
+    
+    if (member_var) {
+        return *member_var;
+    }
+    
+    // インタープリターの get_struct_member を使用
+    try {
+        std::string temp_struct_name = "temp_struct_" + struct_var.struct_type_name;
+        member_var = interpreter_.get_struct_member(temp_struct_name, member_name);
+        if (member_var) {
+            return *member_var;
+        }
+    } catch (...) {
+        // 失敗した場合は続行
+    }
+    
+    throw std::runtime_error("Struct member not found: " + member_name);
+}
+
+// 関数戻り値からのメンバーアクセス処理
+TypedValue ExpressionEvaluator::evaluate_function_member_access(const ASTNode* func_node, const std::string& member_name) {
+    debug_msg(DebugMsgId::EXPR_EVAL_START, "evaluate_function_member_access");
+    
+    try {
+        // 関数を実行してReturnExceptionを捕捉
+        evaluate_expression(func_node);
+        throw std::runtime_error("Function did not return a struct for member access");
+    } catch (const ReturnException& ret_ex) {
+        if (ret_ex.is_struct_array && ret_ex.struct_array_3d.size() > 0) {
+            throw std::runtime_error("Struct array function return member access requires index");
+        } else {
+            // 単一構造体の場合
+            Variable struct_var = ret_ex.struct_value;
+            Variable member_var = get_struct_member_from_variable(struct_var, member_name);
+            
+            if (member_var.type == TYPE_STRING) {
+                TypedValue result(0, InferredType(TYPE_STRING, "string"));
+                result.string_value = member_var.str_value;
+                result.is_numeric_result = false;
+                return result;
+            } else {
+                return TypedValue(member_var.value, InferredType(TYPE_INT, "int"));
+            }
+        }
+    }
+}
+
+// 関数戻り値からの配列アクセス処理
+TypedValue ExpressionEvaluator::evaluate_function_array_access(const ASTNode* func_node, const ASTNode* index_node) {
+    debug_msg(DebugMsgId::EXPR_EVAL_START, "evaluate_function_array_access");
+    
+    // インデックスを評価
+    int64_t index = evaluate_expression(index_node);
+    
+    try {
+        // 関数を実行して戻り値を取得
+        evaluate_expression(func_node);
+        throw std::runtime_error("Function did not return an array via exception");
+    } catch (const ReturnException& ret) {
+        if (!ret.is_array) {
+            throw std::runtime_error("Function does not return an array");
+        }
+        
+        if (ret.is_struct_array && !ret.struct_array_3d.empty() && 
+            !ret.struct_array_3d[0].empty() && !ret.struct_array_3d[0][0].empty()) {
+            // 構造体配列の場合
+            if (index >= 0 && index < static_cast<int64_t>(ret.struct_array_3d[0][0].size())) {
+                Variable struct_element = ret.struct_array_3d[0][0][index];
+                // 構造体として返す（後でメンバーアクセス可能）
+                TypedValue result(0, InferredType(TYPE_STRUCT, struct_element.struct_type_name));
+                result.is_struct_result = true;
+                // result.struct_data = struct_element; // 一時的にコメントアウト
+                return result;
+            } else {
+                throw std::runtime_error("Array index out of bounds");
+            }
+        } else if (!ret.int_array_3d.empty() && 
+                   !ret.int_array_3d[0].empty() && !ret.int_array_3d[0][0].empty()) {
+            // 数値配列の場合
+            if (index >= 0 && index < static_cast<int64_t>(ret.int_array_3d[0][0].size())) {
+                return TypedValue(ret.int_array_3d[0][0][index], InferredType(TYPE_INT, "int"));
+            } else {
+                throw std::runtime_error("Array index out of bounds");
+            }
+        } else {
+            throw std::runtime_error("Unsupported array type in function return");
+        }
+    }
+}
+
+// 関数戻り値からの複合アクセス処理（func()[index].member）
+TypedValue ExpressionEvaluator::evaluate_function_compound_access(const ASTNode* func_node, const ASTNode* index_node, const std::string& member_name) {
+    debug_msg(DebugMsgId::EXPR_EVAL_START, "evaluate_function_compound_access");
+    
+    // まず配列アクセスを実行
+    TypedValue array_result = evaluate_function_array_access(func_node, index_node);
+    
+    if (!array_result.is_struct_result) {
+        throw std::runtime_error("Array element is not a struct for member access");
+    }
+    
+    // 現在は構造体データを保持していないため、エラーを返す
+    throw std::runtime_error("Compound function access not fully implemented yet");
+    
+    // TODO: 構造体データを保持する実装を追加
+    /*
+    Variable member_var = get_struct_member_from_variable(array_result.struct_data, member_name);
+    
+    if (member_var.type == TYPE_STRING) {
+        TypedValue result(0, InferredType(TYPE_STRING, "string"));
+        result.string_value = member_var.str_value;
+        result.is_numeric_result = false;
+        return result;
+    } else {
+        return TypedValue(member_var.value, InferredType(TYPE_INT, "int"));
+    }
+    */
+}
+
+// 再帰的メンバーアクセス処理（将来のネスト構造体対応）
+TypedValue ExpressionEvaluator::evaluate_recursive_member_access(const Variable& base_var, const std::vector<std::string>& member_path) {
+    debug_msg(DebugMsgId::EXPR_EVAL_START, "evaluate_recursive_member_access");
+    
+    if (member_path.empty()) {
+        throw std::runtime_error("Empty member path for recursive access");
+    }
+    
+    std::cerr << "DEBUG_RECURSIVE: Starting recursive access with " << member_path.size() << " levels" << std::endl;
+    for (size_t i = 0; i < member_path.size(); ++i) {
+        std::cerr << "DEBUG_RECURSIVE: Path[" << i << "] = " << member_path[i] << std::endl;
+    }
+    
+    Variable current_var = base_var;
+    
+    // 各レベルでのメンバーアクセスを再帰的に処理
+    for (size_t i = 0; i < member_path.size(); ++i) {
+        const std::string& member_name = member_path[i];
+        std::cerr << "DEBUG_RECURSIVE: Accessing member[" << i << "] = " << member_name << std::endl;
+        std::cerr << "DEBUG_RECURSIVE: Current var type = " << static_cast<int>(current_var.type) << std::endl;
+        
+        // 現在の変数が構造体でない場合はエラー
+        if (current_var.type != TYPE_STRUCT) {
+            throw std::runtime_error("Cannot access member '" + member_name + "' on non-struct type");
+        }
+        
+        // メンバーを取得
+        try {
+            current_var = get_struct_member_from_variable(current_var, member_name);
+            std::cerr << "DEBUG_RECURSIVE: Successfully accessed member, new type = " << static_cast<int>(current_var.type) << std::endl;
+        } catch (const std::exception& e) {
+            std::cerr << "DEBUG_RECURSIVE: Failed to access member '" << member_name << "': " << e.what() << std::endl;
+            throw;
+        }
+        
+        // 最後のレベルでない場合、構造体である必要がある（将来の拡張用）
+        if (i < member_path.size() - 1 && current_var.type != TYPE_STRUCT) {
+            throw std::runtime_error("Intermediate member '" + member_name + "' is not a struct for further nesting");
+        }
+    }
+    
+    // 最終結果を TypedValue に変換
+    std::cerr << "DEBUG_RECURSIVE: Final result type = " << static_cast<int>(current_var.type) << std::endl;
+    if (current_var.type == TYPE_STRING) {
+        TypedValue result(0, InferredType(TYPE_STRING, "string"));
+        result.string_value = current_var.str_value;
+        result.is_numeric_result = false;
+        return result;
+    } else if (current_var.type == TYPE_STRUCT) {
+        // 構造体の場合、完全なデータを保持
+        TypedValue result(current_var, InferredType(TYPE_STRUCT, current_var.struct_type_name));
+        std::cerr << "DEBUG_RECURSIVE: Returning struct TypedValue" << std::endl;
+        return result;
+    } else {
+        return TypedValue(current_var.value, InferredType(TYPE_INT, "int"));
     }
 }

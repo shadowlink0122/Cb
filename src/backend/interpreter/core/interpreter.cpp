@@ -830,10 +830,8 @@ void Interpreter::execute_statement(const ASTNode *node) {
         break;
 
     case ASTNodeType::AST_RETURN_STMT:
-        // printf("DEBUG: AST_RETURN_STMT processing started\n");
         debug_msg(DebugMsgId::INTERPRETER_RETURN_STMT);
         if (node->left) {
-            // printf("DEBUG: Return statement has left node, type: %d\n", static_cast<int>(node->left->node_type));
             debug_msg(DebugMsgId::INTERPRETER_RETURN_STMT);
             // 配列リテラルの直接返却をサポート
             if (node->left->node_type == ASTNodeType::AST_ARRAY_LITERAL) {
@@ -960,6 +958,28 @@ void Interpreter::execute_statement(const ASTNode *node) {
             } else if (node->left->node_type ==
                        ASTNodeType::AST_STRING_LITERAL) {
                 throw ReturnException(node->left->str_value);
+            } else if (node->left->node_type == ASTNodeType::AST_IDENTIFIER) {
+                // AST_IDENTIFIER の処理（特に self）
+                if (node->left->name == "self") {
+                    Variable *self_var = find_variable("self");
+                    if (self_var && self_var->is_struct) {
+                        sync_struct_members_from_direct_access("self");
+                        throw ReturnException(*self_var);
+                    }
+                } else {
+                    // 他の識別子の場合、変数として扱う
+                    Variable *var = find_variable(node->left->name);
+                    if (var) {
+                        if (var->is_struct) {
+                            sync_struct_members_from_direct_access(node->left->name);
+                            throw ReturnException(*var);
+                        } else if (var->type == TYPE_STRING) {
+                            throw ReturnException(var->str_value);
+                        } else {
+                            throw ReturnException(var->value);
+                        }
+                    }
+                }
             } else if (node->left->node_type == ASTNodeType::AST_VARIABLE) {
                 debug_msg(DebugMsgId::INTERPRETER_RETURN_VAR, node->left->name.c_str());
                 // 変数の場合、配列変数かチェック
@@ -1149,6 +1169,40 @@ void Interpreter::execute_statement(const ASTNode *node) {
                         }
 
                         throw ReturnException(str_array_3d, type_name, type_info);
+                    } else if (type_info == TYPE_STRUCT && var->is_array) {
+                        // 構造体配列を戻り値として処理
+                        std::vector<std::vector<std::vector<Variable>>> struct_array_3d;
+                        std::vector<std::vector<Variable>> struct_array_2d;
+                        std::vector<Variable> struct_array_1d;
+                        
+                        // 構造体配列の各要素を収集
+                        for (int i = 0; i < var->array_size; ++i) {
+                            std::string element_name = node->left->name + "[" + std::to_string(i) + "]";
+                            Variable* element_var = find_variable(element_name);
+                            
+                            if (element_var && element_var->is_struct) {
+                                // 構造体要素をコピー（識別用にstruct_type_nameを使用）
+                                Variable struct_element = *element_var;
+                                struct_element.struct_type_name = element_name; // 要素識別子を設定
+                                struct_array_1d.push_back(struct_element);
+                                
+                                debug_msg(DebugMsgId::INTERPRETER_ARRAY_ELEMENT, i, 
+                                         ("struct:" + element_name).c_str());
+                            } else {
+                                // 空の構造体要素を作成
+                                Variable empty_struct;
+                                empty_struct.type = TYPE_STRUCT;
+                                empty_struct.is_struct = true;
+                                empty_struct.struct_type_name = element_name;
+                                struct_array_1d.push_back(empty_struct);
+                            }
+                        }
+                        
+                        struct_array_2d.push_back(struct_array_1d);
+                        struct_array_3d.push_back(struct_array_2d);
+                        
+                        debug_msg(DebugMsgId::INTERPRETER_RETURN_EXCEPTION);
+                        throw ReturnException(struct_array_3d, var->type_name.empty() ? type_name : var->type_name);
                     }
                 } else {
                     // debug_msg(DebugMsgId::INTERPRETER_VAR_NOT_FOUND);
@@ -1183,7 +1237,7 @@ void Interpreter::execute_statement(const ASTNode *node) {
                         throw ReturnException(value);
                     }
                 } else {
-                    // その他の式（メンバーアクセスなど）を処理
+                    // その他の式（メンバーアクセスなど）を処理                    
                     if (node->left->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
                         // メンバーアクセス（self.name など）の場合
                         std::string struct_name = node->left->left->name;
@@ -1216,11 +1270,23 @@ void Interpreter::execute_statement(const ASTNode *node) {
                     // デフォルトの式評価（型推論対応）
                     TypedValue typed_result = expression_evaluator_->evaluate_typed_expression(
                         node->left.get());
-                        
-                    if (typed_result.is_string()) {
+                    
+                    std::cerr << "DEBUG: typed_result.is_struct_result = " << typed_result.is_struct_result << std::endl;
+                    
+                    if (typed_result.is_struct_result) {
+                        std::cerr << "DEBUG: Struct result detected, re-evaluating expression" << std::endl;
+                        // 構造体の場合、再度評価してReturnExceptionを取得
+                        try {
+                            expression_evaluator_->evaluate_expression(node->left.get());
+                            throw std::runtime_error("Struct evaluation did not throw ReturnException");
+                        } catch (const ReturnException& ret_ex) {
+                            std::cerr << "DEBUG: Successfully caught ReturnException for struct" << std::endl;
+                            throw ret_ex; // そのまま再投げ
+                        }
+                    } else if (typed_result.is_string()) {
                         throw ReturnException(typed_result.string_value);
                     } else {
-                        throw ReturnException(typed_result.numeric_value);
+                        throw ReturnException(typed_result.value);
                     }
                 }
             } else {
@@ -1267,7 +1333,7 @@ void Interpreter::execute_statement(const ASTNode *node) {
                     if (result.is_string()) {
                         throw ReturnException(result.string_value);
                     } else {
-                        throw ReturnException(result.numeric_value);
+                        throw ReturnException(result.value);
                     }
                 }
             }
@@ -1330,6 +1396,24 @@ void Interpreter::assign_variable(const std::string &name,
 void Interpreter::assign_variable(const std::string &name,
                                   const std::string &value, bool is_const) {
     variable_manager_->assign_variable(name, value, is_const);
+}
+
+void Interpreter::assign_union_variable(const std::string &name, const ASTNode* value_node) {
+    Variable* var = find_variable(name);
+    if (!var) {
+        throw std::runtime_error("Undefined variable: " + name);
+    }
+    
+    if (var->type != TYPE_UNION) {
+        throw std::runtime_error("Variable is not a union type: " + name);
+    }
+    
+    if (debug_mode) {
+        debug_print("UNION_ASSIGN_INTERPRETER_DEBUG: Variable '%s' type_name='%s'\n", 
+                   name.c_str(), var->type_name.c_str());
+    }
+    
+    variable_manager_->assign_union_value(*var, var->type_name, value_node);
 }
 
 void Interpreter::assign_function_parameter(const std::string &name,
@@ -2444,6 +2528,69 @@ void Interpreter::assign_struct_member(const std::string &var_name,
     }
 }
 
+// structメンバに構造体を代入
+void Interpreter::assign_struct_member_struct(const std::string &var_name,
+                                             const std::string &member_name,
+                                             const Variable &struct_value) {
+    if (debug_mode) {
+        debug_print("assign_struct_member_struct: var=%s, member=%s, struct_type=%s\n",
+                    var_name.c_str(), member_name.c_str(), struct_value.struct_type_name.c_str());
+    }
+    
+    Variable *member_var = get_struct_member(var_name, member_name);
+    if (!member_var) {
+        throw std::runtime_error("Member variable not found: " + member_name);
+    }
+    
+    if (member_var->type != TYPE_STRUCT) {
+        throw std::runtime_error("Member is not a struct: " + member_name);
+    }
+    
+    // 構造体の型が一致するかチェック（型名が空の場合はスキップ）
+    if (!member_var->struct_type_name.empty() && !struct_value.struct_type_name.empty() &&
+        member_var->struct_type_name != struct_value.struct_type_name) {
+        throw std::runtime_error("Struct type mismatch: expected " + member_var->struct_type_name + 
+                                ", got " + struct_value.struct_type_name);
+    }
+    
+    // 型名が空の場合は代入先の型名を設定
+    if (member_var->struct_type_name.empty()) {
+        member_var->struct_type_name = struct_value.struct_type_name;
+        if (debug_mode) {
+            debug_print("Setting member struct type to: %s\n", struct_value.struct_type_name.c_str());
+        }
+    }
+    
+    // 構造体データをコピー
+    *member_var = struct_value;
+    member_var->is_assigned = true;
+    
+    // ダイレクトアクセス変数も更新
+    std::string direct_var_name = var_name + "." + member_name;
+    Variable *direct_var = find_variable(direct_var_name);
+    if (direct_var) {
+        *direct_var = struct_value;
+        direct_var->is_assigned = true;
+        if (debug_mode) {
+            debug_print("Updated direct access struct var %s\n", direct_var_name.c_str());
+        }
+    }
+    
+    // 構造体のメンバー変数も個別に更新
+    for (const auto& member : struct_value.struct_members) {
+        std::string nested_var_name = direct_var_name + "." + member.first;
+        Variable* nested_var = find_variable(nested_var_name);
+        if (nested_var) {
+            *nested_var = member.second;
+            nested_var->is_assigned = true;
+            if (debug_mode) {
+                debug_print("Updated nested member: %s = %lld\n", 
+                           nested_var_name.c_str(), member.second.value);
+            }
+        }
+    }
+}
+
 void Interpreter::assign_struct_member_array_element(
     const std::string &var_name, const std::string &member_name, int index,
     int64_t value) {
@@ -2945,6 +3092,7 @@ void Interpreter::sync_struct_members_from_direct_access(const std::string &var_
                               var_name.c_str(), member.name.c_str(), direct_var->array_size, copy_size);
                 }
                 
+                // 個別要素変数からデータをコピー
                 for (int i = 0; i < direct_var->array_size; i++) {
                     std::string element_name = var_name + "." + member.name + "[" + std::to_string(i) + "]";
                     Variable *element_var = find_variable(element_name);
@@ -2962,15 +3110,25 @@ void Interpreter::sync_struct_members_from_direct_access(const std::string &var_
                                 }
                             }
                         }
+                    } else {
+                        // 要素変数が見つからない場合、direct_var自体の配列データを使用
+                        if (member.type == TYPE_STRING && i < static_cast<int>(direct_var->array_strings.size())) {
+                            var->struct_members[member.name].array_strings[i] = direct_var->array_strings[i];
+                        } else if (member.type != TYPE_STRING && i < static_cast<int>(direct_var->array_values.size())) {
+                            var->struct_members[member.name].array_values[i] = direct_var->array_values[i];
+                            if (var->struct_members[member.name].is_multidimensional) {
+                                var->struct_members[member.name].multidim_array_values[i] = direct_var->array_values[i];
+                            }
+                        }
                     }
                 }
                 
                 var->struct_members[member.name].is_assigned = true;
                 debug_msg(DebugMsgId::INTERPRETER_STRUCT_SYNCED, member.name.c_str(), direct_var->array_size);
             } else if (member.type == TYPE_STRING || direct_var->type == TYPE_STRING ||
-                       ((!direct_var->type_name.empty() && type_manager_->is_union_type(direct_var->type_name)) || 
+                       (((!direct_var->type_name.empty() && type_manager_->is_union_type(direct_var->type_name)) || 
                         (!member.type_alias.empty() && type_manager_->is_union_type(member.type_alias))) && 
-                       (direct_var->type == TYPE_STRING || !direct_var->str_value.empty())) {
+                       (direct_var->type == TYPE_STRING || !direct_var->str_value.empty()))) {
                 var->struct_members[member.name] = Variable();
                 var->struct_members[member.name].type = TYPE_STRING;
                 // Union型名を設定：direct_varから取得できない場合は構造体定義から取得

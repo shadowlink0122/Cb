@@ -113,7 +113,7 @@ inline void test_integration_ternary() {
     integration_test_passed_with_time_auto("ternary string return test", test_file_string_return);
     
     // 三項演算子return文テスト
-    const std::string test_file_ternary_return = "../../test_ternary_return.cb";
+    const std::string test_file_ternary_return = "../../tests/cases/ternary/test_ternary_return.cb";
     run_cb_test_with_output_and_time_auto(test_file_ternary_return, 
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_EQ(0, exit_code, "Expected successful exit code for ternary return test");
@@ -123,7 +123,7 @@ inline void test_integration_ternary() {
     integration_test_passed_with_time_auto("ternary return statement test", test_file_ternary_return);
     
     // 単純な三項演算子return文テスト
-    const std::string test_file_simple_ternary_return = "../../test_simple_ternary_return.cb";
+    const std::string test_file_simple_ternary_return = "../../tests/cases/ternary/test_simple_ternary_return.cb";
     run_cb_test_with_output_and_time_auto(test_file_simple_ternary_return, 
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_EQ(0, exit_code, "Expected successful exit code for simple ternary return test");

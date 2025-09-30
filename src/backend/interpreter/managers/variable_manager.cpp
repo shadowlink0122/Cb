@@ -595,6 +595,10 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                     ASTNode* init_node = node->init_expr ? node->init_expr.get() : node->right.get();
                     assign_union_value(var, node->type_name, init_node);
                 }
+                
+                // union型変数の処理完了後、変数を登録して終了
+                interpreter_->current_scope().variables[node->name] = var;
+                return;
             }
             // 配列typedefの場合
             else if (resolved_type.find("[") != std::string::npos) {
@@ -755,7 +759,7 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                         var.str_value = ternary_result.string_value;
                         var.value = 0;
                     } else {
-                        var.value = ternary_result.numeric_value;
+                        var.value = ternary_result.value;
                         var.str_value = "";
                     }
                     
@@ -923,6 +927,20 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                             // struct戻り値の場合
                             var = ret.struct_value;
                             var.is_assigned = true;
+                        } else if (ret.is_struct && var.type == TYPE_UNION) {
+                            // union型変数への構造体代入の場合
+                            if (interpreter_->get_type_manager()->is_custom_type_allowed_for_union(var.type_name, ret.struct_value.struct_type_name)) {
+                                var.value = ret.struct_value.value;
+                                var.str_value = ret.struct_value.str_value;
+                                var.current_type = TYPE_STRUCT;
+                                var.is_struct = true;
+                                var.struct_type_name = ret.struct_value.struct_type_name;
+                                var.struct_members = ret.struct_value.struct_members;
+                                var.is_assigned = true;
+                            } else {
+                                throw std::runtime_error("Struct type '" + ret.struct_value.struct_type_name + 
+                                                       "' is not allowed for union type " + var.type_name);
+                            }
                         } else if (!ret.is_array && !ret.is_struct) {
                             // 数値戻り値の場合
                             var.value = ret.value;
@@ -953,6 +971,9 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
             debug_msg(DebugMsgId::VAR_MANAGER_STRUCT_CREATE, node->name.c_str(), node->type_name.c_str());
             var.type = TYPE_STRUCT;
             var.is_struct = true;
+            
+            // 構造体のtype_nameを設定
+            var.type_name = node->type_name;
             
             // typedef名を実際のstruct名に解決
             std::string resolved_struct_type = interpreter_->type_manager_->resolve_typedef(node->type_name);
@@ -1496,6 +1517,55 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
 
                 return; // struct代入処理完了後は早期リターン
 
+            } else if (var.is_struct && node->init_expr->node_type == ASTNodeType::AST_FUNC_CALL) {
+                // 構造体変数の関数呼び出し初期化: Calculator add_result = math.add(10, 5);
+                
+                try {
+                    // 構造体戻り値を期待した関数実行（副作用のため実行）
+                    (void)interpreter_->expression_evaluator_->evaluate_expression(node->init_expr.get());
+                    // 通常の数値戻り値の場合はエラー
+                    throw std::runtime_error("Expected struct return but got numeric value");
+                } catch (const ReturnException &ret) {
+                    if (ret.is_struct) {
+                        // 構造体戻り値を変数に代入
+                        var = ret.struct_value;
+                        var.is_assigned = true;
+                        
+                        // 変数を登録
+                        current_scope().variables[node->name] = var;
+                        
+                        // 個別メンバー変数も作成
+                        for (const auto& member : ret.struct_value.struct_members) {
+                            std::string member_path = node->name + "." + member.first;
+                            current_scope().variables[member_path] = member.second;
+                            
+                            // 配列メンバーの場合、個別要素変数も作成
+                            if (member.second.is_array) {
+                                for (int i = 0; i < member.second.array_size; i++) {
+                                    std::string element_name = member_path + "[" + std::to_string(i) + "]";
+                                    Variable element_var;
+                                    element_var.type = member.second.type >= TYPE_ARRAY_BASE ? 
+                                                      static_cast<TypeInfo>(member.second.type - TYPE_ARRAY_BASE) : 
+                                                      member.second.type;
+                                    element_var.is_assigned = true;
+                                    
+                                    if (element_var.type == TYPE_STRING && i < static_cast<int>(member.second.array_strings.size())) {
+                                        element_var.str_value = member.second.array_strings[i];
+                                    } else if (element_var.type != TYPE_STRING && i < static_cast<int>(member.second.array_values.size())) {
+                                        element_var.value = member.second.array_values[i];
+                                    }
+                                    
+                                    current_scope().variables[element_name] = element_var;
+                                }
+                            }
+                        }
+                        
+                        return; // 構造体関数呼び出し処理完了後は早期リターン
+                    } else {
+                        throw std::runtime_error("Function did not return expected struct type");
+                    }
+                }
+
             } else if (var.is_array && node->init_expr->node_type ==
                                            ASTNodeType::AST_ARRAY_REF) {
                 // 配列スライス代入の処理
@@ -1750,7 +1820,7 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                             var.str_value = typed_result.string_value;
                             var.value = 0;
                         } else {
-                            var.value = typed_result.numeric_value;
+                            var.value = typed_result.value;
                             var.str_value = "";
                         }
                         var.is_assigned = true;
@@ -1837,7 +1907,7 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                         var.str_value = typed_result.string_value;
                         var.value = 0;
                     } else {
-                        var.value = typed_result.numeric_value;
+                        var.value = typed_result.value;
                         var.str_value = "";
                     }
                     var.is_assigned = true;
@@ -1919,10 +1989,16 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                                          var_name);
             }
             
-            // 文字列変数への代入で、右辺が多次元配列アクセスの場合の特別処理
-            std::cerr << "[DEBUG] Checking string assignment: var->type=" << var->type << " TYPE_STRING=" << TYPE_STRING << std::endl;
-            std::cerr << "[DEBUG] Right node type: " << static_cast<int>(node->right->node_type) << " AST_ARRAY_REF=" << static_cast<int>(ASTNodeType::AST_ARRAY_REF) << std::endl;
+            // Union型変数への代入の特別処理
+            if (var->type == TYPE_UNION) {
+                if (debug_mode) {
+                    debug_print("UNION_ASSIGN_DEBUG: Processing union assignment for variable '%s'\n", var_name.c_str());
+                }
+                assign_union_value(*var, var->type_name, node->right.get());
+                return; // Union型代入処理完了後は早期リターン
+            }
             
+            // 文字列変数への代入で、右辺が多次元配列アクセスの場合の特別処理
             if (var->type == TYPE_STRING && node->right->node_type == ASTNodeType::AST_ARRAY_REF) {
                 // 配列名を取得
                 std::string array_name;
@@ -1990,10 +2066,7 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                    node->left->node_type == ASTNodeType::AST_VARIABLE) {
             // 通常の変数代入
             std::string var_name = node->left->name;
-            int64_t value =
-                interpreter_->expression_evaluator_->evaluate_expression(
-                    node->right.get());
-
+            
             Variable *var = find_variable(var_name);
             if (!var) {
                 throw std::runtime_error("Undefined variable: " + var_name);
@@ -2003,6 +2076,19 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                 throw std::runtime_error("Cannot reassign const variable: " +
                                          var_name);
             }
+
+            // Union型変数への代入の特別処理
+            if (var->type == TYPE_UNION) {
+                if (debug_mode) {
+                    debug_print("UNION_ASSIGN_DEBUG: Processing union assignment for variable '%s' (left node)\n", var_name.c_str());
+                }
+                assign_union_value(*var, var->type_name, node->right.get());
+                return; // Union型代入処理完了後は早期リターン
+            }
+
+            int64_t value =
+                interpreter_->expression_evaluator_->evaluate_expression(
+                    node->right.get());
 
             // 型範囲チェック（代入前に実行）
             interpreter_->type_manager_->check_type_range(var->type, value,
@@ -2136,11 +2222,70 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
             member.is_assigned = true;
         } else if (node->left && node->left->node_type ==
                                      ASTNodeType::AST_MEMBER_ARRAY_ACCESS) {
-            // struct メンバー配列要素代入の処理: obj.member[index] = value または obj.member[i][j] = value
+            // struct メンバー配列要素代入の処理: obj.member[index] = value または func().member[index] = value
             std::string member_name = node->left->name;
 
-            if (!node->left->left ||
-                node->left->left->node_type != ASTNodeType::AST_VARIABLE) {
+            if (!node->left->left) {
+                throw std::runtime_error("Invalid struct member array access");
+            }
+
+            // 関数呼び出しの場合と通常の変数の場合を分岐
+            if (node->left->left->node_type == ASTNodeType::AST_FUNC_CALL) {
+                // 関数呼び出しの場合: func().member[index] = value
+                
+                try {
+                    interpreter_->expression_evaluator_->evaluate_expression(node->left->left.get());
+                    throw std::runtime_error("Function did not return a struct for member array assignment");
+                } catch (const ReturnException& ret_ex) {
+                    Variable base_struct = ret_ex.struct_value;
+                    
+                    // メンバー配列を取得
+                    auto member_it = base_struct.struct_members.find(member_name);
+                    if (member_it == base_struct.struct_members.end()) {
+                        throw std::runtime_error("Struct member not found: " + member_name);
+                    }
+                    
+                    Variable& member_var = member_it->second;
+                    if (!member_var.is_array) {
+                        throw std::runtime_error("Member is not an array: " + member_name);
+                    }
+                    
+                    // インデックスを評価
+                    std::vector<int64_t> indices;
+                    if (node->left->array_indices.empty() && node->left->arguments.empty()) {
+                        throw std::runtime_error("No indices found for array access");
+                    }
+                    
+                    if (!node->left->array_indices.empty()) {
+                        for (const auto& arg : node->left->array_indices) {
+                            int64_t index = interpreter_->expression_evaluator_->evaluate_expression(arg.get());
+                            indices.push_back(index);
+                        }
+                    } else {
+                        for (const auto& arg : node->left->arguments) {
+                            int64_t index = interpreter_->expression_evaluator_->evaluate_expression(arg.get());
+                            indices.push_back(index);
+                        }
+                    }
+                    
+                    // 1次元配列の場合
+                    if (indices.size() == 1) {
+                        int64_t index = indices[0];
+                        if (index < 0 || index >= static_cast<int>(member_var.array_values.size())) {
+                            throw std::runtime_error("Array index out of bounds");
+                        }
+                        
+                        // 右辺の値を評価（副作用のため実行）
+                        (void)interpreter_->expression_evaluator_->evaluate_expression(node->right.get());
+                        
+                        // 値を代入（関数戻り値なので実際の代入はできないが、エラーを避けるため）
+                        throw std::runtime_error("Cannot assign to function return value member array");
+                    } else {
+                        throw std::runtime_error("Multi-dimensional function return member array assignment not supported");
+                    }
+                }
+                return;
+            } else if (node->left->left->node_type != ASTNodeType::AST_VARIABLE) {
                 throw std::runtime_error("Invalid struct member array access");
             }
 
@@ -2336,7 +2481,16 @@ void VariableManager::assign_union_value(Variable& var, const std::string& union
                     var.value = source_var->value;
                     var.str_value = source_var->str_value;
                     var.current_type = source_var->current_type;
-                    var.type_name = source_var->type_name;
+                    // var.type_name = source_var->type_name; // Union型変数の型名は変更しない
+                    
+                    // 構造体の場合は構造体データも完全にコピー
+                    if (source_var->is_struct) {
+                        var.is_struct = true;
+                        var.struct_type_name = source_var->struct_type_name;
+                        var.struct_members = source_var->struct_members;
+                        var.current_type = TYPE_STRUCT;
+                    }
+                    
                     var.is_assigned = true;
                     if (debug_mode) {
                         debug_print("UNION_DEBUG: Assigned custom type '%s' to union variable (current_type=%d, str_value='%s')\n", 
@@ -2357,7 +2511,7 @@ void VariableManager::assign_union_value(Variable& var, const std::string& union
                 var.value = source_var->value;
                 var.str_value = source_var->str_value;
                 var.current_type = TYPE_STRUCT;
-                var.type_name = source_var->struct_type_name;
+                // var.type_name = source_var->struct_type_name; // Union型変数の型名は変更しない
                 var.is_struct = true;
                 var.struct_type_name = source_var->struct_type_name;
                 var.struct_members = source_var->struct_members;
@@ -2403,7 +2557,7 @@ void VariableManager::assign_union_value(Variable& var, const std::string& union
                     var.value = source_var->value;
                     var.str_value = source_var->str_value;
                     var.current_type = source_var->type;
-                    var.type_name = array_type_name;
+                    // var.type_name = array_type_name; // Union型変数の型名は変更しない
                     var.is_array = true;
                     var.array_size = source_var->array_size;
                     var.array_dimensions = source_var->array_dimensions;

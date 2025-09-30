@@ -1,0 +1,42 @@
+// 段階的テスト: まず基本的な構造体戻り値から
+
+typedef struct {
+    string name;
+    int age;
+} Person;
+
+Person get_person(int id) {
+    Person p;
+    if (id == 0) {
+        p.name = "Alice";
+        p.age = 25;
+    } else {
+        p.name = "Bob";
+        p.age = 30;
+    }
+    return p;
+}
+
+int[3] get_numbers() {
+    int[3] arr = [10, 20, 30];
+    return arr;
+}
+
+int main() {
+    // 既存機能テスト: 数値配列
+    println("Numbers test:");
+    println(get_numbers()[0]);  // 10
+    println(get_numbers()[1]);  // 20
+    println(get_numbers()[2]);  // 30
+    
+    // 基本構造体戻り値テスト
+    println("Basic struct test:");
+    Person p0 = get_person(0);
+    Person p1 = get_person(1);
+    println(p0.name);  // Alice
+    println(p0.age);   // 25
+    println(p1.name);  // Bob
+    println(p1.age);   // 30
+    
+    return 0;
+}

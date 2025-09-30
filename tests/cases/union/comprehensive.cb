@@ -120,7 +120,7 @@ int main() {
     println("7. Dynamic Assignment Test:");
     status = 404;
     enabled = false;
-    grade = 'F';
+    grade = 'C';
     level = "ERROR";
     
     println("   Updated StatusCode: %d", status);

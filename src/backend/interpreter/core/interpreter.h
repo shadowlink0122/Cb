@@ -6,6 +6,7 @@
 #include <map>
 #include <string>
 #include <vector>
+#include <cstdio>
 
 // 前方宣言
 class OutputManager;
@@ -176,28 +177,40 @@ class ReturnException {
     // struct戻り値サポート
     bool is_struct = false;
     Variable struct_value;
+    
+    // 構造体配列戻り値サポート
+    bool is_struct_array = false;
+    std::vector<std::vector<std::vector<Variable>>> struct_array_3d;
+    std::string struct_type_name;
 
     // 完全初期化コンストラクタ群
     ReturnException(int64_t val, TypeInfo t = TYPE_INT) 
-        : value(val), str_value(""), type(t), is_array(false), is_struct(false) {}
+        : value(val), str_value(""), type(t), is_array(false), is_struct(false), is_struct_array(false) {}
     ReturnException(const std::string &str)
-        : value(0), str_value(str), type(TYPE_STRING), is_array(false), is_struct(false) {}
+        : value(0), str_value(str), type(TYPE_STRING), is_array(false), is_struct(false), is_struct_array(false) {}
 
     // 配列戻り値用コンストラクタ
     ReturnException(const std::vector<std::vector<std::vector<int64_t>>> &arr,
                     const std::string &type_name, TypeInfo t)
         : value(0), str_value(""), type(t), is_array(true), int_array_3d(arr),
-          array_type_name(type_name), is_struct(false) {}
+          array_type_name(type_name), is_struct(false), is_struct_array(false) {}
 
     ReturnException(
         const std::vector<std::vector<std::vector<std::string>>> &arr,
         const std::string &type_name, TypeInfo t)
         : value(0), str_value(""), type(t), is_array(true), str_array_3d(arr),
-          array_type_name(type_name), is_struct(false) {}
+          array_type_name(type_name), is_struct(false), is_struct_array(false) {}
     
     // struct戻り値用コンストラクタ  
     ReturnException(const Variable &struct_var)
-        : value(0), str_value(""), type(TYPE_STRUCT), is_array(false), is_struct(true), struct_value(struct_var) {}
+        : value(0), str_value(""), type(TYPE_STRUCT), is_array(false), is_struct(true), 
+          struct_value(struct_var), is_struct_array(false) {}
+    
+    // 構造体配列戻り値用コンストラクタ
+    ReturnException(const std::vector<std::vector<std::vector<Variable>>> &struct_arr,
+                    const std::string &type_name)
+        : value(0), str_value(""), type(TYPE_STRUCT), is_array(true), is_struct(true), 
+          is_struct_array(true), struct_array_3d(struct_arr), struct_type_name(type_name) {}
 };
 
 class BreakException {
@@ -297,6 +310,10 @@ class Interpreter : public EvaluatorInterface {
                          bool is_const);
     void assign_variable(const std::string &name, const std::string &value,
                          bool is_const);
+    
+    // Union型代入
+    void assign_union_variable(const std::string &name, const ASTNode* value_node);
+    
     void assign_function_parameter(const std::string &name, int64_t value,
                                    TypeInfo type);
     void assign_array_parameter(const std::string &name,
@@ -337,6 +354,10 @@ class Interpreter : public EvaluatorInterface {
     void assign_struct_member(const std::string &var_name,
                               const std::string &member_name,
                               const std::string &value);
+    // 構造体メンバーに構造体を代入
+    void assign_struct_member_struct(const std::string &var_name,
+                                    const std::string &member_name,
+                                    const Variable &struct_value);
     void assign_struct_member_array_element(const std::string &var_name,
                                             const std::string &member_name,
                                             int index, int64_t value);

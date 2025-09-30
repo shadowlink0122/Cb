@@ -249,7 +249,7 @@ bool TypeManager::is_value_allowed_for_union(const std::string &type_name, int64
     
     // リテラル値チェック
     if (union_def.has_literal_values) {
-        bool literal_found = false;
+        // bool literal_found = false;  // 将来の拡張のため残すがコメントアウト
         for (const auto &allowed : union_def.allowed_values) {
             if (debug_mode) {
                 debug_print("UNION_TYPE_DEBUG: Comparing with allowed value: type=%d, int_value=%lld, bool_value=%d\n", 

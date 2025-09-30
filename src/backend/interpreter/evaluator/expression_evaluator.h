@@ -40,8 +40,26 @@ private:
     std::string type_info_to_string(TypeInfo type);
     void sync_self_changes_to_receiver(const std::string& receiver_name, Variable* receiver_var);
     
+    // 構造体メンバー取得関数
+    Variable get_struct_member_from_variable(const Variable& struct_var, const std::string& member_name);
+    
+    // 関数戻り値からのメンバーアクセス処理
+    TypedValue evaluate_function_member_access(const ASTNode* func_node, const std::string& member_name);
+    
+    // 関数戻り値からの配列アクセス処理  
+    TypedValue evaluate_function_array_access(const ASTNode* func_node, const ASTNode* index_node);
+    
+    // 関数戻り値からの複合アクセス処理（func()[index].member）
+    TypedValue evaluate_function_compound_access(const ASTNode* func_node, const ASTNode* index_node, const std::string& member_name);
+    
+    // 再帰的メンバーアクセス処理（将来のネスト構造体対応）
+    TypedValue evaluate_recursive_member_access(const Variable& base_var, const std::vector<std::string>& member_path);
+    
     // 遅延評価されたTypedValueを実際に評価する
     TypedValue resolve_deferred_evaluation(const TypedValue& deferred_value);
+    
+    // 型推論対応の式評価（内部実装）
+    TypedValue evaluate_typed_expression_internal(const ASTNode* node);
 
 public:
     // 最後の型推論結果にアクセス

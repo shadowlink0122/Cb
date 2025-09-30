@@ -1,0 +1,35 @@
+struct Point {
+    int x;
+    int y;
+};
+
+int main() {
+    println("=== Basic Struct Performance Test ===");
+    
+    // 大量の構造体操作でパフォーマンスをテスト
+    Point[100] points;
+    
+    // 初期化
+    for (int i = 0; i < 100; i++) {
+        points[i].x = i;
+        points[i].y = i * 2;
+    }
+    
+    // 計算
+    int sum_x = 0;
+    int sum_y = 0;
+    for (int i = 0; i < 100; i++) {
+        sum_x = sum_x + points[i].x;
+        sum_y = sum_y + points[i].y;
+    }
+    
+    println("Sum X:");
+    println(sum_x);
+    println("Sum Y:");
+    println(sum_y);
+    
+    println("Performance test completed");
+    
+    println("=== Test completed ===");
+    return 0;
+}
