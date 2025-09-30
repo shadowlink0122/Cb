@@ -41,7 +41,7 @@ struct Point {
     int y;
 };
 
-impl Point : Printable {
+impl Printable for Point {
     string toString() {
         return "Point";
     }
@@ -51,7 +51,7 @@ impl Point : Printable {
     }
 };
 
-impl Point : Drawable {
+impl Drawable for Point {
     void draw() {
         printf("Drawing point at (%d, %d)\n", self.x, self.y);
     }
@@ -61,7 +61,7 @@ impl Point : Drawable {
     }
 };
 
-impl Point : Comparable {
+impl Comparable for Point {
     bool equals(int other) {
         return self.x == other || self.y == other;
     }
@@ -75,7 +75,7 @@ impl Point : Comparable {
 ### 3. プリミティブ型への実装
 
 ```cb
-impl int : Printable {
+impl Printable for int {
     string toString() {
         return "integer";
     }
@@ -85,7 +85,7 @@ impl int : Printable {
     }
 };
 
-impl string : Printable {
+impl Printable for string {
     string toString() {
         return self;  // 自分自身を返す
     }
@@ -95,7 +95,7 @@ impl string : Printable {
     }
 };
 
-impl bool : Drawable {
+impl Drawable for bool {
     void draw() {
         if (self) {
             printf("Drawing TRUE\n");
@@ -117,7 +117,7 @@ typedef int MyInt;
 typedef string MyString;
 typedef int[5] IntArray;
 
-impl MyInt : Printable {
+impl Printable for MyInt {
     string toString() {
         return "MyInt value";
     }
@@ -127,7 +127,7 @@ impl MyInt : Printable {
     }
 };
 
-impl IntArray : Printable {
+impl Printable for IntArray {
     string toString() {
         return "IntArray[5]";
     }
@@ -137,7 +137,7 @@ impl IntArray : Printable {
     }
 };
 
-impl IntArray : Drawable {
+impl Drawable for IntArray {
     void draw() {
         printf("Drawing array: [");
         for (int i = 0; i < 5; i++) {
@@ -157,7 +157,7 @@ impl IntArray : Drawable {
 
 ```cb
 // 1次元配列
-impl int[3] : Printable {
+impl Printable for int[3] {
     string toString() {
         return "int array[3]";
     }
@@ -168,7 +168,7 @@ impl int[3] : Printable {
 };
 
 // 多次元配列
-impl int[2][3] : Printable {
+impl Printable for int[2][3] {
     string toString() {
         return "2x3 matrix";
     }
@@ -186,6 +186,7 @@ impl int[2][3] : Printable {
 インターフェース型の変数を使用して、異なる型を統一的に扱えます：
 
 ```cb
+// make_counter / produce_dynamic などの補助関数はテストケース内で定義されています。
 int main() {
     // 異なる型の変数作成
     MyInt mi = 42;
@@ -223,7 +224,7 @@ typedef INT INT2;
 typedef INT2 INT3;
 
 // INT3にのみPrintableを実装
-impl INT3 : Printable {
+impl Printable for INT3 {
     string toString() {
         return "INT3 implementation";
     }
@@ -252,6 +253,34 @@ int main() {
 }
 ```
 
+### メソッドチェーンと型推論
+
+Interface/Impl システムでは、実行時の受け取り方（receiver）を解決することで、型を跨いだ長いメソッドチェーンも安全に評価できます。最新の `type_inference_chain` シナリオでは次のような 14 ステップのチェーンをカバーしています。
+
+```cb
+int main() {
+    // 1. プリミティブと構造体を混在させた Calculable チェーン
+    Counter base = make_counter(10);
+    println("%d", base.add(5).multiply(2).add(3));     // -> 33
+
+    // 2. 関数戻り値や inline 生成した Counter でも同様にチェーン可能
+    println("%d", make_counter(4).multiply(3).add(2));  // -> 14
+    println("%d", get_primitive_value().multiply(3).add(1)); // -> 37
+
+    // 3. 配列・関数・Typedef Union を跨ぐケースも同じ要領で評価
+    println("%d", counter_array[1].add(-3).multiply(2)); // -> 10
+    println("%d", produce_dynamic(true).add(3).multiply(4)); // -> 20
+    println("%d", compute_union_counter_chain()); // -> 32
+    println("%d", compute_union_int_chain());     // -> 22
+
+    return 0;
+}
+```
+
+代表的な到達点は `tests/cases/interface/type_inference_chain.cb` および `tests/integration/interface/test_type_inference_chain.hpp` で検証しており、プリミティブ → 構造体 → Union のような受け渡しでも、中間結果はすべて `Calculable` インターフェース経由で正しく推論されます。
+
+> ℹ️ 現時点ではネストした構造体メンバーへの直接代入（`obj.member.submember = value`）は未サポートのため、テスト内ではチェーン入力を設定するための軽量な `TeamStats` 構造体を利用しています。
+
 ### 複数インターフェース実装
 
 一つの型に複数のインターフェースを実装できます：
@@ -262,7 +291,7 @@ struct Circle {
     int radius;
 };
 
-impl Circle : Printable {
+impl Printable for Circle {
     string toString() {
         return "Circle";
     }
@@ -272,7 +301,7 @@ impl Circle : Printable {
     }
 };
 
-impl Circle : Drawable {
+impl Drawable for Circle {
     void draw() {
         printf("Drawing circle at (%d, %d) with radius %d\n", 
                self.x, self.y, self.radius);
@@ -410,7 +439,7 @@ impl Calculator for int {
 // Union型との組み合わせ
 typedef StatusUnion = 200 | 404 | 500;
 
-impl StatusUnion : Printable {
+impl Printable for StatusUnion {
     string toString() {
         return "HTTP Status";
     }
@@ -427,7 +456,7 @@ enum Color {
     BLUE = 3
 }
 
-impl Color : Printable {
+impl Printable for Color {
     string toString() {
         return "Color enum";
     }

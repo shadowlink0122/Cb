@@ -10,6 +10,7 @@
 #include "services/array_processing_service.h"
 #include <stdexcept>
 #include <iostream>
+#include <functional>
 
 // MethodReceiverResolutionのデフォルトコンストラクタ実装
 ExpressionEvaluator::MethodReceiverResolution::MethodReceiverResolution()
@@ -51,18 +52,6 @@ ExpressionEvaluator::MethodReceiverResolution ExpressionEvaluator::resolve_metho
 
     return create_chain_receiver_from_expression(receiver_node);
 }
-#include "evaluator/expression_evaluator.h"
-#include "core/interpreter.h"
-#include "managers/enum_manager.h"    // EnumManager定義が必要
-#include "managers/type_manager.h"    // TypeManager定義が必要
-#include "../../../common/debug_messages.h"
-#include "../../../common/debug.h"
-#include "../../../common/utf8_utils.h"
-#include "core/error_handler.h"
-#include "managers/array_manager.h"
-#include "services/array_processing_service.h"
-#include <stdexcept>
-#include <iostream>
 
 ExpressionEvaluator::ExpressionEvaluator(Interpreter& interpreter) 
     : interpreter_(interpreter), type_engine_(interpreter), last_typed_result_(0, InferredType()) {}
@@ -836,66 +825,190 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                 method_context.uses_temp_receiver = false;
             }
         };
-        interpreter_.push_scope();
+    interpreter_.push_scope();
+    bool method_scope_active = true;
         
         // メソッド呼び出しの場合、selfコンテキストを設定
         if (is_method_call) {
-            std::string receiver_name;
-            if (node->left->node_type == ASTNodeType::AST_VARIABLE) {
-                receiver_name = node->left->name;
-            } else if (node->left->node_type == ASTNodeType::AST_IDENTIFIER) {
-                receiver_name = node->left->name;
+            Variable* receiver_var = nullptr;
+            if (!receiver_name.empty()) {
+                receiver_var = interpreter_.find_variable(receiver_name);
             }
-            
-            Variable* receiver_var = interpreter_.find_variable(receiver_name);
-            if (receiver_var) {
-                // selfとしてレシーバーをコピー
-                Variable self_var = *receiver_var;
-                interpreter_.get_current_scope().variables["self"] = self_var;
-                
-                // 元のレシーバー名を保存（self代入時に使用）
+            if (!receiver_var && receiver_resolution.variable_ptr) {
+                receiver_var = receiver_resolution.variable_ptr;
+            }
+            if (!receiver_var && node->left &&
+                (node->left->node_type == ASTNodeType::AST_VARIABLE || node->left->node_type == ASTNodeType::AST_IDENTIFIER)) {
+                receiver_var = interpreter_.find_variable(node->left->name);
+                if (receiver_name.empty()) {
+                    receiver_name = node->left->name;
+                }
+            }
+
+            if (!receiver_var) {
+                std::string error_name = receiver_name;
+                if (error_name.empty() && node->left) {
+                    error_name = node->left->name;
+                }
+                throw std::runtime_error("Receiver variable not found: " + error_name);
+            }
+
+            if (!receiver_name.empty() &&
+                (receiver_var->type == TYPE_STRUCT || receiver_var->type == TYPE_INTERFACE || receiver_var->is_struct)) {
+                interpreter_.sync_struct_members_from_direct_access(receiver_name);
+                receiver_var = interpreter_.find_variable(receiver_name);
+                if (!receiver_var) {
+                    throw std::runtime_error("Receiver variable not found after sync: " + receiver_name);
+                }
+            }
+
+            auto& current_scope = interpreter_.get_current_scope();
+            current_scope.variables["self"] = *receiver_var;
+
+            if (!receiver_name.empty()) {
                 Variable receiver_info;
                 receiver_info.type = TYPE_STRING;
                 receiver_info.str_value = receiver_name;
                 receiver_info.is_assigned = true;
-                interpreter_.get_current_scope().variables["__self_receiver__"] = receiver_info;
-                
+                current_scope.variables["__self_receiver__"] = receiver_info;
                 debug_msg(DebugMsgId::METHOD_CALL_SELF_CONTEXT_SET, receiver_name.c_str());
-                
-                // 構造体の場合、selfのメンバーも設定
-                if (receiver_var->type == TYPE_STRUCT || receiver_var->type == TYPE_INTERFACE) {
-                    // 元の構造体のメンバーをselfメンバーとしてコピー
-                    auto& current_scope = interpreter_.get_current_scope();
-                    
-                    // 構造体のすべてのメンバーを動的に設定
-                    for (const auto& member_pair : receiver_var->struct_members) {
-                        const std::string& member_name = member_pair.first;
-                        Variable* member_var = interpreter_.get_struct_member(receiver_name, member_name);
-                        if (member_var) {
-                            std::string self_member_path = "self." + member_name;
-                            Variable self_member = *member_var;
-                            
-                            // 多次元配列情報を正しくコピー
-                            if (member_var->is_multidimensional) {
-                                self_member.is_multidimensional = true;
-                                self_member.array_dimensions = member_var->array_dimensions;
-                                // multidim_array_values もコピー
-                                self_member.multidim_array_values = member_var->multidim_array_values;
-                                debug_print("SELF_SETUP: Preserved multidimensional info for %s (dimensions: %zu, values: %zu)\n",
-                                          self_member_path.c_str(), member_var->array_dimensions.size(),
-                                          member_var->multidim_array_values.size());
+            }
+
+            if (receiver_var->type == TYPE_STRUCT || receiver_var->type == TYPE_INTERFACE) {
+                for (const auto& member_pair : receiver_var->struct_members) {
+                    const std::string& member_name = member_pair.first;
+                    std::string self_member_path = "self." + member_name;
+                    Variable member_value = member_pair.second;
+
+                    if (!receiver_name.empty()) {
+                        if (Variable* direct_member_var = interpreter_.find_variable(receiver_name + "." + member_name)) {
+                            member_value = *direct_member_var;
+                        } else {
+                            try {
+                                if (Variable* struct_member = interpreter_.get_struct_member(receiver_name, member_name)) {
+                                    member_value = *struct_member;
+                                }
+                            } catch (...) {
+                                // ignore fallback failures
                             }
-                            
-                            current_scope.variables[self_member_path] = self_member;
-                            debug_print("SELF_SETUP: Created %s\n", self_member_path.c_str());
                         }
                     }
-                    debug_msg(DebugMsgId::METHOD_CALL_SELF_MEMBER_SETUP);
+
+                    if (member_pair.second.is_multidimensional) {
+                        member_value.is_multidimensional = true;
+                        member_value.array_dimensions = member_pair.second.array_dimensions;
+                        member_value.multidim_array_values = member_pair.second.multidim_array_values;
+                        debug_print("SELF_SETUP: Preserved multidimensional info for %s (dimensions: %zu, values: %zu)\n",
+                                    self_member_path.c_str(),
+                                    member_pair.second.array_dimensions.size(),
+                                    member_pair.second.multidim_array_values.size());
+                    }
+
+                    if (member_value.is_array) {
+                        const bool is_string_array = (member_value.type == TYPE_STRING);
+
+                        int total_elements = member_value.array_size;
+                        if (total_elements <= 0) {
+                            if (member_value.is_multidimensional && !member_value.multidim_array_values.empty()) {
+                                total_elements = static_cast<int>(member_value.multidim_array_values.size());
+                            } else if (!member_value.array_values.empty()) {
+                                total_elements = static_cast<int>(member_value.array_values.size());
+                            } else if (!member_value.array_dimensions.empty()) {
+                                total_elements = 1;
+                                for (int dim_size : member_value.array_dimensions) {
+                                    if (dim_size == 0) {
+                                        total_elements = 0;
+                                        break;
+                                    }
+                                    total_elements *= dim_size;
+                                }
+                            }
+                        }
+
+                        if (total_elements < 0) {
+                            total_elements = 0;
+                        }
+
+                        member_value.array_size = total_elements;
+
+                        if (!is_string_array) {
+                            if (member_value.is_multidimensional) {
+                                if (member_value.array_values.size() < member_value.multidim_array_values.size()) {
+                                    member_value.array_values = member_value.multidim_array_values;
+                                } else if (member_value.array_values.empty() && !member_value.multidim_array_values.empty()) {
+                                    member_value.array_values = member_value.multidim_array_values;
+                                }
+                            }
+                            if (member_value.array_values.size() < static_cast<size_t>(total_elements)) {
+                                member_value.array_values.resize(total_elements, 0);
+                            }
+                            if (member_value.is_multidimensional && member_value.multidim_array_values.size() < static_cast<size_t>(total_elements)) {
+                                member_value.multidim_array_values.resize(total_elements, 0);
+                            }
+                        } else {
+                            if (member_value.array_strings.size() < static_cast<size_t>(total_elements)) {
+                                member_value.array_strings.resize(total_elements);
+                            }
+                        }
+
+                        for (int idx = 0; idx < total_elements; ++idx) {
+                            std::string element_path = self_member_path + "[" + std::to_string(idx) + "]";
+                            Variable element_var;
+                            bool element_assigned = false;
+
+                            if (!receiver_name.empty()) {
+                                std::string receiver_element_path = receiver_name + "." + member_name + "[" + std::to_string(idx) + "]";
+                                if (Variable* receiver_element = interpreter_.find_variable(receiver_element_path)) {
+                                    element_var = *receiver_element;
+                                    element_assigned = true;
+                                }
+                            }
+
+                            if (!element_assigned) {
+                                element_var.type = is_string_array ? TYPE_STRING : member_value.type;
+                                element_var.is_assigned = true;
+                                if (is_string_array) {
+                                    std::string value = (idx < static_cast<int>(member_value.array_strings.size()))
+                                                        ? member_value.array_strings[idx]
+                                                        : std::string();
+                                    element_var.str_value = value;
+                                } else {
+                                    int64_t value = 0;
+                                    if (member_value.is_multidimensional && idx < static_cast<int>(member_value.multidim_array_values.size())) {
+                                        value = member_value.multidim_array_values[idx];
+                                    } else if (idx < static_cast<int>(member_value.array_values.size())) {
+                                        value = member_value.array_values[idx];
+                                    }
+                                    element_var.value = value;
+                                }
+                            }
+
+                            current_scope.variables[element_path] = element_var;
+
+                            if (is_string_array) {
+                                if (idx >= static_cast<int>(member_value.array_strings.size())) {
+                                    member_value.array_strings.resize(idx + 1);
+                                }
+                                member_value.array_strings[idx] = element_var.str_value;
+                            } else {
+                                if (idx >= static_cast<int>(member_value.array_values.size())) {
+                                    member_value.array_values.resize(idx + 1);
+                                }
+                                member_value.array_values[idx] = element_var.value;
+                                if (member_value.is_multidimensional) {
+                                    if (idx >= static_cast<int>(member_value.multidim_array_values.size())) {
+                                        member_value.multidim_array_values.resize(idx + 1);
+                                    }
+                                    member_value.multidim_array_values[idx] = element_var.value;
+                                }
+                            }
+                        }
+                    }
+
+                    current_scope.variables[self_member_path] = member_value;
+                    debug_print("SELF_SETUP: Created %s\n", self_member_path.c_str());
                 }
-            } else {
-                debug_print("ERROR: receiver_var is null for receiver_name='%s' (length=%zu)\n", 
-                           receiver_name.c_str(), receiver_name.length());
-                throw std::runtime_error("Receiver variable not found: " + receiver_name);
+                debug_msg(DebugMsgId::METHOD_CALL_SELF_MEMBER_SETUP);
             }
         }
         
@@ -1227,7 +1340,9 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                     }
                 }
                 
+                cleanup_method_context();
                 interpreter_.pop_scope();
+                method_scope_active = false;
                 interpreter_.current_function_name = prev_function_name;
                 return 0;
             } catch (const ReturnException &ret) {
@@ -1264,7 +1379,9 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                     }
                 }
                 
+                cleanup_method_context();
                 interpreter_.pop_scope();
+                method_scope_active = false;
                 interpreter_.current_function_name = prev_function_name;
                 
                 if (ret.is_struct) {
@@ -1282,15 +1399,22 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                 }
                 // 通常の戻り値の場合
                 return ret.value;
-                interpreter_.current_function_name = prev_function_name;
-                return ret.value;
             }
         } catch (const ReturnException &ret) {
             // 再投げされたReturnExceptionを処理
+            cleanup_method_context();
+            if (method_scope_active) {
+                interpreter_.pop_scope();
+                method_scope_active = false;
+            }
             interpreter_.current_function_name = prev_function_name;
             throw ret;
         } catch (...) {
-            interpreter_.pop_scope();
+            cleanup_method_context();
+            if (method_scope_active) {
+                interpreter_.pop_scope();
+                method_scope_active = false;
+            }
             interpreter_.current_function_name = prev_function_name;
             throw;
         }
@@ -1708,14 +1832,11 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
 
 // 型をインターフェース用の文字列に変換するヘルパー関数
 std::string ExpressionEvaluator::type_info_to_string(TypeInfo type) {
-    switch (type) {
-        case TYPE_INT: return "i32";
-        case TYPE_STRING: return "string";
-        case TYPE_BOOL: return "bool";
-        case TYPE_CHAR: return "char";
-        case TYPE_LONG: return "i64";
-        default: return "unknown";
+    const char* name = ::type_info_to_string(type);
+    if (name && *name) {
+        return std::string(name);
     }
+    return "unknown";
 }
 
 void ExpressionEvaluator::sync_self_changes_to_receiver(const std::string& receiver_name, Variable* receiver_var) {
@@ -2311,21 +2432,145 @@ TypedValue ExpressionEvaluator::evaluate_recursive_member_access(const Variable&
     }
 }
 
-// --- リンクエラー回避用のダミー実装 ---
 ExpressionEvaluator::MethodReceiverResolution ExpressionEvaluator::resolve_array_receiver(const ASTNode* array_node) {
     MethodReceiverResolution result;
-    // TODO: 本来の配列レシーバ解決ロジックを実装
-    return result;
+    if (!array_node || array_node->node_type != ASTNodeType::AST_ARRAY_REF) {
+        return result;
+    }
+
+    // シンプルな変数配列の場合は直接参照を試みる
+    if (array_node->left && array_node->left->node_type == ASTNodeType::AST_VARIABLE && array_node->array_index) {
+        std::string base_name = array_node->left->name;
+        try {
+            int64_t index_value = evaluate_expression(array_node->array_index.get());
+            std::string element_name = base_name + "[" + std::to_string(index_value) + "]";
+            Variable* element_var = interpreter_.find_variable(element_name);
+            if (element_var) {
+                result.kind = MethodReceiverResolution::Kind::Direct;
+                result.canonical_name = element_name;
+                result.variable_ptr = element_var;
+                return result;
+            }
+        } catch (const ReturnException&) {
+            // インデックス評価で構造体等が返った場合はチェーン扱い
+        }
+    }
+
+    return create_chain_receiver_from_expression(array_node);
 }
 
 ExpressionEvaluator::MethodReceiverResolution ExpressionEvaluator::resolve_member_receiver(const ASTNode* member_node) {
     MethodReceiverResolution result;
-    // TODO: 本来のメンバレシーバ解決ロジックを実装
-    return result;
+    if (!member_node || member_node->node_type != ASTNodeType::AST_MEMBER_ACCESS) {
+        return result;
+    }
+
+    const ASTNode* base_node = member_node->left.get();
+    if (!base_node) {
+        return result;
+    }
+
+    const std::string member_name = member_node->name;
+
+    std::function<std::string(const ASTNode*)> build_canonical_name = [&](const ASTNode* node) -> std::string {
+        if (!node) {
+            return "";
+        }
+        switch (node->node_type) {
+        case ASTNodeType::AST_VARIABLE:
+        case ASTNodeType::AST_IDENTIFIER:
+            return node->name;
+        case ASTNodeType::AST_MEMBER_ACCESS: {
+            std::string base = build_canonical_name(node->left.get());
+            if (base.empty()) {
+                return "";
+            }
+            return base + "." + node->name;
+        }
+        default:
+            return "";
+        }
+    };
+
+    MethodReceiverResolution base_resolution = resolve_method_receiver(base_node);
+
+    auto create_chain_from_struct = [&](const Variable& struct_var) {
+        try {
+            Variable member_var = get_struct_member_from_variable(struct_var, member_name);
+            auto chain_ret = std::make_shared<ReturnException>(member_var);
+            result.kind = MethodReceiverResolution::Kind::Chain;
+            result.chain_value = chain_ret;
+            return true;
+        } catch (const std::exception&) {
+            return false;
+        }
+    };
+
+    if (base_resolution.kind == MethodReceiverResolution::Kind::Direct && base_resolution.variable_ptr) {
+        Variable* base_var = base_resolution.variable_ptr;
+        std::string base_name = base_resolution.canonical_name;
+        if (base_name.empty()) {
+            base_name = build_canonical_name(base_node);
+        }
+
+        if (!base_name.empty()) {
+            std::string member_path = base_name + "." + member_name;
+            Variable* member_var = interpreter_.find_variable(member_path);
+            if (!member_var) {
+                try {
+                    member_var = interpreter_.get_struct_member(base_name, member_name);
+                } catch (...) {
+                    member_var = nullptr;
+                }
+            }
+
+            if (member_var) {
+                result.kind = MethodReceiverResolution::Kind::Direct;
+                result.canonical_name = member_path;
+                result.variable_ptr = member_var;
+                return result;
+            }
+        }
+
+        if ((base_var->type == TYPE_STRUCT || base_var->is_struct || base_var->type == TYPE_INTERFACE) &&
+            create_chain_from_struct(*base_var)) {
+            return result;
+        }
+    }
+
+    if (base_resolution.kind == MethodReceiverResolution::Kind::Chain && base_resolution.chain_value) {
+        const ReturnException& chain_ret = *base_resolution.chain_value;
+        if (chain_ret.is_struct || chain_ret.type == TYPE_STRUCT) {
+            if (create_chain_from_struct(chain_ret.struct_value)) {
+                return result;
+            }
+        }
+    }
+
+    // 直接解決できない場合は式全体をチェーンとして扱う
+    return create_chain_receiver_from_expression(member_node);
 }
 
 ExpressionEvaluator::MethodReceiverResolution ExpressionEvaluator::create_chain_receiver_from_expression(const ASTNode* node) {
     MethodReceiverResolution result;
-    // TODO: 本来のチェーンレシーバ生成ロジックを実装
-    return result;
+    if (!node) {
+        return result;
+    }
+
+    try {
+        int64_t primitive_value = evaluate_expression(node);
+        InferredType inferred_type = type_engine_.infer_type(node);
+        TypeInfo chain_type = inferred_type.type_info;
+        if (chain_type == TYPE_UNKNOWN) {
+            chain_type = TYPE_INT;
+        }
+        ReturnException chain_ret(primitive_value, chain_type);
+        result.kind = MethodReceiverResolution::Kind::Chain;
+        result.chain_value = std::make_shared<ReturnException>(chain_ret);
+        return result;
+    } catch (const ReturnException& ret) {
+        result.kind = MethodReceiverResolution::Kind::Chain;
+        result.chain_value = std::make_shared<ReturnException>(ret);
+        return result;
+    }
 }

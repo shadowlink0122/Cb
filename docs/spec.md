@@ -898,7 +898,7 @@ interface Drawable {
 
 ### インターフェース実装 ✅
 ```cb
-impl Rectangle : Drawable {
+impl Drawable for Rectangle {
     void draw() {
         // 実装
     }
@@ -1182,7 +1182,7 @@ interface Drawable {
 }
 
 // Primitive type implementation
-impl int : Drawable {
+impl Drawable for int {
     void draw() {
         println("Drawing number: %d", self);
     }
@@ -1198,7 +1198,7 @@ struct Circle {
     int radius;
 }
 
-impl Circle : Drawable {
+impl Drawable for Circle {
     void draw() {
         println("Drawing circle at (%d, %d) with radius %d", 
                 self.x, self.y, self.radius);
@@ -1210,7 +1210,7 @@ impl Circle : Drawable {
 }
 
 // Array implementation
-impl int[] : Drawable {
+impl Drawable for int[] {
     void draw() {
         print("Drawing array: [");
         for (int i = 0; i < len(self); i++) {
@@ -1232,7 +1232,7 @@ typedef TreeNode {
     TreeNode* right;
 }
 
-impl TreeNode : Drawable {
+impl Drawable for TreeNode {
     void draw() {
         println("Drawing tree node with value: %d", self.value);
         if (self.left != null) {
@@ -1287,7 +1287,7 @@ interface Calculator {
     int multiply(int a, int b);
 }
 
-impl int : Calculator {
+impl Calculator for int {
     int add(int a, int b) {
         return a + b;
     }
@@ -1299,7 +1299,7 @@ interface Formatter {
     void format();
 }
 
-impl int : Formatter {
+impl Formatter for int {
     int format() {  // 戻り値型が void でない → コンパイルエラー
         return 0;
     }
@@ -1310,7 +1310,7 @@ interface Processor {
     void process(int value);
 }
 
-impl int : Processor {
+impl Processor for int {
     void process(double value) {  // パラメータ型が一致しない → コンパイルエラー
         println("Processing: %f", value);
     }

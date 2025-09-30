@@ -121,7 +121,7 @@ struct Circle {
     int x, y, radius;
 }
 
-impl Circle : Printable {
+impl Printable for Circle {
     string toString() {
         return "Circle";
     }
@@ -131,7 +131,7 @@ impl Circle : Printable {
     }
 }
 
-impl Circle : Drawable {
+impl Drawable for Circle {
     void draw() {
         printf("Drawing circle at (%d, %d) with radius %d\n", 
                self.x, self.y, self.radius);
@@ -143,7 +143,7 @@ impl Circle : Drawable {
 }
 
 // プリミティブ型実装
-impl int : Printable {
+impl Printable for int {
     string toString() {
         return "integer";
     }
@@ -154,7 +154,7 @@ impl int : Printable {
 }
 
 // 配列型実装
-impl int[5] : Printable {
+impl Printable for int[5] {
     string toString() {
         return "int array[5]";
     }
@@ -167,7 +167,7 @@ impl int[5] : Printable {
 // Typedef型実装
 typedef MyInt = int;
 
-impl MyInt : Printable {
+impl Printable for MyInt {
     string toString() {
         return "MyInt";
     }

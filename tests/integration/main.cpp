@@ -33,6 +33,7 @@
 #include "interface/interface_error_tests.hpp"
 #include "interface/interface_tests.hpp"
 #include "interface/test_interface_private.hpp"
+#include "interface/test_type_inference_chain.hpp"
 #include "interface/test_typedef_impl.hpp"
 #include "loop/test_loop.hpp"
 #include "module_functions/test_module_functions.hpp"
@@ -230,6 +231,9 @@ int main() {
                            failed_tests);
     run_test_with_continue(InterfaceTests::run_all_interface_tests,
                            "Interface Tests", failed_tests);
+    run_test_with_continue(test_interface_type_inference_chain,
+                           "Interface Type Inference Chain Tests",
+                           failed_tests);
     run_test_with_continue(test_integration_interface_private,
                            "Interface Private Method Tests", failed_tests);
     run_test_with_continue(test_typedef_impl_basic,
