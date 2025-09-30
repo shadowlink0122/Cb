@@ -290,6 +290,11 @@ class Interpreter : public EvaluatorInterface {
     Variable *get_variable(const std::string &name) {
         return find_variable(name);
     }
+    
+    // 一時変数管理（メソッドチェーン用）
+    void add_temp_variable(const std::string &name, const Variable &var);
+    void remove_temp_variable(const std::string &name);
+    void clear_temp_variables();
     const ASTNode *find_function(const std::string &name);
     const ASTNode *get_function(const std::string &name) {
         return find_function(name);
@@ -343,6 +348,9 @@ class Interpreter : public EvaluatorInterface {
                                     const StructDefinition &definition);
     const StructDefinition *
     find_struct_definition(const std::string &struct_name);
+    
+    const ASTNode* find_union_definition(const std::string &union_name);
+    const ASTNode* find_typedef_definition(const std::string &typedef_name);
     void create_struct_variable(const std::string &var_name,
                                 const std::string &struct_type_name);
     Variable *get_struct_member(const std::string &var_name,
@@ -417,6 +425,9 @@ class Interpreter : public EvaluatorInterface {
     void process_ndim_array_literal(const ASTNode *literal_node, Variable &var,
                                     TypeInfo elem_type, int &flat_index,
                                     int max_size);
+
+        // impl宣言処理ヘルパー
+        void handle_impl_declaration(const ASTNode *node);
 
   public:
     void check_type_range(TypeInfo type, int64_t value,

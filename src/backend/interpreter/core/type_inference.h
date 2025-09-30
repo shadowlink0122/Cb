@@ -110,10 +110,21 @@ public:
     // 配列アクセスの型推論
     InferredType infer_array_element_type(const InferredType& array_type);
     
+    // typedef型の再帰的解決
+    InferredType resolve_typedef_type(const std::string& typedef_name);
+    
+    // 型エラーチェック（チェーン処理用）
+    bool validate_chain_compatibility(const InferredType& object_type, const std::string& method_name, const std::vector<InferredType>& arg_types);
+    
 private:
     Interpreter& interpreter_;
     
     // ヘルパー関数
     InferredType get_common_type(const InferredType& type1, const InferredType& type2);
     InferredType literal_to_type(const ASTNode* node);
+    
+    // 型定義検索ヘルパー
+    const ASTNode* find_struct_definition(const std::string& struct_name);
+    const ASTNode* find_union_definition(const std::string& union_name);
+    const ASTNode* find_typedef_definition(const std::string& typedef_name);
 };

@@ -164,6 +164,57 @@ ASTNode* RecursiveParser::parseStatement() {
     if (check(TokenType::TOK_IDENTIFIER)) {
         std::string potential_type = current_token_.value;
         
+        // 構造体配列戻り値関数の早期検出: Type[size] function_name()
+        bool is_array_return_function = false;
+        if ((typedef_map_.find(potential_type) != typedef_map_.end() || 
+             struct_definitions_.find(potential_type) != struct_definitions_.end())) {
+            
+            // Type[...] function_name() のパターンをチェック
+            RecursiveLexer temp_lexer = lexer_;
+            Token temp_current = current_token_;
+            
+            advance(); // Type
+            if (check(TokenType::TOK_LBRACKET)) {
+                advance(); // [
+                // 配列サイズをスキップ
+                int bracket_count = 1;
+                while (bracket_count > 0 && !isAtEnd()) {
+                    if (check(TokenType::TOK_LBRACKET)) bracket_count++;
+                    else if (check(TokenType::TOK_RBRACKET)) bracket_count--;
+                    advance();
+                }
+                // ]の後に識別子、その後に(があれば配列戻り値関数
+                if (check(TokenType::TOK_IDENTIFIER)) {
+                    advance(); // function_name
+                    if (check(TokenType::TOK_LPAREN)) {
+                        is_array_return_function = true;
+                    }
+                }
+            }
+            
+            // 元の位置に戻す
+            lexer_ = temp_lexer;
+            current_token_ = temp_current;
+        }
+        
+        if (is_array_return_function) {
+            // 配列戻り値関数として処理
+            std::string return_type = advance().value; // 型名
+            
+            // 配列部分を戻り値型に追加: Type[size]
+            return_type += advance().value; // '['
+            while (!check(TokenType::TOK_RBRACKET) && !isAtEnd()) {
+                return_type += advance().value; // 配列サイズ
+            }
+            if (check(TokenType::TOK_RBRACKET)) {
+                return_type += advance().value; // ']'
+            }
+            
+            std::string function_name = advance().value; // 関数名
+            debug_msg(DebugMsgId::PARSE_FUNCTION_DECL_FOUND, function_name.c_str(), return_type.c_str());
+            return parseFunctionDeclarationAfterName(return_type, function_name);
+        }
+        
         // typedef型または構造体型の可能性をチェック
         bool is_typedef = typedef_map_.find(potential_type) != typedef_map_.end();
         bool is_struct_type = struct_definitions_.find(potential_type) != struct_definitions_.end();
@@ -188,9 +239,30 @@ ASTNode* RecursiveParser::parseStatement() {
                     debug_msg(DebugMsgId::PARSE_FUNCTION_DETECTED, "");
                     is_function = true;
                 } else if (check(TokenType::TOK_LBRACKET)) {
-                    // 配列宣言なので関数ではない
+                    // 配列型かもしれないが、配列戻り値の関数の可能性もあるので更にチェック
                     debug_msg(DebugMsgId::PARSE_ARRAY_DETECTED, "");
-                    is_function = false;
+                    
+                    // 配列の括弧をスキップ: [2]
+                    advance(); // consume '['
+                    while (!check(TokenType::TOK_RBRACKET) && !isAtEnd()) {
+                        advance(); // 配列サイズの式をスキップ
+                    }
+                    if (check(TokenType::TOK_RBRACKET)) {
+                        advance(); // consume ']'
+                    }
+                    
+                    // 次が識別子かつその後に'('があれば関数（配列戻り値）
+                    if (check(TokenType::TOK_IDENTIFIER)) {
+                        advance(); // 関数名をスキップ
+                        if (check(TokenType::TOK_LPAREN)) {
+                            debug_msg(DebugMsgId::PARSE_FUNCTION_DETECTED, "Array return function");
+                            is_function = true;
+                        } else {
+                            is_function = false;
+                        }
+                    } else {
+                        is_function = false;
+                    }
                 }
             }
             
@@ -199,8 +271,21 @@ ASTNode* RecursiveParser::parseStatement() {
             current_token_ = temp_current;
             
             if (is_function) {
-                // これは戻り値型が構造体またはtypedefの関数宣言
+                // これは戻り値型が構造体またはtypedefの関数宣言（配列戻り値の可能性もある）
                 std::string return_type = advance().value; // 型名を取得
+                
+                // 配列戻り値の場合: Person[2] function_name() の処理
+                if (check(TokenType::TOK_LBRACKET)) {
+                    // 配列部分を戻り値型に追加
+                    return_type += advance().value; // '['
+                    while (!check(TokenType::TOK_RBRACKET) && !isAtEnd()) {
+                        return_type += advance().value; // 配列サイズ
+                    }
+                    if (check(TokenType::TOK_RBRACKET)) {
+                        return_type += advance().value; // ']'
+                    }
+                }
+                
                 std::string function_name = advance().value; // 関数名を取得
                 debug_msg(DebugMsgId::PARSE_FUNCTION_DECL_FOUND, function_name.c_str(), return_type.c_str());
                 return parseFunctionDeclarationAfterName(return_type, function_name);
@@ -4007,6 +4092,7 @@ ASTNode* RecursiveParser::parseImplDeclaration() {
     consume(TokenType::TOK_LBRACE, "Expected '{' after type name in impl declaration");
     
     ImplDefinition impl_def(interface_name, struct_name);
+    std::vector<std::unique_ptr<ASTNode>> method_nodes; // 所有権は一時的に保持し、最終的にASTへ移動
     
     // メソッド実装の解析
     while (!check(TokenType::TOK_RBRACE) && !isAtEnd()) {
@@ -4040,8 +4126,11 @@ ASTNode* RecursiveParser::parseImplDeclaration() {
         }
         
         // 関数宣言として解析
-        ASTNode* method_impl = parseFunctionDeclarationAfterName(return_type, method_name);
-        if (method_impl) {
+        ASTNode* method_impl_raw = parseFunctionDeclarationAfterName(return_type, method_name);
+        if (method_impl_raw) {
+            std::unique_ptr<ASTNode> method_impl(method_impl_raw);
+            debug_print("[IMPL_PARSE] After method '%s', current token = %s (type %d)\n",
+                        method_name.c_str(), current_token_.value.c_str(), (int)current_token_.type);
             // privateフラグを設定
             method_impl->is_private_method = is_private_method;
             // privateメソッドの場合はinterface署名チェックをスキップ
@@ -4098,8 +4187,9 @@ ASTNode* RecursiveParser::parseImplDeclaration() {
                 }
             }
             
-            // メソッド情報を保存
-            impl_def.methods.push_back(std::unique_ptr<ASTNode>(method_impl));
+            // メソッド情報を保存（ImplDefinitionにはポインタのみ保持）
+            impl_def.add_method(method_impl.get());
+            method_nodes.push_back(std::move(method_impl));
             debug_msg(DebugMsgId::PARSE_VAR_DECL, method_name.c_str(), "impl_method");
         }
     }
@@ -4112,7 +4202,7 @@ ASTNode* RecursiveParser::parseImplDeclaration() {
     if (interface_it != interface_definitions_.end()) {
         for (const auto& interface_method : interface_it->second.methods) {
             bool implemented = false;
-            for (const auto& impl_method : impl_def.methods) {
+            for (const auto* impl_method : impl_def.methods) {
                 if (impl_method->name == interface_method.name) {
                     implemented = true;
                     break;
@@ -4136,8 +4226,8 @@ ASTNode* RecursiveParser::parseImplDeclaration() {
         }
     }
     
-    // impl定義を保存
-    impl_definitions_.emplace_back(std::move(impl_def));
+    // impl定義を保存（ポインタ参照のみ保持）
+    impl_definitions_.push_back(impl_def);
     
     // ASTノードを作成
     ASTNode* node = new ASTNode(ASTNodeType::AST_IMPL_DECL);
@@ -4145,33 +4235,9 @@ ASTNode* RecursiveParser::parseImplDeclaration() {
     node->type_name = struct_name; // struct名を保存
     setLocation(node, current_token_);
     
-    // impl定義のメソッドをASTノードに保存
-    for (const auto& method : impl_definitions_.back().methods) {
-        // メソッドをASTノードにコピー（完全コピー）
-        ASTNode* method_copy = new ASTNode(method->node_type);
-        method_copy->name = method->name;
-        method_copy->type_info = method->type_info;
-        method_copy->type_name = method->type_name;
-        method_copy->is_const = method->is_const;
-        method_copy->is_private_method = method->is_private_method; // privateフラグをコピー
-        
-        // パラメータをコピー
-        for (const auto& param : method->parameters) {
-            ASTNode* param_copy = new ASTNode(param->node_type);
-            param_copy->name = param->name;
-            param_copy->type_info = param->type_info;
-            param_copy->type_name = param->type_name;
-            param_copy->is_array = param->is_array;
-            method_copy->parameters.push_back(std::unique_ptr<ASTNode>(param_copy));
-        }
-        
-        // 関数本体をコピー
-        if (method->body) {
-            // 簡略化: 本体の完全コピーは複雑なので、参照を共有
-            method_copy->body = std::unique_ptr<ASTNode>(method->body.get());
-        }
-        
-        node->arguments.push_back(std::unique_ptr<ASTNode>(method_copy));
+    // implメソッドの所有権をASTノードに移動
+    for (auto& method_node : method_nodes) {
+        node->arguments.push_back(std::move(method_node));
     }
     
     return node;

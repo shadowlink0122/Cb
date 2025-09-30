@@ -17,6 +17,7 @@
 #include "managers/type_manager.h"
 #include "services/variable_access_service.h" // DRY効率化: 統一変数アクセスサービス
 #include "managers/variable_manager.h"
+#include <algorithm>
 #include <cstdlib>
 #include <iostream>
 #include <stdexcept>
@@ -175,6 +176,7 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
                 register_global_declarations(stmt.get());
             }
         }
+        
         // 最後にその他の宣言（関数など）を処理
         for (const auto &stmt : node->statements) {
             if (stmt->node_type != ASTNodeType::AST_VAR_DECL &&
@@ -356,54 +358,7 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
         break;
 
     case ASTNodeType::AST_IMPL_DECL:
-        // impl定義を登録
-        {
-            debug_msg(DebugMsgId::IMPL_DECL_START, node->name.c_str());
-            
-            // ASTノードからinterface名とstruct名を抽出
-            std::string combined_name = node->name; // "interface_name_for_struct_name"形式
-            std::string interface_name, struct_name;
-            
-            size_t for_pos = combined_name.find("_for_");
-            if (for_pos != std::string::npos) {
-                interface_name = combined_name.substr(0, for_pos);
-                struct_name = combined_name.substr(for_pos + 5); // "_for_"の長さは5
-            } else {
-                // fallback: type_nameからstruct名を取得
-                interface_name = combined_name;
-                struct_name = node->type_name;
-            }
-            
-            ImplDefinition impl_def(interface_name, struct_name);
-            
-            // ASTノードからメソッド実装を復元し、グローバル関数として登録
-            for (const auto &method_node : node->arguments) {
-                if (method_node->node_type == ASTNodeType::AST_FUNC_DECL) {
-                    // メソッドをグローバル関数として登録（名前空間付き）
-                    std::string method_full_name = interface_name + "_" + struct_name + "_" + method_node->name;
-                    
-                    // グローバルスコープに関数を登録
-                    global_scope.functions[method_full_name] = method_node.get();
-                    
-                    // 元のメソッド名でも登録（動的ディスパッチ用）
-                    std::string method_key = struct_name + "::" + method_node->name;
-                    global_scope.functions[method_key] = method_node.get();
-                    
-                    // impl定義にもメソッドを追加（privateチェックのため）
-                    auto method_copy = std::make_unique<ASTNode>(method_node->node_type);
-                    method_copy->name = method_node->name;
-                    method_copy->is_private_method = method_node->is_private_method;
-                    method_copy->type_info = method_node->type_info;
-                    impl_def.methods.push_back(std::move(method_copy));
-                    
-                    debug_msg(DebugMsgId::IMPL_METHOD_REGISTER, method_full_name.c_str());
-                    debug_msg(DebugMsgId::PARSE_VAR_DECL, method_node->name.c_str(), "impl_method");
-                }
-            }
-
-            register_impl_definition(impl_def);
-            debug_msg(DebugMsgId::IMPL_DECL_COMPLETE, combined_name.c_str());
-        }
+        handle_impl_declaration(node);
         break;
 
     case ASTNodeType::AST_ARRAY_ASSIGN:
@@ -665,49 +620,7 @@ void Interpreter::execute_statement(const ASTNode *node) {
         break;
 
     case ASTNodeType::AST_IMPL_DECL:
-        // impl定義を登録
-        {
-            debug_msg(DebugMsgId::PARSE_STRUCT_DEF, node->name.c_str());
-            
-            // ASTノードからinterface名とstruct名を抽出
-            std::string combined_name = node->name; // "interface_name_for_struct_name"形式
-            std::string interface_name, struct_name;
-            
-            size_t for_pos = combined_name.find("_for_");
-            if (for_pos != std::string::npos) {
-                interface_name = combined_name.substr(0, for_pos);
-                struct_name = combined_name.substr(for_pos + 5); // "_for_"の長さは5
-            } else {
-                // fallback: type_nameからstruct名を取得
-                interface_name = combined_name;
-                struct_name = node->type_name;
-            }
-            
-            ImplDefinition impl_def(interface_name, struct_name);
-            
-            // ASTノードからメソッド実装を復元し、グローバル関数として登録
-            std::cerr << "DEBUG: Processing " << node->arguments.size() << " methods in impl" << std::endl;
-            for (const auto &method_node : node->arguments) {
-                std::cerr << "DEBUG: Processing method node type: " << static_cast<int>(method_node->node_type) << std::endl;
-                if (method_node->node_type == ASTNodeType::AST_FUNC_DECL) {
-                    // メソッドをグローバル関数として登録（名前空間付き）
-                    std::string method_full_name = interface_name + "_" + struct_name + "_" + method_node->name;
-                    
-                    // グローバルスコープに関数を登録
-                    global_scope.functions[method_full_name] = method_node.get();
-                    
-                    // 元のメソッド名でも登録（動的ディスパッチ用）
-                    std::string method_key = struct_name + "::" + method_node->name;
-                    global_scope.functions[method_key] = method_node.get();
-                    
-                    debug_msg(DebugMsgId::INTERPRETER_START, ("Registered impl method: " + method_full_name).c_str());
-                    debug_msg(DebugMsgId::PARSE_VAR_DECL, method_node->name.c_str(), "impl_method");
-                }
-            }
-
-            register_impl_definition(impl_def);
-            debug_msg(DebugMsgId::PARSE_STRUCT_DEF, combined_name.c_str());
-        }
+        handle_impl_declaration(node);
         break;
 
     case ASTNodeType::AST_PRINT_STMT:
@@ -963,8 +876,29 @@ void Interpreter::execute_statement(const ASTNode *node) {
                 if (node->left->name == "self") {
                     Variable *self_var = find_variable("self");
                     if (self_var && self_var->is_struct) {
+                        debug_print("RETURN_SELF: Before sync - members=%zu\n", self_var->struct_members.size());
+                        for (const auto& member : self_var->struct_members) {
+                            debug_print("RETURN_SELF: Before sync member %s = %lld\n", 
+                                       member.first.c_str(), member.second.value);
+                        }
+                        
                         sync_struct_members_from_direct_access("self");
+                        
+                        debug_print("RETURN_SELF: After sync - members=%zu\n", self_var->struct_members.size());
+                        for (const auto& member : self_var->struct_members) {
+                            debug_print("RETURN_SELF: After sync member %s = %lld\n", 
+                                       member.first.c_str(), member.second.value);
+                        }
+                        
+                        // 構造体のtype情報を正しく設定
+                        self_var->type = TYPE_STRUCT;
+                        debug_print("RETURN_SELF: struct_type=%s, type=%d, is_struct=%d, members=%zu\n",
+                                   self_var->struct_type_name.c_str(), self_var->type, 
+                                   self_var->is_struct, self_var->struct_members.size());
                         throw ReturnException(*self_var);
+                    } else {
+                        debug_print("RETURN_SELF: self not found or not struct (found=%d, is_struct=%d)\n", 
+                                   self_var != nullptr, self_var ? self_var->is_struct : 0);
                     }
                 } else {
                     // 他の識別子の場合、変数として扱う
@@ -972,6 +906,7 @@ void Interpreter::execute_statement(const ASTNode *node) {
                     if (var) {
                         if (var->is_struct) {
                             sync_struct_members_from_direct_access(node->left->name);
+                            var->type = TYPE_STRUCT;  // 構造体のtype情報を正しく設定
                             throw ReturnException(*var);
                         } else if (var->type == TYPE_STRING) {
                             throw ReturnException(var->str_value);
@@ -988,6 +923,7 @@ void Interpreter::execute_statement(const ASTNode *node) {
                 if (var && var->is_struct) {
                     // struct変数を返す前に直接アクセス変数からstruct_membersに同期
                     sync_struct_members_from_direct_access(node->left->name);
+                    var->type = TYPE_STRUCT;  // 構造体のtype情報を正しく設定
                     debug_msg(DebugMsgId::INTERPRETER_RETURN_ARRAY_VAR);
                     throw ReturnException(*var);
                 } else if (var && var->is_array) {
@@ -1181,13 +1117,21 @@ void Interpreter::execute_statement(const ASTNode *node) {
                             Variable* element_var = find_variable(element_name);
                             
                             if (element_var && element_var->is_struct) {
-                                // 構造体要素をコピー（識別用にstruct_type_nameを使用）
-                                Variable struct_element = *element_var;
-                                struct_element.struct_type_name = element_name; // 要素識別子を設定
+                                // 構造体要素の深いコピーを作成
+                                Variable struct_element;
+                                struct_element.type = element_var->type;
+                                struct_element.is_struct = true;
+                                struct_element.struct_type_name = element_var->struct_type_name;
+                                
+                                // 構造体メンバーの深いコピー
+                                for (const auto& member_pair : element_var->struct_members) {
+                                    struct_element.struct_members[member_pair.first] = member_pair.second;
+                                }
+                                
                                 struct_array_1d.push_back(struct_element);
                                 
                                 debug_msg(DebugMsgId::INTERPRETER_ARRAY_ELEMENT, i, 
-                                         ("struct:" + element_name).c_str());
+                                         element_var->struct_type_name.c_str());
                             } else {
                                 // 空の構造体要素を作成
                                 Variable empty_struct;
@@ -1407,13 +1351,67 @@ void Interpreter::assign_union_variable(const std::string &name, const ASTNode* 
     if (var->type != TYPE_UNION) {
         throw std::runtime_error("Variable is not a union type: " + name);
     }
-    
     if (debug_mode) {
         debug_print("UNION_ASSIGN_INTERPRETER_DEBUG: Variable '%s' type_name='%s'\n", 
                    name.c_str(), var->type_name.c_str());
     }
     
     variable_manager_->assign_union_value(*var, var->type_name, value_node);
+}
+
+void Interpreter::handle_impl_declaration(const ASTNode *node) {
+    if (!node) {
+        return;
+    }
+
+    auto trim = [](const std::string &text) {
+        const char *whitespace = " \t\r\n";
+        size_t start = text.find_first_not_of(whitespace);
+        if (start == std::string::npos) {
+            return std::string();
+        }
+        size_t end = text.find_last_not_of(whitespace);
+        return text.substr(start, end - start + 1);
+    };
+
+    const std::string delimiter = "_for_";
+    std::string combined_name = node->name;
+    std::string interface_name = combined_name;
+    std::string struct_name = node->type_name;
+
+    size_t delim_pos = combined_name.find(delimiter);
+    if (delim_pos != std::string::npos) {
+        interface_name = combined_name.substr(0, delim_pos);
+        if (struct_name.empty()) {
+            struct_name = combined_name.substr(delim_pos + delimiter.size());
+        }
+    }
+
+    interface_name = trim(interface_name);
+    struct_name = trim(struct_name);
+
+    if (interface_name.empty()) {
+        debug_msg(DebugMsgId::PARSE_STRUCT_DEF,
+                  ("Skipping impl registration due to missing interface name: " + node->name).c_str());
+        return;
+    }
+
+    ImplDefinition impl_def(interface_name, struct_name);
+
+    for (const auto &method_node : node->arguments) {
+        if (!method_node || method_node->node_type != ASTNodeType::AST_FUNC_DECL) {
+            continue;
+        }
+
+        if (method_node->type_name.empty()) {
+            method_node->type_name = struct_name;
+        }
+        method_node->qualified_name = interface_name + "::" + struct_name + "::" + method_node->name;
+
+        impl_def.add_method(method_node.get());
+    }
+
+    register_impl_definition(impl_def);
 }
 
 void Interpreter::assign_function_parameter(const std::string &name,
@@ -3231,24 +3229,79 @@ Interpreter::find_interface_definition(const std::string &interface_name) {
 
 // impl管理メソッド
 void Interpreter::register_impl_definition(const ImplDefinition &impl_def) {
-    // ImplDefinitionを移動してvectorに追加
-    ImplDefinition moved_impl_def;
-    moved_impl_def.interface_name = impl_def.interface_name;
-    moved_impl_def.struct_name = impl_def.struct_name;
-    
-    // メソッドもコピーする（privateチェックのため）
-    for (const auto& method : impl_def.methods) {
-        // メソッド情報をクローン（unique_ptrのディープコピー）
-        auto cloned_method = std::make_unique<ASTNode>(method->node_type);
-        cloned_method->name = method->name;
-        cloned_method->is_private_method = method->is_private_method;
-        cloned_method->type_info = method->type_info;
-        moved_impl_def.methods.push_back(std::move(cloned_method));
+    auto trim = [](const std::string &text) {
+        const char *whitespace = " \t\r\n";
+        size_t start = text.find_first_not_of(whitespace);
+        if (start == std::string::npos) {
+            return std::string();
+        }
+        size_t end = text.find_last_not_of(whitespace);
+        return text.substr(start, end - start + 1);
+    };
+
+    auto normalize_struct = [](const std::string &name) {
+        const std::string prefix = "struct ";
+        if (name.rfind(prefix, 0) == 0) {
+            return name.substr(prefix.size());
+        }
+        return name;
+    };
+
+    ImplDefinition stored_def(trim(impl_def.interface_name), trim(impl_def.struct_name));
+    stored_def.methods = impl_def.methods;
+
+    auto existing = std::find_if(impl_definitions_.begin(), impl_definitions_.end(),
+        [&](const ImplDefinition &candidate) {
+            return candidate.interface_name == stored_def.interface_name &&
+                   candidate.struct_name == stored_def.struct_name;
+        });
+
+    if (existing != impl_definitions_.end()) {
+        *existing = stored_def;
+    } else {
+        impl_definitions_.emplace_back(stored_def);
+        existing = std::prev(impl_definitions_.end());
     }
-    
-    impl_definitions_.emplace_back(std::move(moved_impl_def));
-    debug_msg(DebugMsgId::PARSE_STRUCT_DEF, 
-              (impl_def.interface_name + "_for_" + impl_def.struct_name).c_str());
+
+    auto register_function = [&](const std::string &key, const ASTNode *method) {
+        if (key.empty() || !method) {
+            return;
+        }
+        global_scope.functions[key] = method;
+        debug_print("IMPL_REGISTER: Registered method key '%s'\n", key.c_str());
+    };
+
+    std::string normalized_struct_name = normalize_struct(existing->struct_name);
+    std::string original_struct_name = existing->struct_name;
+    std::string interface_name = existing->interface_name;
+
+    for (const auto *method : existing->methods) {
+        if (!method) {
+            continue;
+        }
+
+        std::string method_name = method->name;
+
+        if (!normalized_struct_name.empty()) {
+            register_function(normalized_struct_name + "::" + method_name, method);
+        }
+
+        if (!original_struct_name.empty() && original_struct_name != normalized_struct_name) {
+            register_function(original_struct_name + "::" + method_name, method);
+        }
+
+        if (!interface_name.empty()) {
+            std::string interface_key = interface_name + "_" + normalized_struct_name + "_" + method_name;
+            register_function(interface_key, method);
+
+            if (!original_struct_name.empty() && original_struct_name != normalized_struct_name) {
+                register_function(interface_name + "_" + original_struct_name + "_" + method_name, method);
+            }
+        }
+    }
+
+    debug_msg(DebugMsgId::PARSE_STRUCT_DEF,
+              (existing->interface_name + "_for_" + existing->struct_name).c_str());
 }
 
 const ImplDefinition *Interpreter::find_impl_for_struct(const std::string &struct_name, 
@@ -3347,4 +3400,45 @@ const ASTNode* Interpreter::find_function_definition(const std::string& func_nam
 
 TypedValue Interpreter::evaluate_ternary_typed(const ASTNode* node) {
     return expression_evaluator_->evaluate_ternary_typed(node);
+}
+
+// 一時変数管理（メソッドチェーン用）
+void Interpreter::add_temp_variable(const std::string &name, const Variable &var) {
+    current_scope().variables[name] = var;
+    debug_print("TEMP_VAR: Added temporary variable %s\n", name.c_str());
+}
+
+void Interpreter::remove_temp_variable(const std::string &name) {
+    auto& vars = current_scope().variables;
+    auto it = vars.find(name);
+    if (it != vars.end()) {
+        vars.erase(it);
+        debug_print("TEMP_VAR: Removed temporary variable %s\n", name.c_str());
+    }
+}
+
+void Interpreter::clear_temp_variables() {
+    auto& vars = current_scope().variables;
+    for (auto it = vars.begin(); it != vars.end();) {
+        if (it->first.substr(0, 12) == "__temp_chain" || 
+            it->first.substr(0, 12) == "__chain_self") {
+            debug_print("TEMP_VAR: Clearing temporary variable %s\n", it->first.c_str());
+            it = vars.erase(it);
+        } else {
+            ++it;
+        }
+    }
+}
+
+// 型定義検索メソッド
+const ASTNode* Interpreter::find_union_definition(const std::string &union_name) {
+    // ユニオン定義をマップから検索（簡易実装）
+    // 実際の実装では union_definitions_ マップを使用
+    return nullptr; // 簡易実装：ユニオンサポートは後で実装
+}
+
+const ASTNode* Interpreter::find_typedef_definition(const std::string &typedef_name) {
+    // typedef定義をマップから検索（簡易実装）
+    // 実際の実装では typedef_definitions_ マップを使用
+    return nullptr; // 簡易実装：typedefサポートは後で実装
 }

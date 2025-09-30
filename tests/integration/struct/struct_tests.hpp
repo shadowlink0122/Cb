@@ -176,6 +176,69 @@ inline void test_struct_function_return() {
         });
 }
 
+// Struct配列関数戻り値のチェーン処理テスト（新規追加）
+inline void test_struct_function_array_chain() {
+    std::cout << "[integration] Running test_struct_function_array_chain..." << std::endl;
+    
+    run_cb_test_with_output_and_time_auto("../../tests/cases/struct/struct_function_array_chain.cb", 
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "Struct function array chain test should exit with code 0");
+            
+            // 基本的なチェーンアクセス
+            INTEGRATION_ASSERT(output.find("Alice") != std::string::npos, 
+                              "Output should contain Alice from get_people()[0].name");
+            INTEGRATION_ASSERT(output.find("Bob") != std::string::npos, 
+                              "Output should contain Bob from get_people()[1].name");
+            INTEGRATION_ASSERT(output.find("Age 0:") != std::string::npos, 
+                              "Output should contain age 0 label");
+            INTEGRATION_ASSERT(output.find("25") != std::string::npos, 
+                              "Output should contain age 25");
+            INTEGRATION_ASSERT(output.find("30") != std::string::npos, 
+                              "Output should contain age 30");
+            
+            // 異なる構造体型でのテスト
+            INTEGRATION_ASSERT(output.find("Laptop") != std::string::npos, 
+                              "Output should contain Laptop from get_products()[0].name");
+            INTEGRATION_ASSERT(output.find("Mouse") != std::string::npos, 
+                              "Output should contain Mouse from get_products()[1].name");
+            INTEGRATION_ASSERT(output.find("Keyboard") != std::string::npos, 
+                              "Output should contain Keyboard from get_products()[2].name");
+            INTEGRATION_ASSERT(output.find("Prices:") != std::string::npos, 
+                              "Output should contain prices label");
+            INTEGRATION_ASSERT(output.find("1200") != std::string::npos, 
+                              "Output should contain price 1200");
+            INTEGRATION_ASSERT(output.find("25") != std::string::npos, 
+                              "Output should contain price 25");
+            INTEGRATION_ASSERT(output.find("80") != std::string::npos, 
+                              "Output should contain price 80");
+            
+            // 境界値テスト
+            INTEGRATION_ASSERT(output.find("Charlie") != std::string::npos, 
+                              "Output should contain Charlie from get_team()[0].name");
+            INTEGRATION_ASSERT(output.find("Grace") != std::string::npos, 
+                              "Output should contain Grace from get_team()[4].name");
+            INTEGRATION_ASSERT(output.find("First age:") != std::string::npos, 
+                              "Output should contain first age label");
+            INTEGRATION_ASSERT(output.find("35") != std::string::npos, 
+                              "Output should contain age 35");
+            INTEGRATION_ASSERT(output.find("Last age:") != std::string::npos, 
+                              "Output should contain last age label");
+            INTEGRATION_ASSERT(output.find("29") != std::string::npos, 
+                              "Output should contain age 29");
+            
+            // 中間要素のテスト
+            INTEGRATION_ASSERT(output.find("Eve") != std::string::npos, 
+                              "Output should contain Eve from get_team()[2].name");
+            INTEGRATION_ASSERT(output.find("Middle age:") != std::string::npos, 
+                              "Output should contain middle age label");
+            INTEGRATION_ASSERT(output.find("42") != std::string::npos, 
+                              "Output should contain age 42");
+            
+            INTEGRATION_ASSERT(output.find("All tests completed successfully") != std::string::npos, 
+                              "Output should contain success message");
+        });
+}
+
 // Struct関数での文字列メンバテスト
 inline void test_struct_function_string_members() {
     std::cout << "[integration] Running test_struct_function_string_members..." << std::endl;
@@ -345,6 +408,7 @@ inline void run_all_struct_tests() {
         test_multidim_array_member();
         test_struct_function_param();
         test_struct_function_return();
+        test_struct_function_array_chain(); // 新規追加: チェーン処理テスト
         test_struct_function_string_members(); // 新しい文字列メンバテスト
         test_struct_function_array_members();  // 新しい配列メンバテスト
         test_mixed_types(); // 複雑な機能

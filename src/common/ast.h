@@ -451,35 +451,21 @@ struct InterfaceDefinition {
 struct ImplDefinition {
     std::string interface_name; // 実装するinterface名
     std::string struct_name;    // 実装先のstruct名
-    std::vector<std::unique_ptr<ASTNode>>
-        methods; // 実装されたメソッドのASTノード
+    std::vector<const ASTNode *>
+        methods; // 実装されたメソッドのASTノード（非所有ポインタ）
 
     ImplDefinition() {}
     ImplDefinition(const std::string &iface, const std::string &struct_name)
         : interface_name(iface), struct_name(struct_name) {}
 
-    // コピーコンストラクタ（unique_ptrのため削除）
-    ImplDefinition(const ImplDefinition &other) = delete;
-    ImplDefinition &operator=(const ImplDefinition &other) = delete;
+    // デフォルトコピー/ムーブで十分（vector<const ASTNode*> はコピー可能）
+    ImplDefinition(const ImplDefinition &) = default;
+    ImplDefinition &operator=(const ImplDefinition &) = default;
+    ImplDefinition(ImplDefinition &&) noexcept = default;
+    ImplDefinition &operator=(ImplDefinition &&) noexcept = default;
 
-    // ムーブコンストラクタ
-    ImplDefinition(ImplDefinition &&other) noexcept
-        : interface_name(std::move(other.interface_name)),
-          struct_name(std::move(other.struct_name)),
-          methods(std::move(other.methods)) {}
-
-    ImplDefinition &operator=(ImplDefinition &&other) noexcept {
-        if (this != &other) {
-            interface_name = std::move(other.interface_name);
-            struct_name = std::move(other.struct_name);
-            methods = std::move(other.methods);
-        }
-        return *this;
-    }
-
-    // メソッドを追加
-    void add_method(std::unique_ptr<ASTNode> method_ast) {
-        methods.push_back(std::move(method_ast));
+    void add_method(const ASTNode *method_ast) {
+        methods.push_back(method_ast);
     }
 };
 

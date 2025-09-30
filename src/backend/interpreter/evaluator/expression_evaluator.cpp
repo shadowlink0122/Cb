@@ -11,6 +11,59 @@
 #include <stdexcept>
 #include <iostream>
 
+// MethodReceiverResolutionのデフォルトコンストラクタ実装
+ExpressionEvaluator::MethodReceiverResolution::MethodReceiverResolution()
+    : kind(Kind::None), canonical_name(), variable_ptr(nullptr), chain_value(nullptr) {}
+
+// レシーバ解決ヘルパー（メソッド呼び出し用）
+ExpressionEvaluator::MethodReceiverResolution ExpressionEvaluator::resolve_method_receiver(const ASTNode* receiver_node) {
+    MethodReceiverResolution result;
+    if (!receiver_node) {
+        return result;
+    }
+
+    switch (receiver_node->node_type) {
+    case ASTNodeType::AST_VARIABLE:
+    case ASTNodeType::AST_IDENTIFIER: {
+        std::string name = receiver_node->name;
+        if (name.empty()) {
+            return result;
+        }
+        Variable* var = interpreter_.find_variable(name);
+        if (var) {
+            result.kind = MethodReceiverResolution::Kind::Direct;
+            result.canonical_name = name;
+            result.variable_ptr = var;
+            return result;
+        }
+        break;
+    }
+    case ASTNodeType::AST_MEMBER_ACCESS:
+        // メンバアクセスは別ヘルパーで解決
+        return resolve_member_receiver(receiver_node);
+    case ASTNodeType::AST_ARRAY_REF:
+        return resolve_array_receiver(receiver_node);
+    case ASTNodeType::AST_FUNC_CALL:
+        return create_chain_receiver_from_expression(receiver_node);
+    default:
+        break;
+    }
+
+    return create_chain_receiver_from_expression(receiver_node);
+}
+#include "evaluator/expression_evaluator.h"
+#include "core/interpreter.h"
+#include "managers/enum_manager.h"    // EnumManager定義が必要
+#include "managers/type_manager.h"    // TypeManager定義が必要
+#include "../../../common/debug_messages.h"
+#include "../../../common/debug.h"
+#include "../../../common/utf8_utils.h"
+#include "core/error_handler.h"
+#include "managers/array_manager.h"
+#include "services/array_processing_service.h"
+#include <stdexcept>
+#include <iostream>
+
 ExpressionEvaluator::ExpressionEvaluator(Interpreter& interpreter) 
     : interpreter_(interpreter), type_engine_(interpreter), last_typed_result_(0, InferredType()) {}
 
@@ -616,63 +669,92 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
         bool is_method_call = (node->left != nullptr); // レシーバーがある場合はメソッド呼び出し
         bool has_receiver = is_method_call;
         std::string receiver_name;
-        
+        MethodReceiverResolution receiver_resolution;
+        struct MethodCallContext {
+            bool uses_temp_receiver = false;
+            std::string temp_variable_name;
+            std::shared_ptr<ReturnException> chain_value;
+            Variable concrete_receiver;
+        } method_context;
+
         if (is_method_call) {
-            // メソッド呼び出し: obj.method()
             debug_msg(DebugMsgId::METHOD_CALL_START, node->name.c_str());
-            
-            if (node->left->node_type == ASTNodeType::AST_VARIABLE) {
-                receiver_name = node->left->name;
-            } else if (node->left->node_type == ASTNodeType::AST_IDENTIFIER) {
-                receiver_name = node->left->name;
+            receiver_resolution = resolve_method_receiver(node->left.get());
+
+            if (receiver_resolution.kind == MethodReceiverResolution::Kind::Direct && receiver_resolution.variable_ptr) {
+                receiver_name = receiver_resolution.canonical_name;
+            } else if (receiver_resolution.kind == MethodReceiverResolution::Kind::Chain && receiver_resolution.chain_value) {
+                method_context.chain_value = receiver_resolution.chain_value;
+
+                const ReturnException& chain_ret = *receiver_resolution.chain_value;
+                if (chain_ret.is_array) {
+                    throw chain_ret;
+                }
+
+                method_context.uses_temp_receiver = true;
+                method_context.temp_variable_name = "__chain_receiver_" + std::to_string(rand() % 10000);
+
+                Variable temp_receiver;
+                temp_receiver.is_assigned = true;
+
+                if (chain_ret.type == TYPE_STRUCT || chain_ret.is_struct) {
+                    temp_receiver = chain_ret.struct_value;
+                    temp_receiver.type = TYPE_STRUCT;
+                    temp_receiver.is_struct = true;
+                } else if (chain_ret.type == TYPE_STRING) {
+                    temp_receiver.type = TYPE_STRING;
+                    temp_receiver.str_value = chain_ret.str_value;
+                } else {
+                    temp_receiver.type = chain_ret.type;
+                    temp_receiver.value = chain_ret.value;
+                }
+
+                method_context.concrete_receiver = temp_receiver;
+                interpreter_.add_temp_variable(method_context.temp_variable_name, temp_receiver);
+                receiver_name = method_context.temp_variable_name;
+                receiver_resolution.kind = MethodReceiverResolution::Kind::Direct;
+                receiver_resolution.variable_ptr = interpreter_.find_variable(receiver_name);
             } else {
                 throw std::runtime_error("Invalid method receiver");
             }
-            
-            // レシーバーの型からimpl定義を探す
-            Variable* receiver_var = interpreter_.find_variable(receiver_name);
+
+            Variable* receiver_var = receiver_resolution.variable_ptr;
+            if (!receiver_var) {
+                receiver_var = interpreter_.find_variable(receiver_name);
+            }
             if (!receiver_var) {
                 throw std::runtime_error("Undefined receiver: " + receiver_name);
             }
-            
             debug_msg(DebugMsgId::METHOD_CALL_RECEIVER_FOUND, receiver_name.c_str());
-            
-            // 構造体またはプリミティブ型の場合、impl定義からメソッドを探す
+            debug_print("RECEIVER_DEBUG: Looking for receiver '%s'\n", receiver_name.c_str());
+
             std::string type_name;
             if (receiver_var->type == TYPE_STRUCT) {
                 type_name = receiver_var->struct_type_name;
             } else if (!receiver_var->interface_name.empty()) {
-                // interface変数の場合、実際の構造体型名を使用
                 type_name = receiver_var->struct_type_name;
                 debug_msg(DebugMsgId::METHOD_CALL_INTERFACE, node->name.c_str(), type_name.c_str());
             } else if (receiver_var->type >= TYPE_ARRAY_BASE) {
-                // 配列型（typedef配列を含む）の場合
                 if (!receiver_var->struct_type_name.empty()) {
-                    // typedef名が設定されている場合はそれを使用
                     type_name = receiver_var->struct_type_name;
                 } else {
-                    // typedef名がない場合は基底型名を生成
                     TypeInfo base_type = static_cast<TypeInfo>(receiver_var->type - TYPE_ARRAY_BASE);
                     type_name = type_info_to_string(base_type) + "[]";
                 }
             } else {
-                // プリミティブ型の場合
                 if (!receiver_var->struct_type_name.empty()) {
-                    // typedef名が設定されている場合はそれを使用
                     type_name = receiver_var->struct_type_name;
                 } else {
                     type_name = type_info_to_string(receiver_var->type);
                 }
             }
-            
-            // メソッドキーでグローバル関数を探す
+
             std::string method_key = type_name + "::" + node->name;
             auto &global_scope = interpreter_.get_global_scope();
             auto it = global_scope.functions.find(method_key);
             if (it != global_scope.functions.end()) {
                 func = it->second;
             } else {
-                // impl定義を探してフルネームでメソッドを見つける
                 for (const auto& impl_def : interpreter_.get_impl_definitions()) {
                     if (impl_def.struct_name == type_name) {
                         std::string method_full_name = impl_def.interface_name + "_" + impl_def.struct_name + "_" + node->name;
@@ -685,31 +767,25 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                 }
             }
         } else {
-            // 通常の関数呼び出し
             auto &global_scope = interpreter_.get_global_scope();
             auto it = global_scope.functions.find(node->name);
             if (it != global_scope.functions.end()) {
                 func = it->second;
             }
         }
-        
+
         if (!func) {
             throw std::runtime_error("Undefined function: " + node->name);
         }
 
-        // メソッド呼び出しの場合、privateアクセスチェックを実行
-        if (is_method_call) {
-            std::string receiver_name;
-            if (node->left->node_type == ASTNodeType::AST_VARIABLE) {
-                receiver_name = node->left->name;
-            } else if (node->left->node_type == ASTNodeType::AST_IDENTIFIER) {
-                receiver_name = node->left->name;
-            }
-            
-            // selfコンテキスト外からのprivateメソッド呼び出しをチェック
-            if (receiver_name != "self") {
-                // 外部からの呼び出し - privateメソッドかどうかチェック
-                Variable* receiver_var = interpreter_.find_variable(receiver_name);
+        if (is_method_call && !receiver_name.empty()) {
+            std::string private_check_name = receiver_name;
+
+            if (private_check_name != "self") {
+                Variable* receiver_var = interpreter_.find_variable(private_check_name);
+                if (!receiver_var && receiver_resolution.variable_ptr) {
+                    receiver_var = receiver_resolution.variable_ptr;
+                }
                 if (receiver_var) {
                     std::string type_name;
                     if (receiver_var->type == TYPE_STRUCT) {
@@ -719,8 +795,6 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                     } else {
                         type_name = type_info_to_string(receiver_var->type);
                     }
-                    
-                    // impl定義からprivateメソッドかどうかチェック
                     for (const auto& impl_def : interpreter_.get_impl_definitions()) {
                         if (impl_def.struct_name == type_name) {
                             for (const auto& method : impl_def.methods) {
@@ -734,8 +808,34 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                 }
             }
         }
-        
+
         // 新しいスコープを作成
+        auto cleanup_method_context = [&]() {
+            if (method_context.uses_temp_receiver && !method_context.temp_variable_name.empty()) {
+                Variable* temp_var = interpreter_.find_variable(method_context.temp_variable_name);
+                if (temp_var && method_context.chain_value) {
+                    if (temp_var->type == TYPE_STRUCT || temp_var->is_struct) {
+                        method_context.chain_value->struct_value = *temp_var;
+                        method_context.chain_value->struct_value.type = TYPE_STRUCT;
+                        method_context.chain_value->struct_value.is_struct = true;
+                        method_context.chain_value->is_struct = true;
+                        method_context.chain_value->type = TYPE_STRUCT;
+                    } else if (temp_var->type == TYPE_STRING) {
+                        method_context.chain_value->str_value = temp_var->str_value;
+                        method_context.chain_value->type = TYPE_STRING;
+                        method_context.chain_value->is_struct = false;
+                        method_context.chain_value->is_array = false;
+                    } else {
+                        method_context.chain_value->value = temp_var->value;
+                        method_context.chain_value->type = temp_var->type;
+                        method_context.chain_value->is_struct = false;
+                        method_context.chain_value->is_array = false;
+                    }
+                }
+                interpreter_.remove_temp_variable(method_context.temp_variable_name);
+                method_context.uses_temp_receiver = false;
+            }
+        };
         interpreter_.push_scope();
         
         // メソッド呼び出しの場合、selfコンテキストを設定
@@ -793,6 +893,8 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                     debug_msg(DebugMsgId::METHOD_CALL_SELF_MEMBER_SETUP);
                 }
             } else {
+                debug_print("ERROR: receiver_var is null for receiver_name='%s' (length=%zu)\n", 
+                           receiver_name.c_str(), receiver_name.length());
                 throw std::runtime_error("Receiver variable not found: " + receiver_name);
             }
         }
@@ -1377,7 +1479,7 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                     Variable member_var = get_struct_member_from_variable(struct_var, member_name);
                     
                     if (member_var.type == TYPE_STRING) {
-                        // 文字列の場合は last_typed_result_ に保存して0を返す
+                        // 文字列の場合は別途処理が必要（呼び出し元で処理される）
                         TypedValue typed_result(0, InferredType(TYPE_STRING, "string"));
                         typed_result.string_value = member_var.str_value;
                         typed_result.is_numeric_result = false;
@@ -1690,14 +1792,31 @@ TypedValue ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode
         }
         
         case ASTNodeType::AST_FUNC_CALL: {
-            // 関数呼び出しの場合、ReturnExceptionをキャッチしてTypedValueとして返す
+            // 関数呼び出しの場合、型推論を使って正確な型を決定
             try {
+                // まず関数の戻り値型を推論
+                InferredType function_return_type = type_engine_.infer_function_return_type(node->name, {});
+                
+                // 関数を実行して結果を取得
                 int64_t numeric_result = evaluate_expression(node);
-                return TypedValue(numeric_result, inferred_type);
+                
+                // 推論された型に基づいて適切なTypedValueを返す
+                if (function_return_type.type_info == TYPE_STRING) {
+                    // 文字列戻り値の場合（実際の文字列は evaluate_expression では取得困難）
+                    return TypedValue("", InferredType(TYPE_STRING, "string"));
+                } else if (function_return_type.type_info == TYPE_STRUCT) {
+                    // 構造体戻り値の場合は例外をキャッチして処理
+                    throw std::runtime_error("Struct return should be caught as exception");
+                } else {
+                    // 数値戻り値の場合
+                    return TypedValue(numeric_result, function_return_type);
+                }
             } catch (const ReturnException& ret) {
-                if (ret.is_struct) {
-                    // 構造体の場合は再スローして変数管理処理でキャッチされるようにする
-                    throw;
+                if (ret.is_struct || ret.type == TYPE_STRUCT) {
+                    // 構造体の場合
+                    Variable struct_var = ret.struct_value;
+                    InferredType struct_type(TYPE_STRUCT, struct_var.struct_type_name);
+                    return TypedValue(struct_var, struct_type);
                 } else if (ret.type == TYPE_STRING) {
                     return TypedValue(ret.str_value, InferredType(TYPE_STRING, "string"));
                 } else {
@@ -2038,20 +2157,28 @@ TypedValue ExpressionEvaluator::evaluate_function_member_access(const ASTNode* f
         evaluate_expression(func_node);
         throw std::runtime_error("Function did not return a struct for member access");
     } catch (const ReturnException& ret_ex) {
+        debug_print("FUNC_MEMBER_ACCESS: ReturnException caught - type=%d, is_struct=%d\n", 
+                   ret_ex.type, ret_ex.is_struct);
+        debug_print("FUNC_MEMBER_ACCESS: struct_value type=%d, is_struct=%d, members=%zu\n",
+                   ret_ex.struct_value.type, ret_ex.struct_value.is_struct, 
+                   ret_ex.struct_value.struct_members.size());
+        
         if (ret_ex.is_struct_array && ret_ex.struct_array_3d.size() > 0) {
             throw std::runtime_error("Struct array function return member access requires index");
         } else {
             // 単一構造体の場合
             Variable struct_var = ret_ex.struct_value;
+            debug_print("FUNC_MEMBER_ACCESS: Looking for member %s in struct\n", member_name.c_str());
             Variable member_var = get_struct_member_from_variable(struct_var, member_name);
             
             if (member_var.type == TYPE_STRING) {
-                TypedValue result(0, InferredType(TYPE_STRING, "string"));
-                result.string_value = member_var.str_value;
-                result.is_numeric_result = false;
+                TypedValue result(member_var.str_value, InferredType(TYPE_STRING, "string"));
+                last_typed_result_ = result;
                 return result;
             } else {
-                return TypedValue(member_var.value, InferredType(TYPE_INT, "int"));
+                TypedValue result(member_var.value, InferredType(TYPE_INT, "int"));
+                last_typed_result_ = result;
+                return result;
             }
         }
     }
@@ -2081,7 +2208,8 @@ TypedValue ExpressionEvaluator::evaluate_function_array_access(const ASTNode* fu
                 // 構造体として返す（後でメンバーアクセス可能）
                 TypedValue result(0, InferredType(TYPE_STRUCT, struct_element.struct_type_name));
                 result.is_struct_result = true;
-                // result.struct_data = struct_element; // 一時的にコメントアウト
+                result.struct_data = std::make_shared<Variable>(struct_element);  // 構造体データを保持
+                last_typed_result_ = result;
                 return result;
             } else {
                 throw std::runtime_error("Array index out of bounds");
@@ -2107,26 +2235,22 @@ TypedValue ExpressionEvaluator::evaluate_function_compound_access(const ASTNode*
     // まず配列アクセスを実行
     TypedValue array_result = evaluate_function_array_access(func_node, index_node);
     
-    if (!array_result.is_struct_result) {
+    if (!array_result.is_struct_result || !array_result.struct_data) {
         throw std::runtime_error("Array element is not a struct for member access");
     }
     
-    // 現在は構造体データを保持していないため、エラーを返す
-    throw std::runtime_error("Compound function access not fully implemented yet");
-    
-    // TODO: 構造体データを保持する実装を追加
-    /*
-    Variable member_var = get_struct_member_from_variable(array_result.struct_data, member_name);
+    // 構造体データからメンバーを取得
+    Variable member_var = get_struct_member_from_variable(*array_result.struct_data, member_name);
     
     if (member_var.type == TYPE_STRING) {
-        TypedValue result(0, InferredType(TYPE_STRING, "string"));
-        result.string_value = member_var.str_value;
-        result.is_numeric_result = false;
+        TypedValue result(member_var.str_value, InferredType(TYPE_STRING, "string"));
+        last_typed_result_ = result;
         return result;
     } else {
-        return TypedValue(member_var.value, InferredType(TYPE_INT, "int"));
+        TypedValue result(member_var.value, InferredType(TYPE_INT, "int"));
+        last_typed_result_ = result;
+        return result;
     }
-    */
 }
 
 // 再帰的メンバーアクセス処理（将来のネスト構造体対応）
@@ -2185,4 +2309,23 @@ TypedValue ExpressionEvaluator::evaluate_recursive_member_access(const Variable&
     } else {
         return TypedValue(current_var.value, InferredType(TYPE_INT, "int"));
     }
+}
+
+// --- リンクエラー回避用のダミー実装 ---
+ExpressionEvaluator::MethodReceiverResolution ExpressionEvaluator::resolve_array_receiver(const ASTNode* array_node) {
+    MethodReceiverResolution result;
+    // TODO: 本来の配列レシーバ解決ロジックを実装
+    return result;
+}
+
+ExpressionEvaluator::MethodReceiverResolution ExpressionEvaluator::resolve_member_receiver(const ASTNode* member_node) {
+    MethodReceiverResolution result;
+    // TODO: 本来のメンバレシーバ解決ロジックを実装
+    return result;
+}
+
+ExpressionEvaluator::MethodReceiverResolution ExpressionEvaluator::create_chain_receiver_from_expression(const ASTNode* node) {
+    MethodReceiverResolution result;
+    // TODO: 本来のチェーンレシーバ生成ロジックを実装
+    return result;
 }

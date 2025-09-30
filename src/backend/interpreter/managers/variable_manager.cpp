@@ -56,7 +56,11 @@ Scope &VariableManager::current_scope() {
 }
 
 Variable *VariableManager::find_variable(const std::string &name) {
-    // std::cerr << "DEBUG: find_variable called for: " << name << std::endl;
+    // 一時変数のデバッグ出力
+    if (name.substr(0, 12) == "__temp_chain") {
+        std::cerr << "DEBUG: Searching for temp variable: " << name << std::endl;
+        std::cerr << "DEBUG: Scope stack size: " << interpreter_->scope_stack.size() << std::endl;
+    }
 
     // ローカルスコープから検索
     // std::cerr << "DEBUG: Searching in " << interpreter_->scope_stack.size()
@@ -67,6 +71,9 @@ Variable *VariableManager::find_variable(const std::string &name) {
         if (var_it != it->variables.end()) {
             // std::cerr << "DEBUG: Found " << name << " in local scope" <<
             // std::endl;
+            if (name.substr(0, 12) == "__temp_chain") {
+                std::cerr << "DEBUG: Found temp variable in local scope" << std::endl;
+            }
             return &var_it->second;
         }
     }

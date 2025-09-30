@@ -52,6 +52,8 @@ void OutputManager::print_value(const ASTNode *expr) {
         io_interface_->write_string("(null)");
         return;
     }
+    
+    debug_print("DEBUG: print_value - node type: %d\n", (int)expr->node_type);
 
     if (expr->node_type == ASTNodeType::AST_STRING_LITERAL) {
         io_interface_->write_string(expr->str_value.c_str());
@@ -96,6 +98,9 @@ void OutputManager::print_value(const ASTNode *expr) {
         std::string struct_name;
         std::string member_name = expr->name;
         
+        debug_print("DEBUG: Member access - member: %s, left type: %d\n", 
+                   member_name.c_str(), expr->left ? (int)expr->left->node_type : -1);
+        
         if (expr->left && expr->left->node_type == ASTNodeType::AST_VARIABLE) {
             // 通常のstruct変数: obj.member
             struct_name = expr->left->name;
@@ -115,30 +120,47 @@ void OutputManager::print_value(const ASTNode *expr) {
                 int64_t index = evaluate_expression(expr->left->array_index.get());
                 
                 try {
+                    debug_print("DEBUG: Evaluating function call for struct array access\n");
                     // 関数を実行して配列戻り値を取得（副作用のため実行）
                     (void)evaluate_expression(expr->left->left.get());
+                    debug_print("DEBUG: Function did not throw ReturnException\n");
                     io_interface_->write_string("(function did not return struct array)");
                     return;
                 } catch (const ReturnException& ret) {
+                    debug_print("DEBUG: ReturnException caught - is_struct_array: %d, array_3d size: %zu\n", 
+                               ret.is_struct_array, ret.struct_array_3d.size());
+                    
                     if (ret.is_struct_array && !ret.struct_array_3d.empty() && 
                         !ret.struct_array_3d[0].empty() && !ret.struct_array_3d[0][0].empty()) {
+                        
+                        debug_print("DEBUG: Accessing struct array element [%lld] from array of size %zu\n", 
+                                   index, ret.struct_array_3d[0][0].size());
                         
                         // 構造体配列の戻り値から指定要素のメンバーを取得
                         if (index >= 0 && index < static_cast<int64_t>(ret.struct_array_3d[0][0].size())) {
                             Variable struct_element = ret.struct_array_3d[0][0][index];
                             
+                            debug_print("DEBUG: Struct element type_name: %s, member: %s\n", 
+                                       struct_element.struct_type_name.c_str(), member_name.c_str());
+                            
                             // 構造体要素からメンバーを取得
                             try {
-                                std::string member_var_name = struct_element.struct_type_name + "." + member_name;
-                                Variable* member_var = find_variable(member_var_name);
+                                debug_print("DEBUG: Searching for member '%s' in struct_members (size: %zu)\n", 
+                                           member_name.c_str(), struct_element.struct_members.size());
                                 
-                                if (member_var) {
-                                    if (member_var->type == TYPE_STRING) {
-                                        io_interface_->write_string(member_var->str_value.c_str());
+                                // struct_members から直接メンバーを探す
+                                auto member_it = struct_element.struct_members.find(member_name);
+                                if (member_it != struct_element.struct_members.end()) {
+                                    Variable& member_var = member_it->second;
+                                    debug_print("DEBUG: Found member variable: %s\n", member_name.c_str());
+                                    
+                                    if (member_var.type == TYPE_STRING) {
+                                        io_interface_->write_string(member_var.str_value.c_str());
                                     } else {
-                                        io_interface_->write_number(member_var->value);
+                                        io_interface_->write_number(member_var.value);
                                     }
                                 } else {
+                                    debug_print("DEBUG: Member '%s' not found in struct_members\n", member_name.c_str());
                                     io_interface_->write_string("(member not found)");
                                 }
                                 return;
@@ -155,6 +177,8 @@ void OutputManager::print_value(const ASTNode *expr) {
                         io_interface_->write_string("(legacy struct array member access not yet fully supported)");
                         return;
                     } else {
+                        debug_print("DEBUG: Function does not return struct array - type: %d, is_array: %d, is_struct_array: %d\n", 
+                                   (int)ret.type, ret.is_array, ret.is_struct_array);
                         io_interface_->write_string("(function does not return struct array)");
                         return;
                     }
@@ -174,36 +198,21 @@ void OutputManager::print_value(const ASTNode *expr) {
             debug_print("Processing function call struct member access: %s.%s\n", expr->left->name.c_str(), member_name.c_str());
             
             try {
-                // 関数を実行して戻り値を取得（副作用のため実行）
-                (void)evaluate_expression(expr->left.get());
-                io_interface_->write_string("(no struct returned)");
-                return;
-            } catch (const ReturnException& ret) {
-                if (ret.type == TYPE_STRUCT) {
-                    // 構造体戻り値の場合、該当メンバーを取得
-                    try {
-                        // 一時的な構造体名として関数名を使用
-                        std::string temp_struct_name = "__temp_" + expr->left->name;
-                        Variable* member_var = interpreter_->get_struct_member(temp_struct_name, member_name);
-                        
-                        if (member_var->type == TYPE_STRING) {
-                            io_interface_->write_string(member_var->str_value.c_str());
-                        } else {
-                            io_interface_->write_number(member_var->value);
-                        }
-                        return;
-                    } catch (const std::exception& e) {
-                        // ReturnExceptionから直接メンバーデータを取得する実装が必要
-                        io_interface_->write_string("(struct member access from function return not fully implemented)");
-                        return;
-                    }
+                // expression_evaluatorの機能を使用して関数戻り値からのメンバーアクセスを実行
+                auto* expr_evaluator = interpreter_->get_expression_evaluator();
+                TypedValue result = expr_evaluator->evaluate_function_member_access(expr->left.get(), member_name);
+                
+                if (result.is_string()) {
+                    io_interface_->write_string(result.string_value.c_str());
+                } else if (result.is_numeric()) {
+                    io_interface_->write_number(result.value);
                 } else {
-                    io_interface_->write_string("(function does not return struct)");
-                    return;
+                    io_interface_->write_string("(unknown result type)");
                 }
+                return;
             } catch (const std::exception& e) {
-                debug_print("Error evaluating function call for struct member access: %s\n", e.what());
-                io_interface_->write_string("(function call error)");
+                debug_print("Error in function member access: %s\n", e.what());
+                io_interface_->write_string("(error in struct member access)");
                 return;
             }
         } else {
