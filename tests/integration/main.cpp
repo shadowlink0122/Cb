@@ -33,12 +33,14 @@
 #include "interface/interface_error_tests.hpp"
 #include "interface/interface_tests.hpp"
 #include "interface/test_interface_private.hpp"
+#include "interface/test_type_inference_chain.hpp"
 #include "interface/test_typedef_impl.hpp"
 #include "loop/test_loop.hpp"
 #include "module_functions/test_module_functions.hpp"
 #include "multidim_array/test_multidim_array.hpp"
 #include "multidim_literal/test_multidim_literal.hpp"
 #include "multiple_var_decl/test_multiple_var_decl.hpp"
+#include "performance/test_performance.hpp"
 #include "printf/test_printf.hpp"
 #include "println/test_println.hpp"
 #include "sample_scenarios/test_sample_scenarios.hpp"
@@ -46,6 +48,7 @@
 #include "self_assign/test_self_assign.hpp"
 #include "static_variables/test_static_variables.hpp"
 #include "string/test_string.hpp"
+#include "struct/basic_struct_tests.hpp"
 #include "struct/struct_tests.hpp"
 #include "ternary/test_ternary.hpp"
 #include "type/test_type.hpp"
@@ -222,10 +225,15 @@ int main() {
     // 構造体・インターフェーステスト群
     std::cout << "\n[integration-test] === Advanced Features ===" << std::endl;
     CategoryTimingStats::set_current_category("Advanced Features");
+    run_test_with_continue(BasicStructTests::run_all_basic_struct_tests,
+                           "Basic Struct Tests", failed_tests);
     run_test_with_continue(StructTests::run_all_struct_tests, "Struct Tests",
                            failed_tests);
     run_test_with_continue(InterfaceTests::run_all_interface_tests,
                            "Interface Tests", failed_tests);
+    run_test_with_continue(test_interface_type_inference_chain,
+                           "Interface Type Inference Chain Tests",
+                           failed_tests);
     run_test_with_continue(test_integration_interface_private,
                            "Interface Private Method Tests", failed_tests);
     run_test_with_continue(test_typedef_impl_basic,
@@ -247,6 +255,13 @@ int main() {
     run_test_with_continue(test_integration_dynamic_array_error,
                            "Dynamic Array Error Tests", failed_tests);
     CategoryTimingStats::print_category_summary("Error Handling");
+
+    // パフォーマンステスト群
+    std::cout << "\n[integration-test] === Performance Tests ===" << std::endl;
+    CategoryTimingStats::set_current_category("Performance Tests");
+    run_test_with_continue(test_integration_performance, "Performance Tests",
+                           failed_tests);
+    CategoryTimingStats::print_category_summary("Performance Tests");
 
     // サンプルシナリオテスト群
     std::cout << "\n[integration-test] === Sample Scenarios ===" << std::endl;

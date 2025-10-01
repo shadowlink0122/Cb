@@ -1,0 +1,33 @@
+// 文字列三項演算子統合テスト（最小版）
+
+string test_basic(int x) {
+    return (x > 0) ? "positive" : "negative";
+}
+
+string test_nested(int x) {
+    return (x == 0) ? "zero" : (x > 0) ? "pos" : "neg";
+}
+
+int main() {
+    println("=== String Ternary Integration Test ===");
+    
+    // 基本テスト（直接代入）
+    string result1 = test_basic(10);
+    println("Basic positive: %s", result1);
+    
+    string result2 = test_basic(-5);
+    println("Basic negative: %s", result2);
+    
+    // ネストテスト
+    string result3 = test_nested(0);
+    println("Nested zero: %s", result3);
+    
+    string result4 = test_nested(5);
+    println("Nested positive: %s", result4);
+    
+    string result5 = test_nested(-3);
+    println("Nested negative: %s", result5);
+    
+    println("=== Test Complete ===");
+    return 0;
+}

@@ -1,0 +1,50 @@
+// self経由でprivateメンバーにアクセスできることを検証するテスト
+
+struct SecretBox {
+    private int secret;
+    int visible;
+};
+
+interface ISecretOps {
+    void log();
+    int reveal();
+    void bump(int value);
+};
+
+impl ISecretOps for SecretBox {
+    void log() {
+        println("self.secret = %d, self.visible = %d", self.secret, self.visible);
+    }
+    
+    int reveal() {
+        return self.secret;
+    }
+    
+    void bump(int value) {
+        self.secret = self.secret + value;
+        self.visible = self.visible + value;
+    }
+};
+
+int main() {
+    println("Private member access via self test:");
+    SecretBox box = {
+        secret: 11,
+        visible: 4
+    };
+    
+    // 構造体インスタンスとしてのメソッド呼び出し
+    box.log();
+    println("reveal = %d", box.reveal());
+    box.bump(5);
+    box.log();
+    println("reveal after bump = %d", box.reveal());
+    
+    // インターフェース経由のメソッド呼び出し
+    ISecretOps ops = box;
+    ops.log();
+    println("interface reveal = %d", ops.reveal());
+    
+    println("Private member access via self test passed");
+    return 0;
+}

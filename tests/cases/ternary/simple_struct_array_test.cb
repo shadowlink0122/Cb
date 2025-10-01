@@ -1,0 +1,23 @@
+// 構造体配列アクセス試験 - シンプル版
+
+typedef struct {
+    string name;
+    int age;
+} Person;
+
+// まず構造体配列の変数でテスト
+int main() {
+    Person[2] people;
+    people[0].name = "Alice";
+    people[0].age = 25;
+    people[1].name = "Bob";
+    people[1].age = 30;
+    
+    // 基本的な構造体配列アクセス
+    println(people[0].name);    // Alice
+    println(people[0].age);     // 25
+    println(people[1].name);    // Bob
+    println(people[1].age);     // 30
+    
+    return 0;
+}

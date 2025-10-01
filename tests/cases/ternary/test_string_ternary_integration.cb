@@ -1,0 +1,88 @@
+// 文字列三項演算子の統合テスト
+
+// 基本的な文字列三項演算子
+string basic_string_ternary(int condition) {
+    return (condition > 0) ? "positive" : "negative";
+}
+
+// ネストした三項演算子
+string nested_string_ternary(int value) {
+    return (value == 0) ? "zero" : (value > 0) ? "positive" : "negative";
+}
+
+// 複合的な三項演算子（数値と文字列混合）
+string complex_classification(int value) {
+    string result = (value > 100) ? "high" : (value > 50) ? "medium" : "low";
+    int processed = (value < 0) ? -value : value;
+    return (processed > 10) ? result : "minimal";
+}
+
+// 構造体メンバとの組み合わせ
+struct TestData {
+    int score;
+    string name;
+};
+
+string evaluate_performance(TestData data) {
+    return (data.score >= 90) ? "excellent" : 
+           (data.score >= 70) ? "good" : 
+           (data.score >= 50) ? "average" : "poor";
+}
+
+// 配列要素との組み合わせ
+string array_based_decision(int[3] values, int index) {
+    return (values[index] > values[(index + 1) % 3]) ? "greater" : "lesser_or_equal";
+}
+
+int main() {
+    println("=== String Ternary Integration Test ===");
+    
+    // 基本テスト
+    println("Basic tests:");
+    println("  basic_string_ternary(15): %s", basic_string_ternary(15));
+    println("  basic_string_ternary(-5): %s", basic_string_ternary(-5));
+    
+    // ネストテスト
+    println("Nested tests:");
+    println("  nested_string_ternary(0): %s", nested_string_ternary(0));
+    println("  nested_string_ternary(10): %s", nested_string_ternary(10));
+    println("  nested_string_ternary(-10): %s", nested_string_ternary(-10));
+    
+    // 複合テスト
+    println("Complex tests:");
+    println("  complex_classification(150): %s", complex_classification(150));
+    println("  complex_classification(75): %s", complex_classification(75));
+    println("  complex_classification(25): %s", complex_classification(25));
+    println("  complex_classification(5): %s", complex_classification(5));
+    
+    // 構造体テスト
+    println("Struct tests:");
+    TestData student1;
+    student1.score = 95;
+    student1.name = "Alice";
+    
+    TestData student2;
+    student2.score = 65;
+    student2.name = "Bob";
+    
+    TestData student3;
+    student3.score = 45;
+    student3.name = "Carol";
+    
+    println("  evaluate_performance(Alice, 95): %s", evaluate_performance(student1));
+    println("  evaluate_performance(Bob, 65): %s", evaluate_performance(student2));
+    println("  evaluate_performance(Carol, 45): %s", evaluate_performance(student3));
+    
+    // 配列テスト
+    println("Array tests:");
+    int[3] test_array;
+    test_array[0] = 10;
+    test_array[1] = 20; 
+    test_array[2] = 15;
+    println("  array_based_decision([10,20,15], 0): %s", array_based_decision(test_array, 0));
+    println("  array_based_decision([10,20,15], 1): %s", array_based_decision(test_array, 1));
+    println("  array_based_decision([10,20,15], 2): %s", array_based_decision(test_array, 2));
+    
+    println("=== String Ternary Integration Test Complete ===");
+    return 0;
+}

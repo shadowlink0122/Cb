@@ -175,7 +175,7 @@ void ArrayProcessingService::setArrayElement(
         throw std::runtime_error("Variable is not an array: " + var_name);
     }
     
-    if (var->is_const) {
+    if (var->is_const && var->is_assigned) {
         throw std::runtime_error("Cannot assign to const array: " + var_name);
     }
     
@@ -244,7 +244,7 @@ void ArrayProcessingService::setStringArrayElement(
         throw std::runtime_error("Variable is not an array: " + var_name);
     }
     
-    if (var->is_const) {
+    if (var->is_const && var->is_assigned) {
         throw std::runtime_error("Cannot assign to const string array: " + var_name);
     }
     

@@ -1,0 +1,29 @@
+struct Point {
+    int x;
+    int y;
+};
+
+int main() {
+    println("=== Struct Array Loop Test ===");
+    
+    Point[3] points;
+    
+    // ループを使用して構造体配列を初期化
+    for (int i = 0; i < 3; i++) {
+        points[i].x = i * 10;
+        points[i].y = i * 20;
+    }
+    
+    println("Processing 3 points");
+    
+    // ループを使用して構造体配列を表示
+    for (int i = 0; i < 3; i++) {
+        println("Point:");
+        println(i);
+        println(points[i].x);
+        println(points[i].y);
+    }
+    
+    println("=== Test completed ===");
+    return 0;
+}

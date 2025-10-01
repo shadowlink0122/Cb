@@ -1,0 +1,24 @@
+struct MixedData {
+    int id;
+    bool active;
+    string name;
+};
+
+int main() {
+    println("=== Mixed Type Struct Members Test ===");
+    
+    MixedData data;
+    data.id = 42;
+    data.active = true;
+    data.name = "TestName";
+    
+    println("ID:");
+    println(data.id);
+    println("Active:");
+    println(data.active);
+    println("Name:");
+    println(data.name);
+    
+    println("=== Test completed ===");
+    return 0;
+}

@@ -268,7 +268,7 @@ inline void test_string_processing() {
             INTEGRATION_ASSERT_CONTAINS(output, "=== Union型文字列処理テスト ===", "Should contain test header");
             INTEGRATION_ASSERT_CONTAINS(output, "String value: Hello World", "Should show string value assignment");
             INTEGRATION_ASSERT_CONTAINS(output, "Status: success", "Should show literal type string assignment");
-            INTEGRATION_ASSERT_CONTAINS(output, "Numeric value: 0", "Should show numeric value after string");
+            INTEGRATION_ASSERT_CONTAINS(output, "Numeric value: 42", "Should show numeric value after string");
             INTEGRATION_ASSERT_CONTAINS(output, "Back to string: Converted back", "Should show string reassignment");
             INTEGRATION_ASSERT_CONTAINS(output, "Status comparison test:", "Should show comparison section");
             INTEGRATION_ASSERT_CONTAINS(output, "status1 (success) == status2 (error): not equal", "Should show comparison result");
@@ -348,6 +348,21 @@ inline void test_comprehensive() {
             INTEGRATION_ASSERT_CONTAINS(output, "MegaUnion (true): 1", "Should show mega union bool");
             INTEGRATION_ASSERT_CONTAINS(output, "Regular int variable: 888", "Should show regular int variable");
             INTEGRATION_ASSERT_CONTAINS(output, "MegaUnion (MyInt): 777", "Should show mega union custom");
+            INTEGRATION_ASSERT_CONTAINS(output, "MegaUnion (Point): assigned", "Should show mega union point assignment");
+            INTEGRATION_ASSERT_CONTAINS(output, "MegaUnion (int[2]): assigned", "Should show mega union array assignment");
+            
+            // Section 7: 動的代入テスト
+            INTEGRATION_ASSERT_CONTAINS(output, "7. Dynamic Assignment Test:", "Should contain section 7 header");
+            INTEGRATION_ASSERT_CONTAINS(output, "Updated StatusCode: 404", "Should show updated status code");
+            INTEGRATION_ASSERT_CONTAINS(output, "Updated Flag: 0", "Should show updated flag");
+            INTEGRATION_ASSERT_CONTAINS(output, "Updated Grade: C", "Should show updated grade");
+            INTEGRATION_ASSERT_CONTAINS(output, "Updated LogLevel: ERROR", "Should show updated log level");
+            
+            // Section 8: 複雑な構造体操作
+            INTEGRATION_ASSERT_CONTAINS(output, "8. Complex Struct Operations:", "Should contain section 8 header");
+            INTEGRATION_ASSERT_CONTAINS(output, "EntityUnion reassignment: completed", "Should show entity union reassignment");
+            INTEGRATION_ASSERT_CONTAINS(output, "Charlie: Charlie, 35", "Should show Charlie person");
+            INTEGRATION_ASSERT_CONTAINS(output, "Center: (25, 25)", "Should show center point");
             
             // テスト結果サマリ
             INTEGRATION_ASSERT_CONTAINS(output, "=== 統合テスト結果サマリ ===", "Should contain test summary");

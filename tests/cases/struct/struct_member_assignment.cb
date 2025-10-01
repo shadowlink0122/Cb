@@ -1,0 +1,46 @@
+struct Point {
+    int x;
+    int y;
+};
+
+int main() {
+    println("=== Struct Member Assignment Test ===");
+    
+    Point p1;
+    Point p2;
+    
+    // 初期値設定
+    p1.x = 10;
+    p1.y = 20;
+    p2.x = 30;
+    p2.y = 40;
+    
+    println("Initial values:");
+    println("p1 x:");
+    println(p1.x);
+    println("p1 y:");
+    println(p1.y);
+    println("p2 x:");
+    println(p2.x);
+    println("p2 y:");
+    println(p2.y);
+    
+    // 値を更新
+    p1.x = 100;
+    p1.y = 200;
+    p2.x = 300;
+    p2.y = 400;
+    
+    println("After assignment:");
+    println("p1 x:");
+    println(p1.x);
+    println("p1 y:");
+    println(p1.y);
+    println("p2 x:");
+    println(p2.x);
+    println("p2 y:");
+    println(p2.y);
+    
+    println("=== Test completed ===");
+    return 0;
+}

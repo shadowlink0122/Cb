@@ -550,6 +550,7 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
                 Variable member_var;
                 member_var.type = member.type;
                 member_var.is_assigned = false;
+                member_var.is_private_member = member.is_private;
 
                 if (member.type == TYPE_STRING) {
                     member_var.str_value = "";
@@ -564,6 +565,7 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
                 // メンバー変数の直接アクセス用変数も作成
                 std::string member_path = element_name + "." + member.name;
                 Variable member_direct_var = member_var;
+                member_direct_var.is_private_member = member.is_private;
                 variable_manager_->getInterpreter()
                     ->current_scope()
                     .variables[member_path] = member_direct_var;
@@ -793,7 +795,7 @@ void ArrayManager::setMultidimensionalArrayElement(
     }
 
     // const配列への書き込みチェック
-    if (var.is_const) {
+    if (var.is_const && var.is_assigned) {
         throw std::runtime_error(
             "Cannot assign to const multidimensional array");
     }
@@ -897,7 +899,7 @@ void ArrayManager::setMultidimensionalStringArrayElement(
     }
 
     // const配列への書き込みチェック
-    if (var.is_const) {
+    if (var.is_const && var.is_assigned) {
         throw std::runtime_error(
             "Cannot assign to const multidimensional string array");
     }
@@ -1169,6 +1171,7 @@ void ArrayManager::declare_array(const ASTNode *node) {
                     Variable member_var;
                     member_var.type = member.type;
                     member_var.is_assigned = false;
+                    member_var.is_private_member = member.is_private;
 
                     if (member.type == TYPE_STRING) {
                         member_var.str_value = "";

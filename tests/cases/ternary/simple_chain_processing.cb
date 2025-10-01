@@ -1,0 +1,82 @@
+// シンプルなチェーン処理テスト - 段階的実装
+
+struct SimpleCalc {
+    int value;
+};
+
+interface SimpleChain {
+    int add(int n);
+    int multiply(int n);
+    int getValue();
+};
+
+impl SimpleChain for SimpleCalc {
+    int add(int n) {
+        self.value = self.value + n;
+        return self.value;
+    }
+    
+    int multiply(int n) {
+        self.value = self.value * n;
+        return self.value;
+    }
+    
+    int getValue() {
+        return self.value;
+    }
+};
+
+int main() {
+    println("=== Simple Chain Processing Test ===");
+    
+    // 1. 基本的なメソッド呼び出し
+    SimpleCalc calc;
+    calc.value = 5;
+    
+    SimpleChain chain = calc;
+    int result1 = chain.add(10);  // 5 + 10 = 15
+    println("Step 1 result: %d", result1);
+    
+    int result2 = chain.multiply(2);  // 15 * 2 = 30
+    println("Step 2 result: %d", result2);
+    
+    int final_value = chain.getValue();
+    println("Final value: %d", final_value);
+    
+    // 2. 三項演算子とメソッド呼び出しの組み合わせ
+    SimpleCalc calc2;
+    calc2.value = -8;
+    SimpleChain chain2 = calc2;
+    
+    bool should_add = true;
+    int conditional_result = should_add ? chain2.add(15) : chain2.multiply(2);
+    println("Conditional result: %d", conditional_result);
+    
+    // 3. ネストした三項演算子
+    SimpleCalc calc3;
+    calc3.value = 12;
+    SimpleChain chain3 = calc3;
+    
+    bool is_positive = calc3.value > 0;
+    bool is_even = (calc3.value % 2) == 0;
+    
+    int nested_result = is_positive ? 
+        (is_even ? chain3.multiply(3) : chain3.add(5)) :
+        chain3.multiply(-1);
+    
+    println("Nested result: %d", nested_result);
+    
+    // 4. 複雑な条件分岐
+    SimpleCalc calc4;
+    calc4.value = 6;
+    SimpleChain chain4 = calc4;
+    
+    int complex_result = (calc4.value > 5) ?
+        ((calc4.value > 10) ? chain4.multiply(4) : chain4.add(4)) :
+        chain4.add(2);
+    
+    println("Complex result: %d", complex_result);
+    
+    println("=== Simple Chain Processing Complete ===");
+    return 0;
+}

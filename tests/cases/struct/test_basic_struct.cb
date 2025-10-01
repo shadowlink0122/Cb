@@ -1,0 +1,81 @@
+// 基本構造体メンバーアクセステスト
+struct Point {
+    int x;
+    int y;
+    string label;
+};
+
+struct Student {
+    string name;
+    int age;
+    bool is_active;
+};
+
+int main() {
+    println("=== Basic Struct Test ===");
+    
+    // 基本的な構造体メンバーアクセス
+    Point p;
+    p.x = 10;
+    p.y = 20;
+    p.label = "Origin";
+    
+    if (p.x != 10) {
+        println("ERROR: Point.x expected 10, got %d", p.x);
+        return 1;
+    }
+    
+    if (p.y != 20) {
+        println("ERROR: Point.y expected 20, got %d", p.y);
+        return 1;
+    }
+    
+    if (p.label != "Origin") {
+        println("ERROR: Point.label expected 'Origin', got '%s'", p.label);
+        return 1;
+    }
+    
+    println("Point p1:");
+    println("  x: %d", p.x);
+    println("  y: %d", p.y);
+    println("  label: %s", p.label);
+    
+    // 構造体リテラル初期化
+    Student student = {name: "Alice", age: 20, is_active: true};
+    
+    if (student.name != "Alice") {
+        println("ERROR: Student.name expected 'Alice', got '%s'", student.name);
+        return 1;
+    }
+    
+    if (student.age != 20) {
+        println("ERROR: Student.age expected 20, got %d", student.age);
+        return 1;
+    }
+    
+    if (student.is_active != true) {
+        println("ERROR: Student.is_active expected true, got false");
+        return 1;
+    }
+    
+    // 構造体配列テスト
+    Point[3] points;
+    points[0] = {x: 1, y: 2, label: "P1"};
+    points[1] = {x: 3, y: 4, label: "P2"};
+    points[2] = {x: 5, y: 6, label: "P3"};
+    
+    println("Point array:");
+    for (int i = 0; i < 3; i++) {
+        println("  Point[%d]: (%d, %d) %s", i, points[i].x, points[i].y, points[i].label);
+    }
+    
+    // メンバーの値更新
+    student.age = student.age + 1;
+    if (student.age != 21) {
+        println("ERROR: After increment, expected 21, got %d", student.age);
+        return 1;
+    }
+    
+    println("=== Test completed ===");
+    return 0;
+}

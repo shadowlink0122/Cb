@@ -83,6 +83,62 @@ inline void test_const_size_array_assignment() {
         });
 }
 
+// const構造体メンバーへの再代入（構造体自体がconst）のエラーテスト
+inline void test_const_struct_member_parent_const_error() {
+    std::cout << "[integration] Running test_const_struct_member_parent_const_error..." << std::endl;
+
+    run_cb_test_with_output_and_time_auto(
+        "../../tests/cases/struct/const_struct_member_parent_const_error.cb",
+        [](const std::string &output, int exit_code) {
+            INTEGRATION_ASSERT_NE(0, exit_code,
+                                  "Expected error exit code for const struct member reassignment (parent const)");
+            INTEGRATION_ASSERT_CONTAINS(
+                output, "Const reassignment error: instance.value",
+                "should contain const struct member reassignment error message");
+        });
+}
+
+// プライベートフィールドの成功ケース
+inline void test_struct_private_field_access_ok() {
+    std::cout << "[integration] Running test_struct_private_field_access_ok..." << std::endl;
+
+    double execution_time;
+    run_cb_test_with_output_and_time("../../tests/cases/struct/private_field_access_ok.cb",
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "Private field ok test should exit with code 0");
+            INTEGRATION_ASSERT_CONTAINS(output, "Private field ok test:",
+                                        "Should print private field ok header");
+            INTEGRATION_ASSERT_CONTAINS(output, "box secret after init = 42",
+                                        "Should show secret set via self access");
+            INTEGRATION_ASSERT_CONTAINS(output, "box secret after copy = 100",
+                                        "Should show private copy between instances");
+            INTEGRATION_ASSERT_CONTAINS(output, "done",
+                                        "Should finish successfully");
+        }, execution_time);
+
+    integration_test_passed_with_time("struct private field ok", "../../tests/cases/struct/private_field_access_ok.cb", execution_time);
+}
+
+// プライベートフィールドへの外部アクセスは失敗する
+inline void test_struct_private_field_access_error() {
+    std::cout << "[integration] Running test_struct_private_field_access_error..." << std::endl;
+
+    double execution_time;
+    run_cb_test_with_output_and_time("../../tests/cases/struct/private_field_access_error.cb",
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_NE(0, exit_code, "Private field access error test should fail");
+            INTEGRATION_ASSERT_CONTAINS(output, "Private field access error test:",
+                                        "Should print test header before failing");
+            INTEGRATION_ASSERT_CONTAINS(output, "Cannot access private struct member: box.secret",
+                                        "Should report private member access violation");
+        }, execution_time);
+
+    integration_test_passed_with_error_and_time("struct private field access error",
+                                               "../../tests/cases/struct/private_field_access_error.cb",
+                                               execution_time);
+}
+
+
 // 構造体の配列のテスト
 inline void test_struct_array() {
     std::cout << "[integration] Running test_struct_array..." << std::endl;
@@ -173,6 +229,69 @@ inline void test_struct_function_return() {
                               "Output should contain Point 2 coordinates");
             INTEGRATION_ASSERT(output.find("Sum: (4, 6)") != std::string::npos, 
                               "Output should contain sum coordinates");
+        });
+}
+
+// Struct配列関数戻り値のチェーン処理テスト（新規追加）
+inline void test_struct_function_array_chain() {
+    std::cout << "[integration] Running test_struct_function_array_chain..." << std::endl;
+    
+    run_cb_test_with_output_and_time_auto("../../tests/cases/struct/struct_function_array_chain.cb", 
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "Struct function array chain test should exit with code 0");
+            
+            // 基本的なチェーンアクセス
+            INTEGRATION_ASSERT(output.find("Alice") != std::string::npos, 
+                              "Output should contain Alice from get_people()[0].name");
+            INTEGRATION_ASSERT(output.find("Bob") != std::string::npos, 
+                              "Output should contain Bob from get_people()[1].name");
+            INTEGRATION_ASSERT(output.find("Age 0:") != std::string::npos, 
+                              "Output should contain age 0 label");
+            INTEGRATION_ASSERT(output.find("25") != std::string::npos, 
+                              "Output should contain age 25");
+            INTEGRATION_ASSERT(output.find("30") != std::string::npos, 
+                              "Output should contain age 30");
+            
+            // 異なる構造体型でのテスト
+            INTEGRATION_ASSERT(output.find("Laptop") != std::string::npos, 
+                              "Output should contain Laptop from get_products()[0].name");
+            INTEGRATION_ASSERT(output.find("Mouse") != std::string::npos, 
+                              "Output should contain Mouse from get_products()[1].name");
+            INTEGRATION_ASSERT(output.find("Keyboard") != std::string::npos, 
+                              "Output should contain Keyboard from get_products()[2].name");
+            INTEGRATION_ASSERT(output.find("Prices:") != std::string::npos, 
+                              "Output should contain prices label");
+            INTEGRATION_ASSERT(output.find("1200") != std::string::npos, 
+                              "Output should contain price 1200");
+            INTEGRATION_ASSERT(output.find("25") != std::string::npos, 
+                              "Output should contain price 25");
+            INTEGRATION_ASSERT(output.find("80") != std::string::npos, 
+                              "Output should contain price 80");
+            
+            // 境界値テスト
+            INTEGRATION_ASSERT(output.find("Charlie") != std::string::npos, 
+                              "Output should contain Charlie from get_team()[0].name");
+            INTEGRATION_ASSERT(output.find("Grace") != std::string::npos, 
+                              "Output should contain Grace from get_team()[4].name");
+            INTEGRATION_ASSERT(output.find("First age:") != std::string::npos, 
+                              "Output should contain first age label");
+            INTEGRATION_ASSERT(output.find("35") != std::string::npos, 
+                              "Output should contain age 35");
+            INTEGRATION_ASSERT(output.find("Last age:") != std::string::npos, 
+                              "Output should contain last age label");
+            INTEGRATION_ASSERT(output.find("29") != std::string::npos, 
+                              "Output should contain age 29");
+            
+            // 中間要素のテスト
+            INTEGRATION_ASSERT(output.find("Eve") != std::string::npos, 
+                              "Output should contain Eve from get_team()[2].name");
+            INTEGRATION_ASSERT(output.find("Middle age:") != std::string::npos, 
+                              "Output should contain middle age label");
+            INTEGRATION_ASSERT(output.find("42") != std::string::npos, 
+                              "Output should contain age 42");
+            
+            INTEGRATION_ASSERT(output.find("All tests completed successfully") != std::string::npos, 
+                              "Output should contain success message");
         });
 }
 
@@ -339,12 +458,16 @@ inline void run_all_struct_tests() {
         test_struct_array_member();
         test_struct_array_literal();
         test_const_size_array_assignment(); // 新規追加テスト
+        test_const_struct_member_parent_const_error();
+        test_struct_private_field_access_ok();
+        test_struct_private_field_access_error();
         test_struct_array();
         test_nested_struct();
         test_nested_struct_flat();
         test_multidim_array_member();
         test_struct_function_param();
         test_struct_function_return();
+        test_struct_function_array_chain(); // 新規追加: チェーン処理テスト
         test_struct_function_string_members(); // 新しい文字列メンバテスト
         test_struct_function_array_members();  // 新しい配列メンバテスト
         test_mixed_types(); // 複雑な機能

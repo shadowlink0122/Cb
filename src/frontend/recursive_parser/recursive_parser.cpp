@@ -164,6 +164,57 @@ ASTNode* RecursiveParser::parseStatement() {
     if (check(TokenType::TOK_IDENTIFIER)) {
         std::string potential_type = current_token_.value;
         
+        // 構造体配列戻り値関数の早期検出: Type[size] function_name()
+        bool is_array_return_function = false;
+        if ((typedef_map_.find(potential_type) != typedef_map_.end() || 
+             struct_definitions_.find(potential_type) != struct_definitions_.end())) {
+            
+            // Type[...] function_name() のパターンをチェック
+            RecursiveLexer temp_lexer = lexer_;
+            Token temp_current = current_token_;
+            
+            advance(); // Type
+            if (check(TokenType::TOK_LBRACKET)) {
+                advance(); // [
+                // 配列サイズをスキップ
+                int bracket_count = 1;
+                while (bracket_count > 0 && !isAtEnd()) {
+                    if (check(TokenType::TOK_LBRACKET)) bracket_count++;
+                    else if (check(TokenType::TOK_RBRACKET)) bracket_count--;
+                    advance();
+                }
+                // ]の後に識別子、その後に(があれば配列戻り値関数
+                if (check(TokenType::TOK_IDENTIFIER)) {
+                    advance(); // function_name
+                    if (check(TokenType::TOK_LPAREN)) {
+                        is_array_return_function = true;
+                    }
+                }
+            }
+            
+            // 元の位置に戻す
+            lexer_ = temp_lexer;
+            current_token_ = temp_current;
+        }
+        
+        if (is_array_return_function) {
+            // 配列戻り値関数として処理
+            std::string return_type = advance().value; // 型名
+            
+            // 配列部分を戻り値型に追加: Type[size]
+            return_type += advance().value; // '['
+            while (!check(TokenType::TOK_RBRACKET) && !isAtEnd()) {
+                return_type += advance().value; // 配列サイズ
+            }
+            if (check(TokenType::TOK_RBRACKET)) {
+                return_type += advance().value; // ']'
+            }
+            
+            std::string function_name = advance().value; // 関数名
+            debug_msg(DebugMsgId::PARSE_FUNCTION_DECL_FOUND, function_name.c_str(), return_type.c_str());
+            return parseFunctionDeclarationAfterName(return_type, function_name);
+        }
+        
         // typedef型または構造体型の可能性をチェック
         bool is_typedef = typedef_map_.find(potential_type) != typedef_map_.end();
         bool is_struct_type = struct_definitions_.find(potential_type) != struct_definitions_.end();
@@ -188,9 +239,30 @@ ASTNode* RecursiveParser::parseStatement() {
                     debug_msg(DebugMsgId::PARSE_FUNCTION_DETECTED, "");
                     is_function = true;
                 } else if (check(TokenType::TOK_LBRACKET)) {
-                    // 配列宣言なので関数ではない
+                    // 配列型かもしれないが、配列戻り値の関数の可能性もあるので更にチェック
                     debug_msg(DebugMsgId::PARSE_ARRAY_DETECTED, "");
-                    is_function = false;
+                    
+                    // 配列の括弧をスキップ: [2]
+                    advance(); // consume '['
+                    while (!check(TokenType::TOK_RBRACKET) && !isAtEnd()) {
+                        advance(); // 配列サイズの式をスキップ
+                    }
+                    if (check(TokenType::TOK_RBRACKET)) {
+                        advance(); // consume ']'
+                    }
+                    
+                    // 次が識別子かつその後に'('があれば関数（配列戻り値）
+                    if (check(TokenType::TOK_IDENTIFIER)) {
+                        advance(); // 関数名をスキップ
+                        if (check(TokenType::TOK_LPAREN)) {
+                            debug_msg(DebugMsgId::PARSE_FUNCTION_DETECTED, "Array return function");
+                            is_function = true;
+                        } else {
+                            is_function = false;
+                        }
+                    } else {
+                        is_function = false;
+                    }
                 }
             }
             
@@ -199,8 +271,21 @@ ASTNode* RecursiveParser::parseStatement() {
             current_token_ = temp_current;
             
             if (is_function) {
-                // これは戻り値型が構造体またはtypedefの関数宣言
+                // これは戻り値型が構造体またはtypedefの関数宣言（配列戻り値の可能性もある）
                 std::string return_type = advance().value; // 型名を取得
+                
+                // 配列戻り値の場合: Person[2] function_name() の処理
+                if (check(TokenType::TOK_LBRACKET)) {
+                    // 配列部分を戻り値型に追加
+                    return_type += advance().value; // '['
+                    while (!check(TokenType::TOK_RBRACKET) && !isAtEnd()) {
+                        return_type += advance().value; // 配列サイズ
+                    }
+                    if (check(TokenType::TOK_RBRACKET)) {
+                        return_type += advance().value; // ']'
+                    }
+                }
+                
                 std::string function_name = advance().value; // 関数名を取得
                 debug_msg(DebugMsgId::PARSE_FUNCTION_DECL_FOUND, function_name.c_str(), return_type.c_str());
                 return parseFunctionDeclarationAfterName(return_type, function_name);
@@ -226,6 +311,7 @@ ASTNode* RecursiveParser::parseStatement() {
                         var_node->name = var_name;
                         var_node->type_name = struct_type;
                         var_node->type_info = TYPE_STRUCT;
+                        var_node->is_const = isConst;
                         var_node->array_size_expr = std::unique_ptr<ASTNode>(size_expr);
                         
                         // array_type_infoを設定
@@ -254,6 +340,7 @@ ASTNode* RecursiveParser::parseStatement() {
                         var_node->name = var_name;
                         var_node->type_name = struct_type;
                         var_node->type_info = TYPE_STRUCT;
+                        var_node->is_const = isConst;
                         
                         // 初期化式のチェック
                         if (match(TokenType::TOK_ASSIGN)) {
@@ -308,7 +395,9 @@ ASTNode* RecursiveParser::parseStatement() {
     if (check(TokenType::TOK_INT) || check(TokenType::TOK_LONG) || 
         check(TokenType::TOK_SHORT) || check(TokenType::TOK_TINY) || 
         check(TokenType::TOK_VOID) || check(TokenType::TOK_BOOL) ||
-        check(TokenType::TOK_STRING_TYPE) || check(TokenType::TOK_CHAR_TYPE)) {
+        check(TokenType::TOK_STRING_TYPE) || check(TokenType::TOK_CHAR_TYPE) ||
+        check(TokenType::TOK_FLOAT) || check(TokenType::TOK_DOUBLE) ||
+        check(TokenType::TOK_BIG) || check(TokenType::TOK_QUAD)) {
         
         // 型名を取得
         std::string type_name;
@@ -320,6 +409,10 @@ ASTNode* RecursiveParser::parseStatement() {
         else if (check(TokenType::TOK_BOOL)) type_name = "bool";
         else if (check(TokenType::TOK_STRING_TYPE)) type_name = "string";
         else if (check(TokenType::TOK_CHAR_TYPE)) type_name = "char";
+    else if (check(TokenType::TOK_FLOAT)) type_name = "float";
+    else if (check(TokenType::TOK_DOUBLE)) type_name = "double";
+    else if (check(TokenType::TOK_BIG)) type_name = "big";
+    else if (check(TokenType::TOK_QUAD)) type_name = "quad";
         
         advance(); // consume type
         
@@ -1170,20 +1263,40 @@ ASTNode* RecursiveParser::parseStatement() {
 
 ASTNode* RecursiveParser::parseVariableDeclaration() {
     std::string var_type = parseType();
+    ParsedTypeInfo base_parsed_type = getLastParsedTypeInfo();
+    var_type = base_parsed_type.full_type;
     std::cerr << "[DEBUG_PARSE] Variable type parsed: " << var_type << std::endl;
     
     // 変数名のリストを収集
-    struct VariableInfo {
-        std::string name;
-        std::unique_ptr<ASTNode> init_expr;
-        ArrayTypeInfo array_info;
-        bool is_array;
-        
-        VariableInfo(const std::string& n, std::unique_ptr<ASTNode> expr, const ArrayTypeInfo& arr_info, bool arr)
-            : name(n), init_expr(std::move(expr)), array_info(arr_info), is_array(arr) {}
+                struct VariableInfo {
+                        std::string name;
+                        std::unique_ptr<ASTNode> init_expr;
+                        ArrayTypeInfo array_info;
+                        bool is_array;
+                        ParsedTypeInfo parsed_type;
+                        bool is_private;
+
+                        VariableInfo(const std::string& n,
+                                                 std::unique_ptr<ASTNode> expr,
+                                                 const ArrayTypeInfo& arr_info,
+                                                 bool arr,
+                                                 const ParsedTypeInfo& parsed,
+                                                 bool is_priv)
+                                : name(n), init_expr(std::move(expr)), array_info(arr_info),
+                                    is_array(arr), parsed_type(parsed), is_private(is_priv) {}
     };
     std::vector<VariableInfo> variables;
-    
+
+    auto dimension_to_string = [](const ArrayDimension& dim) {
+        if (!dim.size_expr.empty()) {
+            return std::string("[") + dim.size_expr + "]";
+        }
+        if (!dim.is_dynamic && dim.size >= 0) {
+            return std::string("[") + std::to_string(dim.size) + "]";
+        }
+        return std::string("[]");
+    };
+
     do {
         if (!check(TokenType::TOK_IDENTIFIER)) {
             error("Expected variable name");
@@ -1191,38 +1304,58 @@ ASTNode* RecursiveParser::parseVariableDeclaration() {
         
         std::string var_name = advance().value;
         std::unique_ptr<ASTNode> init_expr = nullptr;
-        ArrayTypeInfo array_info;
-        bool is_array = false;
+    ParsedTypeInfo var_parsed = base_parsed_type;
+    ArrayTypeInfo array_info = var_parsed.array_info;
+    bool is_array = var_parsed.is_array;
         
         // 配列の角括弧をチェック
         if (check(TokenType::TOK_LBRACKET)) {
             is_array = true;
-            
-            // 配列次元を解析
+            if (array_info.base_type == TYPE_UNKNOWN) {
+                array_info.base_type = var_parsed.is_pointer ? TYPE_POINTER : var_parsed.base_type_info;
+            }
+
             while (check(TokenType::TOK_LBRACKET)) {
-                advance(); // consume '['
-                
+                advance();
+
                 if (check(TokenType::TOK_NUMBER)) {
                     int size = std::stoi(advance().value);
-                    array_info.dimensions.push_back({size});
+                    array_info.dimensions.emplace_back(size, false, "");
                 } else if (check(TokenType::TOK_IDENTIFIER)) {
-                    // 変数名を配列サイズとして使用
                     std::string size_name = advance().value;
-                    array_info.dimensions.push_back({0}); // 動的サイズは0で表現
+                    array_info.dimensions.emplace_back(-1, true, size_name);
                 } else {
-                    // サイズが指定されていない場合
-                    array_info.dimensions.push_back({0});
+                    array_info.dimensions.emplace_back(-1, true, "");
                 }
-                
+
                 consume(TokenType::TOK_RBRACKET, "Expected ']'");
             }
         }
+
+        if (is_array && array_info.base_type == TYPE_UNKNOWN) {
+            array_info.base_type = var_parsed.is_pointer ? TYPE_POINTER : var_parsed.base_type_info;
+        }
+
+        var_parsed.is_array = is_array;
+        var_parsed.array_info = array_info;
+
+        std::string combined_full_type = base_parsed_type.full_type;
+        if (is_array) {
+            size_t base_dims = base_parsed_type.array_info.dimensions.size();
+            size_t total_dims = array_info.dimensions.size();
+            if (total_dims > base_dims) {
+                for (size_t idx = base_dims; idx < total_dims; ++idx) {
+                    combined_full_type += dimension_to_string(array_info.dimensions[idx]);
+                }
+            }
+        }
+        var_parsed.full_type = combined_full_type;
         
         if (match(TokenType::TOK_ASSIGN)) {
             init_expr = std::unique_ptr<ASTNode>(parseExpression());
         }
         
-        variables.emplace_back(var_name, std::move(init_expr), array_info, is_array);
+    variables.emplace_back(var_name, std::move(init_expr), array_info, is_array, var_parsed, false);
         
     } while (match(TokenType::TOK_COMMA));
     
@@ -1230,140 +1363,60 @@ ASTNode* RecursiveParser::parseVariableDeclaration() {
     
     // 単一変数の場合は従来通りAST_VAR_DECL、複数の場合はAST_MULTIPLE_VAR_DECL
     if (variables.size() == 1) {
+    VariableInfo& var_info = variables[0];
+    const ParsedTypeInfo& parsed = var_info.parsed_type;
+
         ASTNode* node = new ASTNode(ASTNodeType::AST_VAR_DECL);
-        node->name = variables[0].name;
-        node->type_name = var_type;
-        
-        // 配列情報を設定
-        if (variables[0].is_array) {
-            node->array_type_info = variables[0].array_info;
+        node->name = var_info.name;
+        node->type_name = parsed.full_type;
+
+    TypeInfo declared_type = resolveParsedTypeInfo(parsed);
+        node->type_info = declared_type;
+
+        node->is_pointer = parsed.is_pointer;
+        node->pointer_depth = parsed.pointer_depth;
+        node->pointer_base_type_name = parsed.base_type;
+        node->pointer_base_type = parsed.base_type_info;
+
+        if (parsed.is_array) {
+            node->array_type_info = parsed.array_info;
+            node->is_array = true;
         }
-        
-        // Set type_info based on type string - typedef aliasは後でインタープリターで解決
-        if (variables[0].is_array) {
-            // 配列の場合、基本型を設定
-            if (var_type.substr(0, 3) == "int") {
-                node->type_info = TYPE_INT;
-                node->array_type_info.base_type = TYPE_INT;
-            } else if (var_type.substr(0, 4) == "char") {
-                node->type_info = TYPE_CHAR;
-                node->array_type_info.base_type = TYPE_CHAR;
-            } else if (var_type.substr(0, 4) == "bool") {
-                node->type_info = TYPE_BOOL;
-                node->array_type_info.base_type = TYPE_BOOL;
-            } else if (var_type.substr(0, 4) == "long") {
-                node->type_info = TYPE_LONG;
-                node->array_type_info.base_type = TYPE_LONG;
-            } else if (var_type.substr(0, 5) == "short") {
-                node->type_info = TYPE_SHORT;
-                node->array_type_info.base_type = TYPE_SHORT;
-            } else if (var_type.substr(0, 4) == "tiny") {
-                node->type_info = TYPE_TINY;
-                node->array_type_info.base_type = TYPE_TINY;
-            } else if (var_type.substr(0, 6) == "string") {
-                node->type_info = TYPE_STRING;
-                node->array_type_info.base_type = TYPE_STRING;
-            } else {
-                // 構造体配列または typedef aliasの可能性
-                if (struct_definitions_.find(var_type) != struct_definitions_.end()) {
-                    node->type_info = TYPE_STRUCT;
-                    node->array_type_info.base_type = TYPE_STRUCT;
-                } else {
-                    node->type_info = TYPE_UNKNOWN;
-                    node->array_type_info.base_type = TYPE_UNKNOWN;
-                }
-            }
-        } else {
-            // 通常の変数の場合
-            if (var_type.substr(0, 3) == "int") {
-                node->type_info = TYPE_INT;
-            } else if (var_type.substr(0, 4) == "char") {
-                node->type_info = TYPE_CHAR;
-            } else if (var_type.substr(0, 4) == "bool") {
-                node->type_info = TYPE_BOOL;
-            } else if (var_type.substr(0, 4) == "long") {
-                node->type_info = TYPE_LONG;
-            } else if (var_type.substr(0, 5) == "short") {
-                node->type_info = TYPE_SHORT;
-            } else if (var_type.substr(0, 4) == "tiny") {
-                node->type_info = TYPE_TINY;
-            } else if (var_type.substr(0, 6) == "string") {
-                node->type_info = TYPE_STRING;
-            } else {
-                // 構造体または typedef aliasの可能性
-                std::cerr << "[DEBUG_PARSE] Checking if type is struct: " << var_type << std::endl;
-                if (struct_definitions_.find(var_type) != struct_definitions_.end()) {
-                    std::cerr << "[DEBUG_PARSE] Found struct type: " << var_type << std::endl;
-                    node->type_info = TYPE_STRUCT;
-                } else {
-                    std::cerr << "[DEBUG_PARSE] Unknown type: " << var_type << std::endl;
-                    node->type_info = TYPE_UNKNOWN;
-                }
-            }
+
+        if (var_info.init_expr) {
+            node->init_expr = std::move(var_info.init_expr);
         }
-        
-        if (variables[0].init_expr) {
-            node->init_expr = std::move(variables[0].init_expr);
-        }
-        
+
         return node;
     } else {
         // 複数変数宣言の場合
         ASTNode* node = new ASTNode(ASTNodeType::AST_MULTIPLE_VAR_DECL);
-        node->type_name = var_type;
-        
-        // Set type_info based on type string
-        if (var_type.substr(0, 3) == "int") {
-            node->type_info = TYPE_INT;
-        } else if (var_type.substr(0, 4) == "char") {
-            node->type_info = TYPE_CHAR;
-        } else if (var_type.substr(0, 4) == "bool") {
-            node->type_info = TYPE_BOOL;
-        } else if (var_type.substr(0, 4) == "long") {
-            node->type_info = TYPE_LONG;
-        } else if (var_type.substr(0, 5) == "short") {
-            node->type_info = TYPE_SHORT;
-        } else if (var_type.substr(0, 4) == "tiny") {
-            node->type_info = TYPE_TINY;
-        } else if (var_type.substr(0, 6) == "string") {
-            node->type_info = TYPE_STRING;
-        } else {
-            node->type_info = TYPE_UNKNOWN;
+        node->type_name = base_parsed_type.full_type;
+    node->type_info = resolveParsedTypeInfo(base_parsed_type);
+        node->is_pointer = base_parsed_type.is_pointer;
+        node->pointer_depth = base_parsed_type.pointer_depth;
+        node->pointer_base_type_name = base_parsed_type.base_type;
+        node->pointer_base_type = base_parsed_type.base_type_info;
+        if (base_parsed_type.is_array) {
+            node->array_type_info = base_parsed_type.array_info;
+            node->is_array = true;
         }
         
         // 各変数を子ノードとして追加
         for (auto& var : variables) {
+            ParsedTypeInfo& parsed = var.parsed_type;
             ASTNode* var_node = new ASTNode(ASTNodeType::AST_VAR_DECL);
             var_node->name = var.name;
-            var_node->type_name = var_type;
-            var_node->type_info = node->type_info;
-            
-            // 配列情報を設定
-            if (var.is_array) {
-                var_node->array_type_info = var.array_info;
-                // 配列の場合、base_typeも設定
-                if (var_type.substr(0, 3) == "int") {
-                    var_node->array_type_info.base_type = TYPE_INT;
-                } else if (var_type.substr(0, 4) == "char") {
-                    var_node->array_type_info.base_type = TYPE_CHAR;
-                } else if (var_type.substr(0, 4) == "bool") {
-                    var_node->array_type_info.base_type = TYPE_BOOL;
-                } else if (var_type.substr(0, 4) == "long") {
-                    var_node->array_type_info.base_type = TYPE_LONG;
-                } else if (var_type.substr(0, 5) == "short") {
-                    var_node->array_type_info.base_type = TYPE_SHORT;
-                } else if (var_type.substr(0, 4) == "tiny") {
-                    var_node->array_type_info.base_type = TYPE_TINY;
-                } else if (var_type.substr(0, 6) == "string") {
-                    var_node->array_type_info.base_type = TYPE_STRING;
-                } else {
-                    // 構造体配列または typedef aliasの可能性
-                    if (struct_definitions_.find(var_type) != struct_definitions_.end()) {
-                        var_node->array_type_info.base_type = TYPE_STRUCT;
-                    } else {
-                        var_node->array_type_info.base_type = TYPE_UNKNOWN;
-                    }
-                }
+            var_node->type_name = parsed.full_type;
+            var_node->type_info = resolveParsedTypeInfo(parsed);
+            var_node->is_pointer = parsed.is_pointer;
+            var_node->pointer_depth = parsed.pointer_depth;
+            var_node->pointer_base_type_name = parsed.base_type;
+            var_node->pointer_base_type = parsed.base_type_info;
+
+            if (parsed.is_array) {
+                var_node->array_type_info = parsed.array_info;
+                var_node->is_array = true;
             }
             
             if (var.init_expr) {
@@ -1378,97 +1431,307 @@ ASTNode* RecursiveParser::parseVariableDeclaration() {
 }
 
 std::string RecursiveParser::parseType() {
+    ParsedTypeInfo parsed;
+    parsed.array_info = ArrayTypeInfo();
+
     std::string base_type;
-    
+    std::string original_type;
+
+    auto set_base_type = [&](const std::string &type_name) {
+        base_type = type_name;
+        if (original_type.empty()) {
+            original_type = type_name;
+        }
+    };
+
     if (check(TokenType::TOK_INT)) {
-        advance(); // consume 'int'
-        base_type = "int";
+        advance();
+        set_base_type("int");
     } else if (check(TokenType::TOK_LONG)) {
-        advance(); // consume 'long'
-        base_type = "long";
+        advance();
+        set_base_type("long");
     } else if (check(TokenType::TOK_SHORT)) {
-        advance(); // consume 'short'
-        base_type = "short";
+        advance();
+        set_base_type("short");
     } else if (check(TokenType::TOK_TINY)) {
-        advance(); // consume 'tiny'
-        base_type = "tiny";
+        advance();
+        set_base_type("tiny");
     } else if (check(TokenType::TOK_VOID)) {
-        advance(); // consume 'void'
-        base_type = "void";
+        advance();
+        set_base_type("void");
     } else if (check(TokenType::TOK_BOOL)) {
-        advance(); // consume 'bool'
-        base_type = "bool";
+        advance();
+        set_base_type("bool");
+    } else if (check(TokenType::TOK_FLOAT)) {
+        advance();
+        set_base_type("float");
+    } else if (check(TokenType::TOK_DOUBLE)) {
+        advance();
+        set_base_type("double");
+    } else if (check(TokenType::TOK_BIG)) {
+        advance();
+        set_base_type("big");
+    } else if (check(TokenType::TOK_QUAD)) {
+        advance();
+        set_base_type("quad");
     } else if (check(TokenType::TOK_STRING_TYPE)) {
-        advance(); // consume 'string'
-        base_type = "string";
+        advance();
+        set_base_type("string");
     } else if (check(TokenType::TOK_CHAR_TYPE)) {
-        advance(); // consume 'char'
-        base_type = "char";
+        advance();
+        set_base_type("char");
     } else if (check(TokenType::TOK_STRUCT)) {
-        advance(); // consume 'struct'
+        advance();
         if (!check(TokenType::TOK_IDENTIFIER)) {
             error("Expected struct name after 'struct'");
             return "";
         }
         std::string struct_name = current_token_.value;
         advance();
-        base_type = "struct " + struct_name;
+        original_type = "struct " + struct_name;
+        base_type = original_type;
     } else if (check(TokenType::TOK_IDENTIFIER)) {
-        // typedef aliasまたはstruct型名、enum型名の可能性
         std::string identifier = current_token_.value;
         if (typedef_map_.find(identifier) != typedef_map_.end()) {
-            // typedef aliasが見つかった場合、再帰的に型を解決
-            advance(); // consume identifier
-            base_type = resolveTypedefChain(identifier);
-        } else if (struct_definitions_.find(identifier) != struct_definitions_.end()) {
-            // struct型名として認識
-            advance(); // consume identifier  
-            base_type = identifier; // typedef structの場合のstruct型
-        } else if (enum_definitions_.find(identifier) != enum_definitions_.end()) {
-            // enum型名として認識
-            advance(); // consume identifier
-            base_type = identifier; // enum型名をそのまま返す
-        } else if (interface_definitions_.find(identifier) != interface_definitions_.end()) {
-            // interface型名として認識
-            advance(); // consume identifier
-            base_type = identifier; // interface型名をそのまま返す
-        } else {
-            // 未知のidentifier - ユニオン型定義も確認
-            if (union_definitions_.find(identifier) != union_definitions_.end()) {
-                // ユニオン型名として認識
-                advance(); // consume identifier
-                base_type = identifier; // ユニオン型名をそのまま返す
-            } else {
-                // 完全に未知の型
+            advance();
+            original_type = identifier;
+            std::string resolved = resolveTypedefChain(identifier);
+            if (resolved.empty()) {
                 error("Unknown type: " + identifier);
                 throw std::runtime_error("Unknown type: " + identifier);
             }
+            set_base_type(resolved);
+        } else if (struct_definitions_.find(identifier) != struct_definitions_.end()) {
+            advance();
+            original_type = identifier;
+            set_base_type(identifier);
+        } else if (enum_definitions_.find(identifier) != enum_definitions_.end()) {
+            advance();
+            original_type = identifier;
+            set_base_type(identifier);
+        } else if (interface_definitions_.find(identifier) != interface_definitions_.end()) {
+            advance();
+            original_type = identifier;
+            set_base_type(identifier);
+        } else if (union_definitions_.find(identifier) != union_definitions_.end()) {
+            advance();
+            original_type = identifier;
+            set_base_type(identifier);
+        } else {
+            error("Unknown type: " + identifier);
+            throw std::runtime_error("Unknown type: " + identifier);
         }
     } else {
         error("Expected type specifier");
         return "";
     }
-    
-    // 配列型のチェック int[size][size]... (多次元配列対応)
+
+    if (original_type.empty()) {
+        original_type = base_type;
+    }
+
+    parsed.base_type = base_type;
+    parsed.original_type = original_type;
+    parsed.base_type_info = getTypeInfoFromString(base_type);
+
+    int pointer_depth = 0;
+    while (check(TokenType::TOK_MUL)) {
+        pointer_depth++;
+        advance();
+    }
+
+    if (pointer_depth > 0) {
+        parsed.is_pointer = true;
+        parsed.pointer_depth = pointer_depth;
+    }
+
+    std::vector<ArrayDimension> dimensions;
+    std::vector<std::string> dimension_texts;
+
     while (check(TokenType::TOK_LBRACKET)) {
-        advance(); // consume '['
-        
+        advance();
+
         if (check(TokenType::TOK_NUMBER)) {
             Token size_token = advance();
-            base_type += "[" + size_token.value + "]";
+            dimensions.emplace_back(std::stoi(size_token.value), false, "");
+            dimension_texts.push_back("[" + size_token.value + "]");
         } else if (check(TokenType::TOK_IDENTIFIER)) {
-            // 定数識別子
             Token const_token = advance();
-            base_type += "[" + const_token.value + "]";
+            dimensions.emplace_back(-1, true, const_token.value);
+            dimension_texts.push_back("[" + const_token.value + "]");
         } else {
-            // 動的配列 int[]
-            base_type += "[]";
+            dimensions.emplace_back(-1, true, "");
+            dimension_texts.push_back("[]");
         }
-        
+
         consume(TokenType::TOK_RBRACKET, "Expected ']' in array type");
     }
-    
-    return base_type;
+
+    if (!dimensions.empty()) {
+        parsed.is_array = true;
+        parsed.array_info.base_type = parsed.is_pointer ? TYPE_POINTER : parsed.base_type_info;
+        parsed.array_info.dimensions = dimensions;
+    }
+
+    std::string full_type = base_type;
+    if (pointer_depth > 0) {
+        full_type += std::string(pointer_depth, '*');
+    }
+    for (const auto &dim_text : dimension_texts) {
+        full_type += dim_text;
+    }
+
+    parsed.full_type = full_type;
+
+    last_parsed_type_info_ = parsed;
+    return parsed.full_type;
+}
+
+TypeInfo RecursiveParser::resolveParsedTypeInfo(const ParsedTypeInfo& parsed) const {
+    if (parsed.is_pointer) {
+        return TYPE_POINTER;
+    }
+
+    TypeInfo resolved = parsed.base_type_info;
+    if (resolved != TYPE_UNKNOWN) {
+        return resolved;
+    }
+
+    std::string base_lookup = parsed.base_type;
+    if (base_lookup.rfind("struct ", 0) == 0) {
+        base_lookup = base_lookup.substr(7);
+    }
+
+    if (!base_lookup.empty()) {
+        if (struct_definitions_.find(base_lookup) != struct_definitions_.end()) {
+            return TYPE_STRUCT;
+        }
+        if (enum_definitions_.find(base_lookup) != enum_definitions_.end()) {
+            return TYPE_ENUM;
+        }
+        if (interface_definitions_.find(base_lookup) != interface_definitions_.end()) {
+            return TYPE_INTERFACE;
+        }
+        if (union_definitions_.find(base_lookup) != union_definitions_.end()) {
+            return TYPE_UNION;
+        }
+    }
+
+    return TYPE_UNKNOWN;
+}
+
+ASTNode* RecursiveParser::cloneAstNode(const ASTNode* node) {
+    if (!node) {
+        return nullptr;
+    }
+
+    ASTNode* clone = new ASTNode(node->node_type);
+    clone->type_info = node->type_info;
+    clone->location = node->location;
+    clone->is_const = node->is_const;
+    clone->is_static = node->is_static;
+    clone->is_array = node->is_array;
+    clone->is_array_return = node->is_array_return;
+    clone->is_private_method = node->is_private_method;
+    clone->is_private_member = node->is_private_member;
+    clone->is_pointer = node->is_pointer;
+    clone->pointer_depth = node->pointer_depth;
+    clone->pointer_base_type_name = node->pointer_base_type_name;
+    clone->pointer_base_type = node->pointer_base_type;
+    clone->int_value = node->int_value;
+    clone->str_value = node->str_value;
+    clone->name = node->name;
+    clone->type_name = node->type_name;
+    clone->return_type_name = node->return_type_name;
+    clone->op = node->op;
+    clone->module_name = node->module_name;
+    clone->import_items = node->import_items;
+    clone->is_exported = node->is_exported;
+    clone->qualified_name = node->qualified_name;
+    clone->is_qualified_call = node->is_qualified_call;
+    clone->enum_name = node->enum_name;
+    clone->enum_member = node->enum_member;
+    clone->enum_definition = node->enum_definition;
+    clone->union_name = node->union_name;
+    clone->union_definition = node->union_definition;
+    clone->member_chain = node->member_chain;
+    clone->array_size = node->array_size;
+    clone->array_type_info = node->array_type_info;
+    clone->return_types = node->return_types;
+    clone->exception_var = node->exception_var;
+    clone->exception_type = node->exception_type;
+
+    if (node->left) {
+        clone->left.reset(cloneAstNode(node->left.get()));
+    }
+    if (node->right) {
+        clone->right.reset(cloneAstNode(node->right.get()));
+    }
+    if (node->third) {
+        clone->third.reset(cloneAstNode(node->third.get()));
+    }
+    if (node->condition) {
+        clone->condition.reset(cloneAstNode(node->condition.get()));
+    }
+    if (node->init_expr) {
+        clone->init_expr.reset(cloneAstNode(node->init_expr.get()));
+    }
+    if (node->update_expr) {
+        clone->update_expr.reset(cloneAstNode(node->update_expr.get()));
+    }
+    if (node->body) {
+        clone->body.reset(cloneAstNode(node->body.get()));
+    }
+    if (node->array_index) {
+        clone->array_index.reset(cloneAstNode(node->array_index.get()));
+    }
+    if (node->array_size_expr) {
+        clone->array_size_expr.reset(cloneAstNode(node->array_size_expr.get()));
+    }
+    if (node->try_body) {
+        clone->try_body.reset(cloneAstNode(node->try_body.get()));
+    }
+    if (node->catch_body) {
+        clone->catch_body.reset(cloneAstNode(node->catch_body.get()));
+    }
+    if (node->finally_body) {
+        clone->finally_body.reset(cloneAstNode(node->finally_body.get()));
+    }
+    if (node->throw_expr) {
+        clone->throw_expr.reset(cloneAstNode(node->throw_expr.get()));
+    }
+
+    clone->children.reserve(node->children.size());
+    for (const auto& child : node->children) {
+        clone->children.push_back(std::unique_ptr<ASTNode>(cloneAstNode(child.get())));
+    }
+
+    clone->parameters.reserve(node->parameters.size());
+    for (const auto& param : node->parameters) {
+        clone->parameters.push_back(std::unique_ptr<ASTNode>(cloneAstNode(param.get())));
+    }
+
+    clone->arguments.reserve(node->arguments.size());
+    for (const auto& arg : node->arguments) {
+        clone->arguments.push_back(std::unique_ptr<ASTNode>(cloneAstNode(arg.get())));
+    }
+
+    clone->statements.reserve(node->statements.size());
+    for (const auto& stmt : node->statements) {
+        clone->statements.push_back(std::unique_ptr<ASTNode>(cloneAstNode(stmt.get())));
+    }
+
+    clone->array_dimensions.reserve(node->array_dimensions.size());
+    for (const auto& dim : node->array_dimensions) {
+        clone->array_dimensions.push_back(std::unique_ptr<ASTNode>(cloneAstNode(dim.get())));
+    }
+
+    clone->array_indices.reserve(node->array_indices.size());
+    for (const auto& idx : node->array_indices) {
+        clone->array_indices.push_back(std::unique_ptr<ASTNode>(cloneAstNode(idx.get())));
+    }
+
+    return clone;
 }
 
 ASTNode* RecursiveParser::parseExpression() {
@@ -1478,6 +1741,22 @@ ASTNode* RecursiveParser::parseExpression() {
 ASTNode* RecursiveParser::parseAssignment() {
     ASTNode* left = parseTernary();
     
+    auto getBinaryOpForCompound = [](TokenType op_type) -> std::string {
+        switch (op_type) {
+            case TokenType::TOK_PLUS_ASSIGN: return "+";
+            case TokenType::TOK_MINUS_ASSIGN: return "-";
+            case TokenType::TOK_MUL_ASSIGN: return "*";
+            case TokenType::TOK_DIV_ASSIGN: return "/";
+            case TokenType::TOK_MOD_ASSIGN: return "%";
+            case TokenType::TOK_AND_ASSIGN: return "&";
+            case TokenType::TOK_OR_ASSIGN: return "|";
+            case TokenType::TOK_XOR_ASSIGN: return "^";
+            case TokenType::TOK_LSHIFT_ASSIGN: return "<<";
+            case TokenType::TOK_RSHIFT_ASSIGN: return ">>";
+            default: return "";
+        }
+    };
+
     // 通常の代入と複合代入演算子をチェック
     if (check(TokenType::TOK_ASSIGN) || check(TokenType::TOK_PLUS_ASSIGN) || 
         check(TokenType::TOK_MINUS_ASSIGN) || check(TokenType::TOK_MUL_ASSIGN) ||
@@ -1498,20 +1777,7 @@ ASTNode* RecursiveParser::parseAssignment() {
         if (left->node_type == ASTNodeType::AST_VARIABLE) {
             // 複合代入の場合、a += b を a = a + b に変換
             if (op_type != TokenType::TOK_ASSIGN) {
-                std::string binary_op;
-                switch (op_type) {
-                    case TokenType::TOK_PLUS_ASSIGN: binary_op = "+"; break;
-                    case TokenType::TOK_MINUS_ASSIGN: binary_op = "-"; break;
-                    case TokenType::TOK_MUL_ASSIGN: binary_op = "*"; break;
-                    case TokenType::TOK_DIV_ASSIGN: binary_op = "/"; break;
-                    case TokenType::TOK_MOD_ASSIGN: binary_op = "%"; break;
-                    case TokenType::TOK_AND_ASSIGN: binary_op = "&"; break;
-                    case TokenType::TOK_OR_ASSIGN: binary_op = "|"; break;
-                    case TokenType::TOK_XOR_ASSIGN: binary_op = "^"; break;
-                    case TokenType::TOK_LSHIFT_ASSIGN: binary_op = "<<"; break;
-                    case TokenType::TOK_RSHIFT_ASSIGN: binary_op = ">>"; break;
-                    default: break;
-                }
+                std::string binary_op = getBinaryOpForCompound(op_type);
                 
                 // a = a op b の形に変換
                 ASTNode* var_ref = new ASTNode(ASTNodeType::AST_VARIABLE);
@@ -1532,20 +1798,7 @@ ASTNode* RecursiveParser::parseAssignment() {
         } else if (left->node_type == ASTNodeType::AST_ARRAY_REF) {
             // 配列要素への複合代入の場合
             if (op_type != TokenType::TOK_ASSIGN) {
-                std::string binary_op;
-                switch (op_type) {
-                    case TokenType::TOK_PLUS_ASSIGN: binary_op = "+"; break;
-                    case TokenType::TOK_MINUS_ASSIGN: binary_op = "-"; break;
-                    case TokenType::TOK_MUL_ASSIGN: binary_op = "*"; break;
-                    case TokenType::TOK_DIV_ASSIGN: binary_op = "/"; break;
-                    case TokenType::TOK_MOD_ASSIGN: binary_op = "%"; break;
-                    case TokenType::TOK_AND_ASSIGN: binary_op = "&"; break;
-                    case TokenType::TOK_OR_ASSIGN: binary_op = "|"; break;
-                    case TokenType::TOK_XOR_ASSIGN: binary_op = "^"; break;
-                    case TokenType::TOK_LSHIFT_ASSIGN: binary_op = "<<"; break;
-                    case TokenType::TOK_RSHIFT_ASSIGN: binary_op = ">>"; break;
-                    default: break;
-                }
+                std::string binary_op = getBinaryOpForCompound(op_type);
                 
                 // arr[i] = arr[i] op b の形に変換
                 ASTNode* array_ref_copy = new ASTNode(ASTNodeType::AST_ARRAY_REF);
@@ -1581,9 +1834,21 @@ ASTNode* RecursiveParser::parseAssignment() {
             }
         } else if (left->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
             // メンバアクセス代入: obj.member = value
-            // 複合代入もサポート: obj.member += value
-            assign->left = std::unique_ptr<ASTNode>(left);
-            assign->right = std::unique_ptr<ASTNode>(right);
+            if (op_type != TokenType::TOK_ASSIGN) {
+                std::string binary_op = getBinaryOpForCompound(op_type);
+                ASTNode* left_copy = cloneAstNode(left);
+                assign->left = std::unique_ptr<ASTNode>(left);
+
+                ASTNode* binop = new ASTNode(ASTNodeType::AST_BINARY_OP);
+                binop->op = binary_op;
+                binop->left = std::unique_ptr<ASTNode>(left_copy);
+                binop->right = std::unique_ptr<ASTNode>(right);
+
+                assign->right = std::unique_ptr<ASTNode>(binop);
+            } else {
+                assign->left = std::unique_ptr<ASTNode>(left);
+                assign->right = std::unique_ptr<ASTNode>(right);
+            }
         } else {
             error("Invalid assignment target");
             return nullptr;
@@ -2466,6 +2731,22 @@ ASTNode* RecursiveParser::parseTypedefDeclaration() {
         base_type = TYPE_BOOL;
         base_type_name = "bool";
         advance();
+    } else if (check(TokenType::TOK_FLOAT)) {
+        base_type = TYPE_FLOAT;
+        base_type_name = "float";
+        advance();
+    } else if (check(TokenType::TOK_DOUBLE)) {
+        base_type = TYPE_DOUBLE;
+        base_type_name = "double";
+        advance();
+    } else if (check(TokenType::TOK_BIG)) {
+        base_type = TYPE_BIG;
+        base_type_name = "big";
+        advance();
+    } else if (check(TokenType::TOK_QUAD)) {
+        base_type = TYPE_QUAD;
+        base_type_name = "quad";
+        advance();
     } else if (check(TokenType::TOK_STRING_TYPE)) {
         base_type = TYPE_STRING;
         base_type_name = "string";
@@ -2559,6 +2840,14 @@ ASTNode* RecursiveParser::parseTypedefDeclaration() {
 }
 
 TypeInfo RecursiveParser::getTypeInfoFromString(const std::string& type_name) {
+    if (type_name == "nullptr") {
+        return TYPE_NULLPTR;
+    }
+
+    if (type_name.find('*') != std::string::npos) {
+        return TYPE_POINTER;
+    }
+
     // 配列型のチェック（1次元・多次元両対応）
     if (type_name.find('[') != std::string::npos) {
         std::string base_type = type_name.substr(0, type_name.find('['));
@@ -2576,6 +2865,14 @@ TypeInfo RecursiveParser::getTypeInfoFromString(const std::string& type_name) {
             return static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_TINY);
         } else if (base_type == "char") {
             return static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_CHAR);
+        } else if (base_type == "float") {
+            return static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_FLOAT);
+        } else if (base_type == "double") {
+            return static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_DOUBLE);
+        } else if (base_type == "big") {
+            return static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_BIG);
+        } else if (base_type == "quad") {
+            return static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_QUAD);
         } else {
             return TYPE_UNKNOWN;
         }
@@ -2595,6 +2892,14 @@ TypeInfo RecursiveParser::getTypeInfoFromString(const std::string& type_name) {
         return TYPE_STRING;
     } else if (type_name == "char") {
         return TYPE_CHAR;
+    } else if (type_name == "float") {
+        return TYPE_FLOAT;
+    } else if (type_name == "double") {
+        return TYPE_DOUBLE;
+    } else if (type_name == "big") {
+        return TYPE_BIG;
+    } else if (type_name == "quad") {
+        return TYPE_QUAD;
     } else if (type_name == "void") {
         return TYPE_VOID;
     } else if (type_name.substr(0, 7) == "struct " || struct_definitions_.find(type_name) != struct_definitions_.end()) {
@@ -2982,6 +3287,12 @@ ASTNode* RecursiveParser::parseStructDeclaration() {
     
     // メンバ変数の解析
     while (!check(TokenType::TOK_RBRACE) && !isAtEnd()) {
+        bool is_private_member = false;
+        if (check(TokenType::TOK_PRIVATE)) {
+            is_private_member = true;
+            advance();
+        }
+
         // メンバの型を解析
         std::string member_type = parseType();
         
@@ -2990,73 +3301,41 @@ ASTNode* RecursiveParser::parseStructDeclaration() {
             return nullptr;
         }
         
+        ParsedTypeInfo member_parsed = getLastParsedTypeInfo();
+
         // メンバ名のリストを解析（int[2][2] a, b; のような複数宣言に対応）
         do {
             if (!check(TokenType::TOK_IDENTIFIER)) {
                 error("Expected member name");
                 return nullptr;
             }
-            
+
             std::string member_name = current_token_.value;
             advance();
-            
-            // 型文字列から配列情報を抽出
-            std::string base_type = member_type;
-            std::vector<ArrayDimension> dimensions;
-            
-            // member_typeから配列次元を抽出 (例: "int[2][3]" → base_type="int", dimensions=[2,3])
-            size_t bracket_pos = base_type.find('[');
-            if (bracket_pos != std::string::npos) {
-                std::string pure_base_type = base_type.substr(0, bracket_pos);
-                std::string array_part = base_type.substr(bracket_pos);
-                
-                // 配列次元を解析
-                size_t pos = 0;
-                while ((pos = array_part.find('[', pos)) != std::string::npos) {
-                    pos++; // skip '['
-                    size_t end_pos = array_part.find(']', pos);
-                    if (end_pos == std::string::npos) {
-                        error("Missing ']' in array type");
-                        return nullptr;
-                    }
-                    
-                    std::string size_str = array_part.substr(pos, end_pos - pos);
-                    if (size_str.empty()) {
-                        // 動的配列 []
-                        dimensions.push_back(ArrayDimension(-1, true, ""));
-                    } else if (std::isdigit(size_str[0])) {
-                        // 数値リテラル
-                        int size = std::stoi(size_str);
-                        dimensions.push_back(ArrayDimension(size, false));
-                    } else {
-                        // 定数識別子
-                        dimensions.push_back(ArrayDimension(-1, true, size_str));
-                    }
-                    
-                    pos = end_pos + 1;
-                }
-                
-                base_type = pure_base_type;
+
+            ParsedTypeInfo var_parsed = member_parsed;
+            TypeInfo member_type_info = resolveParsedTypeInfo(var_parsed);
+
+            struct_def.add_member(member_name,
+                                  member_type_info,
+                                  var_parsed.full_type,
+                                  var_parsed.is_pointer,
+                                  var_parsed.pointer_depth,
+                                  var_parsed.base_type,
+                                  var_parsed.base_type_info,
+                                  is_private_member);
+
+            if (var_parsed.is_array) {
+                StructMember &added = struct_def.members.back();
+                added.array_info = var_parsed.array_info;
             }
-            
-            if (!dimensions.empty()) {
-                // 配列メンバを追加
-                TypeInfo member_type_info = getTypeInfoFromString(base_type);
-                StructMember array_member(member_name, member_type_info, base_type);
-                array_member.array_info = ArrayTypeInfo(member_type_info, dimensions);
-                struct_def.members.push_back(array_member);
-            } else {
-                // 通常のメンバを追加
-                TypeInfo member_type_info = getTypeInfoFromString(base_type);
-                struct_def.add_member(member_name, member_type_info, base_type);
-            }
-            
+
             // 旧式の配列宣言をチェック（int data[2][2];）- エラーとして処理
             if (check(TokenType::TOK_LBRACKET)) {
                 error("Old-style array declaration is not supported in struct members. Use 'int[2][2] member_name;' instead of 'int member_name[2][2];'");
                 return nullptr;
             }
-            
+
             if (check(TokenType::TOK_COMMA)) {
                 advance(); // カンマをスキップ
                 continue;
@@ -3087,7 +3366,15 @@ ASTNode* RecursiveParser::parseStructDeclaration() {
         member_node->name = member.name;
         member_node->type_name = member.type_alias;
         member_node->type_info = member.type;
+        member_node->is_pointer = member.is_pointer;
+        member_node->pointer_depth = member.pointer_depth;
+        member_node->pointer_base_type_name = member.pointer_base_type_name;
+        member_node->pointer_base_type = member.pointer_base_type;
+        member_node->is_private_member = member.is_private;
         member_node->array_type_info = member.array_info;  // 配列情報をコピー
+        if (member.array_info.is_array()) {
+            member_node->is_array = true;
+        }
         node->arguments.push_back(std::unique_ptr<ASTNode>(member_node));
     }
     
@@ -3104,65 +3391,54 @@ ASTNode* RecursiveParser::parseStructTypedefDeclaration() {
     
     // メンバ変数の解析
     while (!check(TokenType::TOK_RBRACE) && !isAtEnd()) {
-        // メンバの型を解析
+        bool is_private_member = false;
+        if (check(TokenType::TOK_PRIVATE)) {
+            is_private_member = true;
+            advance();
+        }
+
         std::string member_type = parseType();
-        
         if (member_type.empty()) {
             error("Expected member type in struct definition");
             return nullptr;
         }
-        
-        // メンバ名のリストを解析
+
+        ParsedTypeInfo member_parsed = getLastParsedTypeInfo();
+
         do {
             if (!check(TokenType::TOK_IDENTIFIER)) {
                 error("Expected member name");
                 return nullptr;
             }
-            
+
             std::string member_name = current_token_.value;
             advance();
-            
-            // 配列型かチェック（member_type内に[n]があるか）
-            if (member_type.find('[') != std::string::npos) {
-                // "int[2]" から base_type="int" と dimensions を抽出
-                size_t bracket_pos = member_type.find('[');
-                std::string base_type = member_type.substr(0, bracket_pos);
-                std::string array_part = member_type.substr(bracket_pos);
-                
-                std::vector<ArrayDimension> dimensions;
-                size_t pos = 0;
-                while ((pos = array_part.find('[', pos)) != std::string::npos) {
-                    size_t end_pos = array_part.find(']', pos);
-                    if (end_pos == std::string::npos) {
-                        error("Malformed array type in struct member");
-                        return nullptr;
-                    }
-                    
-                    std::string size_str = array_part.substr(pos + 1, end_pos - pos - 1);
-                    int array_size = std::stoi(size_str);
-                    dimensions.push_back(ArrayDimension(array_size));
-                    pos = end_pos + 1;
-                }
-                
-                // 配列メンバを追加
-                TypeInfo member_type_info = getTypeInfoFromString(base_type);
-                StructMember array_member(member_name, member_type_info, base_type);
-                array_member.array_info = ArrayTypeInfo(member_type_info, dimensions);
-                struct_def.members.push_back(array_member);
-            } else {
-                // 通常のメンバを追加
-                TypeInfo member_type_info = getTypeInfoFromString(member_type);
-                struct_def.add_member(member_name, member_type_info, member_type);
+
+            ParsedTypeInfo var_parsed = member_parsed;
+            TypeInfo member_type_info = resolveParsedTypeInfo(var_parsed);
+
+            struct_def.add_member(member_name,
+                                  member_type_info,
+                                  var_parsed.full_type,
+                                  var_parsed.is_pointer,
+                                  var_parsed.pointer_depth,
+                                  var_parsed.base_type,
+                                  var_parsed.base_type_info,
+                                  is_private_member);
+
+            if (var_parsed.is_array) {
+                StructMember &added = struct_def.members.back();
+                added.array_info = var_parsed.array_info;
             }
-            
+
             if (check(TokenType::TOK_COMMA)) {
-                advance(); // カンマをスキップ
+                advance();
                 continue;
             } else {
                 break;
             }
         } while (true);
-        
+
         consume(TokenType::TOK_SEMICOLON, "Expected ';' after struct member");
     }
     
@@ -3197,10 +3473,16 @@ ASTNode* RecursiveParser::parseStructTypedefDeclaration() {
         member_node->name = member.name;
         member_node->type_name = member.type_alias;
         member_node->type_info = member.type;
+        member_node->is_pointer = member.is_pointer;
+        member_node->pointer_depth = member.pointer_depth;
+        member_node->pointer_base_type_name = member.pointer_base_type_name;
+        member_node->pointer_base_type = member.pointer_base_type;
+        member_node->is_private_member = member.is_private;
         
         // 配列メンバーの場合はarray_type_infoを設定
         if (member.array_info.is_array()) {
             member_node->array_type_info = member.array_info;
+            member_node->is_array = true;
         }
         
         node->arguments.push_back(std::unique_ptr<ASTNode>(member_node));
@@ -3584,10 +3866,36 @@ ASTNode* RecursiveParser::parseMemberAccess(ASTNode* object) {
         return method_call;
     }
     
-    // ネストしたメンバーアクセスの検出 (obj.member.submember)
-    if (check(TokenType::TOK_DOT)) {
-        error("Nested member access (obj.member.submember) is not supported yet. Consider using pointers in future implementation.");
-        return nullptr;
+    // ネストしたメンバーアクセスの検出と解析 (obj.member.submember)
+    std::vector<std::string> member_chain;
+    member_chain.push_back(member_name);
+    
+    // 連続するドット記法を解析
+    while (check(TokenType::TOK_DOT)) {
+        advance(); // consume '.'
+        
+        if (!check(TokenType::TOK_IDENTIFIER)) {
+            error("Expected member name after '.' in nested access");
+            return nullptr;
+        }
+        
+        std::string next_member = current_token_.value;
+        member_chain.push_back(next_member);
+        advance();
+    }
+    
+    // ネストした構造体アクセス用の特別なノードタイプ
+    if (member_chain.size() > 1) {
+        // 再帰的メンバーアクセス用の特別なノードタイプ
+        ASTNode* nested_access = new ASTNode(ASTNodeType::AST_MEMBER_ACCESS);
+        nested_access->left = std::unique_ptr<ASTNode>(object);
+        nested_access->name = member_chain[0]; // 最初のメンバー
+        
+        // 残りのメンバーパスを保存（将来の拡張用）
+        nested_access->member_chain = member_chain;
+        setLocation(nested_access, current_token_);
+        
+        return nested_access;
     }
     
     // 通常のメンバアクセス
@@ -3981,6 +4289,7 @@ ASTNode* RecursiveParser::parseImplDeclaration() {
     consume(TokenType::TOK_LBRACE, "Expected '{' after type name in impl declaration");
     
     ImplDefinition impl_def(interface_name, struct_name);
+    std::vector<std::unique_ptr<ASTNode>> method_nodes; // 所有権は一時的に保持し、最終的にASTへ移動
     
     // メソッド実装の解析
     while (!check(TokenType::TOK_RBRACE) && !isAtEnd()) {
@@ -4014,8 +4323,11 @@ ASTNode* RecursiveParser::parseImplDeclaration() {
         }
         
         // 関数宣言として解析
-        ASTNode* method_impl = parseFunctionDeclarationAfterName(return_type, method_name);
-        if (method_impl) {
+        ASTNode* method_impl_raw = parseFunctionDeclarationAfterName(return_type, method_name);
+        if (method_impl_raw) {
+            std::unique_ptr<ASTNode> method_impl(method_impl_raw);
+            debug_print("[IMPL_PARSE] After method '%s', current token = %s (type %d)\n",
+                        method_name.c_str(), current_token_.value.c_str(), (int)current_token_.type);
             // privateフラグを設定
             method_impl->is_private_method = is_private_method;
             // privateメソッドの場合はinterface署名チェックをスキップ
@@ -4072,8 +4384,9 @@ ASTNode* RecursiveParser::parseImplDeclaration() {
                 }
             }
             
-            // メソッド情報を保存
-            impl_def.methods.push_back(std::unique_ptr<ASTNode>(method_impl));
+            // メソッド情報を保存（ImplDefinitionにはポインタのみ保持）
+            impl_def.add_method(method_impl.get());
+            method_nodes.push_back(std::move(method_impl));
             debug_msg(DebugMsgId::PARSE_VAR_DECL, method_name.c_str(), "impl_method");
         }
     }
@@ -4086,7 +4399,7 @@ ASTNode* RecursiveParser::parseImplDeclaration() {
     if (interface_it != interface_definitions_.end()) {
         for (const auto& interface_method : interface_it->second.methods) {
             bool implemented = false;
-            for (const auto& impl_method : impl_def.methods) {
+            for (const auto* impl_method : impl_def.methods) {
                 if (impl_method->name == interface_method.name) {
                     implemented = true;
                     break;
@@ -4110,8 +4423,8 @@ ASTNode* RecursiveParser::parseImplDeclaration() {
         }
     }
     
-    // impl定義を保存
-    impl_definitions_.emplace_back(std::move(impl_def));
+    // impl定義を保存（ポインタ参照のみ保持）
+    impl_definitions_.push_back(impl_def);
     
     // ASTノードを作成
     ASTNode* node = new ASTNode(ASTNodeType::AST_IMPL_DECL);
@@ -4119,33 +4432,9 @@ ASTNode* RecursiveParser::parseImplDeclaration() {
     node->type_name = struct_name; // struct名を保存
     setLocation(node, current_token_);
     
-    // impl定義のメソッドをASTノードに保存
-    for (const auto& method : impl_definitions_.back().methods) {
-        // メソッドをASTノードにコピー（完全コピー）
-        ASTNode* method_copy = new ASTNode(method->node_type);
-        method_copy->name = method->name;
-        method_copy->type_info = method->type_info;
-        method_copy->type_name = method->type_name;
-        method_copy->is_const = method->is_const;
-        method_copy->is_private_method = method->is_private_method; // privateフラグをコピー
-        
-        // パラメータをコピー
-        for (const auto& param : method->parameters) {
-            ASTNode* param_copy = new ASTNode(param->node_type);
-            param_copy->name = param->name;
-            param_copy->type_info = param->type_info;
-            param_copy->type_name = param->type_name;
-            param_copy->is_array = param->is_array;
-            method_copy->parameters.push_back(std::unique_ptr<ASTNode>(param_copy));
-        }
-        
-        // 関数本体をコピー
-        if (method->body) {
-            // 簡略化: 本体の完全コピーは複雑なので、参照を共有
-            method_copy->body = std::unique_ptr<ASTNode>(method->body.get());
-        }
-        
-        node->arguments.push_back(std::unique_ptr<ASTNode>(method_copy));
+    // implメソッドの所有権をASTノードに移動
+    for (auto& method_node : method_nodes) {
+        node->arguments.push_back(std::move(method_node));
     }
     
     return node;

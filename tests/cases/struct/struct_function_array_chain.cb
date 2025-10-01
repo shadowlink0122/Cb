@@ -1,0 +1,93 @@
+// 構造体配列関数戻り値のチェーン処理テスト
+struct Person {
+    string name;
+    int age;
+};
+
+struct Product {
+    string name;
+    int price;
+    bool available;
+};
+
+// Person配列を返す関数
+Person[2] get_people() {
+    Person[2] people;
+    people[0].name = "Alice";
+    people[0].age = 25;
+    people[1].name = "Bob";
+    people[1].age = 30;
+    return people;
+}
+
+// Product配列を返す関数
+Product[3] get_products() {
+    Product[3] products;
+    products[0].name = "Laptop";
+    products[0].price = 1200;
+    products[0].available = true;
+    products[1].name = "Mouse";
+    products[1].price = 25;
+    products[1].available = false;
+    products[2].name = "Keyboard";
+    products[2].price = 80;
+    products[2].available = true;
+    return products;
+}
+
+// 大きな配列を返す関数
+Person[5] get_team() {
+    Person[5] team;
+    team[0].name = "Charlie";
+    team[0].age = 35;
+    team[1].name = "Diana";
+    team[1].age = 28;
+    team[2].name = "Eve";
+    team[2].age = 42;
+    team[3].name = "Frank";
+    team[3].age = 33;
+    team[4].name = "Grace";
+    team[4].age = 29;
+    return team;
+}
+
+int main() {
+    println("=== Struct Array Function Chain Access Test ===");
+    
+    // 基本的なチェーンアクセス
+    println("Basic chain access:");
+    println(get_people()[0].name);
+    println(get_people()[1].name);
+    println("Age 0:");
+    println(get_people()[0].age);
+    println("Age 1:");
+    println(get_people()[1].age);
+    
+    // 異なる構造体型でのテスト
+    println("\nProduct chain access:");
+    println(get_products()[0].name);
+    println(get_products()[1].name);
+    println(get_products()[2].name);
+    println("Prices:");
+    println(get_products()[0].price);
+    println(get_products()[1].price);
+    println(get_products()[2].price);
+    
+    // 境界値テスト
+    println("\nBoundary tests:");
+    println(get_team()[0].name);  // 最初の要素
+    println(get_team()[4].name);  // 最後の要素
+    println("First age:");
+    println(get_team()[0].age);
+    println("Last age:");
+    println(get_team()[4].age);
+    
+    // 中間要素のテスト
+    println("\nMiddle elements:");
+    println(get_team()[2].name);
+    println("Middle age:");
+    println(get_team()[2].age);
+    
+    println("\n=== All tests completed successfully ===");
+    return 0;
+}

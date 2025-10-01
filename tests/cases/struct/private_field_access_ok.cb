@@ -1,0 +1,32 @@
+// Struct private field success scenario
+
+struct SecretBox {
+    private int secret;
+};
+
+interface SecretBoxOps {
+    void runDemo();
+};
+
+impl SecretBoxOps for SecretBox {
+    void runDemo() {
+        self.secret = 42;
+        println("box secret after init = %d", self.secret);
+
+        SecretBox other = {};
+        other.secret = 100;
+        self.secret = other.secret;
+        println("box secret after copy = %d", self.secret);
+    }
+};
+
+int main() {
+    println("Private field ok test:");
+
+    SecretBox box = {};
+    SecretBoxOps ops = box;
+    ops.runDemo();
+
+    println("done");
+    return 0;
+}

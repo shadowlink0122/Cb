@@ -6,6 +6,17 @@
 
 using namespace RecursiveParserNS;
 
+struct ParsedTypeInfo {
+    std::string full_type;                 // 完全な型表現（ポインタ/配列含む）
+    std::string base_type;                 // 基本型（typedef解決後）
+    std::string original_type;             // typedef解決前の型名
+    bool is_pointer = false;               // ポインタ型かどうか
+    int pointer_depth = 0;                 // ポインタの深さ
+    TypeInfo base_type_info = TYPE_UNKNOWN;// 基本型のTypeInfo
+    bool is_array = false;                 // 配列型かどうか
+    ArrayTypeInfo array_info;              // 配列情報（多次元対応）
+};
+
 class RecursiveParser {
 public:
     RecursiveParser(const std::string& source, const std::string& filename = "");
@@ -42,6 +53,8 @@ private:
     
     // Type and declaration parsing
     std::string parseType();
+    const ParsedTypeInfo& getLastParsedTypeInfo() const { return last_parsed_type_info_; }
+    TypeInfo resolveParsedTypeInfo(const ParsedTypeInfo& parsed) const;
     ASTNode* parseTypedefDeclaration();
     ASTNode* parseStructDeclaration();           // struct宣言
     ASTNode* parseStructTypedefDeclaration();    // typedef struct宣言
@@ -94,6 +107,7 @@ private:
     ASTNode* parseEnumAccess();                   // enum値アクセス (EnumName::member)
     
     // Utility methods
+    ASTNode* cloneAstNode(const ASTNode* node);
     TypeInfo getTypeInfoFromString(const std::string& type_name);
     ASTNode* parseArrayLiteral();
     
@@ -114,6 +128,9 @@ private:
     
     // Union parsing helper
     bool parseUnionValue(UnionDefinition& union_def);
+    
+    // 直近に解析した型情報
+    ParsedTypeInfo last_parsed_type_info_;
     
 public:
     // enum定義へのアクセサ

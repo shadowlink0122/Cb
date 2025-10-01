@@ -1,0 +1,70 @@
+// プライベートメソッドチェーンへの外部アクセス試行テスト（エラーケース）
+
+interface IHelper {
+    int amplify(int value);
+    int shift(int value);
+};
+
+impl IHelper for int {
+    int amplify(int value) {
+        return value * 2;
+    }
+    
+    int shift(int value) {
+        return value + 3;
+    }
+};
+
+interface IProcessor {
+    int process(int value);
+    int doubleProcess(int first, int second);
+};
+
+impl IProcessor for int {
+    int process(int value) {
+        int clamped = self.clamp(value);
+        int helper_seed = self.createHelperSeed();
+        IHelper helper = helper_seed;
+        int stage1 = helper.amplify(clamped);
+        int stage2 = helper.shift(stage1);
+        return stage2;
+    }
+    
+    int doubleProcess(int first, int second) {
+        int helper_seed = self.createHelperSeed();
+        IHelper helper = helper_seed;
+        int firstStage = helper.shift(helper.amplify(self.clamp(first)));
+        int secondStage = helper.amplify(helper.shift(self.clamp(second)));
+        return firstStage + secondStage;
+    }
+    
+    private int createHelperSeed() {
+        return self;
+    }
+    
+    private int clamp(int value) {
+        if (value < 0) {
+            return 0;
+        }
+        if (value > 50) {
+            return 50;
+        }
+        return value;
+    }
+};
+
+int main() {
+    println("Private helper chain access error test:");
+    
+    int seed = 9;
+    IProcessor processor = seed;
+    
+    int safe_result = processor.process(25);
+    println("process(25) = %d", safe_result);
+    
+    // プライベートメソッドの外部呼び出しはエラーになるべき
+    processor.createHelperSeed();
+    println("Private helper access executed without enforcement");
+    
+    return 0;
+}

@@ -1,0 +1,54 @@
+// self 経由で private メンバーに対する複合代入が正しく動作することを検証するテスト
+
+struct SecretAccumulator {
+    private int hidden;
+    int shown;
+};
+
+interface ISecretControls {
+    void show();
+    void setup(int hidden_value, int shown_value);
+    void scale();
+    void applyDelta(int delta);
+};
+
+impl ISecretControls for SecretAccumulator {
+    void show() {
+        println("hidden=%d shown=%d", self.hidden, self.shown);
+    }
+
+    void setup(int hidden_value, int shown_value) {
+        self.hidden = hidden_value;
+        self.shown = shown_value;
+    }
+
+    void scale() {
+        // 複合代入 (乗算 / 乗算シフト) の動作確認
+        self.hidden *= 2;
+        self.shown <<= 1;
+    }
+
+    void applyDelta(int delta) {
+        // 複数の複合代入が連続して動作することを確認
+        self.hidden += delta;
+        self.shown -= delta;
+    }
+};
+
+int main() {
+    println("self member compound assign start");
+
+    SecretAccumulator acc = {
+        hidden: 7,
+        shown: 6
+    };
+
+    acc.show();
+    acc.scale();
+    acc.show();
+    acc.applyDelta(3);
+    acc.show();
+
+    println("self member compound assign end");
+    return 0;
+}

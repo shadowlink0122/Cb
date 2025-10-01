@@ -68,45 +68,46 @@
 ## 実装状況
 
 ### Phase 1: 基本機能 ✅（完成）
-- ✅ 型システム（プリミティブ型：tiny, short, int, long, string, char, bool）
-- ✅ 変数宣言・初期化（複数変数同時宣言対応）
-- ✅ 配列（静的サイズ）・配列リテラル
-- ✅ 関数定義・呼び出し（複合代入時の最適化済み）
-- ✅ 制御構造（if/else, for, while, break, continue, return）
-- ✅ **演算子（算術、比較、論理、代入、複合代入、インクリメント）**
+- ✅ **型システム**（プリミティブ型：tiny, short, int, long, string, char, bool）
+- ✅ **変数宣言・初期化**（複数変数同時宣言対応）
+- ✅ **配列システム**（静的配列・多次元配列・配列リテラル完全対応）
+- ✅ **関数定義・呼び出し**（関数戻り値型チェック、配列戻り値対応）
+- ✅ **制御構造**（if/else, for, while, break, continue, return）
+- ✅ **演算子完全実装**
   - ✅ **10種類の複合代入演算子**: `+=`, `-=`, `*=`, `/=`, `%=`, `&=`, `|=`, `^=`, `<<=`, `>>=`
   - ✅ **前置・後置インクリメント/デクリメント**: `++var`, `--var`, `var++`, `var--`
   - ✅ **配列要素複合代入**: `arr[index] += value`、`arr[i*2+1] *= (x+y)`
   - ✅ **自己代入機能**: 基本的な自己代入、配列自己代入、ビット演算自己代入
-- ✅ ストレージ修飾子（const, static）
-- ✅ 標準出力（print, printf風フォーマット指定子）
+- ✅ **ストレージ修飾子**（const, static）
+- ✅ **標準出力**（print, printf風フォーマット指定子）
 - ✅ **Union型システム**（TypeScript風完全実装）
-  - ✅ **リテラル値Union**: `typedef Status = 200 | 404 | 500;`
-  - ✅ **基本型Union**: `typedef Value = int | string;`
-  - ✅ **カスタム型Union**: `typedef ID = UserID | ProductID;`
-  - ✅ **構造体Union**: `typedef Entity = User | Product;`
-  - ✅ **配列Union**: `typedef ArrayUnion = int[5] | string[3];`
+  - ✅ **全種類のUnion対応**: リテラル値、基本型、カスタム型、構造体、配列Union
   - ✅ **混合Union**: `typedef Mixed = 42 | int | string;`
-  - ✅ **文字列処理**: 再帰的文字列実装を活用した完全な文字列対応
-  - ✅ **複合代入**: `+=`, `-=`, `*=`, `/=`, `%=` 演算子完全対応
-  - ✅ **型安全性**: 型不一致時の適切なエラーメッセージ
-  - ✅ **再帰的typedef互換性**: 継承チェーンでの型検証
-  - ✅ **包括的エラーハンドリング**: 13種類の異常系テスト
+  - ✅ **文字列処理・複合代入**: 完全対応
+  - ✅ **型安全性**: 厳密な型検証とエラーメッセージ
+  - ✅ **包括的エラーハンドリング**: 15種類の異常系テスト完全対応
 - ✅ **多次元配列戻り値処理**: typedef配列関数の完全対応
-  - ✅ **Variable Manager**: `ret.int_array_3d[0][0]`問題修正、全要素展開実装
-  - ✅ **Statement Executor**: ReturnException処理での多次元配列判定・次元情報設定
-  - ✅ **Array Manager**: multidim_array_values境界チェック強化
-  - ✅ **型判定ロジック**: typedef配列名から多次元配列の正確な識別
-- ✅ 包括的テストフレームワーク（統合テスト1116個、単体テスト26個）
-- ✅ 再帰下降パーサーによる構文解析
+- ✅ **包括的テストフレームワーク**（統合テスト1386個、ユニットテスト26個、100%成功率）
+- ✅ **再帰下降パーサー**による高効率構文解析
 
-### Phase 2: 中期目標 ✅（完成）
-- ✅ **struct 定義** - 構造体機能完全実装（リテラル初期化、配列メンバー、構造体配列）
-- ✅ **Union型システム** - TypeScript風Union型完全実装（リテラル値、基本型、カスタム型、構造体、配列Union対応、文字列処理・複合代入演算子完全対応）
-- ✅ **typedef システム** - 基本typedef、Union typedef、recursive typedef対応
-- ✅ **Interface/Implシステム** - 型安全なポリモーフィズム完全実装 🆕
+### Phase 2: 高度機能 ✅（完成）
+- ✅ **struct システム完全実装**
+  - ✅ **基本構造体機能**: 定義・宣言・メンバーアクセス・リテラル初期化
+  - ✅ **構造体配列**: 構造体配列・配列メンバー・ネストアクセス
+  - ✅ **printf/println統合**: 構造体メンバー完全対応
+  - ✅ **型安全性**: 構造体型チェック・境界検証
+  - ✅ **配列メンバー同期**: 個別代入とprintf評価の同期機能完全修正
+- ✅ **Union型システム完全実装**（TypeScript風）
+  - ✅ **全種類Union対応**: リテラル値・基本型・カスタム型・構造体・配列・混合Union
+  - ✅ **型安全性**: 厳密な型検証・再帰的typedef対応・包括的エラーハンドリング
+  - ✅ **実行時型変換**: 動的型変換・複合代入演算子完全対応
+- ✅ **typedef システム完全実装**
+  - ✅ **基本typedef**: 型エイリアス・再帰的typedef対応
+  - ✅ **Union typedef**: TypeScript風Union型定義
+  - ✅ **配列typedef**: 多次元配列typedef・戻り値対応
+- ✅ **Interface/Implシステム完全実装**
   - ✅ **プリミティブ型実装**: int, string, bool等への直接impl
-  - ✅ **構造体型実装**: struct型へのメソッド定義
+  - ✅ **構造体型実装**: struct型へのメソッド定義・self参照対応
   - ✅ **配列型実装**: 1次元・多次元配列型への実装
   - ✅ **Typedef型実装**: typedef型への独立impl実装
   - ✅ **再帰的Typedef独立性**: 各typedef階層での独立interface実装
@@ -114,33 +115,41 @@
   - ✅ **包括的エラー検出**: 未定義interface、重複実装、署名不一致
   - ✅ **メソッド呼び出し**: self参照対応の安全なメソッド実行
   - ✅ **プライベートメソッド**: impl内での詳細制御
-- ✅ enum定義（基本実装済み、Interface連携も完全実装） 🆕
-- 🚧 標準ライブラリ拡充（math.cb, stdio.cb部分実装）
-- ❌ Result型エラー処理
-- ❌ スマートポインタ（unique_ptr, shared_ptr）
+- ✅ **enum定義**（基本実装・Interface連携完全対応）
+- ✅ **標準ライブラリ基盤**（math.cb, stdio.cb）
 
-#### 構造体機能詳細 ✅（完全実装）
-- **基本構造体定義・使用**: 完全実装 ✅
-- **構造体リテラル初期化**: 名前付き・位置指定両対応 ✅
-- **構造体配列メンバー**: 個別代入・配列リテラル代入両対応 ✅
-- **構造体の配列**: 構造体配列リテラル初期化対応 ✅
-- **printf/println統合**: 構造体メンバー・配列要素完全対応 ✅
-- **統合テスト**: 767/767 (100%) ✅
-- **実践サンプル**: ダイクストラ法アルゴリズム実装 ✅
+#### 構造体機能完全実装状況 ✅
+現在のCb言語の構造体システムは完全に実装され、実用レベルに達しています：
 
-#### 構造体未実装機能 ❌
-- **ネストした構造体**: `obj.member.submember` 未サポート
-- **構造体関数引数・戻り値**: 未実装
-- **複雑なネストアクセス**: `obj.array[i].member[j]` 未サポート
-- **構造体継承**: 未実装
+**✅ 完全実装済み機能**:
+- **基本構造体定義・使用**: 完全実装 
+- **構造体リテラル初期化**: 名前付き・位置指定両対応・末尾カンマ対応 
+- **構造体配列メンバー**: 1次元・多次元配列メンバー・個別代入・配列リテラル代入両対応 
+- **構造体の配列**: 構造体配列リテラル初期化対応 
+- **printf/println統合**: 構造体メンバー・配列要素完全対応 
+- **配列メンバー同期**: 個別代入とprintf評価の同期機能完全修正
+- **多次元配列戻り値**: typedef配列関数の完全対応
+- **統合テスト**: 完全テストカバレッジ（100%成功率）
 
-### Phase 3: 長期目標 🚧/❌（一部実装・未実装）
-- ✅ **interface/trait システム** - Interface/Implシステム完全実装 🆕
-- ❌ モジュール・インポートシステム
-- ❌ ジェネリクス
-- ❌ 非同期処理（goroutine/channel）
-- ❌ ラムダ式
-- ❌ アトリビュート
+**🚧 将来実装予定機能**:
+- **ネストした構造体**: `obj.member.submember` をポインタ経由で解決（値メンバでの再帰はコンパイルエラー）
+- **構造体関数引数・戻り値**: 値渡し・構造体戻り値完全対応
+- **構造体継承**: 未実装（interface/implシステムで代替可能）
+
+### Phase 3: 将来実装予定 ❌/🚧
+- 🚧 **ポインタシステム**（実装中）
+    - `T*` / `T**` などのポインタ型と `nullptr` リテラル
+    - `new` / `delete` 文による動的メモリ確保と解放
+    - 構造体ポインタに対する `.` アクセスの暗黙デリファレンス
+    - 構造体の自己再帰・相互再帰はポインタメンバ経由のみ許可
+- ❌ **Result型エラー処理**（Go/Rust風の明示的エラーハンドリング）
+- ❌ **スマートポインタ**（unique_ptr, shared_ptr, weak_ptr）
+- ❌ **モジュール・インポートシステム**（TypeScript風）
+- ❌ **ジェネリクス**（型パラメータ・制約）
+- ❌ **非同期処理**（goroutine/channel）
+- ❌ **ラムダ式**（クロージャ）
+- ❌ **アトリビュート**（Rust風メタデータ）
+- 🚧 **標準ライブラリ拡充**（現在 math.cb, stdio.cb 基盤実装済み）
 
 ## 構文定義（BNF記法）
 
@@ -161,6 +170,7 @@ declaration     ::= variable_declaration
 type_specifier  ::= "void" | "tiny" | "short" | "int" | "long" 
                   | "string" | "char" | "bool" | identifier
                   | type_specifier "[" constant_expression "]"
+                  | type_specifier "*"
 
 storage_class   ::= "const" | "static" | "extern"
 ```
@@ -250,6 +260,7 @@ statement       ::= expression_statement
                   | selection_statement
                   | iteration_statement  
                   | jump_statement
+                  | delete_statement
                   | print_statement
 
 compound_statement ::= "{" statement_list "}"
@@ -272,6 +283,8 @@ jump_statement  ::= "break" ";"
                   | "return" expression ";"
 
 print_statement ::= "print" "(" argument_list ")" ";"
+
+delete_statement ::= "delete" expression ";"
 ```
 
 ### 式（Expression）
@@ -316,6 +329,8 @@ unary_expression ::= postfix_expression
                    | "!" unary_expression
                    | "+" unary_expression
                    | "-" unary_expression
+                   | "*" unary_expression
+                   | "&" unary_expression
 
 postfix_expression ::= primary_expression
                      | postfix_expression "[" expression "]"
@@ -328,9 +343,13 @@ primary_expression ::= identifier
                      | string_literal
                      | character_literal
                      | array_literal
+                     | "nullptr"
+                     | "new" type_specifier
+                     | "new" type_specifier "(" ")"
+                     | "new" type_specifier "(" argument_list ")"
                      | "(" expression ")"
 
-constant        ::= integer_constant | character_constant | boolean_constant
+constant        ::= integer_constant | character_constant | boolean_constant | "nullptr"
 
 character_literal ::= "'" character "'"
                     | "'" escape_sequence "'"
@@ -395,6 +414,15 @@ argument_list   ::= assignment_expression
 - **境界チェック**:
   - 配列アクセス時の自動境界検証
   - デバッグモードでの詳細エラー情報
+
+#### ポインタ型システム（実装中） 🚧
+- 型宣言: `T*`, `T**` のように `*` を重ねて表記。既存の `type_specifier` に `*` を付与するだけで複数段ポインタを表現できる。
+- デフォルト値は `nullptr`。未初期化ポインタには自動的に `nullptr` が代入される。
+- `new T` は `T*` を返す式、`new T()` / `new T(args...)` で初期化パターンを拡張。
+- `delete expr;` で解放。`nullptr` に対しては安全。解放成功後は暗黙に `nullptr` を代入する。
+- 構造体ポインタに対する `.` アクセスは 1 段の暗黙デリファレンスを行う（`ptr.member` → `(*ptr).member`）。必要に応じて `*ptr` を明示して多段デリファレンスする。
+- `&expr` と `*expr` を単項演算子としてサポート。`sizeof(T)` は実装フェーズ2で対応。
+- 構造体の自己再帰・相互再帰はポインタメンバ経由のみに限定し、値メンバでの無限再帰をコンパイル時に検出してエラーにする。
 - **メモリ管理**:
   - RAII原則による自動メモリ管理
   - 効率的な再割り当て戦略（capacity doubling等）
@@ -660,8 +688,11 @@ int main() {
     // 名前付き初期化
     Point p1 = {x: 10, y: 20, label: "Origin"};
     
+    // 末尾カンマ対応
+    Point p2 = {x: 5, y: 15, };
+    
     // 位置指定初期化
-    Point p2 = {30, 40, "Target"};
+    Point p3 = {30, 40, "Target"};
     
     // 構造体配列初期化
     Point[3] points = [
@@ -678,12 +709,19 @@ int main() {
 ```cb
 struct Matrix {
     string name;
-    int data[6];  // 2x3行列として使用
+    int data[6];  // 1次元配列として使用
     int rows;
     int cols;
 }
 
+struct Matrix3D {
+    string name;
+    int[3][3] data;  // 真の多次元配列メンバー
+    int size;
+}
+
 int main() {
+    // 1次元配列メンバー
     Matrix m;
     m.name = "Sample Matrix";
     m.rows = 2;
@@ -696,8 +734,25 @@ int main() {
     m.data[0] = 10;
     m.data[5] = 60;
     
+    // 多次元配列メンバー
+    Matrix3D mat3d;
+    mat3d.name = "3D Matrix";
+    mat3d.size = 3;
+    
+    // 多次元配列リテラル代入
+    mat3d.data = [
+        [1, 2, 3],
+        [4, 5, 6],
+        [7, 8, 9]
+    ];
+    
+    // 個別要素アクセス
+    mat3d.data[0][0] = 100;
+    mat3d.data[2][2] = 900;
+    
     // printf統合
     print("Matrix %s: [%d, %d, %d]", m.name, m.data[0], m.data[1], m.data[2]);
+    print("3D Matrix %s [0][0]: %d", mat3d.name, mat3d.data[0][0]);
     
     return 0;
 }
@@ -753,22 +808,47 @@ int main() {
 }
 ```
 
-##### 構造体の関数引数・戻り値（未実装）❌
+##### 構造体の関数引数・戻り値（実装済み）✅
 ```cb
 struct Rectangle {
     int width;
     int height;
 }
 
-// ❌ 未実装: 構造体引数
+struct Point {
+    int x;
+    int y;
+}
+
+// ✅ 構造体引数（値渡し）
 int calculate_area(Rectangle rect) {
     return rect.width * rect.height;
 }
 
-// ❌ 未実装: 構造体戻り値
+// ✅ 構造体戻り値
 Rectangle create_rectangle(int w, int h) {
     Rectangle r = {width: w, height: h};
     return r;
+}
+
+// ✅ 複数構造体引数
+Point add_points(Point a, Point b) {
+    Point result;
+    result.x = a.x + b.x;
+    result.y = a.y + b.y;
+    return result;
+}
+
+int main() {
+    Rectangle rect = create_rectangle(10, 5);
+    int area = calculate_area(rect);
+    
+    Point p1 = {x: 3, y: 4};
+    Point p2 = {x: 1, y: 2};
+    Point sum = add_points(p1, p2);
+    
+    print("Area: %d, Sum: (%d, %d)", area, sum.x, sum.y);
+    return 0;
 }
 ```
 
@@ -804,14 +884,12 @@ int main() {
 
 **現在の制限事項**:
 - ネストした構造体メンバーアクセス (`obj.member.submember`) は未サポート
-- 構造体の関数引数・戻り値は未実装
 - 複雑なネストした配列アクセス (`obj.array[i].member[j]`) は未サポート
 - 構造体継承は未実装
 
 **回避策**:
 - フラット構造体を使用してネストを避ける
-- 構造体メンバーを個別に関数に渡す
-- 1次元配列を使用して多次元アクセスを手動計算で実現
+- 構造体メンバーは関数引数・戻り値として完全対応済み
 
 ### 列挙型 🚧
 C、TypeScriptライクな列挙型:
@@ -844,7 +922,7 @@ interface Drawable {
 
 ### インターフェース実装 ✅
 ```cb
-impl Rectangle : Drawable {
+impl Drawable for Rectangle {
     void draw() {
         // 実装
     }
@@ -1128,7 +1206,7 @@ interface Drawable {
 }
 
 // Primitive type implementation
-impl int : Drawable {
+impl Drawable for int {
     void draw() {
         println("Drawing number: %d", self);
     }
@@ -1144,7 +1222,7 @@ struct Circle {
     int radius;
 }
 
-impl Circle : Drawable {
+impl Drawable for Circle {
     void draw() {
         println("Drawing circle at (%d, %d) with radius %d", 
                 self.x, self.y, self.radius);
@@ -1156,7 +1234,7 @@ impl Circle : Drawable {
 }
 
 // Array implementation
-impl int[] : Drawable {
+impl Drawable for int[] {
     void draw() {
         print("Drawing array: [");
         for (int i = 0; i < len(self); i++) {
@@ -1178,7 +1256,7 @@ typedef TreeNode {
     TreeNode* right;
 }
 
-impl TreeNode : Drawable {
+impl Drawable for TreeNode {
     void draw() {
         println("Drawing tree node with value: %d", self.value);
         if (self.left != null) {
@@ -1233,7 +1311,7 @@ interface Calculator {
     int multiply(int a, int b);
 }
 
-impl int : Calculator {
+impl Calculator for int {
     int add(int a, int b) {
         return a + b;
     }
@@ -1245,7 +1323,7 @@ interface Formatter {
     void format();
 }
 
-impl int : Formatter {
+impl Formatter for int {
     int format() {  // 戻り値型が void でない → コンパイルエラー
         return 0;
     }
@@ -1256,7 +1334,7 @@ interface Processor {
     void process(int value);
 }
 
-impl int : Processor {
+impl Processor for int {
     void process(double value) {  // パラメータ型が一致しない → コンパイルエラー
         println("Processing: %f", value);
     }

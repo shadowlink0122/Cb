@@ -226,7 +226,7 @@ void CommonOperations::check_array_bounds(const Variable *var, int64_t index,
 
 void CommonOperations::check_const_assignment(const Variable *var,
                                               const std::string &var_name) {
-    if (var->is_const) {
+    if (var->is_const && var->is_assigned) {
         throw std::runtime_error("Cannot assign to const variable: " +
                                  var_name);
     }

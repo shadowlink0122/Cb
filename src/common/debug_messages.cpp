@@ -979,6 +979,12 @@ static std::vector<DebugMessageTemplate> init_debug_messages() {
     messages[static_cast<int>(DebugMsgId::METHOD_CALL_INTERFACE)] = {
         "[METHOD] Interface method call: %s on type: %s",
         "[METHOD] interfaceメソッド呼び出し: %s 型: %s"};
+    messages[static_cast<int>(DebugMsgId::METHOD_CALL_CHAIN)] = {
+        "[METHOD] Processing method chain: %s",
+        "[METHOD] メソッドチェーン処理: %s"};
+    messages[static_cast<int>(DebugMsgId::METHOD_CALL_CHAIN_TEMP)] = {
+        "[METHOD] Created temporary variable for chain: %s",
+        "[METHOD] チェーン用一時変数作成: %s"};
     messages[static_cast<int>(DebugMsgId::METHOD_CALL_SELF_CONTEXT_SET)] = {
         "[METHOD] Self context set for: %s",
         "[METHOD] selfコンテキスト設定: %s"};

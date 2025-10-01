@@ -1,0 +1,185 @@
+// type_inference_chain.cb
+// インターフェース実装とプリミティブ型を跨いだメソッドチェーンの検証テスト
+
+interface Calculable {
+    int add(int amount);
+    int multiply(int factor);
+};
+
+struct Counter {
+    int value;
+};
+
+struct Container {
+    Counter stored;
+    int bias;
+};
+
+struct TeamStats {
+    int leader_start;
+    int leader_boost;
+    int support_boost;
+};
+
+typedef Metric = Counter | int;
+
+impl Calculable for Counter {
+    int add(int amount) {
+        self.value = self.value + amount;
+        return self.value;
+    }
+
+    int multiply(int factor) {
+        self.value = self.value * factor;
+        return self.value;
+    }
+};
+
+impl Calculable for int {
+    int add(int amount) {
+        return self + amount;
+    }
+
+    int multiply(int factor) {
+        return self * factor;
+    }
+};
+
+
+Counter make_counter(int start) {
+    Counter c;
+    c.value = start;
+    return c;
+}
+
+Container create_container(int start, int bias) {
+    Container container;
+    container.stored = make_counter(start);
+    container.bias = bias;
+    return container;
+}
+
+Counter container_pipeline(int start, int bias, int delta, int scale) {
+    int combined = start + bias + delta;
+    int scaled = combined * scale;
+    Counter result = make_counter(scaled);
+    return result;
+}
+
+Counter seeded_counter(int base, int seed) {
+    Counter counter = make_counter(base);
+    counter.value = counter.value + seed;
+    return counter;
+}
+
+Metric create_metric(bool use_counter, int seed) {
+    if (use_counter) {
+        Counter counter_seed = make_counter(seed);
+        return counter_seed;
+    }
+
+    return seed;
+}
+
+int compute_union_counter_chain() {
+    Counter union_counter_value = make_counter(3);
+    Metric union_counter = union_counter_value;
+    Calculable union_counter_calc = union_counter_value;
+    int union_counter_after_add = union_counter_calc.add(5);
+    Calculable union_counter_after = union_counter_after_add;
+    int union_counter_chain = union_counter_after.multiply(4);
+    union_counter = union_counter_after; // store final as union variant
+    return union_counter_chain;
+}
+
+int compute_union_int_chain() {
+    int union_int_value = 6;
+    Metric union_int = union_int_value;
+    Calculable union_int_calc = union_int_value;
+    int union_int_after_multiply = union_int_calc.multiply(5);
+    Calculable union_int_after = union_int_after_multiply;
+    int union_int_chain = union_int_after.add(-8);
+    union_int = union_int_after; // update union to alternate variant
+    return union_int_chain;
+}
+
+Calculable produce_dynamic(bool use_counter) {
+    if (use_counter) {
+        Counter seeded = make_counter(2);
+        Calculable counter_calc = seeded;
+        return counter_calc;
+    }
+    int primitive_value = 5;
+    Calculable primitive_calc = primitive_value;
+    return primitive_calc;
+}
+
+int get_primitive_value() {
+    return 12;
+}
+
+int main() {
+    Counter base_counter = make_counter(10);
+    Calculable counter_calc = base_counter;
+
+    int chain_on_counter = counter_calc.add(5).multiply(2).add(3);
+    println("%d", chain_on_counter); // 33
+
+    int mixed_chain = make_counter(4).multiply(3).add(2);
+    println("%d", mixed_chain); // 14
+
+    int primitive = 7;
+    int chain_on_primitive = primitive.add(5).multiply(2).add(-4);
+    println("%d", chain_on_primitive); // 20
+
+    int primitive_from_func = get_primitive_value();
+    Calculable dynamic_calc = primitive_from_func;
+    int dynamic_chain = dynamic_calc.multiply(3).add(1);
+    println("%d", dynamic_chain); // 37
+
+    Counter fresh_counter = make_counter(9);
+    Calculable dynamic_counter = fresh_counter;
+    int counter_then_primitive_chain = dynamic_counter.add(0).multiply(4);
+    println("%d", counter_then_primitive_chain); // 36
+
+    int inline_chain = make_counter(9).add(2).multiply(5).add(-5);
+    println("%d", inline_chain); // 50
+
+    Counter pipeline_counter = container_pipeline(6, 4, 5, 3);
+    Calculable pipeline_calc = pipeline_counter;
+    int pipeline_chain = pipeline_calc.add(-2).multiply(1);
+    println("%d", pipeline_chain); // 43
+
+    Counter seeded = seeded_counter(2, 8);
+    Calculable seeded_calc = seeded;
+    int seeded_chain = seeded_calc.multiply(2).add(10);
+    println("%d", seeded_chain); // 30
+
+    Counter[2] counter_array;
+    counter_array[0] = make_counter(3);
+    counter_array[1] = make_counter(8);
+    int array_counter_chain = counter_array[1].add(-3).multiply(2);
+    println("%d", array_counter_chain); // 10
+
+    int dynamic_true = produce_dynamic(true).add(3).multiply(4);
+    println("%d", dynamic_true); // 20
+
+    int dynamic_false = produce_dynamic(false).multiply(3).add(1);
+    println("%d", dynamic_false); // 16
+
+    TeamStats ranked_team = { leader_start: 5, leader_boost: 2, support_boost: 4 };
+    Counter leader_counter = make_counter(ranked_team.leader_start);
+    Calculable struct_chain_calc = leader_counter;
+    int struct_after_add = struct_chain_calc.add(ranked_team.leader_boost);
+    Calculable struct_chain_after = struct_after_add;
+    int struct_field_chain = struct_chain_after.multiply(ranked_team.support_boost);
+    println("%d", struct_field_chain); // 28
+
+    int union_counter_chain = compute_union_counter_chain();
+    println("%d", union_counter_chain); // 32
+
+    int union_int_chain = compute_union_int_chain();
+    println("%d", union_int_chain); // 22
+
+    return 0;
+}

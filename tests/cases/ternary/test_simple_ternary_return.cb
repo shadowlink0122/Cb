@@ -1,0 +1,36 @@
+// シンプルな三項演算子戻り値テスト
+int simple_ternary(bool condition) {
+    return condition ? 1 : 0;
+}
+
+string get_message(bool success) {
+    return success ? "Success" : "Failure";
+}
+
+int main() {
+    // シンプルな三項演算子テスト
+    int result1 = simple_ternary(true);
+    if (result1 != 1) {
+        print("ERROR: Expected 1, got %d", result1);
+        return 1;
+    }
+    
+    int result2 = simple_ternary(false);
+    if (result2 != 0) {
+        print("ERROR: Expected 0, got %d", result2);
+        return 1;
+    }
+    
+    string msg = get_message(true);
+    if (msg != "Success") {
+        print("ERROR: Expected 'Success', got '%s'", msg);
+        return 1;
+    }
+    
+    // 三項演算子を使った結果表示
+    int test_value = 5;
+    string result = test_value > 0 ? "pos" : "neg";
+    println("Result: %s", result);
+    
+    return 0;
+}

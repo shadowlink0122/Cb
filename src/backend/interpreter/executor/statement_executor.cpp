@@ -128,7 +128,8 @@ void StatementExecutor::execute_assignment(const ASTNode *node) {
         // 右辺が構造体戻り値関数の場合の特別処理
         if (node->right && node->right->node_type == ASTNodeType::AST_FUNC_CALL) {
             try {
-                int64_t rvalue = interpreter_.evaluate(node->right.get());
+                // 関数呼び出し結果を評価（戻り値は現在未使用だが、副作用のため実行）
+                interpreter_.evaluate(node->right.get());
                 // 通常の数値戻り値の場合は通常処理を継続
             } catch (const ReturnException& ret) {
                 if (ret.is_struct) {
@@ -168,7 +169,52 @@ void StatementExecutor::execute_assignment(const ASTNode *node) {
             }
         }
         
-        int64_t rvalue = interpreter_.evaluate(node->right.get());
+        // 右辺の評価（構造体変数やその他の式）
+        int64_t rvalue;
+        try {
+            rvalue = interpreter_.evaluate(node->right.get());
+        } catch (const ReturnException& ret) {
+            if (ret.is_struct) {
+                // 構造体変数または構造体戻り値を配列要素に代入
+                std::string element_name = interpreter_.extract_array_element_name(node->left.get());
+                debug_msg(DebugMsgId::INTERPRETER_STRUCT_REGISTERED, 
+                          "Assigning struct variable/return value to array element: %s", element_name.c_str());
+                
+                std::cerr << "DEBUG: Struct assignment to array element: " << element_name << std::endl;
+                std::cerr << "DEBUG: struct_type_name=" << ret.struct_value.struct_type_name << std::endl;
+                std::cerr << "DEBUG: struct_members.size()=" << ret.struct_value.struct_members.size() << std::endl;
+                
+                // 構造体データをデバッグ
+                for (const auto& member : ret.struct_value.struct_members) {
+                    std::cerr << "DEBUG: member[" << member.first << "] = " << member.second.value 
+                             << " (assigned=" << member.second.is_assigned << ")" << std::endl;
+                }
+                
+                // 構造体変数を作成・代入
+                interpreter_.current_scope().variables[element_name] = ret.struct_value;
+                
+                Variable& assigned_var = interpreter_.current_scope().variables[element_name];
+                
+                // 個別メンバー変数も更新する必要がある
+                for (const auto& member : assigned_var.struct_members) {
+                    std::string member_path = element_name + "." + member.first;
+                    Variable* member_var = interpreter_.find_variable(member_path);
+                    if (member_var) {
+                        member_var->value = member.second.value;
+                        member_var->str_value = member.second.str_value;
+                        member_var->is_assigned = member.second.is_assigned;
+                        std::cerr << "DEBUG: Updated member variable: " << member_path 
+                                 << " = " << member.second.value 
+                                 << " (assigned=" << member.second.is_assigned << ")" << std::endl;
+                    }
+                }
+                
+                return;
+            } else {
+                // その他の戻り値は再投げ
+                throw;
+            }
+        }
         
         // 多次元配列アクセスかチェック
         if (node->left->left && node->left->left->node_type == ASTNodeType::AST_ARRAY_REF) {
@@ -303,6 +349,25 @@ void StatementExecutor::execute_assignment(const ASTNode *node) {
                 }
             }
         } else {
+            // 通常の変数代入
+            // Union型変数への代入の特別処理
+            if (node->left && node->left->node_type == ASTNodeType::AST_VARIABLE) {
+                Variable* var = interpreter_.find_variable(node->left->name);
+                if (var && var->type == TYPE_UNION) {
+                    interpreter_.assign_union_variable(node->left->name, node->right.get());
+                    return;
+                }
+            }
+            
+            // node->nameベースの代入でもUnion型チェック
+            if (!node->name.empty()) {
+                Variable* var = interpreter_.find_variable(node->name);
+                if (var && var->type == TYPE_UNION) {
+                    interpreter_.assign_union_variable(node->name, node->right.get());
+                    return;
+                }
+            }
+            
             int64_t value = interpreter_.evaluate(node->right.get());
             if (node->right->node_type == ASTNodeType::AST_STRING_LITERAL) {
                 interpreter_.assign_variable(node->name, node->right->str_value);
@@ -319,6 +384,12 @@ void StatementExecutor::execute_variable_declaration(const ASTNode *node) {
                   << ", type_info: " << (int)node->type_info
                   << ", type_name: " << node->type_name << std::endl;
     }
+    // 初期化式または右辺がある場合の特別処理
+    if (node->init_expr || node->right) {
+        // 初期化ノードは現在未使用だが、将来の機能拡張のため残す
+        // ASTNode* init_node = node->init_expr ? node->init_expr.get() : node->right.get();
+    }
+    
     // Debug output removed - use --debug option if needed
     
     Variable var;
@@ -414,10 +485,8 @@ void StatementExecutor::execute_variable_declaration(const ASTNode *node) {
     interpreter_.current_scope().variables[node->name] = var;
     
     if (init_node) {
-        printf("DEBUG: Variable initialization, init_node type = %d\n", static_cast<int>(init_node->node_type));
         if (init_node->node_type == ASTNodeType::AST_TERNARY_OP) {
             // 三項演算子による初期化
-            printf("DEBUG: Calling execute_ternary_variable_initialization\n");
             execute_ternary_variable_initialization(node, init_node);
         } else if (var.is_array && init_node->node_type == ASTNodeType::AST_ARRAY_LITERAL) {
             // 配列リテラル初期化
@@ -498,7 +567,21 @@ void StatementExecutor::execute_variable_declaration(const ASTNode *node) {
                     target_var.is_assigned = true;
                 } else {
                     // 非配列戻り値の場合
-                    if (ret.type == TYPE_STRING) {
+                    if (ret.is_struct) {
+                        // 構造体戻り値の場合
+                        // printf("STRUCT_VAR_DECL_DEBUG: Assigning struct return to variable %s\n", node->name.c_str());
+                        
+                        // 変数を構造体型に設定
+                        Variable& target_var = interpreter_.current_scope().variables[node->name];
+                        target_var = ret.struct_value;  // 構造体をコピー
+                        target_var.is_assigned = true;
+                        
+                        // 個別メンバー変数も作成
+                        for (const auto& member : ret.struct_value.struct_members) {
+                            std::string member_path = node->name + "." + member.first;
+                            interpreter_.current_scope().variables[member_path] = member.second;
+                        }
+                    } else if (ret.type == TYPE_STRING) {
                         interpreter_.current_scope().variables[node->name].str_value = ret.str_value;
                     } else {
                         interpreter_.current_scope().variables[node->name].value = ret.value;
@@ -519,7 +602,20 @@ void StatementExecutor::execute_variable_declaration(const ASTNode *node) {
                     }
                     interpreter_.current_scope().variables[node->name].is_assigned = true;
                 } catch (const ReturnException& ret) {
-                    if (ret.type == TYPE_STRING) {
+                    if (ret.is_struct) {
+                        // 構造体戻り値の場合
+                        printf("STRUCT_INIT_DEBUG: Assigning struct return to variable %s\n", node->name.c_str());
+                        
+                        Variable& target_var = interpreter_.current_scope().variables[node->name];
+                        target_var = ret.struct_value;  // 構造体をコピー
+                        target_var.is_assigned = true;
+                        
+                        // 個別メンバー変数も作成
+                        for (const auto& member : ret.struct_value.struct_members) {
+                            std::string member_path = node->name + "." + member.first;
+                            interpreter_.current_scope().variables[member_path] = member.second;
+                        }
+                    } else if (ret.type == TYPE_STRING) {
                         interpreter_.current_scope().variables[node->name].str_value = ret.str_value;
                         interpreter_.current_scope().variables[node->name].type = TYPE_STRING;
                     } else {
@@ -766,9 +862,31 @@ void StatementExecutor::execute_member_assignment(const ASTNode* node) {
     if (node->right->node_type == ASTNodeType::AST_STRING_LITERAL) {
         interpreter_.assign_struct_member(obj_name, member_name, node->right->str_value);
     } else if (node->right->node_type == ASTNodeType::AST_VARIABLE) {
-        // 変数参照の場合、文字列変数か数値変数か判断
+        // 変数参照の場合、構造体変数か数値/文字列変数か判断
         Variable* right_var = interpreter_.find_variable(node->right->name);
-        if (right_var && right_var->type == TYPE_STRING) {
+        
+        if (!right_var) {
+            throw std::runtime_error("Right-hand variable not found: " + node->right->name);
+        }
+        
+        // 構造体変数の場合、ReturnExceptionをキャッチして構造体を代入
+        if (right_var->type == TYPE_STRUCT) {
+            try {
+                // 構造体変数を評価（ReturnExceptionが投げられる）
+                interpreter_.evaluate(node->right.get());
+                throw std::runtime_error("Expected struct variable to throw ReturnException");
+            } catch (const ReturnException& ret_ex) {
+                if (ret_ex.struct_value.type == TYPE_STRUCT) {
+                    std::cerr << "DEBUG: Assigning struct to member: " << obj_name << "." << member_name << std::endl;
+                    std::cerr << "DEBUG: Source struct type: " << ret_ex.struct_value.struct_type_name << std::endl;
+                    
+                    // 構造体全体をメンバーに代入
+                    interpreter_.assign_struct_member_struct(obj_name, member_name, ret_ex.struct_value);
+                } else {
+                    throw std::runtime_error("Variable is not a struct for struct member assignment");
+                }
+            }
+        } else if (right_var->type == TYPE_STRING) {
             interpreter_.assign_struct_member(obj_name, member_name, right_var->str_value);
         } else {
             int64_t value = interpreter_.evaluate(node->right.get());

@@ -1,0 +1,224 @@
+// 複雑なチェーン処理と型推論の統合テスト
+
+struct ChainProcessor {
+    int value;
+    string name;
+    bool active;
+};
+
+interface FluentAPI {
+    int calculate(int input);
+    int increment();
+    int decrement();
+    int multiply(int factor);
+    int divide(int divisor);
+    bool isEven();
+    bool isPositive();
+    int getValue();
+    ChainProcessor activate();
+    ChainProcessor deactivate();
+    ChainProcessor setName(string newName);
+};
+
+impl FluentAPI for ChainProcessor {
+    int calculate(int input) {
+        return self.value + input;
+    }
+    
+    int increment() {
+        self.value = self.value + 1;
+        return self.value;
+    }
+    
+    int decrement() {
+        self.value = self.value - 1;
+        return self.value;
+    }
+    
+    int multiply(int factor) {
+        self.value = self.value * factor;
+        return self.value;
+    }
+    
+    int divide(int divisor) {
+        if (divisor != 0) {
+            self.value = self.value / divisor;
+        }
+        return self.value;
+    }
+    
+    bool isEven() {
+        return (self.value % 2) == 0;
+    }
+    
+    bool isPositive() {
+        return self.value > 0;
+    }
+    
+    int getValue() {
+        return self.value;
+    }
+    
+    ChainProcessor activate() {
+        self.active = true;
+        return self;
+    }
+    
+    ChainProcessor deactivate() {
+        self.active = false;
+        return self;
+    }
+    
+    ChainProcessor setName(string newName) {
+        self.name = newName;
+        return self;
+    }
+};
+
+// 三項演算子を使った複雑な条件分岐
+int complex_condition(int x, int y, int z) {
+    return (x > y) ? 
+        ((y > z) ? x + y : x + z) : 
+        ((x > z) ? y + x : y + z);
+}
+
+// ネストした三項演算子での型推論
+string type_classification(int value) {
+    return (value > 0) ?
+        ((value > 100) ? "large_positive" : "small_positive") :
+        ((value < -100) ? "large_negative" : 
+            (value == 0) ? "zero" : "small_negative");
+}
+
+int main() {
+    println("=== Complex Chain Processing and Type Inference Test ===");
+    
+    // 1. 基本的なチェーン処理と型推論
+    ChainProcessor proc1;
+    proc1.value = 10;
+    proc1.name = "Processor1";
+    proc1.active = false;
+    
+    FluentAPI api1 = proc1;
+    
+    // 条件に基づく操作選択
+    bool should_increment = true;
+    int result1 = should_increment ? api1.increment() : api1.decrement();
+    println("Conditional operation result: %d", result1);  // 11
+    
+    // 2. 複雑な条件分岐とメソッドチェーン
+    ChainProcessor proc2;
+    proc2.value = 8;
+    proc2.name = "Processor2";
+    proc2.active = true;
+    
+    FluentAPI api2 = proc2;
+    
+    // 三重ネスト条件
+    bool is_even = api2.isEven();
+    bool is_positive = api2.isPositive();
+    bool is_active = proc2.active;
+    
+    int result2 = is_positive ?
+        (is_even ? 
+            (is_active ? api2.multiply(3) : api2.multiply(2)) :
+            (is_active ? api2.increment() : api2.decrement())) :
+        api2.multiply(-1);
+    
+    println("Triple nested result: %d", result2);  // 8 * 3 = 24
+    
+    // 3. 動的型推論テスト
+    ChainProcessor proc3;
+    proc3.value = 15;
+    proc3.name = "DynamicProcessor";
+    proc3.active = false;
+    
+    FluentAPI api3 = proc3;
+    
+    // 実行時条件に基づく型推論
+    int threshold = 10;
+    int operation_result = (proc3.value > threshold) ?
+        ((proc3.value % 3 == 0) ? api3.divide(3) : api3.multiply(2)) :
+        ((proc3.value % 2 == 0) ? api3.increment() : api3.decrement());
+    
+    println("Dynamic type inference result: %d", operation_result);  // 15 / 3 = 5
+    
+    // 4. 文字列型推論テスト
+    string classification1 = type_classification(150);
+    string classification2 = type_classification(-150);
+    string classification3 = type_classification(0);
+    string classification4 = type_classification(-50);
+    
+    println("Classification 150: %s", classification1);    // large_positive
+    println("Classification -150: %s", classification2);   // large_negative  
+    println("Classification 0: %s", classification3);      // zero
+    println("Classification -50: %s", classification4);    // small_negative
+    
+    // 5. 混合型チェーン処理
+    ChainProcessor proc4;
+    proc4.value = 20;
+    proc4.name = "MixedProcessor";
+    proc4.active = true;
+    
+    FluentAPI api4 = proc4;
+    
+    // bool戻り値を条件として使用
+    int mixed_result = api4.isEven() ?
+        (api4.isPositive() ? api4.divide(4) : api4.multiply(-1)) :
+        (api4.isPositive() ? api4.increment() : api4.decrement());
+    
+    println("Mixed type chain result: %d", mixed_result);  // 20 / 4 = 5
+    
+    // 6. 深いネスト処理（6層）
+    ChainProcessor proc5;
+    proc5.value = 12;
+    proc5.name = "DeepNested";
+    proc5.active = true;
+    
+    FluentAPI api5 = proc5;
+    
+    int deep_result = (proc5.value > 10) ?
+        ((proc5.value > 15) ?
+            ((proc5.value > 20) ? api5.multiply(5) : api5.multiply(4)) :
+            ((proc5.value > 12) ? api5.multiply(3) : 
+                ((proc5.value == 12) ? api5.multiply(2) : api5.increment()))) :
+        ((proc5.value > 5) ?
+            ((proc5.value > 8) ? api5.decrement() : api5.increment()) :
+            api5.multiply(-1));
+    
+    println("Deep nested result: %d", deep_result);  // 12 * 2 = 24
+    
+    // 7. 関数呼び出しとチェーン処理の組み合わせ
+    int complex_val = complex_condition(30, 20, 10);
+    
+    ChainProcessor proc6;
+    proc6.value = complex_val;
+    proc6.name = "ComplexProcessor";
+    proc6.active = false;
+    
+    FluentAPI api6 = proc6;
+    
+    int final_result = (complex_val > 40) ?
+        api6.divide(10) :
+        ((complex_val > 30) ? api6.divide(5) : api6.increment());
+    
+    println("Function + chain result: %d", final_result);  // 50 / 10 = 5
+    
+    // 8. 型推論の境界テスト
+    ChainProcessor proc7;
+    proc7.value = 0;
+    proc7.name = "BoundaryTest";
+    proc7.active = true;
+    
+    FluentAPI api7 = proc7;
+    
+    // ゼロ除算回避付きチェーン処理
+    int boundary_result = (proc7.value == 0) ?
+        api7.increment() :
+        ((proc7.value > 0) ? api7.divide(proc7.value) : api7.multiply(-1));
+    
+    println("Boundary test result: %d", boundary_result);  // 0 + 1 = 1
+    
+    println("=== Complex Chain Processing Complete ===");
+    return 0;
+}

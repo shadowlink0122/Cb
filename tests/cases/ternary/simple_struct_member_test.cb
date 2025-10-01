@@ -1,0 +1,30 @@
+// シンプルな構造体メンバアクセステスト
+
+struct Person {
+    string name;
+    int age;
+};
+
+int main() {
+    // 直接構造体を作成
+    Person p1;
+    p1.name = "Alice";
+    p1.age = 25;
+    
+    Person p2;
+    p2.name = "Bob";
+    p2.age = 30;
+    
+    // 直接メンバアクセス
+    println(p1.name);  // Alice
+    println(p2.name);  // Bob
+    
+    // 三項演算子でメンバアクセス
+    bool use_first = true;
+    println(use_first ? p1.name : p2.name);  // Alice
+    
+    use_first = false;
+    println(use_first ? p1.name : p2.name);  // Bob
+    
+    return 0;
+}

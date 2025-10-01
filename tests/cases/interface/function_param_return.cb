@@ -1,0 +1,62 @@
+// Interface parameter and return value coverage
+
+interface IOperation {
+    int apply(int value);
+};
+
+impl IOperation for int {
+    int apply(int value) {
+        return self + value;
+    }
+};
+
+struct Multiplier {
+    int factor;
+};
+
+impl IOperation for Multiplier {
+    int apply(int value) {
+        return self.factor * value;
+    }
+};
+
+IOperation makeIntOperation(int base) {
+    return base;
+}
+
+IOperation makeMultiplierOperation(Multiplier m) {
+    return m;
+}
+
+int consume(IOperation op, int input) {
+    return op.apply(input);
+}
+
+int consumeTwice(IOperation op, int first, int second) {
+    return op.apply(first) + op.apply(second);
+}
+
+int main() {
+    println("interface param return test:");
+
+    println("consume(3,4)=%d", consume(3, 4));
+
+    int seed = 5;
+    println("consume(seed,10)=%d", consume(seed, 10));
+
+    IOperation op_seed = seed;
+    println("consume(op_seed,7)=%d", consume(op_seed, 7));
+
+    Multiplier mul = { factor: 3 };
+    println("consume(mul,4)=%d", consume(mul, 4));
+
+    println("consume(makeIntOperation(2),6)=%d", consume(makeIntOperation(2), 6));
+    println("consume(makeMultiplierOperation(mul),5)=%d", consume(makeMultiplierOperation(mul), 5));
+
+    println("consumeTwice(seed,1,2)=%d", consumeTwice(seed, 1, 2));
+    println("consumeTwice(op_seed,2,3)=%d", consumeTwice(op_seed, 2, 3));
+    println("consumeTwice(makeIntOperation(1),3,4)=%d", consumeTwice(makeIntOperation(1), 3, 4));
+
+    println("done");
+    return 0;
+}

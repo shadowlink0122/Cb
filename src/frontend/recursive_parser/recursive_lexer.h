@@ -84,6 +84,10 @@ enum class TokenType {
     TOK_STRING_TYPE,
     TOK_CHAR_TYPE,
     TOK_BOOL,
+    TOK_FLOAT,
+    TOK_DOUBLE,
+    TOK_BIG,
+    TOK_QUAD,
     TOK_TRUE,
     TOK_FALSE,
     TOK_PRINT,
@@ -98,6 +102,9 @@ enum class TokenType {
     TOK_INTERFACE,
     TOK_IMPL,
     TOK_SELF,
+    TOK_NEW,
+    TOK_DELETE,
+    TOK_NULLPTR,
     
     // Special
     TOK_EOF,
