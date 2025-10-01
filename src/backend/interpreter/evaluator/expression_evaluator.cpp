@@ -8,6 +8,7 @@
 #include "core/error_handler.h"
 #include "managers/array_manager.h"
 #include "services/array_processing_service.h"
+#include "services/debug_service.h"
 #include <stdexcept>
 #include <iostream>
 #include <functional>
@@ -688,8 +689,33 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
 
                 if (chain_ret.type == TYPE_STRUCT || chain_ret.is_struct) {
                     temp_receiver = chain_ret.struct_value;
-                    temp_receiver.type = TYPE_STRUCT;
-                    temp_receiver.is_struct = true;
+
+                    if (temp_receiver.type == TYPE_INTERFACE) {
+                        bool has_struct_members = temp_receiver.is_struct || !temp_receiver.struct_members.empty();
+                        if (has_struct_members) {
+                            temp_receiver.type = TYPE_STRUCT;
+                            temp_receiver.is_struct = true;
+                        } else {
+                            TypeInfo resolved = TYPE_UNKNOWN;
+                            if (!temp_receiver.struct_type_name.empty()) {
+                                resolved = interpreter_.get_type_manager()->string_to_type_info(temp_receiver.struct_type_name);
+                            }
+                            if (resolved == TYPE_UNKNOWN && temp_receiver.current_type != TYPE_UNKNOWN) {
+                                resolved = temp_receiver.current_type;
+                            }
+                            if (resolved == TYPE_UNKNOWN) {
+                                resolved = TYPE_INT;
+                            }
+                            temp_receiver.type = resolved;
+                            temp_receiver.is_struct = false;
+                        }
+                    } else if (temp_receiver.type != TYPE_STRUCT && temp_receiver.is_struct) {
+                        temp_receiver.type = TYPE_STRUCT;
+                    }
+
+                    if (temp_receiver.type == TYPE_STRUCT) {
+                        temp_receiver.is_struct = true;
+                    }
                 } else if (chain_ret.type == TYPE_STRING) {
                     temp_receiver.type = TYPE_STRING;
                     temp_receiver.str_value = chain_ret.str_value;
@@ -718,24 +744,51 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
             debug_print("RECEIVER_DEBUG: Looking for receiver '%s'\n", receiver_name.c_str());
 
             std::string type_name;
-            if (receiver_var->type == TYPE_STRUCT) {
-                type_name = receiver_var->struct_type_name;
-            } else if (!receiver_var->interface_name.empty()) {
-                type_name = receiver_var->struct_type_name;
-                debug_msg(DebugMsgId::METHOD_CALL_INTERFACE, node->name.c_str(), type_name.c_str());
-            } else if (receiver_var->type >= TYPE_ARRAY_BASE) {
-                if (!receiver_var->struct_type_name.empty()) {
-                    type_name = receiver_var->struct_type_name;
-                } else {
-                    TypeInfo base_type = static_cast<TypeInfo>(receiver_var->type - TYPE_ARRAY_BASE);
+
+            auto resolve_struct_like_type = [&](const Variable &var) -> std::string {
+                if (!var.struct_type_name.empty()) {
+                    return var.struct_type_name;
+                }
+                if (!var.implementing_struct.empty()) {
+                    return var.implementing_struct;
+                }
+                if (var.type == TYPE_UNION && var.current_type != TYPE_UNKNOWN) {
+                    return type_info_to_string(var.current_type);
+                }
+                return std::string();
+            };
+
+            if (receiver_var->type >= TYPE_ARRAY_BASE || receiver_var->is_array) {
+                type_name = resolve_struct_like_type(*receiver_var);
+                if (type_name.empty()) {
+                    TypeInfo base_type = TYPE_UNKNOWN;
+                    if (receiver_var->type >= TYPE_ARRAY_BASE) {
+                        base_type = static_cast<TypeInfo>(receiver_var->type - TYPE_ARRAY_BASE);
+                    } else if (receiver_var->array_type_info.base_type != TYPE_UNKNOWN) {
+                        base_type = receiver_var->array_type_info.base_type;
+                    }
+                    if (base_type == TYPE_UNKNOWN) {
+                        base_type = TYPE_INT;
+                    }
                     type_name = type_info_to_string(base_type) + "[]";
                 }
+            } else if (receiver_var->type == TYPE_STRUCT || receiver_var->is_struct) {
+                type_name = resolve_struct_like_type(*receiver_var);
+            } else if (receiver_var->type == TYPE_INTERFACE || !receiver_var->interface_name.empty()) {
+                type_name = resolve_struct_like_type(*receiver_var);
+                if (type_name.empty()) {
+                    type_name = receiver_var->interface_name;
+                }
+                debug_msg(DebugMsgId::METHOD_CALL_INTERFACE, node->name.c_str(), type_name.c_str());
             } else {
-                if (!receiver_var->struct_type_name.empty()) {
-                    type_name = receiver_var->struct_type_name;
-                } else {
+                type_name = resolve_struct_like_type(*receiver_var);
+                if (type_name.empty()) {
                     type_name = type_info_to_string(receiver_var->type);
                 }
+            }
+
+            if (type_name.empty()) {
+                type_name = type_info_to_string(receiver_var->type);
             }
 
             std::string method_key = type_name + "::" + node->name;
@@ -764,6 +817,27 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
         }
 
         if (!func) {
+            if (is_method_call) {
+                std::string debug_type_name;
+                if (is_method_call) {
+                    if (!receiver_name.empty()) {
+                        Variable* debug_receiver = interpreter_.find_variable(receiver_name);
+                        if (!debug_receiver && receiver_resolution.variable_ptr) {
+                            debug_receiver = receiver_resolution.variable_ptr;
+                        }
+                        if (debug_receiver) {
+                            if (!debug_receiver->struct_type_name.empty()) {
+                                debug_type_name = debug_receiver->struct_type_name;
+                            } else {
+                                debug_type_name = type_info_to_string(debug_receiver->type);
+                            }
+                        }
+                    }
+                }
+                std::cerr << "[METHOD_LOOKUP_FAIL] receiver='" << receiver_name
+                          << "' type='" << debug_type_name
+                          << "' method='" << node->name << "'" << std::endl;
+            }
             throw std::runtime_error("Undefined function: " + node->name);
         }
 
@@ -1508,7 +1582,16 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                     throw ret;
                 }
                 // 通常の戻り値の場合
-                return ret.value;
+                int64_t return_value = ret.value;
+                if (func && func->is_unsigned && return_value < 0) {
+                    const char* call_kind = is_method_call ? "method" : "function";
+                    DEBUG_WARN(FUNCTION,
+                               "Unsigned %s '%s' returned negative value (%lld); clamping to 0",
+                               call_kind, func->name.c_str(),
+                               static_cast<long long>(return_value));
+                    return_value = 0;
+                }
+                return return_value;
             }
         } catch (const ReturnException &ret) {
             // 再投げされたReturnExceptionを処理

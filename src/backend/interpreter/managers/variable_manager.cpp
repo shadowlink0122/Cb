@@ -1683,7 +1683,6 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                         for (const auto& member : ret.struct_value.struct_members) {
                             std::string member_path = node->name + "." + member.first;
                             current_scope().variables[member_path] = member.second;
-                            
                             // 配列メンバーの場合、個別要素変数も作成
                             if (member.second.is_array) {
                                 for (int i = 0; i < member.second.array_size; i++) {
@@ -2154,6 +2153,86 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
             if (var->is_const && var->is_assigned) {
                 throw std::runtime_error("Cannot reassign const variable: " +
                                          var_name);
+            }
+
+            if (var->type == TYPE_INTERFACE || !var->interface_name.empty()) {
+                auto assign_from_source = [&](const Variable &source,
+                                               const std::string &source_name) {
+                    assign_interface_view(var_name, *var, source, source_name);
+                };
+
+                auto create_temp_primitive = [&](TypeInfo value_type,
+                                                 int64_t numeric_value,
+                                                 const std::string &string_value) {
+                    Variable temp;
+                    temp.is_assigned = true;
+                    temp.type = value_type;
+                    if (value_type == TYPE_STRING) {
+                        temp.str_value = string_value;
+                    } else {
+                        temp.value = numeric_value;
+                    }
+                    temp.struct_type_name = getPrimitiveTypeNameForImpl(value_type);
+                    return temp;
+                };
+
+                try {
+                    const ASTNode *rhs = node->right.get();
+                    if (rhs->node_type == ASTNodeType::AST_VARIABLE ||
+                        rhs->node_type == ASTNodeType::AST_IDENTIFIER) {
+                        std::string source_var_name = rhs->name;
+                        Variable *source_var = find_variable(source_var_name);
+                        if (!source_var) {
+                            throw std::runtime_error("Source variable not found: " +
+                                                     source_var_name);
+                        }
+                        assign_from_source(*source_var, source_var_name);
+                        return;
+                    }
+
+                    if (rhs->node_type == ASTNodeType::AST_STRING_LITERAL) {
+                        Variable temp = create_temp_primitive(TYPE_STRING, 0,
+                                                              rhs->str_value);
+                        assign_from_source(temp, "");
+                        return;
+                    }
+
+                    int64_t numeric_value = interpreter_->expression_evaluator_->evaluate_expression(rhs);
+                    TypeInfo resolved_type = rhs->type_info != TYPE_UNKNOWN
+                                                 ? rhs->type_info
+                                                 : TYPE_INT;
+                    Variable temp = create_temp_primitive(resolved_type,
+                                                          numeric_value, "");
+                    assign_from_source(temp, "");
+                    return;
+                } catch (const ReturnException &ret) {
+                    if (ret.is_array) {
+                        throw std::runtime_error(
+                            "Cannot assign array return value to interface variable '" +
+                            var_name + "'");
+                    }
+
+                    if (!ret.is_struct) {
+                        if (ret.type == TYPE_STRING) {
+                            Variable temp = create_temp_primitive(TYPE_STRING, 0,
+                                                                  ret.str_value);
+                            assign_from_source(temp, "");
+                            return;
+                        }
+
+                        TypeInfo resolved_type = ret.type != TYPE_UNKNOWN
+                                                     ? ret.type
+                                                     : TYPE_INT;
+                        Variable temp = create_temp_primitive(resolved_type,
+                                                              ret.value,
+                                                              ret.str_value);
+                        assign_from_source(temp, "");
+                        return;
+                    }
+
+                    assign_from_source(ret.struct_value, "");
+                    return;
+                }
             }
             
             // Union型変数への代入の特別処理

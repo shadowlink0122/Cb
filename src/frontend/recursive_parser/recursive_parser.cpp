@@ -1624,33 +1624,41 @@ std::string RecursiveParser::parseType() {
 }
 
 TypeInfo RecursiveParser::resolveParsedTypeInfo(const ParsedTypeInfo& parsed) const {
-    if (parsed.is_pointer) {
-        return TYPE_POINTER;
-    }
-
     TypeInfo resolved = parsed.base_type_info;
-    if (resolved != TYPE_UNKNOWN) {
-        return resolved;
-    }
 
     std::string base_lookup = parsed.base_type;
     if (base_lookup.rfind("struct ", 0) == 0) {
         base_lookup = base_lookup.substr(7);
     }
 
-    if (!base_lookup.empty()) {
+    if (resolved == TYPE_UNKNOWN && !base_lookup.empty()) {
         if (struct_definitions_.find(base_lookup) != struct_definitions_.end()) {
-            return TYPE_STRUCT;
+            resolved = TYPE_STRUCT;
+        } else if (enum_definitions_.find(base_lookup) != enum_definitions_.end()) {
+            resolved = TYPE_ENUM;
+        } else if (interface_definitions_.find(base_lookup) != interface_definitions_.end()) {
+            resolved = TYPE_INTERFACE;
+        } else if (union_definitions_.find(base_lookup) != union_definitions_.end()) {
+            resolved = TYPE_UNION;
         }
-        if (enum_definitions_.find(base_lookup) != enum_definitions_.end()) {
-            return TYPE_ENUM;
+    }
+
+    if (parsed.is_array) {
+        ArrayTypeInfo array_info = parsed.array_info;
+        if (array_info.base_type == TYPE_UNKNOWN) {
+            array_info.base_type = resolved;
         }
-        if (interface_definitions_.find(base_lookup) != interface_definitions_.end()) {
-            return TYPE_INTERFACE;
+        if (array_info.base_type != TYPE_UNKNOWN) {
+            return array_info.to_legacy_type_id();
         }
-        if (union_definitions_.find(base_lookup) != union_definitions_.end()) {
-            return TYPE_UNION;
-        }
+    }
+
+    if (parsed.is_pointer) {
+        return TYPE_POINTER;
+    }
+
+    if (resolved != TYPE_UNKNOWN) {
+        return resolved;
     }
 
     return TYPE_UNKNOWN;
@@ -2307,6 +2315,10 @@ ASTNode* RecursiveParser::parseFunctionDeclarationAfterName(const std::string& r
     // 関数本体のパース
     ASTNode* function_node = new ASTNode(ASTNodeType::AST_FUNC_DECL);
     function_node->name = function_name;
+    function_node->is_unsigned = (return_type.rfind("unsigned ", 0) == 0);
+    if (function_node->return_type_name.empty()) {
+        function_node->return_type_name = return_type;
+    }
     
     // DEBUG: 関数作成をログ出力
     debug_msg(DebugMsgId::PARSE_FUNCTION_CREATED, function_name.c_str());
@@ -2347,6 +2359,10 @@ ASTNode* RecursiveParser::parseFunctionDeclarationAfterName(const std::string& r
             
             // 型情報を設定（typedef解決を含む）
             std::string resolved_param_type = resolveTypedefChain(param_type);
+
+            if (resolved_param_type.empty()) {
+                resolved_param_type = param_type;
+            }
             // 元のtypedef名を保持（interpreterで解決するため）
             // param->type_name = resolved_param_type;  // この行をコメントアウト
             
@@ -2400,6 +2416,10 @@ ASTNode* RecursiveParser::parseFunctionDeclarationAfterName(const std::string& r
             } else {
                 param->type_info = TYPE_UNKNOWN;
             }
+
+            if (param->type_info == TYPE_UNKNOWN) {
+                param->type_info = getTypeInfoFromString(param_type);
+            }
             
             function_node->parameters.push_back(std::unique_ptr<ASTNode>(param));
         } while (match(TokenType::TOK_COMMA));
@@ -2447,7 +2467,7 @@ ASTNode* RecursiveParser::parseFunctionDeclarationAfterName(const std::string& r
     } else {
         // typedef型の可能性があるので、解決を試行
         std::string resolved_type = resolveTypedefChain(return_type);
-        if (resolved_type != return_type) {
+        if (!resolved_type.empty() && resolved_type != return_type) {
             // typedef型が解決された場合、再帰的に処理
             if (resolved_type.find("[") != std::string::npos) {
                 // 配列戻り値型
@@ -2485,6 +2505,11 @@ ASTNode* RecursiveParser::parseFunctionDeclarationAfterName(const std::string& r
                 function_node->return_types.push_back(TYPE_STRING);
             } else {
                 function_node->return_types.push_back(TYPE_UNKNOWN);
+            }
+            if (!function_node->return_types.empty() &&
+                function_node->return_types.back() == TYPE_UNKNOWN) {
+                function_node->return_types.back() =
+                    getTypeInfoFromString(resolved_type);
             }
         } else {
             // typedef型でない場合、getTypeInfoFromStringを使って型を判定
@@ -4204,7 +4229,8 @@ ASTNode* RecursiveParser::parseInterfaceDeclaration() {
     while (!check(TokenType::TOK_RBRACE) && !isAtEnd()) {
         // メソッドの戻り値型を解析
         std::string return_type = parseType();
-        
+        ParsedTypeInfo return_parsed = getLastParsedTypeInfo();
+
         if (return_type.empty()) {
             error("Expected return type in interface method declaration");
             return nullptr;
@@ -4225,13 +4251,20 @@ ASTNode* RecursiveParser::parseInterfaceDeclaration() {
         }        // パラメータリストの解析
         consume(TokenType::TOK_LPAREN, "Expected '(' after method name");
         
-        InterfaceMember method(method_name, getTypeInfoFromString(return_type));
+        TypeInfo resolved_return_type = resolveParsedTypeInfo(return_parsed);
+        if (resolved_return_type == TYPE_UNKNOWN) {
+            resolved_return_type = getTypeInfoFromString(return_type);
+        }
+
+        InterfaceMember method(method_name, resolved_return_type,
+                               return_parsed.is_unsigned);
         
         // パラメータの解析
         if (!check(TokenType::TOK_RPAREN)) {
             do {
                 // パラメータの型
                 std::string param_type = parseType();
+                ParsedTypeInfo param_parsed = getLastParsedTypeInfo();
                 if (param_type.empty()) {
                     error("Expected parameter type");
                     return nullptr;
@@ -4244,7 +4277,13 @@ ASTNode* RecursiveParser::parseInterfaceDeclaration() {
                     advance();
                 }
                 
-                method.add_parameter(param_name, getTypeInfoFromString(param_type));
+                TypeInfo param_type_info = resolveParsedTypeInfo(param_parsed);
+                if (param_type_info == TYPE_UNKNOWN) {
+                    param_type_info = getTypeInfoFromString(param_type);
+                }
+
+                method.add_parameter(param_name, param_type_info,
+                                     param_parsed.is_unsigned);
                 
                 if (!check(TokenType::TOK_COMMA)) {
                     break;
@@ -4275,12 +4314,16 @@ ASTNode* RecursiveParser::parseInterfaceDeclaration() {
         ASTNode* method_node = new ASTNode(ASTNodeType::AST_FUNC_DECL);
         method_node->name = method.name;
         method_node->type_info = method.return_type;
+            method_node->is_unsigned = method.return_is_unsigned;
+            method_node->return_types.push_back(method.return_type);
         
         // パラメータ情報を保存
-        for (const auto& param : method.parameters) {
+            for (size_t i = 0; i < method.parameters.size(); ++i) {
+                const auto& param = method.parameters[i];
             ASTNode* param_node = new ASTNode(ASTNodeType::AST_PARAM_DECL);
             param_node->name = param.first;
             param_node->type_info = param.second;
+                param_node->is_unsigned = method.get_parameter_is_unsigned(i);
             method_node->arguments.push_back(std::unique_ptr<ASTNode>(param_node));
         }
         
@@ -4404,18 +4447,32 @@ ASTNode* RecursiveParser::parseImplDeclaration() {
                     for (const auto& interface_method : interface_it->second.methods) {
                         if (interface_method.name == method_name) {
                             method_found = true;
-                            // 戻り値の型をチェック
-                            std::string expected_return_type = type_info_to_string(interface_method.return_type);
-                            std::string actual_return_type = "";
+                            auto format_type = [](TypeInfo type, bool is_unsigned_flag) {
+                                std::string base = type_info_to_string(type);
+                                if (is_unsigned_flag) {
+                                    return std::string("unsigned ") + base;
+                                }
+                                return base;
+                            };
+
+                            TypeInfo expected_return_type_info = interface_method.return_type;
+                            bool expected_return_unsigned = interface_method.return_is_unsigned;
+
+                            TypeInfo actual_return_type_info = TYPE_UNKNOWN;
                             if (!method_impl->return_types.empty()) {
-                                actual_return_type = type_info_to_string(method_impl->return_types[0]);
+                                actual_return_type_info = method_impl->return_types[0];
                             } else {
-                                actual_return_type = return_type; // フォールバック
+                                actual_return_type_info = getTypeInfoFromString(return_type);
                             }
-                            if (expected_return_type != actual_return_type) {
-                                error("Method signature mismatch: Expected return type '" + 
-                                      expected_return_type + "' but got '" + 
-                                      actual_return_type + "' for method '" + method_name + "'");
+                            bool actual_return_unsigned = method_impl->is_unsigned;
+
+                            if (expected_return_type_info != actual_return_type_info ||
+                                expected_return_unsigned != actual_return_unsigned) {
+                                error("Method signature mismatch: Expected return type '" +
+                                      format_type(expected_return_type_info, expected_return_unsigned) +
+                                      "' but got '" +
+                                      format_type(actual_return_type_info, actual_return_unsigned) +
+                                      "' for method '" + method_name + "'");
                                 return nullptr;
                             }
                             // 引数の数をチェック
@@ -4429,12 +4486,16 @@ ASTNode* RecursiveParser::parseImplDeclaration() {
                             }
                             // 引数の型をチエック
                             for (size_t i = 0; i < interface_method.parameters.size(); ++i) {
-                                std::string expected_param_type = type_info_to_string(interface_method.parameters[i].second);
-                                std::string actual_param_type = type_info_to_string(method_impl->parameters[i]->type_info);
-                                if (expected_param_type != actual_param_type) {
+                                TypeInfo expected_param_type = interface_method.parameters[i].second;
+                                bool expected_param_unsigned = interface_method.get_parameter_is_unsigned(i);
+                                TypeInfo actual_param_type = method_impl->parameters[i]->type_info;
+                                bool actual_param_unsigned = method_impl->parameters[i]->is_unsigned;
+
+                                if (expected_param_type != actual_param_type ||
+                                    expected_param_unsigned != actual_param_unsigned) {
                                     error("Method signature mismatch: Parameter " + std::to_string(i + 1) + 
-                                          " expected type '" + expected_param_type + 
-                                          "' but got '" + actual_param_type + 
+                                          " expected type '" + format_type(expected_param_type, expected_param_unsigned) +
+                                          "' but got '" + format_type(actual_param_type, actual_param_unsigned) +
                                           "' for method '" + method_name + "'");
                                     return nullptr;
                                 }

@@ -1059,13 +1059,32 @@ void OutputManager::print_formatted(const ASTNode *format_str, const ASTNode *ar
                     try {
                         // 文字列配列かどうかを判定
                         Variable* member_var = interpreter_->get_struct_member(obj_name, member_name);
-                        if (member_var->type == TYPE_STRING || 
-                            (interpreter_->get_type_manager()->is_union_type(*member_var) && !member_var->str_value.empty() && member_var->is_assigned)) {
-                            // 文字列配列の場合
+                        auto is_string_array_member = [&](const Variable* var) {
+                            if (!var) {
+                                return false;
+                            }
+                            if (!var->is_array) {
+                                return false;
+                            }
+                            if (var->type == TYPE_STRING ||
+                                var->type == static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_STRING) ||
+                                var->array_type_info.base_type == TYPE_STRING) {
+                                return true;
+                            }
+                            return false;
+                        };
+
+                        bool member_is_union_string = interpreter_->get_type_manager()->is_union_type(*member_var) &&
+                                                       !member_var->str_value.empty() && member_var->is_assigned;
+
+                        if (is_string_array_member(member_var) || member_is_union_string) {
+                            if (member_var && member_var->type == static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_STRING)) {
+                                debug_print("OUTPUT_MANAGER: Handling string member array %s as string\n", member_name.c_str());
+                            }
                             std::string str_value = interpreter_->get_struct_member_array_string_element(
                                 obj_name, member_name, static_cast<int>(index));
                             str_args.push_back(str_value);
-                            int_args.push_back(0); // プレースホルダー
+                            int_args.push_back(0);
                         } else {
                             // 数値配列の場合
                             int64_t value = interpreter_->get_struct_member_array_element(obj_name, member_name, static_cast<int>(index));
@@ -1700,17 +1719,40 @@ std::string OutputManager::format_string(const ASTNode *format_str, const ASTNod
                         
                         try {
                             Variable *member_var = interpreter_->get_struct_member(obj_name, member_name);
+                            auto is_string_array_member = [&](const Variable* var) {
+                                if (!var) {
+                                    return false;
+                                }
+                                if (!var->is_array) {
+                                    return false;
+                                }
+                                if (var->type == TYPE_STRING ||
+                                    var->type == static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_STRING) ||
+                                    var->array_type_info.base_type == TYPE_STRING) {
+                                    return true;
+                                }
+                                return false;
+                            };
+
                             bool member_is_union_string = false;
                             if (member_var) {
                                 member_is_union_string = interpreter_->get_type_manager()->is_union_type(*member_var) &&
                                                          !member_var->str_value.empty() && member_var->is_assigned;
+                                if (member_name == "tags") {
+                                }
                             }
 
-                            if (member_var && member_var->is_array && (member_var->type == TYPE_STRING || member_is_union_string)) {
+                            if (member_var && is_string_array_member(member_var)) {
+                                if (member_var->type == static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_STRING)) {
+                                    debug_print("OUTPUT_MANAGER: Handling string member array %s in fallback branch\n", member_name.c_str());
+                                }
                                 // 文字列配列の場合は文字列を取得
                                 std::string str_value = interpreter_->get_struct_member_array_string_element(obj_name, member_name, static_cast<int>(index));
                                 str_args.push_back(str_value);
                                 int_args.push_back(0); // プレースホルダー
+                            } else if (member_var && member_is_union_string) {
+                                str_args.push_back(member_var->str_value);
+                                int_args.push_back(0);
                             } else {
                                 // 数値配列の場合は通常の評価
                                 int64_t value = evaluate_expression(arg.get());

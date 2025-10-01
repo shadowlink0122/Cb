@@ -435,17 +435,29 @@ struct ASTNode;
 
 // Interface定義情報を格納する構造体
 struct InterfaceMember {
-    std::string name;     // 関数名
-    TypeInfo return_type; // 戻り値の型
+    std::string name;                // 関数名
+    TypeInfo return_type;            // 戻り値の型
+    bool return_is_unsigned = false; // 戻り値がunsignedかどうか
     std::vector<std::pair<std::string, TypeInfo>>
         parameters; // パラメータのリスト (名前, 型)
+    std::vector<bool> parameter_is_unsigned; // 各パラメータがunsignedかどうか
 
     InterfaceMember() : return_type(TYPE_UNKNOWN) {}
-    InterfaceMember(const std::string &n, TypeInfo ret_type)
-        : name(n), return_type(ret_type) {}
+    InterfaceMember(const std::string &n, TypeInfo ret_type,
+                    bool ret_unsigned = false)
+        : name(n), return_type(ret_type), return_is_unsigned(ret_unsigned) {}
 
-    void add_parameter(const std::string &param_name, TypeInfo param_type) {
+    void add_parameter(const std::string &param_name, TypeInfo param_type,
+                       bool is_unsigned = false) {
         parameters.emplace_back(param_name, param_type);
+        parameter_is_unsigned.push_back(is_unsigned);
+    }
+
+    bool get_parameter_is_unsigned(size_t index) const {
+        if (index >= parameter_is_unsigned.size()) {
+            return false;
+        }
+        return parameter_is_unsigned[index];
     }
 };
 

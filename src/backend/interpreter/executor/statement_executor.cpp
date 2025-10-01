@@ -3,6 +3,7 @@
 #include "core/interpreter.h"
 #include "core/error_handler.h"
 #include "evaluator/expression_evaluator.h"
+#include "managers/variable_manager.h"
 #include "managers/array_manager.h"
 #include "managers/type_manager.h"
 #include "../../../common/debug.h"
@@ -368,11 +369,112 @@ void StatementExecutor::execute_assignment(const ASTNode *node) {
                 }
             }
             
+            std::string target_name = !node->name.empty()
+                                           ? node->name
+                                           : (node->left &&
+                                                      node->left->node_type ==
+                                                          ASTNodeType::AST_VARIABLE
+                                                  ? node->left->name
+                                                  : "");
+
+            Variable *target_var = !target_name.empty()
+                                       ? interpreter_.find_variable(target_name)
+                                       : nullptr;
+
+            if (target_var &&
+                (target_var->type == TYPE_INTERFACE ||
+                 !target_var->interface_name.empty())) {
+                auto assign_from_source = [&](const Variable &source,
+                                               const std::string &source_name) {
+                    interpreter_.get_variable_manager()->assign_interface_view(
+                        target_name, *target_var, source, source_name);
+                };
+
+                auto create_temp_primitive = [&](TypeInfo value_type,
+                                                 int64_t numeric_value,
+                                                 const std::string &string_value) {
+                    Variable temp;
+                    temp.is_assigned = true;
+                    temp.type = value_type;
+                    if (value_type == TYPE_STRING) {
+                        temp.str_value = string_value;
+                    } else {
+                        temp.value = numeric_value;
+                    }
+                    temp.struct_type_name.clear();
+                    return temp;
+                };
+
+                const ASTNode *rhs = node->right.get();
+                try {
+                    if (rhs->node_type == ASTNodeType::AST_VARIABLE ||
+                        rhs->node_type == ASTNodeType::AST_IDENTIFIER) {
+                        std::string source_var_name = rhs->name;
+                        Variable *source_var =
+                            interpreter_.find_variable(source_var_name);
+                        if (!source_var) {
+                            throw std::runtime_error(
+                                "Source variable not found: " +
+                                source_var_name);
+                        }
+                        assign_from_source(*source_var, source_var_name);
+                        return;
+                    }
+
+                    if (rhs->node_type == ASTNodeType::AST_STRING_LITERAL) {
+                        Variable temp =
+                            create_temp_primitive(TYPE_STRING, 0,
+                                                  rhs->str_value);
+                        assign_from_source(temp, "");
+                        return;
+                    }
+
+                    int64_t numeric_value =
+                        interpreter_.evaluate(rhs);
+                    TypeInfo resolved_type =
+                        rhs->type_info != TYPE_UNKNOWN ? rhs->type_info
+                                                       : TYPE_INT;
+                    Variable temp = create_temp_primitive(resolved_type,
+                                                          numeric_value, "");
+                    assign_from_source(temp, "");
+                    return;
+                } catch (const ReturnException &ret) {
+                    if (ret.is_array) {
+                        throw std::runtime_error(
+                            "Cannot assign array return value to interface variable '" +
+                            target_name + "'");
+                    }
+
+                    if (!ret.is_struct) {
+                        if (ret.type == TYPE_STRING) {
+                            Variable temp =
+                                create_temp_primitive(TYPE_STRING, 0,
+                                                      ret.str_value);
+                            assign_from_source(temp, "");
+                            return;
+                        }
+
+                        TypeInfo resolved_type = ret.type != TYPE_UNKNOWN
+                                                     ? ret.type
+                                                     : TYPE_INT;
+                        Variable temp = create_temp_primitive(
+                            resolved_type, ret.value, ret.str_value);
+                        assign_from_source(temp, "");
+                        return;
+                    }
+
+                    assign_from_source(ret.struct_value, "");
+                    return;
+                }
+            }
+
             int64_t value = interpreter_.evaluate(node->right.get());
             if (node->right->node_type == ASTNodeType::AST_STRING_LITERAL) {
-                interpreter_.assign_variable(node->name, node->right->str_value);
+                interpreter_.assign_variable(node->name,
+                                             node->right->str_value);
             } else {
-                interpreter_.assign_variable(node->name, value, node->type_info);
+                interpreter_.assign_variable(node->name, value,
+                                             node->type_info);
             }
         }
     }
