@@ -107,6 +107,7 @@ private:
     ASTNode* parseEnumAccess();                   // enum値アクセス (EnumName::member)
     
     // Utility methods
+    ASTNode* cloneAstNode(const ASTNode* node);
     TypeInfo getTypeInfoFromString(const std::string& type_name);
     ASTNode* parseArrayLiteral();
     

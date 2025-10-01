@@ -1620,6 +1620,120 @@ TypeInfo RecursiveParser::resolveParsedTypeInfo(const ParsedTypeInfo& parsed) co
     return TYPE_UNKNOWN;
 }
 
+ASTNode* RecursiveParser::cloneAstNode(const ASTNode* node) {
+    if (!node) {
+        return nullptr;
+    }
+
+    ASTNode* clone = new ASTNode(node->node_type);
+    clone->type_info = node->type_info;
+    clone->location = node->location;
+    clone->is_const = node->is_const;
+    clone->is_static = node->is_static;
+    clone->is_array = node->is_array;
+    clone->is_array_return = node->is_array_return;
+    clone->is_private_method = node->is_private_method;
+    clone->is_private_member = node->is_private_member;
+    clone->is_pointer = node->is_pointer;
+    clone->pointer_depth = node->pointer_depth;
+    clone->pointer_base_type_name = node->pointer_base_type_name;
+    clone->pointer_base_type = node->pointer_base_type;
+    clone->int_value = node->int_value;
+    clone->str_value = node->str_value;
+    clone->name = node->name;
+    clone->type_name = node->type_name;
+    clone->return_type_name = node->return_type_name;
+    clone->op = node->op;
+    clone->module_name = node->module_name;
+    clone->import_items = node->import_items;
+    clone->is_exported = node->is_exported;
+    clone->qualified_name = node->qualified_name;
+    clone->is_qualified_call = node->is_qualified_call;
+    clone->enum_name = node->enum_name;
+    clone->enum_member = node->enum_member;
+    clone->enum_definition = node->enum_definition;
+    clone->union_name = node->union_name;
+    clone->union_definition = node->union_definition;
+    clone->member_chain = node->member_chain;
+    clone->array_size = node->array_size;
+    clone->array_type_info = node->array_type_info;
+    clone->return_types = node->return_types;
+    clone->exception_var = node->exception_var;
+    clone->exception_type = node->exception_type;
+
+    if (node->left) {
+        clone->left.reset(cloneAstNode(node->left.get()));
+    }
+    if (node->right) {
+        clone->right.reset(cloneAstNode(node->right.get()));
+    }
+    if (node->third) {
+        clone->third.reset(cloneAstNode(node->third.get()));
+    }
+    if (node->condition) {
+        clone->condition.reset(cloneAstNode(node->condition.get()));
+    }
+    if (node->init_expr) {
+        clone->init_expr.reset(cloneAstNode(node->init_expr.get()));
+    }
+    if (node->update_expr) {
+        clone->update_expr.reset(cloneAstNode(node->update_expr.get()));
+    }
+    if (node->body) {
+        clone->body.reset(cloneAstNode(node->body.get()));
+    }
+    if (node->array_index) {
+        clone->array_index.reset(cloneAstNode(node->array_index.get()));
+    }
+    if (node->array_size_expr) {
+        clone->array_size_expr.reset(cloneAstNode(node->array_size_expr.get()));
+    }
+    if (node->try_body) {
+        clone->try_body.reset(cloneAstNode(node->try_body.get()));
+    }
+    if (node->catch_body) {
+        clone->catch_body.reset(cloneAstNode(node->catch_body.get()));
+    }
+    if (node->finally_body) {
+        clone->finally_body.reset(cloneAstNode(node->finally_body.get()));
+    }
+    if (node->throw_expr) {
+        clone->throw_expr.reset(cloneAstNode(node->throw_expr.get()));
+    }
+
+    clone->children.reserve(node->children.size());
+    for (const auto& child : node->children) {
+        clone->children.push_back(std::unique_ptr<ASTNode>(cloneAstNode(child.get())));
+    }
+
+    clone->parameters.reserve(node->parameters.size());
+    for (const auto& param : node->parameters) {
+        clone->parameters.push_back(std::unique_ptr<ASTNode>(cloneAstNode(param.get())));
+    }
+
+    clone->arguments.reserve(node->arguments.size());
+    for (const auto& arg : node->arguments) {
+        clone->arguments.push_back(std::unique_ptr<ASTNode>(cloneAstNode(arg.get())));
+    }
+
+    clone->statements.reserve(node->statements.size());
+    for (const auto& stmt : node->statements) {
+        clone->statements.push_back(std::unique_ptr<ASTNode>(cloneAstNode(stmt.get())));
+    }
+
+    clone->array_dimensions.reserve(node->array_dimensions.size());
+    for (const auto& dim : node->array_dimensions) {
+        clone->array_dimensions.push_back(std::unique_ptr<ASTNode>(cloneAstNode(dim.get())));
+    }
+
+    clone->array_indices.reserve(node->array_indices.size());
+    for (const auto& idx : node->array_indices) {
+        clone->array_indices.push_back(std::unique_ptr<ASTNode>(cloneAstNode(idx.get())));
+    }
+
+    return clone;
+}
+
 ASTNode* RecursiveParser::parseExpression() {
     return parseAssignment();
 }
@@ -1627,6 +1741,22 @@ ASTNode* RecursiveParser::parseExpression() {
 ASTNode* RecursiveParser::parseAssignment() {
     ASTNode* left = parseTernary();
     
+    auto getBinaryOpForCompound = [](TokenType op_type) -> std::string {
+        switch (op_type) {
+            case TokenType::TOK_PLUS_ASSIGN: return "+";
+            case TokenType::TOK_MINUS_ASSIGN: return "-";
+            case TokenType::TOK_MUL_ASSIGN: return "*";
+            case TokenType::TOK_DIV_ASSIGN: return "/";
+            case TokenType::TOK_MOD_ASSIGN: return "%";
+            case TokenType::TOK_AND_ASSIGN: return "&";
+            case TokenType::TOK_OR_ASSIGN: return "|";
+            case TokenType::TOK_XOR_ASSIGN: return "^";
+            case TokenType::TOK_LSHIFT_ASSIGN: return "<<";
+            case TokenType::TOK_RSHIFT_ASSIGN: return ">>";
+            default: return "";
+        }
+    };
+
     // 通常の代入と複合代入演算子をチェック
     if (check(TokenType::TOK_ASSIGN) || check(TokenType::TOK_PLUS_ASSIGN) || 
         check(TokenType::TOK_MINUS_ASSIGN) || check(TokenType::TOK_MUL_ASSIGN) ||
@@ -1647,20 +1777,7 @@ ASTNode* RecursiveParser::parseAssignment() {
         if (left->node_type == ASTNodeType::AST_VARIABLE) {
             // 複合代入の場合、a += b を a = a + b に変換
             if (op_type != TokenType::TOK_ASSIGN) {
-                std::string binary_op;
-                switch (op_type) {
-                    case TokenType::TOK_PLUS_ASSIGN: binary_op = "+"; break;
-                    case TokenType::TOK_MINUS_ASSIGN: binary_op = "-"; break;
-                    case TokenType::TOK_MUL_ASSIGN: binary_op = "*"; break;
-                    case TokenType::TOK_DIV_ASSIGN: binary_op = "/"; break;
-                    case TokenType::TOK_MOD_ASSIGN: binary_op = "%"; break;
-                    case TokenType::TOK_AND_ASSIGN: binary_op = "&"; break;
-                    case TokenType::TOK_OR_ASSIGN: binary_op = "|"; break;
-                    case TokenType::TOK_XOR_ASSIGN: binary_op = "^"; break;
-                    case TokenType::TOK_LSHIFT_ASSIGN: binary_op = "<<"; break;
-                    case TokenType::TOK_RSHIFT_ASSIGN: binary_op = ">>"; break;
-                    default: break;
-                }
+                std::string binary_op = getBinaryOpForCompound(op_type);
                 
                 // a = a op b の形に変換
                 ASTNode* var_ref = new ASTNode(ASTNodeType::AST_VARIABLE);
@@ -1681,20 +1798,7 @@ ASTNode* RecursiveParser::parseAssignment() {
         } else if (left->node_type == ASTNodeType::AST_ARRAY_REF) {
             // 配列要素への複合代入の場合
             if (op_type != TokenType::TOK_ASSIGN) {
-                std::string binary_op;
-                switch (op_type) {
-                    case TokenType::TOK_PLUS_ASSIGN: binary_op = "+"; break;
-                    case TokenType::TOK_MINUS_ASSIGN: binary_op = "-"; break;
-                    case TokenType::TOK_MUL_ASSIGN: binary_op = "*"; break;
-                    case TokenType::TOK_DIV_ASSIGN: binary_op = "/"; break;
-                    case TokenType::TOK_MOD_ASSIGN: binary_op = "%"; break;
-                    case TokenType::TOK_AND_ASSIGN: binary_op = "&"; break;
-                    case TokenType::TOK_OR_ASSIGN: binary_op = "|"; break;
-                    case TokenType::TOK_XOR_ASSIGN: binary_op = "^"; break;
-                    case TokenType::TOK_LSHIFT_ASSIGN: binary_op = "<<"; break;
-                    case TokenType::TOK_RSHIFT_ASSIGN: binary_op = ">>"; break;
-                    default: break;
-                }
+                std::string binary_op = getBinaryOpForCompound(op_type);
                 
                 // arr[i] = arr[i] op b の形に変換
                 ASTNode* array_ref_copy = new ASTNode(ASTNodeType::AST_ARRAY_REF);
@@ -1730,9 +1834,21 @@ ASTNode* RecursiveParser::parseAssignment() {
             }
         } else if (left->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
             // メンバアクセス代入: obj.member = value
-            // 複合代入もサポート: obj.member += value
-            assign->left = std::unique_ptr<ASTNode>(left);
-            assign->right = std::unique_ptr<ASTNode>(right);
+            if (op_type != TokenType::TOK_ASSIGN) {
+                std::string binary_op = getBinaryOpForCompound(op_type);
+                ASTNode* left_copy = cloneAstNode(left);
+                assign->left = std::unique_ptr<ASTNode>(left);
+
+                ASTNode* binop = new ASTNode(ASTNodeType::AST_BINARY_OP);
+                binop->op = binary_op;
+                binop->left = std::unique_ptr<ASTNode>(left_copy);
+                binop->right = std::unique_ptr<ASTNode>(right);
+
+                assign->right = std::unique_ptr<ASTNode>(binop);
+            } else {
+                assign->left = std::unique_ptr<ASTNode>(left);
+                assign->right = std::unique_ptr<ASTNode>(right);
+            }
         } else {
             error("Invalid assignment target");
             return nullptr;

@@ -144,6 +144,21 @@ inline void test_integration_interface_private() {
         }, execution_time_self_member);
     integration_test_passed_with_time("interface private self member access test", self_member_file, execution_time_self_member);
     
+    // self経由のprivateメンバー複合代入テスト
+    const std::string self_member_compound_file = "../../tests/cases/interface/private/self_member_compound_assign.cb";
+    double execution_time_self_member_compound;
+
+    run_cb_test_with_output_and_time(self_member_compound_file,
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "Expected successful exit code for self member compound assign test");
+            INTEGRATION_ASSERT_CONTAINS(output, "self member compound assign start", "Expected test header in output");
+            INTEGRATION_ASSERT_CONTAINS(output, "hidden=7 shown=6", "Expected initial state before compound operations");
+            INTEGRATION_ASSERT_CONTAINS(output, "hidden=14 shown=12", "Expected state after scale compound operations");
+            INTEGRATION_ASSERT_CONTAINS(output, "hidden=17 shown=9", "Expected state after applyDelta compound operations");
+            INTEGRATION_ASSERT_CONTAINS(output, "self member compound assign end", "Expected test footer in output");
+        }, execution_time_self_member_compound);
+    integration_test_passed_with_time("interface private self member compound assign test", self_member_compound_file, execution_time_self_member_compound);
+
     // 生の配列型implエラーテスト
     const std::string raw_array_error_file = "../../tests/cases/interface/private/raw_array_error.cb";
     double execution_time_raw_error;
