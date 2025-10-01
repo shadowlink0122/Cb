@@ -327,6 +327,42 @@ int main() {
 }
 ```
 
+### selfによるプライベートメンバーアクセス ✅
+
+implメソッド内では、`self`を通じて構造体のプライベートメンバーを安全に参照・更新できます。プライバシー制約はランタイムで保護されつつ、実装側からの内部操作が可能です。
+
+```cb
+struct SecretBox {
+    private int secret;
+    int visible;
+};
+
+interface Inspector {
+    void bump(int value);
+    int reveal();
+};
+
+impl Inspector for SecretBox {
+    void bump(int value) {
+        self.secret = self.secret + value;
+        self.visible = self.visible + value;
+    }
+    
+    int reveal() {
+        return self.secret;
+    }
+};
+
+int main() {
+    SecretBox box = { secret: 11, visible: 4 };
+    box.bump(5);
+    println("secret = %d, visible = %d", box.reveal(), box.visible);
+    return 0;
+}
+```
+
+`self.secret` の読み書きは同一構造体のimpl内に限定されるため、外部コードからの不正アクセスは引き続き防止されます。
+
 ## エラー処理とデバッグ ✅
 
 ### 実装エラーの検出

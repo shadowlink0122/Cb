@@ -16,11 +16,16 @@ enum TypeInfo {
     TYPE_CHAR = 5,
     TYPE_STRING = 6,
     TYPE_BOOL = 7,
-    TYPE_STRUCT = 8,
-    TYPE_ENUM = 9,
-    TYPE_INTERFACE = 10,
-    TYPE_UNION = 11,   // Union型（リテラル型・複合型）
-    TYPE_POINTER = 12, // ポインタ型（将来実装）
+    TYPE_FLOAT = 8,
+    TYPE_DOUBLE = 9,
+    TYPE_BIG = 10,
+    TYPE_QUAD = 11,
+    TYPE_STRUCT = 12,
+    TYPE_ENUM = 13,
+    TYPE_INTERFACE = 14,
+    TYPE_UNION = 15,   // Union型（リテラル型・複合型）
+    TYPE_POINTER = 16, // ポインタ型
+    TYPE_NULLPTR = 17, // nullptr型
     TYPE_ARRAY_BASE = 100 // 配列型は基底型 + 100（下位互換のため保持）
 };
 
@@ -374,6 +379,11 @@ struct StructMember {
     TypeInfo type;            // メンバ型
     ArrayTypeInfo array_info; // 配列の場合の詳細情報
     std::string type_alias;   // typedef型の場合のエイリアス名
+    bool is_pointer = false;  // ポインタメンバかどうか
+    int pointer_depth = 0;    // ポインタの深さ
+    std::string pointer_base_type_name;        // ポインタの基底型名
+    TypeInfo pointer_base_type = TYPE_UNKNOWN; // ポインタ基底型
+    bool is_private = false;                   // private指定かどうか
 
     StructMember() : type(TYPE_UNKNOWN) {}
     StructMember(const std::string &n, TypeInfo t,
@@ -390,8 +400,18 @@ struct StructDefinition {
 
     // メンバを追加
     void add_member(const std::string &member_name, TypeInfo type,
-                    const std::string &type_alias = "") {
-        members.emplace_back(member_name, type, type_alias);
+                    const std::string &type_alias = "", bool is_pointer = false,
+                    int pointer_depth = 0,
+                    const std::string &pointer_base_type_name = "",
+                    TypeInfo pointer_base_type = TYPE_UNKNOWN,
+                    bool is_private = false) {
+        StructMember member(member_name, type, type_alias);
+        member.is_pointer = is_pointer;
+        member.pointer_depth = pointer_depth;
+        member.pointer_base_type_name = pointer_base_type_name;
+        member.pointer_base_type = pointer_base_type;
+        member.is_private = is_private;
+        members.emplace_back(std::move(member));
     }
 
     // メンバを名前で検索
@@ -582,9 +602,14 @@ struct ASTNode {
     // ストレージ属性
     bool is_const = false;
     bool is_static = false;
-    bool is_array = false;          // 配列パラメータフラグ
-    bool is_array_return = false;   // 配列戻り値フラグ
-    bool is_private_method = false; // privateメソッドフラグ
+    bool is_array = false;              // 配列パラメータフラグ
+    bool is_array_return = false;       // 配列戻り値フラグ
+    bool is_private_method = false;     // privateメソッドフラグ
+    bool is_private_member = false;     // struct privateメンバフラグ
+    bool is_pointer = false;            // ポインタ型フラグ
+    int pointer_depth = 0;              // ポインタの深さ
+    std::string pointer_base_type_name; // ポインタ基底型名
+    TypeInfo pointer_base_type = TYPE_UNKNOWN; // ポインタ基底型
 
     // 値・名前
     int64_t int_value = 0;

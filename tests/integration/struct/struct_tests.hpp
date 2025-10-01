@@ -83,6 +83,62 @@ inline void test_const_size_array_assignment() {
         });
 }
 
+// const構造体メンバーへの再代入（構造体自体がconst）のエラーテスト
+inline void test_const_struct_member_parent_const_error() {
+    std::cout << "[integration] Running test_const_struct_member_parent_const_error..." << std::endl;
+
+    run_cb_test_with_output_and_time_auto(
+        "../../tests/cases/struct/const_struct_member_parent_const_error.cb",
+        [](const std::string &output, int exit_code) {
+            INTEGRATION_ASSERT_NE(0, exit_code,
+                                  "Expected error exit code for const struct member reassignment (parent const)");
+            INTEGRATION_ASSERT_CONTAINS(
+                output, "Const reassignment error: instance.value",
+                "should contain const struct member reassignment error message");
+        });
+}
+
+// プライベートフィールドの成功ケース
+inline void test_struct_private_field_access_ok() {
+    std::cout << "[integration] Running test_struct_private_field_access_ok..." << std::endl;
+
+    double execution_time;
+    run_cb_test_with_output_and_time("../../tests/cases/struct/private_field_access_ok.cb",
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "Private field ok test should exit with code 0");
+            INTEGRATION_ASSERT_CONTAINS(output, "Private field ok test:",
+                                        "Should print private field ok header");
+            INTEGRATION_ASSERT_CONTAINS(output, "box secret after init = 42",
+                                        "Should show secret set via self access");
+            INTEGRATION_ASSERT_CONTAINS(output, "box secret after copy = 100",
+                                        "Should show private copy between instances");
+            INTEGRATION_ASSERT_CONTAINS(output, "done",
+                                        "Should finish successfully");
+        }, execution_time);
+
+    integration_test_passed_with_time("struct private field ok", "../../tests/cases/struct/private_field_access_ok.cb", execution_time);
+}
+
+// プライベートフィールドへの外部アクセスは失敗する
+inline void test_struct_private_field_access_error() {
+    std::cout << "[integration] Running test_struct_private_field_access_error..." << std::endl;
+
+    double execution_time;
+    run_cb_test_with_output_and_time("../../tests/cases/struct/private_field_access_error.cb",
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_NE(0, exit_code, "Private field access error test should fail");
+            INTEGRATION_ASSERT_CONTAINS(output, "Private field access error test:",
+                                        "Should print test header before failing");
+            INTEGRATION_ASSERT_CONTAINS(output, "Cannot access private struct member: box.secret",
+                                        "Should report private member access violation");
+        }, execution_time);
+
+    integration_test_passed_with_error_and_time("struct private field access error",
+                                               "../../tests/cases/struct/private_field_access_error.cb",
+                                               execution_time);
+}
+
+
 // 構造体の配列のテスト
 inline void test_struct_array() {
     std::cout << "[integration] Running test_struct_array..." << std::endl;
@@ -402,6 +458,9 @@ inline void run_all_struct_tests() {
         test_struct_array_member();
         test_struct_array_literal();
         test_const_size_array_assignment(); // 新規追加テスト
+        test_const_struct_member_parent_const_error();
+        test_struct_private_field_access_ok();
+        test_struct_private_field_access_error();
         test_struct_array();
         test_nested_struct();
         test_nested_struct_flat();

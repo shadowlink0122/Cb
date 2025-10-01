@@ -16,8 +16,8 @@ int main() {
     println("Const short created: ", medium);
     
     // const long変数
-    const long big = 1000000;
-    println("Const long created: ", big);
+    const long bigValue = 1000000;
+    println("Const long created: ", bigValue);
     
     // const int変数を再代入しようとする（エラーが発生するはず）
     num = 100;  // ERROR: const変数への再代入

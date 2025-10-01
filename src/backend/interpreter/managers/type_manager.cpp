@@ -41,6 +41,10 @@ std::string TypeManager::resolve_typedef(const std::string &type_name) {
                 case TYPE_STRING: return "string";
                 case TYPE_CHAR: return "char";
                 case TYPE_VOID: return "void";
+                case TYPE_FLOAT: return "float";
+                case TYPE_DOUBLE: return "double";
+                case TYPE_BIG: return "big";
+                case TYPE_QUAD: return "quad";
                 default: break;
             }
         }
@@ -77,6 +81,14 @@ TypeInfo TypeManager::string_to_type_info(const std::string &type_str) {
         return TYPE_STRING;
     if (resolved == "char")
         return TYPE_CHAR;
+    if (resolved == "float")
+        return TYPE_FLOAT;
+    if (resolved == "double")
+        return TYPE_DOUBLE;
+    if (resolved == "big")
+        return TYPE_BIG;
+    if (resolved == "quad")
+        return TYPE_QUAD;
     if (resolved == "void")
         return TYPE_VOID;
     
@@ -184,6 +196,21 @@ void TypeManager::register_union_typedef(const std::string &name, const UnionDef
 
 bool TypeManager::is_union_type(const std::string &type_name) {
     return union_definitions_.find(type_name) != union_definitions_.end();
+}
+
+std::string TypeManager::get_union_lookup_name(const Variable &variable) const {
+    if (variable.is_pointer && !variable.pointer_base_type_name.empty()) {
+        return variable.pointer_base_type_name;
+    }
+    return variable.type_name;
+}
+
+bool TypeManager::is_union_type(const Variable &variable) {
+    std::string lookup = get_union_lookup_name(variable);
+    if (lookup.empty()) {
+        return false;
+    }
+    return is_union_type(lookup);
 }
 
 bool TypeManager::is_value_allowed_for_union(const std::string &type_name, const std::string &str_value) {

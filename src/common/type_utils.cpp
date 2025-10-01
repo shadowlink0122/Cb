@@ -19,6 +19,14 @@ const char *type_info_to_string(TypeInfo type) {
         return "string";
     case TYPE_BOOL:
         return "bool";
+    case TYPE_FLOAT:
+        return "float";
+    case TYPE_DOUBLE:
+        return "double";
+    case TYPE_BIG:
+        return "big";
+    case TYPE_QUAD:
+        return "quad";
     case TYPE_STRUCT:
         return "struct";
     case TYPE_ENUM:
@@ -27,6 +35,10 @@ const char *type_info_to_string(TypeInfo type) {
         return "interface";
     case TYPE_UNION:
         return "union";
+    case TYPE_POINTER:
+        return "pointer";
+    case TYPE_NULLPTR:
+        return "nullptr";
     default:
         // 配列型の場合
         if (type >= TYPE_ARRAY_BASE) {
@@ -46,6 +58,14 @@ const char *type_info_to_string(TypeInfo type) {
                 return "string[]";
             case TYPE_BOOL:
                 return "bool[]";
+            case TYPE_FLOAT:
+                return "float[]";
+            case TYPE_DOUBLE:
+                return "double[]";
+            case TYPE_BIG:
+                return "big[]";
+            case TYPE_QUAD:
+                return "quad[]";
             case TYPE_STRUCT:
                 return "struct[]";
             case TYPE_ENUM:
@@ -84,6 +104,14 @@ const char *type_info_to_string_basic(TypeInfo type) {
         return "string";
     case TYPE_BOOL:
         return "bool";
+    case TYPE_FLOAT:
+        return "float";
+    case TYPE_DOUBLE:
+        return "double";
+    case TYPE_BIG:
+        return "big";
+    case TYPE_QUAD:
+        return "quad";
     case TYPE_STRUCT:
         return "struct";
     case TYPE_ENUM:
@@ -92,6 +120,10 @@ const char *type_info_to_string_basic(TypeInfo type) {
         return "interface";
     case TYPE_UNION:
         return "union";
+    case TYPE_POINTER:
+        return "pointer";
+    case TYPE_NULLPTR:
+        return "nullptr";
     default:
         return "unknown";
     }

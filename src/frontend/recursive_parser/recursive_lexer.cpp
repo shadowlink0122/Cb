@@ -321,6 +321,10 @@ TokenType RecursiveLexer::getKeywordType(const std::string& text) {
         {"string", TokenType::TOK_STRING_TYPE},
         {"char", TokenType::TOK_CHAR_TYPE},
         {"bool", TokenType::TOK_BOOL},
+        {"float", TokenType::TOK_FLOAT},
+        {"double", TokenType::TOK_DOUBLE},
+        {"big", TokenType::TOK_BIG},
+        {"quad", TokenType::TOK_QUAD},
         {"true", TokenType::TOK_TRUE},
         {"false", TokenType::TOK_FALSE},
         {"print", TokenType::TOK_PRINT},
@@ -334,7 +338,10 @@ TokenType RecursiveLexer::getKeywordType(const std::string& text) {
         {"enum", TokenType::TOK_ENUM},
         {"interface", TokenType::TOK_INTERFACE},
         {"impl", TokenType::TOK_IMPL},
-        {"self", TokenType::TOK_SELF}
+        {"self", TokenType::TOK_SELF},
+        {"new", TokenType::TOK_NEW},
+        {"delete", TokenType::TOK_DELETE},
+        {"nullptr", TokenType::TOK_NULLPTR}
     };
     
     auto it = keywords.find(text);

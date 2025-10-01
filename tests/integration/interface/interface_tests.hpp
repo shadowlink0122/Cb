@@ -37,6 +37,30 @@ inline void test_complex_args() {
         }, execution_time);
 }
 
+// interfaceパラメータと戻り値の包括的テスト
+inline void test_function_param_return() {
+    std::cout << "[integration] Running test_function_param_return..." << std::endl;
+
+    double execution_time;
+    run_cb_test_with_output_and_time("../../tests/cases/interface/function_param_return.cb",
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "Function param/return test should exit with code 0");
+            std::vector<std::string> lines = split_lines(output);
+            INTEGRATION_ASSERT_EQ(11, lines.size(), "Should have 11 output lines");
+            INTEGRATION_ASSERT_EQ("interface param return test:", lines[0], "Header line mismatch");
+            INTEGRATION_ASSERT_EQ("consume(3,4)=7", lines[1], "consume(3,4) result mismatch");
+            INTEGRATION_ASSERT_EQ("consume(seed,10)=15", lines[2], "seed consume mismatch");
+            INTEGRATION_ASSERT_EQ("consume(op_seed,7)=12", lines[3], "op_seed consume mismatch");
+            INTEGRATION_ASSERT_EQ("consume(mul,4)=12", lines[4], "mul consume mismatch");
+            INTEGRATION_ASSERT_EQ("consume(makeIntOperation(2),6)=8", lines[5], "makeIntOperation consume mismatch");
+            INTEGRATION_ASSERT_EQ("consume(makeMultiplierOperation(mul),5)=15", lines[6], "makeMultiplierOperation consume mismatch");
+            INTEGRATION_ASSERT_EQ("consumeTwice(seed,1,2)=13", lines[7], "consumeTwice seed mismatch");
+            INTEGRATION_ASSERT_EQ("consumeTwice(op_seed,2,3)=15", lines[8], "consumeTwice op_seed mismatch");
+            INTEGRATION_ASSERT_EQ("consumeTwice(makeIntOperation(1),3,4)=9", lines[9], "consumeTwice makeIntOperation mismatch");
+            INTEGRATION_ASSERT_EQ("done", lines[10], "Final line should be done");
+        }, execution_time);
+}
+
 // 同じインターフェースを複数構造体で使用するテスト
 inline void test_multiple_structs() {
     std::cout << "[integration] Running test_multiple_structs..." << std::endl;
@@ -286,6 +310,7 @@ inline void run_all_interface_tests() {
     
     test_basic_interface();
     test_complex_args();
+    test_function_param_return();
     test_multiple_structs();
     test_multiple_interfaces();
     test_return_self();

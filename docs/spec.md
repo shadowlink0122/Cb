@@ -132,11 +132,16 @@
 - **統合テスト**: 完全テストカバレッジ（100%成功率）
 
 **🚧 将来実装予定機能**:
-- **ネストした構造体**: `obj.member.submember` 未サポート（ポインタシステム実装後）
+- **ネストした構造体**: `obj.member.submember` をポインタ経由で解決（値メンバでの再帰はコンパイルエラー）
 - **構造体関数引数・戻り値**: 値渡し・構造体戻り値完全対応
 - **構造体継承**: 未実装（interface/implシステムで代替可能）
 
 ### Phase 3: 将来実装予定 ❌/🚧
+- 🚧 **ポインタシステム**（実装中）
+    - `T*` / `T**` などのポインタ型と `nullptr` リテラル
+    - `new` / `delete` 文による動的メモリ確保と解放
+    - 構造体ポインタに対する `.` アクセスの暗黙デリファレンス
+    - 構造体の自己再帰・相互再帰はポインタメンバ経由のみ許可
 - ❌ **Result型エラー処理**（Go/Rust風の明示的エラーハンドリング）
 - ❌ **スマートポインタ**（unique_ptr, shared_ptr, weak_ptr）
 - ❌ **モジュール・インポートシステム**（TypeScript風）
@@ -165,6 +170,7 @@ declaration     ::= variable_declaration
 type_specifier  ::= "void" | "tiny" | "short" | "int" | "long" 
                   | "string" | "char" | "bool" | identifier
                   | type_specifier "[" constant_expression "]"
+                  | type_specifier "*"
 
 storage_class   ::= "const" | "static" | "extern"
 ```
@@ -254,6 +260,7 @@ statement       ::= expression_statement
                   | selection_statement
                   | iteration_statement  
                   | jump_statement
+                  | delete_statement
                   | print_statement
 
 compound_statement ::= "{" statement_list "}"
@@ -276,6 +283,8 @@ jump_statement  ::= "break" ";"
                   | "return" expression ";"
 
 print_statement ::= "print" "(" argument_list ")" ";"
+
+delete_statement ::= "delete" expression ";"
 ```
 
 ### 式（Expression）
@@ -320,6 +329,8 @@ unary_expression ::= postfix_expression
                    | "!" unary_expression
                    | "+" unary_expression
                    | "-" unary_expression
+                   | "*" unary_expression
+                   | "&" unary_expression
 
 postfix_expression ::= primary_expression
                      | postfix_expression "[" expression "]"
@@ -332,9 +343,13 @@ primary_expression ::= identifier
                      | string_literal
                      | character_literal
                      | array_literal
+                     | "nullptr"
+                     | "new" type_specifier
+                     | "new" type_specifier "(" ")"
+                     | "new" type_specifier "(" argument_list ")"
                      | "(" expression ")"
 
-constant        ::= integer_constant | character_constant | boolean_constant
+constant        ::= integer_constant | character_constant | boolean_constant | "nullptr"
 
 character_literal ::= "'" character "'"
                     | "'" escape_sequence "'"
@@ -399,6 +414,15 @@ argument_list   ::= assignment_expression
 - **境界チェック**:
   - 配列アクセス時の自動境界検証
   - デバッグモードでの詳細エラー情報
+
+#### ポインタ型システム（実装中） 🚧
+- 型宣言: `T*`, `T**` のように `*` を重ねて表記。既存の `type_specifier` に `*` を付与するだけで複数段ポインタを表現できる。
+- デフォルト値は `nullptr`。未初期化ポインタには自動的に `nullptr` が代入される。
+- `new T` は `T*` を返す式、`new T()` / `new T(args...)` で初期化パターンを拡張。
+- `delete expr;` で解放。`nullptr` に対しては安全。解放成功後は暗黙に `nullptr` を代入する。
+- 構造体ポインタに対する `.` アクセスは 1 段の暗黙デリファレンスを行う（`ptr.member` → `(*ptr).member`）。必要に応じて `*ptr` を明示して多段デリファレンスする。
+- `&expr` と `*expr` を単項演算子としてサポート。`sizeof(T)` は実装フェーズ2で対応。
+- 構造体の自己再帰・相互再帰はポインタメンバ経由のみに限定し、値メンバでの無限再帰をコンパイル時に検出してエラーにする。
 - **メモリ管理**:
   - RAII原則による自動メモリ管理
   - 効率的な再割り当て戦略（capacity doubling等）

@@ -23,6 +23,8 @@ std::string trim(const std::string &str) {
 struct ParsedTypeString {
     std::string base_type;
     int dimensions = 0;
+    bool is_pointer = false;
+    int pointer_depth = 0;
 };
 
 ParsedTypeString parse_type_string(const std::string &type_name) {
@@ -33,8 +35,8 @@ ParsedTypeString parse_type_string(const std::string &type_name) {
     }
 
     size_t bracket_pos = trimmed.find('[');
+    std::string without_arrays = trimmed;
     if (bracket_pos != std::string::npos) {
-        result.base_type = trim(trimmed.substr(0, bracket_pos));
         int dims = 0;
         for (size_t i = bracket_pos; i < trimmed.size(); ++i) {
             if (trimmed[i] == '[') {
@@ -42,10 +44,35 @@ ParsedTypeString parse_type_string(const std::string &type_name) {
             }
         }
         result.dimensions = dims;
-    } else {
-        result.base_type = trimmed;
-        result.dimensions = 0;
+        without_arrays = trim(trimmed.substr(0, bracket_pos));
     }
+
+    size_t end_pos = without_arrays.size();
+    while (end_pos > 0 && std::isspace(static_cast<unsigned char>(without_arrays[end_pos - 1]))) {
+        --end_pos;
+    }
+
+    int pointer_depth = 0;
+    size_t pointer_pos = end_pos;
+    while (pointer_pos > 0) {
+        char ch = without_arrays[pointer_pos - 1];
+        if (ch == '*') {
+            ++pointer_depth;
+            --pointer_pos;
+            while (pointer_pos > 0 && std::isspace(static_cast<unsigned char>(without_arrays[pointer_pos - 1]))) {
+                --pointer_pos;
+            }
+        } else {
+            break;
+        }
+    }
+
+    result.pointer_depth = pointer_depth;
+    result.is_pointer = pointer_depth > 0;
+
+    std::string base_part = without_arrays.substr(0, pointer_pos);
+    result.base_type = trim(base_part);
+
     return result;
 }
 
@@ -380,28 +407,76 @@ InferredType TypeInferenceEngine::infer_member_type(const InferredType& object_t
 
                     InferredType inferred_member = resolve_typedef_type(member_type_name);
 
+                    ParsedTypeString alias_parsed = parse_type_string(member_type_name);
+                    ParsedTypeString inferred_parsed = parse_type_string(inferred_member.type_name);
+
+                    bool pointer_flag = member->is_pointer || member->type == TYPE_POINTER || alias_parsed.is_pointer || inferred_parsed.is_pointer;
+                    int pointer_depth = member->pointer_depth;
+                    if (pointer_depth == 0) {
+                        pointer_depth = alias_parsed.pointer_depth;
+                    }
+                    if (pointer_depth == 0) {
+                        pointer_depth = inferred_parsed.pointer_depth;
+                    }
+                    if (pointer_depth == 0 && pointer_flag) {
+                        pointer_depth = 1;
+                    }
+
+                    std::string base_name = member->pointer_base_type_name;
+                    if (base_name.empty()) {
+                        base_name = alias_parsed.base_type;
+                    }
+                    if (base_name.empty()) {
+                        base_name = inferred_parsed.base_type;
+                    }
+                    if (base_name.empty() && member->pointer_base_type != TYPE_UNKNOWN) {
+                        base_name = type_info_to_string(member->pointer_base_type);
+                    }
+                    if (base_name.empty()) {
+                        base_name = member_type_name;
+                    }
+                    base_name = trim(base_name);
+
+                    std::string pointer_type_name;
+                    if (pointer_flag) {
+                        pointer_type_name = base_name.empty() ? "void" : base_name;
+                        int depth = pointer_depth > 0 ? pointer_depth : 1;
+                        pointer_type_name += std::string(depth, '*');
+                        inferred_member.type_info = TYPE_POINTER;
+                        inferred_member.type_name = pointer_type_name;
+                    } else if (inferred_member.type_name.empty()) {
+                        inferred_member.type_name = base_name;
+                    }
+
                     if (member->array_info.is_array()) {
                         inferred_member.is_array = true;
                         inferred_member.array_dimensions = static_cast<int>(member->array_info.get_dimension_count());
-                        TypeInfo base_type = member->array_info.base_type != TYPE_UNKNOWN ? member->array_info.base_type : inferred_member.type_info;
-                        if (base_type != TYPE_UNKNOWN) {
-                            inferred_member.type_info = base_type;
-                        }
 
-                        ParsedTypeString parsed = parse_type_string(inferred_member.type_name);
-                        std::string base_name = parsed.base_type.empty() ? member_type_name : parsed.base_type;
-                        if (base_name.empty() && inferred_member.type_info != TYPE_UNKNOWN) {
-                            base_name = type_info_to_string(inferred_member.type_info);
+                        std::string element_name = pointer_flag ? pointer_type_name : inferred_member.type_name;
+                        if (element_name.empty()) {
+                            element_name = base_name;
                         }
-                        inferred_member.type_name = build_array_type_name(base_name, inferred_member.array_dimensions);
+                        inferred_member.type_name = build_array_type_name(element_name, inferred_member.array_dimensions);
+
+                        if (!pointer_flag) {
+                            TypeInfo base_type = member->array_info.base_type != TYPE_UNKNOWN ? member->array_info.base_type : inferred_member.type_info;
+                            if (base_type >= TYPE_ARRAY_BASE) {
+                                base_type = static_cast<TypeInfo>(base_type - TYPE_ARRAY_BASE);
+                            }
+                            if (base_type != TYPE_UNKNOWN) {
+                                inferred_member.type_info = base_type;
+                            }
+                        } else {
+                            inferred_member.type_info = TYPE_POINTER;
+                        }
                     }
 
                     if (inferred_member.type_info == TYPE_UNKNOWN) {
-                        inferred_member.type_info = member->type;
+                        inferred_member.type_info = pointer_flag ? TYPE_POINTER : member->type;
                     }
 
                     if (inferred_member.type_name.empty()) {
-                        inferred_member.type_name = member_type_name;
+                        inferred_member.type_name = pointer_flag ? pointer_type_name : member_type_name;
                     }
 
                     return inferred_member;
@@ -495,24 +570,39 @@ InferredType TypeInferenceEngine::resolve_typedef_type(const std::string& typede
         base_info = type_manager->string_to_type_info(trimmed);
     }
 
+    bool is_pointer = parsed.is_pointer;
+    int pointer_depth = parsed.pointer_depth;
     bool is_array = parsed.dimensions > 0;
     int dimensions = parsed.dimensions;
-    std::string type_name = base_string;
 
-    if (type_name.empty() && base_info != TYPE_UNKNOWN) {
-        type_name = type_info_to_string(base_info);
+    if (base_string.empty()) {
+        base_string = trimmed;
     }
+
+    std::string pointer_type_name = base_string;
+    if (pointer_type_name.empty() && base_info != TYPE_UNKNOWN) {
+        pointer_type_name = type_info_to_string(base_info);
+    }
+
+    pointer_type_name = trim(pointer_type_name);
+
+    int effective_depth = pointer_depth > 0 ? pointer_depth : (is_pointer ? 1 : 0);
+    if (is_pointer) {
+        pointer_type_name = trim(pointer_type_name) + std::string(effective_depth, '*');
+    }
+
+    std::string final_type_name = pointer_type_name;
 
     if (is_array) {
-        type_name = build_array_type_name(type_name, dimensions);
+        final_type_name = build_array_type_name(final_type_name, dimensions);
     }
 
-    InferredType inferred(base_info, type_name, is_array, dimensions);
-
-    if (is_array && base_info >= TYPE_ARRAY_BASE) {
-        inferred.type_info = static_cast<TypeInfo>(base_info - TYPE_ARRAY_BASE);
+    TypeInfo final_type_info = is_pointer ? TYPE_POINTER : base_info;
+    if (!is_pointer && is_array && base_info >= TYPE_ARRAY_BASE) {
+        final_type_info = static_cast<TypeInfo>(base_info - TYPE_ARRAY_BASE);
     }
 
+    InferredType inferred(final_type_info, final_type_name, is_array, dimensions);
     return inferred;
 }
 

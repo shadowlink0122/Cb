@@ -7,7 +7,7 @@ int main() {
     const int num = 42;
     const tiny small = 5;
     const short medium = 1000;
-    const long big = 1000000;
+    const long bigValue = 1000000;
     
     // const string変数
     const string greeting = "Hello";
@@ -17,7 +17,7 @@ int main() {
     println("Int value: " + num);
     println("Tiny value: " + small);
     println("Short value: " + medium);
-    println("Long value: " + big);
+    println("Long value: " + bigValue);
     println("String1: " + greeting);
     println("String2: " + name);
     

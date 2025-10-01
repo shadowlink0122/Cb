@@ -1,6 +1,8 @@
 #pragma once
 #include "../../../common/ast.h"
+#include <memory>
 #include <string>
+#include <vector>
 
 // 前方宣言
 struct Variable;

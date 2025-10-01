@@ -104,6 +104,9 @@ void OutputManager::print_value(const ASTNode *expr) {
         if (expr->left && expr->left->node_type == ASTNodeType::AST_VARIABLE) {
             // 通常のstruct変数: obj.member
             struct_name = expr->left->name;
+        } else if (expr->left && expr->left->node_type == ASTNodeType::AST_IDENTIFIER) {
+            // self などの識別子ベースのメンバーアクセス
+            struct_name = expr->left->name;
         } else if (expr->left && expr->left->node_type == ASTNodeType::AST_ARRAY_REF) {
             // struct配列要素: array[index].member または func()[index].member
             if (!expr->left->left) {
@@ -227,8 +230,7 @@ void OutputManager::print_value(const ASTNode *expr) {
             
             // Union型の場合は実際の値の型を確認
             if (member_var->type == TYPE_STRING || 
-                (!member_var->type_name.empty() && 
-                 interpreter_->get_type_manager()->is_union_type(member_var->type_name) &&
+                (interpreter_->get_type_manager()->is_union_type(*member_var) &&
                  !member_var->str_value.empty() && member_var->is_assigned)) {
                 io_interface_->write_string(member_var->str_value.c_str());
             } else {
@@ -255,7 +257,7 @@ void OutputManager::print_value(const ASTNode *expr) {
             Variable *member_var = interpreter_->get_struct_member(obj_name, member_name);
             if (member_var && member_var->is_array) {
                 if (member_var->type == TYPE_STRING || 
-                    (!member_var->type_name.empty() && interpreter_->get_type_manager()->is_union_type(member_var->type_name) && !member_var->str_value.empty() && member_var->is_assigned)) {
+                    (interpreter_->get_type_manager()->is_union_type(*member_var) && !member_var->str_value.empty() && member_var->is_assigned)) {
                     // 文字列配列の場合
                     if (index >= 0 && index < static_cast<int64_t>(member_var->array_strings.size())) {
                         io_interface_->write_string(member_var->array_strings[index].c_str());
@@ -957,8 +959,13 @@ void OutputManager::print_formatted(const ASTNode *format_str, const ASTNode *ar
                 
                 try {
                     Variable* member_var = interpreter_->get_struct_member(struct_name, member_name);
-                    if (member_var && (member_var->type == TYPE_STRING || 
-                        (!member_var->type_name.empty() && interpreter_->get_type_manager()->is_union_type(member_var->type_name) && !member_var->str_value.empty() && member_var->is_assigned))) {
+                    bool member_is_union_string = false;
+                    if (member_var) {
+                        member_is_union_string = interpreter_->get_type_manager()->is_union_type(*member_var) &&
+                                                 !member_var->str_value.empty() && member_var->is_assigned;
+                    }
+
+                    if (member_var && (member_var->type == TYPE_STRING || member_is_union_string)) {
                         str_args.push_back(member_var->str_value);
                         int_args.push_back(0); // プレースホルダー
                     } else if (member_var) {
@@ -1053,7 +1060,7 @@ void OutputManager::print_formatted(const ASTNode *format_str, const ASTNode *ar
                         // 文字列配列かどうかを判定
                         Variable* member_var = interpreter_->get_struct_member(obj_name, member_name);
                         if (member_var->type == TYPE_STRING || 
-                            (!member_var->type_name.empty() && interpreter_->get_type_manager()->is_union_type(member_var->type_name) && !member_var->str_value.empty() && member_var->is_assigned)) {
+                            (interpreter_->get_type_manager()->is_union_type(*member_var) && !member_var->str_value.empty() && member_var->is_assigned)) {
                             // 文字列配列の場合
                             std::string str_value = interpreter_->get_struct_member_array_string_element(
                                 obj_name, member_name, static_cast<int>(index));
@@ -1693,8 +1700,13 @@ std::string OutputManager::format_string(const ASTNode *format_str, const ASTNod
                         
                         try {
                             Variable *member_var = interpreter_->get_struct_member(obj_name, member_name);
-                            if (member_var && member_var->is_array && (member_var->type == TYPE_STRING || 
-                                (!member_var->type_name.empty() && interpreter_->get_type_manager()->is_union_type(member_var->type_name) && !member_var->str_value.empty() && member_var->is_assigned))) {
+                            bool member_is_union_string = false;
+                            if (member_var) {
+                                member_is_union_string = interpreter_->get_type_manager()->is_union_type(*member_var) &&
+                                                         !member_var->str_value.empty() && member_var->is_assigned;
+                            }
+
+                            if (member_var && member_var->is_array && (member_var->type == TYPE_STRING || member_is_union_string)) {
                                 // 文字列配列の場合は文字列を取得
                                 std::string str_value = interpreter_->get_struct_member_array_string_element(obj_name, member_name, static_cast<int>(index));
                                 str_args.push_back(str_value);
@@ -1722,7 +1734,8 @@ std::string OutputManager::format_string(const ASTNode *format_str, const ASTNod
                     int_args.push_back(value);
                     str_args.push_back(""); // プレースホルダー
                 }
-            }        }
+            }
+        }
     }
 
     // フォーマット文字列を処理

@@ -6,6 +6,7 @@
 #include "backend/test_cross_type.hpp"
 #include "backend/test_functions.hpp"
 #include "backend/test_interpreter.hpp"
+#include "backend/test_pointer.hpp"
 
 int main() {
     std::cout << "Running comprehensive unit tests..." << std::endl;
@@ -17,6 +18,7 @@ int main() {
         register_boundary_tests();
         register_cross_type_tests();
         register_function_tests();
+        register_pointer_tests();
 
         // すべてのテストを実行
         test_runner.run_all();

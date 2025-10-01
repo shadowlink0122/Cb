@@ -45,6 +45,15 @@ class VariableManager {
     void assign_string_element(const std::string &name, int64_t index,
                                char value);
 
+  // interface補助
+  void assign_interface_view(const std::string& dest_name,
+                 Variable interface_var,
+                 const Variable& source_var,
+                 const std::string& source_var_name);
+  bool interface_impl_exists(const std::string& interface_name,
+                 const std::string& struct_type_name) const;
+  std::string resolve_interface_source_type(const Variable& source_var) const;
+
     // union型代入
     void assign_union_value(Variable& var, const std::string& union_type_name, const ASTNode* value_node);
 

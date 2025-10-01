@@ -9,28 +9,38 @@
 #include "managers/type_manager.h"
 #include "managers/enum_manager.h"
 #include <algorithm>
+#include <cstdio>
+#include <numeric>
+#include <utility>
 
-// プリミティブ型かどうかを判定するヘルパー関数
-bool isPrimitiveType(const Variable* var) {
-    return var->type == TYPE_INT || var->type == TYPE_LONG || 
-           var->type == TYPE_SHORT || var->type == TYPE_TINY ||
-           var->type == TYPE_BOOL || var->type == TYPE_STRING ||
-           var->type == TYPE_CHAR;
-}
+namespace {
 
-// プリミティブ型のTypeInfoから型名を取得するヘルパー関数
-std::string getPrimitiveTypeNameForImpl(TypeInfo type_info) {
-    switch (type_info) {
-        case TYPE_INT: return "int";
-        case TYPE_LONG: return "long";
-        case TYPE_SHORT: return "short";
-        case TYPE_TINY: return "tiny";
-        case TYPE_BOOL: return "bool";
-        case TYPE_STRING: return "string";
-        case TYPE_CHAR: return "char";
-        default: return "unknown";
+bool isPrimitiveType(const Variable *var) {
+    if (!var) {
+        return false;
     }
+
+    switch (var->type) {
+    case TYPE_BOOL:
+    case TYPE_CHAR:
+    case TYPE_INT:
+    case TYPE_LONG:
+    case TYPE_FLOAT:
+    case TYPE_DOUBLE:
+    case TYPE_STRING:
+        return true;
+    default:
+        break;
+    }
+
+    return false;
 }
+
+std::string getPrimitiveTypeNameForImpl(TypeInfo type) {
+    return std::string(type_info_to_string(type));
+}
+
+} // namespace
 
 void VariableManager::push_scope() {
     // std::cerr << "DEBUG: push_scope called, stack size: " <<
@@ -105,140 +115,186 @@ bool VariableManager::is_global_variable(const std::string &name) {
     return (global_var_it != interpreter_->global_scope.variables.end());
 }
 
-void VariableManager::assign_variable(const std::string &name, int64_t value,
-                                      TypeInfo type, bool is_const) {
-    debug_msg(DebugMsgId::VAR_ASSIGN_READABLE, name.c_str(), value, "type",
-              is_const ? "true" : "false");
-    Variable *var = find_variable(name);
-    if (!var) {
-        debug_msg(DebugMsgId::VAR_CREATE_NEW);
-        // 新しい変数を作成
-        Variable new_var;
-        new_var.type = type;
-        new_var.value = value;
-        new_var.is_assigned = true;
-        new_var.is_const = is_const;
-        interpreter_->type_manager_->check_type_range(type, value, name);
-        current_scope().variables[name] = new_var;
-    } else {
-        debug_msg(DebugMsgId::EXISTING_VAR_ASSIGN_DEBUG);
-        if (var->is_const && var->is_assigned) {
-            error_msg(DebugMsgId::CONST_REASSIGN_ERROR, name.c_str());
-            std::exit(1);
+void VariableManager::assign_interface_view(const std::string &dest_name,
+                                            Variable interface_var,
+                                            const Variable &source_var,
+                                            const std::string &source_var_name) {
+    std::string source_type_name = resolve_interface_source_type(source_var);
+
+    if (!interface_impl_exists(interface_var.interface_name, source_type_name)) {
+        throw std::runtime_error("No impl found for interface '" + interface_var.interface_name +
+                                 "' with type '" + source_type_name + "'");
+    }
+
+    if (!source_var_name.empty()) {
+        interpreter_->sync_struct_members_from_direct_access(source_var_name);
+    }
+
+    Variable assigned_var = std::move(interface_var);
+    assigned_var.struct_type_name = source_type_name;
+    assigned_var.is_assigned = true;
+
+    if (source_var.is_struct || (!source_var.struct_members.empty() && source_var.type == TYPE_INTERFACE)) {
+        assigned_var.is_struct = true;
+        assigned_var.struct_members.clear();
+        for (const auto &member_pair : source_var.struct_members) {
+            const std::string &member_name = member_pair.first;
+            const Variable &source_member = member_pair.second;
+
+            Variable dest_member = source_member;
+            if (source_member.is_multidimensional) {
+                dest_member.is_multidimensional = true;
+                dest_member.array_dimensions = source_member.array_dimensions;
+                dest_member.multidim_array_values = source_member.multidim_array_values;
+                dest_member.multidim_array_strings = source_member.multidim_array_strings;
+            }
+            assigned_var.struct_members[member_name] = dest_member;
         }
-        if (var->is_array) {
-            error_msg(DebugMsgId::DIRECT_ARRAY_ASSIGN_ERROR, name.c_str());
-            throw std::runtime_error("Direct array assignment error");
+    } else if (source_var.type >= TYPE_ARRAY_BASE) {
+        assigned_var.is_struct = false;
+        assigned_var.type = source_var.type;
+        assigned_var.value = source_var.value;
+        assigned_var.str_value = source_var.str_value;
+        assigned_var.array_dimensions = source_var.array_dimensions;
+        assigned_var.is_multidimensional = source_var.is_multidimensional;
+        assigned_var.array_values = source_var.array_values;
+        assigned_var.array_strings = source_var.array_strings;
+        assigned_var.multidim_array_values = source_var.multidim_array_values;
+        assigned_var.multidim_array_strings = source_var.multidim_array_strings;
+
+        if (!source_var.struct_type_name.empty()) {
+            assigned_var.struct_type_name = source_var.struct_type_name;
+        } else {
+            TypeInfo base_type = static_cast<TypeInfo>(source_var.type - TYPE_ARRAY_BASE);
+            assigned_var.struct_type_name = getPrimitiveTypeNameForImpl(base_type) + "[]";
         }
-        interpreter_->type_manager_->check_type_range(var->type, value, name);
-        var->value = value;
-        var->is_assigned = true;
-    }
-}
-
-void VariableManager::assign_function_parameter(const std::string &name,
-                                                int64_t value, TypeInfo type) {
-    // 関数パラメータは常に現在のスコープに新しい変数として作成
-    Variable new_var;
-    new_var.type = type;
-    new_var.value = value;
-    new_var.is_assigned = true;
-    new_var.is_const = false;
-    interpreter_->type_manager_->check_type_range(type, value, name);
-    current_scope().variables[name] = new_var;
-}
-
-void VariableManager::assign_array_parameter(const std::string &name,
-                                             const Variable &source_array,
-                                             TypeInfo type) {
-    (void)
-        type; // パラメータは型チェック用に渡されるが、現在の実装ではsource_arrayの型を使用
-
-    // 配列パラメータは新しい変数としてコピーを作成
-    Variable param_var;
-
-    // パラメータ変数の基本属性を設定
-    param_var.is_array = true;
-    param_var.is_assigned = true;
-    param_var.is_const = false; // パラメータは基本的にconst扱いしない
-    param_var.type = source_array.type; // 元の配列と同じ型を使用
-
-    // source_arrayと同じ次元・サイズの配列を作成
-    if (source_array.is_multidimensional) {
-        param_var.is_multidimensional = true;
-        param_var.array_type_info = source_array.array_type_info;
-        // array_managerのcopyArrayを使用してコピー
-        interpreter_->array_manager_->copyArray(param_var, source_array);
     } else {
-        param_var.is_multidimensional = false;
-        param_var.array_size = source_array.array_size;
-        param_var.array_dimensions =
-            source_array.array_dimensions; // 次元情報をコピー
-        param_var.array_values = source_array.array_values;
-        param_var.array_strings = source_array.array_strings;
-    }
+        assigned_var.is_struct = false;
+        assigned_var.type = source_var.type;
+        assigned_var.value = source_var.value;
+        assigned_var.str_value = source_var.str_value;
 
-    current_scope().variables[name] = param_var;
-}
-
-void VariableManager::assign_variable(const std::string &name,
-                                      const std::string &value) {
-    Variable *var = find_variable(name);
-    if (!var) {
-        Variable new_var;
-        new_var.type = TYPE_STRING;
-        new_var.str_value = value;
-        new_var.is_assigned = true;
-        current_scope().variables[name] = new_var;
-    } else {
-        if (var->is_const && var->is_assigned) {
-            std::cerr << "Cannot reassign const variable: " << name
-                      << std::endl;
-            std::exit(1);
+        if (!source_var.struct_type_name.empty()) {
+            assigned_var.struct_type_name = source_var.struct_type_name;
+        } else {
+            assigned_var.struct_type_name = getPrimitiveTypeNameForImpl(source_var.type);
         }
-        var->str_value = value;
-        var->is_assigned = true;
+    }
+
+    current_scope().variables[dest_name] = assigned_var;
+    Variable &dest_var = current_scope().variables[dest_name];
+    dest_var.is_assigned = true;
+    dest_var.implementing_struct = source_type_name;
+
+    for (const auto &member_pair : source_var.struct_members) {
+        const std::string &member_name = member_pair.first;
+        const Variable &member_var = member_pair.second;
+
+        std::string dest_member_name = dest_name + "." + member_name;
+        Variable dest_member_var = member_var;
+
+        if (!source_var_name.empty()) {
+            std::string source_member_name = source_var_name + "." + member_name;
+            if (Variable *source_member_var = find_variable(source_member_name)) {
+                dest_member_var = *source_member_var;
+            }
+        }
+
+        dest_var.struct_members[member_name] = dest_member_var;
+        current_scope().variables[dest_member_name] = dest_member_var;
+
+        if (member_var.is_array) {
+            int total_size = 1;
+            for (const auto &dim : member_var.array_dimensions) {
+                total_size *= dim;
+            }
+
+            for (int i = 0; i < total_size; ++i) {
+                std::string dest_element_name = dest_member_name + "[" + std::to_string(i) + "]";
+                Variable element_var;
+                element_var.is_assigned = true;
+
+                bool copied = false;
+                if (!source_var_name.empty()) {
+                    std::string source_element_name = source_var_name + "." + member_name + "[" + std::to_string(i) + "]";
+                    if (Variable *source_element_var = find_variable(source_element_name)) {
+                        element_var = *source_element_var;
+                        copied = true;
+                    }
+                }
+
+                if (!copied) {
+                    if (member_var.type == TYPE_STRING) {
+                        element_var.type = TYPE_STRING;
+                        if (i < static_cast<int>(member_var.array_strings.size())) {
+                            element_var.str_value = member_var.array_strings[i];
+                        } else if (i < static_cast<int>(member_var.multidim_array_strings.size())) {
+                            element_var.str_value = member_var.multidim_array_strings[i];
+                        } else {
+                            element_var.str_value = "";
+                        }
+                    } else {
+                        element_var.type = member_var.type;
+                        int64_t value = 0;
+                        if (member_var.is_multidimensional &&
+                            i < static_cast<int>(member_var.multidim_array_values.size())) {
+                            value = member_var.multidim_array_values[i];
+                        } else if (i < static_cast<int>(member_var.array_values.size())) {
+                            value = member_var.array_values[i];
+                        }
+                        element_var.value = value;
+                    }
+                }
+
+                current_scope().variables[dest_element_name] = element_var;
+            }
+        }
     }
 }
 
-void VariableManager::assign_array_element(const std::string &name,
-                                           int64_t index, int64_t value) {
-    Variable *var = find_variable(name);
-    if (!var) {
-        error_msg(DebugMsgId::UNDEFINED_VAR_ERROR, name.c_str());
-        throw std::runtime_error("Variable not found");
+bool VariableManager::interface_impl_exists(const std::string &interface_name,
+                                            const std::string &struct_type_name) const {
+    const auto &impls = interpreter_->get_impl_definitions();
+    for (const auto &impl_def : impls) {
+        if (impl_def.interface_name == interface_name && impl_def.struct_name == struct_type_name) {
+            return true;
+        }
     }
-
-    // 共通実装を使用
-    try {
-        interpreter_->get_common_operations()->assign_array_element_safe(
-            var, index, value, name);
-    } catch (const std::exception &e) {
-        error_msg(DebugMsgId::UNDEFINED_VAR_ERROR, name.c_str());
-        throw std::runtime_error("Array element assignment failed: " +
-                                 std::string(e.what()));
-    }
+    return false;
 }
 
-void VariableManager::assign_string_element(const std::string &name,
-                                            int64_t index, char value) {
-    Variable *var = find_variable(name);
-    if (!var || var->type != TYPE_STRING) {
-        error_msg(DebugMsgId::UNDEFINED_VAR_ERROR, name.c_str());
-        throw std::runtime_error("Variable not found or not a string");
+std::string VariableManager::resolve_interface_source_type(const Variable &source_var) const {
+    if (!source_var.struct_type_name.empty()) {
+        return source_var.struct_type_name;
     }
 
-    if (var->is_const) {
-        error_msg(DebugMsgId::CONST_REASSIGN_ERROR, name.c_str());
-        throw std::runtime_error("Cannot modify const string");
+    if (source_var.type == TYPE_INTERFACE && !source_var.implementing_struct.empty()) {
+        return source_var.implementing_struct;
     }
 
-    if (index < 0 || static_cast<size_t>(index) >= var->str_value.length()) {
-        error_msg(DebugMsgId::UNDEFINED_VAR_ERROR, name.c_str());
-        throw std::runtime_error("String index out of bounds");
+    if (source_var.is_struct) {
+        return source_var.struct_type_name;
     }
 
-    var->str_value[index] = value;
+    if (source_var.type >= TYPE_ARRAY_BASE || source_var.is_array) {
+        TypeInfo base_type = TYPE_UNKNOWN;
+        if (source_var.type >= TYPE_ARRAY_BASE) {
+            base_type = static_cast<TypeInfo>(source_var.type - TYPE_ARRAY_BASE);
+        } else if (source_var.array_type_info.base_type != TYPE_UNKNOWN) {
+            base_type = source_var.array_type_info.base_type;
+        } else if (source_var.current_type != TYPE_UNKNOWN) {
+            base_type = source_var.current_type;
+        } else if (source_var.type != TYPE_INTERFACE) {
+            base_type = source_var.type;
+        }
+
+        if (base_type == TYPE_UNKNOWN) {
+            base_type = TYPE_INT;
+        }
+        return getPrimitiveTypeNameForImpl(base_type) + "[]";
+    }
+
+    return getPrimitiveTypeNameForImpl(source_var.type);
 }
 
 void VariableManager::declare_global_variable(const ASTNode *node) {
@@ -332,6 +388,19 @@ void VariableManager::declare_global_variable(const ASTNode *node) {
         }
     } else {
         var.type = node->type_info;
+    }
+
+    if (node->is_pointer) {
+        var.is_pointer = true;
+        var.pointer_depth = node->pointer_depth;
+        var.pointer_base_type_name = node->pointer_base_type_name;
+        var.pointer_base_type = node->pointer_base_type;
+        if (var.type != TYPE_POINTER) {
+            var.type = TYPE_POINTER;
+        }
+        if (var.type_name.empty()) {
+            var.type_name = node->type_name;
+        }
     }
 
     var.is_const = node->is_const;
@@ -449,6 +518,68 @@ void VariableManager::declare_local_variable(const ASTNode *node) {
     current_scope().variables[node->name] = var;
 }
 
+void VariableManager::assign_variable(const std::string &name, int64_t value,
+                                      TypeInfo type, bool is_const) {
+    debug_msg(DebugMsgId::VAR_ASSIGN_READABLE, name.c_str(), value, "type",
+              is_const ? "true" : "false");
+
+    Variable *var = find_variable(name);
+    if (!var) {
+        Variable new_var;
+        new_var.type = (type != TYPE_UNKNOWN) ? type : TYPE_INT;
+        interpreter_->type_manager_->check_type_range(new_var.type, value,
+                                                      name);
+        new_var.value = value;
+        new_var.is_assigned = true;
+        new_var.is_const = is_const;
+        current_scope().variables[name] = new_var;
+        return;
+    }
+
+    if (var->is_const && var->is_assigned) {
+        std::fprintf(stderr, "Cannot reassign const variable: %s\n",
+                     name.c_str());
+        error_msg(DebugMsgId::CONST_REASSIGN_ERROR, name.c_str());
+        std::exit(1);
+    }
+
+    auto is_fixed_width_integral = [](TypeInfo t) {
+        switch (t) {
+        case TYPE_TINY:
+        case TYPE_SHORT:
+        case TYPE_INT:
+        case TYPE_LONG:
+        case TYPE_BOOL:
+        case TYPE_CHAR:
+            return true;
+        default:
+            return false;
+        }
+    };
+
+    TypeInfo target_type = var->type;
+    if (target_type == TYPE_UNKNOWN) {
+        target_type = (type != TYPE_UNKNOWN) ? type : TYPE_INT;
+    } else if (is_fixed_width_integral(target_type)) {
+        // Keep the original fixed-width integral type regardless of inferred type
+    } else if (type != TYPE_UNKNOWN) {
+        target_type = type;
+    }
+
+    if (target_type == TYPE_UNKNOWN) {
+        target_type = TYPE_INT;
+    }
+
+    interpreter_->type_manager_->check_type_range(target_type, value, name);
+
+    var->type = target_type;
+    var->value = value;
+    var->is_assigned = true;
+    if (is_const) {
+        var->is_const = true;
+    }
+}
+
 void VariableManager::assign_variable(const std::string &name,
                                       const std::string &value, bool is_const) {
     debug_msg(DebugMsgId::STRING_ASSIGN_READABLE, name.c_str(), value.c_str(),
@@ -465,12 +596,41 @@ void VariableManager::assign_variable(const std::string &name,
     } else {
         debug_msg(DebugMsgId::EXISTING_STRING_VAR_ASSIGN_DEBUG);
         if (var->is_const && var->is_assigned) {
+            std::fprintf(stderr, "Cannot reassign const variable: %s\n",
+                         name.c_str());
             error_msg(DebugMsgId::CONST_REASSIGN_ERROR, name.c_str());
             std::exit(1);
         }
         var->str_value = value;
         var->is_assigned = true;
     }
+}
+
+void VariableManager::assign_variable(const std::string &name,
+                                      const std::string &value) {
+    assign_variable(name, value, false);
+}
+
+void VariableManager::assign_function_parameter(const std::string &name,
+                                                int64_t value,
+                                                TypeInfo type) {
+    TypeInfo target_type = type != TYPE_UNKNOWN ? type : TYPE_INT;
+    interpreter_->type_manager_->check_type_range(target_type, value, name);
+
+    Variable param_var;
+    param_var.type = target_type;
+    param_var.value = value;
+    param_var.is_assigned = true;
+    current_scope().variables[name] = param_var;
+}
+
+void VariableManager::assign_array_parameter(const std::string &name,
+                                             const Variable &source_array,
+                                             TypeInfo type) {
+    Variable array_param = source_array;
+    array_param.type = type != TYPE_UNKNOWN ? type : source_array.type;
+    array_param.is_assigned = true;
+    current_scope().variables[name] = array_param;
 }
 
 void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
@@ -1039,6 +1199,11 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                             Variable member_var;
                             member_var.type = member.type;
                             member_var.type_name = member.type_alias;  // Union型名などを保持
+                            member_var.is_pointer = member.is_pointer;
+                            member_var.pointer_depth = member.pointer_depth;
+                            member_var.pointer_base_type_name = member.pointer_base_type_name;
+                            member_var.pointer_base_type = member.pointer_base_type;
+                            member_var.is_private_member = member.is_private;
 
                             // デフォルト値を設定
                             if (member_var.type == TYPE_STRING) {
@@ -1061,6 +1226,11 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                         Variable member_var;
                         member_var.type = member.type;
                         member_var.type_name = member.type_alias;  // Union型名などを保持
+                        member_var.is_pointer = member.is_pointer;
+                        member_var.pointer_depth = member.pointer_depth;
+                        member_var.pointer_base_type_name = member.pointer_base_type_name;
+                        member_var.pointer_base_type = member.pointer_base_type;
+                        member_var.is_private_member = member.is_private;
 
                         // 配列メンバーの場合
                         if (member.array_info.is_array()) {
@@ -1285,173 +1455,75 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
 
                 return; // struct literal処理完了後は早期リターン
 
-            } else if (!var.interface_name.empty() && node->init_expr->node_type ==
-                                            ASTNodeType::AST_VARIABLE) {
-                // struct to interface代入の処理: Drawable obj = circle;
-                std::string source_var_name = node->init_expr->name;
-                Variable *source_var = find_variable(source_var_name);
-                if (!source_var) {
-                    throw std::runtime_error("Source variable not found: " +
-                                             source_var_name);
+            } else if (!var.interface_name.empty()) {
+                auto assign_from_source = [&](const Variable& source, const std::string& source_name) {
+                    assign_interface_view(node->name, var, source, source_name);
+                };
+
+                if (node->init_expr->node_type == ASTNodeType::AST_VARIABLE ||
+                    node->init_expr->node_type == ASTNodeType::AST_IDENTIFIER) {
+                    std::string source_var_name = node->init_expr->name;
+                    Variable* source_var = find_variable(source_var_name);
+                    if (!source_var) {
+                        throw std::runtime_error("Source variable not found: " + source_var_name);
+                    }
+                    if (!source_var->is_struct && !isPrimitiveType(source_var) &&
+                        source_var->type < TYPE_ARRAY_BASE && source_var->type != TYPE_INTERFACE) {
+                        throw std::runtime_error("Cannot assign non-struct/non-primitive to interface variable");
+                    }
+
+                    debug_msg(DebugMsgId::INTERFACE_VARIABLE_ASSIGN, var.interface_name.c_str(), source_var_name.c_str());
+                    assign_from_source(*source_var, source_var_name);
+                    return;
                 }
 
-                // プリミティブ型と配列もinterfaceに代入可能にする
-                if (!source_var->is_struct && !isPrimitiveType(source_var) && source_var->type < TYPE_ARRAY_BASE) {
-                    throw std::runtime_error(
-                        "Cannot assign non-struct/non-primitive to interface variable");
-                }
-
-                debug_msg(DebugMsgId::INTERFACE_VARIABLE_ASSIGN, var.interface_name.c_str(), source_var_name.c_str());
-
-                // impl定義の存在確認
-                std::string source_type_name;
-                if (source_var->is_struct) {
-                    source_type_name = source_var->struct_type_name;
-                } else if (source_var->type >= TYPE_ARRAY_BASE) {
-                    // 配列型（typedef配列を含む）の場合
-                    if (!source_var->struct_type_name.empty()) {
-                        source_type_name = source_var->struct_type_name;
+                auto create_temp_primitive = [&](TypeInfo value_type, int64_t numeric_value, const std::string& string_value) {
+                    Variable temp;
+                    temp.is_assigned = true;
+                    temp.type = value_type;
+                    if (value_type == TYPE_STRING) {
+                        temp.str_value = string_value;
                     } else {
-                        TypeInfo base_type = static_cast<TypeInfo>(source_var->type - TYPE_ARRAY_BASE);
-                        source_type_name = std::string(type_info_to_string(base_type)) + "[]";
+                        temp.value = numeric_value;
                     }
-                } else {
-                    // プリミティブ型の場合
-                    if (!source_var->struct_type_name.empty()) {
-                        source_type_name = source_var->struct_type_name;
-                    } else {
-                        source_type_name = type_info_to_string(source_var->type);
-                    }
-                }
-                
-                // インターフェースに対するimpl定義が存在するかチェック
-                bool impl_found = false;
-                for (const auto& impl_def : interpreter_->get_impl_definitions()) {
-                    if (impl_def.interface_name == var.interface_name && 
-                        impl_def.struct_name == source_type_name) {
-                        impl_found = true;
-                        break;
-                    }
-                }
-                
-                if (!impl_found) {
-                    throw std::runtime_error("No impl found for interface '" + var.interface_name + 
-                                           "' with type '" + source_type_name + "'");
-                }
+                    temp.struct_type_name = getPrimitiveTypeNameForImpl(value_type);
+                    return temp;
+                };
 
-                if (source_var->is_struct) {
-                    // 構造体の場合の処理
-                    var.is_struct = true; // interface変数も内部的にはstruct扱い
-                    var.struct_type_name = source_var->struct_type_name; // 元の構造体型名を保持
-                    
-                    // 構造体メンバをコピー（多次元配列情報も含む）
-                    for (const auto &member_pair : source_var->struct_members) {
-                        const std::string &member_name = member_pair.first;
-                        const Variable &source_member = member_pair.second;
-                        
-                        Variable dest_member = source_member;
-                        if (source_member.is_multidimensional) {
-                            dest_member.is_multidimensional = true;
-                            dest_member.array_dimensions = source_member.array_dimensions;
-                            debug_print("STRUCT_MEMBER_COPY: Preserved multidimensional info for %s (dimensions: %zu)\n",
-                                      member_name.c_str(), source_member.array_dimensions.size());
+                try {
+                    if (node->init_expr->node_type == ASTNodeType::AST_STRING_LITERAL) {
+                        Variable temp = create_temp_primitive(TYPE_STRING, 0, node->init_expr->str_value);
+                        assign_from_source(temp, "");
+                        return;
+                    }
+
+                    int64_t numeric_value = interpreter_->evaluate(node->init_expr.get());
+                    TypeInfo resolved_type = node->init_expr->type_info != TYPE_UNKNOWN
+                                                  ? node->init_expr->type_info
+                                                  : TYPE_INT;
+                    Variable temp = create_temp_primitive(resolved_type, numeric_value, "");
+                    assign_from_source(temp, "");
+                    return;
+                } catch (const ReturnException& ret) {
+                    if (ret.is_array) {
+                        throw std::runtime_error("Cannot assign array return value to interface variable '" + node->name + "'");
+                    }
+
+                    if (!ret.is_struct) {
+                        if (ret.type == TYPE_STRING) {
+                            Variable temp = create_temp_primitive(TYPE_STRING, 0, ret.str_value);
+                            assign_from_source(temp, "");
+                            return;
                         }
-                        var.struct_members[member_name] = dest_member;
+
+                        Variable temp = create_temp_primitive(ret.type, ret.value, ret.str_value);
+                        assign_from_source(temp, "");
+                        return;
                     }
-                } else if (source_var->type >= TYPE_ARRAY_BASE) {
-                    // 配列型の場合の処理
-                    var.is_struct = false;
-                    var.type = source_var->type;
-                    var.value = source_var->value;
-                    var.str_value = source_var->str_value;
-                    
-                    // 配列情報をコピー
-                    var.array_dimensions = source_var->array_dimensions;
-                    var.is_multidimensional = source_var->is_multidimensional;
-                    
-                    // typedef名があればそれを使用、なければ基底型名を生成
-                    if (!source_var->struct_type_name.empty()) {
-                        var.struct_type_name = source_var->struct_type_name; // typedef名を使用
-                    } else {
-                        // 配列の基底型を取得
-                        TypeInfo base_type = static_cast<TypeInfo>(source_var->type - TYPE_ARRAY_BASE);
-                        var.struct_type_name = getPrimitiveTypeNameForImpl(base_type) + "[]";
-                    }
-                } else {
-                    // プリミティブ型の場合の処理
-                    var.is_struct = false;
-                    var.type = source_var->type;
-                    var.value = source_var->value;
-                    var.str_value = source_var->str_value;
-                    
-                    // typedef名があればそれを使用、なければ基底型名を生成
-                    if (!source_var->struct_type_name.empty()) {
-                        var.struct_type_name = source_var->struct_type_name; // typedef名を使用
-                    } else {
-                        var.struct_type_name = getPrimitiveTypeNameForImpl(source_var->type);
-                    }
+
+                    assign_from_source(ret.struct_value, "");
+                    return;
                 }
-                
-                current_scope().variables[node->name] = var;
-
-                // 全メンバをコピー
-                for (const auto &member_pair : source_var->struct_members) {
-                    const std::string &member_name = member_pair.first;
-                    const Variable &member_var = member_pair.second;
-                    
-                    std::string source_member_name = source_var_name + "." + member_name;
-                    std::string dest_member_name = node->name + "." + member_name;
-                    
-                    Variable *source_member_var = find_variable(source_member_name);
-                    if (source_member_var) {
-                        Variable dest_member_var = *source_member_var;
-                        
-                        // 多次元配列情報を正しくコピー
-                        if (source_member_var->is_multidimensional) {
-                            dest_member_var.is_multidimensional = true;
-                            dest_member_var.array_dimensions = source_member_var->array_dimensions;
-                            // multidim_array_values もコピー
-                            dest_member_var.multidim_array_values = source_member_var->multidim_array_values;
-                            debug_print("INTERFACE_ASSIGN: Copied multidimensional array info for %s (dimensions: %zu, values: %zu)\n",
-                                      member_name.c_str(), source_member_var->array_dimensions.size(), 
-                                      source_member_var->multidim_array_values.size());
-                        }
-                        
-                        current_scope().variables[dest_member_name] = dest_member_var;
-                        
-                        debug_print("INTERFACE_ASSIGN: Copied member %s from %s to %s\n",
-                                  member_name.c_str(), source_member_name.c_str(), dest_member_name.c_str());
-                    }
-                    
-                    // 配列メンバーの場合は配列要素もコピー
-                    if (member_var.is_array) {
-                        int total_size = 1;
-                        for (const auto &dim : member_var.array_dimensions) {
-                            total_size *= dim;
-                        }
-                        
-                        for (int i = 0; i < total_size; i++) {
-                            std::string source_element_name = source_var_name + "." + member_name + "[" + std::to_string(i) + "]";
-                            std::string dest_element_name = node->name + "." + member_name + "[" + std::to_string(i) + "]";
-                            
-                            Variable *source_element_var = find_variable(source_element_name);
-                            if (source_element_var) {
-                                Variable dest_element_var = *source_element_var;
-                                current_scope().variables[dest_element_name] = dest_element_var;
-                                
-                                debug_print("INTERFACE_ASSIGN: Copied array element %s = %lld to %s\n",
-                                          source_element_name.c_str(), 
-                                          (long long)source_element_var->value,
-                                          dest_element_name.c_str());
-                            }
-                        }
-                    }
-                }
-
-                // 代入完了
-                current_scope().variables[node->name].is_assigned = true;
-
-                return; // interface代入処理完了後は早期リターン
 
             } else if (var.is_struct && node->init_expr->node_type ==
                                             ASTNodeType::AST_VARIABLE) {
@@ -2152,7 +2224,7 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
             } else if (indices.size() == 1) {
                 // 1次元配列の場合
                 // const配列への書き込みチェック
-                if (var->is_const) {
+                if (var->is_const && var->is_assigned) {
                     throw std::runtime_error("Cannot assign to const array: " +
                                              array_name);
                 }

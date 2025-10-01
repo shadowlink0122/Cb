@@ -1,0 +1,29 @@
+// Struct private field external access should fail
+
+struct SecretBox {
+    private int secret;
+};
+
+interface SecretBoxOps {
+    void init(int value);
+};
+
+impl SecretBoxOps for SecretBox {
+    void init(int value) {
+        self.secret = value;
+    }
+};
+
+int main() {
+    println("Private field access error test:");
+
+    SecretBox box = {};
+    SecretBoxOps ops = box;
+    ops.init(42);
+
+    println("Attempting direct write");
+    box.secret = 99; // should trigger privacy enforcement
+
+    println("This line should not be reached");
+    return 0;
+}

@@ -1,0 +1,14 @@
+struct Holder {
+    const int value;
+};
+
+int main() {
+    Holder holder = { .value = 7 };
+    println("Initial value: holder.value =", holder.value);
+
+    // constメンバーを書き換えようとする（エラーになるはず）
+    holder.value = 9;
+
+    println("This line should not be reached");
+    return 0;
+}

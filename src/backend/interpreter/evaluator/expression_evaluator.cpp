@@ -1114,6 +1114,108 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                             throw std::runtime_error("Type mismatch: cannot pass non-string expression to string parameter '" + param->name + "'");
                         }
                     } else {
+                        auto is_interface_compatible = [](const Variable* var) {
+                            if (!var) {
+                                return false;
+                            }
+                            if (var->is_struct || var->type == TYPE_INTERFACE) {
+                                return true;
+                            }
+                            if (var->type >= TYPE_ARRAY_BASE) {
+                                return true;
+                            }
+                            switch (var->type) {
+                                case TYPE_INT:
+                                case TYPE_LONG:
+                                case TYPE_SHORT:
+                                case TYPE_TINY:
+                                case TYPE_BOOL:
+                                case TYPE_STRING:
+                                case TYPE_CHAR:
+                                    return true;
+                                default:
+                                    return false;
+                            }
+                        };
+
+                        auto assign_interface_argument = [&](const Variable& source, const std::string& source_name) {
+                            Variable interface_placeholder(param->type_name, true);
+                            interpreter_.assign_interface_view(param->name, interface_placeholder, source, source_name);
+                        };
+
+                        bool param_is_interface = false;
+                        if (param->type_info == TYPE_INTERFACE) {
+                            param_is_interface = true;
+                        } else if (!param->type_name.empty()) {
+                            if (interpreter_.find_interface_definition(param->type_name) != nullptr) {
+                                param_is_interface = true;
+                            }
+                        }
+
+                        if (param_is_interface) {
+                            if (arg->node_type == ASTNodeType::AST_VARIABLE || arg->node_type == ASTNodeType::AST_IDENTIFIER) {
+                                std::string source_name = arg->name;
+                                Variable* source_var = interpreter_.find_variable(source_name);
+                                if (!source_var) {
+                                    throw std::runtime_error("Source variable not found: " + source_name);
+                                }
+                                if (!is_interface_compatible(source_var)) {
+                                    throw std::runtime_error("Cannot pass non-struct/non-primitive to interface parameter '" + param->name + "'");
+                                }
+                                assign_interface_argument(*source_var, source_name);
+                            } else if (arg->node_type == ASTNodeType::AST_STRING_LITERAL) {
+                                Variable temp;
+                                temp.type = TYPE_STRING;
+                                temp.str_value = arg->str_value;
+                                temp.is_assigned = true;
+                                temp.struct_type_name = "string";
+                                assign_interface_argument(temp, "");
+                            } else {
+                                auto build_temp_from_primitive = [&](TypeInfo value_type, int64_t numeric_value, const std::string& string_value) {
+                                    Variable temp;
+                                    temp.type = value_type;
+                                    temp.is_assigned = true;
+                                    if (!arg->type_name.empty()) {
+                                        temp.struct_type_name = arg->type_name;
+                                    } else {
+                                        temp.struct_type_name = type_info_to_string(value_type);
+                                    }
+                                    if (value_type == TYPE_STRING) {
+                                        temp.str_value = string_value;
+                                    } else {
+                                        temp.value = numeric_value;
+                                    }
+                                    return temp;
+                                };
+
+                                try {
+                                    int64_t numeric_value = evaluate_expression(arg.get());
+                                    TypeInfo resolved_type = arg->type_info != TYPE_UNKNOWN ? arg->type_info : TYPE_INT;
+                                    if (resolved_type == TYPE_STRING) {
+                                        Variable temp = build_temp_from_primitive(TYPE_STRING, 0, arg->str_value);
+                                        assign_interface_argument(temp, "");
+                                    } else {
+                                        Variable temp = build_temp_from_primitive(resolved_type, numeric_value, "");
+                                        assign_interface_argument(temp, "");
+                                    }
+                                } catch (const ReturnException& ret) {
+                                    if (ret.is_array) {
+                                        throw std::runtime_error("Cannot pass array return value to interface parameter '" + param->name + "'");
+                                    }
+                                    if (!ret.is_struct && ret.type == TYPE_STRING) {
+                                        Variable temp = build_temp_from_primitive(TYPE_STRING, 0, ret.str_value);
+                                        assign_interface_argument(temp, "");
+                                    } else if (!ret.is_struct) {
+                                        Variable temp = build_temp_from_primitive(ret.type, ret.value, ret.str_value);
+                                        assign_interface_argument(temp, "");
+                                    } else {
+                                        assign_interface_argument(ret.struct_value, "");
+                                    }
+                                }
+                            }
+                            continue;
+                        }
+
                         // struct型パラメータかチェック
                         if (param->type_info == TYPE_STRUCT) {
                             Variable* source_var = nullptr;
@@ -1233,6 +1335,10 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                                         for (const auto& member : struct_def->members) {
                                             if (member.name == member_pair.first) {
                                                 member_var.type_name = member.type_alias;
+                                                member_var.is_pointer = member.is_pointer;
+                                                member_var.pointer_depth = member.pointer_depth;
+                                                member_var.pointer_base_type_name = member.pointer_base_type_name;
+                                                member_var.pointer_base_type = member.pointer_base_type;
                                                 break;
                                             }
                                         }
@@ -1662,6 +1768,9 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
         
         // 個別変数として直接アクセスを試す（構造体配列の場合）
         std::string full_member_path = var_name + "." + member_name;
+
+        interpreter_.sync_struct_members_from_direct_access(var_name);
+        interpreter_.ensure_struct_member_access_allowed(var_name, member_name);
         Variable* member_var = interpreter_.find_variable(full_member_path);
         
         if (!member_var) {
@@ -2241,10 +2350,28 @@ Variable ExpressionEvaluator::get_struct_member_from_variable(const Variable& st
         throw std::runtime_error("Variable is not a struct");
     }
     
+    auto enforce_privacy = [&](const Variable& member_var) -> Variable {
+        if (!member_var.is_private_member) {
+            return member_var;
+        }
+
+        std::string struct_type = struct_var.struct_type_name;
+        if (struct_type.empty() && !struct_var.implementing_struct.empty()) {
+            struct_type = struct_var.implementing_struct;
+        }
+
+        if (!interpreter_.is_current_impl_context_for(struct_type)) {
+            std::string type_label = struct_type.empty() ? std::string("<anonymous>") : struct_type;
+            throw std::runtime_error("Cannot access private struct member: " + type_label + "." + member_name);
+        }
+
+        return member_var;
+    };
+
     // まず struct_members から直接検索
     auto member_it = struct_var.struct_members.find(member_name);
     if (member_it != struct_var.struct_members.end()) {
-        return member_it->second;
+        return enforce_privacy(member_it->second);
     }
     
     // 構造体の識別子（struct_type_name）を使用してメンバーを検索
@@ -2252,7 +2379,7 @@ Variable ExpressionEvaluator::get_struct_member_from_variable(const Variable& st
     Variable* member_var = interpreter_.find_variable(member_var_name);
     
     if (member_var) {
-        return *member_var;
+        return enforce_privacy(*member_var);
     }
     
     // インタープリターの get_struct_member を使用
@@ -2260,7 +2387,7 @@ Variable ExpressionEvaluator::get_struct_member_from_variable(const Variable& st
         std::string temp_struct_name = "temp_struct_" + struct_var.struct_type_name;
         member_var = interpreter_.get_struct_member(temp_struct_name, member_name);
         if (member_var) {
-            return *member_var;
+            return enforce_privacy(*member_var);
         }
     } catch (...) {
         // 失敗した場合は続行

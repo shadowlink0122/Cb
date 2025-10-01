@@ -1,0 +1,15 @@
+struct Sample {
+    int value;
+};
+
+const Sample instance = {value: 5};
+
+int main() {
+    println("Before reassignment: instance.value =", instance.value);
+
+    // Const構造体のメンバーを書き換えようとする（エラーが発生するはず）
+    instance.value = 10;
+
+    println("This line should not be reached");
+    return 0;
+}
