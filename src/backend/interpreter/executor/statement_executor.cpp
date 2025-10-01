@@ -1,8 +1,10 @@
 #include "executor/statement_executor.h"
 #include "services/array_processing_service.h"
 #include "core/interpreter.h"
+#include "core/type_inference.h"
 #include "core/error_handler.h"
 #include "evaluator/expression_evaluator.h"
+#include "managers/variable_manager.h"
 #include "managers/array_manager.h"
 #include "managers/type_manager.h"
 #include "../../../common/debug.h"
@@ -252,7 +254,8 @@ void StatementExecutor::execute_assignment(const ASTNode *node) {
                     }
                     debug_msg(DebugMsgId::ARRAY_ELEMENT_EVAL_START);
                     int64_t index = interpreter_.evaluate((*it)->array_index.get());
-                    debug_msg(DebugMsgId::ARRAY_ELEMENT_EVAL_VALUE, std::to_string(index).c_str());
+                    std::string index_str = std::to_string(index);
+                    debug_msg(DebugMsgId::ARRAY_ELEMENT_EVAL_VALUE, index_str.c_str());
                     indices.push_back(index);
                 }
                 
@@ -323,57 +326,231 @@ void StatementExecutor::execute_assignment(const ASTNode *node) {
         execute_member_assignment(node);
     } else {
         // 通常の変数代入
-        if (node->right && node->right->node_type == ASTNodeType::AST_FUNC_CALL) {
-            // 関数呼び出しの場合、構造体戻り値の可能性を考慮
+        // Union型変数への代入の特別処理
+        if (node->left && node->left->node_type == ASTNodeType::AST_VARIABLE) {
+            Variable* var = interpreter_.find_variable(node->left->name);
+            if (var && var->type == TYPE_UNION) {
+                interpreter_.assign_union_variable(node->left->name, node->right.get());
+                return;
+            }
+        }
+
+        // node->nameベースの代入でもUnion型チェック
+        if (!node->name.empty()) {
+            Variable* var = interpreter_.find_variable(node->name);
+            if (var && var->type == TYPE_UNION) {
+                interpreter_.assign_union_variable(node->name, node->right.get());
+                return;
+            }
+        }
+
+        std::string target_name = !node->name.empty()
+                                       ? node->name
+                                       : (node->left &&
+                                                  node->left->node_type ==
+                                                      ASTNodeType::AST_VARIABLE
+                                              ? node->left->name
+                                              : "");
+
+        if (target_name.empty()) {
+            throw std::runtime_error("Invalid assignment target");
+        }
+
+        Variable *target_var = interpreter_.find_variable(target_name);
+
+        if (target_var &&
+            (target_var->type == TYPE_INTERFACE ||
+             !target_var->interface_name.empty())) {
+            auto assign_from_source = [&](const Variable &source,
+                                          const std::string &source_name) {
+                interpreter_.get_variable_manager()->assign_interface_view(
+                    target_name, *target_var, source, source_name);
+            };
+
+            auto create_temp_from_typed = [&](const TypedValue &typed,
+                                              TypeInfo type_hint) -> Variable {
+                Variable temp;
+                temp.is_assigned = true;
+                temp.struct_type_name.clear();
+
+                if (typed.is_struct()) {
+                    if (typed.struct_data) {
+                        temp = *typed.struct_data;
+                        temp.is_assigned = true;
+                    }
+                    return temp;
+                }
+
+                if (typed.is_string()) {
+                    temp.type = TYPE_STRING;
+                    temp.str_value = typed.string_value;
+                    temp.struct_type_name = type_info_to_string(TYPE_STRING);
+                    temp.value = 0;
+                    temp.float_value = 0.0f;
+                    temp.double_value = 0.0;
+                    temp.quad_value = 0.0L;
+                    return temp;
+                }
+
+                TypeInfo resolved = typed.numeric_type != TYPE_UNKNOWN
+                                          ? typed.numeric_type
+                                          : (typed.type.type_info != TYPE_UNKNOWN
+                                                 ? typed.type.type_info
+                                                 : (type_hint != TYPE_UNKNOWN
+                                                        ? type_hint
+                                                        : TYPE_INT));
+
+                if (resolved == TYPE_STRING && !typed.is_numeric()) {
+                    temp.type = TYPE_STRING;
+                    temp.str_value = typed.as_string();
+                    temp.struct_type_name = type_info_to_string(TYPE_STRING);
+                    return temp;
+                }
+
+                if (resolved == TYPE_FLOAT) {
+                    long double quad = typed.as_quad();
+                    float f = static_cast<float>(quad);
+                    temp.type = TYPE_FLOAT;
+                    temp.float_value = f;
+                    temp.double_value = static_cast<double>(f);
+                    temp.quad_value = static_cast<long double>(f);
+                    temp.value = static_cast<int64_t>(f);
+                } else if (resolved == TYPE_DOUBLE) {
+                    long double quad = typed.as_quad();
+                    double d = static_cast<double>(quad);
+                    temp.type = TYPE_DOUBLE;
+                    temp.float_value = static_cast<float>(d);
+                    temp.double_value = d;
+                    temp.quad_value = static_cast<long double>(d);
+                    temp.value = static_cast<int64_t>(d);
+                } else if (resolved == TYPE_QUAD) {
+                    long double quad = typed.as_quad();
+                    temp.type = TYPE_QUAD;
+                    temp.float_value = static_cast<float>(quad);
+                    temp.double_value = static_cast<double>(quad);
+                    temp.quad_value = quad;
+                    temp.value = static_cast<int64_t>(quad);
+                } else {
+                    int64_t numeric_value = typed.as_numeric();
+                    if (resolved == TYPE_BOOL) {
+                        numeric_value = (numeric_value != 0) ? 1 : 0;
+                    }
+                    temp.type = resolved;
+                    temp.value = numeric_value;
+                    temp.float_value = static_cast<float>(numeric_value);
+                    temp.double_value = static_cast<double>(numeric_value);
+                    temp.quad_value = static_cast<long double>(numeric_value);
+                }
+
+                temp.struct_type_name = type_info_to_string(temp.type);
+                return temp;
+            };
+
+            const ASTNode *rhs = node->right.get();
             try {
-                int64_t value = interpreter_.evaluate(node->right.get());
-                interpreter_.assign_variable(node->name, value, node->type_info);
+                if (rhs->node_type == ASTNodeType::AST_VARIABLE ||
+                    rhs->node_type == ASTNodeType::AST_IDENTIFIER) {
+                    std::string source_var_name = rhs->name;
+                    Variable *source_var =
+                        interpreter_.find_variable(source_var_name);
+                    if (!source_var) {
+                        throw std::runtime_error(
+                            "Source variable not found: " +
+                            source_var_name);
+                    }
+                    assign_from_source(*source_var, source_var_name);
+                    return;
+                }
+
+                if (rhs->node_type == ASTNodeType::AST_STRING_LITERAL) {
+                    TypedValue typed_value(rhs->str_value,
+                                           InferredType(TYPE_STRING,
+                                                        "string"));
+                    Variable temp =
+                        create_temp_from_typed(typed_value, TYPE_STRING);
+                    assign_from_source(temp, "");
+                    return;
+                }
+
+                TypedValue typed_value =
+                    interpreter_.evaluate_typed_expression(rhs);
+                TypeInfo resolved_type = rhs->type_info != TYPE_UNKNOWN
+                                             ? rhs->type_info
+                                             : typed_value.type.type_info;
+                Variable temp = create_temp_from_typed(typed_value,
+                                                       resolved_type);
+                assign_from_source(temp, "");
+                return;
+            } catch (const ReturnException &ret) {
+                if (ret.is_array) {
+                    throw std::runtime_error(
+                        "Cannot assign array return value to interface variable '" +
+                        target_name + "'");
+                }
+
+                if (!ret.is_struct) {
+                    if (ret.type == TYPE_STRING) {
+                        TypedValue typed_value(
+                            ret.str_value,
+                            InferredType(TYPE_STRING, "string"));
+                        Variable temp =
+                            create_temp_from_typed(typed_value,
+                                                   TYPE_STRING);
+                        assign_from_source(temp, "");
+                        return;
+                    }
+
+                    TypeInfo resolved_type =
+                        ret.type != TYPE_UNKNOWN ? ret.type : TYPE_INT;
+                    TypedValue typed_value =
+                        (ret.type == TYPE_FLOAT)
+                            ? TypedValue(ret.double_value,
+                                         InferredType(TYPE_FLOAT,
+                                                      "float"))
+                            : (ret.type == TYPE_DOUBLE)
+                                  ? TypedValue(ret.double_value,
+                                               InferredType(TYPE_DOUBLE,
+                                                            "double"))
+                                  : (ret.type == TYPE_QUAD)
+                                        ? TypedValue(ret.quad_value,
+                                                     InferredType(
+                                                         TYPE_QUAD,
+                                                         "quad"))
+                                        : TypedValue(
+                                              ret.value,
+                                              InferredType(resolved_type,
+                                                           type_info_to_string(
+                                                               resolved_type)));
+                    Variable temp = create_temp_from_typed(
+                        typed_value, resolved_type);
+                    assign_from_source(temp, "");
+                    return;
+                }
+
+                assign_from_source(ret.struct_value, "");
+                return;
+            }
+        }
+
+        if (node->right && node->right->node_type == ASTNodeType::AST_FUNC_CALL) {
+            try {
+                TypedValue typed_value = interpreter_.evaluate_typed_expression(node->right.get());
+                interpreter_.assign_variable(target_name, typed_value,
+                                             node->type_info, false);
             } catch (const ReturnException& ret) {
                 if (ret.is_struct) {
-                    // 構造体戻り値を通常の変数に代入
-                    interpreter_.current_scope().variables[node->name] = ret.struct_value;
-                    
-                    // 個別メンバー変数も更新
-                    for (const auto& member : ret.struct_value.struct_members) {
-                        std::string member_path = node->name + "." + member.first;
-                        Variable* member_var = interpreter_.find_variable(member_path);
-                        if (member_var) {
-                            member_var->value = member.second.value;
-                            member_var->str_value = member.second.str_value;
-                            member_var->is_assigned = true;
-                        }
-                    }
+                    interpreter_.current_scope().variables[target_name] = ret.struct_value;
+                    interpreter_.sync_direct_access_from_struct_value(
+                        target_name,
+                        interpreter_.current_scope().variables[target_name]);
                 } else {
-                    // その他の戻り値は再投げ
                     throw;
                 }
             }
         } else {
-            // 通常の変数代入
-            // Union型変数への代入の特別処理
-            if (node->left && node->left->node_type == ASTNodeType::AST_VARIABLE) {
-                Variable* var = interpreter_.find_variable(node->left->name);
-                if (var && var->type == TYPE_UNION) {
-                    interpreter_.assign_union_variable(node->left->name, node->right.get());
-                    return;
-                }
-            }
-            
-            // node->nameベースの代入でもUnion型チェック
-            if (!node->name.empty()) {
-                Variable* var = interpreter_.find_variable(node->name);
-                if (var && var->type == TYPE_UNION) {
-                    interpreter_.assign_union_variable(node->name, node->right.get());
-                    return;
-                }
-            }
-            
-            int64_t value = interpreter_.evaluate(node->right.get());
-            if (node->right->node_type == ASTNodeType::AST_STRING_LITERAL) {
-                interpreter_.assign_variable(node->name, node->right->str_value);
-            } else {
-                interpreter_.assign_variable(node->name, value, node->type_info);
-            }
+            TypedValue typed_value = interpreter_.evaluate_typed_expression(node->right.get());
+            interpreter_.assign_variable(target_name, typed_value,
+                                         node->type_info, false);
         }
     }
 }
@@ -396,6 +573,7 @@ void StatementExecutor::execute_variable_declaration(const ASTNode *node) {
     var.type = node->type_info;
     var.is_const = node->is_const;
     var.is_array = false;
+    var.is_unsigned = node->is_unsigned;
 
     // typedef配列の場合の特別処理
     if (node->array_type_info.base_type != TYPE_UNKNOWN) {
@@ -584,7 +762,8 @@ void StatementExecutor::execute_variable_declaration(const ASTNode *node) {
                     } else if (ret.type == TYPE_STRING) {
                         interpreter_.current_scope().variables[node->name].str_value = ret.str_value;
                     } else {
-                        interpreter_.current_scope().variables[node->name].value = ret.value;
+                        interpreter_.assign_variable(node->name, ret.value,
+                                                     ret.type);
                     }
                     interpreter_.current_scope().variables[node->name].is_assigned = true;
                 }
@@ -598,7 +777,8 @@ void StatementExecutor::execute_variable_declaration(const ASTNode *node) {
                         // 文字列型なのに数値が返された場合
                         throw std::runtime_error("Type mismatch: expected string but got numeric value");
                     } else {
-                        interpreter_.current_scope().variables[node->name].value = value;
+                        interpreter_.assign_variable(node->name, value,
+                                                     node->type_info);
                     }
                     interpreter_.current_scope().variables[node->name].is_assigned = true;
                 } catch (const ReturnException& ret) {
@@ -619,7 +799,8 @@ void StatementExecutor::execute_variable_declaration(const ASTNode *node) {
                         interpreter_.current_scope().variables[node->name].str_value = ret.str_value;
                         interpreter_.current_scope().variables[node->name].type = TYPE_STRING;
                     } else {
-                        interpreter_.current_scope().variables[node->name].value = ret.value;
+                        interpreter_.assign_variable(node->name, ret.value,
+                                                     ret.type);
                     }
                     interpreter_.current_scope().variables[node->name].is_assigned = true;
                 }
@@ -628,8 +809,8 @@ void StatementExecutor::execute_variable_declaration(const ASTNode *node) {
                 if (var.type == TYPE_STRING) {
                     interpreter_.current_scope().variables[node->name].str_value = init_node->str_value;
                 } else {
-                    interpreter_.current_scope().variables[node->name].value = value;
-                    // interpreter_.check_type_range(var.type, value, node->name);
+                    interpreter_.assign_variable(node->name, value,
+                                                 node->type_info);
                 }
                 interpreter_.current_scope().variables[node->name].is_assigned = true;
             }
@@ -1191,7 +1372,8 @@ void StatementExecutor::execute_self_member_assignment(const std::string& member
         debug_print("SELF_ASSIGN: %s = %lld\n", member_name.c_str(), (long long)value);
     }
     
-    debug_msg(DebugMsgId::SELF_MEMBER_ACCESS_VALUE, std::to_string(self_member->value).c_str());
+    std::string self_value_str = std::to_string(self_member->value);
+    debug_msg(DebugMsgId::SELF_MEMBER_ACCESS_VALUE, self_value_str.c_str());
 }
 
 void StatementExecutor::execute_ternary_assignment(const ASTNode *node) {
@@ -1228,24 +1410,44 @@ void StatementExecutor::execute_ternary_assignment(const ASTNode *node) {
     } else {
         // その他（数値、関数呼び出しなど）の場合は通常の評価
         try {
-            int64_t value = interpreter_.evaluate(selected_branch);
-            Variable* var = interpreter_.get_variable(node->name);
-            if (var) {
-                var->value = value;
-                var->is_assigned = true;
-            }
+            TypedValue typed_value = interpreter_.evaluate_typed_expression(selected_branch);
+            interpreter_.assign_variable(node->name, typed_value,
+                                         typed_value.type.type_info,
+                                         false);
         } catch (const ReturnException& ret) {
-            // 関数の戻り値処理
             if (!node->name.empty()) {
-                Variable* var = interpreter_.get_variable(node->name);
-                if (var) {
-                    if (ret.type == TYPE_STRING) {
-                        var->str_value = ret.str_value;
-                        var->type = TYPE_STRING;
-                    } else {
-                        var->value = ret.value;
-                    }
-                    var->is_assigned = true;
+                if (ret.type == TYPE_STRING) {
+                    TypedValue typed_value(ret.str_value,
+                                           InferredType(TYPE_STRING, "string"));
+                    interpreter_.assign_variable(node->name, typed_value,
+                                                 TYPE_STRING, false);
+                } else if (ret.type == TYPE_FLOAT || ret.type == TYPE_DOUBLE ||
+                           ret.type == TYPE_QUAD) {
+                    TypeInfo numeric_type = ret.type;
+                    long double quad_value =
+                        (ret.type == TYPE_FLOAT)
+                            ? static_cast<long double>(ret.double_value)
+                            : (ret.type == TYPE_DOUBLE)
+                                  ? static_cast<long double>(ret.double_value)
+                                  : ret.quad_value;
+                    TypedValue typed_value(quad_value,
+                                           InferredType(numeric_type,
+                                                        type_info_to_string(numeric_type)));
+                    interpreter_.assign_variable(node->name, typed_value,
+                                                 numeric_type, false);
+                } else if (ret.is_struct) {
+                    Variable struct_var = ret.struct_value;
+                    TypedValue typed_value(struct_var,
+                                           InferredType(TYPE_STRUCT,
+                                                        struct_var.struct_type_name));
+                    interpreter_.assign_variable(node->name, typed_value,
+                                                 TYPE_STRUCT, false);
+                } else {
+                    TypedValue typed_value(ret.value,
+                                           InferredType(ret.type,
+                                                        type_info_to_string(ret.type)));
+                    interpreter_.assign_variable(node->name, typed_value,
+                                                 ret.type, false);
                 }
             }
         }
@@ -1285,20 +1487,45 @@ void StatementExecutor::execute_ternary_variable_initialization(const ASTNode* v
         var->type = TYPE_STRING;
         var->is_assigned = true;
     } else {
-        // その他（数値、関数呼び出しなど）の場合は通常の評価
         try {
-            int64_t value = interpreter_.evaluate(selected_branch);
-            var->value = value;
-            var->is_assigned = true;
+            TypedValue typed_value = interpreter_.evaluate_typed_expression(selected_branch);
+            interpreter_.assign_variable(var_name, typed_value,
+                                         typed_value.type.type_info,
+                                         false);
         } catch (const ReturnException& ret) {
-            // 関数の戻り値処理
             if (ret.type == TYPE_STRING) {
-                var->str_value = ret.str_value;
-                var->type = TYPE_STRING;
+                TypedValue typed_value(ret.str_value,
+                                       InferredType(TYPE_STRING, "string"));
+                interpreter_.assign_variable(var_name, typed_value,
+                                             TYPE_STRING, false);
+            } else if (ret.type == TYPE_FLOAT || ret.type == TYPE_DOUBLE ||
+                       ret.type == TYPE_QUAD) {
+                TypeInfo numeric_type = ret.type;
+                long double quad_value =
+                    (ret.type == TYPE_FLOAT)
+                        ? static_cast<long double>(ret.double_value)
+                        : (ret.type == TYPE_DOUBLE)
+                              ? static_cast<long double>(ret.double_value)
+                              : ret.quad_value;
+                TypedValue typed_value(quad_value,
+                                       InferredType(numeric_type,
+                                                    type_info_to_string(numeric_type)));
+                interpreter_.assign_variable(var_name, typed_value,
+                                             numeric_type, false);
+            } else if (ret.is_struct) {
+                Variable struct_var = ret.struct_value;
+                TypedValue typed_value(struct_var,
+                                       InferredType(TYPE_STRUCT,
+                                                    struct_var.struct_type_name));
+                interpreter_.assign_variable(var_name, typed_value,
+                                             TYPE_STRUCT, false);
             } else {
-                var->value = ret.value;
+                TypedValue typed_value(ret.value,
+                                       InferredType(ret.type,
+                                                    type_info_to_string(ret.type)));
+                interpreter_.assign_variable(var_name, typed_value,
+                                             ret.type, false);
             }
-            var->is_assigned = true;
         }
     }
 }

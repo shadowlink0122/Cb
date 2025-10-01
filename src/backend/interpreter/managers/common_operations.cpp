@@ -1,5 +1,6 @@
 #include "managers/common_operations.h"
 #include "../../../common/debug_messages.h"
+#include "../services/debug_service.h"
 #include "evaluator/expression_evaluator.h"
 #include "services/expression_service.h" // DRY効率化: 統一式評価サービス
 #include "core/interpreter.h"
@@ -55,9 +56,16 @@ CommonOperations::parse_array_literal(const ASTNode *literal_node) {
 }
 
 void CommonOperations::assign_array_literal_to_variable(
-    Variable *var, const ArrayLiteralResult &result) {
+    Variable *var, const ArrayLiteralResult &result,
+    const std::string &var_name_hint) {
     if (!var) {
         throw std::runtime_error("Null variable pointer");
+    }
+
+    if (interpreter_->is_debug_mode()) {
+        debug_print("ARRAY_CLAMP_DEBUG: assigning literal to %s, is_unsigned=%d\n",
+                    var_name_hint.empty() ? "<anonymous>" : var_name_hint.c_str(),
+                    var->is_unsigned ? 1 : 0);
     }
 
     if (!var->is_array) {
@@ -103,33 +111,51 @@ void CommonOperations::assign_array_literal_to_variable(
         } else {
             var->type = TYPE_STRING;
         }
-    } else {
-        // 多次元配列の場合は適切なストレージを使用
-        if (var->is_multidimensional && var->array_dimensions.size() > 1) {
-            var->multidim_array_values = result.int_values;
-            // 残りの要素を0で埋める
-            var->multidim_array_values.resize(var->array_size, 0);
-            var->multidim_array_strings.clear();
-        } else {
-            var->array_values = result.int_values;
-            // 残りの要素を0で埋める
-            var->array_values.resize(var->array_size, 0);
-            var->array_strings.clear();
+        if (!var->is_multidimensional || var->array_dimensions.size() <= 1) {
+            var->array_dimensions.clear();
+            var->array_dimensions.push_back(var->array_size);
         }
 
-        // 型を適切に設定
-        if (var->type < TYPE_ARRAY_BASE) {
-            var->type = static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_INT);
+        var->is_assigned = true;
+        return;
+    }
+
+    std::vector<int64_t> adjusted_values = result.int_values;
+    if (var->is_unsigned) {
+        const std::string resolved_name =
+            var_name_hint.empty() ? std::string("<anonymous array>")
+                                  : var_name_hint;
+        for (auto &value : adjusted_values) {
+            if (value < 0) {
+                DEBUG_WARN(
+                    VARIABLE,
+                    "Unsigned array %s initialized with negative element (%lld); clamping to 0",
+                    resolved_name.c_str(), static_cast<long long>(value));
+                value = 0;
+            }
         }
     }
 
-    // 次元情報を設定
-    // 既に多次元配列として設定されている場合は、その情報を保持
+    if (var->is_multidimensional && var->array_dimensions.size() > 1) {
+        var->multidim_array_values = adjusted_values;
+        var->multidim_array_values.resize(var->array_size, 0);
+        var->array_values = adjusted_values;
+        var->array_values.resize(var->array_size, 0);
+        var->multidim_array_strings.clear();
+    } else {
+        var->array_values = adjusted_values;
+        var->array_values.resize(var->array_size, 0);
+        var->array_strings.clear();
+    }
+
+    if (var->type < TYPE_ARRAY_BASE) {
+        var->type = static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_INT);
+    }
+
     if (!var->is_multidimensional || var->array_dimensions.size() <= 1) {
         var->array_dimensions.clear();
         var->array_dimensions.push_back(var->array_size);
     }
-    // 既に多次元配列の場合は、元の次元情報を保持
 
     var->is_assigned = true;
 }
@@ -148,16 +174,29 @@ void CommonOperations::assign_array_element_safe(Variable *var, int64_t index,
     check_const_assignment(var, var_name);
     check_array_bounds(var, index, var_name);
 
+    int64_t adjusted_value = value;
+    if (var->is_unsigned && adjusted_value < 0) {
+        const std::string resolved_name =
+            var_name.empty() ? std::string("<anonymous array>") : var_name;
+        DEBUG_WARN(
+            VARIABLE,
+            "Unsigned array %s element assignment with negative value (%lld); clamping to 0",
+            resolved_name.c_str(), static_cast<long long>(adjusted_value));
+        adjusted_value = 0;
+    }
+
     // 型チェック（配列の要素型に対して）
     TypeInfo elem_type =
         (var->type >= TYPE_ARRAY_BASE)
             ? static_cast<TypeInfo>(var->type - TYPE_ARRAY_BASE)
             : var->type;
-    interpreter_->get_type_manager()->check_type_range(elem_type, value,
-                                                       var_name);
+    interpreter_->get_type_manager()->check_type_range(elem_type,
+                                                       adjusted_value,
+                                                       var_name,
+                                                       var->is_unsigned);
 
-    var->array_values[index] = value;
-    debug_array_operation("assign_element", var_name, index, value);
+    var->array_values[index] = adjusted_value;
+    debug_array_operation("assign_element", var_name, index, adjusted_value);
 }
 
 void CommonOperations::assign_array_element_safe(Variable *var, int64_t index,
@@ -217,6 +256,9 @@ void CommonOperations::check_array_bounds(const Variable *var, int64_t index,
                                           const std::string &var_name) {
     // 統一チェック: 従来のチェックロジックを使用
     if (index < 0 || index >= var->array_size) {
+        std::cerr << "ARRAY_BOUNDS_DEBUG: var=" << var_name
+                  << " index=" << index
+                  << " size=" << var->array_size << std::endl;
         throw std::runtime_error("Array index out of bounds for '" + var_name +
                                  "': " + std::to_string(index) +
                                  " (valid range: 0-" +
@@ -264,8 +306,9 @@ void CommonOperations::debug_array_operation(const std::string &operation,
             debug_msg(DebugMsgId::ARRAY_ELEMENT_ASSIGN_DEBUG, var_name.c_str(),
                       index, value);
         } else {
+            std::string operation_info = operation + " for " + var_name;
             debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
-                      (operation + " for " + var_name).c_str());
+                      operation_info.c_str());
         }
     }
 }

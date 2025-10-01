@@ -264,8 +264,36 @@ Token RecursiveLexer::makeNumber() {
             advance();
         }
     }
+
+    // Exponent part (e/E[+/-]digits)
+    if ((peek() == 'e' || peek() == 'E')) {
+        char next_char = peekNext();
+        if (isDigit(next_char) || next_char == '+' || next_char == '-') {
+            advance(); // consume 'e' or 'E'
+            if (peek() == '+' || peek() == '-') {
+                advance(); // consume sign
+            }
+            if (!isDigit(peek())) {
+                return makeToken(TokenType::TOK_ERROR, "Invalid exponent in number literal");
+            }
+            while (isDigit(peek())) {
+                advance();
+            }
+        }
+    }
     
     std::string text = source_.substr(start, current_ - start);
+
+    // Suffix (f/F, d/D, q/Q)
+    if (!isAtEnd()) {
+        char suffix = peek();
+        if (suffix == 'f' || suffix == 'F' ||
+            suffix == 'd' || suffix == 'D' ||
+            suffix == 'q' || suffix == 'Q') {
+            advance();
+            text.push_back(suffix);
+        }
+    }
     return makeToken(TokenType::TOK_NUMBER, text);
 }
 
@@ -341,7 +369,8 @@ TokenType RecursiveLexer::getKeywordType(const std::string& text) {
         {"self", TokenType::TOK_SELF},
         {"new", TokenType::TOK_NEW},
         {"delete", TokenType::TOK_DELETE},
-        {"nullptr", TokenType::TOK_NULLPTR}
+        {"nullptr", TokenType::TOK_NULLPTR},
+        {"unsigned", TokenType::TOK_UNSIGNED}
     };
     
     auto it = keywords.find(text);

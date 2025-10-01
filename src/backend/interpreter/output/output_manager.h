@@ -8,11 +8,7 @@
 class Interpreter;
 struct Variable;
 class ReturnException;
-class ExpressionService; // DRY効率化: 式評価サービス
-class Interpreter;
-struct Variable;
-class ReturnException;
-// class ExpressionService; // DRY効率化: 式評価サービス（一時コメントアウト）
+class ExpressionService;
 
 // 出力管理クラス
 class OutputManager {
@@ -51,4 +47,21 @@ private:
     std::string process_escape_sequences(const std::string& input);
     bool has_unescaped_format_specifiers(const std::string& str);
     size_t count_format_specifiers(const std::string& str);
+
+    std::string render_formatted_string(const std::string& format,
+                                        const std::vector<int64_t>& int_args,
+                                        const std::vector<std::string>& str_args,
+                                        const std::vector<double>& double_args,
+                                        const std::vector<long double>& quad_args,
+                                        const std::vector<TypeInfo>& type_args,
+                                        bool append_extra_args);
+
+    void collect_formatted_arguments(const ASTNode* arg_list,
+                                     size_t start_index,
+                                     bool allow_print_nodes,
+                                     std::vector<int64_t>& int_args,
+                                     std::vector<std::string>& str_args,
+                                     std::vector<double>& double_args,
+                                     std::vector<long double>& quad_args,
+                                     std::vector<TypeInfo>& type_args);
 };

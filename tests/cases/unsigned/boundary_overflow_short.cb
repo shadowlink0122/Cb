@@ -1,0 +1,6 @@
+int main() {
+    // short unsigned overflow (expected to fail)
+    unsigned short us = 65536;
+    println(us);
+    return 0;
+}

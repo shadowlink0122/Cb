@@ -36,6 +36,8 @@ struct Variable {
     int pointer_depth;            // ポインタの深さ
     std::string pointer_base_type_name; // ポインタ基底型名
     TypeInfo pointer_base_type;   // ポインタ基底型
+    bool is_reference;            // 参照型かどうか
+    bool is_unsigned;             // unsigned修飾子かどうか
     std::string struct_type_name; // struct型名
     bool is_private_member;       // struct privateメンバーフラグ
 
@@ -89,6 +91,8 @@ struct Variable {
           pointer_depth(0),
           pointer_base_type_name(""),
           pointer_base_type(TYPE_UNKNOWN),
+          is_reference(false),
+          is_unsigned(false),
           struct_type_name(""),
           is_private_member(false),
           type_name(""),
@@ -119,6 +123,8 @@ struct Variable {
           pointer_depth(0),
           pointer_base_type_name(""),
           pointer_base_type(TYPE_UNKNOWN),
+          is_reference(false),
+          is_unsigned(false),
           struct_type_name(""),
           is_private_member(false),
           type_name(""),
@@ -144,6 +150,8 @@ struct Variable {
           pointer_depth(0),
           pointer_base_type_name(""),
           pointer_base_type(TYPE_UNKNOWN),
+          is_reference(false),
+          is_unsigned(false),
           struct_type_name(struct_name),
           is_private_member(false),
           type_name(""),
@@ -174,6 +182,8 @@ struct Variable {
           pointer_depth(0),
           pointer_base_type_name(""),
           pointer_base_type(TYPE_UNKNOWN),
+          is_reference(false),
+          is_unsigned(false),
           struct_type_name(""),
           is_private_member(false),
           type_name(""),
@@ -248,6 +258,8 @@ struct Scope {
 class ReturnException {
   public:
     int64_t value;
+        double double_value;
+        long double quad_value;
     std::string str_value;
     TypeInfo type;
 
@@ -267,32 +279,39 @@ class ReturnException {
     std::string struct_type_name;
 
     // 完全初期化コンストラクタ群
-    ReturnException(int64_t val, TypeInfo t = TYPE_INT) 
-        : value(val), str_value(""), type(t), is_array(false), is_struct(false), is_struct_array(false) {}
-    ReturnException(const std::string &str)
-        : value(0), str_value(str), type(TYPE_STRING), is_array(false), is_struct(false), is_struct_array(false) {}
+        ReturnException(int64_t val, TypeInfo t = TYPE_INT) 
+                : value(val), double_value(static_cast<double>(val)), quad_value(static_cast<long double>(val)),
+                    str_value(""), type(t), is_array(false), is_struct(false), is_struct_array(false) {}
+        ReturnException(double val, TypeInfo t = TYPE_DOUBLE)
+                : value(static_cast<int64_t>(val)), double_value(val), quad_value(static_cast<long double>(val)),
+                    str_value(""), type(t), is_array(false), is_struct(false), is_struct_array(false) {}
+        ReturnException(long double val, TypeInfo t = TYPE_QUAD)
+                : value(static_cast<int64_t>(val)), double_value(static_cast<double>(val)), quad_value(val),
+                    str_value(""), type(t), is_array(false), is_struct(false), is_struct_array(false) {}
+        ReturnException(const std::string &str)
+                : value(0), double_value(0.0), quad_value(0.0L), str_value(str), type(TYPE_STRING), is_array(false), is_struct(false), is_struct_array(false) {}
 
     // 配列戻り値用コンストラクタ
     ReturnException(const std::vector<std::vector<std::vector<int64_t>>> &arr,
                     const std::string &type_name, TypeInfo t)
-        : value(0), str_value(""), type(t), is_array(true), int_array_3d(arr),
+                : value(0), double_value(0.0), quad_value(0.0L), str_value(""), type(t), is_array(true), int_array_3d(arr),
           array_type_name(type_name), is_struct(false), is_struct_array(false) {}
 
     ReturnException(
         const std::vector<std::vector<std::vector<std::string>>> &arr,
         const std::string &type_name, TypeInfo t)
-        : value(0), str_value(""), type(t), is_array(true), str_array_3d(arr),
+                : value(0), double_value(0.0), quad_value(0.0L), str_value(""), type(t), is_array(true), str_array_3d(arr),
           array_type_name(type_name), is_struct(false), is_struct_array(false) {}
     
     // struct戻り値用コンストラクタ  
     ReturnException(const Variable &struct_var)
-        : value(0), str_value(""), type(struct_var.type), is_array(false), is_struct(true), 
+                : value(0), double_value(0.0), quad_value(0.0L), str_value(""), type(struct_var.type), is_array(false), is_struct(true), 
           struct_value(struct_var), is_struct_array(false) {}
     
     // 構造体配列戻り値用コンストラクタ
     ReturnException(const std::vector<std::vector<std::vector<Variable>>> &struct_arr,
                     const std::string &type_name)
-        : value(0), str_value(""), type(TYPE_STRUCT), is_array(true), is_struct(true), 
+                : value(0), double_value(0.0), quad_value(0.0L), str_value(""), type(TYPE_STRUCT), is_array(true), is_struct(true), 
           is_struct_array(true), struct_array_3d(struct_arr), struct_type_name(type_name) {}
 };
 
@@ -398,12 +417,17 @@ class Interpreter : public EvaluatorInterface {
                          bool is_const);
     void assign_variable(const std::string &name, const std::string &value,
                          bool is_const);
+    void assign_variable(const std::string &name, const TypedValue &value,
+                         TypeInfo type_hint, bool is_const);
     
     // Union型代入
     void assign_union_variable(const std::string &name, const ASTNode* value_node);
     
     void assign_function_parameter(const std::string &name, int64_t value,
-                                   TypeInfo type);
+                                   TypeInfo type, bool is_unsigned);
+    void assign_function_parameter(const std::string &name,
+                                   const TypedValue &value, TypeInfo type,
+                                   bool is_unsigned);
     void assign_array_parameter(const std::string &name,
                                 const Variable &source_array, TypeInfo type);
     void assign_interface_view(const std::string &dest_name,
@@ -475,6 +499,8 @@ class Interpreter : public EvaluatorInterface {
                                             const ASTNode *array_literal);
     TypeInfo string_to_type_info(const std::string &type_str);
     void sync_struct_members_from_direct_access(const std::string &var_name);
+    void sync_direct_access_from_struct_value(const std::string &var_name,
+                                              const Variable &struct_value);
     void ensure_struct_member_access_allowed(const std::string &accessor_name,
                                              const std::string &member_name);
     bool is_current_impl_context_for(const std::string &struct_type_name);
@@ -522,7 +548,8 @@ class Interpreter : public EvaluatorInterface {
 
   public:
     void check_type_range(TypeInfo type, int64_t value,
-                          const std::string &name);
+                          const std::string &name,
+                          bool is_unsigned = false);
 
     // エラー表示ヘルパー関数
     void throw_runtime_error_with_location(const std::string &message,
@@ -543,6 +570,7 @@ class Interpreter : public EvaluatorInterface {
     ExpressionEvaluator *get_expression_evaluator() {
         return expression_evaluator_.get();
     }
+    TypedValue evaluate_typed_expression(const ASTNode *node);
 
     // TypeManagerへのアクセス
     TypeManager *get_type_manager() { return type_manager_.get(); }

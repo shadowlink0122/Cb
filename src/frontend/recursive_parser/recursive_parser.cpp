@@ -114,7 +114,8 @@ ASTNode* RecursiveParser::parseStatement() {
     }
     
     // DEBUG: 現在のトークンを出力
-    debug_msg(DebugMsgId::PARSE_CURRENT_TOKEN, current_token_.value.c_str(), std::to_string((int)current_token_.type).c_str());
+    std::string token_type_str = std::to_string(static_cast<int>(current_token_.type));
+    debug_msg(DebugMsgId::PARSE_CURRENT_TOKEN, current_token_.value.c_str(), token_type_str.c_str());
     
     // main関数の場合の特別処理
     if (check(TokenType::TOK_MAIN)) {
@@ -391,6 +392,12 @@ ASTNode* RecursiveParser::parseStatement() {
         }
     }
 
+    bool saw_unsigned_specifier = false;
+    if (check(TokenType::TOK_UNSIGNED)) {
+        saw_unsigned_specifier = true;
+        advance();
+    }
+
     // 関数定義の解析 (int main() など)
     if (check(TokenType::TOK_INT) || check(TokenType::TOK_LONG) || 
         check(TokenType::TOK_SHORT) || check(TokenType::TOK_TINY) || 
@@ -400,22 +407,43 @@ ASTNode* RecursiveParser::parseStatement() {
         check(TokenType::TOK_BIG) || check(TokenType::TOK_QUAD)) {
         
         // 型名を取得
-        std::string type_name;
-        if (check(TokenType::TOK_INT)) type_name = "int";
-        else if (check(TokenType::TOK_LONG)) type_name = "long";
-        else if (check(TokenType::TOK_SHORT)) type_name = "short";
-        else if (check(TokenType::TOK_TINY)) type_name = "tiny";
-        else if (check(TokenType::TOK_VOID)) type_name = "void";
-        else if (check(TokenType::TOK_BOOL)) type_name = "bool";
-        else if (check(TokenType::TOK_STRING_TYPE)) type_name = "string";
-        else if (check(TokenType::TOK_CHAR_TYPE)) type_name = "char";
-    else if (check(TokenType::TOK_FLOAT)) type_name = "float";
-    else if (check(TokenType::TOK_DOUBLE)) type_name = "double";
-    else if (check(TokenType::TOK_BIG)) type_name = "big";
-    else if (check(TokenType::TOK_QUAD)) type_name = "quad";
-        
+        std::string base_type_name;
+        if (check(TokenType::TOK_INT)) base_type_name = "int";
+        else if (check(TokenType::TOK_LONG)) base_type_name = "long";
+        else if (check(TokenType::TOK_SHORT)) base_type_name = "short";
+        else if (check(TokenType::TOK_TINY)) base_type_name = "tiny";
+        else if (check(TokenType::TOK_VOID)) base_type_name = "void";
+        else if (check(TokenType::TOK_BOOL)) base_type_name = "bool";
+        else if (check(TokenType::TOK_STRING_TYPE)) base_type_name = "string";
+        else if (check(TokenType::TOK_CHAR_TYPE)) base_type_name = "char";
+        else if (check(TokenType::TOK_FLOAT)) base_type_name = "float";
+        else if (check(TokenType::TOK_DOUBLE)) base_type_name = "double";
+        else if (check(TokenType::TOK_BIG)) base_type_name = "big";
+        else if (check(TokenType::TOK_QUAD)) base_type_name = "quad";
+
         advance(); // consume type
-        
+
+        TypeInfo base_type_info = getTypeInfoFromString(base_type_name);
+        std::string type_name = base_type_name;
+        if (saw_unsigned_specifier) {
+            switch (base_type_info) {
+                case TYPE_TINY:
+                case TYPE_SHORT:
+                case TYPE_INT:
+                case TYPE_LONG:
+                case TYPE_FLOAT:
+                case TYPE_DOUBLE:
+                case TYPE_BIG:
+                case TYPE_QUAD:
+                    break;
+                default:
+                    error("'unsigned' modifier can only be applied to numeric types");
+                    return nullptr;
+            }
+            type_name = "unsigned " + base_type_name;
+        }
+
+        TypeInfo declared_type_info = getTypeInfoFromString(type_name);
         // 配列型の場合: int[size][size2]... identifier
         if (check(TokenType::TOK_LBRACKET)) {
             // これは配列型宣言（多次元対応）
@@ -476,19 +504,12 @@ ASTNode* RecursiveParser::parseStatement() {
             node->type_name = full_type_name;
             
             // Set appropriate type_info for arrays
-            TypeInfo base_type = TYPE_INT; // default
-            if (type_name == "int") base_type = TYPE_INT;
-            else if (type_name == "long") base_type = TYPE_LONG;
-            else if (type_name == "short") base_type = TYPE_SHORT;
-            else if (type_name == "tiny") base_type = TYPE_TINY;
-            else if (type_name == "bool") base_type = TYPE_BOOL;
-            else if (type_name == "string") base_type = TYPE_STRING;
-            else if (type_name == "char") base_type = TYPE_CHAR;
-            
-            node->type_info = base_type;
+            node->type_info = base_type_info;
             
             // const修飾子を設定
             node->is_const = isConst;
+            node->is_static = isStatic;
+            node->is_unsigned = saw_unsigned_specifier;
             
             // ArrayTypeInfoを構築
             std::vector<ArrayDimension> dimensions;
@@ -515,7 +536,7 @@ ASTNode* RecursiveParser::parseStatement() {
                     dimensions.push_back(ArrayDimension(-1, true));
                 }
             }
-            node->array_type_info = ArrayTypeInfo(base_type, dimensions);
+            node->array_type_info = ArrayTypeInfo(base_type_info, dimensions);
             
             // 配列次元をASTノードに設定
             for (const auto& size : array_sizes) {
@@ -690,27 +711,10 @@ ASTNode* RecursiveParser::parseStatement() {
                     node->type_name = type_name;
                     node->is_const = isConst;
                     node->is_static = isStatic;
+                    node->is_unsigned = saw_unsigned_specifier;
                     
                     // 型情報を設定
-                    if (type_name == "int") {
-                        node->type_info = TYPE_INT;
-                    } else if (type_name == "long") {
-                        node->type_info = TYPE_LONG;
-                    } else if (type_name == "short") {
-                        node->type_info = TYPE_SHORT;
-                    } else if (type_name == "tiny") {
-                        node->type_info = TYPE_TINY;
-                    } else if (type_name == "bool") {
-                        node->type_info = TYPE_BOOL;
-                    } else if (type_name == "string") {
-                        node->type_info = TYPE_STRING;
-                    } else if (type_name == "char") {
-                        node->type_info = TYPE_CHAR;
-                    } else if (type_name == "void") {
-                        node->type_info = TYPE_VOID;
-                    } else {
-                        node->type_info = TYPE_UNKNOWN;
-                    }
+                    node->type_info = declared_type_info;
                     
                     if (variables[0].second) {
                         node->init_expr = std::move(variables[0].second);
@@ -721,27 +725,10 @@ ASTNode* RecursiveParser::parseStatement() {
                     // 複数変数宣言
                     ASTNode* node = new ASTNode(ASTNodeType::AST_MULTIPLE_VAR_DECL);
                     node->type_name = type_name;
+                    node->is_unsigned = saw_unsigned_specifier;
                     
                     // 型情報を設定
-                    if (type_name == "int") {
-                        node->type_info = TYPE_INT;
-                    } else if (type_name == "long") {
-                        node->type_info = TYPE_LONG;
-                    } else if (type_name == "short") {
-                        node->type_info = TYPE_SHORT;
-                    } else if (type_name == "tiny") {
-                        node->type_info = TYPE_TINY;
-                    } else if (type_name == "bool") {
-                        node->type_info = TYPE_BOOL;
-                    } else if (type_name == "string") {
-                        node->type_info = TYPE_STRING;
-                    } else if (type_name == "char") {
-                        node->type_info = TYPE_CHAR;
-                    } else if (type_name == "void") {
-                        node->type_info = TYPE_VOID;
-                    } else {
-                        node->type_info = TYPE_UNKNOWN;
-                    }
+                    node->type_info = declared_type_info;
                     
                     // 各変数を子ノードとして追加
                     for (auto& var : variables) {
@@ -751,6 +738,7 @@ ASTNode* RecursiveParser::parseStatement() {
                         var_node->type_info = node->type_info;
                         var_node->is_const = isConst;
                         var_node->is_static = isStatic;
+                        var_node->is_unsigned = saw_unsigned_specifier;
                         
                         if (var.second) {
                             var_node->init_expr = std::move(var.second);
@@ -766,6 +754,9 @@ ASTNode* RecursiveParser::parseStatement() {
             error("Expected identifier after type");
             return nullptr;
         }
+    } else if (saw_unsigned_specifier) {
+        error("Expected type specifier after 'unsigned'");
+        return nullptr;
     }
     
     // return文の処理
@@ -1377,6 +1368,8 @@ ASTNode* RecursiveParser::parseVariableDeclaration() {
         node->pointer_depth = parsed.pointer_depth;
         node->pointer_base_type_name = parsed.base_type;
         node->pointer_base_type = parsed.base_type_info;
+        node->is_reference = parsed.is_reference;
+        node->is_unsigned = parsed.is_unsigned;
 
         if (parsed.is_array) {
             node->array_type_info = parsed.array_info;
@@ -1397,6 +1390,8 @@ ASTNode* RecursiveParser::parseVariableDeclaration() {
         node->pointer_depth = base_parsed_type.pointer_depth;
         node->pointer_base_type_name = base_parsed_type.base_type;
         node->pointer_base_type = base_parsed_type.base_type_info;
+        node->is_reference = base_parsed_type.is_reference;
+        node->is_unsigned = base_parsed_type.is_unsigned;
         if (base_parsed_type.is_array) {
             node->array_type_info = base_parsed_type.array_info;
             node->is_array = true;
@@ -1413,6 +1408,8 @@ ASTNode* RecursiveParser::parseVariableDeclaration() {
             var_node->pointer_depth = parsed.pointer_depth;
             var_node->pointer_base_type_name = parsed.base_type;
             var_node->pointer_base_type = parsed.base_type_info;
+            var_node->is_reference = parsed.is_reference;
+            var_node->is_unsigned = parsed.is_unsigned;
 
             if (parsed.is_array) {
                 var_node->array_type_info = parsed.array_info;
@@ -1436,6 +1433,12 @@ std::string RecursiveParser::parseType() {
 
     std::string base_type;
     std::string original_type;
+    bool saw_unsigned = false;
+
+    if (check(TokenType::TOK_UNSIGNED)) {
+        saw_unsigned = true;
+        advance();
+    }
 
     auto set_base_type = [&](const std::string &type_name) {
         base_type = type_name;
@@ -1534,6 +1537,24 @@ std::string RecursiveParser::parseType() {
     parsed.original_type = original_type;
     parsed.base_type_info = getTypeInfoFromString(base_type);
 
+    if (saw_unsigned) {
+        switch (parsed.base_type_info) {
+        case TYPE_TINY:
+        case TYPE_SHORT:
+        case TYPE_INT:
+        case TYPE_LONG:
+        case TYPE_FLOAT:
+        case TYPE_DOUBLE:
+        case TYPE_BIG:
+        case TYPE_QUAD:
+            parsed.is_unsigned = true;
+            break;
+        default:
+            error("'unsigned' modifier can only be applied to numeric types");
+            return "";
+        }
+    }
+
     int pointer_depth = 0;
     while (check(TokenType::TOK_MUL)) {
         pointer_depth++;
@@ -1543,6 +1564,11 @@ std::string RecursiveParser::parseType() {
     if (pointer_depth > 0) {
         parsed.is_pointer = true;
         parsed.pointer_depth = pointer_depth;
+    }
+
+    if (check(TokenType::TOK_BIT_AND)) {
+        parsed.is_reference = true;
+        advance();
     }
 
     std::vector<ArrayDimension> dimensions;
@@ -1581,6 +1607,17 @@ std::string RecursiveParser::parseType() {
         full_type += dim_text;
     }
 
+    if (parsed.is_reference) {
+        full_type += "&";
+    }
+
+    if (parsed.is_unsigned) {
+        full_type = "unsigned " + full_type;
+        if (original_type == base_type) {
+            parsed.original_type = full_type;
+        }
+    }
+
     parsed.full_type = full_type;
 
     last_parsed_type_info_ = parsed;
@@ -1588,33 +1625,41 @@ std::string RecursiveParser::parseType() {
 }
 
 TypeInfo RecursiveParser::resolveParsedTypeInfo(const ParsedTypeInfo& parsed) const {
-    if (parsed.is_pointer) {
-        return TYPE_POINTER;
-    }
-
     TypeInfo resolved = parsed.base_type_info;
-    if (resolved != TYPE_UNKNOWN) {
-        return resolved;
-    }
 
     std::string base_lookup = parsed.base_type;
     if (base_lookup.rfind("struct ", 0) == 0) {
         base_lookup = base_lookup.substr(7);
     }
 
-    if (!base_lookup.empty()) {
+    if (resolved == TYPE_UNKNOWN && !base_lookup.empty()) {
         if (struct_definitions_.find(base_lookup) != struct_definitions_.end()) {
-            return TYPE_STRUCT;
+            resolved = TYPE_STRUCT;
+        } else if (enum_definitions_.find(base_lookup) != enum_definitions_.end()) {
+            resolved = TYPE_ENUM;
+        } else if (interface_definitions_.find(base_lookup) != interface_definitions_.end()) {
+            resolved = TYPE_INTERFACE;
+        } else if (union_definitions_.find(base_lookup) != union_definitions_.end()) {
+            resolved = TYPE_UNION;
         }
-        if (enum_definitions_.find(base_lookup) != enum_definitions_.end()) {
-            return TYPE_ENUM;
+    }
+
+    if (parsed.is_array) {
+        ArrayTypeInfo array_info = parsed.array_info;
+        if (array_info.base_type == TYPE_UNKNOWN) {
+            array_info.base_type = resolved;
         }
-        if (interface_definitions_.find(base_lookup) != interface_definitions_.end()) {
-            return TYPE_INTERFACE;
+        if (array_info.base_type != TYPE_UNKNOWN) {
+            return array_info.to_legacy_type_id();
         }
-        if (union_definitions_.find(base_lookup) != union_definitions_.end()) {
-            return TYPE_UNION;
-        }
+    }
+
+    if (parsed.is_pointer) {
+        return TYPE_POINTER;
+    }
+
+    if (resolved != TYPE_UNKNOWN) {
+        return resolved;
     }
 
     return TYPE_UNKNOWN;
@@ -1638,6 +1683,8 @@ ASTNode* RecursiveParser::cloneAstNode(const ASTNode* node) {
     clone->pointer_depth = node->pointer_depth;
     clone->pointer_base_type_name = node->pointer_base_type_name;
     clone->pointer_base_type = node->pointer_base_type;
+    clone->is_reference = node->is_reference;
+    clone->is_unsigned = node->is_unsigned;
     clone->int_value = node->int_value;
     clone->str_value = node->str_value;
     clone->name = node->name;
@@ -2089,7 +2136,8 @@ ASTNode* RecursiveParser::parsePostfix() {
             if (primary && primary->node_type == ASTNodeType::AST_VARIABLE) {
                 debug_msg(DebugMsgId::PARSE_EXPR_ARRAY_ACCESS, primary->name.c_str());
             } else if (primary && primary->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
-                debug_msg(DebugMsgId::PARSE_EXPR_ARRAY_ACCESS, (primary->name + " (member access)").c_str());
+                std::string member_access_name = primary->name + " (member access)";
+                debug_msg(DebugMsgId::PARSE_EXPR_ARRAY_ACCESS, member_access_name.c_str());
             } else if (primary && primary->node_type == ASTNodeType::AST_ARRAY_REF) {
                 debug_msg(DebugMsgId::PARSE_EXPR_ARRAY_ACCESS, "nested array access");
             }
@@ -2123,12 +2171,69 @@ ASTNode* RecursiveParser::parsePrimary() {
     if (check(TokenType::TOK_NUMBER)) {
         Token token = advance();
         ASTNode* node = new ASTNode(ASTNodeType::AST_NUMBER);
+
+        std::string literal = token.value;
+        node->literal_text = literal;
+
+        // サフィックス解析（f/F, d/D, q/Q）
+        char suffix = '\0';
+        if (!literal.empty()) {
+            char last_char = literal.back();
+            if (last_char == 'f' || last_char == 'F' ||
+                last_char == 'd' || last_char == 'D' ||
+                last_char == 'q' || last_char == 'Q') {
+                suffix = last_char;
+                literal.pop_back();
+            }
+        }
+
+        // 指数表記の小文字e/E対応のため、末尾サフィックスを除外した後で判定
+        auto contains_decimal = [](const std::string& value) {
+            return value.find('.') != std::string::npos;
+        };
+        auto contains_exponent = [](const std::string& value) {
+            return value.find('e') != std::string::npos || value.find('E') != std::string::npos;
+        };
+
+        bool is_float_literal = contains_decimal(literal) || contains_exponent(literal) || suffix != '\0';
+
         try {
-            node->int_value = std::stoll(token.value);  // 64ビット整数対応
-        } catch (const std::exception& e) {
+            if (is_float_literal) {
+                node->is_float_literal = true;
+
+                if (suffix == 'f' || suffix == 'F') {
+                    node->literal_type = TYPE_FLOAT;
+                    node->type_info = TYPE_FLOAT;
+                    node->double_value = std::stod(literal);
+                    node->quad_value = static_cast<long double>(node->double_value);
+                } else if (suffix == 'q' || suffix == 'Q') {
+                    node->literal_type = TYPE_QUAD;
+                    node->type_info = TYPE_QUAD;
+                    node->quad_value = std::stold(literal);
+                    node->double_value = static_cast<double>(node->quad_value);
+                } else {
+                    // デフォルトはdouble（サフィックスなし、またはd/D）
+                    node->literal_type = TYPE_DOUBLE;
+                    node->type_info = TYPE_DOUBLE;
+                    node->double_value = std::stod(literal);
+                    node->quad_value = static_cast<long double>(node->double_value);
+                }
+
+                // 整数値としても保持（必要に応じて使用）
+                node->int_value = static_cast<int64_t>(node->double_value);
+            } else {
+                node->literal_type = TYPE_INT;
+                node->type_info = TYPE_INT;
+                node->int_value = std::stoll(literal); // 64ビット整数対応
+                node->double_value = static_cast<double>(node->int_value);
+                node->quad_value = static_cast<long double>(node->int_value);
+            }
+        } catch (const std::exception &e) {
             error("Invalid number: " + token.value);
+            delete node;
             return nullptr;
         }
+
         return node;
     }
     
@@ -2269,6 +2374,10 @@ ASTNode* RecursiveParser::parseFunctionDeclarationAfterName(const std::string& r
     // 関数本体のパース
     ASTNode* function_node = new ASTNode(ASTNodeType::AST_FUNC_DECL);
     function_node->name = function_name;
+    function_node->is_unsigned = (return_type.rfind("unsigned ", 0) == 0);
+    if (function_node->return_type_name.empty()) {
+        function_node->return_type_name = return_type;
+    }
     
     // DEBUG: 関数作成をログ出力
     debug_msg(DebugMsgId::PARSE_FUNCTION_CREATED, function_name.c_str());
@@ -2278,6 +2387,7 @@ ASTNode* RecursiveParser::parseFunctionDeclarationAfterName(const std::string& r
         do {
             // パラメータ型
             std::string param_type = parseType();
+            ParsedTypeInfo param_parsed = getLastParsedTypeInfo();
             
             // パラメータ名
             if (!check(TokenType::TOK_IDENTIFIER)) {
@@ -2294,9 +2404,24 @@ ASTNode* RecursiveParser::parseFunctionDeclarationAfterName(const std::string& r
             
             // 配列パラメータかチェック
             param->is_array = (param_type.find("[") != std::string::npos);
+
+            param->is_pointer = param_parsed.is_pointer;
+            param->pointer_depth = param_parsed.pointer_depth;
+            param->pointer_base_type_name = param_parsed.base_type;
+            param->pointer_base_type = param_parsed.base_type_info;
+            param->is_reference = param_parsed.is_reference;
+            param->is_unsigned = param_parsed.is_unsigned;
+            if (param_parsed.is_array) {
+                param->array_type_info = param_parsed.array_info;
+                param->is_array = true;
+            }
             
             // 型情報を設定（typedef解決を含む）
             std::string resolved_param_type = resolveTypedefChain(param_type);
+
+            if (resolved_param_type.empty()) {
+                resolved_param_type = param_type;
+            }
             // 元のtypedef名を保持（interpreterで解決するため）
             // param->type_name = resolved_param_type;  // この行をコメントアウト
             
@@ -2350,6 +2475,10 @@ ASTNode* RecursiveParser::parseFunctionDeclarationAfterName(const std::string& r
             } else {
                 param->type_info = TYPE_UNKNOWN;
             }
+
+            if (param->type_info == TYPE_UNKNOWN) {
+                param->type_info = getTypeInfoFromString(param_type);
+            }
             
             function_node->parameters.push_back(std::unique_ptr<ASTNode>(param));
         } while (match(TokenType::TOK_COMMA));
@@ -2397,7 +2526,7 @@ ASTNode* RecursiveParser::parseFunctionDeclarationAfterName(const std::string& r
     } else {
         // typedef型の可能性があるので、解決を試行
         std::string resolved_type = resolveTypedefChain(return_type);
-        if (resolved_type != return_type) {
+        if (!resolved_type.empty() && resolved_type != return_type) {
             // typedef型が解決された場合、再帰的に処理
             if (resolved_type.find("[") != std::string::npos) {
                 // 配列戻り値型
@@ -2435,6 +2564,11 @@ ASTNode* RecursiveParser::parseFunctionDeclarationAfterName(const std::string& r
                 function_node->return_types.push_back(TYPE_STRING);
             } else {
                 function_node->return_types.push_back(TYPE_UNKNOWN);
+            }
+            if (!function_node->return_types.empty() &&
+                function_node->return_types.back() == TYPE_UNKNOWN) {
+                function_node->return_types.back() =
+                    getTypeInfoFromString(resolved_type);
             }
         } else {
             // typedef型でない場合、getTypeInfoFromStringを使って型を判定
@@ -2844,13 +2978,20 @@ TypeInfo RecursiveParser::getTypeInfoFromString(const std::string& type_name) {
         return TYPE_NULLPTR;
     }
 
-    if (type_name.find('*') != std::string::npos) {
+    std::string working = type_name;
+    bool is_unsigned = false;
+    if (working.rfind("unsigned ", 0) == 0) {
+        is_unsigned = true;
+        working = working.substr(9);
+    }
+
+    if (working.find('*') != std::string::npos) {
         return TYPE_POINTER;
     }
 
     // 配列型のチェック（1次元・多次元両対応）
-    if (type_name.find('[') != std::string::npos) {
-        std::string base_type = type_name.substr(0, type_name.find('['));
+    if (working.find('[') != std::string::npos) {
+        std::string base_type = working.substr(0, working.find('['));
         if (base_type == "int") {
             return static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_INT);
         } else if (base_type == "string") {
@@ -2878,37 +3019,37 @@ TypeInfo RecursiveParser::getTypeInfoFromString(const std::string& type_name) {
         }
     }
     
-    if (type_name == "int") {
+    if (working == "int") {
         return TYPE_INT;
-    } else if (type_name == "long") {
+    } else if (working == "long") {
         return TYPE_LONG;
-    } else if (type_name == "short") {
+    } else if (working == "short") {
         return TYPE_SHORT;
-    } else if (type_name == "tiny") {
+    } else if (working == "tiny") {
         return TYPE_TINY;
-    } else if (type_name == "bool") {
+    } else if (working == "bool") {
         return TYPE_BOOL;
-    } else if (type_name == "string") {
+    } else if (working == "string") {
         return TYPE_STRING;
-    } else if (type_name == "char") {
+    } else if (working == "char") {
         return TYPE_CHAR;
-    } else if (type_name == "float") {
+    } else if (working == "float") {
         return TYPE_FLOAT;
-    } else if (type_name == "double") {
+    } else if (working == "double") {
         return TYPE_DOUBLE;
-    } else if (type_name == "big") {
+    } else if (working == "big") {
         return TYPE_BIG;
-    } else if (type_name == "quad") {
+    } else if (working == "quad") {
         return TYPE_QUAD;
-    } else if (type_name == "void") {
+    } else if (working == "void") {
         return TYPE_VOID;
-    } else if (type_name.substr(0, 7) == "struct " || struct_definitions_.find(type_name) != struct_definitions_.end()) {
+    } else if (working.substr(0, 7) == "struct " || struct_definitions_.find(working) != struct_definitions_.end()) {
         return TYPE_STRUCT;
-    } else if (type_name.substr(0, 5) == "enum " || enum_definitions_.find(type_name) != enum_definitions_.end()) {
+    } else if (working.substr(0, 5) == "enum " || enum_definitions_.find(working) != enum_definitions_.end()) {
         return TYPE_ENUM;
-    } else if (type_name.substr(0, 10) == "interface " || interface_definitions_.find(type_name) != interface_definitions_.end()) {
+    } else if (working.substr(0, 10) == "interface " || interface_definitions_.find(working) != interface_definitions_.end()) {
         return TYPE_INTERFACE;
-    } else if (union_definitions_.find(type_name) != union_definitions_.end()) {
+    } else if (union_definitions_.find(working) != union_definitions_.end()) {
         return TYPE_UNION;
     } else {
         return TYPE_UNKNOWN;
@@ -3323,7 +3464,9 @@ ASTNode* RecursiveParser::parseStructDeclaration() {
                                   var_parsed.pointer_depth,
                                   var_parsed.base_type,
                                   var_parsed.base_type_info,
-                                  is_private_member);
+                                  is_private_member,
+                                  var_parsed.is_reference,
+                                  var_parsed.is_unsigned);
 
             if (var_parsed.is_array) {
                 StructMember &added = struct_def.members.back();
@@ -3370,6 +3513,8 @@ ASTNode* RecursiveParser::parseStructDeclaration() {
         member_node->pointer_depth = member.pointer_depth;
         member_node->pointer_base_type_name = member.pointer_base_type_name;
         member_node->pointer_base_type = member.pointer_base_type;
+        member_node->is_reference = member.is_reference;
+        member_node->is_unsigned = member.is_unsigned;
         member_node->is_private_member = member.is_private;
         member_node->array_type_info = member.array_info;  // 配列情報をコピー
         if (member.array_info.is_array()) {
@@ -3424,7 +3569,9 @@ ASTNode* RecursiveParser::parseStructTypedefDeclaration() {
                                   var_parsed.pointer_depth,
                                   var_parsed.base_type,
                                   var_parsed.base_type_info,
-                                  is_private_member);
+                                  is_private_member,
+                                  var_parsed.is_reference,
+                                  var_parsed.is_unsigned);
 
             if (var_parsed.is_array) {
                 StructMember &added = struct_def.members.back();
@@ -3477,6 +3624,8 @@ ASTNode* RecursiveParser::parseStructTypedefDeclaration() {
         member_node->pointer_depth = member.pointer_depth;
         member_node->pointer_base_type_name = member.pointer_base_type_name;
         member_node->pointer_base_type = member.pointer_base_type;
+    member_node->is_reference = member.is_reference;
+    member_node->is_unsigned = member.is_unsigned;
         member_node->is_private_member = member.is_private;
         
         // 配列メンバーの場合はarray_type_infoを設定
@@ -4139,7 +4288,8 @@ ASTNode* RecursiveParser::parseInterfaceDeclaration() {
     while (!check(TokenType::TOK_RBRACE) && !isAtEnd()) {
         // メソッドの戻り値型を解析
         std::string return_type = parseType();
-        
+        ParsedTypeInfo return_parsed = getLastParsedTypeInfo();
+
         if (return_type.empty()) {
             error("Expected return type in interface method declaration");
             return nullptr;
@@ -4160,13 +4310,20 @@ ASTNode* RecursiveParser::parseInterfaceDeclaration() {
         }        // パラメータリストの解析
         consume(TokenType::TOK_LPAREN, "Expected '(' after method name");
         
-        InterfaceMember method(method_name, getTypeInfoFromString(return_type));
+        TypeInfo resolved_return_type = resolveParsedTypeInfo(return_parsed);
+        if (resolved_return_type == TYPE_UNKNOWN) {
+            resolved_return_type = getTypeInfoFromString(return_type);
+        }
+
+        InterfaceMember method(method_name, resolved_return_type,
+                               return_parsed.is_unsigned);
         
         // パラメータの解析
         if (!check(TokenType::TOK_RPAREN)) {
             do {
                 // パラメータの型
                 std::string param_type = parseType();
+                ParsedTypeInfo param_parsed = getLastParsedTypeInfo();
                 if (param_type.empty()) {
                     error("Expected parameter type");
                     return nullptr;
@@ -4179,7 +4336,13 @@ ASTNode* RecursiveParser::parseInterfaceDeclaration() {
                     advance();
                 }
                 
-                method.add_parameter(param_name, getTypeInfoFromString(param_type));
+                TypeInfo param_type_info = resolveParsedTypeInfo(param_parsed);
+                if (param_type_info == TYPE_UNKNOWN) {
+                    param_type_info = getTypeInfoFromString(param_type);
+                }
+
+                method.add_parameter(param_name, param_type_info,
+                                     param_parsed.is_unsigned);
                 
                 if (!check(TokenType::TOK_COMMA)) {
                     break;
@@ -4210,12 +4373,16 @@ ASTNode* RecursiveParser::parseInterfaceDeclaration() {
         ASTNode* method_node = new ASTNode(ASTNodeType::AST_FUNC_DECL);
         method_node->name = method.name;
         method_node->type_info = method.return_type;
+            method_node->is_unsigned = method.return_is_unsigned;
+            method_node->return_types.push_back(method.return_type);
         
         // パラメータ情報を保存
-        for (const auto& param : method.parameters) {
+            for (size_t i = 0; i < method.parameters.size(); ++i) {
+                const auto& param = method.parameters[i];
             ASTNode* param_node = new ASTNode(ASTNodeType::AST_PARAM_DECL);
             param_node->name = param.first;
             param_node->type_info = param.second;
+                param_node->is_unsigned = method.get_parameter_is_unsigned(i);
             method_node->arguments.push_back(std::unique_ptr<ASTNode>(param_node));
         }
         
@@ -4339,18 +4506,32 @@ ASTNode* RecursiveParser::parseImplDeclaration() {
                     for (const auto& interface_method : interface_it->second.methods) {
                         if (interface_method.name == method_name) {
                             method_found = true;
-                            // 戻り値の型をチェック
-                            std::string expected_return_type = type_info_to_string(interface_method.return_type);
-                            std::string actual_return_type = "";
+                            auto format_type = [](TypeInfo type, bool is_unsigned_flag) {
+                                std::string base = type_info_to_string(type);
+                                if (is_unsigned_flag) {
+                                    return std::string("unsigned ") + base;
+                                }
+                                return base;
+                            };
+
+                            TypeInfo expected_return_type_info = interface_method.return_type;
+                            bool expected_return_unsigned = interface_method.return_is_unsigned;
+
+                            TypeInfo actual_return_type_info = TYPE_UNKNOWN;
                             if (!method_impl->return_types.empty()) {
-                                actual_return_type = type_info_to_string(method_impl->return_types[0]);
+                                actual_return_type_info = method_impl->return_types[0];
                             } else {
-                                actual_return_type = return_type; // フォールバック
+                                actual_return_type_info = getTypeInfoFromString(return_type);
                             }
-                            if (expected_return_type != actual_return_type) {
-                                error("Method signature mismatch: Expected return type '" + 
-                                      expected_return_type + "' but got '" + 
-                                      actual_return_type + "' for method '" + method_name + "'");
+                            bool actual_return_unsigned = method_impl->is_unsigned;
+
+                            if (expected_return_type_info != actual_return_type_info ||
+                                expected_return_unsigned != actual_return_unsigned) {
+                                error("Method signature mismatch: Expected return type '" +
+                                      format_type(expected_return_type_info, expected_return_unsigned) +
+                                      "' but got '" +
+                                      format_type(actual_return_type_info, actual_return_unsigned) +
+                                      "' for method '" + method_name + "'");
                                 return nullptr;
                             }
                             // 引数の数をチェック
@@ -4364,12 +4545,16 @@ ASTNode* RecursiveParser::parseImplDeclaration() {
                             }
                             // 引数の型をチエック
                             for (size_t i = 0; i < interface_method.parameters.size(); ++i) {
-                                std::string expected_param_type = type_info_to_string(interface_method.parameters[i].second);
-                                std::string actual_param_type = type_info_to_string(method_impl->parameters[i]->type_info);
-                                if (expected_param_type != actual_param_type) {
+                                TypeInfo expected_param_type = interface_method.parameters[i].second;
+                                bool expected_param_unsigned = interface_method.get_parameter_is_unsigned(i);
+                                TypeInfo actual_param_type = method_impl->parameters[i]->type_info;
+                                bool actual_param_unsigned = method_impl->parameters[i]->is_unsigned;
+
+                                if (expected_param_type != actual_param_type ||
+                                    expected_param_unsigned != actual_param_unsigned) {
                                     error("Method signature mismatch: Parameter " + std::to_string(i + 1) + 
-                                          " expected type '" + expected_param_type + 
-                                          "' but got '" + actual_param_type + 
+                                          " expected type '" + format_type(expected_param_type, expected_param_unsigned) +
+                                          "' but got '" + format_type(actual_param_type, actual_param_unsigned) +
                                           "' for method '" + method_name + "'");
                                     return nullptr;
                                 }

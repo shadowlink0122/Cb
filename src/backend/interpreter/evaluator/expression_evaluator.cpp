@@ -8,6 +8,7 @@
 #include "core/error_handler.h"
 #include "managers/array_manager.h"
 #include "services/array_processing_service.h"
+#include "services/debug_service.h"
 #include <stdexcept>
 #include <iostream>
 #include <functional>
@@ -54,7 +55,7 @@ ExpressionEvaluator::MethodReceiverResolution ExpressionEvaluator::resolve_metho
 }
 
 ExpressionEvaluator::ExpressionEvaluator(Interpreter& interpreter) 
-    : interpreter_(interpreter), type_engine_(interpreter), last_typed_result_(0, InferredType()) {}
+    : interpreter_(interpreter), type_engine_(interpreter), last_typed_result_(static_cast<int64_t>(0), InferredType()) {}
 
 int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
     if (!node) {
@@ -67,7 +68,8 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
         throw std::runtime_error("Null node in expression evaluation");
     }
 
-    debug_msg(DebugMsgId::EXPR_EVAL_START, std::to_string((int)node->node_type).c_str());
+    std::string node_type_str = std::to_string(static_cast<int>(node->node_type));
+    debug_msg(DebugMsgId::EXPR_EVAL_START, node_type_str.c_str());
 
     // 多次元配列アクセスの場合のみ詳細ログ
     if (node->node_type == ASTNodeType::AST_ARRAY_REF && node->name.empty()) {
@@ -77,6 +79,13 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
     switch (node->node_type) {
     case ASTNodeType::AST_NUMBER: {
         debug_msg(DebugMsgId::EXPR_EVAL_NUMBER, node->int_value);
+        if (node->is_float_literal) {
+            TypeInfo literal_type = node->literal_type != TYPE_UNKNOWN ? node->literal_type : TYPE_DOUBLE;
+            if (literal_type == TYPE_QUAD) {
+                return static_cast<int64_t>(node->quad_value);
+            }
+            return static_cast<int64_t>(node->double_value);
+        }
         return node->int_value;
     }
 
@@ -688,8 +697,33 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
 
                 if (chain_ret.type == TYPE_STRUCT || chain_ret.is_struct) {
                     temp_receiver = chain_ret.struct_value;
-                    temp_receiver.type = TYPE_STRUCT;
-                    temp_receiver.is_struct = true;
+
+                    if (temp_receiver.type == TYPE_INTERFACE) {
+                        bool has_struct_members = temp_receiver.is_struct || !temp_receiver.struct_members.empty();
+                        if (has_struct_members) {
+                            temp_receiver.type = TYPE_STRUCT;
+                            temp_receiver.is_struct = true;
+                        } else {
+                            TypeInfo resolved = TYPE_UNKNOWN;
+                            if (!temp_receiver.struct_type_name.empty()) {
+                                resolved = interpreter_.get_type_manager()->string_to_type_info(temp_receiver.struct_type_name);
+                            }
+                            if (resolved == TYPE_UNKNOWN && temp_receiver.current_type != TYPE_UNKNOWN) {
+                                resolved = temp_receiver.current_type;
+                            }
+                            if (resolved == TYPE_UNKNOWN) {
+                                resolved = TYPE_INT;
+                            }
+                            temp_receiver.type = resolved;
+                            temp_receiver.is_struct = false;
+                        }
+                    } else if (temp_receiver.type != TYPE_STRUCT && temp_receiver.is_struct) {
+                        temp_receiver.type = TYPE_STRUCT;
+                    }
+
+                    if (temp_receiver.type == TYPE_STRUCT) {
+                        temp_receiver.is_struct = true;
+                    }
                 } else if (chain_ret.type == TYPE_STRING) {
                     temp_receiver.type = TYPE_STRING;
                     temp_receiver.str_value = chain_ret.str_value;
@@ -718,24 +752,51 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
             debug_print("RECEIVER_DEBUG: Looking for receiver '%s'\n", receiver_name.c_str());
 
             std::string type_name;
-            if (receiver_var->type == TYPE_STRUCT) {
-                type_name = receiver_var->struct_type_name;
-            } else if (!receiver_var->interface_name.empty()) {
-                type_name = receiver_var->struct_type_name;
-                debug_msg(DebugMsgId::METHOD_CALL_INTERFACE, node->name.c_str(), type_name.c_str());
-            } else if (receiver_var->type >= TYPE_ARRAY_BASE) {
-                if (!receiver_var->struct_type_name.empty()) {
-                    type_name = receiver_var->struct_type_name;
-                } else {
-                    TypeInfo base_type = static_cast<TypeInfo>(receiver_var->type - TYPE_ARRAY_BASE);
+
+            auto resolve_struct_like_type = [&](const Variable &var) -> std::string {
+                if (!var.struct_type_name.empty()) {
+                    return var.struct_type_name;
+                }
+                if (!var.implementing_struct.empty()) {
+                    return var.implementing_struct;
+                }
+                if (var.type == TYPE_UNION && var.current_type != TYPE_UNKNOWN) {
+                    return type_info_to_string(var.current_type);
+                }
+                return std::string();
+            };
+
+            if (receiver_var->type >= TYPE_ARRAY_BASE || receiver_var->is_array) {
+                type_name = resolve_struct_like_type(*receiver_var);
+                if (type_name.empty()) {
+                    TypeInfo base_type = TYPE_UNKNOWN;
+                    if (receiver_var->type >= TYPE_ARRAY_BASE) {
+                        base_type = static_cast<TypeInfo>(receiver_var->type - TYPE_ARRAY_BASE);
+                    } else if (receiver_var->array_type_info.base_type != TYPE_UNKNOWN) {
+                        base_type = receiver_var->array_type_info.base_type;
+                    }
+                    if (base_type == TYPE_UNKNOWN) {
+                        base_type = TYPE_INT;
+                    }
                     type_name = type_info_to_string(base_type) + "[]";
                 }
+            } else if (receiver_var->type == TYPE_STRUCT || receiver_var->is_struct) {
+                type_name = resolve_struct_like_type(*receiver_var);
+            } else if (receiver_var->type == TYPE_INTERFACE || !receiver_var->interface_name.empty()) {
+                type_name = resolve_struct_like_type(*receiver_var);
+                if (type_name.empty()) {
+                    type_name = receiver_var->interface_name;
+                }
+                debug_msg(DebugMsgId::METHOD_CALL_INTERFACE, node->name.c_str(), type_name.c_str());
             } else {
-                if (!receiver_var->struct_type_name.empty()) {
-                    type_name = receiver_var->struct_type_name;
-                } else {
+                type_name = resolve_struct_like_type(*receiver_var);
+                if (type_name.empty()) {
                     type_name = type_info_to_string(receiver_var->type);
                 }
+            }
+
+            if (type_name.empty()) {
+                type_name = type_info_to_string(receiver_var->type);
             }
 
             std::string method_key = type_name + "::" + node->name;
@@ -764,6 +825,27 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
         }
 
         if (!func) {
+            if (is_method_call) {
+                std::string debug_type_name;
+                if (is_method_call) {
+                    if (!receiver_name.empty()) {
+                        Variable* debug_receiver = interpreter_.find_variable(receiver_name);
+                        if (!debug_receiver && receiver_resolution.variable_ptr) {
+                            debug_receiver = receiver_resolution.variable_ptr;
+                        }
+                        if (debug_receiver) {
+                            if (!debug_receiver->struct_type_name.empty()) {
+                                debug_type_name = debug_receiver->struct_type_name;
+                            } else {
+                                debug_type_name = type_info_to_string(debug_receiver->type);
+                            }
+                        }
+                    }
+                }
+                std::cerr << "[METHOD_LOOKUP_FAIL] receiver='" << receiver_name
+                          << "' type='" << debug_type_name
+                          << "' method='" << node->name << "'" << std::endl;
+            }
             throw std::runtime_error("Undefined function: " + node->name);
         }
 
@@ -1339,6 +1421,8 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                                                 member_var.pointer_depth = member.pointer_depth;
                                                 member_var.pointer_base_type_name = member.pointer_base_type_name;
                                                 member_var.pointer_base_type = member.pointer_base_type;
+                                                member_var.is_reference = member.is_reference;
+                                                member_var.is_unsigned = member.is_unsigned;
                                                 break;
                                             }
                                         }
@@ -1401,8 +1485,10 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                                 throw std::runtime_error("Type mismatch: cannot pass string literal to numeric parameter '" + param->name + "'");
                             }
                             
-                            int64_t arg_value = evaluate_expression(arg.get());
-                            interpreter_.assign_function_parameter(param->name, arg_value, param->type_info);
+                            TypedValue arg_value = evaluate_typed_expression(arg.get());
+                            interpreter_.assign_function_parameter(
+                                param->name, arg_value, param->type_info,
+                                param->is_unsigned);
                         }
                     }
                 }
@@ -1504,7 +1590,16 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                     throw ret;
                 }
                 // 通常の戻り値の場合
-                return ret.value;
+                int64_t return_value = ret.value;
+                if (func && func->is_unsigned && return_value < 0) {
+                    const char* call_kind = is_method_call ? "method" : "function";
+                    DEBUG_WARN(FUNCTION,
+                               "Unsigned %s '%s' returned negative value (%lld); clamping to 0",
+                               call_kind, func->name.c_str(),
+                               static_cast<long long>(return_value));
+                    return_value = 0;
+                }
+                return return_value;
             }
         } catch (const ReturnException &ret) {
             // 再投げされたReturnExceptionを処理
@@ -1537,7 +1632,8 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
             // 配列リテラル代入処理
             if (node->left->node_type == ASTNodeType::AST_VARIABLE) {
                 std::string var_name = node->left->name;
-                debug_msg(DebugMsgId::EXPR_EVAL_BINARY_OP, ("Array literal assignment to: " + var_name).c_str());
+                std::string debug_text = "Array literal assignment to: " + var_name;
+                debug_msg(DebugMsgId::EXPR_EVAL_BINARY_OP, debug_text.c_str());
                 interpreter_.assign_array_literal(var_name, node->right.get());
                 return 0; // 配列代入の戻り値は0
             } else {
@@ -1545,52 +1641,101 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
             }
         }
         
-        // 右辺が関数呼び出しで配列を返す可能性がある場合の処理
-        if (node->right && node->right->node_type == ASTNodeType::AST_FUNC_CALL) {
-            debug_msg(DebugMsgId::EXPR_EVAL_BINARY_OP, "Right side is function call, checking for array return");
-            try {
-                int64_t right_value = evaluate_expression(node->right.get());
-                // 通常の値を返した場合
-                if (node->left->node_type == ASTNodeType::AST_VARIABLE) {
-                    interpreter_.assign_variable(node->left->name, right_value, node->left->type_info);
-                } else {
-                    interpreter_.assign_variable(node->name, right_value, node->type_info);
-                }
-                return right_value;
-            } catch (const ReturnException &ret) {
-                // 配列が返された場合
-                if (ret.is_array) {
-                    debug_msg(DebugMsgId::EXPR_EVAL_BINARY_OP, "Function returned array, assigning to variable");
-                    std::string var_name;
-                    if (node->left->node_type == ASTNodeType::AST_VARIABLE) {
-                        var_name = node->left->name;
-                    } else {
-                        var_name = node->name;
-                    }
-                    
-                    // 配列を変数に代入
-                    interpreter_.assign_array_from_return(var_name, ret);
-                    return 0; // 配列代入の戻り値は0
-                } else {
-                    // 通常の値
-                    int64_t right_value = ret.value;
-                    if (node->left->node_type == ASTNodeType::AST_VARIABLE) {
-                        interpreter_.assign_variable(node->left->name, right_value, node->left->type_info);
-                    } else {
-                        interpreter_.assign_variable(node->name, right_value, node->type_info);
-                    }
-                    return right_value;
-                }
+        // 右辺を型付き評価（配列・構造体戻り値を考慮）
+        TypedValue right_value(
+            static_cast<int64_t>(0),
+            InferredType(TYPE_INT, type_info_to_string(TYPE_INT)));
+        bool has_typed_value = false;
+        auto return_to_typed = [&](const ReturnException &ret) -> TypedValue {
+            if (ret.type == TYPE_STRING) {
+                return TypedValue(ret.str_value,
+                                   InferredType(TYPE_STRING,
+                                                type_info_to_string(TYPE_STRING)));
             }
+            if (ret.type == TYPE_FLOAT) {
+                return TypedValue(ret.double_value,
+                                   InferredType(TYPE_FLOAT,
+                                                type_info_to_string(TYPE_FLOAT)));
+            }
+            if (ret.type == TYPE_DOUBLE) {
+                return TypedValue(ret.double_value,
+                                   InferredType(TYPE_DOUBLE,
+                                                type_info_to_string(TYPE_DOUBLE)));
+            }
+            if (ret.type == TYPE_QUAD) {
+                return TypedValue(ret.quad_value,
+                                   InferredType(TYPE_QUAD,
+                                                type_info_to_string(TYPE_QUAD)));
+            }
+            TypeInfo resolved = ret.type != TYPE_UNKNOWN ? ret.type : TYPE_INT;
+            return TypedValue(ret.value,
+                              InferredType(resolved,
+                                           type_info_to_string(resolved)));
+        };
+
+        try {
+            right_value = evaluate_typed_expression(node->right.get());
+            has_typed_value = true;
+        } catch (const ReturnException &ret) {
+            if (ret.is_array) {
+                std::string var_name;
+                if (node->left->node_type == ASTNodeType::AST_VARIABLE) {
+                    var_name = node->left->name;
+                } else {
+                    var_name = node->name;
+                }
+                interpreter_.assign_array_from_return(var_name, ret);
+                return 0;
+            }
+
+            if (ret.is_struct) {
+                std::string var_name;
+                if (!node->name.empty()) {
+                    var_name = node->name;
+                } else if (node->left &&
+                           node->left->node_type == ASTNodeType::AST_VARIABLE) {
+                    var_name = node->left->name;
+                } else {
+                    throw;
+                }
+
+                interpreter_.current_scope().variables[var_name] = ret.struct_value;
+                Variable &assigned_var = interpreter_.current_scope().variables[var_name];
+                assigned_var.is_assigned = true;
+
+                for (const auto &member : ret.struct_value.struct_members) {
+                    std::string member_path = var_name + "." + member.first;
+                    Variable *member_var = interpreter_.find_variable(member_path);
+                    if (member_var) {
+                        *member_var = member.second;
+                        member_var->is_assigned = member.second.is_assigned;
+                    }
+                }
+                return 0;
+            }
+
+            right_value = return_to_typed(ret);
+            has_typed_value = true;
         }
-        
-        // 右辺を評価してから代入を実行
-        int64_t right_value = 0;
-        if (node->right) {
-            right_value = evaluate_expression(node->right.get());
-        }
-        
+
+        auto assign_typed = [&](const std::string &target_name,
+                                const TypedValue &value,
+                                TypeInfo type_hint) {
+            interpreter_.assign_variable(target_name, value, type_hint, false);
+            if (value.is_numeric()) {
+                return value.as_numeric();
+            }
+            if (value.is_string()) {
+                return static_cast<int64_t>(0);
+            }
+            return static_cast<int64_t>(0);
+        };
+
         // 代入先の処理
+        if (!has_typed_value) {
+            return 0;
+        }
+
         if (node->left->node_type == ASTNodeType::AST_ARRAY_REF) {
             // 配列要素への代入
             std::string var_name;
@@ -1603,7 +1748,25 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
             }
             
             int64_t index_value = evaluate_expression(node->left->array_index.get());
-            interpreter_.assign_array_element(var_name, static_cast<int>(index_value), right_value);
+            if (right_value.is_string()) {
+                std::string string_value = right_value.string_value;
+                std::string replacement;
+                if (!string_value.empty()) {
+                    replacement = utf8_utils::utf8_char_at(string_value, 0);
+                    if (replacement.empty()) {
+                        replacement = string_value.substr(0, 1);
+                    }
+                } else {
+                    replacement = std::string();
+                }
+                interpreter_.assign_string_element(var_name,
+                                                   static_cast<int>(index_value),
+                                                   replacement);
+            } else {
+                interpreter_.assign_array_element(var_name,
+                                                  static_cast<int>(index_value),
+                                                  right_value.as_numeric());
+            }
         } else {
             // 通常の変数への代入
             std::string var_name;
@@ -1614,10 +1777,10 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
             } else {
                 throw std::runtime_error("Invalid assignment target in evaluator");
             }
-            interpreter_.assign_variable(var_name, right_value, node->type_info);
+            assign_typed(var_name, right_value, node->type_info);
         }
         
-        return right_value;
+        return right_value.is_numeric() ? right_value.as_numeric() : 0;
     }
     
     case ASTNodeType::AST_MEMBER_ACCESS: {
@@ -1710,7 +1873,7 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                     
                     if (member_var.type == TYPE_STRING) {
                         // 文字列の場合は別途処理が必要（呼び出し元で処理される）
-                        TypedValue typed_result(0, InferredType(TYPE_STRING, "string"));
+                        TypedValue typed_result(static_cast<int64_t>(0), InferredType(TYPE_STRING, "string"));
                         typed_result.string_value = member_var.str_value;
                         typed_result.is_numeric_result = false;
                         last_typed_result_ = typed_result;
@@ -1747,7 +1910,7 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                         Variable member_var = get_struct_member_from_variable(struct_var, member_name);
                         
                         if (member_var.type == TYPE_STRING) {
-                            TypedValue typed_result(0, InferredType(TYPE_STRING, "string"));
+                            TypedValue typed_result(static_cast<int64_t>(0), InferredType(TYPE_STRING, "string"));
                             typed_result.string_value = member_var.str_value;
                             typed_result.is_numeric_result = false;
                             last_typed_result_ = typed_result;
@@ -1979,46 +2142,244 @@ void ExpressionEvaluator::sync_self_changes_to_receiver(const std::string& recei
 // 型推論対応の式評価
 TypedValue ExpressionEvaluator::evaluate_typed_expression(const ASTNode* node) {
     if (!node) {
-        return TypedValue(0, InferredType());
+    return TypedValue(static_cast<int64_t>(0), InferredType());
     }
     
     // ReturnExceptionをキャッチして構造体を処理
     try {
         return evaluate_typed_expression_internal(node);
     } catch (const ReturnException& ret_ex) {
-        if (ret_ex.struct_value.type == TYPE_STRUCT) {
+        if (debug_mode) {
+            debug_print("TYPED_EVAL_RETURN: is_struct=%d type=%d is_array=%d\n",
+                        ret_ex.is_struct ? 1 : 0,
+                        static_cast<int>(ret_ex.type),
+                        ret_ex.is_array ? 1 : 0);
+        }
+        if (ret_ex.is_struct || ret_ex.type == TYPE_STRUCT) {
             // 構造体の場合、ReturnExceptionを再スロー（メンバアクセスで処理される）
             throw;
-        } else {
-            // 通常の値の場合
-            return TypedValue(ret_ex.value, InferredType(TYPE_INT, "int"));
         }
+
+        if (ret_ex.is_array) {
+            // 配列戻り値は呼び出し元で特別処理する
+            throw;
+        }
+
+        if (ret_ex.type == TYPE_STRING) {
+            return TypedValue(ret_ex.str_value, InferredType(TYPE_STRING, "string"));
+        }
+
+        if (ret_ex.type == TYPE_FLOAT) {
+            return TypedValue(ret_ex.double_value, InferredType(TYPE_FLOAT, "float"));
+        }
+        if (ret_ex.type == TYPE_DOUBLE) {
+            return TypedValue(ret_ex.double_value, InferredType(TYPE_DOUBLE, "double"));
+        }
+        if (ret_ex.type == TYPE_QUAD) {
+            return TypedValue(ret_ex.quad_value, InferredType(TYPE_QUAD, "quad"));
+        }
+
+        // 通常の数値の場合
+        return TypedValue(ret_ex.value, InferredType(ret_ex.type, type_info_to_string(ret_ex.type)));
     }
 }
 
 // 実際の型推論対応の式評価（内部実装）
 TypedValue ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode* node) {
     if (!node) {
-        return TypedValue(0, InferredType());
+    return TypedValue(static_cast<int64_t>(0), InferredType());
     }
     
     // まず型を推論
     InferredType inferred_type = type_engine_.infer_type(node);
+
+    auto ensure_type = [](const InferredType& hint, TypeInfo desired, const std::string& default_name) {
+        InferredType result = hint;
+        if (result.type_info == TYPE_UNKNOWN) {
+            result.type_info = desired;
+        }
+        if (result.type_name.empty()) {
+            result.type_name = default_name;
+        }
+        return result;
+    };
     
     switch (node->node_type) {
         case ASTNodeType::AST_TERNARY_OP:
             return evaluate_ternary_typed(node);
             
-        case ASTNodeType::AST_STRING_LITERAL:
-            return TypedValue(node->str_value, InferredType(TYPE_STRING, "string"));
+        case ASTNodeType::AST_STRING_LITERAL: {
+            InferredType string_type = inferred_type;
+            if (string_type.type_info != TYPE_STRING) {
+                string_type = InferredType(TYPE_STRING, "string");
+            }
+            return TypedValue(node->str_value, string_type);
+        }
             
-        case ASTNodeType::AST_NUMBER:
-            return TypedValue(node->int_value, InferredType(TYPE_INT, "int"));
+        case ASTNodeType::AST_NUMBER: {
+            if (node->is_float_literal) {
+                TypeInfo literal_type = inferred_type.type_info;
+                if (literal_type == TYPE_UNKNOWN && node->literal_type != TYPE_UNKNOWN) {
+                    literal_type = node->literal_type;
+                }
+                if (literal_type == TYPE_FLOAT) {
+                    InferredType float_type = inferred_type.type_info == TYPE_FLOAT ? inferred_type : InferredType(TYPE_FLOAT, "float");
+                    return TypedValue(static_cast<double>(node->double_value), float_type);
+                }
+                if (literal_type == TYPE_QUAD) {
+                    InferredType quad_type = inferred_type.type_info == TYPE_QUAD ? inferred_type : InferredType(TYPE_QUAD, "quad");
+                    return TypedValue(node->quad_value, quad_type);
+                }
+                InferredType double_type = inferred_type.type_info == TYPE_DOUBLE ? inferred_type : InferredType(TYPE_DOUBLE, "double");
+                return TypedValue(node->double_value, double_type);
+            }
+            InferredType int_type = inferred_type.type_info == TYPE_UNKNOWN ? InferredType(TYPE_INT, "int") : inferred_type;
+            return TypedValue(node->int_value, int_type);
+        }
             
+        case ASTNodeType::AST_BINARY_OP: {
+            TypedValue left_value = evaluate_typed_expression(node->left.get());
+            TypedValue right_value = evaluate_typed_expression(node->right.get());
+
+            auto make_numeric_typed_value = [&](long double quad_value) -> TypedValue {
+                if (inferred_type.type_info == TYPE_QUAD) {
+                    return TypedValue(quad_value, ensure_type(inferred_type, TYPE_QUAD, "quad"));
+                }
+                if (inferred_type.type_info == TYPE_DOUBLE || inferred_type.type_info == TYPE_FLOAT) {
+                    TypeInfo info = (inferred_type.type_info == TYPE_FLOAT) ? TYPE_FLOAT : TYPE_DOUBLE;
+                    return TypedValue(static_cast<double>(quad_value), ensure_type(inferred_type, info, info == TYPE_FLOAT ? "float" : "double"));
+                }
+                TypeInfo effective = inferred_type.type_info == TYPE_UNKNOWN ? TYPE_INT : inferred_type.type_info;
+                return TypedValue(static_cast<int64_t>(quad_value), ensure_type(inferred_type, effective, std::string(type_info_to_string(effective))));
+            };
+
+            auto make_integer_typed_value = [&](int64_t int_value) -> TypedValue {
+                return TypedValue(int_value, ensure_type(inferred_type, inferred_type.type_info == TYPE_UNKNOWN ? TYPE_INT : inferred_type.type_info,
+                                                         type_info_to_string(inferred_type.type_info == TYPE_UNKNOWN ? TYPE_INT : inferred_type.type_info)));
+            };
+
+            auto make_bool_typed_value = [&](bool value) -> TypedValue {
+                return TypedValue(static_cast<int64_t>(value ? 1 : 0), ensure_type(inferred_type, TYPE_BOOL, "bool"));
+            };
+
+            auto left_quad = left_value.as_quad();
+            auto right_quad = right_value.as_quad();
+            auto left_int = left_value.as_numeric();
+            auto right_int = right_value.as_numeric();
+            auto truthy = [&](const TypedValue& v) {
+                if (v.is_floating()) {
+                    return v.as_double() != 0.0;
+                }
+                return v.as_numeric() != 0;
+            };
+
+            if (node->op == "+") {
+                return make_numeric_typed_value(left_quad + right_quad);
+            } else if (node->op == "-") {
+                return make_numeric_typed_value(left_quad - right_quad);
+            } else if (node->op == "*") {
+                return make_numeric_typed_value(left_quad * right_quad);
+            } else if (node->op == "/") {
+                if ((inferred_type.type_info == TYPE_QUAD || inferred_type.type_info == TYPE_DOUBLE || inferred_type.type_info == TYPE_FLOAT)) {
+                    if (right_quad == 0.0L) {
+                        error_msg(DebugMsgId::ZERO_DIVISION_ERROR);
+                        throw std::runtime_error("Division by zero");
+                    }
+                    return make_numeric_typed_value(left_quad / right_quad);
+                } else {
+                    if (right_int == 0) {
+                        error_msg(DebugMsgId::ZERO_DIVISION_ERROR);
+                        throw std::runtime_error("Division by zero");
+                    }
+                    return make_integer_typed_value(left_int / right_int);
+                }
+            } else if (node->op == "%") {
+                if (right_int == 0) {
+                    error_msg(DebugMsgId::ZERO_DIVISION_ERROR);
+                    throw std::runtime_error("Modulo by zero");
+                }
+                return make_integer_typed_value(left_int % right_int);
+            } else if (node->op == "==") {
+                if (inferred_type.type_info == TYPE_QUAD || inferred_type.type_info == TYPE_DOUBLE || inferred_type.type_info == TYPE_FLOAT) {
+                    return make_bool_typed_value(left_quad == right_quad);
+                }
+                return make_bool_typed_value(left_int == right_int);
+            } else if (node->op == "!=") {
+                if (inferred_type.type_info == TYPE_QUAD || inferred_type.type_info == TYPE_DOUBLE || inferred_type.type_info == TYPE_FLOAT) {
+                    return make_bool_typed_value(left_quad != right_quad);
+                }
+                return make_bool_typed_value(left_int != right_int);
+            } else if (node->op == "<") {
+                if (inferred_type.type_info == TYPE_QUAD || inferred_type.type_info == TYPE_DOUBLE || inferred_type.type_info == TYPE_FLOAT) {
+                    return make_bool_typed_value(left_quad < right_quad);
+                }
+                return make_bool_typed_value(left_int < right_int);
+            } else if (node->op == ">") {
+                if (inferred_type.type_info == TYPE_QUAD || inferred_type.type_info == TYPE_DOUBLE || inferred_type.type_info == TYPE_FLOAT) {
+                    return make_bool_typed_value(left_quad > right_quad);
+                }
+                return make_bool_typed_value(left_int > right_int);
+            } else if (node->op == "<=") {
+                if (inferred_type.type_info == TYPE_QUAD || inferred_type.type_info == TYPE_DOUBLE || inferred_type.type_info == TYPE_FLOAT) {
+                    return make_bool_typed_value(left_quad <= right_quad);
+                }
+                return make_bool_typed_value(left_int <= right_int);
+            } else if (node->op == ">=") {
+                if (inferred_type.type_info == TYPE_QUAD || inferred_type.type_info == TYPE_DOUBLE || inferred_type.type_info == TYPE_FLOAT) {
+                    return make_bool_typed_value(left_quad >= right_quad);
+                }
+                return make_bool_typed_value(left_int >= right_int);
+            } else if (node->op == "&&") {
+                return make_bool_typed_value(truthy(left_value) && truthy(right_value));
+            } else if (node->op == "||") {
+                return make_bool_typed_value(truthy(left_value) || truthy(right_value));
+            } else if (node->op == "&") {
+                return make_integer_typed_value(left_int & right_int);
+            } else if (node->op == "|") {
+                return make_integer_typed_value(left_int | right_int);
+            } else if (node->op == "^") {
+                return make_integer_typed_value(left_int ^ right_int);
+            } else if (node->op == "<<") {
+                return make_integer_typed_value(left_int << right_int);
+            } else if (node->op == ">>") {
+                return make_integer_typed_value(left_int >> right_int);
+            }
+
+            // 未対応の演算子は従来の評価にフォールバック
+            int64_t numeric_result = evaluate_expression(node);
+            return TypedValue(numeric_result, inferred_type);
+        }
+
+        case ASTNodeType::AST_UNARY_OP: {
+            if (node->op == "+" || node->op == "-") {
+                TypedValue operand_value = evaluate_typed_expression(node->left.get());
+                long double operand_quad = operand_value.as_quad();
+                if (node->op == "-") {
+                    operand_quad = -operand_quad;
+                }
+                if (inferred_type.type_info == TYPE_QUAD) {
+                    return TypedValue(operand_quad, ensure_type(inferred_type, TYPE_QUAD, "quad"));
+                }
+                if (inferred_type.type_info == TYPE_DOUBLE || inferred_type.type_info == TYPE_FLOAT) {
+                    TypeInfo info = (inferred_type.type_info == TYPE_FLOAT) ? TYPE_FLOAT : TYPE_DOUBLE;
+                    return TypedValue(static_cast<double>(operand_quad), ensure_type(inferred_type, info, info == TYPE_FLOAT ? "float" : "double"));
+                }
+                TypeInfo int_like = inferred_type.type_info == TYPE_UNKNOWN ? TYPE_INT : inferred_type.type_info;
+                return TypedValue(static_cast<int64_t>(operand_quad), ensure_type(inferred_type, int_like, std::string(type_info_to_string(int_like))));
+            } else if (node->op == "!") {
+                TypedValue operand_value = evaluate_typed_expression(node->left.get());
+                bool operand_truthy = operand_value.is_floating() ? (operand_value.as_double() != 0.0)
+                                                                  : (operand_value.as_numeric() != 0);
+                return TypedValue(static_cast<int64_t>(operand_truthy ? 0 : 1), ensure_type(inferred_type, TYPE_BOOL, "bool"));
+            }
+            int64_t numeric_result = evaluate_expression(node);
+            return TypedValue(numeric_result, inferred_type);
+        }
+
         case ASTNodeType::AST_ARRAY_LITERAL: {
             // 配列リテラルの場合、プレースホルダーとして0を返し、型情報を保持
             InferredType array_type = type_engine_.infer_type(node);
-            return TypedValue(0, array_type);
+            return TypedValue(static_cast<int64_t>(0), array_type);
         }
         
         case ASTNodeType::AST_FUNC_CALL: {
@@ -2042,6 +2403,9 @@ TypedValue ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode
                     return TypedValue(numeric_result, function_return_type);
                 }
             } catch (const ReturnException& ret) {
+                if (ret.is_array || ret.is_struct_array) {
+                    throw;
+                }
                 if (ret.is_struct || ret.type == TYPE_STRUCT) {
                     // 構造体の場合
                     Variable struct_var = ret.struct_value;
@@ -2049,6 +2413,12 @@ TypedValue ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode
                     return TypedValue(struct_var, struct_type);
                 } else if (ret.type == TYPE_STRING) {
                     return TypedValue(ret.str_value, InferredType(TYPE_STRING, "string"));
+                } else if (ret.type == TYPE_FLOAT) {
+                    return TypedValue(ret.double_value, InferredType(TYPE_FLOAT, "float"));
+                } else if (ret.type == TYPE_DOUBLE) {
+                    return TypedValue(ret.double_value, InferredType(TYPE_DOUBLE, "double"));
+                } else if (ret.type == TYPE_QUAD) {
+                    return TypedValue(ret.quad_value, InferredType(TYPE_QUAD, "quad"));
                 } else {
                     return TypedValue(ret.value, InferredType(ret.type, type_info_to_string(ret.type)));
                 }
@@ -2064,17 +2434,31 @@ TypedValue ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode
                 interpreter_.throw_runtime_error_with_location(error_message, node);
             }
             
+            auto make_numeric_value = [&](TypeInfo numeric_type, const InferredType& fallback_type) -> TypedValue {
+                switch (numeric_type) {
+                    case TYPE_FLOAT:
+                        return TypedValue(static_cast<double>(var->float_value), fallback_type);
+                    case TYPE_DOUBLE:
+                        return TypedValue(var->double_value, fallback_type);
+                    case TYPE_QUAD:
+                        return TypedValue(var->quad_value, fallback_type);
+                    default:
+                        return TypedValue(var->value, fallback_type);
+                }
+            };
+
             // 変数の型に基づいて適切なTypedValueを作成
             if (var->type == TYPE_STRING) {
                 return TypedValue(var->str_value, InferredType(TYPE_STRING, "string"));
             } else if (var->type == TYPE_UNION) {
                 if (var->current_type == TYPE_STRING) {
                     return TypedValue(var->str_value, InferredType(TYPE_STRING, "string"));
-                } else {
-                    return TypedValue(var->value, InferredType(var->current_type, type_info_to_string(var->current_type)));
                 }
+                InferredType union_numeric_type(var->current_type, type_info_to_string(var->current_type));
+                return make_numeric_value(var->current_type, union_numeric_type);
             } else {
-                return TypedValue(var->value, InferredType(var->type, type_info_to_string(var->type)));
+                InferredType var_type(var->type, type_info_to_string(var->type));
+                return make_numeric_value(var->type, var_type);
             }
         }
         
@@ -2101,8 +2485,14 @@ TypedValue ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode
                         
                         if (member_var.type == TYPE_STRING) {
                             return TypedValue(member_var.str_value, InferredType(TYPE_STRING, "string"));
+                        } else if (member_var.type == TYPE_FLOAT) {
+                            return TypedValue(static_cast<double>(member_var.float_value), InferredType(TYPE_FLOAT, "float"));
+                        } else if (member_var.type == TYPE_DOUBLE) {
+                            return TypedValue(member_var.double_value, InferredType(TYPE_DOUBLE, "double"));
+                        } else if (member_var.type == TYPE_QUAD) {
+                            return TypedValue(member_var.quad_value, InferredType(TYPE_QUAD, "quad"));
                         } else {
-                            return TypedValue(member_var.value, InferredType(TYPE_INT, "int"));
+                            return TypedValue(member_var.value, InferredType(member_var.type, type_info_to_string(member_var.type)));
                         }
                     } else {
                         throw std::runtime_error("Expected struct element from function array access");
@@ -2285,30 +2675,15 @@ TypedValue ExpressionEvaluator::evaluate_ternary_typed(const ASTNode* node) {
                 }
             }
         }
-        // 数値型の場合は従来の評価を使用
-        int64_t numeric_result = evaluate_expression(selected_node);
-        TypedValue result = TypedValue(numeric_result, selected_type);
+        // 数値型の場合も型付き評価を利用
+        TypedValue result = evaluate_typed_expression(selected_node);
         last_typed_result_ = result;
         return result;
     } else if (selected_node->node_type == ASTNodeType::AST_FUNC_CALL) {
-        // 関数呼び出し（メソッド呼び出し含む）の場合
-        try {
-            int64_t numeric_result = evaluate_expression(selected_node);
-            debug_msg(DebugMsgId::TERNARY_NUMERIC_EVAL, numeric_result);
-            TypedValue result = TypedValue(numeric_result, selected_type);
-            last_typed_result_ = result;
-            return result;
-        } catch (const ReturnException& ret) {
-            if (ret.type == TYPE_STRING) {
-                TypedValue result = TypedValue(ret.str_value, InferredType(TYPE_STRING, "string"));
-                last_typed_result_ = result;
-                return result;
-            } else {
-                TypedValue result = TypedValue(ret.value, selected_type);
-                last_typed_result_ = result;
-                return result;
-            }
-        }
+        // 関数呼び出し（メソッド呼び出し含む）の場合も型付き評価を利用
+        TypedValue result = evaluate_typed_expression(selected_node);
+        last_typed_result_ = result;
+        return result;
     }
     
     // 複雑な型（配列、構造体、関数呼び出しなど）の場合は遅延評価
@@ -2454,7 +2829,7 @@ TypedValue ExpressionEvaluator::evaluate_function_array_access(const ASTNode* fu
             if (index >= 0 && index < static_cast<int64_t>(ret.struct_array_3d[0][0].size())) {
                 Variable struct_element = ret.struct_array_3d[0][0][index];
                 // 構造体として返す（後でメンバーアクセス可能）
-                TypedValue result(0, InferredType(TYPE_STRUCT, struct_element.struct_type_name));
+                TypedValue result(static_cast<int64_t>(0), InferredType(TYPE_STRUCT, struct_element.struct_type_name));
                 result.is_struct_result = true;
                 result.struct_data = std::make_shared<Variable>(struct_element);  // 構造体データを保持
                 last_typed_result_ = result;
@@ -2545,7 +2920,7 @@ TypedValue ExpressionEvaluator::evaluate_recursive_member_access(const Variable&
     // 最終結果を TypedValue に変換
     std::cerr << "DEBUG_RECURSIVE: Final result type = " << static_cast<int>(current_var.type) << std::endl;
     if (current_var.type == TYPE_STRING) {
-        TypedValue result(0, InferredType(TYPE_STRING, "string"));
+    TypedValue result(static_cast<int64_t>(0), InferredType(TYPE_STRING, "string"));
         result.string_value = current_var.str_value;
         result.is_numeric_result = false;
         return result;

@@ -43,6 +43,8 @@ int main() {
         shown: 6
     };
 
+    // acc.hidden = 10; // private メンバーへの直接アクセスは不可
+
     acc.show();
     acc.scale();
     acc.show();

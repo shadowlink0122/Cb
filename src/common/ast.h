@@ -384,6 +384,8 @@ struct StructMember {
     std::string pointer_base_type_name;        // ポインタの基底型名
     TypeInfo pointer_base_type = TYPE_UNKNOWN; // ポインタ基底型
     bool is_private = false;                   // private指定かどうか
+    bool is_reference = false;                 // 参照メンバかどうか
+    bool is_unsigned = false; // unsigned修飾子が付与されているか
 
     StructMember() : type(TYPE_UNKNOWN) {}
     StructMember(const std::string &n, TypeInfo t,
@@ -404,13 +406,16 @@ struct StructDefinition {
                     int pointer_depth = 0,
                     const std::string &pointer_base_type_name = "",
                     TypeInfo pointer_base_type = TYPE_UNKNOWN,
-                    bool is_private = false) {
+                    bool is_private = false, bool is_reference = false,
+                    bool is_unsigned = false) {
         StructMember member(member_name, type, type_alias);
         member.is_pointer = is_pointer;
         member.pointer_depth = pointer_depth;
         member.pointer_base_type_name = pointer_base_type_name;
         member.pointer_base_type = pointer_base_type;
         member.is_private = is_private;
+        member.is_reference = is_reference;
+        member.is_unsigned = is_unsigned;
         members.emplace_back(std::move(member));
     }
 
@@ -430,17 +435,29 @@ struct ASTNode;
 
 // Interface定義情報を格納する構造体
 struct InterfaceMember {
-    std::string name;     // 関数名
-    TypeInfo return_type; // 戻り値の型
+    std::string name;                // 関数名
+    TypeInfo return_type;            // 戻り値の型
+    bool return_is_unsigned = false; // 戻り値がunsignedかどうか
     std::vector<std::pair<std::string, TypeInfo>>
         parameters; // パラメータのリスト (名前, 型)
+    std::vector<bool> parameter_is_unsigned; // 各パラメータがunsignedかどうか
 
     InterfaceMember() : return_type(TYPE_UNKNOWN) {}
-    InterfaceMember(const std::string &n, TypeInfo ret_type)
-        : name(n), return_type(ret_type) {}
+    InterfaceMember(const std::string &n, TypeInfo ret_type,
+                    bool ret_unsigned = false)
+        : name(n), return_type(ret_type), return_is_unsigned(ret_unsigned) {}
 
-    void add_parameter(const std::string &param_name, TypeInfo param_type) {
+    void add_parameter(const std::string &param_name, TypeInfo param_type,
+                       bool is_unsigned = false) {
         parameters.emplace_back(param_name, param_type);
+        parameter_is_unsigned.push_back(is_unsigned);
+    }
+
+    bool get_parameter_is_unsigned(size_t index) const {
+        if (index >= parameter_is_unsigned.size()) {
+            return false;
+        }
+        return parameter_is_unsigned[index];
     }
 };
 
@@ -610,9 +627,16 @@ struct ASTNode {
     int pointer_depth = 0;              // ポインタの深さ
     std::string pointer_base_type_name; // ポインタ基底型名
     TypeInfo pointer_base_type = TYPE_UNKNOWN; // ポインタ基底型
+    bool is_reference = false;                 // 参照型フラグ
+    bool is_unsigned = false;                  // unsigned修飾子
 
     // 値・名前
-    int64_t int_value = 0;
+    int64_t int_value = 0;     // 整数リテラル値
+    double double_value = 0.0; // 浮動小数点リテラル値（float/double）
+    long double quad_value = 0.0L; // 128bit 浮動小数点リテラル値
+    bool is_float_literal = false; // 浮動小数点リテラルかどうか
+    TypeInfo literal_type = TYPE_UNKNOWN; // リテラル固有の型
+    std::string literal_text;             // 元のリテラル文字列表現
     std::string str_value;
     std::string name;
     std::string type_name; // typedef名など、型の文字列表現
