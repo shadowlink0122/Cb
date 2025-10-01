@@ -67,6 +67,10 @@ std::string TypeManager::resolve_typedef_one_level(const std::string &type_name)
 TypeInfo TypeManager::string_to_type_info(const std::string &type_str) {
     std::string resolved = resolve_typedef(type_str);
 
+    if (resolved.rfind("unsigned ", 0) == 0) {
+        resolved = resolved.substr(9);
+    }
+
     if (resolved == "int")
         return TYPE_INT;
     if (resolved == "long")

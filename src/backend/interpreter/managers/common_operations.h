@@ -35,8 +35,9 @@ class CommonOperations {
     /**
      * 変数に配列リテラルを代入（統合版）
      */
-    void assign_array_literal_to_variable(Variable *var,
-                                          const ArrayLiteralResult &result);
+  void assign_array_literal_to_variable(Variable *var,
+                      const ArrayLiteralResult &result,
+                      const std::string &var_name = "");
 
     /**
      * 配列要素代入の統合処理（境界チェック、型チェック込み）

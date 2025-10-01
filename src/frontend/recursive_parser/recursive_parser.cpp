@@ -391,6 +391,12 @@ ASTNode* RecursiveParser::parseStatement() {
         }
     }
 
+    bool saw_unsigned_specifier = false;
+    if (check(TokenType::TOK_UNSIGNED)) {
+        saw_unsigned_specifier = true;
+        advance();
+    }
+
     // 関数定義の解析 (int main() など)
     if (check(TokenType::TOK_INT) || check(TokenType::TOK_LONG) || 
         check(TokenType::TOK_SHORT) || check(TokenType::TOK_TINY) || 
@@ -400,22 +406,43 @@ ASTNode* RecursiveParser::parseStatement() {
         check(TokenType::TOK_BIG) || check(TokenType::TOK_QUAD)) {
         
         // 型名を取得
-        std::string type_name;
-        if (check(TokenType::TOK_INT)) type_name = "int";
-        else if (check(TokenType::TOK_LONG)) type_name = "long";
-        else if (check(TokenType::TOK_SHORT)) type_name = "short";
-        else if (check(TokenType::TOK_TINY)) type_name = "tiny";
-        else if (check(TokenType::TOK_VOID)) type_name = "void";
-        else if (check(TokenType::TOK_BOOL)) type_name = "bool";
-        else if (check(TokenType::TOK_STRING_TYPE)) type_name = "string";
-        else if (check(TokenType::TOK_CHAR_TYPE)) type_name = "char";
-    else if (check(TokenType::TOK_FLOAT)) type_name = "float";
-    else if (check(TokenType::TOK_DOUBLE)) type_name = "double";
-    else if (check(TokenType::TOK_BIG)) type_name = "big";
-    else if (check(TokenType::TOK_QUAD)) type_name = "quad";
-        
+        std::string base_type_name;
+        if (check(TokenType::TOK_INT)) base_type_name = "int";
+        else if (check(TokenType::TOK_LONG)) base_type_name = "long";
+        else if (check(TokenType::TOK_SHORT)) base_type_name = "short";
+        else if (check(TokenType::TOK_TINY)) base_type_name = "tiny";
+        else if (check(TokenType::TOK_VOID)) base_type_name = "void";
+        else if (check(TokenType::TOK_BOOL)) base_type_name = "bool";
+        else if (check(TokenType::TOK_STRING_TYPE)) base_type_name = "string";
+        else if (check(TokenType::TOK_CHAR_TYPE)) base_type_name = "char";
+        else if (check(TokenType::TOK_FLOAT)) base_type_name = "float";
+        else if (check(TokenType::TOK_DOUBLE)) base_type_name = "double";
+        else if (check(TokenType::TOK_BIG)) base_type_name = "big";
+        else if (check(TokenType::TOK_QUAD)) base_type_name = "quad";
+
         advance(); // consume type
-        
+
+        TypeInfo base_type_info = getTypeInfoFromString(base_type_name);
+        std::string type_name = base_type_name;
+        if (saw_unsigned_specifier) {
+            switch (base_type_info) {
+                case TYPE_TINY:
+                case TYPE_SHORT:
+                case TYPE_INT:
+                case TYPE_LONG:
+                case TYPE_FLOAT:
+                case TYPE_DOUBLE:
+                case TYPE_BIG:
+                case TYPE_QUAD:
+                    break;
+                default:
+                    error("'unsigned' modifier can only be applied to numeric types");
+                    return nullptr;
+            }
+            type_name = "unsigned " + base_type_name;
+        }
+
+        TypeInfo declared_type_info = getTypeInfoFromString(type_name);
         // 配列型の場合: int[size][size2]... identifier
         if (check(TokenType::TOK_LBRACKET)) {
             // これは配列型宣言（多次元対応）
@@ -476,19 +503,12 @@ ASTNode* RecursiveParser::parseStatement() {
             node->type_name = full_type_name;
             
             // Set appropriate type_info for arrays
-            TypeInfo base_type = TYPE_INT; // default
-            if (type_name == "int") base_type = TYPE_INT;
-            else if (type_name == "long") base_type = TYPE_LONG;
-            else if (type_name == "short") base_type = TYPE_SHORT;
-            else if (type_name == "tiny") base_type = TYPE_TINY;
-            else if (type_name == "bool") base_type = TYPE_BOOL;
-            else if (type_name == "string") base_type = TYPE_STRING;
-            else if (type_name == "char") base_type = TYPE_CHAR;
-            
-            node->type_info = base_type;
+            node->type_info = base_type_info;
             
             // const修飾子を設定
             node->is_const = isConst;
+            node->is_static = isStatic;
+            node->is_unsigned = saw_unsigned_specifier;
             
             // ArrayTypeInfoを構築
             std::vector<ArrayDimension> dimensions;
@@ -515,7 +535,7 @@ ASTNode* RecursiveParser::parseStatement() {
                     dimensions.push_back(ArrayDimension(-1, true));
                 }
             }
-            node->array_type_info = ArrayTypeInfo(base_type, dimensions);
+            node->array_type_info = ArrayTypeInfo(base_type_info, dimensions);
             
             // 配列次元をASTノードに設定
             for (const auto& size : array_sizes) {
@@ -690,27 +710,10 @@ ASTNode* RecursiveParser::parseStatement() {
                     node->type_name = type_name;
                     node->is_const = isConst;
                     node->is_static = isStatic;
+                    node->is_unsigned = saw_unsigned_specifier;
                     
                     // 型情報を設定
-                    if (type_name == "int") {
-                        node->type_info = TYPE_INT;
-                    } else if (type_name == "long") {
-                        node->type_info = TYPE_LONG;
-                    } else if (type_name == "short") {
-                        node->type_info = TYPE_SHORT;
-                    } else if (type_name == "tiny") {
-                        node->type_info = TYPE_TINY;
-                    } else if (type_name == "bool") {
-                        node->type_info = TYPE_BOOL;
-                    } else if (type_name == "string") {
-                        node->type_info = TYPE_STRING;
-                    } else if (type_name == "char") {
-                        node->type_info = TYPE_CHAR;
-                    } else if (type_name == "void") {
-                        node->type_info = TYPE_VOID;
-                    } else {
-                        node->type_info = TYPE_UNKNOWN;
-                    }
+                    node->type_info = declared_type_info;
                     
                     if (variables[0].second) {
                         node->init_expr = std::move(variables[0].second);
@@ -721,27 +724,10 @@ ASTNode* RecursiveParser::parseStatement() {
                     // 複数変数宣言
                     ASTNode* node = new ASTNode(ASTNodeType::AST_MULTIPLE_VAR_DECL);
                     node->type_name = type_name;
+                    node->is_unsigned = saw_unsigned_specifier;
                     
                     // 型情報を設定
-                    if (type_name == "int") {
-                        node->type_info = TYPE_INT;
-                    } else if (type_name == "long") {
-                        node->type_info = TYPE_LONG;
-                    } else if (type_name == "short") {
-                        node->type_info = TYPE_SHORT;
-                    } else if (type_name == "tiny") {
-                        node->type_info = TYPE_TINY;
-                    } else if (type_name == "bool") {
-                        node->type_info = TYPE_BOOL;
-                    } else if (type_name == "string") {
-                        node->type_info = TYPE_STRING;
-                    } else if (type_name == "char") {
-                        node->type_info = TYPE_CHAR;
-                    } else if (type_name == "void") {
-                        node->type_info = TYPE_VOID;
-                    } else {
-                        node->type_info = TYPE_UNKNOWN;
-                    }
+                    node->type_info = declared_type_info;
                     
                     // 各変数を子ノードとして追加
                     for (auto& var : variables) {
@@ -751,6 +737,7 @@ ASTNode* RecursiveParser::parseStatement() {
                         var_node->type_info = node->type_info;
                         var_node->is_const = isConst;
                         var_node->is_static = isStatic;
+                        var_node->is_unsigned = saw_unsigned_specifier;
                         
                         if (var.second) {
                             var_node->init_expr = std::move(var.second);
@@ -766,6 +753,9 @@ ASTNode* RecursiveParser::parseStatement() {
             error("Expected identifier after type");
             return nullptr;
         }
+    } else if (saw_unsigned_specifier) {
+        error("Expected type specifier after 'unsigned'");
+        return nullptr;
     }
     
     // return文の処理
@@ -1377,6 +1367,8 @@ ASTNode* RecursiveParser::parseVariableDeclaration() {
         node->pointer_depth = parsed.pointer_depth;
         node->pointer_base_type_name = parsed.base_type;
         node->pointer_base_type = parsed.base_type_info;
+        node->is_reference = parsed.is_reference;
+        node->is_unsigned = parsed.is_unsigned;
 
         if (parsed.is_array) {
             node->array_type_info = parsed.array_info;
@@ -1397,6 +1389,8 @@ ASTNode* RecursiveParser::parseVariableDeclaration() {
         node->pointer_depth = base_parsed_type.pointer_depth;
         node->pointer_base_type_name = base_parsed_type.base_type;
         node->pointer_base_type = base_parsed_type.base_type_info;
+        node->is_reference = base_parsed_type.is_reference;
+        node->is_unsigned = base_parsed_type.is_unsigned;
         if (base_parsed_type.is_array) {
             node->array_type_info = base_parsed_type.array_info;
             node->is_array = true;
@@ -1413,6 +1407,8 @@ ASTNode* RecursiveParser::parseVariableDeclaration() {
             var_node->pointer_depth = parsed.pointer_depth;
             var_node->pointer_base_type_name = parsed.base_type;
             var_node->pointer_base_type = parsed.base_type_info;
+            var_node->is_reference = parsed.is_reference;
+            var_node->is_unsigned = parsed.is_unsigned;
 
             if (parsed.is_array) {
                 var_node->array_type_info = parsed.array_info;
@@ -1436,6 +1432,12 @@ std::string RecursiveParser::parseType() {
 
     std::string base_type;
     std::string original_type;
+    bool saw_unsigned = false;
+
+    if (check(TokenType::TOK_UNSIGNED)) {
+        saw_unsigned = true;
+        advance();
+    }
 
     auto set_base_type = [&](const std::string &type_name) {
         base_type = type_name;
@@ -1534,6 +1536,24 @@ std::string RecursiveParser::parseType() {
     parsed.original_type = original_type;
     parsed.base_type_info = getTypeInfoFromString(base_type);
 
+    if (saw_unsigned) {
+        switch (parsed.base_type_info) {
+        case TYPE_TINY:
+        case TYPE_SHORT:
+        case TYPE_INT:
+        case TYPE_LONG:
+        case TYPE_FLOAT:
+        case TYPE_DOUBLE:
+        case TYPE_BIG:
+        case TYPE_QUAD:
+            parsed.is_unsigned = true;
+            break;
+        default:
+            error("'unsigned' modifier can only be applied to numeric types");
+            return "";
+        }
+    }
+
     int pointer_depth = 0;
     while (check(TokenType::TOK_MUL)) {
         pointer_depth++;
@@ -1543,6 +1563,11 @@ std::string RecursiveParser::parseType() {
     if (pointer_depth > 0) {
         parsed.is_pointer = true;
         parsed.pointer_depth = pointer_depth;
+    }
+
+    if (check(TokenType::TOK_BIT_AND)) {
+        parsed.is_reference = true;
+        advance();
     }
 
     std::vector<ArrayDimension> dimensions;
@@ -1579,6 +1604,17 @@ std::string RecursiveParser::parseType() {
     }
     for (const auto &dim_text : dimension_texts) {
         full_type += dim_text;
+    }
+
+    if (parsed.is_reference) {
+        full_type += "&";
+    }
+
+    if (parsed.is_unsigned) {
+        full_type = "unsigned " + full_type;
+        if (original_type == base_type) {
+            parsed.original_type = full_type;
+        }
     }
 
     parsed.full_type = full_type;
@@ -1638,6 +1674,8 @@ ASTNode* RecursiveParser::cloneAstNode(const ASTNode* node) {
     clone->pointer_depth = node->pointer_depth;
     clone->pointer_base_type_name = node->pointer_base_type_name;
     clone->pointer_base_type = node->pointer_base_type;
+    clone->is_reference = node->is_reference;
+    clone->is_unsigned = node->is_unsigned;
     clone->int_value = node->int_value;
     clone->str_value = node->str_value;
     clone->name = node->name;
@@ -2278,6 +2316,7 @@ ASTNode* RecursiveParser::parseFunctionDeclarationAfterName(const std::string& r
         do {
             // パラメータ型
             std::string param_type = parseType();
+            ParsedTypeInfo param_parsed = getLastParsedTypeInfo();
             
             // パラメータ名
             if (!check(TokenType::TOK_IDENTIFIER)) {
@@ -2294,6 +2333,17 @@ ASTNode* RecursiveParser::parseFunctionDeclarationAfterName(const std::string& r
             
             // 配列パラメータかチェック
             param->is_array = (param_type.find("[") != std::string::npos);
+
+            param->is_pointer = param_parsed.is_pointer;
+            param->pointer_depth = param_parsed.pointer_depth;
+            param->pointer_base_type_name = param_parsed.base_type;
+            param->pointer_base_type = param_parsed.base_type_info;
+            param->is_reference = param_parsed.is_reference;
+            param->is_unsigned = param_parsed.is_unsigned;
+            if (param_parsed.is_array) {
+                param->array_type_info = param_parsed.array_info;
+                param->is_array = true;
+            }
             
             // 型情報を設定（typedef解決を含む）
             std::string resolved_param_type = resolveTypedefChain(param_type);
@@ -2844,13 +2894,20 @@ TypeInfo RecursiveParser::getTypeInfoFromString(const std::string& type_name) {
         return TYPE_NULLPTR;
     }
 
-    if (type_name.find('*') != std::string::npos) {
+    std::string working = type_name;
+    bool is_unsigned = false;
+    if (working.rfind("unsigned ", 0) == 0) {
+        is_unsigned = true;
+        working = working.substr(9);
+    }
+
+    if (working.find('*') != std::string::npos) {
         return TYPE_POINTER;
     }
 
     // 配列型のチェック（1次元・多次元両対応）
-    if (type_name.find('[') != std::string::npos) {
-        std::string base_type = type_name.substr(0, type_name.find('['));
+    if (working.find('[') != std::string::npos) {
+        std::string base_type = working.substr(0, working.find('['));
         if (base_type == "int") {
             return static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_INT);
         } else if (base_type == "string") {
@@ -2878,37 +2935,37 @@ TypeInfo RecursiveParser::getTypeInfoFromString(const std::string& type_name) {
         }
     }
     
-    if (type_name == "int") {
+    if (working == "int") {
         return TYPE_INT;
-    } else if (type_name == "long") {
+    } else if (working == "long") {
         return TYPE_LONG;
-    } else if (type_name == "short") {
+    } else if (working == "short") {
         return TYPE_SHORT;
-    } else if (type_name == "tiny") {
+    } else if (working == "tiny") {
         return TYPE_TINY;
-    } else if (type_name == "bool") {
+    } else if (working == "bool") {
         return TYPE_BOOL;
-    } else if (type_name == "string") {
+    } else if (working == "string") {
         return TYPE_STRING;
-    } else if (type_name == "char") {
+    } else if (working == "char") {
         return TYPE_CHAR;
-    } else if (type_name == "float") {
+    } else if (working == "float") {
         return TYPE_FLOAT;
-    } else if (type_name == "double") {
+    } else if (working == "double") {
         return TYPE_DOUBLE;
-    } else if (type_name == "big") {
+    } else if (working == "big") {
         return TYPE_BIG;
-    } else if (type_name == "quad") {
+    } else if (working == "quad") {
         return TYPE_QUAD;
-    } else if (type_name == "void") {
+    } else if (working == "void") {
         return TYPE_VOID;
-    } else if (type_name.substr(0, 7) == "struct " || struct_definitions_.find(type_name) != struct_definitions_.end()) {
+    } else if (working.substr(0, 7) == "struct " || struct_definitions_.find(working) != struct_definitions_.end()) {
         return TYPE_STRUCT;
-    } else if (type_name.substr(0, 5) == "enum " || enum_definitions_.find(type_name) != enum_definitions_.end()) {
+    } else if (working.substr(0, 5) == "enum " || enum_definitions_.find(working) != enum_definitions_.end()) {
         return TYPE_ENUM;
-    } else if (type_name.substr(0, 10) == "interface " || interface_definitions_.find(type_name) != interface_definitions_.end()) {
+    } else if (working.substr(0, 10) == "interface " || interface_definitions_.find(working) != interface_definitions_.end()) {
         return TYPE_INTERFACE;
-    } else if (union_definitions_.find(type_name) != union_definitions_.end()) {
+    } else if (union_definitions_.find(working) != union_definitions_.end()) {
         return TYPE_UNION;
     } else {
         return TYPE_UNKNOWN;
@@ -3323,7 +3380,9 @@ ASTNode* RecursiveParser::parseStructDeclaration() {
                                   var_parsed.pointer_depth,
                                   var_parsed.base_type,
                                   var_parsed.base_type_info,
-                                  is_private_member);
+                                  is_private_member,
+                                  var_parsed.is_reference,
+                                  var_parsed.is_unsigned);
 
             if (var_parsed.is_array) {
                 StructMember &added = struct_def.members.back();
@@ -3370,6 +3429,8 @@ ASTNode* RecursiveParser::parseStructDeclaration() {
         member_node->pointer_depth = member.pointer_depth;
         member_node->pointer_base_type_name = member.pointer_base_type_name;
         member_node->pointer_base_type = member.pointer_base_type;
+        member_node->is_reference = member.is_reference;
+        member_node->is_unsigned = member.is_unsigned;
         member_node->is_private_member = member.is_private;
         member_node->array_type_info = member.array_info;  // 配列情報をコピー
         if (member.array_info.is_array()) {
@@ -3424,7 +3485,9 @@ ASTNode* RecursiveParser::parseStructTypedefDeclaration() {
                                   var_parsed.pointer_depth,
                                   var_parsed.base_type,
                                   var_parsed.base_type_info,
-                                  is_private_member);
+                                  is_private_member,
+                                  var_parsed.is_reference,
+                                  var_parsed.is_unsigned);
 
             if (var_parsed.is_array) {
                 StructMember &added = struct_def.members.back();
@@ -3477,6 +3540,8 @@ ASTNode* RecursiveParser::parseStructTypedefDeclaration() {
         member_node->pointer_depth = member.pointer_depth;
         member_node->pointer_base_type_name = member.pointer_base_type_name;
         member_node->pointer_base_type = member.pointer_base_type;
+    member_node->is_reference = member.is_reference;
+    member_node->is_unsigned = member.is_unsigned;
         member_node->is_private_member = member.is_private;
         
         // 配列メンバーの場合はarray_type_infoを設定

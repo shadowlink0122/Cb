@@ -36,6 +36,8 @@ struct Variable {
     int pointer_depth;            // ポインタの深さ
     std::string pointer_base_type_name; // ポインタ基底型名
     TypeInfo pointer_base_type;   // ポインタ基底型
+    bool is_reference;            // 参照型かどうか
+    bool is_unsigned;             // unsigned修飾子かどうか
     std::string struct_type_name; // struct型名
     bool is_private_member;       // struct privateメンバーフラグ
 
@@ -89,6 +91,8 @@ struct Variable {
           pointer_depth(0),
           pointer_base_type_name(""),
           pointer_base_type(TYPE_UNKNOWN),
+          is_reference(false),
+          is_unsigned(false),
           struct_type_name(""),
           is_private_member(false),
           type_name(""),
@@ -119,6 +123,8 @@ struct Variable {
           pointer_depth(0),
           pointer_base_type_name(""),
           pointer_base_type(TYPE_UNKNOWN),
+          is_reference(false),
+          is_unsigned(false),
           struct_type_name(""),
           is_private_member(false),
           type_name(""),
@@ -144,6 +150,8 @@ struct Variable {
           pointer_depth(0),
           pointer_base_type_name(""),
           pointer_base_type(TYPE_UNKNOWN),
+          is_reference(false),
+          is_unsigned(false),
           struct_type_name(struct_name),
           is_private_member(false),
           type_name(""),
@@ -174,6 +182,8 @@ struct Variable {
           pointer_depth(0),
           pointer_base_type_name(""),
           pointer_base_type(TYPE_UNKNOWN),
+          is_reference(false),
+          is_unsigned(false),
           struct_type_name(""),
           is_private_member(false),
           type_name(""),
@@ -403,7 +413,7 @@ class Interpreter : public EvaluatorInterface {
     void assign_union_variable(const std::string &name, const ASTNode* value_node);
     
     void assign_function_parameter(const std::string &name, int64_t value,
-                                   TypeInfo type);
+                                   TypeInfo type, bool is_unsigned);
     void assign_array_parameter(const std::string &name,
                                 const Variable &source_array, TypeInfo type);
     void assign_interface_view(const std::string &dest_name,

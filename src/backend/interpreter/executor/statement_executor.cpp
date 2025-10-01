@@ -396,6 +396,7 @@ void StatementExecutor::execute_variable_declaration(const ASTNode *node) {
     var.type = node->type_info;
     var.is_const = node->is_const;
     var.is_array = false;
+    var.is_unsigned = node->is_unsigned;
 
     // typedef配列の場合の特別処理
     if (node->array_type_info.base_type != TYPE_UNKNOWN) {
@@ -584,7 +585,8 @@ void StatementExecutor::execute_variable_declaration(const ASTNode *node) {
                     } else if (ret.type == TYPE_STRING) {
                         interpreter_.current_scope().variables[node->name].str_value = ret.str_value;
                     } else {
-                        interpreter_.current_scope().variables[node->name].value = ret.value;
+                        interpreter_.assign_variable(node->name, ret.value,
+                                                     ret.type);
                     }
                     interpreter_.current_scope().variables[node->name].is_assigned = true;
                 }
@@ -598,7 +600,8 @@ void StatementExecutor::execute_variable_declaration(const ASTNode *node) {
                         // 文字列型なのに数値が返された場合
                         throw std::runtime_error("Type mismatch: expected string but got numeric value");
                     } else {
-                        interpreter_.current_scope().variables[node->name].value = value;
+                        interpreter_.assign_variable(node->name, value,
+                                                     node->type_info);
                     }
                     interpreter_.current_scope().variables[node->name].is_assigned = true;
                 } catch (const ReturnException& ret) {
@@ -619,7 +622,8 @@ void StatementExecutor::execute_variable_declaration(const ASTNode *node) {
                         interpreter_.current_scope().variables[node->name].str_value = ret.str_value;
                         interpreter_.current_scope().variables[node->name].type = TYPE_STRING;
                     } else {
-                        interpreter_.current_scope().variables[node->name].value = ret.value;
+                        interpreter_.assign_variable(node->name, ret.value,
+                                                     ret.type);
                     }
                     interpreter_.current_scope().variables[node->name].is_assigned = true;
                 }
@@ -628,8 +632,8 @@ void StatementExecutor::execute_variable_declaration(const ASTNode *node) {
                 if (var.type == TYPE_STRING) {
                     interpreter_.current_scope().variables[node->name].str_value = init_node->str_value;
                 } else {
-                    interpreter_.current_scope().variables[node->name].value = value;
-                    // interpreter_.check_type_range(var.type, value, node->name);
+                    interpreter_.assign_variable(node->name, value,
+                                                 node->type_info);
                 }
                 interpreter_.current_scope().variables[node->name].is_assigned = true;
             }

@@ -3,6 +3,7 @@
 #include "managers/type_manager.h" // TypeManager の定義のため
 #include "../../../common/debug_messages.h"
 #include "../../../common/type_alias.h"
+#include "../services/debug_service.h"
 #include "core/error_handler.h"
 #include "evaluator/expression_evaluator.h"
 #include "services/expression_service.h" // DRY効率化: 統一式評価サービス
@@ -41,6 +42,7 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
     var.is_const = node->is_const;
     var.is_array = true;
     var.is_assigned = false;
+    var.is_unsigned = node->is_unsigned;
 
     // 多次元配列かどうかチェック
     if (node->array_dimensions.size() > 1) {
@@ -151,6 +153,9 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
                                                     node->type_info);
             } else {
                 // 1次元配列リテラル初期化
+                const std::string resolved_name =
+                    node->name.empty() ? std::string("<anonymous array>")
+                                       : node->name;
                 if (node->type_info == TYPE_STRING) {
                     // 配列リテラルのサイズに合わせて配列を調整
                     var.array_strings.resize(array_literal->arguments.size());
@@ -191,10 +196,21 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
                                 "Type mismatch in array literal");
                         }
                         // 式評価はExpressionEvaluatorを使用
-                        var.array_values[i] =
-                            static_cast<int64_t>(evaluate_expression_safe(
+                        int64_t element_value = static_cast<int64_t>(
+                            evaluate_expression_safe(
                                 array_literal->arguments[i].get(),
                                 "array_literal_element"));
+
+                        if (var.is_unsigned && element_value < 0) {
+                            DEBUG_WARN(
+                                VARIABLE,
+                                "Unsigned array %s literal element [%zu] negative (%lld); clamping to 0",
+                                resolved_name.c_str(), i,
+                                static_cast<long long>(element_value));
+                            element_value = 0;
+                        }
+
+                        var.array_values[i] = element_value;
                     }
                 }
                 // 配列サイズを更新
@@ -731,6 +747,14 @@ void ArrayManager::processArrayLiteralRecursive(
             } else {
                 value = evaluate_expression_safe(node, "array_element");
             }
+
+            if (var.is_unsigned && value < 0) {
+                DEBUG_WARN(
+                    VARIABLE,
+                    "Unsigned multidim array literal element negative (%lld); clamping to 0",
+                    static_cast<long long>(value));
+                value = 0;
+            }
             var.multidim_array_values[flat_index] = value;
         }
     }
@@ -800,6 +824,22 @@ void ArrayManager::setMultidimensionalArrayElement(
             "Cannot assign to const multidimensional array");
     }
 
+    int64_t adjusted_value = value;
+    if (var.is_unsigned && adjusted_value < 0) {
+        std::string resolved_name = "<anonymous array>";
+        if (interpreter_) {
+            std::string candidate = interpreter_->find_variable_name(&var);
+            if (!candidate.empty()) {
+                resolved_name = candidate;
+            }
+        }
+        DEBUG_WARN(
+            VARIABLE,
+            "Unsigned array %s element assignment with negative value (%lld); clamping to 0",
+            resolved_name.c_str(), static_cast<long long>(adjusted_value));
+        adjusted_value = 0;
+    }
+
     std::vector<int> int_indices;
     for (int64_t idx : indices) {
         int_indices.push_back(static_cast<int>(idx));
@@ -836,7 +876,7 @@ void ArrayManager::setMultidimensionalArrayElement(
             "Cannot set string array element with integer value");
     }
 
-    var.multidim_array_values[flat_index] = value;
+    var.multidim_array_values[flat_index] = adjusted_value;
 }
 
 std::string ArrayManager::getMultidimensionalStringArrayElement(

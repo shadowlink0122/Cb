@@ -1339,6 +1339,8 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                                                 member_var.pointer_depth = member.pointer_depth;
                                                 member_var.pointer_base_type_name = member.pointer_base_type_name;
                                                 member_var.pointer_base_type = member.pointer_base_type;
+                                                member_var.is_reference = member.is_reference;
+                                                member_var.is_unsigned = member.is_unsigned;
                                                 break;
                                             }
                                         }
@@ -1402,7 +1404,9 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                             }
                             
                             int64_t arg_value = evaluate_expression(arg.get());
-                            interpreter_.assign_function_parameter(param->name, arg_value, param->type_info);
+                            interpreter_.assign_function_parameter(
+                                param->name, arg_value, param->type_info,
+                                param->is_unsigned);
                         }
                     }
                 }

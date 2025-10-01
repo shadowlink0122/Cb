@@ -384,6 +384,8 @@ struct StructMember {
     std::string pointer_base_type_name;        // ポインタの基底型名
     TypeInfo pointer_base_type = TYPE_UNKNOWN; // ポインタ基底型
     bool is_private = false;                   // private指定かどうか
+    bool is_reference = false;                 // 参照メンバかどうか
+    bool is_unsigned = false; // unsigned修飾子が付与されているか
 
     StructMember() : type(TYPE_UNKNOWN) {}
     StructMember(const std::string &n, TypeInfo t,
@@ -404,13 +406,16 @@ struct StructDefinition {
                     int pointer_depth = 0,
                     const std::string &pointer_base_type_name = "",
                     TypeInfo pointer_base_type = TYPE_UNKNOWN,
-                    bool is_private = false) {
+                    bool is_private = false, bool is_reference = false,
+                    bool is_unsigned = false) {
         StructMember member(member_name, type, type_alias);
         member.is_pointer = is_pointer;
         member.pointer_depth = pointer_depth;
         member.pointer_base_type_name = pointer_base_type_name;
         member.pointer_base_type = pointer_base_type;
         member.is_private = is_private;
+        member.is_reference = is_reference;
+        member.is_unsigned = is_unsigned;
         members.emplace_back(std::move(member));
     }
 
@@ -610,6 +615,8 @@ struct ASTNode {
     int pointer_depth = 0;              // ポインタの深さ
     std::string pointer_base_type_name; // ポインタ基底型名
     TypeInfo pointer_base_type = TYPE_UNKNOWN; // ポインタ基底型
+    bool is_reference = false;                 // 参照型フラグ
+    bool is_unsigned = false;                  // unsigned修飾子
 
     // 値・名前
     int64_t int_value = 0;

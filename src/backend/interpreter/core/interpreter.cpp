@@ -119,12 +119,6 @@ Interpreter::Interpreter(bool debug)
     // enum管理サービスを初期化
     enum_manager_ = std::make_unique<EnumManager>();
 
-    // 環境変数からデバッグモード設定
-    const char *env_debug = std::getenv("CB_DEBUG_MODE");
-    if (env_debug && env_debug[0] == '1') {
-        debug_mode = true;
-    }
-
     // グローバルスコープを初期化
     scope_stack.push_back(global_scope);
 }
@@ -284,6 +278,8 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
                         array_member.pointer_base_type_name = member_node->pointer_base_type_name;
                         array_member.pointer_base_type = member_node->pointer_base_type;
                         array_member.is_private = member_node->is_private_member;
+                        array_member.is_reference = member_node->is_reference;
+                        array_member.is_unsigned = member_node->is_unsigned;
                         struct_def.members.push_back(array_member);
 
                         debug_msg(DebugMsgId::INTERPRETER_STRUCT_ARRAY_MEMBER_ADDED, 
@@ -304,7 +300,9 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
                                               member_node->pointer_depth,
                                               member_node->pointer_base_type_name,
                                               member_node->pointer_base_type,
-                                              member_node->is_private_member);
+                                              member_node->is_private_member,
+                                              member_node->is_reference,
+                                              member_node->is_unsigned);
                         debug_msg(DebugMsgId::INTERPRETER_STRUCT_MEMBER_ADDED,
                                  member_node->name.c_str(),
                                  (int)member_node->type_info);
@@ -370,6 +368,7 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
                 var.type =
                     node->type_info != TYPE_VOID ? node->type_info : TYPE_INT;
                 var.is_const = node->is_const;
+                var.is_unsigned = node->is_unsigned;
                 var.is_assigned = false;
 
                 if (node->right) {
@@ -378,6 +377,13 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
                     if (var.type == TYPE_STRING) {
                         var.str_value = node->right->str_value;
                     } else {
+                        if (var.is_unsigned && value < 0) {
+                            DEBUG_WARN(VARIABLE,
+                                       "Unsigned global variable %s initialized with negative value (%lld); clamping to 0",
+                                       node->name.c_str(),
+                                       static_cast<long long>(value));
+                            value = 0;
+                        }
                         var.value = value;
                         check_type_range(var.type, value, node->name);
                     }
@@ -1505,8 +1511,10 @@ void Interpreter::handle_impl_declaration(const ASTNode *node) {
 }
 
 void Interpreter::assign_function_parameter(const std::string &name,
-                                            int64_t value, TypeInfo type) {
-    variable_manager_->assign_function_parameter(name, value, type);
+                                            int64_t value, TypeInfo type,
+                                            bool is_unsigned) {
+    variable_manager_->assign_function_parameter(name, value, type,
+                                                 is_unsigned);
 }
 
 void Interpreter::assign_array_parameter(const std::string &name,
@@ -3338,7 +3346,8 @@ void Interpreter::assign_struct_member_array_literal(
                        member_var->array_dimensions.size());
         }
         
-        common_operations_->assign_array_literal_to_variable(member_var, result);
+        common_operations_->assign_array_literal_to_variable(
+            member_var, result, var_name + "." + member_name);
         
         if (debug_mode) {
             debug_print("After assign_array_literal_to_variable: array_dimensions.size(): %zu\n", 
@@ -3363,6 +3372,9 @@ void Interpreter::assign_struct_member_array_literal(
                 }
             }
             
+            const auto &assigned_values = member_var->array_values;
+            const size_t assigned_count = assigned_values.size();
+
             // member_varが多次元配列かチェック
             if (member_var->is_multidimensional && 
                 member_var->array_dimensions.size() >= 2) {
@@ -3371,11 +3383,11 @@ void Interpreter::assign_struct_member_array_literal(
                     debug_print("Assigning N-dimensional array literal to %s.%s\n", 
                                var_name.c_str(), member_name.c_str());
                     debug_print("Total array size: %zu, values to assign: %zu\n",
-                               member_var->array_values.size(), result.int_values.size());
+                               member_var->array_values.size(), assigned_count);
                 }
                 
                 // フラット配列データを直接更新
-                size_t max_elements = std::min(member_var->array_values.size(), result.int_values.size());
+                size_t max_elements = std::min(member_var->array_values.size(), assigned_count);
                 
                 // multidim_array_values も初期化
                 if (member_var->multidim_array_values.size() != member_var->array_values.size()) {
@@ -3386,10 +3398,10 @@ void Interpreter::assign_struct_member_array_literal(
                 }
                 
                 for (size_t i = 0; i < max_elements; i++) {
-                    member_var->array_values[i] = result.int_values[i];
-                    member_var->multidim_array_values[i] = result.int_values[i];  // multidim_array_values にも設定
+                    member_var->array_values[i] = assigned_values[i];
+                    member_var->multidim_array_values[i] = assigned_values[i];  // multidim_array_values にも設定
                     if (debug_mode) {
-                        debug_print("Set flat_index[%zu] = %lld (both array_values and multidim_array_values)\n", i, result.int_values[i]);
+                        debug_print("Set flat_index[%zu] = %lld (both array_values and multidim_array_values)\n", i, assigned_values[i]);
                     }
                 }
                 
@@ -3397,8 +3409,8 @@ void Interpreter::assign_struct_member_array_literal(
                 if (debug_mode && member_var->array_dimensions.size() == 2) {
                     size_t rows = member_var->array_dimensions[0];
                     size_t cols = member_var->array_dimensions[1];
-                    for (size_t r = 0; r < rows && (r * cols) < result.int_values.size(); r++) {
-                        for (size_t c = 0; c < cols && (r * cols + c) < result.int_values.size(); c++) {
+                    for (size_t r = 0; r < rows && (r * cols) < assigned_count; r++) {
+                        for (size_t c = 0; c < cols && (r * cols + c) < assigned_count; c++) {
                             size_t flat_index = r * cols + c;
                             debug_print("  [%zu][%zu] = %lld (flat_index: %zu)\n", 
                                        r, c, member_var->array_values[flat_index], flat_index);
@@ -3411,22 +3423,22 @@ void Interpreter::assign_struct_member_array_literal(
                     std::string element_name = var_name + "." + member_name + "[" + std::to_string(i) + "]";
                     Variable *element_var = find_variable(element_name);
                     if (element_var) {
-                        element_var->value = result.int_values[i];
+                        element_var->value = assigned_values[i];
                         element_var->is_assigned = true;
                         if (debug_mode) {
                             debug_print("Updated individual element variable %s = %lld\n", 
-                                       element_name.c_str(), result.int_values[i]);
+                                       element_name.c_str(), assigned_values[i]);
                         }
                     }
                 }
             } else {
                 // 1次元配列の場合（既存の処理）
-                for (size_t i = 0; i < result.size && i < result.int_values.size(); i++) {
+                for (size_t i = 0; i < result.size && i < assigned_count; i++) {
                     std::string element_name = var_name + "." + member_name + "[" +
                                                std::to_string(i) + "]";
                     Variable *element_var = find_variable(element_name);
                     if (element_var) {
-                        element_var->value = result.int_values[i];
+                        element_var->value = assigned_values[i];
                         element_var->is_assigned = true;
                     }
                 }
@@ -3655,6 +3667,8 @@ void Interpreter::sync_struct_members_from_direct_access(const std::string &var_
                 member_value.pointer_base_type_name = member.pointer_base_type_name;
                 member_value.pointer_base_type = member.pointer_base_type;
                 member_value.is_private_member = member.is_private;
+                member_value.is_reference = member.is_reference;
+                member_value.is_unsigned = member.is_unsigned;
 
                 if (treat_as_string) {
                     member_value.type = TYPE_STRING;
