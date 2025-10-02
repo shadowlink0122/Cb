@@ -1,0 +1,74 @@
+// 複合代入演算子でのfloat/double/unsigned
+int main() {
+    // Float複合代入
+    float f = 10.0f;
+    println(f);  // 10.0
+    
+    f += 5.5f;
+    println(f);  // 15.5
+    
+    f -= 3.5f;
+    println(f);  // 12.0
+    
+    f *= 2.0f;
+    println(f);  // 24.0
+    
+    f /= 4.0f;
+    println(f);  // 6.0
+    
+    // Double複合代入
+    double d = 100.0;
+    println(d);  // 100.0
+    
+    d += 25.25;
+    println(d);  // 125.25
+    
+    d -= 20.25;
+    println(d);  // 105.0
+    
+    d *= 0.5;
+    println(d);  // 52.5
+    
+    d /= 2.5;
+    println(d);  // 21.0
+    
+    // Unsigned複合代入
+    unsigned int u = 100;
+    println(u);  // 100
+    
+    u += 50;
+    println(u);  // 150
+    
+    u -= 30;
+    println(u);  // 120
+    
+    u *= 2;
+    println(u);  // 240
+    
+    u /= 4;
+    println(u);  // 60
+    
+    u %= 7;
+    println(u);  // 4
+    
+    // Unsignedビット演算複合代入
+    unsigned int bits = 240;  // 0b11110000
+    println(bits);  // 240
+    
+    bits &= 204;  // 0b11001100
+    println(bits);  // 192 (11000000)
+    
+    bits |= 51;  // 0b00110011
+    println(bits);  // 243 (11110011)
+    
+    bits ^= 255;  // 0b11111111
+    println(bits);  // 12 (00001100)
+    
+    bits <<= 2;
+    println(bits);  // 48 (00110000)
+    
+    bits >>= 1;
+    println(bits);  // 24 (00011000)
+    
+    return 0;
+}

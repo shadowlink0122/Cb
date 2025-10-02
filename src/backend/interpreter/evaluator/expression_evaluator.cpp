@@ -12,6 +12,7 @@
 #include <stdexcept>
 #include <iostream>
 #include <functional>
+#include <cstdio>
 
 // MethodReceiverResolutionのデフォルトコンストラクタ実装
 ExpressionEvaluator::MethodReceiverResolution::MethodReceiverResolution()
@@ -55,7 +56,7 @@ ExpressionEvaluator::MethodReceiverResolution ExpressionEvaluator::resolve_metho
 }
 
 ExpressionEvaluator::ExpressionEvaluator(Interpreter& interpreter) 
-    : interpreter_(interpreter), type_engine_(interpreter), last_typed_result_(static_cast<int64_t>(0), InferredType()) {}
+    : interpreter_(interpreter), type_engine_(interpreter), last_typed_result_(static_cast<int64_t>(0), InferredType()), last_captured_function_value_(std::nullopt) {}
 
 int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
     if (!node) {
@@ -424,7 +425,13 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                 return 0;
             }
             // 数値多次元配列の場合
-            return interpreter_.getMultidimensionalArrayElement(*var, indices);
+            int64_t result = interpreter_.getMultidimensionalArrayElement(*var, indices);
+            if (interpreter_.is_debug_mode()) {
+                debug_print("[DBG multidim] %s dims=%zu value=%lld\n",
+                            array_name.c_str(), indices.size(),
+                            static_cast<long long>(result));
+            }
+            return result;
         }
         
         // 1次元文字列配列のアクセス
@@ -481,7 +488,13 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
             throw ReturnException(*element_var);
         }
 
-        return var->array_values[flat_index];
+        int64_t result = var->array_values[flat_index];
+        if (interpreter_.is_debug_mode()) {
+            debug_print("[DBG eval array] %s indices=%zu value=%lld\n",
+                        array_name.c_str(), indices.size(),
+                        static_cast<long long>(result));
+        }
+        return result;
     }
 
     case ASTNodeType::AST_ARRAY_LITERAL: {
@@ -674,6 +687,12 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
             std::shared_ptr<ReturnException> chain_value;
             Variable concrete_receiver;
         } method_context;
+
+        auto capture_numeric_return = [&](const TypedValue& typed_value) {
+            if (node) {
+                last_captured_function_value_ = std::make_pair(node, typed_value);
+            }
+        };
 
         if (is_method_call) {
             debug_msg(DebugMsgId::METHOD_CALL_START, node->name.c_str());
@@ -1589,7 +1608,31 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                 if (ret.type == TYPE_STRING) {
                     throw ret;
                 }
+                // float/double/quad戻り値の場合は例外を再度投げる
+                // (evaluate_expressionはint64_tしか返せないため、上位でTypedValueとして処理する必要がある)
+                if (ret.type == TYPE_FLOAT || ret.type == TYPE_DOUBLE || ret.type == TYPE_QUAD) {
+                    throw ret;
+                }
                 // 通常の戻り値の場合
+                auto make_typed_from_return = [&](int64_t coerced_numeric) -> TypedValue {
+                    if (ret.type == TYPE_FLOAT) {
+                        return TypedValue(ret.double_value, InferredType(TYPE_FLOAT, "float"));
+                    }
+                    if (ret.type == TYPE_DOUBLE) {
+                        return TypedValue(ret.double_value, InferredType(TYPE_DOUBLE, "double"));
+                    }
+                    if (ret.type == TYPE_QUAD) {
+                        return TypedValue(ret.quad_value, InferredType(TYPE_QUAD, "quad"));
+                    }
+                    TypeInfo resolved = ret.type != TYPE_UNKNOWN ? ret.type : TYPE_INT;
+                    std::string resolved_name = type_info_to_string(resolved);
+                    if (resolved_name.empty()) {
+                        resolved = TYPE_INT;
+                        resolved_name = type_info_to_string(resolved);
+                    }
+                    return TypedValue(coerced_numeric, InferredType(resolved, resolved_name));
+                };
+
                 int64_t return_value = ret.value;
                 if (func && func->is_unsigned && return_value < 0) {
                     const char* call_kind = is_method_call ? "method" : "function";
@@ -1599,6 +1642,8 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                                static_cast<long long>(return_value));
                     return_value = 0;
                 }
+                TypedValue typed_return = make_typed_from_return(return_value);
+                capture_numeric_return(typed_return);
                 return return_value;
             }
         } catch (const ReturnException &ret) {
@@ -2241,22 +2286,130 @@ TypedValue ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode
             TypedValue left_value = evaluate_typed_expression(node->left.get());
             TypedValue right_value = evaluate_typed_expression(node->right.get());
 
-            auto make_numeric_typed_value = [&](long double quad_value) -> TypedValue {
-                if (inferred_type.type_info == TYPE_QUAD) {
+            auto is_integral_type_info = [](TypeInfo type) {
+                switch (type) {
+                case TYPE_BOOL:
+                case TYPE_CHAR:
+                case TYPE_TINY:
+                case TYPE_SHORT:
+                case TYPE_INT:
+                case TYPE_LONG:
+                case TYPE_BIG:
+                    return true;
+                default:
+                    return false;
+                }
+            };
+
+            auto normalize_type = [](TypeInfo type) {
+                if (type >= TYPE_ARRAY_BASE) {
+                    return static_cast<TypeInfo>(type - TYPE_ARRAY_BASE);
+                }
+                return type;
+            };
+
+            auto integral_rank = [](TypeInfo type) {
+                switch (type) {
+                case TYPE_BOOL:
+                    return 0;
+                case TYPE_CHAR:
+                case TYPE_TINY:
+                    return 1;
+                case TYPE_SHORT:
+                    return 2;
+                case TYPE_INT:
+                    return 3;
+                case TYPE_LONG:
+                    return 4;
+                case TYPE_BIG:
+                    return 5;
+                default:
+                    return -1;
+                }
+            };
+
+            auto determine_integral_result_type = [&]() -> TypeInfo {
+                int best_rank = -1;
+                TypeInfo best_type = TYPE_UNKNOWN;
+                auto consider = [&](TypeInfo candidate) {
+                    candidate = normalize_type(candidate);
+                    int rank = integral_rank(candidate);
+                    if (rank > best_rank) {
+                        best_rank = rank;
+                        best_type = candidate;
+                    }
+                };
+
+                consider(inferred_type.type_info);
+                consider(left_value.type.type_info);
+                consider(left_value.numeric_type);
+                consider(right_value.type.type_info);
+                consider(right_value.numeric_type);
+
+                if (!is_integral_type_info(best_type)) {
+                    best_type = TYPE_INT;
+                }
+                return best_type;
+            };
+
+            auto make_numeric_typed_value = [&](long double quad_value, bool prefer_integral) -> TypedValue {
+                if (prefer_integral) {
+                    TypeInfo integer_type = determine_integral_result_type();
+                    return TypedValue(static_cast<int64_t>(quad_value),
+                                      ensure_type(inferred_type, integer_type,
+                                                  std::string(type_info_to_string(integer_type))));
+                }
+
+                // prefer_integral が false の場合、オペランドの型も考慮
+                TypeInfo result_type = inferred_type.type_info;
+                
+                // オペランドから浮動小数点型を検出
+                if (result_type == TYPE_UNKNOWN || is_integral_type_info(result_type)) {
+                    // left_value または right_value が浮動小数点の場合、その型を使用
+                    if (left_value.numeric_type == TYPE_QUAD || right_value.numeric_type == TYPE_QUAD) {
+                        result_type = TYPE_QUAD;
+                    } else if (left_value.numeric_type == TYPE_DOUBLE || right_value.numeric_type == TYPE_DOUBLE) {
+                        result_type = TYPE_DOUBLE;
+                    } else if (left_value.numeric_type == TYPE_FLOAT || right_value.numeric_type == TYPE_FLOAT) {
+                        result_type = TYPE_FLOAT;
+                    } else if (left_value.type.type_info == TYPE_QUAD || right_value.type.type_info == TYPE_QUAD) {
+                        result_type = TYPE_QUAD;
+                    } else if (left_value.type.type_info == TYPE_DOUBLE || right_value.type.type_info == TYPE_DOUBLE) {
+                        result_type = TYPE_DOUBLE;
+                    } else if (left_value.type.type_info == TYPE_FLOAT || right_value.type.type_info == TYPE_FLOAT) {
+                        result_type = TYPE_FLOAT;
+                    }
+                }
+
+                if (result_type == TYPE_QUAD) {
                     return TypedValue(quad_value, ensure_type(inferred_type, TYPE_QUAD, "quad"));
                 }
-                if (inferred_type.type_info == TYPE_DOUBLE || inferred_type.type_info == TYPE_FLOAT) {
-                    TypeInfo info = (inferred_type.type_info == TYPE_FLOAT) ? TYPE_FLOAT : TYPE_DOUBLE;
-                    return TypedValue(static_cast<double>(quad_value), ensure_type(inferred_type, info, info == TYPE_FLOAT ? "float" : "double"));
+                if (result_type == TYPE_DOUBLE) {
+                    return TypedValue(static_cast<double>(quad_value), ensure_type(inferred_type, TYPE_DOUBLE, "double"));
                 }
-                TypeInfo effective = inferred_type.type_info == TYPE_UNKNOWN ? TYPE_INT : inferred_type.type_info;
-                return TypedValue(static_cast<int64_t>(quad_value), ensure_type(inferred_type, effective, std::string(type_info_to_string(effective))));
+                if (result_type == TYPE_FLOAT) {
+                    return TypedValue(static_cast<double>(quad_value), ensure_type(inferred_type, TYPE_FLOAT, "float"));
+                }
+
+                // それでも浮動小数点型が検出されない場合、整数型として処理
+                TypeInfo effective = result_type != TYPE_UNKNOWN ? result_type : determine_integral_result_type();
+                if (!is_integral_type_info(effective)) {
+                    effective = determine_integral_result_type();
+                }
+                return TypedValue(static_cast<int64_t>(quad_value),
+                                  ensure_type(inferred_type, effective,
+                                              std::string(type_info_to_string(effective))));
             };
 
             auto make_integer_typed_value = [&](int64_t int_value) -> TypedValue {
-                return TypedValue(int_value, ensure_type(inferred_type, inferred_type.type_info == TYPE_UNKNOWN ? TYPE_INT : inferred_type.type_info,
-                                                         type_info_to_string(inferred_type.type_info == TYPE_UNKNOWN ? TYPE_INT : inferred_type.type_info)));
+                TypeInfo integer_type = determine_integral_result_type();
+                return TypedValue(int_value, ensure_type(inferred_type, integer_type,
+                                                         std::string(type_info_to_string(integer_type))));
             };
+
+            auto operands_are_integral = left_value.is_numeric() && !left_value.is_floating() &&
+                                         right_value.is_numeric() && !right_value.is_floating();
+            bool prefer_integral_result = operands_are_integral;
 
             auto make_bool_typed_value = [&](bool value) -> TypedValue {
                 return TypedValue(static_cast<int64_t>(value ? 1 : 0), ensure_type(inferred_type, TYPE_BOOL, "bool"));
@@ -2274,18 +2427,22 @@ TypedValue ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode
             };
 
             if (node->op == "+") {
-                return make_numeric_typed_value(left_quad + right_quad);
+                return make_numeric_typed_value(left_quad + right_quad, prefer_integral_result);
             } else if (node->op == "-") {
-                return make_numeric_typed_value(left_quad - right_quad);
+                return make_numeric_typed_value(left_quad - right_quad, prefer_integral_result);
             } else if (node->op == "*") {
-                return make_numeric_typed_value(left_quad * right_quad);
+                return make_numeric_typed_value(left_quad * right_quad, prefer_integral_result);
             } else if (node->op == "/") {
-                if ((inferred_type.type_info == TYPE_QUAD || inferred_type.type_info == TYPE_DOUBLE || inferred_type.type_info == TYPE_FLOAT)) {
+                bool treat_as_float_division = !prefer_integral_result &&
+                                               (inferred_type.type_info == TYPE_QUAD ||
+                                                inferred_type.type_info == TYPE_DOUBLE ||
+                                                inferred_type.type_info == TYPE_FLOAT);
+                if (treat_as_float_division) {
                     if (right_quad == 0.0L) {
                         error_msg(DebugMsgId::ZERO_DIVISION_ERROR);
                         throw std::runtime_error("Division by zero");
                     }
-                    return make_numeric_typed_value(left_quad / right_quad);
+                    return make_numeric_typed_value(left_quad / right_quad, false);
                 } else {
                     if (right_int == 0) {
                         error_msg(DebugMsgId::ZERO_DIVISION_ERROR);
@@ -2347,7 +2504,7 @@ TypedValue ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode
 
             // 未対応の演算子は従来の評価にフォールバック
             int64_t numeric_result = evaluate_expression(node);
-            return TypedValue(numeric_result, inferred_type);
+            return consume_numeric_typed_value(node, numeric_result, inferred_type);
         }
 
         case ASTNodeType::AST_UNARY_OP: {
@@ -2373,7 +2530,7 @@ TypedValue ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode
                 return TypedValue(static_cast<int64_t>(operand_truthy ? 0 : 1), ensure_type(inferred_type, TYPE_BOOL, "bool"));
             }
             int64_t numeric_result = evaluate_expression(node);
-            return TypedValue(numeric_result, inferred_type);
+            return consume_numeric_typed_value(node, numeric_result, inferred_type);
         }
 
         case ASTNodeType::AST_ARRAY_LITERAL: {
@@ -2400,7 +2557,7 @@ TypedValue ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode
                     throw std::runtime_error("Struct return should be caught as exception");
                 } else {
                     // 数値戻り値の場合
-                    return TypedValue(numeric_result, function_return_type);
+                    return consume_numeric_typed_value(node, numeric_result, function_return_type);
                 }
             } catch (const ReturnException& ret) {
                 if (ret.is_array || ret.is_struct_array) {
@@ -2450,6 +2607,8 @@ TypedValue ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode
             // 変数の型に基づいて適切なTypedValueを作成
             if (var->type == TYPE_STRING) {
                 return TypedValue(var->str_value, InferredType(TYPE_STRING, "string"));
+            } else if (var->type == TYPE_STRUCT) {
+                return TypedValue(*var, InferredType(TYPE_STRUCT, var->struct_type_name));
             } else if (var->type == TYPE_UNION) {
                 if (var->current_type == TYPE_STRING) {
                     return TypedValue(var->str_value, InferredType(TYPE_STRING, "string"));
@@ -2463,61 +2622,204 @@ TypedValue ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode
         }
         
         case ASTNodeType::AST_MEMBER_ACCESS: {
+            auto convert_member_to_typed = [&](const Variable& member_var,
+                                               TypedValue& out) -> bool {
+                switch (member_var.type) {
+                case TYPE_STRING:
+                    out = TypedValue(member_var.str_value,
+                                      InferredType(TYPE_STRING, "string"));
+                    return true;
+                case TYPE_FLOAT:
+                    out = TypedValue(static_cast<double>(member_var.float_value),
+                                      InferredType(TYPE_FLOAT, "float"));
+                    return true;
+                case TYPE_DOUBLE:
+                    out = TypedValue(member_var.double_value,
+                                      InferredType(TYPE_DOUBLE, "double"));
+                    return true;
+                case TYPE_QUAD:
+                    out = TypedValue(member_var.quad_value,
+                                      InferredType(TYPE_QUAD, "quad"));
+                    return true;
+                case TYPE_STRUCT:
+                    out = TypedValue(member_var,
+                                      InferredType(TYPE_STRUCT,
+                                                   member_var.struct_type_name));
+                    return true;
+                case TYPE_UNION: {
+                    TypeInfo active = member_var.current_type;
+                    if (active == TYPE_STRING) {
+                        out = TypedValue(member_var.str_value,
+                                         InferredType(TYPE_STRING, "string"));
+                        return true;
+                    }
+                    if (active == TYPE_FLOAT) {
+                        out = TypedValue(static_cast<double>(member_var.float_value),
+                                         InferredType(TYPE_FLOAT, "float"));
+                        return true;
+                    }
+                    if (active == TYPE_DOUBLE) {
+                        out = TypedValue(member_var.double_value,
+                                         InferredType(TYPE_DOUBLE, "double"));
+                        return true;
+                    }
+                    if (active == TYPE_QUAD) {
+                        out = TypedValue(member_var.quad_value,
+                                         InferredType(TYPE_QUAD, "quad"));
+                        return true;
+                    }
+                    if (active != TYPE_UNKNOWN) {
+                        out = TypedValue(member_var.value,
+                                         InferredType(active,
+                                                      type_info_to_string(active)));
+                        return true;
+                    }
+                    break;
+                }
+                default:
+                    out = TypedValue(member_var.value,
+                                      InferredType(member_var.type,
+                                                   type_info_to_string(member_var.type)));
+                    return true;
+                }
+                return false;
+            };
+
+            auto resolve_from_struct = [&](const Variable& struct_var,
+                                           TypedValue& out) -> bool {
+                try {
+                    Variable member_var =
+                        get_struct_member_from_variable(struct_var, node->name);
+                    return convert_member_to_typed(member_var, out);
+                } catch (const std::exception&) {
+                    return false;
+                }
+            };
+
+            std::function<std::string(const ASTNode*)> build_base_name =
+                [&](const ASTNode* base) -> std::string {
+                if (!base) {
+                    return "";
+                }
+                switch (base->node_type) {
+                case ASTNodeType::AST_VARIABLE:
+                case ASTNodeType::AST_IDENTIFIER:
+                    return base->name;
+                case ASTNodeType::AST_ARRAY_REF:
+                    return interpreter_.extract_array_element_name(base);
+                case ASTNodeType::AST_MEMBER_ACCESS: {
+                    std::string prefix = build_base_name(base->left.get());
+                    if (prefix.empty()) {
+                        return "";
+                    }
+                    return prefix + "." + base->name;
+                }
+                default:
+                    return "";
+                }
+            };
+
+            auto resolve_from_base_name = [&](const std::string& base_name,
+                                              TypedValue& out) -> bool {
+                if (base_name.empty()) {
+                    return false;
+                }
+
+                try {
+                    interpreter_.sync_struct_members_from_direct_access(base_name);
+                    interpreter_.ensure_struct_member_access_allowed(base_name,
+                                                                     node->name);
+                } catch (const std::exception&) {
+                    // best effort even if sync fails
+                }
+
+                std::string member_path = base_name + "." + node->name;
+                if (Variable* direct_member =
+                        interpreter_.find_variable(member_path)) {
+                    if (convert_member_to_typed(*direct_member, out)) {
+                        return true;
+                    }
+                }
+
+                try {
+                    if (Variable* member_var =
+                            interpreter_.get_struct_member(base_name,
+                                                            node->name)) {
+                        if (convert_member_to_typed(*member_var, out)) {
+                            return true;
+                        }
+                    }
+                } catch (const std::exception&) {
+                }
+
+                return false;
+            };
+
             // func()[index].member パターンをチェック
             if (node->left && node->left->node_type == ASTNodeType::AST_ARRAY_REF &&
-                node->left->left && node->left->left->node_type == ASTNodeType::AST_FUNC_CALL) {
-                
-                debug_print("Processing func()[index].member pattern: %s[].%s\n", 
-                           node->left->left->name.c_str(), node->name.c_str());
-                
+                node->left->left &&
+                node->left->left->node_type == ASTNodeType::AST_FUNC_CALL) {
+
+                debug_print("Processing func()[index].member pattern: %s[].%s\n",
+                            node->left->left->name.c_str(),
+                            node->name.c_str());
+
                 try {
-                    // まず func()[index] を評価して構造体を取得
-                    TypedValue array_element = evaluate_typed_expression(node->left.get());
-                    
-                    // この時点で array_element は構造体要素への参照のはずだが、
-                    // 実際には ReturnException が投げられるはず
-                    throw std::runtime_error("Expected struct return exception");
-                    
+                    (void)evaluate_typed_expression(node->left.get());
+                    throw std::runtime_error(
+                        "Expected struct return exception");
+
                 } catch (const ReturnException& struct_ret) {
                     if (struct_ret.is_struct) {
-                        // 構造体からメンバーを取得
-                        Variable member_var = get_struct_member_from_variable(struct_ret.struct_value, node->name);
-                        
-                        if (member_var.type == TYPE_STRING) {
-                            return TypedValue(member_var.str_value, InferredType(TYPE_STRING, "string"));
-                        } else if (member_var.type == TYPE_FLOAT) {
-                            return TypedValue(static_cast<double>(member_var.float_value), InferredType(TYPE_FLOAT, "float"));
-                        } else if (member_var.type == TYPE_DOUBLE) {
-                            return TypedValue(member_var.double_value, InferredType(TYPE_DOUBLE, "double"));
-                        } else if (member_var.type == TYPE_QUAD) {
-                            return TypedValue(member_var.quad_value, InferredType(TYPE_QUAD, "quad"));
-                        } else {
-                            return TypedValue(member_var.value, InferredType(member_var.type, type_info_to_string(member_var.type)));
+                        TypedValue member_value(static_cast<int64_t>(0),
+                                                InferredType());
+                        if (resolve_from_struct(struct_ret.struct_value,
+                                                member_value)) {
+                            last_typed_result_ = member_value;
+                            return member_value;
                         }
+                    }
+                    throw std::runtime_error(
+                        "Expected struct element from function array access");
+                }
+            }
+
+            TypedValue resolved_value(static_cast<int64_t>(0), InferredType());
+            bool resolved = false;
+
+            std::string base_name = build_base_name(node->left.get());
+            if (!base_name.empty()) {
+                if (Variable* base_var = interpreter_.find_variable(base_name)) {
+                    if (base_var->type == TYPE_STRUCT) {
+                        resolved = resolve_from_struct(*base_var, resolved_value);
+                    }
+                }
+
+                if (!resolved) {
+                    resolved = resolve_from_base_name(base_name, resolved_value);
+                }
+            }
+
+            if (!resolved) {
+                try {
+                    evaluate_expression(node->left.get());
+                } catch (const ReturnException& ret) {
+                    if (ret.is_struct) {
+                        resolved =
+                            resolve_from_struct(ret.struct_value, resolved_value);
                     } else {
-                        throw std::runtime_error("Expected struct element from function array access");
+                        throw;
                     }
                 }
             }
-            
-            // 構造体メンバアクセスの場合
-            if (inferred_type.type_info == TYPE_STRING) {
-                // 文字列型のメンバアクセス - 直接構造体メンバにアクセス
-                if (node->left && node->left->node_type == ASTNodeType::AST_VARIABLE) {
-                    std::string struct_name = node->left->name;
-                    std::string member_name = node->name;
-                    
-                    // interpreter_.get_struct_member を使用する代わりに、直接値を取得
-                    std::string member_var_name = struct_name + "." + member_name;
-                    Variable* member_var = interpreter_.find_variable(member_var_name);
-                    if (member_var && member_var->type == TYPE_STRING) {
-                        return TypedValue(member_var->str_value, InferredType(TYPE_STRING, "string"));
-                    }
-                }
+
+            if (resolved) {
+                last_typed_result_ = resolved_value;
+                return resolved_value;
             }
-            // 数値型やその他の型の場合は従来の評価を使用
+
             int64_t numeric_result = evaluate_expression(node);
-            return TypedValue(numeric_result, inferred_type);
+            return consume_numeric_typed_value(node, numeric_result, inferred_type);
         }
         
         case ASTNodeType::AST_ARRAY_REF: {
@@ -2573,15 +2875,145 @@ TypedValue ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode
                 }
             }
             
-            // 通常の配列要素アクセスの場合は直接評価
+            if (inferred_type.type_info == TYPE_STRING &&
+                node->left && node->left->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
+                const ASTNode* member_node = node->left.get();
+                std::string member_name = member_node->name;
+                std::string object_name;
+
+                if (member_node->left) {
+                    if (member_node->left->node_type == ASTNodeType::AST_VARIABLE) {
+                        object_name = member_node->left->name;
+                    } else if (member_node->left->node_type == ASTNodeType::AST_ARRAY_REF) {
+                        object_name = interpreter_.extract_array_element_name(member_node->left.get());
+                    }
+                }
+
+                if (!object_name.empty() && node->array_index) {
+                    int64_t array_index = evaluate_expression(node->array_index.get());
+                    try {
+                        std::string value = interpreter_.get_struct_member_array_string_element(
+                            object_name, member_name, static_cast<int>(array_index));
+                        return TypedValue(value, InferredType(TYPE_STRING, "string"));
+                    } catch (const std::exception &) {
+                        // フォールバックして通常処理
+                    }
+                }
+            }
+
+            if (inferred_type.type_info == TYPE_STRING) {
+                std::string array_name = interpreter_.extract_array_name(node);
+                std::vector<int64_t> indices = interpreter_.extract_array_indices(node);
+
+                if (!array_name.empty() && !indices.empty()) {
+                    bool resolved = false;
+                    std::string string_value;
+
+                    if (auto *array_service = interpreter_.get_array_processing_service()) {
+                        try {
+                            string_value = array_service->getStringArrayElement(
+                                array_name, indices,
+                                ArrayProcessingService::ArrayContext::LOCAL_VARIABLE);
+                            resolved = true;
+                        } catch (const std::exception &) {
+                            resolved = false;
+                        }
+                    }
+
+                    if (!resolved) {
+                        if (Variable *var = interpreter_.find_variable(array_name)) {
+                            try {
+                                if (var->is_multidimensional ||
+                                    !var->multidim_array_strings.empty()) {
+                                    string_value = interpreter_.getMultidimensionalStringArrayElement(*var, indices);
+                                    resolved = true;
+                                } else if (!var->array_strings.empty() && indices.size() == 1) {
+                                    int64_t idx = indices[0];
+                                    if (idx >= 0 &&
+                                        idx < static_cast<int64_t>(var->array_strings.size())) {
+                                        string_value = var->array_strings[static_cast<size_t>(idx)];
+                                        resolved = true;
+                                    }
+                                }
+                            } catch (const std::exception &) {
+                                resolved = false;
+                            }
+                        }
+                    }
+
+                    if (resolved) {
+                        return TypedValue(string_value, InferredType(TYPE_STRING, "string"));
+                    }
+                }
+            }
+
+            // 通常の配列要素アクセスの場合 - float/double配列対応
+            std::string array_name = interpreter_.extract_array_name(node);
+            std::vector<int64_t> indices = interpreter_.extract_array_indices(node);
+            
+            if (!array_name.empty() && !indices.empty()) {
+                Variable* var = interpreter_.find_variable(array_name);
+                if (var && var->is_array) {
+                    TypeInfo base_type = (var->type >= TYPE_ARRAY_BASE) 
+                                        ? static_cast<TypeInfo>(var->type - TYPE_ARRAY_BASE)
+                                        : var->type;
+                    
+                    // float/double/quad配列の場合
+                    if (base_type == TYPE_FLOAT || base_type == TYPE_DOUBLE || base_type == TYPE_QUAD) {
+                        if (var->is_multidimensional && indices.size() > 1) {
+                            // 多次元配列のフラットインデックスを計算
+                            int flat_index = 0;
+                            int multiplier = 1;
+                            for (int d = indices.size() - 1; d >= 0; d--) {
+                                flat_index += indices[d] * multiplier;
+                                if (d > 0 && d - 1 < static_cast<int>(var->array_dimensions.size())) {
+                                    multiplier *= var->array_dimensions[d];
+                                }
+                            }
+                            
+                            if (base_type == TYPE_FLOAT && flat_index >= 0 && 
+                                flat_index < static_cast<int>(var->multidim_array_float_values.size())) {
+                                float f = var->multidim_array_float_values[flat_index];
+                                return TypedValue(static_cast<double>(f), InferredType(TYPE_FLOAT, "float"));
+                            } else if (base_type == TYPE_DOUBLE && flat_index >= 0 && 
+                                      flat_index < static_cast<int>(var->multidim_array_double_values.size())) {
+                                double d = var->multidim_array_double_values[flat_index];
+                                return TypedValue(d, InferredType(TYPE_DOUBLE, "double"));
+                            } else if (base_type == TYPE_QUAD && flat_index >= 0 && 
+                                      flat_index < static_cast<int>(var->multidim_array_quad_values.size())) {
+                                long double q = var->multidim_array_quad_values[flat_index];
+                                return TypedValue(q, InferredType(TYPE_QUAD, "quad"));
+                            }
+                        } else if (indices.size() == 1) {
+                            // 1次元配列
+                            int64_t idx = indices[0];
+                            if (base_type == TYPE_FLOAT && idx >= 0 && 
+                                idx < static_cast<int64_t>(var->array_float_values.size())) {
+                                float f = var->array_float_values[idx];
+                                return TypedValue(static_cast<double>(f), InferredType(TYPE_FLOAT, "float"));
+                            } else if (base_type == TYPE_DOUBLE && idx >= 0 && 
+                                      idx < static_cast<int64_t>(var->array_double_values.size())) {
+                                double d = var->array_double_values[idx];
+                                return TypedValue(d, InferredType(TYPE_DOUBLE, "double"));
+                            } else if (base_type == TYPE_QUAD && idx >= 0 && 
+                                      idx < static_cast<int64_t>(var->array_quad_values.size())) {
+                                long double q = var->array_quad_values[idx];
+                                return TypedValue(q, InferredType(TYPE_QUAD, "quad"));
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // フォールバック: 通常の整数評価
             int64_t numeric_result = evaluate_expression(node);
-            return TypedValue(numeric_result, inferred_type);
+            return consume_numeric_typed_value(node, numeric_result, inferred_type);
         }
             
         default: {
             // デフォルトは従来の評価結果を数値として返す
             int64_t numeric_result = evaluate_expression(node);
-            return TypedValue(numeric_result, inferred_type);
+            return consume_numeric_typed_value(node, numeric_result, inferred_type);
         }
     }
 }
@@ -2716,6 +3148,35 @@ TypedValue ExpressionEvaluator::resolve_deferred_evaluation(const TypedValue& de
         default:
             // その他の場合は通常の評価
             return evaluate_typed_expression(node);
+    }
+}
+
+TypedValue ExpressionEvaluator::consume_numeric_typed_value(const ASTNode* node, int64_t numeric_result, const InferredType& inferred_type) {
+    if (last_captured_function_value_.has_value()) {
+        if (last_captured_function_value_->first == node) {
+            TypedValue captured = std::move(last_captured_function_value_->second);
+            last_captured_function_value_ = std::nullopt;
+            return captured;
+        }
+        last_captured_function_value_ = std::nullopt;
+    }
+
+    InferredType resolved_type = inferred_type;
+    if (resolved_type.type_info == TYPE_UNKNOWN) {
+        resolved_type.type_info = TYPE_INT;
+    }
+    if (resolved_type.type_name.empty()) {
+        resolved_type.type_name = type_info_to_string(resolved_type.type_info);
+    }
+
+    switch (resolved_type.type_info) {
+    case TYPE_FLOAT:
+    case TYPE_DOUBLE:
+        return TypedValue(static_cast<double>(numeric_result), resolved_type);
+    case TYPE_QUAD:
+        return TypedValue(static_cast<long double>(numeric_result), resolved_type);
+    default:
+        return TypedValue(numeric_result, resolved_type);
     }
 }
 

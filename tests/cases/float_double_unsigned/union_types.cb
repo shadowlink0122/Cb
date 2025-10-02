@@ -1,0 +1,74 @@
+// 共用体でのfloat/double/unsigned
+union FloatOrInt {
+    float f;
+    int i;
+}
+
+union DoubleOrLong {
+    double d;
+    long l;
+}
+
+union UnsignedOrSigned {
+    unsigned int u;
+    int i;
+}
+
+union MixedTypes {
+    float f;
+    double d;
+    unsigned int u;
+    int i;
+}
+
+int main() {
+    // FloatOrInt共用体
+    union FloatOrInt foi;
+    foi.f = 3.14f;
+    println(foi.f);  // 3.14
+    
+    foi.i = 42;
+    println(foi.i);  // 42
+    
+    // DoubleOrLong共用体
+    union DoubleOrLong dol;
+    dol.d = 2.71828;
+    println(dol.d);  // 2.71828
+    
+    dol.l = 12345;
+    println(dol.l);  // 12345
+    
+    // UnsignedOrSigned共用体
+    union UnsignedOrSigned uos;
+    uos.u = 4294967295u;  // UINT_MAX
+    println(uos.u);  // 4294967295
+    
+    uos.i = -1;
+    println(uos.i);  // -1
+    
+    // MixedTypes共用体
+    union MixedTypes mt;
+    mt.f = 1.5f;
+    println(mt.f);  // 1.5
+    
+    mt.d = 2.5;
+    println(mt.d);  // 2.5
+    
+    mt.u = 100u;
+    println(mt.u);  // 100
+    
+    mt.i = -50;
+    println(mt.i);  // -50
+    
+    // 共用体の配列
+    union FloatOrInt array[3];
+    array[0].f = 1.1f;
+    array[1].f = 2.2f;
+    array[2].f = 3.3f;
+    
+    println(array[0].f);  // 1.1
+    println(array[1].f);  // 2.2
+    println(array[2].f);  // 3.3
+    
+    return 0;
+}

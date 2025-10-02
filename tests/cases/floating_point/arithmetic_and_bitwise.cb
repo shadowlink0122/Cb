@@ -1,0 +1,41 @@
+// 浮動小数点と符号なしの演算テスト
+int main() {
+    println("=== arithmetic & bitwise coverage ===");
+
+    float f = 1.5f;
+    f += 0.25f;
+    f *= 2.0f;
+    f -= 0.5f;
+    f /= 3.0f;
+    print("float_after_ops: "); println(f);
+
+    double d = 10.0;
+    d -= 2;
+    d *= 0.125;
+    d += 5.5;
+    print("double_after_ops: "); println(d);
+
+    float mixed = 1 / 3.0;
+    print("mixed_times_three: "); println(mixed * 3.0);
+
+    unsigned int mask = 170; // 0b10101010
+    mask |= 15;
+    print("mask_or: "); println(mask);
+    mask &= 240;
+    print("mask_and: "); println(mask);
+    mask ^= 204;
+    print("mask_xor: "); println(mask);
+    mask <<= 2;
+    print("mask_shl: "); println(mask);
+    mask >>= 3;
+    print("mask_shr: "); println(mask);
+
+    unsigned int accum = 5;
+    accum += 7;
+    accum *= 3;
+    accum -= 4;
+    print("unsigned_after_compound: "); println(accum);
+
+    println("=== end ===");
+    return 0;
+}

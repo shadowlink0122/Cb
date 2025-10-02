@@ -56,6 +56,9 @@ struct Variable {
     // 配列用
     int array_size;
     std::vector<int64_t> array_values;
+    std::vector<float> array_float_values;
+    std::vector<double> array_double_values;
+    std::vector<long double> array_quad_values;
     std::vector<std::string> array_strings;
 
     // struct用メンバ変数
@@ -69,7 +72,10 @@ struct Variable {
     ArrayTypeInfo array_type_info;     // 多次元配列の型情報
     std::vector<int> array_dimensions; // 各次元のサイズ
     std::vector<int64_t>
-        multidim_array_values; // 多次元配列データ（フラット化）
+        multidim_array_values; // 多次元配列データ（フラット化、整数系）
+    std::vector<float> multidim_array_float_values;
+    std::vector<double> multidim_array_double_values;
+    std::vector<long double> multidim_array_quad_values;
     std::vector<std::string> multidim_array_strings; // 多次元文字列配列データ
 
     // 将来の拡張計画 (struct/interface実装後):
@@ -267,6 +273,7 @@ class ReturnException {
     bool is_array = false;
     std::vector<std::vector<std::vector<int64_t>>> int_array_3d;
     std::vector<std::vector<std::vector<std::string>>> str_array_3d;
+    std::vector<std::vector<std::vector<double>>> double_array_3d;  // float/double配列用
     std::string array_type_name;
     
     // struct戻り値サポート
@@ -301,6 +308,12 @@ class ReturnException {
         const std::vector<std::vector<std::vector<std::string>>> &arr,
         const std::string &type_name, TypeInfo t)
                 : value(0), double_value(0.0), quad_value(0.0L), str_value(""), type(t), is_array(true), str_array_3d(arr),
+          array_type_name(type_name), is_struct(false), is_struct_array(false) {}
+    
+    // float/double配列戻り値用コンストラクタ
+    ReturnException(const std::vector<std::vector<std::vector<double>>> &arr,
+                    const std::string &type_name, TypeInfo t)
+                : value(0), double_value(0.0), quad_value(0.0L), str_value(""), type(t), is_array(true), double_array_3d(arr),
           array_type_name(type_name), is_struct(false), is_struct_array(false) {}
     
     // struct戻り値用コンストラクタ  
@@ -374,6 +387,7 @@ class Interpreter : public EvaluatorInterface {
     // EvaluatorInterface実装
     void process(const ASTNode *ast) override;
     int64_t evaluate(const ASTNode *node) override;
+    TypedValue evaluate_typed(const ASTNode *node);
 
     // 出力管理
     OutputManager &get_output_manager() { return *output_manager_; }
@@ -473,6 +487,9 @@ class Interpreter : public EvaluatorInterface {
     void assign_struct_member(const std::string &var_name,
                               const std::string &member_name,
                               const std::string &value);
+    void assign_struct_member(const std::string &var_name,
+                              const std::string &member_name,
+                              const TypedValue &typed_value);
     // 構造体メンバーに構造体を代入
     void assign_struct_member_struct(const std::string &var_name,
                                     const std::string &member_name,

@@ -1936,7 +1936,6 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
             } else if (var.is_array && node->init_expr->node_type ==
                                            ASTNodeType::AST_FUNC_CALL) {
                 // 配列を返す関数呼び出し
-                debug_print("DEBUG_BRANCH: Array function call for %s\n", node->name.c_str());
                 try {
                     int64_t value =
                         interpreter_->expression_evaluator_
@@ -1956,8 +1955,86 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                                 var.type = static_cast<TypeInfo>(
                                     TYPE_ARRAY_BASE + TYPE_STRING);
                             }
+                        } else if (ret.type == TYPE_FLOAT || ret.type == TYPE_DOUBLE || ret.type == TYPE_QUAD) {
+                            // float/double/quad配列
+                            if (!ret.double_array_3d.empty() &&
+                                !ret.double_array_3d[0].empty()) {
+                                
+                                // typedef配列名から多次元配列かどうかを判定
+                                std::string actual_type = interpreter_->type_manager_->resolve_typedef(ret.array_type_name);
+                                bool is_multidim = (actual_type.find("[][]") != std::string::npos || 
+                                                   ret.array_type_name.find("[][]") != std::string::npos ||
+                                                   ret.double_array_3d.size() > 1 || 
+                                                   (ret.double_array_3d.size() == 1 && ret.double_array_3d[0].size() > 1));
+
+                                if (is_multidim) {
+                                    // 多次元float/double配列の場合 - 全要素を展開
+                                    if (ret.type == TYPE_FLOAT) {
+                                        var.multidim_array_float_values.clear();
+                                        for (const auto &plane : ret.double_array_3d) {
+                                            for (const auto &row : plane) {
+                                                for (const auto &element : row) {
+                                                    var.multidim_array_float_values.push_back(static_cast<float>(element));
+                                                }
+                                            }
+                                        }
+                                        var.array_size = var.multidim_array_float_values.size();
+                                    } else if (ret.type == TYPE_DOUBLE) {
+                                        var.multidim_array_double_values.clear();
+                                        for (const auto &plane : ret.double_array_3d) {
+                                            for (const auto &row : plane) {
+                                                for (const auto &element : row) {
+                                                    var.multidim_array_double_values.push_back(element);
+                                                }
+                                            }
+                                        }
+                                        var.array_size = var.multidim_array_double_values.size();
+                                    } else { // TYPE_QUAD
+                                        var.multidim_array_quad_values.clear();
+                                        for (const auto &plane : ret.double_array_3d) {
+                                            for (const auto &row : plane) {
+                                                for (const auto &element : row) {
+                                                    var.multidim_array_quad_values.push_back(static_cast<long double>(element));
+                                                }
+                                            }
+                                        }
+                                        var.array_size = var.multidim_array_quad_values.size();
+                                    }
+                                    var.is_multidimensional = true;
+                                    var.array_values.clear();
+                                    
+                                    // 配列の次元情報を設定
+                                    if (!ret.double_array_3d[0].empty()) {
+                                        var.array_dimensions.clear();
+                                        var.array_dimensions.push_back(ret.double_array_3d[0].size());     // 行数
+                                        var.array_dimensions.push_back(ret.double_array_3d[0][0].size()); // 列数
+                                    }
+                                } else if (!ret.double_array_3d[0][0].empty()) {
+                                    // 1次元float/double配列の場合
+                                    if (ret.type == TYPE_FLOAT) {
+                                        var.array_float_values.clear();
+                                        for (const auto &element : ret.double_array_3d[0][0]) {
+                                            var.array_float_values.push_back(static_cast<float>(element));
+                                        }
+                                        var.array_size = var.array_float_values.size();
+                                    } else if (ret.type == TYPE_DOUBLE) {
+                                        var.array_double_values.clear();
+                                        for (const auto &element : ret.double_array_3d[0][0]) {
+                                            var.array_double_values.push_back(element);
+                                        }
+                                        var.array_size = var.array_double_values.size();
+                                    } else { // TYPE_QUAD
+                                        var.array_quad_values.clear();
+                                        for (const auto &element : ret.double_array_3d[0][0]) {
+                                            var.array_quad_values.push_back(static_cast<long double>(element));
+                                        }
+                                        var.array_size = var.array_quad_values.size();
+                                    }
+                                }
+                                var.type = static_cast<TypeInfo>(TYPE_ARRAY_BASE + ret.type);
+                            }
                         } else {
-                            // 数値配列
+                            // 整数型配列
                             if (!ret.int_array_3d.empty() &&
                                 !ret.int_array_3d[0].empty()) {
                                 
@@ -2131,6 +2208,31 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                         if (typed_result.is_string()) {
                             var.str_value = typed_result.string_value;
                             var.value = 0;
+                        } else if (typed_result.numeric_type == TYPE_FLOAT || 
+                                   typed_result.numeric_type == TYPE_DOUBLE || 
+                                   typed_result.numeric_type == TYPE_QUAD) {
+                            // float/double/quad戻り値の場合
+                            long double quad_val = typed_result.as_quad();
+                            
+                            if (typed_result.numeric_type == TYPE_FLOAT) {
+                                float f = static_cast<float>(quad_val);
+                                var.float_value = f;
+                                var.double_value = static_cast<double>(f);
+                                var.quad_value = static_cast<long double>(f);
+                                var.value = static_cast<int64_t>(f);
+                            } else if (typed_result.numeric_type == TYPE_DOUBLE) {
+                                double d = static_cast<double>(quad_val);
+                                var.float_value = static_cast<float>(d);
+                                var.double_value = d;
+                                var.quad_value = static_cast<long double>(d);
+                                var.value = static_cast<int64_t>(d);
+                            } else { // TYPE_QUAD
+                                var.float_value = static_cast<float>(quad_val);
+                                var.double_value = static_cast<double>(quad_val);
+                                var.quad_value = quad_val;
+                                var.value = static_cast<int64_t>(quad_val);
+                            }
+                            var.str_value = "";
                         } else {
                             int64_t numeric_value = typed_result.value;
                             clamp_unsigned_initial(var, numeric_value,
@@ -2217,19 +2319,63 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                             "value");
                     }
                 } else {
-                    // 型推論対応の式評価を使用して文字列値も取得
+                    // 型推論対応の式評価を使用して文字列・数値を取得
                     TypedValue typed_result = interpreter_->expression_evaluator_
                             ->evaluate_typed_expression(node->init_expr.get());
-                    
+
                     if (typed_result.is_string()) {
+                        var.type = TYPE_STRING;
                         var.str_value = typed_result.string_value;
-                        var.value = 0;
+                        setNumericFields(var, 0.0L);
+                    } else if (typed_result.is_numeric()) {
+                        var.str_value.clear();
+
+                        TypeInfo inferred_type = var.type;
+                        if (inferred_type == TYPE_UNKNOWN &&
+                            typed_result.numeric_type != TYPE_UNKNOWN) {
+                            inferred_type = typed_result.numeric_type;
+                            var.type = inferred_type;
+                        }
+
+                        const long double quad_value = typed_result.as_quad();
+                        auto assign_from_quad = [&](long double value) {
+                            setNumericFields(var, value);
+                        };
+
+                        switch (inferred_type) {
+                        case TYPE_FLOAT: {
+                            float f = static_cast<float>(quad_value);
+                            assign_from_quad(static_cast<long double>(f));
+                            break;
+                        }
+                        case TYPE_DOUBLE: {
+                            double d = static_cast<double>(quad_value);
+                            assign_from_quad(static_cast<long double>(d));
+                            break;
+                        }
+                        case TYPE_QUAD:
+                            assign_from_quad(quad_value);
+                            break;
+                        default: {
+                            int64_t numeric_value = typed_result.as_numeric();
+                            clamp_unsigned_initial(var, numeric_value,
+                                                   "initialized with expression");
+                            assign_from_quad(static_cast<long double>(numeric_value));
+
+                            if (var.type == TYPE_UNKNOWN) {
+                                if (typed_result.numeric_type != TYPE_UNKNOWN) {
+                                    var.type = typed_result.numeric_type;
+                                } else {
+                                    var.type = TYPE_INT;
+                                }
+                            }
+                            break;
+                        }
+                        }
                     } else {
-                        int64_t numeric_value = typed_result.value;
-                        clamp_unsigned_initial(var, numeric_value,
-                                               "initialized with expression");
-                        var.value = numeric_value;
-                        var.str_value = "";
+                        // 非数値かつ非文字列の場合は0初期化
+                        setNumericFields(var, 0.0L);
+                        var.str_value.clear();
                     }
                     var.is_assigned = true;
                 }

@@ -160,6 +160,9 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
         case ASTNodeType::AST_VAR_DECL:
             node_type_name = "AST_VAR_DECL";
             break;
+        case ASTNodeType::AST_ARRAY_DECL:
+            node_type_name = "AST_ARRAY_DECL";
+            break;
         case ASTNodeType::AST_STRUCT_DECL:
             node_type_name = "AST_STRUCT_DECL";
             break;
@@ -195,9 +198,23 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
 
     switch (node->node_type) {
     case ASTNodeType::AST_STMT_LIST:
-        // まず変数宣言のみを処理
+        // 2パス変数宣言処理: 先にconst変数、次に配列
+        // まずconst変数（配列以外）のみを処理
         for (const auto &stmt : node->statements) {
-            if (stmt->node_type == ASTNodeType::AST_VAR_DECL) {
+            if (stmt->node_type == ASTNodeType::AST_VAR_DECL && 
+                stmt->is_const && stmt->array_dimensions.empty()) {
+                register_global_declarations(stmt.get());
+            }
+        }
+        // 次に残りの変数宣言を処理（配列を含む）
+        for (const auto &stmt : node->statements) {
+            if (stmt->node_type == ASTNodeType::AST_VAR_DECL || 
+                stmt->node_type == ASTNodeType::AST_ARRAY_DECL) {
+                // const変数は既に処理済みなのでスキップ
+                if (stmt->node_type == ASTNodeType::AST_VAR_DECL &&
+                    stmt->is_const && stmt->array_dimensions.empty()) {
+                    continue;
+                }
                 register_global_declarations(stmt.get());
             }
         }
@@ -242,6 +259,7 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
         // 最後にその他の宣言（関数など）を処理
         for (const auto &stmt : node->statements) {
             if (stmt->node_type != ASTNodeType::AST_VAR_DECL &&
+                stmt->node_type != ASTNodeType::AST_ARRAY_DECL &&
                 stmt->node_type != ASTNodeType::AST_STRUCT_DECL &&
                 stmt->node_type != ASTNodeType::AST_STRUCT_TYPEDEF_DECL &&
                 stmt->node_type != ASTNodeType::AST_ENUM_DECL &&
@@ -397,6 +415,12 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
         } else if (node->node_type == ASTNodeType::AST_VAR_DECL) {
             // グローバル変数宣言をVariableManagerに委譲
             variable_manager_->declare_global_variable(node);
+            
+            // const変数の場合は即座に初期化（配列サイズ式で使用される可能性があるため）
+            if (node->is_const && node->init_expr) {
+                TypedValue typed_result = expression_evaluator_->evaluate_typed_expression(node->init_expr.get());
+                variable_manager_->assign_variable(node->name, typed_result, TYPE_UNKNOWN, false);
+            }
         }
         break;
 
@@ -500,6 +524,10 @@ void Interpreter::process(const ASTNode *ast) {
 
 int64_t Interpreter::evaluate(const ASTNode *node) {
     return expression_evaluator_->evaluate_expression(node);
+}
+
+TypedValue Interpreter::evaluate_typed(const ASTNode *node) {
+    return expression_evaluator_->evaluate_typed_expression(node);
 }
 
 TypedValue Interpreter::evaluate_typed_expression(const ASTNode *node) {
@@ -1140,6 +1168,65 @@ void Interpreter::execute_statement(const ASTNode *node) {
                         }
 
                         // 多次元配列の値を正しい次元構造で3D配列に変換
+                        // まず型を確認
+                        TypeInfo type_info = var->type;
+                        TypeInfo base_type = (type_info >= TYPE_ARRAY_BASE) 
+                                            ? static_cast<TypeInfo>(type_info - TYPE_ARRAY_BASE) 
+                                            : type_info;
+                        
+                        // float/double/quad配列の場合
+                        if (base_type == TYPE_FLOAT || base_type == TYPE_DOUBLE || base_type == TYPE_QUAD) {
+                            std::vector<std::vector<std::vector<double>>> double_array_3d;
+                            
+                            if (var->array_dimensions.size() == 2) {
+                                // 2次元float/double配列の場合
+                                int rows = var->array_dimensions[0];
+                                int cols = var->array_dimensions[1];
+                                
+                                std::vector<std::vector<double>> double_array_2d;
+                                for (int i = 0; i < rows; i++) {
+                                    std::vector<double> row;
+                                    for (int j = 0; j < cols; j++) {
+                                        int flat_index = i * cols + j;
+                                        if (base_type == TYPE_FLOAT && flat_index < static_cast<int>(var->multidim_array_float_values.size())) {
+                                            row.push_back(static_cast<double>(var->multidim_array_float_values[flat_index]));
+                                        } else if (base_type == TYPE_DOUBLE && flat_index < static_cast<int>(var->multidim_array_double_values.size())) {
+                                            row.push_back(var->multidim_array_double_values[flat_index]);
+                                        } else if (base_type == TYPE_QUAD && flat_index < static_cast<int>(var->multidim_array_quad_values.size())) {
+                                            row.push_back(static_cast<double>(var->multidim_array_quad_values[flat_index]));
+                                        } else {
+                                            row.push_back(0.0);
+                                        }
+                                    }
+                                    double_array_2d.push_back(row);
+                                }
+                                double_array_3d.push_back(double_array_2d);
+                            } else {
+                                // その他の多次元float/double配列（従来の方法で1次元として処理）
+                                std::vector<std::vector<double>> double_array_2d;
+                                std::vector<double> double_array_1d;
+
+                                if (base_type == TYPE_FLOAT) {
+                                    for (size_t i = 0; i < var->multidim_array_float_values.size(); ++i) {
+                                        double_array_1d.push_back(static_cast<double>(var->multidim_array_float_values[i]));
+                                    }
+                                } else if (base_type == TYPE_DOUBLE) {
+                                    for (size_t i = 0; i < var->multidim_array_double_values.size(); ++i) {
+                                        double_array_1d.push_back(var->multidim_array_double_values[i]);
+                                    }
+                                } else { // TYPE_QUAD
+                                    for (size_t i = 0; i < var->multidim_array_quad_values.size(); ++i) {
+                                        double_array_1d.push_back(static_cast<double>(var->multidim_array_quad_values[i]));
+                                    }
+                                }
+                                double_array_2d.push_back(double_array_1d);
+                                double_array_3d.push_back(double_array_2d);
+                            }
+
+                                            throw ReturnException(double_array_3d, node->left->name, base_type);
+                        }
+                        
+                        // 整数型配列の処理
                         std::vector<std::vector<std::vector<int64_t>>> int_array_3d;
                         
                         if (var->array_dimensions.size() == 2) {
@@ -1184,10 +1271,64 @@ void Interpreter::execute_statement(const ASTNode *node) {
 
                     // 1次元配列の既存処理
                     TypeInfo type_info = var->type;
+                    TypeInfo base_type = (type_info >= TYPE_ARRAY_BASE) 
+                                        ? static_cast<TypeInfo>(type_info - TYPE_ARRAY_BASE) 
+                                        : type_info;
                     std::string type_name =
                         node->left->name; // 配列名を仮の型名として使用
 
-                    if (type_info ==
+                    // float/double/quad配列の処理
+                    if (base_type == TYPE_FLOAT || base_type == TYPE_DOUBLE || base_type == TYPE_QUAD) {
+                        std::vector<std::vector<std::vector<double>>> double_array_3d;
+                        
+                        if (var->is_multidimensional && var->array_dimensions.size() == 2) {
+                            // 2次元float/double配列
+                            int rows = var->array_dimensions[0];
+                            int cols = var->array_dimensions[1];
+                            
+                            std::vector<std::vector<double>> double_array_2d;
+                            for (int i = 0; i < rows; i++) {
+                                std::vector<double> row;
+                                for (int j = 0; j < cols; j++) {
+                                    int flat_index = i * cols + j;
+                                    if (base_type == TYPE_FLOAT && flat_index < static_cast<int>(var->multidim_array_float_values.size())) {
+                                        row.push_back(static_cast<double>(var->multidim_array_float_values[flat_index]));
+                                    } else if (base_type == TYPE_DOUBLE && flat_index < static_cast<int>(var->multidim_array_double_values.size())) {
+                                        row.push_back(var->multidim_array_double_values[flat_index]);
+                                    } else if (base_type == TYPE_QUAD && flat_index < static_cast<int>(var->multidim_array_quad_values.size())) {
+                                        row.push_back(static_cast<double>(var->multidim_array_quad_values[flat_index]));
+                                    } else {
+                                        row.push_back(0.0);
+                                    }
+                                }
+                                double_array_2d.push_back(row);
+                            }
+                            double_array_3d.push_back(double_array_2d);
+                        } else {
+                            // 1次元float/double配列
+                            std::vector<std::vector<double>> double_array_2d;
+                            std::vector<double> double_array_1d;
+                            
+                            if (base_type == TYPE_FLOAT) {
+                                for (size_t i = 0; i < var->array_float_values.size(); ++i) {
+                                    double_array_1d.push_back(static_cast<double>(var->array_float_values[i]));
+                                }
+                            } else if (base_type == TYPE_DOUBLE) {
+                                for (size_t i = 0; i < var->array_double_values.size(); ++i) {
+                                    double_array_1d.push_back(var->array_double_values[i]);
+                                }
+                            } else { // TYPE_QUAD
+                                for (size_t i = 0; i < var->array_quad_values.size(); ++i) {
+                                    double_array_1d.push_back(static_cast<double>(var->array_quad_values[i]));
+                                }
+                            }
+                            double_array_2d.push_back(double_array_1d);
+                            double_array_3d.push_back(double_array_2d);
+                        }
+                        
+                        throw ReturnException(double_array_3d, type_name, base_type);
+                    }
+                    else if (type_info ==
                             static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_INT) ||
                         type_info == static_cast<TypeInfo>(TYPE_ARRAY_BASE +
                                                            TYPE_LONG) ||
@@ -1327,18 +1468,34 @@ void Interpreter::execute_statement(const ASTNode *node) {
                         // 文字列変数を返す（typedef型を含む）
                         throw ReturnException(var->str_value);
                     } else if (var) {
-                        // 数値変数を返す
-                        int64_t value =
-                            expression_evaluator_->evaluate_expression(
+                        // 数値変数を返す（float/double/quad対応）
+                        TypedValue typed_result =
+                            expression_evaluator_->evaluate_typed_expression(
                                 node->left.get());
-                        throw ReturnException(value);
+                        if (typed_result.numeric_type == TYPE_FLOAT) {
+                            throw ReturnException(typed_result.double_value, TYPE_FLOAT);
+                        } else if (typed_result.numeric_type == TYPE_DOUBLE) {
+                            throw ReturnException(typed_result.double_value, TYPE_DOUBLE);
+                        } else if (typed_result.numeric_type == TYPE_QUAD) {
+                            throw ReturnException(typed_result.quad_value, TYPE_QUAD);
+                        } else {
+                            throw ReturnException(typed_result.value, typed_result.numeric_type);
+                        }
                     } else {
                         // 変数が見つからない場合、式評価で処理を試す
                         debug_msg(DebugMsgId::INTERPRETER_VAR_NOT_FOUND, node->left->name.c_str());
-                        int64_t value =
-                            expression_evaluator_->evaluate_expression(
+                        TypedValue typed_result =
+                            expression_evaluator_->evaluate_typed_expression(
                                 node->left.get());
-                        throw ReturnException(value);
+                        if (typed_result.numeric_type == TYPE_FLOAT) {
+                            throw ReturnException(typed_result.double_value, TYPE_FLOAT);
+                        } else if (typed_result.numeric_type == TYPE_DOUBLE) {
+                            throw ReturnException(typed_result.double_value, TYPE_DOUBLE);
+                        } else if (typed_result.numeric_type == TYPE_QUAD) {
+                            throw ReturnException(typed_result.quad_value, TYPE_QUAD);
+                        } else {
+                            throw ReturnException(typed_result.value, typed_result.numeric_type);
+                        }
                     }
                 } else {
                     // その他の式（メンバーアクセスなど）を処理                    
@@ -1353,8 +1510,16 @@ void Interpreter::execute_statement(const ASTNode *node) {
                                 // 文字列メンバーを返す
                                 throw ReturnException(member_var->str_value);
                             } else if (member_var) {
-                                // 数値メンバーを返す
-                                throw ReturnException(member_var->value);
+                                // 数値メンバーを返す（float/double/quad対応）
+                                if (member_var->type == TYPE_FLOAT) {
+                                    throw ReturnException(static_cast<double>(member_var->float_value), TYPE_FLOAT);
+                                } else if (member_var->type == TYPE_DOUBLE) {
+                                    throw ReturnException(member_var->double_value, TYPE_DOUBLE);
+                                } else if (member_var->type == TYPE_QUAD) {
+                                    throw ReturnException(member_var->quad_value, TYPE_QUAD);
+                                } else {
+                                    throw ReturnException(member_var->value, member_var->type);
+                                }
                             }
                         } catch (const std::exception& e) {
                             // メンバーアクセスエラーの場合、式評価にフォールバック
@@ -1390,7 +1555,16 @@ void Interpreter::execute_statement(const ASTNode *node) {
                     } else if (typed_result.is_string()) {
                         throw ReturnException(typed_result.string_value);
                     } else {
-                        throw ReturnException(typed_result.value);
+                        // 数値の場合、型情報を保持してReturnExceptionを作成
+                        if (typed_result.numeric_type == TYPE_FLOAT) {
+                            throw ReturnException(typed_result.double_value, TYPE_FLOAT);
+                        } else if (typed_result.numeric_type == TYPE_DOUBLE) {
+                            throw ReturnException(typed_result.double_value, TYPE_DOUBLE);
+                        } else if (typed_result.numeric_type == TYPE_QUAD) {
+                            throw ReturnException(typed_result.quad_value, TYPE_QUAD);
+                        } else {
+                            throw ReturnException(typed_result.value, typed_result.numeric_type);
+                        }
                     }
                 }
             } else {
@@ -1437,7 +1611,16 @@ void Interpreter::execute_statement(const ASTNode *node) {
                     if (result.is_string()) {
                         throw ReturnException(result.string_value);
                     } else {
-                        throw ReturnException(result.value);
+                        // float/double/quad型の場合は適切な値を使用
+                        if (result.numeric_type == TYPE_FLOAT) {
+                            throw ReturnException(result.double_value, TYPE_FLOAT);
+                        } else if (result.numeric_type == TYPE_DOUBLE) {
+                            throw ReturnException(result.double_value, TYPE_DOUBLE);
+                        } else if (result.numeric_type == TYPE_QUAD) {
+                            throw ReturnException(result.quad_value, TYPE_QUAD);
+                        } else {
+                            throw ReturnException(result.value, result.numeric_type);
+                        }
                     }
                 }
             }
@@ -3196,6 +3379,80 @@ void Interpreter::assign_struct_member(const std::string &var_name,
     }
 }
 
+// structメンバに値を代入（TypedValue）
+void Interpreter::assign_struct_member(const std::string &var_name,
+                                       const std::string &member_name,
+                                       const TypedValue &typed_value) {
+    if (debug_mode) {
+        debug_print("assign_struct_member (TypedValue): var=%s, member=%s, type=%d\n",
+                    var_name.c_str(), member_name.c_str(), static_cast<int>(typed_value.numeric_type));
+    }
+    
+    std::string target_full_name = var_name + "." + member_name;
+    if (Variable *struct_var = find_variable(var_name)) {
+        if (struct_var->is_const) {
+            error_msg(DebugMsgId::CONST_REASSIGN_ERROR, target_full_name.c_str());
+            throw std::runtime_error("Cannot assign to member of const struct: " +
+                                     target_full_name);
+        }
+    }
+
+    Variable *member_var = get_struct_member(var_name, member_name);
+    if (member_var->is_const && member_var->is_assigned) {
+        error_msg(DebugMsgId::CONST_REASSIGN_ERROR, target_full_name.c_str());
+        throw std::runtime_error("Cannot assign to const struct member: " +
+                                 target_full_name);
+    }
+    
+    // TypedValueの型に応じて値を代入
+    if (typed_value.numeric_type == TYPE_FLOAT) {
+        member_var->float_value = static_cast<float>(typed_value.double_value);
+        member_var->type = TYPE_FLOAT;
+    } else if (typed_value.numeric_type == TYPE_DOUBLE) {
+        member_var->double_value = typed_value.double_value;
+        member_var->type = TYPE_DOUBLE;
+    } else if (typed_value.numeric_type == TYPE_QUAD) {
+        member_var->quad_value = typed_value.quad_value;
+        member_var->type = TYPE_QUAD;
+    } else {
+        // 整数型の場合
+        member_var->value = typed_value.value;
+        // unsignedフラグはメンバ定義から引き継がれるため、ここでは設定しない
+    }
+    member_var->is_assigned = true;
+    
+    // ダイレクトアクセス変数も更新
+    std::string direct_var_name = var_name + "." + member_name;
+    Variable *direct_var = find_variable(direct_var_name);
+    if (direct_var) {
+        if (direct_var->is_const && direct_var->is_assigned) {
+            error_msg(DebugMsgId::CONST_REASSIGN_ERROR, direct_var_name.c_str());
+            throw std::runtime_error("Cannot assign to const struct member: " +
+                                     direct_var_name);
+        }
+
+        if (typed_value.numeric_type == TYPE_FLOAT) {
+            direct_var->float_value = static_cast<float>(typed_value.double_value);
+            direct_var->type = TYPE_FLOAT;
+        } else if (typed_value.numeric_type == TYPE_DOUBLE) {
+            direct_var->double_value = typed_value.double_value;
+            direct_var->type = TYPE_DOUBLE;
+        } else if (typed_value.numeric_type == TYPE_QUAD) {
+            direct_var->quad_value = typed_value.quad_value;
+            direct_var->type = TYPE_QUAD;
+        } else {
+            direct_var->value = typed_value.value;
+            // unsignedフラグはメンバ定義から引き継がれるため、ここでは設定しない
+        }
+        direct_var->is_assigned = true;
+        
+        if (debug_mode) {
+            debug_print("Updated direct access var %s (type=%d)\n",
+                        direct_var_name.c_str(), static_cast<int>(direct_var->type));
+        }
+    }
+}
+
 // structメンバに構造体を代入
 void Interpreter::assign_struct_member_struct(const std::string &var_name,
                                              const std::string &member_name,
@@ -3721,9 +3978,24 @@ void Interpreter::initialize_global_variables(const ASTNode *node) {
         if (node->statements.size() > 0) {
             debug_msg(DebugMsgId::INTERPRETER_PROCESSING_STMT_LIST, node->statements.size());
         }
+        
+        // 2パス初期化: まずconst変数を初期化し、その後他の変数を初期化
+        // 第1パス: const変数のみ初期化（配列サイズ式で使用される可能性があるため）
+        for (const auto &stmt : node->statements) {
+            if (stmt->node_type == ASTNodeType::AST_VAR_DECL && stmt->is_const && !stmt->is_array) {
+                debug_msg(DebugMsgId::INTERPRETER_FOUND_VAR_DECL, stmt->name.c_str());
+                initialize_global_variables(stmt.get());
+            }
+        }
+        
+        // 第2パス: 配列とその他の変数を初期化
         for (const auto &stmt : node->statements) {
             debug_msg(DebugMsgId::INTERPRETER_CHECKING_STATEMENT_TYPE, (int)stmt->node_type, stmt->name.c_str());
             if (stmt->node_type == ASTNodeType::AST_VAR_DECL) {
+                // 第1パスで既に初期化されたconst変数をスキップ
+                if (stmt->is_const && !stmt->is_array) {
+                    continue;
+                }
                 debug_msg(DebugMsgId::INTERPRETER_FOUND_VAR_DECL, stmt->name.c_str());
                 initialize_global_variables(stmt.get());
             }

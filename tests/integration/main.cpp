@@ -22,6 +22,8 @@
 #include "dynamic_array_error/test_dynamic_array_error.hpp"
 #include "enum/test_enum.hpp"
 #include "error_handling/test_error_handling.hpp"
+#include "float_double_unsigned/test_float_double_unsigned.hpp"
+#include "floating_point/test_floating_point.hpp"
 #include "func/test_func.hpp"
 #include "func_return_type_check/test_func_return_type_check.hpp"
 #include "func_type_check/test_func_type_check.hpp"
@@ -119,6 +121,11 @@ int main() {
     CategoryTimingStats::set_current_category("Core Language");
     run_test_with_continue(test_integration_basic, "Basic Tests", failed_tests);
     run_test_with_continue(test_integration_arithmetic, "Arithmetic Tests",
+                           failed_tests);
+    run_test_with_continue(test_integration_floating_point,
+                           "Floating Point Tests", failed_tests);
+    run_test_with_continue(test_integration_float_double_unsigned,
+                           "Float/Double/Unsigned Comprehensive Tests",
                            failed_tests);
     run_test_with_continue(test_integration_assign, "Assignment Tests",
                            failed_tests);

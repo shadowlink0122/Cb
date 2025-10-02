@@ -1,0 +1,36 @@
+// 浮動小数点と符号なしリテラルの出力テスト
+int main() {
+    println("=== print/println literal coverage ===");
+
+    float f_literal = 3.14159265358979323846;
+    double d_literal = 2.71828182845904523536;
+    unsigned int u_literal = 4294967295;
+
+    print("float_literal: "); println(f_literal);
+    print("double_literal: "); println(d_literal);
+    print("unsigned_literal: "); println(u_literal);
+
+    println("--- implicit typing ---");
+    float float_from_int = 5;
+    double double_from_float_literal = 6.5f;
+    unsigned long ulong_from_literal = 123456789;
+
+    print("float_from_int: "); println(float_from_int);
+    print("double_from_float_literal: "); println(double_from_float_literal);
+    print("ulong_from_literal: "); println(ulong_from_literal);
+
+    println("--- print chaining ---");
+    print("chain: ");
+    print(f_literal);
+    print(" | ");
+    println(d_literal);
+
+    println("--- division precedence ---");
+    print("int_division: "); println(1 / 3);
+    print("float_division: "); println(1 / 3.0);
+    print("mixed_division: "); println(1 / 3.0f);
+    print("mixed_add: "); println(1 + 2.5);
+
+    println("=== end ===");
+    return 0;
+}
