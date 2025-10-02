@@ -1503,11 +1503,13 @@ size_t OutputManager::count_format_specifiers(const std::string& str) {
                 char next = str[i + 1];
                 if (next == 'd' || next == 's' || next == 'c') {
                     count++;
-                    debug_msg(DebugMsgId::OUTPUT_FORMAT_COUNT, std::to_string(count).c_str());
+                    std::string count_str = std::to_string(count);
+                    debug_msg(DebugMsgId::OUTPUT_FORMAT_COUNT, count_str.c_str());
                 } else if (next == 'l' && i + 3 < str.length() && 
                           str[i + 2] == 'l' && str[i + 3] == 'd') {
                     count++;
-                    debug_msg(DebugMsgId::OUTPUT_FORMAT_COUNT, std::to_string(count).c_str());
+                    std::string count_str = std::to_string(count);
+                    debug_msg(DebugMsgId::OUTPUT_FORMAT_COUNT, count_str.c_str());
                     i += 3; // %lld をスキップ
                 } else if (next == '%') {
                     // %% は引数を消費しないのでカウントしない
@@ -1517,7 +1519,8 @@ size_t OutputManager::count_format_specifiers(const std::string& str) {
             }
         }
     }
-    debug_msg(DebugMsgId::OUTPUT_FORMAT_COUNT, std::to_string(count).c_str());
+    std::string final_count_str = std::to_string(count);
+    debug_msg(DebugMsgId::OUTPUT_FORMAT_COUNT, final_count_str.c_str());
     return count;
 }
 

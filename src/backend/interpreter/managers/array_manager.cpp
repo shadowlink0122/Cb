@@ -11,8 +11,8 @@
 #include <stdexcept>
 
 void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
-    debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
-              ("Processing array declaration for variable: " + node->name).c_str());
+    std::string debug_message = "Processing array declaration for variable: " + node->name;
+    debug_msg(DebugMsgId::ARRAY_DECL_DEBUG, debug_message.c_str());
     if (!node) {
         throw std::runtime_error(
             "ArrayManager::processArrayDeclaration: node is null");
@@ -23,8 +23,9 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
     }
 
     debug_msg(DebugMsgId::ARRAY_DECL_DEBUG, node->name.c_str());
-    debug_msg(DebugMsgId::ARRAY_DIMENSIONS_COUNT,
-              node->array_dimensions.size());
+    // Temporarily disabled for debugging segmentation issue
+    // debug_msg(DebugMsgId::ARRAY_DIMENSIONS_COUNT,
+    //           node->array_dimensions.size());
 
     // struct配列の特別処理
     if (node->type_info == TYPE_STRUCT) {
@@ -87,6 +88,9 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
     } else {
         // 1次元配列
         if (node->array_dimensions.size() == 1) {
+            debug_print("ARRAY_DEBUG: first dimension ptr=%p has_value=%d\n",
+                        static_cast<const void*>(node->array_dimensions[0].get()),
+                        node->array_dimensions[0] ? 1 : 0);
             if (node->array_dimensions[0].get() == nullptr) {
                 // 動的配列（サイズ指定なし）は初期化がない場合のみ禁止
                 if (!node->init_expr) {
@@ -575,8 +579,9 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
                 }
 
                 struct_element.struct_members[member.name] = member_var;
+                std::string member_debug = "Added member: " + member.name;
                 debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
-                          ("Added member: " + member.name).c_str());
+                          member_debug.c_str());
 
                 // メンバー変数の直接アクセス用変数も作成
                 std::string member_path = element_name + "." + member.name;
@@ -593,8 +598,9 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
             variable_manager_->getInterpreter()
                 ->current_scope()
                 .variables[element_name] = struct_element;
+            std::string element_debug = "Registered struct element: " + element_name;
             debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
-                      ("Registered struct element: " + element_name).c_str());
+                      element_debug.c_str());
         }
     }
 
@@ -624,11 +630,13 @@ void ArrayManager::processMultidimensionalArrayLiteral(
 
     // 宣言された次元と一致するかチェック
     if (dimensions.size() != var.array_type_info.dimensions.size()) {
+        std::string dimension_error = "Dimension mismatch: literal=" +
+                                      std::to_string(dimensions.size()) +
+                                      ", declared=" +
+                                      std::to_string(
+                                          var.array_type_info.dimensions.size());
         debug_msg(DebugMsgId::TYPE_MISMATCH_ERROR,
-                  ("Dimension mismatch: literal=" +
-                   std::to_string(dimensions.size()) + ", declared=" +
-                   std::to_string(var.array_type_info.dimensions.size()))
-                      .c_str());
+                  dimension_error.c_str());
         throw std::runtime_error(
             "Array literal dimensions don't match declaration");
     }

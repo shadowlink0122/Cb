@@ -190,8 +190,10 @@ void CommonOperations::assign_array_element_safe(Variable *var, int64_t index,
         (var->type >= TYPE_ARRAY_BASE)
             ? static_cast<TypeInfo>(var->type - TYPE_ARRAY_BASE)
             : var->type;
-    interpreter_->get_type_manager()->check_type_range(elem_type, adjusted_value,
-                                                       var_name);
+    interpreter_->get_type_manager()->check_type_range(elem_type,
+                                                       adjusted_value,
+                                                       var_name,
+                                                       var->is_unsigned);
 
     var->array_values[index] = adjusted_value;
     debug_array_operation("assign_element", var_name, index, adjusted_value);
@@ -254,6 +256,9 @@ void CommonOperations::check_array_bounds(const Variable *var, int64_t index,
                                           const std::string &var_name) {
     // 統一チェック: 従来のチェックロジックを使用
     if (index < 0 || index >= var->array_size) {
+        std::cerr << "ARRAY_BOUNDS_DEBUG: var=" << var_name
+                  << " index=" << index
+                  << " size=" << var->array_size << std::endl;
         throw std::runtime_error("Array index out of bounds for '" + var_name +
                                  "': " + std::to_string(index) +
                                  " (valid range: 0-" +
@@ -301,8 +306,9 @@ void CommonOperations::debug_array_operation(const std::string &operation,
             debug_msg(DebugMsgId::ARRAY_ELEMENT_ASSIGN_DEBUG, var_name.c_str(),
                       index, value);
         } else {
+            std::string operation_info = operation + " for " + var_name;
             debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
-                      (operation + " for " + var_name).c_str());
+                      operation_info.c_str());
         }
     }
 }

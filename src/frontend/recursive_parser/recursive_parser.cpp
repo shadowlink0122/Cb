@@ -114,7 +114,8 @@ ASTNode* RecursiveParser::parseStatement() {
     }
     
     // DEBUG: 現在のトークンを出力
-    debug_msg(DebugMsgId::PARSE_CURRENT_TOKEN, current_token_.value.c_str(), std::to_string((int)current_token_.type).c_str());
+    std::string token_type_str = std::to_string(static_cast<int>(current_token_.type));
+    debug_msg(DebugMsgId::PARSE_CURRENT_TOKEN, current_token_.value.c_str(), token_type_str.c_str());
     
     // main関数の場合の特別処理
     if (check(TokenType::TOK_MAIN)) {
@@ -2135,7 +2136,8 @@ ASTNode* RecursiveParser::parsePostfix() {
             if (primary && primary->node_type == ASTNodeType::AST_VARIABLE) {
                 debug_msg(DebugMsgId::PARSE_EXPR_ARRAY_ACCESS, primary->name.c_str());
             } else if (primary && primary->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
-                debug_msg(DebugMsgId::PARSE_EXPR_ARRAY_ACCESS, (primary->name + " (member access)").c_str());
+                std::string member_access_name = primary->name + " (member access)";
+                debug_msg(DebugMsgId::PARSE_EXPR_ARRAY_ACCESS, member_access_name.c_str());
             } else if (primary && primary->node_type == ASTNodeType::AST_ARRAY_REF) {
                 debug_msg(DebugMsgId::PARSE_EXPR_ARRAY_ACCESS, "nested array access");
             }
@@ -2169,12 +2171,69 @@ ASTNode* RecursiveParser::parsePrimary() {
     if (check(TokenType::TOK_NUMBER)) {
         Token token = advance();
         ASTNode* node = new ASTNode(ASTNodeType::AST_NUMBER);
+
+        std::string literal = token.value;
+        node->literal_text = literal;
+
+        // サフィックス解析（f/F, d/D, q/Q）
+        char suffix = '\0';
+        if (!literal.empty()) {
+            char last_char = literal.back();
+            if (last_char == 'f' || last_char == 'F' ||
+                last_char == 'd' || last_char == 'D' ||
+                last_char == 'q' || last_char == 'Q') {
+                suffix = last_char;
+                literal.pop_back();
+            }
+        }
+
+        // 指数表記の小文字e/E対応のため、末尾サフィックスを除外した後で判定
+        auto contains_decimal = [](const std::string& value) {
+            return value.find('.') != std::string::npos;
+        };
+        auto contains_exponent = [](const std::string& value) {
+            return value.find('e') != std::string::npos || value.find('E') != std::string::npos;
+        };
+
+        bool is_float_literal = contains_decimal(literal) || contains_exponent(literal) || suffix != '\0';
+
         try {
-            node->int_value = std::stoll(token.value);  // 64ビット整数対応
-        } catch (const std::exception& e) {
+            if (is_float_literal) {
+                node->is_float_literal = true;
+
+                if (suffix == 'f' || suffix == 'F') {
+                    node->literal_type = TYPE_FLOAT;
+                    node->type_info = TYPE_FLOAT;
+                    node->double_value = std::stod(literal);
+                    node->quad_value = static_cast<long double>(node->double_value);
+                } else if (suffix == 'q' || suffix == 'Q') {
+                    node->literal_type = TYPE_QUAD;
+                    node->type_info = TYPE_QUAD;
+                    node->quad_value = std::stold(literal);
+                    node->double_value = static_cast<double>(node->quad_value);
+                } else {
+                    // デフォルトはdouble（サフィックスなし、またはd/D）
+                    node->literal_type = TYPE_DOUBLE;
+                    node->type_info = TYPE_DOUBLE;
+                    node->double_value = std::stod(literal);
+                    node->quad_value = static_cast<long double>(node->double_value);
+                }
+
+                // 整数値としても保持（必要に応じて使用）
+                node->int_value = static_cast<int64_t>(node->double_value);
+            } else {
+                node->literal_type = TYPE_INT;
+                node->type_info = TYPE_INT;
+                node->int_value = std::stoll(literal); // 64ビット整数対応
+                node->double_value = static_cast<double>(node->int_value);
+                node->quad_value = static_cast<long double>(node->int_value);
+            }
+        } catch (const std::exception &e) {
             error("Invalid number: " + token.value);
+            delete node;
             return nullptr;
         }
+
         return node;
     }
     

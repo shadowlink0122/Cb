@@ -51,4 +51,67 @@ inline void test_integration_unsigned() {
         });
     integration_test_passed_with_time_auto(
         "unsigned struct/interface coverage test");
+
+    run_cb_test_with_output_and_time_auto(
+        "../../tests/cases/unsigned/boundary_ok.cb",
+        [](const std::string &output, int exit_code) {
+            INTEGRATION_ASSERT(exit_code == 0,
+                               "Unsigned boundary ok should succeed");
+            INTEGRATION_ASSERT_CONTAINS(output, "Unsigned boundary test:",
+                                        "Expected unsigned boundary header");
+            INTEGRATION_ASSERT_CONTAINS(output, "ut (max unsigned tiny): 255",
+                                        "Expected unsigned tiny max value");
+            INTEGRATION_ASSERT_CONTAINS(output, "us (max unsigned short): 65535",
+                                        "Expected unsigned short max value");
+            INTEGRATION_ASSERT_CONTAINS(output, "ui (max unsigned int): 4294967295",
+                                        "Expected unsigned int max value");
+            INTEGRATION_ASSERT_CONTAINS(output, "ul (max unsigned long): 9223372036854775807",
+                                        "Expected unsigned long max value");
+            INTEGRATION_ASSERT_CONTAINS(output, "Unsigned boundary test passed",
+                                        "Expected unsigned boundary success message");
+        });
+    integration_test_passed_with_time_auto("unsigned boundary ok test");
+
+    auto overflow_assert = [](const std::string &output, int exit_code,
+                              const char *label) {
+        INTEGRATION_ASSERT(exit_code != 0 || contains(output, "型の範囲外") ||
+                               contains(output, "Value out of range"),
+                           label);
+    };
+
+    run_cb_test_with_output_and_time_auto(
+        "../../tests/cases/unsigned/boundary_overflow_tiny.cb",
+        [&](const std::string &output, int exit_code) {
+            overflow_assert(output, exit_code,
+                            "Unsigned tiny overflow should fail");
+        });
+    integration_test_passed_with_error_and_time_auto(
+        "unsigned tiny overflow test");
+
+    run_cb_test_with_output_and_time_auto(
+        "../../tests/cases/unsigned/boundary_overflow_short.cb",
+        [&](const std::string &output, int exit_code) {
+            overflow_assert(output, exit_code,
+                            "Unsigned short overflow should fail");
+        });
+    integration_test_passed_with_error_and_time_auto(
+        "unsigned short overflow test");
+
+    run_cb_test_with_output_and_time_auto(
+        "../../tests/cases/unsigned/boundary_overflow_int.cb",
+        [&](const std::string &output, int exit_code) {
+            overflow_assert(output, exit_code,
+                            "Unsigned int overflow should fail");
+        });
+    integration_test_passed_with_error_and_time_auto(
+        "unsigned int overflow test");
+
+    run_cb_test_with_output_and_time_auto(
+        "../../tests/cases/unsigned/boundary_overflow_long.cb",
+        [&](const std::string &output, int exit_code) {
+            overflow_assert(output, exit_code,
+                            "Unsigned long overflow should fail");
+        });
+    integration_test_passed_with_error_and_time_auto(
+        "unsigned long overflow test");
 }

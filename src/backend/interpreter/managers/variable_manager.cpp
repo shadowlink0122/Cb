@@ -41,6 +41,13 @@ std::string getPrimitiveTypeNameForImpl(TypeInfo type) {
     return std::string(type_info_to_string(type));
 }
 
+void setNumericFields(Variable &var, long double quad_value) {
+    var.quad_value = quad_value;
+    var.double_value = static_cast<double>(quad_value);
+    var.float_value = static_cast<float>(quad_value);
+    var.value = static_cast<int64_t>(quad_value);
+}
+
 } // namespace
 
 void VariableManager::push_scope() {
@@ -523,7 +530,8 @@ void VariableManager::declare_local_variable(const ASTNode *node) {
 
         // 型範囲チェック
         interpreter_->type_manager_->check_type_range(var.type, value,
-                                                      node->name);
+                                                      node->name,
+                                                      var.is_unsigned);
     }
 
     current_scope().variables[node->name] = var;
@@ -531,31 +539,170 @@ void VariableManager::declare_local_variable(const ASTNode *node) {
 
 void VariableManager::assign_variable(const std::string &name, int64_t value,
                                       TypeInfo type, bool is_const) {
-    debug_msg(DebugMsgId::VAR_ASSIGN_READABLE, name.c_str(), value, "type",
+    TypeInfo effective = (type != TYPE_UNKNOWN) ? type : TYPE_INT;
+    InferredType inferred(effective, type_info_to_string(effective));
+    TypedValue typed_value(value, inferred);
+    assign_variable(name, typed_value, type, is_const);
+}
+
+void VariableManager::assign_variable(const std::string &name,
+                                      const std::string &value, bool is_const) {
+    InferredType inferred(TYPE_STRING, "string");
+    TypedValue typed_value(value, inferred);
+    assign_variable(name, typed_value, TYPE_STRING, is_const);
+}
+
+void VariableManager::assign_variable(const std::string &name,
+                                      const std::string &value) {
+    assign_variable(name, value, false);
+}
+
+void VariableManager::assign_variable(const std::string &name,
+                                      const TypedValue &typed_value,
+                                      TypeInfo type_hint, bool is_const) {
+    debug_msg(DebugMsgId::VAR_ASSIGN_READABLE, name.c_str(),
+              typed_value.is_numeric() ? typed_value.as_numeric() : 0, "type",
               is_const ? "true" : "false");
 
-    Variable *var = find_variable(name);
-    auto enforce_unsigned = [&](Variable *target, int64_t &val) {
-        if (!target || !target->is_unsigned) {
-            return;
-        }
-        if (val < 0) {
+    auto apply_assignment = [&](Variable &target, bool allow_type_override) {
+        auto clamp_unsigned = [&](int64_t &numeric_value) {
+            if (!target.is_unsigned || numeric_value >= 0) {
+                return;
+            }
             DEBUG_WARN(VARIABLE,
                        "Unsigned variable %s received negative assignment (%lld); clamping to 0",
-                       name.c_str(), static_cast<long long>(val));
-            val = 0;
+                       name.c_str(), static_cast<long long>(numeric_value));
+            numeric_value = 0;
+        };
+
+        if (typed_value.is_struct()) {
+            if (typed_value.struct_data) {
+                bool was_const = target.is_const;
+                bool was_unsigned = target.is_unsigned;
+                target = *typed_value.struct_data;
+                target.is_const = was_const;
+                target.is_unsigned = was_unsigned;
+                target.is_assigned = true;
+                // 構造体戻り値や代入で生成された最新のメンバー状態を
+                // ダイレクトアクセス変数にも反映させる
+                interpreter_->sync_direct_access_from_struct_value(
+                    name, target);
+            }
+            return;
         }
+
+        if (typed_value.is_string()) {
+            if (allow_type_override || target.type == TYPE_UNKNOWN ||
+                target.type == TYPE_STRING) {
+                target.type = TYPE_STRING;
+            }
+            target.str_value = typed_value.string_value;
+            target.value = 0;
+            target.float_value = 0.0f;
+            target.double_value = 0.0;
+            target.quad_value = 0.0L;
+            target.big_value = 0;
+            target.is_assigned = true;
+            return;
+        }
+
+        // 非数値でもここまで来た場合は0として扱う
+        if (!typed_value.is_numeric()) {
+            setNumericFields(target, 0.0L);
+            target.big_value = 0;
+            target.str_value.clear();
+            target.is_assigned = true;
+            return;
+        }
+
+        TypeInfo resolved_type = type_hint;
+        if (resolved_type == TYPE_UNKNOWN) {
+            if (!allow_type_override && target.type != TYPE_UNKNOWN &&
+                target.type != TYPE_UNION && target.type != TYPE_INTERFACE &&
+                target.type != TYPE_STRUCT && target.type < TYPE_ARRAY_BASE) {
+                resolved_type = target.type;
+            } else if (typed_value.numeric_type != TYPE_UNKNOWN) {
+                resolved_type = typed_value.numeric_type;
+            } else if (typed_value.type.type_info != TYPE_UNKNOWN) {
+                resolved_type = typed_value.type.type_info;
+            }
+        }
+        if (resolved_type == TYPE_UNKNOWN) {
+            resolved_type = (!allow_type_override && target.type != TYPE_UNKNOWN)
+                                ? target.type
+                                : TYPE_INT;
+        }
+
+        if ((allow_type_override || target.type == TYPE_UNKNOWN) &&
+            target.type != TYPE_UNION) {
+            target.type = resolved_type;
+        }
+
+        if (target.type == TYPE_UNION) {
+            target.current_type = resolved_type;
+        }
+
+        target.str_value.clear();
+        target.big_value = 0;
+
+        if (resolved_type == TYPE_FLOAT) {
+            long double quad_val = typed_value.as_quad();
+            float f = static_cast<float>(quad_val);
+            target.float_value = f;
+            target.double_value = static_cast<double>(f);
+            target.quad_value = static_cast<long double>(f);
+            target.value = static_cast<int64_t>(f);
+        } else if (resolved_type == TYPE_DOUBLE) {
+            long double quad_val = typed_value.as_quad();
+            double d = static_cast<double>(quad_val);
+            target.float_value = static_cast<float>(d);
+            target.double_value = d;
+            target.quad_value = static_cast<long double>(d);
+            target.value = static_cast<int64_t>(d);
+        } else if (resolved_type == TYPE_QUAD) {
+            long double q = typed_value.as_quad();
+            target.float_value = static_cast<float>(q);
+            target.double_value = static_cast<double>(q);
+            target.quad_value = q;
+            target.value = static_cast<int64_t>(q);
+        } else if (resolved_type == TYPE_STRING) {
+            target.type = TYPE_STRING;
+            target.str_value = typed_value.as_string();
+            target.value = 0;
+            target.float_value = 0.0f;
+            target.double_value = 0.0;
+            target.quad_value = 0.0L;
+        } else {
+            int64_t numeric_value = typed_value.as_numeric();
+            if (resolved_type == TYPE_BOOL) {
+                numeric_value = (numeric_value != 0) ? 1 : 0;
+            }
+            clamp_unsigned(numeric_value);
+            if (interpreter_->is_debug_mode()) {
+                debug_print("ASSIGN_DEBUG: name=%s target_type=%d resolved_type=%d numeric_value=%lld allow_override=%d\n",
+                            name.c_str(), static_cast<int>(target.type), static_cast<int>(resolved_type),
+                            static_cast<long long>(numeric_value), allow_type_override ? 1 : 0);
+            }
+            TypeInfo range_check_type = resolved_type;
+            if (target.type != TYPE_UNKNOWN && target.type != TYPE_UNION &&
+                target.type != TYPE_INTERFACE && target.type != TYPE_STRUCT &&
+                target.type < TYPE_ARRAY_BASE) {
+                range_check_type = target.type;
+            }
+
+            interpreter_->type_manager_->check_type_range(range_check_type,
+                                                          numeric_value, name,
+                                                          target.is_unsigned);
+            setNumericFields(target, static_cast<long double>(numeric_value));
+        }
+
+        target.is_assigned = true;
     };
 
+    Variable *var = find_variable(name);
     if (!var) {
         Variable new_var;
-        new_var.type = (type != TYPE_UNKNOWN) ? type : TYPE_INT;
-        int64_t adjusted_value = value;
-        enforce_unsigned(&new_var, adjusted_value);
-        interpreter_->type_manager_->check_type_range(new_var.type,
-                                                      adjusted_value, name);
-        new_var.value = adjusted_value;
-        new_var.is_assigned = true;
+        apply_assignment(new_var, true);
         new_var.is_const = is_const;
         current_scope().variables[name] = new_var;
         return;
@@ -568,98 +715,46 @@ void VariableManager::assign_variable(const std::string &name, int64_t value,
         std::exit(1);
     }
 
-    auto is_fixed_width_integral = [](TypeInfo t) {
-        switch (t) {
-        case TYPE_TINY:
-        case TYPE_SHORT:
-        case TYPE_INT:
-        case TYPE_LONG:
-        case TYPE_BOOL:
-        case TYPE_CHAR:
-            return true;
-        default:
-            return false;
-        }
-    };
-
-    TypeInfo target_type = var->type;
-    if (target_type == TYPE_UNKNOWN) {
-        target_type = (type != TYPE_UNKNOWN) ? type : TYPE_INT;
-    } else if (is_fixed_width_integral(target_type)) {
-        // Keep the original fixed-width integral type regardless of inferred type
-    } else if (type != TYPE_UNKNOWN) {
-        target_type = type;
-    }
-
-    if (target_type == TYPE_UNKNOWN) {
-        target_type = TYPE_INT;
-    }
-
-    int64_t adjusted_value = value;
-    enforce_unsigned(var, adjusted_value);
-    interpreter_->type_manager_->check_type_range(target_type,
-                                                  adjusted_value, name);
-
-    var->type = target_type;
-    var->value = adjusted_value;
-    var->is_assigned = true;
+    apply_assignment(*var, false);
     if (is_const) {
         var->is_const = true;
     }
-}
-
-void VariableManager::assign_variable(const std::string &name,
-                                      const std::string &value, bool is_const) {
-    debug_msg(DebugMsgId::STRING_ASSIGN_READABLE, name.c_str(), value.c_str(),
-              is_const ? "true" : "false");
-    Variable *var = find_variable(name);
-    if (!var) {
-        debug_msg(DebugMsgId::STRING_VAR_CREATE_NEW);
-        Variable new_var;
-        new_var.type = TYPE_STRING;
-        new_var.str_value = value;
-        new_var.is_assigned = true;
-        new_var.is_const = is_const;
-        current_scope().variables[name] = new_var;
-    } else {
-        debug_msg(DebugMsgId::EXISTING_STRING_VAR_ASSIGN_DEBUG);
-        if (var->is_const && var->is_assigned) {
-            std::fprintf(stderr, "Cannot reassign const variable: %s\n",
-                         name.c_str());
-            error_msg(DebugMsgId::CONST_REASSIGN_ERROR, name.c_str());
-            std::exit(1);
-        }
-        var->str_value = value;
-        var->is_assigned = true;
-    }
-}
-
-void VariableManager::assign_variable(const std::string &name,
-                                      const std::string &value) {
-    assign_variable(name, value, false);
 }
 
 void VariableManager::assign_function_parameter(const std::string &name,
                                                 int64_t value,
                                                 TypeInfo type,
                                                 bool is_unsigned) {
-    TypeInfo target_type = type != TYPE_UNKNOWN ? type : TYPE_INT;
-    int64_t adjusted_value = value;
-    if (is_unsigned && adjusted_value < 0) {
-        DEBUG_WARN(VARIABLE,
-                   "Unsigned parameter %s received negative argument (%lld); clamping to 0",
-                   name.c_str(), static_cast<long long>(adjusted_value));
-        adjusted_value = 0;
-    }
-    interpreter_->type_manager_->check_type_range(target_type, adjusted_value,
-                                                  name);
+    TypeInfo effective = type != TYPE_UNKNOWN ? type : TYPE_INT;
+    InferredType inferred(effective, type_info_to_string(effective));
+    TypedValue typed_value(value, inferred);
+    assign_function_parameter(name, typed_value, type, is_unsigned);
+}
 
-    Variable param_var;
-    param_var.type = target_type;
-    param_var.value = adjusted_value;
-    param_var.is_unsigned = is_unsigned;
-    param_var.is_assigned = true;
-    current_scope().variables[name] = param_var;
+void VariableManager::assign_function_parameter(const std::string &name,
+                                                const TypedValue &value,
+                                                TypeInfo type,
+                                                bool is_unsigned) {
+    Scope &scope = current_scope();
+    auto iter = scope.variables.find(name);
+    if (iter == scope.variables.end()) {
+        Variable placeholder;
+        placeholder.type = TYPE_UNKNOWN;
+        placeholder.is_unsigned = is_unsigned;
+        placeholder.is_assigned = false;
+        iter = scope.variables.emplace(name, placeholder).first;
+    } else {
+        iter->second.is_assigned = false;
+        iter->second.is_unsigned = is_unsigned;
+    }
+
+    assign_variable(name, value, type, false);
+
+    if (auto updated_iter = scope.variables.find(name); updated_iter != scope.variables.end()) {
+        updated_iter->second.is_unsigned = is_unsigned;
+    } else if (Variable *updated_var = find_variable(name)) {
+        updated_var->is_unsigned = is_unsigned;
+    }
 }
 
 void VariableManager::assign_array_parameter(const std::string &name,
@@ -1141,7 +1236,9 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                         
                         // 型範囲チェック
                         if (var.type != TYPE_STRING) {
-                            interpreter_->type_manager_->check_type_range(var.type, var.value, node->name);
+                            interpreter_->type_manager_->check_type_range(
+                                var.type, var.value, node->name,
+                                var.is_unsigned);
                         }
                     } catch (const ReturnException &ret) {
                         // 関数戻り値の処理
@@ -1177,7 +1274,9 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                             
                             // 型範囲チェック
                             if (var.type != TYPE_STRING) {
-                                interpreter_->type_manager_->check_type_range(var.type, var.value, node->name);
+                                interpreter_->type_manager_->check_type_range(
+                                    var.type, var.value, node->name,
+                                    var.is_unsigned);
                             }
                         } else {
                             throw std::runtime_error("Incompatible return type for typedef variable '" + node->name + "'");
@@ -1208,26 +1307,88 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
             std::string resolved_struct_type = interpreter_->type_manager_->resolve_typedef(node->type_name);
             var.struct_type_name = resolved_struct_type;
 
-            // 構造体配列かどうかをチェック（型名に[サイズ]が含まれている場合）
+            // 構造体配列かどうかをチェック
             std::string base_struct_type = resolved_struct_type;
             bool is_struct_array = false;
             int struct_array_size = 0;
+            std::vector<int> struct_array_dimensions;
 
-            size_t bracket_pos = resolved_struct_type.find("[");
-            if (bracket_pos != std::string::npos) {
+            // まずASTの配列情報を優先的に確認
+            if (node->array_type_info.is_array()) {
                 is_struct_array = true;
-                base_struct_type = resolved_struct_type.substr(0, bracket_pos);
+                var.is_array = true;
+                var.is_multidimensional =
+                    node->array_type_info.dimensions.size() > 1;
 
-                size_t close_bracket_pos = resolved_struct_type.find("]");
-                if (close_bracket_pos != std::string::npos) {
-                    std::string size_str = resolved_struct_type.substr(
-                        bracket_pos + 1, close_bracket_pos - bracket_pos - 1);
-                    struct_array_size = std::stoi(size_str);
+                for (const auto &dim : node->array_type_info.dimensions) {
+                    if (dim.is_dynamic || dim.size < 0) {
+                        struct_array_dimensions.push_back(0);
+                    } else {
+                        struct_array_dimensions.push_back(dim.size);
+                    }
                 }
 
+                if (!struct_array_dimensions.empty() &&
+                    struct_array_dimensions[0] > 0) {
+                    struct_array_size = struct_array_dimensions[0];
+                }
+            } else if (node->is_array || node->array_size >= 0 ||
+                       !node->array_dimensions.empty()) {
+                is_struct_array = true;
                 var.is_array = true;
-                var.array_size = struct_array_size;
-                var.array_dimensions.push_back(struct_array_size);
+
+                int declared_size = node->array_size;
+                if (declared_size < 0 && !node->array_dimensions.empty()) {
+                    // array_dimensionsにはサイズ式が格納される場合があるが、
+                    // 現状では定数サイズのみ対応
+                    const ASTNode *size_node = node->array_dimensions[0].get();
+                    if (size_node && size_node->node_type == ASTNodeType::AST_NUMBER) {
+                        declared_size = static_cast<int>(size_node->int_value);
+                    }
+                }
+
+                if (declared_size >= 0) {
+                    struct_array_size = declared_size;
+                    struct_array_dimensions.push_back(declared_size);
+                }
+            }
+
+            // 互換性のため、型名に配列表記が含まれる場合も処理
+            if (!is_struct_array) {
+                size_t bracket_pos = resolved_struct_type.find("[");
+                if (bracket_pos != std::string::npos) {
+                    is_struct_array = true;
+                    base_struct_type =
+                        resolved_struct_type.substr(0, bracket_pos);
+
+                    size_t close_bracket_pos =
+                        resolved_struct_type.find("]", bracket_pos);
+                    if (close_bracket_pos != std::string::npos) {
+                        std::string size_str = resolved_struct_type.substr(
+                            bracket_pos + 1,
+                            close_bracket_pos - bracket_pos - 1);
+                        if (!size_str.empty()) {
+                            struct_array_size = std::stoi(size_str);
+                            struct_array_dimensions.push_back(struct_array_size);
+                        }
+                    }
+
+                    var.is_array = true;
+                }
+            }
+
+            if (is_struct_array) {
+                if (!struct_array_dimensions.empty()) {
+                    var.array_dimensions = struct_array_dimensions;
+                    if (!var.is_multidimensional &&
+                        var.array_dimensions.size() > 1) {
+                        var.is_multidimensional = true;
+                    }
+                }
+
+                if (struct_array_size > 0) {
+                    var.array_size = struct_array_size;
+                }
             }
 
             // struct定義を取得してメンバ変数を初期化
@@ -2076,7 +2237,8 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                 // 型範囲チェック
                 if (var.type != TYPE_STRING) {
                     interpreter_->type_manager_->check_type_range(
-                        var.type, var.value, node->name);
+                        var.type, var.value, node->name,
+                        var.is_unsigned);
                 }
             }
         }
@@ -2305,7 +2467,8 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
 
             // 型範囲チェック（代入前に実行）
             interpreter_->type_manager_->check_type_range(var->type, value,
-                                                          var_name);
+                                                          var_name,
+                                                          var->is_unsigned);
 
             var->value = value;
             var->is_assigned = true;
@@ -2342,7 +2505,8 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
 
             // 型範囲チェック（代入前に実行）
             interpreter_->type_manager_->check_type_range(var->type, value,
-                                                          var_name);
+                                                          var_name,
+                                                          var->is_unsigned);
 
             var->value = value;
             var->is_assigned = true;
@@ -2609,7 +2773,8 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
 
             // 型範囲チェック
             interpreter_->type_manager_->check_type_range(element_var->type,
-                                                          value, element_name);
+                                                          value, element_name,
+                                                          element_var->is_unsigned);
 
             // 値を代入
             element_var->value = value;

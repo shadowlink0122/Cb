@@ -35,9 +35,13 @@ struct InferredType {
 
 // 式評価の結果（値 + 型情報 + ASTノード参照）
 struct TypedValue {
-    int64_t value;  // numeric_value から value に変更
+    int64_t value;  // 整数表現
+    double double_value; // 浮動小数点（二倍精度）表現
+    long double quad_value; // 128bit相当の拡張精度
     std::string string_value;
     bool is_numeric_result;
+    bool is_float_result;
+    TypeInfo numeric_type; // 数値型（int/float/double/quad等）
     InferredType type;
     
     // 複雑な型（配列、構造体など）の場合、実際の評価を遅延するためのASTノード参照
@@ -48,13 +52,25 @@ struct TypedValue {
     bool is_struct_result;
     std::shared_ptr<Variable> struct_data; // 構造体データを共有ポインタで保持
     
-    TypedValue(int64_t val, const InferredType& t) 
-        : value(val), string_value(""), is_numeric_result(true), type(t), 
-          deferred_node(nullptr), is_deferred(false), is_struct_result(false), struct_data(nullptr) {}
+        TypedValue(int64_t val, const InferredType& t) 
+                : value(val), double_value(static_cast<double>(val)), quad_value(static_cast<long double>(val)),
+                    string_value(""), is_numeric_result(true), is_float_result(false), numeric_type(t.type_info),
+                    type(t), deferred_node(nullptr), is_deferred(false), is_struct_result(false), struct_data(nullptr) {}
+
+        TypedValue(double val, const InferredType& t) 
+                : value(static_cast<int64_t>(val)), double_value(val), quad_value(static_cast<long double>(val)),
+                    string_value(""), is_numeric_result(true), is_float_result(true), numeric_type(t.type_info),
+                    type(t), deferred_node(nullptr), is_deferred(false), is_struct_result(false), struct_data(nullptr) {}
+
+        TypedValue(long double val, const InferredType& t) 
+                : value(static_cast<int64_t>(val)), double_value(static_cast<double>(val)), quad_value(val),
+                    string_value(""), is_numeric_result(true), is_float_result(true), numeric_type(t.type_info),
+                    type(t), deferred_node(nullptr), is_deferred(false), is_struct_result(false), struct_data(nullptr) {}
     
-    TypedValue(const std::string& val, const InferredType& t) 
-        : value(0), string_value(val), is_numeric_result(false), type(t),
-          deferred_node(nullptr), is_deferred(false), is_struct_result(false), struct_data(nullptr) {}
+        TypedValue(const std::string& val, const InferredType& t) 
+                : value(0), double_value(0.0), quad_value(0.0L), string_value(val),
+                    is_numeric_result(false), is_float_result(false), numeric_type(TYPE_UNKNOWN), type(t),
+                    deferred_node(nullptr), is_deferred(false), is_struct_result(false), struct_data(nullptr) {}
     
     // 構造体用コンストラクタ
     TypedValue(const Variable& struct_var, const InferredType& t)
@@ -65,24 +81,51 @@ struct TypedValue {
     // 遅延評価用コンストラクタ
     static TypedValue deferred(const ASTNode* node, const InferredType& t) {
         TypedValue result(static_cast<int64_t>(0), t);
+        result.double_value = 0.0;
+        result.quad_value = 0.0L;
+        result.numeric_type = t.type_info;
         result.deferred_node = node;
         result.is_deferred = true;
         return result;
     }
     
     bool is_numeric() const { return is_numeric_result && !is_deferred && !is_struct_result; }
+    bool is_floating() const { return is_numeric() && is_float_result; }
     bool is_string() const { return !is_numeric_result && !is_deferred && !is_struct_result; }
     bool is_struct() const { return is_struct_result && struct_data != nullptr; }
     bool needs_deferred_evaluation() const { return is_deferred; }
     
     int64_t as_numeric() const { 
-        return (is_numeric() && !is_deferred) ? value : 0; 
+        if (!is_numeric() || is_deferred) {
+            return 0;
+        }
+        if (is_float_result) {
+            return static_cast<int64_t>(double_value);
+        }
+        return value; 
+    }
+
+    double as_double() const {
+        if (!is_numeric() || is_deferred) {
+            return 0.0;
+        }
+        return is_float_result ? double_value : static_cast<double>(value);
+    }
+
+    long double as_quad() const {
+        if (!is_numeric() || is_deferred) {
+            return 0.0L;
+        }
+        return is_float_result ? quad_value : static_cast<long double>(value);
     }
     
     std::string as_string() const { 
         if (is_string() && !is_deferred) {
             return string_value;
         } else if (is_numeric() && !is_deferred) {
+            if (is_float_result) {
+                return std::to_string(double_value);
+            }
             return std::to_string(value);
         }
         return "";

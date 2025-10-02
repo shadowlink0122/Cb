@@ -1,4 +1,5 @@
 #include "core/interpreter.h"
+#include "core/type_inference.h"
 #include "../../../common/ast.h"
 #include "../../../common/debug.h"
 #include "../../../common/debug_messages.h"
@@ -385,7 +386,8 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
                             value = 0;
                         }
                         var.value = value;
-                        check_type_range(var.type, value, node->name);
+                        check_type_range(var.type, value, node->name,
+                                         var.is_unsigned);
                     }
                     var.is_assigned = true;
                 }
@@ -498,6 +500,10 @@ void Interpreter::process(const ASTNode *ast) {
 
 int64_t Interpreter::evaluate(const ASTNode *node) {
     return expression_evaluator_->evaluate_expression(node);
+}
+
+TypedValue Interpreter::evaluate_typed_expression(const ASTNode *node) {
+    return expression_evaluator_->evaluate_typed_expression(node);
 }
 
 // N次元配列リテラル処理の再帰関数
@@ -1025,7 +1031,6 @@ void Interpreter::execute_statement(const ASTNode *node) {
                 debug_msg(DebugMsgId::INTERPRETER_RETURN_VAR, node->left->name.c_str());
                 // 変数の場合、配列変数かチェック
                 Variable *var = find_variable(node->left->name);
-                
                 if (var && var->is_struct) {
                     // struct変数を返す前に直接アクセス変数からstruct_membersに同期
                     sync_struct_members_from_direct_access(node->left->name);
@@ -1034,6 +1039,47 @@ void Interpreter::execute_statement(const ASTNode *node) {
                             var->type = TYPE_STRUCT;  // 構造体のtype情報を正しく設定
                         }
                     }
+
+                    if (var->is_array) {
+                        debug_msg(DebugMsgId::INTERPRETER_RETURN_ARRAY_VAR);
+
+                        std::vector<std::vector<std::vector<Variable>>> struct_array_3d;
+                        std::vector<std::vector<Variable>> struct_array_2d;
+                        std::vector<Variable> struct_array_1d;
+
+                        for (int i = 0; i < var->array_size; ++i) {
+                            std::string element_name = node->left->name + "[" + std::to_string(i) + "]";
+                            Variable *element_var = find_variable(element_name);
+
+                            if (element_var && element_var->is_struct) {
+                                Variable struct_element = *element_var;
+                                struct_element.is_struct = true;
+                                struct_element.type = TYPE_STRUCT;
+
+                                if (struct_element.struct_type_name.empty()) {
+                                    struct_element.struct_type_name = element_var->struct_type_name;
+                                }
+
+                                struct_array_1d.push_back(struct_element);
+                                debug_msg(DebugMsgId::INTERPRETER_ARRAY_ELEMENT, i,
+                                          element_var->struct_type_name.c_str());
+                            } else {
+                                Variable empty_struct;
+                                empty_struct.type = TYPE_STRUCT;
+                                empty_struct.is_struct = true;
+                                empty_struct.struct_type_name = element_name;
+                                struct_array_1d.push_back(empty_struct);
+                            }
+                        }
+
+                        struct_array_2d.push_back(struct_array_1d);
+                        struct_array_3d.push_back(struct_array_2d);
+
+                        std::string struct_type_name =
+                            var->type_name.empty() ? node->left->name : var->type_name;
+                        throw ReturnException(struct_array_3d, struct_type_name);
+                    }
+
                     debug_msg(DebugMsgId::INTERPRETER_RETURN_ARRAY_VAR);
                     throw ReturnException(*var);
                 } else if (var && !var->interface_name.empty()) {
@@ -1396,7 +1442,7 @@ void Interpreter::execute_statement(const ASTNode *node) {
                 }
             }
         } else {
-            throw ReturnException(0);
+            throw ReturnException(static_cast<int64_t>(0), TYPE_INT);
         }
         break;
 
@@ -1448,12 +1494,23 @@ void Interpreter::assign_variable(const std::string &name, int64_t value,
 
 void Interpreter::assign_variable(const std::string &name,
                                   const std::string &value) {
-    variable_manager_->assign_variable(name, value);
+    InferredType inferred(TYPE_STRING, "string");
+    TypedValue typed_value(value, inferred);
+    variable_manager_->assign_variable(name, typed_value, TYPE_STRING, false);
 }
 
 void Interpreter::assign_variable(const std::string &name,
                                   const std::string &value, bool is_const) {
-    variable_manager_->assign_variable(name, value, is_const);
+    InferredType inferred(TYPE_STRING, "string");
+    TypedValue typed_value(value, inferred);
+    variable_manager_->assign_variable(name, typed_value, TYPE_STRING,
+                                       is_const);
+}
+
+void Interpreter::assign_variable(const std::string &name,
+                                  const TypedValue &value,
+                                  TypeInfo type_hint, bool is_const) {
+    variable_manager_->assign_variable(name, value, type_hint, is_const);
 }
 
 void Interpreter::assign_union_variable(const std::string &name, const ASTNode* value_node) {
@@ -1530,6 +1587,14 @@ void Interpreter::handle_impl_declaration(const ASTNode *node) {
 
 void Interpreter::assign_function_parameter(const std::string &name,
                                             int64_t value, TypeInfo type,
+                                            bool is_unsigned) {
+    variable_manager_->assign_function_parameter(name, value, type,
+                                                 is_unsigned);
+}
+
+void Interpreter::assign_function_parameter(const std::string &name,
+                                            const TypedValue &value,
+                                            TypeInfo type,
                                             bool is_unsigned) {
     variable_manager_->assign_function_parameter(name, value, type,
                                                  is_unsigned);
@@ -1637,8 +1702,9 @@ void Interpreter::print_formatted(const ASTNode *format_str,
 }
 
 void Interpreter::check_type_range(TypeInfo type, int64_t value,
-                                   const std::string &name) {
-    type_manager_->check_type_range(type, value, name);
+                                   const std::string &name,
+                                   bool is_unsigned) {
+    type_manager_->check_type_range(type, value, name, is_unsigned);
 }
 
 // エラー表示ヘルパー関数の実装
@@ -1815,6 +1881,82 @@ void Interpreter::assign_array_from_return(const std::string &name,
         var->type = static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_STRING);
         var->array_values.clear();
 
+    } else if (ret.is_struct_array && !ret.struct_array_3d.empty()) {
+        debug_msg(DebugMsgId::ARRAY_LITERAL_INIT_PROCESSING,
+                  "Processing struct array return value");
+
+        // フラット化して要素数を取得
+        std::vector<Variable> flattened_structs;
+        for (const auto &plane : ret.struct_array_3d) {
+            for (const auto &row : plane) {
+                for (const auto &element : row) {
+                    flattened_structs.push_back(element);
+                }
+            }
+        }
+
+        actual_return_size = static_cast<int>(flattened_structs.size());
+
+        if (declared_array_size > 0 && declared_array_size != actual_return_size) {
+            error_msg(DebugMsgId::DYNAMIC_ARRAY_NOT_SUPPORTED,
+                      ("Struct array size mismatch in assignment: declared " +
+                       std::to_string(declared_array_size) +
+                       " elements but function returned " +
+                       std::to_string(actual_return_size) + " elements")
+                          .c_str());
+            throw std::runtime_error(
+                "Struct array size mismatch in function return assignment");
+        }
+
+        // 構造体配列の各要素を更新
+        for (int i = 0; i < actual_return_size; ++i) {
+            const Variable &source_struct = flattened_structs[i];
+            std::string element_name =
+                name + "[" + std::to_string(i) + "]";
+
+            Variable *element_var = find_variable(element_name);
+            if (!element_var) {
+                // 同じスコープに要素変数が存在しない場合は作成
+                current_scope().variables[element_name] = source_struct;
+                element_var = &current_scope().variables[element_name];
+            } else {
+                *element_var = source_struct;
+            }
+
+            element_var->is_assigned = true;
+            element_var->is_struct = true;
+            element_var->type = TYPE_STRUCT;
+            if (!source_struct.struct_type_name.empty()) {
+                element_var->struct_type_name = source_struct.struct_type_name;
+            }
+
+            // 個別メンバー変数も同期
+            for (const auto &member_pair : source_struct.struct_members) {
+                std::string member_path = element_name + "." + member_pair.first;
+                Variable *member_var = find_variable(member_path);
+                if (member_var) {
+                    *member_var = member_pair.second;
+                    member_var->is_assigned = member_pair.second.is_assigned;
+                } else {
+                    current_scope().variables[member_path] = member_pair.second;
+                    current_scope().variables[member_path].is_assigned =
+                        member_pair.second.is_assigned;
+                }
+            }
+        }
+
+        var->is_assigned = true;
+        var->is_struct = true;
+        var->type = TYPE_STRUCT;
+        if (!ret.struct_type_name.empty()) {
+            var->struct_type_name = ret.struct_type_name;
+        }
+        var->array_size = actual_return_size;
+        if (!var->array_dimensions.empty()) {
+            var->array_dimensions[0] = actual_return_size;
+        }
+        var->array_values.clear();
+        var->array_strings.clear();
     } else if (!ret.int_array_3d.empty()) {
         // 整数配列の場合
         debug_msg(DebugMsgId::ARRAY_LITERAL_INIT_PROCESSING,
@@ -3777,11 +3919,9 @@ void Interpreter::sync_struct_members_from_direct_access(const std::string &var_
                 bool direct_is_union = type_manager_->is_union_type(*direct_var);
                 bool member_is_union = (!member_union_alias.empty() && type_manager_->is_union_type(member_union_alias));
 
-                bool treat_as_string = member_base_type == TYPE_STRING || direct_base_type == TYPE_STRING ||
-                    ((direct_is_union || member_is_union) &&
-                     (direct_var->type == TYPE_STRING || !direct_var->str_value.empty()));
+                Variable member_value = *direct_var;
 
-                Variable member_value;
+                // メンバー定義由来のメタ情報を優先度高く上書き
                 member_value.is_pointer = member.is_pointer;
                 member_value.pointer_depth = member.pointer_depth;
                 member_value.pointer_base_type_name = member.pointer_base_type_name;
@@ -3790,23 +3930,42 @@ void Interpreter::sync_struct_members_from_direct_access(const std::string &var_
                 member_value.is_reference = member.is_reference;
                 member_value.is_unsigned = member.is_unsigned;
 
-                if (treat_as_string) {
-                    member_value.type = TYPE_STRING;
-                    // Union型名を設定：direct_varから取得できない場合は構造体定義から取得
+                // unionメンバーの場合、型名とcurrent_typeを確実に保持
+                if (direct_is_union || member_is_union) {
+                    member_value.type = TYPE_UNION;
                     if (!direct_var->type_name.empty()) {
                         member_value.type_name = direct_var->type_name;
                     } else if (!member_union_alias.empty()) {
                         member_value.type_name = member_union_alias;
-                    } else {
-                        member_value.type_name = member.type_alias;
                     }
-                    member_value.str_value = direct_var->str_value;
+                    member_value.current_type = direct_var->current_type;
                 } else {
+                    // 通常のメンバー型を構造体定義に合わせる
                     member_value.type = member.type;
-                    member_value.value = direct_var->value;
                 }
 
+                // 数値/文字列/浮動小数などの基本値を direct_var に合わせて整合させる
+                member_value.value = direct_var->value;
+                member_value.str_value = direct_var->str_value;
+                member_value.float_value = direct_var->float_value;
+                member_value.double_value = direct_var->double_value;
+                member_value.quad_value = direct_var->quad_value;
+                member_value.big_value = direct_var->big_value;
                 member_value.is_assigned = direct_var->is_assigned;
+
+                // 構造体・配列などの複合型もコピー（= *direct_varでコピー済みだが念のため整合）
+                member_value.is_array = direct_var->is_array;
+                member_value.array_size = direct_var->array_size;
+                member_value.array_values = direct_var->array_values;
+                member_value.array_strings = direct_var->array_strings;
+                member_value.array_dimensions = direct_var->array_dimensions;
+                member_value.is_multidimensional = direct_var->is_multidimensional;
+                member_value.multidim_array_values = direct_var->multidim_array_values;
+                member_value.multidim_array_strings = direct_var->multidim_array_strings;
+                member_value.is_struct = direct_var->is_struct;
+                member_value.struct_type_name = direct_var->struct_type_name;
+                member_value.struct_members = direct_var->struct_members;
+
                 var->struct_members[member.name] = member_value;
                 debug_msg(DebugMsgId::INTERPRETER_STRUCT_SYNCED, member.name.c_str());
             }
@@ -3884,6 +4043,162 @@ void Interpreter::sync_struct_members_from_direct_access(const std::string &var_
         }
     }
     
+    debug_msg(DebugMsgId::INTERPRETER_SYNC_STRUCT_MEMBERS_END, var_name.c_str());
+}
+
+void Interpreter::sync_direct_access_from_struct_value(const std::string &var_name,
+                                                       const Variable &struct_value) {
+    debug_msg(DebugMsgId::INTERPRETER_SYNC_STRUCT_MEMBERS_START, var_name.c_str());
+
+    std::map<std::string, Variable> *target_map = nullptr;
+    for (auto it = scope_stack.rbegin(); it != scope_stack.rend(); ++it) {
+        if (it->variables.find(var_name) != it->variables.end()) {
+            target_map = &it->variables;
+            break;
+        }
+    }
+
+    if (!target_map) {
+        auto global_it = global_scope.variables.find(var_name);
+        if (global_it != global_scope.variables.end()) {
+            target_map = &global_scope.variables;
+        }
+    }
+
+    if (!target_map) {
+        auto static_it = static_variables.find(var_name);
+        if (static_it != static_variables.end()) {
+            target_map = &static_variables;
+        }
+    }
+
+    if (!target_map) {
+        target_map = &current_scope().variables;
+    }
+
+    // ルートの構造体変数を最新の値で更新
+    (*target_map)[var_name] = struct_value;
+    Variable &root_var = (*target_map)[var_name];
+    root_var.is_assigned = true;
+    root_var.is_struct = true;
+
+    if (debug_mode) {
+        debug_print("DIRECT_SYNC: updating %s with %zu members\n",
+                    var_name.c_str(), struct_value.struct_members.size());
+    }
+
+    std::function<void(std::map<std::string, Variable> &, const std::string &, const Variable &)> copy_members;
+    copy_members = [&](std::map<std::string, Variable> &vars, const std::string &base_name, const Variable &source) {
+        for (const auto &member_pair : source.struct_members) {
+            const std::string &member_name = member_pair.first;
+            const Variable &member_value = member_pair.second;
+            std::string qualified_name = base_name + "." + member_name;
+
+            vars[qualified_name] = member_value;
+            Variable &dest_member = vars[qualified_name];
+            dest_member.is_assigned = true;
+
+            if (debug_mode) {
+                debug_print("DIRECT_SYNC_MEMBER: %s value=%lld str='%s' type=%d current_type=%d\n",
+                            qualified_name.c_str(),
+                            static_cast<long long>(member_value.value),
+                            member_value.str_value.c_str(),
+                            static_cast<int>(member_value.type),
+                            static_cast<int>(member_value.current_type));
+            }
+
+            if (member_value.is_array || member_value.type >= TYPE_ARRAY_BASE || member_value.is_multidimensional) {
+                dest_member.array_size = member_value.array_size;
+                dest_member.array_dimensions = member_value.array_dimensions;
+                dest_member.array_values = member_value.array_values;
+                dest_member.array_strings = member_value.array_strings;
+                dest_member.multidim_array_values = member_value.multidim_array_values;
+                dest_member.multidim_array_strings = member_value.multidim_array_strings;
+                dest_member.is_array = member_value.is_array;
+                dest_member.is_multidimensional = member_value.is_multidimensional;
+
+                int total_size = 0;
+                if (!member_value.array_dimensions.empty()) {
+                    total_size = 1;
+                    for (int dim : member_value.array_dimensions) {
+                        total_size *= dim;
+                    }
+                } else if (member_value.is_multidimensional) {
+                    total_size = static_cast<int>(member_value.multidim_array_values.size());
+                    if (total_size == 0) {
+                        total_size = static_cast<int>(member_value.multidim_array_strings.size());
+                    }
+                } else if (!member_value.array_values.empty() || !member_value.array_strings.empty()) {
+                    total_size = static_cast<int>(
+                        std::max(member_value.array_values.size(), member_value.array_strings.size()));
+                }
+
+                if (total_size == 0) {
+                    total_size = member_value.array_size;
+                }
+
+                if (total_size < 0) {
+                    total_size = 0;
+                }
+
+                for (int i = 0; i < total_size; ++i) {
+                    std::string element_name = qualified_name + "[" + std::to_string(i) + "]";
+                    Variable element_var;
+                    element_var.is_assigned = true;
+                    element_var.is_const = dest_member.is_const;
+                    element_var.is_unsigned = dest_member.is_unsigned;
+
+                    bool treat_as_string = (member_value.type == TYPE_STRING ||
+                                            member_value.current_type == TYPE_STRING ||
+                                            !member_value.array_strings.empty() ||
+                                            !member_value.multidim_array_strings.empty());
+
+                    if (treat_as_string) {
+                        element_var.type = TYPE_STRING;
+                        if (i < static_cast<int>(member_value.array_strings.size())) {
+                            element_var.str_value = member_value.array_strings[i];
+                        } else if (i < static_cast<int>(member_value.multidim_array_strings.size())) {
+                            element_var.str_value = member_value.multidim_array_strings[i];
+                        } else {
+                            element_var.str_value = "";
+                        }
+                    } else {
+                        element_var.type = member_value.type;
+                        if (element_var.type >= TYPE_ARRAY_BASE) {
+                            element_var.type = static_cast<TypeInfo>(element_var.type - TYPE_ARRAY_BASE);
+                        }
+                        int64_t numeric_value = 0;
+                        if (member_value.is_multidimensional &&
+                            i < static_cast<int>(member_value.multidim_array_values.size())) {
+                            numeric_value = member_value.multidim_array_values[i];
+                        } else if (i < static_cast<int>(member_value.array_values.size())) {
+                            numeric_value = member_value.array_values[i];
+                        }
+                        element_var.value = numeric_value;
+                    }
+
+                    vars[element_name] = element_var;
+                    if (debug_mode) {
+                        if (element_var.type == TYPE_STRING) {
+                            debug_print("DIRECT_SYNC_ARRAY_ELEM: %s str='%s'\n",
+                                        element_name.c_str(), element_var.str_value.c_str());
+                        } else {
+                            debug_print("DIRECT_SYNC_ARRAY_ELEM: %s value=%lld\n",
+                                        element_name.c_str(),
+                                        static_cast<long long>(element_var.value));
+                        }
+                    }
+                }
+            }
+
+            if (member_value.is_struct && !member_value.struct_members.empty()) {
+                copy_members(vars, qualified_name, member_value);
+            }
+        }
+    };
+
+    copy_members(*target_map, var_name, struct_value);
+
     debug_msg(DebugMsgId::INTERPRETER_SYNC_STRUCT_MEMBERS_END, var_name.c_str());
 }
 

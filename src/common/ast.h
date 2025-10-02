@@ -631,7 +631,12 @@ struct ASTNode {
     bool is_unsigned = false;                  // unsigned修飾子
 
     // 値・名前
-    int64_t int_value = 0;
+    int64_t int_value = 0;     // 整数リテラル値
+    double double_value = 0.0; // 浮動小数点リテラル値（float/double）
+    long double quad_value = 0.0L; // 128bit 浮動小数点リテラル値
+    bool is_float_literal = false; // 浮動小数点リテラルかどうか
+    TypeInfo literal_type = TYPE_UNKNOWN; // リテラル固有の型
+    std::string literal_text;             // 元のリテラル文字列表現
     std::string str_value;
     std::string name;
     std::string type_name; // typedef名など、型の文字列表現

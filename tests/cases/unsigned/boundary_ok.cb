@@ -1,0 +1,16 @@
+int main() {
+    println("Unsigned boundary test:");
+
+    unsigned tiny ut = 255;
+    unsigned short us = 65535;
+    unsigned int ui = 4294967295;
+    unsigned long ul = 9223372036854775807;
+
+    print("ut (max unsigned tiny): "); println(ut);
+    print("us (max unsigned short): "); println(us);
+    print("ui (max unsigned int): "); println(ui);
+    print("ul (max unsigned long): "); println(ul);
+
+    println("Unsigned boundary test passed");
+    return 0;
+}

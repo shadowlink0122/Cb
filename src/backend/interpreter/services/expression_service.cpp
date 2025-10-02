@@ -137,11 +137,11 @@ void ExpressionService::increment_stats(const std::string &evaluation_type,
 
     // デバッグモードでは統計情報をログ出力
     if (is_debug_mode()) {
-        debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
-                  ("ExpressionService Stats: Total=" +
-                   std::to_string(stats_.total_evaluations) +
-                   ", Failed=" + std::to_string(stats_.failed_evaluations))
-                      .c_str());
+        std::string stats_message = "ExpressionService Stats: Total=" +
+                                    std::to_string(stats_.total_evaluations) +
+                                    ", Failed=" +
+                                    std::to_string(stats_.failed_evaluations);
+        debug_msg(DebugMsgId::ARRAY_DECL_DEBUG, stats_message.c_str());
     }
 }
 
