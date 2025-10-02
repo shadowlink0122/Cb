@@ -2217,19 +2217,63 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                             "value");
                     }
                 } else {
-                    // 型推論対応の式評価を使用して文字列値も取得
+                    // 型推論対応の式評価を使用して文字列・数値を取得
                     TypedValue typed_result = interpreter_->expression_evaluator_
                             ->evaluate_typed_expression(node->init_expr.get());
-                    
+
                     if (typed_result.is_string()) {
+                        var.type = TYPE_STRING;
                         var.str_value = typed_result.string_value;
-                        var.value = 0;
+                        setNumericFields(var, 0.0L);
+                    } else if (typed_result.is_numeric()) {
+                        var.str_value.clear();
+
+                        TypeInfo inferred_type = var.type;
+                        if (inferred_type == TYPE_UNKNOWN &&
+                            typed_result.numeric_type != TYPE_UNKNOWN) {
+                            inferred_type = typed_result.numeric_type;
+                            var.type = inferred_type;
+                        }
+
+                        const long double quad_value = typed_result.as_quad();
+                        auto assign_from_quad = [&](long double value) {
+                            setNumericFields(var, value);
+                        };
+
+                        switch (inferred_type) {
+                        case TYPE_FLOAT: {
+                            float f = static_cast<float>(quad_value);
+                            assign_from_quad(static_cast<long double>(f));
+                            break;
+                        }
+                        case TYPE_DOUBLE: {
+                            double d = static_cast<double>(quad_value);
+                            assign_from_quad(static_cast<long double>(d));
+                            break;
+                        }
+                        case TYPE_QUAD:
+                            assign_from_quad(quad_value);
+                            break;
+                        default: {
+                            int64_t numeric_value = typed_result.as_numeric();
+                            clamp_unsigned_initial(var, numeric_value,
+                                                   "initialized with expression");
+                            assign_from_quad(static_cast<long double>(numeric_value));
+
+                            if (var.type == TYPE_UNKNOWN) {
+                                if (typed_result.numeric_type != TYPE_UNKNOWN) {
+                                    var.type = typed_result.numeric_type;
+                                } else {
+                                    var.type = TYPE_INT;
+                                }
+                            }
+                            break;
+                        }
+                        }
                     } else {
-                        int64_t numeric_value = typed_result.value;
-                        clamp_unsigned_initial(var, numeric_value,
-                                               "initialized with expression");
-                        var.value = numeric_value;
-                        var.str_value = "";
+                        // 非数値かつ非文字列の場合は0初期化
+                        setNumericFields(var, 0.0L);
+                        var.str_value.clear();
                     }
                     var.is_assigned = true;
                 }

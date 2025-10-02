@@ -127,6 +127,448 @@ void OutputManager::print_value(const ASTNode *expr) {
         io_interface_->write_number(0);
     };
 
+    auto evaluate_numeric_and_write = [&](const ASTNode *node) {
+        int64_t value = evaluate_expression(node);
+        io_interface_->write_number(value);
+    };
+
+    auto print_string_array_element = [&](Variable *var, int64_t index) {
+        if (!var) {
+            io_interface_->write_string("");
+            return;
+        }
+
+        if (index >= 0 &&
+            index < static_cast<int64_t>(var->array_strings.size())) {
+            io_interface_->write_string(var->array_strings[static_cast<size_t>(index)].c_str());
+        } else {
+            io_interface_->write_string("");
+        }
+    };
+
+    auto print_numeric_array_element = [&](Variable *var, int64_t index) {
+        if (!var) {
+            io_interface_->write_number(0);
+            return;
+        }
+
+        if (index >= 0 && index < static_cast<int64_t>(var->array_values.size())) {
+            io_interface_->write_number(var->array_values[static_cast<size_t>(index)]);
+        } else {
+            io_interface_->write_number(0);
+        }
+    };
+
+    auto print_array_literal = [&](const ASTNode *array_node,
+                                   const auto &self_ref) -> void {
+        if (!array_node) {
+            io_interface_->write_string("[]");
+            return;
+        }
+
+        io_interface_->write_char('[');
+        for (size_t i = 0; i < array_node->arguments.size(); ++i) {
+            if (i > 0) {
+                io_interface_->write_string(", ");
+            }
+            const ASTNode *child = array_node->arguments[i].get();
+            if (child && child->node_type == ASTNodeType::AST_ARRAY_LITERAL) {
+                self_ref(child, self_ref);
+            } else {
+                print_value(child);
+            }
+        }
+        io_interface_->write_char(']');
+    };
+
+    auto determine_dimensions = [](const std::string &type_name) -> int {
+        return static_cast<int>(std::count(type_name.begin(), type_name.end(), '['));
+    };
+
+    auto render_int_vector = [](const std::vector<int64_t> &vec) {
+        std::ostringstream oss;
+        oss << '[';
+        for (size_t i = 0; i < vec.size(); ++i) {
+            if (i > 0) {
+                oss << ", ";
+            }
+            oss << vec[i];
+        }
+        oss << ']';
+        return oss.str();
+    };
+
+    auto render_string_vector = [](const std::vector<std::string> &vec) {
+        std::ostringstream oss;
+        oss << '[';
+        for (size_t i = 0; i < vec.size(); ++i) {
+            if (i > 0) {
+                oss << ", ";
+            }
+            oss << '"' << vec[i] << '"';
+        }
+        oss << ']';
+        return oss.str();
+    };
+
+    auto render_int_array = [&](const ReturnException &ret) {
+        if (ret.int_array_3d.empty()) {
+            return std::string("[]");
+        }
+
+        int dims = determine_dimensions(ret.array_type_name);
+        if (dims <= 1) {
+            return render_int_vector(ret.int_array_3d.front().front());
+        }
+
+        std::ostringstream oss;
+        oss << '[';
+        for (size_t i = 0; i < ret.int_array_3d.size(); ++i) {
+            if (i > 0) {
+                oss << ", ";
+            }
+            const auto &matrix = ret.int_array_3d[i];
+            if (dims == 2) {
+                if (matrix.empty()) {
+                    oss << "[]";
+                    continue;
+                }
+                oss << '[';
+                for (size_t j = 0; j < matrix.size(); ++j) {
+                    if (j > 0) {
+                        oss << ", ";
+                    }
+                    oss << render_int_vector(matrix[j]);
+                }
+                oss << ']';
+            } else {
+                oss << '[';
+                for (size_t j = 0; j < matrix.size(); ++j) {
+                    if (j > 0) {
+                        oss << ", ";
+                    }
+                    oss << '[';
+                    const auto &row = matrix[j];
+                    for (size_t k = 0; k < row.size(); ++k) {
+                        if (k > 0) {
+                            oss << ", ";
+                        }
+                        oss << row[k];
+                    }
+                    oss << ']';
+                }
+                oss << ']';
+            }
+        }
+        oss << ']';
+        return oss.str();
+    };
+
+    auto render_string_array = [&](const ReturnException &ret) {
+        if (ret.str_array_3d.empty()) {
+            return std::string("[]");
+        }
+
+        int dims = determine_dimensions(ret.array_type_name);
+        if (dims <= 1) {
+            return render_string_vector(ret.str_array_3d.front().front());
+        }
+
+        std::ostringstream oss;
+        oss << '[';
+        for (size_t i = 0; i < ret.str_array_3d.size(); ++i) {
+            if (i > 0) {
+                oss << ", ";
+            }
+            const auto &matrix = ret.str_array_3d[i];
+            if (dims == 2) {
+                if (matrix.empty()) {
+                    oss << "[]";
+                    continue;
+                }
+                oss << '[';
+                for (size_t j = 0; j < matrix.size(); ++j) {
+                    if (j > 0) {
+                        oss << ", ";
+                    }
+                    oss << render_string_vector(matrix[j]);
+                }
+                oss << ']';
+            } else {
+                oss << '[';
+                for (size_t j = 0; j < matrix.size(); ++j) {
+                    if (j > 0) {
+                        oss << ", ";
+                    }
+                    oss << '[';
+                    const auto &row = matrix[j];
+                    for (size_t k = 0; k < row.size(); ++k) {
+                        if (k > 0) {
+                            oss << ", ";
+                        }
+                        oss << '"' << row[k] << '"';
+                    }
+                    oss << ']';
+                }
+                oss << ']';
+            }
+        }
+        oss << ']';
+        return oss.str();
+    };
+
+    try {
+        TypedValue typed = interpreter_->evaluate_typed_expression(expr);
+        if (!typed.needs_deferred_evaluation()) {
+            if (typed.is_struct()) {
+                io_interface_->write_string("(struct)");
+                return;
+            }
+
+            write_typed_value(typed);
+            return;
+        }
+    } catch (const ReturnException &ret) {
+        if (ret.is_array) {
+            std::string rendered = !ret.str_array_3d.empty()
+                                        ? render_string_array(ret)
+                                        : render_int_array(ret);
+            io_interface_->write_string(rendered.c_str());
+            return;
+        }
+
+        if (ret.type == TYPE_STRING) {
+            io_interface_->write_string(ret.str_value.c_str());
+            return;
+        }
+
+        write_numeric_value(io_interface_, ret.type, ret.value, ret.double_value,
+                            ret.quad_value);
+        return;
+    } catch (const std::exception &) {
+        // フォールバック処理へ移行
+    }
+
+    if (expr->node_type == ASTNodeType::AST_STRING_LITERAL) {
+        io_interface_->write_string(expr->str_value.c_str());
+        return;
+    }
+
+    if (expr->node_type == ASTNodeType::AST_ARRAY_LITERAL) {
+        print_array_literal(expr, print_array_literal);
+        return;
+    }
+
+    if (expr->node_type == ASTNodeType::AST_VARIABLE) {
+        Variable *var = find_variable(expr->name);
+        if (var && var->type == TYPE_STRING) {
+            io_interface_->write_string(var->str_value.c_str());
+            return;
+        }
+
+        evaluate_numeric_and_write(expr);
+        return;
+    }
+
+    if (expr->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
+        std::string struct_name;
+        std::string member_name = expr->name;
+
+        if (expr->left && expr->left->node_type == ASTNodeType::AST_VARIABLE) {
+            struct_name = expr->left->name;
+        } else if (expr->left && expr->left->node_type == ASTNodeType::AST_ARRAY_REF) {
+            if (!expr->left->left) {
+                io_interface_->write_string("(null array reference)");
+                return;
+            }
+            std::string array_name = expr->left->left->name;
+            int64_t index = evaluate_expression(expr->left->array_index.get());
+            struct_name = array_name + "[" + std::to_string(index) + "]";
+        } else {
+            io_interface_->write_string("(invalid member access)");
+            return;
+        }
+
+        try {
+            Variable *member_var = interpreter_->get_struct_member(struct_name, member_name);
+            if (member_var->type == TYPE_STRING) {
+                io_interface_->write_string(member_var->str_value.c_str());
+            } else {
+                io_interface_->write_number(member_var->value);
+            }
+        } catch (const std::exception &) {
+            io_interface_->write_string("(member access error)");
+        }
+        return;
+    }
+
+    if (expr->node_type == ASTNodeType::AST_MEMBER_ARRAY_ACCESS) {
+        std::string obj_name;
+        if (expr->left && expr->left->node_type == ASTNodeType::AST_VARIABLE) {
+            obj_name = expr->left->name;
+        } else {
+            io_interface_->write_string("(invalid member array access)");
+            return;
+        }
+
+        std::string member_name = expr->name;
+        int64_t index = evaluate_expression(expr->right.get());
+
+        try {
+            Variable *member_var = interpreter_->get_struct_member(obj_name, member_name);
+            if (member_var && member_var->is_array) {
+                if (member_var->type == TYPE_STRING) {
+                    print_string_array_element(member_var, index);
+                } else {
+                    int64_t value = interpreter_->get_struct_member_array_element(
+                        obj_name, member_name, static_cast<int>(index));
+                    io_interface_->write_number(value);
+                }
+            } else {
+                io_interface_->write_string("(not an array member)");
+            }
+        } catch (const std::exception &) {
+            io_interface_->write_string("(member array access error)");
+        }
+        return;
+    }
+
+    if (expr->node_type == ASTNodeType::AST_ARRAY_REF) {
+        std::string var_name;
+
+        if (expr->left && expr->left->node_type == ASTNodeType::AST_VARIABLE) {
+            var_name = expr->left->name;
+        } else if (!expr->name.empty()) {
+            var_name = expr->name;
+        } else if (expr->left) {
+            if (expr->left->node_type == ASTNodeType::AST_ARRAY_REF) {
+                ASTNode *base_node = expr->left.get();
+                while (base_node && base_node->node_type == ASTNodeType::AST_ARRAY_REF &&
+                       base_node->left) {
+                    base_node = base_node->left.get();
+                }
+
+                if (base_node && base_node->node_type == ASTNodeType::AST_VARIABLE) {
+                    Variable *var = find_variable(base_node->name);
+                    if (var && var->is_multidimensional &&
+                        var->array_type_info.base_type == TYPE_STRING) {
+                        std::vector<int64_t> indices;
+                        int64_t outer_index = evaluate_expression(expr->array_index.get());
+                        int64_t inner_index = evaluate_expression(expr->left->array_index.get());
+
+                        indices.push_back(inner_index);
+                        indices.push_back(outer_index);
+
+                        try {
+                            std::string result =
+                                interpreter_->getMultidimensionalStringArrayElement(*var, indices);
+                            io_interface_->write_string(result.c_str());
+                            return;
+                        } catch (const std::exception &) {
+                            io_interface_->write_string("(string array access error)");
+                            return;
+                        }
+                    }
+                }
+            }
+
+            evaluate_numeric_and_write(expr);
+            return;
+        } else {
+            io_interface_->write_string("(invalid array ref)");
+            return;
+        }
+
+        Variable *var = find_variable(var_name);
+        if (var && var->is_array) {
+            if (!expression_service_) {
+                expression_service_ = interpreter_->get_expression_service();
+            }
+
+            int64_t index = 0;
+            if (expression_service_) {
+                index = expression_service_->evaluate_array_index(
+                    expr->array_index.get(), var->array_size, var_name);
+            } else {
+                index = evaluate_expression(expr->array_index.get());
+                if (index < 0 || index >= var->array_size) {
+                    error_msg(DebugMsgId::ARRAY_OUT_OF_BOUNDS_ERROR, var_name.c_str());
+                    throw std::runtime_error("Array out of bounds");
+                }
+            }
+
+            if (var->type >= TYPE_ARRAY_BASE) {
+                TypeInfo elem_type = static_cast<TypeInfo>(var->type - TYPE_ARRAY_BASE);
+                if (elem_type == TYPE_STRING) {
+                    print_string_array_element(var, index);
+                } else {
+                    print_numeric_array_element(var, index);
+                }
+            } else if (var->type == TYPE_STRING && var->is_array) {
+                print_string_array_element(var, index);
+            } else {
+                print_numeric_array_element(var, index);
+            }
+            return;
+        }
+
+        if (var && var->type == TYPE_STRING && !var->is_array) {
+            int64_t index = evaluate_expression(expr->array_index.get());
+            size_t utf8_length = utf8_utils::utf8_char_count(var->str_value);
+
+            if (index >= 0 && index < static_cast<int64_t>(utf8_length)) {
+                std::string utf8_char = utf8_utils::utf8_char_at(
+                    var->str_value, static_cast<size_t>(index));
+                io_interface_->write_string(utf8_char.c_str());
+            } else {
+                error_msg(DebugMsgId::STRING_OUT_OF_BOUNDS_ERROR, var_name.c_str(),
+                          index, utf8_length);
+                throw std::runtime_error("String out of bounds");
+            }
+            return;
+        }
+
+        evaluate_numeric_and_write(expr);
+        return;
+    }
+
+    if (expr->node_type == ASTNodeType::AST_FUNC_CALL) {
+        const ASTNode *func = find_function(expr->name);
+        if (func && func->type_info == TYPE_STRING) {
+            interpreter_->push_interpreter_scope();
+
+            for (size_t i = 0; i < func->parameters.size(); ++i) {
+                int64_t arg_value = evaluate_expression(expr->arguments[i].get());
+                Variable param;
+                param.type = func->parameters[i]->type_info;
+                param.value = arg_value;
+                param.is_assigned = true;
+                interpreter_->get_current_scope().variables.insert_or_assign(
+                    func->parameters[i]->name, std::move(param));
+            }
+
+            try {
+                interpreter_->exec_statement(func->body.get());
+                interpreter_->pop_interpreter_scope();
+            } catch (const ReturnException &e) {
+                interpreter_->pop_interpreter_scope();
+                if (e.type == TYPE_STRING) {
+                    io_interface_->write_string(e.str_value.c_str());
+                } else {
+                    write_numeric_value(io_interface_, e.type, e.value, e.double_value,
+                                        e.quad_value);
+                }
+            }
+            return;
+        }
+
+        evaluate_numeric_and_write(expr);
+        return;
+    }
+
+    evaluate_numeric_and_write(expr);
+}
+
 void OutputManager::print_value_with_newline(const ASTNode *expr) {
     print_value(expr);
     io_interface_->write_newline();
@@ -141,14 +583,22 @@ void OutputManager::print_multiple_with_newline(const ASTNode *arg_list) {
     io_interface_->write_newline();
 }
 
+void OutputManager::print_formatted(const ASTNode *format_str,
+                                    const ASTNode *arg_list) {
+    print_formatted(format_str, arg_list, 0);
+}
+
 void OutputManager::print_formatted_with_newline(const ASTNode *format_str,
-                                               const ASTNode *arg_list) {
+                                                 const ASTNode *arg_list) {
     print_formatted(format_str, arg_list);
     io_interface_->write_newline();
 }
-
+// オフセット付きprint_formatted（指定されたインデックスから引数を開始する）
 void OutputManager::print_formatted(const ASTNode *format_str,
-                                  const ASTNode *arg_list) {
+                                    const ASTNode *arg_list,
+                                    size_t start_index) {
+    debug_msg(DebugMsgId::PRINTF_OFFSET_CALLED, start_index);
+
     if (!format_str ||
         format_str->node_type != ASTNodeType::AST_STRING_LITERAL) {
         io_interface_->write_string("(invalid format)");
@@ -161,8 +611,10 @@ void OutputManager::print_formatted(const ASTNode *format_str,
     std::vector<long double> quad_args;
     std::vector<TypeInfo> type_args;
 
-    collect_formatted_arguments(arg_list, 0, true, int_args, str_args,
-                                double_args, quad_args, type_args);
+    bool allow_print_nodes = start_index > 0;
+    collect_formatted_arguments(arg_list, start_index, allow_print_nodes,
+                                int_args, str_args, double_args, quad_args,
+                                type_args);
 
     std::string rendered = render_formatted_string(
         format_str->str_value, int_args, str_args, double_args, quad_args,
@@ -170,304 +622,6 @@ void OutputManager::print_formatted(const ASTNode *format_str,
 
     io_interface_->write_string(rendered.c_str());
 }
-
-// オフセット付きprint_formatted（指定されたインデックスから引数を開始する）
-void OutputManager::print_formatted(const ASTNode *format_str, const ASTNode *arg_list, size_t start_index) {
-    debug_msg(DebugMsgId::PRINTF_OFFSET_CALLED, start_index);
-    
-    if (!format_str or format_str->node_type != ASTNodeType::AST_STRING_LITERAL) {
-        io_interface_->write_string("(invalid format)");
-        return;
-    }
-
-    std::string format = format_str->str_value;
-    
-    std::vector<int64_t> int_args;
-    std::vector<std::string> str_args;
-
-    // 引数リストをstart_indexから評価
-    if (arg_list && (arg_list->node_type == ASTNodeType::AST_STMT_LIST || 
-                     arg_list->node_type == ASTNodeType::AST_PRINTLN_STMT ||
-                     arg_list->node_type == ASTNodeType::AST_PRINT_STMT)) {
-        debug_msg(DebugMsgId::PRINTF_ARG_LIST_INFO, arg_list->arguments.size(), start_index);
-        
-        for (size_t i = start_index; i < arg_list->arguments.size(); i++) {
-            const auto &arg = arg_list->arguments[i];
-            
-            debug_msg(DebugMsgId::PRINTF_ARG_PROCESSING, i, static_cast<int>(arg->node_type));
-            
-            if (arg->node_type == ASTNodeType::AST_ARRAY_REF) {
-                debug_msg(DebugMsgId::PRINTF_ARRAY_REF_DEBUG, 
-                         arg->left.get(), arg->array_index.get());
-            }
-            
-            if (arg->node_type == ASTNodeType::AST_STRING_LITERAL) {
-                str_args.push_back(arg->str_value);
-                int_args.push_back(0); // プレースホルダー
-            } else if (arg->node_type == ASTNodeType::AST_VARIABLE) {
-                Variable *var = find_variable(arg->name);
-                if (var) {
-                    if (var->type == TYPE_STRING) {
-                        str_args.push_back(var->str_value);
-                        int_args.push_back(0); // プレースホルダー
-                    } else {
-                        int64_t value = evaluate_expression(arg.get());
-                        int_args.push_back(value);
-                        str_args.push_back(""); // プレースホルダー
-                    }
-                } else {
-                    int64_t value = evaluate_expression(arg.get());
-                    int_args.push_back(value);
-                    str_args.push_back(""); // プレースホルダー
-                }
-            } else if (arg->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
-                // struct メンバーアクセス: obj.member または array[idx].member
-                std::string member_name = arg->name;
-                std::string struct_name;
-                
-                if (arg->left && arg->left->node_type == ASTNodeType::AST_ARRAY_REF) {
-                    // 配列要素のメンバアクセス: team[0].name
-                    struct_name = interpreter_->extract_array_element_name(arg->left.get());
-                } else if (arg->left && arg->left->node_type == ASTNodeType::AST_VARIABLE) {
-                    // 通常の構造体メンバアクセス: obj.member
-                    struct_name = arg->left->name;
-                } else {
-                    // その他の場合は通常の式評価
-                    int64_t value = evaluate_expression(arg.get());
-                    int_args.push_back(value);
-                    str_args.push_back(""); // プレースホルダー
-                    continue;
-                }
-                
-                try {
-                    Variable* member_var = interpreter_->get_struct_member(struct_name, member_name);
-                    if (member_var && member_var->type == TYPE_STRING) {
-                        str_args.push_back(member_var->str_value);
-                        int_args.push_back(0); // プレースホルダー
-                    } else if (member_var) {
-                        int_args.push_back(member_var->value);
-                        str_args.push_back(""); // プレースホルダー
-                    } else {
-                        // メンバ変数が見つからない場合は通常の式評価
-                        int64_t value = evaluate_expression(arg.get());
-                        int_args.push_back(value);
-                        str_args.push_back(""); // プレースホルダー
-                    }
-                } catch (const std::exception& e) {
-                    std::cerr << "DEBUG: Exception in member access: " << e.what() << std::endl;
-                    int64_t value = evaluate_expression(arg.get());
-                    int_args.push_back(value);
-                    str_args.push_back(""); // プレースホルダー
-                }
-            } else if (arg->node_type == ASTNodeType::AST_ARRAY_REF) {
-                // 配列要素の処理
-                
-                // まず、構造体メンバー配列アクセスかどうかチェック
-                if (arg->left && arg->left->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
-                    // 構造体メンバー配列アクセス: obj.member[index]
-                    std::string obj_name = arg->left->left->name;
-                    std::string member_name = arg->left->name;
-                    int64_t index = evaluate_expression(arg->array_index.get());
-                    
-                    try {
-                        int64_t value = interpreter_->get_struct_member_array_element(obj_name, member_name, static_cast<int>(index));
-                        int_args.push_back(value);
-                        str_args.push_back("");
-                    } catch (const std::exception& e) {
-                        int_args.push_back(0);
-                        str_args.push_back("");
-                    }
-                } else {
-                    // 通常の配列アクセス
-                    Variable *var = find_variable(arg->left->name);
-                    if (var && var->is_array) {
-                        int64_t index = evaluate_expression(arg->array_index.get());
-                        // 文字列配列かどうかの判定を修正
-                        if (!var->array_strings.empty()) {
-                            if (index >= 0 && index < static_cast<int64_t>(var->array_strings.size())) {
-                                str_args.push_back(var->array_strings[index]);
-                                int_args.push_back(0); // プレースホルダー
-                            } else {
-                                str_args.push_back("");
-                                int_args.push_back(0);
-                            }
-                        } else {
-                            if (index >= 0 && index < static_cast<int64_t>(var->array_values.size())) {
-                                int_args.push_back(var->array_values[index]);
-                                str_args.push_back("");
-                            } else {
-                                int_args.push_back(0);
-                                str_args.push_back("");
-                            }
-                        }
-                    } else {
-                        int_args.push_back(0);
-                        str_args.push_back("");
-                    }
-                }
-            } else if (arg->node_type == ASTNodeType::AST_MEMBER_ARRAY_ACCESS) {
-                // 構造体メンバー配列アクセス: obj.member[index]
-                std::string obj_name;
-                if (arg->left && arg->left->node_type == ASTNodeType::AST_VARIABLE) {
-                    obj_name = arg->left->name;
-                } else {
-                    int_args.push_back(0);
-                    str_args.push_back("");
-                    continue;
-                }
-                
-                std::string member_name = arg->name;
-                int64_t index = evaluate_expression(arg->right.get());
-                
-                try {
-                    int64_t value = interpreter_->get_struct_member_array_element(obj_name, member_name, static_cast<int>(index));
-                    int_args.push_back(value);
-                    str_args.push_back("");
-                } catch (const std::exception& e) {
-                    int_args.push_back(0);
-                    str_args.push_back("");
-                }
-            } else {
-                int64_t value = evaluate_expression(arg.get());
-                int_args.push_back(value);
-                str_args.push_back(""); // プレースホルダー
-            }
-        }
-    }
-
-
-
-    // フォーマット文字列を処理（既存のロジックを再利用）
-    std::string result;
-    size_t arg_index = 0;
-    for (size_t i = 0; i < format.length(); i++) {
-        if (format[i] == '%' && i + 1 < format.length()) {
-            if (format[i + 1] == '%') {
-                result += '%';
-                i++; // '%%' をスキップ
-                continue;
-            }
-
-            if (arg_index >= int_args.size() && arg_index >= str_args.size()) {
-                result += format[i];
-                continue;
-            }
-
-            // フォーマット指定子を探す
-            size_t spec_start = i + 1;
-            size_t spec_end = spec_start;
-
-            // 幅指定を探す
-            int width = 0;
-            bool zero_pad = false;
-            if (spec_end < format.length() && format[spec_end] == '0') {
-                zero_pad = true;
-                spec_end++;
-            }
-
-            while (spec_end < format.length() && isdigit(format[spec_end])) {
-                width = width * 10 + (format[spec_end] - '0');
-                spec_end++;
-            }
-
-            if (spec_end < format.length()) {
-                switch (format[spec_end]) {
-                case 'd': {
-                    int64_t value;
-                    if (arg_index < str_args.size() && !str_args[arg_index].empty()) {
-                        try {
-                            value = std::stoll(str_args[arg_index]);
-                        } catch (const std::exception&) {
-                            value = 0;
-                        }
-                    } else {
-                        value = int_args[arg_index];
-                    }
-                    std::string num_str = std::to_string(value);
-
-                    if (zero_pad && width > 0 && num_str.length() < static_cast<size_t>(width)) {
-                        std::string padding(static_cast<size_t>(width) - num_str.length(), '0');
-                        result += padding + num_str;
-                    } else if (width > 0 && num_str.length() < static_cast<size_t>(width)) {
-                        std::string padding(static_cast<size_t>(width) - num_str.length(), ' ');
-                        result += padding + num_str;
-                    } else {
-                        result += num_str;
-                    }
-                    break;
-                }
-                case 's':
-                    if (arg_index < str_args.size() && !str_args[arg_index].empty()) {
-                        result += str_args[arg_index];
-                    } else if (arg_index < int_args.size()) {
-                        result += std::to_string(int_args[arg_index]);
-                    }
-                    break;
-                case 'c':
-                    if (arg_index < str_args.size() && !str_args[arg_index].empty()) {
-                        // 文字列が渡された場合、最初の文字を使用
-                        result += str_args[arg_index][0];
-                    } else if (arg_index < int_args.size()) {
-                        // 数値が渡された場合、ASCII文字として変換
-                        char ch = static_cast<char>(int_args[arg_index]);
-                        result += ch;
-                    }
-                    break;
-                case 'l':
-                    // %lld の処理
-                    if (spec_end + 2 < format.length() &&
-                        format[spec_end + 1] == 'l' &&
-                        format[spec_end + 2] == 'd') {
-                        int64_t value;
-                        // 文字列が渡された場合の型変換
-                        if (arg_index < str_args.size() && !str_args[arg_index].empty()) {
-                            try {
-                                value = std::stoll(str_args[arg_index]);
-                            } catch (const std::exception&) {
-                                value = 0; // 変換できない場合は0
-                            }
-                        } else if (arg_index < int_args.size()) {
-                            value = int_args[arg_index];
-                        } else {
-                            value = 0;
-                        }
-                        result += std::to_string(value);
-                        spec_end += 2; // 追加の 'll' をスキップ
-                    } else {
-                        int64_t value;
-                        // 文字列が渡された場合の型変換
-                        if (arg_index < str_args.size() && !str_args[arg_index].empty()) {
-                            try {
-                                value = std::stoll(str_args[arg_index]);
-                            } catch (const std::exception&) {
-                                value = 0; // 変換できない場合は0
-                            }
-                        } else if (arg_index < int_args.size()) {
-                            value = int_args[arg_index];
-                        } else {
-                            value = 0;
-                        }
-                        result += std::to_string(value);
-                    }
-                    break;
-                default:
-                    result += format[i];
-                    continue;
-                }
-                arg_index++;
-                i = spec_end; // specifierの位置に移動
-            } else {
-                result += format[i];
-            }
-        } else {
-            result += format[i];
-        }
-    }
-
-    std::string final_result = process_escape_sequences(result);
-    io_interface_->write_string(final_result.c_str());
-}
-
 std::string OutputManager::process_escape_sequences(const std::string& input) {
     std::string result;
     for (size_t i = 0; i < input.length(); i++) {
@@ -771,13 +925,6 @@ void OutputManager::collect_formatted_arguments(
                 }
 
                 size_t index = push_defaults();
-
-                auto set_numeric = [&](TypeInfo value_type, long double quad_value) {
-                    quad_args[index] = quad_value;
-                    double_args[index] = static_cast<double>(quad_value);
-                    int_args[index] = static_cast<int64_t>(quad_value);
-                    type_args[index] = value_type;
-                };
 
                 auto fallback_numeric = [&]() {
                     int64_t value = evaluate_expression(current);

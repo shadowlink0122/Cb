@@ -424,7 +424,13 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                 return 0;
             }
             // 数値多次元配列の場合
-            return interpreter_.getMultidimensionalArrayElement(*var, indices);
+            int64_t result = interpreter_.getMultidimensionalArrayElement(*var, indices);
+            if (interpreter_.is_debug_mode()) {
+                debug_print("[DBG multidim] %s dims=%zu value=%lld\n",
+                            array_name.c_str(), indices.size(),
+                            static_cast<long long>(result));
+            }
+            return result;
         }
         
         // 1次元文字列配列のアクセス
@@ -481,7 +487,13 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
             throw ReturnException(*element_var);
         }
 
-        return var->array_values[flat_index];
+        int64_t result = var->array_values[flat_index];
+        if (interpreter_.is_debug_mode()) {
+            debug_print("[DBG eval array] %s indices=%zu value=%lld\n",
+                        array_name.c_str(), indices.size(),
+                        static_cast<long long>(result));
+        }
+        return result;
     }
 
     case ASTNodeType::AST_ARRAY_LITERAL: {
@@ -2450,6 +2462,8 @@ TypedValue ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode
             // 変数の型に基づいて適切なTypedValueを作成
             if (var->type == TYPE_STRING) {
                 return TypedValue(var->str_value, InferredType(TYPE_STRING, "string"));
+            } else if (var->type == TYPE_STRUCT) {
+                return TypedValue(*var, InferredType(TYPE_STRUCT, var->struct_type_name));
             } else if (var->type == TYPE_UNION) {
                 if (var->current_type == TYPE_STRING) {
                     return TypedValue(var->str_value, InferredType(TYPE_STRING, "string"));
@@ -2463,59 +2477,202 @@ TypedValue ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode
         }
         
         case ASTNodeType::AST_MEMBER_ACCESS: {
+            auto convert_member_to_typed = [&](const Variable& member_var,
+                                               TypedValue& out) -> bool {
+                switch (member_var.type) {
+                case TYPE_STRING:
+                    out = TypedValue(member_var.str_value,
+                                      InferredType(TYPE_STRING, "string"));
+                    return true;
+                case TYPE_FLOAT:
+                    out = TypedValue(static_cast<double>(member_var.float_value),
+                                      InferredType(TYPE_FLOAT, "float"));
+                    return true;
+                case TYPE_DOUBLE:
+                    out = TypedValue(member_var.double_value,
+                                      InferredType(TYPE_DOUBLE, "double"));
+                    return true;
+                case TYPE_QUAD:
+                    out = TypedValue(member_var.quad_value,
+                                      InferredType(TYPE_QUAD, "quad"));
+                    return true;
+                case TYPE_STRUCT:
+                    out = TypedValue(member_var,
+                                      InferredType(TYPE_STRUCT,
+                                                   member_var.struct_type_name));
+                    return true;
+                case TYPE_UNION: {
+                    TypeInfo active = member_var.current_type;
+                    if (active == TYPE_STRING) {
+                        out = TypedValue(member_var.str_value,
+                                         InferredType(TYPE_STRING, "string"));
+                        return true;
+                    }
+                    if (active == TYPE_FLOAT) {
+                        out = TypedValue(static_cast<double>(member_var.float_value),
+                                         InferredType(TYPE_FLOAT, "float"));
+                        return true;
+                    }
+                    if (active == TYPE_DOUBLE) {
+                        out = TypedValue(member_var.double_value,
+                                         InferredType(TYPE_DOUBLE, "double"));
+                        return true;
+                    }
+                    if (active == TYPE_QUAD) {
+                        out = TypedValue(member_var.quad_value,
+                                         InferredType(TYPE_QUAD, "quad"));
+                        return true;
+                    }
+                    if (active != TYPE_UNKNOWN) {
+                        out = TypedValue(member_var.value,
+                                         InferredType(active,
+                                                      type_info_to_string(active)));
+                        return true;
+                    }
+                    break;
+                }
+                default:
+                    out = TypedValue(member_var.value,
+                                      InferredType(member_var.type,
+                                                   type_info_to_string(member_var.type)));
+                    return true;
+                }
+                return false;
+            };
+
+            auto resolve_from_struct = [&](const Variable& struct_var,
+                                           TypedValue& out) -> bool {
+                try {
+                    Variable member_var =
+                        get_struct_member_from_variable(struct_var, node->name);
+                    return convert_member_to_typed(member_var, out);
+                } catch (const std::exception&) {
+                    return false;
+                }
+            };
+
+            std::function<std::string(const ASTNode*)> build_base_name =
+                [&](const ASTNode* base) -> std::string {
+                if (!base) {
+                    return "";
+                }
+                switch (base->node_type) {
+                case ASTNodeType::AST_VARIABLE:
+                case ASTNodeType::AST_IDENTIFIER:
+                    return base->name;
+                case ASTNodeType::AST_ARRAY_REF:
+                    return interpreter_.extract_array_element_name(base);
+                case ASTNodeType::AST_MEMBER_ACCESS: {
+                    std::string prefix = build_base_name(base->left.get());
+                    if (prefix.empty()) {
+                        return "";
+                    }
+                    return prefix + "." + base->name;
+                }
+                default:
+                    return "";
+                }
+            };
+
+            auto resolve_from_base_name = [&](const std::string& base_name,
+                                              TypedValue& out) -> bool {
+                if (base_name.empty()) {
+                    return false;
+                }
+
+                try {
+                    interpreter_.sync_struct_members_from_direct_access(base_name);
+                    interpreter_.ensure_struct_member_access_allowed(base_name,
+                                                                     node->name);
+                } catch (const std::exception&) {
+                    // best effort even if sync fails
+                }
+
+                std::string member_path = base_name + "." + node->name;
+                if (Variable* direct_member =
+                        interpreter_.find_variable(member_path)) {
+                    if (convert_member_to_typed(*direct_member, out)) {
+                        return true;
+                    }
+                }
+
+                try {
+                    if (Variable* member_var =
+                            interpreter_.get_struct_member(base_name,
+                                                            node->name)) {
+                        if (convert_member_to_typed(*member_var, out)) {
+                            return true;
+                        }
+                    }
+                } catch (const std::exception&) {
+                }
+
+                return false;
+            };
+
             // func()[index].member パターンをチェック
             if (node->left && node->left->node_type == ASTNodeType::AST_ARRAY_REF &&
-                node->left->left && node->left->left->node_type == ASTNodeType::AST_FUNC_CALL) {
-                
-                debug_print("Processing func()[index].member pattern: %s[].%s\n", 
-                           node->left->left->name.c_str(), node->name.c_str());
-                
+                node->left->left &&
+                node->left->left->node_type == ASTNodeType::AST_FUNC_CALL) {
+
+                debug_print("Processing func()[index].member pattern: %s[].%s\n",
+                            node->left->left->name.c_str(),
+                            node->name.c_str());
+
                 try {
-                    // まず func()[index] を評価して構造体を取得
-                    TypedValue array_element = evaluate_typed_expression(node->left.get());
-                    
-                    // この時点で array_element は構造体要素への参照のはずだが、
-                    // 実際には ReturnException が投げられるはず
-                    throw std::runtime_error("Expected struct return exception");
-                    
+                    (void)evaluate_typed_expression(node->left.get());
+                    throw std::runtime_error(
+                        "Expected struct return exception");
+
                 } catch (const ReturnException& struct_ret) {
                     if (struct_ret.is_struct) {
-                        // 構造体からメンバーを取得
-                        Variable member_var = get_struct_member_from_variable(struct_ret.struct_value, node->name);
-                        
-                        if (member_var.type == TYPE_STRING) {
-                            return TypedValue(member_var.str_value, InferredType(TYPE_STRING, "string"));
-                        } else if (member_var.type == TYPE_FLOAT) {
-                            return TypedValue(static_cast<double>(member_var.float_value), InferredType(TYPE_FLOAT, "float"));
-                        } else if (member_var.type == TYPE_DOUBLE) {
-                            return TypedValue(member_var.double_value, InferredType(TYPE_DOUBLE, "double"));
-                        } else if (member_var.type == TYPE_QUAD) {
-                            return TypedValue(member_var.quad_value, InferredType(TYPE_QUAD, "quad"));
-                        } else {
-                            return TypedValue(member_var.value, InferredType(member_var.type, type_info_to_string(member_var.type)));
+                        TypedValue member_value(static_cast<int64_t>(0),
+                                                InferredType());
+                        if (resolve_from_struct(struct_ret.struct_value,
+                                                member_value)) {
+                            last_typed_result_ = member_value;
+                            return member_value;
                         }
+                    }
+                    throw std::runtime_error(
+                        "Expected struct element from function array access");
+                }
+            }
+
+            TypedValue resolved_value(static_cast<int64_t>(0), InferredType());
+            bool resolved = false;
+
+            std::string base_name = build_base_name(node->left.get());
+            if (!base_name.empty()) {
+                if (Variable* base_var = interpreter_.find_variable(base_name)) {
+                    if (base_var->type == TYPE_STRUCT) {
+                        resolved = resolve_from_struct(*base_var, resolved_value);
+                    }
+                }
+
+                if (!resolved) {
+                    resolved = resolve_from_base_name(base_name, resolved_value);
+                }
+            }
+
+            if (!resolved) {
+                try {
+                    evaluate_expression(node->left.get());
+                } catch (const ReturnException& ret) {
+                    if (ret.is_struct) {
+                        resolved =
+                            resolve_from_struct(ret.struct_value, resolved_value);
                     } else {
-                        throw std::runtime_error("Expected struct element from function array access");
+                        throw;
                     }
                 }
             }
-            
-            // 構造体メンバアクセスの場合
-            if (inferred_type.type_info == TYPE_STRING) {
-                // 文字列型のメンバアクセス - 直接構造体メンバにアクセス
-                if (node->left && node->left->node_type == ASTNodeType::AST_VARIABLE) {
-                    std::string struct_name = node->left->name;
-                    std::string member_name = node->name;
-                    
-                    // interpreter_.get_struct_member を使用する代わりに、直接値を取得
-                    std::string member_var_name = struct_name + "." + member_name;
-                    Variable* member_var = interpreter_.find_variable(member_var_name);
-                    if (member_var && member_var->type == TYPE_STRING) {
-                        return TypedValue(member_var->str_value, InferredType(TYPE_STRING, "string"));
-                    }
-                }
+
+            if (resolved) {
+                last_typed_result_ = resolved_value;
+                return resolved_value;
             }
-            // 数値型やその他の型の場合は従来の評価を使用
+
             int64_t numeric_result = evaluate_expression(node);
             return TypedValue(numeric_result, inferred_type);
         }
@@ -2573,6 +2730,78 @@ TypedValue ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode
                 }
             }
             
+            if (inferred_type.type_info == TYPE_STRING &&
+                node->left && node->left->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
+                const ASTNode* member_node = node->left.get();
+                std::string member_name = member_node->name;
+                std::string object_name;
+
+                if (member_node->left) {
+                    if (member_node->left->node_type == ASTNodeType::AST_VARIABLE) {
+                        object_name = member_node->left->name;
+                    } else if (member_node->left->node_type == ASTNodeType::AST_ARRAY_REF) {
+                        object_name = interpreter_.extract_array_element_name(member_node->left.get());
+                    }
+                }
+
+                if (!object_name.empty() && node->array_index) {
+                    int64_t array_index = evaluate_expression(node->array_index.get());
+                    try {
+                        std::string value = interpreter_.get_struct_member_array_string_element(
+                            object_name, member_name, static_cast<int>(array_index));
+                        return TypedValue(value, InferredType(TYPE_STRING, "string"));
+                    } catch (const std::exception &) {
+                        // フォールバックして通常処理
+                    }
+                }
+            }
+
+            if (inferred_type.type_info == TYPE_STRING) {
+                std::string array_name = interpreter_.extract_array_name(node);
+                std::vector<int64_t> indices = interpreter_.extract_array_indices(node);
+
+                if (!array_name.empty() && !indices.empty()) {
+                    bool resolved = false;
+                    std::string string_value;
+
+                    if (auto *array_service = interpreter_.get_array_processing_service()) {
+                        try {
+                            string_value = array_service->getStringArrayElement(
+                                array_name, indices,
+                                ArrayProcessingService::ArrayContext::LOCAL_VARIABLE);
+                            resolved = true;
+                        } catch (const std::exception &) {
+                            resolved = false;
+                        }
+                    }
+
+                    if (!resolved) {
+                        if (Variable *var = interpreter_.find_variable(array_name)) {
+                            try {
+                                if (var->is_multidimensional ||
+                                    !var->multidim_array_strings.empty()) {
+                                    string_value = interpreter_.getMultidimensionalStringArrayElement(*var, indices);
+                                    resolved = true;
+                                } else if (!var->array_strings.empty() && indices.size() == 1) {
+                                    int64_t idx = indices[0];
+                                    if (idx >= 0 &&
+                                        idx < static_cast<int64_t>(var->array_strings.size())) {
+                                        string_value = var->array_strings[static_cast<size_t>(idx)];
+                                        resolved = true;
+                                    }
+                                }
+                            } catch (const std::exception &) {
+                                resolved = false;
+                            }
+                        }
+                    }
+
+                    if (resolved) {
+                        return TypedValue(string_value, InferredType(TYPE_STRING, "string"));
+                    }
+                }
+            }
+
             // 通常の配列要素アクセスの場合は直接評価
             int64_t numeric_result = evaluate_expression(node);
             return TypedValue(numeric_result, inferred_type);
