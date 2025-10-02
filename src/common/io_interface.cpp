@@ -24,6 +24,13 @@ void IOInterface::write_number(int64_t value) {
     write_string(buffer);
 }
 
+void IOInterface::write_float(double value) {
+    char buffer[64];
+    // %.15g で有効桁数を保ちつつ不要な末尾ゼロを抑制
+    std::snprintf(buffer, sizeof(buffer), "%.15g", value);
+    write_string(buffer);
+}
+
 // IOFactory の実装
 IOInterface *IOFactory::instance_ = nullptr;
 std::string IOFactory::target_platform_ = "native";
