@@ -26,8 +26,23 @@ void IOInterface::write_number(int64_t value) {
 
 void IOInterface::write_float(double value) {
     char buffer[64];
-    // %.15g で有効桁数を保ちつつ不要な末尾ゼロを抑制
+    // 浮動小数点数として表示（小数点以下が0でも .0 を表示）
     std::snprintf(buffer, sizeof(buffer), "%.15g", value);
+
+    // 整数のように見える場合は .0 を追加
+    bool has_decimal_or_exp = false;
+    for (const char *p = buffer; *p != '\0'; ++p) {
+        if (*p == '.' || *p == 'e' || *p == 'E') {
+            has_decimal_or_exp = true;
+            break;
+        }
+    }
+
+    if (!has_decimal_or_exp) {
+        // 整数表記の場合は .0 を追加
+        std::strcat(buffer, ".0");
+    }
+
     write_string(buffer);
 }
 
