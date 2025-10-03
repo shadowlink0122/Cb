@@ -172,9 +172,20 @@ void StatementExecutor::execute_assignment(const ASTNode *node) {
         }
         
         // 右辺の評価（構造体変数やその他の式）
-        int64_t rvalue;
+        // TypedValueで評価して、float/doubleにも対応
+        int64_t rvalue = 0;
+        bool is_floating = false;
+        double float_rvalue = 0.0;
+        
         try {
-            rvalue = interpreter_.evaluate(node->right.get());
+            TypedValue typed_rvalue = interpreter_.evaluate_typed_expression(node->right.get());
+            if (typed_rvalue.is_floating()) {
+                is_floating = true;
+                float_rvalue = typed_rvalue.as_double();
+                rvalue = static_cast<int64_t>(float_rvalue);
+            } else {
+                rvalue = typed_rvalue.as_numeric();
+            }
         } catch (const ReturnException& ret) {
             if (ret.is_struct) {
                 // 構造体変数または構造体戻り値を配列要素に代入
@@ -267,7 +278,13 @@ void StatementExecutor::execute_assignment(const ASTNode *node) {
                 
                 // 多次元配列の要素に代入
                 if (member_var->is_multidimensional && indices.size() > 1) {
-                    interpreter_.setMultidimensionalArrayElement(*member_var, indices, rvalue);
+                    // float/doubleの場合は対応するオーバーロードを使用
+                    TypeInfo base_type = member_var->array_type_info.base_type;
+                    if (is_floating && (base_type == TYPE_FLOAT || base_type == TYPE_DOUBLE || base_type == TYPE_QUAD)) {
+                        interpreter_.setMultidimensionalArrayElement(*member_var, indices, float_rvalue);
+                    } else {
+                        interpreter_.setMultidimensionalArrayElement(*member_var, indices, rvalue);
+                    }
                 } else {
                     throw std::runtime_error("Invalid multidimensional member array access");
                 }
@@ -285,7 +302,13 @@ void StatementExecutor::execute_assignment(const ASTNode *node) {
                     throw std::runtime_error("Variable is not a multidimensional array: " + var_name);
                 }
                 
-                interpreter_.setMultidimensionalArrayElement(*var, indices, rvalue);
+                // float/doubleの場合は対応するオーバーロードを使用
+                TypeInfo base_type = var->array_type_info.base_type;
+                if (is_floating && (base_type == TYPE_FLOAT || base_type == TYPE_DOUBLE || base_type == TYPE_QUAD)) {
+                    interpreter_.setMultidimensionalArrayElement(*var, indices, float_rvalue);
+                } else {
+                    interpreter_.setMultidimensionalArrayElement(*var, indices, rvalue);
+                }
             }
         } else {
             // 単一次元配列要素への代入

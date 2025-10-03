@@ -643,6 +643,9 @@ class Interpreter : public EvaluatorInterface {
     void setMultidimensionalArrayElement(Variable &var,
                                          const std::vector<int64_t> &indices,
                                          int64_t value);
+    void setMultidimensionalArrayElement(Variable &var,
+                                         const std::vector<int64_t> &indices,
+                                         double value);
 
     // Priority 3: 統一された文字列配列アクセス (ArrayProcessingService経由)
     std::string

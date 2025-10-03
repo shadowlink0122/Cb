@@ -85,9 +85,11 @@ void test_integration_float_double_unsigned() {
     run_cb_test_with_output_and_time("../cases/float_double_unsigned/multidim_arrays.cb", 
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_EQ(0, exit_code, "multidim_arrays.cb should execute successfully");
-            // 2D float array
-            INTEGRATION_ASSERT(output.find("1.1") != std::string::npos, "2D float array should work");
-            INTEGRATION_ASSERT(output.find("6.6") != std::string::npos, "2D float array access should work");
+            // 2D float array - float精度を考慮
+            INTEGRATION_ASSERT(output.find("1.1") != std::string::npos || output.find("1.10000") != std::string::npos, 
+                             "2D float array should work");
+            INTEGRATION_ASSERT(output.find("6.6") != std::string::npos || output.find("6.59999") != std::string::npos, 
+                             "2D float array access should work");
             // 2D double array
             INTEGRATION_ASSERT(output.find("2.222") != std::string::npos, "2D double array should work");
             // 3D float array

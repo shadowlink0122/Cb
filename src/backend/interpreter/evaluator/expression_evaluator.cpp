@@ -2961,12 +2961,13 @@ TypedValue ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode
                     // float/double/quad配列の場合
                     if (base_type == TYPE_FLOAT || base_type == TYPE_DOUBLE || base_type == TYPE_QUAD) {
                         if (var->is_multidimensional && indices.size() > 1) {
-                            // 多次元配列のフラットインデックスを計算
+                            // 多次元配列のフラットインデックスを計算（row-major order）
                             int flat_index = 0;
                             int multiplier = 1;
                             for (int d = indices.size() - 1; d >= 0; d--) {
                                 flat_index += indices[d] * multiplier;
-                                if (d > 0 && d - 1 < static_cast<int>(var->array_dimensions.size())) {
+                                if (d > 0) {
+                                    // 次の次元のサイズを掛ける
                                     multiplier *= var->array_dimensions[d];
                                 }
                             }

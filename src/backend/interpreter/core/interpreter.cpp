@@ -1925,6 +1925,13 @@ void Interpreter::setMultidimensionalArrayElement(
     array_processing_service_->setArrayElement(var_name, indices, value, ArrayProcessingService::ArrayContext::MULTIDIMENSIONAL);
 }
 
+// float/double値での多次元配列要素設定（オーバーロード）
+void Interpreter::setMultidimensionalArrayElement(
+    Variable &var, const std::vector<int64_t> &indices, double value) {
+    // 直接ArrayManagerを呼び出す
+    array_manager_->setMultidimensionalArrayElement(var, indices, value);
+}
+
 std::string Interpreter::getMultidimensionalStringArrayElement(
     Variable &var, const std::vector<int64_t> &indices) {
     // Priority 3: ArrayProcessingServiceを使用した統一アクセス
@@ -3256,12 +3263,13 @@ void Interpreter::assign_struct_member(const std::string &var_name,
     }
     
     // Union型メンバーの場合は制約をチェック
-    if (type_manager_->is_union_type(*member_var)) {
+    bool is_union_member = type_manager_->is_union_type(*member_var);
+    if (is_union_member) {
         if (!type_manager_->is_value_allowed_for_union(member_var->type_name, value)) {
             throw std::runtime_error("Integer value " + std::to_string(value) + " is not allowed for union type " + member_var->type_name + " in struct member " + member_name);
         }
-        // Union型の場合は型を整数型に設定し、文字列値をクリア
-        member_var->type = TYPE_INT;
+        // Union型の場合はcurrent_typeを整数型に設定し、文字列値をクリア
+        member_var->current_type = TYPE_INT;
         member_var->str_value.clear(); // 文字列値をクリア
     }
     
@@ -3287,12 +3295,13 @@ void Interpreter::assign_struct_member(const std::string &var_name,
                                      direct_var_name);
         }
         // Union型の場合は制約をチェック
-        if (type_manager_->is_union_type(*direct_var)) {
+        bool is_union_direct = type_manager_->is_union_type(*direct_var);
+        if (is_union_direct) {
             if (!type_manager_->is_value_allowed_for_union(direct_var->type_name, value)) {
                 throw std::runtime_error("Integer value " + std::to_string(value) + " is not allowed for union type " + direct_var->type_name + " in struct member " + member_name);
             }
-            // Union型の場合は型を整数型に設定し、文字列値をクリア
-            direct_var->type = TYPE_INT;
+            // Union型の場合はcurrent_typeを整数型に設定し、文字列値をクリア
+            direct_var->current_type = TYPE_INT;
             direct_var->str_value.clear(); // 文字列値をクリア
         }
 
@@ -3335,12 +3344,13 @@ void Interpreter::assign_struct_member(const std::string &var_name,
     }
     
     // Union型メンバーの場合は制約をチェック
-    if (type_manager_->is_union_type(*member_var)) {
+    bool is_union_member = type_manager_->is_union_type(*member_var);
+    if (is_union_member) {
         if (!type_manager_->is_value_allowed_for_union(member_var->type_name, value)) {
             throw std::runtime_error("String value '" + value + "' is not allowed for union type " + member_var->type_name + " in struct member " + member_name);
         }
-        // Union型の場合は型を文字列型に設定し、数値をクリア
-        member_var->type = TYPE_STRING;
+        // Union型の場合はcurrent_typeを文字列型に設定し、数値をクリア
+        member_var->current_type = TYPE_STRING;
         member_var->value = 0; // 数値をクリア
     }
     
@@ -3357,12 +3367,13 @@ void Interpreter::assign_struct_member(const std::string &var_name,
                                      direct_var_name);
         }
         // Union型の場合は制約をチェック
-        if (type_manager_->is_union_type(*direct_var)) {
+        bool is_union_direct = type_manager_->is_union_type(*direct_var);
+        if (is_union_direct) {
             if (!type_manager_->is_value_allowed_for_union(direct_var->type_name, value)) {
                 throw std::runtime_error("String value '" + value + "' is not allowed for union type " + direct_var->type_name + " in struct member " + member_name);
             }
-            // Union型の場合は型を文字列型に設定し、数値をクリア
-            direct_var->type = TYPE_STRING;
+            // Union型の場合はcurrent_typeを文字列型に設定し、数値をクリア
+            direct_var->current_type = TYPE_STRING;
             direct_var->value = 0; // 数値をクリア
         }
 
@@ -3404,19 +3415,46 @@ void Interpreter::assign_struct_member(const std::string &var_name,
                                  target_full_name);
     }
     
+    // Union型メンバーかどうかを事前にチェック
+    bool is_union_member = (member_var->type == TYPE_UNION);
+    
     // TypedValueの型に応じて値を代入
     if (typed_value.numeric_type == TYPE_FLOAT) {
         member_var->float_value = static_cast<float>(typed_value.double_value);
-        member_var->type = TYPE_FLOAT;
+        if (!is_union_member) {
+            member_var->type = TYPE_FLOAT;
+        } else {
+            member_var->current_type = TYPE_FLOAT;
+        }
     } else if (typed_value.numeric_type == TYPE_DOUBLE) {
         member_var->double_value = typed_value.double_value;
-        member_var->type = TYPE_DOUBLE;
+        if (!is_union_member) {
+            member_var->type = TYPE_DOUBLE;
+        } else {
+            member_var->current_type = TYPE_DOUBLE;
+        }
     } else if (typed_value.numeric_type == TYPE_QUAD) {
         member_var->quad_value = typed_value.quad_value;
-        member_var->type = TYPE_QUAD;
+        if (!is_union_member) {
+            member_var->type = TYPE_QUAD;
+        } else {
+            member_var->current_type = TYPE_QUAD;
+        }
     } else {
         // 整数型の場合
-        member_var->value = typed_value.value;
+        int64_t assign_value = typed_value.value;
+        // unsignedの場合は負の値を0にクランプ
+        if (member_var->is_unsigned && assign_value < 0) {
+            DEBUG_WARN(VARIABLE, "Unsigned struct member %s.%s assignment with negative value (%lld); clamping to 0",
+                      var_name.c_str(), member_name.c_str(), static_cast<long long>(assign_value));
+            assign_value = 0;
+        }
+        member_var->value = assign_value;
+        if (is_union_member) {
+            member_var->current_type = (typed_value.numeric_type != TYPE_UNKNOWN) 
+                                      ? typed_value.numeric_type 
+                                      : TYPE_INT;
+        }
         // unsignedフラグはメンバ定義から引き継がれるため、ここでは設定しない
     }
     member_var->is_assigned = true;
@@ -3431,17 +3469,43 @@ void Interpreter::assign_struct_member(const std::string &var_name,
                                      direct_var_name);
         }
 
+        bool is_union_direct = (direct_var->type == TYPE_UNION);
+        
         if (typed_value.numeric_type == TYPE_FLOAT) {
             direct_var->float_value = static_cast<float>(typed_value.double_value);
-            direct_var->type = TYPE_FLOAT;
+            if (!is_union_direct) {
+                direct_var->type = TYPE_FLOAT;
+            } else {
+                direct_var->current_type = TYPE_FLOAT;
+            }
         } else if (typed_value.numeric_type == TYPE_DOUBLE) {
             direct_var->double_value = typed_value.double_value;
-            direct_var->type = TYPE_DOUBLE;
+            if (!is_union_direct) {
+                direct_var->type = TYPE_DOUBLE;
+            } else {
+                direct_var->current_type = TYPE_DOUBLE;
+            }
         } else if (typed_value.numeric_type == TYPE_QUAD) {
             direct_var->quad_value = typed_value.quad_value;
-            direct_var->type = TYPE_QUAD;
+            if (!is_union_direct) {
+                direct_var->type = TYPE_QUAD;
+            } else {
+                direct_var->current_type = TYPE_QUAD;
+            }
         } else {
-            direct_var->value = typed_value.value;
+            int64_t assign_value = typed_value.value;
+            // unsignedの場合は負の値を0にクランプ
+            if (direct_var->is_unsigned && assign_value < 0) {
+                DEBUG_WARN(VARIABLE, "Unsigned struct member %s assignment with negative value (%lld); clamping to 0",
+                          direct_var_name.c_str(), static_cast<long long>(assign_value));
+                assign_value = 0;
+            }
+            direct_var->value = assign_value;
+            if (is_union_direct) {
+                direct_var->current_type = (typed_value.numeric_type != TYPE_UNKNOWN) 
+                                          ? typed_value.numeric_type 
+                                          : TYPE_INT;
+            }
             // unsignedフラグはメンバ定義から引き継がれるため、ここでは設定しない
         }
         direct_var->is_assigned = true;
