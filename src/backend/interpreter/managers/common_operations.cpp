@@ -32,21 +32,31 @@ CommonOperations::parse_array_literal(const ASTNode *literal_node) {
     // ネストした配列リテラルを再帰的にフラット化
     std::vector<int64_t> flattened_values;
     std::vector<std::string> flattened_strings;
+    std::vector<double> flattened_floats;
     bool is_string_array = false;
+    bool is_float_array = false;
     
     // 最初の要素から型を判定
     if (!literal_node->arguments.empty()) {
         result.element_type = infer_array_element_type(literal_node);
         is_string_array = (result.element_type == TYPE_STRING);
+        is_float_array = (result.element_type == TYPE_FLOAT || 
+                         result.element_type == TYPE_DOUBLE || 
+                         result.element_type == TYPE_QUAD);
     }
     
     // 再帰的にフラット化
-    flatten_array_literal(literal_node, flattened_values, flattened_strings, is_string_array);
+    flatten_array_literal(literal_node, flattened_values, flattened_strings, 
+                         flattened_floats, is_string_array, is_float_array);
     
     result.is_string_array = is_string_array;
+    result.is_float_array = is_float_array;
     if (is_string_array) {
         result.string_values = flattened_strings;
         result.size = flattened_strings.size();
+    } else if (is_float_array) {
+        result.float_values = flattened_floats;
+        result.size = flattened_floats.size();
     } else {
         result.int_values = flattened_values;
         result.size = flattened_values.size();
@@ -116,6 +126,94 @@ void CommonOperations::assign_array_literal_to_variable(
             var->array_dimensions.push_back(var->array_size);
         }
 
+        var->is_assigned = true;
+        return;
+    }
+
+    // float/double配列の処理
+    if (result.is_float_array) {
+        TypeInfo base_type = (var->type >= TYPE_ARRAY_BASE) 
+                            ? static_cast<TypeInfo>(var->type - TYPE_ARRAY_BASE)
+                            : var->type;
+        
+        // int64_t表現も生成（後方互換性のため）
+        std::vector<int64_t> int_repr;
+        for (double val : result.float_values) {
+            int_repr.push_back(static_cast<int64_t>(val));
+        }
+        
+        if (var->is_multidimensional && var->array_dimensions.size() > 1) {
+            // 多次元配列
+            var->multidim_array_values = int_repr;
+            var->multidim_array_values.resize(var->array_size, 0);
+            
+            if (base_type == TYPE_FLOAT) {
+                var->multidim_array_float_values.clear();
+                for (double val : result.float_values) {
+                    var->multidim_array_float_values.push_back(static_cast<float>(val));
+                }
+                var->multidim_array_float_values.resize(var->array_size, 0.0f);
+                var->multidim_array_double_values.clear();
+                var->multidim_array_quad_values.clear();
+            } else if (base_type == TYPE_DOUBLE) {
+                var->multidim_array_double_values = result.float_values;
+                var->multidim_array_double_values.resize(var->array_size, 0.0);
+                var->multidim_array_float_values.clear();
+                var->multidim_array_quad_values.clear();
+            } else { // TYPE_QUAD
+                var->multidim_array_quad_values.clear();
+                for (double val : result.float_values) {
+                    var->multidim_array_quad_values.push_back(static_cast<long double>(val));
+                }
+                var->multidim_array_quad_values.resize(var->array_size, 0.0L);
+                var->multidim_array_float_values.clear();
+                var->multidim_array_double_values.clear();
+            }
+            
+            var->array_values = int_repr;
+            var->array_values.resize(var->array_size, 0);
+            var->multidim_array_strings.clear();
+        } else {
+            // 1次元配列
+            var->array_values = int_repr;
+            var->array_values.resize(var->array_size, 0);
+            
+            if (base_type == TYPE_FLOAT) {
+                var->array_float_values.clear();
+                for (double val : result.float_values) {
+                    var->array_float_values.push_back(static_cast<float>(val));
+                }
+                var->array_float_values.resize(var->array_size, 0.0f);
+                var->array_double_values.clear();
+                var->array_quad_values.clear();
+            } else if (base_type == TYPE_DOUBLE) {
+                var->array_double_values = result.float_values;
+                var->array_double_values.resize(var->array_size, 0.0);
+                var->array_float_values.clear();
+                var->array_quad_values.clear();
+            } else { // TYPE_QUAD
+                var->array_quad_values.clear();
+                for (double val : result.float_values) {
+                    var->array_quad_values.push_back(static_cast<long double>(val));
+                }
+                var->array_quad_values.resize(var->array_size, 0.0L);
+                var->array_float_values.clear();
+                var->array_double_values.clear();
+            }
+            
+            var->array_strings.clear();
+        }
+        
+        // 型を適切に設定
+        if (var->type < TYPE_ARRAY_BASE) {
+            var->type = static_cast<TypeInfo>(TYPE_ARRAY_BASE + base_type);
+        }
+        
+        if (!var->is_multidimensional || var->array_dimensions.size() <= 1) {
+            var->array_dimensions.clear();
+            var->array_dimensions.push_back(var->array_size);
+        }
+        
         var->is_assigned = true;
         return;
     }
@@ -371,7 +469,9 @@ void CommonOperations::validate_array_literal_consistency(
 void CommonOperations::flatten_array_literal(const ASTNode *literal_node,
                                               std::vector<int64_t> &flattened_values,
                                               std::vector<std::string> &flattened_strings,
-                                              bool is_string_array) {
+                                              std::vector<double> &flattened_floats,
+                                              bool is_string_array,
+                                              bool is_float_array) {
     if (!literal_node || literal_node->node_type != ASTNodeType::AST_ARRAY_LITERAL) {
         return;
     }
@@ -379,12 +479,18 @@ void CommonOperations::flatten_array_literal(const ASTNode *literal_node,
     for (const auto &element : literal_node->arguments) {
         if (element->node_type == ASTNodeType::AST_ARRAY_LITERAL) {
             // 再帰的にネストした配列リテラルを処理
-            flatten_array_literal(element.get(), flattened_values, flattened_strings, is_string_array);
+            flatten_array_literal(element.get(), flattened_values, flattened_strings, 
+                                flattened_floats, is_string_array, is_float_array);
         } else if (is_string_array && element->node_type == ASTNodeType::AST_STRING_LITERAL) {
             // 文字列要素
             flattened_strings.push_back(element->str_value);
-        } else if (!is_string_array && element->node_type != ASTNodeType::AST_STRING_LITERAL) {
-            // 数値要素
+        } else if (is_float_array && element->node_type != ASTNodeType::AST_STRING_LITERAL) {
+            // float/double要素 - TypedValueを使用して正しい値を取得
+            TypedValue typed_val = expression_evaluator_->evaluate_typed_expression(element.get());
+            double float_val = typed_val.as_double();
+            flattened_floats.push_back(float_val);
+        } else if (!is_string_array && !is_float_array && element->node_type != ASTNodeType::AST_STRING_LITERAL) {
+            // 整数要素
             int64_t value = evaluate_expression_safe(element.get(), "array literal element");
             flattened_values.push_back(value);
         } else {

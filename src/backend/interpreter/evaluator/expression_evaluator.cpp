@@ -12,6 +12,7 @@
 #include <stdexcept>
 #include <iostream>
 #include <functional>
+#include <cstdio>
 
 // MethodReceiverResolutionのデフォルトコンストラクタ実装
 ExpressionEvaluator::MethodReceiverResolution::MethodReceiverResolution()
@@ -55,7 +56,7 @@ ExpressionEvaluator::MethodReceiverResolution ExpressionEvaluator::resolve_metho
 }
 
 ExpressionEvaluator::ExpressionEvaluator(Interpreter& interpreter) 
-    : interpreter_(interpreter), type_engine_(interpreter), last_typed_result_(static_cast<int64_t>(0), InferredType()) {}
+    : interpreter_(interpreter), type_engine_(interpreter), last_typed_result_(static_cast<int64_t>(0), InferredType()), last_captured_function_value_(std::nullopt) {}
 
 int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
     if (!node) {
@@ -686,6 +687,12 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
             std::shared_ptr<ReturnException> chain_value;
             Variable concrete_receiver;
         } method_context;
+
+        auto capture_numeric_return = [&](const TypedValue& typed_value) {
+            if (node) {
+                last_captured_function_value_ = std::make_pair(node, typed_value);
+            }
+        };
 
         if (is_method_call) {
             debug_msg(DebugMsgId::METHOD_CALL_START, node->name.c_str());
@@ -1601,7 +1608,31 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                 if (ret.type == TYPE_STRING) {
                     throw ret;
                 }
+                // float/double/quad戻り値の場合は例外を再度投げる
+                // (evaluate_expressionはint64_tしか返せないため、上位でTypedValueとして処理する必要がある)
+                if (ret.type == TYPE_FLOAT || ret.type == TYPE_DOUBLE || ret.type == TYPE_QUAD) {
+                    throw ret;
+                }
                 // 通常の戻り値の場合
+                auto make_typed_from_return = [&](int64_t coerced_numeric) -> TypedValue {
+                    if (ret.type == TYPE_FLOAT) {
+                        return TypedValue(ret.double_value, InferredType(TYPE_FLOAT, "float"));
+                    }
+                    if (ret.type == TYPE_DOUBLE) {
+                        return TypedValue(ret.double_value, InferredType(TYPE_DOUBLE, "double"));
+                    }
+                    if (ret.type == TYPE_QUAD) {
+                        return TypedValue(ret.quad_value, InferredType(TYPE_QUAD, "quad"));
+                    }
+                    TypeInfo resolved = ret.type != TYPE_UNKNOWN ? ret.type : TYPE_INT;
+                    std::string resolved_name = type_info_to_string(resolved);
+                    if (resolved_name.empty()) {
+                        resolved = TYPE_INT;
+                        resolved_name = type_info_to_string(resolved);
+                    }
+                    return TypedValue(coerced_numeric, InferredType(resolved, resolved_name));
+                };
+
                 int64_t return_value = ret.value;
                 if (func && func->is_unsigned && return_value < 0) {
                     const char* call_kind = is_method_call ? "method" : "function";
@@ -1611,6 +1642,8 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                                static_cast<long long>(return_value));
                     return_value = 0;
                 }
+                TypedValue typed_return = make_typed_from_return(return_value);
+                capture_numeric_return(typed_return);
                 return return_value;
             }
         } catch (const ReturnException &ret) {
@@ -2253,22 +2286,130 @@ TypedValue ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode
             TypedValue left_value = evaluate_typed_expression(node->left.get());
             TypedValue right_value = evaluate_typed_expression(node->right.get());
 
-            auto make_numeric_typed_value = [&](long double quad_value) -> TypedValue {
-                if (inferred_type.type_info == TYPE_QUAD) {
+            auto is_integral_type_info = [](TypeInfo type) {
+                switch (type) {
+                case TYPE_BOOL:
+                case TYPE_CHAR:
+                case TYPE_TINY:
+                case TYPE_SHORT:
+                case TYPE_INT:
+                case TYPE_LONG:
+                case TYPE_BIG:
+                    return true;
+                default:
+                    return false;
+                }
+            };
+
+            auto normalize_type = [](TypeInfo type) {
+                if (type >= TYPE_ARRAY_BASE) {
+                    return static_cast<TypeInfo>(type - TYPE_ARRAY_BASE);
+                }
+                return type;
+            };
+
+            auto integral_rank = [](TypeInfo type) {
+                switch (type) {
+                case TYPE_BOOL:
+                    return 0;
+                case TYPE_CHAR:
+                case TYPE_TINY:
+                    return 1;
+                case TYPE_SHORT:
+                    return 2;
+                case TYPE_INT:
+                    return 3;
+                case TYPE_LONG:
+                    return 4;
+                case TYPE_BIG:
+                    return 5;
+                default:
+                    return -1;
+                }
+            };
+
+            auto determine_integral_result_type = [&]() -> TypeInfo {
+                int best_rank = -1;
+                TypeInfo best_type = TYPE_UNKNOWN;
+                auto consider = [&](TypeInfo candidate) {
+                    candidate = normalize_type(candidate);
+                    int rank = integral_rank(candidate);
+                    if (rank > best_rank) {
+                        best_rank = rank;
+                        best_type = candidate;
+                    }
+                };
+
+                consider(inferred_type.type_info);
+                consider(left_value.type.type_info);
+                consider(left_value.numeric_type);
+                consider(right_value.type.type_info);
+                consider(right_value.numeric_type);
+
+                if (!is_integral_type_info(best_type)) {
+                    best_type = TYPE_INT;
+                }
+                return best_type;
+            };
+
+            auto make_numeric_typed_value = [&](long double quad_value, bool prefer_integral) -> TypedValue {
+                if (prefer_integral) {
+                    TypeInfo integer_type = determine_integral_result_type();
+                    return TypedValue(static_cast<int64_t>(quad_value),
+                                      ensure_type(inferred_type, integer_type,
+                                                  std::string(type_info_to_string(integer_type))));
+                }
+
+                // prefer_integral が false の場合、オペランドの型も考慮
+                TypeInfo result_type = inferred_type.type_info;
+                
+                // オペランドから浮動小数点型を検出
+                if (result_type == TYPE_UNKNOWN || is_integral_type_info(result_type)) {
+                    // left_value または right_value が浮動小数点の場合、その型を使用
+                    if (left_value.numeric_type == TYPE_QUAD || right_value.numeric_type == TYPE_QUAD) {
+                        result_type = TYPE_QUAD;
+                    } else if (left_value.numeric_type == TYPE_DOUBLE || right_value.numeric_type == TYPE_DOUBLE) {
+                        result_type = TYPE_DOUBLE;
+                    } else if (left_value.numeric_type == TYPE_FLOAT || right_value.numeric_type == TYPE_FLOAT) {
+                        result_type = TYPE_FLOAT;
+                    } else if (left_value.type.type_info == TYPE_QUAD || right_value.type.type_info == TYPE_QUAD) {
+                        result_type = TYPE_QUAD;
+                    } else if (left_value.type.type_info == TYPE_DOUBLE || right_value.type.type_info == TYPE_DOUBLE) {
+                        result_type = TYPE_DOUBLE;
+                    } else if (left_value.type.type_info == TYPE_FLOAT || right_value.type.type_info == TYPE_FLOAT) {
+                        result_type = TYPE_FLOAT;
+                    }
+                }
+
+                if (result_type == TYPE_QUAD) {
                     return TypedValue(quad_value, ensure_type(inferred_type, TYPE_QUAD, "quad"));
                 }
-                if (inferred_type.type_info == TYPE_DOUBLE || inferred_type.type_info == TYPE_FLOAT) {
-                    TypeInfo info = (inferred_type.type_info == TYPE_FLOAT) ? TYPE_FLOAT : TYPE_DOUBLE;
-                    return TypedValue(static_cast<double>(quad_value), ensure_type(inferred_type, info, info == TYPE_FLOAT ? "float" : "double"));
+                if (result_type == TYPE_DOUBLE) {
+                    return TypedValue(static_cast<double>(quad_value), ensure_type(inferred_type, TYPE_DOUBLE, "double"));
                 }
-                TypeInfo effective = inferred_type.type_info == TYPE_UNKNOWN ? TYPE_INT : inferred_type.type_info;
-                return TypedValue(static_cast<int64_t>(quad_value), ensure_type(inferred_type, effective, std::string(type_info_to_string(effective))));
+                if (result_type == TYPE_FLOAT) {
+                    return TypedValue(static_cast<double>(quad_value), ensure_type(inferred_type, TYPE_FLOAT, "float"));
+                }
+
+                // それでも浮動小数点型が検出されない場合、整数型として処理
+                TypeInfo effective = result_type != TYPE_UNKNOWN ? result_type : determine_integral_result_type();
+                if (!is_integral_type_info(effective)) {
+                    effective = determine_integral_result_type();
+                }
+                return TypedValue(static_cast<int64_t>(quad_value),
+                                  ensure_type(inferred_type, effective,
+                                              std::string(type_info_to_string(effective))));
             };
 
             auto make_integer_typed_value = [&](int64_t int_value) -> TypedValue {
-                return TypedValue(int_value, ensure_type(inferred_type, inferred_type.type_info == TYPE_UNKNOWN ? TYPE_INT : inferred_type.type_info,
-                                                         type_info_to_string(inferred_type.type_info == TYPE_UNKNOWN ? TYPE_INT : inferred_type.type_info)));
+                TypeInfo integer_type = determine_integral_result_type();
+                return TypedValue(int_value, ensure_type(inferred_type, integer_type,
+                                                         std::string(type_info_to_string(integer_type))));
             };
+
+            auto operands_are_integral = left_value.is_numeric() && !left_value.is_floating() &&
+                                         right_value.is_numeric() && !right_value.is_floating();
+            bool prefer_integral_result = operands_are_integral;
 
             auto make_bool_typed_value = [&](bool value) -> TypedValue {
                 return TypedValue(static_cast<int64_t>(value ? 1 : 0), ensure_type(inferred_type, TYPE_BOOL, "bool"));
@@ -2286,18 +2427,22 @@ TypedValue ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode
             };
 
             if (node->op == "+") {
-                return make_numeric_typed_value(left_quad + right_quad);
+                return make_numeric_typed_value(left_quad + right_quad, prefer_integral_result);
             } else if (node->op == "-") {
-                return make_numeric_typed_value(left_quad - right_quad);
+                return make_numeric_typed_value(left_quad - right_quad, prefer_integral_result);
             } else if (node->op == "*") {
-                return make_numeric_typed_value(left_quad * right_quad);
+                return make_numeric_typed_value(left_quad * right_quad, prefer_integral_result);
             } else if (node->op == "/") {
-                if ((inferred_type.type_info == TYPE_QUAD || inferred_type.type_info == TYPE_DOUBLE || inferred_type.type_info == TYPE_FLOAT)) {
+                bool treat_as_float_division = !prefer_integral_result &&
+                                               (inferred_type.type_info == TYPE_QUAD ||
+                                                inferred_type.type_info == TYPE_DOUBLE ||
+                                                inferred_type.type_info == TYPE_FLOAT);
+                if (treat_as_float_division) {
                     if (right_quad == 0.0L) {
                         error_msg(DebugMsgId::ZERO_DIVISION_ERROR);
                         throw std::runtime_error("Division by zero");
                     }
-                    return make_numeric_typed_value(left_quad / right_quad);
+                    return make_numeric_typed_value(left_quad / right_quad, false);
                 } else {
                     if (right_int == 0) {
                         error_msg(DebugMsgId::ZERO_DIVISION_ERROR);
@@ -2359,7 +2504,7 @@ TypedValue ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode
 
             // 未対応の演算子は従来の評価にフォールバック
             int64_t numeric_result = evaluate_expression(node);
-            return TypedValue(numeric_result, inferred_type);
+            return consume_numeric_typed_value(node, numeric_result, inferred_type);
         }
 
         case ASTNodeType::AST_UNARY_OP: {
@@ -2385,7 +2530,7 @@ TypedValue ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode
                 return TypedValue(static_cast<int64_t>(operand_truthy ? 0 : 1), ensure_type(inferred_type, TYPE_BOOL, "bool"));
             }
             int64_t numeric_result = evaluate_expression(node);
-            return TypedValue(numeric_result, inferred_type);
+            return consume_numeric_typed_value(node, numeric_result, inferred_type);
         }
 
         case ASTNodeType::AST_ARRAY_LITERAL: {
@@ -2412,7 +2557,7 @@ TypedValue ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode
                     throw std::runtime_error("Struct return should be caught as exception");
                 } else {
                     // 数値戻り値の場合
-                    return TypedValue(numeric_result, function_return_type);
+                    return consume_numeric_typed_value(node, numeric_result, function_return_type);
                 }
             } catch (const ReturnException& ret) {
                 if (ret.is_array || ret.is_struct_array) {
@@ -2674,7 +2819,7 @@ TypedValue ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode
             }
 
             int64_t numeric_result = evaluate_expression(node);
-            return TypedValue(numeric_result, inferred_type);
+            return consume_numeric_typed_value(node, numeric_result, inferred_type);
         }
         
         case ASTNodeType::AST_ARRAY_REF: {
@@ -2804,13 +2949,13 @@ TypedValue ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode
 
             // 通常の配列要素アクセスの場合は直接評価
             int64_t numeric_result = evaluate_expression(node);
-            return TypedValue(numeric_result, inferred_type);
+            return consume_numeric_typed_value(node, numeric_result, inferred_type);
         }
             
         default: {
             // デフォルトは従来の評価結果を数値として返す
             int64_t numeric_result = evaluate_expression(node);
-            return TypedValue(numeric_result, inferred_type);
+            return consume_numeric_typed_value(node, numeric_result, inferred_type);
         }
     }
 }
@@ -2945,6 +3090,35 @@ TypedValue ExpressionEvaluator::resolve_deferred_evaluation(const TypedValue& de
         default:
             // その他の場合は通常の評価
             return evaluate_typed_expression(node);
+    }
+}
+
+TypedValue ExpressionEvaluator::consume_numeric_typed_value(const ASTNode* node, int64_t numeric_result, const InferredType& inferred_type) {
+    if (last_captured_function_value_.has_value()) {
+        if (last_captured_function_value_->first == node) {
+            TypedValue captured = std::move(last_captured_function_value_->second);
+            last_captured_function_value_ = std::nullopt;
+            return captured;
+        }
+        last_captured_function_value_ = std::nullopt;
+    }
+
+    InferredType resolved_type = inferred_type;
+    if (resolved_type.type_info == TYPE_UNKNOWN) {
+        resolved_type.type_info = TYPE_INT;
+    }
+    if (resolved_type.type_name.empty()) {
+        resolved_type.type_name = type_info_to_string(resolved_type.type_info);
+    }
+
+    switch (resolved_type.type_info) {
+    case TYPE_FLOAT:
+    case TYPE_DOUBLE:
+        return TypedValue(static_cast<double>(numeric_result), resolved_type);
+    case TYPE_QUAD:
+        return TypedValue(static_cast<long double>(numeric_result), resolved_type);
+    default:
+        return TypedValue(numeric_result, resolved_type);
     }
 }
 

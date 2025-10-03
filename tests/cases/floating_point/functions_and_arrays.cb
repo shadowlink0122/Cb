@@ -1,0 +1,68 @@
+// 浮動小数点と符号なしの関数・多次元配列テスト
+
+float average_pair(float a, float b) {
+    return (a + b) / 2.0;
+}
+
+double accumulate_double(double start, double delta) {
+    return start + delta;
+}
+
+unsigned int clamp_add(unsigned int value, int delta) {
+    int candidate = value + delta;
+    if (candidate < 0) {
+        return 0;
+    }
+    return candidate;
+}
+
+float sum_float_grid(float[2][3] grid) {
+    float total = 0.0f;
+    for (int i = 0; i < 2; i = i + 1) {
+        for (int j = 0; j < 3; j = j + 1) {
+            total = total + grid[i][j];
+        }
+    }
+    return total;
+}
+
+double[2][3] make_double_grid(double seed) {
+    double[2][3] grid = [
+        [seed, seed + 0.25, seed + 0.5],
+        [seed + 1.0, seed + 1.5, seed + 2.0]
+    ];
+    return grid;
+}
+
+int main() {
+    println("=== function and array coverage ===");
+
+    float f_avg = average_pair(3.0f, 1.0f);
+    print("average_pair: "); println(f_avg);
+
+    double d_acc = accumulate_double(10.0, 0.125);
+    print("accumulate_double: "); println(d_acc);
+
+    unsigned int u_clamped = clamp_add(5, -9);
+    print("clamp_add: "); println(u_clamped);
+
+    float[2][3] float_grid = [
+        [1.25f, 2.5f, 3.75f],
+        [4.5f, 5.25f, 6.0f]
+    ];
+    float grid_total = sum_float_grid(float_grid);
+    print("float_grid_total: "); println(grid_total);
+
+    double[2][3] generated = make_double_grid(0.5);
+    println("generated grid values:");
+    for (int i = 0; i < 2; i = i + 1) {
+        for (int j = 0; j < 3; j = j + 1) {
+            print("  g["); print(i);
+            print("]["); print(j);
+            print("]: "); println(generated[i][j]);
+        }
+    }
+
+    println("=== end ===");
+    return 0;
+}

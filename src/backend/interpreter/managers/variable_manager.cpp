@@ -2131,6 +2131,31 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                         if (typed_result.is_string()) {
                             var.str_value = typed_result.string_value;
                             var.value = 0;
+                        } else if (typed_result.numeric_type == TYPE_FLOAT || 
+                                   typed_result.numeric_type == TYPE_DOUBLE || 
+                                   typed_result.numeric_type == TYPE_QUAD) {
+                            // float/double/quad戻り値の場合
+                            long double quad_val = typed_result.as_quad();
+                            
+                            if (typed_result.numeric_type == TYPE_FLOAT) {
+                                float f = static_cast<float>(quad_val);
+                                var.float_value = f;
+                                var.double_value = static_cast<double>(f);
+                                var.quad_value = static_cast<long double>(f);
+                                var.value = static_cast<int64_t>(f);
+                            } else if (typed_result.numeric_type == TYPE_DOUBLE) {
+                                double d = static_cast<double>(quad_val);
+                                var.float_value = static_cast<float>(d);
+                                var.double_value = d;
+                                var.quad_value = static_cast<long double>(d);
+                                var.value = static_cast<int64_t>(d);
+                            } else { // TYPE_QUAD
+                                var.float_value = static_cast<float>(quad_val);
+                                var.double_value = static_cast<double>(quad_val);
+                                var.quad_value = quad_val;
+                                var.value = static_cast<int64_t>(quad_val);
+                            }
+                            var.str_value = "";
                         } else {
                             int64_t numeric_value = typed_result.value;
                             clamp_unsigned_initial(var, numeric_value,

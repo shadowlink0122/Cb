@@ -535,8 +535,9 @@ void StatementExecutor::execute_assignment(const ASTNode *node) {
         if (node->right && node->right->node_type == ASTNodeType::AST_FUNC_CALL) {
             try {
                 TypedValue typed_value = interpreter_.evaluate_typed_expression(node->right.get());
+                // TYPE_UNKNOWN をヒントとして渡し、既存の変数の型または TypedValue の型を使用
                 interpreter_.assign_variable(target_name, typed_value,
-                                             node->type_info, false);
+                                             TYPE_UNKNOWN, false);
             } catch (const ReturnException& ret) {
                 if (ret.is_struct) {
                     interpreter_.current_scope().variables[target_name] = ret.struct_value;
@@ -549,8 +550,9 @@ void StatementExecutor::execute_assignment(const ASTNode *node) {
             }
         } else {
             TypedValue typed_value = interpreter_.evaluate_typed_expression(node->right.get());
+            // TYPE_UNKNOWN をヒントとして渡し、既存の変数の型または TypedValue の型を使用
             interpreter_.assign_variable(target_name, typed_value,
-                                         node->type_info, false);
+                                         TYPE_UNKNOWN, false);
         }
     }
 }
@@ -762,23 +764,37 @@ void StatementExecutor::execute_variable_declaration(const ASTNode *node) {
                     } else if (ret.type == TYPE_STRING) {
                         interpreter_.current_scope().variables[node->name].str_value = ret.str_value;
                     } else {
-                        interpreter_.assign_variable(node->name, ret.value,
-                                                     ret.type);
+                        // 数値戻り値（float/double/quad対応）
+                        if (ret.type == TYPE_FLOAT) {
+                            InferredType float_type(TYPE_FLOAT, "float");
+                            TypedValue typed_val(ret.double_value, float_type);
+                            interpreter_.assign_variable(node->name, typed_val, ret.type, false);
+                        } else if (ret.type == TYPE_DOUBLE) {
+                            InferredType double_type(TYPE_DOUBLE, "double");
+                            TypedValue typed_val(ret.double_value, double_type);
+                            interpreter_.assign_variable(node->name, typed_val, ret.type, false);
+                        } else if (ret.type == TYPE_QUAD) {
+                            InferredType quad_type(TYPE_QUAD, "quad");
+                            TypedValue typed_val(ret.quad_value, quad_type);
+                            interpreter_.assign_variable(node->name, typed_val, ret.type, false);
+                        } else {
+                            interpreter_.assign_variable(node->name, ret.value, ret.type);
+                        }
                     }
                     interpreter_.current_scope().variables[node->name].is_assigned = true;
                 }
             }
         } else {
-            // 通常の初期化
+            // 通常の初期化 - TypedValue を使用して float/double を保持
             if (init_node->node_type == ASTNodeType::AST_FUNC_CALL) {
                 try {
-                    int64_t value = interpreter_.evaluate(init_node);
-                    if (var.type == TYPE_STRING) {
+                    TypedValue typed_value = interpreter_.evaluate_typed(init_node);
+                    if (var.type == TYPE_STRING && !typed_value.is_string()) {
                         // 文字列型なのに数値が返された場合
                         throw std::runtime_error("Type mismatch: expected string but got numeric value");
                     } else {
-                        interpreter_.assign_variable(node->name, value,
-                                                     node->type_info);
+                        interpreter_.assign_variable(node->name, typed_value,
+                                                     node->type_info, false);
                     }
                     interpreter_.current_scope().variables[node->name].is_assigned = true;
                 } catch (const ReturnException& ret) {
@@ -799,18 +815,33 @@ void StatementExecutor::execute_variable_declaration(const ASTNode *node) {
                         interpreter_.current_scope().variables[node->name].str_value = ret.str_value;
                         interpreter_.current_scope().variables[node->name].type = TYPE_STRING;
                     } else {
-                        interpreter_.assign_variable(node->name, ret.value,
-                                                     ret.type);
+                        // 数値戻り値（float/double/quad対応）
+                        if (ret.type == TYPE_FLOAT) {
+                            InferredType float_type(TYPE_FLOAT, "float");
+                            TypedValue typed_val(ret.double_value, float_type);
+                            interpreter_.assign_variable(node->name, typed_val, ret.type, false);
+                        } else if (ret.type == TYPE_DOUBLE) {
+                            InferredType double_type(TYPE_DOUBLE, "double");
+                            TypedValue typed_val(ret.double_value, double_type);
+                            interpreter_.assign_variable(node->name, typed_val, ret.type, false);
+                        } else if (ret.type == TYPE_QUAD) {
+                            InferredType quad_type(TYPE_QUAD, "quad");
+                            TypedValue typed_val(ret.quad_value, quad_type);
+                            interpreter_.assign_variable(node->name, typed_val, ret.type, false);
+                        } else {
+                            interpreter_.assign_variable(node->name, ret.value, ret.type);
+                        }
                     }
                     interpreter_.current_scope().variables[node->name].is_assigned = true;
                 }
             } else {
-                int64_t value = interpreter_.evaluate(init_node);
+                // float/double リテラルを含む全ての初期化式で TypedValue を使用
+                TypedValue typed_value = interpreter_.evaluate_typed(init_node);
                 if (var.type == TYPE_STRING) {
                     interpreter_.current_scope().variables[node->name].str_value = init_node->str_value;
                 } else {
-                    interpreter_.assign_variable(node->name, value,
-                                                 node->type_info);
+                    interpreter_.assign_variable(node->name, typed_value,
+                                                 node->type_info, false);
                 }
                 interpreter_.current_scope().variables[node->name].is_assigned = true;
             }
@@ -1070,8 +1101,9 @@ void StatementExecutor::execute_member_assignment(const ASTNode* node) {
         } else if (right_var->type == TYPE_STRING) {
             interpreter_.assign_struct_member(obj_name, member_name, right_var->str_value);
         } else {
-            int64_t value = interpreter_.evaluate(node->right.get());
-            interpreter_.assign_struct_member(obj_name, member_name, value);
+            // TypedValueを使用して型情報を保持
+            TypedValue typed_value = interpreter_.evaluate_typed(node->right.get());
+            interpreter_.assign_struct_member(obj_name, member_name, typed_value);
         }
     } else if (node->right->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
         // 構造体メンバアクセスの場合（original.name等）
@@ -1093,6 +1125,23 @@ void StatementExecutor::execute_member_assignment(const ASTNode* node) {
         Variable* right_member_var = interpreter_.get_struct_member(right_obj_name, right_member_name);
         if (right_member_var->type == TYPE_STRING) {
             interpreter_.assign_struct_member(obj_name, member_name, right_member_var->str_value);
+        } else if (right_member_var->type == TYPE_FLOAT || right_member_var->type == TYPE_DOUBLE || right_member_var->type == TYPE_QUAD) {
+            // 浮動小数点型の場合はTypedValueを作成
+            InferredType inferred;
+            inferred.type_info = right_member_var->type;
+            if (right_member_var->type == TYPE_FLOAT) {
+                TypedValue typed_value(static_cast<double>(right_member_var->float_value), inferred);
+                typed_value.numeric_type = TYPE_FLOAT;
+                interpreter_.assign_struct_member(obj_name, member_name, typed_value);
+            } else if (right_member_var->type == TYPE_DOUBLE) {
+                TypedValue typed_value(right_member_var->double_value, inferred);
+                typed_value.numeric_type = TYPE_DOUBLE;
+                interpreter_.assign_struct_member(obj_name, member_name, typed_value);
+            } else {
+                TypedValue typed_value(right_member_var->quad_value, inferred);
+                typed_value.numeric_type = TYPE_QUAD;
+                interpreter_.assign_struct_member(obj_name, member_name, typed_value);
+            }
         } else {
             interpreter_.assign_struct_member(obj_name, member_name, right_member_var->value);
         }
@@ -1131,8 +1180,9 @@ void StatementExecutor::execute_member_assignment(const ASTNode* node) {
             interpreter_.assign_struct_member(obj_name, member_name, value);
         }
     } else {
-        int64_t value = interpreter_.evaluate(node->right.get());
-        interpreter_.assign_struct_member(obj_name, member_name, value);
+        // TypedValueを使用して型情報を保持
+        TypedValue typed_value = interpreter_.evaluate_typed(node->right.get());
+        interpreter_.assign_struct_member(obj_name, member_name, typed_value);
     }
 }
 

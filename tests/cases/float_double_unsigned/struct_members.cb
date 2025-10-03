@@ -1,0 +1,49 @@
+// 構造体メンバとしてのfloat/double/unsigned
+struct FloatStruct {
+    float x;
+    float y;
+    float z;
+};
+
+struct DoubleStruct {
+    double pi;
+    double e;
+};
+
+struct UnsignedStruct {
+    unsigned int count;
+    unsigned int flags;
+};
+
+int main() {
+    // Float構造体
+    FloatStruct fs;
+    fs.x = 1.5f;
+    fs.y = 2.5f;
+    fs.z = 3.5f;
+    
+    println(fs.x);
+    println(fs.y);
+    println(fs.z);
+    println(fs.x + fs.y + fs.z);  // 7.5
+    
+    // Double構造体
+    DoubleStruct ds;
+    ds.pi = 3.141592653589793;
+    ds.e = 2.718281828459045;
+    
+    println(ds.pi);
+    println(ds.e);
+    println(ds.pi * ds.e);  // 8.539734222673566
+    
+    // Unsigned構造体
+    UnsignedStruct us;
+    us.count = 100;
+    us.flags = 255;
+    
+    println(us.count);
+    println(us.flags);
+    println(us.count | us.flags);  // 255
+    
+    return 0;
+}
