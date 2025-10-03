@@ -361,8 +361,25 @@ void OutputManager::print_value(const ASTNode *expr) {
 
     if (expr->node_type == ASTNodeType::AST_VARIABLE) {
         Variable *var = find_variable(expr->name);
+        
+        // 参照型変数の場合、参照先変数を取得
+        if (var && var->is_reference) {
+            var = reinterpret_cast<Variable*>(var->value);
+            if (!var) {
+                io_interface_->write_string("(invalid reference)");
+                return;
+            }
+        }
+        
         if (var && var->type == TYPE_STRING) {
             io_interface_->write_string(var->str_value.c_str());
+            return;
+        }
+        
+        // 変数の値を直接出力
+        if (var) {
+            write_numeric_value(io_interface_, var->type, var->value, 
+                                var->double_value, var->quad_value);
             return;
         }
 
@@ -384,6 +401,36 @@ void OutputManager::print_value(const ASTNode *expr) {
             std::string array_name = expr->left->left->name;
             int64_t index = evaluate_expression(expr->left->array_index.get());
             struct_name = array_name + "[" + std::to_string(index) + "]";
+        } else if (expr->left && expr->left->node_type == ASTNodeType::AST_UNARY_OP && 
+                   expr->left->op == "DEREFERENCE") {
+            // デリファレンスされたポインタからのメンバーアクセス: (*pp).x
+            // デリファレンスを評価して構造体を取得
+            try {
+                int64_t ptr_value = evaluate_expression(expr->left.get());
+                // ポインタ値から構造体変数を取得
+                Variable* struct_var = reinterpret_cast<Variable*>(ptr_value);
+                if (!struct_var) {
+                    io_interface_->write_string("(null pointer dereference)");
+                    return;
+                }
+                
+                // メンバーにアクセス
+                auto member_it = struct_var->struct_members.find(member_name);
+                if (member_it != struct_var->struct_members.end()) {
+                    if (member_it->second.type == TYPE_STRING) {
+                        io_interface_->write_string(member_it->second.str_value.c_str());
+                    } else {
+                        io_interface_->write_number(member_it->second.value);
+                    }
+                    return;
+                } else {
+                    io_interface_->write_string("(member not found)");
+                    return;
+                }
+            } catch (const std::exception&) {
+                io_interface_->write_string("(deref member access error)");
+                return;
+            }
         } else {
             io_interface_->write_string("(invalid member access)");
             return;
@@ -673,7 +720,7 @@ bool OutputManager::has_unescaped_format_specifiers(const std::string& str) {
             // 次の文字がフォーマット指定子かチェック
             if (i + 1 < str.length()) {
                 char next = str[i + 1];
-                if (next == 'd' or next == 's' or next == 'c' or next == '%') {
+                if (next == 'd' or next == 's' or next == 'c' or next == 'p' or next == 'f' or next == '%') {
                     debug_msg(DebugMsgId::OUTPUT_FORMAT_SPEC_FOUND, std::string(1, next).c_str());
                     return true;
                 }
@@ -700,7 +747,7 @@ size_t OutputManager::count_format_specifiers(const std::string& str) {
             }
             if (i + 1 < str.length()) {
                 char next = str[i + 1];
-                if (next == 'd' or next == 's' or next == 'c') {
+                if (next == 'd' or next == 's' or next == 'c' or next == 'p' or next == 'f') {
                     count++;
                     debug_msg(DebugMsgId::OUTPUT_FORMAT_COUNT, std::to_string(count).c_str());
                 } else if (next == 'l' && i + 3 < str.length() && 
@@ -1220,6 +1267,13 @@ std::string OutputManager::render_formatted_string(
                 string_value = argument_to_string(arg_index);
             }
             formatted = format_with_snprintf(fmt, string_value.c_str());
+            break;
+        }
+        case 'p': {
+            // ポインタのアドレスを16進数で表示（0x前綴り）
+            fmt += "p";
+            void* ptr_value = reinterpret_cast<void*>(static_cast<uintptr_t>(int_args[arg_index]));
+            formatted = format_with_snprintf(fmt, ptr_value);
             break;
         }
         case 'f':

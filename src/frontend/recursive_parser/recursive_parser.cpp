@@ -297,6 +297,51 @@ ASTNode* RecursiveParser::parseStatement() {
                     // 構造体変数宣言
                     std::string struct_type = advance().value;
                     
+                    // ポインタまたは参照チェック: Point* pp; または Point& rp;
+                    bool is_pointer = false;
+                    bool is_reference = false;
+                    int pointer_depth = 0;
+                    
+                    while (check(TokenType::TOK_MUL)) {
+                        is_pointer = true;
+                        pointer_depth++;
+                        advance();
+                    }
+                    
+                    if (check(TokenType::TOK_BIT_AND)) {
+                        is_reference = true;
+                        advance();
+                    }
+                    
+                    // ポインタまたは参照の場合
+                    if (is_pointer || is_reference) {
+                        if (!check(TokenType::TOK_IDENTIFIER)) {
+                            error("Expected variable name after pointer/reference type");
+                            return nullptr;
+                        }
+                        
+                        std::string var_name = advance().value;
+                        
+                        ASTNode* var_node = new ASTNode(ASTNodeType::AST_VAR_DECL);
+                        var_node->name = var_name;
+                        var_node->type_name = struct_type;
+                        var_node->type_info = is_pointer ? TYPE_POINTER : TYPE_STRUCT;
+                        var_node->is_const = isConst;
+                        var_node->is_pointer = is_pointer;
+                        var_node->pointer_depth = pointer_depth;
+                        var_node->is_reference = is_reference;
+                        var_node->pointer_base_type = TYPE_STRUCT;
+                        var_node->pointer_base_type_name = struct_type;
+                        
+                        // 初期化式のチェック
+                        if (match(TokenType::TOK_ASSIGN)) {
+                            var_node->init_expr = std::unique_ptr<ASTNode>(parseExpression());
+                        }
+                        
+                        consume(TokenType::TOK_SEMICOLON, "Expected ';' after pointer/reference variable declaration");
+                        return var_node;
+                    }
+                    
                     // 配列チェック: Person[3] people; または Person people;
                     if (check(TokenType::TOK_LBRACKET)) {
                         // struct配列宣言: Person[3] people;
@@ -362,6 +407,20 @@ ASTNode* RecursiveParser::parseStatement() {
                     // interface変数宣言
                     std::string interface_type = advance().value;
                     
+                    // ポインタ深度をチェック
+                    int pointer_depth = 0;
+                    while (check(TokenType::TOK_MUL)) {
+                        pointer_depth++;
+                        advance();
+                    }
+                    
+                    // 参照チェック
+                    bool is_reference = false;
+                    if (check(TokenType::TOK_BIT_AND)) {
+                        is_reference = true;
+                        advance();
+                    }
+                    
                     if (!check(TokenType::TOK_IDENTIFIER)) {
                         error("Expected interface variable name");
                         return nullptr;
@@ -375,6 +434,24 @@ ASTNode* RecursiveParser::parseStatement() {
                     var_node->name = var_name;
                     var_node->type_name = interface_type;
                     var_node->type_info = TYPE_INTERFACE;
+                    
+                    // ポインタと参照の情報を設定
+                    if (pointer_depth > 0) {
+                        var_node->is_pointer = true;
+                        var_node->pointer_depth = pointer_depth;
+                        var_node->pointer_base_type_name = interface_type;
+                        var_node->pointer_base_type = TYPE_INTERFACE;
+                        
+                        // ポインタの場合、type_nameに*を追加
+                        for (int i = 0; i < pointer_depth; i++) {
+                            var_node->type_name += "*";
+                        }
+                    }
+                    
+                    if (is_reference) {
+                        var_node->is_reference = true;
+                        var_node->type_name += "&";
+                    }
                     
                     // 初期化式のチェック（interfaceの場合は構造体インスタンスを受け取る可能性）
                     if (match(TokenType::TOK_ASSIGN)) {
@@ -423,8 +500,33 @@ ASTNode* RecursiveParser::parseStatement() {
 
         advance(); // consume type
 
+        // ポインタ修飾子のチェック
+        int pointer_depth = 0;
+        while (check(TokenType::TOK_MUL)) {
+            pointer_depth++;
+            advance();
+        }
+
+        // 参照修飾子のチェック
+        bool is_reference = false;
+        if (check(TokenType::TOK_BIT_AND)) {
+            is_reference = true;
+            advance();
+        }
+
         TypeInfo base_type_info = getTypeInfoFromString(base_type_name);
         std::string type_name = base_type_name;
+        
+        // ポインタ記号を型名に追加
+        if (pointer_depth > 0) {
+            type_name += std::string(pointer_depth, '*');
+        }
+        
+        // 参照記号を型名に追加
+        if (is_reference) {
+            type_name += "&";
+        }
+        
         if (saw_unsigned_specifier) {
             switch (base_type_info) {
                 case TYPE_TINY:
@@ -443,7 +545,13 @@ ASTNode* RecursiveParser::parseStatement() {
             type_name = "unsigned " + base_type_name;
         }
 
-        TypeInfo declared_type_info = getTypeInfoFromString(type_name);
+        // 参照型の場合、型情報は基底型から取得
+        std::string type_for_info = type_name;
+        if (is_reference && type_for_info.back() == '&') {
+            type_for_info.pop_back();  // '&'を削除
+        }
+        
+        TypeInfo declared_type_info = getTypeInfoFromString(type_for_info);
         // 配列型の場合: int[size][size2]... identifier
         if (check(TokenType::TOK_LBRACKET)) {
             // これは配列型宣言（多次元対応）
@@ -510,6 +618,7 @@ ASTNode* RecursiveParser::parseStatement() {
             node->is_const = isConst;
             node->is_static = isStatic;
             node->is_unsigned = saw_unsigned_specifier;
+            node->is_reference = is_reference;
             
             // ArrayTypeInfoを構築
             std::vector<ArrayDimension> dimensions;
@@ -712,6 +821,7 @@ ASTNode* RecursiveParser::parseStatement() {
                     node->is_const = isConst;
                     node->is_static = isStatic;
                     node->is_unsigned = saw_unsigned_specifier;
+                    node->is_reference = is_reference;
                     
                     // 型情報を設定
                     node->type_info = declared_type_info;
@@ -726,6 +836,7 @@ ASTNode* RecursiveParser::parseStatement() {
                     ASTNode* node = new ASTNode(ASTNodeType::AST_MULTIPLE_VAR_DECL);
                     node->type_name = type_name;
                     node->is_unsigned = saw_unsigned_specifier;
+                    node->is_reference = is_reference;
                     
                     // 型情報を設定
                     node->type_info = declared_type_info;
@@ -737,6 +848,7 @@ ASTNode* RecursiveParser::parseStatement() {
                         var_node->type_name = type_name;
                         var_node->type_info = node->type_info;
                         var_node->is_const = isConst;
+                        var_node->is_reference = is_reference;
                         var_node->is_static = isStatic;
                         var_node->is_unsigned = saw_unsigned_specifier;
                         
@@ -762,6 +874,11 @@ ASTNode* RecursiveParser::parseStatement() {
     // return文の処理
     if (check(TokenType::TOK_RETURN)) {
         return parseReturnStatement();
+    }
+    
+    // assert文の処理
+    if (check(TokenType::TOK_ASSERT)) {
+        return parseAssertStatement();
     }
     
     // break文の処理
@@ -940,6 +1057,14 @@ ASTNode* RecursiveParser::parseStatement() {
                 
                 consume(TokenType::TOK_SEMICOLON, "Expected ';'");
                 return assignment;
+            } else if (check(TokenType::TOK_INCR) || check(TokenType::TOK_DECR)) {
+                // 配列要素のポストインクリメント/デクリメント: arr[i]++; arr[i]--;
+                Token op = advance();
+                ASTNode* postfix = new ASTNode(ASTNodeType::AST_POST_INCDEC);
+                postfix->op = op.value;
+                postfix->left = std::unique_ptr<ASTNode>(left_expr);
+                consume(TokenType::TOK_SEMICOLON, "Expected ';'");
+                return postfix;
             } else {
                 error("Expected assignment operator after array access");
                 return nullptr;
@@ -1110,8 +1235,30 @@ ASTNode* RecursiveParser::parseStatement() {
                 consume(TokenType::TOK_SEMICOLON, "Expected ';' after method call");
                 
                 return method_call;
+            } else if (check(TokenType::TOK_INCR) || check(TokenType::TOK_DECR)) {
+                // メンバーへのポストインクリメント/デクリメント: obj.member++ or obj.member--
+                TokenType op_type = current_token_.type;
+                advance(); // consume '++' or '--'
+                
+                consume(TokenType::TOK_SEMICOLON, "Expected ';' after increment/decrement");
+                
+                // AST_POST_INCDECノードを作成
+                ASTNode* incdec = new ASTNode(ASTNodeType::AST_POST_INCDEC);
+                incdec->op = (op_type == TokenType::TOK_INCR) ? "++" : "--";
+                
+                // メンバアクセスノードを作成
+                ASTNode* member_access_node = new ASTNode(ASTNodeType::AST_MEMBER_ACCESS);
+                member_access_node->name = member_name;
+                ASTNode* obj_var = new ASTNode(ASTNodeType::AST_VARIABLE);
+                obj_var->name = name;
+                member_access_node->left = std::unique_ptr<ASTNode>(obj_var);
+                
+                // メンバアクセスを子として設定
+                incdec->left = std::unique_ptr<ASTNode>(member_access_node);
+                
+                return incdec;
             } else {
-                error("Expected '=' or '(' after member access");
+                error("Expected '=', '(', '++', or '--' after member access");
                 return nullptr;
             }
         } else if (check(TokenType::TOK_ASSIGN) || check(TokenType::TOK_PLUS_ASSIGN) || 
@@ -1902,6 +2049,15 @@ ASTNode* RecursiveParser::parseAssignment() {
                 assign->left = std::unique_ptr<ASTNode>(left);
                 assign->right = std::unique_ptr<ASTNode>(right);
             }
+        } else if (left->node_type == ASTNodeType::AST_UNARY_OP && left->op == "DEREFERENCE") {
+            // 間接参照への代入: *ptr = value
+            // 複合代入はサポートしない（*ptr += value は未実装）
+            if (op_type != TokenType::TOK_ASSIGN) {
+                error("Compound assignment to dereferenced pointer is not yet supported");
+                return nullptr;
+            }
+            assign->left = std::unique_ptr<ASTNode>(left);
+            assign->right = std::unique_ptr<ASTNode>(right);
         } else {
             error("Invalid assignment target");
             return nullptr;
@@ -2098,18 +2254,38 @@ ASTNode* RecursiveParser::parseMultiplicative() {
 }
 
 ASTNode* RecursiveParser::parseUnary() {
-    // Prefix operators: !, -, ++, --, ~
+    // Prefix operators: !, -, ~, &, *
     if (check(TokenType::TOK_NOT) || check(TokenType::TOK_MINUS) || 
-        check(TokenType::TOK_INCR) || check(TokenType::TOK_DECR) || 
-        check(TokenType::TOK_BIT_NOT)) {
+        check(TokenType::TOK_BIT_NOT) || check(TokenType::TOK_BIT_AND) ||
+        check(TokenType::TOK_MUL)) {
         Token op = advance();
         ASTNode* operand = parseUnary();
         
         ASTNode* unary = new ASTNode(ASTNodeType::AST_UNARY_OP);
-        unary->op = op.value;
+        // & はアドレス演算子、* は間接参照演算子として扱う
+        if (op.type == TokenType::TOK_BIT_AND) {
+            unary->op = "ADDRESS_OF";  // アドレス演算子
+        } else if (op.type == TokenType::TOK_MUL) {
+            unary->op = "DEREFERENCE";  // 間接参照演算子
+        } else {
+            unary->op = op.value;
+        }
         unary->left = std::unique_ptr<ASTNode>(operand);
         
         return unary;
+    }
+    
+    // ++ と -- は別処理: AST_PRE_INCDEC を生成
+    if (check(TokenType::TOK_INCR) || check(TokenType::TOK_DECR)) {
+        Token op = advance();
+        ASTNode* operand = parsePostfix();  // parsePostfix()を直接呼ぶことでメンバーアクセスを取得
+        
+        // AST_PRE_INCDEC ノードを生成
+        ASTNode* incdec = new ASTNode(ASTNodeType::AST_PRE_INCDEC);
+        incdec->op = op.value;
+        incdec->left = std::unique_ptr<ASTNode>(operand);
+        
+        return incdec;
     }
     
     return parsePostfix();
@@ -2164,8 +2340,8 @@ ASTNode* RecursiveParser::parsePostfix() {
     // Postfix operators: ++, --
     if (check(TokenType::TOK_INCR) || check(TokenType::TOK_DECR)) {
         Token op = advance();
-        ASTNode* postfix = new ASTNode(ASTNodeType::AST_UNARY_OP);
-        postfix->op = op.value + "_post"; // postfixを区別
+        ASTNode* postfix = new ASTNode(ASTNodeType::AST_POST_INCDEC);
+        postfix->op = op.value; // "++" または "--"
         postfix->left = std::unique_ptr<ASTNode>(primary);
         return postfix;
     }
@@ -2266,6 +2442,13 @@ ASTNode* RecursiveParser::parsePrimary() {
         Token token = advance();
         ASTNode* node = new ASTNode(ASTNodeType::AST_NUMBER); // bool値も数値として扱う
         node->int_value = (token.type == TokenType::TOK_TRUE) ? 1 : 0;
+        return node;
+    }
+    
+    if (check(TokenType::TOK_NULLPTR)) {
+        Token token = advance();
+        ASTNode* node = new ASTNode(ASTNodeType::AST_NULLPTR);
+        setLocation(node, token.line, token.column);
         return node;
     }
     
@@ -3075,6 +3258,24 @@ ASTNode* RecursiveParser::parseReturnStatement() {
     return return_node;
 }
 
+ASTNode* RecursiveParser::parseAssertStatement() {
+    Token assert_token = advance(); // consume 'assert'
+    
+    consume(TokenType::TOK_LPAREN, "Expected '(' after assert");
+    
+    // 条件式をパース
+    ASTNode* condition = parseExpression();
+    
+    consume(TokenType::TOK_RPAREN, "Expected ')' after assert condition");
+    consume(TokenType::TOK_SEMICOLON, "Expected ';' after assert statement");
+    
+    ASTNode* assert_node = new ASTNode(ASTNodeType::AST_ASSERT_STMT);
+    assert_node->left = std::unique_ptr<ASTNode>(condition);
+    assert_node->location.line = assert_token.line;
+    
+    return assert_node;
+}
+
 ASTNode* RecursiveParser::parseBreakStatement() {
     advance(); // consume 'break'
     ASTNode* break_node = new ASTNode(ASTNodeType::AST_BREAK_STMT);
@@ -3311,6 +3512,20 @@ ASTNode* RecursiveParser::parseTypedefVariableDeclaration() {
     std::string typedef_name = advance().value;
     std::string resolved_type = resolveTypedefChain(typedef_name);
     
+    // ポインタ深度をチェック
+    int pointer_depth = 0;
+    while (check(TokenType::TOK_MUL)) {
+        pointer_depth++;
+        advance();
+    }
+    
+    // 参照チェック
+    bool is_reference = false;
+    if (check(TokenType::TOK_BIT_AND)) {
+        is_reference = true;
+        advance();
+    }
+    
     // 変数名を取得
     if (!check(TokenType::TOK_IDENTIFIER)) {
         error("Expected variable name after typedef type");
@@ -3323,6 +3538,35 @@ ASTNode* RecursiveParser::parseTypedefVariableDeclaration() {
     ASTNode* node = new ASTNode(ASTNodeType::AST_VAR_DECL);
     node->name = var_name;
     node->type_name = typedef_name;  // 元のtypedef名を保持
+    
+    // ポインタと参照の情報を設定
+    if (pointer_depth > 0) {
+        node->is_pointer = true;
+        node->pointer_depth = pointer_depth;
+        node->pointer_base_type_name = typedef_name;
+        
+        // typedefの解決済み型を取得
+        TypeInfo base_type_info = TYPE_UNKNOWN;
+        if (!resolved_type.empty()) {
+            // union型の場合
+            if (union_definitions_.find(resolved_type) != union_definitions_.end()) {
+                base_type_info = TYPE_UNION;
+            } else {
+                base_type_info = getTypeInfoFromString(resolved_type);
+            }
+        }
+        node->pointer_base_type = base_type_info;
+        
+        // ポインタの場合、type_nameに*を追加
+        for (int i = 0; i < pointer_depth; i++) {
+            node->type_name += "*";
+        }
+    }
+    
+    if (is_reference) {
+        node->is_reference = true;
+        node->type_name += "&";
+    }
     
     // 実際の型から型情報を設定
     if (resolved_type.find("[") != std::string::npos) {

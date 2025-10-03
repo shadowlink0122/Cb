@@ -1,0 +1,96 @@
+// 浮動小数点数とポインタのテスト
+
+int main() {
+    println("Test 1: Float pointer basic operations");
+    float f = 3.14f;
+    float* pf = &f;
+    
+    println("f = %f", f);
+    println("*pf = %f", *pf);
+    
+    *pf = 6.28f;
+    println("After *pf = 6.28:");
+    println("f = %f", f);
+    println("*pf = %f", *pf);
+    
+    println("");
+    println("Test 2: Double pointer basic operations");
+    double d = 2.718;
+    double* pd = &d;
+    
+    println("d = %f", d);
+    println("*pd = %f", *pd);
+    
+    *pd = 3.141592;
+    println("After *pd = 3.141592:");
+    println("d = %f", d);
+    println("*pd = %f", *pd);
+    
+    println("");
+    println("Test 3: Quad pointer basic operations");
+    quad q = 1.234567890123456;
+    quad* pq = &q;
+    
+    println("q = %f", q);
+    println("*pq = %f", *pq);
+    
+    *pq = 9.876543210987654;
+    println("After *pq = 9.876543210987654:");
+    println("q = %f", q);
+    println("*pq = %f", *pq);
+    
+    println("");
+    println("Test 4: Multiple floating-point pointers");
+    float f1 = 1.1f;
+    float f2 = 2.2f;
+    double d1 = 3.3;
+    double d2 = 4.4;
+    
+    float* pf1 = &f1;
+    float* pf2 = &f2;
+    double* pd1 = &d1;
+    double* pd2 = &d2;
+    
+    println("Before:");
+    println("f1 = %f, f2 = %f", f1, f2);
+    println("d1 = %f, d2 = %f", d1, d2);
+    
+    *pf1 = *pf1 + 10.0f;
+    *pf2 = *pf2 + 20.0f;
+    *pd1 = *pd1 + 30.0;
+    *pd2 = *pd2 + 40.0;
+    
+    println("After:");
+    println("f1 = %f, f2 = %f", f1, f2);
+    println("d1 = %f, d2 = %f", d1, d2);
+    
+    println("");
+    println("Test 5: Float double pointer");
+    float ff = 5.5f;
+    float* pff = &ff;
+    float** ppff = &pff;
+    
+    println("ff = %f", ff);
+    println("*pff = %f", *pff);
+    println("**ppff = %f", **ppff);
+    
+    **ppff = 7.7f;
+    println("After **ppff = 7.7:");
+    println("ff = %f", ff);
+    
+    println("");
+    println("Test 6: Double double pointer");
+    double dd = 8.8;
+    double* pdd = &dd;
+    double** ppdd = &pdd;
+    
+    println("dd = %f", dd);
+    println("*pdd = %f", *pdd);
+    println("**ppdd = %f", **ppdd);
+    
+    **ppdd = 9.9;
+    println("After **ppdd = 9.9:");
+    println("dd = %f", dd);
+    
+    return 0;
+}

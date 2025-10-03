@@ -59,6 +59,7 @@ enum class TokenType {
     TOK_LBRACKET,    // [
     TOK_RBRACKET,    // ]
     TOK_DOT,         // .
+    TOK_ARROW,       // ->
     TOK_SCOPE,       // ::
     
     // Literals
@@ -106,6 +107,7 @@ enum class TokenType {
     TOK_DELETE,
     TOK_NULLPTR,
     TOK_UNSIGNED,
+    TOK_ASSERT,
     
     // Special
     TOK_EOF,

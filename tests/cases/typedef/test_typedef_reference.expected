@@ -1,0 +1,12 @@
+Test 1: Reference to typedef primitive
+50
+100
+Test 2: Reference to typedef struct
+5
+10
+Test 3: Reference parameter
+20
+10
+10
+Test 4: Return reference
+200

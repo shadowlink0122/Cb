@@ -1,0 +1,62 @@
+// ポインタチェーンと連続的な値の変更をテスト
+
+int main() {
+    // テスト1: ポインタチェーン経由での値の変更
+    int original = 1;
+    int* p1 = &original;
+    int** p2 = &p1;
+    int*** p3 = &p2;
+    
+    println("Test 1: Pointer chain modifications");
+    println("Initial: original = %d", original);
+    
+    *p1 = 10;
+    println("After *p1 = 10: original = %d", original);
+    
+    **p2 = 20;
+    println("After **p2 = 20: original = %d", original);
+    
+    ***p3 = 30;
+    println("After ***p3 = 30: original = %d", original);
+    
+    // 全てのレベルで同じ値を参照していることを確認
+    println("Verification: *p1 = %d, **p2 = %d, ***p3 = %d", *p1, **p2, ***p3);
+    
+    // テスト2: 複数の変数に対するポインタチェーン
+    int var1 = 100;
+    int var2 = 200;
+    int* ptr = &var1;
+    
+    println("");
+    println("Test 2: Redirecting pointer chains");
+    println("var1 = %d, var2 = %d", var1, var2);
+    println("*ptr = %d (points to var1)", *ptr);
+    
+    *ptr = 150;  // var1を変更
+    println("After *ptr = 150: var1 = %d", var1);
+    
+    ptr = &var2;  // ポインタをvar2に向ける
+    println("After ptr = &var2: *ptr = %d (now points to var2)", *ptr);
+    
+    *ptr = 250;  // var2を変更
+    println("After *ptr = 250: var1 = %d, var2 = %d", var1, var2);
+    
+    // テスト3: 連続的な代入
+    int val = 0;
+    int* pv = &val;
+    
+    println("");
+    println("Test 3: Sequential assignments");
+    println("Initial: val = %d", val);
+    
+    int i = 1;
+    while (i <= 5) {
+        *pv = *pv + i;
+        println("After adding %d: val = %d", i, val);
+        i = i + 1;
+    }
+    
+    println("Final: val = %d", val);
+    
+    return 0;
+}

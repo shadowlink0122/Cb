@@ -63,9 +63,13 @@ struct TypedValue {
                     type(t), deferred_node(nullptr), is_deferred(false), is_struct_result(false), struct_data(nullptr) {}
 
         TypedValue(long double val, const InferredType& t) 
-                : value(static_cast<int64_t>(val)), double_value(static_cast<double>(val)), quad_value(val),
-                    string_value(""), is_numeric_result(true), is_float_result(true), numeric_type(t.type_info),
-                    type(t), deferred_node(nullptr), is_deferred(false), is_struct_result(false), struct_data(nullptr) {}
+                : value((t.type_info == TYPE_POINTER) 
+                        ? *reinterpret_cast<const int64_t*>(&val)  // ポインタの場合はビット再解釈
+                        : static_cast<int64_t>(val)),               // それ以外は通常のキャスト
+                  double_value(static_cast<double>(val)), quad_value(val),
+                  string_value(""), is_numeric_result(true), is_float_result((t.type_info != TYPE_POINTER)),
+                  numeric_type(t.type_info),
+                  type(t), deferred_node(nullptr), is_deferred(false), is_struct_result(false), struct_data(nullptr) {}
     
         TypedValue(const std::string& val, const InferredType& t) 
                 : value(0), double_value(0.0), quad_value(0.0L), string_value(val),

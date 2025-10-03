@@ -1,0 +1,15 @@
+// 単純な参照型テスト
+
+int main() {
+    int a = 10;
+    int& ref = a;
+    assert(ref == 10);
+    println(ref);  // Expected: 10
+    
+    ref = 20;
+    assert(a == 20);
+    println(a);    // Expected: 20
+    assert(ref == 20);
+    println(ref);  // Expected: 20
+    return 0;
+}

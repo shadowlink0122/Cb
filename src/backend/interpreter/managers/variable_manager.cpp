@@ -307,6 +307,15 @@ std::string VariableManager::resolve_interface_source_type(const Variable &sourc
 
 void VariableManager::declare_global_variable(const ASTNode *node) {
 
+    // 参照型変数の場合は、register時に宣言せず、execute時に処理する
+    if (node->is_reference) {
+        if (interpreter_->is_debug_mode()) {
+            std::cerr << "[VAR_MANAGER] Skipping reference variable registration: " 
+                      << node->name << " (will be created during execution)" << std::endl;
+        }
+        return;
+    }
+
     // グローバル変数の重複宣言チェック
     if (interpreter_->global_scope.variables.find(node->name) !=
         interpreter_->global_scope.variables.end()) {
@@ -563,6 +572,57 @@ void VariableManager::assign_variable(const std::string &name,
     debug_msg(DebugMsgId::VAR_ASSIGN_READABLE, name.c_str(),
               typed_value.is_numeric() ? typed_value.as_numeric() : 0, "type",
               is_const ? "true" : "false");
+    
+    // 参照変数への代入の場合、参照先変数に代入
+    Variable* var = interpreter_->find_variable(name);
+    if (var && var->is_reference) {
+        Variable* target_var = reinterpret_cast<Variable*>(var->value);
+        if (!target_var) {
+            throw std::runtime_error("Invalid reference variable: " + name);
+        }
+        
+        if (interpreter_->is_debug_mode()) {
+            std::cerr << "[VAR_MANAGER] Reference assignment: " << name 
+                      << " -> target variable (value before: " << target_var->value << ")" << std::endl;
+        }
+        
+        // 参照先変数に代入（再帰呼び出し、ただし参照先の名前は不明なので直接代入）
+        if (typed_value.is_numeric()) {
+            int64_t numeric_value = typed_value.as_numeric();
+            target_var->value = numeric_value;
+            target_var->is_assigned = true;
+            if (target_var->type == TYPE_FLOAT || target_var->type == TYPE_DOUBLE || target_var->type == TYPE_QUAD) {
+                double double_val = typed_value.as_double();
+                if (target_var->type == TYPE_FLOAT) {
+                    target_var->float_value = static_cast<float>(double_val);
+                } else if (target_var->type == TYPE_DOUBLE) {
+                    target_var->double_value = double_val;
+                } else {
+                    target_var->quad_value = static_cast<long double>(double_val);
+                }
+            }
+        } else if (typed_value.is_string()) {
+            target_var->str_value = typed_value.string_value;
+            target_var->is_assigned = true;
+        } else if (typed_value.is_struct()) {
+            if (typed_value.struct_data) {
+                bool was_const = target_var->is_const;
+                bool was_unsigned = target_var->is_unsigned;
+                *target_var = *typed_value.struct_data;
+                target_var->is_const = was_const;
+                target_var->is_unsigned = was_unsigned;
+                target_var->is_assigned = true;
+            }
+        }
+        return;
+    }
+    
+    if (interpreter_->is_debug_mode() && name == "ptr") {
+        std::cerr << "[VAR_MANAGER] assign_variable called for ptr:" << std::endl;
+        std::cerr << "  type_hint=" << static_cast<int>(type_hint) << " (TYPE_POINTER=" << static_cast<int>(TYPE_POINTER) << ")" << std::endl;
+        std::cerr << "  typed_value.value=" << typed_value.value << " (0x" << std::hex << typed_value.value << std::dec << ")" << std::endl;
+        std::cerr << "  typed_value.numeric_type=" << static_cast<int>(typed_value.numeric_type) << std::endl;
+    }
 
     auto apply_assignment = [&](Variable &target, bool allow_type_override) {
         auto clamp_unsigned = [&](int64_t &numeric_value) {
@@ -632,6 +692,15 @@ void VariableManager::assign_variable(const std::string &name,
                                 ? target.type
                                 : TYPE_INT;
         }
+        
+        if (interpreter_->is_debug_mode() && (type_hint == TYPE_POINTER || target.type == TYPE_POINTER || typed_value.numeric_type == TYPE_POINTER)) {
+            std::cerr << "[VAR_MANAGER] Pointer assignment detected for variable:" << std::endl;
+            std::cerr << "  type_hint=" << static_cast<int>(type_hint) << std::endl;
+            std::cerr << "  target.type=" << static_cast<int>(target.type) << std::endl;
+            std::cerr << "  resolved_type=" << static_cast<int>(resolved_type) << std::endl;
+            std::cerr << "  typed_value.numeric_type=" << static_cast<int>(typed_value.numeric_type) << std::endl;
+            std::cerr << "  TYPE_POINTER=" << static_cast<int>(TYPE_POINTER) << std::endl;
+        }
 
         if ((allow_type_override || target.type == TYPE_UNKNOWN) &&
             target.type != TYPE_UNION) {
@@ -690,17 +759,31 @@ void VariableManager::assign_variable(const std::string &name,
                 range_check_type = target.type;
             }
 
-            interpreter_->type_manager_->check_type_range(range_check_type,
-                                                          numeric_value, name,
-                                                          target.is_unsigned);
-            setNumericFields(target, static_cast<long double>(numeric_value));
+            // ポインタ型は精度損失を避けるため、long double経由のキャストをスキップ
+            // typed_value.numeric_typeもチェック（評価時に設定される型情報）
+            if (resolved_type == TYPE_POINTER || typed_value.numeric_type == TYPE_POINTER || 
+                target.type == TYPE_POINTER) {
+                target.value = numeric_value;
+                target.float_value = 0.0f;
+                target.double_value = 0.0;
+                target.quad_value = 0.0L;
+                if (interpreter_->is_debug_mode()) {
+                    std::cerr << "[VAR_MANAGER] Assigned pointer value to " << name 
+                              << ": " << numeric_value << " (0x" << std::hex << numeric_value << std::dec << ")" << std::endl;
+                }
+            } else {
+                interpreter_->type_manager_->check_type_range(range_check_type,
+                                                              numeric_value, name,
+                                                              target.is_unsigned);
+                setNumericFields(target, static_cast<long double>(numeric_value));
+            }
         }
 
         target.is_assigned = true;
     };
 
-    Variable *var = find_variable(name);
-    if (!var) {
+    Variable *existing_var = find_variable(name);
+    if (!existing_var) {
         Variable new_var;
         apply_assignment(new_var, true);
         new_var.is_const = is_const;
@@ -708,16 +791,16 @@ void VariableManager::assign_variable(const std::string &name,
         return;
     }
 
-    if (var->is_const && var->is_assigned) {
+    if (existing_var->is_const && existing_var->is_assigned) {
         std::fprintf(stderr, "Cannot reassign const variable: %s\n",
                      name.c_str());
         error_msg(DebugMsgId::CONST_REASSIGN_ERROR, name.c_str());
         std::exit(1);
     }
 
-    apply_assignment(*var, false);
+    apply_assignment(*existing_var, false);
     if (is_const) {
-        var->is_const = true;
+        existing_var->is_const = true;
     }
 }
 
@@ -774,12 +857,107 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
         debug_print("VAR_DEBUG: type_info=%d, type_name='%s'\n", 
                    static_cast<int>(node->type_info), node->type_name.c_str());
         debug_print("VAR_DEBUG: node->is_unsigned=%d\n", node->is_unsigned ? 1 : 0);
+        debug_print("VAR_DEBUG: node->is_reference=%d\n", node->is_reference ? 1 : 0);
         
         std::string resolved = interpreter_->type_manager_->resolve_typedef(node->type_name);
         debug_print("VAR_DEBUG: resolve_typedef('%s') = '%s'\n", 
                    node->type_name.c_str(), resolved.c_str());
         debug_print("VAR_DEBUG: condition check: !empty=%d, resolved!=original=%d\n", 
                    !node->type_name.empty(), resolved != node->type_name);
+    }
+
+    // 参照型変数の特別処理
+    if (node->is_reference && node->node_type == ASTNodeType::AST_VAR_DECL) {
+        if (interpreter_->is_debug_mode()) {
+            std::cerr << "[VAR_MANAGER] Processing reference variable: " << node->name << std::endl;
+        }
+        
+        // 参照は必ず初期化が必要
+        if (!node->init_expr && !node->right) {
+            throw std::runtime_error("Reference variable '" + node->name + "' must be initialized");
+        }
+        
+        // 初期化式を評価して参照先変数を取得
+        ASTNode* init_node = node->init_expr ? node->init_expr.get() : node->right.get();
+        
+        // 関数呼び出しの場合、ReturnExceptionから参照を取得
+        if (init_node->node_type == ASTNodeType::AST_FUNC_CALL) {
+            try {
+                interpreter_->expression_evaluator_->evaluate_expression(init_node);
+                throw std::runtime_error("Function did not return via exception");
+            } catch (const ReturnException& ret) {
+                if (!ret.is_reference || !ret.reference_target) {
+                    throw std::runtime_error("Function '" + init_node->name + "' does not return a reference");
+                }
+                
+                Variable* target_var = ret.reference_target;
+                
+                if (interpreter_->is_debug_mode()) {
+                    std::cerr << "[VAR_MANAGER] Creating reference " << node->name 
+                              << " from function return (value: " << target_var->value << ")" << std::endl;
+                }
+                
+                // 参照変数を作成
+                Variable ref_var;
+                ref_var.is_reference = true;
+                ref_var.type = target_var->type;
+                ref_var.is_const = node->is_const;
+                ref_var.is_array = target_var->is_array;
+                ref_var.is_unsigned = target_var->is_unsigned;
+                ref_var.is_struct = target_var->is_struct;
+                ref_var.struct_type_name = target_var->struct_type_name;
+                
+                // 参照先変数のポインタを値として保存
+                ref_var.value = reinterpret_cast<int64_t>(target_var);
+                ref_var.is_assigned = true;
+                
+                current_scope().variables[node->name] = ref_var;
+                return;
+            }
+        }
+        
+        // 参照先が変数でなければエラー
+        if (init_node->node_type != ASTNodeType::AST_VARIABLE) {
+            throw std::runtime_error("Reference variable '" + node->name + "' must be initialized with a variable");
+        }
+        
+        std::string target_var_name = init_node->name;
+        
+        // 参照先変数が存在するかチェック
+        Variable* target_var = find_variable(target_var_name);
+        if (!target_var) {
+            throw std::runtime_error("Reference target variable '" + target_var_name + "' not found");
+        }
+        
+        // 参照先変数が参照型の場合、さらにデリファレンス
+        if (target_var->is_reference) {
+            target_var = reinterpret_cast<Variable*>(target_var->value);
+            if (!target_var) {
+                throw std::runtime_error("Invalid reference chain for variable: " + target_var_name);
+            }
+        }
+        
+        if (interpreter_->is_debug_mode()) {
+            std::cerr << "[VAR_MANAGER] Creating reference " << node->name 
+                      << " -> " << target_var_name << " (value: " << target_var->value << ")" << std::endl;
+        }
+        
+        // 参照変数を作成
+        Variable ref_var;
+        ref_var.is_reference = true;
+        ref_var.type = target_var->type;
+        ref_var.is_const = node->is_const;
+        ref_var.is_array = target_var->is_array;
+        ref_var.is_unsigned = target_var->is_unsigned;
+        ref_var.is_struct = target_var->is_struct;
+        ref_var.struct_type_name = target_var->struct_type_name;
+        
+        // 参照先変数のポインタを値として保存
+        ref_var.value = reinterpret_cast<int64_t>(target_var);
+        ref_var.is_assigned = true;
+        
+        current_scope().variables[node->name] = ref_var;
+        return;
     }
 
     auto clamp_unsigned_initial = [&](Variable &target, int64_t &value,
@@ -796,7 +974,12 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
     if (node->node_type == ASTNodeType::AST_VAR_DECL) {
         // 変数宣言の処理
         Variable var;
-        var.type = node->type_info;
+        // ポインタ型の場合はTYPE_POINTERを設定
+        if (node->is_pointer) {
+            var.type = TYPE_POINTER;
+        } else {
+            var.type = node->type_info;
+        }
         var.is_const = node->is_const;
         var.is_assigned = false;
         var.is_array = false;
@@ -811,7 +994,12 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
         
         // interface変数の場合の追加設定
         if (node->type_info == TYPE_INTERFACE && !node->type_name.empty()) {
-            var.interface_name = node->type_name;
+            // ポインタの場合は、ベース型名を使用
+            if (node->is_pointer && !node->pointer_base_type_name.empty()) {
+                var.interface_name = node->pointer_base_type_name;
+            } else {
+                var.interface_name = node->type_name;
+            }
         }
 
         // 新しいArrayTypeInfoが設定されている場合の処理
@@ -1234,8 +1422,15 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                         var.value = value;
                         var.is_assigned = true;
                         
-                        // 型範囲チェック
-                        if (var.type != TYPE_STRING) {
+                        if (interpreter_->is_debug_mode() && node->name == "ptr") {
+                            std::cerr << "[VAR_MANAGER] Pointer variable initialized:" << std::endl;
+                            std::cerr << "  value=" << value << " (0x" << std::hex << value << std::dec << ")" << std::endl;
+                            std::cerr << "  var.value=" << var.value << " (0x" << std::hex << var.value << std::dec << ")" << std::endl;
+                            std::cerr << "  var.type=" << static_cast<int>(var.type) << std::endl;
+                        }
+                        
+                        // 型範囲チェック（ポインタ型は除外）
+                        if (var.type != TYPE_STRING && var.type != TYPE_POINTER) {
                             interpreter_->type_manager_->check_type_range(
                                 var.type, var.value, node->name,
                                 var.is_unsigned);
@@ -2424,7 +2619,26 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
             }
         }
 
+        if (interpreter_->is_debug_mode() && node->name == "ptr") {
+            std::cerr << "[VAR_MANAGER] Registering variable ptr to scope:" << std::endl;
+            std::cerr << "  var.value=" << var.value << std::endl;
+            std::cerr << "  var.type=" << static_cast<int>(var.type) << std::endl;
+            std::cerr << "  node->type_info=" << static_cast<int>(node->type_info) << std::endl;
+        }
+        
+        // ポインタ型の場合、型情報を確実に設定
+        if (node->type_info == TYPE_POINTER) {
+            var.type = TYPE_POINTER;
+        }
+
         current_scope().variables[node->name] = var;
+        
+        if (interpreter_->is_debug_mode() && node->name == "ptr") {
+            Variable* registered = find_variable(node->name);
+            if (registered) {
+                std::cerr << "[VAR_MANAGER] After registration, ptr value=" << registered->value << std::endl;
+            }
+        }
         // std::cerr << "DEBUG: Variable created: " << node->name << ",
         // is_array=" << var.is_array << std::endl;
 

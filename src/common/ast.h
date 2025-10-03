@@ -520,6 +520,7 @@ enum class ASTNodeType {
     AST_VARIABLE,
     AST_STRING_LITERAL,
     AST_ARRAY_LITERAL,
+    AST_NULLPTR, // nullptr リテラル
 
     // 演算子
     AST_BINARY_OP,
@@ -587,7 +588,10 @@ enum class ASTNodeType {
     AST_TRY_STMT,     // try文
     AST_CATCH_STMT,   // catch文
     AST_FINALLY_STMT, // finally文
-    AST_THROW_STMT    // throw文
+    AST_THROW_STMT,   // throw文
+
+    // デバッグ・検証
+    AST_ASSERT_STMT // assert文
 };
 
 // 位置情報構造体

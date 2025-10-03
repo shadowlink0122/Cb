@@ -10,6 +10,7 @@
 #include "array_copy/test_array_copy.hpp"
 #include "array_literal/test_array_literal.hpp"
 #include "array_return/test_array_return.hpp"
+#include "assert/assert_tests.hpp"
 #include "assign/test_assign.hpp"
 #include "basic/test_basic.hpp"
 #include "bitwise/test_bitwise.hpp"
@@ -43,8 +44,10 @@
 #include "multidim_literal/test_multidim_literal.hpp"
 #include "multiple_var_decl/test_multiple_var_decl.hpp"
 #include "performance/test_performance.hpp"
+#include "pointer/pointer_tests.hpp"
 #include "printf/test_printf.hpp"
 #include "println/test_println.hpp"
+#include "reference/reference_tests.hpp"
 #include "sample_scenarios/test_sample_scenarios.hpp"
 #include "samples/test_actual_samples.hpp"
 #include "self_assign/test_self_assign.hpp"
@@ -57,6 +60,7 @@
 #include "typedef/test_enum_typedef.hpp"
 #include "typedef/test_struct_typedef.hpp"
 #include "typedef/test_typedef.hpp"
+#include "typedef/typedef_pointer_reference_tests.hpp"
 #include "union/test_union.hpp"
 #include "unsigned/test_unsigned.hpp"
 
@@ -251,6 +255,15 @@ int main() {
                            failed_tests);
     run_test_with_continue(test_recursive_typedef_independence,
                            "Recursive Typedef Independence Tests",
+                           failed_tests);
+    run_test_with_continue(PointerTests::run_all_pointer_tests, "Pointer Tests",
+                           failed_tests);
+    run_test_with_continue(ReferenceTests::run_all_reference_tests,
+                           "Reference Tests", failed_tests);
+    run_test_with_continue(
+        TypedefPointerReferenceTests::run_all_typedef_pointer_reference_tests,
+        "Typedef Pointer/Reference Tests", failed_tests);
+    run_test_with_continue(AssertTests::run_all_assert_tests, "Assert Tests",
                            failed_tests);
     CategoryTimingStats::print_category_summary("Advanced Features");
 

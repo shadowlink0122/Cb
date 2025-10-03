@@ -284,48 +284,67 @@ class ReturnException {
     bool is_struct_array = false;
     std::vector<std::vector<std::vector<Variable>>> struct_array_3d;
     std::string struct_type_name;
+    
+    // 参照戻り値サポート
+    bool is_reference = false;
+    Variable* reference_target = nullptr;  // 参照先の変数へのポインタ
 
     // 完全初期化コンストラクタ群
         ReturnException(int64_t val, TypeInfo t = TYPE_INT) 
                 : value(val), double_value(static_cast<double>(val)), quad_value(static_cast<long double>(val)),
-                    str_value(""), type(t), is_array(false), is_struct(false), is_struct_array(false) {}
+                    str_value(""), type(t), is_array(false), is_struct(false), is_struct_array(false), 
+                    is_reference(false), reference_target(nullptr) {}
         ReturnException(double val, TypeInfo t = TYPE_DOUBLE)
                 : value(static_cast<int64_t>(val)), double_value(val), quad_value(static_cast<long double>(val)),
-                    str_value(""), type(t), is_array(false), is_struct(false), is_struct_array(false) {}
+                    str_value(""), type(t), is_array(false), is_struct(false), is_struct_array(false), 
+                    is_reference(false), reference_target(nullptr) {}
         ReturnException(long double val, TypeInfo t = TYPE_QUAD)
                 : value(static_cast<int64_t>(val)), double_value(static_cast<double>(val)), quad_value(val),
-                    str_value(""), type(t), is_array(false), is_struct(false), is_struct_array(false) {}
+                    str_value(""), type(t), is_array(false), is_struct(false), is_struct_array(false), 
+                    is_reference(false), reference_target(nullptr) {}
         ReturnException(const std::string &str)
-                : value(0), double_value(0.0), quad_value(0.0L), str_value(str), type(TYPE_STRING), is_array(false), is_struct(false), is_struct_array(false) {}
+                : value(0), double_value(0.0), quad_value(0.0L), str_value(str), type(TYPE_STRING), is_array(false), is_struct(false), is_struct_array(false), 
+                is_reference(false), reference_target(nullptr) {}
 
     // 配列戻り値用コンストラクタ
     ReturnException(const std::vector<std::vector<std::vector<int64_t>>> &arr,
                     const std::string &type_name, TypeInfo t)
                 : value(0), double_value(0.0), quad_value(0.0L), str_value(""), type(t), is_array(true), int_array_3d(arr),
-          array_type_name(type_name), is_struct(false), is_struct_array(false) {}
+          array_type_name(type_name), is_struct(false), is_struct_array(false), 
+          is_reference(false), reference_target(nullptr) {}
 
     ReturnException(
         const std::vector<std::vector<std::vector<std::string>>> &arr,
         const std::string &type_name, TypeInfo t)
                 : value(0), double_value(0.0), quad_value(0.0L), str_value(""), type(t), is_array(true), str_array_3d(arr),
-          array_type_name(type_name), is_struct(false), is_struct_array(false) {}
+          array_type_name(type_name), is_struct(false), is_struct_array(false), 
+          is_reference(false), reference_target(nullptr) {}
     
     // float/double配列戻り値用コンストラクタ
     ReturnException(const std::vector<std::vector<std::vector<double>>> &arr,
                     const std::string &type_name, TypeInfo t)
                 : value(0), double_value(0.0), quad_value(0.0L), str_value(""), type(t), is_array(true), double_array_3d(arr),
-          array_type_name(type_name), is_struct(false), is_struct_array(false) {}
+          array_type_name(type_name), is_struct(false), is_struct_array(false), 
+          is_reference(false), reference_target(nullptr) {}
     
     // struct戻り値用コンストラクタ  
     ReturnException(const Variable &struct_var)
                 : value(0), double_value(0.0), quad_value(0.0L), str_value(""), type(struct_var.type), is_array(false), is_struct(true), 
-          struct_value(struct_var), is_struct_array(false) {}
+          struct_value(struct_var), is_struct_array(false), 
+          is_reference(false), reference_target(nullptr) {}
     
     // 構造体配列戻り値用コンストラクタ
     ReturnException(const std::vector<std::vector<std::vector<Variable>>> &struct_arr,
                     const std::string &type_name)
                 : value(0), double_value(0.0), quad_value(0.0L), str_value(""), type(TYPE_STRUCT), is_array(true), is_struct(true), 
-          is_struct_array(true), struct_array_3d(struct_arr), struct_type_name(type_name) {}
+          is_struct_array(true), struct_array_3d(struct_arr), struct_type_name(type_name), 
+          is_reference(false), reference_target(nullptr) {}
+    
+    // 参照戻り値用コンストラクタ
+    ReturnException(Variable* ref_target)
+                : value(0), double_value(0.0), quad_value(0.0L), str_value(""), type(ref_target ? ref_target->type : TYPE_UNKNOWN), 
+          is_array(false), is_struct(false), is_struct_array(false),
+          is_reference(true), reference_target(ref_target) {}
 };
 
 class BreakException {
@@ -450,6 +469,8 @@ class Interpreter : public EvaluatorInterface {
                                const std::string &source_var_name);
     void assign_array_element(const std::string &name, int64_t index,
                               int64_t value);
+    void assign_array_element_float(const std::string &name, int64_t index,
+                                    double value);
     void assign_string_element(const std::string &name, int64_t index,
                                const std::string &value);
 

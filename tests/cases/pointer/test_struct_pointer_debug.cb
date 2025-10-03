@@ -1,0 +1,24 @@
+// 構造体ポインタのデバッグテスト
+
+struct Point {
+    int x;
+    int y;
+};
+
+int main() {
+    Point p = {x: 10, y: 20};
+    Point* pp = &p;
+    
+    println("Before deref:");
+    println(p.x);  // 10
+    
+    println("After creating pointer");
+    
+    // デリファレンスを試す
+    Point deref_p = *pp;
+    println("After dereference");
+    println(deref_p.x);  // should be 10
+    println(deref_p.y);  // should be 20
+    
+    return 0;
+}

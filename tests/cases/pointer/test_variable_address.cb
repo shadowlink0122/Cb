@@ -1,0 +1,80 @@
+// 変数アドレステスト
+// すべての変数で&演算子が動作することを確認
+
+int main() {
+    println("=== Variable Address Test ===");
+    
+    // テスト1: 通常の変数のアドレス
+    println("\nTest 1: Address of regular variable");
+    int x;
+    x = 42;
+    
+    int* px;
+    px = &x;
+    println("x =", x);
+    println("*px =", *px);
+    
+    if (*px == 42) {
+        println("✓ Test 1 passed: Can get address of regular variable");
+    } else {
+        println("✗ Test 1 failed");
+    }
+    
+    // テスト2: ポインタ経由で変数を変更
+    println("\nTest 2: Modify variable through pointer");
+    *px = 100;
+    println("After *px = 100:");
+    println("x =", x);
+    println("*px =", *px);
+    
+    if (x == 100 && *px == 100) {
+        println("✓ Test 2 passed: Variable modified through pointer");
+    } else {
+        println("✗ Test 2 failed");
+    }
+    
+    // テスト3: 複数の変数
+    println("\nTest 3: Multiple variables");
+    int a;
+    a = 10;
+    int b;
+    b = 20;
+    int c;
+    c = 30;
+    
+    int* pa;
+    pa = &a;
+    int* pb;
+    pb = &b;
+    int* pc;
+    pc = &c;
+    
+    println("*pa =", *pa);
+    println("*pb =", *pb);
+    println("*pc =", *pc);
+    
+    if (*pa == 10 && *pb == 20 && *pc == 30) {
+        println("✓ Test 3 passed: Multiple variable pointers work");
+    } else {
+        println("✗ Test 3 failed");
+    }
+    
+    // テスト4: 異なる型の変数
+    println("\nTest 4: Different types");
+    char ch;
+    ch = 65;  // 'A'
+    
+    char* pch;
+    pch = &ch;
+    println("ch =", ch);
+    println("*pch =", *pch);
+    
+    if (*pch == 65) {
+        println("✓ Test 4 passed: Char pointer works");
+    } else {
+        println("✗ Test 4 failed");
+    }
+    
+    println("\n=== All variable address tests completed ===");
+    return 0;
+}

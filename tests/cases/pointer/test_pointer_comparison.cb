@@ -1,0 +1,74 @@
+// ポインタ比較のテスト
+
+int main() {
+    println("Test 1: Pointer equality");
+    int x = 10;
+    int y = 20;
+    int* p1 = &x;
+    int* p2 = &x;
+    int* p3 = &y;
+    
+    // 同じ変数を指すポインタは等しい
+    if (p1 == p2) {
+        println("p1 == p2: true (both point to x)");
+    }
+    
+    // 異なる変数を指すポインタは等しくない
+    if (p1 != p3) {
+        println("p1 != p3: true (p1 points to x, p3 points to y)");
+    }
+    
+    println("");
+    println("Test 2: nullptr equality");
+    int* p4 = nullptr;
+    int* p5 = nullptr;
+    int* p6 = &x;
+    
+    // nullptrは等しい
+    if (p4 == p5) {
+        println("p4 == p5: true (both are nullptr)");
+    }
+    
+    // nullptrと通常のポインタは等しくない
+    if (p4 != p6) {
+        println("p4 != p6: true (p4 is nullptr, p6 points to x)");
+    }
+    
+    println("");
+    println("Test 3: Pointer reassignment and comparison");
+    int* ptr = &x;
+    println("Initially ptr points to x");
+    
+    if (ptr == p1) {
+        println("ptr == p1: true");
+    }
+    
+    ptr = &y;
+    println("After ptr = &y");
+    
+    if (ptr == p3) {
+        println("ptr == p3: true");
+    }
+    
+    if (ptr != p1) {
+        println("ptr != p1: true");
+    }
+    
+    println("");
+    println("Test 4: nullptr assignment and comparison");
+    int* p7 = &x;
+    println("p7 initially points to x");
+    
+    if (p7 != nullptr) {
+        println("p7 != nullptr: true");
+    }
+    
+    p7 = nullptr;
+    println("After p7 = nullptr");
+    
+    if (p7 == nullptr) {
+        println("p7 == nullptr: true");
+    }
+    
+    return 0;
+}

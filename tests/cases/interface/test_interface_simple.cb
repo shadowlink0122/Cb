@@ -1,0 +1,29 @@
+// Interface型のシンプルなポインタテスト
+
+interface Drawable {
+    int get_value();
+};
+
+struct Circle {
+    int radius;
+};
+
+impl Drawable for Circle {
+    int get_value() {
+        return self.radius;
+    }
+};
+
+int main() {
+    println("Test: Simple interface pointer");
+    Circle c;
+    c.radius = 42;
+    
+    // まずInterface型の変数（非ポインタ）でテスト
+    println("Step 1: Normal interface variable");
+    Drawable d = c;
+    println(d.get_value());  // 42
+    
+    println("Test passed");
+    return 0;
+}

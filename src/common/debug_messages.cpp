@@ -1041,6 +1041,53 @@ static std::vector<DebugMessageTemplate> init_debug_messages() {
         "[TERNARY_VAR] Setting numeric value: %lld",
         "[TERNARY_VAR] 数値設定: %lld"};
 
+    // インクリメント/デクリメント関連
+    messages[static_cast<int>(DebugMsgId::INCDEC_ARRAY_ELEMENT_START)] = {
+        "[INCDEC] Array element increment/decrement started",
+        "[INCDEC] 配列要素インクリメント/デクリメント開始"};
+    messages[static_cast<int>(DebugMsgId::INCDEC_ARRAY_NAME_FOUND)] = {
+        "[INCDEC] Array name: %s", "[INCDEC] 配列名: %s"};
+    messages[static_cast<int>(DebugMsgId::INCDEC_ARRAY_INDEX_EVAL)] = {
+        "[INCDEC] Array index evaluated: %lld",
+        "[INCDEC] 配列インデックス評価: %lld"};
+    messages[static_cast<int>(DebugMsgId::INCDEC_ELEMENT_TYPE_CHECK)] = {
+        "[INCDEC] Checking element type: is_multidim=%d, has_int=%d, "
+        "has_float=%d, has_double=%d",
+        "[INCDEC] 要素型チェック: 多次元=%d, int有=%d, float有=%d, "
+        "double有=%d"};
+    messages[static_cast<int>(DebugMsgId::INCDEC_INT_ARRAY_PROCESSING)] = {
+        "[INCDEC] Processing integer array element",
+        "[INCDEC] 整数配列要素処理"};
+    messages[static_cast<int>(DebugMsgId::INCDEC_FLOAT_ARRAY_PROCESSING)] = {
+        "[INCDEC] Processing float array element",
+        "[INCDEC] float配列要素処理"};
+    messages[static_cast<int>(DebugMsgId::INCDEC_DOUBLE_ARRAY_PROCESSING)] = {
+        "[INCDEC] Processing double array element",
+        "[INCDEC] double配列要素処理"};
+    messages[static_cast<int>(DebugMsgId::INCDEC_OLD_VALUE)] = {
+        "[INCDEC] Old value: %s", "[INCDEC] 旧値: %s"};
+    messages[static_cast<int>(DebugMsgId::INCDEC_NEW_VALUE)] = {
+        "[INCDEC] New value: %s", "[INCDEC] 新値: %s"};
+    messages[static_cast<int>(DebugMsgId::INCDEC_OPERATION_COMPLETE)] = {
+        "[INCDEC] Operation complete: op=%s, result=%lld",
+        "[INCDEC] 操作完了: op=%s, 結果=%lld"};
+    messages[static_cast<int>(DebugMsgId::INCDEC_UNSUPPORTED_TYPE_ERROR)] = {
+        "[INCDEC_ERROR] Unsupported array type for increment/decrement",
+        "[INCDEC_ERROR] インクリメント/デクリメント未対応の配列型"};
+
+    // assert関連
+    messages[static_cast<int>(DebugMsgId::ASSERT_CHECK_START)] = {
+        "[ASSERT] Assertion check started",
+        "[ASSERT] アサーションチェック開始"};
+    messages[static_cast<int>(DebugMsgId::ASSERT_CONDITION_TRUE)] = {
+        "[ASSERT] Condition is true, continuing execution",
+        "[ASSERT] 条件が真、実行継続"};
+    messages[static_cast<int>(DebugMsgId::ASSERT_CONDITION_FALSE)] = {
+        "[ASSERT] Condition is false at line %d", "[ASSERT] 条件が偽: 行 %d"};
+    messages[static_cast<int>(DebugMsgId::ASSERT_FAILURE)] = {
+        "[ASSERT_ERROR] Assertion failed at line %d: %s",
+        "[ASSERT_ERROR] アサーション失敗: 行 %d: %s"};
+
     // 他の未設定のメッセージにはデフォルト値を設定
     for (size_t i = 0; i < messages.size(); ++i) {
         if (messages[i].en == nullptr) {

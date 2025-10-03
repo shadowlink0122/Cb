@@ -3,6 +3,7 @@
 #include "core/interpreter.h"
 #include "core/type_inference.h"
 #include "core/error_handler.h"
+#include "core/pointer_metadata.h"
 #include "evaluator/expression_evaluator.h"
 #include "managers/variable_manager.h"
 #include "managers/array_manager.h"
@@ -52,6 +53,13 @@ void StatementExecutor::execute(const ASTNode *node) {
             execute_array_decl(node);
             break;
         }
+        case ASTNodeType::AST_PRE_INCDEC:
+        case ASTNodeType::AST_POST_INCDEC: {
+            // インクリメント/デクリメントをステートメントとして実行
+            // expression_evaluatorで評価するだけで副作用（変数の変更）が発生する
+            interpreter_.evaluate(node);
+            break;
+        }
         // 他のstatement types（AST_FUNC_DECL, AST_IF_STMT等）は
         // Interpreterクラスで直接処理されるため、ここでは未対応
         default:
@@ -62,6 +70,45 @@ void StatementExecutor::execute(const ASTNode *node) {
 }
 
 void StatementExecutor::execute_assignment(const ASTNode *node) {
+    // 間接参照への代入 (*ptr = value)
+    if (node->left && node->left->node_type == ASTNodeType::AST_UNARY_OP && 
+        node->left->op == "DEREFERENCE") {
+        // ポインタを評価
+        int64_t ptr_value = interpreter_.evaluate(node->left->left.get());
+        if (ptr_value == 0) {
+            throw std::runtime_error("Null pointer dereference in assignment");
+        }
+        
+        // 右辺を評価
+        int64_t value = interpreter_.evaluate(node->right.get());
+        
+        // ポインタがメタデータを持つかチェック
+        if (ptr_value & (1LL << 63)) {
+            // メタデータポインタの場合
+            int64_t clean_ptr = ptr_value & ~(1LL << 63);
+            using namespace PointerSystem;
+            PointerMetadata* meta = reinterpret_cast<PointerMetadata*>(clean_ptr);
+            
+            if (!meta) {
+                throw std::runtime_error("Invalid pointer metadata in assignment");
+            }
+            
+            if (debug_mode) {
+                std::cerr << "[POINTER_METADATA] Assignment through pointer: " 
+                          << meta->to_string() << " = " << value << std::endl;
+            }
+            
+            // メタデータを通じて値を書き込み
+            meta->write_int_value(value);
+        } else {
+            // 従来の方式（変数ポインタ）
+            Variable *var = reinterpret_cast<Variable*>(ptr_value);
+            var->value = value;
+            var->is_assigned = true;
+        }
+        return;
+    }
+    
     // 右辺が三項演算子の場合の特別処理
     if (node->right && node->right->node_type == ASTNodeType::AST_TERNARY_OP) {
         execute_ternary_assignment(node);
@@ -338,7 +385,15 @@ void StatementExecutor::execute_assignment(const ASTNode *node) {
                 interpreter_.assign_string_element(var_name, index, 
                                                  std::string(1, static_cast<char>(rvalue)));
             } else {
-                interpreter_.assign_array_element(var_name, index, rvalue);
+                // float/double/quad配列の場合はfloat値を使用
+                TypeInfo base_type = (var->type >= TYPE_ARRAY_BASE) 
+                                    ? static_cast<TypeInfo>(var->type - TYPE_ARRAY_BASE) 
+                                    : var->type;
+                if (is_floating && (base_type == TYPE_FLOAT || base_type == TYPE_DOUBLE || base_type == TYPE_QUAD)) {
+                    interpreter_.assign_array_element_float(var_name, index, float_rvalue);
+                } else {
+                    interpreter_.assign_array_element(var_name, index, rvalue);
+                }
             }
         }
     } else if (node->left && node->left->node_type == ASTNodeType::AST_MEMBER_ARRAY_ACCESS) {
@@ -584,8 +639,61 @@ void StatementExecutor::execute_variable_declaration(const ASTNode *node) {
     if (debug_mode) {
         std::cerr << "[DEBUG_EXEC] Executing variable declaration: " << node->name
                   << ", type_info: " << (int)node->type_info
-                  << ", type_name: " << node->type_name << std::endl;
+                  << ", type_name: " << node->type_name 
+                  << ", is_reference: " << node->is_reference << std::endl;
     }
+    
+    // 参照型の場合の特別処理
+    if (node->is_reference) {
+        // 参照は必ず初期化が必要
+        if (!node->init_expr && !node->right) {
+            throw std::runtime_error("Reference variable '" + node->name + "' must be initialized");
+        }
+        
+        // 初期化式を評価して参照先変数を取得
+        ASTNode* init_node = node->init_expr ? node->init_expr.get() : node->right.get();
+        
+        // 参照先が変数でなければエラー
+        if (init_node->node_type != ASTNodeType::AST_VARIABLE) {
+            throw std::runtime_error("Reference variable '" + node->name + "' must be initialized with a variable");
+        }
+        
+        std::string target_var_name = init_node->name;
+        
+        // 参照先変数が存在するかチェック
+        Variable* target_var = interpreter_.find_variable(target_var_name);
+        if (!target_var) {
+            throw std::runtime_error("Reference target variable '" + target_var_name + "' not found");
+        }
+        
+        if (debug_mode) {
+            std::cerr << "[DEBUG_EXEC] Creating reference " << node->name 
+                      << " -> " << target_var_name << std::endl;
+        }
+        
+        // 参照変数を作成
+        Variable ref_var;
+        ref_var.is_reference = true;
+        ref_var.type = target_var->type;
+        ref_var.is_const = node->is_const;
+        ref_var.is_array = target_var->is_array;
+        ref_var.is_unsigned = target_var->is_unsigned;
+        ref_var.is_struct = target_var->is_struct;
+        ref_var.struct_type_name = target_var->struct_type_name;
+        
+        // 参照先変数のポインタを値として保存
+        ref_var.value = reinterpret_cast<int64_t>(target_var);
+        ref_var.is_assigned = true;
+        
+        if (debug_mode) {
+            std::cerr << "[DEBUG_EXEC] Creating reference variable: " << node->name 
+                      << ", target_value: " << target_var->value << std::endl;
+        }
+        
+        interpreter_.current_scope().variables[node->name] = ref_var;
+        return;
+    }
+    
     // 初期化式または右辺がある場合の特別処理
     if (node->init_expr || node->right) {
         // 初期化ノードは現在未使用だが、将来の機能拡張のため残す
@@ -934,8 +1042,26 @@ void StatementExecutor::execute_variable_declaration(const ASTNode *node) {
             } else {
                 // float/double リテラルを含む全ての初期化式で TypedValue を使用
                 TypedValue typed_value = interpreter_.evaluate_typed(init_node);
+                
+                if (interpreter_.is_debug_mode() && node->name == "ptr") {
+                    std::cerr << "[STMT_EXEC] Initializing variable ptr:" << std::endl;
+                    std::cerr << "  node->type_info=" << static_cast<int>(node->type_info) << std::endl;
+                    std::cerr << "  TYPE_STRING=" << static_cast<int>(TYPE_STRING) << std::endl;
+                    std::cerr << "  TYPE_POINTER=" << static_cast<int>(TYPE_POINTER) << std::endl;
+                    std::cerr << "  var.type=" << static_cast<int>(var.type) << std::endl;
+                }
+                
                 if (var.type == TYPE_STRING) {
                     interpreter_.current_scope().variables[node->name].str_value = init_node->str_value;
+                } else if (node->type_info == TYPE_POINTER) {
+                    // ポインタ型は精度損失を避けるため、直接valueフィールドに代入
+                    interpreter_.current_scope().variables[node->name].value = typed_value.value;
+                    interpreter_.current_scope().variables[node->name].type = TYPE_POINTER;
+                    
+                    if (interpreter_.is_debug_mode()) {
+                        std::cerr << "[STMT_EXEC] Pointer variable " << node->name << " initialized with value="
+                                  << typed_value.value << " (0x" << std::hex << typed_value.value << std::dec << ")" << std::endl;
+                    }
                 } else {
                     interpreter_.assign_variable(node->name, typed_value,
                                                  node->type_info, false);
@@ -1298,6 +1424,34 @@ void StatementExecutor::execute_member_assignment(const ASTNode* node) {
         obj_name = array_name + "[" + std::to_string(index) + "]";
         debug_msg(DebugMsgId::INTERPRETER_STRUCT_MEMBER_FOUND, 
                   "array_element", obj_name.c_str());
+    } else if (member_access->left && member_access->left->node_type == ASTNodeType::AST_UNARY_OP && 
+               member_access->left->op == "DEREFERENCE") {
+        // デリファレンスされたポインタ: (*pp).member
+        debug_print("DEBUG: Dereference pointer member assignment\n");
+        
+        // ポインタ変数を評価（デリファレンスの左側）
+        int64_t ptr_value = interpreter_.evaluate(member_access->left->left.get());
+        Variable* struct_var = reinterpret_cast<Variable*>(ptr_value);
+        
+        if (!struct_var) {
+            throw std::runtime_error("Null pointer dereference in member assignment");
+        }
+        
+        // メンバ名を取得
+        std::string member_name = member_access->name;
+        
+        // 右辺を評価
+        if (node->right->node_type == ASTNodeType::AST_STRING_LITERAL) {
+            struct_var->struct_members[member_name].str_value = node->right->str_value;
+            struct_var->struct_members[member_name].type = TYPE_STRING;
+        } else {
+            TypedValue typed_value = interpreter_.evaluate_typed(node->right.get());
+            struct_var->struct_members[member_name].value = typed_value.as_numeric();
+            struct_var->struct_members[member_name].type = typed_value.type.type_info;
+        }
+        struct_var->struct_members[member_name].is_assigned = true;
+        
+        return;
     } else {
         throw std::runtime_error("Invalid object reference in member access");
     }

@@ -1,0 +1,13 @@
+Test 1: Struct pointer
+5
+10
+15
+30
+Test 2: Struct reference
+1
+2
+101
+202
+Test 3: Mixed pointer and reference
+6
+18

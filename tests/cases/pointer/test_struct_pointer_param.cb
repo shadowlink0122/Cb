@@ -1,0 +1,64 @@
+// 構造体ポインタと参照のテスト
+
+struct Point {
+    int x;
+    int y;
+};
+
+struct Person {
+    string name;
+    int age;
+};
+
+// Test 1: 構造体ポインタの基本操作
+void modify_point_ptr(Point* p) {
+    (*p).x = (*p).x + 10;
+    (*p).y = (*p).y + 20;
+}
+
+// Test 2: 構造体参照の基本操作
+void modify_point_ref(Point& p) {
+    p.x = p.x + 100;
+    p.y = p.y + 200;
+}
+
+// Test 3: 構造体ポインタと参照の混在
+void process_points(Point* ptr, Point& ref) {
+    (*ptr).x = (*ptr).x * 2;
+    ref.y = ref.y * 3;
+}
+
+int main() {
+    // Test 1: 構造体ポインタ
+    println("Test 1: Struct pointer");
+    Point p1 = {x: 5, y: 10};
+    println(p1.x);  // 5
+    println(p1.y);  // 10
+    
+    Point* ptr1 = &p1;
+    modify_point_ptr(ptr1);
+    println(p1.x);  // 15
+    println(p1.y);  // 30
+    
+    // Test 2: 構造体参照
+    println("Test 2: Struct reference");
+    Point p2 = {x: 1, y: 2};
+    println(p2.x);  // 1
+    println(p2.y);  // 2
+    
+    modify_point_ref(p2);
+    println(p2.x);  // 101
+    println(p2.y);  // 202
+    
+    // Test 3: 構造体ポインタと参照の混在
+    println("Test 3: Mixed pointer and reference");
+    Point p3 = {x: 3, y: 4};
+    Point p4 = {x: 5, y: 6};
+    Point* ptr3 = &p3;
+    
+    process_points(ptr3, p4);
+    println(p3.x);  // 6
+    println(p4.y);  // 18
+    
+    return 0;
+}

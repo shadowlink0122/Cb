@@ -1,0 +1,89 @@
+// 構造体メンバーとしてのポインタ型のテスト
+
+struct Node {
+    int value;
+    int* ptr;
+};
+
+struct Container {
+    int* data_ptr;
+    int size;
+};
+
+int main() {
+    println("=== Struct Pointer Member Tests ===");
+    println("");
+    
+    // Test 1: 構造体メンバーにポインタを設定
+    println("Test 1: Assign pointer to struct member");
+    int x = 42;
+    Node node;
+    node.value = 10;
+    node.ptr = &x;
+    
+    println("x = %d", x);
+    println("node.value = %d", node.value);
+    println("*node.ptr = %d (should be 42)", *node.ptr);
+    assert(*node.ptr == 42);
+    println("");
+    
+    // Test 2: ポインタメンバー経由で外部変数を変更
+    println("Test 2: Modify external variable via struct pointer member");
+    *node.ptr = 100;
+    println("After *node.ptr = 100:");
+    println("x = %d (should be 100)", x);
+    assert(x == 100);
+    println("");
+    
+    // Test 3: 異なる変数を指すように変更
+    println("Test 3: Reassign struct pointer member");
+    int y = 200;
+    node.ptr = &y;
+    println("After node.ptr = &y:");
+    println("*node.ptr = %d (should be 200)", *node.ptr);
+    assert(*node.ptr == 200);
+    
+    *node.ptr = 300;
+    println("After *node.ptr = 300:");
+    println("y = %d (should be 300)", y);
+    assert(y == 300);
+    println("");
+    
+    // Test 4: Containerを使った実用的な例
+    println("Test 4: Container with data pointer");
+    int[5] data = [1, 2, 3, 4, 5];
+    Container container;
+    container.data_ptr = &data[0];
+    container.size = 5;
+    
+    println("Container initialized with array pointer");
+    println("First element via container: %d", *container.data_ptr);
+    assert(*container.data_ptr == 1);
+    
+    // ポインタを進めて次の要素にアクセス
+    container.data_ptr = container.data_ptr + 1;
+    println("After moving pointer: %d", *container.data_ptr);
+    println("");
+    
+    // Test 5: nullptrの設定と検証
+    println("Test 5: nullptr in struct member");
+    Node node2;
+    node2.value = 5;
+    node2.ptr = nullptr;
+    
+    println("node2.ptr is nullptr");
+    // nullptr check
+    if (node2.ptr == nullptr) {
+        println("Confirmed: node2.ptr == nullptr");
+    }
+    
+    // 後で実際のポインタを設定
+    int z = 999;
+    node2.ptr = &z;
+    println("After setting to &z: *node2.ptr = %d", *node2.ptr);
+    assert(*node2.ptr == 999);
+    println("");
+    
+    println("All struct pointer member tests passed!");
+    return 0;
+}

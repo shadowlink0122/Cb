@@ -1,0 +1,82 @@
+// 複数のポインタ引数を取る関数のテスト
+
+void multiplePointers(int* a, int* b, int* c) {
+    *a = *a + 1;
+    *b = *b + 2;
+    *c = *c + 3;
+}
+
+void doubleAndTriplePointer(int** pp, int*** ppp) {
+    **pp = **pp * 2;
+    ***ppp = ***ppp * 3;
+}
+
+void mixedPointers(int* p1, int** p2, int*** p3) {
+    *p1 = 100;
+    **p2 = 200;
+    ***p3 = 300;
+}
+
+int main() {
+    println("Test 1: Multiple pointer parameters");
+    int x = 10;
+    int y = 20;
+    int z = 30;
+    
+    println("Before: x = %d, y = %d, z = %d", x, y, z);
+    multiplePointers(&x, &y, &z);
+    println("After: x = %d, y = %d, z = %d", x, y, z);
+    
+    println("");
+    println("Test 2: Double and triple pointer parameters");
+    int a = 5;
+    int* pa = &a;
+    int** ppa = &pa;
+    int*** pppa = &ppa;
+    
+    println("Before: a = %d", a);
+    doubleAndTriplePointer(&pa, &ppa);
+    println("After double (10) then triple (30): a = %d", a);
+    
+    println("");
+    println("Test 3: Mixed pointer depth parameters");
+    int b = 1;
+    int c = 2;
+    int d = 3;
+    int* pb = &b;
+    int* pc = &c;
+    int** ppb = &pb;
+    int** ppc = &pc;
+    int*** pppd = &ppc;
+    
+    // 最初にdのアドレスを設定
+    int* pd = &d;
+    ppc = &pd;
+    
+    println("Before: b = %d, c = %d, d = %d", b, c, d);
+    mixedPointers(&b, &pc, &ppc);
+    println("After: b = %d, c = %d, d = %d", b, c, d);
+    
+    println("");
+    println("Test 4: All nullptr parameters");
+    int* np1 = nullptr;
+    int* np2 = nullptr;
+    int* np3 = nullptr;
+    
+    println("All pointers initialized to nullptr");
+    
+    // 値を割り当て
+    int val1 = 111;
+    int val2 = 222;
+    int val3 = 333;
+    
+    np1 = &val1;
+    np2 = &val2;
+    np3 = &val3;
+    
+    multiplePointers(np1, np2, np3);
+    println("After assignment and function call:");
+    println("val1 = %d, val2 = %d, val3 = %d", val1, val2, val3);
+    
+    return 0;
+}
