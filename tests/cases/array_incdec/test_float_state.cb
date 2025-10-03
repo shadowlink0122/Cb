@@ -1,0 +1,39 @@
+// float配列インクリメント前の初期化状態確認テスト
+
+float[3] g_farr;
+
+void check_array_state() {
+    println("=== Checking array state ===");
+    
+    // 最初に値を代入
+    println("Step 1: Assigning values");
+    g_farr[0] = 1.5;
+    g_farr[1] = 2.5;
+    g_farr[2] = 3.5;
+    println("Values assigned");
+    
+    // 値を読み取る
+    println("Step 2: Reading values");
+    int v1 = g_farr[1]; // float -> int変換
+    println("g_farr[1] (as int) = %d", v1);
+    
+    // インクリメント前の値
+    println("Step 3: Before increment");
+    println("g_farr[1] should be 2.5");
+    
+    // インクリメント
+    println("Step 4: Incrementing");
+    g_farr[1]++;
+    println("Incremented");
+    
+    // インクリメント後の値
+    println("Step 5: After increment");
+    int v2 = g_farr[1]; // float -> int変換
+    println("g_farr[1] (as int) = %d", v2);
+    println("g_farr[1] should be 3.5");
+}
+
+int main() {
+    check_array_state();
+    return 0;
+}

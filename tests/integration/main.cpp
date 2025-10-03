@@ -43,6 +43,7 @@
 #include "multidim_literal/test_multidim_literal.hpp"
 #include "multiple_var_decl/test_multiple_var_decl.hpp"
 #include "performance/test_performance.hpp"
+#include "pointer/pointer_tests.hpp"
 #include "printf/test_printf.hpp"
 #include "println/test_println.hpp"
 #include "sample_scenarios/test_sample_scenarios.hpp"
@@ -251,6 +252,8 @@ int main() {
                            failed_tests);
     run_test_with_continue(test_recursive_typedef_independence,
                            "Recursive Typedef Independence Tests",
+                           failed_tests);
+    run_test_with_continue(PointerTests::run_all_pointer_tests, "Pointer Tests",
                            failed_tests);
     CategoryTimingStats::print_category_summary("Advanced Features");
 

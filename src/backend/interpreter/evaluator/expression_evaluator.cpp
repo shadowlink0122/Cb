@@ -452,7 +452,47 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
             return 0; // 文字列の場合は0を返すが、実際の文字列は別途取得される
         }
         
-        if (var->array_values.empty()) {
+        // 1次元float配列のアクセス
+        if (var->is_array && !var->array_float_values.empty() && indices.size() == 1) {
+            int64_t array_index = indices[0];
+            
+            if (array_index < 0 || array_index >= static_cast<int64_t>(var->array_float_values.size())) {
+                throw std::runtime_error("Array index out of bounds");
+            }
+            
+            // float値を整数に変換して返す（int64_tを要求される場面用）
+            // 注意: 精度が失われるため、型付き評価(evaluate_typed_expression)を使うべき
+            return static_cast<int64_t>(var->array_float_values[array_index]);
+        }
+        
+        // 1次元double配列のアクセス
+        if (var->is_array && !var->array_double_values.empty() && indices.size() == 1) {
+            int64_t array_index = indices[0];
+            
+            if (array_index < 0 || array_index >= static_cast<int64_t>(var->array_double_values.size())) {
+                throw std::runtime_error("Array index out of bounds");
+            }
+            
+            // double値を整数に変換して返す（int64_tを要求される場面用）
+            // 注意: 精度が失われるため、型付き評価(evaluate_typed_expression)を使うべき
+            return static_cast<int64_t>(var->array_double_values[array_index]);
+        }
+        
+        // 1次元quad配列のアクセス
+        if (var->is_array && !var->array_quad_values.empty() && indices.size() == 1) {
+            int64_t array_index = indices[0];
+            
+            if (array_index < 0 || array_index >= static_cast<int64_t>(var->array_quad_values.size())) {
+                throw std::runtime_error("Array index out of bounds");
+            }
+            
+            // quad値を整数に変換して返す（int64_tを要求される場面用）
+            // 注意: 精度が失われるため、型付き評価(evaluate_typed_expression)を使うべき
+            return static_cast<int64_t>(var->array_quad_values[array_index]);
+        }
+        
+        if (var->array_values.empty() && var->array_float_values.empty() && 
+            var->array_double_values.empty() && var->array_quad_values.empty()) {
             if (!var->is_array) {
                 throw std::runtime_error("Variable is not an array");
             }
@@ -681,29 +721,271 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
 
     case ASTNodeType::AST_PRE_INCDEC:
     case ASTNodeType::AST_POST_INCDEC: {
-        if (!node->left || node->left->node_type != ASTNodeType::AST_VARIABLE) {
+        if (!node->left) {
             error_msg(DebugMsgId::DIRECT_ARRAY_ASSIGN_ERROR);
             throw std::runtime_error("Invalid increment/decrement operation");
         }
         
-        Variable *var = interpreter_.find_variable(node->left->name);
-        if (!var) {
-            error_msg(DebugMsgId::UNDEFINED_VAR_ERROR, node->left->name.c_str());
-            throw std::runtime_error("Undefined variable");
-        }
+        // 変数の場合
+        if (node->left->node_type == ASTNodeType::AST_VARIABLE) {
+            Variable *var = interpreter_.find_variable(node->left->name);
+            if (!var) {
+                error_msg(DebugMsgId::UNDEFINED_VAR_ERROR, node->left->name.c_str());
+                throw std::runtime_error("Undefined variable");
+            }
 
-        int64_t old_value = var->value;
-        
-        if (node->op == "++") {
-            var->value += 1;
-        } else if (node->op == "--") {
-            var->value -= 1;
-        }
+            // 型に応じた処理
+            if (var->type == TYPE_FLOAT) {
+                float old_value = var->float_value;
+                if (node->op == "++") {
+                    var->float_value += 1.0f;
+                } else if (node->op == "--") {
+                    var->float_value -= 1.0f;
+                }
+                if (node->node_type == ASTNodeType::AST_PRE_INCDEC) {
+                    return static_cast<int64_t>(var->float_value);
+                } else {
+                    return static_cast<int64_t>(old_value);
+                }
+            } else if (var->type == TYPE_DOUBLE) {
+                double old_value = var->double_value;
+                if (node->op == "++") {
+                    var->double_value += 1.0;
+                } else if (node->op == "--") {
+                    var->double_value -= 1.0;
+                }
+                if (node->node_type == ASTNodeType::AST_PRE_INCDEC) {
+                    return static_cast<int64_t>(var->double_value);
+                } else {
+                    return static_cast<int64_t>(old_value);
+                }
+            } else if (var->type == TYPE_QUAD) {
+                long double old_value = var->quad_value;
+                if (node->op == "++") {
+                    var->quad_value += 1.0L;
+                } else if (node->op == "--") {
+                    var->quad_value -= 1.0L;
+                }
+                if (node->node_type == ASTNodeType::AST_PRE_INCDEC) {
+                    return static_cast<int64_t>(var->quad_value);
+                } else {
+                    return static_cast<int64_t>(old_value);
+                }
+            } else {
+                // 整数型
+                int64_t old_value = var->value;
+                
+                if (node->op == "++") {
+                    var->value += 1;
+                } else if (node->op == "--") {
+                    var->value -= 1;
+                }
 
-        if (node->node_type == ASTNodeType::AST_PRE_INCDEC) {
-            return var->value; // プリインクリメント/デクリメントは新しい値を返す
-        } else {
-            return old_value; // ポストインクリメント/デクリメントは古い値を返す
+                if (node->node_type == ASTNodeType::AST_PRE_INCDEC) {
+                    return var->value;
+                } else {
+                    return old_value;
+                }
+            }
+        } 
+        // 構造体メンバーアクセスの場合
+        else if (node->left->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
+            // メンバーアクセスからオブジェクト名とメンバー名を取得
+            if (!node->left->left || node->left->left->node_type != ASTNodeType::AST_VARIABLE) {
+                throw std::runtime_error("Invalid member access in increment/decrement");
+            }
+            
+            std::string obj_name = node->left->left->name;
+            std::string member_name = node->left->name;
+            
+            Variable *var = interpreter_.find_variable(obj_name);
+            if (!var || var->struct_members.empty()) {
+                throw std::runtime_error("Undefined struct variable: " + obj_name);
+            }
+            
+            auto it = var->struct_members.find(member_name);
+            if (it == var->struct_members.end()) {
+                throw std::runtime_error("Undefined struct member: " + member_name);
+            }
+            
+            // 型に応じた処理
+            if (it->second.type == TYPE_FLOAT) {
+                float old_value = it->second.float_value;
+                if (node->op == "++") {
+                    it->second.float_value += 1.0f;
+                } else if (node->op == "--") {
+                    it->second.float_value -= 1.0f;
+                }
+                if (node->node_type == ASTNodeType::AST_PRE_INCDEC) {
+                    return static_cast<int64_t>(it->second.float_value);
+                } else {
+                    return static_cast<int64_t>(old_value);
+                }
+            } else if (it->second.type == TYPE_DOUBLE) {
+                double old_value = it->second.double_value;
+                if (node->op == "++") {
+                    it->second.double_value += 1.0;
+                } else if (node->op == "--") {
+                    it->second.double_value -= 1.0;
+                }
+                if (node->node_type == ASTNodeType::AST_PRE_INCDEC) {
+                    return static_cast<int64_t>(it->second.double_value);
+                } else {
+                    return static_cast<int64_t>(old_value);
+                }
+            } else if (it->second.type == TYPE_QUAD) {
+                long double old_value = it->second.quad_value;
+                if (node->op == "++") {
+                    it->second.quad_value += 1.0L;
+                } else if (node->op == "--") {
+                    it->second.quad_value -= 1.0L;
+                }
+                if (node->node_type == ASTNodeType::AST_PRE_INCDEC) {
+                    return static_cast<int64_t>(it->second.quad_value);
+                } else {
+                    return static_cast<int64_t>(old_value);
+                }
+            } else {
+                // 整数型
+                int64_t old_value = it->second.value;
+                
+                if (node->op == "++") {
+                    it->second.value += 1;
+                } else if (node->op == "--") {
+                    it->second.value -= 1;
+                }
+                
+                if (node->node_type == ASTNodeType::AST_PRE_INCDEC) {
+                    return it->second.value;
+                } else {
+                    return old_value;
+                }
+            }
+        }
+        // 配列要素アクセスの場合
+        else if (node->left->node_type == ASTNodeType::AST_ARRAY_REF) {
+            debug_msg(DebugMsgId::INCDEC_ARRAY_ELEMENT_START);
+            
+            // 配列アクセスを評価して配列要素のポインタを取得
+            if (!node->left->left || node->left->left->node_type != ASTNodeType::AST_VARIABLE) {
+                throw std::runtime_error("Invalid array access in increment/decrement");
+            }
+            
+            std::string array_name = node->left->left->name;
+            debug_msg(DebugMsgId::INCDEC_ARRAY_NAME_FOUND, array_name.c_str());
+            
+            Variable *array_var = interpreter_.find_variable(array_name);
+            if (!array_var) {
+                throw std::runtime_error("Undefined array variable: " + array_name);
+            }
+            
+            // インデックスを評価
+            int64_t index = evaluate_expression(node->left->array_index.get());
+            debug_msg(DebugMsgId::INCDEC_ARRAY_INDEX_EVAL, index);
+            
+            // 配列の型は、どのvectorにデータが格納されているかで判定
+            bool is_multidim = array_var->is_multidimensional;
+            bool has_int = (!is_multidim && !array_var->array_values.empty()) || 
+                           (is_multidim && !array_var->multidim_array_values.empty());
+            bool has_float = (!is_multidim && !array_var->array_float_values.empty()) || 
+                             (is_multidim && !array_var->multidim_array_float_values.empty());
+            bool has_double = (!is_multidim && !array_var->array_double_values.empty()) || 
+                              (is_multidim && !array_var->multidim_array_double_values.empty());
+            
+            debug_msg(DebugMsgId::INCDEC_ELEMENT_TYPE_CHECK, is_multidim, has_int, has_float, has_double);
+            
+            // 整数配列の場合
+            if (has_int) {
+                debug_msg(DebugMsgId::INCDEC_INT_ARRAY_PROCESSING);
+                auto& values = is_multidim ? array_var->multidim_array_values : array_var->array_values;
+                
+                if (index < 0 || static_cast<size_t>(index) >= values.size()) {
+                    throw std::runtime_error("Array index out of bounds");
+                }
+                
+                int64_t old_value = values[index];
+                char old_str[32];
+                snprintf(old_str, sizeof(old_str), "%lld", old_value);
+                debug_msg(DebugMsgId::INCDEC_OLD_VALUE, old_str);
+                
+                if (node->op == "++") {
+                    values[index] += 1;
+                } else if (node->op == "--") {
+                    values[index] -= 1;
+                }
+                
+                char new_str[32];
+                snprintf(new_str, sizeof(new_str), "%lld", values[index]);
+                debug_msg(DebugMsgId::INCDEC_NEW_VALUE, new_str);
+                
+                int64_t result = (node->node_type == ASTNodeType::AST_PRE_INCDEC) ? values[index] : old_value;
+                debug_msg(DebugMsgId::INCDEC_OPERATION_COMPLETE, node->op.c_str(), result);
+                return result;
+            }
+            // float配列の場合
+            else if (has_float) {
+                debug_msg(DebugMsgId::INCDEC_FLOAT_ARRAY_PROCESSING);
+                auto& values = is_multidim ? array_var->multidim_array_float_values : array_var->array_float_values;
+                
+                if (index < 0 || static_cast<size_t>(index) >= values.size()) {
+                    throw std::runtime_error("Array index out of bounds");
+                }
+                
+                float old_value = values[index];
+                char old_str[32];
+                snprintf(old_str, sizeof(old_str), "%f", old_value);
+                debug_msg(DebugMsgId::INCDEC_OLD_VALUE, old_str);
+                
+                if (node->op == "++") {
+                    values[index] += 1.0f;
+                } else if (node->op == "--") {
+                    values[index] -= 1.0f;
+                }
+                
+                char new_str[32];
+                snprintf(new_str, sizeof(new_str), "%f", values[index]);
+                debug_msg(DebugMsgId::INCDEC_NEW_VALUE, new_str);
+                
+                int64_t result = static_cast<int64_t>((node->node_type == ASTNodeType::AST_PRE_INCDEC) ? values[index] : old_value);
+                debug_msg(DebugMsgId::INCDEC_OPERATION_COMPLETE, node->op.c_str(), result);
+                return result;
+            }
+            // double配列の場合
+            else if (has_double) {
+                debug_msg(DebugMsgId::INCDEC_DOUBLE_ARRAY_PROCESSING);
+                auto& values = is_multidim ? array_var->multidim_array_double_values : array_var->array_double_values;
+                
+                if (index < 0 || static_cast<size_t>(index) >= values.size()) {
+                    throw std::runtime_error("Array index out of bounds");
+                }
+                
+                double old_value = values[index];
+                char old_str[32];
+                snprintf(old_str, sizeof(old_str), "%f", old_value);
+                debug_msg(DebugMsgId::INCDEC_OLD_VALUE, old_str);
+                
+                if (node->op == "++") {
+                    values[index] += 1.0;
+                } else if (node->op == "--") {
+                    values[index] -= 1.0;
+                }
+                
+                char new_str[32];
+                snprintf(new_str, sizeof(new_str), "%f", values[index]);
+                debug_msg(DebugMsgId::INCDEC_NEW_VALUE, new_str);
+                
+                int64_t result = static_cast<int64_t>((node->node_type == ASTNodeType::AST_PRE_INCDEC) ? values[index] : old_value);
+                debug_msg(DebugMsgId::INCDEC_OPERATION_COMPLETE, node->op.c_str(), result);
+                return result;
+            }
+            else {
+                error_msg(DebugMsgId::INCDEC_UNSUPPORTED_TYPE_ERROR);
+                throw std::runtime_error("Unsupported array type for increment/decrement");
+            }
+        }
+        else {
+            error_msg(DebugMsgId::DIRECT_ARRAY_ASSIGN_ERROR);
+            throw std::runtime_error("Invalid increment/decrement operation");
         }
     }
 

@@ -52,6 +52,13 @@ void StatementExecutor::execute(const ASTNode *node) {
             execute_array_decl(node);
             break;
         }
+        case ASTNodeType::AST_PRE_INCDEC:
+        case ASTNodeType::AST_POST_INCDEC: {
+            // インクリメント/デクリメントをステートメントとして実行
+            // expression_evaluatorで評価するだけで副作用（変数の変更）が発生する
+            interpreter_.evaluate(node);
+            break;
+        }
         // 他のstatement types（AST_FUNC_DECL, AST_IF_STMT等）は
         // Interpreterクラスで直接処理されるため、ここでは未対応
         default:
@@ -357,7 +364,15 @@ void StatementExecutor::execute_assignment(const ASTNode *node) {
                 interpreter_.assign_string_element(var_name, index, 
                                                  std::string(1, static_cast<char>(rvalue)));
             } else {
-                interpreter_.assign_array_element(var_name, index, rvalue);
+                // float/double/quad配列の場合はfloat値を使用
+                TypeInfo base_type = (var->type >= TYPE_ARRAY_BASE) 
+                                    ? static_cast<TypeInfo>(var->type - TYPE_ARRAY_BASE) 
+                                    : var->type;
+                if (is_floating && (base_type == TYPE_FLOAT || base_type == TYPE_DOUBLE || base_type == TYPE_QUAD)) {
+                    interpreter_.assign_array_element_float(var_name, index, float_rvalue);
+                } else {
+                    interpreter_.assign_array_element(var_name, index, rvalue);
+                }
             }
         }
     } else if (node->left && node->left->node_type == ASTNodeType::AST_MEMBER_ARRAY_ACCESS) {

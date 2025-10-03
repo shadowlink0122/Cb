@@ -450,6 +450,8 @@ class Interpreter : public EvaluatorInterface {
                                const std::string &source_var_name);
     void assign_array_element(const std::string &name, int64_t index,
                               int64_t value);
+    void assign_array_element_float(const std::string &name, int64_t index,
+                                    double value);
     void assign_string_element(const std::string &name, int64_t index,
                                const std::string &value);
 

@@ -374,7 +374,8 @@ TokenType RecursiveLexer::getKeywordType(const std::string& text) {
         {"new", TokenType::TOK_NEW},
         {"delete", TokenType::TOK_DELETE},
         {"nullptr", TokenType::TOK_NULLPTR},
-        {"unsigned", TokenType::TOK_UNSIGNED}
+        {"unsigned", TokenType::TOK_UNSIGNED},
+        {"assert", TokenType::TOK_ASSERT}
     };
     
     auto it = keywords.find(text);

@@ -79,6 +79,7 @@ private:
     ASTNode* parseArrayDeclaration(const std::string& type_name, bool isConst);
     ASTNode* parseVariableDeclarationList(const std::string& type_name, bool isConst);
     ASTNode* parseReturnStatement();
+    ASTNode* parseAssertStatement();
     ASTNode* parseBreakStatement();
     ASTNode* parseContinueStatement();
     ASTNode* parseIfStatement();

@@ -1,0 +1,67 @@
+// ポインタを返す関数のテスト
+
+int* getPointer(int* ptr) {
+    return ptr;
+}
+
+int* getAddressOf(int val) {
+    // ローカル変数のアドレスは返せないので、グローバルまたは引数のポインタを返す
+    // ここでは引数を使ったテストは難しいので、引数としてポインタを受け取る
+    return nullptr;  // プレースホルダー
+}
+
+int* createPointer() {
+    return nullptr;
+}
+
+int** getDoublePointer(int** pp) {
+    return pp;
+}
+
+int main() {
+    println("Test 1: Function returning pointer");
+    int x = 10;
+    int* ptr = &x;
+    
+    int* result = getPointer(ptr);
+    println("x = %d", x);
+    println("*result = %d", *result);
+    
+    *result = 20;
+    println("After *result = 20:");
+    println("x = %d", x);
+    println("*result = %d", *result);
+    
+    println("");
+    println("Test 2: Function returning nullptr");
+    int* null_ptr = createPointer();
+    println("Function returned nullptr");
+    
+    // nullptrを受け取った後、実際のポインタに変える
+    null_ptr = &x;
+    println("After assigning &x: *null_ptr = %d", *null_ptr);
+    
+    println("");
+    println("Test 3: Double pointer return");
+    int y = 30;
+    int* py = &y;
+    int** ppy = &py;
+    
+    int** result2 = getDoublePointer(ppy);
+    println("y = %d", y);
+    println("**result2 = %d", **result2);
+    
+    **result2 = 40;
+    println("After **result2 = 40:");
+    println("y = %d", y);
+    
+    println("");
+    println("Test 4: Chaining pointer returns");
+    int z = 50;
+    int* pz = &z;
+    int* result3 = getPointer(getPointer(pz));
+    println("z = %d", z);
+    println("*result3 = %d", *result3);
+    
+    return 0;
+}

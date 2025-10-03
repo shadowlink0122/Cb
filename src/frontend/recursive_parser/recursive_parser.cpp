@@ -789,6 +789,11 @@ ASTNode* RecursiveParser::parseStatement() {
         return parseReturnStatement();
     }
     
+    // assert文の処理
+    if (check(TokenType::TOK_ASSERT)) {
+        return parseAssertStatement();
+    }
+    
     // break文の処理
     if (check(TokenType::TOK_BREAK)) {
         return parseBreakStatement();
@@ -965,6 +970,14 @@ ASTNode* RecursiveParser::parseStatement() {
                 
                 consume(TokenType::TOK_SEMICOLON, "Expected ';'");
                 return assignment;
+            } else if (check(TokenType::TOK_INCR) || check(TokenType::TOK_DECR)) {
+                // 配列要素のポストインクリメント/デクリメント: arr[i]++; arr[i]--;
+                Token op = advance();
+                ASTNode* postfix = new ASTNode(ASTNodeType::AST_POST_INCDEC);
+                postfix->op = op.value;
+                postfix->left = std::unique_ptr<ASTNode>(left_expr);
+                consume(TokenType::TOK_SEMICOLON, "Expected ';'");
+                return postfix;
             } else {
                 error("Expected assignment operator after array access");
                 return nullptr;
@@ -1135,8 +1148,30 @@ ASTNode* RecursiveParser::parseStatement() {
                 consume(TokenType::TOK_SEMICOLON, "Expected ';' after method call");
                 
                 return method_call;
+            } else if (check(TokenType::TOK_INCR) || check(TokenType::TOK_DECR)) {
+                // メンバーへのポストインクリメント/デクリメント: obj.member++ or obj.member--
+                TokenType op_type = current_token_.type;
+                advance(); // consume '++' or '--'
+                
+                consume(TokenType::TOK_SEMICOLON, "Expected ';' after increment/decrement");
+                
+                // AST_POST_INCDECノードを作成
+                ASTNode* incdec = new ASTNode(ASTNodeType::AST_POST_INCDEC);
+                incdec->op = (op_type == TokenType::TOK_INCR) ? "++" : "--";
+                
+                // メンバアクセスノードを作成
+                ASTNode* member_access_node = new ASTNode(ASTNodeType::AST_MEMBER_ACCESS);
+                member_access_node->name = member_name;
+                ASTNode* obj_var = new ASTNode(ASTNodeType::AST_VARIABLE);
+                obj_var->name = name;
+                member_access_node->left = std::unique_ptr<ASTNode>(obj_var);
+                
+                // メンバアクセスを子として設定
+                incdec->left = std::unique_ptr<ASTNode>(member_access_node);
+                
+                return incdec;
             } else {
-                error("Expected '=' or '(' after member access");
+                error("Expected '=', '(', '++', or '--' after member access");
                 return nullptr;
             }
         } else if (check(TokenType::TOK_ASSIGN) || check(TokenType::TOK_PLUS_ASSIGN) || 
@@ -2132,9 +2167,8 @@ ASTNode* RecursiveParser::parseMultiplicative() {
 }
 
 ASTNode* RecursiveParser::parseUnary() {
-    // Prefix operators: !, -, ++, --, ~, &, *
+    // Prefix operators: !, -, ~, &, *
     if (check(TokenType::TOK_NOT) || check(TokenType::TOK_MINUS) || 
-        check(TokenType::TOK_INCR) || check(TokenType::TOK_DECR) || 
         check(TokenType::TOK_BIT_NOT) || check(TokenType::TOK_BIT_AND) ||
         check(TokenType::TOK_MUL)) {
         Token op = advance();
@@ -2152,6 +2186,19 @@ ASTNode* RecursiveParser::parseUnary() {
         unary->left = std::unique_ptr<ASTNode>(operand);
         
         return unary;
+    }
+    
+    // ++ と -- は別処理: AST_PRE_INCDEC を生成
+    if (check(TokenType::TOK_INCR) || check(TokenType::TOK_DECR)) {
+        Token op = advance();
+        ASTNode* operand = parsePostfix();  // parsePostfix()を直接呼ぶことでメンバーアクセスを取得
+        
+        // AST_PRE_INCDEC ノードを生成
+        ASTNode* incdec = new ASTNode(ASTNodeType::AST_PRE_INCDEC);
+        incdec->op = op.value;
+        incdec->left = std::unique_ptr<ASTNode>(operand);
+        
+        return incdec;
     }
     
     return parsePostfix();
@@ -2206,8 +2253,8 @@ ASTNode* RecursiveParser::parsePostfix() {
     // Postfix operators: ++, --
     if (check(TokenType::TOK_INCR) || check(TokenType::TOK_DECR)) {
         Token op = advance();
-        ASTNode* postfix = new ASTNode(ASTNodeType::AST_UNARY_OP);
-        postfix->op = op.value + "_post"; // postfixを区別
+        ASTNode* postfix = new ASTNode(ASTNodeType::AST_POST_INCDEC);
+        postfix->op = op.value; // "++" または "--"
         postfix->left = std::unique_ptr<ASTNode>(primary);
         return postfix;
     }
@@ -3122,6 +3169,24 @@ ASTNode* RecursiveParser::parseReturnStatement() {
     
     consume(TokenType::TOK_SEMICOLON, "Expected ';' after return statement");
     return return_node;
+}
+
+ASTNode* RecursiveParser::parseAssertStatement() {
+    Token assert_token = advance(); // consume 'assert'
+    
+    consume(TokenType::TOK_LPAREN, "Expected '(' after assert");
+    
+    // 条件式をパース
+    ASTNode* condition = parseExpression();
+    
+    consume(TokenType::TOK_RPAREN, "Expected ')' after assert condition");
+    consume(TokenType::TOK_SEMICOLON, "Expected ';' after assert statement");
+    
+    ASTNode* assert_node = new ASTNode(ASTNodeType::AST_ASSERT_STMT);
+    assert_node->left = std::unique_ptr<ASTNode>(condition);
+    assert_node->location.line = assert_token.line;
+    
+    return assert_node;
 }
 
 ASTNode* RecursiveParser::parseBreakStatement() {

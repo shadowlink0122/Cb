@@ -588,7 +588,10 @@ enum class ASTNodeType {
     AST_TRY_STMT,     // try文
     AST_CATCH_STMT,   // catch文
     AST_FINALLY_STMT, // finally文
-    AST_THROW_STMT    // throw文
+    AST_THROW_STMT,   // throw文
+
+    // デバッグ・検証
+    AST_ASSERT_STMT // assert文
 };
 
 // 位置情報構造体

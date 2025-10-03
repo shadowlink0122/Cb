@@ -874,6 +874,27 @@ void Interpreter::execute_statement(const ASTNode *node) {
         }
         break;
 
+    case ASTNodeType::AST_ASSERT_STMT: {
+        debug_msg(DebugMsgId::ASSERT_CHECK_START);
+        if (!node->left) {
+            error_msg(DebugMsgId::ASSERT_FAILURE, node->location.line, "Missing condition");
+            std::exit(1);
+        }
+        
+        // 条件を評価
+        int64_t condition = evaluate(node->left.get());
+        
+        if (condition) {
+            debug_msg(DebugMsgId::ASSERT_CONDITION_TRUE);
+        } else {
+            debug_msg(DebugMsgId::ASSERT_CONDITION_FALSE, node->location.line);
+            error_msg(DebugMsgId::ASSERT_FAILURE, node->location.line, "Assertion failed");
+            std::cerr << "Assertion failed at line " << node->location.line << std::endl;
+            std::exit(1);
+        }
+        break;
+    }
+
     case ASTNodeType::AST_RETURN_STMT:
         debug_msg(DebugMsgId::INTERPRETER_RETURN_STMT);
         if (node->left) {
@@ -1818,6 +1839,54 @@ void Interpreter::assign_array_element(const std::string &name, int64_t index,
         error_msg(DebugMsgId::ARRAY_OUT_OF_BOUNDS_ERROR, name.c_str());
         throw;
     }
+}
+
+void Interpreter::assign_array_element_float(const std::string &name, int64_t index,
+                                             double value) {
+    debug_msg(DebugMsgId::ARRAY_ELEMENT_ASSIGN_DEBUG, name.c_str(), index,
+              static_cast<int64_t>(value));
+
+    Variable *var = find_variable(name);
+    if (!var) {
+        debug_msg(DebugMsgId::VARIABLE_NOT_FOUND, name.c_str());
+        error_msg(DebugMsgId::UNDEFINED_ARRAY_ERROR, name.c_str());
+        throw std::runtime_error("Undefined array");
+    }
+
+    // 境界チェック
+    int idx = static_cast<int>(index);
+    if (idx < 0 || idx >= var->array_size) {
+        debug_msg(DebugMsgId::ARRAY_INDEX_OUT_OF_BOUNDS, index, var->array_size);
+        error_msg(DebugMsgId::ARRAY_OUT_OF_BOUNDS_ERROR, name.c_str());
+        throw std::runtime_error("Array index out of bounds");
+    }
+
+    // 配列の基底型を取得
+    TypeInfo base_type = (var->type >= TYPE_ARRAY_BASE) 
+                        ? static_cast<TypeInfo>(var->type - TYPE_ARRAY_BASE) 
+                        : var->type;
+
+    // 型に応じた代入
+    if (base_type == TYPE_FLOAT) {
+        if (var->array_float_values.empty()) {
+            var->array_float_values.resize(var->array_size, 0.0f);
+        }
+        var->array_float_values[idx] = static_cast<float>(value);
+    } else if (base_type == TYPE_DOUBLE) {
+        if (var->array_double_values.empty()) {
+            var->array_double_values.resize(var->array_size, 0.0);
+        }
+        var->array_double_values[idx] = value;
+    } else if (base_type == TYPE_QUAD) {
+        if (var->array_quad_values.empty()) {
+            var->array_quad_values.resize(var->array_size, 0.0L);
+        }
+        var->array_quad_values[idx] = static_cast<long double>(value);
+    } else {
+        throw std::runtime_error("assign_array_element_float called on non-float array");
+    }
+
+    debug_msg(DebugMsgId::ARRAY_ELEMENT_ASSIGN_SUCCESS);
 }
 
 void Interpreter::assign_string_element(const std::string &name, int64_t index,
