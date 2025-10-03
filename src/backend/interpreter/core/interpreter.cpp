@@ -1168,6 +1168,65 @@ void Interpreter::execute_statement(const ASTNode *node) {
                         }
 
                         // 多次元配列の値を正しい次元構造で3D配列に変換
+                        // まず型を確認
+                        TypeInfo type_info = var->type;
+                        TypeInfo base_type = (type_info >= TYPE_ARRAY_BASE) 
+                                            ? static_cast<TypeInfo>(type_info - TYPE_ARRAY_BASE) 
+                                            : type_info;
+                        
+                        // float/double/quad配列の場合
+                        if (base_type == TYPE_FLOAT || base_type == TYPE_DOUBLE || base_type == TYPE_QUAD) {
+                            std::vector<std::vector<std::vector<double>>> double_array_3d;
+                            
+                            if (var->array_dimensions.size() == 2) {
+                                // 2次元float/double配列の場合
+                                int rows = var->array_dimensions[0];
+                                int cols = var->array_dimensions[1];
+                                
+                                std::vector<std::vector<double>> double_array_2d;
+                                for (int i = 0; i < rows; i++) {
+                                    std::vector<double> row;
+                                    for (int j = 0; j < cols; j++) {
+                                        int flat_index = i * cols + j;
+                                        if (base_type == TYPE_FLOAT && flat_index < static_cast<int>(var->multidim_array_float_values.size())) {
+                                            row.push_back(static_cast<double>(var->multidim_array_float_values[flat_index]));
+                                        } else if (base_type == TYPE_DOUBLE && flat_index < static_cast<int>(var->multidim_array_double_values.size())) {
+                                            row.push_back(var->multidim_array_double_values[flat_index]);
+                                        } else if (base_type == TYPE_QUAD && flat_index < static_cast<int>(var->multidim_array_quad_values.size())) {
+                                            row.push_back(static_cast<double>(var->multidim_array_quad_values[flat_index]));
+                                        } else {
+                                            row.push_back(0.0);
+                                        }
+                                    }
+                                    double_array_2d.push_back(row);
+                                }
+                                double_array_3d.push_back(double_array_2d);
+                            } else {
+                                // その他の多次元float/double配列（従来の方法で1次元として処理）
+                                std::vector<std::vector<double>> double_array_2d;
+                                std::vector<double> double_array_1d;
+
+                                if (base_type == TYPE_FLOAT) {
+                                    for (size_t i = 0; i < var->multidim_array_float_values.size(); ++i) {
+                                        double_array_1d.push_back(static_cast<double>(var->multidim_array_float_values[i]));
+                                    }
+                                } else if (base_type == TYPE_DOUBLE) {
+                                    for (size_t i = 0; i < var->multidim_array_double_values.size(); ++i) {
+                                        double_array_1d.push_back(var->multidim_array_double_values[i]);
+                                    }
+                                } else { // TYPE_QUAD
+                                    for (size_t i = 0; i < var->multidim_array_quad_values.size(); ++i) {
+                                        double_array_1d.push_back(static_cast<double>(var->multidim_array_quad_values[i]));
+                                    }
+                                }
+                                double_array_2d.push_back(double_array_1d);
+                                double_array_3d.push_back(double_array_2d);
+                            }
+
+                                            throw ReturnException(double_array_3d, node->left->name, base_type);
+                        }
+                        
+                        // 整数型配列の処理
                         std::vector<std::vector<std::vector<int64_t>>> int_array_3d;
                         
                         if (var->array_dimensions.size() == 2) {
@@ -1212,10 +1271,64 @@ void Interpreter::execute_statement(const ASTNode *node) {
 
                     // 1次元配列の既存処理
                     TypeInfo type_info = var->type;
+                    TypeInfo base_type = (type_info >= TYPE_ARRAY_BASE) 
+                                        ? static_cast<TypeInfo>(type_info - TYPE_ARRAY_BASE) 
+                                        : type_info;
                     std::string type_name =
                         node->left->name; // 配列名を仮の型名として使用
 
-                    if (type_info ==
+                    // float/double/quad配列の処理
+                    if (base_type == TYPE_FLOAT || base_type == TYPE_DOUBLE || base_type == TYPE_QUAD) {
+                        std::vector<std::vector<std::vector<double>>> double_array_3d;
+                        
+                        if (var->is_multidimensional && var->array_dimensions.size() == 2) {
+                            // 2次元float/double配列
+                            int rows = var->array_dimensions[0];
+                            int cols = var->array_dimensions[1];
+                            
+                            std::vector<std::vector<double>> double_array_2d;
+                            for (int i = 0; i < rows; i++) {
+                                std::vector<double> row;
+                                for (int j = 0; j < cols; j++) {
+                                    int flat_index = i * cols + j;
+                                    if (base_type == TYPE_FLOAT && flat_index < static_cast<int>(var->multidim_array_float_values.size())) {
+                                        row.push_back(static_cast<double>(var->multidim_array_float_values[flat_index]));
+                                    } else if (base_type == TYPE_DOUBLE && flat_index < static_cast<int>(var->multidim_array_double_values.size())) {
+                                        row.push_back(var->multidim_array_double_values[flat_index]);
+                                    } else if (base_type == TYPE_QUAD && flat_index < static_cast<int>(var->multidim_array_quad_values.size())) {
+                                        row.push_back(static_cast<double>(var->multidim_array_quad_values[flat_index]));
+                                    } else {
+                                        row.push_back(0.0);
+                                    }
+                                }
+                                double_array_2d.push_back(row);
+                            }
+                            double_array_3d.push_back(double_array_2d);
+                        } else {
+                            // 1次元float/double配列
+                            std::vector<std::vector<double>> double_array_2d;
+                            std::vector<double> double_array_1d;
+                            
+                            if (base_type == TYPE_FLOAT) {
+                                for (size_t i = 0; i < var->array_float_values.size(); ++i) {
+                                    double_array_1d.push_back(static_cast<double>(var->array_float_values[i]));
+                                }
+                            } else if (base_type == TYPE_DOUBLE) {
+                                for (size_t i = 0; i < var->array_double_values.size(); ++i) {
+                                    double_array_1d.push_back(var->array_double_values[i]);
+                                }
+                            } else { // TYPE_QUAD
+                                for (size_t i = 0; i < var->array_quad_values.size(); ++i) {
+                                    double_array_1d.push_back(static_cast<double>(var->array_quad_values[i]));
+                                }
+                            }
+                            double_array_2d.push_back(double_array_1d);
+                            double_array_3d.push_back(double_array_2d);
+                        }
+                        
+                        throw ReturnException(double_array_3d, type_name, base_type);
+                    }
+                    else if (type_info ==
                             static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_INT) ||
                         type_info == static_cast<TypeInfo>(TYPE_ARRAY_BASE +
                                                            TYPE_LONG) ||

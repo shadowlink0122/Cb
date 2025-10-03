@@ -1,0 +1,1379 @@
+[PARSE_INIT] Using recursive descent parser...
+[PARSE_PROGRAM] Starting to parse program in file: tests/cases/floating_point/functions_and_arrays.cb
+[PARSE_STATEMENT] Starting statement parse at line 3, column 1
+[PARSE_TOKEN] Current token: float (type: 65)
+[PARSE_FUNC] Function created: average_pair
+[PARSE_TOKEN] Current token: return (type: 56)
+[PARSE_STATEMENT] Successfully parsed statement type: 18, name: average_pair
+[PARSE_STATEMENT] Starting statement parse at line 7, column 1
+[PARSE_TOKEN] Current token: double (type: 66)
+[PARSE_FUNC] Function created: accumulate_double
+[PARSE_TOKEN] Current token: return (type: 56)
+[PARSE_STATEMENT] Successfully parsed statement type: 18, name: accumulate_double
+[PARSE_STATEMENT] Starting statement parse at line 11, column 1
+[PARSE_TOKEN] Current token: unsigned (type: 86)
+[PARSE_FUNC] Function created: clamp_add
+[PARSE_TOKEN] Current token: int (type: 57)
+[PARSE_TOKEN] Current token: if (type: 50)
+[PARSE_TOKEN] Current token: { (type: 39)
+[PARSE_TOKEN] Current token: return (type: 56)
+[PARSE_TOKEN] Current token: return (type: 56)
+[PARSE_STATEMENT] Successfully parsed statement type: 18, name: clamp_add
+[PARSE_STATEMENT] Starting statement parse at line 19, column 1
+[PARSE_TOKEN] Current token: float (type: 65)
+[PARSE_FUNC] Function created: sum_float_grid
+[PARSE_TOKEN] Current token: float (type: 65)
+[PARSE_TOKEN] Current token: for (type: 52)
+[PARSE_TOKEN] Current token: int (type: 57)
+[PARSE_TOKEN] Current token: { (type: 39)
+[PARSE_TOKEN] Current token: for (type: 52)
+[PARSE_TOKEN] Current token: int (type: 57)
+[PARSE_TOKEN] Current token: { (type: 39)
+[PARSE_TOKEN] Current token: total (type: 45)
+[PARSE_TYPE] Checking type: total, is_typedef: false, is_struct_type: false
+[PARSE_EXPR] Array access expression: grid
+[PARSE_EXPR] Array access expression: nested array access
+[PARSE_TOKEN] Current token: return (type: 56)
+[PARSE_STATEMENT] Successfully parsed statement type: 18, name: sum_float_grid
+[PARSE_STATEMENT] Starting statement parse at line 29, column 1
+[PARSE_TOKEN] Current token: double (type: 66)
+[PARSE_FUNC] Function created: make_double_grid
+[PARSE_TOKEN] Current token: double (type: 66)
+[PARSE_TOKEN] Current token: return (type: 56)
+[PARSE_STATEMENT] Successfully parsed statement type: 18, name: make_double_grid
+[PARSE_STATEMENT] Starting statement parse at line 37, column 1
+[PARSE_TOKEN] Current token: int (type: 57)
+[PARSE_FUNC] Function created: main
+[PARSE_TOKEN] Current token: println (type: 72)
+[PARSE_TOKEN] Current token: float (type: 65)
+[PARSE_TOKEN] Current token: print (type: 71)
+[PARSE_TOKEN] Current token: println (type: 72)
+[PARSE_TOKEN] Current token: double (type: 66)
+[PARSE_TOKEN] Current token: print (type: 71)
+[PARSE_TOKEN] Current token: println (type: 72)
+[PARSE_TOKEN] Current token: unsigned (type: 86)
+[PARSE_TOKEN] Current token: print (type: 71)
+[PARSE_TOKEN] Current token: println (type: 72)
+[PARSE_TOKEN] Current token: float (type: 65)
+[PARSE_TOKEN] Current token: float (type: 65)
+[PARSE_TOKEN] Current token: print (type: 71)
+[PARSE_TOKEN] Current token: println (type: 72)
+[PARSE_TOKEN] Current token: double (type: 66)
+[PARSE_TOKEN] Current token: println (type: 72)
+[PARSE_TOKEN] Current token: for (type: 52)
+[PARSE_TOKEN] Current token: int (type: 57)
+[PARSE_TOKEN] Current token: { (type: 39)
+[PARSE_TOKEN] Current token: for (type: 52)
+[PARSE_TOKEN] Current token: int (type: 57)
+[PARSE_TOKEN] Current token: { (type: 39)
+[PARSE_TOKEN] Current token: print (type: 71)
+[PARSE_TOKEN] Current token: print (type: 71)
+[PARSE_TOKEN] Current token: print (type: 71)
+[PARSE_TOKEN] Current token: print (type: 71)
+[PARSE_TOKEN] Current token: print (type: 71)
+[PARSE_TOKEN] Current token: println (type: 72)
+[PARSE_EXPR] Array access expression: generated
+[PARSE_EXPR] Array access expression: nested array access
+[PARSE_TOKEN] Current token: println (type: 72)
+[PARSE_TOKEN] Current token: return (type: 56)
+[PARSE_STATEMENT] Successfully parsed statement type: 18, name: main
+[PARSE_PROGRAM] Program parsing complete with 6 statements
+Debug mode is enabled
+[INTERPRETER_INIT] Interpreter start
+[INTERPRETER_INIT] Interpreter start
+[INTERPRETER_INIT] Global declaration start
+[PARSE_DECL] register_global_declarations processing: AST_STMT_LIST (name: )
+[PARSE_DECL] register_global_declarations processing: AST_FUNC_DECL (name: average_pair)
+[INTERPRETER_FUNC] Registering function: average_pair
+[INTERPRETER_FUNC] Function registration complete: average_pair
+[PARSE_DECL] register_global_declarations processing: AST_FUNC_DECL (name: accumulate_double)
+[INTERPRETER_FUNC] Registering function: accumulate_double
+[INTERPRETER_FUNC] Function registration complete: accumulate_double
+[PARSE_DECL] register_global_declarations processing: AST_FUNC_DECL (name: clamp_add)
+[INTERPRETER_FUNC] Registering function: clamp_add
+[INTERPRETER_FUNC] Function registration complete: clamp_add
+[PARSE_DECL] register_global_declarations processing: AST_FUNC_DECL (name: sum_float_grid)
+[INTERPRETER_FUNC] Registering function: sum_float_grid
+[INTERPRETER_FUNC] Function registration complete: sum_float_grid
+[PARSE_DECL] register_global_declarations processing: AST_FUNC_DECL (name: make_double_grid)
+[INTERPRETER_FUNC] Registering function: make_double_grid
+[INTERPRETER_FUNC] Function registration complete: make_double_grid
+[PARSE_DECL] register_global_declarations processing: AST_FUNC_DECL (name: main)
+[INTERPRETER_FUNC] Registering function: main
+[INTERPRETER_FUNC] Function registration complete: main
+[INTERPRETER_INIT] Initializing global variables
+[INTERPRETER_INIT] Processing AST_STMT_LIST with 6 statements
+[INTERPRETER_INIT] Checking statement type: 18 (name: average_pair)
+[INTERPRETER_INIT] Checking statement type: 18 (name: accumulate_double)
+[INTERPRETER_INIT] Checking statement type: 18 (name: clamp_add)
+[INTERPRETER_INIT] Checking statement type: 18 (name: sum_float_grid)
+[INTERPRETER_INIT] Checking statement type: 18 (name: make_double_grid)
+[INTERPRETER_INIT] Checking statement type: 18 (name: main)
+[INTERPRETER_INIT] Global declaration complete
+[INTERPRETER_INIT] Searching for main function
+[INTERPRETER_EXEC] Main function found
+[INTERPRETER_EXEC] Executing main function
+[INTERPRETER_EXEC] Main function body exists
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_STMT_LIST] Executing statement list with 19 statements
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_EXEC] Executing statement: type 2848642
+[INTERPRETER_OUTPUT] Processing AST_PRINTLN_STMT with 1 arguments
+[INTERPRETER_OUTPUT] Single argument in AST_PRINT_STMT, type: 2
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_VAR] Variable declaration: f_avg
+[INTERPRETER_VAR] Variable declaration type: 8
+[DEBUG_PRINT] VAR_DEBUG: process_var_decl_or_assign called for f_avg, node_type=15
+[DEBUG_PRINT] VAR_DEBUG: type_info=8, type_name='float'
+[DEBUG_PRINT] VAR_DEBUG: node->is_unsigned=0
+[DEBUG_PRINT] VAR_DEBUG: resolve_typedef('float') = 'float'
+[DEBUG_PRINT] VAR_DEBUG: condition check: !empty=1, resolved!=original=0
+[INTERPRETER_VAR] Creating new variable
+[EXPR_EVAL] Starting expression evaluation: 29
+[INTERPRETER_VAR] Creating new variable
+[METHOD] Executing method: average_pair
+[INTERPRETER_VAR] Creating new variable
+[INTERPRETER_VAR] Variable assign: a = 3
+[INTERPRETER_VAR] Creating new variable
+[INTERPRETER_VAR] Variable assign: b = 1
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_STMT_LIST] Executing statement list with 1 statements
+[INTERPRETER_EXEC] Executing statement: type 2848598
+Interpreter return statement
+Interpreter return statement
+[INTERPRETER_VAR] Creating new variable
+[INTERPRETER_ARRAY] Array declaration debug: ExpressionService Stats: Total=1, Failed=1
+[INTERPRETER_VAR] Creating new variable
+[INTERPRETER_VAR] Variable declaration success: f_avg
+[INTERPRETER_EXEC] Executing statement: type 2848598
+Executing print statement
+Print statement has arguments
+[INTERPRETER_OUTPUT] Processing AST_PRINT_STMT with 1 arguments
+[INTERPRETER_OUTPUT] Single argument in AST_PRINT_STMT, type: 2
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_EXEC] Executing statement: type 2848642
+[INTERPRETER_OUTPUT] Processing AST_PRINTLN_STMT with 1 arguments
+[INTERPRETER_OUTPUT] Single argument in AST_PRINT_STMT, type: 1
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_VAR] Variable declaration: d_acc
+[INTERPRETER_VAR] Variable declaration type: 9
+[DEBUG_PRINT] VAR_DEBUG: process_var_decl_or_assign called for d_acc, node_type=15
+[DEBUG_PRINT] VAR_DEBUG: type_info=9, type_name='double'
+[DEBUG_PRINT] VAR_DEBUG: node->is_unsigned=0
+[DEBUG_PRINT] VAR_DEBUG: resolve_typedef('double') = 'double'
+[DEBUG_PRINT] VAR_DEBUG: condition check: !empty=1, resolved!=original=0
+[INTERPRETER_VAR] Creating new variable
+[EXPR_EVAL] Starting expression evaluation: 29
+[INTERPRETER_VAR] Creating new variable
+[METHOD] Executing method: accumulate_double
+[INTERPRETER_VAR] Creating new variable
+[INTERPRETER_VAR] Variable assign: start = 10
+[INTERPRETER_VAR] Creating new variable
+[INTERPRETER_VAR] Variable assign: delta = 0
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_STMT_LIST] Executing statement list with 1 statements
+[INTERPRETER_EXEC] Executing statement: type 2848598
+Interpreter return statement
+Interpreter return statement
+[INTERPRETER_VAR] Creating new variable
+[INTERPRETER_ARRAY] Array declaration debug: ExpressionService Stats: Total=2, Failed=2
+[INTERPRETER_VAR] Creating new variable
+[INTERPRETER_VAR] Variable declaration success: d_acc
+[INTERPRETER_EXEC] Executing statement: type 2848598
+Executing print statement
+Print statement has arguments
+[INTERPRETER_OUTPUT] Processing AST_PRINT_STMT with 1 arguments
+[INTERPRETER_OUTPUT] Single argument in AST_PRINT_STMT, type: 2
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_EXEC] Executing statement: type 2848642
+[INTERPRETER_OUTPUT] Processing AST_PRINTLN_STMT with 1 arguments
+[INTERPRETER_OUTPUT] Single argument in AST_PRINT_STMT, type: 1
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_VAR] Variable declaration: u_clamped
+[INTERPRETER_VAR] Variable declaration type: 3
+[DEBUG_PRINT] VAR_DEBUG: process_var_decl_or_assign called for u_clamped, node_type=15
+[DEBUG_PRINT] VAR_DEBUG: type_info=3, type_name='unsigned int'
+[DEBUG_PRINT] VAR_DEBUG: node->is_unsigned=1
+[DEBUG_PRINT] VAR_DEBUG: resolve_typedef('unsigned int') = 'unsigned int'
+[DEBUG_PRINT] VAR_DEBUG: condition check: !empty=1, resolved!=original=0
+[INTERPRETER_VAR] Creating new variable
+[EXPR_EVAL] Starting expression evaluation: 29
+[INTERPRETER_VAR] Creating new variable
+[METHOD] Executing method: clamp_add
+[INTERPRETER_VAR] Creating new variable
+[INTERPRETER_VAR] Variable assign: value = 5
+[DEBUG_PRINT] ASSIGN_DEBUG: name=value target_type=3 resolved_type=3 numeric_value=5 allow_override=0
+[INTERPRETER_ARRAY] Array declaration debug: ExpressionService Stats: Total=3, Failed=3
+[INTERPRETER_VAR] Creating new variable
+[INTERPRETER_VAR] Variable assign: delta = -9
+[DEBUG_PRINT] ASSIGN_DEBUG: name=delta target_type=3 resolved_type=3 numeric_value=-9 allow_override=0
+[INTERPRETER_ARRAY] Array declaration debug: ExpressionService Stats: Total=4, Failed=4
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_STMT_LIST] Executing statement list with 3 statements
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_VAR] Variable declaration: candidate
+[INTERPRETER_VAR] Variable declaration type: 3
+[DEBUG_PRINT] VAR_DEBUG: process_var_decl_or_assign called for candidate, node_type=15
+[DEBUG_PRINT] VAR_DEBUG: type_info=3, type_name='int'
+[DEBUG_PRINT] VAR_DEBUG: node->is_unsigned=0
+[DEBUG_PRINT] VAR_DEBUG: resolve_typedef('int') = 'int'
+[DEBUG_PRINT] VAR_DEBUG: condition check: !empty=1, resolved!=original=0
+[INTERPRETER_VAR] Creating new variable
+[INTERPRETER_ARRAY] Array declaration debug: ExpressionService Stats: Total=5, Failed=5
+[INTERPRETER_VAR] Creating new variable
+[INTERPRETER_VAR] Variable declaration success: candidate
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_IF] Starting if statement execution
+[EXPR_EVAL] Starting expression evaluation: 4
+[INTERPRETER_EXPR] Expression eval: binary op <
+[EXPR_EVAL] Starting expression evaluation: 1
+[INTERPRETER_EXPR] Expression eval: variable reference candidate
+[EXPR_EVAL] Variable candidate value: -4
+[EXPR_EVAL] Starting expression evaluation: 0
+[INTERPRETER_EXPR] Expression eval: number 0
+[INTERPRETER_EXPR] Binary op values: left=-4, right=0
+[INTERPRETER_EXPR] Binary op result: 1
+[INTERPRETER_IF] Condition result: 1
+[INTERPRETER_IF] Executing then branch
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_COMPOUND] Executing compound statement with 1 statements
+[INTERPRETER_EXEC] Executing statement: type 2848598
+Interpreter return statement
+Interpreter return statement
+[INTERPRETER_VAR] Creating new variable
+[INTERPRETER_ARRAY] Array declaration debug: ExpressionService Stats: Total=6, Failed=6
+[INTERPRETER_VAR] Creating new variable
+[INTERPRETER_VAR] Variable declaration success: u_clamped
+[INTERPRETER_EXEC] Executing statement: type 2848598
+Executing print statement
+Print statement has arguments
+[INTERPRETER_OUTPUT] Processing AST_PRINT_STMT with 1 arguments
+[INTERPRETER_OUTPUT] Single argument in AST_PRINT_STMT, type: 2
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_EXEC] Executing statement: type 2848642
+[INTERPRETER_OUTPUT] Processing AST_PRINTLN_STMT with 1 arguments
+[INTERPRETER_OUTPUT] Single argument in AST_PRINT_STMT, type: 1
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_ARRAY] Executing array declaration: float_grid
+[INTERPRETER_VAR] Creating new variable
+[INTERPRETER_ARRAY] Array declaration debug: Processing array declaration for variable: float_grid
+[INTERPRETER_ARRAY] Array declaration debug: float_grid
+[INTERPRETER_ARRAY] Multidimensional array processing
+[EXPR_EVAL] Starting expression evaluation: 0
+[INTERPRETER_EXPR] Expression eval: number 2
+[INTERPRETER_ARRAY] Array declaration debug: ExpressionService Stats: Total=7, Failed=6
+[EXPR_EVAL] Starting expression evaluation: 0
+[INTERPRETER_EXPR] Expression eval: number 3
+[INTERPRETER_ARRAY] Array declaration debug: ExpressionService Stats: Total=8, Failed=6
+[INTERPRETER_ARRAY] Array declaration debug: Array literal found with 0 children, 2 arguments
+[INTERPRETER_ARRAY] Array declaration debug: Processing multidimensional array literal for: float_grid
+[INTERPRETER_ARRAY] Flat index calculated: 6170481720
+[INTERPRETER_ARRAY] Flat index calculated: 6170481720
+[INTERPRETER_ARRAY] Flat index calculated: 6170481720
+[INTERPRETER_ARRAY] Flat index calculated: 6170481720
+[INTERPRETER_ARRAY] Flat index calculated: 6170481720
+[INTERPRETER_ARRAY] Flat index calculated: 6170481720
+[INTERPRETER_ARRAY] Array declaration debug: Final array 'float_grid': size=6, is_assigned=true
+[INTERPRETER_VAR] Creating new variable
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_VAR] Variable declaration: grid_total
+[INTERPRETER_VAR] Variable declaration type: 8
+[DEBUG_PRINT] VAR_DEBUG: process_var_decl_or_assign called for grid_total, node_type=15
+[DEBUG_PRINT] VAR_DEBUG: type_info=8, type_name='float'
+[DEBUG_PRINT] VAR_DEBUG: node->is_unsigned=0
+[DEBUG_PRINT] VAR_DEBUG: resolve_typedef('float') = 'float'
+[DEBUG_PRINT] VAR_DEBUG: condition check: !empty=1, resolved!=original=0
+[INTERPRETER_VAR] Creating new variable
+[EXPR_EVAL] Starting expression evaluation: 29
+[INTERPRETER_VAR] Creating new variable
+[METHOD] Executing method: sum_float_grid
+[INTERPRETER_VAR] Creating new variable
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_STMT_LIST] Executing statement list with 3 statements
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_VAR] Variable declaration: total
+[INTERPRETER_VAR] Variable declaration type: 8
+[DEBUG_PRINT] VAR_DEBUG: process_var_decl_or_assign called for total, node_type=15
+[DEBUG_PRINT] VAR_DEBUG: type_info=8, type_name='float'
+[DEBUG_PRINT] VAR_DEBUG: node->is_unsigned=0
+[DEBUG_PRINT] VAR_DEBUG: resolve_typedef('float') = 'float'
+[DEBUG_PRINT] VAR_DEBUG: condition check: !empty=1, resolved!=original=0
+[INTERPRETER_VAR] Creating new variable
+[INTERPRETER_ARRAY] Array declaration debug: ExpressionService Stats: Total=9, Failed=7
+[INTERPRETER_VAR] Creating new variable
+[INTERPRETER_VAR] Variable declaration success: total
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_FOR] For loop start
+[INTERPRETER_FOR] Executing initialization
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_VAR] Variable declaration: i
+[INTERPRETER_VAR] Variable declaration type: 3
+[DEBUG_PRINT] VAR_DEBUG: process_var_decl_or_assign called for i, node_type=15
+[DEBUG_PRINT] VAR_DEBUG: type_info=3, type_name='int'
+[DEBUG_PRINT] VAR_DEBUG: node->is_unsigned=0
+[DEBUG_PRINT] VAR_DEBUG: resolve_typedef('int') = 'int'
+[DEBUG_PRINT] VAR_DEBUG: condition check: !empty=1, resolved!=original=0
+[INTERPRETER_VAR] Creating new variable
+[INTERPRETER_ARRAY] Array declaration debug: ExpressionService Stats: Total=10, Failed=8
+[INTERPRETER_VAR] Creating new variable
+[INTERPRETER_VAR] Variable declaration success: i
+[INTERPRETER_FOR] Condition check iteration: 0
+[EXPR_EVAL] Starting expression evaluation: 4
+[INTERPRETER_EXPR] Expression eval: binary op <
+[EXPR_EVAL] Starting expression evaluation: 1
+[INTERPRETER_EXPR] Expression eval: variable reference i
+[EXPR_EVAL] Variable i value: 0
+[EXPR_EVAL] Starting expression evaluation: 0
+[INTERPRETER_EXPR] Expression eval: number 2
+[INTERPRETER_EXPR] Binary op values: left=0, right=2
+[INTERPRETER_EXPR] Binary op result: 1
+[INTERPRETER_FOR] Condition result: 1
+[INTERPRETER_FOR] Executing body iteration: 0
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_COMPOUND] Executing compound statement with 1 statements
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_FOR] For loop start
+[INTERPRETER_FOR] Executing initialization
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_VAR] Variable declaration: j
+[INTERPRETER_VAR] Variable declaration type: 3
+[DEBUG_PRINT] VAR_DEBUG: process_var_decl_or_assign called for j, node_type=15
+[DEBUG_PRINT] VAR_DEBUG: type_info=3, type_name='int'
+[DEBUG_PRINT] VAR_DEBUG: node->is_unsigned=0
+[DEBUG_PRINT] VAR_DEBUG: resolve_typedef('int') = 'int'
+[DEBUG_PRINT] VAR_DEBUG: condition check: !empty=1, resolved!=original=0
+[INTERPRETER_VAR] Creating new variable
+[INTERPRETER_ARRAY] Array declaration debug: ExpressionService Stats: Total=11, Failed=9
+[INTERPRETER_VAR] Creating new variable
+[INTERPRETER_VAR] Variable declaration success: j
+[INTERPRETER_FOR] Condition check iteration: 0
+[EXPR_EVAL] Starting expression evaluation: 4
+[INTERPRETER_EXPR] Expression eval: binary op <
+[EXPR_EVAL] Starting expression evaluation: 1
+[INTERPRETER_EXPR] Expression eval: variable reference j
+[EXPR_EVAL] Variable j value: 0
+[EXPR_EVAL] Starting expression evaluation: 0
+[INTERPRETER_EXPR] Expression eval: number 3
+[INTERPRETER_EXPR] Binary op values: left=0, right=3
+[INTERPRETER_EXPR] Binary op result: 1
+[INTERPRETER_FOR] Condition result: 1
+[INTERPRETER_FOR] Executing body iteration: 0
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_COMPOUND] Executing compound statement with 1 statements
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_ASSIGN] Processing assignment to: total
+=== function and array coverage ===
+average_pair: 0
+accumulate_double: 0
+clamp_add: 0
+[DEBUG_EXECUTE] Executing node type: 7
+[EXPR_EVAL] Starting expression evaluation: 30
+[INTERPRETER_EXPR] AST_ARRAY_REF evaluation started
+[INTERPRETER_EXPR] Expression eval: array reference
+[DEBUG_PRINT] AST_ARRAY_REF: Processing array access
+[DEBUG_PRINT]   node->left exists: true
+[DEBUG_PRINT]   node->left->node_type: 30
+[DEBUG_PRINT]   node->left has name: empty
+[DEBUG_PRINT]   node->left->left->node_type: 1
+[DEBUG_PRINT]   node->left->left has name: grid
+[EXPR_EVAL] Starting expression evaluation: 1
+[INTERPRETER_EXPR] Expression eval: variable reference j
+[EXPR_EVAL] Variable j value: 0
+[EXPR_EVAL] Starting expression evaluation: 1
+[INTERPRETER_EXPR] Expression eval: variable reference i
+[EXPR_EVAL] Variable i value: 0
+[DEBUG_PRINT] [DBG multidim] grid dims=2 value=1
+[INTERPRETER_VAR] Variable assign: total = 1
+[DEBUG_PRINT] ASSIGN_DEBUG: name=total target_type=8 resolved_type=3 numeric_value=1 allow_override=0
+[INTERPRETER_ARRAY] Array declaration debug: ExpressionService Stats: Total=12, Failed=10
+[INTERPRETER_ASSIGN] Assignment completed successfully: total
+[INTERPRETER_FOR] Executing update iteration: 0
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_ASSIGN] Processing assignment to: j
+[DEBUG_EXECUTE] Executing node type: 7
+[INTERPRETER_VAR] Variable assign: j = 1
+[DEBUG_PRINT] ASSIGN_DEBUG: name=j target_type=3 resolved_type=3 numeric_value=1 allow_override=0
+[INTERPRETER_ARRAY] Array declaration debug: ExpressionService Stats: Total=13, Failed=11
+[INTERPRETER_ASSIGN] Assignment completed successfully: j
+[INTERPRETER_FOR] Condition check iteration: 1
+[EXPR_EVAL] Starting expression evaluation: 4
+[INTERPRETER_EXPR] Expression eval: binary op <
+[EXPR_EVAL] Starting expression evaluation: 1
+[INTERPRETER_EXPR] Expression eval: variable reference j
+[EXPR_EVAL] Variable j value: 1
+[EXPR_EVAL] Starting expression evaluation: 0
+[INTERPRETER_EXPR] Expression eval: number 3
+[INTERPRETER_EXPR] Binary op values: left=1, right=3
+[INTERPRETER_EXPR] Binary op result: 1
+[INTERPRETER_FOR] Condition result: 1
+[INTERPRETER_FOR] Executing body iteration: 1
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_COMPOUND] Executing compound statement with 1 statements
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_ASSIGN] Processing assignment to: total
+[DEBUG_EXECUTE] Executing node type: 7
+[EXPR_EVAL] Starting expression evaluation: 30
+[INTERPRETER_EXPR] AST_ARRAY_REF evaluation started
+[INTERPRETER_EXPR] Expression eval: array reference
+[DEBUG_PRINT] AST_ARRAY_REF: Processing array access
+[DEBUG_PRINT]   node->left exists: true
+[DEBUG_PRINT]   node->left->node_type: 30
+[DEBUG_PRINT]   node->left has name: empty
+[DEBUG_PRINT]   node->left->left->node_type: 1
+[DEBUG_PRINT]   node->left->left has name: grid
+[EXPR_EVAL] Starting expression evaluation: 1
+[INTERPRETER_EXPR] Expression eval: variable reference j
+[EXPR_EVAL] Variable j value: 1
+[EXPR_EVAL] Starting expression evaluation: 1
+[INTERPRETER_EXPR] Expression eval: variable reference i
+[EXPR_EVAL] Variable i value: 0
+[DEBUG_PRINT] [DBG multidim] grid dims=2 value=2
+[INTERPRETER_VAR] Variable assign: total = 3
+[DEBUG_PRINT] ASSIGN_DEBUG: name=total target_type=8 resolved_type=3 numeric_value=3 allow_override=0
+[INTERPRETER_ARRAY] Array declaration debug: ExpressionService Stats: Total=14, Failed=12
+[INTERPRETER_ASSIGN] Assignment completed successfully: total
+[INTERPRETER_FOR] Executing update iteration: 1
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_ASSIGN] Processing assignment to: j
+[DEBUG_EXECUTE] Executing node type: 7
+[INTERPRETER_VAR] Variable assign: j = 2
+[DEBUG_PRINT] ASSIGN_DEBUG: name=j target_type=3 resolved_type=3 numeric_value=2 allow_override=0
+[INTERPRETER_ARRAY] Array declaration debug: ExpressionService Stats: Total=15, Failed=13
+[INTERPRETER_ASSIGN] Assignment completed successfully: j
+[INTERPRETER_FOR] Condition check iteration: 2
+[EXPR_EVAL] Starting expression evaluation: 4
+[INTERPRETER_EXPR] Expression eval: binary op <
+[EXPR_EVAL] Starting expression evaluation: 1
+[INTERPRETER_EXPR] Expression eval: variable reference j
+[EXPR_EVAL] Variable j value: 2
+[EXPR_EVAL] Starting expression evaluation: 0
+[INTERPRETER_EXPR] Expression eval: number 3
+[INTERPRETER_EXPR] Binary op values: left=2, right=3
+[INTERPRETER_EXPR] Binary op result: 1
+[INTERPRETER_FOR] Condition result: 1
+[INTERPRETER_FOR] Executing body iteration: 2
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_COMPOUND] Executing compound statement with 1 statements
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_ASSIGN] Processing assignment to: total
+[DEBUG_EXECUTE] Executing node type: 7
+[EXPR_EVAL] Starting expression evaluation: 30
+[INTERPRETER_EXPR] AST_ARRAY_REF evaluation started
+[INTERPRETER_EXPR] Expression eval: array reference
+[DEBUG_PRINT] AST_ARRAY_REF: Processing array access
+[DEBUG_PRINT]   node->left exists: true
+[DEBUG_PRINT]   node->left->node_type: 30
+[DEBUG_PRINT]   node->left has name: empty
+[DEBUG_PRINT]   node->left->left->node_type: 1
+[DEBUG_PRINT]   node->left->left has name: grid
+[EXPR_EVAL] Starting expression evaluation: 1
+[INTERPRETER_EXPR] Expression eval: variable reference j
+[EXPR_EVAL] Variable j value: 2
+[EXPR_EVAL] Starting expression evaluation: 1
+[INTERPRETER_EXPR] Expression eval: variable reference i
+[EXPR_EVAL] Variable i value: 0
+[DEBUG_PRINT] [DBG multidim] grid dims=2 value=3
+[INTERPRETER_VAR] Variable assign: total = 6
+[DEBUG_PRINT] ASSIGN_DEBUG: name=total target_type=8 resolved_type=3 numeric_value=6 allow_override=0
+[INTERPRETER_ARRAY] Array declaration debug: ExpressionService Stats: Total=16, Failed=14
+[INTERPRETER_ASSIGN] Assignment completed successfully: total
+[INTERPRETER_FOR] Executing update iteration: 2
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_ASSIGN] Processing assignment to: j
+[DEBUG_EXECUTE] Executing node type: 7
+[INTERPRETER_VAR] Variable assign: j = 3
+[DEBUG_PRINT] ASSIGN_DEBUG: name=j target_type=3 resolved_type=3 numeric_value=3 allow_override=0
+[INTERPRETER_ARRAY] Array declaration debug: ExpressionService Stats: Total=17, Failed=15
+[INTERPRETER_ASSIGN] Assignment completed successfully: j
+[INTERPRETER_FOR] Condition check iteration: 3
+[EXPR_EVAL] Starting expression evaluation: 4
+[INTERPRETER_EXPR] Expression eval: binary op <
+[EXPR_EVAL] Starting expression evaluation: 1
+[INTERPRETER_EXPR] Expression eval: variable reference j
+[EXPR_EVAL] Variable j value: 3
+[EXPR_EVAL] Starting expression evaluation: 0
+[INTERPRETER_EXPR] Expression eval: number 3
+[INTERPRETER_EXPR] Binary op values: left=3, right=3
+[INTERPRETER_EXPR] Binary op result: 0
+[INTERPRETER_FOR] Condition result: 0
+[INTERPRETER_FOR] Executing update iteration: 0
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_ASSIGN] Processing assignment to: i
+[DEBUG_EXECUTE] Executing node type: 7
+[INTERPRETER_VAR] Variable assign: i = 1
+[DEBUG_PRINT] ASSIGN_DEBUG: name=i target_type=3 resolved_type=3 numeric_value=1 allow_override=0
+[INTERPRETER_ARRAY] Array declaration debug: ExpressionService Stats: Total=18, Failed=16
+[INTERPRETER_ASSIGN] Assignment completed successfully: i
+[INTERPRETER_FOR] Condition check iteration: 1
+[EXPR_EVAL] Starting expression evaluation: 4
+[INTERPRETER_EXPR] Expression eval: binary op <
+[EXPR_EVAL] Starting expression evaluation: 1
+[INTERPRETER_EXPR] Expression eval: variable reference i
+[EXPR_EVAL] Variable i value: 1
+[EXPR_EVAL] Starting expression evaluation: 0
+[INTERPRETER_EXPR] Expression eval: number 2
+[INTERPRETER_EXPR] Binary op values: left=1, right=2
+[INTERPRETER_EXPR] Binary op result: 1
+[INTERPRETER_FOR] Condition result: 1
+[INTERPRETER_FOR] Executing body iteration: 1
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_COMPOUND] Executing compound statement with 1 statements
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_FOR] For loop start
+[INTERPRETER_FOR] Executing initialization
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_VAR] Variable declaration: j
+[INTERPRETER_VAR] Variable declaration type: 3
+[DEBUG_PRINT] VAR_DEBUG: process_var_decl_or_assign called for j, node_type=15
+[DEBUG_PRINT] VAR_DEBUG: type_info=3, type_name='int'
+[DEBUG_PRINT] VAR_DEBUG: node->is_unsigned=0
+[DEBUG_PRINT] VAR_DEBUG: resolve_typedef('int') = 'int'
+[DEBUG_PRINT] VAR_DEBUG: condition check: !empty=1, resolved!=original=0
+[INTERPRETER_VAR] Creating new variable
+[INTERPRETER_ARRAY] Array declaration debug: ExpressionService Stats: Total=19, Failed=17
+[INTERPRETER_VAR] Variable declaration success: j
+[INTERPRETER_FOR] Condition check iteration: 0
+[EXPR_EVAL] Starting expression evaluation: 4
+[INTERPRETER_EXPR] Expression eval: binary op <
+[EXPR_EVAL] Starting expression evaluation: 1
+[INTERPRETER_EXPR] Expression eval: variable reference j
+[EXPR_EVAL] Variable j value: 0
+[EXPR_EVAL] Starting expression evaluation: 0
+[INTERPRETER_EXPR] Expression eval: number 3
+[INTERPRETER_EXPR] Binary op values: left=0, right=3
+[INTERPRETER_EXPR] Binary op result: 1
+[INTERPRETER_FOR] Condition result: 1
+[INTERPRETER_FOR] Executing body iteration: 0
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_COMPOUND] Executing compound statement with 1 statements
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_ASSIGN] Processing assignment to: total
+[DEBUG_EXECUTE] Executing node type: 7
+[EXPR_EVAL] Starting expression evaluation: 30
+[INTERPRETER_EXPR] AST_ARRAY_REF evaluation started
+[INTERPRETER_EXPR] Expression eval: array reference
+[DEBUG_PRINT] AST_ARRAY_REF: Processing array access
+[DEBUG_PRINT]   node->left exists: true
+[DEBUG_PRINT]   node->left->node_type: 30
+[DEBUG_PRINT]   node->left has name: empty
+[DEBUG_PRINT]   node->left->left->node_type: 1
+[DEBUG_PRINT]   node->left->left has name: grid
+[EXPR_EVAL] Starting expression evaluation: 1
+[INTERPRETER_EXPR] Expression eval: variable reference j
+[EXPR_EVAL] Variable j value: 0
+[EXPR_EVAL] Starting expression evaluation: 1
+[INTERPRETER_EXPR] Expression eval: variable reference i
+[EXPR_EVAL] Variable i value: 1
+[DEBUG_PRINT] [DBG multidim] grid dims=2 value=4
+[INTERPRETER_VAR] Variable assign: total = 10
+[DEBUG_PRINT] ASSIGN_DEBUG: name=total target_type=8 resolved_type=3 numeric_value=10 allow_override=0
+[INTERPRETER_ARRAY] Array declaration debug: ExpressionService Stats: Total=20, Failed=18
+[INTERPRETER_ASSIGN] Assignment completed successfully: total
+[INTERPRETER_FOR] Executing update iteration: 0
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_ASSIGN] Processing assignment to: j
+[DEBUG_EXECUTE] Executing node type: 7
+[INTERPRETER_VAR] Variable assign: j = 1
+[DEBUG_PRINT] ASSIGN_DEBUG: name=j target_type=3 resolved_type=3 numeric_value=1 allow_override=0
+[INTERPRETER_ARRAY] Array declaration debug: ExpressionService Stats: Total=21, Failed=19
+[INTERPRETER_ASSIGN] Assignment completed successfully: j
+[INTERPRETER_FOR] Condition check iteration: 1
+[EXPR_EVAL] Starting expression evaluation: 4
+[INTERPRETER_EXPR] Expression eval: binary op <
+[EXPR_EVAL] Starting expression evaluation: 1
+[INTERPRETER_EXPR] Expression eval: variable reference j
+[EXPR_EVAL] Variable j value: 1
+[EXPR_EVAL] Starting expression evaluation: 0
+[INTERPRETER_EXPR] Expression eval: number 3
+[INTERPRETER_EXPR] Binary op values: left=1, right=3
+[INTERPRETER_EXPR] Binary op result: 1
+[INTERPRETER_FOR] Condition result: 1
+[INTERPRETER_FOR] Executing body iteration: 1
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_COMPOUND] Executing compound statement with 1 statements
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_ASSIGN] Processing assignment to: total
+[DEBUG_EXECUTE] Executing node type: 7
+[EXPR_EVAL] Starting expression evaluation: 30
+[INTERPRETER_EXPR] AST_ARRAY_REF evaluation started
+[INTERPRETER_EXPR] Expression eval: array reference
+[DEBUG_PRINT] AST_ARRAY_REF: Processing array access
+[DEBUG_PRINT]   node->left exists: true
+[DEBUG_PRINT]   node->left->node_type: 30
+[DEBUG_PRINT]   node->left has name: empty
+[DEBUG_PRINT]   node->left->left->node_type: 1
+[DEBUG_PRINT]   node->left->left has name: grid
+[EXPR_EVAL] Starting expression evaluation: 1
+[INTERPRETER_EXPR] Expression eval: variable reference j
+[EXPR_EVAL] Variable j value: 1
+[EXPR_EVAL] Starting expression evaluation: 1
+[INTERPRETER_EXPR] Expression eval: variable reference i
+[EXPR_EVAL] Variable i value: 1
+[DEBUG_PRINT] [DBG multidim] grid dims=2 value=5
+[INTERPRETER_VAR] Variable assign: total = 15
+[DEBUG_PRINT] ASSIGN_DEBUG: name=total target_type=8 resolved_type=3 numeric_value=15 allow_override=0
+[INTERPRETER_ARRAY] Array declaration debug: ExpressionService Stats: Total=22, Failed=20
+[INTERPRETER_ASSIGN] Assignment completed successfully: total
+[INTERPRETER_FOR] Executing update iteration: 1
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_ASSIGN] Processing assignment to: j
+[DEBUG_EXECUTE] Executing node type: 7
+[INTERPRETER_VAR] Variable assign: j = 2
+[DEBUG_PRINT] ASSIGN_DEBUG: name=j target_type=3 resolved_type=3 numeric_value=2 allow_override=0
+[INTERPRETER_ARRAY] Array declaration debug: ExpressionService Stats: Total=23, Failed=21
+[INTERPRETER_ASSIGN] Assignment completed successfully: j
+[INTERPRETER_FOR] Condition check iteration: 2
+[EXPR_EVAL] Starting expression evaluation: 4
+[INTERPRETER_EXPR] Expression eval: binary op <
+[EXPR_EVAL] Starting expression evaluation: 1
+[INTERPRETER_EXPR] Expression eval: variable reference j
+[EXPR_EVAL] Variable j value: 2
+[EXPR_EVAL] Starting expression evaluation: 0
+[INTERPRETER_EXPR] Expression eval: number 3
+[INTERPRETER_EXPR] Binary op values: left=2, right=3
+[INTERPRETER_EXPR] Binary op result: 1
+[INTERPRETER_FOR] Condition result: 1
+[INTERPRETER_FOR] Executing body iteration: 2
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_COMPOUND] Executing compound statement with 1 statements
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_ASSIGN] Processing assignment to: total
+[DEBUG_EXECUTE] Executing node type: 7
+[EXPR_EVAL] Starting expression evaluation: 30
+[INTERPRETER_EXPR] AST_ARRAY_REF evaluation started
+[INTERPRETER_EXPR] Expression eval: array reference
+[DEBUG_PRINT] AST_ARRAY_REF: Processing array access
+[DEBUG_PRINT]   node->left exists: true
+[DEBUG_PRINT]   node->left->node_type: 30
+[DEBUG_PRINT]   node->left has name: empty
+[DEBUG_PRINT]   node->left->left->node_type: 1
+[DEBUG_PRINT]   node->left->left has name: grid
+[EXPR_EVAL] Starting expression evaluation: 1
+[INTERPRETER_EXPR] Expression eval: variable reference j
+[EXPR_EVAL] Variable j value: 2
+[EXPR_EVAL] Starting expression evaluation: 1
+[INTERPRETER_EXPR] Expression eval: variable reference i
+[EXPR_EVAL] Variable i value: 1
+[DEBUG_PRINT] [DBG multidim] grid dims=2 value=6
+[INTERPRETER_VAR] Variable assign: total = 21
+[DEBUG_PRINT] ASSIGN_DEBUG: name=total target_type=8 resolved_type=3 numeric_value=21 allow_override=0
+[INTERPRETER_ARRAY] Array declaration debug: ExpressionService Stats: Total=24, Failed=22
+[INTERPRETER_ASSIGN] Assignment completed successfully: total
+[INTERPRETER_FOR] Executing update iteration: 2
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_ASSIGN] Processing assignment to: j
+[DEBUG_EXECUTE] Executing node type: 7
+[INTERPRETER_VAR] Variable assign: j = 3
+[DEBUG_PRINT] ASSIGN_DEBUG: name=j target_type=3 resolved_type=3 numeric_value=3 allow_override=0
+[INTERPRETER_ARRAY] Array declaration debug: ExpressionService Stats: Total=25, Failed=23
+[INTERPRETER_ASSIGN] Assignment completed successfully: j
+[INTERPRETER_FOR] Condition check iteration: 3
+[EXPR_EVAL] Starting expression evaluation: 4
+[INTERPRETER_EXPR] Expression eval: binary op <
+[EXPR_EVAL] Starting expression evaluation: 1
+[INTERPRETER_EXPR] Expression eval: variable reference j
+[EXPR_EVAL] Variable j value: 3
+[EXPR_EVAL] Starting expression evaluation: 0
+[INTERPRETER_EXPR] Expression eval: number 3
+[INTERPRETER_EXPR] Binary op values: left=3, right=3
+[INTERPRETER_EXPR] Binary op result: 0
+[INTERPRETER_FOR] Condition result: 0
+[INTERPRETER_FOR] Executing update iteration: 1
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_ASSIGN] Processing assignment to: i
+[DEBUG_EXECUTE] Executing node type: 7
+[INTERPRETER_VAR] Variable assign: i = 2
+[DEBUG_PRINT] ASSIGN_DEBUG: name=i target_type=3 resolved_type=3 numeric_value=2 allow_override=0
+[INTERPRETER_ARRAY] Array declaration debug: ExpressionService Stats: Total=26, Failed=24
+[INTERPRETER_ASSIGN] Assignment completed successfully: i
+[INTERPRETER_FOR] Condition check iteration: 2
+[EXPR_EVAL] Starting expression evaluation: 4
+[INTERPRETER_EXPR] Expression eval: binary op <
+[EXPR_EVAL] Starting expression evaluation: 1
+[INTERPRETER_EXPR] Expression eval: variable reference i
+[EXPR_EVAL] Variable i value: 2
+[EXPR_EVAL] Starting expression evaluation: 0
+[INTERPRETER_EXPR] Expression eval: number 2
+[INTERPRETER_EXPR] Binary op values: left=2, right=2
+[INTERPRETER_EXPR] Binary op result: 0
+[INTERPRETER_FOR] Condition result: 0
+[INTERPRETER_EXEC] Executing statement: type 2848598
+Interpreter return statement
+Interpreter return statement
+Interpreter return variable: total
+[EXPR_EVAL] Starting expression evaluation: 1
+[INTERPRETER_EXPR] Expression eval: variable reference total
+[EXPR_EVAL] Variable total value: 21
+[INTERPRETER_VAR] Creating new variable
+[INTERPRETER_ARRAY] Array declaration debug: ExpressionService Stats: Total=27, Failed=25
+[INTERPRETER_VAR] Creating new variable
+[INTERPRETER_VAR] Variable declaration success: grid_total
+[INTERPRETER_EXEC] Executing statement: type 2848598
+Executing print statement
+Print statement has arguments
+[INTERPRETER_OUTPUT] Processing AST_PRINT_STMT with 1 arguments
+[INTERPRETER_OUTPUT] Single argument in AST_PRINT_STMT, type: 2
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_EXEC] Executing statement: type 2848642
+[INTERPRETER_OUTPUT] Processing AST_PRINTLN_STMT with 1 arguments
+[INTERPRETER_OUTPUT] Single argument in AST_PRINT_STMT, type: 1
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_ARRAY] Executing array declaration: generated
+[INTERPRETER_VAR] Creating new variable
+[INTERPRETER_ARRAY] Array declaration debug: Processing array declaration for variable: generated
+[INTERPRETER_ARRAY] Array declaration debug: generated
+[INTERPRETER_ARRAY] Multidimensional array processing
+[EXPR_EVAL] Starting expression evaluation: 0
+[INTERPRETER_EXPR] Expression eval: number 2
+[INTERPRETER_ARRAY] Array declaration debug: ExpressionService Stats: Total=28, Failed=25
+[EXPR_EVAL] Starting expression evaluation: 0
+[INTERPRETER_EXPR] Expression eval: number 3
+[INTERPRETER_ARRAY] Array declaration debug: ExpressionService Stats: Total=29, Failed=25
+[INTERPRETER_ARRAY] Array declaration debug: Array initialization from function call detected
+[INTERPRETER_ARRAY] Array declaration debug: Dynamic array with function call - accepting returned array as-is
+[EXPR_EVAL] Starting expression evaluation: 29
+[INTERPRETER_VAR] Creating new variable
+[METHOD] Executing method: make_double_grid
+[INTERPRETER_VAR] Creating new variable
+[INTERPRETER_VAR] Variable assign: seed = 0
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_STMT_LIST] Executing statement list with 2 statements
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_ARRAY] Executing array declaration: grid
+[INTERPRETER_VAR] Creating new variable
+[INTERPRETER_ARRAY] Array declaration debug: Processing array declaration for variable: grid
+[INTERPRETER_ARRAY] Array declaration debug: grid
+[INTERPRETER_ARRAY] Multidimensional array processing
+[EXPR_EVAL] Starting expression evaluation: 0
+[INTERPRETER_EXPR] Expression eval: number 2
+[INTERPRETER_ARRAY] Array declaration debug: ExpressionService Stats: Total=30, Failed=25
+[EXPR_EVAL] Starting expression evaluation: 0
+[INTERPRETER_EXPR] Expression eval: number 3
+[INTERPRETER_ARRAY] Array declaration debug: ExpressionService Stats: Total=31, Failed=25
+[INTERPRETER_ARRAY] Array declaration debug: Array literal found with 0 children, 2 arguments
+[INTERPRETER_ARRAY] Array declaration debug: Processing multidimensional array literal for: grid
+[INTERPRETER_ARRAY] Flat index calculated: 6170438072
+[EXPR_EVAL] Starting expression evaluation: 1
+[INTERPRETER_EXPR] Expression eval: variable reference seed
+[EXPR_EVAL] Variable seed value: 0
+[INTERPRETER_ARRAY] Array declaration debug: ExpressionService Stats: Total=32, Failed=25
+[INTERPRETER_ARRAY] Flat index calculated: 6170438072
+[EXPR_EVAL] Starting expression evaluation: 4
+[INTERPRETER_EXPR] Expression eval: binary op +
+[EXPR_EVAL] Starting expression evaluation: 1
+[INTERPRETER_EXPR] Expression eval: variable reference seed
+[EXPR_EVAL] Variable seed value: 0
+[EXPR_EVAL] Starting expression evaluation: 0
+[INTERPRETER_EXPR] Expression eval: number 0
+[INTERPRETER_EXPR] Binary op values: left=0, right=0
+[INTERPRETER_EXPR] Binary op result: 0
+[INTERPRETER_ARRAY] Array declaration debug: ExpressionService Stats: Total=33, Failed=25
+[INTERPRETER_ARRAY] Flat index calculated: 6170438072
+[EXPR_EVAL] Starting expression evaluation: 4
+[INTERPRETER_EXPR] Expression eval: binary op +
+[EXPR_EVAL] Starting expression evaluation: 1
+[INTERPRETER_EXPR] Expression eval: variable reference seed
+[EXPR_EVAL] Variable seed value: 0
+[EXPR_EVAL] Starting expression evaluation: 0
+[INTERPRETER_EXPR] Expression eval: number 0
+[INTERPRETER_EXPR] Binary op values: left=0, right=0
+[INTERPRETER_EXPR] Binary op result: 0
+[INTERPRETER_ARRAY] Array declaration debug: ExpressionService Stats: Total=34, Failed=25
+[INTERPRETER_ARRAY] Flat index calculated: 6170438072
+[EXPR_EVAL] Starting expression evaluation: 4
+[INTERPRETER_EXPR] Expression eval: binary op +
+[EXPR_EVAL] Starting expression evaluation: 1
+[INTERPRETER_EXPR] Expression eval: variable reference seed
+[EXPR_EVAL] Variable seed value: 0
+[EXPR_EVAL] Starting expression evaluation: 0
+[INTERPRETER_EXPR] Expression eval: number 1
+[INTERPRETER_EXPR] Binary op values: left=0, right=1
+[INTERPRETER_EXPR] Binary op result: 1
+[INTERPRETER_ARRAY] Array declaration debug: ExpressionService Stats: Total=35, Failed=25
+[INTERPRETER_ARRAY] Flat index calculated: 6170438072
+[EXPR_EVAL] Starting expression evaluation: 4
+[INTERPRETER_EXPR] Expression eval: binary op +
+[EXPR_EVAL] Starting expression evaluation: 1
+[INTERPRETER_EXPR] Expression eval: variable reference seed
+[EXPR_EVAL] Variable seed value: 0
+[EXPR_EVAL] Starting expression evaluation: 0
+[INTERPRETER_EXPR] Expression eval: number 1
+[INTERPRETER_EXPR] Binary op values: left=0, right=1
+[INTERPRETER_EXPR] Binary op result: 1
+[INTERPRETER_ARRAY] Array declaration debug: ExpressionService Stats: Total=36, Failed=25
+[INTERPRETER_ARRAY] Flat index calculated: 6170438072
+[EXPR_EVAL] Starting expression evaluation: 4
+[INTERPRETER_EXPR] Expression eval: binary op +
+[EXPR_EVAL] Starting expression evaluation: 1
+[INTERPRETER_EXPR] Expression eval: variable reference seed
+[EXPR_EVAL] Variable seed value: 0
+[EXPR_EVAL] Starting expression evaluation: 0
+[INTERPRETER_EXPR] Expression eval: number 2
+[INTERPRETER_EXPR] Binary op values: left=0, right=2
+[INTERPRETER_EXPR] Binary op result: 2
+[INTERPRETER_ARRAY] Array declaration debug: ExpressionService Stats: Total=37, Failed=25
+[INTERPRETER_ARRAY] Array declaration debug: Final array 'grid': size=6, is_assigned=true
+[INTERPRETER_VAR] Creating new variable
+[INTERPRETER_EXEC] Executing statement: type 2848598
+Interpreter return statement
+Interpreter return statement
+Interpreter return variable: grid
+Interpreter return array variable: grid
+Multidimensional array size: 6
+Multidimensional processing
+Multidimensional element[0]: 0
+Multidimensional element[1]: 0
+Multidimensional element[2]: 0
+Multidimensional element[3]: 1
+Multidimensional element[4]: 1
+Multidimensional element[5]: 2
+[INTERPRETER_VAR] Creating new variable
+[INTERPRETER_ARRAY] Array declaration debug: Function returned array, setting up dynamic array
+[INTERPRETER_ARRAY] Array declaration debug: Dynamic array initialized from function with size: 6
+[INTERPRETER_ARRAY] Array declaration debug: Final array 'generated': size=6, is_assigned=true
+[INTERPRETER_VAR] Creating new variable
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_EXEC] Executing statement: type 2848642
+[INTERPRETER_OUTPUT] Processing AST_PRINTLN_STMT with 1 arguments
+[INTERPRETER_OUTPUT] Single argument in AST_PRINT_STMT, type: 2
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_FOR] For loop start
+[INTERPRETER_FOR] Executing initialization
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_VAR] Variable declaration: i
+[INTERPRETER_VAR] Variable declaration type: 3
+[DEBUG_PRINT] VAR_DEBUG: process_var_decl_or_assign called for i, node_type=15
+[DEBUG_PRINT] VAR_DEBUG: type_info=3, type_name='int'
+[DEBUG_PRINT] VAR_DEBUG: node->is_unsigned=0
+[DEBUG_PRINT] VAR_DEBUG: resolve_typedef('int') = 'int'
+[DEBUG_PRINT] VAR_DEBUG: condition check: !empty=1, resolved!=original=0
+[INTERPRETER_VAR] Creating new variable
+[INTERPRETER_ARRAY] Array declaration debug: ExpressionService Stats: Total=38, Failed=26
+[INTERPRETER_VAR] Creating new variable
+[INTERPRETER_VAR] Variable declaration success: i
+[INTERPRETER_FOR] Condition check iteration: 0
+[EXPR_EVAL] Starting expression evaluation: 4
+[INTERPRETER_EXPR] Expression eval: binary op <
+[EXPR_EVAL] Starting expression evaluation: 1
+[INTERPRETER_EXPR] Expression eval: variable reference i
+[EXPR_EVAL] Variable i value: 0
+[EXPR_EVAL] Starting expression evaluation: 0
+[INTERPRETER_EXPR] Expression eval: number 2
+[INTERPRETER_EXPR] Binary op values: left=0, right=2
+[INTERPRETER_EXPR] Binary op result: 1
+[INTERPRETER_FOR] Condition result: 1
+[INTERPRETER_FOR] Executing body iteration: 0
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_COMPOUND] Executing compound statement with 1 statements
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_FOR] For loop start
+[INTERPRETER_FOR] Executing initialization
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_VAR] Variable declaration: j
+[INTERPRETER_VAR] Variable declaration type: 3
+[DEBUG_PRINT] VAR_DEBUG: process_var_decl_or_assign called for j, node_type=15
+[DEBUG_PRINT] VAR_DEBUG: type_info=3, type_name='int'
+[DEBUG_PRINT] VAR_DEBUG: node->is_unsigned=0
+[DEBUG_PRINT] VAR_DEBUG: resolve_typedef('int') = 'int'
+[DEBUG_PRINT] VAR_DEBUG: condition check: !empty=1, resolved!=original=0
+[INTERPRETER_VAR] Creating new variable
+[INTERPRETER_ARRAY] Array declaration debug: ExpressionService Stats: Total=39, Failed=27
+[INTERPRETER_VAR] Creating new variable
+[INTERPRETER_VAR] Variable declaration success: j
+[INTERPRETER_FOR] Condition check iteration: 0
+[EXPR_EVAL] Starting expression evaluation: 4
+[INTERPRETER_EXPR] Expression eval: binary op <
+[EXPR_EVAL] Starting expression evaluation: 1
+[INTERPRETER_EXPR] Expression eval: variable reference j
+[EXPR_EVAL] Variable j value: 0
+[EXPR_EVAL] Starting expression evaluation: 0
+[INTERPRETER_EXPR] Expression eval: number 3
+[INTERPRETER_EXPR] Binary op values: left=0, right=3
+[INTERPRETER_EXPR] Binary op result: 1
+[INTERPRETER_FOR] Condition result: 1
+[INTERPRETER_FOR] Executing body iteration: 0
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_COMPOUND] Executing compound statement with 6 statements
+[INTERPRETER_EXEC] Executing statement: type 2848598
+Executing print statement
+Print statement has arguments
+[INTERPRETER_OUTPUT] Processing AST_PRINT_STMT with 1 arguments
+[INTERPRETER_OUTPUT] Single argument in AST_PRINT_STMT, type: 2
+[INTERPRETER_EXEC] Executing statement: type 2848598
+Executing print statement
+Print statement has arguments
+[INTERPRETER_OUTPUT] Processing AST_PRINT_STMT with 1 arguments
+[INTERPRETER_OUTPUT] Single argument in AST_PRINT_STMT, type: 1
+[INTERPRETER_EXEC] Executing statement: type 2848598
+Executing print statement
+Print statement has arguments
+[INTERPRETER_OUTPUT] Processing AST_PRINT_STMT with 1 arguments
+[INTERPRETER_OUTPUT] Single argument in AST_PRINT_STMT, type: 2
+[INTERPRETER_EXEC] Executing statement: type 2848598
+Executing print statement
+Print statement has arguments
+[INTERPRETER_OUTPUT] Processing AST_PRINT_STMT with 1 arguments
+[INTERPRETER_OUTPUT] Single argument in AST_PRINT_STMT, type: 1
+[INTERPRETER_EXEC] Executing statement: type 2848598
+Executing print statement
+Print statement has arguments
+[INTERPRETER_OUTPUT] Processing AST_PRINT_STMT with 1 arguments
+[INTERPRETER_OUTPUT] Single argument in AST_PRINT_STMT, type: 2
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_EXEC] Executing statement: type 2848642
+[INTERPRETER_OUTPUT] Processing AST_PRINTLN_STMT with 1 arguments
+[INTERPRETER_OUTPUT] Single argument in AST_PRINT_STMT, type: 30
+[EXPR_EVAL] Starting expression evaluation: 30
+[INTERPRETER_EXPR] AST_ARRAY_REF evaluation started
+[INTERPRETER_EXPR] Expression eval: array reference
+[DEBUG_PRINT] AST_ARRAY_REF: Processing array access
+[DEBUG_PRINT]   node->left exists: true
+[DEBUG_PRINT]   node->left->node_type: 30
+[DEBUG_PRINT]   node->left has name: empty
+[DEBUG_PRINT]   node->left->left->node_type: 1
+[DEBUG_PRINT]   node->left->left has name: generated
+[EXPR_EVAL] Starting expression evaluation: 1
+[INTERPRETER_EXPR] Expression eval: variable reference j
+[EXPR_EVAL] Variable j value: 0
+[EXPR_EVAL] Starting expression evaluation: 1
+[INTERPRETER_EXPR] Expression eval: variable reference i
+[EXPR_EVAL] Variable i value: 0
+[DEBUG_PRINT] [DBG multidim] generated dims=2 value=0
+[INTERPRETER_FOR] Executing update iteration: 0
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_ASSIGN] Processing assignment to: j
+float_grid_total: 0
+generated grid values:
+  g[0][0]: 0
+[DEBUG_EXECUTE] Executing node type: 7
+[INTERPRETER_VAR] Variable assign: j = 1
+[DEBUG_PRINT] ASSIGN_DEBUG: name=j target_type=3 resolved_type=3 numeric_value=1 allow_override=0
+[INTERPRETER_ARRAY] Array declaration debug: ExpressionService Stats: Total=40, Failed=28
+[INTERPRETER_ASSIGN] Assignment completed successfully: j
+[INTERPRETER_FOR] Condition check iteration: 1
+[EXPR_EVAL] Starting expression evaluation: 4
+[INTERPRETER_EXPR] Expression eval: binary op <
+[EXPR_EVAL] Starting expression evaluation: 1
+[INTERPRETER_EXPR] Expression eval: variable reference j
+[EXPR_EVAL] Variable j value: 1
+[EXPR_EVAL] Starting expression evaluation: 0
+[INTERPRETER_EXPR] Expression eval: number 3
+[INTERPRETER_EXPR] Binary op values: left=1, right=3
+[INTERPRETER_EXPR] Binary op result: 1
+[INTERPRETER_FOR] Condition result: 1
+[INTERPRETER_FOR] Executing body iteration: 1
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_COMPOUND] Executing compound statement with 6 statements
+[INTERPRETER_EXEC] Executing statement: type 2848598
+Executing print statement
+Print statement has arguments
+[INTERPRETER_OUTPUT] Processing AST_PRINT_STMT with 1 arguments
+[INTERPRETER_OUTPUT] Single argument in AST_PRINT_STMT, type: 2
+[INTERPRETER_EXEC] Executing statement: type 2848598
+Executing print statement
+Print statement has arguments
+[INTERPRETER_OUTPUT] Processing AST_PRINT_STMT with 1 arguments
+[INTERPRETER_OUTPUT] Single argument in AST_PRINT_STMT, type: 1
+[INTERPRETER_EXEC] Executing statement: type 2848598
+Executing print statement
+Print statement has arguments
+[INTERPRETER_OUTPUT] Processing AST_PRINT_STMT with 1 arguments
+[INTERPRETER_OUTPUT] Single argument in AST_PRINT_STMT, type: 2
+[INTERPRETER_EXEC] Executing statement: type 2848598
+Executing print statement
+Print statement has arguments
+[INTERPRETER_OUTPUT] Processing AST_PRINT_STMT with 1 arguments
+[INTERPRETER_OUTPUT] Single argument in AST_PRINT_STMT, type: 1
+[INTERPRETER_EXEC] Executing statement: type 2848598
+Executing print statement
+Print statement has arguments
+[INTERPRETER_OUTPUT] Processing AST_PRINT_STMT with 1 arguments
+[INTERPRETER_OUTPUT] Single argument in AST_PRINT_STMT, type: 2
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_EXEC] Executing statement: type 2848642
+[INTERPRETER_OUTPUT] Processing AST_PRINTLN_STMT with 1 arguments
+[INTERPRETER_OUTPUT] Single argument in AST_PRINT_STMT, type: 30
+[EXPR_EVAL] Starting expression evaluation: 30
+[INTERPRETER_EXPR] AST_ARRAY_REF evaluation started
+[INTERPRETER_EXPR] Expression eval: array reference
+[DEBUG_PRINT] AST_ARRAY_REF: Processing array access
+[DEBUG_PRINT]   node->left exists: true
+[DEBUG_PRINT]   node->left->node_type: 30
+[DEBUG_PRINT]   node->left has name: empty
+[DEBUG_PRINT]   node->left->left->node_type: 1
+[DEBUG_PRINT]   node->left->left has name: generated
+[EXPR_EVAL] Starting expression evaluation: 1
+[INTERPRETER_EXPR] Expression eval: variable reference j
+[EXPR_EVAL] Variable j value: 1
+[EXPR_EVAL] Starting expression evaluation: 1
+[INTERPRETER_EXPR] Expression eval: variable reference i
+[EXPR_EVAL] Variable i value: 0
+[DEBUG_PRINT] [DBG multidim] generated dims=2 value=0
+[INTERPRETER_FOR] Executing update iteration: 1
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_ASSIGN] Processing assignment to: j
+  g[0][1]: 0
+[DEBUG_EXECUTE] Executing node type: 7
+[INTERPRETER_VAR] Variable assign: j = 2
+[DEBUG_PRINT] ASSIGN_DEBUG: name=j target_type=3 resolved_type=3 numeric_value=2 allow_override=0
+[INTERPRETER_ARRAY] Array declaration debug: ExpressionService Stats: Total=41, Failed=29
+[INTERPRETER_ASSIGN] Assignment completed successfully: j
+[INTERPRETER_FOR] Condition check iteration: 2
+[EXPR_EVAL] Starting expression evaluation: 4
+[INTERPRETER_EXPR] Expression eval: binary op <
+[EXPR_EVAL] Starting expression evaluation: 1
+[INTERPRETER_EXPR] Expression eval: variable reference j
+[EXPR_EVAL] Variable j value: 2
+[EXPR_EVAL] Starting expression evaluation: 0
+[INTERPRETER_EXPR] Expression eval: number 3
+[INTERPRETER_EXPR] Binary op values: left=2, right=3
+[INTERPRETER_EXPR] Binary op result: 1
+[INTERPRETER_FOR] Condition result: 1
+[INTERPRETER_FOR] Executing body iteration: 2
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_COMPOUND] Executing compound statement with 6 statements
+[INTERPRETER_EXEC] Executing statement: type 2848598
+Executing print statement
+Print statement has arguments
+[INTERPRETER_OUTPUT] Processing AST_PRINT_STMT with 1 arguments
+[INTERPRETER_OUTPUT] Single argument in AST_PRINT_STMT, type: 2
+[INTERPRETER_EXEC] Executing statement: type 2848598
+Executing print statement
+Print statement has arguments
+[INTERPRETER_OUTPUT] Processing AST_PRINT_STMT with 1 arguments
+[INTERPRETER_OUTPUT] Single argument in AST_PRINT_STMT, type: 1
+[INTERPRETER_EXEC] Executing statement: type 2848598
+Executing print statement
+Print statement has arguments
+[INTERPRETER_OUTPUT] Processing AST_PRINT_STMT with 1 arguments
+[INTERPRETER_OUTPUT] Single argument in AST_PRINT_STMT, type: 2
+[INTERPRETER_EXEC] Executing statement: type 2848598
+Executing print statement
+Print statement has arguments
+[INTERPRETER_OUTPUT] Processing AST_PRINT_STMT with 1 arguments
+[INTERPRETER_OUTPUT] Single argument in AST_PRINT_STMT, type: 1
+[INTERPRETER_EXEC] Executing statement: type 2848598
+Executing print statement
+Print statement has arguments
+[INTERPRETER_OUTPUT] Processing AST_PRINT_STMT with 1 arguments
+[INTERPRETER_OUTPUT] Single argument in AST_PRINT_STMT, type: 2
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_EXEC] Executing statement: type 2848642
+[INTERPRETER_OUTPUT] Processing AST_PRINTLN_STMT with 1 arguments
+[INTERPRETER_OUTPUT] Single argument in AST_PRINT_STMT, type: 30
+[EXPR_EVAL] Starting expression evaluation: 30
+[INTERPRETER_EXPR] AST_ARRAY_REF evaluation started
+[INTERPRETER_EXPR] Expression eval: array reference
+[DEBUG_PRINT] AST_ARRAY_REF: Processing array access
+[DEBUG_PRINT]   node->left exists: true
+[DEBUG_PRINT]   node->left->node_type: 30
+[DEBUG_PRINT]   node->left has name: empty
+[DEBUG_PRINT]   node->left->left->node_type: 1
+[DEBUG_PRINT]   node->left->left has name: generated
+[EXPR_EVAL] Starting expression evaluation: 1
+[INTERPRETER_EXPR] Expression eval: variable reference j
+[EXPR_EVAL] Variable j value: 2
+[EXPR_EVAL] Starting expression evaluation: 1
+[INTERPRETER_EXPR] Expression eval: variable reference i
+[EXPR_EVAL] Variable i value: 0
+[DEBUG_PRINT] [DBG multidim] generated dims=2 value=0
+[INTERPRETER_FOR] Executing update iteration: 2
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_ASSIGN] Processing assignment to: j
+  g[0][2]: 0
+[DEBUG_EXECUTE] Executing node type: 7
+[INTERPRETER_VAR] Variable assign: j = 3
+[DEBUG_PRINT] ASSIGN_DEBUG: name=j target_type=3 resolved_type=3 numeric_value=3 allow_override=0
+[INTERPRETER_ARRAY] Array declaration debug: ExpressionService Stats: Total=42, Failed=30
+[INTERPRETER_ASSIGN] Assignment completed successfully: j
+[INTERPRETER_FOR] Condition check iteration: 3
+[EXPR_EVAL] Starting expression evaluation: 4
+[INTERPRETER_EXPR] Expression eval: binary op <
+[EXPR_EVAL] Starting expression evaluation: 1
+[INTERPRETER_EXPR] Expression eval: variable reference j
+[EXPR_EVAL] Variable j value: 3
+[EXPR_EVAL] Starting expression evaluation: 0
+[INTERPRETER_EXPR] Expression eval: number 3
+[INTERPRETER_EXPR] Binary op values: left=3, right=3
+[INTERPRETER_EXPR] Binary op result: 0
+[INTERPRETER_FOR] Condition result: 0
+[INTERPRETER_FOR] Executing update iteration: 0
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_ASSIGN] Processing assignment to: i
+[DEBUG_EXECUTE] Executing node type: 7
+[INTERPRETER_VAR] Variable assign: i = 1
+[DEBUG_PRINT] ASSIGN_DEBUG: name=i target_type=3 resolved_type=3 numeric_value=1 allow_override=0
+[INTERPRETER_ARRAY] Array declaration debug: ExpressionService Stats: Total=43, Failed=31
+[INTERPRETER_ASSIGN] Assignment completed successfully: i
+[INTERPRETER_FOR] Condition check iteration: 1
+[EXPR_EVAL] Starting expression evaluation: 4
+[INTERPRETER_EXPR] Expression eval: binary op <
+[EXPR_EVAL] Starting expression evaluation: 1
+[INTERPRETER_EXPR] Expression eval: variable reference i
+[EXPR_EVAL] Variable i value: 1
+[EXPR_EVAL] Starting expression evaluation: 0
+[INTERPRETER_EXPR] Expression eval: number 2
+[INTERPRETER_EXPR] Binary op values: left=1, right=2
+[INTERPRETER_EXPR] Binary op result: 1
+[INTERPRETER_FOR] Condition result: 1
+[INTERPRETER_FOR] Executing body iteration: 1
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_COMPOUND] Executing compound statement with 1 statements
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_FOR] For loop start
+[INTERPRETER_FOR] Executing initialization
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_VAR] Variable declaration: j
+[INTERPRETER_VAR] Variable declaration type: 3
+[DEBUG_PRINT] VAR_DEBUG: process_var_decl_or_assign called for j, node_type=15
+[DEBUG_PRINT] VAR_DEBUG: type_info=3, type_name='int'
+[DEBUG_PRINT] VAR_DEBUG: node->is_unsigned=0
+[DEBUG_PRINT] VAR_DEBUG: resolve_typedef('int') = 'int'
+[DEBUG_PRINT] VAR_DEBUG: condition check: !empty=1, resolved!=original=0
+[INTERPRETER_VAR] Creating new variable
+[INTERPRETER_ARRAY] Array declaration debug: ExpressionService Stats: Total=44, Failed=32
+[INTERPRETER_VAR] Variable declaration success: j
+[INTERPRETER_FOR] Condition check iteration: 0
+[EXPR_EVAL] Starting expression evaluation: 4
+[INTERPRETER_EXPR] Expression eval: binary op <
+[EXPR_EVAL] Starting expression evaluation: 1
+[INTERPRETER_EXPR] Expression eval: variable reference j
+[EXPR_EVAL] Variable j value: 0
+[EXPR_EVAL] Starting expression evaluation: 0
+[INTERPRETER_EXPR] Expression eval: number 3
+[INTERPRETER_EXPR] Binary op values: left=0, right=3
+[INTERPRETER_EXPR] Binary op result: 1
+[INTERPRETER_FOR] Condition result: 1
+[INTERPRETER_FOR] Executing body iteration: 0
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_COMPOUND] Executing compound statement with 6 statements
+[INTERPRETER_EXEC] Executing statement: type 2848598
+Executing print statement
+Print statement has arguments
+[INTERPRETER_OUTPUT] Processing AST_PRINT_STMT with 1 arguments
+[INTERPRETER_OUTPUT] Single argument in AST_PRINT_STMT, type: 2
+[INTERPRETER_EXEC] Executing statement: type 2848598
+Executing print statement
+Print statement has arguments
+[INTERPRETER_OUTPUT] Processing AST_PRINT_STMT with 1 arguments
+[INTERPRETER_OUTPUT] Single argument in AST_PRINT_STMT, type: 1
+[INTERPRETER_EXEC] Executing statement: type 2848598
+Executing print statement
+Print statement has arguments
+[INTERPRETER_OUTPUT] Processing AST_PRINT_STMT with 1 arguments
+[INTERPRETER_OUTPUT] Single argument in AST_PRINT_STMT, type: 2
+[INTERPRETER_EXEC] Executing statement: type 2848598
+Executing print statement
+Print statement has arguments
+[INTERPRETER_OUTPUT] Processing AST_PRINT_STMT with 1 arguments
+[INTERPRETER_OUTPUT] Single argument in AST_PRINT_STMT, type: 1
+[INTERPRETER_EXEC] Executing statement: type 2848598
+Executing print statement
+Print statement has arguments
+[INTERPRETER_OUTPUT] Processing AST_PRINT_STMT with 1 arguments
+[INTERPRETER_OUTPUT] Single argument in AST_PRINT_STMT, type: 2
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_EXEC] Executing statement: type 2848642
+[INTERPRETER_OUTPUT] Processing AST_PRINTLN_STMT with 1 arguments
+[INTERPRETER_OUTPUT] Single argument in AST_PRINT_STMT, type: 30
+[EXPR_EVAL] Starting expression evaluation: 30
+[INTERPRETER_EXPR] AST_ARRAY_REF evaluation started
+[INTERPRETER_EXPR] Expression eval: array reference
+[DEBUG_PRINT] AST_ARRAY_REF: Processing array access
+[DEBUG_PRINT]   node->left exists: true
+[DEBUG_PRINT]   node->left->node_type: 30
+[DEBUG_PRINT]   node->left has name: empty
+[DEBUG_PRINT]   node->left->left->node_type: 1
+[DEBUG_PRINT]   node->left->left has name: generated
+[EXPR_EVAL] Starting expression evaluation: 1
+[INTERPRETER_EXPR] Expression eval: variable reference j
+[EXPR_EVAL] Variable j value: 0
+[EXPR_EVAL] Starting expression evaluation: 1
+[INTERPRETER_EXPR] Expression eval: variable reference i
+[EXPR_EVAL] Variable i value: 1
+[DEBUG_PRINT] [DBG multidim] generated dims=2 value=1
+[INTERPRETER_FOR] Executing update iteration: 0
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_ASSIGN] Processing assignment to: j
+  g[1][0]: 1
+[DEBUG_EXECUTE] Executing node type: 7
+[INTERPRETER_VAR] Variable assign: j = 1
+[DEBUG_PRINT] ASSIGN_DEBUG: name=j target_type=3 resolved_type=3 numeric_value=1 allow_override=0
+[INTERPRETER_ARRAY] Array declaration debug: ExpressionService Stats: Total=45, Failed=33
+[INTERPRETER_ASSIGN] Assignment completed successfully: j
+[INTERPRETER_FOR] Condition check iteration: 1
+[EXPR_EVAL] Starting expression evaluation: 4
+[INTERPRETER_EXPR] Expression eval: binary op <
+[EXPR_EVAL] Starting expression evaluation: 1
+[INTERPRETER_EXPR] Expression eval: variable reference j
+[EXPR_EVAL] Variable j value: 1
+[EXPR_EVAL] Starting expression evaluation: 0
+[INTERPRETER_EXPR] Expression eval: number 3
+[INTERPRETER_EXPR] Binary op values: left=1, right=3
+[INTERPRETER_EXPR] Binary op result: 1
+[INTERPRETER_FOR] Condition result: 1
+[INTERPRETER_FOR] Executing body iteration: 1
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_COMPOUND] Executing compound statement with 6 statements
+[INTERPRETER_EXEC] Executing statement: type 2848598
+Executing print statement
+Print statement has arguments
+[INTERPRETER_OUTPUT] Processing AST_PRINT_STMT with 1 arguments
+[INTERPRETER_OUTPUT] Single argument in AST_PRINT_STMT, type: 2
+[INTERPRETER_EXEC] Executing statement: type 2848598
+Executing print statement
+Print statement has arguments
+[INTERPRETER_OUTPUT] Processing AST_PRINT_STMT with 1 arguments
+[INTERPRETER_OUTPUT] Single argument in AST_PRINT_STMT, type: 1
+[INTERPRETER_EXEC] Executing statement: type 2848598
+Executing print statement
+Print statement has arguments
+[INTERPRETER_OUTPUT] Processing AST_PRINT_STMT with 1 arguments
+[INTERPRETER_OUTPUT] Single argument in AST_PRINT_STMT, type: 2
+[INTERPRETER_EXEC] Executing statement: type 2848598
+Executing print statement
+Print statement has arguments
+[INTERPRETER_OUTPUT] Processing AST_PRINT_STMT with 1 arguments
+[INTERPRETER_OUTPUT] Single argument in AST_PRINT_STMT, type: 1
+[INTERPRETER_EXEC] Executing statement: type 2848598
+Executing print statement
+Print statement has arguments
+[INTERPRETER_OUTPUT] Processing AST_PRINT_STMT with 1 arguments
+[INTERPRETER_OUTPUT] Single argument in AST_PRINT_STMT, type: 2
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_EXEC] Executing statement: type 2848642
+[INTERPRETER_OUTPUT] Processing AST_PRINTLN_STMT with 1 arguments
+[INTERPRETER_OUTPUT] Single argument in AST_PRINT_STMT, type: 30
+[EXPR_EVAL] Starting expression evaluation: 30
+[INTERPRETER_EXPR] AST_ARRAY_REF evaluation started
+[INTERPRETER_EXPR] Expression eval: array reference
+[DEBUG_PRINT] AST_ARRAY_REF: Processing array access
+[DEBUG_PRINT]   node->left exists: true
+[DEBUG_PRINT]   node->left->node_type: 30
+[DEBUG_PRINT]   node->left has name: empty
+[DEBUG_PRINT]   node->left->left->node_type: 1
+[DEBUG_PRINT]   node->left->left has name: generated
+[EXPR_EVAL] Starting expression evaluation: 1
+[INTERPRETER_EXPR] Expression eval: variable reference j
+[EXPR_EVAL] Variable j value: 1
+[EXPR_EVAL] Starting expression evaluation: 1
+[INTERPRETER_EXPR] Expression eval: variable reference i
+[EXPR_EVAL] Variable i value: 1
+[DEBUG_PRINT] [DBG multidim] generated dims=2 value=1
+[INTERPRETER_FOR] Executing update iteration: 1
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_ASSIGN] Processing assignment to: j
+  g[1][1]: 1
+[DEBUG_EXECUTE] Executing node type: 7
+[INTERPRETER_VAR] Variable assign: j = 2
+[DEBUG_PRINT] ASSIGN_DEBUG: name=j target_type=3 resolved_type=3 numeric_value=2 allow_override=0
+[INTERPRETER_ARRAY] Array declaration debug: ExpressionService Stats: Total=46, Failed=34
+[INTERPRETER_ASSIGN] Assignment completed successfully: j
+[INTERPRETER_FOR] Condition check iteration: 2
+[EXPR_EVAL] Starting expression evaluation: 4
+[INTERPRETER_EXPR] Expression eval: binary op <
+[EXPR_EVAL] Starting expression evaluation: 1
+[INTERPRETER_EXPR] Expression eval: variable reference j
+[EXPR_EVAL] Variable j value: 2
+[EXPR_EVAL] Starting expression evaluation: 0
+[INTERPRETER_EXPR] Expression eval: number 3
+[INTERPRETER_EXPR] Binary op values: left=2, right=3
+[INTERPRETER_EXPR] Binary op result: 1
+[INTERPRETER_FOR] Condition result: 1
+[INTERPRETER_FOR] Executing body iteration: 2
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_COMPOUND] Executing compound statement with 6 statements
+[INTERPRETER_EXEC] Executing statement: type 2848598
+Executing print statement
+Print statement has arguments
+[INTERPRETER_OUTPUT] Processing AST_PRINT_STMT with 1 arguments
+[INTERPRETER_OUTPUT] Single argument in AST_PRINT_STMT, type: 2
+[INTERPRETER_EXEC] Executing statement: type 2848598
+Executing print statement
+Print statement has arguments
+[INTERPRETER_OUTPUT] Processing AST_PRINT_STMT with 1 arguments
+[INTERPRETER_OUTPUT] Single argument in AST_PRINT_STMT, type: 1
+[INTERPRETER_EXEC] Executing statement: type 2848598
+Executing print statement
+Print statement has arguments
+[INTERPRETER_OUTPUT] Processing AST_PRINT_STMT with 1 arguments
+[INTERPRETER_OUTPUT] Single argument in AST_PRINT_STMT, type: 2
+[INTERPRETER_EXEC] Executing statement: type 2848598
+Executing print statement
+Print statement has arguments
+[INTERPRETER_OUTPUT] Processing AST_PRINT_STMT with 1 arguments
+[INTERPRETER_OUTPUT] Single argument in AST_PRINT_STMT, type: 1
+[INTERPRETER_EXEC] Executing statement: type 2848598
+Executing print statement
+Print statement has arguments
+[INTERPRETER_OUTPUT] Processing AST_PRINT_STMT with 1 arguments
+[INTERPRETER_OUTPUT] Single argument in AST_PRINT_STMT, type: 2
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_EXEC] Executing statement: type 2848642
+[INTERPRETER_OUTPUT] Processing AST_PRINTLN_STMT with 1 arguments
+[INTERPRETER_OUTPUT] Single argument in AST_PRINT_STMT, type: 30
+[EXPR_EVAL] Starting expression evaluation: 30
+[INTERPRETER_EXPR] AST_ARRAY_REF evaluation started
+[INTERPRETER_EXPR] Expression eval: array reference
+[DEBUG_PRINT] AST_ARRAY_REF: Processing array access
+[DEBUG_PRINT]   node->left exists: true
+[DEBUG_PRINT]   node->left->node_type: 30
+[DEBUG_PRINT]   node->left has name: empty
+[DEBUG_PRINT]   node->left->left->node_type: 1
+[DEBUG_PRINT]   node->left->left has name: generated
+[EXPR_EVAL] Starting expression evaluation: 1
+[INTERPRETER_EXPR] Expression eval: variable reference j
+[EXPR_EVAL] Variable j value: 2
+[EXPR_EVAL] Starting expression evaluation: 1
+[INTERPRETER_EXPR] Expression eval: variable reference i
+[EXPR_EVAL] Variable i value: 1
+[DEBUG_PRINT] [DBG multidim] generated dims=2 value=2
+[INTERPRETER_FOR] Executing update iteration: 2
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_ASSIGN] Processing assignment to: j
+  g[1][2]: 2
+[DEBUG_EXECUTE] Executing node type: 7
+[INTERPRETER_VAR] Variable assign: j = 3
+[DEBUG_PRINT] ASSIGN_DEBUG: name=j target_type=3 resolved_type=3 numeric_value=3 allow_override=0
+[INTERPRETER_ARRAY] Array declaration debug: ExpressionService Stats: Total=47, Failed=35
+[INTERPRETER_ASSIGN] Assignment completed successfully: j
+[INTERPRETER_FOR] Condition check iteration: 3
+[EXPR_EVAL] Starting expression evaluation: 4
+[INTERPRETER_EXPR] Expression eval: binary op <
+[EXPR_EVAL] Starting expression evaluation: 1
+[INTERPRETER_EXPR] Expression eval: variable reference j
+[EXPR_EVAL] Variable j value: 3
+[EXPR_EVAL] Starting expression evaluation: 0
+[INTERPRETER_EXPR] Expression eval: number 3
+[INTERPRETER_EXPR] Binary op values: left=3, right=3
+[INTERPRETER_EXPR] Binary op result: 0
+[INTERPRETER_FOR] Condition result: 0
+[INTERPRETER_FOR] Executing update iteration: 1
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_ASSIGN] Processing assignment to: i
+[DEBUG_EXECUTE] Executing node type: 7
+[INTERPRETER_VAR] Variable assign: i = 2
+[DEBUG_PRINT] ASSIGN_DEBUG: name=i target_type=3 resolved_type=3 numeric_value=2 allow_override=0
+[INTERPRETER_ARRAY] Array declaration debug: ExpressionService Stats: Total=48, Failed=36
+[INTERPRETER_ASSIGN] Assignment completed successfully: i
+[INTERPRETER_FOR] Condition check iteration: 2
+[EXPR_EVAL] Starting expression evaluation: 4
+[INTERPRETER_EXPR] Expression eval: binary op <
+[EXPR_EVAL] Starting expression evaluation: 1
+[INTERPRETER_EXPR] Expression eval: variable reference i
+[EXPR_EVAL] Variable i value: 2
+[EXPR_EVAL] Starting expression evaluation: 0
+[INTERPRETER_EXPR] Expression eval: number 2
+[INTERPRETER_EXPR] Binary op values: left=2, right=2
+[INTERPRETER_EXPR] Binary op result: 0
+[INTERPRETER_FOR] Condition result: 0
+[INTERPRETER_EXEC] Executing statement: type 2848598
+[INTERPRETER_EXEC] Executing statement: type 2848642
+[INTERPRETER_OUTPUT] Processing AST_PRINTLN_STMT with 1 arguments
+[INTERPRETER_OUTPUT] Single argument in AST_PRINT_STMT, type: 2
+[INTERPRETER_EXEC] Executing statement: type 2848598
+Interpreter return statement
+Interpreter return statement
+[INTERPRETER_VAR] Creating new variable
+[INTERPRETER_EXEC] Main function exit
+=== end ===

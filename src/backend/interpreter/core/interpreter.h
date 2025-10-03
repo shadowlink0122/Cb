@@ -273,6 +273,7 @@ class ReturnException {
     bool is_array = false;
     std::vector<std::vector<std::vector<int64_t>>> int_array_3d;
     std::vector<std::vector<std::vector<std::string>>> str_array_3d;
+    std::vector<std::vector<std::vector<double>>> double_array_3d;  // float/double配列用
     std::string array_type_name;
     
     // struct戻り値サポート
@@ -307,6 +308,12 @@ class ReturnException {
         const std::vector<std::vector<std::vector<std::string>>> &arr,
         const std::string &type_name, TypeInfo t)
                 : value(0), double_value(0.0), quad_value(0.0L), str_value(""), type(t), is_array(true), str_array_3d(arr),
+          array_type_name(type_name), is_struct(false), is_struct_array(false) {}
+    
+    // float/double配列戻り値用コンストラクタ
+    ReturnException(const std::vector<std::vector<std::vector<double>>> &arr,
+                    const std::string &type_name, TypeInfo t)
+                : value(0), double_value(0.0), quad_value(0.0L), str_value(""), type(t), is_array(true), double_array_3d(arr),
           array_type_name(type_name), is_struct(false), is_struct_array(false) {}
     
     // struct戻り値用コンストラクタ  

@@ -1,0 +1,13 @@
+// Test type preservation
+int main() {
+    float f = 1.5f;
+    println(f);  // 1.5
+    
+    f = 3;  // Assign integer to float variable
+    println(f);  // Should print 3 or 3.0
+    
+    f = 4.5f;
+    println(f);  // Should print 4.5
+    
+    return 0;
+}

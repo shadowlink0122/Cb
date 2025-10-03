@@ -1936,7 +1936,6 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
             } else if (var.is_array && node->init_expr->node_type ==
                                            ASTNodeType::AST_FUNC_CALL) {
                 // 配列を返す関数呼び出し
-                debug_print("DEBUG_BRANCH: Array function call for %s\n", node->name.c_str());
                 try {
                     int64_t value =
                         interpreter_->expression_evaluator_
@@ -1956,8 +1955,86 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                                 var.type = static_cast<TypeInfo>(
                                     TYPE_ARRAY_BASE + TYPE_STRING);
                             }
+                        } else if (ret.type == TYPE_FLOAT || ret.type == TYPE_DOUBLE || ret.type == TYPE_QUAD) {
+                            // float/double/quad配列
+                            if (!ret.double_array_3d.empty() &&
+                                !ret.double_array_3d[0].empty()) {
+                                
+                                // typedef配列名から多次元配列かどうかを判定
+                                std::string actual_type = interpreter_->type_manager_->resolve_typedef(ret.array_type_name);
+                                bool is_multidim = (actual_type.find("[][]") != std::string::npos || 
+                                                   ret.array_type_name.find("[][]") != std::string::npos ||
+                                                   ret.double_array_3d.size() > 1 || 
+                                                   (ret.double_array_3d.size() == 1 && ret.double_array_3d[0].size() > 1));
+
+                                if (is_multidim) {
+                                    // 多次元float/double配列の場合 - 全要素を展開
+                                    if (ret.type == TYPE_FLOAT) {
+                                        var.multidim_array_float_values.clear();
+                                        for (const auto &plane : ret.double_array_3d) {
+                                            for (const auto &row : plane) {
+                                                for (const auto &element : row) {
+                                                    var.multidim_array_float_values.push_back(static_cast<float>(element));
+                                                }
+                                            }
+                                        }
+                                        var.array_size = var.multidim_array_float_values.size();
+                                    } else if (ret.type == TYPE_DOUBLE) {
+                                        var.multidim_array_double_values.clear();
+                                        for (const auto &plane : ret.double_array_3d) {
+                                            for (const auto &row : plane) {
+                                                for (const auto &element : row) {
+                                                    var.multidim_array_double_values.push_back(element);
+                                                }
+                                            }
+                                        }
+                                        var.array_size = var.multidim_array_double_values.size();
+                                    } else { // TYPE_QUAD
+                                        var.multidim_array_quad_values.clear();
+                                        for (const auto &plane : ret.double_array_3d) {
+                                            for (const auto &row : plane) {
+                                                for (const auto &element : row) {
+                                                    var.multidim_array_quad_values.push_back(static_cast<long double>(element));
+                                                }
+                                            }
+                                        }
+                                        var.array_size = var.multidim_array_quad_values.size();
+                                    }
+                                    var.is_multidimensional = true;
+                                    var.array_values.clear();
+                                    
+                                    // 配列の次元情報を設定
+                                    if (!ret.double_array_3d[0].empty()) {
+                                        var.array_dimensions.clear();
+                                        var.array_dimensions.push_back(ret.double_array_3d[0].size());     // 行数
+                                        var.array_dimensions.push_back(ret.double_array_3d[0][0].size()); // 列数
+                                    }
+                                } else if (!ret.double_array_3d[0][0].empty()) {
+                                    // 1次元float/double配列の場合
+                                    if (ret.type == TYPE_FLOAT) {
+                                        var.array_float_values.clear();
+                                        for (const auto &element : ret.double_array_3d[0][0]) {
+                                            var.array_float_values.push_back(static_cast<float>(element));
+                                        }
+                                        var.array_size = var.array_float_values.size();
+                                    } else if (ret.type == TYPE_DOUBLE) {
+                                        var.array_double_values.clear();
+                                        for (const auto &element : ret.double_array_3d[0][0]) {
+                                            var.array_double_values.push_back(element);
+                                        }
+                                        var.array_size = var.array_double_values.size();
+                                    } else { // TYPE_QUAD
+                                        var.array_quad_values.clear();
+                                        for (const auto &element : ret.double_array_3d[0][0]) {
+                                            var.array_quad_values.push_back(static_cast<long double>(element));
+                                        }
+                                        var.array_size = var.array_quad_values.size();
+                                    }
+                                }
+                                var.type = static_cast<TypeInfo>(TYPE_ARRAY_BASE + ret.type);
+                            }
                         } else {
-                            // 数値配列
+                            // 整数型配列
                             if (!ret.int_array_3d.empty() &&
                                 !ret.int_array_3d[0].empty()) {
                                 

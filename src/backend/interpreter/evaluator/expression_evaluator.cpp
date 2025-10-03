@@ -2947,7 +2947,65 @@ TypedValue ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode
                 }
             }
 
-            // 通常の配列要素アクセスの場合は直接評価
+            // 通常の配列要素アクセスの場合 - float/double配列対応
+            std::string array_name = interpreter_.extract_array_name(node);
+            std::vector<int64_t> indices = interpreter_.extract_array_indices(node);
+            
+            if (!array_name.empty() && !indices.empty()) {
+                Variable* var = interpreter_.find_variable(array_name);
+                if (var && var->is_array) {
+                    TypeInfo base_type = (var->type >= TYPE_ARRAY_BASE) 
+                                        ? static_cast<TypeInfo>(var->type - TYPE_ARRAY_BASE)
+                                        : var->type;
+                    
+                    // float/double/quad配列の場合
+                    if (base_type == TYPE_FLOAT || base_type == TYPE_DOUBLE || base_type == TYPE_QUAD) {
+                        if (var->is_multidimensional && indices.size() > 1) {
+                            // 多次元配列のフラットインデックスを計算
+                            int flat_index = 0;
+                            int multiplier = 1;
+                            for (int d = indices.size() - 1; d >= 0; d--) {
+                                flat_index += indices[d] * multiplier;
+                                if (d > 0 && d - 1 < static_cast<int>(var->array_dimensions.size())) {
+                                    multiplier *= var->array_dimensions[d];
+                                }
+                            }
+                            
+                            if (base_type == TYPE_FLOAT && flat_index >= 0 && 
+                                flat_index < static_cast<int>(var->multidim_array_float_values.size())) {
+                                float f = var->multidim_array_float_values[flat_index];
+                                return TypedValue(static_cast<double>(f), InferredType(TYPE_FLOAT, "float"));
+                            } else if (base_type == TYPE_DOUBLE && flat_index >= 0 && 
+                                      flat_index < static_cast<int>(var->multidim_array_double_values.size())) {
+                                double d = var->multidim_array_double_values[flat_index];
+                                return TypedValue(d, InferredType(TYPE_DOUBLE, "double"));
+                            } else if (base_type == TYPE_QUAD && flat_index >= 0 && 
+                                      flat_index < static_cast<int>(var->multidim_array_quad_values.size())) {
+                                long double q = var->multidim_array_quad_values[flat_index];
+                                return TypedValue(q, InferredType(TYPE_QUAD, "quad"));
+                            }
+                        } else if (indices.size() == 1) {
+                            // 1次元配列
+                            int64_t idx = indices[0];
+                            if (base_type == TYPE_FLOAT && idx >= 0 && 
+                                idx < static_cast<int64_t>(var->array_float_values.size())) {
+                                float f = var->array_float_values[idx];
+                                return TypedValue(static_cast<double>(f), InferredType(TYPE_FLOAT, "float"));
+                            } else if (base_type == TYPE_DOUBLE && idx >= 0 && 
+                                      idx < static_cast<int64_t>(var->array_double_values.size())) {
+                                double d = var->array_double_values[idx];
+                                return TypedValue(d, InferredType(TYPE_DOUBLE, "double"));
+                            } else if (base_type == TYPE_QUAD && idx >= 0 && 
+                                      idx < static_cast<int64_t>(var->array_quad_values.size())) {
+                                long double q = var->array_quad_values[idx];
+                                return TypedValue(q, InferredType(TYPE_QUAD, "quad"));
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // フォールバック: 通常の整数評価
             int64_t numeric_result = evaluate_expression(node);
             return consume_numeric_typed_value(node, numeric_result, inferred_type);
         }

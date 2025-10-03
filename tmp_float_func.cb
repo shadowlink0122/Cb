@@ -1,0 +1,9 @@
+float foo(float x) {
+    return x + 1.5f;
+}
+
+int main() {
+    float result = foo(1.0f);
+    println(result);
+    return 0;
+}
