@@ -1214,6 +1214,66 @@ void ArrayManager::setMultidimensionalArrayElement(
                                numeric_value, true, base_type);
 }
 
+// float/double値での多次元配列要素設定（オーバーロード）
+void ArrayManager::setMultidimensionalArrayElement(
+    Variable &var, const std::vector<int64_t> &indices, double value) {
+    if (!var.is_multidimensional) {
+        throw std::runtime_error("Variable is not a multidimensional array");
+    }
+
+    // const配列への書き込みチェック
+    if (var.is_const && var.is_assigned) {
+        throw std::runtime_error(
+            "Cannot assign to const multidimensional array");
+    }
+
+    std::vector<int> int_indices;
+    for (int64_t idx : indices) {
+        int_indices.push_back(static_cast<int>(idx));
+    }
+
+    // 構造体メンバーの場合は array_dimensions を使用してフラットインデックスを計算
+    int flat_index;
+    if (!var.array_dimensions.empty()) {
+        // 構造体メンバーの場合
+        if (indices.size() != var.array_dimensions.size()) {
+            throw std::runtime_error("Dimension mismatch in struct member array access");
+        }
+
+        flat_index = 0;
+        int multiplier = 1;
+
+        // 最後の次元から計算（row-major order）
+        for (int i = static_cast<int>(indices.size()) - 1; i >= 0; --i) {
+            if (int_indices[i] < 0 || int_indices[i] >= static_cast<int>(var.array_dimensions[i])) {
+                throw std::runtime_error("Array index out of bounds in struct member access");
+            }
+            flat_index += int_indices[i] * multiplier;
+            multiplier *= static_cast<int>(var.array_dimensions[i]);
+        }
+        
+        debug_msg(DebugMsgId::FLAT_INDEX_CALCULATED, flat_index);
+    } else {
+        // 通常の配列の場合
+        flat_index = var.calculate_flat_index(int_indices);
+    }
+
+    TypeInfo base_type = resolve_base_type(var);
+    if (base_type == TYPE_STRING) {
+        throw std::runtime_error(
+            "Cannot set string array element with numeric value");
+    }
+
+    size_t storage_size = get_numeric_storage_size(var, true, base_type);
+    if (static_cast<size_t>(flat_index) >= storage_size) {
+        throw std::runtime_error("Array index out of bounds");
+    }
+
+    long double numeric_value = static_cast<long double>(value);
+    set_numeric_storage_value(var, static_cast<size_t>(flat_index),
+                               numeric_value, true, base_type);
+}
+
 std::string ArrayManager::getMultidimensionalStringArrayElement(
     const Variable &var, const std::vector<int64_t> &indices) {
     if (!var.is_multidimensional) {

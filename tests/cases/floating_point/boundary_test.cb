@@ -1,0 +1,89 @@
+// Float/Double境界値テスト
+
+int main() {
+    println("=== Float/Double Boundary Value Test ===");
+    
+    // ゼロ
+    float fzero = 0.0f;
+    double dzero = 0.0;
+    println("float zero:  ");
+    println(fzero);
+    println("double zero: ");
+    println(dzero);
+    
+    // 非常に小さい正の値
+    float ftiny = 0.000001f;
+    double dtiny = 0.000001;
+    println("float tiny:  ");
+    println(ftiny);
+    println("double tiny: ");
+    println(dtiny);
+    
+    // 負の値
+    float fneg = -123.456f;
+    double dneg = -123.456;
+    println("float negative:  ");
+    println(fneg);
+    println("double negative: ");
+    println(dneg);
+    
+    // 整数に近い値
+    float fint = 42.0f;
+    double dint = 42.0;
+    println("float int-like:  ");
+    println(fint);
+    println("double int-like: ");
+    println(dint);
+    
+    // 1より小さい値
+    float fsmall = 0.5f;
+    double dsmall = 0.5;
+    println("float 0.5:  ");
+    println(fsmall);
+    println("double 0.5: ");
+    println(dsmall);
+    
+    // 大きな値
+    float flarge = 1000000.0f;
+    double dlarge = 1000000.0;
+    println("float million:  ");
+    println(flarge);
+    println("double million: ");
+    println(dlarge);
+    
+    // 配列での境界値
+    float[5] farr = [0.0f, -1.0f, 1.0f, 0.5f, 1000.0f];
+    double[5] darr = [0.0, -1.0, 1.0, 0.5, 1000.0];
+    
+    println("float array[0]: ");
+    println(farr[0]);
+    println("float array[1]: ");
+    println(farr[1]);
+    println("float array[4]: ");
+    println(farr[4]);
+    
+    println("double array[0]: ");
+    println(darr[0]);
+    println("double array[1]: ");
+    println(darr[1]);
+    println("double array[4]: ");
+    println(darr[4]);
+    
+    // 多次元配列
+    double[2][3] grid = [
+        [0.0, 1.0, 2.0],
+        [-1.0, -2.0, -3.0]
+    ];
+    
+    println("grid[0][0]: ");
+    println(grid[0][0]);
+    println("grid[0][2]: ");
+    println(grid[0][2]);
+    println("grid[1][0]: ");
+    println(grid[1][0]);
+    println("grid[1][2]: ");
+    println(grid[1][2]);
+    
+    println("=== End ===");
+    return 0;
+}

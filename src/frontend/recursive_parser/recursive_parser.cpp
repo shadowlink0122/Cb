@@ -1543,10 +1543,16 @@ std::string RecursiveParser::parseType() {
         case TYPE_SHORT:
         case TYPE_INT:
         case TYPE_LONG:
+            parsed.is_unsigned = true;
+            break;
         case TYPE_FLOAT:
         case TYPE_DOUBLE:
-        case TYPE_BIG:
         case TYPE_QUAD:
+            // float/double/quadにはunsignedを適用できない
+            std::cerr << "[WARNING] 'unsigned' modifier cannot be applied to floating-point types (float, double, quad); 'unsigned' qualifier ignored at line " 
+                      << current_token_.line << std::endl;
+            break;
+        case TYPE_BIG:
             parsed.is_unsigned = true;
             break;
         default:

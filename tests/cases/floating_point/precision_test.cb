@@ -1,0 +1,60 @@
+// Float/Doubleの精度の違いテスト
+
+int main() {
+    println("=== Float vs Double Precision Test ===");
+    
+    // 同じ値をfloat/doubleで格納
+    float f1 = 3.141592653589793f;
+    double d1 = 3.141592653589793;
+    
+    println("float PI:  ");
+    println(f1);
+    println("double PI: ");
+    println(d1);
+    
+    // 非常に小さい値での精度の違い
+    float f2 = 0.123456789012345f;
+    double d2 = 0.123456789012345;
+    
+    println("float small:  ");
+    println(f2);
+    println("double small: ");
+    println(d2);
+    
+    // 計算での精度の違い
+    float f3 = 1.0f / 3.0f;
+    double d3 = 1.0 / 3.0;
+    
+    println("float 1/3:  ");
+    println(f3);
+    println("double 1/3: ");
+    println(d3);
+    
+    // 大きな数での精度
+    float f4 = 123456789.0f;
+    double d4 = 123456789.0;
+    
+    println("float large:  ");
+    println(f4);
+    println("double large: ");
+    println(d4);
+    
+    // 累積誤差の検証
+    float fsum = 0.0f;
+    double dsum = 0.0;
+    
+    int i = 0;
+    while (i < 1000) {
+        fsum = fsum + 0.1f;
+        dsum = dsum + 0.1;
+        i = i + 1;
+    }
+    
+    println("float sum (0.1 * 1000):  ");
+    println(fsum);
+    println("double sum (0.1 * 1000): ");
+    println(dsum);
+    
+    println("=== End ===");
+    return 0;
+}

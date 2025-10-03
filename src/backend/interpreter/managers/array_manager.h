@@ -54,6 +54,11 @@ class ArrayManager {
     void setMultidimensionalArrayElement(Variable &var,
                                          const std::vector<int64_t> &indices,
                                          int64_t value);
+    
+    // float/double値での多次元配列要素設定
+    void setMultidimensionalArrayElement(Variable &var,
+                                         const std::vector<int64_t> &indices,
+                                         double value);
 
     // 多次元文字列配列アクセス
     std::string
