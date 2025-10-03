@@ -1,6 +1,0 @@
-const int SZ = 3;
-long[SZ + 1] arr;
-
-int main(){
-    return 0;
-}
