@@ -1,0 +1,16 @@
+Test 1: Simple pointer parameter
+Before: x = 10
+After increment: x = 11
+
+Test 2: Multiple modifications
+Before: y = 5
+After increment: y = 6
+After double: y = 12
+
+Test 3: Swap function
+Before: a = 100, b = 200
+After swap: a = 200, b = 100
+
+Test 4: Double pointer parameter
+Before: z = 42
+After modification: z = 999

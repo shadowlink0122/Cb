@@ -1,0 +1,90 @@
+// ポインタによるアドレスと値の変化をテスト
+
+int main() {
+    // テスト1: 基本的なポインタの動作
+    int a = 10;
+    int* ptr_a = &a;
+    
+    println("Test 1: Basic pointer operations");
+    println("a = %d", a);
+    println("*ptr_a = %d", *ptr_a);
+    
+    *ptr_a = 20;  // ポインタ経由で値を変更
+    println("After *ptr_a = 20:");
+    println("a = %d", a);  // 元の変数も変わる
+    println("*ptr_a = %d", *ptr_a);
+    
+    // テスト2: ポインタの再代入
+    int b = 30;
+    int* ptr_b = &a;
+    println("");
+    println("Test 2: Pointer reassignment");
+    println("a = %d, b = %d", a, b);
+    println("*ptr_b = %d (points to a)", *ptr_b);
+    
+    ptr_b = &b;  // ポインタを別の変数に向ける
+    println("After ptr_b = &b:");
+    println("*ptr_b = %d (now points to b)", *ptr_b);
+    
+    *ptr_b = 40;  // 新しい対象を変更
+    println("After *ptr_b = 40:");
+    println("a = %d (unchanged)", a);
+    println("b = %d (changed)", b);
+    
+    // テスト3: 複数のポインタが同じ変数を指す
+    int c = 50;
+    int* ptr1 = &c;
+    int* ptr2 = &c;
+    
+    println("");
+    println("Test 3: Multiple pointers to same variable");
+    println("c = %d", c);
+    println("*ptr1 = %d, *ptr2 = %d", *ptr1, *ptr2);
+    
+    *ptr1 = 60;
+    println("After *ptr1 = 60:");
+    println("c = %d", c);
+    println("*ptr1 = %d, *ptr2 = %d", *ptr1, *ptr2);  // 両方とも変わる
+    
+    *ptr2 = 70;
+    println("After *ptr2 = 70:");
+    println("c = %d", c);
+    println("*ptr1 = %d, *ptr2 = %d", *ptr1, *ptr2);  // 両方とも変わる
+    
+    // テスト4: ダブルポインタ
+    int d = 80;
+    int* ptr_d = &d;
+    int** ptr_ptr_d = &ptr_d;
+    
+    println("");
+    println("Test 4: Double pointer");
+    println("d = %d", d);
+    println("*ptr_d = %d", *ptr_d);
+    println("**ptr_ptr_d = %d", **ptr_ptr_d);
+    
+    **ptr_ptr_d = 90;  // ダブルポインタ経由で変更
+    println("After **ptr_ptr_d = 90:");
+    println("d = %d", d);
+    println("*ptr_d = %d", *ptr_d);
+    println("**ptr_ptr_d = %d", **ptr_ptr_d);
+    
+    // テスト5: トリプルポインタ
+    int e = 100;
+    int* ptr_e = &e;
+    int** ptr_ptr_e = &ptr_e;
+    int*** ptr_ptr_ptr_e = &ptr_ptr_e;
+    
+    println("");
+    println("Test 5: Triple pointer");
+    println("e = %d", e);
+    println("*ptr_e = %d", *ptr_e);
+    println("**ptr_ptr_e = %d", **ptr_ptr_e);
+    println("***ptr_ptr_ptr_e = %d", ***ptr_ptr_ptr_e);
+    
+    ***ptr_ptr_ptr_e = 110;  // トリプルポインタ経由で変更
+    println("After ***ptr_ptr_ptr_e = 110:");
+    println("e = %d", e);
+    println("***ptr_ptr_ptr_e = %d", ***ptr_ptr_ptr_e);
+    
+    return 0;
+}

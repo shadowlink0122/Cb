@@ -62,6 +62,25 @@ void StatementExecutor::execute(const ASTNode *node) {
 }
 
 void StatementExecutor::execute_assignment(const ASTNode *node) {
+    // 間接参照への代入 (*ptr = value)
+    if (node->left && node->left->node_type == ASTNodeType::AST_UNARY_OP && 
+        node->left->op == "DEREFERENCE") {
+        // ポインタを評価
+        int64_t ptr_value = interpreter_.evaluate(node->left->left.get());
+        if (ptr_value == 0) {
+            throw std::runtime_error("Null pointer dereference in assignment");
+        }
+        
+        // 右辺を評価
+        int64_t value = interpreter_.evaluate(node->right.get());
+        
+        // ポインタ先の変数に代入
+        Variable *var = reinterpret_cast<Variable*>(ptr_value);
+        var->value = value;
+        var->is_assigned = true;
+        return;
+    }
+    
     // 右辺が三項演算子の場合の特別処理
     if (node->right && node->right->node_type == ASTNodeType::AST_TERNARY_OP) {
         execute_ternary_assignment(node);

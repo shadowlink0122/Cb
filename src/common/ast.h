@@ -520,6 +520,7 @@ enum class ASTNodeType {
     AST_VARIABLE,
     AST_STRING_LITERAL,
     AST_ARRAY_LITERAL,
+    AST_NULLPTR, // nullptr リテラル
 
     // 演算子
     AST_BINARY_OP,

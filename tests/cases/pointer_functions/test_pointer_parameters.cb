@@ -1,0 +1,58 @@
+// ポインタを関数パラメータとして使用するテスト
+
+void increment(int* p) {
+    *p = *p + 1;
+}
+
+void double_value(int* p) {
+    *p = *p * 2;
+}
+
+void swap(int* a, int* b) {
+    int temp = *a;
+    *a = *b;
+    *b = temp;
+}
+
+void modify_via_double_pointer(int** pp) {
+    **pp = 999;
+}
+
+int main() {
+    // テスト1: シンプルなポインタパラメータ
+    int x = 10;
+    println("Test 1: Simple pointer parameter");
+    println("Before: x = %d", x);
+    increment(&x);
+    println("After increment: x = %d", x);
+    
+    // テスト2: 複数回の変更
+    int y = 5;
+    println("");
+    println("Test 2: Multiple modifications");
+    println("Before: y = %d", y);
+    increment(&y);
+    println("After increment: y = %d", y);
+    double_value(&y);
+    println("After double: y = %d", y);
+    
+    // テスト3: スワップ関数
+    int a = 100;
+    int b = 200;
+    println("");
+    println("Test 3: Swap function");
+    println("Before: a = %d, b = %d", a, b);
+    swap(&a, &b);
+    println("After swap: a = %d, b = %d", a, b);
+    
+    // テスト4: ダブルポインタパラメータ
+    int z = 42;
+    int* ptr_z = &z;
+    println("");
+    println("Test 4: Double pointer parameter");
+    println("Before: z = %d", z);
+    modify_via_double_pointer(&ptr_z);
+    println("After modification: z = %d", z);
+    
+    return 0;
+}

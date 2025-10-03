@@ -1,0 +1,43 @@
+Test 1: Basic pointer operations
+a = 10
+*ptr_a = 10
+After *ptr_a = 20:
+a = 20
+*ptr_a = 20
+
+Test 2: Pointer reassignment
+a = 20, b = 30
+*ptr_b = 20 (points to a)
+After ptr_b = &b:
+*ptr_b = 30 (now points to b)
+After *ptr_b = 40:
+a = 20 (unchanged)
+b = 40 (changed)
+
+Test 3: Multiple pointers to same variable
+c = 50
+*ptr1 = 50, *ptr2 = 50
+After *ptr1 = 60:
+c = 60
+*ptr1 = 60, *ptr2 = 60
+After *ptr2 = 70:
+c = 70
+*ptr1 = 70, *ptr2 = 70
+
+Test 4: Double pointer
+d = 80
+*ptr_d = 80
+**ptr_ptr_d = 80
+After **ptr_ptr_d = 90:
+d = 90
+*ptr_d = 90
+**ptr_ptr_d = 90
+
+Test 5: Triple pointer
+e = 100
+*ptr_e = 100
+**ptr_ptr_e = 100
+***ptr_ptr_ptr_e = 100
+After ***ptr_ptr_ptr_e = 110:
+e = 110
+***ptr_ptr_ptr_e = 110

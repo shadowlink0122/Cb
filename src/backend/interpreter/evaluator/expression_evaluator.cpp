@@ -90,6 +90,11 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
         return node->int_value;
     }
 
+    case ASTNodeType::AST_NULLPTR: {
+        // nullptr は 0 として評価
+        return 0;
+    }
+
     case ASTNodeType::AST_STRING_LITERAL: {
         debug_msg(DebugMsgId::EXPR_EVAL_STRING_LITERAL, node->str_value.c_str());
         // 文字列リテラルは現在の評価コンテキストでは数値として扱えないため、
@@ -630,6 +635,34 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
             return var->value; // プリフィックスは新しい値を返す
         }
 
+        // アドレス演算子 (&)
+        if (node->op == "ADDRESS_OF") {
+            if (!node->left || node->left->node_type != ASTNodeType::AST_VARIABLE) {
+                throw std::runtime_error("Address-of operator requires a variable");
+            }
+            
+            Variable *var = interpreter_.find_variable(node->left->name);
+            if (!var) {
+                error_msg(DebugMsgId::UNDEFINED_VAR_ERROR, node->left->name.c_str());
+                throw std::runtime_error("Undefined variable");
+            }
+            
+            // 変数のアドレスを返す（実装上はVariableポインタをint64_tとして返す）
+            return reinterpret_cast<int64_t>(var);
+        }
+        
+        // 間接参照演算子 (*)
+        if (node->op == "DEREFERENCE") {
+            int64_t ptr_value = evaluate_expression(node->left.get());
+            if (ptr_value == 0) {
+                throw std::runtime_error("Null pointer dereference");
+            }
+            
+            // ポインタ値をVariableポインタに変換して値を取得
+            Variable *var = reinterpret_cast<Variable*>(ptr_value);
+            return var->value;
+        }
+        
         int64_t operand = evaluate_expression(node->left.get());
         
         if (node->op == "+") {
@@ -2281,6 +2314,12 @@ TypedValue ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode
             InferredType int_type = inferred_type.type_info == TYPE_UNKNOWN ? InferredType(TYPE_INT, "int") : inferred_type;
             return TypedValue(node->int_value, int_type);
         }
+
+        case ASTNodeType::AST_NULLPTR: {
+            // nullptr は TYPE_NULLPTR として評価
+            InferredType nullptr_type(TYPE_NULLPTR, "nullptr");
+            return TypedValue(static_cast<int64_t>(0), nullptr_type);
+        }
             
         case ASTNodeType::AST_BINARY_OP: {
             TypedValue left_value = evaluate_typed_expression(node->left.get());
@@ -2508,6 +2547,39 @@ TypedValue ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode
         }
 
         case ASTNodeType::AST_UNARY_OP: {
+            // アドレス演算子 (&)
+            if (node->op == "ADDRESS_OF") {
+                if (!node->left || node->left->node_type != ASTNodeType::AST_VARIABLE) {
+                    throw std::runtime_error("Address-of operator requires a variable");
+                }
+                
+                Variable *var = interpreter_.find_variable(node->left->name);
+                if (!var) {
+                    error_msg(DebugMsgId::UNDEFINED_VAR_ERROR, node->left->name.c_str());
+                    throw std::runtime_error("Undefined variable");
+                }
+                
+                // ポインタ型として返す
+                std::string ptr_type = var->type_name + "*";
+                InferredType pointer_type(TYPE_POINTER, ptr_type);
+                return TypedValue(reinterpret_cast<int64_t>(var), pointer_type);
+            }
+            
+            // 間接参照演算子 (*)
+            if (node->op == "DEREFERENCE") {
+                TypedValue ptr_value = evaluate_typed_expression(node->left.get());
+                int64_t ptr_int = ptr_value.as_numeric();
+                
+                if (ptr_int == 0) {
+                    throw std::runtime_error("Null pointer dereference");
+                }
+                
+                Variable *var = reinterpret_cast<Variable*>(ptr_int);
+                // 参照先の変数の型で返す
+                InferredType deref_type(TYPE_INT, var->type_name);  // 仮にTYPE_INT、実際は var->type に応じて変更すべき
+                return TypedValue(var->value, deref_type);
+            }
+            
             if (node->op == "+" || node->op == "-") {
                 TypedValue operand_value = evaluate_typed_expression(node->left.get());
                 long double operand_quad = operand_value.as_quad();

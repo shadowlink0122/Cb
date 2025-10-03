@@ -48,6 +48,10 @@ Token RecursiveLexer::nextToken() {
                 advance(); // consume second '-'
                 return makeToken(TokenType::TOK_DECR, "--");
             }
+            if (peek() == '>') {
+                advance(); // consume '>'
+                return makeToken(TokenType::TOK_ARROW, "->");
+            }
             if (peek() == '=') {
                 advance(); // consume '='
                 return makeToken(TokenType::TOK_MINUS_ASSIGN, "-=");

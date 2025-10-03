@@ -423,8 +423,33 @@ ASTNode* RecursiveParser::parseStatement() {
 
         advance(); // consume type
 
+        // ポインタ修飾子のチェック
+        int pointer_depth = 0;
+        while (check(TokenType::TOK_MUL)) {
+            pointer_depth++;
+            advance();
+        }
+
+        // 参照修飾子のチェック
+        bool is_reference = false;
+        if (check(TokenType::TOK_BIT_AND)) {
+            is_reference = true;
+            advance();
+        }
+
         TypeInfo base_type_info = getTypeInfoFromString(base_type_name);
         std::string type_name = base_type_name;
+        
+        // ポインタ記号を型名に追加
+        if (pointer_depth > 0) {
+            type_name += std::string(pointer_depth, '*');
+        }
+        
+        // 参照記号を型名に追加
+        if (is_reference) {
+            type_name += "&";
+        }
+        
         if (saw_unsigned_specifier) {
             switch (base_type_info) {
                 case TYPE_TINY:
@@ -1902,6 +1927,15 @@ ASTNode* RecursiveParser::parseAssignment() {
                 assign->left = std::unique_ptr<ASTNode>(left);
                 assign->right = std::unique_ptr<ASTNode>(right);
             }
+        } else if (left->node_type == ASTNodeType::AST_UNARY_OP && left->op == "DEREFERENCE") {
+            // 間接参照への代入: *ptr = value
+            // 複合代入はサポートしない（*ptr += value は未実装）
+            if (op_type != TokenType::TOK_ASSIGN) {
+                error("Compound assignment to dereferenced pointer is not yet supported");
+                return nullptr;
+            }
+            assign->left = std::unique_ptr<ASTNode>(left);
+            assign->right = std::unique_ptr<ASTNode>(right);
         } else {
             error("Invalid assignment target");
             return nullptr;
@@ -2098,15 +2132,23 @@ ASTNode* RecursiveParser::parseMultiplicative() {
 }
 
 ASTNode* RecursiveParser::parseUnary() {
-    // Prefix operators: !, -, ++, --, ~
+    // Prefix operators: !, -, ++, --, ~, &, *
     if (check(TokenType::TOK_NOT) || check(TokenType::TOK_MINUS) || 
         check(TokenType::TOK_INCR) || check(TokenType::TOK_DECR) || 
-        check(TokenType::TOK_BIT_NOT)) {
+        check(TokenType::TOK_BIT_NOT) || check(TokenType::TOK_BIT_AND) ||
+        check(TokenType::TOK_MUL)) {
         Token op = advance();
         ASTNode* operand = parseUnary();
         
         ASTNode* unary = new ASTNode(ASTNodeType::AST_UNARY_OP);
-        unary->op = op.value;
+        // & はアドレス演算子、* は間接参照演算子として扱う
+        if (op.type == TokenType::TOK_BIT_AND) {
+            unary->op = "ADDRESS_OF";  // アドレス演算子
+        } else if (op.type == TokenType::TOK_MUL) {
+            unary->op = "DEREFERENCE";  // 間接参照演算子
+        } else {
+            unary->op = op.value;
+        }
         unary->left = std::unique_ptr<ASTNode>(operand);
         
         return unary;
@@ -2266,6 +2308,13 @@ ASTNode* RecursiveParser::parsePrimary() {
         Token token = advance();
         ASTNode* node = new ASTNode(ASTNodeType::AST_NUMBER); // bool値も数値として扱う
         node->int_value = (token.type == TokenType::TOK_TRUE) ? 1 : 0;
+        return node;
+    }
+    
+    if (check(TokenType::TOK_NULLPTR)) {
+        Token token = advance();
+        ASTNode* node = new ASTNode(ASTNodeType::AST_NULLPTR);
+        setLocation(node, token.line, token.column);
         return node;
     }
     
