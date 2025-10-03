@@ -677,18 +677,90 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
 
         // アドレス演算子 (&)
         if (node->op == "ADDRESS_OF") {
-            if (!node->left || node->left->node_type != ASTNodeType::AST_VARIABLE) {
-                throw std::runtime_error("Address-of operator requires a variable");
+            if (!node->left) {
+                throw std::runtime_error("Address-of operator requires an operand");
             }
             
-            Variable *var = interpreter_.find_variable(node->left->name);
-            if (!var) {
-                error_msg(DebugMsgId::UNDEFINED_VAR_ERROR, node->left->name.c_str());
-                throw std::runtime_error("Undefined variable");
+            // 変数のアドレス取得
+            if (node->left->node_type == ASTNodeType::AST_VARIABLE) {
+                Variable *var = interpreter_.find_variable(node->left->name);
+                if (!var) {
+                    error_msg(DebugMsgId::UNDEFINED_VAR_ERROR, node->left->name.c_str());
+                    throw std::runtime_error("Undefined variable");
+                }
+                
+                // 変数のアドレスを返す（実装上はVariableポインタをint64_tとして返す）
+                return reinterpret_cast<int64_t>(var);
             }
-            
-            // 変数のアドレスを返す（実装上はVariableポインタをint64_tとして返す）
-            return reinterpret_cast<int64_t>(var);
+            // 配列要素のアドレス取得: &arr[index]
+            else if (node->left->node_type == ASTNodeType::AST_ARRAY_REF) {
+                std::string array_name = interpreter_.extract_array_name(node->left.get());
+                std::vector<int64_t> indices = interpreter_.extract_array_indices(node->left.get());
+                
+                if (array_name.empty() || indices.empty()) {
+                    throw std::runtime_error("Invalid array reference in address-of operator");
+                }
+                
+                Variable *array_var = interpreter_.find_variable(array_name);
+                if (!array_var) {
+                    throw std::runtime_error("Undefined array: " + array_name);
+                }
+                
+                // 配列要素を表す疑似変数を作成
+                // 注意: これは簡易実装。配列要素のアドレスは実際の配列のメモリ位置を返すべき
+                // ここでは配列要素へのポインタとして、配列変数のアドレス + オフセットを返す
+                
+                // 1次元配列の場合
+                if (indices.size() == 1 && !array_var->is_multidimensional) {
+                    int64_t index = indices[0];
+                    if (index < 0 || index >= array_var->array_size) {
+                        throw std::runtime_error("Array index out of bounds in address-of");
+                    }
+                    
+                    // 配列要素へのポインタを返す
+                    // 整数配列の場合
+                    if (!array_var->array_values.empty()) {
+                        return reinterpret_cast<int64_t>(&array_var->array_values[index]);
+                    }
+                    // float配列の場合（暫定: floatをintにキャスト）
+                    else if (!array_var->array_float_values.empty()) {
+                        // floatのアドレスをint64_tとして返す
+                        // 注意: これは型安全ではないが、現在の実装ではポインタ型がintしかない
+                        return reinterpret_cast<int64_t>(&array_var->array_float_values[index]);
+                    }
+                    // double配列の場合
+                    else if (!array_var->array_double_values.empty()) {
+                        return reinterpret_cast<int64_t>(&array_var->array_double_values[index]);
+                    }
+                    // quad配列の場合
+                    else if (!array_var->array_quad_values.empty()) {
+                        return reinterpret_cast<int64_t>(&array_var->array_quad_values[index]);
+                    }
+                    // 文字列配列の場合
+                    else if (!array_var->array_strings.empty()) {
+                        return reinterpret_cast<int64_t>(&array_var->array_strings[index]);
+                    } else {
+                        throw std::runtime_error("Empty array in address-of operator");
+                    }
+                } else {
+                    throw std::runtime_error("Multi-dimensional array address-of not yet supported");
+                }
+            }
+            // 構造体メンバーのアドレス取得: &obj.member
+            else if (node->left->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
+                std::string obj_name = node->left->left->name;
+                std::string member_name = node->left->name;
+                
+                std::string member_path = obj_name + "." + member_name;
+                Variable *member_var = interpreter_.find_variable(member_path);
+                if (!member_var) {
+                    throw std::runtime_error("Undefined member: " + member_path);
+                }
+                
+                return reinterpret_cast<int64_t>(member_var);
+            } else {
+                throw std::runtime_error("Address-of operator requires a variable, array element, or struct member");
+            }
         }
         
         // 間接参照演算子 (*)
@@ -2831,20 +2903,29 @@ TypedValue ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode
         case ASTNodeType::AST_UNARY_OP: {
             // アドレス演算子 (&)
             if (node->op == "ADDRESS_OF") {
-                if (!node->left || node->left->node_type != ASTNodeType::AST_VARIABLE) {
-                    throw std::runtime_error("Address-of operator requires a variable");
+                if (!node->left) {
+                    throw std::runtime_error("Address-of operator requires an operand");
                 }
                 
-                Variable *var = interpreter_.find_variable(node->left->name);
-                if (!var) {
-                    error_msg(DebugMsgId::UNDEFINED_VAR_ERROR, node->left->name.c_str());
-                    throw std::runtime_error("Undefined variable");
+                // 変数のアドレス取得
+                if (node->left->node_type == ASTNodeType::AST_VARIABLE) {
+                    Variable *var = interpreter_.find_variable(node->left->name);
+                    if (!var) {
+                        error_msg(DebugMsgId::UNDEFINED_VAR_ERROR, node->left->name.c_str());
+                        throw std::runtime_error("Undefined variable");
+                    }
+                    
+                    // ポインタ型として返す
+                    std::string ptr_type = var->type_name + "*";
+                    InferredType pointer_type(TYPE_POINTER, ptr_type);
+                    return TypedValue(reinterpret_cast<int64_t>(var), pointer_type);
                 }
-                
-                // ポインタ型として返す
-                std::string ptr_type = var->type_name + "*";
-                InferredType pointer_type(TYPE_POINTER, ptr_type);
-                return TypedValue(reinterpret_cast<int64_t>(var), pointer_type);
+                // 配列要素や構造体メンバーの場合は通常評価にフォールバック
+                else {
+                    int64_t address = evaluate_expression(node);
+                    InferredType pointer_type(TYPE_POINTER, "int*"); // 暫定的にint*
+                    return TypedValue(address, pointer_type);
+                }
             }
             
             // 間接参照演算子 (*)
