@@ -3636,37 +3636,66 @@ void Interpreter::assign_struct_literal(const std::string &var_name,
             } else if (it->second.is_array && init_value->node_type == ASTNodeType::AST_ARRAY_LITERAL) {
                 debug_print("STRUCT_LITERAL_DEBUG: Array literal initialization: %s\n", member_def.name.c_str());
                 
-                // 配列の要素を初期化
-                it->second.array_values.clear();
-                for (size_t j = 0; j < init_value->arguments.size(); ++j) {
-                    int64_t element_value = expression_evaluator_->evaluate_expression(init_value->arguments[j].get());
-                    std::string element_path = member_def.name + "[" + std::to_string(j) + "]";
-                    clamp_unsigned_member(it->second, element_value,
-                                           element_path,
-                                           "initialized with array literal");
-                    it->second.array_values.push_back(element_value);
-                    debug_print("STRUCT_LITERAL_DEBUG: Array element [%zu] = %lld\n", j, (long long)element_value);
-                }
-                it->second.array_size = init_value->arguments.size();
-                it->second.is_assigned = true;
+                // 配列の要素型を確認（構造体配列かプリミティブ配列か）
+                TypeInfo element_type = member_def.array_info.base_type;
                 
-                // 直接アクセス変数も更新
-                std::string full_member_name = var_name + "." + member_def.name;
-                Variable *direct_member_var = find_variable(full_member_name);
-                if (direct_member_var && direct_member_var->is_array) {
-                    direct_member_var->array_values.clear();
+                if (element_type == TYPE_STRUCT) {
+                    // 構造体配列の場合：各要素は構造体リテラルとして処理
+                    debug_print("STRUCT_LITERAL_DEBUG: Struct array initialization with %zu elements\n", 
+                               init_value->arguments.size());
+                    
+                    for (size_t j = 0; j < init_value->arguments.size() && 
+                                       j < static_cast<size_t>(it->second.array_size); ++j) {
+                        const ASTNode* element_node = init_value->arguments[j].get();
+                        
+                        if (element_node->node_type == ASTNodeType::AST_STRUCT_LITERAL) {
+                            // 配列要素の完全な名前を構築
+                            std::string element_name = var_name + "." + member_def.name + 
+                                                      "[" + std::to_string(j) + "]";
+                            
+                            debug_print("STRUCT_LITERAL_DEBUG: Assigning struct literal to array element: %s\n", 
+                                       element_name.c_str());
+                            
+                            // 再帰的に構造体リテラルを代入
+                            assign_struct_literal(element_name, element_node);
+                        } else {
+                            throw std::runtime_error("Expected struct literal for struct array element");
+                        }
+                    }
+                    it->second.is_assigned = true;
+                } else {
+                    // プリミティブ型配列の場合：従来の処理
+                    it->second.array_values.clear();
                     for (size_t j = 0; j < init_value->arguments.size(); ++j) {
                         int64_t element_value = expression_evaluator_->evaluate_expression(init_value->arguments[j].get());
                         std::string element_path = member_def.name + "[" + std::to_string(j) + "]";
-                        clamp_unsigned_member(*direct_member_var, element_value,
+                        clamp_unsigned_member(it->second, element_value,
                                                element_path,
                                                "initialized with array literal");
-                        direct_member_var->array_values.push_back(element_value);
+                        it->second.array_values.push_back(element_value);
+                        debug_print("STRUCT_LITERAL_DEBUG: Array element [%zu] = %lld\n", j, (long long)element_value);
                     }
-                    direct_member_var->array_size = init_value->arguments.size();
-                    direct_member_var->is_assigned = true;
-                    debug_print("STRUCT_LITERAL_DEBUG: Updated direct access array variable: %s\n", 
-                               full_member_name.c_str());
+                    it->second.array_size = init_value->arguments.size();
+                    it->second.is_assigned = true;
+                    
+                    // 直接アクセス変数も更新
+                    std::string full_member_name = var_name + "." + member_def.name;
+                    Variable *direct_member_var = find_variable(full_member_name);
+                    if (direct_member_var && direct_member_var->is_array) {
+                        direct_member_var->array_values.clear();
+                        for (size_t j = 0; j < init_value->arguments.size(); ++j) {
+                            int64_t element_value = expression_evaluator_->evaluate_expression(init_value->arguments[j].get());
+                            std::string element_path = member_def.name + "[" + std::to_string(j) + "]";
+                            clamp_unsigned_member(*direct_member_var, element_value,
+                                                   element_path,
+                                                   "initialized with array literal");
+                            direct_member_var->array_values.push_back(element_value);
+                        }
+                        direct_member_var->array_size = init_value->arguments.size();
+                        direct_member_var->is_assigned = true;
+                        debug_print("STRUCT_LITERAL_DEBUG: Updated direct access array variable: %s\n", 
+                                   full_member_name.c_str());
+                    }
                 }
             } else {
                 // float/double型の処理
@@ -4734,7 +4763,11 @@ void Interpreter::sync_struct_members_from_direct_access(const std::string &var_
             if (member.type >= TYPE_ARRAY_BASE || member.array_info.base_type != TYPE_UNKNOWN || direct_var->is_array) {
                 debug_msg(DebugMsgId::INTERPRETER_STRUCT_ARRAY_MEMBER_ADDED, member.name.c_str());
                 
-                var->struct_members[member.name] = Variable();
+                // 既存のメンバーがあれば保持、なければ新規作成
+                if (var->struct_members.find(member.name) == var->struct_members.end()) {
+                    var->struct_members[member.name] = Variable();
+                }
+                
                 var->struct_members[member.name].type = member.type;
                 var->struct_members[member.name].is_array = true;
                 var->struct_members[member.name].array_size = direct_var->array_size;
@@ -4748,8 +4781,13 @@ void Interpreter::sync_struct_members_from_direct_access(const std::string &var_
                 }
                 
                 // 配列要素を個別にチェックして同期
-                var->struct_members[member.name].array_values.resize(direct_var->array_size);
-                var->struct_members[member.name].array_strings.resize(direct_var->array_size);
+                // 既存の値を保持するため、サイズが変わる場合のみresize
+                if (var->struct_members[member.name].array_values.size() != static_cast<size_t>(direct_var->array_size)) {
+                    var->struct_members[member.name].array_values.resize(direct_var->array_size);
+                }
+                if (var->struct_members[member.name].array_strings.size() != static_cast<size_t>(direct_var->array_size)) {
+                    var->struct_members[member.name].array_strings.resize(direct_var->array_size);
+                }
                 
                 // 多次元配列の場合は multidim_array_values も初期化（元の値をコピー）
                 if (var->struct_members[member.name].is_multidimensional) {
@@ -4770,21 +4808,56 @@ void Interpreter::sync_struct_members_from_direct_access(const std::string &var_
                 // 個別要素変数からデータをコピー
                 for (int i = 0; i < direct_var->array_size; i++) {
                     std::string element_name = var_name + "." + member.name + "[" + std::to_string(i) + "]";
+                    std::string element_key = member.name + "[" + std::to_string(i) + "]";
                     Variable *element_var = find_variable(element_name);
+                    
+                    // まず親構造体のstruct_membersから配列要素を探す（構造体配列の場合）
+                    auto element_it = var->struct_members.find(element_key);
+                    bool found_in_struct_members = (element_it != var->struct_members.end());
+                    
                     if (element_var) {
-                        TypeInfo element_base_type = resolve_base_type(element_var->type);
-                        if (member_base_type == TYPE_STRING || direct_base_type == TYPE_STRING || element_base_type == TYPE_STRING) {
-                            var->struct_members[member.name].array_strings[i] = element_var->str_value;
+                        // 構造体配列の場合、配列要素も構造体として同期する
+                        if (element_var->is_struct && !element_var->struct_members.empty()) {
+                            // 配列要素の構造体を再帰的に同期
+                            sync_struct_members_from_direct_access(element_name);
+                            
+                            // 親構造体のstruct_membersに配列要素を追加
+                            var->struct_members[element_key] = *element_var;
+                            
+                            if (debug_mode) {
+                                debug_print("SYNC_STRUCT: Synced struct array element %s (key: %s) with %zu members\n",
+                                           element_name.c_str(), element_key.c_str(), element_var->struct_members.size());
+                            }
                         } else {
-                            var->struct_members[member.name].array_values[i] = element_var->value;
-                            // 多次元配列の場合は multidim_array_values にも設定
-                            if (var->struct_members[member.name].is_multidimensional) {
-                                var->struct_members[member.name].multidim_array_values[i] = element_var->value;
+                            // プリミティブ型配列の場合
+                            TypeInfo element_base_type = resolve_base_type(element_var->type);
+                            if (member_base_type == TYPE_STRING || direct_base_type == TYPE_STRING || element_base_type == TYPE_STRING) {
+                                var->struct_members[member.name].array_strings[i] = element_var->str_value;
                                 if (debug_mode) {
-                                    debug_print("SYNC_STRUCT: Copied element[%d] = %lld to multidim_array_values for %s.%s\n", 
-                                              i, element_var->value, var_name.c_str(), member.name.c_str());
+                                    debug_print("SYNC_STRUCT: Copied string element[%d] = \"%s\" for %s.%s\n",
+                                               i, element_var->str_value.c_str(), var_name.c_str(), member.name.c_str());
+                                }
+                            } else {
+                                var->struct_members[member.name].array_values[i] = element_var->value;
+                                if (debug_mode) {
+                                    debug_print("SYNC_STRUCT: Copied element[%d] = %lld for %s.%s (element_var found)\n",
+                                               i, element_var->value, var_name.c_str(), member.name.c_str());
+                                }
+                                // 多次元配列の場合は multidim_array_values にも設定
+                                if (var->struct_members[member.name].is_multidimensional) {
+                                    var->struct_members[member.name].multidim_array_values[i] = element_var->value;
+                                    if (debug_mode) {
+                                        debug_print("SYNC_STRUCT: Copied element[%d] = %lld to multidim_array_values for %s.%s\n", 
+                                                  i, element_var->value, var_name.c_str(), member.name.c_str());
+                                    }
                                 }
                             }
+                        }
+                    } else if (found_in_struct_members && element_it->second.is_struct) {
+                        // 個別変数がないが、struct_membersに構造体配列要素がある場合
+                        // (これは既に同期済みの可能性がある)
+                        if (debug_mode) {
+                            debug_print("SYNC_STRUCT: Struct array element %s already in struct_members\n", element_key.c_str());
                         }
                     } else {
                         // 要素変数が見つからない場合、direct_var自体の配列データを使用
