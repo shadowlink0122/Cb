@@ -436,6 +436,18 @@ void VariableManager::declare_local_variable(const ASTNode *node) {
     var.is_array = false;
     var.array_size = 0;
 
+    // ポインタ情報は最初に設定（型解決より前に処理）
+    if (node->is_pointer) {
+        var.is_pointer = true;
+        var.pointer_depth = node->pointer_depth;
+        var.pointer_base_type_name = node->pointer_base_type_name;
+        var.pointer_base_type = node->pointer_base_type;
+        var.type = TYPE_POINTER;
+        if (var.type_name.empty()) {
+            var.type_name = node->type_name;
+        }
+    }
+
     // typedef解決
     if (node->type_info == TYPE_UNKNOWN && !node->type_name.empty()) {
         std::string resolved_type =
@@ -518,10 +530,12 @@ void VariableManager::declare_local_variable(const ASTNode *node) {
         } else {
             var.array_values.resize(var.array_size, 0);
         }
-    } else {
+    } else if (!node->is_pointer) {
+        // ポインタでない場合のみ型を設定
         var.type = node->type_info != TYPE_VOID ? node->type_info : TYPE_INT;
     }
 
+    var.is_unsigned = node->is_unsigned;
     var.is_const = node->is_const;
     var.is_assigned = false;
 
@@ -537,10 +551,12 @@ void VariableManager::declare_local_variable(const ASTNode *node) {
         var.value = value;
         var.is_assigned = true;
 
-        // 型範囲チェック
-        interpreter_->type_manager_->check_type_range(var.type, value,
-                                                      node->name,
-                                                      var.is_unsigned);
+        // 型範囲チェック（ポインタ型の場合はスキップ）
+        if (!var.is_pointer) {
+            interpreter_->type_manager_->check_type_range(var.type, value,
+                                                          node->name,
+                                                          var.is_unsigned);
+        }
     }
 
     current_scope().variables[node->name] = var;
@@ -761,8 +777,9 @@ void VariableManager::assign_variable(const std::string &name,
 
             // ポインタ型は精度損失を避けるため、long double経由のキャストをスキップ
             // typed_value.numeric_typeもチェック（評価時に設定される型情報）
+            // target.is_pointerもチェック（unsigned int* のような型の場合）
             if (resolved_type == TYPE_POINTER || typed_value.numeric_type == TYPE_POINTER || 
-                target.type == TYPE_POINTER) {
+                target.type == TYPE_POINTER || target.is_pointer) {
                 target.value = numeric_value;
                 target.float_value = 0.0f;
                 target.double_value = 0.0;
@@ -3060,9 +3077,12 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
             }
 
             // 型範囲チェック（代入前に実行）
-            interpreter_->type_manager_->check_type_range(var->type, value,
-                                                          var_name,
-                                                          var->is_unsigned);
+            // ポインタ型の場合はスキップ
+            if (!var->is_pointer) {
+                interpreter_->type_manager_->check_type_range(var->type, value,
+                                                              var_name,
+                                                              var->is_unsigned);
+            }
 
             var->value = value;
             var->is_assigned = true;
@@ -3098,9 +3118,12 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
             clamp_unsigned_initial(*var, value, "received assignment");
 
             // 型範囲チェック（代入前に実行）
-            interpreter_->type_manager_->check_type_range(var->type, value,
-                                                          var_name,
-                                                          var->is_unsigned);
+            // ポインタ型の場合はスキップ
+            if (!var->is_pointer) {
+                interpreter_->type_manager_->check_type_range(var->type, value,
+                                                              var_name,
+                                                              var->is_unsigned);
+            }
 
             var->value = value;
             var->is_assigned = true;

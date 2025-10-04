@@ -1019,6 +1019,82 @@ inline void test_typedef_recursive_struct() {
 }
 
 // ============================================================================
+// 包括的なポインタ操作テスト（アロー構文・デリファレンス構文）
+// ============================================================================
+
+inline void test_comprehensive_pointer_operations() {
+    double execution_time = 0.0;
+    run_cb_test_with_output_and_time(
+        "../../tests/cases/interface/test_comprehensive_pointer.cb",
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "包括的ポインタ操作テストがエラー終了");
+            
+            // Check for test header
+            INTEGRATION_ASSERT(output.find("=== Comprehensive Pointer Test Suite ===") != std::string::npos,
+                             "テストヘッダーが出力されていない");
+            
+            // Check for all 20 tests passed
+            INTEGRATION_ASSERT(output.find("Passed:  20  /  20") != std::string::npos,
+                             "20個のテスト全てが通過していない");
+            
+            INTEGRATION_ASSERT(output.find("✓ ALL TESTS PASSED!") != std::string::npos,
+                             "最終成功メッセージが表示されていない");
+            
+            // Verify specific test outputs
+            INTEGRATION_ASSERT(output.find("Test 1: Arrow syntax - ptr->field") != std::string::npos,
+                             "Test 1が実行されていない");
+            INTEGRATION_ASSERT(output.find("Test 2: Dereference syntax - (*ptr).field") != std::string::npos,
+                             "Test 2が実行されていない");
+            INTEGRATION_ASSERT(output.find("Test 5: Method call with arrow - ptr->method()") != std::string::npos,
+                             "Test 5が実行されていない");
+            INTEGRATION_ASSERT(output.find("Test 11: Nested dereference - (*(*o.middle).inner).value") != std::string::npos,
+                             "Test 11が実行されていない");
+        },
+        execution_time
+    );
+    
+    printf("[✓] test_comprehensive_pointer_operations passed (%.3fms)\n", execution_time);
+}
+
+// ============================================================================
+// 包括的なアドレス取得テスト（全変数型）
+// ============================================================================
+
+inline void test_comprehensive_address_of() {
+    double execution_time = 0.0;
+    run_cb_test_with_output_and_time(
+        "../../tests/cases/interface/test_comprehensive_address_of.cb",
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "包括的アドレス取得テストがエラー終了");
+            
+            // Check for test header
+            INTEGRATION_ASSERT(output.find("=== Comprehensive Address-Of Test Suite ===") != std::string::npos,
+                             "テストヘッダーが出力されていない");
+            
+            // Check for all 15 tests passed
+            INTEGRATION_ASSERT(output.find("Passed:  15  /  15") != std::string::npos,
+                             "15個のテスト全てが通過していない");
+            
+            INTEGRATION_ASSERT(output.find("✓ ALL TESTS PASSED!") != std::string::npos,
+                             "最終成功メッセージが表示されていない");
+            
+            // Verify specific test outputs
+            INTEGRATION_ASSERT(output.find("Test 1: Address of local variable") != std::string::npos,
+                             "Test 1が実行されていない");
+            INTEGRATION_ASSERT(output.find("Test 5: Address of struct member") != std::string::npos,
+                             "Test 5が実行されていない");
+            INTEGRATION_ASSERT(output.find("Test 10: Address of unsigned variable") != std::string::npos,
+                             "Test 10が実行されていない");
+            INTEGRATION_ASSERT(output.find("Test 11: Const function parameter") != std::string::npos,
+                             "Test 11が実行されていない");
+        },
+        execution_time
+    );
+    
+    printf("[✓] test_comprehensive_address_of passed (%.3fms)\n", execution_time);
+}
+
+// ============================================================================
 // 全てのポインタテストを実行
 // ============================================================================
 
@@ -1045,6 +1121,8 @@ inline void run_all_pointer_tests() {
     test_impl_self_pointer_access();  // implメソッド内でのselfポインタメンバアクセス
     test_recursive_struct();          // 再帰構造体(自己参照構造体)
     test_typedef_recursive_struct();  // typedef再帰構造体
+    test_comprehensive_pointer_operations();  // 包括的なポインタ操作テスト（アロー構文・デリファレンス構文）
+    test_comprehensive_address_of();  // 包括的なアドレス取得テスト（全変数型）
     
     printf("=== All Pointer Tests Passed ===\n\n");
 }

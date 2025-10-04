@@ -823,8 +823,17 @@ ASTNode* RecursiveParser::parseStatement() {
                     node->is_unsigned = saw_unsigned_specifier;
                     node->is_reference = is_reference;
                     
-                    // 型情報を設定
-                    node->type_info = declared_type_info;
+                    // ポインタ情報を設定
+                    if (pointer_depth > 0) {
+                        node->is_pointer = true;
+                        node->pointer_depth = pointer_depth;
+                        node->pointer_base_type_name = base_type_name;
+                        node->pointer_base_type = base_type_info;
+                        node->type_info = TYPE_POINTER;
+                    } else {
+                        // 型情報を設定
+                        node->type_info = declared_type_info;
+                    }
                     
                     if (variables[0].second) {
                         node->init_expr = std::move(variables[0].second);
@@ -838,19 +847,38 @@ ASTNode* RecursiveParser::parseStatement() {
                     node->is_unsigned = saw_unsigned_specifier;
                     node->is_reference = is_reference;
                     
-                    // 型情報を設定
-                    node->type_info = declared_type_info;
+                    // ポインタ情報を設定
+                    if (pointer_depth > 0) {
+                        node->is_pointer = true;
+                        node->pointer_depth = pointer_depth;
+                        node->pointer_base_type_name = base_type_name;
+                        node->pointer_base_type = base_type_info;
+                        node->type_info = TYPE_POINTER;
+                    } else {
+                        // 型情報を設定
+                        node->type_info = declared_type_info;
+                    }
                     
                     // 各変数を子ノードとして追加
                     for (auto& var : variables) {
                         ASTNode* var_node = new ASTNode(ASTNodeType::AST_VAR_DECL);
                         var_node->name = var.first;
                         var_node->type_name = type_name;
-                        var_node->type_info = node->type_info;
                         var_node->is_const = isConst;
                         var_node->is_reference = is_reference;
                         var_node->is_static = isStatic;
                         var_node->is_unsigned = saw_unsigned_specifier;
+                        
+                        // ポインタ情報も設定
+                        if (pointer_depth > 0) {
+                            var_node->is_pointer = true;
+                            var_node->pointer_depth = pointer_depth;
+                            var_node->pointer_base_type_name = base_type_name;
+                            var_node->pointer_base_type = base_type_info;
+                            var_node->type_info = TYPE_POINTER;
+                        } else {
+                            var_node->type_info = node->type_info;
+                        }
                         
                         if (var.second) {
                             var_node->init_expr = std::move(var.second);
@@ -1524,7 +1552,6 @@ ASTNode* RecursiveParser::parseVariableDeclaration() {
     std::string var_type = parseType();
     ParsedTypeInfo base_parsed_type = getLastParsedTypeInfo();
     var_type = base_parsed_type.full_type;
-    std::cerr << "[DEBUG_PARSE] Variable type parsed: " << var_type << std::endl;
     
     // 変数名のリストを収集
                 struct VariableInfo {
@@ -1702,6 +1729,13 @@ std::string RecursiveParser::parseType() {
     std::string base_type;
     std::string original_type;
     bool saw_unsigned = false;
+    bool saw_const = false;
+
+    // Check for const qualifier
+    if (check(TokenType::TOK_CONST)) {
+        saw_const = true;
+        advance();
+    }
 
     if (check(TokenType::TOK_UNSIGNED)) {
         saw_unsigned = true;
@@ -1890,6 +1924,11 @@ std::string RecursiveParser::parseType() {
         if (original_type == base_type) {
             parsed.original_type = full_type;
         }
+    }
+
+    if (saw_const) {
+        parsed.is_const = true;
+        full_type = "const " + full_type;
     }
 
     parsed.full_type = full_type;
@@ -2745,6 +2784,7 @@ ASTNode* RecursiveParser::parseFunctionDeclarationAfterName(const std::string& r
             param->pointer_base_type = param_parsed.base_type_info;
             param->is_reference = param_parsed.is_reference;
             param->is_unsigned = param_parsed.is_unsigned;
+            param->is_const = param_parsed.is_const;
             if (param_parsed.is_array) {
                 param->array_type_info = param_parsed.array_info;
                 param->is_array = true;

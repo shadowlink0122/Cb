@@ -2674,6 +2674,80 @@ bool Interpreter::is_current_impl_context_for(const std::string &struct_type_nam
     return !target_struct.empty() && target_struct == self_struct;
 }
 
+void Interpreter::sync_individual_member_from_struct(Variable* struct_var, const std::string& member_name) {
+    // struct_var->struct_members[member_name] の値を、
+    // 対応する個別変数 (例: "p.x") に同期する
+    
+    if (!struct_var || member_name.empty()) {
+        return;
+    }
+    
+    // struct_var のアドレスを持つ変数名を全スコープから探す
+    std::string found_var_name;
+    
+    // グローバルスコープを検索
+    for (const auto& var_pair : global_scope.variables) {
+        if (&var_pair.second == struct_var) {
+            found_var_name = var_pair.first;
+            break;
+        }
+    }
+    
+    // 見つからなければローカルスコープを検索
+    if (found_var_name.empty()) {
+        for (auto it = scope_stack.rbegin(); it != scope_stack.rend(); ++it) {
+            for (const auto& var_pair : it->variables) {
+                if (&var_pair.second == struct_var) {
+                    found_var_name = var_pair.first;
+                    break;
+                }
+            }
+            if (!found_var_name.empty()) {
+                break;
+            }
+        }
+    }
+    
+    // 見つからなければstatic変数を検索
+    if (found_var_name.empty()) {
+        for (const auto& var_pair : static_variables) {
+            if (&var_pair.second == struct_var) {
+                found_var_name = var_pair.first;
+                break;
+            }
+        }
+    }
+    
+    if (found_var_name.empty()) {
+        // 変数名が見つからなかった（一時変数やポインタで参照されている構造体）
+        // この場合は個別変数システムとは同期しない
+        if (debug_mode) {
+            debug_print("DEBUG: sync_individual_member_from_struct - struct_var has no name\n");
+        }
+        return;
+    }
+    
+    // 個別変数のパスを構築
+    std::string full_member_path = found_var_name + "." + member_name;
+    
+    // 個別変数を探して更新
+    Variable* individual_var = find_variable(full_member_path);
+    if (individual_var) {
+        const Variable& member_value = struct_var->struct_members[member_name];
+        individual_var->value = member_value.value;
+        individual_var->type = member_value.type;
+        individual_var->str_value = member_value.str_value;
+        individual_var->is_assigned = member_value.is_assigned;
+        individual_var->is_const = member_value.is_const;
+        individual_var->is_unsigned = member_value.is_unsigned;
+        
+        if (debug_mode) {
+            debug_print("DEBUG: sync_individual_member_from_struct - updated %s\n", 
+                       full_member_path.c_str());
+        }
+    }
+}
+
 void Interpreter::ensure_struct_member_access_allowed(const std::string &accessor_name,
                                                       const std::string &member_name) {
     if (accessor_name.empty()) {

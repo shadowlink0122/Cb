@@ -17,6 +17,7 @@ struct ParsedTypeInfo {
     ArrayTypeInfo array_info;              // 配列情報（多次元対応）
     bool is_reference = false;             // 参照型かどうか
     bool is_unsigned = false;              // unsigned修飾子かどうか
+    bool is_const = false;                 // const修飾子かどうか
 };
 
 class RecursiveParser {

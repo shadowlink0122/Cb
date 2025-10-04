@@ -1,0 +1,77 @@
+// Test: self.ptr->method() - calling method on pointer member of self
+// Pattern: self.data->getX() where data is a pointer member
+
+struct Point {
+    int x;
+    int y;
+};
+
+struct Container {
+    Point* data;
+    int count;
+};
+
+interface IPoint {
+    int getX();
+    int getY();
+    void setX(int newX);
+};
+
+impl IPoint for Point {
+    int getX() {
+        return self.x;
+    }
+    
+    int getY() {
+        return self.y;
+    }
+    
+    void setX(int newX) {
+        self.x = newX;
+    }
+};
+
+interface IContainer {
+    int getDataX();
+    void setDataX(int newX);
+};
+
+impl IContainer for Container {
+    int getDataX() {
+        // Call method on self's pointer member
+        return self.data->getX();
+    }
+    
+    void setDataX(int newX) {
+        // Call setter method on self's pointer member
+        self.data->setX(newX);
+    }
+};
+
+int main() {
+    Point p = {x: 10, y: 20};
+    Container c = {data: &p, count: 1};
+    
+    println("=== Self Member Pointer Method Call Test ===");
+    
+    // Test 1: Call getter through self.data->getX()
+    println("\nTest 1: c.getDataX() -> self.data->getX()");
+    int x = c.getDataX();
+    if (x != 10) {
+        println("FAILED: expected 10, got", x);
+        return 1;
+    }
+    println("PASSED: x =", x);
+    
+    // Test 2: Call setter through self.data->setX()
+    println("\nTest 2: c.setDataX(100) -> self.data->setX(100)");
+    c.setDataX(100);
+    if (p.x != 100) {
+        println("FAILED: p.x expected 100, got", p.x);
+        return 1;
+    }
+    println("PASSED: p.x =", p.x);
+    
+    println("\n=== All Self Member Pointer Method Tests Passed ===");
+    return 0;
+}

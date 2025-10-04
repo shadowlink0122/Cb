@@ -901,8 +901,18 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                 // メタデータから値を読み取り
                 return meta->read_int_value();
             } else {
-                // 従来の方式（変数ポインタ）
+                // 従来の方式（変数ポインタまたは構造体ポインタ）
                 Variable *var = reinterpret_cast<Variable*>(ptr_value);
+                
+                // If the pointer points to a struct, return the struct pointer itself
+                // so that subsequent member access (*ptr).member can work
+                if (var && (var->type == TYPE_STRUCT || var->is_struct || !var->struct_members.empty())) {
+                    // For struct pointers, return the pointer to the struct variable
+                    // This allows (*struct_ptr).member patterns to work
+                    return ptr_value;  // Return the struct pointer itself, not its value
+                }
+                
+                // For primitive types, return the value
                 return var->value;
             }
         }
@@ -1443,7 +1453,7 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                 Variable temp_receiver;
                 temp_receiver.is_assigned = true;
 
-                if (chain_ret.type == TYPE_STRUCT || chain_ret.is_struct) {
+                if (chain_ret.type == TYPE_STRUCT || chain_ret.type == TYPE_INTERFACE || chain_ret.is_struct) {
                     temp_receiver = chain_ret.struct_value;
 
                     if (temp_receiver.type == TYPE_INTERFACE) {
@@ -1462,6 +1472,8 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                             if (resolved == TYPE_UNKNOWN) {
                                 resolved = TYPE_INT;
                             }
+                            // Interface型の場合、現在保持している値を保持する必要がある
+                            // (temp_receiverはchain_ret.struct_valueからコピーされており、既に正しい値を持っている)
                             temp_receiver.type = resolved;
                             temp_receiver.is_struct = false;
                         }
@@ -1514,7 +1526,43 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                 return std::string();
             };
 
-            if (receiver_var->type >= TYPE_ARRAY_BASE || receiver_var->is_array) {
+            // Check if receiver is a pointer type
+            if (receiver_var->type == TYPE_POINTER) {
+                // Dereference the pointer to get the actual struct
+                int64_t ptr_value = receiver_var->value;
+                if (ptr_value == 0) {
+                    throw std::runtime_error("Null pointer dereference in method call");
+                }
+                Variable* pointed_struct = reinterpret_cast<Variable*>(ptr_value);
+                if (pointed_struct) {
+                    if (debug_mode) {
+                        debug_print("POINTER_DEREF_BEFORE: type=%d, is_struct=%d, struct_type_name='%s'\n",
+                                   static_cast<int>(pointed_struct->type), pointed_struct->is_struct ? 1 : 0,
+                                   pointed_struct->struct_type_name.c_str());
+                    }
+                    
+                    type_name = resolve_struct_like_type(*pointed_struct);
+                    if (type_name.empty() && (pointed_struct->type == TYPE_STRUCT || pointed_struct->is_struct)) {
+                        type_name = pointed_struct->struct_type_name;
+                    }
+                    
+                    // Ensure pointed_struct is recognized as a struct (but don't overwrite TYPE_INTERFACE)
+                    // Interface型の場合は型情報を保持する
+                    if (pointed_struct->type != TYPE_INTERFACE && pointed_struct->interface_name.empty() &&
+                        (!pointed_struct->struct_type_name.empty() || !pointed_struct->struct_members.empty())) {
+                        pointed_struct->type = TYPE_STRUCT;
+                        pointed_struct->is_struct = true;
+                    }
+                    
+                    // Update receiver_var to point to the dereferenced struct
+                    receiver_var = pointed_struct;
+                    receiver_resolution.variable_ptr = pointed_struct;
+                    debug_print("POINTER_METHOD: Dereferenced pointer, type='%s', is_struct=%d\n", 
+                               type_name.c_str(), pointed_struct->is_struct ? 1 : 0);
+                }
+            }
+            
+            if (type_name.empty() && (receiver_var->type >= TYPE_ARRAY_BASE || receiver_var->is_array)) {
                 type_name = resolve_struct_like_type(*receiver_var);
                 if (type_name.empty()) {
                     TypeInfo base_type = TYPE_UNKNOWN;
@@ -1528,9 +1576,9 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                     }
                     type_name = type_info_to_string(base_type) + "[]";
                 }
-            } else if (receiver_var->type == TYPE_STRUCT || receiver_var->is_struct) {
+            } else if (type_name.empty() && (receiver_var->type == TYPE_STRUCT || receiver_var->is_struct)) {
                 type_name = resolve_struct_like_type(*receiver_var);
-            } else if (receiver_var->type == TYPE_INTERFACE || !receiver_var->interface_name.empty()) {
+            } else if (type_name.empty() && (receiver_var->type == TYPE_INTERFACE || !receiver_var->interface_name.empty())) {
                 type_name = resolve_struct_like_type(*receiver_var);
                 if (type_name.empty()) {
                     type_name = receiver_var->interface_name;
@@ -1659,15 +1707,30 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
     bool method_scope_active = true;
         
         // メソッド呼び出しの場合、selfコンテキストを設定
+        bool used_resolution_ptr = false;  // Track if we used pointer dereference
+        Variable* dereferenced_struct_ptr = nullptr;  // Store the dereferenced struct pointer
+        
         if (is_method_call) {
             Variable* receiver_var = nullptr;
-            if (!receiver_name.empty()) {
-                receiver_var = interpreter_.find_variable(receiver_name);
+            
+            // Prioritize receiver_resolution.variable_ptr (e.g., after pointer dereference)
+            used_resolution_ptr = false;
+            if (debug_mode) {
+                debug_print("SELF_SETUP_RESOLUTION: receiver_resolution.variable_ptr=%p, receiver_name='%s'\n",
+                           static_cast<void*>(receiver_resolution.variable_ptr), receiver_name.c_str());
             }
-            if (!receiver_var && receiver_resolution.variable_ptr) {
+            if (receiver_resolution.variable_ptr) {
                 receiver_var = receiver_resolution.variable_ptr;
-            }
-            if (!receiver_var && node->left &&
+                used_resolution_ptr = true;
+                dereferenced_struct_ptr = receiver_resolution.variable_ptr;  // Save pointer for writeback
+                if (debug_mode) {
+                    debug_print("SELF_SETUP_USING_RESOLUTION: type=%d, is_struct=%d, struct_type_name='%s'\n",
+                               static_cast<int>(receiver_var->type), receiver_var->is_struct ? 1 : 0,
+                               receiver_var->struct_type_name.c_str());
+                }
+            } else if (!receiver_name.empty()) {
+                receiver_var = interpreter_.find_variable(receiver_name);
+            } else if (node->left &&
                 (node->left->node_type == ASTNodeType::AST_VARIABLE || node->left->node_type == ASTNodeType::AST_IDENTIFIER)) {
                 receiver_var = interpreter_.find_variable(node->left->name);
                 if (receiver_name.empty()) {
@@ -1683,17 +1746,39 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                 throw std::runtime_error("Receiver variable not found: " + error_name);
             }
 
-            if (!receiver_name.empty() &&
+            // Only sync if receiver_var was not from pointer dereference
+            // (i.e., not from receiver_resolution.variable_ptr)
+            if (!used_resolution_ptr && !receiver_name.empty() &&
                 (receiver_var->type == TYPE_STRUCT || receiver_var->type == TYPE_INTERFACE || receiver_var->is_struct)) {
                 interpreter_.sync_struct_members_from_direct_access(receiver_name);
-                receiver_var = interpreter_.find_variable(receiver_name);
-                if (!receiver_var) {
-                    throw std::runtime_error("Receiver variable not found after sync: " + receiver_name);
+                Variable* synced_var = interpreter_.find_variable(receiver_name);
+                if (synced_var) {
+                    receiver_var = synced_var;
                 }
             }
 
             auto& current_scope = interpreter_.get_current_scope();
+            
+            // Copy receiver to self
             current_scope.variables["self"] = *receiver_var;
+            
+            // Ensure self has correct type info after copy
+            Variable& self_var = current_scope.variables["self"];
+            if (debug_mode) {
+                debug_print("SELF_SETUP_BEFORE: self.type=%d, self.is_struct=%d, struct_type_name='%s', struct_members=%zu\n",
+                           static_cast<int>(self_var.type), self_var.is_struct ? 1 : 0,
+                           self_var.struct_type_name.c_str(), self_var.struct_members.size());
+            }
+            // Only mark as struct if it actually has struct members or is already TYPE_STRUCT
+            // Don't mark primitive types as struct even if they have a type_name
+            if (self_var.type == TYPE_STRUCT || !self_var.struct_members.empty()) {
+                self_var.type = TYPE_STRUCT;
+                self_var.is_struct = true;
+            }
+            if (debug_mode) {
+                debug_print("SELF_SETUP_AFTER: self.type=%d, self.is_struct=%d\n",
+                           static_cast<int>(self_var.type), self_var.is_struct ? 1 : 0);
+            }
 
             if (!receiver_name.empty()) {
                 Variable receiver_info;
@@ -1704,7 +1789,7 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                 debug_msg(DebugMsgId::METHOD_CALL_SELF_CONTEXT_SET, receiver_name.c_str());
             }
 
-            if (receiver_var->type == TYPE_STRUCT || receiver_var->type == TYPE_INTERFACE) {
+            if (receiver_var->type == TYPE_STRUCT || receiver_var->type == TYPE_INTERFACE || receiver_var->is_struct) {
                 for (const auto& member_pair : receiver_var->struct_members) {
                     const std::string& member_name = member_pair.first;
                     std::string self_member_path = "self." + member_name;
@@ -1837,6 +1922,29 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
 
                     current_scope.variables[self_member_path] = member_value;
                     debug_print("SELF_SETUP: Created %s\n", self_member_path.c_str());
+                    
+                    // メンバーが構造体の場合、そのネストメンバーも再帰的に作成
+                    if (member_value.type == TYPE_STRUCT || member_value.is_struct) {
+                        std::string nested_base_name = receiver_name + "." + member_name;
+                        
+                        // ネストした構造体の個別変数を作成
+                        for (const auto& nested_member_pair : member_value.struct_members) {
+                            const std::string& nested_member_name = nested_member_pair.first;
+                            std::string nested_self_path = self_member_path + "." + nested_member_name;
+                            std::string nested_receiver_path = nested_base_name + "." + nested_member_name;
+                            
+                            Variable nested_member_value = nested_member_pair.second;
+                            
+                            // receiver側の個別変数から値を取得
+                            if (Variable* nested_direct_var = interpreter_.find_variable(nested_receiver_path)) {
+                                nested_member_value = *nested_direct_var;
+                            }
+                            
+                            current_scope.variables[nested_self_path] = nested_member_value;
+                            debug_print("SELF_SETUP: Created nested member %s = %lld\n", 
+                                       nested_self_path.c_str(), nested_member_value.value);
+                        }
+                    }
                 }
                 debug_msg(DebugMsgId::METHOD_CALL_SELF_MEMBER_SETUP);
             }
@@ -2277,29 +2385,77 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                 // void関数は0を返す
                 
                 // メソッド実行後、selfの変更をレシーバーに同期
-                if (has_receiver) {
-                    Variable* receiver_var = interpreter_.find_variable(receiver_name);
+                if (has_receiver && !receiver_name.empty()) {
+                    Variable* receiver_var = nullptr;
+                    
+                    // If we used pointer dereference, write back to the dereferenced struct
+                    if (used_resolution_ptr && dereferenced_struct_ptr) {
+                        receiver_var = dereferenced_struct_ptr;
+                        if (debug_mode) {
+                            debug_print("SELF_WRITEBACK_PTR: Using dereferenced struct at %p\n",
+                                       static_cast<void*>(dereferenced_struct_ptr));
+                        }
+                    } else {
+                        receiver_var = interpreter_.find_variable(receiver_name);
+                    }
+                    
                     if (receiver_var && (receiver_var->type == TYPE_STRUCT || receiver_var->type == TYPE_INTERFACE)) {
-                        // selfの変更を元の構造体/interface変数に同期
-                        Variable* self_var = interpreter_.find_variable("self");
-                        if (self_var) {
-                            // 構造体メンバーを同期
-                            for (auto& receiver_member : receiver_var->struct_members) {
-                                std::string self_member_path = "self." + receiver_member.first;
-                                Variable* self_member_var = interpreter_.find_variable(self_member_path);
-                                if (self_member_var) {
-                                    // selfメンバーの値をレシーバーメンバーにコピー
-                                    receiver_member.second.value = self_member_var->value;
-                                    receiver_member.second.str_value = self_member_var->str_value;
-                                    receiver_member.second.is_assigned = self_member_var->is_assigned;
+                        // すべての self.* 変数を検索して書き戻し
+                        auto& current_scope = interpreter_.get_current_scope();
+                        for (const auto& var_pair : current_scope.variables) {
+                            const std::string& var_name = var_pair.first;
+                            
+                            // self. で始まる変数を検索
+                            if (var_name.find("self.") == 0) {
+                                // self.member または self.member.nested の形式
+                                std::string member_path = var_name.substr(5); // "self." を除去
+                                
+                                const Variable& self_member_var = var_pair.second;
+                                
+                                // If using dereferenced pointer, write directly to struct_members
+                                if (used_resolution_ptr && dereferenced_struct_ptr) {
+                                    // Extract member name (first component of member_path)
+                                    std::string member_name = member_path;
+                                    size_t dot_pos = member_path.find('.');
+                                    if (dot_pos != std::string::npos) {
+                                        member_name = member_path.substr(0, dot_pos);
+                                    }
                                     
-                                    // ダイレクトアクセス変数も更新
-                                    std::string direct_member_path = receiver_name + "." + receiver_member.first;
-                                    Variable* direct_member_var = interpreter_.find_variable(direct_member_path);
-                                    if (direct_member_var) {
-                                        direct_member_var->value = self_member_var->value;
-                                        direct_member_var->str_value = self_member_var->str_value;
-                                        direct_member_var->is_assigned = self_member_var->is_assigned;
+                                    // Write directly to struct_members
+                                    if (receiver_var->struct_members.find(member_name) != receiver_var->struct_members.end()) {
+                                        receiver_var->struct_members[member_name].value = self_member_var.value;
+                                        receiver_var->struct_members[member_name].str_value = self_member_var.str_value;
+                                        receiver_var->struct_members[member_name].is_assigned = self_member_var.is_assigned;
+                                        receiver_var->struct_members[member_name].float_value = self_member_var.float_value;
+                                        receiver_var->struct_members[member_name].double_value = self_member_var.double_value;
+                                        receiver_var->struct_members[member_name].quad_value = self_member_var.quad_value;
+                                        
+                                        // Also sync to individual variable if it exists
+                                        interpreter_.sync_individual_member_from_struct(receiver_var, member_name);
+                                        
+                                        if (debug_mode) {
+                                            debug_print("SELF_WRITEBACK_PTR: %s -> struct_members[%s] (value=%lld)\n",
+                                                       var_name.c_str(), member_name.c_str(),
+                                                       self_member_var.value);
+                                        }
+                                    }
+                                } else {
+                                    // Normal writeback to named variables
+                                    std::string receiver_path = receiver_name + "." + member_path;
+                                    
+                                    // receiver側の対応する変数に値を書き戻し
+                                    Variable* receiver_member_var = interpreter_.find_variable(receiver_path);
+                                    if (receiver_member_var) {
+                                        receiver_member_var->value = self_member_var.value;
+                                        receiver_member_var->str_value = self_member_var.str_value;
+                                        receiver_member_var->is_assigned = self_member_var.is_assigned;
+                                        receiver_member_var->float_value = self_member_var.float_value;
+                                        receiver_member_var->double_value = self_member_var.double_value;
+                                        receiver_member_var->quad_value = self_member_var.quad_value;
+                                        
+                                        debug_print("SELF_WRITEBACK: %s -> %s (value=%lld)\n",
+                                                   var_name.c_str(), receiver_path.c_str(),
+                                                   self_member_var.value);
                                     }
                                 }
                             }
@@ -2316,29 +2472,77 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                 // return文で戻り値がある場合
                 
                 // メソッド実行後、selfの変更をレシーバーに同期
-                if (has_receiver) {
-                    Variable* receiver_var = interpreter_.find_variable(receiver_name);
+                if (has_receiver && !receiver_name.empty()) {
+                    Variable* receiver_var = nullptr;
+                    
+                    // If we used pointer dereference, write back to the dereferenced struct
+                    if (used_resolution_ptr && dereferenced_struct_ptr) {
+                        receiver_var = dereferenced_struct_ptr;
+                        if (debug_mode) {
+                            debug_print("SELF_WRITEBACK_PTR: Using dereferenced struct at %p\n",
+                                       static_cast<void*>(dereferenced_struct_ptr));
+                        }
+                    } else {
+                        receiver_var = interpreter_.find_variable(receiver_name);
+                    }
+                    
                     if (receiver_var && (receiver_var->type == TYPE_STRUCT || receiver_var->type == TYPE_INTERFACE)) {
-                        // selfの変更を元の構造体/interface変数に同期
-                        Variable* self_var = interpreter_.find_variable("self");
-                        if (self_var) {
-                            // 構造体メンバーを同期
-                            for (auto& receiver_member : receiver_var->struct_members) {
-                                std::string self_member_path = "self." + receiver_member.first;
-                                Variable* self_member_var = interpreter_.find_variable(self_member_path);
-                                if (self_member_var) {
-                                    // selfメンバーの値をレシーバーメンバーにコピー
-                                    receiver_member.second.value = self_member_var->value;
-                                    receiver_member.second.str_value = self_member_var->str_value;
-                                    receiver_member.second.is_assigned = self_member_var->is_assigned;
+                        // すべての self.* 変数を検索して書き戻し
+                        auto& current_scope = interpreter_.get_current_scope();
+                        for (const auto& var_pair : current_scope.variables) {
+                            const std::string& var_name = var_pair.first;
+                            
+                            // self. で始まる変数を検索
+                            if (var_name.find("self.") == 0) {
+                                // self.member または self.member.nested の形式
+                                std::string member_path = var_name.substr(5); // "self." を除去
+                                
+                                const Variable& self_member_var = var_pair.second;
+                                
+                                // If using dereferenced pointer, write directly to struct_members
+                                if (used_resolution_ptr && dereferenced_struct_ptr) {
+                                    // Extract member name (first component of member_path)
+                                    std::string member_name = member_path;
+                                    size_t dot_pos = member_path.find('.');
+                                    if (dot_pos != std::string::npos) {
+                                        member_name = member_path.substr(0, dot_pos);
+                                    }
                                     
-                                    // ダイレクトアクセス変数も更新
-                                    std::string direct_member_path = receiver_name + "." + receiver_member.first;
-                                    Variable* direct_member_var = interpreter_.find_variable(direct_member_path);
-                                    if (direct_member_var) {
-                                        direct_member_var->value = self_member_var->value;
-                                        direct_member_var->str_value = self_member_var->str_value;
-                                        direct_member_var->is_assigned = self_member_var->is_assigned;
+                                    // Write directly to struct_members
+                                    if (receiver_var->struct_members.find(member_name) != receiver_var->struct_members.end()) {
+                                        receiver_var->struct_members[member_name].value = self_member_var.value;
+                                        receiver_var->struct_members[member_name].str_value = self_member_var.str_value;
+                                        receiver_var->struct_members[member_name].is_assigned = self_member_var.is_assigned;
+                                        receiver_var->struct_members[member_name].float_value = self_member_var.float_value;
+                                        receiver_var->struct_members[member_name].double_value = self_member_var.double_value;
+                                        receiver_var->struct_members[member_name].quad_value = self_member_var.quad_value;
+                                        
+                                        // Also sync to individual variable if it exists
+                                        interpreter_.sync_individual_member_from_struct(receiver_var, member_name);
+                                        
+                                        if (debug_mode) {
+                                            debug_print("SELF_WRITEBACK_PTR: %s -> struct_members[%s] (value=%lld)\n",
+                                                       var_name.c_str(), member_name.c_str(),
+                                                       self_member_var.value);
+                                        }
+                                    }
+                                } else {
+                                    // Normal writeback to named variables
+                                    std::string receiver_path = receiver_name + "." + member_path;
+                                    
+                                    // receiver側の対応する変数に値を書き戻し
+                                    Variable* receiver_member_var = interpreter_.find_variable(receiver_path);
+                                    if (receiver_member_var) {
+                                        receiver_member_var->value = self_member_var.value;
+                                        receiver_member_var->str_value = self_member_var.str_value;
+                                        receiver_member_var->is_assigned = self_member_var.is_assigned;
+                                        receiver_member_var->float_value = self_member_var.float_value;
+                                        receiver_member_var->double_value = self_member_var.double_value;
+                                        receiver_member_var->quad_value = self_member_var.quad_value;
+                                        
+                                        debug_print("SELF_WRITEBACK: %s -> %s (value=%lld)\n",
+                                                   var_name.c_str(), receiver_path.c_str(),
+                                                   self_member_var.value);
                                     }
                                 }
                             }
@@ -2683,6 +2887,7 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
         
         // leftがAST_MEMBER_ACCESSの場合、まずleftを評価して構造体を取得
         if (node->left->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
+            debug_msg(DebugMsgId::NESTED_MEMBER_EVAL_START, "left is AST_MEMBER_ACCESS");
             // ネストしたメンバーアクセス: (obj.inner).value
             // leftを評価して中間の構造体を取得
             Variable intermediate_struct;
@@ -2724,9 +2929,13 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                 // 完全パスを構築（最終メンバーまで含む）
                 std::string full_member_path = struct_path + "." + member_name;
                 
+                debug_msg(DebugMsgId::NESTED_MEMBER_FULL_PATH, full_member_path.c_str());
+                
                 // 個別変数を直接検索
                 Variable* member_var_ptr = interpreter_.find_variable(full_member_path);
                 if (member_var_ptr) {
+                    debug_msg(DebugMsgId::NESTED_MEMBER_INDIVIDUAL_VAR_FOUND,
+                             full_member_path.c_str(), member_var_ptr->value);
                     // 個別変数が見つかった場合、それを使用
                     if (member_var_ptr->type == TYPE_STRING) {
                         last_typed_result_ = TypedValue(member_var_ptr->str_value, InferredType(TYPE_STRING, "string"));
@@ -3226,6 +3435,8 @@ TypedValue ExpressionEvaluator::evaluate_typed_expression(const ASTNode* node) {
     return TypedValue(static_cast<int64_t>(0), InferredType());
     }
     
+    debug_msg(DebugMsgId::TYPED_EVAL_ENTRY, static_cast<int>(node->node_type));
+    
     // ReturnExceptionをキャッチして構造体を処理
     try {
         return evaluate_typed_expression_internal(node);
@@ -3270,6 +3481,8 @@ TypedValue ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode
     if (!node) {
     return TypedValue(static_cast<int64_t>(0), InferredType());
     }
+    
+    debug_msg(DebugMsgId::TYPED_EVAL_INTERNAL_ENTRY, static_cast<int>(node->node_type));
     
     // まず型を推論
     InferredType inferred_type = type_engine_.infer_type(node);
@@ -3800,6 +4013,8 @@ TypedValue ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode
         }
         
         case ASTNodeType::AST_MEMBER_ACCESS: {
+            debug_msg(DebugMsgId::TYPED_MEMBER_ACCESS_CASE, node->name.c_str(), node->member_chain.size());
+            
             // member_chainが2つ以上ある場合（ネストメンバアクセス）
             if (!node->member_chain.empty() && node->member_chain.size() > 1) {
                 // ベース変数を取得
@@ -4033,15 +4248,31 @@ TypedValue ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode
             bool resolved = false;
 
             std::string base_name = build_base_name(node->left.get());
+            debug_msg(DebugMsgId::NESTED_MEMBER_BASE_PATH, base_name.c_str(), node->name.c_str());
+            
             if (!base_name.empty()) {
-                if (Variable* base_var = interpreter_.find_variable(base_name)) {
-                    if (base_var->type == TYPE_STRUCT) {
-                        resolved = resolve_from_struct(*base_var, resolved_value);
+                // まず個別変数を検索（優先）
+                debug_msg(DebugMsgId::NESTED_MEMBER_RESOLVE_FROM_BASE);
+                resolved = resolve_from_base_name(base_name, resolved_value);
+                if (resolved) {
+                    debug_msg(DebugMsgId::NESTED_MEMBER_RESOLVE_SUCCESS,
+                             resolved_value.is_numeric() ? resolved_value.as_numeric() : 0LL);
+                } else {
+                    debug_msg(DebugMsgId::NESTED_MEMBER_RESOLVE_FAILED);
+                    
+                    // 個別変数が見つからない場合、struct_membersから検索
+                    if (Variable* base_var = interpreter_.find_variable(base_name)) {
+                        debug_msg(DebugMsgId::NESTED_MEMBER_BASE_VAR_FOUND, base_var->type);
+                        if (base_var->type == TYPE_STRUCT) {
+                            resolved = resolve_from_struct(*base_var, resolved_value);
+                            if (resolved) {
+                                debug_msg(DebugMsgId::NESTED_MEMBER_RESOLVE_SUCCESS,
+                                         resolved_value.is_numeric() ? resolved_value.as_numeric() : 0LL);
+                            }
+                        }
+                    } else {
+                        debug_msg(DebugMsgId::NESTED_MEMBER_BASE_VAR_NOT_FOUND);
                     }
-                }
-
-                if (!resolved) {
-                    resolved = resolve_from_base_name(base_name, resolved_value);
                 }
             }
 
@@ -4802,7 +5033,18 @@ ExpressionEvaluator::MethodReceiverResolution ExpressionEvaluator::resolve_arrow
             return result;
         }
         
-        // 構造体のメンバーを取得
+        // resolve_arrow_receiverは常にメソッド呼び出しコンテキストから呼ばれる(resolve_method_receiverから)
+        // Interface型のポインタの場合、Interface Variable全体を返す必要がある
+        // 注意: member_nameはメソッド名の場合もあるが、ここではレシーバを返すだけで、メンバーは取得しない
+        if (struct_var->type == TYPE_INTERFACE || !struct_var->interface_name.empty()) {
+            // Interface型全体をチェーン値として返す(member_nameは無視)
+            auto chain_ret = std::make_shared<ReturnException>(*struct_var);
+            result.kind = MethodReceiverResolution::Kind::Chain;
+            result.chain_value = chain_ret;
+            return result;
+        }
+        
+        // 通常の構造体のメンバーアクセスの場合は、構造体のメンバーを取得
         Variable member_var = get_struct_member_from_variable(*struct_var, member_name);
         
         // チェーン値として返す

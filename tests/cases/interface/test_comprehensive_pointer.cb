@@ -1,0 +1,364 @@
+// Comprehensive Pointer Test Suite
+// Tests all pointer operations with interfaces, self, and address-of operations
+
+struct Point {
+    int x;
+    int y;
+};
+
+struct Container {
+    Point* data;
+    int count;
+};
+
+interface IPoint {
+    int getX();
+    int getY();
+    void setX(int newX);
+    void setY(int newY);
+    int sum();
+};
+
+impl IPoint for Point {
+    int getX() {
+        return self.x;
+    }
+    
+    int getY() {
+        return self.y;
+    }
+    
+    void setX(int newX) {
+        self.x = newX;
+    }
+    
+    void setY(int newY) {
+        self.y = newY;
+    }
+    
+    int sum() {
+        return self.x + self.y;
+    }
+};
+
+interface IContainer {
+    int getDataX();
+    void setDataX(int newX);
+    int getDataSum();
+};
+
+impl IContainer for Container {
+    int getDataX() {
+        // Arrow syntax
+        return self.data->getX();
+    }
+    
+    void setDataX(int newX) {
+        // Arrow syntax
+        self.data->setX(newX);
+    }
+    
+    int getDataSum() {
+        // Arrow syntax
+        return self.data->sum();
+    }
+};
+
+int main() {
+    println("=== Comprehensive Pointer Test Suite ===\n");
+    int passed = 0;
+    int total = 0;
+    
+    // Test 1: Basic pointer field access with arrow
+    println("Test 1: Arrow syntax - ptr->field");
+    total = total + 1;
+    Point p1 = {x: 10, y: 20};
+    Point* ptr1 = &p1;
+    if (ptr1->x == 10 && ptr1->y == 20) {
+        println("  PASSED: ptr->x = ", ptr1->x, ", ptr->y = ", ptr1->y);
+        passed = passed + 1;
+    } else {
+        println("  FAILED");
+    }
+    
+    // Test 2: Dereference syntax - (*ptr).field
+    println("\nTest 2: Dereference syntax - (*ptr).field");
+    total = total + 1;
+    Point p2 = {x: 30, y: 40};
+    Point* ptr2 = &p2;
+    if ((*ptr2).x == 30 && (*ptr2).y == 40) {
+        println("  PASSED: (*ptr).x = ", (*ptr2).x, ", (*ptr).y = ", (*ptr2).y);
+        passed = passed + 1;
+    } else {
+        println("  FAILED");
+    }
+    
+    // Test 3: Write with arrow syntax
+    println("\nTest 3: Write with arrow syntax - ptr->field = value");
+    total = total + 1;
+    Point p3 = {x: 50, y: 60};
+    Point* ptr3 = &p3;
+    ptr3->x = 100;
+    ptr3->y = 200;
+    if (p3.x == 100 && p3.y == 200) {
+        println("  PASSED: p3.x = ", p3.x, ", p3.y = ", p3.y);
+        passed = passed + 1;
+    } else {
+        println("  FAILED");
+    }
+    
+    // Test 4: Write with dereference syntax
+    println("\nTest 4: Write with dereference - (*ptr).field = value");
+    total = total + 1;
+    Point p4 = {x: 70, y: 80};
+    Point* ptr4 = &p4;
+    (*ptr4).x = 300;
+    (*ptr4).y = 400;
+    if (p4.x == 300 && p4.y == 400) {
+        println("  PASSED: p4.x = ", p4.x, ", p4.y = ", p4.y);
+        passed = passed + 1;
+    } else {
+        println("  FAILED");
+    }
+    
+    // Test 5: Method call with arrow syntax
+    println("\nTest 5: Method call with arrow - ptr->method()");
+    total = total + 1;
+    Point p5 = {x: 10, y: 20};
+    Point* ptr5 = &p5;
+    int sum5 = ptr5->sum();
+    if (sum5 == 30) {
+        println("  PASSED: ptr->sum() = ", sum5);
+        passed = passed + 1;
+    } else {
+        println("  FAILED: expected 30, got ", sum5);
+    }
+    
+    // Test 6: Method call with dereference syntax
+    println("\nTest 6: Method call with dereference - (*ptr).method()");
+    total = total + 1;
+    Point p6 = {x: 15, y: 25};
+    Point* ptr6 = &p6;
+    int sum6 = (*ptr6).sum();
+    if (sum6 == 40) {
+        println("  PASSED: (*ptr).sum() = ", sum6);
+        passed = passed + 1;
+    } else {
+        println("  FAILED: expected 40, got ", sum6);
+    }
+    
+    // Test 7: Method setter with arrow
+    println("\nTest 7: Setter with arrow - ptr->setX(value)");
+    total = total + 1;
+    Point p7 = {x: 1, y: 2};
+    Point* ptr7 = &p7;
+    ptr7->setX(999);
+    if (p7.x == 999) {
+        println("  PASSED: p7.x = ", p7.x);
+        passed = passed + 1;
+    } else {
+        println("  FAILED");
+    }
+    
+    // Test 8: Method setter with dereference
+    println("\nTest 8: Setter with dereference - (*ptr).setX(value)");
+    total = total + 1;
+    Point p8 = {x: 1, y: 2};
+    Point* ptr8 = &p8;
+    (*ptr8).setY(888);
+    if (p8.y == 888) {
+        println("  PASSED: p8.y = ", p8.y);
+        passed = passed + 1;
+    } else {
+        println("  FAILED");
+    }
+    
+    // Test 9: Self pointer member with arrow - self.ptr->method()
+    println("\nTest 9: Self pointer member with arrow - self.data->method()");
+    total = total + 1;
+    Point p9 = {x: 11, y: 22};
+    Container c9 = {data: &p9, count: 1};
+    int x9 = c9.getDataX();
+    if (x9 == 11) {
+        println("  PASSED: c9.getDataX() = ", x9);
+        passed = passed + 1;
+    } else {
+        println("  FAILED");
+    }
+    
+    // Test 10: Self pointer member setter with arrow
+    println("\nTest 10: Self pointer member setter - self.data->setX()");
+    total = total + 1;
+    Point p10 = {x: 33, y: 44};
+    Container c10 = {data: &p10, count: 1};
+    c10.setDataX(777);
+    if (p10.x == 777) {
+        println("  PASSED: p10.x = ", p10.x);
+        passed = passed + 1;
+    } else {
+        println("  FAILED");
+    }
+    
+    // Test 11: Nested pointer dereference - (*(*p).member).field
+    println("\nTest 11: Nested dereference - (*(*o.middle).inner).value");
+    total = total + 1;
+    struct Inner { int value; };
+    struct Middle { Inner* inner; };
+    struct Outer { Middle* middle; };
+    
+    Inner i11 = {value: 42};
+    Middle m11 = {inner: &i11};
+    Outer o11 = {middle: &m11};
+    
+    int val11 = (*(*o11.middle).inner).value;
+    if (val11 == 42) {
+        println("  PASSED: nested read = ", val11);
+        passed = passed + 1;
+    } else {
+        println("  FAILED");
+    }
+    
+    // Test 12: Nested pointer write
+    println("\nTest 12: Nested dereference write");
+    total = total + 1;
+    Inner i12 = {value: 10};
+    Middle m12 = {inner: &i12};
+    Outer o12 = {middle: &m12};
+    
+    (*(*o12.middle).inner).value = 999;
+    if (i12.value == 999) {
+        println("  PASSED: i12.value = ", i12.value);
+        passed = passed + 1;
+    } else {
+        println("  FAILED");
+    }
+    
+    // Test 13: Address of primitive variable
+    println("\nTest 13: Address of primitive - &variable");
+    total = total + 1;
+    int a = 123;
+    int* ptrA = &a;
+    if (*ptrA == 123) {
+        println("  PASSED: &a obtained, *ptrA = ", *ptrA);
+        passed = passed + 1;
+    } else {
+        println("  FAILED");
+    }
+    
+    // Test 14: Address of struct variable
+    println("\nTest 14: Address of struct - &struct_var");
+    total = total + 1;
+    Point p14 = {x: 55, y: 66};
+    Point* ptr14 = &p14;
+    if (ptr14->x == 55) {
+        println("  PASSED: &p14 obtained, ptr14->x = ", ptr14->x);
+        passed = passed + 1;
+    } else {
+        println("  FAILED");
+    }
+    
+    // Test 15: Print address value
+    println("\nTest 15: Print address value");
+    total = total + 1;
+    int b = 456;
+    int* ptrB = &b;
+    println("  Address of b: ", ptrB);
+    if (ptrB != 0) {
+        println("  PASSED: Address is non-zero");
+        passed = passed + 1;
+    } else {
+        println("  FAILED");
+    }
+    
+    // Test 16: Struct member pointer field access
+    println("\nTest 16: Struct member pointer with arrow");
+    total = total + 1;
+    Point p16 = {x: 77, y: 88};
+    Container c16 = {data: &p16, count: 5};
+    if (c16.data->x == 77) {
+        println("  PASSED: c16.data->x = ", c16.data->x);
+        passed = passed + 1;
+    } else {
+        println("  FAILED");
+    }
+    
+    // Test 17: Struct member pointer with dereference
+    println("\nTest 17: Struct member pointer with dereference");
+    total = total + 1;
+    Point p17 = {x: 99, y: 111};
+    Container c17 = {data: &p17, count: 7};
+    if ((*c17.data).y == 111) {
+        println("  PASSED: (*c17.data).y = ", (*c17.data).y);
+        passed = passed + 1;
+    } else {
+        println("  FAILED");
+    }
+    
+    // Test 18: Self pointer field read with dereference
+    println("\nTest 18: Self pointer field with dereference - (*self.data).field");
+    total = total + 1;
+    interface IContainerDeref {
+        int getDataY();
+    };
+    
+    impl IContainerDeref for Container {
+        int getDataY() {
+            return (*self.data).y;
+        }
+    };
+    
+    Point p18 = {x: 11, y: 22};
+    Container c18 = {data: &p18, count: 1};
+    int y18 = c18.getDataY();
+    if (y18 == 22) {
+        println("  PASSED: (*self.data).y = ", y18);
+        passed = passed + 1;
+    } else {
+        println("  FAILED");
+    }
+    
+    // Test 19: Reassign pointer
+    println("\nTest 19: Reassign pointer");
+    total = total + 1;
+    Point pa = {x: 1, y: 2};
+    Point pb = {x: 3, y: 4};
+    Point* ptr19 = &pa;
+    if (ptr19->x == 1) {
+        ptr19 = &pb;
+        if (ptr19->x == 3) {
+            println("  PASSED: pointer reassignment works");
+            passed = passed + 1;
+        } else {
+            println("  FAILED: after reassignment");
+        }
+    } else {
+        println("  FAILED: initial assignment");
+    }
+    
+    // Test 20: Chain method calls via pointer
+    println("\nTest 20: Chain operations through pointer");
+    total = total + 1;
+    Point p20 = {x: 5, y: 10};
+    Point* ptr20 = &p20;
+    ptr20->setX(20);
+    ptr20->setY(30);
+    int sum20 = ptr20->sum();
+    if (sum20 == 50) {
+        println("  PASSED: chained operations = ", sum20);
+        passed = passed + 1;
+    } else {
+        println("  FAILED");
+    }
+    
+    // Summary
+    println("\n=== Test Summary ===");
+    println("Passed: ", passed, " / ", total);
+    
+    if (passed == total) {
+        println("\n✓ ALL TESTS PASSED!");
+        return 0;
+    } else {
+        println("\n✗ Some tests failed");
+        return 1;
+    }
+}

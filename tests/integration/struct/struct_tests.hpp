@@ -99,7 +99,7 @@ inline void test_const_struct_member_parent_const_error() {
             INTEGRATION_ASSERT_NE(0, exit_code,
                                   "Expected error exit code for const struct member reassignment (parent const)");
             INTEGRATION_ASSERT_CONTAINS(
-                output, "Cannot assign to const member 'value' of struct 'instance' after initialization",
+                output, "Cannot assign to member of const struct: instance.value",
                 "should contain const struct member reassignment error message");
         });
 }

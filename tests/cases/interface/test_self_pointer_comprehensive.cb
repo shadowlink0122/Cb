@@ -1,0 +1,180 @@
+// Comprehensive test for self pointer member access and arrow operator
+// Tests all supported patterns: self.ptr->field, self.field, self.ptr->field = value
+
+struct Point {
+    int x;
+    int y;
+};
+
+struct Rectangle {
+    Point* topLeft;
+    Point* bottomRight;
+};
+
+interface IRectangle {
+    // Read tests
+    int getTopLeftX();
+    int getTopLeftY();
+    int getBottomRightX();
+    int getBottomRightY();
+    
+    // Write tests
+    void setTopLeftX(int val);
+    void setTopLeftY(int val);
+    void setBottomRightX(int val);
+    void setBottomRightY(int val);
+    
+    // Compute tests
+    int getWidth();
+    int getHeight();
+    int getArea();
+    
+    // Complex operations
+    void moveBy(int dx, int dy);
+    void scale(int factor);
+};
+
+impl IRectangle for Rectangle {
+    // Read via self.ptr->field
+    int getTopLeftX() {
+        return self.topLeft->x;
+    }
+    
+    int getTopLeftY() {
+        return self.topLeft->y;
+    }
+    
+    int getBottomRightX() {
+        return self.bottomRight->x;
+    }
+    
+    int getBottomRightY() {
+        return self.bottomRight->y;
+    }
+    
+    // Write via self.ptr->field
+    void setTopLeftX(int val) {
+        self.topLeft->x = val;
+    }
+    
+    void setTopLeftY(int val) {
+        self.topLeft->y = val;
+    }
+    
+    void setBottomRightX(int val) {
+        self.bottomRight->x = val;
+    }
+    
+    void setBottomRightY(int val) {
+        self.bottomRight->y = val;
+    }
+    
+    // Compute using self.ptr->field
+    int getWidth() {
+        return self.bottomRight->x - self.topLeft->x;
+    }
+    
+    int getHeight() {
+        return self.bottomRight->y - self.topLeft->y;
+    }
+    
+    int getArea() {
+        int w = self.bottomRight->x - self.topLeft->x;
+        int h = self.bottomRight->y - self.topLeft->y;
+        return w * h;
+    }
+    
+    // Complex operations with multiple self.ptr->field accesses
+    void moveBy(int dx, int dy) {
+        self.topLeft->x = self.topLeft->x + dx;
+        self.topLeft->y = self.topLeft->y + dy;
+        self.bottomRight->x = self.bottomRight->x + dx;
+        self.bottomRight->y = self.bottomRight->y + dy;
+    }
+    
+    void scale(int factor) {
+        self.bottomRight->x = self.topLeft->x + (self.bottomRight->x - self.topLeft->x) * factor;
+        self.bottomRight->y = self.topLeft->y + (self.bottomRight->y - self.topLeft->y) * factor;
+    }
+};
+
+int main() {
+    Point tl = {x: 10, y: 20};
+    Point br = {x: 50, y: 60};
+    Rectangle rect = {topLeft: &tl, bottomRight: &br};
+    
+    println("=== Comprehensive Self Pointer Member Tests ===");
+    
+    // Test 1: Read all corners
+    println("\nTest 1: Read all corners");
+    int tlx = rect.getTopLeftX();
+    int tly = rect.getTopLeftY();
+    int brx = rect.getBottomRightX();
+    int bry = rect.getBottomRightY();
+    
+    if (tlx != 10 || tly != 20 || brx != 50 || bry != 60) {
+        println("FAILED: expected (10,20)-(50,60), got (", tlx, ",", tly, ")-(", brx, ",", bry, ")");
+        return 1;
+    }
+    println("PASSED: TopLeft(", tlx, ",", tly, ") BottomRight(", brx, ",", bry, ")");
+    
+    // Test 2: Write to all corners
+    println("\nTest 2: Write to all corners");
+    rect.setTopLeftX(0);
+    rect.setTopLeftY(0);
+    rect.setBottomRightX(100);
+    rect.setBottomRightY(100);
+    
+    if (tl.x != 0 || tl.y != 0 || br.x != 100 || br.y != 100) {
+        println("FAILED: original points not updated");
+        return 1;
+    }
+    println("PASSED: TopLeft(", tl.x, ",", tl.y, ") BottomRight(", br.x, ",", br.y, ")");
+    
+    // Test 3: Compute dimensions
+    println("\nTest 3: Compute dimensions");
+    int width = rect.getWidth();
+    int height = rect.getHeight();
+    int area = rect.getArea();
+    
+    if (width != 100 || height != 100 || area != 10000) {
+        println("FAILED: expected w=100 h=100 a=10000, got w=", width, "h=", height, "a=", area);
+        return 1;
+    }
+    println("PASSED: Width=", width, "Height=", height, "Area=", area);
+    
+    // Test 4: Move rectangle
+    println("\nTest 4: Move rectangle");
+    rect.moveBy(10, 20);
+    
+    if (tl.x != 10 || tl.y != 20 || br.x != 110 || br.y != 120) {
+        println("FAILED: expected (10,20)-(110,120), got (", tl.x, ",", tl.y, ")-(", br.x, ",", br.y, ")");
+        return 1;
+    }
+    println("PASSED: After move, TopLeft(", tl.x, ",", tl.y, ") BottomRight(", br.x, ",", br.y, ")");
+    
+    // Test 5: Scale rectangle
+    println("\nTest 5: Scale rectangle");
+    rect.scale(2);
+    
+    if (br.x != 210 || br.y != 220) {
+        println("FAILED: expected bottomRight (210,220), got (", br.x, ",", br.y, ")");
+        return 1;
+    }
+    println("PASSED: After scale, BottomRight(", br.x, ",", br.y, ")");
+    
+    // Test 6: Verify dimensions after scale
+    println("\nTest 6: Verify dimensions after scale");
+    width = rect.getWidth();
+    height = rect.getHeight();
+    area = rect.getArea();
+    
+    if (width != 200 || height != 200 || area != 40000) {
+        println("FAILED: expected w=200 h=200 a=40000, got w=", width, "h=", height, "a=", area);
+        return 1;
+    }
+    println("PASSED: Width=", width, "Height=", height, "Area=", area);
+    
+    println("\n=== All Comprehensive Self Pointer Member Tests Passed ===");
+    return 0;
+}

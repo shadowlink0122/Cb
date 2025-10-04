@@ -389,6 +389,20 @@ enum class DebugMsgId {
     ASSERT_CONDITION_FALSE,
     ASSERT_FAILURE,
 
+    // ネストした構造体メンバーアクセス関連
+    NESTED_MEMBER_EVAL_START,           // ネストメンバー評価開始
+    NESTED_MEMBER_BASE_PATH,            // ベースパス構築
+    NESTED_MEMBER_BASE_VAR_FOUND,       // ベース変数発見
+    NESTED_MEMBER_BASE_VAR_NOT_FOUND,   // ベース変数未発見
+    NESTED_MEMBER_RESOLVE_FROM_BASE,    // ベースから解決開始
+    NESTED_MEMBER_RESOLVE_SUCCESS,      // 解決成功
+    NESTED_MEMBER_RESOLVE_FAILED,       // 解決失敗
+    NESTED_MEMBER_INDIVIDUAL_VAR_FOUND, // 個別変数発見
+    NESTED_MEMBER_FULL_PATH,            // 完全パス
+    TYPED_EVAL_ENTRY,                   // typed expression評価エントリー
+    TYPED_EVAL_INTERNAL_ENTRY, // typed expression internal評価エントリー
+    TYPED_MEMBER_ACCESS_CASE,  // AST_MEMBER_ACCESSケース処理
+
     MAX_DEBUG_MSG_ID // 最大値マーカー
 };
 

@@ -1091,6 +1091,42 @@ static std::vector<DebugMessageTemplate> init_debug_messages() {
         "[ASSERT_ERROR] Assertion failed at line %d: %s",
         "[ASSERT_ERROR] アサーション失敗: 行 %d: %s"};
 
+    // ネストした構造体メンバーアクセス関連
+    messages[static_cast<int>(DebugMsgId::NESTED_MEMBER_EVAL_START)] = {
+        "[NESTED_MEMBER] Evaluating nested member access: %s",
+        "[NESTED_MEMBER] ネストメンバーアクセス評価開始: %s"};
+    messages[static_cast<int>(DebugMsgId::NESTED_MEMBER_BASE_PATH)] = {
+        "[NESTED_MEMBER] Base path='%s', member='%s'",
+        "[NESTED_MEMBER] ベースパス='%s', メンバー='%s'"};
+    messages[static_cast<int>(DebugMsgId::NESTED_MEMBER_BASE_VAR_FOUND)] = {
+        "[NESTED_MEMBER] Base variable found, type=%d",
+        "[NESTED_MEMBER] ベース変数発見, 型=%d"};
+    messages[static_cast<int>(DebugMsgId::NESTED_MEMBER_BASE_VAR_NOT_FOUND)] = {
+        "[NESTED_MEMBER] Base variable not found",
+        "[NESTED_MEMBER] ベース変数未発見"};
+    messages[static_cast<int>(DebugMsgId::NESTED_MEMBER_RESOLVE_FROM_BASE)] = {
+        "[NESTED_MEMBER] Resolving from base name",
+        "[NESTED_MEMBER] ベース名から解決中"};
+    messages[static_cast<int>(DebugMsgId::NESTED_MEMBER_RESOLVE_SUCCESS)] = {
+        "[NESTED_MEMBER] Resolution successful, value=%lld",
+        "[NESTED_MEMBER] 解決成功, 値=%lld"};
+    messages[static_cast<int>(DebugMsgId::NESTED_MEMBER_RESOLVE_FAILED)] = {
+        "[NESTED_MEMBER] Resolution failed", "[NESTED_MEMBER] 解決失敗"};
+    messages[static_cast<int>(DebugMsgId::NESTED_MEMBER_INDIVIDUAL_VAR_FOUND)] =
+        {"[NESTED_MEMBER] Individual variable found: '%s' = %lld",
+         "[NESTED_MEMBER] 個別変数発見: '%s' = %lld"};
+    messages[static_cast<int>(DebugMsgId::NESTED_MEMBER_FULL_PATH)] = {
+        "[NESTED_MEMBER] Full path: '%s'", "[NESTED_MEMBER] 完全パス: '%s'"};
+    messages[static_cast<int>(DebugMsgId::TYPED_EVAL_ENTRY)] = {
+        "[TYPED_EVAL] Entry: node_type=%d",
+        "[TYPED_EVAL] エントリー: ノード型=%d"};
+    messages[static_cast<int>(DebugMsgId::TYPED_EVAL_INTERNAL_ENTRY)] = {
+        "[TYPED_EVAL_INTERNAL] Entry: node_type=%d",
+        "[TYPED_EVAL_INTERNAL] エントリー: ノード型=%d"};
+    messages[static_cast<int>(DebugMsgId::TYPED_MEMBER_ACCESS_CASE)] = {
+        "[TYPED_MEMBER_ACCESS] Processing member='%s', chain_size=%zu",
+        "[TYPED_MEMBER_ACCESS] メンバー処理='%s', チェーンサイズ=%zu"};
+
     // 他の未設定のメッセージにはデフォルト値を設定
     for (size_t i = 0; i < messages.size(); ++i) {
         if (messages[i].en == nullptr) {

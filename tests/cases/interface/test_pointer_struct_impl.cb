@@ -1,0 +1,121 @@
+// Test: Interface/Impl for pointer struct types
+// Pattern: Point* self with self->value, self->func()
+
+struct Point {
+    int x;
+    int y;
+};
+
+interface IPoint {
+    int getX();
+    int getY();
+    void setX(int newX);
+    void setY(int newY);
+    int sum();
+    void scale(int factor);
+};
+
+impl IPoint for Point* {
+    int getX() {
+        return self->x;
+    }
+    
+    int getY() {
+        return self->y;
+    }
+    
+    void setX(int newX) {
+        self->x = newX;
+    }
+    
+    void setY(int newY) {
+        self->y = newY;
+    }
+    
+    int sum() {
+        return self->x + self->y;
+    }
+    
+    void scale(int factor) {
+        self->x = self->x * factor;
+        self->y = self->y * factor;
+    }
+};
+
+int main() {
+    Point p = {x: 10, y: 20};
+    Point* ptr = &p;
+    
+    println("=== Pointer Struct Impl Tests ===");
+    
+    // Test 1: Read via self->member
+    println("\nTest 1: Read via self->member");
+    int x = ptr->getX();
+    int y = ptr->getY();
+    if (x != 10) {
+        println("FAILED: getX() expected 10, got", x);
+        return 1;
+    }
+    if (y != 20) {
+        println("FAILED: getY() expected 20, got", y);
+        return 1;
+    }
+    println("PASSED: x =", x, "y =", y);
+    
+    // Test 2: Write via self->member
+    println("\nTest 2: Write via self->member");
+    ptr->setX(100);
+    ptr->setY(200);
+    if (p.x != 100) {
+        println("FAILED: p.x expected 100, got", p.x);
+        return 1;
+    }
+    if (p.y != 200) {
+        println("FAILED: p.y expected 200, got", p.y);
+        return 1;
+    }
+    println("PASSED: p.x =", p.x, "p.y =", p.y);
+    
+    // Test 3: Call method that uses self->member in computation
+    println("\nTest 3: sum() method");
+    int total = ptr->sum();
+    if (total != 300) {
+        println("FAILED: sum() expected 300, got", total);
+        return 1;
+    }
+    println("PASSED: sum =", total);
+    
+    // Test 4: Modify via self->member in method
+    println("\nTest 4: scale() method");
+    ptr->scale(2);
+    if (p.x != 200) {
+        println("FAILED: p.x expected 200, got", p.x);
+        return 1;
+    }
+    if (p.y != 400) {
+        println("FAILED: p.y expected 400, got", p.y);
+        return 1;
+    }
+    println("PASSED: p.x =", p.x, "p.y =", p.y);
+    
+    // Test 5: Multiple pointer instances
+    println("\nTest 5: Multiple pointer instances");
+    Point p2 = {x: 5, y: 15};
+    Point* ptr2 = &p2;
+    
+    int sum1 = ptr->sum();
+    int sum2 = ptr2->sum();
+    
+    if (sum1 != 600) {
+        println("FAILED: ptr->sum() expected 600, got", sum1);
+        return 1;
+    }
+    if (sum2 != 20) {
+        println("FAILED: ptr2->sum() expected 20, got", sum2);
+        return 1;
+    }
+    println("PASSED: sum1 =", sum1, "sum2 =", sum2);
+    
+    println("\n=== All Pointer Struct Impl Tests Passed ===");
+    return 0;
+}

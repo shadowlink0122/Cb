@@ -1644,6 +1644,50 @@ void StatementExecutor::execute_member_assignment(const ASTNode* node) {
         if (debug_mode) {
             debug_print("DEBUG: Struct member access - variable: %s\n", obj_name.c_str());
         }
+    } else if (member_access->left && member_access->left->node_type == ASTNodeType::AST_UNARY_OP && 
+               member_access->left->op == "*") {
+        // デリファレンスされたポインタへのメンバアクセス: (*ptr).member = value
+        debug_print("DEBUG: Dereference member access assignment - member=%s\n", member_access->name.c_str());
+        
+        // ポインタを評価
+        int64_t ptr_value = interpreter_.evaluate(member_access->left->left.get());
+        
+        if (ptr_value == 0) {
+            throw std::runtime_error("Null pointer dereference in member assignment");
+        }
+        
+        // ポインタから構造体変数を取得
+        Variable* struct_var = reinterpret_cast<Variable*>(ptr_value);
+        
+        if (!struct_var) {
+            throw std::runtime_error("Invalid pointer in dereference member assignment");
+        }
+        
+        // メンバ名を取得
+        std::string member_name = member_access->name;
+        
+        // 右辺を評価
+        Variable new_value;
+        if (node->right->node_type == ASTNodeType::AST_STRING_LITERAL) {
+            new_value.str_value = node->right->str_value;
+            new_value.type = TYPE_STRING;
+        } else {
+            TypedValue typed_value = interpreter_.evaluate_typed(node->right.get());
+            new_value.value = typed_value.as_numeric();
+            new_value.type = typed_value.type.type_info;
+        }
+        new_value.is_assigned = true;
+        
+        // struct_membersに代入
+        struct_var->struct_members[member_name] = new_value;
+        
+        // 個別変数システムとの同期
+        interpreter_.sync_individual_member_from_struct(struct_var, member_name);
+        
+        if (debug_mode) {
+            debug_print("DEBUG: Dereference member assignment completed\n");
+        }
+        return;
     } else if (member_access->left && member_access->left->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
         // ネストメンバアクセス: obj.mid.data.value = 100
         // member_accessの左側のメンバアクセスチェーンを評価して、最後の構造体変数を取得
@@ -1788,14 +1832,44 @@ void StatementExecutor::execute_member_assignment(const ASTNode* node) {
         }
     } else if (member_access->left && member_access->left->node_type == ASTNodeType::AST_UNARY_OP && 
                member_access->left->op == "DEREFERENCE") {
-        // デリファレンスされたポインタ: (*pp).member
+        // デリファレンスされたポインタ: (*pp).member or (*(*p).inner).value
         debug_print("DEBUG: Dereference pointer member assignment\n");
         
-        // ポインタ変数を評価（デリファレンスの左側）
-        int64_t ptr_value = interpreter_.evaluate(member_access->left->left.get());
+        // ポインタを評価（デリファレンスの左側を完全に評価）
+        // これにより (*o.middle).inner や o.middle などのネストした式も処理される
+        int64_t ptr_value = 0;
+        
+        // デリファレンスの対象がメンバーアクセスか単純な変数かを判定
+        ASTNode* deref_target = member_access->left->left.get();
+        
+        if (debug_mode) {
+            debug_print("DEBUG: deref_target node_type=%d (MEMBER_ACCESS=%d)\n",
+                       static_cast<int>(deref_target->node_type),
+                       static_cast<int>(ASTNodeType::AST_MEMBER_ACCESS));
+        }
+        
+        if (deref_target->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
+            // ネストしたメンバーアクセス: (*o.middle).inner の場合
+            // 完全に評価してポインタ値を取得
+            ptr_value = interpreter_.evaluate(deref_target);
+            
+            if (debug_mode) {
+                debug_print("DEBUG: Nested member access evaluated to ptr_value=%lld (0x%llx)\n",
+                           ptr_value, static_cast<uint64_t>(ptr_value));
+            }
+        } else {
+            // 単純な変数: (*ptr).member の場合
+            ptr_value = interpreter_.evaluate(deref_target);
+            
+            if (debug_mode) {
+                debug_print("DEBUG: Simple variable evaluated to ptr_value=%lld (0x%llx)\n",
+                           ptr_value, static_cast<uint64_t>(ptr_value));
+            }
+        }
+        
         Variable* struct_var = reinterpret_cast<Variable*>(ptr_value);
         
-        if (!struct_var) {
+        if (!struct_var || ptr_value == 0) {
             throw std::runtime_error("Null pointer dereference in member assignment");
         }
         
@@ -1803,15 +1877,27 @@ void StatementExecutor::execute_member_assignment(const ASTNode* node) {
         std::string member_name = member_access->name;
         
         // 右辺を評価
+        Variable new_value;
         if (node->right->node_type == ASTNodeType::AST_STRING_LITERAL) {
-            struct_var->struct_members[member_name].str_value = node->right->str_value;
-            struct_var->struct_members[member_name].type = TYPE_STRING;
+            new_value.str_value = node->right->str_value;
+            new_value.type = TYPE_STRING;
         } else {
             TypedValue typed_value = interpreter_.evaluate_typed(node->right.get());
-            struct_var->struct_members[member_name].value = typed_value.as_numeric();
-            struct_var->struct_members[member_name].type = typed_value.type.type_info;
+            new_value.value = typed_value.as_numeric();
+            new_value.type = typed_value.type.type_info;
         }
-        struct_var->struct_members[member_name].is_assigned = true;
+        new_value.is_assigned = true;
+        
+        // struct_membersに代入
+        struct_var->struct_members[member_name] = new_value;
+        
+        // 個別変数システムとの同期
+        interpreter_.sync_individual_member_from_struct(struct_var, member_name);
+        
+        if (debug_mode) {
+            debug_print("DEBUG: Dereference member assignment completed: struct_var=%p, member=%s, value=%lld\n",
+                       static_cast<void*>(struct_var), member_name.c_str(), new_value.value);
+        }
         
         return;
     } else {
@@ -1993,16 +2079,26 @@ void StatementExecutor::execute_arrow_assignment(const ASTNode* node) {
     // メンバ名を取得
     std::string member_name = arrow_access->name;
     
-    // 右辺を評価して代入
+    // 右辺を評価
+    Variable new_value;
     if (node->right->node_type == ASTNodeType::AST_STRING_LITERAL) {
-        struct_var->struct_members[member_name].str_value = node->right->str_value;
-        struct_var->struct_members[member_name].type = TYPE_STRING;
+        new_value.str_value = node->right->str_value;
+        new_value.type = TYPE_STRING;
     } else {
         TypedValue typed_value = interpreter_.evaluate_typed(node->right.get());
-        struct_var->struct_members[member_name].value = typed_value.as_numeric();
-        struct_var->struct_members[member_name].type = typed_value.type.type_info;
+        new_value.value = typed_value.as_numeric();
+        new_value.type = typed_value.type.type_info;
     }
-    struct_var->struct_members[member_name].is_assigned = true;
+    new_value.is_assigned = true;
+    
+    // struct_membersに代入
+    struct_var->struct_members[member_name] = new_value;
+    
+    // 個別変数システムとの同期:
+    // struct_var が指す実体の個別メンバ変数も更新する必要がある
+    // interpreter の sync_struct_member 関数を使用（存在する場合）
+    // もしくは、struct_members の変更を反映するヘルパー関数を呼び出す
+    interpreter_.sync_individual_member_from_struct(struct_var, member_name);
     
     if (debug_mode) {
         debug_print("DEBUG: execute_arrow_assignment - completed\n");
@@ -2118,6 +2214,12 @@ void StatementExecutor::execute_self_member_assignment(const std::string& member
     Variable* self_member = interpreter_.find_variable(self_member_path);
     if (!self_member) {
         throw std::runtime_error("Self member not found: " + member_name);
+    }
+    
+    // constメンバへの代入チェック
+    if (self_member->is_const && self_member->is_assigned) {
+        error_msg(DebugMsgId::CONST_REASSIGN_ERROR, self_member_path.c_str());
+        throw std::runtime_error("Cannot assign to const self member: " + member_name);
     }
     
     debug_msg(DebugMsgId::SELF_MEMBER_ACCESS_FOUND, member_name.c_str());

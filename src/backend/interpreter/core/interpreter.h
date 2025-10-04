@@ -543,6 +543,7 @@ class Interpreter : public EvaluatorInterface {
     void sync_struct_members_from_direct_access(const std::string &var_name);
     void sync_direct_access_from_struct_value(const std::string &var_name,
                                               const Variable &struct_value);
+    void sync_individual_member_from_struct(Variable* struct_var, const std::string& member_name);
     void ensure_struct_member_access_allowed(const std::string &accessor_name,
                                              const std::string &member_name);
     bool is_current_impl_context_for(const std::string &struct_type_name);
