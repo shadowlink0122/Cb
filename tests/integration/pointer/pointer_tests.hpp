@@ -923,6 +923,102 @@ inline void test_impl_self_pointer_access() {
 }
 
 // ============================================================================
+// 新規テスト: 再帰構造体(自己参照構造体)
+// ============================================================================
+
+inline void test_recursive_struct() {
+    double execution_time = 0.0;
+    run_cb_test_with_output_and_time(
+        "../../tests/cases/pointer/test_recursive_struct.cb",
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "再帰構造体テストがエラー終了");
+            
+            INTEGRATION_ASSERT(output.find("=== Test 1: Self-referencing struct declaration ===") != std::string::npos,
+                             "Test 1のヘッダーが出力されていない");
+            INTEGRATION_ASSERT(output.find("Node1 value: 10") != std::string::npos,
+                             "Node1の値が正しくない");
+            INTEGRATION_ASSERT(output.find("Node1 next: nullptr") != std::string::npos,
+                             "Node1 nextがnullptrでない");
+            
+            INTEGRATION_ASSERT(output.find("=== Test 2: Creating multiple nodes ===") != std::string::npos,
+                             "Test 2のヘッダーが出力されていない");
+            INTEGRATION_ASSERT(output.find("Node2 value: 20") != std::string::npos,
+                             "Node2の値が正しくない");
+            INTEGRATION_ASSERT(output.find("Node3 value: 30") != std::string::npos,
+                             "Node3の値が正しくない");
+            
+            INTEGRATION_ASSERT(output.find("=== Test 3: Binary tree structure ===") != std::string::npos,
+                             "Test 3のヘッダーが出力されていない");
+            INTEGRATION_ASSERT(output.find("TreeNode root data: 100") != std::string::npos,
+                             "TreeNodeのデータが正しくない");
+            INTEGRATION_ASSERT(output.find("TreeNode left: nullptr") != std::string::npos,
+                             "TreeNode leftがnullptrでない");
+            INTEGRATION_ASSERT(output.find("TreeNode right: nullptr") != std::string::npos,
+                             "TreeNode rightがnullptrでない");
+            
+            INTEGRATION_ASSERT(output.find("=== Test 4: Multi-level pointer depth ===") != std::string::npos,
+                             "Test 4のヘッダーが出力されていない");
+            INTEGRATION_ASSERT(output.find("MultiNode id: 999") != std::string::npos,
+                             "MultiNodeのIDが正しくない");
+            
+            INTEGRATION_ASSERT(output.find("=== Test 5: Mixed struct with pointer and non-pointer members ===") != std::string::npos,
+                             "Test 5のヘッダーが出力されていない");
+            INTEGRATION_ASSERT(output.find("Person: Alice, age 25") != std::string::npos,
+                             "Personの情報が正しくない");
+            
+            INTEGRATION_ASSERT(output.find("=== All recursive struct tests passed! ===") != std::string::npos,
+                             "最終メッセージが表示されていない");
+        },
+        execution_time
+    );
+    
+    printf("[✓] test_recursive_struct passed (%.3fms)\n", execution_time);
+}
+
+// ============================================================================
+// 新規テスト: typedef再帰構造体
+// ============================================================================
+
+inline void test_typedef_recursive_struct() {
+    double execution_time = 0.0;
+    run_cb_test_with_output_and_time(
+        "../../tests/cases/pointer/test_typedef_recursive.cb",
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "typedef再帰構造体テストがエラー終了");
+            
+            INTEGRATION_ASSERT(output.find("=== Test 1: Typedef struct with self-reference ===") != std::string::npos,
+                             "Test 1のヘッダーが出力されていない");
+            INTEGRATION_ASSERT(output.find("Node value: 100") != std::string::npos,
+                             "Nodeの値が正しくない");
+            INTEGRATION_ASSERT(output.find("Node next: nullptr") != std::string::npos,
+                             "Node nextがnullptrでない");
+            
+            INTEGRATION_ASSERT(output.find("=== Test 2: Multiple typedef nodes ===") != std::string::npos,
+                             "Test 2のヘッダーが出力されていない");
+            INTEGRATION_ASSERT(output.find("Node1 value: 10") != std::string::npos,
+                             "Node1の値が正しくない");
+            INTEGRATION_ASSERT(output.find("Node2 value: 20") != std::string::npos,
+                             "Node2の値が正しくない");
+            
+            INTEGRATION_ASSERT(output.find("=== Test 3: Binary tree with typedef ===") != std::string::npos,
+                             "Test 3のヘッダーが出力されていない");
+            INTEGRATION_ASSERT(output.find("TreeNode data: 500") != std::string::npos,
+                             "TreeNodeのデータが正しくない");
+            INTEGRATION_ASSERT(output.find("TreeNode left: nullptr") != std::string::npos,
+                             "TreeNode leftがnullptrでない");
+            INTEGRATION_ASSERT(output.find("TreeNode right: nullptr") != std::string::npos,
+                             "TreeNode rightがnullptrでない");
+            
+            INTEGRATION_ASSERT(output.find("=== All typedef recursive struct tests passed! ===") != std::string::npos,
+                             "最終メッセージが表示されていない");
+        },
+        execution_time
+    );
+    
+    printf("[✓] test_typedef_recursive_struct passed (%.3fms)\n", execution_time);
+}
+
+// ============================================================================
 // 全てのポインタテストを実行
 // ============================================================================
 
@@ -947,6 +1043,8 @@ inline void run_all_pointer_tests() {
     // test_arrow_in_impl();             // implメソッド内でのアロー演算子 TODO: implメソッドの戻り値の問題を修正
     // test_interface_pointer_arrow();   // Interface型ポインタとアロー演算子 TODO: Interface型ポインタのメソッド呼び出し未対応
     test_impl_self_pointer_access();  // implメソッド内でのselfポインタメンバアクセス
+    test_recursive_struct();          // 再帰構造体(自己参照構造体)
+    test_typedef_recursive_struct();  // typedef再帰構造体
     
     printf("=== All Pointer Tests Passed ===\n\n");
 }

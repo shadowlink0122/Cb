@@ -3799,6 +3799,10 @@ ASTNode* RecursiveParser::parseStructDeclaration() {
     
     StructDefinition struct_def(struct_name);
     
+    // 自己参照を許可するため、構造体名を前方宣言として登録
+    // これにより、メンバーのパース中に "Node*" などの型を認識できる
+    struct_definitions_[struct_name] = struct_def;
+    
     // メンバ変数の解析
     while (!check(TokenType::TOK_RBRACE) && !isAtEnd()) {
         bool is_private_member = false;
@@ -3912,9 +3916,21 @@ ASTNode* RecursiveParser::parseStructDeclaration() {
 ASTNode* RecursiveParser::parseStructTypedefDeclaration() {
     consume(TokenType::TOK_STRUCT, "Expected 'struct'");
     
+    // オプションのタグ名をチェック: typedef struct Tag { ... } Alias;
+    std::string tag_name;
+    if (check(TokenType::TOK_IDENTIFIER)) {
+        tag_name = current_token_.value;
+        advance();
+    }
+    
     consume(TokenType::TOK_LBRACE, "Expected '{' after 'typedef struct'");
     
     StructDefinition struct_def;
+    if (!tag_name.empty()) {
+        struct_def.name = tag_name;
+        // 自己参照を許可するため、タグ名を前方宣言として登録
+        struct_definitions_[tag_name] = struct_def;
+    }
     
     // メンバ変数の解析
     while (!check(TokenType::TOK_RBRACE) && !isAtEnd()) {
@@ -3996,8 +4012,20 @@ ASTNode* RecursiveParser::parseStructTypedefDeclaration() {
     struct_def.name = alias_name;
     struct_definitions_[alias_name] = struct_def;
     
-    // typedef マッピングも追加
-    typedef_map_[alias_name] = "struct " + alias_name;
+    // タグ名がある場合は、タグ名でも再度登録（完全な定義で上書き）
+    if (!tag_name.empty()) {
+        struct_def.name = tag_name;
+        struct_definitions_[tag_name] = struct_def;
+    }
+    
+    // typedef マッピングを追加
+    // タグ名がある場合: typedef_map_[alias] = "struct Tag"
+    // タグ名がない場合: typedef_map_[alias] = "struct Alias"
+    if (!tag_name.empty()) {
+        typedef_map_[alias_name] = "struct " + tag_name;
+    } else {
+        typedef_map_[alias_name] = "struct " + alias_name;
+    }
     
     // ASTノードを作成
     ASTNode* node = new ASTNode(ASTNodeType::AST_STRUCT_TYPEDEF_DECL);

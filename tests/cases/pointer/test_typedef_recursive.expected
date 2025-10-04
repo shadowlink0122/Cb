@@ -1,0 +1,14 @@
+=== Test 1: Typedef struct with self-reference ===
+Node value: 100
+Node next: nullptr
+
+=== Test 2: Multiple typedef nodes ===
+Node1 value: 10
+Node2 value: 20
+
+=== Test 3: Binary tree with typedef ===
+TreeNode data: 500
+TreeNode left: nullptr
+TreeNode right: nullptr
+
+=== All typedef recursive struct tests passed! ===
