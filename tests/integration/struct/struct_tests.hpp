@@ -539,6 +539,21 @@ inline void test_same_type_multiple_members() {
         }, execution_time);
 }
 
+// ネストメンバへの直接代入のテスト
+inline void test_nested_member_assignment() {
+    std::cout << "[integration] Running test_nested_member_assignment..." << std::endl;
+    
+    double execution_time;
+    run_cb_test_with_output_and_time("test_nested_member_assignment.cb", 
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "Nested member assignment test should exit with code 0");
+            INTEGRATION_ASSERT(output.find("=== Nested Member Assignment Test ===") != std::string::npos, 
+                              "Output should contain test header");
+            INTEGRATION_ASSERT(output.find("Test Passed") != std::string::npos, 
+                              "Output should indicate test passed");
+        }, execution_time);
+}
+
 // 全structテストを実行
 inline void run_all_struct_tests() {
     std::cout << "[integration] ========================================" << std::endl;
@@ -573,6 +588,7 @@ inline void run_all_struct_tests() {
         test_comprehensive_nested_literal();
         test_mixed_type_members();
         test_same_type_multiple_members();
+        test_nested_member_assignment(); // ネストメンバ直接代入テスト
         // test_comprehensive(); // 複雑な機能
         
         std::cout << "[integration] ========================================" << std::endl;

@@ -1440,6 +1440,49 @@ void StatementExecutor::execute_member_assignment(const ASTNode* node) {
         
         debug_msg(DebugMsgId::INTERPRETER_STRUCT_MEMBER_FOUND, 
                   "struct_variable", obj_name.c_str());
+    } else if (member_access->left && member_access->left->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
+        // ネストメンバアクセス: obj.mid.data.value = 100
+        // member_accessの左側のメンバアクセスチェーンを評価して、最後の構造体変数を取得
+        debug_print("DEBUG: Nested member access assignment - member=%s\n", member_access->name.c_str());
+        
+        // ネストメンバアクセスを評価して対象の構造体変数を取得
+        Variable* target_struct = evaluate_nested_member_access(member_access->left.get());
+        
+        if (!target_struct) {
+            throw std::runtime_error("Cannot resolve nested member access");
+        }
+        
+        // 左側のメンバアクセスのメンバ名を取得
+        std::string parent_member = member_access->left->name;
+        debug_print("DEBUG: Parent member: %s\n", parent_member.c_str());
+        
+        // parent_memberが構造体メンバかどうか確認
+        auto parent_it = target_struct->struct_members.find(parent_member);
+        if (parent_it == target_struct->struct_members.end()) {
+            throw std::runtime_error("Parent member not found: " + parent_member);
+        }
+        
+        Variable& parent_member_var = parent_it->second;
+        if (parent_member_var.type != TYPE_STRUCT) {
+            throw std::runtime_error("Parent member is not a struct: " + parent_member);
+        }
+        
+        // 最終的なメンバ名を取得
+        std::string member_name = member_access->name;
+        debug_print("DEBUG: Final member: %s\n", member_name.c_str());
+        
+        // 右辺を評価
+        if (node->right->node_type == ASTNodeType::AST_STRING_LITERAL) {
+            parent_member_var.struct_members[member_name].str_value = node->right->str_value;
+            parent_member_var.struct_members[member_name].type = TYPE_STRING;
+        } else {
+            TypedValue typed_value = interpreter_.evaluate_typed(node->right.get());
+            parent_member_var.struct_members[member_name].value = typed_value.as_numeric();
+            parent_member_var.struct_members[member_name].type = typed_value.type.type_info;
+        }
+        parent_member_var.struct_members[member_name].is_assigned = true;
+        
+        return;
     } else if (member_access->left && member_access->left->node_type == ASTNodeType::AST_ARRAY_REF) {
         // 構造体配列要素: array[index].member
         std::string array_name = member_access->left->left->name;
@@ -2033,4 +2076,53 @@ void StatementExecutor::execute_ternary_variable_initialization(const ASTNode* v
             }
         }
     }
+}
+
+Variable* StatementExecutor::evaluate_nested_member_access(const ASTNode* member_access_node) {
+    // ネストメンバアクセス (obj.mid.data) を再帰的に評価して、最終的なメンバを含む親構造体を返す
+    if (!member_access_node || member_access_node->node_type != ASTNodeType::AST_MEMBER_ACCESS) {
+        return nullptr;
+    }
+    
+    // 左側を取得
+    if (!member_access_node->left) {
+        return nullptr;
+    }
+    
+    Variable* parent_struct = nullptr;
+    
+    if (member_access_node->left->node_type == ASTNodeType::AST_VARIABLE) {
+        // 基底オブジェクト: obj
+        std::string obj_name = member_access_node->left->name;
+        parent_struct = interpreter_.find_variable(obj_name);
+        
+        if (!parent_struct || parent_struct->type != TYPE_STRUCT) {
+            throw std::runtime_error("Base object is not a struct: " + obj_name);
+        }
+    } else if (member_access_node->left->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
+        // ネストメンバアクセス: obj.mid (さらに再帰)
+        // 左側のメンバアクセスを評価して、その親構造体を取得
+        Variable* intermediate_struct = evaluate_nested_member_access(member_access_node->left.get());
+        if (!intermediate_struct) {
+            return nullptr;
+        }
+        
+        // 左側のメンバ名を取得
+        std::string intermediate_member = member_access_node->left->name;
+        
+        // 親構造体から中間メンバを取得
+        auto it = intermediate_struct->struct_members.find(intermediate_member);
+        if (it == intermediate_struct->struct_members.end()) {
+            throw std::runtime_error("Intermediate member not found: " + intermediate_member);
+        }
+        
+        parent_struct = &it->second;
+        if (parent_struct->type != TYPE_STRUCT) {
+            throw std::runtime_error("Intermediate member is not a struct: " + intermediate_member);
+        }
+    } else {
+        throw std::runtime_error("Unsupported nested member access left node type");
+    }
+    
+    return parent_struct;
 }

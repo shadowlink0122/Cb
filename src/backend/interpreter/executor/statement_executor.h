@@ -34,4 +34,7 @@ private:
     void execute_arrow_assignment(const ASTNode* node);
     void execute_member_array_literal_assignment(const ASTNode* node);
     void execute_self_member_assignment(const std::string& member_name, const ASTNode* value_node);
+    
+    // ヘルパーメソッド
+    Variable* evaluate_nested_member_access(const ASTNode* member_access_node);
 };

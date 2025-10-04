@@ -1083,10 +1083,34 @@ ASTNode* RecursiveParser::parseStatement() {
                 return nullptr;
             }
             
-            // ネストしたメンバーアクセスの検出 (obj.member.submember = value)
-            if (check(TokenType::TOK_DOT)) {
-                error("Nested member access assignment (obj.member.submember = value) is not supported yet. Consider using pointers in future implementation.");
-                return nullptr;
+            // 最初のメンバアクセスノードを作成
+            ASTNode* member_access = new ASTNode(ASTNodeType::AST_MEMBER_ACCESS);
+            member_access->name = member_name;
+            
+            ASTNode* obj_var = new ASTNode(ASTNodeType::AST_VARIABLE);
+            obj_var->name = name;
+            member_access->left = std::unique_ptr<ASTNode>(obj_var);
+            
+            // ネストしたメンバーアクセスの処理 (obj.member.submember.x = value)
+            while (check(TokenType::TOK_DOT)) {
+                advance(); // consume '.'
+                
+                std::string nested_member;
+                if (check(TokenType::TOK_IDENTIFIER)) {
+                    nested_member = advance().value;
+                } else if (check(TokenType::TOK_PRINT) || check(TokenType::TOK_PRINTLN) || check(TokenType::TOK_PRINTF)) {
+                    nested_member = advance().value;
+                } else {
+                    error("Expected member name after '.'");
+                    delete member_access;
+                    return nullptr;
+                }
+                
+                // 新しいメンバアクセスノードを作成し、前のノードを左側に配置
+                ASTNode* nested_access = new ASTNode(ASTNodeType::AST_MEMBER_ACCESS);
+                nested_access->name = nested_member;
+                nested_access->left = std::unique_ptr<ASTNode>(member_access);
+                member_access = nested_access;
             }
             
             // メンバアクセス後の配列アクセスをチェック（多次元対応）
@@ -1102,6 +1126,7 @@ ASTNode* RecursiveParser::parseStatement() {
                     
                     if (!check(TokenType::TOK_RBRACKET)) {
                         error("Expected ']' after array index");
+                        delete member_access;
                         return nullptr;
                     }
                     advance(); // consume ']'
@@ -1115,11 +1140,10 @@ ASTNode* RecursiveParser::parseStatement() {
                     
                     // メンバの配列アクセスを表す特別なノードを作成
                     ASTNode* member_array_access = new ASTNode(ASTNodeType::AST_MEMBER_ARRAY_ACCESS);
-                    member_array_access->name = member_name;
+                    member_array_access->name = member_access->name;
                     
-                    ASTNode* obj_var = new ASTNode(ASTNodeType::AST_VARIABLE);
-                    obj_var->name = name;
-                    member_array_access->left = std::unique_ptr<ASTNode>(obj_var);
+                    // ネストメンバアクセスの場合、member_accessを左側に設定
+                    member_array_access->left = std::unique_ptr<ASTNode>(member_access);
                     
                     // 多次元インデックスを格納
                     if (indices.size() == 1) {
@@ -1141,6 +1165,7 @@ ASTNode* RecursiveParser::parseStatement() {
                     return assignment;
                 } else {
                     error("Expected '=' after member array access");
+                    delete member_access;
                     return nullptr;
                 }
             }
@@ -1156,14 +1181,6 @@ ASTNode* RecursiveParser::parseStatement() {
                 advance(); // consume assignment operator
                 
                 ASTNode* value_expr = parseExpression();
-                
-                // メンバアクセスノードを作成
-                ASTNode* member_access = new ASTNode(ASTNodeType::AST_MEMBER_ACCESS);
-                member_access->name = member_name;
-                
-                ASTNode* obj_var = new ASTNode(ASTNodeType::AST_VARIABLE);
-                obj_var->name = name;
-                member_access->left = std::unique_ptr<ASTNode>(obj_var);
                 
                 ASTNode* assignment;
                 if (op_type != TokenType::TOK_ASSIGN) {
@@ -1182,12 +1199,8 @@ ASTNode* RecursiveParser::parseStatement() {
                         case TokenType::TOK_RSHIFT_ASSIGN: binary_op = ">>"; break;
                     }
                     
-                    // 右辺を obj.member op value の形にする
-                    ASTNode* left_copy = new ASTNode(ASTNodeType::AST_MEMBER_ACCESS);
-                    left_copy->name = member_name;
-                    ASTNode* obj_var_copy = new ASTNode(ASTNodeType::AST_VARIABLE);
-                    obj_var_copy->name = name;
-                    left_copy->left = std::unique_ptr<ASTNode>(obj_var_copy);
+                    // 左辺のコピーを作成（ネストメンバアクセスの深いコピーが必要）
+                    ASTNode* left_copy = cloneAstNode(member_access);
                     
                     ASTNode* binary_op_node = new ASTNode(ASTNodeType::AST_BINARY_OP);
                     binary_op_node->op = binary_op;
@@ -1212,12 +1225,17 @@ ASTNode* RecursiveParser::parseStatement() {
                 
                 // メソッド呼び出しノードを作成
                 ASTNode* method_call = new ASTNode(ASTNodeType::AST_FUNC_CALL);
-                method_call->name = member_name;
+                method_call->name = member_access->name;
                 
-                // レシーバーを設定
-                ASTNode* obj_var = new ASTNode(ASTNodeType::AST_VARIABLE);
-                obj_var->name = name;
-                method_call->left = std::unique_ptr<ASTNode>(obj_var);
+                // レシーバーを設定（ネストメンバアクセスの場合は member_access の left を使用）
+                if (member_access->left) {
+                    method_call->left = std::move(member_access->left);
+                } else {
+                    ASTNode* obj_var = new ASTNode(ASTNodeType::AST_VARIABLE);
+                    obj_var->name = name;
+                    method_call->left = std::unique_ptr<ASTNode>(obj_var);
+                }
+                delete member_access;
                 
                 // 引数リストをパース
                 while (!check(TokenType::TOK_RPAREN) && !isAtEnd()) {
@@ -1246,19 +1264,13 @@ ASTNode* RecursiveParser::parseStatement() {
                 ASTNode* incdec = new ASTNode(ASTNodeType::AST_POST_INCDEC);
                 incdec->op = (op_type == TokenType::TOK_INCR) ? "++" : "--";
                 
-                // メンバアクセスノードを作成
-                ASTNode* member_access_node = new ASTNode(ASTNodeType::AST_MEMBER_ACCESS);
-                member_access_node->name = member_name;
-                ASTNode* obj_var = new ASTNode(ASTNodeType::AST_VARIABLE);
-                obj_var->name = name;
-                member_access_node->left = std::unique_ptr<ASTNode>(obj_var);
-                
-                // メンバアクセスを子として設定
-                incdec->left = std::unique_ptr<ASTNode>(member_access_node);
+                // 既に作成されたネストメンバアクセスを子として設定
+                incdec->left = std::unique_ptr<ASTNode>(member_access);
                 
                 return incdec;
             } else {
                 error("Expected '=', '(', '++', or '--' after member access");
+                delete member_access;
                 return nullptr;
             }
         } else if (check(TokenType::TOK_ASSIGN) || check(TokenType::TOK_PLUS_ASSIGN) || 
