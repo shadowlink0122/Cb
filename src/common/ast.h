@@ -386,6 +386,7 @@ struct StructMember {
     bool is_private = false;                   // private指定かどうか
     bool is_reference = false;                 // 参照メンバかどうか
     bool is_unsigned = false; // unsigned修飾子が付与されているか
+    bool is_const = false; // const指定かどうか（Rustのnot mutと同等）
 
     StructMember() : type(TYPE_UNKNOWN) {}
     StructMember(const std::string &n, TypeInfo t,
@@ -407,7 +408,7 @@ struct StructDefinition {
                     const std::string &pointer_base_type_name = "",
                     TypeInfo pointer_base_type = TYPE_UNKNOWN,
                     bool is_private = false, bool is_reference = false,
-                    bool is_unsigned = false) {
+                    bool is_unsigned = false, bool is_const = false) {
         StructMember member(member_name, type, type_alias);
         member.is_pointer = is_pointer;
         member.pointer_depth = pointer_depth;
@@ -416,6 +417,7 @@ struct StructDefinition {
         member.is_private = is_private;
         member.is_reference = is_reference;
         member.is_unsigned = is_unsigned;
+        member.is_const = is_const;
         members.emplace_back(std::move(member));
     }
 

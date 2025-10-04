@@ -1,0 +1,31 @@
+// ネストしたconst構造体のテスト
+
+struct Inner {
+    int value;
+    double score;
+};
+
+struct Outer {
+    Inner inner;
+    string name;
+};
+
+int main() {
+    println("=== Nested Const Struct Test ===");
+    
+    // Test 1: const構造体のネストしたメンバー
+    println("\nTest 1: const struct with nested member");
+    Inner inner_data = {value: 42, score: 95.5};
+    const Outer o = {inner: inner_data, name: "test"};
+    
+    println("o.inner.value = %d", o.inner.value);
+    println("o.inner.score = %f", o.inner.score);
+    println("o.name = %s", o.name);
+    
+    // Test 2: ネストしたメンバーの変更を試みる（エラーになるべき）
+    println("\nTest 2: Attempting to modify nested const member...");
+    o.inner.value = 100;  // これはエラーになるべき
+    
+    println("ERROR: This should not be reached!");
+    return 1;
+}

@@ -1626,6 +1626,10 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                             member_var.is_reference = member.is_reference;
                             member_var.is_unsigned = member.is_unsigned;
                             member_var.is_private_member = member.is_private;
+                            
+                            // 構造体配列自体がconstの場合、すべてのメンバーをconstにする
+                            // また、メンバー定義でconstが指定されている場合もconstにする
+                            member_var.is_const = node->is_const || member.is_const;
 
                             // デフォルト値を設定
                             if (member_var.type == TYPE_STRING) {
@@ -1655,6 +1659,10 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                         member_var.is_reference = member.is_reference;
                         member_var.is_unsigned = member.is_unsigned;
                         member_var.is_private_member = member.is_private;
+                        
+                        // 構造体変数自体がconstの場合、すべてのメンバーをconstにする
+                        // また、メンバー定義でconstが指定されている場合もconstにする
+                        member_var.is_const = node->is_const || member.is_const;
 
                         // 配列メンバーの場合
                         if (member.array_info.is_array()) {
@@ -1768,6 +1776,8 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                                 element_var.value = 0;
                                 element_var.str_value = "";
                                 element_var.is_assigned = false;
+                                // 構造体変数自体がconstの場合、または配列メンバーがconstの場合
+                                element_var.is_const = node->is_const || member.is_const;
                                 this->current_scope().variables[element_name] =
                                     element_var;
 

@@ -299,6 +299,7 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
                         array_member.is_private = member_node->is_private_member;
                         array_member.is_reference = member_node->is_reference;
                         array_member.is_unsigned = member_node->is_unsigned;
+                        array_member.is_const = member_node->is_const;
                         struct_def.members.push_back(array_member);
 
                         debug_msg(DebugMsgId::INTERPRETER_STRUCT_ARRAY_MEMBER_ADDED, 
@@ -321,7 +322,8 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
                                               member_node->pointer_base_type,
                                               member_node->is_private_member,
                                               member_node->is_reference,
-                                              member_node->is_unsigned);
+                                              member_node->is_unsigned,
+                                              member_node->is_const);
                         debug_msg(DebugMsgId::INTERPRETER_STRUCT_MEMBER_ADDED,
                                  member_node->name.c_str(),
                                  (int)member_node->type_info);
@@ -2776,6 +2778,7 @@ void Interpreter::create_struct_variable(const std::string &var_name,
                 multidim_array_member.is_multidimensional = true;
                 multidim_array_member.is_private_member = member.is_private;
                 multidim_array_member.is_unsigned = member.is_unsigned;
+                multidim_array_member.is_const = member.is_const;
                 
                 if (debug_mode) {
                     debug_print("Set is_multidimensional = true for %s\n", member.name.c_str());
@@ -2890,6 +2893,7 @@ void Interpreter::create_struct_variable(const std::string &var_name,
             array_member.is_assigned = false;
             array_member.is_private_member = member.is_private;
             array_member.is_unsigned = member.is_unsigned;
+            array_member.is_const = member.is_const;
 
             if (debug_mode) {
                 debug_print("Creating array member: %s with size %d\n",
@@ -2976,6 +2980,7 @@ void Interpreter::create_struct_variable(const std::string &var_name,
             member_var.is_assigned = false;
             member_var.is_private_member = member.is_private;
             member_var.is_unsigned = member.is_unsigned;
+            member_var.is_const = member.is_const;
 
             struct_var.struct_members[member.name] = member_var;
         }
@@ -3005,6 +3010,11 @@ Variable *Interpreter::get_struct_member(const std::string &var_name,
 
     auto it = var->struct_members.find(member_name);
     if (it != var->struct_members.end()) {
+        // 親変数がconstの場合、メンバーもconstにする
+        if (var->is_const && !it->second.is_const) {
+            it->second.is_const = true;
+        }
+        
         debug_msg(DebugMsgId::EXPR_EVAL_MULTIDIM_ACCESS, 
                   it->second.is_multidimensional ? 1 : 0,
                   it->second.array_dimensions.size(),
@@ -3039,6 +3049,9 @@ void Interpreter::create_struct_member_variables_recursively(const std::string &
         member_var.type = member_def.type;
         member_var.is_unsigned = member_def.is_unsigned;
         member_var.is_assigned = false;
+        
+        // 親変数がconstの場合、またはメンバー定義でconstの場合、メンバーもconstにする
+        member_var.is_const = parent_var.is_const || member_def.is_const;
         
         // parent_varのstruct_membersに追加
         parent_var.struct_members[member_def.name] = member_var;
@@ -3223,6 +3236,29 @@ void Interpreter::assign_struct_literal(const std::string &var_name,
         throw std::runtime_error("Struct definition not found: " +
                                  var->struct_type_name);
     }
+    
+    // 親変数がconstの場合、すべてのstruct_membersと個別変数をconstにする（再帰的）
+    if (var->is_const) {
+        std::function<void(const std::string&, Variable&)> make_all_members_const;
+        make_all_members_const = [&](const std::string& base_path, Variable& v) {
+            for (auto& member_pair : v.struct_members) {
+                member_pair.second.is_const = true;
+                
+                // 個別変数も更新
+                std::string full_path = base_path + "." + member_pair.first;
+                Variable* individual_var = find_variable(full_path);
+                if (individual_var) {
+                    individual_var->is_const = true;
+                }
+                
+                // 再帰的にネストした構造体メンバー
+                if (member_pair.second.is_struct) {
+                    make_all_members_const(full_path, member_pair.second);
+                }
+            }
+        };
+        make_all_members_const(var_name, *var);
+    }
 
     // 名前付き初期化かどうかをチェック
     bool is_named_init = false;
@@ -3258,6 +3294,18 @@ void Interpreter::assign_struct_literal(const std::string &var_name,
 
             // struct_membersの実際の要素への参照を取得
             Variable &struct_member_var = member_it->second;
+            
+            // 構造体定義からメンバの is_const フラグを取得して設定
+            // また、親変数がconstの場合もメンバーをconstにする
+            const StructMember* member_def = struct_def->find_member(member_name);
+            if (member_def) {
+                struct_member_var.is_const = var->is_const || member_def->is_const;
+            }
+            
+            // 個別変数にもis_constを設定
+            if (member_var) {
+                member_var->is_const = struct_member_var.is_const;
+            }
 
             // メンバ値を評価して代入
             if (member_init->right->node_type ==
@@ -3405,6 +3453,12 @@ void Interpreter::assign_struct_literal(const std::string &var_name,
                     throw std::runtime_error("Struct member variable not found: " + full_member_name);
                 }
                 
+                // 親変数がconstの場合、このメンバーもconstにする
+                if (var->is_const) {
+                    struct_member_var.is_const = true;
+                    member_var->is_const = true;
+                }
+                
                 // 再帰的に構造体リテラルを代入
                 assign_struct_literal(full_member_name, member_init->right.get());
                 
@@ -3427,15 +3481,8 @@ void Interpreter::assign_struct_literal(const std::string &var_name,
                     }
                     struct_member_var.is_assigned = true;
                     
-                    // **重要**: var->struct_membersを直接更新
-                    if (var->struct_members[member_name].type == TYPE_FLOAT) {
-                        var->struct_members[member_name].float_value = static_cast<float>(float_value);
-                    } else if (var->struct_members[member_name].type == TYPE_DOUBLE) {
-                        var->struct_members[member_name].double_value = float_value;
-                    } else if (var->struct_members[member_name].type == TYPE_QUAD) {
-                        var->struct_members[member_name].quad_value = static_cast<long double>(float_value);
-                    }
-                    var->struct_members[member_name].is_assigned = true;
+                    // 注意: operator[]は存在しない要素を作ってしまうので使わない
+                    // struct_member_varはすでにリファレンスなので更新済み
 
                     // 直接アクセス変数も更新
                     if (member_var) {
@@ -3458,9 +3505,8 @@ void Interpreter::assign_struct_literal(const std::string &var_name,
                     struct_member_var.value = value;
                     struct_member_var.is_assigned = true;
                     
-                    // **重要**: var->struct_membersを直接更新
-                    var->struct_members[member_name].value = value;
-                    var->struct_members[member_name].is_assigned = true;
+                    // 注意: operator[]は存在しない要素を作ってしまうので使わない
+                    // struct_member_varはすでにリファレンスなので更新済み
 
                     // 直接アクセス変数も更新
                     if (member_var) {
@@ -3605,6 +3651,31 @@ void Interpreter::assign_struct_member(const std::string &var_name,
                                        const std::string &member_name,
                                        int64_t value) {
     std::string target_full_name = var_name + "." + member_name;
+    
+    // ネストしたメンバーの場合、最上位の親変数のconstもチェック
+    std::string root_var_name = var_name;
+    size_t dot_pos = var_name.find('.');
+    if (dot_pos != std::string::npos) {
+        root_var_name = var_name.substr(0, dot_pos);
+        if (debug_mode) {
+            debug_print("INT: Nested member assignment: var_name=%s, root_var_name=%s\n",
+                       var_name.c_str(), root_var_name.c_str());
+        }
+    }
+    
+    // 最上位の親変数がconstかチェック
+    if (Variable *root_var = find_variable(root_var_name)) {
+        if (debug_mode) {
+            debug_print("INT: Root variable %s found, is_const=%d\n",
+                       root_var_name.c_str(), root_var->is_const ? 1 : 0);
+        }
+        if (root_var->is_const) {
+            error_msg(DebugMsgId::CONST_REASSIGN_ERROR, target_full_name.c_str());
+            throw std::runtime_error("Cannot assign to member of const struct: " +
+                                     target_full_name);
+        }
+    }
+    
     if (Variable *struct_var = find_variable(var_name)) {
         if (debug_mode) {
             debug_print("assign_struct_member (int): var=%s, member=%s, value=%lld, struct_is_const=%d\n",
@@ -3692,6 +3763,23 @@ void Interpreter::assign_struct_member(const std::string &var_name,
     }
     
     std::string target_full_name = var_name + "." + member_name;
+    
+    // ネストしたメンバーの場合、最上位の親変数のconstもチェック
+    std::string root_var_name = var_name;
+    size_t dot_pos = var_name.find('.');
+    if (dot_pos != std::string::npos) {
+        root_var_name = var_name.substr(0, dot_pos);
+    }
+    
+    // 最上位の親変数がconstかチェック
+    if (Variable *root_var = find_variable(root_var_name)) {
+        if (root_var->is_const) {
+            error_msg(DebugMsgId::CONST_REASSIGN_ERROR, target_full_name.c_str());
+            throw std::runtime_error("Cannot assign to member of const struct: " +
+                                     target_full_name);
+        }
+    }
+    
     if (Variable *struct_var = find_variable(var_name)) {
         if (struct_var->is_const) {
             error_msg(DebugMsgId::CONST_REASSIGN_ERROR, target_full_name.c_str());
@@ -3764,6 +3852,23 @@ void Interpreter::assign_struct_member(const std::string &var_name,
     }
     
     std::string target_full_name = var_name + "." + member_name;
+    
+    // ネストしたメンバーの場合、最上位の親変数のconstもチェック
+    std::string root_var_name = var_name;
+    size_t dot_pos = var_name.find('.');
+    if (dot_pos != std::string::npos) {
+        root_var_name = var_name.substr(0, dot_pos);
+    }
+    
+    // 最上位の親変数がconstかチェック
+    if (Variable *root_var = find_variable(root_var_name)) {
+        if (root_var->is_const) {
+            error_msg(DebugMsgId::CONST_REASSIGN_ERROR, target_full_name.c_str());
+            throw std::runtime_error("Cannot assign to member of const struct: " +
+                                     target_full_name);
+        }
+    }
+    
     if (Variable *struct_var = find_variable(var_name)) {
         if (struct_var->is_const) {
             error_msg(DebugMsgId::CONST_REASSIGN_ERROR, target_full_name.c_str());
@@ -4629,6 +4734,7 @@ void Interpreter::sync_struct_members_from_direct_access(const std::string &var_
                 member_value.is_private_member = member.is_private;
                 member_value.is_reference = member.is_reference;
                 member_value.is_unsigned = member.is_unsigned;
+                member_value.is_const = member.is_const;
 
                 // unionメンバーの場合、型名とcurrent_typeを確実に保持
                 if (direct_is_union || member_is_union) {

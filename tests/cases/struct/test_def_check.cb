@@ -1,0 +1,10 @@
+//構造体定義確認テスト
+
+struct Test {
+    const int x;
+};
+
+int main() {
+    println("Test");
+    return 0;
+}

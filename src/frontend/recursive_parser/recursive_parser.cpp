@@ -3791,6 +3791,13 @@ ASTNode* RecursiveParser::parseStructDeclaration() {
             advance();
         }
 
+        // const修飾子のチェック
+        bool is_const_member = false;
+        if (check(TokenType::TOK_CONST)) {
+            is_const_member = true;
+            advance();
+        }
+
         // メンバの型を解析
         std::string member_type = parseType();
         
@@ -3823,7 +3830,8 @@ ASTNode* RecursiveParser::parseStructDeclaration() {
                                   var_parsed.base_type_info,
                                   is_private_member,
                                   var_parsed.is_reference,
-                                  var_parsed.is_unsigned);
+                                  var_parsed.is_unsigned,
+                                  is_const_member);
 
             if (var_parsed.is_array) {
                 StructMember &added = struct_def.members.back();
@@ -3873,6 +3881,7 @@ ASTNode* RecursiveParser::parseStructDeclaration() {
         member_node->is_reference = member.is_reference;
         member_node->is_unsigned = member.is_unsigned;
         member_node->is_private_member = member.is_private;
+        member_node->is_const = member.is_const;
         member_node->array_type_info = member.array_info;  // 配列情報をコピー
         if (member.array_info.is_array()) {
             member_node->is_array = true;
@@ -3896,6 +3905,13 @@ ASTNode* RecursiveParser::parseStructTypedefDeclaration() {
         bool is_private_member = false;
         if (check(TokenType::TOK_PRIVATE)) {
             is_private_member = true;
+            advance();
+        }
+
+        // const修飾子のチェック
+        bool is_const_member = false;
+        if (check(TokenType::TOK_CONST)) {
+            is_const_member = true;
             advance();
         }
 
@@ -3928,7 +3944,8 @@ ASTNode* RecursiveParser::parseStructTypedefDeclaration() {
                                   var_parsed.base_type_info,
                                   is_private_member,
                                   var_parsed.is_reference,
-                                  var_parsed.is_unsigned);
+                                  var_parsed.is_unsigned,
+                                  is_const_member);
 
             if (var_parsed.is_array) {
                 StructMember &added = struct_def.members.back();

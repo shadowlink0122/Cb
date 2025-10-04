@@ -146,30 +146,15 @@ void StatementExecutor::execute_assignment(const ASTNode *node) {
             throw std::runtime_error("Assignment left side is null and name is empty");
         }
         
-        std::cerr << "DEBUG: node->left->node_type = " << static_cast<int>(node->left->node_type) << std::endl;
-        std::cerr.flush();
-        
         if (node->left->node_type == ASTNodeType::AST_VARIABLE) {
             // 変数への構造体リテラル代入
-            std::cerr << "DEBUG: Struct literal assignment to variable: " << node->left->name << std::endl;
-            std::cerr.flush();
-            
-            // 配列変数に対する構造体リテラル代入はエラー
-            std::cerr << "DEBUG: Getting variable..." << std::endl;
-            std::cerr.flush();
             Variable* var = interpreter_.get_variable(node->left->name);
-            std::cerr << "DEBUG: Variable got: " << (var ? "yes" : "no") << std::endl;
-            std::cerr.flush();
             
             if (var && var->is_array) {
                 throw std::runtime_error("Array assignment must use [] syntax, not {}");
             }
             
-            std::cerr << "DEBUG: Calling assign_struct_literal..." << std::endl;
-            std::cerr.flush();
             interpreter_.assign_struct_literal(node->left->name, node->right.get());
-            std::cerr << "DEBUG: assign_struct_literal completed" << std::endl;
-            std::cerr.flush();
             return;
         } else if (node->left->node_type == ASTNodeType::AST_ARRAY_REF) {
             // 配列要素への構造体リテラル代入 (team[0] = {})
@@ -1445,6 +1430,24 @@ void StatementExecutor::execute_member_assignment(const ASTNode* node) {
         // member_accessの左側のメンバアクセスチェーンを評価して、最後の構造体変数を取得
         debug_print("DEBUG: Nested member access assignment - member=%s\n", member_access->name.c_str());
         
+        // ルート変数名を取得
+        const ASTNode* root_node = member_access->left.get();
+        while (root_node && root_node->node_type == ASTNodeType::AST_MEMBER_ACCESS && root_node->left) {
+            root_node = root_node->left.get();
+        }
+        std::string root_var_name;
+        if (root_node && (root_node->node_type == ASTNodeType::AST_VARIABLE || root_node->node_type == ASTNodeType::AST_IDENTIFIER)) {
+            root_var_name = root_node->name;
+        }
+        
+        // ルート変数がconstかチェック
+        if (!root_var_name.empty()) {
+            Variable* root_var = interpreter_.find_variable(root_var_name);
+            if (root_var && root_var->is_const) {
+                throw std::runtime_error("Cannot assign to member of const struct: " + root_var_name);
+            }
+        }
+        
         // ネストメンバアクセスを評価して対象の構造体変数を取得
         Variable* target_struct = evaluate_nested_member_access(member_access->left.get());
         
@@ -1470,6 +1473,19 @@ void StatementExecutor::execute_member_assignment(const ASTNode* node) {
         // 最終的なメンバ名を取得
         std::string member_name = member_access->name;
         debug_print("DEBUG: Final member: %s\n", member_name.c_str());
+        
+        // constメンバへの代入チェック
+        auto final_member_it = parent_member_var.struct_members.find(member_name);
+        if (final_member_it != parent_member_var.struct_members.end()) {
+            debug_print("DEBUG: Nested member const check: %s.%s - is_const=%d, is_assigned=%d\n",
+                       parent_member.c_str(), member_name.c_str(),
+                       final_member_it->second.is_const ? 1 : 0,
+                       final_member_it->second.is_assigned ? 1 : 0);
+            if (final_member_it->second.is_const && final_member_it->second.is_assigned) {
+                throw std::runtime_error("Cannot assign to const member '" + member_name + 
+                                       "' after initialization");
+            }
+        }
         
         // 右辺を評価
         if (node->right->node_type == ASTNodeType::AST_STRING_LITERAL) {
@@ -1524,6 +1540,31 @@ void StatementExecutor::execute_member_assignment(const ASTNode* node) {
     
     // メンバ名を取得
     std::string member_name = member_access->name;
+    
+    // constメンバへの代入チェック
+    Variable* target_var = interpreter_.find_variable(obj_name);
+    if (target_var && target_var->is_struct) {
+        auto member_it = target_var->struct_members.find(member_name);
+        if (member_it != target_var->struct_members.end()) {
+            if (member_it->second.is_const && member_it->second.is_assigned) {
+                throw std::runtime_error("Cannot assign to const member '" + member_name + 
+                                       "' of struct '" + obj_name + "' after initialization");
+            }
+        }
+    }
+    
+    // ネストしたメンバーの場合、最上位の親変数のconstもチェック
+    std::string root_obj_name = obj_name;
+    size_t dot_pos = obj_name.find('.');
+    if (dot_pos != std::string::npos) {
+        root_obj_name = obj_name.substr(0, dot_pos);
+        if (Variable *root_var = interpreter_.find_variable(root_obj_name)) {
+            if (root_var->is_const) {
+                throw std::runtime_error("Cannot assign to member of const struct: " +
+                                       obj_name + "." + member_name);
+            }
+        }
+    }
     
     // struct変数のメンバに直接代入
     if (node->right->node_type == ASTNodeType::AST_STRING_LITERAL) {
