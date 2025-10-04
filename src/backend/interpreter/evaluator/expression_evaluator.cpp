@@ -45,6 +45,9 @@ ExpressionEvaluator::MethodReceiverResolution ExpressionEvaluator::resolve_metho
     case ASTNodeType::AST_MEMBER_ACCESS:
         // メンバアクセスは別ヘルパーで解決
         return resolve_member_receiver(receiver_node);
+    case ASTNodeType::AST_ARROW_ACCESS:
+        // アロー演算子は (*ptr).member と等価
+        return resolve_arrow_receiver(receiver_node);
     case ASTNodeType::AST_ARRAY_REF:
         return resolve_array_receiver(receiver_node);
     case ASTNodeType::AST_FUNC_CALL:
@@ -2594,13 +2597,8 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
         std::string var_name;
         std::string member_name = node->name;
 
-        // ネストしたメンバーアクセスの場合
+        // ネストしたメンバーアクセスの場合（再帰的に処理）
         if (!node->member_chain.empty() && node->member_chain.size() > 1) {
-            // 現在は基本機能に制限して、最初の2レベルのみサポート
-            if (node->member_chain.size() > 2) {
-                throw std::runtime_error("Deep nesting (>2 levels) not yet supported");
-            }
-            
             // ベース変数を取得
             Variable base_var;
             if (node->left->node_type == ASTNodeType::AST_VARIABLE) {
@@ -2609,32 +2607,134 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                     throw std::runtime_error("Base variable for nested access is not a struct: " + node->left->name);
                 }
                 base_var = *var;
+            } else if (node->left->node_type == ASTNodeType::AST_IDENTIFIER && node->left->name == "self") {
+                // selfの場合
+                Variable* var = interpreter_.find_variable("self");
+                if (!var || (var->type != TYPE_STRUCT && var->type != TYPE_INTERFACE)) {
+                    throw std::runtime_error("self is not a struct or interface");
+                }
+                base_var = *var;
             } else {
                 throw std::runtime_error("Complex base types for nested access not yet supported");
             }
             
-            // 段階的アクセス: base.member1.member2
+            // 再帰的にメンバーチェーンをたどる
             try {
-                Variable intermediate_var = get_struct_member_from_variable(base_var, node->member_chain[0]);
+                Variable current_var = base_var;
                 
-                if (intermediate_var.type != TYPE_STRUCT) {
-                    throw std::runtime_error("Intermediate member is not a struct: " + node->member_chain[0]);
+                for (size_t i = 0; i < node->member_chain.size(); ++i) {
+                    const std::string& member_name_in_chain = node->member_chain[i];
+                    
+                    // 現在の変数から次のメンバーを取得
+                    current_var = get_struct_member_from_variable(current_var, member_name_in_chain);
+                    
+                    // 最後のメンバーでない場合、次のメンバーにアクセスするために構造体である必要がある
+                    if (i < node->member_chain.size() - 1) {
+                        if (current_var.type != TYPE_STRUCT && current_var.type != TYPE_INTERFACE) {
+                            throw std::runtime_error("Intermediate member is not a struct: " + member_name_in_chain);
+                        }
+                    }
                 }
                 
-                Variable final_var = get_struct_member_from_variable(intermediate_var, node->member_chain[1]);
-                
-                if (final_var.type == TYPE_STRING) {
-                    last_typed_result_ = TypedValue(final_var.str_value, InferredType(TYPE_STRING, "string"));
+                // 最終的な値を返す
+                if (current_var.type == TYPE_STRING) {
+                    last_typed_result_ = TypedValue(current_var.str_value, InferredType(TYPE_STRING, "string"));
                     return 0;
+                } else if (current_var.type == TYPE_POINTER) {
+                    return current_var.value;
+                } else if (current_var.type == TYPE_FLOAT || current_var.type == TYPE_DOUBLE || current_var.type == TYPE_QUAD) {
+                    // float/double/quadの場合はTypedValueに設定して返す
+                    InferredType float_type(current_var.type, "");
+                    if (current_var.type == TYPE_QUAD) {
+                        last_typed_result_ = TypedValue(current_var.quad_value, float_type);
+                    } else {
+                        last_typed_result_ = TypedValue(current_var.float_value, float_type);
+                    }
+                    return static_cast<int64_t>(current_var.float_value);
                 } else {
-                    return final_var.value;
+                    return current_var.value;
                 }
             } catch (const std::exception& e) {
                 throw std::runtime_error("Nested member access failed: " + std::string(e.what()));
             }
         }
         
-        if (node->left->node_type == ASTNodeType::AST_VARIABLE) {
+        // leftがAST_MEMBER_ACCESSの場合、まずleftを評価して構造体を取得
+        if (node->left->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
+            // ネストしたメンバーアクセス: (obj.inner).value
+            // leftを評価して中間の構造体を取得
+            Variable intermediate_struct;
+            
+            // leftのAST_MEMBER_ACCESSを評価
+            // この時点でlast_typed_result_に型情報が設定される
+            evaluate_typed_expression(node->left.get());
+            
+            // last_typed_result_から構造体変数を取得
+            if (last_typed_result_.type.type_info == TYPE_STRUCT) {
+                // last_typed_result_が構造体の場合、それを使用
+                // しかし、evaluate_typed_expressionは数値しか返さないため、
+                // 代わりにleftを完全に評価して構造体メンバーの変数パスを構築する必要がある
+                
+                // leftから構造体変数のパスを構築
+                std::string struct_path;
+                const ASTNode* current = node->left.get();
+                
+                // 再帰的にパスを構築
+                std::function<std::string(const ASTNode*)> build_path;
+                build_path = [&](const ASTNode* n) -> std::string {
+                    if (n->node_type == ASTNodeType::AST_VARIABLE) {
+                        return n->name;
+                    } else if (n->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
+                        std::string base = build_path(n->left.get());
+                        return base + "." + n->name;
+                    } else {
+                        throw std::runtime_error("Unsupported node type in nested member access");
+                    }
+                };
+                
+                struct_path = build_path(current);
+                std::cerr << "[DEBUG] Built struct_path: " << struct_path << std::endl;
+                
+                // このパスで変数を検索
+                Variable* intermediate_var = interpreter_.find_variable(struct_path);
+                if (!intermediate_var) {
+                    throw std::runtime_error("Intermediate struct not found: " + struct_path);
+                }
+                std::cerr << "[DEBUG] Found intermediate_var, type: " << intermediate_var->type << std::endl;
+                
+                if (intermediate_var->type != TYPE_STRUCT) {
+                    throw std::runtime_error("Intermediate value is not a struct: " + struct_path);
+                }
+                
+                intermediate_struct = *intermediate_var;
+                
+                // 最終メンバーを取得
+                Variable member_var = get_struct_member_from_variable(intermediate_struct, member_name);
+                
+                // 型情報を設定
+                if (member_var.type == TYPE_STRING) {
+                    last_typed_result_ = TypedValue(member_var.str_value, InferredType(TYPE_STRING, "string"));
+                    return 0;
+                } else if (member_var.type == TYPE_STRUCT) {
+                    last_typed_result_ = TypedValue(member_var.value, InferredType(TYPE_STRUCT, member_var.type_name));
+                    return member_var.value;
+                } else if (member_var.type == TYPE_FLOAT || member_var.type == TYPE_DOUBLE || member_var.type == TYPE_QUAD) {
+                    // float/double/quadの場合
+                    InferredType float_type(member_var.type, "");
+                    if (member_var.type == TYPE_QUAD) {
+                        last_typed_result_ = TypedValue(member_var.quad_value, float_type);
+                    } else {
+                        last_typed_result_ = TypedValue(member_var.float_value, float_type);
+                    }
+                    return static_cast<int64_t>(member_var.float_value);
+                } else {
+                    last_typed_result_ = TypedValue(member_var.value, InferredType(member_var.type, ""));
+                    return member_var.value;
+                }
+            } else {
+                throw std::runtime_error("Left side of nested member access did not evaluate to a struct");
+            }
+        } else if (node->left->node_type == ASTNodeType::AST_VARIABLE) {
             // 通常のstruct変数: obj.member
             var_name = node->left->name;
         } else if (node->left->node_type == ASTNodeType::AST_IDENTIFIER && node->left->name == "self") {
@@ -2684,6 +2784,14 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                         typed_result.is_numeric_result = false;
                         last_typed_result_ = typed_result;
                         return 0;
+                    } else if (member_var.type == TYPE_FLOAT || member_var.type == TYPE_DOUBLE || member_var.type == TYPE_QUAD) {
+                        InferredType float_type(member_var.type, "");
+                        if (member_var.type == TYPE_QUAD) {
+                            last_typed_result_ = TypedValue(member_var.quad_value, float_type);
+                        } else {
+                            last_typed_result_ = TypedValue(member_var.float_value, float_type);
+                        }
+                        return static_cast<int64_t>(member_var.float_value);
                     } else {
                         return member_var.value;
                     }
@@ -2721,6 +2829,14 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                             typed_result.is_numeric_result = false;
                             last_typed_result_ = typed_result;
                             return 0;
+                        } else if (member_var.type == TYPE_FLOAT || member_var.type == TYPE_DOUBLE || member_var.type == TYPE_QUAD) {
+                            InferredType float_type(member_var.type, "");
+                            if (member_var.type == TYPE_QUAD) {
+                                last_typed_result_ = TypedValue(member_var.quad_value, float_type);
+                            } else {
+                                last_typed_result_ = TypedValue(member_var.float_value, float_type);
+                            }
+                            return static_cast<int64_t>(member_var.float_value);
                         } else {
                             return member_var.value;
                         }
@@ -2753,6 +2869,14 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                 typed_result.is_numeric_result = false;
                 last_typed_result_ = typed_result;
                 return 0;
+            } else if (member_var.type == TYPE_FLOAT || member_var.type == TYPE_DOUBLE || member_var.type == TYPE_QUAD) {
+                InferredType float_type(member_var.type, "");
+                if (member_var.type == TYPE_QUAD) {
+                    last_typed_result_ = TypedValue(member_var.quad_value, float_type);
+                } else {
+                    last_typed_result_ = TypedValue(member_var.float_value, float_type);
+                }
+                return static_cast<int64_t>(member_var.float_value);
             } else {
                 return member_var.value;
             }
@@ -2779,8 +2903,68 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
         if (member_var->type == TYPE_STRING) {
             // 文字列メンバは別途処理が必要（呼び出し元で処理される）
             return 0; // 文字列の場合は0を返すが、実際の文字列は別途取得される
+        } else if (member_var->type == TYPE_FLOAT || member_var->type == TYPE_DOUBLE || member_var->type == TYPE_QUAD) {
+            // float/double/quadの場合は型情報を保持
+            InferredType float_type(member_var->type, "");
+            if (member_var->type == TYPE_QUAD) {
+                last_typed_result_ = TypedValue(member_var->quad_value, float_type);
+            } else {
+                last_typed_result_ = TypedValue(member_var->float_value, float_type);
+            }
+            return static_cast<int64_t>(member_var->float_value);
         }
         return member_var->value;
+    }
+    
+    case ASTNodeType::AST_ARROW_ACCESS: {
+        // アロー演算子アクセス: ptr->member は (*ptr).member と等価
+        // まず左側のポインタを評価
+        debug_msg(DebugMsgId::EXPR_EVAL_START, "Arrow operator member access");
+        
+        std::string member_name = node->name;
+        
+        // ポインタを評価して値を取得
+        int64_t ptr_value = evaluate_expression(node->left.get());
+        
+        if (ptr_value == 0) {
+            throw std::runtime_error("Null pointer dereference in arrow operator");
+        }
+        
+        // ポインタ値から構造体変数を取得
+        Variable* struct_var = reinterpret_cast<Variable*>(ptr_value);
+        
+        if (!struct_var) {
+            throw std::runtime_error("Invalid pointer in arrow operator");
+        }
+        
+        // 構造体型またはInterface型をチェック
+        if (struct_var->type != TYPE_STRUCT && struct_var->type != TYPE_INTERFACE) {
+            throw std::runtime_error("Arrow operator requires struct or interface pointer");
+        }
+        
+        // メンバーを取得
+        Variable member_var = get_struct_member_from_variable(*struct_var, member_name);
+        
+        if (member_var.type == TYPE_STRING) {
+            TypedValue typed_result(static_cast<int64_t>(0), InferredType(TYPE_STRING, "string"));
+            typed_result.string_value = member_var.str_value;
+            typed_result.is_numeric_result = false;
+            last_typed_result_ = typed_result;
+            return 0;
+        } else if (member_var.type == TYPE_POINTER) {
+            // ポインタメンバの場合はそのまま値を返す
+            return member_var.value;
+        } else if (member_var.type == TYPE_FLOAT || member_var.type == TYPE_DOUBLE || member_var.type == TYPE_QUAD) {
+            InferredType float_type(member_var.type, "");
+            if (member_var.type == TYPE_QUAD) {
+                last_typed_result_ = TypedValue(member_var.quad_value, float_type);
+            } else {
+                last_typed_result_ = TypedValue(member_var.float_value, float_type);
+            }
+            return static_cast<int64_t>(member_var.float_value);
+        } else {
+            return member_var.value;
+        }
     }
     
     case ASTNodeType::AST_MEMBER_ARRAY_ACCESS: {
@@ -2789,7 +2973,8 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
         Variable base_struct;
         bool is_function_call = false;
         
-        if (node->left->node_type == ASTNodeType::AST_VARIABLE) {
+        if (node->left->node_type == ASTNodeType::AST_VARIABLE ||
+            node->left->node_type == ASTNodeType::AST_IDENTIFIER) {
             obj_name = node->left->name;
         } else if (node->left->node_type == ASTNodeType::AST_FUNC_CALL) {
             // 関数呼び出し結果でのメンバー配列アクセス: func().member[index]
@@ -3550,6 +3735,52 @@ TypedValue ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode
         }
         
         case ASTNodeType::AST_MEMBER_ACCESS: {
+            // member_chainが2つ以上ある場合（ネストメンバアクセス）
+            if (!node->member_chain.empty() && node->member_chain.size() > 1) {
+                // ベース変数を取得
+                Variable base_var;
+                if (node->left->node_type == ASTNodeType::AST_VARIABLE) {
+                    Variable* var = interpreter_.find_variable(node->left->name);
+                    if (!var || var->type != TYPE_STRUCT) {
+                        throw std::runtime_error("Base variable for nested access is not a struct: " + node->left->name);
+                    }
+                    base_var = *var;
+                } else {
+                    throw std::runtime_error("Complex base types for nested access not yet supported in typed evaluation");
+                }
+                
+                // 再帰的にメンバーチェーンをたどる
+                Variable current_var = base_var;
+                for (size_t i = 0; i < node->member_chain.size(); ++i) {
+                    const std::string& member_name_in_chain = node->member_chain[i];
+                    
+                    // 現在の変数から次のメンバーを取得
+                    current_var = get_struct_member_from_variable(current_var, member_name_in_chain);
+                    
+                    // 最後のメンバーでない場合、次のメンバーにアクセスするために構造体である必要がある
+                    if (i < node->member_chain.size() - 1) {
+                        if (current_var.type != TYPE_STRUCT && current_var.type != TYPE_INTERFACE) {
+                            throw std::runtime_error("Intermediate member is not a struct: " + member_name_in_chain);
+                        }
+                    }
+                }
+                
+                // 最終的な値をTypedValueとして返す
+                if (current_var.type == TYPE_STRING) {
+                    return TypedValue(current_var.str_value, InferredType(TYPE_STRING, "string"));
+                } else if (current_var.type == TYPE_STRUCT) {
+                    return TypedValue(current_var, InferredType(TYPE_STRUCT, current_var.struct_type_name));
+                } else if (current_var.type == TYPE_FLOAT) {
+                    return TypedValue(static_cast<double>(current_var.float_value), InferredType(TYPE_FLOAT, "float"));
+                } else if (current_var.type == TYPE_DOUBLE) {
+                    return TypedValue(current_var.double_value, InferredType(TYPE_DOUBLE, "double"));
+                } else if (current_var.type == TYPE_QUAD) {
+                    return TypedValue(current_var.quad_value, InferredType(TYPE_QUAD, "quad"));
+                } else {
+                    return TypedValue(current_var.value, InferredType(current_var.type, type_info_to_string(current_var.type)));
+                }
+            }
+            
             auto convert_member_to_typed = [&](const Variable& member_var,
                                                TypedValue& out) -> bool {
                 switch (member_var.type) {
@@ -4462,6 +4693,50 @@ ExpressionEvaluator::MethodReceiverResolution ExpressionEvaluator::resolve_membe
 
     // 直接解決できない場合は式全体をチェーンとして扱う
     return create_chain_receiver_from_expression(member_node);
+}
+
+ExpressionEvaluator::MethodReceiverResolution ExpressionEvaluator::resolve_arrow_receiver(const ASTNode* arrow_node) {
+    MethodReceiverResolution result;
+    if (!arrow_node || arrow_node->node_type != ASTNodeType::AST_ARROW_ACCESS) {
+        return result;
+    }
+
+    const ASTNode* base_node = arrow_node->left.get();
+    if (!base_node) {
+        return result;
+    }
+
+    const std::string member_name = arrow_node->name;
+
+    // ポインタを評価
+    try {
+        int64_t ptr_value = evaluate_expression(base_node);
+        
+        if (ptr_value == 0) {
+            // nullポインタの場合はエラー
+            return result;
+        }
+        
+        // ポインタから構造体を取得
+        Variable* struct_var = reinterpret_cast<Variable*>(ptr_value);
+        
+        if (!struct_var) {
+            return result;
+        }
+        
+        // 構造体のメンバーを取得
+        Variable member_var = get_struct_member_from_variable(*struct_var, member_name);
+        
+        // チェーン値として返す
+        auto chain_ret = std::make_shared<ReturnException>(member_var);
+        result.kind = MethodReceiverResolution::Kind::Chain;
+        result.chain_value = chain_ret;
+        
+        return result;
+    } catch (const std::exception&) {
+        // エラーの場合は空の結果を返す
+        return result;
+    }
 }
 
 ExpressionEvaluator::MethodReceiverResolution ExpressionEvaluator::create_chain_receiver_from_expression(const ASTNode* node) {

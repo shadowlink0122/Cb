@@ -1,0 +1,19 @@
+// パース結果のデバッグ
+
+struct Inner {
+    int value;
+};
+
+struct Outer {
+    Inner inner;
+};
+
+int main() {
+    Inner i = {value: 100};
+    Outer o = {inner: i};
+    
+    int x = o.inner.value;
+    println(x);
+    
+    return 0;
+}

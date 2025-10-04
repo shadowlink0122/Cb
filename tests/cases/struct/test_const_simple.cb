@@ -1,0 +1,27 @@
+// 構造体メンバのconst対応テスト（簡易版）
+
+struct Simple {
+    const int x;
+    int y;
+};
+
+int main() {
+    println("=== Simple Const Member Test ===");
+    
+    Simple s;
+    s = {x: 10, y: 20};
+    
+    println("x:", s.x);
+    println("y:", s.y);
+    
+    // 通常のメンバは変更可能
+    s.y = 30;
+    println("After s.y = 30:", s.y);
+    
+    // constメンバの変更を試みる
+    println("Attempting to modify const member x...");
+    s.x = 100;
+    
+    println("ERROR: This should not be reached!");
+    return 1;
+}

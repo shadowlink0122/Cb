@@ -93,7 +93,7 @@ inline void test_const_struct_member_parent_const_error() {
             INTEGRATION_ASSERT_NE(0, exit_code,
                                   "Expected error exit code for const struct member reassignment (parent const)");
             INTEGRATION_ASSERT_CONTAINS(
-                output, "Const reassignment error: instance.value",
+                output, "Cannot assign to const member 'value' of struct 'instance' after initialization",
                 "should contain const struct member reassignment error message");
         });
 }
@@ -446,6 +446,114 @@ inline void test_comprehensive() {
         });
 }
 
+// 深くネストした構造体リテラルのテスト（5レベル）
+inline void test_deep_nested_literal() {
+    std::cout << "[integration] Running test_deep_nested_literal..." << std::endl;
+    
+    double execution_time;
+    run_cb_test_with_output_and_time("../../tests/cases/struct/test_deep_nested_literal.cb", 
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "Deep nested literal test should exit with code 0");
+            INTEGRATION_ASSERT(output.find("r.top.inner.mid.deep.value4 = 444") != std::string::npos, 
+                              "Output should contain 5-level nested member access");
+            INTEGRATION_ASSERT(output.find("r.top.inner.mid.deep.name4 = Level4") != std::string::npos, 
+                              "Output should contain nested string member");
+            INTEGRATION_ASSERT(output.find("r.top.inner.mid.deep.value4 = 5555") != std::string::npos, 
+                              "Output should contain updated value after reassignment");
+        }, execution_time);
+}
+
+// 多数の構造体メンバのテスト
+inline void test_multiple_struct_members() {
+    std::cout << "[integration] Running test_multiple_struct_members..." << std::endl;
+    
+    double execution_time;
+    run_cb_test_with_output_and_time("../../tests/cases/struct/test_multiple_struct_members.cb", 
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "Multiple struct members test should exit with code 0");
+            INTEGRATION_ASSERT(output.find("Department: Engineering") != std::string::npos, 
+                              "Output should contain department name");
+            INTEGRATION_ASSERT(output.find("Manager: Alice") != std::string::npos, 
+                              "Output should contain manager info");
+            INTEGRATION_ASSERT(output.find("Manager Home: Tokyo") != std::string::npos, 
+                              "Output should contain nested home address");
+            INTEGRATION_ASSERT(output.find("Assistant: Bob") != std::string::npos, 
+                              "Output should contain assistant info");
+        }, execution_time);
+}
+
+// 総合的なネスト構造体リテラルのテスト
+inline void test_comprehensive_nested_literal() {
+    std::cout << "[integration] Running test_comprehensive_nested_literal..." << std::endl;
+    
+    double execution_time;
+    run_cb_test_with_output_and_time("../../tests/cases/struct/test_comprehensive_nested_literal.cb", 
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "Comprehensive nested literal test should exit with code 0");
+            INTEGRATION_ASSERT(output.find("ID: 1") != std::string::npos, 
+                              "Output should contain root node ID");
+            INTEGRATION_ASSERT(output.find("Timeout: 1000") != std::string::npos, 
+                              "Output should contain nested config");
+            INTEGRATION_ASSERT(output.find("Count: 10") != std::string::npos, 
+                              "Output should contain nested stats");
+            INTEGRATION_ASSERT(output.find("Node 2:") != std::string::npos, 
+                              "Output should contain second node");
+        }, execution_time);
+}
+
+// 混合型構造体メンバのテスト
+inline void test_mixed_type_members() {
+    std::cout << "[integration] Running test_mixed_type_members..." << std::endl;
+    
+    double execution_time;
+    run_cb_test_with_output_and_time("../../tests/cases/struct/test_mixed_type_members.cb", 
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "Mixed type members test should exit with code 0");
+            INTEGRATION_ASSERT(output.find("Article Metadata:") != std::string::npos, 
+                              "Output should contain metadata section");
+            INTEGRATION_ASSERT(output.find("Author: John Doe") != std::string::npos, 
+                              "Output should contain author name");
+            INTEGRATION_ASSERT(output.find("Title: Test Article") != std::string::npos, 
+                              "Output should contain article title");
+            INTEGRATION_ASSERT(output.find("Article 2 Metadata:") != std::string::npos, 
+                              "Output should contain second article");
+        }, execution_time);
+}
+
+// 同じ構造体型の複数メンバのテスト
+inline void test_same_type_multiple_members() {
+    std::cout << "[integration] Running test_same_type_multiple_members..." << std::endl;
+    
+    double execution_time;
+    run_cb_test_with_output_and_time("../../tests/cases/struct/test_same_type_multiple_members.cb", 
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "Same type multiple members test should exit with code 0");
+            INTEGRATION_ASSERT(output.find("GameObject: Player") != std::string::npos, 
+                              "Output should contain game object name");
+            INTEGRATION_ASSERT(output.find("Position: ( 10 , 20 , 30 )") != std::string::npos, 
+                              "Output should contain position");
+            INTEGRATION_ASSERT(output.find("Rotation: ( 0 , 90 , 0 )") != std::string::npos, 
+                              "Output should contain rotation");
+            INTEGRATION_ASSERT(output.find("After full update:") != std::string::npos, 
+                              "Output should show update");
+        }, execution_time);
+}
+
+// ネストメンバへの直接代入のテスト
+inline void test_nested_member_assignment() {
+    std::cout << "[integration] Running test_nested_member_assignment..." << std::endl;
+    
+    double execution_time;
+    run_cb_test_with_output_and_time("../../tests/cases/struct/test_nested_member_assignment.cb", 
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "Nested member assignment test should exit with code 0");
+            INTEGRATION_ASSERT(output.find("=== Nested Member Assignment Test ===") != std::string::npos, 
+                              "Output should contain test header");
+            INTEGRATION_ASSERT(output.find("Test Passed") != std::string::npos, 
+                              "Output should indicate test passed");
+        }, execution_time);
+}
+
 // 全structテストを実行
 inline void run_all_struct_tests() {
     std::cout << "[integration] ========================================" << std::endl;
@@ -474,6 +582,13 @@ inline void run_all_struct_tests() {
         test_typedef_struct(); // 複雑な機能  
         test_struct_error_handling(); // 複雑な機能
         test_large_struct(); // 複雑な機能
+        // 新しいネスト構造体リテラルテスト
+        test_deep_nested_literal();
+        test_multiple_struct_members();
+        test_comprehensive_nested_literal();
+        test_mixed_type_members();
+        test_same_type_multiple_members();
+        test_nested_member_assignment(); // ネストメンバ直接代入テスト
         // test_comprehensive(); // 複雑な機能
         
         std::cout << "[integration] ========================================" << std::endl;

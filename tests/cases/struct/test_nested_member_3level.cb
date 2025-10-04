@@ -1,0 +1,35 @@
+// 3レベルのネストメンバ代入テスト
+
+struct Level3 {
+    int value;
+};
+
+struct Level2 {
+    Level3 l3;
+};
+
+struct Level1 {
+    Level2 l2;
+};
+
+int main() {
+    println("=== 3-Level Nested Member Assignment ===");
+    
+    Level1 obj;
+    obj = {l2: {l3: {value: 10}}};
+    
+    println("Initial: obj.l2.l3.value =", obj.l2.l3.value);
+    
+    // 3レベルの直接代入
+    obj.l2.l3.value = 999;
+    
+    println("After assignment: obj.l2.l3.value =", obj.l2.l3.value);
+    
+    if (obj.l2.l3.value == 999) {
+        println("SUCCESS!");
+        return 0;
+    } else {
+        println("FAILED!");
+        return 1;
+    }
+}

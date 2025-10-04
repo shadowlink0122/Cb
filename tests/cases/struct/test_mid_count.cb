@@ -1,0 +1,24 @@
+struct Middle {
+    int count;
+};
+
+struct Outer {
+    Middle mid;
+};
+
+int main() {
+    Outer obj;
+    obj = {mid: {count: 5}};
+    println("Initial: obj.mid.count =", obj.mid.count);
+    
+    obj.mid.count = 50;
+    println("After: obj.mid.count =", obj.mid.count);
+    
+    if (obj.mid.count == 50) {
+        println("SUCCESS!");
+        return 0;
+    } else {
+        println("FAILED!");
+        return 1;
+    }
+}

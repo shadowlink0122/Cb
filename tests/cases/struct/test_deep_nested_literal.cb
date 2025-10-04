@@ -1,0 +1,83 @@
+// 深くネストした構造体リテラルのテスト（4-5レベル）
+
+struct Level4 {
+    int value4;
+    string name4;
+};
+
+struct Level3 {
+    Level4 deep;
+    int value3;
+};
+
+struct Level2 {
+    Level3 mid;
+    int value2;
+};
+
+struct Level1 {
+    Level2 inner;
+    int value1;
+};
+
+struct Root {
+    Level1 top;
+    int root_value;
+};
+
+int main() {
+    println("=== Deep Nested Struct Literal Test ===");
+    
+    // 5レベルのネスト構造体リテラル
+    Root r;
+    r = {
+        top: {
+            inner: {
+                mid: {
+                    deep: {
+                        value4: 444,
+                        name4: "Level4"
+                    },
+                    value3: 333
+                },
+                value2: 222
+            },
+            value1: 111
+        },
+        root_value: 999
+    };
+    
+    // 各レベルの値を確認
+    println("r.root_value =", r.root_value);
+    println("r.top.value1 =", r.top.value1);
+    println("r.top.inner.value2 =", r.top.inner.value2);
+    println("r.top.inner.mid.value3 =", r.top.inner.mid.value3);
+    println("r.top.inner.mid.deep.value4 =", r.top.inner.mid.deep.value4);
+    println("r.top.inner.mid.deep.name4 =", r.top.inner.mid.deep.name4);
+    
+    // 全体のリテラル再代入
+    r = {
+        top: {
+            inner: {
+                mid: {
+                    deep: {
+                        value4: 5555,
+                        name4: "Updated"
+                    },
+                    value3: 3333
+                },
+                value2: 2222
+            },
+            value1: 1111
+        },
+        root_value: 888
+    };
+    
+    println("\nAfter full literal reassignment:");
+    println("r.root_value =", r.root_value);
+    println("r.top.inner.mid.deep.value4 =", r.top.inner.mid.deep.value4);
+    println("r.top.inner.mid.deep.name4 =", r.top.inner.mid.deep.name4);
+    
+    println("\n=== Test Passed ===");
+    return 0;
+}

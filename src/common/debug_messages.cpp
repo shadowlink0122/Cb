@@ -765,6 +765,9 @@ static std::vector<DebugMessageTemplate> init_debug_messages() {
     messages[static_cast<int>(DebugMsgId::INTERPRETER_MEMBER_INIT_PROCESSING)] =
         {"[INTERPRETER_STRUCT] Processing member initialization: %s",
          "[INTERPRETER_STRUCT] メンバー初期化処理: %s"};
+    messages[static_cast<int>(DebugMsgId::INTERPRETER_NESTED_STRUCT_LITERAL)] =
+        {"[INTERPRETER_STRUCT] Nested struct literal assignment: %s",
+         "[INTERPRETER_STRUCT] ネストした構造体リテラル代入: %s"};
     messages[static_cast<int>(DebugMsgId::INTERPRETER_VAR_PROCESS_EXCEPTION)] =
         {"[INTERPRETER_ERROR] Variable processing exception: %s",
          "[INTERPRETER_ERROR] 変数処理例外: %s"};

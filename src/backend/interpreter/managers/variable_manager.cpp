@@ -1626,6 +1626,10 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                             member_var.is_reference = member.is_reference;
                             member_var.is_unsigned = member.is_unsigned;
                             member_var.is_private_member = member.is_private;
+                            
+                            // 構造体配列自体がconstの場合、すべてのメンバーをconstにする
+                            // また、メンバー定義でconstが指定されている場合もconstにする
+                            member_var.is_const = node->is_const || member.is_const;
 
                             // デフォルト値を設定
                             if (member_var.type == TYPE_STRING) {
@@ -1655,6 +1659,10 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                         member_var.is_reference = member.is_reference;
                         member_var.is_unsigned = member.is_unsigned;
                         member_var.is_private_member = member.is_private;
+                        
+                        // 構造体変数自体がconstの場合、すべてのメンバーをconstにする
+                        // また、メンバー定義でconstが指定されている場合もconstにする
+                        member_var.is_const = node->is_const || member.is_const;
 
                         // 配列メンバーの場合
                         if (member.array_info.is_array()) {
@@ -1765,16 +1773,85 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                                     std::to_string(i) + "]";
                                 Variable element_var;
                                 element_var.type = member.type;
-                                element_var.value = 0;
-                                element_var.str_value = "";
                                 element_var.is_assigned = false;
-                                this->current_scope().variables[element_name] =
-                                    element_var;
+                                element_var.is_const = node->is_const || member.is_const;
+                                
+                                // 配列の要素型を取得
+                                TypeInfo element_type_info = member.array_info.base_type;
+                                std::string element_type_alias = member.type_alias;
+                                
+                                // type_aliasから配列のサイズ情報を削除（例: "Point[3]" -> "Point"）
+                                size_t bracket_pos = element_type_alias.find('[');
+                                if (bracket_pos != std::string::npos) {
+                                    element_type_alias = element_type_alias.substr(0, bracket_pos);
+                                }
+                                
+                                if (interpreter_->debug_mode) {
+                                    debug_print("Processing array element %d: element_type=%d, TYPE_STRUCT=%d, type_alias='%s'\n",
+                                               i, (int)element_type_info, (int)TYPE_STRUCT, element_type_alias.c_str());
+                                }
+                                
+                                // 構造体型の配列要素の場合
+                                if (element_type_info == TYPE_STRUCT && !element_type_alias.empty()) {
+                                    element_var.type = TYPE_STRUCT;  // 要素の型を正しく設定
+                                    element_var.is_struct = true;
+                                    element_var.struct_type_name = element_type_alias;
+                                    
+                                    if (interpreter_->debug_mode) {
+                                        debug_print("Creating struct array element: %s of type %s\n",
+                                                   element_name.c_str(), element_type_alias.c_str());
+                                    }
+                                    
+                                    // 構造体定義を取得してメンバーを初期化
+                                    std::string resolved_type = interpreter_->type_manager_->resolve_typedef(element_type_alias);
+                                    const StructDefinition* element_struct_def = interpreter_->find_struct_definition(resolved_type);
+                                    
+                                    if (element_struct_def) {
+                                        for (const auto& element_member : element_struct_def->members) {
+                                            Variable element_member_var;
+                                            element_member_var.type = element_member.type;
+                                            element_member_var.is_unsigned = element_member.is_unsigned;
+                                            element_member_var.is_private_member = element_member.is_private;
+                                            element_member_var.is_assigned = false;
+                                            element_member_var.is_const = element_var.is_const || element_member.is_const;
+                                            
+                                            if (element_member_var.type == TYPE_STRING) {
+                                                element_member_var.str_value = "";
+                                            } else {
+                                                element_member_var.value = 0;
+                                            }
+                                            
+                                            element_var.struct_members[element_member.name] = element_member_var;
+                                            
+                                            // メンバーの直接アクセス用変数も作成
+                                            std::string member_path = element_name + "." + element_member.name;
+                                            this->current_scope().variables[member_path] = element_member_var;
+                                        }
+                                        
+                                        if (interpreter_->debug_mode) {
+                                            debug_print("Initialized struct array element with %zu members\n",
+                                                       element_var.struct_members.size());
+                                        }
+                                    }
+                                } else {
+                                    // プリミティブ型の配列要素
+                                    element_var.value = 0;
+                                    element_var.str_value = "";
+                                }
+                                
+                                this->current_scope().variables[element_name] = element_var;
+                                
+                                // 親構造体のstruct_membersにも配列要素を追加
+                                // element_nameは "structName.arrayName[i]" の形式なので、
+                                // キーは "arrayName[i]" にする
+                                std::string element_key = member.name + "[" + std::to_string(i) + "]";
+                                var.struct_members[element_key] = element_var;
 
                                 if (interpreter_->debug_mode) {
-                                    debug_print("Created struct member array "
-                                                "element: %s\n",
-                                                element_name.c_str());
+                                    debug_print("Created struct member array element: %s (key: %s), is_struct=%s, members=%zu\n",
+                                                element_name.c_str(), element_key.c_str(),
+                                                element_var.is_struct ? "true" : "false",
+                                                element_var.struct_members.size());
                                 }
                             }
 
@@ -1811,6 +1888,12 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                                 member_var.value = 0;
                             }
                             member_var.is_assigned = false;
+                            
+                            // 構造体メンバの場合、is_structフラグと型名を設定
+                            if (member_var.type == TYPE_STRUCT && !member.type_alias.empty()) {
+                                member_var.is_struct = true;
+                                member_var.struct_type_name = member.type_alias;
+                            }
 
                             var.struct_members[member.name] = member_var;
                         }
@@ -1821,6 +1904,18 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                         Variable member_direct_var = member_var;
                         current_scope().variables[member_path] =
                             member_direct_var;
+                        
+                        // 構造体メンバの場合、再帰的にサブメンバーの個別変数を作成
+                        // 注意: var.struct_members[member.name]への参照を使用して再帰呼び出し
+                        if (member.type == TYPE_STRUCT && !member.type_alias.empty()) {
+                            if (interpreter_->debug_mode) {
+                                debug_print("Recursively creating nested struct members for: %s (type: %s)\n",
+                                           member_path.c_str(), member.type_alias.c_str());
+                            }
+                            // struct_membersに既に追加されたメンバーを参照
+                            auto& struct_member_ref = var.struct_members[member.name];
+                            interpreter_->create_struct_member_variables_recursively(member_path, member.type_alias, struct_member_ref);
+                        }
 
                         if (interpreter_->debug_mode) {
                             debug_print(
@@ -1946,6 +2041,7 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                         return;
                     }
 
+                    // 構造体戻り値の場合はインターフェースとして処理
                     assign_from_source(ret.struct_value, "");
                     return;
                 }
@@ -2035,31 +2131,253 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                         var = ret.struct_value;
                         var.is_assigned = true;
                         
-                        // 変数を登録
-                        current_scope().variables[node->name] = var;
+                        if (interpreter_->debug_mode && node->name == "student1") {
+                            debug_print("FUNC_RETURN_RECEIVED: ret.struct_value has %zu members\n",
+                                       ret.struct_value.struct_members.size());
+                            auto scores_it = ret.struct_value.struct_members.find("scores");
+                            if (scores_it != ret.struct_value.struct_members.end() && scores_it->second.is_array) {
+                                debug_print("FUNC_RETURN_RECEIVED: scores.array_size=%d, array_values.size()=%zu\n",
+                                           scores_it->second.array_size, scores_it->second.array_values.size());
+                                if (scores_it->second.array_values.size() >= 3) {
+                                    debug_print("FUNC_RETURN_RECEIVED: scores.array_values = [%lld, %lld, %lld]\n",
+                                               scores_it->second.array_values[0],
+                                               scores_it->second.array_values[1],
+                                               scores_it->second.array_values[2]);
+                                }
+                            }
+                        }
                         
-                        // 個別メンバー変数も作成
+                        // 個別メンバー変数を先に作成・更新
                         for (const auto& member : ret.struct_value.struct_members) {
                             std::string member_path = node->name + "." + member.first;
-                            current_scope().variables[member_path] = member.second;
+                            // find_variableで既存の変数を探す
+                            Variable* target_member_var = find_variable(member_path);
+                            if (target_member_var) {
+                                // 既存の変数を更新
+                                *target_member_var = member.second;
+                            } else {
+                                // 存在しない場合は現在のスコープに作成
+                                current_scope().variables[member_path] = member.second;
+                            }
                             // 配列メンバーの場合、個別要素変数も作成
                             if (member.second.is_array) {
+                                // 構造体配列メンバーの場合、struct_membersから要素を探す
+                                // キー形式: "arrayName[index]"
                                 for (int i = 0; i < member.second.array_size; i++) {
                                     std::string element_name = member_path + "[" + std::to_string(i) + "]";
-                                    Variable element_var;
-                                    element_var.type = member.second.type >= TYPE_ARRAY_BASE ? 
-                                                      static_cast<TypeInfo>(member.second.type - TYPE_ARRAY_BASE) : 
-                                                      member.second.type;
-                                    element_var.is_assigned = true;
+                                    std::string element_key = member.first + "[" + std::to_string(i) + "]";
                                     
-                                    if (element_var.type == TYPE_STRING && i < static_cast<int>(member.second.array_strings.size())) {
-                                        element_var.str_value = member.second.array_strings[i];
-                                    } else if (element_var.type != TYPE_STRING && i < static_cast<int>(member.second.array_values.size())) {
-                                        element_var.value = member.second.array_values[i];
+                                    // まず親のstruct_membersから構造体配列要素を探す
+                                    auto element_it = ret.struct_value.struct_members.find(element_key);
+                                    if (element_it != ret.struct_value.struct_members.end() && element_it->second.is_struct) {
+                                        // 構造体配列の要素
+                                        Variable element_var = element_it->second;
+                                        element_var.is_assigned = true;
+                                        
+                                        // find_variableで既存の変数を探す
+                                        Variable* target_elem_var = find_variable(element_name);
+                                        if (target_elem_var) {
+                                            // 既存の変数を更新
+                                            *target_elem_var = element_var;
+                                        } else {
+                                            // 存在しない場合は現在のスコープに作成
+                                            current_scope().variables[element_name] = element_var;
+                                        }
+                                        
+                                        // 構造体要素のメンバー変数も同様に処理
+                                        for (const auto& sub_member : element_var.struct_members) {
+                                            std::string sub_member_path = element_name + "." + sub_member.first;
+                                            Variable* target_sub_var = find_variable(sub_member_path);
+                                            if (target_sub_var) {
+                                                *target_sub_var = sub_member.second;
+                                            } else {
+                                                current_scope().variables[sub_member_path] = sub_member.second;
+                                            }
+                                        }
+                                        
+                                        if (interpreter_->debug_mode) {
+                                            debug_print("FUNC_RETURN: Created struct array element %s with %zu members\n",
+                                                       element_name.c_str(), element_var.struct_members.size());
+                                        }
+                                    } else {
+                                        // プリミティブ型配列の要素
+                                        // find_variableで既存の変数を探す（スコープ階層を正しく検索）
+                                        Variable* target_var = find_variable(element_name);
+                                        
+                                        if (!target_var) {
+                                            // 存在しない場合は、現在のスコープに作成
+                                            target_var = &current_scope().variables[element_name];
+                                            if (interpreter_->debug_mode) {
+                                                debug_print("FUNC_RETURN: %s not found, creating in current scope\n",
+                                                           element_name.c_str());
+                                            }
+                                        } else {
+                                            if (interpreter_->debug_mode) {
+                                                debug_print("FUNC_RETURN: Found %s, will update it (old value: %lld)\n",
+                                                           element_name.c_str(), (long long)target_var->value);
+                                            }
+                                        }
+                                        
+                                        // 変数を作成（ポインタではなく値として）
+                                        Variable element_var;
+                                        element_var.type = member.second.type >= TYPE_ARRAY_BASE ? 
+                                                          static_cast<TypeInfo>(member.second.type - TYPE_ARRAY_BASE) : 
+                                                          member.second.type;
+                                        element_var.is_assigned = true;
+                                        
+                                        if (element_var.type == TYPE_STRING && i < static_cast<int>(member.second.array_strings.size())) {
+                                            element_var.str_value = member.second.array_strings[i];
+                                        } else if (element_var.type != TYPE_STRING && i < static_cast<int>(member.second.array_values.size())) {
+                                            element_var.value = member.second.array_values[i];
+                                        }
+                                        
+                                        // 直接マップに代入（ポインタを使わず確実に設定）
+                                        current_scope().variables[element_name] = element_var;
+                                        
+                                        if (interpreter_->debug_mode && node->name == "student1") {
+                                            debug_print("FUNC_RETURN: Set %s = %lld\n",
+                                                       element_name.c_str(), (long long)element_var.value);
+                                        }
+                                        
+                                        // 個別要素更新が完了したので、配列メンバー変数のarray_valuesも更新
+                                        Variable* member_var = find_variable(member_path);
+                                        if (member_var && member_var->is_array) {
+                                            for (int i = 0; i < member_var->array_size; i++) {
+                                                std::string el_name = member_path + "[" + std::to_string(i) + "]";
+                                                Variable* el_var = find_variable(el_name);
+                                                if (el_var && el_var->is_assigned) {
+                                                    if (el_var->type == TYPE_STRING && i < static_cast<int>(member_var->array_strings.size())) {
+                                                        member_var->array_strings[i] = el_var->str_value;
+                                                    } else if (i < static_cast<int>(member_var->array_values.size())) {
+                                                        member_var->array_values[i] = el_var->value;
+                                                    }
+                                                }
+                                            }
+                                            if (interpreter_->debug_mode && node->name == "student1") {
+                                                debug_print("FUNC_RETURN: Updated array member %s array_values\n", member_path.c_str());
+                                                if (member_var->array_values.size() >= 3) {
+                                                    debug_print("FUNC_RETURN: array_values = [%lld, %lld, %lld]\n",
+                                                               member_var->array_values[0], member_var->array_values[1], member_var->array_values[2]);
+                                                }
+                                            }
+                                        }
                                     }
-                                    
-                                    current_scope().variables[element_name] = element_var;
                                 }
+                            }
+                        }
+                        
+                        // 個別変数の更新が完了したので、構造体変数をstruct_membersと同期
+                        // struct_membersを個別変数から再構築
+                        if (interpreter_->debug_mode && node->name == "student1") {
+                            Variable* check_before = find_variable("student1.scores[0]");
+                            if (check_before) {
+                                debug_print("BEFORE var.struct_members.clear(): student1.scores[0] = %lld, is_assigned=%d\n",
+                                           (long long)check_before->value, check_before->is_assigned);
+                            }
+                        }
+                        
+                        var.struct_members.clear();
+                        
+                        if (interpreter_->debug_mode && node->name == "student1") {
+                            Variable* check_after = find_variable("student1.scores[0]");
+                            if (check_after) {
+                                debug_print("AFTER var.struct_members.clear(): student1.scores[0] = %lld, is_assigned=%d\n",
+                                           (long long)check_after->value, check_after->is_assigned);
+                            }
+                        }
+                        for (const auto& member : ret.struct_value.struct_members) {
+                            std::string member_path = node->name + "." + member.first;
+                            Variable* updated_member = find_variable(member_path);
+                            if (updated_member) {
+                                if (interpreter_->debug_mode && node->name == "student1" && member.first == "scores") {
+                                    debug_print("FUNC_RETURN_STRUCT_SYNC: updated_member(scores) array_size=%d, array_values.size()=%zu\n",
+                                               updated_member->array_size, updated_member->array_values.size());
+                                    if (updated_member->array_values.size() >= 3) {
+                                        debug_print("FUNC_RETURN_STRUCT_SYNC: array_values = [%lld, %lld, %lld]\n",
+                                                   updated_member->array_values[0], updated_member->array_values[1], updated_member->array_values[2]);
+                                    }
+                                }
+                                
+                                var.struct_members[member.first] = *updated_member;
+                                
+                                // 配列メンバーの場合、array_values/array_stringsも更新
+                                if (updated_member->is_array) {
+                                    for (int i = 0; i < updated_member->array_size; i++) {
+                                        std::string element_name = member_path + "[" + std::to_string(i) + "]";
+                                        Variable* element_var = find_variable(element_name);
+                                        
+                                        if (interpreter_->debug_mode && node->name == "student1") {
+                                            if (element_var) {
+                                                debug_print("FUNC_RETURN_SYNC: %s found: value=%lld, is_assigned=%d\n",
+                                                           element_name.c_str(), (long long)element_var->value, element_var->is_assigned);
+                                            } else {
+                                                debug_print("FUNC_RETURN_SYNC: %s NOT FOUND\n", element_name.c_str());
+                                            }
+                                        }
+                                        
+                                        if (element_var && element_var->is_assigned) {
+                                            if (element_var->type == TYPE_STRING) {
+                                                if (i < static_cast<int>(var.struct_members[member.first].array_strings.size())) {
+                                                    var.struct_members[member.first].array_strings[i] = element_var->str_value;
+                                                }
+                                            } else {
+                                                if (i < static_cast<int>(var.struct_members[member.first].array_values.size())) {
+                                                    var.struct_members[member.first].array_values[i] = element_var->value;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // 更新されたvar変数を登録
+                        current_scope().variables[node->name] = var;
+                        
+                        if (interpreter_->debug_mode && node->name == "student1") {
+                            debug_print("FUNC_RETURN: Registered student1, now checking individual variables...\n");
+                            Variable* check_var = find_variable("student1.scores[0]");
+                            if (check_var) {
+                                debug_print("FUNC_RETURN: After registering student1, student1.scores[0] = %lld, is_assigned=%d\n",
+                                           (long long)check_var->value, check_var->is_assigned);
+                            }
+                        }
+                        
+                        // var変数を登録した後、個別メンバー変数を再度更新
+                        // （マップの再ハッシュで既存のポインタが無効になった可能性があるため）
+                        for (const auto& member_pair : var.struct_members) {
+                            std::string member_path = node->name + "." + member_pair.first;
+                            current_scope().variables[member_path] = member_pair.second;
+                            
+                            if (member_pair.second.is_array) {
+                                for (int i = 0; i < member_pair.second.array_size; i++) {
+                                    std::string element_name = member_path + "[" + std::to_string(i) + "]";
+                                    std::string element_key = member_pair.first + "[" + std::to_string(i) + "]";
+                                    
+                                    // 既存の個別要素変数はすでに正しい値が設定されているはずなので、
+                                    // 構造体配列要素の場合のみ処理する
+                                    auto elem_it = var.struct_members.find(element_key);
+                                    if (elem_it != var.struct_members.end() && elem_it->second.is_struct) {
+                                        // 構造体配列の要素のみ登録
+                                        current_scope().variables[element_name] = elem_it->second;
+                                        if (interpreter_->debug_mode && node->name == "student1") {
+                                            debug_print("FUNC_RETURN_FINAL: Set %s from struct_members (struct array element)\n",
+                                                       element_name.c_str());
+                                        }
+                                    }
+                                    // プリミティブ型配列の要素は既に設定済みなのでスキップ
+                                }
+                            }
+                        }
+                        
+                        if (interpreter_->debug_mode && node->name == "student1") {
+                            debug_print("FUNC_RETURN: About to return, checking student1.scores[0] one more time...\n");
+                            Variable* final_check = find_variable("student1.scores[0]");
+                            if (final_check) {
+                                debug_print("FUNC_RETURN: Final check - student1.scores[0] = %lld, is_assigned=%d\n",
+                                           (long long)final_check->value, final_check->is_assigned);
+                            } else {
+                                debug_print("FUNC_RETURN: Final check - student1.scores[0] NOT FOUND!\n");
                             }
                         }
                         
