@@ -3234,6 +3234,36 @@ void Interpreter::assign_struct_literal(const std::string &var_name,
                     member_var->type = TYPE_STRING; // Union型の場合は実際の型をセット
                     member_var->is_assigned = true;
                 }
+            } else if (struct_member_var.type == TYPE_STRUCT && 
+                       member_init->right->node_type == ASTNodeType::AST_VARIABLE) {
+                // 構造体メンバに別の構造体変数を代入
+                Variable* source_var = find_variable(member_init->right->name);
+                if (!source_var || source_var->type != TYPE_STRUCT) {
+                    throw std::runtime_error("Source variable is not a struct: " + member_init->right->name);
+                }
+                
+                // 構造体全体をコピー
+                struct_member_var = *source_var;
+                struct_member_var.is_assigned = true;
+                
+                // 直接アクセス変数も更新
+                if (member_var) {
+                    *member_var = *source_var;
+                    member_var->is_assigned = true;
+                }
+                
+                // メンバの個別変数もコピー
+                for (const auto& sm : source_var->struct_members) {
+                    std::string source_member_path = member_init->right->name + "." + sm.first;
+                    std::string target_member_path = full_member_name + "." + sm.first;
+                    Variable* target_member_var = find_variable(target_member_path);
+                    if (target_member_var) {
+                        Variable* source_member_var = find_variable(source_member_path);
+                        if (source_member_var) {
+                            *target_member_var = *source_member_var;
+                        }
+                    }
+                }
             } else {
                 int64_t value = expression_evaluator_->evaluate_expression(
                     member_init->right.get());

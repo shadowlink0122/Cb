@@ -1,0 +1,23 @@
+// 構造体の構造体メンバのテスト
+
+struct Inner {
+    int value;
+};
+
+struct Outer {
+    Inner inner;
+    int count;
+};
+
+int main() {
+    println("=== Struct Member Test ===");
+    
+    Inner i = {value: 100};
+    Outer o = {inner: i, count: 5};
+    
+    println("o.inner.value =", o.inner.value);
+    println("o.count =", o.count);
+    println("=== Test passed ===");
+    
+    return 0;
+}
