@@ -15,7 +15,11 @@ inline void test_basic_struct() {
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_EQ(0, exit_code, "Basic struct test should exit with code 0");
             INTEGRATION_ASSERT(output.find("Point: (10, 20)") != std::string::npos, 
-                              "Output should contain 'Point: (10, 20)'");
+                              "Output should contain initial point coordinates");
+            INTEGRATION_ASSERT(output.find("Modified Point: (15, 40)") != std::string::npos, 
+                              "Output should contain modified point coordinates");
+            INTEGRATION_ASSERT(output.find("Basic struct test passed") != std::string::npos, 
+                              "Output should contain success message");
         }, execution_time);
 }
 
@@ -28,9 +32,11 @@ inline void test_struct_literal() {
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_EQ(0, exit_code, "Struct literal test should exit with code 0");
             INTEGRATION_ASSERT(output.find("Person 1: Alice, 25 years old, 165 cm") != std::string::npos, 
-                              "Output should contain named initialization result");
+                              "Output should contain named initialization with complete values");
             INTEGRATION_ASSERT(output.find("Person 2: Bob, 30 years old, 180 cm") != std::string::npos, 
-                              "Output should contain positional initialization result");
+                              "Output should contain positional initialization with complete values");
+            INTEGRATION_ASSERT(output.find("Struct literal test passed") != std::string::npos, 
+                              "Output should contain success message");
         }, execution_time);
 }
 
@@ -43,11 +49,11 @@ inline void test_struct_array_member() {
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_EQ(0, exit_code, "Struct array member test should exit with code 0");
             INTEGRATION_ASSERT(output.find("Student: Charlie (ID: 12345)") != std::string::npos, 
-                              "Output should contain student info");
+                              "Output should contain complete student name and ID");
             INTEGRATION_ASSERT(output.find("Grades: [85, 92, 78]") != std::string::npos, 
-                              "Output should contain grades array");
+                              "Output should contain complete grades array with all three values");
             INTEGRATION_ASSERT(output.find("Average: 85") != std::string::npos, 
-                              "Output should contain calculated average");
+                              "Output should contain calculated average (85+92+78)/3=85");
         }, execution_time);
 }
 
@@ -149,13 +155,17 @@ inline void test_struct_array() {
             INTEGRATION_ASSERT(output.find("Team Members:") != std::string::npos, 
                               "Output should contain team header");
             INTEGRATION_ASSERT(output.find("1. Alice - $50000 (Dept: HR)") != std::string::npos, 
-                              "Output should contain Alice's info");
+                              "Output should contain Alice's complete info: name, salary, and department");
             INTEGRATION_ASSERT(output.find("2. Bob - $55000 (Dept: CEO)") != std::string::npos, 
-                              "Output should contain Bob's info");
+                              "Output should contain Bob's complete info: name, salary, and department");
             INTEGRATION_ASSERT(output.find("3. Charlie - $60000 (Dept: Dev)") != std::string::npos, 
-                              "Output should contain Charlie's info");
+                              "Output should contain Charlie's complete info: name, salary, and department");
             INTEGRATION_ASSERT(output.find("Total salary: $165000") != std::string::npos, 
-                              "Output should contain total salary");
+                              "Output should contain correct total salary (50000+55000+60000=165000)");
+            INTEGRATION_ASSERT(output.find("Updated Alice's salary: $55000") != std::string::npos, 
+                              "Output should contain updated Alice's salary after modification");
+            INTEGRATION_ASSERT(output.find("Struct array test passed") != std::string::npos, 
+                              "Output should contain success message");
         });
 }
 
@@ -224,11 +234,11 @@ inline void test_struct_function_return() {
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_EQ(0, exit_code, "Struct function return test should exit with code 0");
             INTEGRATION_ASSERT(output.find("Point 1: (3, 4)") != std::string::npos, 
-                              "Output should contain Point 1 coordinates");
+                              "Output should contain Point 1 with complete x,y coordinates");
             INTEGRATION_ASSERT(output.find("Point 2: (1, 2)") != std::string::npos, 
-                              "Output should contain Point 2 coordinates");
+                              "Output should contain Point 2 with complete x,y coordinates");
             INTEGRATION_ASSERT(output.find("Sum: (4, 6)") != std::string::npos, 
-                              "Output should contain sum coordinates");
+                              "Output should contain sum with complete x,y coordinates (3+1=4, 4+2=6)");
         });
 }
 
