@@ -2186,6 +2186,11 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                                 // 元の構造体定義から type_name 情報を取得
                                 const StructDefinition* struct_def = interpreter_.find_struct_definition(resolved_struct_type);
                                 for (const auto& member_pair : sync_source_var->struct_members) {
+                                    // 配列要素のキー (例: "dimensions[0]") をスキップ
+                                    if (member_pair.first.find('[') != std::string::npos) {
+                                        continue;
+                                    }
+                                    
                                     std::string full_member_name = param->name + "." + member_pair.first;
                                     Variable member_var = member_pair.second;
                                     // 値を確実に設定
@@ -2204,15 +2209,6 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                                                 member_var.is_unsigned = member.is_unsigned;
                                                 break;
                                             }
-                                        }
-                                    }
-                                    
-                                    debug_print("DEBUG: Creating param member %s: is_array=%d, array_size=%d\n", 
-                                               full_member_name.c_str(), member_var.is_array, member_var.array_size);
-                                    if (member_var.is_array && member_var.type == TYPE_STRING) {
-                                        debug_print("DEBUG: String array size=%zu\n", member_var.array_strings.size());
-                                        for (size_t i = 0; i < member_var.array_strings.size(); i++) {
-                                            debug_print("DEBUG: array_strings[%zu]='%s'\n", i, member_var.array_strings[i].c_str());
                                         }
                                     }
                                     
