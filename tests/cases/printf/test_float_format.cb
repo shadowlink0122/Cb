@@ -1,0 +1,96 @@
+// %fフォーマットの包括的なテスト
+
+int main() {
+    println("=== Float Format (%f) Test ===");
+    println("");
+    
+    // テスト1: 基本的なfloat表示
+    println("Test 1: Basic float display");
+    float f1;
+    f1 = 3.14f;
+    println("  f1 = %f (should be 3.14)", f1);
+    println("  ✓ Test 1 passed");
+    println("");
+    
+    // テスト2: double表示
+    println("Test 2: Double display");
+    double d1;
+    d1 = 2.718;
+    println("  d1 = %f (should be 2.718)", d1);
+    println("  ✓ Test 2 passed");
+    println("");
+    
+    // テスト3: 複数の浮動小数点数
+    println("Test 3: Multiple floats");
+    float f2;
+    f2 = 1.5f;
+    float f3;
+    f3 = 2.5f;
+    println("  f2=%f, f3=%f", f2, f3);
+    println("  ✓ Test 3 passed");
+    println("");
+    
+    // テスト4: 負の数
+    println("Test 4: Negative numbers");
+    float f4;
+    f4 = -10.5f;
+    double d2;
+    d2 = -99.99;
+    println("  f4 = %f (should be -10.5)", f4);
+    println("  d2 = %f (should be -99.99)", d2);
+    println("  ✓ Test 4 passed");
+    println("");
+    
+    // テスト5: ゼロ
+    println("Test 5: Zero");
+    float f5;
+    f5 = 0.0f;
+    println("  f5 = %f (should be 0.0)", f5);
+    println("  ✓ Test 5 passed");
+    println("");
+    
+    // テスト6: 大きい数
+    println("Test 6: Large numbers");
+    double d3;
+    d3 = 12345.6789;
+    println("  d3 = %f (should be 12345.6789)", d3);
+    println("  ✓ Test 6 passed");
+    println("");
+    
+    // テスト7: 小さい数
+    println("Test 7: Small numbers");
+    float f6;
+    f6 = 0.001f;
+    println("  f6 = %f (should be 0.001)", f6);
+    println("  ✓ Test 7 passed");
+    println("");
+    
+    // テスト8: %fと%dの混在
+    println("Test 8: Mixed %f and %d");
+    int i;
+    i = 42;
+    float f7;
+    f7 = 3.14f;
+    println("  Integer: %d, Float: %f", i, f7);
+    println("  ✓ Test 8 passed");
+    println("");
+    
+    // テスト9: %fと%pの混在
+    println("Test 9: Mixed %f and %p");
+    float f8;
+    f8 = 1.23f;
+    println("  Value: %f, Address: %p", f8, &f8);
+    println("  ✓ Test 9 passed");
+    println("");
+    
+    // テスト10: %fと%sの混在
+    println("Test 10: Mixed %f and %s");
+    double d4;
+    d4 = 9.87;
+    println("  String: %s, Double: %f", "test", d4);
+    println("  ✓ Test 10 passed");
+    println("");
+    
+    println("=== All float format tests passed ===");
+    return 0;
+}

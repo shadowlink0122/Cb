@@ -12,7 +12,7 @@ struct Counter {
 
 impl Incrementable for Counter {
     void increment() {
-        *self.value_ptr = *self.value_ptr + 1;
+        (*self.value_ptr)++;
     }
     
     void set_value(int new_val) {

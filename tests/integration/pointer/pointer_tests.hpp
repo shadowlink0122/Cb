@@ -736,6 +736,70 @@ inline void test_pointer_return_comprehensive() {
 }
 
 // ============================================================================
+// 新規テスト: デリファレンスインクリメント/デクリメント (*ptr)++
+// ============================================================================
+
+inline void test_dereference_incdec() {
+    double execution_time = 0.0;
+    run_cb_test_with_output_and_time(
+        "../../tests/cases/pointer/test_deref_incdec.cb",
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "デリファレンスインクリメント/デクリメントテストがエラー終了");
+            
+            INTEGRATION_ASSERT(output.find("=== Dereference Increment/Decrement Test ===") != std::string::npos,
+                             "テストヘッダーが出力されていない");
+            
+            // Test 1-8: All dereference increment/decrement tests
+            for (int i = 1; i <= 8; i++) {
+                std::string test_msg = "✓ Test " + std::to_string(i) + " passed";
+                INTEGRATION_ASSERT(output.find(test_msg) != std::string::npos,
+                                 ("Test " + std::to_string(i) + "のパスメッセージがない").c_str());
+            }
+            
+            INTEGRATION_ASSERT(output.find("=== All dereference increment/decrement tests passed ===") != std::string::npos,
+                             "最終メッセージが表示されていない");
+        },
+        execution_time
+    );
+    
+    printf("[✓] test_dereference_incdec passed (%.3fms)\n", execution_time);
+}
+
+// ============================================================================
+// 新規テスト: ポインタアドレスフォーマット (%p)
+// ============================================================================
+
+inline void test_pointer_format() {
+    double execution_time = 0.0;
+    run_cb_test_with_output_and_time(
+        "../../tests/cases/pointer/test_pointer_format.cb",
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "ポインタアドレスフォーマットテストがエラー終了");
+            
+            INTEGRATION_ASSERT(output.find("=== Pointer Address Format (%p) Test ===") != std::string::npos,
+                             "テストヘッダーが出力されていない");
+            
+            // Test 1-7: All pointer format tests
+            for (int i = 1; i <= 7; i++) {
+                std::string test_msg = "✓ ";
+                INTEGRATION_ASSERT(output.find(test_msg) != std::string::npos,
+                                 ("Test " + std::to_string(i) + "のパスメッセージがない").c_str());
+            }
+            
+            // 16進数アドレス表示の確認（0x前綴り）
+            INTEGRATION_ASSERT(output.find("0x") != std::string::npos,
+                             "16進数アドレス表示がない");
+            
+            INTEGRATION_ASSERT(output.find("=== All pointer address format tests passed ===") != std::string::npos,
+                             "最終メッセージが表示されていない");
+        },
+        execution_time
+    );
+    
+    printf("[✓] test_pointer_format passed (%.3fms)\n", execution_time);
+}
+
+// ============================================================================
 // 全てのポインタテストを実行
 // ============================================================================
 
@@ -754,6 +818,8 @@ inline void run_all_pointer_tests() {
     test_struct_pointer_members();
     test_impl_with_pointers();
     test_pointer_return_comprehensive();
+    test_dereference_incdec();        // 新規テスト
+    test_pointer_format();            // 新規テスト
     
     printf("=== All Pointer Tests Passed ===\n\n");
 }

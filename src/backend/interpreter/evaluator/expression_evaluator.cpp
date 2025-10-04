@@ -906,6 +906,151 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
             throw std::runtime_error("Invalid increment/decrement operation");
         }
         
+        // (*ptr)++ の場合：デリファレンス演算子の処理
+        if (node->left->node_type == ASTNodeType::AST_UNARY_OP && node->left->op == "DEREFERENCE") {
+            if (!node->left->left) {
+                throw std::runtime_error("Invalid dereference in increment/decrement");
+            }
+            
+            // ポインタ変数を取得
+            int64_t ptr_value = 0;
+            if (node->left->left->node_type == ASTNodeType::AST_VARIABLE) {
+                Variable *ptr_var = interpreter_.find_variable(node->left->left->name);
+                if (!ptr_var || ptr_var->type != TYPE_POINTER) {
+                    throw std::runtime_error("Not a pointer variable");
+                }
+                ptr_value = ptr_var->value;
+            } else {
+                ptr_value = evaluate_expression(node->left->left.get());
+            }
+            
+            // メタデータポインタの場合
+            bool is_metadata = (ptr_value & (1LL << 63)) != 0;
+            Variable* target_var = nullptr;
+            size_t array_index = 0;
+            bool is_array_element = false;
+            TypeInfo element_type = TYPE_INT;
+            
+            if (is_metadata) {
+                int64_t clean_ptr = ptr_value & ~(1LL << 63);
+                using namespace PointerSystem;
+                PointerMetadata* meta = reinterpret_cast<PointerMetadata*>(clean_ptr);
+                
+                if (!meta) {
+                    throw std::runtime_error("Invalid pointer metadata");
+                }
+                
+                // ポインタが指す値を取得して変更
+                if (meta->target_type == PointerTargetType::VARIABLE) {
+                    target_var = meta->var_ptr;
+                } else if (meta->target_type == PointerTargetType::ARRAY_ELEMENT) {
+                    target_var = meta->array_var;
+                    array_index = meta->element_index;
+                    is_array_element = true;
+                    element_type = meta->element_type;
+                }
+                
+                if (!target_var) {
+                    throw std::runtime_error("Invalid pointer target");
+                }
+            } else {
+                // 従来のポインタ形式（Variable*）
+                target_var = reinterpret_cast<Variable*>(ptr_value);
+                if (!target_var) {
+                    throw std::runtime_error("Null pointer dereference");
+                }
+            }
+            
+            // 型に応じてインクリメント/デクリメント
+            int64_t old_value = 0;
+            int64_t new_value = 0;
+            
+            if (!is_array_element) {
+                    // 変数へのポインタ
+                    if (target_var->type == TYPE_INT || target_var->type == TYPE_TINY || 
+                        target_var->type == TYPE_SHORT || target_var->type == TYPE_LONG ||
+                        target_var->type == TYPE_CHAR) {
+                        old_value = target_var->value;
+                        if (node->op == "++") {
+                            target_var->value += 1;
+                        } else {
+                            target_var->value -= 1;
+                        }
+                        new_value = target_var->value;
+                    } else if (target_var->type == TYPE_FLOAT) {
+                        old_value = static_cast<int64_t>(target_var->float_value);
+                        if (node->op == "++") {
+                            target_var->float_value += 1.0f;
+                        } else {
+                            target_var->float_value -= 1.0f;
+                        }
+                        new_value = static_cast<int64_t>(target_var->float_value);
+                    } else if (target_var->type == TYPE_DOUBLE) {
+                        old_value = static_cast<int64_t>(target_var->double_value);
+                        if (node->op == "++") {
+                            target_var->double_value += 1.0;
+                        } else {
+                            target_var->double_value -= 1.0;
+                        }
+                        new_value = static_cast<int64_t>(target_var->double_value);
+                    } else {
+                        throw std::runtime_error("Unsupported type for pointer dereference increment/decrement");
+                    }
+            } else {
+                // 配列要素へのポインタ
+                if (element_type == TYPE_INT || element_type == TYPE_CHAR) {
+                    auto& values = target_var->is_multidimensional ? 
+                                 target_var->multidim_array_values : target_var->array_values;
+                    if (array_index >= values.size()) {
+                        throw std::runtime_error("Array index out of bounds");
+                    }
+                    old_value = values[array_index];
+                    if (node->op == "++") {
+                        values[array_index] += 1;
+                    } else {
+                        values[array_index] -= 1;
+                    }
+                    new_value = values[array_index];
+                } else if (element_type == TYPE_FLOAT) {
+                    auto& values = target_var->is_multidimensional ? 
+                                 target_var->multidim_array_float_values : target_var->array_float_values;
+                    if (array_index >= values.size()) {
+                        throw std::runtime_error("Array index out of bounds");
+                    }
+                    old_value = static_cast<int64_t>(values[array_index]);
+                    if (node->op == "++") {
+                        values[array_index] += 1.0f;
+                    } else {
+                        values[array_index] -= 1.0f;
+                    }
+                    new_value = static_cast<int64_t>(values[array_index]);
+                } else if (element_type == TYPE_DOUBLE) {
+                    auto& values = target_var->is_multidimensional ? 
+                                 target_var->multidim_array_double_values : target_var->array_double_values;
+                    if (array_index >= values.size()) {
+                        throw std::runtime_error("Array index out of bounds");
+                    }
+                    old_value = static_cast<int64_t>(values[array_index]);
+                    if (node->op == "++") {
+                        values[array_index] += 1.0;
+                    } else {
+                        values[array_index] -= 1.0;
+                    }
+                    new_value = static_cast<int64_t>(values[array_index]);
+                } else {
+                    throw std::runtime_error("Unsupported array element type for dereference increment/decrement");
+                }
+            }
+                
+            
+            // プレフィックスは新しい値、ポストフィックスは古い値を返す
+            if (node->node_type == ASTNodeType::AST_PRE_INCDEC) {
+                return new_value;
+            } else {
+                return old_value;
+            }
+        }
+        
         // 変数の場合
         if (node->left->node_type == ASTNodeType::AST_VARIABLE) {
             Variable *var = interpreter_.find_variable(node->left->name);

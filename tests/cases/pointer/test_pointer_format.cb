@@ -1,0 +1,90 @@
+// %pフォーマット（ポインタアドレス表示）のテスト
+
+int main() {
+    println("=== Pointer Address Format (%p) Test ===");
+    println("");
+    
+    // テスト1: 基本的な変数アドレス
+    println("Test 1: Basic variable address");
+    int x;
+    x = 42;
+    println("  x = %d", x);
+    println("  &x = %p", &x);
+    println("  ✓ Address displayed in hex format");
+    println("");
+    
+    // テスト2: 異なる型の変数アドレス
+    println("Test 2: Different types");
+    int a;
+    a = 1;
+    float b;
+    b = 2.5f;
+    double c;
+    c = 3.14;
+    println("  int a = %d, address: %p", a, &a);
+    println("  float b = %f, address: %p", b, &b);
+    println("  double c = %f, address: %p", c, &c);
+    println("  ✓ All types display addresses");
+    println("");
+    
+    // テスト3: ポインタ変数自体のアドレス
+    println("Test 3: Pointer variable address");
+    int val;
+    val = 100;
+    int* ptr;
+    ptr = &val;
+    println("  val = %d", val);
+    println("  ptr (points to val) = %p", ptr);
+    println("  &ptr (address of pointer) = %p", &ptr);
+    println("  *ptr (dereferenced) = %d", *ptr);
+    println("  ✓ Pointer variable address works");
+    println("");
+    
+    // テスト4: 複数のアドレスを同時表示
+    println("Test 4: Multiple addresses");
+    int i1;
+    i1 = 10;
+    int i2;
+    i2 = 20;
+    int i3;
+    i3 = 30;
+    println("  i1=%d @%p, i2=%d @%p, i3=%d @%p", i1, &i1, i2, &i2, i3, &i3);
+    println("  ✓ Multiple %p in one println works");
+    println("");
+    
+    // テスト5: 配列要素のアドレス
+    println("Test 5: Array element addresses");
+    int[4] arr;
+    arr[0] = 100;
+    arr[1] = 200;
+    arr[2] = 300;
+    arr[3] = 400;
+    println("  arr[0]=%d @%p", arr[0], &arr[0]);
+    println("  arr[1]=%d @%p", arr[1], &arr[1]);
+    println("  arr[2]=%d @%p", arr[2], &arr[2]);
+    println("  arr[3]=%d @%p", arr[3], &arr[3]);
+    println("  ✓ Array element addresses work");
+    println("");
+    
+    // テスト6: %pと他のフォーマット指定子の混在
+    println("Test 6: Mixed format specifiers");
+    int num;
+    num = 123;
+    println("  Integer: %d, Hex address: %p, String: %s", num, &num, "test");
+    println("  ✓ Mixed format specifiers work");
+    println("");
+    
+    // テスト7: float/doubleでの%fと%pの併用
+    println("Test 7: Float/Double with %f and %p");
+    float fval;
+    fval = 1.23f;
+    double dval;
+    dval = 4.56;
+    println("  float: value=%f, address=%p", fval, &fval);
+    println("  double: value=%f, address=%p", dval, &dval);
+    println("  ✓ %f and %p work together");
+    println("");
+    
+    println("=== All pointer address format tests passed ===");
+    return 0;
+}

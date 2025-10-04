@@ -673,7 +673,7 @@ bool OutputManager::has_unescaped_format_specifiers(const std::string& str) {
             // 次の文字がフォーマット指定子かチェック
             if (i + 1 < str.length()) {
                 char next = str[i + 1];
-                if (next == 'd' or next == 's' or next == 'c' or next == '%') {
+                if (next == 'd' or next == 's' or next == 'c' or next == 'p' or next == 'f' or next == '%') {
                     debug_msg(DebugMsgId::OUTPUT_FORMAT_SPEC_FOUND, std::string(1, next).c_str());
                     return true;
                 }
@@ -700,7 +700,7 @@ size_t OutputManager::count_format_specifiers(const std::string& str) {
             }
             if (i + 1 < str.length()) {
                 char next = str[i + 1];
-                if (next == 'd' or next == 's' or next == 'c') {
+                if (next == 'd' or next == 's' or next == 'c' or next == 'p' or next == 'f') {
                     count++;
                     debug_msg(DebugMsgId::OUTPUT_FORMAT_COUNT, std::to_string(count).c_str());
                 } else if (next == 'l' && i + 3 < str.length() && 
@@ -1220,6 +1220,13 @@ std::string OutputManager::render_formatted_string(
                 string_value = argument_to_string(arg_index);
             }
             formatted = format_with_snprintf(fmt, string_value.c_str());
+            break;
+        }
+        case 'p': {
+            // ポインタのアドレスを16進数で表示（0x前綴り）
+            fmt += "p";
+            void* ptr_value = reinterpret_cast<void*>(static_cast<uintptr_t>(int_args[arg_index]));
+            formatted = format_with_snprintf(fmt, ptr_value);
             break;
         }
         case 'f':
