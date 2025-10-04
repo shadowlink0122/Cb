@@ -561,6 +561,7 @@ enum class ASTNodeType {
     AST_PRE_INCDEC,
     AST_POST_INCDEC,
     AST_MEMBER_ACCESS,       // メンバアクセス (struct.member)
+    AST_ARROW_ACCESS,        // アロー演算子アクセス (ptr->member)
     AST_MEMBER_ARRAY_ACCESS, // メンバの配列アクセス (struct.member[index])
     AST_STRUCT_LITERAL,      // 構造体リテラル {a: 1, b: "str"}
     AST_IDENTIFIER,          // 識別子（変数名、self等）
@@ -691,6 +692,7 @@ struct ASTNode {
     // 関数呼び出し関連（修飾名対応）
     std::string qualified_name;     // module.function形式の修飾名
     bool is_qualified_call = false; // 修飾された関数呼び出しか
+    bool is_arrow_call = false; // アロー演算子経由の呼び出しか
 
     // enum関連
     std::string enum_name;          // enum型名 (Job::a の Job部分)

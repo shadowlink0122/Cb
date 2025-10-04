@@ -1385,6 +1385,77 @@ ASTNode* RecursiveParser::parseStatement() {
                 
                 consume(TokenType::TOK_SEMICOLON, "Expected ';'");
                 return postfix_node;
+            }
+            // メンバアクセスやアロー演算子のチェック
+            else if (check(TokenType::TOK_DOT) || check(TokenType::TOK_ARROW) || check(TokenType::TOK_LBRACKET)) {
+                // 識別子から始まる複雑な式（obj.member, ptr->member, arr[i]等）
+                // レキサーを巻き戻して、完全な式として解析し直す
+                // 現在の位置を保存
+                RecursiveLexer saved_lexer = lexer_;
+                Token saved_token = current_token_;
+                
+                // 識別子を含む完全な式を解析するため、識別子の位置に戻る必要がある
+                // しかし、既に識別子を消費してしまっているので、
+                // 代わりに識別子ノードからpostfix処理を継続する
+                
+                // identifier_nodeから始めて、postfix操作（.、->、[]）を処理
+                ASTNode* expr_node = identifier_node;
+                identifier_node = nullptr; // ownershipを移動
+                
+                // postfix操作を処理
+                while (true) {
+                    if (check(TokenType::TOK_LBRACKET)) {
+                        // 配列アクセス
+                        advance(); // consume '['
+                        ASTNode* index = parseExpression();
+                        consume(TokenType::TOK_RBRACKET, "Expected ']'");
+                        
+                        ASTNode* array_ref = new ASTNode(ASTNodeType::AST_ARRAY_REF);
+                        array_ref->left = std::unique_ptr<ASTNode>(expr_node);
+                        array_ref->array_index = std::unique_ptr<ASTNode>(index);
+                        expr_node = array_ref;
+                    } else if (check(TokenType::TOK_DOT)) {
+                        // メンバアクセス
+                        expr_node = parseMemberAccess(expr_node);
+                    } else if (check(TokenType::TOK_ARROW)) {
+                        // アロー演算子
+                        expr_node = parseArrowAccess(expr_node);
+                    } else {
+                        break;
+                    }
+                }
+                
+                // 後置インクリメント/デクリメントのチェック
+                if (check(TokenType::TOK_INCR) || check(TokenType::TOK_DECR)) {
+                    TokenType op_type = current_token_.type;
+                    advance(); // consume '++' or '--'
+                    
+                    ASTNode* postfix_node = new ASTNode(ASTNodeType::AST_POST_INCDEC);
+                    postfix_node->op = (op_type == TokenType::TOK_INCR) ? "++" : "--";
+                    postfix_node->left = std::unique_ptr<ASTNode>(expr_node);
+                    
+                    consume(TokenType::TOK_SEMICOLON, "Expected ';'");
+                    return postfix_node;
+                }
+                // 代入があるかチェック
+                else if (check(TokenType::TOK_ASSIGN) || check(TokenType::TOK_PLUS_ASSIGN) || 
+                    check(TokenType::TOK_MINUS_ASSIGN) || check(TokenType::TOK_MUL_ASSIGN) ||
+                    check(TokenType::TOK_DIV_ASSIGN) || check(TokenType::TOK_MOD_ASSIGN)) {
+                    TokenType op_type = current_token_.type;
+                    advance(); // consume assignment operator
+                    
+                    ASTNode* right = parseExpression();
+                    
+                    ASTNode* assignment = new ASTNode(ASTNodeType::AST_ASSIGN);
+                    assignment->left = std::unique_ptr<ASTNode>(expr_node);
+                    assignment->right = std::unique_ptr<ASTNode>(right);
+                    
+                    consume(TokenType::TOK_SEMICOLON, "Expected ';'");
+                    return assignment;
+                }
+                
+                consume(TokenType::TOK_SEMICOLON, "Expected ';'");
+                return expr_node;
             } else {
                 // その他の単純な識別子式
                 consume(TokenType::TOK_SEMICOLON, "Expected ';'");
@@ -2049,6 +2120,23 @@ ASTNode* RecursiveParser::parseAssignment() {
                 assign->left = std::unique_ptr<ASTNode>(left);
                 assign->right = std::unique_ptr<ASTNode>(right);
             }
+        } else if (left->node_type == ASTNodeType::AST_ARROW_ACCESS) {
+            // アロー演算子代入: ptr->member = value
+            if (op_type != TokenType::TOK_ASSIGN) {
+                std::string binary_op = getBinaryOpForCompound(op_type);
+                ASTNode* left_copy = cloneAstNode(left);
+                assign->left = std::unique_ptr<ASTNode>(left);
+
+                ASTNode* binop = new ASTNode(ASTNodeType::AST_BINARY_OP);
+                binop->op = binary_op;
+                binop->left = std::unique_ptr<ASTNode>(left_copy);
+                binop->right = std::unique_ptr<ASTNode>(right);
+
+                assign->right = std::unique_ptr<ASTNode>(binop);
+            } else {
+                assign->left = std::unique_ptr<ASTNode>(left);
+                assign->right = std::unique_ptr<ASTNode>(right);
+            }
         } else if (left->node_type == ASTNodeType::AST_UNARY_OP && left->op == "DEREFERENCE") {
             // 間接参照への代入: *ptr = value
             // 複合代入はサポートしない（*ptr += value は未実装）
@@ -2330,6 +2418,13 @@ ASTNode* RecursiveParser::parsePostfix() {
             primary = parseMemberAccess(primary);
             if (!primary) {
                 std::cerr << "[PARSER ERROR] parseMemberAccess returned null" << std::endl;
+                return nullptr;
+            }
+        } else if (check(TokenType::TOK_ARROW)) {
+            // アロー演算子: ptr->member
+            primary = parseArrowAccess(primary);
+            if (!primary) {
+                std::cerr << "[PARSER ERROR] parseArrowAccess returned null" << std::endl;
                 return nullptr;
             }
         } else {
@@ -4304,6 +4399,88 @@ ASTNode* RecursiveParser::parseMemberAccess(ASTNode* object) {
     setLocation(member_access, current_token_);
     
     return member_access;
+}
+
+// アロー演算子アクセスの解析: ptr->member
+ASTNode* RecursiveParser::parseArrowAccess(ASTNode* object) {
+    consume(TokenType::TOK_ARROW, "Expected '->'");
+    
+    std::string member_name;
+    if (check(TokenType::TOK_IDENTIFIER)) {
+        member_name = current_token_.value;
+        advance();
+    } else if (check(TokenType::TOK_PRINT) || check(TokenType::TOK_PRINTLN) || check(TokenType::TOK_PRINTF)) {
+        // 予約キーワードだが、メソッド名として許可
+        member_name = current_token_.value;
+        advance();
+    } else {
+        error("Expected member name after '->'");
+        return nullptr;
+    }
+    
+    // メソッド呼び出しかチェック（ptr->method()）
+    if (check(TokenType::TOK_LPAREN)) {
+        // メソッド呼び出し
+        ASTNode* method_call = new ASTNode(ASTNodeType::AST_FUNC_CALL);
+        method_call->name = member_name;
+        method_call->left = std::unique_ptr<ASTNode>(object); // レシーバー（ポインタ）
+        method_call->is_arrow_call = true; // アロー演算子経由のフラグ
+        setLocation(method_call, current_token_);
+        
+        // パラメータリストを解析
+        advance(); // consume '('
+        
+        if (!check(TokenType::TOK_RPAREN)) {
+            do {
+                ASTNode* arg = parseExpression();
+                if (!arg) {
+                    error("Expected argument expression");
+                    return nullptr;
+                }
+                method_call->arguments.push_back(std::unique_ptr<ASTNode>(arg));
+                
+                if (!check(TokenType::TOK_COMMA)) {
+                    break;
+                }
+                advance(); // consume ','
+            } while (!check(TokenType::TOK_RPAREN) && !isAtEnd());
+        }
+        
+        consume(TokenType::TOK_RPAREN, "Expected ')' after method arguments");
+        
+        return method_call;
+    }
+    
+    // ネストしたアクセスの検出と解析 (ptr->member.submember または ptr->member->submember)
+    std::vector<std::string> member_chain;
+    member_chain.push_back(member_name);
+    
+    // 連続するドット記法またはアロー演算子を解析
+    while (check(TokenType::TOK_DOT) || check(TokenType::TOK_ARROW)) {
+        if (check(TokenType::TOK_DOT)) {
+            advance(); // consume '.'
+        } else {
+            advance(); // consume '->'
+        }
+        
+        if (!check(TokenType::TOK_IDENTIFIER)) {
+            error("Expected member name after '.' or '->' in nested access");
+            return nullptr;
+        }
+        
+        std::string next_member = current_token_.value;
+        member_chain.push_back(next_member);
+        advance();
+    }
+    
+    // アロー演算子アクセス: ptr->member は (*ptr).member と等価
+    ASTNode* arrow_access = new ASTNode(ASTNodeType::AST_ARROW_ACCESS);
+    arrow_access->left = std::unique_ptr<ASTNode>(object);
+    arrow_access->name = member_name; // メンバ名を保存
+    arrow_access->member_chain = member_chain; // チェーン全体を保存
+    setLocation(arrow_access, current_token_);
+    
+    return arrow_access;
 }
 
 // 構造体リテラルの解析: {member: value, member2: value2}

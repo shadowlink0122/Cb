@@ -402,6 +402,9 @@ void StatementExecutor::execute_assignment(const ASTNode *node) {
     } else if (node->left && node->left->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
         // メンバアクセスへの代入 (obj.member = value)
         execute_member_assignment(node);
+    } else if (node->left && node->left->node_type == ASTNodeType::AST_ARROW_ACCESS) {
+        // アロー演算子アクセスへの代入 (ptr->member = value)
+        execute_arrow_assignment(node);
     } else {
         // 通常の変数代入
         // Union型変数への代入の特別処理
@@ -1577,6 +1580,49 @@ void StatementExecutor::execute_member_assignment(const ASTNode* node) {
         TypedValue typed_value = interpreter_.evaluate_typed(node->right.get());
         interpreter_.assign_struct_member(obj_name, member_name, typed_value);
     }
+}
+
+void StatementExecutor::execute_arrow_assignment(const ASTNode* node) {
+    // ptr->member = value の処理（アロー演算子は (*ptr).member と等価）
+    const ASTNode* arrow_access = node->left.get();
+    
+    debug_msg(DebugMsgId::INTERPRETER_EXEC_STMT, "execute_arrow_assignment", "starting");
+    debug_print("DEBUG: execute_arrow_assignment - left type=%d, right type=%d\n",
+               static_cast<int>(node->left->node_type), static_cast<int>(node->right->node_type));
+    
+    if (!arrow_access || arrow_access->node_type != ASTNodeType::AST_ARROW_ACCESS) {
+        throw std::runtime_error("Invalid arrow access in assignment");
+    }
+    
+    // ポインタを評価
+    int64_t ptr_value = interpreter_.evaluate(arrow_access->left.get());
+    
+    if (ptr_value == 0) {
+        throw std::runtime_error("Null pointer dereference in arrow assignment");
+    }
+    
+    // ポインタから構造体変数を取得
+    Variable* struct_var = reinterpret_cast<Variable*>(ptr_value);
+    
+    if (!struct_var) {
+        throw std::runtime_error("Invalid pointer in arrow assignment");
+    }
+    
+    // メンバ名を取得
+    std::string member_name = arrow_access->name;
+    
+    // 右辺を評価して代入
+    if (node->right->node_type == ASTNodeType::AST_STRING_LITERAL) {
+        struct_var->struct_members[member_name].str_value = node->right->str_value;
+        struct_var->struct_members[member_name].type = TYPE_STRING;
+    } else {
+        TypedValue typed_value = interpreter_.evaluate_typed(node->right.get());
+        struct_var->struct_members[member_name].value = typed_value.as_numeric();
+        struct_var->struct_members[member_name].type = typed_value.type.type_info;
+    }
+    struct_var->struct_members[member_name].is_assigned = true;
+    
+    debug_msg(DebugMsgId::INTERPRETER_EXEC_STMT, "execute_arrow_assignment", "completed");
 }
 
 void StatementExecutor::execute_member_array_literal_assignment(const ASTNode* node) {

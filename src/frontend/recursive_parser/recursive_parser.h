@@ -106,6 +106,7 @@ private:
     ASTNode* parsePostfix();
     ASTNode* parsePrimary();
     ASTNode* parseMemberAccess(ASTNode* object);  // メンバアクセス (.member)
+    ASTNode* parseArrowAccess(ASTNode* object);   // アロー演算子アクセス (ptr->member)
     ASTNode* parseStructLiteral();                // 構造体リテラル {a: 1, b: "str"}
     ASTNode* parseEnumAccess();                   // enum値アクセス (EnumName::member)
     

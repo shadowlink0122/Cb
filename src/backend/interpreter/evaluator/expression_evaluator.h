@@ -85,6 +85,7 @@ private:
 
     MethodReceiverResolution resolve_method_receiver(const ASTNode* receiver_node);
     MethodReceiverResolution resolve_member_receiver(const ASTNode* member_node);
+    MethodReceiverResolution resolve_arrow_receiver(const ASTNode* arrow_node);
     MethodReceiverResolution resolve_array_receiver(const ASTNode* array_node);
     MethodReceiverResolution create_chain_receiver_from_expression(const ASTNode* node);
     bool resolve_variable_name(const ASTNode* node, std::string& out_name, Variable*& out_var);

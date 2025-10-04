@@ -54,12 +54,12 @@ void test_integration_static_variables() {
     integration_test_passed_with_time_auto("recursive static variable", "recursive.cb");
     
     // 統合テスト
-    run_cb_test_with_output_and_time_auto("static_variables/static_integration.cb", 
+    run_cb_test_with_output_and_time_auto("../../tests/cases/static_variables/static_integration.cb", 
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_EQ(0, exit_code, "static_integration.cb should execute successfully");
             INTEGRATION_ASSERT_EQ("1\n2\n3\n15\n90\n20\n80\n12\n24\n36\n48\n50\n50\n", output, "static integration test output");
         });
-    integration_test_passed_with_time_auto("static integration", "static_integration.cb");
+    integration_test_passed_with_time_auto("static integration", "../../tests/cases/static_variables/static_integration.cb");
 
     std::cout << "[integration] Static variables tests completed" << std::endl;
 }

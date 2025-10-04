@@ -45,6 +45,9 @@ ExpressionEvaluator::MethodReceiverResolution ExpressionEvaluator::resolve_metho
     case ASTNodeType::AST_MEMBER_ACCESS:
         // メンバアクセスは別ヘルパーで解決
         return resolve_member_receiver(receiver_node);
+    case ASTNodeType::AST_ARROW_ACCESS:
+        // アロー演算子は (*ptr).member と等価
+        return resolve_arrow_receiver(receiver_node);
     case ASTNodeType::AST_ARRAY_REF:
         return resolve_array_receiver(receiver_node);
     case ASTNodeType::AST_FUNC_CALL:
@@ -2783,6 +2786,49 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
         return member_var->value;
     }
     
+    case ASTNodeType::AST_ARROW_ACCESS: {
+        // アロー演算子アクセス: ptr->member は (*ptr).member と等価
+        // まず左側のポインタを評価
+        debug_msg(DebugMsgId::EXPR_EVAL_START, "Arrow operator member access");
+        
+        std::string member_name = node->name;
+        
+        // ポインタを評価して値を取得
+        int64_t ptr_value = evaluate_expression(node->left.get());
+        
+        if (ptr_value == 0) {
+            throw std::runtime_error("Null pointer dereference in arrow operator");
+        }
+        
+        // ポインタ値から構造体変数を取得
+        Variable* struct_var = reinterpret_cast<Variable*>(ptr_value);
+        
+        if (!struct_var) {
+            throw std::runtime_error("Invalid pointer in arrow operator");
+        }
+        
+        // 構造体型またはInterface型をチェック
+        if (struct_var->type != TYPE_STRUCT && struct_var->type != TYPE_INTERFACE) {
+            throw std::runtime_error("Arrow operator requires struct or interface pointer");
+        }
+        
+        // メンバーを取得
+        Variable member_var = get_struct_member_from_variable(*struct_var, member_name);
+        
+        if (member_var.type == TYPE_STRING) {
+            TypedValue typed_result(static_cast<int64_t>(0), InferredType(TYPE_STRING, "string"));
+            typed_result.string_value = member_var.str_value;
+            typed_result.is_numeric_result = false;
+            last_typed_result_ = typed_result;
+            return 0;
+        } else if (member_var.type == TYPE_POINTER) {
+            // ポインタメンバの場合はそのまま値を返す
+            return member_var.value;
+        } else {
+            return member_var.value;
+        }
+    }
+    
     case ASTNodeType::AST_MEMBER_ARRAY_ACCESS: {
         // メンバの配列アクセス: obj.member[index] または func().member[index]
         std::string obj_name;
@@ -4462,6 +4508,50 @@ ExpressionEvaluator::MethodReceiverResolution ExpressionEvaluator::resolve_membe
 
     // 直接解決できない場合は式全体をチェーンとして扱う
     return create_chain_receiver_from_expression(member_node);
+}
+
+ExpressionEvaluator::MethodReceiverResolution ExpressionEvaluator::resolve_arrow_receiver(const ASTNode* arrow_node) {
+    MethodReceiverResolution result;
+    if (!arrow_node || arrow_node->node_type != ASTNodeType::AST_ARROW_ACCESS) {
+        return result;
+    }
+
+    const ASTNode* base_node = arrow_node->left.get();
+    if (!base_node) {
+        return result;
+    }
+
+    const std::string member_name = arrow_node->name;
+
+    // ポインタを評価
+    try {
+        int64_t ptr_value = evaluate_expression(base_node);
+        
+        if (ptr_value == 0) {
+            // nullポインタの場合はエラー
+            return result;
+        }
+        
+        // ポインタから構造体を取得
+        Variable* struct_var = reinterpret_cast<Variable*>(ptr_value);
+        
+        if (!struct_var) {
+            return result;
+        }
+        
+        // 構造体のメンバーを取得
+        Variable member_var = get_struct_member_from_variable(*struct_var, member_name);
+        
+        // チェーン値として返す
+        auto chain_ret = std::make_shared<ReturnException>(member_var);
+        result.kind = MethodReceiverResolution::Kind::Chain;
+        result.chain_value = chain_ret;
+        
+        return result;
+    } catch (const std::exception&) {
+        // エラーの場合は空の結果を返す
+        return result;
+    }
 }
 
 ExpressionEvaluator::MethodReceiverResolution ExpressionEvaluator::create_chain_receiver_from_expression(const ASTNode* node) {
