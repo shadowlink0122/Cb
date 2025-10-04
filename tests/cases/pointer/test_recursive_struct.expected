@@ -1,0 +1,24 @@
+=== Test 1: Self-referencing struct declaration ===
+Node1 value: 10
+Node1 next: nullptr
+
+=== Test 2: Creating multiple nodes ===
+Node2 value: 20
+Node3 value: 30
+
+=== Test 3: Binary tree structure ===
+TreeNode root data: 100
+TreeNode left: nullptr
+TreeNode right: nullptr
+
+=== Test 4: Multi-level pointer depth ===
+MultiNode id: 999
+MultiNode next: nullptr
+MultiNode indirect: nullptr
+
+=== Test 5: Mixed struct with pointer and non-pointer members ===
+Person: Alice, age 25
+Friend: nullptr
+Parent: nullptr
+
+=== All recursive struct tests passed! ===
