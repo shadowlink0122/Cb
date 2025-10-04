@@ -1706,7 +1706,50 @@ void StatementExecutor::execute_member_assignment(const ASTNode* node) {
             }
         }
         
-        // 右辺を評価
+        //  完全なパスを構築
+        std::function<std::string(const ASTNode*)> build_full_path;
+        build_full_path = [&](const ASTNode* n) -> std::string {
+            if (!n) return "";
+            if (n->node_type == ASTNodeType::AST_VARIABLE || n->node_type == ASTNodeType::AST_IDENTIFIER) {
+                return n->name;
+            } else if (n->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
+                std::string base = build_full_path(n->left.get());
+                return base.empty() ? n->name : base + "." + n->name;
+            }
+            return "";
+        };
+        std::string full_member_path = build_full_path(member_access);
+        
+        if (debug_mode) {
+            debug_print("DEBUG: Nested member assignment - full_path='%s'\n", full_member_path.c_str());
+        }
+        
+        // 完全パスで個別変数を直接更新
+        if (!full_member_path.empty()) {
+            Variable* individual_var = interpreter_.find_variable(full_member_path);
+            if (individual_var) {
+                if (node->right->node_type == ASTNodeType::AST_STRING_LITERAL) {
+                    individual_var->str_value = node->right->str_value;
+                    individual_var->type = TYPE_STRING;
+                } else {
+                    TypedValue typed_value = interpreter_.evaluate_typed(node->right.get());
+                    individual_var->value = typed_value.as_numeric();
+                    individual_var->type = typed_value.type.type_info;
+                }
+                individual_var->is_assigned = true;
+                
+                if (debug_mode) {
+                    debug_print("DEBUG: Updated individual variable '%s' = %lld\n", 
+                               full_member_path.c_str(), individual_var->value);
+                }
+            } else {
+                if (debug_mode) {
+                    debug_print("DEBUG: Individual variable '%s' not found!\n", full_member_path.c_str());
+                }
+            }
+        }
+        
+        // struct_members階層も更新（互換性のため）
         if (node->right->node_type == ASTNodeType::AST_STRING_LITERAL) {
             parent_member_var.struct_members[member_name].str_value = node->right->str_value;
             parent_member_var.struct_members[member_name].type = TYPE_STRING;

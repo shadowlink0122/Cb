@@ -2725,7 +2725,35 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                 
                 struct_path = build_path(current);
                 
-                // このパスで変数を検索
+                // 完全パスを構築（最終メンバーまで含む）
+                std::string full_member_path = struct_path + "." + member_name;
+                
+                // 個別変数を直接検索
+                Variable* member_var_ptr = interpreter_.find_variable(full_member_path);
+                if (member_var_ptr) {
+                    // 個別変数が見つかった場合、それを使用
+                    if (member_var_ptr->type == TYPE_STRING) {
+                        last_typed_result_ = TypedValue(member_var_ptr->str_value, InferredType(TYPE_STRING, "string"));
+                        return 0;
+                    } else if (member_var_ptr->type == TYPE_STRUCT) {
+                        last_typed_result_ = TypedValue(member_var_ptr->value, InferredType(TYPE_STRUCT, member_var_ptr->type_name));
+                        return member_var_ptr->value;
+                    } else if (member_var_ptr->type == TYPE_FLOAT || member_var_ptr->type == TYPE_DOUBLE || member_var_ptr->type == TYPE_QUAD) {
+                        // float/double/quadの場合
+                        InferredType float_type(member_var_ptr->type, "");
+                        if (member_var_ptr->type == TYPE_QUAD) {
+                            last_typed_result_ = TypedValue(member_var_ptr->quad_value, float_type);
+                        } else {
+                            last_typed_result_ = TypedValue(member_var_ptr->float_value, float_type);
+                        }
+                        return static_cast<int64_t>(member_var_ptr->float_value);
+                    } else {
+                        last_typed_result_ = TypedValue(member_var_ptr->value, InferredType(member_var_ptr->type, ""));
+                        return member_var_ptr->value;
+                    }
+                }
+                
+                // 個別変数が見つからない場合は従来の方法（struct_membersから取得）
                 Variable* intermediate_var = interpreter_.find_variable(struct_path);
                 if (!intermediate_var) {
                     throw std::runtime_error("Intermediate struct not found: " + struct_path);
@@ -2736,8 +2764,6 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                 }
                 
                 intermediate_struct = *intermediate_var;
-                
-                // 最終メンバーを取得
                 Variable member_var = get_struct_member_from_variable(intermediate_struct, member_name);
                 
                 // 型情報を設定
