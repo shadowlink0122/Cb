@@ -325,7 +325,7 @@ ASTNode* RecursiveParser::parseStatement() {
                         ASTNode* var_node = new ASTNode(ASTNodeType::AST_VAR_DECL);
                         var_node->name = var_name;
                         var_node->type_name = struct_type;
-                        var_node->type_info = TYPE_STRUCT;
+                        var_node->type_info = is_pointer ? TYPE_POINTER : TYPE_STRUCT;
                         var_node->is_const = isConst;
                         var_node->is_pointer = is_pointer;
                         var_node->pointer_depth = pointer_depth;

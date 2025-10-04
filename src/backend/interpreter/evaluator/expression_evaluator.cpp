@@ -2731,6 +2731,31 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                     throw std::runtime_error("Function did not return a struct array for indexed member access");
                 }
             }
+        } else if (node->left->node_type == ASTNodeType::AST_UNARY_OP && node->left->op == "DEREFERENCE") {
+            // デリファレンスされたポインタからのメンバーアクセス: (*pp).member
+            debug_msg(DebugMsgId::EXPR_EVAL_START, "Pointer dereference member access");
+            
+            // デリファレンスを評価して構造体のポインタ値を取得
+            int64_t ptr_value = evaluate_expression(node->left.get());
+            
+            // ポインタ値から構造体変数を取得
+            Variable* struct_var = reinterpret_cast<Variable*>(ptr_value);
+            if (!struct_var) {
+                throw std::runtime_error("Null pointer dereference in member access");
+            }
+            
+            // 構造体メンバーを取得
+            Variable member_var = get_struct_member_from_variable(*struct_var, member_name);
+            
+            if (member_var.type == TYPE_STRING) {
+                TypedValue typed_result(static_cast<int64_t>(0), InferredType(TYPE_STRING, "string"));
+                typed_result.string_value = member_var.str_value;
+                typed_result.is_numeric_result = false;
+                last_typed_result_ = typed_result;
+                return 0;
+            } else {
+                return member_var.value;
+            }
         } else {
             throw std::runtime_error("Invalid member access");
         }

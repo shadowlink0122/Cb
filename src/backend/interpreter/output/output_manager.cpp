@@ -401,6 +401,36 @@ void OutputManager::print_value(const ASTNode *expr) {
             std::string array_name = expr->left->left->name;
             int64_t index = evaluate_expression(expr->left->array_index.get());
             struct_name = array_name + "[" + std::to_string(index) + "]";
+        } else if (expr->left && expr->left->node_type == ASTNodeType::AST_UNARY_OP && 
+                   expr->left->op == "DEREFERENCE") {
+            // デリファレンスされたポインタからのメンバーアクセス: (*pp).x
+            // デリファレンスを評価して構造体を取得
+            try {
+                int64_t ptr_value = evaluate_expression(expr->left.get());
+                // ポインタ値から構造体変数を取得
+                Variable* struct_var = reinterpret_cast<Variable*>(ptr_value);
+                if (!struct_var) {
+                    io_interface_->write_string("(null pointer dereference)");
+                    return;
+                }
+                
+                // メンバーにアクセス
+                auto member_it = struct_var->struct_members.find(member_name);
+                if (member_it != struct_var->struct_members.end()) {
+                    if (member_it->second.type == TYPE_STRING) {
+                        io_interface_->write_string(member_it->second.str_value.c_str());
+                    } else {
+                        io_interface_->write_number(member_it->second.value);
+                    }
+                    return;
+                } else {
+                    io_interface_->write_string("(member not found)");
+                    return;
+                }
+            } catch (const std::exception&) {
+                io_interface_->write_string("(deref member access error)");
+                return;
+            }
         } else {
             io_interface_->write_string("(invalid member access)");
             return;

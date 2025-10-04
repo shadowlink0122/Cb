@@ -1424,6 +1424,34 @@ void StatementExecutor::execute_member_assignment(const ASTNode* node) {
         obj_name = array_name + "[" + std::to_string(index) + "]";
         debug_msg(DebugMsgId::INTERPRETER_STRUCT_MEMBER_FOUND, 
                   "array_element", obj_name.c_str());
+    } else if (member_access->left && member_access->left->node_type == ASTNodeType::AST_UNARY_OP && 
+               member_access->left->op == "DEREFERENCE") {
+        // デリファレンスされたポインタ: (*pp).member
+        debug_print("DEBUG: Dereference pointer member assignment\n");
+        
+        // ポインタ変数を評価（デリファレンスの左側）
+        int64_t ptr_value = interpreter_.evaluate(member_access->left->left.get());
+        Variable* struct_var = reinterpret_cast<Variable*>(ptr_value);
+        
+        if (!struct_var) {
+            throw std::runtime_error("Null pointer dereference in member assignment");
+        }
+        
+        // メンバ名を取得
+        std::string member_name = member_access->name;
+        
+        // 右辺を評価
+        if (node->right->node_type == ASTNodeType::AST_STRING_LITERAL) {
+            struct_var->struct_members[member_name].str_value = node->right->str_value;
+            struct_var->struct_members[member_name].type = TYPE_STRING;
+        } else {
+            TypedValue typed_value = interpreter_.evaluate_typed(node->right.get());
+            struct_var->struct_members[member_name].value = typed_value.as_numeric();
+            struct_var->struct_members[member_name].type = typed_value.type.type_info;
+        }
+        struct_var->struct_members[member_name].is_assigned = true;
+        
+        return;
     } else {
         throw std::runtime_error("Invalid object reference in member access");
     }
