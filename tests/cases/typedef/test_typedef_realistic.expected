@@ -1,0 +1,20 @@
+=== Test 1: Basic typedef struct ===
+Person: id=1, name=Alice
+
+=== Test 2: Individual member assignment ===
+Person2: id=100, name=Bob
+
+=== Test 3: Typedef struct array ===
+people[0]: id=10, name=Charlie
+people[1]: id=20, name=Dave
+people[2]: id=30, name=Eve
+
+=== Test 4: Primitive array member in typedef struct ===
+ClassRoom: Math101
+  Scores: [85, 90, 78]
+
+=== Test 5: Individual primitive array assignment ===
+ClassRoom2: Science202
+  Scores: [95, 88, 92]
+
+=== All typedef struct tests passed! ===

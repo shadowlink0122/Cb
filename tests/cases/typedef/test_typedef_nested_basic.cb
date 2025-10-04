@@ -1,0 +1,61 @@
+// より段階的な複雑typedef構造体テスト
+
+typedef struct {
+    int x;
+    int y;
+} Point;
+
+typedef struct {
+    Point position;
+    int radius;
+} Circle;
+
+typedef struct {
+    Point[3] vertices;
+    string name;
+} Triangle;
+
+int main() {
+    println("=== Test 1: Basic typedef struct ===");
+    Point p = {10, 20};
+    println("Point: (%d, %d)", p.x, p.y);
+    
+    println("\n=== Test 2: Nested typedef struct literal ===");
+    Circle c = {{50, 60}, 25};
+    println("Circle at (%d, %d), radius %d",
+            c.position.x, c.position.y, c.radius);
+    
+    println("\n=== Test 3: Individual nested member assignment ===");
+    Circle c2;
+    c2.position.x = 100;
+    c2.position.y = 150;
+    c2.radius = 30;
+    println("Circle2 at (%d, %d), radius %d",
+            c2.position.x, c2.position.y, c2.radius);
+    
+    println("\n=== Test 4: Typedef array member literal ===");
+    Triangle tri = {[{0, 0}, {10, 0}, {5, 8}], "TestTri"};
+    println("Triangle '%s': v0(%d,%d), v1(%d,%d), v2(%d,%d)",
+            tri.name,
+            tri.vertices[0].x, tri.vertices[0].y,
+            tri.vertices[1].x, tri.vertices[1].y,
+            tri.vertices[2].x, tri.vertices[2].y);
+    
+    println("\n=== Test 5: Individual typedef array element assignment ===");
+    Triangle tri2;
+    tri2.name = "Tri2";
+    tri2.vertices[0].x = 1;
+    tri2.vertices[0].y = 2;
+    tri2.vertices[1].x = 3;
+    tri2.vertices[1].y = 4;
+    tri2.vertices[2].x = 5;
+    tri2.vertices[2].y = 6;
+    println("Triangle2 '%s': v0(%d,%d), v1(%d,%d), v2(%d,%d)",
+            tri2.name,
+            tri2.vertices[0].x, tri2.vertices[0].y,
+            tri2.vertices[1].x, tri2.vertices[1].y,
+            tri2.vertices[2].x, tri2.vertices[2].y);
+    
+    println("\n=== All tests passed! ===");
+    return 0;
+}

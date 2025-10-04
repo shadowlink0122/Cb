@@ -1,0 +1,29 @@
+=== Test 1: Simple typedef struct literal ===
+Point: (10, 20)
+Color: RGB(255, 128, 64)
+
+=== Test 2: Nested typedef struct literal ===
+Circle at (100, 150), color RGB(255, 0, 0), radius 50
+
+=== Test 3: Struct with typedef array member ===
+Triangle 'GreenTriangle' vertices: (0,0), (100,0), (50,86)
+Fill color: RGB(0, 255, 0)
+
+=== Test 4: Multi-level nested typedef struct ===
+Scene 'TestScene':
+  Circle 0: pos(10,10), radius=20
+  Circle 1: pos(50,50), radius=30
+  Triangle 'YellowTri': vertex 0(0,100)
+
+=== Test 5: Individual member assignment ===
+Circle2: pos(200,250), color RGB(128,128,128), radius=75
+
+=== Test 6: Array element assignment with typedef struct ===
+Triangle2 'BlueTri': vertices (5,10), (15,10), (10,20)
+Fill: RGB(0,0,255)
+
+=== Test 7: Multi-level array access ===
+Scene2 'DynamicScene': circle[0] at (111,222), radius=40
+  Triangle 'NestedTri': vertex[1] at (3,4), fill RGB(100,150,200)
+
+=== All complex typedef struct tests passed! ===
