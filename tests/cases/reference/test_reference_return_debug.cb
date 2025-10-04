@@ -1,0 +1,21 @@
+// 最小限の参照戻り値テスト
+
+int global_value = 100;
+
+int& get_global() {
+    return global_value;
+}
+
+int main() {
+    println("Test start");
+    
+    // まず通常の呼び出しを試す
+    // int& ref = get_global();
+    
+    // デバッグ: 関数を呼んでみる
+    get_global();
+    
+    println("After function call");
+    
+    return 0;
+}

@@ -1,0 +1,35 @@
+// Union型のポインタテスト
+
+typedef IntOrLong = int | long;
+
+int main() {
+    // Test 1: Union変数へのポインタ
+    println("Test 1: Pointer to union");
+    IntOrLong data = 42;
+    IntOrLong* ptr = &data;
+    println(*ptr);  // 42
+    
+    *ptr = 100;
+    println(data);  // 100
+    
+    // Test 2: Union配列へのポインタ
+    println("Test 2: Pointer to union array element");
+    IntOrLong arr[3];
+    arr[0] = 10;
+    arr[1] = 20;
+    arr[2] = 30;
+    
+    IntOrLong* p = &arr[1];
+    println(*p);  // 20
+    *p = 25;
+    println(arr[1]);  // 25
+    
+    // Test 3: nullptr
+    println("Test 3: nullptr");
+    IntOrLong* nullp = nullptr;
+    if (nullp == nullptr) {
+        println("nullptr check OK");
+    }
+    
+    return 0;
+}

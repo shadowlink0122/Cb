@@ -407,6 +407,20 @@ ASTNode* RecursiveParser::parseStatement() {
                     // interface変数宣言
                     std::string interface_type = advance().value;
                     
+                    // ポインタ深度をチェック
+                    int pointer_depth = 0;
+                    while (check(TokenType::TOK_MUL)) {
+                        pointer_depth++;
+                        advance();
+                    }
+                    
+                    // 参照チェック
+                    bool is_reference = false;
+                    if (check(TokenType::TOK_BIT_AND)) {
+                        is_reference = true;
+                        advance();
+                    }
+                    
                     if (!check(TokenType::TOK_IDENTIFIER)) {
                         error("Expected interface variable name");
                         return nullptr;
@@ -420,6 +434,24 @@ ASTNode* RecursiveParser::parseStatement() {
                     var_node->name = var_name;
                     var_node->type_name = interface_type;
                     var_node->type_info = TYPE_INTERFACE;
+                    
+                    // ポインタと参照の情報を設定
+                    if (pointer_depth > 0) {
+                        var_node->is_pointer = true;
+                        var_node->pointer_depth = pointer_depth;
+                        var_node->pointer_base_type_name = interface_type;
+                        var_node->pointer_base_type = TYPE_INTERFACE;
+                        
+                        // ポインタの場合、type_nameに*を追加
+                        for (int i = 0; i < pointer_depth; i++) {
+                            var_node->type_name += "*";
+                        }
+                    }
+                    
+                    if (is_reference) {
+                        var_node->is_reference = true;
+                        var_node->type_name += "&";
+                    }
                     
                     // 初期化式のチェック（interfaceの場合は構造体インスタンスを受け取る可能性）
                     if (match(TokenType::TOK_ASSIGN)) {
@@ -3480,6 +3512,20 @@ ASTNode* RecursiveParser::parseTypedefVariableDeclaration() {
     std::string typedef_name = advance().value;
     std::string resolved_type = resolveTypedefChain(typedef_name);
     
+    // ポインタ深度をチェック
+    int pointer_depth = 0;
+    while (check(TokenType::TOK_MUL)) {
+        pointer_depth++;
+        advance();
+    }
+    
+    // 参照チェック
+    bool is_reference = false;
+    if (check(TokenType::TOK_BIT_AND)) {
+        is_reference = true;
+        advance();
+    }
+    
     // 変数名を取得
     if (!check(TokenType::TOK_IDENTIFIER)) {
         error("Expected variable name after typedef type");
@@ -3492,6 +3538,35 @@ ASTNode* RecursiveParser::parseTypedefVariableDeclaration() {
     ASTNode* node = new ASTNode(ASTNodeType::AST_VAR_DECL);
     node->name = var_name;
     node->type_name = typedef_name;  // 元のtypedef名を保持
+    
+    // ポインタと参照の情報を設定
+    if (pointer_depth > 0) {
+        node->is_pointer = true;
+        node->pointer_depth = pointer_depth;
+        node->pointer_base_type_name = typedef_name;
+        
+        // typedefの解決済み型を取得
+        TypeInfo base_type_info = TYPE_UNKNOWN;
+        if (!resolved_type.empty()) {
+            // union型の場合
+            if (union_definitions_.find(resolved_type) != union_definitions_.end()) {
+                base_type_info = TYPE_UNION;
+            } else {
+                base_type_info = getTypeInfoFromString(resolved_type);
+            }
+        }
+        node->pointer_base_type = base_type_info;
+        
+        // ポインタの場合、type_nameに*を追加
+        for (int i = 0; i < pointer_depth; i++) {
+            node->type_name += "*";
+        }
+    }
+    
+    if (is_reference) {
+        node->is_reference = true;
+        node->type_name += "&";
+    }
     
     // 実際の型から型情報を設定
     if (resolved_type.find("[") != std::string::npos) {

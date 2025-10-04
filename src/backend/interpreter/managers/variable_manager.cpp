@@ -880,6 +880,42 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
         // 初期化式を評価して参照先変数を取得
         ASTNode* init_node = node->init_expr ? node->init_expr.get() : node->right.get();
         
+        // 関数呼び出しの場合、ReturnExceptionから参照を取得
+        if (init_node->node_type == ASTNodeType::AST_FUNC_CALL) {
+            try {
+                interpreter_->expression_evaluator_->evaluate_expression(init_node);
+                throw std::runtime_error("Function did not return via exception");
+            } catch (const ReturnException& ret) {
+                if (!ret.is_reference || !ret.reference_target) {
+                    throw std::runtime_error("Function '" + init_node->name + "' does not return a reference");
+                }
+                
+                Variable* target_var = ret.reference_target;
+                
+                if (interpreter_->is_debug_mode()) {
+                    std::cerr << "[VAR_MANAGER] Creating reference " << node->name 
+                              << " from function return (value: " << target_var->value << ")" << std::endl;
+                }
+                
+                // 参照変数を作成
+                Variable ref_var;
+                ref_var.is_reference = true;
+                ref_var.type = target_var->type;
+                ref_var.is_const = node->is_const;
+                ref_var.is_array = target_var->is_array;
+                ref_var.is_unsigned = target_var->is_unsigned;
+                ref_var.is_struct = target_var->is_struct;
+                ref_var.struct_type_name = target_var->struct_type_name;
+                
+                // 参照先変数のポインタを値として保存
+                ref_var.value = reinterpret_cast<int64_t>(target_var);
+                ref_var.is_assigned = true;
+                
+                current_scope().variables[node->name] = ref_var;
+                return;
+            }
+        }
+        
         // 参照先が変数でなければエラー
         if (init_node->node_type != ASTNodeType::AST_VARIABLE) {
             throw std::runtime_error("Reference variable '" + node->name + "' must be initialized with a variable");
@@ -938,7 +974,12 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
     if (node->node_type == ASTNodeType::AST_VAR_DECL) {
         // 変数宣言の処理
         Variable var;
-        var.type = node->type_info;
+        // ポインタ型の場合はTYPE_POINTERを設定
+        if (node->is_pointer) {
+            var.type = TYPE_POINTER;
+        } else {
+            var.type = node->type_info;
+        }
         var.is_const = node->is_const;
         var.is_assigned = false;
         var.is_array = false;
@@ -953,7 +994,12 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
         
         // interface変数の場合の追加設定
         if (node->type_info == TYPE_INTERFACE && !node->type_name.empty()) {
-            var.interface_name = node->type_name;
+            // ポインタの場合は、ベース型名を使用
+            if (node->is_pointer && !node->pointer_base_type_name.empty()) {
+                var.interface_name = node->pointer_base_type_name;
+            } else {
+                var.interface_name = node->type_name;
+            }
         }
 
         // 新しいArrayTypeInfoが設定されている場合の処理

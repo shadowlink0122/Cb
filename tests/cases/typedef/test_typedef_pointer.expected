@@ -1,0 +1,9 @@
+Test 1: Pointer to typedef primitive
+42
+84
+Test 2: Pointer to typedef struct
+10
+20
+30
+Test 3: nullptr
+nullptr check OK

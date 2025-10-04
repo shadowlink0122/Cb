@@ -2370,6 +2370,10 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                 if (ret.type == TYPE_FLOAT || ret.type == TYPE_DOUBLE || ret.type == TYPE_QUAD) {
                     throw ret;
                 }
+                // 参照戻り値の場合は例外を再度投げる
+                if (ret.is_reference) {
+                    throw ret;
+                }
                 // 通常の戻り値の場合
                 auto make_typed_from_return = [&](int64_t coerced_numeric) -> TypedValue {
                     if (ret.type == TYPE_FLOAT) {

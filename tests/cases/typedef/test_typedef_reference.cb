@@ -1,0 +1,63 @@
+// typedef型の参照テスト
+
+typedef int Integer;
+
+typedef struct {
+    int x;
+    int y;
+} Coordinate;
+
+void modify_int(Integer& n) {
+    n = n * 2;
+}
+
+void modify_coord(Coordinate& c) {
+    c.x = c.x + 10;
+    c.y = c.y + 10;
+}
+
+Integer& get_int(Integer& n) {
+    return n;
+}
+
+int main() {
+    // Test 1: typedefされたプリミティブ型への参照
+    println("Test 1: Reference to typedef primitive");
+    Integer num = 50;
+    Integer& ref = num;
+    println(ref);  // 50
+    ref = 100;
+    println(num);  // 100
+    
+    // Test 2: typedefされた構造体への参照
+    println("Test 2: Reference to typedef struct");
+    Coordinate coord;
+    coord.x = 5;
+    coord.y = 15;
+    Coordinate& cref = coord;
+    println(cref.x);  // 5
+    cref.x = 10;
+    println(coord.x);  // 10
+    
+    // Test 3: 関数パラメータとしての参照
+    println("Test 3: Reference parameter");
+    Integer value = 10;
+    modify_int(value);
+    println(value);  // 20
+    
+    Coordinate pos;
+    pos.x = 0;
+    pos.y = 0;
+    modify_coord(pos);
+    println(pos.x);  // 10
+    println(pos.y);  // 10
+    
+    // Test 4: 参照を返す関数
+    println("Test 4: Return reference");
+    Integer x = 100;
+    Integer& ref2 = get_int(x);
+    ref2 = 200;
+    println(x);  // 200
+    
+    return 0;
+}

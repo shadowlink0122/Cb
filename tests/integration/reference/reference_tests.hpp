@@ -74,6 +74,45 @@ inline void test_reference_function_param() {
     );
 }
 
+inline void test_reference_return() {
+    double execution_time = 0.0;
+    run_cb_test_with_output_and_time(
+        "../../tests/cases/reference/test_simple_reference_return.cb",
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "参照戻り値テストがエラー終了");
+            
+            // 期待出力: Before: 100, After getting reference: 100, After modifying: 150, 150
+            INTEGRATION_ASSERT(output.find("Before") != std::string::npos, "Beforeメッセージがない");
+            INTEGRATION_ASSERT(output.find("After getting reference") != std::string::npos, "After getting referenceメッセージがない");
+            INTEGRATION_ASSERT(output.find("After modifying") != std::string::npos, "After modifyingメッセージがない");
+            INTEGRATION_ASSERT(output.find("150") != std::string::npos, "参照経由の変更が反映されていない");
+        },
+        execution_time
+    );
+}
+
+inline void test_reference_return_comprehensive() {
+    double execution_time = 0.0;
+    run_cb_test_with_output_and_time(
+        "../../tests/cases/reference/test_reference_return.cb",
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "包括的な参照戻り値テストがエラー終了");
+            
+            // Test 1: グローバル変数への参照を返す
+            INTEGRATION_ASSERT(output.find("Test 1: Return reference to global") != std::string::npos, "Test 1ヘッダーがない");
+            INTEGRATION_ASSERT(output.find("175") != std::string::npos, "グローバル変数への参照が正しく動作していない");
+            
+            // Test 2: 参照の転送
+            INTEGRATION_ASSERT(output.find("Test 2: Forward reference") != std::string::npos, "Test 2ヘッダーがない");
+            INTEGRATION_ASSERT(output.find("75") != std::string::npos, "参照の転送が正しく動作していない");
+            
+            // Test 3: 条件に応じた参照
+            INTEGRATION_ASSERT(output.find("Test 3: Conditional reference") != std::string::npos, "Test 3ヘッダーがない");
+        },
+        execution_time
+    );
+}
+
 // ============================================================================
 // すべての参照型テストを実行
 // ============================================================================
@@ -86,8 +125,10 @@ inline void run_all_reference_tests() {
     test_simple_reference();
     test_reference_basic();
     test_reference_function_param();
+    test_reference_return();
+    test_reference_return_comprehensive();
     
-    std::cout << "✅ PASS: Reference Tests (3 tests)" << std::endl;
+    std::cout << "✅ PASS: Reference Tests (5 tests)" << std::endl;
 }
 
 } // namespace ReferenceTests

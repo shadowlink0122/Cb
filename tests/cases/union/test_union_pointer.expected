@@ -1,0 +1,8 @@
+Test 1: Pointer to union
+42
+100
+Test 2: Pointer to union array element
+20
+25
+Test 3: nullptr
+nullptr check OK

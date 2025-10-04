@@ -1059,7 +1059,25 @@ void Interpreter::execute_statement(const ASTNode *node) {
                     // 他の識別子の場合、変数として扱う
                     Variable *var = find_variable(node->left->name);
                     if (var) {
-                        if (var->is_struct) {
+                        // 現在の関数の戻り値型が参照型かチェック
+                        bool return_as_reference = false;
+                        if (!current_function_name.empty()) {
+                            const ASTNode* func = global_scope.functions[current_function_name];
+                            if (func && func->return_type_name.find('&') != std::string::npos) {
+                                return_as_reference = true;
+                            }
+                        }
+                        
+                        if (return_as_reference) {
+                            // 参照として返す
+                            // varが既に参照変数の場合、その参照先を返す
+                            if (var->is_reference) {
+                                Variable* target_var = reinterpret_cast<Variable*>(var->value);
+                                throw ReturnException(target_var);
+                            } else {
+                                throw ReturnException(var);
+                            }
+                        } else if (var->is_struct) {
                             sync_struct_members_from_direct_access(node->left->name);
                             if (var->type != TYPE_INTERFACE) {
                                 var->type = TYPE_STRUCT;  // 構造体のtype情報を正しく設定
@@ -1080,6 +1098,27 @@ void Interpreter::execute_statement(const ASTNode *node) {
                 debug_msg(DebugMsgId::INTERPRETER_RETURN_VAR, node->left->name.c_str());
                 // 変数の場合、配列変数かチェック
                 Variable *var = find_variable(node->left->name);
+                
+                // 現在の関数の戻り値型が参照型かチェック
+                bool return_as_reference = false;
+                if (!current_function_name.empty()) {
+                    const ASTNode* func = global_scope.functions[current_function_name];
+                    if (func && func->return_type_name.find('&') != std::string::npos) {
+                        return_as_reference = true;
+                    }
+                }
+                
+                if (return_as_reference && var) {
+                    // 参照として返す
+                    // varが既に参照変数の場合、その参照先を返す
+                    if (var->is_reference) {
+                        Variable* target_var = reinterpret_cast<Variable*>(var->value);
+                        throw ReturnException(target_var);
+                    } else {
+                        throw ReturnException(var);
+                    }
+                }
+                
                 if (var && var->is_struct) {
                     // struct変数を返す前に直接アクセス変数からstruct_membersに同期
                     sync_struct_members_from_direct_access(node->left->name);

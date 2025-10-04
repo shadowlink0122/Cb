@@ -60,6 +60,7 @@
 #include "typedef/test_enum_typedef.hpp"
 #include "typedef/test_struct_typedef.hpp"
 #include "typedef/test_typedef.hpp"
+#include "typedef/typedef_pointer_reference_tests.hpp"
 #include "union/test_union.hpp"
 #include "unsigned/test_unsigned.hpp"
 
@@ -259,6 +260,9 @@ int main() {
                            failed_tests);
     run_test_with_continue(ReferenceTests::run_all_reference_tests,
                            "Reference Tests", failed_tests);
+    run_test_with_continue(
+        TypedefPointerReferenceTests::run_all_typedef_pointer_reference_tests,
+        "Typedef Pointer/Reference Tests", failed_tests);
     run_test_with_continue(AssertTests::run_all_assert_tests, "Assert Tests",
                            failed_tests);
     CategoryTimingStats::print_category_summary("Advanced Features");

@@ -1,0 +1,39 @@
+// Union型の参照テスト
+
+typedef IntOrLong = int | long;
+
+void modify_union(IntOrLong& u) {
+    u = u * 2;
+}
+
+IntOrLong& get_union(IntOrLong& u) {
+    return u;
+}
+
+int main() {
+    // Test 1: Union変数への参照
+    println("Test 1: Reference to union");
+    IntOrLong data = 50;
+    IntOrLong& ref = data;
+    println(ref);  // 50
+    
+    ref = 75;
+    println(data);  // 75
+    
+    // Test 2: 関数パラメータとしてのUnion参照
+    println("Test 2: Union reference parameter");
+    IntOrLong value = 10;
+    println(value);  // 10
+    modify_union(value);
+    println(value);  // 20
+    
+    // Test 3: Union参照を返す関数
+    println("Test 3: Return union reference");
+    IntOrLong x = 100;
+    IntOrLong& ref2 = get_union(x);
+    println(ref2);  // 100
+    ref2 = 200;
+    println(x);  // 200
+    
+    return 0;
+}
