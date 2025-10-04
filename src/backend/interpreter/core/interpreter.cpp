@@ -3702,6 +3702,27 @@ void Interpreter::assign_struct_literal(const std::string &var_name,
                     debug_print("STRUCT_LITERAL_DEBUG: Updated direct access variable: %s = \"%s\"\n", 
                                full_member_name.c_str(), init_value->str_value.c_str());
                 }
+            } else if (it->second.type == TYPE_STRING &&
+                       (init_value->node_type == ASTNodeType::AST_VARIABLE ||
+                        init_value->node_type == ASTNodeType::AST_IDENTIFIER)) {
+                // 文字列変数の場合
+                Variable* str_var = find_variable(init_value->name);
+                if (!str_var || str_var->type != TYPE_STRING) {
+                    throw std::runtime_error("Expected string variable for string member: " + member_def.name);
+                }
+                debug_print("STRUCT_LITERAL_DEBUG: String variable initialization: %s = \"%s\"\n", 
+                           member_def.name.c_str(), str_var->str_value.c_str());
+                it->second.str_value = str_var->str_value;
+
+                // 直接アクセス変数も更新
+                std::string full_member_name = var_name + "." + member_def.name;
+                Variable *direct_member_var = find_variable(full_member_name);
+                if (direct_member_var) {
+                    direct_member_var->str_value = str_var->str_value;
+                    direct_member_var->is_assigned = true;
+                    debug_print("STRUCT_LITERAL_DEBUG: Updated direct access variable: %s = \"%s\"\n", 
+                               full_member_name.c_str(), str_var->str_value.c_str());
+                }
             } else if (it->second.is_array && init_value->node_type == ASTNodeType::AST_ARRAY_LITERAL) {
                 debug_print("STRUCT_LITERAL_DEBUG: Array literal initialization: %s\n", member_def.name.c_str());
                 
