@@ -595,8 +595,7 @@ void Interpreter::execute_statement(const ASTNode *node) {
         return;
     }
 
-    debug_msg(DebugMsgId::INTERPRETER_EXEC_STMT, "statement type: %d, name: %s", 
-              node_type_int, node->name.c_str());
+    debug_msg(DebugMsgId::INTERPRETER_EXEC_STMT, node_type_int);
 
     if (debug_mode) {
         const char *node_type_name = "UNKNOWN";
@@ -4788,8 +4787,7 @@ void Interpreter::sync_struct_members_from_direct_access(const std::string &var_
         return;
     }
     
-    debug_msg(DebugMsgId::INTERPRETER_STRUCT_MEMBERS_FOUND, 
-              var_name.c_str(), struct_def->members.size());
+    debug_msg(DebugMsgId::INTERPRETER_STRUCT_MEMBERS_FOUND, struct_def->members.size());
     
     // 各メンバについてダイレクトアクセス変数から struct_members に同期
     for (const auto &member : struct_def->members) {

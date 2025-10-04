@@ -26,7 +26,9 @@ void StatementExecutor::execute(const ASTNode *node) {
         debug_msg(DebugMsgId::INTERPRETER_EXEC_STMT, 
                   "Abnormal node_type detected: %d, skipping execution", node_type_int);
         if (debug_mode) {
-            std::cerr << "[CRITICAL] Abnormal node_type detected: " << node_type_int << std::endl;
+            std::cerr << "[CRITICAL] Abnormal node_type detected: " << node_type_int 
+                      << " (ptr: " << static_cast<const void*>(node) << ")" << std::endl;
+            std::cerr << "[CRITICAL] Node name: '" << node->name << "'" << std::endl;
         }
         return;
     }
@@ -1567,7 +1569,9 @@ void StatementExecutor::execute_member_assignment(const ASTNode* node) {
     // obj.member = value または array[index].member = value の処理
     const ASTNode* member_access = node->left.get();
     
-    debug_msg(DebugMsgId::INTERPRETER_EXEC_STMT, "execute_member_assignment", "starting");
+    if (debug_mode) {
+        debug_print("DEBUG: execute_member_assignment - starting\n");
+    }
     debug_print("DEBUG: execute_member_assignment - left type=%d, right type=%d\n",
                static_cast<int>(node->left->node_type), static_cast<int>(node->right->node_type));
     
@@ -1598,8 +1602,9 @@ void StatementExecutor::execute_member_assignment(const ASTNode* node) {
             return;
         }
         
-        debug_msg(DebugMsgId::INTERPRETER_STRUCT_MEMBER_FOUND, 
-                  "struct_variable", obj_name.c_str());
+        if (debug_mode) {
+            debug_print("DEBUG: Struct member access - variable: %s\n", obj_name.c_str());
+        }
     } else if (member_access->left && member_access->left->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
         // ネストメンバアクセス: obj.mid.data.value = 100
         // member_accessの左側のメンバアクセスチェーンを評価して、最後の構造体変数を取得
@@ -1675,12 +1680,30 @@ void StatementExecutor::execute_member_assignment(const ASTNode* node) {
         
         return;
     } else if (member_access->left && member_access->left->node_type == ASTNodeType::AST_ARRAY_REF) {
-        // 構造体配列要素: array[index].member
-        std::string array_name = member_access->left->left->name;
-        int64_t index = interpreter_.evaluate(member_access->left->array_index.get());
-        obj_name = array_name + "[" + std::to_string(index) + "]";
-        debug_msg(DebugMsgId::INTERPRETER_STRUCT_MEMBER_FOUND, 
-                  "array_element", obj_name.c_str());
+        // 構造体配列要素のメンバ: struct.array[index].member
+        // または単純な配列要素: array[index].member
+        
+        const ASTNode* array_ref = member_access->left.get();
+        
+        // 配列参照の左側を評価して完全な名前を構築
+        std::string array_base_name;
+        if (array_ref->left->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
+            // struct.array[index].member の場合
+            std::string struct_name = array_ref->left->left->name;
+            std::string array_member = array_ref->left->name;
+            array_base_name = struct_name + "." + array_member;
+        } else {
+            // array[index].member の場合
+            array_base_name = array_ref->left->name;
+        }
+        
+        int64_t index = interpreter_.evaluate(array_ref->array_index.get());
+        obj_name = array_base_name + "[" + std::to_string(index) + "]";
+        
+        if (debug_mode) {
+            debug_print("DEBUG: Struct array element member assignment: %s.%s\n", 
+                       obj_name.c_str(), member_access->name.c_str());
+        }
     } else if (member_access->left && member_access->left->node_type == ASTNodeType::AST_UNARY_OP && 
                member_access->left->op == "DEREFERENCE") {
         // デリファレンスされたポインタ: (*pp).member
@@ -1861,7 +1884,9 @@ void StatementExecutor::execute_arrow_assignment(const ASTNode* node) {
     // ptr->member = value の処理（アロー演算子は (*ptr).member と等価）
     const ASTNode* arrow_access = node->left.get();
     
-    debug_msg(DebugMsgId::INTERPRETER_EXEC_STMT, "execute_arrow_assignment", "starting");
+    if (debug_mode) {
+        debug_print("DEBUG: execute_arrow_assignment - starting\n");
+    }
     debug_print("DEBUG: execute_arrow_assignment - left type=%d, right type=%d\n",
                static_cast<int>(node->left->node_type), static_cast<int>(node->right->node_type));
     
@@ -1897,7 +1922,9 @@ void StatementExecutor::execute_arrow_assignment(const ASTNode* node) {
     }
     struct_var->struct_members[member_name].is_assigned = true;
     
-    debug_msg(DebugMsgId::INTERPRETER_EXEC_STMT, "execute_arrow_assignment", "completed");
+    if (debug_mode) {
+        debug_print("DEBUG: execute_arrow_assignment - completed\n");
+    }
 }
 
 void StatementExecutor::execute_member_array_literal_assignment(const ASTNode* node) {
