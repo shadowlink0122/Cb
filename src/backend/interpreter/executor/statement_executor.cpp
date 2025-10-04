@@ -138,22 +138,45 @@ void StatementExecutor::execute_assignment(const ASTNode *node) {
     // 右辺が構造体リテラルの場合の特別処理
     if (node->right && node->right->node_type == ASTNodeType::AST_STRUCT_LITERAL) {
         // Debug output for struct literal assignment
-        if (debug_mode) {
-            std::cerr << "DEBUG: Struct literal assignment detected" << std::endl;
+        std::cerr << "DEBUG: Struct literal assignment detected" << std::endl;
+        std::cerr << "DEBUG: node->left is null: " << (node->left == nullptr) << std::endl;
+        std::cerr.flush();
+        
+        if (!node->left) {
+            // leftがnullの場合、nameに変数名が入っている可能性がある
+            if (!node->name.empty()) {
+                std::cerr << "DEBUG: Using node->name: " << node->name << std::endl;
+                std::cerr.flush();
+                interpreter_.assign_struct_literal(node->name, node->right.get());
+                return;
+            }
+            throw std::runtime_error("Assignment left side is null and name is empty");
         }
+        
+        std::cerr << "DEBUG: node->left->node_type = " << static_cast<int>(node->left->node_type) << std::endl;
+        std::cerr.flush();
+        
         if (node->left->node_type == ASTNodeType::AST_VARIABLE) {
             // 変数への構造体リテラル代入
-            if (debug_mode) {
-                std::cerr << "DEBUG: Struct literal assignment to variable: " << node->left->name << std::endl;
-            }
+            std::cerr << "DEBUG: Struct literal assignment to variable: " << node->left->name << std::endl;
+            std::cerr.flush();
             
             // 配列変数に対する構造体リテラル代入はエラー
+            std::cerr << "DEBUG: Getting variable..." << std::endl;
+            std::cerr.flush();
             Variable* var = interpreter_.get_variable(node->left->name);
+            std::cerr << "DEBUG: Variable got: " << (var ? "yes" : "no") << std::endl;
+            std::cerr.flush();
+            
             if (var && var->is_array) {
                 throw std::runtime_error("Array assignment must use [] syntax, not {}");
             }
             
+            std::cerr << "DEBUG: Calling assign_struct_literal..." << std::endl;
+            std::cerr.flush();
             interpreter_.assign_struct_literal(node->left->name, node->right.get());
+            std::cerr << "DEBUG: assign_struct_literal completed" << std::endl;
+            std::cerr.flush();
             return;
         } else if (node->left->node_type == ASTNodeType::AST_ARRAY_REF) {
             // 配列要素への構造体リテラル代入 (team[0] = {})

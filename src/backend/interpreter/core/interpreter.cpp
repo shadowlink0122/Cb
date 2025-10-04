@@ -3021,12 +3021,75 @@ Variable *Interpreter::get_struct_member(const std::string &var_name,
 // struct literalから値を代入
 void Interpreter::assign_struct_literal(const std::string &var_name,
                                         const ASTNode *literal_node) {
+    std::cerr << "[DEBUG ASSIGN_STRUCT_LITERAL] Called for var_name: " << var_name << std::endl;
+    
     if (!literal_node ||
         literal_node->node_type != ASTNodeType::AST_STRUCT_LITERAL) {
+        std::cerr << "[DEBUG ASSIGN_STRUCT_LITERAL] ERROR: Invalid struct literal node" << std::endl;
         throw std::runtime_error("Invalid struct literal");
     }
 
+    std::cerr << "[DEBUG ASSIGN_STRUCT_LITERAL] Finding variable: " << var_name << std::endl;
     Variable *var = find_variable(var_name);
+    std::cerr << "[DEBUG ASSIGN_STRUCT_LITERAL] Variable found: " << (var ? "yes" : "no") << std::endl;
+    if (var) {
+        std::cerr << "[DEBUG ASSIGN_STRUCT_LITERAL] Variable type: " << var->type << " (TYPE_STRUCT=" << TYPE_STRUCT << ")" << std::endl;
+    }
+    
+    // 変数が見つからない、または構造体でない場合、親構造体のstruct_membersと構造体定義から確認
+    if (var && !var->is_struct && var_name.find('.') != std::string::npos) {
+        std::cerr << "[DEBUG ASSIGN_STRUCT_LITERAL] Variable is not marked as struct, checking parent and struct definition..." << std::endl;
+        
+        // "o.inner" -> "o" and "inner"
+        size_t dot_pos = var_name.rfind('.');
+        std::string parent_name = var_name.substr(0, dot_pos);
+        std::string member_name = var_name.substr(dot_pos + 1);
+        
+        std::cerr << "[DEBUG ASSIGN_STRUCT_LITERAL] Parent: " << parent_name << ", Member: " << member_name << std::endl;
+        
+        Variable* parent_var = find_variable(parent_name);
+        if (parent_var && parent_var->type == TYPE_STRUCT) {
+            // 親の構造体定義からメンバー情報を取得
+            std::string resolved_parent_type = type_manager_->resolve_typedef(parent_var->struct_type_name);
+            const StructDefinition* parent_struct_def = find_struct_definition(resolved_parent_type);
+            
+            if (parent_struct_def) {
+                for (const auto& member_def : parent_struct_def->members) {
+                    if (member_def.name == member_name && member_def.type == TYPE_STRUCT) {
+                        std::cerr << "[DEBUG ASSIGN_STRUCT_LITERAL] Found struct member in parent definition" << std::endl;
+                        var->type = TYPE_STRUCT;
+                        var->is_struct = true;
+                        var->struct_type_name = member_def.type_alias;
+                        
+                        // メンバの構造体定義を取得して、struct_membersを初期化
+                        std::string resolved_member_type = type_manager_->resolve_typedef(member_def.type_alias);
+                        const StructDefinition* member_struct_def = find_struct_definition(resolved_member_type);
+                        if (member_struct_def) {
+                            for (const auto& sub_member : member_struct_def->members) {
+                                Variable sub_member_var;
+                                sub_member_var.type = sub_member.type;
+                                sub_member_var.is_unsigned = sub_member.is_unsigned;
+                                sub_member_var.is_assigned = false;
+                                if (sub_member.type == TYPE_STRUCT) {
+                                    sub_member_var.is_struct = true;
+                                    sub_member_var.struct_type_name = sub_member.type_alias;
+                                }
+                                var->struct_members[sub_member.name] = sub_member_var;
+                                
+                                // 個別変数も作成
+                                std::string full_sub_member_name = var_name + "." + sub_member.name;
+                                current_scope().variables[full_sub_member_name] = sub_member_var;
+                            }
+                        }
+                        
+                        std::cerr << "[DEBUG ASSIGN_STRUCT_LITERAL] Updated: is_struct=" << var->is_struct 
+                                  << ", struct_type_name=" << var->struct_type_name << std::endl;
+                        break;
+                    }
+                }
+            }
+        }
+    }
     auto clamp_unsigned_member = [&](Variable &target, int64_t &value,
                                       const std::string &member_name,
                                       const char *context) {
@@ -3264,6 +3327,29 @@ void Interpreter::assign_struct_literal(const std::string &var_name,
                         }
                     }
                 }
+            } else if (struct_member_var.type == TYPE_STRUCT && 
+                       member_init->right->node_type == ASTNodeType::AST_STRUCT_LITERAL) {
+                // 構造体メンバにネストした構造体リテラルを代入
+                // 再帰的にassign_struct_literalを呼び出す
+                debug_msg(DebugMsgId::INTERPRETER_NESTED_STRUCT_LITERAL, full_member_name.c_str());
+                
+                std::cerr << "[DEBUG NESTED] Assigning nested struct literal to: " << full_member_name << std::endl;
+                std::cerr << "[DEBUG NESTED] member_var exists: " << (member_var ? "yes" : "no") << std::endl;
+                
+                // メンバ変数が存在することを確認
+                if (!member_var) {
+                    std::cerr << "[DEBUG NESTED] ERROR: member_var is null for " << full_member_name << std::endl;
+                    throw std::runtime_error("Struct member variable not found: " + full_member_name);
+                }
+                
+                std::cerr << "[DEBUG NESTED] Calling assign_struct_literal recursively..." << std::endl;
+                // 再帰的に構造体リテラルを代入
+                assign_struct_literal(full_member_name, member_init->right.get());
+                
+                std::cerr << "[DEBUG NESTED] Recursive call completed, updating struct_member_var" << std::endl;
+                // struct_membersも更新（個別変数から同期）
+                struct_member_var = *member_var;
+                std::cerr << "[DEBUG NESTED] Nested struct literal assignment completed" << std::endl;
             } else {
                 int64_t value = expression_evaluator_->evaluate_expression(
                     member_init->right.get());
