@@ -1132,7 +1132,56 @@ ASTNode* RecursiveParser::parseStatement() {
                     advance(); // consume ']'
                 }
                 
-                // 代入演算子をチェック
+                // 配列アクセス後にさらにメンバアクセスがあるかチェック: obj.array[idx].member
+                if (check(TokenType::TOK_DOT)) {
+                    advance(); // consume '.'
+                    
+                    if (!check(TokenType::TOK_IDENTIFIER)) {
+                        error("Expected member name after '.' in nested struct array access");
+                        delete member_access;
+                        return nullptr;
+                    }
+                    
+                    std::string nested_member_name = current_token_.value;
+                    advance();
+                    
+                    // obj.array[idx].member = value の形式をチェック
+                    if (check(TokenType::TOK_ASSIGN)) {
+                        advance(); // consume '='
+                        
+                        ASTNode* value_expr = parseExpression();
+                        
+                        // AST_NESTED_STRUCT_ARRAY_MEMBER_ACCESS ノードを作成
+                        // 構造: obj -> member_access, array[idx] -> indices, .member -> nested_member_name
+                        ASTNode* nested_access = new ASTNode(ASTNodeType::AST_ASSIGN);
+                        
+                        // 左辺: メンバアクセス -> 配列アクセス -> ネストメンバアクセス
+                        ASTNode* array_access_node = new ASTNode(ASTNodeType::AST_MEMBER_ARRAY_ACCESS);
+                        array_access_node->left = std::unique_ptr<ASTNode>(member_access);
+                        array_access_node->name = nested_member_name;  // 最終的なメンバー名
+                        
+                        // インデックスを設定
+                        if (indices.size() == 1) {
+                            array_access_node->right = std::move(indices[0]);
+                        } else {
+                            for (auto& idx : indices) {
+                                array_access_node->arguments.push_back(std::move(idx));
+                            }
+                        }
+                        
+                        nested_access->left = std::unique_ptr<ASTNode>(array_access_node);
+                        nested_access->right = std::unique_ptr<ASTNode>(value_expr);
+                        
+                        consume(TokenType::TOK_SEMICOLON, "Expected ';' after assignment");
+                        return nested_access;
+                    } else {
+                        error("Expected '=' after nested struct array member access");
+                        delete member_access;
+                        return nullptr;
+                    }
+                }
+                
+                // 代入演算子をチェック (通常の obj.member[index] = value)
                 if (check(TokenType::TOK_ASSIGN)) {
                     advance(); // consume '='
                     

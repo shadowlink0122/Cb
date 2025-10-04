@@ -2948,19 +2948,60 @@ void Interpreter::create_struct_variable(const std::string &var_name,
                 Variable array_element;
                 array_element.type = member.type;
                 array_element.is_unsigned = member.is_unsigned;
-
-                // デフォルト値を設定
-                if (array_element.type == TYPE_STRING) {
-                    array_element.str_value = "";
-                } else {
-                    array_element.value = 0;
-                }
-                array_element.is_assigned = false;
                 array_element.is_private_member = member.is_private;
+                array_element.is_assigned = false;
+
+                // 構造体型の配列の場合
+                if (member.type == TYPE_STRUCT && !member.type_alias.empty()) {
+                    array_element.is_struct = true;
+                    array_element.struct_type_name = member.type_alias;
+                    
+                    if (debug_mode) {
+                        debug_print("Creating struct array element: %s[%d] of type %s\n",
+                                   member.name.c_str(), i, member.type_alias.c_str());
+                    }
+                    
+                    // 構造体定義を取得してメンバーを初期化
+                    std::string resolved_type = type_manager_->resolve_typedef(member.type_alias);
+                    const StructDefinition* element_struct_def = find_struct_definition(resolved_type);
+                    
+                    if (element_struct_def) {
+                        for (const auto& element_member : element_struct_def->members) {
+                            Variable element_member_var;
+                            element_member_var.type = element_member.type;
+                            element_member_var.is_unsigned = element_member.is_unsigned;
+                            element_member_var.is_private_member = element_member.is_private;
+                            element_member_var.is_assigned = false;
+                            
+                            if (element_member_var.type == TYPE_STRING) {
+                                element_member_var.str_value = "";
+                            } else {
+                                element_member_var.value = 0;
+                            }
+                            
+                            array_element.struct_members[element_member.name] = element_member_var;
+                        }
+                        
+                        if (debug_mode) {
+                            debug_print("Initialized struct array element with %zu members\n",
+                                       array_element.struct_members.size());
+                        }
+                    }
+                } else {
+                    // プリミティブ型の配列要素
+                    if (array_element.type == TYPE_STRING) {
+                        array_element.str_value = "";
+                    } else {
+                        array_element.value = 0;
+                    }
+                }
 
                 std::string element_name = var_name + "." + member.name + "[" +
                                            std::to_string(i) + "]";
                 current_scope().variables[element_name] = array_element;
+                
+                // 親のstruct_membersにも追加
+                struct_var.struct_members[member.name + "[" + std::to_string(i) + "]"] = array_element;
             }
             } // 1次元配列処理の終了
         } else {
@@ -2986,7 +3027,49 @@ void Interpreter::create_struct_variable(const std::string &var_name,
         }
     }
 
+    // 変数を登録
     current_scope().variables[var_name] = struct_var;
+    
+    // 構造体配列メンバーの要素を再度追加（変数登録後に行う）
+    Variable* registered_var = find_variable(var_name);
+    if (registered_var && registered_var->is_struct) {
+        if (debug_mode) {
+            debug_print("Post-registration: adding array elements to struct_members\n");
+        }
+        
+        for (const auto& member : struct_def->members) {
+            if (member.array_info.is_array() && member.array_info.dimensions.size() == 1) {
+                int array_size = member.array_info.dimensions[0].size;
+                
+                if (debug_mode) {
+                    debug_print("Processing array member: %s, size=%d\n", member.name.c_str(), array_size);
+                }
+                
+                // 配列要素を struct_members に追加
+                for (int i = 0; i < array_size; i++) {
+                    std::string element_key = member.name + "[" + std::to_string(i) + "]";
+                    std::string full_element_name = var_name + "." + element_key;
+                    
+                    if (debug_mode) {
+                        debug_print("Looking for element: %s\n", full_element_name.c_str());
+                    }
+                    
+                    Variable* element_var = find_variable(full_element_name);
+                    if (element_var) {
+                        registered_var->struct_members[element_key] = *element_var;
+                        
+                        if (debug_mode) {
+                            debug_print("Added array element to struct_members: %s\n", element_key.c_str());
+                        }
+                    } else {
+                        if (debug_mode) {
+                            debug_print("Element not found: %s\n", full_element_name.c_str());
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 // structメンバにアクセス

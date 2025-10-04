@@ -1773,18 +1773,85 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                                     std::to_string(i) + "]";
                                 Variable element_var;
                                 element_var.type = member.type;
-                                element_var.value = 0;
-                                element_var.str_value = "";
                                 element_var.is_assigned = false;
-                                // 構造体変数自体がconstの場合、または配列メンバーがconstの場合
                                 element_var.is_const = node->is_const || member.is_const;
-                                this->current_scope().variables[element_name] =
-                                    element_var;
+                                
+                                // 配列の要素型を取得
+                                TypeInfo element_type_info = member.array_info.base_type;
+                                std::string element_type_alias = member.type_alias;
+                                
+                                // type_aliasから配列のサイズ情報を削除（例: "Point[3]" -> "Point"）
+                                size_t bracket_pos = element_type_alias.find('[');
+                                if (bracket_pos != std::string::npos) {
+                                    element_type_alias = element_type_alias.substr(0, bracket_pos);
+                                }
+                                
+                                if (interpreter_->debug_mode) {
+                                    debug_print("Processing array element %d: element_type=%d, TYPE_STRUCT=%d, type_alias='%s'\n",
+                                               i, (int)element_type_info, (int)TYPE_STRUCT, element_type_alias.c_str());
+                                }
+                                
+                                // 構造体型の配列要素の場合
+                                if (element_type_info == TYPE_STRUCT && !element_type_alias.empty()) {
+                                    element_var.type = TYPE_STRUCT;  // 要素の型を正しく設定
+                                    element_var.is_struct = true;
+                                    element_var.struct_type_name = element_type_alias;
+                                    
+                                    if (interpreter_->debug_mode) {
+                                        debug_print("Creating struct array element: %s of type %s\n",
+                                                   element_name.c_str(), element_type_alias.c_str());
+                                    }
+                                    
+                                    // 構造体定義を取得してメンバーを初期化
+                                    std::string resolved_type = interpreter_->type_manager_->resolve_typedef(element_type_alias);
+                                    const StructDefinition* element_struct_def = interpreter_->find_struct_definition(resolved_type);
+                                    
+                                    if (element_struct_def) {
+                                        for (const auto& element_member : element_struct_def->members) {
+                                            Variable element_member_var;
+                                            element_member_var.type = element_member.type;
+                                            element_member_var.is_unsigned = element_member.is_unsigned;
+                                            element_member_var.is_private_member = element_member.is_private;
+                                            element_member_var.is_assigned = false;
+                                            element_member_var.is_const = element_var.is_const || element_member.is_const;
+                                            
+                                            if (element_member_var.type == TYPE_STRING) {
+                                                element_member_var.str_value = "";
+                                            } else {
+                                                element_member_var.value = 0;
+                                            }
+                                            
+                                            element_var.struct_members[element_member.name] = element_member_var;
+                                            
+                                            // メンバーの直接アクセス用変数も作成
+                                            std::string member_path = element_name + "." + element_member.name;
+                                            this->current_scope().variables[member_path] = element_member_var;
+                                        }
+                                        
+                                        if (interpreter_->debug_mode) {
+                                            debug_print("Initialized struct array element with %zu members\n",
+                                                       element_var.struct_members.size());
+                                        }
+                                    }
+                                } else {
+                                    // プリミティブ型の配列要素
+                                    element_var.value = 0;
+                                    element_var.str_value = "";
+                                }
+                                
+                                this->current_scope().variables[element_name] = element_var;
+                                
+                                // 親構造体のstruct_membersにも配列要素を追加
+                                // element_nameは "structName.arrayName[i]" の形式なので、
+                                // キーは "arrayName[i]" にする
+                                std::string element_key = member.name + "[" + std::to_string(i) + "]";
+                                var.struct_members[element_key] = element_var;
 
                                 if (interpreter_->debug_mode) {
-                                    debug_print("Created struct member array "
-                                                "element: %s\n",
-                                                element_name.c_str());
+                                    debug_print("Created struct member array element: %s (key: %s), is_struct=%s, members=%zu\n",
+                                                element_name.c_str(), element_key.c_str(),
+                                                element_var.is_struct ? "true" : "false",
+                                                element_var.struct_members.size());
                                 }
                             }
 

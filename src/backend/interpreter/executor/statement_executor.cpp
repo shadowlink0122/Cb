@@ -1312,17 +1312,32 @@ void StatementExecutor::execute_member_array_assignment(const ASTNode* node) {
     
     // オブジェクト名を取得
     std::string obj_name;
+    std::string array_member_name;  // obj.array[idx].member の "array" 部分
+    bool is_nested_struct_array_access = false;
+    
     if (member_array_access->left && 
         (member_array_access->left->node_type == ASTNodeType::AST_VARIABLE ||
          member_array_access->left->node_type == ASTNodeType::AST_IDENTIFIER)) {
         obj_name = member_array_access->left->name;
     } else if (member_array_access->left && 
                member_array_access->left->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
-        // ネストされたメンバーアクセス: s.grades の場合、leftからオブジェクト名を取得
+        // 2つのケースをチェック:
+        // 1. s.grades[0] = 85 (構造体メンバーの配列へのアクセス)
+        // 2. triangle.points[0].x = 1 (構造体配列メンバーの要素へのメンバーアクセス)
+        
         if (member_array_access->left->left &&
             (member_array_access->left->left->node_type == ASTNodeType::AST_VARIABLE ||
              member_array_access->left->left->node_type == ASTNodeType::AST_IDENTIFIER)) {
             obj_name = member_array_access->left->left->name;
+            array_member_name = member_array_access->left->name;
+            
+            // member_array_access->name が設定されている場合、これは obj.array[idx].member のパターン
+            if (!member_array_access->name.empty() && 
+                member_array_access->name != array_member_name) {
+                is_nested_struct_array_access = true;
+                debug_print("DEBUG: Detected nested struct array member access: %s.%s[idx].%s\n", 
+                           obj_name.c_str(), array_member_name.c_str(), member_array_access->name.c_str());
+            }
         } else {
             debug_print("ERROR: Nested member_array_access->left->left->node_type = %d\n", 
                        member_array_access->left->left ? static_cast<int>(member_array_access->left->left->node_type) : -1);
@@ -1340,7 +1355,10 @@ void StatementExecutor::execute_member_array_assignment(const ASTNode* node) {
     
     // メンバ名を取得
     std::string member_name;
-    if (member_array_access->left && 
+    if (is_nested_struct_array_access) {
+        // triangle.points[0].x = 1 の場合
+        member_name = member_array_access->name;  // "x"
+    } else if (member_array_access->left && 
         member_array_access->left->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
         // ネストされた場合: s.grades[0] の "grades" 部分
         member_name = member_array_access->left->name;
@@ -1349,7 +1367,8 @@ void StatementExecutor::execute_member_array_assignment(const ASTNode* node) {
         member_name = member_array_access->name;
     }
     
-    debug_print("DEBUG: obj_name='%s', member_name='%s'\n", obj_name.c_str(), member_name.c_str());
+    debug_print("DEBUG: obj_name='%s', member_name='%s', array_member='%s', is_nested=%d\n", 
+                obj_name.c_str(), member_name.c_str(), array_member_name.c_str(), is_nested_struct_array_access);
     
     // インデックス値を評価（多次元対応）
     std::vector<int64_t> indices;
@@ -1365,6 +1384,92 @@ void StatementExecutor::execute_member_array_assignment(const ASTNode* node) {
         }
     } else {
         throw std::runtime_error("No indices found for array access in member array assignment");
+    }
+    
+    // ネストされた構造体配列メンバーアクセスの処理: obj.array[idx].member = value
+    if (is_nested_struct_array_access) {
+        debug_print("DEBUG: Processing nested struct array member assignment\n");
+        int array_index = static_cast<int>(indices[0]);
+        
+        // array_member_name の配列から要素を取得
+        Variable* array_member = interpreter_.get_struct_member(obj_name, array_member_name);
+        if (!array_member) {
+            throw std::runtime_error("Struct member not found: " + array_member_name);
+        }
+        
+        if (!array_member->is_array) {
+            throw std::runtime_error("Member is not an array: " + array_member_name);
+        }
+        
+        // 配列インデックスの境界チェック
+        if (array_index < 0 || array_index >= array_member->array_size) {
+            throw std::runtime_error("Array index out of bounds: " + std::to_string(array_index));
+        }
+        
+        // struct_members内で配列要素にアクセス
+        // 構造体配列の要素は "array_member_name[index]" という名前で個別に格納されている
+        // まず array_member の struct_members を調べる
+        std::string element_key = array_member_name + "[" + std::to_string(array_index) + "]";
+        
+        debug_print("DEBUG: Looking for struct array element: %s\n", element_key.c_str());
+        
+        // 親構造体から配列要素を探す（最初に親のstruct_membersを確認）
+        Variable* parent_struct = interpreter_.find_variable(obj_name);
+        if (!parent_struct || !parent_struct->is_struct) {
+            throw std::runtime_error("Parent variable is not a struct: " + obj_name);
+        }
+        
+        // 配列要素の構造体を探す - まず親のstruct_membersから
+        auto element_it = parent_struct->struct_members.find(element_key);
+        if (element_it == parent_struct->struct_members.end()) {
+            // 配列メンバー自体のstruct_membersから探す
+            element_it = array_member->struct_members.find(element_key);
+            if (element_it == array_member->struct_members.end()) {
+                debug_print("DEBUG: Available keys in parent struct_members:\n");
+                for (const auto& pair : parent_struct->struct_members) {
+                    debug_print("  - %s\n", pair.first.c_str());
+                }
+                debug_print("DEBUG: Available keys in array_member struct_members:\n");
+                for (const auto& pair : array_member->struct_members) {
+                    debug_print("  - %s\n", pair.first.c_str());
+                }
+                throw std::runtime_error("Struct array element not found: " + element_key);
+            }
+        }
+        
+        Variable& struct_element = element_it->second;
+        debug_print("DEBUG: Found struct array element, is_struct=%s, struct_members.size()=%zu\n",
+                   struct_element.is_struct ? "true" : "false",
+                   struct_element.struct_members.size());
+        if (!struct_element.is_struct) {
+            throw std::runtime_error("Array element is not a struct");
+        }
+        
+        // 構造体要素のメンバーに値を代入
+        auto member_it = struct_element.struct_members.find(member_name);
+        if (member_it == struct_element.struct_members.end()) {
+            throw std::runtime_error("Struct member not found in array element: " + member_name);
+        }
+        
+        // 右辺の値を評価して代入
+        if (node->right->node_type == ASTNodeType::AST_STRING_LITERAL) {
+            member_it->second.str_value = node->right->str_value;
+            member_it->second.type = TYPE_STRING;
+        } else {
+            TypedValue typed_value = interpreter_.evaluate_typed(node->right.get());
+            if (typed_value.is_floating()) {
+                member_it->second.double_value = typed_value.as_double();
+                member_it->second.type = typed_value.type.type_info;
+            } else {
+                member_it->second.value = typed_value.as_numeric();
+                member_it->second.type = typed_value.type.type_info;
+            }
+        }
+        member_it->second.is_assigned = true;
+        
+        debug_print("DEBUG: Nested struct array member assigned: %s.%s[%d].%s\n", 
+                   obj_name.c_str(), array_member_name.c_str(), array_index, member_name.c_str());
+        return;
     }
     
     // 右辺の値を評価して構造体メンバー配列要素に代入
