@@ -1,0 +1,19 @@
+// 構造体メンバのconst対応テスト（最小限）
+
+struct Point {
+    const int x;
+    int y;
+};
+
+int main() {
+    Point p;
+    p = {x: 10, y: 20};
+    
+    // 通常のメンバは変更可能
+    p.y = 30;
+    
+    // constメンバの変更を試みる（これは失敗すべき）
+    p.x = 100;
+    
+    return 1;
+}

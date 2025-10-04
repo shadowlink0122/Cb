@@ -24,6 +24,7 @@ CGEN_DIR=cgen
 FRONTEND_OBJS=$(FRONTEND_DIR)/main.o $(FRONTEND_DIR)/help_messages.o $(FRONTEND_DIR)/recursive_parser/recursive_lexer.o $(FRONTEND_DIR)/recursive_parser/recursive_parser.o
 BACKEND_OBJS=$(BACKEND_DIR)/interpreter/core/interpreter.o $(BACKEND_DIR)/interpreter/core/error_handler.o \
              $(BACKEND_DIR)/interpreter/core/type_inference.o \
+             $(BACKEND_DIR)/interpreter/core/pointer_metadata.o \
              $(BACKEND_DIR)/interpreter/evaluator/expression_evaluator.o \
              $(BACKEND_DIR)/interpreter/executor/statement_executor.o \
              $(BACKEND_DIR)/interpreter/output/output_manager.o \
@@ -123,20 +124,22 @@ $(TESTS_DIR)/unit/dummy.o: $(TESTS_DIR)/unit/dummy.cpp
 # 単体テスト
 unit-test: $(MAIN_TARGET) $(FRONTEND_OBJS) $(BACKEND_OBJS) $(COMMON_OBJS) $(PLATFORM_OBJS) $(TESTS_DIR)/unit/dummy.o
 	@echo "Running unit tests..."
-	@cd tests/unit && $(CC) $(CFLAGS) -o test_main main.cpp dummy.o ../../$(BACKEND_DIR)/interpreter/core/interpreter.o ../../$(BACKEND_DIR)/interpreter/core/error_handler.o ../../$(BACKEND_DIR)/interpreter/core/type_inference.o ../../$(BACKEND_DIR)/interpreter/output/output_manager.o ../../$(BACKEND_DIR)/interpreter/managers/variable_manager.o ../../$(BACKEND_DIR)/interpreter/managers/array_manager.o ../../$(BACKEND_DIR)/interpreter/managers/type_manager.o ../../$(BACKEND_DIR)/interpreter/managers/enum_manager.o ../../$(BACKEND_DIR)/interpreter/managers/common_operations.o ../../$(BACKEND_DIR)/interpreter/services/expression_service.o ../../$(BACKEND_DIR)/interpreter/services/variable_access_service.o ../../$(BACKEND_DIR)/interpreter/services/debug_service.o ../../$(BACKEND_DIR)/interpreter/services/array_processing_service.o ../../$(BACKEND_DIR)/interpreter/evaluator/expression_evaluator.o ../../$(BACKEND_DIR)/interpreter/executor/statement_executor.o ../../$(COMMON_DIR)/type_utils.o ../../$(COMMON_DIR)/type_alias.o ../../$(COMMON_DIR)/array_type_info.o ../../$(COMMON_DIR)/utf8_utils.o ../../$(COMMON_DIR)/io_interface.o ../../$(COMMON_DIR)/debug_impl.o ../../$(COMMON_DIR)/debug_messages.o ../../$(PLATFORM_DIR)/native/native_stdio_output.o ../../$(PLATFORM_DIR)/baremetal/baremetal_uart_output.o
+	@cd tests/unit && $(CC) $(CFLAGS) -o test_main main.cpp dummy.o ../../$(FRONTEND_DIR)/recursive_parser/recursive_parser.o ../../$(FRONTEND_DIR)/recursive_parser/recursive_lexer.o ../../$(BACKEND_DIR)/interpreter/core/interpreter.o ../../$(BACKEND_DIR)/interpreter/core/error_handler.o ../../$(BACKEND_DIR)/interpreter/core/type_inference.o ../../$(BACKEND_DIR)/interpreter/core/pointer_metadata.o ../../$(BACKEND_DIR)/interpreter/output/output_manager.o ../../$(BACKEND_DIR)/interpreter/managers/variable_manager.o ../../$(BACKEND_DIR)/interpreter/managers/array_manager.o ../../$(BACKEND_DIR)/interpreter/managers/type_manager.o ../../$(BACKEND_DIR)/interpreter/managers/enum_manager.o ../../$(BACKEND_DIR)/interpreter/managers/common_operations.o ../../$(BACKEND_DIR)/interpreter/services/expression_service.o ../../$(BACKEND_DIR)/interpreter/services/variable_access_service.o ../../$(BACKEND_DIR)/interpreter/services/debug_service.o ../../$(BACKEND_DIR)/interpreter/services/array_processing_service.o ../../$(BACKEND_DIR)/interpreter/evaluator/expression_evaluator.o ../../$(BACKEND_DIR)/interpreter/executor/statement_executor.o ../../$(COMMON_DIR)/type_utils.o ../../$(COMMON_DIR)/type_alias.o ../../$(COMMON_DIR)/array_type_info.o ../../$(COMMON_DIR)/utf8_utils.o ../../$(COMMON_DIR)/io_interface.o ../../$(COMMON_DIR)/debug_impl.o ../../$(COMMON_DIR)/debug_messages.o ../../$(PLATFORM_DIR)/native/native_stdio_output.o ../../$(PLATFORM_DIR)/baremetal/baremetal_uart_output.o
 	@cd tests/unit && ./test_main
 
-integration-test: $(MAIN_TARGET)
+# Integration test binary target
+$(TESTS_DIR)/integration/test_main: $(TESTS_DIR)/integration/main.cpp $(MAIN_TARGET)
+	@cd tests/integration && $(CC) $(CFLAGS) -I. -o test_main main.cpp
+
+integration-test: $(TESTS_DIR)/integration/test_main
 	@echo "============================================================="
 	@echo "Running Cb Integration Test Suite"
 	@echo "============================================================="
-	@cd tests/integration && $(CC) $(CFLAGS) -I. -o test_main main.cpp
 	@cd tests/integration && ./test_main 2>&1 | fold -s -w 80
 
 # より詳細な出力が必要な場合の統合テスト（フル出力）
-integration-test-verbose: $(MAIN_TARGET)
+integration-test-verbose: $(TESTS_DIR)/integration/test_main
 	@echo "Running integration tests (verbose mode)..."
-	@cd tests/integration && $(CC) $(CFLAGS) -I. -o test_main main.cpp
 	@cd tests/integration && ./test_main
 
 test: integration-test unit-test

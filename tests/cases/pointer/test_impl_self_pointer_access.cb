@@ -1,0 +1,146 @@
+// implメソッド内でselfのポインタメンバへのアクセスと代入のテスト
+
+interface PointerManager {
+    void set_pointer(int* ptr);
+    void update_value(int new_val);
+    int get_value();
+    void set_pointer_to_null();
+    bool is_null();
+};
+
+struct PointerHolder {
+    int* data_ptr;
+};
+
+impl PointerManager for PointerHolder {
+    void set_pointer(int* ptr) {
+        self.data_ptr = ptr;
+    }
+    
+    void update_value(int new_val) {
+        if (self.data_ptr != nullptr) {
+            *self.data_ptr = new_val;
+        }
+    }
+    
+    int get_value() {
+        if (self.data_ptr != nullptr) {
+            return *self.data_ptr;
+        }
+        return -1;
+    }
+    
+    void set_pointer_to_null() {
+        self.data_ptr = nullptr;
+    }
+    
+    bool is_null() {
+        return self.data_ptr == nullptr;
+    }
+};
+
+// ネストしたポインタメンバ
+struct Node {
+    int value;
+    int next_exists;  // 次のノードがあるかどうか（簡略化のため）
+};
+
+interface NodeManager {
+    void set_value(int val);
+    int get_value();
+};
+
+struct NodeContainer {
+    Node* node_ptr;
+};
+
+impl NodeManager for NodeContainer {
+    void set_value(int val) {
+        if (self.node_ptr != nullptr) {
+            (*self.node_ptr).value = val;
+        }
+    }
+    
+    int get_value() {
+        if (self.node_ptr != nullptr) {
+            return (*self.node_ptr).value;
+        }
+        return -1;
+    }
+};
+
+int main() {
+    println("=== Impl Self Pointer Member Access Test ===");
+    println("");
+    
+    // Test 1: selfのポインタメンバへの代入と参照
+    println("Test 1: Assign and dereference self pointer member");
+    int value = 42;
+    PointerHolder holder;
+    holder.data_ptr = nullptr;
+    
+    println("Initial: is_null = %d", holder.is_null());
+    
+    holder.set_pointer(&value);
+    println("After set_pointer:");
+    println("is_null = %d", holder.is_null());
+    println("get_value = %d", holder.get_value());
+    
+    holder.update_value(100);
+    println("After update_value(100):");
+    println("value = %d", value);
+    println("get_value = %d", holder.get_value());
+    
+    holder.set_pointer_to_null();
+    println("After set_pointer_to_null:");
+    println("is_null = %d", holder.is_null());
+    println("✓ Test 1 passed");
+    println("");
+    
+    // Test 2: selfのポインタメンバ経由でのメンバアクセス
+    println("Test 2: Member access through self pointer member");
+    Node node1;
+    node1.value = 10;
+    node1.next_exists = 0;
+    
+    NodeContainer container;
+    container.node_ptr = &node1;
+    
+    println("Initial:");
+    println("container.get_value() = %d", container.get_value());
+    
+    container.set_value(15);
+    println("After set_value(15):");
+    println("node1.value = %d", node1.value);
+    println("container.get_value() = %d", container.get_value());
+    
+    println("✓ Test 2 passed");
+    println("");
+    
+    // Test 3: selfのポインタメンバを別の変数に付け替え
+    println("Test 3: Reassign self pointer member");
+    int val1 = 111;
+    int val2 = 222;
+    
+    PointerHolder holder2;
+    holder2.data_ptr = &val1;
+    
+    println("Initially pointing to val1:");
+    println("get_value = %d", holder2.get_value());
+    
+    holder2.set_pointer(&val2);
+    println("After reassigning to val2:");
+    println("get_value = %d", holder2.get_value());
+    
+    holder2.update_value(333);
+    println("After update_value(333):");
+    println("val2 = %d", val2);
+    println("get_value = %d", holder2.get_value());
+    
+    println("✓ Test 3 passed");
+    println("");
+    
+    println("=== All impl self pointer access tests passed ===");
+    
+    return 0;
+}

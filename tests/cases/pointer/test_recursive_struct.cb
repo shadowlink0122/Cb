@@ -1,0 +1,98 @@
+// ポインタを用いた再帰構造のテスト
+
+// 自己参照構造体: リンクリスト
+struct Node {
+    int value;
+    Node* next;
+};
+
+int main() {
+    println("=== Test 1: Self-referencing struct declaration ===");
+    Node node1;
+    node1.value = 10;
+    node1.next = nullptr;
+    
+    if (node1.value != 10) {
+        println("ERROR: node1.value initialization failed");
+        return 1;
+    }
+    println("Node1 value: %d", node1.value);
+    println("Node1 next: nullptr");
+    
+    println("\n=== Test 2: Creating multiple nodes ===");
+    Node node2;
+    node2.value = 20;
+    node2.next = nullptr;
+    
+    Node node3;
+    node3.value = 30;
+    node3.next = nullptr;
+    
+    println("Node2 value: %d", node2.value);
+    println("Node3 value: %d", node3.value);
+    
+    println("\n=== Test 3: Binary tree structure ===");
+    struct TreeNode {
+        int data;
+        TreeNode* left;
+        TreeNode* right;
+    };
+    
+    TreeNode root;
+    root.data = 100;
+    root.left = nullptr;
+    root.right = nullptr;
+    
+    if (root.data != 100) {
+        println("ERROR: TreeNode initialization failed");
+        return 1;
+    }
+    println("TreeNode root data: %d", root.data);
+    println("TreeNode left: nullptr");
+    println("TreeNode right: nullptr");
+    
+    println("\n=== Test 4: Multi-level pointer depth ===");
+    struct MultiNode {
+        int id;
+        MultiNode* next;
+        MultiNode** indirect;
+    };
+    
+    MultiNode multi;
+    multi.id = 999;
+    multi.next = nullptr;
+    multi.indirect = nullptr;
+    
+    if (multi.id != 999) {
+        println("ERROR: MultiNode initialization failed");
+        return 1;
+    }
+    println("MultiNode id: %d", multi.id);
+    println("MultiNode next: nullptr");
+    println("MultiNode indirect: nullptr");
+    
+    println("\n=== Test 5: Mixed struct with pointer and non-pointer members ===");
+    struct Person {
+        string name;
+        int age;
+        Person* friend;
+        Person* parent;
+    };
+    
+    Person alice;
+    alice.name = "Alice";
+    alice.age = 25;
+    alice.friend = nullptr;
+    alice.parent = nullptr;
+    
+    if (alice.age != 25) {
+        println("ERROR: Person initialization failed");
+        return 1;
+    }
+    println("Person: %s, age %d", alice.name, alice.age);
+    println("Friend: nullptr");
+    println("Parent: nullptr");
+    
+    println("\n=== All recursive struct tests passed! ===");
+    return 0;
+}

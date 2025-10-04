@@ -1,0 +1,31 @@
+// assert関数の基本テスト
+
+int main() {
+    println("=== Assert Function Test ===");
+    
+    // Test 1: assert with true condition (should pass)
+    println("\nTest 1: assert(true)");
+    assert(1 == 1);
+    println("✓ Passed");
+    
+    // Test 2: assert with variable
+    println("\nTest 2: assert with variable");
+    int x = 10;
+    assert(x == 10);
+    println("✓ Passed");
+    
+    // Test 3: assert with expression
+    println("\nTest 3: assert with expression");
+    int a = 5;
+    int b = 5;
+    assert(a + b == 10);
+    println("✓ Passed");
+    
+    // Test 4: assert with comparison
+    println("\nTest 4: assert with comparison");
+    assert(10 > 5);
+    println("✓ Passed");
+    
+    println("\n✅ All assertion tests passed!");
+    return 0;
+}

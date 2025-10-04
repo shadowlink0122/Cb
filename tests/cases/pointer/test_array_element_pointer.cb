@@ -1,0 +1,38 @@
+// 配列要素へのポインタの基本テスト
+
+int main() {
+    println("=== Array Element Pointer Test ===");
+    
+    // Test 1: 配列要素へのポインタを取得して間接参照
+    println("\nTest 1: Basic array element pointer");
+    int[5] arr = [10, 20, 30, 40, 50];
+    int* ptr = &arr[0];
+    
+    println("arr[0] = ", arr[0]);
+    println("*ptr = ", *ptr, " (should be 10)");
+    assert(*ptr == 10);
+    
+    // Test 2: ポインタ経由で配列要素を変更
+    println("\nTest 2: Modify array element through pointer");
+    *ptr = 100;
+    println("After *ptr = 100:");
+    println("arr[0] = ", arr[0], " (should be 100)");
+    println("*ptr = ", *ptr, " (should be 100)");
+    assert(arr[0] == 100);
+    assert(*ptr == 100);
+    
+    // Test 3: 異なるインデックスの要素へのポインタ
+    println("\nTest 3: Pointer to different index");
+    int* ptr2 = &arr[2];
+    println("arr[2] = ", arr[2]);
+    println("*ptr2 = ", *ptr2, " (should be 30)");
+    assert(*ptr2 == 30);
+    
+    *ptr2 = 300;
+    println("After *ptr2 = 300:");
+    println("arr[2] = ", arr[2], " (should be 300)");
+    assert(arr[2] == 300);
+    
+    println("\nAll array element pointer tests passed!");
+    return 0;
+}

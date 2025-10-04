@@ -3,6 +3,7 @@
 #include "core/interpreter.h"
 #include "managers/variable_manager.h"
 #include "managers/array_manager.h"
+#include "services/debug_service.h"
 #include "../../../common/debug_messages.h"
 #include <iostream>
 #include <stdexcept>
@@ -113,7 +114,11 @@ ArrayProcessingService::assignArrayLiteral(
             common_operations_->parse_array_literal(literal_node);
             
         // 変数に配列を代入
-        common_operations_->assign_array_literal_to_variable(target_var, array_result);
+        std::string resolved_name;
+        if (interpreter_) {
+            resolved_name = interpreter_->find_variable_name(target_var);
+        }
+        common_operations_->assign_array_literal_to_variable(target_var, array_result, resolved_name);
         
         result.success = true;
         result.inferred_type = array_result.element_type;
@@ -179,9 +184,18 @@ void ArrayProcessingService::setArrayElement(
         throw std::runtime_error("Cannot assign to const array: " + var_name);
     }
     
+    int64_t adjusted_value = value;
+    if (var->is_unsigned && adjusted_value < 0) {
+        DEBUG_WARN(
+            VARIABLE,
+            "Unsigned array %s element assignment with negative value (%lld); clamping to 0",
+            var_name.c_str(), static_cast<long long>(adjusted_value));
+        adjusted_value = 0;
+    }
+
     if (var->is_multidimensional) {
         // 多次元配列は直接ArrayManagerに委譲
-        interpreter_->get_array_manager()->setMultidimensionalArrayElement(*var, indices, value);
+        interpreter_->get_array_manager()->setMultidimensionalArrayElement(*var, indices, adjusted_value);
     } else {
         // 1次元配列の場合
         if (indices.size() != 1) {
@@ -193,7 +207,7 @@ void ArrayProcessingService::setArrayElement(
             throw std::runtime_error("Array index out of bounds");
         }
         
-        var->array_values[index] = value;
+        var->array_values[index] = adjusted_value;
     }
 }
 

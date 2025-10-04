@@ -1,0 +1,109 @@
+// ポインタインクリメント/デクリメントのテスト
+// Phase 4: ptr++, ++ptr, ptr--, --ptr
+
+int main() {
+    println("=== Pointer Increment/Decrement Test ===");
+    
+    // 配列の準備
+    int[5] arr;
+    arr[0] = 10;
+    arr[1] = 20;
+    arr[2] = 30;
+    arr[3] = 40;
+    arr[4] = 50;
+    
+    // テスト1: プレインクリメント (++ptr)
+    println("\nTest 1: Pre-increment (++ptr)");
+    int* ptr;
+    ptr = &arr[0];
+    println("Before: *ptr =", *ptr);
+    ++ptr;
+    println("After ++ptr: *ptr =", *ptr);
+    
+    if (*ptr == 20) {
+        println("✓ Test 1 passed: Pre-increment works");
+    } else {
+        println("✗ Test 1 failed: Expected 20, got", *ptr);
+    }
+    
+    // テスト2: ポストインクリメント (ptr++)
+    println("\nTest 2: Post-increment (ptr++)");
+    ptr = &arr[1];
+    println("Before: *ptr =", *ptr);
+    int* old_ptr;
+    old_ptr = ptr++;
+    println("After ptr++:");
+    println("  *old_ptr =", *old_ptr);
+    println("  *ptr =", *ptr);
+    
+    if (*old_ptr == 20 && *ptr == 30) {
+        println("✓ Test 2 passed: Post-increment works");
+    } else {
+        println("✗ Test 2 failed");
+    }
+    
+    // テスト3: プレデクリメント (--ptr)
+    println("\nTest 3: Pre-decrement (--ptr)");
+    ptr = &arr[3];
+    println("Before: *ptr =", *ptr);
+    --ptr;
+    println("After --ptr: *ptr =", *ptr);
+    
+    if (*ptr == 30) {
+        println("✓ Test 3 passed: Pre-decrement works");
+    } else {
+        println("✗ Test 3 failed: Expected 30, got", *ptr);
+    }
+    
+    // テスト4: ポストデクリメント (ptr--)
+    println("\nTest 4: Post-decrement (ptr--)");
+    ptr = &arr[2];
+    println("Before: *ptr =", *ptr);
+    old_ptr = ptr--;
+    println("After ptr--:");
+    println("  *old_ptr =", *old_ptr);
+    println("  *ptr =", *ptr);
+    
+    if (*old_ptr == 30 && *ptr == 20) {
+        println("✓ Test 4 passed: Post-decrement works");
+    } else {
+        println("✗ Test 4 failed");
+    }
+    
+    // テスト5: ループでポインタを進める
+    println("\nTest 5: Loop with pointer increment");
+    ptr = &arr[0];
+    println("Array values via pointer:");
+    int i;
+    i = 0;
+    while (i < 5) {
+        println("  arr[%d] =", i, *ptr);
+        i++;
+        if (i < 5) {
+            ptr++;
+        }
+    }
+    println("✓ Test 5 passed: Loop with increment works");
+    
+    // テスト6: 複数回のインクリメント/デクリメント
+    println("\nTest 6: Multiple increment/decrement");
+    ptr = &arr[2];
+    println("Start: *ptr =", *ptr);
+    ++ptr;
+    println("After ++ptr: *ptr =", *ptr);
+    ++ptr;
+    println("After ++ptr: *ptr =", *ptr);
+    --ptr;
+    println("After --ptr: *ptr =", *ptr);
+    --ptr;
+    println("After --ptr: *ptr =", *ptr);
+    
+    if (*ptr == 30) {
+        println("✓ Test 6 passed: Multiple operations work");
+    } else {
+        println("✗ Test 6 failed: Expected 30, got", *ptr);
+    }
+    
+    println("\n=== All pointer increment/decrement tests completed ===");
+    return 0;
+}

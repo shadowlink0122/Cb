@@ -36,8 +36,13 @@ class VariableManager {
     void assign_variable(const std::string &name, const std::string &value);
     void assign_variable(const std::string &name, const std::string &value,
                          bool is_const);
-    void assign_function_parameter(const std::string &name, int64_t value,
-                                   TypeInfo type);
+  void assign_variable(const std::string &name, const TypedValue &value,
+             TypeInfo type_hint, bool is_const);
+  void assign_function_parameter(const std::string &name, int64_t value,
+                   TypeInfo type, bool is_unsigned);
+  void assign_function_parameter(const std::string &name,
+                   const TypedValue &value, TypeInfo type,
+                   bool is_unsigned);
     void assign_array_parameter(const std::string &name,
                                 const Variable &source_array, TypeInfo type);
     void assign_array_element(const std::string &name, int64_t index,

@@ -1,0 +1,9 @@
+Test 1: Reference to union
+50
+75
+Test 2: Union reference parameter
+10
+20
+Test 3: Return union reference
+100
+200

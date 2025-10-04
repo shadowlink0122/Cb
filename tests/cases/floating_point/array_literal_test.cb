@@ -1,0 +1,69 @@
+// 配列リテラルでのfloat/double総合テスト
+
+int main() {
+    println("=== Array Literal Float/Double Test ===");
+    
+    // 1次元float配列リテラル
+    float[5] farr = [1.0f, 2.5f, 3.14f, 4.99f, 5.0f];
+    println("float array:");
+    println(farr[0]);
+    println(farr[2]);
+    println(farr[4]);
+    
+    // 1次元double配列リテラル
+    double[5] darr = [1.0, 2.5, 3.141592653589793, 4.99, 5.0];
+    println("double array:");
+    println(darr[0]);
+    println(darr[2]);
+    println(darr[4]);
+    
+    // 2次元float配列リテラル
+    float[2][3] fgrid = [
+        [1.1f, 2.2f, 3.3f],
+        [4.4f, 5.5f, 6.6f]
+    ];
+    println("float 2D array:");
+    println(fgrid[0][0]);
+    println(fgrid[0][2]);
+    println(fgrid[1][1]);
+    println(fgrid[1][2]);
+    
+    // 2次元double配列リテラル
+    double[2][3] dgrid = [
+        [1.111, 2.222, 3.333],
+        [4.444, 5.555, 6.666]
+    ];
+    println("double 2D array:");
+    println(dgrid[0][0]);
+    println(dgrid[0][2]);
+    println(dgrid[1][1]);
+    println(dgrid[1][2]);
+    
+    // 混合値（整数と小数）
+    float[4] mixed = [1.0f, 2.5f, 3.0f, 4.75f];
+    println("mixed values:");
+    println(mixed[0]);
+    println(mixed[1]);
+    println(mixed[2]);
+    println(mixed[3]);
+    
+    // 3次元配列
+    double[2][2][2] cube = [
+        [
+            [1.0, 2.0],
+            [3.0, 4.0]
+        ],
+        [
+            [5.0, 6.0],
+            [7.0, 8.0]
+        ]
+    ];
+    println("3D array:");
+    println(cube[0][0][0]);
+    println(cube[0][1][1]);
+    println(cube[1][0][1]);
+    println(cube[1][1][1]);
+    
+    println("=== End ===");
+    return 0;
+}

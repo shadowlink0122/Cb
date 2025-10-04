@@ -27,6 +27,58 @@ struct ParsedTypeString {
     int pointer_depth = 0;
 };
 
+bool is_numeric_type(TypeInfo type) {
+    switch (type) {
+    case TYPE_TINY:
+    case TYPE_SHORT:
+    case TYPE_INT:
+    case TYPE_LONG:
+    case TYPE_CHAR:
+    case TYPE_BOOL:
+    case TYPE_FLOAT:
+    case TYPE_DOUBLE:
+    case TYPE_QUAD:
+    case TYPE_BIG:
+        return true;
+    default:
+        return false;
+    }
+}
+
+int numeric_rank(TypeInfo type) {
+    switch (type) {
+    case TYPE_BOOL:
+    case TYPE_CHAR:
+    case TYPE_TINY:
+        return 1;
+    case TYPE_SHORT:
+        return 2;
+    case TYPE_INT:
+        return 3;
+    case TYPE_LONG:
+        return 4;
+    case TYPE_FLOAT:
+        return 5;
+    case TYPE_DOUBLE:
+        return 6;
+    case TYPE_QUAD:
+        return 7;
+    case TYPE_BIG:
+        return 8;
+    default:
+        return 0;
+    }
+}
+
+TypeInfo promote_numeric_type(TypeInfo lhs, TypeInfo rhs) {
+    int lhs_rank = numeric_rank(lhs);
+    int rhs_rank = numeric_rank(rhs);
+    if (lhs_rank == 0 && rhs_rank == 0) {
+        return TYPE_UNKNOWN;
+    }
+    return (lhs_rank >= rhs_rank) ? lhs : rhs;
+}
+
 ParsedTypeString parse_type_string(const std::string &type_name) {
     ParsedTypeString result;
     std::string trimmed = trim(type_name);
@@ -127,6 +179,16 @@ InferredType TypeInferenceEngine::infer_type(const ASTNode* node) {
     
     switch (node->node_type) {
         case ASTNodeType::AST_NUMBER:
+            if (node->is_float_literal) {
+                TypeInfo literal_type = node->literal_type;
+                if (literal_type == TYPE_FLOAT) {
+                    return InferredType(TYPE_FLOAT, "float");
+                } else if (literal_type == TYPE_QUAD) {
+                    return InferredType(TYPE_QUAD, "quad");
+                } else {
+                    return InferredType(TYPE_DOUBLE, "double");
+                }
+            }
             return InferredType(TYPE_INT, "int");
             
         case ASTNodeType::AST_STRING_LITERAL:
@@ -521,15 +583,30 @@ InferredType TypeInferenceEngine::get_common_type(const InferredType& type1, con
     if (type1.type_info == TYPE_STRING || type2.type_info == TYPE_STRING) {
         return InferredType(TYPE_STRING, "string");
     }
-    
-    // 数値型の場合、より大きな型を選択
-    if ((type1.type_info == TYPE_INT || type1.type_info == TYPE_LONG) &&
-        (type2.type_info == TYPE_INT || type2.type_info == TYPE_LONG)) {
-        if (type1.type_info == TYPE_LONG || type2.type_info == TYPE_LONG) {
-            return InferredType(TYPE_LONG, "long");
-        } else {
-            return InferredType(TYPE_INT, "int");
+
+    // 配列型は上位の配列情報を維持
+    if (type1.is_array || type2.is_array) {
+        return type1.is_array ? type1 : type2;
+    }
+
+    // 数値型の場合、型ランクに基づいて最適な型を選択
+    if (is_numeric_type(type1.type_info) && is_numeric_type(type2.type_info)) {
+        TypeInfo promoted = promote_numeric_type(type1.type_info, type2.type_info);
+        if (promoted == type1.type_info) {
+            return type1;
         }
+        if (promoted == type2.type_info) {
+            return type2;
+        }
+        return InferredType(promoted, type_info_to_string(promoted));
+    }
+
+    // 片方のみ数値型の場合は数値型を優先
+    if (is_numeric_type(type1.type_info) && type2.type_info == TYPE_UNKNOWN) {
+        return type1;
+    }
+    if (is_numeric_type(type2.type_info) && type1.type_info == TYPE_UNKNOWN) {
+        return type2;
     }
     
     // デフォルトは最初の型

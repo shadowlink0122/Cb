@@ -3,6 +3,7 @@
 #include "services/expression_service.h" // DRY効率化: 統一式評価サービス
 #include "core/interpreter.h"
 #include "managers/enum_manager.h"
+#include <limits>
 #include <stdexcept>
 
 void TypeManager::register_typedef(const std::string &name,
@@ -67,6 +68,10 @@ std::string TypeManager::resolve_typedef_one_level(const std::string &type_name)
 TypeInfo TypeManager::string_to_type_info(const std::string &type_str) {
     std::string resolved = resolve_typedef(type_str);
 
+    if (resolved.rfind("unsigned ", 0) == 0) {
+        resolved = resolved.substr(9);
+    }
+
     if (resolved == "int")
         return TYPE_INT;
     if (resolved == "long")
@@ -115,30 +120,71 @@ TypeInfo TypeManager::string_to_type_info(const std::string &type_str) {
 }
 
 void TypeManager::check_type_range(TypeInfo type, int64_t value,
-                                   const std::string &var_name) {
+                                   const std::string &var_name,
+                                   bool is_unsigned) {
     // DRY効率化: 統一式評価サービスを使用した安全な型範囲チェック
     interpreter_->get_expression_service()->evaluate_safe(
         nullptr, "type_range_check_" + var_name, [&](const std::string &error) {
-            bool out_of_range = false;
+            int64_t min_allowed = 0;
+            int64_t max_allowed = 0;
+            bool has_range = true;
 
             switch (type) {
             case TYPE_TINY:
-                out_of_range = (value < -128 || value > 127);
+                if (is_unsigned) {
+                    min_allowed = 0;
+                    max_allowed = 255;
+                } else {
+                    min_allowed = -128;
+                    max_allowed = 127;
+                }
                 break;
             case TYPE_SHORT:
-                out_of_range = (value < -32768 || value > 32767);
+                if (is_unsigned) {
+                    min_allowed = 0;
+                    max_allowed = 65535;
+                } else {
+                    min_allowed = -32768;
+                    max_allowed = 32767;
+                }
                 break;
             case TYPE_INT:
-                out_of_range = (value < INT32_MIN || value > INT32_MAX);
+                if (is_unsigned) {
+                    min_allowed = 0;
+                    max_allowed = static_cast<int64_t>(std::numeric_limits<uint32_t>::max());
+                } else {
+                    min_allowed = static_cast<int64_t>(INT32_MIN);
+                    max_allowed = static_cast<int64_t>(INT32_MAX);
+                }
+                break;
+            case TYPE_CHAR:
+                if (is_unsigned) {
+                    min_allowed = 0;
+                    max_allowed = 255;
+                } else {
+                    min_allowed = -128;
+                    max_allowed = 127;
+                }
                 break;
             case TYPE_LONG:
-                // int64_tの範囲内なので常にOK
+                if (is_unsigned) {
+                    min_allowed = 0;
+                    max_allowed = std::numeric_limits<int64_t>::max();
+                } else {
+                    min_allowed = std::numeric_limits<int64_t>::min();
+                    max_allowed = std::numeric_limits<int64_t>::max();
+                }
                 break;
             default:
-                return; // 他の型はチェックしない
+                has_range = false;
+                break; // 他の型はチェックしない
             }
 
-            if (out_of_range) {
+            if (!has_range) {
+                return;
+            }
+
+            if (value < min_allowed || value > max_allowed) {
                 error_msg(DebugMsgId::TYPE_RANGE_ERROR, var_name.c_str());
                 throw std::runtime_error("Value out of range for type");
             }

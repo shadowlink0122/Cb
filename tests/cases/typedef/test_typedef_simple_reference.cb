@@ -1,0 +1,14 @@
+// typedef型の基本的な参照テスト
+
+typedef int Integer;
+
+int main() {
+    println("Test: Simple typedef reference");
+    Integer num = 50;
+    Integer& ref = num;
+    println(ref);  // 50
+    ref = 100;
+    println(num);  // 100
+    
+    return 0;
+}

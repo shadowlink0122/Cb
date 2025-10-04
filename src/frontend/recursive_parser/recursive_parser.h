@@ -15,6 +15,8 @@ struct ParsedTypeInfo {
     TypeInfo base_type_info = TYPE_UNKNOWN;// 基本型のTypeInfo
     bool is_array = false;                 // 配列型かどうか
     ArrayTypeInfo array_info;              // 配列情報（多次元対応）
+    bool is_reference = false;             // 参照型かどうか
+    bool is_unsigned = false;              // unsigned修飾子かどうか
 };
 
 class RecursiveParser {
@@ -77,6 +79,7 @@ private:
     ASTNode* parseArrayDeclaration(const std::string& type_name, bool isConst);
     ASTNode* parseVariableDeclarationList(const std::string& type_name, bool isConst);
     ASTNode* parseReturnStatement();
+    ASTNode* parseAssertStatement();
     ASTNode* parseBreakStatement();
     ASTNode* parseContinueStatement();
     ASTNode* parseIfStatement();
@@ -103,6 +106,7 @@ private:
     ASTNode* parsePostfix();
     ASTNode* parsePrimary();
     ASTNode* parseMemberAccess(ASTNode* object);  // メンバアクセス (.member)
+    ASTNode* parseArrowAccess(ASTNode* object);   // アロー演算子アクセス (ptr->member)
     ASTNode* parseStructLiteral();                // 構造体リテラル {a: 1, b: "str"}
     ASTNode* parseEnumAccess();                   // enum値アクセス (EnumName::member)
     

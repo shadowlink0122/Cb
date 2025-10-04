@@ -1,0 +1,23 @@
+// シンプルな配列ポインタテスト
+
+int main() {
+    println("=== Simple Array Pointer Test ===");
+    
+    int[3] arr = [10, 20, 30];
+    println("arr[0] = %d, arr[1] = %d, arr[2] = %d", arr[0], arr[1], arr[2]);
+    
+    // 配列の最初の要素のアドレスを取得
+    int* ptr = &arr[0];
+    
+    // ポインタ経由で値を読む
+    println("*ptr = %d (should be 10)", *ptr);
+    
+    // ポインタ経由で値を変更
+    *ptr = 100;
+    
+    println("After *ptr = 100:");
+    println("arr[0] = %d (should be 100)", arr[0]);
+    println("*ptr = %d (should be 100)", *ptr);
+    
+    return 0;
+}

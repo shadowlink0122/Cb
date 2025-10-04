@@ -1,0 +1,23 @@
+// 簡単な参照戻り値テスト
+
+int global_value = 100;
+
+int& get_global() {
+    return global_value;
+}
+
+int main() {
+    println("Before:");
+    println(global_value);  // 100
+    
+    int& ref = get_global();
+    println("After getting reference:");
+    println(ref);  // 100
+    
+    ref = 150;
+    println("After modifying through reference:");
+    println(global_value);  // 150
+    println(ref);  // 150
+    
+    return 0;
+}

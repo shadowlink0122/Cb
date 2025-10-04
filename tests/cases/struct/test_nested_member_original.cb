@@ -1,0 +1,55 @@
+// 元のテストと同じ構造でテスト
+
+struct Inner {
+    int value;
+    string name;
+};
+
+struct Middle {
+    Inner data;
+    int count;
+};
+
+struct Outer {
+    Middle mid;
+    int id;
+};
+
+int main() {
+    println("=== Original Structure Test ===");
+    
+    Outer obj;
+    obj = {
+        mid: {
+            data: {value: 10, name: "initial"},
+            count: 5
+        },
+        id: 1
+    };
+    
+    println("Initial values:");
+    println("  obj.mid.data.value:", obj.mid.data.value);
+    println("  obj.mid.data.name:", obj.mid.data.name);
+    println("  obj.mid.count:", obj.mid.count);
+    println("  obj.id:", obj.id);
+    
+    // ネストしたメンバへの直接代入
+    obj.mid.data.value = 100;
+    obj.mid.data.name = "updated";
+    obj.mid.count = 50;
+    obj.id = 2;
+    
+    println("\nAfter direct assignment:");
+    println("  obj.mid.data.value:", obj.mid.data.value);
+    println("  obj.mid.data.name:", obj.mid.data.name);
+    println("  obj.mid.count:", obj.mid.count);
+    println("  obj.id:", obj.id);
+    
+    if (obj.mid.data.value == 100 && obj.mid.data.name == "updated" && obj.mid.count == 50 && obj.id == 2) {
+        println("\nSUCCESS!");
+        return 0;
+    } else {
+        println("\nFAILED!");
+        return 1;
+    }
+}

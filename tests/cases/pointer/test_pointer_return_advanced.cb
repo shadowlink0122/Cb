@@ -1,0 +1,125 @@
+// 関数がポインタや参照を返す包括的なテスト
+
+// ポインタを返す関数群
+int* find_max(int* a, int* b) {
+    if (*a > *b) {
+        return a;
+    } else {
+        return b;
+    }
+}
+
+int* get_element(int* array, int index) {
+    // 配列の要素へのポインタを返す（疑似的）
+    return array + index;
+}
+
+int** create_pointer_to_pointer(int* ptr) {
+    int** pp = &ptr;
+    return pp;
+}
+
+// 構造体のポインタを返す
+struct Point {
+    int x;
+    int y;
+}
+
+// 値渡しで構造体を返す（ポインタではない）
+Point create_point(int x, int y) {
+    Point p = [x: x, y: y];
+    return p;
+}
+
+// グローバル配列（配列ポインタのテスト用）
+int[10] g_array = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+
+int main() {
+    println("=== Comprehensive Pointer Return Tests ===");
+    println("");
+    
+    // Test 1: 2つの値のうち大きい方へのポインタを返す
+    println("Test 1: Return pointer to larger value");
+    int a = 100;
+    int b = 200;
+    
+    int* max_ptr = find_max(&a, &b);
+    println("a = %d, b = %d", a, b);
+    println("*max_ptr = %d (should be 200)", *max_ptr);
+    assert(*max_ptr == 200);
+    
+    // 最大値を変更
+    *max_ptr = 999;
+    println("After *max_ptr = 999:");
+    println("b = %d (should be 999)", b);
+    assert(b == 999);
+    println("");
+    
+    // Test 2: 配列要素へのポインタを返す
+    println("Test 2: Return pointer to array element");
+    int[5] arr = [10, 20, 30, 40, 50];
+    
+    int* elem_ptr = get_element(&arr[0], 2);
+    println("*elem_ptr = %d (should be 30)", *elem_ptr);
+    assert(*elem_ptr == 30);
+    
+    *elem_ptr = 300;
+    println("After *elem_ptr = 300:");
+    println("arr[2] = %d (should be 300)", arr[2]);
+    assert(arr[2] == 300);
+    println("");
+    
+    // Test 3: ダブルポインタを返す
+    println("Test 3: Return double pointer");
+    int value = 42;
+    int* pv = &value;
+    
+    int** ppv = create_pointer_to_pointer(pv);
+    println("value = %d", value);
+    println("**ppv = %d (should be 42)", **ppv);
+    assert(**ppv == 42);
+    
+    **ppv = 84;
+    println("After **ppv = 84:");
+    println("value = %d (should be 84)", value);
+    assert(value == 84);
+    println("");
+    
+    // Test 4: 関数チェーンでポインタを処理
+    println("Test 4: Function chain with pointers");
+    int x = 5;
+    int y = 10;
+    
+    int* ptr1 = find_max(&x, &y);
+    *ptr1 = 15;  // yを15に変更
+    
+    int* ptr2 = find_max(&x, &y);
+    println("After modifications:");
+    println("x = %d, y = %d", x, y);
+    println("*ptr2 = %d (should be 15)", *ptr2);
+    assert(*ptr2 == 15);
+    println("");
+    
+    // Test 5: グローバル配列へのポインタ
+    println("Test 5: Pointer to global array element");
+    int* g_ptr = &g_array[5];
+    println("*g_ptr = %d (should be 5)", *g_ptr);
+    assert(*g_ptr == 5);
+    
+    *g_ptr = 555;
+    println("After *g_ptr = 555:");
+    println("g_array[5] = %d (should be 555)", g_array[5]);
+    assert(g_array[5] == 555);
+    println("");
+    
+    // Test 6: 構造体を値で返す（参照ではない）
+    println("Test 6: Return struct by value");
+    Point p = create_point(3, 4);
+    println("p.x = %d, p.y = %d", p.x, p.y);
+    assert(p.x == 3);
+    assert(p.y == 4);
+    println("");
+    
+    println("All pointer return tests passed!");
+    return 0;
+}

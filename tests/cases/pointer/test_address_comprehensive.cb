@@ -1,0 +1,108 @@
+// 包括的なアドレス取得テスト
+// すべての型の変数からアドレスを取得できることを確認
+
+int g_int = 100;
+float g_float = 1.5;
+double g_double = 2.5;
+
+struct Point {
+    int x;
+    int y;
+};;
+
+Point g_point = [x: 10, y: 20];
+
+int main() {
+    println("=== Comprehensive Address-of Tests ===");
+    println("");
+    
+    // Test 1: 基本型のアドレス取得
+    println("Test 1: Basic types address");
+    int local_int = 42;
+    float local_float = 3.14;
+    double local_double = 2.718;
+    
+    int* p_int = &local_int;
+    float* p_float = &local_float;
+    double* p_double = &local_double;
+    
+    println("local_int = %d, via pointer = %d", local_int, *p_int);
+    
+    // ポインタ経由で値を変更
+    *p_int = 84;
+    println("After *p_int = 84: local_int = %d", local_int);
+    assert(local_int == 84);
+    println("");
+    
+    // Test 2: グローバル変数のアドレス取得
+    println("Test 2: Global variables address");
+    int* pg_int = &g_int;
+    float* pg_float = &g_float;
+    double* pg_double = &g_double;
+    
+    println("g_int = %d, via pointer = %d", g_int, *pg_int);
+    
+    *pg_int = 200;
+    println("After *pg_int = 200: g_int = %d", g_int);
+    assert(g_int == 200);
+    println("");
+    
+    // Test 3: 構造体変数のアドレス取得（型推論使用）
+    println("Test 3: Struct variable address");
+    Point local_point = [x: 5, y: 15];
+    // TODO: Point* p_point = &local_point; // 構造体ポインタ型の宣言は未サポート
+    int* p_point_as_int = &local_point.x;  // メンバーのアドレスを取得
+    
+    println("local_point.x = %d, via pointer = %d", local_point.x, *p_point_as_int);
+    
+    *p_point_as_int = 50;
+    println("After *p_point_as_int = 50: local_point.x = %d", local_point.x);
+    assert(local_point.x == 50);
+    println("");
+    
+    // Test 4: グローバル構造体のメンバアドレス取得
+    println("Test 4: Global struct member address");
+    // TODO: Point* pg_point = &g_point; // 構造体ポインタ型の宣言は未サポート
+    int* pg_point_x = &g_point.x;
+    int* pg_point_y = &g_point.y;
+    
+    println("g_point.x = %d, via pointer = %d", g_point.x, *pg_point_x);
+    
+    *pg_point_y = 40;
+    println("After *pg_point_y = 40: g_point.y = %d", g_point.y);
+    assert(g_point.y == 40);
+    println("");
+    
+    // Test 5: 配列要素のアドレス取得
+    println("Test 5: Array element address");
+    int[5] arr = [1, 2, 3, 4, 5];
+    
+    int* p_arr0 = &arr[0];
+    int* p_arr2 = &arr[2];
+    
+    println("arr[0] = %d, via pointer = %d", arr[0], *p_arr0);
+    println("arr[2] = %d, via pointer = %d", arr[2], *p_arr2);
+    
+    *p_arr2 = 30;
+    println("After *p_arr2 = 30: arr[2] = %d", arr[2]);
+    assert(arr[2] == 30);
+    println("");
+    
+    // Test 6: ポインタのアドレス取得（ダブルポインタ）
+    println("Test 6: Pointer to pointer");
+    int value = 999;
+    int* p_value = &value;
+    int** pp_value = &p_value;
+    
+    println("value = %d", value);
+    println("*p_value = %d", *p_value);
+    println("**pp_value = %d", **pp_value);
+    
+    **pp_value = 777;
+    println("After **pp_value = 777: value = %d", value);
+    assert(value == 777);
+    println("");
+    
+    println("All address-of tests passed!");
+    return 0;
+}

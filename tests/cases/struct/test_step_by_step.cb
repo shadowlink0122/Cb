@@ -1,0 +1,57 @@
+struct Inner {
+    int value;
+    string name;
+};
+
+struct Middle {
+    Inner data;
+    int count;
+};
+
+struct Outer {
+    Middle mid;
+    int id;
+};
+
+int main() {
+    println("=== Step-by-Step Assignment ===");
+    
+    Outer obj;
+    obj = {
+        mid: {
+            data: {value: 10, name: "initial"},
+            count: 5
+        },
+        id: 1
+    };
+    
+    println("Initial:");
+    println("  obj.mid.data.value:", obj.mid.data.value);
+    println("  obj.mid.data.name:", obj.mid.data.name);
+    println("  obj.mid.count:", obj.mid.count);
+    println("  obj.id:", obj.id);
+    
+    println("\nStep 1: obj.mid.data.value = 100");
+    obj.mid.data.value = 100;
+    println("  obj.mid.data.value:", obj.mid.data.value);
+    
+    println("\nStep 2: obj.mid.data.name = 'updated'");
+    obj.mid.data.name = "updated";
+    println("  obj.mid.data.name:", obj.mid.data.name);
+    
+    println("\nStep 3: obj.mid.count = 50");
+    obj.mid.count = 50;
+    println("  obj.mid.count:", obj.mid.count);
+    
+    println("\nStep 4: obj.id = 2");
+    obj.id = 2;
+    println("  obj.id:", obj.id);
+    
+    println("\nFinal values:");
+    println("  obj.mid.data.value:", obj.mid.data.value);
+    println("  obj.mid.data.name:", obj.mid.data.name);
+    println("  obj.mid.count:", obj.mid.count);
+    println("  obj.id:", obj.id);
+    
+    return 0;
+}

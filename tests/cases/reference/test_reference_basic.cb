@@ -1,0 +1,39 @@
+// 参照型の包括的テスト
+
+void main() {
+    // Test 1: 整数型の参照
+    int a = 10;
+    int& ref_a = a;
+    println(ref_a);  // Expected: 10
+    
+    ref_a = 20;
+    println(a);      // Expected: 20
+    println(ref_a);  // Expected: 20
+    
+    // Test 2: 複数の参照
+    int b = 30;
+    int& ref_b = b;
+    ref_b = 40;
+    println(b);      // Expected: 40
+    println(ref_b);  // Expected: 40
+    
+    // Test 3: 浮動小数点数の参照
+    float f = 3.14;
+    float& ref_f = f;
+    println(ref_f);  // Expected: 3.140000
+    
+    ref_f = 2.71;
+    println(f);      // Expected: 2.710000
+    println(ref_f);  // Expected: 2.710000
+    
+    // Test 4: 参照から参照へ（連鎖）
+    int x = 100;
+    int& ref1 = x;
+    int& ref2 = ref1;
+    println(ref2);   // Expected: 100
+    
+    ref2 = 200;
+    println(x);      // Expected: 200
+    println(ref1);   // Expected: 200
+    println(ref2);   // Expected: 200
+}

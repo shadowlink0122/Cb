@@ -37,6 +37,7 @@ class TypeManager {
     bool is_array_type_allowed_for_union(const std::string &union_type_name, const std::string &array_type);
 
     // 型チェック
-    void check_type_range(TypeInfo type, int64_t value,
-                          const std::string &var_name);
+  void check_type_range(TypeInfo type, int64_t value,
+              const std::string &var_name,
+              bool is_unsigned = false);
 };

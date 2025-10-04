@@ -384,6 +384,9 @@ struct StructMember {
     std::string pointer_base_type_name;        // ポインタの基底型名
     TypeInfo pointer_base_type = TYPE_UNKNOWN; // ポインタ基底型
     bool is_private = false;                   // private指定かどうか
+    bool is_reference = false;                 // 参照メンバかどうか
+    bool is_unsigned = false; // unsigned修飾子が付与されているか
+    bool is_const = false; // const指定かどうか（Rustのnot mutと同等）
 
     StructMember() : type(TYPE_UNKNOWN) {}
     StructMember(const std::string &n, TypeInfo t,
@@ -404,13 +407,17 @@ struct StructDefinition {
                     int pointer_depth = 0,
                     const std::string &pointer_base_type_name = "",
                     TypeInfo pointer_base_type = TYPE_UNKNOWN,
-                    bool is_private = false) {
+                    bool is_private = false, bool is_reference = false,
+                    bool is_unsigned = false, bool is_const = false) {
         StructMember member(member_name, type, type_alias);
         member.is_pointer = is_pointer;
         member.pointer_depth = pointer_depth;
         member.pointer_base_type_name = pointer_base_type_name;
         member.pointer_base_type = pointer_base_type;
         member.is_private = is_private;
+        member.is_reference = is_reference;
+        member.is_unsigned = is_unsigned;
+        member.is_const = is_const;
         members.emplace_back(std::move(member));
     }
 
@@ -430,17 +437,29 @@ struct ASTNode;
 
 // Interface定義情報を格納する構造体
 struct InterfaceMember {
-    std::string name;     // 関数名
-    TypeInfo return_type; // 戻り値の型
+    std::string name;                // 関数名
+    TypeInfo return_type;            // 戻り値の型
+    bool return_is_unsigned = false; // 戻り値がunsignedかどうか
     std::vector<std::pair<std::string, TypeInfo>>
         parameters; // パラメータのリスト (名前, 型)
+    std::vector<bool> parameter_is_unsigned; // 各パラメータがunsignedかどうか
 
     InterfaceMember() : return_type(TYPE_UNKNOWN) {}
-    InterfaceMember(const std::string &n, TypeInfo ret_type)
-        : name(n), return_type(ret_type) {}
+    InterfaceMember(const std::string &n, TypeInfo ret_type,
+                    bool ret_unsigned = false)
+        : name(n), return_type(ret_type), return_is_unsigned(ret_unsigned) {}
 
-    void add_parameter(const std::string &param_name, TypeInfo param_type) {
+    void add_parameter(const std::string &param_name, TypeInfo param_type,
+                       bool is_unsigned = false) {
         parameters.emplace_back(param_name, param_type);
+        parameter_is_unsigned.push_back(is_unsigned);
+    }
+
+    bool get_parameter_is_unsigned(size_t index) const {
+        if (index >= parameter_is_unsigned.size()) {
+            return false;
+        }
+        return parameter_is_unsigned[index];
     }
 };
 
@@ -503,6 +522,7 @@ enum class ASTNodeType {
     AST_VARIABLE,
     AST_STRING_LITERAL,
     AST_ARRAY_LITERAL,
+    AST_NULLPTR, // nullptr リテラル
 
     // 演算子
     AST_BINARY_OP,
@@ -543,6 +563,7 @@ enum class ASTNodeType {
     AST_PRE_INCDEC,
     AST_POST_INCDEC,
     AST_MEMBER_ACCESS,       // メンバアクセス (struct.member)
+    AST_ARROW_ACCESS,        // アロー演算子アクセス (ptr->member)
     AST_MEMBER_ARRAY_ACCESS, // メンバの配列アクセス (struct.member[index])
     AST_STRUCT_LITERAL,      // 構造体リテラル {a: 1, b: "str"}
     AST_IDENTIFIER,          // 識別子（変数名、self等）
@@ -570,7 +591,10 @@ enum class ASTNodeType {
     AST_TRY_STMT,     // try文
     AST_CATCH_STMT,   // catch文
     AST_FINALLY_STMT, // finally文
-    AST_THROW_STMT    // throw文
+    AST_THROW_STMT,   // throw文
+
+    // デバッグ・検証
+    AST_ASSERT_STMT // assert文
 };
 
 // 位置情報構造体
@@ -610,9 +634,16 @@ struct ASTNode {
     int pointer_depth = 0;              // ポインタの深さ
     std::string pointer_base_type_name; // ポインタ基底型名
     TypeInfo pointer_base_type = TYPE_UNKNOWN; // ポインタ基底型
+    bool is_reference = false;                 // 参照型フラグ
+    bool is_unsigned = false;                  // unsigned修飾子
 
     // 値・名前
-    int64_t int_value = 0;
+    int64_t int_value = 0;     // 整数リテラル値
+    double double_value = 0.0; // 浮動小数点リテラル値（float/double）
+    long double quad_value = 0.0L; // 128bit 浮動小数点リテラル値
+    bool is_float_literal = false; // 浮動小数点リテラルかどうか
+    TypeInfo literal_type = TYPE_UNKNOWN; // リテラル固有の型
+    std::string literal_text;             // 元のリテラル文字列表現
     std::string str_value;
     std::string name;
     std::string type_name; // typedef名など、型の文字列表現
@@ -663,6 +694,7 @@ struct ASTNode {
     // 関数呼び出し関連（修飾名対応）
     std::string qualified_name;     // module.function形式の修飾名
     bool is_qualified_call = false; // 修飾された関数呼び出しか
+    bool is_arrow_call = false; // アロー演算子経由の呼び出しか
 
     // enum関連
     std::string enum_name;          // enum型名 (Job::a の Job部分)

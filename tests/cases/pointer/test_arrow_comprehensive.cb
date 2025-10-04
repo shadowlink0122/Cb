@@ -1,0 +1,77 @@
+// アロー演算子の包括的テスト
+// 構造体ポインタとInterfaceポインタの両方でアロー演算子をサポート
+
+// ============================================================================
+// Part 1: 構造体ポインタのアロー演算子
+// ============================================================================
+
+struct Point {
+    int x;
+    int y;
+};
+
+int main() {
+    println("=== Arrow Operator Comprehensive Test ===");
+    println("");
+    
+    // Test 1: 構造体ポインタの基本的なアロー演算子
+    println("Test 1: Basic arrow operator with struct pointer");
+    Point p = {x: 10, y: 20};
+    Point* ptr = &p;
+    
+    println("Using ptr->x:");
+    println(ptr->x);  // 10
+    println("Using ptr->y:");
+    println(ptr->y);  // 20
+    
+    println("Using (*ptr).x:");
+    println((*ptr).x);  // 10
+    println("Using (*ptr).y:");
+    println((*ptr).y);  // 20
+    
+    println("✓ Test 1 passed");
+    println("");
+    
+    // Test 2: アロー演算子での代入
+    println("Test 2: Assignment through arrow operator");
+    ptr->x = 30;
+    ptr->y = 40;
+    
+    println("After ptr->x = 30, ptr->y = 40:");
+    println("p.x = ");
+    println(p.x);  // 30
+    println("p.y = ");
+    println(p.y);  // 40
+    println("✓ Test 2 passed");
+    println("");
+    
+    // Test 3: アロー演算子での複合代入
+    println("Test 3: Compound assignment with arrow operator");
+    ptr->x += 5;
+    ptr->y *= 2;
+    
+    println("After ptr->x += 5, ptr->y *= 2:");
+    println("p.x = ");
+    println(p.x);  // 35
+    println("p.y = ");
+    println(p.y);  // 80
+    println("✓ Test 3 passed");
+    println("");
+    
+    // Test 4: アロー演算子でのインクリメント/デクリメント
+    println("Test 4: Increment/decrement with arrow operator");
+    ptr->x++;
+    ptr->y--;
+    
+    println("After ptr->x++, ptr->y--:");
+    println("p.x = ");
+    println(p.x);  // 36
+    println("p.y = ");
+    println(p.y);  // 79
+    println("✓ Test 4 passed");
+    println("");
+    
+    println("=== All arrow operator tests passed ===");
+    
+    return 0;
+}

@@ -1,0 +1,52 @@
+// 関数の戻り値としての参照テスト
+
+// グローバル変数
+int global_value = 100;
+int another_value = 200;
+
+// Test 1: グローバル変数への参照を返す
+int& get_global() {
+    return global_value;
+}
+
+// Test 2: パラメータの参照を返す（参照の転送）
+int& forward_ref(int& x) {
+    return x;
+}
+
+// Test 3: 条件に応じて異なる参照を返す
+int& get_reference(bool flag) {
+    if (flag) {
+        return global_value;
+    } else {
+        return another_value;
+    }
+}
+
+int main() {
+    // Test 1: グローバル変数への参照を返す
+    println("Test 1: Return reference to global");
+    int& ref1 = get_global();
+    println(ref1);  // 100
+    global_value = 150;
+    println(ref1);  // 150
+    ref1 = 175;
+    println(global_value);  // 175
+    
+    // Test 2: 参照の転送
+    println("Test 2: Forward reference");
+    int local = 50;
+    int& ref2 = forward_ref(local);
+    println(ref2);  // 50
+    ref2 = 75;
+    println(local);  // 75
+    
+    // Test 3: 条件に応じた参照
+    println("Test 3: Conditional reference");
+    int& ref3 = get_reference(true);
+    println(ref3);  // 175 (global_value)
+    int& ref4 = get_reference(false);
+    println(ref4);  // 200 (another_value)
+    
+    return 0;
+}

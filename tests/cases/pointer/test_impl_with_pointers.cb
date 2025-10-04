@@ -1,0 +1,89 @@
+// implブロック内でポインタと参照を使用するテスト
+
+interface Incrementable {
+    void increment();
+    void set_value(int new_val);
+    int get_value();
+};
+
+struct Counter {
+    int* value_ptr;
+};
+
+impl Incrementable for Counter {
+    void increment() {
+        (*self.value_ptr)++;
+    }
+    
+    void set_value(int new_val) {
+        *self.value_ptr = new_val;
+    }
+    
+    int get_value() {
+        return *self.value_ptr;
+    }
+};
+
+int main() {
+    println("=== Impl with Pointer Members Tests ===");
+    println("");
+    
+    // Test 1: impl内でポインタメンバーを使用
+    println("Test 1: Using pointer member in impl methods");
+    int storage = 10;
+    Counter counter;
+    counter.value_ptr = &storage;
+    
+    println("Initial: storage = %d", storage);
+    println("counter.get_value() = %d", counter.get_value());
+    assert(counter.get_value() == 10);
+    println("");
+    
+    // Test 2: implメソッドで外部変数を変更
+    println("Test 2: Modify external variable via impl method");
+    counter.increment();
+    println("After counter.increment():");
+    println("storage = %d (should be 11)", storage);
+    println("counter.get_value() = %d", counter.get_value());
+    assert(storage == 11);
+    assert(counter.get_value() == 11);
+    println("");
+    
+    // Test 3: set_valueで値を設定
+    println("Test 3: Set value via impl method");
+    counter.set_value(100);
+    println("After counter.set_value(100):");
+    println("storage = %d (should be 100)", storage);
+    println("counter.get_value() = %d", counter.get_value());
+    assert(storage == 100);
+    assert(counter.get_value() == 100);
+    println("");
+    
+    // Test 4: 複数回のインクリメント
+    println("Test 4: Multiple increments");
+    counter.increment();
+    counter.increment();
+    counter.increment();
+    println("After 3 increments:");
+    println("storage = %d (should be 103)", storage);
+    assert(storage == 103);
+    println("");
+    
+    // Test 5: ポインタの付け替え
+    println("Test 5: Reassign pointer to different variable");
+    int other_storage = 50;
+    counter.value_ptr = &other_storage;
+    
+    println("After reassigning to other_storage:");
+    println("counter.get_value() = %d (should be 50)", counter.get_value());
+    assert(counter.get_value() == 50);
+    
+    counter.increment();
+    println("After increment:");
+    println("other_storage = %d (should be 51)", other_storage);
+    assert(other_storage == 51);
+    println("");
+    
+    println("All impl pointer tests passed!");
+    return 0;
+}
