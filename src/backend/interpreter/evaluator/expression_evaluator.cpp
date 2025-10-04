@@ -2614,6 +2614,32 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                     throw std::runtime_error("self is not a struct or interface");
                 }
                 base_var = *var;
+            } else if (node->left->node_type == ASTNodeType::AST_MEMBER_ACCESS || 
+                       node->left->node_type == ASTNodeType::AST_ARRAY_REF) {
+                // ネストしたメンバーアクセスまたは配列アクセスの場合: scene.triangle.vertices や array[index] のような
+                // 完全なパスを構築
+                std::function<std::string(const ASTNode*)> build_path;
+                build_path = [&](const ASTNode* n) -> std::string {
+                    if (n->node_type == ASTNodeType::AST_VARIABLE) {
+                        return n->name;
+                    } else if (n->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
+                        std::string base = build_path(n->left.get());
+                        return base + "." + n->name;
+                    } else if (n->node_type == ASTNodeType::AST_ARRAY_REF) {
+                        // 配列アクセスの場合: base[index]
+                        std::string base = build_path(n->left.get());
+                        int64_t index = evaluate_expression(n->array_index.get());
+                        return base + "[" + std::to_string(index) + "]";
+                    } else {
+                        throw std::runtime_error("Unsupported node type in nested member access path building");
+                    }
+                };
+                std::string full_path = build_path(node->left.get());
+                Variable* var = interpreter_.find_variable(full_path);
+                if (!var || var->type != TYPE_STRUCT) {
+                    throw std::runtime_error("Base variable for nested access is not a struct: " + full_path);
+                }
+                base_var = *var;
             } else {
                 throw std::runtime_error("Complex base types for nested access not yet supported");
             }
@@ -2687,28 +2713,57 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                     } else if (n->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
                         std::string base = build_path(n->left.get());
                         return base + "." + n->name;
+                    } else if (n->node_type == ASTNodeType::AST_ARRAY_REF) {
+                        // 配列アクセスの場合: base[index]
+                        std::string base = build_path(n->left.get());
+                        int64_t index = evaluate_expression(n->array_index.get());
+                        return base + "[" + std::to_string(index) + "]";
                     } else {
                         throw std::runtime_error("Unsupported node type in nested member access");
                     }
                 };
                 
                 struct_path = build_path(current);
-                std::cerr << "[DEBUG] Built struct_path: " << struct_path << std::endl;
                 
-                // このパスで変数を検索
+                // 完全パスを構築（最終メンバーまで含む）
+                std::string full_member_path = struct_path + "." + member_name;
+                
+                // 個別変数を直接検索
+                Variable* member_var_ptr = interpreter_.find_variable(full_member_path);
+                if (member_var_ptr) {
+                    // 個別変数が見つかった場合、それを使用
+                    if (member_var_ptr->type == TYPE_STRING) {
+                        last_typed_result_ = TypedValue(member_var_ptr->str_value, InferredType(TYPE_STRING, "string"));
+                        return 0;
+                    } else if (member_var_ptr->type == TYPE_STRUCT) {
+                        last_typed_result_ = TypedValue(member_var_ptr->value, InferredType(TYPE_STRUCT, member_var_ptr->type_name));
+                        return member_var_ptr->value;
+                    } else if (member_var_ptr->type == TYPE_FLOAT || member_var_ptr->type == TYPE_DOUBLE || member_var_ptr->type == TYPE_QUAD) {
+                        // float/double/quadの場合
+                        InferredType float_type(member_var_ptr->type, "");
+                        if (member_var_ptr->type == TYPE_QUAD) {
+                            last_typed_result_ = TypedValue(member_var_ptr->quad_value, float_type);
+                        } else {
+                            last_typed_result_ = TypedValue(member_var_ptr->float_value, float_type);
+                        }
+                        return static_cast<int64_t>(member_var_ptr->float_value);
+                    } else {
+                        last_typed_result_ = TypedValue(member_var_ptr->value, InferredType(member_var_ptr->type, ""));
+                        return member_var_ptr->value;
+                    }
+                }
+                
+                // 個別変数が見つからない場合は従来の方法（struct_membersから取得）
                 Variable* intermediate_var = interpreter_.find_variable(struct_path);
                 if (!intermediate_var) {
                     throw std::runtime_error("Intermediate struct not found: " + struct_path);
                 }
-                std::cerr << "[DEBUG] Found intermediate_var, type: " << intermediate_var->type << std::endl;
                 
                 if (intermediate_var->type != TYPE_STRUCT) {
                     throw std::runtime_error("Intermediate value is not a struct: " + struct_path);
                 }
                 
                 intermediate_struct = *intermediate_var;
-                
-                // 最終メンバーを取得
                 Variable member_var = get_struct_member_from_variable(intermediate_struct, member_name);
                 
                 // 型情報を設定
@@ -2754,8 +2809,36 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                 return self_member->value;
             }
         } else if (node->left->node_type == ASTNodeType::AST_ARRAY_REF) {
-            // struct配列要素: array[index].member
-            std::string array_name = node->left->left->name;
+            // struct配列要素: array[index].member または obj.array[index].member
+            std::string array_name;
+            
+            // 配列のベース名を取得（メンバーアクセスや配列アクセスの場合を考慮）
+            if (node->left->left->node_type == ASTNodeType::AST_MEMBER_ACCESS || 
+                node->left->left->node_type == ASTNodeType::AST_ARRAY_REF) {
+                // obj.array[index].member や obj.array[i][j].member の場合
+                // 完全なパスを構築: obj.array
+                std::function<std::string(const ASTNode*)> build_path;
+                build_path = [&](const ASTNode* n) -> std::string {
+                    if (n->node_type == ASTNodeType::AST_VARIABLE) {
+                        return n->name;
+                    } else if (n->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
+                        std::string base = build_path(n->left.get());
+                        return base + "." + n->name;
+                    } else if (n->node_type == ASTNodeType::AST_ARRAY_REF) {
+                        // 配列アクセスの場合: base[index]
+                        std::string base = build_path(n->left.get());
+                        int64_t index = evaluate_expression(n->array_index.get());
+                        return base + "[" + std::to_string(index) + "]";
+                    } else {
+                        throw std::runtime_error("Unsupported node type in array member access");
+                    }
+                };
+                array_name = build_path(node->left->left.get());
+            } else {
+                // 単純な配列の場合: array[index].member
+                array_name = node->left->left->name;
+            }
+            
             int64_t index = evaluate_expression(node->left->array_index.get());
             var_name = array_name + "[" + std::to_string(index) + "]";
         } else if (node->left->node_type == ASTNodeType::AST_FUNC_CALL) {
@@ -2998,9 +3081,6 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
         
         std::string member_name = node->name;
         
-        std::cerr << "DEBUG_MEMBER_ARRAY: obj=" << obj_name << ", member=" << member_name 
-                  << ", is_function_call=" << is_function_call << std::endl;
-        
         // インデックスを評価（多次元対応）
         std::vector<int64_t> indices;
         if (node->right) {
@@ -3025,11 +3105,6 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
             // 関数戻り値からメンバーを取得
             member_var_copy = get_struct_member_from_variable(base_struct, member_name);
             member_var = &member_var_copy;
-            
-            // デバッグ情報
-            std::cerr << "DEBUG: Function call member array access - member found" << std::endl;
-            std::cerr << "DEBUG: Member is_array: " << member_var->is_array << std::endl;
-            std::cerr << "DEBUG: Member array_values.size(): " << member_var->array_values.size() << std::endl;
         } else {
             member_var = interpreter_.get_struct_member(obj_name, member_name);
             if (!member_var) {
@@ -3039,7 +3114,6 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
 
         // 多次元配列の場合
         if (member_var->is_multidimensional && indices.size() > 1) {
-            std::cerr << "DEBUG: Using getMultidimensionalArrayElement - indices.size()=" << indices.size() << std::endl;
             if (is_function_call) {
                 // 関数戻り値の場合は直接配列要素を取得
                 if (!member_var->is_array || member_var->array_values.empty()) {
@@ -3061,9 +3135,6 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
             }
         }
         
-        std::cerr << "DEBUG: Using 1D access - is_multidimensional=" << member_var->is_multidimensional 
-                  << ", indices.size()=" << indices.size() << std::endl;
-        
         // 1次元配列の場合
         int64_t index = indices[0];
         if (is_function_call) {
@@ -3077,8 +3148,6 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                 throw std::runtime_error("Array index out of bounds in function member array access");
             }
         } else {
-            std::cerr << "DEBUG: Calling interpreter_.get_struct_member_array_element with obj=" 
-                      << obj_name << ", member=" << member_name << ", index=" << index << std::endl;
             return interpreter_.get_struct_member_array_element(obj_name, member_name, static_cast<int>(index));
         }
     }

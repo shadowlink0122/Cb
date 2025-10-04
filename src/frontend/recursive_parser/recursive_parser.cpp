@@ -1172,13 +1172,35 @@ ASTNode* RecursiveParser::parseStatement() {
                     
                     ASTNode* value_expr = parseExpression();
                     
-                    // 代入ノードを作成
-                    ASTNode* assignment = new ASTNode(ASTNodeType::AST_ASSIGN);
-                    assignment->left = std::unique_ptr<ASTNode>(member_access);
-                    assignment->right = std::unique_ptr<ASTNode>(value_expr);
-                    
-                    consume(TokenType::TOK_SEMICOLON, "Expected ';' after assignment");
-                    return assignment;
+                    // indicesがまだ残っている場合（配列アクセス後にさらにメンバアクセスがない場合: obj.array[idx] = value）
+                    if (!indices.empty()) {
+                        // AST_ARRAY_REFノードを作成
+                        ASTNode* array_ref = new ASTNode(ASTNodeType::AST_ARRAY_REF);
+                        array_ref->left = std::unique_ptr<ASTNode>(member_access);
+                        if (indices.size() == 1) {
+                            array_ref->array_index = std::move(indices[0]);
+                        } else {
+                            // 多次元配列の場合（現在は最初のインデックスのみ使用）
+                            array_ref->array_index = std::move(indices[0]);
+                            // TODO: 多次元配列の完全サポート
+                        }
+                        
+                        // 代入ノードを作成
+                        ASTNode* assignment = new ASTNode(ASTNodeType::AST_ASSIGN);
+                        assignment->left = std::unique_ptr<ASTNode>(array_ref);
+                        assignment->right = std::unique_ptr<ASTNode>(value_expr);
+                        
+                        consume(TokenType::TOK_SEMICOLON, "Expected ';' after assignment");
+                        return assignment;
+                    } else {
+                        // 通常のメンバアクセス代入
+                        ASTNode* assignment = new ASTNode(ASTNodeType::AST_ASSIGN);
+                        assignment->left = std::unique_ptr<ASTNode>(member_access);
+                        assignment->right = std::unique_ptr<ASTNode>(value_expr);
+                        
+                        consume(TokenType::TOK_SEMICOLON, "Expected ';' after assignment");
+                        return assignment;
+                    }
                 } else {
                     error("Expected '=' after member array access");
                     delete member_access;
@@ -4016,16 +4038,11 @@ ASTNode* RecursiveParser::parseStructTypedefDeclaration() {
     if (!tag_name.empty()) {
         struct_def.name = tag_name;
         struct_definitions_[tag_name] = struct_def;
+        // タグ名からエイリアスへのマッピングも追加（struct Tag形式でアクセス可能に）
+        typedef_map_[alias_name] = tag_name;
     }
-    
-    // typedef マッピングを追加
-    // タグ名がある場合: typedef_map_[alias] = "struct Tag"
-    // タグ名がない場合: typedef_map_[alias] = "struct Alias"
-    if (!tag_name.empty()) {
-        typedef_map_[alias_name] = "struct " + tag_name;
-    } else {
-        typedef_map_[alias_name] = "struct " + alias_name;
-    }
+    // タグ名がない場合は、typedef_map_に追加しない
+    // （エイリアス名で直接struct定義を検索できるため）
     
     // ASTノードを作成
     ASTNode* node = new ASTNode(ASTNodeType::AST_STRUCT_TYPEDEF_DECL);
@@ -4433,39 +4450,7 @@ ASTNode* RecursiveParser::parseMemberAccess(ASTNode* object) {
         return method_call;
     }
     
-    // ネストしたメンバーアクセスの検出と解析 (obj.member.submember)
-    std::vector<std::string> member_chain;
-    member_chain.push_back(member_name);
-    
-    // 連続するドット記法を解析
-    while (check(TokenType::TOK_DOT)) {
-        advance(); // consume '.'
-        
-        if (!check(TokenType::TOK_IDENTIFIER)) {
-            error("Expected member name after '.' in nested access");
-            return nullptr;
-        }
-        
-        std::string next_member = current_token_.value;
-        member_chain.push_back(next_member);
-        advance();
-    }
-    
-    // ネストした構造体アクセス用の特別なノードタイプ
-    if (member_chain.size() > 1) {
-        // 再帰的メンバーアクセス用の特別なノードタイプ
-        ASTNode* nested_access = new ASTNode(ASTNodeType::AST_MEMBER_ACCESS);
-        nested_access->left = std::unique_ptr<ASTNode>(object);
-        nested_access->name = member_chain[0]; // 最初のメンバー
-        
-        // 残りのメンバーパスを保存（将来の拡張用）
-        nested_access->member_chain = member_chain;
-        setLocation(nested_access, current_token_);
-        
-        return nested_access;
-    }
-    
-    // 通常のメンバアクセス
+    // 通常のメンバアクセス (連続ドット処理はparsePostfixループに任せる)
     ASTNode* member_access = new ASTNode(ASTNodeType::AST_MEMBER_ACCESS);
     member_access->left = std::unique_ptr<ASTNode>(object);
     member_access->name = member_name; // メンバ名を保存
@@ -4524,33 +4509,10 @@ ASTNode* RecursiveParser::parseArrowAccess(ASTNode* object) {
         return method_call;
     }
     
-    // ネストしたアクセスの検出と解析 (ptr->member.submember または ptr->member->submember)
-    std::vector<std::string> member_chain;
-    member_chain.push_back(member_name);
-    
-    // 連続するドット記法またはアロー演算子を解析
-    while (check(TokenType::TOK_DOT) || check(TokenType::TOK_ARROW)) {
-        if (check(TokenType::TOK_DOT)) {
-            advance(); // consume '.'
-        } else {
-            advance(); // consume '->'
-        }
-        
-        if (!check(TokenType::TOK_IDENTIFIER)) {
-            error("Expected member name after '.' or '->' in nested access");
-            return nullptr;
-        }
-        
-        std::string next_member = current_token_.value;
-        member_chain.push_back(next_member);
-        advance();
-    }
-    
     // アロー演算子アクセス: ptr->member は (*ptr).member と等価
     ASTNode* arrow_access = new ASTNode(ASTNodeType::AST_ARROW_ACCESS);
     arrow_access->left = std::unique_ptr<ASTNode>(object);
     arrow_access->name = member_name; // メンバ名を保存
-    arrow_access->member_chain = member_chain; // チェーン全体を保存
     setLocation(arrow_access, current_token_);
     
     return arrow_access;
