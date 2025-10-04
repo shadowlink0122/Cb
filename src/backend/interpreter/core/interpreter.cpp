@@ -4807,7 +4807,8 @@ void Interpreter::sync_struct_members_from_direct_access(const std::string &var_
             
             // struct_membersに保存（配列チェックを先に実行）
             if (member.type >= TYPE_ARRAY_BASE || member.array_info.base_type != TYPE_UNKNOWN || direct_var->is_array) {
-                debug_msg(DebugMsgId::INTERPRETER_STRUCT_ARRAY_MEMBER_ADDED, member.name.c_str());
+                debug_msg(DebugMsgId::INTERPRETER_STRUCT_ARRAY_MEMBER_ADDED, 
+                         member.name.c_str(), (int)member.type, direct_var->array_size);
                 
                 // 既存のメンバーがあれば保持、なければ新規作成
                 if (var->struct_members.find(member.name) == var->struct_members.end()) {
@@ -4985,7 +4986,9 @@ void Interpreter::sync_struct_members_from_direct_access(const std::string &var_
         } else {
             // ダイレクトアクセス変数が見つからない場合、配列メンバーかチェック
             if (member.array_info.base_type != TYPE_UNKNOWN) {
-                debug_msg(DebugMsgId::INTERPRETER_STRUCT_ARRAY_MEMBER_ADDED, member.name.c_str());
+                int arr_size = member.array_info.dimensions.empty() ? 0 : member.array_info.dimensions[0].size;
+                debug_msg(DebugMsgId::INTERPRETER_STRUCT_ARRAY_MEMBER_ADDED, 
+                         member.name.c_str(), (int)member.type, arr_size);
                 
                 var->struct_members[member.name] = Variable();
                 var->struct_members[member.name].type = member.type;
