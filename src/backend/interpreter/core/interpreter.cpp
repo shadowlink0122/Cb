@@ -1123,7 +1123,36 @@ void Interpreter::execute_statement(const ASTNode *node) {
                 
                 if (var && var->is_struct) {
                     // struct変数を返す前に直接アクセス変数からstruct_membersに同期
+                    if (debug_mode) {
+                        // 同期前の状態を確認
+                        auto scores_it = var->struct_members.find("scores");
+                        if (scores_it != var->struct_members.end() && scores_it->second.is_array) {
+                            if (scores_it->second.array_values.size() >= 3) {
+                                debug_print("RETURN_BEFORE_SYNC: %s.scores.array_values = [%lld, %lld, %lld]\n",
+                                           node->left->name.c_str(),
+                                           scores_it->second.array_values[0],
+                                           scores_it->second.array_values[1],
+                                           scores_it->second.array_values[2]);
+                            }
+                        }
+                    }
+                    
                     sync_struct_members_from_direct_access(node->left->name);
+                    
+                    if (debug_mode) {
+                        // 同期後の状態を確認
+                        auto scores_it = var->struct_members.find("scores");
+                        if (scores_it != var->struct_members.end() && scores_it->second.is_array) {
+                            if (scores_it->second.array_values.size() >= 3) {
+                                debug_print("RETURN_AFTER_SYNC: %s.scores.array_values = [%lld, %lld, %lld]\n",
+                                           node->left->name.c_str(),
+                                           scores_it->second.array_values[0],
+                                           scores_it->second.array_values[1],
+                                           scores_it->second.array_values[2]);
+                            }
+                        }
+                    }
+                    
                     if (var->type != TYPE_INTERFACE) {
                         if (var->type != TYPE_INTERFACE) {
                             var->type = TYPE_STRUCT;  // 構造体のtype情報を正しく設定
@@ -4721,6 +4750,15 @@ void Interpreter::sync_struct_members_from_direct_access(const std::string &var_
         return;
     }
     
+    // デバッグ: sync開始前に特定の個別変数を確認
+    if (debug_mode && var_name == "student1") {
+        Variable* test_var = find_variable("student1.scores[0]");
+        if (test_var) {
+            debug_print("SYNC_DEBUG: Before sync, student1.scores[0] = %lld, is_assigned=%d\n",
+                       (long long)test_var->value, test_var->is_assigned);
+        }
+    }
+    
     // 変数を取得
     Variable *var = find_variable(var_name);
     if (!var) {
@@ -4816,6 +4854,11 @@ void Interpreter::sync_struct_members_from_direct_access(const std::string &var_
                     bool found_in_struct_members = (element_it != var->struct_members.end());
                     
                     if (element_var) {
+                        if (debug_mode) {
+                            debug_print("SYNC_STRUCT: Found element_var for %s: value=%lld, str_value='%s', is_assigned=%d\n",
+                                       element_name.c_str(), (long long)element_var->value, 
+                                       element_var->str_value.c_str(), element_var->is_assigned ? 1 : 0);
+                        }
                         // 構造体配列の場合、配列要素も構造体として同期する
                         if (element_var->is_struct && !element_var->struct_members.empty()) {
                             // 配列要素の構造体を再帰的に同期
