@@ -361,8 +361,25 @@ void OutputManager::print_value(const ASTNode *expr) {
 
     if (expr->node_type == ASTNodeType::AST_VARIABLE) {
         Variable *var = find_variable(expr->name);
+        
+        // 参照型変数の場合、参照先変数を取得
+        if (var && var->is_reference) {
+            var = reinterpret_cast<Variable*>(var->value);
+            if (!var) {
+                io_interface_->write_string("(invalid reference)");
+                return;
+            }
+        }
+        
         if (var && var->type == TYPE_STRING) {
             io_interface_->write_string(var->str_value.c_str());
+            return;
+        }
+        
+        // 変数の値を直接出力
+        if (var) {
+            write_numeric_value(io_interface_, var->type, var->value, 
+                                var->double_value, var->quad_value);
             return;
         }
 

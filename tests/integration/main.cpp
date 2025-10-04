@@ -47,6 +47,7 @@
 #include "pointer/pointer_tests.hpp"
 #include "printf/test_printf.hpp"
 #include "println/test_println.hpp"
+#include "reference/reference_tests.hpp"
 #include "sample_scenarios/test_sample_scenarios.hpp"
 #include "samples/test_actual_samples.hpp"
 #include "self_assign/test_self_assign.hpp"
@@ -256,6 +257,8 @@ int main() {
                            failed_tests);
     run_test_with_continue(PointerTests::run_all_pointer_tests, "Pointer Tests",
                            failed_tests);
+    run_test_with_continue(ReferenceTests::run_all_reference_tests,
+                           "Reference Tests", failed_tests);
     run_test_with_continue(AssertTests::run_all_assert_tests, "Assert Tests",
                            failed_tests);
     CategoryTimingStats::print_category_summary("Advanced Features");

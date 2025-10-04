@@ -1,0 +1,51 @@
+// 関数パラメータとしての参照テスト
+
+// Test 1: 基本的な参照パラメータ
+void increment(int& x) {
+    x = x + 1;
+}
+
+// Test 2: 複数の参照パラメータ
+void swap(int& a, int& b) {
+    int temp = a;
+    a = b;
+    b = temp;
+}
+
+// Test 3: 参照とポインタの混在
+void modify_both(int& ref, int* ptr) {
+    ref = ref + 10;
+    *ptr = *ptr + 20;
+}
+
+int main() {
+    // Test 1: 基本的な参照パラメータ
+    println("Test 1: Basic reference parameter");
+    int x = 5;
+    println(x);  // 5
+    increment(x);
+    println(x);  // 6
+    
+    // Test 2: 複数の参照パラメータ
+    println("Test 2: Multiple reference parameters");
+    int a = 10;
+    int b = 20;
+    println(a);  // 10
+    println(b);  // 20
+    swap(a, b);
+    println(a);  // 20
+    println(b);  // 10
+    
+    // Test 3: 参照とポインタの混在
+    println("Test 3: Reference and pointer mix");
+    int val1 = 100;
+    int val2 = 200;
+    int* ptr2 = &val2;
+    println(val1);  // 100
+    println(val2);  // 200
+    modify_both(val1, ptr2);
+    println(val1);  // 110
+    println(val2);  // 220
+    
+    return 0;
+}

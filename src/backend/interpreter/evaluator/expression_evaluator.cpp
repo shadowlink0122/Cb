@@ -185,6 +185,27 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
             interpreter_.throw_runtime_error_with_location(error_message, node);
         }
 
+        // 参照型変数の場合、参照先変数の値を返す
+        if (var->is_reference) {
+            Variable* target_var = reinterpret_cast<Variable*>(var->value);
+            if (!target_var) {
+                throw std::runtime_error("Invalid reference variable: " + node->name);
+            }
+            
+            if (debug_mode) {
+                std::cerr << "[DEBUG] Reference access: " << node->name 
+                          << " -> target value: " << target_var->value << std::endl;
+            }
+            
+            // 参照先が構造体の場合
+            if (target_var->type == TYPE_STRUCT) {
+                throw ReturnException(*target_var);
+            }
+            
+            // 参照先の値を返す
+            return target_var->value;
+        }
+
         // ユニオン型変数の場合、current_typeに応じて適切な値を返す
         if (var->type == TYPE_UNION) {
             if (var->current_type == TYPE_STRING) {
@@ -1834,6 +1855,37 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                 const auto &param = func->parameters[i];
                 const auto &arg = node->arguments[i];
                 
+                // 参照パラメータのサポート
+                if (param->is_reference) {
+                    // 参照パラメータは変数のみを受け取れる
+                    if (arg->node_type != ASTNodeType::AST_VARIABLE && arg->node_type != ASTNodeType::AST_IDENTIFIER) {
+                        throw std::runtime_error("Reference parameter '" + param->name + "' requires a variable, not an expression");
+                    }
+                    
+                    // 引数の変数を取得
+                    Variable* source_var = interpreter_.find_variable(arg->name);
+                    if (!source_var) {
+                        throw std::runtime_error("Undefined variable for reference parameter: " + arg->name);
+                    }
+                    
+                    // 参照変数を作成（参照先のポインタを保存）
+                    Variable ref_var;
+                    ref_var.is_reference = true;
+                    ref_var.is_assigned = true;
+                    ref_var.type = source_var->type;
+                    ref_var.value = reinterpret_cast<int64_t>(source_var);
+                    
+                    // 参照の連鎖対応（source_varも参照なら実体を取得）
+                    if (source_var->is_reference) {
+                        Variable* target_var = reinterpret_cast<Variable*>(source_var->value);
+                        ref_var.value = reinterpret_cast<int64_t>(target_var);
+                    }
+                    
+                    // パラメータスコープに参照変数を登録
+                    interpreter_.current_scope().variables[param->name] = ref_var;
+                    continue;  // 次のパラメータへ
+                }
+                
                 // 配列パラメータのサポート
                 if (param->is_array) {
                     if (arg->node_type == ASTNodeType::AST_VARIABLE) {
@@ -3325,9 +3377,25 @@ TypedValue ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode
                 } else {
                     // 従来の方式（変数ポインタ）
                     Variable *var = reinterpret_cast<Variable*>(ptr_int);
+                    
                     // 参照先の変数の型で返す
-                    InferredType deref_type(TYPE_INT, var->type_name);  // 仮にTYPE_INT、実際は var->type に応じて変更すべき
-                    return TypedValue(var->value, deref_type);
+                    if (var->type == TYPE_STRUCT || var->is_struct) {
+                        // 構造体の場合
+                        InferredType deref_type(TYPE_STRUCT, var->struct_type_name);
+                        return TypedValue(*var, deref_type);
+                    } else if (var->type == TYPE_STRING) {
+                        // 文字列の場合
+                        InferredType deref_type(TYPE_STRING, "string");
+                        return TypedValue(var->str_value, deref_type);
+                    } else if (var->type == TYPE_FLOAT || var->type == TYPE_DOUBLE || var->type == TYPE_QUAD) {
+                        // 浮動小数点数の場合
+                        InferredType deref_type(var->type, type_info_to_string(var->type));
+                        return TypedValue(var->double_value, deref_type);
+                    } else {
+                        // その他（整数型など）
+                        InferredType deref_type(var->type, var->type_name);
+                        return TypedValue(var->value, deref_type);
+                    }
                 }
             }
             
@@ -3412,6 +3480,14 @@ TypedValue ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode
                 std::string error_message = (debug_language == DebugLanguage::JAPANESE) ? 
                     "未定義の変数です: " + node->name : "Undefined variable: " + node->name;
                 interpreter_.throw_runtime_error_with_location(error_message, node);
+            }
+            
+            // 参照型変数の場合、参照先変数を取得
+            if (var->is_reference) {
+                var = reinterpret_cast<Variable*>(var->value);
+                if (!var) {
+                    throw std::runtime_error("Invalid reference variable: " + node->name);
+                }
             }
             
             auto make_numeric_value = [&](TypeInfo numeric_type, const InferredType& fallback_type) -> TypedValue {
@@ -3577,6 +3653,27 @@ TypedValue ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode
 
                 return false;
             };
+
+            // (*ptr).member パターンをチェック（構造体ポインタのデリファレンス）
+            if (node->left && node->left->node_type == ASTNodeType::AST_UNARY_OP && 
+                node->left->op == "DEREFERENCE") {
+                
+                // デリファレンスの結果を取得
+                TypedValue deref_value = evaluate_typed_expression(node->left.get());
+                
+                // 構造体の場合
+                if (deref_value.is_struct() && deref_value.struct_data) {
+                    Variable struct_var = *deref_value.struct_data;
+                    TypedValue member_value(static_cast<int64_t>(0), InferredType());
+                    
+                    if (resolve_from_struct(struct_var, member_value)) {
+                        last_typed_result_ = member_value;
+                        return member_value;
+                    }
+                }
+                
+                throw std::runtime_error("Pointer dereference did not yield a struct");
+            }
 
             // func()[index].member パターンをチェック
             if (node->left && node->left->node_type == ASTNodeType::AST_ARRAY_REF &&

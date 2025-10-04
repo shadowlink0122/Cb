@@ -639,8 +639,61 @@ void StatementExecutor::execute_variable_declaration(const ASTNode *node) {
     if (debug_mode) {
         std::cerr << "[DEBUG_EXEC] Executing variable declaration: " << node->name
                   << ", type_info: " << (int)node->type_info
-                  << ", type_name: " << node->type_name << std::endl;
+                  << ", type_name: " << node->type_name 
+                  << ", is_reference: " << node->is_reference << std::endl;
     }
+    
+    // 参照型の場合の特別処理
+    if (node->is_reference) {
+        // 参照は必ず初期化が必要
+        if (!node->init_expr && !node->right) {
+            throw std::runtime_error("Reference variable '" + node->name + "' must be initialized");
+        }
+        
+        // 初期化式を評価して参照先変数を取得
+        ASTNode* init_node = node->init_expr ? node->init_expr.get() : node->right.get();
+        
+        // 参照先が変数でなければエラー
+        if (init_node->node_type != ASTNodeType::AST_VARIABLE) {
+            throw std::runtime_error("Reference variable '" + node->name + "' must be initialized with a variable");
+        }
+        
+        std::string target_var_name = init_node->name;
+        
+        // 参照先変数が存在するかチェック
+        Variable* target_var = interpreter_.find_variable(target_var_name);
+        if (!target_var) {
+            throw std::runtime_error("Reference target variable '" + target_var_name + "' not found");
+        }
+        
+        if (debug_mode) {
+            std::cerr << "[DEBUG_EXEC] Creating reference " << node->name 
+                      << " -> " << target_var_name << std::endl;
+        }
+        
+        // 参照変数を作成
+        Variable ref_var;
+        ref_var.is_reference = true;
+        ref_var.type = target_var->type;
+        ref_var.is_const = node->is_const;
+        ref_var.is_array = target_var->is_array;
+        ref_var.is_unsigned = target_var->is_unsigned;
+        ref_var.is_struct = target_var->is_struct;
+        ref_var.struct_type_name = target_var->struct_type_name;
+        
+        // 参照先変数のポインタを値として保存
+        ref_var.value = reinterpret_cast<int64_t>(target_var);
+        ref_var.is_assigned = true;
+        
+        if (debug_mode) {
+            std::cerr << "[DEBUG_EXEC] Creating reference variable: " << node->name 
+                      << ", target_value: " << target_var->value << std::endl;
+        }
+        
+        interpreter_.current_scope().variables[node->name] = ref_var;
+        return;
+    }
+    
     // 初期化式または右辺がある場合の特別処理
     if (node->init_expr || node->right) {
         // 初期化ノードは現在未使用だが、将来の機能拡張のため残す

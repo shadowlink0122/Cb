@@ -297,6 +297,51 @@ ASTNode* RecursiveParser::parseStatement() {
                     // 構造体変数宣言
                     std::string struct_type = advance().value;
                     
+                    // ポインタまたは参照チェック: Point* pp; または Point& rp;
+                    bool is_pointer = false;
+                    bool is_reference = false;
+                    int pointer_depth = 0;
+                    
+                    while (check(TokenType::TOK_MUL)) {
+                        is_pointer = true;
+                        pointer_depth++;
+                        advance();
+                    }
+                    
+                    if (check(TokenType::TOK_BIT_AND)) {
+                        is_reference = true;
+                        advance();
+                    }
+                    
+                    // ポインタまたは参照の場合
+                    if (is_pointer || is_reference) {
+                        if (!check(TokenType::TOK_IDENTIFIER)) {
+                            error("Expected variable name after pointer/reference type");
+                            return nullptr;
+                        }
+                        
+                        std::string var_name = advance().value;
+                        
+                        ASTNode* var_node = new ASTNode(ASTNodeType::AST_VAR_DECL);
+                        var_node->name = var_name;
+                        var_node->type_name = struct_type;
+                        var_node->type_info = TYPE_STRUCT;
+                        var_node->is_const = isConst;
+                        var_node->is_pointer = is_pointer;
+                        var_node->pointer_depth = pointer_depth;
+                        var_node->is_reference = is_reference;
+                        var_node->pointer_base_type = TYPE_STRUCT;
+                        var_node->pointer_base_type_name = struct_type;
+                        
+                        // 初期化式のチェック
+                        if (match(TokenType::TOK_ASSIGN)) {
+                            var_node->init_expr = std::unique_ptr<ASTNode>(parseExpression());
+                        }
+                        
+                        consume(TokenType::TOK_SEMICOLON, "Expected ';' after pointer/reference variable declaration");
+                        return var_node;
+                    }
+                    
                     // 配列チェック: Person[3] people; または Person people;
                     if (check(TokenType::TOK_LBRACKET)) {
                         // struct配列宣言: Person[3] people;
@@ -468,7 +513,13 @@ ASTNode* RecursiveParser::parseStatement() {
             type_name = "unsigned " + base_type_name;
         }
 
-        TypeInfo declared_type_info = getTypeInfoFromString(type_name);
+        // 参照型の場合、型情報は基底型から取得
+        std::string type_for_info = type_name;
+        if (is_reference && type_for_info.back() == '&') {
+            type_for_info.pop_back();  // '&'を削除
+        }
+        
+        TypeInfo declared_type_info = getTypeInfoFromString(type_for_info);
         // 配列型の場合: int[size][size2]... identifier
         if (check(TokenType::TOK_LBRACKET)) {
             // これは配列型宣言（多次元対応）
@@ -535,6 +586,7 @@ ASTNode* RecursiveParser::parseStatement() {
             node->is_const = isConst;
             node->is_static = isStatic;
             node->is_unsigned = saw_unsigned_specifier;
+            node->is_reference = is_reference;
             
             // ArrayTypeInfoを構築
             std::vector<ArrayDimension> dimensions;
@@ -737,6 +789,7 @@ ASTNode* RecursiveParser::parseStatement() {
                     node->is_const = isConst;
                     node->is_static = isStatic;
                     node->is_unsigned = saw_unsigned_specifier;
+                    node->is_reference = is_reference;
                     
                     // 型情報を設定
                     node->type_info = declared_type_info;
@@ -751,6 +804,7 @@ ASTNode* RecursiveParser::parseStatement() {
                     ASTNode* node = new ASTNode(ASTNodeType::AST_MULTIPLE_VAR_DECL);
                     node->type_name = type_name;
                     node->is_unsigned = saw_unsigned_specifier;
+                    node->is_reference = is_reference;
                     
                     // 型情報を設定
                     node->type_info = declared_type_info;
@@ -762,6 +816,7 @@ ASTNode* RecursiveParser::parseStatement() {
                         var_node->type_name = type_name;
                         var_node->type_info = node->type_info;
                         var_node->is_const = isConst;
+                        var_node->is_reference = is_reference;
                         var_node->is_static = isStatic;
                         var_node->is_unsigned = saw_unsigned_specifier;
                         
