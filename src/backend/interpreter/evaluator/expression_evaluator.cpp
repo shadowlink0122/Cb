@@ -2973,7 +2973,8 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
         Variable base_struct;
         bool is_function_call = false;
         
-        if (node->left->node_type == ASTNodeType::AST_VARIABLE) {
+        if (node->left->node_type == ASTNodeType::AST_VARIABLE ||
+            node->left->node_type == ASTNodeType::AST_IDENTIFIER) {
             obj_name = node->left->name;
         } else if (node->left->node_type == ASTNodeType::AST_FUNC_CALL) {
             // 関数呼び出し結果でのメンバー配列アクセス: func().member[index]

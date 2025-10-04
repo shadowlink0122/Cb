@@ -93,7 +93,7 @@ inline void test_const_struct_member_parent_const_error() {
             INTEGRATION_ASSERT_NE(0, exit_code,
                                   "Expected error exit code for const struct member reassignment (parent const)");
             INTEGRATION_ASSERT_CONTAINS(
-                output, "Const reassignment error: instance.value",
+                output, "Cannot assign to const member 'value' of struct 'instance' after initialization",
                 "should contain const struct member reassignment error message");
         });
 }
@@ -544,7 +544,7 @@ inline void test_nested_member_assignment() {
     std::cout << "[integration] Running test_nested_member_assignment..." << std::endl;
     
     double execution_time;
-    run_cb_test_with_output_and_time("test_nested_member_assignment.cb", 
+    run_cb_test_with_output_and_time("../../tests/cases/struct/test_nested_member_assignment.cb", 
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_EQ(0, exit_code, "Nested member assignment test should exit with code 0");
             INTEGRATION_ASSERT(output.find("=== Nested Member Assignment Test ===") != std::string::npos, 
