@@ -4016,16 +4016,11 @@ ASTNode* RecursiveParser::parseStructTypedefDeclaration() {
     if (!tag_name.empty()) {
         struct_def.name = tag_name;
         struct_definitions_[tag_name] = struct_def;
+        // タグ名からエイリアスへのマッピングも追加（struct Tag形式でアクセス可能に）
+        typedef_map_[alias_name] = tag_name;
     }
-    
-    // typedef マッピングを追加
-    // タグ名がある場合: typedef_map_[alias] = "struct Tag"
-    // タグ名がない場合: typedef_map_[alias] = "struct Alias"
-    if (!tag_name.empty()) {
-        typedef_map_[alias_name] = "struct " + tag_name;
-    } else {
-        typedef_map_[alias_name] = "struct " + alias_name;
-    }
+    // タグ名がない場合は、typedef_map_に追加しない
+    // （エイリアス名で直接struct定義を検索できるため）
     
     // ASTノードを作成
     ASTNode* node = new ASTNode(ASTNodeType::AST_STRUCT_TYPEDEF_DECL);

@@ -3164,6 +3164,46 @@ void Interpreter::create_struct_member_variables_recursively(const std::string &
         // 親変数がconstの場合、またはメンバー定義でconstの場合、メンバーもconstにする
         member_var.is_const = parent_var.is_const || member_def.is_const;
         
+        // 配列メンバーの場合
+        if (member_def.array_info.is_array()) {
+            member_var.is_array = true;
+            member_var.array_size = member_def.array_info.dimensions.empty() ? 0 : member_def.array_info.dimensions[0].size;
+            member_var.array_type_info = member_def.array_info;
+            if (member_def.array_info.dimensions.size() > 1) {
+                member_var.is_multidimensional = true;
+                for (const auto& dim : member_def.array_info.dimensions) {
+                    member_var.array_dimensions.push_back(dim.size);
+                }
+            }
+            
+            // 構造体配列の場合、各要素変数も作成
+            if (member_def.array_info.base_type == TYPE_STRUCT && !member_def.type_alias.empty()) {
+                std::string element_type_name = member_def.type_alias;
+                // 配列のサイズ情報を削除 (例: "Point[3]" -> "Point")
+                size_t bracket_pos = element_type_name.find('[');
+                if (bracket_pos != std::string::npos) {
+                    element_type_name = element_type_name.substr(0, bracket_pos);
+                }
+                
+                // 各配列要素を構造体として初期化
+                for (int i = 0; i < member_var.array_size; ++i) {
+                    std::string element_name = full_member_path + "[" + std::to_string(i) + "]";
+                    Variable element_var;
+                    element_var.type = TYPE_STRUCT;
+                    element_var.is_struct = true;
+                    element_var.struct_type_name = element_type_name;
+                    element_var.is_assigned = false;
+                    element_var.is_const = member_var.is_const;
+                    
+                    // 配列要素の構造体メンバーを再帰的に初期化
+                    create_struct_member_variables_recursively(element_name, element_type_name, element_var);
+                    
+                    // 配列要素を個別変数として登録
+                    current_scope().variables[element_name] = element_var;
+                }
+            }
+        }
+        
         // parent_varのstruct_membersに追加
         parent_var.struct_members[member_def.name] = member_var;
         
@@ -3242,8 +3282,6 @@ void Interpreter::assign_struct_literal(const std::string &var_name,
                             }
                         }
                         
-                        std::cerr << "[DEBUG ASSIGN_STRUCT_LITERAL] Updated: is_struct=" << var->is_struct 
-                                  << ", struct_type_name=" << var->struct_type_name << std::endl;
                         break;
                     }
                 }
@@ -3330,7 +3368,10 @@ void Interpreter::assign_struct_literal(const std::string &var_name,
         }
     }
 
-    if (!var || !var->is_struct) {
+    if (!var) {
+        throw std::runtime_error("Variable not found: " + var_name);
+    }
+    if (!var->is_struct) {
         throw std::runtime_error("Variable is not a struct: " + var_name);
     }
 
@@ -3642,8 +3683,8 @@ void Interpreter::assign_struct_literal(const std::string &var_name,
             }
 
             const ASTNode *init_value = literal_node->arguments[i].get();
-            debug_print("STRUCT_LITERAL_DEBUG: Initializing member %s (index %zu, type %d)\n", 
-                       member_def.name.c_str(), i, (int)member_def.type);
+            debug_print("STRUCT_LITERAL_DEBUG: Initializing member %s (index %zu, type %d, init_node_type=%d, is_array=%d)\n", 
+                       member_def.name.c_str(), i, (int)member_def.type, (int)init_value->node_type, it->second.is_array ? 1 : 0);
 
             // メンバ値を評価して代入
             if (it->second.type == TYPE_STRING &&
@@ -3677,12 +3718,21 @@ void Interpreter::assign_struct_literal(const std::string &var_name,
                         const ASTNode* element_node = init_value->arguments[j].get();
                         
                         if (element_node->node_type == ASTNodeType::AST_STRUCT_LITERAL) {
-                            // 配列要素の完全な名前を構築
+                            // 配列要素の完全な名前を構築  
                             std::string element_name = var_name + "." + member_def.name + 
                                                       "[" + std::to_string(j) + "]";
                             
                             debug_print("STRUCT_LITERAL_DEBUG: Assigning struct literal to array element: %s\n", 
                                        element_name.c_str());
+                            
+                            // 要素変数が存在し、構造体として初期化されているか確認
+                            Variable* element_var = find_variable(element_name);
+                            if (!element_var) {
+                                throw std::runtime_error("Element variable not found: " + element_name);
+                            }
+                            if (!element_var->is_struct) {
+                                throw std::runtime_error("Element is not a struct: " + element_name);
+                            }
                             
                             // 再帰的に構造体リテラルを代入
                             assign_struct_literal(element_name, element_node);
