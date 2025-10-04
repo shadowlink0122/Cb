@@ -2416,8 +2416,9 @@ Variable* StatementExecutor::evaluate_nested_member_access(const ASTNode* member
     
     Variable* parent_struct = nullptr;
     
-    if (member_access_node->left->node_type == ASTNodeType::AST_VARIABLE) {
-        // 基底オブジェクト: obj
+    if (member_access_node->left->node_type == ASTNodeType::AST_VARIABLE ||
+        member_access_node->left->node_type == ASTNodeType::AST_IDENTIFIER) {
+        // 基底オブジェクト: obj または self
         std::string obj_name = member_access_node->left->name;
         parent_struct = interpreter_.find_variable(obj_name);
         
