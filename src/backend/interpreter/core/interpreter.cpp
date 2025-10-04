@@ -3039,19 +3039,86 @@ void Interpreter::create_struct_variable(const std::string &var_name,
             // 通常のメンバ変数
             Variable member_var;
             member_var.type = member.type;
-
-            // デフォルト値を設定
-            if (member_var.type == TYPE_STRING) {
-                member_var.str_value = "";
+            
+            // 構造体型メンバの特別処理
+            if (member.type == TYPE_STRUCT && !member.type_alias.empty()) {
+                if (debug_mode) {
+                    debug_print("Member %s is a struct type: %s\n", 
+                               member.name.c_str(), member.type_alias.c_str());
+                }
+                
+                member_var.is_struct = true;
+                member_var.struct_type_name = member.type_alias;
+                member_var.is_assigned = false;
+                member_var.is_private_member = member.is_private;
+                member_var.is_const = member.is_const;
+                
+                // ネストした構造体の定義を取得
+                std::string resolved_type = type_manager_->resolve_typedef(member.type_alias);
+                const StructDefinition* nested_struct_def = find_struct_definition(resolved_type);
+                
+                if (nested_struct_def) {
+                    if (debug_mode) {
+                        debug_print("Initializing nested struct member: %s with %zu members\n",
+                                   member.name.c_str(), nested_struct_def->members.size());
+                    }
+                    
+                    // ネストした構造体のメンバーを再帰的に初期化
+                    for (const auto& nested_member : nested_struct_def->members) {
+                        Variable nested_member_var;
+                        nested_member_var.type = nested_member.type;
+                        nested_member_var.is_unsigned = nested_member.is_unsigned;
+                        nested_member_var.is_private_member = nested_member.is_private;
+                        nested_member_var.is_const = nested_member.is_const;
+                        nested_member_var.is_assigned = false;
+                        
+                        if (nested_member_var.type == TYPE_STRING) {
+                            nested_member_var.str_value = "";
+                        } else {
+                            nested_member_var.value = 0;
+                        }
+                        
+                        member_var.struct_members[nested_member.name] = nested_member_var;
+                        
+                        // 個別変数としても登録
+                        std::string nested_member_path = var_name + "." + member.name + "." + nested_member.name;
+                        current_scope().variables[nested_member_path] = nested_member_var;
+                        
+                        if (debug_mode) {
+                            debug_print("Created nested member variable: %s\n", nested_member_path.c_str());
+                        }
+                    }
+                } else {
+                    if (debug_mode) {
+                        debug_print("Warning: Nested struct definition not found for type: %s\n",
+                                   resolved_type.c_str());
+                    }
+                }
             } else {
-                member_var.value = 0;
+                // プリミティブ型メンバー
+                // デフォルト値を設定
+                if (member_var.type == TYPE_STRING) {
+                    member_var.str_value = "";
+                } else {
+                    member_var.value = 0;
+                }
+                member_var.is_assigned = false;
+                member_var.is_private_member = member.is_private;
+                member_var.is_unsigned = member.is_unsigned;
+                member_var.is_const = member.is_const;
             }
-            member_var.is_assigned = false;
-            member_var.is_private_member = member.is_private;
-            member_var.is_unsigned = member.is_unsigned;
-            member_var.is_const = member.is_const;
 
             struct_var.struct_members[member.name] = member_var;
+            
+            // 個別変数としても登録（ネストメンバでない場合のみ）
+            if (member.type != TYPE_STRUCT) {
+                std::string member_path = var_name + "." + member.name;
+                current_scope().variables[member_path] = member_var;
+            } else {
+                // 構造体メンバ自体も個別変数として登録
+                std::string member_path = var_name + "." + member.name;
+                current_scope().variables[member_path] = member_var;
+            }
         }
     }
 
