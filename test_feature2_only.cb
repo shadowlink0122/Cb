@@ -1,0 +1,13 @@
+typedef struct {
+    int[3] scores;
+    string name;
+} Student;
+
+int main() {
+    Student s = {[85, 90, 78], "Alice"};
+    
+    println("Name: " + s.name);
+    println("Scores: [" + s.scores[0] + ", " + s.scores[1] + ", " + s.scores[2] + "]");
+    
+    return 0;
+}

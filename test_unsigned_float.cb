@@ -1,0 +1,13 @@
+// unsigned float/doubleの警告テスト
+
+int main() {
+    unsigned float f = 1.5;  // 警告が出るはず
+    unsigned double d = 2.5; // 警告が出るはず
+    unsigned int i = 10;      // 警告は出ない
+    
+    println("f: %f", f);
+    println("d: %f", d);
+    println("i: %d", i);
+    
+    return 0;
+}

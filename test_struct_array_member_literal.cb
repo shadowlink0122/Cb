@@ -1,0 +1,33 @@
+// 構造体メンバに構造体配列を含む場合のリテラル初期化テスト
+
+struct Point {
+    int x;
+    int y;
+};
+
+struct Shape {
+    Point[3] points;
+    string name;
+};
+
+int main() {
+    // リテラル初期化
+    Shape triangle = {
+        .points = [{.x = 0, .y = 0}, {.x = 10, .y = 0}, {.x = 5, .y = 8}],
+        .name = "Triangle"
+    };
+    
+    println("Shape: ", triangle.name);
+    println("Point 0: (", triangle.points[0].x, ", ", triangle.points[0].y, ")");
+    println("Point 1: (", triangle.points[1].x, ", ", triangle.points[1].y, ")");
+    println("Point 2: (", triangle.points[2].x, ", ", triangle.points[2].y, ")");
+    
+    // 個別に代入
+    triangle.points[0].x = 1;
+    triangle.points[0].y = 2;
+    
+    println("After assignment:");
+    println("Point 0: (", triangle.points[0].x, ", ", triangle.points[0].y, ")");
+    
+    return 0;
+}

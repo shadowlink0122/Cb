@@ -1,0 +1,15 @@
+// 基本的なポインタテスト
+
+struct Node {
+    int value;
+    Node* next;
+};
+
+int main() {
+    // まずはnullptrのテスト
+    Node* head = nullptr;
+    
+    println("nullptr test: %p", head);
+    
+    return 0;
+}

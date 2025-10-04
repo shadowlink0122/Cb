@@ -1,0 +1,31 @@
+// 関数リターン時のデバッグテスト
+
+struct Student {
+    string name;
+    int[3] scores;
+};
+
+Student createStudent() {
+    Student s;
+    s.name = "Alice";
+    s.scores[0] = 85;
+    s.scores[1] = 90;
+    s.scores[2] = 78;
+    
+    // 関数内で値を確認
+    println("Inside function - Name: %s", s.name);
+    println("Inside function - Scores: [%d, %d, %d]", s.scores[0], s.scores[1], s.scores[2]);
+    
+    return s;
+}
+
+int main() {
+    println("Before function call");
+    Student student1 = createStudent();
+    println("After function call");
+    
+    println("In main - Name: %s", student1.name);
+    println("In main - Scores: [%d, %d, %d]", student1.scores[0], student1.scores[1], student1.scores[2]);
+    
+    return 0;
+}

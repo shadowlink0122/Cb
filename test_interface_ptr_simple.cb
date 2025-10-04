@@ -1,0 +1,31 @@
+// 超シンプルなInterface型ポインタテスト
+
+interface Shape {
+    int get_value();
+};
+
+struct Circle {
+    int radius;
+};
+
+impl Shape for Circle {
+    int get_value() {
+        return radius;
+    }
+};
+
+int main() {
+    Circle c = {radius: 10};
+    println("Circle created");
+    
+    Circle* pc = &c;
+    println("Circle pointer works");
+    
+    Shape* ps;
+    println("Shape pointer declared");
+    
+    ps = &c;
+    println("Shape pointer initialized");
+    
+    return 0;
+}

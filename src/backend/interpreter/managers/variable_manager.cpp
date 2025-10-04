@@ -2147,78 +2147,49 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                             }
                         }
                         
-                        // 個別メンバー変数を先に作成・更新
+                        // マップの再ハッシュを防ぐため、全ての変数を一時マップに収集してから一括登録
+                        std::map<std::string, Variable> vars_batch;
+                        
+                        // 個別メンバー変数を収集
                         for (const auto& member : ret.struct_value.struct_members) {
-                            std::string member_path = node->name + "." + member.first;
-                            // find_variableで既存の変数を探す
-                            Variable* target_member_var = find_variable(member_path);
-                            if (target_member_var) {
-                                // 既存の変数を更新
-                                *target_member_var = member.second;
-                            } else {
-                                // 存在しない場合は現在のスコープに作成
-                                current_scope().variables[member_path] = member.second;
+                            // scores[0]のような配列要素キーはスキップ（後で個別に処理される）
+                            if (member.first.find('[') != std::string::npos) {
+                                if (interpreter_->debug_mode && node->name == "student1") {
+                                    debug_print("FUNC_RETURN: Skipping array element key from struct_members: '%s'\n",
+                                               member.first.c_str());
+                                }
+                                continue;
                             }
-                            // 配列メンバーの場合、個別要素変数も作成
+                            
+                            std::string member_path = node->name + "." + member.first;
+                            // 一時マップに追加
+                            vars_batch[member_path] = member.second;
+                            
+                            // 配列メンバーの場合、個別要素変数も収集
                             if (member.second.is_array) {
-                                // 構造体配列メンバーの場合、struct_membersから要素を探す
-                                // キー形式: "arrayName[index]"
                                 for (int i = 0; i < member.second.array_size; i++) {
                                     std::string element_name = member_path + "[" + std::to_string(i) + "]";
                                     std::string element_key = member.first + "[" + std::to_string(i) + "]";
                                     
-                                    // まず親のstruct_membersから構造体配列要素を探す
+                                    // 構造体配列要素の場合
                                     auto element_it = ret.struct_value.struct_members.find(element_key);
                                     if (element_it != ret.struct_value.struct_members.end() && element_it->second.is_struct) {
-                                        // 構造体配列の要素
                                         Variable element_var = element_it->second;
                                         element_var.is_assigned = true;
+                                        vars_batch[element_name] = element_var;
                                         
-                                        // find_variableで既存の変数を探す
-                                        Variable* target_elem_var = find_variable(element_name);
-                                        if (target_elem_var) {
-                                            // 既存の変数を更新
-                                            *target_elem_var = element_var;
-                                        } else {
-                                            // 存在しない場合は現在のスコープに作成
-                                            current_scope().variables[element_name] = element_var;
-                                        }
-                                        
-                                        // 構造体要素のメンバー変数も同様に処理
+                                        // 構造体要素のメンバー変数も収集
                                         for (const auto& sub_member : element_var.struct_members) {
                                             std::string sub_member_path = element_name + "." + sub_member.first;
-                                            Variable* target_sub_var = find_variable(sub_member_path);
-                                            if (target_sub_var) {
-                                                *target_sub_var = sub_member.second;
-                                            } else {
-                                                current_scope().variables[sub_member_path] = sub_member.second;
-                                            }
-                                        }
-                                        
-                                        if (interpreter_->debug_mode) {
-                                            debug_print("FUNC_RETURN: Created struct array element %s with %zu members\n",
-                                                       element_name.c_str(), element_var.struct_members.size());
+                                            vars_batch[sub_member_path] = sub_member.second;
                                         }
                                     } else {
                                         // プリミティブ型配列の要素
-                                        // find_variableで既存の変数を探す（スコープ階層を正しく検索）
-                                        Variable* target_var = find_variable(element_name);
-                                        
-                                        if (!target_var) {
-                                            // 存在しない場合は、現在のスコープに作成
-                                            target_var = &current_scope().variables[element_name];
-                                            if (interpreter_->debug_mode) {
-                                                debug_print("FUNC_RETURN: %s not found, creating in current scope\n",
-                                                           element_name.c_str());
-                                            }
-                                        } else {
-                                            if (interpreter_->debug_mode) {
-                                                debug_print("FUNC_RETURN: Found %s, will update it (old value: %lld)\n",
-                                                           element_name.c_str(), (long long)target_var->value);
-                                            }
+                                        if (interpreter_->debug_mode && node->name == "student1") {
+                                            debug_print("FUNC_RETURN_ELEMENT: member.second.type=%d, array_values.size()=%zu, i=%d\n",
+                                                       (int)member.second.type, member.second.array_values.size(), i);
                                         }
                                         
-                                        // 変数を作成（ポインタではなく値として）
                                         Variable element_var;
                                         element_var.type = member.second.type >= TYPE_ARRAY_BASE ? 
                                                           static_cast<TypeInfo>(member.second.type - TYPE_ARRAY_BASE) : 
@@ -2231,153 +2202,89 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                                             element_var.value = member.second.array_values[i];
                                         }
                                         
-                                        // 直接マップに代入（ポインタを使わず確実に設定）
-                                        current_scope().variables[element_name] = element_var;
+                                        if (interpreter_->debug_mode && node->name == "student1") {
+                                            debug_print("FUNC_RETURN_BATCH: Created element_var for %s: type=%d, value=%lld, is_assigned=%d\n",
+                                                       element_name.c_str(), (int)element_var.type, (long long)element_var.value, element_var.is_assigned);
+                                        }
                                         
                                         if (interpreter_->debug_mode && node->name == "student1") {
-                                            debug_print("FUNC_RETURN: Set %s = %lld\n",
-                                                       element_name.c_str(), (long long)element_var.value);
+                                            auto existing = vars_batch.find(element_name);
+                                            if (existing != vars_batch.end()) {
+                                                debug_print("FUNC_RETURN_BATCH: KEY ALREADY EXISTS! '%s' current: type=%d, value=%lld\n",
+                                                           element_name.c_str(), (int)existing->second.type, 
+                                                           (long long)existing->second.value);
+                                            }
                                         }
                                         
-                                        // 個別要素更新が完了したので、配列メンバー変数のarray_valuesも更新
-                                        Variable* member_var = find_variable(member_path);
-                                        if (member_var && member_var->is_array) {
-                                            for (int i = 0; i < member_var->array_size; i++) {
-                                                std::string el_name = member_path + "[" + std::to_string(i) + "]";
-                                                Variable* el_var = find_variable(el_name);
-                                                if (el_var && el_var->is_assigned) {
-                                                    if (el_var->type == TYPE_STRING && i < static_cast<int>(member_var->array_strings.size())) {
-                                                        member_var->array_strings[i] = el_var->str_value;
-                                                    } else if (i < static_cast<int>(member_var->array_values.size())) {
-                                                        member_var->array_values[i] = el_var->value;
-                                                    }
-                                                }
-                                            }
-                                            if (interpreter_->debug_mode && node->name == "student1") {
-                                                debug_print("FUNC_RETURN: Updated array member %s array_values\n", member_path.c_str());
-                                                if (member_var->array_values.size() >= 3) {
-                                                    debug_print("FUNC_RETURN: array_values = [%lld, %lld, %lld]\n",
-                                                               member_var->array_values[0], member_var->array_values[1], member_var->array_values[2]);
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        
-                        // 個別変数の更新が完了したので、構造体変数をstruct_membersと同期
-                        // struct_membersを個別変数から再構築
-                        if (interpreter_->debug_mode && node->name == "student1") {
-                            Variable* check_before = find_variable("student1.scores[0]");
-                            if (check_before) {
-                                debug_print("BEFORE var.struct_members.clear(): student1.scores[0] = %lld, is_assigned=%d\n",
-                                           (long long)check_before->value, check_before->is_assigned);
-                            }
-                        }
-                        
-                        var.struct_members.clear();
-                        
-                        if (interpreter_->debug_mode && node->name == "student1") {
-                            Variable* check_after = find_variable("student1.scores[0]");
-                            if (check_after) {
-                                debug_print("AFTER var.struct_members.clear(): student1.scores[0] = %lld, is_assigned=%d\n",
-                                           (long long)check_after->value, check_after->is_assigned);
-                            }
-                        }
-                        for (const auto& member : ret.struct_value.struct_members) {
-                            std::string member_path = node->name + "." + member.first;
-                            Variable* updated_member = find_variable(member_path);
-                            if (updated_member) {
-                                if (interpreter_->debug_mode && node->name == "student1" && member.first == "scores") {
-                                    debug_print("FUNC_RETURN_STRUCT_SYNC: updated_member(scores) array_size=%d, array_values.size()=%zu\n",
-                                               updated_member->array_size, updated_member->array_values.size());
-                                    if (updated_member->array_values.size() >= 3) {
-                                        debug_print("FUNC_RETURN_STRUCT_SYNC: array_values = [%lld, %lld, %lld]\n",
-                                                   updated_member->array_values[0], updated_member->array_values[1], updated_member->array_values[2]);
-                                    }
-                                }
-                                
-                                var.struct_members[member.first] = *updated_member;
-                                
-                                // 配列メンバーの場合、array_values/array_stringsも更新
-                                if (updated_member->is_array) {
-                                    for (int i = 0; i < updated_member->array_size; i++) {
-                                        std::string element_name = member_path + "[" + std::to_string(i) + "]";
-                                        Variable* element_var = find_variable(element_name);
+                                        vars_batch[element_name] = element_var;
                                         
                                         if (interpreter_->debug_mode && node->name == "student1") {
-                                            if (element_var) {
-                                                debug_print("FUNC_RETURN_SYNC: %s found: value=%lld, is_assigned=%d\n",
-                                                           element_name.c_str(), (long long)element_var->value, element_var->is_assigned);
-                                            } else {
-                                                debug_print("FUNC_RETURN_SYNC: %s NOT FOUND\n", element_name.c_str());
-                                            }
-                                        }
-                                        
-                                        if (element_var && element_var->is_assigned) {
-                                            if (element_var->type == TYPE_STRING) {
-                                                if (i < static_cast<int>(var.struct_members[member.first].array_strings.size())) {
-                                                    var.struct_members[member.first].array_strings[i] = element_var->str_value;
-                                                }
-                                            } else {
-                                                if (i < static_cast<int>(var.struct_members[member.first].array_values.size())) {
-                                                    var.struct_members[member.first].array_values[i] = element_var->value;
-                                                }
-                                            }
+                                            debug_print("FUNC_RETURN_BATCH: Set %s: type=%d, value=%lld, is_assigned=%d\n",
+                                                       element_name.c_str(), (int)element_var.type, 
+                                                       (long long)element_var.value, element_var.is_assigned);
                                         }
                                     }
                                 }
                             }
                         }
                         
-                        // 更新されたvar変数を登録
-                        current_scope().variables[node->name] = var;
-                        
+                        // バッチ内容を確認（親構造体追加前）
                         if (interpreter_->debug_mode && node->name == "student1") {
-                            debug_print("FUNC_RETURN: Registered student1, now checking individual variables...\n");
-                            Variable* check_var = find_variable("student1.scores[0]");
-                            if (check_var) {
-                                debug_print("FUNC_RETURN: After registering student1, student1.scores[0] = %lld, is_assigned=%d\n",
-                                           (long long)check_var->value, check_var->is_assigned);
+                            debug_print("FUNC_RETURN: Batch size before adding parent: %zu variables\n", vars_batch.size());
+                            debug_print("FUNC_RETURN: All keys in batch (BEFORE parent):\n");
+                            for (const auto& var_pair : vars_batch) {
+                                if (var_pair.first.find("scores[") != std::string::npos) {
+                                    debug_print("  '%s': type=%d, value=%lld, is_assigned=%d\n",
+                                               var_pair.first.c_str(), (int)var_pair.second.type,
+                                               (long long)var_pair.second.value, var_pair.second.is_assigned);
+                                }
                             }
                         }
                         
-                        // var変数を登録した後、個別メンバー変数を再度更新
-                        // （マップの再ハッシュで既存のポインタが無効になった可能性があるため）
-                        for (const auto& member_pair : var.struct_members) {
-                            std::string member_path = node->name + "." + member_pair.first;
-                            current_scope().variables[member_path] = member_pair.second;
+                        // 親構造体変数も追加（その前にstruct_membersを確認）
+                        if (interpreter_->debug_mode && node->name == "student1") {
+                            debug_print("FUNC_RETURN: Parent var.struct_members has %zu members\n", var.struct_members.size());
+                            for (const auto& sm : var.struct_members) {
+                                debug_print("  struct_member key: '%s', type=%d, is_array=%d\n",
+                                           sm.first.c_str(), (int)sm.second.type, sm.second.is_array);
+                            }
+                        }
+                        vars_batch[node->name] = var;
+                        
+                        // バッチ内容をデバッグ出力（親構造体追加後）
+                        if (interpreter_->debug_mode && node->name == "student1") {
+                            debug_print("FUNC_RETURN: Batch size after adding parent: %zu variables\n", vars_batch.size());
+                            debug_print("FUNC_RETURN: All keys in batch (AFTER parent):\n");
+                            for (const auto& var_pair : vars_batch) {
+                                if (var_pair.first.find("scores[") != std::string::npos) {
+                                    debug_print("  '%s': type=%d, value=%lld, is_assigned=%d\n",
+                                               var_pair.first.c_str(), (int)var_pair.second.type,
+                                               (long long)var_pair.second.value, var_pair.second.is_assigned);
+                                }
+                            }
+                        }
+                        
+                        // 一括登録: std::mapに順次追加
+                        // std::mapは再バランスで要素が移動する可能性があるが、
+                        // 全ての変数をここで一度に登録するため、後続の参照は安全
+                        for (const auto& var_pair : vars_batch) {
+                            current_scope().variables[var_pair.first] = var_pair.second;
                             
-                            if (member_pair.second.is_array) {
-                                for (int i = 0; i < member_pair.second.array_size; i++) {
-                                    std::string element_name = member_path + "[" + std::to_string(i) + "]";
-                                    std::string element_key = member_pair.first + "[" + std::to_string(i) + "]";
-                                    
-                                    // 既存の個別要素変数はすでに正しい値が設定されているはずなので、
-                                    // 構造体配列要素の場合のみ処理する
-                                    auto elem_it = var.struct_members.find(element_key);
-                                    if (elem_it != var.struct_members.end() && elem_it->second.is_struct) {
-                                        // 構造体配列の要素のみ登録
-                                        current_scope().variables[element_name] = elem_it->second;
-                                        if (interpreter_->debug_mode && node->name == "student1") {
-                                            debug_print("FUNC_RETURN_FINAL: Set %s from struct_members (struct array element)\n",
-                                                       element_name.c_str());
-                                        }
-                                    }
-                                    // プリミティブ型配列の要素は既に設定済みなのでスキップ
-                                }
+                            if (interpreter_->debug_mode && node->name == "student1" && 
+                                var_pair.first.find("scores[") != std::string::npos) {
+                                debug_print("FUNC_RETURN: Registered %s = %lld\n",
+                                           var_pair.first.c_str(), (long long)var_pair.second.value);
                             }
                         }
                         
                         if (interpreter_->debug_mode && node->name == "student1") {
-                            debug_print("FUNC_RETURN: About to return, checking student1.scores[0] one more time...\n");
+                            debug_print("FUNC_RETURN: Batch registered %zu variables\n", vars_batch.size());
                             Variable* final_check = find_variable("student1.scores[0]");
                             if (final_check) {
                                 debug_print("FUNC_RETURN: Final check - student1.scores[0] = %lld, is_assigned=%d\n",
                                            (long long)final_check->value, final_check->is_assigned);
                             } else {
-                                debug_print("FUNC_RETURN: Final check - student1.scores[0] NOT FOUND!\n");
+                                debug_print("FUNC_RETURN: Final check - student1.scores[0] NOT FOUND\n");
                             }
                         }
                         

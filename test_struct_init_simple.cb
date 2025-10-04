@@ -1,0 +1,22 @@
+// 構造体配列メンバーの初期化テスト
+
+struct Point {
+    int x;
+    int y;
+};
+
+struct Shape {
+    Point[3] points;
+    string name;
+};
+
+int main() {
+    Shape triangle;
+    println("Shape created");
+    
+    // まず構造体メンバーが正しく認識されているか確認
+    triangle.name = "Triangle";
+    println("Name set: ", triangle.name);
+    
+    return 0;
+}

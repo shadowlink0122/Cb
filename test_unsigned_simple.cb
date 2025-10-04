@@ -1,0 +1,6 @@
+unsigned int x = 10;
+
+int main() {
+    println("x: %d", x);
+    return 0;
+}
