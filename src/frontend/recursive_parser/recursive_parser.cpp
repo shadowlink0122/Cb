@@ -1133,7 +1133,8 @@ ASTNode* RecursiveParser::parseStatement() {
                 }
                 
                 // 配列アクセス後にさらにメンバアクセスがあるかチェック: obj.array[idx].member
-                if (check(TokenType::TOK_DOT)) {
+                // またはさらに深いネスト: obj.array[idx].member.submember
+                while (check(TokenType::TOK_DOT)) {
                     advance(); // consume '.'
                     
                     if (!check(TokenType::TOK_IDENTIFIER)) {
@@ -1145,22 +1146,13 @@ ASTNode* RecursiveParser::parseStatement() {
                     std::string nested_member_name = current_token_.value;
                     advance();
                     
-                    // obj.array[idx].member = value の形式をチェック
-                    if (check(TokenType::TOK_ASSIGN)) {
-                        advance(); // consume '='
-                        
-                        ASTNode* value_expr = parseExpression();
-                        
-                        // AST_NESTED_STRUCT_ARRAY_MEMBER_ACCESS ノードを作成
-                        // 構造: obj -> member_access, array[idx] -> indices, .member -> nested_member_name
-                        ASTNode* nested_access = new ASTNode(ASTNodeType::AST_ASSIGN);
-                        
-                        // 左辺: メンバアクセス -> 配列アクセス -> ネストメンバアクセス
-                        ASTNode* array_access_node = new ASTNode(ASTNodeType::AST_MEMBER_ARRAY_ACCESS);
-                        array_access_node->left = std::unique_ptr<ASTNode>(member_access);
-                        array_access_node->name = nested_member_name;  // 最終的なメンバー名
-                        
-                        // インデックスを設定
+                    // このメンバーアクセスをASTに追加
+                    ASTNode* array_access_node = new ASTNode(ASTNodeType::AST_MEMBER_ARRAY_ACCESS);
+                    array_access_node->left = std::unique_ptr<ASTNode>(member_access);
+                    array_access_node->name = nested_member_name;
+                    
+                    // インデックスを設定（最初の配列アクセスのみ）
+                    if (!indices.empty()) {
                         if (indices.size() == 1) {
                             array_access_node->right = std::move(indices[0]);
                         } else {
@@ -1168,46 +1160,21 @@ ASTNode* RecursiveParser::parseStatement() {
                                 array_access_node->arguments.push_back(std::move(idx));
                             }
                         }
-                        
-                        nested_access->left = std::unique_ptr<ASTNode>(array_access_node);
-                        nested_access->right = std::unique_ptr<ASTNode>(value_expr);
-                        
-                        consume(TokenType::TOK_SEMICOLON, "Expected ';' after assignment");
-                        return nested_access;
-                    } else {
-                        error("Expected '=' after nested struct array member access");
-                        delete member_access;
-                        return nullptr;
+                        indices.clear(); // インデックスは一度だけ使用
                     }
+                    
+                    member_access = array_access_node;
                 }
                 
-                // 代入演算子をチェック (通常の obj.member[index] = value)
+                // 最終的に代入チェック
                 if (check(TokenType::TOK_ASSIGN)) {
                     advance(); // consume '='
                     
                     ASTNode* value_expr = parseExpression();
                     
-                    // メンバの配列アクセスを表す特別なノードを作成
-                    ASTNode* member_array_access = new ASTNode(ASTNodeType::AST_MEMBER_ARRAY_ACCESS);
-                    member_array_access->name = member_access->name;
-                    
-                    // ネストメンバアクセスの場合、member_accessを左側に設定
-                    member_array_access->left = std::unique_ptr<ASTNode>(member_access);
-                    
-                    // 多次元インデックスを格納
-                    if (indices.size() == 1) {
-                        // 1次元の場合は従来通り
-                        member_array_access->right = std::move(indices[0]);
-                    } else {
-                        // 多次元の場合はargumentsに格納
-                        for (auto& idx : indices) {
-                            member_array_access->arguments.push_back(std::move(idx));
-                        }
-                    }
-                    
                     // 代入ノードを作成
                     ASTNode* assignment = new ASTNode(ASTNodeType::AST_ASSIGN);
-                    assignment->left = std::unique_ptr<ASTNode>(member_array_access);
+                    assignment->left = std::unique_ptr<ASTNode>(member_access);
                     assignment->right = std::unique_ptr<ASTNode>(value_expr);
                     
                     consume(TokenType::TOK_SEMICOLON, "Expected ';' after assignment");

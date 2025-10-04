@@ -1,0 +1,21 @@
+=== Test 1: Simple typedef struct return ===
+Created Vec2: (30, 40)
+
+=== Test 2: Nested typedef struct return ===
+Created Particle: pos(10,20), vel(5,-3)
+
+=== Test 3: Typedef struct as function parameter ===
+Particle speed: 8
+
+=== Test 4: Complex typedef struct return ===
+
+=== Test 5: Complex typedef struct as parameter ===
+System 'DefaultSystem' has 3 particles:
+  Particle 0: pos(0,0), vel(10,5), speed=15
+  Particle 1: pos(100,50), vel(-5,10), speed=15
+  Particle 2: pos(200,100), vel(0,-15), speed=15
+
+=== Test 6: Struct literal with nested typedef ===
+Particle from literal: pos(25,35), vel(-8,12), speed=20
+
+=== All complex typedef function tests passed! ===

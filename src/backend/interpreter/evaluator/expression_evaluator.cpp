@@ -4367,6 +4367,12 @@ Variable ExpressionEvaluator::get_struct_member_from_variable(const Variable& st
         throw std::runtime_error("Variable is not a struct");
     }
     
+    debug_print("[DEBUG] get_struct_member_from_variable: looking for '%s' in struct (type='%s', members=%zu)\n",
+               member_name.c_str(), struct_var.struct_type_name.c_str(), struct_var.struct_members.size());
+    for (const auto& pair : struct_var.struct_members) {
+        debug_print("[DEBUG]   - member: '%s' (type=%d)\n", pair.first.c_str(), pair.second.type);
+    }
+    
     auto enforce_privacy = [&](const Variable& member_var) -> Variable {
         if (!member_var.is_private_member) {
             return member_var;
@@ -4388,6 +4394,13 @@ Variable ExpressionEvaluator::get_struct_member_from_variable(const Variable& st
     // まず struct_members から直接検索
     auto member_it = struct_var.struct_members.find(member_name);
     if (member_it != struct_var.struct_members.end()) {
+        // ネストされた構造体メンバーの場合、そのstruct_membersを確認
+        if (member_it->second.type == TYPE_STRUCT) {
+            debug_print("[DEBUG] Found struct member '%s' (type=%d, struct_type='%s', struct_members.size()=%zu)\n",
+                       member_name.c_str(), member_it->second.type,
+                       member_it->second.struct_type_name.c_str(),
+                       member_it->second.struct_members.size());
+        }
         return enforce_privacy(member_it->second);
     }
     

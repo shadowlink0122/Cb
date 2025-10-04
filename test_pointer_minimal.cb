@@ -1,8 +1,0 @@
-// 最小限のポインタテスト - nullptr なし
-
-int* global_ptr;
-
-int main() {
-    println("Test completed");
-    return 0;
-}

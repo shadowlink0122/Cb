@@ -1,8 +1,0 @@
-// グローバルポインタ変数のテスト
-
-int* global_ptr = nullptr;
-
-int main() {
-    println("Test completed");
-    return 0;
-}

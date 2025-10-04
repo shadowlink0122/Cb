@@ -3735,6 +3735,25 @@ void Interpreter::assign_struct_literal(const std::string &var_name,
                         variable_manager_->current_scope().variables[ev_pair.first] = ev_pair.second;
                     }
                 }
+            } else if (it->second.type == TYPE_STRUCT && init_value->node_type == ASTNodeType::AST_STRUCT_LITERAL) {
+                // ネストされた構造体リテラルの初期化
+                debug_print("STRUCT_LITERAL_DEBUG: Nested struct literal initialization: %s (type=%s)\n", 
+                           member_def.name.c_str(), it->second.struct_type_name.c_str());
+                
+                std::string nested_var_name = var_name + "." + member_def.name;
+                
+                // ネストされた構造体変数を作成（既に変数が存在するはず）
+                Variable* nested_var = find_variable(nested_var_name);
+                if (!nested_var) {
+                    throw std::runtime_error("Nested struct variable not found: " + nested_var_name);
+                }
+                
+                // 再帰的に構造体リテラルを代入
+                assign_struct_literal(nested_var_name, init_value);
+                
+                // 親構造体のstruct_membersに結果を反映
+                it->second = *nested_var;
+                it->second.is_assigned = true;
             } else {
                 // float/double型の処理
                 if (it->second.type == TYPE_FLOAT || it->second.type == TYPE_DOUBLE || it->second.type == TYPE_QUAD) {
