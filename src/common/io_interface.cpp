@@ -4,6 +4,7 @@
 #include <cinttypes>
 #include <cstdarg>
 #include <cstdio>
+#include <cstring>
 #include <string>
 
 // IOInterface の基本実装
