@@ -1,0 +1,10 @@
+// 最もシンプルなポインタテスト
+
+int main() {
+    // nullptr のテスト
+    int* p = nullptr;
+    
+    println("Test completed");
+    
+    return 0;
+}

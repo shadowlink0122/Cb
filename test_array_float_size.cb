@@ -1,0 +1,22 @@
+// 配列サイズにfloat/doubleを使った場合のテスト
+
+int main() {
+    // リテラル値でfloat/doubleをサイズとして使用
+    int arr1[5.7];  // float literalをサイズに指定
+    
+    arr1[0] = 100;
+    arr1[1] = 200;
+    arr1[2] = 300;
+    arr1[3] = 400;
+    arr1[4] = 500;
+    
+    println("arr1[0]: %d", arr1[0]);
+    println("arr1[1]: %d", arr1[1]);
+    println("arr1[2]: %d", arr1[2]);
+    println("arr1[3]: %d", arr1[3]);
+    println("arr1[4]: %d", arr1[4]);
+    
+    println("Test with float literal size completed");
+    
+    return 0;
+}

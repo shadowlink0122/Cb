@@ -1,0 +1,26 @@
+// 構造体配列メンバーへのリテラル代入テスト
+
+struct Point {
+    int x;
+    int y;
+};
+
+struct Shape {
+    Point[3] points;
+    string name;
+};
+
+int main() {
+    Shape triangle;
+    triangle.name = "Triangle";
+    
+    // 配列リテラルで代入（TypeScriptスタイル）
+    triangle.points = [{0, 0}, {10, 0}, {5, 8}];
+    
+    println("Shape: ", triangle.name);
+    println("Point 0: (", triangle.points[0].x, ", ", triangle.points[0].y, ")");
+    println("Point 1: (", triangle.points[1].x, ", ", triangle.points[1].y, ")");
+    println("Point 2: (", triangle.points[2].x, ", ", triangle.points[2].y, ")");
+    
+    return 0;
+}

@@ -3695,6 +3695,10 @@ void Interpreter::assign_struct_literal(const std::string &var_name,
                 } else {
                     // プリミティブ型配列の場合：従来の処理
                     it->second.array_values.clear();
+                    
+                    // 個別要素変数を一時マップに収集
+                    std::map<std::string, Variable> element_vars;
+                    
                     for (size_t j = 0; j < init_value->arguments.size(); ++j) {
                         int64_t element_value = expression_evaluator_->evaluate_expression(init_value->arguments[j].get());
                         std::string element_path = member_def.name + "[" + std::to_string(j) + "]";
@@ -3702,6 +3706,15 @@ void Interpreter::assign_struct_literal(const std::string &var_name,
                                                element_path,
                                                "initialized with array literal");
                         it->second.array_values.push_back(element_value);
+                        
+                        // 個別要素変数を作成
+                        std::string full_element_name = var_name + "." + member_def.name + "[" + std::to_string(j) + "]";
+                        Variable element_var;
+                        element_var.type = element_type;
+                        element_var.value = element_value;
+                        element_var.is_assigned = true;
+                        element_vars[full_element_name] = element_var;
+                        
                         debug_print("STRUCT_LITERAL_DEBUG: Array element [%zu] = %lld\n", j, (long long)element_value);
                     }
                     it->second.array_size = init_value->arguments.size();
@@ -3711,19 +3724,16 @@ void Interpreter::assign_struct_literal(const std::string &var_name,
                     std::string full_member_name = var_name + "." + member_def.name;
                     Variable *direct_member_var = find_variable(full_member_name);
                     if (direct_member_var && direct_member_var->is_array) {
-                        direct_member_var->array_values.clear();
-                        for (size_t j = 0; j < init_value->arguments.size(); ++j) {
-                            int64_t element_value = expression_evaluator_->evaluate_expression(init_value->arguments[j].get());
-                            std::string element_path = member_def.name + "[" + std::to_string(j) + "]";
-                            clamp_unsigned_member(*direct_member_var, element_value,
-                                                   element_path,
-                                                   "initialized with array literal");
-                            direct_member_var->array_values.push_back(element_value);
-                        }
-                        direct_member_var->array_size = init_value->arguments.size();
+                        direct_member_var->array_values = it->second.array_values;
+                        direct_member_var->array_size = it->second.array_size;
                         direct_member_var->is_assigned = true;
                         debug_print("STRUCT_LITERAL_DEBUG: Updated direct access array variable: %s\n", 
                                    full_member_name.c_str());
+                    }
+                    
+                    // 個別要素変数を一括登録（マップの再ハッシュを防ぐため一度に追加）
+                    for (const auto& ev_pair : element_vars) {
+                        variable_manager_->current_scope().variables[ev_pair.first] = ev_pair.second;
                     }
                 }
             } else {

@@ -1,28 +1,18 @@
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// ダイクストラ法の実装 - 最短経路探索アルゴリズム
+// ダイクストラ法の実装 - interfaceとimplを使った実装
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 //
 // 【実装の特徴】
-// - 4つの構造体を使った実装（Node, Edge, Graph, PQNode）
-// - 優先度キューを使った効率的なアルゴリズム
-// - 経路の復元機能を実装
-// - 隣接行列とエッジリストの両方を使用
+// - interface/implパターンで優先度キューを実装
+// - 抽象化されたデータ構造
+// - より柔軟で拡張性の高い設計
 //
-// 【構造体の説明】
-// Node:   各ノードの情報（距離、訪問フラグ、前ノード）
-// Edge:   グラフの辺（出発、到着、重み）
-// Graph:  グラフ全体の情報（ノード数、エッジ数）
-// PQNode: 優先度キューの要素（ノードIDと距離）
-//
-// 【アルゴリズムの流れ】
-// 1. 開始ノードを優先度キューに追加
-// 2. キューから最小距離のノードを取り出す
-// 3. 隣接ノードの距離を更新
-// 4. 更新したノードをキューに追加
-// 5. キューが空になるまで2-4を繰り返す
-//
-// 【時間計算量】
-// O((V+E) log V) - Vはノード数、Eはエッジ数
+// 【interfaceの説明】
+// PriorityQueue: 優先度キューの操作を定義
+//   - push(int, int): 要素を追加
+//   - pop(): 最小要素を取り出し
+//   - isEmpty(): キューが空かチェック
+//   - size(): キューのサイズを取得
 //
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -48,10 +38,41 @@ struct Graph {
     int max_edges;       // 最大エッジ数
 };
 
-// 優先度キューの要素
-struct PQNode {
-    int node_id;         // ノードID
-    int distance;        // 距離
+// 優先度キュー本体の構造体
+// 注: 配列要素の構造体メンバーアクセスの制限により、平坦な配列を使用
+struct PriorityQueueData {
+    int[8] node_ids;      // ノードIDの配列
+    int[8] priorities;    // 優先度の配列
+    int queue_size;       // 現在のサイズ
+    int capacity;         // 最大容量
+};
+
+// 優先度キューのinterface定義
+interface PriorityQueue {
+    int getSize();
+    bool checkEmpty();
+    int getCapacity();
+};
+
+// 優先度キューの実装
+impl PriorityQueue for PriorityQueueData {
+    // キューのサイズを取得
+    int getSize() {
+        PriorityQueueData pq = self;
+        return pq.queue_size;
+    }
+    
+    // キューが空かチェック
+    bool checkEmpty() {
+        PriorityQueueData pq = self;
+        return pq.queue_size == 0;
+    }
+    
+    // キューの容量を取得
+    int getCapacity() {
+        PriorityQueueData pq = self;
+        return pq.capacity;
+    }
 };
 
 // 無限大を表す定数
@@ -61,11 +82,80 @@ const int MAX_EDGES = 30;
 
 // グローバル変数でグラフデータを管理
 Graph graph;
-Node[8] nodes;           // ノード配列
-Edge[30] edges;          // エッジ配列
-PQNode[8] pq;            // 簡易優先度キュー
-int pq_size = 0;
-int[64] adjacency_matrix; // 8x8の隣接行列（8*8=64）
+Node[8] nodes;
+Edge[30] edges;
+PriorityQueueData pq_data;  // 優先度キューのデータ
+int[64] adjacency_matrix;
+
+// 優先度キューの初期化
+void init_priority_queue() {
+    pq_data.queue_size = 0;
+    pq_data.capacity = 8;
+}
+
+// 優先度キューに要素を追加（ラッパー関数）
+void pq_push(int node_id, int priority) {
+    if (pq_data.queue_size >= pq_data.capacity) {
+        println("Error: Priority queue is full");
+        return;
+    }
+    
+    // 新しい要素を末尾に追加
+    int insert_pos = pq_data.queue_size;
+    pq_data.node_ids[insert_pos] = node_id;
+    pq_data.priorities[insert_pos] = priority;
+    pq_data.queue_size = pq_data.queue_size + 1;
+    
+    // 挿入ソートで適切な位置に移動
+    int i = insert_pos;
+    while (i > 0) {
+        int prev = i - 1;
+        if (pq_data.priorities[i] < pq_data.priorities[prev]) {
+            // スワップ
+            int temp_id = pq_data.node_ids[i];
+            int temp_pri = pq_data.priorities[i];
+            pq_data.node_ids[i] = pq_data.node_ids[prev];
+            pq_data.priorities[i] = pq_data.priorities[prev];
+            pq_data.node_ids[prev] = temp_id;
+            pq_data.priorities[prev] = temp_pri;
+            i = prev;
+        } else {
+            break;
+        }
+    }
+}
+
+// 優先度キューから最小要素を取り出す（ラッパー関数）
+int pq_pop() {
+    if (pq_data.queue_size == 0) {
+        return -1;
+    }
+    
+    int min_node = pq_data.node_ids[0];
+    int new_size = pq_data.queue_size - 1;
+    
+    // 要素を前に詰める
+    for (int i = 0; i < new_size; i = i + 1) {
+        int next = i + 1;
+        pq_data.node_ids[i] = pq_data.node_ids[next];
+        pq_data.priorities[i] = pq_data.priorities[next];
+    }
+    
+    pq_data.queue_size = new_size;
+    return min_node;
+}
+
+// 優先度キューが空かチェック（interface経由）
+bool pq_isEmpty() {
+    PriorityQueue pq_interface = pq_data;
+    return pq_interface.checkEmpty();
+}
+
+// 優先度キューのサイズを取得（interface経由）
+int pq_size() {
+    PriorityQueue pq_interface = pq_data;
+    return pq_interface.getSize();
+}
 
 // グラフの初期化
 void init_graph(int num_nodes) {
@@ -74,7 +164,7 @@ void init_graph(int num_nodes) {
     graph.max_edges = MAX_EDGES;
     
     // ノードの初期化
-    for (int i = 0; i < MAX_NODES; i++) {
+    for (int i = 0; i < MAX_NODES; i = i + 1) {
         nodes[i].id = i;
         nodes[i].distance = INF;
         nodes[i].visited = false;
@@ -82,16 +172,17 @@ void init_graph(int num_nodes) {
     }
     
     // 隣接行列を初期化（INFで埋める）
-    for (int i = 0; i < 64; i++) {
+    for (int i = 0; i < 64; i = i + 1) {
         adjacency_matrix[i] = INF;
     }
     
     // 対角線要素は0（自分自身への距離）
-    for (int i = 0; i < MAX_NODES; i++) {
+    for (int i = 0; i < MAX_NODES; i = i + 1) {
         adjacency_matrix[i * MAX_NODES + i] = 0;
     }
     
-    pq_size = 0;
+    // 優先度キューの初期化
+    init_priority_queue();
 }
 
 // エッジの追加
@@ -107,69 +198,19 @@ void add_edge(int from, int to, int weight) {
     graph.edge_count = graph.edge_count + 1;
 }
 
-// 優先度キューに要素を追加
-void pq_push(int node_id, int distance) {
-    int insert_pos = pq_size;
-    pq[insert_pos].node_id = node_id;
-    pq[insert_pos].distance = distance;
-    pq_size = pq_size + 1;
-    
-    // 簡易ソート（挿入位置まで）
-    int i = insert_pos;
-    while (i > 0) {
-        int prev = i - 1;
-        if (pq[i].distance < pq[prev].distance) {
-            // スワップ
-            int temp_id = pq[i].node_id;
-            int temp_dist = pq[i].distance;
-            pq[i].node_id = pq[prev].node_id;
-            pq[i].distance = pq[prev].distance;
-            pq[prev].node_id = temp_id;
-            pq[prev].distance = temp_dist;
-            i = prev;
-        } else {
-            break;
-        }
-    }
-}
-
-// 優先度キューから最小要素を取り出す
-int pq_pop() {
-    if (pq_size == 0) return -1;
-    
-    int min_node = pq[0].node_id;
-    int new_size = pq_size - 1;
-    
-    // 要素を前に詰める
-    for (int i = 0; i < new_size; i++) {
-        int next_idx = i + 1;
-        pq[i].node_id = pq[next_idx].node_id;
-        pq[i].distance = pq[next_idx].distance;
-    }
-    pq_size = new_size;
-    
-    return min_node;
-}
-
-// ノードへのポインタを使って距離を更新
+// ノードの距離を更新
 void update_node_distance(int node_id, int new_dist, int prev) {
     nodes[node_id].distance = new_dist;
     nodes[node_id].prev_node = prev;
 }
 
-// ノードの情報を取得
-void get_node_info(int node_id) {
-    println("  Node %d: distance=%d, visited=%d, prev=%d", 
-            node_id, nodes[node_id].distance, 
-            nodes[node_id].visited, nodes[node_id].prev_node);
-}
-
-// ダイクストラ法の実行（優先度キュー版）
+// ダイクストラ法の実行（interface版優先度キューを使用）
 void dijkstra(int start) {
     // 開始ノードの距離を0に設定
     update_node_distance(start, 0, -1);
     
     println("Starting Dijkstra from node %d", start);
+    println("Using interface-based priority queue\n");
     
     // 優先度キューに開始ノードを追加
     pq_push(start, 0);
@@ -177,7 +218,7 @@ void dijkstra(int start) {
     int iteration = 0;
     
     // 優先度キューが空になるまで繰り返し
-    while (pq_size > 0) {
+    while (!pq_isEmpty()) {
         // 最小距離のノードを取り出す
         int current = pq_pop();
         
@@ -187,13 +228,13 @@ void dijkstra(int start) {
         if (nodes[current].visited) continue;
         
         nodes[current].visited = true;
-        iteration++;
+        iteration = iteration + 1;
         
         println("Iteration %d: Processing node %d (distance: %d)", 
                 iteration, current, nodes[current].distance);
         
         // 隣接ノードの距離を更新
-        for (int neighbor = 0; neighbor < graph.node_count; neighbor++) {
+        for (int neighbor = 0; neighbor < graph.node_count; neighbor = neighbor + 1) {
             int weight = adjacency_matrix[current * MAX_NODES + neighbor];
             
             if (!nodes[neighbor].visited && weight != INF) {
@@ -228,13 +269,13 @@ void print_path(int start, int end) {
     
     while (current != -1) {
         path[path_length] = current;
-        path_length++;
+        path_length = path_length + 1;
         current = nodes[current].prev_node;
     }
     
     // 正順で表示
     print("  ");
-    for (int i = path_length - 1; i >= 0; i--) {
+    for (int i = path_length - 1; i >= 0; i = i - 1) {
         print("%d", path[i]);
         if (i > 0) print(" -> ");
     }
@@ -247,7 +288,7 @@ void print_results(int start) {
     println("Starting from node: %d", start);
     println("\nShortest distances:");
     
-    for (int i = 0; i < graph.node_count; i++) {
+    for (int i = 0; i < graph.node_count; i = i + 1) {
         if (nodes[i].distance == INF) {
             println("Node %d: UNREACHABLE", i);
         } else {
@@ -256,7 +297,7 @@ void print_results(int start) {
     }
     
     println("\nShortest paths:");
-    for (int i = 0; i < graph.node_count; i++) {
+    for (int i = 0; i < graph.node_count; i = i + 1) {
         if (i != start && nodes[i].distance != INF) {
             print_path(start, i);
         }
@@ -269,17 +310,17 @@ void print_graph() {
     println("Nodes: %d, Edges: %d", graph.node_count, graph.edge_count);
     println("\nEdge list:");
     
-    for (int i = 0; i < graph.edge_count; i++) {
+    for (int i = 0; i < graph.edge_count; i = i + 1) {
         println("  Edge %d: %d -> %d (weight: %d)", 
                 i, edges[i].from, edges[i].to, edges[i].weight);
     }
     
     println("\nAdjacency information:");
-    for (int i = 0; i < graph.node_count; i++) {
+    for (int i = 0; i < graph.node_count; i = i + 1) {
         print("Node %d connects to: ", i);
         bool has_edge = false;
         
-        for (int j = 0; j < graph.node_count; j++) {
+        for (int j = 0; j < graph.node_count; j = j + 1) {
             int weight = adjacency_matrix[i * MAX_NODES + j];
             if (weight != INF && weight != 0) {
                 if (has_edge) print(", ");
@@ -296,21 +337,10 @@ void print_graph() {
 
 int main() {
     println("=== Dijkstra's Shortest Path Algorithm ===");
-    println("Advanced implementation with structs and priority queue\n");
+    println("Interface/Impl pattern implementation\n");
     
     // グラフの初期化（7ノード）
     init_graph(7);
-    
-    // エッジの追加（より複雑なグラフ）
-    // グラフの構造:
-    //       2
-    //      /|\
-    //     1 | 3
-    //    /  |  \
-    //   0   5   4
-    //    \     /
-    //     \   /
-    //       6
     
     println("Building graph...");
     add_edge(0, 1, 4);   // 0 -> 1: cost 4
@@ -333,7 +363,6 @@ int main() {
     // ダイクストラ法の実行
     int start_node = 0;
     println("Executing Dijkstra's algorithm from node %d...", start_node);
-    println("Using priority queue for efficient processing\n");
     dijkstra(start_node);
     
     // 結果の表示
@@ -342,21 +371,30 @@ int main() {
     // 統計情報
     println("\n=== Graph Statistics ===");
     int reachable = 0;
-    for (int i = 0; i < graph.node_count; i++) {
-        if (nodes[i].distance != INF) reachable++;
+    for (int i = 0; i < graph.node_count; i = i + 1) {
+        if (nodes[i].distance != INF) {
+            reachable = reachable + 1;
+        }
     }
     println("Reachable nodes: %d / %d", reachable, graph.node_count);
     println("Total edges: %d", graph.edge_count);
     
     // パフォーマンス情報
     println("\n=== Implementation Details ===");
-    println("Data structures used:");
-    println("  - Node struct: stores id, distance, visited flag, prev_node");
-    println("  - Edge struct: stores from, to, weight");
-    println("  - Graph struct: stores node_count, edge_count, max_edges");
-    println("  - PQNode struct: priority queue element");
-    println("Algorithm: Dijkstra with simple priority queue");
-    println("Time Complexity: O((V+E) log V) with priority queue");
+    println("Design Pattern: Interface/Implementation separation");
+    println("Data structures:");
+    println("  - PriorityQueue interface: defines queue operations");
+    println("  - PriorityQueueData struct: implements the interface");
+    println("  - Node struct: stores node information");
+    println("  - Edge struct: stores edge information");
+    println("  - Graph struct: stores graph metadata");
+    println("\nInterface methods:");
+    println("  - push(node_id, priority): add element to queue");
+    println("  - pop(): remove and return minimum element");
+    println("  - isEmpty(): check if queue is empty");
+    println("  - size(): get current queue size");
+    println("\nAlgorithm: Dijkstra with interface-based priority queue");
+    println("Time Complexity: O((V+E) log V)");
     println("Space Complexity: O(V^2) for adjacency matrix + O(E) for edges");
     
     return 0;

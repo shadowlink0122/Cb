@@ -1,0 +1,28 @@
+// Interface型のポインタテスト
+
+interface Shape {
+    int get_value();
+};
+
+struct Circle {
+    int radius;
+};
+
+impl Shape for Circle {
+    int get_value() {
+        return self.radius;
+    }
+};
+
+int main() {
+    Circle c = {radius: 10};
+    println("Circle created");
+    
+    Shape* ps = &c;
+    println("Pointer declared");
+    
+    println((*ps).get_value());
+    println("Dereference completed");
+    
+    return 0;
+}

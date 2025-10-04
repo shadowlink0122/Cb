@@ -1,0 +1,13 @@
+// unsigned float/doubleの警告テスト(グローバル変数)
+
+unsigned float gf = 1.5;  // 警告が出るはず
+unsigned double gd = 2.5; // 警告が出るはず
+unsigned int gi = 10;      // 警告は出ない
+
+int main() {
+    println("gf: %f", gf);
+    println("gd: %f", gd);
+    println("gi: %d", gi);
+    
+    return 0;
+}

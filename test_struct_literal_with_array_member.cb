@@ -1,0 +1,25 @@
+// 構造体リテラル初期化（配列メンバー含む）のテスト
+
+struct Point {
+    int x;
+    int y;
+};
+
+struct Shape {
+    Point[3] points;
+    string name;
+};
+
+int main() {
+    // 構造体リテラル初期化（配列メンバー含む）
+    // 正しい構文: {[配列リテラル], その他のメンバー}
+    // 構造体リテラル: {}、配列リテラル: []
+    Shape triangle = {[{0, 0}, {10, 0}, {5, 8}], "Triangle"};
+    
+    println("Shape: ", triangle.name);
+    println("Point 0: (", triangle.points[0].x, ", ", triangle.points[0].y, ")");
+    println("Point 1: (", triangle.points[1].x, ", ", triangle.points[1].y, ")");
+    println("Point 2: (", triangle.points[2].x, ", ", triangle.points[2].y, ")");
+    
+    return 0;
+}

@@ -1,7 +1,5 @@
 void fizzbuzz(int n){
     for(tiny i = 1;i <= n;i++){
-        // && 左から順に実行されるので、&&でバグる
-        // print(i % 3 == 0 && i % 5 == 0);
         if (i % 3 == 0 && i % 5 == 0) println("%d: FizzBuzz", i);
         else if (i % 3 == 0) println("%d: Fizz", i);
         else if (i % 5 == 0) println("%d: Buzz", i);

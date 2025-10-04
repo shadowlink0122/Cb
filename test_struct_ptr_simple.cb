@@ -1,0 +1,17 @@
+// 構造体ポインタの超簡単なテスト
+
+struct Point {
+    int x;
+    int y;
+};
+
+int main() {
+    println("Start");
+    Point p = {x: 10, y: 20};
+    println("Point created");
+    Point* pp = &p;
+    println("Pointer initialized");
+    println((*pp).x);
+    println("Dereference completed");
+    return 0;
+}

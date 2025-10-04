@@ -1,0 +1,40 @@
+// ネストした構造体のリテラル初期化テスト
+
+struct Point {
+    int x;
+    int y;
+};
+
+struct Line {
+    Point start;
+    Point end;
+    string label;
+};
+
+struct Shape {
+    Line[2] edges;  // ネストした構造体の配列
+    string name;
+};
+
+int main() {
+    // ネストした構造体リテラル初期化
+    Shape rect = {
+        [
+            {{0, 0}, {10, 0}, "bottom"},
+            {{10, 0}, {10, 10}, "right"}
+        ],
+        "Rectangle"
+    };
+    
+    println("Shape: %s", rect.name);
+    println("Edge 0: %s - start(%d, %d) to end(%d, %d)",
+            rect.edges[0].label,
+            rect.edges[0].start.x, rect.edges[0].start.y,
+            rect.edges[0].end.x, rect.edges[0].end.y);
+    println("Edge 1: %s - start(%d, %d) to end(%d, %d)",
+            rect.edges[1].label,
+            rect.edges[1].start.x, rect.edges[1].start.y,
+            rect.edges[1].end.x, rect.edges[1].end.y);
+    
+    return 0;
+}

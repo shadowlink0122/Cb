@@ -1,0 +1,23 @@
+// 関数戻り値での配列メンバー初期化テスト
+
+struct Student {
+    string name;
+    int[3] scores;
+};
+
+Student createStudent() {
+    Student s;
+    s.name = "Alice";
+    s.scores[0] = 85;
+    s.scores[1] = 90;
+    s.scores[2] = 78;
+    return s;
+}
+
+int main() {
+    Student student1 = createStudent();
+    println("Name: %s", student1.name);
+    println("Scores: [%d, %d, %d]", student1.scores[0], student1.scores[1], student1.scores[2]);
+    
+    return 0;
+}

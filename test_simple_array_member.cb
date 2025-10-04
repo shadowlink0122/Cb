@@ -1,0 +1,19 @@
+// プリミティブ配列メンバーの簡単なテスト
+
+struct Student {
+    string name;
+    int[3] scores;
+};
+
+int main() {
+    Student s;
+    s.name = "Test";
+    s.scores[0] = 85;
+    s.scores[1] = 90;
+    s.scores[2] = 78;
+    
+    println("Name: %s", s.name);
+    println("Scores: [%d, %d, %d]", s.scores[0], s.scores[1], s.scores[2]);
+    
+    return 0;
+}
