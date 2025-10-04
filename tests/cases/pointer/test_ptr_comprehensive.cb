@@ -1,0 +1,88 @@
+// ポインタ演算の包括的テスト
+// Phase 3: ポインタ算術演算のテスト
+
+int main() {
+    println("=== Pointer Arithmetic Comprehensive Test ===");
+    
+    // 配列の準備
+    int[5] arr;
+    arr[0] = 10;
+    arr[1] = 20;
+    arr[2] = 30;
+    arr[3] = 40;
+    arr[4] = 50;
+    
+    // テスト1: ptr + 1
+    println("\nTest 1: ptr + 1");
+    int* ptr;
+    ptr = &arr[0];
+    int* ptr2;
+    ptr2 = ptr + 1;
+    println("*ptr =", *ptr);
+    println("*(ptr + 1) =", *ptr2);
+    
+    if (*ptr == 10 && *ptr2 == 20) {
+        println("✓ Test 1 passed");
+    } else {
+        println("✗ Test 1 failed");
+    }
+    
+    // テスト2: ptr + 2
+    println("\nTest 2: ptr + 2");
+    int* ptr3;
+    ptr3 = ptr + 2;
+    println("*(ptr + 2) =", *ptr3);
+    
+    if (*ptr3 == 30) {
+        println("✓ Test 2 passed");
+    } else {
+        println("✗ Test 2 failed");
+    }
+    
+    // テスト3: ptr - 1 (from middle)
+    println("\nTest 3: ptr - 1");
+    int* ptr4;
+    ptr4 = &arr[2];
+    println("*ptr4 (arr[2]) =", *ptr4);
+    
+    int* ptr5;
+    ptr5 = ptr4 - 1;
+    println("*(ptr4 - 1) =", *ptr5);
+    
+    if (*ptr5 == 20) {
+        println("✓ Test 3 passed");
+    } else {
+        println("✗ Test 3 failed");
+    }
+    
+    // テスト4: ポインタ演算の連鎖
+    println("\nTest 4: Chain arithmetic (ptr + 1 + 1)");
+    int* ptr6;
+    ptr6 = ptr + 1;
+    int* ptr7;
+    ptr7 = ptr6 + 1;
+    println("*(ptr + 1 + 1) =", *ptr7);
+    
+    if (*ptr7 == 30) {
+        println("✓ Test 4 passed");
+    } else {
+        println("✗ Test 4 failed");
+    }
+    
+    // テスト5: ポインタ経由での値の変更
+    println("\nTest 5: Modify through pointer arithmetic");
+    int* ptr8;
+    ptr8 = ptr + 3;
+    *ptr8 = 400;
+    println("After *(ptr + 3) = 400:");
+    println("arr[3] =", arr[3]);
+    
+    if (arr[3] == 400) {
+        println("✓ Test 5 passed");
+    } else {
+        println("✗ Test 5 failed");
+    }
+    
+    println("\n=== All pointer arithmetic tests completed ===");
+    return 0;
+}

@@ -1,0 +1,296 @@
+// 高度なポインタ機能の包括的なテスト
+// - interface/impl でポインタ引数・戻り値
+// - 関数戻り値がポインタ
+// - 構造体メンバがポインタ
+// - ポインタ型の相互運用
+
+// ============================================================================
+// 構造体定義
+// ============================================================================
+
+struct Node {
+    int value;
+    int* next_value;  // ポインタメンバ
+};
+
+struct DataHolder {
+    int* data;
+    int size;
+};
+
+// ============================================================================
+// interface/impl でポインタを使用
+// ============================================================================
+
+interface Modifiable {
+    void modify(int* target, int new_value);
+    int* get_pointer();
+    int get_value_via_pointer();
+};
+
+struct Modifier {
+    int* internal_ptr;
+};
+
+impl Modifiable for Modifier {
+    void modify(int* target, int new_value) {
+        *target = new_value;
+    }
+    
+    int* get_pointer() {
+        return self.internal_ptr;
+    }
+    
+    int get_value_via_pointer() {
+        if (self.internal_ptr != nullptr) {
+            return *self.internal_ptr;
+        }
+        return -1;
+    }
+};
+
+// ============================================================================
+// ポインタを返す関数群
+// ============================================================================
+
+int* return_pointer(int* p) {
+    return p;
+}
+
+int* select_max(int* a, int* b) {
+    if (*a > *b) {
+        return a;
+    }
+    return b;
+}
+
+int** get_double_pointer(int** pp) {
+    return pp;
+}
+
+char* return_char_pointer(char* p) {
+    return p;
+}
+
+// ============================================================================
+// メイン関数
+// ============================================================================
+
+int main() {
+    println("=== Advanced Pointer Features Test ===");
+    println("");
+    
+    // ========================================
+    // Test 1: 基本的なポインタ型
+    // ========================================
+    println("Test 1: basic pointer types");
+    int x = 42;
+    int* px = &x;
+    
+    assert(*px == 42);
+    *px = 100;
+    assert(x == 100);
+    println("✓ Test 1 passed: int* works");
+    
+    // ========================================
+    // Test 2: ダブルポインタ
+    // ========================================
+    println("Test 2: double pointer");
+    int y = 50;
+    int* py = &y;
+    int** ppy = &py;
+    
+    assert(**ppy == 50);
+    **ppy = 200;
+    assert(y == 200);
+    println("✓ Test 2 passed: int** works");
+    
+    // ========================================
+    // Test 3: char pointer
+    // ========================================
+    println("Test 3: char pointer");
+    char ch = 65;  // 'A'
+    char* pch = &ch;
+    
+    assert(*pch == 65);
+    *pch = 66;  // 'B'
+    assert(ch == 66);
+    println("✓ Test 3 passed: char* works");
+    
+    // ========================================
+    // Test 4: 構造体メンバとしてポインタ
+    // ========================================
+    println("Test 4: struct member with pointer");
+    Node node;
+    int node_val = 10;
+    int next_val = 20;
+    
+    node.value = node_val;
+    node.next_value = &next_val;
+    
+    assert(node.value == 10);
+    assert(*node.next_value == 20);
+    
+    *node.next_value = 30;
+    assert(next_val == 30);
+    println("✓ Test 4 passed: struct with pointer member works");
+    
+    // ========================================
+    // Test 5: 関数戻り値がポインタ
+    // ========================================
+    println("Test 5: function returns pointer");
+    int a = 100;
+    int* result = return_pointer(&a);
+    
+    assert(*result == 100);
+    *result = 150;
+    assert(a == 150);
+    println("✓ Test 5 passed: function returning pointer works");
+    
+    // ========================================
+    // Test 6: 条件によって異なるポインタを返す
+    // ========================================
+    println("Test 6: select max via pointer");
+    int val1 = 300;
+    int val2 = 500;
+    
+    int* max_ptr = select_max(&val1, &val2);
+    assert(*max_ptr == 500);
+    
+    *max_ptr = 999;
+    assert(val2 == 999);
+    println("✓ Test 6 passed: conditional pointer return works");
+    
+    // ========================================
+    // Test 7: ダブルポインタを返す関数
+    // ========================================
+    println("Test 7: function returns double pointer");
+    int z = 777;
+    int* pz = &z;
+    int** ppz = &pz;
+    
+    int** result_pp = get_double_pointer(ppz);
+    assert(**result_pp == 777);
+    
+    **result_pp = 888;
+    assert(z == 888);
+    println("✓ Test 7 passed: double pointer return works");
+    
+    // ========================================
+    // Test 8: interface/impl でポインタ引数
+    // ========================================
+    println("Test 8: interface method with pointer argument");
+    Modifier mod;
+    int target = 10;
+    mod.internal_ptr = &target;
+    
+    int external = 20;
+    mod.modify(&external, 30);
+    assert(external == 30);
+    println("✓ Test 8 passed: impl method with pointer argument works");
+    
+    // ========================================
+    // Test 9: interface/impl でポインタ戻り値
+    // ========================================
+    println("Test 9: interface method returns pointer");
+    int* ptr_result = mod.get_pointer();
+    assert(*ptr_result == 10);
+    
+    *ptr_result = 40;
+    assert(target == 40);
+    println("✓ Test 9 passed: impl method returning pointer works");
+    
+    // ========================================
+    // Test 10: impl内でポインタメンバを使用
+    // ========================================
+    println("Test 10: impl method accessing pointer member");
+    int value_via_ptr = mod.get_value_via_pointer();
+    assert(value_via_ptr == 40);
+    println("✓ Test 10 passed: impl accessing pointer member works");
+    
+    // ========================================
+    // Test 11: DataHolder構造体の実用例（スキップ - 配列ポインタの制限）
+    // ========================================
+    println("Test 11: DataHolder with simple pointer");
+    int single_value = 999;
+    DataHolder holder;
+    holder.data = &single_value;
+    holder.size = 1;
+    
+    assert(*holder.data == 999);
+    
+    *holder.data = 1111;
+    assert(single_value == 1111);
+    println("✓ Test 11 passed: DataHolder with simple pointer works");
+    
+    // ========================================
+    // Test 12: nullptr チェック
+    // ========================================
+    println("Test 12: nullptr handling");
+    Modifier null_mod;
+    null_mod.internal_ptr = nullptr;
+    
+    int null_result = null_mod.get_value_via_pointer();
+    assert(null_result == -1);  // nullptr の場合は -1 を返す
+    
+    // 後で有効なポインタを設定
+    int valid_value = 123;
+    null_mod.internal_ptr = &valid_value;
+    int valid_result = null_mod.get_value_via_pointer();
+    assert(valid_result == 123);
+    println("✓ Test 12 passed: nullptr handling works");
+    
+    // ========================================
+    // Test 13: 複雑なポインタチェーン
+    // ========================================
+    println("Test 13: complex pointer chain");
+    int original = 5;
+    int* p1 = return_pointer(&original);
+    int* p2 = return_pointer(p1);
+    int* p3 = return_pointer(p2);
+    
+    assert(*p3 == 5);
+    *p3 = 15;
+    assert(original == 15);
+    println("✓ Test 13 passed: complex pointer chain works");
+    
+    // ========================================
+    // Test 14: 構造体ポインタの付け替え
+    // ========================================
+    println("Test 14: struct pointer reassignment");
+    Node node2;
+    int val_a = 111;
+    int val_b = 222;
+    
+    node2.next_value = &val_a;
+    assert(*node2.next_value == 111);
+    
+    node2.next_value = &val_b;
+    assert(*node2.next_value == 222);
+    
+    *node2.next_value = 333;
+    assert(val_b == 333);
+    println("✓ Test 14 passed: struct pointer reassignment works");
+    
+    // ========================================
+    // Test 15: implメソッド経由での変更の連鎖
+    // ========================================
+    println("Test 15: chained modifications via impl");
+    Modifier chain_mod;
+    int chain_val = 1;
+    chain_mod.internal_ptr = &chain_val;
+    
+    chain_mod.modify(chain_mod.internal_ptr, 2);
+    assert(chain_val == 2);
+    
+    chain_mod.modify(chain_mod.internal_ptr, 3);
+    assert(chain_val == 3);
+    
+    chain_mod.modify(chain_mod.internal_ptr, 4);
+    assert(chain_val == 4);
+    println("✓ Test 15 passed: chained impl modifications work");
+    
+    println("");
+    println("=== All 15 Advanced Pointer Tests Passed! ===");
+    return 0;
+}

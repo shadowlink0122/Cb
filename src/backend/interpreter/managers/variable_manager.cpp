@@ -563,6 +563,13 @@ void VariableManager::assign_variable(const std::string &name,
     debug_msg(DebugMsgId::VAR_ASSIGN_READABLE, name.c_str(),
               typed_value.is_numeric() ? typed_value.as_numeric() : 0, "type",
               is_const ? "true" : "false");
+    
+    if (interpreter_->is_debug_mode() && name == "ptr") {
+        std::cerr << "[VAR_MANAGER] assign_variable called for ptr:" << std::endl;
+        std::cerr << "  type_hint=" << static_cast<int>(type_hint) << " (TYPE_POINTER=" << static_cast<int>(TYPE_POINTER) << ")" << std::endl;
+        std::cerr << "  typed_value.value=" << typed_value.value << " (0x" << std::hex << typed_value.value << std::dec << ")" << std::endl;
+        std::cerr << "  typed_value.numeric_type=" << static_cast<int>(typed_value.numeric_type) << std::endl;
+    }
 
     auto apply_assignment = [&](Variable &target, bool allow_type_override) {
         auto clamp_unsigned = [&](int64_t &numeric_value) {
@@ -632,6 +639,15 @@ void VariableManager::assign_variable(const std::string &name,
                                 ? target.type
                                 : TYPE_INT;
         }
+        
+        if (interpreter_->is_debug_mode() && (type_hint == TYPE_POINTER || target.type == TYPE_POINTER || typed_value.numeric_type == TYPE_POINTER)) {
+            std::cerr << "[VAR_MANAGER] Pointer assignment detected for variable:" << std::endl;
+            std::cerr << "  type_hint=" << static_cast<int>(type_hint) << std::endl;
+            std::cerr << "  target.type=" << static_cast<int>(target.type) << std::endl;
+            std::cerr << "  resolved_type=" << static_cast<int>(resolved_type) << std::endl;
+            std::cerr << "  typed_value.numeric_type=" << static_cast<int>(typed_value.numeric_type) << std::endl;
+            std::cerr << "  TYPE_POINTER=" << static_cast<int>(TYPE_POINTER) << std::endl;
+        }
 
         if ((allow_type_override || target.type == TYPE_UNKNOWN) &&
             target.type != TYPE_UNION) {
@@ -690,10 +706,24 @@ void VariableManager::assign_variable(const std::string &name,
                 range_check_type = target.type;
             }
 
-            interpreter_->type_manager_->check_type_range(range_check_type,
-                                                          numeric_value, name,
-                                                          target.is_unsigned);
-            setNumericFields(target, static_cast<long double>(numeric_value));
+            // ポインタ型は精度損失を避けるため、long double経由のキャストをスキップ
+            // typed_value.numeric_typeもチェック（評価時に設定される型情報）
+            if (resolved_type == TYPE_POINTER || typed_value.numeric_type == TYPE_POINTER || 
+                target.type == TYPE_POINTER) {
+                target.value = numeric_value;
+                target.float_value = 0.0f;
+                target.double_value = 0.0;
+                target.quad_value = 0.0L;
+                if (interpreter_->is_debug_mode()) {
+                    std::cerr << "[VAR_MANAGER] Assigned pointer value to " << name 
+                              << ": " << numeric_value << " (0x" << std::hex << numeric_value << std::dec << ")" << std::endl;
+                }
+            } else {
+                interpreter_->type_manager_->check_type_range(range_check_type,
+                                                              numeric_value, name,
+                                                              target.is_unsigned);
+                setNumericFields(target, static_cast<long double>(numeric_value));
+            }
         }
 
         target.is_assigned = true;
@@ -1234,8 +1264,15 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                         var.value = value;
                         var.is_assigned = true;
                         
-                        // 型範囲チェック
-                        if (var.type != TYPE_STRING) {
+                        if (interpreter_->is_debug_mode() && node->name == "ptr") {
+                            std::cerr << "[VAR_MANAGER] Pointer variable initialized:" << std::endl;
+                            std::cerr << "  value=" << value << " (0x" << std::hex << value << std::dec << ")" << std::endl;
+                            std::cerr << "  var.value=" << var.value << " (0x" << std::hex << var.value << std::dec << ")" << std::endl;
+                            std::cerr << "  var.type=" << static_cast<int>(var.type) << std::endl;
+                        }
+                        
+                        // 型範囲チェック（ポインタ型は除外）
+                        if (var.type != TYPE_STRING && var.type != TYPE_POINTER) {
                             interpreter_->type_manager_->check_type_range(
                                 var.type, var.value, node->name,
                                 var.is_unsigned);
@@ -2424,7 +2461,26 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
             }
         }
 
+        if (interpreter_->is_debug_mode() && node->name == "ptr") {
+            std::cerr << "[VAR_MANAGER] Registering variable ptr to scope:" << std::endl;
+            std::cerr << "  var.value=" << var.value << std::endl;
+            std::cerr << "  var.type=" << static_cast<int>(var.type) << std::endl;
+            std::cerr << "  node->type_info=" << static_cast<int>(node->type_info) << std::endl;
+        }
+        
+        // ポインタ型の場合、型情報を確実に設定
+        if (node->type_info == TYPE_POINTER) {
+            var.type = TYPE_POINTER;
+        }
+
         current_scope().variables[node->name] = var;
+        
+        if (interpreter_->is_debug_mode() && node->name == "ptr") {
+            Variable* registered = find_variable(node->name);
+            if (registered) {
+                std::cerr << "[VAR_MANAGER] After registration, ptr value=" << registered->value << std::endl;
+            }
+        }
         // std::cerr << "DEBUG: Variable created: " << node->name << ",
         // is_array=" << var.is_array << std::endl;
 

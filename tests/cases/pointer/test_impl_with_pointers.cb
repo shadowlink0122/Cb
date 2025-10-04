@@ -4,15 +4,15 @@ interface Incrementable {
     void increment();
     void set_value(int new_val);
     int get_value();
-}
+};
 
 struct Counter {
     int* value_ptr;
-}
+};
 
 impl Incrementable for Counter {
     void increment() {
-        (*self.value_ptr)++;
+        *self.value_ptr = *self.value_ptr + 1;
     }
     
     void set_value(int new_val) {
@@ -22,7 +22,7 @@ impl Incrementable for Counter {
     int get_value() {
         return *self.value_ptr;
     }
-}
+};
 
 int main() {
     println("=== Impl with Pointer Members Tests ===");

@@ -1,0 +1,63 @@
+// ポインタの基本テスト
+// Phase 2: ポインタ精度損失修正後のテスト
+
+println("=== Pointer Precision Test ===");
+
+// テスト1: 配列要素へのポインタ
+int arr[5];
+arr[0] = 10;
+arr[1] = 20;
+arr[2] = 30;
+arr[3] = 40;
+arr[4] = 50;
+int* ptr = &arr[0];
+
+println("Test 1: Array element pointer");
+println("arr[0] =", arr[0]);
+println("*ptr =", *ptr);
+
+if (*ptr == 10) {
+    println("✓ Test 1 passed: Pointer dereference works");
+} else {
+    println("✗ Test 1 failed: Expected 10, got", *ptr);
+}
+
+// テスト2: ポインタを使った配列要素の変更
+*ptr = 100;
+println("\nTest 2: Modify through pointer");
+println("After *ptr = 100:");
+println("arr[0] =", arr[0]);
+println("*ptr =", *ptr);
+
+if (arr[0] == 100 && *ptr == 100) {
+    println("✓ Test 2 passed: Array modified through pointer");
+} else {
+    println("✗ Test 2 failed");
+}
+
+// テスト3: 別の要素へのポインタ
+int* ptr2 = &arr[2];
+println("\nTest 3: Pointer to different element");
+println("arr[2] =", arr[2]);
+println("*ptr2 =", *ptr2);
+
+if (*ptr2 == 30) {
+    println("✓ Test 3 passed: Second pointer works");
+} else {
+    println("✗ Test 3 failed: Expected 30, got", *ptr2);
+}
+
+// テスト4: ポインタの再代入
+ptr = &arr[4];
+println("\nTest 4: Pointer reassignment");
+println("After ptr = &arr[4]:");
+println("arr[4] =", arr[4]);
+println("*ptr =", *ptr);
+
+if (*ptr == 50) {
+    println("✓ Test 4 passed: Pointer reassignment works");
+} else {
+    println("✗ Test 4 failed: Expected 50, got", *ptr);
+}
+
+println("\n=== All pointer tests completed ===");

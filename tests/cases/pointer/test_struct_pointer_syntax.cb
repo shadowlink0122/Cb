@@ -3,12 +3,12 @@
 struct Point {
     int x;
     int y;
-};
+};;
 
 int main() {
     println("Test: Struct pointer");
     
-    Point p = {x: 10, y: 20};
+    Point p = [x: 10, y: 20];
     
     // 構造体のポインタ変数を宣言（シンプルな形式）
     int* test_ptr = nullptr;

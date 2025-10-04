@@ -51,7 +51,7 @@ int main() {
     
     // Test 4: Containerを使った実用的な例
     println("Test 4: Container with data pointer");
-    int[5] data = {1, 2, 3, 4, 5};
+    int[5] data = [1, 2, 3, 4, 5];
     Container container;
     container.data_ptr = &data[0];
     container.size = 5;

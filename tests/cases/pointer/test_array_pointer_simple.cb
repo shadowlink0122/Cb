@@ -3,7 +3,7 @@
 int main() {
     println("=== Simple Array Pointer Test ===");
     
-    int[3] arr = {10, 20, 30};
+    int[3] arr = [10, 20, 30];
     println("arr[0] = %d, arr[1] = %d, arr[2] = %d", arr[0], arr[1], arr[2]);
     
     // 配列の最初の要素のアドレスを取得

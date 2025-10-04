@@ -34,7 +34,7 @@ void modifyArray(int* arr, int size) {
 struct Point {
     int x;
     int y;
-};
+};;
 
 void movePoint(Point* p, int dx, int dy) {
     (*p).x = (*p).x + dx;
@@ -115,11 +115,11 @@ int main() {
     
     // Test 6: 配列の変更
     println("Test 6: Modify array via pointer");
-    int[5] arr = {1, 2, 3, 4, 5};
-    println("Before: arr = {%d, %d, %d, %d, %d}", arr[0], arr[1], arr[2], arr[3], arr[4]);
+    int[5] arr = [1, 2, 3, 4, 5];
+    println("Before: arr = [%d, %d, %d, %d, %d}", arr[0], arr[1], arr[2], arr[3], arr[4]);
     
     modifyArray(&arr[0], 5);
-    println("After: arr = {%d, %d, %d, %d, %d}", arr[0], arr[1], arr[2], arr[3], arr[4]);
+    println("After: arr = [%d, %d, %d, %d, %d}", arr[0], arr[1], arr[2], arr[3], arr[4]);
     assert(arr[0] == 2);
     assert(arr[1] == 4);
     assert(arr[2] == 6);
@@ -129,16 +129,16 @@ int main() {
     
     // Test 7: 構造体の変更
     println("Test 7: Modify struct via pointer");
-    Point p = {x: 10, y: 20};
-    println("Before: p = {x: %d, y: %d}", p.x, p.y);
+    Point p = [x: 10, y: 20];
+    println("Before: p = [x: %d, y: %d}", p.x, p.y);
     
     movePoint(&p, 5, -3);
-    println("After movePoint(&p, 5, -3): p = {x: %d, y: %d}", p.x, p.y);
+    println("After movePoint(&p, 5, -3): p = [x: %d, y: %d}", p.x, p.y);
     assert(p.x == 15);
     assert(p.y == 17);
     
     movePoint(&p, -5, 3);
-    println("After movePoint(&p, -5, 3): p = {x: %d, y: %d}", p.x, p.y);
+    println("After movePoint(&p, -5, 3): p = [x: %d, y: %d}", p.x, p.y);
     assert(p.x == 10);
     assert(p.y == 20);
     println("");

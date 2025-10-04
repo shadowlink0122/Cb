@@ -27,12 +27,12 @@ struct Point {
 
 // 値渡しで構造体を返す（ポインタではない）
 Point create_point(int x, int y) {
-    Point p = {x: x, y: y};
+    Point p = [x: x, y: y];
     return p;
 }
 
 // グローバル配列（配列ポインタのテスト用）
-int[10] g_array = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+int[10] g_array = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 
 int main() {
     println("=== Comprehensive Pointer Return Tests ===");
@@ -57,7 +57,7 @@ int main() {
     
     // Test 2: 配列要素へのポインタを返す
     println("Test 2: Return pointer to array element");
-    int[5] arr = {10, 20, 30, 40, 50};
+    int[5] arr = [10, 20, 30, 40, 50];
     
     int* elem_ptr = get_element(&arr[0], 2);
     println("*elem_ptr = %d (should be 30)", *elem_ptr);

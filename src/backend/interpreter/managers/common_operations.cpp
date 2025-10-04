@@ -476,7 +476,11 @@ void CommonOperations::flatten_array_literal(const ASTNode *literal_node,
         return;
     }
     
-    for (const auto &element : literal_node->arguments) {
+    debug_msg(DebugMsgId::ARRAY_LITERAL_INIT_PROCESSING, 
+              ("flatten_array_literal: processing " + std::to_string(literal_node->arguments.size()) + " elements").c_str());
+    
+    for (size_t i = 0; i < literal_node->arguments.size(); i++) {
+        const auto &element = literal_node->arguments[i];
         if (element->node_type == ASTNodeType::AST_ARRAY_LITERAL) {
             // 再帰的にネストした配列リテラルを処理
             flatten_array_literal(element.get(), flattened_values, flattened_strings, 
@@ -491,7 +495,21 @@ void CommonOperations::flatten_array_literal(const ASTNode *literal_node,
             flattened_floats.push_back(float_val);
         } else if (!is_string_array && !is_float_array && element->node_type != ASTNodeType::AST_STRING_LITERAL) {
             // 整数要素
+            if (interpreter_->is_debug_mode()) {
+                std::cerr << "[ARRAY_LITERAL_DEBUG] Element[" << i << "] node_type: " 
+                         << static_cast<int>(element->node_type) << std::endl;
+                if (element->node_type == ASTNodeType::AST_NUMBER) {
+                    std::cerr << "[ARRAY_LITERAL_DEBUG] NUMBER node int_value: " << element->int_value << std::endl;
+                }
+            }
+            debug_msg(DebugMsgId::ARRAY_LITERAL_INIT_PROCESSING,
+                      ("Evaluating array element[" + std::to_string(i) + "], node_type: " + std::to_string(static_cast<int>(element->node_type))).c_str());
             int64_t value = evaluate_expression_safe(element.get(), "array literal element");
+            if (interpreter_->is_debug_mode()) {
+                std::cerr << "[ARRAY_LITERAL_DEBUG] Element[" << i << "] evaluated to: " << value << std::endl;
+            }
+            debug_msg(DebugMsgId::ARRAY_LITERAL_INIT_PROCESSING,
+                      ("Array element[" + std::to_string(i) + "] evaluated to: " + std::to_string(value)).c_str());
             flattened_values.push_back(value);
         } else {
             throw std::runtime_error("Type mismatch in array literal");

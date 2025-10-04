@@ -1,5 +1,6 @@
 #include "evaluator/expression_evaluator.h"
 #include "core/interpreter.h"
+#include "core/pointer_metadata.h"     // ポインタメタデータシステム
 #include "managers/enum_manager.h"    // EnumManager定義が必要
 #include "managers/type_manager.h"    // TypeManager定義が必要
 #include "../../../common/debug_messages.h"
@@ -137,6 +138,12 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
         }
 
         debug_msg(DebugMsgId::EXPR_EVAL_VAR_VALUE, node->name.c_str(), var->value);
+        
+        if (debug_mode && var->type == TYPE_POINTER) {
+            std::cerr << "[EXPR_EVAL] Variable " << node->name << " value: " << var->value 
+                      << " (0x" << std::hex << var->value << std::dec << ")" << std::endl;
+        }
+        
         return var->value;
     }
 
@@ -560,7 +567,54 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
 
         // デバッグ: 減算操作の詳細を出力
         int64_t result = 0;
-        if (node->op == "+")
+        
+        // ポインタ演算の特別処理
+        if (node->op == "+" || node->op == "-") {
+            // 左オペランドがメタデータポインタの場合
+            if (left & (1LL << 63)) {
+                int64_t clean_ptr = left & ~(1LL << 63);
+                using namespace PointerSystem;
+                PointerMetadata* meta = reinterpret_cast<PointerMetadata*>(clean_ptr);
+                
+                if (meta && meta->target_type == PointerTargetType::ARRAY_ELEMENT) {
+                    // 新しいインデックスを計算
+                    size_t new_index = meta->element_index;
+                    if (node->op == "+") {
+                        new_index += static_cast<size_t>(right);
+                    } else {  // "-"
+                        if (right > static_cast<int64_t>(new_index)) {
+                            throw std::runtime_error("Pointer arithmetic resulted in negative index");
+                        }
+                        new_index -= static_cast<size_t>(right);
+                    }
+                    
+                    // 範囲チェック
+                    if (new_index >= static_cast<size_t>(meta->array_var->array_size)) {
+                        throw std::runtime_error("Pointer arithmetic out of array bounds");
+                    }
+                    
+                    // 新しいメタデータを作成
+                    PointerMetadata temp_meta = PointerMetadata::create_array_element_pointer(
+                        meta->array_var,
+                        new_index,
+                        meta->element_type
+                    );
+                    PointerMetadata* new_meta = new PointerMetadata(temp_meta);
+                    
+                    // タグ付きポインタを返す
+                    int64_t ptr_value = reinterpret_cast<int64_t>(new_meta);
+                    ptr_value |= (1LL << 63);
+                    return ptr_value;
+                }
+            }
+            
+            // 通常の整数演算
+            if (node->op == "+")
+                result = left + right;
+            else
+                result = left - right;
+        }
+        else if (node->op == "+")
             result = left + right;
         else if (node->op == "-")
             result = left - right;
@@ -689,7 +743,8 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                     throw std::runtime_error("Undefined variable");
                 }
                 
-                // 変数のアドレスを返す（実装上はVariableポインタをint64_tとして返す）
+                // 変数のアドレスを返す（従来の方式: Variable*をint64_tとして返す）
+                // メタデータは不要（変数ポインタは後方互換性のため従来の方式を維持）
                 return reinterpret_cast<int64_t>(var);
             }
             // 配列要素のアドレス取得: &arr[index]
@@ -706,10 +761,6 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                     throw std::runtime_error("Undefined array: " + array_name);
                 }
                 
-                // 配列要素を表す疑似変数を作成
-                // 注意: これは簡易実装。配列要素のアドレスは実際の配列のメモリ位置を返すべき
-                // ここでは配列要素へのポインタとして、配列変数のアドレス + オフセットを返す
-                
                 // 1次元配列の場合
                 if (indices.size() == 1 && !array_var->is_multidimensional) {
                     int64_t index = indices[0];
@@ -717,31 +768,44 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                         throw std::runtime_error("Array index out of bounds in address-of");
                     }
                     
-                    // 配列要素へのポインタを返す
-                    // 整数配列の場合
-                    if (!array_var->array_values.empty()) {
-                        return reinterpret_cast<int64_t>(&array_var->array_values[index]);
+                    // 配列要素へのポインタをメタデータで表現
+                    // 要素の型を判定
+                    TypeInfo elem_type = TYPE_INT;  // デフォルト
+                    if (array_var->type >= TYPE_ARRAY_BASE) {
+                        elem_type = static_cast<TypeInfo>(array_var->type - TYPE_ARRAY_BASE);
                     }
-                    // float配列の場合（暫定: floatをintにキャスト）
-                    else if (!array_var->array_float_values.empty()) {
-                        // floatのアドレスをint64_tとして返す
-                        // 注意: これは型安全ではないが、現在の実装ではポインタ型がintしかない
-                        return reinterpret_cast<int64_t>(&array_var->array_float_values[index]);
+                    
+                    // メタデータを作成してヒープに配置
+                    using namespace PointerSystem;
+                    PointerMetadata* meta = new PointerMetadata(
+                        PointerMetadata::create_array_element_pointer(
+                            array_var, 
+                            static_cast<size_t>(index), 
+                            elem_type
+                        )
+                    );
+                    
+                    if (debug_mode) {
+                        std::cerr << "[POINTER_METADATA] Created array element pointer: " 
+                                  << meta->to_string() << std::endl;
+                        std::cerr << "[ADDRESS_OF] meta address=" << static_cast<void*>(meta) << std::endl;
+                        std::cerr << "[ADDRESS_OF] meta->target_type=" << static_cast<int>(meta->target_type) << std::endl;
+                        std::cerr << "[ADDRESS_OF] meta->array_var=" << static_cast<void*>(meta->array_var) << std::endl;
+                        std::cerr << "[ADDRESS_OF] meta->element_index=" << meta->element_index << std::endl;
                     }
-                    // double配列の場合
-                    else if (!array_var->array_double_values.empty()) {
-                        return reinterpret_cast<int64_t>(&array_var->array_double_values[index]);
+                    
+                    // メタデータのアドレスをint64_tとして返す
+                    // 注意: 最上位ビットを1にしてメタデータポインタであることを示す
+                    int64_t ptr_value = reinterpret_cast<int64_t>(meta);
+                    // タグを設定（最上位ビット）
+                    ptr_value |= (1LL << 63);
+                    
+                    if (debug_mode) {
+                        std::cerr << "[ADDRESS_OF] Returning ptr_value=" << ptr_value 
+                                  << " (0x" << std::hex << ptr_value << std::dec << ")" << std::endl;
                     }
-                    // quad配列の場合
-                    else if (!array_var->array_quad_values.empty()) {
-                        return reinterpret_cast<int64_t>(&array_var->array_quad_values[index]);
-                    }
-                    // 文字列配列の場合
-                    else if (!array_var->array_strings.empty()) {
-                        return reinterpret_cast<int64_t>(&array_var->array_strings[index]);
-                    } else {
-                        throw std::runtime_error("Empty array in address-of operator");
-                    }
+                    
+                    return ptr_value;
                 } else {
                     throw std::runtime_error("Multi-dimensional array address-of not yet supported");
                 }
@@ -757,7 +821,21 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                     throw std::runtime_error("Undefined member: " + member_path);
                 }
                 
-                return reinterpret_cast<int64_t>(member_var);
+                // 構造体メンバーへのポインタもメタデータで表現
+                using namespace PointerSystem;
+                PointerMetadata* meta = new PointerMetadata(
+                    PointerMetadata::create_struct_member_pointer(member_var, member_path)
+                );
+                
+                if (debug_mode) {
+                    std::cerr << "[POINTER_METADATA] Created struct member pointer: " 
+                              << meta->to_string() << std::endl;
+                }
+                
+                // メタデータのアドレスをタグ付きで返す
+                int64_t ptr_value = reinterpret_cast<int64_t>(meta);
+                ptr_value |= (1LL << 63);
+                return ptr_value;
             } else {
                 throw std::runtime_error("Address-of operator requires a variable, array element, or struct member");
             }
@@ -770,9 +848,39 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                 throw std::runtime_error("Null pointer dereference");
             }
             
-            // ポインタ値をVariableポインタに変換して値を取得
-            Variable *var = reinterpret_cast<Variable*>(ptr_value);
-            return var->value;
+            // ポインタがメタデータを持つかチェック（最上位ビット）
+            if (ptr_value & (1LL << 63)) {
+                // メタデータポインタの場合
+                int64_t clean_ptr = ptr_value & ~(1LL << 63);  // タグを除去
+                
+                if (debug_mode) {
+                    std::cerr << "[DEREFERENCE] ptr_value=" << ptr_value << std::endl;
+                    std::cerr << "[DEREFERENCE] clean_ptr=" << clean_ptr 
+                              << " (0x" << std::hex << clean_ptr << std::dec << ")" << std::endl;
+                }
+                
+                using namespace PointerSystem;
+                PointerMetadata* meta = reinterpret_cast<PointerMetadata*>(clean_ptr);
+                
+                if (!meta) {
+                    throw std::runtime_error("Invalid pointer metadata");
+                }
+                
+                if (debug_mode) {
+                    std::cerr << "[DEREFERENCE] meta address=" << static_cast<void*>(meta) << std::endl;
+                    std::cerr << "[DEREFERENCE] meta->target_type=" << static_cast<int>(meta->target_type) << std::endl;
+                    std::cerr << "[DEREFERENCE] meta->array_var=" << static_cast<void*>(meta->array_var) << std::endl;
+                    std::cerr << "[DEREFERENCE] meta->element_index=" << meta->element_index << std::endl;
+                    std::cerr << "[POINTER_METADATA] Dereferencing: " << meta->to_string() << std::endl;
+                }
+                
+                // メタデータから値を読み取り
+                return meta->read_int_value();
+            } else {
+                // 従来の方式（変数ポインタ）
+                Variable *var = reinterpret_cast<Variable*>(ptr_value);
+                return var->value;
+            }
         }
         
         int64_t operand = evaluate_expression(node->left.get());
@@ -842,6 +950,71 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                     return static_cast<int64_t>(var->quad_value);
                 } else {
                     return static_cast<int64_t>(old_value);
+                }
+            } else if (var->type == TYPE_POINTER) {
+                // ポインタ型のインクリメント/デクリメント
+                int64_t old_ptr_value = var->value;
+                
+                // メタデータポインタの場合
+                if (old_ptr_value & (1LL << 63)) {
+                    int64_t clean_ptr = old_ptr_value & ~(1LL << 63);
+                    using namespace PointerSystem;
+                    PointerMetadata* meta = reinterpret_cast<PointerMetadata*>(clean_ptr);
+                    
+                    if (meta && meta->target_type == PointerTargetType::ARRAY_ELEMENT) {
+                        // 新しいインデックスを計算
+                        size_t new_index = meta->element_index;
+                        
+                        if (node->op == "++") {
+                            new_index += 1;
+                        } else {  // "--"
+                            if (new_index == 0) {
+                                throw std::runtime_error("Pointer decrement resulted in negative index");
+                            }
+                            new_index -= 1;
+                        }
+                        
+                        // 範囲チェック
+                        if (new_index >= static_cast<size_t>(meta->array_var->array_size)) {
+                            throw std::runtime_error("Pointer increment/decrement out of array bounds");
+                        }
+                        
+                        // 新しいメタデータを作成
+                        PointerMetadata temp_meta = PointerMetadata::create_array_element_pointer(
+                            meta->array_var,
+                            new_index,
+                            meta->element_type
+                        );
+                        PointerMetadata* new_meta = new PointerMetadata(temp_meta);
+                        
+                        // タグ付きポインタ
+                        int64_t new_ptr_value = reinterpret_cast<int64_t>(new_meta);
+                        new_ptr_value |= (1LL << 63);
+                        
+                        // 変数を更新
+                        var->value = new_ptr_value;
+                        
+                        // プレフィックスは新しい値、ポストフィックスは古い値を返す
+                        if (node->node_type == ASTNodeType::AST_PRE_INCDEC) {
+                            return new_ptr_value;
+                        } else {
+                            return old_ptr_value;
+                        }
+                    }
+                }
+                
+                // 従来の方式（Variable*）またはサポートされていないポインタ
+                // 単純にポインタ値をインクリメント/デクリメント（警告：安全ではない）
+                if (node->op == "++") {
+                    var->value += 1;
+                } else {
+                    var->value -= 1;
+                }
+                
+                if (node->node_type == ASTNodeType::AST_PRE_INCDEC) {
+                    return var->value;
+                } else {
+                    return old_ptr_value;
                 }
             } else {
                 // 整数型
@@ -2819,6 +2992,55 @@ TypedValue ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode
                 return v.as_numeric() != 0;
             };
 
+            // ポインタ演算の特別処理
+            if (node->op == "+" || node->op == "-") {
+                // 左オペランドがポインタの場合
+                if (left_value.numeric_type == TYPE_POINTER || left_value.type.type_info == TYPE_POINTER) {
+                    int64_t left_ptr = left_value.as_numeric();
+                    int64_t offset = right_value.as_numeric();
+                    
+                    // メタデータポインタの場合
+                    if (left_ptr & (1LL << 63)) {
+                        int64_t clean_ptr = left_ptr & ~(1LL << 63);
+                        using namespace PointerSystem;
+                        PointerMetadata* meta = reinterpret_cast<PointerMetadata*>(clean_ptr);
+                        
+                        if (meta && meta->target_type == PointerTargetType::ARRAY_ELEMENT) {
+                            // 新しいインデックスを計算
+                            size_t new_index = meta->element_index;
+                            if (node->op == "+") {
+                                new_index += static_cast<size_t>(offset);
+                            } else {  // "-"
+                                if (offset > static_cast<int64_t>(new_index)) {
+                                    throw std::runtime_error("Pointer arithmetic resulted in negative index");
+                                }
+                                new_index -= static_cast<size_t>(offset);
+                            }
+                            
+                            // 範囲チェック
+                            if (new_index >= static_cast<size_t>(meta->array_var->array_size)) {
+                                throw std::runtime_error("Pointer arithmetic out of array bounds");
+                            }
+                            
+                            // 新しいメタデータを作成
+                            PointerMetadata temp_meta = PointerMetadata::create_array_element_pointer(
+                                meta->array_var,
+                                new_index,
+                                meta->element_type
+                            );
+                            PointerMetadata* new_meta = new PointerMetadata(temp_meta);
+                            
+                            // タグ付きポインタを返す
+                            int64_t ptr_value = reinterpret_cast<int64_t>(new_meta);
+                            ptr_value |= (1LL << 63);
+                            
+                            InferredType ptr_type(TYPE_POINTER, "int*");
+                            return TypedValue(ptr_value, ptr_type);
+                        }
+                    }
+                }
+            }
+            
             if (node->op == "+") {
                 return make_numeric_typed_value(left_quad + right_quad, prefer_integral_result);
             } else if (node->op == "-") {
@@ -2937,10 +3159,31 @@ TypedValue ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode
                     throw std::runtime_error("Null pointer dereference");
                 }
                 
-                Variable *var = reinterpret_cast<Variable*>(ptr_int);
-                // 参照先の変数の型で返す
-                InferredType deref_type(TYPE_INT, var->type_name);  // 仮にTYPE_INT、実際は var->type に応じて変更すべき
-                return TypedValue(var->value, deref_type);
+                // ポインタがメタデータを持つかチェック（最上位ビット）
+                if (ptr_int & (1LL << 63)) {
+                    // メタデータポインタの場合
+                    int64_t clean_ptr = ptr_int & ~(1LL << 63);  // タグを除去
+                    
+                    using namespace PointerSystem;
+                    PointerMetadata* meta = reinterpret_cast<PointerMetadata*>(clean_ptr);
+                    
+                    if (!meta) {
+                        throw std::runtime_error("Invalid pointer metadata");
+                    }
+                    
+                    // メタデータから値を読み取り
+                    int64_t value = meta->read_int_value();
+                    // PointerTargetTypeをTypeInfoに変換
+                    TypeInfo elem_type = static_cast<TypeInfo>(meta->target_type);
+                    InferredType deref_type(elem_type, "");
+                    return TypedValue(value, deref_type);
+                } else {
+                    // 従来の方式（変数ポインタ）
+                    Variable *var = reinterpret_cast<Variable*>(ptr_int);
+                    // 参照先の変数の型で返す
+                    InferredType deref_type(TYPE_INT, var->type_name);  // 仮にTYPE_INT、実際は var->type に応じて変更すべき
+                    return TypedValue(var->value, deref_type);
+                }
             }
             
             if (node->op == "+" || node->op == "-") {

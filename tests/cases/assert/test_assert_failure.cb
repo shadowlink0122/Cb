@@ -1,0 +1,12 @@
+// assert関数の失敗テスト
+
+int main() {
+    println("=== Assert Failure Test ===");
+    println("This test should fail and exit with code 1");
+    
+    int x = 5;
+    assert(x == 10); // This will fail
+    
+    println("This line should NOT be printed");
+    return 0;
+}

@@ -10,6 +10,7 @@
 #include "array_copy/test_array_copy.hpp"
 #include "array_literal/test_array_literal.hpp"
 #include "array_return/test_array_return.hpp"
+#include "assert/assert_tests.hpp"
 #include "assign/test_assign.hpp"
 #include "basic/test_basic.hpp"
 #include "bitwise/test_bitwise.hpp"
@@ -254,6 +255,8 @@ int main() {
                            "Recursive Typedef Independence Tests",
                            failed_tests);
     run_test_with_continue(PointerTests::run_all_pointer_tests, "Pointer Tests",
+                           failed_tests);
+    run_test_with_continue(AssertTests::run_all_assert_tests, "Assert Tests",
                            failed_tests);
     CategoryTimingStats::print_category_summary("Advanced Features");
 

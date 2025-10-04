@@ -3,6 +3,7 @@
 #include "core/interpreter.h"
 #include "core/type_inference.h"
 #include "core/error_handler.h"
+#include "core/pointer_metadata.h"
 #include "evaluator/expression_evaluator.h"
 #include "managers/variable_manager.h"
 #include "managers/array_manager.h"
@@ -81,10 +82,30 @@ void StatementExecutor::execute_assignment(const ASTNode *node) {
         // 右辺を評価
         int64_t value = interpreter_.evaluate(node->right.get());
         
-        // ポインタ先の変数に代入
-        Variable *var = reinterpret_cast<Variable*>(ptr_value);
-        var->value = value;
-        var->is_assigned = true;
+        // ポインタがメタデータを持つかチェック
+        if (ptr_value & (1LL << 63)) {
+            // メタデータポインタの場合
+            int64_t clean_ptr = ptr_value & ~(1LL << 63);
+            using namespace PointerSystem;
+            PointerMetadata* meta = reinterpret_cast<PointerMetadata*>(clean_ptr);
+            
+            if (!meta) {
+                throw std::runtime_error("Invalid pointer metadata in assignment");
+            }
+            
+            if (debug_mode) {
+                std::cerr << "[POINTER_METADATA] Assignment through pointer: " 
+                          << meta->to_string() << " = " << value << std::endl;
+            }
+            
+            // メタデータを通じて値を書き込み
+            meta->write_int_value(value);
+        } else {
+            // 従来の方式（変数ポインタ）
+            Variable *var = reinterpret_cast<Variable*>(ptr_value);
+            var->value = value;
+            var->is_assigned = true;
+        }
         return;
     }
     
@@ -968,8 +989,26 @@ void StatementExecutor::execute_variable_declaration(const ASTNode *node) {
             } else {
                 // float/double リテラルを含む全ての初期化式で TypedValue を使用
                 TypedValue typed_value = interpreter_.evaluate_typed(init_node);
+                
+                if (interpreter_.is_debug_mode() && node->name == "ptr") {
+                    std::cerr << "[STMT_EXEC] Initializing variable ptr:" << std::endl;
+                    std::cerr << "  node->type_info=" << static_cast<int>(node->type_info) << std::endl;
+                    std::cerr << "  TYPE_STRING=" << static_cast<int>(TYPE_STRING) << std::endl;
+                    std::cerr << "  TYPE_POINTER=" << static_cast<int>(TYPE_POINTER) << std::endl;
+                    std::cerr << "  var.type=" << static_cast<int>(var.type) << std::endl;
+                }
+                
                 if (var.type == TYPE_STRING) {
                     interpreter_.current_scope().variables[node->name].str_value = init_node->str_value;
+                } else if (node->type_info == TYPE_POINTER) {
+                    // ポインタ型は精度損失を避けるため、直接valueフィールドに代入
+                    interpreter_.current_scope().variables[node->name].value = typed_value.value;
+                    interpreter_.current_scope().variables[node->name].type = TYPE_POINTER;
+                    
+                    if (interpreter_.is_debug_mode()) {
+                        std::cerr << "[STMT_EXEC] Pointer variable " << node->name << " initialized with value="
+                                  << typed_value.value << " (0x" << std::hex << typed_value.value << std::dec << ")" << std::endl;
+                    }
                 } else {
                     interpreter_.assign_variable(node->name, typed_value,
                                                  node->type_info, false);
