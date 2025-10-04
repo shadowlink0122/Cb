@@ -1,0 +1,226 @@
+// implメソッド内でselfのポインタメンバに対してメモリ割り当て・解放を行うテスト
+
+interface DataManager {
+    void allocate(int size);
+    void deallocate();
+    void set_value(int index, int value);
+    int get_value(int index);
+    int get_capacity();
+    bool is_allocated();
+};
+
+// 動的配列を管理する構造体
+struct DynamicArray {
+    int* data;
+    int capacity;
+    bool allocated;
+};
+
+impl DataManager for DynamicArray {
+    // selfのポインタメンバにメモリ割り当て
+    void allocate(int size) {
+        if (self.allocated) {
+            // 既に割り当て済みの場合は解放
+            delete self.data;
+        }
+        self.data = new int[size];
+        self.capacity = size;
+        self.allocated = true;
+        
+        // 初期化
+        int i = 0;
+        while (i < size) {
+            self.data[i] = 0;
+            i = i + 1;
+        }
+    }
+    
+    // selfのポインタメンバを解放
+    void deallocate() {
+        if (self.allocated) {
+            delete self.data;
+            self.data = nullptr;
+            self.capacity = 0;
+            self.allocated = false;
+        }
+    }
+    
+    // selfのポインタメンバ経由で値を設定
+    void set_value(int index, int value) {
+        if (self.allocated && index >= 0 && index < self.capacity) {
+            self.data[index] = value;
+        }
+    }
+    
+    // selfのポインタメンバ経由で値を取得
+    int get_value(int index) {
+        if (self.allocated && index >= 0 && index < self.capacity) {
+            return self.data[index];
+        }
+        return -1;
+    }
+    
+    int get_capacity() {
+        return self.capacity;
+    }
+    
+    bool is_allocated() {
+        return self.allocated;
+    }
+};
+
+// リンクリストノード
+struct Node {
+    int value;
+    Node* next;
+};
+
+interface LinkedList {
+    void append(int value);
+    void print_list();
+    int get_length();
+};
+
+struct ListContainer {
+    Node* head;
+    int length;
+};
+
+impl LinkedList for ListContainer {
+    void append(int value) {
+        Node* new_node = new Node;
+        new_node->value = value;
+        new_node->next = nullptr;
+        
+        if (self.head == nullptr) {
+            self.head = new_node;
+        } else {
+            // 末尾まで辿る
+            Node* current = self.head;
+            while (current->next != nullptr) {
+                current = current->next;
+            }
+            current->next = new_node;
+        }
+        self.length = self.length + 1;
+    }
+    
+    void print_list() {
+        Node* current = self.head;
+        while (current != nullptr) {
+            println(current->value);
+            current = current->next;
+        }
+    }
+    
+    int get_length() {
+        return self.length;
+    }
+};
+
+int main() {
+    println("=== Impl Self Pointer Memory Management Test ===");
+    println("");
+    
+    // Test 1: 動的配列のメモリ割り当て
+    println("Test 1: Dynamic array allocation in impl");
+    DynamicArray arr;
+    arr.data = nullptr;
+    arr.capacity = 0;
+    arr.allocated = false;
+    
+    println("Before allocation:");
+    println("is_allocated = %d", arr.is_allocated());
+    println("capacity = %d", arr.get_capacity());
+    
+    arr.allocate(5);
+    println("After allocation:");
+    println("is_allocated = %d", arr.is_allocated());
+    println("capacity = %d", arr.get_capacity());
+    
+    // 値を設定
+    arr.set_value(0, 10);
+    arr.set_value(1, 20);
+    arr.set_value(2, 30);
+    arr.set_value(3, 40);
+    arr.set_value(4, 50);
+    
+    println("Values:");
+    int i = 0;
+    while (i < 5) {
+        println("arr[%d] = %d", i, arr.get_value(i));
+        i = i + 1;
+    }
+    
+    // 解放
+    arr.deallocate();
+    println("After deallocation:");
+    println("is_allocated = %d", arr.is_allocated());
+    println("capacity = %d", arr.get_capacity());
+    println("✓ Test 1 passed");
+    println("");
+    
+    // Test 2: リンクリストの構築
+    println("Test 2: Linked list construction in impl");
+    ListContainer list;
+    list.head = nullptr;
+    list.length = 0;
+    
+    println("Initial length: %d", list.get_length());
+    
+    list.append(1);
+    list.append(2);
+    list.append(3);
+    list.append(4);
+    list.append(5);
+    
+    println("After appending 5 elements:");
+    println("Length: %d", list.get_length());
+    println("List contents:");
+    list.print_list();
+    
+    println("✓ Test 2 passed");
+    println("");
+    
+    // Test 3: selfのポインタメンバを再割り当て
+    println("Test 3: Reallocation of self pointer member");
+    DynamicArray arr2;
+    arr2.data = nullptr;
+    arr2.capacity = 0;
+    arr2.allocated = false;
+    
+    arr2.allocate(3);
+    arr2.set_value(0, 100);
+    arr2.set_value(1, 200);
+    arr2.set_value(2, 300);
+    
+    println("First allocation (size=3):");
+    i = 0;
+    while (i < 3) {
+        println("arr2[%d] = %d", i, arr2.get_value(i));
+        i = i + 1;
+    }
+    
+    // 再割り当て（サイズ変更）
+    arr2.allocate(5);
+    arr2.set_value(0, 111);
+    arr2.set_value(1, 222);
+    arr2.set_value(2, 333);
+    arr2.set_value(3, 444);
+    arr2.set_value(4, 555);
+    
+    println("After reallocation (size=5):");
+    i = 0;
+    while (i < 5) {
+        println("arr2[%d] = %d", i, arr2.get_value(i));
+        i = i + 1;
+    }
+    
+    arr2.deallocate();
+    println("✓ Test 3 passed");
+    println("");
+    
+    println("=== All impl self pointer memory tests passed ===");
+    
+    return 0;
+}
