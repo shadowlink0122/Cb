@@ -137,16 +137,9 @@ void StatementExecutor::execute_assignment(const ASTNode *node) {
 
     // 右辺が構造体リテラルの場合の特別処理
     if (node->right && node->right->node_type == ASTNodeType::AST_STRUCT_LITERAL) {
-        // Debug output for struct literal assignment
-        std::cerr << "DEBUG: Struct literal assignment detected" << std::endl;
-        std::cerr << "DEBUG: node->left is null: " << (node->left == nullptr) << std::endl;
-        std::cerr.flush();
-        
         if (!node->left) {
             // leftがnullの場合、nameに変数名が入っている可能性がある
             if (!node->name.empty()) {
-                std::cerr << "DEBUG: Using node->name: " << node->name << std::endl;
-                std::cerr.flush();
                 interpreter_.assign_struct_literal(node->name, node->right.get());
                 return;
             }

@@ -503,6 +503,10 @@ class Interpreter : public EvaluatorInterface {
                                 const std::string &member_name);
     void assign_struct_literal(const std::string &var_name,
                                const ASTNode *literal_node);
+    // 構造体メンバの個別変数を再帰的に作成
+    void create_struct_member_variables_recursively(const std::string &base_path,
+                                                     const std::string &struct_type_name,
+                                                     Variable &parent_var);
     void assign_struct_member(const std::string &var_name,
                               const std::string &member_name, int64_t value);
     void assign_struct_member(const std::string &var_name,

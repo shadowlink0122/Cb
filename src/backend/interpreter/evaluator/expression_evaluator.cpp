@@ -2642,6 +2642,15 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                     return 0;
                 } else if (current_var.type == TYPE_POINTER) {
                     return current_var.value;
+                } else if (current_var.type == TYPE_FLOAT || current_var.type == TYPE_DOUBLE || current_var.type == TYPE_QUAD) {
+                    // float/double/quadの場合はTypedValueに設定して返す
+                    InferredType float_type(current_var.type, "");
+                    if (current_var.type == TYPE_QUAD) {
+                        last_typed_result_ = TypedValue(current_var.quad_value, float_type);
+                    } else {
+                        last_typed_result_ = TypedValue(current_var.float_value, float_type);
+                    }
+                    return static_cast<int64_t>(current_var.float_value);
                 } else {
                     return current_var.value;
                 }
@@ -2709,6 +2718,15 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                 } else if (member_var.type == TYPE_STRUCT) {
                     last_typed_result_ = TypedValue(member_var.value, InferredType(TYPE_STRUCT, member_var.type_name));
                     return member_var.value;
+                } else if (member_var.type == TYPE_FLOAT || member_var.type == TYPE_DOUBLE || member_var.type == TYPE_QUAD) {
+                    // float/double/quadの場合
+                    InferredType float_type(member_var.type, "");
+                    if (member_var.type == TYPE_QUAD) {
+                        last_typed_result_ = TypedValue(member_var.quad_value, float_type);
+                    } else {
+                        last_typed_result_ = TypedValue(member_var.float_value, float_type);
+                    }
+                    return static_cast<int64_t>(member_var.float_value);
                 } else {
                     last_typed_result_ = TypedValue(member_var.value, InferredType(member_var.type, ""));
                     return member_var.value;
@@ -2766,6 +2784,14 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                         typed_result.is_numeric_result = false;
                         last_typed_result_ = typed_result;
                         return 0;
+                    } else if (member_var.type == TYPE_FLOAT || member_var.type == TYPE_DOUBLE || member_var.type == TYPE_QUAD) {
+                        InferredType float_type(member_var.type, "");
+                        if (member_var.type == TYPE_QUAD) {
+                            last_typed_result_ = TypedValue(member_var.quad_value, float_type);
+                        } else {
+                            last_typed_result_ = TypedValue(member_var.float_value, float_type);
+                        }
+                        return static_cast<int64_t>(member_var.float_value);
                     } else {
                         return member_var.value;
                     }
@@ -2803,6 +2829,14 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                             typed_result.is_numeric_result = false;
                             last_typed_result_ = typed_result;
                             return 0;
+                        } else if (member_var.type == TYPE_FLOAT || member_var.type == TYPE_DOUBLE || member_var.type == TYPE_QUAD) {
+                            InferredType float_type(member_var.type, "");
+                            if (member_var.type == TYPE_QUAD) {
+                                last_typed_result_ = TypedValue(member_var.quad_value, float_type);
+                            } else {
+                                last_typed_result_ = TypedValue(member_var.float_value, float_type);
+                            }
+                            return static_cast<int64_t>(member_var.float_value);
                         } else {
                             return member_var.value;
                         }
@@ -2835,6 +2869,14 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                 typed_result.is_numeric_result = false;
                 last_typed_result_ = typed_result;
                 return 0;
+            } else if (member_var.type == TYPE_FLOAT || member_var.type == TYPE_DOUBLE || member_var.type == TYPE_QUAD) {
+                InferredType float_type(member_var.type, "");
+                if (member_var.type == TYPE_QUAD) {
+                    last_typed_result_ = TypedValue(member_var.quad_value, float_type);
+                } else {
+                    last_typed_result_ = TypedValue(member_var.float_value, float_type);
+                }
+                return static_cast<int64_t>(member_var.float_value);
             } else {
                 return member_var.value;
             }
@@ -2861,6 +2903,15 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
         if (member_var->type == TYPE_STRING) {
             // 文字列メンバは別途処理が必要（呼び出し元で処理される）
             return 0; // 文字列の場合は0を返すが、実際の文字列は別途取得される
+        } else if (member_var->type == TYPE_FLOAT || member_var->type == TYPE_DOUBLE || member_var->type == TYPE_QUAD) {
+            // float/double/quadの場合は型情報を保持
+            InferredType float_type(member_var->type, "");
+            if (member_var->type == TYPE_QUAD) {
+                last_typed_result_ = TypedValue(member_var->quad_value, float_type);
+            } else {
+                last_typed_result_ = TypedValue(member_var->float_value, float_type);
+            }
+            return static_cast<int64_t>(member_var->float_value);
         }
         return member_var->value;
     }
@@ -2903,6 +2954,14 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
         } else if (member_var.type == TYPE_POINTER) {
             // ポインタメンバの場合はそのまま値を返す
             return member_var.value;
+        } else if (member_var.type == TYPE_FLOAT || member_var.type == TYPE_DOUBLE || member_var.type == TYPE_QUAD) {
+            InferredType float_type(member_var.type, "");
+            if (member_var.type == TYPE_QUAD) {
+                last_typed_result_ = TypedValue(member_var.quad_value, float_type);
+            } else {
+                last_typed_result_ = TypedValue(member_var.float_value, float_type);
+            }
+            return static_cast<int64_t>(member_var.float_value);
         } else {
             return member_var.value;
         }

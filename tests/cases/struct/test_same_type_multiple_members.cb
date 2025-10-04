@@ -1,0 +1,81 @@
+// エッジケース：同じ構造体型の複数メンバ
+
+struct Coordinate {
+    int x;
+    int y;
+    int z;
+};
+
+struct BoundingBox {
+    Coordinate min;
+    Coordinate max;
+    Coordinate center;
+};
+
+struct Transform {
+    Coordinate position;
+    Coordinate rotation;
+    Coordinate scale;
+};
+
+struct GameObject {
+    string name;
+    Transform transform;
+    BoundingBox bounds;
+};
+
+int main() {
+    println("=== Same Struct Type Multiple Members Test ===");
+    
+    // 同じ型の複数の構造体メンバ
+    GameObject obj;
+    obj = {
+        name: "Player",
+        transform: {
+            position: {x: 10, y: 20, z: 30},
+            rotation: {x: 0, y: 90, z: 0},
+            scale: {x: 1, y: 1, z: 1}
+        },
+        bounds: {
+            min: {x: 5, y: 15, z: 25},
+            max: {x: 15, y: 25, z: 35},
+            center: {x: 10, y: 20, z: 30}
+        }
+    };
+    
+    println("GameObject:", obj.name);
+    
+    println("\nTransform:");
+    println("  Position: (", obj.transform.position.x, ",", obj.transform.position.y, ",", obj.transform.position.z, ")");
+    println("  Rotation: (", obj.transform.rotation.x, ",", obj.transform.rotation.y, ",", obj.transform.rotation.z, ")");
+    println("  Scale: (", obj.transform.scale.x, ",", obj.transform.scale.y, ",", obj.transform.scale.z, ")");
+    
+    println("\nBounding Box:");
+    println("  Min: (", obj.bounds.min.x, ",", obj.bounds.min.y, ",", obj.bounds.min.z, ")");
+    println("  Max: (", obj.bounds.max.x, ",", obj.bounds.max.y, ",", obj.bounds.max.z, ")");
+    println("  Center: (", obj.bounds.center.x, ",", obj.bounds.center.y, ",", obj.bounds.center.z, ")");
+    
+    // 全体を更新
+    obj = {
+        name: "Updated Player",
+        transform: {
+            position: {x: 50, y: 60, z: 70},
+            rotation: {x: 45, y: 45, z: 45},
+            scale: {x: 2, y: 2, z: 2}
+        },
+        bounds: {
+            min: {x: 40, y: 50, z: 60},
+            max: {x: 60, y: 70, z: 80},
+            center: {x: 50, y: 60, z: 70}
+        }
+    };
+    
+    println("\nAfter full update:");
+    println("  GameObject:", obj.name);
+    println("  Position: (", obj.transform.position.x, ",", obj.transform.position.y, ",", obj.transform.position.z, ")");
+    println("  Rotation: (", obj.transform.rotation.x, ",", obj.transform.rotation.y, ",", obj.transform.rotation.z, ")");
+    println("  Scale: (", obj.transform.scale.x, ",", obj.transform.scale.y, ",", obj.transform.scale.z, ")");
+    
+    println("\n=== Test Passed ===");
+    return 0;
+}

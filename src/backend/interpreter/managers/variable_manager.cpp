@@ -1811,6 +1811,12 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                                 member_var.value = 0;
                             }
                             member_var.is_assigned = false;
+                            
+                            // 構造体メンバの場合、is_structフラグと型名を設定
+                            if (member_var.type == TYPE_STRUCT && !member.type_alias.empty()) {
+                                member_var.is_struct = true;
+                                member_var.struct_type_name = member.type_alias;
+                            }
 
                             var.struct_members[member.name] = member_var;
                         }
@@ -1821,6 +1827,18 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                         Variable member_direct_var = member_var;
                         current_scope().variables[member_path] =
                             member_direct_var;
+                        
+                        // 構造体メンバの場合、再帰的にサブメンバーの個別変数を作成
+                        // 注意: var.struct_members[member.name]への参照を使用して再帰呼び出し
+                        if (member.type == TYPE_STRUCT && !member.type_alias.empty()) {
+                            if (interpreter_->debug_mode) {
+                                debug_print("Recursively creating nested struct members for: %s (type: %s)\n",
+                                           member_path.c_str(), member.type_alias.c_str());
+                            }
+                            // struct_membersに既に追加されたメンバーを参照
+                            auto& struct_member_ref = var.struct_members[member.name];
+                            interpreter_->create_struct_member_variables_recursively(member_path, member.type_alias, struct_member_ref);
+                        }
 
                         if (interpreter_->debug_mode) {
                             debug_print(

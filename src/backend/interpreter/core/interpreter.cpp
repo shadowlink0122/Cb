@@ -3019,33 +3019,70 @@ Variable *Interpreter::get_struct_member(const std::string &var_name,
 }
 
 // struct literalから値を代入
+// 構造体メンバの個別変数を再帰的に作成
+void Interpreter::create_struct_member_variables_recursively(const std::string &base_path,
+                                                              const std::string &struct_type_name,
+                                                              Variable &parent_var) {
+    // 構造体定義を取得
+    std::string resolved_type = type_manager_->resolve_typedef(struct_type_name);
+    const StructDefinition* struct_def = find_struct_definition(resolved_type);
+    
+    if (!struct_def) {
+        return;
+    }
+    
+    // 各メンバーに対して個別変数を作成
+    for (const auto& member_def : struct_def->members) {
+        std::string full_member_path = base_path + "." + member_def.name;
+        
+        Variable member_var;
+        member_var.type = member_def.type;
+        member_var.is_unsigned = member_def.is_unsigned;
+        member_var.is_assigned = false;
+        
+        // parent_varのstruct_membersに追加
+        parent_var.struct_members[member_def.name] = member_var;
+        
+        // 構造体メンバの場合
+        if (member_def.type == TYPE_STRUCT && !member_def.type_alias.empty()) {
+            member_var.is_struct = true;
+            member_var.struct_type_name = member_def.type_alias;
+            
+            // parent_varのstruct_membersも更新
+            parent_var.struct_members[member_def.name].is_struct = true;
+            parent_var.struct_members[member_def.name].struct_type_name = member_def.type_alias;
+            
+            // 再帰的にサブメンバーを作成
+            create_struct_member_variables_recursively(full_member_path, member_def.type_alias, 
+                                                       parent_var.struct_members[member_def.name]);
+        }
+        
+        // 個別変数を登録（parent_var.struct_membersからコピー）
+        current_scope().variables[full_member_path] = parent_var.struct_members[member_def.name];
+    }
+    
+    // base_pathの個別変数も更新（parent_varの情報をコピー）
+    Variable* base_var = find_variable(base_path);
+    if (base_var) {
+        base_var->struct_members = parent_var.struct_members;
+    }
+}
+
 void Interpreter::assign_struct_literal(const std::string &var_name,
                                         const ASTNode *literal_node) {
-    std::cerr << "[DEBUG ASSIGN_STRUCT_LITERAL] Called for var_name: " << var_name << std::endl;
-    
     if (!literal_node ||
         literal_node->node_type != ASTNodeType::AST_STRUCT_LITERAL) {
-        std::cerr << "[DEBUG ASSIGN_STRUCT_LITERAL] ERROR: Invalid struct literal node" << std::endl;
         throw std::runtime_error("Invalid struct literal");
     }
 
-    std::cerr << "[DEBUG ASSIGN_STRUCT_LITERAL] Finding variable: " << var_name << std::endl;
     Variable *var = find_variable(var_name);
-    std::cerr << "[DEBUG ASSIGN_STRUCT_LITERAL] Variable found: " << (var ? "yes" : "no") << std::endl;
-    if (var) {
-        std::cerr << "[DEBUG ASSIGN_STRUCT_LITERAL] Variable type: " << var->type << " (TYPE_STRUCT=" << TYPE_STRUCT << ")" << std::endl;
-    }
     
     // 変数が見つからない、または構造体でない場合、親構造体のstruct_membersと構造体定義から確認
     if (var && !var->is_struct && var_name.find('.') != std::string::npos) {
-        std::cerr << "[DEBUG ASSIGN_STRUCT_LITERAL] Variable is not marked as struct, checking parent and struct definition..." << std::endl;
-        
         // "o.inner" -> "o" and "inner"
         size_t dot_pos = var_name.rfind('.');
         std::string parent_name = var_name.substr(0, dot_pos);
         std::string member_name = var_name.substr(dot_pos + 1);
-        
-        std::cerr << "[DEBUG ASSIGN_STRUCT_LITERAL] Parent: " << parent_name << ", Member: " << member_name << std::endl;
         
         Variable* parent_var = find_variable(parent_name);
         if (parent_var && parent_var->type == TYPE_STRUCT) {
@@ -3056,7 +3093,6 @@ void Interpreter::assign_struct_literal(const std::string &var_name,
             if (parent_struct_def) {
                 for (const auto& member_def : parent_struct_def->members) {
                     if (member_def.name == member_name && member_def.type == TYPE_STRUCT) {
-                        std::cerr << "[DEBUG ASSIGN_STRUCT_LITERAL] Found struct member in parent definition" << std::endl;
                         var->type = TYPE_STRUCT;
                         var->is_struct = true;
                         var->struct_type_name = member_def.type_alias;
@@ -3249,35 +3285,66 @@ void Interpreter::assign_struct_literal(const std::string &var_name,
                     std::string element_name = var_name + "." + member_name +
                                                "[" + std::to_string(i) + "]";
                     Variable *element_var = find_variable(element_name);
-                             
-                    int64_t value = expression_evaluator_->evaluate_expression(
-                        array_elements[i].get());
                     std::string element_path = member_name + "[" + std::to_string(i) + "]";
-                    clamp_unsigned_member(struct_member_var, value,
-                                           element_path,
-                                           "initialized with array literal");
+                    
+                    // float/double配列の処理
+                    if (struct_member_var.type == TYPE_FLOAT || struct_member_var.type == TYPE_DOUBLE) {
+                        TypedValue typed_result = expression_evaluator_->evaluate_typed_expression(
+                            array_elements[i].get());
+                        double float_value = typed_result.as_double();
 
-                    // 個別変数に代入
-                    if (element_var) {
-                        element_var->value = value;
-                        element_var->is_assigned = true;
+                        // 個別変数に代入
+                        if (element_var) {
+                            element_var->float_value = float_value;
+                            element_var->is_assigned = true;
 
-                        if (debug_mode) {
-                            debug_print("Initialized struct member array "
-                                        "element: %s = %lld\n",
-                                        element_name.c_str(), (long long)value);
+                            if (debug_mode) {
+                                debug_print("Initialized struct member array "
+                                            "element: %s = %f\n",
+                                            element_name.c_str(), float_value);
+                            }
                         }
-                    }
 
-                    // struct_membersの配列要素にも代入
-                    if (i < struct_member_var.array_values.size()) {
-                        struct_member_var.array_values[i] = value;
-                        
-                        if (debug_mode) {
-                            debug_print("Updated struct_members array element: "
-                                        "%s[%zu] = %lld\n",
-                                        member_name.c_str(), i,
-                                        (long long)value);
+                        // struct_membersの配列要素にも代入
+                        if (i < struct_member_var.array_float_values.size()) {
+                            struct_member_var.array_float_values[i] = float_value;
+                            
+                            if (debug_mode) {
+                                debug_print("Updated struct_members array element: "
+                                            "%s[%zu] = %f\n",
+                                            member_name.c_str(), i, float_value);
+                            }
+                        }
+                    } else {
+                        // int/bool/その他の型の配列
+                        int64_t value = expression_evaluator_->evaluate_expression(
+                            array_elements[i].get());
+                        clamp_unsigned_member(struct_member_var, value,
+                                               element_path,
+                                               "initialized with array literal");
+
+                        // 個別変数に代入
+                        if (element_var) {
+                            element_var->value = value;
+                            element_var->is_assigned = true;
+
+                            if (debug_mode) {
+                                debug_print("Initialized struct member array "
+                                            "element: %s = %lld\n",
+                                            element_name.c_str(), (long long)value);
+                            }
+                        }
+
+                        // struct_membersの配列要素にも代入
+                        if (i < struct_member_var.array_values.size()) {
+                            struct_member_var.array_values[i] = value;
+                            
+                            if (debug_mode) {
+                                debug_print("Updated struct_members array element: "
+                                            "%s[%zu] = %lld\n",
+                                            member_name.c_str(), i,
+                                            (long long)value);
+                            }
                         }
                     }
                 }
@@ -3333,36 +3400,73 @@ void Interpreter::assign_struct_literal(const std::string &var_name,
                 // 再帰的にassign_struct_literalを呼び出す
                 debug_msg(DebugMsgId::INTERPRETER_NESTED_STRUCT_LITERAL, full_member_name.c_str());
                 
-                std::cerr << "[DEBUG NESTED] Assigning nested struct literal to: " << full_member_name << std::endl;
-                std::cerr << "[DEBUG NESTED] member_var exists: " << (member_var ? "yes" : "no") << std::endl;
-                
                 // メンバ変数が存在することを確認
                 if (!member_var) {
-                    std::cerr << "[DEBUG NESTED] ERROR: member_var is null for " << full_member_name << std::endl;
                     throw std::runtime_error("Struct member variable not found: " + full_member_name);
                 }
                 
-                std::cerr << "[DEBUG NESTED] Calling assign_struct_literal recursively..." << std::endl;
                 // 再帰的に構造体リテラルを代入
                 assign_struct_literal(full_member_name, member_init->right.get());
                 
-                std::cerr << "[DEBUG NESTED] Recursive call completed, updating struct_member_var" << std::endl;
                 // struct_membersも更新（個別変数から同期）
                 struct_member_var = *member_var;
-                std::cerr << "[DEBUG NESTED] Nested struct literal assignment completed" << std::endl;
             } else {
-                int64_t value = expression_evaluator_->evaluate_expression(
-                    member_init->right.get());
-                clamp_unsigned_member(struct_member_var, value, member_name,
-                                       "initialized with literal");
-                // struct_membersの値を直接更新
-                struct_member_var.value = value;
-                struct_member_var.is_assigned = true;
+                // float/double型の処理
+                if (struct_member_var.type == TYPE_FLOAT || struct_member_var.type == TYPE_DOUBLE) {
+                    TypedValue typed_result = expression_evaluator_->evaluate_typed_expression(
+                        member_init->right.get());
+                    double float_value = typed_result.as_double();
+                    
+                    // struct_membersの値を直接更新（TYPEに応じて適切なフィールドに）
+                    if (struct_member_var.type == TYPE_FLOAT) {
+                        struct_member_var.float_value = static_cast<float>(float_value);
+                    } else if (struct_member_var.type == TYPE_DOUBLE) {
+                        struct_member_var.double_value = float_value;
+                    } else if (struct_member_var.type == TYPE_QUAD) {
+                        struct_member_var.quad_value = static_cast<long double>(float_value);
+                    }
+                    struct_member_var.is_assigned = true;
+                    
+                    // **重要**: var->struct_membersを直接更新
+                    if (var->struct_members[member_name].type == TYPE_FLOAT) {
+                        var->struct_members[member_name].float_value = static_cast<float>(float_value);
+                    } else if (var->struct_members[member_name].type == TYPE_DOUBLE) {
+                        var->struct_members[member_name].double_value = float_value;
+                    } else if (var->struct_members[member_name].type == TYPE_QUAD) {
+                        var->struct_members[member_name].quad_value = static_cast<long double>(float_value);
+                    }
+                    var->struct_members[member_name].is_assigned = true;
 
-                // 直接アクセス変数も更新
-                if (member_var) {
-                    member_var->value = value;
-                    member_var->is_assigned = true;
+                    // 直接アクセス変数も更新
+                    if (member_var) {
+                        if (member_var->type == TYPE_FLOAT) {
+                            member_var->float_value = static_cast<float>(float_value);
+                        } else if (member_var->type == TYPE_DOUBLE) {
+                            member_var->double_value = float_value;
+                        } else if (member_var->type == TYPE_QUAD) {
+                            member_var->quad_value = static_cast<long double>(float_value);
+                        }
+                        member_var->is_assigned = true;
+                    }
+                } else {
+                    // int/bool/その他の型の処理
+                    int64_t value = expression_evaluator_->evaluate_expression(
+                        member_init->right.get());
+                    clamp_unsigned_member(struct_member_var, value, member_name,
+                                           "initialized with literal");
+                    // struct_membersの値を直接更新
+                    struct_member_var.value = value;
+                    struct_member_var.is_assigned = true;
+                    
+                    // **重要**: var->struct_membersを直接更新
+                    var->struct_members[member_name].value = value;
+                    var->struct_members[member_name].is_assigned = true;
+
+                    // 直接アクセス変数も更新
+                    if (member_var) {
+                        member_var->value = value;
+                        member_var->is_assigned = true;
+                    }
                 }
             }
         }
@@ -3436,22 +3540,58 @@ void Interpreter::assign_struct_literal(const std::string &var_name,
                                full_member_name.c_str());
                 }
             } else {
-                int64_t value =
-                    expression_evaluator_->evaluate_expression(init_value);
-                debug_print("STRUCT_LITERAL_DEBUG: Numeric initialization: %s = %lld\n", 
-                           member_def.name.c_str(), (long long)value);
-                clamp_unsigned_member(it->second, value, member_def.name,
-                                       "initialized with literal");
-                it->second.value = value;
+                // float/double型の処理
+                if (it->second.type == TYPE_FLOAT || it->second.type == TYPE_DOUBLE || it->second.type == TYPE_QUAD) {
+                    TypedValue typed_result =
+                        expression_evaluator_->evaluate_typed_expression(init_value);
+                    double float_value = typed_result.as_double();
+                    debug_print("STRUCT_LITERAL_DEBUG: Float/Double initialization: %s = %f\n", 
+                               member_def.name.c_str(), float_value);
+                    
+                    // TYPEに応じて適切なフィールドに設定
+                    if (it->second.type == TYPE_FLOAT) {
+                        it->second.float_value = static_cast<float>(float_value);
+                    } else if (it->second.type == TYPE_DOUBLE) {
+                        it->second.double_value = float_value;
+                    } else if (it->second.type == TYPE_QUAD) {
+                        it->second.quad_value = static_cast<long double>(float_value);
+                    }
+                    it->second.is_assigned = true;
 
-                // 直接アクセス変数も更新
-                std::string full_member_name = var_name + "." + member_def.name;
-                Variable *direct_member_var = find_variable(full_member_name);
-                if (direct_member_var) {
-                    direct_member_var->value = value;
-                    direct_member_var->is_assigned = true;
-                    debug_print("STRUCT_LITERAL_DEBUG: Updated direct access variable: %s = %lld\n", 
-                               full_member_name.c_str(), (long long)value);
+                    // 直接アクセス変数も更新
+                    std::string full_member_name = var_name + "." + member_def.name;
+                    Variable *direct_member_var = find_variable(full_member_name);
+                    if (direct_member_var) {
+                        if (direct_member_var->type == TYPE_FLOAT) {
+                            direct_member_var->float_value = static_cast<float>(float_value);
+                        } else if (direct_member_var->type == TYPE_DOUBLE) {
+                            direct_member_var->double_value = float_value;
+                        } else if (direct_member_var->type == TYPE_QUAD) {
+                            direct_member_var->quad_value = static_cast<long double>(float_value);
+                        }
+                        direct_member_var->is_assigned = true;
+                        debug_print("STRUCT_LITERAL_DEBUG: Updated direct access variable: %s = %f\n", 
+                                   full_member_name.c_str(), float_value);
+                    }
+                } else {
+                    // int/bool/その他の型の処理
+                    int64_t value =
+                        expression_evaluator_->evaluate_expression(init_value);
+                    debug_print("STRUCT_LITERAL_DEBUG: Numeric initialization: %s = %lld\n", 
+                               member_def.name.c_str(), (long long)value);
+                    clamp_unsigned_member(it->second, value, member_def.name,
+                                           "initialized with literal");
+                    it->second.value = value;
+
+                    // 直接アクセス変数も更新
+                    std::string full_member_name = var_name + "." + member_def.name;
+                    Variable *direct_member_var = find_variable(full_member_name);
+                    if (direct_member_var) {
+                        direct_member_var->value = value;
+                        direct_member_var->is_assigned = true;
+                        debug_print("STRUCT_LITERAL_DEBUG: Updated direct access variable: %s = %lld\n", 
+                                   full_member_name.c_str(), (long long)value);
+                    }
                 }
             }
             it->second.is_assigned = true;
