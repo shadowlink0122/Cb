@@ -4981,7 +4981,7 @@ void Interpreter::sync_struct_members_from_direct_access(const std::string &var_
                 member_value.struct_members = direct_var->struct_members;
 
                 var->struct_members[member.name] = member_value;
-                debug_msg(DebugMsgId::INTERPRETER_STRUCT_SYNCED, member.name.c_str());
+                debug_msg(DebugMsgId::INTERPRETER_STRUCT_SYNCED, member.name.c_str(), member_value.struct_members.size());
             }
         } else {
             // ダイレクトアクセス変数が見つからない場合、配列メンバーかチェック
@@ -5053,7 +5053,7 @@ void Interpreter::sync_struct_members_from_direct_access(const std::string &var_
                 
                 if (found_elements) {
                     var->struct_members[member.name].is_assigned = true;
-                    debug_msg(DebugMsgId::INTERPRETER_STRUCT_SYNCED, member.name.c_str());
+                    debug_msg(DebugMsgId::INTERPRETER_STRUCT_SYNCED, member.name.c_str(), (size_t)array_size);
                 }
             }
         }

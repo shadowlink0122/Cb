@@ -1457,17 +1457,56 @@ void StatementExecutor::execute_member_array_assignment(const ASTNode* node) {
         if (node->right->node_type == ASTNodeType::AST_STRING_LITERAL) {
             member_it->second.str_value = node->right->str_value;
             member_it->second.type = TYPE_STRING;
+            debug_print("DEBUG_ASSIGN: Assigned string '%s' to %s.%s[%d].%s\n", 
+                       node->right->str_value.c_str(), obj_name.c_str(), 
+                       array_member_name.c_str(), array_index, member_name.c_str());
         } else {
             TypedValue typed_value = interpreter_.evaluate_typed(node->right.get());
             if (typed_value.is_floating()) {
                 member_it->second.double_value = typed_value.as_double();
                 member_it->second.type = typed_value.type.type_info;
+                debug_print("DEBUG_ASSIGN: Assigned double %f to %s.%s[%d].%s\n", 
+                           typed_value.as_double(), obj_name.c_str(), 
+                           array_member_name.c_str(), array_index, member_name.c_str());
             } else {
-                member_it->second.value = typed_value.as_numeric();
+                int64_t value = typed_value.as_numeric();
+                member_it->second.value = value;
                 member_it->second.type = typed_value.type.type_info;
+                debug_print("DEBUG_ASSIGN: Assigned integer %lld to %s.%s[%d].%s\n", 
+                           value, obj_name.c_str(), 
+                           array_member_name.c_str(), array_index, member_name.c_str());
             }
         }
         member_it->second.is_assigned = true;
+        
+        // ダイレクトアクセス変数も更新
+        std::string direct_access_name = obj_name + "." + element_key + "." + member_name;
+        Variable* direct_var = interpreter_.find_variable(direct_access_name);
+        if (direct_var) {
+            if (member_it->second.type == TYPE_STRING) {
+                direct_var->str_value = member_it->second.str_value;
+            } else if (member_it->second.type == TYPE_FLOAT || member_it->second.type == TYPE_DOUBLE) {
+                direct_var->double_value = member_it->second.double_value;
+            } else {
+                direct_var->value = member_it->second.value;
+            }
+            direct_var->type = member_it->second.type;
+            direct_var->is_assigned = true;
+            debug_print("DEBUG_ASSIGN: Updated direct access variable: %s = %lld\n", 
+                       direct_access_name.c_str(), direct_var->value);
+        }
+        
+        // 構造体配列要素変数自体の struct_members も更新
+        std::string element_var_name = obj_name + "." + element_key;
+        Variable* element_variable = interpreter_.find_variable(element_var_name);
+        if (element_variable && element_variable->is_struct) {
+            auto elem_member_it = element_variable->struct_members.find(member_name);
+            if (elem_member_it != element_variable->struct_members.end()) {
+                elem_member_it->second = member_it->second;
+                debug_print("DEBUG_ASSIGN: Updated element variable struct_members: %s.%s = %lld\n", 
+                           element_var_name.c_str(), member_name.c_str(), elem_member_it->second.value);
+            }
+        }
         
         debug_print("DEBUG: Nested struct array member assigned: %s.%s[%d].%s\n", 
                    obj_name.c_str(), array_member_name.c_str(), array_index, member_name.c_str());
