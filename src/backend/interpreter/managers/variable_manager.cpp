@@ -993,7 +993,9 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
         }
         
         // interface変数の場合の追加設定
-        if (node->type_info == TYPE_INTERFACE && !node->type_name.empty()) {
+        if ((node->type_info == TYPE_INTERFACE || 
+             (node->is_pointer && node->pointer_base_type == TYPE_INTERFACE)) && 
+            !node->type_name.empty()) {
             // ポインタの場合は、ベース型名を使用
             if (node->is_pointer && !node->pointer_base_type_name.empty()) {
                 var.interface_name = node->pointer_base_type_name;
@@ -1877,7 +1879,8 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
 
                 return; // struct literal処理完了後は早期リターン
 
-            } else if (!var.interface_name.empty()) {
+            } else if (!var.interface_name.empty() && var.type != TYPE_POINTER) {
+                // Interface型変数（ポインタを除く）の初期化処理
                 auto assign_from_source = [&](const Variable& source, const std::string& source_name) {
                     assign_interface_view(node->name, var, source, source_name);
                 };
@@ -2677,7 +2680,13 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                                          var_name);
             }
 
-            if (var->type == TYPE_INTERFACE || !var->interface_name.empty()) {
+            // Interface型の変数（ポインタを除く）の代入処理
+            if (debug_mode) {
+                debug_print("VAR_ASSIGN_DEBUG: var_name=%s, var->type=%d, TYPE_POINTER=%d, interface_name='%s'\n",
+                           var_name.c_str(), static_cast<int>(var->type), static_cast<int>(TYPE_POINTER),
+                           var->interface_name.c_str());
+            }
+            if ((var->type == TYPE_INTERFACE || !var->interface_name.empty()) && var->type != TYPE_POINTER) {
                 auto assign_from_source = [&](const Variable &source,
                                                const std::string &source_name) {
                     assign_interface_view(var_name, *var, source, source_name);

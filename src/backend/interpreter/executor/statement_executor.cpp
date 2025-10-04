@@ -436,9 +436,11 @@ void StatementExecutor::execute_assignment(const ASTNode *node) {
 
         Variable *target_var = interpreter_.find_variable(target_name);
 
+        // Interface型変数（ポインタを除く）への代入処理
         if (target_var &&
             (target_var->type == TYPE_INTERFACE ||
-             !target_var->interface_name.empty())) {
+             !target_var->interface_name.empty()) &&
+            target_var->type != TYPE_POINTER) {
             auto assign_from_source = [&](const Variable &source,
                                           const std::string &source_name) {
                 interpreter_.get_variable_manager()->assign_interface_view(
@@ -640,6 +642,8 @@ void StatementExecutor::execute_variable_declaration(const ASTNode *node) {
         std::cerr << "[DEBUG_EXEC] Executing variable declaration: " << node->name
                   << ", type_info: " << (int)node->type_info
                   << ", type_name: " << node->type_name 
+                  << ", is_pointer: " << node->is_pointer
+                  << ", pointer_base_type: " << (int)node->pointer_base_type
                   << ", is_reference: " << node->is_reference << std::endl;
     }
     
