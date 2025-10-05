@@ -3961,6 +3961,28 @@ ASTNode* RecursiveParser::parseStructDeclaration() {
     // struct定義をパーサー内に保存（変数宣言の認識のため）
     struct_definitions_[struct_name] = struct_def;
     
+    // 循環参照チェック: 値メンバーによる循環を検出
+    for (const auto& member : struct_def.members) {
+        // ポインタメンバーと配列メンバーはスキップ
+        if (member.is_pointer || member.array_info.is_array()) {
+            continue;
+        }
+        
+        std::unordered_set<std::string> visited;
+        std::vector<std::string> path;
+        path.push_back(struct_name);
+        
+        if (detectCircularReference(struct_name, member.type_alias, visited, path)) {
+            std::string cycle_path = struct_name;
+            for (size_t i = 1; i < path.size(); ++i) {
+                cycle_path += " -> " + path[i];
+            }
+            error("Circular reference detected in struct value members: " + cycle_path + 
+                  ". Use pointers to break the cycle.");
+            return nullptr;
+        }
+    }
+    
     debug_msg(DebugMsgId::PARSE_STRUCT_DEF, struct_name.c_str());
     
     // ASTノードを作成してstruct定義情報を保存
@@ -4116,6 +4138,29 @@ ASTNode* RecursiveParser::parseStructTypedefDeclaration() {
     if (!tag_name.empty()) {
         struct_def.name = tag_name;
         struct_definitions_[tag_name] = struct_def;
+    }
+    
+    // 循環参照チェック: 値メンバーによる循環を検出
+    std::string check_name = !tag_name.empty() ? tag_name : alias_name;
+    for (const auto& member : struct_def.members) {
+        // ポインタメンバーと配列メンバーはスキップ
+        if (member.is_pointer || member.array_info.is_array()) {
+            continue;
+        }
+        
+        std::unordered_set<std::string> visited;
+        std::vector<std::string> path;
+        path.push_back(check_name);
+        
+        if (detectCircularReference(check_name, member.type_alias, visited, path)) {
+            std::string cycle_path = check_name;
+            for (size_t i = 1; i < path.size(); ++i) {
+                cycle_path += " -> " + path[i];
+            }
+            error("Circular reference detected in struct value members: " + cycle_path + 
+                  ". Use pointers to break the cycle.");
+            return nullptr;
+        }
         // タグ名からエイリアスへのマッピングも追加（struct Tag形式でアクセス可能に）
         typedef_map_[alias_name] = tag_name;
     }
@@ -5163,4 +5208,75 @@ ASTNode* RecursiveParser::parseImplDeclaration() {
     }
     
     return node;
+}
+
+// 循環参照検出: 値メンバーによる循環を検出（ポインタメンバーは除外）
+bool RecursiveParser::detectCircularReference(const std::string& struct_name, 
+                                             const std::string& member_type,
+                                             std::unordered_set<std::string>& visited,
+                                             std::vector<std::string>& path) {
+    // 型名を正規化（"struct " プレフィックスを除去）
+    std::string normalized_type = member_type;
+    if (normalized_type.rfind("struct ", 0) == 0) {
+        normalized_type = normalized_type.substr(7);
+    }
+    
+    // 構造体型でなければ循環なし
+    if (struct_definitions_.find(normalized_type) == struct_definitions_.end()) {
+        return false;
+    }
+    
+    // 開始構造体に戻ってきたら循環検出
+    if (normalized_type == struct_name) {
+        path.push_back(normalized_type);
+        return true;
+    }
+    
+    // 既に訪問済みなら循環なし（異なる構造体への循環）
+    if (visited.find(normalized_type) != visited.end()) {
+        return false;
+    }
+    
+    // 訪問マーク
+    visited.insert(normalized_type);
+    path.push_back(normalized_type);
+    
+    // メンバーを再帰的にチェック
+    const StructDefinition& struct_def = struct_definitions_[normalized_type];
+    for (const auto& member : struct_def.members) {
+        // ポインタメンバーはスキップ（メモリ発散しない）
+        if (member.is_pointer) {
+            continue;
+        }
+        
+        // 配列メンバーはスキップ（固定サイズなので発散しない）
+        if (member.array_info.is_array()) {
+            continue;
+        }
+        
+        // 値メンバーの型を再帰的にチェック
+        std::string member_base_type = member.type_alias;
+        if (member_base_type.empty()) {
+            // TypeInfoから型名を復元（構造体の場合）
+            if (member.type == TYPE_STRUCT) {
+                // struct_type_nameまたはpointer_base_type_nameから取得
+                member_base_type = member.pointer_base_type_name;
+                if (member_base_type.empty()) {
+                    continue;
+                }
+            } else {
+                continue; // プリミティブ型はスキップ
+            }
+        }
+        
+        if (detectCircularReference(struct_name, member_base_type, visited, path)) {
+            return true;
+        }
+    }
+    
+    // バックトラック
+    path.pop_back();
+    visited.erase(normalized_type);
+    
+    return false;
 }

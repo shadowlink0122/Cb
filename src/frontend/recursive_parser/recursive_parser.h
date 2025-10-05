@@ -3,6 +3,8 @@
 #include "../../common/ast.h"
 #include <memory>
 #include <unordered_map>
+#include <unordered_set>
+#include <vector>
 
 using namespace RecursiveParserNS;
 
@@ -162,4 +164,11 @@ public:
     const std::unordered_map<std::string, UnionDefinition>& get_union_definitions() const {
         return union_definitions_;
     }
+    
+private:
+    // 循環参照検出用のヘルパー関数
+    bool detectCircularReference(const std::string& struct_name, 
+                                 const std::string& member_type,
+                                 std::unordered_set<std::string>& visited,
+                                 std::vector<std::string>& path);
 };
