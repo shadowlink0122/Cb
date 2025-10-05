@@ -425,6 +425,7 @@ class Interpreter : public EvaluatorInterface {
     Variable *get_variable(const std::string &name) {
         return find_variable(name);
     }
+    std::string find_variable_name_by_address(const Variable* target_var);
     
     // 一時変数管理（メソッドチェーン用）
     void add_temp_variable(const std::string &name, const Variable &var);

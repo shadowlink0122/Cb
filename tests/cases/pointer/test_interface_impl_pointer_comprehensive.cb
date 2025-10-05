@@ -1,0 +1,136 @@
+interface Shape {
+    int area();
+    int perimeter();
+    int test_pointer_ops();
+    int test_address_investigation();
+};
+
+struct Rectangle {
+    int width;
+    int height;
+};
+
+impl Shape for Rectangle {
+    int area() {
+        return self.width * self.height;
+    }
+    
+    int perimeter() {
+        return 2 * (self.width + self.height);
+    }
+    
+    // implブロック内でのポインタ操作テスト
+    int test_pointer_ops() {
+        int[3] values = [10, 20, 30];
+        int* p = &values[0];
+        
+        int sum = 0;
+        sum = sum + *p;  // 10
+        p++;
+        sum = sum + *p;  // 20
+        p++;
+        sum = sum + *p;  // 30
+        
+        return sum;  // 期待値: 60
+    }
+    
+    // アドレスと値の調査
+    int test_address_investigation() {
+        int[5] arr = [1, 2, 3, 4, 5];
+        int* p1 = &arr[0];
+        int* p2 = &arr[1];
+        
+        if (*p1 != 1) {
+            return -1;
+        }
+        if (*p2 != 2) {
+            return -2;
+        }
+        
+        p1 = p1 + 1;
+        if (*p1 != 2) {
+            return -3;
+        }
+        
+        if (*p1 != *p2) {
+            return -4;
+        }
+        
+        return 100;  // 成功
+    }
+};
+
+int main() {
+    println("=== Interface Pointer and Impl Block Pointer Test ===");
+    println("");
+    
+    Rectangle rect;
+    rect.width = 10;
+    rect.height = 20;
+    
+    // テスト1: インターフェース型変数へのポインタ
+    println("Test 1: Interface pointer method calls");
+    Shape* shape_ptr = &rect;
+    
+    int area_result = (*shape_ptr).area();
+    if (area_result != 200) {
+        println("  FAIL: Interface pointer area()");
+        return 1;
+    }
+    println("  (*shape_ptr).area() = 200");
+    
+    int perimeter_result = (*shape_ptr).perimeter();
+    if (perimeter_result != 60) {
+        println("  FAIL: Interface pointer perimeter()");
+        return 1;
+    }
+    println("  (*shape_ptr).perimeter() = 60");
+    println("  ✓ Test 1 passed");
+    
+    // テスト2: impl内でのポインタ操作
+    println("Test 2: Pointer operations inside impl");
+    int pointer_ops_result = rect.test_pointer_ops();
+    if (pointer_ops_result != 60) {
+        println("  FAIL: Expected 60, got", pointer_ops_result);
+        return 1;
+    }
+    println("  test_pointer_ops() = 60");
+    println("  ✓ Test 2 passed");
+    
+    // テスト3: impl内でのアドレス調査
+    println("Test 3: Address investigation inside impl");
+    int address_test_result = rect.test_address_investigation();
+    if (address_test_result != 100) {
+        println("  FAIL: Error code", address_test_result);
+        return 1;
+    }
+    println("  test_address_investigation() = 100 (success)");
+    println("  ✓ Test 3 passed");
+    
+    // テスト4: インターフェースポインタ経由でimpl内のポインタテストを呼び出す
+    println("Test 4: Impl pointer tests via interface pointer");
+    Shape* sp = &rect;
+    int result_via_interface = (*sp).test_pointer_ops();
+    if (result_via_interface != 60) {
+        println("  FAIL: Pointer operations via interface pointer");
+        return 1;
+    }
+    println("  (*sp).test_pointer_ops() = 60");
+    println("  ✓ Test 4 passed");
+    
+    // テスト5: 複数のimplメソッド呼び出し
+    println("Test 5: Multiple impl method calls");
+    int test1 = (*sp).test_address_investigation();
+    int test2 = (*sp).test_pointer_ops();
+    
+    if (test1 != 100 || test2 != 60) {
+        println("  FAIL: Multiple method calls");
+        return 1;
+    }
+    println("  Multiple calls succeeded");
+    println("  ✓ Test 5 passed");
+    
+    println("");
+    println("=== All interface and impl pointer tests passed ===");
+    return 0;
+}

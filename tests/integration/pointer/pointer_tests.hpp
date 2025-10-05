@@ -1095,6 +1095,419 @@ inline void test_comprehensive_address_of() {
 }
 
 // ============================================================================
+// 新規テスト: 宣言時初期化の包括的テスト
+// ============================================================================
+
+inline void test_declaration_init_comprehensive() {
+    double execution_time = 0.0;
+    run_cb_test_with_output_and_time(
+        "../../tests/cases/pointer/test_declaration_init_comprehensive.cb",
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "宣言時初期化包括テストがエラー終了");
+            
+            INTEGRATION_ASSERT(output.find("=== Declaration with Initialization and Basic Operations Test ===") != std::string::npos,
+                             "テストヘッダーが出力されていない");
+            
+            // Test 1: 宣言時初期化
+            INTEGRATION_ASSERT(output.find("Test 1: Declaration with initialization") != std::string::npos,
+                             "Test 1が実行されていない");
+            INTEGRATION_ASSERT(output.find("*p = 10") != std::string::npos,
+                             "初期化された値が正しくない");
+            INTEGRATION_ASSERT(output.find("✓ Test 1 passed") != std::string::npos,
+                             "Test 1のパスメッセージがない");
+            
+            // Test 2: ポインタ加算 +1
+            INTEGRATION_ASSERT(output.find("Test 2: Pointer addition +1") != std::string::npos,
+                             "Test 2が実行されていない");
+            INTEGRATION_ASSERT(output.find("*p = 200") != std::string::npos,
+                             "ポインタ演算後の値が正しくない");
+            INTEGRATION_ASSERT(output.find("✓ Test 2 passed") != std::string::npos,
+                             "Test 2のパスメッセージがない");
+            
+            // Test 3: ポインタ加算 +2
+            INTEGRATION_ASSERT(output.find("Test 3: Pointer addition +2") != std::string::npos,
+                             "Test 3が実行されていない");
+            INTEGRATION_ASSERT(output.find("*p = 400") != std::string::npos,
+                             "ポインタ演算+2後の値が正しくない");
+            INTEGRATION_ASSERT(output.find("✓ Test 3 passed") != std::string::npos,
+                             "Test 3のパスメッセージがない");
+            
+            // Test 4: ポインタ減算
+            INTEGRATION_ASSERT(output.find("Test 4: Pointer subtraction") != std::string::npos,
+                             "Test 4が実行されていない");
+            INTEGRATION_ASSERT(output.find("*p = 300") != std::string::npos,
+                             "ポインタ演算-1後の値が正しくない");
+            INTEGRATION_ASSERT(output.find("✓ Test 4 passed") != std::string::npos,
+                             "Test 4のパスメッセージがない");
+            
+            // Test 5: 後置インクリメント
+            INTEGRATION_ASSERT(output.find("Test 5: Post-increment") != std::string::npos,
+                             "Test 5が実行されていない");
+            INTEGRATION_ASSERT(output.find("After q++: *q = 200") != std::string::npos,
+                             "インクリメント後の値が正しくない");
+            INTEGRATION_ASSERT(output.find("✓ Test 5 passed") != std::string::npos,
+                             "Test 5のパスメッセージがない");
+            
+            // Test 6: 後置デクリメント
+            INTEGRATION_ASSERT(output.find("Test 6: Post-decrement") != std::string::npos,
+                             "Test 6が実行されていない");
+            INTEGRATION_ASSERT(output.find("After q--: *q = 100") != std::string::npos,
+                             "デクリメント後の値が正しくない");
+            INTEGRATION_ASSERT(output.find("✓ Test 6 passed") != std::string::npos,
+                             "Test 6のパスメッセージがない");
+            
+            // Test 7: 複数ポインタ
+            INTEGRATION_ASSERT(output.find("Test 7: Multiple pointers to same array") != std::string::npos,
+                             "Test 7が実行されていない");
+            INTEGRATION_ASSERT(output.find("*r = 300") != std::string::npos,
+                             "複数ポインタの値が正しくない");
+            INTEGRATION_ASSERT(output.find("✓ Test 7 passed") != std::string::npos,
+                             "Test 7のパスメッセージがない");
+            
+            // Test 8: ポインタ経由の値変更
+            INTEGRATION_ASSERT(output.find("Test 8: Value modification through pointer") != std::string::npos,
+                             "Test 8が実行されていない");
+            INTEGRATION_ASSERT(output.find("After *r = 999: arr[2] = 999, *r = 999") != std::string::npos,
+                             "変更後の値が正しくない");
+            INTEGRATION_ASSERT(output.find("✓ Test 8 passed") != std::string::npos,
+                             "Test 8のパスメッセージがない");
+            
+            // Test 9: 別ポインタ
+            INTEGRATION_ASSERT(output.find("Test 9: Another pointer to same element") != std::string::npos,
+                             "Test 9が実行されていない");
+            INTEGRATION_ASSERT(output.find("*s = 999") != std::string::npos,
+                             "値が正しくない");
+            INTEGRATION_ASSERT(output.find("✓ Test 9 passed") != std::string::npos,
+                             "Test 9のパスメッセージがない");
+            
+            // Test 10: アドレス表示
+            INTEGRATION_ASSERT(output.find("Test 10: Pointer address display") != std::string::npos,
+                             "Test 10が実行されていない");
+            INTEGRATION_ASSERT(output.find("Pointer value: p = 0x") != std::string::npos,
+                             "アドレスが16進数表示されていない");
+            INTEGRATION_ASSERT(output.find("✓ Test 10 passed") != std::string::npos,
+                             "Test 10のパスメッセージがない");
+            
+            INTEGRATION_ASSERT(output.find("=== All declaration and basic operation tests passed ===") != std::string::npos,
+                             "最終メッセージが表示されていない");
+        },
+        execution_time
+    );
+    
+    printf("[✓] test_declaration_init_comprehensive passed (%.3fms)\n", execution_time);
+}
+
+// ============================================================================
+// 新規テスト: アドレス表示の包括的テスト
+// ============================================================================
+
+inline void test_address_display_comprehensive() {
+    double execution_time = 0.0;
+    run_cb_test_with_output_and_time(
+        "../../tests/cases/pointer/test_address_display_comprehensive.cb",
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "アドレス表示包括テストがエラー終了");
+            
+            INTEGRATION_ASSERT(output.find("=== Address Display and Pointer Arithmetic Detailed Test ===") != std::string::npos,
+                             "テストヘッダーが出力されていない");
+            
+            // Test 1: 16進数アドレス表示
+            INTEGRATION_ASSERT(output.find("Test 1: Hexadecimal address display") != std::string::npos,
+                             "Test 1が実行されていない");
+            INTEGRATION_ASSERT(output.find("p = 0x") != std::string::npos,
+                             "アドレスが16進数表示されていない");
+            INTEGRATION_ASSERT(output.find("*p = 10") != std::string::npos,
+                             "ポインタの値が正しくない");
+            INTEGRATION_ASSERT(output.find("✓ Test 1 passed") != std::string::npos,
+                             "Test 1のパスメッセージがない");
+            
+            // Test 2: ポインタ演算とアドレス遷移
+            INTEGRATION_ASSERT(output.find("Test 2: Pointer arithmetic and address transition") != std::string::npos,
+                             "Test 2が実行されていない");
+            // アドレス遷移を複数回確認
+            int hex_count = 0;
+            size_t pos = 0;
+            while ((pos = output.find("0x", pos)) != std::string::npos) {
+                hex_count++;
+                pos += 2;
+            }
+            INTEGRATION_ASSERT(hex_count >= 5, "アドレスの16進数表示が不足している");
+            INTEGRATION_ASSERT(output.find("✓ Test 2 passed") != std::string::npos,
+                             "Test 2のパスメッセージがない");
+            
+            // Test 3: ポインタ減算
+            INTEGRATION_ASSERT(output.find("Test 3: Pointer subtraction") != std::string::npos,
+                             "Test 3が実行されていない");
+            INTEGRATION_ASSERT(output.find("Before: p = 0x") != std::string::npos,
+                             "減算前のアドレスが表示されていない");
+            INTEGRATION_ASSERT(output.find("*p = 30") != std::string::npos,
+                             "減算前の値が正しくない");
+            INTEGRATION_ASSERT(output.find("✓ Test 3 passed") != std::string::npos,
+                             "Test 3のパスメッセージがない");
+            
+            // Test 4: 複数ポインタのアドレス比較
+            INTEGRATION_ASSERT(output.find("Test 4: Multiple pointers address comparison") != std::string::npos,
+                             "Test 4が実行されていない");
+            INTEGRATION_ASSERT(output.find("p1 = 0x") != std::string::npos,
+                             "p1のアドレスが表示されていない");
+            INTEGRATION_ASSERT(output.find("p2 = 0x") != std::string::npos,
+                             "p2のアドレスが表示されていない");
+            INTEGRATION_ASSERT(output.find("p3 = 0x") != std::string::npos,
+                             "p3のアドレスが表示されていない");
+            INTEGRATION_ASSERT(output.find("✓ Test 4 passed") != std::string::npos,
+                             "Test 4のパスメッセージがない");
+            
+            // Test 5: インクリメント/デクリメントとアドレス
+            INTEGRATION_ASSERT(output.find("Test 5: Increment/Decrement and address") != std::string::npos,
+                             "Test 5が実行されていない");
+            INTEGRATION_ASSERT(output.find("Initial q = 0x") != std::string::npos,
+                             "初期アドレスが表示されていない");
+            INTEGRATION_ASSERT(output.find("After q++: q = 0x") != std::string::npos,
+                             "インクリメント後のアドレスが表示されていない");
+            INTEGRATION_ASSERT(output.find("After q--: q = 0x") != std::string::npos,
+                             "デクリメント後のアドレスが表示されていない");
+            INTEGRATION_ASSERT(output.find("✓ Test 5 passed") != std::string::npos,
+                             "Test 5のパスメッセージがない");
+            
+            // Test 6: ポインタ変数自体のアドレス
+            INTEGRATION_ASSERT(output.find("Test 6: Address of pointer variable itself") != std::string::npos,
+                             "Test 6が実行されていない");
+            INTEGRATION_ASSERT(output.find("Pointer value: p = 0x") != std::string::npos,
+                             "ポインタ値のアドレスが表示されていない");
+            INTEGRATION_ASSERT(output.find("✓ Test 6 passed") != std::string::npos,
+                             "Test 6のパスメッセージがない");
+            
+            INTEGRATION_ASSERT(output.find("=== All address display and arithmetic tests passed ===") != std::string::npos,
+                             "最終メッセージが表示されていない");
+        },
+        execution_time
+    );
+    
+    printf("[✓] test_address_display_comprehensive passed (%.3fms)\n", execution_time);
+}
+
+// ============================================================================
+// 新規テスト: 構造体ポインタ操作の包括的テスト
+// ============================================================================
+
+inline void test_struct_pointer_operations_comprehensive() {
+    double execution_time = 0.0;
+    run_cb_test_with_output_and_time(
+        "../../tests/cases/pointer/test_struct_pointer_operations.cb",
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "構造体ポインタ操作包括テストがエラー終了");
+            
+            INTEGRATION_ASSERT(output.find("=== Struct Pointer Operations Comprehensive Test ===") != std::string::npos,
+                             "テストヘッダーが出力されていない");
+            
+            // Test 1: 構造体変数へのポインタ
+            INTEGRATION_ASSERT(output.find("Test 1: Pointer to struct variable") != std::string::npos,
+                             "Test 1が実行されていない");
+            INTEGRATION_ASSERT(output.find("  (*ptr).x = 10, (*ptr).y = 20") != std::string::npos,
+                             "ポインタの値が正しくない");
+            INTEGRATION_ASSERT(output.find("✓ Test 1 passed") != std::string::npos,
+                             "Test 1のパスメッセージがない");
+            
+            // Test 2: ポインタ経由の構造体メンバ変更
+            INTEGRATION_ASSERT(output.find("Test 2: Modify struct through pointer") != std::string::npos,
+                             "Test 2が実行されていない");
+            INTEGRATION_ASSERT(output.find("After modification: p1.x = 100, p1.y = 200") != std::string::npos,
+                             "変更後の値が正しくない");
+            INTEGRATION_ASSERT(output.find("✓ Test 2 passed") != std::string::npos,
+                             "Test 2のパスメッセージがない");
+            
+            // Test 3: 別のPoint構造体へのポインタ
+            INTEGRATION_ASSERT(output.find("Test 3: Another Point pointer") != std::string::npos,
+                             "Test 3が実行されていない");
+            INTEGRATION_ASSERT(output.find("  (*p3ptr).x = 50, (*p3ptr).y = 75") != std::string::npos,
+                             "値が正しくない");
+            INTEGRATION_ASSERT(output.find("✓ Test 3 passed") != std::string::npos,
+                             "Test 3のパスメッセージがない");
+            
+            // Test 4: ポインタ経由での値変更
+            INTEGRATION_ASSERT(output.find("Test 4: Modify Point through pointer") != std::string::npos,
+                             "Test 4が実行されていない");
+            INTEGRATION_ASSERT(output.find("Modified via pointer: p3.x = 150, p3.y = 250") != std::string::npos,
+                             "変更後の値が正しくない");
+            INTEGRATION_ASSERT(output.find("✓ Test 4 passed") != std::string::npos,
+                             "Test 4のパスメッセージがない");
+            
+            // Test 5: 複数の構造体ポインタ
+            INTEGRATION_ASSERT(output.find("Test 5: Multiple struct pointers") != std::string::npos,
+                             "Test 5が実行されていない");
+            INTEGRATION_ASSERT(output.find("  (*pa_ptr).x = 1, (*pb_ptr).x = 3, (*pc_ptr).x = 5") != std::string::npos,
+                             "複数ポインタの値が正しくない");
+            INTEGRATION_ASSERT(output.find("✓ Test 5 passed") != std::string::npos,
+                             "Test 5のパスメッセージがない");
+            
+            // Test 6: 構造体ポインタの再代入
+            INTEGRATION_ASSERT(output.find("Test 6: Struct pointer reassignment") != std::string::npos,
+                             "Test 6が実行されていない");
+            INTEGRATION_ASSERT(output.find("  initially points to s6a: (*ptr6).x = 111") != std::string::npos,
+                             "初期状態のポインタが正しくない");
+            INTEGRATION_ASSERT(output.find("  after reassignment to s6b: (*ptr6).x = 333") != std::string::npos,
+                             "再代入後のポインタが正しくない");
+            INTEGRATION_ASSERT(output.find("✓ Test 6 passed") != std::string::npos,
+                             "Test 6のパスメッセージがない");
+            
+            INTEGRATION_ASSERT(output.find("=== All struct pointer operations tests passed ===") != std::string::npos,
+                             "最終メッセージが表示されていない");
+        },
+        execution_time
+    );
+    
+    printf("[✓] test_struct_pointer_operations_comprehensive passed (%.3fms)\n", execution_time);
+}
+
+// ============================================================================
+// 新規テスト: インターフェースとimplブロック内でのポインタ操作
+// ============================================================================
+
+inline void test_interface_impl_pointer_comprehensive() {
+    double execution_time = 0.0;
+    run_cb_test_with_output_and_time(
+        "../../tests/cases/pointer/test_interface_impl_pointer_comprehensive.cb",
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "インターフェースとimplポインタ包括テストがエラー終了");
+            
+            INTEGRATION_ASSERT(output.find("=== Interface Pointer and Impl Block Pointer Test ===") != std::string::npos,
+                             "テストヘッダーが出力されていない");
+            
+            // Test 1: インターフェースポインタ経由のメソッド呼び出し
+            INTEGRATION_ASSERT(output.find("Test 1: Interface pointer method calls") != std::string::npos,
+                             "Test 1が実行されていない");
+            INTEGRATION_ASSERT(output.find("(*shape_ptr).area() = 200") != std::string::npos,
+                             "area()の結果が正しくない");
+            INTEGRATION_ASSERT(output.find("(*shape_ptr).perimeter() = 60") != std::string::npos,
+                             "perimeter()の結果が正しくない");
+            INTEGRATION_ASSERT(output.find("✓ Test 1 passed") != std::string::npos,
+                             "Test 1のパスメッセージがない");
+            
+            // Test 2: impl内でのポインタ操作
+            INTEGRATION_ASSERT(output.find("Test 2: Pointer operations inside impl") != std::string::npos,
+                             "Test 2が実行されていない");
+            INTEGRATION_ASSERT(output.find("test_pointer_ops() = 60") != std::string::npos,
+                             "implブロック内のポインタ操作結果が正しくない");
+            INTEGRATION_ASSERT(output.find("✓ Test 2 passed") != std::string::npos,
+                             "Test 2のパスメッセージがない");
+            
+            // Test 3: impl内でのアドレス調査
+            INTEGRATION_ASSERT(output.find("Test 3: Address investigation inside impl") != std::string::npos,
+                             "Test 3が実行されていない");
+            INTEGRATION_ASSERT(output.find("test_address_investigation() = 100 (success)") != std::string::npos,
+                             "アドレス調査の結果が正しくない");
+            INTEGRATION_ASSERT(output.find("✓ Test 3 passed") != std::string::npos,
+                             "Test 3のパスメッセージがない");
+            
+            // Test 4: インターフェースポインタ経由でimpl内ポインタテストを呼び出し
+            INTEGRATION_ASSERT(output.find("Test 4: Impl pointer tests via interface pointer") != std::string::npos,
+                             "Test 4が実行されていない");
+            INTEGRATION_ASSERT(output.find("(*sp).test_pointer_ops() = 60") != std::string::npos,
+                             "インターフェースポインタ経由の呼び出し結果が正しくない");
+            INTEGRATION_ASSERT(output.find("✓ Test 4 passed") != std::string::npos,
+                             "Test 4のパスメッセージがない");
+            
+            // Test 5: 複数のimplメソッド呼び出し
+            INTEGRATION_ASSERT(output.find("Test 5: Multiple impl method calls") != std::string::npos,
+                             "Test 5が実行されていない");
+            INTEGRATION_ASSERT(output.find("Multiple calls succeeded") != std::string::npos,
+                             "複数メソッド呼び出しが成功していない");
+            INTEGRATION_ASSERT(output.find("✓ Test 5 passed") != std::string::npos,
+                             "Test 5のパスメッセージがない");
+            
+            INTEGRATION_ASSERT(output.find("=== All interface and impl pointer tests passed ===") != std::string::npos,
+                             "最終メッセージが表示されていない");
+        },
+        execution_time
+    );
+    
+    printf("[✓] test_interface_impl_pointer_comprehensive passed (%.3fms)\n", execution_time);
+}
+
+// ============================================================================
+// 新規テスト: ポインタ境界ケースと特殊操作
+// ============================================================================
+
+inline void test_pointer_boundary_comprehensive() {
+    double execution_time = 0.0;
+    run_cb_test_with_output_and_time(
+        "../../tests/cases/pointer/test_pointer_boundary_comprehensive.cb",
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "ポインタ境界ケース包括テストがエラー終了");
+            
+            INTEGRATION_ASSERT(output.find("=== Pointer Boundary and Special Operations Test ===") != std::string::npos,
+                             "テストヘッダーが出力されていない");
+            
+            // Test 1: 複数の宣言時初期化
+            INTEGRATION_ASSERT(output.find("Test 1: Multiple declaration-time initialization") != std::string::npos,
+                             "Test 1が実行されていない");
+            INTEGRATION_ASSERT(output.find("*p1 = 10, *p2 = 20, *p3 = 50") != std::string::npos,
+                             "複数ポインタの初期化が正しくない");
+            INTEGRATION_ASSERT(output.find("✓ Test 1 passed") != std::string::npos,
+                             "Test 1のパスメッセージがない");
+            
+            // Test 2: ポインタ代入の連鎖
+            INTEGRATION_ASSERT(output.find("Test 2: Chained pointer assignment") != std::string::npos,
+                             "Test 2が実行されていない");
+            INTEGRATION_ASSERT(output.find("*q1 = *q2 = *q3 = 100") != std::string::npos,
+                             "連鎖代入の値が正しくない");
+            INTEGRATION_ASSERT(output.find("Modified arr2[0] via q3: arr2[0] = 999") != std::string::npos,
+                             "値の変更が反映されていない");
+            INTEGRATION_ASSERT(output.find("✓ Test 2 passed") != std::string::npos,
+                             "Test 2のパスメッセージがない");
+            
+            // Test 3: ゼロ要素へのポインタと合計計算
+            INTEGRATION_ASSERT(output.find("Test 3: Pointer to zero-th element") != std::string::npos,
+                             "Test 3が実行されていない");
+            INTEGRATION_ASSERT(output.find("Sum of array[0..9] = 45") != std::string::npos,
+                             "配列の合計が正しくない");
+            INTEGRATION_ASSERT(output.find("✓ Test 3 passed") != std::string::npos,
+                             "Test 3のパスメッセージがない");
+            
+            // Test 4: 逆方向ポインタ移動と積計算
+            INTEGRATION_ASSERT(output.find("Test 4: Backward pointer movement") != std::string::npos,
+                             "Test 4が実行されていない");
+            INTEGRATION_ASSERT(output.find("Product of arr3 (backward) = 120") != std::string::npos,
+                             "逆方向の積が正しくない");
+            INTEGRATION_ASSERT(output.find("✓ Test 4 passed") != std::string::npos,
+                             "Test 4のパスメッセージがない");
+            
+            // Test 5: 回文チェック
+            INTEGRATION_ASSERT(output.find("Test 5: Array palindrome check with pointers") != std::string::npos,
+                             "Test 5が実行されていない");
+            INTEGRATION_ASSERT(output.find("Palindrome check passed") != std::string::npos,
+                             "回文チェックが失敗している");
+            INTEGRATION_ASSERT(output.find("✓ Test 5 passed") != std::string::npos,
+                             "Test 5のパスメッセージがない");
+            
+            // Test 6: インクリメント/デクリメント複合
+            INTEGRATION_ASSERT(output.find("Test 6: Mixed pointer increment/decrement") != std::string::npos,
+                             "Test 6が実行されていない");
+            INTEGRATION_ASSERT(output.find("Pointer navigation: 40 -> 50 -> 60 -> 50 -> 30") != std::string::npos,
+                             "ポインタナビゲーションが正しくない");
+            INTEGRATION_ASSERT(output.find("✓ Test 6 passed") != std::string::npos,
+                             "Test 6のパスメッセージがない");
+            
+            // Test 7: 16進数アドレスフォーマット確認
+            INTEGRATION_ASSERT(output.find("Test 7: Hexadecimal address format verification") != std::string::npos,
+                             "Test 7が実行されていない");
+            INTEGRATION_ASSERT(output.find("addr_ptr = 0x") != std::string::npos,
+                             "アドレスが16進数表示されていない");
+            INTEGRATION_ASSERT(output.find("*addr_ptr = 111") != std::string::npos,
+                             "ポインタの値が正しくない");
+            INTEGRATION_ASSERT(output.find("✓ Test 7 passed") != std::string::npos,
+                             "Test 7のパスメッセージがない");
+            
+            INTEGRATION_ASSERT(output.find("=== All boundary and special operations tests passed ===") != std::string::npos,
+                             "最終メッセージが表示されていない");
+        },
+        execution_time
+    );
+    
+    printf("[✓] test_pointer_boundary_comprehensive passed (%.3fms)\n", execution_time);
+}
+
+// ============================================================================
 // 全てのポインタテストを実行
 // ============================================================================
 
@@ -1123,6 +1536,13 @@ inline void run_all_pointer_tests() {
     test_typedef_recursive_struct();  // typedef再帰構造体
     test_comprehensive_pointer_operations();  // 包括的なポインタ操作テスト（アロー構文・デリファレンス構文）
     test_comprehensive_address_of();  // 包括的なアドレス取得テスト（全変数型）
+    
+    // 新規追加: 既知の制限事項実装後の包括的テスト
+    test_declaration_init_comprehensive();  // 宣言時初期化の包括的テスト
+    test_address_display_comprehensive();  // アドレス表示の包括的テスト
+    test_struct_pointer_operations_comprehensive();  // 構造体ポインタ操作の包括的テスト
+    test_interface_impl_pointer_comprehensive();  // インターフェースとimplブロックポインタの包括的テスト
+    test_pointer_boundary_comprehensive();  // ポインタ境界ケースと特殊操作の包括的テスト
     
     printf("=== All Pointer Tests Passed ===\n\n");
 }

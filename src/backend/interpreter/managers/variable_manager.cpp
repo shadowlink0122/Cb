@@ -994,6 +994,10 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
         // ポインタ型の場合はTYPE_POINTERを設定
         if (node->is_pointer) {
             var.type = TYPE_POINTER;
+            var.is_pointer = true;
+            var.pointer_depth = node->pointer_depth;
+            var.pointer_base_type = node->pointer_base_type;
+            var.pointer_base_type_name = node->pointer_base_type_name;
         } else {
             var.type = node->type_info;
         }
@@ -2874,6 +2878,21 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
         // ポインタ型の場合、型情報を確実に設定
         if (node->type_info == TYPE_POINTER) {
             var.type = TYPE_POINTER;
+            
+            // ポインタ型の初期化式がある場合は評価して代入
+            if (node->init_expr || node->right) {
+                ASTNode* init_node = node->init_expr ? node->init_expr.get() : node->right.get();
+                if (interpreter_->debug_mode) {
+                    std::cerr << "[VAR_MANAGER] Evaluating pointer initialization expression" << std::endl;
+                }
+                TypedValue typed_value = interpreter_->expression_evaluator_->evaluate_typed_expression(init_node);
+                var.value = typed_value.value;
+                var.is_assigned = true;
+                if (interpreter_->debug_mode) {
+                    std::cerr << "[VAR_MANAGER] Pointer initialized: value=" << var.value 
+                              << " (0x" << std::hex << var.value << std::dec << ")" << std::endl;
+                }
+            }
         }
 
         current_scope().variables[node->name] = var;

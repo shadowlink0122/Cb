@@ -1,0 +1,13 @@
+// シンプルなポインタ加算テスト
+
+int main() {
+    int[5] arr = [1, 2, 3, 4, 5];
+    int* p = arr;
+    int* q = arr;
+    
+    println("Before addition");
+    int* result = p + q;  // これはエラーになるべき
+    println("After addition");
+    
+    return 0;
+}

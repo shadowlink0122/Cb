@@ -592,6 +592,31 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
         // デバッグ: 減算操作の詳細を出力
         int64_t result = 0;
         
+        // ポインタ演算のチェック
+        bool left_is_pointer = (left & (1LL << 63)) != 0;  // メタデータポインタ
+        bool right_is_pointer = (right & (1LL << 63)) != 0;
+        
+        // 変数がポインタ型かどうかもチェック
+        if (node->left->node_type == ASTNodeType::AST_VARIABLE || 
+            node->left->node_type == ASTNodeType::AST_IDENTIFIER) {
+            Variable* left_var = interpreter_.find_variable(node->left->name);
+            if (left_var && left_var->is_pointer) {
+                left_is_pointer = true;
+            }
+        }
+        if (node->right->node_type == ASTNodeType::AST_VARIABLE || 
+            node->right->node_type == ASTNodeType::AST_IDENTIFIER) {
+            Variable* right_var = interpreter_.find_variable(node->right->name);
+            if (right_var && right_var->is_pointer) {
+                right_is_pointer = true;
+            }
+        }
+        
+        // ポインタ同士の加算を禁止
+        if (node->op == "+" && left_is_pointer && right_is_pointer) {
+            throw std::runtime_error("Cannot add two pointers together. Pointer arithmetic only supports: pointer + integer, integer + pointer");
+        }
+        
         // ポインタ演算の特別処理
         if (node->op == "+" || node->op == "-") {
             // 左オペランドがメタデータポインタの場合
@@ -600,30 +625,43 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                 using namespace PointerSystem;
                 PointerMetadata* meta = reinterpret_cast<PointerMetadata*>(clean_ptr);
                 
-                if (meta && meta->target_type == PointerTargetType::ARRAY_ELEMENT) {
-                    // 新しいインデックスを計算
-                    size_t new_index = meta->element_index;
+                if (meta) {
+                    // 真のポインタ演算：アドレス = アドレス + (オフセット × sizeof(要素型))
+                    // 配列要素はint64_t（8バイト）として保存されているため、実際のメモリレイアウトに合わせる
+                    ptrdiff_t offset = static_cast<ptrdiff_t>(right);
+                    uintptr_t new_address;
+                    size_t actual_element_size = sizeof(int64_t);  // 配列要素は常にint64_tで保存
+                    
                     if (node->op == "+") {
-                        new_index += static_cast<size_t>(right);
+                        new_address = meta->address + (offset * actual_element_size);
                     } else {  // "-"
-                        if (right > static_cast<int64_t>(new_index)) {
-                            throw std::runtime_error("Pointer arithmetic resulted in negative index");
-                        }
-                        new_index -= static_cast<size_t>(right);
+                        new_address = meta->address - (offset * actual_element_size);
                     }
                     
-                    // 範囲チェック
-                    if (new_index >= static_cast<size_t>(meta->array_var->array_size)) {
-                        throw std::runtime_error("Pointer arithmetic out of array bounds");
+                    // 範囲チェック（配列ポインタの場合）
+                    if (meta->array_var) {
+                        if (new_address < meta->array_start_addr || new_address >= meta->array_end_addr) {
+                            throw std::runtime_error("Pointer arithmetic out of array bounds");
+                        }
                     }
                     
                     // 新しいメタデータを作成
-                    PointerMetadata temp_meta = PointerMetadata::create_array_element_pointer(
-                        meta->array_var,
-                        new_index,
-                        meta->element_type
-                    );
-                    PointerMetadata* new_meta = new PointerMetadata(temp_meta);
+                    PointerMetadata* new_meta = new PointerMetadata();
+                    new_meta->target_type = meta->target_type;
+                    new_meta->address = new_address;
+                    new_meta->pointed_type = meta->pointed_type;
+                    new_meta->type_size = meta->type_size;
+                    new_meta->element_type = meta->element_type;
+                    
+                    // 範囲チェック情報をコピー
+                    new_meta->array_var = meta->array_var;
+                    new_meta->array_start_addr = meta->array_start_addr;
+                    new_meta->array_end_addr = meta->array_end_addr;
+                    
+                    // インデックスを更新（レガシー互換性のため）
+                    if (meta->array_var && actual_element_size > 0) {
+                        new_meta->element_index = (new_address - meta->array_start_addr) / actual_element_size;
+                    }
                     
                     // タグ付きポインタを返す
                     int64_t ptr_value = reinterpret_cast<int64_t>(new_meta);
@@ -801,12 +839,11 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                     
                     // メタデータを作成してヒープに配置
                     using namespace PointerSystem;
-                    PointerMetadata* meta = new PointerMetadata(
-                        PointerMetadata::create_array_element_pointer(
-                            array_var, 
-                            static_cast<size_t>(index), 
-                            elem_type
-                        )
+                    PointerMetadata* meta = new PointerMetadata();
+                    *meta = PointerMetadata::create_array_element_pointer(
+                        array_var, 
+                        static_cast<size_t>(index), 
+                        elem_type
                     );
                     
                     if (debug_mode) {
@@ -847,9 +884,8 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                 
                 // 構造体メンバーへのポインタもメタデータで表現
                 using namespace PointerSystem;
-                PointerMetadata* meta = new PointerMetadata(
-                    PointerMetadata::create_struct_member_pointer(member_var, member_path)
-                );
+                PointerMetadata* meta = new PointerMetadata();
+                *meta = PointerMetadata::create_struct_member_pointer(member_var, member_path);
                 
                 if (debug_mode) {
                     std::cerr << "[POINTER_METADATA] Created struct member pointer: " 
@@ -1986,10 +2022,28 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                     ref_var.type = source_var->type;
                     ref_var.value = reinterpret_cast<int64_t>(source_var);
                     
+                    // 構造体型情報をコピー
+                    ref_var.struct_type_name = source_var->struct_type_name;
+                    ref_var.is_struct = source_var->is_struct;
+                    ref_var.type_name = source_var->type_name;
+                    ref_var.interface_name = source_var->interface_name;
+                    ref_var.implementing_struct = source_var->implementing_struct;
+                    
+                    // ポインタ型情報をコピー
+                    ref_var.is_pointer = source_var->is_pointer;
+                    ref_var.pointer_depth = source_var->pointer_depth;
+                    ref_var.pointer_base_type = source_var->pointer_base_type;
+                    ref_var.pointer_base_type_name = source_var->pointer_base_type_name;
+                    
                     // 参照の連鎖対応（source_varも参照なら実体を取得）
                     if (source_var->is_reference) {
                         Variable* target_var = reinterpret_cast<Variable*>(source_var->value);
                         ref_var.value = reinterpret_cast<int64_t>(target_var);
+                        // 参照先の型情報も更新
+                        ref_var.type = target_var->type;
+                        ref_var.struct_type_name = target_var->struct_type_name;
+                        ref_var.is_struct = target_var->is_struct;
+                        ref_var.type_name = target_var->type_name;
                     }
                     
                     // パラメータスコープに参照変数を登録
@@ -3196,20 +3250,55 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
             throw std::runtime_error("Invalid member access");
         }
         
+        // 参照型変数の場合、参照先を取得
+        Variable* base_var = interpreter_.find_variable(var_name);
+        std::string actual_var_name = var_name;
+        
+        if (base_var && base_var->is_reference) {
+            // 参照の場合、参照先の変数から直接メンバを取得
+            debug_print("[DEBUG] Member access on reference variable: %s\n", var_name.c_str());
+        }
+        
         // 個別変数として直接アクセスを試す（構造体配列の場合）
-        std::string full_member_path = var_name + "." + member_name;
+        std::string full_member_path = actual_var_name + "." + member_name;
 
-        interpreter_.sync_struct_members_from_direct_access(var_name);
-        interpreter_.ensure_struct_member_access_allowed(var_name, member_name);
+        interpreter_.sync_struct_members_from_direct_access(actual_var_name);
+        interpreter_.ensure_struct_member_access_allowed(actual_var_name, member_name);
         Variable* member_var = interpreter_.find_variable(full_member_path);
         
         if (!member_var) {
             // struct_membersから探す（通常の構造体の場合）
-            member_var = interpreter_.get_struct_member(var_name, member_name);
+            // 参照の場合、直接参照先から取得
+            if (base_var && base_var->is_reference) {
+                Variable result_member = get_struct_member_from_variable(*base_var, member_name);
+                // 一時変数として返す必要があるため、last_typed_result_を使用
+                if (result_member.type == TYPE_STRING) {
+                    TypedValue typed_result(static_cast<int64_t>(0), InferredType(TYPE_STRING, "string"));
+                    typed_result.string_value = result_member.str_value;
+                    typed_result.is_numeric_result = false;
+                    last_typed_result_ = typed_result;
+                    return 0;
+                } else if (result_member.type == TYPE_FLOAT || result_member.type == TYPE_DOUBLE || result_member.type == TYPE_QUAD) {
+                    InferredType float_type(result_member.type, "");
+                    if (result_member.type == TYPE_QUAD) {
+                        last_typed_result_ = TypedValue(result_member.quad_value, float_type);
+                    } else {
+                        last_typed_result_ = TypedValue(result_member.float_value, float_type);
+                    }
+                    return static_cast<int64_t>(result_member.float_value);
+                } else if (result_member.type == TYPE_STRUCT) {
+                    // 構造体メンバの場合、ReturnExceptionでラップして返す
+                    throw ReturnException(result_member);
+                } else {
+                    return result_member.value;
+                }
+            }
+            
+            member_var = interpreter_.get_struct_member(actual_var_name, member_name);
         }
         
         if (!member_var) {
-            throw std::runtime_error("Member not found: " + var_name + "." + member_name);
+            throw std::runtime_error("Member not found: " + actual_var_name + "." + member_name);
         }
         
         if (member_var->type == TYPE_STRING) {
@@ -3565,6 +3654,35 @@ TypedValue ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode
             TypedValue left_value = evaluate_typed_expression(node->left.get());
             TypedValue right_value = evaluate_typed_expression(node->right.get());
 
+            // ポインタ演算のチェック（加算のみ）
+            if (node->op == "+") {
+                bool left_is_pointer = false;
+                bool right_is_pointer = false;
+                
+                // 左オペランドがポインタかチェック
+                if (node->left->node_type == ASTNodeType::AST_VARIABLE || 
+                    node->left->node_type == ASTNodeType::AST_IDENTIFIER) {
+                    Variable* left_var = interpreter_.find_variable(node->left->name);
+                    if (left_var && left_var->is_pointer) {
+                        left_is_pointer = true;
+                    }
+                }
+                
+                // 右オペランドがポインタかチェック
+                if (node->right->node_type == ASTNodeType::AST_VARIABLE || 
+                    node->right->node_type == ASTNodeType::AST_IDENTIFIER) {
+                    Variable* right_var = interpreter_.find_variable(node->right->name);
+                    if (right_var && right_var->is_pointer) {
+                        right_is_pointer = true;
+                    }
+                }
+                
+                // ポインタ同士の加算を禁止
+                if (left_is_pointer && right_is_pointer) {
+                    throw std::runtime_error("Cannot add two pointers together. Pointer arithmetic only supports: pointer + integer, integer + pointer");
+                }
+            }
+
             auto is_integral_type_info = [](TypeInfo type) {
                 switch (type) {
                 case TYPE_BOOL:
@@ -3718,37 +3836,52 @@ TypedValue ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode
                         using namespace PointerSystem;
                         PointerMetadata* meta = reinterpret_cast<PointerMetadata*>(clean_ptr);
                         
-                        if (meta && meta->target_type == PointerTargetType::ARRAY_ELEMENT) {
-                            // 新しいインデックスを計算
-                            size_t new_index = meta->element_index;
+                        if (meta) {
+                            // 真のポインタ演算：アドレス = アドレス + (オフセット × sizeof(要素型))
+                            // 配列要素はint64_t（8バイト）として保存されているため、実際のメモリレイアウトに合わせる
+                            ptrdiff_t offset_value = static_cast<ptrdiff_t>(offset);
+                            uintptr_t new_address;
+                            size_t actual_element_size = sizeof(int64_t);  // 配列要素は常にint64_tで保存
+                            
                             if (node->op == "+") {
-                                new_index += static_cast<size_t>(offset);
+                                new_address = meta->address + (offset_value * actual_element_size);
                             } else {  // "-"
-                                if (offset > static_cast<int64_t>(new_index)) {
-                                    throw std::runtime_error("Pointer arithmetic resulted in negative index");
-                                }
-                                new_index -= static_cast<size_t>(offset);
+                                new_address = meta->address - (offset_value * actual_element_size);
                             }
                             
-                            // 範囲チェック
-                            if (new_index >= static_cast<size_t>(meta->array_var->array_size)) {
-                                throw std::runtime_error("Pointer arithmetic out of array bounds");
+                            // 範囲チェック（配列ポインタの場合）
+                            if (meta->array_var) {
+                                if (new_address < meta->array_start_addr || new_address >= meta->array_end_addr) {
+                                    throw std::runtime_error("Pointer arithmetic out of array bounds");
+                                }
                             }
                             
                             // 新しいメタデータを作成
-                            PointerMetadata temp_meta = PointerMetadata::create_array_element_pointer(
-                                meta->array_var,
-                                new_index,
-                                meta->element_type
-                            );
-                            PointerMetadata* new_meta = new PointerMetadata(temp_meta);
+                            PointerMetadata* new_meta = new PointerMetadata();
+                            new_meta->target_type = meta->target_type;
+                            new_meta->address = new_address;
+                            new_meta->pointed_type = meta->pointed_type;
+                            new_meta->type_size = meta->type_size;
+                            new_meta->element_type = meta->element_type;
+                            
+                            // 範囲チェック情報をコピー
+                            new_meta->array_var = meta->array_var;
+                            new_meta->array_start_addr = meta->array_start_addr;
+                            new_meta->array_end_addr = meta->array_end_addr;
+                            
+                            // インデックスを更新（レガシー互換性のため）
+                            if (meta->array_var && actual_element_size > 0) {
+                                new_meta->element_index = (new_address - meta->array_start_addr) / actual_element_size;
+                            }
                             
                             // タグ付きポインタを返す
                             int64_t ptr_value = reinterpret_cast<int64_t>(new_meta);
                             ptr_value |= (1LL << 63);
                             
-                            InferredType ptr_type(TYPE_POINTER, "int*");
-                            return TypedValue(ptr_value, ptr_type);
+                            InferredType ptr_type(TYPE_POINTER, left_value.type.type_name);
+                            TypedValue result(ptr_value, ptr_type);
+                            result.numeric_type = TYPE_POINTER;
+                            return result;
                         }
                     }
                 }
@@ -3858,8 +3991,20 @@ TypedValue ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode
                 // 配列要素や構造体メンバーの場合は通常評価にフォールバック
                 else {
                     int64_t address = evaluate_expression(node);
+                    if (debug_mode) {
+                        std::cerr << "[ADDRESS_OF evaluate_typed] evaluate_expression returned: " << address 
+                                  << " (0x" << std::hex << address << std::dec << ")" << std::endl;
+                    }
                     InferredType pointer_type(TYPE_POINTER, "int*"); // 暫定的にint*
-                    return TypedValue(address, pointer_type);
+                    TypedValue result(address, pointer_type);
+                    if (debug_mode) {
+                        std::cerr << "[ADDRESS_OF evaluate_typed] Created TypedValue: value=" << result.value 
+                                  << " (0x" << std::hex << result.value << std::dec << ")" << std::endl;
+                        std::cerr << "[ADDRESS_OF evaluate_typed] TypedValue fields: numeric_type=" << static_cast<int>(result.numeric_type)
+                                  << ", is_numeric=" << result.is_numeric()
+                                  << ", is_float=" << result.is_float_result << std::endl;
+                    }
+                    return result;
                 }
             }
             
@@ -4030,6 +4175,11 @@ TypedValue ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode
                 }
                 InferredType union_numeric_type(var->current_type, type_info_to_string(var->current_type));
                 return make_numeric_value(var->current_type, union_numeric_type);
+            } else if (var->type == TYPE_POINTER || var->is_pointer) {
+                // ポインタ型の場合、numeric_typeにTYPE_POINTERを設定
+                TypedValue ptr_value(var->value, InferredType(TYPE_POINTER, type_info_to_string(TYPE_POINTER)));
+                ptr_value.numeric_type = TYPE_POINTER;
+                return ptr_value;
             } else {
                 InferredType var_type(var->type, type_info_to_string(var->type));
                 return make_numeric_value(var->type, var_type);
@@ -4683,13 +4833,25 @@ TypedValue ExpressionEvaluator::consume_numeric_typed_value(const ASTNode* node,
 
 // 構造体メンバー取得関数の実装
 Variable ExpressionEvaluator::get_struct_member_from_variable(const Variable& struct_var, const std::string& member_name) {
-    if (struct_var.type != TYPE_STRUCT) {
+    // 参照型の場合、参照先の変数を取得
+    const Variable* actual_var = &struct_var;
+    if (struct_var.is_reference) {
+        // 参照先はvalueフィールドにポインタとして格納されている
+        actual_var = reinterpret_cast<Variable*>(struct_var.value);
+        if (!actual_var) {
+            throw std::runtime_error("Invalid reference in member access");
+        }
+        debug_print("[DEBUG] get_struct_member_from_variable: resolving reference to target (type=%d)\n", 
+                   actual_var->type);
+    }
+    
+    if (actual_var->type != TYPE_STRUCT) {
         throw std::runtime_error("Variable is not a struct");
     }
     
     debug_print("[DEBUG] get_struct_member_from_variable: looking for '%s' in struct (type='%s', members=%zu)\n",
-               member_name.c_str(), struct_var.struct_type_name.c_str(), struct_var.struct_members.size());
-    for (const auto& pair : struct_var.struct_members) {
+               member_name.c_str(), actual_var->struct_type_name.c_str(), actual_var->struct_members.size());
+    for (const auto& pair : actual_var->struct_members) {
         debug_print("[DEBUG]   - member: '%s' (type=%d)\n", pair.first.c_str(), pair.second.type);
     }
     
@@ -4698,9 +4860,9 @@ Variable ExpressionEvaluator::get_struct_member_from_variable(const Variable& st
             return member_var;
         }
 
-        std::string struct_type = struct_var.struct_type_name;
-        if (struct_type.empty() && !struct_var.implementing_struct.empty()) {
-            struct_type = struct_var.implementing_struct;
+        std::string struct_type = actual_var->struct_type_name;
+        if (struct_type.empty() && !actual_var->implementing_struct.empty()) {
+            struct_type = actual_var->implementing_struct;
         }
 
         if (!interpreter_.is_current_impl_context_for(struct_type)) {
@@ -4712,8 +4874,8 @@ Variable ExpressionEvaluator::get_struct_member_from_variable(const Variable& st
     };
 
     // まず struct_members から直接検索
-    auto member_it = struct_var.struct_members.find(member_name);
-    if (member_it != struct_var.struct_members.end()) {
+    auto member_it = actual_var->struct_members.find(member_name);
+    if (member_it != actual_var->struct_members.end()) {
         // ネストされた構造体メンバーの場合、そのstruct_membersを確認
         if (member_it->second.type == TYPE_STRUCT) {
             debug_print("[DEBUG] Found struct member '%s' (type=%d, struct_type='%s', struct_members.size()=%zu)\n",
@@ -4725,7 +4887,7 @@ Variable ExpressionEvaluator::get_struct_member_from_variable(const Variable& st
     }
     
     // 構造体の識別子（struct_type_name）を使用してメンバーを検索
-    std::string member_var_name = struct_var.struct_type_name + "." + member_name;
+    std::string member_var_name = actual_var->struct_type_name + "." + member_name;
     Variable* member_var = interpreter_.find_variable(member_var_name);
     
     if (member_var) {

@@ -1823,8 +1823,12 @@ std::string RecursiveParser::parseType() {
             original_type = identifier;
             set_base_type(identifier);
         } else {
-            error("Unknown type: " + identifier);
-            throw std::runtime_error("Unknown type: " + identifier);
+            // 未定義型 - 前方参照の可能性として許容
+            // (ポインタまたは配列の場合に限る - 後でポインタ/配列チェックで判定)
+            advance();
+            original_type = identifier;
+            set_base_type(identifier);
+            // NOTE: 値メンバーとして使用された場合のエラーは後で検出される
         }
     } else {
         error("Expected type specifier");
@@ -3642,6 +3646,16 @@ std::string RecursiveParser::resolveTypedefChain(const std::string& typedef_name
         visited.insert(current);
         
         std::string next = typedef_map_[current];
+        
+        // 自分自身を指している場合（匿名structのtypedef）
+        if (next == current) {
+            // 構造体定義が存在するかチェック
+            if (struct_definitions_.find(current) != struct_definitions_.end()) {
+                return current;
+            }
+            return "";
+        }
+        
         // 次がtypedef型かチェック
         if (typedef_map_.find(next) != typedef_map_.end()) {
             current = next;
@@ -4161,11 +4175,18 @@ ASTNode* RecursiveParser::parseStructTypedefDeclaration() {
                   ". Use pointers to break the cycle.");
             return nullptr;
         }
-        // タグ名からエイリアスへのマッピングも追加（struct Tag形式でアクセス可能に）
-        typedef_map_[alias_name] = tag_name;
     }
-    // タグ名がない場合は、typedef_map_に追加しない
-    // （エイリアス名で直接struct定義を検索できるため）
+    
+    // typedef_map_に登録（タグ名がある場合はタグ名へ、ない場合はエイリアス名自身へ）
+    if (!tag_name.empty()) {
+        // タグ名がある場合: typedef struct Tag { ... } Alias;
+        // Alias -> Tag のマッピング
+        typedef_map_[alias_name] = tag_name;
+    } else {
+        // タグ名がない場合: typedef struct { ... } Alias;
+        // Alias -> Alias のマッピング（エイリアス自身がstruct定義名）
+        typedef_map_[alias_name] = alias_name;
+    }
     
     // ASTノードを作成
     ASTNode* node = new ASTNode(ASTNodeType::AST_STRUCT_TYPEDEF_DECL);

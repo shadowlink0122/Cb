@@ -760,3 +760,38 @@ class CodeGeneratorInterface : public BackendInterface {
     virtual void emit_to_file(const ASTNode *ast,
                               const std::string &filename) = 0;
 };
+
+// 型のサイズを取得する関数（バイト単位）
+// ポインタ演算で使用
+inline size_t get_type_size(TypeInfo type) {
+    switch (type) {
+    case TYPE_TINY:
+        return 1; // 8-bit
+    case TYPE_SHORT:
+        return 2; // 16-bit
+    case TYPE_INT:
+        return 4; // 32-bit
+    case TYPE_LONG:
+        return 8; // 64-bit
+    case TYPE_CHAR:
+        return 1; // 8-bit
+    case TYPE_BOOL:
+        return 1; // 8-bit
+    case TYPE_FLOAT:
+        return 4; // 32-bit
+    case TYPE_DOUBLE:
+        return 8; // 64-bit
+    case TYPE_QUAD:
+        return 16; // 128-bit
+    case TYPE_BIG:
+        return 16; // 128-bit
+    case TYPE_POINTER:
+        return 8; // 64-bit (ポインタ自体のサイズ)
+    case TYPE_STRING:
+        return 8; // ポインタサイズ
+    case TYPE_STRUCT:
+        return 8; // ポインタサイズ（構造体は参照）
+    default:
+        return 4; // デフォルトはintサイズ
+    }
+}

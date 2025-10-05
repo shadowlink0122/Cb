@@ -1,0 +1,10 @@
+// ポインタフラグ確認テスト
+
+int main() {
+    int[5] arr = [1, 2, 3, 4, 5];
+    int* p = arr;
+    
+    println("Pointer p created");
+    
+    return 0;
+}

@@ -138,6 +138,33 @@ Variable *Interpreter::find_variable(const std::string &name) {
     return variable_manager_->find_variable(name);
 }
 
+std::string Interpreter::find_variable_name_by_address(const Variable* target_var) {
+    if (!target_var) {
+        return "";
+    }
+    
+    // 現在のスコープスタックから検索
+    // 全スコープを逆順に検索（最新のスコープから）
+    if (!scope_stack.empty()) {
+        for (auto it = scope_stack.rbegin(); it != scope_stack.rend(); ++it) {
+            for (const auto& [name, var] : it->variables) {
+                if (&var == target_var) {
+                    return name;
+                }
+            }
+        }
+    }
+    
+    // グローバルスコープも確認
+    for (const auto& [name, var] : global_scope.variables) {
+        if (&var == target_var) {
+            return name;
+        }
+    }
+    
+    return "";
+}
+
 const ASTNode *Interpreter::find_function(const std::string &name) {
     // グローバルスコープの関数を検索
     auto func_it = global_scope.functions.find(name);
@@ -3253,17 +3280,30 @@ Variable *Interpreter::get_struct_member(const std::string &var_name,
         throw std::runtime_error("Variable is not a struct: " + var_name);
     }
 
+    // 参照型の場合、参照先の変数を取得
+    Variable *actual_var = var;
+    if (var->is_reference) {
+        actual_var = reinterpret_cast<Variable*>(var->value);
+        if (!actual_var) {
+            throw std::runtime_error("Invalid reference in struct member access: " + var_name);
+        }
+        debug_print("[DEBUG] get_struct_member: resolving reference %s to target (type=%d)\n", 
+                   var_name.c_str(), actual_var->type);
+    }
+
     // 構造体メンバーアクセス前に最新状態を同期
+    // 注: 参照の場合、参照先で同期する必要があるが、
+    // 参照先は名前がないため、元の変数名で同期を試みる
     sync_struct_members_from_direct_access(var_name);
 
     ensure_struct_member_access_allowed(var_name, member_name);
 
-    debug_msg(DebugMsgId::INTERPRETER_STRUCT_MEMBERS_FOUND, var->struct_members.size());
+    debug_msg(DebugMsgId::INTERPRETER_STRUCT_MEMBERS_FOUND, actual_var->struct_members.size());
 
-    auto it = var->struct_members.find(member_name);
-    if (it != var->struct_members.end()) {
+    auto it = actual_var->struct_members.find(member_name);
+    if (it != actual_var->struct_members.end()) {
         // 親変数がconstの場合、メンバーもconstにする
-        if (var->is_const && !it->second.is_const) {
+        if (actual_var->is_const && !it->second.is_const) {
             it->second.is_const = true;
         }
         

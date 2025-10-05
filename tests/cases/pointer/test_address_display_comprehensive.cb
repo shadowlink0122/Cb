@@ -1,0 +1,99 @@
+// アドレス表示とポインタ演算の詳細テスト
+
+int main() {
+    println("=== Address Display and Pointer Arithmetic Detailed Test ===");
+    println("");
+    
+    // テスト1: アドレス値の16進数表示
+    println("Test 1: Hexadecimal address display");
+    int[5] arr = [10, 20, 30, 40, 50];
+    int* p = &arr[0];
+    
+    println("  Array base: &arr[0] =", &arr[0]);
+    println("  Pointer p =", p);
+    println("  Value *p =", *p);
+    
+    if (*p != 10) {
+        println("  FAIL: Initial value");
+        return 1;
+    }
+    println("  ✓ Test 1 passed");
+    
+    // テスト2: ポインタ加算とアドレス遷移
+    println("Test 2: Pointer arithmetic and address transition");
+    println("  Initial: p =", p, ", *p =", *p);
+    
+    p = p + 1;
+    println("  After p+1: p =", p, ", *p =", *p);
+    if (*p != 20) {
+        println("  FAIL: p+1 value");
+        return 1;
+    }
+    
+    p = p + 1;
+    println("  After p+1: p =", p, ", *p =", *p);
+    if (*p != 30) {
+        println("  FAIL: Second p+1 value");
+        return 1;
+    }
+    println("  ✓ Test 2 passed");
+    
+    // テスト3: ポインタ減算とアドレス遷移
+    println("Test 3: Pointer subtraction");
+    println("  Before: p =", p, ", *p =", *p);
+    
+    p = p - 1;
+    println("  After p-1: p =", p, ", *p =", *p);
+    if (*p != 20) {
+        println("  FAIL: p-1 value");
+        return 1;
+    }
+    println("  ✓ Test 3 passed");
+    
+    // テスト4: 複数ポインタのアドレス比較
+    println("Test 4: Multiple pointers address comparison");
+    int* p1 = &arr[0];
+    int* p2 = &arr[2];
+    int* p3 = &arr[4];
+    
+    println("  p1 =", p1, ", *p1 =", *p1);
+    println("  p2 =", p2, ", *p2 =", *p2);
+    println("  p3 =", p3, ", *p3 =", *p3);
+    
+    if (*p1 != 10 || *p2 != 30 || *p3 != 50) {
+        println("  FAIL: Multiple pointers value");
+        return 1;
+    }
+    println("  ✓ Test 4 passed");
+    
+    // テスト5: インクリメント/デクリメントとアドレス
+    println("Test 5: Increment/Decrement and address");
+    int* q = &arr[2];
+    println("  Initial q =", q, ", *q =", *q);
+    
+    q++;
+    println("  After q++: q =", q, ", *q =", *q);
+    if (*q != 40) {
+        println("  FAIL: q++ value");
+        return 1;
+    }
+    
+    q--;
+    println("  After q--: q =", q, ", *q =", *q);
+    if (*q != 30) {
+        println("  FAIL: q-- value");
+        return 1;
+    }
+    println("  ✓ Test 5 passed");
+    
+    // テスト6: ポインタ変数自身のアドレス
+    println("Test 6: Address of pointer variable itself");
+    println("  Pointer value: p =", p);
+    println("  Address of pointer: &p =", &p);
+    println("  Value pointed to: *p =", *p);
+    println("  ✓ Test 6 passed");
+    
+    println("");
+    println("=== All address display and arithmetic tests passed ===");
+    return 0;
+}

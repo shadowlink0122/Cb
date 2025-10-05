@@ -55,7 +55,14 @@ struct TypedValue {
         TypedValue(int64_t val, const InferredType& t) 
                 : value(val), double_value(static_cast<double>(val)), quad_value(static_cast<long double>(val)),
                     string_value(""), is_numeric_result(true), is_float_result(false), numeric_type(t.type_info),
-                    type(t), deferred_node(nullptr), is_deferred(false), is_struct_result(false), struct_data(nullptr) {}
+                    type(t), deferred_node(nullptr), is_deferred(false), is_struct_result(false), struct_data(nullptr) {
+            // デバッグ: ポインタ型の場合のみ出力
+            extern bool debug_mode;
+            if (debug_mode && t.type_info == TYPE_POINTER) {
+                fprintf(stderr, "[TypedValue int64_t constructor] value=%lld (0x%llx), type=POINTER\n", 
+                        (long long)val, (unsigned long long)val);
+            }
+        }
 
         TypedValue(double val, const InferredType& t) 
                 : value(static_cast<int64_t>(val)), double_value(val), quad_value(static_cast<long double>(val)),
@@ -69,7 +76,14 @@ struct TypedValue {
                   double_value(static_cast<double>(val)), quad_value(val),
                   string_value(""), is_numeric_result(true), is_float_result((t.type_info != TYPE_POINTER)),
                   numeric_type(t.type_info),
-                  type(t), deferred_node(nullptr), is_deferred(false), is_struct_result(false), struct_data(nullptr) {}
+                  type(t), deferred_node(nullptr), is_deferred(false), is_struct_result(false), struct_data(nullptr) {
+            // デバッグ: ポインタ型の場合のみ出力
+            extern bool debug_mode;
+            if (debug_mode && t.type_info == TYPE_POINTER) {
+                fprintf(stderr, "[TypedValue long double constructor] val=%Lf, reinterpreted value=%lld (0x%llx)\n", 
+                        val, (long long)value, (unsigned long long)value);
+            }
+        }
     
         TypedValue(const std::string& val, const InferredType& t) 
                 : value(0), double_value(0.0), quad_value(0.0L), string_value(val),
@@ -105,6 +119,12 @@ struct TypedValue {
         }
         if (is_float_result) {
             return static_cast<int64_t>(double_value);
+        }
+        // デバッグ: ポインタ型の場合のみ出力
+        extern bool debug_mode;
+        if (debug_mode && numeric_type == TYPE_POINTER) {
+            fprintf(stderr, "[TypedValue::as_numeric] Returning pointer value=%lld (0x%llx)\n", 
+                    (long long)value, (unsigned long long)value);
         }
         return value; 
     }

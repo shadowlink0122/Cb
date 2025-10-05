@@ -119,7 +119,18 @@ void OutputManager::print_value(const ASTNode *expr) {
             if (value_type == TYPE_UNKNOWN) {
                 value_type = typed.is_floating() ? TYPE_DOUBLE : TYPE_INT;
             }
-            write_numeric_value(io_interface_, value_type, typed.as_numeric(),
+            
+            // ポインタ型の場合、タグビットを除去して16進数で表示
+            int64_t numeric_val = typed.as_numeric();
+            if (value_type == TYPE_POINTER && (numeric_val & (1LL << 63))) {
+                uint64_t clean_value = static_cast<uint64_t>(numeric_val) & ~(1ULL << 63);
+                std::ostringstream oss;
+                oss << "0x" << std::hex << clean_value;
+                io_interface_->write_string(oss.str().c_str());
+                return;
+            }
+            
+            write_numeric_value(io_interface_, value_type, numeric_val,
                                 typed.as_double(), typed.as_quad());
             return;
         }
@@ -129,7 +140,16 @@ void OutputManager::print_value(const ASTNode *expr) {
 
     auto evaluate_numeric_and_write = [&](const ASTNode *node) {
         int64_t value = evaluate_expression(node);
-        io_interface_->write_number(value);
+        // ポインタ値の場合、タグビットを除去して16進数で表示
+        if (value & (1LL << 63)) {
+            // タグビットが設定されている場合、ポインタメタデータと判断
+            uint64_t clean_value = static_cast<uint64_t>(value) & ~(1ULL << 63);
+            std::ostringstream oss;
+            oss << "0x" << std::hex << clean_value;
+            io_interface_->write_string(oss.str().c_str());
+        } else {
+            io_interface_->write_number(value);
+        }
     };
 
     auto print_string_array_element = [&](Variable *var, int64_t index) {
@@ -378,8 +398,16 @@ void OutputManager::print_value(const ASTNode *expr) {
         
         // 変数の値を直接出力
         if (var) {
-            write_numeric_value(io_interface_, var->type, var->value, 
-                                var->double_value, var->quad_value);
+            // ポインタ型の場合、タグビットを除去して16進数で実際のアドレスを表示
+            if (var->type == TYPE_POINTER && (var->value & (1LL << 63))) {
+                uint64_t clean_value = static_cast<uint64_t>(var->value) & ~(1ULL << 63);
+                std::ostringstream oss;
+                oss << "0x" << std::hex << clean_value;
+                io_interface_->write_string(oss.str().c_str());
+            } else {
+                write_numeric_value(io_interface_, var->type, var->value, 
+                                    var->double_value, var->quad_value);
+            }
             return;
         }
 

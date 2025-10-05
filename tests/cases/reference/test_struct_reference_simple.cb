@@ -32,7 +32,7 @@ int main() {
     println("Before: p2.x = ", p2.x);
     modify_by_ref(p2);
     println("After: p2.x = ", p2.x);
-    // assert(p2.x == 100);  // 変更されるはず
+    assert(p2.x == 100);  // 変更されるはず
     
     println("\n=== Struct reference test completed ===");
     return 0;

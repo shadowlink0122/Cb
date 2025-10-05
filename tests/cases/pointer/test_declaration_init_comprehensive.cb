@@ -1,0 +1,113 @@
+// ポインタの宣言時初期化と基本操作の包括的テスト
+
+int main() {
+    println("=== Declaration with Initialization and Basic Operations Test ===");
+    println("");
+    
+    // テスト1: 宣言時初期化
+    println("Test 1: Declaration with initialization");
+    int[5] arr = [100, 200, 300, 400, 500];
+    int* p = &arr[0];  // 宣言時初期化
+    
+    if (*p != 100) {
+        println("  FAIL: Initial value");
+        return 1;
+    }
+    println("  *p = 100");
+    println("  ✓ Test 1 passed");
+    
+    // テスト2: ポインタ加算 +1
+    println("Test 2: Pointer addition +1");
+    p = p + 1;
+    if (*p != 200) {
+        println("  FAIL: Pointer addition");
+        return 1;
+    }
+    println("  After p = p + 1: *p = 200");
+    println("  ✓ Test 2 passed");
+    
+    // テスト3: ポインタ加算 +2
+    println("Test 3: Pointer addition +2");
+    p = p + 2;
+    if (*p != 400) {
+        println("  FAIL: Pointer addition +2");
+        return 1;
+    }
+    println("  After p = p + 2: *p = 400");
+    println("  ✓ Test 3 passed");
+    
+    // テスト4: ポインタ減算
+    println("Test 4: Pointer subtraction");
+    p = p - 1;
+    if (*p != 300) {
+        println("  FAIL: Pointer subtraction");
+        return 1;
+    }
+    println("  After p = p - 1: *p = 300");
+    println("  ✓ Test 4 passed");
+    
+    // テスト5: 後置インクリメント
+    println("Test 5: Post-increment");
+    int* q = &arr[0];
+    q++;
+    if (*q != 200) {
+        println("  FAIL: Post-increment");
+        return 1;
+    }
+    println("  After q++: *q = 200");
+    println("  ✓ Test 5 passed");
+    
+    // テスト6: 後置デクリメント
+    println("Test 6: Post-decrement");
+    q--;
+    if (*q != 100) {
+        println("  FAIL: Post-decrement");
+        return 1;
+    }
+    println("  After q--: *q = 100");
+    println("  ✓ Test 6 passed");
+    
+    // テスト7: 複数のポインタが同じ配列を指す
+    println("Test 7: Multiple pointers to same array");
+    int* r = &arr[2];
+    if (*r != 300) {
+        println("  FAIL: Multiple pointers");
+        return 1;
+    }
+    println("  *r = 300");
+    println("  ✓ Test 7 passed");
+    
+    // テスト8: ポインタ経由での値の変更
+    println("Test 8: Value modification through pointer");
+    *r = 999;
+    if (arr[2] != 999) {
+        println("  FAIL: Array element not modified");
+        return 1;
+    }
+    if (*r != 999) {
+        println("  FAIL: Pointer value check");
+        return 1;
+    }
+    println("  After *r = 999: arr[2] = 999, *r = 999");
+    println("  ✓ Test 8 passed");
+    
+    // テスト9: 別のポインタで同じ要素を参照
+    println("Test 9: Another pointer to same element");
+    int* s = &arr[2];
+    if (*s != 999) {
+        println("  FAIL: Shared element access");
+        return 1;
+    }
+    println("  *s = 999");
+    println("  ✓ Test 9 passed");
+    
+    // テスト10: ポインタ変数のアドレス表示
+    println("Test 10: Pointer address display");
+    println("  Pointer value: p =", p);
+    println("  Address of pointer: &p =", &p);
+    println("  ✓ Test 10 passed");
+    
+    println("");
+    println("=== All declaration and basic operation tests passed ===");
+    return 0;
+}

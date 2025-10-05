@@ -22,24 +22,33 @@ enum class PointerTargetType {
 struct PointerMetadata {
     PointerTargetType target_type;
     
-    // ターゲット情報（union外にstd::stringを配置）
-    // 変数へのポインタ
-    Variable* var_ptr;
+    // 真のポインタシステム用：実際のメモリアドレス
+    uintptr_t address;           // 実際のアドレス（Variable*等のアドレス）
+    TypeInfo pointed_type;       // 指している型
+    size_t type_size;            // 型のサイズ（バイト単位）
     
-    // 配列要素へのポインタ
-    Variable* array_var;
+    // 範囲チェック用情報（オプション）
+    Variable* array_var;         // 配列の場合の配列変数
+    size_t array_start_addr;     // 配列の開始アドレス
+    size_t array_end_addr;       // 配列の終了アドレス
+    
+    // レガシー情報（後方互換性のため保持）
+    Variable* var_ptr;
     size_t element_index;
     TypeInfo element_type;
-    
-    // 構造体メンバーへのポインタ
     Variable* member_var;
-    std::string member_path;  // unionの外に配置
+    std::string member_path;
     
     // コンストラクタ
     PointerMetadata() 
         : target_type(PointerTargetType::NULLPTR_VALUE),
-          var_ptr(nullptr),
+          address(0),
+          pointed_type(TYPE_UNKNOWN),
+          type_size(0),
           array_var(nullptr),
+          array_start_addr(0),
+          array_end_addr(0),
+          var_ptr(nullptr),
           element_index(0),
           element_type(TYPE_UNKNOWN),
           member_var(nullptr),

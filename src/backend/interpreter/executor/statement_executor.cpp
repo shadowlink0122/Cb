@@ -658,9 +658,10 @@ void StatementExecutor::execute_assignment(const ASTNode *node) {
         if (node->right && node->right->node_type == ASTNodeType::AST_FUNC_CALL) {
             try {
                 TypedValue typed_value = interpreter_.evaluate_typed_expression(node->right.get());
-                // TYPE_UNKNOWN をヒントとして渡し、既存の変数の型または TypedValue の型を使用
+                // ポインタ型の場合はTYPE_POINTERをヒントとして渡す
+                TypeInfo type_hint = (typed_value.numeric_type == TYPE_POINTER) ? TYPE_POINTER : TYPE_UNKNOWN;
                 interpreter_.assign_variable(target_name, typed_value,
-                                             TYPE_UNKNOWN, false);
+                                             type_hint, false);
             } catch (const ReturnException& ret) {
                 if (ret.is_struct) {
                     interpreter_.current_scope().variables[target_name] = ret.struct_value;
@@ -673,9 +674,10 @@ void StatementExecutor::execute_assignment(const ASTNode *node) {
             }
         } else {
             TypedValue typed_value = interpreter_.evaluate_typed_expression(node->right.get());
-            // TYPE_UNKNOWN をヒントとして渡し、既存の変数の型または TypedValue の型を使用
+            // ポインタ型の場合はTYPE_POINTERをヒントとして渡す
+            TypeInfo type_hint = (typed_value.numeric_type == TYPE_POINTER) ? TYPE_POINTER : TYPE_UNKNOWN;
             interpreter_.assign_variable(target_name, typed_value,
-                                         TYPE_UNKNOWN, false);
+                                         type_hint, false);
         }
     }
 }
@@ -843,7 +845,23 @@ void StatementExecutor::execute_variable_declaration(const ASTNode *node) {
     interpreter_.current_scope().variables[node->name] = var;
     
     if (init_node) {
-        if (init_node->node_type == ASTNodeType::AST_TERNARY_OP) {
+        // ポインタ型の初期化を最優先で処理
+        if (node->type_info == TYPE_POINTER) {
+            TypedValue typed_value = interpreter_.evaluate_typed(init_node);
+            if (debug_mode) {
+                std::cerr << "[STMT_EXEC] Pointer initialization: typed_value.value=" << typed_value.value 
+                          << " (0x" << std::hex << typed_value.value << std::dec << ")" << std::endl;
+            }
+            interpreter_.current_scope().variables[node->name].value = typed_value.value;
+            interpreter_.current_scope().variables[node->name].type = TYPE_POINTER;
+            interpreter_.current_scope().variables[node->name].is_assigned = true;
+            if (debug_mode) {
+                std::cerr << "[STMT_EXEC] Pointer initialization complete: variables[" << node->name << "].value="
+                          << interpreter_.current_scope().variables[node->name].value 
+                          << " (0x" << std::hex << interpreter_.current_scope().variables[node->name].value << std::dec << ")" << std::endl;
+            }
+            return;  // ポインタ型の初期化はここで完了
+        } else if (init_node->node_type == ASTNodeType::AST_TERNARY_OP) {
             // 三項演算子による初期化
             execute_ternary_variable_initialization(node, init_node);
         } else if (var.is_array && init_node->node_type == ASTNodeType::AST_ARRAY_LITERAL) {
@@ -1090,25 +1108,8 @@ void StatementExecutor::execute_variable_declaration(const ASTNode *node) {
                 // float/double リテラルを含む全ての初期化式で TypedValue を使用
                 TypedValue typed_value = interpreter_.evaluate_typed(init_node);
                 
-                if (interpreter_.is_debug_mode() && node->name == "ptr") {
-                    std::cerr << "[STMT_EXEC] Initializing variable ptr:" << std::endl;
-                    std::cerr << "  node->type_info=" << static_cast<int>(node->type_info) << std::endl;
-                    std::cerr << "  TYPE_STRING=" << static_cast<int>(TYPE_STRING) << std::endl;
-                    std::cerr << "  TYPE_POINTER=" << static_cast<int>(TYPE_POINTER) << std::endl;
-                    std::cerr << "  var.type=" << static_cast<int>(var.type) << std::endl;
-                }
-                
                 if (var.type == TYPE_STRING) {
                     interpreter_.current_scope().variables[node->name].str_value = init_node->str_value;
-                } else if (node->type_info == TYPE_POINTER) {
-                    // ポインタ型は精度損失を避けるため、直接valueフィールドに代入
-                    interpreter_.current_scope().variables[node->name].value = typed_value.value;
-                    interpreter_.current_scope().variables[node->name].type = TYPE_POINTER;
-                    
-                    if (interpreter_.is_debug_mode()) {
-                        std::cerr << "[STMT_EXEC] Pointer variable " << node->name << " initialized with value="
-                                  << typed_value.value << " (0x" << std::hex << typed_value.value << std::dec << ")" << std::endl;
-                    }
                 } else {
                     interpreter_.assign_variable(node->name, typed_value,
                                                  node->type_info, false);
@@ -1909,6 +1910,16 @@ void StatementExecutor::execute_member_assignment(const ASTNode* node) {
     
     // constメンバへの代入チェック
     Variable* target_var = interpreter_.find_variable(obj_name);
+    
+    // 参照の場合は実際の変数を取得
+    if (target_var && target_var->is_reference) {
+        Variable* actual_var = reinterpret_cast<Variable*>(target_var->value);
+        if (!actual_var) {
+            throw std::runtime_error("Invalid reference in member assignment");
+        }
+        target_var = actual_var;
+    }
+    
     if (target_var && target_var->is_struct) {
         auto member_it = target_var->struct_members.find(member_name);
         if (member_it != target_var->struct_members.end()) {
@@ -1930,6 +1941,60 @@ void StatementExecutor::execute_member_assignment(const ASTNode* node) {
                                        obj_name + "." + member_name);
             }
         }
+    }
+    
+    // 参照の場合は、実際の変数のメンバーに直接代入
+    Variable* base_var = interpreter_.find_variable(obj_name);
+    if (base_var && base_var->is_reference) {
+        Variable* actual_var = reinterpret_cast<Variable*>(base_var->value);
+        if (!actual_var || !actual_var->is_struct) {
+            throw std::runtime_error("Invalid reference or non-struct in member assignment");
+        }
+        
+        // 参照の場合: actual_varのメンバーに直接代入
+        auto member_it = actual_var->struct_members.find(member_name);
+        if (member_it == actual_var->struct_members.end()) {
+            throw std::runtime_error("Struct member not found: " + member_name);
+        }
+        
+        Variable& member_var = member_it->second;
+        
+        // 右辺を評価して代入
+        if (node->right->node_type == ASTNodeType::AST_STRING_LITERAL) {
+            member_var.str_value = node->right->str_value;
+            member_var.type = TYPE_STRING;
+            member_var.is_assigned = true;
+            
+            // ダイレクトアクセス変数も更新
+            std::string actual_var_name = interpreter_.find_variable_name_by_address(actual_var);
+            if (!actual_var_name.empty()) {
+                std::string direct_var_name = actual_var_name + "." + member_name;
+                Variable* direct_var = interpreter_.find_variable(direct_var_name);
+                if (direct_var) {
+                    direct_var->str_value = node->right->str_value;
+                    direct_var->type = TYPE_STRING;
+                    direct_var->is_assigned = true;
+                }
+            }
+        } else {
+            TypedValue typed_value = interpreter_.evaluate_typed(node->right.get());
+            member_var.value = typed_value.value;
+            member_var.type = typed_value.numeric_type;
+            member_var.is_assigned = true;
+            
+            // ダイレクトアクセス変数も更新
+            std::string actual_var_name = interpreter_.find_variable_name_by_address(actual_var);
+            if (!actual_var_name.empty()) {
+                std::string direct_var_name = actual_var_name + "." + member_name;
+                Variable* direct_var = interpreter_.find_variable(direct_var_name);
+                if (direct_var) {
+                    direct_var->value = typed_value.value;
+                    direct_var->type = typed_value.numeric_type;
+                    direct_var->is_assigned = true;
+                }
+            }
+        }
+        return;
     }
     
     // struct変数のメンバに直接代入
