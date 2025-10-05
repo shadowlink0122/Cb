@@ -3903,6 +3903,24 @@ ASTNode* RecursiveParser::parseStructDeclaration() {
             ParsedTypeInfo var_parsed = member_parsed;
             TypeInfo member_type_info = resolveParsedTypeInfo(var_parsed);
 
+            // 自己再帰構造体チェック: 自分自身の型のメンバーはポインタでなければならない
+            std::string member_base_type = var_parsed.base_type;
+            if (member_base_type.empty()) {
+                member_base_type = var_parsed.full_type;
+            }
+            // "struct " プレフィックスを除去
+            if (member_base_type.rfind("struct ", 0) == 0) {
+                member_base_type = member_base_type.substr(7);
+            }
+            
+            if (member_base_type == struct_name && !var_parsed.is_pointer) {
+                error("Self-recursive struct member '" + member_name + 
+                      "' must be a pointer type. Use '" + struct_name + "* " + 
+                      member_name + ";' instead of '" + struct_name + " " + 
+                      member_name + ";'");
+                return nullptr;
+            }
+
             struct_def.add_member(member_name,
                                   member_type_info,
                                   var_parsed.full_type,
@@ -4028,6 +4046,26 @@ ASTNode* RecursiveParser::parseStructTypedefDeclaration() {
 
             ParsedTypeInfo var_parsed = member_parsed;
             TypeInfo member_type_info = resolveParsedTypeInfo(var_parsed);
+
+            // 自己再帰構造体チェック (typedef structの場合はタグ名でチェック)
+            if (!tag_name.empty()) {
+                std::string member_base_type = var_parsed.base_type;
+                if (member_base_type.empty()) {
+                    member_base_type = var_parsed.full_type;
+                }
+                // "struct " プレフィックスを除去
+                if (member_base_type.rfind("struct ", 0) == 0) {
+                    member_base_type = member_base_type.substr(7);
+                }
+                
+                if (member_base_type == tag_name && !var_parsed.is_pointer) {
+                    error("Self-recursive struct member '" + member_name + 
+                          "' must be a pointer type. Use '" + tag_name + "* " + 
+                          member_name + ";' instead of '" + tag_name + " " + 
+                          member_name + ";'");
+                    return nullptr;
+                }
+            }
 
             struct_def.add_member(member_name,
                                   member_type_info,

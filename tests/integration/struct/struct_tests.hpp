@@ -564,6 +564,74 @@ inline void test_nested_member_assignment() {
         }, execution_time);
 }
 
+// 自己再帰構造体のOKケーステスト
+inline void test_self_recursive_ok() {
+    std::cout << "[integration] Running test_self_recursive_ok..." << std::endl;
+    
+    double execution_time;
+    run_cb_test_with_output_and_time("../../tests/cases/struct/self_recursive_ok.cb", 
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "Self-recursive struct test should exit with code 0");
+            INTEGRATION_ASSERT(output.find("Node value:  3") != std::string::npos, 
+                              "Output should contain first node value");
+            INTEGRATION_ASSERT(output.find("Node value:  2") != std::string::npos, 
+                              "Output should contain second node value");
+            INTEGRATION_ASSERT(output.find("Node value:  1") != std::string::npos, 
+                              "Output should contain third node value");
+            INTEGRATION_ASSERT(output.find("Sum:  6") != std::string::npos, 
+                              "Output should contain correct sum");
+        }, execution_time);
+}
+
+// 自己再帰構造体のエラーケーステスト
+inline void test_self_recursive_error() {
+    std::cout << "[integration] Running test_self_recursive_error..." << std::endl;
+    
+    double execution_time;
+    run_cb_test_with_output_and_time("../../tests/cases/struct/self_recursive_error.cb", 
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_NE(0, exit_code, "Self-recursive value member should fail");
+            INTEGRATION_ASSERT(output.find("Self-recursive struct member") != std::string::npos, 
+                              "Error message should mention self-recursive member");
+            INTEGRATION_ASSERT(output.find("must be a pointer type") != std::string::npos, 
+                              "Error message should suggest using pointer");
+        }, execution_time);
+}
+
+// typedef structでの自己再帰OKケーステスト
+inline void test_typedef_self_recursive_ok() {
+    std::cout << "[integration] Running test_typedef_self_recursive_ok..." << std::endl;
+    
+    double execution_time;
+    run_cb_test_with_output_and_time("../../tests/cases/struct/typedef_self_recursive_ok.cb", 
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "Typedef self-recursive struct test should exit with code 0");
+            INTEGRATION_ASSERT(output.find("Root:  10") != std::string::npos, 
+                              "Output should contain root value");
+            INTEGRATION_ASSERT(output.find("Left:  5") != std::string::npos, 
+                              "Output should contain left child value");
+            INTEGRATION_ASSERT(output.find("Right:  15") != std::string::npos, 
+                              "Output should contain right child value");
+            INTEGRATION_ASSERT(output.find("Binary tree test passed") != std::string::npos, 
+                              "Output should contain success message");
+        }, execution_time);
+}
+
+// typedef structでの自己再帰エラーケーステスト
+inline void test_typedef_self_recursive_error() {
+    std::cout << "[integration] Running test_typedef_self_recursive_error..." << std::endl;
+    
+    double execution_time;
+    run_cb_test_with_output_and_time("../../tests/cases/struct/typedef_self_recursive_error.cb", 
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_NE(0, exit_code, "Typedef self-recursive value member should fail");
+            INTEGRATION_ASSERT(output.find("Self-recursive struct member") != std::string::npos, 
+                              "Error message should mention self-recursive member");
+            INTEGRATION_ASSERT(output.find("must be a pointer type") != std::string::npos, 
+                              "Error message should suggest using pointer");
+        }, execution_time);
+}
+
 // 全structテストを実行
 inline void run_all_struct_tests() {
     std::cout << "[integration] ========================================" << std::endl;
@@ -599,6 +667,10 @@ inline void run_all_struct_tests() {
         test_mixed_type_members();
         test_same_type_multiple_members();
         test_nested_member_assignment(); // ネストメンバ直接代入テスト
+        test_self_recursive_ok(); // 自己再帰構造体（OK）
+        test_self_recursive_error(); // 自己再帰構造体（エラー）
+        test_typedef_self_recursive_ok(); // typedef自己再帰（OK）
+        test_typedef_self_recursive_error(); // typedef自己再帰（エラー）
         // test_comprehensive(); // 複雑な機能
         
         std::cout << "[integration] ========================================" << std::endl;
