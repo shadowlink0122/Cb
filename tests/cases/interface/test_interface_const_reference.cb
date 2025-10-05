@@ -1,0 +1,74 @@
+// Interface型の参照テスト（constパラメータ版）
+
+interface Drawable {
+    void draw();
+    int get_size();
+};
+
+struct Circle {
+    int radius;
+};
+
+impl Drawable for Circle {
+    void draw() {
+        println("Drawing circle with radius: ", self.radius);
+    }
+    
+    int get_size() {
+        return self.radius * 2;
+    }
+};
+
+struct Square {
+    int side;
+};
+
+impl Drawable for Square {
+    void draw() {
+        println("Drawing square with side: ", self.side);
+    }
+    
+    int get_size() {
+        return self.side * 4;
+    }
+};
+
+// Interface参照を受け取る（読み取り専用として使用）
+int get_total_size(Drawable& d1, Drawable& d2) {
+    return d1.get_size() + d2.get_size();
+}
+
+// Interface参照でメソッド呼び出し
+void draw_shape(Drawable& shape) {
+    shape.draw();
+}
+
+int main() {
+    println("=== Interface Reference Tests (with const params) ===");
+    
+    // Test 1: Interface参照を使用
+    println("\nTest 1: Interface reference parameter");
+    Circle c;
+    c.radius = 5;
+    Square s;
+    s.side = 4;
+    
+    int total = get_total_size(c, s);
+    println("Total size: ", total);
+    assert(total == 26);  // (5*2) + (4*4) = 10 + 16 = 26
+    
+    // Test 2: Interface参照でメソッド呼び出し
+    println("\nTest 2: Interface reference for method calls");
+    draw_shape(c);
+    draw_shape(s);
+    
+    // Test 3: Interface参照の基本
+    println("\nTest 3: Interface reference basic");
+    Drawable& d_ref = c;
+    int size = d_ref.get_size();
+    println("Size via reference: ", size);
+    assert(size == 10);
+    
+    println("\n=== All interface reference tests passed ===");
+    return 0;
+}

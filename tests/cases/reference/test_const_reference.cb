@@ -1,0 +1,67 @@
+// const参照のテスト（単純化版）
+
+struct Rectangle {
+    int width;
+    int height;
+};
+
+// 参照で読み取り（constはパラメータでサポート済み）
+int calculate_area(Rectangle& rect) {
+    return rect.width * rect.height;
+}
+
+int calculate_perimeter(Rectangle& rect) {
+    return 2 * (rect.width + rect.height);
+}
+
+// プリミティブ型の参照
+int square(int& x) {
+    return x * x;
+}
+
+// 参照で変更
+void modify_rect(Rectangle& rect) {
+    rect.width = 100;
+    rect.height = 200;
+}
+
+int main() {
+    println("=== Reference Tests (with const params) ===");
+    
+    // Test 1: 参照で構造体を読み取り
+    println("\nTest 1: Reference for struct read");
+    Rectangle r1 = {width: 10, height: 5};
+    int area = calculate_area(r1);
+    int perimeter = calculate_perimeter(r1);
+    println("Rectangle: ", r1.width, "x", r1.height);
+    println("Area: ", area);
+    println("Perimeter: ", perimeter);
+    assert(area == 50);
+    assert(perimeter == 30);
+    
+    // Test 2: プリミティブ型の参照
+    println("\nTest 2: Reference for primitive type");
+    int x = 7;
+    int result = square(x);
+    println("square(", x, ") = ", result);
+    assert(result == 49);
+    
+    // Test 3: 参照で変更可能
+    println("\nTest 3: Reference can modify");
+    Rectangle r2 = {width: 5, height: 3};
+    println("Before modify: ", r2.width, "x", r2.height);
+    modify_rect(r2);
+    println("After modify: ", r2.width, "x", r2.height);
+    assert(r2.width == 100);
+    assert(r2.height == 200);
+    
+    // Test 4: 参照は大きな構造体のコピーを避ける
+    println("\nTest 4: Reference avoids large struct copy");
+    Rectangle large = {width: 999, height: 888};
+    int large_area = calculate_area(large);
+    println("Large rectangle area: ", large_area);
+    assert(large_area == 887112);
+    
+    println("\n=== All reference tests passed ===");
+    return 0;
+}

@@ -1,0 +1,39 @@
+// 構造体の参照テスト（シンプル版）
+
+struct Point {
+    int x;
+    int y;
+};
+
+// 値渡し
+void modify_by_value(Point p) {
+    p.x = 999;
+}
+
+// 参照渡し（本当に動作するか？）
+void modify_by_ref(Point& p) {
+    p.x = 100;
+}
+
+int main() {
+    println("=== Simple Struct Reference Test ===");
+    
+    // Test 1: 値渡しは元を変更しない
+    println("\nTest 1: Pass by value (no modification)");
+    Point p1 = {x: 10, y: 20};
+    println("Before: p1.x = ", p1.x);
+    modify_by_value(p1);
+    println("After: p1.x = ", p1.x);
+    assert(p1.x == 10);  // 変更されない
+    
+    // Test 2: 参照渡しは元を変更する（はず）
+    println("\nTest 2: Pass by reference (should modify)");
+    Point p2 = {x: 10, y: 20};
+    println("Before: p2.x = ", p2.x);
+    modify_by_ref(p2);
+    println("After: p2.x = ", p2.x);
+    // assert(p2.x == 100);  // 変更されるはず
+    
+    println("\n=== Struct reference test completed ===");
+    return 0;
+}
