@@ -1484,19 +1484,153 @@ int main() {
 }
 ```
 
-### 参照型（実装予定）
+### 参照型 ✅
+
+参照型（`T&`）を使用すると、引数を参照渡しで関数に渡すことができます。
 
 ```c++
-// 将来実装予定
 void increment(int& ref) {
     ref++;
 }
 
-int main() {
-    int value = 10;
-    increment(value);  // valueが直接変更される
-    return 0;
+void modify_value(int& ref) {
+    ref = 100;
 }
+
+void main() {
+    int value = 10;
+    println(value);     // 10
+    increment(value);   // valueが直接変更される
+    println(value);     // 11
+    modify_value(value);
+    println(value);     // 100
+}
+```
+
+#### 構造体参照型
+
+構造体も参照型として渡すことができます。
+
+```c++
+struct Point {
+    int x;
+    int y;
+};
+
+void move_point(Point& p, int dx, int dy) {
+    p.x = p.x + dx;
+    p.y = p.y + dy;
+}
+
+void main() {
+    Point p;
+    p.x = 10;
+    p.y = 20;
+    println(p.x);      // 10
+    println(p.y);      // 20
+    move_point(p, 5, 15);
+    println(p.x);      // 15
+    println(p.y);      // 35
+}
+```
+
+**制限事項**:
+- 配列参照型（`int[N]&`）は現在サポートされていません
+- 参照のポインタ（`int&*`）はサポートされていません
+- 参照の参照（`int&&`）はサポートされていません
+
+### 関数ポインタ ✅
+
+関数へのポインタを取得し、関数を変数として扱うことができます。
+
+```c++
+int add(int a, int b) {
+    return a + b;
+}
+
+int subtract(int a, int b) {
+    return a - b;
+}
+
+void main() {
+    // 関数ポインタの宣言と初期化
+    int* op = &add;
+    
+    // 呼び出し（2つの形式）
+    int result1 = op(5, 3);      // 暗黙的呼び出し
+    int result2 = (*op)(5, 3);   // 明示的デリファレンス
+    println(result1);  // 8
+    println(result2);  // 8
+    
+    // 関数ポインタの再代入
+    op = &subtract;
+    println(op(10, 3));  // 7
+    
+    // アドレス表示
+    println(op);  // 0x... (16進数)
+}
+```
+
+#### コールバック関数
+
+```c++
+int apply(int* callback, int x, int y) {
+    return callback(x, y);
+}
+
+void main() {
+    int result = apply(&add, 10, 5);
+    println(result);  // 15
+}
+```
+
+#### 関数ポインタを返す関数
+
+```c++
+int* get_operation(int code) {
+    if (code == 1) {
+        return &add;
+    }
+    return &subtract;
+}
+
+void main() {
+    int* op = get_operation(1);
+    println(op(8, 3));  // 11
+    
+    // チェーン呼び出し
+    int result = get_operation(2)(10, 4);
+    println(result);  // 6
+}
+```
+
+### アロー演算子 ✅
+
+構造体ポインタのメンバーアクセスを簡潔に記述できます。
+
+```c++
+struct Point {
+    int x;
+    int y;
+};
+
+void main() {
+    Point p;
+    p.x = 10;
+    p.y = 20;
+    Point* ptr = &p;
+    
+    // アロー演算子
+    ptr->x = 30;
+    ptr->y = 40;
+    
+    println(ptr->x);  // 30
+    println(ptr->y);  // 40
+    
+    // (*ptr).x と ptr->x は同等
+}
+```
+
 ```
 
 ---

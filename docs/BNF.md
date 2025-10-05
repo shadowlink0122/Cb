@@ -23,8 +23,17 @@
 
 ## プログラム構造
 
-```
-<program> ::= { <statement> }
+<unary_expression> ::= <postfix_expression>
+                     | '++' <unary_expression>
+                     | '--' <unary_expression>
+                     | <unary_operator> <unary_expression>
+
+<unary_operator> ::= '&'    // アドレス演算子 ✅
+                   | '*'    // デリファレンス ✅
+                   | '!'    // 論理NOT ✅
+                   | '~'    // ビットNOT ✅
+                   | '+'    // 単項プラス ✅
+                   | '-'    // 単項マイナス ✅m> ::= { <statement> }
 
 <statement> ::= <variable_declaration>
               | <function_declaration>
@@ -88,15 +97,17 @@
               | 'bool'
               | 'void'
 
-<pointer_type> ::= <type_specifier> '*'
+<pointer_type> ::= <type_specifier> '*'                         // ポインタ型 ✅
 
-<array_type> ::= <type_specifier> '[' <integer_literal> ']' { '[' <integer_literal> ']' }
+<reference_type> ::= <type_specifier> '&'                        // 参照型 ✅
+
+<array_type> ::= <type_specifier> '[' <integer_literal> ']' { '[' <integer_literal> ']' }  // 配列型 ✅
 ```
 
 ### 構造体
 
 ```
-<struct_declaration> ::= 'struct' <identifier> '{' <member_list> '}' ';'
+<struct_declaration> ::= 'struct' <identifier> '{' <member_list> '}' ';'  // 構造体 ✅
 
 <member_list> ::= <member_declaration> { <member_declaration> }
 
@@ -308,12 +319,12 @@
 ```
 <postfix_expression> ::= <primary_expression> { <postfix_operator> }
 
-<postfix_operator> ::= '[' <expression> ']'                    // 配列アクセス
-                     | '(' <argument_list> ')'                 // 関数呼び出し
-                     | '.' <identifier>                        // メンバーアクセス
-                     | '->' <identifier>                       // ポインタメンバーアクセス
-                     | '++'                                    // 後置インクリメント
-                     | '--'                                    // 後置デクリメント
+<postfix_operator> ::= '[' <expression> ']'                    // 配列アクセス ✅
+                     | '(' <argument_list> ')'                 // 関数呼び出し ✅
+                     | '.' <identifier>                        // メンバーアクセス ✅
+                     | '->' <identifier>                       // ポインタメンバーアクセス ✅
+                     | '++'                                    // 後置インクリメント ✅
+                     | '--'                                    // 後置デクリメント ✅
 
 <argument_list> ::= [ <expression> { ',' <expression> } ]
 ```
@@ -327,7 +338,10 @@
                        | <struct_literal>
                        | <enum_access>
                        | '(' <expression> ')'
-                       | 'self' '.' <identifier>              // implブロック内のみ
+                       | 'self' '.' <identifier>              // implブロック内のみ ✅
+                       | <function_pointer>                   // 関数ポインタ ✅
+
+<function_pointer> ::= '&' <identifier>                       // 関数アドレス ✅
 
 <literal> ::= <integer_literal>
             | <float_literal>
