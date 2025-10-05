@@ -1,0 +1,93 @@
+// Test: Does impl for Point work with Point* automatically?
+// If YES, then we don't need explicit "impl Interface for Point*" syntax
+
+struct Point {
+    int x;
+    int y;
+};
+
+interface IPoint {
+    int getX();
+    void setX(int newX);
+};
+
+// Only implement for Point (not Point*)
+impl IPoint for Point {
+    int getX() {
+        return self.x;
+    }
+    
+    void setX(int newX) {
+        self.x = newX;
+    }
+};
+
+int main() {
+    Point p = {x: 10, y: 20};
+    Point* ptr = &p;
+    
+    println("=== Testing impl Point compatibility with Point* ===");
+    
+    // Test 1: Direct struct - should work
+    println("\nTest 1: Direct struct call p.getX()");
+    int x1 = p.getX();
+    println("Result:", x1);
+    if (x1 != 10) {
+        println("FAILED");
+        return 1;
+    }
+    println("PASSED");
+    
+    // Test 2: Pointer call - does ptr->getX() work with impl for Point?
+    println("\nTest 2: Pointer call ptr->getX()");
+    int x2 = ptr->getX();
+    println("Result:", x2);
+    if (x2 != 10) {
+        println("FAILED");
+        return 1;
+    }
+    println("PASSED");
+    
+    // Test 3: Pointer setter - does ptr->setX() work?
+    println("\nTest 3: Pointer setter ptr->setX(100)");
+    ptr->setX(100);
+    println("p.x =", p.x);
+    if (p.x != 100) {
+        println("FAILED");
+        return 1;
+    }
+    println("PASSED");
+    
+    // Test 4: Struct member pointer
+    println("\nTest 4: Struct member pointer");
+    
+    struct Container {
+        Point* data;
+    };
+    
+    interface IContainer {
+        int getDataX();
+    };
+    
+    impl IContainer for Container {
+        int getDataX() {
+            return self.data->getX();
+        }
+    };
+    
+    Point p2 = {x: 50, y: 60};
+    Container c = {data: &p2};
+    int x3 = c.getDataX();
+    println("Result:", x3);
+    if (x3 != 50) {
+        println("FAILED");
+        return 1;
+    }
+    println("PASSED");
+    
+    println("\n=== All Tests Passed ===");
+    println("Conclusion: impl for Point automatically works with Point*!");
+    println("No need for explicit 'impl Interface for Point*' syntax.");
+    
+    return 0;
+}

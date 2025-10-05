@@ -1,0 +1,28 @@
+// constとnon-constの引数混在テスト
+
+int mixed_params(const int x, int y, const int z) {
+    // x, zはconst（変更不可）
+    // yは変更可能
+    y = y * 2;  // OK: yはconstではない
+    return x + y + z;
+}
+
+int modify_non_const(const int a, int b) {
+    b = b + 100;  // OK: bはconstではない
+    return a + b;
+}
+
+int main() {
+    println("Testing mixed const and non-const parameters:");
+    
+    int r1 = mixed_params(10, 20, 30);
+    println("mixed_params(10, 20, 30) = ", r1);
+    assert(r1 == 80);
+    
+    int r2 = modify_non_const(5, 10);
+    println("modify_non_const(5, 10) = ", r2);
+    assert(r2 == 115);
+    
+    println("All mixed parameter tests passed!");
+    return 0;
+}

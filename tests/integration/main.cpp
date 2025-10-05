@@ -18,6 +18,7 @@
 #include "boundary/test_boundary.hpp"
 #include "compound_assign/test_compound_assign.hpp"
 #include "const_array/test_const_array.hpp"
+#include "const_parameters/test_const_parameters.hpp"
 #include "const_variables/test_const_variables.hpp"
 #include "cross_type/test_cross_type.hpp"
 #include "dynamic_array_error/test_dynamic_array_error.hpp"
@@ -199,6 +200,8 @@ int main() {
                            "Const Variable Tests", failed_tests);
     run_test_with_continue(test_integration_const_array, "Const Array Tests",
                            failed_tests);
+    run_test_with_continue(test_integration_const_parameters,
+                           "Const Parameter Tests", failed_tests);
     run_test_with_continue(test_integration_global_vars,
                            "Global Variable Tests", failed_tests);
     run_test_with_continue(test_integration_static_variables,

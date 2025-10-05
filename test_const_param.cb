@@ -1,0 +1,29 @@
+// Simple test for const parameter support
+
+int square(const int x) {
+    // x is const, cannot be modified
+    return x * x;
+}
+
+int add(const int a, const int b) {
+    a=0;
+    return a + b;
+}
+
+int main() {
+    println("Testing const parameters...");
+    
+    int result1 = square(5);
+    println("square(5) = ", result1);
+    
+    int result2 = add(10, 20);
+    println("add(10, 20) = ", result2);
+    
+    if (result1 == 25 && result2 == 30) {
+        println("PASSED: const parameters work");
+        return 0;
+    } else {
+        println("FAILED");
+        return 1;
+    }
+}

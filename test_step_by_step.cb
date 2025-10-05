@@ -1,0 +1,40 @@
+// Debug: Check what (*o.middle).inner evaluates to
+
+struct Inner {
+    int value;
+};
+
+struct Middle {
+    Inner* inner;
+};
+
+struct Outer {
+    Middle* middle;
+};
+
+int main() {
+    Inner i = {value: 42};
+    Middle m = {inner: &i};
+    Outer o = {middle: &m};
+    
+    println("Step 1: o.middle (should be pointer address)");
+    // This should work - accessing pointer member
+    Middle* ptr1 = o.middle;
+    println("ptr1 address:", ptr1);
+    
+    println("\nStep 2: (*o.middle) (dereference to Middle struct)");
+    // Access a field to verify dereferenced struct is valid
+    Inner* ptr2 = (*o.middle).inner;
+    println("ptr2 address:", ptr2);
+    println("ptr2 value:", ptr2->value);
+    
+    println("\nStep 3: Write to (*o.middle).inner");
+    // This should update the Inner* pointer in the Middle struct
+    Inner i2 = {value: 999};
+    (*o.middle).inner = &i2;
+    println("m.inner now points to:", m.inner);
+    println("m.inner->value:", m.inner->value);
+    
+    println("\nAll steps passed!");
+    return 0;
+}

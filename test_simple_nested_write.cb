@@ -1,0 +1,39 @@
+// Simplified test for nested pointer write
+
+struct Inner {
+    int value;
+};
+
+struct Outer {
+    Inner* inner;
+};
+
+int main() {
+    println("=== Simple Nested Pointer Write Test ===");
+    
+    Inner i = {value: 42};
+    Outer o = {inner: &i};
+    
+    // Test 1: Read nested
+    println("\nTest 1: Read (*o.inner).value");
+    int val = (*o.inner).value;
+    println("Result:", val);
+    if (val != 42) {
+        println("FAILED");
+        return 1;
+    }
+    println("PASSED");
+    
+    // Test 2: Write nested with dereference
+    println("\nTest 2: Write (*o.inner).value = 100");
+    (*o.inner).value = 100;
+    println("i.value =", i.value);
+    if (i.value != 100) {
+        println("FAILED: expected 100, got", i.value);
+        return 1;
+    }
+    println("PASSED");
+    
+    println("\n=== All Tests Passed ===");
+    return 0;
+}

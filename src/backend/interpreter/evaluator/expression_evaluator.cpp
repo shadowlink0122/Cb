@@ -2008,6 +2008,14 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                         
                         // 配列をコピーしてパラメータに設定
                         interpreter_.assign_array_parameter(param->name, *source_var, param->type_info);
+                        
+                        // const修飾を設定
+                        if (param->is_const) {
+                            Variable* param_var = interpreter_.find_variable(param->name);
+                            if (param_var) {
+                                param_var->is_const = true;
+                            }
+                        }
                     } else if (arg->node_type == ASTNodeType::AST_ARRAY_LITERAL) {
                         // 配列リテラルとして直接渡された場合
                         debug_msg(DebugMsgId::ARRAY_LITERAL_INIT_PROCESSING,
@@ -2047,6 +2055,14 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                         
                         // パラメータに設定
                         interpreter_.assign_array_parameter(param->name, temp_var, param->type_info);
+                        
+                        // const修飾を設定
+                        if (param->is_const) {
+                            Variable* param_var = interpreter_.find_variable(param->name);
+                            if (param_var) {
+                                param_var->is_const = true;
+                            }
+                        }
                     } else {
                         throw std::runtime_error("Only array variables can be passed as array parameters");
                     }
@@ -2065,7 +2081,7 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                             param_var.type = TYPE_STRING;
                             param_var.str_value = arg->str_value;
                             param_var.is_assigned = true;
-                            param_var.is_const = false;
+                            param_var.is_const = param->is_const;  // パラメータのconst修飾を保持
                             interpreter_.current_scope().variables[param->name] = param_var;
                         } else if (arg->node_type == ASTNodeType::AST_VARIABLE) {
                             // 文字列変数を代入
@@ -2077,7 +2093,7 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                             param_var.type = TYPE_STRING;
                             param_var.str_value = source_var->str_value;
                             param_var.is_assigned = true;
-                            param_var.is_const = false;
+                            param_var.is_const = param->is_const;  // パラメータのconst修飾を保持
                             interpreter_.current_scope().variables[param->name] = param_var;
                         } else {
                             throw std::runtime_error("Type mismatch: cannot pass non-string expression to string parameter '" + param->name + "'");
@@ -2264,7 +2280,7 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                                 
                                 // struct変数をコピーしてパラメータに設定
                                 Variable param_var = *sync_source_var;
-                                param_var.is_const = false;
+                                param_var.is_const = param->is_const;  // パラメータのconst修飾を保持
                                 param_var.is_struct = true; // 明示的にstructフラグを設定
                                 param_var.type = TYPE_STRUCT; // 型情報も設定
                                 // 解決されたstruct型名を設定
@@ -2372,6 +2388,14 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                             interpreter_.assign_function_parameter(
                                 param->name, arg_value, param->type_info,
                                 param->is_unsigned);
+                            
+                            // const修飾を設定
+                            if (param->is_const) {
+                                Variable* param_var = interpreter_.find_variable(param->name);
+                                if (param_var) {
+                                    param_var->is_const = true;
+                                }
+                            }
                         }
                     }
                 }

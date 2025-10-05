@@ -1,0 +1,21 @@
+// const配列引数の要素への代入エラーテスト
+
+int try_modify_array(const int[] arr, int size) {
+    arr[0] = 999;  // ERROR: const配列要素への代入
+    return arr[0];
+}
+
+int main() {
+    println("Testing const array parameter element reassignment error:");
+    
+    int[3] numbers;
+    numbers[0] = 1;
+    numbers[1] = 2;
+    numbers[2] = 3;
+    
+    int result = try_modify_array(numbers, 3);
+    println("Result: ", result);
+    
+    println("This line should not be reached");
+    return 0;
+}

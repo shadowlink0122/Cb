@@ -1,0 +1,44 @@
+// Test double nested pointer dereference
+
+struct Inner {
+    int value;
+};
+
+struct Middle {
+    Inner* inner;
+};
+
+struct Outer {
+    Middle* middle;
+};
+
+int main() {
+    println("=== Double Nested Pointer Test ===");
+    
+    Inner i = {value: 42};
+    Middle m = {inner: &i};
+    Outer o = {middle: &m};
+    
+    // Test 1: Read double nested
+    println("\nTest 1: Read (*(*o.middle).inner).value");
+    int val = (*(*o.middle).inner).value;
+    println("Result:", val);
+    if (val != 42) {
+        println("FAILED");
+        return 1;
+    }
+    println("PASSED");
+    
+    // Test 2: Write double nested
+    println("\nTest 2: Write (*(*o.middle).inner).value = 999");
+    (*(*o.middle).inner).value = 999;
+    println("i.value =", i.value);
+    if (i.value != 999) {
+        println("FAILED: expected 999, got", i.value);
+        return 1;
+    }
+    println("PASSED");
+    
+    println("\n=== All Tests Passed ===");
+    return 0;
+}

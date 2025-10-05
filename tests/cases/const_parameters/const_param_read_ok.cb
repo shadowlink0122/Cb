@@ -1,0 +1,47 @@
+// const引数の読み取りテスト（正常系）
+
+int square(const int x) {
+    return x * x;
+}
+
+int add(const int a, const int b) {
+    return a + b;
+}
+
+int sum_array(const int[] arr, int size) {
+    int total = 0;
+    int i = 0;
+    while (i < size) {
+        total = total + arr[i];
+        i = i + 1;
+    }
+    return total;
+}
+
+int main() {
+    println("Testing const parameter reads (OK cases):");
+    
+    // 単純なconst int引数
+    int r1 = square(5);
+    println("square(5) = ", r1);
+    assert(r1 == 25);
+    
+    // 複数のconst int引数
+    int r2 = add(10, 20);
+    println("add(10, 20) = ", r2);
+    assert(r2 == 30);
+    
+    // const配列引数
+    int[5] numbers;
+    numbers[0] = 1;
+    numbers[1] = 2;
+    numbers[2] = 3;
+    numbers[3] = 4;
+    numbers[4] = 5;
+    int total = sum_array(numbers, 5);
+    println("sum_array([1,2,3,4,5], 5) = ", total);
+    assert(total == 15);
+    
+    println("All const parameter read tests passed!");
+    return 0;
+}
