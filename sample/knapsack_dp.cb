@@ -1,33 +1,118 @@
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // ナップサック問題の動的プログラミング解法
-// 重みとバリューはリテラルで設定
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//
+// 【実装の特徴】
+// - 構造体配列を使ったアイテム管理
+// - 動的プログラミング（DP）による最適解の計算
+// - 選択されたアイテムの追跡機能
+//
+// 【構造体の説明】
+// Item: 各アイテムの情報（ID、名前、重み、価値）
+// Knapsack: ナップサック問題の設定（アイテム数、容量）
+//
+// 【アルゴリズムの流れ】
+// 1. DPテーブルを初期化
+// 2. 各アイテムについて、各容量での最大価値を計算
+// 3. DPテーブルから最適解を取得
+// 4. DPテーブルを逆にたどって選択されたアイテムを特定
+//
+// 【時間計算量】
+// O(n * W) - nはアイテム数、Wは容量
+//
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-int main() {
-    println("=== Knapsack DP Problem ===");
+// アイテムを表す構造体
+struct Item {
+    int id;              // アイテムID
+    int weight;          // 重み
+    int value;           // 価値
+    bool selected;       // 選択されたかどうか
+};
+
+// ナップサック問題の設定
+struct Knapsack {
+    int item_count;      // アイテム数
+    int capacity;        // ナップサックの容量
+    int max_value;       // 最大価値
+};
+
+const int MAX_ITEMS = 10;
+const int MAX_CAPACITY = 20;
+
+// グローバル変数
+Knapsack knapsack;
+Item[10] items;
+int[11][21] dp;  // DPテーブル [MAX_ITEMS+1][MAX_CAPACITY+1]
+
+// アイテムの初期化
+void init_item(int idx, int weight, int value) {
+    items[idx].id = idx;
+    items[idx].weight = weight;
+    items[idx].value = value;
+    items[idx].selected = false;
+}
+
+// ナップサックの初期化
+void init_knapsack(int item_count, int capacity) {
+    knapsack.item_count = item_count;
+    knapsack.capacity = capacity;
+    knapsack.max_value = 0;
     
-    // アイテム数とナップサックの容量
-    int n = 4;           // アイテム数
-    int capacity = 10;   // ナップサック容量
-    
-    // 重み配列 (リテラルで初期化)
-    int[n] weights = [2, 3, n, 5];
-    
-    // バリュー配列 (リテラルで初期化)
-    int[n] values = [13, 40, 50, 40];
-    
-    // DP テーブル [アイテム数+1][容量+1]
-    int[n+1][capacity+1] dp;
-    
-    println("Items:");
-    for (int i = 0; i < n; i++) {
-        println("Item", i, ": weight =", weights[i], ", value =", values[i]);
+    // DPテーブルの初期化
+    for (int i = 0; i <= MAX_ITEMS; i++) {
+        for (int w = 0; w <= MAX_CAPACITY; w++) {
+            dp[i][w] = 0;
+        }
     }
+}
+
+// アイテム情報の表示
+void print_item(int idx) {
+    println("  Item %d: weight=%d, value=%d, selected=%d", 
+            items[idx].id, items[idx].weight, items[idx].value, items[idx].selected);
+}
+
+// アイテム一覧の表示
+void print_items() {
+    println("\n=== Item List ===");
+    for (int i = 0; i < knapsack.item_count; i++) {
+        print_item(i);
+    }
+}
+
+void main() {
+    println("=== Knapsack DP Problem with Struct Arrays ===");
+    println("Dynamic Programming approach with item management\n");
     
-    // DP計算
+    // ナップサック問題の設定
+    int n = 6;           // アイテム数
+    int capacity = 15;   // ナップサック容量
+    
+    println("Initializing knapsack problem...");
+    println("Items: %d, Capacity: %d\n", n, capacity);
+    init_knapsack(n, capacity);
+    
+    // アイテムの設定（構造体配列を使用）
+    println("Setting up items...");
+    init_item(0, 2, 13);   // 軽くて価値が高い
+    init_item(1, 3, 40);   // 非常に価値が高い
+    init_item(2, 4, 50);   // 最も価値が高い
+    init_item(3, 5, 40);   // 重いが価値が高い
+    init_item(4, 6, 35);   // やや重い
+    init_item(5, 7, 25);   // 重くて価値は中程度
+    
+    // アイテム一覧の表示
+    print_items();
+    
+    // DP計算の実行
+    println("\n=== Executing DP Algorithm ===");
     for (int i = 1; i <= n; i++) {
         for (int w = 1; w <= capacity; w++) {
             // アイテム i-1 を考慮（配列は0ベースなので）
-            int weight = weights[i-1];
-            int value = values[i-1];
+            int item_idx = i - 1;
+            int weight = items[item_idx].weight;
+            int value = items[item_idx].value;
             
             if (weight <= w) {
                 // アイテムを選択する場合と選択しない場合の最大値
@@ -45,31 +130,89 @@ int main() {
             }
         }
     }
+    println("DP calculation completed.");
     
+    // DPテーブルの表示（コンパクト版）
+    println("\n=== DP Table (partial view) ===");
+    println("Showing key capacity points:");
+    int[5] check_points = [0, 5, 10, 15, capacity];
+    
+    print("Item\\Cap:");
+    for (int p = 0; p < 5; p++) {
+        int cap = check_points[p];
+        if (cap <= capacity) {
+            print("  %2d", cap);
+        }
+    }
     println("");
-    println("DP Table:");
+    
     for (int i = 0; i <= n; i++) {
-        print("Item", i, ":");
-        for (int w = 0; w <= capacity; w++) {
-            print(" ", dp[i][w]);
+        print("Item %d:  ", i);
+        for (int p = 0; p < 5; p++) {
+            int cap = check_points[p];
+            if (cap <= capacity) {
+                print(" %3d", dp[i][cap]);
+            }
         }
         println("");
     }
     
-    int max_value = dp[n][capacity];
-    println("");
-    println("Maximum value with capacity", capacity, ":", max_value);
+    // 最大価値の取得
+    knapsack.max_value = dp[n][capacity];
+    println("\n=== Results ===");
+    println("Maximum value with capacity %d: %d", capacity, knapsack.max_value);
     
-    // 選択されたアイテムを追跡
-    println("");
-    println("Selected items:");
+    // 選択されたアイテムの追跡
+    println("\n=== Backtracking Selected Items ===");
     int w = capacity;
+    int total_weight = 0;
+    int selected_count = 0;
+    
     for (int i = n; i > 0; i--) {
         if (dp[i][w] != dp[i-1][w]) {
-            println("Item", i-1, "(weight:", weights[i-1], ", value:", values[i-1], ")");
-            w = w - weights[i-1];
+            int item_idx = i - 1;
+            items[item_idx].selected = true;
+            selected_count++;
+            total_weight = total_weight + items[item_idx].weight;
+            w = w - items[item_idx].weight;
         }
     }
     
-    return 0;
+    println("Selected %d items (total weight: %d / %d):", 
+            selected_count, total_weight, capacity);
+    
+    for (int i = 0; i < n; i++) {
+        if (items[i].selected) {
+            println("  ✓ Item %d: weight=%d, value=%d", 
+                    items[i].id, items[i].weight, items[i].value);
+        }
+    }
+    
+    // 統計情報
+    println("\n=== Statistics ===");
+    println("Total items available: %d", n);
+    println("Items selected: %d", selected_count);
+    println("Capacity utilization: %d / %d (%.1f%%)", 
+            total_weight, capacity, (total_weight * 100) / capacity);
+    println("Maximum value achieved: %d", knapsack.max_value);
+    
+    // 効率性の分析
+    println("\n=== Efficiency Analysis ===");
+    println("Value per weight ratio for selected items:");
+    for (int i = 0; i < n; i++) {
+        if (items[i].selected) {
+            int ratio = (items[i].value * 10) / items[i].weight;
+            println("  Item %d: %d.%d value/weight", 
+                    items[i].id, ratio / 10, ratio % 10);
+        }
+    }
+    
+    println("\n=== Implementation Details ===");
+    println("Data structures used:");
+    println("  - Item struct: manages item properties (id, weight, value, selected)");
+    println("  - Knapsack struct: manages problem configuration");
+    println("  - 2D DP array: stores optimal solutions for subproblems");
+    println("Algorithm: Dynamic Programming (bottom-up approach)");
+    println("Time Complexity: O(n * W) where n=%d, W=%d", n, capacity);
+    println("Space Complexity: O(n * W) for DP table");
 }

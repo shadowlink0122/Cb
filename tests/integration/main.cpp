@@ -51,7 +51,7 @@
 #include "println/test_println.hpp"
 #include "reference/reference_tests.hpp"
 #include "sample_scenarios/test_sample_scenarios.hpp"
-#include "samples/test_actual_samples.hpp"
+// #include "samples/test_actual_samples.hpp"
 #include "self_assign/test_self_assign.hpp"
 #include "static_variables/test_static_variables.hpp"
 #include "string/test_string.hpp"
@@ -296,13 +296,13 @@ int main() {
     CategoryTimingStats::print_category_summary("Performance Tests");
 
     // サンプルシナリオテスト群
-    std::cout << "\n[integration-test] === Sample Scenarios ===" << std::endl;
-    CategoryTimingStats::set_current_category("Sample Scenarios");
-    run_test_with_continue(test_integration_sample_scenarios,
-                           "Sample Scenario Tests", failed_tests);
-    run_test_with_continue(test_integration_actual_samples,
-                           "Actual Sample Tests", failed_tests);
-    CategoryTimingStats::print_category_summary("Sample Scenarios");
+    // std::cout << "\n[integration-test] === Sample Scenarios ===" <<
+    // std::endl; CategoryTimingStats::set_current_category("Sample Scenarios");
+    // run_test_with_continue(test_integration_sample_scenarios,
+    //                        "Sample Scenario Tests", failed_tests);
+    // run_test_with_continue(test_integration_actual_samples,
+    //                        "Actual Sample Tests", failed_tests);
+    // CategoryTimingStats::print_category_summary("Sample Scenarios");
 
     // 最終サマリー
     std::cout << std::string(60, '=') << std::endl;

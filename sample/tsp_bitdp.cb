@@ -11,7 +11,7 @@ bool has_bit(int mask, int i) {
     return (mask & (1 << i)) != 0;
 }
 
-main() {
+int main() {
     int n = 4;  // 都市数
     int inf_val = 999999;  // 大きな値
     

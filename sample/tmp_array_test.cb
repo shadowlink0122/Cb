@@ -1,7 +1,0 @@
-long[2] arr;
-
-int main(){
-    arr[1] = 5;
-    println(arr[1]);
-    return 0;
-}

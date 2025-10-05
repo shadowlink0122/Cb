@@ -1,13 +1,24 @@
-void fizzbuzz(int n){
-    for(tiny i = 1;i <= n;i++){
-        if (i % 3 == 0 && i % 5 == 0) println("%d: FizzBuzz", i);
-        else if (i % 3 == 0) println("%d: Fizz", i);
-        else if (i % 5 == 0) println("%d: Buzz", i);
-        else println(i);
-    }
-}
+interface IFizzbuzz {
+    void fizzbuzz();
+};
 
-int main() {
-    fizzbuzz(30);
+impl IFizzbuzz for int {
+    void fizzbuzz() {
+        if (self % 15 == 0) {
+            println("FizzBuzz");
+        } else if (self % 3 == 0) {
+            println("Fizz");
+        } else if (self % 5 == 0) {
+            println("Buzz");
+        } else {
+            println(self);
+        }
+    }
+};
+
+int main(){
+    for(int i = 1; i <= 100; i++){
+        i.fizzbuzz();
+    }
     return 0;
 }
