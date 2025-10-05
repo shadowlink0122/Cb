@@ -1,2171 +1,1677 @@
-# Cb言語仕様書
+# Cb言語 完全仕様書 v0.9.0
 
-## 概要
+**最終更新**: 2025年10月5日  
+**バージョン**: v0.9.0 - ポインタシステム完全実装版
 
-モダンなC++のようなイメージ。構文はC++ベースにする。
+## 目次
 
-### 影響されている言語とその部分
-- **C/C++**
-    - 変数宣言、関数宣言
-    - RAII（Resource Acquisition Is Initialization）によるメモリ管理
-- **TypeScript**
-    - 型宣言, typedef
-    - ライブラリ、モジュールインポート
-    - ラムダ式、仮想関数
-- **Go**
-    - 配列・スライス
-    - 非同期処理（goroutine、channel）
-- **Rust**
-    - interface, trait（✅ Interface/Implシステムとして実装済み）
-    - ジェネリクス（ライフタイムは入れない）
-    - Result型によるエラー処理（例外処理機構は入れない）
+1. [言語概要](#言語概要)
+2. [型システム](#型システム)
+3. [変数と宣言](#変数と宣言)
+4. [演算子](#演算子)
+5. [制御構造](#制御構造)
+6. [関数](#関数)
+7. [配列](#配列)
+8. [構造体](#構造体)
+9. [Union型](#union型)
+10. [Interface/Implシステム](#interfaceimplシステム)
+11. [ポインタと参照](#ポインタと参照)
+12. [モジュールシステム](#モジュールシステム)
+13. [入出力](#入出力)
+14. [エラーハンドリング](#エラーハンドリング)
+15. [メモリ管理](#メモリ管理)
 
-### パフォーマンス目標
-- Ruby, Pythonより高速
-- GCを使わないゼロコスト抽象化
-- C++スマートポインタライクなRAII自動メモリ管理
+---
 
-### エラー処理戦略
-用途に応じてカスタマイズ可能なエラー処理システム：
+## 言語概要
 
-1. **Result型モード**（推奨・デフォルト）
-   - コンパイラ、システムプログラミング用途
-   - `Result<T, E>` 型による明示的エラーハンドリング
-   - パターンマッチングによる安全なエラー処理
+### 設計思想
 
-2. **エラーコードモード**
-   - 軽量・高速が要求される用途（組み込み、フロントエンド等）
-   - 現在のインタープリター実装で使用
-   - 従来のC言語的な戻り値によるエラー処理
+Cb（シーフラット）は、C++の表現力とTypeScriptの型安全性を融合した、モダンな静的型付けプログラミング言語です。
 
-3. **ハイブリッドモード**
-   - アプリケーション層: Result型
-   - システム層: エラーコード
-   - コンパイル時フラグで切り替え可能
+**主要な設計原則**:
+- **ゼロコスト抽象化**: ランタイムオーバーヘッドを最小化
+- **型安全性**: コンパイル時の厳密な型チェック
+- **明示的なメモリ管理**: ガベージコレクションなし、RAIIベース
+- **実用性重視**: 学習コストを抑えつつ、実用的な機能を提供
 
-### メモリ管理戦略
-**RAII + スマートポインタによる自動管理**
-- `unique_ptr<T>`：排他的所有権
-- `shared_ptr<T>`：共有所有権  
-- `weak_ptr<T>`：弱参照
-- ガベージコレクションは使用しない（パフォーマンス重視）
-- C++17/20の`std::optional`、`std::variant`活用
+### 影響を受けた言語
 
-### 将来的にできること
-- ビルドし、バイナリを生成できるようにできる
-    - IR生成
-    - 最適化アルゴリズム
-    - 実行ファイル作成
-- OSが書けるようになる
-    - 低レイヤー領域では Go より便利になれば嬉しい
-- ウェブフレームワークを提供できる
-    - Railsより明示的に書けること
-    - React, Ginなどのように REST API などが使える
-- フロントが書ける
-    - JavaScript, TypeScript に置き換わるものになる
-    - 特に TypeScriptに近いものができれば良い
+| 言語 | 採用した要素 |
+|------|------------|
+| C/C++ | 基本構文、制御構造、ポインタシステム |
+| TypeScript | Union型、Interface、typedef |
+| Rust | Interface/Implパターン、所有権の概念 |
+| Go | シンプルな配列構文、モジュールシステム |
 
-## 実装状況
+---
 
-### Phase 1: 基本機能 ✅（完成）
-- ✅ **型システム**（プリミティブ型：tiny, short, int, long, string, char, bool）
-- ✅ **変数宣言・初期化**（複数変数同時宣言対応）
-- ✅ **配列システム**（静的配列・多次元配列・配列リテラル完全対応）
-- ✅ **関数定義・呼び出し**（関数戻り値型チェック、配列戻り値対応）
-- ✅ **制御構造**（if/else, for, while, break, continue, return）
-- ✅ **演算子完全実装**
-  - ✅ **10種類の複合代入演算子**: `+=`, `-=`, `*=`, `/=`, `%=`, `&=`, `|=`, `^=`, `<<=`, `>>=`
-  - ✅ **前置・後置インクリメント/デクリメント**: `++var`, `--var`, `var++`, `var--`
-  - ✅ **配列要素複合代入**: `arr[index] += value`、`arr[i*2+1] *= (x+y)`
-  - ✅ **自己代入機能**: 基本的な自己代入、配列自己代入、ビット演算自己代入
-- ✅ **ストレージ修飾子**（const, static）
-- ✅ **標準出力**（print, printf風フォーマット指定子）
-- ✅ **Union型システム**（TypeScript風完全実装）
-  - ✅ **全種類のUnion対応**: リテラル値、基本型、カスタム型、構造体、配列Union
-  - ✅ **混合Union**: `typedef Mixed = 42 | int | string;`
-  - ✅ **文字列処理・複合代入**: 完全対応
-  - ✅ **型安全性**: 厳密な型検証とエラーメッセージ
-  - ✅ **包括的エラーハンドリング**: 15種類の異常系テスト完全対応
-- ✅ **多次元配列戻り値処理**: typedef配列関数の完全対応
-- ✅ **包括的テストフレームワーク**（統合テスト1386個、ユニットテスト26個、100%成功率）
-- ✅ **再帰下降パーサー**による高効率構文解析
+## 型システム
 
-### Phase 2: 高度機能 ✅（完成）
-- ✅ **struct システム完全実装**
-  - ✅ **基本構造体機能**: 定義・宣言・メンバーアクセス・リテラル初期化
-  - ✅ **構造体配列**: 構造体配列・配列メンバー・ネストアクセス
-  - ✅ **printf/println統合**: 構造体メンバー完全対応
-  - ✅ **型安全性**: 構造体型チェック・境界検証
-  - ✅ **配列メンバー同期**: 個別代入とprintf評価の同期機能完全修正
-- ✅ **Union型システム完全実装**（TypeScript風）
-  - ✅ **全種類Union対応**: リテラル値・基本型・カスタム型・構造体・配列・混合Union
-  - ✅ **型安全性**: 厳密な型検証・再帰的typedef対応・包括的エラーハンドリング
-  - ✅ **実行時型変換**: 動的型変換・複合代入演算子完全対応
-- ✅ **typedef システム完全実装**
-  - ✅ **基本typedef**: 型エイリアス・再帰的typedef対応
-  - ✅ **Union typedef**: TypeScript風Union型定義
-  - ✅ **配列typedef**: 多次元配列typedef・戻り値対応
-- ✅ **Interface/Implシステム完全実装**
-  - ✅ **プリミティブ型実装**: int, string, bool等への直接impl
-  - ✅ **構造体型実装**: struct型へのメソッド定義・self参照対応
-  - ✅ **配列型実装**: 1次元・多次元配列型への実装
-  - ✅ **Typedef型実装**: typedef型への独立impl実装
-  - ✅ **再帰的Typedef独立性**: 各typedef階層での独立interface実装
-  - ✅ **インターフェース変数**: 型抽象化とポリモーフィズム
-  - ✅ **包括的エラー検出**: 未定義interface、重複実装、署名不一致
-  - ✅ **メソッド呼び出し**: self参照対応の安全なメソッド実行
-  - ✅ **プライベートメソッド**: impl内での詳細制御
-- ✅ **enum定義**（基本実装・Interface連携完全対応）
-- ✅ **標準ライブラリ基盤**（math.cb, stdio.cb）
+### 基本型
 
-#### 構造体機能完全実装状況 ✅
-現在のCb言語の構造体システムは完全に実装され、実用レベルに達しています：
+#### 整数型
 
-**✅ 完全実装済み機能**:
-- **基本構造体定義・使用**: 完全実装 
-- **構造体リテラル初期化**: 名前付き・位置指定両対応・末尾カンマ対応 
-- **構造体配列メンバー**: 1次元・多次元配列メンバー・個別代入・配列リテラル代入両対応 
-- **構造体の配列**: 構造体配列リテラル初期化対応 
-- **printf/println統合**: 構造体メンバー・配列要素完全対応 
-- **配列メンバー同期**: 個別代入とprintf評価の同期機能完全修正
-- **多次元配列戻り値**: typedef配列関数の完全対応
-- **統合テスト**: 完全テストカバレッジ（100%成功率）
+| 型 | サイズ | 範囲 | 説明 |
+|---|-------|------|------|
+| `tiny` | 8bit | -128 ~ 127 | 最小整数型 |
+| `short` | 16bit | -32,768 ~ 32,767 | 短整数 |
+| `int` | 32bit | -2,147,483,648 ~ 2,147,483,647 | 標準整数 |
+| `long` | 64bit | -9,223,372,036,854,775,808 ~ 9,223,372,036,854,775,807 | 長整数 |
 
-**🚧 将来実装予定機能**:
-- **ネストした構造体**: `obj.member.submember` をポインタ経由で解決（値メンバでの再帰はコンパイルエラー）
-- **構造体関数引数・戻り値**: 値渡し・構造体戻り値完全対応
-- **構造体継承**: 未実装（interface/implシステムで代替可能）
+#### 符号なし整数型
 
-### Phase 3: 将来実装予定 ❌/🚧
-- 🚧 **ポインタシステム**（実装中）
-    - `T*` / `T**` などのポインタ型と `nullptr` リテラル
-    - `new` / `delete` 文による動的メモリ確保と解放
-    - 構造体ポインタに対する `.` アクセスの暗黙デリファレンス
-    - 構造体の自己再帰・相互再帰はポインタメンバ経由のみ許可
-- ❌ **Result型エラー処理**（Go/Rust風の明示的エラーハンドリング）
-- ❌ **スマートポインタ**（unique_ptr, shared_ptr, weak_ptr）
-- ❌ **モジュール・インポートシステム**（TypeScript風）
-- ❌ **ジェネリクス**（型パラメータ・制約）
-- ❌ **非同期処理**（goroutine/channel）
-- ❌ **ラムダ式**（クロージャ）
-- ❌ **アトリビュート**（Rust風メタデータ）
-- 🚧 **標準ライブラリ拡充**（現在 math.cb, stdio.cb 基盤実装済み）
+すべての整数型に`unsigned`修飾子を適用可能:
 
-## 構文定義（BNF記法）
-
-### 基本構文
-```bnf
-program         ::= declaration_list
-
-declaration_list ::= declaration
-                  | declaration_list declaration
-
-declaration     ::= variable_declaration
-                  | function_declaration
-                  | struct_declaration
-                  | typedef_declaration
-                  | union_typedef_declaration
-                  | enum_declaration
-
-type_specifier  ::= "void" | "tiny" | "short" | "int" | "long" 
-                  | "string" | "char" | "bool" | identifier
-                  | type_specifier "[" constant_expression "]"
-                  | type_specifier "*"
-
-storage_class   ::= "const" | "static" | "extern"
+```c++
+unsigned tiny ut;    // 0 ~ 255
+unsigned short us;   // 0 ~ 65,535
+unsigned int ui;     // 0 ~ 4,294,967,295
+unsigned long ul;    // 0 ~ 18,446,744,073,709,551,615
 ```
 
-### 変数宣言
-```bnf  
-variable_declaration ::= storage_class* type_specifier declarator_list ";"
+**特徴**:
+- 実行時に負値が代入されると自動的に0にクランプ
+- 警告メッセージを出力
 
-declarator_list ::= declarator
-                  | declarator_list "," declarator
+#### 文字型
 
-declarator      ::= identifier
-                  | identifier "=" initializer
-                  | identifier "[" constant_expression "]"  
-                  | identifier "[" constant_expression "]" "=" array_initializer
-
-initializer     ::= assignment_expression
-                  | array_initializer
-
-array_initializer ::= "[" initializer_list "]"
-                    | "[" initializer_list "," "]"
-
-initializer_list ::= initializer
-                   | initializer_list "," initializer
+```c++
+char c = 'A';        // ASCII文字（0-255）
+char newline = '\n'; // エスケープシーケンス対応
 ```
 
-### 型宣言・Union型
-```bnf
-typedef_declaration ::= "typedef" type_specifier identifier ";"
-                      | union_typedef_declaration
+**サポートするエスケープシーケンス**:
+- `\n` - 改行
+- `\t` - タブ
+- `\\` - バックスラッシュ
+- `\'` - シングルクォート
+- `\"` - ダブルクォート
 
-union_typedef_declaration ::= "typedef" identifier "=" union_type_list ";"
+#### 文字列型
 
-union_type_list ::= union_type
-                  | union_type_list "|" union_type
-
-union_type ::= literal_value
-             | type_specifier
-             | identifier
-             | array_type_specifier
-
-literal_value ::= integer_constant
-                | string_literal
-                | character_literal
-                | boolean_constant
-
-array_type_specifier ::= type_specifier "[" constant_expression "]"
+```c++
+string s = "Hello, Cb!";
+string japanese = "こんにちは";  // UTF-8対応
 ```
 
-### Interface/Impl宣言 🆕
-```bnf
-interface_declaration ::= "interface" identifier "{" method_signature_list "}"
+#### ブール型
 
-method_signature_list ::= method_signature
-                        | method_signature_list method_signature
-
-method_signature ::= type_specifier identifier "(" parameter_list ")" ";"
-
-impl_declaration ::= "impl" identifier "for" type_specifier "{" method_definition_list "}"
-
-method_definition_list ::= method_definition
-                         | method_definition_list method_definition
-
-method_definition ::= type_specifier identifier "(" parameter_list ")" compound_statement
-
-interface_variable_declaration ::= identifier identifier "=" assignment_expression ";"
-
-interface_method_call ::= identifier "." identifier "(" argument_list ")"
-```
-
-function_declaration ::= storage_class* type_specifier identifier 
-                        "(" parameter_list ")" compound_statement
-
-parameter_list  ::= "void"
-                  | parameter_declaration_list
-
-parameter_declaration_list ::= parameter_declaration  
-                             | parameter_declaration_list "," parameter_declaration
-
-parameter_declaration ::= type_specifier identifier
-```
-
-### 文（Statement）
-```bnf
-statement       ::= expression_statement
-                  | compound_statement
-                  | selection_statement
-                  | iteration_statement  
-                  | jump_statement
-                  | delete_statement
-                  | print_statement
-
-compound_statement ::= "{" statement_list "}"
-
-statement_list  ::= statement
-                  | statement_list statement
-
-expression_statement ::= expression ";"
-
-selection_statement ::= "if" "(" expression ")" statement
-                      | "if" "(" expression ")" statement "else" statement
-
-iteration_statement ::= "while" "(" expression ")" statement
-                      | "for" "(" expression ";" expression ";" expression ")" statement
-                      | "for" "(" variable_declaration expression ";" expression ")" statement
-
-jump_statement  ::= "break" ";"
-                  | "continue" ";"
-                  | "return" ";"  
-                  | "return" expression ";"
-
-print_statement ::= "print" "(" argument_list ")" ";"
-
-delete_statement ::= "delete" expression ";"
-```
-
-### 式（Expression）
-```bnf
-expression      ::= assignment_expression
-                  | expression "," assignment_expression
-
-assignment_expression ::= logical_or_expression
-                        | unary_expression assignment_operator assignment_expression
-
-assignment_operator ::= "=" | "+=" | "-=" | "*=" | "/=" | "%=" 
-                      | "&=" | "|=" | "^=" | "<<=" | ">>="
-
-logical_or_expression ::= logical_and_expression
-                        | logical_or_expression "||" logical_and_expression
-
-logical_and_expression ::= equality_expression
-                         | logical_and_expression "&&" equality_expression
-
-equality_expression ::= relational_expression  
-                      | equality_expression "==" relational_expression
-                      | equality_expression "!=" relational_expression
-
-relational_expression ::= additive_expression
-                        | relational_expression "<" additive_expression
-                        | relational_expression ">" additive_expression  
-                        | relational_expression "<=" additive_expression
-                        | relational_expression ">=" additive_expression
-
-additive_expression ::= multiplicative_expression
-                      | additive_expression "+" multiplicative_expression
-                      | additive_expression "-" multiplicative_expression
-
-multiplicative_expression ::= unary_expression
-                            | multiplicative_expression "*" unary_expression
-                            | multiplicative_expression "/" unary_expression
-                            | multiplicative_expression "%" unary_expression
-
-unary_expression ::= postfix_expression
-                   | "++" unary_expression
-                   | "--" unary_expression  
-                   | "!" unary_expression
-                   | "+" unary_expression
-                   | "-" unary_expression
-                   | "*" unary_expression
-                   | "&" unary_expression
-
-postfix_expression ::= primary_expression
-                     | postfix_expression "[" expression "]"
-                     | postfix_expression "(" argument_list ")"
-                     | postfix_expression "++"
-                     | postfix_expression "--"
-
-primary_expression ::= identifier
-                     | constant
-                     | string_literal
-                     | character_literal
-                     | array_literal
-                     | "nullptr"
-                     | "new" type_specifier
-                     | "new" type_specifier "(" ")"
-                     | "new" type_specifier "(" argument_list ")"
-                     | "(" expression ")"
-
-constant        ::= integer_constant | character_constant | boolean_constant | "nullptr"
-
-character_literal ::= "'" character "'"
-                    | "'" escape_sequence "'"
-
-array_literal   ::= "[" argument_list "]"
-                  | "[" "]"
-
-escape_sequence ::= "\n" | "\t" | "\\" | "\'" | "\0" | "\"" | "\r"
-
-argument_list   ::= assignment_expression
-                  | argument_list "," assignment_expression
-```
-
-## 言語機能詳細
-
-### 変数
-
-#### プリミティブ型（TYPE）✅
-- `void`: 戻り値なし型（変数宣言不可）
-- `tiny`: 8bit符号付き整数 (-128〜127)
-- `short`: 16bit符号付き整数 (-32768〜32767)  
-- `int`: 32bit符号付き整数 (-2^31〜2^31-1)
-- `long`: 64bit符号付き整数 (-2^63〜2^63-1)
-    - 整数型デフォルト値: 0
-- `char`: 8bit文字型 (0〜255)
-    - 文字リテラル: 'A', '\n', '\t', '\\', '\'', '\0' 等をサポート
-    - デフォルト値: '\0'
-- `string`: UTF-8文字列
-    - デフォルト値: ""（空文字列）
-    - 現在は std::string のラッパー
-    - 将来: ベアメタル環境対応（ポインタ隠蔽）
-- `bool`: 真偽値型
-    - デフォルト値: false
-
-##### unsigned修飾子 ✅
-- `tiny` / `short` / `int` / `long` などの整数型に `unsigned` を付与可能（将来的に `float` 系も対象）
-- パーサは `unsigned TYPE` / `unsigned TYPE*` / `unsigned TYPE[SIZE]` を受理し、ASTにメタデータを保持
-- 実行時は初期化値・再代入・関数パラメータ受け渡しのいずれでも負の値を検出すると警告を出しつつ `0` にクランプ
-- クランプ後も既存の型範囲チェックを実行し、安全性を維持
-- `tests/cases/unsigned/runtime_clamp.cb` と `tests/integration/unsigned/test_unsigned.hpp` で動作を検証
-
-#### 配列型システム ✅/🚧
-##### 静的配列（現在実装済み）
-- `TYPE[SIZE]`: 固定サイズ配列
-- 多次元配列対応: `int[10][20]`, `string[5][3][2]`
-- **型安全性**: 
-  - コンパイル時サイズ検証: `int[2] arr = [1, 2, 3];` → エラー
-  - 関数戻り値サイズ検証: `int[5] arr = returnThreeElements();` → エラー
-  - 明確なエラーメッセージ提供
-- **多次元配列戻り値処理**（新機能）:
-  - typedef配列関数の完全対応: `Matrix2D create_matrix()`等
-  - Variable Manager改善: 配列戻り値で全要素展開・次元情報設定
-  - 境界チェック強化: multidim_array_values配列の安全なアクセス
-  - 型判定ロジック: typedef名と配列構造から多次元配列を正確に識別
-
-##### 動的配列（将来実装予定）🚧
-- `TYPE[]`: 可変サイズ配列（Goのsliceライク）
-- **共通メソッド**（Interface/Implシステムで実装可能）:
-  - `.size()`: 要素数取得
-  - `.len()`: 要素数取得（.size()のエイリアス）
-  - `.capacity()`: 容量取得
-  - `.empty()`: 空配列判定
-- **動的配列専用メソッド**:
-  - `.push(value)`: 末尾に要素追加
-  - `.pop()`: 末尾要素削除・取得
-  - `.clear()`: 全要素削除
-  - `.reserve(size)`: 容量予約
-  - `.resize(size)`: サイズ変更
-- **境界チェック**:
-  - 配列アクセス時の自動境界検証
-  - デバッグモードでの詳細エラー情報
-
-#### ポインタ型システム（実装中） 🚧
-- 型宣言: `T*`, `T**` のように `*` を重ねて表記。既存の `type_specifier` に `*` を付与するだけで複数段ポインタを表現できる。
-- デフォルト値は `nullptr`。未初期化ポインタには自動的に `nullptr` が代入される。
-- `new T` は `T*` を返す式、`new T()` / `new T(args...)` で初期化パターンを拡張。
-- `delete expr;` で解放。`nullptr` に対しては安全。解放成功後は暗黙に `nullptr` を代入する。
-- 構造体ポインタに対する `.` アクセスは 1 段の暗黙デリファレンスを行う（`ptr.member` → `(*ptr).member`）。必要に応じて `*ptr` を明示して多段デリファレンスする。
-- `&expr` と `*expr` を単項演算子としてサポート。`sizeof(T)` は実装フェーズ2で対応。
-- 構造体の自己再帰・相互再帰はポインタメンバ経由のみに限定し、値メンバでの無限再帰をコンパイル時に検出してエラーにする。
-- **メモリ管理**:
-  - RAII原則による自動メモリ管理
-  - 効率的な再割り当て戦略（capacity doubling等）
-
-##### 配列型安全性の将来強化 🚧
-- **型レベルでのサイズ検証**:
-  ```cb
-  int[3] a = [1, 2, 3];
-  int[5] b = [1, 2, 3, 4, 5];
-  a = b;  // エラー: サイズが異なる静的配列間の代入は不可
-  ```
-- **関数引数での型チェック**:
-  ```cb
-  void func(int[5] arr);  // 5要素の配列のみ受け入れ
-  int[3] small_array = [1, 2, 3];
-  func(small_array);  // エラー: サイズ不一致
-  ```
-- **配列スライス操作**（動的配列）:
-  ```cb
-  int[] arr = [1, 2, 3, 4, 5];
-  int[] slice = arr[1:4];  // [2, 3, 4]を取得
-  ```
-
-#### 型宣言方法 ✅
-```cb
-TYPE 変数;                     // デフォルト値で初期化
-TYPE 変数 = 値;                // 明示的初期化
-TYPE[SIZE] 変数;               // 配列宣言
-TYPE[SIZE] 変数 = {値1, 値2, ...}; // 配列初期化
-TYPE[SIZE1][SIZE2] 変数;       // 多次元配列宣言
-```
-
-#### ストレージ修飾子 ✅
-C/C++と同等の機能を提供:
-- `const`: 定数、変更不可（Rustのmutの逆）
-- `static`: 静的ストレージ期間
-- `extern`: 外部リンケージ（将来のmoduleシステムと連携）
-
-### 関数 ✅
-```cb
-// void関数（戻り値なし）
-void FUNC_NAME() { 
-    // 文;
-}
-
-// 値を返す関数
-TYPE FUNC_NAME(void) { 
-    // 文;
-    return VALUE; 
-}
-
-// 引数を取る関数
-TYPE FUNC_NAME(TYPE ARG1, TYPE ARG2, ...) { 
-    // 文; 
-    return VALUE; 
-}
-```
-- VALUE の型は TYPE と一致する必要がある
-- 引数も戻り値も配列型に対応
-
-### 型宣言・作成 ✅
-```cb
-// 基本型エイリアス
-typedef 既存型 新しい型名;
-
-// Union型宣言（TypeScript風）
-typedef Union型名 = 型1 | 型2 | 型3 | ...;
-
-// 例
-typedef UserId = int;
-typedef UserName = string;
-
-// リテラル値Union
-typedef HttpStatus = 200 | 404 | 500;
-typedef Direction = "up" | "down" | "left" | "right";
-
-// 基本型Union
-typedef NumericValue = int | long | string;
-
-// カスタム型Union
-typedef ID = UserId | ProductId;
-
-// 構造体Union
-typedef Entity = User | Product;
-
-// 配列Union
-typedef ArrayUnion = int[5] | string[3];
-
-// 混合Union（リテラル値と型の組み合わせ）
-typedef MixedUnion = 42 | int | string;
-```
-
-### Union型システム（完全実装） ✅
-
-#### TypeScript風Union型構文
-```cb
-// リテラル値Union - 特定の値のみ許可
-typedef HttpStatus = 200 | 404 | 500;
-typedef Direction = "up" | "down" | "left" | "right";
-typedef Priority = 1 | 2 | 3;
-
-// 基本型Union - 複数の基本型を組み合わせ
-typedef NumericValue = int | long | string;
-typedef BoolOrString = bool | string;
-typedef AnyBasic = int | string | bool;
-
-// カスタム型Union - 定義したtypedefを組み合わせ
-typedef UserID = int;
-typedef ProductID = string;
-typedef ID = UserID | ProductID;  // 再帰的typedef対応
-
-// 構造体Union - 異なる構造体型を組み合わせ
-struct User {
-    int id;
-    string name;
-}
-
-struct Product {
-    string code;
-    int price;
-}
-
-typedef Entity = User | Product;
-
-// 配列Union - 異なる配列型を組み合わせ
-typedef ArrayUnion = int[5] | string[3] | bool[2];
-typedef MultiDimArrayUnion = int[3][3] | string[2][4];
-
-// 混合Union - リテラル値と型を組み合わせ
-typedef MixedUnion = 42 | int | string;
-typedef ComplexMixed = 200 | "success" | int | bool;
-```
-
-#### Union型の型検証システム
-```cb
-int main() {
-    // リテラル値Unionの厳密な検証
-    HttpStatus status = 200;  // OK: 許可されたリテラル値
-    // HttpStatus invalid = 301;  // エラー: 許可されていない値
-    
-    // 基本型Unionの使用
-    NumericValue value1 = 42;        // int値 -> OK
-    NumericValue value2 = "hello";   // string値 -> OK
-    // NumericValue invalid = true;  // bool型 -> エラー
-    
-    // カスタム型Unionの再帰的型検証
-    UserID user_id = 12345;
-    ID general_id = user_id;         // UserID -> ID: 互換性OK
-    
-    // 構造体Unionの型互換性
-    User alice = {id: 1, name: "Alice"};
-    Entity entity = alice;           // User -> Entity: OK
-    
-    // 混合Unionでの型検証
-    MixedUnion mixed1 = 42;          // リテラル42 -> OK
-    MixedUnion mixed2 = 100;         // int型 -> OK
-    MixedUnion mixed3 = "test";      // string型 -> OK
-    // MixedUnion invalid = true;    // bool型 -> エラー
-    
-    return 0;
-}
-```
-
-#### Union型エラーハンドリング
-Union型システムは13種類の包括的エラー検証を提供：
-
-1. **無効なリテラル値エラー**
-```cb
-typedef LimitedValues = 1 | 2 | 3;
-LimitedValues val = 5;  // エラー: 5は許可されていない
-```
-
-2. **型不一致エラー**
-```cb
-typedef IntOrString = int | string;
+```c++
 bool flag = true;
-IntOrString val = flag;  // エラー: bool型は許可されていない
+bool done = false;
 ```
 
-3. **未定義型エラー**
-```cb
-typedef BadUnion = int | UndefinedType;  // エラー: UndefinedTypeは存在しない
-```
+#### 浮動小数点数型 ✅
 
-4. **カスタム型互換性エラー**
-```cb
-typedef UserID = int;
-typedef ProductID = string;
-typedef RestrictedID = UserID;  // ProductIDは許可されない
+| 型 | サイズ | 精度 | 説明 |
+|---|-------|------|------|
+| `float` | 32bit | 約7桁 | 単精度浮動小数点数 |
+| `double` | 64bit | 約15桁 | 倍精度浮動小数点数 |
 
-ProductID pid = "P123";
-RestrictedID rid = pid;  // エラー: ProductID -> UserIDの変換は不可
-```
+```c++
+float f = 3.14f;           // float型リテラル
+double d = 2.71828;        // double型リテラル
+float e = 1.23e-4f;        // 指数表記
+double pi = 3.141592653589793;
 
-5. **構造体型エラー**
-```cb
-struct User { int id; }
-struct Product { string code; }
-typedef UserOnly = User;
+// 配列
+float[5] farr = [1.1, 2.2, 3.3, 4.4, 5.5];
+double[3] darr = [1.0, 2.0, 3.0];
 
-Product prod = {"P123"};
-UserOnly user_val = prod;  // エラー: Product -> Userの変換は不可
-```
-
-6. **配列型不一致エラー**
-```cb
-typedef IntArrayUnion = int[3];
-string[3] str_arr = ["a", "b", "c"];
-IntArrayUnion arr = str_arr;  // エラー: string[3] -> int[3]は不可
+// 演算
+float result = f * 2.0f;
+double sum = d + pi;
 ```
 
 **特徴**:
-- **TypeScript風セマンティクス**: 直感的なUnion型構文
-- **厳密な型検証**: リテラル値と明示的型の明確な区別
-- **再帰的typedef対応**: UserID -> ID -> int のような継承チェーン
-- **包括的エラー処理**: 13種類の異常系を完全にカバー
-- **実行時型安全性**: 不正な型代入を実行時に検出
-- **混合Union対応**: リテラル値と型を自由に組み合わせ可能
+- IEEE 754準拠の浮動小数点演算
+- 四則演算、比較演算対応
+- 複合代入演算子対応（`+=`, `-=`, `*=`, `/=`）
+- 構造体メンバーとして使用可能
+- 配列要素として使用可能
 
-#### 基本構造体（実装済み）✅
-```cb
-struct 構造体名 { 
-    TYPE メンバ1; 
-    TYPE メンバ2;
-    TYPE[SIZE] 配列メンバ;
-    // ...
-}
+### 型修飾子
 
-// 使用例
-struct Person {
-    string name;
-    int age;
-    int grades[5];
-    bool is_active;
+#### const修飾子
+
+```c++
+const int MAX_SIZE = 100;
+const string MESSAGE = "Hello";
+
+// 配列サイズに使用可能
+int[MAX_SIZE] buffer;
+```
+
+#### static修飾子
+
+```c++
+void counter() {
+    static int count = 0;  // 関数呼び出し間で値を保持
+    count++;
+    println("Count:", count);
 }
+```
+
+### typedef（型エイリアス）
+
+```c++
+// 基本型のエイリアス
+typedef int Integer;
+typedef string Text;
+
+// 配列型のエイリアス
+typedef int[5] IntArray5;
+typedef int[3][3] Matrix3x3;
+
+// 再帰的typedef
+typedef int ID;
+typedef ID UserID;
+typedef UserID AdminID;  // 各レベルで独立した型
+```
+
+---
+
+## 変数と宣言
+
+### 基本的な宣言
+
+```c++
+int x;              // 宣言のみ
+int y = 10;         // 初期化付き宣言
+```
+
+### 複数変数の同時宣言
+
+```c++
+int a, b, c;                    // 同じ型の複数変数
+int x = 1, y = 2, z = 3;        // 初期化付き
+string name, title, message;    // 文字列の複数宣言
+```
+
+### 配列の複数宣言
+
+```c++
+int[5] arr1, arr2;                      // 同じサイズの配列
+string[3] names = ["Alice", "Bob"];     // 初期化付き
+```
+
+### スコープ
+
+```c++
+int global_var = 100;  // グローバルスコープ
 
 int main() {
-    Person p;
-    p.name = "Alice";
-    p.age = 25;
-    p.is_active = true;
+    int local_var = 10;  // ローカルスコープ
     
-    // 配列メンバーの個別代入
-    p.grades[0] = 85;
-    p.grades[1] = 92;
-    
-    // 配列リテラル代入
-    p.grades = [85, 92, 78, 90, 88];
-    
-    return 0;
-}
-```
-
-#### 構造体リテラル初期化（実装済み）✅
-```cb
-struct Point {
-    int x;
-    int y;
-    string label;
-}
-
-int main() {
-    // 名前付き初期化
-    Point p1 = {x: 10, y: 20, label: "Origin"};
-    
-    // 末尾カンマ対応
-    Point p2 = {x: 5, y: 15, };
-    
-    // 位置指定初期化
-    Point p3 = {30, 40, "Target"};
-    
-    // 構造体配列初期化
-    Point[3] points = [
-        {x: 0, y: 0, label: "Start"},
-        {10, 10, "Middle"},
-        {x: 20, y: 20, label: "End"}
-    ];
-    
-    return 0;
-}
-```
-
-#### 構造体配列メンバー（実装済み）✅
-```cb
-struct Matrix {
-    string name;
-    int data[6];  // 1次元配列として使用
-    int rows;
-    int cols;
-}
-
-struct Matrix3D {
-    string name;
-    int[3][3] data;  // 真の多次元配列メンバー
-    int size;
-}
-
-int main() {
-    // 1次元配列メンバー
-    Matrix m;
-    m.name = "Sample Matrix";
-    m.rows = 2;
-    m.cols = 3;
-    
-    // 配列リテラル代入
-    m.data = [1, 2, 3, 4, 5, 6];
-    
-    // 個別要素代入
-    m.data[0] = 10;
-    m.data[5] = 60;
-    
-    // 多次元配列メンバー
-    Matrix3D mat3d;
-    mat3d.name = "3D Matrix";
-    mat3d.size = 3;
-    
-    // 多次元配列リテラル代入
-    mat3d.data = [
-        [1, 2, 3],
-        [4, 5, 6],
-        [7, 8, 9]
-    ];
-    
-    // 個別要素アクセス
-    mat3d.data[0][0] = 100;
-    mat3d.data[2][2] = 900;
-    
-    // printf統合
-    print("Matrix %s: [%d, %d, %d]", m.name, m.data[0], m.data[1], m.data[2]);
-    print("3D Matrix %s [0][0]: %d", mat3d.name, mat3d.data[0][0]);
-    
-    return 0;
-}
-```
-
-#### 構造体の配列（実装済み）✅
-```cb
-struct Employee {
-    string name;
-    int salary;
-    int department_id;
-}
-
-int main() {
-    Employee team[3];
-    
-    // 構造体配列リテラル初期化
-    team[0] = {name: "Alice", salary: 50000, department_id: 0};
-    team[1] = {name: "Bob", salary: 55000, department_id: 2};
-    team[2] = {name: "Charlie", salary: 60000, department_id: 1};
-    
-    // 配列要素のメンバーアクセス
-    print("Employee: %s, Salary: $%d", team[0].name, team[0].salary);
-    
-    return 0;
-}
-```
-
-#### 未実装機能 🚧/❌
-
-##### ネストした構造体（未実装）❌
-```cb
-struct Address {
-    string street;
-    string city;
-    int zipcode;
-}
-
-struct Company {
-    string name;
-    Address address;  // ❌ ネストした構造体未サポート
-    int employee_count;
-}
-
-int main() {
-    Company tech_corp;
-    tech_corp.name = "Tech Corp";
-    
-    // ❌ エラー: ネストしたメンバーアクセス未サポート
-    tech_corp.address.street = "123 Main St";
-    
-    return 0;
-}
-```
-
-##### 構造体の関数引数・戻り値（実装済み）✅
-```cb
-struct Rectangle {
-    int width;
-    int height;
-}
-
-struct Point {
-    int x;
-    int y;
-}
-
-// ✅ 構造体引数（値渡し）
-int calculate_area(Rectangle rect) {
-    return rect.width * rect.height;
-}
-
-// ✅ 構造体戻り値
-Rectangle create_rectangle(int w, int h) {
-    Rectangle r = {width: w, height: h};
-    return r;
-}
-
-// ✅ 複数構造体引数
-Point add_points(Point a, Point b) {
-    Point result;
-    result.x = a.x + b.x;
-    result.y = a.y + b.y;
-    return result;
-}
-
-int main() {
-    Rectangle rect = create_rectangle(10, 5);
-    int area = calculate_area(rect);
-    
-    Point p1 = {x: 3, y: 4};
-    Point p2 = {x: 1, y: 2};
-    Point sum = add_points(p1, p2);
-    
-    print("Area: %d, Sum: (%d, %d)", area, sum.x, sum.y);
-    return 0;
-}
-```
-
-##### 構造体継承（未実装）❌
-```cb
-// 継承（将来実装）
-struct 派生構造体名 extends 基底構造体名 { 
-    TYPE 追加メンバ;
-    // ...
-}
-```
-
-##### 複雑なネストした配列アクセス（未実装）❌
-```cb
-struct Student {
-    string name;
-    int grades[3];
-}
-
-struct Course {
-    Student students[2];
-}
-
-int main() {
-    Course math_course;
-    
-    // ❌ エラー: 構造体配列の構造体メンバー配列アクセス
-    math_course.students[0].grades[0] = 85;
-    
-    return 0;
-}
-```
-
-**現在の制限事項**:
-- ネストした構造体メンバーアクセス (`obj.member.submember`) は未サポート
-- 複雑なネストした配列アクセス (`obj.array[i].member[j]`) は未サポート
-- 構造体継承は未実装
-
-**回避策**:
-- フラット構造体を使用してネストを避ける
-- 構造体メンバーは関数引数・戻り値として完全対応済み
-
-### 列挙型 🚧
-C、TypeScriptライクな列挙型:
-```cb  
-enum Color {
-    RED,
-    GREEN, 
-    BLUE
-}
-
-enum Status {
-    SUCCESS = 0,
-    ERROR = 1,
-    PENDING = 2
-}
-```
-
-### インターフェース定義 ✅
-関数シグネチャをまとめて定義:
-```cb
-interface Drawable {
-    void draw();
-    void move(int x, int y);
-    int getArea();
-}
-
-// 注意: インターフェースの継承（extends）は未実装
-// 複数インターフェース実装はサポート済み
-```
-
-### インターフェース実装 ✅
-```cb
-impl Drawable for Rectangle {
-    void draw() {
-        // 実装
+    if (true) {
+        int block_var = 5;  // ブロックスコープ
+        println(local_var);  // アクセス可能
     }
+    // println(block_var);  // エラー: スコープ外
     
-    void move(int x, int y) {
-        self.x = x;
-        self.y = y;
-    }
-    
-    int getArea() {
-        return self.width * self.height;
-    }
-}
-```
-
-### アトリビュート ❌
-Rustライクなコンパイル時メタデータ（将来実装予定）:
-```cb
-#[no_std]           // 標準ライブラリを使用しない
-#[derive(Debug)]    // デバッグ出力の自動実装
-#[derive(Copy)]     // コピーセマンティクスの自動実装
-#[derive(Eq)]       // 等価比較の自動実装
-struct Point {
-    int x;
-    int y;
-}
-```
-
-### モジュールシステム ❌
-Rustのmodule + TypeScriptのimport/export:
-
-#### エクスポート
-```cb
-export TYPE;                    // 型をエクスポート
-export 変数;                    // 変数をエクスポート  
-export 関数宣言;                // 関数をエクスポート
-export 関数 { /* 実装 */ };     // インライン関数エクスポート
-export interface インターフェース名; // インターフェースをエクスポート（将来実装予定）
-export { 宣言1, 宣言2, ... };   // 複数まとめてエクスポート  
-export default 宣言;            // デフォルトエクスポート
-```
-
-#### インポート  
-```cb
-import file;                              // 全てインポート
-import folder.file;                       // パス指定インポート
-import folder.file.specific_item;         // 個別インポート
-import folder.file.{ item1, item2, ... }; // 複数個別インポート
-```
-
-#### モジュール宣言
-```cb
-mod module_name {
-    // モジュール内容
-}
-```
-
-### エラー処理システム 🚧
-
-#### Result型（推奨）
-```cb
-// Result型の定義（将来実装）
-enum Result<T, E> {
-    Ok(T),
-    Err(E)
-}
-
-// 使用例
-Result<int, string> divide(int a, int b) {
-    if (b == 0) {
-        return Err("Division by zero");
-    }
-    return Ok(a / b);
-}
-
-// パターンマッチングによるエラー処理
-int main() {
-    Result<int, string> result = divide(10, 2);
-    match result {
-        Ok(value) => print("Result: %d", value),
-        Err(error) => print("Error: %s", error)
-    }
     return 0;
 }
 ```
 
-#### エラーコード（軽量モード）
-```cb
-// 現在の実装（インタープリターモード）
-int divide(int a, int b, int* result) {
-    if (b == 0) {
-        return -1; // エラーコード
-    }
-    *result = a / b;
-    return 0; // 成功
-}
+---
+
+## 演算子
+
+### 優先順位表
+
+| 優先度 | 演算子 | 説明 | 結合性 |
+|-------|--------|------|--------|
+| 1 | `()` `[]` `.` `->` | 関数呼び出し、配列アクセス、メンバアクセス | 左→右 |
+| 2 | `++` `--` (前置) `&` `*` | 前置演算子、アドレス、デリファレンス | 右→左 |
+| 3 | `*` `/` `%` | 乗算、除算、剰余 | 左→右 |
+| 4 | `+` `-` | 加算、減算 | 左→右 |
+| 5 | `<<` `>>` | ビットシフト | 左→右 |
+| 6 | `<` `<=` `>` `>=` | 比較演算子 | 左→右 |
+| 7 | `==` `!=` | 等価演算子 | 左→右 |
+| 8 | `&` | ビットAND | 左→右 |
+| 9 | `^` | ビットXOR | 左→右 |
+| 10 | `|` | ビットOR | 左→右 |
+| 11 | `&&` | 論理AND | 左→右 |
+| 12 | `||` | 論理OR | 左→右 |
+| 13 | `?:` | 三項演算子 | 右→左 |
+| 14 | `=` `+=` `-=` `*=` `/=` `%=` `&=` `|=` `^=` `<<=` `>>=` | 代入演算子 | 右→左 |
+
+### 算術演算子
+
+```c++
+int a = 10, b = 3;
+
+int sum = a + b;      // 13
+int diff = a - b;     // 7
+int prod = a * b;     // 30
+int quot = a / b;     // 3
+int rem = a % b;      // 1
 ```
 
-### スマートポインタ・メモリ管理 🚧
-```cb
-// unique_ptr - 排他的所有権（将来実装）
-unique_ptr<MyStruct> ptr = make_unique<MyStruct>();
-ptr->member = 42;
-// 自動的にデストラクタ呼び出し、メモリ解放
+### 比較演算子
 
-// shared_ptr - 共有所有権（将来実装）  
-shared_ptr<MyStruct> ptr1 = make_shared<MyStruct>();
-shared_ptr<MyStruct> ptr2 = ptr1; // 参照カウント+1
-// 最後の参照が消えた時に自動メモリ解放
+```c++
+int x = 5, y = 10;
 
-// weak_ptr - 弱参照（将来実装）
-weak_ptr<MyStruct> weak = ptr1;
-if (auto locked = weak.lock()) {
-    // 有効な場合のみアクセス
-}
+bool eq = (x == y);   // false
+bool ne = (x != y);   // true
+bool lt = (x < y);    // true
+bool le = (x <= y);   // true
+bool gt = (x > y);    // false
+bool ge = (x >= y);   // false
 ```
 
-## 標準機能
+### 論理演算子
 
-### 標準出力 ✅
-Cのprintfライクな関数を提供:
+```c++
+bool a = true, b = false;
 
-#### print関数
-```cb
-// 基本的な値出力（改行なし）
-print(42);              // "42"
-print("Hello");         // "Hello"
-print(variable);        // 変数の値
-
-// printf風フォーマット指定子対応（推奨）
-print("%d", 42);        // "42"
-print("%s", "Hello");   // "Hello"  
-print("%c", 'A');       // "A"
-print("%d + %d = %d", 10, 20, 30);  // "10 + 20 = 30"
+bool and_result = a && b;  // false
+bool or_result = a || b;   // true
+bool not_result = !a;      // false
 ```
 
-#### サポートするフォーマット指定子
-- `%d`: 整数（tiny, short, int）
-- `%lld`: 長整数（long）
-- `%s`: 文字列（string）
-- `%c`: 文字（char）
-- `%%`: パーセント記号のエスケープ
+### ビット演算子
 
-#### 注意事項
-- フォーマット指定子を使用する場合は必ず引数を指定
-- 引数なしの場合はフォーマット指定子は無視される
+```c++
+int a = 0b1100;  // 12
+int b = 0b1010;  // 10
 
-### 制御構造 ✅
-
-#### ループ
-```cb
-// for文
-for (int i = 0; i < 10; i++) {
-    print(i);
-}
-
-// while文
-while (condition) {
-    if (break_condition) break;
-}
+int and_bit = a & b;  // 0b1000 = 8
+int or_bit = a | b;   // 0b1110 = 14
+int xor_bit = a ^ b;  // 0b0110 = 6
+int not_bit = ~a;     // ビット反転
+int lshift = a << 2;  // 0b110000 = 48
+int rshift = a >> 2;  // 0b0011 = 3
 ```
 
-#### 条件分岐
-```cb
-// if-else文
+### 複合代入演算子（全10種）
+
+#### 算術複合代入
+
+```c++
+int x = 10;
+x += 5;   // x = x + 5  → 15
+x -= 3;   // x = x - 3  → 12
+x *= 2;   // x = x * 2  → 24
+x /= 4;   // x = x / 4  → 6
+x %= 5;   // x = x % 5  → 1
+```
+
+#### ビット演算複合代入
+
+```c++
+int flags = 0b1100;
+flags &= 0b1010;  // flags = flags & 0b1010 → 0b1000
+flags |= 0b0011;  // flags = flags | 0b0011 → 0b1011
+flags ^= 0b0101;  // flags = flags ^ 0b0101 → 0b1110
+```
+
+#### シフト演算複合代入
+
+```c++
+int value = 4;
+value <<= 2;  // value = value << 2 → 16
+value >>= 3;  // value = value >> 3 → 2
+```
+
+#### 配列要素への複合代入
+
+```c++
+int[5] arr = [10, 20, 30, 40, 50];
+
+arr[0] += 5;           // arr[0] = 15
+arr[1] *= 2;           // arr[1] = 40
+arr[2] -= arr[0];      // arr[2] = 15
+arr[i*2+1] += (x+y);   // 複雑な式も対応
+```
+
+### インクリメント/デクリメント演算子
+
+#### 前置演算子
+
+```c++
+int x = 5;
+int y = ++x;  // x = 6, y = 6（先にインクリメント）
+int z = --x;  // x = 5, z = 5（先にデクリメント）
+```
+
+#### 後置演算子（文として）
+
+```c++
+int count = 10;
+count++;  // count = 11
+count--;  // count = 10
+```
+
+**注意**: 後置演算子は文としてのみ使用可能（式の一部としては未対応）
+
+### アドレス演算子とデリファレンス
+
+```c++
+int value = 42;
+int* ptr = &value;     // アドレス取得
+
+int x = *ptr;          // デリファレンス（値の取得）
+*ptr = 100;            // デリファレンスして代入
+```
+
+### 三項演算子
+
+```c++
+int max = (a > b) ? a : b;
+string status = (score >= 60) ? "Pass" : "Fail";
+```
+
+---
+
+## 制御構造
+
+### if文
+
+```c++
 if (condition) {
-    // then節
-} else if (other_condition) {
-    // else if節
+    // 処理
+}
+
+if (condition) {
+    // 処理1
 } else {
-    // else節
+    // 処理2
+}
+
+if (condition1) {
+    // 処理1
+} else if (condition2) {
+    // 処理2
+} else {
+    // 処理3
 }
 ```
 
-## 高度な機能（長期計画）
+### ブロックなし単文
 
-### 並行プログラミング ❌
-Goライクなgoroutine + channel:
-```cb
-// goroutine（軽量スレッド）
-go my_function(args);
-
-// channel（通信チャネル）
-chan<int> ch = make_chan<int>();
+```c++
+if (x > 0)
+    println("Positive");
+    
+if (flag)
+    x++;
+else
+    x--;
 ```
 
-### ジェネリクス ❌
-```cb
-// ジェネリック関数
-T max<T>(T a, T b) where T: Comparable {
-    return (a > b) ? a : b;
+### for文
+
+```c++
+for (int i = 0; i < 10; i++) {
+    println(i);
 }
-```
 
-## コンパイル・実行オプション
-
-### エラー処理モード選択
-```bash
-# Result型モード（デフォルト）
-cb-compile --error-handling=result program.cb
-
-# エラーコードモード（軽量）  
-cb-compile --error-handling=codes program.cb
-```
-
-### メモリ管理設定
-```bash
-# RAII + スマートポインタ（デフォルト）
-cb-compile --memory=smart program.cb
-
-# 手動管理（組み込み向け）
-cb-compile --memory=manual program.cb
-```
-
-## 実装例・チュートリアル
-
-### Hello World
-```cb
-int main() {
-    print("Hello, World!");
-    return 0;
+// 無限ループ
+for (;;) {
+    // 処理
+    if (condition) break;
 }
 ```
 
-### 複合代入演算子とインクリメント/デクリメント ✅
-```cb
-int main() {
-    // 算術複合代入演算子
-    int a = 10;
-    a += 5;     // a = a + 5 → 15
-    a -= 3;     // a = a - 3 → 12  
-    a *= 2;     // a = a * 2 → 24
-    a /= 4;     // a = a / 4 → 6
-    a %= 5;     // a = a % 5 → 1
-    
-    // ビット演算複合代入演算子
-    int b = 12; // 1100 (binary)
-    b &= 10;    // b = b & 10 → 8 (1000)
-    b |= 3;     // b = b | 3 → 11 (1011)
-    b ^= 5;     // b = b ^ 5 → 14 (1110)
-    
-    // シフト演算複合代入演算子
-    int c = 4;
-    c <<= 2;    // c = c << 2 → 16
-    c >>= 3;    // c = c >> 3 → 2
-    
-    // 配列要素への複合代入（高度な使用法）
-    int[5] arr = [1, 2, 3, 4, 5];
-    arr[0] += 10;           // 基本的な配列要素複合代入
-    arr[1] *= arr[2];       // 配列要素同士の計算
-    arr[i*2+1] += (x+y);    // 複雑なインデックス式と初期化式
-    
-    // 前置インクリメント/デクリメント
-    int x = 5;
-    ++x;        // x = 6 (値を変更してから使用)
-    --x;        // x = 5 (値を変更してから使用)
-    
-    // 後置インクリメント/デクリメント（文として）
-    x++;        // x = 6 (使用してから値を変更)
-    x--;        // x = 5 (使用してから値を変更)
-    
-    // 自己代入パターン
-    x = x;         // 完全な自己代入
-    x = x + 10;    // 自己参照による計算
-    x = x << 1;    // ビット演算による自己代入
-    // x = x & 0xFF;  // TODO: ビットマスクによる自己代入
-    
-    // すべての複合代入演算子は右から左への結合（右結合）
-    // a += b += c; は a += (b += c); と解釈される
-    
-    return 0;
+### while文
+
+```c++
+while (condition) {
+    // 処理
+}
+
+int count = 0;
+while (count < 10) {
+    println(count);
+    count++;
 }
 ```
 
-### Interface/Impl システム ✅
-```cb
-// Interface declaration with method signatures
-interface Drawable {
-    void draw();
-    void clear();
-}
+### break文
 
-// Primitive type implementation
-impl Drawable for int {
-    void draw() {
-        println("Drawing number: %d", self);
+```c++
+for (int i = 0; i < 100; i++) {
+    if (i > 10) {
+        break;  // ループを抜ける
     }
-    
-    void clear() {
-        println("Clearing number display");
-    }
-}
-
-// Struct implementation
-struct Circle {
-    int x, y;
-    int radius;
-}
-
-impl Drawable for Circle {
-    void draw() {
-        println("Drawing circle at (%d, %d) with radius %d", 
-                self.x, self.y, self.radius);
-    }
-    
-    void clear() {
-        println("Clearing circle");
-    }
-}
-
-// Array implementation
-impl Drawable for int[] {
-    void draw() {
-        print("Drawing array: [");
-        for (int i = 0; i < len(self); i++) {
-            if (i > 0) print(", ");
-            print("%d", self[i]);
-        }
-        println("]");
-    }
-    
-    void clear() {
-        println("Clearing array display");
-    }
-}
-
-// Recursive typedef with interface implementation
-typedef TreeNode {
-    int value;
-    TreeNode* left;
-    TreeNode* right;
-}
-
-impl Drawable for TreeNode {
-    void draw() {
-        println("Drawing tree node with value: %d", self.value);
-        if (self.left != null) {
-            println("  Left child exists");
-        }
-        if (self.right != null) {
-            println("  Right child exists");
-        }
-    }
-    
-    void clear() {
-        println("Clearing tree node");
-    }
-}
-
-int main() {
-    // Primitive type usage
-    int number = 42;
-    number.draw();      // "Drawing number: 42"
-    number.clear();     // "Clearing number display"
-    
-    // Struct usage
-    Circle circle;
-    circle.x = 10;
-    circle.y = 20;
-    circle.radius = 5;
-    circle.draw();      // "Drawing circle at (10, 20) with radius 5"
-    circle.clear();     // "Clearing circle"
-    
-    // Array usage
-    int[3] numbers = [1, 2, 3];
-    numbers.draw();     // "Drawing array: [1, 2, 3]"
-    numbers.clear();    // "Clearing array display"
-    
-    // Recursive typedef usage
-    TreeNode root;
-    root.value = 100;
-    root.left = null;
-    root.right = null;
-    root.draw();        // "Drawing tree node with value: 100"
-    root.clear();       // "Clearing tree node"
-    
-    return 0;
+    println(i);
 }
 ```
 
-### Interface/Impl エラーハンドリング ✅
-```cb
-// エラー検出例：未実装メソッド
-interface Calculator {
-    int add(int a, int b);
-    int multiply(int a, int b);
-}
+### continue文
 
-impl Calculator for int {
-    int add(int a, int b) {
-        return a + b;
+```c++
+for (int i = 0; i < 10; i++) {
+    if (i % 2 == 0) {
+        continue;  // 偶数をスキップ
     }
-    // multiply メソッドが未実装 → コンパイルエラー
-}
-
-// エラー検出例：型ミスマッチ
-interface Formatter {
-    void format();
-}
-
-impl Formatter for int {
-    int format() {  // 戻り値型が void でない → コンパイルエラー
-        return 0;
-    }
-}
-
-// エラー検出例：パラメータミスマッチ
-interface Processor {
-    void process(int value);
-}
-
-impl Processor for int {
-    void process(double value) {  // パラメータ型が一致しない → コンパイルエラー
-        println("Processing: %f", value);
-    }
+    println(i);  // 奇数のみ出力
 }
 ```
 
-### 自己代入機能の包括実装 ✅
-```cb
-int main() {
-    // 基本的な自己代入
-    int value = 5;
-    value = value;              // 完全な自己代入
-    value = value + 5;          // 自己参照加算 → 10
-    value = value * 3;          // 自己参照乗算 → 30
-    
-    println("Basic self-assignment: %d", value);
-    
-    // 配列要素の自己代入
-    int[3] numbers;
-    numbers[0] = 2;
-    numbers[1] = 4; 
-    numbers[2] = 6;
-    
-    // 配列要素同士の自己代入
-    numbers[0] = numbers[0] * 2;        // 2 * 2 = 4
-    numbers[1] = numbers[1] + numbers[0]; // 4 + 4 = 8
-    numbers[2] = numbers[2] - numbers[1]; // 6 - 8 = -2
-    
-    for (int i = 0; i < 3; i++) {
-        println("numbers[%d] = %d", i, numbers[i]);
-    }
-    
-    // ビット演算による自己代入
-    int bits = 12;  // 1100 in binary
-    bits = bits & 5;    // 12 & 5 = 1100 & 0101 = 0100 = 4
-    bits = bits | 8;    // 4 | 8 = 0100 | 1000 = 1100 = 12
-    bits = bits ^ 3;    // 12 ^ 3 = 1100 ^ 0011 = 1111 = 15
-    bits = bits << 1;   // 15 << 1 = 1111 << 1 = 11110 = 30
-    bits = bits >> 2;   // 30 >> 2 = 11110 >> 2 = 0111 = 7
-    
-    println("Bitwise self-assignment result: %d", bits);
-    
-    // 複合代入演算子（自己代入の省略形）
-    int compound = 10;
-    compound += compound;    // compound = compound + compound = 20
-    compound *= 2;          // compound = compound * 2 = 40  
-    compound >>= 1;         // compound = compound >> 1 = 20
-    compound &= 15;         // compound = compound & 15 = 4
-    
-    println("Compound self-assignment result: %d", compound);
-    
-    return 0;
-}
-```
+---
 
-**サポートする複合代入演算子（10種類）**:
-1. `+=` - 加算代入
-2. `-=` - 減算代入  
-3. `*=` - 乗算代入
-4. `/=` - 除算代入
-5. `%=` - 剰余代入
-6. `&=` - ビット論理積代入
-7. `|=` - ビット論理和代入
-8. `^=` - ビット排他的論理和代入
-9. `<<=` - 左シフト代入
-10. `>>=` - 右シフト代入
+## 関数
 
-**特徴**:
-- すべてのプリミティブ型（tiny, short, int, long）に対応
-- 配列要素への複合代入サポート
-- 複雑な式での複合代入サポート
-- 型安全性を保った自動型変換
+### 基本的な関数定義
 
-### 型システムの基本
-```cb
-int main() {
-    // 整数型
-    tiny small_num = 42;        // -128〜127
-    short medium_num = 1000;    // -32768〜32767
-    int large_num = 100000;     // -2^31〜2^31-1
-    long huge_num = 1000000000; // -2^63〜2^63-1
-    
-    // 文字型
-    char letter = 'A';
-    char newline = '\n';
-    char tab = '\t';
-    
-    // 文字列型
-    string message = "Cb言語";
-    
-    // 論理型
-    bool flag = true;
-    
-    // 型別の出力
-    print("tiny: %d", small_num);
-    print("short: %d", medium_num);
-    print("int: %d", large_num);
-    print("long: %lld", huge_num);
-    print("char: %c", letter);
-    print("string: %s", message);
-    
-    return 0;
-}
-```
-
-### 配列の基本操作
-```cb
-int main() {
-    // 配列宣言と初期化
-    int[5] numbers = [10, 20, 30, 40, 50];
-    string[3] names = ["Alice", "Bob", "Charlie"];
-    char[4] chars = ['A', 'B', 'C', 'D'];
-    
-    // 配列要素へのアクセス
-    print("numbers[0] = %d", numbers[0]);
-    print("names[1] = %s", names[1]);
-    print("chars[2] = %c", chars[2]);
-    
-    // 配列要素の変更（複合代入演算子使用）
-    numbers[0] += 90;        // numbers[0] = 100
-    names[1] = "Bobby";      // 文字列代入
-    chars[2] = 'Z';          // 文字代入
-    
-    // 配列の複合代入演算子の活用
-    for (int i = 0; i < 5; i++) {
-        numbers[i] *= 2;     // 各要素を2倍
-        print("numbers[%d] = %d", i, numbers[i]);
-    }
-    
-    return 0;
-}
-```
-
-### 関数の定義と呼び出し
-```cb
-// 値を返さない関数
-void print_separator() {
-    print("===================");
-}
-
-// 値を返す関数
+```c++
 int add(int a, int b) {
     return a + b;
 }
 
-// 配列を引数に取る関数（将来実装）
-int sum_array(int[] arr, int size) {
+void greet(string name) {
+    println("Hello,", name);
+}
+
+int main() {
+    int result = add(5, 3);
+    greet("Alice");
+    return 0;
+}
+```
+
+### 再帰関数
+
+```c++
+int factorial(int n) {
+    if (n <= 1) {
+        return 1;
+    }
+    return n * factorial(n - 1);
+}
+
+int fibonacci(int n) {
+    if (n <= 1) {
+        return n;
+    }
+    return fibonacci(n - 1) + fibonacci(n - 2);
+}
+```
+
+### 配列を引数に取る関数
+
+```c++
+void print_array(int[5] arr) {
+    for (int i = 0; i < 5; i++) {
+        println(arr[i]);
+    }
+}
+
+int sum_array(int[10] values) {
     int total = 0;
-    for (int i = 0; i < size; i++) {
-        total += arr[i];  // 複合代入演算子を使用
+    for (int i = 0; i < 10; i++) {
+        total += values[i];
     }
     return total;
 }
-
-// 文字列を扱う関数
-string greet(string name) {
-    return "Hello, " + name + "!"; // 文字列連結は将来実装
-}
-
-int main() {
-    print_separator();
-    
-    int result = add(10, 20);
-    print("10 + 20 = %d", result);
-    
-    print_separator();
-    
-    return 0;
-}
 ```
 
-### 制御構造の活用
-```cb
-int main() {
-    // if-else文
-    int score = 85;
-    char grade;
-    
-    if (score >= 90) {
-        grade = 'A';
-    } else if (score >= 80) {
-        grade = 'B';
-    } else if (score >= 70) {
-        grade = 'C';
-    } else {
-        grade = 'F';
-    }
-    
-    print("スコア: %d, グレード: %c", score, grade);
-    
-    // while文（後置インクリメント使用）
-    int count = 0;
-    while (count < 5) {
-        print("カウント: %d", count);
-        count++;  // 後置インクリメント
-    }
-    
-    // for文（複合代入演算子使用）
-    for (int i = 1; i <= 10; i++) {
-        if (i % 2 == 0) {
-            print("%d は偶数", i);
-        } else {
-            print("%d は奇数", i);
-        }
-    }
-    
-    // 複合代入演算子を使った計算
-    int sum = 0;
-    for (int j = 1; j <= 100; j++) {
-        sum += j;  // sum = sum + j と同等
-    }
-    print("1から100までの合計: %d", sum);
-    
-    return 0;
-}
-```
+### 配列を返す関数（typedef使用）
 
-### const修飾子の使用
-```cb
-int main() {
-    // 定数の宣言
-    const int MAX_USERS = 100;
-    const string SYSTEM_NAME = "Cb System";
-    const char SEPARATOR = '-';
-    
-    // 配列サイズにconst値を使用
-    int[MAX_USERS] user_ids;
-    
-    // const配列
-    const int[3] PRIME_NUMBERS = [2, 3, 5];
-    
-    print("システム名: %s", SYSTEM_NAME);
-    print("最大ユーザー数: %d", MAX_USERS);
-    print("区切り文字: %c", SEPARATOR);
-    
-    for (int i = 0; i < 3; i++) {
-        print("素数[%d] = %d", i, PRIME_NUMBERS[i]);
+```c++
+typedef int[5] IntArray5;
+
+IntArray5 create_sequence() {
+    IntArray5 result;
+    for (int i = 0; i < 5; i++) {
+        result[i] = i + 1;
     }
-    
-    return 0;
-}
-```
-
-### 多次元配列戻り値処理（新機能） ✅
-```cb
-// typedef配列の多次元配列関数戻り値
-typedef Matrix2D = int[2][2];
-typedef Matrix3D = int[2][2][2];
-
-// 2次元配列を返す関数
-Matrix2D create_identity_matrix() {
-    Matrix2D result;
-    result[0][0] = 1; result[0][1] = 0;
-    result[1][0] = 0; result[1][1] = 1;
     return result;
 }
 
-// 2次元配列を受け取って表示する関数
-void print_matrix(Matrix2D matrix) {
-    println("Matrix (2x2):");
-    for (int i = 0; i < 2; i++) {
-        printf("Row %d : [ ", i);
-        for (int j = 0; j < 2; j++) {
-            printf("%d", matrix[i][j]);  // 修正済み: 境界エラー解消
-            if (j < 1) printf(", ");
-        }
-        println(" ]");
-    }
-}
-
-// 3次元配列を返す関数
-Matrix3D create_3d_matrix() {
-    Matrix3D cube;
-    int value = 1;
-    for (int i = 0; i < 2; i++) {
-        for (int j = 0; j < 2; j++) {
-            for (int k = 0; k < 2; k++) {
-                cube[i][j][k] = value++;
-            }
-        }
-    }
-    return cube;
-}
-
 int main() {
-    // 2次元配列戻り値の処理
-    Matrix2D identity = create_identity_matrix();
-    print_matrix(identity);
-    
-    // 個別要素アクセス
-    println("identity[0][0] = %d", identity[0][0]);
-    println("identity[1][1] = %d", identity[1][1]);
-    
-    // 3次元配列戻り値の処理
-    Matrix3D cube = create_3d_matrix();
-    
-    println("\n3D Matrix:");
-    for (int i = 0; i < 2; i++) {
-        for (int j = 0; j < 2; j++) {
-            printf("[");
-            for (int k = 0; k < 2; k++) {
-                printf("%d", cube[i][j][k]);
-                if (k < 1) printf(", ");
-            }
-            printf("] ");
-        }
-        println("");
-    }
-    
-    // 出力:
-    // Matrix (2x2):
-    // Row 0 : [ 1, 0 ]
-    // Row 1 : [ 0, 1 ]
-    // identity[0][0] = 1
-    // identity[1][1] = 1
-    // 
-    // 3D Matrix:
-    // [1, 2] [3, 4] 
-    // [5, 6] [7, 8]
-    
+    IntArray5 seq = create_sequence();
+    // seq = [1, 2, 3, 4, 5]
     return 0;
 }
 ```
 
-**技術的改善点**:
-- **Variable Manager**: `ret.int_array_3d[0][0]`のみを処理していた制限を解消
-- **全要素展開**: 多次元配列の全要素を`multidim_array_values`に正確に展開
-- **次元情報設定**: `array_dimensions`配列で行数・列数等の次元情報を保持
-- **境界チェック強化**: 配列アクセス時の境界違反を事前に検出・防止
-- **型判定ロジック**: typedef名と`int_array_3d`構造から多次元配列を自動識別
-// 学生管理システムの例
-struct Student {
-    string name;
-    int student_id;
-    int grades[5];  // 5科目の成績
-    bool is_enrolled;
-    char grade_letter;
-}
+### 多次元配列を返す関数
 
-struct Course {
-    string course_name;
-    string instructor;
-    int max_students;
-    int enrolled_count;
-}
+```c++
+typedef int[2][2] Matrix2x2;
 
-int main() {
-    // 個別学生の作成
-    Student alice;
-    alice.name = "Alice Johnson";
-    alice.student_id = 1001;
-    alice.is_enrolled = true;
-    alice.grade_letter = 'A';
-    
-    // 配列リテラル代入
-    alice.grades = [95, 87, 92, 89, 94];
-    
-    // 構造体配列による複数学生管理
-    Student[3] class_roster = [
-        {name: "Bob Smith", student_id: 1002, is_enrolled: true, 
-         grade_letter: 'B', grades: [82, 78, 85, 80, 79]},
-        {name: "Charlie Brown", student_id: 1003, is_enrolled: true,
-         grade_letter: 'A', grades: [91, 93, 89, 95, 92]},
-        {name: "Diana Wilson", student_id: 1004, is_enrolled: false,
-         grade_letter: 'C', grades: [73, 75, 72, 78, 76]}
-    ];
-    
-    // コース情報
-    Course math_course = {
-        course_name: "Advanced Mathematics",
-        instructor: "Dr. Einstein",
-        max_students: 30,
-        enrolled_count: 3
-    };
-    
-    // 学生情報の出力
-    print("=== %s ===", math_course.course_name);
-    print("担当: %s", math_course.instructor);
-    print("登録学生数: %d/%d", math_course.enrolled_count, math_course.max_students);
-    print("");
-    
-    // 個別学生情報出力
-    print("学生: %s (ID: %d)", alice.name, alice.student_id);
-    print("在籍状況: %s", alice.is_enrolled ? "在籍中" : "退学");
-    print("総合評価: %c", alice.grade_letter);
-    print("成績: [%d, %d, %d, %d, %d]", 
-          alice.grades[0], alice.grades[1], alice.grades[2], 
-          alice.grades[3], alice.grades[4]);
-    
-    // クラス全体の成績処理
-    print("\n=== クラス名簿 ===");
-    for (int i = 0; i < 3; i++) {
-        if (class_roster[i].is_enrolled) {
-            int total = 0;
-            for (int j = 0; j < 5; j++) {
-                total += class_roster[i].grades[j];
-            }
-            int average = total / 5;
-            
-            print("%d. %s (ID: %d) - 平均: %d点 (評価: %c)", 
-                  i + 1, class_roster[i].name, class_roster[i].student_id,
-                  average, class_roster[i].grade_letter);
-        }
-    }
-    
-    return 0;
+Matrix2x2 create_identity() {
+    Matrix2x2 m;
+    m[0][0] = 1; m[0][1] = 0;
+    m[1][0] = 0; m[1][1] = 1;
+    return m;
 }
 ```
-
-### ダイクストラ法アルゴリズム実装例 ✅
-```cb
-// エッジ（辺）を表す構造体
-struct Edge {
-    int to;     // 接続先のノード
-    int weight; // エッジの重み（距離・コスト）
-};
-
-// 無限大を表す定数
-const int INF = 999999;
-const int MAX_NODES = 6;
-const int MAX_EDGES = 20;
-
-// グローバル変数でグラフデータを管理
-int node_count = 6;
-int[6] distances;         // 各ノードへの最短距離
-bool[6] visited;          // 訪問済みフラグ
-Edge[20] edges;           // エッジ配列
-int edge_count = 0;
-int[36] adjacency_matrix; // 6x6の隣接行列
-
-// グラフの初期化
-void init_graph() {
-    for (int i = 0; i < MAX_NODES; i++) {
-        distances[i] = INF;
-        visited[i] = false;
-    }
-    
-    // 隣接行列を初期化（INFで埋める）
-    for (int i = 0; i < 36; i++) {
-        adjacency_matrix[i] = INF;
-    }
-    
-    // 対角線要素は0（自分自身への距離）
-    for (int i = 0; i < MAX_NODES; i++) {
-        adjacency_matrix[i * MAX_NODES + i] = 0;
-    }
-    
-    edge_count = 0;
-}
-
-// エッジの追加
-void add_edge(int from, int to, int weight) {
-    // 隣接行列に重みを設定
-    adjacency_matrix[from * MAX_NODES + to] = weight;
-    
-    // エッジ配列にも記録
-    edges[edge_count].to = to;
-    edges[edge_count].weight = weight;
-    edge_count++;
-}
-
-// 最小距離のノードを見つける
-int find_min_distance_node() {
-    int min_distance = INF;
-    int min_node = -1;
-    
-    for (int i = 0; i < node_count; i++) {
-        if (!visited[i] && distances[i] < min_distance) {
-            min_distance = distances[i];
-            min_node = i;
-        }
-    }
-    
-    return min_node;
-}
-
-// ダイクストラ法の実行
-void dijkstra(int start) {
-    // 開始ノードの距離を0に設定
-    distances[start] = 0;
-    
-    println("Starting Dijkstra from node %d", start);
-    
-    // すべてのノードを処理するまで繰り返し
-    for (int count = 0; count < node_count; count++) {
-        // 最小距離の未訪問ノードを選択
-        int current = find_min_distance_node();
-        
-        if (current == -1) break; // すべてのノードを処理完了
-        
-        visited[current] = true;
-        
-        println("Processing node %d (distance: %d)", current, distances[current]);
-        
-        // 隣接ノードの距離を更新
-        for (int neighbor = 0; neighbor < node_count; neighbor++) {
-            int weight = adjacency_matrix[current * MAX_NODES + neighbor];
-            
-            if (!visited[neighbor] && weight != INF) {
-                int new_distance = distances[current] + weight;
-                if (new_distance < distances[neighbor]) {
-                    distances[neighbor] = new_distance;
-                    println("  Updated node %d: distance = %d", neighbor, new_distance);
-                }
-            }
-        }
-    }
-}
-
-int main() {
-    println("=== Dijkstra's Shortest Path Algorithm ===");
-    println("Using struct and array-based graph representation\n");
-    
-    // グラフの初期化
-    init_graph();
-    
-    // エッジの追加（サンプルグラフ）
-    add_edge(0, 1, 2);   // 0 -> 1: cost 2
-    add_edge(0, 3, 1);   // 0 -> 3: cost 1
-    add_edge(0, 4, 5);   // 0 -> 4: cost 5
-    add_edge(1, 2, 3);   // 1 -> 2: cost 3
-    add_edge(2, 5, 1);   // 2 -> 5: cost 1
-    add_edge(3, 4, 2);   // 3 -> 4: cost 2
-    add_edge(4, 5, 1);   // 4 -> 5: cost 1
-    
-    println("Graph created with %d nodes and %d edges", node_count, edge_count);
-    
-    // ダイクストラ法の実行
-    int start_node = 0;
-    dijkstra(start_node);
-    
-    // 結果の表示
-    println("\n=== Results ===");
-    println("Shortest distances from node %d:", start_node);
-    for (int i = 0; i < node_count; i++) {
-        if (distances[i] == INF) {
-            println("Node %d: UNREACHABLE", i);
-        } else {
-            println("Node %d: %d", i, distances[i]);
-        }
-    }
-    
-    return 0;
-}
-```
-
-**実行結果**:
-```
-=== Dijkstra's Shortest Path Algorithm ===
-Using struct and array-based graph representation
-
-Graph created with 6 nodes and 7 edges
-Starting Dijkstra from node 0
-Processing node 0 (distance: 0)
-  Updated node 1: distance = 2
-  Updated node 3: distance = 1
-  Updated node 4: distance = 5
-Processing node 3 (distance: 1)
-  Updated node 4: distance = 3
-Processing node 1 (distance: 2)
-  Updated node 2: distance = 5
-Processing node 4 (distance: 3)
-  Updated node 5: distance = 4
-Processing node 5 (distance: 4)
-Processing node 2 (distance: 5)
-
-=== Results ===
-Shortest distances from node 0:
-Node 0: 0
-Node 1: 2
-Node 2: 5
-Node 3: 1
-Node 4: 3
-Node 5: 4
-```
-
-### 構造体と配列の高度な組み合わせ ✅
-```cb
-// 行列演算システムの例
-struct Matrix {
-    string name;
-    int rows;
-    int cols;
-    int data[9];  // 3x3行列として使用
-}
-
-// ベクトル構造体
-struct Vector3D {
-    int x;
-    int y; 
-    int z;
-    string label;
-}
-
-int main() {
-    // 3x3単位行列の作成
-    Matrix identity = {
-        name: "Identity Matrix",
-        rows: 3,
-        cols: 3,
-        data: [1, 0, 0,   // 第1行
-               0, 1, 0,   // 第2行  
-               0, 0, 1]   // 第3行
-    };
-    
-    // 変換行列
-    Matrix transform;
-    transform.name = "Transform Matrix";
-    transform.rows = 3;
-    transform.cols = 3;
-    
-    // 配列リテラル代入
-    transform.data = [2, 0, 0,
-                      0, 2, 0,
-                      0, 0, 1];
-    
-    // ベクトル配列
-    Vector3D[4] vertices = [
-        {x: 1, y: 1, z: 0, label: "Top-Right"},
-        {x: -1, y: 1, z: 0, label: "Top-Left"},
-        {x: -1, y: -1, z: 0, label: "Bottom-Left"}, 
-        {x: 1, y: -1, z: 0, label: "Bottom-Right"}
-    ];
-    
-    // 行列情報出力
-    print("=== %s ===", identity.name);
-    print("サイズ: %dx%d", identity.rows, identity.cols);
-    for (int i = 0; i < 3; i++) {
-        print("[%d %d %d]", 
-              identity.data[i*3], identity.data[i*3+1], identity.data[i*3+2]);
-    }
-    
-    print("\n=== %s ===", transform.name);
-    for (int i = 0; i < 3; i++) {
-        print("[%d %d %d]", 
-              transform.data[i*3], transform.data[i*3+1], transform.data[i*3+2]);
-    }
-    
-    // ベクトル情報出力
-    print("\n=== 頂点座標 ===");
-    for (int i = 0; i < 4; i++) {
-        print("%s: (%d, %d, %d)", 
-              vertices[i].label, vertices[i].x, vertices[i].y, vertices[i].z);
-    }
-    
-    // 簡単な行列-ベクトル積演算（最初の頂点のみ）
-    Vector3D result;
-    result.label = "Transformed";
-    result.x = transform.data[0] * vertices[0].x + 
-               transform.data[1] * vertices[0].y + 
-               transform.data[2] * vertices[0].z;
-    result.y = transform.data[3] * vertices[0].x + 
-               transform.data[4] * vertices[0].y + 
-               transform.data[5] * vertices[0].z;
-    result.z = transform.data[6] * vertices[0].x + 
-               transform.data[7] * vertices[0].y + 
-               transform.data[8] * vertices[0].z;
-    
-    print("\n=== 変換結果 ===");
-    print("元座標: (%d, %d, %d)", vertices[0].x, vertices[0].y, vertices[0].z);
-    print("変換後: (%d, %d, %d)", result.x, result.y, result.z);
-    
-    return 0;
-}
-```
-
-### エラーハンドリング（現在の実装）
-```cb
-int divide_safe(int a, int b) {
-    // 現在は型範囲チェックが自動的に行われる
-    // ゼロ除算は実行時エラーとなる
-    return a / b;
-}
-
-int main() {
-    int result;
-    
-    // 正常な計算（複合代入演算子使用）
-    result = divide_safe(10, 2);
-    result *= 3;  // result = result * 3
-    print("(10 / 2) * 3 = %d", result);
-    
-    // 型範囲外の値は自動的に検出される
-    tiny small = 200; // エラー: tiny型は127まで
-    
-    return 0;
-}
-```
-
-### 必要な環境
-- **C++17対応コンパイラ**: g++, clang++
-- **flex**: 字句解析器生成ツール
-- **bison**: 構文解析器生成ツール
-- **make**: ビルドシステム
-
-### インストール手順
-
-#### Ubuntu/Debian
-```bash
-sudo apt-get update
-sudo apt-get install build-essential flex bison
-```
-
-#### macOS
-```bash
-brew install flex bison
-```
-
-#### CentOS/RHEL
-```bash
-sudo yum install gcc-c++ flex bison make
-```
-
-### プロジェクトのビルド
-```bash
-# プロジェクトをクローン
-git clone https://github.com/username/Cb.git
-cd Cb
-
-# ビルド
-make clean
-make all
-
-# テスト実行
-make test
-```
-
-### デバッグオプション
-```bash
-# 英語でのデバッグ情報
-./main --debug sample/test.cb
-
-# 日本語でのデバッグ情報
-./main --debug-ja sample/test.cb
-
-# 環境変数でのデバッグ有効化
-./main sample/test.cb
-```
-
-## トラブルシューティング
-
-### よくあるエラーと対処法
-
-#### 型範囲外エラー
-```
-Error: Type range exceeded for tiny: 200 (valid range: -128 to 127)
-```
-**対処法**: より大きな型（short, int, long）を使用する
-
-#### 配列境界外アクセス
-```
-Error: Array index out of bounds: index 5 for array of size 3
-```
-**対処法**: 配列のインデックスが0からsize-1の範囲内にあることを確認
-
-#### 文字リテラルエラー
-```
-Error: Invalid character literal: 'あ'
-```
-**対処法**: char型はASCII文字（0-255）のみサポート。Unicode文字にはstring型を使用
-
-#### コンパイルエラー
-```
-flex: command not found
-```
-```
-**対処法**: flexとbisonをインストールする
-
-## パフォーマンス・ベンチマーク
-
-### 目標性能
-- **Ruby/Python比**: 10-50倍高速
-- **JavaScript比**: 2-5倍高速  
-- **C++比**: 80-95%の性能（RAII等のオーバーヘッド込み）
-
-### メモリ使用量
-- **ガベージコレクション不使用**: 予測可能なメモリ使用量
-- **RAII**: 自動リソース管理によるメモリリーク防止
-- **ゼロコスト抽象化**: 実行時オーバーヘッドの最小化
-
-## ロードマップ・将来計画
-
-### Phase 2: 中級機能（実装予定）
-- **struct定義**: カスタムデータ型
-- **enum定義**: 列挙型のサポート
-- **typedef**: 型エイリアス
-- **標準ライブラリ拡充**: math, string, io モジュール
-- **浮動小数点数**: float, double 型
-- **動的配列**: 可変長配列のサポート
-
-### Phase 3: 上級機能（長期計画）  
-- **interface/trait**: Rustライクな抽象化
-- **ジェネリクス**: 型パラメータ化
-- **モジュールシステム**: import/export
-- **Result型**: 安全なエラーハンドリング
-- **スマートポインタ**: unique_ptr, shared_ptr
-- **並行処理**: goroutine/channelライクな機能
-
-### Phase 4: エコシステム（将来構想）
-- **パッケージマネージャ**: cb-pkg
-- **LSP対応**: エディタサポート  
-- **WebAssembly**: ブラウザ実行
-- **クロスコンパイル**: マルチプラットフォーム対応
-- **FFI**: C/C++ライブラリ連携
-
-## コミュニティ・コントリビューション
-
-### 貢献方法
-1. **Issue報告**: バグ報告・機能提案
-2. **Pull Request**: コード改善・新機能実装  
-3. **ドキュメント**: 仕様書・チュートリアルの改善
-4. **テストケース**: テストカバレッジの向上
-
-### 開発者向けリソース
-- **アーキテクチャ**: src/内のモジュール構成
-- **テストフレームワーク**: tests/内の統合テスト・単体テスト
-- **コーディング規約**: C++17 modern style
-- **デバッグ手法**: --debug, --debug-jaオプション
-
-### ライセンス
-このプロジェクトはMITライセンスの下で公開されています。
-詳細は[LICENSE](../LICENSE)ファイルを参照してください。
 
 ---
 
-*Cb言語は実用的で高性能なプログラミング言語を目指して開発を続けています。*
-*コミュニティの皆様からのフィードバックをお待ちしております。*
+## 配列
+
+### 静的配列の宣言と初期化
+
+```c++
+// 宣言のみ
+int[5] arr1;
+
+// 配列リテラルで初期化
+int[5] arr2 = [1, 2, 3, 4, 5];
+
+// 部分初期化（残りは0）
+int[10] arr3 = [1, 2, 3];  // [1, 2, 3, 0, 0, 0, 0, 0, 0, 0]
+
+// 文字列配列
+string[3] names = ["Alice", "Bob", "Charlie"];
+```
+
+### 配列要素へのアクセス
+
+```c++
+int[5] arr = [10, 20, 30, 40, 50];
+
+int first = arr[0];     // 10
+int last = arr[4];      // 50
+
+arr[2] = 100;           // 要素の変更
+arr[0] += 5;            // 複合代入
+```
+
+### 多次元配列
+
+```c++
+// 2次元配列
+int[3][3] matrix = [
+    [1, 2, 3],
+    [4, 5, 6],
+    [7, 8, 9]
+];
+
+int element = matrix[1][2];  // 6
+
+// 3次元配列
+int[2][3][4] cube;
+cube[0][1][2] = 42;
+```
+
+### 配列とループ
+
+```c++
+int[10] numbers;
+
+// 初期化
+for (int i = 0; i < 10; i++) {
+    numbers[i] = i * i;
+}
+
+// 合計計算
+int sum = 0;
+for (int i = 0; i < 10; i++) {
+    sum += numbers[i];
+}
+```
+
+### const配列
+
+```c++
+const int[5] PRIMES = [2, 3, 5, 7, 11];
+// PRIMES[0] = 1;  // エラー: const配列は変更不可
+```
+
+---
+
+## 構造体
+
+### 基本的な構造体定義
+
+```c++
+struct Point {
+    int x;
+    int y;
+};
+
+struct Rectangle {
+    int width;
+    int height;
+    string name;
+};
+```
+
+### 構造体の初期化
+
+#### 名前付きフィールド初期化
+
+```c++
+Point p1 = {x: 10, y: 20};
+
+Rectangle rect = {
+    width: 100,
+    height: 50,
+    name: "Sample"
+};
+```
+
+#### 位置指定初期化
+
+```c++
+Point p2 = {30, 40};
+Rectangle rect2 = {200, 100, "Large"};
+```
+
+#### 末尾カンマ対応
+
+```c++
+Point p3 = {
+    x: 15,
+    y: 25,  // 末尾カンマOK
+};
+```
+
+### 構造体メンバーへのアクセス
+
+```c++
+Point p = {x: 5, y: 10};
+
+int x_val = p.x;      // メンバーアクセス
+p.y = 20;             // メンバーの変更
+p.x += 5;             // 複合代入
+```
+
+### 構造体配列
+
+```c++
+Point[3] points = [
+    {x: 0, y: 0},
+    {x: 10, y: 10},
+    {x: 20, y: 20}
+];
+
+// 配列要素のメンバーアクセス
+points[0].x = 5;
+int y_value = points[1].y;
+```
+
+### 配列メンバーを持つ構造体
+
+```c++
+struct Data {
+    int[5] values;
+    string name;
+};
+
+Data d = {
+    values: [1, 2, 3, 4, 5],
+    name: "Sample"
+};
+
+d.values[0] = 10;
+```
+
+### 構造体を関数引数・戻り値に使う
+
+```c++
+struct Circle {
+    int radius;
+    int x;
+    int y;
+};
+
+int calculate_area(Circle c) {
+    return c.radius * c.radius * 3;  // 簡易的な面積計算
+}
+
+Circle create_circle(int r, int cx, int cy) {
+    Circle c = {radius: r, x: cx, y: cy};
+    return c;
+}
+```
+
+### ネストした構造体 ✅
+
+構造体のメンバーに別の構造体を含めることができます。
+
+#### 基本的なネスト
+
+```c++
+struct Point {
+    int x;
+    int y;
+};
+
+struct Circle {
+    Point center;
+    int radius;
+};
+
+// 初期化
+Circle c = {
+    center: {x: 10, y: 20},
+    radius: 5
+};
+
+// メンバーアクセス
+int cx = c.center.x;  // 10
+int cy = c.center.y;  // 20
+
+// メンバーの変更
+c.center.x = 30;
+c.radius = 10;
+```
+
+#### 多階層ネスト
+
+3階層以上のネストも可能です。
+
+```c++
+struct Position {
+    int x;
+    int y;
+    int z;
+};
+
+struct Orientation {
+    int yaw;
+    int pitch;
+    int roll;
+};
+
+struct Transform {
+    Position position;
+    Orientation orientation;
+};
+
+struct GameObject {
+    string name;
+    Transform transform;
+};
+
+// 初期化
+GameObject obj = {
+    name: "Player",
+    transform: {
+        position: {x: 0, y: 0, z: 0},
+        orientation: {yaw: 0, pitch: 0, roll: 0}
+    }
+};
+
+// 多階層アクセス
+int player_x = obj.transform.position.x;
+obj.transform.orientation.yaw = 90;
+```
+
+#### ネストした構造体の配列
+
+```c++
+struct Address {
+    string street;
+    string city;
+};
+
+struct Person {
+    string name;
+    Address address;
+};
+
+Person[3] people = [
+    {name: "Alice", address: {street: "123 Main", city: "Tokyo"}},
+    {name: "Bob", address: {street: "456 Oak", city: "Osaka"}},
+    {name: "Charlie", address: {street: "789 Pine", city: "Kyoto"}}
+];
+
+// アクセス
+string alice_city = people[0].address.city;  // "Tokyo"
+```
+
+#### ネストした構造体とポインタ
+
+```c++
+Circle c = {center: {x: 10, y: 20}, radius: 5};
+Circle* ptr = &c;
+
+// ポインタ経由でネストしたメンバーにアクセス
+int x = (*ptr).center.x;  // 10
+ptr->center.y = 30;        // アロー演算子でもアクセス可能
+
+// ネストした構造体へのポインタ
+Point* centerPtr = &(ptr->center);
+centerPtr->x = 50;
+```
+
+---
+
+## Union型
+
+### Union型の基本
+
+TypeScript風のUnion型システムを完全サポート。
+
+```c++
+// リテラル値Union
+typedef Status = 200 | 404 | 500;
+
+// 基本型Union
+typedef NumValue = int | long;
+typedef StringOrInt = string | int;
+
+// 混合Union
+typedef Mixed = 42 | int | string;
+```
+
+### Union型の使用
+
+```c++
+Status code = 200;    // OK
+// Status invalid = 301;  // エラー: 許可されていない値
+
+StringOrInt value = 10;      // int値
+value = "Hello";             // string値に変更可能
+```
+
+### カスタム型Union
+
+```c++
+typedef UserID = int;
+typedef ProductID = string;
+typedef ID = UserID | ProductID;
+
+UserID uid = 123;
+ID general_id = uid;  // OK
+```
+
+### 構造体Union
+
+```c++
+struct User {
+    int id;
+    string name;
+};
+
+struct Product {
+    string code;
+    int price;
+};
+
+typedef Entity = User | Product;
+
+User alice = {id: 1, name: "Alice"};
+Entity entity = alice;  // OK
+```
+
+### 配列Union
+
+```c++
+typedef ArrayUnion = int[5] | string[3];
+
+int[5] numbers = [1, 2, 3, 4, 5];
+ArrayUnion arr = numbers;  // OK
+```
+
+### Union型への複合代入
+
+```c++
+typedef Uni = int | string;
+
+Uni value = 10;
+value += 5;   // int型として扱われる → 15
+
+value = "Hello";  // 型変更
+// value += " World";  // string連結は未実装
+```
+
+---
+
+## enum型 ✅
+
+### enum型の基本
+
+C/C++風の列挙型を完全サポート。
+
+```c++
+enum Color {
+    RED = 0,
+    GREEN = 1,
+    BLUE = 2
+};
+
+enum Status {
+    OK = 200,
+    NOT_FOUND = 404,
+    SERVER_ERROR = 500
+};
+```
+
+### enum値のアクセス
+
+```c++
+Color c = Color::RED;
+Status s = Status::OK;
+
+println("Color:", c);     // 0
+println("Status:", s);    // 200
+```
+
+### 自動値割り当て
+
+明示的な値を指定しない場合、自動的に連番が割り当てられます。
+
+```c++
+enum Day {
+    MONDAY,     // 0
+    TUESDAY,    // 1
+    WEDNESDAY,  // 2
+    THURSDAY,   // 3
+    FRIDAY,     // 4
+    SATURDAY,   // 5
+    SUNDAY      // 6
+};
+
+Day today = Day::WEDNESDAY;
+println("Day:", today);  // 2
+```
+
+### typedef enum
+
+typedef構文でenum型を定義することも可能。
+
+```c++
+typedef enum Color {
+    RED = 0xFF0000,
+    GREEN = 0x00FF00,
+    BLUE = 0x0000FF
+} Color;
+
+Color myColor = Color::RED;
+```
+
+### enum値の比較
+
+```c++
+enum Status {
+    IDLE,
+    RUNNING,
+    DONE
+};
+
+Status current = Status::RUNNING;
+
+if (current == Status::RUNNING) {
+    println("System is running");
+}
+
+if (current != Status::IDLE) {
+    println("System is not idle");
+}
+```
+
+### switch文での使用（将来実装）
+
+```c++
+// 将来実装予定
+switch (status) {
+    case Status::OK:
+        println("Success");
+        break;
+    case Status::NOT_FOUND:
+        println("Not found");
+        break;
+    default:
+        println("Other status");
+}
+```
+
+---
+
+## Interface/Implシステム
+
+### Interfaceの定義
+
+```c++
+interface Drawable {
+    void draw();
+    int getSize();
+};
+
+interface Printable {
+    string toString();
+};
+```
+
+### 基本型へのImpl
+
+```c++
+typedef MyInt = int;
+
+impl Printable for MyInt {
+    string toString() {
+        return "MyInt value";
+    }
+};
+```
+
+### 配列型へのImpl
+
+```c++
+typedef IntArray = int[5];
+
+impl Printable for IntArray {
+    string toString() {
+        return "IntArray[5]";
+    }
+};
+```
+
+### 構造体へのImpl
+
+```c++
+struct Point {
+    int x;
+    int y;
+};
+
+impl Drawable for Point {
+    void draw() {
+        println("Point at (", self.x, ",", self.y, ")");
+    }
+    
+    int getSize() {
+        return 2;  // x, yの2要素
+    }
+};
+```
+
+### Interfaceを使ったポリモーフィズム
+
+```c++
+typedef MyInt = int;
+typedef IntArray = int[5];
+
+impl Printable for MyInt {
+    string toString() { return "MyInt"; }
+};
+
+impl Printable for IntArray {
+    string toString() { return "IntArray"; }
+};
+
+int main() {
+    MyInt mi = 42;
+    IntArray arr = [1, 2, 3, 4, 5];
+    
+    // Interface型変数で抽象化
+    Printable p1 = mi;
+    Printable p2 = arr;
+    
+    // 統一的なメソッド呼び出し
+    println(p1.toString());  // "MyInt"
+    println(p2.toString());  // "IntArray"
+    
+    return 0;
+}
+```
+
+### implブロック内でのポインタ操作
+
+```c++
+struct Container {
+    int[10] values;
+};
+
+impl Printable for Container {
+    string toString() {
+        // implブロック内でもポインタ使用可能
+        int* ptr = &self.values[0];
+        int sum = 0;
+        
+        for (int i = 0; i < 10; i++) {
+            sum += *ptr;
+            ptr++;
+        }
+        
+        return "Sum: " + sum;
+    }
+};
+```
+
+### 再帰的Typedef独立性
+
+各typedef層で独立したImpl定義が可能:
+
+```c++
+typedef int INT;
+typedef INT INT2;
+typedef INT2 INT3;
+
+// INT3にのみPrintableを実装
+impl Printable for INT3 {
+    string toString() {
+        return "INT3 implementation";
+    }
+};
+
+int main() {
+    int original = 100;   // Printableなし
+    INT int1 = 200;       // Printableなし
+    INT2 int2 = 300;      // Printableなし
+    INT3 int3 = 400;      // Printableあり
+    
+    Printable p = int3;   // OK
+    // Printable p2 = int2; // エラー
+    
+    return 0;
+}
+```
+
+---
+
+## ポインタと参照
+
+### ポインタの基本
+
+#### ポインタの宣言と初期化
+
+```c++
+int value = 42;
+int* ptr;          // ポインタ宣言
+
+ptr = &value;      // アドレス取得
+int* ptr2 = &value; // 宣言時初期化 ✅
+```
+
+#### デリファレンス（値の取得・変更）
+
+```c++
+int value = 10;
+int* ptr = &value;
+
+int x = *ptr;      // デリファレンスして値取得: x = 10
+*ptr = 20;         // デリファレンスして値変更: value = 20
+
+println("value =", value);  // 20
+println("*ptr =", *ptr);    // 20
+```
+
+### ポインタ演算
+
+#### 加算・減算
+
+```c++
+int[5] arr = [10, 20, 30, 40, 50];
+int* ptr = &arr[0];
+
+ptr = ptr + 1;     // 次の要素を指す
+int val = *ptr;    // 20
+
+ptr = ptr + 2;     // さらに2つ先
+val = *ptr;        // 40
+
+ptr = ptr - 1;     // 1つ戻る
+val = *ptr;        // 30
+```
+
+#### インクリメント・デクリメント
+
+```c++
+int[5] numbers = [1, 2, 3, 4, 5];
+int* p = &numbers[0];
+
+p++;               // 次の要素へ
+println(*p);       // 2
+
+p--;               // 前の要素へ
+println(*p);       // 1
+```
+
+### ポインタと配列
+
+```c++
+int[5] arr = [10, 20, 30, 40, 50];
+int* ptr = &arr[0];
+
+// ポインタを使った配列走査
+for (int i = 0; i < 5; i++) {
+    println("arr[", i, "] =", *ptr);
+    ptr++;
+}
+```
+
+### ポインタと関数
+
+```c++
+void modify_value(int* ptr) {
+    *ptr = 100;
+}
+
+int main() {
+    int value = 10;
+    modify_value(&value);
+    println("value =", value);  // 100
+    return 0;
+}
+```
+
+### 構造体ポインタ
+
+```c++
+struct Point {
+    int x;
+    int y;
+};
+
+int main() {
+    Point p = {x: 10, y: 20};
+    Point* ptr = &p;
+    
+    // デリファレンス構文
+    (*ptr).x = 30;
+    (*ptr).y = 40;
+    
+    println("p.x =", p.x);  // 30
+    println("p.y =", p.y);  // 40
+    
+    return 0;
+}
+```
+
+### アドレスの表示
+
+ポインタ値は16進数形式で表示:
+
+```c++
+int value = 42;
+int* ptr = &value;
+
+println("ptr =", ptr);      // 0x7fff5fbff8ac (例)
+println("&value =", &value); // 0x7fff5fbff8ac (例)
+println("&ptr =", &ptr);    // 0x7fff5fbff8b0 (例)
+```
+
+### ポインタの配列
+
+```c++
+int a = 10, b = 20, c = 30;
+int* ptrs[3];
+
+ptrs[0] = &a;
+ptrs[1] = &b;
+ptrs[2] = &c;
+
+for (int i = 0; i < 3; i++) {
+    println("*ptrs[", i, "] =", *ptrs[i]);
+}
+```
+
+### Interfaceポインタ
+
+```c++
+interface Shape {
+    int area();
+};
+
+struct Rectangle {
+    int width;
+    int height;
+};
+
+impl Shape for Rectangle {
+    int area() {
+        return self.width * self.height;
+    }
+};
+
+int main() {
+    Rectangle rect = {width: 10, height: 5};
+    Shape* shape_ptr = &rect;
+    
+    // Interface経由でメソッド呼び出し
+    int a = (*shape_ptr).area();  // 50
+    println("Area:", a);
+    
+    return 0;
+}
+```
+
+### 参照型（実装予定）
+
+```c++
+// 将来実装予定
+void increment(int& ref) {
+    ref++;
+}
+
+int main() {
+    int value = 10;
+    increment(value);  // valueが直接変更される
+    return 0;
+}
+```
+
+---
+
+## モジュールシステム
+
+### モジュールのインポート
+
+```c++
+import "math.cb";
+import "utils.cb";
+
+int main() {
+    int result = math_add(5, 3);
+    return 0;
+}
+```
+
+### モジュール内の関数定義
+
+**math.cb**:
+```c++
+export int math_add(int a, int b) {
+    return a + b;
+}
+
+export int math_multiply(int a, int b) {
+    return a * b;
+}
+```
+
+### プライベート関数
+
+```c++
+// exportなしの関数はモジュール内のみ
+int internal_helper() {
+    return 42;
+}
+
+export int public_function() {
+    return internal_helper();
+}
+```
+
+---
+
+## 入出力
+
+### println関数
+
+```c++
+println("Hello, World!");
+println("Value:", value);
+println("x =", x, "y =", y);
+```
+
+### print関数（フォーマット指定子）
+
+#### サポートするフォーマット指定子
+
+| 指定子 | 型 | 説明 |
+|--------|-----|------|
+| `%d` | int, tiny, short | 整数 |
+| `%lld` | long | 長整数 |
+| `%u` | unsigned整数 | 符号なし整数 |
+| `%s` | string | 文字列 |
+| `%c` | char | 文字 |
+| `%%` | - | パーセント記号 |
+
+#### 使用例
+
+```c++
+int age = 25;
+string name = "Alice";
+char grade = 'A';
+
+print("Name: %s, Age: %d, Grade: %c", name, age, grade);
+print("Percentage: 50%%");
+```
+
+---
+
+## エラーハンドリング
+
+### コンパイル時エラー
+
+#### 型不整合
+
+```c++
+int x = "string";  // エラー: 型が一致しない
+```
+
+#### 配列境界エラー
+
+```c++
+int[5] arr;
+int value = arr[10];  // エラー: 配列範囲外アクセス
+```
+
+#### Union型エラー
+
+```c++
+typedef RestrictedUnion = int | string;
+bool flag = true;
+RestrictedUnion invalid = flag;  // エラー: bool型は許可されていない
+```
+
+### ランタイムエラー
+
+#### 整数型範囲チェック
+
+```c++
+tiny t = 200;  // エラー: tinyは-128~127
+```
+
+#### unsigned型の負値クランプ
+
+```c++
+unsigned int ui = -10;  // 警告: 0にクランプ
+println(ui);            // 0
+```
+
+### デバッグモード
+
+#### 英語デバッグ
+
+```bash
+./main --debug program.cb
+```
+
+#### 日本語デバッグ
+
+```bash
+./main --debug-ja program.cb
+```
+
+---
+
+## メモリ管理
+
+### 自動メモリ管理
+
+Cbはガベージコレクションを使用せず、C++ RAII（Resource Acquisition Is Initialization）パターンに基づく自動メモリ管理を採用。
+
+#### スコープベース
+
+```c++
+int main() {
+    {
+        int[1000] large_array;  // スコープ開始時に確保
+        // 使用...
+    }  // スコープ終了時に自動解放
+    
+    return 0;
+}
+```
+
+#### 配列の自動管理
+
+```c++
+void process_data() {
+    int[100] buffer;
+    // bufferは関数終了時に自動解放
+}
+```
+
+### 将来実装: スマートポインタ
+
+```c++
+// 将来実装予定
+unique_ptr<Data> data = make_unique<Data>();
+shared_ptr<Resource> resource = make_shared<Resource>();
+```
+
+---
+
+## テストフレームワーク
+
+### テストの実行
+
+```bash
+# 全テスト実行
+make test
+
+# 統合テストのみ
+make integration-test
+
+# 単体テストのみ
+make unit-test
+```
+
+### テスト統計
+
+- **統合テスト**: 2349個（100%成功）
+- **単体テストト**: 30個（100%成功）
+- **総カバレッジ**: 全機能をカバー
+
+### テストケースの構造
+
+```
+tests/
+├── cases/
+│   ├── pointer/               # ポインタ関連テスト
+│   ├── array/                 # 配列テスト
+│   ├── struct/                # 構造体テスト
+│   ├── interface/             # Interface/Implテスト
+│   └── ...
+└── integration/
+    ├── pointer/               # ポインタ統合テスト
+    ├── array/                 # 配列統合テスト
+    └── ...
+```
+
+---
+
+## 実装状況サマリー
+
+### ✅ 完全実装済み（v0.9.0）
+
+#### 型システム
+- **基本型**: tiny, short, int, long, char, string, bool
+- **浮動小数点数型**: float, double（演算、配列、構造体メンバー）
+- **符号なし整数型**: unsigned修飾子（自動クランプ機能付き）
+- **配列型**: 静的配列、多次元配列、配列リテラル
+- **構造体**: 定義、初期化、ネストした構造体（多階層対応）
+- **Union型**: TypeScript風Union型、型安全性
+- **Interface/Impl**: ポリモーフィズム、型抽象化
+- **enum型**: 列挙型、自動値割り当て、スコープアクセス
+- **typedef**: 型エイリアス、配列型エイリアス、再帰的typedef
+
+#### ポインタシステム
+- **宣言と初期化**: `int* ptr = &value;`
+- **演算**: `ptr++`, `ptr--`, `ptr + n`, `ptr - n`
+- **デリファレンス**: `*ptr` による値の取得・変更
+- **アドレス演算子**: `&variable` でアドレス取得
+- **16進数表示**: `0x[hex]` 形式での表示
+- **構造体ポインタ**: `(*ptr).member` および `ptr->member`
+- **Interfaceポインタ**: ポリモーフィックメソッド呼び出し
+- **ポインタ配列**: 複数ポインタ管理
+- **ネストアクセス**: `(*(*p).nested).value`
+
+#### 演算子
+- **算術演算子**: `+`, `-`, `*`, `/`, `%`
+- **比較演算子**: `==`, `!=`, `<`, `>`, `<=`, `>=`
+- **論理演算子**: `&&`, `||`, `!`
+- **ビット演算子**: `&`, `|`, `^`, `~`, `<<`, `>>`
+- **複合代入演算子（10種類）**: `+=`, `-=`, `*=`, `/=`, `%=`, `&=`, `|=`, `^=`, `<<=`, `>>=`
+- **インクリメント・デクリメント**: 前置 `++x`, `--x` / 後置 `x++`, `x--`
+- **三項演算子**: `condition ? true_val : false_val`
+
+#### 制御構造
+- **条件分岐**: if/else, else if
+- **ループ**: for, while
+- **ループ制御**: break, continue
+- **関数**: 定義、呼び出し、戻り値、再帰、配列戻り値
+
+#### その他
+- **モジュールシステム**: import/export
+- **入出力**: println, print（printf風フォーマット）
+- **エラーハンドリング**: 型チェック、境界チェック、多言語デバッグ（英語・日本語）
+
+### 🚧 将来実装予定
+
+詳細は [`future_features.md`](future_features.md) を参照してください。
+
+- **参照型**: `int&` による参照渡し
+- **動的メモリ管理**: `new`/`delete` 文
+- **スマートポインタ**: `unique_ptr`, `shared_ptr`
+- **関数ポインタ**: コールバック機能
+- **ジェネリクス・テンプレート**: 型パラメータ
+- **非同期処理**: goroutine風の並行処理
+- **標準ライブラリの拡充**: コレクション、I/O、ネットワーク
+
+---
+
+## 付録
+
+### コーディング規約
+
+#### 命名規則
+
+- **変数・関数**: snake_case
+- **型・構造体**: PascalCase
+- **定数**: UPPER_CASE
+
+```c++
+// 良い例
+int user_count;
+void process_data();
+struct UserProfile;
+const int MAX_SIZE = 100;
+
+// 悪い例
+int UserCount;          // 変数はsnake_case
+void ProcessData();     // 関数はsnake_case
+struct user_profile;    // 型はPascalCase
+const int maxSize = 100; // 定数はUPPER_CASE
+```
+
+#### インデント
+
+- スペース4つを推奨
+- 一貫性を保つ
+
+#### コメント
+
+```c++
+// 単行コメント
+
+/*
+ * 複数行コメント
+ * 詳細な説明
+ */
+```
+
+### パフォーマンスガイドライン
+
+1. **配列サイズ**: コンパイル時に決定される静的配列を使用
+2. **ポインタ**: 大きな構造体の受け渡しには参照やポインタを推奨
+3. **const**: 変更しない値にはconstを付けて最適化を促進
+
+### 関連リソース
+
+- **仕様書**: `docs/spec.md`
+- **Interfaceシステム詳細**: `docs/interface_system.md`
+- **リリースノート**: `release_notes/`
+- **サンプルコード**: `sample/`
+- **テストケース**: `tests/cases/`
+
+---
+
+**ドキュメントバージョン**: v0.9.0  
+**最終更新日**: 2025年10月5日  
+**言語バージョン**: Cb v0.9.0 - ポインタシステム完全実装版

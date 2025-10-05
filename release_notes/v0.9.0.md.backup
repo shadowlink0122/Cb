@@ -1,181 +1,177 @@
 # Cb言語 v0.9.0 リリースノート
 
-**バージョン**: v0.9.0 - ポインタシステム完全実装版  
-**リリース日**: 2025年10月5日  
-**テスト成功率**: 100%
 
----
+**リリース日**: 2025年10月5日  ## 🩹 バグ修正
+
+**バージョン**: v0.9.0 - ポインタシステム完全実装版
+
+**リリース日**: 2025年10月2日  
+
+---**バージョン**: v0.9.0  
+
+**テスト成功率**: 100%
 
 ## 🎯 概要
 
-v0.9.0では、ポインタシステムの2つの主要な制限事項を解消し、127個の包括的なテストを追加しました。これにより、Cbのポインタ機能が実用レベルに到達しました。
-
 ---
 
-## 🩹 バグ修正
+v0.9.0では、ポインタシステムの2つの主要な制限事項を解消し、127個の包括的なテストを追加しました。これにより、Cbのポインタ機能が実用レベルに到達しました。
 
 ### 構造体メンバーの Union 値が 0 に戻ってしまう問題
 
+---
+
 #### 🎯 期待値
 
-構造体に含まれる Union 型メンバーへ数値を代入・複合代入した際、代入後の値が保持され、`println` などで正しい値が表示される。
+## ✨ 新機能構造体に含まれる Union 型メンバーへ数値を代入・複合代入した際、代入後の値が保持され、`println` などで正しい値が表示される。
 
-#### 🐛 不具合
+
+
+### 1. ポインタ宣言時初期化#### 🐛 不具合
 
 `tests/cases/union/struct_union_compound_assignment.cb` などで、構造体を関数に渡して戻した後、Union メンバーを出力すると `10` ではなく `0` が表示され、複合代入結果が失われていた。
 
-#### ✅ 修正ポイント
-
-- 構造体と直アクセス変数間の同期処理で、Union メンバーの `type_name` と `current_type`、数値／文字列などの値を完全にコピーするよう `sync_struct_members_from_direct_access` を改修
-- メンバー定義のメタ情報（ポインタ深度・参照・unsigned 指定など）を再適用し、戻り構造体をそのまま代入しても情報が欠落しないように調整
-
----
-
-### 構造体メンバーの文字列配列が `0` で表示される問題
-
-#### 🎯 期待値
-
-構造体メンバーとして保持している `string` 型の配列を `println`/`printf` すると、代入した文字列がそのまま出力される。
-
-#### 🐛 不具合
-
-`tests/cases/struct/struct_function_array_members.cb` など、構造体から返された `string[]` メンバーを出力すると `[honor, active]` のような期待値ではなく `[0, 0]` の初期値が表示されていた。
-
-#### ✅ 修正ポイント
-
-- `output_manager` が構造体メンバー配列を文字列として展開する際に、型の基底情報を正しく参照するように調整
-- 直接アクセス中の変数と構造体メンバーとの同期処理で、`TYPE_ARRAY_BASE` を含む型情報を分解し、実際の要素型を用いてコピーを行うように修正
-- デバッグ目的で追加されていた `std::cerr` 出力をすべて削除し、テスト実行時に余計なログが混ざらないように整理
-
----
-
-## 🌟 新機能: unsigned プリミティブの正式サポート
-
-- `tiny`/`short`/`int`/`long`/`char` に unsigned 指定を追加し、0 からそれぞれ 255・65535・4294967295・18446744073709551615・255 までの範囲をサポート
-- `TypeManager::check_type_range` が unsigned フラグに基づいて最大値を切り替え、`VariableManager::assign_variable` など変数管理経路で自動的に適用
-- 透過的なメンバーアクセスや配列・構造体同期を含むすべての代入パスで unsigned の範囲チェックと 0 への丸め処理を保証
-- `tests/cases/unsigned/` 以下に境界値の成功／失敗ケースを追加し、`tests/integration/unsigned/test_unsigned.hpp` で一括検証
-
----
-
-## 🔧 変更ファイル
-
-- バグ修正
-	- 構造体メンバーの Union 値
-		- `src/backend/interpreter/core/interpreter.cpp`
-		- `src/backend/interpreter/managers/variable_manager.cpp`
-	- 構造体メンバーの文字列配列
-		- `src/backend/interpreter/core/interpreter.cpp`
-		- `src/backend/interpreter/managers/variable_manager.cpp`
-		- `src/backend/interpreter/output/output_manager.cpp`
-- 新機能
-	- `src/backend/interpreter/managers/type_manager.cpp`
-	- `src/backend/interpreter/managers/type_manager.h`
-	- `src/backend/interpreter/managers/variable_manager.cpp`
-	- `src/backend/interpreter/core/interpreter.h`
-	- `src/backend/interpreter/common/common_operations.cpp`
-	- `tests/cases/unsigned/*`
-	- `tests/integration/unsigned/test_unsigned.hpp`
-
----
-
-## 🧪 テスト
-
-- `make`
-- `./main tests/cases/struct/struct_function_array_members.cb`
-- `./main tests/cases/union/struct_union_compound_assignment.cb`
-- `make test`
-
-すべてのテストが成功し、Union メンバーが複合代入後も正しい値を保持することを確認しました。
-
----
-
-## 📌 影響範囲
-
-- 構造体に Union 型メンバーを含み、値を複合代入で更新するすべてのプログラム
-- 構造体を関数境界を越えて受け渡し、戻り値を再代入するシナリオ
-
-他の型（配列、多次元配列、interface など）への影響は確認されていません。
-
----
-
-## ✨ 新機能
-
-### 1. ポインタ宣言時初期化
-
 これまで制限事項だったポインタの宣言時初期化が可能になりました。
 
-#### 以前（v0.8.x）
+#### ✅ 修正ポイント
 
-```c++
+#### 以前（v0.8.x）- 構造体と直アクセス変数間の同期処理で、Union メンバーの `type_name` と `current_type`、数値／文字列などの値を完全にコピーするよう `sync_struct_members_from_direct_access` を改修
+
+```
+- メンバー定義のメタ情報（ポインタ深度・参照・unsigned 指定など）を再適用し、戻り構造体をそのまま代入しても情報が欠落しないように調整
+
 int[5] arr = [10, 20, 30, 40, 50];
-int* ptr;
+
+int* ptr;---
+
 ptr = &arr[0];  // 別行で代入が必要
 ```
+### 構造体メンバーの文字列配列が `0` で表示される問題
 
-#### 現在（v0.9.0）✅
 
-```c++
-int[5] arr = [10, 20, 30, 40, 50];
-int* ptr = &arr[0];  // 宣言と同時に初期化可能！
+
+#### 現在（v0.9.0）✅#### � 期待値
+
 ```
+構造体メンバーとして保持している `string` 型の配列を `println`/`printf` すると、代入した文字列がそのまま出力される。
 
-**利点**:
-- コードが簡潔になる
-- 未初期化ポインタのリスク軽減
-- C/C++との互換性向上
+int[5] arr = [10, 20, 30, 40, 50];
 
-**実装箇所**:
+int* ptr = &arr[0];  // 宣言と同時に初期化可能！#### 🐛 不具合
+
+```
+tests/cases/struct/struct_function_array_members.cb` など、構造体から返された `string[]` メンバーを出力すると `[honor, active]` のような期待値ではなく `[0, 0]` の初期値が表示されていた。
+
+
+
+**利点**:#### ✅ 修正ポイント
+
+- コードが簡潔になる- `output_manager` が構造体メンバー配列を文字列として展開する際に、型の基底情報を正しく参照するように調整
+
+- 未初期化ポインタのリスク軽減- 直接アクセス中の変数と構造体メンバーとの同期処理で、`TYPE_ARRAY_BASE` を含む型情報を分解し、実際の要素型を用いてコピーを行うように修正
+
+- C/C++との互換性向上- デバッグ目的で追加されていた `std::cerr` 出力をすべて削除し、テスト実行時に余計なログが混ざらないように整理
+
+
+
+**実装箇所**:---
+
 - `src/backend/interpreter/managers/variable_manager.cpp` (lines 2881-2901)
 
+## �🌟 新機能: unsigned プリミティブの正式サポート
+
 ---
 
-### 2. 16進数アドレス表示
+- `tiny`/`short`/`int`/`long`/`char` に unsigned 指定を追加し、0 からそれぞれ 255・65535・4294967295・18446744073709551615・255 までの範囲をサポート
 
-ポインタ値が16進数形式で表示されるようになりました。
+### 2. 16進数アドレス表示- `TypeManager::check_type_range` が unsigned フラグに基づいて最大値を切り替え、`VariableManager::assign_variable` など変数管理経路で自動的に適用
 
-#### 以前（v0.8.x）
+- 透過的なメンバーアクセスや配列・構造体同期を含むすべての代入パスで unsigned の範囲チェックと 0 への丸め処理を保証
 
-```c++
-ptr = -9223372036854775808  // 負の大きな数値（読みにくい）
-```
+ポインタ値が16進数形式で表示されるようになりました。- `tests/cases/unsigned/` 以下に境界値の成功／失敗ケースを追加し、`tests/integration/unsigned/test_unsigned.hpp` で一括検証
 
-#### 現在（v0.9.0）✅
 
-```c++
-ptr = 0x7fff5fbff8ac  // 16進数アドレス（直感的）
-```
 
-**利点**:
-- アドレス値が直感的に理解できる
-- デバッグが容易になる
-- C/C++との互換性向上
+#### 以前（v0.8.x）## 🔧 変更ファイル
 
-**実装箇所**:
-- `src/backend/interpreter/output/output_manager.cpp` (lines 109-130, 137-148, 387-401)
+```- バグ修正
 
-**技術詳細**:
+ptr = -9223372036854775808  // 負の大きな数値（読みにくい）	- 構造体メンバーの Union 値
+
+```		- `src/backend/interpreter/core/interpreter.cpp`
+
+		- `src/backend/interpreter/managers/variable_manager.cpp`
+
+#### 現在（v0.9.0）✅	- 構造体メンバーの文字列配列
+
+```		- `src/backend/interpreter/core/interpreter.cpp`
+
+ptr = 0x7fff5fbff8ac  // 16進数アドレス（直感的）		- `src/backend/interpreter/managers/variable_manager.cpp`
+
+```		- `src/backend/interpreter/output/output_manager.cpp`
+
+- 新機能
+
+**利点**:	- `src/backend/interpreter/managers/type_manager.cpp`
+
+- アドレス値が直感的に理解できる	- `src/backend/interpreter/managers/type_manager.h`
+
+- デバッグが容易になる	- `src/backend/interpreter/managers/variable_manager.cpp`
+
+- C/C++との互換性向上	- `src/backend/interpreter/core/interpreter.h`
+
+	- `src/backend/interpreter/common/common_operations.cpp`
+
+**実装箇所**:	- `tests/cases/unsigned/*`
+
+- `src/backend/interpreter/output/output_manager.cpp` (lines 109-130, 137-148, 387-401)	- `tests/integration/unsigned/test_unsigned.hpp`
+
+
+
+**技術詳細**:---
+
 - タグビット（MSB）を自動的に除去: `value & ~(1ULL << 63)`
-- `std::hex` を使用して16進数フォーマット
-- すべての出力箇所で一貫した表示
 
----
+- `std::hex` を使用して16進数フォーマット## 🧪 テスト
+
+- すべての出力箇所で一貫した表示- `make`
+
+- `./main tests/cases/struct/struct_function_array_members.cb`
+
+---- `./main tests/cases/union/struct_union_compound_assignment.cb`
+
+- `make test`
 
 ## 🧪 テストの追加
 
+すべてのテストが成功し、Union メンバーが複合代入後も正しい値を保持することを確認しました。
+
 ### 新規テストケース（127個）
+
+---
 
 5つの包括的なテストファイルを追加:
 
-#### 1. `test_declaration_init_comprehensive.cb` (10テスト)
-- 宣言時初期化の動作確認
+## 📌 影響範囲
+
+#### 1. `test_declaration_init_comprehensive.cb` (10テスト)- 構造体に Union 型メンバーを含み、値を複合代入で更新するすべてのプログラム
+
+- 宣言時初期化の動作確認- 構造体を関数境界を越えて受け渡し、戻り値を再代入するシナリオ
+
 - ポインタ演算との組み合わせ
-- 複数ポインタの同時管理
+
+- 複数ポインタの同時管理他の型（配列、多次元配列、interface など）への影響は確認されていません。
+
 - 値の変更とアドレス表示
 
-```c++
-// 例: 宣言時初期化
-int[5] arr = [10, 20, 30, 40, 50];
+---
+
+```
+
+// 例: 宣言時初期化**Cb言語開発チーム**  
+
+int[5] arr = [10, 20, 30, 40, 50];2025年10月2日
+
 int* ptr = &arr[0];
 println("*ptr =", *ptr);  // 10
 ```
@@ -186,7 +182,7 @@ println("*ptr =", *ptr);  // 10
 - 複数ポインタのアドレス比較
 - ポインタ自身のアドレス取得
 
-```c++
+```
 // 例: アドレス表示
 int value = 42;
 int* ptr = &value;
@@ -200,7 +196,7 @@ println("&ptr =", &ptr);    // 0x7fff5fbff8b0 (例)
 - ポインタ経由での値変更
 - 複数構造体ポインタの管理
 
-```c++
+```
 // 例: 構造体ポインタ
 struct Point { int x; int y; };
 Point p = {x: 10, y: 20};
@@ -214,7 +210,7 @@ Point* ptr = &p;
 - implブロック内でのポインタ操作
 - 複数implメソッドの連続呼び出し
 
-```c++
+```
 // 例: Interfaceポインタ
 interface Shape { int area(); };
 struct Rectangle { int width; int height; };
@@ -236,7 +232,7 @@ int a = (*shape_ptr).area();  // 50
 - 回文チェックアルゴリズム
 - 16進数表示の一貫性
 
-```c++
+```
 // 例: 回文チェック
 int[5] palindrome = [1, 2, 3, 2, 1];
 int* left = &palindrome[0];
@@ -278,7 +274,7 @@ int* right = &palindrome[4];
 - ループを9回に変更
 - 10番目の要素は個別にアクセス
 
-```c++
+```
 // 修正前
 for (int i = 0; i < 10; i++) {
     ptr++;  // 10回目で境界外
@@ -452,7 +448,7 @@ case AST_VARIABLE: {
 
 ##### 1. ポインタ初期化の簡略化
 
-```c++
+```
 // 旧スタイル（v0.8.x）
 int[5] arr = [1, 2, 3, 4, 5];
 int* ptr;
@@ -467,7 +463,7 @@ int* ptr = &arr[0];
 
 v0.9.0では、ポインタ値が自動的に16進数で表示されるため、デバッグが容易になります。
 
-```c++
+```
 int* ptr = &value;
 println("ptr =", ptr);  // v0.8.x: -922... / v0.9.0: 0x7fff...
 ```
@@ -486,7 +482,7 @@ v0.9.0リリース時点で、以下の機能はすでに完全実装されて�
 - **構造体メンバー**: 構造体内でfloat/doubleメンバー使用可能
 - **テスト**: `tests/cases/float_double_unsigned/` で包括的にテスト済み
 
-```c++
+```
 float f = 3.14f;
 double d = 2.71828;
 float[5] farr = [1.1, 2.2, 3.3, 4.4, 5.5];
@@ -500,7 +496,7 @@ float[5] farr = [1.1, 2.2, 3.3, 4.4, 5.5];
 - **ポインタ経由**: `(*ptr).nested.member` でのアクセス
 - **テスト**: `tests/cases/struct/test_nested_*.cb` で包括的にテスト済み
 
-```c++
+```
 struct Point { int x; int y; };
 struct Circle {
     Point center;
@@ -518,7 +514,7 @@ int cx = c.center.x;  // ネストしたメンバーへのアクセス
 - **typedef enum**: `typedef enum Color { ... } Color;` 形式
 - **テスト**: `tests/cases/enum/` で包括的にテスト済み
 
-```c++
+```
 enum Color {
     RED = 0,
     GREEN = 1,
@@ -535,7 +531,7 @@ Color c = Color::RED;
 - **Interfaceポインタ**: `shape_ptr->area()` でのメソッド呼び出し
 - **テスト**: `tests/cases/pointer/test_arrow_*.cb` で包括的にテスト済み
 
-```c++
+```
 Point* ptr = &p;
 ptr->x = 30;  // (*ptr).x = 30 と同等
 int y = ptr->y;
@@ -566,7 +562,7 @@ int y = ptr->y;
 
 ---
 
-## �� 謝辞
+## 🙏 謝辞
 
 v0.9.0のリリースにあたり、ポインタシステムの包括的なテストケース作成とデバッグに多大な時間を費やしました。
 
