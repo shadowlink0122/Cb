@@ -1596,6 +1596,10 @@ void ArrayManager::declare_array(const ASTNode *node) {
         // 単一次元配列の場合もarray_dimensionsを設定
         var.array_dimensions.clear();
         var.array_dimensions.push_back(size);
+        
+        if (debug_mode) {
+            std::cerr << "[ARRAY_DEBUG] About to initialize storage for type: " << static_cast<int>(node->type_info) << std::endl;
+        }
 
         // 配列用のストレージを初期化
         if (node->type_info == TYPE_STRUCT) {
@@ -1657,13 +1661,27 @@ void ArrayManager::declare_array(const ASTNode *node) {
         } else if (node->array_type_info.base_type == TYPE_STRING) {
             var.array_strings.resize(size, "");
         } else {
+            if (debug_mode) {
+                std::cerr << "[ARRAY_DEBUG] Calling ensure_numeric_storage, size=" << size << std::endl;
+            }
             ensure_numeric_storage(var, static_cast<size_t>(size), false,
                                    node->array_type_info.base_type);
+            if (debug_mode) {
+                std::cerr << "[ARRAY_DEBUG] ensure_numeric_storage completed" << std::endl;
+            }
         }
 
+        if (debug_mode) {
+            std::cerr << "[ARRAY_DEBUG] About to save to global_scope.variables" << std::endl;
+        }
+        
         // グローバルスコープに保存（AST_ARRAY_DECLはグローバル配列宣言のみ）
         variable_manager_->getInterpreter()
             ->global_scope.variables[node->name] = var;
+            
+        if (debug_mode) {
+            std::cerr << "[ARRAY_DEBUG] Saved to global_scope.variables" << std::endl;
+        }
         debug_msg(DebugMsgId::ARRAY_DECL_SUCCESS, node->name.c_str());
 
         // 初期化式がある場合は配列リテラル初期化を実行

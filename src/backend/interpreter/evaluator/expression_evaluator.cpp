@@ -793,6 +793,57 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
 
         // アドレス演算子 (&)
         if (node->op == "ADDRESS_OF") {
+            // デバッグ情報
+            if (debug_mode) {
+                std::cerr << "[ADDRESS_OF] is_function_address=" << node->is_function_address 
+                          << ", function_address_name=" << node->function_address_name 
+                          << ", has_left=" << (node->left != nullptr) << std::endl;
+            }
+            
+            // 関数アドレスの特別処理
+            // is_function_addressがtrueで関数名がある場合、まず関数として検索
+            // ただし、leftがAST_ARRAY_REFの場合は配列要素なので除外
+            bool is_array_element = node->left && node->left->node_type == ASTNodeType::AST_ARRAY_REF;
+            
+            if (node->is_function_address && !node->function_address_name.empty() && !is_array_element) {
+                if (debug_mode) {
+                    std::cerr << "[ADDRESS_OF] Looking for function: " << node->function_address_name << std::endl;
+                }
+                
+                const ASTNode* func_node = interpreter_.find_function(node->function_address_name);
+                
+                if (debug_mode) {
+                    std::cerr << "[ADDRESS_OF] Function found: " << (func_node ? "YES" : "NO") << std::endl;
+                }
+                
+                // 関数が見つかった場合のみ関数ポインタとして処理
+                if (func_node) {
+                    // 関数ポインタ値として関数ノードの実際のメモリアドレスを返す
+                    // 関数も変数と同じくメモリ上に存在するという概念を反映
+                    int64_t func_address = reinterpret_cast<int64_t>(func_node);
+                    
+                    if (debug_mode) {
+                        std::cerr << "[FUNC_PTR] Taking address of function: " << node->function_address_name 
+                                  << " -> 0x" << std::hex << func_address << std::dec << std::endl;
+                    }
+                    
+                    return func_address;
+                }
+                // 関数が見つからない場合は変数として処理
+                if (debug_mode) {
+                    std::cerr << "[ADDRESS_OF] Not a function, treating as variable address: " 
+                              << node->function_address_name << std::endl;
+                }
+                
+                // function_address_nameを使って変数を検索
+                Variable *var = interpreter_.find_variable(node->function_address_name);
+                if (!var) {
+                    error_msg(DebugMsgId::UNDEFINED_VAR_ERROR, node->function_address_name.c_str());
+                    throw std::runtime_error("Undefined variable");
+                }
+                return reinterpret_cast<int64_t>(var);
+            }
+            
             if (!node->left) {
                 throw std::runtime_error("Address-of operator requires an operand");
             }
@@ -1449,9 +1500,259 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
         }
     }
 
+    case ASTNodeType::AST_FUNC_PTR_CALL: {
+        // 関数ポインタ呼び出し: (*funcPtr)(args) 形式
+        if (!node->left) {
+            throw std::runtime_error("Function pointer call requires a pointer variable");
+        }
+        
+        // ポインタ変数名を取得（leftはVARIABLEノード）
+        std::string ptr_var_name;
+        if (node->left->node_type == ASTNodeType::AST_VARIABLE) {
+            ptr_var_name = node->left->name;
+        } else {
+            throw std::runtime_error("Function pointer call requires a variable");
+        }
+        
+        // 関数ポインタを検索
+        auto& func_ptrs = interpreter_.current_scope().function_pointers;
+        auto it = func_ptrs.find(ptr_var_name);
+        if (it == func_ptrs.end()) {
+            // グローバルスコープも確認
+            auto& global_func_ptrs = interpreter_.get_global_scope().function_pointers;
+            it = global_func_ptrs.find(ptr_var_name);
+            if (it == global_func_ptrs.end()) {
+                throw std::runtime_error("Not a function pointer: " + ptr_var_name);
+            }
+        }
+        
+        const FunctionPointer& func_ptr = it->second;
+        const ASTNode* func_node = func_ptr.function_node;
+        
+        if (debug_mode) {
+            std::cerr << "[FUNC_PTR] Calling function pointer: " << ptr_var_name 
+                      << " -> " << func_ptr.function_name << std::endl;
+        }
+        
+        // 引数を評価
+        std::vector<int64_t> arg_values;
+        std::vector<std::string> arg_strings;
+        std::vector<TypeInfo> arg_types;
+        
+        if (debug_mode) {
+            std::cerr << "[FUNC_PTR] node->arguments size: " << node->arguments.size() << std::endl;
+        }
+        
+        for (const auto& arg : node->arguments) {
+            TypedValue typed_val = interpreter_.evaluate_typed(arg.get());
+            arg_values.push_back(typed_val.value);
+            if (typed_val.type.type_info == TYPE_STRING) {
+                arg_strings.push_back(typed_val.string_value);
+            }
+        }
+        
+        if (debug_mode) {
+            std::cerr << "[FUNC_PTR] Evaluated " << arg_values.size() << " arguments" << std::endl;
+            for (size_t i = 0; i < arg_values.size(); ++i) {
+                std::cerr << "[FUNC_PTR] arg[" << i << "] = " << arg_values[i] << std::endl;
+            }
+        }
+        
+        // 関数を呼び出し（既存の関数呼び出し機構を再利用）
+        // パラメータを設定
+        interpreter_.push_interpreter_scope();
+        
+        // 仮引数と実引数をバインド
+        size_t param_idx = 0;
+        if (debug_mode) {
+            std::cerr << "[FUNC_PTR] Binding parameters: function has " 
+                      << func_node->parameters.size() << " parameters" << std::endl;
+        }
+        for (const auto& param : func_node->parameters) {
+            if (param_idx >= arg_values.size()) {
+                throw std::runtime_error("Too few arguments for function pointer call");
+            }
+            
+            std::string param_name = param->name;
+            TypeInfo param_type = param->type_info;
+            bool is_unsigned = param->is_unsigned;
+            
+            if (debug_mode) {
+                std::cerr << "[FUNC_PTR] Binding param[" << param_idx << "]: " 
+                          << param_name << " = " << arg_values[param_idx] << std::endl;
+            }
+            
+            if (param_type == TYPE_STRING) {
+                interpreter_.assign_variable(param_name, arg_strings[param_idx]);
+            } else {
+                interpreter_.assign_function_parameter(param_name, arg_values[param_idx], param_type, is_unsigned);
+            }
+            
+            param_idx++;
+        }
+        
+        // 関数本体を実行
+        int64_t result = 0;
+        if (debug_mode) {
+            std::cerr << "[FUNC_PTR] func_node->body exists: " << (func_node->body ? "yes" : "no") << std::endl;
+            if (func_node->body) {
+                std::cerr << "[FUNC_PTR] func_node->body type: " 
+                          << static_cast<int>(func_node->body->node_type) << std::endl;
+            }
+        }
+        try {
+            if (func_node->body) {
+                if (debug_mode) {
+                    std::cerr << "[FUNC_PTR] Executing function body: node_type=" 
+                              << static_cast<int>(func_node->body->node_type) << std::endl;
+                }
+                interpreter_.exec_statement(func_node->body.get());
+                if (debug_mode) {
+                    std::cerr << "[FUNC_PTR] Function body execution finished without exception" << std::endl;
+                }
+            } else {
+                if (debug_mode) {
+                    std::cerr << "[FUNC_PTR] No function body (func_node->body is null)" << std::endl;
+                }
+            }
+        } catch (const ReturnException& ret) {
+            if (debug_mode) {
+                std::cerr << "[FUNC_PTR] Caught ReturnException: value=" << ret.value << std::endl;
+            }
+            // 戻り値を取得（スコープをpopする前に）
+            if (ret.type == TYPE_STRING) {
+                interpreter_.pop_interpreter_scope();
+                throw ret;  // 文字列の場合はexceptionとして伝播
+            } else {
+                result = ret.value;
+                if (debug_mode) {
+                    std::cerr << "[FUNC_PTR] Function returned: " << result << std::endl;
+                }
+                interpreter_.pop_interpreter_scope();
+                if (debug_mode) {
+                    std::cerr << "[FUNC_PTR] Scope popped, returning result=" << result << std::endl;
+                }
+                return result;
+            }
+        } catch (const std::exception& e) {
+            if (debug_mode) {
+                std::cerr << "[FUNC_PTR] Caught unexpected exception: " << e.what() << std::endl;
+            }
+            interpreter_.pop_interpreter_scope();
+            throw;
+        }
+        
+        interpreter_.pop_interpreter_scope();
+        if (debug_mode) {
+            std::cerr << "[FUNC_PTR] Function completed without return, result=" << result << std::endl;
+        }
+        return result;
+    }
+
     case ASTNodeType::AST_FUNC_CALL: {
         // 関数を探す
         const ASTNode *func = nullptr;
+        
+        // チェーン呼び出しのチェック: func()() (関数ポインタのチェーン)
+        // leftが設定されている場合、それは関数ポインタチェーンまたはメソッドチェーンの可能性
+        // 関数ポインタチェーンは非常に稀なケースなので、デフォルトでメソッドチェーンとして処理
+        // ただし、leftがメソッド呼び出しでない場合（node->left->left == nullptr）で、
+        // かつ戻り値が関数ポインタの場合のみ、関数ポインタチェーンとして処理する
+        //
+        // 判定ロジック：
+        // - node->leftが存在 && node->left->node_type == AST_FUNC_CALL
+        // - node->left->left == nullptr (メソッド呼び出しではない)
+        // - 実行してみて、is_function_pointer == true
+        // 
+        // それ以外の場合は、後続のis_method_call処理に任せる
+        // 
+        // 後続の処理でメソッドチェーンとして適切に処理される
+        // （resolve_method_receiverとcreate_chain_receiver_from_expressionが処理する）
+        
+        // Form 2: ptr(args) - 関数ポインタの可能性をチェック
+        if (!node->left) {  // メソッド呼び出しでない場合
+            std::string func_name = node->name;
+            
+            // 関数ポインタをfunction_pointersマップから検索
+            auto& func_ptrs = interpreter_.current_scope().function_pointers;
+            auto it = func_ptrs.find(func_name);
+            bool found_in_local = (it != func_ptrs.end());
+            
+            // ローカルスコープで見つからない場合、グローバルスコープを検索
+            if (!found_in_local) {
+                auto& global_func_ptrs = interpreter_.get_global_scope().function_pointers;
+                it = global_func_ptrs.find(func_name);
+            }
+            
+            // 関数ポインタが見つかった場合
+            if (found_in_local || it != interpreter_.get_global_scope().function_pointers.end()) {
+                const FunctionPointer& func_ptr = it->second;
+                const ASTNode* func_node = func_ptr.function_node;
+                
+                if (debug_mode) {
+                    std::cerr << "[FUNC_PTR] Form 2 call: " << func_name 
+                              << " -> " << func_ptr.function_name << std::endl;
+                }
+                
+                // 引数を評価
+                std::vector<int64_t> arg_values;
+                std::vector<std::string> arg_strings;
+                
+                for (const auto& arg : node->arguments) {
+                    TypedValue typed_val = interpreter_.evaluate_typed(arg.get());
+                    arg_values.push_back(typed_val.value);
+                    if (typed_val.type.type_info == TYPE_STRING) {
+                        arg_strings.push_back(typed_val.string_value);
+                    }
+                }
+                
+                // 関数を呼び出し
+                interpreter_.push_interpreter_scope();
+                
+                // 仮引数と実引数をバインド
+                size_t param_idx = 0;
+                for (const auto& param : func_node->parameters) {
+                    if (param_idx >= arg_values.size()) {
+                        throw std::runtime_error("Too few arguments for function pointer call");
+                    }
+                    
+                    std::string param_name = param->name;
+                    TypeInfo param_type = param->type_info;
+                    bool is_unsigned = param->is_unsigned;
+                    
+                    if (param_type == TYPE_STRING) {
+                        interpreter_.assign_variable(param_name, arg_strings[param_idx]);
+                    } else {
+                        interpreter_.assign_function_parameter(param_name, arg_values[param_idx], param_type, is_unsigned);
+                    }
+                    
+                    param_idx++;
+                }
+                
+                // 関数本体を実行
+                int64_t result = 0;
+                try {
+                    if (func_node->body) {
+                        interpreter_.exec_statement(func_node->body.get());
+                    }
+                } catch (const ReturnException& ret) {
+                    interpreter_.pop_interpreter_scope();
+                    // 戻り値を取得
+                    if (ret.is_function_pointer || ret.type == TYPE_STRING || ret.is_struct || ret.is_array) {
+                        throw ret;  // 複雑な型の場合はexceptionとして伝播
+                    } else {
+                        result = ret.value;
+                    }
+                    return result;
+                }
+                
+                interpreter_.pop_interpreter_scope();
+                return result;
+            }
+        }
+        
+        // 通常の関数呼び出し
+        // 通常の関数呼び出し
         bool is_method_call = (node->left != nullptr); // レシーバーがある場合はメソッド呼び出し
         bool has_receiver = is_method_call;
         std::string receiver_name;
@@ -1482,6 +1783,101 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                 const ReturnException& chain_ret = *receiver_resolution.chain_value;
                 if (chain_ret.is_array) {
                     throw chain_ret;
+                }
+                
+                // 関数ポインタチェーン: getOperation(3)(6, 7)のようなケース
+                if (chain_ret.is_function_pointer) {
+                    if (debug_mode) {
+                        std::cerr << "[FUNC_PTR_CHAIN] Function pointer chain detected, value=" 
+                                  << chain_ret.value << std::endl;
+                    }
+                    
+                    // function_pointersマップから関数ポインタ情報を探す
+                    const FunctionPointer* found_ptr = nullptr;
+                    
+                    // 現在のスコープを検索
+                    for (const auto& pair : interpreter_.current_scope().function_pointers) {
+                        Variable* var = interpreter_.find_variable(pair.first);
+                        if (var && var->value == chain_ret.value) {
+                            found_ptr = &pair.second;
+                            break;
+                        }
+                    }
+                    
+                    // グローバルスコープも検索
+                    if (!found_ptr) {
+                        for (const auto& pair : interpreter_.get_global_scope().function_pointers) {
+                            Variable* var = interpreter_.find_variable(pair.first);
+                            if (var && var->value == chain_ret.value) {
+                                found_ptr = &pair.second;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    if (!found_ptr) {
+                        throw std::runtime_error("Function pointer chain: pointer not found in function_pointers map");
+                    }
+                    
+                    const ASTNode* func_node = found_ptr->function_node;
+                    
+                    if (debug_mode) {
+                        std::cerr << "[FUNC_PTR_CHAIN] Calling function: " << found_ptr->function_name << std::endl;
+                    }
+                    
+                    // 引数を評価
+                    std::vector<int64_t> arg_values;
+                    std::vector<std::string> arg_strings;
+                    
+                    for (const auto& arg : node->arguments) {
+                        TypedValue typed_val = interpreter_.evaluate_typed(arg.get());
+                        arg_values.push_back(typed_val.value);
+                        if (typed_val.type.type_info == TYPE_STRING) {
+                            arg_strings.push_back(typed_val.string_value);
+                        }
+                    }
+                    
+                    // 関数を呼び出し
+                    interpreter_.push_interpreter_scope();
+                    
+                    // 仮引数と実引数をバインド
+                    size_t param_idx = 0;
+                    for (const auto& param : func_node->parameters) {
+                        if (param_idx >= arg_values.size()) {
+                            throw std::runtime_error("Too few arguments for function pointer chain call");
+                        }
+                        
+                        std::string param_name = param->name;
+                        TypeInfo param_type = param->type_info;
+                        bool is_unsigned = param->is_unsigned;
+                        
+                        if (param_type == TYPE_STRING) {
+                            interpreter_.assign_variable(param_name, arg_strings[param_idx]);
+                        } else {
+                            interpreter_.assign_function_parameter(param_name, arg_values[param_idx], param_type, is_unsigned);
+                        }
+                        
+                        param_idx++;
+                    }
+                    
+                    // 関数本体を実行
+                    int64_t result = 0;
+                    try {
+                        if (func_node->body) {
+                            interpreter_.exec_statement(func_node->body.get());
+                        }
+                    } catch (const ReturnException& ret) {
+                        interpreter_.pop_interpreter_scope();
+                        if (ret.is_function_pointer || ret.type == TYPE_STRING || ret.is_struct || ret.is_array) {
+                            throw ret;  // 複雑な型の場合はexceptionとして伝播
+                        } else {
+                            result = ret.value;
+                        }
+                        return result;
+                    }
+                    
+                    interpreter_.pop_interpreter_scope();
+                    return result;
                 }
 
                 method_context.uses_temp_receiver = true;
@@ -2002,6 +2398,43 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
             for (size_t i = 0; i < func->parameters.size(); i++) {
                 const auto &param = func->parameters[i];
                 const auto &arg = node->arguments[i];
+                
+                // 関数ポインタパラメータのサポート
+                if (param->type_info == TYPE_POINTER && 
+                    arg->node_type == ASTNodeType::AST_UNARY_OP && 
+                    arg->op == "ADDRESS_OF" && 
+                    arg->is_function_address) {
+                    // 引数が関数アドレス（&func形式）の場合
+                    // まず関数が実際に存在するかを確認
+                    std::string func_name = arg->function_address_name;
+                    const ASTNode* target_func = interpreter_.find_function(func_name);
+                    
+                    // 関数が見つかった場合のみ関数ポインタとして処理
+                    if (target_func) {
+                        // 関数ポインタとして登録
+                        FunctionPointer func_ptr(target_func, func_name, target_func->type_info);
+                        interpreter_.current_scope().function_pointers[param->name] = func_ptr;
+                        
+                        // 変数としても登録（値は関数ノードの実際のメモリアドレス）
+                        int64_t func_address = reinterpret_cast<int64_t>(target_func);
+                        interpreter_.assign_function_parameter(param->name, func_address, TYPE_POINTER, false);
+                        
+                        // 変数に関数ポインタフラグを設定
+                        Variable* param_var = interpreter_.find_variable(param->name);
+                        if (param_var) {
+                            param_var->is_function_pointer = true;
+                            param_var->function_pointer_name = func_name;
+                        }
+                        
+                        if (debug_mode) {
+                            std::cerr << "[FUNC_CALL] Registered function pointer argument: " 
+                                      << param->name << " = &" << func_name << std::endl;
+                        }
+                        
+                        continue;  // 次のパラメータへ
+                    }
+                    // 関数が見つからない場合は通常のポインタパラメータとして処理を継続
+                }
                 
                 // 参照パラメータのサポート
                 if (param->is_reference) {
@@ -2671,6 +3104,11 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                 interpreter_.pop_scope();
                 method_scope_active = false;
                 interpreter_.current_function_name = prev_function_name;
+                
+                // 関数ポインタ戻り値の場合は例外を再度投げる
+                if (ret.is_function_pointer) {
+                    throw ret;
+                }
                 
                 if (ret.is_struct) {
                     // struct戻り値の場合、構造体を一時的に処理して戻り値として使用
@@ -3606,11 +4044,20 @@ TypedValue ExpressionEvaluator::evaluate_typed_expression(const ASTNode* node) {
         return evaluate_typed_expression_internal(node);
     } catch (const ReturnException& ret_ex) {
         if (debug_mode) {
-            debug_print("TYPED_EVAL_RETURN: is_struct=%d type=%d is_array=%d\n",
+            debug_print("TYPED_EVAL_RETURN: is_struct=%d type=%d is_array=%d is_function_pointer=%d\n",
                         ret_ex.is_struct ? 1 : 0,
                         static_cast<int>(ret_ex.type),
-                        ret_ex.is_array ? 1 : 0);
+                        ret_ex.is_array ? 1 : 0,
+                        ret_ex.is_function_pointer ? 1 : 0);
         }
+        if (ret_ex.is_function_pointer) {
+            // 関数ポインタの場合、ReturnExceptionを再スロー
+            if (debug_mode) {
+                std::cerr << "[TYPED_EVAL] Re-throwing function pointer ReturnException" << std::endl;
+            }
+            throw;
+        }
+        
         if (ret_ex.is_struct || ret_ex.type == TYPE_STRUCT) {
             // 構造体の場合、ReturnExceptionを再スロー（メンバアクセスで処理される）
             throw;
@@ -4022,6 +4469,66 @@ TypedValue ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode
         case ASTNodeType::AST_UNARY_OP: {
             // アドレス演算子 (&)
             if (node->op == "ADDRESS_OF") {
+                if (debug_mode) {
+                    std::cerr << "[ADDRESS_OF evaluate_typed] is_function_address=" << node->is_function_address
+                              << ", function_address_name='" << node->function_address_name << "'"
+                              << ", has_left=" << (node->left != nullptr) << std::endl;
+                }
+                
+                // 関数アドレスの特別処理
+                // is_function_addressがtrueで関数名がある場合、まず関数として検索
+                // ただし、leftがAST_ARRAY_REFの場合は配列要素なので除外
+                bool is_array_element = node->left && node->left->node_type == ASTNodeType::AST_ARRAY_REF;
+                
+                if (node->is_function_address && !node->function_address_name.empty() && !is_array_element) {
+                    const ASTNode* func_node = interpreter_.find_function(node->function_address_name);
+                    
+                    // 関数が見つかった場合のみ関数ポインタとして処理
+                    if (func_node) {
+                        // 関数ポインタ値として関数ノードの実際のメモリアドレスを返す
+                        int64_t func_address = reinterpret_cast<int64_t>(func_node);
+                        
+                        // 戻り値型を取得してポインタ型を構築
+                        std::string type_name;
+                        switch (func_node->type_info) {
+                            case TYPE_INT: type_name = "int"; break;
+                            case TYPE_FLOAT: type_name = "float"; break;
+                            case TYPE_DOUBLE: type_name = "double"; break;
+                            case TYPE_STRING: type_name = "string"; break;
+                            case TYPE_VOID: type_name = "void"; break;
+                            default: type_name = "int"; break;
+                        }
+                        std::string func_ptr_type = type_name + "*";
+                        InferredType pointer_type(TYPE_POINTER, func_ptr_type);
+                        
+                        if (debug_mode) {
+                            std::cerr << "[FUNC_PTR evaluate_typed] Taking address of function: " 
+                                      << node->function_address_name << " -> " << func_address 
+                                      << ", type: " << func_ptr_type << std::endl;
+                        }
+                        
+                        // 関数ポインタ情報を含むTypedValueを返す
+                        return TypedValue::function_pointer(func_address, node->function_address_name, 
+                                                           func_node, pointer_type);
+                    }
+                    // 関数が見つからない場合は変数として処理
+                    if (debug_mode) {
+                        std::cerr << "[ADDRESS_OF evaluate_typed] Not a function, treating as variable address: " 
+                                  << node->function_address_name << std::endl;
+                    }
+                    
+                    // function_address_nameを使って変数を検索
+                    Variable *var = interpreter_.find_variable(node->function_address_name);
+                    if (!var) {
+                        error_msg(DebugMsgId::UNDEFINED_VAR_ERROR, node->function_address_name.c_str());
+                        throw std::runtime_error("Undefined variable");
+                    }
+                    
+                    std::string ptr_type = var->type_name + "*";
+                    InferredType pointer_type(TYPE_POINTER, ptr_type);
+                    return TypedValue(reinterpret_cast<int64_t>(var), pointer_type);
+                }
+                
                 if (!node->left) {
                     throw std::runtime_error("Address-of operator requires an operand");
                 }
@@ -4163,6 +4670,10 @@ TypedValue ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode
                     return consume_numeric_typed_value(node, numeric_result, function_return_type);
                 }
             } catch (const ReturnException& ret) {
+                if (ret.is_function_pointer) {
+                    // 関数ポインタの場合、ReturnExceptionを再スロー
+                    throw;
+                }
                 if (ret.is_array || ret.is_struct_array) {
                     throw;
                 }
@@ -4199,6 +4710,20 @@ TypedValue ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode
                 var = reinterpret_cast<Variable*>(var->value);
                 if (!var) {
                     throw std::runtime_error("Invalid reference variable: " + node->name);
+                }
+            }
+            
+            // 関数ポインタの場合、関数ポインタ情報を含むTypedValueを返す
+            if (var->is_function_pointer) {
+                auto& fp_map = interpreter_.current_scope().function_pointers;
+                auto it = fp_map.find(node->name);
+                if (it != fp_map.end()) {
+                    return TypedValue::function_pointer(
+                        var->value,
+                        it->second.function_name,
+                        it->second.function_node,
+                        inferred_type
+                    );
                 }
             }
             
@@ -4712,6 +5237,29 @@ TypedValue ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode
             return consume_numeric_typed_value(node, numeric_result, inferred_type);
         }
             
+        case ASTNodeType::AST_IDENTIFIER: {
+            // 識別子の場合、まず変数を探す
+            Variable* var = interpreter_.find_variable(node->name);
+            if (var) {
+                // 関数ポインタの場合、関数ポインタ情報を含むTypedValueを返す
+                if (var->is_function_pointer) {
+                    auto& fp_map = interpreter_.current_scope().function_pointers;
+                    auto it = fp_map.find(node->name);
+                    if (it != fp_map.end()) {
+                        return TypedValue::function_pointer(
+                            var->value,
+                            it->second.function_name,
+                            it->second.function_node,
+                            inferred_type
+                        );
+                    }
+                }
+            }
+            // 通常の識別子の場合は通常評価
+            int64_t numeric_result = evaluate_expression(node);
+            return consume_numeric_typed_value(node, numeric_result, inferred_type);
+        }
+        
         default: {
             // デフォルトは従来の評価結果を数値として返す
             int64_t numeric_result = evaluate_expression(node);

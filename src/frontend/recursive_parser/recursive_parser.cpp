@@ -2440,12 +2440,30 @@ ASTNode* RecursiveParser::parseUnary() {
         check(TokenType::TOK_BIT_NOT) || check(TokenType::TOK_BIT_AND) ||
         check(TokenType::TOK_MUL)) {
         Token op = advance();
+        
+        // & 演算子の場合、関数アドレス取得かチェック
         ASTNode* operand = parseUnary();
         
         ASTNode* unary = new ASTNode(ASTNodeType::AST_UNARY_OP);
         // & はアドレス演算子、* は間接参照演算子として扱う
         if (op.type == TokenType::TOK_BIT_AND) {
             unary->op = "ADDRESS_OF";  // アドレス演算子
+            
+            // operandから識別子名を取得して is_function_address フラグを設定
+            // インタプリタ側で関数か変数かを判断する
+            if (operand) {
+                if (operand->node_type == ASTNodeType::AST_VARIABLE || 
+                    operand->node_type == ASTNodeType::AST_IDENTIFIER) {
+                    unary->is_function_address = true;
+                    unary->function_address_name = operand->name;
+                } else if (operand->node_type == ASTNodeType::AST_ARRAY_REF && 
+                          operand->left && 
+                          operand->left->node_type == ASTNodeType::AST_VARIABLE) {
+                    // &arr[0] の場合、arr の名前を保存
+                    unary->is_function_address = true;
+                    unary->function_address_name = operand->left->name;
+                }
+            }
         } else if (op.type == TokenType::TOK_MUL) {
             unary->op = "DEREFERENCE";  // 間接参照演算子
         } else {
@@ -2481,6 +2499,32 @@ ASTNode* RecursiveParser::parsePostfix() {
     }
     
     while (true) {
+        // 関数ポインタ呼び出しのチェック: *ptr(args)
+        // primaryが DEREFERENCE (*演算子) で、次が'('の場合
+        if (check(TokenType::TOK_LPAREN) && 
+            primary && primary->node_type == ASTNodeType::AST_UNARY_OP &&
+            primary->op == "DEREFERENCE") {
+            
+            // 関数ポインタ呼び出しに変換
+            advance(); // '(' を消費
+            
+            ASTNode* funcPtrCall = new ASTNode(ASTNodeType::AST_FUNC_PTR_CALL);
+            funcPtrCall->left = std::move(primary->left);  // ポインタ変数（*の対象）
+            
+            // 引数の解析
+            if (!check(TokenType::TOK_RPAREN)) {
+                do {
+                    ASTNode* arg = parseExpression();
+                    funcPtrCall->arguments.push_back(std::unique_ptr<ASTNode>(arg));
+                } while (match(TokenType::TOK_COMMA));
+            }
+            
+            consume(TokenType::TOK_RPAREN, "Expected ')' after function pointer call arguments");
+            
+            primary = funcPtrCall;
+            continue;
+        }
+        
         if (check(TokenType::TOK_LBRACKET)) {
             // 配列アクセス: arr[i]
             advance(); // consume '['
@@ -2687,6 +2731,29 @@ ASTNode* RecursiveParser::parsePrimary() {
             }
             
             consume(TokenType::TOK_RPAREN, "Expected ')' after function arguments");
+            
+            // チェーン呼び出しのサポート: func()() 形式
+            // 最初の呼び出しが関数ポインタを返す場合、続けて呼び出し可能
+            while (check(TokenType::TOK_LPAREN)) {
+                advance(); // consume '('
+                
+                // チェーン呼び出しノードを作成
+                ASTNode* chained_call = new ASTNode(ASTNodeType::AST_FUNC_CALL);
+                chained_call->left = std::unique_ptr<ASTNode>(call_node);  // 前の呼び出し結果を左側に
+                
+                // 引数リストの解析
+                if (!check(TokenType::TOK_RPAREN)) {
+                    do {
+                        ASTNode* arg = parseExpression();
+                        chained_call->arguments.push_back(std::unique_ptr<ASTNode>(arg));
+                    } while (match(TokenType::TOK_COMMA));
+                }
+                
+                consume(TokenType::TOK_RPAREN, "Expected ')' after chained function arguments");
+                
+                call_node = chained_call;  // 次のイテレーションのために更新
+            }
+            
             return call_node;
         }
         // 配列アクセスは parsePostfix で処理
@@ -3039,7 +3106,7 @@ ASTNode* RecursiveParser::parseFunctionDeclaration() {
 
 
 ASTNode* RecursiveParser::parseTypedefDeclaration() {
-    // typedef <type> <alias>; または typedef struct {...} <alias>; または typedef enum {...} <alias>; または typedef union (TypeScript-like literal types)
+    // typedef <type> <alias>; または typedef struct {...} <alias>; または typedef enum {...} <alias>; または typedef union (TypeScript-like literal types) または 関数ポインタtypedef
     consume(TokenType::TOK_TYPEDEF, "Expected 'typedef'");
     
     // typedef struct の場合
@@ -3050,6 +3117,11 @@ ASTNode* RecursiveParser::parseTypedefDeclaration() {
     // typedef enum の場合
     if (check(TokenType::TOK_ENUM)) {
         return parseEnumTypedefDeclaration();
+    }
+    
+    // 関数ポインタtypedefの場合
+    if (isFunctionPointerTypedef()) {
+        return parseFunctionPointerTypedefDeclaration();
     }
     
     // Check for both old and new typedef syntaxes
@@ -5368,3 +5440,123 @@ bool RecursiveParser::detectCircularReference(const std::string& struct_name,
     
     return false;
 }
+
+// 関数ポインタtypedef構文かどうかをチェック
+// typedef <return_type> (*<name>)(<param_types>);
+bool RecursiveParser::isFunctionPointerTypedef() {
+    // 簡単なチェック：次のトークンの種類で判断
+    // 型名の後に '(' が来たら関数ポインタtypedefの可能性
+    // 型名の後に識別子が来たら通常のtypedef
+    
+    // 現在のトークンが型名かチェック
+    bool is_type_token = (
+        current_token_.type == TokenType::TOK_VOID ||
+        current_token_.type == TokenType::TOK_INT ||
+        current_token_.type == TokenType::TOK_LONG ||
+        current_token_.type == TokenType::TOK_SHORT ||
+        current_token_.type == TokenType::TOK_TINY ||
+        current_token_.type == TokenType::TOK_CHAR ||
+        current_token_.type == TokenType::TOK_STRING_TYPE ||
+        current_token_.type == TokenType::TOK_BOOL ||
+        current_token_.type == TokenType::TOK_FLOAT ||
+        current_token_.type == TokenType::TOK_DOUBLE ||
+        current_token_.type == TokenType::TOK_BIG ||
+        current_token_.type == TokenType::TOK_QUAD ||
+        current_token_.type == TokenType::TOK_IDENTIFIER
+    );
+    
+    if (!is_type_token) {
+        return false;
+    }
+    
+    // レキサーから次のトークンを取得（先読み）
+    Token next_token = lexer_.peekToken();
+    
+    // 型名の次が '(' なら関数ポインタtypedef
+    return (next_token.type == TokenType::TOK_LPAREN);
+}
+
+// 関数ポインタtypedef宣言の解析
+// typedef <return_type> (*<name>)(<param_types>);
+ASTNode* RecursiveParser::parseFunctionPointerTypedefDeclaration() {
+    // 戻り値型の解析
+    std::string return_type_str = parseType();
+    TypeInfo return_type = getTypeInfoFromString(return_type_str);
+    
+    // '(' の消費
+    consume(TokenType::TOK_LPAREN, "Expected '(' in function pointer typedef");
+    
+    // '*' の消費
+    consume(TokenType::TOK_MUL, "Expected '*' in function pointer typedef");
+    
+    // 関数ポインタ型名の取得
+    if (!check(TokenType::TOK_IDENTIFIER)) {
+        error("Expected identifier in function pointer typedef");
+        return nullptr;
+    }
+    std::string typedef_name = current_token_.value;
+    advance();
+    
+    // ')' の消費
+    consume(TokenType::TOK_RPAREN, "Expected ')' after function pointer name");
+    
+    // '(' の消費（パラメータリスト開始）
+    consume(TokenType::TOK_LPAREN, "Expected '(' for parameter list");
+    
+    // パラメータリストの解析
+    std::vector<TypeInfo> param_types;
+    std::vector<std::string> param_type_names;
+    std::vector<std::string> param_names;
+    
+    if (!check(TokenType::TOK_RPAREN)) {
+        do {
+            // パラメータ型の解析
+            std::string param_type_str = parseType();
+            TypeInfo param_type = getTypeInfoFromString(param_type_str);
+            param_types.push_back(param_type);
+            param_type_names.push_back(param_type_str);
+            
+            // パラメータ名は省略可能
+            if (check(TokenType::TOK_IDENTIFIER)) {
+                param_names.push_back(current_token_.value);
+                advance();
+            } else {
+                param_names.push_back(""); // 匿名パラメータ
+            }
+            
+            if (check(TokenType::TOK_COMMA)) {
+                advance();
+            } else {
+                break;
+            }
+        } while (true);
+    }
+    
+    // ')' の消費（パラメータリスト終了）
+    consume(TokenType::TOK_RPAREN, "Expected ')' after parameter list");
+    
+    // ';' の消費
+    consume(TokenType::TOK_SEMICOLON, "Expected ';' after function pointer typedef");
+    
+    // FunctionPointerTypeInfo の作成
+    FunctionPointerTypeInfo fp_type_info(return_type, return_type_str, 
+                                          param_types, param_type_names, param_names);
+    
+    // 関数ポインタtypedefマップに登録
+    function_pointer_typedefs_[typedef_name] = fp_type_info;
+    
+    // typedef マップにも登録（型名として認識させる）
+    typedef_map_[typedef_name] = "function_pointer:" + typedef_name;
+    
+    // ASTノードの作成
+    ASTNode* node = new ASTNode(ASTNodeType::AST_FUNCTION_POINTER_TYPEDEF);
+    node->name = typedef_name;
+    node->type_info = TYPE_FUNCTION_POINTER;
+    node->is_function_pointer = true;
+    node->function_pointer_type = fp_type_info;
+    
+    setLocation(node, current_token_);
+    
+    return node;
+}
+

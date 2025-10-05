@@ -1,0 +1,9 @@
+=== Test 1: Basic const support ===
+42
+100
+=== Test 2: Pointer reassignment ===
+10
+20
+=== Test 3: Pointer to const variable ===
+50
+=== All basic pointer tests passed ===

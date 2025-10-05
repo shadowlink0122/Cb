@@ -1,0 +1,25 @@
+// 多次元配列の基本テスト
+
+void main() {
+    println("=== Test 1: Basic 2D array ===");
+    
+    int[2][3] matrix = [[1, 2, 3], [4, 5, 6]];
+    
+    for (int i = 0; i < 2; i++) {
+        for (int j = 0; j < 3; j++) {
+            println(matrix[i][j]);
+        }
+    }
+    
+    println("=== Test 2: 3x3 identity matrix ===");
+    
+    int[3][3] identity = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
+    
+    for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < 3; j++) {
+            println(identity[i][j]);
+        }
+    }
+    
+    println("=== All tests passed ===");
+}

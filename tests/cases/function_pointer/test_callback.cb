@@ -1,0 +1,55 @@
+// 関数ポインタをコールバック関数として使うテスト
+
+int add(int a, int b) {
+    return a + b;
+}
+
+int subtract(int a, int b) {
+    return a - b;
+}
+
+int multiply(int a, int b) {
+    return a * b;
+}
+
+// コールバック関数を受け取る高階関数
+int applyOperation(int x, int y, int* operation) {
+    // 形式2: ptr(args)
+    return operation(x, y);
+}
+
+// コールバック関数を受け取る別の例（形式1使用）
+int compute(int a, int b, int* func) {
+    // 形式1: (*ptr)(args)
+    return (*func)(a, b);
+}
+
+void main() {
+    // テスト1: addをコールバックとして渡す（形式2）
+    int result1 = applyOperation(10, 5, &add);
+    println(result1);  // 期待値: 15
+    
+    // テスト2: subtractをコールバックとして渡す（形式2）
+    int result2 = applyOperation(10, 5, &subtract);
+    println(result2);  // 期待値: 5
+    
+    // テスト3: multiplyをコールバックとして渡す（形式1）
+    int result3 = compute(10, 5, &multiply);
+    println(result3);  // 期待値: 50
+    
+    // テスト4: addをコールバックとして渡す（形式1）
+    int result4 = compute(10, 5, &add);
+    println(result4);  // 期待値: 15
+    
+    // テスト5: 関数ポインタ変数を経由して渡す
+    int* myFunc = &multiply;
+    int result5 = applyOperation(7, 8, myFunc);
+    println(result5);  // 期待値: 56
+    
+    // テスト6: 複数回のコールバック使用
+    int sum = 0;
+    sum = applyOperation(sum, 10, &add);
+    sum = applyOperation(sum, 5, &add);
+    sum = applyOperation(sum, 3, &add);
+    println(sum);  // 期待値: 18
+}

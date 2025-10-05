@@ -1,0 +1,36 @@
+// 基本的なポインタ機能のテスト（多重ポインタは将来実装）
+
+void main() {
+    println("=== Test 1: Basic pointer ===");
+    
+    int value = 42;
+    int* ptr = &value;
+    
+    println(value);  // 42
+    println(*ptr);   // 42
+    
+    *ptr = 100;      // ポインタ経由で値を変更
+    println(value);  // 100
+    println(*ptr);   // 100
+    
+    println("=== Test 2: Multiple pointers ===");
+    
+    int x = 10, y = 20, z = 30;
+    int* p1 = &x;
+    int* p2 = &y;
+    int* p3 = &z;
+    
+    println(*p1);    // 10
+    println(*p2);    // 20
+    println(*p3);    // 30
+    
+    *p1 = 15;
+    *p2 = 25;
+    *p3 = 35;
+    
+    println(x);      // 15
+    println(y);      // 25
+    println(z);      // 35
+    
+    println("=== All basic pointer tests passed ===");
+}

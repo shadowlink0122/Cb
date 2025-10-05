@@ -68,6 +68,10 @@ struct Variable {
     std::string interface_name;        // interface型の場合のinterface名
     std::string implementing_struct;   // interfaceを実装しているstruct名
 
+    // 関数ポインタ用
+    bool is_function_pointer;          // 関数ポインタかどうか
+    std::string function_pointer_name; // 指している関数名
+
     // 多次元配列用
     ArrayTypeInfo array_type_info;     // 多次元配列の型情報
     std::vector<int> array_dimensions; // 各次元のサイズ
@@ -109,12 +113,14 @@ struct Variable {
           double_value(0.0),
           quad_value(0.0L),
           big_value(0),
-          array_size(0) {
-        // デバッグ用
-        extern bool debug_mode;
-        if (debug_mode) {
-            debug_msg(DebugMsgId::VAR_CREATE_NEW);
-        }
+          array_size(0),
+          is_function_pointer(false),
+          function_pointer_name("") {
+        // デバッグ出力を削除（無限再帰を防ぐため）
+        // extern bool debug_mode;
+        // if (debug_mode) {
+        //     debug_msg(DebugMsgId::VAR_CREATE_NEW);
+        // }
     }
 
     // 多次元配列用コンストラクタ
@@ -142,6 +148,8 @@ struct Variable {
           quad_value(0.0L),
           big_value(0),
           array_size(0),
+          is_function_pointer(false),
+          function_pointer_name(""),
           array_type_info(array_info) {}
 
     // struct用コンストラクタ
@@ -168,12 +176,14 @@ struct Variable {
           double_value(0.0),
           quad_value(0.0L),
           big_value(0),
-          array_size(0) {
-        // デバッグ用
-        extern bool debug_mode;
-        if (debug_mode) {
-            debug_msg(DebugMsgId::VAR_MANAGER_STRUCT_CREATE, struct_name.c_str(), "struct");
-        }
+          array_size(0),
+          is_function_pointer(false),
+          function_pointer_name("") {
+        // デバッグ出力を削除（無限再帰を防ぐため）
+        // extern bool debug_mode;
+        // if (debug_mode) {
+        //     debug_msg(DebugMsgId::VAR_MANAGER_STRUCT_CREATE, struct_name.c_str(), "struct");
+        // }
     }
 
     // interface用コンストラクタ  
@@ -201,7 +211,9 @@ struct Variable {
           quad_value(0.0L),
           big_value(0),
           array_size(0),
-          interface_name(interface_name) {
+          interface_name(interface_name),
+          is_function_pointer(false),
+          function_pointer_name("") {
         // デバッグ用
         extern bool debug_mode;
         if (debug_mode) {
@@ -251,14 +263,29 @@ struct Variable {
     }
 };
 
+// 関数ポインタ情報
+struct FunctionPointer {
+    const ASTNode* function_node;  // 関数定義のASTノード
+    std::string function_name;     // 関数名
+    TypeInfo return_type;          // 戻り値の型
+    
+    FunctionPointer()
+        : function_node(nullptr), function_name(""), return_type(TYPE_UNKNOWN) {}
+    
+    FunctionPointer(const ASTNode* node, const std::string& name, TypeInfo ret_type)
+        : function_node(node), function_name(name), return_type(ret_type) {}
+};
+
 // スコープ管理
 struct Scope {
     std::map<std::string, Variable> variables;
     std::map<std::string, const ASTNode *> functions;
+    std::map<std::string, FunctionPointer> function_pointers;  // 関数ポインタ変数
 
     void clear() {
         variables.clear();
         functions.clear();
+        function_pointers.clear();
     }
 };
 class ReturnException {
@@ -288,63 +315,85 @@ class ReturnException {
     // 参照戻り値サポート
     bool is_reference = false;
     Variable* reference_target = nullptr;  // 参照先の変数へのポインタ
+    
+    // 関数ポインタ戻り値サポート
+    bool is_function_pointer = false;
+    std::string function_pointer_name;
+    const ASTNode* function_pointer_node = nullptr;
 
     // 完全初期化コンストラクタ群
         ReturnException(int64_t val, TypeInfo t = TYPE_INT) 
                 : value(val), double_value(static_cast<double>(val)), quad_value(static_cast<long double>(val)),
                     str_value(""), type(t), is_array(false), is_struct(false), is_struct_array(false), 
-                    is_reference(false), reference_target(nullptr) {}
+                    is_reference(false), reference_target(nullptr), is_function_pointer(false), 
+                    function_pointer_name(""), function_pointer_node(nullptr) {}
         ReturnException(double val, TypeInfo t = TYPE_DOUBLE)
                 : value(static_cast<int64_t>(val)), double_value(val), quad_value(static_cast<long double>(val)),
                     str_value(""), type(t), is_array(false), is_struct(false), is_struct_array(false), 
-                    is_reference(false), reference_target(nullptr) {}
+                    is_reference(false), reference_target(nullptr), is_function_pointer(false), 
+                    function_pointer_name(""), function_pointer_node(nullptr) {}
         ReturnException(long double val, TypeInfo t = TYPE_QUAD)
                 : value(static_cast<int64_t>(val)), double_value(static_cast<double>(val)), quad_value(val),
                     str_value(""), type(t), is_array(false), is_struct(false), is_struct_array(false), 
-                    is_reference(false), reference_target(nullptr) {}
+                    is_reference(false), reference_target(nullptr), is_function_pointer(false), 
+                    function_pointer_name(""), function_pointer_node(nullptr) {}
         ReturnException(const std::string &str)
                 : value(0), double_value(0.0), quad_value(0.0L), str_value(str), type(TYPE_STRING), is_array(false), is_struct(false), is_struct_array(false), 
-                is_reference(false), reference_target(nullptr) {}
+                is_reference(false), reference_target(nullptr), is_function_pointer(false), 
+                function_pointer_name(""), function_pointer_node(nullptr) {}
 
     // 配列戻り値用コンストラクタ
     ReturnException(const std::vector<std::vector<std::vector<int64_t>>> &arr,
                     const std::string &type_name, TypeInfo t)
                 : value(0), double_value(0.0), quad_value(0.0L), str_value(""), type(t), is_array(true), int_array_3d(arr),
           array_type_name(type_name), is_struct(false), is_struct_array(false), 
-          is_reference(false), reference_target(nullptr) {}
+          is_reference(false), reference_target(nullptr), is_function_pointer(false), 
+          function_pointer_name(""), function_pointer_node(nullptr) {}
 
     ReturnException(
         const std::vector<std::vector<std::vector<std::string>>> &arr,
         const std::string &type_name, TypeInfo t)
                 : value(0), double_value(0.0), quad_value(0.0L), str_value(""), type(t), is_array(true), str_array_3d(arr),
           array_type_name(type_name), is_struct(false), is_struct_array(false), 
-          is_reference(false), reference_target(nullptr) {}
+          is_reference(false), reference_target(nullptr), is_function_pointer(false), 
+          function_pointer_name(""), function_pointer_node(nullptr) {}
     
     // float/double配列戻り値用コンストラクタ
     ReturnException(const std::vector<std::vector<std::vector<double>>> &arr,
                     const std::string &type_name, TypeInfo t)
                 : value(0), double_value(0.0), quad_value(0.0L), str_value(""), type(t), is_array(true), double_array_3d(arr),
           array_type_name(type_name), is_struct(false), is_struct_array(false), 
-          is_reference(false), reference_target(nullptr) {}
+          is_reference(false), reference_target(nullptr), is_function_pointer(false), 
+          function_pointer_name(""), function_pointer_node(nullptr) {}
     
     // struct戻り値用コンストラクタ  
     ReturnException(const Variable &struct_var)
                 : value(0), double_value(0.0), quad_value(0.0L), str_value(""), type(struct_var.type), is_array(false), is_struct(true), 
           struct_value(struct_var), is_struct_array(false), 
-          is_reference(false), reference_target(nullptr) {}
+          is_reference(false), reference_target(nullptr), is_function_pointer(false), 
+          function_pointer_name(""), function_pointer_node(nullptr) {}
     
     // 構造体配列戻り値用コンストラクタ
     ReturnException(const std::vector<std::vector<std::vector<Variable>>> &struct_arr,
                     const std::string &type_name)
                 : value(0), double_value(0.0), quad_value(0.0L), str_value(""), type(TYPE_STRUCT), is_array(true), is_struct(true), 
           is_struct_array(true), struct_array_3d(struct_arr), struct_type_name(type_name), 
-          is_reference(false), reference_target(nullptr) {}
+          is_reference(false), reference_target(nullptr), is_function_pointer(false), 
+          function_pointer_name(""), function_pointer_node(nullptr) {}
     
     // 参照戻り値用コンストラクタ
     ReturnException(Variable* ref_target)
                 : value(0), double_value(0.0), quad_value(0.0L), str_value(""), type(ref_target ? ref_target->type : TYPE_UNKNOWN), 
           is_array(false), is_struct(false), is_struct_array(false),
-          is_reference(true), reference_target(ref_target) {}
+          is_reference(true), reference_target(ref_target), is_function_pointer(false), 
+          function_pointer_name(""), function_pointer_node(nullptr) {}
+    
+    // 関数ポインタ戻り値用コンストラクタ
+    ReturnException(int64_t val, const std::string& func_name, const ASTNode* func_node, TypeInfo t)
+                : value(val), double_value(static_cast<double>(val)), quad_value(static_cast<long double>(val)),
+          str_value(""), type(t), is_array(false), is_struct(false), is_struct_array(false),
+          is_reference(false), reference_target(nullptr), is_function_pointer(true), 
+          function_pointer_name(func_name), function_pointer_node(func_node) {}
 };
 
 class BreakException {

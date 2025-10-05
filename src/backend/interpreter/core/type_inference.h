@@ -52,10 +52,16 @@ struct TypedValue {
     bool is_struct_result;
     std::shared_ptr<Variable> struct_data; // 構造体データを共有ポインタで保持
     
+    // 関数ポインタ結果用フィールド
+    bool is_function_pointer;
+    std::string function_pointer_name;
+    const ASTNode* function_pointer_node;
+    
         TypedValue(int64_t val, const InferredType& t) 
                 : value(val), double_value(static_cast<double>(val)), quad_value(static_cast<long double>(val)),
                     string_value(""), is_numeric_result(true), is_float_result(false), numeric_type(t.type_info),
-                    type(t), deferred_node(nullptr), is_deferred(false), is_struct_result(false), struct_data(nullptr) {
+                    type(t), deferred_node(nullptr), is_deferred(false), is_struct_result(false), struct_data(nullptr),
+                    is_function_pointer(false), function_pointer_name(""), function_pointer_node(nullptr) {
             // デバッグ: ポインタ型の場合のみ出力
             extern bool debug_mode;
             if (debug_mode && t.type_info == TYPE_POINTER) {
@@ -67,7 +73,8 @@ struct TypedValue {
         TypedValue(double val, const InferredType& t) 
                 : value(static_cast<int64_t>(val)), double_value(val), quad_value(static_cast<long double>(val)),
                     string_value(""), is_numeric_result(true), is_float_result(true), numeric_type(t.type_info),
-                    type(t), deferred_node(nullptr), is_deferred(false), is_struct_result(false), struct_data(nullptr) {}
+                    type(t), deferred_node(nullptr), is_deferred(false), is_struct_result(false), struct_data(nullptr),
+                    is_function_pointer(false), function_pointer_name(""), function_pointer_node(nullptr) {}
 
         TypedValue(long double val, const InferredType& t) 
                 : value((t.type_info == TYPE_POINTER) 
@@ -76,7 +83,8 @@ struct TypedValue {
                   double_value(static_cast<double>(val)), quad_value(val),
                   string_value(""), is_numeric_result(true), is_float_result((t.type_info != TYPE_POINTER)),
                   numeric_type(t.type_info),
-                  type(t), deferred_node(nullptr), is_deferred(false), is_struct_result(false), struct_data(nullptr) {
+                  type(t), deferred_node(nullptr), is_deferred(false), is_struct_result(false), struct_data(nullptr),
+                  is_function_pointer(false), function_pointer_name(""), function_pointer_node(nullptr) {
             // デバッグ: ポインタ型の場合のみ出力
             extern bool debug_mode;
             if (debug_mode && t.type_info == TYPE_POINTER) {
@@ -88,13 +96,15 @@ struct TypedValue {
         TypedValue(const std::string& val, const InferredType& t) 
                 : value(0), double_value(0.0), quad_value(0.0L), string_value(val),
                     is_numeric_result(false), is_float_result(false), numeric_type(TYPE_UNKNOWN), type(t),
-                    deferred_node(nullptr), is_deferred(false), is_struct_result(false), struct_data(nullptr) {}
+                    deferred_node(nullptr), is_deferred(false), is_struct_result(false), struct_data(nullptr),
+                    is_function_pointer(false), function_pointer_name(""), function_pointer_node(nullptr) {}
     
     // 構造体用コンストラクタ
     TypedValue(const Variable& struct_var, const InferredType& t)
         : value(0), string_value(""), is_numeric_result(false), type(t),
           deferred_node(nullptr), is_deferred(false), is_struct_result(true),
-          struct_data(std::make_shared<Variable>(struct_var)) {}
+          struct_data(std::make_shared<Variable>(struct_var)), 
+          is_function_pointer(false), function_pointer_name(""), function_pointer_node(nullptr) {}
     
     // 遅延評価用コンストラクタ
     static TypedValue deferred(const ASTNode* node, const InferredType& t) {
@@ -104,6 +114,16 @@ struct TypedValue {
         result.numeric_type = t.type_info;
         result.deferred_node = node;
         result.is_deferred = true;
+        return result;
+    }
+    
+    // 関数ポインタ用静的ファクトリーメソッド
+    static TypedValue function_pointer(int64_t val, const std::string& func_name, 
+                                       const ASTNode* func_node, const InferredType& t) {
+        TypedValue result(val, t);
+        result.is_function_pointer = true;
+        result.function_pointer_name = func_name;
+        result.function_pointer_node = func_node;
         return result;
     }
     

@@ -39,6 +39,8 @@ const char *type_info_to_string(TypeInfo type) {
         return "pointer";
     case TYPE_NULLPTR:
         return "nullptr";
+    case TYPE_FUNCTION_POINTER:
+        return "function_pointer";
     default:
         // 配列型の場合
         if (type >= TYPE_ARRAY_BASE) {
@@ -124,7 +126,31 @@ const char *type_info_to_string_basic(TypeInfo type) {
         return "pointer";
     case TYPE_NULLPTR:
         return "nullptr";
+    case TYPE_FUNCTION_POINTER:
+        return "function_pointer";
     default:
         return "unknown";
     }
+}
+
+// FunctionPointerTypeInfo::to_string() の実装
+std::string FunctionPointerTypeInfo::to_string() const {
+    std::string result = type_info_to_string_basic(return_type);
+    result += " (*)(";
+
+    for (size_t i = 0; i < param_types.size(); ++i) {
+        if (i > 0) {
+            result += ", ";
+        }
+
+        // カスタム型名があればそれを使用、なければ基本型名を使用
+        if (i < param_type_names.size() && !param_type_names[i].empty()) {
+            result += param_type_names[i];
+        } else {
+            result += type_info_to_string_basic(param_types[i]);
+        }
+    }
+
+    result += ")";
+    return result;
 }

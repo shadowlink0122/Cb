@@ -121,6 +121,8 @@ Interpreter::Interpreter(bool debug)
     enum_manager_ = std::make_unique<EnumManager>();
 
     // グローバルスコープを初期化
+    // ネストされた関数呼び出しに備えて容量を予約（再割り当てを防ぐ）
+    scope_stack.reserve(64);
     scope_stack.push_back(global_scope);
 }
 
@@ -167,9 +169,25 @@ std::string Interpreter::find_variable_name_by_address(const Variable* target_va
 
 const ASTNode *Interpreter::find_function(const std::string &name) {
     // グローバルスコープの関数を検索
+    if (debug_mode) {
+        std::cerr << "[FIND_FUNCTION] Looking for: " << name << std::endl;
+        std::cerr << "[FIND_FUNCTION] Available functions: ";
+        for (const auto& pair : global_scope.functions) {
+            std::cerr << pair.first << " ";
+        }
+        std::cerr << std::endl;
+    }
+    
     auto func_it = global_scope.functions.find(name);
     if (func_it != global_scope.functions.end()) {
+        if (debug_mode) {
+            std::cerr << "[FIND_FUNCTION] Found: " << name << std::endl;
+        }
         return func_it->second;
+    }
+    
+    if (debug_mode) {
+        std::cerr << "[FIND_FUNCTION] Not found: " << name << std::endl;
     }
     return nullptr;
 }
@@ -614,10 +632,9 @@ void Interpreter::execute_statement(const ASTNode *node) {
     // ASTNodeTypeが異常な値でないことを確認  
     int node_type_int = static_cast<int>(node->node_type);
     if (node_type_int < 0 || node_type_int > 100) {
-        debug_msg(DebugMsgId::INTERPRETER_EXEC_STMT, 
-                  "Abnormal node_type detected in core interpreter: %d, skipping execution", node_type_int);
         if (debug_mode) {
-            std::cerr << "[CRITICAL_CORE] Abnormal node_type detected: " << node_type_int << ", skipping" << std::endl;
+            std::cerr << "[CRITICAL_CORE] Abnormal node_type detected in core interpreter: " 
+                      << node_type_int << ", skipping execution" << std::endl;
         }
         return;
     }
@@ -669,8 +686,21 @@ void Interpreter::execute_statement(const ASTNode *node) {
     switch (node->node_type) {
     case ASTNodeType::AST_STMT_LIST:
         debug_msg(DebugMsgId::INTERPRETER_STMT_LIST_EXEC, node->statements.size());
-        for (const auto &stmt : node->statements) {
-            execute_statement(stmt.get());
+        if (debug_mode) {
+            std::cerr << "[STMT_LIST_DEBUG] Processing " << node->statements.size() << " statements" << std::endl;
+        }
+        for (size_t i = 0; i < node->statements.size(); ++i) {
+            if (debug_mode) {
+                std::cerr << "[STMT_LIST_DEBUG] Processing statement " << (i+1) << "/" << node->statements.size() 
+                          << ", type=" << static_cast<int>(node->statements[i]->node_type) << std::endl;
+            }
+            execute_statement(node->statements[i].get());
+            if (debug_mode) {
+                std::cerr << "[STMT_LIST_DEBUG] Completed statement " << (i+1) << "/" << node->statements.size() << std::endl;
+            }
+        }
+        if (debug_mode) {
+            std::cerr << "[STMT_LIST_DEBUG] All " << node->statements.size() << " statements processed" << std::endl;
         }
         break;
 
@@ -685,6 +715,9 @@ void Interpreter::execute_statement(const ASTNode *node) {
         debug_msg(DebugMsgId::INTERPRETER_VAR_DECL, node->name.c_str());
         debug_msg(DebugMsgId::INTERPRETER_VAR_DECL_TYPE, (int)node->type_info);
         // 変数宣言をVariableManagerに委譲
+        if (debug_mode) {
+            std::cerr << "[INTERPRETER] About to call process_var_decl_or_assign for: " << node->name << std::endl;
+        }
         try {
             variable_manager_->process_var_decl_or_assign(node);
             debug_msg(DebugMsgId::INTERPRETER_VAR_DECL_SUCCESS, node->name.c_str());
@@ -802,7 +835,7 @@ void Interpreter::execute_statement(const ASTNode *node) {
         break;
 
     case ASTNodeType::AST_PRINTLN_STMT:
-        debug_msg(DebugMsgId::INTERPRETER_EXEC_STMT, "AST_PRINTLN_STMT");
+        // debug_msg removed - already logged at function entry (line 639)
         if (node->left) {
             // 単一引数のprintln文
             output_manager_->print_value_with_newline(node->left.get());
@@ -1120,6 +1153,9 @@ void Interpreter::execute_statement(const ASTNode *node) {
                             throw ReturnException(interface_copy);
                         } else if (var->type == TYPE_STRING) {
                             throw ReturnException(var->str_value);
+                        } else if (var->type == TYPE_POINTER) {
+                            // ポインタ型の変数を返す
+                            throw ReturnException(var->value);
                         } else {
                             throw ReturnException(var->value);
                         }
@@ -1587,6 +1623,9 @@ void Interpreter::execute_statement(const ASTNode *node) {
                         // 文字列変数を返す（typedef型を含む）
                         // 文字列変数を返す（typedef型を含む）
                         throw ReturnException(var->str_value);
+                    } else if (var && var->type == TYPE_POINTER) {
+                        // ポインタ変数を返す
+                        throw ReturnException(var->value);
                     } else if (var) {
                         // 数値変数を返す（float/double/quad対応）
                         TypedValue typed_result =
@@ -1662,7 +1701,15 @@ void Interpreter::execute_statement(const ASTNode *node) {
                     
                     std::cerr << "DEBUG: typed_result.is_struct_result = " << typed_result.is_struct_result << std::endl;
                     
-                    if (typed_result.is_struct_result) {
+                    if (typed_result.is_function_pointer) {
+                        // 関数ポインタを返す
+                        if (debug_mode) {
+                            std::cerr << "[RETURN] Function pointer: " << typed_result.function_pointer_name 
+                                     << " -> " << typed_result.value << std::endl;
+                        }
+                        throw ReturnException(typed_result.value, typed_result.function_pointer_name,
+                                            typed_result.function_pointer_node, typed_result.numeric_type);
+                    } else if (typed_result.is_struct_result) {
                         std::cerr << "DEBUG: Struct result detected, re-evaluating expression" << std::endl;
                         // 構造体の場合、再度評価してReturnExceptionを取得
                         try {
@@ -1728,7 +1775,15 @@ void Interpreter::execute_statement(const ASTNode *node) {
                     // デフォルトの式評価（TypedValueを使用）
                     TypedValue result = expression_evaluator_->evaluate_typed_expression(
                         node->left.get());
-                    if (result.is_string()) {
+                    if (result.is_function_pointer) {
+                        // 関数ポインタを返す
+                        if (debug_mode) {
+                            std::cerr << "[RETURN else] Function pointer: " << result.function_pointer_name 
+                                     << " -> " << result.value << std::endl;
+                        }
+                        throw ReturnException(result.value, result.function_pointer_name,
+                                            result.function_pointer_node, result.numeric_type);
+                    } else if (result.is_string()) {
                         throw ReturnException(result.string_value);
                     } else {
                         // float/double/quad型の場合は適切な値を使用

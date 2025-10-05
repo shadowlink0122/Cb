@@ -66,6 +66,7 @@ private:
     ASTNode* parseEnumDeclaration();             // enum宣言
     ASTNode* parseEnumTypedefDeclaration();      // typedef enum宣言
     ASTNode* parseUnionTypedefDeclaration();     // typedef union宣言 (TypeScript-like literal types)
+    ASTNode* parseFunctionPointerTypedefDeclaration(); // 関数ポインタtypedef宣言
     ASTNode* parseInterfaceDeclaration();        // interface宣言
     ASTNode* parseImplDeclaration();             // impl宣言
     ASTNode* parseVariableDeclaration();
@@ -133,8 +134,20 @@ private:
     // impl管理
     std::vector<ImplDefinition> impl_definitions_; // impl定義の保存
     
+    // 関数ポインタtypedef管理
+    std::unordered_map<std::string, FunctionPointerTypeInfo> function_pointer_typedefs_; // 関数ポインタtypedef定義の保存
+    
     // Union parsing helper
     bool parseUnionValue(UnionDefinition& union_def);
+    
+    // 関数ポインタ用ヘルパー
+    bool isFunctionPointerTypedef();  // 関数ポインタtypedef構文かチェック
+    bool isFunctionPointerType(const std::string& type_name) const {
+        return function_pointer_typedefs_.find(type_name) != function_pointer_typedefs_.end();
+    }
+    const FunctionPointerTypeInfo& getFunctionPointerTypeInfo(const std::string& type_name) const {
+        return function_pointer_typedefs_.at(type_name);
+    }
     
     // 直近に解析した型情報
     ParsedTypeInfo last_parsed_type_info_;
@@ -163,6 +176,11 @@ public:
     // union定義へのアクセサ
     const std::unordered_map<std::string, UnionDefinition>& get_union_definitions() const {
         return union_definitions_;
+    }
+    
+    // 関数ポインタtypedef定義へのアクセサ
+    const std::unordered_map<std::string, FunctionPointerTypeInfo>& get_function_pointer_typedefs() const {
+        return function_pointer_typedefs_;
     }
     
 private:

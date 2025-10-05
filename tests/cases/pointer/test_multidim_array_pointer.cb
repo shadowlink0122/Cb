@@ -1,0 +1,29 @@
+// 多次元配列の基本テスト（ポインタ機能は将来実装）
+
+void main() {
+    println("=== Test 1: Basic 2D array ===");
+    
+    int[2][3] matrix = [[1, 2, 3], [4, 5, 6]];
+    
+    println(matrix[0][0]);  // 1
+    println(matrix[0][1]);  // 2
+    println(matrix[0][2]);  // 3
+    println(matrix[1][0]);  // 4
+    println(matrix[1][1]);  // 5
+    println(matrix[1][2]);  // 6
+    
+    println("=== Test 2: 3D array ===");
+    
+    int[2][2][2] cube = [[[1, 2], [3, 4]], [[5, 6], [7, 8]]];
+    
+    println(cube[0][0][0]);  // 1
+    println(cube[0][0][1]);  // 2
+    println(cube[0][1][0]);  // 3
+    println(cube[0][1][1]);  // 4
+    println(cube[1][0][0]);  // 5
+    println(cube[1][0][1]);  // 6
+    println(cube[1][1][0]);  // 7
+    println(cube[1][1][1]);  // 8
+    
+    println("=== All multidim array tests passed ===");
+}

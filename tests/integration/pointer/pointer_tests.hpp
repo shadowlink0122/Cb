@@ -4,6 +4,8 @@
 #include "../framework/integration_test_framework.hpp"
 #include <string>
 #include <chrono>
+#include <sstream>
+#include <vector>
 
 namespace PointerTests {
 
@@ -1508,6 +1510,221 @@ inline void test_pointer_boundary_comprehensive() {
 }
 
 // ============================================================================
+// 関数ポインタテスト: コールバック関数
+// ============================================================================
+
+inline void test_function_pointer_callback() {
+    double execution_time = 0.0;
+    run_cb_test_with_output_and_time(
+        "../../tests/cases/function_pointer/test_callback.cb",
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "関数ポインタコールバックテストがエラー終了");
+            
+            // Expected output: 15, 5, 50, 15, 56, 18
+            std::vector<std::string> lines;
+            std::istringstream iss(output);
+            std::string line;
+            while (std::getline(iss, line)) {
+                if (!line.empty()) {
+                    lines.push_back(line);
+                }
+            }
+            
+            INTEGRATION_ASSERT(lines.size() >= 6, "出力行数が不足している");
+            
+            INTEGRATION_ASSERT(lines[0].find("15") != std::string::npos,
+                             "Test 1: applyOperation(10, 5, &add)が正しくない");
+            INTEGRATION_ASSERT(lines[1].find("5") != std::string::npos,
+                             "Test 2: applyOperation(10, 5, &subtract)が正しくない");
+            INTEGRATION_ASSERT(lines[2].find("50") != std::string::npos,
+                             "Test 3: compute(10, 5, &multiply)が正しくない");
+            INTEGRATION_ASSERT(lines[3].find("15") != std::string::npos,
+                             "Test 4: compute(10, 5, &add)が正しくない");
+            INTEGRATION_ASSERT(lines[4].find("56") != std::string::npos,
+                             "Test 5: applyOperation(7, 8, myFunc)が正しくない");
+            INTEGRATION_ASSERT(lines[5].find("18") != std::string::npos,
+                             "Test 6: 連続コールバックが正しくない");
+        },
+        execution_time
+    );
+    
+    printf("[✓] test_function_pointer_callback passed (%.3fms)\n", execution_time);
+}
+
+// ============================================================================
+// 関数ポインタテスト: 複数の関数ポインタ管理
+// ============================================================================
+
+inline void test_function_pointer_multiple() {
+    double execution_time = 0.0;
+    run_cb_test_with_output_and_time(
+        "../../tests/cases/function_pointer/test_multiple_pointers.cb",
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "複数関数ポインタテストがエラー終了");
+            
+            // Expected output: 15, 5, 50, 12, 32, 20
+            std::vector<std::string> lines;
+            std::istringstream iss(output);
+            std::string line;
+            while (std::getline(iss, line)) {
+                if (!line.empty()) {
+                    lines.push_back(line);
+                }
+            }
+            
+            INTEGRATION_ASSERT(lines.size() >= 6, "出力行数が不足している");
+            
+            INTEGRATION_ASSERT(lines[0].find("15") != std::string::npos,
+                             "Test 1: op0(10, 5) [add]が正しくない");
+            INTEGRATION_ASSERT(lines[1].find("5") != std::string::npos,
+                             "Test 2: op1(10, 5) [subtract]が正しくない");
+            INTEGRATION_ASSERT(lines[2].find("50") != std::string::npos,
+                             "Test 3: op2(10, 5) [multiply]が正しくない");
+            INTEGRATION_ASSERT(lines[3].find("12") != std::string::npos,
+                             "Test 4: selectedOp(8, 4) [opType=0, add]が正しくない");
+            INTEGRATION_ASSERT(lines[4].find("32") != std::string::npos,
+                             "Test 5: selectedOp(8, 4) [opType=2, multiply]が正しくない");
+            INTEGRATION_ASSERT(lines[5].find("20") != std::string::npos,
+                             "Test 6: 連続計算が正しくない");
+        },
+        execution_time
+    );
+    
+    printf("[✓] test_function_pointer_multiple passed (%.3fms)\n", execution_time);
+}
+
+// ============================================================================
+// 関数ポインタテスト: 戻り値として返す・チェーン呼び出し
+// ============================================================================
+
+inline void test_function_pointer_return() {
+    double execution_time = 0.0;
+    run_cb_test_with_output_and_time(
+        "../../tests/cases/function_pointer/test_return_function_pointer.cb",
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "関数ポインタ戻り値テストがエラー終了");
+            
+            // Expected output: 15, 5, 50, 20, 10, 42, 50, 15
+            std::vector<std::string> lines;
+            std::istringstream iss(output);
+            std::string line;
+            while (std::getline(iss, line)) {
+                if (!line.empty()) {
+                    lines.push_back(line);
+                }
+            }
+            
+            INTEGRATION_ASSERT(lines.size() >= 8, "出力行数が不足している");
+            
+            INTEGRATION_ASSERT(lines[0].find("15") != std::string::npos,
+                             "Test 1: getOperation(1)(10, 5) [add]が正しくない");
+            INTEGRATION_ASSERT(lines[1].find("5") != std::string::npos,
+                             "Test 2: getOperation(2)(10, 5) [subtract]が正しくない");
+            INTEGRATION_ASSERT(lines[2].find("50") != std::string::npos,
+                             "Test 3: getOperation(3)(10, 5) [multiply]が正しくない");
+            INTEGRATION_ASSERT(lines[3].find("20") != std::string::npos,
+                             "Test 4: getOperation(4)(100, 5) [divide]が正しくない");
+            INTEGRATION_ASSERT(lines[4].find("10") != std::string::npos,
+                             "Test 5: (*op5)(7, 3) [add]が正しくない");
+            INTEGRATION_ASSERT(lines[5].find("42") != std::string::npos,
+                             "Test 6: getOperation(3)(6, 7) [チェーン呼び出し]が正しくない");
+            INTEGRATION_ASSERT(lines[6].find("50") != std::string::npos,
+                             "Test 8: selectOperator(10, 5)(10, 5) [multiply]が正しくない");
+            INTEGRATION_ASSERT(lines[7].find("15") != std::string::npos,
+                             "Test 9: selectOperator(5, 10)(5, 10) [add]が正しくない");
+        },
+        execution_time
+    );
+    
+    printf("[✓] test_function_pointer_return passed (%.3fms)\n", execution_time);
+}
+
+// ============================================================================
+// 関数ポインタアドレス比較テスト
+// ============================================================================
+
+inline void test_function_pointer_address_comparison() {
+    double execution_time = 0.0;
+    run_cb_test_with_output_and_time(
+        "../../tests/cases/function_pointer/test_pointer_address_comparison.cb",
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "関数ポインタアドレス比較テストがエラー終了");
+            
+            std::vector<std::string> lines = split_lines(output);
+            
+            // 全ての比較結果が1であることを確認
+            INTEGRATION_ASSERT(lines.size() >= 9, "出力行数が不足");
+            
+            for (int i = 0; i < 7; i++) {
+                INTEGRATION_ASSERT(lines[i].find("1") != std::string::npos,
+                                 "Test " + std::to_string(i + 1) + "が失敗");
+            }
+            
+            // 関数呼び出し結果の確認
+            INTEGRATION_ASSERT(lines[7].find("15") != std::string::npos,
+                             "add関数の結果が正しくない");
+            INTEGRATION_ASSERT(lines[8].find("50") != std::string::npos,
+                             "multiply関数の結果が正しくない");
+        },
+        execution_time
+    );
+    
+    printf("[✓] test_function_pointer_address_comparison passed (%.3fms)\n", execution_time);
+}
+
+// ============================================================================
+// 関数ポインタアドレス表示テスト
+// ============================================================================
+
+inline void test_function_pointer_address_print() {
+    double execution_time = 0.0;
+    run_cb_test_with_output_and_time(
+        "../../tests/cases/function_pointer/test_pointer_address_print.cb",
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "関数ポインタアドレス表示テストがエラー終了");
+            
+            std::vector<std::string> lines = split_lines(output);
+            
+            INTEGRATION_ASSERT(lines.size() >= 7, "出力行数が不足");
+            
+            // アドレスが16進数形式（0xで始まる）であることを確認
+            INTEGRATION_ASSERT(lines[0].find("0x") == 0,
+                             "fp1のアドレスが16進数で表示されていない");
+            INTEGRATION_ASSERT(lines[1].find("0x") == 0,
+                             "fp2のアドレスが16進数で表示されていない");
+            INTEGRATION_ASSERT(lines[2].find("0x") == 0,
+                             "fp3のアドレスが16進数で表示されていない");
+            
+            // 同じ関数を指すポインタは同じアドレス
+            INTEGRATION_ASSERT(lines[0] == lines[2],
+                             "同じ関数を指すポインタのアドレスが異なる");
+            
+            // 異なる関数を指すポインタは異なるアドレス
+            INTEGRATION_ASSERT(lines[0] != lines[1],
+                             "異なる関数を指すポインタのアドレスが同じ");
+            
+            // 関数呼び出し結果の確認
+            INTEGRATION_ASSERT(lines[3].find("25") != std::string::npos,
+                             "square(5)の結果が正しくない");
+            INTEGRATION_ASSERT(lines[4].find("27") != std::string::npos,
+                             "cube(3)の結果が正しくない");
+            
+            // 再代入後のアドレスがfp2と同じ
+            INTEGRATION_ASSERT(lines[5].find("0x") == 0,
+                             "再代入後のアドレスが16進数で表示されていない");
+            INTEGRATION_ASSERT(lines[5] == lines[1],
+                             "再代入後のアドレスが期待と異なる");
+            
+            INTEGRATION_ASSERT(lines[6].find("64") != std::string::npos,
+                             "cube(4)の結果が正しくない");
+        },
+        execution_time
+    );
+    
+    printf("[✓] test_function_pointer_address_print passed (%.3fms)\n", execution_time);
+}
+
+// ============================================================================
 // 全てのポインタテストを実行
 // ============================================================================
 
@@ -1543,6 +1760,13 @@ inline void run_all_pointer_tests() {
     test_struct_pointer_operations_comprehensive();  // 構造体ポインタ操作の包括的テスト
     test_interface_impl_pointer_comprehensive();  // インターフェースとimplブロックポインタの包括的テスト
     test_pointer_boundary_comprehensive();  // ポインタ境界ケースと特殊操作の包括的テスト
+    
+    // 関数ポインタテスト
+    test_function_pointer_callback();  // 関数ポインタコールバック
+    test_function_pointer_multiple();  // 複数の関数ポインタ管理
+    test_function_pointer_return();    // 関数ポインタを戻り値として返す・チェーン呼び出し
+    test_function_pointer_address_comparison();  // 関数ポインタアドレス比較
+    test_function_pointer_address_print();  // 関数ポインタアドレス表示
     
     printf("=== All Pointer Tests Passed ===\n\n");
 }

@@ -120,12 +120,17 @@ void OutputManager::print_value(const ASTNode *expr) {
                 value_type = typed.is_floating() ? TYPE_DOUBLE : TYPE_INT;
             }
             
-            // ポインタ型の場合、タグビットを除去して16進数で表示
+            // ポインタ型の場合、16進数で表示
             int64_t numeric_val = typed.as_numeric();
-            if (value_type == TYPE_POINTER && (numeric_val & (1LL << 63))) {
-                uint64_t clean_value = static_cast<uint64_t>(numeric_val) & ~(1ULL << 63);
+            if (value_type == TYPE_POINTER) {
+                // タグビットが設定されている場合は除去
+                uint64_t clean_value = static_cast<uint64_t>(numeric_val);
+                if (numeric_val & (1LL << 63)) {
+                    clean_value &= ~(1ULL << 63);
+                }
                 std::ostringstream oss;
                 oss << "0x" << std::hex << clean_value;
+                
                 io_interface_->write_string(oss.str().c_str());
                 return;
             }
@@ -396,13 +401,26 @@ void OutputManager::print_value(const ASTNode *expr) {
             return;
         }
         
+        if (!var) {
+            // 変数が見つからない場合、式として評価
+            evaluate_numeric_and_write(expr);
+            return;
+        }
+        
         // 変数の値を直接出力
         if (var) {
-            // ポインタ型の場合、タグビットを除去して16進数で実際のアドレスを表示
-            if (var->type == TYPE_POINTER && (var->value & (1LL << 63))) {
-                uint64_t clean_value = static_cast<uint64_t>(var->value) & ~(1ULL << 63);
+            // ポインタ型または関数ポインタの場合
+            if (var->type == TYPE_POINTER) {
+                // ポインタ値を表示
+                uint64_t clean_value = static_cast<uint64_t>(var->value);
+                if (var->value & (1LL << 63)) {
+                    // タグビットが設定されている場合は除去
+                    clean_value &= ~(1ULL << 63);
+                }
+                
                 std::ostringstream oss;
                 oss << "0x" << std::hex << clean_value;
+                
                 io_interface_->write_string(oss.str().c_str());
             } else {
                 write_numeric_value(io_interface_, var->type, var->value, 

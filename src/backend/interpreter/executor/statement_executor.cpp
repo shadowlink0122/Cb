@@ -23,10 +23,8 @@ void StatementExecutor::execute(const ASTNode *node) {
     // ASTNodeTypeが異常な値でないことを確認
     int node_type_int = static_cast<int>(node->node_type);
     if (node_type_int < 0 || node_type_int > 100) {
-        debug_msg(DebugMsgId::INTERPRETER_EXEC_STMT, 
-                  "Abnormal node_type detected: %d, skipping execution", node_type_int);
         if (debug_mode) {
-            std::cerr << "[CRITICAL] Abnormal node_type detected: " << node_type_int 
+            std::cerr << "[CRITICAL] Abnormal node_type detected in StatementExecutor: " << node_type_int 
                       << " (ptr: " << static_cast<const void*>(node) << ")" << std::endl;
             std::cerr << "[CRITICAL] Node name: '" << node->name << "'" << std::endl;
         }
@@ -72,6 +70,79 @@ void StatementExecutor::execute(const ASTNode *node) {
 }
 
 void StatementExecutor::execute_assignment(const ASTNode *node) {
+    
+    // 関数アドレスの代入（関数ポインタ）をチェック
+    // ADDRESS_OFで、かつ対象が関数である場合
+    // AST_ASSIGNノードでは変数名はnode->nameに入っている
+    if (node->right && 
+        node->right->node_type == ASTNodeType::AST_UNARY_OP && 
+        node->right->op == "ADDRESS_OF" && 
+        !node->name.empty()) {
+        
+        // 関数アドレスかどうかを実行時に判定
+        std::string func_name;
+        bool is_func_addr = false;
+        
+        if (node->right->is_function_address) {
+            // パーサーがフラグを設定している場合
+            func_name = node->right->function_address_name;
+            // 実際に関数が存在するかを確認
+            const ASTNode* func_node = interpreter_.find_function(func_name);
+            if (func_node) {
+                is_func_addr = true;
+            }
+            // 関数が見つからない場合はis_func_addrをfalseのままにして通常処理へ
+        } else if (node->right->left && 
+                   node->right->left->node_type == ASTNodeType::AST_VARIABLE) {
+            // 実行時に関数かどうかをチェック
+            func_name = node->right->left->name;
+            const ASTNode* func_node = interpreter_.find_function(func_name);
+            if (func_node) {
+                is_func_addr = true;
+            }
+        }
+        
+        if (is_func_addr) {
+            std::string var_name = node->name;  // AST_ASSIGNではnode->nameに変数名が入っている
+            
+            const ASTNode* func_node = interpreter_.find_function(func_name);
+            // この時点ではfunc_nodeは必ず存在する（上のチェックでis_func_addr=trueになった場合のみここに来る）
+            if (!func_node) {
+                throw std::runtime_error("Undefined function: " + func_name);
+            }
+            
+            // 関数ポインタを登録（または更新）
+            FunctionPointer func_ptr(func_node, func_name, func_node->type_info);
+            interpreter_.current_scope().function_pointers[var_name] = func_ptr;
+            
+            // グローバルスコープでも確認して更新
+            auto& global_func_ptrs = interpreter_.get_global_scope().function_pointers;
+            if (global_func_ptrs.find(var_name) != global_func_ptrs.end()) {
+                global_func_ptrs[var_name] = func_ptr;
+            }
+            
+            // 変数にも関数ポインタ情報を設定
+            Variable* var = interpreter_.find_variable(var_name);
+            if (!var) {
+                throw std::runtime_error("Variable not found: " + var_name);
+            }
+            
+            var->is_function_pointer = true;
+            var->function_pointer_name = func_name;
+            var->is_assigned = true;
+            var->type = TYPE_POINTER;  // ポインタ型として扱う
+            // 関数ノードの実際のメモリアドレスを値として格納
+            var->value = reinterpret_cast<int64_t>(func_node);
+            
+            if (debug_mode) {
+                std::cerr << "[FUNC_PTR] Assigned function pointer: " << var_name 
+                          << " = &" << func_name << std::endl;
+            }
+            
+            return;
+        }
+    }
+    
     // 間接参照への代入 (*ptr = value)
     if (node->left && node->left->node_type == ASTNodeType::AST_UNARY_OP && 
         node->left->op == "DEREFERENCE") {
@@ -743,10 +814,43 @@ void StatementExecutor::execute_variable_declaration(const ASTNode *node) {
         return;
     }
     
-    // 初期化式または右辺がある場合の特別処理
-    if (node->init_expr || node->right) {
-        // 初期化ノードは現在未使用だが、将来の機能拡張のため残す
-        // ASTNode* init_node = node->init_expr ? node->init_expr.get() : node->right.get();
+    // 関数ポインタの初期化を先にチェック
+    ASTNode* init_node = node->init_expr ? node->init_expr.get() : node->right.get();
+    if (debug_mode && init_node && init_node->node_type == ASTNodeType::AST_UNARY_OP) {
+        std::cerr << "[FUNC_PTR_CHECK] Found UNARY_OP: op=" << init_node->op 
+                  << ", is_function_address=" << init_node->is_function_address 
+                  << ", function_address_name=" << init_node->function_address_name << std::endl;
+    }
+    if (init_node && 
+        init_node->node_type == ASTNodeType::AST_UNARY_OP && 
+        init_node->op == "ADDRESS_OF" && 
+        init_node->is_function_address) {
+        
+        std::string func_name = init_node->function_address_name;
+        const ASTNode* func_node = interpreter_.find_function(func_name);
+        if (!func_node) {
+            throw std::runtime_error("Undefined function: " + func_name);
+        }
+        
+        // 先に変数を作成
+        Variable var;
+        var.type = func_node->type_info;  // 関数の戻り値型
+        var.is_const = node->is_const;
+        var.is_function_pointer = true;
+        var.function_pointer_name = func_name;
+        var.is_assigned = true;
+        interpreter_.current_scope().variables[node->name] = var;
+        
+        // 関数ポインタを登録
+        FunctionPointer func_ptr(func_node, func_name, func_node->type_info);
+        interpreter_.current_scope().function_pointers[node->name] = func_ptr;
+        
+        if (debug_mode) {
+            std::cerr << "[FUNC_PTR] Registered function pointer during declaration: " 
+                      << node->name << " -> " << func_name << std::endl;
+        }
+        
+        return;  // 関数ポインタの処理完了
     }
     
     // Debug output removed - use --debug option if needed
@@ -812,9 +916,6 @@ void StatementExecutor::execute_variable_declaration(const ASTNode *node) {
         var.type = node->type_info;
     }
 
-    // 初期化（init_exprまたはrightを使用）
-    ASTNode* init_node = node->init_expr ? node->init_expr.get() : node->right.get();
-    
     // struct型の特別処理
     if (node->type_info == TYPE_STRUCT && !node->type_name.empty()) {
         // struct変数を作成

@@ -702,6 +702,23 @@ void VariableManager::assign_variable(const std::string &name,
             numeric_value = 0;
         };
 
+        // 関数ポインタの代入処理
+        if (typed_value.is_function_pointer) {
+            target.value = typed_value.value;
+            target.is_function_pointer = true;
+            target.is_assigned = true;
+            
+            // function_pointersマップに登録
+            FunctionPointer func_ptr(typed_value.function_pointer_node, typed_value.function_pointer_name, typed_value.function_pointer_node->type_info);
+            interpreter_->current_scope().function_pointers[name] = func_ptr;
+            
+            if (interpreter_->is_debug_mode()) {
+                std::cerr << "[VAR_MANAGER] Assigned function pointer: " << name 
+                          << " -> " << typed_value.function_pointer_name << std::endl;
+            }
+            return;
+        }
+
         if (typed_value.is_struct()) {
             if (typed_value.struct_data) {
                 bool was_const = target.is_const;
@@ -899,6 +916,66 @@ void VariableManager::assign_function_parameter(const std::string &name,
         iter->second.is_unsigned = is_unsigned;
     }
 
+    // 関数ポインタ型のパラメータの場合、function_pointersマップにも登録
+    if (type == TYPE_POINTER) {
+        // 全てのスコープのfunction_pointersから関数ポインタ値に一致するものを探す
+        bool found = false;
+        
+        // まず現在のスコープを検索
+        for (const auto& pair : scope.function_pointers) {
+            Variable* source_var = interpreter_->find_variable(pair.first);
+            if (source_var && source_var->value == value.value) {
+                scope.function_pointers[name] = pair.second;
+                if (interpreter_->debug_mode) {
+                    std::cerr << "[VAR_MANAGER] Registered function pointer parameter (local): " 
+                              << name << " -> " << pair.second.function_name << std::endl;
+                }
+                found = true;
+                break;
+            }
+        }
+        
+        // グローバルスコープも検索
+        if (!found) {
+            auto& global_func_ptrs = interpreter_->get_global_scope().function_pointers;
+            for (const auto& pair : global_func_ptrs) {
+                Variable* source_var = interpreter_->find_variable(pair.first);
+                if (source_var && source_var->value == value.value) {
+                    scope.function_pointers[name] = pair.second;
+                    if (interpreter_->debug_mode) {
+                        std::cerr << "[VAR_MANAGER] Registered function pointer parameter (global): " 
+                                  << name << " -> " << pair.second.function_name << std::endl;
+                    }
+                    found = true;
+                    break;
+                }
+            }
+        }
+        
+        // それでも見つからない場合、親スコープから呼び出し元の変数を探す
+        if (!found && interpreter_->scope_stack.size() >= 2) {
+            // 1つ前のスコープ（呼び出し元）を見る
+            auto& parent_scope = interpreter_->scope_stack[interpreter_->scope_stack.size() - 2];
+            for (const auto& pair : parent_scope.function_pointers) {
+                Variable* source_var = nullptr;
+                // 親スコープの変数を探す
+                auto var_it = parent_scope.variables.find(pair.first);
+                if (var_it != parent_scope.variables.end()) {
+                    source_var = &(var_it->second);
+                }
+                if (source_var && source_var->value == value.value) {
+                    scope.function_pointers[name] = pair.second;
+                    if (interpreter_->debug_mode) {
+                        std::cerr << "[VAR_MANAGER] Registered function pointer parameter (parent): " 
+                                  << name << " -> " << pair.second.function_name << std::endl;
+                    }
+                    found = true;
+                    break;
+                }
+            }
+        }
+    }
+
     assign_variable(name, value, type, false);
 
     if (auto updated_iter = scope.variables.find(name); updated_iter != scope.variables.end()) {
@@ -932,6 +1009,58 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                    node->type_name.c_str(), resolved.c_str());
         debug_print("VAR_DEBUG: condition check: !empty=%d, resolved!=original=%d\n", 
                    !node->type_name.empty(), resolved != node->type_name);
+    }
+
+    // 関数ポインタの早期チェック（evaluate前に処理）
+    if (node->node_type == ASTNodeType::AST_VAR_DECL && node->type_info == TYPE_POINTER) {
+        if (interpreter_->debug_mode) {
+            std::cerr << "[VAR_MANAGER] Checking if pointer is function pointer" << std::endl;
+        }
+        ASTNode* init_node = node->init_expr ? node->init_expr.get() : (node->right ? node->right.get() : nullptr);
+        if (interpreter_->debug_mode && init_node) {
+            std::cerr << "[VAR_MANAGER] Init node exists: type=" << static_cast<int>(init_node->node_type)
+                      << ", op=" << init_node->op 
+                      << ", is_function_address=" << init_node->is_function_address << std::endl;
+        }
+        if (init_node && 
+            init_node->node_type == ASTNodeType::AST_UNARY_OP && 
+            init_node->op == "ADDRESS_OF" && 
+            init_node->is_function_address) {
+            
+            std::string func_name = init_node->function_address_name;
+            const ASTNode* func_node = interpreter_->find_function(func_name);
+            
+            // 関数が見つかった場合のみ関数ポインタとして処理
+            if (func_node) {
+                // 関数ポインタ変数を作成
+                Variable var;
+                var.is_function_pointer = true;
+                var.function_pointer_name = func_name;
+                var.type = TYPE_POINTER;  // ポインタ型として扱う
+                var.is_assigned = true;
+                var.is_const = node->is_const;
+                // 関数ノードの実際のメモリアドレスを値として格納
+                var.value = reinterpret_cast<int64_t>(func_node);
+                
+                // 変数を登録
+                current_scope().variables[node->name] = var;
+                
+                // FunctionPointerを登録
+                FunctionPointer func_ptr(func_node, func_name, func_node->type_info);
+                interpreter_->current_scope().function_pointers[node->name] = func_ptr;
+                
+                if (interpreter_->debug_mode) {
+                    std::cerr << "[VAR_MANAGER] Registered function pointer (early): " << node->name 
+                              << " -> " << func_name << std::endl;
+                }
+                
+                return;  // 処理完了、以降の処理をスキップ
+            }
+            // 関数が見つからない場合は通常の変数アドレスとして処理を継続
+            if (interpreter_->debug_mode) {
+                std::cerr << "[VAR_MANAGER] Not a function, treating as variable address: " << func_name << std::endl;
+            }
+        }
     }
 
     // 参照型変数の特別処理
@@ -1511,7 +1640,20 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                         }
                     } catch (const ReturnException &ret) {
                         // 関数戻り値の処理
-                        if (var.type == TYPE_STRING && ret.type == TYPE_STRING) {
+                        if (ret.is_function_pointer) {
+                            // 関数ポインタ戻り値の場合
+                            if (debug_mode) {
+                                std::cerr << "[VAR_MANAGER] Function pointer return: " << ret.function_pointer_name 
+                                         << " -> " << ret.value << std::endl;
+                            }
+                            var.value = ret.value;
+                            var.is_assigned = true;
+                            var.is_function_pointer = true;
+                            
+                            // function_pointersマップに登録
+                            FunctionPointer func_ptr(ret.function_pointer_node, ret.function_pointer_name, ret.function_pointer_node->type_info);
+                            interpreter_->current_scope().function_pointers[node->name] = func_ptr;
+                        } else if (var.type == TYPE_STRING && ret.type == TYPE_STRING) {
                             // 文字列戻り値の場合
                             var.str_value = ret.str_value;
                             var.is_assigned = true;
@@ -2928,17 +3070,130 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
         
         // ポインタ型の場合、型情報を確実に設定
         if (node->type_info == TYPE_POINTER) {
+            // 初期化式がある場合、関数ポインタかどうか先にチェック
+            if (node->init_expr || node->right) {
+                ASTNode* init_node = node->init_expr ? node->init_expr.get() : node->right.get();
+                
+                if (interpreter_->debug_mode) {
+                    std::cerr << "[VAR_MANAGER] Checking pointer init: node_type=" << static_cast<int>(init_node->node_type)
+                              << ", op=" << init_node->op 
+                              << ", is_function_address=" << init_node->is_function_address << std::endl;
+                }
+                
+                // 関数ポインタかチェック
+                if (init_node->node_type == ASTNodeType::AST_UNARY_OP && 
+                    init_node->op == "ADDRESS_OF" && 
+                    init_node->is_function_address) {
+                    
+                    std::string func_name = init_node->function_address_name;
+                    const ASTNode* func_node = interpreter_->find_function(func_name);
+                    
+                    // 関数が見つかった場合のみ関数ポインタとして処理
+                    if (func_node) {
+                        // 関数ポインタとして登録
+                        var.is_function_pointer = true;
+                        var.function_pointer_name = func_name;
+                        var.type = TYPE_POINTER;  // ポインタ型として扱う
+                        var.is_assigned = true;
+                        // 関数ノードの実際のメモリアドレスを値として格納
+                        var.value = reinterpret_cast<int64_t>(func_node);
+                        
+                        // FunctionPointerを登録
+                        FunctionPointer func_ptr(func_node, func_name, func_node->type_info);
+                        interpreter_->current_scope().function_pointers[node->name] = func_ptr;
+                        
+                        if (interpreter_->debug_mode) {
+                            std::cerr << "[VAR_MANAGER] Registered function pointer: " << node->name 
+                                      << " -> " << func_name << std::endl;
+                        }
+                        
+                        // 関数ポインタの場合は変数を登録してreturn
+                        current_scope().variables[node->name] = var;
+                        return;
+                    }
+                    // 関数が見つからない場合は通常の変数アドレスとして処理を継続
+                    if (interpreter_->debug_mode) {
+                        std::cerr << "[VAR_MANAGER] Not a function, treating as variable address: " << func_name << std::endl;
+                    }
+                }
+            }
+            
+            // 通常のポインタ処理
             var.type = TYPE_POINTER;
             
             // ポインタ型の初期化式がある場合は評価して代入
             if (node->init_expr || node->right) {
                 ASTNode* init_node = node->init_expr ? node->init_expr.get() : node->right.get();
                 if (interpreter_->debug_mode) {
-                    std::cerr << "[VAR_MANAGER] Evaluating pointer initialization expression" << std::endl;
+                    std::cerr << "[VAR_MANAGER] Evaluating normal pointer initialization expression" << std::endl;
                 }
-                TypedValue typed_value = interpreter_->expression_evaluator_->evaluate_typed_expression(init_node);
-                var.value = typed_value.value;
-                var.is_assigned = true;
+                
+                // 関数呼び出しの場合、ReturnExceptionをキャッチする
+                if (init_node->node_type == ASTNodeType::AST_FUNC_CALL) {
+                    try {
+                        // evaluate_typed_expressionを使って型情報も取得
+                        TypedValue typed_value = interpreter_->expression_evaluator_->evaluate_typed_expression(init_node);
+                        
+                        // TypedValueに関数ポインタ情報がある場合
+                        if (typed_value.is_function_pointer) {
+                            if (interpreter_->debug_mode) {
+                                std::cerr << "[VAR_MANAGER] Function returned function pointer: " 
+                                         << typed_value.function_pointer_name << " -> " << typed_value.value << std::endl;
+                            }
+                            var.value = typed_value.value;
+                            var.is_assigned = true;
+                            var.is_function_pointer = true;
+                            var.function_pointer_name = typed_value.function_pointer_name;
+                            
+                            // function_pointersマップに登録
+                            FunctionPointer func_ptr(typed_value.function_pointer_node, typed_value.function_pointer_name, 
+                                                   typed_value.function_pointer_node->type_info);
+                            interpreter_->current_scope().function_pointers[node->name] = func_ptr;
+                        } else {
+                            // 通常の戻り値（ポインタを含む）
+                            var.value = typed_value.value;
+                            var.is_assigned = true;
+                        }
+                    } catch (const ReturnException& ret) {
+                        // 例外で返される場合（配列など）
+                        if (ret.is_function_pointer) {
+                            var.value = ret.value;
+                            var.is_assigned = true;
+                            var.is_function_pointer = true;
+                            var.function_pointer_name = ret.function_pointer_name;
+                            
+                            FunctionPointer func_ptr(ret.function_pointer_node, ret.function_pointer_name, 
+                                                   ret.function_pointer_node->type_info);
+                            interpreter_->current_scope().function_pointers[node->name] = func_ptr;
+                        } else {
+                            var.value = ret.value;
+                            var.is_assigned = true;
+                        }
+                    }
+                } else {
+                    TypedValue typed_value = interpreter_->expression_evaluator_->evaluate_typed_expression(init_node);
+                    
+                    // TypedValueに関数ポインタ情報がある場合
+                    if (typed_value.is_function_pointer) {
+                        if (interpreter_->debug_mode) {
+                            std::cerr << "[VAR_MANAGER] TypedValue contains function pointer: " 
+                                     << typed_value.function_pointer_name << " -> " << typed_value.value << std::endl;
+                        }
+                        var.value = typed_value.value;
+                        var.is_assigned = true;
+                        var.is_function_pointer = true;
+                        var.function_pointer_name = typed_value.function_pointer_name;
+                        
+                        // function_pointersマップに登録
+                        FunctionPointer func_ptr(typed_value.function_pointer_node, typed_value.function_pointer_name, 
+                                               typed_value.function_pointer_node->type_info);
+                        interpreter_->current_scope().function_pointers[node->name] = func_ptr;
+                    } else {
+                        var.value = typed_value.value;
+                        var.is_assigned = true;
+                    }
+                }
+                
                 if (interpreter_->debug_mode) {
                     std::cerr << "[VAR_MANAGER] Pointer initialized: value=" << var.value 
                               << " (0x" << std::hex << var.value << std::dec << ")" << std::endl;
