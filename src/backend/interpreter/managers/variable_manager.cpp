@@ -110,6 +110,12 @@ Variable *VariableManager::find_variable(const std::string &name) {
     if (static_var) {
         return static_var;
     }
+    
+    // impl static変数から検索
+    Variable *impl_static_var = interpreter_->find_impl_static_variable(name);
+    if (impl_static_var) {
+        return impl_static_var;
+    }
 
     // std::cerr << "DEBUG: Variable " << name << " not found anywhere" <<
     // std::endl;
@@ -129,14 +135,22 @@ void VariableManager::assign_interface_view(const std::string &dest_name,
                                             const std::string &source_var_name) {
     std::string source_type_name = resolve_interface_source_type(source_var);
 
+    debug_print("ASSIGN_IFACE: About to call interface_impl_exists\n");
+    
     if (!interface_impl_exists(interface_var.interface_name, source_type_name)) {
         throw std::runtime_error("No impl found for interface '" + interface_var.interface_name +
                                  "' with type '" + source_type_name + "'");
     }
 
+    debug_print("ASSIGN_IFACE: interface_impl_exists returned true, continuing\n");
+
     if (!source_var_name.empty()) {
+        debug_print("ASSIGN_IFACE: About to call sync_struct_members_from_direct_access\n");
         interpreter_->sync_struct_members_from_direct_access(source_var_name);
+        debug_print("ASSIGN_IFACE: sync_struct_members_from_direct_access returned\n");
     }
+
+    debug_print("ASSIGN_IFACE: Proceeding with variable assignment\n");
 
     Variable assigned_var = std::move(interface_var);
     assigned_var.struct_type_name = source_type_name;
@@ -262,11 +276,48 @@ void VariableManager::assign_interface_view(const std::string &dest_name,
 
 bool VariableManager::interface_impl_exists(const std::string &interface_name,
                                             const std::string &struct_type_name) const {
+    if (interpreter_->debug_mode) {
+        debug_print("IMPL_SEARCH_BEFORE: About to call get_impl_definitions(), interpreter=%p\n", (void*)interpreter_);
+    }
+    
     const auto &impls = interpreter_->get_impl_definitions();
+    
+    if (interpreter_->debug_mode) {
+        debug_print("IMPL_SEARCH: Looking for interface='%s', struct_type='%s' (total impls=%zu, addr=%p, interpreter=%p)\n",
+                   interface_name.c_str(), struct_type_name.c_str(), impls.size(), (void*)&impls, (void*)interpreter_);
+        debug_print("IMPL_SEARCH: About to iterate over %zu impls\n", impls.size());
+    }
+    
+    size_t idx = 0;
     for (const auto &impl_def : impls) {
-        if (impl_def.interface_name == interface_name && impl_def.struct_name == struct_type_name) {
-            return true;
+        if (interpreter_->debug_mode) {
+            debug_print("IMPL_SEARCH: Iteration %zu, about to access impl_def fields\n", idx);
         }
+        
+        try {
+            std::string iface = impl_def.interface_name;
+            std::string sname = impl_def.struct_name;
+            
+            if (interpreter_->debug_mode) {
+                debug_print("IMPL_SEARCH: [%zu] interface='%s', struct='%s'\n",
+                           idx, iface.c_str(), sname.c_str());
+            }
+            
+            if (iface == interface_name && sname == struct_type_name) {
+                if (interpreter_->debug_mode) {
+                    debug_print("IMPL_SEARCH: MATCH FOUND at index %zu!\n", idx);
+                }
+                return true;
+            }
+        } catch (...) {
+            debug_print("IMPL_SEARCH: EXCEPTION at index %zu!\n", idx);
+            throw;
+        }
+        idx++;
+    }
+    
+    if (interpreter_->debug_mode) {
+        debug_print("IMPL_SEARCH: NO MATCH FOUND\n");
     }
     return false;
 }

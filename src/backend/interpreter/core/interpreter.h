@@ -369,12 +369,20 @@ class Interpreter : public EvaluatorInterface {
     std::map<std::string, std::string>
         typedef_map; // typedef alias -> base type mapping
     std::map<std::string, Variable> static_variables; // static変数の保存
+    std::map<std::string, Variable> impl_static_variables_; // impl内static変数の保存
     std::map<std::string, StructDefinition>
         struct_definitions_; // struct定義の保存
     std::map<std::string, InterfaceDefinition>
         interface_definitions_; // interface定義の保存
     std::vector<ImplDefinition>
         impl_definitions_; // impl定義の保存
+    
+    // implコンテキスト追跡
+    struct ImplContext {
+        std::string interface_name;
+        std::string struct_type_name;
+        bool is_active = false;
+    } current_impl_context_;
 
     // Manager instances
     std::unique_ptr<VariableManager> variable_manager_;
@@ -553,6 +561,14 @@ class Interpreter : public EvaluatorInterface {
     Variable *find_static_variable(const std::string &name);
     void create_static_variable(const std::string &name, const ASTNode *node);
 
+    // impl static変数処理
+    Variable *find_impl_static_variable(const std::string &name);
+    void create_impl_static_variable(const std::string &name, const ASTNode *node);
+    void enter_impl_context(const std::string &interface_name, 
+                           const std::string &struct_type_name);
+    void exit_impl_context();
+    std::string get_impl_static_namespace() const;
+
     // interface管理
     void register_interface_definition(const std::string &interface_name,
                                       const InterfaceDefinition &definition);
@@ -570,9 +586,7 @@ class Interpreter : public EvaluatorInterface {
     Variable *get_interface_variable(const std::string &var_name);
     
     // impl定義へのアクセサ
-    const std::vector<ImplDefinition>& get_impl_definitions() const {
-        return impl_definitions_;
-    }
+    const std::vector<ImplDefinition>& get_impl_definitions() const;
 
     // 関数コンテキスト
     std::string current_function_name; // 現在実行中の関数名

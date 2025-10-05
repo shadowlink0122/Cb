@@ -626,6 +626,7 @@ struct ASTNode {
     // ストレージ属性
     bool is_const = false;
     bool is_static = false;
+    bool is_impl_static = false;        // impl内でのstatic変数フラグ
     bool is_array = false;              // 配列パラメータフラグ
     bool is_array_return = false;       // 配列戻り値フラグ
     bool is_private_method = false;     // privateメソッドフラグ
@@ -709,12 +710,18 @@ struct ASTNode {
     // ネストしたメンバーアクセス用（obj.member.submember対応）
     std::vector<std::string> member_chain; // メンバーアクセスチェーン
 
+    // impl関連
+    std::string interface_name; // impl実装対象のinterface名
+    std::string struct_name;    // impl実装対象のstruct名
+    std::vector<std::unique_ptr<ASTNode>>
+        impl_static_variables; // impl内でのstatic変数宣言
+
     // コンストラクタ - 全フィールドの明示的初期化
     ASTNode(ASTNodeType type)
         : node_type(type), type_info(TYPE_INT), is_const(false),
-          is_static(false), is_array(false), is_array_return(false),
-          is_private_method(false), int_value(0), array_size(-1),
-          is_exported(false), is_qualified_call(false) {}
+          is_static(false), is_impl_static(false), is_array(false),
+          is_array_return(false), is_private_method(false), int_value(0),
+          array_size(-1), is_exported(false), is_qualified_call(false) {}
 
     // デストラクタは自動管理（unique_ptr使用）
     virtual ~ASTNode() = default;

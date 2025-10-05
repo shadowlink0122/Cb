@@ -1,0 +1,66 @@
+// Test Case 2: 型ごとに独立したimpl static変数
+interface Shape {
+    void register_instance();
+    int get_count();
+};
+
+struct Circle {
+    int radius;
+};
+
+struct Rectangle {
+    int width;
+    int height;
+};
+
+impl Shape for Circle {
+    static int instance_count = 0;
+    
+    void register_instance() {
+        instance_count = instance_count + 1;
+    }
+    
+    int get_count() {
+        return instance_count;
+    }
+};
+
+impl Shape for Rectangle {
+    static int instance_count = 0;  // Circleとは別のstatic変数
+    
+    void register_instance() {
+        instance_count = instance_count + 1;
+    }
+    
+    int get_count() {
+        return instance_count;
+    }
+};
+
+int main() {
+    Circle c1;
+    c1.radius = 10;
+    Circle c2;
+    c2.radius = 20;
+    
+    Rectangle r1;
+    r1.width = 30;
+    r1.height = 40;
+    
+    // Circleのインスタンスカウント
+    Shape s1 = c1;
+    s1.register_instance();  // Circle::instance_count = 1
+    
+    Shape s2 = c2;
+    s2.register_instance();  // Circle::instance_count = 2
+    
+    // Rectangleのインスタンスカウント
+    Shape s3 = r1;
+    s3.register_instance();  // Rectangle::instance_count = 1
+    
+    println(s1.get_count());  // 期待: 2 (Circle)
+    println(s2.get_count());  // 期待: 2 (Circle)
+    println(s3.get_count());  // 期待: 1 (Rectangle)
+    
+    return 0;
+}

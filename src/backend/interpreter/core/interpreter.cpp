@@ -780,7 +780,10 @@ void Interpreter::execute_statement(const ASTNode *node) {
         break;
 
     case ASTNodeType::AST_IMPL_DECL:
-        handle_impl_declaration(node);
+        // impl宣言は register_global_declarations() で既に処理済み
+        // 実行時には何もしない
+        debug_msg(DebugMsgId::PARSE_STRUCT_DEF, 
+                 "Skipping impl declaration in execute_statement (already registered)");
         break;
 
     case ASTNodeType::AST_PRINT_STMT:
@@ -1869,6 +1872,18 @@ void Interpreter::handle_impl_declaration(const ASTNode *node) {
 
     ImplDefinition impl_def(interface_name, struct_name);
 
+    // impl static変数の登録（implコンテキストは一時的に設定）
+    for (const auto &static_var_node : node->impl_static_variables) {
+        if (!static_var_node || static_var_node->node_type != ASTNodeType::AST_VAR_DECL) {
+            continue;
+        }
+        // 各static変数登録時に一時的にコンテキストを設定
+        enter_impl_context(interface_name, struct_name);
+        create_impl_static_variable(static_var_node->name, static_var_node.get());
+        exit_impl_context();
+    }
+    
+    // メソッドの登録
     for (const auto &method_node : node->arguments) {
         if (!method_node || method_node->node_type != ASTNodeType::AST_FUNC_DECL) {
             continue;
@@ -2468,6 +2483,94 @@ void Interpreter::create_static_variable(const std::string &name,
     // static変数をユニークな名前で保存（関数名+変数名）
     std::string static_key = current_function_name + "::" + name;
     static_variables[static_key] = var;
+}
+
+// impl static変数関連の実装
+std::string Interpreter::get_impl_static_namespace() const {
+    if (!current_impl_context_.is_active) {
+        return "";
+    }
+    return "impl::" + current_impl_context_.interface_name + 
+           "::" + current_impl_context_.struct_type_name + "::";
+}
+
+void Interpreter::enter_impl_context(const std::string &interface_name, 
+                                     const std::string &struct_type_name) {
+    current_impl_context_.interface_name = interface_name;
+    current_impl_context_.struct_type_name = struct_type_name;
+    current_impl_context_.is_active = true;
+}
+
+void Interpreter::exit_impl_context() {
+    current_impl_context_.is_active = false;
+    current_impl_context_.interface_name = "";
+    current_impl_context_.struct_type_name = "";
+}
+
+Variable *Interpreter::find_impl_static_variable(const std::string &name) {
+    std::string ns = get_impl_static_namespace();
+    if (ns.empty()) {
+        return nullptr;
+    }
+    
+    std::string full_name = ns + name;
+    auto it = impl_static_variables_.find(full_name);
+    if (it != impl_static_variables_.end()) {
+        return &it->second;
+    }
+    return nullptr;
+}
+
+void Interpreter::create_impl_static_variable(const std::string &name,
+                                              const ASTNode *node) {
+    if (!current_impl_context_.is_active) {
+        throw_runtime_error_with_location(
+            "impl static variable '" + name + "' can only be declared inside impl block", node);
+        return;
+    }
+    
+    Variable var;
+    var.type = node->type_info;
+    var.is_const = node->is_const;
+    var.is_array = false;
+    var.is_assigned = false;
+    var.is_multidimensional = false;
+    var.is_unsigned = node->is_unsigned;
+
+    // デフォルト値を設定
+    if (var.type == TYPE_STRING) {
+        var.str_value = "";
+    } else if (var.type == TYPE_FLOAT) {
+        var.float_value = 0.0f;
+    } else if (var.type == TYPE_DOUBLE) {
+        var.double_value = 0.0;
+    } else {
+        var.value = 0;
+    }
+
+    // 初期化式があれば評価して設定
+    if (node->init_expr) {
+        if (var.type == TYPE_STRING &&
+            node->init_expr->node_type == ASTNodeType::AST_STRING_LITERAL) {
+            var.str_value = node->init_expr->str_value;
+        } else if (var.type == TYPE_FLOAT || var.type == TYPE_DOUBLE) {
+            TypedValue result = evaluate_typed(node->init_expr.get());
+            if (var.type == TYPE_FLOAT) {
+                var.float_value = static_cast<float>(result.double_value);
+            } else {
+                var.double_value = result.double_value;
+            }
+        } else {
+            var.value = evaluate(node->init_expr.get());
+        }
+        var.is_assigned = true;
+    }
+
+    // impl static変数を名前空間付きで保存
+    std::string full_name = get_impl_static_namespace() + name;
+    impl_static_variables_[full_name] = var;
+    
+    debug_msg(DebugMsgId::PARSE_VAR_DECL, name.c_str(), "impl_static_variable_created");
 }
 
 // struct定義を登録
@@ -5536,9 +5639,15 @@ void Interpreter::register_impl_definition(const ImplDefinition &impl_def) {
 
     if (existing != impl_definitions_.end()) {
         *existing = stored_def;
+        debug_print("IMPL_DEF_STORAGE: Updated existing impl '%s' for '%s' (addr=%p)\n",
+                   stored_def.interface_name.c_str(), stored_def.struct_name.c_str(),
+                   (void*)&impl_definitions_);
     } else {
         impl_definitions_.emplace_back(stored_def);
         existing = std::prev(impl_definitions_.end());
+        debug_print("IMPL_DEF_STORAGE: Added new impl '%s' for '%s' (total: %zu, addr=%p, this=%p)\n",
+                   stored_def.interface_name.c_str(), stored_def.struct_name.c_str(),
+                   impl_definitions_.size(), (void*)&impl_definitions_, (void*)this);
     }
 
     auto register_function = [&](const std::string &key, const ASTNode *method) {
@@ -5580,6 +5689,16 @@ void Interpreter::register_impl_definition(const ImplDefinition &impl_def) {
 
     debug_msg(DebugMsgId::PARSE_STRUCT_DEF,
               (existing->interface_name + "_for_" + existing->struct_name).c_str());
+    
+    debug_print("IMPL_DEF_END: Finishing register_impl_definition, impl_definitions_.size()=%zu\n",
+               impl_definitions_.size());
+}
+
+const std::vector<ImplDefinition>& Interpreter::get_impl_definitions() const {
+    // 常に出力（debug_modeに依存しない）
+    debug_print("GET_IMPL_DEFS: Called! size=%zu, addr=%p, this=%p\n",
+               impl_definitions_.size(), (void*)&impl_definitions_, (void*)this);
+    return impl_definitions_;
 }
 
 const ImplDefinition *Interpreter::find_impl_for_struct(const std::string &struct_name, 

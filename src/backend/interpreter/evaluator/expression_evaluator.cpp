@@ -1456,6 +1456,7 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
         bool has_receiver = is_method_call;
         std::string receiver_name;
         MethodReceiverResolution receiver_resolution;
+        bool impl_context_active = false;  // implコンテキストが有効かどうか
         struct MethodCallContext {
             bool uses_temp_receiver = false;
             std::string temp_variable_name;
@@ -2455,11 +2456,43 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                 }
             }
             
+            // implメソッド呼び出しの場合、implコンテキストを設定
+            if (is_method_call && !receiver_name.empty()) {
+                Variable* receiver_var = nullptr;
+                if (used_resolution_ptr && dereferenced_struct_ptr) {
+                    receiver_var = dereferenced_struct_ptr;
+                } else {
+                    receiver_var = interpreter_.find_variable(receiver_name);
+                }
+                
+                // Interface型のレシーバーの場合、implコンテキストを設定
+                if (receiver_var && receiver_var->type == TYPE_INTERFACE) {
+                    std::string interface_name = receiver_var->interface_name;
+                    std::string struct_type = receiver_var->struct_type_name;
+                    
+                    if (!interface_name.empty() && !struct_type.empty()) {
+                        interpreter_.enter_impl_context(interface_name, struct_type);
+                        impl_context_active = true;
+                        if (debug_mode) {
+                            debug_print("IMPL_CONTEXT: Entered %s::%s for method %s\n",
+                                       interface_name.c_str(), struct_type.c_str(), node->name.c_str());
+                        }
+                    }
+                }
+            }
+            
             // 関数本体を実行
             try {
                 if (func->body) {
                     interpreter_.execute_statement(func->body.get());
                 }
+                
+                // implコンテキストをクリア
+                if (impl_context_active) {
+                    interpreter_.exit_impl_context();
+                    impl_context_active = false;
+                }
+                
                 // void関数は0を返す
                 
                 // メソッド実行後、selfの変更をレシーバーに同期
@@ -2547,6 +2580,12 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                 interpreter_.current_function_name = prev_function_name;
                 return 0;
             } catch (const ReturnException &ret) {
+                // implコンテキストをクリア
+                if (impl_context_active) {
+                    interpreter_.exit_impl_context();
+                    impl_context_active = false;
+                }
+                
                 // return文で戻り値がある場合
                 
                 // メソッド実行後、selfの変更をレシーバーに同期
@@ -2689,6 +2728,12 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                 return return_value;
             }
         } catch (const ReturnException &ret) {
+            // implコンテキストをクリア
+            if (impl_context_active) {
+                interpreter_.exit_impl_context();
+                impl_context_active = false;
+            }
+            
             // 再投げされたReturnExceptionを処理
             cleanup_method_context();
             if (method_scope_active) {
@@ -2698,6 +2743,12 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
             interpreter_.current_function_name = prev_function_name;
             throw ret;
         } catch (...) {
+            // implコンテキストをクリア
+            if (impl_context_active) {
+                interpreter_.exit_impl_context();
+                impl_context_active = false;
+            }
+            
             cleanup_method_context();
             if (method_scope_active) {
                 interpreter_.pop_scope();

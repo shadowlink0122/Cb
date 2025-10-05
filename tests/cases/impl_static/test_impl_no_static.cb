@@ -1,0 +1,24 @@
+// Simple impl test without static
+interface Counter {
+    int get_value();
+};
+
+struct Point {
+    int x;
+};
+
+impl Counter for Point {
+    int get_value() {
+        return 42;
+    }
+};
+
+int main() {
+    Point p;
+    p.x = 1;
+    
+    Counter c = p;
+    int val = c.get_value();
+    println(val);
+    return 0;
+}

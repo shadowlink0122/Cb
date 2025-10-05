@@ -1,0 +1,52 @@
+// Test Case 1: Basic impl static variable
+// Counter インターフェースを定義
+interface Counter {
+    int increment();
+    int get_count();
+};
+
+// Point構造体を定義
+struct Point {
+    int x;
+    int y;
+};
+
+// CounterをPointに実装
+impl Counter for Point {
+    static int shared_counter = 0;  // impl全体で共有されるstatic変数
+    
+    int increment() {
+        shared_counter = shared_counter + 1;
+        return shared_counter;
+    }
+    
+    int get_count() {
+        return shared_counter;
+    }
+};
+
+int main() {
+    Point p1;
+    p1.x = 1;
+    p1.y = 2;
+    
+    Point p2;
+    p2.x = 3;
+    p2.y = 4;
+    
+    // p1でインクリメント（shared_counterが1になる）
+    Counter c1 = p1;
+    int count1 = c1.increment();
+    println(count1);  // 期待: 1
+    
+    // p2でインクリメント（shared_counterが2になる）
+    Counter c2 = p2;
+    int count2 = c2.increment();
+    println(count2);  // 期待: 2
+    
+    // p1でget_count（shared_counterは2のまま）
+    int count3 = c1.get_count();
+    println(count3);  // 期待: 2
+    
+    return 0;
+}

@@ -5063,9 +5063,69 @@ ASTNode* RecursiveParser::parseImplDeclaration() {
     
     ImplDefinition impl_def(interface_name, struct_name);
     std::vector<std::unique_ptr<ASTNode>> method_nodes; // 所有権は一時的に保持し、最終的にASTへ移動
+    std::vector<std::unique_ptr<ASTNode>> static_var_nodes; // impl static変数
     
     // メソッド実装の解析
     while (!check(TokenType::TOK_RBRACE) && !isAtEnd()) {
+        // static修飾子のチェック（impl staticの可能性）
+        if (check(TokenType::TOK_STATIC)) {
+            advance(); // consume 'static'
+            
+            // 次にconst修飾子が続く可能性もある
+            bool is_const_static = false;
+            if (check(TokenType::TOK_CONST)) {
+                is_const_static = true;
+                advance(); // consume 'const'
+            }
+            
+            // 型名を取得
+            std::string var_type = parseType();
+            if (var_type.empty()) {
+                error("Expected type after 'static' in impl block");
+                return nullptr;
+            }
+            
+            // 変数名を取得
+            if (!check(TokenType::TOK_IDENTIFIER)) {
+                error("Expected variable name after type in impl static declaration");
+                return nullptr;
+            }
+            std::string var_name = current_token_.value;
+            advance();
+            
+            // 初期化式の解析（オプション）
+            std::unique_ptr<ASTNode> init_expr;
+            if (check(TokenType::TOK_ASSIGN)) {
+                advance(); // consume '='
+                ASTNode* expr_raw = parseExpression();
+                if (!expr_raw) {
+                    error("Expected expression after '=' in impl static variable initialization");
+                    return nullptr;
+                }
+                init_expr.reset(expr_raw);
+            }
+            
+            consume(TokenType::TOK_SEMICOLON, "Expected ';' after impl static variable declaration");
+            
+            // impl static変数ノードを作成
+            ASTNode* static_var = new ASTNode(ASTNodeType::AST_VAR_DECL);
+            static_var->name = var_name;
+            static_var->type_name = var_type;
+            static_var->type_info = getTypeInfoFromString(var_type);
+            static_var->is_static = true;
+            static_var->is_impl_static = true;
+            static_var->is_const = is_const_static;
+            if (init_expr) {
+                static_var->init_expr = std::move(init_expr);
+            }
+            setLocation(static_var, current_token_);
+            
+            static_var_nodes.push_back(std::unique_ptr<ASTNode>(static_var));
+            debug_msg(DebugMsgId::PARSE_VAR_DECL, var_name.c_str(), "impl_static_variable");
+            
+            continue; // 次の宣言へ
+        }
+        
         // private修飾子のチェック
         bool is_private_method = false;
         if (check(TokenType::TOK_PRIVATE)) {
@@ -5221,7 +5281,14 @@ ASTNode* RecursiveParser::parseImplDeclaration() {
     ASTNode* node = new ASTNode(ASTNodeType::AST_IMPL_DECL);
     node->name = interface_name + "_for_" + struct_name;
     node->type_name = struct_name; // struct名を保存
+    node->interface_name = interface_name; // interface名を保存
+    node->struct_name = struct_name; // struct名を明示的に保存
     setLocation(node, current_token_);
+    
+    // impl static変数の所有権をASTノードに移動
+    for (auto& static_var : static_var_nodes) {
+        node->impl_static_variables.push_back(std::move(static_var));
+    }
     
     // implメソッドの所有権をASTノードに移動
     for (auto& method_node : method_nodes) {
