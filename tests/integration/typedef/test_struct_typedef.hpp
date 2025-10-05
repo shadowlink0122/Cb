@@ -7,7 +7,7 @@ void test_struct_typedef_basic() {
     run_cb_test_with_output_and_time_auto("../../tests/cases/typedef/test_struct_typedef_basic.cb", 
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_EQ(0, exit_code, "Basic struct typedef test should execute successfully");
-            INTEGRATION_ASSERT_CONTAINS(output, "Point: 10 20", "Basic struct typedef declaration should work");
+            INTEGRATION_ASSERT_CONTAINS(output, "Point: 10 20", "Basic struct typedef should show complete x,y coordinates");
             INTEGRATION_ASSERT_CONTAINS(output, "Basic struct typedef test passed", "Test should complete successfully");
         });
     integration_test_passed_with_time_auto("test_struct_typedef_basic", "test_struct_typedef_basic.cb");

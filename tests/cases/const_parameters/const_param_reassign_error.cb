@@ -1,0 +1,16 @@
+// const引数への代入エラーテスト
+
+int try_modify(const int x) {
+    x = 100;  // ERROR: const引数への代入
+    return x;
+}
+
+int main() {
+    println("Testing const parameter reassignment error:");
+    
+    int result = try_modify(42);
+    println("Result: ", result);
+    
+    println("This line should not be reached");
+    return 0;
+}

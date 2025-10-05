@@ -1,0 +1,227 @@
+// Arrow operator assignment comprehensive test
+// Tests: ptr->member = value with various scenarios
+
+struct Point {
+    int x;
+    int y;
+};
+
+struct Container {
+    int id;
+    Point* data;
+};
+
+// Test 1: Direct pointer assignment
+int test_direct_pointer_assignment() {
+    Point p = {x: 10, y: 20};
+    Point* ptr = &p;
+    
+    // Assign via arrow operator
+    ptr->x = 100;
+    ptr->y = 200;
+    
+    // Verify through pointer
+    if (ptr->x != 100) return 1;
+    if (ptr->y != 200) return 2;
+    
+    // Verify through original variable
+    if (p.x != 100) return 3;
+    if (p.y != 200) return 4;
+    
+    return 0;
+}
+
+// Test 2: Nested pointer member assignment
+int test_nested_pointer_member() {
+    Point p = {x: 50, y: 60};
+    Container c = {id: 1, data: &p};
+    
+    // Get pointer from container
+    Point* ptr = c.data;
+    
+    // Assign via arrow
+    ptr->x = 500;
+    ptr->y = 600;
+    
+    // Verify through pointer
+    if (ptr->x != 500) return 1;
+    if (ptr->y != 600) return 2;
+    
+    // Verify through original point
+    if (p.x != 500) return 3;
+    if (p.y != 600) return 4;
+    
+    return 0;
+}
+
+// Test 3: Multiple pointers to same object
+int test_multiple_pointers() {
+    Point p = {x: 1, y: 2};
+    Point* ptr1 = &p;
+    Point* ptr2 = &p;
+    
+    // Modify through first pointer
+    ptr1->x = 111;
+    
+    // Verify through second pointer
+    if (ptr2->x != 111) return 1;
+    
+    // Modify through second pointer
+    ptr2->y = 222;
+    
+    // Verify through first pointer
+    if (ptr1->y != 222) return 2;
+    
+    // Verify original
+    if (p.x != 111) return 3;
+    if (p.y != 222) return 4;
+    
+    return 0;
+}
+
+// Test 4: Pointer assignment in function
+void modify_point(Point* ptr, int new_x, int new_y) {
+    ptr->x = new_x;
+    ptr->y = new_y;
+}
+
+int test_pointer_function_param() {
+    Point p = {x: 7, y: 8};
+    
+    modify_point(&p, 777, 888);
+    
+    if (p.x != 777) return 1;
+    if (p.y != 888) return 2;
+    
+    return 0;
+}
+
+// Test 5: Chain of pointers
+int test_pointer_chain() {
+    Point p = {x: 3, y: 4};
+    Point* ptr = &p;
+    
+    Container c1 = {id: 10, data: ptr};
+    Container c2 = {id: 20, data: ptr};
+    
+    // Get pointers from containers
+    Point* ptr1 = c1.data;
+    Point* ptr2 = c2.data;
+    
+    // Modify through ptr1
+    ptr1->x = 333;
+    
+    // Verify through ptr2 (same underlying object)
+    if (ptr2->x != 333) return 1;
+    
+    // Verify original
+    if (p.x != 333) return 2;
+    
+    // Modify through ptr2
+    ptr2->y = 444;
+    
+    // Verify through ptr1
+    if (ptr1->y != 444) return 3;
+    
+    // Verify original
+    if (p.y != 444) return 4;
+    
+    return 0;
+}
+
+// Test 6: Arrow assignment with expressions
+int test_arrow_with_expressions() {
+    Point p = {x: 5, y: 10};
+    Point* ptr = &p;
+    
+    // Assign expression result
+    ptr->x = 10 + 20;
+    ptr->y = ptr->x * 2;
+    
+    if (ptr->x != 30) return 1;
+    if (ptr->y != 60) return 2;
+    if (p.x != 30) return 3;
+    if (p.y != 60) return 4;
+    
+    return 0;
+}
+
+// Test 7: Self-assignment via arrow
+int test_self_assignment() {
+    Point p = {x: 15, y: 25};
+    Point* ptr = &p;
+    
+    // Use current value in assignment
+    ptr->x = ptr->x + 100;
+    ptr->y = ptr->y - 5;
+    
+    if (p.x != 115) return 1;
+    if (p.y != 20) return 2;
+    
+    return 0;
+}
+
+int main() {
+    int result;
+    
+    println("=== Arrow Assignment Comprehensive Tests ===");
+    
+    println("\nTest 1: Direct pointer assignment");
+    result = test_direct_pointer_assignment();
+    if (result != 0) {
+        println("FAILED with code:", result);
+        return 1;
+    }
+    println("PASSED");
+    
+    println("\nTest 2: Nested pointer member assignment");
+    result = test_nested_pointer_member();
+    if (result != 0) {
+        println("FAILED with code:", result);
+        return 1;
+    }
+    println("PASSED");
+    
+    println("\nTest 3: Multiple pointers to same object");
+    result = test_multiple_pointers();
+    if (result != 0) {
+        println("FAILED with code:", result);
+        return 1;
+    }
+    println("PASSED");
+    
+    println("\nTest 4: Pointer as function parameter");
+    result = test_pointer_function_param();
+    if (result != 0) {
+        println("FAILED with code:", result);
+        return 1;
+    }
+    println("PASSED");
+    
+    println("\nTest 5: Pointer chain");
+    result = test_pointer_chain();
+    if (result != 0) {
+        println("FAILED with code:", result);
+        return 1;
+    }
+    println("PASSED");
+    
+    println("\nTest 6: Arrow with expressions");
+    result = test_arrow_with_expressions();
+    if (result != 0) {
+        println("FAILED with code:", result);
+        return 1;
+    }
+    println("PASSED");
+    
+    println("\nTest 7: Self-assignment via arrow");
+    result = test_self_assignment();
+    if (result != 0) {
+        println("FAILED with code:", result);
+        return 1;
+    }
+    println("PASSED");
+    
+    println("\n=== All Arrow Assignment Tests Passed ===");
+    return 0;
+}

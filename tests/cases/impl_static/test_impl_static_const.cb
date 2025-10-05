@@ -1,0 +1,53 @@
+// Test Case 3: static const組み合わせ
+interface Settings {
+    int get_max();
+    void check_limit();
+    int get_access_count();
+};
+
+struct Config {
+    int value;
+};
+
+impl Settings for Config {
+    static const int MAX_VALUE = 100;
+    static int access_count = 0;
+    
+    int get_max() {
+        access_count = access_count + 1;
+        return MAX_VALUE;
+    }
+    
+    void check_limit() {
+        if (self.value > MAX_VALUE) {
+            println(1);  // Error: 制限超過
+        } else {
+            println(0);  // OK
+        }
+    }
+    
+    int get_access_count() {
+        return access_count;
+    }
+};
+
+int main() {
+    Config cfg1;
+    cfg1.value = 50;
+    
+    Config cfg2;
+    cfg2.value = 150;
+    
+    Settings s1 = cfg1;
+    Settings s2 = cfg2;
+    
+    println(s1.get_max());   // 期待: 100
+    s1.check_limit();        // 期待: 0 (OK)
+    
+    println(s2.get_max());   // 期待: 100
+    s2.check_limit();        // 期待: 1 (エラー)
+    
+    println(s1.get_access_count());  // 期待: 2 (get_maxを2回呼んだ)
+    
+    return 0;
+}

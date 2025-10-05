@@ -1,0 +1,29 @@
+// ポインタ演算のテスト
+
+int main() {
+    int[10] arr = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+    int* p = arr;
+    int* q = arr;
+    
+    // OK: ポインタ + 整数
+    println(p, &p);
+    p = p + 1;
+    println("p + 1 OK");
+    println(p, &p);
+    
+    // OK: ポインタ + 変数（整数）
+    int offset = 2;
+    println(p, &p);
+    p = p + offset;
+    println("p + offset OK");
+    println(p, &p);
+    
+    // OK: 値の確認
+    println("Pointer arithmetic works");
+    
+    // NG: ポインタ + ポインタ（これはエラーになるべき）
+    int* invalid = p + q;  // コンパイルエラー
+    
+    println("Pointer arithmetic test passed!");
+    return 0;
+}

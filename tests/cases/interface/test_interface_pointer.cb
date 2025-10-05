@@ -1,0 +1,64 @@
+// Interfaceのポインタテスト
+
+interface Drawable {
+    void draw();
+    int get_value();
+};
+
+struct Circle {
+    int radius;
+};
+
+impl Drawable for Circle {
+    void draw() {
+        println("Drawing circle with radius:");
+        println(self.radius);
+    }
+    
+    int get_value() {
+        return self.radius;
+    }
+};
+
+struct Rectangle {
+    int width;
+    int height;
+};
+
+impl Drawable for Rectangle {
+    void draw() {
+        println("Drawing rectangle:");
+        println(self.width);
+        println(self.height);
+    }
+    
+    int get_value() {
+        return self.width * self.height;
+    }
+};
+
+int main() {
+    // Test 1: Interfaceポインタの基本
+    println("Test 1: Interface pointer basic");
+    Circle c;
+    c.radius = 5;
+    Drawable* ptr = &c;
+    println((*ptr).get_value());  // 5
+    
+    // Test 2: 異なる型へのInterfaceポインタ
+    println("Test 2: Interface pointer to different types");
+    Rectangle r;
+    r.width = 10;
+    r.height = 20;
+    Drawable* ptr2 = &r;
+    println((*ptr2).get_value());  // 200
+    
+    // Test 3: nullptr
+    println("Test 3: nullptr");
+    Drawable* nullp = nullptr;
+    if (nullp == nullptr) {
+        println("nullptr check OK");
+    }
+    
+    return 0;
+}

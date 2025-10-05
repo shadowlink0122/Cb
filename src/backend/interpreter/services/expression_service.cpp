@@ -135,14 +135,14 @@ void ExpressionService::increment_stats(const std::string &evaluation_type,
         stats_.array_index_evaluations++;
     }
 
-    // デバッグモードでは統計情報をログ出力
-    if (is_debug_mode()) {
-        debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
-                  ("ExpressionService Stats: Total=" +
-                   std::to_string(stats_.total_evaluations) +
-                   ", Failed=" + std::to_string(stats_.failed_evaluations))
-                      .c_str());
-    }
+    // デバッグモードでは統計情報をログ出力（コメントアウト：無限再帰を防ぐ）
+    // if (is_debug_mode()) {
+    //     std::string stats_message = "ExpressionService Stats: Total=" +
+    //                                 std::to_string(stats_.total_evaluations) +
+    //                                 ", Failed=" +
+    //                                 std::to_string(stats_.failed_evaluations);
+    //     debug_msg(DebugMsgId::ARRAY_DECL_DEBUG, stats_message.c_str());
+    // }
 }
 
 bool ExpressionService::is_debug_mode() const {

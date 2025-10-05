@@ -1,0 +1,13 @@
+Test 1: Basic reference parameter
+5
+6
+Test 2: Multiple reference parameters
+10
+20
+20
+10
+Test 3: Reference and pointer mix
+100
+200
+110
+220

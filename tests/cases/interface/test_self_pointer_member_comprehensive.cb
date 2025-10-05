@@ -1,0 +1,179 @@
+// Self with pointer member comprehensive test
+// Tests: self.ptr_member->field access and assignment in impl methods
+
+struct Point {
+    int x;
+    int y;
+};
+
+struct Container {
+    int id;
+    Point* data;
+};
+
+interface IContainer {
+    int getX();
+    int getY();
+    void setX(int newX);
+    void setY(int newY);
+    void setPoint(int newX, int newY);
+    int computeSum();
+    void incrementX();
+    void incrementY();
+    void doubleValues();
+    int getIdPlusX();
+    void setIdAndX(int newId, int newX);
+};
+
+impl IContainer for Container {
+    // Test 1: Read pointer member via self
+    int getX() {
+        return self.data->x;
+    }
+    
+    int getY() {
+        return self.data->y;
+    }
+    
+    // Test 2: Write pointer member via self
+    void setX(int newX) {
+        self.data->x = newX;
+    }
+    
+    void setY(int newY) {
+        self.data->y = newY;
+    }
+    
+    // Test 3: Modify both coordinates
+    void setPoint(int newX, int newY) {
+        self.data->x = newX;
+        self.data->y = newY;
+    }
+    
+    // Test 4: Use pointer member value in computation
+    int computeSum() {
+        return self.data->x + self.data->y;
+    }
+    
+    // Test 5: Increment via self
+    void incrementX() {
+        self.data->x = self.data->x + 1;
+    }
+    
+    void incrementY() {
+        self.data->y = self.data->y + 1;
+    }
+    
+    // Test 6: Complex operation
+    void doubleValues() {
+        self.data->x = self.data->x * 2;
+        self.data->y = self.data->y * 2;
+    }
+    
+    // Test 7: Self ID and pointer member
+    int getIdPlusX() {
+        return self.id + self.data->x;
+    }
+    
+    void setIdAndX(int newId, int newX) {
+        self.id = newId;
+        self.data->x = newX;
+    }
+};
+
+int main() {
+    Point p = {x: 10, y: 20};
+    Container c = {id: 1, data: &p};
+    
+    println("=== Self Pointer Member Comprehensive Tests ===");
+    
+    // Test 1: Read via self
+    println("\nTest 1: Read pointer member via self");
+    int x = c.getX();
+    int y = c.getY();
+    if (x != 10) {
+        println("FAILED: getX() expected 10, got", x);
+        return 1;
+    }
+    if (y != 20) {
+        println("FAILED: getY() expected 20, got", y);
+        return 1;
+    }
+    println("PASSED: x =", x, "y =", y);
+    
+    // Test 2: Write via self
+    println("\nTest 2: Write pointer member via self");
+    c.setX(100);
+    c.setY(200);
+    if (p.x != 100) {
+        println("FAILED: p.x expected 100, got", p.x);
+        return 1;
+    }
+    if (p.y != 200) {
+        println("FAILED: p.y expected 200, got", p.y);
+        return 1;
+    }
+    if (c.data->x != 100) {
+        println("FAILED: c.data->x expected 100, got", c.data->x);
+        return 1;
+    }
+    if (c.data->y != 200) {
+        println("FAILED: c.data->y expected 200, got", c.data->y);
+        return 1;
+    }
+    println("PASSED: p.x =", p.x, "p.y =", p.y);
+    
+    // Test 3: Modify both coordinates
+    println("\nTest 3: Modify both coordinates");
+    c.setPoint(300, 400);
+    if (p.x != 300 || p.y != 400) {
+        println("FAILED: expected (300, 400), got (", p.x, ",", p.y, ")");
+        return 1;
+    }
+    println("PASSED: p =", p.x, p.y);
+    
+    // Test 4: Compute using pointer member
+    println("\nTest 4: Compute sum");
+    int sum = c.computeSum();
+    if (sum != 700) {
+        println("FAILED: expected 700, got", sum);
+        return 1;
+    }
+    println("PASSED: sum =", sum);
+    
+    // Test 5: Increment operations
+    println("\nTest 5: Increment operations");
+    c.incrementX();
+    c.incrementY();
+    if (p.x != 301 || p.y != 401) {
+        println("FAILED: expected (301, 401), got (", p.x, ",", p.y, ")");
+        return 1;
+    }
+    println("PASSED: p =", p.x, p.y);
+    
+    // Test 6: Double values
+    println("\nTest 6: Double values");
+    c.doubleValues();
+    if (p.x != 602 || p.y != 802) {
+        println("FAILED: expected (602, 802), got (", p.x, ",", p.y, ")");
+        return 1;
+    }
+    println("PASSED: p =", p.x, p.y);
+    
+    // Test 7: Mixed self fields
+    println("\nTest 7: Mixed self fields");
+    int idPlusX = c.getIdPlusX();
+    if (idPlusX != 603) {
+        println("FAILED: expected 603, got", idPlusX);
+        return 1;
+    }
+    c.setIdAndX(42, 1000);
+    if (c.id != 42 || p.x != 1000) {
+        println("FAILED: expected id=42, x=1000, got id=", c.id, "x=", p.x);
+        return 1;
+    }
+    println("PASSED: c.id =", c.id, "p.x =", p.x);
+    
+    println("\n=== All Self Pointer Member Tests Passed ===");
+    return 0;
+}

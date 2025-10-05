@@ -2,7 +2,10 @@
 #include "../../../common/ast.h"
 #include "../core/type_inference.h"
 #include <memory>
+#include <optional>
 #include <string>
+#include <utility>
+#include <vector>
 
 // 前方宣言
 class Interpreter;
@@ -60,6 +63,7 @@ private:
     
     // 最後の型推論結果キャッシュ（文字列結果を保持するため）
     TypedValue last_typed_result_;
+    std::optional<std::pair<const ASTNode*, TypedValue>> last_captured_function_value_;
     
     // ヘルパー関数
     std::string type_info_to_string(TypeInfo type);
@@ -77,8 +81,11 @@ private:
     // 型推論対応の式評価（内部実装）
     TypedValue evaluate_typed_expression_internal(const ASTNode* node);
 
+    TypedValue consume_numeric_typed_value(const ASTNode* node, int64_t numeric_result, const InferredType& inferred_type);
+
     MethodReceiverResolution resolve_method_receiver(const ASTNode* receiver_node);
     MethodReceiverResolution resolve_member_receiver(const ASTNode* member_node);
+    MethodReceiverResolution resolve_arrow_receiver(const ASTNode* arrow_node);
     MethodReceiverResolution resolve_array_receiver(const ASTNode* array_node);
     MethodReceiverResolution create_chain_receiver_from_expression(const ASTNode* node);
     bool resolve_variable_name(const ASTNode* node, std::string& out_name, Variable*& out_var);

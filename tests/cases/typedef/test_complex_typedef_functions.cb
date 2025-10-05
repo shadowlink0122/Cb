@@ -1,0 +1,160 @@
+// 複雑なtypedef構造体の関数引数・返り値テスト
+
+typedef struct {
+    int x;
+    int y;
+} Vec2;
+
+typedef struct {
+    Vec2 position;
+    Vec2 velocity;
+} Particle;
+
+typedef struct {
+    Particle[3] particles;
+    int count;
+    string name;
+} ParticleSystem;
+
+// typedef構造体を返す関数
+Vec2 createVec2(int x, int y) {
+    Vec2 v = {x, y};
+    return v;
+}
+
+// ネストされたtypedef構造体を返す関数
+Particle createParticle(int px, int py, int vx, int vy) {
+    Particle p = {{px, py}, {vx, vy}};
+    return p;
+}
+
+// 複雑なtypedef構造体を引数として受け取る関数
+int getParticleSpeed(Particle p) {
+    int vx = p.velocity.x;
+    int vy = p.velocity.y;
+    // 簡易的な速度計算（正確な距離ではなく合計）
+    if (vx < 0) vx = -vx;
+    if (vy < 0) vy = -vy;
+    return vx + vy;
+}
+
+// 構造体配列を含むtypedef構造体を返す関数
+ParticleSystem createSystem() {
+    ParticleSystem sys;
+    sys.name = "DefaultSystem";
+    sys.count = 3;
+    
+    sys.particles[0].position.x = 0;
+    sys.particles[0].position.y = 0;
+    sys.particles[0].velocity.x = 10;
+    sys.particles[0].velocity.y = 5;
+    
+    sys.particles[1].position.x = 100;
+    sys.particles[1].position.y = 50;
+    sys.particles[1].velocity.x = -5;
+    sys.particles[1].velocity.y = 10;
+    
+    sys.particles[2].position.x = 200;
+    sys.particles[2].position.y = 100;
+    sys.particles[2].velocity.x = 0;
+    sys.particles[2].velocity.y = -15;
+    
+    return sys;
+}
+
+// 構造体配列を含む複雑な構造体を引数として受け取る関数
+void updateParticleSystem(ParticleSystem sys) {
+    println("System '%s' has %d particles:", sys.name, sys.count);
+    int i = 0;
+    while (i < sys.count) {
+        println("  Particle %d: pos(%d,%d), vel(%d,%d), speed=%d",
+                i,
+                sys.particles[i].position.x,
+                sys.particles[i].position.y,
+                sys.particles[i].velocity.x,
+                sys.particles[i].velocity.y,
+                getParticleSpeed(sys.particles[i]));
+        i = i + 1;
+    }
+}
+
+int main() {
+    println("=== Test 1: Simple typedef struct return ===");
+    Vec2 v1 = createVec2(30, 40);
+    if (v1.x != 30 || v1.y != 40) {
+        println("ERROR: createVec2 failed");
+        return 1;
+    }
+    println("Created Vec2: (%d, %d)", v1.x, v1.y);
+    
+    println("\n=== Test 2: Nested typedef struct return ===");
+    Particle p1 = createParticle(10, 20, 5, -3);
+    if (p1.position.x != 10 || p1.position.y != 20) {
+        println("ERROR: createParticle position failed");
+        return 1;
+    }
+    if (p1.velocity.x != 5 || p1.velocity.y != -3) {
+        println("ERROR: createParticle velocity failed");
+        return 1;
+    }
+    println("Created Particle: pos(%d,%d), vel(%d,%d)",
+            p1.position.x, p1.position.y,
+            p1.velocity.x, p1.velocity.y);
+    
+    println("\n=== Test 3: Typedef struct as function parameter ===");
+    int speed = getParticleSpeed(p1);
+    if (speed != 8) {  // |5| + |-3| = 8
+        println("ERROR: getParticleSpeed failed, expected 8 got %d", speed);
+        return 1;
+    }
+    println("Particle speed: %d", speed);
+    
+    println("\n=== Test 4: Complex typedef struct return ===");
+    ParticleSystem sys1 = createSystem();
+    if (sys1.count != 3) {
+        println("ERROR: createSystem count failed");
+        return 1;
+    }
+    if (sys1.particles[0].position.x != 0 || sys1.particles[0].position.y != 0) {
+        println("ERROR: createSystem particle 0 position failed");
+        return 1;
+    }
+    if (sys1.particles[0].velocity.x != 10 || sys1.particles[0].velocity.y != 5) {
+        println("ERROR: createSystem particle 0 velocity failed");
+        return 1;
+    }
+    if (sys1.particles[1].position.x != 100 || sys1.particles[1].velocity.x != -5) {
+        println("ERROR: createSystem particle 1 failed");
+        return 1;
+    }
+    if (sys1.particles[2].position.x != 200 || sys1.particles[2].velocity.y != -15) {
+        println("ERROR: createSystem particle 2 failed");
+        return 1;
+    }
+    
+    println("\n=== Test 5: Complex typedef struct as parameter ===");
+    updateParticleSystem(sys1);
+    
+    println("\n=== Test 6: Struct literal with nested typedef ===");
+    Particle p2 = {{25, 35}, {-8, 12}};
+    if (p2.position.x != 25 || p2.position.y != 35) {
+        println("ERROR: Nested literal position failed");
+        return 1;
+    }
+    if (p2.velocity.x != -8 || p2.velocity.y != 12) {
+        println("ERROR: Nested literal velocity failed");
+        return 1;
+    }
+    int speed2 = getParticleSpeed(p2);
+    if (speed2 != 20) {  // |-8| + |12| = 20
+        println("ERROR: speed2 calculation failed");
+        return 1;
+    }
+    println("Particle from literal: pos(%d,%d), vel(%d,%d), speed=%d",
+            p2.position.x, p2.position.y,
+            p2.velocity.x, p2.velocity.y,
+            speed2);
+    
+    println("\n=== All complex typedef function tests passed! ===");
+    return 0;
+}

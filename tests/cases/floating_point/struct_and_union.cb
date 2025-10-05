@@ -1,0 +1,58 @@
+// 浮動小数点と符号なしを含む構造体・ユニオンのテスト
+
+struct NumericBundle {
+    float current;
+    double measurement;
+    unsigned int count;
+};
+
+float boost(float value, float delta) {
+    return value + delta;
+}
+
+double damp(double value, double delta) {
+    return value - delta;
+}
+
+unsigned int bump(unsigned int value, unsigned int delta) {
+    return value + delta;
+}
+
+typedef NumericValue = float | double | long;
+
+typedef NumericBundleArray = NumericBundle[2];
+
+int main() {
+    println("=== struct/union coverage ===");
+
+    NumericBundle bundle = {current: 0.5, measurement: 10.25, count: 7};
+    print("initial.current: "); println(bundle.current);
+    print("initial.measurement: "); println(bundle.measurement);
+    print("initial.count: "); println(bundle.count);
+
+    bundle.current = boost(bundle.current, 0.625f);
+    bundle.measurement = damp(bundle.measurement, 0.125);
+    bundle.count = bump(bundle.count, 5);
+
+    print("updated.current: "); println(bundle.current);
+    print("updated.measurement: "); println(bundle.measurement);
+    print("updated.count: "); println(bundle.count);
+
+    NumericBundleArray history;
+    history[0] = bundle;
+    history[1] = {1.25, 2.5, 12};
+
+    print("history[0].current: "); println(history[0].current);
+    print("history[1].measurement: "); println(history[1].measurement);
+    print("history[1].count: "); println(history[1].count);
+
+    NumericValue value = bundle.current;
+    print("union as float: "); println(value);
+    value = bundle.measurement;
+    print("union as double: "); println(value);
+    value = bundle.count;
+    print("union as unsigned: "); println(value);
+
+    println("=== end ===");
+    return 0;
+}

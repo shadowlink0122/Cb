@@ -1,0 +1,13 @@
+// typedef structでの自己再帰エラーテスト
+
+typedef struct TreeNode {
+    int data;
+    TreeNode left;   // ❌ エラー: 値メンバーとして自己参照は不可
+    TreeNode right;  // ❌ エラー
+} TreeNode;
+
+int main() {
+    TreeNode node;
+    node.data = 10;
+    return 0;
+}

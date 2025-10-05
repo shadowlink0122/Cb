@@ -1,0 +1,12 @@
+// 自己参照チェック（既にテスト済み）: Node -> Node (値メンバー)
+
+struct Node {
+    int value;
+    Node child;  // ❌ 値メンバーとして自己参照は不可
+};
+
+int main() {
+    Node n;
+    n.value = 10;
+    return 0;
+}

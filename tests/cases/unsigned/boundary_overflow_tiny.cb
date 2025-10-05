@@ -1,0 +1,6 @@
+int main() {
+    // tiny unsigned overflow (expected to fail)
+    unsigned tiny ut = 256;
+    println(ut);
+    return 0;
+}

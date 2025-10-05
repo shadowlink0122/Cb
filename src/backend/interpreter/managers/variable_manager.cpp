@@ -1,6 +1,7 @@
 #include "managers/variable_manager.h"
 #include "../../../common/debug_messages.h"
 #include "../../../common/debug.h"
+#include "../services/debug_service.h"
 #include "managers/array_manager.h"
 #include "managers/common_operations.h"
 #include "evaluator/expression_evaluator.h"
@@ -38,6 +39,13 @@ bool isPrimitiveType(const Variable *var) {
 
 std::string getPrimitiveTypeNameForImpl(TypeInfo type) {
     return std::string(type_info_to_string(type));
+}
+
+void setNumericFields(Variable &var, long double quad_value) {
+    var.quad_value = quad_value;
+    var.double_value = static_cast<double>(quad_value);
+    var.float_value = static_cast<float>(quad_value);
+    var.value = static_cast<int64_t>(quad_value);
 }
 
 } // namespace
@@ -102,6 +110,12 @@ Variable *VariableManager::find_variable(const std::string &name) {
     if (static_var) {
         return static_var;
     }
+    
+    // impl static変数から検索
+    Variable *impl_static_var = interpreter_->find_impl_static_variable(name);
+    if (impl_static_var) {
+        return impl_static_var;
+    }
 
     // std::cerr << "DEBUG: Variable " << name << " not found anywhere" <<
     // std::endl;
@@ -121,14 +135,22 @@ void VariableManager::assign_interface_view(const std::string &dest_name,
                                             const std::string &source_var_name) {
     std::string source_type_name = resolve_interface_source_type(source_var);
 
+    debug_print("ASSIGN_IFACE: About to call interface_impl_exists\n");
+    
     if (!interface_impl_exists(interface_var.interface_name, source_type_name)) {
         throw std::runtime_error("No impl found for interface '" + interface_var.interface_name +
                                  "' with type '" + source_type_name + "'");
     }
 
+    debug_print("ASSIGN_IFACE: interface_impl_exists returned true, continuing\n");
+
     if (!source_var_name.empty()) {
+        debug_print("ASSIGN_IFACE: About to call sync_struct_members_from_direct_access\n");
         interpreter_->sync_struct_members_from_direct_access(source_var_name);
+        debug_print("ASSIGN_IFACE: sync_struct_members_from_direct_access returned\n");
     }
+
+    debug_print("ASSIGN_IFACE: Proceeding with variable assignment\n");
 
     Variable assigned_var = std::move(interface_var);
     assigned_var.struct_type_name = source_type_name;
@@ -254,11 +276,48 @@ void VariableManager::assign_interface_view(const std::string &dest_name,
 
 bool VariableManager::interface_impl_exists(const std::string &interface_name,
                                             const std::string &struct_type_name) const {
+    if (interpreter_->debug_mode) {
+        debug_print("IMPL_SEARCH_BEFORE: About to call get_impl_definitions(), interpreter=%p\n", (void*)interpreter_);
+    }
+    
     const auto &impls = interpreter_->get_impl_definitions();
+    
+    if (interpreter_->debug_mode) {
+        debug_print("IMPL_SEARCH: Looking for interface='%s', struct_type='%s' (total impls=%zu, addr=%p, interpreter=%p)\n",
+                   interface_name.c_str(), struct_type_name.c_str(), impls.size(), (void*)&impls, (void*)interpreter_);
+        debug_print("IMPL_SEARCH: About to iterate over %zu impls\n", impls.size());
+    }
+    
+    size_t idx = 0;
     for (const auto &impl_def : impls) {
-        if (impl_def.interface_name == interface_name && impl_def.struct_name == struct_type_name) {
-            return true;
+        if (interpreter_->debug_mode) {
+            debug_print("IMPL_SEARCH: Iteration %zu, about to access impl_def fields\n", idx);
         }
+        
+        try {
+            std::string iface = impl_def.interface_name;
+            std::string sname = impl_def.struct_name;
+            
+            if (interpreter_->debug_mode) {
+                debug_print("IMPL_SEARCH: [%zu] interface='%s', struct='%s'\n",
+                           idx, iface.c_str(), sname.c_str());
+            }
+            
+            if (iface == interface_name && sname == struct_type_name) {
+                if (interpreter_->debug_mode) {
+                    debug_print("IMPL_SEARCH: MATCH FOUND at index %zu!\n", idx);
+                }
+                return true;
+            }
+        } catch (...) {
+            debug_print("IMPL_SEARCH: EXCEPTION at index %zu!\n", idx);
+            throw;
+        }
+        idx++;
+    }
+    
+    if (interpreter_->debug_mode) {
+        debug_print("IMPL_SEARCH: NO MATCH FOUND\n");
     }
     return false;
 }
@@ -298,6 +357,15 @@ std::string VariableManager::resolve_interface_source_type(const Variable &sourc
 }
 
 void VariableManager::declare_global_variable(const ASTNode *node) {
+
+    // 参照型変数の場合は、register時に宣言せず、execute時に処理する
+    if (node->is_reference) {
+        if (interpreter_->is_debug_mode()) {
+            std::cerr << "[VAR_MANAGER] Skipping reference variable registration: " 
+                      << node->name << " (will be created during execution)" << std::endl;
+        }
+        return;
+    }
 
     // グローバル変数の重複宣言チェック
     if (interpreter_->global_scope.variables.find(node->name) !=
@@ -403,6 +471,10 @@ void VariableManager::declare_global_variable(const ASTNode *node) {
         }
     }
 
+    var.is_reference = node->is_reference;
+    var.is_unsigned = node->is_unsigned;
+
+    var.is_unsigned = node->is_unsigned;
     var.is_const = node->is_const;
     var.is_assigned = false;
 
@@ -414,6 +486,18 @@ void VariableManager::declare_local_variable(const ASTNode *node) {
     Variable var;
     var.is_array = false;
     var.array_size = 0;
+
+    // ポインタ情報は最初に設定（型解決より前に処理）
+    if (node->is_pointer) {
+        var.is_pointer = true;
+        var.pointer_depth = node->pointer_depth;
+        var.pointer_base_type_name = node->pointer_base_type_name;
+        var.pointer_base_type = node->pointer_base_type;
+        var.type = TYPE_POINTER;
+        if (var.type_name.empty()) {
+            var.type_name = node->type_name;
+        }
+    }
 
     // typedef解決
     if (node->type_info == TYPE_UNKNOWN && !node->type_name.empty()) {
@@ -497,22 +581,33 @@ void VariableManager::declare_local_variable(const ASTNode *node) {
         } else {
             var.array_values.resize(var.array_size, 0);
         }
-    } else {
+    } else if (!node->is_pointer) {
+        // ポインタでない場合のみ型を設定
         var.type = node->type_info != TYPE_VOID ? node->type_info : TYPE_INT;
     }
 
+    var.is_unsigned = node->is_unsigned;
     var.is_const = node->is_const;
     var.is_assigned = false;
 
     // 初期値が指定されている場合は評価して設定
     if (node->children.size() > 0 && node->children[0]) {
-        int64_t value = interpreter_->evaluate(node->children[0].get());
+    int64_t value = interpreter_->evaluate(node->children[0].get());
+    if (var.is_unsigned && value < 0) {
+            DEBUG_WARN(VARIABLE,
+                       "Unsigned variable %s initialized with negative literal (%lld); clamping to 0",
+                       node->name.c_str(), static_cast<long long>(value));
+            value = 0;
+        }
         var.value = value;
         var.is_assigned = true;
 
-        // 型範囲チェック
-        interpreter_->type_manager_->check_type_range(var.type, value,
-                                                      node->name);
+        // 型範囲チェック（ポインタ型の場合はスキップ）
+        if (!var.is_pointer) {
+            interpreter_->type_manager_->check_type_range(var.type, value,
+                                                          node->name,
+                                                          var.is_unsigned);
+        }
     }
 
     current_scope().variables[node->name] = var;
@@ -520,90 +615,17 @@ void VariableManager::declare_local_variable(const ASTNode *node) {
 
 void VariableManager::assign_variable(const std::string &name, int64_t value,
                                       TypeInfo type, bool is_const) {
-    debug_msg(DebugMsgId::VAR_ASSIGN_READABLE, name.c_str(), value, "type",
-              is_const ? "true" : "false");
-
-    Variable *var = find_variable(name);
-    if (!var) {
-        Variable new_var;
-        new_var.type = (type != TYPE_UNKNOWN) ? type : TYPE_INT;
-        interpreter_->type_manager_->check_type_range(new_var.type, value,
-                                                      name);
-        new_var.value = value;
-        new_var.is_assigned = true;
-        new_var.is_const = is_const;
-        current_scope().variables[name] = new_var;
-        return;
-    }
-
-    if (var->is_const && var->is_assigned) {
-        std::fprintf(stderr, "Cannot reassign const variable: %s\n",
-                     name.c_str());
-        error_msg(DebugMsgId::CONST_REASSIGN_ERROR, name.c_str());
-        std::exit(1);
-    }
-
-    auto is_fixed_width_integral = [](TypeInfo t) {
-        switch (t) {
-        case TYPE_TINY:
-        case TYPE_SHORT:
-        case TYPE_INT:
-        case TYPE_LONG:
-        case TYPE_BOOL:
-        case TYPE_CHAR:
-            return true;
-        default:
-            return false;
-        }
-    };
-
-    TypeInfo target_type = var->type;
-    if (target_type == TYPE_UNKNOWN) {
-        target_type = (type != TYPE_UNKNOWN) ? type : TYPE_INT;
-    } else if (is_fixed_width_integral(target_type)) {
-        // Keep the original fixed-width integral type regardless of inferred type
-    } else if (type != TYPE_UNKNOWN) {
-        target_type = type;
-    }
-
-    if (target_type == TYPE_UNKNOWN) {
-        target_type = TYPE_INT;
-    }
-
-    interpreter_->type_manager_->check_type_range(target_type, value, name);
-
-    var->type = target_type;
-    var->value = value;
-    var->is_assigned = true;
-    if (is_const) {
-        var->is_const = true;
-    }
+    TypeInfo effective = (type != TYPE_UNKNOWN) ? type : TYPE_INT;
+    InferredType inferred(effective, type_info_to_string(effective));
+    TypedValue typed_value(value, inferred);
+    assign_variable(name, typed_value, type, is_const);
 }
 
 void VariableManager::assign_variable(const std::string &name,
                                       const std::string &value, bool is_const) {
-    debug_msg(DebugMsgId::STRING_ASSIGN_READABLE, name.c_str(), value.c_str(),
-              is_const ? "true" : "false");
-    Variable *var = find_variable(name);
-    if (!var) {
-        debug_msg(DebugMsgId::STRING_VAR_CREATE_NEW);
-        Variable new_var;
-        new_var.type = TYPE_STRING;
-        new_var.str_value = value;
-        new_var.is_assigned = true;
-        new_var.is_const = is_const;
-        current_scope().variables[name] = new_var;
-    } else {
-        debug_msg(DebugMsgId::EXISTING_STRING_VAR_ASSIGN_DEBUG);
-        if (var->is_const && var->is_assigned) {
-            std::fprintf(stderr, "Cannot reassign const variable: %s\n",
-                         name.c_str());
-            error_msg(DebugMsgId::CONST_REASSIGN_ERROR, name.c_str());
-            std::exit(1);
-        }
-        var->str_value = value;
-        var->is_assigned = true;
-    }
+    InferredType inferred(TYPE_STRING, "string");
+    TypedValue typed_value(value, inferred);
+    assign_variable(name, typed_value, TYPE_STRING, is_const);
 }
 
 void VariableManager::assign_variable(const std::string &name,
@@ -611,17 +633,356 @@ void VariableManager::assign_variable(const std::string &name,
     assign_variable(name, value, false);
 }
 
+void VariableManager::assign_variable(const std::string &name,
+                                      const TypedValue &typed_value,
+                                      TypeInfo type_hint, bool is_const) {
+    debug_msg(DebugMsgId::VAR_ASSIGN_READABLE, name.c_str(),
+              typed_value.is_numeric() ? typed_value.as_numeric() : 0, "type",
+              is_const ? "true" : "false");
+    
+    // 参照変数への代入の場合、参照先変数に代入
+    Variable* var = interpreter_->find_variable(name);
+    if (var && var->is_reference) {
+        Variable* target_var = reinterpret_cast<Variable*>(var->value);
+        if (!target_var) {
+            throw std::runtime_error("Invalid reference variable: " + name);
+        }
+        
+        if (interpreter_->is_debug_mode()) {
+            std::cerr << "[VAR_MANAGER] Reference assignment: " << name 
+                      << " -> target variable (value before: " << target_var->value << ")" << std::endl;
+        }
+        
+        // 参照先変数に代入（再帰呼び出し、ただし参照先の名前は不明なので直接代入）
+        if (typed_value.is_numeric()) {
+            int64_t numeric_value = typed_value.as_numeric();
+            target_var->value = numeric_value;
+            target_var->is_assigned = true;
+            if (target_var->type == TYPE_FLOAT || target_var->type == TYPE_DOUBLE || target_var->type == TYPE_QUAD) {
+                double double_val = typed_value.as_double();
+                if (target_var->type == TYPE_FLOAT) {
+                    target_var->float_value = static_cast<float>(double_val);
+                } else if (target_var->type == TYPE_DOUBLE) {
+                    target_var->double_value = double_val;
+                } else {
+                    target_var->quad_value = static_cast<long double>(double_val);
+                }
+            }
+        } else if (typed_value.is_string()) {
+            target_var->str_value = typed_value.string_value;
+            target_var->is_assigned = true;
+        } else if (typed_value.is_struct()) {
+            if (typed_value.struct_data) {
+                bool was_const = target_var->is_const;
+                bool was_unsigned = target_var->is_unsigned;
+                *target_var = *typed_value.struct_data;
+                target_var->is_const = was_const;
+                target_var->is_unsigned = was_unsigned;
+                target_var->is_assigned = true;
+            }
+        }
+        return;
+    }
+    
+    if (interpreter_->is_debug_mode() && name == "ptr") {
+        std::cerr << "[VAR_MANAGER] assign_variable called for ptr:" << std::endl;
+        std::cerr << "  type_hint=" << static_cast<int>(type_hint) << " (TYPE_POINTER=" << static_cast<int>(TYPE_POINTER) << ")" << std::endl;
+        std::cerr << "  typed_value.value=" << typed_value.value << " (0x" << std::hex << typed_value.value << std::dec << ")" << std::endl;
+        std::cerr << "  typed_value.numeric_type=" << static_cast<int>(typed_value.numeric_type) << std::endl;
+    }
+
+    auto apply_assignment = [&](Variable &target, bool allow_type_override) {
+        auto clamp_unsigned = [&](int64_t &numeric_value) {
+            if (!target.is_unsigned || numeric_value >= 0) {
+                return;
+            }
+            DEBUG_WARN(VARIABLE,
+                       "Unsigned variable %s received negative assignment (%lld); clamping to 0",
+                       name.c_str(), static_cast<long long>(numeric_value));
+            numeric_value = 0;
+        };
+
+        // 関数ポインタの代入処理
+        if (typed_value.is_function_pointer) {
+            target.value = typed_value.value;
+            target.is_function_pointer = true;
+            target.is_assigned = true;
+            
+            // function_pointersマップに登録
+            FunctionPointer func_ptr(typed_value.function_pointer_node, typed_value.function_pointer_name, typed_value.function_pointer_node->type_info);
+            interpreter_->current_scope().function_pointers[name] = func_ptr;
+            
+            if (interpreter_->is_debug_mode()) {
+                std::cerr << "[VAR_MANAGER] Assigned function pointer: " << name 
+                          << " -> " << typed_value.function_pointer_name << std::endl;
+            }
+            return;
+        }
+
+        if (typed_value.is_struct()) {
+            if (typed_value.struct_data) {
+                bool was_const = target.is_const;
+                bool was_unsigned = target.is_unsigned;
+                target = *typed_value.struct_data;
+                target.is_const = was_const;
+                target.is_unsigned = was_unsigned;
+                target.is_assigned = true;
+                // 構造体戻り値や代入で生成された最新のメンバー状態を
+                // ダイレクトアクセス変数にも反映させる
+                interpreter_->sync_direct_access_from_struct_value(
+                    name, target);
+            }
+            return;
+        }
+
+        if (typed_value.is_string()) {
+            if (allow_type_override || target.type == TYPE_UNKNOWN ||
+                target.type == TYPE_STRING) {
+                target.type = TYPE_STRING;
+            }
+            target.str_value = typed_value.string_value;
+            target.value = 0;
+            target.float_value = 0.0f;
+            target.double_value = 0.0;
+            target.quad_value = 0.0L;
+            target.big_value = 0;
+            target.is_assigned = true;
+            return;
+        }
+
+        // 非数値でもここまで来た場合は0として扱う
+        if (!typed_value.is_numeric()) {
+            setNumericFields(target, 0.0L);
+            target.big_value = 0;
+            target.str_value.clear();
+            target.is_assigned = true;
+            return;
+        }
+
+        TypeInfo resolved_type = type_hint;
+        if (resolved_type == TYPE_UNKNOWN) {
+            if (!allow_type_override && target.type != TYPE_UNKNOWN &&
+                target.type != TYPE_UNION && target.type != TYPE_INTERFACE &&
+                target.type != TYPE_STRUCT && target.type < TYPE_ARRAY_BASE) {
+                resolved_type = target.type;
+            } else if (typed_value.numeric_type != TYPE_UNKNOWN) {
+                resolved_type = typed_value.numeric_type;
+            } else if (typed_value.type.type_info != TYPE_UNKNOWN) {
+                resolved_type = typed_value.type.type_info;
+            }
+        }
+        if (resolved_type == TYPE_UNKNOWN) {
+            resolved_type = (!allow_type_override && target.type != TYPE_UNKNOWN)
+                                ? target.type
+                                : TYPE_INT;
+        }
+        
+        if (interpreter_->is_debug_mode() && (type_hint == TYPE_POINTER || target.type == TYPE_POINTER || typed_value.numeric_type == TYPE_POINTER)) {
+            std::cerr << "[VAR_MANAGER] Pointer assignment detected for variable:" << std::endl;
+            std::cerr << "  type_hint=" << static_cast<int>(type_hint) << std::endl;
+            std::cerr << "  target.type=" << static_cast<int>(target.type) << std::endl;
+            std::cerr << "  resolved_type=" << static_cast<int>(resolved_type) << std::endl;
+            std::cerr << "  typed_value.numeric_type=" << static_cast<int>(typed_value.numeric_type) << std::endl;
+            std::cerr << "  TYPE_POINTER=" << static_cast<int>(TYPE_POINTER) << std::endl;
+        }
+
+        if ((allow_type_override || target.type == TYPE_UNKNOWN) &&
+            target.type != TYPE_UNION) {
+            target.type = resolved_type;
+        }
+
+        if (target.type == TYPE_UNION) {
+            target.current_type = resolved_type;
+        }
+
+        target.str_value.clear();
+        target.big_value = 0;
+
+        if (resolved_type == TYPE_FLOAT) {
+            long double quad_val = typed_value.as_quad();
+            float f = static_cast<float>(quad_val);
+            target.float_value = f;
+            target.double_value = static_cast<double>(f);
+            target.quad_value = static_cast<long double>(f);
+            target.value = static_cast<int64_t>(f);
+        } else if (resolved_type == TYPE_DOUBLE) {
+            long double quad_val = typed_value.as_quad();
+            double d = static_cast<double>(quad_val);
+            target.float_value = static_cast<float>(d);
+            target.double_value = d;
+            target.quad_value = static_cast<long double>(d);
+            target.value = static_cast<int64_t>(d);
+        } else if (resolved_type == TYPE_QUAD) {
+            long double q = typed_value.as_quad();
+            target.float_value = static_cast<float>(q);
+            target.double_value = static_cast<double>(q);
+            target.quad_value = q;
+            target.value = static_cast<int64_t>(q);
+        } else if (resolved_type == TYPE_STRING) {
+            target.type = TYPE_STRING;
+            target.str_value = typed_value.as_string();
+            target.value = 0;
+            target.float_value = 0.0f;
+            target.double_value = 0.0;
+            target.quad_value = 0.0L;
+        } else {
+            int64_t numeric_value = typed_value.as_numeric();
+            if (resolved_type == TYPE_BOOL) {
+                numeric_value = (numeric_value != 0) ? 1 : 0;
+            }
+            clamp_unsigned(numeric_value);
+            if (interpreter_->is_debug_mode()) {
+                debug_print("ASSIGN_DEBUG: name=%s target_type=%d resolved_type=%d numeric_value=%lld allow_override=%d\n",
+                            name.c_str(), static_cast<int>(target.type), static_cast<int>(resolved_type),
+                            static_cast<long long>(numeric_value), allow_type_override ? 1 : 0);
+            }
+            TypeInfo range_check_type = resolved_type;
+            if (target.type != TYPE_UNKNOWN && target.type != TYPE_UNION &&
+                target.type != TYPE_INTERFACE && target.type != TYPE_STRUCT &&
+                target.type < TYPE_ARRAY_BASE) {
+                range_check_type = target.type;
+            }
+
+            // ポインタ型は精度損失を避けるため、long double経由のキャストをスキップ
+            // typed_value.numeric_typeもチェック（評価時に設定される型情報）
+            // target.is_pointerもチェック（unsigned int* のような型の場合）
+            if (resolved_type == TYPE_POINTER || typed_value.numeric_type == TYPE_POINTER || 
+                target.type == TYPE_POINTER || target.is_pointer) {
+                target.value = numeric_value;
+                target.float_value = 0.0f;
+                target.double_value = 0.0;
+                target.quad_value = 0.0L;
+                if (interpreter_->is_debug_mode()) {
+                    std::cerr << "[VAR_MANAGER] Assigned pointer value to " << name 
+                              << ": " << numeric_value << " (0x" << std::hex << numeric_value << std::dec << ")" << std::endl;
+                }
+            } else {
+                interpreter_->type_manager_->check_type_range(range_check_type,
+                                                              numeric_value, name,
+                                                              target.is_unsigned);
+                setNumericFields(target, static_cast<long double>(numeric_value));
+            }
+        }
+
+        target.is_assigned = true;
+    };
+
+    Variable *existing_var = find_variable(name);
+    if (!existing_var) {
+        Variable new_var;
+        apply_assignment(new_var, true);
+        new_var.is_const = is_const;
+        current_scope().variables[name] = new_var;
+        return;
+    }
+
+    if (existing_var->is_const && existing_var->is_assigned) {
+        std::fprintf(stderr, "Cannot reassign const variable: %s\n",
+                     name.c_str());
+        error_msg(DebugMsgId::CONST_REASSIGN_ERROR, name.c_str());
+        std::exit(1);
+    }
+
+    apply_assignment(*existing_var, false);
+    if (is_const) {
+        existing_var->is_const = true;
+    }
+}
+
 void VariableManager::assign_function_parameter(const std::string &name,
                                                 int64_t value,
-                                                TypeInfo type) {
-    TypeInfo target_type = type != TYPE_UNKNOWN ? type : TYPE_INT;
-    interpreter_->type_manager_->check_type_range(target_type, value, name);
+                                                TypeInfo type,
+                                                bool is_unsigned) {
+    TypeInfo effective = type != TYPE_UNKNOWN ? type : TYPE_INT;
+    InferredType inferred(effective, type_info_to_string(effective));
+    TypedValue typed_value(value, inferred);
+    assign_function_parameter(name, typed_value, type, is_unsigned);
+}
 
-    Variable param_var;
-    param_var.type = target_type;
-    param_var.value = value;
-    param_var.is_assigned = true;
-    current_scope().variables[name] = param_var;
+void VariableManager::assign_function_parameter(const std::string &name,
+                                                const TypedValue &value,
+                                                TypeInfo type,
+                                                bool is_unsigned) {
+    Scope &scope = current_scope();
+    auto iter = scope.variables.find(name);
+    if (iter == scope.variables.end()) {
+        Variable placeholder;
+        placeholder.type = TYPE_UNKNOWN;
+        placeholder.is_unsigned = is_unsigned;
+        placeholder.is_assigned = false;
+        iter = scope.variables.emplace(name, placeholder).first;
+    } else {
+        iter->second.is_assigned = false;
+        iter->second.is_unsigned = is_unsigned;
+    }
+
+    // 関数ポインタ型のパラメータの場合、function_pointersマップにも登録
+    if (type == TYPE_POINTER) {
+        // 全てのスコープのfunction_pointersから関数ポインタ値に一致するものを探す
+        bool found = false;
+        
+        // まず現在のスコープを検索
+        for (const auto& pair : scope.function_pointers) {
+            Variable* source_var = interpreter_->find_variable(pair.first);
+            if (source_var && source_var->value == value.value) {
+                scope.function_pointers[name] = pair.second;
+                if (interpreter_->debug_mode) {
+                    std::cerr << "[VAR_MANAGER] Registered function pointer parameter (local): " 
+                              << name << " -> " << pair.second.function_name << std::endl;
+                }
+                found = true;
+                break;
+            }
+        }
+        
+        // グローバルスコープも検索
+        if (!found) {
+            auto& global_func_ptrs = interpreter_->get_global_scope().function_pointers;
+            for (const auto& pair : global_func_ptrs) {
+                Variable* source_var = interpreter_->find_variable(pair.first);
+                if (source_var && source_var->value == value.value) {
+                    scope.function_pointers[name] = pair.second;
+                    if (interpreter_->debug_mode) {
+                        std::cerr << "[VAR_MANAGER] Registered function pointer parameter (global): " 
+                                  << name << " -> " << pair.second.function_name << std::endl;
+                    }
+                    found = true;
+                    break;
+                }
+            }
+        }
+        
+        // それでも見つからない場合、親スコープから呼び出し元の変数を探す
+        if (!found && interpreter_->scope_stack.size() >= 2) {
+            // 1つ前のスコープ（呼び出し元）を見る
+            auto& parent_scope = interpreter_->scope_stack[interpreter_->scope_stack.size() - 2];
+            for (const auto& pair : parent_scope.function_pointers) {
+                Variable* source_var = nullptr;
+                // 親スコープの変数を探す
+                auto var_it = parent_scope.variables.find(pair.first);
+                if (var_it != parent_scope.variables.end()) {
+                    source_var = &(var_it->second);
+                }
+                if (source_var && source_var->value == value.value) {
+                    scope.function_pointers[name] = pair.second;
+                    if (interpreter_->debug_mode) {
+                        std::cerr << "[VAR_MANAGER] Registered function pointer parameter (parent): " 
+                                  << name << " -> " << pair.second.function_name << std::endl;
+                    }
+                    found = true;
+                    break;
+                }
+            }
+        }
+    }
+
+    assign_variable(name, value, type, false);
+
+    if (auto updated_iter = scope.variables.find(name); updated_iter != scope.variables.end()) {
+        updated_iter->second.is_unsigned = is_unsigned;
+    } else if (Variable *updated_var = find_variable(name)) {
+        updated_var->is_unsigned = is_unsigned;
+    }
 }
 
 void VariableManager::assign_array_parameter(const std::string &name,
@@ -640,6 +1001,8 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                    node->name.c_str(), static_cast<int>(node->node_type));
         debug_print("VAR_DEBUG: type_info=%d, type_name='%s'\n", 
                    static_cast<int>(node->type_info), node->type_name.c_str());
+        debug_print("VAR_DEBUG: node->is_unsigned=%d\n", node->is_unsigned ? 1 : 0);
+        debug_print("VAR_DEBUG: node->is_reference=%d\n", node->is_reference ? 1 : 0);
         
         std::string resolved = interpreter_->type_manager_->resolve_typedef(node->type_name);
         debug_print("VAR_DEBUG: resolve_typedef('%s') = '%s'\n", 
@@ -647,14 +1010,182 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
         debug_print("VAR_DEBUG: condition check: !empty=%d, resolved!=original=%d\n", 
                    !node->type_name.empty(), resolved != node->type_name);
     }
+
+    // 関数ポインタの早期チェック（evaluate前に処理）
+    if (node->node_type == ASTNodeType::AST_VAR_DECL && node->type_info == TYPE_POINTER) {
+        if (interpreter_->debug_mode) {
+            std::cerr << "[VAR_MANAGER] Checking if pointer is function pointer" << std::endl;
+        }
+        ASTNode* init_node = node->init_expr ? node->init_expr.get() : (node->right ? node->right.get() : nullptr);
+        if (interpreter_->debug_mode && init_node) {
+            std::cerr << "[VAR_MANAGER] Init node exists: type=" << static_cast<int>(init_node->node_type)
+                      << ", op=" << init_node->op 
+                      << ", is_function_address=" << init_node->is_function_address << std::endl;
+        }
+        if (init_node && 
+            init_node->node_type == ASTNodeType::AST_UNARY_OP && 
+            init_node->op == "ADDRESS_OF" && 
+            init_node->is_function_address) {
+            
+            std::string func_name = init_node->function_address_name;
+            const ASTNode* func_node = interpreter_->find_function(func_name);
+            
+            // 関数が見つかった場合のみ関数ポインタとして処理
+            if (func_node) {
+                // 関数ポインタ変数を作成
+                Variable var;
+                var.is_function_pointer = true;
+                var.function_pointer_name = func_name;
+                var.type = TYPE_POINTER;  // ポインタ型として扱う
+                var.is_assigned = true;
+                var.is_const = node->is_const;
+                // 関数ノードの実際のメモリアドレスを値として格納
+                var.value = reinterpret_cast<int64_t>(func_node);
+                
+                // 変数を登録
+                current_scope().variables[node->name] = var;
+                
+                // FunctionPointerを登録
+                FunctionPointer func_ptr(func_node, func_name, func_node->type_info);
+                interpreter_->current_scope().function_pointers[node->name] = func_ptr;
+                
+                if (interpreter_->debug_mode) {
+                    std::cerr << "[VAR_MANAGER] Registered function pointer (early): " << node->name 
+                              << " -> " << func_name << std::endl;
+                }
+                
+                return;  // 処理完了、以降の処理をスキップ
+            }
+            // 関数が見つからない場合は通常の変数アドレスとして処理を継続
+            if (interpreter_->debug_mode) {
+                std::cerr << "[VAR_MANAGER] Not a function, treating as variable address: " << func_name << std::endl;
+            }
+        }
+    }
+
+    // 参照型変数の特別処理
+    if (node->is_reference && node->node_type == ASTNodeType::AST_VAR_DECL) {
+        if (interpreter_->is_debug_mode()) {
+            std::cerr << "[VAR_MANAGER] Processing reference variable: " << node->name << std::endl;
+        }
+        
+        // 参照は必ず初期化が必要
+        if (!node->init_expr && !node->right) {
+            throw std::runtime_error("Reference variable '" + node->name + "' must be initialized");
+        }
+        
+        // 初期化式を評価して参照先変数を取得
+        ASTNode* init_node = node->init_expr ? node->init_expr.get() : node->right.get();
+        
+        // 関数呼び出しの場合、ReturnExceptionから参照を取得
+        if (init_node->node_type == ASTNodeType::AST_FUNC_CALL) {
+            try {
+                interpreter_->expression_evaluator_->evaluate_expression(init_node);
+                throw std::runtime_error("Function did not return via exception");
+            } catch (const ReturnException& ret) {
+                if (!ret.is_reference || !ret.reference_target) {
+                    throw std::runtime_error("Function '" + init_node->name + "' does not return a reference");
+                }
+                
+                Variable* target_var = ret.reference_target;
+                
+                if (interpreter_->is_debug_mode()) {
+                    std::cerr << "[VAR_MANAGER] Creating reference " << node->name 
+                              << " from function return (value: " << target_var->value << ")" << std::endl;
+                }
+                
+                // 参照変数を作成
+                Variable ref_var;
+                ref_var.is_reference = true;
+                ref_var.type = target_var->type;
+                ref_var.is_const = node->is_const;
+                ref_var.is_array = target_var->is_array;
+                ref_var.is_unsigned = target_var->is_unsigned;
+                ref_var.is_struct = target_var->is_struct;
+                ref_var.struct_type_name = target_var->struct_type_name;
+                
+                // 参照先変数のポインタを値として保存
+                ref_var.value = reinterpret_cast<int64_t>(target_var);
+                ref_var.is_assigned = true;
+                
+                current_scope().variables[node->name] = ref_var;
+                return;
+            }
+        }
+        
+        // 参照先が変数でなければエラー
+        if (init_node->node_type != ASTNodeType::AST_VARIABLE) {
+            throw std::runtime_error("Reference variable '" + node->name + "' must be initialized with a variable");
+        }
+        
+        std::string target_var_name = init_node->name;
+        
+        // 参照先変数が存在するかチェック
+        Variable* target_var = find_variable(target_var_name);
+        if (!target_var) {
+            throw std::runtime_error("Reference target variable '" + target_var_name + "' not found");
+        }
+        
+        // 参照先変数が参照型の場合、さらにデリファレンス
+        if (target_var->is_reference) {
+            target_var = reinterpret_cast<Variable*>(target_var->value);
+            if (!target_var) {
+                throw std::runtime_error("Invalid reference chain for variable: " + target_var_name);
+            }
+        }
+        
+        if (interpreter_->is_debug_mode()) {
+            std::cerr << "[VAR_MANAGER] Creating reference " << node->name 
+                      << " -> " << target_var_name << " (value: " << target_var->value << ")" << std::endl;
+        }
+        
+        // 参照変数を作成
+        Variable ref_var;
+        ref_var.is_reference = true;
+        ref_var.type = target_var->type;
+        ref_var.is_const = node->is_const;
+        ref_var.is_array = target_var->is_array;
+        ref_var.is_unsigned = target_var->is_unsigned;
+        ref_var.is_struct = target_var->is_struct;
+        ref_var.struct_type_name = target_var->struct_type_name;
+        
+        // 参照先変数のポインタを値として保存
+        ref_var.value = reinterpret_cast<int64_t>(target_var);
+        ref_var.is_assigned = true;
+        
+        current_scope().variables[node->name] = ref_var;
+        return;
+    }
+
+    auto clamp_unsigned_initial = [&](Variable &target, int64_t &value,
+                                      const char *context) {
+        if (!target.is_unsigned || value >= 0) {
+            return;
+        }
+        const char *var_name = node ? node->name.c_str() : "<anonymous>";
+        DEBUG_WARN(VARIABLE,
+                   "Unsigned variable %s %s negative value (%lld); clamping to 0",
+                   var_name, context, static_cast<long long>(value));
+        value = 0;
+    };
     if (node->node_type == ASTNodeType::AST_VAR_DECL) {
         // 変数宣言の処理
         Variable var;
-        var.type = node->type_info;
+        // ポインタ型の場合はTYPE_POINTERを設定
+        if (node->is_pointer) {
+            var.type = TYPE_POINTER;
+            var.is_pointer = true;
+            var.pointer_depth = node->pointer_depth;
+            var.pointer_base_type = node->pointer_base_type;
+            var.pointer_base_type_name = node->pointer_base_type_name;
+        } else {
+            var.type = node->type_info;
+        }
         var.is_const = node->is_const;
         var.is_assigned = false;
         var.is_array = false;
         var.array_size = 0;
+    var.is_unsigned = node->is_unsigned;
         
         // struct変数の場合の追加設定
         if (node->type_info == TYPE_STRUCT && !node->type_name.empty()) {
@@ -663,8 +1194,15 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
         }
         
         // interface変数の場合の追加設定
-        if (node->type_info == TYPE_INTERFACE && !node->type_name.empty()) {
-            var.interface_name = node->type_name;
+        if ((node->type_info == TYPE_INTERFACE || 
+             (node->is_pointer && node->pointer_base_type == TYPE_INTERFACE)) && 
+            !node->type_name.empty()) {
+            // ポインタの場合は、ベース型名を使用
+            if (node->is_pointer && !node->pointer_base_type_name.empty()) {
+                var.interface_name = node->pointer_base_type_name;
+            } else {
+                var.interface_name = node->type_name;
+            }
         }
 
         // 新しいArrayTypeInfoが設定されている場合の処理
@@ -730,6 +1268,11 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                     } else {
                         var.array_values.resize(total_size, 0);
                     }
+                }
+
+                // 配列も符号無し指定を保持
+                if (node->is_unsigned) {
+                    var.is_unsigned = true;
                 }
             }
         }
@@ -1077,16 +1620,40 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                     // その他の初期化
                     try {
                         int64_t value = interpreter_->expression_evaluator_->evaluate_expression(init_node);
+                        clamp_unsigned_initial(var, value,
+                                               "initialized with expression");
                         var.value = value;
                         var.is_assigned = true;
                         
-                        // 型範囲チェック
-                        if (var.type != TYPE_STRING) {
-                            interpreter_->type_manager_->check_type_range(var.type, var.value, node->name);
+                        if (interpreter_->is_debug_mode() && node->name == "ptr") {
+                            std::cerr << "[VAR_MANAGER] Pointer variable initialized:" << std::endl;
+                            std::cerr << "  value=" << value << " (0x" << std::hex << value << std::dec << ")" << std::endl;
+                            std::cerr << "  var.value=" << var.value << " (0x" << std::hex << var.value << std::dec << ")" << std::endl;
+                            std::cerr << "  var.type=" << static_cast<int>(var.type) << std::endl;
+                        }
+                        
+                        // 型範囲チェック（ポインタ型は除外）
+                        if (var.type != TYPE_STRING && var.type != TYPE_POINTER) {
+                            interpreter_->type_manager_->check_type_range(
+                                var.type, var.value, node->name,
+                                var.is_unsigned);
                         }
                     } catch (const ReturnException &ret) {
                         // 関数戻り値の処理
-                        if (var.type == TYPE_STRING && ret.type == TYPE_STRING) {
+                        if (ret.is_function_pointer) {
+                            // 関数ポインタ戻り値の場合
+                            if (debug_mode) {
+                                std::cerr << "[VAR_MANAGER] Function pointer return: " << ret.function_pointer_name 
+                                         << " -> " << ret.value << std::endl;
+                            }
+                            var.value = ret.value;
+                            var.is_assigned = true;
+                            var.is_function_pointer = true;
+                            
+                            // function_pointersマップに登録
+                            FunctionPointer func_ptr(ret.function_pointer_node, ret.function_pointer_name, ret.function_pointer_node->type_info);
+                            interpreter_->current_scope().function_pointers[node->name] = func_ptr;
+                        } else if (var.type == TYPE_STRING && ret.type == TYPE_STRING) {
                             // 文字列戻り値の場合
                             var.str_value = ret.str_value;
                             var.is_assigned = true;
@@ -1110,12 +1677,17 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                             }
                         } else if (!ret.is_array && !ret.is_struct) {
                             // 数値戻り値の場合
-                            var.value = ret.value;
+                            int64_t numeric_value = ret.value;
+                            clamp_unsigned_initial(var, numeric_value,
+                                                   "initialized with function return");
+                            var.value = numeric_value;
                             var.is_assigned = true;
                             
                             // 型範囲チェック
                             if (var.type != TYPE_STRING) {
-                                interpreter_->type_manager_->check_type_range(var.type, var.value, node->name);
+                                interpreter_->type_manager_->check_type_range(
+                                    var.type, var.value, node->name,
+                                    var.is_unsigned);
                             }
                         } else {
                             throw std::runtime_error("Incompatible return type for typedef variable '" + node->name + "'");
@@ -1146,26 +1718,88 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
             std::string resolved_struct_type = interpreter_->type_manager_->resolve_typedef(node->type_name);
             var.struct_type_name = resolved_struct_type;
 
-            // 構造体配列かどうかをチェック（型名に[サイズ]が含まれている場合）
+            // 構造体配列かどうかをチェック
             std::string base_struct_type = resolved_struct_type;
             bool is_struct_array = false;
             int struct_array_size = 0;
+            std::vector<int> struct_array_dimensions;
 
-            size_t bracket_pos = resolved_struct_type.find("[");
-            if (bracket_pos != std::string::npos) {
+            // まずASTの配列情報を優先的に確認
+            if (node->array_type_info.is_array()) {
                 is_struct_array = true;
-                base_struct_type = resolved_struct_type.substr(0, bracket_pos);
+                var.is_array = true;
+                var.is_multidimensional =
+                    node->array_type_info.dimensions.size() > 1;
 
-                size_t close_bracket_pos = resolved_struct_type.find("]");
-                if (close_bracket_pos != std::string::npos) {
-                    std::string size_str = resolved_struct_type.substr(
-                        bracket_pos + 1, close_bracket_pos - bracket_pos - 1);
-                    struct_array_size = std::stoi(size_str);
+                for (const auto &dim : node->array_type_info.dimensions) {
+                    if (dim.is_dynamic || dim.size < 0) {
+                        struct_array_dimensions.push_back(0);
+                    } else {
+                        struct_array_dimensions.push_back(dim.size);
+                    }
                 }
 
+                if (!struct_array_dimensions.empty() &&
+                    struct_array_dimensions[0] > 0) {
+                    struct_array_size = struct_array_dimensions[0];
+                }
+            } else if (node->is_array || node->array_size >= 0 ||
+                       !node->array_dimensions.empty()) {
+                is_struct_array = true;
                 var.is_array = true;
-                var.array_size = struct_array_size;
-                var.array_dimensions.push_back(struct_array_size);
+
+                int declared_size = node->array_size;
+                if (declared_size < 0 && !node->array_dimensions.empty()) {
+                    // array_dimensionsにはサイズ式が格納される場合があるが、
+                    // 現状では定数サイズのみ対応
+                    const ASTNode *size_node = node->array_dimensions[0].get();
+                    if (size_node && size_node->node_type == ASTNodeType::AST_NUMBER) {
+                        declared_size = static_cast<int>(size_node->int_value);
+                    }
+                }
+
+                if (declared_size >= 0) {
+                    struct_array_size = declared_size;
+                    struct_array_dimensions.push_back(declared_size);
+                }
+            }
+
+            // 互換性のため、型名に配列表記が含まれる場合も処理
+            if (!is_struct_array) {
+                size_t bracket_pos = resolved_struct_type.find("[");
+                if (bracket_pos != std::string::npos) {
+                    is_struct_array = true;
+                    base_struct_type =
+                        resolved_struct_type.substr(0, bracket_pos);
+
+                    size_t close_bracket_pos =
+                        resolved_struct_type.find("]", bracket_pos);
+                    if (close_bracket_pos != std::string::npos) {
+                        std::string size_str = resolved_struct_type.substr(
+                            bracket_pos + 1,
+                            close_bracket_pos - bracket_pos - 1);
+                        if (!size_str.empty()) {
+                            struct_array_size = std::stoi(size_str);
+                            struct_array_dimensions.push_back(struct_array_size);
+                        }
+                    }
+
+                    var.is_array = true;
+                }
+            }
+
+            if (is_struct_array) {
+                if (!struct_array_dimensions.empty()) {
+                    var.array_dimensions = struct_array_dimensions;
+                    if (!var.is_multidimensional &&
+                        var.array_dimensions.size() > 1) {
+                        var.is_multidimensional = true;
+                    }
+                }
+
+                if (struct_array_size > 0) {
+                    var.array_size = struct_array_size;
+                }
             }
 
             // struct定義を取得してメンバ変数を初期化
@@ -1203,7 +1837,13 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                             member_var.pointer_depth = member.pointer_depth;
                             member_var.pointer_base_type_name = member.pointer_base_type_name;
                             member_var.pointer_base_type = member.pointer_base_type;
+                            member_var.is_reference = member.is_reference;
+                            member_var.is_unsigned = member.is_unsigned;
                             member_var.is_private_member = member.is_private;
+                            
+                            // 構造体配列自体がconstの場合、すべてのメンバーをconstにする
+                            // また、メンバー定義でconstが指定されている場合もconstにする
+                            member_var.is_const = node->is_const || member.is_const;
 
                             // デフォルト値を設定
                             if (member_var.type == TYPE_STRING) {
@@ -1230,7 +1870,13 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                         member_var.pointer_depth = member.pointer_depth;
                         member_var.pointer_base_type_name = member.pointer_base_type_name;
                         member_var.pointer_base_type = member.pointer_base_type;
+                        member_var.is_reference = member.is_reference;
+                        member_var.is_unsigned = member.is_unsigned;
                         member_var.is_private_member = member.is_private;
+                        
+                        // 構造体変数自体がconstの場合、すべてのメンバーをconstにする
+                        // また、メンバー定義でconstが指定されている場合もconstにする
+                        member_var.is_const = node->is_const || member.is_const;
 
                         // 配列メンバーの場合
                         if (member.array_info.is_array()) {
@@ -1341,16 +1987,85 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                                     std::to_string(i) + "]";
                                 Variable element_var;
                                 element_var.type = member.type;
-                                element_var.value = 0;
-                                element_var.str_value = "";
                                 element_var.is_assigned = false;
-                                this->current_scope().variables[element_name] =
-                                    element_var;
+                                element_var.is_const = node->is_const || member.is_const;
+                                
+                                // 配列の要素型を取得
+                                TypeInfo element_type_info = member.array_info.base_type;
+                                std::string element_type_alias = member.type_alias;
+                                
+                                // type_aliasから配列のサイズ情報を削除（例: "Point[3]" -> "Point"）
+                                size_t bracket_pos = element_type_alias.find('[');
+                                if (bracket_pos != std::string::npos) {
+                                    element_type_alias = element_type_alias.substr(0, bracket_pos);
+                                }
+                                
+                                if (interpreter_->debug_mode) {
+                                    debug_print("Processing array element %d: element_type=%d, TYPE_STRUCT=%d, type_alias='%s'\n",
+                                               i, (int)element_type_info, (int)TYPE_STRUCT, element_type_alias.c_str());
+                                }
+                                
+                                // 構造体型の配列要素の場合
+                                if (element_type_info == TYPE_STRUCT && !element_type_alias.empty()) {
+                                    element_var.type = TYPE_STRUCT;  // 要素の型を正しく設定
+                                    element_var.is_struct = true;
+                                    element_var.struct_type_name = element_type_alias;
+                                    
+                                    if (interpreter_->debug_mode) {
+                                        debug_print("Creating struct array element: %s of type %s\n",
+                                                   element_name.c_str(), element_type_alias.c_str());
+                                    }
+                                    
+                                    // 構造体定義を取得してメンバーを初期化
+                                    std::string resolved_type = interpreter_->type_manager_->resolve_typedef(element_type_alias);
+                                    const StructDefinition* element_struct_def = interpreter_->find_struct_definition(resolved_type);
+                                    
+                                    if (element_struct_def) {
+                                        for (const auto& element_member : element_struct_def->members) {
+                                            Variable element_member_var;
+                                            element_member_var.type = element_member.type;
+                                            element_member_var.is_unsigned = element_member.is_unsigned;
+                                            element_member_var.is_private_member = element_member.is_private;
+                                            element_member_var.is_assigned = false;
+                                            element_member_var.is_const = element_var.is_const || element_member.is_const;
+                                            
+                                            if (element_member_var.type == TYPE_STRING) {
+                                                element_member_var.str_value = "";
+                                            } else {
+                                                element_member_var.value = 0;
+                                            }
+                                            
+                                            element_var.struct_members[element_member.name] = element_member_var;
+                                            
+                                            // メンバーの直接アクセス用変数も作成
+                                            std::string member_path = element_name + "." + element_member.name;
+                                            this->current_scope().variables[member_path] = element_member_var;
+                                        }
+                                        
+                                        if (interpreter_->debug_mode) {
+                                            debug_print("Initialized struct array element with %zu members\n",
+                                                       element_var.struct_members.size());
+                                        }
+                                    }
+                                } else {
+                                    // プリミティブ型の配列要素
+                                    element_var.value = 0;
+                                    element_var.str_value = "";
+                                }
+                                
+                                this->current_scope().variables[element_name] = element_var;
+                                
+                                // 親構造体のstruct_membersにも配列要素を追加
+                                // element_nameは "structName.arrayName[i]" の形式なので、
+                                // キーは "arrayName[i]" にする
+                                std::string element_key = member.name + "[" + std::to_string(i) + "]";
+                                var.struct_members[element_key] = element_var;
 
                                 if (interpreter_->debug_mode) {
-                                    debug_print("Created struct member array "
-                                                "element: %s\n",
-                                                element_name.c_str());
+                                    debug_print("Created struct member array element: %s (key: %s), is_struct=%s, members=%zu\n",
+                                                element_name.c_str(), element_key.c_str(),
+                                                element_var.is_struct ? "true" : "false",
+                                                element_var.struct_members.size());
                                 }
                             }
 
@@ -1387,6 +2102,12 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                                 member_var.value = 0;
                             }
                             member_var.is_assigned = false;
+                            
+                            // 構造体メンバの場合、is_structフラグと型名を設定
+                            if (member_var.type == TYPE_STRUCT && !member.type_alias.empty()) {
+                                member_var.is_struct = true;
+                                member_var.struct_type_name = member.type_alias;
+                            }
 
                             var.struct_members[member.name] = member_var;
                         }
@@ -1397,6 +2118,18 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                         Variable member_direct_var = member_var;
                         current_scope().variables[member_path] =
                             member_direct_var;
+                        
+                        // 構造体メンバの場合、再帰的にサブメンバーの個別変数を作成
+                        // 注意: var.struct_members[member.name]への参照を使用して再帰呼び出し
+                        if (member.type == TYPE_STRUCT && !member.type_alias.empty()) {
+                            if (interpreter_->debug_mode) {
+                                debug_print("Recursively creating nested struct members for: %s (type: %s)\n",
+                                           member_path.c_str(), member.type_alias.c_str());
+                            }
+                            // struct_membersに既に追加されたメンバーを参照
+                            auto& struct_member_ref = var.struct_members[member.name];
+                            interpreter_->create_struct_member_variables_recursively(member_path, member.type_alias, struct_member_ref);
+                        }
 
                         if (interpreter_->debug_mode) {
                             debug_print(
@@ -1455,7 +2188,8 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
 
                 return; // struct literal処理完了後は早期リターン
 
-            } else if (!var.interface_name.empty()) {
+            } else if (!var.interface_name.empty() && var.type != TYPE_POINTER) {
+                // Interface型変数（ポインタを除く）の初期化処理
                 auto assign_from_source = [&](const Variable& source, const std::string& source_name) {
                     assign_interface_view(node->name, var, source, source_name);
                 };
@@ -1521,6 +2255,7 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                         return;
                     }
 
+                    // 構造体戻り値の場合はインターフェースとして処理
                     assign_from_source(ret.struct_value, "");
                     return;
                 }
@@ -1610,32 +2345,160 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                         var = ret.struct_value;
                         var.is_assigned = true;
                         
-                        // 変数を登録
-                        current_scope().variables[node->name] = var;
+                        if (interpreter_->debug_mode && node->name == "student1") {
+                            debug_print("FUNC_RETURN_RECEIVED: ret.struct_value has %zu members\n",
+                                       ret.struct_value.struct_members.size());
+                            auto scores_it = ret.struct_value.struct_members.find("scores");
+                            if (scores_it != ret.struct_value.struct_members.end() && scores_it->second.is_array) {
+                                debug_print("FUNC_RETURN_RECEIVED: scores.array_size=%d, array_values.size()=%zu\n",
+                                           scores_it->second.array_size, scores_it->second.array_values.size());
+                                if (scores_it->second.array_values.size() >= 3) {
+                                    debug_print("FUNC_RETURN_RECEIVED: scores.array_values = [%lld, %lld, %lld]\n",
+                                               scores_it->second.array_values[0],
+                                               scores_it->second.array_values[1],
+                                               scores_it->second.array_values[2]);
+                                }
+                            }
+                        }
                         
-                        // 個別メンバー変数も作成
+                        // マップの再ハッシュを防ぐため、全ての変数を一時マップに収集してから一括登録
+                        std::map<std::string, Variable> vars_batch;
+                        
+                        // 個別メンバー変数を収集
                         for (const auto& member : ret.struct_value.struct_members) {
-                            std::string member_path = node->name + "." + member.first;
-                            current_scope().variables[member_path] = member.second;
+                            // scores[0]のような配列要素キーはスキップ（後で個別に処理される）
+                            if (member.first.find('[') != std::string::npos) {
+                                if (interpreter_->debug_mode && node->name == "student1") {
+                                    debug_print("FUNC_RETURN: Skipping array element key from struct_members: '%s'\n",
+                                               member.first.c_str());
+                                }
+                                continue;
+                            }
                             
-                            // 配列メンバーの場合、個別要素変数も作成
+                            std::string member_path = node->name + "." + member.first;
+                            // 一時マップに追加
+                            vars_batch[member_path] = member.second;
+                            
+                            // 配列メンバーの場合、個別要素変数も収集
                             if (member.second.is_array) {
                                 for (int i = 0; i < member.second.array_size; i++) {
                                     std::string element_name = member_path + "[" + std::to_string(i) + "]";
-                                    Variable element_var;
-                                    element_var.type = member.second.type >= TYPE_ARRAY_BASE ? 
-                                                      static_cast<TypeInfo>(member.second.type - TYPE_ARRAY_BASE) : 
-                                                      member.second.type;
-                                    element_var.is_assigned = true;
+                                    std::string element_key = member.first + "[" + std::to_string(i) + "]";
                                     
-                                    if (element_var.type == TYPE_STRING && i < static_cast<int>(member.second.array_strings.size())) {
-                                        element_var.str_value = member.second.array_strings[i];
-                                    } else if (element_var.type != TYPE_STRING && i < static_cast<int>(member.second.array_values.size())) {
-                                        element_var.value = member.second.array_values[i];
+                                    // 構造体配列要素の場合
+                                    auto element_it = ret.struct_value.struct_members.find(element_key);
+                                    if (element_it != ret.struct_value.struct_members.end() && element_it->second.is_struct) {
+                                        Variable element_var = element_it->second;
+                                        element_var.is_assigned = true;
+                                        vars_batch[element_name] = element_var;
+                                        
+                                        // 構造体要素のメンバー変数も収集
+                                        for (const auto& sub_member : element_var.struct_members) {
+                                            std::string sub_member_path = element_name + "." + sub_member.first;
+                                            vars_batch[sub_member_path] = sub_member.second;
+                                        }
+                                    } else {
+                                        // プリミティブ型配列の要素
+                                        if (interpreter_->debug_mode && node->name == "student1") {
+                                            debug_print("FUNC_RETURN_ELEMENT: member.second.type=%d, array_values.size()=%zu, i=%d\n",
+                                                       (int)member.second.type, member.second.array_values.size(), i);
+                                        }
+                                        
+                                        Variable element_var;
+                                        element_var.type = member.second.type >= TYPE_ARRAY_BASE ? 
+                                                          static_cast<TypeInfo>(member.second.type - TYPE_ARRAY_BASE) : 
+                                                          member.second.type;
+                                        element_var.is_assigned = true;
+                                        
+                                        if (element_var.type == TYPE_STRING && i < static_cast<int>(member.second.array_strings.size())) {
+                                            element_var.str_value = member.second.array_strings[i];
+                                        } else if (element_var.type != TYPE_STRING && i < static_cast<int>(member.second.array_values.size())) {
+                                            element_var.value = member.second.array_values[i];
+                                        }
+                                        
+                                        if (interpreter_->debug_mode && node->name == "student1") {
+                                            debug_print("FUNC_RETURN_BATCH: Created element_var for %s: type=%d, value=%lld, is_assigned=%d\n",
+                                                       element_name.c_str(), (int)element_var.type, (long long)element_var.value, element_var.is_assigned);
+                                        }
+                                        
+                                        if (interpreter_->debug_mode && node->name == "student1") {
+                                            auto existing = vars_batch.find(element_name);
+                                            if (existing != vars_batch.end()) {
+                                                debug_print("FUNC_RETURN_BATCH: KEY ALREADY EXISTS! '%s' current: type=%d, value=%lld\n",
+                                                           element_name.c_str(), (int)existing->second.type, 
+                                                           (long long)existing->second.value);
+                                            }
+                                        }
+                                        
+                                        vars_batch[element_name] = element_var;
+                                        
+                                        if (interpreter_->debug_mode && node->name == "student1") {
+                                            debug_print("FUNC_RETURN_BATCH: Set %s: type=%d, value=%lld, is_assigned=%d\n",
+                                                       element_name.c_str(), (int)element_var.type, 
+                                                       (long long)element_var.value, element_var.is_assigned);
+                                        }
                                     }
-                                    
-                                    current_scope().variables[element_name] = element_var;
                                 }
+                            }
+                        }
+                        
+                        // バッチ内容を確認（親構造体追加前）
+                        if (interpreter_->debug_mode && node->name == "student1") {
+                            debug_print("FUNC_RETURN: Batch size before adding parent: %zu variables\n", vars_batch.size());
+                            debug_print("FUNC_RETURN: All keys in batch (BEFORE parent):\n");
+                            for (const auto& var_pair : vars_batch) {
+                                if (var_pair.first.find("scores[") != std::string::npos) {
+                                    debug_print("  '%s': type=%d, value=%lld, is_assigned=%d\n",
+                                               var_pair.first.c_str(), (int)var_pair.second.type,
+                                               (long long)var_pair.second.value, var_pair.second.is_assigned);
+                                }
+                            }
+                        }
+                        
+                        // 親構造体変数も追加（その前にstruct_membersを確認）
+                        if (interpreter_->debug_mode && node->name == "student1") {
+                            debug_print("FUNC_RETURN: Parent var.struct_members has %zu members\n", var.struct_members.size());
+                            for (const auto& sm : var.struct_members) {
+                                debug_print("  struct_member key: '%s', type=%d, is_array=%d\n",
+                                           sm.first.c_str(), (int)sm.second.type, sm.second.is_array);
+                            }
+                        }
+                        vars_batch[node->name] = var;
+                        
+                        // バッチ内容をデバッグ出力（親構造体追加後）
+                        if (interpreter_->debug_mode && node->name == "student1") {
+                            debug_print("FUNC_RETURN: Batch size after adding parent: %zu variables\n", vars_batch.size());
+                            debug_print("FUNC_RETURN: All keys in batch (AFTER parent):\n");
+                            for (const auto& var_pair : vars_batch) {
+                                if (var_pair.first.find("scores[") != std::string::npos) {
+                                    debug_print("  '%s': type=%d, value=%lld, is_assigned=%d\n",
+                                               var_pair.first.c_str(), (int)var_pair.second.type,
+                                               (long long)var_pair.second.value, var_pair.second.is_assigned);
+                                }
+                            }
+                        }
+                        
+                        // 一括登録: std::mapに順次追加
+                        // std::mapは再バランスで要素が移動する可能性があるが、
+                        // 全ての変数をここで一度に登録するため、後続の参照は安全
+                        for (const auto& var_pair : vars_batch) {
+                            current_scope().variables[var_pair.first] = var_pair.second;
+                            
+                            if (interpreter_->debug_mode && node->name == "student1" && 
+                                var_pair.first.find("scores[") != std::string::npos) {
+                                debug_print("FUNC_RETURN: Registered %s = %lld\n",
+                                           var_pair.first.c_str(), (long long)var_pair.second.value);
+                            }
+                        }
+                        
+                        if (interpreter_->debug_mode && node->name == "student1") {
+                            debug_print("FUNC_RETURN: Batch registered %zu variables\n", vars_batch.size());
+                            Variable* final_check = find_variable("student1.scores[0]");
+                            if (final_check) {
+                                debug_print("FUNC_RETURN: Final check - student1.scores[0] = %lld, is_assigned=%d\n",
+                                           (long long)final_check->value, final_check->is_assigned);
+                            } else {
+                                debug_print("FUNC_RETURN: Final check - student1.scores[0] NOT FOUND\n");
                             }
                         }
                         
@@ -1673,6 +2536,10 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
 
                 // まず変数を登録
                 current_scope().variables[node->name] = var;
+                if (interpreter_->debug_mode) {
+                    debug_print("VAR_DEBUG: stored array var %s with is_unsigned=%d before literal assignment\n",
+                                node->name.c_str(), var.is_unsigned ? 1 : 0);
+                }
 
                 // 配列リテラル代入を実行
                 interpreter_->assign_array_literal(node->name,
@@ -1706,7 +2573,6 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
             } else if (var.is_array && node->init_expr->node_type ==
                                            ASTNodeType::AST_FUNC_CALL) {
                 // 配列を返す関数呼び出し
-                debug_print("DEBUG_BRANCH: Array function call for %s\n", node->name.c_str());
                 try {
                     int64_t value =
                         interpreter_->expression_evaluator_
@@ -1726,8 +2592,86 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                                 var.type = static_cast<TypeInfo>(
                                     TYPE_ARRAY_BASE + TYPE_STRING);
                             }
+                        } else if (ret.type == TYPE_FLOAT || ret.type == TYPE_DOUBLE || ret.type == TYPE_QUAD) {
+                            // float/double/quad配列
+                            if (!ret.double_array_3d.empty() &&
+                                !ret.double_array_3d[0].empty()) {
+                                
+                                // typedef配列名から多次元配列かどうかを判定
+                                std::string actual_type = interpreter_->type_manager_->resolve_typedef(ret.array_type_name);
+                                bool is_multidim = (actual_type.find("[][]") != std::string::npos || 
+                                                   ret.array_type_name.find("[][]") != std::string::npos ||
+                                                   ret.double_array_3d.size() > 1 || 
+                                                   (ret.double_array_3d.size() == 1 && ret.double_array_3d[0].size() > 1));
+
+                                if (is_multidim) {
+                                    // 多次元float/double配列の場合 - 全要素を展開
+                                    if (ret.type == TYPE_FLOAT) {
+                                        var.multidim_array_float_values.clear();
+                                        for (const auto &plane : ret.double_array_3d) {
+                                            for (const auto &row : plane) {
+                                                for (const auto &element : row) {
+                                                    var.multidim_array_float_values.push_back(static_cast<float>(element));
+                                                }
+                                            }
+                                        }
+                                        var.array_size = var.multidim_array_float_values.size();
+                                    } else if (ret.type == TYPE_DOUBLE) {
+                                        var.multidim_array_double_values.clear();
+                                        for (const auto &plane : ret.double_array_3d) {
+                                            for (const auto &row : plane) {
+                                                for (const auto &element : row) {
+                                                    var.multidim_array_double_values.push_back(element);
+                                                }
+                                            }
+                                        }
+                                        var.array_size = var.multidim_array_double_values.size();
+                                    } else { // TYPE_QUAD
+                                        var.multidim_array_quad_values.clear();
+                                        for (const auto &plane : ret.double_array_3d) {
+                                            for (const auto &row : plane) {
+                                                for (const auto &element : row) {
+                                                    var.multidim_array_quad_values.push_back(static_cast<long double>(element));
+                                                }
+                                            }
+                                        }
+                                        var.array_size = var.multidim_array_quad_values.size();
+                                    }
+                                    var.is_multidimensional = true;
+                                    var.array_values.clear();
+                                    
+                                    // 配列の次元情報を設定
+                                    if (!ret.double_array_3d[0].empty()) {
+                                        var.array_dimensions.clear();
+                                        var.array_dimensions.push_back(ret.double_array_3d[0].size());     // 行数
+                                        var.array_dimensions.push_back(ret.double_array_3d[0][0].size()); // 列数
+                                    }
+                                } else if (!ret.double_array_3d[0][0].empty()) {
+                                    // 1次元float/double配列の場合
+                                    if (ret.type == TYPE_FLOAT) {
+                                        var.array_float_values.clear();
+                                        for (const auto &element : ret.double_array_3d[0][0]) {
+                                            var.array_float_values.push_back(static_cast<float>(element));
+                                        }
+                                        var.array_size = var.array_float_values.size();
+                                    } else if (ret.type == TYPE_DOUBLE) {
+                                        var.array_double_values.clear();
+                                        for (const auto &element : ret.double_array_3d[0][0]) {
+                                            var.array_double_values.push_back(element);
+                                        }
+                                        var.array_size = var.array_double_values.size();
+                                    } else { // TYPE_QUAD
+                                        var.array_quad_values.clear();
+                                        for (const auto &element : ret.double_array_3d[0][0]) {
+                                            var.array_quad_values.push_back(static_cast<long double>(element));
+                                        }
+                                        var.array_size = var.array_quad_values.size();
+                                    }
+                                }
+                                var.type = static_cast<TypeInfo>(TYPE_ARRAY_BASE + ret.type);
+                            }
                         } else {
-                            // 数値配列
+                            // 整数型配列
                             if (!ret.int_array_3d.empty() &&
                                 !ret.int_array_3d[0].empty()) {
                                 
@@ -1832,7 +2776,10 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                         if (ret.type == TYPE_STRING) {
                             var.str_value = ret.str_value;
                         } else {
-                            var.value = ret.value;
+                            int64_t numeric_value = ret.value;
+                            clamp_unsigned_initial(var, numeric_value,
+                                                   "initialized with function return");
+                            var.value = numeric_value;
                         }
                         var.is_assigned = true;
                     }
@@ -1898,8 +2845,36 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                         if (typed_result.is_string()) {
                             var.str_value = typed_result.string_value;
                             var.value = 0;
+                        } else if (typed_result.numeric_type == TYPE_FLOAT || 
+                                   typed_result.numeric_type == TYPE_DOUBLE || 
+                                   typed_result.numeric_type == TYPE_QUAD) {
+                            // float/double/quad戻り値の場合
+                            long double quad_val = typed_result.as_quad();
+                            
+                            if (typed_result.numeric_type == TYPE_FLOAT) {
+                                float f = static_cast<float>(quad_val);
+                                var.float_value = f;
+                                var.double_value = static_cast<double>(f);
+                                var.quad_value = static_cast<long double>(f);
+                                var.value = static_cast<int64_t>(f);
+                            } else if (typed_result.numeric_type == TYPE_DOUBLE) {
+                                double d = static_cast<double>(quad_val);
+                                var.float_value = static_cast<float>(d);
+                                var.double_value = d;
+                                var.quad_value = static_cast<long double>(d);
+                                var.value = static_cast<int64_t>(d);
+                            } else { // TYPE_QUAD
+                                var.float_value = static_cast<float>(quad_val);
+                                var.double_value = static_cast<double>(quad_val);
+                                var.quad_value = quad_val;
+                                var.value = static_cast<int64_t>(quad_val);
+                            }
+                            var.str_value = "";
                         } else {
-                            var.value = typed_result.value;
+                            int64_t numeric_value = typed_result.value;
+                            clamp_unsigned_initial(var, numeric_value,
+                                                   "initialized with expression");
+                            var.value = numeric_value;
                             var.str_value = "";
                         }
                         var.is_assigned = true;
@@ -1966,7 +2941,10 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                             var.str_value = ret.str_value;
                             var.type = TYPE_STRING;
                         } else {
-                            var.value = ret.value;
+                            int64_t numeric_value = ret.value;
+                            clamp_unsigned_initial(var, numeric_value,
+                                                   "initialized with function return");
+                            var.value = numeric_value;
                         }
                         var.is_assigned = true;
                     }
@@ -1978,16 +2956,63 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                             "value");
                     }
                 } else {
-                    // 型推論対応の式評価を使用して文字列値も取得
+                    // 型推論対応の式評価を使用して文字列・数値を取得
                     TypedValue typed_result = interpreter_->expression_evaluator_
                             ->evaluate_typed_expression(node->init_expr.get());
-                    
+
                     if (typed_result.is_string()) {
+                        var.type = TYPE_STRING;
                         var.str_value = typed_result.string_value;
-                        var.value = 0;
+                        setNumericFields(var, 0.0L);
+                    } else if (typed_result.is_numeric()) {
+                        var.str_value.clear();
+
+                        TypeInfo inferred_type = var.type;
+                        if (inferred_type == TYPE_UNKNOWN &&
+                            typed_result.numeric_type != TYPE_UNKNOWN) {
+                            inferred_type = typed_result.numeric_type;
+                            var.type = inferred_type;
+                        }
+
+                        const long double quad_value = typed_result.as_quad();
+                        auto assign_from_quad = [&](long double value) {
+                            setNumericFields(var, value);
+                        };
+
+                        switch (inferred_type) {
+                        case TYPE_FLOAT: {
+                            float f = static_cast<float>(quad_value);
+                            assign_from_quad(static_cast<long double>(f));
+                            break;
+                        }
+                        case TYPE_DOUBLE: {
+                            double d = static_cast<double>(quad_value);
+                            assign_from_quad(static_cast<long double>(d));
+                            break;
+                        }
+                        case TYPE_QUAD:
+                            assign_from_quad(quad_value);
+                            break;
+                        default: {
+                            int64_t numeric_value = typed_result.as_numeric();
+                            clamp_unsigned_initial(var, numeric_value,
+                                                   "initialized with expression");
+                            assign_from_quad(static_cast<long double>(numeric_value));
+
+                            if (var.type == TYPE_UNKNOWN) {
+                                if (typed_result.numeric_type != TYPE_UNKNOWN) {
+                                    var.type = typed_result.numeric_type;
+                                } else {
+                                    var.type = TYPE_INT;
+                                }
+                            }
+                            break;
+                        }
+                        }
                     } else {
-                        var.value = typed_result.value;
-                        var.str_value = "";
+                        // 非数値かつ非文字列の場合は0初期化
+                        setNumericFields(var, 0.0L);
+                        var.str_value.clear();
                     }
                     var.is_assigned = true;
                 }
@@ -1995,9 +3020,16 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                 // 型範囲チェック
                 if (var.type != TYPE_STRING) {
                     interpreter_->type_manager_->check_type_range(
-                        var.type, var.value, node->name);
+                        var.type, var.value, node->name,
+                        var.is_unsigned);
                 }
             }
+        }
+
+        if (var.is_assigned && !var.is_array && !var.is_struct &&
+            var.type != TYPE_STRING) {
+            clamp_unsigned_initial(var, var.value,
+                                   "initialized with negative value");
         }
 
         // static変数の場合は特別処理
@@ -2029,7 +3061,154 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
             }
         }
 
+        if (interpreter_->is_debug_mode() && node->name == "ptr") {
+            std::cerr << "[VAR_MANAGER] Registering variable ptr to scope:" << std::endl;
+            std::cerr << "  var.value=" << var.value << std::endl;
+            std::cerr << "  var.type=" << static_cast<int>(var.type) << std::endl;
+            std::cerr << "  node->type_info=" << static_cast<int>(node->type_info) << std::endl;
+        }
+        
+        // ポインタ型の場合、型情報を確実に設定
+        if (node->type_info == TYPE_POINTER) {
+            // 初期化式がある場合、関数ポインタかどうか先にチェック
+            if (node->init_expr || node->right) {
+                ASTNode* init_node = node->init_expr ? node->init_expr.get() : node->right.get();
+                
+                if (interpreter_->debug_mode) {
+                    std::cerr << "[VAR_MANAGER] Checking pointer init: node_type=" << static_cast<int>(init_node->node_type)
+                              << ", op=" << init_node->op 
+                              << ", is_function_address=" << init_node->is_function_address << std::endl;
+                }
+                
+                // 関数ポインタかチェック
+                if (init_node->node_type == ASTNodeType::AST_UNARY_OP && 
+                    init_node->op == "ADDRESS_OF" && 
+                    init_node->is_function_address) {
+                    
+                    std::string func_name = init_node->function_address_name;
+                    const ASTNode* func_node = interpreter_->find_function(func_name);
+                    
+                    // 関数が見つかった場合のみ関数ポインタとして処理
+                    if (func_node) {
+                        // 関数ポインタとして登録
+                        var.is_function_pointer = true;
+                        var.function_pointer_name = func_name;
+                        var.type = TYPE_POINTER;  // ポインタ型として扱う
+                        var.is_assigned = true;
+                        // 関数ノードの実際のメモリアドレスを値として格納
+                        var.value = reinterpret_cast<int64_t>(func_node);
+                        
+                        // FunctionPointerを登録
+                        FunctionPointer func_ptr(func_node, func_name, func_node->type_info);
+                        interpreter_->current_scope().function_pointers[node->name] = func_ptr;
+                        
+                        if (interpreter_->debug_mode) {
+                            std::cerr << "[VAR_MANAGER] Registered function pointer: " << node->name 
+                                      << " -> " << func_name << std::endl;
+                        }
+                        
+                        // 関数ポインタの場合は変数を登録してreturn
+                        current_scope().variables[node->name] = var;
+                        return;
+                    }
+                    // 関数が見つからない場合は通常の変数アドレスとして処理を継続
+                    if (interpreter_->debug_mode) {
+                        std::cerr << "[VAR_MANAGER] Not a function, treating as variable address: " << func_name << std::endl;
+                    }
+                }
+            }
+            
+            // 通常のポインタ処理
+            var.type = TYPE_POINTER;
+            
+            // ポインタ型の初期化式がある場合は評価して代入
+            if (node->init_expr || node->right) {
+                ASTNode* init_node = node->init_expr ? node->init_expr.get() : node->right.get();
+                if (interpreter_->debug_mode) {
+                    std::cerr << "[VAR_MANAGER] Evaluating normal pointer initialization expression" << std::endl;
+                }
+                
+                // 関数呼び出しの場合、ReturnExceptionをキャッチする
+                if (init_node->node_type == ASTNodeType::AST_FUNC_CALL) {
+                    try {
+                        // evaluate_typed_expressionを使って型情報も取得
+                        TypedValue typed_value = interpreter_->expression_evaluator_->evaluate_typed_expression(init_node);
+                        
+                        // TypedValueに関数ポインタ情報がある場合
+                        if (typed_value.is_function_pointer) {
+                            if (interpreter_->debug_mode) {
+                                std::cerr << "[VAR_MANAGER] Function returned function pointer: " 
+                                         << typed_value.function_pointer_name << " -> " << typed_value.value << std::endl;
+                            }
+                            var.value = typed_value.value;
+                            var.is_assigned = true;
+                            var.is_function_pointer = true;
+                            var.function_pointer_name = typed_value.function_pointer_name;
+                            
+                            // function_pointersマップに登録
+                            FunctionPointer func_ptr(typed_value.function_pointer_node, typed_value.function_pointer_name, 
+                                                   typed_value.function_pointer_node->type_info);
+                            interpreter_->current_scope().function_pointers[node->name] = func_ptr;
+                        } else {
+                            // 通常の戻り値（ポインタを含む）
+                            var.value = typed_value.value;
+                            var.is_assigned = true;
+                        }
+                    } catch (const ReturnException& ret) {
+                        // 例外で返される場合（配列など）
+                        if (ret.is_function_pointer) {
+                            var.value = ret.value;
+                            var.is_assigned = true;
+                            var.is_function_pointer = true;
+                            var.function_pointer_name = ret.function_pointer_name;
+                            
+                            FunctionPointer func_ptr(ret.function_pointer_node, ret.function_pointer_name, 
+                                                   ret.function_pointer_node->type_info);
+                            interpreter_->current_scope().function_pointers[node->name] = func_ptr;
+                        } else {
+                            var.value = ret.value;
+                            var.is_assigned = true;
+                        }
+                    }
+                } else {
+                    TypedValue typed_value = interpreter_->expression_evaluator_->evaluate_typed_expression(init_node);
+                    
+                    // TypedValueに関数ポインタ情報がある場合
+                    if (typed_value.is_function_pointer) {
+                        if (interpreter_->debug_mode) {
+                            std::cerr << "[VAR_MANAGER] TypedValue contains function pointer: " 
+                                     << typed_value.function_pointer_name << " -> " << typed_value.value << std::endl;
+                        }
+                        var.value = typed_value.value;
+                        var.is_assigned = true;
+                        var.is_function_pointer = true;
+                        var.function_pointer_name = typed_value.function_pointer_name;
+                        
+                        // function_pointersマップに登録
+                        FunctionPointer func_ptr(typed_value.function_pointer_node, typed_value.function_pointer_name, 
+                                               typed_value.function_pointer_node->type_info);
+                        interpreter_->current_scope().function_pointers[node->name] = func_ptr;
+                    } else {
+                        var.value = typed_value.value;
+                        var.is_assigned = true;
+                    }
+                }
+                
+                if (interpreter_->debug_mode) {
+                    std::cerr << "[VAR_MANAGER] Pointer initialized: value=" << var.value 
+                              << " (0x" << std::hex << var.value << std::dec << ")" << std::endl;
+                }
+            }
+        }
+
         current_scope().variables[node->name] = var;
+        
+        if (interpreter_->is_debug_mode() && node->name == "ptr") {
+            Variable* registered = find_variable(node->name);
+            if (registered) {
+                std::cerr << "[VAR_MANAGER] After registration, ptr value=" << registered->value << std::endl;
+            }
+        }
         // std::cerr << "DEBUG: Variable created: " << node->name << ",
         // is_array=" << var.is_array << std::endl;
 
@@ -2066,6 +3245,92 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
             if (var->is_const && var->is_assigned) {
                 throw std::runtime_error("Cannot reassign const variable: " +
                                          var_name);
+            }
+
+            // Interface型の変数（ポインタを除く）の代入処理
+            if (debug_mode) {
+                debug_print("VAR_ASSIGN_DEBUG: var_name=%s, var->type=%d, TYPE_POINTER=%d, interface_name='%s'\n",
+                           var_name.c_str(), static_cast<int>(var->type), static_cast<int>(TYPE_POINTER),
+                           var->interface_name.c_str());
+            }
+            if ((var->type == TYPE_INTERFACE || !var->interface_name.empty()) && var->type != TYPE_POINTER) {
+                auto assign_from_source = [&](const Variable &source,
+                                               const std::string &source_name) {
+                    assign_interface_view(var_name, *var, source, source_name);
+                };
+
+                auto create_temp_primitive = [&](TypeInfo value_type,
+                                                 int64_t numeric_value,
+                                                 const std::string &string_value) {
+                    Variable temp;
+                    temp.is_assigned = true;
+                    temp.type = value_type;
+                    if (value_type == TYPE_STRING) {
+                        temp.str_value = string_value;
+                    } else {
+                        temp.value = numeric_value;
+                    }
+                    temp.struct_type_name = getPrimitiveTypeNameForImpl(value_type);
+                    return temp;
+                };
+
+                try {
+                    const ASTNode *rhs = node->right.get();
+                    if (rhs->node_type == ASTNodeType::AST_VARIABLE ||
+                        rhs->node_type == ASTNodeType::AST_IDENTIFIER) {
+                        std::string source_var_name = rhs->name;
+                        Variable *source_var = find_variable(source_var_name);
+                        if (!source_var) {
+                            throw std::runtime_error("Source variable not found: " +
+                                                     source_var_name);
+                        }
+                        assign_from_source(*source_var, source_var_name);
+                        return;
+                    }
+
+                    if (rhs->node_type == ASTNodeType::AST_STRING_LITERAL) {
+                        Variable temp = create_temp_primitive(TYPE_STRING, 0,
+                                                              rhs->str_value);
+                        assign_from_source(temp, "");
+                        return;
+                    }
+
+                    int64_t numeric_value = interpreter_->expression_evaluator_->evaluate_expression(rhs);
+                    TypeInfo resolved_type = rhs->type_info != TYPE_UNKNOWN
+                                                 ? rhs->type_info
+                                                 : TYPE_INT;
+                    Variable temp = create_temp_primitive(resolved_type,
+                                                          numeric_value, "");
+                    assign_from_source(temp, "");
+                    return;
+                } catch (const ReturnException &ret) {
+                    if (ret.is_array) {
+                        throw std::runtime_error(
+                            "Cannot assign array return value to interface variable '" +
+                            var_name + "'");
+                    }
+
+                    if (!ret.is_struct) {
+                        if (ret.type == TYPE_STRING) {
+                            Variable temp = create_temp_primitive(TYPE_STRING, 0,
+                                                                  ret.str_value);
+                            assign_from_source(temp, "");
+                            return;
+                        }
+
+                        TypeInfo resolved_type = ret.type != TYPE_UNKNOWN
+                                                     ? ret.type
+                                                     : TYPE_INT;
+                        Variable temp = create_temp_primitive(resolved_type,
+                                                              ret.value,
+                                                              ret.str_value);
+                        assign_from_source(temp, "");
+                        return;
+                    }
+
+                    assign_from_source(ret.struct_value, "");
+                    return;
+                }
             }
             
             // Union型変数への代入の特別処理
@@ -2128,6 +3393,8 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                 interpreter_->expression_evaluator_->evaluate_expression(
                     node->right.get());
 
+            clamp_unsigned_initial(*var, value, "received assignment");
+
             // varは既に上で定義済み
             if (var->is_const && var->is_assigned) {
                 throw std::runtime_error("Cannot reassign const variable: " +
@@ -2135,8 +3402,12 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
             }
 
             // 型範囲チェック（代入前に実行）
-            interpreter_->type_manager_->check_type_range(var->type, value,
-                                                          var_name);
+            // ポインタ型の場合はスキップ
+            if (!var->is_pointer) {
+                interpreter_->type_manager_->check_type_range(var->type, value,
+                                                              var_name,
+                                                              var->is_unsigned);
+            }
 
             var->value = value;
             var->is_assigned = true;
@@ -2169,9 +3440,15 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                 interpreter_->expression_evaluator_->evaluate_expression(
                     node->right.get());
 
+            clamp_unsigned_initial(*var, value, "received assignment");
+
             // 型範囲チェック（代入前に実行）
-            interpreter_->type_manager_->check_type_range(var->type, value,
-                                                          var_name);
+            // ポインタ型の場合はスキップ
+            if (!var->is_pointer) {
+                interpreter_->type_manager_->check_type_range(var->type, value,
+                                                              var_name,
+                                                              var->is_unsigned);
+            }
 
             var->value = value;
             var->is_assigned = true;
@@ -2438,7 +3715,8 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
 
             // 型範囲チェック
             interpreter_->type_manager_->check_type_range(element_var->type,
-                                                          value, element_name);
+                                                          value, element_name,
+                                                          element_var->is_unsigned);
 
             // 値を代入
             element_var->value = value;
@@ -2705,6 +3983,19 @@ std::string VariableManager::find_variable_name(const Variable* target_var) {
 
 void VariableManager::handle_ternary_initialization(Variable& var, const ASTNode* ternary_node) {
     debug_msg(DebugMsgId::TERNARY_VAR_INIT_START);
+    auto clamp_unsigned_ternary = [&](int64_t &value, const char *context) {
+        if (!var.is_unsigned || value >= 0) {
+            return;
+        }
+        std::string var_name = find_variable_name(&var);
+        if (var_name.empty()) {
+            var_name = std::string("<ternary>");
+        }
+        DEBUG_WARN(VARIABLE,
+                   "Unsigned variable %s %s negative value (%lld); clamping to 0",
+                   var_name.c_str(), context, static_cast<long long>(value));
+        value = 0;
+    };
     
     // 三項演算子の条件を評価
     int64_t condition = interpreter_->evaluate(ternary_node->left.get());
@@ -2724,7 +4015,9 @@ void VariableManager::handle_ternary_initialization(Variable& var, const ASTNode
     } else if (selected_branch->node_type == ASTNodeType::AST_NUMBER) {
         // 数値リテラルの初期化
         debug_msg(DebugMsgId::TERNARY_VAR_NUMERIC_SET, selected_branch->int_value);
-        var.value = selected_branch->int_value;
+        int64_t numeric_value = selected_branch->int_value;
+        clamp_unsigned_ternary(numeric_value, "initialized with ternary literal");
+        var.value = numeric_value;
         var.is_assigned = true;
     } else if (selected_branch->node_type == ASTNodeType::AST_ARRAY_LITERAL) {
         // 配列リテラルの初期化
@@ -2746,6 +4039,7 @@ void VariableManager::handle_ternary_initialization(Variable& var, const ASTNode
         // その他（関数呼び出しなど）の場合は通常の評価
         try {
             int64_t value = interpreter_->evaluate(selected_branch);
+            clamp_unsigned_ternary(value, "initialized with ternary expression");
             var.value = value;
             var.is_assigned = true;
         } catch (const ReturnException& ret) {
@@ -2753,7 +4047,9 @@ void VariableManager::handle_ternary_initialization(Variable& var, const ASTNode
                 var.str_value = ret.str_value;
                 var.type = TYPE_STRING;
             } else {
-                var.value = ret.value;
+                int64_t numeric_value = ret.value;
+                clamp_unsigned_ternary(numeric_value, "initialized with ternary return");
+                var.value = numeric_value;
             }
             var.is_assigned = true;
         }

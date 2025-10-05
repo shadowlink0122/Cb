@@ -4,6 +4,7 @@
 #include <cinttypes>
 #include <cstdarg>
 #include <cstdio>
+#include <cstring>
 #include <string>
 
 // IOInterface の基本実装
@@ -21,6 +22,28 @@ void IOInterface::write_formatted(const char *format, ...) {
 void IOInterface::write_number(int64_t value) {
     char buffer[32]; // int64_tの最大桁数は20桁程度
     snprintf(buffer, sizeof(buffer), "%" PRId64, value);
+    write_string(buffer);
+}
+
+void IOInterface::write_float(double value) {
+    char buffer[64];
+    // 浮動小数点数として表示（小数点以下が0でも .0 を表示）
+    std::snprintf(buffer, sizeof(buffer), "%.15g", value);
+
+    // 整数のように見える場合は .0 を追加
+    bool has_decimal_or_exp = false;
+    for (const char *p = buffer; *p != '\0'; ++p) {
+        if (*p == '.' || *p == 'e' || *p == 'E') {
+            has_decimal_or_exp = true;
+            break;
+        }
+    }
+
+    if (!has_decimal_or_exp) {
+        // 整数表記の場合は .0 を追加
+        std::strcat(buffer, ".0");
+    }
+
     write_string(buffer);
 }
 

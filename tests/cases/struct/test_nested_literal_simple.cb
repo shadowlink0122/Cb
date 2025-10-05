@@ -1,0 +1,16 @@
+// ネストした構造体リテラルの簡単なテスト
+
+struct Inner {
+    int value;
+};
+
+struct Outer {
+    Inner inner;
+};
+
+int main() {
+    Outer o;
+    o = {inner: {value: 100}};
+    println("o.inner.value =", o.inner.value);
+    return 0;
+}

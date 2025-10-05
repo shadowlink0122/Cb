@@ -1,0 +1,64 @@
+// 多次元配列でのfloat/double/unsigned
+int main() {
+    // 2次元float配列
+    float[2][3] matrix_f;
+    matrix_f[0][0] = 1.1f;
+    matrix_f[0][1] = 2.2f;
+    matrix_f[0][2] = 3.3f;
+    matrix_f[1][0] = 4.4f;
+    matrix_f[1][1] = 5.5f;
+    matrix_f[1][2] = 6.6f;
+    
+    println(matrix_f[0][0]);  // 1.1
+    println(matrix_f[1][2]);  // 6.6
+    
+    float sum_f = matrix_f[0][0] + matrix_f[1][1];
+    println(sum_f);  // 6.6
+    
+    // 2次元double配列
+    double[2][2] matrix_d;
+    matrix_d[0][0] = 1.111;
+    matrix_d[0][1] = 2.222;
+    matrix_d[1][0] = 3.333;
+    matrix_d[1][1] = 4.444;
+    
+    println(matrix_d[0][1]);  // 2.222
+    println(matrix_d[1][0]);  // 3.333
+    
+    double product = matrix_d[0][0] * matrix_d[1][1];
+    println(product);  // 4.937284
+    
+    // 2次元unsigned配列
+    unsigned int[3][2] bits;
+    bits[0][0] = 1;   // 0x01
+    bits[0][1] = 2;   // 0x02
+    bits[1][0] = 4;   // 0x04
+    bits[1][1] = 8;   // 0x08
+    bits[2][0] = 16;  // 0x10
+    bits[2][1] = 32;  // 0x20
+    
+    println(bits[0][0]);  // 1
+    println(bits[2][1]);  // 32
+    
+    unsigned int or_result = bits[0][0] | bits[1][1];
+    println(or_result);  // 9
+    
+    // 3次元float配列
+    float[2][2][2] cube;
+    cube[0][0][0] = 1.0f;
+    cube[0][0][1] = 2.0f;
+    cube[0][1][0] = 3.0f;
+    cube[0][1][1] = 4.0f;
+    cube[1][0][0] = 5.0f;
+    cube[1][0][1] = 6.0f;
+    cube[1][1][0] = 7.0f;
+    cube[1][1][1] = 8.0f;
+    
+    println(cube[0][0][0]);  // 1.0
+    println(cube[1][1][1]);  // 8.0
+    
+    float diagonal_sum = cube[0][0][0] + cube[1][1][1];
+    println(diagonal_sum);  // 9.0
+    
+    return 0;
+}

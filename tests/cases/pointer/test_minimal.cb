@@ -1,0 +1,84 @@
+// ポインタの包括的テスト
+// Phase 2: ポインタ精度損失修正後のテスト
+
+int main() {
+    println("=== Pointer Comprehensive Test ===");
+    
+    // テスト1: 配列要素へのポインタ
+    println("\nTest 1: Array element pointer");
+    int[5] arr;
+    arr[0] = 10;
+    arr[1] = 20;
+    arr[2] = 30;
+    arr[3] = 40;
+    arr[4] = 50;
+    
+    int* ptr;
+    ptr = &arr[0];
+    
+    println("arr[0] =", arr[0]);
+    println("*ptr =", *ptr);
+    
+    if (*ptr == 10) {
+        println("✓ Test 1 passed: Pointer dereference works");
+    } else {
+        println("✗ Test 1 failed: Expected 10, got", *ptr);
+    }
+    
+    // テスト2: ポインタを使った配列要素の変更
+    println("\nTest 2: Modify through pointer");
+    *ptr = 100;
+    println("After *ptr = 100:");
+    println("arr[0] =", arr[0]);
+    println("*ptr =", *ptr);
+    
+    if (arr[0] == 100 && *ptr == 100) {
+        println("✓ Test 2 passed: Array modified through pointer");
+    } else {
+        println("✗ Test 2 failed");
+    }
+    
+    // テスト3: 別の要素へのポインタ
+    println("\nTest 3: Pointer to different element");
+    int* ptr2;
+    ptr2 = &arr[2];
+    println("arr[2] =", arr[2]);
+    println("*ptr2 =", *ptr2);
+    
+    if (*ptr2 == 30) {
+        println("✓ Test 3 passed: Second pointer works");
+    } else {
+        println("✗ Test 3 failed: Expected 30, got", *ptr2);
+    }
+    
+    // テスト4: ポインタの再代入
+    println("\nTest 4: Pointer reassignment");
+    ptr = &arr[4];
+    println("After ptr = &arr[4]:");
+    println("arr[4] =", arr[4]);
+    println("*ptr =", *ptr);
+    
+    if (*ptr == 50) {
+        println("✓ Test 4 passed: Pointer reassignment works");
+    } else {
+        println("✗ Test 4 failed: Expected 50, got", *ptr);
+    }
+    
+    // テスト5: ポインタを通じた複数の変更
+    println("\nTest 5: Multiple modifications");
+    *ptr2 = 300;  // arr[2] を変更
+    ptr = &arr[1];
+    *ptr = 200;   // arr[1] を変更
+    
+    println("arr[1] =", arr[1]);
+    println("arr[2] =", arr[2]);
+    
+    if (arr[1] == 200 && arr[2] == 300) {
+        println("✓ Test 5 passed: Multiple pointer modifications work");
+    } else {
+        println("✗ Test 5 failed");
+    }
+    
+    println("\n=== All pointer tests completed ===");
+    return 0;
+}

@@ -1,0 +1,41 @@
+// Test function pointers
+int add(int a, int b) {
+    return a + b;
+}
+
+int subtract(int a, int b) {
+    return a - b;
+}
+
+int multiply(int a, int b) {
+    return a * b;
+}
+
+int main() {
+    println("=== Function Pointer Test ===");
+    
+    // Test 1: Simple function pointer typedef
+    typedef int (*BinaryOp)(int, int);
+    
+    // Test 2: Assign function to pointer
+    BinaryOp op = add;
+    
+    // Test 3: Call through function pointer
+    int result1 = op(5, 3);
+    println("add(5, 3) =", result1);
+    
+    // Test 4: Reassign function pointer
+    op = subtract;
+    int result2 = op(10, 4);
+    println("subtract(10, 4) =", result2);
+    
+    // Test 5: Array of function pointers
+    BinaryOp[3] ops = [add, subtract, multiply];
+    
+    println("\nUsing function pointer array:");
+    println("ops[0](6, 2) =", ops[0](6, 2));
+    println("ops[1](6, 2) =", ops[1](6, 2));
+    println("ops[2](6, 2) =", ops[2](6, 2));
+    
+    return 0;
+}

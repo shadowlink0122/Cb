@@ -1,0 +1,26 @@
+// Debug test: Print only
+interface Counter {
+    int increment();
+};
+
+struct Point {
+    int x;
+};
+
+impl Counter for Point {
+    static int shared_counter = 5;
+    
+    int increment() {
+        return 5;
+    }
+};
+
+int main() {
+    Point p;
+    p.x = 1;
+    
+    Counter c = p;
+    int val = c.increment();
+    println(val);
+    return 0;
+}

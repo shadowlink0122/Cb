@@ -1,0 +1,74 @@
+// ネストしたメンバへの直接代入のテスト
+
+struct Inner {
+    int value;
+    string name;
+};
+
+struct Middle {
+    Inner data;
+    int count;
+};
+
+struct Outer {
+    Middle mid;
+    int id;
+};
+
+int main() {
+    println("=== Nested Member Assignment Test ===");
+    
+    // 構造体の宣言と初期化
+    Outer obj;
+    obj = {
+        mid: {
+            data: {value: 10, name: "initial"},
+            count: 5
+        },
+        id: 1
+    };
+    
+    println("Initial values:");
+    println("  obj.mid.data.value:", obj.mid.data.value);
+    println("  obj.mid.data.name:", obj.mid.data.name);
+    println("  obj.mid.count:", obj.mid.count);
+    println("  obj.id:", obj.id);
+    
+    // ネストしたメンバへの直接代入
+    obj.mid.data.value = 100;
+    obj.mid.data.name = "updated";
+    obj.mid.count = 50;
+    obj.id = 2;
+    
+    println("\nAfter direct assignment:");
+    println("  obj.mid.data.value:", obj.mid.data.value);
+    println("  obj.mid.data.name:", obj.mid.data.name);
+    println("  obj.mid.count:", obj.mid.count);
+    println("  obj.id:", obj.id);
+    
+    // 演算を伴う代入
+    obj.mid.data.value = obj.mid.data.value + 10;
+    obj.mid.count = obj.mid.count * 2;
+    
+    println("\nAfter arithmetic operations:");
+    println("  obj.mid.data.value:", obj.mid.data.value);
+    println("  obj.mid.count:", obj.mid.count);
+    
+    // 複数レベルのネスト（4レベル）
+    struct Level4 { int x; };
+    struct Level3 { Level4 l4; };
+    struct Level2 { Level3 l3; };
+    struct Level1 { Level2 l2; };
+    
+    Level1 deep;
+    deep = {l2: {l3: {l4: {x: 42}}}};
+    
+    println("\nDeep nesting (4 levels):");
+    println("  deep.l2.l3.l4.x:", deep.l2.l3.l4.x);
+    
+    deep.l2.l3.l4.x = 999;
+    println("  After assignment: deep.l2.l3.l4.x:", deep.l2.l3.l4.x);
+    
+    println("\n=== Test Passed ===");
+    return 0;
+}

@@ -1,0 +1,21 @@
+=== Test 1: Basic pointer array ===
+10
+20
+30
+=== Test 2: Individual variables ===
+1
+2
+3
+4
+5
+=== Test 3: Modify through pointers ===
+100
+500
+=== Test 4: Multiple pointer arrays ===
+1
+2
+3
+10
+20
+30
+=== All pointer array tests passed ===

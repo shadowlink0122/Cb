@@ -1,0 +1,13 @@
+=== Test 1: Basic pointer ===
+42
+42
+100
+100
+=== Test 2: Multiple pointers ===
+10
+20
+30
+15
+25
+35
+=== All basic pointer tests passed ===

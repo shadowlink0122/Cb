@@ -1,0 +1,85 @@
+// ネストした構造体でのfloat/doubleのテスト
+
+struct Vector3D {
+    float x;
+    float y;
+    float z;
+};
+
+struct Transform {
+    Vector3D position;
+    Vector3D rotation;
+    Vector3D scale;
+};
+
+struct Physics {
+    double mass;
+    double velocity;
+    Vector3D force;
+};
+
+struct GameObject {
+    string name;
+    Transform transform;
+    Physics physics;
+    int id;
+};
+
+int main() {
+    println("=== Nested Float/Double Struct Test ===");
+    
+    // float/doubleを含むネスト構造体リテラル
+    GameObject obj;
+    obj = {
+        name: "Player",
+        transform: {
+            position: {x: 10.5, y: 20.3, z: 30.7},
+            rotation: {x: 0.0, y: 90.0, z: 0.0},
+            scale: {x: 1.0, y: 1.0, z: 1.0}
+        },
+        physics: {
+            mass: 75.5,
+            velocity: 5.2,
+            force: {x: 100.0, y: 0.0, z: 0.0}
+        },
+        id: 1
+    };
+    
+    // 値の確認
+    println("GameObject:", obj.name, "(ID:", obj.id, ")");
+    println("Position: (", obj.transform.position.x, ",", 
+            obj.transform.position.y, ",", obj.transform.position.z, ")");
+    println("Rotation: (", obj.transform.rotation.x, ",", 
+            obj.transform.rotation.y, ",", obj.transform.rotation.z, ")");
+    println("Scale: (", obj.transform.scale.x, ",", 
+            obj.transform.scale.y, ",", obj.transform.scale.z, ")");
+    println("Mass:", obj.physics.mass);
+    println("Velocity:", obj.physics.velocity);
+    println("Force: (", obj.physics.force.x, ",", 
+            obj.physics.force.y, ",", obj.physics.force.z, ")");
+    
+    // 別のオブジェクトを作成
+    GameObject obj2;
+    obj2 = {
+        name: "Enemy",
+        transform: {
+            position: {x: -5.5, y: 0.0, z: 10.0},
+            rotation: {x: 0.0, y: 180.0, z: 0.0},
+            scale: {x: 1.5, y: 1.5, z: 1.5}
+        },
+        physics: {
+            mass: 50.0,
+            velocity: 3.0,
+            force: {x: 0.0, y: 0.0, z: 0.0}
+        },
+        id: 2
+    };
+    
+    println("\nGameObject:", obj2.name, "(ID:", obj2.id, ")");
+    println("Position: (", obj2.transform.position.x, ",", 
+            obj2.transform.position.y, ",", obj2.transform.position.z, ")");
+    println("Mass:", obj2.physics.mass);
+    
+    println("\n=== Test Passed ===");
+    return 0;
+}

@@ -1,0 +1,52 @@
+// 型システムのconst引数テスト（全型）
+
+int test_tiny(const tiny x) {
+    return x * 2;
+}
+
+int test_short(const short x) {
+    return x * 2;
+}
+
+int test_int(const int x) {
+    return x * 2;
+}
+
+long test_long(const long x) {
+    return x * 2;
+}
+
+double test_double(const double x) {
+    return x * 2.0;
+}
+
+int main() {
+    println("Testing const parameters for all types:");
+    
+    tiny t = 10;
+    int r1 = test_tiny(t);
+    println("test_tiny(10) = ", r1);
+    assert(r1 == 20);
+    
+    short s = 100;
+    int r2 = test_short(s);
+    println("test_short(100) = ", r2);
+    assert(r2 == 200);
+    
+    int i = 1000;
+    int r3 = test_int(i);
+    println("test_int(1000) = ", r3);
+    assert(r3 == 2000);
+    
+    long l = 10000;
+    long r4 = test_long(l);
+    println("test_long(10000) = ", r4);
+    assert(r4 == 20000);
+    
+    double d = 3.14;
+    double r5 = test_double(d);
+    println("test_double(3.14) = ", r5);
+    
+    println("All type const parameter tests passed!");
+    return 0;
+}

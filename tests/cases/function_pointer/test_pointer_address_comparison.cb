@@ -1,0 +1,86 @@
+// 関数ポインタのアドレス比較テスト
+// 同じ関数を指すポインタは同じアドレスを持つ
+// 異なる関数を指すポインタは異なるアドレスを持つ
+
+int add(int a, int b) {
+    return a + b;
+}
+
+int subtract(int a, int b) {
+    return a - b;
+}
+
+int multiply(int a, int b) {
+    return a * b;
+}
+
+void main() {
+    // テスト1: 同じ関数を指す2つのポインタは同じアドレスを持つ
+    int* fp1 = &add;
+    int* fp2 = &add;
+    
+    if (fp1 == fp2) {
+        println(1);  // 期待値: 1 (同じアドレス)
+    } else {
+        println(0);
+    }
+    
+    // テスト2: 異なる関数を指すポインタは異なるアドレスを持つ
+    int* fp3 = &subtract;
+    
+    if (fp1 != fp3) {
+        println(1);  // 期待値: 1 (異なるアドレス)
+    } else {
+        println(0);
+    }
+    
+    // テスト3: ポインタを再代入した後のアドレス比較
+    int* fp4 = &add;
+    
+    if (fp4 == fp1) {
+        println(1);  // 期待値: 1 (同じ関数を指している)
+    } else {
+        println(0);
+    }
+    
+    // テスト4: ポインタを別の関数に再代入
+    fp4 = &multiply;
+    
+    if (fp4 != fp1) {
+        println(1);  // 期待値: 1 (異なる関数を指している)
+    } else {
+        println(0);
+    }
+    
+    if (fp4 == &multiply) {
+        println(1);  // 期待値: 1 (multiplyを指している)
+    } else {
+        println(0);
+    }
+    
+    // テスト5: 関数ポインタのアドレスが0でないことを確認
+    if (fp1 != 0) {
+        println(1);  // 期待値: 1 (有効なアドレス)
+    } else {
+        println(0);
+    }
+    
+    // テスト6: 3つの異なる関数ポインタの比較
+    int* fpAdd = &add;
+    int* fpSub = &subtract;
+    int* fpMul = &multiply;
+    
+    if (fpAdd != fpSub && fpSub != fpMul && fpAdd != fpMul) {
+        println(1);  // 期待値: 1 (すべて異なる)
+    } else {
+        println(0);
+    }
+    
+    // テスト7: ポインタを使った関数呼び出しの結果確認
+    int result = fp1(10, 5);
+    println(result);  // 期待値: 15 (add関数)
+    
+    fp1 = &multiply;
+    result = fp1(10, 5);
+    println(result);  // 期待値: 50 (multiply関数)
+}

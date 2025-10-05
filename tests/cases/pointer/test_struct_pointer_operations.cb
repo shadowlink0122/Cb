@@ -1,0 +1,119 @@
+// 構造体ポインタ操作の包括的テスト
+
+struct Point {
+    int x;
+    int y;
+};
+
+int main() {
+    println("=== Struct Pointer Operations Comprehensive Test ===");
+    println("");
+    
+    // テスト1: 構造体変数へのポインタ
+    println("Test 1: Pointer to struct variable");
+    Point p1;
+    p1.x = 10;
+    p1.y = 20;
+    
+    Point* ptr = &p1;
+    
+    if ((*ptr).x != 10 || (*ptr).y != 20) {
+        println("  FAIL: Pointer access");
+        return 1;
+    }
+    println("  (*ptr).x = 10, (*ptr).y = 20");
+    println("  ✓ Test 1 passed");
+    
+    // テスト2: ポインタ経由の構造体メンバ変更
+    println("Test 2: Modify struct through pointer");
+    (*ptr).x = 100;
+    (*ptr).y = 200;
+    
+    if (p1.x != 100 || p1.y != 200) {
+        println("  FAIL: Modification");
+        return 1;
+    }
+    println("  After modification: p1.x = 100, p1.y = 200");
+    println("  ✓ Test 2 passed");
+    
+    // テスト3: 別のPoint構造体へのポインタ
+    println("Test 3: Another Point pointer");
+    Point p3;
+    p3.x = 50;
+    p3.y = 75;
+    
+    Point* p3ptr = &p3;
+    
+    if ((*p3ptr).x != 50 || (*p3ptr).y != 75) {
+        println("  FAIL: Point pointer access");
+        return 1;
+    }
+    println("  (*p3ptr).x = 50, (*p3ptr).y = 75");
+    println("  ✓ Test 3 passed");
+    
+    // テスト4: ポインタ経由での値変更
+    println("Test 4: Modify Point through pointer");
+    (*p3ptr).x = 150;
+    (*p3ptr).y = 250;
+    
+    if (p3.x != 150 || p3.y != 250) {
+        println("  FAIL: Point modification");
+        return 1;
+    }
+    println("  Modified via pointer: p3.x = 150, p3.y = 250");
+    println("  ✓ Test 4 passed");
+    
+    // テスト5: 複数の構造体ポインタ
+    println("Test 5: Multiple struct pointers");
+    Point pa;
+    pa.x = 1;
+    pa.y = 2;
+    
+    Point pb;
+    pb.x = 3;
+    pb.y = 4;
+    
+    Point pc;
+    pc.x = 5;
+    pc.y = 6;
+    
+    Point* pa_ptr = &pa;
+    Point* pb_ptr = &pb;
+    Point* pc_ptr = &pc;
+    
+    if ((*pa_ptr).x != 1 || (*pb_ptr).x != 3 || (*pc_ptr).x != 5) {
+        println("  FAIL: Multiple pointers");
+        return 1;
+    }
+    println("  (*pa_ptr).x = 1, (*pb_ptr).x = 3, (*pc_ptr).x = 5");
+    println("  ✓ Test 5 passed");
+    
+    // テスト6: 構造体ポインタの再代入
+    println("Test 6: Struct pointer reassignment");
+    Point s6a;
+    s6a.x = 111;
+    s6a.y = 222;
+    
+    Point s6b;
+    s6b.x = 333;
+    s6b.y = 444;
+    
+    Point* ptr6 = &s6a;
+    if ((*ptr6).x != 111) {
+        println("  FAIL: Initial pointer");
+        return 1;
+    }
+    println("  initially points to s6a: (*ptr6).x = 111");
+    
+    ptr6 = &s6b;
+    if ((*ptr6).x != 333) {
+        println("  FAIL: Reassigned pointer");
+        return 1;
+    }
+    println("  after reassignment to s6b: (*ptr6).x = 333");
+    println("  ✓ Test 6 passed");
+    
+    println("");
+    println("=== All struct pointer operations tests passed ===");
+    return 0;
+}

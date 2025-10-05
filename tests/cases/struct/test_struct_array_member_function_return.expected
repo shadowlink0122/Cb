@@ -1,0 +1,9 @@
+=== Test 1: Basic struct ===
+1
+85
+=== Test 2: Nested struct ===
+0
+0
+10
+10
+=== All tests passed ===

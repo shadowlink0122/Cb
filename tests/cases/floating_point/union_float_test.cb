@@ -1,0 +1,39 @@
+// Union型でのfloat/double対応テスト
+
+typedef NumericValue = int | float | double;
+
+int main() {
+    println("=== Union Float/Double Test ===");
+    
+    // int値
+    NumericValue v1 = 42;
+    println("int value: ");
+    println(v1);
+    
+    // float値
+    NumericValue v2 = 3.14f;
+    println("float value: ");
+    println(v2);
+    
+    // double値
+    NumericValue v3 = 2.718281828459045;
+    println("double value: ");
+    println(v3);
+    
+    // 計算結果
+    NumericValue v4 = 1.5f + 2.5f;
+    println("float calculation: ");
+    println(v4);
+    
+    // 関数の戻り値
+    NumericValue v5 = compute_pi();
+    println("function return: ");
+    println(v5);
+    
+    println("=== End ===");
+    return 0;
+}
+
+double compute_pi() {
+    return 3.141592653589793;
+}

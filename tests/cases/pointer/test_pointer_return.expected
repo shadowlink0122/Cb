@@ -1,0 +1,11 @@
+Test 1: Return pointer to global
+10
+30
+Test 2: Forward pointer
+40
+50
+Test 3: Conditional pointer
+30
+20
+Test 4: nullptr return
+nullptr received

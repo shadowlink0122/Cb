@@ -5,7 +5,12 @@ void test_actual_fibonacci_sample() {
     run_cb_test_with_output_and_time_auto("../../sample/fibonacci.cb",
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_EQ(0, exit_code, "actual fibonacci sample failed");
-            INTEGRATION_ASSERT_CONTAINS(output, "0\n1\n1\n2\n3\n5\n8", "Expected fibonacci sequence not found");
+            INTEGRATION_ASSERT_CONTAINS(output, "=== Fibonacci Sequence ===", "Expected fibonacci header not found");
+            INTEGRATION_ASSERT_CONTAINS(output, "0 : 0", "Expected fibonacci f(0) not found");
+            INTEGRATION_ASSERT_CONTAINS(output, "1 : 1", "Expected fibonacci f(1) not found");
+            INTEGRATION_ASSERT_CONTAINS(output, "5 : 5", "Expected fibonacci f(5) not found");
+            INTEGRATION_ASSERT_CONTAINS(output, "10 : 55", "Expected fibonacci f(10) not found");
+            INTEGRATION_ASSERT_CONTAINS(output, "Overflow", "Expected overflow detection for large fibonacci numbers");
         });
     integration_test_passed_with_time_auto("actual fibonacci sample", "fibonacci.cb");
 }

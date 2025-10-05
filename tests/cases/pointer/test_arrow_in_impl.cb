@@ -1,0 +1,98 @@
+// implメソッド内でのアロー演算子テスト
+
+// ポインタメンバを持つ構造体
+struct Node {
+    int* value_ptr;
+    int data;
+};
+
+interface Processor {
+    int process();
+    void update(int val);
+};
+
+impl Processor for Node {
+    int process() {
+        // selfのポインタメンバにアクセス
+        // self.value_ptr と self->value_ptr は使えない（selfは変数名）
+        // ただし (*self).value_ptr は使える
+        return *(*self).value_ptr + self.data;
+    }
+    
+    void update(int val) {
+        *(*self).value_ptr = val;
+        (*self).data = val * 2;
+    }
+};
+
+// ポインタを持つ構造体のimpl
+struct Container {
+    Node* node_ptr;
+    int count;
+};
+
+interface Manager {
+    int get_total();
+    void increment();
+};
+
+impl Manager for Container {
+    int get_total() {
+        // self->node_ptr でポインタメンバにアクセス（selfは値）
+        // これは (*self).node_ptr と同じ
+        // ネストしたアロー演算子は未対応のため、(*ptr).member形式を使用
+        return (*(*self).node_ptr).data + self.count;
+    }
+    
+    void increment() {
+        (*(*self).node_ptr).data += 1;
+        self.count += 1;
+    }
+};
+
+int main() {
+    println("=== Arrow Operator in Impl Methods Test ===");
+    
+    // Test 1: selfのポインタメンバ
+    println("");
+    println("Test 1: Pointer member in self");
+    int val = 100;
+    Node n = {value_ptr: &val, data: 50};
+    
+    println("Initial: *value_ptr = 100, data = 50");
+    println("n.process():");
+    println(n.process());  // 150 (100 + 50)
+    
+    n.update(200);
+    println("After n.update(200):");
+    println("val = ");
+    println(val);  // 200
+    println("n.data = ");
+    println(n.data);  // 400 (200 * 2)
+    println("✓ Test 1 passed");
+    
+    // Test 2: selfがポインタを持つ構造体
+    println("");
+    println("Test 2: Self with pointer member");
+    Node n2 = {value_ptr: &val, data: 10};
+    Container c = {node_ptr: &n2, count: 5};
+    
+    println("Initial: n2.data = 10, c.count = 5");
+    println("c.get_total():");
+    println(c.get_total());  // 15 (10 + 5)
+    
+    c.increment();
+    println("After c.increment():");
+    println("n2.data = ");
+    println(n2.data);  // 11
+    println("c.count = ");
+    println(c.count);  // 6
+    println("c.get_total():");
+    println(c.get_total());  // 17 (11 + 6)
+    println("✓ Test 2 passed");
+    
+    println("");
+    println("=== All impl arrow operator tests passed ===");
+    
+    return 0;
+}

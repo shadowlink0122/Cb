@@ -1,0 +1,57 @@
+// 構造体メンバのconst対応包括テスト
+
+struct Point {
+    const int x;
+    const int y;
+};
+
+struct Data {
+    const int id;
+    const double value;
+    const string name;
+    int count;
+};
+
+struct Nested {
+    const Point position;
+    int level;
+};
+
+int main() {
+    println("=== Comprehensive Const Member Test ===");
+    
+    // Test 1: const int メンバー
+    println("\nTest 1: const int members");
+    Point p = {x: 10, y: 20};
+    println("p.x = %d, p.y = %d", p.x, p.y);
+    
+    // Test 2: const double メンバー
+    println("\nTest 2: const double member");
+    Data d = {id: 1, value: 3.14, name: "test", count: 0};
+    println("d.id = %d", d.id);
+    println("d.value = %f", d.value);
+    println("d.name = %s", d.name);
+    println("d.count = %d", d.count);
+    
+    // 通常のメンバーは変更可能
+    d.count = 5;
+    println("After d.count = 5: %d", d.count);
+    
+    // Test 3: const 構造体メンバー
+    println("\nTest 3: const struct member");
+    Point inner_point = {x: 100, y: 200};
+    Nested n = {position: inner_point, level: 1};
+    println("n.position.x = %d, n.position.y = %d", n.position.x, n.position.y);
+    println("n.level = %d", n.level);
+    
+    // 通常のメンバーは変更可能
+    n.level = 2;
+    println("After n.level = 2: %d", n.level);
+    
+    // Test 4: const double メンバーの変更を試みる
+    println("\nTest 4: Attempting to modify const double...");
+    d.value = 2.71;  // これはエラーになるべき
+    
+    println("ERROR: This should not be reached!");
+    return 1;
+}

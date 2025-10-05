@@ -1,0 +1,55 @@
+// 構造体配列メンバのテスト
+
+struct Point {
+    int x;
+    int y;
+};
+
+struct Line {
+    Point start;
+    Point end;
+};
+
+struct Polygon {
+    Point[4] vertices;
+    int num_vertices;
+};
+
+struct Shape {
+    string name;
+    Polygon poly;
+};
+
+int main() {
+    println("=== Struct Array Member Test ===");
+    
+    // 構造体配列メンバの宣言
+    Polygon square;
+    square.num_vertices = 4;
+    
+    // 配列要素への個別代入（メンバフィールドへの代入）
+    square.vertices[0].x = 0;
+    square.vertices[0].y = 0;
+    square.vertices[1].x = 10;
+    square.vertices[1].y = 0;
+    square.vertices[2].x = 10;
+    square.vertices[2].y = 10;
+    square.vertices[3].x = 0;
+    square.vertices[3].y = 10;
+    
+    println("Square vertices:");
+    int i;
+    for (i = 0; i < square.num_vertices; i = i + 1) {
+        println("  Vertex", i, ": (", square.vertices[i].x, ",", square.vertices[i].y, ")");
+    }
+    
+    // 値の更新
+    square.vertices[0].x = 100;
+    square.vertices[0].y = 200;
+    
+    println("\nAfter vertex[0] update:");
+    println("  Vertex 0: (", square.vertices[0].x, ",", square.vertices[0].y, ")");
+    
+    println("\n=== Test Passed ===");
+    return 0;
+}

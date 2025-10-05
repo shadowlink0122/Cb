@@ -304,6 +304,120 @@ inline void test_multidim_array_interface() {
         }, execution_time);
 }
 
+// Arrow operator assignment comprehensive test
+inline void test_arrow_assignment_comprehensive() {
+    std::cout << "[integration] Running test_arrow_assignment_comprehensive..." << std::endl;
+    
+    double execution_time;
+    run_cb_test_with_output_and_time("../../tests/cases/interface/test_arrow_assignment_comprehensive.cb",
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "Arrow assignment comprehensive test should exit with code 0");
+            INTEGRATION_ASSERT_CONTAINS(output, "=== Arrow Assignment Comprehensive Tests ===",
+                "Should contain test header");
+            INTEGRATION_ASSERT_CONTAINS(output, "Test 1: Direct pointer assignment",
+                "Should contain Test 1 header");
+            INTEGRATION_ASSERT_CONTAINS(output, "Test 2: Nested pointer member assignment",
+                "Should contain Test 2 header");
+            INTEGRATION_ASSERT_CONTAINS(output, "Test 3: Multiple pointers to same object",
+                "Should contain Test 3 header");
+            INTEGRATION_ASSERT_CONTAINS(output, "Test 4: Pointer as function parameter",
+                "Should contain Test 4 header");
+            INTEGRATION_ASSERT_CONTAINS(output, "Test 5: Pointer chain",
+                "Should contain Test 5 header");
+            INTEGRATION_ASSERT_CONTAINS(output, "Test 6: Arrow with expressions",
+                "Should contain Test 6 header");
+            INTEGRATION_ASSERT_CONTAINS(output, "Test 7: Self-assignment via arrow",
+                "Should contain Test 7 header");
+            INTEGRATION_ASSERT_CONTAINS(output, "=== All Arrow Assignment Tests Passed ===",
+                "Should contain success message");
+            
+            // Verify no failures
+            INTEGRATION_ASSERT(!contains(output, "FAILED"), "Should not contain any FAILED messages");
+        }, execution_time);
+}
+
+// Self with pointer member comprehensive test
+inline void test_self_pointer_member_comprehensive() {
+    std::cout << "[integration] Running test_self_pointer_member_comprehensive..." << std::endl;
+    
+    double execution_time;
+    run_cb_test_with_output_and_time("../../tests/cases/interface/test_self_pointer_member_comprehensive.cb",
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "Self pointer member comprehensive test should exit with code 0");
+            INTEGRATION_ASSERT_CONTAINS(output, "=== Self Pointer Member Comprehensive Tests ===",
+                "Should contain test header");
+            INTEGRATION_ASSERT_CONTAINS(output, "Test 1: Read pointer member via self",
+                "Should contain Test 1 header");
+            INTEGRATION_ASSERT_CONTAINS(output, "Test 2: Write pointer member via self",
+                "Should contain Test 2 header");
+            INTEGRATION_ASSERT_CONTAINS(output, "Test 3: Modify both coordinates",
+                "Should contain Test 3 header");
+            INTEGRATION_ASSERT_CONTAINS(output, "Test 4: Compute sum",
+                "Should contain Test 4 header");
+            INTEGRATION_ASSERT_CONTAINS(output, "Test 5: Increment operations",
+                "Should contain Test 5 header");
+            INTEGRATION_ASSERT_CONTAINS(output, "Test 6: Double values",
+                "Should contain Test 6 header");
+            INTEGRATION_ASSERT_CONTAINS(output, "Test 7: Mixed self fields",
+                "Should contain Test 7 header");
+            INTEGRATION_ASSERT_CONTAINS(output, "=== All Self Pointer Member Tests Passed ===",
+                "Should contain success message");
+            
+            // Verify no failures
+            INTEGRATION_ASSERT(!contains(output, "FAILED"), "Should not contain any FAILED messages");
+        }, execution_time);
+}
+
+// Self member arrow field access test
+inline void test_self_member_arrow_field() {
+    std::cout << "[integration] Running test_self_member_arrow_field..." << std::endl;
+    
+    double execution_time;
+    run_cb_test_with_output_and_time("../../tests/cases/interface/test_self_member_arrow_field.cb",
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "Self member arrow field test should exit with code 0");
+            INTEGRATION_ASSERT_CONTAINS(output, "=== Self Member Arrow Field Access Tests ===",
+                "Should contain test header");
+            INTEGRATION_ASSERT_CONTAINS(output, "Test 1: Read via self.data->x",
+                "Should contain Test 1 header");
+            INTEGRATION_ASSERT_CONTAINS(output, "Test 2: Write via self.data->x",
+                "Should contain Test 2 header");
+            INTEGRATION_ASSERT_CONTAINS(output, "Test 3: Compute via self.data->x + self.data->y",
+                "Should contain Test 3 header");
+            INTEGRATION_ASSERT_CONTAINS(output, "=== All Self Member Arrow Field Access Tests Passed ===",
+                "Should contain success message");
+            INTEGRATION_ASSERT(!contains(output, "FAILED"), "Should not contain any FAILED messages");
+        }, execution_time);
+}
+
+// Comprehensive self pointer test
+inline void test_self_pointer_comprehensive() {
+    std::cout << "[integration] Running test_self_pointer_comprehensive..." << std::endl;
+    
+    double execution_time;
+    run_cb_test_with_output_and_time("../../tests/cases/interface/test_self_pointer_comprehensive.cb",
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "Self pointer comprehensive test should exit with code 0");
+            INTEGRATION_ASSERT_CONTAINS(output, "=== Comprehensive Self Pointer Member Tests ===",
+                "Should contain test header");
+            INTEGRATION_ASSERT_CONTAINS(output, "Test 1: Read all corners",
+                "Should contain Test 1 header");
+            INTEGRATION_ASSERT_CONTAINS(output, "Test 2: Write to all corners",
+                "Should contain Test 2 header");
+            INTEGRATION_ASSERT_CONTAINS(output, "Test 3: Compute dimensions",
+                "Should contain Test 3 header");
+            INTEGRATION_ASSERT_CONTAINS(output, "Test 4: Move rectangle",
+                "Should contain Test 4 header");
+            INTEGRATION_ASSERT_CONTAINS(output, "Test 5: Scale rectangle",
+                "Should contain Test 5 header");
+            INTEGRATION_ASSERT_CONTAINS(output, "Test 6: Verify dimensions after scale",
+                "Should contain Test 6 header");
+            INTEGRATION_ASSERT_CONTAINS(output, "=== All Comprehensive Self Pointer Member Tests Passed ===",
+                "Should contain success message");
+            INTEGRATION_ASSERT(!contains(output, "FAILED"), "Should not contain any FAILED messages");
+        }, execution_time);
+}
+
 // 全てのinterfaceテストを実行する統合関数
 inline void run_all_interface_tests() {
     std::cout << "[integration] === Interface/Impl System Tests ===" << std::endl;
@@ -322,6 +436,10 @@ inline void run_all_interface_tests() {
     test_ndim_interface();
     test_cube_interface();
     test_multidim_array_interface();
+    test_arrow_assignment_comprehensive();
+    test_self_pointer_member_comprehensive();
+    test_self_member_arrow_field();
+    test_self_pointer_comprehensive();
     
     std::cout << "[integration] Interface tests completed" << std::endl;
 }

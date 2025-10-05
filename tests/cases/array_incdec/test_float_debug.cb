@@ -1,0 +1,73 @@
+// float配列初期化バグのデバッグ用テストケース
+
+float[3] g_farr;
+double[3] g_darr;
+
+void test_float_declaration() {
+    println("Test: Float array declaration");
+    float[3] local_farr;
+    println("Float array declared successfully");
+}
+
+void test_float_initialization() {
+    println("Test: Float array initialization with literal");
+    float[3] local_farr = {1.0, 2.0, 3.0};
+    println("Float array initialized successfully");
+    println("local_farr[0] value printed (skipped printf)");
+}
+
+void test_float_assignment_index0() {
+    println("Test: Float array assignment to index 0");
+    float[3] local_farr;
+    local_farr[0] = 1.5;
+    println("Index 0 assigned successfully");
+    println("local_farr[0] value printed (skipped printf)");
+}
+
+void test_float_assignment_index1() {
+    println("Test: Float array assignment to index 1");
+    float[3] local_farr;
+    local_farr[1] = 2.5;
+    println("Index 1 assigned successfully");
+    println("local_farr[1] value printed (skipped printf)");
+}
+
+void test_global_float_assignment() {
+    println("Test: Global float array assignment");
+    g_farr[0] = 1.5;
+    println("Global index 0 assigned successfully");
+    println("g_farr[0] value printed (skipped printf)");
+}
+
+void test_double_assignment() {
+    println("Test: Double array assignment");
+    double[3] local_darr;
+    local_darr[0] = 1.5;
+    println("Double index 0 assigned successfully");
+    println("local_darr[0] value printed (skipped printf)");
+}
+
+int main() {
+    println("=== Float Array Debug Tests ===\n");
+    
+    test_float_declaration();
+    println("");
+    
+    test_float_initialization();
+    println("");
+    
+    test_float_assignment_index0();
+    println("");
+    
+    test_float_assignment_index1();
+    println("");
+    
+    test_global_float_assignment();
+    println("");
+    
+    test_double_assignment();
+    println("");
+    
+    println("All tests completed!");
+    return 0;
+}

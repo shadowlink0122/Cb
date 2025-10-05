@@ -1,0 +1,36 @@
+// float配列の値確認テスト
+
+float[3] g_farr;
+
+int main() {
+    println("=== Float Array Value Test ===");
+    
+    // 値を代入
+    g_farr[0] = 1.5;
+    g_farr[1] = 2.5;
+    g_farr[2] = 3.5;
+    println("Assigned values: 1.5, 2.5, 3.5");
+    
+    // 値をintとして読み取る（比較演算用）
+    int v0 = g_farr[0];
+    int v1 = g_farr[1];
+    int v2 = g_farr[2];
+    
+    println("As integers: v0=%d, v1=%d, v2=%d", v0, v1, v2);
+    
+    // 直接比較
+    println("Testing comparisons:");
+    if (v1 > 2) {
+        println("v1 > 2: true (v1=%d)", v1);
+    } else {
+        println("v1 > 2: false (v1=%d)", v1);
+    }
+    
+    if (v1 < 3) {
+        println("v1 < 3: true (v1=%d)", v1);
+    } else {
+        println("v1 < 3: false (v1=%d)", v1);
+    }
+    
+    return 0;
+}

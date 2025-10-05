@@ -1,0 +1,55 @@
+// Simple test: pointer variable method call (not via self)
+// Pattern: ptr->method() where ptr is a regular variable
+
+struct Point {
+    int x;
+    int y;
+};
+
+interface IPoint {
+    int getX();
+    int getY();
+    void setX(int newX);
+};
+
+impl IPoint for Point {
+    int getX() {
+        return self.x;
+    }
+    
+    int getY() {
+        return self.y;
+    }
+    
+    void setX(int newX) {
+        self.x = newX;
+    }
+};
+
+int main() {
+    Point p = {x: 10, y: 20};
+    Point* ptr = &p;
+    
+    println("=== Pointer Variable Method Call Test ===");
+    
+    // Test 1: Call method on pointer variable
+    println("\nTest 1: ptr->getX()");
+    int x = ptr->getX();
+    if (x != 10) {
+        println("FAILED: expected 10, got", x);
+        return 1;
+    }
+    println("PASSED: x =", x);
+    
+    // Test 2: Call setter method
+    println("\nTest 2: ptr->setX(100)");
+    ptr->setX(100);
+    if (p.x != 100) {
+        println("FAILED: p.x expected 100, got", p.x);
+        return 1;
+    }
+    println("PASSED: p.x =", p.x);
+    
+    println("\n=== All Pointer Method Call Tests Passed ===");
+    return 0;
+}

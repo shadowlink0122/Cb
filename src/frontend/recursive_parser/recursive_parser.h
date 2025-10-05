@@ -3,6 +3,8 @@
 #include "../../common/ast.h"
 #include <memory>
 #include <unordered_map>
+#include <unordered_set>
+#include <vector>
 
 using namespace RecursiveParserNS;
 
@@ -15,6 +17,9 @@ struct ParsedTypeInfo {
     TypeInfo base_type_info = TYPE_UNKNOWN;// 基本型のTypeInfo
     bool is_array = false;                 // 配列型かどうか
     ArrayTypeInfo array_info;              // 配列情報（多次元対応）
+    bool is_reference = false;             // 参照型かどうか
+    bool is_unsigned = false;              // unsigned修飾子かどうか
+    bool is_const = false;                 // const修飾子かどうか
 };
 
 class RecursiveParser {
@@ -61,6 +66,7 @@ private:
     ASTNode* parseEnumDeclaration();             // enum宣言
     ASTNode* parseEnumTypedefDeclaration();      // typedef enum宣言
     ASTNode* parseUnionTypedefDeclaration();     // typedef union宣言 (TypeScript-like literal types)
+    ASTNode* parseFunctionPointerTypedefDeclaration(); // 関数ポインタtypedef宣言
     ASTNode* parseInterfaceDeclaration();        // interface宣言
     ASTNode* parseImplDeclaration();             // impl宣言
     ASTNode* parseVariableDeclaration();
@@ -77,6 +83,7 @@ private:
     ASTNode* parseArrayDeclaration(const std::string& type_name, bool isConst);
     ASTNode* parseVariableDeclarationList(const std::string& type_name, bool isConst);
     ASTNode* parseReturnStatement();
+    ASTNode* parseAssertStatement();
     ASTNode* parseBreakStatement();
     ASTNode* parseContinueStatement();
     ASTNode* parseIfStatement();
@@ -103,6 +110,7 @@ private:
     ASTNode* parsePostfix();
     ASTNode* parsePrimary();
     ASTNode* parseMemberAccess(ASTNode* object);  // メンバアクセス (.member)
+    ASTNode* parseArrowAccess(ASTNode* object);   // アロー演算子アクセス (ptr->member)
     ASTNode* parseStructLiteral();                // 構造体リテラル {a: 1, b: "str"}
     ASTNode* parseEnumAccess();                   // enum値アクセス (EnumName::member)
     
@@ -126,8 +134,20 @@ private:
     // impl管理
     std::vector<ImplDefinition> impl_definitions_; // impl定義の保存
     
+    // 関数ポインタtypedef管理
+    std::unordered_map<std::string, FunctionPointerTypeInfo> function_pointer_typedefs_; // 関数ポインタtypedef定義の保存
+    
     // Union parsing helper
     bool parseUnionValue(UnionDefinition& union_def);
+    
+    // 関数ポインタ用ヘルパー
+    bool isFunctionPointerTypedef();  // 関数ポインタtypedef構文かチェック
+    bool isFunctionPointerType(const std::string& type_name) const {
+        return function_pointer_typedefs_.find(type_name) != function_pointer_typedefs_.end();
+    }
+    const FunctionPointerTypeInfo& getFunctionPointerTypeInfo(const std::string& type_name) const {
+        return function_pointer_typedefs_.at(type_name);
+    }
     
     // 直近に解析した型情報
     ParsedTypeInfo last_parsed_type_info_;
@@ -157,4 +177,16 @@ public:
     const std::unordered_map<std::string, UnionDefinition>& get_union_definitions() const {
         return union_definitions_;
     }
+    
+    // 関数ポインタtypedef定義へのアクセサ
+    const std::unordered_map<std::string, FunctionPointerTypeInfo>& get_function_pointer_typedefs() const {
+        return function_pointer_typedefs_;
+    }
+    
+private:
+    // 循環参照検出用のヘルパー関数
+    bool detectCircularReference(const std::string& struct_name, 
+                                 const std::string& member_type,
+                                 std::unordered_set<std::string>& visited,
+                                 std::vector<std::string>& path);
 };

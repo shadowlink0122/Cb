@@ -1,0 +1,33 @@
+// Float型の基本テスト
+int main() {
+    float a = 3.14f;
+    float b = 2.71f;
+    
+    // 四則演算
+    println(a + b);  // 5.85
+    println(a - b);  // 0.43
+    println(a * b);  // 8.5094
+    println(a / b);  // 1.15867...
+    
+    // 比較演算
+    if (a > b) {
+        println("a > b: true");
+    }
+    
+    if (a == 3.14f) {
+        println("a == 3.14: true");
+    }
+    
+    // 浮動小数点と整数の演算（浮動小数点優先）
+    float c = 1.0f / 3.0f;
+    println(c);  // 0.333333...
+    
+    float d = (1.0f / 3.0f) * 3.0f;
+    println(d);  // 0.999999...
+    
+    // 整数除算
+    int e = 1 / 3;
+    println(e);  // 0
+    
+    return 0;
+}

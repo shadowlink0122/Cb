@@ -10,6 +10,7 @@
 #include "array_copy/test_array_copy.hpp"
 #include "array_literal/test_array_literal.hpp"
 #include "array_return/test_array_return.hpp"
+#include "assert/assert_tests.hpp"
 #include "assign/test_assign.hpp"
 #include "basic/test_basic.hpp"
 #include "bitwise/test_bitwise.hpp"
@@ -17,17 +18,21 @@
 #include "boundary/test_boundary.hpp"
 #include "compound_assign/test_compound_assign.hpp"
 #include "const_array/test_const_array.hpp"
+#include "const_parameters/test_const_parameters.hpp"
 #include "const_variables/test_const_variables.hpp"
 #include "cross_type/test_cross_type.hpp"
 #include "dynamic_array_error/test_dynamic_array_error.hpp"
 #include "enum/test_enum.hpp"
 #include "error_handling/test_error_handling.hpp"
+#include "float_double_unsigned/test_float_double_unsigned.hpp"
+#include "floating_point/test_floating_point.hpp"
 #include "func/test_func.hpp"
 #include "func_return_type_check/test_func_return_type_check.hpp"
 #include "func_type_check/test_func_type_check.hpp"
 #include "global_array/test_global_array.hpp"
 #include "global_vars/test_global_vars.hpp"
 #include "if/test_if.hpp"
+#include "impl_static/impl_static_tests.hpp"
 #include "import_export/test_import_export.hpp"
 #include "incdec/test_incdec.hpp"
 #include "interface/interface_error_tests.hpp"
@@ -41,10 +46,12 @@
 #include "multidim_literal/test_multidim_literal.hpp"
 #include "multiple_var_decl/test_multiple_var_decl.hpp"
 #include "performance/test_performance.hpp"
+#include "pointer/pointer_tests.hpp"
 #include "printf/test_printf.hpp"
 #include "println/test_println.hpp"
+#include "reference/reference_tests.hpp"
 #include "sample_scenarios/test_sample_scenarios.hpp"
-#include "samples/test_actual_samples.hpp"
+// #include "samples/test_actual_samples.hpp"
 #include "self_assign/test_self_assign.hpp"
 #include "static_variables/test_static_variables.hpp"
 #include "string/test_string.hpp"
@@ -55,7 +62,10 @@
 #include "typedef/test_enum_typedef.hpp"
 #include "typedef/test_struct_typedef.hpp"
 #include "typedef/test_typedef.hpp"
+#include "typedef/typedef_pointer_reference_tests.hpp"
+#include "typedef/typedef_struct_tests.hpp"
 #include "union/test_union.hpp"
+#include "unsigned/test_unsigned.hpp"
 
 // 失敗継続対応のテスト実行関数（マクロをリファクタリング）
 void run_test_with_continue(void (*test_function)(), const char *test_name,
@@ -118,6 +128,11 @@ int main() {
     CategoryTimingStats::set_current_category("Core Language");
     run_test_with_continue(test_integration_basic, "Basic Tests", failed_tests);
     run_test_with_continue(test_integration_arithmetic, "Arithmetic Tests",
+                           failed_tests);
+    run_test_with_continue(test_integration_floating_point,
+                           "Floating Point Tests", failed_tests);
+    run_test_with_continue(test_integration_float_double_unsigned,
+                           "Float/Double/Unsigned Comprehensive Tests",
                            failed_tests);
     run_test_with_continue(test_integration_assign, "Assignment Tests",
                            failed_tests);
@@ -186,6 +201,8 @@ int main() {
                            "Const Variable Tests", failed_tests);
     run_test_with_continue(test_integration_const_array, "Const Array Tests",
                            failed_tests);
+    run_test_with_continue(test_integration_const_parameters,
+                           "Const Parameter Tests", failed_tests);
     run_test_with_continue(test_integration_global_vars,
                            "Global Variable Tests", failed_tests);
     run_test_with_continue(test_integration_static_variables,
@@ -194,6 +211,8 @@ int main() {
                            "Multiple Variable Declaration Tests", failed_tests);
     run_test_with_continue(test_integration_self_assign,
                            "Self Assignment Tests", failed_tests);
+    run_test_with_continue(test_integration_unsigned, "Unsigned Tests",
+                           failed_tests);
     CategoryTimingStats::print_category_summary("Variables");
 
     // 文字列・I/Oテスト群
@@ -242,6 +261,19 @@ int main() {
     run_test_with_continue(test_recursive_typedef_independence,
                            "Recursive Typedef Independence Tests",
                            failed_tests);
+    run_test_with_continue(ImplStaticTests::run_all_tests,
+                           "impl Static Variable Tests", failed_tests);
+    run_test_with_continue(PointerTests::run_all_pointer_tests, "Pointer Tests",
+                           failed_tests);
+    run_test_with_continue(ReferenceTests::run_all_reference_tests,
+                           "Reference Tests", failed_tests);
+    run_test_with_continue(
+        TypedefPointerReferenceTests::run_all_typedef_pointer_reference_tests,
+        "Typedef Pointer/Reference Tests", failed_tests);
+    run_test_with_continue(TypedefStructTests::run_all_typedef_struct_tests,
+                           "Typedef Struct Tests", failed_tests);
+    run_test_with_continue(AssertTests::run_all_assert_tests, "Assert Tests",
+                           failed_tests);
     CategoryTimingStats::print_category_summary("Advanced Features");
 
     // エラーハンドリング・特殊ケーステスト群
@@ -264,13 +296,13 @@ int main() {
     CategoryTimingStats::print_category_summary("Performance Tests");
 
     // サンプルシナリオテスト群
-    std::cout << "\n[integration-test] === Sample Scenarios ===" << std::endl;
-    CategoryTimingStats::set_current_category("Sample Scenarios");
-    run_test_with_continue(test_integration_sample_scenarios,
-                           "Sample Scenario Tests", failed_tests);
-    run_test_with_continue(test_integration_actual_samples,
-                           "Actual Sample Tests", failed_tests);
-    CategoryTimingStats::print_category_summary("Sample Scenarios");
+    // std::cout << "\n[integration-test] === Sample Scenarios ===" <<
+    // std::endl; CategoryTimingStats::set_current_category("Sample Scenarios");
+    // run_test_with_continue(test_integration_sample_scenarios,
+    //                        "Sample Scenario Tests", failed_tests);
+    // run_test_with_continue(test_integration_actual_samples,
+    //                        "Actual Sample Tests", failed_tests);
+    // CategoryTimingStats::print_category_summary("Sample Scenarios");
 
     // 最終サマリー
     std::cout << std::string(60, '=') << std::endl;

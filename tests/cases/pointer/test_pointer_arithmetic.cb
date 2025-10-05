@@ -1,0 +1,123 @@
+// ポインタ演算と配列アクセステスト
+// ポインタをインクリメント/デクリメントして配列要素にアクセス
+
+int main() {
+    println("=== Pointer Arithmetic Tests ===");
+    println("");
+    
+    // Test 1: 配列の先頭アドレスとポインタ演算
+    println("Test 1: Array base address and pointer arithmetic");
+    int[5] arr = [10, 20, 30, 40, 50];
+    
+    int* ptr = &arr[0];
+    println("arr[0] = %d, *ptr = %d", arr[0], *ptr);
+    
+    // ポインタをインクリメントして次の要素にアクセス
+    ptr = ptr + 1;
+    println("After ptr = ptr + 1: *ptr = %d (should be 20)", *ptr);
+    assert(*ptr == 20);
+    
+    ptr = ptr + 1;
+    println("After ptr = ptr + 1: *ptr = %d (should be 30)", *ptr);
+    assert(*ptr == 30);
+    
+    // ポインタをデクリメント
+    ptr = ptr - 1;
+    println("After ptr = ptr - 1: *ptr = %d (should be 20)", *ptr);
+    assert(*ptr == 20);
+    println("");
+    
+    // Test 2: ポインタ経由で配列要素を変更
+    println("Test 2: Modifying array elements via pointer");
+    int[3] nums = [1, 2, 3];
+    int* p = &nums[0];
+    
+    println("Before: nums = [%d, %d, %d}", nums[0], nums[1], nums[2]);
+    
+    *p = 100;
+    p = p + 1;
+    *p = 200;
+    p = p + 1;
+    *p = 300;
+    
+    println("After: nums = [%d, %d, %d}", nums[0], nums[1], nums[2]);
+    assert(nums[0] == 100);
+    assert(nums[1] == 200);
+    assert(nums[2] == 300);
+    println("");
+    
+    // Test 3: ポインタインクリメント演算子
+    println("Test 3: Pointer increment operators");
+    int[4] data = [5, 10, 15, 20];
+    int* ptr2 = &data[0];
+    
+    println("*ptr2 = %d", *ptr2);
+    ptr2++;
+    println("After ptr2++: *ptr2 = %d", *ptr2);
+    assert(*ptr2 == 10);
+    
+    ++ptr2;
+    println("After ++ptr2: *ptr2 = %d", *ptr2);
+    assert(*ptr2 == 15);
+    
+    ptr2--;
+    println("After ptr2--: *ptr2 = %d", *ptr2);
+    assert(*ptr2 == 10);
+    
+    --ptr2;
+    println("After --ptr2: *ptr2 = %d", *ptr2);
+    assert(*ptr2 == 5);
+    println("");
+    
+    // Test 4: ポインタのオフセットアクセス
+    println("Test 4: Pointer offset access");
+    int[6] array = [100, 200, 300, 400, 500, 600];
+    int* base = &array[0];
+    
+    println("base[0] via *(base + 0) = %d", *(base + 0));
+    println("base[2] via *(base + 2) = %d", *(base + 2));
+    println("base[5] via *(base + 5) = %d", *(base + 5));
+    
+    assert(*(base + 0) == 100);
+    assert(*(base + 2) == 300);
+    assert(*(base + 5) == 600);
+    println("");
+    
+    // Test 5: ループでポインタを進めながらアクセス
+    println("Test 5: Loop with pointer increment");
+    int[5] values = [1, 2, 3, 4, 5];
+    int* vptr = &values[0];
+    
+    println("Array values via pointer:");
+    for (int i = 0; i < 5; i++) {
+        println("  values[%d] = %d", i, *vptr);
+        vptr++;
+    }
+    println("");
+    
+    // Test 6: ポインタ経由でのインクリメント/デクリメント
+    println("Test 6: Value increment via pointer");
+    int x = 10;
+    int* px = &x;
+    
+    println("Before: x = %d", x);
+    (*px)++;
+    println("After (*px)++: x = %d", x);
+    assert(x == 11);
+    
+    (*px)--;
+    println("After (*px)--: x = %d", x);
+    assert(x == 10);
+    
+    ++(*px);
+    println("After ++(*px): x = %d", x);
+    assert(x == 11);
+    
+    --(*px);
+    println("After --(*px): x = %d", x);
+    assert(x == 10);
+    println("");
+    
+    println("All pointer arithmetic tests passed!");
+    return 0;
+}

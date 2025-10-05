@@ -1,0 +1,48 @@
+// const 構造体変数のテスト
+// 構造体変数自体をconstにすると、すべてのメンバーがconstになる
+
+struct Point {
+    int x;
+    int y;
+};
+
+struct Data {
+    int id;
+    double value;
+    string name;
+};
+
+struct Nested {
+    Point position;
+    int level;
+};
+
+int main() {
+    println("=== Const Struct Variable Test ===");
+    
+    // Test 1: const struct variable - 通常のメンバー
+    println("\nTest 1: const struct variable with regular members");
+    const Point p = {x: 10, y: 20};
+    println("p.x = %d, p.y = %d", p.x, p.y);
+    
+    // Test 2: const struct variable - mixed members
+    println("\nTest 2: const struct variable with mixed members");
+    const Data d = {id: 1, value: 3.14, name: "test"};
+    println("d.id = %d", d.id);
+    println("d.value = %f", d.value);
+    println("d.name = %s", d.name);
+    
+    // Test 3: const struct variable - nested struct
+    println("\nTest 3: const struct variable with nested struct");
+    Point inner_point = {x: 100, y: 200};
+    const Nested n = {position: inner_point, level: 1};
+    println("n.position.x = %d, n.position.y = %d", n.position.x, n.position.y);
+    println("n.level = %d", n.level);
+    
+    // Test 4: constメンバーの変更を試みる（エラーになるべき）
+    println("\nTest 4: Attempting to modify const struct member...");
+    p.x = 30;  // これはエラーになるべき
+    
+    println("ERROR: This should not be reached!");
+    return 1;
+}

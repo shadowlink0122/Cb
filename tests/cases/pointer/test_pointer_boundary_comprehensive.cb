@@ -1,0 +1,166 @@
+// ポインタ境界ケースと特殊な操作の包括的テスト
+
+int main() {
+    println("=== Pointer Boundary and Special Operations Test ===");
+    println("");
+    
+    // テスト1: ポインタの宣言時初期化（複数回）
+    println("Test 1: Multiple declaration-time initialization");
+    int[5] arr1 = [10, 20, 30, 40, 50];
+    int* p1 = &arr1[0];
+    int* p2 = &arr1[1];
+    int* p3 = &arr1[4];
+    
+    if (*p1 != 10) {
+        println("  FAIL: p1 initialization");
+        return 1;
+    }
+    if (*p2 != 20) {
+        println("  FAIL: p2 initialization");
+        return 1;
+    }
+    if (*p3 != 50) {
+        println("  FAIL: p3 initialization");
+        return 1;
+    }
+    println("  *p1 = 10, *p2 = 20, *p3 = 50");
+    println("  ✓ Test 1 passed");
+    
+    // テスト2: ポインタ代入の連鎖
+    println("Test 2: Chained pointer assignment");
+    int[3] arr2 = [100, 200, 300];
+    int* q1;
+    int* q2;
+    int* q3;
+    
+    q1 = &arr2[0];
+    q2 = q1;
+    q3 = q2;
+    
+    if (*q1 != 100 || *q2 != 100 || *q3 != 100) {
+        println("  FAIL: Chained assignment");
+        return 1;
+    }
+    println("  *q1 = *q2 = *q3 = 100");
+    
+    *q3 = 999;
+    if (arr2[0] != 999) {
+        println("  FAIL: Value modification via q3");
+        return 1;
+    }
+    println("  Modified arr2[0] via q3: arr2[0] = 999");
+    println("  ✓ Test 2 passed");
+    
+    // テスト3: ゼロ要素へのポインタ
+    println("Test 3: Pointer to zero-th element");
+    int[10] large_arr = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+    int* start = &large_arr[0];
+    
+    int sum = 0;
+    int i = 0;
+    while (i < 9) {  // 9回のインクリメントで large_arr[0] から large_arr[9] まで
+        sum = sum + *start;
+        start = start + 1;
+        i++;
+    }
+    sum = sum + *start;  // 最後の要素を加算
+    
+    if (sum != 45) {  // 0+1+2+...+9 = 45
+        println("  FAIL: Sum calculation");
+        return 1;
+    }
+    println("  Sum of array[0..9] = 45");
+    println("  ✓ Test 3 passed");
+    
+    // テスト4: ポインタの逆方向移動
+    println("Test 4: Backward pointer movement");
+    int[5] arr3 = [5, 4, 3, 2, 1];
+    int* end_ptr = &arr3[4];
+    
+    int product = 1;
+    int j = 0;
+    while (j < 4) {  // 4回のデクリメント
+        product = product * (*end_ptr);
+        end_ptr = end_ptr - 1;
+        j++;
+    }
+    product = product * (*end_ptr);  // 最後の要素を掛ける
+    
+    if (product != 120) {  // 5*4*3*2*1 = 120
+        println("  FAIL: Product calculation");
+        return 1;
+    }
+    println("  Product of arr3 (backward) = 120");
+    println("  ✓ Test 4 passed");
+    
+    // テスト5: ポインタを使った配列の反転チェック
+    println("Test 5: Array palindrome check with pointers");
+    int[5] palindrome = [1, 2, 3, 2, 1];
+    int* left = &palindrome[0];
+    int* right = &palindrome[4];
+    
+    int is_palindrome = 1;
+    int k = 0;
+    while (k < 2) {  // 中央まで比較
+        if (*left != *right) {
+            is_palindrome = 0;
+        }
+        left = left + 1;
+        right = right - 1;
+        k++;
+    }
+    
+    if (is_palindrome != 1) {
+        println("  FAIL: Palindrome check");
+        return 1;
+    }
+    println("  Palindrome check passed");
+    println("  ✓ Test 5 passed");
+    
+    // テスト6: ポインタのインクリメント/デクリメント複合
+    println("Test 6: Mixed pointer increment/decrement");
+    int[7] arr4 = [10, 20, 30, 40, 50, 60, 70];
+    int* moving_ptr = &arr4[3];  // 初期位置: arr4[3] = 40
+    
+    if (*moving_ptr != 40) {
+        println("  FAIL: Initial position");
+        return 1;
+    }
+    
+    moving_ptr++;  // arr4[4] = 50
+    if (*moving_ptr != 50) {
+        println("  FAIL: After increment");
+        return 1;
+    }
+    
+    moving_ptr++;  // arr4[5] = 60
+    moving_ptr--;  // arr4[4] = 50
+    if (*moving_ptr != 50) {
+        println("  FAIL: After inc-dec");
+        return 1;
+    }
+    
+    moving_ptr = moving_ptr - 2;  // arr4[2] = 30
+    if (*moving_ptr != 30) {
+        println("  FAIL: After subtraction");
+        return 1;
+    }
+    
+    println("  Pointer navigation: 40 -> 50 -> 60 -> 50 -> 30");
+    println("  ✓ Test 6 passed");
+    
+    // テスト7: アドレス表示の16進数フォーマット確認
+    println("Test 7: Hexadecimal address format verification");
+    int[2] addr_test = [111, 222];
+    int* addr_ptr = &addr_test[0];
+    
+    println("  addr_ptr =", addr_ptr);
+    println("  &addr_test[0] =", &addr_test[0]);
+    println("  &addr_test[1] =", &addr_test[1]);
+    println("  *addr_ptr = 111");
+    println("  ✓ Test 7 passed (address format verified)");
+    
+    println("");
+    println("=== All boundary and special operations tests passed ===");
+    return 0;
+}

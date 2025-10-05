@@ -1,25 +1,39 @@
-long[1000] ans;
+const int FIB_NUM = 100; // 92で答えがlongの最大値になる
+long[FIB_NUM + 1] memo; // 0..FIB_NUMまでアクセスするために+1確保
 
-long fib(int n){
-    if(n <= 0) {
-        return ans[0] = 0;
+interface IFibonacci {
+    long fib();
+};
+
+impl IFibonacci for int {
+    private long getNumber(int n) {
+        if (n <= 0) return 0;
+        if (n == 1) return memo[n] = 1;
+        if (n >= 93) return memo[n] = -1;
+        if (memo[n] != 0) return memo[n];
+        return memo[n] = self.getNumber(n - 1) + self.getNumber(n - 2);
     }
-    if(n == 1) return ans[1] = 1;
-    if(n >= 1000) return 0;
-    
-    // 既に計算済みなら返す
-    if(ans[n] != 0) return ans[n];
-    
-    // 再帰計算
-    return ans[n] = fib(n - 1) + fib(n - 2);
-}
+
+    private void println(long n) {
+        print(self, ": ");
+        if (n == -1) {
+            println("Overflow");
+        } else {
+            println(n);
+        }
+    }
+
+    long fib() {
+        long res = self.getNumber(self);
+        self.println(res);
+        return res;
+    }
+};
 
 int main(){
-    const int FIB_NUM = 92; // 答えがlongの最大値になる
-    fib(0); // ans[0] = 0 を明示的に設定
-    fib(FIB_NUM);
+    println("=== Fibonacci Sequence ===");
     for(int i = 0;i <= FIB_NUM;i++){
-        println(ans[i]);
+        i.fib();
     }
     return 0;
 }

@@ -23,9 +23,10 @@ enum TypeInfo {
     TYPE_STRUCT = 12,
     TYPE_ENUM = 13,
     TYPE_INTERFACE = 14,
-    TYPE_UNION = 15,   // Union型（リテラル型・複合型）
-    TYPE_POINTER = 16, // ポインタ型
-    TYPE_NULLPTR = 17, // nullptr型
+    TYPE_UNION = 15,            // Union型（リテラル型・複合型）
+    TYPE_POINTER = 16,          // ポインタ型
+    TYPE_NULLPTR = 17,          // nullptr型
+    TYPE_FUNCTION_POINTER = 18, // 関数ポインタ型
     TYPE_ARRAY_BASE = 100 // 配列型は基底型 + 100（下位互換のため保持）
 };
 
@@ -373,6 +374,164 @@ struct UnionDefinition {
     }
 };
 
+// 配列ポインタ型情報を格納する構造体（多次元配列へのポインタ用）
+struct ArrayPointerTypeInfo {
+    TypeInfo element_type;                  // 要素の基底型
+    std::vector<ArrayDimension> dimensions; // 配列の次元情報
+    std::string element_type_name; // 要素型名（カスタム型対応）
+
+    ArrayPointerTypeInfo() : element_type(TYPE_UNKNOWN) {}
+
+    ArrayPointerTypeInfo(TypeInfo elem_type,
+                         const std::vector<ArrayDimension> &dims,
+                         const std::string &type_name = "")
+        : element_type(elem_type), dimensions(dims),
+          element_type_name(type_name) {}
+
+    // 型情報文字列を生成（例: "int (*)[10]" または "int (*)[5][10]"）
+    std::string to_string() const {
+        std::string result;
+        if (element_type == TYPE_STRUCT) {
+            result = element_type_name;
+        } else {
+            result = type_to_string(element_type);
+        }
+        result += " (*)";
+        for (const auto &dim : dimensions) {
+            result += "[";
+            if (!dim.is_dynamic && dim.size > 0) {
+                result += std::to_string(dim.size);
+            }
+            result += "]";
+        }
+        return result;
+    }
+
+    // 要素サイズを計算（ポインタ演算用）
+    size_t get_element_size() const {
+        if (dimensions.empty()) {
+            return 0;
+        }
+        size_t size = get_type_size(element_type);
+        // 最初の次元以外のサイズを掛ける
+        for (size_t i = 1; i < dimensions.size(); ++i) {
+            if (!dimensions[i].is_dynamic && dimensions[i].size > 0) {
+                size *= dimensions[i].size;
+            }
+        }
+        return size;
+    }
+
+  private:
+    size_t get_type_size(TypeInfo type) const {
+        switch (type) {
+        case TYPE_TINY:
+            return 1;
+        case TYPE_SHORT:
+            return 2;
+        case TYPE_INT:
+            return 4;
+        case TYPE_LONG:
+            return 8;
+        case TYPE_FLOAT:
+            return 4;
+        case TYPE_DOUBLE:
+            return 8;
+        default:
+            return 4; // デフォルト
+        }
+    }
+
+    std::string type_to_string(TypeInfo type) const {
+        switch (type) {
+        case TYPE_INT:
+            return "int";
+        case TYPE_FLOAT:
+            return "float";
+        case TYPE_DOUBLE:
+            return "double";
+        case TYPE_LONG:
+            return "long";
+        case TYPE_SHORT:
+            return "short";
+        case TYPE_TINY:
+            return "tiny";
+        case TYPE_CHAR:
+            return "char";
+        case TYPE_BOOL:
+            return "bool";
+        default:
+            return "unknown";
+        }
+    }
+};
+
+// 関数ポインタ型情報を格納する構造体
+struct FunctionPointerTypeInfo {
+    TypeInfo return_type;         // 戻り値の型
+    std::string return_type_name; // 戻り値型名（カスタム型対応）
+    std::vector<TypeInfo> param_types; // パラメータ型のリスト
+    std::vector<std::string>
+        param_type_names; // パラメータ型名（カスタム型対応）
+    std::vector<std::string> param_names; // パラメータ名（オプション）
+
+    FunctionPointerTypeInfo() : return_type(TYPE_UNKNOWN) {}
+
+    FunctionPointerTypeInfo(TypeInfo ret_type, const std::string &ret_type_name,
+                            const std::vector<TypeInfo> &p_types,
+                            const std::vector<std::string> &p_type_names,
+                            const std::vector<std::string> &p_names = {})
+        : return_type(ret_type), return_type_name(ret_type_name),
+          param_types(p_types), param_type_names(p_type_names),
+          param_names(p_names) {}
+
+    // 型情報文字列を生成（例: "int (*)(int, int)"）
+    std::string to_string() const;
+
+    // 型の互換性をチェック
+    bool is_compatible_with(const FunctionPointerTypeInfo &other) const {
+        // 戻り値型が一致するかチェック
+        if (return_type != other.return_type) {
+            return false;
+        }
+
+        // パラメータ数が一致するかチェック
+        if (param_types.size() != other.param_types.size()) {
+            return false;
+        }
+
+        // 各パラメータ型が一致するかチェック
+        for (size_t i = 0; i < param_types.size(); ++i) {
+            if (param_types[i] != other.param_types[i]) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    // 関数シグネチャが一致するかチェック（関数定義と比較）
+    bool matches_function_signature(
+        TypeInfo func_return_type,
+        const std::vector<TypeInfo> &func_param_types) const {
+        if (return_type != func_return_type) {
+            return false;
+        }
+
+        if (param_types.size() != func_param_types.size()) {
+            return false;
+        }
+
+        for (size_t i = 0; i < param_types.size(); ++i) {
+            if (param_types[i] != func_param_types[i]) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+};
+
 // struct定義情報を格納する構造体
 struct StructMember {
     std::string name;         // メンバ変数名
@@ -384,6 +543,9 @@ struct StructMember {
     std::string pointer_base_type_name;        // ポインタの基底型名
     TypeInfo pointer_base_type = TYPE_UNKNOWN; // ポインタ基底型
     bool is_private = false;                   // private指定かどうか
+    bool is_reference = false;                 // 参照メンバかどうか
+    bool is_unsigned = false; // unsigned修飾子が付与されているか
+    bool is_const = false; // const指定かどうか（Rustのnot mutと同等）
 
     StructMember() : type(TYPE_UNKNOWN) {}
     StructMember(const std::string &n, TypeInfo t,
@@ -404,13 +566,17 @@ struct StructDefinition {
                     int pointer_depth = 0,
                     const std::string &pointer_base_type_name = "",
                     TypeInfo pointer_base_type = TYPE_UNKNOWN,
-                    bool is_private = false) {
+                    bool is_private = false, bool is_reference = false,
+                    bool is_unsigned = false, bool is_const = false) {
         StructMember member(member_name, type, type_alias);
         member.is_pointer = is_pointer;
         member.pointer_depth = pointer_depth;
         member.pointer_base_type_name = pointer_base_type_name;
         member.pointer_base_type = pointer_base_type;
         member.is_private = is_private;
+        member.is_reference = is_reference;
+        member.is_unsigned = is_unsigned;
+        member.is_const = is_const;
         members.emplace_back(std::move(member));
     }
 
@@ -430,17 +596,29 @@ struct ASTNode;
 
 // Interface定義情報を格納する構造体
 struct InterfaceMember {
-    std::string name;     // 関数名
-    TypeInfo return_type; // 戻り値の型
+    std::string name;                // 関数名
+    TypeInfo return_type;            // 戻り値の型
+    bool return_is_unsigned = false; // 戻り値がunsignedかどうか
     std::vector<std::pair<std::string, TypeInfo>>
         parameters; // パラメータのリスト (名前, 型)
+    std::vector<bool> parameter_is_unsigned; // 各パラメータがunsignedかどうか
 
     InterfaceMember() : return_type(TYPE_UNKNOWN) {}
-    InterfaceMember(const std::string &n, TypeInfo ret_type)
-        : name(n), return_type(ret_type) {}
+    InterfaceMember(const std::string &n, TypeInfo ret_type,
+                    bool ret_unsigned = false)
+        : name(n), return_type(ret_type), return_is_unsigned(ret_unsigned) {}
 
-    void add_parameter(const std::string &param_name, TypeInfo param_type) {
+    void add_parameter(const std::string &param_name, TypeInfo param_type,
+                       bool is_unsigned = false) {
         parameters.emplace_back(param_name, param_type);
+        parameter_is_unsigned.push_back(is_unsigned);
+    }
+
+    bool get_parameter_is_unsigned(size_t index) const {
+        if (index >= parameter_is_unsigned.size()) {
+            return false;
+        }
+        return parameter_is_unsigned[index];
     }
 };
 
@@ -503,6 +681,7 @@ enum class ASTNodeType {
     AST_VARIABLE,
     AST_STRING_LITERAL,
     AST_ARRAY_LITERAL,
+    AST_NULLPTR, // nullptr リテラル
 
     // 演算子
     AST_BINARY_OP,
@@ -531,18 +710,21 @@ enum class ASTNodeType {
     AST_ENUM_DECL,           // enum宣言
     AST_ENUM_TYPEDEF_DECL,   // typedef enum宣言
     AST_UNION_TYPEDEF_DECL, // typedef union宣言 (TypeScript-like literal types)
-    AST_INTERFACE_DECL,     // interface宣言
-    AST_IMPL_DECL,          // impl宣言
-    AST_ENUM_ACCESS,        // enum値アクセス (EnumName::member)
+    AST_FUNCTION_POINTER_TYPEDEF, // 関数ポインタtypedef宣言
+    AST_INTERFACE_DECL,           // interface宣言
+    AST_IMPL_DECL,                // impl宣言
+    AST_ENUM_ACCESS,              // enum値アクセス (EnumName::member)
 
     // 式
     AST_FUNC_CALL,
+    AST_FUNC_PTR_CALL, // 関数ポインタ呼び出し (*ptr(args))
     AST_ARRAY_REF,
     AST_ARRAY_SLICE, // 配列スライス (arr[0])
     AST_ARRAY_COPY,  // 配列コピー
     AST_PRE_INCDEC,
     AST_POST_INCDEC,
     AST_MEMBER_ACCESS,       // メンバアクセス (struct.member)
+    AST_ARROW_ACCESS,        // アロー演算子アクセス (ptr->member)
     AST_MEMBER_ARRAY_ACCESS, // メンバの配列アクセス (struct.member[index])
     AST_STRUCT_LITERAL,      // 構造体リテラル {a: 1, b: "str"}
     AST_IDENTIFIER,          // 識別子（変数名、self等）
@@ -570,7 +752,10 @@ enum class ASTNodeType {
     AST_TRY_STMT,     // try文
     AST_CATCH_STMT,   // catch文
     AST_FINALLY_STMT, // finally文
-    AST_THROW_STMT    // throw文
+    AST_THROW_STMT,   // throw文
+
+    // デバッグ・検証
+    AST_ASSERT_STMT // assert文
 };
 
 // 位置情報構造体
@@ -602,6 +787,7 @@ struct ASTNode {
     // ストレージ属性
     bool is_const = false;
     bool is_static = false;
+    bool is_impl_static = false;        // impl内でのstatic変数フラグ
     bool is_array = false;              // 配列パラメータフラグ
     bool is_array_return = false;       // 配列戻り値フラグ
     bool is_private_method = false;     // privateメソッドフラグ
@@ -610,9 +796,18 @@ struct ASTNode {
     int pointer_depth = 0;              // ポインタの深さ
     std::string pointer_base_type_name; // ポインタ基底型名
     TypeInfo pointer_base_type = TYPE_UNKNOWN; // ポインタ基底型
+    bool is_reference = false;                 // 参照型フラグ
+    bool is_unsigned = false;                  // unsigned修飾子
+    bool is_function_address = false;  // 関数アドレス(&関数)フラグ
+    std::string function_address_name; // 関数アドレスの関数名
 
     // 値・名前
-    int64_t int_value = 0;
+    int64_t int_value = 0;     // 整数リテラル値
+    double double_value = 0.0; // 浮動小数点リテラル値（float/double）
+    long double quad_value = 0.0L; // 128bit 浮動小数点リテラル値
+    bool is_float_literal = false; // 浮動小数点リテラルかどうか
+    TypeInfo literal_type = TYPE_UNKNOWN; // リテラル固有の型
+    std::string literal_text;             // 元のリテラル文字列表現
     std::string str_value;
     std::string name;
     std::string type_name; // typedef名など、型の文字列表現
@@ -663,6 +858,7 @@ struct ASTNode {
     // 関数呼び出し関連（修飾名対応）
     std::string qualified_name;     // module.function形式の修飾名
     bool is_qualified_call = false; // 修飾された関数呼び出しか
+    bool is_arrow_call = false; // アロー演算子経由の呼び出しか
 
     // enum関連
     std::string enum_name;          // enum型名 (Job::a の Job部分)
@@ -677,12 +873,29 @@ struct ASTNode {
     // ネストしたメンバーアクセス用（obj.member.submember対応）
     std::vector<std::string> member_chain; // メンバーアクセスチェーン
 
+    // impl関連
+    std::string interface_name; // impl実装対象のinterface名
+    std::string struct_name;    // impl実装対象のstruct名
+    std::vector<std::unique_ptr<ASTNode>>
+        impl_static_variables; // impl内でのstatic変数宣言
+
+    // 関数ポインタ関連
+    FunctionPointerTypeInfo function_pointer_type; // 関数ポインタ型情報
+    bool is_function_pointer = false;   // 関数ポインタかどうか
+    std::string function_pointer_value; // 関数ポインタが指す関数名
+
+    // 配列ポインタ関連（多次元配列へのポインタ用）
+    ArrayPointerTypeInfo array_pointer_type; // 配列ポインタ型情報
+    bool is_array_pointer = false;           // 配列ポインタかどうか
+
     // コンストラクタ - 全フィールドの明示的初期化
     ASTNode(ASTNodeType type)
         : node_type(type), type_info(TYPE_INT), is_const(false),
-          is_static(false), is_array(false), is_array_return(false),
-          is_private_method(false), int_value(0), array_size(-1),
-          is_exported(false), is_qualified_call(false) {}
+          is_static(false), is_impl_static(false), is_array(false),
+          is_array_return(false), is_private_method(false),
+          is_function_address(false), int_value(0), array_size(-1),
+          is_exported(false), is_qualified_call(false),
+          is_function_pointer(false) {}
 
     // デストラクタは自動管理（unique_ptr使用）
     virtual ~ASTNode() = default;
@@ -728,3 +941,38 @@ class CodeGeneratorInterface : public BackendInterface {
     virtual void emit_to_file(const ASTNode *ast,
                               const std::string &filename) = 0;
 };
+
+// 型のサイズを取得する関数（バイト単位）
+// ポインタ演算で使用
+inline size_t get_type_size(TypeInfo type) {
+    switch (type) {
+    case TYPE_TINY:
+        return 1; // 8-bit
+    case TYPE_SHORT:
+        return 2; // 16-bit
+    case TYPE_INT:
+        return 4; // 32-bit
+    case TYPE_LONG:
+        return 8; // 64-bit
+    case TYPE_CHAR:
+        return 1; // 8-bit
+    case TYPE_BOOL:
+        return 1; // 8-bit
+    case TYPE_FLOAT:
+        return 4; // 32-bit
+    case TYPE_DOUBLE:
+        return 8; // 64-bit
+    case TYPE_QUAD:
+        return 16; // 128-bit
+    case TYPE_BIG:
+        return 16; // 128-bit
+    case TYPE_POINTER:
+        return 8; // 64-bit (ポインタ自体のサイズ)
+    case TYPE_STRING:
+        return 8; // ポインタサイズ
+    case TYPE_STRUCT:
+        return 8; // ポインタサイズ（構造体は参照）
+    default:
+        return 4; // デフォルトはintサイズ
+    }
+}

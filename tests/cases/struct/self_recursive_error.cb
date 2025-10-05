@@ -1,0 +1,12 @@
+// 自己再帰構造体のエラーテスト: 値メンバーとして自己参照はエラー
+
+struct Node {
+    int value;
+    Node child;  // ❌ エラー: 値メンバーとして自己参照は不可
+}
+
+int main() {
+    Node n;
+    n.value = 10;
+    return 0;
+}

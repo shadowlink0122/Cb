@@ -1,0 +1,16 @@
+=== Test 1: Typedef struct return ===
+Employee: id=1001, name=, age=30
+
+=== Test 2: Typedef struct parameter ===
+Employee age: 30
+
+=== Test 3: Typedef struct with array - return ===
+Box: 10x20x30, volume=6000
+
+=== Test 4: Typedef struct with array - parameter ===
+Box dimensions: 10x20x30, volume=6000
+
+=== Test 5: Literal to function ===
+Bob's age: 25
+
+=== All typedef function tests passed! ===

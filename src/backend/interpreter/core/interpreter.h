@@ -36,6 +36,8 @@ struct Variable {
     int pointer_depth;            // ポインタの深さ
     std::string pointer_base_type_name; // ポインタ基底型名
     TypeInfo pointer_base_type;   // ポインタ基底型
+    bool is_reference;            // 参照型かどうか
+    bool is_unsigned;             // unsigned修飾子かどうか
     std::string struct_type_name; // struct型名
     bool is_private_member;       // struct privateメンバーフラグ
 
@@ -54,6 +56,9 @@ struct Variable {
     // 配列用
     int array_size;
     std::vector<int64_t> array_values;
+    std::vector<float> array_float_values;
+    std::vector<double> array_double_values;
+    std::vector<long double> array_quad_values;
     std::vector<std::string> array_strings;
 
     // struct用メンバ変数
@@ -63,11 +68,18 @@ struct Variable {
     std::string interface_name;        // interface型の場合のinterface名
     std::string implementing_struct;   // interfaceを実装しているstruct名
 
+    // 関数ポインタ用
+    bool is_function_pointer;          // 関数ポインタかどうか
+    std::string function_pointer_name; // 指している関数名
+
     // 多次元配列用
     ArrayTypeInfo array_type_info;     // 多次元配列の型情報
     std::vector<int> array_dimensions; // 各次元のサイズ
     std::vector<int64_t>
-        multidim_array_values; // 多次元配列データ（フラット化）
+        multidim_array_values; // 多次元配列データ（フラット化、整数系）
+    std::vector<float> multidim_array_float_values;
+    std::vector<double> multidim_array_double_values;
+    std::vector<long double> multidim_array_quad_values;
     std::vector<std::string> multidim_array_strings; // 多次元文字列配列データ
 
     // 将来の拡張計画 (struct/interface実装後):
@@ -89,6 +101,8 @@ struct Variable {
           pointer_depth(0),
           pointer_base_type_name(""),
           pointer_base_type(TYPE_UNKNOWN),
+          is_reference(false),
+          is_unsigned(false),
           struct_type_name(""),
           is_private_member(false),
           type_name(""),
@@ -99,12 +113,14 @@ struct Variable {
           double_value(0.0),
           quad_value(0.0L),
           big_value(0),
-          array_size(0) {
-        // デバッグ用
-        extern bool debug_mode;
-        if (debug_mode) {
-            debug_msg(DebugMsgId::VAR_CREATE_NEW);
-        }
+          array_size(0),
+          is_function_pointer(false),
+          function_pointer_name("") {
+        // デバッグ出力を削除（無限再帰を防ぐため）
+        // extern bool debug_mode;
+        // if (debug_mode) {
+        //     debug_msg(DebugMsgId::VAR_CREATE_NEW);
+        // }
     }
 
     // 多次元配列用コンストラクタ
@@ -119,6 +135,8 @@ struct Variable {
           pointer_depth(0),
           pointer_base_type_name(""),
           pointer_base_type(TYPE_UNKNOWN),
+          is_reference(false),
+          is_unsigned(false),
           struct_type_name(""),
           is_private_member(false),
           type_name(""),
@@ -130,6 +148,8 @@ struct Variable {
           quad_value(0.0L),
           big_value(0),
           array_size(0),
+          is_function_pointer(false),
+          function_pointer_name(""),
           array_type_info(array_info) {}
 
     // struct用コンストラクタ
@@ -144,6 +164,8 @@ struct Variable {
           pointer_depth(0),
           pointer_base_type_name(""),
           pointer_base_type(TYPE_UNKNOWN),
+          is_reference(false),
+          is_unsigned(false),
           struct_type_name(struct_name),
           is_private_member(false),
           type_name(""),
@@ -154,12 +176,14 @@ struct Variable {
           double_value(0.0),
           quad_value(0.0L),
           big_value(0),
-          array_size(0) {
-        // デバッグ用
-        extern bool debug_mode;
-        if (debug_mode) {
-            debug_msg(DebugMsgId::VAR_MANAGER_STRUCT_CREATE, struct_name.c_str(), "struct");
-        }
+          array_size(0),
+          is_function_pointer(false),
+          function_pointer_name("") {
+        // デバッグ出力を削除（無限再帰を防ぐため）
+        // extern bool debug_mode;
+        // if (debug_mode) {
+        //     debug_msg(DebugMsgId::VAR_MANAGER_STRUCT_CREATE, struct_name.c_str(), "struct");
+        // }
     }
 
     // interface用コンストラクタ  
@@ -174,6 +198,8 @@ struct Variable {
           pointer_depth(0),
           pointer_base_type_name(""),
           pointer_base_type(TYPE_UNKNOWN),
+          is_reference(false),
+          is_unsigned(false),
           struct_type_name(""),
           is_private_member(false),
           type_name(""),
@@ -185,7 +211,9 @@ struct Variable {
           quad_value(0.0L),
           big_value(0),
           array_size(0),
-          interface_name(interface_name) {
+          interface_name(interface_name),
+          is_function_pointer(false),
+          function_pointer_name("") {
         // デバッグ用
         extern bool debug_mode;
         if (debug_mode) {
@@ -235,19 +263,36 @@ struct Variable {
     }
 };
 
+// 関数ポインタ情報
+struct FunctionPointer {
+    const ASTNode* function_node;  // 関数定義のASTノード
+    std::string function_name;     // 関数名
+    TypeInfo return_type;          // 戻り値の型
+    
+    FunctionPointer()
+        : function_node(nullptr), function_name(""), return_type(TYPE_UNKNOWN) {}
+    
+    FunctionPointer(const ASTNode* node, const std::string& name, TypeInfo ret_type)
+        : function_node(node), function_name(name), return_type(ret_type) {}
+};
+
 // スコープ管理
 struct Scope {
     std::map<std::string, Variable> variables;
     std::map<std::string, const ASTNode *> functions;
+    std::map<std::string, FunctionPointer> function_pointers;  // 関数ポインタ変数
 
     void clear() {
         variables.clear();
         functions.clear();
+        function_pointers.clear();
     }
 };
 class ReturnException {
   public:
     int64_t value;
+        double double_value;
+        long double quad_value;
     std::string str_value;
     TypeInfo type;
 
@@ -255,6 +300,7 @@ class ReturnException {
     bool is_array = false;
     std::vector<std::vector<std::vector<int64_t>>> int_array_3d;
     std::vector<std::vector<std::vector<std::string>>> str_array_3d;
+    std::vector<std::vector<std::vector<double>>> double_array_3d;  // float/double配列用
     std::string array_type_name;
     
     // struct戻り値サポート
@@ -265,35 +311,89 @@ class ReturnException {
     bool is_struct_array = false;
     std::vector<std::vector<std::vector<Variable>>> struct_array_3d;
     std::string struct_type_name;
+    
+    // 参照戻り値サポート
+    bool is_reference = false;
+    Variable* reference_target = nullptr;  // 参照先の変数へのポインタ
+    
+    // 関数ポインタ戻り値サポート
+    bool is_function_pointer = false;
+    std::string function_pointer_name;
+    const ASTNode* function_pointer_node = nullptr;
 
     // 完全初期化コンストラクタ群
-    ReturnException(int64_t val, TypeInfo t = TYPE_INT) 
-        : value(val), str_value(""), type(t), is_array(false), is_struct(false), is_struct_array(false) {}
-    ReturnException(const std::string &str)
-        : value(0), str_value(str), type(TYPE_STRING), is_array(false), is_struct(false), is_struct_array(false) {}
+        ReturnException(int64_t val, TypeInfo t = TYPE_INT) 
+                : value(val), double_value(static_cast<double>(val)), quad_value(static_cast<long double>(val)),
+                    str_value(""), type(t), is_array(false), is_struct(false), is_struct_array(false), 
+                    is_reference(false), reference_target(nullptr), is_function_pointer(false), 
+                    function_pointer_name(""), function_pointer_node(nullptr) {}
+        ReturnException(double val, TypeInfo t = TYPE_DOUBLE)
+                : value(static_cast<int64_t>(val)), double_value(val), quad_value(static_cast<long double>(val)),
+                    str_value(""), type(t), is_array(false), is_struct(false), is_struct_array(false), 
+                    is_reference(false), reference_target(nullptr), is_function_pointer(false), 
+                    function_pointer_name(""), function_pointer_node(nullptr) {}
+        ReturnException(long double val, TypeInfo t = TYPE_QUAD)
+                : value(static_cast<int64_t>(val)), double_value(static_cast<double>(val)), quad_value(val),
+                    str_value(""), type(t), is_array(false), is_struct(false), is_struct_array(false), 
+                    is_reference(false), reference_target(nullptr), is_function_pointer(false), 
+                    function_pointer_name(""), function_pointer_node(nullptr) {}
+        ReturnException(const std::string &str)
+                : value(0), double_value(0.0), quad_value(0.0L), str_value(str), type(TYPE_STRING), is_array(false), is_struct(false), is_struct_array(false), 
+                is_reference(false), reference_target(nullptr), is_function_pointer(false), 
+                function_pointer_name(""), function_pointer_node(nullptr) {}
 
     // 配列戻り値用コンストラクタ
     ReturnException(const std::vector<std::vector<std::vector<int64_t>>> &arr,
                     const std::string &type_name, TypeInfo t)
-        : value(0), str_value(""), type(t), is_array(true), int_array_3d(arr),
-          array_type_name(type_name), is_struct(false), is_struct_array(false) {}
+                : value(0), double_value(0.0), quad_value(0.0L), str_value(""), type(t), is_array(true), int_array_3d(arr),
+          array_type_name(type_name), is_struct(false), is_struct_array(false), 
+          is_reference(false), reference_target(nullptr), is_function_pointer(false), 
+          function_pointer_name(""), function_pointer_node(nullptr) {}
 
     ReturnException(
         const std::vector<std::vector<std::vector<std::string>>> &arr,
         const std::string &type_name, TypeInfo t)
-        : value(0), str_value(""), type(t), is_array(true), str_array_3d(arr),
-          array_type_name(type_name), is_struct(false), is_struct_array(false) {}
+                : value(0), double_value(0.0), quad_value(0.0L), str_value(""), type(t), is_array(true), str_array_3d(arr),
+          array_type_name(type_name), is_struct(false), is_struct_array(false), 
+          is_reference(false), reference_target(nullptr), is_function_pointer(false), 
+          function_pointer_name(""), function_pointer_node(nullptr) {}
+    
+    // float/double配列戻り値用コンストラクタ
+    ReturnException(const std::vector<std::vector<std::vector<double>>> &arr,
+                    const std::string &type_name, TypeInfo t)
+                : value(0), double_value(0.0), quad_value(0.0L), str_value(""), type(t), is_array(true), double_array_3d(arr),
+          array_type_name(type_name), is_struct(false), is_struct_array(false), 
+          is_reference(false), reference_target(nullptr), is_function_pointer(false), 
+          function_pointer_name(""), function_pointer_node(nullptr) {}
     
     // struct戻り値用コンストラクタ  
     ReturnException(const Variable &struct_var)
-        : value(0), str_value(""), type(struct_var.type), is_array(false), is_struct(true), 
-          struct_value(struct_var), is_struct_array(false) {}
+                : value(0), double_value(0.0), quad_value(0.0L), str_value(""), type(struct_var.type), is_array(false), is_struct(true), 
+          struct_value(struct_var), is_struct_array(false), 
+          is_reference(false), reference_target(nullptr), is_function_pointer(false), 
+          function_pointer_name(""), function_pointer_node(nullptr) {}
     
     // 構造体配列戻り値用コンストラクタ
     ReturnException(const std::vector<std::vector<std::vector<Variable>>> &struct_arr,
                     const std::string &type_name)
-        : value(0), str_value(""), type(TYPE_STRUCT), is_array(true), is_struct(true), 
-          is_struct_array(true), struct_array_3d(struct_arr), struct_type_name(type_name) {}
+                : value(0), double_value(0.0), quad_value(0.0L), str_value(""), type(TYPE_STRUCT), is_array(true), is_struct(true), 
+          is_struct_array(true), struct_array_3d(struct_arr), struct_type_name(type_name), 
+          is_reference(false), reference_target(nullptr), is_function_pointer(false), 
+          function_pointer_name(""), function_pointer_node(nullptr) {}
+    
+    // 参照戻り値用コンストラクタ
+    ReturnException(Variable* ref_target)
+                : value(0), double_value(0.0), quad_value(0.0L), str_value(""), type(ref_target ? ref_target->type : TYPE_UNKNOWN), 
+          is_array(false), is_struct(false), is_struct_array(false),
+          is_reference(true), reference_target(ref_target), is_function_pointer(false), 
+          function_pointer_name(""), function_pointer_node(nullptr) {}
+    
+    // 関数ポインタ戻り値用コンストラクタ
+    ReturnException(int64_t val, const std::string& func_name, const ASTNode* func_node, TypeInfo t)
+                : value(val), double_value(static_cast<double>(val)), quad_value(static_cast<long double>(val)),
+          str_value(""), type(t), is_array(false), is_struct(false), is_struct_array(false),
+          is_reference(false), reference_target(nullptr), is_function_pointer(true), 
+          function_pointer_name(func_name), function_pointer_node(func_node) {}
 };
 
 class BreakException {
@@ -318,12 +418,20 @@ class Interpreter : public EvaluatorInterface {
     std::map<std::string, std::string>
         typedef_map; // typedef alias -> base type mapping
     std::map<std::string, Variable> static_variables; // static変数の保存
+    std::map<std::string, Variable> impl_static_variables_; // impl内static変数の保存
     std::map<std::string, StructDefinition>
         struct_definitions_; // struct定義の保存
     std::map<std::string, InterfaceDefinition>
         interface_definitions_; // interface定義の保存
     std::vector<ImplDefinition>
         impl_definitions_; // impl定義の保存
+    
+    // implコンテキスト追跡
+    struct ImplContext {
+        std::string interface_name;
+        std::string struct_type_name;
+        bool is_active = false;
+    } current_impl_context_;
 
     // Manager instances
     std::unique_ptr<VariableManager> variable_manager_;
@@ -355,6 +463,7 @@ class Interpreter : public EvaluatorInterface {
     // EvaluatorInterface実装
     void process(const ASTNode *ast) override;
     int64_t evaluate(const ASTNode *node) override;
+    TypedValue evaluate_typed(const ASTNode *node);
 
     // 出力管理
     OutputManager &get_output_manager() { return *output_manager_; }
@@ -373,6 +482,7 @@ class Interpreter : public EvaluatorInterface {
     Variable *get_variable(const std::string &name) {
         return find_variable(name);
     }
+    std::string find_variable_name_by_address(const Variable* target_var);
     
     // 一時変数管理（メソッドチェーン用）
     void add_temp_variable(const std::string &name, const Variable &var);
@@ -398,12 +508,17 @@ class Interpreter : public EvaluatorInterface {
                          bool is_const);
     void assign_variable(const std::string &name, const std::string &value,
                          bool is_const);
+    void assign_variable(const std::string &name, const TypedValue &value,
+                         TypeInfo type_hint, bool is_const);
     
     // Union型代入
     void assign_union_variable(const std::string &name, const ASTNode* value_node);
     
     void assign_function_parameter(const std::string &name, int64_t value,
-                                   TypeInfo type);
+                                   TypeInfo type, bool is_unsigned);
+    void assign_function_parameter(const std::string &name,
+                                   const TypedValue &value, TypeInfo type,
+                                   bool is_unsigned);
     void assign_array_parameter(const std::string &name,
                                 const Variable &source_array, TypeInfo type);
     void assign_interface_view(const std::string &dest_name,
@@ -412,6 +527,8 @@ class Interpreter : public EvaluatorInterface {
                                const std::string &source_var_name);
     void assign_array_element(const std::string &name, int64_t index,
                               int64_t value);
+    void assign_array_element_float(const std::string &name, int64_t index,
+                                    double value);
     void assign_string_element(const std::string &name, int64_t index,
                                const std::string &value);
 
@@ -444,11 +561,18 @@ class Interpreter : public EvaluatorInterface {
                                 const std::string &member_name);
     void assign_struct_literal(const std::string &var_name,
                                const ASTNode *literal_node);
+    // 構造体メンバの個別変数を再帰的に作成
+    void create_struct_member_variables_recursively(const std::string &base_path,
+                                                     const std::string &struct_type_name,
+                                                     Variable &parent_var);
     void assign_struct_member(const std::string &var_name,
                               const std::string &member_name, int64_t value);
     void assign_struct_member(const std::string &var_name,
                               const std::string &member_name,
                               const std::string &value);
+    void assign_struct_member(const std::string &var_name,
+                              const std::string &member_name,
+                              const TypedValue &typed_value);
     // 構造体メンバーに構造体を代入
     void assign_struct_member_struct(const std::string &var_name,
                                     const std::string &member_name,
@@ -475,6 +599,9 @@ class Interpreter : public EvaluatorInterface {
                                             const ASTNode *array_literal);
     TypeInfo string_to_type_info(const std::string &type_str);
     void sync_struct_members_from_direct_access(const std::string &var_name);
+    void sync_direct_access_from_struct_value(const std::string &var_name,
+                                              const Variable &struct_value);
+    void sync_individual_member_from_struct(Variable* struct_var, const std::string& member_name);
     void ensure_struct_member_access_allowed(const std::string &accessor_name,
                                              const std::string &member_name);
     bool is_current_impl_context_for(const std::string &struct_type_name);
@@ -482,6 +609,14 @@ class Interpreter : public EvaluatorInterface {
     // static変数処理
     Variable *find_static_variable(const std::string &name);
     void create_static_variable(const std::string &name, const ASTNode *node);
+
+    // impl static変数処理
+    Variable *find_impl_static_variable(const std::string &name);
+    void create_impl_static_variable(const std::string &name, const ASTNode *node);
+    void enter_impl_context(const std::string &interface_name, 
+                           const std::string &struct_type_name);
+    void exit_impl_context();
+    std::string get_impl_static_namespace() const;
 
     // interface管理
     void register_interface_definition(const std::string &interface_name,
@@ -500,9 +635,7 @@ class Interpreter : public EvaluatorInterface {
     Variable *get_interface_variable(const std::string &var_name);
     
     // impl定義へのアクセサ
-    const std::vector<ImplDefinition>& get_impl_definitions() const {
-        return impl_definitions_;
-    }
+    const std::vector<ImplDefinition>& get_impl_definitions() const;
 
     // 関数コンテキスト
     std::string current_function_name; // 現在実行中の関数名
@@ -522,7 +655,8 @@ class Interpreter : public EvaluatorInterface {
 
   public:
     void check_type_range(TypeInfo type, int64_t value,
-                          const std::string &name);
+                          const std::string &name,
+                          bool is_unsigned = false);
 
     // エラー表示ヘルパー関数
     void throw_runtime_error_with_location(const std::string &message,
@@ -543,6 +677,7 @@ class Interpreter : public EvaluatorInterface {
     ExpressionEvaluator *get_expression_evaluator() {
         return expression_evaluator_.get();
     }
+    TypedValue evaluate_typed_expression(const ASTNode *node);
 
     // TypeManagerへのアクセス
     TypeManager *get_type_manager() { return type_manager_.get(); }
@@ -598,6 +733,9 @@ class Interpreter : public EvaluatorInterface {
     void setMultidimensionalArrayElement(Variable &var,
                                          const std::vector<int64_t> &indices,
                                          int64_t value);
+    void setMultidimensionalArrayElement(Variable &var,
+                                         const std::vector<int64_t> &indices,
+                                         double value);
 
     // Priority 3: 統一された文字列配列アクセス (ArrayProcessingService経由)
     std::string

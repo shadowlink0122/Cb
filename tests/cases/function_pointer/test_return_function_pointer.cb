@@ -1,0 +1,91 @@
+// 関数ポインタを戻り値として返すテスト
+
+int add(int a, int b) {
+    return a + b;
+}
+
+int subtract(int a, int b) {
+    return a - b;
+}
+
+int multiply(int a, int b) {
+    return a * b;
+}
+
+int divide(int a, int b) {
+    if (b == 0) {
+        return 0;
+    }
+    return a / b;
+}
+
+// 関数ポインタを返す関数
+// 引数によって異なる演算関数を返す
+int* getOperation(int opCode) {
+    if (opCode == 1) {
+        return &add;
+    }
+    if (opCode == 2) {
+        return &subtract;
+    }
+    if (opCode == 3) {
+        return &multiply;
+    }
+    if (opCode == 4) {
+        return &divide;
+    }
+    return &add;  // デフォルト
+}
+
+// 別の例: 条件によって関数を選択
+int* selectOperator(int x, int y) {
+    if (x > y) {
+        return &multiply;
+    }
+    return &add;
+}
+
+int main() {
+    // テスト1: 加算関数を取得
+    int* op1 = getOperation(1);
+    int result1 = op1(10, 5);
+    println(result1);  // 期待値: 15
+    
+    // テスト2: 減算関数を取得
+    int* op2 = getOperation(2);
+    int result2 = op2(10, 5);
+    println(result2);  // 期待値: 5
+    
+    // テスト3: 乗算関数を取得
+    int* op3 = getOperation(3);
+    int result3 = op3(10, 5);
+    println(result3);  // 期待値: 50
+    
+    // テスト4: 除算関数を取得
+    int* op4 = getOperation(4);
+    int result4 = op4(100, 5);
+    println(result4);  // 期待値: 20
+    
+    // テスト5: 形式1で使用
+    int* op5 = getOperation(1);
+    int result5 = (*op5)(7, 3);
+    println(result5);  // 期待値: 10
+    
+    // テスト6: 戻り値を直接使用（形式2）
+    int result6 = getOperation(3)(6, 7);
+    println(result6);  // 期待値: 42
+    
+    // テスト7: 戻り値を直接使用（形式1）
+    // int result7 = (*getOperation(2))(20, 8);  // 形式1のチェーンは別途実装が必要
+    // println(result7);  // 期待値: 12
+    
+    // テスト8: selectOperator関数のテスト
+    int* selected1 = selectOperator(10, 5);
+    int result8 = selected1(10, 5);
+    println(result8);  // 期待値: 50 (10 > 5 なのでmultiply)
+    
+    // テスト9: selectOperator関数のテスト（逆の場合）
+    int* selected2 = selectOperator(5, 10);
+    int result9 = selected2(5, 10);
+    println(result9);  // 期待値: 15 (5 < 10 なのでadd)
+}

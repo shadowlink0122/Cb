@@ -765,6 +765,9 @@ static std::vector<DebugMessageTemplate> init_debug_messages() {
     messages[static_cast<int>(DebugMsgId::INTERPRETER_MEMBER_INIT_PROCESSING)] =
         {"[INTERPRETER_STRUCT] Processing member initialization: %s",
          "[INTERPRETER_STRUCT] メンバー初期化処理: %s"};
+    messages[static_cast<int>(DebugMsgId::INTERPRETER_NESTED_STRUCT_LITERAL)] =
+        {"[INTERPRETER_STRUCT] Nested struct literal assignment: %s",
+         "[INTERPRETER_STRUCT] ネストした構造体リテラル代入: %s"};
     messages[static_cast<int>(DebugMsgId::INTERPRETER_VAR_PROCESS_EXCEPTION)] =
         {"[INTERPRETER_ERROR] Variable processing exception: %s",
          "[INTERPRETER_ERROR] 変数処理例外: %s"};
@@ -1040,6 +1043,89 @@ static std::vector<DebugMessageTemplate> init_debug_messages() {
     messages[static_cast<int>(DebugMsgId::TERNARY_VAR_NUMERIC_SET)] = {
         "[TERNARY_VAR] Setting numeric value: %lld",
         "[TERNARY_VAR] 数値設定: %lld"};
+
+    // インクリメント/デクリメント関連
+    messages[static_cast<int>(DebugMsgId::INCDEC_ARRAY_ELEMENT_START)] = {
+        "[INCDEC] Array element increment/decrement started",
+        "[INCDEC] 配列要素インクリメント/デクリメント開始"};
+    messages[static_cast<int>(DebugMsgId::INCDEC_ARRAY_NAME_FOUND)] = {
+        "[INCDEC] Array name: %s", "[INCDEC] 配列名: %s"};
+    messages[static_cast<int>(DebugMsgId::INCDEC_ARRAY_INDEX_EVAL)] = {
+        "[INCDEC] Array index evaluated: %lld",
+        "[INCDEC] 配列インデックス評価: %lld"};
+    messages[static_cast<int>(DebugMsgId::INCDEC_ELEMENT_TYPE_CHECK)] = {
+        "[INCDEC] Checking element type: is_multidim=%d, has_int=%d, "
+        "has_float=%d, has_double=%d",
+        "[INCDEC] 要素型チェック: 多次元=%d, int有=%d, float有=%d, "
+        "double有=%d"};
+    messages[static_cast<int>(DebugMsgId::INCDEC_INT_ARRAY_PROCESSING)] = {
+        "[INCDEC] Processing integer array element",
+        "[INCDEC] 整数配列要素処理"};
+    messages[static_cast<int>(DebugMsgId::INCDEC_FLOAT_ARRAY_PROCESSING)] = {
+        "[INCDEC] Processing float array element",
+        "[INCDEC] float配列要素処理"};
+    messages[static_cast<int>(DebugMsgId::INCDEC_DOUBLE_ARRAY_PROCESSING)] = {
+        "[INCDEC] Processing double array element",
+        "[INCDEC] double配列要素処理"};
+    messages[static_cast<int>(DebugMsgId::INCDEC_OLD_VALUE)] = {
+        "[INCDEC] Old value: %s", "[INCDEC] 旧値: %s"};
+    messages[static_cast<int>(DebugMsgId::INCDEC_NEW_VALUE)] = {
+        "[INCDEC] New value: %s", "[INCDEC] 新値: %s"};
+    messages[static_cast<int>(DebugMsgId::INCDEC_OPERATION_COMPLETE)] = {
+        "[INCDEC] Operation complete: op=%s, result=%lld",
+        "[INCDEC] 操作完了: op=%s, 結果=%lld"};
+    messages[static_cast<int>(DebugMsgId::INCDEC_UNSUPPORTED_TYPE_ERROR)] = {
+        "[INCDEC_ERROR] Unsupported array type for increment/decrement",
+        "[INCDEC_ERROR] インクリメント/デクリメント未対応の配列型"};
+
+    // assert関連
+    messages[static_cast<int>(DebugMsgId::ASSERT_CHECK_START)] = {
+        "[ASSERT] Assertion check started",
+        "[ASSERT] アサーションチェック開始"};
+    messages[static_cast<int>(DebugMsgId::ASSERT_CONDITION_TRUE)] = {
+        "[ASSERT] Condition is true, continuing execution",
+        "[ASSERT] 条件が真、実行継続"};
+    messages[static_cast<int>(DebugMsgId::ASSERT_CONDITION_FALSE)] = {
+        "[ASSERT] Condition is false at line %d", "[ASSERT] 条件が偽: 行 %d"};
+    messages[static_cast<int>(DebugMsgId::ASSERT_FAILURE)] = {
+        "[ASSERT_ERROR] Assertion failed at line %d: %s",
+        "[ASSERT_ERROR] アサーション失敗: 行 %d: %s"};
+
+    // ネストした構造体メンバーアクセス関連
+    messages[static_cast<int>(DebugMsgId::NESTED_MEMBER_EVAL_START)] = {
+        "[NESTED_MEMBER] Evaluating nested member access: %s",
+        "[NESTED_MEMBER] ネストメンバーアクセス評価開始: %s"};
+    messages[static_cast<int>(DebugMsgId::NESTED_MEMBER_BASE_PATH)] = {
+        "[NESTED_MEMBER] Base path='%s', member='%s'",
+        "[NESTED_MEMBER] ベースパス='%s', メンバー='%s'"};
+    messages[static_cast<int>(DebugMsgId::NESTED_MEMBER_BASE_VAR_FOUND)] = {
+        "[NESTED_MEMBER] Base variable found, type=%d",
+        "[NESTED_MEMBER] ベース変数発見, 型=%d"};
+    messages[static_cast<int>(DebugMsgId::NESTED_MEMBER_BASE_VAR_NOT_FOUND)] = {
+        "[NESTED_MEMBER] Base variable not found",
+        "[NESTED_MEMBER] ベース変数未発見"};
+    messages[static_cast<int>(DebugMsgId::NESTED_MEMBER_RESOLVE_FROM_BASE)] = {
+        "[NESTED_MEMBER] Resolving from base name",
+        "[NESTED_MEMBER] ベース名から解決中"};
+    messages[static_cast<int>(DebugMsgId::NESTED_MEMBER_RESOLVE_SUCCESS)] = {
+        "[NESTED_MEMBER] Resolution successful, value=%lld",
+        "[NESTED_MEMBER] 解決成功, 値=%lld"};
+    messages[static_cast<int>(DebugMsgId::NESTED_MEMBER_RESOLVE_FAILED)] = {
+        "[NESTED_MEMBER] Resolution failed", "[NESTED_MEMBER] 解決失敗"};
+    messages[static_cast<int>(DebugMsgId::NESTED_MEMBER_INDIVIDUAL_VAR_FOUND)] =
+        {"[NESTED_MEMBER] Individual variable found: '%s' = %lld",
+         "[NESTED_MEMBER] 個別変数発見: '%s' = %lld"};
+    messages[static_cast<int>(DebugMsgId::NESTED_MEMBER_FULL_PATH)] = {
+        "[NESTED_MEMBER] Full path: '%s'", "[NESTED_MEMBER] 完全パス: '%s'"};
+    messages[static_cast<int>(DebugMsgId::TYPED_EVAL_ENTRY)] = {
+        "[TYPED_EVAL] Entry: node_type=%d",
+        "[TYPED_EVAL] エントリー: ノード型=%d"};
+    messages[static_cast<int>(DebugMsgId::TYPED_EVAL_INTERNAL_ENTRY)] = {
+        "[TYPED_EVAL_INTERNAL] Entry: node_type=%d",
+        "[TYPED_EVAL_INTERNAL] エントリー: ノード型=%d"};
+    messages[static_cast<int>(DebugMsgId::TYPED_MEMBER_ACCESS_CASE)] = {
+        "[TYPED_MEMBER_ACCESS] Processing member='%s', chain_size=%zu",
+        "[TYPED_MEMBER_ACCESS] メンバー処理='%s', チェーンサイズ=%zu"};
 
     // 他の未設定のメッセージにはデフォルト値を設定
     for (size_t i = 0; i < messages.size(); ++i) {

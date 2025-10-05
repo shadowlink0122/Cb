@@ -1,0 +1,38 @@
+// 関数ポインタのアドレス表示テスト
+// printlnで関数ポインタのアドレスが16進数で表示されることを確認
+
+int square(int x) {
+    return x * x;
+}
+
+int cube(int x) {
+    return x * x * x;
+}
+
+void main() {
+    // テスト1: 関数ポインタのアドレス表示
+    int* fp1 = &square;
+    println(fp1);  // 16進数アドレスが表示される (例: 0x12345678)
+    
+    // テスト2: 別の関数ポインタ
+    int* fp2 = &cube;
+    println(fp2);  // 異なる16進数アドレスが表示される
+    
+    // テスト3: 同じ関数を指すポインタは同じアドレス
+    int* fp3 = &square;
+    println(fp3);  // fp1と同じアドレスが表示される
+    
+    // テスト4: 関数ポインタを使った呼び出し
+    int result1 = fp1(5);
+    println(result1);  // 期待値: 25
+    
+    int result2 = fp2(3);
+    println(result2);  // 期待値: 27
+    
+    // テスト5: ポインタの再代入後のアドレス表示
+    fp1 = &cube;
+    println(fp1);  // fp2と同じアドレスが表示される
+    
+    int result3 = fp1(4);
+    println(result3);  // 期待値: 64
+}

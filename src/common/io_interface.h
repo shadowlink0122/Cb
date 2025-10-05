@@ -26,6 +26,7 @@ class IOInterface {
 
     // 数値出力（便利メソッド）
     virtual void write_number(int64_t value);
+    virtual void write_float(double value);
 };
 
 // プラットフォーム固有の実装を取得するファクトリー

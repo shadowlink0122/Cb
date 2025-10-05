@@ -1,0 +1,21 @@
+// const引数への複合代入演算子エラーテスト
+
+int try_compound_assign(const int x) {
+    x += 10;  // ERROR: const引数への複合代入
+    return x;
+}
+
+int try_increment(const int y) {
+    y++;  // ERROR: const引数へのインクリメント
+    return y;
+}
+
+int main() {
+    println("Testing const parameter compound assignment error:");
+    
+    int result1 = try_compound_assign(5);
+    println("Result1: ", result1);
+    
+    println("This line should not be reached");
+    return 0;
+}

@@ -1,0 +1,33 @@
+// Unsigned型の基本テスト
+int main() {
+    unsigned int a = 100;
+    unsigned int b = 50;
+    
+    // 四則演算
+    println(a + b);  // 150
+    println(a - b);  // 50
+    println(a * b);  // 5000
+    println(a / b);  // 2
+    println(a % b);  // 0
+    
+    // ビット演算
+    unsigned int c = 255;
+    unsigned int d = 15;
+    
+    println(c & d);  // 15 (0x0F)
+    println(c | d);  // 255 (0xFF)
+    println(c ^ d);  // 240 (0xF0)
+    println(c << 1); // 510 (0x1FE)
+    println(c >> 1); // 127 (0x7F)
+    
+    // 符号なし比較
+    if (a > b) {
+        println("a > b: true");
+    }
+    
+    // オーバーフローテスト
+    unsigned int max_val = 4294967295;
+    println(max_val);
+    
+    return 0;
+}

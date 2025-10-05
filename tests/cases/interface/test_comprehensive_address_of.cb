@@ -1,0 +1,190 @@
+// Comprehensive Address-Of Test Suite
+// Tests: primitives, structs, pointers, arrays, const, nested members, function parameters
+
+int globalVar = 42;
+const int globalConst = 100;
+
+int add(const int a, const int b) {
+    return a + b;
+}
+
+int square(const int x) {
+    return x * x;
+}
+
+struct Point {
+    int x;
+    int y;
+};
+
+int main() {
+    println("=== Comprehensive Address-Of Test Suite ===\n");
+    int passed = 0;
+    int total = 0;
+    
+    // Test 1: Local variable
+    println("Test 1: Address of local variable");
+    total = total + 1;
+    int local = 100;
+    int* ptr1 = &local;
+    if (ptr1 != 0 && *ptr1 == 100) {
+        println("  PASSED");
+        passed = passed + 1;
+    }
+    
+    // Test 2: Global variable
+    println("\nTest 2: Address of global variable");
+    total = total + 1;
+    int* ptr2 = &globalVar;
+    if (ptr2 != 0 && *ptr2 == 42) {
+        println("  PASSED");
+        passed = passed + 1;
+    }
+    
+    // Test 3: Const variable
+    println("\nTest 3: Address of const variable");
+    total = total + 1;
+    const int constVal = 555;
+    const int* ptr3 = &constVal;
+    if (ptr3 != 0 && *ptr3 == 555) {
+        println("  PASSED");
+        passed = passed + 1;
+    }
+    
+    // Test 4: Struct variable
+    println("\nTest 4: Address of struct variable");
+    total = total + 1;
+    Point p = {x: 10, y: 20};
+    Point* ptr4 = &p;
+    if (ptr4 != 0 && ptr4->x == 10) {
+        println("  PASSED");
+        passed = passed + 1;
+    }
+    
+    // Test 5: Struct member (metadata pointer)
+    println("\nTest 5: Address of struct member");
+    total = total + 1;
+    Point p5 = {x: 30, y: 40};
+    int* ptr5 = &p5.x;
+    if (ptr5 != 0) {
+        println("  PASSED (metadata pointer)");
+        passed = passed + 1;
+    }
+    
+    // Test 6: Array element (metadata pointer)
+    println("\nTest 6: Address of array element");
+    total = total + 1;
+    int[3] arr;
+    arr[0] = 1;
+    arr[1] = 2;
+    int* ptr6 = &arr[1];
+    if (ptr6 != 0) {
+        println("  PASSED (metadata pointer)");
+        passed = passed + 1;
+    }
+    
+    // Test 7: Pointer to pointer
+    println("\nTest 7: Pointer to pointer");
+    total = total + 1;
+    int val7 = 999;
+    int* ptr7a = &val7;
+    int** ptr7b = &ptr7a;
+    if (ptr7b != 0 && **ptr7b == 999) {
+        println("  PASSED");
+        passed = passed + 1;
+    }
+    
+    // Test 8: Float variable
+    println("\nTest 8: Address of float variable");
+    total = total + 1;
+    float fval = 3.14;
+    float* ptr8 = &fval;
+    if (ptr8 != 0 && *ptr8 == 3.14) {
+        println("  PASSED");
+        passed = passed + 1;
+    }
+    
+    // Test 9: String variable
+    println("\nTest 9: Address of string variable");
+    total = total + 1;
+    string str = "Hello";
+    string* ptr9 = &str;
+    if (ptr9 != 0) {
+        println("  PASSED");
+        passed = passed + 1;
+    }
+    
+    // Test 10: Unsigned variable
+    println("\nTest 10: Address of unsigned variable");
+    total = total + 1;
+    unsigned int uval = 12345;
+    unsigned int* ptr10 = &uval;
+    if (ptr10 != 0 && *ptr10 == 12345) {
+        println("  PASSED");
+        passed = passed + 1;
+    }
+    
+    // Test 11: Const function parameter
+    println("\nTest 11: Const function parameter");
+    total = total + 1;
+    int result = square(5);
+    if (result == 25) {
+        println("  PASSED");
+        passed = passed + 1;
+    }
+    
+    // Test 12: Multiple const parameters
+    println("\nTest 12: Multiple const parameters");
+    total = total + 1;
+    int result2 = add(10, 20);
+    if (result2 == 30) {
+        println("  PASSED");
+        passed = passed + 1;
+    }
+    
+    // Test 13: Print address directly
+    println("\nTest 13: Print address directly");
+    total = total + 1;
+    int val13 = 777;
+    println("  Address: ", &val13);
+    if (&val13 != 0) {
+        println("  PASSED");
+        passed = passed + 1;
+    }
+    
+    // Test 14: Compare addresses
+    println("\nTest 14: Compare addresses");
+    total = total + 1;
+    int val14a = 111;
+    int val14b = 222;
+    if (&val14a != &val14b) {
+        println("  PASSED");
+        passed = passed + 1;
+    }
+    
+    // Test 15: Reassign pointer
+    println("\nTest 15: Reassign pointer");
+    total = total + 1;
+    int va = 10;
+    int vb = 20;
+    int* ptr15 = &va;
+    if (*ptr15 == 10) {
+        ptr15 = &vb;
+        if (*ptr15 == 20) {
+            println("  PASSED");
+            passed = passed + 1;
+        }
+    }
+    
+    // Summary
+    println("\n=== Test Summary ===");
+    println("Passed: ", passed, " / ", total);
+    
+    if (passed == total) {
+        println("\n✓ ALL TESTS PASSED!");
+        return 0;
+    } else {
+        println("\n✗ Some tests failed");
+        return 1;
+    }
+}

@@ -15,7 +15,11 @@ inline void test_basic_struct() {
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_EQ(0, exit_code, "Basic struct test should exit with code 0");
             INTEGRATION_ASSERT(output.find("Point: (10, 20)") != std::string::npos, 
-                              "Output should contain 'Point: (10, 20)'");
+                              "Output should contain initial point coordinates");
+            INTEGRATION_ASSERT(output.find("Modified Point: (15, 40)") != std::string::npos, 
+                              "Output should contain modified point coordinates");
+            INTEGRATION_ASSERT(output.find("Basic struct test passed") != std::string::npos, 
+                              "Output should contain success message");
         }, execution_time);
 }
 
@@ -28,9 +32,11 @@ inline void test_struct_literal() {
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_EQ(0, exit_code, "Struct literal test should exit with code 0");
             INTEGRATION_ASSERT(output.find("Person 1: Alice, 25 years old, 165 cm") != std::string::npos, 
-                              "Output should contain named initialization result");
+                              "Output should contain named initialization with complete values");
             INTEGRATION_ASSERT(output.find("Person 2: Bob, 30 years old, 180 cm") != std::string::npos, 
-                              "Output should contain positional initialization result");
+                              "Output should contain positional initialization with complete values");
+            INTEGRATION_ASSERT(output.find("Struct literal test passed") != std::string::npos, 
+                              "Output should contain success message");
         }, execution_time);
 }
 
@@ -43,11 +49,11 @@ inline void test_struct_array_member() {
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_EQ(0, exit_code, "Struct array member test should exit with code 0");
             INTEGRATION_ASSERT(output.find("Student: Charlie (ID: 12345)") != std::string::npos, 
-                              "Output should contain student info");
+                              "Output should contain complete student name and ID");
             INTEGRATION_ASSERT(output.find("Grades: [85, 92, 78]") != std::string::npos, 
-                              "Output should contain grades array");
+                              "Output should contain complete grades array with all three values");
             INTEGRATION_ASSERT(output.find("Average: 85") != std::string::npos, 
-                              "Output should contain calculated average");
+                              "Output should contain calculated average (85+92+78)/3=85");
         }, execution_time);
 }
 
@@ -93,7 +99,7 @@ inline void test_const_struct_member_parent_const_error() {
             INTEGRATION_ASSERT_NE(0, exit_code,
                                   "Expected error exit code for const struct member reassignment (parent const)");
             INTEGRATION_ASSERT_CONTAINS(
-                output, "Const reassignment error: instance.value",
+                output, "Cannot assign to member of const struct: instance.value",
                 "should contain const struct member reassignment error message");
         });
 }
@@ -149,13 +155,17 @@ inline void test_struct_array() {
             INTEGRATION_ASSERT(output.find("Team Members:") != std::string::npos, 
                               "Output should contain team header");
             INTEGRATION_ASSERT(output.find("1. Alice - $50000 (Dept: HR)") != std::string::npos, 
-                              "Output should contain Alice's info");
+                              "Output should contain Alice's complete info: name, salary, and department");
             INTEGRATION_ASSERT(output.find("2. Bob - $55000 (Dept: CEO)") != std::string::npos, 
-                              "Output should contain Bob's info");
+                              "Output should contain Bob's complete info: name, salary, and department");
             INTEGRATION_ASSERT(output.find("3. Charlie - $60000 (Dept: Dev)") != std::string::npos, 
-                              "Output should contain Charlie's info");
+                              "Output should contain Charlie's complete info: name, salary, and department");
             INTEGRATION_ASSERT(output.find("Total salary: $165000") != std::string::npos, 
-                              "Output should contain total salary");
+                              "Output should contain correct total salary (50000+55000+60000=165000)");
+            INTEGRATION_ASSERT(output.find("Updated Alice's salary: $55000") != std::string::npos, 
+                              "Output should contain updated Alice's salary after modification");
+            INTEGRATION_ASSERT(output.find("Struct array test passed") != std::string::npos, 
+                              "Output should contain success message");
         });
 }
 
@@ -224,11 +234,11 @@ inline void test_struct_function_return() {
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_EQ(0, exit_code, "Struct function return test should exit with code 0");
             INTEGRATION_ASSERT(output.find("Point 1: (3, 4)") != std::string::npos, 
-                              "Output should contain Point 1 coordinates");
+                              "Output should contain Point 1 with complete x,y coordinates");
             INTEGRATION_ASSERT(output.find("Point 2: (1, 2)") != std::string::npos, 
-                              "Output should contain Point 2 coordinates");
+                              "Output should contain Point 2 with complete x,y coordinates");
             INTEGRATION_ASSERT(output.find("Sum: (4, 6)") != std::string::npos, 
-                              "Output should contain sum coordinates");
+                              "Output should contain sum with complete x,y coordinates (3+1=4, 4+2=6)");
         });
 }
 
@@ -446,6 +456,182 @@ inline void test_comprehensive() {
         });
 }
 
+// 深くネストした構造体リテラルのテスト（5レベル）
+inline void test_deep_nested_literal() {
+    std::cout << "[integration] Running test_deep_nested_literal..." << std::endl;
+    
+    double execution_time;
+    run_cb_test_with_output_and_time("../../tests/cases/struct/test_deep_nested_literal.cb", 
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "Deep nested literal test should exit with code 0");
+            INTEGRATION_ASSERT(output.find("r.top.inner.mid.deep.value4 = 444") != std::string::npos, 
+                              "Output should contain 5-level nested member access");
+            INTEGRATION_ASSERT(output.find("r.top.inner.mid.deep.name4 = Level4") != std::string::npos, 
+                              "Output should contain nested string member");
+            INTEGRATION_ASSERT(output.find("r.top.inner.mid.deep.value4 = 5555") != std::string::npos, 
+                              "Output should contain updated value after reassignment");
+        }, execution_time);
+}
+
+// 多数の構造体メンバのテスト
+inline void test_multiple_struct_members() {
+    std::cout << "[integration] Running test_multiple_struct_members..." << std::endl;
+    
+    double execution_time;
+    run_cb_test_with_output_and_time("../../tests/cases/struct/test_multiple_struct_members.cb", 
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "Multiple struct members test should exit with code 0");
+            INTEGRATION_ASSERT(output.find("Department: Engineering") != std::string::npos, 
+                              "Output should contain department name");
+            INTEGRATION_ASSERT(output.find("Manager: Alice") != std::string::npos, 
+                              "Output should contain manager info");
+            INTEGRATION_ASSERT(output.find("Manager Home: Tokyo") != std::string::npos, 
+                              "Output should contain nested home address");
+            INTEGRATION_ASSERT(output.find("Assistant: Bob") != std::string::npos, 
+                              "Output should contain assistant info");
+        }, execution_time);
+}
+
+// 総合的なネスト構造体リテラルのテスト
+inline void test_comprehensive_nested_literal() {
+    std::cout << "[integration] Running test_comprehensive_nested_literal..." << std::endl;
+    
+    double execution_time;
+    run_cb_test_with_output_and_time("../../tests/cases/struct/test_comprehensive_nested_literal.cb", 
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "Comprehensive nested literal test should exit with code 0");
+            INTEGRATION_ASSERT(output.find("ID: 1") != std::string::npos, 
+                              "Output should contain root node ID");
+            INTEGRATION_ASSERT(output.find("Timeout: 1000") != std::string::npos, 
+                              "Output should contain nested config");
+            INTEGRATION_ASSERT(output.find("Count: 10") != std::string::npos, 
+                              "Output should contain nested stats");
+            INTEGRATION_ASSERT(output.find("Node 2:") != std::string::npos, 
+                              "Output should contain second node");
+        }, execution_time);
+}
+
+// 混合型構造体メンバのテスト
+inline void test_mixed_type_members() {
+    std::cout << "[integration] Running test_mixed_type_members..." << std::endl;
+    
+    double execution_time;
+    run_cb_test_with_output_and_time("../../tests/cases/struct/test_mixed_type_members.cb", 
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "Mixed type members test should exit with code 0");
+            INTEGRATION_ASSERT(output.find("Article Metadata:") != std::string::npos, 
+                              "Output should contain metadata section");
+            INTEGRATION_ASSERT(output.find("Author: John Doe") != std::string::npos, 
+                              "Output should contain author name");
+            INTEGRATION_ASSERT(output.find("Title: Test Article") != std::string::npos, 
+                              "Output should contain article title");
+            INTEGRATION_ASSERT(output.find("Article 2 Metadata:") != std::string::npos, 
+                              "Output should contain second article");
+        }, execution_time);
+}
+
+// 同じ構造体型の複数メンバのテスト
+inline void test_same_type_multiple_members() {
+    std::cout << "[integration] Running test_same_type_multiple_members..." << std::endl;
+    
+    double execution_time;
+    run_cb_test_with_output_and_time("../../tests/cases/struct/test_same_type_multiple_members.cb", 
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "Same type multiple members test should exit with code 0");
+            INTEGRATION_ASSERT(output.find("GameObject: Player") != std::string::npos, 
+                              "Output should contain game object name");
+            INTEGRATION_ASSERT(output.find("Position: ( 10 , 20 , 30 )") != std::string::npos, 
+                              "Output should contain position");
+            INTEGRATION_ASSERT(output.find("Rotation: ( 0 , 90 , 0 )") != std::string::npos, 
+                              "Output should contain rotation");
+            INTEGRATION_ASSERT(output.find("After full update:") != std::string::npos, 
+                              "Output should show update");
+        }, execution_time);
+}
+
+// ネストメンバへの直接代入のテスト
+inline void test_nested_member_assignment() {
+    std::cout << "[integration] Running test_nested_member_assignment..." << std::endl;
+    
+    double execution_time;
+    run_cb_test_with_output_and_time("../../tests/cases/struct/test_nested_member_assignment.cb", 
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "Nested member assignment test should exit with code 0");
+            INTEGRATION_ASSERT(output.find("=== Nested Member Assignment Test ===") != std::string::npos, 
+                              "Output should contain test header");
+            INTEGRATION_ASSERT(output.find("Test Passed") != std::string::npos, 
+                              "Output should indicate test passed");
+        }, execution_time);
+}
+
+// 自己再帰構造体のOKケーステスト
+inline void test_self_recursive_ok() {
+    std::cout << "[integration] Running test_self_recursive_ok..." << std::endl;
+    
+    double execution_time;
+    run_cb_test_with_output_and_time("../../tests/cases/struct/self_recursive_ok.cb", 
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "Self-recursive struct test should exit with code 0");
+            INTEGRATION_ASSERT(output.find("Node value:  3") != std::string::npos, 
+                              "Output should contain first node value");
+            INTEGRATION_ASSERT(output.find("Node value:  2") != std::string::npos, 
+                              "Output should contain second node value");
+            INTEGRATION_ASSERT(output.find("Node value:  1") != std::string::npos, 
+                              "Output should contain third node value");
+            INTEGRATION_ASSERT(output.find("Sum:  6") != std::string::npos, 
+                              "Output should contain correct sum");
+        }, execution_time);
+}
+
+// 自己再帰構造体のエラーケーステスト
+inline void test_self_recursive_error() {
+    std::cout << "[integration] Running test_self_recursive_error..." << std::endl;
+    
+    double execution_time;
+    run_cb_test_with_output_and_time("../../tests/cases/struct/self_recursive_error.cb", 
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_NE(0, exit_code, "Self-recursive value member should fail");
+            INTEGRATION_ASSERT(output.find("Self-recursive struct member") != std::string::npos, 
+                              "Error message should mention self-recursive member");
+            INTEGRATION_ASSERT(output.find("must be a pointer type") != std::string::npos, 
+                              "Error message should suggest using pointer");
+        }, execution_time);
+}
+
+// typedef structでの自己再帰OKケーステスト
+inline void test_typedef_self_recursive_ok() {
+    std::cout << "[integration] Running test_typedef_self_recursive_ok..." << std::endl;
+    
+    double execution_time;
+    run_cb_test_with_output_and_time("../../tests/cases/struct/typedef_self_recursive_ok.cb", 
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "Typedef self-recursive struct test should exit with code 0");
+            INTEGRATION_ASSERT(output.find("Root:  10") != std::string::npos, 
+                              "Output should contain root value");
+            INTEGRATION_ASSERT(output.find("Left:  5") != std::string::npos, 
+                              "Output should contain left child value");
+            INTEGRATION_ASSERT(output.find("Right:  15") != std::string::npos, 
+                              "Output should contain right child value");
+            INTEGRATION_ASSERT(output.find("Binary tree test passed") != std::string::npos, 
+                              "Output should contain success message");
+        }, execution_time);
+}
+
+// typedef structでの自己再帰エラーケーステスト
+inline void test_typedef_self_recursive_error() {
+    std::cout << "[integration] Running test_typedef_self_recursive_error..." << std::endl;
+    
+    double execution_time;
+    run_cb_test_with_output_and_time("../../tests/cases/struct/typedef_self_recursive_error.cb", 
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_NE(0, exit_code, "Typedef self-recursive value member should fail");
+            INTEGRATION_ASSERT(output.find("Self-recursive struct member") != std::string::npos, 
+                              "Error message should mention self-recursive member");
+            INTEGRATION_ASSERT(output.find("must be a pointer type") != std::string::npos, 
+                              "Error message should suggest using pointer");
+        }, execution_time);
+}
+
 // 全structテストを実行
 inline void run_all_struct_tests() {
     std::cout << "[integration] ========================================" << std::endl;
@@ -474,6 +660,17 @@ inline void run_all_struct_tests() {
         test_typedef_struct(); // 複雑な機能  
         test_struct_error_handling(); // 複雑な機能
         test_large_struct(); // 複雑な機能
+        // 新しいネスト構造体リテラルテスト
+        test_deep_nested_literal();
+        test_multiple_struct_members();
+        test_comprehensive_nested_literal();
+        test_mixed_type_members();
+        test_same_type_multiple_members();
+        test_nested_member_assignment(); // ネストメンバ直接代入テスト
+        test_self_recursive_ok(); // 自己再帰構造体（OK）
+        test_self_recursive_error(); // 自己再帰構造体（エラー）
+        test_typedef_self_recursive_ok(); // typedef自己再帰（OK）
+        test_typedef_self_recursive_error(); // typedef自己再帰（エラー）
         // test_comprehensive(); // 複雑な機能
         
         std::cout << "[integration] ========================================" << std::endl;

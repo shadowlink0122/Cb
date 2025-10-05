@@ -1,0 +1,100 @@
+// 多数の構造体メンバを持つ構造体のテスト
+
+struct Address {
+    string street;
+    string city;
+    int zipcode;
+};
+
+struct Contact {
+    string email;
+    string phone;
+};
+
+struct Employee {
+    string name;
+    int age;
+    Address home;
+    Address work;
+    Contact contact;
+    int salary;
+    bool active;
+};
+
+struct Department {
+    string name;
+    Employee manager;
+    Employee assistant;
+    int budget;
+};
+
+int main() {
+    println("=== Multiple Struct Members Test ===");
+    
+    // 複数の構造体メンバを持つリテラル
+    Department dept;
+    dept = {
+        name: "Engineering",
+        manager: {
+            name: "Alice",
+            age: 35,
+            home: {
+                street: "123 Main St",
+                city: "Tokyo",
+                zipcode: 1000001
+            },
+            work: {
+                street: "456 Office Blvd",
+                city: "Tokyo",
+                zipcode: 1000002
+            },
+            contact: {
+                email: "alice@example.com",
+                phone: "090-1234-5678"
+            },
+            salary: 100000,
+            active: true
+        },
+        assistant: {
+            name: "Bob",
+            age: 28,
+            home: {
+                street: "789 Side Ave",
+                city: "Osaka",
+                zipcode: 5400001
+            },
+            work: {
+                street: "456 Office Blvd",
+                city: "Tokyo",
+                zipcode: 1000002
+            },
+            contact: {
+                email: "bob@example.com",
+                phone: "080-9876-5432"
+            },
+            salary: 80000,
+            active: true
+        },
+        budget: 5000000
+    };
+    
+    // マネージャー情報の確認
+    println("Department:", dept.name);
+    println("Manager:", dept.manager.name);
+    println("Manager Age:", dept.manager.age);
+    println("Manager Home:", dept.manager.home.city);
+    println("Manager Work:", dept.manager.work.street);
+    println("Manager Email:", dept.manager.contact.email);
+    println("Manager Salary:", dept.manager.salary);
+    
+    // アシスタント情報の確認
+    println("\nAssistant:", dept.assistant.name);
+    println("Assistant Age:", dept.assistant.age);
+    println("Assistant Home:", dept.assistant.home.city);
+    println("Assistant Email:", dept.assistant.contact.email);
+    
+    println("\nBudget:", dept.budget);
+    
+    println("\n=== Test Passed ===");
+    return 0;
+}

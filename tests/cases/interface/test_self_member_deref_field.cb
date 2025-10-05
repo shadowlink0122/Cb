@@ -1,0 +1,90 @@
+// Test: (*self.member).field access pattern
+// Using explicit dereference instead of arrow operator
+
+struct Point {
+    int x;
+    int y;
+};
+
+struct Container {
+    int id;
+    Point* data;
+};
+
+interface IContainer {
+    int getDataX();
+    int getDataY();
+    void setDataX(int newX);
+    void setDataY(int newY);
+    int computeDataSum();
+};
+
+impl IContainer for Container {
+    // Access via (*self.member).field
+    int getDataX() {
+        return (*self.data).x;
+    }
+    
+    int getDataY() {
+        return (*self.data).y;
+    }
+    
+    void setDataX(int newX) {
+        (*self.data).x = newX;
+    }
+    
+    void setDataY(int newY) {
+        (*self.data).y = newY;
+    }
+    
+    int computeDataSum() {
+        return (*self.data).x + (*self.data).y;
+    }
+};
+
+int main() {
+    Point p = {x: 10, y: 20};
+    Container c = {id: 100, data: &p};
+    
+    println("=== Dereference Self Member Field Access Tests ===");
+    
+    // Test 1: Read via (*self.member).field
+    println("\nTest 1: Read via (*self.data).x");
+    int x = c.getDataX();
+    int y = c.getDataY();
+    if (x != 10) {
+        println("FAILED: getDataX() expected 10, got", x);
+        return 1;
+    }
+    if (y != 20) {
+        println("FAILED: getDataY() expected 20, got", y);
+        return 1;
+    }
+    println("PASSED: x =", x, "y =", y);
+    
+    // Test 2: Write via (*self.member).field
+    println("\nTest 2: Write via (*self.data).x");
+    c.setDataX(100);
+    c.setDataY(200);
+    if (p.x != 100) {
+        println("FAILED: p.x expected 100, got", p.x);
+        return 1;
+    }
+    if (p.y != 200) {
+        println("FAILED: p.y expected 200, got", p.y);
+        return 1;
+    }
+    println("PASSED: p.x =", p.x, "p.y =", p.y);
+    
+    // Test 3: Compute using (*self.member).field
+    println("\nTest 3: Compute via (*self.data).x + (*self.data).y");
+    int total = c.computeDataSum();
+    if (total != 300) {
+        println("FAILED: computeDataSum() expected 300, got", total);
+        return 1;
+    }
+    println("PASSED: sum =", total);
+    
+    println("\n=== All Dereference Self Member Field Access Tests Passed ===");
+    return 0;
+}

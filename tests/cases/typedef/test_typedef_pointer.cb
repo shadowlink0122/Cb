@@ -1,0 +1,38 @@
+// typedef型のポインタテスト
+
+typedef int Integer;
+
+typedef struct {
+    int x;
+    int y;
+} Coordinate;
+
+int main() {
+    // Test 1: typedefされたプリミティブ型へのポインタ
+    println("Test 1: Pointer to typedef primitive");
+    Integer num = 42;
+    Integer* ptr = &num;
+    println(*ptr);  // 42
+    *ptr = 84;
+    println(num);  // 84
+    
+    // Test 2: typedefされた構造体へのポインタ
+    println("Test 2: Pointer to typedef struct");
+    Coordinate coord;
+    coord.x = 10;
+    coord.y = 20;
+    Coordinate* p = &coord;
+    println((*p).x);  // 10
+    println((*p).y);  // 20
+    (*p).x = 30;
+    println(coord.x);  // 30
+    
+    // Test 3: nullptr
+    println("Test 3: nullptr");
+    Integer* nullp = nullptr;
+    if (nullp == nullptr) {
+        println("nullptr check OK");
+    }
+    
+    return 0;
+}

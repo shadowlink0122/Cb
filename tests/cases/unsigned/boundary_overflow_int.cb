@@ -1,0 +1,6 @@
+int main() {
+    // int unsigned overflow (expected to fail)
+    unsigned int ui = 4294967296;
+    println(ui);
+    return 0;
+}

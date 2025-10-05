@@ -1,0 +1,21 @@
+// Simplified test: Check if impl static variable is created
+interface Counter {
+    int increment();
+};
+
+struct Point {
+    int x;
+};
+
+impl Counter for Point {
+    static int shared_counter = 10;
+    
+    int increment() {
+        return 0;
+    }
+};
+
+int main() {
+    println(0);
+    return 0;
+}

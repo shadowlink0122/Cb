@@ -1,0 +1,76 @@
+// 現実的なtypedef構造体テスト（動作するケースのみ）
+
+typedef struct {
+    int id;
+    string name;
+} Person;
+
+typedef struct {
+    int[3] scores;
+    string class_name;
+} ClassRoom;
+
+int main() {
+    println("=== Test 1: Basic typedef struct ===");
+    Person p1 = {1, "Alice"};
+    if (p1.id != 1) {
+        println("ERROR: p1.id failed");
+        return 1;
+    }
+    println("Person: id=%d, name=%s", p1.id, p1.name);
+    
+    println("\n=== Test 2: Individual member assignment ===");
+    Person p2;
+    p2.id = 100;
+    p2.name = "Bob";
+    if (p2.id != 100) {
+        println("ERROR: p2.id assignment failed");
+        return 1;
+    }
+    println("Person2: id=%d, name=%s", p2.id, p2.name);
+    
+    println("\n=== Test 3: Typedef struct array ===");
+    Person[3] people;
+    people[0].id = 10;
+    people[0].name = "Charlie";
+    people[1].id = 20;
+    people[1].name = "Dave";
+    people[2].id = 30;
+    people[2].name = "Eve";
+    
+    if (people[0].id != 10 || people[1].id != 20 || people[2].id != 30) {
+        println("ERROR: Array element assignment failed");
+        return 1;
+    }
+    
+    println("people[0]: id=%d, name=%s", people[0].id, people[0].name);
+    println("people[1]: id=%d, name=%s", people[1].id, people[1].name);
+    println("people[2]: id=%d, name=%s", people[2].id, people[2].name);
+    
+    println("\n=== Test 4: Primitive array member in typedef struct ===");
+    ClassRoom room = {[85, 90, 78], "Math101"};
+    if (room.scores[0] != 85 || room.scores[1] != 90 || room.scores[2] != 78) {
+        println("ERROR: Primitive array initialization failed");
+        return 1;
+    }
+    println("ClassRoom: %s", room.class_name);
+    println("  Scores: [%d, %d, %d]", room.scores[0], room.scores[1], room.scores[2]);
+    
+    println("\n=== Test 5: Individual primitive array assignment ===");
+    ClassRoom room2;
+    room2.class_name = "Science202";
+    room2.scores[0] = 95;
+    room2.scores[1] = 88;
+    room2.scores[2] = 92;
+    
+    if (room2.scores[0] != 95 || room2.scores[1] != 88 || room2.scores[2] != 92) {
+        println("ERROR: Individual array element assignment failed");
+        return 1;
+    }
+    
+    println("ClassRoom2: %s", room2.class_name);
+    println("  Scores: [%d, %d, %d]", room2.scores[0], room2.scores[1], room2.scores[2]);
+    
+    println("\n=== All typedef struct tests passed! ===");
+    return 0;
+}

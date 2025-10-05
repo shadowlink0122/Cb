@@ -1,0 +1,56 @@
+// typedef構造体での再帰参照テスト
+
+// C言語の慣用句: typedef struct タグ名 を使う
+typedef struct NodeTag {
+    int value;
+    struct NodeTag* next;
+} Node;
+
+int main() {
+    println("=== Test 1: Typedef struct with self-reference ===");
+    Node head;
+    head.value = 100;
+    head.next = nullptr;
+    
+    if (head.value != 100) {
+        println("ERROR: Node initialization failed");
+        return 1;
+    }
+    println("Node value: %d", head.value);
+    println("Node next: nullptr");
+    
+    println("\n=== Test 2: Multiple typedef nodes ===");
+    Node node1;
+    node1.value = 10;
+    node1.next = nullptr;
+    
+    Node node2;
+    node2.value = 20;
+    node2.next = nullptr;
+    
+    println("Node1 value: %d", node1.value);
+    println("Node2 value: %d", node2.value);
+    
+    println("\n=== Test 3: Binary tree with typedef ===");
+    typedef struct TreeTag {
+        int data;
+        struct TreeTag* left;
+        struct TreeTag* right;
+    } TreeNode;
+    
+    TreeNode root;
+    root.data = 500;
+    root.left = nullptr;
+    root.right = nullptr;
+    
+    if (root.data != 500) {
+        println("ERROR: TreeNode initialization failed");
+        return 1;
+    }
+    println("TreeNode data: %d", root.data);
+    println("TreeNode left: nullptr");
+    println("TreeNode right: nullptr");
+    
+    println("\n=== All typedef recursive struct tests passed! ===");
+    return 0;
+}

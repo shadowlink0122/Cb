@@ -1,0 +1,72 @@
+// ネストしたポインタアクセスのテスト
+// (*(*p).value).value と p->value->value の等価性を確認
+
+struct Node {
+    int value;
+    Node* next;
+};
+
+struct Container {
+    Node* node_ptr;
+    int count;
+};
+
+int main() {
+    println("=== Nested Pointer Access Test ===");
+    println("");
+    
+    // Test 1: 2段階のポインタアクセス
+    println("Test 1: Two-level pointer access");
+    Node n1 = {value: 10, next: nullptr};
+    Node n2 = {value: 20, next: &n1};
+    Container c = {node_ptr: &n2, count: 1};
+    
+    Container* pc = &c;
+    
+    // 構造体ポインタのメンバがポインタの場合
+    println("Using (*pc).node_ptr->value:");
+    println((*pc).node_ptr->value);  // 20
+    
+    println("Using pc->node_ptr->value:");
+    println(pc->node_ptr->value);  // 20
+    
+    // さらにネストしたアクセス
+    println("Using (*pc).node_ptr->next->value:");
+    println((*pc).node_ptr->next->value);  // 10
+    
+    println("Using pc->node_ptr->next->value:");
+    println(pc->node_ptr->next->value);  // 10
+    
+    println("✓ Test 1 passed");
+    println("");
+    
+    // Test 2: ポインタメンバの更新
+    println("Test 2: Update through nested pointers");
+    pc->node_ptr->value = 25;
+    println("After pc->node_ptr->value = 25:");
+    println(n2.value);  // 25
+    
+    pc->node_ptr->next->value = 15;
+    println("After pc->node_ptr->next->value = 15:");
+    println(n1.value);  // 15
+    
+    println("✓ Test 2 passed");
+    println("");
+    
+    // Test 3: 構造体のポインタメンバへの直接アクセス
+    println("Test 3: Direct pointer member access");
+    Node* pn = pc->node_ptr;
+    println("pn->value:");
+    println(pn->value);  // 25
+    
+    pn->value = 30;
+    println("After pn->value = 30:");
+    println(n2.value);  // 30
+    
+    println("✓ Test 3 passed");
+    println("");
+    
+    println("=== All nested pointer access tests passed ===");
+    
+    return 0;
+}

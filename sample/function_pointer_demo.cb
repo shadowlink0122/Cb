@@ -1,0 +1,81 @@
+// 関数ポインタのデモンストレーション
+
+// 整数演算関数
+int add(int a, int b) {
+    return a + b;
+}
+
+int subtract(int a, int b) {
+    return a - b;
+}
+
+int multiply(int a, int b) {
+    return a * b;
+}
+
+int divide(int a, int b) {
+    if (b == 0) {
+        return 0;
+    }
+    return a / b;
+}
+
+// 戻り値のある関数
+int square(int x) {
+    return x * x;
+}
+
+int cube(int x) {
+    return x * x * x;
+}
+
+void main() {
+    println("=== 関数ポインタデモ ===");
+    println();
+    
+    // Form 1: (*ptr)(args) 構文
+    println("--- Form 1: (*ptr)(args) ---");
+    int* addPtr = &add;
+    int result1 = (*addPtr)(10, 20);
+    println("(*addPtr)(10, 20) =", result1);
+    
+    int* subPtr = &subtract;
+    int result2 = (*subPtr)(50, 15);
+    println("(*subPtr)(50, 15) =", result2);
+    println();
+    
+    // Form 2: ptr(args) 構文
+    println("--- Form 2: ptr(args) ---");
+    int* mulPtr = &multiply;
+    int result3 = mulPtr(7, 8);
+    println("mulPtr(7, 8) =", result3);
+    
+    int* divPtr = &divide;
+    int result4 = divPtr(100, 5);
+    println("divPtr(100, 5) =", result4);
+    println();
+    
+    // 単一引数の関数ポインタ
+    println("--- 単一引数関数 ---");
+    int* sqPtr = &square;
+    int result5 = (*sqPtr)(9);
+    println("(*sqPtr)(9) =", result5);
+    
+    int* cubePtr = &cube;
+    int result6 = cubePtr(4);
+    println("cubePtr(4) =", result6);
+    println();
+    
+    // 関数ポインタの再代入
+    println("--- 関数ポインタの再代入 ---");
+    int* opPtr = &add;
+    int result7 = opPtr(100, 50);
+    println("opPtr = &add: opPtr(100, 50) =", result7);
+    
+    opPtr = &multiply;
+    int result8 = opPtr(100, 50);
+    println("opPtr = &multiply: opPtr(100, 50) =", result8);
+    println();
+    
+    println("=== テスト完了 ===");
+}

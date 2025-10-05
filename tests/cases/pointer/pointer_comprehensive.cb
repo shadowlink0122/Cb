@@ -1,0 +1,80 @@
+// ポインタの包括的なテスト
+// 1. 基本的なポインタ操作
+// 2. アドレス値の確認
+// 3. ポインタ演算とデータ遷移
+// 4. 宣言時初期化
+
+int main() {
+    // テスト1: 基本的なポインタ操作と宣言時初期化
+    int[5] arr = [100, 200, 300, 400, 500];
+    int* p = &arr[0];  // 宣言時初期化
+    
+    // 初期値の確認
+    if (*p != 100) {
+        println("FAIL: Test 1 - Initial value");
+        return 1;
+    }
+    
+    // テスト2: ポインタ加算
+    p = p + 1;
+    if (*p != 200) {
+        println("FAIL: Test 2 - Pointer addition");
+        return 1;
+    }
+    
+    p = p + 2;
+    if (*p != 400) {
+        println("FAIL: Test 2 - Pointer addition +2");
+        return 1;
+    }
+    
+    // テスト3: ポインタ減算
+    p = p - 1;
+    if (*p != 300) {
+        println("FAIL: Test 3 - Pointer subtraction");
+        return 1;
+    }
+    
+    // テスト4: 前置インクリメント
+    int* q = &arr[0];
+    q++;
+    if (*q != 200) {
+        println("FAIL: Test 4 - Post-increment");
+        return 1;
+    }
+    
+    // テスト5: 前置デクリメント
+    q--;
+    if (*q != 100) {
+        println("FAIL: Test 5 - Post-decrement");
+        return 1;
+    }
+    
+    // テスト6: 複数のポインタが同じ配列を指す
+    int* r = &arr[2];
+    if (*r != 300) {
+        println("FAIL: Test 6 - Multiple pointers");
+        return 1;
+    }
+    
+    // テスト7: ポインタ経由での値の変更
+    *r = 999;
+    if (arr[2] != 999) {
+        println("FAIL: Test 7 - Value modification through pointer");
+        return 1;
+    }
+    if (*r != 999) {
+        println("FAIL: Test 7 - Modified value check");
+        return 1;
+    }
+    
+    // テスト8: 別のポインタで同じ要素を参照
+    int* s = &arr[2];
+    if (*s != 999) {
+        println("FAIL: Test 8 - Shared element access");
+        return 1;
+    }
+    
+    println("PASS: All basic pointer tests");
+    return 0;
+}

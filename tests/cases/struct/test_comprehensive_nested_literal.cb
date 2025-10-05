@@ -1,0 +1,82 @@
+// 複雑なネスト構造体リテラルの総合テスト
+
+struct Config {
+    int timeout;
+    bool debug;
+};
+
+struct Stats {
+    int count;
+    int total;
+};
+
+struct Node {
+    int id;
+    Config config;
+    Stats stats;
+};
+
+struct TreeNode {
+    Node data;
+    int left_id;
+    int right_id;
+};
+
+struct BinaryTree {
+    TreeNode root;
+    TreeNode[3] nodes;
+    int size;
+};
+
+int main() {
+    println("=== Comprehensive Nested Struct Literal Test ===");
+    
+    // 複雑なネスト構造体リテラル代入（配列なし版）
+    TreeNode root;
+    root = {
+        data: {
+            id: 1,
+            config: {
+                timeout: 1000,
+                debug: true
+            },
+            stats: {
+                count: 10,
+                total: 100
+            }
+        },
+        left_id: 2,
+        right_id: 3
+    };
+    
+    // ルートノード情報
+    println("Root Node:");
+    println("  ID:", root.data.id);
+    println("  Timeout:", root.data.config.timeout);
+    println("  Debug:", root.data.config.debug);
+    println("  Count:", root.data.stats.count);
+    println("  Total:", root.data.stats.total);
+    println("  Left ID:", root.left_id);
+    println("  Right ID:", root.right_id);
+    
+    // 別のノードも初期化
+    TreeNode node2;
+    node2 = {
+        data: {
+            id: 2,
+            config: {timeout: 500, debug: false},
+            stats: {count: 5, total: 50}
+        },
+        left_id: -1,
+        right_id: -1
+    };
+    
+    println("\nNode 2:");
+    println("  ID:", node2.data.id);
+    println("  Timeout:", node2.data.config.timeout);
+    println("  Debug:", node2.data.config.debug);
+    println("  Count:", node2.data.stats.count);
+    
+    println("\n=== Test Passed ===");
+    return 0;
+}

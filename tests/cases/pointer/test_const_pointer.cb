@@ -1,0 +1,31 @@
+// constポインタの基本テスト（現在サポートされている機能）
+
+void main() {
+    println("=== Test 1: Basic const support ===");
+    
+    // const変数の基本サポート
+    const int value = 42;
+    println(value);  // 42
+    
+    // ポインタの基本操作
+    int x = 100;
+    int* ptr = &x;
+    println(*ptr);   // 100
+    
+    println("=== Test 2: Pointer reassignment ===");
+    
+    int a = 10, b = 20;
+    int* p = &a;
+    println(*p);     // 10
+    
+    p = &b;          // ポインタの再代入
+    println(*p);     // 20
+    
+    println("=== Test 3: Pointer to const variable ===");
+    
+    const int data = 50;
+    int* ptr2 = &data;
+    println(*ptr2);  // 50
+    
+    println("=== All basic pointer tests passed ===");
+}

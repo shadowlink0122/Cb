@@ -1,0 +1,10 @@
+Test 1: Return reference to global
+100
+150
+175
+Test 2: Forward reference
+50
+75
+Test 3: Conditional reference
+175
+200

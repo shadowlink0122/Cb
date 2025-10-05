@@ -1,0 +1,36 @@
+struct Inner {
+    int value;
+};
+
+struct Middle {
+    Inner data;
+    int count;
+};
+
+struct Outer {
+    Middle mid;
+};
+
+int main() {
+    Outer obj;
+    obj = {mid: {data: {value: 10}, count: 5}};
+    
+    println("Initial:");
+    println("  obj.mid.data.value:", obj.mid.data.value);
+    println("  obj.mid.count:", obj.mid.count);
+    
+    obj.mid.data.value = 100;
+    obj.mid.count = 50;
+    
+    println("After:");
+    println("  obj.mid.data.value:", obj.mid.data.value);
+    println("  obj.mid.count:", obj.mid.count);
+    
+    if (obj.mid.data.value == 100 && obj.mid.count == 50) {
+        println("SUCCESS!");
+        return 0;
+    } else {
+        println("FAILED!");
+        return 1;
+    }
+}

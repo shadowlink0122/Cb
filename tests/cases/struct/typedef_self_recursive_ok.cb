@@ -1,0 +1,39 @@
+// typedef structでの自己再帰の正しい使い方
+
+typedef struct TreeNode {
+    int data;
+    TreeNode* left;   // ✅ OK: ポインタなら自己参照可能
+    TreeNode* right;  // ✅ OK
+} TreeNode;
+
+int main() {
+    TreeNode root;
+    root.data = 10;
+    root.left = 0;
+    root.right = 0;
+    
+    TreeNode left_child;
+    left_child.data = 5;
+    left_child.left = 0;
+    left_child.right = 0;
+    
+    TreeNode right_child;
+    right_child.data = 15;
+    right_child.left = 0;
+    right_child.right = 0;
+    
+    root.left = &left_child;
+    root.right = &right_child;
+    
+    println("Root: ", root.data);
+    println("Left: ", root.left->data);
+    println("Right: ", root.right->data);
+    
+    assert(root.data == 10);
+    assert(root.left->data == 5);
+    assert(root.right->data == 15);
+    
+    println("Binary tree test passed");
+    
+    return 0;
+}

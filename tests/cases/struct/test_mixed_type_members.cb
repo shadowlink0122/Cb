@@ -1,0 +1,87 @@
+// 混合型構造体メンバのテスト
+
+struct Metadata {
+    int version;
+    string author;
+    bool published;
+};
+
+struct Content {
+    string title;
+    string body;
+    int word_count;
+};
+
+struct Comment {
+    string author;
+    string text;
+    int rating;
+};
+
+struct Article {
+    Metadata meta;
+    Content content;
+    Comment[3] comments;
+    int num_comments;
+};
+
+int main() {
+    println("=== Mixed Type Struct Members Test ===");
+    
+    // 混合型メンバのリテラル初期化（配列メンバなし版）
+    Article article;
+    article = {
+        meta: {
+            version: 1,
+            author: "John Doe",
+            published: true
+        },
+        content: {
+            title: "Test Article",
+            body: "This is a test article body.",
+            word_count: 6
+        },
+        comments: [],
+        num_comments: 0
+    };
+    
+    // メタデータ
+    println("Article Metadata:");
+    println("  Version:", article.meta.version);
+    println("  Author:", article.meta.author);
+    println("  Published:", article.meta.published);
+    
+    // コンテンツ
+    println("\nArticle Content:");
+    println("  Title:", article.content.title);
+    println("  Body:", article.content.body);
+    println("  Word Count:", article.content.word_count);
+    
+    // 別の記事を作成
+    Article article2;
+    article2 = {
+        meta: {
+            version: 2,
+            author: "Jane Smith",
+            published: false
+        },
+        content: {
+            title: "Draft Article",
+            body: "Work in progress...",
+            word_count: 3
+        },
+        comments: [],
+        num_comments: 0
+    };
+    
+    println("\nArticle 2 Metadata:");
+    println("  Version:", article2.meta.version);
+    println("  Author:", article2.meta.author);
+    println("  Published:", article2.meta.published);
+    
+    println("\nArticle 2 Content:");
+    println("  Title:", article2.content.title);
+    
+    println("\n=== Test Passed ===");
+    return 0;
+}

@@ -1,0 +1,6 @@
+Test 1: Interface pointer basic
+5
+Test 2: Interface pointer to different types
+200
+Test 3: nullptr
+nullptr check OK

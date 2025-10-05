@@ -1,0 +1,40 @@
+// 前方宣言なしの相互参照テスト
+
+// Case 1: ポインタで循環参照を回避（これはOKのはず）
+typedef struct {
+    int x;
+    int y;
+    GameEntity* parent;  // ポインタなのでOK
+} Point;
+
+typedef struct {
+    int id;
+    int score;
+    bool active;
+    Point[100] points;  // 配列なのでOK（新式構文）
+} GameEntity;
+
+// Case 2: 値メンバーで循環参照（これはエラーになるべき）
+// typedef struct {
+//     int a;
+//     TypeB b;  // 値メンバー
+// } TypeA;
+
+// typedef struct {
+//     int c;
+//     TypeA a;  // 値メンバー - 循環参照エラー
+// } TypeB;
+
+int main() {
+    Point p = {x: 10, y: 20, parent: 0};
+    GameEntity entity = {id: 1, score: 100, active: true};
+    
+    entity.points[0] = p;
+    
+    println("Point:", p.x, p.y);
+    println("Entity:", entity.id, entity.score);
+    println("Entity point 0:", entity.points[0].x, entity.points[0].y);
+    
+    println("Forward reference test passed!");
+    return 0;
+}
