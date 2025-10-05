@@ -1,0 +1,54 @@
+// Test nullptr literal
+int main() {
+    println("=== nullptr Test ===");
+    
+    // Test 1: Initialize pointer with nullptr
+    int* ptr1 = nullptr;
+    println("Test 1: ptr1 = nullptr");
+    if (ptr1 == nullptr) {
+        println("  PASSED: ptr1 is nullptr");
+    } else {
+        println("  FAILED: ptr1 is not nullptr");
+    }
+    
+    // Test 2: Initialize pointer with 0 (traditional)
+    int* ptr2 = 0;
+    println("\nTest 2: ptr2 = 0");
+    if (ptr2 == 0) {
+        println("  PASSED: ptr2 is 0");
+    } else {
+        println("  FAILED: ptr2 is not 0");
+    }
+    
+    // Test 3: Compare nullptr with 0
+    println("\nTest 3: nullptr == 0");
+    if (nullptr == 0) {
+        println("  PASSED: nullptr equals 0");
+    } else {
+        println("  FAILED: nullptr not equal to 0");
+    }
+    
+    // Test 4: Assign nullptr to existing pointer
+    int value = 42;
+    int* ptr3 = &value;
+    println("\nTest 4: Reassign to nullptr");
+    println("  Before: ptr3 points to value");
+    ptr3 = nullptr;
+    if (ptr3 == nullptr) {
+        println("  PASSED: ptr3 reassigned to nullptr");
+    } else {
+        println("  FAILED: reassignment failed");
+    }
+    
+    // Test 5: Check non-null pointer
+    int* ptr4 = &value;
+    println("\nTest 5: Non-null pointer check");
+    if (ptr4 != nullptr) {
+        println("  PASSED: ptr4 is not nullptr");
+    } else {
+        println("  FAILED: ptr4 should not be nullptr");
+    }
+    
+    println("\n=== nullptr tests completed ===");
+    return 0;
+}

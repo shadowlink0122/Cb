@@ -64,6 +64,16 @@ impl IContainer for Container {
     }
 };
 
+interface IContainerDeref {
+    int getDataY();
+};
+
+impl IContainerDeref for Container {
+    int getDataY() {
+        return (*self.data).y;
+    }
+};
+
 int main() {
     println("=== Comprehensive Pointer Test Suite ===\n");
     int passed = 0;
@@ -297,16 +307,6 @@ int main() {
     // Test 18: Self pointer field read with dereference
     println("\nTest 18: Self pointer field with dereference - (*self.data).field");
     total = total + 1;
-    interface IContainerDeref {
-        int getDataY();
-    };
-    
-    impl IContainerDeref for Container {
-        int getDataY() {
-            return (*self.data).y;
-        }
-    };
-    
     Point p18 = {x: 11, y: 22};
     Container c18 = {data: &p18, count: 1};
     int y18 = c18.getDataY();

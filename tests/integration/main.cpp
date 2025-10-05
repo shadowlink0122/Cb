@@ -32,6 +32,7 @@
 #include "global_array/test_global_array.hpp"
 #include "global_vars/test_global_vars.hpp"
 #include "if/test_if.hpp"
+#include "impl_static/impl_static_tests.hpp"
 #include "import_export/test_import_export.hpp"
 #include "incdec/test_incdec.hpp"
 #include "interface/interface_error_tests.hpp"
@@ -260,6 +261,8 @@ int main() {
     run_test_with_continue(test_recursive_typedef_independence,
                            "Recursive Typedef Independence Tests",
                            failed_tests);
+    run_test_with_continue(ImplStaticTests::run_all_tests,
+                           "impl Static Variable Tests", failed_tests);
     run_test_with_continue(PointerTests::run_all_pointer_tests, "Pointer Tests",
                            failed_tests);
     run_test_with_continue(ReferenceTests::run_all_reference_tests,

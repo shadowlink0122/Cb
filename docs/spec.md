@@ -1159,6 +1159,162 @@ int main() {
 }
 ```
 
+### impl内Static変数 🆕 (v0.9.0)
+
+implブロック内でstatic変数を宣言することで、同じimpl定義内のすべてのメソッドで共有される状態を管理できます。
+
+#### 基本構文
+
+```c++
+interface Counter {
+    int increment();
+    int get_count();
+};
+
+struct Point {
+    int x;
+    int y;
+};
+
+impl Counter for Point {
+    static int shared_counter = 0;  // impl全体で共有されるstatic変数
+    
+    int increment() {
+        shared_counter = shared_counter + 1;
+        return shared_counter;
+    }
+    
+    int get_count() {
+        return shared_counter;
+    }
+};
+```
+
+#### スコープと独立性
+
+- **impl単位での共有**: 同じ`impl Interface for Struct`内のメソッドで共有
+- **型ごとに独立**: `impl I for A`と`impl I for B`は異なるstatic変数を持つ
+
+```c++
+interface Shape {
+    int register_instance();
+    int get_count();
+};
+
+struct Circle {
+    int radius;
+};
+
+struct Rectangle {
+    int width;
+    int height;
+};
+
+impl Shape for Circle {
+    static int instance_count = 0;
+    
+    int register_instance() {
+        instance_count++;
+        return instance_count;
+    }
+    
+    int get_count() {
+        return instance_count;
+    }
+};
+
+impl Shape for Rectangle {
+    static int instance_count = 0;  // Circleとは独立した変数
+    
+    int register_instance() {
+        instance_count++;
+        return instance_count;
+    }
+    
+    int get_count() {
+        return instance_count;
+    }
+};
+
+int main() {
+    Circle c1 = {radius: 5};
+    Circle c2 = {radius: 10};
+    Rectangle r1 = {width: 3, height: 4};
+    Rectangle r2 = {width: 5, height: 6};
+    
+    Shape s1 = c1;
+    Shape s2 = c2;
+    Shape s3 = r1;
+    Shape s4 = r2;
+    
+    println(s1.register_instance());  // 1 (Circle用カウンター)
+    println(s2.register_instance());  // 2 (Circle用カウンター)
+    println(s3.register_instance());  // 1 (Rectangle用カウンター、Circleとは独立)
+    println(s4.register_instance());  // 2 (Rectangle用カウンター)
+    
+    return 0;
+}
+```
+
+#### 名前空間設計
+
+impl static変数は以下の名前空間で管理されます:
+
+```
+impl::InterfaceName::StructTypeName::variable_name
+
+例:
+impl::Counter::Point::shared_counter
+impl::Shape::Circle::instance_count
+impl::Shape::Rectangle::instance_count  // ← Circleとは別のstatic変数
+```
+
+#### 特徴
+
+1. **永続性**: プログラム実行中ずっと保持される
+2. **const修飾子**: `static const int MAX = 100;` のような定数定義が可能
+3. **初期化式**: `static int counter = 0;` のような初期化式をサポート
+4. **アクセス制限**: implメソッド内からのみアクセス可能
+
+#### ユースケース
+
+**インスタンスカウンター**:
+```c++
+impl Tracker for Stats {
+    static int instance_count = 0;
+    
+    void register_instance() {
+        instance_count++;
+    }
+};
+```
+
+**共有設定値**:
+```c++
+impl Config for Settings {
+    static const int MAX_VALUE = 100;
+    static int access_count = 0;
+    
+    int get_max() {
+        access_count++;
+        return MAX_VALUE;
+    }
+};
+```
+
+**デバッグ統計**:
+```c++
+impl Debugger for Tracer {
+    static int total_calls = 0;
+    static long sum = 0;
+    
+    void record(int value) {
+        total_calls++;
+        sum = sum + value;
+    }
+};
+```
+
 ---
 
 ## ポインタと参照
