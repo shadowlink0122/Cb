@@ -62,6 +62,43 @@ ExpressionEvaluator::MethodReceiverResolution ExpressionEvaluator::resolve_metho
 ExpressionEvaluator::ExpressionEvaluator(Interpreter& interpreter) 
     : interpreter_(interpreter), type_engine_(interpreter), last_typed_result_(static_cast<int64_t>(0), InferredType()), last_captured_function_value_(std::nullopt) {}
 
+// ============================================================================
+// evaluate_expression - 式評価のメインメソッド
+// ============================================================================
+// このメソッドは3,933行の巨大switch文です。
+// 全ての式（リテラル、変数、演算子、関数呼び出し等）の評価を担当します。
+//
+// 【主なセクション】:
+// - Line 86-88:    リテラル値（NUMBER, NULLPTR, STRING_LITERAL）
+// - Line 89-169:   変数参照（IDENTIFIER, VARIABLE）
+// - Line 170-519:  配列アクセス・リテラル（ARRAY_REF, ARRAY_LITERAL）
+// - Line 520-668:  二項演算子（BINARY_OP: +, -, *, /, %, <, >, ==, &&, || 等）
+// - Line 669-681:  三項演算子（TERNARY_OP: ? : ）
+// - Line 682-958:  単項演算子（UNARY_OP: !, -, ~, ADDRESS_OF, DEREFERENCE）
+// - Line 959-1438: インクリメント/デクリメント（PRE_INCDEC, POST_INCDEC）
+// - Line 1439-1587: 関数ポインタ呼び出し（FUNC_PTR_CALL）
+// - Line 1588-3135: 関数呼び出し（FUNC_CALL）
+// - Line 3136-3297: 代入式（ASSIGN）
+// - Line 3298-3744: メンバーアクセス（MEMBER_ACCESS）
+// - Line 3745-3795: アロー演算子（ARROW_ACCESS: ptr->member）
+// - Line 3796-3897: メンバー配列アクセス（MEMBER_ARRAY_ACCESS）
+// - Line 3898-3903: 構造体リテラル（STRUCT_LITERAL）
+// - Line 3904-3929: Enum値アクセス（ENUM_ACCESS）
+//
+// 【TODO - 将来の改善】:
+// このメソッドは以下のように分割すべき:
+// 1. evaluate_literal() - リテラル値評価
+// 2. evaluate_variable() - 変数参照評価
+// 3. evaluate_array_access() - 配列アクセス評価
+// 4. evaluate_binary_operation() - 二項演算評価
+// 5. evaluate_unary_operation() - 単項演算評価
+// 6. evaluate_function_call() - 関数呼び出し評価
+// 7. evaluate_member_access() - メンバーアクセス評価
+//
+// パーサーリファクタリング（parseStatement: 1,452行→64行）の成功例を参考に、
+// 段階的な分割を検討すべき。
+// ============================================================================
+
 int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
     if (!node) {
         debug_msg(DebugMsgId::EXPR_EVAL_START, "Null node in expression evaluation");
@@ -82,6 +119,9 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
     }
 
     switch (node->node_type) {
+    // ========================================================================
+    // リテラル値の評価（NUMBER, NULLPTR, STRING_LITERAL）
+    // ========================================================================
     case ASTNodeType::AST_NUMBER: {
         debug_msg(DebugMsgId::EXPR_EVAL_NUMBER, node->int_value);
         if (node->is_float_literal) {
@@ -94,6 +134,9 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
         return node->int_value;
     }
 
+    // ========================================================================
+    // nullptr と文字列リテラル
+    // ========================================================================
     case ASTNodeType::AST_NULLPTR: {
         // nullptr は 0 として評価
         return 0;
@@ -107,6 +150,9 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
         return 0;
     }
 
+    // ========================================================================
+    // 変数参照の評価（IDENTIFIER, VARIABLE）
+    // ========================================================================
     case ASTNodeType::AST_IDENTIFIER: {
         debug_msg(DebugMsgId::EXPR_EVAL_VAR_REF, node->name.c_str());
         
@@ -231,6 +277,10 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
         return var->value;
     }
 
+    // ========================================================================
+    // 配列アクセスと配列リテラルの評価
+    // Line 280-559: 配列の要素アクセス、多次元配列、配列リテラル
+    // ========================================================================
     case ASTNodeType::AST_ARRAY_REF: {
         debug_msg(DebugMsgId::EXPR_EVAL_ARRAY_REF, node->name.c_str());
         
@@ -581,6 +631,15 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
         return 0;
     }
 
+    // ========================================================================
+    // 二項演算子の評価（+, -, *, /, %, <, >, ==, !=, &&, ||, &, |, ^, <<, >> 等）
+    // Line 634-787: 算術演算、比較演算、論理演算、ビット演算
+    // TODO: この巨大なswitch文を以下に分割すべき:
+    //   - evaluate_arithmetic_binary() : +, -, *, /, %
+    //   - evaluate_comparison_binary() : <, >, <=, >=, ==, !=
+    //   - evaluate_logical_binary() : &&, ||
+    //   - evaluate_bitwise_binary() : &, |, ^, <<, >>
+    // ========================================================================
     case ASTNodeType::AST_BINARY_OP: {
         debug_msg(DebugMsgId::EXPR_EVAL_BINARY_OP, node->op.c_str());
 
@@ -670,57 +729,28 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                 }
             }
             
-            // 通常の整数演算
-            if (node->op == "+")
-                result = left + right;
-            else
-                result = left - right;
+            // 通常の整数演算（ポインタ演算後のフォールバック）
+            result = evaluate_arithmetic_binary(node->op, left, right);
         }
-        else if (node->op == "+")
-            result = left + right;
-        else if (node->op == "-")
-            result = left - right;
-        else if (node->op == "*")
-            result = left * right;
-        else if (node->op == "/") {
-            if (right == 0) {
-                error_msg(DebugMsgId::ZERO_DIVISION_ERROR);
-                throw std::runtime_error("Division by zero");
-            }
-            result = left / right;
-        } else if (node->op == "%") {
-            if (right == 0) {
-                error_msg(DebugMsgId::ZERO_DIVISION_ERROR);
-                throw std::runtime_error("Modulo by zero");
-            }
-            result = left % right;
-        } else if (node->op == "==")
-            result = (left == right) ? 1 : 0;
-        else if (node->op == "!=")
-            result = (left != right) ? 1 : 0;
-        else if (node->op == "<")
-            result = (left < right) ? 1 : 0;
-        else if (node->op == ">")
-            result = (left > right) ? 1 : 0;
-        else if (node->op == "<=")
-            result = (left <= right) ? 1 : 0;
-        else if (node->op == ">=")
-            result = (left >= right) ? 1 : 0;
-        else if (node->op == "&&")
-            result = (left && right) ? 1 : 0;
-        else if (node->op == "||")
-            result = (left || right) ? 1 : 0;
-        // ビット演算子
-        else if (node->op == "&")
-            result = left & right;
-        else if (node->op == "|")
-            result = left | right;
-        else if (node->op == "^")
-            result = left ^ right;
-        else if (node->op == "<<")
-            result = left << right;
-        else if (node->op == ">>")
-            result = left >> right;
+        // 算術演算（+, -, *, /, %）
+        else if (node->op == "+" || node->op == "-" || node->op == "*" || 
+                 node->op == "/" || node->op == "%") {
+            result = evaluate_arithmetic_binary(node->op, left, right);
+        }
+        // 比較演算（==, !=, <, >, <=, >=）
+        else if (node->op == "==" || node->op == "!=" || node->op == "<" || 
+                 node->op == ">" || node->op == "<=" || node->op == ">=") {
+            result = evaluate_comparison_binary(node->op, left, right);
+        }
+        // 論理演算（&&, ||）
+        else if (node->op == "&&" || node->op == "||") {
+            result = evaluate_logical_binary(node->op, left, right);
+        }
+        // ビット演算（&, |, ^, <<, >>）
+        else if (node->op == "&" || node->op == "|" || node->op == "^" || 
+                 node->op == "<<" || node->op == ">>") {
+            result = evaluate_bitwise_binary(node->op, left, right);
+        }
         else {
             error_msg(DebugMsgId::UNKNOWN_BINARY_OP_ERROR, node->op.c_str());
             throw std::runtime_error("Unknown binary operator: " + node->op);
@@ -730,6 +760,10 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
         return result;
     }
 
+    // ========================================================================
+    // 三項演算子の評価（condition ? true_expr : false_expr）
+    // Line 792-804: 三項演算子の評価と型推論
+    // ========================================================================
     case ASTNodeType::AST_TERNARY_OP: {
         // 三項演算子: condition ? true_expr : false_expr (型推論対応)
         TypedValue typed_result = evaluate_ternary_typed(node);
@@ -743,6 +777,11 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
         }
     }
 
+    // ========================================================================
+    // 単項演算子の評価（!, -, ~, &, * 等）
+    // Line 813-1086: 論理否定、符号反転、ビット否定、アドレス取得、参照外し
+    // TODO: ポインタ演算（ADDRESS_OF, DEREFERENCE）は別メソッドに分離すべき
+    // ========================================================================
     case ASTNodeType::AST_UNARY_OP: {
         debug_msg(DebugMsgId::UNARY_OP_DEBUG, node->op.c_str());
         
@@ -1020,6 +1059,11 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
         }
     }
 
+    // ========================================================================
+    // インクリメント/デクリメント演算子（++, --）
+    // Line 1091-1570: 前置・後置インクリメント/デクリメント
+    // 変数、配列要素、ポインタ、構造体メンバーに対応
+    // ========================================================================
     case ASTNodeType::AST_PRE_INCDEC:
     case ASTNodeType::AST_POST_INCDEC: {
         if (!node->left) {
@@ -1500,6 +1544,10 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
         }
     }
 
+    // ========================================================================
+    // 関数ポインタ呼び出し（(*funcPtr)(args)）
+    // Line 1576-1719: 関数ポインタを介した間接呼び出し
+    // ========================================================================
     case ASTNodeType::AST_FUNC_PTR_CALL: {
         // 関数ポインタ呼び出し: (*funcPtr)(args) 形式
         if (!node->left) {
@@ -1649,6 +1697,21 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
         return result;
     }
 
+    // ========================================================================
+    // 関数呼び出し（func(args)）
+    // Line 1729-3275: 通常の関数呼び出し、メソッド呼び出し、引数評価
+    // これは最も大きなセクション（約1,500行）で、以下を含む:
+    //   - 関数検索とバインディング
+    //   - 引数評価と型変換
+    //   - スコープ管理
+    //   - 戻り値処理
+    //   - メソッド呼び出し（self/receiver処理）
+    //   - Interface経由の呼び出し
+    // TODO: このセクションを以下に分割すべき:
+    //   - evaluate_direct_function_call()
+    //   - evaluate_method_call()
+    //   - evaluate_interface_method_call()
+    // ========================================================================
     case ASTNodeType::AST_FUNC_CALL: {
         // 関数を探す
         const ASTNode *func = nullptr;
@@ -3197,6 +3260,11 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
         }
     }
 
+    // ========================================================================
+    // 代入式（=, +=, -=, *=, /=, %= 等）
+    // Line 3292-3453: 代入演算子の評価
+    // 変数、配列要素、構造体メンバーへの代入に対応
+    // ========================================================================
     case ASTNodeType::AST_ASSIGN: {
         // 代入式を評価し、代入された値を返す
         
@@ -3359,6 +3427,12 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
         return right_value.is_numeric() ? right_value.as_numeric() : 0;
     }
     
+    // ========================================================================
+    // 構造体メンバーアクセス（obj.member）
+    // Line 3459-3900: ドット演算子によるメンバーアクセス
+    // ネストした構造体、配列要素の構造体メンバーに対応
+    // TODO: このセクションを evaluate_struct_member_access() に分離すべき
+    // ========================================================================
     case ASTNodeType::AST_MEMBER_ACCESS: {
         // メンバアクセス: obj.member または array[index].member または self.member
         std::string var_name;
@@ -3806,6 +3880,11 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
         return member_var->value;
     }
     
+    // ========================================================================
+    // アロー演算子（ptr->member）
+    // Line 3912-3957: ポインタを介した構造体メンバーアクセス
+    // ptr->member は (*ptr).member と等価
+    // ========================================================================
     case ASTNodeType::AST_ARROW_ACCESS: {
         // アロー演算子アクセス: ptr->member は (*ptr).member と等価
         // まず左側のポインタを評価
@@ -3857,6 +3936,10 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
         }
     }
     
+    // ========================================================================
+    // メンバー配列アクセス（obj.member[index]）
+    // Line 3968-4069: 構造体のメンバーが配列の場合のアクセス
+    // ========================================================================
     case ASTNodeType::AST_MEMBER_ARRAY_ACCESS: {
         // メンバの配列アクセス: obj.member[index] または func().member[index]
         std::string obj_name;
@@ -3965,6 +4048,10 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
         return 0;
     }
 
+    // ========================================================================
+    // 構造体リテラルとEnum値アクセス
+    // Line 4076-4107: 構造体リテラル（代入時のみ）とEnum値の評価
+    // ========================================================================
     case ASTNodeType::AST_ENUM_ACCESS: {
         // enum値アクセス (EnumName::member)
         EnumManager* enum_manager = interpreter_.get_enum_manager();
@@ -3983,6 +4070,9 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
         }
     }
 
+    // ========================================================================
+    // 未対応のノード型
+    // ========================================================================
     default:
         error_msg(DebugMsgId::UNSUPPORTED_EXPR_NODE_ERROR);
         if (debug_mode) {
@@ -3993,6 +4083,9 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
 
     return 0;
 }
+// ============================================================================
+// evaluate_expression メソッド終了
+// ============================================================================
 
 // 型をインターフェース用の文字列に変換するヘルパー関数
 std::string ExpressionEvaluator::type_info_to_string(TypeInfo type) {
@@ -5866,4 +5959,78 @@ ExpressionEvaluator::MethodReceiverResolution ExpressionEvaluator::create_chain_
         result.chain_value = std::make_shared<ReturnException>(ret);
         return result;
     }
+}
+
+// ============================================================================
+// Tier 2 リファクタリング: 二項演算のヘルパーメソッド
+// ============================================================================
+// これらのメソッドは、evaluate_expression内の巨大なswitch文から抽出されました。
+// ポインタ演算は含まれていません（元のメソッドで処理されます）。
+
+// 算術演算（+, -, *, /, %）の評価
+int64_t ExpressionEvaluator::evaluate_arithmetic_binary(const std::string& op, int64_t left, int64_t right) {
+    if (op == "+") {
+        return left + right;
+    } else if (op == "-") {
+        return left - right;
+    } else if (op == "*") {
+        return left * right;
+    } else if (op == "/") {
+        if (right == 0) {
+            error_msg(DebugMsgId::ZERO_DIVISION_ERROR);
+            throw std::runtime_error("Division by zero");
+        }
+        return left / right;
+    } else if (op == "%") {
+        if (right == 0) {
+            error_msg(DebugMsgId::ZERO_DIVISION_ERROR);
+            throw std::runtime_error("Modulo by zero");
+        }
+        return left % right;
+    }
+    throw std::runtime_error("Unknown arithmetic operator: " + op);
+}
+
+// 比較演算（<, >, <=, >=, ==, !=）の評価
+int64_t ExpressionEvaluator::evaluate_comparison_binary(const std::string& op, int64_t left, int64_t right) {
+    if (op == "==") {
+        return (left == right) ? 1 : 0;
+    } else if (op == "!=") {
+        return (left != right) ? 1 : 0;
+    } else if (op == "<") {
+        return (left < right) ? 1 : 0;
+    } else if (op == ">") {
+        return (left > right) ? 1 : 0;
+    } else if (op == "<=") {
+        return (left <= right) ? 1 : 0;
+    } else if (op == ">=") {
+        return (left >= right) ? 1 : 0;
+    }
+    throw std::runtime_error("Unknown comparison operator: " + op);
+}
+
+// 論理演算（&&, ||）の評価
+int64_t ExpressionEvaluator::evaluate_logical_binary(const std::string& op, int64_t left, int64_t right) {
+    if (op == "&&") {
+        return (left && right) ? 1 : 0;
+    } else if (op == "||") {
+        return (left || right) ? 1 : 0;
+    }
+    throw std::runtime_error("Unknown logical operator: " + op);
+}
+
+// ビット演算（&, |, ^, <<, >>）の評価
+int64_t ExpressionEvaluator::evaluate_bitwise_binary(const std::string& op, int64_t left, int64_t right) {
+    if (op == "&") {
+        return left & right;
+    } else if (op == "|") {
+        return left | right;
+    } else if (op == "^") {
+        return left ^ right;
+    } else if (op == "<<") {
+        return left << right;
+    } else if (op == ">>") {
+        return left >> right;
+    }
+    throw std::runtime_error("Unknown bitwise operator: " + op);
 }

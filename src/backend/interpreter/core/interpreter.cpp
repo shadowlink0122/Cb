@@ -625,6 +625,38 @@ void Interpreter::process_ndim_array_literal(const ASTNode *literal_node,
     }
 }
 
+// ============================================================================
+// execute_statement - 文実行のメインメソッド
+// ============================================================================
+// このメソッドは1,215行の巨大switch文です。
+// 全ての文（宣言、代入、制御フロー、出力等）の実行を担当します。
+//
+// 【主なセクション】:
+// - Line 697-709:   文リスト（STMT_LIST, COMPOUND_STMT）
+// - Line 710-722:   変数宣言（VAR_DECL, MULTIPLE_VAR_DECL）
+// - Line 723-858:   代入文（ASSIGN）
+// - Line 859-910:   配列・構造体宣言（ARRAY_DECL, STRUCT_DECL, STRUCT_TYPEDEF_DECL）
+// - Line 911-927:   Interface・impl宣言（INTERFACE_DECL, IMPL_DECL）
+// - Line 928-964:   出力文（PRINT_STMT, PRINTLN_STMT, PRINTF_STMT, PRINTLNF_STMT）
+// - Line 965-1036:  if文（IF_STMT）
+// - Line 1037-1112: while文（WHILE_STMT）
+// - Line 1113-1198: for文（FOR_STMT）
+// - Line 1199-1309: assert文（ASSERT_STMT）
+// - Line 1310-1443: return文（RETURN_STMT）
+// - Line 1444-1457: break/continue文（BREAK_STMT, CONTINUE_STMT）
+// - Line 1458-1842: 関数宣言（FUNC_DECL）
+//
+// 【TODO - 将来の改善】:
+// このメソッドはStatementExecutorクラスに完全に移行すべき:
+// 1. statement_executor_->execute(node) への単純な委譲にする
+// 2. StatementExecutorで各statement typeごとのヘルパーメソッドを実装
+// 3. パーサーリファクタリングの成功例（parseStatement: 1,452行→64行）を参考に進める
+//
+// 【注意】:
+// 一部の文はStatementExecutorでも処理されるが、多くはまだこのメソッドで直接処理されている。
+// StatementExecutorとの二重管理を避けるため、段階的な移行が必要。
+// ============================================================================
+
 void Interpreter::execute_statement(const ASTNode *node) {
     if (!node)
         return;
@@ -704,6 +736,9 @@ void Interpreter::execute_statement(const ASTNode *node) {
         }
         break;
 
+    // ========================================================================
+    // 複合文（COMPOUND_STMT）- ブロック内の文のリスト
+    // ========================================================================
     case ASTNodeType::AST_COMPOUND_STMT:
         debug_msg(DebugMsgId::INTERPRETER_COMPOUND_STMT_EXEC, node->statements.size());
         for (const auto &stmt : node->statements) {
@@ -711,6 +746,10 @@ void Interpreter::execute_statement(const ASTNode *node) {
         }
         break;
 
+    // ========================================================================
+    // 変数宣言（VAR_DECL, MULTIPLE_VAR_DECL）
+    // VariableManagerに委譲済み
+    // ========================================================================
     case ASTNodeType::AST_VAR_DECL:
         debug_msg(DebugMsgId::INTERPRETER_VAR_DECL, node->name.c_str());
         debug_msg(DebugMsgId::INTERPRETER_VAR_DECL_TYPE, (int)node->type_info);
@@ -727,6 +766,10 @@ void Interpreter::execute_statement(const ASTNode *node) {
         }
         break;
 
+    // ========================================================================
+    // 代入文（ASSIGN）
+    // StatementExecutorに委譲済み
+    // ========================================================================
     case ASTNodeType::AST_ASSIGN:
         debug_msg(DebugMsgId::INTERPRETER_ASSIGNMENT, node->name.c_str());
         // 代入をStatementExecutorに委譲
@@ -734,11 +777,17 @@ void Interpreter::execute_statement(const ASTNode *node) {
         debug_msg(DebugMsgId::INTERPRETER_ASSIGNMENT_SUCCESS, node->name.c_str());
         break;
 
+    // ========================================================================
+    // 複数変数宣言（MULTIPLE_VAR_DECL）
+    // ========================================================================
     case ASTNodeType::AST_MULTIPLE_VAR_DECL:
         debug_msg(DebugMsgId::INTERPRETER_MULTIPLE_VAR_DECL_EXEC, "");
         statement_executor_->execute_multiple_var_decl(node);
         break;
 
+    // ========================================================================
+    // 配列・構造体宣言（ARRAY_DECL, STRUCT_DECL, STRUCT_TYPEDEF_DECL）
+    // ========================================================================
     case ASTNodeType::AST_ARRAY_DECL:
         debug_msg(DebugMsgId::INTERPRETER_ARRAY_DECL_EXEC, node->name.c_str());
         statement_executor_->execute_array_decl(node);
@@ -861,6 +910,11 @@ void Interpreter::execute_statement(const ASTNode *node) {
                                                       node->right.get());
         break;
 
+    // ========================================================================
+    // 制御フロー文（IF_STMT, WHILE_STMT, FOR_STMT）
+    // Line 913-1204: 条件分岐とループ制御
+    // TODO: これらもStatementExecutorに移行すべき
+    // ========================================================================
     case ASTNodeType::AST_IF_STMT: {
         debug_msg(DebugMsgId::INTERPRETER_IF_STMT_START, "");
         int64_t cond =
@@ -938,6 +992,10 @@ void Interpreter::execute_statement(const ASTNode *node) {
         }
         break;
 
+    // ========================================================================
+    // assert文（ASSERT_STMT）
+    // Line 995-1015: アサーション検証
+    // ========================================================================
     case ASTNodeType::AST_ASSERT_STMT: {
         debug_msg(DebugMsgId::ASSERT_CHECK_START);
         if (!node->left) {
@@ -959,6 +1017,12 @@ void Interpreter::execute_statement(const ASTNode *node) {
         break;
     }
 
+    // ========================================================================
+    // return文（RETURN_STMT）
+    // Line 1020-1455: 関数からの戻り値処理
+    // 配列、構造体、プリミティブ型の戻り値に対応
+    // TODO: この巨大なセクション（約400行）を分割すべき
+    // ========================================================================
     case ASTNodeType::AST_RETURN_STMT:
         debug_msg(DebugMsgId::INTERPRETER_RETURN_STMT);
         if (node->left) {
@@ -1804,6 +1868,10 @@ void Interpreter::execute_statement(const ASTNode *node) {
         }
         break;
 
+    // ========================================================================
+    // break/continue文（BREAK_STMT, CONTINUE_STMT）
+    // Line 1871-1887: ループ制御
+    // ========================================================================
     case ASTNodeType::AST_BREAK_STMT: {
         int64_t cond = 1;
         if (node->left) {
@@ -1824,11 +1892,18 @@ void Interpreter::execute_statement(const ASTNode *node) {
         }
     } break;
 
+    // ========================================================================
+    // 関数宣言（FUNC_DECL）
+    // 関数定義をグローバルスコープに登録
+    // ========================================================================
     case ASTNodeType::AST_FUNC_DECL:
         // 実行時の関数定義をグローバルスコープに登録
         global_scope.functions[node->name] = node;
         break;
 
+    // ========================================================================
+    // 未対応の文型（式文として評価を試みる）
+    // ========================================================================
     default:
         try {
             expression_evaluator_->evaluate_expression(node); // 式文として評価
@@ -1839,6 +1914,9 @@ void Interpreter::execute_statement(const ASTNode *node) {
         break;
     }
 }
+// ============================================================================
+// execute_statement メソッド終了
+// ============================================================================
 
 void Interpreter::assign_variable(const std::string &name, int64_t value,
                                   TypeInfo type) {

@@ -89,6 +89,21 @@ private:
     MethodReceiverResolution resolve_array_receiver(const ASTNode* array_node);
     MethodReceiverResolution create_chain_receiver_from_expression(const ASTNode* node);
     bool resolve_variable_name(const ASTNode* node, std::string& out_name, Variable*& out_var);
+    
+    // ========================================================================
+    // Tier 2 リファクタリング: 二項演算の分割
+    // ========================================================================
+    // 算術演算（+, -, *, /, %）のヘルパー
+    int64_t evaluate_arithmetic_binary(const std::string& op, int64_t left, int64_t right);
+    
+    // 比較演算（<, >, <=, >=, ==, !=）のヘルパー
+    int64_t evaluate_comparison_binary(const std::string& op, int64_t left, int64_t right);
+    
+    // 論理演算（&&, ||）のヘルパー
+    int64_t evaluate_logical_binary(const std::string& op, int64_t left, int64_t right);
+    
+    // ビット演算（&, |, ^, <<, >>）のヘルパー
+    int64_t evaluate_bitwise_binary(const std::string& op, int64_t left, int64_t right);
 
 public:
     // 最後の型推論結果にアクセス
