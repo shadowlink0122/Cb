@@ -2904,80 +2904,19 @@ ASTNode* RecursiveParser::parseContinueStatement() {
 }
 
 ASTNode* RecursiveParser::parseIfStatement() {
-    advance(); // consume 'if'
-    consume(TokenType::TOK_LPAREN, "Expected '(' after if");
-    
-    ASTNode* if_node = new ASTNode(ASTNodeType::AST_IF_STMT);
-    if_node->condition = std::unique_ptr<ASTNode>(parseExpression());
-    
-    consume(TokenType::TOK_RPAREN, "Expected ')' after if condition");
-    
-    // if本体をパース（then節はleftに格納してinterpreterと統一）
-    if_node->left = std::unique_ptr<ASTNode>(parseStatement());
-    
-    // else節があるかチェック
-    if (match(TokenType::TOK_ELSE)) {
-        if_node->right = std::unique_ptr<ASTNode>(parseStatement());
-    }
-    
-    return if_node;
+    return statement_parser_->parseIfStatement();
 }
 
 ASTNode* RecursiveParser::parseForStatement() {
-    advance(); // consume 'for'
-    consume(TokenType::TOK_LPAREN, "Expected '(' after for");
-    
-    ASTNode* for_node = new ASTNode(ASTNodeType::AST_FOR_STMT);
-    
-    // 初期化部分 (int i = 0;) - 文として扱う
-    for_node->init_expr = std::unique_ptr<ASTNode>(parseStatement());
-    
-    // 条件部分 (i < 5) - 式として扱う
-    for_node->condition = std::unique_ptr<ASTNode>(parseExpression());
-    consume(TokenType::TOK_SEMICOLON, "Expected ';' after for condition");
-    
-    // 更新部分 - 一般的な式として処理（i++, i--, i=i+1など）
-    for_node->update_expr = std::unique_ptr<ASTNode>(parseExpression());
-    
-    consume(TokenType::TOK_RPAREN, "Expected ')' after for update");
-    
-    // for本体
-    for_node->body = std::unique_ptr<ASTNode>(parseStatement());
-    
-    return for_node;
+    return statement_parser_->parseForStatement();
 }
 
 ASTNode* RecursiveParser::parseWhileStatement() {
-    advance(); // consume 'while'
-    consume(TokenType::TOK_LPAREN, "Expected '(' after while");
-    
-    ASTNode* while_node = new ASTNode(ASTNodeType::AST_WHILE_STMT);
-    
-    // 条件部分
-    while_node->condition = std::unique_ptr<ASTNode>(parseExpression());
-    
-    consume(TokenType::TOK_RPAREN, "Expected ')' after while condition");
-    
-    // while本体
-    while_node->body = std::unique_ptr<ASTNode>(parseStatement());
-    
-    return while_node;
+    return statement_parser_->parseWhileStatement();
 }
 
 ASTNode* RecursiveParser::parseCompoundStatement() {
-    advance(); // consume '{'
-    
-    ASTNode* compound = new ASTNode(ASTNodeType::AST_COMPOUND_STMT);
-    
-    while (!check(TokenType::TOK_RBRACE) && !isAtEnd()) {
-        ASTNode* stmt = parseStatement();
-        if (stmt) {
-            compound->statements.push_back(std::unique_ptr<ASTNode>(stmt));
-        }
-    }
-    
-    consume(TokenType::TOK_RBRACE, "Expected '}'");
-    return compound;
+    return statement_parser_->parseCompoundStatement();
 }
 
 ASTNode* RecursiveParser::parsePrintlnStatement() {

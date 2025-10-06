@@ -45,7 +45,19 @@ ASTNode* StatementParser::parseStatement() {
  * 新しいスコープを作成します
  */
 ASTNode* StatementParser::parseCompoundStatement() {
-    return parser_->parseCompoundStatement();
+    parser_->advance(); // consume '{'
+    
+    ASTNode* compound = new ASTNode(ASTNodeType::AST_COMPOUND_STMT);
+    
+    while (!parser_->check(TokenType::TOK_RBRACE) && !parser_->isAtEnd()) {
+        ASTNode* stmt = parser_->parseStatement();
+        if (stmt) {
+            compound->statements.push_back(std::unique_ptr<ASTNode>(stmt));
+        }
+    }
+    
+    parser_->consume(TokenType::TOK_RBRACE, "Expected '}'");
+    return compound;
 }
 
 // ========================================
@@ -62,7 +74,23 @@ ASTNode* StatementParser::parseCompoundStatement() {
  * - if (condition) statement else if (condition) statement else statement
  */
 ASTNode* StatementParser::parseIfStatement() {
-    return parser_->parseIfStatement();
+    parser_->advance(); // consume 'if'
+    parser_->consume(TokenType::TOK_LPAREN, "Expected '(' after if");
+    
+    ASTNode* if_node = new ASTNode(ASTNodeType::AST_IF_STMT);
+    if_node->condition = std::unique_ptr<ASTNode>(parser_->parseExpression());
+    
+    parser_->consume(TokenType::TOK_RPAREN, "Expected ')' after if condition");
+    
+    // if本体をパース（then節はleftに格納してinterpreterと統一）
+    if_node->left = std::unique_ptr<ASTNode>(parser_->parseStatement());
+    
+    // else節があるかチェック
+    if (parser_->match(TokenType::TOK_ELSE)) {
+        if_node->right = std::unique_ptr<ASTNode>(parser_->parseStatement());
+    }
+    
+    return if_node;
 }
 
 /**
@@ -76,7 +104,27 @@ ASTNode* StatementParser::parseIfStatement() {
  * - for (; condition; ) { ... }
  */
 ASTNode* StatementParser::parseForStatement() {
-    return parser_->parseForStatement();
+    parser_->advance(); // consume 'for'
+    parser_->consume(TokenType::TOK_LPAREN, "Expected '(' after for");
+    
+    ASTNode* for_node = new ASTNode(ASTNodeType::AST_FOR_STMT);
+    
+    // 初期化部分 (int i = 0;) - 文として扱う
+    for_node->init_expr = std::unique_ptr<ASTNode>(parser_->parseStatement());
+    
+    // 条件部分 (i < 5) - 式として扱う
+    for_node->condition = std::unique_ptr<ASTNode>(parser_->parseExpression());
+    parser_->consume(TokenType::TOK_SEMICOLON, "Expected ';' after for condition");
+    
+    // 更新部分 - 一般的な式として処理（i++, i--, i=i+1など）
+    for_node->update_expr = std::unique_ptr<ASTNode>(parser_->parseExpression());
+    
+    parser_->consume(TokenType::TOK_RPAREN, "Expected ')' after for update");
+    
+    // for本体
+    for_node->body = std::unique_ptr<ASTNode>(parser_->parseStatement());
+    
+    return for_node;
 }
 
 /**
@@ -86,7 +134,20 @@ ASTNode* StatementParser::parseForStatement() {
  * 構文: while (condition) statement
  */
 ASTNode* StatementParser::parseWhileStatement() {
-    return parser_->parseWhileStatement();
+    parser_->advance(); // consume 'while'
+    parser_->consume(TokenType::TOK_LPAREN, "Expected '(' after while");
+    
+    ASTNode* while_node = new ASTNode(ASTNodeType::AST_WHILE_STMT);
+    
+    // 条件部分
+    while_node->condition = std::unique_ptr<ASTNode>(parser_->parseExpression());
+    
+    parser_->consume(TokenType::TOK_RPAREN, "Expected ')' after while condition");
+    
+    // while本体
+    while_node->body = std::unique_ptr<ASTNode>(parser_->parseStatement());
+    
+    return while_node;
 }
 
 // ========================================
