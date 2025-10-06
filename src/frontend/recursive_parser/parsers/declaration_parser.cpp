@@ -527,7 +527,321 @@ ASTNode* DeclarationParser::parseFunctionDeclarationAfterName(
  * - enum typedef: typedef enum Color { ... } Color;
  */
 ASTNode* DeclarationParser::parseTypedefDeclaration() {
-    return parser_->parseTypedefDeclaration();
+    // typedef <type> <alias>; または typedef struct {...} <alias>; または typedef enum {...} <alias>; または typedef union (TypeScript-like literal types) または 関数ポインタtypedef
+    parser_->consume(TokenType::TOK_TYPEDEF, "Expected 'typedef'");
+    
+    // typedef struct の場合
+    if (parser_->check(TokenType::TOK_STRUCT)) {
+        return parser_->parseStructTypedefDeclaration();
+    }
+    
+    // typedef enum の場合
+    if (parser_->check(TokenType::TOK_ENUM)) {
+        return parser_->parseEnumTypedefDeclaration();
+    }
+    
+    // 関数ポインタtypedefの場合
+    if (parser_->isFunctionPointerTypedef()) {
+        return parser_->parseFunctionPointerTypedefDeclaration();
+    }
+    
+    // Check for both old and new typedef syntaxes
+    // Old syntax: typedef TYPE ALIAS;
+    // New syntax: typedef ALIAS = TYPE | TYPE2 | ...;
+    
+    // Check if this is new union syntax: typedef ALIAS = TYPE | TYPE2 | ...
+    if (parser_->check(TokenType::TOK_IDENTIFIER)) {
+        // Temporarily save current token to check for new syntax
+        Token saved_identifier = parser_->current_token_;
+        parser_->advance(); // consume identifier
+        
+        if (parser_->check(TokenType::TOK_ASSIGN)) {
+            // New syntax: typedef ALIAS = TYPE | TYPE2 | ...
+            std::string alias_name = saved_identifier.value;
+            
+            // Union typedef declaration
+            parser_->consume(TokenType::TOK_ASSIGN, "Expected '=' after union typedef alias name");
+            
+            UnionDefinition union_def;
+            union_def.name = alias_name;
+            
+            // Parse first value
+            if (!parser_->parseUnionValue(union_def)) {
+                parser_->error("Expected value after '=' in union typedef");
+                return nullptr;
+            }
+            
+            // Check if this is actually a union (has '|' separator)
+            bool is_actual_union = false;
+            
+            // Parse additional values separated by '|'
+            while (parser_->check(TokenType::TOK_PIPE)) {
+                is_actual_union = true;
+                parser_->advance(); // consume '|'
+                if (!parser_->parseUnionValue(union_def)) {
+                    parser_->error("Expected value after '|' in union typedef");
+                    return nullptr;
+                }
+            }
+            
+            parser_->consume(TokenType::TOK_SEMICOLON, "Expected ';' after typedef declaration");
+            
+            // If it's not an actual union (no '|' found), treat as regular typedef
+            if (!is_actual_union) {
+                // This is a single-type alias like: typedef StringOnly = string;
+                // Treat as regular typedef, not union
+                
+                // Check for single basic type
+                if (union_def.allowed_types.size() == 1 && union_def.allowed_custom_types.empty() && 
+                    union_def.allowed_array_types.empty() && !union_def.has_literal_values) {
+                    
+                    TypeInfo single_type = union_def.allowed_types[0];
+                    std::string type_name_str;
+                    switch(single_type) {
+                        case TYPE_INT: type_name_str = "int"; break;
+                        case TYPE_LONG: type_name_str = "long"; break;
+                        case TYPE_SHORT: type_name_str = "short"; break;
+                        case TYPE_TINY: type_name_str = "tiny"; break;
+                        case TYPE_BOOL: type_name_str = "bool"; break;
+                        case TYPE_STRING: type_name_str = "string"; break;
+                        case TYPE_CHAR: type_name_str = "char"; break;
+                        default: type_name_str = "unknown"; break;
+                    }
+                    
+                    // Register as regular typedef
+                    parser_->typedef_map_[alias_name] = type_name_str;
+                    
+                    // Create regular typedef AST node
+                    ASTNode* node = new ASTNode(ASTNodeType::AST_TYPEDEF_DECL);
+                    node->name = alias_name;
+                    node->type_name = type_name_str;
+                    node->type_info = single_type;
+                    
+                    parser_->setLocation(node, parser_->current_token_);
+                    return node;
+                }
+                // Check for single custom type - treat as union to preserve custom type validation
+                else if (union_def.allowed_custom_types.size() == 1 && union_def.allowed_types.empty() && 
+                         union_def.allowed_array_types.empty() && !union_def.has_literal_values) {
+                    
+                    // Single custom type should be treated as union for type validation
+                    // This preserves the semantic that only the specific custom type is allowed
+                    // (not any type that resolves to the same basic type)
+                    
+                    // Store union definition for type checking
+                    parser_->union_definitions_[alias_name] = union_def;
+                    
+                    // Create union typedef AST node
+                    ASTNode* node = new ASTNode(ASTNodeType::AST_UNION_TYPEDEF_DECL);
+                    node->name = alias_name;
+                    node->type_info = TYPE_UNION;
+                    node->union_name = alias_name;
+                    node->union_definition = union_def;
+                    
+                    parser_->setLocation(node, parser_->current_token_);
+                    return node;
+                }
+            }
+            
+            // Store union definition
+            parser_->union_definitions_[alias_name] = union_def;
+            
+            // Create AST node
+            ASTNode* node = new ASTNode(ASTNodeType::AST_UNION_TYPEDEF_DECL);
+            node->name = alias_name;
+            node->type_info = TYPE_UNION;
+            node->union_name = alias_name;
+            node->union_definition = union_def;
+            
+            parser_->setLocation(node, parser_->current_token_);
+            
+            return node;
+        } else {
+            // This is old syntax: typedef TYPE ALIAS;
+            // The identifier we consumed is actually the base type
+            std::string base_type_name = saved_identifier.value;
+            TypeInfo base_type = TYPE_UNKNOWN;
+            
+            // Check if it's a known typedef type
+            if (parser_->typedef_map_.find(base_type_name) != parser_->typedef_map_.end()) {
+                std::string resolved_type = parser_->resolveTypedefChain(base_type_name);
+                if (resolved_type.empty()) {
+                    parser_->error("Unknown typedef type: " + base_type_name);
+                    throw std::runtime_error("Unknown typedef type: " + base_type_name);
+                }
+                base_type_name = resolved_type;
+                base_type = parser_->getTypeInfoFromString(parser_->extractBaseType(resolved_type));
+            }
+            // Check if it's a struct type
+            else if (parser_->struct_definitions_.find(base_type_name) != parser_->struct_definitions_.end()) {
+                base_type = TYPE_STRUCT;
+            }
+            // Check if it's an enum type
+            else if (parser_->enum_definitions_.find(base_type_name) != parser_->enum_definitions_.end()) {
+                base_type = TYPE_INT; // enums are treated as int internally
+            }
+            else {
+                parser_->error("Unknown type: " + base_type_name);
+                throw std::runtime_error("Unknown type: " + base_type_name);
+            }
+            
+            // Now parse the alias name
+            if (!parser_->check(TokenType::TOK_IDENTIFIER)) {
+                parser_->error("Expected identifier for typedef alias");
+                return nullptr;
+            }
+            
+            std::string alias_name = parser_->current_token_.value;
+            parser_->advance();
+            
+            parser_->consume(TokenType::TOK_SEMICOLON, "Expected ';' after typedef declaration");
+            
+            // Add typedef mapping
+            parser_->typedef_map_[alias_name] = base_type_name;
+            
+            // Create AST node
+            ASTNode* node = new ASTNode(ASTNodeType::AST_TYPEDEF_DECL);
+            node->name = alias_name;
+            node->type_info = base_type;
+            node->type_name = base_type_name;
+            
+            parser_->setLocation(node, parser_->current_token_);
+            
+            return node;
+        }
+    }
+    
+    // Old syntax: typedef TYPE ALIAS;
+    // Parse base type first
+    TypeInfo base_type = TYPE_UNKNOWN;
+    std::string base_type_name;
+    
+    if (parser_->check(TokenType::TOK_INT)) {
+        base_type = TYPE_INT;
+        base_type_name = "int";
+        parser_->advance();
+    } else if (parser_->check(TokenType::TOK_LONG)) {
+        base_type = TYPE_LONG;
+        base_type_name = "long";
+        parser_->advance();
+    } else if (parser_->check(TokenType::TOK_SHORT)) {
+        base_type = TYPE_SHORT;
+        base_type_name = "short";
+        parser_->advance();
+    } else if (parser_->check(TokenType::TOK_TINY)) {
+        base_type = TYPE_TINY;
+        base_type_name = "tiny";
+        parser_->advance();
+    } else if (parser_->check(TokenType::TOK_BOOL)) {
+        base_type = TYPE_BOOL;
+        base_type_name = "bool";
+        parser_->advance();
+    } else if (parser_->check(TokenType::TOK_FLOAT)) {
+        base_type = TYPE_FLOAT;
+        base_type_name = "float";
+        parser_->advance();
+    } else if (parser_->check(TokenType::TOK_DOUBLE)) {
+        base_type = TYPE_DOUBLE;
+        base_type_name = "double";
+        parser_->advance();
+    } else if (parser_->check(TokenType::TOK_BIG)) {
+        base_type = TYPE_BIG;
+        base_type_name = "big";
+        parser_->advance();
+    } else if (parser_->check(TokenType::TOK_QUAD)) {
+        base_type = TYPE_QUAD;
+        base_type_name = "quad";
+        parser_->advance();
+    } else if (parser_->check(TokenType::TOK_STRING_TYPE)) {
+        base_type = TYPE_STRING;
+        base_type_name = "string";
+        parser_->advance();
+    } else if (parser_->check(TokenType::TOK_CHAR_TYPE)) {
+        base_type = TYPE_CHAR;
+        base_type_name = "char";
+        parser_->advance();
+    } else if (parser_->check(TokenType::TOK_VOID)) {
+        base_type = TYPE_VOID;
+        base_type_name = "void";
+        parser_->advance();
+    } else if (parser_->check(TokenType::TOK_IDENTIFIER)) {
+        // 既存のstruct/enum型またはtypedef型を参照する場合
+        std::string identifier = parser_->advance().value;
+        
+        // struct定義が存在するかチェック
+        if (parser_->struct_definitions_.find(identifier) != parser_->struct_definitions_.end()) {
+            base_type = TYPE_STRUCT;
+            base_type_name = identifier;
+        }
+        // enum定義が存在するかチェック
+        else if (parser_->enum_definitions_.find(identifier) != parser_->enum_definitions_.end()) {
+            base_type = TYPE_INT; // enumは内部的にintとして扱う
+            base_type_name = identifier;
+        }
+        // 既存のtypedef型を参照する場合
+        else if (parser_->typedef_map_.find(identifier) != parser_->typedef_map_.end()) {
+            std::string resolved_type = parser_->resolveTypedefChain(identifier);
+            if (resolved_type.empty()) {
+                parser_->error("Unknown typedef type: " + identifier);
+                throw std::runtime_error("Unknown typedef type: " + identifier);
+            }
+            base_type_name = resolved_type;
+            base_type = parser_->getTypeInfoFromString(parser_->extractBaseType(resolved_type));
+        } else {
+            parser_->error("Unknown type: " + identifier);
+            throw std::runtime_error("Unknown type: " + identifier);
+        }
+    } else {
+        parser_->error("Expected type after typedef");
+        return nullptr;
+    }
+    
+    // Check for array type specification: TYPE[size], TYPE[SIZE_CONSTANT], or multidimensional TYPE[size1][size2]...
+    while (parser_->check(TokenType::TOK_LBRACKET)) {
+        parser_->advance(); // consume '['
+        
+        std::string array_size;
+        if (parser_->check(TokenType::TOK_NUMBER)) {
+            array_size = parser_->current_token_.value;
+            parser_->advance(); // consume array size
+        } else if (parser_->check(TokenType::TOK_IDENTIFIER)) {
+            // Allow identifier (like const variable name) as array size
+            array_size = parser_->current_token_.value;
+            parser_->advance(); // consume identifier
+        } else {
+            parser_->error("Expected array size in typedef");
+            return nullptr;
+        }
+        
+        parser_->consume(TokenType::TOK_RBRACKET, "Expected ']' after array size");
+        
+        // Append array dimension to type name
+        base_type_name = base_type_name + "[" + array_size + "]";
+    }
+    
+    // Now parse the alias name
+    if (!parser_->check(TokenType::TOK_IDENTIFIER)) {
+        parser_->error("Expected identifier for typedef alias");
+        return nullptr;
+    }
+    
+    std::string alias_name = parser_->current_token_.value;
+    parser_->advance();
+    
+    parser_->consume(TokenType::TOK_SEMICOLON, "Expected ';' after typedef declaration");
+    
+    // Add typedef mapping
+    parser_->typedef_map_[alias_name] = base_type_name;
+    
+    // Create AST node
+    ASTNode* node = new ASTNode(ASTNodeType::AST_TYPEDEF_DECL);
+    node->name = alias_name;
+    node->type_info = base_type;
+    node->type_name = base_type_name;
+    
+    parser_->setLocation(node, parser_->current_token_);
+    
+    return node;
 }
 
 /**
