@@ -27,6 +27,7 @@
 //
 #include "expression_parser.h"
 #include "../recursive_parser.h"
+#include "src/common/debug.h"
 
 ExpressionParser::ExpressionParser(RecursiveParser* parser) 
     : parser_(parser) {
@@ -491,7 +492,59 @@ ASTNode* ExpressionParser::parseMultiplicative() {
  * - ++, -- (前置インクリメント・デクリメント)
  */
 ASTNode* ExpressionParser::parseUnary() {
-    return parser_->parseUnary();
+    // Prefix operators: !, -, ~, &, *
+    if (parser_->check(TokenType::TOK_NOT) || parser_->check(TokenType::TOK_MINUS) || 
+        parser_->check(TokenType::TOK_BIT_NOT) || parser_->check(TokenType::TOK_BIT_AND) ||
+        parser_->check(TokenType::TOK_MUL)) {
+        Token op = parser_->advance();
+        
+        // & 演算子の場合、関数アドレス取得かチェック
+        ASTNode* operand = parseUnary();
+        
+        ASTNode* unary = new ASTNode(ASTNodeType::AST_UNARY_OP);
+        // & はアドレス演算子、* は間接参照演算子として扱う
+        if (op.type == TokenType::TOK_BIT_AND) {
+            unary->op = "ADDRESS_OF";  // アドレス演算子
+            
+            // operandから識別子名を取得して is_function_address フラグを設定
+            // インタプリタ側で関数か変数かを判断する
+            if (operand) {
+                if (operand->node_type == ASTNodeType::AST_VARIABLE || 
+                    operand->node_type == ASTNodeType::AST_IDENTIFIER) {
+                    unary->is_function_address = true;
+                    unary->function_address_name = operand->name;
+                } else if (operand->node_type == ASTNodeType::AST_ARRAY_REF && 
+                          operand->left && 
+                          operand->left->node_type == ASTNodeType::AST_VARIABLE) {
+                    // &arr[0] の場合、arr の名前を保存
+                    unary->is_function_address = true;
+                    unary->function_address_name = operand->left->name;
+                }
+            }
+        } else if (op.type == TokenType::TOK_MUL) {
+            unary->op = "DEREFERENCE";  // 間接参照演算子
+        } else {
+            unary->op = op.value;
+        }
+        unary->left = std::unique_ptr<ASTNode>(operand);
+        
+        return unary;
+    }
+    
+    // ++ と -- は別処理: AST_PRE_INCDEC を生成
+    if (parser_->check(TokenType::TOK_INCR) || parser_->check(TokenType::TOK_DECR)) {
+        Token op = parser_->advance();
+        ASTNode* operand = parsePostfix();  // parsePostfix()を直接呼ぶことでメンバーアクセスを取得
+        
+        // AST_PRE_INCDEC ノードを生成
+        ASTNode* incdec = new ASTNode(ASTNodeType::AST_PRE_INCDEC);
+        incdec->op = op.value;
+        incdec->left = std::unique_ptr<ASTNode>(operand);
+        
+        return incdec;
+    }
+    
+    return parsePostfix();
 }
 
 // ========================================
@@ -510,7 +563,94 @@ ASTNode* ExpressionParser::parseUnary() {
  * - ++, -- (後置インクリメント・デクリメント)
  */
 ASTNode* ExpressionParser::parsePostfix() {
-    return parser_->parsePostfix();
+    ASTNode* primary = parsePrimary();
+    
+    if (!primary) {
+        std::cerr << "[PARSER ERROR] parsePrimary returned null" << std::endl;
+        return nullptr;
+    }
+    
+    while (true) {
+        // 関数ポインタ呼び出しのチェック: *ptr(args)
+        // primaryが DEREFERENCE (*演算子) で、次が'('の場合
+        if (parser_->check(TokenType::TOK_LPAREN) && 
+            primary && primary->node_type == ASTNodeType::AST_UNARY_OP &&
+            primary->op == "DEREFERENCE") {
+            
+            // 関数ポインタ呼び出しに変換
+            parser_->advance(); // '(' を消費
+            
+            ASTNode* funcPtrCall = new ASTNode(ASTNodeType::AST_FUNC_PTR_CALL);
+            funcPtrCall->left = std::move(primary->left);  // ポインタ変数（*の対象）
+            
+            // 引数の解析
+            if (!parser_->check(TokenType::TOK_RPAREN)) {
+                do {
+                    ASTNode* arg = parser_->parseExpression();
+                    funcPtrCall->arguments.push_back(std::unique_ptr<ASTNode>(arg));
+                } while (parser_->match(TokenType::TOK_COMMA));
+            }
+            
+            parser_->consume(TokenType::TOK_RPAREN, "Expected ')' after function pointer call arguments");
+            
+            primary = funcPtrCall;
+            continue;
+        }
+        
+        if (parser_->check(TokenType::TOK_LBRACKET)) {
+            // 配列アクセス: arr[i]
+            parser_->advance(); // consume '['
+            ASTNode* index = parser_->parseExpression();
+            if (!index) {
+                std::cerr << "[PARSER ERROR] parseExpression returned null for array index" << std::endl;
+                return nullptr;
+            }
+            parser_->consume(TokenType::TOK_RBRACKET, "Expected ']'");
+            
+            ASTNode* array_ref = new ASTNode(ASTNodeType::AST_ARRAY_REF);
+            array_ref->left = std::unique_ptr<ASTNode>(primary); // 左側を設定
+            array_ref->array_index = std::unique_ptr<ASTNode>(index);
+            
+            // デバッグ: 配列アクセスノード作成をログ出力
+            if (primary && primary->node_type == ASTNodeType::AST_VARIABLE) {
+                debug_msg(DebugMsgId::PARSE_EXPR_ARRAY_ACCESS, primary->name.c_str());
+            } else if (primary && primary->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
+                std::string member_access_name = primary->name + " (member access)";
+                debug_msg(DebugMsgId::PARSE_EXPR_ARRAY_ACCESS, member_access_name.c_str());
+            } else if (primary && primary->node_type == ASTNodeType::AST_ARRAY_REF) {
+                debug_msg(DebugMsgId::PARSE_EXPR_ARRAY_ACCESS, "nested array access");
+            }
+            
+            primary = array_ref; // 次のアクセスのベースとして設定
+        } else if (parser_->check(TokenType::TOK_DOT)) {
+            // メンバアクセス: obj.member
+            primary = parseMemberAccess(primary);
+            if (!primary) {
+                std::cerr << "[PARSER ERROR] parseMemberAccess returned null" << std::endl;
+                return nullptr;
+            }
+        } else if (parser_->check(TokenType::TOK_ARROW)) {
+            // アロー演算子: ptr->member
+            primary = parseArrowAccess(primary);
+            if (!primary) {
+                std::cerr << "[PARSER ERROR] parseArrowAccess returned null" << std::endl;
+                return nullptr;
+            }
+        } else {
+            break; // どちらでもない場合はループを抜ける
+        }
+    }
+    
+    // Postfix operators: ++, --
+    if (parser_->check(TokenType::TOK_INCR) || parser_->check(TokenType::TOK_DECR)) {
+        Token op = parser_->advance();
+        ASTNode* postfix = new ASTNode(ASTNodeType::AST_POST_INCDEC);
+        postfix->op = op.value; // "++" または "--"
+        postfix->left = std::unique_ptr<ASTNode>(primary);
+        return postfix;
+    }
+    
+    return primary;
 }
 
 // ========================================
@@ -534,7 +674,233 @@ ASTNode* ExpressionParser::parsePostfix() {
  * - enum値アクセス EnumName::member
  */
 ASTNode* ExpressionParser::parsePrimary() {
-    return parser_->parsePrimary();
+    if (parser_->check(TokenType::TOK_NUMBER)) {
+        Token token = parser_->advance();
+        ASTNode* node = new ASTNode(ASTNodeType::AST_NUMBER);
+
+        std::string literal = token.value;
+        node->literal_text = literal;
+
+        // サフィックス解析（f/F, d/D, q/Q）
+        char suffix = '\0';
+        if (!literal.empty()) {
+            char last_char = literal.back();
+            if (last_char == 'f' || last_char == 'F' ||
+                last_char == 'd' || last_char == 'D' ||
+                last_char == 'q' || last_char == 'Q') {
+                suffix = last_char;
+                literal.pop_back();
+            }
+        }
+
+        // 指数表記の小文字e/E対応のため、末尾サフィックスを除外した後で判定
+        auto contains_decimal = [](const std::string& value) {
+            return value.find('.') != std::string::npos;
+        };
+        auto contains_exponent = [](const std::string& value) {
+            return value.find('e') != std::string::npos || value.find('E') != std::string::npos;
+        };
+
+        bool is_float_literal = contains_decimal(literal) || contains_exponent(literal) || suffix != '\0';
+
+        try {
+            if (is_float_literal) {
+                node->is_float_literal = true;
+
+                if (suffix == 'f' || suffix == 'F') {
+                    node->literal_type = TYPE_FLOAT;
+                    node->type_info = TYPE_FLOAT;
+                    node->double_value = std::stod(literal);
+                    node->quad_value = static_cast<long double>(node->double_value);
+                } else if (suffix == 'q' || suffix == 'Q') {
+                    node->literal_type = TYPE_QUAD;
+                    node->type_info = TYPE_QUAD;
+                    node->quad_value = std::stold(literal);
+                    node->double_value = static_cast<double>(node->quad_value);
+                } else {
+                    // デフォルトはdouble（サフィックスなし、またはd/D）
+                    node->literal_type = TYPE_DOUBLE;
+                    node->type_info = TYPE_DOUBLE;
+                    node->double_value = std::stod(literal);
+                    node->quad_value = static_cast<long double>(node->double_value);
+                }
+
+                // 整数値としても保持（必要に応じて使用）
+                node->int_value = static_cast<int64_t>(node->double_value);
+            } else {
+                node->literal_type = TYPE_INT;
+                node->type_info = TYPE_INT;
+                node->int_value = std::stoll(literal); // 64ビット整数対応
+                node->double_value = static_cast<double>(node->int_value);
+                node->quad_value = static_cast<long double>(node->int_value);
+            }
+        } catch (const std::exception &e) {
+            parser_->error("Invalid number: " + token.value);
+            delete node;
+            return nullptr;
+        }
+
+        return node;
+    }
+    
+    if (parser_->check(TokenType::TOK_STRING)) {
+        Token token = parser_->advance();
+        ASTNode* node = new ASTNode(ASTNodeType::AST_STRING_LITERAL);
+        node->str_value = token.value;
+        return node;
+    }
+    
+    if (parser_->check(TokenType::TOK_CHAR)) {
+        Token token = parser_->advance();
+        ASTNode* node = new ASTNode(ASTNodeType::AST_NUMBER);
+        // 文字リテラルをASCII値として処理
+        if (!token.value.empty()) {
+            node->int_value = static_cast<int>(token.value[0]);
+        } else {
+            node->int_value = 0;
+        }
+        return node;
+    }
+    
+    if (parser_->check(TokenType::TOK_TRUE) || parser_->check(TokenType::TOK_FALSE)) {
+        Token token = parser_->advance();
+        ASTNode* node = new ASTNode(ASTNodeType::AST_NUMBER); // bool値も数値として扱う
+        node->int_value = (token.type == TokenType::TOK_TRUE) ? 1 : 0;
+        return node;
+    }
+    
+    if (parser_->check(TokenType::TOK_NULLPTR)) {
+        Token token = parser_->advance();
+        ASTNode* node = new ASTNode(ASTNodeType::AST_NULLPTR);
+        parser_->setLocation(node, token.line, token.column);
+        return node;
+    }
+    
+    if (parser_->check(TokenType::TOK_SELF)) {
+        Token token = parser_->advance();
+        ASTNode* node = new ASTNode(ASTNodeType::AST_IDENTIFIER);
+        node->name = "self";
+        parser_->setLocation(node, token.line, token.column);
+        return node;
+    }
+    
+    if (parser_->check(TokenType::TOK_IDENTIFIER)) {
+        Token token = parser_->advance();
+        
+        // enum値アクセス（EnumName::member）をチェック
+        if (parser_->check(TokenType::TOK_SCOPE)) {
+            parser_->advance(); // consume '::'
+            
+            if (!parser_->check(TokenType::TOK_IDENTIFIER)) {
+                parser_->error("Expected enum member name after '::'");
+                return nullptr;
+            }
+            
+            std::string member_name = parser_->current_token_.value;
+            parser_->advance(); // consume member name
+            
+            ASTNode* enum_access = new ASTNode(ASTNodeType::AST_ENUM_ACCESS);
+            enum_access->enum_name = token.value;
+            enum_access->enum_member = member_name;
+            parser_->setLocation(enum_access, token.line, token.column);
+            
+            return enum_access;
+        }
+        
+        // 関数呼び出しをチェック
+        if (parser_->check(TokenType::TOK_LPAREN)) {
+            parser_->advance(); // consume '('
+            
+            ASTNode* call_node = new ASTNode(ASTNodeType::AST_FUNC_CALL);
+            call_node->name = token.value;
+            
+            // 引数リストの解析
+            if (!parser_->check(TokenType::TOK_RPAREN)) {
+                do {
+                    ASTNode* arg = parser_->parseExpression();
+                    call_node->arguments.push_back(std::unique_ptr<ASTNode>(arg));
+                } while (parser_->match(TokenType::TOK_COMMA));
+            }
+            
+            parser_->consume(TokenType::TOK_RPAREN, "Expected ')' after function arguments");
+            
+            // チェーン呼び出しのサポート: func()() 形式
+            // 最初の呼び出しが関数ポインタを返す場合、続けて呼び出し可能
+            while (parser_->check(TokenType::TOK_LPAREN)) {
+                parser_->advance(); // consume '('
+                
+                // チェーン呼び出しノードを作成
+                ASTNode* chained_call = new ASTNode(ASTNodeType::AST_FUNC_CALL);
+                chained_call->left = std::unique_ptr<ASTNode>(call_node);  // 前の呼び出し結果を左側に
+                
+                // 引数リストの解析
+                if (!parser_->check(TokenType::TOK_RPAREN)) {
+                    do {
+                        ASTNode* arg = parser_->parseExpression();
+                        chained_call->arguments.push_back(std::unique_ptr<ASTNode>(arg));
+                    } while (parser_->match(TokenType::TOK_COMMA));
+                }
+                
+                parser_->consume(TokenType::TOK_RPAREN, "Expected ')' after chained function arguments");
+                
+                call_node = chained_call;  // 次のイテレーションのために更新
+            }
+            
+            return call_node;
+        }
+        // 配列アクセスは parsePostfix で処理
+        else {
+            ASTNode* node = new ASTNode(ASTNodeType::AST_VARIABLE);
+            node->name = token.value;
+            parser_->setLocation(node, token.line, token.column);
+            return node;
+        }
+    }
+    
+    // 括弧式の処理
+    if (parser_->check(TokenType::TOK_LPAREN)) {
+        parser_->advance(); // consume '('
+        ASTNode* expr = parser_->parseExpression();
+        parser_->consume(TokenType::TOK_RPAREN, "Expected ')'");
+        return expr;
+    }
+    
+    // 配列リテラルの処理
+    if (parser_->check(TokenType::TOK_LBRACKET)) {
+        parser_->advance(); // consume '['
+        
+        ASTNode* array_literal = new ASTNode(ASTNodeType::AST_ARRAY_LITERAL);
+        
+        // 空の配列リテラル []
+        if (parser_->check(TokenType::TOK_RBRACKET)) {
+            parser_->advance(); // consume ']'
+            return array_literal;
+        }
+        
+        // 配列要素を解析
+        while (!parser_->check(TokenType::TOK_RBRACKET) && !parser_->isAtEnd()) {
+            ASTNode* element = parser_->parseExpression();
+            array_literal->arguments.push_back(std::unique_ptr<ASTNode>(element));
+            
+            if (parser_->check(TokenType::TOK_COMMA)) {
+                parser_->advance(); // consume ','
+            } else if (!parser_->check(TokenType::TOK_RBRACKET)) {
+                parser_->error("Expected ',' or ']' in array literal");
+                return nullptr;
+            }
+        }
+        
+        parser_->consume(TokenType::TOK_RBRACKET, "Expected ']' after array literal");
+        return array_literal;
+    }
+    
+    // 構造体リテラルの処理 {member: value, ...}
+    if (parser_->check(TokenType::TOK_LBRACE)) {
+        return parseStructLiteral();
+    }
+    
+    parser_->error("Unexpected token");
+    return nullptr;
 }
 
 // ========================================
