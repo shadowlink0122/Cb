@@ -1,4 +1,5 @@
 #include "evaluator/expression_evaluator.h"
+#include "evaluator/expression_helpers.h"  // Tier 2リファクタリング: ヘルパー関数群
 #include "core/interpreter.h"
 #include "core/pointer_metadata.h"     // ポインタメタデータシステム
 #include "managers/enum_manager.h"    // EnumManager定義が必要
@@ -123,11 +124,11 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
     // リテラル値の評価（NUMBER, NULLPTR, STRING_LITERAL）
     // ========================================================================
     case ASTNodeType::AST_NUMBER:
-        return evaluate_number_literal(node);
+        return ExpressionHelpers::evaluate_number_literal(node);
 
     case ASTNodeType::AST_NULLPTR:
     case ASTNodeType::AST_STRING_LITERAL:
-        return evaluate_special_literal(node);
+        return ExpressionHelpers::evaluate_special_literal(node);
 
     // ========================================================================
     // 変数参照の評価（IDENTIFIER, VARIABLE）
@@ -709,26 +710,26 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
             }
             
             // 通常の整数演算（ポインタ演算後のフォールバック）
-            result = evaluate_arithmetic_binary(node->op, left, right);
+            result = ExpressionHelpers::evaluate_arithmetic_binary(node->op, left, right);
         }
         // 算術演算（+, -, *, /, %）
         else if (node->op == "+" || node->op == "-" || node->op == "*" || 
                  node->op == "/" || node->op == "%") {
-            result = evaluate_arithmetic_binary(node->op, left, right);
+            result = ExpressionHelpers::evaluate_arithmetic_binary(node->op, left, right);
         }
         // 比較演算（==, !=, <, >, <=, >=）
         else if (node->op == "==" || node->op == "!=" || node->op == "<" || 
                  node->op == ">" || node->op == "<=" || node->op == ">=") {
-            result = evaluate_comparison_binary(node->op, left, right);
+            result = ExpressionHelpers::evaluate_comparison_binary(node->op, left, right);
         }
         // 論理演算（&&, ||）
         else if (node->op == "&&" || node->op == "||") {
-            result = evaluate_logical_binary(node->op, left, right);
+            result = ExpressionHelpers::evaluate_logical_binary(node->op, left, right);
         }
         // ビット演算（&, |, ^, <<, >>）
         else if (node->op == "&" || node->op == "|" || node->op == "^" || 
                  node->op == "<<" || node->op == ">>") {
-            result = evaluate_bitwise_binary(node->op, left, right);
+            result = ExpressionHelpers::evaluate_bitwise_binary(node->op, left, right);
         }
         else {
             error_msg(DebugMsgId::UNKNOWN_BINARY_OP_ERROR, node->op.c_str());
@@ -766,12 +767,12 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
         
         // 後置インクリメント/デクリメント（x++, x--）
         if (node->op == "++_post" || node->op == "--_post") {
-            return evaluate_postfix_incdec(node);
+            return ExpressionHelpers::evaluate_postfix_incdec(node, interpreter_);
         }
         
         // 前置インクリメント/デクリメント（++x, --x）
         if (node->op == "++" || node->op == "--") {
-            return evaluate_prefix_incdec(node);
+            return ExpressionHelpers::evaluate_prefix_incdec(node, interpreter_);
         }
 
         // アドレス演算子 (&)
@@ -988,7 +989,7 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
         }
         
         int64_t operand = evaluate_expression(node->left.get());
-        return evaluate_simple_unary(node->op, operand);
+        return ExpressionHelpers::evaluate_simple_unary(node->op, operand);
     }
 
     // ========================================================================
@@ -5894,179 +5895,6 @@ ExpressionEvaluator::MethodReceiverResolution ExpressionEvaluator::create_chain_
 }
 
 // ============================================================================
-// Tier 2 リファクタリング: 二項演算のヘルパーメソッド
+// NOTE: Tier 2リファクタリングで抽出されたヘルパーメソッドは
+// expression_helpers.cpp に移動しました
 // ============================================================================
-// これらのメソッドは、evaluate_expression内の巨大なswitch文から抽出されました。
-// ポインタ演算は含まれていません（元のメソッドで処理されます）。
-
-// 算術演算（+, -, *, /, %）の評価
-int64_t ExpressionEvaluator::evaluate_arithmetic_binary(const std::string& op, int64_t left, int64_t right) {
-    if (op == "+") {
-        return left + right;
-    } else if (op == "-") {
-        return left - right;
-    } else if (op == "*") {
-        return left * right;
-    } else if (op == "/") {
-        if (right == 0) {
-            error_msg(DebugMsgId::ZERO_DIVISION_ERROR);
-            throw std::runtime_error("Division by zero");
-        }
-        return left / right;
-    } else if (op == "%") {
-        if (right == 0) {
-            error_msg(DebugMsgId::ZERO_DIVISION_ERROR);
-            throw std::runtime_error("Modulo by zero");
-        }
-        return left % right;
-    }
-    throw std::runtime_error("Unknown arithmetic operator: " + op);
-}
-
-// 比較演算（<, >, <=, >=, ==, !=）の評価
-int64_t ExpressionEvaluator::evaluate_comparison_binary(const std::string& op, int64_t left, int64_t right) {
-    if (op == "==") {
-        return (left == right) ? 1 : 0;
-    } else if (op == "!=") {
-        return (left != right) ? 1 : 0;
-    } else if (op == "<") {
-        return (left < right) ? 1 : 0;
-    } else if (op == ">") {
-        return (left > right) ? 1 : 0;
-    } else if (op == "<=") {
-        return (left <= right) ? 1 : 0;
-    } else if (op == ">=") {
-        return (left >= right) ? 1 : 0;
-    }
-    throw std::runtime_error("Unknown comparison operator: " + op);
-}
-
-// 論理演算（&&, ||）の評価
-int64_t ExpressionEvaluator::evaluate_logical_binary(const std::string& op, int64_t left, int64_t right) {
-    if (op == "&&") {
-        return (left && right) ? 1 : 0;
-    } else if (op == "||") {
-        return (left || right) ? 1 : 0;
-    }
-    throw std::runtime_error("Unknown logical operator: " + op);
-}
-
-// ビット演算（&, |, ^, <<, >>）の評価
-int64_t ExpressionEvaluator::evaluate_bitwise_binary(const std::string& op, int64_t left, int64_t right) {
-    if (op == "&") {
-        return left & right;
-    } else if (op == "|") {
-        return left | right;
-    } else if (op == "^") {
-        return left ^ right;
-    } else if (op == "<<") {
-        return left << right;
-    } else if (op == ">>") {
-        return left >> right;
-    }
-    throw std::runtime_error("Unknown bitwise operator: " + op);
-}
-
-// ============================================================================
-// Tier 2 リファクタリング（追加）: リテラル評価のヘルパー
-// ============================================================================
-
-// 数値リテラル（整数・浮動小数点）の評価
-int64_t ExpressionEvaluator::evaluate_number_literal(const ASTNode* node) {
-    debug_msg(DebugMsgId::EXPR_EVAL_NUMBER, node->int_value);
-    
-    // 浮動小数点リテラルの場合
-    if (node->is_float_literal) {
-        TypeInfo literal_type = node->literal_type != TYPE_UNKNOWN ? node->literal_type : TYPE_DOUBLE;
-        if (literal_type == TYPE_QUAD) {
-            return static_cast<int64_t>(node->quad_value);
-        }
-        return static_cast<int64_t>(node->double_value);
-    }
-    
-    // 整数リテラル
-    return node->int_value;
-}
-
-// 特殊なリテラル（nullptr, 文字列リテラル）の評価
-int64_t ExpressionEvaluator::evaluate_special_literal(const ASTNode* node) {
-    if (node->node_type == ASTNodeType::AST_NULLPTR) {
-        // nullptr は 0 として評価
-        return 0;
-    } else if (node->node_type == ASTNodeType::AST_STRING_LITERAL) {
-        debug_msg(DebugMsgId::EXPR_EVAL_STRING_LITERAL, node->str_value.c_str());
-        // 文字列リテラルは現在の評価コンテキストでは数値として扱えないため、
-        // 特別な値を返すか、エラーを投げる必要がある
-        // とりあえず0を返す（文字列処理は別途output_managerで処理）
-        return 0;
-    }
-    throw std::runtime_error("Unknown special literal type");
-}
-
-// ============================================================================
-// Tier 2 リファクタリング（追加）: インクリメント/デクリメントのヘルパー
-// ============================================================================
-
-// 前置インクリメント/デクリメント（++x, --x）
-int64_t ExpressionEvaluator::evaluate_prefix_incdec(const ASTNode* node) {
-    if (!node->left || node->left->node_type != ASTNodeType::AST_VARIABLE) {
-        error_msg(DebugMsgId::DIRECT_ARRAY_ASSIGN_ERROR);
-        throw std::runtime_error("Invalid prefix operation");
-    }
-    
-    Variable *var = interpreter_.find_variable(node->left->name);
-    if (!var) {
-        error_msg(DebugMsgId::UNDEFINED_VAR_ERROR, node->left->name.c_str());
-        throw std::runtime_error("Undefined variable");
-    }
-
-    if (node->op == "++") {
-        var->value += 1;
-    } else if (node->op == "--") {
-        var->value -= 1;
-    }
-
-    return var->value; // プリフィックスは新しい値を返す
-}
-
-// 後置インクリメント/デクリメント（x++, x--）
-int64_t ExpressionEvaluator::evaluate_postfix_incdec(const ASTNode* node) {
-    if (!node->left || node->left->node_type != ASTNodeType::AST_VARIABLE) {
-        error_msg(DebugMsgId::DIRECT_ARRAY_ASSIGN_ERROR);
-        throw std::runtime_error("Invalid postfix operation");
-    }
-    
-    Variable *var = interpreter_.find_variable(node->left->name);
-    if (!var) {
-        error_msg(DebugMsgId::UNDEFINED_VAR_ERROR, node->left->name.c_str());
-        throw std::runtime_error("Undefined variable");
-    }
-
-    int64_t old_value = var->value;
-    if (node->op == "++_post") {
-        var->value += 1;
-    } else if (node->op == "--_post") {
-        var->value -= 1;
-    }
-
-    return old_value; // ポストフィックスは古い値を返す
-}
-
-// ============================================================================
-// Tier 2 リファクタリング（追加）: 単項演算のヘルパー
-// ============================================================================
-
-// 単純な単項演算（+, -, !, ~）
-int64_t ExpressionEvaluator::evaluate_simple_unary(const std::string& op, int64_t operand) {
-    if (op == "+") {
-        return operand;
-    } else if (op == "-") {
-        return -operand;
-    } else if (op == "!") {
-        return operand ? 0 : 1;
-    } else if (op == "~") {
-        return ~operand;
-    }
-    error_msg(DebugMsgId::UNKNOWN_UNARY_OP_ERROR, op.c_str());
-    throw std::runtime_error("Unknown unary operator: " + op);
-}

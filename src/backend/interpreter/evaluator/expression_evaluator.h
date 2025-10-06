@@ -91,43 +91,9 @@ private:
     bool resolve_variable_name(const ASTNode* node, std::string& out_name, Variable*& out_var);
     
     // ========================================================================
-    // Tier 2 リファクタリング: 二項演算の分割
+    // NOTE: Tier 2リファクタリングで抽出されたヘルパーメソッドは
+    // expression_helpers.h/.cpp に移動しました
     // ========================================================================
-    // 算術演算（+, -, *, /, %）のヘルパー
-    int64_t evaluate_arithmetic_binary(const std::string& op, int64_t left, int64_t right);
-    
-    // 比較演算（<, >, <=, >=, ==, !=）のヘルパー
-    int64_t evaluate_comparison_binary(const std::string& op, int64_t left, int64_t right);
-    
-    // 論理演算（&&, ||）のヘルパー
-    int64_t evaluate_logical_binary(const std::string& op, int64_t left, int64_t right);
-    
-    // ビット演算（&, |, ^, <<, >>）のヘルパー
-    int64_t evaluate_bitwise_binary(const std::string& op, int64_t left, int64_t right);
-
-    // ========================================================================
-    // Tier 2 リファクタリング（追加）: リテラル評価の分割
-    // ========================================================================
-    // 数値リテラル（整数・浮動小数点）の評価
-    int64_t evaluate_number_literal(const ASTNode* node);
-    
-    // 文字列リテラル・nullptr の評価
-    int64_t evaluate_special_literal(const ASTNode* node);
-
-    // ========================================================================
-    // Tier 2 リファクタリング（追加）: インクリメント/デクリメントの分割
-    // ========================================================================
-    // 前置インクリメント/デクリメント（++x, --x）
-    int64_t evaluate_prefix_incdec(const ASTNode* node);
-    
-    // 後置インクリメント/デクリメント（x++, x--）
-    int64_t evaluate_postfix_incdec(const ASTNode* node);
-
-    // ========================================================================
-    // Tier 2 リファクタリング（追加）: 単項演算の分割
-    // ========================================================================
-    // 単純な単項演算（+, -, !, ~）
-    int64_t evaluate_simple_unary(const std::string& op, int64_t operand);
 
 public:
     // 最後の型推論結果にアクセス
