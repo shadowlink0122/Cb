@@ -6,8 +6,10 @@
 
 #include "../../common/ast.h"
 #include "../recursive_lexer.h"
+#include <memory>
 
 class RecursiveParser; // 前方宣言
+class PrimaryExpressionParser; // 前方宣言
 
 /// @brief 式解析を担当するクラス
 /// @details 19個の式解析メソッドを管理し、演算子の優先順位に基づいて
@@ -46,6 +48,7 @@ public:
     
 private:
     RecursiveParser* parser_;  // 親パーサーへの参照
+    std::unique_ptr<PrimaryExpressionParser> primary_expression_parser_;
 };
 
 #endif // EXPRESSION_PARSER_H
