@@ -8,6 +8,13 @@
 
 using namespace RecursiveParserNS;
 
+// 前方宣言 - 分離されたパーサークラス
+class ExpressionParser;
+class StatementParser;
+class DeclarationParser;
+class TypeParser;
+class StructParser;
+
 struct ParsedTypeInfo {
     std::string full_type;                 // 完全な型表現（ポインタ/配列含む）
     std::string base_type;                 // 基本型（typedef解決後）
@@ -23,8 +30,15 @@ struct ParsedTypeInfo {
 };
 
 class RecursiveParser {
+    // 分離されたパーサークラスが内部状態にアクセスできるようにする
+    friend class ExpressionParser;
+    friend class StatementParser;
+    friend class DeclarationParser;
+    friend class TypeParser;
+    friend class StructParser;
 public:
     RecursiveParser(const std::string& source, const std::string& filename = "");
+    ~RecursiveParser();  // 明示的なデストラクタ宣言（unique_ptrの不完全型対応）
     ASTNode* parse();
     void setDebugMode(bool debug) { debug_mode_ = debug; }
     ASTNode* parseProgram();
@@ -37,6 +51,13 @@ private:
     std::vector<std::string> source_lines_;  // 行ごとに分割されたソース
     std::unordered_map<std::string, std::string> typedef_map_; // typedef alias -> actual type mapping
     bool debug_mode_;  // デバッグモードフラグ
+    
+    // 分離されたパーサーのインスタンス
+    std::unique_ptr<ExpressionParser> expression_parser_;
+    std::unique_ptr<StatementParser> statement_parser_;
+    std::unique_ptr<DeclarationParser> declaration_parser_;
+    std::unique_ptr<TypeParser> type_parser_;
+    std::unique_ptr<StructParser> struct_parser_;
     
     // Helper methods
     bool match(TokenType type);

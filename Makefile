@@ -21,7 +21,12 @@ CGEN_DIR=cgen
 # LEXER_C=$(FRONTEND_DIR)/lexer.c
 
 # オブジェクトファイル（RecursiveParserのみ使用）
-FRONTEND_OBJS=$(FRONTEND_DIR)/main.o $(FRONTEND_DIR)/help_messages.o $(FRONTEND_DIR)/recursive_parser/recursive_lexer.o $(FRONTEND_DIR)/recursive_parser/recursive_parser.o
+PARSER_OBJS=$(FRONTEND_DIR)/recursive_parser/parsers/expression_parser.o \
+            $(FRONTEND_DIR)/recursive_parser/parsers/statement_parser.o \
+            $(FRONTEND_DIR)/recursive_parser/parsers/declaration_parser.o \
+            $(FRONTEND_DIR)/recursive_parser/parsers/type_parser.o \
+            $(FRONTEND_DIR)/recursive_parser/parsers/struct_parser.o
+FRONTEND_OBJS=$(FRONTEND_DIR)/main.o $(FRONTEND_DIR)/help_messages.o $(FRONTEND_DIR)/recursive_parser/recursive_lexer.o $(FRONTEND_DIR)/recursive_parser/recursive_parser.o $(PARSER_OBJS)
 BACKEND_OBJS=$(BACKEND_DIR)/interpreter/core/interpreter.o $(BACKEND_DIR)/interpreter/core/error_handler.o \
              $(BACKEND_DIR)/interpreter/core/type_inference.o \
              $(BACKEND_DIR)/interpreter/core/pointer_metadata.o \
@@ -70,6 +75,10 @@ debug: $(MAIN_TARGET)
 
 # RecursiveParserオブジェクト生成
 $(FRONTEND_DIR)/recursive_parser/%.o: $(FRONTEND_DIR)/recursive_parser/%.cpp
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+# 分離されたパーサーオブジェクト生成
+$(FRONTEND_DIR)/recursive_parser/parsers/%.o: $(FRONTEND_DIR)/recursive_parser/parsers/%.cpp
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 # フロントエンドオブジェクト生成（古いparser.hの依存関係を削除）

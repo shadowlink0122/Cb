@@ -1,4 +1,9 @@
 #include "recursive_parser.h"
+#include "parsers/expression_parser.h"
+#include "parsers/statement_parser.h"
+#include "parsers/declaration_parser.h"
+#include "parsers/type_parser.h"
+#include "parsers/struct_parser.h"
 #include "../../backend/interpreter/core/error_handler.h"
 #include "../../common/debug.h"
 #include "../../common/debug_messages.h"
@@ -23,8 +28,20 @@ RecursiveParser::RecursiveParser(const std::string& source, const std::string& f
     while (std::getline(iss, line)) {
         source_lines_.push_back(line);
     }
+    
+    // 分離されたパーサーのインスタンスを初期化
+    // Phase 2: 全パーサーの有効化（委譲パターン）
+    expression_parser_ = std::make_unique<ExpressionParser>(this);
+    statement_parser_ = std::make_unique<StatementParser>(this);
+    declaration_parser_ = std::make_unique<DeclarationParser>(this);
+    type_parser_ = std::make_unique<TypeParser>(this);
+    struct_parser_ = std::make_unique<StructParser>(this);
+    
     advance();
 }
+
+// デストラクタ - unique_ptrの不完全型対応のため、実装ファイルで定義
+RecursiveParser::~RecursiveParser() = default;
 
 ASTNode* RecursiveParser::parse() {
     return parseProgram();
