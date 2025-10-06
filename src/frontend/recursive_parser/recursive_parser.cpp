@@ -2888,48 +2888,19 @@ TypeInfo RecursiveParser::getTypeInfoFromString(const std::string& type_name) {
 }
 
 ASTNode* RecursiveParser::parseReturnStatement() {
-    advance(); // consume 'return'
-    ASTNode* return_node = new ASTNode(ASTNodeType::AST_RETURN_STMT);
-    
-    // return値があるかチェック
-    if (!check(TokenType::TOK_SEMICOLON)) {
-        return_node->left = std::unique_ptr<ASTNode>(parseExpression());
-    }
-    
-    consume(TokenType::TOK_SEMICOLON, "Expected ';' after return statement");
-    return return_node;
+    return statement_parser_->parseReturnStatement();
 }
 
 ASTNode* RecursiveParser::parseAssertStatement() {
-    Token assert_token = advance(); // consume 'assert'
-    
-    consume(TokenType::TOK_LPAREN, "Expected '(' after assert");
-    
-    // 条件式をパース
-    ASTNode* condition = parseExpression();
-    
-    consume(TokenType::TOK_RPAREN, "Expected ')' after assert condition");
-    consume(TokenType::TOK_SEMICOLON, "Expected ';' after assert statement");
-    
-    ASTNode* assert_node = new ASTNode(ASTNodeType::AST_ASSERT_STMT);
-    assert_node->left = std::unique_ptr<ASTNode>(condition);
-    assert_node->location.line = assert_token.line;
-    
-    return assert_node;
+    return statement_parser_->parseAssertStatement();
 }
 
 ASTNode* RecursiveParser::parseBreakStatement() {
-    advance(); // consume 'break'
-    ASTNode* break_node = new ASTNode(ASTNodeType::AST_BREAK_STMT);
-    consume(TokenType::TOK_SEMICOLON, "Expected ';' after break statement");
-    return break_node;
+    return statement_parser_->parseBreakStatement();
 }
 
 ASTNode* RecursiveParser::parseContinueStatement() {
-    advance(); // consume 'continue'
-    ASTNode* continue_node = new ASTNode(ASTNodeType::AST_CONTINUE_STMT);
-    consume(TokenType::TOK_SEMICOLON, "Expected ';' after continue statement");
-    return continue_node;
+    return statement_parser_->parseContinueStatement();
 }
 
 ASTNode* RecursiveParser::parseIfStatement() {
@@ -3010,53 +2981,11 @@ ASTNode* RecursiveParser::parseCompoundStatement() {
 }
 
 ASTNode* RecursiveParser::parsePrintlnStatement() {
-    advance(); // consume 'println'
-    consume(TokenType::TOK_LPAREN, "Expected '(' after println");
-    
-    ASTNode* print_node = new ASTNode(ASTNodeType::AST_PRINTLN_STMT);
-    
-    // 複数の引数をパース
-    if (!check(TokenType::TOK_RPAREN)) {
-        do {
-            ASTNode* arg = parseExpression();
-            print_node->arguments.push_back(std::unique_ptr<ASTNode>(arg));
-        } while (match(TokenType::TOK_COMMA));
-    }
-    
-    consume(TokenType::TOK_RPAREN, "Expected ')' after println arguments");
-    consume(TokenType::TOK_SEMICOLON, "Expected ';' after println statement");
-    return print_node;
+    return statement_parser_->parsePrintlnStatement();
 }
 
 ASTNode* RecursiveParser::parsePrintStatement() {
-    advance(); // consume 'print'
-    
-    ASTNode* print_node = new ASTNode(ASTNodeType::AST_PRINT_STMT);
-    
-    // 引数をパース - 任意の式を受け入れる
-    if (check(TokenType::TOK_LPAREN)) {
-        // print(expression[, expression, ...]); 形式
-        advance(); // consume '('
-        
-        // 複数の引数をパース
-        if (!check(TokenType::TOK_RPAREN)) {
-            do {
-                ASTNode* arg = parseExpression();
-                print_node->arguments.push_back(std::unique_ptr<ASTNode>(arg));
-            } while (match(TokenType::TOK_COMMA));
-        }
-        
-        consume(TokenType::TOK_RPAREN, "Expected ')' after print arguments");
-    } else if (!check(TokenType::TOK_SEMICOLON)) {
-        // print expression; 形式（括弧なし）
-        print_node->left = std::unique_ptr<ASTNode>(parseExpression());
-    } else {
-        error("Expected expression after print");
-        return nullptr;
-    }
-    
-    consume(TokenType::TOK_SEMICOLON, "Expected ';' after print statement");
-    return print_node;
+    return statement_parser_->parsePrintStatement();
 }
 
 // 位置情報設定のヘルパーメソッド

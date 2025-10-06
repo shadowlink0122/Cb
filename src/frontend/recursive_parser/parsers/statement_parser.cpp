@@ -102,7 +102,16 @@ ASTNode* StatementParser::parseWhileStatement() {
  * - return expression;
  */
 ASTNode* StatementParser::parseReturnStatement() {
-    return parser_->parseReturnStatement();
+    parser_->advance(); // consume 'return'
+    ASTNode* return_node = new ASTNode(ASTNodeType::AST_RETURN_STMT);
+    
+    // return値があるかチェック
+    if (!parser_->check(TokenType::TOK_SEMICOLON)) {
+        return_node->left = std::unique_ptr<ASTNode>(parser_->parseExpression());
+    }
+    
+    parser_->consume(TokenType::TOK_SEMICOLON, "Expected ';' after return statement");
+    return return_node;
 }
 
 /**
@@ -113,7 +122,10 @@ ASTNode* StatementParser::parseReturnStatement() {
  * ループまたはswitchから脱出（現在はループのみサポート）
  */
 ASTNode* StatementParser::parseBreakStatement() {
-    return parser_->parseBreakStatement();
+    parser_->advance(); // consume 'break'
+    ASTNode* break_node = new ASTNode(ASTNodeType::AST_BREAK_STMT);
+    parser_->consume(TokenType::TOK_SEMICOLON, "Expected ';' after break statement");
+    return break_node;
 }
 
 /**
@@ -124,7 +136,10 @@ ASTNode* StatementParser::parseBreakStatement() {
  * ループの次の反復へスキップ
  */
 ASTNode* StatementParser::parseContinueStatement() {
-    return parser_->parseContinueStatement();
+    parser_->advance(); // consume 'continue'
+    ASTNode* continue_node = new ASTNode(ASTNodeType::AST_CONTINUE_STMT);
+    parser_->consume(TokenType::TOK_SEMICOLON, "Expected ';' after continue statement");
+    return continue_node;
 }
 
 // ========================================
@@ -139,7 +154,21 @@ ASTNode* StatementParser::parseContinueStatement() {
  * 条件が偽の場合、プログラムを停止
  */
 ASTNode* StatementParser::parseAssertStatement() {
-    return parser_->parseAssertStatement();
+    Token assert_token = parser_->advance(); // consume 'assert'
+    
+    parser_->consume(TokenType::TOK_LPAREN, "Expected '(' after assert");
+    
+    // 条件式をパース
+    ASTNode* condition = parser_->parseExpression();
+    
+    parser_->consume(TokenType::TOK_RPAREN, "Expected ')' after assert condition");
+    parser_->consume(TokenType::TOK_SEMICOLON, "Expected ';' after assert statement");
+    
+    ASTNode* assert_node = new ASTNode(ASTNodeType::AST_ASSERT_STMT);
+    assert_node->left = std::unique_ptr<ASTNode>(condition);
+    assert_node->location.line = assert_token.line;
+    
+    return assert_node;
 }
 
 /**
@@ -150,7 +179,22 @@ ASTNode* StatementParser::parseAssertStatement() {
  * 可変長引数をサポート、自動的に改行を追加
  */
 ASTNode* StatementParser::parsePrintlnStatement() {
-    return parser_->parsePrintlnStatement();
+    parser_->advance(); // consume 'println'
+    parser_->consume(TokenType::TOK_LPAREN, "Expected '(' after println");
+    
+    ASTNode* print_node = new ASTNode(ASTNodeType::AST_PRINTLN_STMT);
+    
+    // 複数の引数をパース
+    if (!parser_->check(TokenType::TOK_RPAREN)) {
+        do {
+            ASTNode* arg = parser_->parseExpression();
+            print_node->arguments.push_back(std::unique_ptr<ASTNode>(arg));
+        } while (parser_->match(TokenType::TOK_COMMA));
+    }
+    
+    parser_->consume(TokenType::TOK_RPAREN, "Expected ')' after println arguments");
+    parser_->consume(TokenType::TOK_SEMICOLON, "Expected ';' after println statement");
+    return print_node;
 }
 
 /**
@@ -167,5 +211,32 @@ ASTNode* StatementParser::parsePrintlnStatement() {
  * - %%: % のエスケープ
  */
 ASTNode* StatementParser::parsePrintStatement() {
-    return parser_->parsePrintStatement();
+    parser_->advance(); // consume 'print'
+    
+    ASTNode* print_node = new ASTNode(ASTNodeType::AST_PRINT_STMT);
+    
+    // 引数をパース - 任意の式を受け入れる
+    if (parser_->check(TokenType::TOK_LPAREN)) {
+        // print(expression[, expression, ...]); 形式
+        parser_->advance(); // consume '('
+        
+        // 複数の引数をパース
+        if (!parser_->check(TokenType::TOK_RPAREN)) {
+            do {
+                ASTNode* arg = parser_->parseExpression();
+                print_node->arguments.push_back(std::unique_ptr<ASTNode>(arg));
+            } while (parser_->match(TokenType::TOK_COMMA));
+        }
+        
+        parser_->consume(TokenType::TOK_RPAREN, "Expected ')' after print arguments");
+    } else if (!parser_->check(TokenType::TOK_SEMICOLON)) {
+        // print expression; 形式（括弧なし）
+        print_node->left = std::unique_ptr<ASTNode>(parser_->parseExpression());
+    } else {
+        parser_->error("Expected expression after print");
+        return nullptr;
+    }
+    
+    parser_->consume(TokenType::TOK_SEMICOLON, "Expected ';' after print statement");
+    return print_node;
 }
