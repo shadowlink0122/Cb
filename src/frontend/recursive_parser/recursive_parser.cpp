@@ -833,8 +833,8 @@ ASTNode* RecursiveParser::parseStructTypedefDeclaration() {
         member_node->pointer_depth = member.pointer_depth;
         member_node->pointer_base_type_name = member.pointer_base_type_name;
         member_node->pointer_base_type = member.pointer_base_type;
-    member_node->is_reference = member.is_reference;
-    member_node->is_unsigned = member.is_unsigned;
+        member_node->is_reference = member.is_reference;
+        member_node->is_unsigned = member.is_unsigned;
         member_node->is_private_member = member.is_private;
         
         // 配列メンバーの場合はarray_type_infoを設定
