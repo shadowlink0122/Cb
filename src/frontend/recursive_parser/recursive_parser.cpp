@@ -2417,39 +2417,11 @@ ASTNode* RecursiveParser::parseShift() {
 }
 
 ASTNode* RecursiveParser::parseAdditive() {
-    ASTNode* left = parseMultiplicative();
-    
-    while (check(TokenType::TOK_PLUS) || check(TokenType::TOK_MINUS)) {
-        Token op = advance();
-        ASTNode* right = parseMultiplicative();
-        
-        ASTNode* binary = new ASTNode(ASTNodeType::AST_BINARY_OP);
-        binary->op = op.value;
-        binary->left = std::unique_ptr<ASTNode>(left);
-        binary->right = std::unique_ptr<ASTNode>(right);
-        
-        left = binary;
-    }
-    
-    return left;
+    return expression_parser_->parseAdditive();
 }
 
 ASTNode* RecursiveParser::parseMultiplicative() {
-    ASTNode* left = parseUnary();
-    
-    while (check(TokenType::TOK_MUL) || check(TokenType::TOK_DIV) || check(TokenType::TOK_MOD)) {
-        Token op = advance();
-        ASTNode* right = parseUnary();
-        
-        ASTNode* binary = new ASTNode(ASTNodeType::AST_BINARY_OP);
-        binary->op = op.value;
-        binary->left = std::unique_ptr<ASTNode>(left);
-        binary->right = std::unique_ptr<ASTNode>(right);
-        
-        left = binary;
-    }
-    
-    return left;
+    return expression_parser_->parseMultiplicative();
 }
 
 ASTNode* RecursiveParser::parseUnary() {

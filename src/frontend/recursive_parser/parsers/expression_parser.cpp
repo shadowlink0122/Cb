@@ -175,9 +175,26 @@ ASTNode* ExpressionParser::parseShift() {
  * @return 解析されたAST二項演算ノード
  * 
  * サポートする演算子: +, -
+ * 
+ * 左結合の二項演算子として処理します。
+ * 例: a + b - c は (a + b) - c として解析されます。
  */
 ASTNode* ExpressionParser::parseAdditive() {
-    return parser_->parseAdditive();
+    ASTNode* left = parseMultiplicative();
+    
+    while (parser_->check(TokenType::TOK_PLUS) || parser_->check(TokenType::TOK_MINUS)) {
+        Token op = parser_->advance();
+        ASTNode* right = parseMultiplicative();
+        
+        ASTNode* binary = new ASTNode(ASTNodeType::AST_BINARY_OP);
+        binary->op = op.value;
+        binary->left = std::unique_ptr<ASTNode>(left);
+        binary->right = std::unique_ptr<ASTNode>(right);
+        
+        left = binary;
+    }
+    
+    return left;
 }
 
 // ========================================
@@ -189,9 +206,28 @@ ASTNode* ExpressionParser::parseAdditive() {
  * @return 解析されたAST二項演算ノード
  * 
  * サポートする演算子: *, /, %
+ * 
+ * 左結合の二項演算子として処理します。
+ * 例: a * b / c は (a * b) / c として解析されます。
  */
 ASTNode* ExpressionParser::parseMultiplicative() {
-    return parser_->parseMultiplicative();
+    ASTNode* left = parseUnary();
+    
+    while (parser_->check(TokenType::TOK_MUL) || 
+           parser_->check(TokenType::TOK_DIV) || 
+           parser_->check(TokenType::TOK_MOD)) {
+        Token op = parser_->advance();
+        ASTNode* right = parseUnary();
+        
+        ASTNode* binary = new ASTNode(ASTNodeType::AST_BINARY_OP);
+        binary->op = op.value;
+        binary->left = std::unique_ptr<ASTNode>(left);
+        binary->right = std::unique_ptr<ASTNode>(right);
+        
+        left = binary;
+    }
+    
+    return left;
 }
 
 // ========================================
