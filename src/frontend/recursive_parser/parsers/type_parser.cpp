@@ -1,5 +1,23 @@
 // Type Parser - 型解析を担当
-// Phase 2: RecursiveParserへの委譲実装
+// Phase 2: RecursiveParserへの委譲実装（v0.9.1）
+//
+// このファイルは、型解析に関連する7個のメソッドを管理します。
+//
+// 管理するメソッド:
+// - parseType: 型の解析（int, int*, int[5], struct Point等）
+// - resolveParsedTypeInfo: 型情報の解決（typedefチェーン解決）
+// - resolveArrayType: 配列型の解決
+// - getPointerLevel: ポインタの深さ取得
+// - isValidType: 型の妥当性チェック
+// - isStructType: 構造体型かチェック
+// - isEnumType: enum型かチェック
+//
+// 特記事項:
+// - ParsedTypeInfo構造体を使用して詳細な型情報を管理
+// - typedef解決、ポインタ深さ、配列情報を含む
+//
+// Phase 3での実装移行予定:
+// - 推定行数: 300-400行
 #include "type_parser.h"
 #include "../recursive_parser.h"
 
@@ -8,7 +26,6 @@ TypeParser::TypeParser(RecursiveParser* parser)
 }
 
 // Phase 2: 委譲パターンの実装
-// 注: parseTypeは文字列を返すため、直接委譲
 
 ParsedTypeInfo TypeParser::parseType() {
     // parseType()は文字列を返すが、ParsedTypeInfoを返す必要がある

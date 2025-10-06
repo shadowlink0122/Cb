@@ -1,5 +1,18 @@
 // Declaration Parser - 宣言解析を担当
-// Phase 2: RecursiveParserへの委譲実装
+// Phase 2: RecursiveParserへの委譲実装（v0.9.1）
+//
+// このファイルは、宣言に関連する6個のメソッドを管理します。
+//
+// 管理するメソッド:
+// - parseVariableDeclaration: 変数宣言（int x = 10;）
+// - parseTypedefVariableDeclaration: typedef変数宣言
+// - parseFunctionDeclaration: 関数宣言
+// - parseFunctionDeclarationAfterName: 関数名解析後の処理
+// - parseTypedefDeclaration: typedef宣言（typedef int MyInt;）
+// - parseFunctionPointerTypedefDeclaration: 関数ポインタtypedef
+//
+// Phase 3での実装移行予定:
+// - 推定行数: 600-800行
 #include "declaration_parser.h"
 #include "../recursive_parser.h"
 
