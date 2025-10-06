@@ -14,6 +14,9 @@ class StatementParser;
 class DeclarationParser;
 class TypeParser;
 class StructParser;
+class EnumParser;
+class InterfaceParser;
+class UnionParser;
 
 struct ParsedTypeInfo {
     std::string full_type;                 // 完全な型表現（ポインタ/配列含む）
@@ -38,6 +41,9 @@ class RecursiveParser {
     friend class PrimaryExpressionParser;
     friend class TypeParser;
     friend class StructParser;
+    friend class EnumParser;
+    friend class InterfaceParser;
+    friend class UnionParser;
 public:
     RecursiveParser(const std::string& source, const std::string& filename = "");
     ~RecursiveParser();  // 明示的なデストラクタ宣言（unique_ptrの不完全型対応）
@@ -59,7 +65,10 @@ private:
     std::unique_ptr<StatementParser> statement_parser_;
     std::unique_ptr<DeclarationParser> declaration_parser_;
     std::unique_ptr<TypeParser> type_parser_;
+    std::unique_ptr<EnumParser> enum_parser_;
+    std::unique_ptr<InterfaceParser> interface_parser_;
     std::unique_ptr<StructParser> struct_parser_;
+    std::unique_ptr<UnionParser> union_parser_;
     
     // Helper methods
     bool match(TokenType type);

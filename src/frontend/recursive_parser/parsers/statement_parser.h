@@ -5,6 +5,7 @@
 #define STATEMENT_PARSER_H
 
 #include "../../common/ast.h"
+#include "../../common/debug.h"
 
 class RecursiveParser;
 
