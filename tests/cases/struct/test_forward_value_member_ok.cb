@@ -1,0 +1,25 @@
+// 前方宣言された構造体を値型として使用（OK）
+
+struct B;  // 前方宣言
+
+struct A {
+    int value;
+};
+
+struct B {
+    int data;
+    A member_a;  // ✅ OK: 値型メンバー（Aは完全定義済み）
+};
+
+void main() {
+    A a;
+    a.value = 10;
+    
+    B b;
+    b.data = 20;
+    b.member_a = a;
+    
+    if (b.member_a.value == 10) {
+        println("OK: Forward declaration with value member");
+    }
+}

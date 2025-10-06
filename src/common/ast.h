@@ -556,6 +556,7 @@ struct StructMember {
 struct StructDefinition {
     std::string name;                  // struct名
     std::vector<StructMember> members; // メンバ変数のリスト
+    bool is_forward_declaration = false; // 前方宣言かどうか
 
     StructDefinition() {}
     StructDefinition(const std::string &n) : name(n) {}

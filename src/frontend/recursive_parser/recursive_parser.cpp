@@ -3943,6 +3943,27 @@ ASTNode* RecursiveParser::parseStructDeclaration() {
     std::string struct_name = current_token_.value;
     advance(); // struct名をスキップ
     
+    // 前方宣言のチェック: struct Name; の形式
+    if (check(TokenType::TOK_SEMICOLON)) {
+        advance(); // セミコロンを消費
+        
+        // 前方宣言として登録（既に定義済みでなければ）
+        if (struct_definitions_.find(struct_name) == struct_definitions_.end()) {
+            StructDefinition forward_decl(struct_name);
+            forward_decl.is_forward_declaration = true;
+            struct_definitions_[struct_name] = forward_decl;
+            
+            debug_msg(DebugMsgId::PARSE_STRUCT_DEF, 
+                     ("Forward declaration: " + struct_name).c_str());
+        }
+        
+        // 前方宣言用のASTノードを作成
+        ASTNode* node = new ASTNode(ASTNodeType::AST_STRUCT_DECL);
+        node->name = struct_name;
+        setLocation(node, current_token_);
+        return node;
+    }
+    
     consume(TokenType::TOK_LBRACE, "Expected '{' after struct name");
     
     StructDefinition struct_def(struct_name);
@@ -4045,6 +4066,8 @@ ASTNode* RecursiveParser::parseStructDeclaration() {
     consume(TokenType::TOK_SEMICOLON, "Expected ';' after struct definition");
     
     // struct定義をパーサー内に保存（変数宣言の認識のため）
+    // 前方宣言を完全な定義で上書き
+    struct_def.is_forward_declaration = false;
     struct_definitions_[struct_name] = struct_def;
     
     // 循環参照チェック: 値メンバーによる循環を検出
@@ -5386,6 +5409,12 @@ bool RecursiveParser::detectCircularReference(const std::string& struct_name,
         return false;
     }
     
+    // 前方宣言のみの構造体はスキップ（定義が後で来る可能性がある）
+    const StructDefinition& struct_def = struct_definitions_[normalized_type];
+    if (struct_def.is_forward_declaration) {
+        return false;
+    }
+    
     // 開始構造体に戻ってきたら循環検出
     if (normalized_type == struct_name) {
         path.push_back(normalized_type);
@@ -5400,9 +5429,6 @@ bool RecursiveParser::detectCircularReference(const std::string& struct_name,
     // 訪問マーク
     visited.insert(normalized_type);
     path.push_back(normalized_type);
-    
-    // メンバーを再帰的にチェック
-    const StructDefinition& struct_def = struct_definitions_[normalized_type];
     for (const auto& member : struct_def.members) {
         // ポインタメンバーはスキップ（メモリ発散しない）
         if (member.is_pointer) {
