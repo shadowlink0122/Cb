@@ -5,6 +5,8 @@
 #define DECLARATION_PARSER_H
 
 #include "../../common/ast.h"
+#include "variable_declaration_parser.h"
+#include <memory>
 
 class RecursiveParser;
 
@@ -30,6 +32,7 @@ public:
     
 private:
     RecursiveParser* parser_;
+    std::unique_ptr<VariableDeclarationParser> variable_declaration_parser_;
 };
 
 #endif // DECLARATION_PARSER_H

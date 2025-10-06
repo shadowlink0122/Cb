@@ -11,11 +11,13 @@
 // 5. 関数ポインタtypedef: typedef Callback = int(int, int);
 //
 #include "declaration_parser.h"
+#include "variable_declaration_parser.h"
 #include "../recursive_parser.h"
 #include "src/common/debug.h"
 
 DeclarationParser::DeclarationParser(RecursiveParser* parser) 
-    : parser_(parser) {
+    : parser_(parser),
+      variable_declaration_parser_(std::make_unique<VariableDeclarationParser>(parser)) {
 }
 
 // ========================================
@@ -36,7 +38,7 @@ DeclarationParser::DeclarationParser(RecursiveParser* parser)
  * - const修飾子: const int x = 10;
  */
 ASTNode* DeclarationParser::parseVariableDeclaration() {
-    return parser_->parseVariableDeclaration();
+    return variable_declaration_parser_->parseVariableDeclaration();
 }
 
 /**

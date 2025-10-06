@@ -34,6 +34,7 @@ class RecursiveParser {
     friend class ExpressionParser;
     friend class StatementParser;
     friend class DeclarationParser;
+    friend class VariableDeclarationParser;
     friend class TypeParser;
     friend class StructParser;
 public:
