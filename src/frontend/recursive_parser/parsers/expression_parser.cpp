@@ -91,7 +91,21 @@ ASTNode* ExpressionParser::parseTernary() {
  * 短絡評価を行います（左辺がtrueなら右辺を評価しない）
  */
 ASTNode* ExpressionParser::parseLogicalOr() {
-    return parser_->parseLogicalOr();
+    ASTNode* left = parseLogicalAnd();
+    
+    while (parser_->check(TokenType::TOK_OR)) {
+        Token op = parser_->advance();
+        ASTNode* right = parseLogicalAnd();
+        
+        ASTNode* binary = new ASTNode(ASTNodeType::AST_BINARY_OP);
+        binary->op = op.value;
+        binary->left = std::unique_ptr<ASTNode>(left);
+        binary->right = std::unique_ptr<ASTNode>(right);
+        
+        left = binary;
+    }
+    
+    return left;
 }
 
 /**
@@ -101,7 +115,21 @@ ASTNode* ExpressionParser::parseLogicalOr() {
  * 短絡評価を行います（左辺がfalseなら右辺を評価しない）
  */
 ASTNode* ExpressionParser::parseLogicalAnd() {
-    return parser_->parseLogicalAnd();
+    ASTNode* left = parseBitwiseOr();
+    
+    while (parser_->check(TokenType::TOK_AND)) {
+        Token op = parser_->advance();
+        ASTNode* right = parseBitwiseOr();
+        
+        ASTNode* binary = new ASTNode(ASTNodeType::AST_BINARY_OP);
+        binary->op = op.value;
+        binary->left = std::unique_ptr<ASTNode>(left);
+        binary->right = std::unique_ptr<ASTNode>(right);
+        
+        left = binary;
+    }
+    
+    return left;
 }
 
 // ========================================
@@ -113,7 +141,21 @@ ASTNode* ExpressionParser::parseLogicalAnd() {
  * @return 解析されたAST二項演算ノード
  */
 ASTNode* ExpressionParser::parseBitwiseOr() {
-    return parser_->parseBitwiseOr();
+    ASTNode* left = parseBitwiseXor();
+    
+    while (parser_->check(TokenType::TOK_BIT_OR)) {
+        Token op = parser_->advance();
+        ASTNode* right = parseBitwiseXor();
+        
+        ASTNode* binary = new ASTNode(ASTNodeType::AST_BINARY_OP);
+        binary->op = op.value;
+        binary->left = std::unique_ptr<ASTNode>(left);
+        binary->right = std::unique_ptr<ASTNode>(right);
+        
+        left = binary;
+    }
+    
+    return left;
 }
 
 /**
@@ -121,7 +163,21 @@ ASTNode* ExpressionParser::parseBitwiseOr() {
  * @return 解析されたAST二項演算ノード
  */
 ASTNode* ExpressionParser::parseBitwiseXor() {
-    return parser_->parseBitwiseXor();
+    ASTNode* left = parseBitwiseAnd();
+    
+    while (parser_->check(TokenType::TOK_BIT_XOR)) {
+        Token op = parser_->advance();
+        ASTNode* right = parseBitwiseAnd();
+        
+        ASTNode* binary = new ASTNode(ASTNodeType::AST_BINARY_OP);
+        binary->op = op.value;
+        binary->left = std::unique_ptr<ASTNode>(left);
+        binary->right = std::unique_ptr<ASTNode>(right);
+        
+        left = binary;
+    }
+    
+    return left;
 }
 
 /**
@@ -131,7 +187,21 @@ ASTNode* ExpressionParser::parseBitwiseXor() {
  * 注意: アドレス演算子(&)とは異なります
  */
 ASTNode* ExpressionParser::parseBitwiseAnd() {
-    return parser_->parseBitwiseAnd();
+    ASTNode* left = parseComparison();
+    
+    while (parser_->check(TokenType::TOK_BIT_AND)) {
+        Token op = parser_->advance();
+        ASTNode* right = parseComparison();
+        
+        ASTNode* binary = new ASTNode(ASTNodeType::AST_BINARY_OP);
+        binary->op = op.value;
+        binary->left = std::unique_ptr<ASTNode>(left);
+        binary->right = std::unique_ptr<ASTNode>(right);
+        
+        left = binary;
+    }
+    
+    return left;
 }
 
 // ========================================
@@ -147,7 +217,23 @@ ASTNode* ExpressionParser::parseBitwiseAnd() {
  * - <, >, <=, >= (大小比較)
  */
 ASTNode* ExpressionParser::parseComparison() {
-    return parser_->parseComparison();
+    ASTNode* left = parseShift();
+    
+    while (parser_->check(TokenType::TOK_EQ) || parser_->check(TokenType::TOK_NE) || 
+           parser_->check(TokenType::TOK_LT) || parser_->check(TokenType::TOK_LE) ||
+           parser_->check(TokenType::TOK_GT) || parser_->check(TokenType::TOK_GE)) {
+        Token op = parser_->advance();
+        ASTNode* right = parseShift();
+        
+        ASTNode* binary = new ASTNode(ASTNodeType::AST_BINARY_OP);
+        binary->op = op.value;
+        binary->left = std::unique_ptr<ASTNode>(left);
+        binary->right = std::unique_ptr<ASTNode>(right);
+        
+        left = binary;
+    }
+    
+    return left;
 }
 
 // ========================================
@@ -163,7 +249,21 @@ ASTNode* ExpressionParser::parseComparison() {
  * - >> (右シフト)
  */
 ASTNode* ExpressionParser::parseShift() {
-    return parser_->parseShift();
+    ASTNode* left = parseAdditive();
+    
+    while (parser_->check(TokenType::TOK_LEFT_SHIFT) || parser_->check(TokenType::TOK_RIGHT_SHIFT)) {
+        Token op = parser_->advance();
+        ASTNode* right = parseAdditive();
+        
+        ASTNode* binary = new ASTNode(ASTNodeType::AST_BINARY_OP);
+        binary->op = op.value;
+        binary->left = std::unique_ptr<ASTNode>(left);
+        binary->right = std::unique_ptr<ASTNode>(right);
+        
+        left = binary;
+    }
+    
+    return left;
 }
 
 // ========================================
@@ -306,7 +406,60 @@ ASTNode* ExpressionParser::parsePrimary() {
  * ネストしたアクセス可能: obj.member.submember
  */
 ASTNode* ExpressionParser::parseMemberAccess(ASTNode* object) {
-    return parser_->parseMemberAccess(object);
+    parser_->consume(TokenType::TOK_DOT, "Expected '.'");
+    
+    std::string member_name;
+    if (parser_->check(TokenType::TOK_IDENTIFIER)) {
+        member_name = parser_->current_token_.value;
+        parser_->advance();
+    } else if (parser_->check(TokenType::TOK_PRINT) || parser_->check(TokenType::TOK_PRINTLN) || parser_->check(TokenType::TOK_PRINTF)) {
+        // 予約キーワードだが、メソッド名として許可
+        member_name = parser_->current_token_.value;
+        parser_->advance();
+    } else {
+        parser_->error("Expected member name after '.'");
+        return nullptr;
+    }
+    
+    // メソッド呼び出しかチェック（obj.method()）
+    if (parser_->check(TokenType::TOK_LPAREN)) {
+        // メソッド呼び出し
+        ASTNode* method_call = new ASTNode(ASTNodeType::AST_FUNC_CALL);
+        method_call->name = member_name;
+        method_call->left = std::unique_ptr<ASTNode>(object); // レシーバー
+        parser_->setLocation(method_call, parser_->current_token_);
+        
+        // パラメータリストを解析
+        parser_->advance(); // consume '('
+        
+        if (!parser_->check(TokenType::TOK_RPAREN)) {
+            do {
+                ASTNode* arg = parser_->parseExpression();
+                if (!arg) {
+                    parser_->error("Expected argument expression");
+                    return nullptr;
+                }
+                method_call->arguments.push_back(std::unique_ptr<ASTNode>(arg));
+                
+                if (!parser_->check(TokenType::TOK_COMMA)) {
+                    break;
+                }
+                parser_->advance(); // consume ','
+            } while (!parser_->check(TokenType::TOK_RPAREN) && !parser_->isAtEnd());
+        }
+        
+        parser_->consume(TokenType::TOK_RPAREN, "Expected ')' after method arguments");
+        
+        return method_call;
+    }
+    
+    // 通常のメンバアクセス (連続ドット処理はparsePostfixループに任せる)
+    ASTNode* member_access = new ASTNode(ASTNodeType::AST_MEMBER_ACCESS);
+    member_access->left = std::unique_ptr<ASTNode>(object);
+    member_access->name = member_name; // メンバ名を保存
+    parser_->setLocation(member_access, parser_->current_token_);
+    
+    return member_access;
 }
 
 /**
@@ -318,7 +471,61 @@ ASTNode* ExpressionParser::parseMemberAccess(ASTNode* object) {
  * (*pointer).member の糖衣構文
  */
 ASTNode* ExpressionParser::parseArrowAccess(ASTNode* object) {
-    return parser_->parseArrowAccess(object);
+    parser_->consume(TokenType::TOK_ARROW, "Expected '->'");
+    
+    std::string member_name;
+    if (parser_->check(TokenType::TOK_IDENTIFIER)) {
+        member_name = parser_->current_token_.value;
+        parser_->advance();
+    } else if (parser_->check(TokenType::TOK_PRINT) || parser_->check(TokenType::TOK_PRINTLN) || parser_->check(TokenType::TOK_PRINTF)) {
+        // 予約キーワードだが、メソッド名として許可
+        member_name = parser_->current_token_.value;
+        parser_->advance();
+    } else {
+        parser_->error("Expected member name after '->'");
+        return nullptr;
+    }
+    
+    // メソッド呼び出しかチェック（ptr->method()）
+    if (parser_->check(TokenType::TOK_LPAREN)) {
+        // メソッド呼び出し
+        ASTNode* method_call = new ASTNode(ASTNodeType::AST_FUNC_CALL);
+        method_call->name = member_name;
+        method_call->left = std::unique_ptr<ASTNode>(object); // レシーバー（ポインタ）
+        method_call->is_arrow_call = true; // アロー演算子経由のフラグ
+        parser_->setLocation(method_call, parser_->current_token_);
+        
+        // パラメータリストを解析
+        parser_->advance(); // consume '('
+        
+        if (!parser_->check(TokenType::TOK_RPAREN)) {
+            do {
+                ASTNode* arg = parser_->parseExpression();
+                if (!arg) {
+                    parser_->error("Expected argument expression");
+                    return nullptr;
+                }
+                method_call->arguments.push_back(std::unique_ptr<ASTNode>(arg));
+                
+                if (!parser_->check(TokenType::TOK_COMMA)) {
+                    break;
+                }
+                parser_->advance(); // consume ','
+            } while (!parser_->check(TokenType::TOK_RPAREN) && !parser_->isAtEnd());
+        }
+        
+        parser_->consume(TokenType::TOK_RPAREN, "Expected ')' after method arguments");
+        
+        return method_call;
+    }
+    
+    // アロー演算子アクセス: ptr->member は (*ptr).member と等価
+    ASTNode* arrow_access = new ASTNode(ASTNodeType::AST_ARROW_ACCESS);
+    arrow_access->left = std::unique_ptr<ASTNode>(object);
+    arrow_access->name = member_name; // メンバ名を保存
+    parser_->setLocation(arrow_access, parser_->current_token_);
+    
+    return arrow_access;
 }
 
 // ========================================
@@ -333,7 +540,79 @@ ASTNode* ExpressionParser::parseArrowAccess(ASTNode* object) {
  * 末尾カンマ対応
  */
 ASTNode* ExpressionParser::parseStructLiteral() {
-    return parser_->parseStructLiteral();
+    parser_->consume(TokenType::TOK_LBRACE, "Expected '{'");
+    
+    ASTNode* struct_literal = new ASTNode(ASTNodeType::AST_STRUCT_LITERAL);
+    
+    // 空の構造体リテラル {}
+    if (parser_->check(TokenType::TOK_RBRACE)) {
+        parser_->advance(); // consume '}'
+        return struct_literal;
+    }
+    
+    // 最初の要素をチェックして、名前付きか位置ベースかを判断
+    bool is_named_initialization = false;
+    
+    // 先読みして名前付き初期化かチェック
+    if (parser_->check(TokenType::TOK_IDENTIFIER)) {
+        RecursiveLexer temp_lexer = parser_->lexer_;
+        Token temp_current = parser_->current_token_;
+        parser_->advance();
+        if (parser_->check(TokenType::TOK_COLON)) {
+            is_named_initialization = true;
+        }
+        parser_->lexer_ = temp_lexer;
+        parser_->current_token_ = temp_current;
+    }
+    
+    if (is_named_initialization) {
+        // 名前付き初期化: {name: "Bob", age: 25}
+        while (!parser_->check(TokenType::TOK_RBRACE) && !parser_->isAtEnd()) {
+            // メンバ名の解析
+            if (!parser_->check(TokenType::TOK_IDENTIFIER)) {
+                parser_->error("Expected member name in struct literal");
+                return nullptr;
+            }
+            
+            std::string member_name = parser_->current_token_.value;
+            parser_->advance();
+            
+            parser_->consume(TokenType::TOK_COLON, "Expected ':' after member name");
+            
+            // メンバ値の解析
+            ASTNode* member_value = parser_->parseExpression();
+            
+            // メンバ代入ノードを作成（name: valueの形で保存）
+            ASTNode* member_init = new ASTNode(ASTNodeType::AST_ASSIGN);
+            member_init->name = member_name;
+            member_init->right = std::unique_ptr<ASTNode>(member_value);
+            
+            struct_literal->arguments.push_back(std::unique_ptr<ASTNode>(member_init));
+            
+            if (parser_->check(TokenType::TOK_COMMA)) {
+                parser_->advance(); // consume ','
+            } else if (!parser_->check(TokenType::TOK_RBRACE)) {
+                parser_->error("Expected ',' or '}' in struct literal");
+                return nullptr;
+            }
+        }
+    } else {
+        // 位置ベース初期化: {25, "Bob"}
+        while (!parser_->check(TokenType::TOK_RBRACE) && !parser_->isAtEnd()) {
+            ASTNode* value = parser_->parseExpression();
+            struct_literal->arguments.push_back(std::unique_ptr<ASTNode>(value));
+            
+            if (parser_->check(TokenType::TOK_COMMA)) {
+                parser_->advance(); // consume ','
+            } else if (!parser_->check(TokenType::TOK_RBRACE)) {
+                parser_->error("Expected ',' or '}' in struct literal");
+                return nullptr;
+            }
+        }
+    }
+    
+    parser_->consume(TokenType::TOK_RBRACE, "Expected '}' after struct literal");
+    return struct_literal;
 }
 
 /**
@@ -344,5 +623,38 @@ ASTNode* ExpressionParser::parseStructLiteral() {
  * 空配列もサポート: []
  */
 ASTNode* ExpressionParser::parseArrayLiteral() {
-    return parser_->parseArrayLiteral();
+    parser_->consume(TokenType::TOK_LBRACKET, "Expected '[' at start of array literal");
+    
+    ASTNode* array_literal = new ASTNode(ASTNodeType::AST_ARRAY_LITERAL);
+    
+    // 空の配列リテラル []
+    if (parser_->check(TokenType::TOK_RBRACKET)) {
+        parser_->advance(); // consume ']'
+        return array_literal;
+    }
+    
+    // 配列要素を解析
+    while (!parser_->check(TokenType::TOK_RBRACKET) && !parser_->isAtEnd()) {
+        ASTNode* element;
+        
+        if (parser_->check(TokenType::TOK_LBRACE)) {
+            // struct literal要素: {25, "Alice"}
+            element = parseStructLiteral();
+        } else {
+            // 通常の式要素
+            element = parser_->parseExpression();
+        }
+        
+        array_literal->arguments.push_back(std::unique_ptr<ASTNode>(element));
+        
+        if (parser_->check(TokenType::TOK_COMMA)) {
+            parser_->advance(); // consume ','
+        } else if (!parser_->check(TokenType::TOK_RBRACKET)) {
+            parser_->error("Expected ',' or ']' in array literal");
+            return nullptr;
+        }
+    }
+    
+    parser_->consume(TokenType::TOK_RBRACKET, "Expected ']' after array literal");
+    return array_literal;
 }

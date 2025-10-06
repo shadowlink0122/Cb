@@ -2289,131 +2289,31 @@ ASTNode* RecursiveParser::parseTernary() {
 }
 
 ASTNode* RecursiveParser::parseLogicalOr() {
-    ASTNode* left = parseLogicalAnd();
-    
-    while (check(TokenType::TOK_OR)) {
-        Token op = advance();
-        ASTNode* right = parseLogicalAnd();
-        
-        ASTNode* binary = new ASTNode(ASTNodeType::AST_BINARY_OP);
-        binary->op = op.value;
-        binary->left = std::unique_ptr<ASTNode>(left);
-        binary->right = std::unique_ptr<ASTNode>(right);
-        
-        left = binary;
-    }
-    
-    return left;
+    return expression_parser_->parseLogicalOr();
 }
 
 ASTNode* RecursiveParser::parseLogicalAnd() {
-    ASTNode* left = parseBitwiseOr();
-    
-    while (check(TokenType::TOK_AND)) {
-        Token op = advance();
-        ASTNode* right = parseBitwiseOr();
-        
-        ASTNode* binary = new ASTNode(ASTNodeType::AST_BINARY_OP);
-        binary->op = op.value;
-        binary->left = std::unique_ptr<ASTNode>(left);
-        binary->right = std::unique_ptr<ASTNode>(right);
-        
-        left = binary;
-    }
-    
-    return left;
+    return expression_parser_->parseLogicalAnd();
 }
 
 ASTNode* RecursiveParser::parseBitwiseOr() {
-    ASTNode* left = parseBitwiseXor();
-    
-    while (check(TokenType::TOK_BIT_OR)) {
-        Token op = advance();
-        ASTNode* right = parseBitwiseXor();
-        
-        ASTNode* binary = new ASTNode(ASTNodeType::AST_BINARY_OP);
-        binary->op = op.value;
-        binary->left = std::unique_ptr<ASTNode>(left);
-        binary->right = std::unique_ptr<ASTNode>(right);
-        
-        left = binary;
-    }
-    
-    return left;
+    return expression_parser_->parseBitwiseOr();
 }
 
 ASTNode* RecursiveParser::parseBitwiseXor() {
-    ASTNode* left = parseBitwiseAnd();
-    
-    while (check(TokenType::TOK_BIT_XOR)) {
-        Token op = advance();
-        ASTNode* right = parseBitwiseAnd();
-        
-        ASTNode* binary = new ASTNode(ASTNodeType::AST_BINARY_OP);
-        binary->op = op.value;
-        binary->left = std::unique_ptr<ASTNode>(left);
-        binary->right = std::unique_ptr<ASTNode>(right);
-        
-        left = binary;
-    }
-    
-    return left;
+    return expression_parser_->parseBitwiseXor();
 }
 
 ASTNode* RecursiveParser::parseBitwiseAnd() {
-    ASTNode* left = parseComparison();
-    
-    while (check(TokenType::TOK_BIT_AND)) {
-        Token op = advance();
-        ASTNode* right = parseComparison();
-        
-        ASTNode* binary = new ASTNode(ASTNodeType::AST_BINARY_OP);
-        binary->op = op.value;
-        binary->left = std::unique_ptr<ASTNode>(left);
-        binary->right = std::unique_ptr<ASTNode>(right);
-        
-        left = binary;
-    }
-    
-    return left;
+    return expression_parser_->parseBitwiseAnd();
 }
 
 ASTNode* RecursiveParser::parseComparison() {
-    ASTNode* left = parseShift();
-    
-    while (check(TokenType::TOK_EQ) || check(TokenType::TOK_NE) || 
-           check(TokenType::TOK_LT) || check(TokenType::TOK_LE) ||
-           check(TokenType::TOK_GT) || check(TokenType::TOK_GE)) {
-        Token op = advance();
-        ASTNode* right = parseShift();
-        
-        ASTNode* binary = new ASTNode(ASTNodeType::AST_BINARY_OP);
-        binary->op = op.value;
-        binary->left = std::unique_ptr<ASTNode>(left);
-        binary->right = std::unique_ptr<ASTNode>(right);
-        
-        left = binary;
-    }
-    
-    return left;
+    return expression_parser_->parseComparison();
 }
 
 ASTNode* RecursiveParser::parseShift() {
-    ASTNode* left = parseAdditive();
-    
-    while (check(TokenType::TOK_LEFT_SHIFT) || check(TokenType::TOK_RIGHT_SHIFT)) {
-        Token op = advance();
-        ASTNode* right = parseAdditive();
-        
-        ASTNode* binary = new ASTNode(ASTNodeType::AST_BINARY_OP);
-        binary->op = op.value;
-        binary->left = std::unique_ptr<ASTNode>(left);
-        binary->right = std::unique_ptr<ASTNode>(right);
-        
-        left = binary;
-    }
-    
-    return left;
+    return expression_parser_->parseShift();
 }
 
 ASTNode* RecursiveParser::parseAdditive() {
@@ -4632,234 +4532,22 @@ bool RecursiveParser::parseUnionValue(UnionDefinition& union_def) {
 
 // メンバアクセスの解析: obj.member
 ASTNode* RecursiveParser::parseMemberAccess(ASTNode* object) {
-    consume(TokenType::TOK_DOT, "Expected '.'");
-    
-    std::string member_name;
-    if (check(TokenType::TOK_IDENTIFIER)) {
-        member_name = current_token_.value;
-        advance();
-    } else if (check(TokenType::TOK_PRINT) || check(TokenType::TOK_PRINTLN) || check(TokenType::TOK_PRINTF)) {
-        // 予約キーワードだが、メソッド名として許可
-        member_name = current_token_.value;
-        advance();
-    } else {
-        error("Expected member name after '.'");
-        return nullptr;
-    }
-    
-    // メソッド呼び出しかチェック（obj.method()）
-    if (check(TokenType::TOK_LPAREN)) {
-        // メソッド呼び出し
-        ASTNode* method_call = new ASTNode(ASTNodeType::AST_FUNC_CALL);
-        method_call->name = member_name;
-        method_call->left = std::unique_ptr<ASTNode>(object); // レシーバー
-        setLocation(method_call, current_token_);
-        
-        // パラメータリストを解析
-        advance(); // consume '('
-        
-        if (!check(TokenType::TOK_RPAREN)) {
-            do {
-                ASTNode* arg = parseExpression();
-                if (!arg) {
-                    error("Expected argument expression");
-                    return nullptr;
-                }
-                method_call->arguments.push_back(std::unique_ptr<ASTNode>(arg));
-                
-                if (!check(TokenType::TOK_COMMA)) {
-                    break;
-                }
-                advance(); // consume ','
-            } while (!check(TokenType::TOK_RPAREN) && !isAtEnd());
-        }
-        
-        consume(TokenType::TOK_RPAREN, "Expected ')' after method arguments");
-        
-        return method_call;
-    }
-    
-    // 通常のメンバアクセス (連続ドット処理はparsePostfixループに任せる)
-    ASTNode* member_access = new ASTNode(ASTNodeType::AST_MEMBER_ACCESS);
-    member_access->left = std::unique_ptr<ASTNode>(object);
-    member_access->name = member_name; // メンバ名を保存
-    setLocation(member_access, current_token_);
-    
-    return member_access;
+    return expression_parser_->parseMemberAccess(object);
 }
 
 // アロー演算子アクセスの解析: ptr->member
 ASTNode* RecursiveParser::parseArrowAccess(ASTNode* object) {
-    consume(TokenType::TOK_ARROW, "Expected '->'");
-    
-    std::string member_name;
-    if (check(TokenType::TOK_IDENTIFIER)) {
-        member_name = current_token_.value;
-        advance();
-    } else if (check(TokenType::TOK_PRINT) || check(TokenType::TOK_PRINTLN) || check(TokenType::TOK_PRINTF)) {
-        // 予約キーワードだが、メソッド名として許可
-        member_name = current_token_.value;
-        advance();
-    } else {
-        error("Expected member name after '->'");
-        return nullptr;
-    }
-    
-    // メソッド呼び出しかチェック（ptr->method()）
-    if (check(TokenType::TOK_LPAREN)) {
-        // メソッド呼び出し
-        ASTNode* method_call = new ASTNode(ASTNodeType::AST_FUNC_CALL);
-        method_call->name = member_name;
-        method_call->left = std::unique_ptr<ASTNode>(object); // レシーバー（ポインタ）
-        method_call->is_arrow_call = true; // アロー演算子経由のフラグ
-        setLocation(method_call, current_token_);
-        
-        // パラメータリストを解析
-        advance(); // consume '('
-        
-        if (!check(TokenType::TOK_RPAREN)) {
-            do {
-                ASTNode* arg = parseExpression();
-                if (!arg) {
-                    error("Expected argument expression");
-                    return nullptr;
-                }
-                method_call->arguments.push_back(std::unique_ptr<ASTNode>(arg));
-                
-                if (!check(TokenType::TOK_COMMA)) {
-                    break;
-                }
-                advance(); // consume ','
-            } while (!check(TokenType::TOK_RPAREN) && !isAtEnd());
-        }
-        
-        consume(TokenType::TOK_RPAREN, "Expected ')' after method arguments");
-        
-        return method_call;
-    }
-    
-    // アロー演算子アクセス: ptr->member は (*ptr).member と等価
-    ASTNode* arrow_access = new ASTNode(ASTNodeType::AST_ARROW_ACCESS);
-    arrow_access->left = std::unique_ptr<ASTNode>(object);
-    arrow_access->name = member_name; // メンバ名を保存
-    setLocation(arrow_access, current_token_);
-    
-    return arrow_access;
+    return expression_parser_->parseArrowAccess(object);
 }
 
 // 構造体リテラルの解析: {member: value, member2: value2}
 ASTNode* RecursiveParser::parseStructLiteral() {
-    consume(TokenType::TOK_LBRACE, "Expected '{'");
-    
-    ASTNode* struct_literal = new ASTNode(ASTNodeType::AST_STRUCT_LITERAL);
-    
-    // 空の構造体リテラル {}
-    if (check(TokenType::TOK_RBRACE)) {
-        advance(); // consume '}'
-        return struct_literal;
-    }
-    
-    // 最初の要素をチェックして、名前付きか位置ベースかを判断
-    bool is_named_initialization = false;
-    
-    // 先読みして名前付き初期化かチェック
-    if (check(TokenType::TOK_IDENTIFIER)) {
-        RecursiveLexer temp_lexer = lexer_;
-        Token temp_current = current_token_;
-        advance();
-        if (check(TokenType::TOK_COLON)) {
-            is_named_initialization = true;
-        }
-        lexer_ = temp_lexer;
-        current_token_ = temp_current;
-    }
-    
-    if (is_named_initialization) {
-        // 名前付き初期化: {name: "Bob", age: 25}
-        while (!check(TokenType::TOK_RBRACE) && !isAtEnd()) {
-            // メンバ名の解析
-            if (!check(TokenType::TOK_IDENTIFIER)) {
-                error("Expected member name in struct literal");
-                return nullptr;
-            }
-            
-            std::string member_name = current_token_.value;
-            advance();
-            
-            consume(TokenType::TOK_COLON, "Expected ':' after member name");
-            
-            // メンバ値の解析
-            ASTNode* member_value = parseExpression();
-            
-            // メンバ代入ノードを作成（name: valueの形で保存）
-            ASTNode* member_init = new ASTNode(ASTNodeType::AST_ASSIGN);
-            member_init->name = member_name;
-            member_init->right = std::unique_ptr<ASTNode>(member_value);
-            
-            struct_literal->arguments.push_back(std::unique_ptr<ASTNode>(member_init));
-            
-            if (check(TokenType::TOK_COMMA)) {
-                advance(); // consume ','
-            } else if (!check(TokenType::TOK_RBRACE)) {
-                error("Expected ',' or '}' in struct literal");
-                return nullptr;
-            }
-        }
-    } else {
-        // 位置ベース初期化: {25, "Bob"}
-        while (!check(TokenType::TOK_RBRACE) && !isAtEnd()) {
-            ASTNode* value = parseExpression();
-            struct_literal->arguments.push_back(std::unique_ptr<ASTNode>(value));
-            
-            if (check(TokenType::TOK_COMMA)) {
-                advance(); // consume ','
-            } else if (!check(TokenType::TOK_RBRACE)) {
-                error("Expected ',' or '}' in struct literal");
-                return nullptr;
-            }
-        }
-    }
-    
-    consume(TokenType::TOK_RBRACE, "Expected '}' after struct literal");
-    return struct_literal;
+    return expression_parser_->parseStructLiteral();
 }
 
 // 配列リテラルの解析: [{}, {}, ...] または [1, 2, 3]
 ASTNode* RecursiveParser::parseArrayLiteral() {
-    consume(TokenType::TOK_LBRACKET, "Expected '[' at start of array literal");
-    
-    ASTNode* array_literal = new ASTNode(ASTNodeType::AST_ARRAY_LITERAL);
-    
-    // 空の配列リテラル []
-    if (check(TokenType::TOK_RBRACKET)) {
-        advance(); // consume ']'
-        return array_literal;
-    }
-    
-    // 配列要素を解析
-    while (!check(TokenType::TOK_RBRACKET) && !isAtEnd()) {
-        ASTNode* element;
-        
-        if (check(TokenType::TOK_LBRACE)) {
-            // struct literal要素: {25, "Alice"}
-            element = parseStructLiteral();
-        } else {
-            // 通常の式要素
-            element = parseExpression();
-        }
-        
-        array_literal->arguments.push_back(std::unique_ptr<ASTNode>(element));
-        
-        if (check(TokenType::TOK_COMMA)) {
-            advance(); // consume ','
-        } else if (!check(TokenType::TOK_RBRACKET)) {
-            error("Expected ',' or ']' in array literal");
-            return nullptr;
-        }
-    }
-    
-    consume(TokenType::TOK_RBRACKET, "Expected ']' after array literal");
-    return array_literal;
+    return expression_parser_->parseArrayLiteral();
 }
 
 ASTNode* RecursiveParser::parseEnumDeclaration() {
