@@ -7,6 +7,7 @@
 #include "parsers/enum_parser.h"
 #include "parsers/interface_parser.h"
 #include "parsers/union_parser.h"
+#include "parsers/type_utility_parser.h"
 #include "../../backend/interpreter/core/error_handler.h"
 #include "../../common/debug.h"
 #include "../../common/debug_messages.h"
@@ -42,6 +43,7 @@ RecursiveParser::RecursiveParser(const std::string& source, const std::string& f
     enum_parser_ = std::make_unique<EnumParser>(this);
     interface_parser_ = std::make_unique<InterfaceParser>(this);
     union_parser_ = std::make_unique<UnionParser>(this);
+    type_utility_parser_ = std::make_unique<TypeUtilityParser>(this);
     
     advance();
 }
@@ -129,222 +131,7 @@ ASTNode* RecursiveParser::parseVariableDeclaration() {
 }
 
 std::string RecursiveParser::parseType() {
-    ParsedTypeInfo parsed;
-    parsed.array_info = ArrayTypeInfo();
-
-    std::string base_type;
-    std::string original_type;
-    bool saw_unsigned = false;
-    bool saw_const = false;
-
-    // Check for const qualifier
-    if (check(TokenType::TOK_CONST)) {
-        saw_const = true;
-        advance();
-    }
-
-    if (check(TokenType::TOK_UNSIGNED)) {
-        saw_unsigned = true;
-        advance();
-    }
-
-    auto set_base_type = [&](const std::string &type_name) {
-        base_type = type_name;
-        if (original_type.empty()) {
-            original_type = type_name;
-        }
-    };
-
-    if (check(TokenType::TOK_INT)) {
-        advance();
-        set_base_type("int");
-    } else if (check(TokenType::TOK_LONG)) {
-        advance();
-        set_base_type("long");
-    } else if (check(TokenType::TOK_SHORT)) {
-        advance();
-        set_base_type("short");
-    } else if (check(TokenType::TOK_TINY)) {
-        advance();
-        set_base_type("tiny");
-    } else if (check(TokenType::TOK_VOID)) {
-        advance();
-        set_base_type("void");
-    } else if (check(TokenType::TOK_BOOL)) {
-        advance();
-        set_base_type("bool");
-    } else if (check(TokenType::TOK_FLOAT)) {
-        advance();
-        set_base_type("float");
-    } else if (check(TokenType::TOK_DOUBLE)) {
-        advance();
-        set_base_type("double");
-    } else if (check(TokenType::TOK_BIG)) {
-        advance();
-        set_base_type("big");
-    } else if (check(TokenType::TOK_QUAD)) {
-        advance();
-        set_base_type("quad");
-    } else if (check(TokenType::TOK_STRING_TYPE)) {
-        advance();
-        set_base_type("string");
-    } else if (check(TokenType::TOK_CHAR_TYPE)) {
-        advance();
-        set_base_type("char");
-    } else if (check(TokenType::TOK_STRUCT)) {
-        advance();
-        if (!check(TokenType::TOK_IDENTIFIER)) {
-            error("Expected struct name after 'struct'");
-            return "";
-        }
-        std::string struct_name = current_token_.value;
-        advance();
-        original_type = "struct " + struct_name;
-        base_type = original_type;
-    } else if (check(TokenType::TOK_IDENTIFIER)) {
-        std::string identifier = current_token_.value;
-        if (typedef_map_.find(identifier) != typedef_map_.end()) {
-            advance();
-            original_type = identifier;
-            std::string resolved = resolveTypedefChain(identifier);
-            if (resolved.empty()) {
-                error("Unknown type: " + identifier);
-                throw std::runtime_error("Unknown type: " + identifier);
-            }
-            set_base_type(resolved);
-        } else if (struct_definitions_.find(identifier) != struct_definitions_.end()) {
-            advance();
-            original_type = identifier;
-            set_base_type(identifier);
-        } else if (enum_definitions_.find(identifier) != enum_definitions_.end()) {
-            advance();
-            original_type = identifier;
-            set_base_type(identifier);
-        } else if (interface_definitions_.find(identifier) != interface_definitions_.end()) {
-            advance();
-            original_type = identifier;
-            set_base_type(identifier);
-        } else if (union_definitions_.find(identifier) != union_definitions_.end()) {
-            advance();
-            original_type = identifier;
-            set_base_type(identifier);
-        } else {
-            // 未定義型 - 前方参照の可能性として許容
-            // (ポインタまたは配列の場合に限る - 後でポインタ/配列チェックで判定)
-            advance();
-            original_type = identifier;
-            set_base_type(identifier);
-            // NOTE: 値メンバーとして使用された場合のエラーは後で検出される
-        }
-    } else {
-        error("Expected type specifier");
-        return "";
-    }
-
-    if (original_type.empty()) {
-        original_type = base_type;
-    }
-
-    parsed.base_type = base_type;
-    parsed.original_type = original_type;
-    parsed.base_type_info = getTypeInfoFromString(base_type);
-
-    if (saw_unsigned) {
-        switch (parsed.base_type_info) {
-        case TYPE_TINY:
-        case TYPE_SHORT:
-        case TYPE_INT:
-        case TYPE_LONG:
-            parsed.is_unsigned = true;
-            break;
-        case TYPE_FLOAT:
-        case TYPE_DOUBLE:
-        case TYPE_QUAD:
-            // float/double/quadにはunsignedを適用できない
-            std::cerr << "[WARNING] 'unsigned' modifier cannot be applied to floating-point types (float, double, quad); 'unsigned' qualifier ignored at line " 
-                      << current_token_.line << std::endl;
-            break;
-        case TYPE_BIG:
-            parsed.is_unsigned = true;
-            break;
-        default:
-            error("'unsigned' modifier can only be applied to numeric types");
-            return "";
-        }
-    }
-
-    int pointer_depth = 0;
-    while (check(TokenType::TOK_MUL)) {
-        pointer_depth++;
-        advance();
-    }
-
-    if (pointer_depth > 0) {
-        parsed.is_pointer = true;
-        parsed.pointer_depth = pointer_depth;
-    }
-
-    if (check(TokenType::TOK_BIT_AND)) {
-        parsed.is_reference = true;
-        advance();
-    }
-
-    std::vector<ArrayDimension> dimensions;
-    std::vector<std::string> dimension_texts;
-
-    while (check(TokenType::TOK_LBRACKET)) {
-        advance();
-
-        if (check(TokenType::TOK_NUMBER)) {
-            Token size_token = advance();
-            dimensions.emplace_back(std::stoi(size_token.value), false, "");
-            dimension_texts.push_back("[" + size_token.value + "]");
-        } else if (check(TokenType::TOK_IDENTIFIER)) {
-            Token const_token = advance();
-            dimensions.emplace_back(-1, true, const_token.value);
-            dimension_texts.push_back("[" + const_token.value + "]");
-        } else {
-            dimensions.emplace_back(-1, true, "");
-            dimension_texts.push_back("[]");
-        }
-
-        consume(TokenType::TOK_RBRACKET, "Expected ']' in array type");
-    }
-
-    if (!dimensions.empty()) {
-        parsed.is_array = true;
-        parsed.array_info.base_type = parsed.is_pointer ? TYPE_POINTER : parsed.base_type_info;
-        parsed.array_info.dimensions = dimensions;
-    }
-
-    std::string full_type = base_type;
-    if (pointer_depth > 0) {
-        full_type += std::string(pointer_depth, '*');
-    }
-    for (const auto &dim_text : dimension_texts) {
-        full_type += dim_text;
-    }
-
-    if (parsed.is_reference) {
-        full_type += "&";
-    }
-
-    if (parsed.is_unsigned) {
-        full_type = "unsigned " + full_type;
-        if (original_type == base_type) {
-            parsed.original_type = full_type;
-        }
-    }
-
-    if (saw_const) {
-        parsed.is_const = true;
-        full_type = "const " + full_type;
-    }
-
-    parsed.full_type = full_type;
-
-    last_parsed_type_info_ = parsed;
-    return parsed.full_type;
+    return type_utility_parser_->parseType();
 }
 
 TypeInfo RecursiveParser::resolveParsedTypeInfo(const ParsedTypeInfo& parsed) const {
@@ -594,86 +381,7 @@ ASTNode* RecursiveParser::parseTypedefDeclaration() {
 }
 
 TypeInfo RecursiveParser::getTypeInfoFromString(const std::string& type_name) {
-    if (type_name == "nullptr") {
-        return TYPE_NULLPTR;
-    }
-
-    std::string working = type_name;
-    // bool is_unsigned = false;  // 将来の拡張用に保持
-    if (working.rfind("unsigned ", 0) == 0) {
-        // is_unsigned = true;
-        working = working.substr(9);
-    }
-
-    if (working.find('*') != std::string::npos) {
-        return TYPE_POINTER;
-    }
-
-    // 配列型のチェック（1次元・多次元両対応）
-    if (working.find('[') != std::string::npos) {
-        std::string base_type = working.substr(0, working.find('['));
-        if (base_type == "int") {
-            return static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_INT);
-        } else if (base_type == "string") {
-            return static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_STRING);
-        } else if (base_type == "bool") {
-            return static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_BOOL);
-        } else if (base_type == "long") {
-            return static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_LONG);
-        } else if (base_type == "short") {
-            return static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_SHORT);
-        } else if (base_type == "tiny") {
-            return static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_TINY);
-        } else if (base_type == "char") {
-            return static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_CHAR);
-        } else if (base_type == "float") {
-            return static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_FLOAT);
-        } else if (base_type == "double") {
-            return static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_DOUBLE);
-        } else if (base_type == "big") {
-            return static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_BIG);
-        } else if (base_type == "quad") {
-            return static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_QUAD);
-        } else {
-            return TYPE_UNKNOWN;
-        }
-    }
-    
-    if (working == "int") {
-        return TYPE_INT;
-    } else if (working == "long") {
-        return TYPE_LONG;
-    } else if (working == "short") {
-        return TYPE_SHORT;
-    } else if (working == "tiny") {
-        return TYPE_TINY;
-    } else if (working == "bool") {
-        return TYPE_BOOL;
-    } else if (working == "string") {
-        return TYPE_STRING;
-    } else if (working == "char") {
-        return TYPE_CHAR;
-    } else if (working == "float") {
-        return TYPE_FLOAT;
-    } else if (working == "double") {
-        return TYPE_DOUBLE;
-    } else if (working == "big") {
-        return TYPE_BIG;
-    } else if (working == "quad") {
-        return TYPE_QUAD;
-    } else if (working == "void") {
-        return TYPE_VOID;
-    } else if (working.substr(0, 7) == "struct " || struct_definitions_.find(working) != struct_definitions_.end()) {
-        return TYPE_STRUCT;
-    } else if (working.substr(0, 5) == "enum " || enum_definitions_.find(working) != enum_definitions_.end()) {
-        return TYPE_ENUM;
-    } else if (working.substr(0, 10) == "interface " || interface_definitions_.find(working) != interface_definitions_.end()) {
-        return TYPE_INTERFACE;
-    } else if (union_definitions_.find(working) != union_definitions_.end()) {
-        return TYPE_UNION;
-    } else {
-        return TYPE_UNKNOWN;
-    }
+    return type_utility_parser_->getTypeInfoFromString(type_name);
 }
 
 ASTNode* RecursiveParser::parseReturnStatement() {
@@ -745,88 +453,18 @@ std::string RecursiveParser::getSourceLine(int line_number) {
 
 // typedef型のチェーンを解決する
 std::string RecursiveParser::resolveTypedefChain(const std::string& typedef_name) {
-    std::unordered_set<std::string> visited;
-    std::string current = typedef_name;
-    
-    while (typedef_map_.find(current) != typedef_map_.end()) {
-        if (visited.find(current) != visited.end()) {
-            // 循環参照検出
-            return "";
-        }
-        visited.insert(current);
-        
-        std::string next = typedef_map_[current];
-        
-        // 自分自身を指している場合（匿名structのtypedef）
-        if (next == current) {
-            // 構造体定義が存在するかチェック
-            if (struct_definitions_.find(current) != struct_definitions_.end()) {
-                return current;
-            }
-            return "";
-        }
-        
-        // 次がtypedef型かチェック
-        if (typedef_map_.find(next) != typedef_map_.end()) {
-            current = next;
-        } else {
-            // 基本型に到達
-            return next;
-        }
-    }
-    
-    // 基本型かチェック
-    if (current == "int" || current == "long" || current == "short" || 
-        current == "tiny" || current == "bool" || current == "string" || 
-        current == "char" || current == "void") {
-        return current;
-    }
-    
-    // "struct StructName"形式のチェック
-    if (current.substr(0, 7) == "struct " && current.length() > 7) {
-        std::string struct_name = current.substr(7);
-        if (struct_definitions_.find(struct_name) != struct_definitions_.end()) {
-            return current; // "struct StructName"のまま返す
-        }
-    }
-    
-    // 構造体型かチェック（裸の構造体名）
-    if (struct_definitions_.find(current) != struct_definitions_.end()) {
-        return current; // 構造体名をそのまま返す
-    }
-    
-    // enum型かチェック（裸のenum名）
-    if (enum_definitions_.find(current) != enum_definitions_.end()) {
-        return current; // enum名をそのまま返す
-    }
-    
-    // 配列型かチェック（int[2], int[2][2]など）
-    if (current.find('[') != std::string::npos) {
-        return current; // 配列型名をそのまま返す
-    }
-    
-    // ユニオン型かチェック（裸のユニオン名）
-    if (union_definitions_.find(current) != union_definitions_.end()) {
-        return current; // ユニオン名をそのまま返す
-    }
-    
-    // 未定義型の場合は空文字列を返す
-    return "";
+    return type_utility_parser_->resolveTypedefChain(typedef_name);
 }
-
-// 型名から基本型部分を抽出する
 
 ASTNode* RecursiveParser::parseTypedefVariableDeclaration() {
     return declaration_parser_->parseTypedefVariableDeclaration();
 }
+
 std::string RecursiveParser::extractBaseType(const std::string& type_name) {
-    // 配列部分 [n] を除去して基本型を取得
-    size_t bracket_pos = type_name.find('[');
-    if (bracket_pos != std::string::npos) {
-        return type_name.substr(0, bracket_pos);
-    }
-    return type_name;
+    return type_utility_parser_->extractBaseType(type_name);
 }
+
+// DELETED: 10 lines moved to type_utility_parser.cpp
 
 // struct宣言の解析: struct name { members };
 ASTNode* RecursiveParser::parseStructDeclaration() {
@@ -1687,77 +1325,10 @@ bool RecursiveParser::detectCircularReference(const std::string& struct_name,
                                              const std::string& member_type,
                                              std::unordered_set<std::string>& visited,
                                              std::vector<std::string>& path) {
-    // 型名を正規化（"struct " プレフィックスを除去）
-    std::string normalized_type = member_type;
-    if (normalized_type.rfind("struct ", 0) == 0) {
-        normalized_type = normalized_type.substr(7);
-    }
-    
-    // 構造体型でなければ循環なし
-    if (struct_definitions_.find(normalized_type) == struct_definitions_.end()) {
-        return false;
-    }
-    
-    // 前方宣言のみの構造体はスキップ（定義が後で来る可能性がある）
-    const StructDefinition& struct_def = struct_definitions_[normalized_type];
-    if (struct_def.is_forward_declaration) {
-        return false;
-    }
-    
-    // 開始構造体に戻ってきたら循環検出
-    if (normalized_type == struct_name) {
-        path.push_back(normalized_type);
-        return true;
-    }
-    
-    // 既に訪問済みなら循環なし（異なる構造体への循環）
-    if (visited.find(normalized_type) != visited.end()) {
-        return false;
-    }
-    
-    // 訪問マーク
-    visited.insert(normalized_type);
-    path.push_back(normalized_type);
-    for (const auto& member : struct_def.members) {
-        // ポインタメンバーはスキップ（メモリ発散しない）
-        if (member.is_pointer) {
-            continue;
-        }
-        
-        // 配列メンバーはスキップ（固定サイズなので発散しない）
-        if (member.array_info.is_array()) {
-            continue;
-        }
-        
-        // 値メンバーの型を再帰的にチェック
-        std::string member_base_type = member.type_alias;
-        if (member_base_type.empty()) {
-            // TypeInfoから型名を復元（構造体の場合）
-            if (member.type == TYPE_STRUCT) {
-                // struct_type_nameまたはpointer_base_type_nameから取得
-                member_base_type = member.pointer_base_type_name;
-                if (member_base_type.empty()) {
-                    continue;
-                }
-            } else {
-                continue; // プリミティブ型はスキップ
-            }
-        }
-        
-        if (detectCircularReference(struct_name, member_base_type, visited, path)) {
-            return true;
-        }
-    }
-    
-    // バックトラック
-    path.pop_back();
-    visited.erase(normalized_type);
-    
-    return false;
+    return type_utility_parser_->detectCircularReference(struct_name, member_type, visited, path);
 }
 
 // 関数ポインタtypedef構文かどうかをチェック
-// typedef <return_type> (*<name>)(<param_types>);
 bool RecursiveParser::isFunctionPointerTypedef() {
     // 簡単なチェック：次のトークンの種類で判断
     // 型名の後に '(' が来たら関数ポインタtypedefの可能性
@@ -1792,8 +1363,6 @@ bool RecursiveParser::isFunctionPointerTypedef() {
 }
 
 // 関数ポインタtypedef宣言の解析
-// typedef <return_type> (*<name>)(<param_types>);
 ASTNode* RecursiveParser::parseFunctionPointerTypedefDeclaration() {
     return declaration_parser_->parseFunctionPointerTypedefDeclaration();
 }
-
