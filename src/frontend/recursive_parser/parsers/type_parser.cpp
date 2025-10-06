@@ -13,6 +13,7 @@
 //
 #include "type_parser.h"
 #include "../recursive_parser.h"
+#include <algorithm>
 
 TypeParser::TypeParser(RecursiveParser* parser) 
     : parser_(parser) {
@@ -98,9 +99,30 @@ std::string TypeParser::resolveArrayType(
     const std::string& base_type,
     const std::vector<std::pair<int, bool>>& dimensions
 ) {
-    // TODO: Phase 5で実装を移行
-    // 現時点ではダミー実装
-    return base_type;
+    if (dimensions.empty()) {
+        return base_type;
+    }
+    
+    std::string result = base_type;
+    
+    for (const auto& dim : dimensions) {
+        int size = dim.first;
+        bool is_dynamic = dim.second;
+        
+        result += "[";
+        
+        if (is_dynamic || size < 0) {
+            // 動的配列（サイズ未指定）
+            // result += "";  // 空のまま
+        } else {
+            // 固定サイズ配列
+            result += std::to_string(size);
+        }
+        
+        result += "]";
+    }
+    
+    return result;
 }
 
 // ========================================
@@ -132,13 +154,80 @@ int TypeParser::getPointerLevel(const ParsedTypeInfo& type_info) {
  * - 基本型が存在するか
  * - 構造体/Enumが定義されているか
  * - Typedef型が解決可能か
- * 
- * 注意: 現在Phase 2では委譲のみで実装されていません。
- * Phase 5以降で実装を移行予定です。
+ * - ポインタ・参照型の基底型が有効か
  */
 bool TypeParser::isValidType(const std::string& type_name) {
-    // TODO: Phase 5で実装を移行
-    return true;  // ダミー実装
+    if (type_name.empty()) {
+        return false;
+    }
+    
+    // ポインタ・参照記号を除去して基底型を取得
+    std::string base_type = type_name;
+    
+    // 末尾の'*'と'&'を削除
+    while (!base_type.empty() && (base_type.back() == '*' || base_type.back() == '&')) {
+        base_type.pop_back();
+    }
+    
+    // 配列記号を除去 (例: int[10] -> int)
+    size_t bracket_pos = base_type.find('[');
+    if (bracket_pos != std::string::npos) {
+        base_type = base_type.substr(0, bracket_pos);
+    }
+    
+    // unsigned修飾子を除去
+    if (base_type.rfind("unsigned ", 0) == 0) {
+        base_type = base_type.substr(9); // "unsigned "の長さ
+    }
+    
+    // const修飾子を除去
+    if (base_type.rfind("const ", 0) == 0) {
+        base_type = base_type.substr(6); // "const "の長さ
+    }
+    
+    // struct/enumプレフィックスを除去
+    if (base_type.rfind("struct ", 0) == 0) {
+        base_type = base_type.substr(7);
+    } else if (base_type.rfind("enum ", 0) == 0) {
+        base_type = base_type.substr(5);
+    }
+    
+    // 空白を削除
+    base_type.erase(std::remove(base_type.begin(), base_type.end(), ' '), base_type.end());
+    
+    // 基本型のチェック
+    if (base_type == "int" || base_type == "long" || base_type == "short" || base_type == "tiny" ||
+        base_type == "bool" || base_type == "string" || base_type == "char" || base_type == "void" ||
+        base_type == "float" || base_type == "double" || base_type == "big" || base_type == "quad") {
+        return true;
+    }
+    
+    // 構造体定義のチェック
+    if (parser_->struct_definitions_.find(base_type) != parser_->struct_definitions_.end()) {
+        return true;
+    }
+    
+    // Enum定義のチェック
+    if (parser_->enum_definitions_.find(base_type) != parser_->enum_definitions_.end()) {
+        return true;
+    }
+    
+    // Interface定義のチェック
+    if (parser_->interface_definitions_.find(base_type) != parser_->interface_definitions_.end()) {
+        return true;
+    }
+    
+    // Union定義のチェック
+    if (parser_->union_definitions_.find(base_type) != parser_->union_definitions_.end()) {
+        return true;
+    }
+    
+    // Typedef型のチェック
+    if (parser_->typedef_map_.find(base_type) != parser_->typedef_map_.end()) {
+        return true;
+    }
+    
+    return false;
 }
 
 /**
@@ -149,13 +238,45 @@ bool TypeParser::isValidType(const std::string& type_name) {
  * 構造体型の判定:
  * - struct キーワードが付いている
  * - または typedef struct として定義されている
- * 
- * 注意: 現在Phase 2では委譲のみで実装されていません。
- * Phase 5以降で実装を移行予定です。
  */
 bool TypeParser::isStructType(const std::string& type_name) {
-    // TODO: Phase 5で実装を移行
-    return type_name.find("struct") != std::string::npos;  // ダミー実装
+    if (type_name.empty()) {
+        return false;
+    }
+    
+    // "struct " プレフィックスがある場合
+    if (type_name.rfind("struct ", 0) == 0) {
+        return true;
+    }
+    
+    // ポインタ記号を除去
+    std::string base_type = type_name;
+    while (!base_type.empty() && (base_type.back() == '*' || base_type.back() == '&')) {
+        base_type.pop_back();
+    }
+    
+    // 配列記号を除去
+    size_t bracket_pos = base_type.find('[');
+    if (bracket_pos != std::string::npos) {
+        base_type = base_type.substr(0, bracket_pos);
+    }
+    
+    // 空白を削除
+    base_type.erase(std::remove(base_type.begin(), base_type.end(), ' '), base_type.end());
+    
+    // 構造体定義に存在するかチェック
+    if (parser_->struct_definitions_.find(base_type) != parser_->struct_definitions_.end()) {
+        return true;
+    }
+    
+    // typedef経由で構造体型かチェック
+    if (parser_->typedef_map_.find(base_type) != parser_->typedef_map_.end()) {
+        std::string resolved_type = parser_->typedef_map_[base_type];
+        // 再帰的にチェック
+        return isStructType(resolved_type);
+    }
+    
+    return false;
 }
 
 /**
@@ -166,11 +287,37 @@ bool TypeParser::isStructType(const std::string& type_name) {
  * Enum型の判定:
  * - enum キーワードが付いている
  * - または typedef enum として定義されている
- * 
- * 注意: 現在Phase 2では委譲のみで実装されていません。
- * Phase 5以降で実装を移行予定です。
  */
 bool TypeParser::isEnumType(const std::string& type_name) {
-    // TODO: Phase 5で実装を移行
-    return type_name.find("enum") != std::string::npos;  // ダミー実装
+    if (type_name.empty()) {
+        return false;
+    }
+    
+    // "enum " プレフィックスがある場合
+    if (type_name.rfind("enum ", 0) == 0) {
+        return true;
+    }
+    
+    // ポインタ記号を除去
+    std::string base_type = type_name;
+    while (!base_type.empty() && (base_type.back() == '*' || base_type.back() == '&')) {
+        base_type.pop_back();
+    }
+    
+    // 空白を削除
+    base_type.erase(std::remove(base_type.begin(), base_type.end(), ' '), base_type.end());
+    
+    // Enum定義に存在するかチェック
+    if (parser_->enum_definitions_.find(base_type) != parser_->enum_definitions_.end()) {
+        return true;
+    }
+    
+    // typedef経由でEnum型かチェック
+    if (parser_->typedef_map_.find(base_type) != parser_->typedef_map_.end()) {
+        std::string resolved_type = parser_->typedef_map_[base_type];
+        // 再帰的にチェック
+        return isEnumType(resolved_type);
+    }
+    
+    return false;
 }

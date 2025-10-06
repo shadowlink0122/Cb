@@ -14,6 +14,7 @@
 #include "variable_declaration_parser.h"
 #include "../recursive_parser.h"
 #include "src/common/debug.h"
+#include <algorithm>
 
 DeclarationParser::DeclarationParser(RecursiveParser* parser) 
     : parser_(parser),
