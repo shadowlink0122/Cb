@@ -1280,6 +1280,7 @@ ASTNode* RecursiveParser::parseStatement() {
                         case TokenType::TOK_XOR_ASSIGN: binary_op = "^"; break;
                         case TokenType::TOK_LSHIFT_ASSIGN: binary_op = "<<"; break;
                         case TokenType::TOK_RSHIFT_ASSIGN: binary_op = ">>"; break;
+                        default: binary_op = ""; break;  // 警告抑制: 他のトークンタイプは考慮不要
                     }
                     
                     // 左辺のコピーを作成（ネストメンバアクセスの深いコピーが必要）
@@ -1536,7 +1537,7 @@ ASTNode* RecursiveParser::parseStatement() {
                 else if (check(TokenType::TOK_ASSIGN) || check(TokenType::TOK_PLUS_ASSIGN) || 
                     check(TokenType::TOK_MINUS_ASSIGN) || check(TokenType::TOK_MUL_ASSIGN) ||
                     check(TokenType::TOK_DIV_ASSIGN) || check(TokenType::TOK_MOD_ASSIGN)) {
-                    TokenType op_type = current_token_.type;
+                    // TokenType op_type = current_token_.type;  // 将来の拡張用に保持
                     advance(); // consume assignment operator
                     
                     ASTNode* right = parseExpression();
@@ -3446,9 +3447,9 @@ TypeInfo RecursiveParser::getTypeInfoFromString(const std::string& type_name) {
     }
 
     std::string working = type_name;
-    bool is_unsigned = false;
+    // bool is_unsigned = false;  // 将来の拡張用に保持
     if (working.rfind("unsigned ", 0) == 0) {
-        is_unsigned = true;
+        // is_unsigned = true;
         working = working.substr(9);
     }
 
