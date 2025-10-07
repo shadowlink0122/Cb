@@ -144,7 +144,7 @@ int64_t ExpressionDispatcher::dispatch_expression(const ASTNode *node) {
                                                              interpreter_);
         }
 
-        if (node->op == "&") {
+        if (node->op == "ADDRESS_OF") {
             auto eval_func = [this](const ASTNode *n) {
                 return this->dispatch_expression(n);
             };
@@ -152,7 +152,7 @@ int64_t ExpressionDispatcher::dispatch_expression(const ASTNode *node) {
                 node, interpreter_, eval_func);
         }
 
-        if (node->op == "*") {
+        if (node->op == "DEREFERENCE") {
             auto eval_func = [this](const ASTNode *n) {
                 return this->dispatch_expression(n);
             };
@@ -161,17 +161,17 @@ int64_t ExpressionDispatcher::dispatch_expression(const ASTNode *node) {
         }
 
         if (node->op == "!") {
-            int64_t operand = dispatch_expression(node->operand.get());
+            int64_t operand = dispatch_expression(node->left.get());
             return !operand;
         }
 
         if (node->op == "-") {
-            int64_t operand = dispatch_expression(node->operand.get());
+            int64_t operand = dispatch_expression(node->left.get());
             return -operand;
         }
 
         if (node->op == "~") {
-            int64_t operand = dispatch_expression(node->operand.get());
+            int64_t operand = dispatch_expression(node->left.get());
             return ~operand;
         }
 
@@ -180,30 +180,21 @@ int64_t ExpressionDispatcher::dispatch_expression(const ASTNode *node) {
     }
 
     case ASTNodeType::AST_PRE_INCDEC:
-    case ASTNodeType::AST_POST_INCDEC:
-        return ExpressionHelpers::evaluate_incdec(node, interpreter_);
+    case ASTNodeType::AST_POST_INCDEC: {
+        auto eval_func = [this](const ASTNode *n) {
+            return this->dispatch_expression(n);
+        };
+        return IncDecHelpers::evaluate_incdec(node, interpreter_, eval_func);
+    }
 
     case ASTNodeType::AST_FUNC_PTR_CALL:
         return FunctionCallHelpers::evaluate_function_pointer_call(
             node, interpreter_);
 
     case ASTNodeType::AST_FUNC_CALL: {
-        if (!node->left) {
-            std::string func_name = node->name;
-            auto &func_ptrs = interpreter_.current_scope().function_pointers;
-            auto it = func_ptrs.find(func_name);
-
-            if (it != func_ptrs.end() ||
-                interpreter_.get_global_scope().function_pointers.find(
-                    func_name) !=
-                    interpreter_.get_global_scope().function_pointers.end()) {
-                return FunctionCallHelpers::evaluate_function_pointer_call(
-                    node, interpreter_);
-            }
-        }
-
-        // 通常の関数/メソッド呼び出しは元のevaluatorに委譲
-        // この部分は非常に大きいため、expression_evaluatorに残す
+        // すべての関数呼び出し（関数ポインタ含む）を
+        // evaluate_function_call_impl に委譲 evaluate_function_call_impl
+        // 内で適切に処理される
         return expression_evaluator_.evaluate_function_call_impl(node);
     }
 
@@ -218,10 +209,8 @@ int64_t ExpressionDispatcher::dispatch_expression(const ASTNode *node) {
             node, interpreter_, eval_func, eval_typed_func);
     }
 
-    case ASTNodeType::AST_MEMBER_ACCESS: {
-        // メンバーアクセスも元のevaluatorに委譲（非常に大きいため）
+    case ASTNodeType::AST_MEMBER_ACCESS:
         return expression_evaluator_.evaluate_member_access_impl(node);
-    }
 
     case ASTNodeType::AST_ARROW_ACCESS: {
         auto eval_func = [this](const ASTNode *n) {
@@ -250,8 +239,7 @@ int64_t ExpressionDispatcher::dispatch_expression(const ASTNode *node) {
     }
 
     case ASTNodeType::AST_STRUCT_LITERAL:
-        throw std::runtime_error("Struct literal cannot be directly evaluated "
-                                 "in expression context");
+        return SpecialAccessHelpers::evaluate_struct_literal(node);
 
     case ASTNodeType::AST_ENUM_ACCESS:
         return SpecialAccessHelpers::evaluate_enum_access(node, interpreter_);

@@ -20,6 +20,11 @@
 #include <cstdlib>
 
 int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
+    if (interpreter_.is_debug_mode()) {
+        std::cerr << "[DEBUG_IMPL] evaluate_function_call_impl called for: "
+                  << node->name << std::endl;
+    }
+
     // 関数を探す
     const ASTNode *func = nullptr;
 
@@ -44,19 +49,135 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
     if (!node->left) { // メソッド呼び出しでない場合
         std::string func_name = node->name;
 
-        // 関数ポインタをfunction_pointersマップから検索
+        if (interpreter_.is_debug_mode()) {
+            std::cerr << "[DEBUG_FUNCPTR] Checking function pointer for: "
+                      << func_name << std::endl;
+        }
+
+        // 1. function_pointersマップから検索
         auto &func_ptrs = interpreter_.current_scope().function_pointers;
         auto it = func_ptrs.find(func_name);
         bool found_in_local = (it != func_ptrs.end());
+
+        if (interpreter_.is_debug_mode()) {
+            std::cerr << "[DEBUG_FUNCPTR] found_in_local = " << found_in_local
+                      << std::endl;
+        }
 
         // ローカルスコープで見つからない場合、グローバルスコープを検索
         if (!found_in_local) {
             auto &global_func_ptrs =
                 interpreter_.get_global_scope().function_pointers;
             it = global_func_ptrs.find(func_name);
+
+            if (interpreter_.is_debug_mode()) {
+                bool found_in_global = (it != global_func_ptrs.end());
+                std::cerr << "[DEBUG_FUNCPTR] found_in_global = "
+                          << found_in_global << std::endl;
+            }
         }
 
-        // 関数ポインタが見つかった場合
+        // 2. 変数として定義された関数ポインタもチェック
+        if (!found_in_local &&
+            it == interpreter_.get_global_scope().function_pointers.end()) {
+            Variable *var = interpreter_.find_variable(func_name);
+
+            // デバッグ出力
+            if (interpreter_.is_debug_mode()) {
+                if (var) {
+                    std::cerr
+                        << "[DEBUG] Variable '" << func_name << "' found: "
+                        << "type=" << static_cast<int>(var->type)
+                        << " is_function_pointer=" << var->is_function_pointer
+                        << " value=" << var->value << std::endl;
+                } else {
+                    std::cerr << "[DEBUG] Variable '" << func_name
+                              << "' NOT FOUND" << std::endl;
+                }
+            }
+
+            if (var && var->is_function_pointer) {
+                // 変数として定義された関数ポインタをfunction_pointersから取得
+                // var->valueにはFunctionPointerへのポインタが格納されている
+                FunctionPointer *fp =
+                    reinterpret_cast<FunctionPointer *>(var->value);
+                if (fp) {
+                    // 一時的にfunction_pointersマップに追加（または直接処理）
+                    // ここでは直接処理する方が簡単
+                    const ASTNode *func_node = fp->function_node;
+
+                    if (interpreter_.is_debug_mode()) {
+                        std::cerr << "[FUNC_PTR] Form 2 call (variable): "
+                                  << func_name << " -> " << fp->function_name
+                                  << std::endl;
+                    }
+
+                    // 引数を評価して関数を呼び出す処理に直接進む
+                    std::vector<int64_t> arg_values;
+                    std::vector<std::string> arg_strings;
+
+                    for (const auto &arg : node->arguments) {
+                        TypedValue typed_val =
+                            interpreter_.evaluate_typed(arg.get());
+                        arg_values.push_back(typed_val.value);
+                        if (typed_val.type.type_info == TYPE_STRING) {
+                            arg_strings.push_back(typed_val.string_value);
+                        }
+                    }
+
+                    // 関数を呼び出し
+                    interpreter_.push_interpreter_scope();
+
+                    // 仮引数と実引数をバインド
+                    size_t param_idx = 0;
+                    for (const auto &param : func_node->parameters) {
+                        if (param_idx >= arg_values.size()) {
+                            throw std::runtime_error(
+                                "Too few arguments for function pointer call");
+                        }
+
+                        std::string param_name = param->name;
+                        TypeInfo param_type = param->type_info;
+                        bool is_unsigned = param->is_unsigned;
+
+                        if (param_type == TYPE_STRING) {
+                            interpreter_.assign_variable(
+                                param_name, arg_strings[param_idx]);
+                        } else {
+                            interpreter_.assign_function_parameter(
+                                param_name, arg_values[param_idx], param_type,
+                                is_unsigned);
+                        }
+
+                        param_idx++;
+                    }
+
+                    // 関数本体を実行
+                    int64_t result = 0;
+                    try {
+                        if (func_node->body) {
+                            interpreter_.exec_statement(func_node->body.get());
+                        }
+                    } catch (const ReturnException &ret) {
+                        interpreter_.pop_interpreter_scope();
+                        // 戻り値を取得
+                        if (ret.is_function_pointer ||
+                            ret.type == TYPE_STRING || ret.is_struct ||
+                            ret.is_array) {
+                            throw ret; // 複雑な型の場合はexceptionとして伝播
+                        } else {
+                            result = ret.value;
+                        }
+                        return result;
+                    }
+
+                    interpreter_.pop_interpreter_scope();
+                    return result;
+                }
+            }
+        }
+
+        // 関数ポインタが見つかった場合（マップから）
         if (found_in_local ||
             it != interpreter_.get_global_scope().function_pointers.end()) {
             const FunctionPointer &func_ptr = it->second;

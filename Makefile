@@ -37,7 +37,9 @@ BACKEND_OBJS=$(BACKEND_DIR)/interpreter/core/interpreter.o $(BACKEND_DIR)/interp
              $(BACKEND_DIR)/interpreter/core/type_inference.o \
              $(BACKEND_DIR)/interpreter/core/pointer_metadata.o \
              $(BACKEND_DIR)/interpreter/evaluator/expression_evaluator.o \
+             $(BACKEND_DIR)/interpreter/evaluator/expression_dispatcher.o \
              $(BACKEND_DIR)/interpreter/evaluator/expression_function_call_impl.o \
+             $(BACKEND_DIR)/interpreter/evaluator/expression_member_access_impl.o \
              $(BACKEND_DIR)/interpreter/evaluator/expression_helpers.o \
              $(BACKEND_DIR)/interpreter/evaluator/expression_address_ops.o \
              $(BACKEND_DIR)/interpreter/evaluator/expression_array_access.o \
@@ -157,7 +159,60 @@ $(TESTS_DIR)/unit/dummy.o: $(TESTS_DIR)/unit/dummy.cpp
 # 単体テスト
 unit-test: $(MAIN_TARGET) $(FRONTEND_OBJS) $(BACKEND_OBJS) $(COMMON_OBJS) $(PLATFORM_OBJS) $(TESTS_DIR)/unit/dummy.o
 	@echo "Running unit tests..."
-	@cd tests/unit && $(CC) $(CFLAGS) -o test_main main.cpp dummy.o ../../$(FRONTEND_DIR)/recursive_parser/recursive_parser.o ../../$(FRONTEND_DIR)/recursive_parser/recursive_lexer.o ../../$(FRONTEND_DIR)/recursive_parser/parsers/expression_parser.o ../../$(FRONTEND_DIR)/recursive_parser/parsers/primary_expression_parser.o ../../$(FRONTEND_DIR)/recursive_parser/parsers/statement_parser.o ../../$(FRONTEND_DIR)/recursive_parser/parsers/declaration_parser.o ../../$(FRONTEND_DIR)/recursive_parser/parsers/variable_declaration_parser.o ../../$(FRONTEND_DIR)/recursive_parser/parsers/type_parser.o ../../$(FRONTEND_DIR)/recursive_parser/parsers/struct_parser.o ../../$(FRONTEND_DIR)/recursive_parser/parsers/enum_parser.o ../../$(FRONTEND_DIR)/recursive_parser/parsers/interface_parser.o ../../$(FRONTEND_DIR)/recursive_parser/parsers/union_parser.o ../../$(FRONTEND_DIR)/recursive_parser/parsers/type_utility_parser.o ../../$(BACKEND_DIR)/interpreter/core/interpreter.o ../../$(BACKEND_DIR)/interpreter/core/error_handler.o ../../$(BACKEND_DIR)/interpreter/core/type_inference.o ../../$(BACKEND_DIR)/interpreter/core/pointer_metadata.o ../../$(BACKEND_DIR)/interpreter/output/output_manager.o ../../$(BACKEND_DIR)/interpreter/managers/variable_manager.o ../../$(BACKEND_DIR)/interpreter/managers/array_manager.o ../../$(BACKEND_DIR)/interpreter/managers/type_manager.o ../../$(BACKEND_DIR)/interpreter/managers/enum_manager.o ../../$(BACKEND_DIR)/interpreter/managers/common_operations.o ../../$(BACKEND_DIR)/interpreter/services/expression_service.o ../../$(BACKEND_DIR)/interpreter/services/variable_access_service.o ../../$(BACKEND_DIR)/interpreter/services/debug_service.o ../../$(BACKEND_DIR)/interpreter/services/array_processing_service.o ../../$(BACKEND_DIR)/interpreter/evaluator/expression_evaluator.o ../../$(BACKEND_DIR)/interpreter/evaluator/expression_helpers.o ../../$(BACKEND_DIR)/interpreter/executor/statement_executor.o ../../$(COMMON_DIR)/type_utils.o ../../$(COMMON_DIR)/type_alias.o ../../$(COMMON_DIR)/array_type_info.o ../../$(COMMON_DIR)/utf8_utils.o ../../$(COMMON_DIR)/io_interface.o ../../$(COMMON_DIR)/debug_impl.o ../../$(COMMON_DIR)/debug_messages.o ../../$(PLATFORM_DIR)/native/native_stdio_output.o ../../$(PLATFORM_DIR)/baremetal/baremetal_uart_output.o
+	@cd tests/unit && $(CC) $(CFLAGS) -o test_main main.cpp dummy.o \
+		../../$(FRONTEND_DIR)/recursive_parser/recursive_parser.o \
+		../../$(FRONTEND_DIR)/recursive_parser/recursive_lexer.o \
+		../../$(FRONTEND_DIR)/recursive_parser/parsers/expression_parser.o \
+		../../$(FRONTEND_DIR)/recursive_parser/parsers/primary_expression_parser.o \
+		../../$(FRONTEND_DIR)/recursive_parser/parsers/statement_parser.o \
+		../../$(FRONTEND_DIR)/recursive_parser/parsers/declaration_parser.o \
+		../../$(FRONTEND_DIR)/recursive_parser/parsers/variable_declaration_parser.o \
+		../../$(FRONTEND_DIR)/recursive_parser/parsers/type_parser.o \
+		../../$(FRONTEND_DIR)/recursive_parser/parsers/struct_parser.o \
+		../../$(FRONTEND_DIR)/recursive_parser/parsers/enum_parser.o \
+		../../$(FRONTEND_DIR)/recursive_parser/parsers/interface_parser.o \
+		../../$(FRONTEND_DIR)/recursive_parser/parsers/union_parser.o \
+		../../$(FRONTEND_DIR)/recursive_parser/parsers/type_utility_parser.o \
+		../../$(BACKEND_DIR)/interpreter/core/interpreter.o \
+		../../$(BACKEND_DIR)/interpreter/core/error_handler.o \
+		../../$(BACKEND_DIR)/interpreter/core/type_inference.o \
+		../../$(BACKEND_DIR)/interpreter/core/pointer_metadata.o \
+		../../$(BACKEND_DIR)/interpreter/output/output_manager.o \
+		../../$(BACKEND_DIR)/interpreter/managers/variable_manager.o \
+		../../$(BACKEND_DIR)/interpreter/managers/array_manager.o \
+		../../$(BACKEND_DIR)/interpreter/managers/type_manager.o \
+		../../$(BACKEND_DIR)/interpreter/managers/enum_manager.o \
+		../../$(BACKEND_DIR)/interpreter/managers/common_operations.o \
+		../../$(BACKEND_DIR)/interpreter/services/expression_service.o \
+		../../$(BACKEND_DIR)/interpreter/services/variable_access_service.o \
+		../../$(BACKEND_DIR)/interpreter/services/debug_service.o \
+		../../$(BACKEND_DIR)/interpreter/services/array_processing_service.o \
+		../../$(BACKEND_DIR)/interpreter/evaluator/expression_evaluator.o \
+		../../$(BACKEND_DIR)/interpreter/evaluator/expression_dispatcher.o \
+		../../$(BACKEND_DIR)/interpreter/evaluator/expression_function_call_impl.o \
+		../../$(BACKEND_DIR)/interpreter/evaluator/expression_member_access_impl.o \
+		../../$(BACKEND_DIR)/interpreter/evaluator/expression_helpers.o \
+		../../$(BACKEND_DIR)/interpreter/evaluator/expression_address_ops.o \
+		../../$(BACKEND_DIR)/interpreter/evaluator/expression_array_access.o \
+		../../$(BACKEND_DIR)/interpreter/evaluator/expression_function_call.o \
+		../../$(BACKEND_DIR)/interpreter/evaluator/expression_incdec.o \
+		../../$(BACKEND_DIR)/interpreter/evaluator/expression_assignment.o \
+		../../$(BACKEND_DIR)/interpreter/evaluator/expression_binary_unary_typed.o \
+		../../$(BACKEND_DIR)/interpreter/evaluator/expression_special_access.o \
+		../../$(BACKEND_DIR)/interpreter/evaluator/expression_literal_eval.o \
+		../../$(BACKEND_DIR)/interpreter/evaluator/expression_ternary.o \
+		../../$(BACKEND_DIR)/interpreter/evaluator/expression_member_helpers.o \
+		../../$(BACKEND_DIR)/interpreter/evaluator/expression_receiver_resolution.o \
+		../../$(BACKEND_DIR)/interpreter/executor/statement_executor.o \
+		../../$(COMMON_DIR)/type_utils.o \
+		../../$(COMMON_DIR)/type_alias.o \
+		../../$(COMMON_DIR)/array_type_info.o \
+		../../$(COMMON_DIR)/utf8_utils.o \
+		../../$(COMMON_DIR)/io_interface.o \
+		../../$(COMMON_DIR)/debug_impl.o \
+		../../$(COMMON_DIR)/debug_messages.o \
+		../../$(PLATFORM_DIR)/native/native_stdio_output.o \
+		../../$(PLATFORM_DIR)/baremetal/baremetal_uart_output.o
 	@cd tests/unit && ./test_main
 
 # Integration test binary target

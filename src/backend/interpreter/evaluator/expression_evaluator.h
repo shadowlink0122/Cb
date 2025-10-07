@@ -13,6 +13,7 @@ class Interpreter;
 struct Variable;
 class ReturnException;
 class BreakException;
+class ExpressionDispatcher;
 
 // Phase 12: Method Receiver Resolutionの型エイリアス
 using MethodReceiverResolution =
@@ -22,6 +23,7 @@ using MethodReceiverResolution =
 class ExpressionEvaluator {
   public:
     ExpressionEvaluator(Interpreter &interpreter);
+    ~ExpressionEvaluator();
 
     // 式評価の主要メソッド
     int64_t evaluate_expression(const ASTNode *node);
@@ -52,6 +54,9 @@ class ExpressionEvaluator {
                                       const ASTNode *index_node,
                                       const std::string &member_name);
 
+    // 大きなケース分離（Phase 13: ExpressionDispatcherへ移行）
+    int64_t evaluate_member_access_impl(const ASTNode *node);
+
   private:
     Interpreter &interpreter_;        // インタープリターへの参照
     TypeInferenceEngine type_engine_; // 型推論エンジン
@@ -60,10 +65,6 @@ class ExpressionEvaluator {
     TypedValue last_typed_result_;
     std::optional<std::pair<const ASTNode *, TypedValue>>
         last_captured_function_value_;
-
-    // 構造体メンバー取得関数
-    Variable get_struct_member_from_variable(const Variable &struct_var,
-                                             const std::string &member_name);
 
     // 再帰的メンバーアクセス処理（将来のネスト構造体対応）
     TypedValue evaluate_recursive_member_access(
@@ -108,7 +109,10 @@ class ExpressionEvaluator {
         return last_captured_function_value_;
     }
 
+    // 構造体メンバー取得関数（Dispatcher用）
+    Variable get_struct_member_from_variable(const Variable &struct_var,
+                                             const std::string &member_name);
+
     // Dispatcher用の実装メソッド（巨大なケースを分離）
     int64_t evaluate_function_call_impl(const ASTNode *node);
-    int64_t evaluate_member_access_impl(const ASTNode *node);
 };
