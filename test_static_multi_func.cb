@@ -1,0 +1,19 @@
+int func1() {
+    static int value = 10;
+    value += 5;
+    return value;
+}
+
+int func2() {
+    static int value = 100;
+    value -= 10;
+    return value;
+}
+
+int main() {
+    println("%d", func1());  // 15
+    println("%d", func2());  // 90
+    println("%d", func1());  // 20
+    println("%d", func2());  // 80
+    return 0;
+}

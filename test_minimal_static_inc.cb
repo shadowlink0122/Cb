@@ -1,0 +1,12 @@
+// 最小再現テスト
+void increment_test() {
+    static int count = 0;
+    println("Before: %d", count);
+    count++;
+    println("After: %d", count);
+}
+
+int main() {
+    increment_test();
+    return 0;
+}
