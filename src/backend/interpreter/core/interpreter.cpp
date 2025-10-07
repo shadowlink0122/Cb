@@ -2890,17 +2890,10 @@ void Interpreter::assign_array_from_return(const std::string &name,
 }
 
 // ========================================================================
-// SECTION 7: Type Resolution (~100 lines)
+// SECTION 7: Type Resolution (~30 lines)
 // ========================================================================
-// 型解決、typedef、型変換を管理
-//
-// これらのメソッドは主にTypeManagerに委譲しているため、
-// 将来的により完全にManagerに移動することを検討
-//
-// 含まれる機能：
-// - resolve_typedef
-// - resolve_type_alias
-// - string_to_type_info
+// 型解決関連のメソッド - TypeManagerへの薄いラッパー
+// これらは完全にTypeManagerに委譲されており、将来的には削除可能
 // ========================================================================
 
 std::string Interpreter::resolve_typedef(const std::string &type_name) {
@@ -2909,15 +2902,10 @@ std::string Interpreter::resolve_typedef(const std::string &type_name) {
 
 TypeInfo Interpreter::resolve_type_alias(TypeInfo base_type,
                                          const std::string &type_name) {
-    // typedefマップを使用してエイリアスを解決
     std::string resolved_type = type_manager_->resolve_typedef(type_name);
-
     if (resolved_type != type_name) {
-        // エイリアスが見つかった場合、新しい型情報を返す
         return type_manager_->string_to_type_info(resolved_type);
     }
-
-    // エイリアスが見つからない場合、元の型を返す
     return base_type;
 }
 

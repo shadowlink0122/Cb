@@ -498,11 +498,11 @@ class Interpreter : public EvaluatorInterface {
     void assign_array_from_return(const std::string &name,
                                   const ReturnException &ret);
 
-    // 型解決
+    // 型解決 (TypeManagerへの薄いラッパー、将来的にはインライン化予定)
     TypeInfo resolve_type_alias(TypeInfo base_type,
                                 const std::string &type_name);
 
-    // typedef処理
+    // typedef処理 (TypeManagerへの薄いラッパー、将来的にはインライン化予定)
     std::string resolve_typedef(const std::string &type_name);
 
     // struct処理
@@ -554,6 +554,7 @@ class Interpreter : public EvaluatorInterface {
     void assign_struct_member_array_literal(const std::string &var_name,
                                             const std::string &member_name,
                                             const ASTNode *array_literal);
+    // 型名から型情報への変換 (TypeManagerへの薄いラッパー、将来的にはインライン化予定)
     TypeInfo string_to_type_info(const std::string &type_str);
     void sync_struct_members_from_direct_access(const std::string &var_name);
     void sync_direct_access_from_struct_value(const std::string &var_name,
