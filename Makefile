@@ -43,6 +43,7 @@ BACKEND_OBJS=$(BACKEND_DIR)/interpreter/core/interpreter.o $(BACKEND_DIR)/interp
              $(BACKEND_DIR)/interpreter/evaluator/expression_function_call.o \
              $(BACKEND_DIR)/interpreter/evaluator/expression_incdec.o \
              $(BACKEND_DIR)/interpreter/evaluator/expression_assignment.o \
+             $(BACKEND_DIR)/interpreter/evaluator/expression_binary_unary_typed.o \
              $(BACKEND_DIR)/interpreter/executor/statement_executor.o \
              $(BACKEND_DIR)/interpreter/output/output_manager.o \
              $(BACKEND_DIR)/interpreter/managers/variable_manager.o \
