@@ -22,6 +22,7 @@ class ExpressionService;     // DRY効率化: 統一式評価サービス
 class ArrayProcessingService; // DRY効率化: 統一配列処理サービス
 class EnumManager;            // enum管理サービス
 class StaticVariableManager;  // static変数管理サービス
+class InterfaceOperations;    // interface/impl管理サービス
 class CommonOperations;
 class RecursiveParser; // enum定義同期用
 
@@ -378,9 +379,6 @@ class Interpreter : public EvaluatorInterface {
         typedef_map; // typedef alias -> base type mapping
     std::map<std::string, StructDefinition>
         struct_definitions_; // struct定義の保存
-    std::map<std::string, InterfaceDefinition>
-        interface_definitions_;                    // interface定義の保存
-    std::vector<ImplDefinition> impl_definitions_; // impl定義の保存
 
     // Manager instances
     std::unique_ptr<VariableManager> variable_manager_;
@@ -398,6 +396,8 @@ class Interpreter : public EvaluatorInterface {
     std::unique_ptr<EnumManager> enum_manager_; // enum管理サービス
     std::unique_ptr<StaticVariableManager>
         static_variable_manager_; // static変数管理
+    std::unique_ptr<InterfaceOperations>
+        interface_operations_; // interface/impl管理
 
     // Grant access to managers
     friend class VariableManager;
@@ -434,7 +434,7 @@ class Interpreter : public EvaluatorInterface {
     }
     std::string find_variable_name_by_address(const Variable *target_var);
 
-    // 一時変数管理（メソッドチェーン用）
+    // 一時変数管理（メソッドチェーン用） (InterfaceOperationsへ委譲)
     void add_temp_variable(const std::string &name, const Variable &var);
     void remove_temp_variable(const std::string &name);
     void clear_temp_variables();
@@ -571,24 +571,24 @@ class Interpreter : public EvaluatorInterface {
     void exit_impl_context();
     std::string get_impl_static_namespace() const;
 
-    // interface管理
+    // interface管理 (InterfaceOperationsへ委譲)
     void register_interface_definition(const std::string &interface_name,
                                        const InterfaceDefinition &definition);
     const InterfaceDefinition *
     find_interface_definition(const std::string &interface_name);
 
-    // impl管理
+    // impl管理 (InterfaceOperationsへ委譲)
     void register_impl_definition(const ImplDefinition &impl_def);
     const ImplDefinition *
     find_impl_for_struct(const std::string &struct_name,
                          const std::string &interface_name);
 
-    // interface型変数管理
+    // interface型変数管理 (InterfaceOperationsへ委譲)
     void create_interface_variable(const std::string &var_name,
                                    const std::string &interface_name);
     Variable *get_interface_variable(const std::string &var_name);
 
-    // impl定義へのアクセサ
+    // impl定義へのアクセサ (InterfaceOperationsへ委譲)
     const std::vector<ImplDefinition> &get_impl_definitions() const;
 
     // 関数コンテキスト
@@ -645,6 +645,17 @@ class Interpreter : public EvaluatorInterface {
 
     // VariableManagerへのアクセス
     VariableManager *get_variable_manager() { return variable_manager_.get(); }
+
+    // スコープへのアクセス（InterfaceOperations用）
+    std::vector<Scope> &get_scope_stack() { return scope_stack; }
+    
+    // 変数・関数の登録ヘルパー（InterfaceOperations用）
+    void add_variable_to_current_scope(const std::string &name, const Variable &var) {
+        current_scope().variables[name] = var;
+    }
+    void register_function_to_global(const std::string &key, const ASTNode *func) {
+        global_scope.functions[key] = func;
+    }
 
     // 型推論付き三項演算子評価
     TypedValue evaluate_ternary_typed(const ASTNode *node);
@@ -704,7 +715,7 @@ class Interpreter : public EvaluatorInterface {
                                           const std::vector<int64_t> &indices,
                                           const std::string &value);
 
-    // self処理用ヘルパー関数
+    // self処理用ヘルパー関数 (InterfaceOperationsへ委譲)
     std::string get_self_receiver_path();
     void sync_self_to_receiver(const std::string &receiver_path);
 };
