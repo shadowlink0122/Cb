@@ -21,6 +21,7 @@ class VariableAccessService; // DRY効率化: 統一変数アクセスサービ�
 class ExpressionService;     // DRY効率化: 統一式評価サービス
 class ArrayProcessingService; // DRY効率化: 統一配列処理サービス
 class EnumManager;            // enum管理サービス
+class StaticVariableManager;  // static変数管理サービス
 class CommonOperations;
 class RecursiveParser; // enum定義同期用
 
@@ -375,21 +376,11 @@ class Interpreter : public EvaluatorInterface {
     std::unique_ptr<OutputManager> output_manager_;
     std::map<std::string, std::string>
         typedef_map; // typedef alias -> base type mapping
-    std::map<std::string, Variable> static_variables; // static変数の保存
-    std::map<std::string, Variable>
-        impl_static_variables_; // impl内static変数の保存
     std::map<std::string, StructDefinition>
         struct_definitions_; // struct定義の保存
     std::map<std::string, InterfaceDefinition>
         interface_definitions_;                    // interface定義の保存
     std::vector<ImplDefinition> impl_definitions_; // impl定義の保存
-
-    // implコンテキスト追跡
-    struct ImplContext {
-        std::string interface_name;
-        std::string struct_type_name;
-        bool is_active = false;
-    } current_impl_context_;
 
     // Manager instances
     std::unique_ptr<VariableManager> variable_manager_;
@@ -405,6 +396,8 @@ class Interpreter : public EvaluatorInterface {
     std::unique_ptr<ArrayProcessingService>
         array_processing_service_; // DRY効率化: 統一配列処理
     std::unique_ptr<EnumManager> enum_manager_; // enum管理サービス
+    std::unique_ptr<StaticVariableManager>
+        static_variable_manager_; // static変数管理
 
     // Grant access to managers
     friend class VariableManager;
@@ -565,11 +558,11 @@ class Interpreter : public EvaluatorInterface {
                                              const std::string &member_name);
     bool is_current_impl_context_for(const std::string &struct_type_name);
 
-    // static変数処理
+    // static変数処理 (StaticVariableManagerへ委譲)
     Variable *find_static_variable(const std::string &name);
     void create_static_variable(const std::string &name, const ASTNode *node);
 
-    // impl static変数処理
+    // impl static変数処理 (StaticVariableManagerへ委譲)
     Variable *find_impl_static_variable(const std::string &name);
     void create_impl_static_variable(const std::string &name,
                                      const ASTNode *node);
@@ -617,6 +610,11 @@ class Interpreter : public EvaluatorInterface {
   public:
     void check_type_range(TypeInfo type, int64_t value, const std::string &name,
                           bool is_unsigned = false);
+
+    // 関数コンテキストへのアクセス
+    const std::string &get_current_function_name() const {
+        return current_function_name;
+    }
 
     // エラー表示ヘルパー関数
     void throw_runtime_error_with_location(const std::string &message,

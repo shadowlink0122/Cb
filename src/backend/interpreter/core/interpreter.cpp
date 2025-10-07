@@ -11,6 +11,7 @@
 #include "managers/array_manager.h"
 #include "managers/common_operations.h"
 #include "managers/enum_manager.h" // enum管理サービス
+#include "managers/static_variable_manager.h" // static変数管理サービス
 #include "managers/type_manager.h"
 #include "managers/variable_manager.h"
 #include "output/output_manager.h" // ヘッダーから移動
@@ -139,6 +140,9 @@ Interpreter::Interpreter(bool debug)
 
     // enum管理サービスを初期化
     enum_manager_ = std::make_unique<EnumManager>();
+
+    // static変数管理サービスを初期化
+    static_variable_manager_ = std::make_unique<StaticVariableManager>(this);
 
     // グローバルスコープを初期化
     // ネストされた関数呼び出しに備えて容量を予約（再割り当てを防ぐ）
@@ -2942,152 +2946,43 @@ int64_t Interpreter::getMultidimensionalArrayElement(
 }
 
 // static変数の検索
+// ========================================================================
+// SECTION 6: Static Variable Management (StaticVariableManagerへ委譲)
+// ========================================================================
+// Static変数とimpl static変数の管理はStaticVariableManagerに移譲済み
+// 以下のメソッドは薄いラッパーとして機能
+// ========================================================================
+
 Variable *Interpreter::find_static_variable(const std::string &name) {
-    std::string static_key = current_function_name + "::" + name;
-    auto it = static_variables.find(static_key);
-    if (it != static_variables.end()) {
-        return &it->second;
-    }
-    return nullptr;
+    return static_variable_manager_->find_static_variable(name);
 }
 
-// ========================================================================
-// SECTION 6: Static Variable Management (~200 lines)
-// ========================================================================
-// Static変数とimpl static変数の管理
-//
-// このセクションは将来的に static_variable_manager.cpp に抽出予定
-//
-// 含まれる機能：
-// - find_static_variable
-// - create_static_variable
-// - find_impl_static_variable
-// - create_impl_static_variable
-// - get_impl_static_namespace
-// ========================================================================
-
-// static変数の作成
 void Interpreter::create_static_variable(const std::string &name,
                                          const ASTNode *node) {
-    Variable var;
-    var.type = node->type_info;
-    var.is_const = node->is_const;
-    var.is_array = false;
-    var.is_assigned = false;
-    var.is_multidimensional = false;
-
-    // デフォルト値を設定
-    if (var.type == TYPE_STRING) {
-        var.str_value = "";
-    } else {
-        var.value = 0;
-    }
-
-    // 初期化式があれば評価して設定
-    if (node->init_expr) {
-        if (var.type == TYPE_STRING &&
-            node->init_expr->node_type == ASTNodeType::AST_STRING_LITERAL) {
-            var.str_value = node->init_expr->str_value;
-        } else {
-            var.value = evaluate(node->init_expr.get());
-        }
-        var.is_assigned = true;
-    }
-
-    // static変数をユニークな名前で保存（関数名+変数名）
-    std::string static_key = current_function_name + "::" + name;
-    static_variables[static_key] = var;
-}
-
-// impl static変数関連の実装
-std::string Interpreter::get_impl_static_namespace() const {
-    if (!current_impl_context_.is_active) {
-        return "";
-    }
-    return "impl::" + current_impl_context_.interface_name +
-           "::" + current_impl_context_.struct_type_name + "::";
-}
-
-void Interpreter::enter_impl_context(const std::string &interface_name,
-                                     const std::string &struct_type_name) {
-    current_impl_context_.interface_name = interface_name;
-    current_impl_context_.struct_type_name = struct_type_name;
-    current_impl_context_.is_active = true;
-}
-
-void Interpreter::exit_impl_context() {
-    current_impl_context_.is_active = false;
-    current_impl_context_.interface_name = "";
-    current_impl_context_.struct_type_name = "";
+    static_variable_manager_->create_static_variable(name, node);
 }
 
 Variable *Interpreter::find_impl_static_variable(const std::string &name) {
-    std::string ns = get_impl_static_namespace();
-    if (ns.empty()) {
-        return nullptr;
-    }
-
-    std::string full_name = ns + name;
-    auto it = impl_static_variables_.find(full_name);
-    if (it != impl_static_variables_.end()) {
-        return &it->second;
-    }
-    return nullptr;
+    return static_variable_manager_->find_impl_static_variable(name);
 }
 
 void Interpreter::create_impl_static_variable(const std::string &name,
                                               const ASTNode *node) {
-    if (!current_impl_context_.is_active) {
-        throw_runtime_error_with_location(
-            "impl static variable '" + name +
-                "' can only be declared inside impl block",
-            node);
-        return;
-    }
+    static_variable_manager_->create_impl_static_variable(name, node);
+}
 
-    Variable var;
-    var.type = node->type_info;
-    var.is_const = node->is_const;
-    var.is_array = false;
-    var.is_assigned = false;
-    var.is_multidimensional = false;
-    var.is_unsigned = node->is_unsigned;
+void Interpreter::enter_impl_context(const std::string &interface_name,
+                                     const std::string &struct_type_name) {
+    static_variable_manager_->enter_impl_context(interface_name,
+                                                  struct_type_name);
+}
 
-    // デフォルト値を設定
-    if (var.type == TYPE_STRING) {
-        var.str_value = "";
-    } else if (var.type == TYPE_FLOAT) {
-        var.float_value = 0.0f;
-    } else if (var.type == TYPE_DOUBLE) {
-        var.double_value = 0.0;
-    } else {
-        var.value = 0;
-    }
+void Interpreter::exit_impl_context() {
+    static_variable_manager_->exit_impl_context();
+}
 
-    // 初期化式があれば評価して設定
-    if (node->init_expr) {
-        if (var.type == TYPE_STRING &&
-            node->init_expr->node_type == ASTNodeType::AST_STRING_LITERAL) {
-            var.str_value = node->init_expr->str_value;
-        } else if (var.type == TYPE_FLOAT || var.type == TYPE_DOUBLE) {
-            TypedValue result = evaluate_typed(node->init_expr.get());
-            if (var.type == TYPE_FLOAT) {
-                var.float_value = static_cast<float>(result.double_value);
-            } else {
-                var.double_value = result.double_value;
-            }
-        } else {
-            var.value = evaluate(node->init_expr.get());
-        }
-        var.is_assigned = true;
-    }
-
-    // impl static変数を名前空間付きで保存
-    std::string full_name = get_impl_static_namespace() + name;
-    impl_static_variables_[full_name] = var;
-
-    debug_msg(DebugMsgId::PARSE_VAR_DECL, name.c_str(),
-              "impl_static_variable_created");
+std::string Interpreter::get_impl_static_namespace() const {
+    return static_variable_manager_->get_impl_static_namespace();
 }
 
 // ========================================================================
@@ -3378,7 +3273,8 @@ void Interpreter::sync_individual_member_from_struct(
 
     // 見つからなければstatic変数を検索
     if (found_var_name.empty()) {
-        for (const auto &var_pair : static_variables) {
+        for (const auto &var_pair :
+             static_variable_manager_->get_static_variables()) {
             if (&var_pair.second == struct_var) {
                 found_var_name = var_pair.first;
                 break;
@@ -6406,9 +6302,10 @@ void Interpreter::sync_direct_access_from_struct_value(
     }
 
     if (!target_map) {
-        auto static_it = static_variables.find(var_name);
-        if (static_it != static_variables.end()) {
-            target_map = &static_variables;
+        auto *static_vars = static_variable_manager_->get_static_variables_mutable();
+        auto static_it = static_vars->find(var_name);
+        if (static_it != static_vars->end()) {
+            target_map = static_vars;
         }
     }
 
