@@ -12,26 +12,25 @@ class RecursiveParser;
 
 // 宣言の解析を担当するクラス
 class DeclarationParser {
-public:
-    explicit DeclarationParser(RecursiveParser* parser);
-    
+  public:
+    explicit DeclarationParser(RecursiveParser *parser);
+
     // 変数宣言
-    ASTNode* parseVariableDeclaration();
-    ASTNode* parseTypedefVariableDeclaration();
-    
+    ASTNode *parseVariableDeclaration();
+    ASTNode *parseTypedefVariableDeclaration();
+
     // 関数宣言
-    ASTNode* parseFunctionDeclaration();
-    ASTNode* parseFunctionDeclarationAfterName(
-        const std::string& return_type,
-        const std::string& function_name
-    );
-    
+    ASTNode *parseFunctionDeclaration();
+    ASTNode *
+    parseFunctionDeclarationAfterName(const std::string &return_type,
+                                      const std::string &function_name);
+
     // Typedef
-    ASTNode* parseTypedefDeclaration();
-    ASTNode* parseFunctionPointerTypedefDeclaration();
-    
-private:
-    RecursiveParser* parser_;
+    ASTNode *parseTypedefDeclaration();
+    ASTNode *parseFunctionPointerTypedefDeclaration();
+
+  private:
+    RecursiveParser *parser_;
     std::unique_ptr<VariableDeclarationParser> variable_declaration_parser_;
 };
 

@@ -1,7 +1,7 @@
 #include "services/expression_service.h"
 #include "../../../common/debug.h"
-#include "evaluator/expression_evaluator.h"
 #include "core/interpreter.h"
+#include "evaluator/expression_evaluator.h"
 #include <stdexcept>
 
 ExpressionService::ExpressionService(Interpreter *interpreter)
@@ -138,7 +138,8 @@ void ExpressionService::increment_stats(const std::string &evaluation_type,
     // デバッグモードでは統計情報をログ出力（コメントアウト：無限再帰を防ぐ）
     // if (is_debug_mode()) {
     //     std::string stats_message = "ExpressionService Stats: Total=" +
-    //                                 std::to_string(stats_.total_evaluations) +
+    //                                 std::to_string(stats_.total_evaluations)
+    //                                 +
     //                                 ", Failed=" +
     //                                 std::to_string(stats_.failed_evaluations);
     //     debug_msg(DebugMsgId::ARRAY_DECL_DEBUG, stats_message.c_str());

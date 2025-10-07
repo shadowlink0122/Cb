@@ -39,10 +39,11 @@ class ExpressionEvaluator;
 // FunctionCallEvaluator: 関数呼び出し専用評価クラス
 // ============================================================================
 class FunctionCallEvaluator {
-public:
+  public:
     // コンストラクタ
-    FunctionCallEvaluator(Interpreter& interpreter, ExpressionEvaluator& expression_evaluator);
-    
+    FunctionCallEvaluator(Interpreter &interpreter,
+                          ExpressionEvaluator &expression_evaluator);
+
     // ============================================================================
     // evaluate_function_call: 関数呼び出しのメイン評価メソッド
     // ============================================================================
@@ -68,11 +69,11 @@ public:
     //   - (*ptr)(args)                  // 関数ポインタ呼び出し（Form 1）
     //   - func()()                      // 関数ポインタチェーン
     // ============================================================================
-    int64_t evaluate_function_call(const ASTNode* node);
-    
-private:
-    Interpreter& interpreter_;                    // インタープリターへの参照
-    ExpressionEvaluator& expression_evaluator_;   // 式評価エンジンへの参照
+    int64_t evaluate_function_call(const ASTNode *node);
+
+  private:
+    Interpreter &interpreter_; // インタープリターへの参照
+    ExpressionEvaluator &expression_evaluator_; // 式評価エンジンへの参照
 };
 
 #endif // FUNCTION_CALL_EVALUATOR_H

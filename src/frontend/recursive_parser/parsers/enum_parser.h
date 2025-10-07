@@ -10,15 +10,15 @@ class RecursiveParser;
 
 // enum宣言の解析を担当するクラス
 class EnumParser {
-public:
-    explicit EnumParser(RecursiveParser* parser);
-    
+  public:
+    explicit EnumParser(RecursiveParser *parser);
+
     // enum宣言の解析
-    ASTNode* parseEnumDeclaration();
-    ASTNode* parseEnumTypedefDeclaration();
-    
-private:
-    RecursiveParser* parser_;
+    ASTNode *parseEnumDeclaration();
+    ASTNode *parseEnumTypedefDeclaration();
+
+  private:
+    RecursiveParser *parser_;
 };
 
 #endif // ENUM_PARSER_H

@@ -1,13 +1,13 @@
 #include "managers/array_manager.h"
-#include "core/interpreter.h" // Variable の定義のため
-#include "managers/type_manager.h" // TypeManager の定義のため
 #include "../../../common/debug_messages.h"
 #include "../../../common/type_alias.h"
 #include "../services/debug_service.h"
 #include "core/error_handler.h"
+#include "core/interpreter.h" // Variable の定義のため
 #include "evaluator/expression_evaluator.h"
-#include "services/expression_service.h" // DRY効率化: 統一式評価サービス
+#include "managers/type_manager.h" // TypeManager の定義のため
 #include "managers/variable_manager.h"
+#include "services/expression_service.h" // DRY効率化: 統一式評価サービス
 #include <stdexcept>
 
 namespace {
@@ -26,8 +26,8 @@ bool is_floating_type(TypeInfo type) {
     return type == TYPE_FLOAT || type == TYPE_DOUBLE || type == TYPE_QUAD;
 }
 
-void ensure_numeric_storage(Variable &var, size_t total_size,
-                            bool is_multidim, TypeInfo base_type) {
+void ensure_numeric_storage(Variable &var, size_t total_size, bool is_multidim,
+                            TypeInfo base_type) {
     if (is_multidim) {
         if (base_type == TYPE_FLOAT) {
             var.multidim_array_float_values.assign(total_size, 0.0f);
@@ -92,7 +92,8 @@ long double get_numeric_storage_value(const Variable &var, size_t index,
             }
         } else {
             if (index < var.multidim_array_values.size()) {
-                return static_cast<long double>(var.multidim_array_values[index]);
+                return static_cast<long double>(
+                    var.multidim_array_values[index]);
             }
         }
     } else {
@@ -210,7 +211,8 @@ size_t get_numeric_storage_size(const Variable &var, bool is_multidim,
 } // namespace
 
 void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
-    std::string debug_message = "Processing array declaration for variable: " + node->name;
+    std::string debug_message =
+        "Processing array declaration for variable: " + node->name;
     debug_msg(DebugMsgId::ARRAY_DECL_DEBUG, debug_message.c_str());
     if (!node) {
         throw std::runtime_error(
@@ -287,9 +289,10 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
     } else {
         // 1次元配列
         if (node->array_dimensions.size() == 1) {
-            debug_print("ARRAY_DEBUG: first dimension ptr=%p has_value=%d\n",
-                        static_cast<const void*>(node->array_dimensions[0].get()),
-                        node->array_dimensions[0] ? 1 : 0);
+            debug_print(
+                "ARRAY_DEBUG: first dimension ptr=%p has_value=%d\n",
+                static_cast<const void *>(node->array_dimensions[0].get()),
+                node->array_dimensions[0] ? 1 : 0);
             if (node->array_dimensions[0].get() == nullptr) {
                 // 動的配列（サイズ指定なし）は初期化がない場合のみ禁止
                 if (!node->init_expr) {
@@ -306,10 +309,9 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
                           "Evaluating array size expression");
                 int size = static_cast<int>(evaluate_expression_safe(
                     node->array_dimensions[0].get(), "array_size"));
-                debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
-                          ("Array size evaluated: " +
-                           std::to_string(size))
-                              .c_str());
+                debug_msg(
+                    DebugMsgId::ARRAY_DECL_DEBUG,
+                    ("Array size evaluated: " + std::to_string(size)).c_str());
                 var.array_size = size;
 
                 // 1次元配列でもarray_dimensionsを設定
@@ -363,7 +365,9 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
             if (var.is_multidimensional) {
                 // 多次元配列リテラル初期化は既存のメソッドを使用
                 debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
-                          ("Processing multidimensional array literal for: " + node->name).c_str());
+                          ("Processing multidimensional array literal for: " +
+                           node->name)
+                              .c_str());
                 processMultidimensionalArrayLiteral(var, array_literal,
                                                     node->type_info);
             } else {
@@ -396,9 +400,8 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
                     // 配列リテラルのサイズに合わせて配列を調整
                     TypeInfo base_type = node->type_info;
                     bool expects_float = is_floating_type(base_type);
-                    ensure_numeric_storage(
-                        var, array_literal->arguments.size(), false,
-                        base_type);
+                    ensure_numeric_storage(var, array_literal->arguments.size(),
+                                           false, base_type);
 
                     for (size_t i = 0; i < array_literal->arguments.size();
                          i++) {
@@ -416,21 +419,30 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
                         }
 
                         if (debug_mode) {
-                            std::cerr << "[ARRAY_INIT_DEBUG] Element[" << i << "] node_type: "
-                                     << static_cast<int>(array_literal->arguments[i]->node_type) << std::endl;
+                            std::cerr
+                                << "[ARRAY_INIT_DEBUG] Element[" << i
+                                << "] node_type: "
+                                << static_cast<int>(
+                                       array_literal->arguments[i]->node_type)
+                                << std::endl;
                         }
-                        
+
                         TypedValue element_value =
                             evaluate_expression_typed_safe(
                                 array_literal->arguments[i].get(),
                                 "array_literal_element");
 
                         if (debug_mode) {
-                            std::cerr << "[ARRAY_INIT_DEBUG] Element[" << i << "] evaluated: "
-                                     << "is_numeric=" << element_value.is_numeric()
-                                     << ", is_floating=" << element_value.is_floating() << std::endl;
+                            std::cerr
+                                << "[ARRAY_INIT_DEBUG] Element[" << i
+                                << "] evaluated: "
+                                << "is_numeric=" << element_value.is_numeric()
+                                << ", is_floating="
+                                << element_value.is_floating() << std::endl;
                             if (element_value.is_numeric()) {
-                                std::cerr << "[ARRAY_INIT_DEBUG] Numeric value: " << element_value.as_numeric() << std::endl;
+                                std::cerr
+                                    << "[ARRAY_INIT_DEBUG] Numeric value: "
+                                    << element_value.as_numeric() << std::endl;
                             }
                         }
 
@@ -439,9 +451,11 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
                                 "Array literal element is not numeric");
                         }
 
-                        long double numeric_value = element_value.is_floating()
-                                                       ? element_value.as_quad()
-                                                       : static_cast<long double>(element_value.as_numeric());
+                        long double numeric_value =
+                            element_value.is_floating()
+                                ? element_value.as_quad()
+                                : static_cast<long double>(
+                                      element_value.as_numeric());
 
                         if (!expects_float) {
                             int64_t coerced_value =
@@ -449,7 +463,8 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
                             if (var.is_unsigned && coerced_value < 0) {
                                 DEBUG_WARN(
                                     VARIABLE,
-                                    "Unsigned array %s literal element [%zu] negative (%lld); clamping to 0",
+                                    "Unsigned array %s literal element [%zu] "
+                                    "negative (%lld); clamping to 0",
                                     resolved_name.c_str(), i,
                                     static_cast<long long>(coerced_value));
                                 coerced_value = 0;
@@ -459,7 +474,7 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
                         }
 
                         set_numeric_storage_value(var, i, numeric_value, false,
-                                                   base_type);
+                                                  base_type);
                     }
                 }
                 // 配列サイズを更新
@@ -616,7 +631,8 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
                                 for (const auto &plane : ret.str_array_3d) {
                                     for (const auto &row : plane) {
                                         for (const auto &element : row) {
-                                            var.multidim_array_strings.push_back(element);
+                                            var.multidim_array_strings
+                                                .push_back(element);
                                         }
                                     }
                                 }
@@ -627,7 +643,8 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
                                 for (const auto &plane : ret.str_array_3d) {
                                     for (const auto &row : plane) {
                                         for (const auto &element : row) {
-                                            var.array_strings.push_back(element);
+                                            var.array_strings.push_back(
+                                                element);
                                         }
                                     }
                                 }
@@ -690,7 +707,8 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
                                 for (const auto &plane : ret.int_array_3d) {
                                     for (const auto &row : plane) {
                                         for (const auto &element : row) {
-                                            var.multidim_array_values.push_back(element);
+                                            var.multidim_array_values.push_back(
+                                                element);
                                         }
                                     }
                                 }
@@ -716,7 +734,8 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
                                 for (const auto &plane : ret.str_array_3d) {
                                     for (const auto &row : plane) {
                                         for (const auto &element : row) {
-                                            var.multidim_array_strings.push_back(element);
+                                            var.multidim_array_strings
+                                                .push_back(element);
                                         }
                                     }
                                 }
@@ -727,7 +746,8 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
                                 for (const auto &plane : ret.str_array_3d) {
                                     for (const auto &row : plane) {
                                         for (const auto &element : row) {
-                                            var.array_strings.push_back(element);
+                                            var.array_strings.push_back(
+                                                element);
                                         }
                                     }
                                 }
@@ -764,14 +784,18 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
         debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
                   "Initializing struct array elements");
         debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
-                  ("Struct array: " + node->name + ", size: " + std::to_string(var.array_size)).c_str());
+                  ("Struct array: " + node->name +
+                   ", size: " + std::to_string(var.array_size))
+                      .c_str());
 
         const StructDefinition *struct_def =
             variable_manager_->getInterpreter()->find_struct_definition(
-                variable_manager_->getInterpreter()->type_manager_->resolve_typedef(node->type_name));
+                variable_manager_->getInterpreter()
+                    ->type_manager_->resolve_typedef(node->type_name));
         if (!struct_def) {
-            debug_msg(DebugMsgId::INTERPRETER_VAR_NOT_FOUND,
-                      ("Struct definition not found: " + node->type_name).c_str());
+            debug_msg(
+                DebugMsgId::INTERPRETER_VAR_NOT_FOUND,
+                ("Struct definition not found: " + node->type_name).c_str());
             throw std::runtime_error("Struct definition not found: " +
                                      node->type_name);
         }
@@ -798,7 +822,7 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
             struct_element.array_size = 0;
             struct_element.value = 0;
             struct_element.str_value = "";
-            
+
             // コンテナの明示的初期化
             struct_element.struct_members.clear();
             struct_element.array_values.clear();
@@ -806,7 +830,7 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
             struct_element.array_dimensions.clear();
             struct_element.multidim_array_values.clear();
             struct_element.multidim_array_strings.clear();
-            
+
             debug_msg(DebugMsgId::INTERPRETER_STRUCT_REGISTERED,
                       element_name.c_str(), node->type_name.c_str());
 
@@ -825,8 +849,7 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
 
                 struct_element.struct_members[member.name] = member_var;
                 std::string member_debug = "Added member: " + member.name;
-                debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
-                          member_debug.c_str());
+                debug_msg(DebugMsgId::ARRAY_DECL_DEBUG, member_debug.c_str());
 
                 // メンバー変数の直接アクセス用変数も作成
                 std::string member_path = element_name + "." + member.name;
@@ -843,9 +866,9 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
             variable_manager_->getInterpreter()
                 ->current_scope()
                 .variables[element_name] = struct_element;
-            std::string element_debug = "Registered struct element: " + element_name;
-            debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
-                      element_debug.c_str());
+            std::string element_debug =
+                "Registered struct element: " + element_name;
+            debug_msg(DebugMsgId::ARRAY_DECL_DEBUG, element_debug.c_str());
         }
     }
 
@@ -875,13 +898,11 @@ void ArrayManager::processMultidimensionalArrayLiteral(
 
     // 宣言された次元と一致するかチェック
     if (dimensions.size() != var.array_type_info.dimensions.size()) {
-        std::string dimension_error = "Dimension mismatch: literal=" +
-                                      std::to_string(dimensions.size()) +
-                                      ", declared=" +
-                                      std::to_string(
-                                          var.array_type_info.dimensions.size());
-        debug_msg(DebugMsgId::TYPE_MISMATCH_ERROR,
-                  dimension_error.c_str());
+        std::string dimension_error =
+            "Dimension mismatch: literal=" + std::to_string(dimensions.size()) +
+            ", declared=" +
+            std::to_string(var.array_type_info.dimensions.size());
+        debug_msg(DebugMsgId::TYPE_MISMATCH_ERROR, dimension_error.c_str());
         throw std::runtime_error(
             "Array literal dimensions don't match declaration");
     }
@@ -993,25 +1014,27 @@ void ArrayManager::processArrayLiteralRecursive(
         if (base_type == TYPE_STRING) {
             var.multidim_array_strings[flat_index] = node->str_value;
             debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
-                      ("Set multidim string element[" + std::to_string(flat_index) + "] = '" + node->str_value + "'").c_str());
+                      ("Set multidim string element[" +
+                       std::to_string(flat_index) + "] = '" + node->str_value +
+                       "'")
+                          .c_str());
         } else {
             // 数値の場合、型付き評価を使用
-            TypedValue element_value = evaluate_expression_typed_safe(
-                node, "array_element");
+            TypedValue element_value =
+                evaluate_expression_typed_safe(node, "array_element");
 
             if (!element_value.is_numeric()) {
                 throw std::runtime_error(
                     "Array literal element is not numeric");
             }
 
-            long double numeric_value = element_value.is_floating()
-                                             ? element_value.as_quad()
-                                             : static_cast<long double>(
-                                                   element_value.as_numeric());
+            long double numeric_value =
+                element_value.is_floating()
+                    ? element_value.as_quad()
+                    : static_cast<long double>(element_value.as_numeric());
 
             if (!is_floating_type(base_type)) {
-                int64_t coerced_value =
-                    static_cast<int64_t>(numeric_value);
+                int64_t coerced_value = static_cast<int64_t>(numeric_value);
                 if (var.is_unsigned && coerced_value < 0) {
                     std::string resolved_name = "<anonymous array>";
                     if (interpreter_) {
@@ -1021,34 +1044,29 @@ void ArrayManager::processArrayLiteralRecursive(
                             resolved_name = candidate;
                         }
                     }
-                    DEBUG_WARN(
-                        VARIABLE,
-                        "Unsigned array %s literal element negative (%lld); clamping to 0",
-                        resolved_name.c_str(),
-                        static_cast<long long>(coerced_value));
+                    DEBUG_WARN(VARIABLE,
+                               "Unsigned array %s literal element negative "
+                               "(%lld); clamping to 0",
+                               resolved_name.c_str(),
+                               static_cast<long long>(coerced_value));
                     coerced_value = 0;
                 }
-                numeric_value =
-                    static_cast<long double>(coerced_value);
+                numeric_value = static_cast<long double>(coerced_value);
             }
 
-            set_numeric_storage_value(
-                var, static_cast<size_t>(flat_index), numeric_value, true,
-                base_type);
+            set_numeric_storage_value(var, static_cast<size_t>(flat_index),
+                                      numeric_value, true, base_type);
         }
     }
 
-    debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
-              "Array declaration completed");
+    debug_msg(DebugMsgId::ARRAY_DECL_DEBUG, "Array declaration completed");
 }
 
 int64_t ArrayManager::getMultidimensionalArrayElement(
     const Variable &var, const std::vector<int64_t> &indices) {
-    TypedValue typed =
-        getMultidimensionalArrayElementTyped(var, indices);
+    TypedValue typed = getMultidimensionalArrayElementTyped(var, indices);
     if (!typed.is_numeric()) {
-        throw std::runtime_error(
-            "Cannot get string array element as integer");
+        throw std::runtime_error("Cannot get string array element as integer");
     }
     if (typed.is_floating()) {
         return static_cast<int64_t>(typed.as_quad());
@@ -1101,8 +1119,7 @@ TypedValue ArrayManager::getMultidimensionalArrayElementTyped(
             InferredType(TYPE_STRING, type_info_to_string(TYPE_STRING)));
     }
 
-    size_t storage_size =
-        get_numeric_storage_size(var, true, base_type);
+    size_t storage_size = get_numeric_storage_size(var, true, base_type);
     if (flat_index >= storage_size) {
         throw std::runtime_error("Array index out of bounds");
     }
@@ -1112,8 +1129,9 @@ TypedValue ArrayManager::getMultidimensionalArrayElementTyped(
     return make_numeric_typed_value(numeric_value, base_type);
 }
 
-TypedValue ArrayManager::getArrayElementTyped(
-    const Variable &var, const std::vector<int64_t> &indices) {
+TypedValue
+ArrayManager::getArrayElementTyped(const Variable &var,
+                                   const std::vector<int64_t> &indices) {
     if (!var.is_array) {
         throw std::runtime_error("Variable is not an array");
     }
@@ -1142,8 +1160,7 @@ TypedValue ArrayManager::getArrayElementTyped(
             InferredType(TYPE_STRING, type_info_to_string(TYPE_STRING)));
     }
 
-    size_t storage_size =
-        get_numeric_storage_size(var, false, base_type);
+    size_t storage_size = get_numeric_storage_size(var, false, base_type);
     if (static_cast<size_t>(index) >= storage_size) {
         throw std::runtime_error("Array index out of bounds");
     }
@@ -1174,10 +1191,11 @@ void ArrayManager::setMultidimensionalArrayElement(
                 resolved_name = candidate;
             }
         }
-        DEBUG_WARN(
-            VARIABLE,
-            "Unsigned array %s element assignment with negative value (%lld); clamping to 0",
-            resolved_name.c_str(), static_cast<long long>(adjusted_value));
+        DEBUG_WARN(VARIABLE,
+                   "Unsigned array %s element assignment with negative value "
+                   "(%lld); clamping to 0",
+                   resolved_name.c_str(),
+                   static_cast<long long>(adjusted_value));
         adjusted_value = 0;
     }
 
@@ -1186,12 +1204,14 @@ void ArrayManager::setMultidimensionalArrayElement(
         int_indices.push_back(static_cast<int>(idx));
     }
 
-    // 構造体メンバーの場合は array_dimensions を使用してフラットインデックスを計算
+    // 構造体メンバーの場合は array_dimensions
+    // を使用してフラットインデックスを計算
     int flat_index;
     if (!var.array_dimensions.empty()) {
         // 構造体メンバーの場合
         if (indices.size() != var.array_dimensions.size()) {
-            throw std::runtime_error("Dimension mismatch in struct member array access");
+            throw std::runtime_error(
+                "Dimension mismatch in struct member array access");
         }
 
         flat_index = 0;
@@ -1199,13 +1219,15 @@ void ArrayManager::setMultidimensionalArrayElement(
 
         // 最後の次元から計算（row-major order）
         for (int i = static_cast<int>(indices.size()) - 1; i >= 0; --i) {
-            if (int_indices[i] < 0 || int_indices[i] >= static_cast<int>(var.array_dimensions[i])) {
-                throw std::runtime_error("Array index out of bounds in struct member access");
+            if (int_indices[i] < 0 ||
+                int_indices[i] >= static_cast<int>(var.array_dimensions[i])) {
+                throw std::runtime_error(
+                    "Array index out of bounds in struct member access");
             }
             flat_index += int_indices[i] * multiplier;
             multiplier *= static_cast<int>(var.array_dimensions[i]);
         }
-        
+
         debug_msg(DebugMsgId::FLAT_INDEX_CALCULATED, flat_index);
     } else {
         // 通常の配列の場合
@@ -1225,7 +1247,7 @@ void ArrayManager::setMultidimensionalArrayElement(
 
     long double numeric_value = static_cast<long double>(adjusted_value);
     set_numeric_storage_value(var, static_cast<size_t>(flat_index),
-                               numeric_value, true, base_type);
+                              numeric_value, true, base_type);
 }
 
 // float/double値での多次元配列要素設定（オーバーロード）
@@ -1246,12 +1268,14 @@ void ArrayManager::setMultidimensionalArrayElement(
         int_indices.push_back(static_cast<int>(idx));
     }
 
-    // 構造体メンバーの場合は array_dimensions を使用してフラットインデックスを計算
+    // 構造体メンバーの場合は array_dimensions
+    // を使用してフラットインデックスを計算
     int flat_index;
     if (!var.array_dimensions.empty()) {
         // 構造体メンバーの場合
         if (indices.size() != var.array_dimensions.size()) {
-            throw std::runtime_error("Dimension mismatch in struct member array access");
+            throw std::runtime_error(
+                "Dimension mismatch in struct member array access");
         }
 
         flat_index = 0;
@@ -1259,13 +1283,15 @@ void ArrayManager::setMultidimensionalArrayElement(
 
         // 最後の次元から計算（row-major order）
         for (int i = static_cast<int>(indices.size()) - 1; i >= 0; --i) {
-            if (int_indices[i] < 0 || int_indices[i] >= static_cast<int>(var.array_dimensions[i])) {
-                throw std::runtime_error("Array index out of bounds in struct member access");
+            if (int_indices[i] < 0 ||
+                int_indices[i] >= static_cast<int>(var.array_dimensions[i])) {
+                throw std::runtime_error(
+                    "Array index out of bounds in struct member access");
             }
             flat_index += int_indices[i] * multiplier;
             multiplier *= static_cast<int>(var.array_dimensions[i]);
         }
-        
+
         debug_msg(DebugMsgId::FLAT_INDEX_CALCULATED, flat_index);
     } else {
         // 通常の配列の場合
@@ -1285,7 +1311,7 @@ void ArrayManager::setMultidimensionalArrayElement(
 
     long double numeric_value = static_cast<long double>(value);
     set_numeric_storage_value(var, static_cast<size_t>(flat_index),
-                               numeric_value, true, base_type);
+                              numeric_value, true, base_type);
 }
 
 std::string ArrayManager::getMultidimensionalStringArrayElement(
@@ -1299,12 +1325,14 @@ std::string ArrayManager::getMultidimensionalStringArrayElement(
         int_indices.push_back(static_cast<int>(idx));
     }
 
-    // 構造体メンバーの場合は array_dimensions を使用してフラットインデックスを計算
+    // 構造体メンバーの場合は array_dimensions
+    // を使用してフラットインデックスを計算
     int flat_index;
     if (!var.array_dimensions.empty()) {
         // 構造体メンバーの場合
         if (indices.size() != var.array_dimensions.size()) {
-            throw std::runtime_error("Dimension mismatch in struct member array access");
+            throw std::runtime_error(
+                "Dimension mismatch in struct member array access");
         }
 
         flat_index = 0;
@@ -1312,8 +1340,10 @@ std::string ArrayManager::getMultidimensionalStringArrayElement(
 
         // 最後の次元から計算（row-major order）
         for (int i = static_cast<int>(indices.size()) - 1; i >= 0; --i) {
-            if (int_indices[i] < 0 || int_indices[i] >= static_cast<int>(var.array_dimensions[i])) {
-                throw std::runtime_error("Array index out of bounds in struct member access");
+            if (int_indices[i] < 0 ||
+                int_indices[i] >= static_cast<int>(var.array_dimensions[i])) {
+                throw std::runtime_error(
+                    "Array index out of bounds in struct member access");
             }
             flat_index += int_indices[i] * multiplier;
             multiplier *= static_cast<int>(var.array_dimensions[i]);
@@ -1329,12 +1359,16 @@ std::string ArrayManager::getMultidimensionalStringArrayElement(
     }
 
     debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
-              ("Getting multidim string element at flat_index=" + std::to_string(flat_index) + 
-               ", multidim_array_strings.size()=" + std::to_string(var.multidim_array_strings.size())).c_str());
-    
+              ("Getting multidim string element at flat_index=" +
+               std::to_string(flat_index) + ", multidim_array_strings.size()=" +
+               std::to_string(var.multidim_array_strings.size()))
+                  .c_str());
+
     if (flat_index < static_cast<int>(var.multidim_array_strings.size())) {
         debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
-                  ("Returning string: '" + var.multidim_array_strings[flat_index] + "'").c_str());
+                  ("Returning string: '" +
+                   var.multidim_array_strings[flat_index] + "'")
+                      .c_str());
     }
 
     return var.multidim_array_strings[flat_index];
@@ -1358,12 +1392,14 @@ void ArrayManager::setMultidimensionalStringArrayElement(
         int_indices.push_back(static_cast<int>(idx));
     }
 
-    // 構造体メンバーの場合は array_dimensions を使用してフラットインデックスを計算
+    // 構造体メンバーの場合は array_dimensions
+    // を使用してフラットインデックスを計算
     int flat_index;
     if (!var.array_dimensions.empty()) {
         // 構造体メンバーの場合
         if (indices.size() != var.array_dimensions.size()) {
-            throw std::runtime_error("Dimension mismatch in struct member array access");
+            throw std::runtime_error(
+                "Dimension mismatch in struct member array access");
         }
 
         flat_index = 0;
@@ -1371,8 +1407,10 @@ void ArrayManager::setMultidimensionalStringArrayElement(
 
         // 最後の次元から計算（row-major order）
         for (int i = static_cast<int>(indices.size()) - 1; i >= 0; --i) {
-            if (int_indices[i] < 0 || int_indices[i] >= static_cast<int>(var.array_dimensions[i])) {
-                throw std::runtime_error("Array index out of bounds in struct member access");
+            if (int_indices[i] < 0 ||
+                int_indices[i] >= static_cast<int>(var.array_dimensions[i])) {
+                throw std::runtime_error(
+                    "Array index out of bounds in struct member access");
             }
             flat_index += int_indices[i] * multiplier;
             multiplier *= static_cast<int>(var.array_dimensions[i]);
@@ -1544,9 +1582,9 @@ void ArrayManager::declare_array(const ASTNode *node) {
         }
     } else if (node->array_type_info.dimensions.size() == 1 ||
                (node->type_info == TYPE_STRUCT && node->array_size_expr)) {
-    // 単一次元配列の場合またはstruct配列の場合
-    debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
-          "Processing single-dimension or struct array");
+        // 単一次元配列の場合またはstruct配列の場合
+        debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
+                  "Processing single-dimension or struct array");
 
         var.is_array = true;
         var.is_multidimensional = false;
@@ -1580,11 +1618,13 @@ void ArrayManager::declare_array(const ASTNode *node) {
             if (node->array_size_expr) {
                 size = evaluate_expression_safe(node->array_size_expr.get(),
                                                 "array_size");
-            } else if (!node->array_dimensions.empty() && node->array_dimensions[0]) {
+            } else if (!node->array_dimensions.empty() &&
+                       node->array_dimensions[0]) {
                 size = evaluate_expression_safe(node->array_dimensions[0].get(),
                                                 "array_dimension_0");
             } else {
-                throw std::runtime_error("Array size could not be determined for " + node->name);
+                throw std::runtime_error(
+                    "Array size could not be determined for " + node->name);
             }
         } else {
             size = node->array_type_info.dimensions[0].size;
@@ -1596,9 +1636,10 @@ void ArrayManager::declare_array(const ASTNode *node) {
         // 単一次元配列の場合もarray_dimensionsを設定
         var.array_dimensions.clear();
         var.array_dimensions.push_back(size);
-        
+
         if (debug_mode) {
-            std::cerr << "[ARRAY_DEBUG] About to initialize storage for type: " << static_cast<int>(node->type_info) << std::endl;
+            std::cerr << "[ARRAY_DEBUG] About to initialize storage for type: "
+                      << static_cast<int>(node->type_info) << std::endl;
         }
 
         // 配列用のストレージを初期化
@@ -1610,7 +1651,8 @@ void ArrayManager::declare_array(const ASTNode *node) {
 
             const StructDefinition *struct_def =
                 variable_manager_->getInterpreter()->find_struct_definition(
-                    variable_manager_->getInterpreter()->type_manager_->resolve_typedef(node->type_name));
+                    variable_manager_->getInterpreter()
+                        ->type_manager_->resolve_typedef(node->type_name));
             if (!struct_def) {
                 throw std::runtime_error("Struct definition not found: " +
                                          node->type_name);
@@ -1662,25 +1704,30 @@ void ArrayManager::declare_array(const ASTNode *node) {
             var.array_strings.resize(size, "");
         } else {
             if (debug_mode) {
-                std::cerr << "[ARRAY_DEBUG] Calling ensure_numeric_storage, size=" << size << std::endl;
+                std::cerr
+                    << "[ARRAY_DEBUG] Calling ensure_numeric_storage, size="
+                    << size << std::endl;
             }
             ensure_numeric_storage(var, static_cast<size_t>(size), false,
                                    node->array_type_info.base_type);
             if (debug_mode) {
-                std::cerr << "[ARRAY_DEBUG] ensure_numeric_storage completed" << std::endl;
+                std::cerr << "[ARRAY_DEBUG] ensure_numeric_storage completed"
+                          << std::endl;
             }
         }
 
         if (debug_mode) {
-            std::cerr << "[ARRAY_DEBUG] About to save to global_scope.variables" << std::endl;
+            std::cerr << "[ARRAY_DEBUG] About to save to global_scope.variables"
+                      << std::endl;
         }
-        
+
         // グローバルスコープに保存（AST_ARRAY_DECLはグローバル配列宣言のみ）
         variable_manager_->getInterpreter()
             ->global_scope.variables[node->name] = var;
-            
+
         if (debug_mode) {
-            std::cerr << "[ARRAY_DEBUG] Saved to global_scope.variables" << std::endl;
+            std::cerr << "[ARRAY_DEBUG] Saved to global_scope.variables"
+                      << std::endl;
         }
         debug_msg(DebugMsgId::ARRAY_DECL_SUCCESS, node->name.c_str());
 
@@ -1776,13 +1823,12 @@ void ArrayManager::copyArraySlice(Variable &dest, const Variable &src,
                     throw std::runtime_error(
                         "Expected numeric value in array slice");
                 }
-                long double numeric_value = typed_value.is_floating()
-                                                ? typed_value.as_quad()
-                                                : static_cast<long double>(
-                                                      typed_value
-                                                          .as_numeric());
+                long double numeric_value =
+                    typed_value.is_floating()
+                        ? typed_value.as_quad()
+                        : static_cast<long double>(typed_value.as_numeric());
                 set_numeric_storage_value(dest, i, numeric_value, false,
-                                           src.array_type_info.base_type);
+                                          src.array_type_info.base_type);
             }
         }
     } else {

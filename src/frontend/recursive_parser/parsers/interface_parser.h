@@ -10,15 +10,15 @@ class RecursiveParser;
 
 // interface/impl宣言の解析を担当するクラス
 class InterfaceParser {
-public:
-    explicit InterfaceParser(RecursiveParser* parser);
-    
+  public:
+    explicit InterfaceParser(RecursiveParser *parser);
+
     // interface/impl宣言の解析
-    ASTNode* parseInterfaceDeclaration();
-    ASTNode* parseImplDeclaration();
-    
-private:
-    RecursiveParser* parser_;
+    ASTNode *parseInterfaceDeclaration();
+    ASTNode *parseImplDeclaration();
+
+  private:
+    RecursiveParser *parser_;
 };
 
 #endif // INTERFACE_PARSER_H

@@ -6,24 +6,24 @@ namespace RecursiveParserNS {
 
 enum class TokenType {
     // Operators
-    TOK_PLUS,        // +
-    TOK_MINUS,       // -
-    TOK_MUL,         // *
-    TOK_DIV,         // /
-    TOK_MOD,         // %
-    TOK_EQ,          // ==
-    TOK_NE,          // !=
-    TOK_LT,          // <
-    TOK_LE,          // <=
-    TOK_GT,          // >
-    TOK_GE,          // >=
-    TOK_AND,         // &&
-    TOK_OR,          // ||
-    TOK_NOT,         // !
-    TOK_INCR,        // ++
-    TOK_DECR,        // --
-    TOK_ASSIGN,      // =
-    
+    TOK_PLUS,   // +
+    TOK_MINUS,  // -
+    TOK_MUL,    // *
+    TOK_DIV,    // /
+    TOK_MOD,    // %
+    TOK_EQ,     // ==
+    TOK_NE,     // !=
+    TOK_LT,     // <
+    TOK_LE,     // <=
+    TOK_GT,     // >
+    TOK_GE,     // >=
+    TOK_AND,    // &&
+    TOK_OR,     // ||
+    TOK_NOT,    // !
+    TOK_INCR,   // ++
+    TOK_DECR,   // --
+    TOK_ASSIGN, // =
+
     // Compound assignment operators
     TOK_PLUS_ASSIGN,   // +=
     TOK_MINUS_ASSIGN,  // -=
@@ -35,39 +35,39 @@ enum class TokenType {
     TOK_XOR_ASSIGN,    // ^=
     TOK_LSHIFT_ASSIGN, // <<=
     TOK_RSHIFT_ASSIGN, // >>=
-    
+
     // Bitwise operators
-    TOK_BIT_AND,     // &
-    TOK_BIT_OR,      // |
-    TOK_PIPE = TOK_BIT_OR,  // | (alias for union types)
-    TOK_BIT_XOR,     // ^
-    TOK_BIT_NOT,     // ~
-    TOK_LEFT_SHIFT,  // <<
-    TOK_RIGHT_SHIFT, // >>
-    
+    TOK_BIT_AND,           // &
+    TOK_BIT_OR,            // |
+    TOK_PIPE = TOK_BIT_OR, // | (alias for union types)
+    TOK_BIT_XOR,           // ^
+    TOK_BIT_NOT,           // ~
+    TOK_LEFT_SHIFT,        // <<
+    TOK_RIGHT_SHIFT,       // >>
+
     // Ternary operator
-    TOK_QUESTION,    // ?
-    TOK_COLON,       // :
-    
+    TOK_QUESTION, // ?
+    TOK_COLON,    // :
+
     // Punctuation
-    TOK_SEMICOLON,   // ;
-    TOK_COMMA,       // ,
-    TOK_LPAREN,      // (
-    TOK_RPAREN,      // )
-    TOK_LBRACE,      // {
-    TOK_RBRACE,      // }
-    TOK_LBRACKET,    // [
-    TOK_RBRACKET,    // ]
-    TOK_DOT,         // .
-    TOK_ARROW,       // ->
-    TOK_SCOPE,       // ::
-    
+    TOK_SEMICOLON, // ;
+    TOK_COMMA,     // ,
+    TOK_LPAREN,    // (
+    TOK_RPAREN,    // )
+    TOK_LBRACE,    // {
+    TOK_RBRACE,    // }
+    TOK_LBRACKET,  // [
+    TOK_RBRACKET,  // ]
+    TOK_DOT,       // .
+    TOK_ARROW,     // ->
+    TOK_SCOPE,     // ::
+
     // Literals
     TOK_IDENTIFIER,
     TOK_NUMBER,
     TOK_STRING,
     TOK_CHAR,
-    
+
     // Keywords
     TOK_MAIN,
     TOK_IF,
@@ -108,7 +108,7 @@ enum class TokenType {
     TOK_NULLPTR,
     TOK_UNSIGNED,
     TOK_ASSERT,
-    
+
     // Special
     TOK_EOF,
     TOK_ERROR
@@ -119,37 +119,37 @@ struct Token {
     std::string value;
     int line;
     int column;
-    
-    Token(TokenType t, const std::string& val, int l, int c)
+
+    Token(TokenType t, const std::string &val, int l, int c)
         : type(t), value(val), line(l), column(c) {}
 };
 
 class RecursiveLexer {
-public:
-    explicit RecursiveLexer(const std::string& source);
+  public:
+    explicit RecursiveLexer(const std::string &source);
     Token nextToken();
     bool isAtEnd() const;
     Token peekToken();
 
-private:
+  private:
     std::string source_;
     size_t current_;
     int line_;
     int column_;
     Token current_token_;
     bool has_peeked_;
-    
+
     char peek();
     char peekNext();
     char advance();
     void skipWhitespace();
     void skipComment();
-    Token makeToken(TokenType type, const std::string& value);
+    Token makeToken(TokenType type, const std::string &value);
     Token makeIdentifier();
     Token makeNumber();
     Token makeString();
     Token makeChar();
-    TokenType getKeywordType(const std::string& text);
+    TokenType getKeywordType(const std::string &text);
     bool isAlpha(char c);
     bool isDigit(char c);
     bool isAlphaNumeric(char c);

@@ -21,10 +21,10 @@ class ArrayManager {
     std::vector<int> extractArrayDimensions(const ASTNode *literal_node);
 
     // DRY効率化: 統一式評価メソッド
-  int64_t evaluate_expression_safe(const ASTNode *node,
-                   const std::string &context = "");
-  TypedValue evaluate_expression_typed_safe(const ASTNode *node,
-                        const std::string &context = "");
+    int64_t evaluate_expression_safe(const ASTNode *node,
+                                     const std::string &context = "");
+    TypedValue evaluate_expression_typed_safe(const ASTNode *node,
+                                              const std::string &context = "");
 
   public:
     ArrayManager(VariableManager *vm, ExpressionEvaluator *ee,
@@ -45,16 +45,18 @@ class ArrayManager {
                                          TypeInfo base_type);
 
     // 多次元配列アクセス
-  int64_t getMultidimensionalArrayElement(
-    const Variable &var, const std::vector<int64_t> &indices);
-  TypedValue getMultidimensionalArrayElementTyped(
-    const Variable &var, const std::vector<int64_t> &indices);
-  TypedValue getArrayElementTyped(const Variable &var,
-                  const std::vector<int64_t> &indices);
+    int64_t
+    getMultidimensionalArrayElement(const Variable &var,
+                                    const std::vector<int64_t> &indices);
+    TypedValue
+    getMultidimensionalArrayElementTyped(const Variable &var,
+                                         const std::vector<int64_t> &indices);
+    TypedValue getArrayElementTyped(const Variable &var,
+                                    const std::vector<int64_t> &indices);
     void setMultidimensionalArrayElement(Variable &var,
                                          const std::vector<int64_t> &indices,
                                          int64_t value);
-    
+
     // float/double値での多次元配列要素設定
     void setMultidimensionalArrayElement(Variable &var,
                                          const std::vector<int64_t> &indices,

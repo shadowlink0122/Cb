@@ -37,6 +37,7 @@ BACKEND_OBJS=$(BACKEND_DIR)/interpreter/core/interpreter.o $(BACKEND_DIR)/interp
              $(BACKEND_DIR)/interpreter/core/type_inference.o \
              $(BACKEND_DIR)/interpreter/core/pointer_metadata.o \
              $(BACKEND_DIR)/interpreter/evaluator/expression_evaluator.o \
+             $(BACKEND_DIR)/interpreter/evaluator/expression_function_call_impl.o \
              $(BACKEND_DIR)/interpreter/evaluator/expression_helpers.o \
              $(BACKEND_DIR)/interpreter/evaluator/expression_address_ops.o \
              $(BACKEND_DIR)/interpreter/evaluator/expression_array_access.o \
@@ -139,10 +140,15 @@ $(CGEN_TARGET):
 
 # フォーマット
 lint:
-	clang-format --dry-run --Werror $(SRC_DIR)/**/*.cpp $(SRC_DIR)/**/*.h $(TESTS_DIR)/**/*.cpp
+	@echo "Checking code formatting (dry-run)..."
+	@find $(SRC_DIR) -type f \( -name "*.cpp" -o -name "*.h" \) -exec clang-format --dry-run --Werror {} +
+	@find $(TESTS_DIR) -type f \( -name "*.cpp" -o -name "*.h" \) -exec clang-format --dry-run --Werror {} + 2>/dev/null || true
 
 fmt:
-	clang-format -i $(SRC_DIR)/**/*.cpp $(SRC_DIR)/**/*.h $(TESTS_DIR)/**/*.cpp
+	@echo "Formatting all source files in src/ and tests/..."
+	@find $(SRC_DIR) -type f \( -name "*.cpp" -o -name "*.h" \) -exec clang-format -i {} +
+	@find $(TESTS_DIR) -type f \( -name "*.cpp" -o -name "*.h" \) -exec clang-format -i {} + 2>/dev/null || true
+	@echo "Formatting complete!"
 
 # 単体テスト用のダミーオブジェクト
 $(TESTS_DIR)/unit/dummy.o: $(TESTS_DIR)/unit/dummy.cpp

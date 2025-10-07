@@ -26,18 +26,14 @@ namespace ArrayAccessHelpers {
 // evaluate_expression_func: 式評価関数（再帰呼び出し用）
 // get_struct_member_func: 構造体メンバー取得関数
 int64_t evaluate_array_ref(
-    const ASTNode* node, 
-    Interpreter& interpreter,
-    std::function<int64_t(const ASTNode*)> evaluate_expression_func,
-    std::function<Variable(const Variable&, const std::string&)> get_struct_member_func
-);
+    const ASTNode *node, Interpreter &interpreter,
+    std::function<int64_t(const ASTNode *)> evaluate_expression_func,
+    std::function<Variable(const Variable &, const std::string &)>
+        get_struct_member_func);
 
 // 配列リテラルの評価（AST_ARRAY_LITERAL）
 // node: 配列リテラルノード
 // interpreter: インタプリタインスタンス
-int64_t evaluate_array_literal(
-    const ASTNode* node,
-    Interpreter& interpreter
-);
+int64_t evaluate_array_literal(const ASTNode *node, Interpreter &interpreter);
 
 } // namespace ArrayAccessHelpers

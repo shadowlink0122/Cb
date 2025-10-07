@@ -42,10 +42,10 @@ class ExpressionEvaluator;
 // ExpressionDispatcher: 式評価のディスパッチャークラス
 // ============================================================================
 class ExpressionDispatcher {
-public:
+  public:
     // コンストラクタ
-    ExpressionDispatcher(ExpressionEvaluator& expression_evaluator);
-    
+    ExpressionDispatcher(ExpressionEvaluator &expression_evaluator);
+
     // ============================================================================
     // dispatch_expression: 式評価のメインディスパッチメソッド
     // ============================================================================
@@ -73,11 +73,11 @@ public:
     //   - 構造体: STRUCT_LITERAL
     //   - Enum: ENUM_ACCESS
     // ============================================================================
-    int64_t dispatch_expression(const ASTNode* node);
-    
-private:
-    ExpressionEvaluator& expression_evaluator_;   // 式評価エンジンへの参照
-    Interpreter& interpreter_;                    // インタープリターへの参照（高速アクセス用）
+    int64_t dispatch_expression(const ASTNode *node);
+
+  private:
+    ExpressionEvaluator &expression_evaluator_; // 式評価エンジンへの参照
+    Interpreter &interpreter_; // インタープリターへの参照（高速アクセス用）
 };
 
 #endif // EXPRESSION_DISPATCHER_H

@@ -1,11 +1,12 @@
 #include "output/output_manager.h"
 #include "core/interpreter.h"
 #include "services/expression_service.h" // DRY効率化: 統一式評価サービス
-// #include "services/expression_service.h" // DRY効率化: 循環依存解決まで一時コメントアウト
+// #include "services/expression_service.h" // DRY効率化:
+// 循環依存解決まで一時コメントアウト
 #include "../../../common/debug.h"
 #include "../../../common/debug_messages.h"
-#include "../../../common/utf8_utils.h"
 #include "../../../common/io_interface.h"
+#include "../../../common/utf8_utils.h"
 #include <algorithm>
 #include <cctype>
 #include <cinttypes>
@@ -68,26 +69,26 @@ void write_numeric_value(IOInterface *io_interface, TypeInfo type,
 
 } // namespace
 
-OutputManager::OutputManager(Interpreter* interpreter) 
-    : interpreter_(interpreter), 
-      io_interface_(IOFactory::get_instance()),
-      expression_service_(nullptr) { // DRY効率化: 初期化時にnullptr、後でInterpreterから取得
+OutputManager::OutputManager(Interpreter *interpreter)
+    : interpreter_(interpreter), io_interface_(IOFactory::get_instance()),
+      expression_service_(
+          nullptr) { // DRY効率化: 初期化時にnullptr、後でInterpreterから取得
 }
 
 // OutputManager::~OutputManager() {
 //     // スマートポインタが自動的にリソース解放
 // }
 
-Variable* OutputManager::find_variable(const std::string& name) {
+Variable *OutputManager::find_variable(const std::string &name) {
     return interpreter_->get_variable(name);
 }
 
-int64_t OutputManager::evaluate_expression(const ASTNode* node) {
+int64_t OutputManager::evaluate_expression(const ASTNode *node) {
     // DRY効率化: 統一式評価サービスを遅延初期化して使用
     if (!expression_service_) {
         expression_service_ = interpreter_->get_expression_service();
     }
-    
+
     if (expression_service_) {
         return expression_service_->evaluate_safe(node, "OutputManager");
     } else {
@@ -96,7 +97,7 @@ int64_t OutputManager::evaluate_expression(const ASTNode* node) {
     }
 }
 
-const ASTNode* OutputManager::find_function(const std::string& name) {
+const ASTNode *OutputManager::find_function(const std::string &name) {
     return interpreter_->get_function(name);
 }
 
@@ -119,7 +120,7 @@ void OutputManager::print_value(const ASTNode *expr) {
             if (value_type == TYPE_UNKNOWN) {
                 value_type = typed.is_floating() ? TYPE_DOUBLE : TYPE_INT;
             }
-            
+
             // ポインタ型の場合、16進数で表示
             int64_t numeric_val = typed.as_numeric();
             if (value_type == TYPE_POINTER) {
@@ -130,11 +131,11 @@ void OutputManager::print_value(const ASTNode *expr) {
                 }
                 std::ostringstream oss;
                 oss << "0x" << std::hex << clean_value;
-                
+
                 io_interface_->write_string(oss.str().c_str());
                 return;
             }
-            
+
             write_numeric_value(io_interface_, value_type, numeric_val,
                                 typed.as_double(), typed.as_quad());
             return;
@@ -165,7 +166,8 @@ void OutputManager::print_value(const ASTNode *expr) {
 
         if (index >= 0 &&
             index < static_cast<int64_t>(var->array_strings.size())) {
-            io_interface_->write_string(var->array_strings[static_cast<size_t>(index)].c_str());
+            io_interface_->write_string(
+                var->array_strings[static_cast<size_t>(index)].c_str());
         } else {
             io_interface_->write_string("");
         }
@@ -177,8 +179,10 @@ void OutputManager::print_value(const ASTNode *expr) {
             return;
         }
 
-        if (index >= 0 && index < static_cast<int64_t>(var->array_values.size())) {
-            io_interface_->write_number(var->array_values[static_cast<size_t>(index)]);
+        if (index >= 0 &&
+            index < static_cast<int64_t>(var->array_values.size())) {
+            io_interface_->write_number(
+                var->array_values[static_cast<size_t>(index)]);
         } else {
             io_interface_->write_number(0);
         }
@@ -207,7 +211,8 @@ void OutputManager::print_value(const ASTNode *expr) {
     };
 
     auto determine_dimensions = [](const std::string &type_name) -> int {
-        return static_cast<int>(std::count(type_name.begin(), type_name.end(), '['));
+        return static_cast<int>(
+            std::count(type_name.begin(), type_name.end(), '['));
     };
 
     auto render_int_vector = [](const std::vector<int64_t> &vec) {
@@ -356,8 +361,8 @@ void OutputManager::print_value(const ASTNode *expr) {
     } catch (const ReturnException &ret) {
         if (ret.is_array) {
             std::string rendered = !ret.str_array_3d.empty()
-                                        ? render_string_array(ret)
-                                        : render_int_array(ret);
+                                       ? render_string_array(ret)
+                                       : render_int_array(ret);
             io_interface_->write_string(rendered.c_str());
             return;
         }
@@ -367,8 +372,8 @@ void OutputManager::print_value(const ASTNode *expr) {
             return;
         }
 
-        write_numeric_value(io_interface_, ret.type, ret.value, ret.double_value,
-                            ret.quad_value);
+        write_numeric_value(io_interface_, ret.type, ret.value,
+                            ret.double_value, ret.quad_value);
         return;
     } catch (const std::exception &) {
         // フォールバック処理へ移行
@@ -386,27 +391,27 @@ void OutputManager::print_value(const ASTNode *expr) {
 
     if (expr->node_type == ASTNodeType::AST_VARIABLE) {
         Variable *var = find_variable(expr->name);
-        
+
         // 参照型変数の場合、参照先変数を取得
         if (var && var->is_reference) {
-            var = reinterpret_cast<Variable*>(var->value);
+            var = reinterpret_cast<Variable *>(var->value);
             if (!var) {
                 io_interface_->write_string("(invalid reference)");
                 return;
             }
         }
-        
+
         if (var && var->type == TYPE_STRING) {
             io_interface_->write_string(var->str_value.c_str());
             return;
         }
-        
+
         if (!var) {
             // 変数が見つからない場合、式として評価
             evaluate_numeric_and_write(expr);
             return;
         }
-        
+
         // 変数の値を直接出力
         if (var) {
             // ポインタ型または関数ポインタの場合
@@ -417,13 +422,13 @@ void OutputManager::print_value(const ASTNode *expr) {
                     // タグビットが設定されている場合は除去
                     clean_value &= ~(1ULL << 63);
                 }
-                
+
                 std::ostringstream oss;
                 oss << "0x" << std::hex << clean_value;
-                
+
                 io_interface_->write_string(oss.str().c_str());
             } else {
-                write_numeric_value(io_interface_, var->type, var->value, 
+                write_numeric_value(io_interface_, var->type, var->value,
                                     var->double_value, var->quad_value);
             }
             return;
@@ -439,7 +444,8 @@ void OutputManager::print_value(const ASTNode *expr) {
 
         if (expr->left && expr->left->node_type == ASTNodeType::AST_VARIABLE) {
             struct_name = expr->left->name;
-        } else if (expr->left && expr->left->node_type == ASTNodeType::AST_ARRAY_REF) {
+        } else if (expr->left &&
+                   expr->left->node_type == ASTNodeType::AST_ARRAY_REF) {
             if (!expr->left->left) {
                 io_interface_->write_string("(null array reference)");
                 return;
@@ -447,24 +453,26 @@ void OutputManager::print_value(const ASTNode *expr) {
             std::string array_name = expr->left->left->name;
             int64_t index = evaluate_expression(expr->left->array_index.get());
             struct_name = array_name + "[" + std::to_string(index) + "]";
-        } else if (expr->left && expr->left->node_type == ASTNodeType::AST_UNARY_OP && 
+        } else if (expr->left &&
+                   expr->left->node_type == ASTNodeType::AST_UNARY_OP &&
                    expr->left->op == "DEREFERENCE") {
             // デリファレンスされたポインタからのメンバーアクセス: (*pp).x
             // デリファレンスを評価して構造体を取得
             try {
                 int64_t ptr_value = evaluate_expression(expr->left.get());
                 // ポインタ値から構造体変数を取得
-                Variable* struct_var = reinterpret_cast<Variable*>(ptr_value);
+                Variable *struct_var = reinterpret_cast<Variable *>(ptr_value);
                 if (!struct_var) {
                     io_interface_->write_string("(null pointer dereference)");
                     return;
                 }
-                
+
                 // メンバーにアクセス
                 auto member_it = struct_var->struct_members.find(member_name);
                 if (member_it != struct_var->struct_members.end()) {
                     if (member_it->second.type == TYPE_STRING) {
-                        io_interface_->write_string(member_it->second.str_value.c_str());
+                        io_interface_->write_string(
+                            member_it->second.str_value.c_str());
                     } else {
                         io_interface_->write_number(member_it->second.value);
                     }
@@ -473,7 +481,7 @@ void OutputManager::print_value(const ASTNode *expr) {
                     io_interface_->write_string("(member not found)");
                     return;
                 }
-            } catch (const std::exception&) {
+            } catch (const std::exception &) {
                 io_interface_->write_string("(deref member access error)");
                 return;
             }
@@ -483,7 +491,8 @@ void OutputManager::print_value(const ASTNode *expr) {
         }
 
         try {
-            Variable *member_var = interpreter_->get_struct_member(struct_name, member_name);
+            Variable *member_var =
+                interpreter_->get_struct_member(struct_name, member_name);
             if (member_var->type == TYPE_STRING) {
                 io_interface_->write_string(member_var->str_value.c_str());
             } else {
@@ -508,13 +517,15 @@ void OutputManager::print_value(const ASTNode *expr) {
         int64_t index = evaluate_expression(expr->right.get());
 
         try {
-            Variable *member_var = interpreter_->get_struct_member(obj_name, member_name);
+            Variable *member_var =
+                interpreter_->get_struct_member(obj_name, member_name);
             if (member_var && member_var->is_array) {
                 if (member_var->type == TYPE_STRING) {
                     print_string_array_element(member_var, index);
                 } else {
-                    int64_t value = interpreter_->get_struct_member_array_element(
-                        obj_name, member_name, static_cast<int>(index));
+                    int64_t value =
+                        interpreter_->get_struct_member_array_element(
+                            obj_name, member_name, static_cast<int>(index));
                     io_interface_->write_number(value);
                 }
             } else {
@@ -536,29 +547,36 @@ void OutputManager::print_value(const ASTNode *expr) {
         } else if (expr->left) {
             if (expr->left->node_type == ASTNodeType::AST_ARRAY_REF) {
                 ASTNode *base_node = expr->left.get();
-                while (base_node && base_node->node_type == ASTNodeType::AST_ARRAY_REF &&
+                while (base_node &&
+                       base_node->node_type == ASTNodeType::AST_ARRAY_REF &&
                        base_node->left) {
                     base_node = base_node->left.get();
                 }
 
-                if (base_node && base_node->node_type == ASTNodeType::AST_VARIABLE) {
+                if (base_node &&
+                    base_node->node_type == ASTNodeType::AST_VARIABLE) {
                     Variable *var = find_variable(base_node->name);
                     if (var && var->is_multidimensional &&
                         var->array_type_info.base_type == TYPE_STRING) {
                         std::vector<int64_t> indices;
-                        int64_t outer_index = evaluate_expression(expr->array_index.get());
-                        int64_t inner_index = evaluate_expression(expr->left->array_index.get());
+                        int64_t outer_index =
+                            evaluate_expression(expr->array_index.get());
+                        int64_t inner_index =
+                            evaluate_expression(expr->left->array_index.get());
 
                         indices.push_back(inner_index);
                         indices.push_back(outer_index);
 
                         try {
                             std::string result =
-                                interpreter_->getMultidimensionalStringArrayElement(*var, indices);
+                                interpreter_
+                                    ->getMultidimensionalStringArrayElement(
+                                        *var, indices);
                             io_interface_->write_string(result.c_str());
                             return;
                         } catch (const std::exception &) {
-                            io_interface_->write_string("(string array access error)");
+                            io_interface_->write_string(
+                                "(string array access error)");
                             return;
                         }
                     }
@@ -585,13 +603,15 @@ void OutputManager::print_value(const ASTNode *expr) {
             } else {
                 index = evaluate_expression(expr->array_index.get());
                 if (index < 0 || index >= var->array_size) {
-                    error_msg(DebugMsgId::ARRAY_OUT_OF_BOUNDS_ERROR, var_name.c_str());
+                    error_msg(DebugMsgId::ARRAY_OUT_OF_BOUNDS_ERROR,
+                              var_name.c_str());
                     throw std::runtime_error("Array out of bounds");
                 }
             }
 
             if (var->type >= TYPE_ARRAY_BASE) {
-                TypeInfo elem_type = static_cast<TypeInfo>(var->type - TYPE_ARRAY_BASE);
+                TypeInfo elem_type =
+                    static_cast<TypeInfo>(var->type - TYPE_ARRAY_BASE);
                 if (elem_type == TYPE_STRING) {
                     print_string_array_element(var, index);
                 } else {
@@ -614,8 +634,8 @@ void OutputManager::print_value(const ASTNode *expr) {
                     var->str_value, static_cast<size_t>(index));
                 io_interface_->write_string(utf8_char.c_str());
             } else {
-                error_msg(DebugMsgId::STRING_OUT_OF_BOUNDS_ERROR, var_name.c_str(),
-                          index, utf8_length);
+                error_msg(DebugMsgId::STRING_OUT_OF_BOUNDS_ERROR,
+                          var_name.c_str(), index, utf8_length);
                 throw std::runtime_error("String out of bounds");
             }
             return;
@@ -631,7 +651,8 @@ void OutputManager::print_value(const ASTNode *expr) {
             interpreter_->push_interpreter_scope();
 
             for (size_t i = 0; i < func->parameters.size(); ++i) {
-                int64_t arg_value = evaluate_expression(expr->arguments[i].get());
+                int64_t arg_value =
+                    evaluate_expression(expr->arguments[i].get());
                 Variable param;
                 param.type = func->parameters[i]->type_info;
                 param.value = arg_value;
@@ -648,8 +669,8 @@ void OutputManager::print_value(const ASTNode *expr) {
                 if (e.type == TYPE_STRING) {
                     io_interface_->write_string(e.str_value.c_str());
                 } else {
-                    write_numeric_value(io_interface_, e.type, e.value, e.double_value,
-                                        e.quad_value);
+                    write_numeric_value(io_interface_, e.type, e.value,
+                                        e.double_value, e.quad_value);
                 }
             }
             return;
@@ -667,9 +688,7 @@ void OutputManager::print_value_with_newline(const ASTNode *expr) {
     io_interface_->write_newline();
 }
 
-void OutputManager::print_newline() {
-    io_interface_->write_newline();
-}
+void OutputManager::print_newline() { io_interface_->write_newline(); }
 
 void OutputManager::print_multiple_with_newline(const ASTNode *arg_list) {
     print_multiple(arg_list);
@@ -709,13 +728,13 @@ void OutputManager::print_formatted(const ASTNode *format_str,
                                 int_args, str_args, double_args, quad_args,
                                 type_args);
 
-    std::string rendered = render_formatted_string(
-        format_str->str_value, int_args, str_args, double_args, quad_args,
-        type_args, true);
+    std::string rendered =
+        render_formatted_string(format_str->str_value, int_args, str_args,
+                                double_args, quad_args, type_args, true);
 
     io_interface_->write_string(rendered.c_str());
 }
-std::string OutputManager::process_escape_sequences(const std::string& input) {
+std::string OutputManager::process_escape_sequences(const std::string &input) {
     std::string result;
     for (size_t i = 0; i < input.length(); i++) {
         if (input[i] == '\\' && i + 1 < input.length()) {
@@ -755,23 +774,26 @@ std::string OutputManager::process_escape_sequences(const std::string& input) {
     return result;
 }
 
-bool OutputManager::has_unescaped_format_specifiers(const std::string& str) {
+bool OutputManager::has_unescaped_format_specifiers(const std::string &str) {
     debug_msg(DebugMsgId::PRINT_FORMAT_SPEC_CHECKING, str.c_str());
     for (size_t i = 0; i < str.length(); i++) {
         if (str[i] == '%') {
             // \% でエスケープされているかチェック
-            if (i > 0 && str[i-1] == '\\') {
+            if (i > 0 && str[i - 1] == '\\') {
                 continue; // エスケープされている
             }
             // 次の文字がフォーマット指定子かチェック
             if (i + 1 < str.length()) {
                 char next = str[i + 1];
-                if (next == 'd' or next == 's' or next == 'c' or next == 'p' or next == 'f' or next == '%') {
-                    debug_msg(DebugMsgId::OUTPUT_FORMAT_SPEC_FOUND, std::string(1, next).c_str());
+                if (next == 'd' or next == 's' or next == 'c' or next == 'p' or
+                    next == 'f' or next == '%') {
+                    debug_msg(DebugMsgId::OUTPUT_FORMAT_SPEC_FOUND,
+                              std::string(1, next).c_str());
                     return true;
                 }
                 // %lld のチェック
-                if (next == 'l' && i + 3 < str.length() && str[i + 2] == 'l' && str[i + 3] == 'd') {
+                if (next == 'l' && i + 3 < str.length() && str[i + 2] == 'l' &&
+                    str[i + 3] == 'd') {
                     debug_msg(DebugMsgId::OUTPUT_FORMAT_SPEC_FOUND, "lld");
                     return true;
                 }
@@ -782,24 +804,27 @@ bool OutputManager::has_unescaped_format_specifiers(const std::string& str) {
     return false;
 }
 
-size_t OutputManager::count_format_specifiers(const std::string& str) {
+size_t OutputManager::count_format_specifiers(const std::string &str) {
     size_t count = 0;
     debug_msg(DebugMsgId::OUTPUT_FORMAT_COUNT, str.c_str());
     for (size_t i = 0; i < str.length(); i++) {
         if (str[i] == '%') {
             // \% でエスケープされているかチェック
-            if (i > 0 && str[i-1] == '\\') {
+            if (i > 0 && str[i - 1] == '\\') {
                 continue; // エスケープされている
             }
             if (i + 1 < str.length()) {
                 char next = str[i + 1];
-                if (next == 'd' or next == 's' or next == 'c' or next == 'p' or next == 'f') {
+                if (next == 'd' or next == 's' or next == 'c' or next == 'p' or
+                    next == 'f') {
                     count++;
-                    debug_msg(DebugMsgId::OUTPUT_FORMAT_COUNT, std::to_string(count).c_str());
-                } else if (next == 'l' && i + 3 < str.length() && 
-                          str[i + 2] == 'l' && str[i + 3] == 'd') {
+                    debug_msg(DebugMsgId::OUTPUT_FORMAT_COUNT,
+                              std::to_string(count).c_str());
+                } else if (next == 'l' && i + 3 < str.length() &&
+                           str[i + 2] == 'l' && str[i + 3] == 'd') {
                     count++;
-                    debug_msg(DebugMsgId::OUTPUT_FORMAT_COUNT, std::to_string(count).c_str());
+                    debug_msg(DebugMsgId::OUTPUT_FORMAT_COUNT,
+                              std::to_string(count).c_str());
                     i += 3; // %lld をスキップ
                 } else if (next == '%') {
                     // %% は引数を消費しないのでカウントしない
@@ -815,13 +840,15 @@ size_t OutputManager::count_format_specifiers(const std::string& str) {
 
 void OutputManager::print_multiple(const ASTNode *arg_list) {
     // AST_PRINT_STMTまたはAST_PRINTLN_STMTノードの場合、引数を直接処理
-    if (arg_list && (arg_list->node_type == ASTNodeType::AST_PRINT_STMT || 
+    if (arg_list && (arg_list->node_type == ASTNodeType::AST_PRINT_STMT ||
                      arg_list->node_type == ASTNodeType::AST_PRINTLN_STMT)) {
-        
+
         debug_msg(DebugMsgId::PRINT_MULTIPLE_PROCESSING,
-                    (arg_list->node_type == ASTNodeType::AST_PRINT_STMT) ? "AST_PRINT_STMT" : "AST_PRINTLN_STMT",
-                    (int)arg_list->arguments.size());
-        
+                  (arg_list->node_type == ASTNodeType::AST_PRINT_STMT)
+                      ? "AST_PRINT_STMT"
+                      : "AST_PRINTLN_STMT",
+                  (int)arg_list->arguments.size());
+
         // 引数がない場合は何もしない
         if (arg_list->arguments.empty()) {
             debug_msg(DebugMsgId::PRINT_NO_ARGUMENTS_DEBUG);
@@ -832,8 +859,8 @@ void OutputManager::print_multiple(const ASTNode *arg_list) {
         // 引数が1つだけの場合の特別処理
         if (arg_list->arguments.size() == 1) {
             const auto &arg = arg_list->arguments[0];
-            debug_msg(DebugMsgId::PRINT_SINGLE_ARG_DEBUG,
-                "AST_PRINT_STMT", (int)arg->node_type);
+            debug_msg(DebugMsgId::PRINT_SINGLE_ARG_DEBUG, "AST_PRINT_STMT",
+                      (int)arg->node_type);
             if (arg->node_type == ASTNodeType::AST_STRING_LITERAL) {
                 // フォーマット指定子が含まれていても、引数が1つだけの場合はそのまま出力
                 std::string output = process_escape_sequences(arg->str_value);
@@ -844,14 +871,16 @@ void OutputManager::print_multiple(const ASTNode *arg_list) {
             // 改行なし
             return;
         }
-        
+
         // 複数引数の場合：フォーマット文字列を探す
         for (size_t i = 0; i < arg_list->arguments.size(); i++) {
             const auto &arg = arg_list->arguments[i];
-            debug_msg(DebugMsgId::PRINT_CHECKING_ARGUMENT, (int)i, (int)arg->node_type);
+            debug_msg(DebugMsgId::PRINT_CHECKING_ARGUMENT, (int)i,
+                      (int)arg->node_type);
             if (arg->node_type == ASTNodeType::AST_STRING_LITERAL) {
                 std::string str_val = arg->str_value;
-                debug_msg(DebugMsgId::PRINT_FOUND_STRING_LITERAL, str_val.c_str());
+                debug_msg(DebugMsgId::PRINT_FOUND_STRING_LITERAL,
+                          str_val.c_str());
                 // \% エスケープされていない % を探す
                 if (has_unescaped_format_specifiers(str_val)) {
                     debug_msg(DebugMsgId::PRINT_PRINTF_FORMAT_FOUND);
@@ -859,30 +888,33 @@ void OutputManager::print_multiple(const ASTNode *arg_list) {
 
                     // 前の引数をスペース区切りで出力
                     for (size_t j = 0; j < i; j++) {
-                        if (j > 0) io_interface_->write_char(' ');
+                        if (j > 0)
+                            io_interface_->write_char(' ');
                         print_value(arg_list->arguments[j].get());
                     }
-                    if (i > 0) io_interface_->write_char(' ');
+                    if (i > 0)
+                        io_interface_->write_char(' ');
 
                     // printf形式の処理：元のarg_listを使用してコピーを避ける
                     print_formatted(arg.get(), arg_list, i + 1);
-                    
-                    // 余分な引数処理は不要 - print_formattedが全ての引数を処理する
-                    // 改行なし
+
+                    // 余分な引数処理は不要 -
+                    // print_formattedが全ての引数を処理する 改行なし
                     return;
                 }
             }
         }
-        
+
         // フォーマット指定子が見つからない場合は引数を順番に出力
         for (size_t i = 0; i < arg_list->arguments.size(); ++i) {
-            if (i > 0) io_interface_->write_char(' '); // スペース区切りで出力
+            if (i > 0)
+                io_interface_->write_char(' '); // スペース区切りで出力
             print_value(arg_list->arguments[i].get());
         }
         // 改行なし
         return;
     }
-    
+
     if (!arg_list || arg_list->node_type != ASTNodeType::AST_STMT_LIST) {
         debug_msg(DebugMsgId::PRINT_NO_ARGUMENTS_DEBUG);
         return;
@@ -913,7 +945,8 @@ void OutputManager::print_multiple(const ASTNode *arg_list) {
     // 複数引数の場合：フォーマット文字列を探す
     for (size_t i = 0; i < arg_list->arguments.size(); i++) {
         const auto &arg = arg_list->arguments[i];
-        debug_msg(DebugMsgId::PRINT_CHECKING_ARGUMENT, (int)i, (int)arg->node_type);
+        debug_msg(DebugMsgId::PRINT_CHECKING_ARGUMENT, (int)i,
+                  (int)arg->node_type);
         if (arg->node_type == ASTNodeType::AST_STRING_LITERAL) {
             std::string str_val = arg->str_value;
             debug_msg(DebugMsgId::PRINT_FOUND_STRING_LITERAL, str_val.c_str());
@@ -924,14 +957,16 @@ void OutputManager::print_multiple(const ASTNode *arg_list) {
 
                 // 前の引数をスペース区切りで出力
                 for (size_t j = 0; j < i; j++) {
-                    if (j > 0) io_interface_->write_char(' ');
+                    if (j > 0)
+                        io_interface_->write_char(' ');
                     print_value(arg_list->arguments[j].get());
                 }
-                if (i > 0) io_interface_->write_char(' ');
+                if (i > 0)
+                    io_interface_->write_char(' ');
 
                 // printf形式の処理：元のarg_listを使用してコピーを避ける
                 print_formatted(arg.get(), arg_list, i + 1);
-                
+
                 // 余分な引数処理は不要 - print_formattedが全ての引数を処理する
                 // 改行なし
                 return;
@@ -944,7 +979,7 @@ void OutputManager::print_multiple(const ASTNode *arg_list) {
         if (i > 0) {
             io_interface_->write_char(' ');
         }
-        
+
         const auto &arg = arg_list->arguments[i];
         if (arg->node_type == ASTNodeType::AST_STRING_LITERAL) {
             std::string output = process_escape_sequences(arg->str_value);
@@ -957,7 +992,8 @@ void OutputManager::print_multiple(const ASTNode *arg_list) {
 }
 
 // 文字列フォーマット機能（戻り値として返す）
-std::string OutputManager::format_string(const ASTNode *format_str, const ASTNode *arg_list) {
+std::string OutputManager::format_string(const ASTNode *format_str,
+                                         const ASTNode *arg_list) {
     if (!format_str ||
         format_str->node_type != ASTNodeType::AST_STRING_LITERAL) {
         return "(invalid format)";
@@ -1067,8 +1103,8 @@ void OutputManager::collect_formatted_arguments(
                                                 ? typed.numeric_type
                                                 : typed.type.type_info;
                         if (resolved == TYPE_UNKNOWN) {
-                            resolved = typed.is_floating() ? TYPE_DOUBLE
-                                                            : TYPE_INT;
+                            resolved =
+                                typed.is_floating() ? TYPE_DOUBLE : TYPE_INT;
                         }
                         type_args[index] = resolved;
                         return;
@@ -1095,15 +1131,18 @@ void OutputManager::collect_formatted_arguments(
                     fallback_numeric();
                 }
 
-                if (type_args[index] == TYPE_UNKNOWN && hinted_type != TYPE_UNKNOWN) {
+                if (type_args[index] == TYPE_UNKNOWN &&
+                    hinted_type != TYPE_UNKNOWN) {
                     type_args[index] = hinted_type;
                     if (hinted_type == TYPE_STRING && str_args[index].empty()) {
                         if (auto *var = find_variable(current->name)) {
                             str_args[index] = var->str_value;
                         }
                     }
-                    if ((hinted_type == TYPE_FLOAT || hinted_type == TYPE_DOUBLE ||
-                         hinted_type == TYPE_QUAD) && quad_args[index] == 0.0L) {
+                    if ((hinted_type == TYPE_FLOAT ||
+                         hinted_type == TYPE_DOUBLE ||
+                         hinted_type == TYPE_QUAD) &&
+                        quad_args[index] == 0.0L) {
                         if (auto *var = find_variable(current->name)) {
                             quad_args[index] = var->quad_value;
                             double_args[index] = var->double_value;
@@ -1151,8 +1190,8 @@ std::string OutputManager::render_formatted_string(
 
     auto format_with_snprintf = [&](const std::string &fmt, auto value) {
         std::vector<char> buffer(256);
-        int written = std::snprintf(buffer.data(), buffer.size(), fmt.c_str(),
-                                    value);
+        int written =
+            std::snprintf(buffer.data(), buffer.size(), fmt.c_str(), value);
         if (written < 0) {
             return std::string{};
         }
@@ -1318,7 +1357,8 @@ std::string OutputManager::render_formatted_string(
         case 'p': {
             // ポインタのアドレスを16進数で表示（0x前綴り）
             fmt += "p";
-            void* ptr_value = reinterpret_cast<void*>(static_cast<uintptr_t>(int_args[arg_index]));
+            void *ptr_value = reinterpret_cast<void *>(
+                static_cast<uintptr_t>(int_args[arg_index]));
             formatted = format_with_snprintf(fmt, ptr_value);
             break;
         }

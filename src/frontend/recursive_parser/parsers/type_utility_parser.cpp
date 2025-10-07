@@ -1,14 +1,14 @@
 #include "type_utility_parser.h"
-#include "../recursive_parser.h"
 #include "../../../common/debug.h"
+#include "../recursive_parser.h"
+#include <algorithm>
+#include <iostream>
+#include <memory>
+#include <sstream>
 #include <stdexcept>
 #include <string>
-#include <memory>
-#include <iostream>
-#include <sstream>
-#include <algorithm>
 
-TypeUtilityParser::TypeUtilityParser(RecursiveParser* parser) 
+TypeUtilityParser::TypeUtilityParser(RecursiveParser *parser)
     : parser_(parser) {}
 
 std::string TypeUtilityParser::parseType() {
@@ -86,7 +86,8 @@ std::string TypeUtilityParser::parseType() {
         base_type = original_type;
     } else if (parser_->check(TokenType::TOK_IDENTIFIER)) {
         std::string identifier = parser_->current_token_.value;
-        if (parser_->typedef_map_.find(identifier) != parser_->typedef_map_.end()) {
+        if (parser_->typedef_map_.find(identifier) !=
+            parser_->typedef_map_.end()) {
             parser_->advance();
             original_type = identifier;
             std::string resolved = resolveTypedefChain(identifier);
@@ -95,25 +96,30 @@ std::string TypeUtilityParser::parseType() {
                 throw std::runtime_error("Unknown type: " + identifier);
             }
             set_base_type(resolved);
-        } else if (parser_->struct_definitions_.find(identifier) != parser_->struct_definitions_.end()) {
+        } else if (parser_->struct_definitions_.find(identifier) !=
+                   parser_->struct_definitions_.end()) {
             parser_->advance();
             original_type = identifier;
             set_base_type(identifier);
-        } else if (parser_->enum_definitions_.find(identifier) != parser_->enum_definitions_.end()) {
+        } else if (parser_->enum_definitions_.find(identifier) !=
+                   parser_->enum_definitions_.end()) {
             parser_->advance();
             original_type = identifier;
             set_base_type(identifier);
-        } else if (parser_->interface_definitions_.find(identifier) != parser_->interface_definitions_.end()) {
+        } else if (parser_->interface_definitions_.find(identifier) !=
+                   parser_->interface_definitions_.end()) {
             parser_->advance();
             original_type = identifier;
             set_base_type(identifier);
-        } else if (parser_->union_definitions_.find(identifier) != parser_->union_definitions_.end()) {
+        } else if (parser_->union_definitions_.find(identifier) !=
+                   parser_->union_definitions_.end()) {
             parser_->advance();
             original_type = identifier;
             set_base_type(identifier);
         } else {
             // 未定義型 - 前方参照の可能性として許容
-            // (ポインタまたは配列の場合に限る - 後でポインタ/配列チェックで判定)
+            // (ポインタまたは配列の場合に限る -
+            // 後でポインタ/配列チェックで判定)
             parser_->advance();
             original_type = identifier;
             set_base_type(identifier);
@@ -144,14 +150,17 @@ std::string TypeUtilityParser::parseType() {
         case TYPE_DOUBLE:
         case TYPE_QUAD:
             // float/double/quadにはunsignedを適用できない
-            std::cerr << "[WARNING] 'unsigned' modifier cannot be applied to floating-point types (float, double, quad); 'unsigned' qualifier ignored at line " 
+            std::cerr << "[WARNING] 'unsigned' modifier cannot be applied to "
+                         "floating-point types (float, double, quad); "
+                         "'unsigned' qualifier ignored at line "
                       << parser_->current_token_.line << std::endl;
             break;
         case TYPE_BIG:
             parsed.is_unsigned = true;
             break;
         default:
-            parser_->error("'unsigned' modifier can only be applied to numeric types");
+            parser_->error(
+                "'unsigned' modifier can only be applied to numeric types");
             return "";
         }
     }
@@ -196,7 +205,8 @@ std::string TypeUtilityParser::parseType() {
 
     if (!dimensions.empty()) {
         parsed.is_array = true;
-        parsed.array_info.base_type = parsed.is_pointer ? TYPE_POINTER : parsed.base_type_info;
+        parsed.array_info.base_type =
+            parsed.is_pointer ? TYPE_POINTER : parsed.base_type_info;
         parsed.array_info.dimensions = dimensions;
     }
 
@@ -230,7 +240,8 @@ std::string TypeUtilityParser::parseType() {
     return parsed.full_type;
 }
 
-TypeInfo TypeUtilityParser::getTypeInfoFromString(const std::string& type_name) {
+TypeInfo
+TypeUtilityParser::getTypeInfoFromString(const std::string &type_name) {
     if (type_name == "nullptr") {
         return TYPE_NULLPTR;
     }
@@ -275,7 +286,7 @@ TypeInfo TypeUtilityParser::getTypeInfoFromString(const std::string& type_name) 
             return TYPE_UNKNOWN;
         }
     }
-    
+
     if (working == "int") {
         return TYPE_INT;
     } else if (working == "long") {
@@ -300,41 +311,50 @@ TypeInfo TypeUtilityParser::getTypeInfoFromString(const std::string& type_name) 
         return TYPE_QUAD;
     } else if (working == "void") {
         return TYPE_VOID;
-    } else if (working.substr(0, 7) == "struct " || parser_->struct_definitions_.find(working) != parser_->struct_definitions_.end()) {
+    } else if (working.substr(0, 7) == "struct " ||
+               parser_->struct_definitions_.find(working) !=
+                   parser_->struct_definitions_.end()) {
         return TYPE_STRUCT;
-    } else if (working.substr(0, 5) == "enum " || parser_->enum_definitions_.find(working) != parser_->enum_definitions_.end()) {
+    } else if (working.substr(0, 5) == "enum " ||
+               parser_->enum_definitions_.find(working) !=
+                   parser_->enum_definitions_.end()) {
         return TYPE_ENUM;
-    } else if (working.substr(0, 10) == "interface " || parser_->interface_definitions_.find(working) != parser_->interface_definitions_.end()) {
+    } else if (working.substr(0, 10) == "interface " ||
+               parser_->interface_definitions_.find(working) !=
+                   parser_->interface_definitions_.end()) {
         return TYPE_INTERFACE;
-    } else if (parser_->union_definitions_.find(working) != parser_->union_definitions_.end()) {
+    } else if (parser_->union_definitions_.find(working) !=
+               parser_->union_definitions_.end()) {
         return TYPE_UNION;
     } else {
         return TYPE_UNKNOWN;
     }
 }
 
-std::string TypeUtilityParser::resolveTypedefChain(const std::string& typedef_name) {
+std::string
+TypeUtilityParser::resolveTypedefChain(const std::string &typedef_name) {
     std::unordered_set<std::string> visited;
     std::string current = typedef_name;
-    
+
     while (parser_->typedef_map_.find(current) != parser_->typedef_map_.end()) {
         if (visited.find(current) != visited.end()) {
             // 循環参照検出
             return "";
         }
         visited.insert(current);
-        
+
         std::string next = parser_->typedef_map_[current];
-        
+
         // 自分自身を指している場合（匿名structのtypedef）
         if (next == current) {
             // 構造体定義が存在するかチェック
-            if (parser_->struct_definitions_.find(current) != parser_->struct_definitions_.end()) {
+            if (parser_->struct_definitions_.find(current) !=
+                parser_->struct_definitions_.end()) {
                 return current;
             }
             return "";
         }
-        
+
         // 次がtypedef型かチェック
         if (parser_->typedef_map_.find(next) != parser_->typedef_map_.end()) {
             current = next;
@@ -343,49 +363,53 @@ std::string TypeUtilityParser::resolveTypedefChain(const std::string& typedef_na
             return next;
         }
     }
-    
+
     // 基本型かチェック
-    if (current == "int" || current == "long" || current == "short" || 
-        current == "tiny" || current == "bool" || current == "string" || 
+    if (current == "int" || current == "long" || current == "short" ||
+        current == "tiny" || current == "bool" || current == "string" ||
         current == "char" || current == "void") {
         return current;
     }
-    
+
     // "struct StructName"形式のチェック
     if (current.substr(0, 7) == "struct " && current.length() > 7) {
         std::string struct_name = current.substr(7);
-        if (parser_->struct_definitions_.find(struct_name) != parser_->struct_definitions_.end()) {
+        if (parser_->struct_definitions_.find(struct_name) !=
+            parser_->struct_definitions_.end()) {
             return current; // "struct StructName"のまま返す
         }
     }
-    
+
     // 構造体型かチェック（裸の構造体名）
-    if (parser_->struct_definitions_.find(current) != parser_->struct_definitions_.end()) {
+    if (parser_->struct_definitions_.find(current) !=
+        parser_->struct_definitions_.end()) {
         return current; // 構造体名をそのまま返す
     }
-    
+
     // enum型かチェック（裸のenum名）
-    if (parser_->enum_definitions_.find(current) != parser_->enum_definitions_.end()) {
+    if (parser_->enum_definitions_.find(current) !=
+        parser_->enum_definitions_.end()) {
         return current; // enum名をそのまま返す
     }
-    
+
     // 配列型かチェック（int[2], int[2][2]など）
     if (current.find('[') != std::string::npos) {
         return current; // 配列型名をそのまま返す
     }
-    
+
     // ユニオン型かチェック（裸のユニオン名）
-    if (parser_->union_definitions_.find(current) != parser_->union_definitions_.end()) {
+    if (parser_->union_definitions_.find(current) !=
+        parser_->union_definitions_.end()) {
         return current; // ユニオン名をそのまま返す
     }
-    
+
     // 未定義型の場合は空文字列を返す
     return "";
 }
 
 // 型名から基本型部分を抽出する
 
-std::string TypeUtilityParser::extractBaseType(const std::string& type_name) {
+std::string TypeUtilityParser::extractBaseType(const std::string &type_name) {
     // 配列部分 [n] を除去して基本型を取得
     size_t bracket_pos = type_name.find('[');
     if (bracket_pos != std::string::npos) {
@@ -394,52 +418,53 @@ std::string TypeUtilityParser::extractBaseType(const std::string& type_name) {
     return type_name;
 }
 
-bool TypeUtilityParser::detectCircularReference(const std::string& struct_name, 
-                                             const std::string& member_type,
-                                             std::unordered_set<std::string>& visited,
-                                             std::vector<std::string>& path) {
+bool TypeUtilityParser::detectCircularReference(
+    const std::string &struct_name, const std::string &member_type,
+    std::unordered_set<std::string> &visited, std::vector<std::string> &path) {
     // 型名を正規化（"struct " プレフィックスを除去）
     std::string normalized_type = member_type;
     if (normalized_type.rfind("struct ", 0) == 0) {
         normalized_type = normalized_type.substr(7);
     }
-    
+
     // 構造体型でなければ循環なし
-    if (parser_->struct_definitions_.find(normalized_type) == parser_->struct_definitions_.end()) {
+    if (parser_->struct_definitions_.find(normalized_type) ==
+        parser_->struct_definitions_.end()) {
         return false;
     }
-    
+
     // 前方宣言のみの構造体はスキップ（定義が後で来る可能性がある）
-    const StructDefinition& struct_def = parser_->struct_definitions_[normalized_type];
+    const StructDefinition &struct_def =
+        parser_->struct_definitions_[normalized_type];
     if (struct_def.is_forward_declaration) {
         return false;
     }
-    
+
     // 開始構造体に戻ってきたら循環検出
     if (normalized_type == struct_name) {
         path.push_back(normalized_type);
         return true;
     }
-    
+
     // 既に訪問済みなら循環なし（異なる構造体への循環）
     if (visited.find(normalized_type) != visited.end()) {
         return false;
     }
-    
+
     // 訪問マーク
     visited.insert(normalized_type);
     path.push_back(normalized_type);
-    for (const auto& member : struct_def.members) {
+    for (const auto &member : struct_def.members) {
         // ポインタメンバーはスキップ（メモリ発散しない）
         if (member.is_pointer) {
             continue;
         }
-        
+
         // 配列メンバーはスキップ（固定サイズなので発散しない）
         if (member.array_info.is_array()) {
             continue;
         }
-        
+
         // 値メンバーの型を再帰的にチェック
         std::string member_base_type = member.type_alias;
         if (member_base_type.empty()) {
@@ -454,16 +479,17 @@ bool TypeUtilityParser::detectCircularReference(const std::string& struct_name,
                 continue; // プリミティブ型はスキップ
             }
         }
-        
-        if (detectCircularReference(struct_name, member_base_type, visited, path)) {
+
+        if (detectCircularReference(struct_name, member_base_type, visited,
+                                    path)) {
             return true;
         }
     }
-    
+
     // バックトラック
     path.pop_back();
     visited.erase(normalized_type);
-    
+
     return false;
 }
 

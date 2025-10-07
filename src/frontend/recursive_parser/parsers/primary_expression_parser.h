@@ -7,7 +7,7 @@ class RecursiveParser;
 
 /**
  * @brief プライマリ式解析を担当
- * 
+ *
  * 式解析の最も基本的な要素を処理します：
  * - リテラル（数値、文字列、文字、真偽値、nullptr）
  * - 識別子（変数、enum値アクセス）
@@ -17,29 +17,29 @@ class RecursiveParser;
  * - 構造体リテラル
  */
 class PrimaryExpressionParser {
-public:
-    explicit PrimaryExpressionParser(RecursiveParser* parser);
-    
+  public:
+    explicit PrimaryExpressionParser(RecursiveParser *parser);
+
     /**
      * @brief プライマリ式を解析
      * @return 解析されたASTノード
      */
-    ASTNode* parsePrimary();
-    
+    ASTNode *parsePrimary();
+
     /**
      * @brief 構造体リテラルを解析
      * @return 解析されたAST構造体リテラルノード
      */
-    ASTNode* parseStructLiteral();
-    
+    ASTNode *parseStructLiteral();
+
     /**
      * @brief 配列リテラルを解析
      * @return 解析されたAST配列リテラルノード
      */
-    ASTNode* parseArrayLiteral();
-    
-private:
-    RecursiveParser* parser_;
+    ASTNode *parseArrayLiteral();
+
+  private:
+    RecursiveParser *parser_;
 };
 
 #endif // PRIMARY_EXPRESSION_PARSER_H

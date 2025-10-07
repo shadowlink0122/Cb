@@ -23,14 +23,14 @@
 class RecursiveParser;
 
 class VariableDeclarationParser {
-public:
-    explicit VariableDeclarationParser(RecursiveParser* parser);
-    
+  public:
+    explicit VariableDeclarationParser(RecursiveParser *parser);
+
     // 変数宣言解析のメインメソッド
-    ASTNode* parseVariableDeclaration();
-    
-private:
-    RecursiveParser* parser_;
+    ASTNode *parseVariableDeclaration();
+
+  private:
+    RecursiveParser *parser_;
 };
 
 #endif // VARIABLE_DECLARATION_PARSER_H

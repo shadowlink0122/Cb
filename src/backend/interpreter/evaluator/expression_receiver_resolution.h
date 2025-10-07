@@ -46,15 +46,15 @@ namespace ReceiverResolutionHelpers {
 // ============================================================================
 struct MethodReceiverResolution {
     enum class Kind {
-        None,    // 未解決
-        Direct,  // 変数への直接参照
-        Chain    // 式の評価結果（チェーン）
+        None,   // 未解決
+        Direct, // 変数への直接参照
+        Chain   // 式の評価結果（チェーン）
     };
 
     Kind kind;
-    std::string canonical_name;                     // Direct時の変数の完全修飾名
-    Variable* variable_ptr;                         // Direct時の変数ポインタ
-    std::shared_ptr<ReturnException> chain_value;   // Chain時の評価結果
+    std::string canonical_name; // Direct時の変数の完全修飾名
+    Variable *variable_ptr;     // Direct時の変数ポインタ
+    std::shared_ptr<ReturnException> chain_value; // Chain時の評価結果
 
     MethodReceiverResolution();
 };
@@ -77,7 +77,9 @@ struct MethodReceiverResolution {
 //   - FUNC_CALLの場合: create_chain_receiver_from_expressionへ委譲
 //   - その他: create_chain_receiver_from_expressionへ委譲
 // ============================================================================
-MethodReceiverResolution resolve_method_receiver(const ASTNode* receiver_node, ExpressionEvaluator& evaluator);
+MethodReceiverResolution
+resolve_method_receiver(const ASTNode *receiver_node,
+                        ExpressionEvaluator &evaluator);
 
 // ============================================================================
 // resolve_array_receiver: 配列要素のレシーバ解決
@@ -93,7 +95,8 @@ MethodReceiverResolution resolve_method_receiver(const ASTNode* receiver_node, E
 //   - シンプルな変数配列の場合: base[index]形式の変数を検索してDirect解決
 //   - それ以外の場合: create_chain_receiver_from_expressionへ委譲
 // ============================================================================
-MethodReceiverResolution resolve_array_receiver(const ASTNode* array_node, ExpressionEvaluator& evaluator);
+MethodReceiverResolution resolve_array_receiver(const ASTNode *array_node,
+                                                ExpressionEvaluator &evaluator);
 
 // ============================================================================
 // resolve_member_receiver: メンバーアクセスのレシーバ解決
@@ -112,7 +115,9 @@ MethodReceiverResolution resolve_array_receiver(const ASTNode* array_node, Expre
 //   - Chain解決の場合: チェーン内の構造体からメンバー取得
 //   - 直接解決できない場合: create_chain_receiver_from_expressionへ委譲
 // ============================================================================
-MethodReceiverResolution resolve_member_receiver(const ASTNode* member_node, ExpressionEvaluator& evaluator);
+MethodReceiverResolution
+resolve_member_receiver(const ASTNode *member_node,
+                        ExpressionEvaluator &evaluator);
 
 // ============================================================================
 // resolve_arrow_receiver: アロー演算子のレシーバ解決
@@ -132,7 +137,8 @@ MethodReceiverResolution resolve_member_receiver(const ASTNode* member_node, Exp
 //   - 通常の構造体の場合: get_struct_member_from_variableでメンバー取得
 //   - 評価結果をチェーン値として返す
 // ============================================================================
-MethodReceiverResolution resolve_arrow_receiver(const ASTNode* arrow_node, ExpressionEvaluator& evaluator);
+MethodReceiverResolution resolve_arrow_receiver(const ASTNode *arrow_node,
+                                                ExpressionEvaluator &evaluator);
 
 // ============================================================================
 // create_chain_receiver_from_expression: 式の評価結果からチェーンレシーバ作成
@@ -150,7 +156,9 @@ MethodReceiverResolution resolve_arrow_receiver(const ASTNode* arrow_node, Expre
 //   - ReturnExceptionがスローされた場合: それをキャッチしてチェーン値とする
 //   - 評価結果をチェーン値として返す
 // ============================================================================
-MethodReceiverResolution create_chain_receiver_from_expression(const ASTNode* node, ExpressionEvaluator& evaluator);
+MethodReceiverResolution
+create_chain_receiver_from_expression(const ASTNode *node,
+                                      ExpressionEvaluator &evaluator);
 
 } // namespace ReceiverResolutionHelpers
 

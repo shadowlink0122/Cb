@@ -22,11 +22,11 @@ class CommonOperations {
     struct ArrayLiteralResult {
         std::vector<int64_t> int_values;
         std::vector<std::string> string_values;
-        std::vector<double> float_values;    // float/double配列用
+        std::vector<double> float_values; // float/double配列用
         TypeInfo element_type;
         size_t size;
         bool is_string_array;
-        bool is_float_array;   // float/double/quad配列かどうか
+        bool is_float_array; // float/double/quad配列かどうか
     };
 
     /**
@@ -37,9 +37,9 @@ class CommonOperations {
     /**
      * 変数に配列リテラルを代入（統合版）
      */
-  void assign_array_literal_to_variable(Variable *var,
-                      const ArrayLiteralResult &result,
-                      const std::string &var_name = "");
+    void assign_array_literal_to_variable(Variable *var,
+                                          const ArrayLiteralResult &result,
+                                          const std::string &var_name = "");
 
     /**
      * 配列要素代入の統合処理（境界チェック、型チェック込み）
@@ -86,10 +86,9 @@ class CommonOperations {
     // 内部ヘルパー関数
     TypeInfo infer_array_element_type(const ASTNode *literal_node);
     void validate_array_literal_consistency(const ASTNode *literal_node);
-    void flatten_array_literal(const ASTNode *literal_node, 
+    void flatten_array_literal(const ASTNode *literal_node,
                                std::vector<int64_t> &flattened_values,
                                std::vector<std::string> &flattened_strings,
                                std::vector<double> &flattened_floats,
-                               bool is_string_array,
-                               bool is_float_array);
+                               bool is_string_array, bool is_float_array);
 };
