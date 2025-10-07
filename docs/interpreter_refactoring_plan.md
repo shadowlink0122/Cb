@@ -564,39 +564,104 @@ src/backend/interpreter/
 
 ## 10. 実装ログ
 
-### Phase 1: interpreter.cpp の分割（進行中）
+### 2025年10月7日 - 計画更新
 
-#### 作業開始: 2025年10月7日
+**現状**:
+- ✅ **ExpressionEvaluator分割完了**: 3,294行 → 985行（70%削減）
+  - ExpressionDispatcherパターン導入（271行）
+  - 機能別に4つの実装ファイルに分割
+  - 全テスト通過（2,380/2,380統合テスト + 30/30ユニットテスト）
+- ✅ **関数ポインタコールバック修正完了**: 2,333/2,333テスト通過
 
-**方針変更**: 
-パーサーリファクタリングで学んだ教訓を活かし、より段階的なアプローチを採用。
-巨大なファイルを一度に分割するのではなく、以下の順序で進める：
+**最新の行数**:
+- interpreter.cpp: **6,752行**（前回計測から+856行、構造体・Interface機能追加のため）
+- expression_evaluator.cpp: **985行**（分割完了、3,294行から削減）
+- variable_manager.cpp: ~4,000行（推定、未確認）
+- statement_executor.cpp: ~2,700行（推定、未確認）
 
-1. **最も独立性の高い機能から分離** - 依存関係が少ない部分
-2. **既存のManagerクラスとの整合性** - variable_manager等との統合
-3. **段階的なテストと検証** - 各ステップでビルド・テスト確認
+### Phase 1: interpreter.cpp の分割（開始）
 
-#### 修正された優先順位:
+#### 目標
+6,752行 → 目標1,500行（約78%削減、evaluatorと同等の成功率）
 
-**Phase 1A: 出力管理の整理（最優先）**
-- output_manager.cpp (1,371行) は既に分離されているが、さらに細分化
-- printf_manager, println_manager, format_processor に分割
-- 理由: 他の部分への依存が少なく、分離が容易
+#### 分析結果
 
-**Phase 1B: 型システムの整理**
-- type_inference.cpp (722行) は適切なサイズだが、type_conversion機能を分離
-- type_conversion_manager.cpp を作成
-- interpreter.cppの型変換ロジックを移行
+**機能分類と行数**:
+1. **Struct関連**: ~2,500行（3011～6289行）
+   - 定義登録、検証、変数作成、メンバーアクセス、同期処理
+2. **Interface関連**: ~500行（6475～6704行）  
+   - Interface定義、Impl定義、コンテキスト管理
+3. **初期化・グローバル宣言**: ~800行（198～5841行に散在）
+   - グローバル宣言登録、初期化、パーサーからの同期
+4. **変数代入・パラメータ**: ~300行（2189～2471行）
+   - 各種assign_variable、assign_function_parameterオーバーロード
+5. **配列操作**: ~300行（2497～2605行）
+   - 多次元配列アクセス、設定、抽出ヘルパー
+6. **Static変数**: ~200行（2887～3009行）
+   - static変数、impl static変数の管理
+7. **型解決**: ~100行（2826～2857行）
+   - typedef解決、型エイリアス、型変換
+8. **エラー・デバッグ**: ~50行（2471～2497行）
+   - エラー表示、型範囲チェック
+9. **コア機能**: ~1,000行
+   - コンストラクタ、process、evaluate委譲、スコープ管理
 
-**Phase 1C: 構造体管理の分離**
-- struct_manager.cpp の作成（開始済み）
-- interpreter.cppから構造体関連メソッドを段階的に移行
+#### 実装戦略
 
-**Phase 1D: Interface管理の分離**  
-- interface_manager.cpp の作成
-- impl定義管理を分離
+**Phase 1A: Struct Operations（最大効果）**
+- **目標**: ~2,500行を`struct_operations.cpp`に抽出
+- **ファイル**: 
+  - `src/backend/interpreter/managers/struct_operations.h`（作成済み）
+  - `src/backend/interpreter/managers/struct_operations.cpp`（作成予定）
+- **方法**:
+  1. StructOperationsクラスを実装
+  2. interpreter.cppからstruct関連メソッドをコピー
+  3. interpreterに`struct_operations_`メンバーを追加
+  4. interpreter.cppのメソッドを委譲に書き換え
+  5. テスト実行
+- **期待削減**: 6,752行 → 4,252行
+
+**Phase 1B: Interface Operations**
+- **目標**: ~500行を`interface_operations.cpp`に抽出
+- **ファイル**: 作成予定
+- **期待削減**: 4,252行 → 3,752行
+
+**Phase 1C: Initialization Manager**
+- **目標**: ~800行を`initialization_manager.cpp`に抽出
+- **ファイル**: 
+  - `initialization_manager.h`（作成済み）
+  - `initialization_manager.cpp`（作成予定）
+- **期待削減**: 3,752行 → 2,952行
+
+**Phase 1D: 既存Managerへの統合**
+- 変数代入 → `VariableManager`（~300行）
+- 配列操作 → `ArrayManager`（~300行）
+- 型解決 → `TypeManager`（~100行）
+- エラー処理 → `ErrorHandler`（~50行）
+- **期待削減**: 2,952行 → 2,202行
+
+**Phase 1E: Static変数管理**
+- **目標**: ~200行を統合または分離
+- **期待削減**: 2,202行 → 2,002行
+
+**Phase 1F: 最終調整**
+- 不要なコード削除、コメント整理
+- **最終目標**: ~1,500行
+
+#### 次のアクション
+
+1. **即座に開始可能**: Phase 1A（Struct Operations抽出）
+   - ヘッダーファイル作成済み
+   - 行範囲特定済み（3011～6289行）
+   - ExpressionDispatcherパターンの経験を活用
+
+2. **必要な作業**:
+   - struct_operations.cppの実装
+   - interpreter.cppでの委譲実装
+   - Makefileの更新
+   - テスト実行
 
 ---
 
 **作成者**: GitHub Copilot  
-**ステータス**: Phase 1A 実装中
+**ステータス**: Phase 1A 準備完了、実装開始可能

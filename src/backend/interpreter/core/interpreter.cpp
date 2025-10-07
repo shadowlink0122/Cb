@@ -91,6 +91,24 @@ std::string build_cycle_path(const std::vector<std::string> &cycle) {
 
 } // namespace
 
+// ========================================================================
+// SECTION 0: Core Functions & Infrastructure (~1,000 lines)
+// ========================================================================
+// インタプリタのコア機能、初期化、スコープ管理
+//
+// 含まれる機能：
+// - Constructor/Destructor
+// - process() - メインエントリーポイント
+// - evaluate(), evaluate_typed() - 式評価の委譲
+// - execute_statement() - 文実行の委譲
+// - Scope management: push_scope, pop_scope, push_interpreter_scope, pop_interpreter_scope
+// - 検索機能: find_variable, find_function, find_struct_definition
+// - アクセサメソッド: get_*_manager()
+// - デバッグ機能: is_debug_mode, set_debug_mode
+// - ヘルパー関数: find_variable_name, evaluate_ternary_typed
+// - 一時変数管理: add_temp_variable, remove_temp_variable, clear_temp_variables
+// ========================================================================
+
 Interpreter::Interpreter(bool debug)
     : debug_mode(debug), output_manager_(std::make_unique<OutputManager>(this)),
       variable_manager_(std::make_unique<VariableManager>(this)),
@@ -194,6 +212,17 @@ const ASTNode *Interpreter::find_function(const std::string &name) {
     }
     return nullptr;
 }
+
+// ========================================================================
+// SECTION 1: Initialization & Global Declarations (~400 lines)
+// ========================================================================
+// - register_global_declarations() - グローバル宣言の登録
+// - initialize_global_variables() - グローバル変数の初期化  
+// - sync_enum_definitions_from_parser() - Enum定義の同期
+// - sync_struct_definitions_from_parser() - Struct定義の同期
+//
+// このセクションは将来的に initialization_manager.cpp に抽出予定
+// ========================================================================
 
 void Interpreter::register_global_declarations(const ASTNode *node) {
     if (!node)
@@ -2186,6 +2215,25 @@ void Interpreter::execute_statement(const ASTNode *node) {
 // execute_statement メソッド終了
 // ============================================================================
 
+// ========================================================================
+// SECTION 4: Variable Assignment & Parameters (~300 lines)
+// ========================================================================
+// 変数代入、関数パラメータ、配列要素代入などを管理
+//
+// これらのメソッドは主にVariableManagerに委譲しているため、
+// 将来的により完全にManagerに移動することを検討
+//
+// 含まれる機能：
+// - assign_variable (複数のオーバーロード)
+// - assign_union_variable
+// - assign_function_parameter
+// - assign_array_parameter
+// - assign_interface_view
+// - assign_array_element, assign_array_element_float
+// - assign_string_element
+// - print_value, print_formatted
+// ========================================================================
+
 void Interpreter::assign_variable(const std::string &name, int64_t value,
                                   TypeInfo type) {
     variable_manager_->assign_variable(name, value, type, false);
@@ -2493,6 +2541,24 @@ void Interpreter::print_error_at_node(const std::string &message,
                                       const ASTNode *node) {
     print_error_with_ast_location(message, node);
 }
+
+// ========================================================================
+// SECTION 5: Array Operations (~300 lines)
+// ========================================================================
+// 多次元配列のアクセス、設定、抽出を管理
+//
+// これらのメソッドは主にArrayManagerに委譲しているため、
+// 将来的により完全にManagerに移動することを検討
+//
+// 含まれる機能：
+// - getMultidimensionalArrayElement (2 overloads)
+// - setMultidimensionalArrayElement (2 overloads)
+// - getMultidimensionalStringArrayElement
+// - setMultidimensionalStringArrayElement
+// - extract_array_name, extract_array_indices, extract_array_element_name
+// - assign_array_literal, assign_array_from_return
+// - process_ndim_array_literal
+// ========================================================================
 
 int64_t Interpreter::getMultidimensionalArrayElement(
     Variable &var, const std::vector<int64_t> &indices) {
@@ -2823,6 +2889,20 @@ void Interpreter::assign_array_from_return(const std::string &name,
             .c_str());
 }
 
+// ========================================================================
+// SECTION 7: Type Resolution (~100 lines)
+// ========================================================================
+// 型解決、typedef、型変換を管理
+//
+// これらのメソッドは主にTypeManagerに委譲しているため、
+// 将来的により完全にManagerに移動することを検討
+//
+// 含まれる機能：
+// - resolve_typedef
+// - resolve_type_alias
+// - string_to_type_info
+// ========================================================================
+
 std::string Interpreter::resolve_typedef(const std::string &type_name) {
     return type_manager_->resolve_typedef(type_name);
 }
@@ -2882,6 +2962,21 @@ Variable *Interpreter::find_static_variable(const std::string &name) {
     }
     return nullptr;
 }
+
+// ========================================================================
+// SECTION 6: Static Variable Management (~200 lines)
+// ========================================================================
+// Static変数とimpl static変数の管理
+//
+// このセクションは将来的に static_variable_manager.cpp に抽出予定
+//
+// 含まれる機能：
+// - find_static_variable
+// - create_static_variable
+// - find_impl_static_variable
+// - create_impl_static_variable
+// - get_impl_static_namespace
+// ========================================================================
 
 // static変数の作成
 void Interpreter::create_static_variable(const std::string &name,
@@ -3006,6 +3101,22 @@ void Interpreter::create_impl_static_variable(const std::string &name,
     debug_msg(DebugMsgId::PARSE_VAR_DECL, name.c_str(),
               "impl_static_variable_created");
 }
+
+// ========================================================================
+// SECTION 2: Struct Operations (~2,500 lines)
+// ========================================================================
+// 構造体の定義、初期化、メンバーアクセス、同期処理を管理
+//
+// このセクションは将来的に struct_operations.cpp に抽出予定
+// 
+// 含まれる機能：
+// - 定義・検証: register_struct_definition, validate_struct_recursion_rules
+// - 変数作成: create_struct_variable, create_struct_member_variables_recursively
+// - 代入: assign_struct_literal, assign_struct_member (3 overloads)
+// - 配列メンバー: assign_struct_member_array_*, get_struct_member_array_*
+// - 同期: sync_struct_*, sync_*_from_struct_value
+// - アクセス制御: ensure_struct_member_access_allowed
+// ========================================================================
 
 // struct定義を登録
 void Interpreter::register_struct_definition(
@@ -6470,6 +6581,23 @@ void Interpreter::sync_direct_access_from_struct_value(
     debug_msg(DebugMsgId::INTERPRETER_SYNC_STRUCT_MEMBERS_END,
               var_name.c_str());
 }
+
+// ========================================================================
+// SECTION 3: Interface Operations (~500 lines)
+// ========================================================================
+// Interface定義、Impl実装、メソッドディスパッチを管理
+//
+// このセクションは将来的に interface_operations.cpp に抽出予定
+//
+// 含まれる機能：
+// - 定義: register_interface_definition, register_impl_definition
+// - 検索: find_interface_definition, find_impl_for_struct
+// - 変数: create_interface_variable, get_interface_variable
+// - コンテキスト: enter_impl_context, exit_impl_context, get_impl_static_namespace
+// - 宣言処理: handle_impl_declaration
+// - View管理: assign_interface_view
+// - Self管理: get_self_receiver_path, sync_self_to_receiver
+// ========================================================================
 
 // interface管理メソッド
 void Interpreter::register_interface_definition(
