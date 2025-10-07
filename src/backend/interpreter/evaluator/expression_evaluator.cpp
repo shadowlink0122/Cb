@@ -7,6 +7,7 @@
 #include "evaluator/expression_assignment.h"  // 代入演算子のヘルパー
 #include "evaluator/expression_binary_unary_typed.h"  // 二項/単項演算子（typed版）のヘルパー
 #include "evaluator/expression_special_access.h"  // 特殊アクセス（アロー、メンバー配列、Enum）のヘルパー
+#include "evaluator/expression_literal_eval.h"  // リテラル評価（数値、文字列、nullptr、変数）のヘルパー
 #include "core/interpreter.h"
 #include "core/pointer_metadata.h"     // ポインタメタデータシステム
 #include "managers/enum_manager.h"    // EnumManager定義が必要
@@ -2692,38 +2693,18 @@ TypedValue ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode
             return evaluate_ternary_typed(node);
             
         case ASTNodeType::AST_STRING_LITERAL: {
-            InferredType string_type = inferred_type;
-            if (string_type.type_info != TYPE_STRING) {
-                string_type = InferredType(TYPE_STRING, "string");
-            }
-            return TypedValue(node->str_value, string_type);
+            // 文字列リテラルの評価はLiteralEvalHelpersに移動（6行）
+            return LiteralEvalHelpers::evaluate_string_literal_typed(node, inferred_type);
         }
             
         case ASTNodeType::AST_NUMBER: {
-            if (node->is_float_literal) {
-                TypeInfo literal_type = inferred_type.type_info;
-                if (literal_type == TYPE_UNKNOWN && node->literal_type != TYPE_UNKNOWN) {
-                    literal_type = node->literal_type;
-                }
-                if (literal_type == TYPE_FLOAT) {
-                    InferredType float_type = inferred_type.type_info == TYPE_FLOAT ? inferred_type : InferredType(TYPE_FLOAT, "float");
-                    return TypedValue(static_cast<double>(node->double_value), float_type);
-                }
-                if (literal_type == TYPE_QUAD) {
-                    InferredType quad_type = inferred_type.type_info == TYPE_QUAD ? inferred_type : InferredType(TYPE_QUAD, "quad");
-                    return TypedValue(node->quad_value, quad_type);
-                }
-                InferredType double_type = inferred_type.type_info == TYPE_DOUBLE ? inferred_type : InferredType(TYPE_DOUBLE, "double");
-                return TypedValue(node->double_value, double_type);
-            }
-            InferredType int_type = inferred_type.type_info == TYPE_UNKNOWN ? InferredType(TYPE_INT, "int") : inferred_type;
-            return TypedValue(node->int_value, int_type);
+            // 数値リテラルの評価はLiteralEvalHelpersに移動（18行）
+            return LiteralEvalHelpers::evaluate_number_literal_typed(node, inferred_type);
         }
 
         case ASTNodeType::AST_NULLPTR: {
-            // nullptr は TYPE_NULLPTR として評価
-            InferredType nullptr_type(TYPE_NULLPTR, "nullptr");
-            return TypedValue(static_cast<int64_t>(0), nullptr_type);
+            // nullptrの評価はLiteralEvalHelpersに移動（4行）
+            return LiteralEvalHelpers::evaluate_nullptr_literal_typed();
         }
             
         case ASTNodeType::AST_BINARY_OP: {
@@ -2800,69 +2781,8 @@ TypedValue ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode
         }
         
         case ASTNodeType::AST_VARIABLE: {
-            // 変数参照の場合、変数の型に応じて適切なTypedValueを返す
-            Variable *var = interpreter_.find_variable(node->name);
-            if (!var) {
-                std::string error_message = (debug_language == DebugLanguage::JAPANESE) ? 
-                    "未定義の変数です: " + node->name : "Undefined variable: " + node->name;
-                interpreter_.throw_runtime_error_with_location(error_message, node);
-            }
-            
-            // 参照型変数の場合、参照先変数を取得
-            if (var->is_reference) {
-                var = reinterpret_cast<Variable*>(var->value);
-                if (!var) {
-                    throw std::runtime_error("Invalid reference variable: " + node->name);
-                }
-            }
-            
-            // 関数ポインタの場合、関数ポインタ情報を含むTypedValueを返す
-            if (var->is_function_pointer) {
-                auto& fp_map = interpreter_.current_scope().function_pointers;
-                auto it = fp_map.find(node->name);
-                if (it != fp_map.end()) {
-                    return TypedValue::function_pointer(
-                        var->value,
-                        it->second.function_name,
-                        it->second.function_node,
-                        inferred_type
-                    );
-                }
-            }
-            
-            auto make_numeric_value = [&](TypeInfo numeric_type, const InferredType& fallback_type) -> TypedValue {
-                switch (numeric_type) {
-                    case TYPE_FLOAT:
-                        return TypedValue(static_cast<double>(var->float_value), fallback_type);
-                    case TYPE_DOUBLE:
-                        return TypedValue(var->double_value, fallback_type);
-                    case TYPE_QUAD:
-                        return TypedValue(var->quad_value, fallback_type);
-                    default:
-                        return TypedValue(var->value, fallback_type);
-                }
-            };
-
-            // 変数の型に基づいて適切なTypedValueを作成
-            if (var->type == TYPE_STRING) {
-                return TypedValue(var->str_value, InferredType(TYPE_STRING, "string"));
-            } else if (var->type == TYPE_STRUCT) {
-                return TypedValue(*var, InferredType(TYPE_STRUCT, var->struct_type_name));
-            } else if (var->type == TYPE_UNION) {
-                if (var->current_type == TYPE_STRING) {
-                    return TypedValue(var->str_value, InferredType(TYPE_STRING, "string"));
-                }
-                InferredType union_numeric_type(var->current_type, type_info_to_string(var->current_type));
-                return make_numeric_value(var->current_type, union_numeric_type);
-            } else if (var->type == TYPE_POINTER || var->is_pointer) {
-                // ポインタ型の場合、numeric_typeにTYPE_POINTERを設定
-                TypedValue ptr_value(var->value, InferredType(TYPE_POINTER, type_info_to_string(TYPE_POINTER)));
-                ptr_value.numeric_type = TYPE_POINTER;
-                return ptr_value;
-            } else {
-                InferredType var_type(var->type, type_info_to_string(var->type));
-                return make_numeric_value(var->type, var_type);
-            }
+            // 変数参照の評価はLiteralEvalHelpersに移動（66行）
+            return LiteralEvalHelpers::evaluate_variable_typed(node, interpreter_, inferred_type);
         }
         
         case ASTNodeType::AST_MEMBER_ACCESS: {
