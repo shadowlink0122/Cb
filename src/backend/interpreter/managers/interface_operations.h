@@ -11,7 +11,7 @@ class Interpreter;
 
 /**
  * @brief Interface/Impl定義と操作を管理するクラス
- * 
+ *
  * このクラスはInterpreterから分離され、以下の責務を持つ:
  * - Interface定義の登録・検索
  * - Impl定義の登録・検索
@@ -26,14 +26,15 @@ class InterfaceOperations {
 
     // Interface定義管理
     void register_interface_definition(const std::string &interface_name,
-                                      const InterfaceDefinition &definition);
+                                       const InterfaceDefinition &definition);
     const InterfaceDefinition *
     find_interface_definition(const std::string &interface_name);
 
     // Impl定義管理
     void register_impl_definition(const ImplDefinition &impl_def);
-    const ImplDefinition *find_impl_for_struct(const std::string &struct_name,
-                                               const std::string &interface_name);
+    const ImplDefinition *
+    find_impl_for_struct(const std::string &struct_name,
+                         const std::string &interface_name);
     const std::vector<ImplDefinition> &get_impl_definitions() const;
 
     // Interface型変数管理
@@ -54,7 +55,8 @@ class InterfaceOperations {
     void clear_temp_variables();
 
     // マップへのアクセス（内部使用）
-    std::map<std::string, InterfaceDefinition> *get_interface_definitions_mutable() {
+    std::map<std::string, InterfaceDefinition> *
+    get_interface_definitions_mutable() {
         return &interface_definitions_;
     }
     std::vector<ImplDefinition> *get_impl_definitions_mutable() {

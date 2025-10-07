@@ -140,8 +140,9 @@ InterfaceOperations::get_impl_definitions() const {
     return impl_definitions_;
 }
 
-const ImplDefinition *InterfaceOperations::find_impl_for_struct(
-    const std::string &struct_name, const std::string &interface_name) {
+const ImplDefinition *
+InterfaceOperations::find_impl_for_struct(const std::string &struct_name,
+                                          const std::string &interface_name) {
     for (const auto &impl_def : impl_definitions_) {
         if (impl_def.struct_name == struct_name &&
             impl_def.interface_name == interface_name) {
@@ -259,7 +260,7 @@ void InterfaceOperations::handle_impl_declaration(const ASTNode *node) {
 std::string InterfaceOperations::get_self_receiver_path() {
     // デバッグモードの場合、self_receiver_pathを取得
     // 現在は簡単な実装として、最初に見つかったself以外の構造体変数を返す
-    
+
     // ローカルスコープから検索
     auto &scope_stack = interpreter_->get_scope_stack();
     for (auto &scope : scope_stack) {
@@ -332,7 +333,7 @@ void InterfaceOperations::sync_self_to_receiver(
 // ========================================================================
 
 void InterfaceOperations::add_temp_variable(const std::string &name,
-                                           const Variable &var) {
+                                            const Variable &var) {
     interpreter_->add_variable_to_current_scope(name, var);
     debug_print("TEMP_VAR: Added temporary variable %s\n", name.c_str());
 }

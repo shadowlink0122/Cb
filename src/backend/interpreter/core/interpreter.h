@@ -23,6 +23,7 @@ class ArrayProcessingService; // DRY効率化: 統一配列処理サービス
 class EnumManager;            // enum管理サービス
 class StaticVariableManager;  // static変数管理サービス
 class InterfaceOperations;    // interface/impl管理サービス
+class StructOperations;       // struct操作管理サービス
 class CommonOperations;
 class RecursiveParser; // enum定義同期用
 
@@ -398,6 +399,7 @@ class Interpreter : public EvaluatorInterface {
         static_variable_manager_; // static変数管理
     std::unique_ptr<InterfaceOperations>
         interface_operations_; // interface/impl管理
+    std::unique_ptr<StructOperations> struct_operations_; // struct操作管理
 
     // Grant access to managers
     friend class VariableManager;
@@ -405,6 +407,7 @@ class Interpreter : public EvaluatorInterface {
     friend class TypeManager;
     friend class ArrayProcessingService; // DRY効率化: 配列処理統合サービス
     friend class EnumManager;            // enum管理サービス
+    friend class StructOperations; // struct操作管理
 
   public:
     Interpreter(bool debug = false);
@@ -547,7 +550,8 @@ class Interpreter : public EvaluatorInterface {
     void assign_struct_member_array_literal(const std::string &var_name,
                                             const std::string &member_name,
                                             const ASTNode *array_literal);
-    // 型名から型情報への変換 (TypeManagerへの薄いラッパー、将来的にはインライン化予定)
+    // 型名から型情報への変換
+    // (TypeManagerへの薄いラッパー、将来的にはインライン化予定)
     TypeInfo string_to_type_info(const std::string &type_str);
     void sync_struct_members_from_direct_access(const std::string &var_name);
     void sync_direct_access_from_struct_value(const std::string &var_name,
@@ -648,12 +652,14 @@ class Interpreter : public EvaluatorInterface {
 
     // スコープへのアクセス（InterfaceOperations用）
     std::vector<Scope> &get_scope_stack() { return scope_stack; }
-    
+
     // 変数・関数の登録ヘルパー（InterfaceOperations用）
-    void add_variable_to_current_scope(const std::string &name, const Variable &var) {
+    void add_variable_to_current_scope(const std::string &name,
+                                       const Variable &var) {
         current_scope().variables[name] = var;
     }
-    void register_function_to_global(const std::string &key, const ASTNode *func) {
+    void register_function_to_global(const std::string &key,
+                                     const ASTNode *func) {
         global_scope.functions[key] = func;
     }
 

@@ -8,7 +8,7 @@ class Interpreter;
 
 /**
  * @brief Static変数とImpl Static変数の管理を担当するクラス
- * 
+ *
  * このクラスはInterpreterから分離され、以下の責務を持つ:
  * - 関数スコープのstatic変数の作成・検索
  * - implブロック内のstatic変数の作成・検索

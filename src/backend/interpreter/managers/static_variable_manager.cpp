@@ -10,8 +10,7 @@ StaticVariableManager::StaticVariableManager(Interpreter *interpreter)
 // Static変数管理
 // ========================================================================
 
-Variable *
-StaticVariableManager::find_static_variable(const std::string &name) {
+Variable *StaticVariableManager::find_static_variable(const std::string &name) {
     std::string static_key =
         interpreter_->get_current_function_name() + "::" + name;
     auto it = static_variables_.find(static_key);
@@ -22,7 +21,7 @@ StaticVariableManager::find_static_variable(const std::string &name) {
 }
 
 void StaticVariableManager::create_static_variable(const std::string &name,
-                                                    const ASTNode *node) {
+                                                   const ASTNode *node) {
     Variable var;
     var.type = node->type_info;
     var.is_const = node->is_const;

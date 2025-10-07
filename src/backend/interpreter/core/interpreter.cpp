@@ -10,9 +10,10 @@
 #include "executor/statement_executor.h" // ヘッダーから移動
 #include "managers/array_manager.h"
 #include "managers/common_operations.h"
-#include "managers/enum_manager.h" // enum管理サービス
+#include "managers/enum_manager.h"         // enum管理サービス
 #include "managers/interface_operations.h" // interface/impl管理サービス
 #include "managers/static_variable_manager.h" // static変数管理サービス
+#include "managers/struct_operations.h"       // struct操作管理サービス
 #include "managers/type_manager.h"
 #include "managers/variable_manager.h"
 #include "output/output_manager.h" // ヘッダーから移動
@@ -72,25 +73,6 @@ std::string normalize_struct_type_name(const std::string &raw_name) {
     return normalized;
 }
 
-std::string strip_array_suffix(const std::string &name) {
-    auto bracket_pos = name.find('[');
-    if (bracket_pos == std::string::npos) {
-        return name;
-    }
-    return name.substr(0, bracket_pos);
-}
-
-std::string build_cycle_path(const std::vector<std::string> &cycle) {
-    std::ostringstream oss;
-    for (size_t i = 0; i < cycle.size(); ++i) {
-        if (i > 0) {
-            oss << " -> ";
-        }
-        oss << cycle[i];
-    }
-    return oss.str();
-}
-
 } // namespace
 
 // ========================================================================
@@ -103,7 +85,8 @@ std::string build_cycle_path(const std::vector<std::string> &cycle) {
 // - process() - メインエントリーポイント
 // - evaluate(), evaluate_typed() - 式評価の委譲
 // - execute_statement() - 文実行の委譲
-// - Scope management: push_scope, pop_scope, push_interpreter_scope, pop_interpreter_scope
+// - Scope management: push_scope, pop_scope, push_interpreter_scope,
+// pop_interpreter_scope
 // - 検索機能: find_variable, find_function, find_struct_definition
 // - アクセサメソッド: get_*_manager()
 // - デバッグ機能: is_debug_mode, set_debug_mode
@@ -147,6 +130,9 @@ Interpreter::Interpreter(bool debug)
 
     // interface/impl管理サービスを初期化
     interface_operations_ = std::make_unique<InterfaceOperations>(this);
+
+    // struct操作管理サービスを初期化
+    struct_operations_ = std::make_unique<StructOperations>(this);
 
     // グローバルスコープを初期化
     // ネストされた関数呼び出しに備えて容量を予約（再割り当てを防ぐ）
@@ -225,7 +211,7 @@ const ASTNode *Interpreter::find_function(const std::string &name) {
 // SECTION 1: Initialization & Global Declarations (~400 lines)
 // ========================================================================
 // - register_global_declarations() - グローバル宣言の登録
-// - initialize_global_variables() - グローバル変数の初期化  
+// - initialize_global_variables() - グローバル変数の初期化
 // - sync_enum_definitions_from_parser() - Enum定義の同期
 // - sync_struct_definitions_from_parser() - Struct定義の同期
 //
@@ -2908,7 +2894,7 @@ void Interpreter::create_impl_static_variable(const std::string &name,
 void Interpreter::enter_impl_context(const std::string &interface_name,
                                      const std::string &struct_type_name) {
     static_variable_manager_->enter_impl_context(interface_name,
-                                                  struct_type_name);
+                                                 struct_type_name);
 }
 
 void Interpreter::exit_impl_context() {
@@ -2920,254 +2906,36 @@ std::string Interpreter::get_impl_static_namespace() const {
 }
 
 // ========================================================================
-// SECTION 2: Struct Operations (~2,500 lines)
 // ========================================================================
-// 構造体の定義、初期化、メンバーアクセス、同期処理を管理
-//
-// このセクションは将来的に struct_operations.cpp に抽出予定
-// 
-// 含まれる機能：
-// - 定義・検証: register_struct_definition, validate_struct_recursion_rules
-// - 変数作成: create_struct_variable, create_struct_member_variables_recursively
-// - 代入: assign_struct_literal, assign_struct_member (3 overloads)
-// - 配列メンバー: assign_struct_member_array_*, get_struct_member_array_*
-// - 同期: sync_struct_*, sync_*_from_struct_value
-// - アクセス制御: ensure_struct_member_access_allowed
+// SECTION 2: Struct Operations (Phase 3.4a-c: 部分的に委譲)
+// ========================================================================
+// Phase 3.4a: register_struct_definition, validate_struct_recursion_rules
+// Phase 3.4b: find_struct_definition, sync_struct_definitions_from_parser
+// Phase 3.4c: is_current_impl_context_for, ensure_struct_member_access_allowed
+// その他のメソッドは引き続きInterpreterに実装
 // ========================================================================
 
-// struct定義を登録
 void Interpreter::register_struct_definition(
     const std::string &struct_name, const StructDefinition &definition) {
-    // 構造体定義は定数解決を行わずにそのまま保存
-    // 定数解決は実際に構造体変数を作成する時に行う
-    debug_msg(DebugMsgId::INTERPRETER_STRUCT_DEFINITION_STORED,
-              struct_name.c_str());
-
-    struct_definitions_[struct_name] = definition;
-
-    validate_struct_recursion_rules();
+    struct_operations_->register_struct_definition(struct_name, definition);
 }
 
 void Interpreter::validate_struct_recursion_rules() {
-    if (!type_manager_ || struct_definitions_.empty()) {
-        return;
-    }
-
-    std::unordered_map<std::string, std::vector<std::string>> adjacency;
-    adjacency.reserve(struct_definitions_.size());
-    for (const auto &entry : struct_definitions_) {
-        adjacency.emplace(entry.first, std::vector<std::string>{});
-    }
-
-    auto gather_forms = [&](const std::string &raw,
-                            std::vector<std::string> &collector) {
-        if (raw.empty()) {
-            return;
-        }
-
-        std::string trimmed = trim_copy(raw);
-        if (trimmed.empty()) {
-            return;
-        }
-
-        collector.push_back(trimmed);
-
-        std::string normalized = normalize_struct_type_name(trimmed);
-        if (!normalized.empty()) {
-            collector.push_back(normalized);
-        }
-
-        std::string resolved = type_manager_->resolve_typedef(trimmed);
-        if (!resolved.empty()) {
-            collector.push_back(resolved);
-
-            std::string normalized_resolved =
-                normalize_struct_type_name(resolved);
-            if (!normalized_resolved.empty()) {
-                collector.push_back(normalized_resolved);
-            }
-        }
-
-        if (!normalized.empty()) {
-            std::string resolved_from_normalized =
-                type_manager_->resolve_typedef(normalized);
-            if (!resolved_from_normalized.empty()) {
-                collector.push_back(resolved_from_normalized);
-
-                std::string normalized_twice =
-                    normalize_struct_type_name(resolved_from_normalized);
-                if (!normalized_twice.empty()) {
-                    collector.push_back(normalized_twice);
-                }
-            }
-        }
-    };
-
-    auto resolve_member_target =
-        [&](const StructMember &member) -> std::string {
-        std::vector<std::string> candidates;
-        candidates.reserve(8);
-        gather_forms(member.pointer_base_type_name, candidates);
-        gather_forms(member.type_alias, candidates);
-
-        std::unordered_set<std::string> seen;
-        for (const auto &candidate : candidates) {
-            std::string normalized = normalize_struct_type_name(candidate);
-            if (normalized.empty()) {
-                continue;
-            }
-
-            if (!seen.insert(normalized).second) {
-                continue;
-            }
-
-            if (struct_definitions_.count(normalized)) {
-                return normalized;
-            }
-
-            std::string resolved = normalize_struct_type_name(
-                type_manager_->resolve_typedef(normalized));
-            if (!resolved.empty() && seen.insert(resolved).second &&
-                struct_definitions_.count(resolved)) {
-                return resolved;
-            }
-        }
-
-        return "";
-    };
-
-    for (const auto &entry : struct_definitions_) {
-        const std::string &struct_name = entry.first;
-        const StructDefinition &definition = entry.second;
-
-        for (const auto &member : definition.members) {
-            bool is_struct_value_member =
-                !member.is_pointer && (member.type == TYPE_STRUCT ||
-                                       member.pointer_base_type == TYPE_STRUCT);
-
-            if (!is_struct_value_member) {
-                continue;
-            }
-
-            std::string target = resolve_member_target(member);
-            if (target.empty()) {
-                continue;
-            }
-
-            adjacency[struct_name].push_back(target);
-        }
-    }
-
-    std::unordered_set<std::string> visiting;
-    std::unordered_set<std::string> visited;
-    std::vector<std::string> path;
-
-    std::function<void(const std::string &)> dfs = [&](const std::string
-                                                           &node) {
-        if (visiting.count(node)) {
-            auto cycle_start = std::find(path.begin(), path.end(), node);
-            std::vector<std::string> cycle;
-            if (cycle_start != path.end()) {
-                cycle.assign(cycle_start, path.end());
-            }
-            cycle.push_back(node);
-
-            std::ostringstream oss;
-            oss << "Recursive struct value member cycle detected: "
-                << build_cycle_path(cycle)
-                << ". Recursive struct relationships must use pointer members.";
-            throw std::runtime_error(oss.str());
-        }
-
-        if (visited.count(node)) {
-            return;
-        }
-
-        visiting.insert(node);
-        path.push_back(node);
-
-        auto it = adjacency.find(node);
-        if (it != adjacency.end()) {
-            for (const auto &next : it->second) {
-                if (!struct_definitions_.count(next)) {
-                    continue;
-                }
-                dfs(next);
-            }
-        }
-
-        visiting.erase(node);
-        visited.insert(node);
-        path.pop_back();
-    };
-
-    for (const auto &entry : struct_definitions_) {
-        dfs(entry.first);
-    }
+    struct_operations_->validate_struct_recursion_rules();
 }
 
-// struct定義を検索
 const StructDefinition *
 Interpreter::find_struct_definition(const std::string &struct_name) {
-    auto it = struct_definitions_.find(struct_name);
-    if (it != struct_definitions_.end()) {
-        return &it->second;
-    }
-    return nullptr;
+    return struct_operations_->find_struct_definition(struct_name);
+}
+
+void Interpreter::sync_struct_definitions_from_parser(RecursiveParser *parser) {
+    struct_operations_->sync_struct_definitions_from_parser(parser);
 }
 
 bool Interpreter::is_current_impl_context_for(
     const std::string &struct_type_name) {
-    if (struct_type_name.empty()) {
-        return false;
-    }
-
-    auto resolve_struct_name = [&](const std::string &name) -> std::string {
-        if (name.empty()) {
-            return std::string();
-        }
-        std::string resolved = type_manager_->resolve_typedef(name);
-        if (!resolved.empty()) {
-            return normalize_struct_type_name(resolved);
-        }
-        return normalize_struct_type_name(name);
-    };
-
-    Variable *self_var = find_variable("self");
-    if (!self_var) {
-        return false;
-    }
-
-    auto extract_struct_type = [&](const Variable *var) -> std::string {
-        if (!var) {
-            return std::string();
-        }
-        if (!var->struct_type_name.empty()) {
-            auto resolved = resolve_struct_name(var->struct_type_name);
-            if (!resolved.empty()) {
-                return resolved;
-            }
-        }
-        if (!var->implementing_struct.empty()) {
-            auto resolved = resolve_struct_name(var->implementing_struct);
-            if (!resolved.empty()) {
-                return resolved;
-            }
-        }
-        return std::string();
-    };
-
-    std::string self_struct = extract_struct_type(self_var);
-    if (self_struct.empty()) {
-        return false;
-    }
-
-    std::string target_struct = resolve_struct_name(struct_type_name);
-    if (target_struct.empty()) {
-        target_struct = normalize_struct_type_name(struct_type_name);
-    }
-
-    return !target_struct.empty() && target_struct == self_struct;
+    return struct_operations_->is_current_impl_context_for(struct_type_name);
 }
 
 void Interpreter::sync_individual_member_from_struct(
@@ -3250,85 +3018,8 @@ void Interpreter::sync_individual_member_from_struct(
 
 void Interpreter::ensure_struct_member_access_allowed(
     const std::string &accessor_name, const std::string &member_name) {
-    if (accessor_name.empty()) {
-        return;
-    }
-
-    Variable *struct_var = find_variable(accessor_name);
-    if (!struct_var) {
-        return;
-    }
-
-    const bool is_struct_like = struct_var->is_struct ||
-                                struct_var->type == TYPE_STRUCT ||
-                                struct_var->type == TYPE_INTERFACE;
-    if (!is_struct_like) {
-        return;
-    }
-
-    auto member_is_private = [&]() -> bool {
-        auto member_it = struct_var->struct_members.find(member_name);
-        if (member_it != struct_var->struct_members.end()) {
-            return member_it->second.is_private_member;
-        }
-
-        std::string full_member_name = accessor_name + "." + member_name;
-        if (Variable *direct_member = find_variable(full_member_name)) {
-            if (direct_member->is_private_member) {
-                return true;
-            }
-        }
-
-        std::string struct_type = struct_var->struct_type_name;
-        if (struct_type.empty() && !struct_var->implementing_struct.empty()) {
-            struct_type = struct_var->implementing_struct;
-        }
-
-        if (struct_type.empty()) {
-            return false;
-        }
-
-        std::string resolved = type_manager_->resolve_typedef(struct_type);
-        if (resolved.empty()) {
-            resolved = struct_type;
-        }
-
-        const StructDefinition *struct_def = find_struct_definition(resolved);
-        if (!struct_def) {
-            std::string normalized = normalize_struct_type_name(resolved);
-            if (normalized != resolved) {
-                struct_def = find_struct_definition(normalized);
-            }
-        }
-
-        if (struct_def) {
-            for (const auto &member : struct_def->members) {
-                if (member.name == member_name) {
-                    return member.is_private;
-                }
-            }
-        }
-        return false;
-    }();
-
-    if (!member_is_private) {
-        return;
-    }
-
-    std::string sanitized_accessor = strip_array_suffix(accessor_name);
-    if (sanitized_accessor == "self") {
-        return;
-    }
-
-    std::string struct_type = struct_var->struct_type_name;
-    if (struct_type.empty() && !struct_var->implementing_struct.empty()) {
-        struct_type = struct_var->implementing_struct;
-    }
-
-    if (!is_current_impl_context_for(struct_type)) {
-        throw std::runtime_error("Cannot access private struct member: " +
-                                 accessor_name + "." + member_name);
-    }
+    struct_operations_->ensure_struct_member_access_allowed(accessor_name,
+                                                            member_name);
 }
 
 // struct変数を作成
@@ -3801,57 +3492,7 @@ void Interpreter::create_struct_variable(const std::string &var_name,
 // structメンバにアクセス
 Variable *Interpreter::get_struct_member(const std::string &var_name,
                                          const std::string &member_name) {
-    debug_msg(DebugMsgId::EXPR_EVAL_STRUCT_MEMBER, member_name.c_str());
-    debug_msg(DebugMsgId::INTERPRETER_GET_STRUCT_MEMBER, var_name.c_str(),
-              member_name.c_str());
-
-    Variable *var = find_variable(var_name);
-    if (!var || !var->is_struct) {
-        debug_msg(DebugMsgId::INTERPRETER_VAR_NOT_STRUCT, var_name.c_str());
-        throw std::runtime_error("Variable is not a struct: " + var_name);
-    }
-
-    // 参照型の場合、参照先の変数を取得
-    Variable *actual_var = var;
-    if (var->is_reference) {
-        actual_var = reinterpret_cast<Variable *>(var->value);
-        if (!actual_var) {
-            throw std::runtime_error(
-                "Invalid reference in struct member access: " + var_name);
-        }
-        debug_print("[DEBUG] get_struct_member: resolving reference %s to "
-                    "target (type=%d)\n",
-                    var_name.c_str(), actual_var->type);
-    }
-
-    // 構造体メンバーアクセス前に最新状態を同期
-    // 注: 参照の場合、参照先で同期する必要があるが、
-    // 参照先は名前がないため、元の変数名で同期を試みる
-    sync_struct_members_from_direct_access(var_name);
-
-    ensure_struct_member_access_allowed(var_name, member_name);
-
-    debug_msg(DebugMsgId::INTERPRETER_STRUCT_MEMBERS_FOUND,
-              actual_var->struct_members.size());
-
-    auto it = actual_var->struct_members.find(member_name);
-    if (it != actual_var->struct_members.end()) {
-        // 親変数がconstの場合、メンバーもconstにする
-        if (actual_var->is_const && !it->second.is_const) {
-            it->second.is_const = true;
-        }
-
-        debug_msg(DebugMsgId::EXPR_EVAL_MULTIDIM_ACCESS,
-                  it->second.is_multidimensional ? 1 : 0,
-                  it->second.array_dimensions.size(),
-                  (size_t)2); // 固定で2インデックス（i,j）
-        debug_msg(DebugMsgId::INTERPRETER_STRUCT_MEMBER_FOUND,
-                  member_name.c_str(), it->second.is_array);
-        return &it->second;
-    }
-
-    throw std::runtime_error("Struct member not found: " + var_name + "." +
-                             member_name);
+    return struct_operations_->get_struct_member(var_name, member_name);
 }
 
 // struct literalから値を代入
@@ -5767,23 +5408,6 @@ void Interpreter::sync_enum_definitions_from_parser(RecursiveParser *parser) {
     }
 }
 
-void Interpreter::sync_struct_definitions_from_parser(RecursiveParser *parser) {
-    if (!parser)
-        return;
-
-    auto &parser_structs = parser->get_struct_definitions();
-    for (const auto &pair : parser_structs) {
-        const std::string &struct_name = pair.first;
-        const StructDefinition &struct_def = pair.second;
-
-        // Interpreterのstruct_definitions_に登録
-        struct_definitions_[struct_name] = struct_def;
-
-        debug_msg(DebugMsgId::INTERPRETER_STRUCT_SYNCED, struct_name.c_str(),
-                  struct_def.members.size());
-    }
-}
-
 void Interpreter::sync_struct_members_from_direct_access(
     const std::string &var_name) {
     debug_msg(DebugMsgId::INTERPRETER_SYNC_STRUCT_MEMBERS_START,
@@ -6236,7 +5860,8 @@ void Interpreter::sync_direct_access_from_struct_value(
     }
 
     if (!target_map) {
-        auto *static_vars = static_variable_manager_->get_static_variables_mutable();
+        auto *static_vars =
+            static_variable_manager_->get_static_variables_mutable();
         auto static_it = static_vars->find(var_name);
         if (static_it != static_vars->end()) {
             target_map = static_vars;
