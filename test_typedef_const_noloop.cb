@@ -1,0 +1,18 @@
+const int SIZE = 3;
+typedef int[SIZE] MyArray;
+
+MyArray get_array() {
+    MyArray result;
+    result[0] = 100;
+    result[1] = 200;
+    result[2] = 300;
+    return result;
+}
+
+int main() {
+    MyArray arr = get_array();
+    println(arr[0]);
+    println(arr[1]);
+    println(arr[2]);
+    return 0;
+}

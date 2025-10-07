@@ -1,0 +1,18 @@
+const int SIZE = 5;
+typedef int[SIZE] MyArray;
+
+MyArray get_array() {
+    MyArray result;
+    for (int i = 0; i < SIZE; i++) {
+        result[i] = i * 10;
+    }
+    return result;
+}
+
+int main() {
+    MyArray arr = get_array();
+    for (int i = 0; i < SIZE; i++) {
+        println(arr[i]);
+    }
+    return 0;
+}

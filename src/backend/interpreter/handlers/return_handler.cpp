@@ -37,12 +37,8 @@ void ReturnHandler::execute_return_statement(const ASTNode *node) {
         break;
         
     default:
-        // その他の式を評価して返す
-        {
-            int64_t value = interpreter_->expression_evaluator_->evaluate_expression(
-                node->left.get());
-            throw ReturnException(value);
-        }
+        // その他の式（メンバーアクセス、関数呼び出し、算術式など）
+        handle_expression_return(node);
         break;
     }
 }
@@ -510,7 +506,15 @@ void ReturnHandler::handle_member_access_return(const ASTNode *node) {
 
 // 式のreturn処理（デフォルト）
 void ReturnHandler::handle_expression_return(const ASTNode *node) {
-    // 型推論を使用して正しい型で返す
+    // まず、式を評価してReturnExceptionをキャッチする（関数呼び出しの場合）
+    try {
+        interpreter_->expression_evaluator_->evaluate_expression(node->left.get());
+    } catch (const ReturnException &ret_ex) {
+        // 関数呼び出しの結果がReturnExceptionとして返ってきた場合、そのまま再スロー
+        throw ret_ex;
+    }
+    
+    // それ以外の場合、型推論を使用して正しい型で返す
     TypedValue typed_result = interpreter_->expression_evaluator_->evaluate_typed_expression(node->left.get());
     
     if (typed_result.is_function_pointer) {

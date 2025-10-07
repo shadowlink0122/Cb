@@ -1,0 +1,17 @@
+typedef int[3] MyArray;
+
+MyArray get_array() {
+    MyArray result;
+    result[0] = 10;
+    result[1] = 20;
+    result[2] = 30;
+    return result;
+}
+
+int main() {
+    MyArray arr = get_array();
+    println(arr[0]);
+    println(arr[1]);
+    println(arr[2]);
+    return 0;
+}

@@ -1,0 +1,12 @@
+int get_plusplus_workaround() {
+    static int count = 0;
+    count++;
+    int result = count;
+    return result;
+}
+
+int main() {
+    int r = get_plusplus_workaround();
+    println(r);
+    return 0;
+}

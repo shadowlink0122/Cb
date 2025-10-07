@@ -1,0 +1,1035 @@
+=============================================================
+Running Cb Integration Test Suite
+=============================================================
+[integration-test] Starting HPP Test Suite with failure continuation
+
+[integration-test] === Core Language Tests ===
+[integration-test] Running Basic Tests...
+[integration] Running basic tests...
+[integration-test] [PASS] basic main function (simple_main.cb)
+[integration] Basic tests completed
+[integration-test] ✅ PASS: Basic Tests (2 tests)
+[integration-test] Running Arithmetic Tests...
+[integration-test] [PASS] arithmetic ok test 
+(../../tests/cases/arithmetic/ok.cb)
+[integration-test] [PASS] arithmetic ng test 
+(../../tests/cases/arithmetic/ng.cb) (error expected)
+[integration-test] ✅ PASS: Arithmetic Tests (10 tests)
+[integration-test] Running Floating Point Tests...
+[integration-test] [PASS] floating_point arithmetic_and_bitwise 
+(../../tests/cases/floating_point/arithmetic_and_bitwise.cb)
+[integration-test] [PASS] floating_point functions_and_arrays 
+(../../tests/cases/floating_point/functions_and_arrays.cb)
+[integration-test] [PASS] floating_point print_and_literals 
+(../../tests/cases/floating_point/print_and_literals.cb)
+[integration-test] [PASS] floating_point precision_test 
+(../../tests/cases/floating_point/precision_test.cb)
+[integration-test] [PASS] floating_point boundary_test 
+(../../tests/cases/floating_point/boundary_test.cb)
+[integration-test] [PASS] floating_point array_literal_test 
+(../../tests/cases/floating_point/array_literal_test.cb)
+[integration-test] ✅ PASS: Floating Point Tests (76 tests)
+[integration-test] Running Float/Double/Unsigned Comprehensive Tests...
+[integration] Running float/double/unsigned tests...
+[integration-test] [PASS] float basic operations (float_basic.cb)
+[integration-test] [PASS] double precision operations (double_basic.cb)
+[integration-test] [PASS] unsigned and bitwise operations (unsigned_basic.cb)
+[integration-test] [PASS] struct members with float/double/unsigned 
+(struct_members.cb)
+[integration-test] [PASS] function parameters and returns (function_params.cb)
+[integration-test] [PASS] multidimensional arrays (multidim_arrays.cb)
+[integration-test] [PASS] compound assignment operators (compound_assign.cb)
+[integration-test] [PASS] literals and type inference (literals.cb)
+[integration] Float/double/unsigned tests completed
+[integration-test] ✅ PASS: Float/Double/Unsigned Comprehensive Tests (47 tests)
+[integration-test] Running Assignment Tests...
+[integration-test] [PASS] assign short ok test (short/ok.cb)
+[integration-test] [PASS] assign short ng test (short/ng.cb) (error expected)
+[integration-test] [PASS] assign short ng_neg test (expected error)
+[integration-test] [PASS] assign int ok test
+[integration-test] [PASS] assign int ng test (expected error)
+[integration-test] [PASS] assign int ng_neg test (expected error)
+[integration-test] [PASS] assign long ok test
+[integration-test] [PASS] assign const tiny ok test
+[integration-test] [PASS] assign const tiny reassign ng test
+[integration-test] [PASS] assign const string element ng test
+[integration-test] ✅ PASS: Assignment Tests (20 tests)
+[integration-test] Running Boundary Tests...
+[integration-test] [PASS] boundary tiny ok test (tiny/ok.cb)
+[integration-test] [PASS] boundary tiny ng test (tiny/ng.cb) (error expected)
+[integration-test] [PASS] boundary tiny ng_neg test (tiny/ng_neg.cb) (error 
+expected)
+[integration-test] [PASS] boundary short ok test (short/ok.cb)
+[integration-test] [PASS] boundary short ng test (expected error)
+[integration-test] [PASS] boundary short ng_neg test (expected error)
+[integration-test] [PASS] boundary int ok test
+[integration-test] [PASS] boundary int ng test (expected error)
+[integration-test] [PASS] boundary int ng_neg test (expected error)
+[integration-test] [PASS] boundary long ok test
+[integration-test] [PASS] boundary long ng test (overflow expected)
+[integration-test] ✅ PASS: Boundary Tests (38 tests)
+[integration-test] Running Type Tests...
+[integration] Running type tests...
+[integration-test] [PASS] tiny type range violation (assignment) (ng_assign.cb) 
+(expected error)
+[integration-test] [PASS] tiny type range violation (literal) (ng_literal.cb) 
+(expected error)
+[integration] Type tests completed
+[integration-test] ✅ PASS: Type Tests (4 tests)
+[integration-test] Average: 10.51 ms (40 measured tests)
+
+[integration-test] === Array Tests ===
+[integration-test] Running Array Tests...
+[integration-test] [PASS] array basic test (../../tests/cases/array/basic.cb)
+[integration-test] [PASS] array assign test (../../tests/cases/array/assign.cb)
+[integration-test] [PASS] array boundary test 
+(../../tests/cases/array/boundary.cb) (error expected)
+[integration-test] [PASS] array literal test 
+(../../tests/cases/array/literal.cb)
+[integration-test] ✅ PASS: Array Tests (19 tests)
+[integration-test] Running Array Literal Tests...
+[integration] Testing array literals...
+[integration-test] [PASS] array_literal_success
+[integration-test] [PASS] array_literal_string_basic
+[integration-test] [PASS] array_literal_comprehensive
+[integration-test] [PASS] array_literal_empty
+[integration-test] [PASS] array_literal_type_mismatch_int_string (expected 
+error)
+[integration-test] [PASS] array_literal_type_mismatch_string_int (expected 
+error)
+[integration-test] [PASS] array_literal_type_mismatch_multiple (expected error)
+[integration-test] [PASS] array_literal_bounds
+[integration] Array literal tests completed
+[integration-test] ✅ PASS: Array Literal Tests (29 tests)
+[integration-test] Running Array Copy Tests...
+[integration-test] [PASS] array basic copy 
+(../../tests/cases/array_copy/basic_copy.cb)
+[integration-test] [PASS] multidimensional array literal 
+(../../tests/cases/array_copy/multidim_literal.cb)
+[integration-test] [PASS] all types 1D arrays 
+(../../tests/cases/array_copy/all_types_1d.cb)
+[integration-test] [PASS] multidimensional numeric arrays 
+(../../tests/cases/array_copy/multidim_numeric.cb)
+[integration-test] [PASS] 3D cube array 
+(../../tests/cases/array_copy/cube_3d.cb)
+[integration-test] [PASS] manual array copy 
+(../../tests/cases/array_copy/manual_copy.cb)
+[integration-test] [PASS] array type compatibility 
+(../../tests/cases/array_copy/type_compatibility.cb)
+[integration-test] [PASS] mixed dimensions array copy 
+(../../tests/cases/array_copy/mixed_dimensions.cb)
+[integration-test] [PASS] bool array operations 
+(../../tests/cases/array_copy/bool_arrays.cb)
+[integration-test] [PASS] numeric ranges in arrays 
+(../../tests/cases/array_copy/numeric_ranges.cb)
+[integration-test] ✅ PASS: Array Copy Tests (40 tests)
+[integration-test] Running Array Return Tests...
+[integration] Running array return tests...
+[integration-test] [PASS] test_array_return_basic 
+(../../tests/cases/array_return/basic.cb)
+[integration-test] [PASS] test_array_return_string 
+(../../tests/cases/array_return/string_array.cb)
+[integration-test] [PASS] test_array_return_multiple_types 
+(../../tests/cases/array_return/multiple_types.cb)
+sh: line 1: 67673 Segmentation fault: 11  ../../main 
+../../tests/cases/array_return/test_typedef_array_return.cb 2>&1
+[integration] ASSERTION FAILED at ./array_return/test_array_return.hpp:43
+[integration] Expected: 0
+[integration] Actual: 35584
+[integration] Expected successful exit code for typedef array return test
+[integration] TEST FAILURE in file: 
+../../tests/cases/array_return/test_typedef_array_return.cb
+[integration] Error: ./array_return/test_array_return.hpp:43 - Expected 
+successful exit code for typedef array return test
+[integration] Command: ../../main 
+../../tests/cases/array_return/test_typedef_array_return.cb 2>&1
+[integration] Exit code: 35584
+[integration] Execution time: 18.3681 ms
+[integration] Output:
+
+[integration] --- End of output ---
+[integration-test] ❌ EXCEPTION: Array Return Tests
+[integration-test]   Error: ./array_return/test_array_return.hpp:43 - Expected 
+successful exit code for typedef array return test
+[integration-test] Running Multidimensional Array Tests...
+[integration] Running multidimensional array tests...
+[integration-test] [PASS] test_multidim_array_literal_2d (literal_2d_test.cb)
+[integration-test] [PASS] test_multidim_array_literal_3d (literal_3d_test.cb)
+[integration-test] [PASS] test_multidim_array_assignment (assignment_test.cb)
+[integration-test] [PASS] test_multidim_array_matrix_operations 
+(matrix_operations.cb)
+[integration-test] [PASS] test_multidim_array_cube_test (cube_test.cb)
+[integration-test] [PASS] test_multidim_array_literal_init (literal_init.cb)
+[integration] Multidimensional array tests completed
+[integration-test] ✅ PASS: Multidimensional Array Tests (61 tests)
+[integration-test] Running Multidimensional Literal Tests...
+[integration] Running multidimensional literal tests...
+[integration-test] [PASS] test_practical_ndim_literal 
+(../../tests/cases/multidim_literal/practical_ndim.cb)
+[integration-test] [PASS] test_string_multidim_literal 
+(../../tests/cases/multidim_literal/string_multidim.cb)
+[integration-test] [PASS] test_asymmetric_multidim_literal 
+(../../tests/cases/multidim_literal/asymmetric.cb)
+[integration-test] [PASS] test_ndim_comprehensive 
+(../../tests/cases/multidim_literal/ndim_comprehensive.cb)
+[integration-test] [PASS] test_4d_5d_arrays 
+(../../tests/cases/multidim_literal/4d_5d_test.cb)
+[integration-test] [PASS] test_high_dimension_arrays 
+(../../tests/cases/multidim_literal/high_dim_test.cb)
+[integration] Multidimensional literal tests completed
+[integration-test] ✅ PASS: Multidimensional Literal Tests (38 tests)
+[integration-test] Running Global Array Tests...
+[integration-test] [PASS] global array basic test (basic.cb)
+[integration-test] [PASS] global array types test (types.cb)
+[integration-test] [PASS] global array function access test (function_access.cb)
+[integration-test] ✅ PASS: Global Array Tests (12 tests)
+[integration-test] Average: 11.12 ms (40 measured tests)
+
+[integration-test] === Control Flow & Operators ===
+[integration-test] Running If Statement Tests...
+[integration] Running if tests...
+[integration-test] [PASS] if basic test (basic.cb)
+[integration-test] [PASS] if basic test (basic.cb)
+[integration-test] [PASS] if basic test (basic.cb)
+[integration] If tests completed
+[integration-test] ✅ PASS: If Statement Tests (10 tests)
+[integration-test] Running Loop Tests...
+[integration] Running loop tests...
+[integration-test] [PASS] test_break_continue (break_continue.cb)
+[integration-test] [PASS] test_nested_loop_break (nested_break.cb)
+[integration-test] [PASS] test_while_loop_continue (while_continue.cb)
+[integration] Loop tests completed
+[integration-test] ✅ PASS: Loop Tests (11 tests)
+[integration-test] Running Boolean Expression Tests...
+[integration] Running bool expr tests...
+[integration-test] [PASS] bool_expr basic test (basic.cb)
+[integration] Bool expr tests completed
+[integration-test] ✅ PASS: Boolean Expression Tests (10 tests)
+[integration-test] Running Bitwise Operator Tests...
+[integration] Running bitwise tests...
+[integration-test] [PASS] bitwise basic test 
+(../../tests/cases/bitwise/basic_bitwise.cb)
+[integration-test] [PASS] bitwise complex test 
+(../../tests/cases/bitwise/complex_bitwise.cb)
+[integration] Bitwise tests completed
+[integration-test] ✅ PASS: Bitwise Operator Tests (17 tests)
+[integration-test] Running Ternary Operator Tests...
+[integration] Running ternary tests...
+[integration-test] [PASS] ternary basic test 
+(../../tests/cases/ternary/basic_ternary.cb)
+[integration-test] [PASS] ternary complex test 
+(../../tests/cases/ternary/complex_ternary.cb)
+[integration-test] [PASS] ternary member/array access test 
+(../../tests/cases/ternary/variable_member_ternary.cb)
+[integration-test] [PASS] ternary string return test 
+(../../tests/cases/ternary/string_return_ternary.cb)
+[integration-test] [PASS] ternary return statement test 
+(../../tests/cases/ternary/test_ternary_return.cb)
+[integration-test] [PASS] simple ternary return test 
+(../../tests/cases/ternary/test_simple_ternary_return.cb)
+[integration-test] [PASS] string ternary minimal test 
+(../../tests/cases/ternary/test_string_ternary_minimal.cb)
+[integration-test] [PASS] string ternary integration test (printf + variable 
+reference) (../../tests/cases/ternary/test_string_ternary_integration.cb)
+[integration-test] [PASS] variable reference fix verification test 
+(../../tests/cases/ternary/test_variable_reference_fix.cb)
+[integration] Ternary tests completed
+[integration-test] ✅ PASS: Ternary Operator Tests (92 tests)
+[integration-test] Running Compound Assignment Tests...
+[integration] Running compound assign tests...
+[integration-test] [PASS] compound assign basic test (basic_compound.cb)
+[integration-test] [PASS] compound assign bitwise test (bitwise_compound.cb)
+[integration-test] [PASS] compound assign array test (array_compound.cb)
+[integration-test] [PASS] compound assign complex test (complex_compound.cb)
+[integration] Compound assign tests completed
+[integration-test] ✅ PASS: Compound Assignment Tests (43 tests)
+[integration-test] Running Increment/Decrement Tests...
+[integration] Running incdec tests...
+[integration-test] [PASS] incdec pre_post test (pre_post.cb)
+[integration-test] [PASS] incdec for_loop test (for_loop.cb)
+[integration] Incdec tests completed
+[integration-test] ✅ PASS: Increment/Decrement Tests (8 tests)
+[integration-test] Average: 13.49 ms (24 measured tests)
+
+[integration-test] === Function & Module Tests ===
+[integration-test] Running Function Tests...
+[integration-test] [PASS] func basic test 
+(../../tests/cases/func/integration_func.cb)
+[integration-test] [PASS] func array test (../../tests/cases/func/array_func.cb)
+[integration-test] [PASS] func simple array return test 
+(../../tests/cases/func/simple_array_return.cb)
+[integration-test] [PASS] func static string test 
+(../../tests/cases/func/simple_static_string_test.cb)
+[integration-test] [PASS] func type safety valid test 
+(../../tests/cases/func/array_type_safety_valid.cb)
+[integration-test] [PASS] func type safety error1 test 
+(../../tests/cases/func/array_type_safety_error1.cb)
+[integration-test] [PASS] func type safety error2 test 
+(../../tests/cases/func/array_type_safety_error2.cb)
+sh: line 1: 67770 Segmentation fault: 11  ../../main 
+../../tests/cases/func/function_call_count.cb 2>&1
+[integration] ASSERTION FAILED at ./func/test_func.hpp:86
+[integration] Expected: 0
+[integration] Actual: 35584
+[integration] Expected successful exit code for function call count test
+[integration] TEST FAILURE in file: 
+../../tests/cases/func/function_call_count.cb
+[integration] Error: ./func/test_func.hpp:86 - Expected successful exit code 
+for function call count test
+[integration] Command: ../../main ../../tests/cases/func/function_call_count.cb 
+2>&1
+[integration] Exit code: 35584
+[integration] Execution time: 19.9741 ms
+[integration] Output:
+
+[integration] --- End of output ---
+[integration-test] ❌ EXCEPTION: Function Tests
+[integration-test]   Error: ./func/test_func.hpp:86 - Expected successful exit 
+code for function call count test
+[integration-test] Running Function Type Check Tests...
+[integration] Running function type checking tests...
+[integration-test] [PASS] test_func_type_basic (basic_types.cb)
+[integration-test] [PASS] test_func_type_arrays (array_types.cb)
+[integration-test] [PASS] test_func_type_multidim (multidim_arrays.cb (skipped 
+- not fully supported))
+[integration-test] [PASS] test_func_type_typedef (typedef_types.cb)
+[integration-test] [PASS] test_func_type_complex_expressions 
+(complex_expressions.cb)
+[integration-test] [PASS] test_func_type_complex_typedef_arrays 
+(complex_typedef_arrays.cb)
+[integration-test] [PASS] test_func_type_comprehensive_typedef 
+(comprehensive_typedef_functions.cb)
+[integration-test] [PASS] test_func_type_error_string_to_int 
+(error_string_to_int.cb (expected error))
+[integration-test] [PASS] test_func_type_error_int_to_string 
+(error_int_to_string.cb (expected error))
+[integration-test] [PASS] test_func_type_error_array_mismatch 
+(error_array_mismatch.cb (skipped - array type mismatch checking not 
+implemented))
+[integration] Function type checking tests completed
+[integration-test] ✅ PASS: Function Type Check Tests (41 tests)
+[integration-test] Running Function Return Type Check Tests...
+[integration] Running function return type checking tests...
+[integration-test] [PASS] test_func_return_basic (basic_return_types.cb)
+[integration-test] [PASS] test_func_return_arrays (array_return_types.cb)
+[integration-test] [PASS] test_func_return_typedef (typedef_return_types.cb)
+[integration-test] [PASS] test_func_return_typedef_chains 
+(typedef_chain_returns.cb)
+[integration] test_func_return_error_int_string (error_int_return_string.cb 
+(skipped - return type checking not implemented)) ... passed
+[integration] test_func_return_error_string_int (error_string_return_int.cb 
+(skipped - return type checking not implemented)) ... passed
+[integration] test_func_return_error_int_array_return_int 
+(error_int_array_return_int.cb (skipped - return type checking not 
+implemented)) ... passed
+[integration] test_func_return_error_string_array_return_string 
+(error_string_array_return_string.cb (skipped - return type checking not 
+implemented)) ... passed
+[integration] test_func_return_error_typedef_userid_string 
+(error_typedef_userid_string.cb (skipped - return type checking not 
+implemented)) ... passed
+[integration] test_func_return_error_typedef_username_int 
+(error_typedef_username_int.cb (skipped - return type checking not 
+implemented)) ... passed
+[integration] test_func_return_error_typedef_statuslist_bool 
+(error_typedef_statuslist_bool.cb (skipped - return type checking not 
+implemented)) ... passed
+[integration-test] [PASS] test_func_return_error_int_string 
+(error_int_return_string.cb (skipped - return type checking not implemented))
+[integration-test] [PASS] test_func_return_error_string_int 
+(error_string_return_int.cb (skipped - return type checking not implemented))
+[integration-test] [PASS] test_func_return_error_int_array_return_int 
+(error_int_array_return_int.cb (skipped - return type checking not implemented))
+[integration-test] [PASS] test_func_return_error_string_array_return_string 
+(error_string_array_return_string.cb (skipped - return type checking not 
+implemented))
+[integration-test] [PASS] test_func_return_error_typedef_userid_string 
+(error_typedef_userid_string.cb (skipped - return type checking not 
+implemented))
+[integration-test] [PASS] test_func_return_error_typedef_username_int 
+(error_typedef_username_int.cb (skipped - return type checking not implemented))
+[integration-test] [PASS] test_func_return_error_typedef_statuslist_bool 
+(error_typedef_statuslist_bool.cb (skipped - return type checking not 
+implemented))
+[integration] Function return type checking tests completed
+[integration-test] ✅ PASS: Function Return Type Check Tests (28 tests)
+[integration-test] Running Import/Export Tests...
+[integration] Running import_export tests...
+[integration] import_export basic test executed with exit_code: 256
+[integration-test] [PASS] test_import_export_basic (test_basic_import_export.cb)
+[integration] Import_export tests completed
+[integration-test] ✅ PASS: Import/Export Tests (1 tests)
+[integration-test] Running Module Function Tests...
+[integration] Running module_functions tests...
+[integration] module_functions basic test executed with exit_code: 256
+[integration-test] [PASS] test_module_functions_basic (test_module_functions.cb)
+[integration] module_functions simple test executed with exit_code: 0
+[integration-test] [PASS] test_module_functions_simple 
+(test_simple_module_functions.cb)
+[integration] Module_functions tests completed
+[integration-test] ✅ PASS: Module Function Tests (2 tests)
+[integration-test] Average: 14.30 ms (22 measured tests)
+
+[integration-test] === Variable & Constant Tests ===
+[integration-test] Running Const Variable Tests...
+[integration-test] [PASS] const string reassign error test 
+(../../tests/cases/const_variables/const_string_reassign_error.cb)
+[integration-test] [PASS] const string element error test 
+(../../tests/cases/const_variables/const_string_element_error.cb)
+[integration-test] [PASS] const numeric reassign error test 
+(../../tests/cases/const_variables/const_numeric_reassign_error.cb)
+[integration-test] [PASS] const variables read ok test 
+(../../tests/cases/const_variables/const_variables_read_ok.cb)
+[integration-test] ✅ PASS: Const Variable Tests (17 tests)
+[integration-test] Running Const Array Tests...
+[integration-test] [PASS] const array assign error test 
+(../../tests/cases/const_array/const_array_assign_error.cb)
+[integration-test] [PASS] const string array assign error test 
+(../../tests/cases/const_array/const_string_array_assign_error.cb)
+[integration-test] [PASS] const array read ok test 
+(../../tests/cases/const_array/const_array_read_ok.cb)
+[integration-test] [PASS] const multidim array error test 
+(../../tests/cases/const_array/const_multidim_array_error.cb)
+[integration-test] ✅ PASS: Const Array Tests (16 tests)
+[integration-test] Running Const Parameter Tests...
+[integration-test] [PASS] const param read ok 
+(../../tests/cases/const_parameters/const_param_read_ok.cb)
+[integration-test] [PASS] const all types ok 
+(../../tests/cases/const_parameters/const_all_types_ok.cb)
+[integration-test] [PASS] const mixed params ok 
+(../../tests/cases/const_parameters/const_mixed_params_ok.cb)
+[integration-test] [PASS] const param reassign error 
+(../../tests/cases/const_parameters/const_param_reassign_error.cb)
+[integration-test] [PASS] const param compound error 
+(../../tests/cases/const_parameters/const_param_compound_error.cb)
+[integration-test] [PASS] const array param error 
+(../../tests/cases/const_parameters/const_array_param_error.cb)
+[integration-test] ✅ PASS: Const Parameter Tests (27 tests)
+[integration-test] Running Global Variable Tests...
+[integration] Running global vars tests...
+[integration-test] [PASS] global vars basic test (basic.cb)
+[integration-test] [PASS] global vars array_share test (array_share.cb)
+[integration-test] [PASS] global vars redeclare test (redeclare.cb) (expected 
+error)
+[integration] Global vars tests completed
+[integration-test] ✅ PASS: Global Variable Tests (14 tests)
+[integration-test] Running Static Variable Tests...
+[integration] Running static_variables tests...
+sh: line 1: 67836 Segmentation fault: 11  ../../main 
+../cases/static_variables/basic_static.cb 2>&1
+[integration] ASSERTION FAILED at 
+./static_variables/test_static_variables.hpp:11
+[integration] Expected: 0
+[integration] Actual: 35584
+[integration] basic_static.cb should execute successfully
+[integration] TEST FAILURE in file: ../cases/static_variables/basic_static.cb
+[integration] Error: ./static_variables/test_static_variables.hpp:11 - 
+basic_static.cb should execute successfully
+[integration] Command: ../../main ../cases/static_variables/basic_static.cb 2>&1
+[integration] Exit code: 35584
+[integration] Execution time: 18.5025 ms
+[integration] Output:
+
+[integration] --- End of output ---
+[integration-test] ❌ EXCEPTION: Static Variable Tests
+[integration-test]   Error: ./static_variables/test_static_variables.hpp:11 - 
+basic_static.cb should execute successfully
+[integration-test] Running Multiple Variable Declaration Tests...
+[integration] Running multiple variable declaration tests...
+[integration-test] [PASS] test_multiple_variable_declaration 
+(multiple_var_decl.cb)
+[integration-test] [PASS] test_multiple_var_init_basic 
+(multiple_var_init_basic.cb)
+[integration-test] [PASS] test_multiple_var_init_string 
+(multiple_var_init_string.cb)
+[integration-test] [PASS] test_multiple_var_init_mixed 
+(multiple_var_init_mixed.cb)
+[integration-test] [PASS] test_multiple_var_init_expressions 
+(multiple_var_init_expressions.cb)
+[integration] Multiple variable declaration tests completed
+[integration-test] ✅ PASS: Multiple Variable Declaration Tests (25 tests)
+[integration-test] Running Self Assignment Tests...
+[integration] Running self assign tests...
+[integration-test] [PASS] basic simple self assign test (basic_simple.cb)
+[integration-test] [PASS] array self assign test (array_self_assign.cb)
+[integration-test] [PASS] variable self assign test (variable_self_assign.cb)
+[integration-test] [PASS] compound assign test (limited support) (basic.cb)
+[integration-test] [PASS] bitwise self assign test (bitwise_self_assign.cb)
+[integration-test] [PASS] compound self assign test (compound_self_assign.cb)
+[integration] Self assign tests completed
+[integration-test] ✅ PASS: Self Assignment Tests (37 tests)
+[integration-test] Running Unsigned Tests...
+[integration-test] [PASS] unsigned runtime clamp test
+[integration-test] [PASS] unsigned struct/interface coverage test
+[integration-test] [PASS] unsigned boundary ok test
+[integration-test] [PASS] unsigned tiny overflow test (expected error)
+[integration-test] [PASS] unsigned short overflow test (expected error)
+[integration-test] [PASS] unsigned int overflow test (expected error)
+[integration-test] [PASS] unsigned long overflow test (expected error)
+[integration-test] ✅ PASS: Unsigned Tests (36 tests)
+[integration-test] Average: 10.12 ms (35 measured tests)
+
+[integration-test] === String & I/O Tests ===
+[integration-test] Running String Tests...
+[integration] Running string tests...
+[integration-test] [PASS] string literal test (literal.cb)
+[integration-test] [PASS] string assign test (assign.cb)
+[integration-test] [PASS] string empty test (empty.cb)
+[integration-test] [PASS] string element test (element.cb)
+[integration-test] [PASS] string func test (func.cb)
+[integration] String tests completed
+[integration-test] ✅ PASS: String Tests (14 tests)
+[integration-test] Running Printf Tests...
+[integration-test] [PASS] printf basic format test (basic_format.cb)
+[integration-test] [PASS] printf multiple arguments test (multiple_args.cb)
+[integration-test] [PASS] printf expressions test (expressions.cb)
+[integration-test] [PASS] printf error cases test (error_cases.cb) (expected 
+error)
+[integration-test] [PASS] float format test (test_float_format.cb)
+[integration-test] ✅ PASS: Printf Tests (28 tests)
+[integration-test] Running Println Tests...
+[integration-test] [PASS] println empty test (empty.cb)
+[integration-test] [PASS] println single argument test (single_arg.cb)
+[integration-test] [PASS] println printf style test (printf_style.cb)
+[integration-test] [PASS] println mixed output test (mixed_output.cb)
+[integration-test] ✅ PASS: Println Tests (14 tests)
+[integration-test] Average: 8.65 ms (14 measured tests)
+
+[integration-test] === Type System Tests ===
+[integration-test] Running Typedef Tests...
+[integration] Running typedef tests...
+[integration-test] [PASS] test_typedef_basic (test_basic_typedef.cb)
+[integration-test] [PASS] test_typedef_advanced (test_advanced_typedef.cb)
+[integration-test] [PASS] test_typedef_array (test_array_typedef.cb)
+[integration-test] [PASS] test_typedef_basic_ok (basic_ok.cb)
+[integration-test] [PASS] test_typedef_nested_ok (nested_ok.cb)
+[integration-test] [PASS] test_typedef_function_param (function_param_ok.cb)
+[integration-test] [PASS] test_typedef_array_constant 
+(test_typedef_array_constant.cb)
+sh: line 1: 67919 Segmentation fault: 11  ../../main 
+../../tests/cases/typedef/test_typedef_array_function_return.cb 2>&1
+[integration] ASSERTION FAILED at ./typedef/test_typedef.hpp:121
+[integration] Expected: 0
+[integration] Actual: 35584
+[integration] Typedef array function return should execute successfully
+[integration] TEST FAILURE in file: 
+../../tests/cases/typedef/test_typedef_array_function_return.cb
+[integration] Error: ./typedef/test_typedef.hpp:121 - Typedef array function 
+return should execute successfully
+[integration] Command: ../../main 
+../../tests/cases/typedef/test_typedef_array_function_return.cb 2>&1
+[integration] Exit code: 35584
+[integration] Execution time: 17.8602 ms
+[integration] Output:
+
+[integration] --- End of output ---
+[integration-test] ❌ EXCEPTION: Typedef Tests
+[integration-test]   Error: ./typedef/test_typedef.hpp:121 - Typedef array 
+function return should execute successfully
+[integration-test] Running Enum Typedef Tests...
+[integration] Running enum typedef tests...
+[integration-test] [PASS] test_enum_typedef_basic (test_enum_typedef_basic.cb)
+[integration-test] [PASS] test_enum_typedef_separated 
+(test_enum_typedef_separated.cb)
+[integration-test] [PASS] test_enum_typedef_functions 
+(test_enum_typedef_functions.cb)
+[integration-test] [PASS] test_enum_typedef_comprehensive 
+(test_enum_typedef_comprehensive.cb)
+[integration] Enum typedef tests completed
+[integration-test] ✅ PASS: Enum Typedef Tests (17 tests)
+[integration-test] Running Struct Typedef Tests...
+[integration] Running struct typedef tests...
+[integration-test] [PASS] test_struct_typedef_basic 
+(test_struct_typedef_basic.cb)
+[integration-test] [PASS] test_struct_typedef_separated 
+(test_struct_typedef_separated.cb)
+[integration-test] [PASS] test_struct_typedef_literals 
+(test_struct_typedef_literals.cb)
+[integration-test] [PASS] test_struct_typedef_functions 
+(test_struct_typedef_functions.cb)
+[integration-test] [PASS] test_struct_typedef_comprehensive 
+(test_struct_typedef_comprehensive.cb)
+[integration] Struct typedef tests completed
+[integration-test] ✅ PASS: Struct Typedef Tests (16 tests)
+[integration-test] Running Cross Type Tests...
+[integration-test] [PASS] cross_type ok test
+[integration-test] [PASS] cross_type ng test (expected error)
+[integration-test] ✅ PASS: Cross Type Tests (4 tests)
+[integration-test] Running Enum Tests...
+[integration] Running enum tests...
+[integration-test] [PASS] basic enum functionality (basic.cb)
+[integration-test] [PASS] enum with explicit integer values (explicit_values.cb)
+[integration-test] [PASS] enum with negative integer values (negative_values.cb)
+[integration-test] [PASS] enum with large integer values (large_values.cb)
+[integration-test] [PASS] using enum values as array indices (array_index.cb)
+[integration-test] [PASS] using enum values with string arrays 
+(string_array_index.cb)
+[integration-test] [PASS] arithmetic operations with enum values (arithmetic.cb)
+[integration-test] [PASS] using enum values in conditional statements 
+(conditional.cb)
+[integration-test] [PASS] defining and using multiple enums (multiple_enums.cb)
+[integration-test] [PASS] error case: duplicate enum values should be rejected 
+(error_duplicate_values.cb) (expected error)
+[integration-test] [PASS] error case: accessing undefined enum member should 
+fail (error_undefined_member.cb) (expected error)
+[integration-test] [PASS] error case: accessing undefined enum should fail 
+(error_undefined_enum.cb) (expected error)
+[integration] Enum tests completed
+[integration-test] ✅ PASS: Enum Tests (24 tests)
+[integration-test] Running Union Type Tests...
+
+=== Running Union Type Integration Tests ===
+[integration] Running test_literal_union...
+[integration-test] [PASS] test_literal_union (literal_union.cb)
+[integration] Running test_type_union...
+[integration-test] [PASS] test_type_union (type_union.cb)
+[integration] Running test_custom_union...
+[integration-test] [PASS] test_custom_union (custom_union.cb)
+[integration] Running test_struct_union...
+[integration-test] [PASS] test_struct_union (struct_union.cb)
+[integration] Running test_array_union...
+[integration-test] [PASS] test_array_union (array_union.cb)
+[integration] Running test_mixed_union...
+[integration-test] [PASS] test_mixed_union (mixed_union.cb)
+[integration] Running test_string_processing...
+[integration-test] [PASS] test_string_processing (string_processing.cb)
+[integration] Running test_struct_union_compound_assignment...
+[integration-test] [PASS] test_struct_union_compound_assignment 
+(struct_union_compound_assignment.cb)
+[integration] Running test_error_invalid_literal...
+[integration-test] [PASS] test_error_invalid_literal (error_invalid_literal.cb 
+(expected error))
+[integration] Running test_error_type_mismatch...
+[integration-test] [PASS] test_error_type_mismatch (error_type_mismatch.cb 
+(expected error))
+[integration] Running test_error_undefined_type...
+[integration-test] [PASS] test_error_undefined_type (error_undefined_type.cb 
+(expected error))
+[integration] Running test_error_custom_type...
+[integration-test] [PASS] test_error_custom_type (error_custom_type.cb 
+(expected error))
+[integration] Running test_error_struct_type...
+[integration-test] [PASS] test_error_struct_type (error_struct_type.cb 
+(expected error))
+[integration] Running test_error_array_type...
+[integration-test] [PASS] test_error_array_type (error_array_type.cb (expected 
+error))
+[integration] Running test_error_multiple...
+[integration-test] [PASS] test_error_multiple (error_multiple.cb (expected 
+error))
+[integration] Running test_comprehensive...
+[integration-test] [PASS] test_comprehensive (comprehensive.cb)
+=== Union Type Integration Tests Complete ===
+[integration-test] ✅ PASS: Union Type Tests (190 tests)
+[integration-test] Average: 9.54 ms (46 measured tests)
+
+[integration-test] === Advanced Features ===
+[integration-test] Running Basic Struct Tests...
+[integration] ========================================
+[integration] Running Basic Struct Integration Tests
+[integration] ========================================
+[integration] Running test_basic_struct_member_access...
+[integration] Basic struct member access test completed in 9.410 seconds
+[integration] Running test_struct_array_member_access...
+[integration] Struct array member access test completed in 8.536 seconds
+[integration] Running test_struct_member_assignment...
+[integration] Struct member assignment test completed in 8.338 seconds
+[integration] Running test_mixed_type_struct_members...
+[integration] Mixed type struct members test completed in 8.315 seconds
+[integration] Running test_struct_array_loop...
+[integration] Struct array loop test completed in 8.262 seconds
+[integration] Running test_typed_value_struct_data...
+[integration] TypedValue struct data test completed in 8.299 seconds
+[integration] Running test_basic_struct_performance...
+[integration] Basic struct performance test completed in 22.060 seconds
+[integration] ========================================
+[integration] All Basic Struct tests completed successfully!
+[integration] ========================================
+[integration-test] ✅ PASS: Basic Struct Tests (36 tests)
+[integration-test] Running Struct Tests...
+[integration] ========================================
+[integration] Running Struct Integration Tests
+[integration] ========================================
+[integration] Running test_basic_struct...
+[integration] Running test_struct_literal...
+[integration] Running test_struct_array_member...
+[integration] Running test_struct_array_literal...
+[integration] Running test_const_size_array_assignment...
+[integration] Running test_const_struct_member_parent_const_error...
+[integration] Running test_struct_private_field_access_ok...
+[integration-test] [PASS] struct private field ok 
+(../../tests/cases/struct/private_field_access_ok.cb)
+[integration] Running test_struct_private_field_access_error...
+[integration-test] [PASS] struct private field access error 
+(../../tests/cases/struct/private_field_access_error.cb) (error expected)
+[integration] Running test_struct_array...
+[integration] Running test_nested_struct...
+[integration] Running test_nested_struct_flat...
+[integration] Running test_multidim_array_member...
+[integration] Running test_struct_function_param (skipped - struct function 
+parameters not implemented)...
+[integration] Running test_struct_function_return...
+[integration] Running test_struct_function_array_chain...
+[integration] ASSERTION FAILED at ./struct/struct_tests.hpp:255
+[integration] Output should contain Alice from get_people()[0].name
+[integration] TEST FAILURE in file: 
+../../tests/cases/struct/struct_function_array_chain.cb
+[integration] Error: ./struct/struct_tests.hpp:255 - Output should contain 
+Alice from get_people()[0].name
+[integration] Command: ../../main 
+../../tests/cases/struct/struct_function_array_chain.cb 2>&1
+[integration] Exit code: 0
+[integration] Execution time: 13.291 ms
+[integration] Output:
+=== Struct Array Function Chain Access Test ===
+Basic chain access:
+(member access error)
+(member access error)
+Age 0:
+(member access error)
+Age 1:
+(member access error)
+
+Product chain access:
+(member access error)
+(member access error)
+(member access error)
+Prices:
+(member access error)
+(member access error)
+(member access error)
+
+Boundary tests:
+(member access error)
+(member access error)
+First age:
+(member access error)
+Last age:
+(member access error)
+
+Middle elements:
+(member access error)
+Middle age:
+(member access error)
+
+=== All tests completed successfully ===
+
+[integration] --- End of output ---
+[integration] Struct test suite failed: ./struct/struct_tests.hpp:255 - Output 
+should contain Alice from get_people()[0].name
+[integration-test] ❌ EXCEPTION: Struct Tests
+[integration-test]   Error: ./struct/struct_tests.hpp:255 - Output should 
+contain Alice from get_people()[0].name
+[integration-test] Running Interface Tests...
+[integration] === Interface/Impl System Tests ===
+[integration] Running test_basic_interface...
+[integration] Running test_complex_args...
+[integration] Running test_function_param_return...
+[integration] Running test_multiple_structs...
+[integration] Running test_multiple_interfaces...
+[integration] Running test_return_self...
+[integration] Running test_array_struct...
+[integration] Running test_union_enum_interface...
+[integration] Running test_enum_interface...
+[integration] Running test_simple_array_interface...
+[integration] Running test_multidim_param_interface...
+[integration] Running test_ndim_interface...
+[integration] Running test_cube_interface...
+[integration] Running test_multidim_array_interface...
+[integration] Running test_arrow_assignment_comprehensive...
+sh: line 1: 68069 Segmentation fault: 11  ../../main 
+../../tests/cases/interface/test_arrow_assignment_comprehensive.cb 2>&1
+[integration] ASSERTION FAILED at ./interface/interface_tests.hpp:314
+[integration] Expected: 0
+[integration] Actual: 35584
+[integration] Arrow assignment comprehensive test should exit with code 0
+[integration] TEST FAILURE in file: 
+../../tests/cases/interface/test_arrow_assignment_comprehensive.cb
+[integration] Error: ./interface/interface_tests.hpp:314 - Arrow assignment 
+comprehensive test should exit with code 0
+[integration] Command: ../../main 
+../../tests/cases/interface/test_arrow_assignment_comprehensive.cb 2>&1
+[integration] Exit code: 35584
+[integration] Execution time: 20.186 ms
+[integration] Output:
+
+[integration] --- End of output ---
+[integration-test] ❌ EXCEPTION: Interface Tests
+[integration-test]   Error: ./interface/interface_tests.hpp:314 - Arrow 
+assignment comprehensive test should exit with code 0
+[integration-test] Running Interface Type Inference Chain Tests...
+[integration] Running interface type inference chain test...
+[integration-test] [PASS] Interface type inference chain 
+(type_inference_chain.cb)
+[integration] Interface type inference chain test completed
+[integration-test] ✅ PASS: Interface Type Inference Chain Tests (17 tests)
+[integration-test] Running Interface Private Method Tests...
+[integration-test] [PASS] interface private basic test 
+(../../tests/cases/interface/private/basic_ok.cb)
+[integration-test] [PASS] interface private access error test 
+(../../tests/cases/interface/private/access_error.cb) (error expected)
+[integration-test] [PASS] interface private primitive array test (typedef) 
+(../../tests/cases/interface/private/primitive_array_ok.cb)
+[integration-test] [PASS] interface private string test 
+(../../tests/cases/interface/private/string_ok.cb)
+[integration-test] [PASS] interface private multidim array test (typedef) 
+(../../tests/cases/interface/private/multidim_array_ok.cb)
+[integration-test] [PASS] interface private complex chain test 
+(../../tests/cases/interface/private/complex_chain_ok.cb)
+[integration-test] [PASS] interface private helper chain success test 
+(../../tests/cases/interface/private/helper_chain_ok.cb)
+[integration-test] [PASS] interface private helper chain access warning 
+(../../tests/cases/interface/private/helper_chain_access_error.cb)
+[integration-test] [PASS] interface private self member access test 
+(../../tests/cases/interface/private/self_member_access_ok.cb)
+[integration-test] [PASS] interface private self member compound assign test 
+(../../tests/cases/interface/private/self_member_compound_assign.cb)
+[integration-test] [PASS] interface private raw array error test 
+(../../tests/cases/interface/private/raw_array_error.cb) (error expected)
+[integration-test] ✅ PASS: Interface Private Method Tests (67 tests)
+[integration-test] Running Interface Typedef Implementation Tests...
+[integration] Running test_typedef_impl_basic...
+[integration-test] ✅ PASS: Interface Typedef Implementation Tests (12 tests)
+[integration-test] Running Recursive Typedef Independence Tests...
+[integration] Running test_recursive_typedef_independence...
+[integration-test] ✅ PASS: Recursive Typedef Independence Tests (4 tests)
+[integration-test] Running impl Static Variable Tests...
+
+=== Running impl Static Variable Tests ===
+[integration] Running test_impl_static_simple...
+[integration] Running test_impl_static_basic...
+[integration] Running test_impl_static_separate...
+[integration] Running test_impl_static_const...
+[integration] Running test_impl_no_static...
+[integration] Running test_impl_static_debug...
+=== impl Static Tests Completed ===
+[integration-test] ✅ PASS: impl Static Variable Tests (26 tests)
+[integration-test] Running Pointer Tests...
+sh: line 1: 68131 Segmentation fault: 11  ../../main 
+../../tests/cases/pointer/test_impl_with_pointers.cb 2>&1
+
+=== Pointer Tests ===
+[✓] test_basic_pointer_operations passed (9.172ms)
+[✓] test_pointer_function_parameters passed (8.771ms)
+[✓] test_pointer_chains passed (8.913ms)
+[✓] test_nullptr_checks passed (8.442ms)
+[✓] test_variable_address passed (8.592ms)
+[✓] test_minimal_pointer passed (8.773ms)
+[✓] test_comprehensive_pointer_arithmetic passed (8.839ms)
+[✓] test_pointer_incdec passed (9.054ms)
+[✓] test_advanced_pointer_features passed (11.911ms)
+[✓] test_struct_pointer_members passed (9.569ms)
+[integration] ASSERTION FAILED at ./pointer/pointer_tests.hpp:705
+[integration] Expected: 0
+[integration] Actual: 35584
+[integration] implポインタテストがエラー終了
+[integration] TEST FAILURE in file: 
+../../tests/cases/pointer/test_impl_with_pointers.cb
+[integration] Error: ./pointer/pointer_tests.hpp:705 - 
+implポインタテストがエラー終了
+[integration] Command: ../../main 
+../../tests/cases/pointer/test_impl_with_pointers.cb 2>&1
+[integration] Exit code: 35584
+[integration] Execution time: 18.6831 ms
+[integration] Output:
+
+[integration] --- End of output ---
+[integration-test] ❌ EXCEPTION: Pointer Tests
+[integration-test]   Error: ./pointer/pointer_tests.hpp:705 - 
+implポインタテストがエラー終了
+[integration-test] Running Reference Tests...
+
+============================================================
+Running Reference Tests...
+============================================================
+[integration] ASSERTION FAILED at ./reference/reference_tests.hpp:82
+[integration] Expected: 0
+[integration] Actual: 256
+[integration] 参照戻り値テストがエラー終了
+[integration] TEST FAILURE in file: 
+../../tests/cases/reference/test_simple_reference_return.cb
+[integration] Error: ./reference/reference_tests.hpp:82 - 
+参照戻り値テストがエラー終了
+[integration] Command: ../../main 
+../../tests/cases/reference/test_simple_reference_return.cb 2>&1
+[integration] Exit code: 256
+[integration] Execution time: 8.46346 ms
+[integration] Output:
+[INTERPRETER_ERROR] Variable processing exception: Function did not return via 
+exception
+Error: Function did not return via exception
+Before:
+100
+
+[integration] --- End of output ---
+[integration-test] ❌ EXCEPTION: Reference Tests
+[integration-test]   Error: ./reference/reference_tests.hpp:82 - 
+参照戻り値テストがエラー終了
+[integration-test] Running Typedef Pointer/Reference Tests...
+
+============================================================
+Running Typedef Pointer/Reference Tests...
+============================================================
+✅ PASS: Typedef Pointer/Reference Tests (1 test)
+[integration-test] ✅ PASS: Typedef Pointer/Reference Tests (4 tests)
+[integration-test] Running Typedef Struct Tests...
+
+=== Typedef Struct Tests ===
+[integration] Running test_typedef_realistic...
+[integration-test] [PASS] test_typedef_realistic 
+(../../tests/cases/typedef/test_typedef_realistic.cb)
+[integration] Running test_typedef_functions...
+[integration-test] [PASS] test_typedef_functions 
+(../../tests/cases/typedef/test_typedef_functions.cb)
+✅ PASS: Typedef Struct Tests (2 tests)
+[integration-test] ✅ PASS: Typedef Struct Tests (20 tests)
+[integration-test] Running Assert Tests...
+
+=== Assert Tests ===
+[✓] test_basic_assert passed (8.250ms)
+=== All Assert Tests Passed ===
+
+[integration-test] ✅ PASS: Assert Tests (8 tests)
+[integration-test] Average: 11.06 ms (24 measured tests)
+
+[integration-test] === Error Handling & Special Cases ===
+[integration-test] Running Error Handling Tests...
+[integration] Running error_handling tests...
+[integration] error_handling basic test executed with exit_code: 256
+[integration-test] [PASS] test_error_handling_basic (test_error_handling.cb)
+[integration] Error_handling tests completed
+[integration-test] ✅ PASS: Error Handling Tests (1 tests)
+[integration-test] Running Interface Error Tests...
+[integration] === Interface Error Handling Tests ===
+[integration] Testing current error detection capabilities and future 
+improvements
+[integration] Running test_interface_no_impl_error...
+[integration] Running test_incomplete_impl_error...
+[integration] Running test_realistic_interface_error...
+[integration] Running test_undefined_interface_error...
+[IMPROVED] Undefined interface implementation correctly detected!
+[integration] Running test_signature_mismatch_error...
+[IMPROVED] Method signature mismatch correctly detected!
+[integration] Running test_duplicate_impl_error...
+[IMPROVED] Duplicate impl definition correctly detected!
+[integration] Running test_extra_methods_warning...
+sh: line 1: 68163 Segmentation fault: 11  ../../main 
+../../tests/cases/interface/error_extra_methods.cb 2>&1
+[WARNING] Extra methods test failed with exit code 35584
+[WARNING] This may be due to syntax errors in the test file
+[integration] Interface error tests completed
+[integration] ✅ Basic error detection: Working correctly
+[integration] ⚠️  Advanced error detection: Future improvements documented
+[integration-test] ✅ PASS: Interface Error Tests (6 tests)
+[integration-test] Running Dynamic Array Error Tests...
+[integration-test] [PASS] dynamic_array_error simple test 
+(../../tests/cases/dynamic_array_error/simple_dynamic.cb)
+[integration-test] [PASS] dynamic_array_error multidim test 
+(../../tests/cases/dynamic_array_error/multidim_dynamic.cb)
+[integration-test] [PASS] dynamic_array_error mixed test 
+(../../tests/cases/dynamic_array_error/mixed_dynamic.cb)
+[integration-test] ✅ PASS: Dynamic Array Error Tests (9 tests)
+[integration-test] Average: 20.14 ms (4 measured tests)
+
+[integration-test] === Performance Tests ===
+[integration-test] Running Performance Tests...
+[integration] Running performance tests...
+[integration-test] [PASS] parser efficiency test 
+(../../tests/cases/performance/parser_efficiency_test.cb)
+[integration-test] [PASS] large scale parser test 
+(../../tests/cases/performance/large_scale_parser_test.cb)
+[integration-test] [PASS] integrated performance test 
+(../../tests/cases/performance/integrated_performance_test.cb)
+sh: line 1: 68177 Segmentation fault: 11  ../../main 
+../../tests/cases/performance/final_parser_efficiency.cb 2>&1
+[integration] ASSERTION FAILED at ./performance/test_performance.hpp:75
+[integration] Expected: 0
+[integration] Actual: 35584
+[integration] Expected successful exit code for final parser efficiency test
+[integration] TEST FAILURE in file: 
+../../tests/cases/performance/final_parser_efficiency.cb
+[integration] Error: ./performance/test_performance.hpp:75 - Expected 
+successful exit code for final parser efficiency test
+[integration] Command: ../../main 
+../../tests/cases/performance/final_parser_efficiency.cb 2>&1
+[integration] Exit code: 35584
+[integration] Execution time: 19.869 ms
+[integration] Output:
+
+[integration] --- End of output ---
+[integration-test] ❌ EXCEPTION: Performance Tests
+[integration-test]   Error: ./performance/test_performance.hpp:75 - Expected 
+successful exit code for final parser efficiency test
+[integration-test] Average: 15.76 ms (3 measured tests)
+============================================================
+[integration-test] === FINAL SUMMARY ===
+============================================================
+[integration-test] HPP Test Suite Completed
+[integration-test]
+=== Test Summary ===
+Total:  1883
+Passed: 1865
+Failed: 18
+
+⚠️  18 TESTS FAILED ⚠️
+
+------------------------------------------------------------
+FAILED TEST SUMMARY:
+------------------------------------------------------------
+1. Array Return Tests: ./array_return/test_array_return.hpp:43 - Expected 
+succes...
+2. Function Tests: ./func/test_func.hpp:86 - Expected successful exit code for 
+f...
+3. Static Variable Tests: ./static_variables/test_static_variables.hpp:11 - 
+basi...
+4. Typedef Tests: ./typedef/test_typedef.hpp:121 - Typedef array function 
+return...
+5. Struct Tests: ./struct/struct_tests.hpp:255 - Output should contain Alice 
+fro...
+6. Interface Tests: ./interface/interface_tests.hpp:314 - Arrow assignment 
+compr...
+7. Pointer Tests: ./pointer/pointer_tests.hpp:705 - implポインタテストが...
+8. Reference Tests: ./reference/reference_tests.hpp:82 - 参照戻り値テスRunning unit tests...
+Running comprehensive unit tests...
+Starting unit tests...
+======================
+Running: interpreter_creation ... PASSED
+Running: simple_number_evaluation ... PASSED
+Running: string_literal_evaluation ... PASSED
+Running: simple_ast_evaluation ... PASSED
+Running: arithmetic_addition ... PASSED
+Running: arithmetic_subtraction ... PASSED
+Running: arithmetic_multiplication ... PASSED
+Running: arithmetic_division ... PASSED
+Running: arithmetic_modulo ... PASSED
+Running: boundary_tiny_values ... PASSED
+Running: boundary_short_values ... PASSED
+Running: boundary_int_values ... PASSED
+Running: boundary_long_values ... PASSED
+Running: boundary_overflow_detection ... PASSED
+Running: cross_type_tiny_to_int ... PASSED
+Running: cross_type_short_to_long ... PASSED
+Running: cross_type_int_to_long ... PASSED
+Running: cross_type_mixed_arithmetic ... PASSED
+Running: cross_type_comparison ... PASSED
+Running: function_definition ... PASSED
+Running: function_call ... PASSED
+Running: recursive_function ... PASSED
+Running: function_with_multiple_params ... PASSED
+Running: function_return_types ... PASSED
+Running: struct_pointer_member_metadata ... PASSED
+Running: struct_double_pointer_metadata ... PASSED
+Running: struct_primitive_pointer_metadata ... PASSED
+Running: struct_private_member_metadata ... PASSED
+Running: struct_private_member_chain_access ... PASSED
+Running: union_detection_for_pointer_base ... PASSED
+======================
+Test Results:
+  Total:  30
+  Passed: 30
+  Failed: 0
+
+All tests passed!
+=== Test Summary ===
+Integration tests: completed
+Unit tests: 50 tests

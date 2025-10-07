@@ -1,0 +1,11 @@
+int get_plusplus() {
+    static int count = 0;
+    count++;
+    return count;
+}
+
+int main() {
+    int result = get_plusplus();
+    println(result);
+    return 0;
+}
