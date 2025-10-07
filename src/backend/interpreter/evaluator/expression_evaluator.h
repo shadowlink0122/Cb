@@ -98,4 +98,13 @@ private:
 public:
     // 最後の型推論結果にアクセス
     const TypedValue& get_last_typed_result() const { return last_typed_result_; }
+    void set_last_typed_result(const TypedValue& value) { last_typed_result_ = value; }
+    
+    // Interpreterへのアクセス（ヘルパーモジュール用）
+    Interpreter& get_interpreter() { return interpreter_; }
+    
+    // last_captured_function_value_へのアクセス（ヘルパーモジュール用）
+    std::optional<std::pair<const ASTNode*, TypedValue>>& get_last_captured_function_value() {
+        return last_captured_function_value_;
+    }
 };
