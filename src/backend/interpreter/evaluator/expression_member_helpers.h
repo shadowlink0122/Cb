@@ -108,6 +108,19 @@ TypedValue evaluate_recursive_member_access(
     Interpreter& interpreter
 );
 
+/**
+ * selfの変更をレシーバに同期する
+ * 
+ * @param receiver_name レシーバ変数名
+ * @param receiver_var レシーバ変数
+ * @param interpreter インタプリタへの参照
+ */
+void sync_self_changes_to_receiver(
+    const std::string& receiver_name,
+    Variable* receiver_var,
+    Interpreter& interpreter
+);
+
 } // namespace MemberAccessHelpers
 
 #endif // EXPRESSION_MEMBER_HELPERS_H

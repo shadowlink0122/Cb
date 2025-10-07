@@ -765,7 +765,7 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                     return var.implementing_struct;
                 }
                 if (var.type == TYPE_UNION && var.current_type != TYPE_UNKNOWN) {
-                    return type_info_to_string(var.current_type);
+                    return std::string(::type_info_to_string(var.current_type));
                 }
                 return std::string();
             };
@@ -818,7 +818,7 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                     if (base_type == TYPE_UNKNOWN) {
                         base_type = TYPE_INT;
                     }
-                    type_name = type_info_to_string(base_type) + "[]";
+                    type_name = std::string(::type_info_to_string(base_type)) + "[]";
                 }
             } else if (type_name.empty() && (receiver_var->type == TYPE_STRUCT || receiver_var->is_struct)) {
                 type_name = resolve_struct_like_type(*receiver_var);
@@ -831,12 +831,12 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
             } else {
                 type_name = resolve_struct_like_type(*receiver_var);
                 if (type_name.empty()) {
-                    type_name = type_info_to_string(receiver_var->type);
+                    type_name = std::string(::type_info_to_string(receiver_var->type));
                 }
             }
 
             if (type_name.empty()) {
-                type_name = type_info_to_string(receiver_var->type);
+                type_name = std::string(::type_info_to_string(receiver_var->type));
             }
 
             std::string method_key = type_name + "::" + node->name;
@@ -877,7 +877,7 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                             if (!debug_receiver->struct_type_name.empty()) {
                                 debug_type_name = debug_receiver->struct_type_name;
                             } else {
-                                debug_type_name = type_info_to_string(debug_receiver->type);
+                                debug_type_name = std::string(::type_info_to_string(debug_receiver->type));
                             }
                         }
                     }
@@ -904,7 +904,7 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                     } else if (!receiver_var->interface_name.empty()) {
                         type_name = receiver_var->struct_type_name;
                     } else {
-                        type_name = type_info_to_string(receiver_var->type);
+                        type_name = std::string(::type_info_to_string(receiver_var->type));
                     }
                     for (const auto& impl_def : interpreter_.get_impl_definitions()) {
                         if (impl_def.struct_name == type_name) {
@@ -1462,7 +1462,7 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                                     if (!arg->type_name.empty()) {
                                         temp.struct_type_name = arg->type_name;
                                     } else {
-                                        temp.struct_type_name = type_info_to_string(value_type);
+                                        temp.struct_type_name = std::string(::type_info_to_string(value_type));
                                     }
                                     if (value_type == TYPE_STRING) {
                                         temp.str_value = string_value;
@@ -1955,10 +1955,10 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
                         return TypedValue(ret.quad_value, InferredType(TYPE_QUAD, "quad"));
                     }
                     TypeInfo resolved = ret.type != TYPE_UNKNOWN ? ret.type : TYPE_INT;
-                    std::string resolved_name = type_info_to_string(resolved);
+                    std::string resolved_name = std::string(::type_info_to_string(resolved));
                     if (resolved_name.empty()) {
                         resolved = TYPE_INT;
-                        resolved_name = type_info_to_string(resolved);
+                        resolved_name = std::string(::type_info_to_string(resolved));
                     }
                     return TypedValue(coerced_numeric, InferredType(resolved, resolved_name));
                 };
@@ -2532,43 +2532,6 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
 // evaluate_expression メソッド終了
 // ============================================================================
 
-// 型をインターフェース用の文字列に変換するヘルパー関数
-std::string ExpressionEvaluator::type_info_to_string(TypeInfo type) {
-    const char* name = ::type_info_to_string(type);
-    if (name && *name) {
-        return std::string(name);
-    }
-    return "unknown";
-}
-
-void ExpressionEvaluator::sync_self_changes_to_receiver(const std::string& receiver_name, Variable* receiver_var) {
-    debug_print("SELF_SYNC: Syncing self changes back to %s\n", receiver_name.c_str());
-    
-    // 構造体の各メンバーについて、selfから元の変数に同期
-    for (const auto& member_pair : receiver_var->struct_members) {
-        const std::string& member_name = member_pair.first;
-        std::string self_member_path = "self." + member_name;
-        std::string receiver_member_path = receiver_name + "." + member_name;
-        
-        // selfメンバーの変数を取得
-        Variable* self_member = interpreter_.find_variable(self_member_path);
-        Variable* receiver_member = interpreter_.find_variable(receiver_member_path);
-        
-        if (self_member && receiver_member) {
-            // selfメンバーの値を元の変数に同期
-            receiver_member->value = self_member->value;
-            receiver_member->str_value = self_member->str_value;
-            receiver_member->type = self_member->type;
-            receiver_member->is_assigned = self_member->is_assigned;
-            
-            debug_print("SELF_SYNC: %s.%s = %lld (\"%s\")\n", 
-                       receiver_name.c_str(), member_name.c_str(), 
-                       (long long)receiver_member->value, 
-                       receiver_member->str_value.c_str());
-        }
-    }
-}
-
 // 型推論対応の式評価
 TypedValue ExpressionEvaluator::evaluate_typed_expression(const ASTNode* node) {
     if (!node) {
@@ -2621,7 +2584,7 @@ TypedValue ExpressionEvaluator::evaluate_typed_expression(const ASTNode* node) {
         }
 
         // 通常の数値の場合
-        return TypedValue(ret_ex.value, InferredType(ret_ex.type, type_info_to_string(ret_ex.type)));
+        return TypedValue(ret_ex.value, InferredType(ret_ex.type, ExpressionHelpers::type_info_to_string(ret_ex.type)));
     }
 }
 
@@ -2723,7 +2686,7 @@ TypedValue ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode
                 } else if (ret.type == TYPE_QUAD) {
                     return TypedValue(ret.quad_value, InferredType(TYPE_QUAD, "quad"));
                 } else {
-                    return TypedValue(ret.value, InferredType(ret.type, type_info_to_string(ret.type)));
+                    return TypedValue(ret.value, InferredType(ret.type, ExpressionHelpers::type_info_to_string(ret.type)));
                 }
             }
         }
@@ -2778,7 +2741,7 @@ TypedValue ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode
                 } else if (current_var.type == TYPE_QUAD) {
                     return TypedValue(current_var.quad_value, InferredType(TYPE_QUAD, "quad"));
                 } else {
-                    return TypedValue(current_var.value, InferredType(current_var.type, type_info_to_string(current_var.type)));
+                    return TypedValue(current_var.value, InferredType(current_var.type, ExpressionHelpers::type_info_to_string(current_var.type)));
                 }
             }
             
@@ -2831,7 +2794,7 @@ TypedValue ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode
                     if (active != TYPE_UNKNOWN) {
                         out = TypedValue(member_var.value,
                                          InferredType(active,
-                                                      type_info_to_string(active)));
+                                                      ExpressionHelpers::type_info_to_string(active)));
                         return true;
                     }
                     break;
@@ -2839,7 +2802,7 @@ TypedValue ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode
                 default:
                     out = TypedValue(member_var.value,
                                       InferredType(member_var.type,
-                                                   type_info_to_string(member_var.type)));
+                                                   ExpressionHelpers::type_info_to_string(member_var.type)));
                     return true;
                 }
                 return false;

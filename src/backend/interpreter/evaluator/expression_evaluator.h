@@ -54,10 +54,6 @@ private:
     TypedValue last_typed_result_;
     std::optional<std::pair<const ASTNode*, TypedValue>> last_captured_function_value_;
     
-    // ヘルパー関数
-    std::string type_info_to_string(TypeInfo type);
-    void sync_self_changes_to_receiver(const std::string& receiver_name, Variable* receiver_var);
-    
     // 構造体メンバー取得関数
     Variable get_struct_member_from_variable(const Variable& struct_var, const std::string& member_name);
     

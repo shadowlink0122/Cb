@@ -310,4 +310,32 @@ TypedValue evaluate_recursive_member_access(
     }
 }
 
+void sync_self_changes_to_receiver(const std::string& receiver_name, Variable* receiver_var, Interpreter& interpreter) {
+    debug_print("SELF_SYNC: Syncing self changes back to %s\n", receiver_name.c_str());
+    
+    // 構造体の各メンバーについて、selfから元の変数に同期
+    for (const auto& member_pair : receiver_var->struct_members) {
+        const std::string& member_name = member_pair.first;
+        std::string self_member_path = "self." + member_name;
+        std::string receiver_member_path = receiver_name + "." + member_name;
+        
+        // selfメンバーの変数を取得
+        Variable* self_member = interpreter.find_variable(self_member_path);
+        Variable* receiver_member = interpreter.find_variable(receiver_member_path);
+        
+        if (self_member && receiver_member) {
+            // selfメンバーの値を元の変数に同期
+            receiver_member->value = self_member->value;
+            receiver_member->str_value = self_member->str_value;
+            receiver_member->type = self_member->type;
+            receiver_member->is_assigned = self_member->is_assigned;
+            
+            debug_print("SELF_SYNC: %s.%s = %lld (\"%s\")\n", 
+                       receiver_name.c_str(), member_name.c_str(), 
+                       (long long)receiver_member->value, 
+                       receiver_member->str_value.c_str());
+        }
+    }
+}
+
 } // namespace MemberAccessHelpers

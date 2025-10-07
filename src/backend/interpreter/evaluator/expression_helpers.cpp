@@ -188,4 +188,17 @@ int64_t evaluate_simple_unary(const std::string& op, int64_t operand) {
     throw std::runtime_error("Unknown unary operator: " + op);
 }
 
+// ============================================================================
+// 型情報のヘルパー実装
+// ============================================================================
+
+// TypeInfoを文字列に変換
+std::string type_info_to_string(TypeInfo type) {
+    const char* name = ::type_info_to_string(type);
+    if (name && *name) {
+        return std::string(name);
+    }
+    return "unknown";
+}
+
 } // namespace ExpressionHelpers

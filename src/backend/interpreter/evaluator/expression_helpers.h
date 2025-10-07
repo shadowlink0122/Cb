@@ -59,4 +59,11 @@ int64_t evaluate_postfix_incdec(const ASTNode* node, Interpreter& interpreter);
 // 単純な単項演算（+, -, !, ~）
 int64_t evaluate_simple_unary(const std::string& op, int64_t operand);
 
+// ============================================================================
+// 型情報のヘルパー
+// ============================================================================
+
+// TypeInfoを文字列に変換
+std::string type_info_to_string(TypeInfo type);
+
 } // namespace ExpressionHelpers
