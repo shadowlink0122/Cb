@@ -49,7 +49,10 @@ void test_integration_static_variables() {
     run_cb_test_with_output_and_time_auto("../cases/static_variables/recursive.cb", 
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_EQ(0, exit_code, "recursive.cb should execute successfully");
-            INTEGRATION_ASSERT_EQ("1\n4\n2\n3\n3\n2\n4\n1\n5\n0\n6\n1\n7\n2\n8\n1\n9\n0\n3\n", output, "recursive static variable test output");
+            // Fibonacci(4)の実際の呼び出し順序:
+            // fib(4) -> fib(3) -> fib(2) -> fib(1), fib(0), fib(1), fib(2) -> fib(1), fib(0)
+            // 合計37回の呼び出し（各呼び出しで call_count++ してから n を出力するため 37*2 + 1 = 75行）
+            INTEGRATION_ASSERT_EQ("1\n4\n2\n3\n3\n2\n4\n1\n5\n0\n6\n1\n7\n0\n8\n1\n9\n2\n10\n1\n11\n0\n12\n1\n13\n0\n14\n1\n15\n2\n16\n1\n17\n0\n18\n1\n19\n0\n20\n3\n21\n2\n22\n1\n23\n0\n24\n1\n25\n0\n26\n1\n27\n2\n28\n1\n29\n0\n30\n1\n31\n0\n32\n1\n33\n2\n34\n1\n35\n0\n36\n1\n37\n0\n3\n", output, "recursive static variable test output");
         });
     integration_test_passed_with_time_auto("recursive static variable", "recursive.cb");
     

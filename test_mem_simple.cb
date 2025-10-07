@@ -1,0 +1,9 @@
+string get_status() {
+    return "test";
+}
+
+int main() {
+    string result = get_status();
+    println(result);
+    return 0;
+}
