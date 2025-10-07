@@ -8,6 +8,7 @@
 #include "../../../common/debug_messages.h"
 #include "../../../frontend/recursive_parser/recursive_parser.h"
 #include "../core/interpreter.h"
+#include "static_variable_manager.h"
 #include "type_manager.h"
 #include <algorithm>
 #include <functional>
@@ -483,4 +484,236 @@ Variable *StructOperations::get_struct_member(const std::string &var_name,
 
     throw std::runtime_error("Struct member not found: " + var_name + "." +
                              member_name);
+}
+
+// ========================================================================
+// Phase 3.5: 構造体同期メソッド群
+// ========================================================================
+
+void StructOperations::sync_individual_member_from_struct(
+    Variable *struct_var, const std::string &member_name) {
+    // struct_var->struct_members[member_name] の値を、
+    // 対応する個別変数 (例: "p.x") に同期する
+
+    if (!struct_var || member_name.empty()) {
+        return;
+    }
+
+    // struct_var のアドレスを持つ変数名を全スコープから探す
+    std::string found_var_name;
+
+    // グローバルスコープを検索
+    for (const auto &var_pair : interpreter_->global_scope.variables) {
+        if (&var_pair.second == struct_var) {
+            found_var_name = var_pair.first;
+            break;
+        }
+    }
+
+    // 見つからなければローカルスコープを検索
+    if (found_var_name.empty()) {
+        for (auto it = interpreter_->scope_stack.rbegin();
+             it != interpreter_->scope_stack.rend(); ++it) {
+            for (const auto &var_pair : it->variables) {
+                if (&var_pair.second == struct_var) {
+                    found_var_name = var_pair.first;
+                    break;
+                }
+            }
+            if (!found_var_name.empty()) {
+                break;
+            }
+        }
+    }
+
+    // 見つからなければstatic変数を検索
+    if (found_var_name.empty()) {
+        for (const auto &var_pair :
+             interpreter_->static_variable_manager_->get_static_variables()) {
+            if (&var_pair.second == struct_var) {
+                found_var_name = var_pair.first;
+                break;
+            }
+        }
+    }
+
+    if (found_var_name.empty()) {
+        // 変数名が見つからなかった（一時変数やポインタで参照されている構造体）
+        // この場合は個別変数システムとは同期しない
+        if (interpreter_->debug_mode) {
+            debug_print("DEBUG: sync_individual_member_from_struct - "
+                        "struct_var has no name\n");
+        }
+        return;
+    }
+
+    // 個別変数のパスを構築
+    std::string full_member_path = found_var_name + "." + member_name;
+
+    // 個別変数を探して更新
+    Variable *individual_var = interpreter_->find_variable(full_member_path);
+    if (individual_var) {
+        const Variable &member_value = struct_var->struct_members[member_name];
+        individual_var->value = member_value.value;
+        individual_var->type = member_value.type;
+        individual_var->str_value = member_value.str_value;
+        individual_var->is_assigned = member_value.is_assigned;
+        individual_var->is_const = member_value.is_const;
+        individual_var->is_unsigned = member_value.is_unsigned;
+
+        if (interpreter_->debug_mode) {
+            debug_print(
+                "DEBUG: sync_individual_member_from_struct - updated %s\n",
+                full_member_path.c_str());
+        }
+    }
+}
+
+// ========================================================================
+// Phase 3.6: Struct Member Getter メソッド群
+// ========================================================================
+
+int64_t StructOperations::get_struct_member_array_element(
+    const std::string &var_name, const std::string &member_name, int index) {
+    Variable *member_var = get_struct_member(var_name, member_name);
+    if (!member_var->is_array) {
+        throw std::runtime_error("Member is not an array: " + member_name);
+    }
+
+    // 配列インデックスの境界チェック
+    if (index < 0 || index >= member_var->array_size) {
+        throw std::runtime_error("Array index out of bounds");
+    }
+
+    return member_var->array_values[index];
+}
+
+// N次元配列アクセス対応版
+int64_t StructOperations::get_struct_member_multidim_array_element(
+    const std::string &var_name, const std::string &member_name,
+    const std::vector<int64_t> &indices) {
+    Variable *member_var = get_struct_member(var_name, member_name);
+    if (!member_var->is_array) {
+        throw std::runtime_error("Member is not an array: " + member_name);
+    }
+
+    if (interpreter_->debug_mode) {
+        debug_print(
+            "get_struct_member_multidim_array_element: var=%s, member=%s\n",
+            var_name.c_str(), member_name.c_str());
+        debug_print("Indices: ");
+        for (size_t i = 0; i < indices.size(); i++) {
+            debug_print("[%lld]", indices[i]);
+        }
+        debug_print("\n");
+        debug_print("Array dimensions: ");
+        for (size_t i = 0; i < member_var->array_dimensions.size(); i++) {
+            debug_print("[%zu]", member_var->array_dimensions[i]);
+        }
+        debug_print("\n");
+    }
+
+    // 多次元配列の場合、インデックスをフラットインデックスに変換
+    if (member_var->is_multidimensional &&
+        !member_var->array_dimensions.empty()) {
+        // 次元数チェック
+        if (indices.size() != member_var->array_dimensions.size()) {
+            throw std::runtime_error(
+                "Dimension mismatch: expected " +
+                std::to_string(member_var->array_dimensions.size()) +
+                " dimensions, got " + std::to_string(indices.size()));
+        }
+
+        // 各次元の境界チェックとフラットインデックス計算
+        size_t flat_index = 0;
+        size_t multiplier = 1;
+
+        // 逆順（最後の次元から）でフラットインデックスを計算
+        for (int d = static_cast<int>(indices.size()) - 1; d >= 0; d--) {
+            if (indices[d] < 0 ||
+                indices[d] >=
+                    static_cast<int64_t>(member_var->array_dimensions[d])) {
+                throw std::runtime_error(
+                    "Array index out of bounds in dimension " +
+                    std::to_string(d));
+            }
+            flat_index += static_cast<size_t>(indices[d]) * multiplier;
+            multiplier *= member_var->array_dimensions[d];
+        }
+
+        if (interpreter_->debug_mode) {
+            debug_print("Calculated flat_index: %zu\n", flat_index);
+        }
+
+        if (flat_index >= member_var->multidim_array_values.size()) {
+            throw std::runtime_error("Calculated flat index out of bounds");
+        }
+
+        if (interpreter_->debug_mode) {
+            debug_print("Reading from multidim_array_values[%zu] = %lld\n",
+                        flat_index,
+                        member_var->multidim_array_values[flat_index]);
+        }
+
+        return member_var->multidim_array_values[flat_index];
+    } else {
+        // 1次元配列の場合
+        if (indices.size() != 1) {
+            throw std::runtime_error(
+                "Array is 1-dimensional but multiple indices provided");
+        }
+        return get_struct_member_array_element(var_name, member_name,
+                                               static_cast<int>(indices[0]));
+    }
+}
+
+std::string StructOperations::get_struct_member_array_string_element(
+    const std::string &var_name, const std::string &member_name, int index) {
+    if (interpreter_->debug_mode) {
+        debug_print("get_struct_member_array_string_element: var=%s, "
+                    "member=%s, index=%d\n",
+                    var_name.c_str(), member_name.c_str(), index);
+    }
+
+    Variable *member_var = get_struct_member(var_name, member_name);
+    if (!member_var->is_array) {
+        throw std::runtime_error("Member is not an array: " + member_name);
+    }
+
+    // 配列インデックスの境界チェック
+    if (index < 0 || index >= member_var->array_size) {
+        throw std::runtime_error("Array index out of bounds");
+    }
+
+    auto is_string_array_type = [&](const Variable *var) {
+        if (!var) {
+            return false;
+        }
+
+        if (var->type == TYPE_STRING) {
+            return true;
+        }
+
+        if (var->type == static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_STRING)) {
+            return true;
+        }
+
+        if (var->array_type_info.base_type == TYPE_STRING) {
+            return true;
+        }
+
+        return false;
+    };
+
+    if (!is_string_array_type(member_var)) {
+        throw std::runtime_error("Member is not a string array: " +
+                                 member_name);
+    }
+
+    if (interpreter_->debug_mode) {
+        debug_print("Returning string: array_strings[%d]=%s\n", index,
+                    member_var->array_strings[index].c_str());
+    }
+
+    return member_var->array_strings[index];
 }
