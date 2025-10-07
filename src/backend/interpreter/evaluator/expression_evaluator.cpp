@@ -10,6 +10,7 @@
 #include "evaluator/expression_literal_eval.h"  // リテラル評価（数値、文字列、nullptr、変数）のヘルパー
 #include "evaluator/expression_ternary.h"  // 三項演算子（?:）のヘルパー
 #include "evaluator/expression_member_helpers.h"  // メンバーアクセス関連のヘルパー
+#include "evaluator/expression_receiver_resolution.h"  // Phase 12: Method Receiver Resolution
 #include "core/interpreter.h"
 #include "core/pointer_metadata.h"     // ポインタメタデータシステム
 #include "managers/enum_manager.h"    // EnumManager定義が必要
@@ -25,50 +26,6 @@
 #include <iostream>
 #include <functional>
 #include <cstdio>
-
-// MethodReceiverResolutionのデフォルトコンストラクタ実装
-ExpressionEvaluator::MethodReceiverResolution::MethodReceiverResolution()
-    : kind(Kind::None), canonical_name(), variable_ptr(nullptr), chain_value(nullptr) {}
-
-// レシーバ解決ヘルパー（メソッド呼び出し用）
-ExpressionEvaluator::MethodReceiverResolution ExpressionEvaluator::resolve_method_receiver(const ASTNode* receiver_node) {
-    MethodReceiverResolution result;
-    if (!receiver_node) {
-        return result;
-    }
-
-    switch (receiver_node->node_type) {
-    case ASTNodeType::AST_VARIABLE:
-    case ASTNodeType::AST_IDENTIFIER: {
-        std::string name = receiver_node->name;
-        if (name.empty()) {
-            return result;
-        }
-        Variable* var = interpreter_.find_variable(name);
-        if (var) {
-            result.kind = MethodReceiverResolution::Kind::Direct;
-            result.canonical_name = name;
-            result.variable_ptr = var;
-            return result;
-        }
-        break;
-    }
-    case ASTNodeType::AST_MEMBER_ACCESS:
-        // メンバアクセスは別ヘルパーで解決
-        return resolve_member_receiver(receiver_node);
-    case ASTNodeType::AST_ARROW_ACCESS:
-        // アロー演算子は (*ptr).member と等価
-        return resolve_arrow_receiver(receiver_node);
-    case ASTNodeType::AST_ARRAY_REF:
-        return resolve_array_receiver(receiver_node);
-    case ASTNodeType::AST_FUNC_CALL:
-        return create_chain_receiver_from_expression(receiver_node);
-    default:
-        break;
-    }
-
-    return create_chain_receiver_from_expression(receiver_node);
-}
 
 ExpressionEvaluator::ExpressionEvaluator(Interpreter& interpreter) 
     : interpreter_(interpreter), type_engine_(interpreter), last_typed_result_(static_cast<int64_t>(0), InferredType()), last_captured_function_value_(std::nullopt) {}
@@ -627,7 +584,7 @@ int64_t ExpressionEvaluator::evaluate_expression(const ASTNode* node) {
 
         if (is_method_call) {
             debug_msg(DebugMsgId::METHOD_CALL_START, node->name.c_str());
-            receiver_resolution = resolve_method_receiver(node->left.get());
+            receiver_resolution = ReceiverResolutionHelpers::resolve_method_receiver(node->left.get(), *this);
 
             if (receiver_resolution.kind == MethodReceiverResolution::Kind::Direct && receiver_resolution.variable_ptr) {
                 receiver_name = receiver_resolution.canonical_name;
@@ -3362,205 +3319,12 @@ TypedValue ExpressionEvaluator::evaluate_recursive_member_access(const Variable&
     return MemberAccessHelpers::evaluate_recursive_member_access(base_var, member_path, interpreter_);
 }
 
-ExpressionEvaluator::MethodReceiverResolution ExpressionEvaluator::resolve_array_receiver(const ASTNode* array_node) {
-    MethodReceiverResolution result;
-    if (!array_node || array_node->node_type != ASTNodeType::AST_ARRAY_REF) {
-        return result;
-    }
-
-    // シンプルな変数配列の場合は直接参照を試みる
-    if (array_node->left && array_node->left->node_type == ASTNodeType::AST_VARIABLE && array_node->array_index) {
-        std::string base_name = array_node->left->name;
-        try {
-            int64_t index_value = evaluate_expression(array_node->array_index.get());
-            std::string element_name = base_name + "[" + std::to_string(index_value) + "]";
-            Variable* element_var = interpreter_.find_variable(element_name);
-            if (element_var) {
-                result.kind = MethodReceiverResolution::Kind::Direct;
-                result.canonical_name = element_name;
-                result.variable_ptr = element_var;
-                return result;
-            }
-        } catch (const ReturnException&) {
-            // インデックス評価で構造体等が返った場合はチェーン扱い
-        }
-    }
-
-    return create_chain_receiver_from_expression(array_node);
-}
-
-ExpressionEvaluator::MethodReceiverResolution ExpressionEvaluator::resolve_member_receiver(const ASTNode* member_node) {
-    MethodReceiverResolution result;
-    if (!member_node || member_node->node_type != ASTNodeType::AST_MEMBER_ACCESS) {
-        return result;
-    }
-
-    const ASTNode* base_node = member_node->left.get();
-    if (!base_node) {
-        return result;
-    }
-
-    const std::string member_name = member_node->name;
-
-    std::function<std::string(const ASTNode*)> build_canonical_name = [&](const ASTNode* node) -> std::string {
-        if (!node) {
-            return "";
-        }
-        switch (node->node_type) {
-        case ASTNodeType::AST_VARIABLE:
-        case ASTNodeType::AST_IDENTIFIER:
-            return node->name;
-        case ASTNodeType::AST_MEMBER_ACCESS: {
-            std::string base = build_canonical_name(node->left.get());
-            if (base.empty()) {
-                return "";
-            }
-            return base + "." + node->name;
-        }
-        default:
-            return "";
-        }
-    };
-
-    MethodReceiverResolution base_resolution = resolve_method_receiver(base_node);
-
-    auto create_chain_from_struct = [&](const Variable& struct_var) {
-        try {
-            Variable member_var = get_struct_member_from_variable(struct_var, member_name);
-            auto chain_ret = std::make_shared<ReturnException>(member_var);
-            result.kind = MethodReceiverResolution::Kind::Chain;
-            result.chain_value = chain_ret;
-            return true;
-        } catch (const std::exception&) {
-            return false;
-        }
-    };
-
-    if (base_resolution.kind == MethodReceiverResolution::Kind::Direct && base_resolution.variable_ptr) {
-        Variable* base_var = base_resolution.variable_ptr;
-        std::string base_name = base_resolution.canonical_name;
-        if (base_name.empty()) {
-            base_name = build_canonical_name(base_node);
-        }
-
-        if (!base_name.empty()) {
-            std::string member_path = base_name + "." + member_name;
-            Variable* member_var = interpreter_.find_variable(member_path);
-            if (!member_var) {
-                try {
-                    member_var = interpreter_.get_struct_member(base_name, member_name);
-                } catch (...) {
-                    member_var = nullptr;
-                }
-            }
-
-            if (member_var) {
-                result.kind = MethodReceiverResolution::Kind::Direct;
-                result.canonical_name = member_path;
-                result.variable_ptr = member_var;
-                return result;
-            }
-        }
-
-        if ((base_var->type == TYPE_STRUCT || base_var->is_struct || base_var->type == TYPE_INTERFACE) &&
-            create_chain_from_struct(*base_var)) {
-            return result;
-        }
-    }
-
-    if (base_resolution.kind == MethodReceiverResolution::Kind::Chain && base_resolution.chain_value) {
-        const ReturnException& chain_ret = *base_resolution.chain_value;
-        if (chain_ret.is_struct || chain_ret.type == TYPE_STRUCT) {
-            if (create_chain_from_struct(chain_ret.struct_value)) {
-                return result;
-            }
-        }
-    }
-
-    // 直接解決できない場合は式全体をチェーンとして扱う
-    return create_chain_receiver_from_expression(member_node);
-}
-
-ExpressionEvaluator::MethodReceiverResolution ExpressionEvaluator::resolve_arrow_receiver(const ASTNode* arrow_node) {
-    MethodReceiverResolution result;
-    if (!arrow_node || arrow_node->node_type != ASTNodeType::AST_ARROW_ACCESS) {
-        return result;
-    }
-
-    const ASTNode* base_node = arrow_node->left.get();
-    if (!base_node) {
-        return result;
-    }
-
-    const std::string member_name = arrow_node->name;
-
-    // ポインタを評価
-    try {
-        int64_t ptr_value = evaluate_expression(base_node);
-        
-        if (ptr_value == 0) {
-            // nullポインタの場合はエラー
-            return result;
-        }
-        
-        // ポインタから構造体を取得
-        Variable* struct_var = reinterpret_cast<Variable*>(ptr_value);
-        
-        if (!struct_var) {
-            return result;
-        }
-        
-        // resolve_arrow_receiverは常にメソッド呼び出しコンテキストから呼ばれる(resolve_method_receiverから)
-        // Interface型のポインタの場合、Interface Variable全体を返す必要がある
-        // 注意: member_nameはメソッド名の場合もあるが、ここではレシーバを返すだけで、メンバーは取得しない
-        if (struct_var->type == TYPE_INTERFACE || !struct_var->interface_name.empty()) {
-            // Interface型全体をチェーン値として返す(member_nameは無視)
-            auto chain_ret = std::make_shared<ReturnException>(*struct_var);
-            result.kind = MethodReceiverResolution::Kind::Chain;
-            result.chain_value = chain_ret;
-            return result;
-        }
-        
-        // 通常の構造体のメンバーアクセスの場合は、構造体のメンバーを取得
-        Variable member_var = get_struct_member_from_variable(*struct_var, member_name);
-        
-        // チェーン値として返す
-        auto chain_ret = std::make_shared<ReturnException>(member_var);
-        result.kind = MethodReceiverResolution::Kind::Chain;
-        result.chain_value = chain_ret;
-        
-        return result;
-    } catch (const std::exception&) {
-        // エラーの場合は空の結果を返す
-        return result;
-    }
-}
-
-ExpressionEvaluator::MethodReceiverResolution ExpressionEvaluator::create_chain_receiver_from_expression(const ASTNode* node) {
-    MethodReceiverResolution result;
-    if (!node) {
-        return result;
-    }
-
-    try {
-        int64_t primitive_value = evaluate_expression(node);
-        InferredType inferred_type = type_engine_.infer_type(node);
-        TypeInfo chain_type = inferred_type.type_info;
-        if (chain_type == TYPE_UNKNOWN) {
-            chain_type = TYPE_INT;
-        }
-        ReturnException chain_ret(primitive_value, chain_type);
-        result.kind = MethodReceiverResolution::Kind::Chain;
-        result.chain_value = std::make_shared<ReturnException>(chain_ret);
-        return result;
-    } catch (const ReturnException& ret) {
-        result.kind = MethodReceiverResolution::Kind::Chain;
-        result.chain_value = std::make_shared<ReturnException>(ret);
-        return result;
-    }
-}
-
 // ============================================================================
 // NOTE: Tier 2リファクタリングで抽出されたヘルパーメソッドは
 // expression_helpers.cpp に移動しました
+//
+// Phase 12リファクタリング: Method Receiver Resolution
+// resolve_method_receiver, resolve_array_receiver, resolve_member_receiver,
+// resolve_arrow_receiver, create_chain_receiver_from_expression は
+// expression_receiver_resolution.cpp に移動しました
 // ============================================================================

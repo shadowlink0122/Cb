@@ -1,6 +1,7 @@
 #pragma once
 #include "../../../common/ast.h"
 #include "../core/type_inference.h"
+#include "expression_receiver_resolution.h"  // Phase 12: Method Receiver Resolution
 #include <memory>
 #include <optional>
 #include <string>
@@ -12,6 +13,9 @@ class Interpreter;
 struct Variable;
 class ReturnException;
 class BreakException;
+
+// Phase 12: Method Receiver Resolutionの型エイリアス
+using MethodReceiverResolution = ReceiverResolutionHelpers::MethodReceiverResolution;
 
 // 式評価エンジンクラス
 class ExpressionEvaluator {
@@ -43,21 +47,6 @@ public:
     TypedValue evaluate_function_compound_access(const ASTNode* func_node, const ASTNode* index_node, const std::string& member_name);
     
 private:
-    struct MethodReceiverResolution {
-        enum class Kind {
-            None,
-            Direct,
-            Chain
-        };
-
-        Kind kind;
-        std::string canonical_name;
-        Variable* variable_ptr;
-        std::shared_ptr<ReturnException> chain_value;
-
-        MethodReceiverResolution();
-    };
-
     Interpreter& interpreter_;  // インタープリターへの参照
     TypeInferenceEngine type_engine_;  // 型推論エンジン
     
@@ -83,11 +72,6 @@ private:
 
     TypedValue consume_numeric_typed_value(const ASTNode* node, int64_t numeric_result, const InferredType& inferred_type);
 
-    MethodReceiverResolution resolve_method_receiver(const ASTNode* receiver_node);
-    MethodReceiverResolution resolve_member_receiver(const ASTNode* member_node);
-    MethodReceiverResolution resolve_arrow_receiver(const ASTNode* arrow_node);
-    MethodReceiverResolution resolve_array_receiver(const ASTNode* array_node);
-    MethodReceiverResolution create_chain_receiver_from_expression(const ASTNode* node);
     bool resolve_variable_name(const ASTNode* node, std::string& out_name, Variable*& out_var);
     
     // ========================================================================
@@ -102,6 +86,9 @@ public:
     
     // Interpreterへのアクセス（ヘルパーモジュール用）
     Interpreter& get_interpreter() { return interpreter_; }
+    
+    // TypeInferenceEngineへのアクセス（ヘルパーモジュール用）
+    TypeInferenceEngine& get_type_engine() { return type_engine_; }
     
     // last_captured_function_value_へのアクセス（ヘルパーモジュール用）
     std::optional<std::pair<const ASTNode*, TypedValue>>& get_last_captured_function_value() {
