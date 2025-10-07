@@ -10,7 +10,51 @@ BACKEND_DIR=$(SRC_DIR)/backend
 COMMON_DIR=$(SRC_DIR)/common
 
 # 共通オブジェクトファイル（メインの実行ファイル以外）
-COMMON_OBJS=$(COMMON_DIR)/type_utils.o $(COMMON_DIR)/type_alias.o $(COMMON_DIR)/array_type_info.o $(COMMON_DIR)/debug_impl.o $(COMMON_DIR)/debug_messages.o $(BACKEND_DIR)/interpreter/core/interpreter.o $(BACKEND_DIR)/interpreter/core/error_handler.o $(BACKEND_DIR)/interpreter/core/type_inference.o $(BACKEND_DIR)/interpreter/core/pointer_metadata.o $(BACKEND_DIR)/interpreter/output/output_manager.o $(BACKEND_DIR)/interpreter/managers/variable_manager.o $(BACKEND_DIR)/interpreter/managers/array_manager.o $(BACKEND_DIR)/interpreter/managers/type_manager.o $(BACKEND_DIR)/interpreter/managers/enum_manager.o $(BACKEND_DIR)/interpreter/managers/common_operations.o $(BACKEND_DIR)/interpreter/services/expression_service.o $(BACKEND_DIR)/interpreter/services/variable_access_service.o $(BACKEND_DIR)/interpreter/services/debug_service.o $(BACKEND_DIR)/interpreter/services/array_processing_service.o $(BACKEND_DIR)/interpreter/evaluator/expression_evaluator.o $(BACKEND_DIR)/interpreter/evaluator/expression_helpers.o $(BACKEND_DIR)/interpreter/evaluator/expression_address_ops.o $(BACKEND_DIR)/interpreter/evaluator/expression_array_access.o $(BACKEND_DIR)/interpreter/evaluator/expression_function_call.o $(BACKEND_DIR)/interpreter/evaluator/expression_incdec.o $(BACKEND_DIR)/interpreter/evaluator/expression_assignment.o $(BACKEND_DIR)/interpreter/evaluator/expression_binary_unary_typed.o $(BACKEND_DIR)/interpreter/evaluator/expression_special_access.o $(BACKEND_DIR)/interpreter/evaluator/expression_literal_eval.o $(BACKEND_DIR)/interpreter/evaluator/expression_ternary.o $(BACKEND_DIR)/interpreter/evaluator/expression_member_helpers.o $(BACKEND_DIR)/interpreter/evaluator/expression_receiver_resolution.o $(BACKEND_DIR)/interpreter/executors/statement_executor.o $(BACKEND_DIR)/interpreter/executors/control_flow_executor.o $(BACKEND_DIR)/interpreter/handlers/return_handler.o $(COMMON_DIR)/io_interface.o $(COMMON_DIR)/utf8_utils.o $(SRC_DIR)/platform/native/native_stdio_output.o $(SRC_DIR)/platform/baremetal/baremetal_uart_output.o
+COMMON_OBJS=COMMON_OBJS = \
+	../../src/backend/interpreter/core/interpreter.o \
+	../../src/backend/interpreter/core/error_handler.o \
+	../../src/backend/interpreter/core/pointer_metadata.o \
+	../../src/backend/interpreter/core/type_inference.o \
+	../../src/backend/interpreter/evaluator/expression_address_ops.o \
+	../../src/backend/interpreter/evaluator/expression_array_access.o \
+	../../src/backend/interpreter/evaluator/expression_assignment.o \
+	../../src/backend/interpreter/evaluator/expression_binary_unary_typed.o \
+	../../src/backend/interpreter/evaluator/expression_dispatcher.o \
+	../../src/backend/interpreter/evaluator/expression_evaluator.o \
+	../../src/backend/interpreter/evaluator/expression_function_call_impl.o \
+	../../src/backend/interpreter/evaluator/expression_function_call.o \
+	../../src/backend/interpreter/evaluator/expression_helpers.o \
+	../../src/backend/interpreter/evaluator/expression_incdec.o \
+	../../src/backend/interpreter/evaluator/expression_literal_eval.o \
+	../../src/backend/interpreter/evaluator/expression_member_access_impl.o \
+	../../src/backend/interpreter/evaluator/expression_member_helpers.o \
+	../../src/backend/interpreter/evaluator/expression_receiver_resolution.o \
+	../../src/backend/interpreter/evaluator/expression_special_access.o \
+	../../src/backend/interpreter/evaluator/expression_ternary.o \
+	../../src/backend/interpreter/executors/statement_executor.o \
+	../../src/backend/interpreter/executors/control_flow_executor.o \
+	../../src/backend/interpreter/executors/statement_list_executor.o \
+	../../src/backend/interpreter/handlers/return_handler.o \
+	../../src/backend/interpreter/handlers/assertion_handler.o \
+	../../src/backend/interpreter/handlers/break_continue_handler.o \
+	../../src/backend/interpreter/handlers/function_declaration_handler.o \
+	../../src/backend/interpreter/handlers/struct_declaration_handler.o \
+	../../src/backend/interpreter/handlers/interface_declaration_handler.o \
+	../../src/backend/interpreter/handlers/impl_declaration_handler.o \
+	../../src/backend/interpreter/handlers/expression_statement_handler.o \
+	../../src/backend/interpreter/managers/variable_manager.o \
+	../../src/backend/interpreter/managers/array_manager.o \
+	../../src/backend/interpreter/managers/type_manager.o \
+	../../src/backend/interpreter/managers/enum_manager.o \
+	../../src/backend/interpreter/managers/static_variable_manager.o \
+	../../src/backend/interpreter/managers/interface_operations.o \
+	../../src/backend/interpreter/managers/struct_operations.o \
+	../../src/backend/interpreter/managers/common_operations.o \
+	../../src/backend/interpreter/output/output_manager.o \
+	../../src/backend/interpreter/services/expression_service.o \
+	../../src/backend/interpreter/services/variable_access_service.o \
+	../../src/backend/interpreter/services/debug_service.o \
+	../../src/backend/interpreter/services/array_processing_service.o
 
 # 実行ファイル
 TEST_TARGET=test_main
