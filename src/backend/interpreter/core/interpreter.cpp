@@ -7,7 +7,7 @@
 #include "core/error_handler.h"
 #include "core/type_inference.h"
 #include "evaluator/expression_evaluator.h"
-#include "executor/statement_executor.h" // ヘッダーから移動
+#include "executors/statement_executor.h" // ヘッダーから移動
 #include "managers/array_manager.h"
 #include "managers/common_operations.h"
 #include "managers/enum_manager.h"         // enum管理サービス
@@ -16,6 +16,8 @@
 #include "managers/struct_operations.h"       // struct操作管理サービス
 #include "managers/type_manager.h"
 #include "managers/variable_manager.h"
+#include "executors/control_flow_executor.h"  // 制御フロー実行サービス
+#include "handlers/return_handler.h"          // return文処理サービス
 #include "output/output_manager.h" // ヘッダーから移動
 #include "services/array_processing_service.h" // DRY効率化: 統一配列処理サービス
 #include "services/debug_service.h" // DRY効率化: 統一デバッグサービス
@@ -133,6 +135,12 @@ Interpreter::Interpreter(bool debug)
 
     // struct操作管理サービスを初期化
     struct_operations_ = std::make_unique<StructOperations>(this);
+
+    // 制御フロー実行サービスを初期化
+    control_flow_executor_ = std::make_unique<ControlFlowExecutor>(this);
+
+    // return文処理サービスを初期化
+    return_handler_ = std::make_unique<ReturnHandler>(this);
 
     // グローバルスコープを初期化
     // ネストされた関数呼び出しに備えて容量を予約（再割り当てを防ぐ）
@@ -979,89 +987,18 @@ void Interpreter::execute_statement(const ASTNode *node) {
 
     // ========================================================================
     // 制御フロー文（IF_STMT, WHILE_STMT, FOR_STMT）
-    // Line 913-1204: 条件分岐とループ制御
-    // TODO: これらもStatementExecutorに移行すべき
+    // ControlFlowExecutorに委譲済み
     // ========================================================================
-    case ASTNodeType::AST_IF_STMT: {
-        debug_msg(DebugMsgId::INTERPRETER_IF_STMT_START, "");
-        int64_t cond =
-            expression_evaluator_->evaluate_expression(node->condition.get());
-        debug_msg(DebugMsgId::INTERPRETER_IF_CONDITION_RESULT, cond);
-        if (cond) {
-            debug_msg(DebugMsgId::INTERPRETER_IF_THEN_EXEC, "");
-            execute_statement(node->left.get());
-        } else if (node->right) {
-            debug_msg(DebugMsgId::INTERPRETER_IF_ELSE_EXEC, "");
-            execute_statement(node->right.get());
-        }
-        debug_msg(DebugMsgId::INTERPRETER_IF_STMT_END, "");
-    } break;
+    case ASTNodeType::AST_IF_STMT:
+        control_flow_executor_->execute_if_statement(node);
+        break;
 
     case ASTNodeType::AST_WHILE_STMT:
-        debug_msg(DebugMsgId::INTERPRETER_WHILE_STMT_START, "");
-        try {
-            int iteration = 0;
-            while (true) {
-                debug_msg(DebugMsgId::INTERPRETER_WHILE_CONDITION_CHECK,
-                          iteration);
-                int64_t cond = expression_evaluator_->evaluate_expression(
-                    node->condition.get());
-                debug_msg(DebugMsgId::INTERPRETER_WHILE_CONDITION_RESULT, cond);
-                if (!cond)
-                    break;
-                try {
-                    debug_msg(DebugMsgId::INTERPRETER_WHILE_BODY_EXEC,
-                              iteration);
-                    execute_statement(node->body.get());
-                    iteration++;
-                } catch (const ContinueException &e) {
-                    // continue文でループ継続
-                    continue;
-                }
-            }
-        } catch (const BreakException &e) {
-            // break文でループ脱出
-            debug_msg(DebugMsgId::INTERPRETER_WHILE_BREAK, "");
-        }
-        debug_msg(DebugMsgId::INTERPRETER_WHILE_STMT_END, "");
+        control_flow_executor_->execute_while_statement(node);
         break;
 
     case ASTNodeType::AST_FOR_STMT:
-        debug_msg(DebugMsgId::INTERPRETER_FOR_STMT_START, "");
-        try {
-            if (node->init_expr) {
-                debug_msg(DebugMsgId::INTERPRETER_FOR_INIT_EXEC, "");
-                execute_statement(node->init_expr.get());
-            }
-            int iteration = 0;
-            while (true) {
-                if (node->condition) {
-                    debug_msg(DebugMsgId::INTERPRETER_FOR_CONDITION_CHECK,
-                              iteration);
-                    int64_t cond = expression_evaluator_->evaluate_expression(
-                        node->condition.get());
-                    debug_msg(DebugMsgId::INTERPRETER_FOR_CONDITION_RESULT,
-                              cond);
-                    if (!cond)
-                        break;
-                }
-                try {
-                    debug_msg(DebugMsgId::INTERPRETER_FOR_BODY_EXEC, iteration);
-                    execute_statement(node->body.get());
-                } catch (const ContinueException &e) {
-                    // continue文でループ継続、update部分だけ実行
-                    debug_msg(DebugMsgId::INTERPRETER_FOR_CONTINUE, iteration);
-                }
-                if (node->update_expr) {
-                    debug_msg(DebugMsgId::INTERPRETER_FOR_UPDATE_EXEC,
-                              iteration);
-                    execute_statement(node->update_expr.get());
-                }
-                iteration++;
-            }
-        } catch (const BreakException &e) {
-            // break文でループ脱出
-        }
+        control_flow_executor_->execute_for_statement(node);
         break;
 
     // ========================================================================

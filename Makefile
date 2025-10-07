@@ -52,7 +52,9 @@ BACKEND_OBJS=$(BACKEND_DIR)/interpreter/core/interpreter.o $(BACKEND_DIR)/interp
              $(BACKEND_DIR)/interpreter/evaluator/expression_ternary.o \
              $(BACKEND_DIR)/interpreter/evaluator/expression_member_helpers.o \
              $(BACKEND_DIR)/interpreter/evaluator/expression_receiver_resolution.o \
-             $(BACKEND_DIR)/interpreter/executor/statement_executor.o \
+             $(BACKEND_DIR)/interpreter/executors/statement_executor.o \
+             $(BACKEND_DIR)/interpreter/executors/control_flow_executor.o \
+             $(BACKEND_DIR)/interpreter/handlers/return_handler.o \
              $(BACKEND_DIR)/interpreter/output/output_manager.o \
              $(BACKEND_DIR)/interpreter/managers/variable_manager.o \
              $(BACKEND_DIR)/interpreter/managers/array_manager.o \
@@ -81,8 +83,9 @@ all: setup-dirs $(MAIN_TARGET)
 setup-dirs:
 	@mkdir -p $(FRONTEND_DIR) $(BACKEND_DIR) $(COMMON_DIR) $(NATIVE_DIR) $(BAREMETAL_DIR)
 	@mkdir -p $(BACKEND_DIR)/interpreter/core $(BACKEND_DIR)/interpreter/managers
-	@mkdir -p $(BACKEND_DIR)/interpreter/evaluator $(BACKEND_DIR)/interpreter/executor
-	@mkdir -p $(BACKEND_DIR)/interpreter/output $(BACKEND_DIR)/interpreter/services
+	@mkdir -p $(BACKEND_DIR)/interpreter/evaluator $(BACKEND_DIR)/interpreter/executors
+	@mkdir -p $(BACKEND_DIR)/interpreter/handlers $(BACKEND_DIR)/interpreter/output
+	@mkdir -p $(BACKEND_DIR)/interpreter/services
 	@mkdir -p $(BACKEND_DIR)/ir $(BACKEND_DIR)/optimizer $(BACKEND_DIR)/codegen
 
 # デバッグ実行例（--debugオプションでデバッグ出力有効）
@@ -116,8 +119,11 @@ $(BACKEND_DIR)/%.o: $(BACKEND_DIR)/%.cpp $(COMMON_DIR)/ast.h
 # バックエンドサブディレクトリのオブジェクト生成
 $(BACKEND_DIR)/evaluator/%.o: $(BACKEND_DIR)/evaluator/%.cpp $(COMMON_DIR)/ast.h
 	$(CC) $(CFLAGS) -c -o $@ $<
-	
-$(BACKEND_DIR)/executor/%.o: $(BACKEND_DIR)/executor/%.cpp $(COMMON_DIR)/ast.h
+
+$(BACKEND_DIR)/executors/%.o: $(BACKEND_DIR)/executors/%.cpp $(COMMON_DIR)/ast.h
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(BACKEND_DIR)/handlers/%.o: $(BACKEND_DIR)/handlers/%.cpp $(COMMON_DIR)/ast.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 	
 $(BACKEND_DIR)/output/%.o: $(BACKEND_DIR)/output/%.cpp $(COMMON_DIR)/ast.h
@@ -209,7 +215,9 @@ unit-test: $(MAIN_TARGET) $(FRONTEND_OBJS) $(BACKEND_OBJS) $(COMMON_OBJS) $(PLAT
 		../../$(BACKEND_DIR)/interpreter/evaluator/expression_ternary.o \
 		../../$(BACKEND_DIR)/interpreter/evaluator/expression_member_helpers.o \
 		../../$(BACKEND_DIR)/interpreter/evaluator/expression_receiver_resolution.o \
-		../../$(BACKEND_DIR)/interpreter/executor/statement_executor.o \
+		../../$(BACKEND_DIR)/interpreter/executors/statement_executor.o \
+		../../$(BACKEND_DIR)/interpreter/executors/control_flow_executor.o \
+		../../$(BACKEND_DIR)/interpreter/handlers/return_handler.o \
 		../../$(COMMON_DIR)/type_utils.o \
 		../../$(COMMON_DIR)/type_alias.o \
 		../../$(COMMON_DIR)/array_type_info.o \
