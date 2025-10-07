@@ -131,12 +131,24 @@ TypedValue evaluate_variable_typed(
         return TypedValue(*var, InferredType(TYPE_STRUCT, var->struct_type_name));
     } else if (var->type == TYPE_INTERFACE) {
         return TypedValue(*var, InferredType(TYPE_INTERFACE, var->interface_name));
+    } else if (var->type == TYPE_UNION) {
+        // Union型の場合、current_typeに基づいて適切なTypedValueを返す
+        if (var->current_type == TYPE_STRING) {
+            return TypedValue(var->str_value, InferredType(TYPE_STRING, "string"));
+        }
+        InferredType union_numeric_type(var->current_type, type_info_to_string_simple(var->current_type));
+        return make_numeric_value(var->current_type, union_numeric_type);
     } else if (var->is_array || var->type >= TYPE_ARRAY_BASE) {
         // 配列の場合、型情報を保持したTypedValueを返す
         TypeInfo base_type = var->type >= TYPE_ARRAY_BASE ? 
             static_cast<TypeInfo>(var->type - TYPE_ARRAY_BASE) : TYPE_INT;
         std::string type_name = std::string(type_info_to_string_simple(base_type)) + "[]";
         return TypedValue(*var, InferredType(var->type, type_name));
+    } else if (var->type == TYPE_POINTER || var->is_pointer) {
+        // ポインタ型の場合、numeric_typeにTYPE_POINTERを設定
+        TypedValue ptr_value(var->value, InferredType(TYPE_POINTER, type_info_to_string_simple(TYPE_POINTER)));
+        ptr_value.numeric_type = TYPE_POINTER;
+        return ptr_value;
     } else {
         // 数値型の場合
         InferredType var_type(var->type, var->type_name.empty() ? 
