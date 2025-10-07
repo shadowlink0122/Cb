@@ -1,0 +1,8 @@
+int global_count = 0;
+
+int main() {
+    println("Before: %d", global_count);
+    global_count++;
+    println("After: %d", global_count);
+    return 0;
+}

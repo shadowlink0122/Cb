@@ -1,0 +1,20 @@
+int get_value() {
+    static int count = 0;
+    println("Before increment: %d", count);
+    count++;
+    println("After increment: %d", count);
+    println("About to return...");
+    return count;
+}
+
+int main() {
+    println("=== Test 1 ===");
+    int result1 = get_value();
+    println("Returned: %d", result1);
+    
+    println("\n=== Test 2 ===");
+    int result2 = get_value();
+    println("Returned: %d", result2);
+    
+    return 0;
+}

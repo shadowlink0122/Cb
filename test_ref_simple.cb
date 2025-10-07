@@ -1,0 +1,10 @@
+int global_value = 100;
+
+int& get_global() {
+    return global_value;
+}
+
+int main() {
+    println("Test");
+    return 0;
+}

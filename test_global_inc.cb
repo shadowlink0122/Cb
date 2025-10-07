@@ -1,0 +1,12 @@
+int global_count = 0;
+
+int get_count() {
+    global_count++;
+    return global_count;
+}
+
+int main() {
+    int r = get_count();
+    println("Result: %d", r);
+    return 0;
+}

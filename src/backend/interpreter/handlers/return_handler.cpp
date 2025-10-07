@@ -192,6 +192,10 @@ void ReturnHandler::handle_identifier_return(const ASTNode *node) {
                 } else {
                     throw ReturnException(var);
                 }
+            } else if (var->is_array) {
+                // 配列の場合、handle_array_variable_returnに委譲
+                handle_array_variable_return(node, var);
+                return;
             } else if (var->is_struct) {
                 interpreter_->sync_struct_members_from_direct_access(node->left->name);
                 if (var->type != TYPE_INTERFACE) {
@@ -209,6 +213,9 @@ void ReturnHandler::handle_identifier_return(const ASTNode *node) {
             } else {
                 throw ReturnException(var->value);
             }
+        } else {
+            // 変数が見つからない場合、式として評価
+            handle_expression_return(node);
         }
     }
 }

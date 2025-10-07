@@ -1,0 +1,11 @@
+int global_value = 100;
+
+int& get_global() {
+    return global_value;
+}
+
+int main() {
+    int& ref = get_global();
+    println(ref);
+    return 0;
+}
