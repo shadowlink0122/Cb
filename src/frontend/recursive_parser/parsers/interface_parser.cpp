@@ -123,8 +123,10 @@ ASTNode *InterfaceParser::parseInterfaceDeclaration() {
 
     parser_->consume(TokenType::TOK_RBRACE,
                      "Expected '}' after interface methods");
-    parser_->consume(TokenType::TOK_SEMICOLON,
-                     "Expected ';' after interface definition");
+    // セミコロンは不要（オプション）
+    if (parser_->check(TokenType::TOK_SEMICOLON)) {
+        parser_->advance(); // consume optional semicolon
+    }
 
     // interface定義をパーサー内に保存
     parser_->interface_definitions_[interface_name] = interface_def;
@@ -461,8 +463,10 @@ ASTNode *InterfaceParser::parseImplDeclaration() {
     }
 
     parser_->consume(TokenType::TOK_RBRACE, "Expected '}' after impl methods");
-    parser_->consume(TokenType::TOK_SEMICOLON,
-                     "Expected ';' after impl declaration");
+    // セミコロンは不要（オプション）
+    if (parser_->check(TokenType::TOK_SEMICOLON)) {
+        parser_->advance(); // consume optional semicolon
+    }
 
     // ★ interfaceの全メソッドが実装されているかチェック
     auto interface_it = parser_->interface_definitions_.find(interface_name);
