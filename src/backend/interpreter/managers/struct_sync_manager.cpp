@@ -32,9 +32,8 @@ void StructSyncManager::sync_direct_access_from_struct_value(
     }
 
     if (!target_map) {
-        auto *static_vars =
-            interpreter_->static_variable_manager_
-                ->get_static_variables_mutable();
+        auto *static_vars = interpreter_->static_variable_manager_
+                                ->get_static_variables_mutable();
         auto static_it = static_vars->find(var_name);
         if (static_it != static_vars->end()) {
             target_map = static_vars;

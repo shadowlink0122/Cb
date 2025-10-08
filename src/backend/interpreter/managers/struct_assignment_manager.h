@@ -32,7 +32,7 @@ class StructAssignmentManager {
      * @param literal_node 構造体リテラルのASTノード
      */
     void assign_struct_literal(const std::string &var_name,
-                                const ASTNode *literal_node);
+                               const ASTNode *literal_node);
 
     /**
      * @brief 構造体メンバーに値を代入する (int/double/string)
@@ -117,30 +117,26 @@ class StructAssignmentManager {
     Interpreter *interpreter_;
 
     // Helper methods for assign_struct_literal
-    
+
     /**
      * @brief 構造体リテラル代入の前処理（変数検証、初期化）
      */
-    Variable* prepare_struct_literal_assignment(
-        const std::string &var_name, 
-        const ASTNode *literal_node);
+    Variable *prepare_struct_literal_assignment(const std::string &var_name,
+                                                const ASTNode *literal_node);
 
     /**
      * @brief 名前付き初期化を処理
      */
-    void process_named_initialization(
-        Variable *var,
-        const std::string &var_name,
-        const ASTNode *literal_node,
-        const struct StructDefinition *struct_def);
+    void
+    process_named_initialization(Variable *var, const std::string &var_name,
+                                 const ASTNode *literal_node,
+                                 const struct StructDefinition *struct_def);
 
     /**
      * @brief 位置ベース初期化を処理
      */
     void process_positional_initialization(
-        Variable *var,
-        const std::string &var_name,
-        const ASTNode *literal_node,
+        Variable *var, const std::string &var_name, const ASTNode *literal_node,
         const struct StructDefinition *struct_def);
 };
 

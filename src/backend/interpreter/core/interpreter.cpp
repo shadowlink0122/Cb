@@ -20,14 +20,14 @@
 #include "handlers/struct_declaration_handler.h" // 構造体宣言処理サービス
 #include "managers/array_manager.h"
 #include "managers/common_operations.h"
-#include "managers/enum_manager.h"         // enum管理サービス
-#include "managers/interface_operations.h"     // interface/impl管理サービス
-#include "managers/static_variable_manager.h"   // static変数管理サービス
-#include "managers/struct_operations.h"              // struct操作管理サービス
-#include "managers/struct_variable_manager.h"        // struct変数管理サービス
-#include "managers/struct_assignment_manager.h"      // struct代入管理サービス
-#include "managers/struct_sync_manager.h"            // struct同期管理サービス
-#include "managers/global_initialization_manager.h"  // グローバル初期化管理サービス
+#include "managers/enum_manager.h"                  // enum管理サービス
+#include "managers/global_initialization_manager.h" // グローバル初期化管理サービス
+#include "managers/interface_operations.h" // interface/impl管理サービス
+#include "managers/static_variable_manager.h" // static変数管理サービス
+#include "managers/struct_assignment_manager.h" // struct代入管理サービス
+#include "managers/struct_operations.h"       // struct操作管理サービス
+#include "managers/struct_sync_manager.h"     // struct同期管理サービス
+#include "managers/struct_variable_manager.h" // struct変数管理サービス
 #include "managers/type_manager.h"
 #include "managers/variable_manager.h"
 #include "output/output_manager.h" // ヘッダーから移動
@@ -1749,7 +1749,7 @@ void Interpreter::ensure_struct_member_access_allowed(
 void Interpreter::create_struct_variable(const std::string &var_name,
                                          const std::string &struct_type_name) {
     struct_variable_manager_->create_struct_variable(var_name,
-                                                      struct_type_name);
+                                                     struct_type_name);
 }
 
 // structメンバにアクセス
@@ -1774,14 +1774,16 @@ void Interpreter::assign_struct_literal(const std::string &var_name,
 void Interpreter::assign_struct_member(const std::string &var_name,
                                        const std::string &member_name,
                                        int64_t value) {
-    struct_assignment_manager_->assign_struct_member(var_name, member_name, value);
+    struct_assignment_manager_->assign_struct_member(var_name, member_name,
+                                                     value);
 }
 
 // structメンバに値を代入（文字列）
 void Interpreter::assign_struct_member(const std::string &var_name,
                                        const std::string &member_name,
                                        const std::string &value) {
-    struct_assignment_manager_->assign_struct_member(var_name, member_name, value);
+    struct_assignment_manager_->assign_struct_member(var_name, member_name,
+                                                     value);
 }
 
 // structメンバに値を代入（TypedValue）
@@ -1794,22 +1796,23 @@ void Interpreter::assign_struct_member(const std::string &var_name,
     value_var.double_value = typed_value.double_value;
     value_var.float_value = static_cast<float>(typed_value.double_value);
     value_var.quad_value = typed_value.quad_value;
-    struct_assignment_manager_->assign_struct_member(var_name, member_name, value_var);
+    struct_assignment_manager_->assign_struct_member(var_name, member_name,
+                                                     value_var);
 }
 
 // structメンバに構造体を代入
 void Interpreter::assign_struct_member_struct(const std::string &var_name,
                                               const std::string &member_name,
                                               const Variable &struct_value) {
-    struct_assignment_manager_->assign_struct_member_struct(var_name,
-                                                            member_name,
-                                                            struct_value);
+    struct_assignment_manager_->assign_struct_member_struct(
+        var_name, member_name, struct_value);
 }
 
 void Interpreter::assign_struct_member_array_element(
     const std::string &var_name, const std::string &member_name, int index,
     int64_t value) {
-    struct_assignment_manager_->assign_struct_member_array_element(var_name, member_name, index, value);
+    struct_assignment_manager_->assign_struct_member_array_element(
+        var_name, member_name, index, value);
 }
 
 void Interpreter::assign_struct_member_array_element(
@@ -1818,7 +1821,8 @@ void Interpreter::assign_struct_member_array_element(
     Variable value_var;
     value_var.str_value = value;
     value_var.type = TYPE_STRING;
-    struct_assignment_manager_->assign_struct_member_array_element(var_name, member_name, index, value_var);
+    struct_assignment_manager_->assign_struct_member_array_element(
+        var_name, member_name, index, value_var);
 }
 
 int64_t Interpreter::get_struct_member_array_element(
@@ -1844,7 +1848,8 @@ std::string Interpreter::get_struct_member_array_string_element(
 void Interpreter::assign_struct_member_array_literal(
     const std::string &var_name, const std::string &member_name,
     const ASTNode *array_literal) {
-    struct_assignment_manager_->assign_struct_member_array_literal(var_name, member_name, array_literal);
+    struct_assignment_manager_->assign_struct_member_array_literal(
+        var_name, member_name, array_literal);
 }
 
 void Interpreter::initialize_global_variables(const ASTNode *node) {
@@ -1863,7 +1868,7 @@ void Interpreter::sync_struct_members_from_direct_access(
 void Interpreter::sync_direct_access_from_struct_value(
     const std::string &var_name, const Variable &struct_value) {
     struct_sync_manager_->sync_direct_access_from_struct_value(var_name,
-                                                                struct_value);
+                                                               struct_value);
 }
 
 // ========================================================================

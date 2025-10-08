@@ -19,10 +19,8 @@ void StructVariableManager::create_struct_variable(
             var_name.c_str(), struct_type_name.c_str());
     }
 
-    const StructDefinition *struct_def =
-        interpreter_->find_struct_definition(
-            interpreter_->get_type_manager()->resolve_typedef(
-                struct_type_name));
+    const StructDefinition *struct_def = interpreter_->find_struct_definition(
+        interpreter_->get_type_manager()->resolve_typedef(struct_type_name));
     if (!struct_def) {
         throw std::runtime_error("Struct type not found: " + struct_type_name);
     }
@@ -71,8 +69,8 @@ void StructVariableManager::create_struct_member_variables_recursively(
     const std::string &base_path, const std::string &struct_type_name,
     Variable &parent_var) {
     // 構造体定義を取得
-    std::string resolved_type = interpreter_->get_type_manager()->resolve_typedef(
-        struct_type_name);
+    std::string resolved_type =
+        interpreter_->get_type_manager()->resolve_typedef(struct_type_name);
     const StructDefinition *struct_def =
         interpreter_->find_struct_definition(resolved_type);
 
@@ -93,7 +91,7 @@ void StructVariableManager::create_struct_member_variables_recursively(
         // 配列メンバーの場合
         if (member_def.array_info.is_array()) {
             process_array_member_recursively(full_member_path, member_def,
-                                            member_var);
+                                             member_var);
         }
 
         // parent_varのstruct_membersに追加
@@ -153,13 +151,12 @@ void StructVariableManager::process_multidimensional_array_member(
 
         // 動的サイズの場合は解決を試みる
         if (dim_size == -1 && dim.is_dynamic && !dim.size_expr.empty()) {
-            Variable *const_var =
-                interpreter_->find_variable(dim.size_expr);
+            Variable *const_var = interpreter_->find_variable(dim.size_expr);
             if (const_var && const_var->is_const && const_var->is_assigned) {
                 dim_size = static_cast<int>(const_var->value);
             } else {
                 throw std::runtime_error("Cannot resolve constant '" +
-                                       dim.size_expr + "'");
+                                         dim.size_expr + "'");
             }
         }
 
@@ -188,9 +185,9 @@ void StructVariableManager::process_multidimensional_array_member(
     }
 }
 
-void StructVariableManager::process_1d_array_member(
-    const std::string &var_name, const StructMember &member,
-    Variable &struct_var) {
+void StructVariableManager::process_1d_array_member(const std::string &var_name,
+                                                    const StructMember &member,
+                                                    Variable &struct_var) {
     int array_size = member.array_info.dimensions[0].size;
 
     // 動的サイズ（定数識別子）の場合は解決を試みる
@@ -201,7 +198,7 @@ void StructVariableManager::process_1d_array_member(
 
     if (array_size <= 0) {
         throw std::runtime_error("Invalid array size for struct member " +
-                               member.name);
+                                 member.name);
     }
 
     // struct_membersに配列メンバーを追加
@@ -233,9 +230,9 @@ void StructVariableManager::process_1d_array_member(
     create_array_element_variables(var_name, member, array_size, struct_var);
 }
 
-void StructVariableManager::process_regular_member(
-    const std::string &var_name, const StructMember &member,
-    Variable &struct_var) {
+void StructVariableManager::process_regular_member(const std::string &var_name,
+                                                   const StructMember &member,
+                                                   Variable &struct_var) {
     Variable member_var;
     member_var.type = member.type;
 
@@ -262,9 +259,9 @@ void StructVariableManager::process_regular_member(
     interpreter_->current_scope().variables[member_path] = member_var;
 }
 
-void StructVariableManager::process_struct_member(
-    const std::string &var_name, const StructMember &member,
-    Variable &member_var) {
+void StructVariableManager::process_struct_member(const std::string &var_name,
+                                                  const StructMember &member,
+                                                  Variable &member_var) {
     member_var.is_struct = true;
     member_var.struct_type_name = member.type_alias;
     member_var.is_assigned = false;
@@ -305,8 +302,8 @@ void StructVariableManager::process_struct_member(
 }
 
 void StructVariableManager::create_array_element_variables(
-    const std::string &var_name, const StructMember &member,
-    int array_size, Variable &struct_var) {
+    const std::string &var_name, const StructMember &member, int array_size,
+    Variable &struct_var) {
     for (int i = 0; i < array_size; i++) {
         Variable array_element;
         array_element.type = member.type;
@@ -331,8 +328,7 @@ void StructVariableManager::create_array_element_variables(
         interpreter_->current_scope().variables[element_name] = array_element;
 
         // 親のstruct_membersにも追加
-        struct_var
-            .struct_members[member.name + "[" + std::to_string(i) + "]"] =
+        struct_var.struct_members[member.name + "[" + std::to_string(i) + "]"] =
             array_element;
     }
 }
@@ -396,8 +392,7 @@ void StructVariableManager::post_process_array_elements(
     }
 }
 
-int StructVariableManager::resolve_array_size(
-    const ArrayDimension &dim_info) {
+int StructVariableManager::resolve_array_size(const ArrayDimension &dim_info) {
     if (interpreter_->is_debug_mode()) {
         debug_print("Attempting to resolve constant: %s\n",
                     dim_info.size_expr.c_str());
@@ -406,25 +401,25 @@ int StructVariableManager::resolve_array_size(
     Variable *const_var = interpreter_->find_variable(dim_info.size_expr);
     if (!const_var) {
         throw std::runtime_error("Cannot resolve constant '" +
-                               dim_info.size_expr +
-                               "' for struct member array size");
+                                 dim_info.size_expr +
+                                 "' for struct member array size");
     }
 
     if (!const_var->is_const || !const_var->is_assigned) {
         throw std::runtime_error("Constant '" + dim_info.size_expr +
-                               "' is not a valid const variable");
+                                 "' is not a valid const variable");
     }
 
     return static_cast<int>(const_var->value);
 }
 
 void StructVariableManager::process_array_member_recursively(
-    const std::string &full_member_path,
-    const StructMember &member_def, Variable &member_var) {
+    const std::string &full_member_path, const StructMember &member_def,
+    Variable &member_var) {
     member_var.is_array = true;
     member_var.array_size = member_def.array_info.dimensions.empty()
-                               ? 0
-                               : member_def.array_info.dimensions[0].size;
+                                ? 0
+                                : member_def.array_info.dimensions[0].size;
     member_var.array_type_info = member_def.array_info;
 
     if (member_def.array_info.dimensions.size() > 1) {
@@ -456,8 +451,7 @@ void StructVariableManager::process_array_member_recursively(
             create_struct_member_variables_recursively(
                 element_name, element_type_name, element_var);
 
-            interpreter_->current_scope().variables[element_name] =
-                element_var;
+            interpreter_->current_scope().variables[element_name] = element_var;
         }
     }
 }
