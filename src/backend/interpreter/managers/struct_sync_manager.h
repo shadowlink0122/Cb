@@ -25,6 +25,17 @@ class StructSyncManager {
     explicit StructSyncManager(Interpreter *interpreter);
 
     /**
+     * @brief 直接アクセス変数から構造体メンバーへの同期
+     *
+     * 個別のメンバー変数（直接アクセス形式）の値を、
+     * 構造体変数のstruct_membersマップに同期します。
+     * 配列メンバーやネストした構造体も再帰的に処理します。
+     *
+     * @param var_name 同期する構造体変数の名前
+     */
+    void sync_struct_members_from_direct_access(const std::string &var_name);
+
+    /**
      * @brief 構造体値から直接アクセス変数への同期
      *
      * 構造体変数の値を、直接アクセス可能な個別のメンバー変数に同期します。
