@@ -4,7 +4,7 @@
 #include "../../services/debug_service.h"
 #include "../../core/interpreter.h"
 #include "core/type_inference.h"
-#include "evaluator/expression_evaluator.h"
+#include "evaluator/core/evaluator.h"
 #include "managers/arrays/manager.h"
 #include "managers/common/operations.h"
 #include "managers/types/enums.h"

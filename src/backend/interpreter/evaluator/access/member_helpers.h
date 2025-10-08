@@ -1,8 +1,8 @@
 #ifndef EXPRESSION_MEMBER_HELPERS_H
 #define EXPRESSION_MEMBER_HELPERS_H
 
-#include "../../../common/ast.h"
-#include "core/type_inference.h"
+#include "../../../../common/ast.h"
+#include "../../core/type_inference.h"
 #include <string>
 #include <vector>
 

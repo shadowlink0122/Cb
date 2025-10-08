@@ -6,12 +6,12 @@
 // メソッド呼び出しのレシーバ解決に特化したヘルパー関数群の実装。
 // ============================================================================
 
-#include "expression_receiver_resolution.h"
-#include "../../../common/ast.h"
-#include "../../../common/debug.h"
-#include "core/interpreter.h"
-#include "evaluator/expression_evaluator.h"
-#include "evaluator/expression_member_helpers.h"
+#include "receiver_resolution.h"
+#include "../../../../common/ast.h"
+#include "../../../../common/debug.h"
+#include "../../core/interpreter.h"
+#include "evaluator/core/evaluator.h"
+#include "member_helpers.h"
 #include <functional>
 
 namespace ReceiverResolutionHelpers {

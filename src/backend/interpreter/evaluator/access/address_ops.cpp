@@ -1,8 +1,8 @@
-#include "expression_address_ops.h"
-#include "../../../common/ast.h"
-#include "../../../common/debug.h"
-#include "core/interpreter.h"
-#include "core/pointer_metadata.h"
+#include "address_ops.h"
+#include "../../../../common/ast.h"
+#include "../../../../common/debug.h"
+#include "../../core/interpreter.h"
+#include "../../core/pointer_metadata.h"
 #include <iostream>
 #include <stdexcept>
 

@@ -1,7 +1,7 @@
-#include "expression_ternary.h"
-#include "../../../common/debug.h"
-#include "core/interpreter.h"
-#include "core/type_inference.h"
+#include "ternary.h"
+#include "../../../../common/debug.h"
+#include "../../core/interpreter.h"
+#include "../../core/type_inference.h"
 #include <stdexcept>
 
 namespace TernaryHelpers {

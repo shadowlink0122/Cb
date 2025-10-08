@@ -1,7 +1,7 @@
 #ifndef EXPRESSION_ASSIGNMENT_H
 #define EXPRESSION_ASSIGNMENT_H
 
-#include "../../../common/ast.h"
+#include "../../../../common/ast.h"
 #include <functional>
 
 class Interpreter;

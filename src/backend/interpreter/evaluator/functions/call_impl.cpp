@@ -9,14 +9,14 @@
 // interfaces)
 // - Return value handling
 
-#include "../../../common/debug.h"
-#include "../../../common/debug_messages.h"
-#include "core/error_handler.h"
-#include "core/interpreter.h"
-#include "evaluator/expression_evaluator.h"
-#include "evaluator/expression_helpers.h"
-#include "evaluator/expression_receiver_resolution.h"
-#include "managers/types/manager.h"
+#include "../../../../common/debug.h"
+#include "../../../../common/debug_messages.h"
+#include "../../core/error_handler.h"
+#include "../../core/interpreter.h"
+#include "evaluator/core/evaluator.h"
+#include "evaluator/core/helpers.h"
+#include "evaluator/access/receiver_resolution.h"
+#include "../../managers/types/manager.h"
 #include <cstdlib>
 
 int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {

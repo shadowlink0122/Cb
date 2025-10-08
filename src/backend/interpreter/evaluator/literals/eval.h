@@ -1,8 +1,8 @@
 #ifndef EXPRESSION_LITERAL_EVAL_H
 #define EXPRESSION_LITERAL_EVAL_H
 
-#include "../../../common/ast.h"
-#include "core/interpreter.h"
+#include "../../../../common/ast.h"
+#include "../../core/interpreter.h"
 
 namespace LiteralEvalHelpers {
 

@@ -4,7 +4,7 @@
 #include "../../services/debug_service.h"
 #include "core/error_handler.h"
 #include "../../core/interpreter.h" // Variable の定義のため
-#include "evaluator/expression_evaluator.h"
+#include "evaluator/core/evaluator.h"
 #include "managers/types/manager.h" // TypeManager の定義のため
 #include "managers/variables/manager.h"
 #include "services/expression_service.h" // DRY効率化: 統一式評価サービス

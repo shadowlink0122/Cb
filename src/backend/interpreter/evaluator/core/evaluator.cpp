@@ -1,28 +1,28 @@
-#include "evaluator/expression_evaluator.h"
-#include "../../../common/debug.h"
-#include "../../../common/debug_messages.h"
-#include "../../../common/utf8_utils.h"
-#include "core/error_handler.h"
-#include "core/interpreter.h"
-#include "core/pointer_metadata.h" // ポインタメタデータシステム
-#include "evaluator/expression_address_ops.h" // アドレス演算子と間接参照演算子のヘルパー
-#include "evaluator/expression_array_access.h" // 配列アクセスのヘルパー
-#include "evaluator/expression_assignment.h" // 代入演算子のヘルパー
-#include "evaluator/expression_binary_unary_typed.h" // 二項/単項演算子（typed版）のヘルパー
-#include "evaluator/expression_dispatcher.h" // Phase 13: Expression Dispatcher
-#include "evaluator/expression_function_call.h" // 関数呼び出しのヘルパー
-#include "evaluator/expression_helpers.h" // Tier 2リファクタリング: ヘルパー関数群
-#include "evaluator/expression_incdec.h" // インクリメント/デクリメントのヘルパー
-#include "evaluator/expression_literal_eval.h" // リテラル評価（数値、文字列、nullptr、変数）のヘルパー
-#include "evaluator/expression_member_helpers.h" // メンバーアクセス関連のヘルパー
-#include "evaluator/expression_receiver_resolution.h" // Phase 12: Method Receiver Resolution
-#include "evaluator/expression_special_access.h" // 特殊アクセス（アロー、メンバー配列、Enum）のヘルパー
-#include "evaluator/expression_ternary.h" // 三項演算子（?:）のヘルパー
-#include "managers/arrays/manager.h"
-#include "managers/types/enums.h" // EnumManager定義が必要
-#include "managers/types/manager.h" // TypeManager定義が必要
-#include "services/array_processing_service.h"
-#include "services/debug_service.h"
+#include "evaluator/core/evaluator.h"
+#include "../../../../common/debug.h"
+#include "../../../../common/debug_messages.h"
+#include "../../../../common/utf8_utils.h"
+#include "../../core/error_handler.h"
+#include "../../core/interpreter.h"
+#include "../../core/pointer_metadata.h" // ポインタメタデータシステム
+#include "evaluator/access/address_ops.h" // アドレス演算子と間接参照演算子のヘルパー
+#include "evaluator/access/array.h" // 配列アクセスのヘルパー
+#include "evaluator/operators/assignment.h" // 代入演算子のヘルパー
+#include "evaluator/operators/binary_unary.h" // 二項/単項演算子（typed版）のヘルパー
+#include "evaluator/core/dispatcher.h" // Phase 13: Expression Dispatcher
+#include "evaluator/functions/call.h" // 関数呼び出しのヘルパー
+#include "evaluator/core/helpers.h" // Tier 2リファクタリング: ヘルパー関数群
+#include "evaluator/operators/incdec.h" // インクリメント/デクリメントのヘルパー
+#include "evaluator/literals/eval.h" // リテラル評価（数値、文字列、nullptr、変数）のヘルパー
+#include "evaluator/access/member_helpers.h" // メンバーアクセス関連のヘルパー
+#include "evaluator/access/receiver_resolution.h" // Phase 12: Method Receiver Resolution
+#include "evaluator/access/special.h" // 特殊アクセス（アロー、メンバー配列、Enum）のヘルパー
+#include "evaluator/operators/ternary.h" // 三項演算子（?:）のヘルパー
+#include "../../managers/arrays/manager.h"
+#include "../../managers/types/enums.h" // EnumManager定義が必要
+#include "../../managers/types/manager.h" // TypeManager定義が必要
+#include "../../services/array_processing_service.h"
+#include "../../services/debug_service.h"
 #include <cstdio>
 #include <functional>
 #include <iostream>

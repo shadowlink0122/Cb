@@ -1,8 +1,8 @@
 #ifndef EXPRESSION_TERNARY_H
 #define EXPRESSION_TERNARY_H
 
-#include "../../../common/ast.h"
-#include "core/type_inference.h"
+#include "../../../../common/ast.h"
+#include "../../core/type_inference.h"
 #include <functional>
 
 // 前方宣言

@@ -1,8 +1,8 @@
-#include "expression_assignment.h"
-#include "../../../common/debug.h"
-#include "../../../common/utf8_utils.h"
-#include "core/interpreter.h"
-#include "core/type_inference.h"
+#include "assignment.h"
+#include "../../../../common/debug.h"
+#include "../../../../common/utf8_utils.h"
+#include "../../core/interpreter.h"
+#include "../../core/type_inference.h"
 #include <stdexcept>
 
 namespace AssignmentHelpers {

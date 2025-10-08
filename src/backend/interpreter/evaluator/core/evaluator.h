@@ -1,7 +1,7 @@
 #pragma once
-#include "../../../common/ast.h"
-#include "../core/type_inference.h"
-#include "expression_receiver_resolution.h" // Phase 12: Method Receiver Resolution
+#include "../../../../common/ast.h"
+#include "../../core/type_inference.h"
+#include "../access/receiver_resolution.h" // Phase 12: Method Receiver Resolution
 #include <memory>
 #include <optional>
 #include <string>

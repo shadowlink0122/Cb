@@ -1,8 +1,8 @@
-#include "expression_member_helpers.h"
-#include "../../../common/debug.h"
-#include "core/interpreter.h"
-#include "core/type_inference.h"
-#include "expression_evaluator.h"
+#include "member_helpers.h"
+#include "../../../../common/debug.h"
+#include "../../core/interpreter.h"
+#include "../../core/type_inference.h"
+#include "../core/evaluator.h"
 #include <iostream>
 #include <stdexcept>
 

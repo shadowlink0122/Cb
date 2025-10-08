@@ -1,7 +1,7 @@
 #include "expression_statement_handler.h"
 #include "../../../common/ast.h"
 #include "../core/interpreter.h"
-#include "../evaluator/expression_evaluator.h"
+#include "../evaluator/core/evaluator.h"
 
 ExpressionStatementHandler::ExpressionStatementHandler(Interpreter *interpreter)
     : interpreter_(interpreter) {}

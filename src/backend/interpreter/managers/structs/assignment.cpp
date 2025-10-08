@@ -3,7 +3,7 @@
 #include "../../../../common/debug.h"
 #include "../../../../common/debug_messages.h"
 #include "../../core/interpreter.h"
-#include "../../evaluator/expression_evaluator.h"
+#include "../../evaluator/core/evaluator.h"
 #include "../../services/debug_service.h"
 #include "../common/operations.h"
 #include "../types/manager.h"

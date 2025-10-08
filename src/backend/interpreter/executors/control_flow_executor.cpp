@@ -2,7 +2,7 @@
 #include "../../../common/ast.h"
 #include "../../../common/debug_messages.h"
 #include "../core/interpreter.h"
-#include "../evaluator/expression_evaluator.h"
+#include "../evaluator/core/evaluator.h"
 #include "../services/debug_service.h"
 #include <iostream>
 

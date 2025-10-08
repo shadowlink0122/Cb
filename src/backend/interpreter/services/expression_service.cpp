@@ -1,7 +1,7 @@
 #include "services/expression_service.h"
 #include "../../../common/debug.h"
 #include "core/interpreter.h"
-#include "evaluator/expression_evaluator.h"
+#include "evaluator/core/evaluator.h"
 #include <stdexcept>
 
 ExpressionService::ExpressionService(Interpreter *interpreter)

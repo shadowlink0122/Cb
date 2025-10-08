@@ -1,5 +1,5 @@
-#include "expression_literal_eval.h"
-#include "../../../common/debug.h"
+#include "eval.h"
+#include "../../../../common/debug.h"
 #include <stdexcept>
 
 // デバッグ言語設定（外部変数）

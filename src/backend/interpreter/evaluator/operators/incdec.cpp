@@ -1,7 +1,7 @@
-#include "expression_incdec.h"
-#include "../../../common/debug.h"
-#include "core/interpreter.h"
-#include "core/pointer_metadata.h"
+#include "incdec.h"
+#include "../../../../common/debug.h"
+#include "../../core/interpreter.h"
+#include "../../core/pointer_metadata.h"
 #include <cstdio>
 #include <stdexcept>
 

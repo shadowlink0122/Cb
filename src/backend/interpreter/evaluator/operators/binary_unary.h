@@ -1,8 +1,8 @@
 #ifndef EXPRESSION_BINARY_UNARY_TYPED_H
 #define EXPRESSION_BINARY_UNARY_TYPED_H
 
-#include "../../../common/ast.h"
-#include "core/interpreter.h"
+#include "../../../../common/ast.h"
+#include "../../core/interpreter.h"
 
 namespace BinaryUnaryTypedHelpers {
 

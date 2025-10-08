@@ -1,9 +1,9 @@
-#include "expression_array_access.h"
-#include "../../../common/ast.h"
-#include "../../../common/debug.h"
-#include "../../../common/utf8_utils.h"
-#include "core/error_handler.h"
-#include "core/interpreter.h"
+#include "array.h"
+#include "../../../../common/ast.h"
+#include "../../../../common/debug.h"
+#include "../../../../common/utf8_utils.h"
+#include "../../core/error_handler.h"
+#include "../../core/interpreter.h"
 #include <iostream>
 #include <stdexcept>
 

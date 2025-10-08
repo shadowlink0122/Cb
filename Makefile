@@ -38,22 +38,22 @@ BACKEND_OBJS = \
 	src/backend/interpreter/core/error_handler.o \
 	src/backend/interpreter/core/pointer_metadata.o \
 	src/backend/interpreter/core/type_inference.o \
-	src/backend/interpreter/evaluator/expression_address_ops.o \
-	src/backend/interpreter/evaluator/expression_array_access.o \
-	src/backend/interpreter/evaluator/expression_assignment.o \
-	src/backend/interpreter/evaluator/expression_binary_unary_typed.o \
-	src/backend/interpreter/evaluator/expression_dispatcher.o \
-	src/backend/interpreter/evaluator/expression_evaluator.o \
-	src/backend/interpreter/evaluator/expression_function_call_impl.o \
-	src/backend/interpreter/evaluator/expression_function_call.o \
-	src/backend/interpreter/evaluator/expression_helpers.o \
-	src/backend/interpreter/evaluator/expression_incdec.o \
-	src/backend/interpreter/evaluator/expression_literal_eval.o \
-	src/backend/interpreter/evaluator/expression_member_access_impl.o \
-	src/backend/interpreter/evaluator/expression_member_helpers.o \
-	src/backend/interpreter/evaluator/expression_receiver_resolution.o \
-	src/backend/interpreter/evaluator/expression_special_access.o \
-	src/backend/interpreter/evaluator/expression_ternary.o \
+	src/backend/interpreter/evaluator/core/evaluator.o \
+	src/backend/interpreter/evaluator/core/dispatcher.o \
+	src/backend/interpreter/evaluator/core/helpers.o \
+	src/backend/interpreter/evaluator/operators/binary_unary.o \
+	src/backend/interpreter/evaluator/operators/assignment.o \
+	src/backend/interpreter/evaluator/operators/incdec.o \
+	src/backend/interpreter/evaluator/operators/ternary.o \
+	src/backend/interpreter/evaluator/access/array.o \
+	src/backend/interpreter/evaluator/access/member.o \
+	src/backend/interpreter/evaluator/access/member_helpers.o \
+	src/backend/interpreter/evaluator/access/special.o \
+	src/backend/interpreter/evaluator/access/address_ops.o \
+	src/backend/interpreter/evaluator/access/receiver_resolution.o \
+	src/backend/interpreter/evaluator/functions/call.o \
+	src/backend/interpreter/evaluator/functions/call_impl.o \
+	src/backend/interpreter/evaluator/literals/eval.o \
 	src/backend/interpreter/executors/statement_executor.o \
 	src/backend/interpreter/executors/control_flow_executor.o \
 	src/backend/interpreter/executors/statement_list_executor.o \
@@ -242,22 +242,22 @@ unit-test: $(MAIN_TARGET) $(FRONTEND_OBJS) $(BACKEND_OBJS) $(COMMON_OBJS) $(PLAT
 		../../$(BACKEND_DIR)/interpreter/services/variable_access_service.o \
 		../../$(BACKEND_DIR)/interpreter/services/debug_service.o \
 		../../$(BACKEND_DIR)/interpreter/services/array_processing_service.o \
-		../../$(BACKEND_DIR)/interpreter/evaluator/expression_evaluator.o \
-		../../$(BACKEND_DIR)/interpreter/evaluator/expression_dispatcher.o \
-		../../$(BACKEND_DIR)/interpreter/evaluator/expression_function_call_impl.o \
-		../../$(BACKEND_DIR)/interpreter/evaluator/expression_member_access_impl.o \
-		../../$(BACKEND_DIR)/interpreter/evaluator/expression_helpers.o \
-		../../$(BACKEND_DIR)/interpreter/evaluator/expression_address_ops.o \
-		../../$(BACKEND_DIR)/interpreter/evaluator/expression_array_access.o \
-		../../$(BACKEND_DIR)/interpreter/evaluator/expression_function_call.o \
-		../../$(BACKEND_DIR)/interpreter/evaluator/expression_incdec.o \
-		../../$(BACKEND_DIR)/interpreter/evaluator/expression_assignment.o \
-		../../$(BACKEND_DIR)/interpreter/evaluator/expression_binary_unary_typed.o \
-		../../$(BACKEND_DIR)/interpreter/evaluator/expression_special_access.o \
-		../../$(BACKEND_DIR)/interpreter/evaluator/expression_literal_eval.o \
-		../../$(BACKEND_DIR)/interpreter/evaluator/expression_ternary.o \
-		../../$(BACKEND_DIR)/interpreter/evaluator/expression_member_helpers.o \
-		../../$(BACKEND_DIR)/interpreter/evaluator/expression_receiver_resolution.o \
+		../../$(BACKEND_DIR)/interpreter/evaluator/core/evaluator.o \
+		../../$(BACKEND_DIR)/interpreter/evaluator/core/dispatcher.o \
+		../../$(BACKEND_DIR)/interpreter/evaluator/core/helpers.o \
+		../../$(BACKEND_DIR)/interpreter/evaluator/operators/binary_unary.o \
+		../../$(BACKEND_DIR)/interpreter/evaluator/operators/assignment.o \
+		../../$(BACKEND_DIR)/interpreter/evaluator/operators/incdec.o \
+		../../$(BACKEND_DIR)/interpreter/evaluator/operators/ternary.o \
+		../../$(BACKEND_DIR)/interpreter/evaluator/access/array.o \
+		../../$(BACKEND_DIR)/interpreter/evaluator/access/member.o \
+		../../$(BACKEND_DIR)/interpreter/evaluator/access/member_helpers.o \
+		../../$(BACKEND_DIR)/interpreter/evaluator/access/special.o \
+		../../$(BACKEND_DIR)/interpreter/evaluator/access/address_ops.o \
+		../../$(BACKEND_DIR)/interpreter/evaluator/access/receiver_resolution.o \
+		../../$(BACKEND_DIR)/interpreter/evaluator/functions/call.o \
+		../../$(BACKEND_DIR)/interpreter/evaluator/functions/call_impl.o \
+		../../$(BACKEND_DIR)/interpreter/evaluator/literals/eval.o \
 		../../$(BACKEND_DIR)/interpreter/executors/statement_executor.o \
 		../../$(BACKEND_DIR)/interpreter/executors/control_flow_executor.o \
 		../../$(BACKEND_DIR)/interpreter/executors/statement_list_executor.o \

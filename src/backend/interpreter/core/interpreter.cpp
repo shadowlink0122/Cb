@@ -6,7 +6,7 @@
 #include "../../../frontend/recursive_parser/recursive_parser.h"
 #include "core/error_handler.h"
 #include "core/type_inference.h"
-#include "evaluator/expression_evaluator.h"
+#include "evaluator/core/evaluator.h"
 #include "executors/control_flow_executor.h" // 制御フロー実行サービス
 #include "executors/statement_executor.h"    // ヘッダーから移動
 #include "executors/statement_list_executor.h" // 文リスト・複合文実行サービス

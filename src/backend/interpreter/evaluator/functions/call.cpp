@@ -1,8 +1,8 @@
-#include "expression_function_call.h"
-#include "../../../common/ast.h"
-#include "../../../common/debug.h"
-#include "core/error_handler.h"
-#include "core/interpreter.h"
+#include "call.h"
+#include "../../../../common/ast.h"
+#include "../../../../common/debug.h"
+#include "../../core/error_handler.h"
+#include "../../core/interpreter.h"
 #include <iostream>
 #include <stdexcept>
 

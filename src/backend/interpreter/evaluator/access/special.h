@@ -1,8 +1,8 @@
 #ifndef EXPRESSION_SPECIAL_ACCESS_H
 #define EXPRESSION_SPECIAL_ACCESS_H
 
-#include "../../../common/ast.h"
-#include "core/interpreter.h"
+#include "../../../../common/ast.h"
+#include "../../core/interpreter.h"
 
 namespace SpecialAccessHelpers {
 

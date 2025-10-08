@@ -5,7 +5,7 @@
 #include "core/interpreter.h"
 #include "core/pointer_metadata.h"
 #include "core/type_inference.h"
-#include "evaluator/expression_evaluator.h"
+#include "evaluator/core/evaluator.h"
 #include "managers/arrays/manager.h"
 #include "managers/types/manager.h"
 #include "managers/variables/manager.h"

@@ -15,22 +15,22 @@ COMMON_OBJS = \
 	../../src/backend/interpreter/core/error_handler.o \
 	../../src/backend/interpreter/core/pointer_metadata.o \
 	../../src/backend/interpreter/core/type_inference.o \
-	../../src/backend/interpreter/evaluator/expression_address_ops.o \
-	../../src/backend/interpreter/evaluator/expression_array_access.o \
-	../../src/backend/interpreter/evaluator/expression_assignment.o \
-	../../src/backend/interpreter/evaluator/expression_binary_unary_typed.o \
-	../../src/backend/interpreter/evaluator/expression_dispatcher.o \
-	../../src/backend/interpreter/evaluator/expression_evaluator.o \
-	../../src/backend/interpreter/evaluator/expression_function_call_impl.o \
-	../../src/backend/interpreter/evaluator/expression_function_call.o \
-	../../src/backend/interpreter/evaluator/expression_helpers.o \
-	../../src/backend/interpreter/evaluator/expression_incdec.o \
-	../../src/backend/interpreter/evaluator/expression_literal_eval.o \
-	../../src/backend/interpreter/evaluator/expression_member_access_impl.o \
-	../../src/backend/interpreter/evaluator/expression_member_helpers.o \
-	../../src/backend/interpreter/evaluator/expression_receiver_resolution.o \
-	../../src/backend/interpreter/evaluator/expression_special_access.o \
-	../../src/backend/interpreter/evaluator/expression_ternary.o \
+	../../src/backend/interpreter/evaluator/core/evaluator.o \
+	../../src/backend/interpreter/evaluator/core/dispatcher.o \
+	../../src/backend/interpreter/evaluator/core/helpers.o \
+	../../src/backend/interpreter/evaluator/operators/binary_unary.o \
+	../../src/backend/interpreter/evaluator/operators/assignment.o \
+	../../src/backend/interpreter/evaluator/operators/incdec.o \
+	../../src/backend/interpreter/evaluator/operators/ternary.o \
+	../../src/backend/interpreter/evaluator/access/array.o \
+	../../src/backend/interpreter/evaluator/access/member.o \
+	../../src/backend/interpreter/evaluator/access/member_helpers.o \
+	../../src/backend/interpreter/evaluator/access/special.o \
+	../../src/backend/interpreter/evaluator/access/address_ops.o \
+	../../src/backend/interpreter/evaluator/access/receiver_resolution.o \
+	../../src/backend/interpreter/evaluator/functions/call.o \
+	../../src/backend/interpreter/evaluator/functions/call_impl.o \
+	../../src/backend/interpreter/evaluator/literals/eval.o \
 	../../src/backend/interpreter/executors/statement_executor.o \
 	../../src/backend/interpreter/executors/control_flow_executor.o \
 	../../src/backend/interpreter/executors/statement_list_executor.o \

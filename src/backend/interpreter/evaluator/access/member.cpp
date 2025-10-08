@@ -8,11 +8,11 @@
 //               ネストしたアクセス、関数戻り値からのアクセス等
 // ============================================================================
 
-#include "../../../common/ast.h"
-#include "../../../common/debug.h"
-#include "../../../common/debug_messages.h"
-#include "core/interpreter.h"
-#include "expression_evaluator.h"
+#include "../../../../common/ast.h"
+#include "../../../../common/debug.h"
+#include "../../../../common/debug_messages.h"
+#include "../../core/interpreter.h"
+#include "../core/evaluator.h"
 #include <functional>
 #include <stdexcept>
 
