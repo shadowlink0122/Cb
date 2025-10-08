@@ -57,6 +57,7 @@ BACKEND_OBJS = \
 	src/backend/interpreter/executors/statement_executor.o \
 	src/backend/interpreter/executors/control_flow_executor.o \
 	src/backend/interpreter/executors/statement_list_executor.o \
+	src/backend/interpreter/executors/declarations/array_declaration.o \
 	src/backend/interpreter/handlers/control/return.o \
 	src/backend/interpreter/handlers/control/assertion.o \
 	src/backend/interpreter/handlers/control/break_continue.o \
@@ -104,6 +105,7 @@ setup-dirs:
 	@mkdir -p $(BACKEND_DIR)/interpreter/managers/structs $(BACKEND_DIR)/interpreter/managers/types
 	@mkdir -p $(BACKEND_DIR)/interpreter/managers/common
 	@mkdir -p $(BACKEND_DIR)/interpreter/evaluator $(BACKEND_DIR)/interpreter/executors
+	@mkdir -p $(BACKEND_DIR)/interpreter/executors/declarations $(BACKEND_DIR)/interpreter/executors/assignments
 	@mkdir -p $(BACKEND_DIR)/interpreter/handlers $(BACKEND_DIR)/interpreter/output
 	@mkdir -p $(BACKEND_DIR)/interpreter/services
 	@mkdir -p $(BACKEND_DIR)/ir $(BACKEND_DIR)/optimizer $(BACKEND_DIR)/codegen
