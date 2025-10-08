@@ -26,6 +26,7 @@ class InterfaceOperations;      // interface/impl管理サービス
 class StructOperations;              // struct操作管理サービス
 class StructVariableManager;         // struct変数管理サービス
 class StructAssignmentManager;       // struct代入管理サービス
+class StructSyncManager;             // struct同期管理サービス
 class GlobalInitializationManager;   // グローバル初期化管理サービス
 class CommonOperations;
 class ControlFlowExecutor;        // 制御フロー実行サービス
@@ -417,6 +418,8 @@ class Interpreter : public EvaluatorInterface {
         struct_variable_manager_; // struct変数管理
     std::unique_ptr<StructAssignmentManager>
         struct_assignment_manager_; // struct代入管理
+    std::unique_ptr<StructSyncManager>
+        struct_sync_manager_; // struct同期管理
     std::unique_ptr<GlobalInitializationManager>
         global_initialization_manager_; // グローバル初期化管理
     std::unique_ptr<ControlFlowExecutor>
@@ -447,6 +450,7 @@ class Interpreter : public EvaluatorInterface {
     friend class StructOperations;             // struct操作管理
     friend class StructVariableManager;        // struct変数管理
     friend class StructAssignmentManager;      // struct代入管理
+    friend class StructSyncManager;            // struct同期管理
     friend class GlobalInitializationManager;  // グローバル初期化管理
     friend class ControlFlowExecutor;          // 制御フロー実行
     friend class StatementListExecutor;      // 文リスト・複合文実行
