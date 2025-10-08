@@ -142,35 +142,6 @@ class StructAssignmentManager {
         const std::string &var_name,
         const ASTNode *literal_node,
         const struct StructDefinition *struct_def);
-
-    /**
-     * @brief 名前付き初期化の1つのメンバーを処理
-     */
-    void process_named_member(
-        Variable *var,
-        const std::string &var_name,
-        const std::string &member_name,
-        const ASTNode *member_init_node,
-        const struct StructDefinition *struct_def);
-
-    /**
-     * @brief 位置ベース初期化の1つのメンバーを処理
-     */
-    void process_positional_member(
-        Variable *var,
-        const std::string &var_name,
-        const struct StructMember &member_def,
-        const ASTNode *init_value);
-
-    /**
-     * @brief unsigned型のメンバーに負の値が代入される場合、0にクランプする
-     */
-    void clamp_unsigned_if_needed(
-        Variable &target,
-        int64_t &value,
-        const std::string &var_name,
-        const std::string &member_name,
-        const char *context);
 };
 
 #endif // CB_INTERPRETER_STRUCT_ASSIGNMENT_MANAGER_H
