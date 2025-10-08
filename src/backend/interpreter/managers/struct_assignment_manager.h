@@ -115,6 +115,52 @@ class StructAssignmentManager {
 
   private:
     Interpreter *interpreter_;
+
+    // Helper methods for assign_struct_literal
+    
+    /**
+     * @brief 構造体リテラル代入の前処理（変数検証、初期化）
+     */
+    Variable* prepare_struct_literal_assignment(
+        const std::string &var_name, 
+        const ASTNode *literal_node);
+
+    /**
+     * @brief 名前付き初期化を処理
+     */
+    void process_named_initialization(
+        Variable *var,
+        const std::string &var_name,
+        const ASTNode *literal_node,
+        const struct StructDefinition *struct_def);
+
+    /**
+     * @brief 位置ベース初期化を処理
+     */
+    void process_positional_initialization(
+        Variable *var,
+        const std::string &var_name,
+        const ASTNode *literal_node,
+        const struct StructDefinition *struct_def);
+
+    /**
+     * @brief 名前付き初期化の1つのメンバーを処理
+     */
+    void process_named_member(
+        Variable *var,
+        const std::string &var_name,
+        const std::string &member_name,
+        const ASTNode *member_init_node,
+        const struct StructDefinition *struct_def);
+
+    /**
+     * @brief 位置ベース初期化の1つのメンバーを処理
+     */
+    void process_positional_member(
+        Variable *var,
+        const std::string &var_name,
+        const struct StructMember &member_def,
+        const ASTNode *init_value);
 };
 
 #endif // CB_INTERPRETER_STRUCT_ASSIGNMENT_MANAGER_H
