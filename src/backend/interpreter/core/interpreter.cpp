@@ -21,10 +21,11 @@
 #include "managers/array_manager.h"
 #include "managers/common_operations.h"
 #include "managers/enum_manager.h"         // enum管理サービス
-#include "managers/interface_operations.h" // interface/impl管理サービス
-#include "managers/static_variable_manager.h" // static変数管理サービス
-#include "managers/struct_operations.h"       // struct操作管理サービス
-#include "managers/struct_variable_manager.h" // struct変数管理サービス
+#include "managers/interface_operations.h"     // interface/impl管理サービス
+#include "managers/static_variable_manager.h"   // static変数管理サービス
+#include "managers/struct_operations.h"         // struct操作管理サービス
+#include "managers/struct_variable_manager.h"   // struct変数管理サービス
+#include "managers/struct_assignment_manager.h" // struct代入管理サービス
 #include "managers/type_manager.h"
 #include "managers/variable_manager.h"
 #include "output/output_manager.h" // ヘッダーから移動
@@ -124,6 +125,10 @@ Interpreter::Interpreter(bool debug)
 
     // struct変数管理サービスを初期化
     struct_variable_manager_ = std::make_unique<StructVariableManager>(this);
+
+    // struct代入管理サービスを初期化
+    struct_assignment_manager_ =
+        std::make_unique<StructAssignmentManager>(this);
 
     // 制御フロー実行サービスを初期化
     control_flow_executor_ = std::make_unique<ControlFlowExecutor>(this);

@@ -1,65 +1,68 @@
 #include "struct_assignment_manager.h"
+#include "../../../common/ast.h"
+#include "../../../common/debug.h"
+#include "../../../common/debug_messages.h"
 #include "core/interpreter.h"
-#include "core/ast.h"
-#include "common/debug.h"
+#include "evaluator/expression_evaluator.h"
+#include "managers/type_manager.h"
+#include "managers/variable_manager.h"
+#include <functional>
+#include <map>
 
 StructAssignmentManager::StructAssignmentManager(Interpreter *interpreter)
     : interpreter_(interpreter) {}
 
 void StructAssignmentManager::assign_struct_literal(
     const std::string &var_name, const ASTNode *literal_node) {
-    // 実装は後で追加
-    throw std::runtime_error("Not implemented yet: assign_struct_literal");
+    // TODO: 実装は次のセッションで移植
+    // 現在は何もしない（テスト用）
+    throw std::runtime_error("StructAssignmentManager::assign_struct_literal not implemented yet");
 }
 
 void StructAssignmentManager::assign_struct_member(
     const std::string &var_name, const std::string &member_name, long value) {
-    // 実装は後で追加
-    throw std::runtime_error("Not implemented yet: assign_struct_member(int)");
+    // TODO: 実装は次のセッションで移植
+    throw std::runtime_error("StructAssignmentManager::assign_struct_member(int) not implemented yet");
 }
 
 void StructAssignmentManager::assign_struct_member(
     const std::string &var_name, const std::string &member_name,
     const std::string &str_value) {
-    // 実装は後で追加
-    throw std::runtime_error(
-        "Not implemented yet: assign_struct_member(string)");
+    // TODO: 実装は次のセッションで移植
+    throw std::runtime_error("StructAssignmentManager::assign_struct_member(string) not implemented yet");
 }
 
 void StructAssignmentManager::assign_struct_member(
     const std::string &var_name, const std::string &member_name,
     const Variable &value_var) {
-    // 実装は後で追加
-    throw std::runtime_error("Not implemented yet: assign_struct_member(var)");
+    // TODO: 実装は次のセッションで移植
+    throw std::runtime_error("StructAssignmentManager::assign_struct_member(var) not implemented yet");
 }
 
 void StructAssignmentManager::assign_struct_member_struct(
     const std::string &var_name, const std::string &member_name,
     const Variable &src_struct) {
-    // 実装は後で追加
-    throw std::runtime_error("Not implemented yet: assign_struct_member_struct");
+    // TODO: 実装は次のセッションで移植
+    throw std::runtime_error("StructAssignmentManager::assign_struct_member_struct not implemented yet");
 }
 
 void StructAssignmentManager::assign_struct_member_array_element(
     const std::string &var_name, const std::string &member_name, int index,
     long value) {
-    // 実装は後で追加
-    throw std::runtime_error(
-        "Not implemented yet: assign_struct_member_array_element(int)");
+    // TODO: 実装は次のセッションで移植
+    throw std::runtime_error("StructAssignmentManager::assign_struct_member_array_element(int) not implemented yet");
 }
 
 void StructAssignmentManager::assign_struct_member_array_element(
     const std::string &var_name, const std::string &member_name, int index,
     const Variable &value_var) {
-    // 実装は後で追加
-    throw std::runtime_error(
-        "Not implemented yet: assign_struct_member_array_element(var)");
+    // TODO: 実装は次のセッションで移植
+    throw std::runtime_error("StructAssignmentManager::assign_struct_member_array_element(var) not implemented yet");
 }
 
 void StructAssignmentManager::assign_struct_member_array_literal(
     const std::string &var_name, const std::string &member_name,
     const std::vector<long> &values) {
-    // 実装は後で追加
-    throw std::runtime_error(
-        "Not implemented yet: assign_struct_member_array_literal");
+    // TODO: 実装は次のセッションで移植
+    throw std::runtime_error("StructAssignmentManager::assign_struct_member_array_literal not implemented yet");
 }
