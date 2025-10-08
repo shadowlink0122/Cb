@@ -120,6 +120,12 @@ class VariableManager {
     void process_variable_assignment(const ASTNode *node);
 
     /**
+     * @brief typedef解決と型設定を行う
+     * @return true if typedef was resolved, false otherwise
+     */
+    bool handle_typedef_resolution(const ASTNode *node, Variable &var);
+
+    /**
      * @brief unsigned変数の負の値をクランプするヘルパー
      */
     void clamp_unsigned_value(Variable &target, int64_t &value,

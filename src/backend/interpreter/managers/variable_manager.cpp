@@ -1167,191 +1167,8 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
             // ArrayTypeInfoで処理完了、次の分岐へ
         }
         // typedef解決処理（ArrayTypeInfoが設定されていない場合）
-        // type_infoが基本型でも、type_nameがtypedef名の場合は処理する
-        else if (!node->type_name.empty() &&
-                 interpreter_->type_manager_->resolve_typedef(
-                     node->type_name) != node->type_name) {
-            if (debug_mode) {
-                debug_print(
-                    "TYPEDEF_DEBUG: Entering typedef resolution branch\n");
-            }
-            std::string resolved_type =
-                interpreter_->type_manager_->resolve_typedef(node->type_name);
-
-            if (debug_mode) {
-                debug_print("TYPEDEF_DEBUG: Resolving typedef '%s' -> '%s' "
-                            "(type_info=%d)\n",
-                            node->type_name.c_str(), resolved_type.c_str(),
-                            static_cast<int>(node->type_info));
-            }
-
-            // union typedefの場合（早期return）
-            if (handle_union_typedef_declaration(node, var)) {
-                return; // 処理完了
-            }
-            // 配列typedefの場合
-            else if (resolved_type.find("[") != std::string::npos) {
-                std::string base =
-                    resolved_type.substr(0, resolved_type.find("["));
-                std::string array_part =
-                    resolved_type.substr(resolved_type.find("["));
-
-                TypeInfo base_type =
-                    interpreter_->type_manager_->string_to_type_info(base);
-                var.type = static_cast<TypeInfo>(TYPE_ARRAY_BASE + base_type);
-                var.is_array = true;
-
-                // 多次元配列の次元解析 [2][3] -> {2, 3}
-                std::vector<int> dimensions;
-                std::string remaining = array_part;
-
-                if (debug_mode) {
-                    debug_print("TYPEDEF_DEBUG: Processing typedef array: %s "
-                                "(array_part: %s)\n",
-                                node->type_name.c_str(), array_part.c_str());
-                }
-
-                while (!remaining.empty() && remaining[0] == '[') {
-                    size_t close_bracket = remaining.find(']');
-                    if (close_bracket == std::string::npos) {
-                        throw std::runtime_error(
-                            "Invalid array syntax: missing ']'");
-                    }
-
-                    std::string size_str =
-                        remaining.substr(1, close_bracket - 1);
-                    if (size_str.empty()) {
-                        // 動的配列（TYPE[]）はサポートされていない
-                        error_msg(DebugMsgId::DYNAMIC_ARRAY_NOT_SUPPORTED,
-                                  node->name.c_str());
-                        throw std::runtime_error(
-                            "Dynamic arrays are not supported yet");
-                    }
-
-                    int dimension_size;
-                    // 数値か定数識別子かを判定
-                    if (std::all_of(size_str.begin(), size_str.end(),
-                                    ::isdigit)) {
-                        dimension_size = std::stoi(size_str);
-                    } else {
-                        // 定数識別子の場合は値を取得
-                        Variable *const_var = find_variable(size_str);
-                        if (const_var && const_var->is_const &&
-                            const_var->type == TYPE_INT) {
-                            dimension_size = static_cast<int>(const_var->value);
-                        } else {
-                            throw std::runtime_error(
-                                "Array size must be a constant integer: " +
-                                size_str);
-                        }
-                    }
-
-                    dimensions.push_back(dimension_size);
-                    remaining = remaining.substr(close_bracket + 1);
-                }
-
-                if (dimensions.empty()) {
-                    var.array_size = 0; // 動的配列
-                } else if (dimensions.size() == 1) {
-                    // 1次元配列
-                    var.array_size = dimensions[0];
-                    var.is_multidimensional = false;
-                } else {
-                    // 多次元配列
-                    var.is_multidimensional = true;
-                    var.array_dimensions = dimensions;
-
-                    // 総サイズを計算
-                    int total_size = 1;
-                    for (int dim : dimensions) {
-                        total_size *= dim;
-                    }
-                    var.array_size = total_size;
-
-                    if (debug_mode) {
-                        debug_print("TYPEDEF_DEBUG: Multidim array created: "
-                                    "dimensions=%zu, total_size=%d\n",
-                                    dimensions.size(), total_size);
-                    }
-                }
-
-                // 配列初期化
-                if (base_type == TYPE_STRING) {
-                    if (var.is_multidimensional) {
-                        var.multidim_array_strings.resize(var.array_size, "");
-                    } else {
-                        var.array_strings.resize(var.array_size, "");
-                    }
-                } else {
-                    if (var.is_multidimensional) {
-                        var.multidim_array_values.resize(var.array_size, 0);
-                    } else {
-                        var.array_values.resize(var.array_size, 0);
-                    }
-                }
-
-            } else {
-                // 構造体typedefかチェック
-                const StructDefinition *struct_def =
-                    interpreter_->find_struct_definition(resolved_type);
-                if (struct_def) {
-                    if (debug_mode) {
-                        debug_print("TYPEDEF_DEBUG: Resolving struct typedef "
-                                    "'%s' -> '%s'\n",
-                                    node->type_name.c_str(),
-                                    resolved_type.c_str());
-                    }
-                    var.type = TYPE_STRUCT;
-                    var.is_struct = true;
-                    var.struct_type_name = resolved_type;
-
-                    // struct_membersを初期化
-                    for (const auto &member : struct_def->members) {
-                        Variable member_var;
-                        member_var.type = member.type;
-                        if (member.type == TYPE_STRING) {
-                            member_var.str_value = "";
-                        } else {
-                            member_var.value = 0;
-                        }
-                        member_var.is_assigned = false;
-                        var.struct_members[member.name] = member_var;
-
-                        // 個別メンバー変数も作成
-                        std::string member_path =
-                            node->name + "." + member.name;
-                        current_scope().variables[member_path] = member_var;
-
-                        if (debug_mode) {
-                            debug_print("TYPEDEF_DEBUG: Added struct member: "
-                                        "%s (type: %d)\n",
-                                        member.name.c_str(), (int)member.type);
-                        }
-                    }
-                } else {
-                    // プリミティブtypedefの場合
-                    var.type = interpreter_->type_manager_->string_to_type_info(
-                        resolved_type);
-
-                    // プリミティブtypedefでもimpl解決のためにstruct_type_nameを設定
-                    var.struct_type_name = node->type_name;
-
-                    if (debug_mode) {
-                        debug_print("TYPEDEF_DEBUG: Set primitive typedef '%s' "
-                                    "with struct_type_name='%s'\n",
-                                    node->type_name.c_str(),
-                                    node->type_name.c_str());
-                    }
-                }
-            }
-
-            // カスタム型の保存（union以外）
-            if (var.type != TYPE_UNION) {
-                var.type_name = node->type_name;
-                var.current_type = var.type;
-            }
-
-            // 初期化処理
+        else if (handle_typedef_resolution(node, var)) {
+            // typedef解決完了、初期化処理へ
             if (node->right || node->init_expr) {
                 ASTNode *init_node =
                     node->init_expr ? node->init_expr.get() : node->right.get();
@@ -4302,6 +4119,191 @@ void VariableManager::clamp_unsigned_value(Variable &target, int64_t &value,
                "Unsigned variable %s %s negative value (%lld); clamping to 0",
                var_name, context, static_cast<long long>(value));
     value = 0;
+}
+
+bool VariableManager::handle_typedef_resolution(const ASTNode *node,
+                                                 Variable &var) {
+    // typedef解決処理（ArrayTypeInfoが設定されていない場合）
+    // type_infoが基本型でも、type_nameがtypedef名の場合は処理する
+    if (!node->type_name.empty() &&
+        interpreter_->type_manager_->resolve_typedef(node->type_name) !=
+            node->type_name) {
+        if (debug_mode) {
+            debug_print("TYPEDEF_DEBUG: Entering typedef resolution branch\n");
+        }
+        std::string resolved_type =
+            interpreter_->type_manager_->resolve_typedef(node->type_name);
+
+        if (debug_mode) {
+            debug_print("TYPEDEF_DEBUG: Resolving typedef '%s' -> '%s' "
+                        "(type_info=%d)\n",
+                        node->type_name.c_str(), resolved_type.c_str(),
+                        static_cast<int>(node->type_info));
+        }
+
+        // union typedefの場合（早期return）
+        if (handle_union_typedef_declaration(node, var)) {
+            return true; // 処理完了（早期returnが既に実行済み）
+        }
+
+        // 配列typedefの場合
+        if (resolved_type.find("[") != std::string::npos) {
+            std::string base = resolved_type.substr(0, resolved_type.find("["));
+            std::string array_part =
+                resolved_type.substr(resolved_type.find("["));
+
+            TypeInfo base_type =
+                interpreter_->type_manager_->string_to_type_info(base);
+            var.type = static_cast<TypeInfo>(TYPE_ARRAY_BASE + base_type);
+            var.is_array = true;
+
+            // 多次元配列の次元解析 [2][3] -> {2, 3}
+            std::vector<int> dimensions;
+            std::string remaining = array_part;
+
+            if (debug_mode) {
+                debug_print("TYPEDEF_DEBUG: Processing typedef array: %s "
+                            "(array_part: %s)\n",
+                            node->type_name.c_str(), array_part.c_str());
+            }
+
+            while (!remaining.empty() && remaining[0] == '[') {
+                size_t close_bracket = remaining.find(']');
+                if (close_bracket == std::string::npos) {
+                    throw std::runtime_error("Invalid array syntax: missing ']'");
+                }
+
+                std::string size_str = remaining.substr(1, close_bracket - 1);
+                if (size_str.empty()) {
+                    // 動的配列（TYPE[]）はサポートされていない
+                    error_msg(DebugMsgId::DYNAMIC_ARRAY_NOT_SUPPORTED,
+                              node->name.c_str());
+                    throw std::runtime_error(
+                        "Dynamic arrays are not supported yet");
+                }
+
+                int dimension_size;
+                // 数値か定数識別子かを判定
+                if (std::all_of(size_str.begin(), size_str.end(), ::isdigit)) {
+                    dimension_size = std::stoi(size_str);
+                } else {
+                    // 定数識別子の場合は値を取得
+                    Variable *const_var = find_variable(size_str);
+                    if (const_var && const_var->is_const &&
+                        const_var->type == TYPE_INT) {
+                        dimension_size = static_cast<int>(const_var->value);
+                    } else {
+                        throw std::runtime_error(
+                            "Array size must be a constant integer: " +
+                            size_str);
+                    }
+                }
+
+                dimensions.push_back(dimension_size);
+                remaining = remaining.substr(close_bracket + 1);
+            }
+
+            if (dimensions.empty()) {
+                var.array_size = 0; // 動的配列
+            } else if (dimensions.size() == 1) {
+                // 1次元配列
+                var.array_size = dimensions[0];
+                var.is_multidimensional = false;
+            } else {
+                // 多次元配列
+                var.is_multidimensional = true;
+                var.array_dimensions = dimensions;
+
+                // 総サイズを計算
+                int total_size = 1;
+                for (int dim : dimensions) {
+                    total_size *= dim;
+                }
+                var.array_size = total_size;
+
+                if (debug_mode) {
+                    debug_print("TYPEDEF_DEBUG: Multidim array created: "
+                                "dimensions=%zu, total_size=%d\n",
+                                dimensions.size(), total_size);
+                }
+            }
+
+            // 配列初期化
+            if (base_type == TYPE_STRING) {
+                if (var.is_multidimensional) {
+                    var.multidim_array_strings.resize(var.array_size, "");
+                } else {
+                    var.array_strings.resize(var.array_size, "");
+                }
+            } else {
+                if (var.is_multidimensional) {
+                    var.multidim_array_values.resize(var.array_size, 0);
+                } else {
+                    var.array_values.resize(var.array_size, 0);
+                }
+            }
+
+        } else {
+            // 構造体typedefかチェック
+            const StructDefinition *struct_def =
+                interpreter_->find_struct_definition(resolved_type);
+            if (struct_def) {
+                if (debug_mode) {
+                    debug_print("TYPEDEF_DEBUG: Resolving struct typedef "
+                                "'%s' -> '%s'\n",
+                                node->type_name.c_str(), resolved_type.c_str());
+                }
+                var.type = TYPE_STRUCT;
+                var.is_struct = true;
+                var.struct_type_name = resolved_type;
+
+                // struct_membersを初期化
+                for (const auto &member : struct_def->members) {
+                    Variable member_var;
+                    member_var.type = member.type;
+                    if (member.type == TYPE_STRING) {
+                        member_var.str_value = "";
+                    } else {
+                        member_var.value = 0;
+                    }
+                    member_var.is_assigned = false;
+                    var.struct_members[member.name] = member_var;
+
+                    // 個別メンバー変数も作成
+                    std::string member_path = node->name + "." + member.name;
+                    current_scope().variables[member_path] = member_var;
+
+                    if (debug_mode) {
+                        debug_print("TYPEDEF_DEBUG: Added struct member: "
+                                    "%s (type: %d)\n",
+                                    member.name.c_str(), (int)member.type);
+                    }
+                }
+            } else {
+                // プリミティブtypedefの場合
+                var.type =
+                    interpreter_->type_manager_->string_to_type_info(resolved_type);
+
+                // プリミティブtypedefでもimpl解決のためにstruct_type_nameを設定
+                var.struct_type_name = node->type_name;
+
+                if (debug_mode) {
+                    debug_print("TYPEDEF_DEBUG: Set primitive typedef '%s' "
+                                "with struct_type_name='%s'\n",
+                                node->type_name.c_str(), node->type_name.c_str());
+                }
+            }
+        }
+
+        // カスタム型の保存（union以外）
+        if (var.type != TYPE_UNION) {
+            var.type_name = node->type_name;
+            var.current_type = var.type;
+        }
+
+        return true; // typedef解決完了
+    }
+    return false; // typedefではない
 }
 
 void VariableManager::assign_union_value(Variable &var,
