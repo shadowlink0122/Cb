@@ -407,11 +407,11 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
             Variable temp_receiver;
             temp_receiver.is_assigned = true;
 
-            if (chain_ret.type == TYPE_STRUCT ||
-                chain_ret.type == TYPE_INTERFACE || chain_ret.is_struct) {
+            if (TypeHelpers::isStruct(chain_ret.type) ||
+                TypeHelpers::isInterface(chain_ret.type) || chain_ret.is_struct) {
                 temp_receiver = chain_ret.struct_value;
 
-                if (temp_receiver.type == TYPE_INTERFACE) {
+                if (TypeHelpers::isInterface(temp_receiver.type)) {
                     bool has_struct_members =
                         temp_receiver.is_struct ||
                         !temp_receiver.struct_members.empty();
@@ -442,10 +442,10 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                     temp_receiver.type = TYPE_STRUCT;
                 }
 
-                if (temp_receiver.type == TYPE_STRUCT) {
+                if (TypeHelpers::isStruct(temp_receiver.type)) {
                     temp_receiver.is_struct = true;
                 }
-            } else if (chain_ret.type == TYPE_STRING) {
+            } else if (TypeHelpers::isString(chain_ret.type)) {
                 temp_receiver.type = TYPE_STRING;
                 temp_receiver.str_value = chain_ret.str_value;
             } else {
@@ -783,7 +783,7 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
         // Only mark as struct if it actually has struct members or is already
         // TYPE_STRUCT Don't mark primitive types as struct even if they have a
         // type_name
-        if (self_var.type == TYPE_STRUCT || !self_var.struct_members.empty()) {
+        if (TypeHelpers::isStruct(self_var.type) || !self_var.struct_members.empty()) {
             self_var.type = TYPE_STRUCT;
             self_var.is_struct = true;
         }
@@ -844,7 +844,7 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
 
                 if (member_value.is_array) {
                     const bool is_string_array =
-                        (member_value.type == TYPE_STRING);
+                        TypeHelpers::isString(member_value.type);
 
                     int total_elements = member_value.array_size;
                     if (total_elements <= 0) {
@@ -986,7 +986,7 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                             self_member_path.c_str());
 
                 // メンバーが構造体の場合、そのネストメンバーも再帰的に作成
-                if (member_value.type == TYPE_STRUCT ||
+                if (TypeHelpers::isStruct(member_value.type) ||
                     member_value.is_struct) {
                     std::string nested_base_name =
                         receiver_name + "." + member_name;
@@ -1387,7 +1387,7 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                                         "interface parameter '" +
                                         param->name + "'");
                                 }
-                                if (!ret.is_struct && ret.type == TYPE_STRING) {
+                                if (!ret.is_struct && TypeHelpers::isString(ret.type)) {
                                     Variable temp = build_temp_from_primitive(
                                         TYPE_STRING, 0, ret.str_value);
                                     assign_interface_argument(temp, "");
@@ -1539,7 +1539,7 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                             // struct_membersの配列要素も確実にコピー
                             for (auto &member_pair : param_var.struct_members) {
                                 if (member_pair.second.is_array &&
-                                    member_pair.second.type == TYPE_STRING) {
+                                    TypeHelpers::isString(member_pair.second.type)) {
                                     // 文字列配列の場合、array_stringsを確実にコピー
                                     const auto &source_member =
                                         sync_source_var->struct_members.find(
@@ -2039,12 +2039,12 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                 throw ret;
             }
             // 文字列戻り値の場合は例外を再度投げる
-            if (ret.type == TYPE_STRING) {
+            if (TypeHelpers::isString(ret.type)) {
                 throw ret;
             }
             // float/double/quad戻り値の場合は例外を再度投げる
             // (evaluate_expressionはint64_tしか返せないため、上位でTypedValueとして処理する必要がある)
-            if (ret.type == TYPE_FLOAT || ret.type == TYPE_DOUBLE || ret.type == TYPE_QUAD) {
+            if (TypeHelpers::isFloating(ret.type) || ret.type == TYPE_QUAD) {
                 throw ret;
             }
             // 参照戻り値の場合は例外を再度投げる

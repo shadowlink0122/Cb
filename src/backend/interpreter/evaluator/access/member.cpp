@@ -402,7 +402,7 @@ int64_t ExpressionEvaluator::evaluate_member_access_impl(const ASTNode *node) {
                     Variable member_var = get_struct_member_from_variable(
                         struct_var, member_name);
 
-                    if (member_var.type == TYPE_STRING) {
+                    if (TypeHelpers::isString(member_var.type)) {
                         TypedValue typed_result(
                             static_cast<int64_t>(0),
                             InferredType(TYPE_STRING, "string"));
@@ -410,7 +410,7 @@ int64_t ExpressionEvaluator::evaluate_member_access_impl(const ASTNode *node) {
                         typed_result.is_numeric_result = false;
                         last_typed_result_ = typed_result;
                         return 0;
-                    } else if (member_var.type == TYPE_FLOAT ||
+                    } else if (TypeHelpers::isFloating(member_var.type) ||
                                member_var.type == TYPE_DOUBLE ||
                                member_var.type == TYPE_QUAD) {
                         InferredType float_type(member_var.type, "");
@@ -453,15 +453,14 @@ int64_t ExpressionEvaluator::evaluate_member_access_impl(const ASTNode *node) {
         Variable member_var =
             get_struct_member_from_variable(*struct_var, member_name);
 
-        if (member_var.type == TYPE_STRING) {
+        if (TypeHelpers::isString(member_var.type)) {
             TypedValue typed_result(static_cast<int64_t>(0),
                                     InferredType(TYPE_STRING, "string"));
             typed_result.string_value = member_var.str_value;
             typed_result.is_numeric_result = false;
             last_typed_result_ = typed_result;
             return 0;
-        } else if (member_var.type == TYPE_FLOAT ||
-                   member_var.type == TYPE_DOUBLE ||
+        } else if (TypeHelpers::isFloating(member_var.type) ||
                    member_var.type == TYPE_QUAD) {
             InferredType float_type(member_var.type, "");
             if (member_var.type == TYPE_QUAD) {
@@ -504,15 +503,14 @@ int64_t ExpressionEvaluator::evaluate_member_access_impl(const ASTNode *node) {
             Variable result_member =
                 get_struct_member_from_variable(*base_var, member_name);
             // 一時変数として返す必要があるため、last_typed_result_を使用
-            if (result_member.type == TYPE_STRING) {
+            if (TypeHelpers::isString(result_member.type)) {
                 TypedValue typed_result(static_cast<int64_t>(0),
                                         InferredType(TYPE_STRING, "string"));
                 typed_result.string_value = result_member.str_value;
                 typed_result.is_numeric_result = false;
                 last_typed_result_ = typed_result;
                 return 0;
-            } else if (result_member.type == TYPE_FLOAT ||
-                       result_member.type == TYPE_DOUBLE ||
+            } else if (TypeHelpers::isFloating(result_member.type) ||
                        result_member.type == TYPE_QUAD) {
                 InferredType float_type(result_member.type, "");
                 if (result_member.type == TYPE_QUAD) {
@@ -523,7 +521,7 @@ int64_t ExpressionEvaluator::evaluate_member_access_impl(const ASTNode *node) {
                         TypedValue(result_member.float_value, float_type);
                 }
                 return static_cast<int64_t>(result_member.float_value);
-            } else if (result_member.type == TYPE_STRUCT) {
+            } else if (TypeHelpers::isStruct(result_member.type)) {
                 // 構造体メンバの場合、ReturnExceptionでラップして返す
                 throw ReturnException(result_member);
             } else {
