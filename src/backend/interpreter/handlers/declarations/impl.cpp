@@ -1,8 +1,8 @@
-#include "handlers/impl_declaration_handler.h"
-#include "../../../common/ast.h"
-#include "../../../common/debug.h"
-#include "../../../common/debug_messages.h"
-#include "core/interpreter.h"
+#include "impl.h"
+#include "../../../../common/ast.h"
+#include "../../../../common/debug.h"
+#include "../../../../common/debug_messages.h"
+#include "../../core/interpreter.h"
 
 ImplDeclarationHandler::ImplDeclarationHandler(Interpreter *interpreter) {
     (void)interpreter; // 未使用パラメータの警告抑制

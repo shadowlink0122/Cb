@@ -1,10 +1,10 @@
-#include "return_handler.h"
-#include "../../../common/ast.h"
-#include "../../../common/debug.h"
-#include "../../../common/debug_messages.h"
-#include "../core/interpreter.h"
-#include "../core/type_inference.h"
-#include "../evaluator/core/evaluator.h"
+#include "return.h"
+#include "../../../../common/ast.h"
+#include "../../../../common/debug.h"
+#include "../../../../common/debug_messages.h"
+#include "../../core/interpreter.h"
+#include "../../core/type_inference.h"
+#include "../../evaluator/core/evaluator.h"
 #include <stdexcept>
 
 // return文の実行

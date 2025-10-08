@@ -57,14 +57,14 @@ BACKEND_OBJS = \
 	src/backend/interpreter/executors/statement_executor.o \
 	src/backend/interpreter/executors/control_flow_executor.o \
 	src/backend/interpreter/executors/statement_list_executor.o \
-	src/backend/interpreter/handlers/return_handler.o \
-	src/backend/interpreter/handlers/assertion_handler.o \
-	src/backend/interpreter/handlers/break_continue_handler.o \
-	src/backend/interpreter/handlers/function_declaration_handler.o \
-	src/backend/interpreter/handlers/struct_declaration_handler.o \
-	src/backend/interpreter/handlers/interface_declaration_handler.o \
-	src/backend/interpreter/handlers/impl_declaration_handler.o \
-	src/backend/interpreter/handlers/expression_statement_handler.o \
+	src/backend/interpreter/handlers/control/return.o \
+	src/backend/interpreter/handlers/control/assertion.o \
+	src/backend/interpreter/handlers/control/break_continue.o \
+	src/backend/interpreter/handlers/declarations/function.o \
+	src/backend/interpreter/handlers/declarations/struct.o \
+	src/backend/interpreter/handlers/declarations/interface.o \
+	src/backend/interpreter/handlers/declarations/impl.o \
+	src/backend/interpreter/handlers/statements/expression.o \
 	src/backend/interpreter/managers/variables/manager.o \
 	src/backend/interpreter/managers/variables/declaration.o \
 	src/backend/interpreter/managers/variables/assignment.o \
@@ -261,14 +261,14 @@ unit-test: $(MAIN_TARGET) $(FRONTEND_OBJS) $(BACKEND_OBJS) $(COMMON_OBJS) $(PLAT
 		../../$(BACKEND_DIR)/interpreter/executors/statement_executor.o \
 		../../$(BACKEND_DIR)/interpreter/executors/control_flow_executor.o \
 		../../$(BACKEND_DIR)/interpreter/executors/statement_list_executor.o \
-		../../$(BACKEND_DIR)/interpreter/handlers/return_handler.o \
-		../../$(BACKEND_DIR)/interpreter/handlers/assertion_handler.o \
-		../../$(BACKEND_DIR)/interpreter/handlers/break_continue_handler.o \
-		../../$(BACKEND_DIR)/interpreter/handlers/function_declaration_handler.o \
-		../../$(BACKEND_DIR)/interpreter/handlers/struct_declaration_handler.o \
-		../../$(BACKEND_DIR)/interpreter/handlers/interface_declaration_handler.o \
-		../../$(BACKEND_DIR)/interpreter/handlers/impl_declaration_handler.o \
-		../../$(BACKEND_DIR)/interpreter/handlers/expression_statement_handler.o \
+		../../$(BACKEND_DIR)/interpreter/handlers/control/return.o \
+		../../$(BACKEND_DIR)/interpreter/handlers/control/assertion.o \
+		../../$(BACKEND_DIR)/interpreter/handlers/control/break_continue.o \
+		../../$(BACKEND_DIR)/interpreter/handlers/declarations/function.o \
+		../../$(BACKEND_DIR)/interpreter/handlers/declarations/struct.o \
+		../../$(BACKEND_DIR)/interpreter/handlers/declarations/interface.o \
+		../../$(BACKEND_DIR)/interpreter/handlers/declarations/impl.o \
+		../../$(BACKEND_DIR)/interpreter/handlers/statements/expression.o \
 		../../$(COMMON_DIR)/type_utils.o \
 		../../$(COMMON_DIR)/type_alias.o \
 		../../$(COMMON_DIR)/array_type_info.o \

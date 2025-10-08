@@ -1,8 +1,8 @@
-#include "handlers/struct_declaration_handler.h"
-#include "../../../common/ast.h"
-#include "../../../common/debug.h"
-#include "../../../common/debug_messages.h"
-#include "core/interpreter.h"
+#include "struct.h"
+#include "../../../../common/ast.h"
+#include "../../../../common/debug.h"
+#include "../../../../common/debug_messages.h"
+#include "../../core/interpreter.h"
 
 StructDeclarationHandler::StructDeclarationHandler(Interpreter *interpreter)
     : interpreter_(interpreter) {}

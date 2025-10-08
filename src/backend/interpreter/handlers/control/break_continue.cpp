@@ -1,7 +1,7 @@
-#include "handlers/break_continue_handler.h"
-#include "../../../common/ast.h"
-#include "core/interpreter.h"
-#include "evaluator/core/evaluator.h"
+#include "break_continue.h"
+#include "../../../../common/debug.h"
+#include "../../core/interpreter.h"
+#include "../../evaluator/core/evaluator.h"
 
 BreakContinueHandler::BreakContinueHandler(Interpreter *interpreter)
     : interpreter_(interpreter) {}

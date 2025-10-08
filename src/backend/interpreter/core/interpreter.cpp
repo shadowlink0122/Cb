@@ -10,14 +10,14 @@
 #include "executors/control_flow_executor.h" // 制御フロー実行サービス
 #include "executors/statement_executor.h"    // ヘッダーから移動
 #include "executors/statement_list_executor.h" // 文リスト・複合文実行サービス
-#include "handlers/assertion_handler.h" // アサーション文処理サービス
-#include "handlers/break_continue_handler.h" // break/continue文処理サービス
-#include "handlers/expression_statement_handler.h" // 式文処理サービス
-#include "handlers/function_declaration_handler.h" // 関数宣言処理サービス
-#include "handlers/impl_declaration_handler.h" // impl宣言処理サービス
-#include "handlers/interface_declaration_handler.h" // インターフェース宣言処理サービス
-#include "handlers/return_handler.h"             // return文処理サービス
-#include "handlers/struct_declaration_handler.h" // 構造体宣言処理サービス
+#include "handlers/control/assertion.h" // アサーション文処理サービス
+#include "handlers/control/break_continue.h" // break/continue文処理サービス
+#include "handlers/statements/expression.h" // 式文処理サービス
+#include "handlers/declarations/function.h" // 関数宣言処理サービス
+#include "handlers/declarations/impl.h" // impl宣言処理サービス
+#include "handlers/declarations/interface.h" // インターフェース宣言処理サービス
+#include "handlers/control/return.h"             // return文処理サービス
+#include "handlers/declarations/struct.h" // 構造体宣言処理サービス
 #include "managers/arrays/manager.h"
 #include "managers/common/operations.h"
 #include "managers/types/enums.h"                  // enum管理サービス

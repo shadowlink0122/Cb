@@ -1,8 +1,8 @@
-#include "handlers/assertion_handler.h"
-#include "../../../common/ast.h"
-#include "../../../common/debug.h"
-#include "../../../common/debug_messages.h"
-#include "core/interpreter.h"
+#include "assertion.h"
+#include "../../../../common/ast.h"
+#include "../../../../common/debug.h"
+#include "../../../../common/debug_messages.h"
+#include "../../core/interpreter.h"
 #include <cstdlib>
 #include <iostream>
 

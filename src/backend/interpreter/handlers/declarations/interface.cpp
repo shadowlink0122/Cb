@@ -1,8 +1,8 @@
-#include "handlers/interface_declaration_handler.h"
-#include "../../../common/ast.h"
-#include "../../../common/debug.h"
-#include "../../../common/debug_messages.h"
-#include "core/interpreter.h"
+#include "interface.h"
+#include "../../../../common/ast.h"
+#include "../../../../common/debug.h"
+#include "../../../../common/debug_messages.h"
+#include "../../core/interpreter.h"
 
 InterfaceDeclarationHandler::InterfaceDeclarationHandler(
     Interpreter *interpreter)

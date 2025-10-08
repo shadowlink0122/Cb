@@ -1,6 +1,6 @@
-#include "function_declaration_handler.h"
-#include "../../../common/ast.h"
-#include "core/interpreter.h"
+#include "function.h"
+#include "../../../../common/ast.h"
+#include "../../core/interpreter.h"
 
 FunctionDeclarationHandler::FunctionDeclarationHandler(Interpreter *interp)
     : interpreter_(interp) {}
