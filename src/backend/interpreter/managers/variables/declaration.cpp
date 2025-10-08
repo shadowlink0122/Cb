@@ -93,6 +93,10 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
         }
         // typedef解決処理（ArrayTypeInfoが設定されていない場合）
         else if (handle_typedef_resolution(node, var)) {
+            // Union型の場合は既に処理完了しているので早期リターン
+            if (var.type == TYPE_UNION) {
+                return; // Union型は handle_union_typedef_declaration 内で全て完了
+            }
             // typedef解決完了、初期化処理へ
             if (node->right || node->init_expr) {
                 ASTNode *init_node =

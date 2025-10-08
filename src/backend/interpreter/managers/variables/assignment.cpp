@@ -85,6 +85,17 @@ void VariableManager::process_variable_assignment(const ASTNode *node) {
                                          var_name);
             }
 
+            // Union型変数への代入の特別処理
+            if (var->type == TYPE_UNION) {
+                if (debug_mode) {
+                    debug_print("UNION_ASSIGN_DEBUG: Processing union "
+                                "assignment for variable '%s' (name node)\n",
+                                var_name.c_str());
+                }
+                assign_union_value(*var, var->type_name, node->right.get());
+                return; // Union型代入処理完了後は早期リターン
+            }
+
             // Interface型の変数（ポインタを除く）の代入処理
             if (debug_mode) {
                 debug_print("VAR_ASSIGN_DEBUG: var_name=%s, var->type=%d, "
