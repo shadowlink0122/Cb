@@ -133,6 +133,14 @@ class VariableManager {
     void handle_struct_member_initialization(const ASTNode *node, Variable &var);
 
     /**
+     * @brief Interface型変数の初期化処理
+     * @param node 変数宣言ノード
+     * @param var 初期化する変数
+     * @return true if handled as interface initialization (early return), false otherwise
+     */
+    bool handle_interface_initialization(const ASTNode *node, Variable &var);
+
+    /**
      * @brief unsigned変数の負の値をクランプするヘルパー
      */
     void clamp_unsigned_value(Variable &target, int64_t &value,

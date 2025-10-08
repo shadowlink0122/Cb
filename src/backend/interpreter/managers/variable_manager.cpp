@@ -1542,100 +1542,10 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
 
                 return; // struct literal処理完了後は早期リターン
 
-            } else if (!var.interface_name.empty() &&
-                       var.type != TYPE_POINTER) {
-                // Interface型変数（ポインタを除く）の初期化処理
-                auto assign_from_source = [&](const Variable &source,
-                                              const std::string &source_name) {
-                    assign_interface_view(node->name, var, source, source_name);
-                };
-
-                if (node->init_expr->node_type == ASTNodeType::AST_VARIABLE ||
-                    node->init_expr->node_type == ASTNodeType::AST_IDENTIFIER) {
-                    std::string source_var_name = node->init_expr->name;
-                    Variable *source_var = find_variable(source_var_name);
-                    if (!source_var) {
-                        throw std::runtime_error("Source variable not found: " +
-                                                 source_var_name);
-                    }
-                    if (!source_var->is_struct &&
-                        !isPrimitiveType(source_var) &&
-                        source_var->type < TYPE_ARRAY_BASE &&
-                        source_var->type != TYPE_INTERFACE) {
-                        throw std::runtime_error(
-                            "Cannot assign non-struct/non-primitive to "
-                            "interface variable");
-                    }
-
-                    debug_msg(DebugMsgId::INTERFACE_VARIABLE_ASSIGN,
-                              var.interface_name.c_str(),
-                              source_var_name.c_str());
-                    assign_from_source(*source_var, source_var_name);
-                    return;
-                }
-
-                auto create_temp_primitive =
-                    [&](TypeInfo value_type, int64_t numeric_value,
-                        const std::string &string_value) {
-                        Variable temp;
-                        temp.is_assigned = true;
-                        temp.type = value_type;
-                        if (value_type == TYPE_STRING) {
-                            temp.str_value = string_value;
-                        } else {
-                            temp.value = numeric_value;
-                        }
-                        temp.struct_type_name =
-                            getPrimitiveTypeNameForImpl(value_type);
-                        return temp;
-                    };
-
-                try {
-                    if (node->init_expr->node_type ==
-                        ASTNodeType::AST_STRING_LITERAL) {
-                        Variable temp = create_temp_primitive(
-                            TYPE_STRING, 0, node->init_expr->str_value);
-                        assign_from_source(temp, "");
-                        return;
-                    }
-
-                    int64_t numeric_value =
-                        interpreter_->evaluate(node->init_expr.get());
-                    TypeInfo resolved_type =
-                        node->init_expr->type_info != TYPE_UNKNOWN
-                            ? node->init_expr->type_info
-                            : TYPE_INT;
-                    Variable temp =
-                        create_temp_primitive(resolved_type, numeric_value, "");
-                    assign_from_source(temp, "");
-                    return;
-                } catch (const ReturnException &ret) {
-                    if (ret.is_array) {
-                        throw std::runtime_error(
-                            "Cannot assign array return value to interface "
-                            "variable '" +
-                            node->name + "'");
-                    }
-
-                    if (!ret.is_struct) {
-                        if (ret.type == TYPE_STRING) {
-                            Variable temp = create_temp_primitive(
-                                TYPE_STRING, 0, ret.str_value);
-                            assign_from_source(temp, "");
-                            return;
-                        }
-
-                        Variable temp = create_temp_primitive(
-                            ret.type, ret.value, ret.str_value);
-                        assign_from_source(temp, "");
-                        return;
-                    }
-
-                    // 構造体戻り値の場合はインターフェースとして処理
-                    assign_from_source(ret.struct_value, "");
-                    return;
-                }
-
+            }
+            // Interface型変数の初期化処理
+            else if (handle_interface_initialization(node, var)) {
+                return; // Interface初期化完了（早期return）
             } else if (var.is_struct && node->init_expr->node_type ==
                                             ASTNodeType::AST_VARIABLE) {
                 // struct to struct代入の処理: Person p2 = p1;
@@ -4907,4 +4817,99 @@ void VariableManager::handle_struct_member_initialization(const ASTNode *node,
             }
         }
     }
+}
+
+bool VariableManager::handle_interface_initialization(const ASTNode *node,
+                                                       Variable &var) {
+    // Interface型変数（ポインタを除く）の初期化処理
+    if (!var.interface_name.empty() && var.type != TYPE_POINTER &&
+        node->init_expr) {
+        auto assign_from_source = [&](const Variable &source,
+                                      const std::string &source_name) {
+            assign_interface_view(node->name, var, source, source_name);
+        };
+
+        if (node->init_expr->node_type == ASTNodeType::AST_VARIABLE ||
+            node->init_expr->node_type == ASTNodeType::AST_IDENTIFIER) {
+            std::string source_var_name = node->init_expr->name;
+            Variable *source_var = find_variable(source_var_name);
+            if (!source_var) {
+                throw std::runtime_error("Source variable not found: " +
+                                         source_var_name);
+            }
+            if (!source_var->is_struct && !isPrimitiveType(source_var) &&
+                source_var->type < TYPE_ARRAY_BASE &&
+                source_var->type != TYPE_INTERFACE) {
+                throw std::runtime_error(
+                    "Cannot assign non-struct/non-primitive to interface "
+                    "variable");
+            }
+
+            debug_msg(DebugMsgId::INTERFACE_VARIABLE_ASSIGN,
+                      var.interface_name.c_str(), source_var_name.c_str());
+            assign_from_source(*source_var, source_var_name);
+            return true; // 処理完了（早期return）
+        }
+
+        auto create_temp_primitive = [&](TypeInfo value_type,
+                                          int64_t numeric_value,
+                                          const std::string &string_value) {
+            Variable temp;
+            temp.is_assigned = true;
+            temp.type = value_type;
+            if (value_type == TYPE_STRING) {
+                temp.str_value = string_value;
+            } else {
+                temp.value = numeric_value;
+            }
+            temp.struct_type_name = getPrimitiveTypeNameForImpl(value_type);
+            return temp;
+        };
+
+        try {
+            if (node->init_expr->node_type ==
+                ASTNodeType::AST_STRING_LITERAL) {
+                Variable temp = create_temp_primitive(
+                    TYPE_STRING, 0, node->init_expr->str_value);
+                assign_from_source(temp, "");
+                return true; // 処理完了（早期return）
+            }
+
+            int64_t numeric_value =
+                interpreter_->evaluate(node->init_expr.get());
+            TypeInfo resolved_type = node->init_expr->type_info != TYPE_UNKNOWN
+                                         ? node->init_expr->type_info
+                                         : TYPE_INT;
+            Variable temp =
+                create_temp_primitive(resolved_type, numeric_value, "");
+            assign_from_source(temp, "");
+            return true; // 処理完了（早期return）
+        } catch (const ReturnException &ret) {
+            if (ret.is_array) {
+                throw std::runtime_error(
+                    "Cannot assign array return value to interface variable '" +
+                    node->name + "'");
+            }
+
+            if (!ret.is_struct) {
+                if (ret.type == TYPE_STRING) {
+                    Variable temp =
+                        create_temp_primitive(TYPE_STRING, 0, ret.str_value);
+                    assign_from_source(temp, "");
+                    return true; // 処理完了（早期return）
+                }
+
+                Variable temp =
+                    create_temp_primitive(ret.type, ret.value, ret.str_value);
+                assign_from_source(temp, "");
+                return true; // 処理完了（早期return）
+            }
+
+            // 構造体戻り値の場合はインターフェースとして処理
+            assign_from_source(ret.struct_value, "");
+            return true; // 処理完了（早期return）
+        }
+    }
+
+    return false; // Interface初期化ではない
 }
