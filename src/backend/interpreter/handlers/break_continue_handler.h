@@ -1,7 +1,7 @@
 #ifndef CB_INTERPRETER_BREAK_CONTINUE_HANDLER_H
 #define CB_INTERPRETER_BREAK_CONTINUE_HANDLER_H
 
-class ASTNode;
+struct ASTNode;
 class Interpreter;
 
 /**

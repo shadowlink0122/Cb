@@ -60,29 +60,6 @@ std::string trim_copy(const std::string &text) {
     return std::string(begin, end);
 }
 
-std::string normalize_struct_type_name(const std::string &raw_name) {
-    std::string normalized = trim_copy(raw_name);
-    if (normalized.empty()) {
-        return normalized;
-    }
-
-    if (normalized.rfind("struct ", 0) == 0) {
-        normalized = trim_copy(normalized.substr(7));
-    }
-
-    while (!normalized.empty() && normalized.back() == '*') {
-        normalized.pop_back();
-    }
-    normalized = trim_copy(normalized);
-
-    auto bracket_pos = normalized.find('[');
-    if (bracket_pos != std::string::npos) {
-        normalized = trim_copy(normalized.substr(0, bracket_pos));
-    }
-
-    return normalized;
-}
-
 } // namespace
 
 // ========================================================================

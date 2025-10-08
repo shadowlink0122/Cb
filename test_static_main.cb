@@ -1,7 +1,0 @@
-int main() {
-    static int count = 0;
-    println("Before: %d", count);
-    count++;
-    println("After: %d", count);
-    return 0;
-}

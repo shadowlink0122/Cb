@@ -1,7 +1,7 @@
 #ifndef CB_INTERPRETER_STRUCT_DECLARATION_HANDLER_H
 #define CB_INTERPRETER_STRUCT_DECLARATION_HANDLER_H
 
-class ASTNode;
+struct ASTNode;
 class Interpreter;
 
 /**

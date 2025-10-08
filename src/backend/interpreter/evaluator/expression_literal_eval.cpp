@@ -7,15 +7,6 @@ extern DebugLanguage debug_language;
 
 namespace LiteralEvalHelpers {
 
-// ヘルパー関数：型の確保
-static InferredType ensure_type(const InferredType &inferred, TypeInfo type,
-                                const std::string &name) {
-    if (inferred.type_info != TYPE_UNKNOWN) {
-        return inferred;
-    }
-    return InferredType(type, name);
-}
-
 // ヘルパー関数：型情報から文字列への変換（簡易版）
 static const char *type_info_to_string_simple(TypeInfo type) {
     switch (type) {

@@ -323,18 +323,6 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
                       "Using array_type_info dimensions for struct array");
             int size = node->array_type_info.dimensions[0].size;
 
-            debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
-                      ("size_expr content: '" +
-                       node->array_type_info.dimensions[0].size_expr + "'")
-                          .c_str());
-            debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
-                      ("size_expr empty: " +
-                       std::string(
-                           node->array_type_info.dimensions[0].size_expr.empty()
-                               ? "true"
-                               : "false"))
-                          .c_str());
-
             // sizeが0または負の場合、size_exprを評価してみる
             if ((size <= 0 || size == -1) &&
                 !node->array_type_info.dimensions[0].size_expr.empty()) {

@@ -1,7 +1,7 @@
 #ifndef CB_INTERPRETER_IMPL_DECLARATION_HANDLER_H
 #define CB_INTERPRETER_IMPL_DECLARATION_HANDLER_H
 
-class ASTNode;
+struct ASTNode;
 class Interpreter;
 
 /**
@@ -21,9 +21,6 @@ class ImplDeclarationHandler {
      * 実行時には何もしない(既に登録済み)。
      */
     void handle_impl_declaration(const ASTNode *node);
-
-  private:
-    Interpreter *interpreter_;
 };
 
 #endif // CB_INTERPRETER_IMPL_DECLARATION_HANDLER_H

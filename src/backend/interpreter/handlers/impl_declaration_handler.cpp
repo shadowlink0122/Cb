@@ -4,8 +4,9 @@
 #include "../../../common/debug_messages.h"
 #include "core/interpreter.h"
 
-ImplDeclarationHandler::ImplDeclarationHandler(Interpreter *interpreter)
-    : interpreter_(interpreter) {}
+ImplDeclarationHandler::ImplDeclarationHandler(Interpreter *interpreter) {
+    (void)interpreter; // 未使用パラメータの警告抑制
+}
 
 void ImplDeclarationHandler::handle_impl_declaration(const ASTNode *node) {
     // impl宣言は register_global_declarations() で既に処理済み

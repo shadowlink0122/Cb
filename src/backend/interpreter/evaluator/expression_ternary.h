@@ -7,7 +7,7 @@
 
 // 前方宣言
 class Interpreter;
-class TypedValue;
+struct TypedValue;
 
 /**
  * 三項演算子（?:）評価のヘルパー関数群

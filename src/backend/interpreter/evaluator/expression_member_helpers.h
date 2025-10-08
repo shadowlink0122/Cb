@@ -8,8 +8,8 @@
 
 // 前方宣言
 class Interpreter;
-class TypedValue;
-class Variable;
+struct TypedValue;
+struct Variable;
 class ExpressionEvaluator;
 
 /**
