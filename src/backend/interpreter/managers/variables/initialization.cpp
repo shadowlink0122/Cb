@@ -1,14 +1,14 @@
-#include "managers/variables/manager.h"
 #include "../../../../common/debug.h"
 #include "../../../../common/debug_messages.h"
-#include "../../services/debug_service.h"
 #include "../../core/interpreter.h"
+#include "../../services/debug_service.h"
 #include "core/type_inference.h"
 #include "evaluator/core/evaluator.h"
 #include "managers/arrays/manager.h"
 #include "managers/common/operations.h"
 #include "managers/types/enums.h"
 #include "managers/types/manager.h"
+#include "managers/variables/manager.h"
 #include <algorithm>
 #include <cstdio>
 #include <numeric>
@@ -51,8 +51,8 @@ void setNumericFields(Variable &var, long double quad_value) {
 } // namespace
 
 void VariableManager::clamp_unsigned_value(Variable &target, int64_t &value,
-                                            const char *context,
-                                            const ASTNode *node) {
+                                           const char *context,
+                                           const ASTNode *node) {
     if (!target.is_unsigned || value >= 0) {
         return;
     }
@@ -64,7 +64,7 @@ void VariableManager::clamp_unsigned_value(Variable &target, int64_t &value,
 }
 
 bool VariableManager::handle_typedef_resolution(const ASTNode *node,
-                                                 Variable &var) {
+                                                Variable &var) {
     // typedef解決処理（ArrayTypeInfoが設定されていない場合）
     // type_infoが基本型でも、type_nameがtypedef名の場合は処理する
     if (!node->type_name.empty() &&
@@ -112,7 +112,8 @@ bool VariableManager::handle_typedef_resolution(const ASTNode *node,
             while (!remaining.empty() && remaining[0] == '[') {
                 size_t close_bracket = remaining.find(']');
                 if (close_bracket == std::string::npos) {
-                    throw std::runtime_error("Invalid array syntax: missing ']'");
+                    throw std::runtime_error(
+                        "Invalid array syntax: missing ']'");
                 }
 
                 std::string size_str = remaining.substr(1, close_bracket - 1);
@@ -223,8 +224,8 @@ bool VariableManager::handle_typedef_resolution(const ASTNode *node,
                 }
             } else {
                 // プリミティブtypedefの場合
-                var.type =
-                    interpreter_->type_manager_->string_to_type_info(resolved_type);
+                var.type = interpreter_->type_manager_->string_to_type_info(
+                    resolved_type);
 
                 // プリミティブtypedefでもimpl解決のためにstruct_type_nameを設定
                 var.struct_type_name = node->type_name;
@@ -232,7 +233,8 @@ bool VariableManager::handle_typedef_resolution(const ASTNode *node,
                 if (debug_mode) {
                     debug_print("TYPEDEF_DEBUG: Set primitive typedef '%s' "
                                 "with struct_type_name='%s'\n",
-                                node->type_name.c_str(), node->type_name.c_str());
+                                node->type_name.c_str(),
+                                node->type_name.c_str());
                 }
             }
         }
@@ -770,7 +772,7 @@ bool VariableManager::handle_reference_variable(const ASTNode *node) {
 }
 
 bool VariableManager::handle_array_type_info_declaration(const ASTNode *node,
-                                                          Variable &var) {
+                                                         Variable &var) {
     // 新しいArrayTypeInfoが設定されている場合の処理
     if (node->array_type_info.base_type != TYPE_UNKNOWN) {
         debug_print("VAR_DEBUG: Taking ArrayTypeInfo branch (base_type=%d)\n",
@@ -798,7 +800,7 @@ bool VariableManager::handle_array_type_info_declaration(const ASTNode *node,
                     Variable *const_var = find_variable(dim.size_expr);
                     if (const_var && const_var->is_const &&
                         const_var->type == TYPE_INT) {
-                            resolved_size = static_cast<int>(const_var->value);
+                        resolved_size = static_cast<int>(const_var->value);
                     } else {
                         throw std::runtime_error(
                             "Array size must be a constant integer: " +
@@ -853,7 +855,7 @@ bool VariableManager::handle_array_type_info_declaration(const ASTNode *node,
 }
 
 bool VariableManager::handle_union_typedef_declaration(const ASTNode *node,
-                                                        Variable &var) {
+                                                       Variable &var) {
     // union typedefの場合
     if (interpreter_->type_manager_->is_union_type(node->type_name)) {
         if (debug_mode) {
@@ -879,7 +881,7 @@ bool VariableManager::handle_union_typedef_declaration(const ASTNode *node,
 }
 
 void VariableManager::handle_struct_member_initialization(const ASTNode *node,
-                                                           Variable &var) {
+                                                          Variable &var) {
     bool debug_mode = interpreter_->debug_mode;
 
     // struct型の場合のメンバー初期化処理
@@ -1132,7 +1134,8 @@ void VariableManager::handle_struct_member_initialization(const ASTNode *node,
                                 }
                             }
 
-                            member_var.array_dimensions.push_back(resolved_size);
+                            member_var.array_dimensions.push_back(
+                                resolved_size);
                         }
 
                         // 多次元配列のフラグを設定
@@ -1173,9 +1176,9 @@ void VariableManager::handle_struct_member_initialization(const ASTNode *node,
 
                         // 配列の各要素を個別の変数として作成（多次元対応）
                         for (int i = 0; i < total_size; i++) {
-                            std::string element_name =
-                                node->name + "." + member.name + "[" +
-                                std::to_string(i) + "]";
+                            std::string element_name = node->name + "." +
+                                                       member.name + "[" +
+                                                       std::to_string(i) + "]";
                             Variable element_var;
                             element_var.type = member.type;
                             element_var.is_assigned = false;
@@ -1196,12 +1199,12 @@ void VariableManager::handle_struct_member_initialization(const ASTNode *node,
                             }
 
                             if (interpreter_->debug_mode) {
-                                debug_print(
-                                    "Processing array element %d: "
-                                    "element_type=%d, TYPE_STRUCT=%d, "
-                                    "type_alias='%s'\n",
-                                    i, (int)element_type_info, (int)TYPE_STRUCT,
-                                    element_type_alias.c_str());
+                                debug_print("Processing array element %d: "
+                                            "element_type=%d, TYPE_STRUCT=%d, "
+                                            "type_alias='%s'\n",
+                                            i, (int)element_type_info,
+                                            (int)TYPE_STRUCT,
+                                            element_type_alias.c_str());
                             }
 
                             // 構造体型の配列要素の場合
@@ -1222,8 +1225,8 @@ void VariableManager::handle_struct_member_initialization(const ASTNode *node,
 
                                 // 構造体定義を取得してメンバーを初期化
                                 std::string resolved_type =
-                                    interpreter_->type_manager_->resolve_typedef(
-                                        element_type_alias);
+                                    interpreter_->type_manager_
+                                        ->resolve_typedef(element_type_alias);
                                 const StructDefinition *element_struct_def =
                                     interpreter_->find_struct_definition(
                                         resolved_type);
@@ -1250,8 +1253,8 @@ void VariableManager::handle_struct_member_initialization(const ASTNode *node,
                                             element_member_var.value = 0;
                                         }
 
-                                        element_var
-                                            .struct_members[element_member.name] =
+                                        element_var.struct_members
+                                            [element_member.name] =
                                             element_member_var;
 
                                         // メンバーの直接アクセス用変数も作成
@@ -1280,8 +1283,8 @@ void VariableManager::handle_struct_member_initialization(const ASTNode *node,
                                 element_var;
 
                             // 親構造体のstruct_membersにも配列要素を追加
-                            // element_nameは "structName.arrayName[i]" の形式なので、
-                            // キーは "arrayName[i]" にする
+                            // element_nameは "structName.arrayName[i]"
+                            // の形式なので、 キーは "arrayName[i]" にする
                             std::string element_key =
                                 member.name + "[" + std::to_string(i) + "]";
                             var.struct_members[element_key] = element_var;
@@ -1316,14 +1319,14 @@ void VariableManager::handle_struct_member_initialization(const ASTNode *node,
                         var.struct_members[member.name] = member_var;
 
                         if (interpreter_->debug_mode) {
-                            debug_print(
-                                "Added to struct_members[%s]: "
-                                "is_multidimensional=%s, "
-                                "array_dimensions.size()=%zu\n",
-                                member.name.c_str(),
-                                member_var.is_multidimensional ? "true"
-                                                               : "false",
-                                member_var.array_dimensions.size());
+                            debug_print("Added to struct_members[%s]: "
+                                        "is_multidimensional=%s, "
+                                        "array_dimensions.size()=%zu\n",
+                                        member.name.c_str(),
+                                        member_var.is_multidimensional
+                                            ? "true"
+                                            : "false",
+                                        member_var.array_dimensions.size());
                         }
                     } else {
                         // 通常のメンバーの場合
@@ -1352,18 +1355,19 @@ void VariableManager::handle_struct_member_initialization(const ASTNode *node,
                     current_scope().variables[member_path] = member_direct_var;
 
                     // 構造体メンバの場合、再帰的にサブメンバーの個別変数を作成
-                    // 注意: var.struct_members[member.name]への参照を使用して再帰呼び出し
+                    // 注意:
+                    // var.struct_members[member.name]への参照を使用して再帰呼び出し
                     if (member.type == TYPE_STRUCT &&
                         !member.type_alias.empty()) {
                         if (interpreter_->debug_mode) {
                             debug_print(
                                 "Recursively creating nested struct members "
                                 "for: %s (type: %s)\n",
-                                member_path.c_str(),
-                                member.type_alias.c_str());
+                                member_path.c_str(), member.type_alias.c_str());
                         }
                         // struct_membersに既に追加されたメンバーを参照
-                        auto &struct_member_ref = var.struct_members[member.name];
+                        auto &struct_member_ref =
+                            var.struct_members[member.name];
                         interpreter_
                             ->create_struct_member_variables_recursively(
                                 member_path, member.type_alias,
@@ -1383,7 +1387,7 @@ void VariableManager::handle_struct_member_initialization(const ASTNode *node,
 }
 
 bool VariableManager::handle_interface_initialization(const ASTNode *node,
-                                                       Variable &var) {
+                                                      Variable &var) {
     // Interface型変数（ポインタを除く）の初期化処理
     if (!var.interface_name.empty() && var.type != TYPE_POINTER &&
         node->init_expr) {
@@ -1415,8 +1419,8 @@ bool VariableManager::handle_interface_initialization(const ASTNode *node,
         }
 
         auto create_temp_primitive = [&](TypeInfo value_type,
-                                          int64_t numeric_value,
-                                          const std::string &string_value) {
+                                         int64_t numeric_value,
+                                         const std::string &string_value) {
             Variable temp;
             temp.is_assigned = true;
             temp.type = value_type;
@@ -1430,8 +1434,7 @@ bool VariableManager::handle_interface_initialization(const ASTNode *node,
         };
 
         try {
-            if (node->init_expr->node_type ==
-                ASTNodeType::AST_STRING_LITERAL) {
+            if (node->init_expr->node_type == ASTNodeType::AST_STRING_LITERAL) {
                 Variable temp = create_temp_primitive(
                     TYPE_STRING, 0, node->init_expr->str_value);
                 assign_from_source(temp, "");
@@ -1478,7 +1481,7 @@ bool VariableManager::handle_interface_initialization(const ASTNode *node,
 }
 
 bool VariableManager::handle_array_literal_initialization(const ASTNode *node,
-                                                           Variable &var) {
+                                                          Variable &var) {
     // 配列リテラル初期化の処理
     if (var.is_array && node->init_expr &&
         node->init_expr->node_type == ASTNodeType::AST_ARRAY_LITERAL) {

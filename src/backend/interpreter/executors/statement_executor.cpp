@@ -6,8 +6,8 @@
 #include "core/pointer_metadata.h"
 #include "core/type_inference.h"
 #include "evaluator/core/evaluator.h"
-#include "executors/assignments/simple_assignment.h"
 #include "executors/assignments/member_assignment.h"
+#include "executors/assignments/simple_assignment.h"
 #include "executors/declarations/array_declaration.h"
 #include "executors/declarations/variable_declaration.h"
 #include "managers/arrays/manager.h"
@@ -494,7 +494,6 @@ void StatementExecutor::execute_member_array_assignment(const ASTNode *node) {
                                                         index, value);
     }
 }
-
 
 void StatementExecutor::execute_member_assignment(const ASTNode *node) {
     AssignmentHandlers::execute_member_assignment(this, interpreter_, node);

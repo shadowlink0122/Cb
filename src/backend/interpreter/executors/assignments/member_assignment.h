@@ -9,12 +9,10 @@ namespace AssignmentHandlers {
 
 // Member assignment execution
 void execute_member_assignment(StatementExecutor *executor,
-                                Interpreter &interpreter,
-                                const ASTNode *node);
+                               Interpreter &interpreter, const ASTNode *node);
 
 void execute_arrow_assignment(StatementExecutor *executor,
-                               Interpreter &interpreter,
-                               const ASTNode *node);
+                              Interpreter &interpreter, const ASTNode *node);
 
 } // namespace AssignmentHandlers
 

@@ -12,25 +12,25 @@
 #include "executors/statement_list_executor.h" // 文リスト・複合文実行サービス
 #include "handlers/control/assertion.h" // アサーション文処理サービス
 #include "handlers/control/break_continue.h" // break/continue文処理サービス
-#include "handlers/statements/expression.h" // 式文処理サービス
+#include "handlers/control/return.h"         // return文処理サービス
 #include "handlers/declarations/function.h" // 関数宣言処理サービス
-#include "handlers/declarations/impl.h" // impl宣言処理サービス
+#include "handlers/declarations/impl.h"     // impl宣言処理サービス
 #include "handlers/declarations/interface.h" // インターフェース宣言処理サービス
-#include "handlers/control/return.h"             // return文処理サービス
-#include "handlers/declarations/struct.h" // 構造体宣言処理サービス
+#include "handlers/declarations/struct.h"   // 構造体宣言処理サービス
+#include "handlers/statements/expression.h" // 式文処理サービス
 #include "managers/arrays/manager.h"
-#include "managers/common/operations.h"
-#include "managers/types/enums.h"                  // enum管理サービス
 #include "managers/common/global_init.h" // グローバル初期化管理サービス
-#include "managers/types/interfaces.h" // interface/impl管理サービス
-#include "managers/variables/static.h" // static変数管理サービス
-#include "managers/structs/assignment.h" // struct代入管理サービス
-#include "managers/structs/operations.h"       // struct操作管理サービス
-#include "managers/structs/sync.h"     // struct同期管理サービス
+#include "managers/common/operations.h"
+#include "managers/structs/assignment.h"       // struct代入管理サービス
 #include "managers/structs/member_variables.h" // struct変数管理サービス
+#include "managers/structs/operations.h"       // struct操作管理サービス
+#include "managers/structs/sync.h"             // struct同期管理サービス
+#include "managers/types/enums.h"              // enum管理サービス
+#include "managers/types/interfaces.h" // interface/impl管理サービス
 #include "managers/types/manager.h"
 #include "managers/variables/manager.h"
-#include "output/output_manager.h" // ヘッダーから移動
+#include "managers/variables/static.h" // static変数管理サービス
+#include "output/output_manager.h"     // ヘッダーから移動
 #include "services/array_processing_service.h" // DRY効率化: 統一配列処理サービス
 #include "services/debug_service.h" // DRY効率化: 統一デバッグサービス
 #include "services/expression_service.h" // DRY効率化: 統一式評価サービス

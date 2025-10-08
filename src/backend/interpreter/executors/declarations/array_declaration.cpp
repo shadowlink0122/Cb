@@ -64,7 +64,7 @@ void execute_array_decl(StatementExecutor *executor, Interpreter &interpreter,
             std::string element_name =
                 node->name + "[" + std::to_string(i) + "]";
             interpreter.create_struct_variable(element_name,
-                                                var.struct_type_name);
+                                               var.struct_type_name);
         }
     }
 
@@ -104,8 +104,7 @@ void execute_array_decl(StatementExecutor *executor, Interpreter &interpreter,
                               << value << std::endl;
                 }
                 // void関数の場合
-                interpreter.current_scope().variables[node->name].value =
-                    value;
+                interpreter.current_scope().variables[node->name].value = value;
                 interpreter.current_scope().variables[node->name].is_assigned =
                     true;
             } catch (const ReturnException &ret) {

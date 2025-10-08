@@ -161,7 +161,7 @@ void execute_assignment(StatementExecutor *executor, Interpreter &interpreter,
             // leftがnullの場合、nameに変数名が入っている可能性がある
             if (!node->name.empty()) {
                 interpreter.assign_struct_literal(node->name,
-                                                   node->right.get());
+                                                  node->right.get());
                 return;
             }
             throw std::runtime_error(
@@ -178,7 +178,7 @@ void execute_assignment(StatementExecutor *executor, Interpreter &interpreter,
             }
 
             interpreter.assign_struct_literal(node->left->name,
-                                               node->right.get());
+                                              node->right.get());
             return;
         } else if (node->left->node_type == ASTNodeType::AST_ARRAY_REF) {
             // 配列要素への構造体リテラル代入 (team[0] = {})
@@ -356,8 +356,7 @@ void execute_assignment(StatementExecutor *executor, Interpreter &interpreter,
                     "Invalid object reference in member array access");
             }
             std::string member_name = node->left->left->name;
-            int64_t index =
-                interpreter.evaluate(node->left->array_index.get());
+            int64_t index = interpreter.evaluate(node->left->array_index.get());
 
             // 右辺を評価
             if (node->right->node_type == ASTNodeType::AST_STRING_LITERAL) {
@@ -482,10 +481,10 @@ void execute_assignment(StatementExecutor *executor, Interpreter &interpreter,
                     (base_type == TYPE_FLOAT || base_type == TYPE_DOUBLE ||
                      base_type == TYPE_QUAD)) {
                     interpreter.setMultidimensionalArrayElement(*var, indices,
-                                                                 float_rvalue);
+                                                                float_rvalue);
                 } else {
                     interpreter.setMultidimensionalArrayElement(*var, indices,
-                                                                 rvalue);
+                                                                rvalue);
                 }
             }
         } else {
@@ -527,7 +526,7 @@ void execute_assignment(StatementExecutor *executor, Interpreter &interpreter,
                     (base_type == TYPE_FLOAT || base_type == TYPE_DOUBLE ||
                      base_type == TYPE_QUAD)) {
                     interpreter.assign_array_element_float(var_name, index,
-                                                            float_rvalue);
+                                                           float_rvalue);
                 } else {
                     interpreter.assign_array_element(var_name, index, rvalue);
                 }
@@ -553,7 +552,7 @@ void execute_assignment(StatementExecutor *executor, Interpreter &interpreter,
             Variable *var = interpreter.find_variable(node->left->name);
             if (var && var->type == TYPE_UNION) {
                 interpreter.assign_union_variable(node->left->name,
-                                                   node->right.get());
+                                                  node->right.get());
                 return;
             }
         }
@@ -563,7 +562,7 @@ void execute_assignment(StatementExecutor *executor, Interpreter &interpreter,
             Variable *var = interpreter.find_variable(node->name);
             if (var && var->type == TYPE_UNION) {
                 interpreter.assign_union_variable(node->name,
-                                                   node->right.get());
+                                                  node->right.get());
                 return;
             }
         }
@@ -757,8 +756,8 @@ void execute_assignment(StatementExecutor *executor, Interpreter &interpreter,
                 TypeInfo type_hint = (typed_value.numeric_type == TYPE_POINTER)
                                          ? TYPE_POINTER
                                          : TYPE_UNKNOWN;
-                interpreter.assign_variable(target_name, typed_value,
-                                             type_hint, false);
+                interpreter.assign_variable(target_name, typed_value, type_hint,
+                                            false);
             } catch (const ReturnException &ret) {
                 if (ret.is_struct) {
                     interpreter.current_scope().variables[target_name] =
@@ -778,7 +777,7 @@ void execute_assignment(StatementExecutor *executor, Interpreter &interpreter,
                                      ? TYPE_POINTER
                                      : TYPE_UNKNOWN;
             interpreter.assign_variable(target_name, typed_value, type_hint,
-                                         false);
+                                        false);
         }
     }
 }

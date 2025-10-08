@@ -1,15 +1,15 @@
 #include "variable_declaration.h"
 #include "../statement_executor.h"
-#include "core/interpreter.h"
 #include "core/error_handler.h"
-#include "managers/variables/manager.h"
+#include "core/interpreter.h"
 #include "managers/types/manager.h"
+#include "managers/variables/manager.h"
 
 namespace DeclarationHandlers {
 
 void execute_variable_declaration(StatementExecutor *executor,
-                                   Interpreter &interpreter,
-                                   const ASTNode *node) {
+                                  Interpreter &interpreter,
+                                  const ASTNode *node) {
     if (debug_mode) {
         std::cerr << "[DEBUG_EXEC] Executing variable declaration: "
                   << node->name << ", type_info: " << (int)node->type_info
@@ -260,8 +260,7 @@ void execute_variable_declaration(StatementExecutor *executor,
             try {
                 int64_t value = interpreter.evaluate(init_node);
                 // void関数の場合
-                interpreter.current_scope().variables[node->name].value =
-                    value;
+                interpreter.current_scope().variables[node->name].value = value;
                 interpreter.current_scope().variables[node->name].is_assigned =
                     true;
             } catch (const ReturnException &ret) {
@@ -496,8 +495,8 @@ void execute_variable_declaration(StatementExecutor *executor,
                              ret.struct_value.struct_members) {
                             std::string member_path =
                                 node->name + "." + member.first;
-                            interpreter.current_scope()
-                                .variables[member_path] = member.second;
+                            interpreter.current_scope().variables[member_path] =
+                                member.second;
                         }
                     } else if (ret.type == TYPE_STRING) {
                         interpreter.current_scope()
@@ -509,20 +508,20 @@ void execute_variable_declaration(StatementExecutor *executor,
                             InferredType float_type(TYPE_FLOAT, "float");
                             TypedValue typed_val(ret.double_value, float_type);
                             interpreter.assign_variable(node->name, typed_val,
-                                                         ret.type, false);
+                                                        ret.type, false);
                         } else if (ret.type == TYPE_DOUBLE) {
                             InferredType double_type(TYPE_DOUBLE, "double");
                             TypedValue typed_val(ret.double_value, double_type);
                             interpreter.assign_variable(node->name, typed_val,
-                                                         ret.type, false);
+                                                        ret.type, false);
                         } else if (ret.type == TYPE_QUAD) {
                             InferredType quad_type(TYPE_QUAD, "quad");
                             TypedValue typed_val(ret.quad_value, quad_type);
                             interpreter.assign_variable(node->name, typed_val,
-                                                         ret.type, false);
+                                                        ret.type, false);
                         } else {
                             interpreter.assign_variable(node->name, ret.value,
-                                                         ret.type);
+                                                        ret.type);
                         }
                     }
                     interpreter.current_scope()
@@ -543,7 +542,7 @@ void execute_variable_declaration(StatementExecutor *executor,
                             "value");
                     } else {
                         interpreter.assign_variable(node->name, typed_value,
-                                                     node->type_info, false);
+                                                    node->type_info, false);
                     }
                     interpreter.current_scope()
                         .variables[node->name]
@@ -565,36 +564,35 @@ void execute_variable_declaration(StatementExecutor *executor,
                              ret.struct_value.struct_members) {
                             std::string member_path =
                                 node->name + "." + member.first;
-                            interpreter.current_scope()
-                                .variables[member_path] = member.second;
+                            interpreter.current_scope().variables[member_path] =
+                                member.second;
                         }
                     } else if (ret.type == TYPE_STRING) {
                         interpreter.current_scope()
                             .variables[node->name]
                             .str_value = ret.str_value;
-                        interpreter.current_scope()
-                            .variables[node->name]
-                            .type = TYPE_STRING;
+                        interpreter.current_scope().variables[node->name].type =
+                            TYPE_STRING;
                     } else {
                         // 数値戻り値（float/double/quad対応）
                         if (ret.type == TYPE_FLOAT) {
                             InferredType float_type(TYPE_FLOAT, "float");
                             TypedValue typed_val(ret.double_value, float_type);
                             interpreter.assign_variable(node->name, typed_val,
-                                                         ret.type, false);
+                                                        ret.type, false);
                         } else if (ret.type == TYPE_DOUBLE) {
                             InferredType double_type(TYPE_DOUBLE, "double");
                             TypedValue typed_val(ret.double_value, double_type);
                             interpreter.assign_variable(node->name, typed_val,
-                                                         ret.type, false);
+                                                        ret.type, false);
                         } else if (ret.type == TYPE_QUAD) {
                             InferredType quad_type(TYPE_QUAD, "quad");
                             TypedValue typed_val(ret.quad_value, quad_type);
                             interpreter.assign_variable(node->name, typed_val,
-                                                         ret.type, false);
+                                                        ret.type, false);
                         } else {
                             interpreter.assign_variable(node->name, ret.value,
-                                                         ret.type);
+                                                        ret.type);
                         }
                     }
                     interpreter.current_scope()
@@ -611,7 +609,7 @@ void execute_variable_declaration(StatementExecutor *executor,
                         .str_value = init_node->str_value;
                 } else {
                     interpreter.assign_variable(node->name, typed_value,
-                                                 node->type_info, false);
+                                                node->type_info, false);
                 }
                 interpreter.current_scope().variables[node->name].is_assigned =
                     true;
@@ -621,8 +619,7 @@ void execute_variable_declaration(StatementExecutor *executor,
 }
 
 void execute_multiple_var_decl(StatementExecutor *executor,
-                                Interpreter &interpreter,
-                                const ASTNode *node) {
+                               Interpreter &interpreter, const ASTNode *node) {
     // 複数変数宣言の処理
     for (const auto &child : node->children) {
         if (child->node_type == ASTNodeType::AST_VAR_DECL) {

@@ -1,14 +1,13 @@
 #include "member_assignment.h"
 #include "../statement_executor.h"
-#include "core/interpreter.h"
 #include "core/error_handler.h"
+#include "core/interpreter.h"
 #include "managers/variables/manager.h"
 
 namespace AssignmentHandlers {
 
 void execute_member_assignment(StatementExecutor *executor,
-                                Interpreter &interpreter,
-                                const ASTNode *node) {
+                               Interpreter &interpreter, const ASTNode *node) {
     // obj.member = value または array[index].member = value の処理
     const ASTNode *member_access = node->left.get();
 
@@ -47,7 +46,7 @@ void execute_member_assignment(StatementExecutor *executor,
                       member_access->name.c_str());
             // selfへの代入処理を実行
             executor->execute_self_member_assignment(member_access->name,
-                                           node->right.get());
+                                                     node->right.get());
             return;
         }
 
@@ -99,8 +98,7 @@ void execute_member_assignment(StatementExecutor *executor,
         struct_var->struct_members[member_name] = new_value;
 
         // 個別変数システムとの同期
-        interpreter.sync_individual_member_from_struct(struct_var,
-                                                        member_name);
+        interpreter.sync_individual_member_from_struct(struct_var, member_name);
 
         if (debug_mode) {
             debug_print("DEBUG: Dereference member assignment completed\n");
@@ -344,8 +342,7 @@ void execute_member_assignment(StatementExecutor *executor,
         struct_var->struct_members[member_name] = new_value;
 
         // 個別変数システムとの同期
-        interpreter.sync_individual_member_from_struct(struct_var,
-                                                        member_name);
+        interpreter.sync_individual_member_from_struct(struct_var, member_name);
 
         if (debug_mode) {
             debug_print("DEBUG: Dereference member assignment completed: "
@@ -464,7 +461,7 @@ void execute_member_assignment(StatementExecutor *executor,
     // struct変数のメンバに直接代入
     if (node->right->node_type == ASTNodeType::AST_STRING_LITERAL) {
         interpreter.assign_struct_member(obj_name, member_name,
-                                          node->right->str_value);
+                                         node->right->str_value);
     } else if (node->right->node_type == ASTNodeType::AST_VARIABLE) {
         // 変数参照の場合、構造体変数か数値/文字列変数か判断
         Variable *right_var = interpreter.find_variable(node->right->name);
@@ -500,13 +497,13 @@ void execute_member_assignment(StatementExecutor *executor,
             }
         } else if (right_var->type == TYPE_STRING) {
             interpreter.assign_struct_member(obj_name, member_name,
-                                              right_var->str_value);
+                                             right_var->str_value);
         } else {
             // TypedValueを使用して型情報を保持
             TypedValue typed_value =
                 interpreter.evaluate_typed(node->right.get());
             interpreter.assign_struct_member(obj_name, member_name,
-                                              typed_value);
+                                             typed_value);
         }
     } else if (node->right->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
         // 構造体メンバアクセスの場合（original.name等）
@@ -530,7 +527,7 @@ void execute_member_assignment(StatementExecutor *executor,
             interpreter.get_struct_member(right_obj_name, right_member_name);
         if (right_member_var->type == TYPE_STRING) {
             interpreter.assign_struct_member(obj_name, member_name,
-                                              right_member_var->str_value);
+                                             right_member_var->str_value);
         } else if (right_member_var->type == TYPE_FLOAT ||
                    right_member_var->type == TYPE_DOUBLE ||
                    right_member_var->type == TYPE_QUAD) {
@@ -543,22 +540,22 @@ void execute_member_assignment(StatementExecutor *executor,
                     inferred);
                 typed_value.numeric_type = TYPE_FLOAT;
                 interpreter.assign_struct_member(obj_name, member_name,
-                                                  typed_value);
+                                                 typed_value);
             } else if (right_member_var->type == TYPE_DOUBLE) {
                 TypedValue typed_value(right_member_var->double_value,
                                        inferred);
                 typed_value.numeric_type = TYPE_DOUBLE;
                 interpreter.assign_struct_member(obj_name, member_name,
-                                                  typed_value);
+                                                 typed_value);
             } else {
                 TypedValue typed_value(right_member_var->quad_value, inferred);
                 typed_value.numeric_type = TYPE_QUAD;
                 interpreter.assign_struct_member(obj_name, member_name,
-                                                  typed_value);
+                                                 typed_value);
             }
         } else {
             interpreter.assign_struct_member(obj_name, member_name,
-                                              right_member_var->value);
+                                             right_member_var->value);
         }
     } else if (node->right->node_type == ASTNodeType::AST_MEMBER_ARRAY_ACCESS) {
         // 構造体メンバ配列アクセスの場合（original.tags[0]等）
@@ -613,8 +610,7 @@ void execute_member_assignment(StatementExecutor *executor,
 }
 
 void execute_arrow_assignment(StatementExecutor *executor,
-                               Interpreter &interpreter,
-                               const ASTNode *node) {
+                              Interpreter &interpreter, const ASTNode *node) {
     // ptr->member = value の処理（アロー演算子は (*ptr).member と等価）
     const ASTNode *arrow_access = node->left.get();
 

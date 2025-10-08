@@ -8,8 +8,8 @@
 #include "../../../../common/debug_messages.h"
 #include "../../../../frontend/recursive_parser/recursive_parser.h"
 #include "../../core/interpreter.h"
-#include "../variables/static.h"
 #include "../types/manager.h"
+#include "../variables/static.h"
 #include <algorithm>
 #include <functional>
 #include <sstream>

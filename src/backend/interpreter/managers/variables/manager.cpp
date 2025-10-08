@@ -1,8 +1,8 @@
 #include "managers/variables/manager.h"
 #include "../../../../common/debug.h"
 #include "../../../../common/debug_messages.h"
-#include "../../services/debug_service.h"
 #include "../../core/interpreter.h"
+#include "../../services/debug_service.h"
 #include "core/type_inference.h"
 #include "evaluator/core/evaluator.h"
 #include "managers/arrays/manager.h"
@@ -683,14 +683,17 @@ void VariableManager::assign_variable(const std::string &name,
     // Union型変数への代入の特別処理
     Variable *var = interpreter_->find_variable(name);
     if (interpreter_->is_debug_mode()) {
-        std::cerr << "[DEBUG_ASSIGN_VAR] assign_variable: name=" << name 
-                  << ", var=" << (var ? "found" : "null")
-                  << ", type=" << (var ? std::to_string(static_cast<int>(var->type)) : "N/A")
-                  << ", TYPE_UNION=" << static_cast<int>(TYPE_UNION) << std::endl;
+        std::cerr << "[DEBUG_ASSIGN_VAR] assign_variable: name=" << name
+                  << ", var=" << (var ? "found" : "null") << ", type="
+                  << (var ? std::to_string(static_cast<int>(var->type)) : "N/A")
+                  << ", TYPE_UNION=" << static_cast<int>(TYPE_UNION)
+                  << std::endl;
     }
     if (var && var->type == TYPE_UNION) {
         if (interpreter_->is_debug_mode()) {
-            std::cerr << "[UNION_ASSIGN_DEBUG] assign_variable called for union variable: " << name << std::endl;
+            std::cerr << "[UNION_ASSIGN_DEBUG] assign_variable called for "
+                         "union variable: "
+                      << name << std::endl;
         }
         // TypedValueから適切なASTノードを構築して assign_union_value を呼び出す
         // 数値の場合
@@ -699,14 +702,18 @@ void VariableManager::assign_variable(const std::string &name,
             temp_node->int_value = typed_value.as_numeric();
             assign_union_value(*var, var->type_name, temp_node.get());
             if (interpreter_->is_debug_mode()) {
-                std::cerr << "[UNION_ASSIGN_DEBUG] After assign_union_value: value=" << var->value 
-                          << ", current_type=" << static_cast<int>(var->current_type) << std::endl;
+                std::cerr
+                    << "[UNION_ASSIGN_DEBUG] After assign_union_value: value="
+                    << var->value
+                    << ", current_type=" << static_cast<int>(var->current_type)
+                    << std::endl;
             }
             return;
         }
         // 文字列の場合
         if (typed_value.is_string()) {
-            auto temp_node = std::make_unique<ASTNode>(ASTNodeType::AST_STRING_LITERAL);
+            auto temp_node =
+                std::make_unique<ASTNode>(ASTNodeType::AST_STRING_LITERAL);
             temp_node->str_value = typed_value.string_value;
             assign_union_value(*var, var->type_name, temp_node.get());
             return;
@@ -825,7 +832,8 @@ void VariableManager::assign_variable(const std::string &name,
 
         if (typed_value.is_string()) {
             if ((allow_type_override || target.type == TYPE_UNKNOWN ||
-                target.type == TYPE_STRING) && target.type != TYPE_UNION) {
+                 target.type == TYPE_STRING) &&
+                target.type != TYPE_UNION) {
                 target.type = TYPE_STRING;
             }
             target.str_value = typed_value.string_value;
@@ -1160,4 +1168,3 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
 // ============================================================================
 // Variable Declaration Processing (AST_VAR_DECL)
 // ============================================================================
-

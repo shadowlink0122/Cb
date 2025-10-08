@@ -20,11 +20,11 @@ class VariableDeclarationManager {
 
     /**
      * @brief 変数宣言または代入を処理する
-     * 
+     *
      * このメソッドは以下を処理します：
      * - AST_VAR_DECL: 変数宣言と初期化
      * - AST_ASSIGN: 変数への代入
-     * 
+     *
      * @param node 変数宣言または代入のASTノード
      */
     void process_var_decl_or_assign(const ASTNode *node);
@@ -67,7 +67,8 @@ class VariableDeclarationManager {
     /**
      * @brief 三項演算子による変数初期化
      */
-    void handle_ternary_initialization(Variable &var, const ASTNode *ternary_node);
+    void handle_ternary_initialization(Variable &var,
+                                       const ASTNode *ternary_node);
 
     /**
      * @brief 配列名抽出（N次元配列対応）

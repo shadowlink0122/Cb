@@ -3,8 +3,8 @@
 #include "../../../../common/debug.h"
 #include "../../../../common/debug_messages.h"
 #include "../../core/interpreter.h"
-#include "../variables/static.h"
 #include "../types/manager.h"
+#include "../variables/static.h"
 #include <functional>
 
 StructSyncManager::StructSyncManager(Interpreter *interpreter)
