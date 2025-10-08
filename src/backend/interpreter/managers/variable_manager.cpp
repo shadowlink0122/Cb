@@ -1159,82 +1159,8 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
         }
 
         // 新しいArrayTypeInfoが設定されている場合の処理
-        if (node->array_type_info.base_type != TYPE_UNKNOWN) {
-            debug_print(
-                "VAR_DEBUG: Taking ArrayTypeInfo branch (base_type=%d)\n",
-                static_cast<int>(node->array_type_info.base_type));
-
-            // ArrayTypeInfoが設定されている場合は配列として処理
-            var.is_array = true;
-            var.type = static_cast<TypeInfo>(TYPE_ARRAY_BASE +
-                                             node->array_type_info.base_type);
-            var.array_type_info = node->array_type_info;
-
-            // typedef名を保存（interfaceでの型マッチングに使用）
-            if (!node->type_name.empty()) {
-                var.struct_type_name = node->type_name;
-            }
-
-            // 配列サイズ情報をコピーし、動的サイズを解決
-            if (!node->array_type_info.dimensions.empty()) {
-                var.array_dimensions.clear();
-                for (const auto &dim : node->array_type_info.dimensions) {
-                    int resolved_size = dim.size;
-
-                    // 動的サイズ（定数識別子）を解決
-                    if (dim.is_dynamic && !dim.size_expr.empty()) {
-                        Variable *const_var = find_variable(dim.size_expr);
-                        if (const_var && const_var->is_const &&
-                            const_var->type == TYPE_INT) {
-                            resolved_size = static_cast<int>(const_var->value);
-                        } else {
-                            throw std::runtime_error(
-                                "Array size must be a constant integer: " +
-                                dim.size_expr);
-                        }
-                    }
-
-                    var.array_dimensions.push_back(resolved_size);
-                }
-
-                // 多次元配列かどうかをチェック
-                if (var.array_dimensions.size() > 1) {
-                    var.is_multidimensional = true;
-                }
-
-                // 配列サイズを計算（多次元の場合は総サイズ、1次元の場合は第一次元のサイズ）
-                int total_size = 1;
-                for (int dim : var.array_dimensions) {
-                    total_size *= dim;
-                }
-                var.array_size = total_size; // 総サイズを設定
-
-                if (debug_mode) {
-                    debug_print("VAR_DEBUG: ArrayTypeInfo - dimensions=%zu, "
-                                "total_size=%d\n",
-                                var.array_dimensions.size(), total_size);
-                }
-
-                // 配列初期化
-                if (var.type == TYPE_STRING) {
-                    if (var.is_multidimensional) {
-                        var.multidim_array_strings.resize(total_size, "");
-                    } else {
-                        var.array_strings.resize(total_size, "");
-                    }
-                } else {
-                    if (var.is_multidimensional) {
-                        var.multidim_array_values.resize(total_size, 0);
-                    } else {
-                        var.array_values.resize(total_size, 0);
-                    }
-                }
-
-                // 配列も符号無し指定を保持
-                if (node->is_unsigned) {
-                    var.is_unsigned = true;
-                }
-            }
+        if (handle_array_type_info_declaration(node, var)) {
+            // ArrayTypeInfoで処理完了、次の分岐へ
         }
         // typedef解決処理（ArrayTypeInfoが設定されていない場合）
         // type_infoが基本型でも、type_nameがtypedef名の場合は処理する
@@ -1255,26 +1181,9 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                             static_cast<int>(node->type_info));
             }
 
-            // union typedefの場合
-            if (interpreter_->type_manager_->is_union_type(node->type_name)) {
-                if (debug_mode) {
-                    debug_print("TYPEDEF_DEBUG: Processing union typedef: %s\n",
-                                node->type_name.c_str());
-                }
-                var.type = TYPE_UNION;
-                var.type_name = node->type_name; // union型名を保存
-                var.current_type = TYPE_UNKNOWN; // まだ値が設定されていない
-
-                // 初期化値がある場合は検証して代入
-                if (node->right || node->init_expr) {
-                    ASTNode *init_node = node->init_expr ? node->init_expr.get()
-                                                         : node->right.get();
-                    assign_union_value(var, node->type_name, init_node);
-                }
-
-                // union型変数の処理完了後、変数を登録して終了
-                interpreter_->current_scope().variables[node->name] = var;
-                return;
+            // union typedefの場合（早期return）
+            if (handle_union_typedef_declaration(node, var)) {
+                return; // 処理完了
             }
             // 配列typedefの場合
             else if (resolved_type.find("[") != std::string::npos) {
@@ -4894,4 +4803,113 @@ bool VariableManager::handle_reference_variable(const ASTNode *node) {
         return true;
     }
     return false; // 参照変数ではない
+}
+
+bool VariableManager::handle_array_type_info_declaration(const ASTNode *node,
+                                                          Variable &var) {
+    // 新しいArrayTypeInfoが設定されている場合の処理
+    if (node->array_type_info.base_type != TYPE_UNKNOWN) {
+        debug_print("VAR_DEBUG: Taking ArrayTypeInfo branch (base_type=%d)\n",
+                    static_cast<int>(node->array_type_info.base_type));
+
+        // ArrayTypeInfoが設定されている場合は配列として処理
+        var.is_array = true;
+        var.type = static_cast<TypeInfo>(TYPE_ARRAY_BASE +
+                                         node->array_type_info.base_type);
+        var.array_type_info = node->array_type_info;
+
+        // typedef名を保存（interfaceでの型マッチングに使用）
+        if (!node->type_name.empty()) {
+            var.struct_type_name = node->type_name;
+        }
+
+        // 配列サイズ情報をコピーし、動的サイズを解決
+        if (!node->array_type_info.dimensions.empty()) {
+            var.array_dimensions.clear();
+            for (const auto &dim : node->array_type_info.dimensions) {
+                int resolved_size = dim.size;
+
+                // 動的サイズ（定数識別子）を解決
+                if (dim.is_dynamic && !dim.size_expr.empty()) {
+                    Variable *const_var = find_variable(dim.size_expr);
+                    if (const_var && const_var->is_const &&
+                        const_var->type == TYPE_INT) {
+                            resolved_size = static_cast<int>(const_var->value);
+                    } else {
+                        throw std::runtime_error(
+                            "Array size must be a constant integer: " +
+                            dim.size_expr);
+                    }
+                }
+
+                var.array_dimensions.push_back(resolved_size);
+            }
+
+            // 多次元配列かどうかをチェック
+            if (var.array_dimensions.size() > 1) {
+                var.is_multidimensional = true;
+            }
+
+            // 配列サイズを計算（多次元の場合は総サイズ、1次元の場合は第一次元のサイズ）
+            int total_size = 1;
+            for (int dim : var.array_dimensions) {
+                total_size *= dim;
+            }
+            var.array_size = total_size; // 総サイズを設定
+
+            if (debug_mode) {
+                debug_print("VAR_DEBUG: ArrayTypeInfo - dimensions=%zu, "
+                            "total_size=%d\n",
+                            var.array_dimensions.size(), total_size);
+            }
+
+            // 配列初期化
+            if (var.type == TYPE_STRING) {
+                if (var.is_multidimensional) {
+                    var.multidim_array_strings.resize(total_size, "");
+                } else {
+                    var.array_strings.resize(total_size, "");
+                }
+            } else {
+                if (var.is_multidimensional) {
+                    var.multidim_array_values.resize(total_size, 0);
+                } else {
+                    var.array_values.resize(total_size, 0);
+                }
+            }
+
+            // 配列も符号無し指定を保持
+            if (node->is_unsigned) {
+                var.is_unsigned = true;
+            }
+        }
+        return true; // ArrayTypeInfoで処理完了
+    }
+    return false; // ArrayTypeInfoが設定されていない
+}
+
+bool VariableManager::handle_union_typedef_declaration(const ASTNode *node,
+                                                        Variable &var) {
+    // union typedefの場合
+    if (interpreter_->type_manager_->is_union_type(node->type_name)) {
+        if (debug_mode) {
+            debug_print("TYPEDEF_DEBUG: Processing union typedef: %s\n",
+                        node->type_name.c_str());
+        }
+        var.type = TYPE_UNION;
+        var.type_name = node->type_name; // union型名を保存
+        var.current_type = TYPE_UNKNOWN; // まだ値が設定されていない
+
+        // 初期化値がある場合は検証して代入
+        if (node->right || node->init_expr) {
+            ASTNode *init_node =
+                node->init_expr ? node->init_expr.get() : node->right.get();
+            assign_union_value(var, node->type_name, init_node);
+        }
+
+        // union型変数の処理完了後、変数を登録して終了
+        interpreter_->current_scope().variables[node->name] = var;
+        return true; // 処理完了（早期return）
+    }
+    return false; // union typedefではない
 }

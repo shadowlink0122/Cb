@@ -86,6 +86,18 @@ class VariableManager {
      */
     bool handle_reference_variable(const ASTNode *node);
 
+    /**
+     * @brief ArrayTypeInfo設定時の変数初期化処理
+     * @return true if processed with ArrayTypeInfo, false otherwise
+     */
+    bool handle_array_type_info_declaration(const ASTNode *node, Variable &var);
+
+    /**
+     * @brief Union typedef変数の処理
+     * @return true if processed as union typedef (処理完了), false otherwise
+     */
+    bool handle_union_typedef_declaration(const ASTNode *node, Variable &var);
+
     // 配列名抽出関数（N次元配列対応）
     std::string extract_array_name(const ASTNode *node);
     std::vector<int64_t> extract_array_indices(const ASTNode *node);
