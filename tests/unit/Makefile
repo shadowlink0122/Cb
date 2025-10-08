@@ -35,6 +35,7 @@ COMMON_OBJS = \
 	../../src/backend/interpreter/executors/control_flow_executor.o \
 	../../src/backend/interpreter/executors/statement_list_executor.o \
 	../../src/backend/interpreter/executors/assignments/simple_assignment.o \
+	../../src/backend/interpreter/executors/assignments/member_assignment.o \
 	../../src/backend/interpreter/executors/declarations/array_declaration.o \
 	../../src/backend/interpreter/executors/declarations/variable_declaration.o \
 	../../src/backend/interpreter/handlers/control/return.o \
