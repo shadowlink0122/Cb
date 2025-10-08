@@ -9,7 +9,7 @@ StructDeclarationHandler::StructDeclarationHandler(Interpreter *interpreter)
 
 void StructDeclarationHandler::handle_struct_declaration(const ASTNode *node) {
     debug_msg(DebugMsgId::PARSE_STRUCT_DEF, node->name.c_str());
-    
+
     std::string struct_name = node->name;
     StructDefinition struct_def(struct_name);
 
@@ -19,12 +19,9 @@ void StructDeclarationHandler::handle_struct_declaration(const ASTNode *node) {
             struct_def.add_member(
                 member_node->name, member_node->type_info,
                 member_node->type_name, member_node->is_pointer,
-                member_node->pointer_depth,
-                member_node->pointer_base_type_name,
-                member_node->pointer_base_type,
-                member_node->is_private_member);
-            debug_msg(DebugMsgId::PARSE_VAR_DECL,
-                      member_node->name.c_str(),
+                member_node->pointer_depth, member_node->pointer_base_type_name,
+                member_node->pointer_base_type, member_node->is_private_member);
+            debug_msg(DebugMsgId::PARSE_VAR_DECL, member_node->name.c_str(),
                       member_node->type_name.c_str());
         }
     }

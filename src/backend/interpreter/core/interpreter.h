@@ -25,17 +25,17 @@ class StaticVariableManager;  // static変数管理サービス
 class InterfaceOperations;    // interface/impl管理サービス
 class StructOperations;       // struct操作管理サービス
 class CommonOperations;
-class ControlFlowExecutor;    // 制御フロー実行サービス
-class StatementListExecutor;  // 文リスト・複合文実行サービス
-class ReturnHandler;          // return文処理サービス
-class AssertionHandler;       // アサーション文処理サービス
-class BreakContinueHandler;   // break/continue文処理サービス
+class ControlFlowExecutor;        // 制御フロー実行サービス
+class StatementListExecutor;      // 文リスト・複合文実行サービス
+class ReturnHandler;              // return文処理サービス
+class AssertionHandler;           // アサーション文処理サービス
+class BreakContinueHandler;       // break/continue文処理サービス
 class FunctionDeclarationHandler; // 関数宣言処理サービス
 class StructDeclarationHandler;   // 構造体宣言処理サービス
 class InterfaceDeclarationHandler; // インターフェース宣言処理サービス
 class ImplDeclarationHandler;     // impl宣言処理サービス
 class ExpressionStatementHandler; // 式文処理サービス
-class RecursiveParser; // enum定義同期用
+class RecursiveParser;            // enum定義同期用
 
 // 変数・関数の格納構造
 struct Variable {
@@ -410,16 +410,24 @@ class Interpreter : public EvaluatorInterface {
     std::unique_ptr<InterfaceOperations>
         interface_operations_; // interface/impl管理
     std::unique_ptr<StructOperations> struct_operations_; // struct操作管理
-    std::unique_ptr<ControlFlowExecutor> control_flow_executor_; // 制御フロー実行
-    std::unique_ptr<StatementListExecutor> statement_list_executor_; // 文リスト・複合文実行
+    std::unique_ptr<ControlFlowExecutor>
+        control_flow_executor_; // 制御フロー実行
+    std::unique_ptr<StatementListExecutor>
+        statement_list_executor_; // 文リスト・複合文実行
     std::unique_ptr<ReturnHandler> return_handler_; // return文処理
     std::unique_ptr<AssertionHandler> assertion_handler_; // アサーション文処理
-    std::unique_ptr<BreakContinueHandler> break_continue_handler_; // break/continue文処理
-    std::unique_ptr<FunctionDeclarationHandler> function_declaration_handler_; // 関数宣言処理
-    std::unique_ptr<StructDeclarationHandler> struct_declaration_handler_; // 構造体宣言処理
-    std::unique_ptr<InterfaceDeclarationHandler> interface_declaration_handler_; // インターフェース宣言処理
-    std::unique_ptr<ImplDeclarationHandler> impl_declaration_handler_; // impl宣言処理
-    std::unique_ptr<ExpressionStatementHandler> expression_statement_handler_; // 式文処理
+    std::unique_ptr<BreakContinueHandler>
+        break_continue_handler_; // break/continue文処理
+    std::unique_ptr<FunctionDeclarationHandler>
+        function_declaration_handler_; // 関数宣言処理
+    std::unique_ptr<StructDeclarationHandler>
+        struct_declaration_handler_; // 構造体宣言処理
+    std::unique_ptr<InterfaceDeclarationHandler>
+        interface_declaration_handler_; // インターフェース宣言処理
+    std::unique_ptr<ImplDeclarationHandler>
+        impl_declaration_handler_; // impl宣言処理
+    std::unique_ptr<ExpressionStatementHandler>
+        expression_statement_handler_; // 式文処理
 
     // Grant access to managers
     friend class VariableManager;
@@ -427,16 +435,16 @@ class Interpreter : public EvaluatorInterface {
     friend class TypeManager;
     friend class ArrayProcessingService; // DRY効率化: 配列処理統合サービス
     friend class EnumManager;            // enum管理サービス
-    friend class StructOperations; // struct操作管理
-    friend class ControlFlowExecutor; // 制御フロー実行
-    friend class StatementListExecutor; // 文リスト・複合文実行
-    friend class ReturnHandler; // return文処理
-    friend class AssertionHandler; // アサーション文処理
-    friend class BreakContinueHandler; // break/continue文処理
+    friend class StructOperations;           // struct操作管理
+    friend class ControlFlowExecutor;        // 制御フロー実行
+    friend class StatementListExecutor;      // 文リスト・複合文実行
+    friend class ReturnHandler;              // return文処理
+    friend class AssertionHandler;           // アサーション文処理
+    friend class BreakContinueHandler;       // break/continue文処理
     friend class FunctionDeclarationHandler; // 関数宣言処理
-    friend class StructDeclarationHandler; // 構造体宣言処理
+    friend class StructDeclarationHandler;   // 構造体宣言処理
     friend class InterfaceDeclarationHandler; // インターフェース宣言処理
-    friend class ImplDeclarationHandler; // impl宣言処理
+    friend class ImplDeclarationHandler;      // impl宣言処理
     friend class ExpressionStatementHandler; // 式文処理
 
   public:

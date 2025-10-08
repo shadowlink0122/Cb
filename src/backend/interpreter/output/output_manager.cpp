@@ -446,10 +446,14 @@ void OutputManager::print_value(const ASTNode *expr) {
             struct_name = expr->left->name;
         } else if (expr->left &&
                    expr->left->node_type == ASTNodeType::AST_ARRAY_REF) {
+            // 配列要素のメンバーアクセス: array[index].member または
+            // func()[index].member
             if (!expr->left->left) {
                 io_interface_->write_string("(null array reference)");
                 return;
             }
+
+            // 通常の配列要素のメンバーアクセス: array[index].member
             std::string array_name = expr->left->left->name;
             int64_t index = evaluate_expression(expr->left->array_index.get());
             struct_name = array_name + "[" + std::to_string(index) + "]";

@@ -49,14 +49,11 @@ class StructOperations {
     int64_t get_struct_member_array_element(const std::string &var_name,
                                             const std::string &member_name,
                                             int index);
-    int64_t
-    get_struct_member_multidim_array_element(const std::string &var_name,
-                                             const std::string &member_name,
-                                             const std::vector<int64_t> &indices);
-    std::string
-    get_struct_member_array_string_element(const std::string &var_name,
-                                           const std::string &member_name,
-                                           int index);
+    int64_t get_struct_member_multidim_array_element(
+        const std::string &var_name, const std::string &member_name,
+        const std::vector<int64_t> &indices);
+    std::string get_struct_member_array_string_element(
+        const std::string &var_name, const std::string &member_name, int index);
 
   private:
     Interpreter *interpreter_;

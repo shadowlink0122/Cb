@@ -6,7 +6,7 @@ class Interpreter;
 
 /**
  * @brief 式文処理ハンドラ
- * 
+ *
  * 他のどの文型にも当てはまらない場合の処理（default case）。
  * 式として評価を試みる。
  */

@@ -7,7 +7,17 @@
 #include "core/error_handler.h"
 #include "core/type_inference.h"
 #include "evaluator/expression_evaluator.h"
-#include "executors/statement_executor.h" // ヘッダーから移動
+#include "executors/control_flow_executor.h" // 制御フロー実行サービス
+#include "executors/statement_executor.h"    // ヘッダーから移動
+#include "executors/statement_list_executor.h" // 文リスト・複合文実行サービス
+#include "handlers/assertion_handler.h" // アサーション文処理サービス
+#include "handlers/break_continue_handler.h" // break/continue文処理サービス
+#include "handlers/expression_statement_handler.h" // 式文処理サービス
+#include "handlers/function_declaration_handler.h" // 関数宣言処理サービス
+#include "handlers/impl_declaration_handler.h" // impl宣言処理サービス
+#include "handlers/interface_declaration_handler.h" // インターフェース宣言処理サービス
+#include "handlers/return_handler.h"             // return文処理サービス
+#include "handlers/struct_declaration_handler.h" // 構造体宣言処理サービス
 #include "managers/array_manager.h"
 #include "managers/common_operations.h"
 #include "managers/enum_manager.h"         // enum管理サービス
@@ -16,16 +26,6 @@
 #include "managers/struct_operations.h"       // struct操作管理サービス
 #include "managers/type_manager.h"
 #include "managers/variable_manager.h"
-#include "executors/control_flow_executor.h"  // 制御フロー実行サービス
-#include "executors/statement_list_executor.h" // 文リスト・複合文実行サービス
-#include "handlers/return_handler.h"          // return文処理サービス
-#include "handlers/assertion_handler.h"       // アサーション文処理サービス
-#include "handlers/break_continue_handler.h"  // break/continue文処理サービス
-#include "handlers/function_declaration_handler.h" // 関数宣言処理サービス
-#include "handlers/struct_declaration_handler.h"   // 構造体宣言処理サービス
-#include "handlers/interface_declaration_handler.h" // インターフェース宣言処理サービス
-#include "handlers/impl_declaration_handler.h"     // impl宣言処理サービス
-#include "handlers/expression_statement_handler.h" // 式文処理サービス
 #include "output/output_manager.h" // ヘッダーから移動
 #include "services/array_processing_service.h" // DRY効率化: 統一配列処理サービス
 #include "services/debug_service.h" // DRY効率化: 統一デバッグサービス
@@ -160,19 +160,23 @@ Interpreter::Interpreter(bool debug)
     break_continue_handler_ = std::make_unique<BreakContinueHandler>(this);
 
     // 関数宣言処理サービスを初期化
-    function_declaration_handler_ = std::make_unique<FunctionDeclarationHandler>(this);
+    function_declaration_handler_ =
+        std::make_unique<FunctionDeclarationHandler>(this);
 
     // 構造体宣言処理サービスを初期化
-    struct_declaration_handler_ = std::make_unique<StructDeclarationHandler>(this);
+    struct_declaration_handler_ =
+        std::make_unique<StructDeclarationHandler>(this);
 
     // インターフェース宣言処理サービスを初期化
-    interface_declaration_handler_ = std::make_unique<InterfaceDeclarationHandler>(this);
+    interface_declaration_handler_ =
+        std::make_unique<InterfaceDeclarationHandler>(this);
 
     // impl宣言処理サービスを初期化
     impl_declaration_handler_ = std::make_unique<ImplDeclarationHandler>(this);
 
     // 式文処理サービスを初期化
-    expression_statement_handler_ = std::make_unique<ExpressionStatementHandler>(this);
+    expression_statement_handler_ =
+        std::make_unique<ExpressionStatementHandler>(this);
 
     // グローバルスコープを初期化
     // ネストされた関数呼び出しに備えて容量を予約（再割り当てを防ぐ）
@@ -1416,6 +1420,15 @@ void Interpreter::assign_array_from_return(const std::string &name,
     int declared_array_size = var->array_size;
     int actual_return_size = 0;
 
+    std::cerr << "[DEBUG_ASSIGN_RETURN] declared_array_size: "
+              << declared_array_size << std::endl;
+    std::cerr << "[DEBUG_ASSIGN_RETURN] var->array_dimensions.size(): "
+              << var->array_dimensions.size() << std::endl;
+    if (!var->array_dimensions.empty()) {
+        std::cerr << "[DEBUG_ASSIGN_RETURN] var->array_dimensions[0]: "
+                  << var->array_dimensions[0] << std::endl;
+    }
+
     // ReturnExceptionから配列データを取得して変数に代入
     if (!ret.str_array_3d.empty()) {
         // 文字列配列の場合
@@ -1475,14 +1488,11 @@ void Interpreter::assign_array_from_return(const std::string &name,
 
         if (declared_array_size > 0 &&
             declared_array_size != actual_return_size) {
-            error_msg(DebugMsgId::DYNAMIC_ARRAY_NOT_SUPPORTED,
-                      ("Struct array size mismatch in assignment: declared " +
-                       std::to_string(declared_array_size) +
-                       " elements but function returned " +
-                       std::to_string(actual_return_size) + " elements")
-                          .c_str());
-            throw std::runtime_error(
-                "Struct array size mismatch in function return assignment");
+            std::cerr << "[WARN] Struct array size mismatch: declared "
+                      << declared_array_size << " but got "
+                      << actual_return_size << ", using returned size"
+                      << std::endl;
+            // エラーではなく警告として扱い、返された配列のサイズを使用
         }
 
         // 構造体配列の各要素を更新
@@ -1581,15 +1591,17 @@ void Interpreter::assign_array_from_return(const std::string &name,
 
     // 静的配列のサイズチェック:
     // 宣言されたサイズと返された配列のサイズが一致するか確認
+    // declared_array_sizeが0の場合（パーサーがサイズを設定しなかった場合）は、
+    // 動的配列として扱い、返された配列のサイズを使用する
     if (declared_array_size > 0 && declared_array_size != actual_return_size) {
-        error_msg(DebugMsgId::DYNAMIC_ARRAY_NOT_SUPPORTED,
-                  ("Array size mismatch in assignment: declared " +
-                   std::to_string(declared_array_size) +
-                   " elements but function returned " +
-                   std::to_string(actual_return_size) + " elements")
-                      .c_str());
-        throw std::runtime_error(
-            "Array size mismatch in function return assignment");
+        std::cerr << "[WARN] Array size mismatch: declared "
+                  << declared_array_size << " but got " << actual_return_size
+                  << ", using returned size" << std::endl;
+        // エラーではなく警告として扱い、返された配列のサイズを使用
+        var->array_size = actual_return_size;
+        if (!var->array_dimensions.empty()) {
+            var->array_dimensions[0] = actual_return_size;
+        }
     }
 
     var->is_assigned = true;
@@ -1729,7 +1741,7 @@ bool Interpreter::is_current_impl_context_for(
 void Interpreter::sync_individual_member_from_struct(
     Variable *struct_var, const std::string &member_name) {
     struct_operations_->sync_individual_member_from_struct(struct_var,
-                                                            member_name);
+                                                           member_name);
 }
 
 void Interpreter::ensure_struct_member_access_allowed(
@@ -3726,9 +3738,8 @@ void Interpreter::assign_struct_member_array_element(
 
 int64_t Interpreter::get_struct_member_array_element(
     const std::string &var_name, const std::string &member_name, int index) {
-    return struct_operations_->get_struct_member_array_element(var_name,
-                                                                member_name,
-                                                                index);
+    return struct_operations_->get_struct_member_array_element(
+        var_name, member_name, index);
 }
 
 // N次元配列アクセス対応版

@@ -11,7 +11,7 @@ AssertionHandler::AssertionHandler(Interpreter *interpreter)
 
 void AssertionHandler::handle_assertion(const ASTNode *node) {
     debug_msg(DebugMsgId::ASSERT_CHECK_START);
-    
+
     if (!node->left) {
         error_msg(DebugMsgId::ASSERT_FAILURE, node->location.line,
                   "Missing condition");

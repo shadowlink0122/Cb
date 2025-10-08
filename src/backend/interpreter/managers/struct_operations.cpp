@@ -439,8 +439,27 @@ Variable *StructOperations::get_struct_member(const std::string &var_name,
 
     Variable *var = interpreter_->find_variable(var_name);
     if (!var || !var->is_struct) {
-        debug_msg(DebugMsgId::INTERPRETER_VAR_NOT_STRUCT, var_name.c_str());
-        throw std::runtime_error("Variable is not a struct: " + var_name);
+        // 配列要素の場合、自動的に作成を試みる (例: people[0])
+        size_t bracket_pos = var_name.find('[');
+        if (bracket_pos != std::string::npos) {
+            std::string array_name = var_name.substr(0, bracket_pos);
+            Variable *array_var = interpreter_->find_variable(array_name);
+
+            if (array_var && array_var->is_array && array_var->is_struct &&
+                !array_var->struct_type_name.empty()) {
+                // 親配列が存在する場合、要素変数を作成
+                debug_print("[DEBUG] Auto-creating struct array element: %s\n",
+                            var_name.c_str());
+                interpreter_->create_struct_variable(
+                    var_name, array_var->struct_type_name);
+                var = interpreter_->find_variable(var_name);
+            }
+        }
+
+        if (!var || !var->is_struct) {
+            debug_msg(DebugMsgId::INTERPRETER_VAR_NOT_STRUCT, var_name.c_str());
+            throw std::runtime_error("Variable is not a struct: " + var_name);
+        }
     }
 
     // 参照型の場合、参照先の変数を取得

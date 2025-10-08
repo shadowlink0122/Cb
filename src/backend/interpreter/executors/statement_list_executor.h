@@ -6,7 +6,7 @@ class Interpreter;
 
 /**
  * @brief 文リスト・複合文の実行を管理するクラス
- * 
+ *
  * AST_STMT_LIST と AST_COMPOUND_STMT の処理を担当。
  * execute_statement から分離して単一責任原則を実現。
  */

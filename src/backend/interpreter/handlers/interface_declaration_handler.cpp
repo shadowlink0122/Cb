@@ -4,10 +4,12 @@
 #include "../../../common/debug_messages.h"
 #include "core/interpreter.h"
 
-InterfaceDeclarationHandler::InterfaceDeclarationHandler(Interpreter *interpreter)
+InterfaceDeclarationHandler::InterfaceDeclarationHandler(
+    Interpreter *interpreter)
     : interpreter_(interpreter) {}
 
-void InterfaceDeclarationHandler::handle_interface_declaration(const ASTNode *node) {
+void InterfaceDeclarationHandler::handle_interface_declaration(
+    const ASTNode *node) {
     std::string interface_name = node->name;
     debug_msg(DebugMsgId::INTERFACE_DECL_START, interface_name.c_str());
 
@@ -16,8 +18,7 @@ void InterfaceDeclarationHandler::handle_interface_declaration(const ASTNode *no
     // ASTノードからinterface定義を復元
     for (const auto &method_node : node->arguments) {
         if (method_node->node_type == ASTNodeType::AST_FUNC_DECL) {
-            InterfaceMember method(method_node->name,
-                                   method_node->type_info,
+            InterfaceMember method(method_node->name, method_node->type_info,
                                    method_node->is_unsigned);
 
             // パラメータ情報を復元
@@ -30,8 +31,7 @@ void InterfaceDeclarationHandler::handle_interface_declaration(const ASTNode *no
                         param_unsigned = param_node->is_unsigned;
                     }
                     method.add_parameter(param_node->name,
-                                         param_node->type_info,
-                                         param_unsigned);
+                                         param_node->type_info, param_unsigned);
                     ++param_index;
                 }
             }

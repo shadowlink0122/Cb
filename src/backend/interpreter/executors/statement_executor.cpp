@@ -976,6 +976,11 @@ void StatementExecutor::execute_variable_declaration(const ASTNode *node) {
             var.struct_type_name = node->type_name;
         }
 
+        // struct配列の場合、is_structフラグも設定
+        if (node->array_type_info.base_type == TYPE_STRUCT) {
+            var.is_struct = true;
+        }
+
         // デバッグ出力
         if (debug_mode) {
             std::cerr << "DEBUG: Setting array for typedef variable "
@@ -1101,6 +1106,12 @@ void StatementExecutor::execute_variable_declaration(const ASTNode *node) {
                 interpreter_.current_scope().variables[node->name].is_assigned =
                     true;
             } catch (const ReturnException &ret) {
+                if (debug_mode) {
+                    std::cerr
+                        << "[DEBUG_STMT] ReturnException caught: is_array="
+                        << ret.is_array << ", is_struct=" << ret.is_struct
+                        << ", type=" << static_cast<int>(ret.type) << std::endl;
+                }
                 if (ret.is_array) {
                     // 配列戻り値の場合
                     Variable &target_var =
@@ -1252,6 +1263,15 @@ void StatementExecutor::execute_variable_declaration(const ASTNode *node) {
                             target_var.type = static_cast<TypeInfo>(
                                 TYPE_ARRAY_BASE + ret.type);
                         }
+                    } else if (ret.is_struct) {
+                        // 構造体配列の場合
+                        if (debug_mode) {
+                            std::cerr
+                                << "[DEBUG_STMT] Struct array return caught, "
+                                   "calling assign_array_from_return for "
+                                << node->name << std::endl;
+                        }
+                        interpreter_.assign_array_from_return(node->name, ret);
                     } else {
                         // 整数型配列
                         if (!ret.int_array_3d.empty()) {
@@ -1452,30 +1472,111 @@ void StatementExecutor::execute_multiple_var_decl(const ASTNode *node) {
 
 void StatementExecutor::execute_array_decl(const ASTNode *node) {
     // 配列宣言をArrayManagerに委譲
+    if (debug_mode) {
+        std::cerr << "[DEBUG_EXEC_ARRAY] execute_array_decl for: " << node->name
+                  << std::endl;
+        std::cerr << "[DEBUG_EXEC_ARRAY] array_dimensions.size(): "
+                  << node->array_dimensions.size() << std::endl;
+        std::cerr << "[DEBUG_EXEC_ARRAY] array_type_info.dimensions.size(): "
+                  << node->array_type_info.dimensions.size() << std::endl;
+        if (!node->array_dimensions.empty() && node->array_dimensions[0]) {
+            std::cerr << "[DEBUG_EXEC_ARRAY] First dimension exists"
+                      << std::endl;
+        }
+    }
     Variable var;
-    interpreter_.get_array_manager()->processArrayDeclaration(var, node);
+    try {
+        interpreter_.get_array_manager()->processArrayDeclaration(var, node);
+    } catch (const ReturnException &ret) {
+        // processArrayDeclaration内で関数呼び出しが発生し、構造体配列が返された場合
+        if (ret.is_struct && ret.is_array) {
+            if (debug_mode) {
+                std::cerr << "[DEBUG_EXEC_ARRAY] Caught struct array "
+                             "ReturnException from processArrayDeclaration"
+                          << std::endl;
+            }
+            // まず変数を登録
+            interpreter_.current_scope().variables[node->name] = var;
+            // 構造体配列を代入
+            interpreter_.assign_array_from_return(node->name, ret);
+            return;
+        }
+        // その他のReturnExceptionは再スロー
+        throw;
+    }
 
     // 変数を現在のスコープに登録
     interpreter_.current_scope().variables[node->name] = var;
 
+    // struct配列の場合、要素変数を初期化
+    if (debug_mode) {
+        std::cerr << "[DEBUG_EXEC_ARRAY] After registration: var.is_struct="
+                  << var.is_struct << ", var.is_array=" << var.is_array
+                  << ", var.array_size=" << var.array_size
+                  << ", struct_type_name=" << var.struct_type_name << std::endl;
+    }
+    if (var.is_struct && var.is_array && var.array_size > 0 &&
+        !var.struct_type_name.empty()) {
+        if (debug_mode) {
+            std::cerr << "[DEBUG_EXEC_ARRAY] Initializing struct array "
+                         "elements, size="
+                      << var.array_size << std::endl;
+        }
+        // 各配列要素のstruct変数を作成
+        for (int i = 0; i < var.array_size; ++i) {
+            std::string element_name =
+                node->name + "[" + std::to_string(i) + "]";
+            interpreter_.create_struct_variable(element_name,
+                                                var.struct_type_name);
+        }
+    }
+
     // 初期化式がある場合の処理
     if (node->init_expr) {
+        if (debug_mode) {
+            std::cerr << "[DEBUG_ARRAY_DECL] init_expr exists, node_type="
+                      << static_cast<int>(node->init_expr->node_type)
+                      << " (AST_FUNC_CALL="
+                      << static_cast<int>(ASTNodeType::AST_FUNC_CALL) << ")"
+                      << std::endl;
+        }
         if (node->type_info == TYPE_STRUCT &&
             node->init_expr->node_type == ASTNodeType::AST_ARRAY_LITERAL) {
             // struct配列リテラル初期化: Person[3] people = [{25, "Alice"}, {30,
             // "Bob"}];
+            if (debug_mode) {
+                std::cerr
+                    << "[DEBUG_ARRAY_DECL] Struct array literal initialization"
+                    << std::endl;
+            }
             execute_struct_array_literal_init(node->name, node->init_expr.get(),
                                               node->type_name);
         } else if (node->init_expr->node_type == ASTNodeType::AST_FUNC_CALL) {
             // 配列を返す関数呼び出し: double[2][3] arr = make_array();
+            if (debug_mode) {
+                std::cerr << "[DEBUG_ARRAY_DECL] Function call initialization "
+                             "for array: "
+                          << node->name << std::endl;
+            }
             try {
                 int64_t value = interpreter_.evaluate(node->init_expr.get());
+                if (debug_mode) {
+                    std::cerr << "[DEBUG_ARRAY_DECL] evaluate() returned "
+                                 "normally, value="
+                              << value << std::endl;
+                }
                 // void関数の場合
                 interpreter_.current_scope().variables[node->name].value =
                     value;
                 interpreter_.current_scope().variables[node->name].is_assigned =
                     true;
             } catch (const ReturnException &ret) {
+                if (debug_mode) {
+                    std::cerr << "[DEBUG_ARRAY_DECL] Caught ReturnException: "
+                                 "is_array="
+                              << ret.is_array << ", is_struct=" << ret.is_struct
+                              << std::endl;
+                }
                 if (ret.is_array) {
                     // 配列戻り値の場合
                     Variable &target_var =
@@ -1622,6 +1723,15 @@ void StatementExecutor::execute_array_decl(const ASTNode *node) {
                             target_var.type = static_cast<TypeInfo>(
                                 TYPE_ARRAY_BASE + ret.type);
                         }
+                    } else if (ret.is_struct) {
+                        // 構造体配列の場合
+                        if (debug_mode) {
+                            std::cerr << "[DEBUG_ARRAY_DECL] Struct array "
+                                         "return caught, calling "
+                                         "assign_array_from_return for "
+                                      << node->name << std::endl;
+                        }
+                        interpreter_.assign_array_from_return(node->name, ret);
                     } else {
                         // 整数型配列
                         if (!ret.int_array_3d.empty()) {

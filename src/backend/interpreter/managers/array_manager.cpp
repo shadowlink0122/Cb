@@ -234,7 +234,7 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
                   ("Struct type: " + node->type_name).c_str());
 
         var.type = TYPE_STRUCT;
-        var.is_struct = false; // 配列自体はstructではない
+        var.is_struct = true; // struct配列の識別のためtrueに設定
         var.struct_type_name = node->type_name;
     } else {
         var.type = static_cast<TypeInfo>(TYPE_ARRAY_BASE + node->type_info);
@@ -288,47 +288,142 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
         }
     } else {
         // 1次元配列
-        if (node->array_dimensions.size() == 1) {
+        // array_dimensionsが利用可能な場合はそちらを優先（VLA対応）
+        if (node->array_dimensions.size() == 1 &&
+            node->array_dimensions[0].get() != nullptr) {
             debug_print(
-                "ARRAY_DEBUG: first dimension ptr=%p has_value=%d\n",
-                static_cast<const void *>(node->array_dimensions[0].get()),
-                node->array_dimensions[0] ? 1 : 0);
-            if (node->array_dimensions[0].get() == nullptr) {
-                // 動的配列（サイズ指定なし）は初期化がない場合のみ禁止
-                if (!node->init_expr) {
+                "ARRAY_DEBUG: Using array_dimensions path, ptr=%p\n",
+                static_cast<const void *>(node->array_dimensions[0].get()));
+            // サイズ計算はExpressionEvaluatorを使用
+            debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
+                      "Evaluating array size expression from array_dimensions");
+            int size = static_cast<int>(evaluate_expression_safe(
+                node->array_dimensions[0].get(), "array_size"));
+            debug_msg(
+                DebugMsgId::ARRAY_DECL_DEBUG,
+                ("Array size evaluated: " + std::to_string(size)).c_str());
+            var.array_size = size;
+
+            // 1次元配列でもarray_dimensionsを設定
+            var.array_dimensions.push_back(size);
+
+            // 配列要素を初期化
+            if (node->type_info == TYPE_STRING) {
+                var.array_strings.resize(size, "");
+            } else {
+                debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
+                          "Ensuring numeric storage for 1D array");
+                ensure_numeric_storage(var, static_cast<size_t>(size), false,
+                                       node->type_info);
+                debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
+                          "Numeric storage prepared");
+            }
+        } else if (!node->array_type_info.dimensions.empty()) {
+            debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
+                      "Using array_type_info dimensions for struct array");
+            int size = node->array_type_info.dimensions[0].size;
+
+            debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
+                      ("size_expr content: '" +
+                       node->array_type_info.dimensions[0].size_expr + "'")
+                          .c_str());
+            debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
+                      ("size_expr empty: " +
+                       std::string(
+                           node->array_type_info.dimensions[0].size_expr.empty()
+                               ? "true"
+                               : "false"))
+                          .c_str());
+
+            // sizeが0または負の場合、size_exprを評価してみる
+            if ((size <= 0 || size == -1) &&
+                !node->array_type_info.dimensions[0].size_expr.empty()) {
+                debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
+                          ("Evaluating size_expr: " +
+                           node->array_type_info.dimensions[0].size_expr)
+                              .c_str());
+                try {
+                    // size_exprが数値文字列の場合、直接変換
+                    size = std::stoi(
+                        node->array_type_info.dimensions[0].size_expr);
+                    debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
+                              ("Size from size_expr (literal): " +
+                               std::to_string(size))
+                                  .c_str());
+                } catch (...) {
+                    // 数値リテラルでない場合、変数として値を取得
+                    debug_msg(
+                        DebugMsgId::ARRAY_DECL_DEBUG,
+                        "Size expr is not a literal, looking up as variable");
+
+                    std::string var_name =
+                        node->array_type_info.dimensions[0].size_expr;
+                    Variable *size_var = nullptr;
+
+                    // interpreter_が利用可能な場合、変数を取得
+                    if (interpreter_) {
+                        size_var = interpreter_->get_variable(var_name);
+                    }
+
+                    if (size_var) {
+                        // 変数の値を取得（valueフィールドはint64_t）
+                        size = static_cast<int>(size_var->value);
+                        debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
+                                  ("Size from variable '" + var_name +
+                                   "': " + std::to_string(size))
+                                      .c_str());
+                    } else {
+                        throw std::runtime_error("Array size variable '" +
+                                                 var_name + "' not found");
+                    }
+                }
+            }
+
+            debug_msg(
+                DebugMsgId::ARRAY_DECL_DEBUG,
+                ("Array size from array_type_info: " + std::to_string(size))
+                    .c_str());
+
+            // 動的配列（サイズが負の場合）のチェック
+            if (size < 0) {
+                // 初期化式がある場合は許可（動的配列として初期化時にサイズ決定）
+                if (node->init_expr) {
+                    debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
+                              "Dynamic array with initialization allowed");
+                    var.array_size = 0; // 初期化時にサイズが決定される
+                    var.array_dimensions.push_back(0);
+                } else {
                     error_msg(DebugMsgId::DYNAMIC_ARRAY_NOT_SUPPORTED,
                               node->name.c_str());
                     throw std::runtime_error(
                         "Dynamic arrays are not supported yet");
                 }
-                // 関数呼び出しまたは配列リテラルで初期化される場合は許可
-                var.array_size = 0; // 動的配列のサイズは初期化時に決定
             } else {
-                // サイズ計算はExpressionEvaluatorを使用
-                debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
-                          "Evaluating array size expression");
-                int size = static_cast<int>(evaluate_expression_safe(
-                    node->array_dimensions[0].get(), "array_size"));
-                debug_msg(
-                    DebugMsgId::ARRAY_DECL_DEBUG,
-                    ("Array size evaluated: " + std::to_string(size)).c_str());
                 var.array_size = size;
-
-                // 1次元配列でもarray_dimensionsを設定
                 var.array_dimensions.push_back(size);
 
-                // 配列要素を初期化
-                if (node->type_info == TYPE_STRING) {
-                    var.array_strings.resize(size, "");
-                } else {
-                    debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
-                              "Ensuring numeric storage for 1D array");
-                    ensure_numeric_storage(var, static_cast<size_t>(size),
-                                           false, node->type_info);
-                    debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
-                              "Numeric storage prepared");
+                // struct配列の場合、初期化は execute_array_decl で処理される
+                if (node->type_info != TYPE_STRUCT) {
+                    if (node->type_info == TYPE_STRING) {
+                        var.array_strings.resize(size, "");
+                    } else {
+                        ensure_numeric_storage(var, static_cast<size_t>(size),
+                                               false, node->type_info);
+                    }
                 }
             }
+        } else if (node->array_dimensions.size() == 1 &&
+                   node->array_dimensions[0].get() == nullptr) {
+            debug_print("ARRAY_DEBUG: array_dimensions[0] is nullptr\n");
+            // 動的配列（サイズ指定なし）は初期化がない場合のみ禁止
+            if (!node->init_expr) {
+                error_msg(DebugMsgId::DYNAMIC_ARRAY_NOT_SUPPORTED,
+                          node->name.c_str());
+                throw std::runtime_error(
+                    "Dynamic arrays are not supported yet");
+            }
+            // 関数呼び出しまたは配列リテラルで初期化される場合は許可
+            var.array_size = 0; // 動的配列のサイズは初期化時に決定
         } else if (node->array_size_expr) {
             // array_size_expr が設定されている場合（create_array_init_with_size
             // から）
@@ -546,10 +641,25 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
                     evaluate_expression_safe(node->init_expr.get(),
                                              "function_return");
                 } catch (const ReturnException &ret) {
+                    debug_msg(
+                        DebugMsgId::ARRAY_DECL_DEBUG,
+                        ("ReturnException caught in array_manager: is_array=" +
+                         std::to_string(ret.is_array))
+                            .c_str());
                     if (ret.is_array) {
                         debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
                                   "Function returned array, checking size "
                                   "compatibility");
+                        debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
+                                  ("Return value details: is_struct=" +
+                                   std::to_string(ret.is_struct) +
+                                   ", int_empty=" +
+                                   std::to_string(ret.int_array_3d.empty()) +
+                                   ", str_empty=" +
+                                   std::to_string(ret.str_array_3d.empty()) +
+                                   ", struct_empty=" +
+                                   std::to_string(ret.struct_array_3d.empty()))
+                                      .c_str());
 
                         // 戻り値の配列サイズを取得
                         int actual_return_size = 0;
@@ -565,6 +675,32 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
                                     actual_return_size += row.size();
                                 }
                             }
+                        } else if (!ret.struct_array_3d.empty()) {
+                            // 構造体配列のサイズを計算
+                            debug_msg(
+                                DebugMsgId::ARRAY_DECL_DEBUG,
+                                ("Processing struct array return: planes=" +
+                                 std::to_string(ret.struct_array_3d.size()))
+                                    .c_str());
+                            for (const auto &plane : ret.struct_array_3d) {
+                                debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
+                                          ("Plane has " +
+                                           std::to_string(plane.size()) +
+                                           " rows")
+                                              .c_str());
+                                for (const auto &row : plane) {
+                                    debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
+                                              ("Row has " +
+                                               std::to_string(row.size()) +
+                                               " elements")
+                                                  .c_str());
+                                    actual_return_size += row.size();
+                                }
+                            }
+                            debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
+                                      ("Struct array size calculated: " +
+                                       std::to_string(actual_return_size))
+                                          .c_str());
                         }
 
                         // 宣言されたサイズを取得
@@ -598,7 +734,17 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
                         }
 
                         // 配列データを設定
+                        debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
+                                  ("Checking array type: int_empty=" +
+                                   std::to_string(ret.int_array_3d.empty()) +
+                                   ", str_empty=" +
+                                   std::to_string(ret.str_array_3d.empty()) +
+                                   ", struct_empty=" +
+                                   std::to_string(ret.struct_array_3d.empty()))
+                                      .c_str());
                         if (!ret.int_array_3d.empty()) {
+                            debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
+                                      "Processing int array");
 
                             // 多次元配列かどうかを判定（元のArrayTypeInfoがあれば使用）
                             if (var.array_type_info.dimensions.size() > 1) {
@@ -625,6 +771,8 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
                             var.type = static_cast<TypeInfo>(TYPE_ARRAY_BASE +
                                                              TYPE_INT);
                         } else if (!ret.str_array_3d.empty()) {
+                            debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
+                                      "Processing string array");
                             if (var.is_multidimensional) {
                                 // 多次元文字列配列の場合
                                 var.multidim_array_strings.clear();
@@ -652,6 +800,16 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
                             }
                             var.type = static_cast<TypeInfo>(TYPE_ARRAY_BASE +
                                                              TYPE_STRING);
+                        } else if (!ret.struct_array_3d.empty()) {
+                            debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
+                                      "Processing struct array - rethrowing "
+                                      "exception");
+                            // 構造体配列の場合は、execute_array_declでassign_array_from_returnを呼ぶので、
+                            // ここではReturnExceptionを再スローする
+                            throw ret;
+                        } else {
+                            debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
+                                      "No array data found in ReturnException");
                         }
 
                         var.array_size = actual_return_size;
@@ -1924,6 +2082,9 @@ int64_t ArrayManager::evaluate_expression_safe(const ASTNode *node,
 
         // フォールバック: 従来の評価器使用
         return expression_evaluator_->evaluate_expression(node);
+    } catch (const ReturnException &) {
+        // ReturnExceptionは配列初期化で使用されるため、再スロー
+        throw;
     } catch (const std::exception &e) {
         throw std::runtime_error("Array expression evaluation failed" +
                                  (context.empty() ? "" : " in " + context) +
