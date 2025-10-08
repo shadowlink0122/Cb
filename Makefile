@@ -204,12 +204,17 @@ fmt:
 
 # 単体テスト用のダミーオブジェクト
 $(TESTS_DIR)/unit/dummy.o: $(TESTS_DIR)/unit/dummy.cpp
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CXX) -std=c++17 -Wall -g -I$(SRC_DIR) -I$(BACKEND_DIR)/interpreter -Itests/unit -c -o $@ $<
 
-# 単体テスト（integration-testと同じオブジェクトファイルを使用）
-unit-test: $(MAIN_TARGET) $(TESTS_DIR)/unit/dummy.o
-	@echo "Running unit tests..."
-	@cd tests/unit && $(MAKE)
+# Unit test binary target
+$(TESTS_DIR)/unit/test_main: $(TESTS_DIR)/unit/main.cpp $(TESTS_DIR)/unit/dummy.o $(BACKEND_OBJS) $(COMMON_OBJS)
+	$(CXX) -std=c++17 -Wall -g -I$(SRC_DIR) -I$(BACKEND_DIR)/interpreter -Itests/unit -o $@ $^
+
+unit-test: $(TESTS_DIR)/unit/test_main
+	@echo "============================================================="
+	@echo "Running Cb Unit Test Suite"
+	@echo "============================================================="
+	@cd tests/unit && ./test_main
 
 # Integration test binary target
 $(TESTS_DIR)/integration/test_main: $(TESTS_DIR)/integration/main.cpp $(MAIN_TARGET)
