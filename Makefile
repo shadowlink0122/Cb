@@ -1,8 +1,7 @@
 CC=g++
+CXX=g++
 LEX=flex
 YACC=bison
-
-CFLAGS=-Wall -g -std=c++17 -I. -Isrc/backend/interpreter
 
 # ディレクトリ設定
 SRC_DIR=src
@@ -14,6 +13,23 @@ NATIVE_DIR=$(PLATFORM_DIR)/native
 BAREMETAL_DIR=$(PLATFORM_DIR)/baremetal
 TESTS_DIR=tests
 CGEN_DIR=cgen
+
+# Interpreterサブディレクトリ
+INTERPRETER_DIR=$(BACKEND_DIR)/interpreter
+INTERPRETER_CORE=$(INTERPRETER_DIR)/core
+INTERPRETER_EVALUATOR=$(INTERPRETER_DIR)/evaluator
+INTERPRETER_EXECUTORS=$(INTERPRETER_DIR)/executors
+INTERPRETER_HANDLERS=$(INTERPRETER_DIR)/handlers
+INTERPRETER_MANAGERS=$(INTERPRETER_DIR)/managers
+INTERPRETER_SERVICES=$(INTERPRETER_DIR)/services
+INTERPRETER_OUTPUT=$(INTERPRETER_DIR)/output
+
+# コンパイラフラグ
+CXXFLAGS=-Wall -g -std=c++17
+CFLAGS=$(CXXFLAGS) -I. -I$(SRC_DIR) -I$(INTERPRETER_DIR)
+
+# テスト用フラグ
+TEST_CXXFLAGS=$(CXXFLAGS) -I$(SRC_DIR) -I$(INTERPRETER_DIR) -I$(TESTS_DIR)/unit
 
 # 生成されるファイル（古いbison/flexファイルは削除）
 # PARSER_C=$(FRONTEND_DIR)/parser.c
@@ -33,62 +49,85 @@ PARSER_OBJS=$(FRONTEND_DIR)/recursive_parser/parsers/expression_parser.o \
             $(FRONTEND_DIR)/recursive_parser/parsers/union_parser.o \
             $(FRONTEND_DIR)/recursive_parser/parsers/type_utility_parser.o
 FRONTEND_OBJS=$(FRONTEND_DIR)/main.o $(FRONTEND_DIR)/help_messages.o $(FRONTEND_DIR)/recursive_parser/recursive_lexer.o $(FRONTEND_DIR)/recursive_parser/recursive_parser.o $(PARSER_OBJS)
+# Interpreterオブジェクトファイル（グループ化）
+INTERPRETER_CORE_OBJS = \
+	$(INTERPRETER_CORE)/interpreter.o \
+	$(INTERPRETER_CORE)/error_handler.o \
+	$(INTERPRETER_CORE)/pointer_metadata.o \
+	$(INTERPRETER_CORE)/type_inference.o
+
+INTERPRETER_EVALUATOR_OBJS = \
+	$(INTERPRETER_EVALUATOR)/core/evaluator.o \
+	$(INTERPRETER_EVALUATOR)/core/dispatcher.o \
+	$(INTERPRETER_EVALUATOR)/core/helpers.o \
+	$(INTERPRETER_EVALUATOR)/operators/binary_unary.o \
+	$(INTERPRETER_EVALUATOR)/operators/assignment.o \
+	$(INTERPRETER_EVALUATOR)/operators/incdec.o \
+	$(INTERPRETER_EVALUATOR)/operators/ternary.o \
+	$(INTERPRETER_EVALUATOR)/access/array.o \
+	$(INTERPRETER_EVALUATOR)/access/member.o \
+	$(INTERPRETER_EVALUATOR)/access/member_helpers.o \
+	$(INTERPRETER_EVALUATOR)/access/special.o \
+	$(INTERPRETER_EVALUATOR)/access/address_ops.o \
+	$(INTERPRETER_EVALUATOR)/access/receiver_resolution.o \
+	$(INTERPRETER_EVALUATOR)/functions/call.o \
+	$(INTERPRETER_EVALUATOR)/functions/call_impl.o \
+	$(INTERPRETER_EVALUATOR)/literals/eval.o
+
+INTERPRETER_EXECUTORS_OBJS = \
+	$(INTERPRETER_EXECUTORS)/statement_executor.o \
+	$(INTERPRETER_EXECUTORS)/control_flow_executor.o \
+	$(INTERPRETER_EXECUTORS)/statement_list_executor.o \
+	$(INTERPRETER_EXECUTORS)/assignments/simple_assignment.o \
+	$(INTERPRETER_EXECUTORS)/assignments/member_assignment.o \
+	$(INTERPRETER_EXECUTORS)/declarations/array_declaration.o \
+	$(INTERPRETER_EXECUTORS)/declarations/variable_declaration.o
+
+INTERPRETER_HANDLERS_OBJS = \
+	$(INTERPRETER_HANDLERS)/control/return.o \
+	$(INTERPRETER_HANDLERS)/control/assertion.o \
+	$(INTERPRETER_HANDLERS)/control/break_continue.o \
+	$(INTERPRETER_HANDLERS)/declarations/function.o \
+	$(INTERPRETER_HANDLERS)/declarations/struct.o \
+	$(INTERPRETER_HANDLERS)/declarations/interface.o \
+	$(INTERPRETER_HANDLERS)/declarations/impl.o \
+	$(INTERPRETER_HANDLERS)/statements/expression.o
+
+INTERPRETER_MANAGERS_OBJS = \
+	$(INTERPRETER_MANAGERS)/variables/manager.o \
+	$(INTERPRETER_MANAGERS)/variables/declaration.o \
+	$(INTERPRETER_MANAGERS)/variables/assignment.o \
+	$(INTERPRETER_MANAGERS)/variables/initialization.o \
+	$(INTERPRETER_MANAGERS)/variables/static.o \
+	$(INTERPRETER_MANAGERS)/arrays/manager.o \
+	$(INTERPRETER_MANAGERS)/types/manager.o \
+	$(INTERPRETER_MANAGERS)/types/enums.o \
+	$(INTERPRETER_MANAGERS)/types/interfaces.o \
+	$(INTERPRETER_MANAGERS)/structs/operations.o \
+	$(INTERPRETER_MANAGERS)/structs/member_variables.o \
+	$(INTERPRETER_MANAGERS)/structs/assignment.o \
+	$(INTERPRETER_MANAGERS)/structs/sync.o \
+	$(INTERPRETER_MANAGERS)/common/global_init.o \
+	$(INTERPRETER_MANAGERS)/common/operations.o
+
+INTERPRETER_SERVICES_OBJS = \
+	$(INTERPRETER_SERVICES)/expression_service.o \
+	$(INTERPRETER_SERVICES)/variable_access_service.o \
+	$(INTERPRETER_SERVICES)/debug_service.o \
+	$(INTERPRETER_SERVICES)/array_processing_service.o
+
+INTERPRETER_OUTPUT_OBJS = \
+	$(INTERPRETER_OUTPUT)/output_manager.o
+
+# Backendオブジェクト（全て統合）
 BACKEND_OBJS = \
-	src/backend/interpreter/core/interpreter.o \
-	src/backend/interpreter/core/error_handler.o \
-	src/backend/interpreter/core/pointer_metadata.o \
-	src/backend/interpreter/core/type_inference.o \
-	src/backend/interpreter/evaluator/core/evaluator.o \
-	src/backend/interpreter/evaluator/core/dispatcher.o \
-	src/backend/interpreter/evaluator/core/helpers.o \
-	src/backend/interpreter/evaluator/operators/binary_unary.o \
-	src/backend/interpreter/evaluator/operators/assignment.o \
-	src/backend/interpreter/evaluator/operators/incdec.o \
-	src/backend/interpreter/evaluator/operators/ternary.o \
-	src/backend/interpreter/evaluator/access/array.o \
-	src/backend/interpreter/evaluator/access/member.o \
-	src/backend/interpreter/evaluator/access/member_helpers.o \
-	src/backend/interpreter/evaluator/access/special.o \
-	src/backend/interpreter/evaluator/access/address_ops.o \
-	src/backend/interpreter/evaluator/access/receiver_resolution.o \
-	src/backend/interpreter/evaluator/functions/call.o \
-	src/backend/interpreter/evaluator/functions/call_impl.o \
-	src/backend/interpreter/evaluator/literals/eval.o \
-	src/backend/interpreter/executors/statement_executor.o \
-	src/backend/interpreter/executors/control_flow_executor.o \
-	src/backend/interpreter/executors/statement_list_executor.o \
-	src/backend/interpreter/executors/assignments/simple_assignment.o \
-	src/backend/interpreter/executors/assignments/member_assignment.o \
-	src/backend/interpreter/executors/declarations/array_declaration.o \
-	src/backend/interpreter/executors/declarations/variable_declaration.o \
-	src/backend/interpreter/handlers/control/return.o \
-	src/backend/interpreter/handlers/control/assertion.o \
-	src/backend/interpreter/handlers/control/break_continue.o \
-	src/backend/interpreter/handlers/declarations/function.o \
-	src/backend/interpreter/handlers/declarations/struct.o \
-	src/backend/interpreter/handlers/declarations/interface.o \
-	src/backend/interpreter/handlers/declarations/impl.o \
-	src/backend/interpreter/handlers/statements/expression.o \
-	src/backend/interpreter/managers/variables/manager.o \
-	src/backend/interpreter/managers/variables/declaration.o \
-	src/backend/interpreter/managers/variables/assignment.o \
-	src/backend/interpreter/managers/variables/initialization.o \
-	src/backend/interpreter/managers/variables/static.o \
-	src/backend/interpreter/managers/arrays/manager.o \
-	src/backend/interpreter/managers/types/manager.o \
-	src/backend/interpreter/managers/types/enums.o \
-	src/backend/interpreter/managers/types/interfaces.o \
-	src/backend/interpreter/managers/structs/operations.o \
-	src/backend/interpreter/managers/structs/member_variables.o \
-	src/backend/interpreter/managers/structs/assignment.o \
-	src/backend/interpreter/managers/structs/sync.o \
-	src/backend/interpreter/managers/common/global_init.o \
-	src/backend/interpreter/managers/common/operations.o \
-	src/backend/interpreter/output/output_manager.o \
-	src/backend/interpreter/services/expression_service.o \
-	src/backend/interpreter/services/variable_access_service.o \
-	src/backend/interpreter/services/debug_service.o \
-	src/backend/interpreter/services/array_processing_service.o
+	$(INTERPRETER_CORE_OBJS) \
+	$(INTERPRETER_EVALUATOR_OBJS) \
+	$(INTERPRETER_EXECUTORS_OBJS) \
+	$(INTERPRETER_HANDLERS_OBJS) \
+	$(INTERPRETER_MANAGERS_OBJS) \
+	$(INTERPRETER_SERVICES_OBJS) \
+	$(INTERPRETER_OUTPUT_OBJS)
 PLATFORM_OBJS=$(NATIVE_DIR)/native_stdio_output.o $(BAREMETAL_DIR)/baremetal_uart_output.o
 COMMON_OBJS=$(COMMON_DIR)/type_utils.o $(COMMON_DIR)/type_alias.o $(COMMON_DIR)/array_type_info.o $(COMMON_DIR)/utf8_utils.o $(COMMON_DIR)/io_interface.o $(COMMON_DIR)/debug_impl.o $(COMMON_DIR)/debug_messages.o $(PLATFORM_OBJS)
 
@@ -103,14 +142,14 @@ all: setup-dirs $(MAIN_TARGET)
 # ディレクトリ作成
 setup-dirs:
 	@mkdir -p $(FRONTEND_DIR) $(BACKEND_DIR) $(COMMON_DIR) $(NATIVE_DIR) $(BAREMETAL_DIR)
-	@mkdir -p $(BACKEND_DIR)/interpreter/core $(BACKEND_DIR)/interpreter/managers
-	@mkdir -p $(BACKEND_DIR)/interpreter/managers/variables $(BACKEND_DIR)/interpreter/managers/arrays
-	@mkdir -p $(BACKEND_DIR)/interpreter/managers/structs $(BACKEND_DIR)/interpreter/managers/types
-	@mkdir -p $(BACKEND_DIR)/interpreter/managers/common
-	@mkdir -p $(BACKEND_DIR)/interpreter/evaluator $(BACKEND_DIR)/interpreter/executors
-	@mkdir -p $(BACKEND_DIR)/interpreter/executors/declarations $(BACKEND_DIR)/interpreter/executors/assignments
-	@mkdir -p $(BACKEND_DIR)/interpreter/handlers $(BACKEND_DIR)/interpreter/output
-	@mkdir -p $(BACKEND_DIR)/interpreter/services
+	@mkdir -p $(INTERPRETER_CORE) $(INTERPRETER_EVALUATOR) $(INTERPRETER_EXECUTORS)
+	@mkdir -p $(INTERPRETER_HANDLERS) $(INTERPRETER_OUTPUT) $(INTERPRETER_SERVICES)
+	@mkdir -p $(INTERPRETER_MANAGERS)/variables $(INTERPRETER_MANAGERS)/arrays
+	@mkdir -p $(INTERPRETER_MANAGERS)/structs $(INTERPRETER_MANAGERS)/types $(INTERPRETER_MANAGERS)/common
+	@mkdir -p $(INTERPRETER_EVALUATOR)/core $(INTERPRETER_EVALUATOR)/operators
+	@mkdir -p $(INTERPRETER_EVALUATOR)/access $(INTERPRETER_EVALUATOR)/functions $(INTERPRETER_EVALUATOR)/literals
+	@mkdir -p $(INTERPRETER_EXECUTORS)/declarations $(INTERPRETER_EXECUTORS)/assignments
+	@mkdir -p $(INTERPRETER_HANDLERS)/control $(INTERPRETER_HANDLERS)/declarations $(INTERPRETER_HANDLERS)/statements
 	@mkdir -p $(BACKEND_DIR)/ir $(BACKEND_DIR)/optimizer $(BACKEND_DIR)/codegen
 
 # デバッグ実行例（--debugオプションでデバッグ出力有効）
@@ -204,11 +243,11 @@ fmt:
 
 # 単体テスト用のダミーオブジェクト
 $(TESTS_DIR)/unit/dummy.o: $(TESTS_DIR)/unit/dummy.cpp
-	$(CXX) -std=c++17 -Wall -g -I$(SRC_DIR) -I$(BACKEND_DIR)/interpreter -Itests/unit -c -o $@ $<
+	$(CXX) $(TEST_CXXFLAGS) -c -o $@ $<
 
 # Unit test binary target
 $(TESTS_DIR)/unit/test_main: $(TESTS_DIR)/unit/main.cpp $(TESTS_DIR)/unit/dummy.o $(BACKEND_OBJS) $(COMMON_OBJS)
-	$(CXX) -std=c++17 -Wall -g -I$(SRC_DIR) -I$(BACKEND_DIR)/interpreter -Itests/unit -o $@ $^
+	$(CXX) $(TEST_CXXFLAGS) -o $@ $^
 
 unit-test: $(TESTS_DIR)/unit/test_main
 	@echo "============================================================="
