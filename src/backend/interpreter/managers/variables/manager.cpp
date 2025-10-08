@@ -3,6 +3,7 @@
 #include "../../../../common/debug_messages.h"
 #include "../../../../common/type_helpers.h"
 #include "../../core/interpreter.h"
+#include "../../executors/assignments/const_check_helpers.h"
 #include "../../services/debug_service.h"
 #include "core/type_inference.h"
 #include "evaluator/core/evaluator.h"
@@ -503,6 +504,7 @@ void VariableManager::declare_global_variable(const ASTNode *node) {
         var.pointer_depth = node->pointer_depth;
         var.pointer_base_type_name = node->pointer_base_type_name;
         var.pointer_base_type = node->pointer_base_type;
+        var.is_pointer_const = node->is_pointer_const_qualifier;
         if (var.type != TYPE_POINTER) {
             var.type = TYPE_POINTER;
         }
@@ -514,8 +516,11 @@ void VariableManager::declare_global_variable(const ASTNode *node) {
     var.is_reference = node->is_reference;
     var.is_unsigned = node->is_unsigned;
 
-    var.is_unsigned = node->is_unsigned;
-    var.is_const = node->is_const;
+    // ポインタ型の場合、is_constは変数自体のconstではなく、指し先のconstを意味するため無視
+    // ポインタの場合はis_pointer_constとis_pointee_constで制御
+    if (!node->is_pointer) {
+        var.is_const = node->is_const;
+    }
     var.is_assigned = false;
 
     interpreter_->global_scope.variables[node->name] = var;
@@ -533,6 +538,7 @@ void VariableManager::declare_local_variable(const ASTNode *node) {
         var.pointer_depth = node->pointer_depth;
         var.pointer_base_type_name = node->pointer_base_type_name;
         var.pointer_base_type = node->pointer_base_type;
+        var.is_pointer_const = node->is_pointer_const_qualifier;
         var.type = TYPE_POINTER;
         if (var.type_name.empty()) {
             var.type_name = node->type_name;
@@ -628,7 +634,11 @@ void VariableManager::declare_local_variable(const ASTNode *node) {
     }
 
     var.is_unsigned = node->is_unsigned;
-    var.is_const = node->is_const;
+    // ポインタ型の場合、is_constは変数自体のconstではなく、指し先のconstを意味するため無視
+    // ポインタの場合はis_pointer_constとis_pointee_constで制御
+    if (!node->is_pointer) {
+        var.is_const = node->is_const;
+    }
     var.is_assigned = false;
 
     // 初期値が指定されている場合は評価して設定
@@ -783,6 +793,12 @@ void VariableManager::assign_variable(const std::string &name,
     }
 
     auto apply_assignment = [&](Variable &target, bool allow_type_override) {
+        // constポインタ自体への再代入チェック (T* const ptr の場合、ptr = ...
+        // は不可)
+        if (target.is_assigned) {
+            AssignmentHelpers::check_const_pointer_reassignment(&target);
+        }
+
         auto clamp_unsigned = [&](int64_t &numeric_value) {
             if (!target.is_unsigned || numeric_value >= 0) {
                 return;

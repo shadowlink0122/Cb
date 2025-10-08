@@ -176,6 +176,11 @@ std::string TypeUtilityParser::parseType() {
         parsed.pointer_depth = pointer_depth;
     }
 
+    // 前置constがある場合、指し先がconst (const T*)
+    if (saw_const && pointer_depth > 0) {
+        parsed.is_pointee_const = true;
+    }
+
     if (parser_->check(TokenType::TOK_BIT_AND)) {
         parsed.is_reference = true;
         parser_->advance();
@@ -230,7 +235,13 @@ std::string TypeUtilityParser::parseType() {
     }
 
     if (saw_const) {
-        parsed.is_const = true;
+        // ポインタ型の場合、constは指し先に適用される (const T*)
+        // 非ポインタ型の場合、変数自体がconst (const T)
+        if (pointer_depth > 0) {
+            // 既にis_pointee_constは設定済み（上のチェックで）
+        } else {
+            parsed.is_const = true;
+        }
         full_type = "const " + full_type;
     }
 

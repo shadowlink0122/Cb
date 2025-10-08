@@ -6,6 +6,7 @@
 #include "../../core/pointer_metadata.h"
 #include "../../managers/variables/manager.h"
 #include "../statement_executor.h"
+#include "const_check_helpers.h"
 
 namespace AssignmentHandlers {
 
@@ -93,6 +94,11 @@ void execute_assignment(StatementExecutor *executor, Interpreter &interpreter,
         if (ptr_value == 0) {
             throw std::runtime_error("Null pointer dereference in assignment");
         }
+
+        // constポインタへの間接代入チェック (*ptr = value で、ptrが const T*
+        // の場合)
+        AssignmentHelpers::check_const_pointer_modification(
+            interpreter, node->left->left.get());
 
         // 右辺を評価
         int64_t value = interpreter.evaluate(node->right.get());
@@ -580,6 +586,10 @@ void execute_assignment(StatementExecutor *executor, Interpreter &interpreter,
         }
 
         Variable *target_var = interpreter.find_variable(target_name);
+
+        // constポインタ自体への代入チェック (T* const ptr の場合、ptr = ...
+        // は不可)
+        AssignmentHelpers::check_const_pointer_reassignment(target_var);
 
         // Interface型変数（ポインタを除く）への代入処理
         if (target_var &&

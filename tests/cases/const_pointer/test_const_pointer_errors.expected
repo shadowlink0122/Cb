@@ -1,0 +1,2 @@
+=== Test 1: Reassigning const pointer to int ===
+Error: Cannot reassign const pointer (T* const)

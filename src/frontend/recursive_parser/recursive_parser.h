@@ -30,7 +30,9 @@ struct ParsedTypeInfo {
     ArrayTypeInfo array_info;               // 配列情報（多次元対応）
     bool is_reference = false;              // 参照型かどうか
     bool is_unsigned = false;               // unsigned修飾子かどうか
-    bool is_const = false;                  // const修飾子かどうか
+    bool is_const = false; // const修飾子かどうか（前置const）
+    bool is_pointer_const = false; // ポインタ自体がconst (T* const)
+    bool is_pointee_const = false; // 指し先がconst (const T*)
 };
 
 class RecursiveParser {

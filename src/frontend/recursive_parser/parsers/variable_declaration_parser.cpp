@@ -28,6 +28,12 @@ ASTNode *VariableDeclarationParser::parseVariableDeclaration() {
     ParsedTypeInfo base_parsed_type = parser_->getLastParsedTypeInfo();
     var_type = base_parsed_type.full_type;
 
+    // ポインタ型の場合、型の直後のconstをチェック (int* const の場合)
+    if (base_parsed_type.is_pointer && parser_->check(TokenType::TOK_CONST)) {
+        base_parsed_type.is_pointer_const = true;
+        parser_->advance();
+    }
+
     // 変数名のリストを収集
     struct VariableInfo {
         std::string name;
@@ -143,6 +149,7 @@ ASTNode *VariableDeclarationParser::parseVariableDeclaration() {
         node->pointer_base_type = parsed.base_type_info;
         node->is_reference = parsed.is_reference;
         node->is_unsigned = parsed.is_unsigned;
+        node->is_pointer_const_qualifier = parsed.is_pointer_const;
 
         if (parsed.is_array) {
             node->array_type_info = parsed.array_info;
@@ -165,6 +172,7 @@ ASTNode *VariableDeclarationParser::parseVariableDeclaration() {
         node->pointer_base_type = base_parsed_type.base_type_info;
         node->is_reference = base_parsed_type.is_reference;
         node->is_unsigned = base_parsed_type.is_unsigned;
+        node->is_pointer_const_qualifier = base_parsed_type.is_pointer_const;
         if (base_parsed_type.is_array) {
             node->array_type_info = base_parsed_type.array_info;
             node->is_array = true;
@@ -183,6 +191,7 @@ ASTNode *VariableDeclarationParser::parseVariableDeclaration() {
             var_node->pointer_base_type = parsed.base_type_info;
             var_node->is_reference = parsed.is_reference;
             var_node->is_unsigned = parsed.is_unsigned;
+            var_node->is_pointer_const_qualifier = parsed.is_pointer_const;
 
             if (parsed.is_array) {
                 var_node->array_type_info = parsed.array_info;

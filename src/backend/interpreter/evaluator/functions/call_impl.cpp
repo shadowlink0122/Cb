@@ -9,9 +9,9 @@
 // interfaces)
 // - Return value handling
 
+#include "../../../../common/ast.h"
 #include "../../../../common/debug.h"
 #include "../../../../common/debug_messages.h"
-#include "../../../../common/ast.h"
 #include "../../../../common/type_helpers.h"
 #include "../../core/error_handler.h"
 #include "../../core/interpreter.h"
@@ -238,8 +238,9 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
             } catch (const ReturnException &ret) {
                 interpreter_.pop_interpreter_scope();
                 // 戻り値を取得
-                if (ret.is_function_pointer || TypeHelpers::isString(ret.type) ||
-                    ret.is_struct || ret.is_array) {
+                if (ret.is_function_pointer ||
+                    TypeHelpers::isString(ret.type) || ret.is_struct ||
+                    ret.is_array) {
                     throw ret; // 複雑な型の場合はexceptionとして伝播
                 } else {
                     result = ret.value;
@@ -387,8 +388,9 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                     }
                 } catch (const ReturnException &ret) {
                     interpreter_.pop_interpreter_scope();
-                    if (ret.is_function_pointer || TypeHelpers::isString(ret.type) ||
-                        ret.is_struct || ret.is_array) {
+                    if (ret.is_function_pointer ||
+                        TypeHelpers::isString(ret.type) || ret.is_struct ||
+                        ret.is_array) {
                         throw ret; // 複雑な型の場合はexceptionとして伝播
                     } else {
                         result = ret.value;
@@ -408,7 +410,8 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
             temp_receiver.is_assigned = true;
 
             if (TypeHelpers::isStruct(chain_ret.type) ||
-                TypeHelpers::isInterface(chain_ret.type) || chain_ret.is_struct) {
+                TypeHelpers::isInterface(chain_ret.type) ||
+                chain_ret.is_struct) {
                 temp_receiver = chain_ret.struct_value;
 
                 if (TypeHelpers::isInterface(temp_receiver.type)) {
@@ -783,7 +786,8 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
         // Only mark as struct if it actually has struct members or is already
         // TYPE_STRUCT Don't mark primitive types as struct even if they have a
         // type_name
-        if (TypeHelpers::isStruct(self_var.type) || !self_var.struct_members.empty()) {
+        if (TypeHelpers::isStruct(self_var.type) ||
+            !self_var.struct_members.empty()) {
             self_var.type = TYPE_STRUCT;
             self_var.is_struct = true;
         }
@@ -1387,7 +1391,8 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                                         "interface parameter '" +
                                         param->name + "'");
                                 }
-                                if (!ret.is_struct && TypeHelpers::isString(ret.type)) {
+                                if (!ret.is_struct &&
+                                    TypeHelpers::isString(ret.type)) {
                                     Variable temp = build_temp_from_primitive(
                                         TYPE_STRING, 0, ret.str_value);
                                     assign_interface_argument(temp, "");
@@ -1539,7 +1544,8 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                             // struct_membersの配列要素も確実にコピー
                             for (auto &member_pair : param_var.struct_members) {
                                 if (member_pair.second.is_array &&
-                                    TypeHelpers::isString(member_pair.second.type)) {
+                                    TypeHelpers::isString(
+                                        member_pair.second.type)) {
                                     // 文字列配列の場合、array_stringsを確実にコピー
                                     const auto &source_member =
                                         sync_source_var->struct_members.find(

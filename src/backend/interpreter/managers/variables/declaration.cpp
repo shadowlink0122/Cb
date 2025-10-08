@@ -68,6 +68,9 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
     var.is_array = false;
     var.array_size = 0;
     var.is_unsigned = node->is_unsigned;
+    // ポインタのconst修飾子
+    var.is_pointer_const = node->is_pointer_const_qualifier;
+    var.is_pointee_const = node->is_pointee_const_qualifier;
 
     // struct変数の場合の追加設定
     if (node->type_info == TYPE_STRUCT && !node->type_name.empty()) {

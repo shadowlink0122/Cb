@@ -57,7 +57,8 @@ class StatementParser {
         const std::string &first_var_name, const std::string &type_name,
         const std::string &base_type_name, TypeInfo base_type_info,
         TypeInfo declared_type_info, int pointer_depth, bool isStatic,
-        bool isConst, bool isUnsigned, bool is_reference);
+        bool isConst, bool isUnsigned, bool is_reference,
+        bool is_pointer_const = false);
 };
 
 #endif // STATEMENT_PARSER_H

@@ -1,0 +1,14 @@
+// エラーテスト: const T* const 経由で値を変更しようとする
+include "stdio.cb"
+
+int main() {
+    println("=== Test: Cannot modify through const pointer to const ===");
+    int x = 50;
+    const int* const ptr = &x;
+    
+    // エラー: const int* const 経由では値を変更できない
+    *ptr = 60;  // This should fail
+    
+    println("ERROR: This should not execute");
+    return 0;
+}

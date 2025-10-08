@@ -125,14 +125,17 @@ int64_t evaluate_address_of(
         if (array_var->is_multidimensional && indices.size() > 1) {
             // 多次元配列の場合: calculate_flat_index()を使用
             std::vector<int> int_indices(indices.begin(), indices.end());
-            flat_index = static_cast<size_t>(array_var->calculate_flat_index(int_indices));
-            
+            flat_index = static_cast<size_t>(
+                array_var->calculate_flat_index(int_indices));
+
             if (debug_mode) {
-                std::cerr << "[ADDRESS_OF] Multi-dimensional array access:" << std::endl;
+                std::cerr << "[ADDRESS_OF] Multi-dimensional array access:"
+                          << std::endl;
                 std::cerr << "  Indices: [";
                 for (size_t i = 0; i < indices.size(); ++i) {
                     std::cerr << indices[i];
-                    if (i < indices.size() - 1) std::cerr << ", ";
+                    if (i < indices.size() - 1)
+                        std::cerr << ", ";
                 }
                 std::cerr << "]" << std::endl;
                 std::cerr << "  Flat index: " << flat_index << std::endl;
@@ -153,9 +156,8 @@ int64_t evaluate_address_of(
             array_var, flat_index, elem_type);
 
         if (debug_mode) {
-            std::cerr
-                << "[POINTER_METADATA] Created array element pointer: "
-                << meta->to_string() << std::endl;
+            std::cerr << "[POINTER_METADATA] Created array element pointer: "
+                      << meta->to_string() << std::endl;
             std::cerr << "[ADDRESS_OF] meta address="
                       << static_cast<void *>(meta) << std::endl;
             std::cerr << "[ADDRESS_OF] meta->target_type="

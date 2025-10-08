@@ -1,8 +1,8 @@
 #include "evaluator/core/evaluator.h"
 #include "../../../../common/debug.h"
-#include "../../common/type_helpers.h"
 #include "../../../../common/debug_messages.h"
 #include "../../../../common/utf8_utils.h"
+#include "../../common/type_helpers.h"
 #include "../../core/error_handler.h"
 #include "../../core/interpreter.h"
 #include "../../core/pointer_metadata.h" // ポインタメタデータシステム

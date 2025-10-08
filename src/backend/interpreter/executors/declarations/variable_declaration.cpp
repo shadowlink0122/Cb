@@ -1,6 +1,6 @@
 #include "variable_declaration.h"
-#include "../statement_executor.h"
 #include "../../../../common/type_helpers.h"
+#include "../statement_executor.h"
 #include "core/error_handler.h"
 #include "core/interpreter.h"
 #include "managers/types/manager.h"
@@ -124,6 +124,8 @@ void execute_variable_declaration(StatementExecutor *executor,
     var.is_const = node->is_const;
     var.is_array = false;
     var.is_unsigned = node->is_unsigned;
+    // ポインタのconst修飾子
+    var.is_pointer_const = node->is_pointer_const_qualifier;
 
     // typedef配列の場合の特別処理
     if (node->array_type_info.base_type != TYPE_UNKNOWN) {
@@ -235,6 +237,7 @@ void execute_variable_declaration(StatementExecutor *executor,
                 TYPE_POINTER;
             interpreter.current_scope().variables[node->name].is_assigned =
                 true;
+            // constポインタフラグは既にLine 128-129で設定済み
             if (debug_mode) {
                 std::cerr
                     << "[STMT_EXEC] Pointer initialization complete: variables["
@@ -242,7 +245,10 @@ void execute_variable_declaration(StatementExecutor *executor,
                     << interpreter.current_scope().variables[node->name].value
                     << " (0x" << std::hex
                     << interpreter.current_scope().variables[node->name].value
-                    << std::dec << ")" << std::endl;
+                    << std::dec << "), is_pointer_const="
+                    << node->is_pointer_const_qualifier
+                    << ", is_pointee_const=" << node->is_pointee_const_qualifier
+                    << std::endl;
             }
             return; // ポインタ型の初期化はここで完了
         } else if (init_node->node_type == ASTNodeType::AST_TERNARY_OP) {
@@ -536,7 +542,8 @@ void execute_variable_declaration(StatementExecutor *executor,
                 try {
                     TypedValue typed_value =
                         interpreter.evaluate_typed(init_node);
-                    if (TypeHelpers::isString(var.type) && !typed_value.is_string()) {
+                    if (TypeHelpers::isString(var.type) &&
+                        !typed_value.is_string()) {
                         // 文字列型なのに数値が返された場合
                         throw std::runtime_error(
                             "Type mismatch: expected string but got numeric "

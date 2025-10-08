@@ -890,8 +890,8 @@ struct ASTNode {
     bool is_array_pointer = false;           // 配列ポインタかどうか
 
     // constポインタ関連（v0.10.0新機能）
-    bool is_pointer_const_qualifier = false;  // ポインタ自体がconst (T* const)
-    bool is_pointee_const_qualifier = false;  // ポイント先がconst (const T*)
+    bool is_pointer_const_qualifier = false; // ポインタ自体がconst (T* const)
+    bool is_pointee_const_qualifier = false; // ポイント先がconst (const T*)
 
     // コンストラクタ - 全フィールドの明示的初期化
     ASTNode(ASTNodeType type)

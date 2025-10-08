@@ -1,7 +1,7 @@
 #include "executors/statement_executor.h"
 #include "../../../common/debug.h"
-#include "../../../common/type_helpers.h"
 #include "../../../common/type_alias.h"
+#include "../../../common/type_helpers.h"
 #include "core/error_handler.h"
 #include "core/interpreter.h"
 #include "core/pointer_metadata.h"

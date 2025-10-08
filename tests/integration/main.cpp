@@ -19,6 +19,7 @@
 #include "compound_assign/test_compound_assign.hpp"
 #include "const_array/test_const_array.hpp"
 #include "const_parameters/test_const_parameters.hpp"
+#include "const_pointer/const_pointer_tests.hpp"
 #include "const_variables/test_const_variables.hpp"
 #include "cross_type/test_cross_type.hpp"
 #include "dynamic_array_error/test_dynamic_array_error.hpp"
@@ -265,6 +266,8 @@ int main() {
                            "impl Static Variable Tests", failed_tests);
     run_test_with_continue(PointerTests::run_all_pointer_tests, "Pointer Tests",
                            failed_tests);
+    run_test_with_continue(ConstPointerTests::run_all_const_pointer_tests,
+                           "Const Pointer Tests", failed_tests);
     run_test_with_continue(ReferenceTests::run_all_reference_tests,
                            "Reference Tests", failed_tests);
     run_test_with_continue(

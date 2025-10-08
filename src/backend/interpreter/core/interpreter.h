@@ -47,18 +47,18 @@ struct Variable {
     bool is_const = false;
     bool is_array = false;
     bool is_assigned = false;
-    bool is_multidimensional = false;           // 多次元配列フラグ
-    bool is_struct = false;                     // struct型かどうか
-    bool is_pointer = false;                    // ポインタ型かどうか
-    int pointer_depth = 0;                      // ポインタの深さ
-    std::string pointer_base_type_name;         // ポインタ基底型名
-    TypeInfo pointer_base_type;                 // ポインタ基底型
-    bool is_pointer_const = false;              // ポインタ自体がconst (T* const)
-    bool is_pointee_const = false;              // ポイント先がconst (const T*)
-    bool is_reference = false;                  // 参照型かどうか
-    bool is_unsigned = false;                   // unsigned修飾子かどうか
-    std::string struct_type_name;               // struct型名
-    bool is_private_member = false;             // struct privateメンバーフラグ
+    bool is_multidimensional = false;   // 多次元配列フラグ
+    bool is_struct = false;             // struct型かどうか
+    bool is_pointer = false;            // ポインタ型かどうか
+    int pointer_depth = 0;              // ポインタの深さ
+    std::string pointer_base_type_name; // ポインタ基底型名
+    TypeInfo pointer_base_type;         // ポインタ基底型
+    bool is_pointer_const = false;      // ポインタ自体がconst (T* const)
+    bool is_pointee_const = false;      // ポイント先がconst (const T*)
+    bool is_reference = false;          // 参照型かどうか
+    bool is_unsigned = false;           // unsigned修飾子かどうか
+    std::string struct_type_name;       // struct型名
+    bool is_private_member = false;     // struct privateメンバーフラグ
 
     // union型用
     std::string type_name; // union型名（union型の場合）

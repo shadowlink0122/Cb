@@ -1,6 +1,6 @@
 #include "../../../../common/debug.h"
-#include "../../../../common/type_helpers.h"
 #include "../../../../common/debug_messages.h"
+#include "../../../../common/type_helpers.h"
 #include "../../core/interpreter.h"
 #include "../../services/debug_service.h"
 #include "core/type_inference.h"
