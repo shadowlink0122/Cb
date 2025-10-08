@@ -43,6 +43,9 @@ COMMON_OBJS = \
 	../../src/backend/interpreter/handlers/impl_declaration_handler.o \
 	../../src/backend/interpreter/handlers/expression_statement_handler.o \
 	../../src/backend/interpreter/managers/variables/manager.o \
+	../../src/backend/interpreter/managers/variables/declaration.o \
+	../../src/backend/interpreter/managers/variables/assignment.o \
+	../../src/backend/interpreter/managers/variables/initialization.o \
 	../../src/backend/interpreter/managers/variables/static.o \
 	../../src/backend/interpreter/managers/arrays/manager.o \
 	../../src/backend/interpreter/managers/types/manager.o \
