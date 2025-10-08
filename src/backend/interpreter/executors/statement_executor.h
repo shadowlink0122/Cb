@@ -22,10 +22,7 @@ class StatementExecutor {
                                            const ASTNode *array_literal,
                                            const std::string &struct_type);
 
-  private:
-    Interpreter &interpreter_; // インタープリターへの参照
-
-    // 個別の実行メソッド
+    // 個別の実行メソッド（ハンドラから呼び出されるためpublic）
     void execute_assignment(const ASTNode *node);
     void execute_ternary_assignment(const ASTNode *node);
     void execute_ternary_variable_initialization(const ASTNode *var_decl_node,
@@ -42,4 +39,7 @@ class StatementExecutor {
 
     // ヘルパーメソッド
     Variable *evaluate_nested_member_access(const ASTNode *member_access_node);
+
+  private:
+    Interpreter &interpreter_; // インタープリターへの参照
 };
