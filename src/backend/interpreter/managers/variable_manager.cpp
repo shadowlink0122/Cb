@@ -1546,6 +1546,10 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
             // Interface型変数の初期化処理
             else if (handle_interface_initialization(node, var)) {
                 return; // Interface初期化完了（早期return）
+            }
+            // 配列リテラル初期化処理
+            else if (handle_array_literal_initialization(node, var)) {
+                return; // 配列リテラル初期化完了（早期return）
             } else if (var.is_struct && node->init_expr->node_type ==
                                             ASTNodeType::AST_VARIABLE) {
                 // struct to struct代入の処理: Person p2 = p1;
@@ -1952,27 +1956,6 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
                 // 配列スライスをコピー
                 interpreter_->array_manager_->copyArraySlice(var, *source_var,
                                                              indices);
-
-            } else if (var.is_array && node->init_expr->node_type ==
-                                           ASTNodeType::AST_ARRAY_LITERAL) {
-                // 配列リテラル初期化の処理
-
-                // まず変数を登録
-                current_scope().variables[node->name] = var;
-                if (interpreter_->debug_mode) {
-                    debug_print("VAR_DEBUG: stored array var %s with "
-                                "is_unsigned=%d before literal assignment\n",
-                                node->name.c_str(), var.is_unsigned ? 1 : 0);
-                }
-
-                // 配列リテラル代入を実行
-                interpreter_->assign_array_literal(node->name,
-                                                   node->init_expr.get());
-
-                // 代入後に変数を再取得して更新
-                current_scope().variables[node->name].is_assigned = true;
-
-                return; // 配列リテラル処理完了後は早期リターン
 
             } else if (var.is_array && node->init_expr->node_type ==
                                            ASTNodeType::AST_VARIABLE) {
@@ -4912,4 +4895,29 @@ bool VariableManager::handle_interface_initialization(const ASTNode *node,
     }
 
     return false; // Interface初期化ではない
+}
+
+bool VariableManager::handle_array_literal_initialization(const ASTNode *node,
+                                                           Variable &var) {
+    // 配列リテラル初期化の処理
+    if (var.is_array && node->init_expr &&
+        node->init_expr->node_type == ASTNodeType::AST_ARRAY_LITERAL) {
+        // まず変数を登録
+        current_scope().variables[node->name] = var;
+        if (interpreter_->debug_mode) {
+            debug_print("VAR_DEBUG: stored array var %s with "
+                        "is_unsigned=%d before literal assignment\n",
+                        node->name.c_str(), var.is_unsigned ? 1 : 0);
+        }
+
+        // 配列リテラル代入を実行
+        interpreter_->assign_array_literal(node->name, node->init_expr.get());
+
+        // 代入後に変数を再取得して更新
+        current_scope().variables[node->name].is_assigned = true;
+
+        return true; // 配列リテラル処理完了（早期return）
+    }
+
+    return false; // 配列リテラル初期化ではない
 }

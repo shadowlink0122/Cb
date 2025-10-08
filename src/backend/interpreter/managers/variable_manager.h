@@ -141,6 +141,14 @@ class VariableManager {
     bool handle_interface_initialization(const ASTNode *node, Variable &var);
 
     /**
+     * @brief 配列リテラル初期化処理
+     * @param node 変数宣言ノード
+     * @param var 初期化する変数
+     * @return true if handled as array literal initialization (early return), false otherwise
+     */
+    bool handle_array_literal_initialization(const ASTNode *node, Variable &var);
+
+    /**
      * @brief unsigned変数の負の値をクランプするヘルパー
      */
     void clamp_unsigned_value(Variable &target, int64_t &value,
