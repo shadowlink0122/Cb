@@ -208,6 +208,10 @@ unit-test: $(MAIN_TARGET) $(FRONTEND_OBJS) $(BACKEND_OBJS) $(COMMON_OBJS) $(PLAT
 		../../$(BACKEND_DIR)/interpreter/managers/static_variable_manager.o \
 		../../$(BACKEND_DIR)/interpreter/managers/interface_operations.o \
 		../../$(BACKEND_DIR)/interpreter/managers/struct_operations.o \
+		../../$(BACKEND_DIR)/interpreter/managers/struct_variable_manager.o \
+		../../$(BACKEND_DIR)/interpreter/managers/struct_assignment_manager.o \
+		../../$(BACKEND_DIR)/interpreter/managers/struct_sync_manager.o \
+		../../$(BACKEND_DIR)/interpreter/managers/global_initialization_manager.o \
 		../../$(BACKEND_DIR)/interpreter/managers/common_operations.o \
 		../../$(BACKEND_DIR)/interpreter/services/expression_service.o \
 		../../$(BACKEND_DIR)/interpreter/services/variable_access_service.o \
