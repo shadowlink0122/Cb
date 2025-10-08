@@ -1,5 +1,6 @@
 #include "simple_assignment.h"
 #include "../../../../common/debug.h"
+#include "../../../../common/type_helpers.h"
 #include "../../core/error_handler.h"
 #include "../../core/interpreter.h"
 #include "../../core/pointer_metadata.h"
@@ -711,7 +712,7 @@ void execute_assignment(StatementExecutor *executor, Interpreter &interpreter,
                 }
 
                 if (!ret.is_struct) {
-                    if (ret.type == TYPE_STRING) {
+                    if (TypeHelpers::isString(ret.type)) {
                         TypedValue typed_value(
                             ret.str_value, InferredType(TYPE_STRING, "string"));
                         Variable temp =

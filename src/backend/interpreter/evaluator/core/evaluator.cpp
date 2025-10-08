@@ -1,5 +1,6 @@
 #include "evaluator/core/evaluator.h"
 #include "../../../../common/debug.h"
+#include "../../common/type_helpers.h"
 #include "../../../../common/debug_messages.h"
 #include "../../../../common/utf8_utils.h"
 #include "../../core/error_handler.h"
@@ -112,7 +113,7 @@ TypedValue ExpressionEvaluator::evaluate_typed_expression(const ASTNode *node) {
             throw;
         }
 
-        if (ret_ex.is_struct || ret_ex.type == TYPE_STRUCT) {
+        if (ret_ex.is_struct || TypeHelpers::isStruct(ret_ex.type)) {
             // 構造体の場合、ReturnExceptionを再スロー（メンバアクセスで処理される）
             throw;
         }
@@ -122,7 +123,7 @@ TypedValue ExpressionEvaluator::evaluate_typed_expression(const ASTNode *node) {
             throw;
         }
 
-        if (ret_ex.type == TYPE_STRING) {
+        if (TypeHelpers::isString(ret_ex.type)) {
             return TypedValue(ret_ex.str_value,
                               InferredType(TYPE_STRING, "string"));
         }
@@ -242,13 +243,13 @@ ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode *node) {
             if (ret.is_array || ret.is_struct_array) {
                 throw;
             }
-            if (ret.is_struct || ret.type == TYPE_STRUCT) {
+            if (ret.is_struct || TypeHelpers::isStruct(ret.type)) {
                 // 構造体の場合
                 Variable struct_var = ret.struct_value;
                 InferredType struct_type(TYPE_STRUCT,
                                          struct_var.struct_type_name);
                 return TypedValue(struct_var, struct_type);
-            } else if (ret.type == TYPE_STRING) {
+            } else if (TypeHelpers::isString(ret.type)) {
                 return TypedValue(ret.str_value,
                                   InferredType(TYPE_STRING, "string"));
             } else if (ret.type == TYPE_FLOAT) {
@@ -319,10 +320,10 @@ ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode *node) {
             }
 
             // 最終的な値をTypedValueとして返す
-            if (current_var.type == TYPE_STRING) {
+            if (TypeHelpers::isString(current_var.type)) {
                 return TypedValue(current_var.str_value,
                                   InferredType(TYPE_STRING, "string"));
-            } else if (current_var.type == TYPE_STRUCT) {
+            } else if (TypeHelpers::isStruct(current_var.type)) {
                 return TypedValue(
                     current_var,
                     InferredType(TYPE_STRUCT, current_var.struct_type_name));

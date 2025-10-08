@@ -1,5 +1,6 @@
 #include "array_declaration.h"
 #include "../../../../common/debug.h"
+#include "../../../../common/type_helpers.h"
 #include "../../core/interpreter.h"
 #include "../../managers/arrays/manager.h"
 #include "../statement_executor.h"
@@ -119,7 +120,7 @@ void execute_array_decl(StatementExecutor *executor, Interpreter &interpreter,
                     Variable &target_var =
                         interpreter.current_scope().variables[node->name];
 
-                    if (ret.type == TYPE_STRING) {
+                    if (TypeHelpers::isString(ret.type)) {
                         // 文字列配列
                         if (!ret.str_array_3d.empty()) {
                             bool is_multidim =

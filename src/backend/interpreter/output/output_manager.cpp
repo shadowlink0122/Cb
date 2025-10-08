@@ -4,6 +4,7 @@
 // #include "services/expression_service.h" // DRY効率化:
 // 循環依存解決まで一時コメントアウト
 #include "../../../common/debug.h"
+#include "../../../common/type_helpers.h"
 #include "../../../common/debug_messages.h"
 #include "../../../common/io_interface.h"
 #include "../../../common/utf8_utils.h"
@@ -367,7 +368,7 @@ void OutputManager::print_value(const ASTNode *expr) {
             return;
         }
 
-        if (ret.type == TYPE_STRING) {
+        if (TypeHelpers::isString(ret.type)) {
             io_interface_->write_string(ret.str_value.c_str());
             return;
         }
@@ -670,7 +671,7 @@ void OutputManager::print_value(const ASTNode *expr) {
                 interpreter_->pop_interpreter_scope();
             } catch (const ReturnException &e) {
                 interpreter_->pop_interpreter_scope();
-                if (e.type == TYPE_STRING) {
+                if (TypeHelpers::isString(e.type)) {
                     io_interface_->write_string(e.str_value.c_str());
                 } else {
                     write_numeric_value(io_interface_, e.type, e.value,
@@ -1122,7 +1123,7 @@ void OutputManager::collect_formatted_arguments(
 
                     fallback_numeric();
                 } catch (const ReturnException &ret) {
-                    if (ret.type == TYPE_STRING) {
+                    if (TypeHelpers::isString(ret.type)) {
                         str_args[index] = ret.str_value;
                         type_args[index] = TYPE_STRING;
                     } else {

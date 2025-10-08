@@ -1,5 +1,6 @@
 #include "variable_declaration.h"
 #include "../statement_executor.h"
+#include "../../../../common/type_helpers.h"
 #include "core/error_handler.h"
 #include "core/interpreter.h"
 #include "managers/types/manager.h"
@@ -164,7 +165,7 @@ void execute_variable_declaration(StatementExecutor *executor,
             }
 
             // 文字列配列の場合は array_strings を初期化
-            if (var.type == TYPE_STRING) {
+            if (TypeHelpers::isString(var.type)) {
                 var.array_strings.resize(total_size, "");
                 if (debug_mode) {
                     std::cerr << "DEBUG: Initialized string array with size="
@@ -275,7 +276,7 @@ void execute_variable_declaration(StatementExecutor *executor,
                     Variable &target_var =
                         interpreter.current_scope().variables[node->name];
 
-                    if (ret.type == TYPE_STRING) {
+                    if (TypeHelpers::isString(ret.type)) {
                         // 文字列配列
                         if (!ret.str_array_3d.empty()) {
                             // 多次元配列かどうかを判定（typedef配列名に[][]が含まれる場合）
@@ -498,7 +499,7 @@ void execute_variable_declaration(StatementExecutor *executor,
                             interpreter.current_scope().variables[member_path] =
                                 member.second;
                         }
-                    } else if (ret.type == TYPE_STRING) {
+                    } else if (TypeHelpers::isString(ret.type)) {
                         interpreter.current_scope()
                             .variables[node->name]
                             .str_value = ret.str_value;
@@ -535,7 +536,7 @@ void execute_variable_declaration(StatementExecutor *executor,
                 try {
                     TypedValue typed_value =
                         interpreter.evaluate_typed(init_node);
-                    if (var.type == TYPE_STRING && !typed_value.is_string()) {
+                    if (TypeHelpers::isString(var.type) && !typed_value.is_string()) {
                         // 文字列型なのに数値が返された場合
                         throw std::runtime_error(
                             "Type mismatch: expected string but got numeric "
@@ -567,7 +568,7 @@ void execute_variable_declaration(StatementExecutor *executor,
                             interpreter.current_scope().variables[member_path] =
                                 member.second;
                         }
-                    } else if (ret.type == TYPE_STRING) {
+                    } else if (TypeHelpers::isString(ret.type)) {
                         interpreter.current_scope()
                             .variables[node->name]
                             .str_value = ret.str_value;
@@ -603,7 +604,7 @@ void execute_variable_declaration(StatementExecutor *executor,
                 // float/double リテラルを含む全ての初期化式で TypedValue を使用
                 TypedValue typed_value = interpreter.evaluate_typed(init_node);
 
-                if (var.type == TYPE_STRING) {
+                if (TypeHelpers::isString(var.type)) {
                     interpreter.current_scope()
                         .variables[node->name]
                         .str_value = init_node->str_value;

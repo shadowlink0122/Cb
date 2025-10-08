@@ -2,6 +2,7 @@
 #include "../../../../common/ast.h"
 #include "../../../../common/debug.h"
 #include "../../../../common/debug_messages.h"
+#include "../../../../common/type_helpers.h"
 #include "../../core/interpreter.h"
 #include "../types/manager.h"
 #include "../variables/static.h"
@@ -130,7 +131,7 @@ void StructSyncManager::sync_direct_access_from_struct_value(
                     element_var.is_unsigned = dest_member.is_unsigned;
 
                     bool treat_as_string =
-                        (member_value.type == TYPE_STRING ||
+                        (TypeHelpers::isString(member_value.type) ||
                          member_value.current_type == TYPE_STRING ||
                          !member_value.array_strings.empty() ||
                          !member_value.multidim_array_strings.empty());
@@ -171,7 +172,7 @@ void StructSyncManager::sync_direct_access_from_struct_value(
 
                     vars[element_name] = element_var;
                     if (interpreter_->debug_mode) {
-                        if (element_var.type == TYPE_STRING) {
+                        if (TypeHelpers::isString(element_var.type)) {
                             debug_print("DIRECT_SYNC_ARRAY_ELEM: %s str='%s'\n",
                                         element_name.c_str(),
                                         element_var.str_value.c_str());

@@ -1,5 +1,6 @@
 #include "member_assignment.h"
 #include "../statement_executor.h"
+#include "../../../../common/type_helpers.h"
 #include "core/error_handler.h"
 #include "core/interpreter.h"
 #include "managers/variables/manager.h"
@@ -479,7 +480,7 @@ void execute_member_assignment(StatementExecutor *executor,
                 throw std::runtime_error(
                     "Expected struct variable to throw ReturnException");
             } catch (const ReturnException &ret_ex) {
-                if (ret_ex.struct_value.type == TYPE_STRUCT) {
+                if (TypeHelpers::isStruct(ret_ex.struct_value.type)) {
                     std::cerr
                         << "DEBUG: Assigning struct to member: " << obj_name
                         << "." << member_name << std::endl;

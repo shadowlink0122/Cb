@@ -1,5 +1,6 @@
 #include "executors/statement_executor.h"
 #include "../../../common/debug.h"
+#include "../../../common/type_helpers.h"
 #include "../../../common/type_alias.h"
 #include "core/error_handler.h"
 #include "core/interpreter.h"
@@ -326,7 +327,7 @@ void StatementExecutor::execute_member_array_assignment(const ASTNode *node) {
             obj_name + "." + element_key + "." + member_name;
         Variable *direct_var = interpreter_.find_variable(direct_access_name);
         if (direct_var) {
-            if (member_it->second.type == TYPE_STRING) {
+            if (TypeHelpers::isString(member_it->second.type)) {
                 direct_var->str_value = member_it->second.str_value;
             } else if (member_it->second.type == TYPE_FLOAT ||
                        member_it->second.type == TYPE_DOUBLE) {
@@ -853,7 +854,7 @@ void StatementExecutor::execute_ternary_assignment(const ASTNode *node) {
                                          typed_value.type.type_info, false);
         } catch (const ReturnException &ret) {
             if (!node->name.empty()) {
-                if (ret.type == TYPE_STRING) {
+                if (TypeHelpers::isString(ret.type)) {
                     TypedValue typed_value(ret.str_value,
                                            InferredType(TYPE_STRING, "string"));
                     interpreter_.assign_variable(node->name, typed_value,
@@ -935,7 +936,7 @@ void StatementExecutor::execute_ternary_variable_initialization(
             interpreter_.assign_variable(var_name, typed_value,
                                          typed_value.type.type_info, false);
         } catch (const ReturnException &ret) {
-            if (ret.type == TYPE_STRING) {
+            if (TypeHelpers::isString(ret.type)) {
                 TypedValue typed_value(ret.str_value,
                                        InferredType(TYPE_STRING, "string"));
                 interpreter_.assign_variable(var_name, typed_value, TYPE_STRING,

@@ -1,6 +1,7 @@
 #include "managers/structs/member_variables.h"
 #include "../../../../common/ast.h"
 #include "../../../../common/debug.h"
+#include "../../../../common/type_helpers.h"
 #include "../../core/interpreter.h"
 #include "managers/structs/operations.h"
 #include "managers/types/manager.h"
@@ -98,7 +99,7 @@ void StructVariableManager::create_struct_member_variables_recursively(
         parent_var.struct_members[member_def.name] = member_var;
 
         // 構造体メンバの場合
-        if (member_def.type == TYPE_STRUCT && !member_def.type_alias.empty()) {
+        if (TypeHelpers::isStruct(member_def.type) && !member_def.type_alias.empty()) {
             member_var.is_struct = true;
             member_var.struct_type_name = member_def.type_alias;
 
@@ -171,7 +172,7 @@ void StructVariableManager::process_multidimensional_array_member(
 
     // フラットな配列として初期化
     multidim_array_member.multidim_array_values.resize(total_size, 0);
-    if (member.type == TYPE_STRING) {
+    if (TypeHelpers::isString(member.type)) {
         multidim_array_member.multidim_array_strings.resize(total_size, "");
     }
     multidim_array_member.is_assigned = false;
@@ -213,7 +214,7 @@ void StructVariableManager::process_1d_array_member(const std::string &var_name,
 
     // 配列の値を初期化
     array_member.array_values.resize(array_size, 0);
-    if (member.type == TYPE_STRING) {
+    if (TypeHelpers::isString(member.type)) {
         array_member.array_strings.resize(array_size, "");
     }
 
@@ -221,7 +222,7 @@ void StructVariableManager::process_1d_array_member(const std::string &var_name,
 
     // マップにコピーされた後、再度配列を初期化
     struct_var.struct_members[member.name].array_values.resize(array_size, 0);
-    if (member.type == TYPE_STRING) {
+    if (TypeHelpers::isString(member.type)) {
         struct_var.struct_members[member.name].array_strings.resize(array_size,
                                                                     "");
     }
@@ -237,11 +238,11 @@ void StructVariableManager::process_regular_member(const std::string &var_name,
     member_var.type = member.type;
 
     // 構造体型メンバの特別処理
-    if (member.type == TYPE_STRUCT && !member.type_alias.empty()) {
+    if (TypeHelpers::isStruct(member.type) && !member.type_alias.empty()) {
         process_struct_member(var_name, member, member_var);
     } else {
         // プリミティブ型メンバー
-        if (member_var.type == TYPE_STRING) {
+        if (TypeHelpers::isString(member_var.type)) {
             member_var.str_value = "";
         } else {
             member_var.value = 0;
@@ -284,7 +285,7 @@ void StructVariableManager::process_struct_member(const std::string &var_name,
             nested_member_var.is_const = nested_member.is_const;
             nested_member_var.is_assigned = false;
 
-            if (nested_member_var.type == TYPE_STRING) {
+            if (TypeHelpers::isString(nested_member_var.type)) {
                 nested_member_var.str_value = "";
             } else {
                 nested_member_var.value = 0;
@@ -312,11 +313,11 @@ void StructVariableManager::create_array_element_variables(
         array_element.is_assigned = false;
 
         // 構造体型の配列の場合
-        if (member.type == TYPE_STRUCT && !member.type_alias.empty()) {
+        if (TypeHelpers::isStruct(member.type) && !member.type_alias.empty()) {
             initialize_struct_array_element(member, array_element);
         } else {
             // プリミティブ型の配列要素
-            if (array_element.type == TYPE_STRING) {
+            if (TypeHelpers::isString(array_element.type)) {
                 array_element.str_value = "";
             } else {
                 array_element.value = 0;
@@ -352,7 +353,7 @@ void StructVariableManager::initialize_struct_array_element(
             element_member_var.is_private_member = element_member.is_private;
             element_member_var.is_assigned = false;
 
-            if (element_member_var.type == TYPE_STRING) {
+            if (TypeHelpers::isString(element_member_var.type)) {
                 element_member_var.str_value = "";
             } else {
                 element_member_var.value = 0;

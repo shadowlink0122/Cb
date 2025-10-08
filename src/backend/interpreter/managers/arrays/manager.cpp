@@ -989,7 +989,7 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
                 member_var.is_assigned = false;
                 member_var.is_private_member = member.is_private;
 
-                if (member.type == TYPE_STRING) {
+                if (TypeHelpers::isString(member.type)) {
                     member_var.str_value = "";
                 } else {
                     member_var.value = 0;
@@ -1827,7 +1827,7 @@ void ArrayManager::declare_array(const ASTNode *node) {
                     member_var.is_assigned = false;
                     member_var.is_private_member = member.is_private;
 
-                    if (member.type == TYPE_STRING) {
+                    if (TypeHelpers::isString(member.type)) {
                         member_var.str_value = "";
                     } else {
                         member_var.value = 0;

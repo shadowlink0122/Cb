@@ -151,7 +151,7 @@ int64_t evaluate_function_pointer_call(const ASTNode *node,
                       << ret.value << std::endl;
         }
         // 戻り値を取得（スコープをpopする前に）
-        if (ret.type == TYPE_STRING) {
+        if (TypeHelpers::isString(ret.type)) {
             interpreter.pop_interpreter_scope();
             throw ret; // 文字列の場合はexceptionとして伝播
         } else {

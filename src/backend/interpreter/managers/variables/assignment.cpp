@@ -1,4 +1,5 @@
 #include "../../../../common/debug.h"
+#include "../../../../common/type_helpers.h"
 #include "../../../../common/debug_messages.h"
 #include "../../core/interpreter.h"
 #include "../../services/debug_service.h"
@@ -164,7 +165,7 @@ void VariableManager::process_variable_assignment(const ASTNode *node) {
                 }
 
                 if (!ret.is_struct) {
-                    if (ret.type == TYPE_STRING) {
+                    if (TypeHelpers::isString(ret.type)) {
                         Variable temp = create_temp_primitive(TYPE_STRING, 0,
                                                               ret.str_value);
                         assign_from_source(temp, "");
@@ -422,7 +423,7 @@ void VariableManager::process_variable_assignment(const ASTNode *node) {
         // 右辺の値を評価
         Variable &member = member_it->second;
 
-        if (member.type == TYPE_STRING) {
+        if (TypeHelpers::isString(member.type)) {
             // 文字列型メンバーの場合
             if (node->right->node_type == ASTNodeType::AST_STRING_LITERAL) {
                 member.str_value = node->right->str_value;

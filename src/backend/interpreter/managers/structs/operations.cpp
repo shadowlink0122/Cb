@@ -6,6 +6,7 @@
 #include "operations.h"
 #include "../../../../common/debug.h"
 #include "../../../../common/debug_messages.h"
+#include "../../../../common/type_helpers.h"
 #include "../../../../frontend/recursive_parser/recursive_parser.h"
 #include "../../core/interpreter.h"
 #include "../types/manager.h"
@@ -188,7 +189,7 @@ void StructOperations::validate_struct_recursion_rules() {
 
         for (const auto &member : definition.members) {
             bool is_struct_value_member =
-                !member.is_pointer && (member.type == TYPE_STRUCT ||
+                !member.is_pointer && (TypeHelpers::isStruct(member.type) ||
                                        member.pointer_base_type == TYPE_STRUCT);
 
             if (!is_struct_value_member) {

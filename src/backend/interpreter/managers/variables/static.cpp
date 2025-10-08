@@ -1,6 +1,7 @@
 #include "static.h"
 #include "../../../../common/ast.h"
 #include "../../../../common/debug_messages.h"
+#include "../../../../common/type_helpers.h"
 #include "../../core/interpreter.h"
 
 StaticVariableManager::StaticVariableManager(Interpreter *interpreter)
@@ -30,7 +31,7 @@ void StaticVariableManager::create_static_variable(const std::string &name,
     var.is_multidimensional = false;
 
     // デフォルト値を設定
-    if (var.type == TYPE_STRING) {
+    if (TypeHelpers::isString(var.type)) {
         var.str_value = "";
     } else {
         var.value = 0;
@@ -38,7 +39,7 @@ void StaticVariableManager::create_static_variable(const std::string &name,
 
     // 初期化式があれば評価して設定
     if (node->init_expr) {
-        if (var.type == TYPE_STRING &&
+        if (TypeHelpers::isString(var.type) &&
             node->init_expr->node_type == ASTNodeType::AST_STRING_LITERAL) {
             var.str_value = node->init_expr->str_value;
         } else {
@@ -112,7 +113,7 @@ void StaticVariableManager::create_impl_static_variable(const std::string &name,
     var.is_unsigned = node->is_unsigned;
 
     // デフォルト値を設定
-    if (var.type == TYPE_STRING) {
+    if (TypeHelpers::isString(var.type)) {
         var.str_value = "";
     } else if (var.type == TYPE_FLOAT) {
         var.float_value = 0.0f;
@@ -124,7 +125,7 @@ void StaticVariableManager::create_impl_static_variable(const std::string &name,
 
     // 初期化式があれば評価して設定
     if (node->init_expr) {
-        if (var.type == TYPE_STRING &&
+        if (TypeHelpers::isString(var.type) &&
             node->init_expr->node_type == ASTNodeType::AST_STRING_LITERAL) {
             var.str_value = node->init_expr->str_value;
         } else if (var.type == TYPE_FLOAT || var.type == TYPE_DOUBLE) {

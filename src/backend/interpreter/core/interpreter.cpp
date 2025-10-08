@@ -1,6 +1,7 @@
 #include "core/interpreter.h"
 #include "../../../common/ast.h"
 #include "../../../common/debug.h"
+#include "../../../common/type_helpers.h"
 #include "../../../common/debug_messages.h"
 #include "../../../common/utf8_utils.h"
 #include "../../../frontend/recursive_parser/recursive_parser.h"
@@ -514,7 +515,7 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
                 if (node->right) {
                     int64_t value = expression_evaluator_->evaluate_expression(
                         node->right.get());
-                    if (var.type == TYPE_STRING) {
+                    if (TypeHelpers::isString(var.type)) {
                         var.str_value = node->right->str_value;
                     } else {
                         if (var.is_unsigned && value < 0) {

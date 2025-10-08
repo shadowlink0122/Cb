@@ -1,6 +1,7 @@
 #include "managers/variables/manager.h"
 #include "../../../../common/debug.h"
 #include "../../../../common/debug_messages.h"
+#include "../../../../common/type_helpers.h"
 #include "../../core/interpreter.h"
 #include "../../services/debug_service.h"
 #include "core/type_inference.h"
@@ -164,7 +165,7 @@ void VariableManager::assign_interface_view(
     assigned_var.is_assigned = true;
 
     if (source_var.is_struct || (!source_var.struct_members.empty() &&
-                                 source_var.type == TYPE_INTERFACE)) {
+                                 TypeHelpers::isInterface(source_var.type))) {
         assigned_var.is_struct = true;
         assigned_var.struct_members.clear();
         for (const auto &member_pair : source_var.struct_members) {
@@ -265,7 +266,7 @@ void VariableManager::assign_interface_view(
                 }
 
                 if (!copied) {
-                    if (member_var.type == TYPE_STRING) {
+                    if (TypeHelpers::isString(member_var.type)) {
                         element_var.type = TYPE_STRING;
                         if (i <
                             static_cast<int>(member_var.array_strings.size())) {
@@ -362,7 +363,7 @@ std::string VariableManager::resolve_interface_source_type(
         return source_var.struct_type_name;
     }
 
-    if (source_var.type == TYPE_INTERFACE &&
+    if (TypeHelpers::isInterface(source_var.type) &&
         !source_var.implementing_struct.empty()) {
         return source_var.implementing_struct;
     }
@@ -832,7 +833,7 @@ void VariableManager::assign_variable(const std::string &name,
 
         if (typed_value.is_string()) {
             if ((allow_type_override || target.type == TYPE_UNKNOWN ||
-                 target.type == TYPE_STRING) &&
+                 TypeHelpers::isString(target.type)) &&
                 target.type != TYPE_UNION) {
                 target.type = TYPE_STRING;
             }
@@ -878,7 +879,7 @@ void VariableManager::assign_variable(const std::string &name,
         }
 
         if (interpreter_->is_debug_mode() &&
-            (type_hint == TYPE_POINTER || target.type == TYPE_POINTER ||
+            (type_hint == TYPE_POINTER || TypeHelpers::isPointer(target.type) ||
              typed_value.numeric_type == TYPE_POINTER)) {
             std::cerr
                 << "[VAR_MANAGER] Pointer assignment detected for variable:"
@@ -963,7 +964,7 @@ void VariableManager::assign_variable(const std::string &name,
             // target.is_pointerもチェック（unsigned int* のような型の場合）
             if (resolved_type == TYPE_POINTER ||
                 typed_value.numeric_type == TYPE_POINTER ||
-                target.type == TYPE_POINTER || target.is_pointer) {
+                TypeHelpers::isPointer(target.type) || target.is_pointer) {
                 target.value = numeric_value;
                 target.float_value = 0.0f;
                 target.double_value = 0.0;
