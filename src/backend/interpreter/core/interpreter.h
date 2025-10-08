@@ -24,6 +24,7 @@ class EnumManager;            // enum管理サービス
 class StaticVariableManager;  // static変数管理サービス
 class InterfaceOperations;    // interface/impl管理サービス
 class StructOperations;       // struct操作管理サービス
+class StructVariableManager;  // struct変数管理サービス
 class CommonOperations;
 class ControlFlowExecutor;        // 制御フロー実行サービス
 class StatementListExecutor;      // 文リスト・複合文実行サービス
@@ -410,6 +411,8 @@ class Interpreter : public EvaluatorInterface {
     std::unique_ptr<InterfaceOperations>
         interface_operations_; // interface/impl管理
     std::unique_ptr<StructOperations> struct_operations_; // struct操作管理
+    std::unique_ptr<StructVariableManager>
+        struct_variable_manager_; // struct変数管理
     std::unique_ptr<ControlFlowExecutor>
         control_flow_executor_; // 制御フロー実行
     std::unique_ptr<StatementListExecutor>
@@ -434,8 +437,9 @@ class Interpreter : public EvaluatorInterface {
     friend class ArrayManager;
     friend class TypeManager;
     friend class ArrayProcessingService; // DRY効率化: 配列処理統合サービス
-    friend class EnumManager;            // enum管理サービス
+    friend class EnumManager;                // enum管理サービス
     friend class StructOperations;           // struct操作管理
+    friend class StructVariableManager;      // struct変数管理
     friend class ControlFlowExecutor;        // 制御フロー実行
     friend class StatementListExecutor;      // 文リスト・複合文実行
     friend class ReturnHandler;              // return文処理

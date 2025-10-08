@@ -6,6 +6,9 @@
 // 前方宣言
 struct ASTNode;
 struct Variable;
+struct StructMember;
+struct StructDefinition;
+struct ArrayDimension;
 class Interpreter;
 
 /**
@@ -50,6 +53,33 @@ class StructVariableManager {
 
   private:
     Interpreter *interpreter_;
+
+    // Helper methods for struct variable creation
+    void process_multidimensional_array_member(
+        const std::string &var_name, const StructMember &member,
+        Variable &struct_var);
+    void process_1d_array_member(const std::string &var_name,
+                                 const StructMember &member,
+                                 Variable &struct_var);
+    void process_regular_member(const std::string &var_name,
+                               const StructMember &member,
+                               Variable &struct_var);
+    void process_struct_member(const std::string &var_name,
+                              const StructMember &member,
+                              Variable &member_var);
+    void create_array_element_variables(const std::string &var_name,
+                                       const StructMember &member,
+                                       int array_size, Variable &struct_var);
+    void initialize_struct_array_element(const StructMember &member,
+                                         Variable &array_element);
+    void post_process_array_elements(const std::string &var_name,
+                                    const StructDefinition *struct_def);
+    int resolve_array_size(const ArrayDimension &dim_info);
+
+    // Helper methods for recursive member creation
+    void process_array_member_recursively(
+        const std::string &full_member_path,
+        const StructMember &member_def, Variable &member_var);
 };
 
 #endif // CB_INTERPRETER_STRUCT_VARIABLE_MANAGER_H
