@@ -164,7 +164,7 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                         interpreter_.pop_interpreter_scope();
                         // 戻り値を取得
                         if (ret.is_function_pointer ||
-                            ret.type == TYPE_STRING || ret.is_struct ||
+                            TypeHelpers::isString(ret.type) || ret.is_struct ||
                             ret.is_array) {
                             throw ret; // 複雑な型の場合はexceptionとして伝播
                         } else {
@@ -238,7 +238,7 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
             } catch (const ReturnException &ret) {
                 interpreter_.pop_interpreter_scope();
                 // 戻り値を取得
-                if (ret.is_function_pointer || ret.type == TYPE_STRING ||
+                if (ret.is_function_pointer || TypeHelpers::isString(ret.type) ||
                     ret.is_struct || ret.is_array) {
                     throw ret; // 複雑な型の場合はexceptionとして伝播
                 } else {
@@ -387,7 +387,7 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                     }
                 } catch (const ReturnException &ret) {
                     interpreter_.pop_interpreter_scope();
-                    if (ret.is_function_pointer || ret.type == TYPE_STRING ||
+                    if (ret.is_function_pointer || TypeHelpers::isString(ret.type) ||
                         ret.is_struct || ret.is_array) {
                         throw ret; // 複雑な型の場合はexceptionとして伝播
                     } else {

@@ -103,6 +103,81 @@ inline bool isVoid(const TypedValue& val) {
 }
 
 // ===========================
+// TypeInfo直接チェック（Variable/ReturnException用）
+// ===========================
+
+/**
+ * @brief 整数型かどうかを判定（TypeInfo版）
+ */
+inline bool isInteger(TypeInfo type) {
+    return type == TYPE_TINY || type == TYPE_SHORT || 
+           type == TYPE_INT || type == TYPE_LONG;
+}
+
+/**
+ * @brief 浮動小数点型かどうかを判定（TypeInfo版）
+ */
+inline bool isFloating(TypeInfo type) {
+    return type == TYPE_FLOAT || type == TYPE_DOUBLE;
+}
+
+/**
+ * @brief 数値型かどうかを判定（TypeInfo版）
+ */
+inline bool isNumeric(TypeInfo type) {
+    return isInteger(type) || isFloating(type);
+}
+
+/**
+ * @brief ポインタ型かどうかを判定（TypeInfo版）
+ */
+inline bool isPointer(TypeInfo type) {
+    return type == TYPE_POINTER;
+}
+
+/**
+ * @brief 構造体型かどうかを判定（TypeInfo版）
+ */
+inline bool isStruct(TypeInfo type) {
+    return type == TYPE_STRUCT;
+}
+
+/**
+ * @brief インターフェース型かどうかを判定（TypeInfo版）
+ */
+inline bool isInterface(TypeInfo type) {
+    return type == TYPE_INTERFACE;
+}
+
+/**
+ * @brief Union型かどうかを判定（TypeInfo版）
+ */
+inline bool isUnion(TypeInfo type) {
+    return type == TYPE_UNION;
+}
+
+/**
+ * @brief 文字列型かどうかを判定（TypeInfo版）
+ */
+inline bool isString(TypeInfo type) {
+    return type == TYPE_STRING;
+}
+
+/**
+ * @brief ブーリアン型かどうかを判定（TypeInfo版）
+ */
+inline bool isBoolean(TypeInfo type) {
+    return type == TYPE_BOOL;
+}
+
+/**
+ * @brief void型かどうかを判定（TypeInfo版）
+ */
+inline bool isVoid(TypeInfo type) {
+    return type == TYPE_VOID;
+}
+
+// ===========================
 // 複合型チェック
 // ===========================
 
