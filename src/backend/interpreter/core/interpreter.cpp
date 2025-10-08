@@ -2924,91 +2924,9 @@ void Interpreter::assign_struct_member(const std::string &var_name,
 void Interpreter::assign_struct_member_struct(const std::string &var_name,
                                               const std::string &member_name,
                                               const Variable &struct_value) {
-    if (debug_mode) {
-        debug_print(
-            "assign_struct_member_struct: var=%s, member=%s, struct_type=%s\n",
-            var_name.c_str(), member_name.c_str(),
-            struct_value.struct_type_name.c_str());
-    }
-
-    std::string target_full_name = var_name + "." + member_name;
-    if (Variable *struct_var = find_variable(var_name)) {
-        if (struct_var->is_const) {
-            error_msg(DebugMsgId::CONST_REASSIGN_ERROR,
-                      target_full_name.c_str());
-            throw std::runtime_error(
-                "Cannot assign to member of const struct: " + target_full_name);
-        }
-    }
-
-    Variable *member_var = get_struct_member(var_name, member_name);
-    if (!member_var) {
-        throw std::runtime_error("Member variable not found: " + member_name);
-    }
-
-    if (member_var->is_const && member_var->is_assigned) {
-        error_msg(DebugMsgId::CONST_REASSIGN_ERROR, target_full_name.c_str());
-        throw std::runtime_error("Cannot assign to const struct member: " +
-                                 target_full_name);
-    }
-
-    if (member_var->type != TYPE_STRUCT) {
-        throw std::runtime_error("Member is not a struct: " + member_name);
-    }
-
-    // 構造体の型が一致するかチェック（型名が空の場合はスキップ）
-    if (!member_var->struct_type_name.empty() &&
-        !struct_value.struct_type_name.empty() &&
-        member_var->struct_type_name != struct_value.struct_type_name) {
-        throw std::runtime_error("Struct type mismatch: expected " +
-                                 member_var->struct_type_name + ", got " +
-                                 struct_value.struct_type_name);
-    }
-
-    // 型名が空の場合は代入先の型名を設定
-    if (member_var->struct_type_name.empty()) {
-        member_var->struct_type_name = struct_value.struct_type_name;
-        if (debug_mode) {
-            debug_print("Setting member struct type to: %s\n",
-                        struct_value.struct_type_name.c_str());
-        }
-    }
-
-    // 構造体データをコピー
-    *member_var = struct_value;
-    member_var->is_assigned = true;
-
-    // ダイレクトアクセス変数も更新
-    std::string direct_var_name = var_name + "." + member_name;
-    Variable *direct_var = find_variable(direct_var_name);
-    if (direct_var) {
-        if (direct_var->is_const && direct_var->is_assigned) {
-            error_msg(DebugMsgId::CONST_REASSIGN_ERROR,
-                      direct_var_name.c_str());
-            throw std::runtime_error("Cannot assign to const struct member: " +
-                                     direct_var_name);
-        }
-        *direct_var = struct_value;
-        direct_var->is_assigned = true;
-        if (debug_mode) {
-            debug_print("Updated direct access struct var %s\n",
-                        direct_var_name.c_str());
-        }
-    }
-
-    // 構造体のメンバー変数も個別に更新
-    for (const auto &member : struct_value.struct_members) {
-        std::string nested_var_name = direct_var_name + "." + member.first;
-        Variable *nested_var = find_variable(nested_var_name);
-        if (nested_var) {
-            *nested_var = member.second;
-            nested_var->is_assigned = true;
-            if (debug_mode) {
-                debug_print("Updated nested member: %s = %lld\n",
-                            nested_var_name.c_str(), member.second.value);
-            }
-        }
-    }
+    struct_assignment_manager_->assign_struct_member_struct(var_name,
+                                                            member_name,
+                                                            struct_value);
 }
 
 void Interpreter::assign_struct_member_array_element(
