@@ -23,9 +23,10 @@ class ArrayProcessingService; // DRY効率化: 統一配列処理サービス
 class EnumManager;            // enum管理サービス
 class StaticVariableManager;  // static変数管理サービス
 class InterfaceOperations;      // interface/impl管理サービス
-class StructOperations;         // struct操作管理サービス
-class StructVariableManager;    // struct変数管理サービス
-class StructAssignmentManager;  // struct代入管理サービス
+class StructOperations;              // struct操作管理サービス
+class StructVariableManager;         // struct変数管理サービス
+class StructAssignmentManager;       // struct代入管理サービス
+class GlobalInitializationManager;   // グローバル初期化管理サービス
 class CommonOperations;
 class ControlFlowExecutor;        // 制御フロー実行サービス
 class StatementListExecutor;      // 文リスト・複合文実行サービス
@@ -416,6 +417,8 @@ class Interpreter : public EvaluatorInterface {
         struct_variable_manager_; // struct変数管理
     std::unique_ptr<StructAssignmentManager>
         struct_assignment_manager_; // struct代入管理
+    std::unique_ptr<GlobalInitializationManager>
+        global_initialization_manager_; // グローバル初期化管理
     std::unique_ptr<ControlFlowExecutor>
         control_flow_executor_; // 制御フロー実行
     std::unique_ptr<StatementListExecutor>
@@ -441,10 +444,11 @@ class Interpreter : public EvaluatorInterface {
     friend class TypeManager;
     friend class ArrayProcessingService; // DRY効率化: 配列処理統合サービス
     friend class EnumManager;                // enum管理サービス
-    friend class StructOperations;           // struct操作管理
-    friend class StructVariableManager;      // struct変数管理
-    friend class StructAssignmentManager;    // struct代入管理
-    friend class ControlFlowExecutor;        // 制御フロー実行
+    friend class StructOperations;             // struct操作管理
+    friend class StructVariableManager;        // struct変数管理
+    friend class StructAssignmentManager;      // struct代入管理
+    friend class GlobalInitializationManager;  // グローバル初期化管理
+    friend class ControlFlowExecutor;          // 制御フロー実行
     friend class StatementListExecutor;      // 文リスト・複合文実行
     friend class ReturnHandler;              // return文処理
     friend class AssertionHandler;           // アサーション文処理

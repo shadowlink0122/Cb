@@ -74,6 +74,7 @@ BACKEND_OBJS = \
 	src/backend/interpreter/managers/struct_operations.o \
 	src/backend/interpreter/managers/struct_variable_manager.o \
 	src/backend/interpreter/managers/struct_assignment_manager.o \
+	src/backend/interpreter/managers/global_initialization_manager.o \
 	src/backend/interpreter/managers/common_operations.o \
 	src/backend/interpreter/output/output_manager.o \
 	src/backend/interpreter/services/expression_service.o \
