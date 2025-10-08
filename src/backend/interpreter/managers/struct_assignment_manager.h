@@ -107,11 +107,11 @@ class StructAssignmentManager {
      *
      * @param var_name 変数名
      * @param member_name メンバー名
-     * @param values 代入する値の配列
+     * @param array_literal 配列リテラルのASTノード
      */
     void assign_struct_member_array_literal(const std::string &var_name,
                                             const std::string &member_name,
-                                            const std::vector<long> &values);
+                                            const ASTNode *array_literal);
 
   private:
     Interpreter *interpreter_;
