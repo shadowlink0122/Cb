@@ -223,18 +223,21 @@ unit-test: $(MAIN_TARGET) $(FRONTEND_OBJS) $(BACKEND_OBJS) $(COMMON_OBJS) $(PLAT
 		../../$(BACKEND_DIR)/interpreter/core/type_inference.o \
 		../../$(BACKEND_DIR)/interpreter/core/pointer_metadata.o \
 		../../$(BACKEND_DIR)/interpreter/output/output_manager.o \
-		../../$(BACKEND_DIR)/interpreter/managers/variable_manager.o \
-		../../$(BACKEND_DIR)/interpreter/managers/array_manager.o \
-		../../$(BACKEND_DIR)/interpreter/managers/type_manager.o \
-		../../$(BACKEND_DIR)/interpreter/managers/enum_manager.o \
-		../../$(BACKEND_DIR)/interpreter/managers/static_variable_manager.o \
-		../../$(BACKEND_DIR)/interpreter/managers/interface_operations.o \
-		../../$(BACKEND_DIR)/interpreter/managers/struct_operations.o \
-		../../$(BACKEND_DIR)/interpreter/managers/struct_variable_manager.o \
-		../../$(BACKEND_DIR)/interpreter/managers/struct_assignment_manager.o \
-		../../$(BACKEND_DIR)/interpreter/managers/struct_sync_manager.o \
-		../../$(BACKEND_DIR)/interpreter/managers/global_initialization_manager.o \
-		../../$(BACKEND_DIR)/interpreter/managers/common_operations.o \
+		../../$(BACKEND_DIR)/interpreter/managers/variables/manager.o \
+		../../$(BACKEND_DIR)/interpreter/managers/variables/declaration.o \
+		../../$(BACKEND_DIR)/interpreter/managers/variables/assignment.o \
+		../../$(BACKEND_DIR)/interpreter/managers/variables/initialization.o \
+		../../$(BACKEND_DIR)/interpreter/managers/variables/static.o \
+		../../$(BACKEND_DIR)/interpreter/managers/arrays/manager.o \
+		../../$(BACKEND_DIR)/interpreter/managers/types/manager.o \
+		../../$(BACKEND_DIR)/interpreter/managers/types/enums.o \
+		../../$(BACKEND_DIR)/interpreter/managers/types/interfaces.o \
+		../../$(BACKEND_DIR)/interpreter/managers/structs/operations.o \
+		../../$(BACKEND_DIR)/interpreter/managers/structs/member_variables.o \
+		../../$(BACKEND_DIR)/interpreter/managers/structs/assignment.o \
+		../../$(BACKEND_DIR)/interpreter/managers/structs/sync.o \
+		../../$(BACKEND_DIR)/interpreter/managers/common/operations.o \
+		../../$(BACKEND_DIR)/interpreter/managers/common/global_init.o \
 		../../$(BACKEND_DIR)/interpreter/services/expression_service.o \
 		../../$(BACKEND_DIR)/interpreter/services/variable_access_service.o \
 		../../$(BACKEND_DIR)/interpreter/services/debug_service.o \
