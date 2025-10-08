@@ -1,5 +1,5 @@
-#include "enum_manager.h"
-#include "../services/debug_service.h"
+#include "enums.h"
+#include "../../services/debug_service.h"
 #include <sstream>
 
 void EnumManager::register_enum(const std::string &enum_name,

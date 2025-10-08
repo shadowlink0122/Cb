@@ -1,9 +1,9 @@
 #include "services/array_processing_service.h"
 #include "../../../common/debug_messages.h"
 #include "core/interpreter.h"
-#include "managers/array_manager.h"
-#include "managers/common_operations.h"
-#include "managers/variable_manager.h"
+#include "managers/arrays/manager.h"
+#include "managers/common/operations.h"
+#include "managers/variables/manager.h"
 #include "services/debug_service.h"
 #include <iostream>
 #include <stdexcept>

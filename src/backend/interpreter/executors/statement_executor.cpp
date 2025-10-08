@@ -6,9 +6,9 @@
 #include "core/pointer_metadata.h"
 #include "core/type_inference.h"
 #include "evaluator/expression_evaluator.h"
-#include "managers/array_manager.h"
-#include "managers/type_manager.h"
-#include "managers/variable_manager.h"
+#include "managers/arrays/manager.h"
+#include "managers/types/manager.h"
+#include "managers/variables/manager.h"
 #include "services/array_processing_service.h"
 
 StatementExecutor::StatementExecutor(Interpreter &interpreter)

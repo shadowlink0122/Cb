@@ -1,9 +1,9 @@
-#include "managers/common_operations.h"
-#include "../../../common/debug_messages.h"
-#include "../services/debug_service.h"
-#include "core/interpreter.h"
+#include "managers/common/operations.h"
+#include "../../../../common/debug_messages.h"
+#include "../../services/debug_service.h"
+#include "../../core/interpreter.h"
 #include "evaluator/expression_evaluator.h"
-#include "managers/type_manager.h"
+#include "managers/types/manager.h"
 #include "services/expression_service.h" // DRY効率化: 統一式評価サービス
 #include <iostream>
 #include <stdexcept>

@@ -1,6 +1,6 @@
 #include "type_inference.h"
-#include "../managers/type_manager.h"
-#include "../managers/variable_manager.h"
+#include "../managers/types/manager.h"
+#include "../managers/variables/manager.h"
 #include "interpreter.h"
 #include <algorithm>
 #include <cctype>

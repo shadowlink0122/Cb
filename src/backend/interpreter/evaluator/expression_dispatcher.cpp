@@ -31,7 +31,7 @@
 #include "expression_receiver_resolution.h"
 #include "expression_special_access.h"
 #include "expression_ternary.h"
-#include "managers/enum_manager.h"
+#include "managers/types/enums.h"
 #include <functional>
 #include <stdexcept>
 

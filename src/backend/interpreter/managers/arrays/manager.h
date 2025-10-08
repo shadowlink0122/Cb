@@ -1,6 +1,6 @@
 #pragma once
-#include "../../../common/ast.h"
-#include "../core/type_inference.h"
+#include "../../../../common/ast.h"
+#include "core/type_inference.h"
 #include <vector>
 
 // 前方宣言

@@ -1,6 +1,6 @@
 #pragma once
-#include "../../../common/ast.h"
-#include "core/interpreter.h"
+#include "../../../../common/ast.h"
+#include "../../core/interpreter.h"
 #include <map>
 #include <string>
 #include <vector>

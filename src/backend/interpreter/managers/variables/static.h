@@ -1,5 +1,5 @@
 #pragma once
-#include "core/interpreter.h"
+#include "../../core/interpreter.h"
 #include <map>
 #include <string>
 

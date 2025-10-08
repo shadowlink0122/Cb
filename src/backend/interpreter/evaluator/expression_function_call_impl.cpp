@@ -16,7 +16,7 @@
 #include "evaluator/expression_evaluator.h"
 #include "evaluator/expression_helpers.h"
 #include "evaluator/expression_receiver_resolution.h"
-#include "managers/type_manager.h"
+#include "managers/types/manager.h"
 #include <cstdlib>
 
 int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {

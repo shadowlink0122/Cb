@@ -18,18 +18,18 @@
 #include "handlers/interface_declaration_handler.h" // インターフェース宣言処理サービス
 #include "handlers/return_handler.h"             // return文処理サービス
 #include "handlers/struct_declaration_handler.h" // 構造体宣言処理サービス
-#include "managers/array_manager.h"
-#include "managers/common_operations.h"
-#include "managers/enum_manager.h"                  // enum管理サービス
-#include "managers/global_initialization_manager.h" // グローバル初期化管理サービス
-#include "managers/interface_operations.h" // interface/impl管理サービス
-#include "managers/static_variable_manager.h" // static変数管理サービス
-#include "managers/struct_assignment_manager.h" // struct代入管理サービス
-#include "managers/struct_operations.h"       // struct操作管理サービス
-#include "managers/struct_sync_manager.h"     // struct同期管理サービス
-#include "managers/struct_variable_manager.h" // struct変数管理サービス
-#include "managers/type_manager.h"
-#include "managers/variable_manager.h"
+#include "managers/arrays/manager.h"
+#include "managers/common/operations.h"
+#include "managers/types/enums.h"                  // enum管理サービス
+#include "managers/common/global_init.h" // グローバル初期化管理サービス
+#include "managers/types/interfaces.h" // interface/impl管理サービス
+#include "managers/variables/static.h" // static変数管理サービス
+#include "managers/structs/assignment.h" // struct代入管理サービス
+#include "managers/structs/operations.h"       // struct操作管理サービス
+#include "managers/structs/sync.h"     // struct同期管理サービス
+#include "managers/structs/member_variables.h" // struct変数管理サービス
+#include "managers/types/manager.h"
+#include "managers/variables/manager.h"
 #include "output/output_manager.h" // ヘッダーから移動
 #include "services/array_processing_service.h" // DRY効率化: 統一配列処理サービス
 #include "services/debug_service.h" // DRY効率化: 統一デバッグサービス

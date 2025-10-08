@@ -1,6 +1,6 @@
 #pragma once
 #include "../../../common/ast.h"
-#include "managers/common_operations.h"
+#include "managers/common/operations.h"
 #include <string>
 #include <vector>
 

@@ -1,11 +1,11 @@
-#include "global_initialization_manager.h"
-#include "../../../common/ast.h"
-#include "../../../common/debug.h"
-#include "../../../common/debug_messages.h"
-#include "../../../frontend/recursive_parser/recursive_parser.h"
-#include "core/interpreter.h"
-#include "managers/enum_manager.h"
-#include "managers/variable_manager.h"
+#include "global_init.h"
+#include "../../../../common/ast.h"
+#include "../../../../common/debug.h"
+#include "../../../../common/debug_messages.h"
+#include "../../../../frontend/recursive_parser/recursive_parser.h"
+#include "../../core/interpreter.h"
+#include "managers/types/enums.h"
+#include "managers/variables/manager.h"
 
 GlobalInitializationManager::GlobalInitializationManager(
     Interpreter *interpreter)

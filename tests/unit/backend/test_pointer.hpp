@@ -1,7 +1,7 @@
 #pragma once
 #include "../framework/test_framework.hpp"
 #include "../../../src/backend/interpreter/core/interpreter.h"
-#include "../../../src/backend/interpreter/managers/type_manager.h"
+#include "../../../src/backend/interpreter/managers/types/manager.h"
 #include "../../../src/backend/interpreter/services/variable_access_service.h"
 
 inline void test_struct_pointer_member_metadata() {

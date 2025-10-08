@@ -1,10 +1,10 @@
-#include "managers/struct_variable_manager.h"
-#include "../../../common/ast.h"
-#include "../../../common/debug.h"
-#include "core/interpreter.h"
-#include "managers/struct_operations.h"
-#include "managers/type_manager.h"
-#include "managers/variable_manager.h"
+#include "managers/structs/member_variables.h"
+#include "../../../../common/ast.h"
+#include "../../../../common/debug.h"
+#include "../../core/interpreter.h"
+#include "managers/structs/operations.h"
+#include "managers/types/manager.h"
+#include "managers/variables/manager.h"
 #include <stdexcept>
 #include <string>
 

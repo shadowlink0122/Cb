@@ -1,7 +1,7 @@
 #include "expression_special_access.h"
 #include "../../../common/debug.h"
-#include "managers/enum_manager.h"
-#include "managers/type_manager.h"
+#include "managers/types/enums.h"
+#include "managers/types/manager.h"
 #include <stdexcept>
 
 namespace SpecialAccessHelpers {

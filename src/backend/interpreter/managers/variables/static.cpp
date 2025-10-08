@@ -1,7 +1,7 @@
-#include "static_variable_manager.h"
-#include "../../../common/ast.h"
-#include "../../../common/debug_messages.h"
-#include "../core/interpreter.h"
+#include "static.h"
+#include "../../../../common/ast.h"
+#include "../../../../common/debug_messages.h"
+#include "../../core/interpreter.h"
 
 StaticVariableManager::StaticVariableManager(Interpreter *interpreter)
     : interpreter_(interpreter) {}

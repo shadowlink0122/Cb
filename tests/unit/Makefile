@@ -10,7 +10,7 @@ BACKEND_DIR=$(SRC_DIR)/backend
 COMMON_DIR=$(SRC_DIR)/common
 
 # 共通オブジェクトファイル（メインの実行ファイル以外）
-COMMON_OBJS=COMMON_OBJS = \
+COMMON_OBJS = \
 	../../src/backend/interpreter/core/interpreter.o \
 	../../src/backend/interpreter/core/error_handler.o \
 	../../src/backend/interpreter/core/pointer_metadata.o \
@@ -42,19 +42,32 @@ COMMON_OBJS=COMMON_OBJS = \
 	../../src/backend/interpreter/handlers/interface_declaration_handler.o \
 	../../src/backend/interpreter/handlers/impl_declaration_handler.o \
 	../../src/backend/interpreter/handlers/expression_statement_handler.o \
-	../../src/backend/interpreter/managers/variable_manager.o \
-	../../src/backend/interpreter/managers/array_manager.o \
-	../../src/backend/interpreter/managers/type_manager.o \
-	../../src/backend/interpreter/managers/enum_manager.o \
-	../../src/backend/interpreter/managers/static_variable_manager.o \
-	../../src/backend/interpreter/managers/interface_operations.o \
-	../../src/backend/interpreter/managers/struct_operations.o \
-	../../src/backend/interpreter/managers/common_operations.o \
+	../../src/backend/interpreter/managers/variables/manager.o \
+	../../src/backend/interpreter/managers/variables/static.o \
+	../../src/backend/interpreter/managers/arrays/manager.o \
+	../../src/backend/interpreter/managers/types/manager.o \
+	../../src/backend/interpreter/managers/types/enums.o \
+	../../src/backend/interpreter/managers/types/interfaces.o \
+	../../src/backend/interpreter/managers/structs/operations.o \
+	../../src/backend/interpreter/managers/structs/member_variables.o \
+	../../src/backend/interpreter/managers/structs/assignment.o \
+	../../src/backend/interpreter/managers/structs/sync.o \
+	../../src/backend/interpreter/managers/common/operations.o \
+	../../src/backend/interpreter/managers/common/global_init.o \
 	../../src/backend/interpreter/output/output_manager.o \
 	../../src/backend/interpreter/services/expression_service.o \
 	../../src/backend/interpreter/services/variable_access_service.o \
 	../../src/backend/interpreter/services/debug_service.o \
-	../../src/backend/interpreter/services/array_processing_service.o
+	../../src/backend/interpreter/services/array_processing_service.o \
+	../../src/common/type_utils.o \
+	../../src/common/type_alias.o \
+	../../src/common/array_type_info.o \
+	../../src/common/utf8_utils.o \
+	../../src/common/io_interface.o \
+	../../src/common/debug_impl.o \
+	../../src/common/debug_messages.o \
+	../../src/platform/native/native_stdio_output.o \
+	../../src/platform/baremetal/baremetal_uart_output.o
 
 # 実行ファイル
 TEST_TARGET=test_main

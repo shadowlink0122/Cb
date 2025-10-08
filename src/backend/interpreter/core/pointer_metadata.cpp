@@ -1,6 +1,6 @@
 #include "pointer_metadata.h"
 #include "../../../common/debug.h"
-#include "../managers/variable_manager.h"
+#include "../managers/variables/manager.h"
 #include <sstream>
 #include <stdexcept>
 

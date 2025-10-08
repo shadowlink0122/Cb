@@ -1,7 +1,7 @@
-#include "managers/type_manager.h"
-#include "../../../common/debug_messages.h"
-#include "core/interpreter.h"
-#include "managers/enum_manager.h"
+#include "managers/types/manager.h"
+#include "../../../../common/debug_messages.h"
+#include "../../core/interpreter.h"
+#include "managers/types/enums.h"
 #include "services/expression_service.h" // DRY効率化: 統一式評価サービス
 #include <limits>
 #include <stdexcept>

@@ -65,18 +65,18 @@ BACKEND_OBJS = \
 	src/backend/interpreter/handlers/interface_declaration_handler.o \
 	src/backend/interpreter/handlers/impl_declaration_handler.o \
 	src/backend/interpreter/handlers/expression_statement_handler.o \
-	src/backend/interpreter/managers/variable_manager.o \
-	src/backend/interpreter/managers/array_manager.o \
-	src/backend/interpreter/managers/type_manager.o \
-	src/backend/interpreter/managers/enum_manager.o \
-	src/backend/interpreter/managers/static_variable_manager.o \
-	src/backend/interpreter/managers/interface_operations.o \
-	src/backend/interpreter/managers/struct_operations.o \
-	src/backend/interpreter/managers/struct_variable_manager.o \
-	src/backend/interpreter/managers/struct_assignment_manager.o \
-	src/backend/interpreter/managers/struct_sync_manager.o \
-	src/backend/interpreter/managers/global_initialization_manager.o \
-	src/backend/interpreter/managers/common_operations.o \
+	src/backend/interpreter/managers/variables/manager.o \
+	src/backend/interpreter/managers/variables/static.o \
+	src/backend/interpreter/managers/arrays/manager.o \
+	src/backend/interpreter/managers/types/manager.o \
+	src/backend/interpreter/managers/types/enums.o \
+	src/backend/interpreter/managers/types/interfaces.o \
+	src/backend/interpreter/managers/structs/operations.o \
+	src/backend/interpreter/managers/structs/member_variables.o \
+	src/backend/interpreter/managers/structs/assignment.o \
+	src/backend/interpreter/managers/structs/sync.o \
+	src/backend/interpreter/managers/common/global_init.o \
+	src/backend/interpreter/managers/common/operations.o \
 	src/backend/interpreter/output/output_manager.o \
 	src/backend/interpreter/services/expression_service.o \
 	src/backend/interpreter/services/variable_access_service.o \
@@ -97,6 +97,9 @@ all: setup-dirs $(MAIN_TARGET)
 setup-dirs:
 	@mkdir -p $(FRONTEND_DIR) $(BACKEND_DIR) $(COMMON_DIR) $(NATIVE_DIR) $(BAREMETAL_DIR)
 	@mkdir -p $(BACKEND_DIR)/interpreter/core $(BACKEND_DIR)/interpreter/managers
+	@mkdir -p $(BACKEND_DIR)/interpreter/managers/variables $(BACKEND_DIR)/interpreter/managers/arrays
+	@mkdir -p $(BACKEND_DIR)/interpreter/managers/structs $(BACKEND_DIR)/interpreter/managers/types
+	@mkdir -p $(BACKEND_DIR)/interpreter/managers/common
 	@mkdir -p $(BACKEND_DIR)/interpreter/evaluator $(BACKEND_DIR)/interpreter/executors
 	@mkdir -p $(BACKEND_DIR)/interpreter/handlers $(BACKEND_DIR)/interpreter/output
 	@mkdir -p $(BACKEND_DIR)/interpreter/services
@@ -141,6 +144,22 @@ $(BACKEND_DIR)/handlers/%.o: $(BACKEND_DIR)/handlers/%.cpp $(COMMON_DIR)/ast.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 	
 $(BACKEND_DIR)/output/%.o: $(BACKEND_DIR)/output/%.cpp $(COMMON_DIR)/ast.h
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+# マネージャーサブディレクトリのオブジェクト生成
+$(BACKEND_DIR)/managers/variables/%.o: $(BACKEND_DIR)/managers/variables/%.cpp $(COMMON_DIR)/ast.h
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(BACKEND_DIR)/managers/arrays/%.o: $(BACKEND_DIR)/managers/arrays/%.cpp $(COMMON_DIR)/ast.h
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(BACKEND_DIR)/managers/structs/%.o: $(BACKEND_DIR)/managers/structs/%.cpp $(COMMON_DIR)/ast.h
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(BACKEND_DIR)/managers/types/%.o: $(BACKEND_DIR)/managers/types/%.cpp $(COMMON_DIR)/ast.h
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(BACKEND_DIR)/managers/common/%.o: $(BACKEND_DIR)/managers/common/%.cpp $(COMMON_DIR)/ast.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 # 共通オブジェクト生成

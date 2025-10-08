@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../../../common/ast.h"
+#include "../../../../common/ast.h"
 #include <cstdint>
 #include <string>
 #include <vector>

@@ -1,7 +1,7 @@
-#include "interface_operations.h"
-#include "../../../common/ast.h"
-#include "../../../common/debug_messages.h"
-#include "../core/interpreter.h"
+#include "interfaces.h"
+#include "../../../../common/ast.h"
+#include "../../../../common/debug_messages.h"
+#include "../../core/interpreter.h"
 #include <algorithm>
 
 InterfaceOperations::InterfaceOperations(Interpreter *interpreter)

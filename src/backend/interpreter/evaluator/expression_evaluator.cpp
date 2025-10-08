@@ -18,9 +18,9 @@
 #include "evaluator/expression_receiver_resolution.h" // Phase 12: Method Receiver Resolution
 #include "evaluator/expression_special_access.h" // 特殊アクセス（アロー、メンバー配列、Enum）のヘルパー
 #include "evaluator/expression_ternary.h" // 三項演算子（?:）のヘルパー
-#include "managers/array_manager.h"
-#include "managers/enum_manager.h" // EnumManager定義が必要
-#include "managers/type_manager.h" // TypeManager定義が必要
+#include "managers/arrays/manager.h"
+#include "managers/types/enums.h" // EnumManager定義が必要
+#include "managers/types/manager.h" // TypeManager定義が必要
 #include "services/array_processing_service.h"
 #include "services/debug_service.h"
 #include <cstdio>

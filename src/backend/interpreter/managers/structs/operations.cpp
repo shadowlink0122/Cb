@@ -3,13 +3,13 @@
 // Phase 3.4a: 構造体定義の登録と再帰検証のみ実装
 // Phase 3.4b: 定義検索とパーサー同期
 
-#include "struct_operations.h"
-#include "../../../common/debug.h"
-#include "../../../common/debug_messages.h"
-#include "../../../frontend/recursive_parser/recursive_parser.h"
-#include "../core/interpreter.h"
-#include "static_variable_manager.h"
-#include "type_manager.h"
+#include "operations.h"
+#include "../../../../common/debug.h"
+#include "../../../../common/debug_messages.h"
+#include "../../../../frontend/recursive_parser/recursive_parser.h"
+#include "../../core/interpreter.h"
+#include "../variables/static.h"
+#include "../types/manager.h"
 #include <algorithm>
 #include <functional>
 #include <sstream>

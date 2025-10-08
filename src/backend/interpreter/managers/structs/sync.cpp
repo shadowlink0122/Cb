@@ -1,10 +1,10 @@
-#include "struct_sync_manager.h"
-#include "../../../common/ast.h"
-#include "../../../common/debug.h"
-#include "../../../common/debug_messages.h"
-#include "../core/interpreter.h"
-#include "static_variable_manager.h"
-#include "type_manager.h"
+#include "sync.h"
+#include "../../../../common/ast.h"
+#include "../../../../common/debug.h"
+#include "../../../../common/debug_messages.h"
+#include "../../core/interpreter.h"
+#include "../variables/static.h"
+#include "../types/manager.h"
 #include <functional>
 
 StructSyncManager::StructSyncManager(Interpreter *interpreter)
