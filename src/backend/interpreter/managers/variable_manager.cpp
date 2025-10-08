@@ -1109,19 +1109,23 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
         return; // 処理完了、以降の処理をスキップ
     }
 
-    auto clamp_unsigned_initial = [&](Variable &target, int64_t &value,
-                                      const char *context) {
-        if (!target.is_unsigned || value >= 0) {
-            return;
-        }
-        const char *var_name = node ? node->name.c_str() : "<anonymous>";
-        DEBUG_WARN(
-            VARIABLE,
-            "Unsigned variable %s %s negative value (%lld); clamping to 0",
-            var_name, context, static_cast<long long>(value));
-        value = 0;
-    };
+    // ノードタイプに応じて適切なハンドラに委譲
     if (node->node_type == ASTNodeType::AST_VAR_DECL) {
+        process_variable_declaration(node);
+    } else if (node->node_type == ASTNodeType::AST_ASSIGN) {
+        process_variable_assignment(node);
+    } else {
+        throw std::runtime_error(
+            "Unexpected node type in process_var_decl_or_assign: " +
+            std::to_string(static_cast<int>(node->node_type)));
+    }
+}
+
+// ============================================================================
+// Variable Declaration Processing (AST_VAR_DECL)
+// ============================================================================
+
+void VariableManager::process_variable_declaration(const ASTNode *node) {
         // 変数宣言の処理
         Variable var;
         // ポインタ型の場合はTYPE_POINTERを設定
@@ -1565,8 +1569,7 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                     try {
                         int64_t value = interpreter_->expression_evaluator_
                                             ->evaluate_expression(init_node);
-                        clamp_unsigned_initial(var, value,
-                                               "initialized with expression");
+                        clamp_unsigned_value(var, value, "initialized with expression", node);
                         var.value = value;
                         var.is_assigned = true;
 
@@ -1648,9 +1651,9 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                         } else if (!ret.is_array && !ret.is_struct) {
                             // 数値戻り値の場合
                             int64_t numeric_value = ret.value;
-                            clamp_unsigned_initial(
+                            clamp_unsigned_value(
                                 var, numeric_value,
-                                "initialized with function return");
+                                "initialized with function return", node);
                             var.value = numeric_value;
                             var.is_assigned = true;
 
@@ -3094,9 +3097,8 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                             var.str_value = ret.str_value;
                         } else {
                             int64_t numeric_value = ret.value;
-                            clamp_unsigned_initial(
-                                var, numeric_value,
-                                "initialized with function return");
+                            clamp_unsigned_value(var, numeric_value,
+                                "  initialized with function return", node);
                             var.value = numeric_value;
                         }
                         var.is_assigned = true;
@@ -3215,9 +3217,8 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                             var.str_value = "";
                         } else {
                             int64_t numeric_value = typed_result.value;
-                            clamp_unsigned_initial(
-                                var, numeric_value,
-                                "initialized with expression");
+                            clamp_unsigned_value(var, numeric_value,
+                                "  initialized with expression", node);
                             var.value = numeric_value;
                             var.str_value = "";
                         }
@@ -3340,9 +3341,8 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                             var.type = TYPE_STRING;
                         } else {
                             int64_t numeric_value = ret.value;
-                            clamp_unsigned_initial(
-                                var, numeric_value,
-                                "initialized with function return");
+                            clamp_unsigned_value(var, numeric_value,
+                                "  initialized with function return", node);
                             var.value = numeric_value;
                         }
                         var.is_assigned = true;
@@ -3395,9 +3395,8 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                             break;
                         default: {
                             int64_t numeric_value = typed_result.as_numeric();
-                            clamp_unsigned_initial(
-                                var, numeric_value,
-                                "initialized with expression");
+                            clamp_unsigned_value(var, numeric_value,
+                                "  initialized with expression", node);
                             assign_from_quad(
                                 static_cast<long double>(numeric_value));
 
@@ -3429,8 +3428,8 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
 
         if (var.is_assigned && !var.is_array && !var.is_struct &&
             var.type != TYPE_STRING) {
-            clamp_unsigned_initial(var, var.value,
-                                   "initialized with negative value");
+            clamp_unsigned_value(var, var.value,
+                                "  initialized with negative value", node);
         }
 
         // static変数の場合は特別処理
@@ -3658,9 +3657,14 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
         }
         // std::cerr << "DEBUG: Variable created: " << node->name << ",
         // is_array=" << var.is_array << std::endl;
+}
 
-    } else if (node->node_type == ASTNodeType::AST_ASSIGN) {
-        // 変数代入の処理
+// ============================================================================
+// Variable Assignment Processing (AST_ASSIGN)
+// ============================================================================
+
+void VariableManager::process_variable_assignment(const ASTNode *node) {
+    // 変数代入の処理
 
         // 配列リテラル代入の特別処理
         if (node->right &&
@@ -3863,7 +3867,7 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                 interpreter_->expression_evaluator_->evaluate_expression(
                     node->right.get());
 
-            clamp_unsigned_initial(*var, value, "received assignment");
+            clamp_unsigned_value(*var, value, "received assignment", node);
 
             // varは既に上で定義済み
             if (var->is_const && var->is_assigned) {
@@ -3911,7 +3915,7 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
                 interpreter_->expression_evaluator_->evaluate_expression(
                     node->right.get());
 
-            clamp_unsigned_initial(*var, value, "received assignment");
+            clamp_unsigned_value(*var, value, "received assignment", node);
 
             // 型範囲チェック（代入前に実行）
             // ポインタ型の場合はスキップ
@@ -4226,7 +4230,6 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
         }
         // 他の複雑なケースは後で実装
     }
-}
 
 // N次元配列の配列名を抽出する汎用関数
 std::string VariableManager::extract_array_name(const ASTNode *node) {
@@ -4282,6 +4285,23 @@ VariableManager::extract_array_indices(const ASTNode *node) {
     }
 
     return indices;
+}
+
+// ============================================================================
+// Helper Methods
+// ============================================================================
+
+void VariableManager::clamp_unsigned_value(Variable &target, int64_t &value,
+                                            const char *context,
+                                            const ASTNode *node) {
+    if (!target.is_unsigned || value >= 0) {
+        return;
+    }
+    const char *var_name = node ? node->name.c_str() : "<anonymous>";
+    DEBUG_WARN(VARIABLE,
+               "Unsigned variable %s %s negative value (%lld); clamping to 0",
+               var_name, context, static_cast<long long>(value));
+    value = 0;
 }
 
 void VariableManager::assign_union_value(Variable &var,

@@ -109,4 +109,19 @@ class VariableManager {
     Interpreter *getInterpreter() { return interpreter_; }
 
   private:
+    /**
+     * @brief 変数宣言処理（AST_VAR_DECL）の内部実装
+     */
+    void process_variable_declaration(const ASTNode *node);
+
+    /**
+     * @brief 変数代入処理（AST_ASSIGN）の内部実装
+     */
+    void process_variable_assignment(const ASTNode *node);
+
+    /**
+     * @brief unsigned変数の負の値をクランプするヘルパー
+     */
+    void clamp_unsigned_value(Variable &target, int64_t &value,
+                              const char *context, const ASTNode *node);
 };
