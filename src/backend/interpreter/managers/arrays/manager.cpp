@@ -1,6 +1,8 @@
 #include "managers/arrays/manager.h"
 #include "../../../../common/debug_messages.h"
 #include "../../../../common/type_alias.h"
+#include "../../../../common/ast.h"
+#include "../../../../common/type_helpers.h"
 #include "../../core/interpreter.h" // Variable の定義のため
 #include "../../services/debug_service.h"
 #include "core/error_handler.h"

@@ -1,5 +1,6 @@
 #include "binary_unary.h"
 #include "../../../../common/debug.h"
+#include "../../../../common/type_helpers.h"
 #include "../../core/pointer_metadata.h"
 #include <cmath>
 #include <stdexcept>
@@ -182,12 +183,15 @@ TypedValue evaluate_binary_op_typed(
             } else if (left_value.type.type_info == TYPE_QUAD ||
                        right_value.type.type_info == TYPE_QUAD) {
                 result_type = TYPE_QUAD;
-            } else if (left_value.type.type_info == TYPE_DOUBLE ||
-                       right_value.type.type_info == TYPE_DOUBLE) {
-                result_type = TYPE_DOUBLE;
-            } else if (left_value.type.type_info == TYPE_FLOAT ||
-                       right_value.type.type_info == TYPE_FLOAT) {
-                result_type = TYPE_FLOAT;
+            } else if (TypeHelpers::isFloating(left_value) ||
+                       TypeHelpers::isFloating(right_value)) {
+                // DOUBLEまたはFLOATのいずれかが含まれる
+                if (left_value.type.type_info == TYPE_DOUBLE ||
+                    right_value.type.type_info == TYPE_DOUBLE) {
+                    result_type = TYPE_DOUBLE;
+                } else {
+                    result_type = TYPE_FLOAT;
+                }
             }
         }
 
@@ -251,7 +255,7 @@ TypedValue evaluate_binary_op_typed(
     if (node->op == "+" || node->op == "-") {
         // 左オペランドがポインタの場合
         if (left_value.numeric_type == TYPE_POINTER ||
-            left_value.type.type_info == TYPE_POINTER) {
+            TypeHelpers::isPointer(left_value)) {
             int64_t left_ptr = left_value.as_numeric();
             int64_t offset = right_value.as_numeric();
 

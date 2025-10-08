@@ -2,11 +2,12 @@
 #define TYPE_HELPERS_H
 
 #include "ast.h"
+#include "../backend/interpreter/core/type_inference.h"
 
 /**
  * @brief 型チェックヘルパー関数群
  * 
- * TypedValueの型チェックを簡潔に行うためのヘルパー関数。
+ * TypedValueとVariableの型チェックを簡潔に行うためのヘルパー関数。
  * DRY原則に従い、重複する型チェックロジックを一元化。
  */
 namespace TypeHelpers {
@@ -19,15 +20,15 @@ namespace TypeHelpers {
  * @brief 整数型かどうかを判定
  */
 inline bool isInteger(const TypedValue& val) {
-    return val.type == TYPE_TINY || val.type == TYPE_SHORT || 
-           val.type == TYPE_INT || val.type == TYPE_LONG;
+    return val.type.type_info == TYPE_TINY || val.type.type_info == TYPE_SHORT || 
+           val.type.type_info == TYPE_INT || val.type.type_info == TYPE_LONG;
 }
 
 /**
  * @brief 浮動小数点型かどうかを判定
  */
 inline bool isFloating(const TypedValue& val) {
-    return val.type == TYPE_FLOAT || val.type == TYPE_DOUBLE;
+    return val.type.type_info == TYPE_FLOAT || val.type.type_info == TYPE_DOUBLE;
 }
 
 /**
@@ -38,73 +39,67 @@ inline bool isNumeric(const TypedValue& val) {
 }
 
 /**
- * @brief 符号なし整数型かどうかを判定
- */
-inline bool isUnsigned(const TypedValue& val) {
-    return val.type == TYPE_UNSIGNED;
-}
-
-/**
  * @brief ポインタ型かどうかを判定
  */
 inline bool isPointer(const TypedValue& val) {
-    return val.type == TYPE_POINTER;
+    return val.type.type_info == TYPE_POINTER;
 }
 
 /**
- * @brief 参照型かどうかを判定
+ * @brief 参照型かどうかを判定（未実装）
+ * 注: 現在の実装ではTYPE_REFERENCEは存在しないため常にfalseを返します
  */
 inline bool isReference(const TypedValue& val) {
-    return val.type == TYPE_REFERENCE;
+    return false; // TYPE_REFERENCEは現在未実装
 }
 
 /**
  * @brief 配列型かどうかを判定
  */
 inline bool isArray(const TypedValue& val) {
-    return val.type == TYPE_ARRAY;
+    return val.type.is_array;
 }
 
 /**
  * @brief 構造体型かどうかを判定
  */
 inline bool isStruct(const TypedValue& val) {
-    return val.type == TYPE_STRUCT;
+    return val.type.type_info == TYPE_STRUCT;
 }
 
 /**
  * @brief Union型かどうかを判定
  */
 inline bool isUnion(const TypedValue& val) {
-    return val.type == TYPE_UNION;
+    return val.type.type_info == TYPE_UNION;
 }
 
 /**
  * @brief 関数ポインタ型かどうかを判定
  */
 inline bool isFunctionPointer(const TypedValue& val) {
-    return val.type == TYPE_FUNCTION_POINTER;
+    return val.type.type_info == TYPE_FUNCTION_POINTER;
 }
 
 /**
  * @brief 文字列型かどうかを判定
  */
 inline bool isString(const TypedValue& val) {
-    return val.type == TYPE_STRING;
+    return val.type.type_info == TYPE_STRING;
 }
 
 /**
  * @brief ブーリアン型かどうかを判定
  */
 inline bool isBoolean(const TypedValue& val) {
-    return val.type == TYPE_BOOL;
+    return val.type.type_info == TYPE_BOOL;
 }
 
 /**
  * @brief void型かどうかを判定
  */
 inline bool isVoid(const TypedValue& val) {
-    return val.type == TYPE_VOID;
+    return val.type.type_info == TYPE_VOID;
 }
 
 // ===========================
@@ -146,7 +141,7 @@ inline bool isCallable(const TypedValue& val) {
 /**
  * @brief 型名を文字列で取得
  */
-inline const char* getTypeName(ValueType type) {
+inline const char* getTypeName(TypeInfo type) {
     switch (type) {
         case TYPE_TINY: return "tiny";
         case TYPE_SHORT: return "short";
@@ -154,12 +149,9 @@ inline const char* getTypeName(ValueType type) {
         case TYPE_LONG: return "long";
         case TYPE_FLOAT: return "float";
         case TYPE_DOUBLE: return "double";
-        case TYPE_UNSIGNED: return "unsigned";
         case TYPE_BOOL: return "bool";
         case TYPE_STRING: return "string";
         case TYPE_POINTER: return "pointer";
-        case TYPE_REFERENCE: return "reference";
-        case TYPE_ARRAY: return "array";
         case TYPE_STRUCT: return "struct";
         case TYPE_UNION: return "union";
         case TYPE_FUNCTION_POINTER: return "function_pointer";
@@ -172,7 +164,7 @@ inline const char* getTypeName(ValueType type) {
  * @brief TypedValueの型名を取得
  */
 inline const char* getTypeName(const TypedValue& val) {
-    return getTypeName(val.type);
+    return getTypeName(val.type.type_info);
 }
 
 // ===========================
@@ -188,7 +180,7 @@ inline bool isSameCategory(const TypedValue& a, const TypedValue& b) {
     if (isPointer(a) && isPointer(b)) return true;
     if (isArray(a) && isArray(b)) return true;
     if (isStruct(a) && isStruct(b)) return true;
-    return a.type == b.type;
+    return a.type.type_info == b.type.type_info;
 }
 
 /**
@@ -196,7 +188,7 @@ inline bool isSameCategory(const TypedValue& a, const TypedValue& b) {
  */
 inline bool isImplicitlyConvertible(const TypedValue& from, const TypedValue& to) {
     // 同じ型は常に変換可能
-    if (from.type == to.type) return true;
+    if (from.type.type_info == to.type.type_info) return true;
     
     // 数値型間の変換
     if (isNumeric(from) && isNumeric(to)) return true;

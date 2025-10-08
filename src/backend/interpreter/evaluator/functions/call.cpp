@@ -1,6 +1,7 @@
 #include "call.h"
 #include "../../../../common/ast.h"
 #include "../../../../common/debug.h"
+#include "../../../../common/type_helpers.h"
 #include "../../core/error_handler.h"
 #include "../../core/interpreter.h"
 #include <iostream>
@@ -63,7 +64,7 @@ int64_t evaluate_function_pointer_call(const ASTNode *node,
     for (const auto &arg : node->arguments) {
         TypedValue typed_val = interpreter.evaluate_typed(arg.get());
         arg_values.push_back(typed_val.value);
-        if (typed_val.type.type_info == TYPE_STRING) {
+        if (TypeHelpers::isString(typed_val)) {
             arg_strings.push_back(typed_val.string_value);
         }
     }

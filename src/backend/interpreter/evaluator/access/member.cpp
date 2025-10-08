@@ -11,6 +11,7 @@
 #include "../../../../common/ast.h"
 #include "../../../../common/debug.h"
 #include "../../../../common/debug_messages.h"
+#include "../../../../common/type_helpers.h"
 #include "../../core/interpreter.h"
 #include "../core/evaluator.h"
 #include <functional>
@@ -143,7 +144,7 @@ int64_t ExpressionEvaluator::evaluate_member_access_impl(const ASTNode *node) {
         evaluate_typed_expression(node->left.get());
 
         // last_typed_result_から構造体変数を取得
-        if (last_typed_result_.type.type_info == TYPE_STRUCT) {
+        if (TypeHelpers::isStruct(last_typed_result_)) {
             // last_typed_result_が構造体の場合、それを使用
             // しかし、evaluate_typed_expressionは数値しか返さないため、
             // 代わりにleftを完全に評価して構造体メンバーの変数パスを構築する必要がある

@@ -11,7 +11,6 @@
 
 #include "../../../../common/debug.h"
 #include "../../../../common/debug_messages.h"
-#include "../../../../common/ast.h"
 #include "../../../../common/type_helpers.h"
 #include "../../core/error_handler.h"
 #include "../../core/interpreter.h"
@@ -122,7 +121,7 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                         TypedValue typed_val =
                             interpreter_.evaluate_typed(arg.get());
                         arg_values.push_back(typed_val.value);
-                        if (TypeHelpers::isString(typed_val)) {
+                        if (typed_val.type.type_info == TYPE_STRING) {
                             arg_strings.push_back(typed_val.string_value);
                         }
                     }
@@ -197,7 +196,7 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
             for (const auto &arg : node->arguments) {
                 TypedValue typed_val = interpreter_.evaluate_typed(arg.get());
                 arg_values.push_back(typed_val.value);
-                if (TypeHelpers::isString(typed_val)) {
+                if (typed_val.type.type_info == TYPE_STRING) {
                     arg_strings.push_back(typed_val.string_value);
                 }
             }
@@ -347,7 +346,7 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                     TypedValue typed_val =
                         interpreter_.evaluate_typed(arg.get());
                     arg_values.push_back(typed_val.value);
-                    if (TypeHelpers::isString(typed_val)) {
+                    if (typed_val.type.type_info == TYPE_STRING) {
                         arg_strings.push_back(typed_val.string_value);
                     }
                 }
@@ -2044,7 +2043,8 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
             }
             // float/double/quad戻り値の場合は例外を再度投げる
             // (evaluate_expressionはint64_tしか返せないため、上位でTypedValueとして処理する必要がある)
-            if (ret.type == TYPE_FLOAT || ret.type == TYPE_DOUBLE || ret.type == TYPE_QUAD) {
+            if (ret.type == TYPE_FLOAT || ret.type == TYPE_DOUBLE ||
+                ret.type == TYPE_QUAD) {
                 throw ret;
             }
             // 参照戻り値の場合は例外を再度投げる
