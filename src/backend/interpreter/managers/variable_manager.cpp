@@ -1100,169 +1100,13 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
     }
 
     // 関数ポインタの早期チェック（evaluate前に処理）
-    if (node->node_type == ASTNodeType::AST_VAR_DECL &&
-        node->type_info == TYPE_POINTER) {
-        if (interpreter_->debug_mode) {
-            std::cerr << "[VAR_MANAGER] Checking if pointer is function pointer"
-                      << std::endl;
-        }
-        ASTNode *init_node = node->init_expr
-                                 ? node->init_expr.get()
-                                 : (node->right ? node->right.get() : nullptr);
-        if (interpreter_->debug_mode && init_node) {
-            std::cerr << "[VAR_MANAGER] Init node exists: type="
-                      << static_cast<int>(init_node->node_type)
-                      << ", op=" << init_node->op << ", is_function_address="
-                      << init_node->is_function_address << std::endl;
-        }
-        if (init_node && init_node->node_type == ASTNodeType::AST_UNARY_OP &&
-            init_node->op == "ADDRESS_OF" && init_node->is_function_address) {
-
-            std::string func_name = init_node->function_address_name;
-            const ASTNode *func_node = interpreter_->find_function(func_name);
-
-            // 関数が見つかった場合のみ関数ポインタとして処理
-            if (func_node) {
-                // 関数ポインタ変数を作成
-                Variable var;
-                var.is_function_pointer = true;
-                var.function_pointer_name = func_name;
-                var.type = TYPE_POINTER; // ポインタ型として扱う
-                var.is_assigned = true;
-                var.is_const = node->is_const;
-                // 関数ノードの実際のメモリアドレスを値として格納
-                var.value = reinterpret_cast<int64_t>(func_node);
-
-                // 変数を登録
-                current_scope().variables[node->name] = var;
-
-                // FunctionPointerを登録
-                FunctionPointer func_ptr(func_node, func_name,
-                                         func_node->type_info);
-                interpreter_->current_scope().function_pointers[node->name] =
-                    func_ptr;
-
-                if (interpreter_->debug_mode) {
-                    std::cerr
-                        << "[VAR_MANAGER] Registered function pointer (early): "
-                        << node->name << " -> " << func_name << std::endl;
-                }
-
-                return; // 処理完了、以降の処理をスキップ
-            }
-            // 関数が見つからない場合は通常の変数アドレスとして処理を継続
-            if (interpreter_->debug_mode) {
-                std::cerr << "[VAR_MANAGER] Not a function, treating as "
-                             "variable address: "
-                          << func_name << std::endl;
-            }
-        }
+    if (handle_function_pointer(node)) {
+        return; // 処理完了、以降の処理をスキップ
     }
 
     // 参照型変数の特別処理
-    if (node->is_reference && node->node_type == ASTNodeType::AST_VAR_DECL) {
-        if (interpreter_->is_debug_mode()) {
-            std::cerr << "[VAR_MANAGER] Processing reference variable: "
-                      << node->name << std::endl;
-        }
-
-        // 参照は必ず初期化が必要
-        if (!node->init_expr && !node->right) {
-            throw std::runtime_error("Reference variable '" + node->name +
-                                     "' must be initialized");
-        }
-
-        // 初期化式を評価して参照先変数を取得
-        ASTNode *init_node =
-            node->init_expr ? node->init_expr.get() : node->right.get();
-
-        // 関数呼び出しの場合、ReturnExceptionから参照を取得
-        if (init_node->node_type == ASTNodeType::AST_FUNC_CALL) {
-            try {
-                interpreter_->expression_evaluator_->evaluate_expression(
-                    init_node);
-                throw std::runtime_error(
-                    "Function did not return via exception");
-            } catch (const ReturnException &ret) {
-                if (!ret.is_reference || !ret.reference_target) {
-                    throw std::runtime_error("Function '" + init_node->name +
-                                             "' does not return a reference");
-                }
-
-                Variable *target_var = ret.reference_target;
-
-                if (interpreter_->is_debug_mode()) {
-                    std::cerr
-                        << "[VAR_MANAGER] Creating reference " << node->name
-                        << " from function return (value: " << target_var->value
-                        << ")" << std::endl;
-                }
-
-                // 参照変数を作成
-                Variable ref_var;
-                ref_var.is_reference = true;
-                ref_var.type = target_var->type;
-                ref_var.is_const = node->is_const;
-                ref_var.is_array = target_var->is_array;
-                ref_var.is_unsigned = target_var->is_unsigned;
-                ref_var.is_struct = target_var->is_struct;
-                ref_var.struct_type_name = target_var->struct_type_name;
-
-                // 参照先変数のポインタを値として保存
-                ref_var.value = reinterpret_cast<int64_t>(target_var);
-                ref_var.is_assigned = true;
-
-                current_scope().variables[node->name] = ref_var;
-                return;
-            }
-        }
-
-        // 参照先が変数でなければエラー
-        if (init_node->node_type != ASTNodeType::AST_VARIABLE) {
-            throw std::runtime_error("Reference variable '" + node->name +
-                                     "' must be initialized with a variable");
-        }
-
-        std::string target_var_name = init_node->name;
-
-        // 参照先変数が存在するかチェック
-        Variable *target_var = find_variable(target_var_name);
-        if (!target_var) {
-            throw std::runtime_error("Reference target variable '" +
-                                     target_var_name + "' not found");
-        }
-
-        // 参照先変数が参照型の場合、さらにデリファレンス
-        if (target_var->is_reference) {
-            target_var = reinterpret_cast<Variable *>(target_var->value);
-            if (!target_var) {
-                throw std::runtime_error(
-                    "Invalid reference chain for variable: " + target_var_name);
-            }
-        }
-
-        if (interpreter_->is_debug_mode()) {
-            std::cerr << "[VAR_MANAGER] Creating reference " << node->name
-                      << " -> " << target_var_name
-                      << " (value: " << target_var->value << ")" << std::endl;
-        }
-
-        // 参照変数を作成
-        Variable ref_var;
-        ref_var.is_reference = true;
-        ref_var.type = target_var->type;
-        ref_var.is_const = node->is_const;
-        ref_var.is_array = target_var->is_array;
-        ref_var.is_unsigned = target_var->is_unsigned;
-        ref_var.is_struct = target_var->is_struct;
-        ref_var.struct_type_name = target_var->struct_type_name;
-
-        // 参照先変数のポインタを値として保存
-        ref_var.value = reinterpret_cast<int64_t>(target_var);
-        ref_var.is_assigned = true;
-
-        current_scope().variables[node->name] = ref_var;
-        return;
+    if (handle_reference_variable(node)) {
+        return; // 処理完了、以降の処理をスキップ
     }
 
     auto clamp_unsigned_initial = [&](Variable &target, int64_t &value,
@@ -4876,4 +4720,178 @@ void VariableManager::handle_ternary_initialization(
             var.is_assigned = true;
         }
     }
+}
+
+// ============================================================================
+// Helper methods for process_var_decl_or_assign
+// ============================================================================
+
+bool VariableManager::handle_function_pointer(const ASTNode *node) {
+    if (node->node_type == ASTNodeType::AST_VAR_DECL &&
+        node->type_info == TYPE_POINTER) {
+        if (interpreter_->debug_mode) {
+            std::cerr << "[VAR_MANAGER] Checking if pointer is function pointer"
+                      << std::endl;
+        }
+        ASTNode *init_node = node->init_expr
+                                 ? node->init_expr.get()
+                                 : (node->right ? node->right.get() : nullptr);
+        if (interpreter_->debug_mode && init_node) {
+            std::cerr << "[VAR_MANAGER] Init node exists: type="
+                      << static_cast<int>(init_node->node_type)
+                      << ", op=" << init_node->op << ", is_function_address="
+                      << init_node->is_function_address << std::endl;
+        }
+        if (init_node && init_node->node_type == ASTNodeType::AST_UNARY_OP &&
+            init_node->op == "ADDRESS_OF" && init_node->is_function_address) {
+
+            std::string func_name = init_node->function_address_name;
+            const ASTNode *func_node = interpreter_->find_function(func_name);
+
+            // 関数が見つかった場合のみ関数ポインタとして処理
+            if (func_node) {
+                // 関数ポインタ変数を作成
+                Variable var;
+                var.is_function_pointer = true;
+                var.function_pointer_name = func_name;
+                var.type = TYPE_POINTER; // ポインタ型として扱う
+                var.is_assigned = true;
+                var.is_const = node->is_const;
+                // 関数ノードの実際のメモリアドレスを値として格納
+                var.value = reinterpret_cast<int64_t>(func_node);
+
+                // 変数を登録
+                current_scope().variables[node->name] = var;
+
+                // FunctionPointerを登録
+                FunctionPointer func_ptr(func_node, func_name,
+                                         func_node->type_info);
+                interpreter_->current_scope().function_pointers[node->name] =
+                    func_ptr;
+
+                if (interpreter_->debug_mode) {
+                    std::cerr
+                        << "[VAR_MANAGER] Registered function pointer (early): "
+                        << node->name << " -> " << func_name << std::endl;
+                }
+
+                return true; // 処理完了
+            }
+            // 関数が見つからない場合は通常の変数アドレスとして処理を継続
+            if (interpreter_->debug_mode) {
+                std::cerr << "[VAR_MANAGER] Not a function, treating as "
+                             "variable address: "
+                          << func_name << std::endl;
+            }
+        }
+    }
+    return false; // 関数ポインタではない
+}
+
+bool VariableManager::handle_reference_variable(const ASTNode *node) {
+    if (node->is_reference && node->node_type == ASTNodeType::AST_VAR_DECL) {
+        if (interpreter_->is_debug_mode()) {
+            std::cerr << "[VAR_MANAGER] Processing reference variable: "
+                      << node->name << std::endl;
+        }
+
+        // 参照は必ず初期化が必要
+        if (!node->init_expr && !node->right) {
+            throw std::runtime_error("Reference variable '" + node->name +
+                                     "' must be initialized");
+        }
+
+        // 初期化式を評価して参照先変数を取得
+        ASTNode *init_node =
+            node->init_expr ? node->init_expr.get() : node->right.get();
+
+        // 関数呼び出しの場合、ReturnExceptionから参照を取得
+        if (init_node->node_type == ASTNodeType::AST_FUNC_CALL) {
+            try {
+                interpreter_->expression_evaluator_->evaluate_expression(
+                    init_node);
+                throw std::runtime_error(
+                    "Function did not return via exception");
+            } catch (const ReturnException &ret) {
+                if (!ret.is_reference || !ret.reference_target) {
+                    throw std::runtime_error("Function '" + init_node->name +
+                                             "' does not return a reference");
+                }
+
+                Variable *target_var = ret.reference_target;
+
+                if (interpreter_->is_debug_mode()) {
+                    std::cerr
+                        << "[VAR_MANAGER] Creating reference " << node->name
+                        << " from function return (value: " << target_var->value
+                        << ")" << std::endl;
+                }
+
+                // 参照変数を作成
+                Variable ref_var;
+                ref_var.is_reference = true;
+                ref_var.type = target_var->type;
+                ref_var.is_const = node->is_const;
+                ref_var.is_array = target_var->is_array;
+                ref_var.is_unsigned = target_var->is_unsigned;
+                ref_var.is_struct = target_var->is_struct;
+                ref_var.struct_type_name = target_var->struct_type_name;
+
+                // 参照先変数のポインタを値として保存
+                ref_var.value = reinterpret_cast<int64_t>(target_var);
+                ref_var.is_assigned = true;
+
+                current_scope().variables[node->name] = ref_var;
+                return true;
+            }
+        }
+
+        // 参照先が変数でなければエラー
+        if (init_node->node_type != ASTNodeType::AST_VARIABLE) {
+            throw std::runtime_error("Reference variable '" + node->name +
+                                     "' must be initialized with a variable");
+        }
+
+        std::string target_var_name = init_node->name;
+
+        // 参照先変数が存在するかチェック
+        Variable *target_var = find_variable(target_var_name);
+        if (!target_var) {
+            throw std::runtime_error("Reference target variable '" +
+                                     target_var_name + "' not found");
+        }
+
+        // 参照先変数が参照型の場合、さらにデリファレンス
+        if (target_var->is_reference) {
+            target_var = reinterpret_cast<Variable *>(target_var->value);
+            if (!target_var) {
+                throw std::runtime_error(
+                    "Invalid reference chain for variable: " + target_var_name);
+            }
+        }
+
+        if (interpreter_->is_debug_mode()) {
+            std::cerr << "[VAR_MANAGER] Creating reference " << node->name
+                      << " -> " << target_var_name
+                      << " (value: " << target_var->value << ")" << std::endl;
+        }
+
+        // 参照変数を作成
+        Variable ref_var;
+        ref_var.is_reference = true;
+        ref_var.type = target_var->type;
+        ref_var.is_const = node->is_const;
+        ref_var.is_array = target_var->is_array;
+        ref_var.is_unsigned = target_var->is_unsigned;
+        ref_var.is_struct = target_var->is_struct;
+        ref_var.struct_type_name = target_var->struct_type_name;
+
+        // 参照先変数のポインタを値として保存
+        ref_var.value = reinterpret_cast<int64_t>(target_var);
+        ref_var.is_assigned = true;
+
+        current_scope().variables[node->name] = ref_var;
+        return true;
+    }
+    return false; // 参照変数ではない
 }

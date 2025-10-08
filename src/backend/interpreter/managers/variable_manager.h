@@ -70,6 +70,22 @@ class VariableManager {
     void handle_ternary_initialization(Variable &var,
                                        const ASTNode *ternary_node);
 
+    // ========================================================================
+    // Helper methods for process_var_decl_or_assign
+    // ========================================================================
+
+    /**
+     * @brief 関数ポインタの処理
+     * @return true if processed as function pointer, false otherwise
+     */
+    bool handle_function_pointer(const ASTNode *node);
+
+    /**
+     * @brief 参照型変数の処理
+     * @return true if processed as reference, false otherwise
+     */
+    bool handle_reference_variable(const ASTNode *node);
+
     // 配列名抽出関数（N次元配列対応）
     std::string extract_array_name(const ASTNode *node);
     std::vector<int64_t> extract_array_indices(const ASTNode *node);
@@ -79,4 +95,6 @@ class VariableManager {
 
     // Interpreterアクセス
     Interpreter *getInterpreter() { return interpreter_; }
+
+  private:
 };
