@@ -126,6 +126,13 @@ class VariableManager {
     bool handle_typedef_resolution(const ASTNode *node, Variable &var);
 
     /**
+     * @brief 構造体変数のメンバー初期化を行う
+     * @param node 変数宣言ノード
+     * @param var 初期化する変数
+     */
+    void handle_struct_member_initialization(const ASTNode *node, Variable &var);
+
+    /**
      * @brief unsigned変数の負の値をクランプするヘルパー
      */
     void clamp_unsigned_value(Variable &target, int64_t &value,
