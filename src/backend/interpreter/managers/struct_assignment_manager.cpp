@@ -844,74 +844,20 @@ void StructAssignmentManager::assign_struct_member_array_literal(
 
 void StructAssignmentManager::assign_struct_literal(const std::string &var_name,
                                         const ASTNode *literal_node) {
-    if (!literal_node ||
-        literal_node->node_type != ASTNodeType::AST_STRUCT_LITERAL) {
-        throw std::runtime_error("Invalid struct literal");
+    // 変数の検証と準備
+    Variable *var = prepare_struct_literal_assignment(var_name, literal_node);
+
+    // struct定義を取得
+    std::string resolved_struct_name =
+        interpreter_->type_manager_->resolve_typedef(var->struct_type_name);
+    const StructDefinition *struct_def =
+        interpreter_->find_struct_definition(resolved_struct_name);
+    if (!struct_def) {
+        throw std::runtime_error("Struct definition not found: " + var->struct_type_name);
     }
 
-    Variable *var = interpreter_->find_variable(var_name);
-
-    // 変数が見つからない、または構造体でない場合、親構造体のstruct_membersと構造体定義から確認
-    if (var && !var->is_struct && var_name.find('.') != std::string::npos) {
-        // "o.inner" -> "o" and "inner"
-        size_t dot_pos = var_name.rfind('.');
-        std::string parent_name = var_name.substr(0, dot_pos);
-        std::string member_name = var_name.substr(dot_pos + 1);
-
-        Variable *parent_var = interpreter_->find_variable(parent_name);
-        if (parent_var && parent_var->type == TYPE_STRUCT) {
-            // 親の構造体定義からメンバー情報を取得
-            std::string resolved_parent_type =
-                interpreter_->type_manager_->resolve_typedef(parent_var->struct_type_name);
-            const StructDefinition *parent_struct_def =
-                interpreter_->find_struct_definition(resolved_parent_type);
-
-            if (parent_struct_def) {
-                for (const auto &member_def : parent_struct_def->members) {
-                    if (member_def.name == member_name &&
-                        member_def.type == TYPE_STRUCT) {
-                        var->type = TYPE_STRUCT;
-                        var->is_struct = true;
-                        var->struct_type_name = member_def.type_alias;
-
-                        // メンバの構造体定義を取得して、struct_membersを初期化
-                        std::string resolved_member_type =
-                            interpreter_->type_manager_->resolve_typedef(
-                                member_def.type_alias);
-                        const StructDefinition *member_struct_def =
-                            interpreter_->find_struct_definition(resolved_member_type);
-                        if (member_struct_def) {
-                            for (const auto &sub_member :
-                                 member_struct_def->members) {
-                                Variable sub_member_var;
-                                sub_member_var.type = sub_member.type;
-                                sub_member_var.is_unsigned =
-                                    sub_member.is_unsigned;
-                                sub_member_var.is_assigned = false;
-                                if (sub_member.type == TYPE_STRUCT) {
-                                    sub_member_var.is_struct = true;
-                                    sub_member_var.struct_type_name =
-                                        sub_member.type_alias;
-                                }
-                                var->struct_members[sub_member.name] =
-                                    sub_member_var;
-
-                                // 個別変数も作成
-                                std::string full_sub_member_name =
-                                    var_name + "." + sub_member.name;
-                                interpreter_->current_scope()
-                                    .variables[full_sub_member_name] =
-                                    sub_member_var;
-                            }
-                        }
-
-                        break;
-                    }
-                }
-            }
-        }
-    }
-    auto clamp_unsigned_member = [&](Variable &target, int64_t &value,
+    // unsigned型のメンバーに負の値が代入される場合のクランプ用ラムダ
+    auto clamp_unsigned_member = [&var_name](Variable &target, int64_t &value,
                                      const std::string &member_name,
                                      const char *context) {
         if (!target.is_unsigned || value >= 0) {
@@ -924,121 +870,6 @@ void StructAssignmentManager::assign_struct_literal(const std::string &var_name,
                    static_cast<long long>(value));
         value = 0;
     };
-
-    // 配列要素への構造体リテラル代入の場合、まだ構造体変数が作成されていない可能性がある
-    if (!var && var_name.find('[') != std::string::npos) {
-        // 配列要素名から配列名を抽出
-        size_t bracket_pos = var_name.find('[');
-        std::string array_name = var_name.substr(0, bracket_pos);
-
-        // 配列変数を取得して構造体型を確認
-        Variable *array_var = interpreter_->find_variable(array_name);
-        if (array_var && array_var->is_array &&
-            !array_var->struct_type_name.empty()) {
-            // 構造体配列の要素として新しい構造体変数を作成
-            std::string resolved_struct_name =
-                interpreter_->type_manager_->resolve_typedef(array_var->struct_type_name);
-            const StructDefinition *struct_def =
-                interpreter_->find_struct_definition(resolved_struct_name);
-            if (struct_def) {
-                Variable element_var;
-                element_var.type = TYPE_STRUCT;
-                element_var.is_struct = true;
-                element_var.struct_type_name = array_var->struct_type_name;
-                element_var.is_assigned = false;
-
-                // 構造体メンバーを初期化
-                for (const auto &member_def : struct_def->members) {
-                    Variable member_var;
-                    member_var.type = member_def.type;
-                    member_var.is_assigned = false;
-                    member_var.is_unsigned = member_def.is_unsigned;
-                    if (member_def.array_info.is_array()) {
-                        member_var.is_array = true;
-                        int array_size =
-                            member_def.array_info.dimensions.empty()
-                                ? 0
-                                : member_def.array_info.dimensions[0].size;
-                        member_var.array_size = array_size;
-                        member_var.array_values.resize(array_size, 0);
-
-                        // 配列メンバーの個別要素も作成
-                        for (int i = 0; i < array_size; i++) {
-                            std::string element_name = var_name + "." +
-                                                       member_def.name + "[" +
-                                                       std::to_string(i) + "]";
-                            Variable element_var;
-                            element_var.type = member_def.array_info.base_type;
-                            element_var.is_assigned = false;
-                            element_var.is_unsigned = member_def.is_unsigned;
-                            interpreter_->current_scope().variables[element_name] =
-                                element_var;
-                        }
-                    } else if (member_def.type == TYPE_STRING) {
-                        member_var.str_value = "";
-                    }
-                    element_var.struct_members[member_def.name] = member_var;
-
-                    // 個別メンバー変数も作成
-                    std::string full_member_name =
-                        var_name + "." + member_def.name;
-                    interpreter_->current_scope().variables[full_member_name] = member_var;
-                }
-
-                // 要素変数を登録
-                interpreter_->current_scope().variables[var_name] = element_var;
-                var = interpreter_->find_variable(var_name);
-            }
-        }
-    }
-
-    if (!var) {
-        throw std::runtime_error("Variable not found: " + var_name);
-    }
-    if (!var->is_struct) {
-        throw std::runtime_error("Variable is not a struct: " + var_name);
-    }
-
-    if (var->is_const && var->is_assigned) {
-        error_msg(DebugMsgId::CONST_REASSIGN_ERROR, var_name.c_str());
-        throw std::runtime_error("Cannot assign to const struct: " + var_name);
-    }
-
-    // struct定義を取得してメンバ順序を確認
-    // まずtypedefを解決してから構造体定義を検索
-    std::string resolved_struct_name =
-        interpreter_->type_manager_->resolve_typedef(var->struct_type_name);
-    const StructDefinition *struct_def =
-        interpreter_->find_struct_definition(resolved_struct_name);
-    if (!struct_def) {
-        throw std::runtime_error("Struct definition not found: " +
-                                 var->struct_type_name);
-    }
-
-    // 親変数がconstの場合、すべてのstruct_membersと個別変数をconstにする（再帰的）
-    if (var->is_const) {
-        std::function<void(const std::string &, Variable &)>
-            make_all_members_const;
-        make_all_members_const = [&](const std::string &base_path,
-                                     Variable &v) {
-            for (auto &member_pair : v.struct_members) {
-                member_pair.second.is_const = true;
-
-                // 個別変数も更新
-                std::string full_path = base_path + "." + member_pair.first;
-                Variable *individual_var = interpreter_->find_variable(full_path);
-                if (individual_var) {
-                    individual_var->is_const = true;
-                }
-
-                // 再帰的にネストした構造体メンバー
-                if (member_pair.second.is_struct) {
-                    make_all_members_const(full_path, member_pair.second);
-                }
-            }
-        };
-        make_all_members_const(var_name, *var);
-    }
 
     // 名前付き初期化かどうかをチェック
     bool is_named_init = false;
@@ -1611,4 +1442,169 @@ void StructAssignmentManager::assign_struct_literal(const std::string &var_name,
         }
     }
     var->is_assigned = true;
+}
+
+// ============================================================================
+// Helper methods for assign_struct_literal
+// ============================================================================
+
+Variable* StructAssignmentManager::prepare_struct_literal_assignment(
+    const std::string &var_name, const ASTNode *literal_node) {
+    
+    if (!literal_node || literal_node->node_type != ASTNodeType::AST_STRUCT_LITERAL) {
+        throw std::runtime_error("Invalid struct literal");
+    }
+
+    Variable *var = interpreter_->find_variable(var_name);
+
+    // 変数が見つからない、または構造体でない場合、親構造体のstruct_membersと構造体定義から確認
+    if (var && !var->is_struct && var_name.find('.') != std::string::npos) {
+        // "o.inner" -> "o" and "inner"
+        size_t dot_pos = var_name.rfind('.');
+        std::string parent_name = var_name.substr(0, dot_pos);
+        std::string member_name = var_name.substr(dot_pos + 1);
+
+        Variable *parent_var = interpreter_->find_variable(parent_name);
+        if (parent_var && parent_var->type == TYPE_STRUCT) {
+            // 親の構造体定義からメンバー情報を取得
+            std::string resolved_parent_type =
+                interpreter_->type_manager_->resolve_typedef(parent_var->struct_type_name);
+            const StructDefinition *parent_struct_def =
+                interpreter_->find_struct_definition(resolved_parent_type);
+
+            if (parent_struct_def) {
+                for (const auto &member_def : parent_struct_def->members) {
+                    if (member_def.name == member_name && member_def.type == TYPE_STRUCT) {
+                        var->type = TYPE_STRUCT;
+                        var->is_struct = true;
+                        var->struct_type_name = member_def.type_alias;
+
+                        // メンバの構造体定義を取得して、struct_membersを初期化
+                        std::string resolved_member_type =
+                            interpreter_->type_manager_->resolve_typedef(member_def.type_alias);
+                        const StructDefinition *member_struct_def =
+                            interpreter_->find_struct_definition(resolved_member_type);
+                        if (member_struct_def) {
+                            for (const auto &sub_member : member_struct_def->members) {
+                                Variable sub_member_var;
+                                sub_member_var.type = sub_member.type;
+                                sub_member_var.is_unsigned = sub_member.is_unsigned;
+                                sub_member_var.is_assigned = false;
+                                if (sub_member.type == TYPE_STRUCT) {
+                                    sub_member_var.is_struct = true;
+                                    sub_member_var.struct_type_name = sub_member.type_alias;
+                                }
+                                var->struct_members[sub_member.name] = sub_member_var;
+
+                                // 個別変数も作成
+                                std::string full_sub_member_name = var_name + "." + sub_member.name;
+                                interpreter_->current_scope().variables[full_sub_member_name] =
+                                    sub_member_var;
+                            }
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    // 配列要素への構造体リテラル代入の場合、まだ構造体変数が作成されていない可能性がある
+    if (!var && var_name.find('[') != std::string::npos) {
+        // 配列要素名から配列名を抽出
+        size_t bracket_pos = var_name.find('[');
+        std::string array_name = var_name.substr(0, bracket_pos);
+
+        // 配列変数を取得して構造体型を確認
+        Variable *array_var = interpreter_->find_variable(array_name);
+        if (array_var && array_var->is_array && !array_var->struct_type_name.empty()) {
+            // 構造体配列の要素として新しい構造体変数を作成
+            std::string resolved_struct_name =
+                interpreter_->type_manager_->resolve_typedef(array_var->struct_type_name);
+            const StructDefinition *struct_def =
+                interpreter_->find_struct_definition(resolved_struct_name);
+            if (struct_def) {
+                Variable element_var;
+                element_var.type = TYPE_STRUCT;
+                element_var.is_struct = true;
+                element_var.struct_type_name = array_var->struct_type_name;
+                element_var.is_assigned = false;
+
+                // 構造体メンバーを初期化
+                for (const auto &member_def : struct_def->members) {
+                    Variable member_var;
+                    member_var.type = member_def.type;
+                    member_var.is_assigned = false;
+                    member_var.is_unsigned = member_def.is_unsigned;
+                    if (member_def.array_info.is_array()) {
+                        member_var.is_array = true;
+                        int array_size = member_def.array_info.dimensions.empty()
+                                             ? 0
+                                             : member_def.array_info.dimensions[0].size;
+                        member_var.array_size = array_size;
+                        member_var.array_values.resize(array_size, 0);
+
+                        // 配列メンバーの個別要素も作成
+                        for (int i = 0; i < array_size; i++) {
+                            std::string element_name =
+                                var_name + "." + member_def.name + "[" + std::to_string(i) + "]";
+                            Variable element_var;
+                            element_var.type = member_def.array_info.base_type;
+                            element_var.is_assigned = false;
+                            element_var.is_unsigned = member_def.is_unsigned;
+                            interpreter_->current_scope().variables[element_name] = element_var;
+                        }
+                    } else if (member_def.type == TYPE_STRING) {
+                        member_var.str_value = "";
+                    }
+                    element_var.struct_members[member_def.name] = member_var;
+
+                    // 個別メンバー変数も作成
+                    std::string full_member_name = var_name + "." + member_def.name;
+                    interpreter_->current_scope().variables[full_member_name] = member_var;
+                }
+
+                // 要素変数を登録
+                interpreter_->current_scope().variables[var_name] = element_var;
+                var = interpreter_->find_variable(var_name);
+            }
+        }
+    }
+
+    if (!var) {
+        throw std::runtime_error("Variable not found: " + var_name);
+    }
+    if (!var->is_struct) {
+        throw std::runtime_error("Variable is not a struct: " + var_name);
+    }
+
+    if (var->is_const && var->is_assigned) {
+        error_msg(DebugMsgId::CONST_REASSIGN_ERROR, var_name.c_str());
+        throw std::runtime_error("Cannot assign to const struct: " + var_name);
+    }
+
+    // 親変数がconstの場合、すべてのstruct_membersと個別変数をconstにする（再帰的）
+    if (var->is_const) {
+        std::function<void(const std::string &, Variable &)> make_all_members_const;
+        make_all_members_const = [&](const std::string &base_path, Variable &v) {
+            for (auto &member_pair : v.struct_members) {
+                member_pair.second.is_const = true;
+
+                // 個別変数も更新
+                std::string full_path = base_path + "." + member_pair.first;
+                Variable *individual_var = interpreter_->find_variable(full_path);
+                if (individual_var) {
+                    individual_var->is_const = true;
+                }
+
+                // 再帰的にネストした構造体メンバー
+                if (member_pair.second.is_struct) {
+                    make_all_members_const(full_path, member_pair.second);
+                }
+            }
+        };
+        make_all_members_const(var_name, *var);
+    }
+
+    return var;
 }
