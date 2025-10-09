@@ -8,7 +8,7 @@ namespace InterfaceTests {
 
 // 基本的なinterface/implテスト
 inline void test_basic_interface() {
-    std::cout << "[integration] Running test_basic_interface..." << std::endl;
+    std::cout << "[integration-test] Running test_basic_interface..." << std::endl;
     
     double execution_time;
     run_cb_test_with_output_and_time("../../tests/cases/interface/basic_interface.cb", 
@@ -23,7 +23,7 @@ inline void test_basic_interface() {
 
 // 複雑な引数・戻り値を持つinterfaceテスト
 inline void test_complex_args() {
-    std::cout << "[integration] Running test_complex_args..." << std::endl;
+    std::cout << "[integration-test] Running test_complex_args..." << std::endl;
     
     double execution_time;
     run_cb_test_with_output_and_time("../../tests/cases/interface/complex_args.cb", 
@@ -39,7 +39,7 @@ inline void test_complex_args() {
 
 // interfaceパラメータと戻り値の包括的テスト
 inline void test_function_param_return() {
-    std::cout << "[integration] Running test_function_param_return..." << std::endl;
+    std::cout << "[integration-test] Running test_function_param_return..." << std::endl;
 
     double execution_time;
     run_cb_test_with_output_and_time("../../tests/cases/interface/function_param_return.cb",
@@ -63,7 +63,7 @@ inline void test_function_param_return() {
 
 // 同じインターフェースを複数構造体で使用するテスト
 inline void test_multiple_structs() {
-    std::cout << "[integration] Running test_multiple_structs..." << std::endl;
+    std::cout << "[integration-test] Running test_multiple_structs..." << std::endl;
     
     double execution_time;
     run_cb_test_with_output_and_time("../../tests/cases/interface/multiple_structs.cb", 
@@ -82,7 +82,7 @@ inline void test_multiple_structs() {
 
 // 同じ構造体に複数インターフェースを実装するテスト
 inline void test_multiple_interfaces() {
-    std::cout << "[integration] Running test_multiple_interfaces..." << std::endl;
+    std::cout << "[integration-test] Running test_multiple_interfaces..." << std::endl;
     
     double execution_time;
     run_cb_test_with_output_and_time("../../tests/cases/interface/multiple_interfaces.cb", 
@@ -102,7 +102,7 @@ inline void test_multiple_interfaces() {
 
 // return selfの動作テスト
 inline void test_return_self() {
-    std::cout << "[integration] Running test_return_self..." << std::endl;
+    std::cout << "[integration-test] Running test_return_self..." << std::endl;
     
     double execution_time;
     run_cb_test_with_output_and_time("../../tests/cases/interface/return_self.cb", 
@@ -121,7 +121,7 @@ inline void test_return_self() {
 
 // 配列を含む構造体でのinterfaceテスト
 inline void test_array_struct() {
-    std::cout << "[integration] Running test_array_struct..." << std::endl;
+    std::cout << "[integration-test] Running test_array_struct..." << std::endl;
     
     double execution_time;
     run_cb_test_with_output_and_time("../../tests/cases/interface/array_struct.cb", 
@@ -142,7 +142,7 @@ inline void test_array_struct() {
 
 // ユニオン型とenumを扱うinterfaceテスト
 inline void test_union_enum_interface() {
-    std::cout << "[integration] Running test_union_enum_interface..." << std::endl;
+    std::cout << "[integration-test] Running test_union_enum_interface..." << std::endl;
     
     double execution_time;
     run_cb_test_with_output_and_time("../../tests/cases/interface/union_interface.cb", 
@@ -161,7 +161,7 @@ inline void test_union_enum_interface() {
 
 // enumを引数・戻り値にするinterfaceテスト
 inline void test_enum_interface() {
-    std::cout << "[integration] Running test_enum_interface..." << std::endl;
+    std::cout << "[integration-test] Running test_enum_interface..." << std::endl;
     
     double execution_time;
     run_cb_test_with_output_and_time("../../tests/cases/interface/enum_interface.cb", 
@@ -182,7 +182,7 @@ inline void test_enum_interface() {
 
 // 基本的な配列interfaceテスト
 inline void test_simple_array_interface() {
-    std::cout << "[integration] Running test_simple_array_interface..." << std::endl;
+    std::cout << "[integration-test] Running test_simple_array_interface..." << std::endl;
     
     double execution_time;
     run_cb_test_with_output_and_time("../../tests/cases/interface/simple_array_interface.cb", 
@@ -200,7 +200,7 @@ inline void test_simple_array_interface() {
 
 // 多次元配列を引数として受け取るinterfaceテスト
 inline void test_multidim_param_interface() {
-    std::cout << "[integration] Running test_multidim_param_interface..." << std::endl;
+    std::cout << "[integration-test] Running test_multidim_param_interface..." << std::endl;
     
     double execution_time;
     run_cb_test_with_output_and_time("../../tests/cases/interface/multidim_param_interface.cb", 
@@ -219,7 +219,7 @@ inline void test_multidim_param_interface() {
 
 // N次元配列interfaceテスト（5次元まで）
 inline void test_ndim_interface() {
-    std::cout << "[integration] Running test_ndim_interface..." << std::endl;
+    std::cout << "[integration-test] Running test_ndim_interface..." << std::endl;
     
     double execution_time;
     run_cb_test_with_output_and_time("../../tests/cases/interface/ndim_interface.cb", 
@@ -237,7 +237,7 @@ inline void test_ndim_interface() {
 
 // 3次元配列をinterfaceで処理するテスト
 inline void test_cube_interface() {
-    std::cout << "[integration] Running test_cube_interface..." << std::endl;
+    std::cout << "[integration-test] Running test_cube_interface..." << std::endl;
     
     double execution_time;
     run_cb_test_with_output_and_time("../../tests/cases/interface/cube_interface.cb", 
@@ -258,7 +258,7 @@ inline void test_cube_interface() {
 
 // 実用的な多次元配列interfaceテスト（構造体メンバーアクセス対応）
 inline void test_expanded_multidim_interface() {
-    std::cout << "[integration] Running test_expanded_multidim_interface..." << std::endl;
+    std::cout << "[integration-test] Running test_expanded_multidim_interface..." << std::endl;
     
     double execution_time;
     run_cb_test_with_output_and_time("../../tests/cases/interface/expanded_multidim_interface.cb", 
@@ -285,7 +285,7 @@ inline void test_expanded_multidim_interface() {
 
 inline void test_multidim_array_interface() {
     double execution_time = 0.0;
-    std::cout << "[integration] Running test_multidim_array_interface..." << std::endl;
+    std::cout << "[integration-test] Running test_multidim_array_interface..." << std::endl;
     
     run_cb_test_with_output_and_time("../../tests/cases/interface/multidim_array_interface.cb", 
         [](const std::string& output, int exit_code) {
@@ -306,7 +306,7 @@ inline void test_multidim_array_interface() {
 
 // Arrow operator assignment comprehensive test
 inline void test_arrow_assignment_comprehensive() {
-    std::cout << "[integration] Running test_arrow_assignment_comprehensive..." << std::endl;
+    std::cout << "[integration-test] Running test_arrow_assignment_comprehensive..." << std::endl;
     
     double execution_time;
     run_cb_test_with_output_and_time("../../tests/cases/interface/test_arrow_assignment_comprehensive.cb",
@@ -338,7 +338,7 @@ inline void test_arrow_assignment_comprehensive() {
 
 // Self with pointer member comprehensive test
 inline void test_self_pointer_member_comprehensive() {
-    std::cout << "[integration] Running test_self_pointer_member_comprehensive..." << std::endl;
+    std::cout << "[integration-test] Running test_self_pointer_member_comprehensive..." << std::endl;
     
     double execution_time;
     run_cb_test_with_output_and_time("../../tests/cases/interface/test_self_pointer_member_comprehensive.cb",
@@ -370,7 +370,7 @@ inline void test_self_pointer_member_comprehensive() {
 
 // Self member arrow field access test
 inline void test_self_member_arrow_field() {
-    std::cout << "[integration] Running test_self_member_arrow_field..." << std::endl;
+    std::cout << "[integration-test] Running test_self_member_arrow_field..." << std::endl;
     
     double execution_time;
     run_cb_test_with_output_and_time("../../tests/cases/interface/test_self_member_arrow_field.cb",
@@ -392,7 +392,7 @@ inline void test_self_member_arrow_field() {
 
 // Comprehensive self pointer test
 inline void test_self_pointer_comprehensive() {
-    std::cout << "[integration] Running test_self_pointer_comprehensive..." << std::endl;
+    std::cout << "[integration-test] Running test_self_pointer_comprehensive..." << std::endl;
     
     double execution_time;
     run_cb_test_with_output_and_time("../../tests/cases/interface/test_self_pointer_comprehensive.cb",
@@ -420,7 +420,7 @@ inline void test_self_pointer_comprehensive() {
 
 // 全てのinterfaceテストを実行する統合関数
 inline void run_all_interface_tests() {
-    std::cout << "[integration] === Interface/Impl System Tests ===" << std::endl;
+    std::cout << "[integration-test] === Interface/Impl System Tests ===" << std::endl;
     
     test_basic_interface();
     test_complex_args();
@@ -441,7 +441,7 @@ inline void run_all_interface_tests() {
     test_self_member_arrow_field();
     test_self_pointer_comprehensive();
     
-    std::cout << "[integration] Interface tests completed" << std::endl;
+    std::cout << "[integration-test] Interface tests completed" << std::endl;
 }
 
 } // namespace InterfaceTests

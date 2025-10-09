@@ -3,7 +3,7 @@
 #include "../framework/integration_test_framework.hpp"
 
 inline void test_integration_incdec() {
-    std::cout << "[integration] Running incdec tests..." << std::endl;
+    std::cout << "[integration-test] Running incdec tests..." << std::endl;
     
     // Note: compound assignment operators (+=, -=, *=, /=, %=) are not yet implemented
     // Current test cases use these operators, so testing only pre/post increment which should work
@@ -26,5 +26,5 @@ inline void test_integration_incdec() {
         });
     integration_test_passed_with_time_auto("incdec for_loop test", "for_loop.cb");
     
-    std::cout << "[integration] Incdec tests completed" << std::endl;
+    std::cout << "[integration-test] Incdec tests completed" << std::endl;
 }

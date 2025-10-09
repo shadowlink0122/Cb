@@ -4,7 +4,7 @@
 #include "../framework/integration_test_framework.hpp"
 
 void test_array_return() {
-    std::cout << "[integration] Running array return tests..." << std::endl;
+    std::cout << "[integration-test] Running array return tests..." << std::endl;
     
     // 基本的な配列戻り値テスト
     run_cb_test_with_output_and_time_auto("../../tests/cases/array_return/basic.cb", 
@@ -79,7 +79,7 @@ void test_array_return() {
         });
     integration_test_passed_with_time_auto("test_array_return_multidim_comprehensive", "../../tests/cases/array_return/multidim_return.cb");
     
-    std::cout << "[integration] Array return tests completed" << std::endl;
+    std::cout << "[integration-test] Array return tests completed" << std::endl;
 }
 
 #endif

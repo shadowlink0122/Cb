@@ -5,7 +5,7 @@
 #include <sstream>
 
 inline void test_integration_ternary() {
-    std::cout << "[integration] Running ternary tests..." << std::endl;
+    std::cout << "[integration-test] Running ternary tests..." << std::endl;
     
     // 三項演算子の基本テスト
     const std::string test_file_basic = "../../tests/cases/ternary/basic_ternary.cb";
@@ -215,5 +215,5 @@ inline void test_integration_ternary() {
         });
     integration_test_passed_with_time_auto("variable reference fix verification test", test_file_variable_fix);
     
-    std::cout << "[integration] Ternary tests completed" << std::endl;
+    std::cout << "[integration-test] Ternary tests completed" << std::endl;
 }

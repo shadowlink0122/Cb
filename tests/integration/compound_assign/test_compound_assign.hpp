@@ -3,7 +3,7 @@
 #include "../framework/integration_test_framework.hpp"
 
 inline void test_integration_compound_assign() {
-    std::cout << "[integration] Running compound assign tests..." << std::endl;
+    std::cout << "[integration-test] Running compound assign tests..." << std::endl;
     
     // Basic compound assignment operators
     run_cb_test_with_output_and_time_auto("../../tests/cases/compound_assign/basic_compound.cb", 
@@ -82,5 +82,5 @@ inline void test_integration_compound_assign() {
         });
     integration_test_passed_with_time_auto("compound assign complex test", "complex_compound.cb");
     
-    std::cout << "[integration] Compound assign tests completed" << std::endl;
+    std::cout << "[integration-test] Compound assign tests completed" << std::endl;
 }

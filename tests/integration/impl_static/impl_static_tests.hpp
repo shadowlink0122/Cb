@@ -8,7 +8,7 @@ namespace ImplStaticTests {
 
 // 基本的なParser/登録動作のテスト
 inline void test_impl_static_simple() {
-    std::cout << "[integration] Running test_impl_static_simple..." << std::endl;
+    std::cout << "[integration-test] Running test_impl_static_simple..." << std::endl;
     
     double execution_time;
     run_cb_test_with_output_and_time("../../tests/cases/impl_static/test_impl_static_simple.cb", 
@@ -22,7 +22,7 @@ inline void test_impl_static_simple() {
 
 // 基本的なカウンター動作テスト
 inline void test_impl_static_basic() {
-    std::cout << "[integration] Running test_impl_static_basic..." << std::endl;
+    std::cout << "[integration-test] Running test_impl_static_basic..." << std::endl;
     
     double execution_time;
     run_cb_test_with_output_and_time("../../tests/cases/impl_static/test_impl_static_basic.cb", 
@@ -38,7 +38,7 @@ inline void test_impl_static_basic() {
 
 // 型ごとの独立性テスト
 inline void test_impl_static_separate() {
-    std::cout << "[integration] Running test_impl_static_separate..." << std::endl;
+    std::cout << "[integration-test] Running test_impl_static_separate..." << std::endl;
     
     double execution_time;
     run_cb_test_with_output_and_time("../../tests/cases/impl_static/test_impl_static_separate.cb", 
@@ -54,7 +54,7 @@ inline void test_impl_static_separate() {
 
 // static const組み合わせテスト
 inline void test_impl_static_const() {
-    std::cout << "[integration] Running test_impl_static_const..." << std::endl;
+    std::cout << "[integration-test] Running test_impl_static_const..." << std::endl;
     
     double execution_time;
     run_cb_test_with_output_and_time("../../tests/cases/impl_static/test_impl_static_const.cb", 
@@ -72,7 +72,7 @@ inline void test_impl_static_const() {
 
 // static変数なしのimpl（後方互換性）テスト
 inline void test_impl_no_static() {
-    std::cout << "[integration] Running test_impl_no_static..." << std::endl;
+    std::cout << "[integration-test] Running test_impl_no_static..." << std::endl;
     
     double execution_time;
     run_cb_test_with_output_and_time("../../tests/cases/impl_static/test_impl_no_static.cb", 
@@ -86,7 +86,7 @@ inline void test_impl_no_static() {
 
 // デバッグ動作テスト
 inline void test_impl_static_debug() {
-    std::cout << "[integration] Running test_impl_static_debug..." << std::endl;
+    std::cout << "[integration-test] Running test_impl_static_debug..." << std::endl;
     
     double execution_time;
     run_cb_test_with_output_and_time("../../tests/cases/impl_static/test_impl_static_debug.cb", 

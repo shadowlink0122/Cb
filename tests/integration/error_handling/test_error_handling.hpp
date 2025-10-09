@@ -8,7 +8,7 @@ void test_error_handling_basic() {
         [](const std::string& output, int exit_code) {
             // エラーハンドリングのテストは現在実装されていない可能性があるため
             // とりあえず実行できることを確認
-            std::cout << "[integration] error_handling basic test executed with exit_code: " 
+            std::cout << "[integration-test] error_handling basic test executed with exit_code: " 
                       << exit_code << std::endl;
         });
     integration_test_passed_with_time_auto("test_error_handling_basic", "test_error_handling.cb");
@@ -16,9 +16,9 @@ void test_error_handling_basic() {
 
 // Main error_handling test function
 void test_integration_error_handling() {
-    std::cout << "[integration] Running error_handling tests..." << std::endl;
+    std::cout << "[integration-test] Running error_handling tests..." << std::endl;
     test_error_handling_basic();
-    std::cout << "[integration] Error_handling tests completed" << std::endl;
+    std::cout << "[integration-test] Error_handling tests completed" << std::endl;
 }
 
 #endif // TEST_ERROR_HANDLING_HPP

@@ -1,8 +1,8 @@
 #include "core/error_handler.h"
 #include "../../../common/ast.h"
 #include "../../../common/debug.h"
-#include "../../../common/source_location_utils.h"
 #include "../../../common/error_reporter.h"
+#include "../../../common/source_location_utils.h"
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -255,7 +255,7 @@ void print_error_with_location(const std::string &message,
     if (actual_source.empty()) {
         actual_source = get_source_line(filename, line);
     }
-    
+
     // ソースコード全体が必要な場合はファイルから読み込む
     std::string full_source;
     std::ifstream file(filename);
@@ -267,7 +267,7 @@ void print_error_with_location(const std::string &message,
         // ファイルが読めない場合は、既知の行だけを使用
         full_source = actual_source;
     }
-    
+
     // ErrorReporterで詳細なエラー表示
     ErrorReporter reporter(full_source, filename);
     SourceLocation location(filename, line, column);

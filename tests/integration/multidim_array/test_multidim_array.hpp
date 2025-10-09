@@ -104,14 +104,14 @@ void test_multidim_array_literal_init() {
 
 // Main multidim array test function
 void test_integration_multidim_array() {
-    std::cout << "[integration] Running multidimensional array tests..." << std::endl;
+    std::cout << "[integration-test] Running multidimensional array tests..." << std::endl;
     test_multidim_array_literal_2d();
     test_multidim_array_literal_3d();
     test_multidim_array_assignment();
     test_multidim_array_matrix_operations();
     test_multidim_array_cube_test();
     test_multidim_array_literal_init();
-    std::cout << "[integration] Multidimensional array tests completed" << std::endl;
+    std::cout << "[integration-test] Multidimensional array tests completed" << std::endl;
 }
 
 #endif // TEST_MULTIDIM_ARRAY_HPP

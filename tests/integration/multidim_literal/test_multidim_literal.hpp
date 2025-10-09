@@ -4,7 +4,7 @@
 #include "../framework/integration_test_framework.hpp"
 
 void test_multidim_literal() {
-    std::cout << "[integration] Running multidimensional literal tests..." << std::endl;
+    std::cout << "[integration-test] Running multidimensional literal tests..." << std::endl;
     
     // 実用的なN次元配列リテラルテスト
     run_cb_test_with_output_and_time_auto("../../tests/cases/multidim_literal/practical_ndim.cb", 
@@ -78,7 +78,7 @@ void test_multidim_literal() {
         });
     integration_test_passed_with_time_auto("test_high_dimension_arrays", "../../tests/cases/multidim_literal/high_dim_test.cb");
     
-    std::cout << "[integration] Multidimensional literal tests completed" << std::endl;
+    std::cout << "[integration-test] Multidimensional literal tests completed" << std::endl;
 }
 
 #endif

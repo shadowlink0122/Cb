@@ -101,7 +101,7 @@ void test_array_literal_bounds() {
 
 // メイン統合テスト関数
 void test_integration_array_literal() {
-    std::cout << "[integration] Testing array literals..." << std::endl;
+    std::cout << "[integration-test] Testing array literals..." << std::endl;
     
     test_array_literal_success();
     test_array_literal_string_basic();
@@ -112,5 +112,5 @@ void test_integration_array_literal() {
     test_array_literal_type_mismatch_multiple();
     test_array_literal_bounds();
     
-    std::cout << "[integration] Array literal tests completed" << std::endl;
+    std::cout << "[integration-test] Array literal tests completed" << std::endl;
 }

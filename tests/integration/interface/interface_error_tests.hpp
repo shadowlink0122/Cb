@@ -8,7 +8,7 @@ namespace InterfaceErrorTests {
 
 // interfaceだけ定義されていてimplがない場合のエラーテスト
 inline void test_interface_no_impl_error() {
-    std::cout << "[integration] Running test_interface_no_impl_error..." << std::endl;
+    std::cout << "[integration-test] Running test_interface_no_impl_error..." << std::endl;
     
     double execution_time;
     run_cb_test_with_output_and_time("../../tests/cases/interface/error_interface_no_impl.cb", 
@@ -22,7 +22,7 @@ inline void test_interface_no_impl_error() {
 
 // 不完全なimpl実装のエラーテスト
 inline void test_incomplete_impl_error() {
-    std::cout << "[integration] Running test_incomplete_impl_error..." << std::endl;
+    std::cout << "[integration-test] Running test_incomplete_impl_error..." << std::endl;
     
     double execution_time;
     run_cb_test_with_output_and_time("../../tests/cases/interface/error_incomplete_impl.cb", 
@@ -35,7 +35,7 @@ inline void test_incomplete_impl_error() {
 
 // 存在しないinterfaceを実装しようとするエラーテスト
 inline void test_undefined_interface_error() {
-    std::cout << "[integration] Running test_undefined_interface_error..." << std::endl;
+    std::cout << "[integration-test] Running test_undefined_interface_error..." << std::endl;
     
     double execution_time;
     run_cb_test_with_output_and_time("../../tests/cases/interface/error_undefined_interface.cb", 
@@ -52,7 +52,7 @@ inline void test_undefined_interface_error() {
 
 // 署名の不一致エラーテスト
 inline void test_signature_mismatch_error() {
-    std::cout << "[integration] Running test_signature_mismatch_error..." << std::endl;
+    std::cout << "[integration-test] Running test_signature_mismatch_error..." << std::endl;
     
     double execution_time;
     run_cb_test_with_output_and_time("../../tests/cases/interface/error_signature_mismatch.cb", 
@@ -68,7 +68,7 @@ inline void test_signature_mismatch_error() {
 
 // 重複impl定義のエラーテスト
 inline void test_duplicate_impl_error() {
-    std::cout << "[integration] Running test_duplicate_impl_error..." << std::endl;
+    std::cout << "[integration-test] Running test_duplicate_impl_error..." << std::endl;
     
     double execution_time;
     run_cb_test_with_output_and_time("../../tests/cases/interface/error_duplicate_impl.cb", 
@@ -84,7 +84,7 @@ inline void test_duplicate_impl_error() {
 
 // 余分なメソッドが定義されたimplのテスト（警告レベル）
 inline void test_extra_methods_warning() {
-    std::cout << "[integration] Running test_extra_methods_warning..." << std::endl;
+    std::cout << "[integration-test] Running test_extra_methods_warning..." << std::endl;
     
     double execution_time;
     run_cb_test_with_output_and_time("../../tests/cases/interface/error_extra_methods.cb", 
@@ -101,7 +101,7 @@ inline void test_extra_methods_warning() {
 
 // 現実的なinterfaceエラーテスト（現在検出可能）
 inline void test_realistic_interface_error() {
-    std::cout << "[integration] Running test_realistic_interface_error..." << std::endl;
+    std::cout << "[integration-test] Running test_realistic_interface_error..." << std::endl;
     
     double execution_time;
     run_cb_test_with_output_and_time("../../tests/cases/interface/error_interface_realistic.cb", 
@@ -114,8 +114,8 @@ inline void test_realistic_interface_error() {
 
 // 全てのinterfaceエラーテストを実行する統合関数
 inline void run_all_interface_error_tests() {
-    std::cout << "[integration] === Interface Error Handling Tests ===" << std::endl;
-    std::cout << "[integration] Testing current error detection capabilities and future improvements" << std::endl;
+    std::cout << "[integration-test] === Interface Error Handling Tests ===" << std::endl;
+    std::cout << "[integration-test] Testing current error detection capabilities and future improvements" << std::endl;
     
     // 現在適切に検出されるエラー
     test_interface_no_impl_error();
@@ -128,9 +128,9 @@ inline void run_all_interface_error_tests() {
     test_duplicate_impl_error();
     test_extra_methods_warning();
     
-    std::cout << "[integration] Interface error tests completed" << std::endl;
-    std::cout << "[integration] ✅ Basic error detection: Working correctly" << std::endl;
-    std::cout << "[integration] ⚠️  Advanced error detection: Future improvements documented" << std::endl;
+    std::cout << "[integration-test] Interface error tests completed" << std::endl;
+    std::cout << "[integration-test] ✅ Basic error detection: Working correctly" << std::endl;
+    std::cout << "[integration-test] ⚠️  Advanced error detection: Future improvements documented" << std::endl;
 }
 
 } // namespace InterfaceErrorTests

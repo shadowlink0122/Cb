@@ -8,7 +8,7 @@ namespace BasicStructTests {
 
 // 基本的な構造体メンバアクセステスト
 inline void test_basic_struct_member_access() {
-    std::cout << "[integration] Running test_basic_struct_member_access..." << std::endl;
+    std::cout << "[integration-test] Running test_basic_struct_member_access..." << std::endl;
     
     double execution_time;
     run_cb_test_with_output_and_time("../../tests/cases/struct/test_basic_struct.cb", 
@@ -28,13 +28,13 @@ inline void test_basic_struct_member_access() {
                               "Output should contain completion message");
         }, execution_time);
     
-    std::cout << "[integration] Basic struct member access test completed in " 
+    std::cout << "[integration-test] Basic struct member access test completed in " 
               << std::fixed << std::setprecision(3) << execution_time << " seconds" << std::endl;
 }
 
 // 構造体配列のメンバアクセステスト
 inline void test_struct_array_member_access() {
-    std::cout << "[integration] Running test_struct_array_member_access..." << std::endl;
+    std::cout << "[integration-test] Running test_struct_array_member_access..." << std::endl;
     
     double execution_time;
     run_cb_test_with_output_and_time("../../tests/cases/struct/struct_array_access.cb", 
@@ -52,13 +52,13 @@ inline void test_struct_array_member_access() {
                               "Output should contain y coordinate value 4");
         }, execution_time);
     
-    std::cout << "[integration] Struct array member access test completed in " 
+    std::cout << "[integration-test] Struct array member access test completed in " 
               << std::fixed << std::setprecision(3) << execution_time << " seconds" << std::endl;
 }
 
 // 構造体メンバの動的代入テスト
 inline void test_struct_member_assignment() {
-    std::cout << "[integration] Running test_struct_member_assignment..." << std::endl;
+    std::cout << "[integration-test] Running test_struct_member_assignment..." << std::endl;
     
     double execution_time;
     run_cb_test_with_output_and_time("../../tests/cases/struct/struct_member_assignment.cb", 
@@ -78,13 +78,13 @@ inline void test_struct_member_assignment() {
                               "Output should contain updated value 400");
         }, execution_time);
     
-    std::cout << "[integration] Struct member assignment test completed in " 
+    std::cout << "[integration-test] Struct member assignment test completed in " 
               << std::fixed << std::setprecision(3) << execution_time << " seconds" << std::endl;
 }
 
 // 混合型構造体メンバテスト
 inline void test_mixed_type_struct_members() {
-    std::cout << "[integration] Running test_mixed_type_struct_members..." << std::endl;
+    std::cout << "[integration-test] Running test_mixed_type_struct_members..." << std::endl;
     
     double execution_time;
     run_cb_test_with_output_and_time("../../tests/cases/struct/mixed_type_members.cb", 
@@ -100,13 +100,13 @@ inline void test_mixed_type_struct_members() {
                               "Output should contain Name header");
         }, execution_time);
     
-    std::cout << "[integration] Mixed type struct members test completed in " 
+    std::cout << "[integration-test] Mixed type struct members test completed in " 
               << std::fixed << std::setprecision(3) << execution_time << " seconds" << std::endl;
 }
 
 // 構造体配列とループの組み合わせテスト
 inline void test_struct_array_loop() {
-    std::cout << "[integration] Running test_struct_array_loop..." << std::endl;
+    std::cout << "[integration-test] Running test_struct_array_loop..." << std::endl;
     
     double execution_time;
     run_cb_test_with_output_and_time("../../tests/cases/struct/struct_array_loop.cb", 
@@ -123,13 +123,13 @@ inline void test_struct_array_loop() {
                               "Output should contain calculated value 20");
         }, execution_time);
     
-    std::cout << "[integration] Struct array loop test completed in " 
+    std::cout << "[integration-test] Struct array loop test completed in " 
               << std::fixed << std::setprecision(3) << execution_time << " seconds" << std::endl;
 }
 
 // TypedValue構造体データ保持機能テスト
 inline void test_typed_value_struct_data() {
-    std::cout << "[integration] Running test_typed_value_struct_data..." << std::endl;
+    std::cout << "[integration-test] Running test_typed_value_struct_data..." << std::endl;
     
     double execution_time;
     run_cb_test_with_output_and_time("../../tests/cases/struct/typed_value_struct.cb", 
@@ -141,13 +141,13 @@ inline void test_typed_value_struct_data() {
                               "Output should confirm type inference functionality");
         }, execution_time);
     
-    std::cout << "[integration] TypedValue struct data test completed in " 
+    std::cout << "[integration-test] TypedValue struct data test completed in " 
               << std::fixed << std::setprecision(3) << execution_time << " seconds" << std::endl;
 }
 
 // パフォーマンステスト（基本的な構造体操作）
 inline void test_basic_struct_performance() {
-    std::cout << "[integration] Running test_basic_struct_performance..." << std::endl;
+    std::cout << "[integration-test] Running test_basic_struct_performance..." << std::endl;
     
     double execution_time;
     run_cb_test_with_output_and_time("../../tests/cases/struct/performance_basic.cb", 
@@ -161,15 +161,15 @@ inline void test_basic_struct_performance() {
     // 注意：環境によって実行時間は変動するため、合理的な上限を設定
     INTEGRATION_ASSERT(execution_time < 30.0, "Basic struct operations should complete within 30 seconds");
     
-    std::cout << "[integration] Basic struct performance test completed in " 
+    std::cout << "[integration-test] Basic struct performance test completed in " 
               << std::fixed << std::setprecision(3) << execution_time << " seconds" << std::endl;
 }
 
 // 全基本構造体テストを実行
 inline void run_all_basic_struct_tests() {
-    std::cout << "[integration] ========================================" << std::endl;
-    std::cout << "[integration] Running Basic Struct Integration Tests" << std::endl;
-    std::cout << "[integration] ========================================" << std::endl;
+    std::cout << "[integration-test] ========================================" << std::endl;
+    std::cout << "[integration-test] Running Basic Struct Integration Tests" << std::endl;
+    std::cout << "[integration-test] ========================================" << std::endl;
     
     try {
         test_basic_struct_member_access();
@@ -180,12 +180,12 @@ inline void run_all_basic_struct_tests() {
         test_typed_value_struct_data();
         test_basic_struct_performance();
         
-        std::cout << "[integration] ========================================" << std::endl;
-        std::cout << "[integration] All Basic Struct tests completed successfully!" << std::endl;
-        std::cout << "[integration] ========================================" << std::endl;
+        std::cout << "[integration-test] ========================================" << std::endl;
+        std::cout << "[integration-test] All Basic Struct tests completed successfully!" << std::endl;
+        std::cout << "[integration-test] ========================================" << std::endl;
         
     } catch (const std::exception& e) {
-        std::cerr << "[integration] Basic Struct test suite failed: " << e.what() << std::endl;
+        std::cerr << "[integration-test] Basic Struct test suite failed: " << e.what() << std::endl;
         throw;
     }
 }

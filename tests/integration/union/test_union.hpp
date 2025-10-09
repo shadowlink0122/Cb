@@ -8,7 +8,7 @@ namespace UnionTests {
 
 // 基本リテラル値ユニオンテスト
 inline void test_literal_union() {
-    std::cout << "[integration] Running test_literal_union..." << std::endl;
+    std::cout << "[integration-test] Running test_literal_union..." << std::endl;
     
     run_cb_test_with_output_and_time_auto("../../tests/cases/union/literal_union.cb", 
         [](const std::string& output, int exit_code) {
@@ -29,7 +29,7 @@ inline void test_literal_union() {
 
 // 基本型ユニオンテスト
 inline void test_type_union() {
-    std::cout << "[integration] Running test_type_union..." << std::endl;
+    std::cout << "[integration-test] Running test_type_union..." << std::endl;
     
     run_cb_test_with_output_and_time_auto("../../tests/cases/union/type_union.cb", 
         [](const std::string& output, int exit_code) {
@@ -49,7 +49,7 @@ inline void test_type_union() {
 
 // カスタム型ユニオンテスト
 inline void test_custom_union() {
-    std::cout << "[integration] Running test_custom_union..." << std::endl;
+    std::cout << "[integration-test] Running test_custom_union..." << std::endl;
     
     run_cb_test_with_output_and_time_auto("../../tests/cases/union/custom_union.cb", 
         [](const std::string& output, int exit_code) {
@@ -71,7 +71,7 @@ inline void test_custom_union() {
 
 // 構造体型ユニオンテスト
 inline void test_struct_union() {
-    std::cout << "[integration] Running test_struct_union..." << std::endl;
+    std::cout << "[integration-test] Running test_struct_union..." << std::endl;
     
     run_cb_test_with_output_and_time_auto("../../tests/cases/union/struct_union.cb", 
         [](const std::string& output, int exit_code) {
@@ -91,7 +91,7 @@ inline void test_struct_union() {
 
 // 配列型ユニオンテスト
 inline void test_array_union() {
-    std::cout << "[integration] Running test_array_union..." << std::endl;
+    std::cout << "[integration-test] Running test_array_union..." << std::endl;
     
     run_cb_test_with_output_and_time_auto("../../tests/cases/union/array_union.cb", 
         [](const std::string& output, int exit_code) {
@@ -112,7 +112,7 @@ inline void test_array_union() {
 
 // 混合複合型ユニオンテスト
 inline void test_mixed_union() {
-    std::cout << "[integration] Running test_mixed_union..." << std::endl;
+    std::cout << "[integration-test] Running test_mixed_union..." << std::endl;
     
     run_cb_test_with_output_and_time_auto("../../tests/cases/union/mixed_union.cb", 
         [](const std::string& output, int exit_code) {
@@ -137,7 +137,7 @@ inline void test_mixed_union() {
 
 // エラーケーステスト - 許可されていないリテラル値
 inline void test_error_invalid_literal() {
-    std::cout << "[integration] Running test_error_invalid_literal..." << std::endl;
+    std::cout << "[integration-test] Running test_error_invalid_literal..." << std::endl;
     
     run_cb_test_with_output_and_time_auto("../../tests/cases/union/error_invalid_literal.cb", 
         [](const std::string& output, int exit_code) {
@@ -155,7 +155,7 @@ inline void test_error_invalid_literal() {
 
 // エラーケーステスト - 型不一致
 inline void test_error_type_mismatch() {
-    std::cout << "[integration] Running test_error_type_mismatch..." << std::endl;
+    std::cout << "[integration-test] Running test_error_type_mismatch..." << std::endl;
     
     run_cb_test_with_output_and_time_auto("../../tests/cases/union/error_type_mismatch.cb", 
         [](const std::string& output, int exit_code) {
@@ -173,7 +173,7 @@ inline void test_error_type_mismatch() {
 
 // エラーケーステスト - 未定義ユニオン型
 inline void test_error_undefined_type() {
-    std::cout << "[integration] Running test_error_undefined_type..." << std::endl;
+    std::cout << "[integration-test] Running test_error_undefined_type..." << std::endl;
     
     run_cb_test_with_output_and_time_auto("../../tests/cases/union/error_undefined_type.cb", 
         [](const std::string& output, int exit_code) {
@@ -189,7 +189,7 @@ inline void test_error_undefined_type() {
 
 // エラーケーステスト - カスタム型エラー
 inline void test_error_custom_type() {
-    std::cout << "[integration] Running test_error_custom_type..." << std::endl;
+    std::cout << "[integration-test] Running test_error_custom_type..." << std::endl;
     
     run_cb_test_with_output_and_time_auto("../../tests/cases/union/error_custom_type.cb", 
         [](const std::string& output, int exit_code) {
@@ -207,7 +207,7 @@ inline void test_error_custom_type() {
 
 // エラーケーステスト - 構造体型エラー
 inline void test_error_struct_type() {
-    std::cout << "[integration] Running test_error_struct_type..." << std::endl;
+    std::cout << "[integration-test] Running test_error_struct_type..." << std::endl;
     
     run_cb_test_with_output_and_time_auto("../../tests/cases/union/error_struct_type.cb", 
         [](const std::string& output, int exit_code) {
@@ -225,7 +225,7 @@ inline void test_error_struct_type() {
 
 // エラーケーステスト - 配列型エラー
 inline void test_error_array_type() {
-    std::cout << "[integration] Running test_error_array_type..." << std::endl;
+    std::cout << "[integration-test] Running test_error_array_type..." << std::endl;
     
     run_cb_test_with_output_and_time_auto("../../tests/cases/union/error_array_type.cb", 
         [](const std::string& output, int exit_code) {
@@ -243,7 +243,7 @@ inline void test_error_array_type() {
 
 // エラーケーステスト - 複数エラー組み合わせ
 inline void test_error_multiple() {
-    std::cout << "[integration] Running test_error_multiple..." << std::endl;
+    std::cout << "[integration-test] Running test_error_multiple..." << std::endl;
     
     run_cb_test_with_output_and_time_auto("../../tests/cases/union/error_multiple.cb", 
         [](const std::string& output, int exit_code) {
@@ -260,7 +260,7 @@ inline void test_error_multiple() {
 
 // Union型文字列処理テスト（新規追加）
 inline void test_string_processing() {
-    std::cout << "[integration] Running test_string_processing..." << std::endl;
+    std::cout << "[integration-test] Running test_string_processing..." << std::endl;
     
     run_cb_test_with_output_and_time_auto("../../tests/cases/union/string_processing.cb", 
         [](const std::string& output, int exit_code) {
@@ -280,7 +280,7 @@ inline void test_string_processing() {
 
 // 構造体Union型複合代入テスト（既存テストの確認）
 inline void test_struct_union_compound_assignment() {
-    std::cout << "[integration] Running test_struct_union_compound_assignment..." << std::endl;
+    std::cout << "[integration-test] Running test_struct_union_compound_assignment..." << std::endl;
     
     run_cb_test_with_output_and_time_auto("../../tests/cases/union/struct_union_compound_assignment.cb", 
         [](const std::string& output, int exit_code) {
@@ -300,7 +300,7 @@ inline void test_struct_union_compound_assignment() {
 
 // 包括的統合テスト
 inline void test_comprehensive() {
-    std::cout << "[integration] Running test_comprehensive..." << std::endl;
+    std::cout << "[integration-test] Running test_comprehensive..." << std::endl;
     
     run_cb_test_with_output_and_time_auto("../../tests/cases/union/comprehensive.cb", 
         [](const std::string& output, int exit_code) {

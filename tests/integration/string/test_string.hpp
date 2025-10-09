@@ -3,7 +3,7 @@
 #include "../framework/integration_test_framework.hpp"
 
 inline void test_integration_string() {
-    std::cout << "[integration] Running string tests..." << std::endl;
+    std::cout << "[integration-test] Running string tests..." << std::endl;
     
     // Test string literals (with timing)
     double execution_time_literal;
@@ -49,5 +49,5 @@ inline void test_integration_string() {
         }, execution_time_func);
     integration_test_passed_with_time("string func test", "func.cb", execution_time_func);
     
-    std::cout << "[integration] String tests completed" << std::endl;
+    std::cout << "[integration-test] String tests completed" << std::endl;
 }

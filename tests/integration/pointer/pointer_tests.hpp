@@ -99,7 +99,7 @@ inline void test_basic_pointer_operations() {
         execution_time
     );
     
-    printf("[✓] test_basic_pointer_operations passed (%.3fms)\n", execution_time);
+    printf("[integration-test] test_basic_pointer_operations passed (%.3fms)\n", execution_time);
 }
 
 // ============================================================================
@@ -150,7 +150,7 @@ inline void test_pointer_function_parameters() {
         execution_time
     );
     
-    printf("[✓] test_pointer_function_parameters passed (%.3fms)\n", execution_time);
+    printf("[integration-test] test_pointer_function_parameters passed (%.3fms)\n", execution_time);
 }
 
 // ============================================================================
@@ -213,7 +213,7 @@ inline void test_pointer_chains() {
         execution_time
     );
     
-    printf("[✓] test_pointer_chains passed (%.3fms)\n", execution_time);
+    printf("[integration-test] test_pointer_chains passed (%.3fms)\n", execution_time);
 }
 
 // ============================================================================
@@ -260,7 +260,7 @@ inline void test_nullptr_checks() {
         execution_time
     );
     
-    printf("[✓] test_nullptr_checks passed (%.3fms)\n", execution_time);
+    printf("[integration-test] test_nullptr_checks passed (%.3fms)\n", execution_time);
 }
 
 // ============================================================================
@@ -327,7 +327,7 @@ inline void test_variable_address() {
         execution_time
     );
     
-    printf("[✓] test_variable_address passed (%.3fms)\n", execution_time);
+    printf("[integration-test] test_variable_address passed (%.3fms)\n", execution_time);
 }
 
 // ============================================================================
@@ -402,7 +402,7 @@ inline void test_minimal_pointer() {
         execution_time
     );
     
-    printf("[✓] test_minimal_pointer passed (%.3fms)\n", execution_time);
+    printf("[integration-test] test_minimal_pointer passed (%.3fms)\n", execution_time);
 }
 
 // ============================================================================
@@ -471,7 +471,7 @@ inline void test_comprehensive_pointer_arithmetic() {
         execution_time
     );
     
-    printf("[✓] test_comprehensive_pointer_arithmetic passed (%.3fms)\n", execution_time);
+    printf("[integration-test] test_comprehensive_pointer_arithmetic passed (%.3fms)\n", execution_time);
 }
 
 // ============================================================================
@@ -563,7 +563,7 @@ inline void test_advanced_pointer_features() {
         execution_time
     );
     
-    printf("[✓] test_advanced_pointer_features passed (%.3fms)\n", execution_time);
+    printf("[integration-test] test_advanced_pointer_features passed (%.3fms)\n", execution_time);
 }
 
 // ============================================================================
@@ -664,7 +664,7 @@ inline void test_pointer_incdec() {
         execution_time
     );
     
-    printf("[✓] test_pointer_incdec passed (%.3fms)\n", execution_time);
+    printf("[integration-test] test_pointer_incdec passed (%.3fms)\n", execution_time);
 }
 
 // ============================================================================
@@ -690,7 +690,7 @@ inline void test_struct_pointer_members() {
         execution_time
     );
     
-    printf("[✓] test_struct_pointer_members passed (%.3fms)\n", execution_time);
+    printf("[integration-test] test_struct_pointer_members passed (%.3fms)\n", execution_time);
 }
 
 // ============================================================================
@@ -712,7 +712,7 @@ inline void test_impl_with_pointers() {
         execution_time
     );
     
-    printf("[✓] test_impl_with_pointers passed (%.3fms)\n", execution_time);
+    printf("[integration-test] test_impl_with_pointers passed (%.3fms)\n", execution_time);
 }
 
 // ============================================================================
@@ -734,7 +734,7 @@ inline void test_pointer_return_comprehensive() {
         execution_time
     );
     
-    printf("[✓] test_pointer_return_comprehensive passed (%.3fms)\n", execution_time);
+    printf("[integration-test] test_pointer_return_comprehensive passed (%.3fms)\n", execution_time);
 }
 
 // ============================================================================
@@ -764,7 +764,7 @@ inline void test_dereference_incdec() {
         execution_time
     );
     
-    printf("[✓] test_dereference_incdec passed (%.3fms)\n", execution_time);
+    printf("[integration-test] test_dereference_incdec passed (%.3fms)\n", execution_time);
 }
 
 // ============================================================================
@@ -798,7 +798,7 @@ inline void test_pointer_format() {
         execution_time
     );
     
-    printf("[✓] test_pointer_format passed (%.3fms)\n", execution_time);
+    printf("[integration-test] test_pointer_format passed (%.3fms)\n", execution_time);
 }
 
 // ============================================================================
@@ -831,7 +831,7 @@ inline void test_arrow_operator() {
         execution_time
     );
     
-    printf("[✓] test_arrow_operator passed (%.3fms)\n", execution_time);
+    printf("[integration-test] test_arrow_operator passed (%.3fms)\n", execution_time);
 }
 
 // ============================================================================
@@ -861,7 +861,7 @@ inline void test_arrow_in_impl() {
         execution_time
     );
     
-    printf("[✓] test_arrow_in_impl passed (%.3fms)\n", execution_time);
+    printf("[integration-test] test_arrow_in_impl passed (%.3fms)\n", execution_time);
 }
 
 // ============================================================================
@@ -891,7 +891,7 @@ inline void test_interface_pointer_arrow() {
         execution_time
     );
     
-    printf("[✓] test_interface_pointer_arrow passed (%.3fms)\n", execution_time);
+    printf("[integration-test] test_interface_pointer_arrow passed (%.3fms)\n", execution_time);
 }
 
 // ============================================================================
@@ -921,7 +921,7 @@ inline void test_impl_self_pointer_access() {
         execution_time
     );
     
-    printf("[✓] test_impl_self_pointer_access passed (%.3fms)\n", execution_time);
+    printf("[integration-test] test_impl_self_pointer_access passed (%.3fms)\n", execution_time);
 }
 
 // ============================================================================
@@ -974,7 +974,7 @@ inline void test_recursive_struct() {
         execution_time
     );
     
-    printf("[✓] test_recursive_struct passed (%.3fms)\n", execution_time);
+    printf("[integration-test] test_recursive_struct passed (%.3fms)\n", execution_time);
 }
 
 // ============================================================================
@@ -1017,7 +1017,7 @@ inline void test_typedef_recursive_struct() {
         execution_time
     );
     
-    printf("[✓] test_typedef_recursive_struct passed (%.3fms)\n", execution_time);
+    printf("[integration-test] test_typedef_recursive_struct passed (%.3fms)\n", execution_time);
 }
 
 // ============================================================================
@@ -1055,7 +1055,7 @@ inline void test_comprehensive_pointer_operations() {
         execution_time
     );
     
-    printf("[✓] test_comprehensive_pointer_operations passed (%.3fms)\n", execution_time);
+    printf("[integration-test] test_comprehensive_pointer_operations passed (%.3fms)\n", execution_time);
 }
 
 // ============================================================================
@@ -1093,7 +1093,7 @@ inline void test_comprehensive_address_of() {
         execution_time
     );
     
-    printf("[✓] test_comprehensive_address_of passed (%.3fms)\n", execution_time);
+    printf("[integration-test] test_comprehensive_address_of passed (%.3fms)\n", execution_time);
 }
 
 // ============================================================================
@@ -1196,7 +1196,7 @@ inline void test_declaration_init_comprehensive() {
         execution_time
     );
     
-    printf("[✓] test_declaration_init_comprehensive passed (%.3fms)\n", execution_time);
+    printf("[integration-test] test_declaration_init_comprehensive passed (%.3fms)\n", execution_time);
 }
 
 // ============================================================================
@@ -1285,7 +1285,7 @@ inline void test_address_display_comprehensive() {
         execution_time
     );
     
-    printf("[✓] test_address_display_comprehensive passed (%.3fms)\n", execution_time);
+    printf("[integration-test] test_address_display_comprehensive passed (%.3fms)\n", execution_time);
 }
 
 // ============================================================================
@@ -1358,7 +1358,7 @@ inline void test_struct_pointer_operations_comprehensive() {
         execution_time
     );
     
-    printf("[✓] test_struct_pointer_operations_comprehensive passed (%.3fms)\n", execution_time);
+    printf("[integration-test] test_struct_pointer_operations_comprehensive passed (%.3fms)\n", execution_time);
 }
 
 // ============================================================================
@@ -1423,7 +1423,7 @@ inline void test_interface_impl_pointer_comprehensive() {
         execution_time
     );
     
-    printf("[✓] test_interface_impl_pointer_comprehensive passed (%.3fms)\n", execution_time);
+    printf("[integration-test] test_interface_impl_pointer_comprehensive passed (%.3fms)\n", execution_time);
 }
 
 // ============================================================================
@@ -1506,7 +1506,7 @@ inline void test_pointer_boundary_comprehensive() {
         execution_time
     );
     
-    printf("[✓] test_pointer_boundary_comprehensive passed (%.3fms)\n", execution_time);
+    printf("[integration-test] test_pointer_boundary_comprehensive passed (%.3fms)\n", execution_time);
 }
 
 // ============================================================================
@@ -1548,7 +1548,7 @@ inline void test_function_pointer_callback() {
         execution_time
     );
     
-    printf("[✓] test_function_pointer_callback passed (%.3fms)\n", execution_time);
+    printf("[integration-test] test_function_pointer_callback passed (%.3fms)\n", execution_time);
 }
 
 // ============================================================================
@@ -1590,7 +1590,7 @@ inline void test_function_pointer_multiple() {
         execution_time
     );
     
-    printf("[✓] test_function_pointer_multiple passed (%.3fms)\n", execution_time);
+    printf("[integration-test] test_function_pointer_multiple passed (%.3fms)\n", execution_time);
 }
 
 // ============================================================================
@@ -1636,7 +1636,7 @@ inline void test_function_pointer_return() {
         execution_time
     );
     
-    printf("[✓] test_function_pointer_return passed (%.3fms)\n", execution_time);
+    printf("[integration-test] test_function_pointer_return passed (%.3fms)\n", execution_time);
 }
 
 // ============================================================================
@@ -1669,7 +1669,7 @@ inline void test_function_pointer_address_comparison() {
         execution_time
     );
     
-    printf("[✓] test_function_pointer_address_comparison passed (%.3fms)\n", execution_time);
+    printf("[integration-test] test_function_pointer_address_comparison passed (%.3fms)\n", execution_time);
 }
 
 // ============================================================================
@@ -1721,7 +1721,7 @@ inline void test_function_pointer_address_print() {
         execution_time
     );
     
-    printf("[✓] test_function_pointer_address_print passed (%.3fms)\n", execution_time);
+    printf("[integration-test] test_function_pointer_address_print passed (%.3fms)\n", execution_time);
 }
 
 // ============================================================================

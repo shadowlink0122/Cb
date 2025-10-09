@@ -47,7 +47,7 @@ inline void test_basic_assert() {
         execution_time
     );
     
-    printf("[✓] test_basic_assert passed (%.3fms)\n", execution_time);
+    printf("[integration-test] test_basic_assert passed (%.3fms)\n", execution_time);
 }
 
 // ============================================================================

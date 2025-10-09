@@ -4,7 +4,7 @@
 #include "../framework/integration_test_framework.hpp"
 
 void test_integration_enum() {
-    std::cout << "[integration] Running enum tests..." << std::endl;
+    std::cout << "[integration-test] Running enum tests..." << std::endl;
 
     // Basic enum functionality (with timing)
     double execution_time_basic;
@@ -96,7 +96,7 @@ void test_integration_enum() {
         });
     integration_test_passed_with_error_and_time_auto("error case: accessing undefined enum should fail", "error_undefined_enum.cb");
 
-    std::cout << "[integration] Enum tests completed" << std::endl;
+    std::cout << "[integration-test] Enum tests completed" << std::endl;
 }
 
 #endif // TEST_ENUM_HPP

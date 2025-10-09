@@ -9,7 +9,7 @@ namespace TypedefStructTests {
 
 // 現実的なtypedef構造体テスト
 inline void test_typedef_realistic() {
-    std::cout << "[integration] Running test_typedef_realistic..." << std::endl;
+    std::cout << "[integration-test] Running test_typedef_realistic..." << std::endl;
     
     run_cb_test_with_output_and_time_auto("../../tests/cases/typedef/test_typedef_realistic.cb",
         [](const std::string& output, int exit_code) {
@@ -32,7 +32,7 @@ inline void test_typedef_realistic() {
 
 // typedef構造体の関数テスト
 inline void test_typedef_functions() {
-    std::cout << "[integration] Running test_typedef_functions..." << std::endl;
+    std::cout << "[integration-test] Running test_typedef_functions..." << std::endl;
     
     run_cb_test_with_output_and_time_auto("../../tests/cases/typedef/test_typedef_functions.cb",
         [](const std::string& output, int exit_code) {

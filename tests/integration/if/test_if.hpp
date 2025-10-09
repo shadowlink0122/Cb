@@ -3,7 +3,7 @@
 #include "../framework/integration_test_framework.hpp"
 
 inline void test_integration_if() {
-    std::cout << "[integration] Running if tests..." << std::endl;
+    std::cout << "[integration-test] Running if tests..." << std::endl;
     
         // Test basic if statements (with timing)
     double execution_time;
@@ -21,5 +21,5 @@ inline void test_integration_if() {
     integration_test_passed_with_time("if basic test", "basic.cb", execution_time);
     integration_test_passed_with_time("if basic test", "basic.cb", execution_time);
     
-    std::cout << "[integration] If tests completed" << std::endl;
+    std::cout << "[integration-test] If tests completed" << std::endl;
 }

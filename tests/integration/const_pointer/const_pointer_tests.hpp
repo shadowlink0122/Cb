@@ -85,7 +85,7 @@ inline void test_const_pointer_comprehensive() {
         execution_time
     );
     
-    printf("[✓] test_const_pointer_comprehensive passed (%.3fms)\n", execution_time);
+    printf("[integration-test] test_const_pointer_comprehensive passed (%.3fms)\n", execution_time);
 }
 
 // ============================================================================
@@ -106,7 +106,7 @@ inline void test_error_modify_pointee_const() {
         },
         execution_time
     );
-    printf("[✓] test_error_modify_pointee_const passed (%.3fms)\n", execution_time);
+    printf("[integration-test] test_error_modify_pointee_const passed (%.3fms)\n", execution_time);
 }
 
 // エラーテスト: T* const の再代入
@@ -123,7 +123,7 @@ inline void test_error_reassign_pointer_const() {
         },
         execution_time
     );
-    printf("[✓] test_error_reassign_pointer_const passed (%.3fms)\n", execution_time);
+    printf("[integration-test] test_error_reassign_pointer_const passed (%.3fms)\n", execution_time);
 }
 
 // エラーテスト: const T* const 経由で値を変更
@@ -140,7 +140,7 @@ inline void test_error_modify_both_const() {
         },
         execution_time
     );
-    printf("[✓] test_error_modify_both_const passed (%.3fms)\n", execution_time);
+    printf("[integration-test] test_error_modify_both_const passed (%.3fms)\n", execution_time);
 }
 
 // エラーテスト: const T* const の再代入
@@ -157,7 +157,7 @@ inline void test_error_reassign_both_const() {
         },
         execution_time
     );
-    printf("[✓] test_error_reassign_both_const passed (%.3fms)\n", execution_time);
+    printf("[integration-test] test_error_reassign_both_const passed (%.3fms)\n", execution_time);
 }
 
 // エラーテスト: const Point* 経由で構造体メンバーを変更
@@ -174,7 +174,7 @@ inline void test_error_modify_struct_pointee_const() {
         },
         execution_time
     );
-    printf("[✓] test_error_modify_struct_pointee_const passed (%.3fms)\n", execution_time);
+    printf("[integration-test] test_error_modify_struct_pointee_const passed (%.3fms)\n", execution_time);
 }
 
 // エラーテスト: Point* const の再代入
@@ -191,7 +191,7 @@ inline void test_error_reassign_struct_pointer_const() {
         },
         execution_time
     );
-    printf("[✓] test_error_reassign_struct_pointer_const passed (%.3fms)\n", execution_time);
+    printf("[integration-test] test_error_reassign_struct_pointer_const passed (%.3fms)\n", execution_time);
 }
 
 // ============================================================================

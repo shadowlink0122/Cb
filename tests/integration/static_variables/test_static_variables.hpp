@@ -3,7 +3,7 @@
 #include "../framework/integration_test_framework.hpp"
 
 void test_integration_static_variables() {
-    std::cout << "[integration] Running static_variables tests..." << std::endl;
+    std::cout << "[integration-test] Running static_variables tests..." << std::endl;
 
     // 基本的なstatic変数テスト
     run_cb_test_with_output_and_time_auto("../cases/static_variables/basic_static.cb", 
@@ -71,5 +71,5 @@ void test_integration_static_variables() {
         });
     integration_test_passed_with_time_auto("static integration", "../../tests/cases/static_variables/static_integration.cb");
 
-    std::cout << "[integration] Static variables tests completed" << std::endl;
+    std::cout << "[integration-test] Static variables tests completed" << std::endl;
 }
