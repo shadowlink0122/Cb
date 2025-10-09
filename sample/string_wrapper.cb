@@ -1,0 +1,97 @@
+// String構造体の実装例
+// - インターフェースを使った文字列ラッパー
+// - 文字列長のキャッシュ
+// - nullターミネータを使った長さ計算
+
+struct String {
+    string value;
+    private int length;
+};
+
+interface IString {
+    String init(string s);
+    int length();
+    string get_value();
+}
+
+impl IString for String {
+    // privateメソッド: 文字列の長さを計算
+    private int get_length(string s) {
+        int len = 0;
+        // nullターミネータ('\0')が見つかるまでループ
+        while (s[len] != null) {
+            len = len + 1;
+        }
+        return len;
+    }
+    
+    // 文字列の長さを取得
+    int length() {
+        return self.length;
+    }
+    
+    // 文字列の値を取得
+    string get_value() {
+        return self.value;
+    }
+    
+    // 初期化メソッド
+    String init(string s) {
+        self.value = s;
+        self.length = self.get_length(s);
+        return self;
+    }
+}
+
+void main() {
+    println("=== String Structure Demo ===");
+    
+    // String構造体の初期化
+    String s1;
+    s1.init("Hello");
+    
+    // 長さの取得
+    int len1 = s1.length();
+    println("String 1:");
+    println(s1.get_value());
+    println("Length:");
+    println(len1);
+    
+    println("");
+    
+    // 別の文字列で試す
+    String s2;
+    s2.init("Cb Language");
+    
+    int len2 = s2.length();
+    println("String 2:");
+    println(s2.get_value());
+    println("Length:");
+    println(len2);
+    
+    println("");
+    
+    // 空文字列のテスト
+    String s3;
+    s3.init("");
+    
+    int len3 = s3.length();
+    println("String 3 (empty):");
+    println("Length:");
+    println(len3);
+    
+    println("");
+    
+    // 日本語文字列のテスト（UTF-8対応）
+    String s4;
+    s4.init("こんにちは");
+    
+    int len4 = s4.length();
+    println("String 4 (Japanese):");
+    println(s4.get_value());
+    println("Length:");
+    println(len4);
+    
+    println("");
+    println("=== Demo completed ===");
+}
