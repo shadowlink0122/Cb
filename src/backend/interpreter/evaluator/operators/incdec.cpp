@@ -2,6 +2,7 @@
 #include "../../../../common/debug.h"
 #include "../../core/interpreter.h"
 #include "../../core/pointer_metadata.h"
+#include <cinttypes>
 #include <cstdio>
 #include <stdexcept>
 
@@ -426,7 +427,7 @@ int64_t evaluate_incdec(
 
             int64_t old_value = values[index];
             char old_str[32];
-            snprintf(old_str, sizeof(old_str), "%lld", old_value);
+            snprintf(old_str, sizeof(old_str), "%" PRId64, old_value);
             debug_msg(DebugMsgId::INCDEC_OLD_VALUE, old_str);
 
             if (node->op == "++") {
@@ -436,7 +437,7 @@ int64_t evaluate_incdec(
             }
 
             char new_str[32];
-            snprintf(new_str, sizeof(new_str), "%lld", values[index]);
+            snprintf(new_str, sizeof(new_str), "%" PRId64, values[index]);
             debug_msg(DebugMsgId::INCDEC_NEW_VALUE, new_str);
 
             int64_t result = (node->node_type == ASTNodeType::AST_PRE_INCDEC)

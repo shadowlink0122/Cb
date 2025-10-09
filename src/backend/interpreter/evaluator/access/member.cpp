@@ -397,7 +397,7 @@ int64_t ExpressionEvaluator::evaluate_member_access_impl(const ASTNode *node) {
                 // 指定インデックスの構造体からメンバーを取得
                 if (ret_ex.struct_array_3d.size() > 0 &&
                     ret_ex.struct_array_3d[0].size() > 0 &&
-                    ret_ex.struct_array_3d[0][0].size() > index) {
+                    ret_ex.struct_array_3d[0][0].size() > static_cast<size_t>(index)) {
                     Variable struct_var = ret_ex.struct_array_3d[0][0][index];
                     Variable member_var = get_struct_member_from_variable(
                         struct_var, member_name);

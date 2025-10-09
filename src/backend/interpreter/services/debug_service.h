@@ -149,17 +149,35 @@ class DebugService {
         // format stringの警告を抑制するため、"%s"を使用
         size_t size = std::snprintf(nullptr, 0, "%s", format.c_str()) + 1;
         if (sizeof...(args) > 0) {
+#if defined(__clang__)
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wformat-security"
+#elif defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-security"
+#endif
             size = std::snprintf(nullptr, 0, format.c_str(), args...) + 1;
+#if defined(__clang__)
 #pragma clang diagnostic pop
+#elif defined(__GNUC__)
+#pragma GCC diagnostic pop
+#endif
         }
         std::unique_ptr<char[]> buf(new char[size]);
         if (sizeof...(args) > 0) {
+#if defined(__clang__)
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wformat-security"
+#elif defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-security"
+#endif
             std::snprintf(buf.get(), size, format.c_str(), args...);
+#if defined(__clang__)
 #pragma clang diagnostic pop
+#elif defined(__GNUC__)
+#pragma GCC diagnostic pop
+#endif
         } else {
             std::snprintf(buf.get(), size, "%s", format.c_str());
         }
