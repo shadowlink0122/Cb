@@ -1,0 +1,187 @@
+// Implポインタを関数で使用するテスト
+
+interface Shape {
+    func int get_perimeter();
+    func void scale(int factor);
+};
+
+impl Square for Shape {
+    int side;
+    
+    func int get_perimeter() {
+        return self.side * 4;
+    }
+    
+    func void scale(int factor) {
+        self.side = self.side * factor;
+    }
+};
+
+impl Triangle for Shape {
+    int base;
+    int height;
+    int side1;
+    int side2;
+    
+    func int get_perimeter() {
+        return self.base + self.side1 + self.side2;
+    }
+    
+    func void scale(int factor) {
+        self.base = self.base * factor;
+        self.height = self.height * factor;
+        self.side1 = self.side1 * factor;
+        self.side2 = self.side2 * factor;
+    }
+};
+
+func void double_size(Square* s) {
+    s->side = s->side * 2;
+}
+
+func int calculate_perimeter(Square* s) {
+    return s->side * 4;
+}
+
+func void scale_squares(Square*[3] ptrs, int count, int factor) {
+    for (int i = 0; i < count; i++) {
+        ptrs[i]->side = ptrs[i]->side * factor;
+    }
+}
+
+func void swap_triangles(Triangle* a, Triangle* b) {
+    // 一時変数を使って値を交換
+    int temp_base = a->base;
+    int temp_height = a->height;
+    int temp_side1 = a->side1;
+    int temp_side2 = a->side2;
+    
+    a->base = b->base;
+    a->height = b->height;
+    a->side1 = b->side1;
+    a->side2 = b->side2;
+    
+    b->base = temp_base;
+    b->height = temp_height;
+    b->side1 = temp_side1;
+    b->side2 = temp_side2;
+}
+
+func int sum_sides(Square*[5] ptrs, int count) {
+    int total = 0;
+    for (int i = 0; i < count; i++) {
+        total = total + ptrs[i]->side;
+    }
+    return total;
+}
+
+void main() {
+    println("=== Test 1: Modify impl through function ===");
+    
+    Square sq;
+    sq.side = 10;
+    
+    println("Original side:");
+    println(sq.side);  // 10
+    
+    double_size(&sq);
+    
+    println("After doubling:");
+    println(sq.side);  // 20
+    
+    println("=== Test 2: Calculate through function ===");
+    
+    int perimeter = calculate_perimeter(&sq);
+    println("Perimeter:");
+    println(perimeter);  // 80
+    
+    println("=== Test 3: Scale array through function ===");
+    
+    Square[3] squares;
+    squares[0].side = 5;
+    squares[1].side = 10;
+    squares[2].side = 15;
+    
+    Square*[3] sq_ptrs;
+    for (int i = 0; i < 3; i++) {
+        sq_ptrs[i] = &squares[i];
+    }
+    
+    println("Before scaling:");
+    for (int i = 0; i < 3; i++) {
+        println(squares[i].side);  // 5, 10, 15
+    }
+    
+    scale_squares(sq_ptrs, 3, 3);
+    
+    println("After scaling by 3:");
+    for (int i = 0; i < 3; i++) {
+        println(squares[i].side);  // 15, 30, 45
+    }
+    
+    println("=== Test 4: Swap triangles ===");
+    
+    Triangle t1, t2;
+    t1.base = 10;
+    t1.height = 8;
+    t1.side1 = 6;
+    t1.side2 = 6;
+    
+    t2.base = 20;
+    t2.height = 16;
+    t2.side1 = 12;
+    t2.side2 = 12;
+    
+    println("Before swap:");
+    println("T1 base:");
+    println(t1.base);  // 10
+    println("T2 base:");
+    println(t2.base);  // 20
+    
+    swap_triangles(&t1, &t2);
+    
+    println("After swap:");
+    println("T1 base:");
+    println(t1.base);  // 20
+    println("T2 base:");
+    println(t2.base);  // 10
+    
+    println("=== Test 5: Sum through pointer array ===");
+    
+    Square[5] sq_array;
+    sq_array[0].side = 1;
+    sq_array[1].side = 2;
+    sq_array[2].side = 3;
+    sq_array[3].side = 4;
+    sq_array[4].side = 5;
+    
+    Square*[5] sum_ptrs;
+    for (int i = 0; i < 5; i++) {
+        sum_ptrs[i] = &sq_array[i];
+    }
+    
+    int total = sum_sides(sum_ptrs, 5);
+    println("Sum of all sides:");
+    println(total);  // 15
+    
+    println("=== Test 6: Method calls through function ===");
+    
+    Square method_sq;
+    method_sq.side = 7;
+    
+    Square* ptr = &method_sq;
+    
+    println("Before method scale:");
+    println(method_sq.side);  // 7
+    
+    ptr->scale(5);
+    
+    println("After method scale by 5:");
+    println(method_sq.side);  // 35
+    
+    int method_perimeter = ptr->get_perimeter();
+    println("Perimeter from method:");
+    println(method_perimeter);  // 140
+    
+    println("=== All impl pointer function tests passed ===");
+}

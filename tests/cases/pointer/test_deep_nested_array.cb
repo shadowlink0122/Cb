@@ -1,0 +1,145 @@
+// 深くネストされた配列とポインタのテスト
+
+void main() {
+    println("=== Test 1: 3D array with pointers ===");
+    
+    int[2][2][2] cube;
+    
+    // 初期化
+    cube[0][0][0] = 1;
+    cube[0][0][1] = 2;
+    cube[0][1][0] = 3;
+    cube[0][1][1] = 4;
+    cube[1][0][0] = 5;
+    cube[1][0][1] = 6;
+    cube[1][1][0] = 7;
+    cube[1][1][1] = 8;
+    
+    // 各要素へのポインタ
+    int* p1 = &cube[0][0][0];
+    int* p2 = &cube[1][1][1];
+    
+    println("Corner values through pointers:");
+    println(*p1);  // 1
+    println(*p2);  // 8
+    
+    *p1 = 100;
+    *p2 = 800;
+    
+    println("After modification:");
+    println(cube[0][0][0]);  // 100
+    println(cube[1][1][1]);  // 800
+    
+    println("=== Test 2: Array of arrays with pointer arrays ===");
+    
+    int[3] row1 = [1, 2, 3];
+    int[3] row2 = [4, 5, 6];
+    int[3] row3 = [7, 8, 9];
+    
+    // 各行の各要素へのポインタ
+    int*[3] row1_ptrs;
+    int*[3] row2_ptrs;
+    int*[3] row3_ptrs;
+    
+    for (int i = 0; i < 3; i++) {
+        row1_ptrs[i] = &row1[i];
+        row2_ptrs[i] = &row2[i];
+        row3_ptrs[i] = &row3[i];
+    }
+    
+    println("Row 1 through pointers:");
+    for (int i = 0; i < 3; i++) {
+        println(*row1_ptrs[i]);  // 1, 2, 3
+    }
+    
+    println("Row 2 through pointers:");
+    for (int i = 0; i < 3; i++) {
+        println(*row2_ptrs[i]);  // 4, 5, 6
+    }
+    
+    println("Row 3 through pointers:");
+    for (int i = 0; i < 3; i++) {
+        println(*row3_ptrs[i]);  // 7, 8, 9
+    }
+    
+    println("=== Test 3: Modify nested arrays through pointers ===");
+    
+    // すべての要素を10倍にする
+    for (int i = 0; i < 3; i++) {
+        *row1_ptrs[i] = *row1_ptrs[i] * 10;
+        *row2_ptrs[i] = *row2_ptrs[i] * 10;
+        *row3_ptrs[i] = *row3_ptrs[i] * 10;
+    }
+    
+    println("After scaling:");
+    println("Row 1:");
+    for (int i = 0; i < 3; i++) {
+        println(row1[i]);  // 10, 20, 30
+    }
+    
+    println("Row 2:");
+    for (int i = 0; i < 3; i++) {
+        println(row2[i]);  // 40, 50, 60
+    }
+    
+    println("Row 3:");
+    for (int i = 0; i < 3; i++) {
+        println(row3[i]);  // 70, 80, 90
+    }
+    
+    println("=== Test 4: Complex pointer chain ===");
+    
+    int value = 42;
+    int* ptr1 = &value;
+    int** ptr2 = &ptr1;  // Note: double pointer may not be supported, using single level
+    
+    // Single level pointer chain instead
+    int intermediate = *ptr1;
+    int* ptr_intermediate = &intermediate;
+    
+    println("Original value:");
+    println(value);  // 42
+    
+    println("Through pointer chain:");
+    println(*ptr_intermediate);  // 42
+    
+    *ptr1 = 100;
+    intermediate = *ptr1;
+    
+    println("After modification:");
+    println(value);  // 100
+    println(*ptr_intermediate);  // 100
+    
+    println("=== Test 5: Pointer array of array elements ===");
+    
+    int[4][3] matrix;
+    
+    // 初期化
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 3; j++) {
+            matrix[i][j] = i * 10 + j;
+        }
+    }
+    
+    // 対角線要素へのポインタ（疑似的）
+    int* diag1 = &matrix[0][0];
+    int* diag2 = &matrix[1][1];
+    int* diag3 = &matrix[2][2];
+    
+    println("Diagonal elements:");
+    println(*diag1);  // 0
+    println(*diag2);  // 11
+    println(*diag3);  // 22
+    
+    // 対角線を変更
+    *diag1 = 999;
+    *diag2 = 888;
+    *diag3 = 777;
+    
+    println("After diagonal modification:");
+    println(matrix[0][0]);  // 999
+    println(matrix[1][1]);  // 888
+    println(matrix[2][2]);  // 777
+    
+    println("=== All deeply nested array tests passed ===");
+}

@@ -1,0 +1,165 @@
+// enum配列ポインタを関数で使用するテスト
+
+enum Direction {
+    NORTH,
+    SOUTH,
+    EAST,
+    WEST
+};
+
+enum Priority {
+    LOW = 1,
+    MEDIUM = 5,
+    HIGH = 10,
+    CRITICAL = 20
+};
+
+func void rotate_direction(Direction* dir) {
+    // 方向を時計回りに回転
+    if (*dir == Direction::NORTH) {
+        *dir = Direction::EAST;
+    } else if (*dir == Direction::EAST) {
+        *dir = Direction::SOUTH;
+    } else if (*dir == Direction::SOUTH) {
+        *dir = Direction::WEST;
+    } else {
+        *dir = Direction::NORTH;
+    }
+}
+
+func void swap_directions(Direction* a, Direction* b) {
+    Direction temp = *a;
+    *a = *b;
+    *b = temp;
+}
+
+func void reset_directions(Direction*[4] ptrs, int count) {
+    for (int i = 0; i < count; i++) {
+        *ptrs[i] = Direction::NORTH;
+    }
+}
+
+func int sum_priorities(Priority*[5] ptrs, int count) {
+    int total = 0;
+    for (int i = 0; i < count; i++) {
+        total = total + *ptrs[i];
+    }
+    return total;
+}
+
+func void upgrade_priority(Priority* p) {
+    if (*p == Priority::LOW) {
+        *p = Priority::MEDIUM;
+    } else if (*p == Priority::MEDIUM) {
+        *p = Priority::HIGH;
+    } else if (*p == Priority::HIGH) {
+        *p = Priority::CRITICAL;
+    }
+}
+
+void main() {
+    println("=== Test 1: Rotate direction through function ===");
+    
+    Direction facing = Direction::NORTH;
+    
+    println("Initial direction (NORTH):");
+    println(facing);  // 0
+    
+    rotate_direction(&facing);
+    println("After rotation (EAST):");
+    println(facing);  // 2
+    
+    rotate_direction(&facing);
+    println("After rotation (SOUTH):");
+    println(facing);  // 1
+    
+    println("=== Test 2: Swap directions ===");
+    
+    Direction d1 = Direction::NORTH;
+    Direction d2 = Direction::SOUTH;
+    
+    println("Before swap:");
+    println(d1);  // 0
+    println(d2);  // 1
+    
+    swap_directions(&d1, &d2);
+    
+    println("After swap:");
+    println(d1);  // 1
+    println(d2);  // 0
+    
+    println("=== Test 3: Reset array through function ===");
+    
+    Direction[4] dirs = [Direction::NORTH, Direction::SOUTH, Direction::EAST, Direction::WEST];
+    Direction*[4] dir_ptrs;
+    
+    for (int i = 0; i < 4; i++) {
+        dir_ptrs[i] = &dirs[i];
+    }
+    
+    println("Before reset:");
+    for (int i = 0; i < 4; i++) {
+        println(dirs[i]);  // 0, 1, 2, 3
+    }
+    
+    reset_directions(dir_ptrs, 4);
+    
+    println("After reset (all NORTH):");
+    for (int i = 0; i < 4; i++) {
+        println(dirs[i]);  // 0, 0, 0, 0
+    }
+    
+    println("=== Test 4: Sum priorities ===");
+    
+    Priority[5] priorities = [Priority::LOW, Priority::MEDIUM, Priority::HIGH, 
+                              Priority::LOW, Priority::CRITICAL];
+    Priority*[5] pri_ptrs;
+    
+    for (int i = 0; i < 5; i++) {
+        pri_ptrs[i] = &priorities[i];
+    }
+    
+    int total = sum_priorities(pri_ptrs, 5);
+    println("Total priority:");
+    println(total);  // 1 + 5 + 10 + 1 + 20 = 37
+    
+    println("=== Test 5: Upgrade priorities ===");
+    
+    println("Before upgrade:");
+    for (int i = 0; i < 5; i++) {
+        println(priorities[i]);  // 1, 5, 10, 1, 20
+    }
+    
+    for (int i = 0; i < 5; i++) {
+        upgrade_priority(pri_ptrs[i]);
+    }
+    
+    println("After upgrade:");
+    for (int i = 0; i < 5; i++) {
+        println(priorities[i]);  // 5, 10, 20, 5, 20
+    }
+    
+    println("=== Test 6: Selective modification ===");
+    
+    Direction[6] path = [Direction::NORTH, Direction::EAST, Direction::SOUTH, 
+                         Direction::WEST, Direction::NORTH, Direction::EAST];
+    Direction*[6] path_ptrs;
+    
+    for (int i = 0; i < 6; i++) {
+        path_ptrs[i] = &path[i];
+    }
+    
+    // すべてのNORTHを反対方向に変更
+    for (int i = 0; i < 6; i++) {
+        if (*path_ptrs[i] == Direction::NORTH) {
+            *path_ptrs[i] = Direction::SOUTH;
+        }
+    }
+    
+    println("After reversing NORTH to SOUTH:");
+    for (int i = 0; i < 6; i++) {
+        println(path[i]);  // 1, 2, 1, 3, 1, 2
+    }
+    
+    println("=== All enum pointer function tests passed ===");
+}

@@ -1,0 +1,147 @@
+// Interfaceとimplのポインタ操作テスト
+
+interface Drawable {
+    func void draw();
+    func int get_area();
+};
+
+impl Rectangle for Drawable {
+    int width;
+    int height;
+    
+    func void draw() {
+        println("Drawing rectangle:");
+        println(self.width);
+        println(self.height);
+    }
+    
+    func int get_area() {
+        return self.width * self.height;
+    }
+};
+
+impl Circle for Drawable {
+    int radius;
+    
+    func void draw() {
+        println("Drawing circle with radius:");
+        println(self.radius);
+    }
+    
+    func int get_area() {
+        // 簡易的に radius * radius * 3 で計算
+        return self.radius * self.radius * 3;
+    }
+};
+
+void main() {
+    println("=== Test 1: Basic impl pointer ===");
+    
+    Rectangle rect;
+    rect.width = 10;
+    rect.height = 20;
+    
+    Rectangle* ptr = &rect;
+    
+    println("Original dimensions:");
+    println(rect.width);   // 10
+    println(rect.height);  // 20
+    
+    // ポインタ経由で変更
+    ptr->width = 30;
+    ptr->height = 40;
+    
+    println("After modification through pointer:");
+    println(rect.width);   // 30
+    println(rect.height);  // 40
+    
+    println("=== Test 2: Impl pointer array ===");
+    
+    Rectangle[3] rectangles;
+    rectangles[0].width = 5;
+    rectangles[0].height = 10;
+    rectangles[1].width = 15;
+    rectangles[1].height = 20;
+    rectangles[2].width = 25;
+    rectangles[2].height = 30;
+    
+    Rectangle*[3] rect_ptrs;
+    for (int i = 0; i < 3; i++) {
+        rect_ptrs[i] = &rectangles[i];
+    }
+    
+    println("Rectangle widths through pointers:");
+    for (int i = 0; i < 3; i++) {
+        println(rect_ptrs[i]->width);  // 5, 15, 25
+    }
+    
+    println("=== Test 3: Modify impl through pointer array ===");
+    
+    for (int i = 0; i < 3; i++) {
+        rect_ptrs[i]->width = rect_ptrs[i]->width * 2;
+        rect_ptrs[i]->height = rect_ptrs[i]->height * 2;
+    }
+    
+    println("After doubling:");
+    for (int i = 0; i < 3; i++) {
+        println(rectangles[i].width);   // 10, 30, 50
+        println(rectangles[i].height);  // 20, 40, 60
+    }
+    
+    println("=== Test 4: Circle impl with pointers ===");
+    
+    Circle[3] circles;
+    circles[0].radius = 5;
+    circles[1].radius = 10;
+    circles[2].radius = 15;
+    
+    Circle*[3] circle_ptrs;
+    for (int i = 0; i < 3; i++) {
+        circle_ptrs[i] = &circles[i];
+    }
+    
+    println("Circle radii through pointers:");
+    for (int i = 0; i < 3; i++) {
+        println(circle_ptrs[i]->radius);  // 5, 10, 15
+    }
+    
+    println("=== Test 5: Swap impl pointers ===");
+    
+    Rectangle r1, r2;
+    r1.width = 100;
+    r1.height = 200;
+    r2.width = 300;
+    r2.height = 400;
+    
+    Rectangle* p1 = &r1;
+    Rectangle* p2 = &r2;
+    
+    println("Before pointer swap:");
+    println(p1->width);   // 100
+    println(p2->width);   // 300
+    
+    Rectangle* temp = p1;
+    p1 = p2;
+    p2 = temp;
+    
+    println("After pointer swap:");
+    println(p1->width);   // 300
+    println(p2->width);   // 100
+    
+    println("=== Test 6: Method call through pointer ===");
+    
+    Rectangle rect_method;
+    rect_method.width = 12;
+    rect_method.height = 8;
+    
+    Rectangle* ptr_method = &rect_method;
+    
+    println("Calling method through pointer:");
+    ptr_method->draw();
+    
+    int area = ptr_method->get_area();
+    println("Area through pointer:");
+    println(area);  // 96
+    
+    println("=== All impl pointer tests passed ===");
+}

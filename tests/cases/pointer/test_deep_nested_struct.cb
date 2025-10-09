@@ -1,0 +1,129 @@
+// 深くネストされた構造とポインタのテスト
+
+struct Point {
+    int x;
+    int y;
+};
+
+struct Line {
+    Point start;
+    Point end;
+};
+
+struct Shape {
+    Line edges[4];
+    int edge_count;
+};
+
+struct Container {
+    Shape shapes[3];
+    int shape_count;
+};
+
+void main() {
+    println("=== Test 1: Deeply nested struct access ===");
+    
+    Container container;
+    container.shape_count = 1;
+    container.shapes[0].edge_count = 2;
+    
+    // 最初の形状の最初のエッジの開始点
+    container.shapes[0].edges[0].start.x = 10;
+    container.shapes[0].edges[0].start.y = 20;
+    container.shapes[0].edges[0].end.x = 30;
+    container.shapes[0].edges[0].end.y = 40;
+    
+    // 最初の形状の2番目のエッジ
+    container.shapes[0].edges[1].start.x = 30;
+    container.shapes[0].edges[1].start.y = 40;
+    container.shapes[0].edges[1].end.x = 50;
+    container.shapes[0].edges[1].end.y = 60;
+    
+    println("First edge start:");
+    println(container.shapes[0].edges[0].start.x);  // 10
+    println(container.shapes[0].edges[0].start.y);  // 20
+    
+    println("First edge end:");
+    println(container.shapes[0].edges[0].end.x);  // 30
+    println(container.shapes[0].edges[0].end.y);  // 40
+    
+    println("=== Test 2: Pointer to deeply nested member ===");
+    
+    int* ptr_x = &container.shapes[0].edges[0].start.x;
+    int* ptr_y = &container.shapes[0].edges[0].start.y;
+    
+    println("Through pointers:");
+    println(*ptr_x);  // 10
+    println(*ptr_y);  // 20
+    
+    // ポインタ経由で変更
+    *ptr_x = 100;
+    *ptr_y = 200;
+    
+    println("After modification through pointers:");
+    println(container.shapes[0].edges[0].start.x);  // 100
+    println(container.shapes[0].edges[0].start.y);  // 200
+    
+    println("=== Test 3: Array of pointers to nested members ===");
+    
+    int*[4] x_coords;
+    int*[4] y_coords;
+    
+    // 2つのエッジの4点のx,y座標へのポインタ配列
+    x_coords[0] = &container.shapes[0].edges[0].start.x;
+    y_coords[0] = &container.shapes[0].edges[0].start.y;
+    x_coords[1] = &container.shapes[0].edges[0].end.x;
+    y_coords[1] = &container.shapes[0].edges[0].end.y;
+    x_coords[2] = &container.shapes[0].edges[1].start.x;
+    y_coords[2] = &container.shapes[0].edges[1].start.y;
+    x_coords[3] = &container.shapes[0].edges[1].end.x;
+    y_coords[3] = &container.shapes[0].edges[1].end.y;
+    
+    println("All coordinates through pointer arrays:");
+    for (int i = 0; i < 4; i++) {
+        println(*x_coords[i]);  // 100, 30, 30, 50
+        println(*y_coords[i]);  // 200, 40, 40, 60
+    }
+    
+    println("=== Test 4: Modify all through pointer arrays ===");
+    
+    // すべての座標を10倍にする
+    for (int i = 0; i < 4; i++) {
+        *x_coords[i] = *x_coords[i] * 10;
+        *y_coords[i] = *y_coords[i] * 10;
+    }
+    
+    println("After scaling by 10:");
+    println("First edge start:");
+    println(container.shapes[0].edges[0].start.x);  // 1000
+    println(container.shapes[0].edges[0].start.y);  // 2000
+    
+    println("Second edge end:");
+    println(container.shapes[0].edges[1].end.x);  // 500
+    println(container.shapes[0].edges[1].end.y);  // 600
+    
+    println("=== Test 5: Multiple shapes with pointers ===");
+    
+    container.shape_count = 2;
+    container.shapes[1].edge_count = 1;
+    container.shapes[1].edges[0].start.x = 1;
+    container.shapes[1].edges[0].start.y = 2;
+    container.shapes[1].edges[0].end.x = 3;
+    container.shapes[1].edges[0].end.y = 4;
+    
+    int* shape1_x = &container.shapes[1].edges[0].start.x;
+    int* shape1_y = &container.shapes[1].edges[0].start.y;
+    
+    println("Second shape first edge start:");
+    println(*shape1_x);  // 1
+    println(*shape1_y);  // 2
+    
+    *shape1_x = 999;
+    *shape1_y = 888;
+    
+    println("After modification:");
+    println(container.shapes[1].edges[0].start.x);  // 999
+    println(container.shapes[1].edges[0].start.y);  // 888
+    
+    println("=== All deeply nested structure tests passed ===");
+}
