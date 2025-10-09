@@ -624,7 +624,7 @@ ASTNode *StatementParser::parseBasicTypeStatement(bool isStatic, bool isConst,
     if (parser_->check(TokenType::TOK_LBRACKET)) {
         return parseArrayDeclaration(base_type_name, type_name, base_type_info,
                                      declared_type_info, isStatic, isConst,
-                                     isUnsigned, is_reference);
+                                     isUnsigned, is_reference, pointer_depth);
     }
 
     // ポインタ型の後のconst修飾子をチェック (T* const の場合)
@@ -661,7 +661,7 @@ ASTNode *StatementParser::parseBasicTypeStatement(bool isStatic, bool isConst,
 ASTNode *StatementParser::parseArrayDeclaration(
     const std::string &base_type_name, const std::string &type_name,
     TypeInfo base_type_info, TypeInfo declared_type_info, bool isStatic,
-    bool isConst, bool isUnsigned, bool is_reference) {
+    bool isConst, bool isUnsigned, bool is_reference, int pointer_depth) {
     // 全ての配列次元を解析
     std::vector<std::string> array_sizes;
 
@@ -727,6 +727,14 @@ ASTNode *StatementParser::parseArrayDeclaration(
     node->is_static = isStatic;
     node->is_unsigned = isUnsigned;
     node->is_reference = is_reference;
+    
+    // ポインタ配列の場合、ポインタフラグを設定
+    if (pointer_depth > 0) {
+        node->is_pointer = true;
+        node->pointer_depth = pointer_depth;
+        node->pointer_base_type = base_type_info;
+        node->pointer_base_type_name = base_type_name;
+    }
 
     // ArrayTypeInfoを構築
     std::vector<ArrayDimension> dimensions;

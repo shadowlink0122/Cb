@@ -294,12 +294,14 @@ void CommonOperations::assign_array_element_safe(Variable *var, int64_t index,
         adjusted_value = 0;
     }
 
-    // 型チェック（配列の要素型に対して、ただしポインタ配列は除外）
+    // 型チェック（配列の要素型に対して、ただしポインタ型とポインタ配列は除外）
     TypeInfo elem_type =
         (var->type >= TYPE_ARRAY_BASE)
             ? static_cast<TypeInfo>(var->type - TYPE_ARRAY_BASE)
             : var->type;
-    if (elem_type != TYPE_POINTER && !(var->is_pointer && var->is_array)) {
+    
+    // ポインタ配列の場合は型範囲チェックをスキップ（ポインタ値はアドレスなので範囲チェック不要）
+    if (elem_type != TYPE_POINTER && !var->is_pointer) {
         interpreter_->get_type_manager()->check_type_range(
             elem_type, adjusted_value, var_name, var->is_unsigned);
     }

@@ -292,6 +292,10 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
         TypeInfo elem_type = node->type_info;
         if (elem_type == TYPE_STRING) {
             var.multidim_array_strings.resize(total_size, "");
+        } else if (node->is_pointer) {
+            // ポインタ配列の場合は、ポインタ値を格納する配列として初期化
+            // NULLポインタ（0）で初期化
+            var.multidim_array_values.assign(total_size, 0);
         } else {
             ensure_numeric_storage(var, static_cast<size_t>(total_size), true,
                                    elem_type);
@@ -320,6 +324,14 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
             // 配列要素を初期化
             if (node->type_info == TYPE_STRING) {
                 var.array_strings.resize(size, "");
+            } else if (node->is_pointer) {
+                // ポインタ配列の場合は、ポインタ値を格納する配列として初期化
+                // NULLポインタ（0）で初期化
+                debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
+                          "Initializing pointer array storage");
+                var.array_values.assign(size, 0);
+                debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
+                          "Pointer array storage prepared");
             } else {
                 debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
                           "Ensuring numeric storage for 1D array");
@@ -404,6 +416,9 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
                 if (node->type_info != TYPE_STRUCT) {
                     if (node->type_info == TYPE_STRING) {
                         var.array_strings.resize(size, "");
+                    } else if (node->is_pointer) {
+                        // ポインタ配列の場合は、ポインタ値を格納する配列として初期化
+                        var.array_values.assign(size, 0);
                     } else {
                         ensure_numeric_storage(var, static_cast<size_t>(size),
                                                false, node->type_info);
@@ -435,6 +450,9 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
             // 配列要素を初期化
             if (node->type_info == TYPE_STRING) {
                 var.array_strings.resize(size, "");
+            } else if (node->is_pointer) {
+                // ポインタ配列の場合は、ポインタ値を格納する配列として初期化
+                var.array_values.assign(size, 0);
             } else {
                 ensure_numeric_storage(var, static_cast<size_t>(size), false,
                                        node->type_info);
