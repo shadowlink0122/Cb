@@ -394,6 +394,103 @@ int main() {
 
 ---
 
+### const変数へのポインタの制約
+
+**❌ エラー: const変数への非constポインタ**
+```cb
+int main() {
+    const int value = 42;
+    int* ptr = &value;  // エラー: const変数への非constポインタは禁止
+    *ptr = 100;         // これを許すとconst制約が破られる
+    return 0;
+}
+```
+
+**エラーメッセージ**
+```
+error: Cannot take non-const pointer to const variable
+```
+
+**理由**: const変数の値は外部から変更されてはいけません。非constポインタを許すと、そのポインタ経由でconst変数の値を変更できてしまい、const制約が無意味になります。
+
+**✅ 正しい: constポインタを使用**
+```cb
+int main() {
+    const int value = 42;
+    const int* ptr = &value;  // OK: constポインタなら許可
+    int x = *ptr;             // 読み取りはOK
+    println(x);               // 42
+    // *ptr = 100;            // エラー: constポインタ経由の変更は禁止
+    return 0;
+}
+```
+
+---
+
+### *constポインタ(アドレス変更不可)
+
+`*const`は「ポインタ自体が定数」を意味し、ポインタが指すアドレスを変更できません。
+
+**❌ エラー: *constポインタのアドレス変更**
+```cb
+int main() {
+    int a = 10;
+    int b = 20;
+    int *const ptr = &a;  // アドレス変更不可
+    *ptr = 15;            // OK: 値の変更は可能
+    ptr = &b;             // エラー: アドレスの変更は禁止
+    return 0;
+}
+```
+
+**エラーメッセージ**
+```
+error: Cannot reassign const pointer
+```
+
+**✅ 正しい**
+```cb
+int main() {
+    int a = 10;
+    int b = 20;
+    int *const ptr = &a;  // アドレス変更不可
+    *ptr = 15;            // OK: 値の変更は可能
+    println(*ptr);        // 15
+    
+    // 新しいポインタが必要な場合は別の変数を使う
+    int* ptr2 = &b;
+    println(*ptr2);       // 20
+    return 0;
+}
+```
+
+**const修飾子の組み合わせ**
+```cb
+int main() {
+    int value = 42;
+    const int value2 = 100;
+    
+    // パターン1: 値が定数
+    const int* ptr1 = &value;
+    // ptr1 = &value2;  // OK: アドレス変更可能
+    // *ptr1 = 50;      // エラー: 値の変更は不可
+    
+    // パターン2: アドレスが定数
+    int *const ptr2 = &value;
+    // ptr2 = &value;   // エラー: アドレス変更不可
+    // *ptr2 = 50;      // OK: 値の変更は可能
+    
+    // パターン3: 値もアドレスも定数
+    const int *const ptr3 = &value2;
+    // ptr3 = &value;   // エラー: アドレス変更不可
+    // *ptr3 = 50;      // エラー: 値の変更も不可
+    
+    return 0;
+}
+```
+
+---
+
 ## 5. 配列関連
 
 ### 配列サイズの不一致

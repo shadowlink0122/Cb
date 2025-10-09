@@ -456,6 +456,162 @@ int main() {
 }
 ```
 
+### スタック（interface/impl実装）
+
+interface/implを使うことで、実装の詳細を隠蔽し、より柔軟な設計が可能になります。
+
+```cb
+// スタックのインターフェース定義
+interface Stack {
+    void push(int value);
+    int pop();
+    int peek();
+    bool is_empty();
+    int size();
+}
+
+// 配列ベースのスタック構造体
+struct ArrayStack {
+    int[100] data;
+    int top;
+}
+
+// インターフェースの実装
+impl Stack for ArrayStack {
+    void push(int value) {
+        if (top < 100) {
+            data[top] = value;
+            top = top + 1;
+        }
+    }
+    
+    int pop() {
+        if (top > 0) {
+            top = top - 1;
+            return data[top];
+        }
+        return -1;  // エラー値
+    }
+    
+    int peek() {
+        if (top > 0) {
+            return data[top - 1];
+        }
+        return -1;
+    }
+    
+    bool is_empty() {
+        return top == 0;
+    }
+    
+    int size() {
+        return top;
+    }
+}
+
+void main() {
+    ArrayStack stack;
+    stack.top = 0;
+    
+    stack.push(10);
+    stack.push(20);
+    stack.push(30);
+    
+    println(stack.peek());  // 30（取り出さない）
+    println(stack.pop());   // 30
+    println(stack.pop());   // 20
+    println(stack.size());  // 1
+    println(stack.pop());   // 10
+    println(stack.is_empty());  // true
+}
+```
+
+### キュー（interface/impl実装）
+
+```cb
+// キューのインターフェース定義
+interface Queue {
+    void enqueue(int value);
+    int dequeue();
+    int front();
+    bool is_empty();
+    int size();
+}
+
+// 配列ベースのキュー構造体（循環バッファ）
+struct ArrayQueue {
+    int[100] data;
+    int head;
+    int tail;
+    int count;
+}
+
+// インターフェースの実装
+impl Queue for ArrayQueue {
+    void enqueue(int value) {
+        if (count < 100) {
+            data[tail] = value;
+            tail = (tail + 1) % 100;  // 循環バッファ
+            count = count + 1;
+        }
+    }
+    
+    int dequeue() {
+        if (count > 0) {
+            int value = data[head];
+            head = (head + 1) % 100;
+            count = count - 1;
+            return value;
+        }
+        return -1;  // エラー値
+    }
+    
+    int front() {
+        if (count > 0) {
+            return data[head];
+        }
+        return -1;
+    }
+    
+    bool is_empty() {
+        return count == 0;
+    }
+    
+    int size() {
+        return count;
+    }
+}
+
+void main() {
+    ArrayQueue queue;
+    queue.head = 0;
+    queue.tail = 0;
+    queue.count = 0;
+    
+    queue.enqueue(10);
+    queue.enqueue(20);
+    queue.enqueue(30);
+    
+    println(queue.front());    // 10（取り出さない）
+    println(queue.dequeue());  // 10
+    println(queue.dequeue());  // 20
+    println(queue.size());     // 1
+    println(queue.dequeue());  // 30
+    println(queue.is_empty()); // true
+}
+```
+
+**interface/implの利点**:
+- インターフェースと実装を分離できる
+- 同じインターフェースで複数の実装を提供可能（例: ArrayStack, LinkedListStack）
+- 実装の詳細を隠蔽し、利用者はインターフェースのみを意識すればよい
+- ポリモーフィズムによる柔軟な設計が可能
+
+**注意点**:
+- `interface`と`impl`の宣言の最後にセミコロンをつけてもエラーにはなりませんが、慣習的につけないことが推奨されます
+- `struct`の宣言の最後には必ずセミコロンが必要です
+- `impl`ブロック内では、構造体のメンバーに`this.`なしで直接アクセスできます
+
 ---
 
 ## 6. ポインタ活用
@@ -506,7 +662,9 @@ int main() {
 ### コールバック関数
 
 ```cb
-int apply_operation(int(*operation)(int, int), int a, int b) {
+// 5.1 コールバック関数のサンプル
+// コールバック関数を受け取る高階関数
+int apply_operation(int* operation, int a, int b) {
     return operation(a, b);
 }
 

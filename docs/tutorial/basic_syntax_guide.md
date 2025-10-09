@@ -577,17 +577,18 @@ int multiply(int a, int b) {
 }
 
 int main() {
-    // 関数ポインタの宣言
-    int(*op)(int, int) = &add;
+    // 関数ポインタの宣言（引数の型は指定しない）
+    int* op = &add;
     
-    // 呼び出し
-    int result = op(5, 3);
-    println(result);  // 8
+    // 呼び出し（2つの形式）
+    int result1 = (*op)(5, 3);  // 明示的デリファレンス
+    int result2 = op(5, 3);     // 暗黙的呼び出し
+    println(result1);  // 8
     
     // 再代入
     op = &multiply;
-    result = op(5, 3);
-    println(result);  // 15
+    int result3 = op(5, 3);
+    println(result3);  // 15
     
     return 0;
 }
