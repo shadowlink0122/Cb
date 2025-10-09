@@ -36,6 +36,12 @@
 #include "services/debug_service.h" // DRY効率化: 統一デバッグサービス
 #include "services/expression_service.h" // DRY効率化: 統一式評価サービス
 #include "services/variable_access_service.h" // DRY効率化: 統一変数アクセスサービス
+
+// 分割されたファイル
+#include "initialization.h"
+#include "cleanup.h"
+#include "utility.h"
+
 #include <algorithm>
 #include <cctype>
 #include <cstdlib>
@@ -66,141 +72,13 @@
 // - 一時変数管理: add_temp_variable, remove_temp_variable, clear_temp_variables
 // ========================================================================
 
-Interpreter::Interpreter(bool debug)
-    : debug_mode(debug), output_manager_(std::make_unique<OutputManager>(this)),
-      variable_manager_(std::make_unique<VariableManager>(this)),
-      type_manager_(std::make_unique<TypeManager>(this)) {
+// ========================================================================
+// コンストラクタ、デストラクタ、スコープ管理、変数検索は
+// initialization.cpp, cleanup.cpp, utility.cpp に移動しました
+// ========================================================================
 
-    // ExpressionEvaluatorを最初に初期化
-    expression_evaluator_ = std::make_unique<ExpressionEvaluator>(*this);
-
-    // ArrayManagerはVariableManagerとExpressionEvaluatorが必要なので後で初期化
-    array_manager_ = std::make_unique<ArrayManager>(
-        variable_manager_.get(), expression_evaluator_.get(), this);
-
-    // StatementExecutorを初期化
-    statement_executor_ = std::make_unique<StatementExecutor>(*this);
-
-    // CommonOperationsを初期化（他のManagerが必要なので最後に初期化）
-    common_operations_ = std::make_unique<CommonOperations>(this);
-
-    // DRY効率化: 統一変数アクセスサービスを初期化
-    variable_access_service_ = std::make_unique<VariableAccessService>(this);
-
-    // DRY効率化: 統一式評価サービスを初期化
-    expression_service_ = std::make_unique<ExpressionService>(this);
-
-    // DRY効率化: 統一配列処理サービスを初期化
-    array_processing_service_ = std::make_unique<ArrayProcessingService>(
-        this, common_operations_.get());
-
-    // enum管理サービスを初期化
-    enum_manager_ = std::make_unique<EnumManager>();
-
-    // static変数管理サービスを初期化
-    static_variable_manager_ = std::make_unique<StaticVariableManager>(this);
-
-    // interface/impl管理サービスを初期化
-    interface_operations_ = std::make_unique<InterfaceOperations>(this);
-
-    // struct操作管理サービスを初期化
-    struct_operations_ = std::make_unique<StructOperations>(this);
-
-    // struct変数管理サービスを初期化
-    struct_variable_manager_ = std::make_unique<StructVariableManager>(this);
-
-    // struct代入管理サービスを初期化
-    struct_assignment_manager_ =
-        std::make_unique<StructAssignmentManager>(this);
-
-    // struct同期管理サービスを初期化
-    struct_sync_manager_ = std::make_unique<StructSyncManager>(this);
-
-    // グローバル初期化管理サービスを初期化
-    global_initialization_manager_ =
-        std::make_unique<GlobalInitializationManager>(this);
-
-    // 制御フロー実行サービスを初期化
-    control_flow_executor_ = std::make_unique<ControlFlowExecutor>(this);
-
-    // 文リスト・複合文実行サービスを初期化
-    statement_list_executor_ = std::make_unique<StatementListExecutor>(this);
-
-    // return文処理サービスを初期化
-    return_handler_ = std::make_unique<ReturnHandler>(this);
-
-    // アサーション文処理サービスを初期化
-    assertion_handler_ = std::make_unique<AssertionHandler>(this);
-
-    // break/continue文処理サービスを初期化
-    break_continue_handler_ = std::make_unique<BreakContinueHandler>(this);
-
-    // 関数宣言処理サービスを初期化
-    function_declaration_handler_ =
-        std::make_unique<FunctionDeclarationHandler>(this);
-
-    // 構造体宣言処理サービスを初期化
-    struct_declaration_handler_ =
-        std::make_unique<StructDeclarationHandler>(this);
-
-    // インターフェース宣言処理サービスを初期化
-    interface_declaration_handler_ =
-        std::make_unique<InterfaceDeclarationHandler>(this);
-
-    // impl宣言処理サービスを初期化
-    impl_declaration_handler_ = std::make_unique<ImplDeclarationHandler>(this);
-
-    // 式文処理サービスを初期化
-    expression_statement_handler_ =
-        std::make_unique<ExpressionStatementHandler>(this);
-
-    // グローバルスコープを初期化
-    // ネストされた関数呼び出しに備えて容量を予約（再割り当てを防ぐ）
-    scope_stack.reserve(64);
-    scope_stack.push_back(global_scope);
-}
-
+// デストラクタ（unique_ptrの完全な型定義が必要なため、ここに残す）
 Interpreter::~Interpreter() = default;
-
-void Interpreter::push_scope() { variable_manager_->push_scope(); }
-
-void Interpreter::pop_scope() { variable_manager_->pop_scope(); }
-
-Scope &Interpreter::current_scope() {
-    return variable_manager_->current_scope();
-}
-
-Variable *Interpreter::find_variable(const std::string &name) {
-    return variable_manager_->find_variable(name);
-}
-
-std::string
-Interpreter::find_variable_name_by_address(const Variable *target_var) {
-    if (!target_var) {
-        return "";
-    }
-
-    // 現在のスコープスタックから検索
-    // 全スコープを逆順に検索（最新のスコープから）
-    if (!scope_stack.empty()) {
-        for (auto it = scope_stack.rbegin(); it != scope_stack.rend(); ++it) {
-            for (const auto &[name, var] : it->variables) {
-                if (&var == target_var) {
-                    return name;
-                }
-            }
-        }
-    }
-
-    // グローバルスコープも確認
-    for (const auto &[name, var] : global_scope.variables) {
-        if (&var == target_var) {
-            return name;
-        }
-    }
-
-    return "";
-}
 
 const ASTNode *Interpreter::find_function(const std::string &name) {
     // グローバルスコープの関数を検索
@@ -1215,22 +1093,9 @@ void Interpreter::print_formatted(const ASTNode *format_str,
     output_manager_->print_formatted(format_str, arg_list);
 }
 
-void Interpreter::check_type_range(TypeInfo type, int64_t value,
-                                   const std::string &name, bool is_unsigned) {
-    type_manager_->check_type_range(type, value, name, is_unsigned);
-}
+// Lines 1096-1099: Moved to utility.cpp
 
-// エラー表示ヘルパー関数の実装
-void Interpreter::throw_runtime_error_with_location(const std::string &message,
-                                                    const ASTNode *node) {
-    print_error_with_ast_location(message, node);
-    throw std::runtime_error(message);
-}
-
-void Interpreter::print_error_at_node(const std::string &message,
-                                      const ASTNode *node) {
-    print_error_with_ast_location(message, node);
-}
+// エラー表示ヘルパー関数は utility.cpp に移動しました
 
 // ========================================================================
 // SECTION 5: Array Operations (~300 lines)
@@ -1314,14 +1179,7 @@ void Interpreter::setMultidimensionalStringArrayElement(
         ArrayProcessingService::ArrayContext::MULTIDIMENSIONAL);
 }
 
-// Priority 3: 変数ポインターから名前を取得するヘルパー
-std::string Interpreter::find_variable_name(const Variable *target_var) {
-    if (!target_var)
-        return "";
-
-    // VariableManagerから変数名を取得
-    return variable_manager_->find_variable_name(target_var);
-}
+// find_variable_name は utility.cpp に移動しました
 
 void Interpreter::assign_array_literal(const std::string &name,
                                        const ASTNode *literal_node) {
@@ -1594,50 +1452,15 @@ void Interpreter::assign_array_from_return(const std::string &name,
 // これらは完全にTypeManagerに委譲されており、将来的には削除可能
 // ========================================================================
 
-std::string Interpreter::resolve_typedef(const std::string &type_name) {
-    return type_manager_->resolve_typedef(type_name);
-}
-
-TypeInfo Interpreter::resolve_type_alias(TypeInfo base_type,
-                                         const std::string &type_name) {
-    std::string resolved_type = type_manager_->resolve_typedef(type_name);
-    if (resolved_type != type_name) {
-        return type_manager_->string_to_type_info(resolved_type);
-    }
-    return base_type;
-}
-
-TypeInfo Interpreter::string_to_type_info(const std::string &type_str) {
-    return type_manager_->string_to_type_info(type_str);
-}
+// Lines 1458-1475: Moved to utility.cpp
 
 // N次元配列アクセス用のヘルパー関数
-std::string Interpreter::extract_array_name(const ASTNode *node) {
-    return variable_manager_->extract_array_name(node);
-}
+// Lines 1476-1496: Moved to utility.cpp
 
-std::vector<int64_t> Interpreter::extract_array_indices(const ASTNode *node) {
-    return variable_manager_->extract_array_indices(node);
-}
-
-std::string Interpreter::extract_array_element_name(const ASTNode *node) {
-    // 配列要素名を生成 (例: arr[0] -> "arr[0]")
-    std::string array_name = extract_array_name(node);
-    std::vector<int64_t> indices = extract_array_indices(node);
-
-    std::string element_name = array_name;
-    for (int64_t index : indices) {
-        element_name += "[" + std::to_string(index) + "]";
-    }
-
-    return element_name;
-}
 
 // ArrayManagerへのアクセス
-int64_t Interpreter::getMultidimensionalArrayElement(
-    const Variable &var, const std::vector<int64_t> &indices) {
-    return array_manager_->getMultidimensionalArrayElement(var, indices);
-}
+// Moved to utility.cpp, cleanup.cpp, or initialization.cpp
+
 
 // static変数の検索
 // ========================================================================
@@ -1647,37 +1470,26 @@ int64_t Interpreter::getMultidimensionalArrayElement(
 // 以下のメソッドは薄いラッパーとして機能
 // ========================================================================
 
-Variable *Interpreter::find_static_variable(const std::string &name) {
-    return static_variable_manager_->find_static_variable(name);
-}
+// Moved to utility.cpp, cleanup.cpp, or initialization.cpp
 
-void Interpreter::create_static_variable(const std::string &name,
-                                         const ASTNode *node) {
-    static_variable_manager_->create_static_variable(name, node);
-}
 
-Variable *Interpreter::find_impl_static_variable(const std::string &name) {
-    return static_variable_manager_->find_impl_static_variable(name);
-}
+// Moved to utility.cpp, cleanup.cpp, or initialization.cpp
 
-void Interpreter::create_impl_static_variable(const std::string &name,
-                                              const ASTNode *node) {
-    static_variable_manager_->create_impl_static_variable(name, node);
-}
 
-void Interpreter::enter_impl_context(const std::string &interface_name,
-                                     const std::string &struct_type_name) {
-    static_variable_manager_->enter_impl_context(interface_name,
-                                                 struct_type_name);
-}
+// Moved to utility.cpp, cleanup.cpp, or initialization.cpp
 
-void Interpreter::exit_impl_context() {
-    static_variable_manager_->exit_impl_context();
-}
 
-std::string Interpreter::get_impl_static_namespace() const {
-    return static_variable_manager_->get_impl_static_namespace();
-}
+// Moved to utility.cpp, cleanup.cpp, or initialization.cpp
+
+
+// Moved to utility.cpp, cleanup.cpp, or initialization.cpp
+
+
+// Moved to utility.cpp, cleanup.cpp, or initialization.cpp
+
+
+// Moved to utility.cpp, cleanup.cpp, or initialization.cpp
+
 
 // ========================================================================
 // ========================================================================
@@ -1833,13 +1645,11 @@ void Interpreter::assign_struct_member_array_literal(
         var_name, member_name, array_literal);
 }
 
-void Interpreter::initialize_global_variables(const ASTNode *node) {
-    global_initialization_manager_->initialize_global_variables(node);
-}
+// Moved to utility.cpp, cleanup.cpp, or initialization.cpp
 
-void Interpreter::sync_enum_definitions_from_parser(RecursiveParser *parser) {
-    global_initialization_manager_->sync_enum_definitions_from_parser(parser);
-}
+
+// Moved to utility.cpp, cleanup.cpp, or initialization.cpp
+
 
 void Interpreter::sync_struct_members_from_direct_access(
     const std::string &var_name) {
@@ -1912,18 +1722,14 @@ TypedValue Interpreter::evaluate_ternary_typed(const ASTNode *node) {
     return expression_evaluator_->evaluate_ternary_typed(node);
 }
 
-void Interpreter::add_temp_variable(const std::string &name,
-                                    const Variable &var) {
-    interface_operations_->add_temp_variable(name, var);
-}
+// Moved to utility.cpp, cleanup.cpp, or initialization.cpp
 
-void Interpreter::remove_temp_variable(const std::string &name) {
-    interface_operations_->remove_temp_variable(name);
-}
 
-void Interpreter::clear_temp_variables() {
-    interface_operations_->clear_temp_variables();
-}
+// Moved to utility.cpp, cleanup.cpp, or initialization.cpp
+
+
+// Moved to utility.cpp, cleanup.cpp, or initialization.cpp
+
 
 // 型定義検索メソッド
 const ASTNode *
