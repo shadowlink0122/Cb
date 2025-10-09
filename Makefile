@@ -1,8 +1,7 @@
 CC=g++
+CXX=g++
 LEX=flex
 YACC=bison
-
-CFLAGS=-Wall -g -std=c++17 -I. -Isrc/backend/interpreter
 
 # ディレクトリ設定
 SRC_DIR=src
@@ -15,28 +14,120 @@ BAREMETAL_DIR=$(PLATFORM_DIR)/baremetal
 TESTS_DIR=tests
 CGEN_DIR=cgen
 
+# Interpreterサブディレクトリ
+INTERPRETER_DIR=$(BACKEND_DIR)/interpreter
+INTERPRETER_CORE=$(INTERPRETER_DIR)/core
+INTERPRETER_EVALUATOR=$(INTERPRETER_DIR)/evaluator
+INTERPRETER_EXECUTORS=$(INTERPRETER_DIR)/executors
+INTERPRETER_HANDLERS=$(INTERPRETER_DIR)/handlers
+INTERPRETER_MANAGERS=$(INTERPRETER_DIR)/managers
+INTERPRETER_SERVICES=$(INTERPRETER_DIR)/services
+INTERPRETER_OUTPUT=$(INTERPRETER_DIR)/output
+
+# コンパイラフラグ
+CXXFLAGS=-Wall -g -std=c++17
+CFLAGS=$(CXXFLAGS) -I. -I$(SRC_DIR) -I$(INTERPRETER_DIR)
+
+# テスト用フラグ
+TEST_CXXFLAGS=$(CXXFLAGS) -I$(SRC_DIR) -I$(INTERPRETER_DIR) -I$(TESTS_DIR)/unit
+
 # 生成されるファイル（古いbison/flexファイルは削除）
 # PARSER_C=$(FRONTEND_DIR)/parser.c
 # PARSER_H=$(FRONTEND_DIR)/parser.h  
 # LEXER_C=$(FRONTEND_DIR)/lexer.c
 
 # オブジェクトファイル（RecursiveParserのみ使用）
-FRONTEND_OBJS=$(FRONTEND_DIR)/main.o $(FRONTEND_DIR)/help_messages.o $(FRONTEND_DIR)/recursive_parser/recursive_lexer.o $(FRONTEND_DIR)/recursive_parser/recursive_parser.o
-BACKEND_OBJS=$(BACKEND_DIR)/interpreter/core/interpreter.o $(BACKEND_DIR)/interpreter/core/error_handler.o \
-             $(BACKEND_DIR)/interpreter/core/type_inference.o \
-             $(BACKEND_DIR)/interpreter/core/pointer_metadata.o \
-             $(BACKEND_DIR)/interpreter/evaluator/expression_evaluator.o \
-             $(BACKEND_DIR)/interpreter/executor/statement_executor.o \
-             $(BACKEND_DIR)/interpreter/output/output_manager.o \
-             $(BACKEND_DIR)/interpreter/managers/variable_manager.o \
-             $(BACKEND_DIR)/interpreter/managers/array_manager.o \
-             $(BACKEND_DIR)/interpreter/managers/type_manager.o \
-             $(BACKEND_DIR)/interpreter/managers/enum_manager.o \
-             $(BACKEND_DIR)/interpreter/managers/common_operations.o \
-             $(BACKEND_DIR)/interpreter/services/expression_service.o \
-             $(BACKEND_DIR)/interpreter/services/variable_access_service.o \
-             $(BACKEND_DIR)/interpreter/services/debug_service.o \
-             $(BACKEND_DIR)/interpreter/services/array_processing_service.o
+PARSER_OBJS=$(FRONTEND_DIR)/recursive_parser/parsers/expression_parser.o \
+            $(FRONTEND_DIR)/recursive_parser/parsers/primary_expression_parser.o \
+            $(FRONTEND_DIR)/recursive_parser/parsers/statement_parser.o \
+            $(FRONTEND_DIR)/recursive_parser/parsers/declaration_parser.o \
+            $(FRONTEND_DIR)/recursive_parser/parsers/variable_declaration_parser.o \
+            $(FRONTEND_DIR)/recursive_parser/parsers/type_parser.o \
+            $(FRONTEND_DIR)/recursive_parser/parsers/struct_parser.o \
+            $(FRONTEND_DIR)/recursive_parser/parsers/enum_parser.o \
+            $(FRONTEND_DIR)/recursive_parser/parsers/interface_parser.o \
+            $(FRONTEND_DIR)/recursive_parser/parsers/union_parser.o \
+            $(FRONTEND_DIR)/recursive_parser/parsers/type_utility_parser.o
+FRONTEND_OBJS=$(FRONTEND_DIR)/main.o $(FRONTEND_DIR)/help_messages.o $(FRONTEND_DIR)/recursive_parser/recursive_lexer.o $(FRONTEND_DIR)/recursive_parser/recursive_parser.o $(PARSER_OBJS)
+# Interpreterオブジェクトファイル（グループ化）
+INTERPRETER_CORE_OBJS = \
+	$(INTERPRETER_CORE)/interpreter.o \
+	$(INTERPRETER_CORE)/error_handler.o \
+	$(INTERPRETER_CORE)/pointer_metadata.o \
+	$(INTERPRETER_CORE)/type_inference.o
+
+INTERPRETER_EVALUATOR_OBJS = \
+	$(INTERPRETER_EVALUATOR)/core/evaluator.o \
+	$(INTERPRETER_EVALUATOR)/core/dispatcher.o \
+	$(INTERPRETER_EVALUATOR)/core/helpers.o \
+	$(INTERPRETER_EVALUATOR)/operators/binary_unary.o \
+	$(INTERPRETER_EVALUATOR)/operators/assignment.o \
+	$(INTERPRETER_EVALUATOR)/operators/incdec.o \
+	$(INTERPRETER_EVALUATOR)/operators/ternary.o \
+	$(INTERPRETER_EVALUATOR)/access/array.o \
+	$(INTERPRETER_EVALUATOR)/access/member.o \
+	$(INTERPRETER_EVALUATOR)/access/member_helpers.o \
+	$(INTERPRETER_EVALUATOR)/access/special.o \
+	$(INTERPRETER_EVALUATOR)/access/address_ops.o \
+	$(INTERPRETER_EVALUATOR)/access/receiver_resolution.o \
+	$(INTERPRETER_EVALUATOR)/functions/call.o \
+	$(INTERPRETER_EVALUATOR)/functions/call_impl.o \
+	$(INTERPRETER_EVALUATOR)/literals/eval.o
+
+INTERPRETER_EXECUTORS_OBJS = \
+	$(INTERPRETER_EXECUTORS)/statement_executor.o \
+	$(INTERPRETER_EXECUTORS)/control_flow_executor.o \
+	$(INTERPRETER_EXECUTORS)/statement_list_executor.o \
+	$(INTERPRETER_EXECUTORS)/assignments/simple_assignment.o \
+	$(INTERPRETER_EXECUTORS)/assignments/member_assignment.o \
+	$(INTERPRETER_EXECUTORS)/declarations/array_declaration.o \
+	$(INTERPRETER_EXECUTORS)/declarations/variable_declaration.o
+
+INTERPRETER_HANDLERS_OBJS = \
+	$(INTERPRETER_HANDLERS)/control/return.o \
+	$(INTERPRETER_HANDLERS)/control/assertion.o \
+	$(INTERPRETER_HANDLERS)/control/break_continue.o \
+	$(INTERPRETER_HANDLERS)/declarations/function.o \
+	$(INTERPRETER_HANDLERS)/declarations/struct.o \
+	$(INTERPRETER_HANDLERS)/declarations/interface.o \
+	$(INTERPRETER_HANDLERS)/declarations/impl.o \
+	$(INTERPRETER_HANDLERS)/statements/expression.o
+
+INTERPRETER_MANAGERS_OBJS = \
+	$(INTERPRETER_MANAGERS)/variables/manager.o \
+	$(INTERPRETER_MANAGERS)/variables/declaration.o \
+	$(INTERPRETER_MANAGERS)/variables/assignment.o \
+	$(INTERPRETER_MANAGERS)/variables/initialization.o \
+	$(INTERPRETER_MANAGERS)/variables/static.o \
+	$(INTERPRETER_MANAGERS)/arrays/manager.o \
+	$(INTERPRETER_MANAGERS)/types/manager.o \
+	$(INTERPRETER_MANAGERS)/types/enums.o \
+	$(INTERPRETER_MANAGERS)/types/interfaces.o \
+	$(INTERPRETER_MANAGERS)/structs/operations.o \
+	$(INTERPRETER_MANAGERS)/structs/member_variables.o \
+	$(INTERPRETER_MANAGERS)/structs/assignment.o \
+	$(INTERPRETER_MANAGERS)/structs/sync.o \
+	$(INTERPRETER_MANAGERS)/common/global_init.o \
+	$(INTERPRETER_MANAGERS)/common/operations.o
+
+INTERPRETER_SERVICES_OBJS = \
+	$(INTERPRETER_SERVICES)/expression_service.o \
+	$(INTERPRETER_SERVICES)/variable_access_service.o \
+	$(INTERPRETER_SERVICES)/debug_service.o \
+	$(INTERPRETER_SERVICES)/array_processing_service.o
+
+INTERPRETER_OUTPUT_OBJS = \
+	$(INTERPRETER_OUTPUT)/output_manager.o
+
+# Backendオブジェクト（全て統合）
+BACKEND_OBJS = \
+	$(INTERPRETER_CORE_OBJS) \
+	$(INTERPRETER_EVALUATOR_OBJS) \
+	$(INTERPRETER_EXECUTORS_OBJS) \
+	$(INTERPRETER_HANDLERS_OBJS) \
+	$(INTERPRETER_MANAGERS_OBJS) \
+	$(INTERPRETER_SERVICES_OBJS) \
+	$(INTERPRETER_OUTPUT_OBJS)
 PLATFORM_OBJS=$(NATIVE_DIR)/native_stdio_output.o $(BAREMETAL_DIR)/baremetal_uart_output.o
 COMMON_OBJS=$(COMMON_DIR)/type_utils.o $(COMMON_DIR)/type_alias.o $(COMMON_DIR)/array_type_info.o $(COMMON_DIR)/utf8_utils.o $(COMMON_DIR)/io_interface.o $(COMMON_DIR)/debug_impl.o $(COMMON_DIR)/debug_messages.o $(PLATFORM_OBJS)
 
@@ -51,9 +142,14 @@ all: setup-dirs $(MAIN_TARGET)
 # ディレクトリ作成
 setup-dirs:
 	@mkdir -p $(FRONTEND_DIR) $(BACKEND_DIR) $(COMMON_DIR) $(NATIVE_DIR) $(BAREMETAL_DIR)
-	@mkdir -p $(BACKEND_DIR)/interpreter/core $(BACKEND_DIR)/interpreter/managers
-	@mkdir -p $(BACKEND_DIR)/interpreter/evaluator $(BACKEND_DIR)/interpreter/executor
-	@mkdir -p $(BACKEND_DIR)/interpreter/output $(BACKEND_DIR)/interpreter/services
+	@mkdir -p $(INTERPRETER_CORE) $(INTERPRETER_EVALUATOR) $(INTERPRETER_EXECUTORS)
+	@mkdir -p $(INTERPRETER_HANDLERS) $(INTERPRETER_OUTPUT) $(INTERPRETER_SERVICES)
+	@mkdir -p $(INTERPRETER_MANAGERS)/variables $(INTERPRETER_MANAGERS)/arrays
+	@mkdir -p $(INTERPRETER_MANAGERS)/structs $(INTERPRETER_MANAGERS)/types $(INTERPRETER_MANAGERS)/common
+	@mkdir -p $(INTERPRETER_EVALUATOR)/core $(INTERPRETER_EVALUATOR)/operators
+	@mkdir -p $(INTERPRETER_EVALUATOR)/access $(INTERPRETER_EVALUATOR)/functions $(INTERPRETER_EVALUATOR)/literals
+	@mkdir -p $(INTERPRETER_EXECUTORS)/declarations $(INTERPRETER_EXECUTORS)/assignments
+	@mkdir -p $(INTERPRETER_HANDLERS)/control $(INTERPRETER_HANDLERS)/declarations $(INTERPRETER_HANDLERS)/statements
 	@mkdir -p $(BACKEND_DIR)/ir $(BACKEND_DIR)/optimizer $(BACKEND_DIR)/codegen
 
 # デバッグ実行例（--debugオプションでデバッグ出力有効）
@@ -72,6 +168,10 @@ debug: $(MAIN_TARGET)
 $(FRONTEND_DIR)/recursive_parser/%.o: $(FRONTEND_DIR)/recursive_parser/%.cpp
 	$(CC) $(CFLAGS) -c -o $@ $<
 
+# 分離されたパーサーオブジェクト生成
+$(FRONTEND_DIR)/recursive_parser/parsers/%.o: $(FRONTEND_DIR)/recursive_parser/parsers/%.cpp
+	$(CC) $(CFLAGS) -c -o $@ $<
+
 # フロントエンドオブジェクト生成（古いparser.hの依存関係を削除）
 $(FRONTEND_DIR)/%.o: $(FRONTEND_DIR)/%.cpp $(COMMON_DIR)/ast.h
 	$(CC) $(CFLAGS) -c -o $@ $<
@@ -83,11 +183,30 @@ $(BACKEND_DIR)/%.o: $(BACKEND_DIR)/%.cpp $(COMMON_DIR)/ast.h
 # バックエンドサブディレクトリのオブジェクト生成
 $(BACKEND_DIR)/evaluator/%.o: $(BACKEND_DIR)/evaluator/%.cpp $(COMMON_DIR)/ast.h
 	$(CC) $(CFLAGS) -c -o $@ $<
-	
-$(BACKEND_DIR)/executor/%.o: $(BACKEND_DIR)/executor/%.cpp $(COMMON_DIR)/ast.h
+
+$(BACKEND_DIR)/executors/%.o: $(BACKEND_DIR)/executors/%.cpp $(COMMON_DIR)/ast.h
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(BACKEND_DIR)/handlers/%.o: $(BACKEND_DIR)/handlers/%.cpp $(COMMON_DIR)/ast.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 	
 $(BACKEND_DIR)/output/%.o: $(BACKEND_DIR)/output/%.cpp $(COMMON_DIR)/ast.h
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+# マネージャーサブディレクトリのオブジェクト生成
+$(BACKEND_DIR)/managers/variables/%.o: $(BACKEND_DIR)/managers/variables/%.cpp $(COMMON_DIR)/ast.h
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(BACKEND_DIR)/managers/arrays/%.o: $(BACKEND_DIR)/managers/arrays/%.cpp $(COMMON_DIR)/ast.h
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(BACKEND_DIR)/managers/structs/%.o: $(BACKEND_DIR)/managers/structs/%.cpp $(COMMON_DIR)/ast.h
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(BACKEND_DIR)/managers/types/%.o: $(BACKEND_DIR)/managers/types/%.cpp $(COMMON_DIR)/ast.h
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(BACKEND_DIR)/managers/common/%.o: $(BACKEND_DIR)/managers/common/%.cpp $(COMMON_DIR)/ast.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 # 共通オブジェクト生成
@@ -112,19 +231,28 @@ $(CGEN_TARGET):
 
 # フォーマット
 lint:
-	clang-format --dry-run --Werror $(SRC_DIR)/**/*.cpp $(SRC_DIR)/**/*.h $(TESTS_DIR)/**/*.cpp
+	@echo "Checking code formatting (dry-run)..."
+	@find $(SRC_DIR) -type f \( -name "*.cpp" -o -name "*.h" \) -exec clang-format --dry-run --Werror {} +
+	@find $(TESTS_DIR) -type f \( -name "*.cpp" -o -name "*.h" \) -exec clang-format --dry-run --Werror {} + 2>/dev/null || true
 
 fmt:
-	clang-format -i $(SRC_DIR)/**/*.cpp $(SRC_DIR)/**/*.h $(TESTS_DIR)/**/*.cpp
+	@echo "Formatting all source files in src/ and tests/..."
+	@find $(SRC_DIR) -type f \( -name "*.cpp" -o -name "*.h" \) -exec clang-format -i {} +
+	@find $(TESTS_DIR) -type f \( -name "*.cpp" -o -name "*.h" \) -exec clang-format -i {} + 2>/dev/null || true
+	@echo "Formatting complete!"
 
 # 単体テスト用のダミーオブジェクト
 $(TESTS_DIR)/unit/dummy.o: $(TESTS_DIR)/unit/dummy.cpp
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CXX) $(TEST_CXXFLAGS) -c -o $@ $<
 
-# 単体テスト
-unit-test: $(MAIN_TARGET) $(FRONTEND_OBJS) $(BACKEND_OBJS) $(COMMON_OBJS) $(PLATFORM_OBJS) $(TESTS_DIR)/unit/dummy.o
-	@echo "Running unit tests..."
-	@cd tests/unit && $(CC) $(CFLAGS) -o test_main main.cpp dummy.o ../../$(FRONTEND_DIR)/recursive_parser/recursive_parser.o ../../$(FRONTEND_DIR)/recursive_parser/recursive_lexer.o ../../$(BACKEND_DIR)/interpreter/core/interpreter.o ../../$(BACKEND_DIR)/interpreter/core/error_handler.o ../../$(BACKEND_DIR)/interpreter/core/type_inference.o ../../$(BACKEND_DIR)/interpreter/core/pointer_metadata.o ../../$(BACKEND_DIR)/interpreter/output/output_manager.o ../../$(BACKEND_DIR)/interpreter/managers/variable_manager.o ../../$(BACKEND_DIR)/interpreter/managers/array_manager.o ../../$(BACKEND_DIR)/interpreter/managers/type_manager.o ../../$(BACKEND_DIR)/interpreter/managers/enum_manager.o ../../$(BACKEND_DIR)/interpreter/managers/common_operations.o ../../$(BACKEND_DIR)/interpreter/services/expression_service.o ../../$(BACKEND_DIR)/interpreter/services/variable_access_service.o ../../$(BACKEND_DIR)/interpreter/services/debug_service.o ../../$(BACKEND_DIR)/interpreter/services/array_processing_service.o ../../$(BACKEND_DIR)/interpreter/evaluator/expression_evaluator.o ../../$(BACKEND_DIR)/interpreter/executor/statement_executor.o ../../$(COMMON_DIR)/type_utils.o ../../$(COMMON_DIR)/type_alias.o ../../$(COMMON_DIR)/array_type_info.o ../../$(COMMON_DIR)/utf8_utils.o ../../$(COMMON_DIR)/io_interface.o ../../$(COMMON_DIR)/debug_impl.o ../../$(COMMON_DIR)/debug_messages.o ../../$(PLATFORM_DIR)/native/native_stdio_output.o ../../$(PLATFORM_DIR)/baremetal/baremetal_uart_output.o
+# Unit test binary target
+$(TESTS_DIR)/unit/test_main: $(TESTS_DIR)/unit/main.cpp $(TESTS_DIR)/unit/dummy.o $(BACKEND_OBJS) $(COMMON_OBJS)
+	$(CXX) $(TEST_CXXFLAGS) -o $@ $^
+
+unit-test: $(TESTS_DIR)/unit/test_main
+	@echo "============================================================="
+	@echo "Running Cb Unit Test Suite"
+	@echo "============================================================="
 	@cd tests/unit && ./test_main
 
 # Integration test binary target

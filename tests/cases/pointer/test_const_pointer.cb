@@ -1,31 +1,139 @@
-// constポインタの基本テスト（現在サポートされている機能）
+// constポインタの完全テスト
+
+struct Point {
+    int x;
+    int y;
+};
 
 void main() {
-    println("=== Test 1: Basic const support ===");
+    println("=== Test 1: pointer to const int (const int*) ===");
     
-    // const変数の基本サポート
-    const int value = 42;
-    println(value);  // 42
+    int x = 10;
+    int y = 20;
     
-    // ポインタの基本操作
-    int x = 100;
-    int* ptr = &x;
-    println(*ptr);   // 100
+    // pointer to const int: 指し先を変更できない
+    const int* ptr1 = &x;
+    println(*ptr1);  // 10
     
-    println("=== Test 2: Pointer reassignment ===");
+    // ポインタ自体は変更可能
+    ptr1 = &y;
+    println(*ptr1);  // 20
     
-    int a = 10, b = 20;
-    int* p = &a;
-    println(*p);     // 10
+    println("=== Test 2: const pointer to int (int* const) ===");
     
-    p = &b;          // ポインタの再代入
-    println(*p);     // 20
+    int a = 30;
+    int b = 40;
     
-    println("=== Test 3: Pointer to const variable ===");
+    // const pointer to int: ポインタ自体を変更できない
+    int* const ptr2 = &a;
+    println(*ptr2);  // 30
     
-    const int data = 50;
-    int* ptr2 = &data;
-    println(*ptr2);  // 50
+    // 指し先は変更可能
+    *ptr2 = 35;
+    println(*ptr2);  // 35
+    println(a);      // 35
     
-    println("=== All basic pointer tests passed ===");
+    println("=== Test 3: const pointer to const int (const int* const) ===");
+    
+    int m = 50;
+    int n = 60;
+    
+    // 両方const: ポインタも指し先も変更できない
+    const int* const ptr3 = &m;
+    println(*ptr3);  // 50
+    
+    println("=== Test 4: const with regular variables ===");
+    
+    // 通常の変数でも使える
+    int value = 100;
+    const int* p1 = &value;
+    println(*p1);    // 100
+    
+    // 元の変数は変更可能
+    value = 200;
+    println(*p1);    // 200
+    
+    println("=== Test 5: pointer to const struct (const Point*) ===");
+    
+    Point point1;
+    point1.x = 5;
+    point1.y = 10;
+    
+    Point point2;
+    point2.x = 15;
+    point2.y = 20;
+    
+    // pointer to const struct: 構造体の内容を変更できない
+    const Point* pptr1 = &point1;
+    println(pptr1->x);  // 5
+    println(pptr1->y);  // 10
+    
+    // ポインタ自体は変更可能
+    pptr1 = &point2;
+    println(pptr1->x);  // 15
+    println(pptr1->y);  // 20
+    
+    println("=== Test 6: const pointer to struct (Point* const) ===");
+    
+    Point point3;
+    point3.x = 100;
+    point3.y = 200;
+    
+    // const pointer to struct: ポインタは変更できないが、構造体の内容は変更可能
+    Point* const pptr2 = &point3;
+    println(pptr2->x);  // 100
+    println(pptr2->y);  // 200
+    
+    // 構造体のメンバーは変更可能
+    pptr2->x = 150;
+    pptr2->y = 250;
+    println(pptr2->x);  // 150
+    println(pptr2->y);  // 250
+    println(point3.x);  // 150
+    println(point3.y);  // 250
+    
+    println("=== Test 7: const pointer to const struct (const Point* const) ===");
+    
+    Point point4;
+    point4.x = 300;
+    point4.y = 400;
+    
+    // 両方const: ポインタも構造体の内容も変更できない
+    const Point* const pptr3 = &point4;
+    println(pptr3->x);  // 300
+    println(pptr3->y);  // 400
+    
+    println("=== Test 8: pointer to const float (const float*) ===");
+    
+    float f1 = 3.14;
+    float f2 = 2.71;
+    
+    const float* fptr = &f1;
+    println(*fptr);  // 3.14
+    
+    fptr = &f2;
+    println(*fptr);  // 2.71
+    
+    println("=== Test 9: const pointer to float (float* const) ===");
+    
+    float f3 = 1.5;
+    float* const fptr2 = &f3;
+    println(*fptr2);  // 1.5
+    
+    *fptr2 = 2.5;
+    println(*fptr2);  // 2.5
+    println(f3);     // 2.5
+    
+    println("=== Test 10: pointer to const string (const string*) ===");
+    
+    string s1 = "Hello";
+    string s2 = "World";
+    
+    const string* sptr = &s1;
+    println(*sptr);  // Hello
+    
+    sptr = &s2;
+    println(*sptr);  // World
+    
+    println("=== All const pointer tests passed ===");
 }

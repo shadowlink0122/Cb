@@ -1,0 +1,12 @@
+// const安全性テスト: 正しい使い方
+int main() {
+    const int x = 42;
+    const int* ptr = &x;  // OK: const変数のアドレスはconst pointerで受ける
+    
+    println("x = ", x);
+    println("*ptr = ", *ptr);
+    
+    // *ptr = 100;  // これは既存のconst pointer機能でエラーになる
+    
+    return 0;
+}

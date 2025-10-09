@@ -1,0 +1,22 @@
+// エラーテスト: const Point* 経由で構造体メンバーを変更しようとする
+include "stdio.cb"
+
+struct Point {
+    int x;
+    int y;
+};
+
+int main() {
+    println("=== Test: Cannot modify struct through pointer to const ===");
+    Point p;
+    p.x = 100;
+    p.y = 200;
+    
+    const Point* ptr = &p;
+    
+    // エラー: const Point* 経由ではメンバーを変更できない
+    (*ptr).x = 150;  // This should fail
+    
+    println("ERROR: This should not execute");
+    return 0;
+}

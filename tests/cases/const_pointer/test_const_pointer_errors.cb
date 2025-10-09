@@ -1,0 +1,18 @@
+// constポインタのエラーテストケース
+include "stdio.cb"
+
+struct Point {
+    int x;
+    int y;
+};
+
+int main() {
+    println("=== Test 1: Reassigning const pointer to int ===");
+    int a = 10;
+    int b = 20;
+    int* const ptr1 = &a;
+    ptr1 = &b;  // エラー: const pointer cannot be reassigned
+    println("ERROR: This should not execute");
+
+    return 0;
+}

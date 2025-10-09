@@ -1,0 +1,7 @@
+// const安全性エラーテスト: const変数のアドレスを非constポインタに代入
+int main() {
+    const int x = 42;
+    int* ptr;
+    ptr = &x;  // エラー: Cannot assign address of const variable to non-const pointer
+    return 0;
+}

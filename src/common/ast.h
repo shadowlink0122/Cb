@@ -554,8 +554,9 @@ struct StructMember {
 };
 
 struct StructDefinition {
-    std::string name;                  // struct名
-    std::vector<StructMember> members; // メンバ変数のリスト
+    std::string name;                    // struct名
+    std::vector<StructMember> members;   // メンバ変数のリスト
+    bool is_forward_declaration = false; // 前方宣言かどうか
 
     StructDefinition() {}
     StructDefinition(const std::string &n) : name(n) {}
@@ -888,6 +889,10 @@ struct ASTNode {
     ArrayPointerTypeInfo array_pointer_type; // 配列ポインタ型情報
     bool is_array_pointer = false;           // 配列ポインタかどうか
 
+    // constポインタ関連（v0.10.0新機能）
+    bool is_pointer_const_qualifier = false; // ポインタ自体がconst (T* const)
+    bool is_pointee_const_qualifier = false; // ポイント先がconst (const T*)
+
     // コンストラクタ - 全フィールドの明示的初期化
     ASTNode(ASTNodeType type)
         : node_type(type), type_info(TYPE_INT), is_const(false),
@@ -895,7 +900,8 @@ struct ASTNode {
           is_array_return(false), is_private_method(false),
           is_function_address(false), int_value(0), array_size(-1),
           is_exported(false), is_qualified_call(false),
-          is_function_pointer(false) {}
+          is_function_pointer(false), is_pointer_const_qualifier(false),
+          is_pointee_const_qualifier(false) {}
 
     // デストラクタは自動管理（unique_ptr使用）
     virtual ~ASTNode() = default;

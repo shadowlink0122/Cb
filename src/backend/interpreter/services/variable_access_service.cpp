@@ -1,7 +1,7 @@
 #include "services/variable_access_service.h"
 #include "../../../common/debug.h"
 #include "core/interpreter.h"
-#include "managers/variable_manager.h"
+#include "managers/variables/manager.h"
 #include <stdexcept>
 
 VariableAccessService::VariableAccessService(Interpreter *interpreter)

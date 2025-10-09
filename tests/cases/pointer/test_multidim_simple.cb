@@ -1,0 +1,10 @@
+// 最もシンプルな多次元配列ポインタテスト
+
+int main() {
+    println("Start");
+    int[2][2] arr = [[1, 2], [3, 4]];
+    println("Array created");
+    println(arr[0][0]);
+    println("Test passed");
+    return 0;
+}

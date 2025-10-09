@@ -1,0 +1,17 @@
+// 循環参照のエラーテスト: 値型による循環
+
+struct B;  // 前方宣言
+
+struct A {
+    int value;
+    B member_b;  // 値型メンバー
+};
+
+struct B {
+    int data;
+    A member_a;  // 値型メンバー - これで循環参照になる
+};
+
+void main() {
+    println("This should not compile - circular reference");
+}

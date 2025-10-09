@@ -1,9 +1,38 @@
-=== Test 1: Basic const support ===
-42
-100
-=== Test 2: Pointer reassignment ===
+=== Test 1: pointer to const int (const int*) ===
 10
 20
-=== Test 3: Pointer to const variable ===
+=== Test 2: const pointer to int (int* const) ===
+30
+35
+35
+=== Test 3: const pointer to const int (const int* const) ===
 50
-=== All basic pointer tests passed ===
+=== Test 4: const with regular variables ===
+100
+200
+=== Test 5: pointer to const struct (const Point*) ===
+5
+10
+15
+20
+=== Test 6: const pointer to struct (Point* const) ===
+100
+200
+150
+250
+150
+250
+=== Test 7: const pointer to const struct (const Point* const) ===
+300
+400
+=== Test 8: pointer to const float (const float*) ===
+3.14000010490417
+2.71000003814697
+=== Test 9: const pointer to float (float* const) ===
+1.5
+1.5
+1.5
+=== Test 10: pointer to const string (const string*) ===
+Hello
+World
+=== All const pointer tests passed ===
