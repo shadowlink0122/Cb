@@ -517,20 +517,6 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
                                 array_literal->arguments[i].get(),
                                 "array_literal_element");
 
-                        if (debug_mode) {
-                            std::cerr
-                                << "[ARRAY_INIT_DEBUG] Element[" << i
-                                << "] evaluated: "
-                                << "is_numeric=" << element_value.is_numeric()
-                                << ", is_floating="
-                                << element_value.is_floating() << std::endl;
-                            if (element_value.is_numeric()) {
-                                std::cerr
-                                    << "[ARRAY_INIT_DEBUG] Numeric value: "
-                                    << element_value.as_numeric() << std::endl;
-                            }
-                        }
-
                         if (!element_value.is_numeric()) {
                             throw std::runtime_error(
                                 "Array literal element is not numeric");

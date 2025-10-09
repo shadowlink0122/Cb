@@ -84,20 +84,6 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
             it == interpreter_.get_global_scope().function_pointers.end()) {
             Variable *var = interpreter_.find_variable(func_name);
 
-            // デバッグ出力
-            if (interpreter_.is_debug_mode()) {
-                if (var) {
-                    std::cerr
-                        << "[DEBUG] Variable '" << func_name << "' found: "
-                        << "type=" << static_cast<int>(var->type)
-                        << " is_function_pointer=" << var->is_function_pointer
-                        << " value=" << var->value << std::endl;
-                } else {
-                    std::cerr << "[DEBUG] Variable '" << func_name
-                              << "' NOT FOUND" << std::endl;
-                }
-            }
-
             if (var && var->is_function_pointer) {
                 // 変数として定義された関数ポインタをfunction_pointersから取得
                 // var->valueにはFunctionPointerへのポインタが格納されている
