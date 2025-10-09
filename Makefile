@@ -256,7 +256,7 @@ unit-test: $(TESTS_DIR)/unit/test_main
 	@echo "============================================================="
 	@echo "Running Cb Unit Test Suite"
 	@echo "============================================================="
-	@cd tests/unit && ./test_main
+	cd tests/unit && ./test_main
 
 # Integration test binary target
 $(TESTS_DIR)/integration/test_main: $(TESTS_DIR)/integration/main.cpp $(MAIN_TARGET)
@@ -266,7 +266,7 @@ integration-test: $(TESTS_DIR)/integration/test_main
 	@echo "============================================================="
 	@echo "Running Cb Integration Test Suite"
 	@echo "============================================================="
-	@cd tests/integration && ./test_main 2>&1 | fold -s -w 80
+	@set -o pipefail; cd tests/integration && ./test_main 2>&1 | fold -s -w 80
 
 # より詳細な出力が必要な場合の統合テスト（フル出力）
 integration-test-verbose: $(TESTS_DIR)/integration/test_main
