@@ -1,0 +1,136 @@
+// ネストされたポインタ配列とポインタ配列へのポインタテスト
+
+struct Matrix {
+    int*[3] rows[3];  // 3x3マトリックスを表すポインタ配列の配列
+};
+
+void main() {
+    println("=== Test 1: Array of pointer arrays ===");
+    
+    int[3] row1 = [1, 2, 3];
+    int[3] row2 = [4, 5, 6];
+    int[3] row3 = [7, 8, 9];
+    
+    int*[3] ptr_row1;
+    int*[3] ptr_row2;
+    int*[3] ptr_row3;
+    
+    // 各行のポインタ配列を設定
+    for (int i = 0; i < 3; i++) {
+        ptr_row1[i] = &row1[i];
+        ptr_row2[i] = &row2[i];
+        ptr_row3[i] = &row3[i];
+    }
+    
+    println("Row 1:");
+    for (int i = 0; i < 3; i++) {
+        println(*ptr_row1[i]);  // 1, 2, 3
+    }
+    
+    println("Row 2:");
+    for (int i = 0; i < 3; i++) {
+        println(*ptr_row2[i]);  // 4, 5, 6
+    }
+    
+    println("Row 3:");
+    for (int i = 0; i < 3; i++) {
+        println(*ptr_row3[i]);  // 7, 8, 9
+    }
+    
+    println("=== Test 2: Pointer to pointer array ===");
+    
+    int[5] data = [10, 20, 30, 40, 50];
+    int*[5] ptr_array;
+    
+    for (int i = 0; i < 5; i++) {
+        ptr_array[i] = &data[i];
+    }
+    
+    // ポインタ配列への参照を別の関数に渡すシミュレーション
+    int* first_ptr = ptr_array[0];
+    int* third_ptr = ptr_array[2];
+    
+    println("Through nested pointer:");
+    println(*first_ptr);   // 10
+    println(*third_ptr);   // 30
+    
+    println("=== Test 3: Multi-level indirection ===");
+    
+    int value = 100;
+    int* ptr_to_value = &value;
+    int*[1] array_of_ptr;
+    array_of_ptr[0] = ptr_to_value;
+    
+    println("Multi-level access:");
+    println(value);           // 100
+    println(*ptr_to_value);   // 100
+    println(*array_of_ptr[0]); // 100
+    
+    // 多段階で変更
+    *array_of_ptr[0] = 200;
+    println("After modification:");
+    println(value);           // 200
+    
+    println("=== Test 4: Complex nesting pattern ===");
+    
+    int a = 1, b = 2, c = 3;
+    int d = 4, e = 5, f = 6;
+    
+    int*[3] group1;
+    int*[3] group2;
+    
+    group1[0] = &a;
+    group1[1] = &b;
+    group1[2] = &c;
+    
+    group2[0] = &d;
+    group2[1] = &e;
+    group2[2] = &f;
+    
+    println("Group 1:");
+    for (int i = 0; i < 3; i++) {
+        println(*group1[i]);  // 1, 2, 3
+    }
+    
+    println("Group 2:");
+    for (int i = 0; i < 3; i++) {
+        println(*group2[i]);  // 4, 5, 6
+    }
+    
+    // グループ間でポインタを交換
+    int* temp = group1[1];
+    group1[1] = group2[1];
+    group2[1] = temp;
+    
+    println("After swap:");
+    println("Group 1:");
+    for (int i = 0; i < 3; i++) {
+        println(*group1[i]);  // 1, 5, 3
+    }
+    
+    println("Group 2:");
+    for (int i = 0; i < 3; i++) {
+        println(*group2[i]);  // 4, 2, 6
+    }
+    
+    println("=== Test 5: Pointer array of different types (same type) ===");
+    
+    int x1 = 10, x2 = 20, x3 = 30;
+    int y1 = 100, y2 = 200, y3 = 300;
+    
+    int*[6] mixed_ptrs;
+    
+    mixed_ptrs[0] = &x1;
+    mixed_ptrs[1] = &y1;
+    mixed_ptrs[2] = &x2;
+    mixed_ptrs[3] = &y2;
+    mixed_ptrs[4] = &x3;
+    mixed_ptrs[5] = &y3;
+    
+    println("Mixed pointer array:");
+    for (int i = 0; i < 6; i++) {
+        println(*mixed_ptrs[i]);  // 10, 100, 20, 200, 30, 300
+    }
+    
+    println("=== All nested pointer array tests passed ===");
+}
