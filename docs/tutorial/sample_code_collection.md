@@ -100,16 +100,77 @@ int main() {
 
 ### 文字列の長さ計算
 
+すべての文字列はnull終端文字(`\0`)で終わります。これを利用して文字列の長さを計算できます。
+
 ```cb
 int string_length(string str) {
     int length = 0;
-    // 実際の実装はインタープリター側で処理
+    // null終端文字が見つかるまでカウント
+    while (str[length] != '\0') {
+        length = length + 1;
+    }
     return length;
 }
 
 int main() {
     string text = "Hello, World!";
-    println("Text:", text);
+    int len = string_length(text);
+    println("Length:", len);  // 13
+    
+    string empty = "";
+    println("Empty length:", string_length(empty));  // 0
+    
+    return 0;
+}
+```
+
+### 文字列のコピー
+
+null終端文字を含めて正しくコピーする必要があります。
+
+```cb
+void string_copy(string dest, string src) {
+    int i = 0;
+    // null終端文字も含めてコピー
+    while (src[i] != '\0') {
+        dest[i] = src[i];
+        i = i + 1;
+    }
+    dest[i] = '\0';  // null終端文字を追加
+}
+
+int main() {
+    string original = "Hello";
+    string copy;
+    string_copy(copy, original);
+    println("Copy:", copy);  // Hello
+    return 0;
+}
+```
+
+### 文字列の比較
+
+```cb
+bool string_equals(string str1, string str2) {
+    int i = 0;
+    while (str1[i] != '\0' && str2[i] != '\0') {
+        if (str1[i] != str2[i]) {
+            return false;
+        }
+        i = i + 1;
+    }
+    // 両方ともnull終端文字に到達したかチェック
+    return str1[i] == '\0' && str2[i] == '\0';
+}
+
+int main() {
+    string s1 = "Hello";
+    string s2 = "Hello";
+    string s3 = "World";
+    
+    println(string_equals(s1, s2));  // true
+    println(string_equals(s1, s3));  // false
+    
     return 0;
 }
 ```

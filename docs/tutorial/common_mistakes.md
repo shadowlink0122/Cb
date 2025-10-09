@@ -189,6 +189,102 @@ int main() {
 
 ---
 
+### 文字列のnull終端文字忘れ
+
+すべての文字列は`\0`(null終端文字)で終わる必要があります。
+
+**❌ 間違い: null終端文字を忘れる**
+```cb
+void copy_string(string dest, string src) {
+    int i = 0;
+    while (src[i] != '\0') {
+        dest[i] = src[i];
+        i = i + 1;
+    }
+    // dest[i] = '\0'; を忘れている!
+}
+
+int main() {
+    string original = "Hello";
+    string copy;
+    copy_string(copy, original);
+    println(copy);  // 不定動作: null終端文字がない
+    return 0;
+}
+```
+
+**✅ 正しい: null終端文字を追加**
+```cb
+void copy_string(string dest, string src) {
+    int i = 0;
+    while (src[i] != '\0') {
+        dest[i] = src[i];
+        i = i + 1;
+    }
+    dest[i] = '\0';  // null終端文字を追加
+}
+
+int main() {
+    string original = "Hello";
+    string copy;
+    copy_string(copy, original);
+    println(copy);  // Hello
+    return 0;
+}
+```
+
+**重要**: 
+- 文字列をコピーする際は必ずnull終端文字も含める
+- 文字列の長さを計算する際はnull終端文字まで読む
+- 文字列の比較も両方がnull終端文字に達したか確認する
+
+---
+
+### 文字列操作で配列境界を越える
+
+**❌ 危険: バッファオーバーフロー**
+```cb
+void bad_string_copy(string dest, string src) {
+    int i = 0;
+    // destのサイズを考慮していない
+    while (src[i] != '\0') {
+        dest[i] = src[i];  // destが小さすぎると境界外アクセス
+        i = i + 1;
+    }
+    dest[i] = '\0';
+}
+
+int main() {
+    string small;  // サイズが不足している可能性
+    string large = "This is a very long string";
+    bad_string_copy(small, large);  // 危険!
+    return 0;
+}
+```
+
+**✅ 正しい: サイズを確認**
+```cb
+void safe_string_copy(string dest, string src, int max_size) {
+    int i = 0;
+    // max_size - 1 まで (null終端文字用に1つ残す)
+    while (src[i] != '\0' && i < max_size - 1) {
+        dest[i] = src[i];
+        i = i + 1;
+    }
+    dest[i] = '\0';
+}
+
+int main() {
+    string small;
+    string large = "Hello";
+    safe_string_copy(small, large, 100);  // 最大サイズを指定
+    println(small);  // Hello
+    return 0;
+}
+```
+
+---
+
 ## 3. 実行時エラー
 
 ### 配列の境界外アクセス
