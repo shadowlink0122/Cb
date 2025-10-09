@@ -54,7 +54,7 @@
 #include <utility>
 
 // ========================================================================
-// SECTION 0: Core Functions & Infrastructure (~1,000 lines)
+// Core Functions & Infrastructure
 // ========================================================================
 // インタプリタのコア機能、初期化、スコープ管理
 //
@@ -106,10 +106,11 @@ const ASTNode *Interpreter::find_function(const std::string &name) {
 }
 
 // ========================================================================
-// SECTION 1: Initialization & Global Declarations (~400 lines)
+// Initialization & Global Declarations
 // ========================================================================
-// - register_global_declarations() - グローバル宣言の登録
-// - initialize_global_variables() - グローバル変数の初期化
+// グローバル宣言の登録とグローバル変数の初期化
+// - register_global_declarations(): グローバル宣言の登録
+// - initialize_global_variables(): グローバル変数の初期化
 // - sync_enum_definitions_from_parser() - Enum定義の同期
 // - sync_struct_definitions_from_parser() - Struct定義の同期
 //
@@ -849,15 +850,8 @@ void Interpreter::execute_statement(const ASTNode *node) {
         break;
     }
 }
-// ============================================================================
-// execute_statement メソッド終了
-// ============================================================================
 
 // ========================================================================
-// SECTION 4: Variable Assignment & Parameters (~300 lines)
-// ========================================================================
-// 変数代入、関数パラメータ、配列要素代入などを管理
-//
 // これらのメソッドは主にVariableManagerに委譲しているため、
 // 将来的により完全にManagerに移動することを検討
 //
@@ -870,6 +864,13 @@ void Interpreter::execute_statement(const ASTNode *node) {
 // - assign_array_element, assign_array_element_float
 // - assign_string_element
 // - print_value, print_formatted
+// ========================================================================
+
+// ========================================================================
+// Variable Operations (managers/variables/へ完全委譲)
+// ========================================================================
+// 変数の代入、union変数、関数パラメータ、配列パラメータの処理
+// 実装は variable_manager_ に完全委譲されています
 // ========================================================================
 
 void Interpreter::assign_variable(const std::string &name, int64_t value,
@@ -953,6 +954,20 @@ void Interpreter::assign_interface_view(const std::string &dest_name,
     variable_manager_->assign_interface_view(
         dest_name, std::move(interface_var), source_var, source_var_name);
 }
+
+// ========================================================================
+// Array Operations (managers/arrays/ と array_processing_service_ へ委譲)
+// ========================================================================
+// 配列要素の代入、多次元配列アクセス、配列リテラル処理
+// ほとんどの実装は以下に委譲:
+// - array_manager_: 基本的な配列操作
+// - array_processing_service_: 統一されたアクセスインターフェース
+// - common_operations_: 安全な配列要素代入
+// 
+// 注意: assign_array_element, assign_string_element には
+// エラーハンドリングと境界チェックのロジックが含まれているため、
+// これらは現時点では interpreter.cpp に残しています
+// ========================================================================
 
 void Interpreter::assign_array_element(const std::string &name, int64_t index,
                                        int64_t value) {
@@ -1084,6 +1099,10 @@ void Interpreter::assign_string_element(const std::string &name, int64_t index,
     debug_msg(DebugMsgId::STRING_AFTER_REPLACE_DEBUG, var->str_value.c_str());
 }
 
+// print_value と print_formatted は薄いラッパーなので、
+// 呼び出し側で直接 output_manager_->method() を使用するよう変更予定
+// 現在は後方互換性のために残しています
+
 void Interpreter::print_value(const ASTNode *expr) {
     output_manager_->print_value(expr);
 }
@@ -1093,34 +1112,24 @@ void Interpreter::print_formatted(const ASTNode *format_str,
     output_manager_->print_formatted(format_str, arg_list);
 }
 
-// Lines 1096-1099: Moved to utility.cpp
-
-// エラー表示ヘルパー関数は utility.cpp に移動しました
-
 // ========================================================================
-// SECTION 5: Array Operations (~300 lines)
+// Array Operations (managers/arrays/ と array_processing_service_ へ委譲)
 // ========================================================================
-// 多次元配列のアクセス、設定、抽出を管理
-//
-// これらのメソッドは主にArrayManagerに委譲しているため、
-// 将来的により完全にManagerに移動することを検討
-//
-// 含まれる機能：
-// - getMultidimensionalArrayElement (2 overloads)
-// - setMultidimensionalArrayElement (2 overloads)
-// - getMultidimensionalStringArrayElement
-// - setMultidimensionalStringArrayElement
-// - extract_array_name, extract_array_indices, extract_array_element_name
-// - assign_array_literal, assign_array_from_return
-// - process_ndim_array_literal
+// 配列要素の代入、多次元配列アクセス、配列リテラル処理
+// ほとんどの実装は以下に委譲:
+// - array_manager_: 基本的な配列操作
+// - array_processing_service_: 統一されたアクセスインターフェース
+// - common_operations_: 安全な配列要素代入
+// 
+// 注意: assign_array_element, assign_string_element には
+// エラーハンドリングと境界チェックのロジックが含まれているため、
+// これらは現時点では interpreter.cpp に残しています
 // ========================================================================
 
 int64_t Interpreter::getMultidimensionalArrayElement(
     Variable &var, const std::vector<int64_t> &indices) {
-    // Priority 3: ArrayProcessingServiceを使用した統一アクセス
     std::string var_name = find_variable_name(&var);
     if (var_name.empty()) {
-        // 名前が見つからない場合は従来の方法にフォールバック
         return array_manager_->getMultidimensionalArrayElement(var, indices);
     }
     return array_processing_service_->getArrayElement(
@@ -1130,10 +1139,8 @@ int64_t Interpreter::getMultidimensionalArrayElement(
 
 void Interpreter::setMultidimensionalArrayElement(
     Variable &var, const std::vector<int64_t> &indices, int64_t value) {
-    // Priority 3: ArrayProcessingServiceを使用した統一アクセス
     std::string var_name = find_variable_name(&var);
     if (var_name.empty()) {
-        // 名前が見つからない場合は従来の方法にフォールバック
         array_manager_->setMultidimensionalArrayElement(var, indices, value);
         return;
     }
@@ -1142,19 +1149,15 @@ void Interpreter::setMultidimensionalArrayElement(
         ArrayProcessingService::ArrayContext::MULTIDIMENSIONAL);
 }
 
-// float/double値での多次元配列要素設定（オーバーロード）
 void Interpreter::setMultidimensionalArrayElement(
     Variable &var, const std::vector<int64_t> &indices, double value) {
-    // 直接ArrayManagerを呼び出す
     array_manager_->setMultidimensionalArrayElement(var, indices, value);
 }
 
 std::string Interpreter::getMultidimensionalStringArrayElement(
     Variable &var, const std::vector<int64_t> &indices) {
-    // Priority 3: ArrayProcessingServiceを使用した統一アクセス
     std::string var_name = find_variable_name(&var);
     if (var_name.empty()) {
-        // 名前が見つからない場合は従来の方法にフォールバック
         return array_manager_->getMultidimensionalStringArrayElement(var,
                                                                      indices);
     }
@@ -1166,10 +1169,8 @@ std::string Interpreter::getMultidimensionalStringArrayElement(
 void Interpreter::setMultidimensionalStringArrayElement(
     Variable &var, const std::vector<int64_t> &indices,
     const std::string &value) {
-    // Priority 3: ArrayProcessingServiceを使用した統一アクセス
     std::string var_name = find_variable_name(&var);
     if (var_name.empty()) {
-        // 名前が見つからない場合は従来の方法にフォールバック
         array_manager_->setMultidimensionalStringArrayElement(var, indices,
                                                               value);
         return;
@@ -1178,8 +1179,6 @@ void Interpreter::setMultidimensionalStringArrayElement(
         var_name, indices, value,
         ArrayProcessingService::ArrayContext::MULTIDIMENSIONAL);
 }
-
-// find_variable_name は utility.cpp に移動しました
 
 void Interpreter::assign_array_literal(const std::string &name,
                                        const ASTNode *literal_node) {
@@ -1448,59 +1447,24 @@ void Interpreter::assign_array_from_return(const std::string &name,
 // ========================================================================
 // SECTION 7: Type Resolution (~30 lines)
 // ========================================================================
-// 型解決関連のメソッド - TypeManagerへの薄いラッパー
-// これらは完全にTypeManagerに委譲されており、将来的には削除可能
+// Static Variable Management (StaticVariableManagerへ委譲)
 // ========================================================================
-
-// Lines 1458-1475: Moved to utility.cpp
-
-// N次元配列アクセス用のヘルパー関数
-// Lines 1476-1496: Moved to utility.cpp
-
-
-// ArrayManagerへのアクセス
-// Moved to utility.cpp, cleanup.cpp, or initialization.cpp
-
-
-// static変数の検索
-// ========================================================================
-// SECTION 6: Static Variable Management (StaticVariableManagerへ委譲)
-// ========================================================================
-// Static変数とimpl static変数の管理はStaticVariableManagerに移譲済み
+// Static変数とimpl static変数の管理はStaticVariableManagerに委譲済み
 // 以下のメソッドは薄いラッパーとして機能
 // ========================================================================
 
-// Moved to utility.cpp, cleanup.cpp, or initialization.cpp
-
-
-// Moved to utility.cpp, cleanup.cpp, or initialization.cpp
-
-
-// Moved to utility.cpp, cleanup.cpp, or initialization.cpp
-
-
-// Moved to utility.cpp, cleanup.cpp, or initialization.cpp
-
-
-// Moved to utility.cpp, cleanup.cpp, or initialization.cpp
-
-
-// Moved to utility.cpp, cleanup.cpp, or initialization.cpp
-
 
 // Moved to utility.cpp, cleanup.cpp, or initialization.cpp
 
 
 // ========================================================================
+// Struct Operations (managers/structs/へ完全委譲)
 // ========================================================================
-// SECTION 2: Struct Operations (Phase 3.4-3.5: 部分的に委譲)
-// ========================================================================
-// Phase 3.4a: register_struct_definition, validate_struct_recursion_rules
-// Phase 3.4b: find_struct_definition, sync_struct_definitions_from_parser
-// Phase 3.4c: is_current_impl_context_for, ensure_struct_member_access_allowed
-// Phase 3.4d: get_struct_member
-// Phase 3.5a: sync_individual_member_from_struct
-// その他のメソッドは引き続きInterpreterに実装
+// これらは薄いラッパーとして機能。実装は以下に分散:
+// - struct_operations_: 基本操作、定義管理
+// - struct_variable_manager_: 変数作成、メンバー変数管理
+// - struct_assignment_manager_: 値の代入
+// - struct_sync_manager_: 同期処理
 // ========================================================================
 
 void Interpreter::register_struct_definition(
@@ -1665,8 +1629,11 @@ void Interpreter::sync_direct_access_from_struct_value(
 // ========================================================================
 // SECTION 3: Interface Operations (InterfaceOperationsへ委譲)
 // ========================================================================
-// Interface定義、Impl実装、メソッドディスパッチはInterfaceOperationsに移譲済み
-// 以下のメソッドは薄いラッパーとして機能
+// ========================================================================
+// Interface/Impl Operations (InterfaceOperationsへ完全委譲)
+// ========================================================================
+// これらは薄いラッパーとして機能。将来的には呼び出し側で
+// 直接 interface_operations_->method() を使用することを検討
 // ========================================================================
 
 void Interpreter::register_interface_definition(
