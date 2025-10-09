@@ -3,6 +3,7 @@
 
 #include "../../../../common/ast.h"
 #include "../../core/interpreter.h"
+#include <functional>
 
 namespace BinaryUnaryTypedHelpers {
 
