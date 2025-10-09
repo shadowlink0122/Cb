@@ -100,19 +100,30 @@ int main(int argc, char **argv) {
 
         interpreter.process(root);
 
-        // ASTは実行完了まで保持（delete root; を削除）
-        // インタープリターが内部でASTNode*を参照している間は削除しない
+        // 正常終了：デストラクタをスキップして即座に終了
+        // （メモリはOSが自動的に回収し、tagged pointer値の誤解放を回避）
+        // 注：std::_Exit()はストリームのフラッシュをスキップするため、明示的にフラッシュ
+        std::fflush(stdout);
+        std::fflush(stderr);
+        std::_Exit(0);
 
     } catch (const DetailedErrorException &e) {
         // 詳細なエラー表示は既に完了しているので何もしない
-        return 1;
+        std::fflush(stdout);
+        std::fflush(stderr);
+        std::_Exit(1);
     } catch (const std::exception &e) {
         std::fprintf(stderr, "Error: %s\n", e.what());
-        return 1;
+        std::fflush(stdout);
+        std::fflush(stderr);
+        std::_Exit(1);
     } catch (...) {
         std::fprintf(stderr, "Error: Unknown error occurred\n");
-        return 1;
+        std::fflush(stdout);
+        std::fflush(stderr);
+        std::_Exit(1);
     }
 
+    // ここには到達しない
     return 0;
 }

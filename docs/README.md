@@ -12,7 +12,17 @@ Cb言語の完全な言語仕様書です。
 **内容**:
 - プリミティブ型（tiny, short, int, long, float, double, char, string, bool）
 - 配列（静的配列、多次元配列）
-- 構造体（ネスト構造体、private メンバー）
+- 構造体（ネスト### 2. **アーキテクチャを理解**
+   - `architecture.md` を読む
+   - インタープリターの内部構造を把握
+
+3. **v0.10.0開発を開始**
+   - `todo/v0.10.0_advanced_pointer_features.md` を確認
+   - 実装計画に従って開発
+
+4. **ドキュメント更新**
+   - 新機能実装時は `spec.md` と `architecture.md` を更新
+   - 実装完了時は `archive/` に完了報告書を作成vate メンバー）
 - ポインタ（基本ポインタ、関数ポインタ、構造体ポインタ）
 - 参照型（`int&`, `Struct&`）
 - Interface/Implシステム
@@ -41,6 +51,20 @@ Cb言語の完全なBNF（Backus-Naur Form）文法定義です。
 - リテラル
 
 **対象読者**: パーサー実装者、言語の文法を正確に理解したい開発者
+
+---
+
+### `architecture.md` ⭐ **アーキテクチャ設計**
+Cbインタープリターの内部設計とアーキテクチャドキュメントです。
+
+**内容**:
+- 全体構造（フロントエンド/バックエンド）
+- レイヤー構造（Core, Evaluator, Executor, Handler, Manager, Service）
+- モジュール分割戦略
+- ビルドシステム
+- テスト構造
+
+**対象読者**: インタープリター開発者、内部実装を理解したい開発者
 
 ---
 
@@ -99,12 +123,15 @@ Cb言語の完全なBNF（Backus-Naur Form）文法定義です。
 
 ```
 docs/
-├── README.md                          # このファイル
+├── README.md                          # このファイル（ドキュメント索引）
 ├── spec.md                            # 言語仕様書（最重要）
 ├── BNF.md                             # BNF文法定義
+├── architecture.md                    # アーキテクチャ設計
 ├── archive/                           # アーカイブドキュメント
-│   ├── README.md                      # アーカイブの説明
-│   └── (24個の古いドキュメント)
+│   ├── phase7_refactoring_complete_report.md  # Phase 7完了報告
+│   ├── interpreter_refactoring_*.md   # リファクタリング記録
+│   ├── phase*.md                      # 各フェーズ実装記録
+│   └── (その他の完了レポート)
 └── todo/                              # 実装計画・設計ドキュメント
     ├── README.md                      # todoフォルダの詳細説明
     ├── v0.10.0_advanced_pointer_features.md  # v0.10.0実装計画（最新）
@@ -224,6 +251,6 @@ docs/
 
 ---
 
-**最終更新**: 2025年10月6日  
-**Cb言語バージョン**: v0.9.0  
+**最終更新**: 2025年10月8日  
+**Cb言語バージョン**: v0.9.2 (Phase 7リファクタリング完了)  
 **管理者**: Cb開発チーム

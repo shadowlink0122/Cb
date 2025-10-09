@@ -15,11 +15,11 @@ class DebugService {
   public:
     // デバッグレベル定義
     enum class Level {
-        TRACE = 0, // 最も詳細
+        TRACE = 0,       // 最も詳細
         DEBUG_LEVEL = 1, // デバッグ情報
-        INFO = 2,  // 一般情報
-        WARN = 3,  // 警告
-        ERROR = 4  // エラーのみ
+        INFO = 2,        // 一般情報
+        WARN = 3,        // 警告
+        ERROR = 4        // エラーのみ
     };
 
     // カテゴリ定義（機能別デバッグ制御）
@@ -146,9 +146,23 @@ class DebugService {
             return format;
         }
 
-        size_t size = std::snprintf(nullptr, 0, format.c_str(), args...) + 1;
+        // format stringの警告を抑制するため、"%s"を使用
+        size_t size = std::snprintf(nullptr, 0, "%s", format.c_str()) + 1;
+        if (sizeof...(args) > 0) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-security"
+            size = std::snprintf(nullptr, 0, format.c_str(), args...) + 1;
+#pragma clang diagnostic pop
+        }
         std::unique_ptr<char[]> buf(new char[size]);
-        std::snprintf(buf.get(), size, format.c_str(), args...);
+        if (sizeof...(args) > 0) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-security"
+            std::snprintf(buf.get(), size, format.c_str(), args...);
+#pragma clang diagnostic pop
+        } else {
+            std::snprintf(buf.get(), size, "%s", format.c_str());
+        }
         return std::string(buf.get(), buf.get() + size - 1);
     }
 };
