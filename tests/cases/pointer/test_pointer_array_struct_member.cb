@@ -103,5 +103,5 @@ void main() {
         println(set1[i]);  // 100, 200, 300
     }
     
-    println("=== All struct member tests passed ===");
+    println("=== All pointer array struct member tests passed ===");
 }

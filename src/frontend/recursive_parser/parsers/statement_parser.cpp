@@ -727,7 +727,7 @@ ASTNode *StatementParser::parseArrayDeclaration(
     node->is_static = isStatic;
     node->is_unsigned = isUnsigned;
     node->is_reference = is_reference;
-    
+
     // ポインタ配列の場合、ポインタフラグを設定
     if (pointer_depth > 0) {
         node->is_pointer = true;

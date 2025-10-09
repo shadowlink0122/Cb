@@ -1143,18 +1143,47 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                             param->name);
                     }
 
-                    // 配列をコピーしてパラメータに設定
-                    interpreter_.assign_array_parameter(
-                        param->name, *source_var, param->type_info);
+                    // 配列は参照として渡される（C/C++と同じ動作）
+                    // 参照変数を作成
+                    Variable array_ref;
+                    array_ref.is_reference = true;
+                    array_ref.is_array = true;
+                    array_ref.is_assigned = true;
+                    // 型情報は元の配列と同じにする（配列型を保持）
+                    array_ref.type = source_var->type;
+
+                    // 元の配列変数へのポインタを保存
+                    array_ref.value = reinterpret_cast<int64_t>(source_var);
+
+                    // 配列情報をコピー（参照として動作するために必要）
+                    array_ref.is_multidimensional =
+                        source_var->is_multidimensional;
+                    array_ref.array_size = source_var->array_size;
+                    array_ref.array_dimensions = source_var->array_dimensions;
+                    array_ref.array_type_info = source_var->array_type_info;
+
+                    // ポインタ配列情報もコピー
+                    array_ref.is_pointer = source_var->is_pointer;
+                    array_ref.pointer_depth = source_var->pointer_depth;
+                    array_ref.pointer_base_type = source_var->pointer_base_type;
+                    array_ref.pointer_base_type_name =
+                        source_var->pointer_base_type_name;
+
+                    // struct配列情報もコピー
+                    array_ref.is_struct = source_var->is_struct;
+                    array_ref.struct_type_name = source_var->struct_type_name;
+
+                    // unsigned情報もコピー
+                    array_ref.is_unsigned = source_var->is_unsigned;
 
                     // const修飾を設定
                     if (param->is_const) {
-                        Variable *param_var =
-                            interpreter_.find_variable(param->name);
-                        if (param_var) {
-                            param_var->is_const = true;
-                        }
+                        array_ref.is_const = true;
                     }
+
+                    // パラメータとして登録
+                    interpreter_.current_scope().variables[param->name] =
+                        array_ref;
                 } else if (arg->node_type == ASTNodeType::AST_ARRAY_LITERAL) {
                     // 配列リテラルとして直接渡された場合
                     debug_msg(

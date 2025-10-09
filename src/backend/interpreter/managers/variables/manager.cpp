@@ -1110,10 +1110,42 @@ void VariableManager::assign_function_parameter(const std::string &name,
 void VariableManager::assign_array_parameter(const std::string &name,
                                              const Variable &source_array,
                                              TypeInfo type) {
-    Variable array_param = source_array;
-    array_param.type = type != TYPE_UNKNOWN ? type : source_array.type;
-    array_param.is_assigned = true;
-    current_scope().variables[name] = array_param;
+    // 配列は参照として渡される（C/C++の動作と同じ）
+    // 元の配列への参照を作成
+    Variable array_ref;
+    array_ref.is_reference = true;
+    array_ref.is_assigned = true;
+    // 型情報は元の配列と同じにする（配列型を保持）
+    array_ref.type = source_array.type;
+
+    // 元の配列変数へのポインタを保存
+    // Note: source_arrayは一時的な参照なので、実際の変数を見つける必要がある
+    // しかし、ここでは呼び出し側が実際の変数を渡すことを期待
+    // 参照実装と同様に、valueフィールドにポインタを格納
+    array_ref.value =
+        reinterpret_cast<int64_t>(const_cast<Variable *>(&source_array));
+
+    // 配列情報をコピー（参照として動作するために必要）
+    array_ref.is_array = source_array.is_array;
+    array_ref.is_multidimensional = source_array.is_multidimensional;
+    array_ref.array_size = source_array.array_size;
+    array_ref.array_dimensions = source_array.array_dimensions;
+    array_ref.array_type_info = source_array.array_type_info;
+
+    // ポインタ配列情報もコピー
+    array_ref.is_pointer = source_array.is_pointer;
+    array_ref.pointer_depth = source_array.pointer_depth;
+    array_ref.pointer_base_type = source_array.pointer_base_type;
+    array_ref.pointer_base_type_name = source_array.pointer_base_type_name;
+
+    // struct配列情報もコピー
+    array_ref.is_struct = source_array.is_struct;
+    array_ref.struct_type_name = source_array.struct_type_name;
+
+    // unsigned情報もコピー
+    array_ref.is_unsigned = source_array.is_unsigned;
+
+    current_scope().variables[name] = array_ref;
 }
 
 void VariableManager::process_var_decl_or_assign(const ASTNode *node) {

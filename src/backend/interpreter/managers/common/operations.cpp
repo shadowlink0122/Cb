@@ -275,6 +275,21 @@ void CommonOperations::assign_array_element_safe(Variable *var, int64_t index,
         throw std::runtime_error("Variable not found: " + var_name);
     }
 
+    // 配列参照の解決（配列が参照として渡された場合）
+    // const修飾を保持しておく
+    bool is_const_ref = var->is_const;
+    if (var->is_reference && var->is_array) {
+        // constチェックは参照の時点で行う必要がある
+        if (is_const_ref && var->is_assigned) {
+            throw std::runtime_error("Cannot assign to const variable: " +
+                                     var_name);
+        }
+        var = reinterpret_cast<Variable *>(var->value);
+        if (!var) {
+            throw std::runtime_error("Invalid array reference: " + var_name);
+        }
+    }
+
     if (!var->is_array) {
         throw std::runtime_error("Variable is not an array: " + var_name);
     }
@@ -299,7 +314,7 @@ void CommonOperations::assign_array_element_safe(Variable *var, int64_t index,
         (var->type >= TYPE_ARRAY_BASE)
             ? static_cast<TypeInfo>(var->type - TYPE_ARRAY_BASE)
             : var->type;
-    
+
     // ポインタ配列の場合は型範囲チェックをスキップ（ポインタ値はアドレスなので範囲チェック不要）
     if (elem_type != TYPE_POINTER && !var->is_pointer) {
         interpreter_->get_type_manager()->check_type_range(
@@ -315,6 +330,21 @@ void CommonOperations::assign_array_element_safe(Variable *var, int64_t index,
                                                  const std::string &var_name) {
     if (!var) {
         throw std::runtime_error("Variable not found: " + var_name);
+    }
+
+    // 配列参照の解決（配列が参照として渡された場合）
+    // const修飾を保持しておく
+    bool is_const_ref = var->is_const;
+    if (var->is_reference && var->is_array) {
+        // constチェックは参照の時点で行う必要がある
+        if (is_const_ref && var->is_assigned) {
+            throw std::runtime_error("Cannot assign to const variable: " +
+                                     var_name);
+        }
+        var = reinterpret_cast<Variable *>(var->value);
+        if (!var) {
+            throw std::runtime_error("Invalid array reference: " + var_name);
+        }
     }
 
     if (!var->is_array) {

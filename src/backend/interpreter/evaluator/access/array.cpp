@@ -248,6 +248,14 @@ int64_t evaluate_array_ref(
         throw std::runtime_error("Undefined array: " + array_name);
     }
 
+    // 配列参照の解決（配列が参照として渡された場合）
+    if (var->is_reference && var->is_array) {
+        var = reinterpret_cast<Variable *>(var->value);
+        if (!var) {
+            throw std::runtime_error("Invalid array reference: " + array_name);
+        }
+    }
+
     // 文字列配列の文字アクセス（例: names[0][0]）
     if (var->is_array && !var->array_strings.empty() && indices.size() == 2) {
         int64_t array_index = indices[0];
