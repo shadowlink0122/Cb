@@ -7,7 +7,7 @@ namespace InterpreterInit {
 
 /**
  * @brief Interpreterの初期化処理
- * 
+ *
  * コンストラクタの実装を含む。
  * 各種マネージャーやサービスの初期化を行う。
  */

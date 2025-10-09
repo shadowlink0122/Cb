@@ -1,11 +1,11 @@
 #include "utility.h"
-#include "interpreter.h"
 #include "../../../common/ast.h"
+#include "core/error_handler.h"
+#include "interpreter.h"
 #include "managers/arrays/manager.h"
 #include "managers/types/manager.h"
 #include "managers/variables/manager.h"
 #include "managers/variables/static.h"
-#include "core/error_handler.h"
 #include <string>
 #include <vector>
 

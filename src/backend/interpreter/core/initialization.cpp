@@ -1,5 +1,4 @@
 #include "initialization.h"
-#include "interpreter.h"
 #include "../../../common/ast.h"
 #include "../../../common/debug.h"
 #include "../../../frontend/recursive_parser/recursive_parser.h"
@@ -15,6 +14,7 @@
 #include "handlers/declarations/interface.h"
 #include "handlers/declarations/struct.h"
 #include "handlers/statements/expression.h"
+#include "interpreter.h"
 #include "managers/arrays/manager.h"
 #include "managers/common/global_init.h"
 #include "managers/common/operations.h"

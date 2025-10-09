@@ -9,17 +9,27 @@
 
 ### 🆕 v0.9.2-devの新機能（開発中）
 
-**Phase 1: インフラ改善**
+**Phase 1: インフラ改善** ✅ **完了**
+- **interpreter.cpp分割**: コードベースの保守性向上
+  - `initialization.cpp` (144行) - 初期化処理
+  - `cleanup.cpp` (36行) - スコープ・一時変数管理
+  - `utility.cpp` (156行) - 横断的ユーティリティ
+  - メインファイル: 1,941行 → 1,722行 (194行削減)
 - **TypeHelpers拡張**: 7つの新しい型ユーティリティ関数
   - `needsExplicitCast()`, `getCommonNumericType()`, `getTypeSize()` など
+  - コード重複58-62%削減（242箇所中140-150箇所を置換）
 - **エラーレポーター**: 詳細なエラーメッセージシステム
   - ソースコード引用（前後の行も表示）
   - カレット記号（^）でエラー位置を明示
-  - "Did you mean?" 提案機能の基盤
+  - "Did you mean?" 提案機能の基盤（Levenshtein距離）
 - **テストカバレッジ向上**: 13個の新規テストケース
   - エラーハンドリング、境界条件、リグレッションテスト
+- **ドキュメント充実**: 3つのチュートリアル（~2,300行）
+  - 基本構文ガイド、サンプルコード集、よくある間違い
 
-詳細: [`docs/todo/v0.9.2_progress_report.md`](docs/todo/v0.9.2_progress_report.md)
+詳細: 
+- [`docs/todo/v0.9.2_progress_report.md`](docs/todo/v0.9.2_progress_report.md)
+- [`docs/architecture/interpreter_structure.md`](docs/architecture/interpreter_structure.md) ✨ **新規**
 
 ### 🔥 v0.9.1の主要機能グラミング言語
 

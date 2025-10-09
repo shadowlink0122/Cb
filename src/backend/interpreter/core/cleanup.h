@@ -7,7 +7,7 @@ namespace InterpreterCleanup {
 
 /**
  * @brief Interpreterのクリーンアップ処理
- * 
+ *
  * デストラクタの実装と、スコープ管理、
  * 一時変数のクリーンアップ機能を含む。
  */

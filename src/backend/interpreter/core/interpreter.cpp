@@ -38,8 +38,8 @@
 #include "services/variable_access_service.h" // DRY効率化: 統一変数アクセスサービス
 
 // 分割されたファイル
-#include "initialization.h"
 #include "cleanup.h"
+#include "initialization.h"
 #include "utility.h"
 
 #include <algorithm>
@@ -963,7 +963,7 @@ void Interpreter::assign_interface_view(const std::string &dest_name,
 // - array_manager_: 基本的な配列操作
 // - array_processing_service_: 統一されたアクセスインターフェース
 // - common_operations_: 安全な配列要素代入
-// 
+//
 // 注意: assign_array_element, assign_string_element には
 // エラーハンドリングと境界チェックのロジックが含まれているため、
 // これらは現時点では interpreter.cpp に残しています
@@ -1120,7 +1120,7 @@ void Interpreter::print_formatted(const ASTNode *format_str,
 // - array_manager_: 基本的な配列操作
 // - array_processing_service_: 統一されたアクセスインターフェース
 // - common_operations_: 安全な配列要素代入
-// 
+//
 // 注意: assign_array_element, assign_string_element には
 // エラーハンドリングと境界チェックのロジックが含まれているため、
 // これらは現時点では interpreter.cpp に残しています
@@ -1453,9 +1453,7 @@ void Interpreter::assign_array_from_return(const std::string &name,
 // 以下のメソッドは薄いラッパーとして機能
 // ========================================================================
 
-
 // Moved to utility.cpp, cleanup.cpp, or initialization.cpp
-
 
 // ========================================================================
 // Struct Operations (managers/structs/へ完全委譲)
@@ -1611,9 +1609,7 @@ void Interpreter::assign_struct_member_array_literal(
 
 // Moved to utility.cpp, cleanup.cpp, or initialization.cpp
 
-
 // Moved to utility.cpp, cleanup.cpp, or initialization.cpp
-
 
 void Interpreter::sync_struct_members_from_direct_access(
     const std::string &var_name) {
@@ -1691,12 +1687,9 @@ TypedValue Interpreter::evaluate_ternary_typed(const ASTNode *node) {
 
 // Moved to utility.cpp, cleanup.cpp, or initialization.cpp
 
-
 // Moved to utility.cpp, cleanup.cpp, or initialization.cpp
 
-
 // Moved to utility.cpp, cleanup.cpp, or initialization.cpp
-
 
 // 型定義検索メソッド
 const ASTNode *

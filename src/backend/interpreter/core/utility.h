@@ -9,7 +9,7 @@ namespace InterpreterUtility {
 
 /**
  * @brief Interpreterのユーティリティ関数
- * 
+ *
  * 型解決、配列操作ヘルパー、変数検索など、
  * 様々な場所で使用される補助関数群。
  */
