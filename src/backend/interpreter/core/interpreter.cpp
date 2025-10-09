@@ -47,26 +47,6 @@
 #include <unordered_set>
 #include <utility>
 
-namespace {
-
-std::string trim_copy(const std::string &text) {
-    auto begin =
-        std::find_if_not(text.begin(), text.end(),
-                         [](unsigned char ch) { return std::isspace(ch); });
-    auto end =
-        std::find_if_not(text.rbegin(), text.rend(), [](unsigned char ch) {
-            return std::isspace(ch);
-        }).base();
-
-    if (begin >= end) {
-        return "";
-    }
-
-    return std::string(begin, end);
-}
-
-} // namespace
-
 // ========================================================================
 // SECTION 0: Core Functions & Infrastructure (~1,000 lines)
 // ========================================================================

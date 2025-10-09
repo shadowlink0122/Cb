@@ -18,27 +18,6 @@
 
 namespace {
 
-bool isPrimitiveType(const Variable *var) {
-    if (!var) {
-        return false;
-    }
-
-    switch (var->type) {
-    case TYPE_BOOL:
-    case TYPE_CHAR:
-    case TYPE_INT:
-    case TYPE_LONG:
-    case TYPE_FLOAT:
-    case TYPE_DOUBLE:
-    case TYPE_STRING:
-        return true;
-    default:
-        break;
-    }
-
-    return false;
-}
-
 std::string getPrimitiveTypeNameForImpl(TypeInfo type) {
     return std::string(type_info_to_string(type));
 }

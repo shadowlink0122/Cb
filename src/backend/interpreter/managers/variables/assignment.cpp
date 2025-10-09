@@ -17,36 +17,8 @@
 
 namespace {
 
-bool isPrimitiveType(const Variable *var) {
-    if (!var) {
-        return false;
-    }
-
-    switch (var->type) {
-    case TYPE_BOOL:
-    case TYPE_CHAR:
-    case TYPE_INT:
-    case TYPE_LONG:
-    case TYPE_FLOAT:
-    case TYPE_DOUBLE:
-    case TYPE_STRING:
-        return true;
-    default:
-        break;
-    }
-
-    return false;
-}
-
 std::string getPrimitiveTypeNameForImpl(TypeInfo type) {
     return std::string(type_info_to_string(type));
-}
-
-void setNumericFields(Variable &var, long double quad_value) {
-    var.quad_value = quad_value;
-    var.double_value = static_cast<double>(quad_value);
-    var.float_value = static_cast<float>(quad_value);
-    var.value = static_cast<int64_t>(quad_value);
 }
 
 } // namespace

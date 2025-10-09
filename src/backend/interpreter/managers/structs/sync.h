@@ -5,7 +5,7 @@
 #include <string>
 
 class Interpreter;
-class Variable;
+struct Variable;
 
 /**
  * @brief 構造体の同期操作を管理するクラス

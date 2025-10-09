@@ -3,6 +3,7 @@
 
 #include "../../../../common/ast.h"
 #include "../../core/type_inference.h"
+#include <optional>
 #include <string>
 #include <vector>
 
