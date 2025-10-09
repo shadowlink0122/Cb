@@ -49,7 +49,7 @@ struct Point {
     int y;
 }
 
-func int main() {
+int main() {
     return 0;
 }
 ```
@@ -66,7 +66,7 @@ struct Point {
     int y;
 };
 
-func int main() {
+int main() {
     return 0;
 }
 ```
@@ -79,7 +79,7 @@ func int main() {
 
 **❌ 間違い**
 ```cb
-func int main() {
+int main() {
     if (true) {
         println("test");
     // 閉じ括弧忘れ
@@ -94,7 +94,7 @@ error: Expected '}' to match '{'
 
 **✅ 正しい**
 ```cb
-func int main() {
+int main() {
     if (true) {
         println("test");
     }
@@ -112,7 +112,7 @@ func int main() {
 
 **❌ 間違い**
 ```cb
-func int main() {
+int main() {
     int x = 42;
     string s = x;  // intをstringに代入できない
     return 0;
@@ -126,7 +126,7 @@ error: Cannot assign 'int' to 'string'
 
 **✅ 正しい**
 ```cb
-func int main() {
+int main() {
     int x = 42;
     string s = "42";  // 文字列リテラルを使用
     return 0;
@@ -139,7 +139,7 @@ func int main() {
 
 **❌ 間違い（警告が出る）**
 ```cb
-func int main() {
+int main() {
     unsigned int x = -10;  // 負値は0にクランプされる
     println(x);  // 0
     return 0;
@@ -153,7 +153,7 @@ warning: Negative value clamped to 0 for unsigned type
 
 **✅ 正しい**
 ```cb
-func int main() {
+int main() {
     unsigned int x = 10;  // 正の値を使用
     println(x);  // 10
     return 0;
@@ -166,7 +166,7 @@ func int main() {
 
 **❌ 間違い**
 ```cb
-func int main() {
+int main() {
     int[5] arr1 = [1, 2, 3, 4, 5];
     int[10] arr2 = arr1;  // サイズが異なる
     return 0;
@@ -180,7 +180,7 @@ error: Array size mismatch: expected 10, got 5
 
 **✅ 正しい**
 ```cb
-func int main() {
+int main() {
     int[5] arr1 = [1, 2, 3, 4, 5];
     int[5] arr2 = arr1;  // 同じサイズ
     return 0;
@@ -195,7 +195,7 @@ func int main() {
 
 **❌ 実行時エラー**
 ```cb
-func int main() {
+int main() {
     int[5] arr = [1, 2, 3, 4, 5];
     int x = arr[10];  // 範囲外
     return 0;
@@ -209,7 +209,7 @@ error: Array index out of bounds: index 10, size 5
 
 **✅ 正しい**
 ```cb
-func int main() {
+int main() {
     int[5] arr = [1, 2, 3, 4, 5];
     int x = arr[4];  // 有効な範囲（0-4）
     return 0;
@@ -224,7 +224,7 @@ func int main() {
 
 **❌ 実行時エラー**
 ```cb
-func int main() {
+int main() {
     int x = 100;
     int y = 0;
     int z = x / y;  // ゼロ除算
@@ -239,7 +239,7 @@ error: Division by zero
 
 **✅ 正しい**
 ```cb
-func int main() {
+int main() {
     int x = 100;
     int y = 0;
     
@@ -260,7 +260,7 @@ func int main() {
 
 **❌ 実行時エラー**
 ```cb
-func int main() {
+int main() {
     int* ptr = nullptr;
     int x = *ptr;  // nullポインタ参照
     return 0;
@@ -274,7 +274,7 @@ error: Null pointer dereference
 
 **✅ 正しい**
 ```cb
-func int main() {
+int main() {
     int* ptr = nullptr;
     
     if (ptr != nullptr) {
@@ -296,7 +296,7 @@ func int main() {
 
 **❌ 危険**
 ```cb
-func int main() {
+int main() {
     int* ptr;  // 未初期化
     *ptr = 42;  // 不定なアドレスへのアクセス
     return 0;
@@ -305,7 +305,7 @@ func int main() {
 
 **✅ 正しい**
 ```cb
-func int main() {
+int main() {
     int value = 0;
     int* ptr = &value;  // 初期化
     *ptr = 42;
@@ -320,12 +320,12 @@ func int main() {
 
 **❌ 危険**
 ```cb
-func int* get_pointer() {
+int* get_pointer() {
     int local = 42;
     return &local;  // ローカル変数のアドレスを返す（危険）
 }
 
-func int main() {
+int main() {
     int* ptr = get_pointer();
     int x = *ptr;  // 不正なメモリアクセス
     return 0;
@@ -334,12 +334,12 @@ func int main() {
 
 **✅ 正しい（代替案1: 値を返す）**
 ```cb
-func int get_value() {
+int get_value() {
     int local = 42;
     return local;  // 値をコピーして返す
 }
 
-func int main() {
+int main() {
     int x = get_value();
     println(x);  // 42
     return 0;
@@ -348,11 +348,11 @@ func int main() {
 
 **✅ 正しい（代替案2: 参照渡し）**
 ```cb
-func void set_value(int& ref) {
+void set_value(int& ref) {
     ref = 42;
 }
 
-func int main() {
+int main() {
     int x = 0;
     set_value(x);
     println(x);  // 42
@@ -366,7 +366,7 @@ func int main() {
 
 **❌ エラー**
 ```cb
-func int main() {
+int main() {
     int value = 42;
     const int* ptr = &value;
     *ptr = 100;  // constポインタ経由の変更は禁止
@@ -381,7 +381,7 @@ error: Cannot modify through const pointer
 
 **✅ 正しい**
 ```cb
-func int main() {
+int main() {
     int value = 42;
     const int* ptr = &value;
     int x = *ptr;  // 読み取りはOK
@@ -400,7 +400,7 @@ func int main() {
 
 **❌ 間違い**
 ```cb
-func int main() {
+int main() {
     int[5] arr = [1, 2, 3];  // 要素数が足りない
     return 0;
 }
@@ -413,7 +413,7 @@ error: Array initializer size mismatch
 
 **✅ 正しい**
 ```cb
-func int main() {
+int main() {
     int[5] arr = [1, 2, 3, 4, 5];  // 正確に5個
     return 0;
 }
@@ -425,7 +425,7 @@ func int main() {
 
 **❌ 間違い**
 ```cb
-func int main() {
+int main() {
     int[2][3] matrix = [1, 2, 3, 4, 5, 6];  // フラットな配列
     return 0;
 }
@@ -433,7 +433,7 @@ func int main() {
 
 **✅ 正しい**
 ```cb
-func int main() {
+int main() {
     int[2][3] matrix = [
         [1, 2, 3],
         [4, 5, 6]
@@ -450,12 +450,12 @@ func int main() {
 
 **❌ 間違い**
 ```cb
-func int get_value() {
+int get_value() {
     int x = 42;
     // returnを忘れた
 }
 
-func int main() {
+int main() {
     int value = get_value();  // 戻り値が不定
     return 0;
 }
@@ -468,12 +468,12 @@ error: Missing return statement in non-void function
 
 **✅ 正しい**
 ```cb
-func int get_value() {
+int get_value() {
     int x = 42;
     return x;
 }
 
-func int main() {
+int main() {
     int value = get_value();
     println(value);  // 42
     return 0;
@@ -486,11 +486,11 @@ func int main() {
 
 **❌ 間違い**
 ```cb
-func void print_int(int x) {
+void print_int(int x) {
     println(x);
 }
 
-func int main() {
+int main() {
     string s = "hello";
     print_int(s);  // stringをintに渡せない
     return 0;
@@ -504,11 +504,11 @@ error: Type mismatch in function call: expected 'int', got 'string'
 
 **✅ 正しい**
 ```cb
-func void print_int(int x) {
+void print_int(int x) {
     println(x);
 }
 
-func int main() {
+int main() {
     int i = 42;
     print_int(i);
     return 0;
@@ -528,7 +528,7 @@ struct Point {
     int y;
 };
 
-func int main() {
+int main() {
     Point p;
     println(p.x);  // 未初期化の値
     return 0;
@@ -542,7 +542,7 @@ struct Point {
     int y;
 };
 
-func int main() {
+int main() {
     Point p;
     p.x = 0;  // 明示的に初期化
     p.y = 0;
@@ -561,7 +561,7 @@ struct Data {
     int[100] values;
 };
 
-func int main() {
+int main() {
     Data d1;
     Data d2 = d1;  // 大きな構造体のコピー（遅い）
     return 0;
@@ -574,12 +574,12 @@ struct Data {
     int[100] values;
 };
 
-func void process_data(Data& d) {
+void process_data(Data& d) {
     // 参照渡しでコピーを避ける
     d.values[0] = 42;
 }
 
-func int main() {
+int main() {
     Data d;
     process_data(d);
     return 0;
@@ -594,7 +594,7 @@ func int main() {
 
 **❌ 非効率**
 ```cb
-func int sum_array(int[1000] arr) {  // 配列全体をコピー
+int sum_array(int[1000] arr) {  // 配列全体をコピー
     int sum = 0;
     for (int i = 0; i < 1000; i++) {
         sum += arr[i];
@@ -605,7 +605,7 @@ func int sum_array(int[1000] arr) {  // 配列全体をコピー
 
 **✅ 効率的**
 ```cb
-func int sum_array(int[1000]& arr) {  // 参照渡し（コピーなし）
+int sum_array(int[1000]& arr) {  // 参照渡し（コピーなし）
     int sum = 0;
     for (int i = 0; i < 1000; i++) {
         sum += arr[i];
@@ -620,14 +620,14 @@ func int sum_array(int[1000]& arr) {  // 参照渡し（コピーなし）
 
 **❌ スタックオーバーフローの危険**
 ```cb
-func int bad_recursion(int n) {
+int bad_recursion(int n) {
     return bad_recursion(n - 1);  // 終了条件がない
 }
 ```
 
 **✅ 正しい**
 ```cb
-func int factorial(int n) {
+int factorial(int n) {
     if (n <= 1) {
         return 1;  // 終了条件
     }
@@ -674,7 +674,7 @@ test.cb:3:13: error: Undefined variable 'unknown_var'
 ### 4. println()でデバッグ
 
 ```cb
-func int main() {
+int main() {
     int x = 10;
     println("Debug: x =", x);  // 変数の値を確認
     

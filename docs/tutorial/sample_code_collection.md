@@ -19,7 +19,7 @@
 ### 最大公約数（GCD）
 
 ```cb
-func int gcd(int a, int b) {
+int gcd(int a, int b) {
     while (b != 0) {
         int temp = b;
         b = a % b;
@@ -28,41 +28,50 @@ func int gcd(int a, int b) {
     return a;
 }
 
-func int main() {
+int main() {
     int result = gcd(48, 18);
     println("GCD(48, 18) =", result);  // 6
     return 0;
 }
 ```
 
-### 素数判定
+### エラトステネスの篩（素数列挙）
 
 ```cb
-func bool is_prime(int n) {
-    if (n <= 1) {
-        return false;
-    }
-    if (n <= 3) {
-        return true;
-    }
-    if (n % 2 == 0 || n % 3 == 0) {
-        return false;
+// エラトステネスの篩で素数を列挙
+void sieve_of_eratosthenes(int n) {
+    bool[101] is_prime;  // n+1個の要素（最大100まで）
+    
+    // 初期化: 全てtrueにする
+    for (int i = 0; i <= n; i++) {
+        is_prime[i] = true;
     }
     
-    for (int i = 5; i * i <= n; i = i + 6) {
-        if (n % i == 0 || n % (i + 2) == 0) {
-            return false;
+    // 0と1は素数ではない
+    is_prime[0] = false;
+    is_prime[1] = false;
+    
+    // エラトステネスの篩
+    for (int i = 2; i * i <= n; i++) {
+        if (is_prime[i]) {
+            // iの倍数を全て素数でないとマーク
+            for (int j = i * i; j <= n; j = j + i) {
+                is_prime[j] = false;
+            }
         }
     }
-    return true;
-}
-
-func int main() {
-    for (int i = 2; i <= 30; i++) {
-        if (is_prime(i)) {
+    
+    // 素数を出力
+    println("Prime numbers up to", n, ":");
+    for (int i = 2; i <= n; i++) {
+        if (is_prime[i]) {
             println(i);
         }
     }
+}
+
+int main() {
+    sieve_of_eratosthenes(100);
     return 0;
 }
 ```
@@ -70,7 +79,7 @@ func int main() {
 ### 累乗計算
 
 ```cb
-func int power(int base, int exp) {
+int power(int base, int exp) {
     int result = 1;
     for (int i = 0; i < exp; i++) {
         result *= base;
@@ -78,7 +87,7 @@ func int power(int base, int exp) {
     return result;
 }
 
-func int main() {
+int main() {
     println("2^10 =", power(2, 10));  // 1024
     println("3^5 =", power(3, 5));    // 243
     return 0;
@@ -92,13 +101,13 @@ func int main() {
 ### 文字列の長さ計算
 
 ```cb
-func int string_length(string str) {
+int string_length(string str) {
     int length = 0;
     // 実際の実装はインタープリター側で処理
     return length;
 }
 
-func int main() {
+int main() {
     string text = "Hello, World!";
     println("Text:", text);
     return 0;
@@ -108,21 +117,21 @@ func int main() {
 ### 大文字・小文字変換（ASCII）
 
 ```cb
-func char to_upper(char c) {
+char to_upper(char c) {
     if (c >= 'a' && c <= 'z') {
         return c - 32;
     }
     return c;
 }
 
-func char to_lower(char c) {
+char to_lower(char c) {
     if (c >= 'A' && c <= 'Z') {
         return c + 32;
     }
     return c;
 }
 
-func int main() {
+int main() {
     char ch = 'a';
     println("Upper:", to_upper(ch));  // A
     
@@ -140,7 +149,7 @@ func int main() {
 ### 配列の合計値
 
 ```cb
-func int array_sum(int[5] arr) {
+int array_sum(int[5] arr) {
     int sum = 0;
     for (int i = 0; i < 5; i++) {
         sum += arr[i];
@@ -148,7 +157,7 @@ func int array_sum(int[5] arr) {
     return sum;
 }
 
-func int main() {
+int main() {
     int[5] numbers = [10, 20, 30, 40, 50];
     int total = array_sum(numbers);
     println("Sum:", total);  // 150
@@ -159,7 +168,7 @@ func int main() {
 ### 配列の最大値・最小値
 
 ```cb
-func int find_max(int[10] arr) {
+int find_max(int[10] arr) {
     int max = arr[0];
     for (int i = 1; i < 10; i++) {
         if (arr[i] > max) {
@@ -169,7 +178,7 @@ func int find_max(int[10] arr) {
     return max;
 }
 
-func int find_min(int[10] arr) {
+int find_min(int[10] arr) {
     int min = arr[0];
     for (int i = 1; i < 10; i++) {
         if (arr[i] < min) {
@@ -179,7 +188,7 @@ func int find_min(int[10] arr) {
     return min;
 }
 
-func int main() {
+int main() {
     int[10] data = [45, 12, 89, 23, 67, 34, 91, 56, 78, 10];
     
     println("Max:", find_max(data));  // 91
@@ -192,7 +201,7 @@ func int main() {
 ### 配列の反転
 
 ```cb
-func void reverse_array(int[5]& arr) {
+void reverse_array(int[5]& arr) {
     int left = 0;
     int right = 4;
     
@@ -205,7 +214,7 @@ func void reverse_array(int[5]& arr) {
     }
 }
 
-func int main() {
+int main() {
     int[5] numbers = [1, 2, 3, 4, 5];
     
     println("Original:");
@@ -233,7 +242,7 @@ func int main() {
 ### バブルソート
 
 ```cb
-func void bubble_sort(int[10]& arr) {
+void bubble_sort(int[10]& arr) {
     for (int i = 0; i < 9; i++) {
         for (int j = 0; j < 9 - i; j++) {
             if (arr[j] > arr[j + 1]) {
@@ -245,7 +254,7 @@ func void bubble_sort(int[10]& arr) {
     }
 }
 
-func int main() {
+int main() {
     int[10] data = [64, 34, 25, 12, 22, 11, 90, 88, 45, 50];
     
     println("Before sort:");
@@ -269,7 +278,7 @@ func int main() {
 ### 二分探索
 
 ```cb
-func int binary_search(int[10] arr, int target) {
+int binary_search(int[10] arr, int target) {
     int left = 0;
     int right = 9;
     
@@ -288,7 +297,7 @@ func int binary_search(int[10] arr, int target) {
     return -1;  // 見つからない
 }
 
-func int main() {
+int main() {
     // ソート済み配列
     int[10] data = [1, 3, 5, 7, 9, 11, 13, 15, 17, 19];
     
@@ -308,7 +317,7 @@ func int main() {
 ### フィボナッチ数列（反復版）
 
 ```cb
-func int fibonacci_iterative(int n) {
+int fibonacci_iterative(int n) {
     if (n <= 1) {
         return n;
     }
@@ -325,7 +334,7 @@ func int fibonacci_iterative(int n) {
     return curr;
 }
 
-func int main() {
+int main() {
     for (int i = 0; i < 15; i++) {
         println("fib(", i, ") =", fibonacci_iterative(i));
     }
@@ -345,26 +354,26 @@ struct Stack {
     int top;
 };
 
-func void stack_init(Stack& s) {
+void stack_init(Stack& s) {
     s.top = -1;
 }
 
-func bool stack_is_empty(Stack& s) {
+bool stack_is_empty(Stack& s) {
     return s.top == -1;
 }
 
-func bool stack_is_full(Stack& s) {
+bool stack_is_full(Stack& s) {
     return s.top == 99;
 }
 
-func void stack_push(Stack& s, int value) {
+void stack_push(Stack& s, int value) {
     if (!stack_is_full(s)) {
         s.top++;
         s.data[s.top] = value;
     }
 }
 
-func int stack_pop(Stack& s) {
+int stack_pop(Stack& s) {
     if (!stack_is_empty(s)) {
         int value = s.data[s.top];
         s.top--;
@@ -373,7 +382,7 @@ func int stack_pop(Stack& s) {
     return -1;
 }
 
-func int main() {
+int main() {
     Stack s;
     stack_init(s);
     
@@ -399,21 +408,21 @@ struct Queue {
     int size;
 };
 
-func void queue_init(Queue& q) {
+void queue_init(Queue& q) {
     q.front = 0;
     q.rear = -1;
     q.size = 0;
 }
 
-func bool queue_is_empty(Queue& q) {
+bool queue_is_empty(Queue& q) {
     return q.size == 0;
 }
 
-func bool queue_is_full(Queue& q) {
+bool queue_is_full(Queue& q) {
     return q.size == 100;
 }
 
-func void queue_enqueue(Queue& q, int value) {
+void queue_enqueue(Queue& q, int value) {
     if (!queue_is_full(q)) {
         q.rear = (q.rear + 1) % 100;
         q.data[q.rear] = value;
@@ -421,7 +430,7 @@ func void queue_enqueue(Queue& q, int value) {
     }
 }
 
-func int queue_dequeue(Queue& q) {
+int queue_dequeue(Queue& q) {
     if (!queue_is_empty(q)) {
         int value = q.data[q.front];
         q.front = (q.front + 1) % 100;
@@ -431,7 +440,7 @@ func int queue_dequeue(Queue& q) {
     return -1;
 }
 
-func int main() {
+int main() {
     Queue q;
     queue_init(q);
     
@@ -454,13 +463,13 @@ func int main() {
 ### スワップ関数
 
 ```cb
-func void swap(int* a, int* b) {
+void swap(int* a, int* b) {
     int temp = *a;
     *a = *b;
     *b = temp;
 }
 
-func int main() {
+int main() {
     int x = 10;
     int y = 20;
     
@@ -475,7 +484,7 @@ func int main() {
 ### ポインタで配列を走査
 
 ```cb
-func int sum_with_pointer(int* ptr, int size) {
+int sum_with_pointer(int* ptr, int size) {
     int sum = 0;
     for (int i = 0; i < size; i++) {
         sum += *(ptr + i);
@@ -483,7 +492,7 @@ func int sum_with_pointer(int* ptr, int size) {
     return sum;
 }
 
-func int main() {
+int main() {
     int[5] arr = [10, 20, 30, 40, 50];
     int* ptr = &arr[0];
     
@@ -497,19 +506,19 @@ func int main() {
 ### コールバック関数
 
 ```cb
-func int apply_operation(int(*operation)(int, int), int a, int b) {
+int apply_operation(int(*operation)(int, int), int a, int b) {
     return operation(a, b);
 }
 
-func int add(int a, int b) {
+int add(int a, int b) {
     return a + b;
 }
 
-func int multiply(int a, int b) {
+int multiply(int a, int b) {
     return a * b;
 }
 
-func int main() {
+int main() {
     int result1 = apply_operation(&add, 10, 20);
     println("Add result:", result1);  // 30
     
@@ -527,7 +536,7 @@ func int main() {
 ### 電卓
 
 ```cb
-func int calculate(char op, int a, int b) {
+int calculate(char op, int a, int b) {
     if (op == '+') {
         return a + b;
     } else if (op == '-') {
@@ -545,7 +554,7 @@ func int calculate(char op, int a, int b) {
     return 0;
 }
 
-func int main() {
+int main() {
     println("10 + 5 =", calculate('+', 10, 5));   // 15
     println("10 - 5 =", calculate('-', 10, 5));   // 5
     println("10 * 5 =", calculate('*', 10, 5));   // 50
@@ -563,7 +572,7 @@ struct Student {
     int[3] scores;  // 3科目の点数
 };
 
-func int calculate_total(Student& s) {
+int calculate_total(Student& s) {
     int total = 0;
     for (int i = 0; i < 3; i++) {
         total += s.scores[i];
@@ -571,12 +580,12 @@ func int calculate_total(Student& s) {
     return total;
 }
 
-func double calculate_average(Student& s) {
+double calculate_average(Student& s) {
     int total = calculate_total(s);
     return total / 3.0;
 }
 
-func int main() {
+int main() {
     Student[3] students;
     
     students[0].name = "Alice";
@@ -608,7 +617,7 @@ func int main() {
 ### タイマー（カウントダウン）
 
 ```cb
-func void countdown(int seconds) {
+void countdown(int seconds) {
     for (int i = seconds; i > 0; i--) {
         println(i);
         // 実際の待機は実装環境による
@@ -616,7 +625,7 @@ func void countdown(int seconds) {
     println("Time's up!");
 }
 
-func int main() {
+int main() {
     countdown(10);
     return 0;
 }

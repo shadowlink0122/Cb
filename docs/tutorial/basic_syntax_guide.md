@@ -22,15 +22,15 @@
 Cbプログラムは、`main`関数から始まります。
 
 ```cb
-func int main() {
+int main() {
     println("Hello, Cb!");
     return 0;
 }
 ```
 
 ### ポイント
-- `func` キーワードで関数を定義
-- `main` 関数は必須
+- `戻り値の型 関数名(引数)` の形式で関数を定義
+- `main` 関数は必須のエントリーポイント
 - `return 0;` で正常終了を示す
 - セミコロン(`;`)で文を終了
 
@@ -41,7 +41,7 @@ func int main() {
 ### 2.1 基本型
 
 ```cb
-func int main() {
+int main() {
     // 整数型
     tiny t = 100;      // 8bit整数 (-128 ~ 127)
     short s = 1000;    // 16bit整数 (-32768 ~ 32767)
@@ -64,7 +64,7 @@ func int main() {
 ### 2.2 unsigned修飾子
 
 ```cb
-func int main() {
+int main() {
     unsigned tiny ut = 255;
     unsigned int ui = 4000000000;
     
@@ -78,7 +78,7 @@ func int main() {
 ### 2.3 const修飾子
 
 ```cb
-func int main() {
+int main() {
     const int MAX = 100;
     // MAX = 200;  // エラー: constは変更できない
     
@@ -97,7 +97,7 @@ func int main() {
 ### 3.1 算術演算子
 
 ```cb
-func int main() {
+int main() {
     int a = 10;
     int b = 3;
     
@@ -114,7 +114,7 @@ func int main() {
 ### 3.2 比較演算子
 
 ```cb
-func int main() {
+int main() {
     int x = 10;
     int y = 20;
     
@@ -132,7 +132,7 @@ func int main() {
 ### 3.3 論理演算子
 
 ```cb
-func int main() {
+int main() {
     bool a = true;
     bool b = false;
     
@@ -147,7 +147,7 @@ func int main() {
 ### 3.4 ビット演算子
 
 ```cb
-func int main() {
+int main() {
     int a = 12;  // 0b1100
     int b = 10;  // 0b1010
     
@@ -165,7 +165,7 @@ func int main() {
 ### 3.5 複合代入演算子
 
 ```cb
-func int main() {
+int main() {
     int x = 10;
     
     x += 5;   // x = x + 5;  → 15
@@ -187,7 +187,7 @@ func int main() {
 ### 3.6 インクリメント・デクリメント
 
 ```cb
-func int main() {
+int main() {
     int x = 10;
     
     // 前置
@@ -205,7 +205,7 @@ func int main() {
 ### 3.7 三項演算子
 
 ```cb
-func int main() {
+int main() {
     int x = 10;
     int y = 20;
     
@@ -223,7 +223,7 @@ func int main() {
 ### 4.1 if文
 
 ```cb
-func int main() {
+int main() {
     int score = 85;
     
     if (score >= 90) {
@@ -243,7 +243,7 @@ func int main() {
 ### 4.2 for文
 
 ```cb
-func int main() {
+int main() {
     // 基本的なforループ
     for (int i = 0; i < 10; i++) {
         println(i);
@@ -263,7 +263,7 @@ func int main() {
 ### 4.3 while文
 
 ```cb
-func int main() {
+int main() {
     int count = 0;
     
     while (count < 5) {
@@ -278,7 +278,7 @@ func int main() {
 ### 4.4 break/continue
 
 ```cb
-func int main() {
+int main() {
     // break: ループを抜ける
     for (int i = 0; i < 10; i++) {
         if (i == 5) {
@@ -306,15 +306,15 @@ func int main() {
 ### 5.1 基本的な関数
 
 ```cb
-func int add(int a, int b) {
+int add(int a, int b) {
     return a + b;
 }
 
-func void greet(string name) {
+void greet(string name) {
     println("Hello,", name, "!");
 }
 
-func int main() {
+int main() {
     int sum = add(10, 20);
     println("Sum:", sum);
     
@@ -327,14 +327,14 @@ func int main() {
 ### 5.2 再帰関数
 
 ```cb
-func int factorial(int n) {
+int factorial(int n) {
     if (n <= 1) {
         return 1;
     }
     return n * factorial(n - 1);
 }
 
-func int main() {
+int main() {
     int result = factorial(5);
     println("5! =", result);  // 120
     return 0;
@@ -344,11 +344,11 @@ func int main() {
 ### 5.3 参照渡し
 
 ```cb
-func void increment(int& ref) {
+void increment(int& ref) {
     ref++;
 }
 
-func int main() {
+int main() {
     int value = 10;
     increment(value);
     println(value);  // 11
@@ -363,7 +363,7 @@ func int main() {
 ### 6.1 1次元配列
 
 ```cb
-func int main() {
+int main() {
     // 宣言と初期化
     int[5] arr = [10, 20, 30, 40, 50];
     
@@ -384,7 +384,7 @@ func int main() {
 ### 6.2 多次元配列
 
 ```cb
-func int main() {
+int main() {
     // 2次元配列
     int[3][3] matrix = [
         [1, 2, 3],
@@ -410,7 +410,7 @@ func int main() {
 ### 6.3 配列とポインタ
 
 ```cb
-func int main() {
+int main() {
     int[5] arr = [1, 2, 3, 4, 5];
     int* ptr = &arr[0];
     
@@ -435,7 +435,7 @@ struct Point {
     int y;
 };
 
-func int main() {
+int main() {
     Point p;
     p.x = 10;
     p.y = 20;
@@ -460,7 +460,7 @@ struct Person {
     Address addr;
 };
 
-func int main() {
+int main() {
     Person person;
     person.name = "Alice";
     person.age = 30;
@@ -481,7 +481,7 @@ struct Point {
     int y;
 };
 
-func int main() {
+int main() {
     Point[3] points;
     
     points[0].x = 0;
@@ -506,7 +506,7 @@ func int main() {
 ### 8.1 基本的なポインタ
 
 ```cb
-func int main() {
+int main() {
     int value = 42;
     int* ptr = &value;  // アドレス取得
     
@@ -524,7 +524,7 @@ func int main() {
 ### 8.2 ポインタ演算
 
 ```cb
-func int main() {
+int main() {
     int[5] arr = [10, 20, 30, 40, 50];
     int* ptr = &arr[0];
     
@@ -546,7 +546,7 @@ struct Point {
     int y;
 };
 
-func int main() {
+int main() {
     Point p;
     p.x = 10;
     p.y = 20;
@@ -568,15 +568,15 @@ func int main() {
 ### 8.4 関数ポインタ
 
 ```cb
-func int add(int a, int b) {
+int add(int a, int b) {
     return a + b;
 }
 
-func int multiply(int a, int b) {
+int multiply(int a, int b) {
     return a * b;
 }
 
-func int main() {
+int main() {
     // 関数ポインタの宣言
     int(*op)(int, int) = &add;
     
@@ -614,7 +614,7 @@ impl Printable for Message {
     }
 };
 
-func int main() {
+int main() {
     Message msg;
     msg.text = "Hello";
     msg.print();  // Message: Hello
@@ -651,7 +651,7 @@ impl Shape for Circle {
     }
 };
 
-func int main() {
+int main() {
     Rectangle rect;
     rect.width = 10;
     rect.height = 5;
@@ -735,13 +735,13 @@ println(x);  // 0
 
 ```cb
 // ❌ 戻り値がない
-func int getValue() {
+int getValue() {
     int x = 42;
     // return忘れ
 }
 
 // ✅ 正しい
-func int getValue() {
+int getValue() {
     int x = 42;
     return x;
 }
