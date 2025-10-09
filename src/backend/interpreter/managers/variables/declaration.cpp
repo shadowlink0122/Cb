@@ -305,8 +305,9 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
                                   << std::endl;
                     }
 
-                    // 型範囲チェック（ポインタ型は除外）
-                    if (var.type != TYPE_STRING && var.type != TYPE_POINTER) {
+                    // 型範囲チェック（ポインタ型・ポインタ配列は除外）
+                    if (var.type != TYPE_STRING && var.type != TYPE_POINTER &&
+                        !(var.is_pointer && var.is_array)) {
                         interpreter_->type_manager_->check_type_range(
                             var.type, var.value, node->name, var.is_unsigned);
                     }
@@ -371,8 +372,10 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
                         var.value = numeric_value;
                         var.is_assigned = true;
 
-                        // 型範囲チェック
-                        if (var.type != TYPE_STRING) {
+                        // 型範囲チェック（ポインタ型・ポインタ配列は除外）
+                        if (var.type != TYPE_STRING &&
+                            var.type != TYPE_POINTER &&
+                            !(var.is_pointer && var.is_array)) {
                             interpreter_->type_manager_->check_type_range(
                                 var.type, var.value, node->name,
                                 var.is_unsigned);
@@ -1441,8 +1444,9 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
                 var.is_assigned = true;
             }
 
-            // 型範囲チェック
-            if (var.type != TYPE_STRING) {
+            // 型範囲チェック（ポインタ型・ポインタ配列は除外）
+            if (var.type != TYPE_STRING && var.type != TYPE_POINTER &&
+                !(var.is_pointer && var.is_array)) {
                 interpreter_->type_manager_->check_type_range(
                     var.type, var.value, node->name, var.is_unsigned);
             }

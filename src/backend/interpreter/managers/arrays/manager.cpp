@@ -247,6 +247,14 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
     var.is_assigned = false;
     var.is_unsigned = node->is_unsigned;
 
+    // ポインタ配列の特別処理
+    if (node->is_pointer) {
+        var.is_pointer = true;
+        var.pointer_depth = node->pointer_depth;
+        var.pointer_base_type = node->pointer_base_type;
+        var.pointer_base_type_name = node->pointer_base_type_name;
+    }
+
     // 多次元配列かどうかチェック
     if (node->array_dimensions.size() > 1) {
         debug_msg(DebugMsgId::MULTIDIM_ARRAY_PROCESSING);

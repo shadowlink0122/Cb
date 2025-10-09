@@ -338,6 +338,38 @@ Token RecursiveLexer::makeChar() {
 
     char c = advance();
 
+    // Handle escape sequences
+    if (c == '\\' && !isAtEnd()) {
+        char next = advance();
+        switch (next) {
+        case 'n':
+            c = '\n';
+            break;
+        case 't':
+            c = '\t';
+            break;
+        case 'r':
+            c = '\r';
+            break;
+        case '0':
+            c = '\0';
+            break;
+        case '\\':
+            c = '\\';
+            break;
+        case '\'':
+            c = '\'';
+            break;
+        case '"':
+            c = '"';
+            break;
+        default:
+            // Invalid escape sequence, keep backslash and character
+            return makeToken(TokenType::TOK_ERROR,
+                             "Invalid escape sequence in character literal");
+        }
+    }
+
     if (peek() != '\'') {
         return makeToken(TokenType::TOK_ERROR, "Unterminated character");
     }
@@ -386,6 +418,7 @@ TokenType RecursiveLexer::getKeywordType(const std::string &text) {
         {"new", TokenType::TOK_NEW},
         {"delete", TokenType::TOK_DELETE},
         {"nullptr", TokenType::TOK_NULLPTR},
+        {"null", TokenType::TOK_NULL},
         {"unsigned", TokenType::TOK_UNSIGNED},
         {"assert", TokenType::TOK_ASSERT}};
 

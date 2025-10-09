@@ -49,5 +49,17 @@ inline void test_integration_string() {
         }, execution_time_func);
     integration_test_passed_with_time("string func test", "func.cb", execution_time_func);
     
+    // Phase 2 Week 1: Test strlen spec implementation (with timing)
+    double execution_time_strlen_spec;
+    run_cb_test_with_output_and_time("../../tests/cases/string/test_strlen_spec.cb", 
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "test_strlen_spec.cb should execute successfully");
+            INTEGRATION_ASSERT_CONTAINS(output, "=== Test 1: strlen from spec.md ===", "Expected Test 1 header in output");
+            INTEGRATION_ASSERT_CONTAINS(output, "=== Test 2: Various string lengths ===", "Expected Test 2 header in output");
+            INTEGRATION_ASSERT_CONTAINS(output, "=== Test 3: Direct null terminator access ===", "Expected Test 3 header in output");
+            INTEGRATION_ASSERT_CONTAINS(output, "=== strlen spec test completed ===", "Expected completion message in output");
+        }, execution_time_strlen_spec);
+    integration_test_passed_with_time("string strlen spec test", "test_strlen_spec.cb", execution_time_strlen_spec);
+    
     std::cout << "[integration-test] String tests completed" << std::endl;
 }

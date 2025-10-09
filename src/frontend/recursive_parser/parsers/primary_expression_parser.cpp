@@ -115,7 +115,8 @@ ASTNode *PrimaryExpressionParser::parsePrimary() {
         return node;
     }
 
-    if (parser_->check(TokenType::TOK_NULLPTR)) {
+    if (parser_->check(TokenType::TOK_NULLPTR) ||
+        parser_->check(TokenType::TOK_NULL)) {
         Token token = parser_->advance();
         ASTNode *node = new ASTNode(ASTNodeType::AST_NULLPTR);
         parser_->setLocation(node, token.line, token.column);

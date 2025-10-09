@@ -1725,6 +1725,351 @@ inline void test_function_pointer_address_print() {
 }
 
 // ============================================================================
+// Phase 2 Week 1 新規テスト: ポインタ配列ループ代入
+// ============================================================================
+
+inline void test_pointer_array_loop_assign() {
+    double execution_time = 0.0;
+    run_cb_test_with_output_and_time(
+        "../../tests/cases/pointer/test_pointer_array_loop_assign.cb",
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "ポインタ配列ループ代入テストがエラー終了");
+            
+            INTEGRATION_ASSERT(output.find("=== Test 1: Loop assignment to pointer array ===") != std::string::npos,
+                             "Test 1のヘッダーが出力されていない");
+            INTEGRATION_ASSERT(output.find("10") != std::string::npos &&
+                             output.find("20") != std::string::npos &&
+                             output.find("100") != std::string::npos,
+                             "ポインタ配列経由のアクセスが正しくない");
+            
+            INTEGRATION_ASSERT(output.find("=== Test 2: Modify through loop-assigned pointers ===") != std::string::npos,
+                             "Test 2のヘッダーが出力されていない");
+            INTEGRATION_ASSERT(output.find("15") != std::string::npos &&
+                             output.find("25") != std::string::npos &&
+                             output.find("105") != std::string::npos,
+                             "ポインタ経由の変更が反映されていない");
+            
+            INTEGRATION_ASSERT(output.find("=== Test 3: Reverse pointer array using loop ===") != std::string::npos,
+                             "Test 3のヘッダーが出力されていない");
+            
+            INTEGRATION_ASSERT(output.find("=== Test 4: Conditional pointer assignment ===") != std::string::npos,
+                             "Test 4のヘッダーが出力されていない");
+            
+            INTEGRATION_ASSERT(output.find("=== All loop assignment tests passed ===") != std::string::npos,
+                             "最終メッセージが表示されていない");
+        },
+        execution_time
+    );
+    
+    printf("[integration-test] test_pointer_array_loop_assign passed (%.3fms)\n", execution_time);
+}
+
+// ============================================================================
+// Phase 2 Week 1 新規テスト: ポインタ配列関数引数
+// ============================================================================
+
+inline void test_pointer_array_function_arg() {
+    double execution_time = 0.0;
+    run_cb_test_with_output_and_time(
+        "../../tests/cases/pointer/test_pointer_array_function_arg.cb",
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "ポインタ配列関数引数テストがエラー終了");
+            
+            INTEGRATION_ASSERT(output.find("=== All pointer array function argument tests passed ===") != std::string::npos,
+                             "最終メッセージが表示されていない");
+        },
+        execution_time
+    );
+    
+    printf("[integration-test] test_pointer_array_function_arg passed (%.3fms)\n", execution_time);
+}
+
+// ============================================================================
+// Phase 2 Week 1 新規テスト: ポインタ配列構造体メンバ
+// ============================================================================
+
+inline void test_pointer_array_struct_member() {
+    double execution_time = 0.0;
+    run_cb_test_with_output_and_time(
+        "../../tests/cases/pointer/test_pointer_array_struct_member.cb",
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "ポインタ配列構造体メンバテストがエラー終了");
+            
+            INTEGRATION_ASSERT(output.find("=== All pointer array struct member tests passed ===") != std::string::npos,
+                             "最終メッセージが表示されていない");
+        },
+        execution_time
+    );
+    
+    printf("[integration-test] test_pointer_array_struct_member passed (%.3fms)\n", execution_time);
+}
+
+// ============================================================================
+// Phase 2 Week 1 新規テスト: ポインタ配列関数戻り値
+// ============================================================================
+
+inline void test_pointer_array_function_return() {
+    double execution_time = 0.0;
+    run_cb_test_with_output_and_time(
+        "../../tests/cases/pointer/test_pointer_array_function_return.cb",
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "ポインタ配列関数戻り値テストがエラー終了");
+            
+            INTEGRATION_ASSERT(output.find("=== All pointer array function return tests passed ===") != std::string::npos,
+                             "最終メッセージが表示されていない");
+        },
+        execution_time
+    );
+    
+    printf("[integration-test] test_pointer_array_function_return passed (%.3fms)\n", execution_time);
+}
+
+// ============================================================================
+// Phase 2 Week 1 新規テスト: ポインタ配列エッジケース
+// ============================================================================
+
+inline void test_pointer_array_edge_cases() {
+    double execution_time = 0.0;
+    run_cb_test_with_output_and_time(
+        "../../tests/cases/pointer/test_pointer_array_edge_cases.cb",
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "ポインタ配列エッジケーステストがエラー終了");
+            
+            INTEGRATION_ASSERT(output.find("=== All pointer array edge case tests passed ===") != std::string::npos,
+                             "最終メッセージが表示されていない");
+        },
+        execution_time
+    );
+    
+    printf("[integration-test] test_pointer_array_edge_cases passed (%.3fms)\n", execution_time);
+}
+
+// ============================================================================
+// Phase 2 Week 1 新規テスト: ポインタ配列ネスト
+// ============================================================================
+
+inline void test_pointer_array_nested() {
+    double execution_time = 0.0;
+    run_cb_test_with_output_and_time(
+        "../../tests/cases/pointer/test_pointer_array_nested.cb",
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "ポインタ配列ネストテストがエラー終了");
+            
+            INTEGRATION_ASSERT(output.find("=== All nested pointer array tests passed ===") != std::string::npos,
+                             "最終メッセージが表示されていない");
+        },
+        execution_time
+    );
+    
+    printf("[integration-test] test_pointer_array_nested passed (%.3fms)\n", execution_time);
+}
+
+// ============================================================================
+// Phase 2 Week 1 新規テスト: float型ポインタ基本
+// ============================================================================
+
+inline void test_float_pointer_basic() {
+    double execution_time = 0.0;
+    run_cb_test_with_output_and_time(
+        "../../tests/cases/pointer/test_float_pointer_basic.cb",
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "float型ポインタ基本テストがエラー終了");
+            
+            INTEGRATION_ASSERT(output.find("=== Test 1: Basic float pointer ===") != std::string::npos,
+                             "Test 1のヘッダーが出力されていない");
+            INTEGRATION_ASSERT(output.find("2.71") != std::string::npos,
+                             "float型ポインタ経由の変更が正しくない");
+            
+            INTEGRATION_ASSERT(output.find("=== All float pointer tests passed ===") != std::string::npos,
+                             "最終メッセージが表示されていない");
+        },
+        execution_time
+    );
+    
+    printf("[integration-test] test_float_pointer_basic passed (%.3fms)\n", execution_time);
+}
+
+// ============================================================================
+// Phase 2 Week 1 新規テスト: double型ポインタ基本
+// ============================================================================
+
+inline void test_double_pointer_basic() {
+    double execution_time = 0.0;
+    run_cb_test_with_output_and_time(
+        "../../tests/cases/pointer/test_double_pointer_basic.cb",
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "double型ポインタ基本テストがエラー終了");
+            
+            INTEGRATION_ASSERT(output.find("=== All double pointer tests passed ===") != std::string::npos,
+                             "最終メッセージが表示されていない");
+        },
+        execution_time
+    );
+    
+    printf("[integration-test] test_double_pointer_basic passed (%.3fms)\n", execution_time);
+}
+
+// ============================================================================
+// Phase 2 Week 1 新規テスト: float/double型ポインタ関数
+// ============================================================================
+
+inline void test_float_double_pointer_function() {
+    double execution_time = 0.0;
+    run_cb_test_with_output_and_time(
+        "../../tests/cases/pointer/test_float_double_pointer_function.cb",
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "float/double型ポインタ関数テストがエラー終了");
+            
+            INTEGRATION_ASSERT(output.find("=== All float/double pointer function tests passed ===") != std::string::npos,
+                             "最終メッセージが表示されていない");
+        },
+        execution_time
+    );
+    
+    printf("[integration-test] test_float_double_pointer_function passed (%.3fms)\n", execution_time);
+}
+
+// ============================================================================
+// Phase 2 Week 1 新規テスト: float/double型混合
+// ============================================================================
+
+inline void test_float_double_mixed() {
+    double execution_time = 0.0;
+    run_cb_test_with_output_and_time(
+        "../../tests/cases/pointer/test_float_double_mixed.cb",
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "float/double型混合テストがエラー終了");
+            
+            INTEGRATION_ASSERT(output.find("=== All float/double mixed tests passed ===") != std::string::npos,
+                             "最終メッセージが表示されていない");
+        },
+        execution_time
+    );
+    
+    printf("[integration-test] test_float_double_mixed passed (%.3fms)\n", execution_time);
+}
+
+// ============================================================================
+// Phase 2 Week 1 新規テスト: enum型ポインタ基本
+// ============================================================================
+
+inline void test_enum_pointer_basic() {
+    double execution_time = 0.0;
+    run_cb_test_with_output_and_time(
+        "../../tests/cases/pointer/test_enum_pointer_basic.cb",
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "enum型ポインタ基本テストがエラー終了");
+            
+            INTEGRATION_ASSERT(output.find("=== All enum pointer tests passed ===") != std::string::npos,
+                             "最終メッセージが表示されていない");
+        },
+        execution_time
+    );
+    
+    printf("[integration-test] test_enum_pointer_basic passed (%.3fms)\n", execution_time);
+}
+
+// ============================================================================
+// Phase 2 Week 1 新規テスト: enum型ポインタ関数
+// ============================================================================
+
+inline void test_enum_pointer_function() {
+    double execution_time = 0.0;
+    run_cb_test_with_output_and_time(
+        "../../tests/cases/pointer/test_enum_pointer_function.cb",
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "enum型ポインタ関数テストがエラー終了");
+            
+            INTEGRATION_ASSERT(output.find("=== All enum pointer function tests passed ===") != std::string::npos,
+                             "最終メッセージが表示されていない");
+        },
+        execution_time
+    );
+    
+    printf("[integration-test] test_enum_pointer_function passed (%.3fms)\n", execution_time);
+}
+
+// ============================================================================
+// Phase 2 Week 1 新規テスト: 深いネスト構造体
+// ============================================================================
+
+inline void test_deep_nested_struct() {
+    double execution_time = 0.0;
+    run_cb_test_with_output_and_time(
+        "../../tests/cases/pointer/test_deep_nested_struct.cb",
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "深いネスト構造体テストがエラー終了");
+            
+            INTEGRATION_ASSERT(output.find("=== All deep nested struct tests passed ===") != std::string::npos,
+                             "最終メッセージが表示されていない");
+        },
+        execution_time
+    );
+    
+    printf("[integration-test] test_deep_nested_struct passed (%.3fms)\n", execution_time);
+}
+
+// ============================================================================
+// Phase 2 Week 1 新規テスト: 深いネスト配列
+// ============================================================================
+
+inline void test_deep_nested_array() {
+    double execution_time = 0.0;
+    run_cb_test_with_output_and_time(
+        "../../tests/cases/pointer/test_deep_nested_array.cb",
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "深いネスト配列テストがエラー終了");
+            
+            INTEGRATION_ASSERT(output.find("=== All deep nested array tests passed ===") != std::string::npos,
+                             "最終メッセージが表示されていない");
+        },
+        execution_time
+    );
+    
+    printf("[integration-test] test_deep_nested_array passed (%.3fms)\n", execution_time);
+}
+
+// ============================================================================
+// Phase 2 Week 1 新規テスト: implポインタ基本
+// ============================================================================
+
+inline void test_impl_pointer_basic_phase2() {
+    double execution_time = 0.0;
+    run_cb_test_with_output_and_time(
+        "../../tests/cases/pointer/test_impl_pointer_basic.cb",
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "implポインタ基本テストがエラー終了");
+            
+            INTEGRATION_ASSERT(output.find("=== All impl pointer basic tests passed ===") != std::string::npos,
+                             "最終メッセージが表示されていない");
+        },
+        execution_time
+    );
+    
+    printf("[integration-test] test_impl_pointer_basic_phase2 passed (%.3fms)\n", execution_time);
+}
+
+// ============================================================================
+// Phase 2 Week 1 新規テスト: implポインタ関数
+// ============================================================================
+
+inline void test_impl_pointer_function() {
+    double execution_time = 0.0;
+    run_cb_test_with_output_and_time(
+        "../../tests/cases/pointer/test_impl_pointer_function.cb",
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "implポインタ関数テストがエラー終了");
+            
+            INTEGRATION_ASSERT(output.find("=== All impl pointer function tests passed ===") != std::string::npos,
+                             "最終メッセージが表示されていない");
+        },
+        execution_time
+    );
+    
+    printf("[integration-test] test_impl_pointer_function passed (%.3fms)\n", execution_time);
+}
+
+// ============================================================================
 // 全てのポインタテストを実行
 // ============================================================================
 
@@ -1767,6 +2112,24 @@ inline void run_all_pointer_tests() {
     test_function_pointer_return();    // 関数ポインタを戻り値として返す・チェーン呼び出し
     test_function_pointer_address_comparison();  // 関数ポインタアドレス比較
     test_function_pointer_address_print();  // 関数ポインタアドレス表示
+    
+    // Phase 2 Week 1 新規テスト
+    test_pointer_array_loop_assign();  // ポインタ配列ループ代入
+    test_pointer_array_function_arg();  // ポインタ配列関数引数
+    test_pointer_array_struct_member();  // ポインタ配列構造体メンバ
+    test_pointer_array_function_return();  // ポインタ配列関数戻り値
+    test_pointer_array_edge_cases();  // ポインタ配列エッジケース
+    test_pointer_array_nested();  // ポインタ配列ネスト
+    test_float_pointer_basic();  // float型ポインタ基本
+    test_double_pointer_basic();  // double型ポインタ基本
+    test_float_double_pointer_function();  // float/double型ポインタ関数
+    test_float_double_mixed();  // float/double型混合
+    test_enum_pointer_basic();  // enum型ポインタ基本
+    test_enum_pointer_function();  // enum型ポインタ関数
+    test_deep_nested_struct();  // 深いネスト構造体
+    test_deep_nested_array();  // 深いネスト配列
+    test_impl_pointer_basic_phase2();  // implポインタ基本
+    test_impl_pointer_function();  // implポインタ関数
     
     printf("=== All Pointer Tests Passed ===\n\n");
 }

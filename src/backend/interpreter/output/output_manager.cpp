@@ -756,6 +756,10 @@ std::string OutputManager::process_escape_sequences(const std::string &input) {
                 result += '\r';
                 i++;
                 break;
+            case '0':
+                result += '\0';
+                i++;
+                break;
             case '\\':
                 result += '\\';
                 i++;
