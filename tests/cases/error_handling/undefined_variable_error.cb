@@ -1,0 +1,8 @@
+// Test: Undefined variable error reporting
+// Expected: Error with enhanced message showing source context
+
+func int main() {
+    int x = 10;
+    int y = undefined_var;  // Should show error with source context
+    return 0;
+}
