@@ -1,0 +1,71 @@
+// 多次元配列要素へのポインタテスト
+
+// Test 1: 2D配列要素へのポインタ
+void test_2d_array_pointer() {
+    println("=== Test 1: 2D array element pointer ===");
+    int[2][3] matrix = [[1, 2, 3], [4, 5, 6]];
+    
+    int* ptr1 = &matrix[0][0];
+    println(*ptr1);  // 1
+    
+    int* ptr2 = &matrix[0][1];
+    println(*ptr2);  // 2
+    
+    int* ptr3 = &matrix[1][0];
+    println(*ptr3);  // 4
+    
+    int* ptr4 = &matrix[1][2];
+    println(*ptr4);  // 6
+}
+
+// Test 2: ポインタ演算
+void test_pointer_arithmetic() {
+    println("=== Test 2: Pointer arithmetic ===");
+    int[2][3] matrix = [[10, 20, 30], [40, 50, 60]];
+    
+    int* ptr = &matrix[0][0];
+    println(*ptr);       // 10
+    println(*(ptr + 1)); // 20
+    println(*(ptr + 2)); // 30
+    println(*(ptr + 3)); // 40
+    println(*(ptr + 4)); // 50
+    println(*(ptr + 5)); // 60
+}
+
+// Test 3: ポインタ経由の書き込み
+void test_pointer_write() {
+    println("=== Test 3: Pointer write ===");
+    int[2][2] arr = [[1, 2], [3, 4]];
+    
+    int* ptr = &arr[0][0];
+    *ptr = 100;
+    println(arr[0][0]);  // 100
+    
+    ptr = &arr[1][1];
+    *ptr = 200;
+    println(arr[1][1]);  // 200
+}
+
+// Test 4: 3D配列へのポインタ
+void test_3d_array_pointer() {
+    println("=== Test 4: 3D array pointer ===");
+    int[2][2][2] cube = [[[1, 2], [3, 4]], [[5, 6], [7, 8]]];
+    
+    int* ptr1 = &cube[0][0][0];
+    println(*ptr1);  // 1
+    
+    int* ptr2 = &cube[1][1][1];
+    println(*ptr2);  // 8
+    
+    // ポインタ演算
+    int* ptr = &cube[0][0][0];
+    println(*(ptr + 7));  // 8
+}
+
+void main() {
+    test_2d_array_pointer();
+    test_pointer_arithmetic();
+    test_pointer_write();
+    test_3d_array_pointer();
+    println("=== All multidim array pointer tests passed ===");
+}

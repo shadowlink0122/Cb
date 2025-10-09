@@ -2,6 +2,7 @@
 #include "../../../../common/debug.h"
 #include "../../managers/types/enums.h"
 #include "../../managers/types/manager.h"
+#include <functional>
 #include <stdexcept>
 
 namespace SpecialAccessHelpers {

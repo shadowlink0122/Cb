@@ -41,13 +41,6 @@ std::string getPrimitiveTypeNameForImpl(TypeInfo type) {
     return std::string(type_info_to_string(type));
 }
 
-void setNumericFields(Variable &var, long double quad_value) {
-    var.quad_value = quad_value;
-    var.double_value = static_cast<double>(quad_value);
-    var.float_value = static_cast<float>(quad_value);
-    var.value = static_cast<int64_t>(quad_value);
-}
-
 } // namespace
 
 void VariableManager::clamp_unsigned_value(Variable &target, int64_t &value,

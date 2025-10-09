@@ -6,6 +6,7 @@
 #include "../../core/pointer_metadata.h"
 #include "../../managers/variables/manager.h"
 #include "../statement_executor.h"
+#include "const_check_helpers.h"
 
 namespace AssignmentHandlers {
 
@@ -93,6 +94,11 @@ void execute_assignment(StatementExecutor *executor, Interpreter &interpreter,
         if (ptr_value == 0) {
             throw std::runtime_error("Null pointer dereference in assignment");
         }
+
+        // constポインタへの間接代入チェック (*ptr = value で、ptrが const T*
+        // の場合)
+        AssignmentHelpers::check_const_pointer_modification(
+            interpreter, node->left->left.get());
 
         // 右辺を評価
         int64_t value = interpreter.evaluate(node->right.get());
@@ -581,6 +587,10 @@ void execute_assignment(StatementExecutor *executor, Interpreter &interpreter,
 
         Variable *target_var = interpreter.find_variable(target_name);
 
+        // constポインタ自体への代入チェック (T* const ptr の場合、ptr = ...
+        // は不可)
+        AssignmentHelpers::check_const_pointer_reassignment(target_var);
+
         // Interface型変数（ポインタを除く）への代入処理
         if (target_var &&
             (target_var->type == TYPE_INTERFACE ||
@@ -771,6 +781,56 @@ void execute_assignment(StatementExecutor *executor, Interpreter &interpreter,
                 }
             }
         } else {
+            // const安全性チェック:
+            // const変数のアドレスを非constポインタに代入しようとしていないか確認
+            if (node->right->node_type == ASTNodeType::AST_UNARY_OP &&
+                node->right->op == "ADDRESS_OF" && node->right->left &&
+                node->right->left->node_type == ASTNodeType::AST_VARIABLE) {
+                Variable *target_var =
+                    interpreter.find_variable(node->right->left->name);
+                Variable *ptr_var = interpreter.find_variable(target_name);
+
+                // ケース1: const変数のアドレスを非constポインタに代入
+                if (target_var && target_var->is_const && ptr_var &&
+                    ptr_var->type == TYPE_POINTER &&
+                    !ptr_var->is_pointee_const) {
+                    throw std::runtime_error(
+                        "Cannot assign address of const variable '" +
+                        node->right->left->name + "' to non-const pointer '" +
+                        target_name + "'. Use 'const " +
+                        type_info_to_string(ptr_var->pointer_base_type) +
+                        "*' instead of '" +
+                        type_info_to_string(ptr_var->pointer_base_type) + "*'");
+                }
+
+                // ケース2: const pointer (const T*) のアドレスを非const double
+                // pointer (T**) に代入
+                if (target_var && target_var->type == TYPE_POINTER &&
+                    target_var->is_pointee_const && ptr_var &&
+                    ptr_var->type == TYPE_POINTER &&
+                    ptr_var->pointer_depth >= 2 && !ptr_var->is_pointee_const) {
+                    throw std::runtime_error(
+                        "Cannot assign address of pointer to const (const T*) "
+                        "'" +
+                        node->right->left->name +
+                        "' to non-const double pointer '" + target_name +
+                        "'. The pointee should be 'const T**', not 'T**'");
+                }
+
+                // ケース3: const pointer (T* const)
+                // のアドレスを取得する場合も同様
+                if (target_var && target_var->type == TYPE_POINTER &&
+                    target_var->is_pointer_const && ptr_var &&
+                    ptr_var->type == TYPE_POINTER &&
+                    ptr_var->pointer_depth >= 2 && !ptr_var->is_pointee_const) {
+                    throw std::runtime_error(
+                        "Cannot assign address of const pointer (T* const) '" +
+                        node->right->left->name +
+                        "' to non-const double pointer '" + target_name +
+                        "'. Use 'const' qualifier appropriately");
+                }
+            }
+
             TypedValue typed_value =
                 interpreter.evaluate_typed_expression(node->right.get());
             // ポインタ型の場合はTYPE_POINTERをヒントとして渡す

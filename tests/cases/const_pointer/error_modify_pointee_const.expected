@@ -1,0 +1,2 @@
+=== Test: Cannot modify through pointer to const ===
+Error: Cannot modify value through pointer to const (const T*)

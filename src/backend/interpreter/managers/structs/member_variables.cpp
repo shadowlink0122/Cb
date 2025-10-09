@@ -99,7 +99,8 @@ void StructVariableManager::create_struct_member_variables_recursively(
         parent_var.struct_members[member_def.name] = member_var;
 
         // 構造体メンバの場合
-        if (TypeHelpers::isStruct(member_def.type) && !member_def.type_alias.empty()) {
+        if (TypeHelpers::isStruct(member_def.type) &&
+            !member_def.type_alias.empty()) {
             member_var.is_struct = true;
             member_var.struct_type_name = member_def.type_alias;
 

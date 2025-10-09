@@ -4,9 +4,9 @@
 // #include "services/expression_service.h" // DRY効率化:
 // 循環依存解決まで一時コメントアウト
 #include "../../../common/debug.h"
-#include "../../../common/type_helpers.h"
 #include "../../../common/debug_messages.h"
 #include "../../../common/io_interface.h"
+#include "../../../common/type_helpers.h"
 #include "../../../common/utf8_utils.h"
 #include <algorithm>
 #include <cctype>

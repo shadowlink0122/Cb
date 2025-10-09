@@ -1,10 +1,11 @@
 #include "variable_declaration.h"
-#include "../statement_executor.h"
 #include "../../../../common/type_helpers.h"
+#include "../statement_executor.h"
 #include "core/error_handler.h"
 #include "core/interpreter.h"
 #include "managers/types/manager.h"
 #include "managers/variables/manager.h"
+#include <cstdio>
 
 namespace DeclarationHandlers {
 
@@ -124,6 +125,8 @@ void execute_variable_declaration(StatementExecutor *executor,
     var.is_const = node->is_const;
     var.is_array = false;
     var.is_unsigned = node->is_unsigned;
+    // ポインタのconst修飾子
+    var.is_pointer_const = node->is_pointer_const_qualifier;
 
     // typedef配列の場合の特別処理
     if (node->array_type_info.base_type != TYPE_UNKNOWN) {
@@ -220,8 +223,54 @@ void execute_variable_declaration(StatementExecutor *executor,
     interpreter.current_scope().variables[node->name] = var;
 
     if (init_node) {
-        // ポインタ型の初期化を最優先で処理
-        if (node->type_info == TYPE_POINTER) {
+        // ポインタ型の初期化を最優先で処理 (type_infoまたはis_pointerで判定)
+        if (node->type_info == TYPE_POINTER || node->is_pointer) {
+            // const安全性チェック:
+            // const変数のアドレスを非constポインタで初期化しようとしていないか確認
+            if (init_node->node_type == ASTNodeType::AST_UNARY_OP &&
+                init_node->op == "ADDRESS_OF" && init_node->left &&
+                init_node->left->node_type == ASTNodeType::AST_VARIABLE) {
+                Variable *target_var =
+                    interpreter.find_variable(init_node->left->name);
+
+                // ケース1: const変数のアドレスを非constポインタで初期化
+                if (target_var && target_var->is_const &&
+                    !node->is_pointee_const_qualifier) {
+                    throw std::runtime_error(
+                        "Cannot initialize non-const pointer '" + node->name +
+                        "' with address of const variable '" +
+                        init_node->left->name + "'. Use 'const " +
+                        type_info_to_string(node->pointer_base_type) +
+                        "*' instead of '" +
+                        type_info_to_string(node->pointer_base_type) + "*'");
+                }
+
+                // ケース2: const pointer (const T*) のアドレスを非const double
+                // pointer (T**) で初期化
+                if (target_var && target_var->type == TYPE_POINTER &&
+                    target_var->is_pointee_const && node->pointer_depth >= 2 &&
+                    !node->is_pointee_const_qualifier) {
+                    throw std::runtime_error(
+                        "Cannot initialize non-const double pointer '" +
+                        node->name +
+                        "' with address of pointer to const (const T*) '" +
+                        init_node->left->name +
+                        "'. The pointee should be 'const T**', not 'T**'");
+                }
+
+                // ケース3: const pointer (T* const) のアドレスを取得する場合
+                if (target_var && target_var->type == TYPE_POINTER &&
+                    target_var->is_pointer_const && node->pointer_depth >= 2 &&
+                    !node->is_pointee_const_qualifier) {
+                    throw std::runtime_error(
+                        "Cannot initialize non-const double pointer '" +
+                        node->name +
+                        "' with address of const pointer (T* const) '" +
+                        init_node->left->name +
+                        "'. Use 'const' qualifier appropriately");
+                }
+            }
+
             TypedValue typed_value = interpreter.evaluate_typed(init_node);
             if (debug_mode) {
                 std::cerr
@@ -235,6 +284,8 @@ void execute_variable_declaration(StatementExecutor *executor,
                 TYPE_POINTER;
             interpreter.current_scope().variables[node->name].is_assigned =
                 true;
+
+            // constポインタフラグは既にLine 128-129で設定済み
             if (debug_mode) {
                 std::cerr
                     << "[STMT_EXEC] Pointer initialization complete: variables["
@@ -242,7 +293,10 @@ void execute_variable_declaration(StatementExecutor *executor,
                     << interpreter.current_scope().variables[node->name].value
                     << " (0x" << std::hex
                     << interpreter.current_scope().variables[node->name].value
-                    << std::dec << ")" << std::endl;
+                    << std::dec << "), is_pointer_const="
+                    << node->is_pointer_const_qualifier
+                    << ", is_pointee_const=" << node->is_pointee_const_qualifier
+                    << std::endl;
             }
             return; // ポインタ型の初期化はここで完了
         } else if (init_node->node_type == ASTNodeType::AST_TERNARY_OP) {
@@ -536,7 +590,8 @@ void execute_variable_declaration(StatementExecutor *executor,
                 try {
                     TypedValue typed_value =
                         interpreter.evaluate_typed(init_node);
-                    if (TypeHelpers::isString(var.type) && !typed_value.is_string()) {
+                    if (TypeHelpers::isString(var.type) &&
+                        !typed_value.is_string()) {
                         // 文字列型なのに数値が返された場合
                         throw std::runtime_error(
                             "Type mismatch: expected string but got numeric "
@@ -609,6 +664,62 @@ void execute_variable_declaration(StatementExecutor *executor,
                         .variables[node->name]
                         .str_value = init_node->str_value;
                 } else {
+                    // const安全性チェック:
+                    // const変数のアドレスを非constポインタで初期化しようとしていないか確認
+                    // (ポインタ型だがTYPE_POINTERではない場合のフォールバック)
+                    if (node->is_pointer && init_node &&
+                        init_node->node_type == ASTNodeType::AST_UNARY_OP &&
+                        init_node->op == "ADDRESS_OF" && init_node->left &&
+                        init_node->left->node_type ==
+                            ASTNodeType::AST_VARIABLE) {
+                        Variable *target_var =
+                            interpreter.find_variable(init_node->left->name);
+
+                        // ケース1: const変数のアドレスを非constポインタで初期化
+                        if (target_var && target_var->is_const &&
+                            !node->is_pointee_const_qualifier) {
+                            throw std::runtime_error(
+                                "Cannot initialize non-const pointer '" +
+                                node->name +
+                                "' with address of const variable '" +
+                                init_node->left->name + "'. Use 'const " +
+                                type_info_to_string(node->pointer_base_type) +
+                                "*' instead of '" +
+                                type_info_to_string(node->pointer_base_type) +
+                                "*'");
+                        }
+
+                        // ケース2: const pointer (const T*) のアドレスを非const
+                        // double pointer (T**) で初期化
+                        if (target_var && target_var->type == TYPE_POINTER &&
+                            target_var->is_pointee_const &&
+                            node->pointer_depth >= 2 &&
+                            !node->is_pointee_const_qualifier) {
+                            throw std::runtime_error(
+                                "Cannot initialize non-const double pointer '" +
+                                node->name +
+                                "' with address of pointer to const (const T*) "
+                                "'" +
+                                init_node->left->name +
+                                "'. The pointee should be 'const T**', not "
+                                "'T**'");
+                        }
+
+                        // ケース3: const pointer (T* const)
+                        // のアドレスを取得する場合
+                        if (target_var && target_var->type == TYPE_POINTER &&
+                            target_var->is_pointer_const &&
+                            node->pointer_depth >= 2 &&
+                            !node->is_pointee_const_qualifier) {
+                            throw std::runtime_error(
+                                "Cannot initialize non-const double pointer '" +
+                                node->name +
+                                "' with address of const pointer (T* const) '" +
+                                init_node->left->name +
+                                "'. Use 'const' qualifier appropriately");
+                        }
+                    }
+
                     interpreter.assign_variable(node->name, typed_value,
                                                 node->type_info, false);
                 }

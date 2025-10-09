@@ -1,6 +1,7 @@
 #include "member_assignment.h"
-#include "../statement_executor.h"
 #include "../../../../common/type_helpers.h"
+#include "../statement_executor.h"
+#include "const_check_helpers.h"
 #include "core/error_handler.h"
 #include "core/interpreter.h"
 #include "managers/variables/manager.h"
@@ -61,6 +62,10 @@ void execute_member_assignment(StatementExecutor *executor,
         // デリファレンスされたポインタへのメンバアクセス: (*ptr).member = value
         debug_print("DEBUG: Dereference member access assignment - member=%s\n",
                     member_access->name.c_str());
+
+        // constポインタチェック（const T*経由でのメンバ変更を禁止）
+        AssignmentHelpers::check_const_pointer_modification(
+            interpreter, member_access->left->left.get());
 
         // ポインタを評価
         int64_t ptr_value =
@@ -281,13 +286,17 @@ void execute_member_assignment(StatementExecutor *executor,
         // デリファレンスされたポインタ: (*pp).member or (*(*p).inner).value
         debug_print("DEBUG: Dereference pointer member assignment\n");
 
+        // デリファレンスの対象がメンバーアクセスか単純な変数かを判定
+        ASTNode *deref_target = member_access->left->left.get();
+
+        // constポインタチェック（const T*経由でのメンバ変更を禁止）
+        AssignmentHelpers::check_const_pointer_modification(interpreter,
+                                                            deref_target);
+
         // ポインタを評価（デリファレンスの左側を完全に評価）
         // これにより (*o.middle).inner や o.middle
         // などのネストした式も処理される
         int64_t ptr_value = 0;
-
-        // デリファレンスの対象がメンバーアクセスか単純な変数かを判定
-        ASTNode *deref_target = member_access->left->left.get();
 
         if (debug_mode) {
             debug_print("DEBUG: deref_target node_type=%d (MEMBER_ACCESS=%d)\n",

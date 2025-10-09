@@ -44,19 +44,21 @@ class RecursiveParser;            // enum定義同期用
 // 変数・関数の格納構造
 struct Variable {
     TypeInfo type;
-    bool is_const;
-    bool is_array;
-    bool is_assigned;
-    bool is_multidimensional;           // 多次元配列フラグ
-    bool is_struct;                     // struct型かどうか
-    bool is_pointer;                    // ポインタ型かどうか
-    int pointer_depth;                  // ポインタの深さ
+    bool is_const = false;
+    bool is_array = false;
+    bool is_assigned = false;
+    bool is_multidimensional = false;   // 多次元配列フラグ
+    bool is_struct = false;             // struct型かどうか
+    bool is_pointer = false;            // ポインタ型かどうか
+    int pointer_depth = 0;              // ポインタの深さ
     std::string pointer_base_type_name; // ポインタ基底型名
     TypeInfo pointer_base_type;         // ポインタ基底型
-    bool is_reference;                  // 参照型かどうか
-    bool is_unsigned;                   // unsigned修飾子かどうか
+    bool is_pointer_const = false;      // ポインタ自体がconst (T* const)
+    bool is_pointee_const = false;      // ポイント先がconst (const T*)
+    bool is_reference = false;          // 参照型かどうか
+    bool is_unsigned = false;           // unsigned修飾子かどうか
     std::string struct_type_name;       // struct型名
-    bool is_private_member;             // struct privateメンバーフラグ
+    bool is_private_member = false;     // struct privateメンバーフラグ
 
     // union型用
     std::string type_name; // union型名（union型の場合）

@@ -1,0 +1,16 @@
+// エラーテスト: T* const の再代入
+include "stdio.cb"
+
+int main() {
+    println("=== Test: Cannot reassign const pointer ===");
+    int a = 30;
+    int b = 40;
+    
+    int* const ptr = &a;
+    
+    // エラー: int* const 自体は変更できない
+    ptr = &b;  // This should fail
+    
+    println("ERROR: This should not execute");
+    return 0;
+}

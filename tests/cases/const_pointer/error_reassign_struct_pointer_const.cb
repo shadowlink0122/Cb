@@ -1,0 +1,25 @@
+// エラーテスト: Point* const の再代入
+include "stdio.cb"
+
+struct Point {
+    int x;
+    int y;
+};
+
+int main() {
+    println("=== Test: Cannot reassign const pointer to struct ===");
+    Point p1;
+    Point p2;
+    p1.x = 10;
+    p1.y = 20;
+    p2.x = 30;
+    p2.y = 40;
+    
+    Point* const ptr = &p1;
+    
+    // エラー: Point* const 自体は変更できない
+    ptr = &p2;  // This should fail
+    
+    println("ERROR: This should not execute");
+    return 0;
+}

@@ -277,10 +277,17 @@ StatementParser::parseTypedefTypeStatement(const std::string &type_name,
         bool is_pointer = false;
         bool is_reference = false;
         int pointer_depth = 0;
+        bool is_pointer_const = false;
 
         while (parser_->check(TokenType::TOK_MUL)) {
             is_pointer = true;
             pointer_depth++;
+            parser_->advance();
+        }
+
+        // ポインタの後のconst修飾子をチェック (T* const)
+        if (is_pointer && parser_->check(TokenType::TOK_CONST)) {
+            is_pointer_const = true;
             parser_->advance();
         }
 
@@ -303,12 +310,23 @@ StatementParser::parseTypedefTypeStatement(const std::string &type_name,
             var_node->name = var_name;
             var_node->type_name = struct_type;
             var_node->type_info = is_pointer ? TYPE_POINTER : TYPE_STRUCT;
-            var_node->is_const = isConst;
             var_node->is_pointer = is_pointer;
             var_node->pointer_depth = pointer_depth;
             var_node->is_reference = is_reference;
             var_node->pointer_base_type = TYPE_STRUCT;
             var_node->pointer_base_type_name = struct_type;
+
+            // constポインタ情報を設定
+            if (is_pointer) {
+                var_node->is_pointer_const_qualifier = is_pointer_const;
+                // isConstが前置constの場合、指し先がconst
+                if (isConst) {
+                    var_node->is_pointee_const_qualifier = true;
+                }
+            } else {
+                // 参照の場合は通常のconst
+                var_node->is_const = isConst;
+            }
 
             // 初期化式のチェック
             if (parser_->match(TokenType::TOK_ASSIGN)) {
@@ -395,8 +413,15 @@ StatementParser::parseTypedefTypeStatement(const std::string &type_name,
 
         // ポインタ深度をチェック
         int pointer_depth = 0;
+        bool is_pointer_const = false;
         while (parser_->check(TokenType::TOK_MUL)) {
             pointer_depth++;
+            parser_->advance();
+        }
+
+        // ポインタの後のconst修飾子をチェック (T* const)
+        if (pointer_depth > 0 && parser_->check(TokenType::TOK_CONST)) {
+            is_pointer_const = true;
             parser_->advance();
         }
 
@@ -428,6 +453,12 @@ StatementParser::parseTypedefTypeStatement(const std::string &type_name,
             var_node->pointer_depth = pointer_depth;
             var_node->pointer_base_type_name = interface_type;
             var_node->pointer_base_type = TYPE_INTERFACE;
+
+            // constポインタ情報を設定
+            var_node->is_pointer_const_qualifier = is_pointer_const;
+            if (isConst) {
+                var_node->is_pointee_const_qualifier = true;
+            }
 
             for (int i = 0; i < pointer_depth; i++) {
                 var_node->type_name += "*";
@@ -596,6 +627,13 @@ ASTNode *StatementParser::parseBasicTypeStatement(bool isStatic, bool isConst,
                                      isUnsigned, is_reference);
     }
 
+    // ポインタ型の後のconst修飾子をチェック (T* const の場合)
+    bool is_pointer_const = false;
+    if (pointer_depth > 0 && parser_->check(TokenType::TOK_CONST)) {
+        parser_->advance(); // consume const
+        is_pointer_const = true;
+    }
+
     // 関数宣言か通常の変数宣言かチェック
     if (parser_->check(TokenType::TOK_IDENTIFIER) ||
         parser_->check(TokenType::TOK_MAIN)) {
@@ -611,7 +649,7 @@ ASTNode *StatementParser::parseBasicTypeStatement(bool isStatic, bool isConst,
             return parseVariableDeclarationList(
                 name_token.value, type_name, base_type_name, base_type_info,
                 declared_type_info, pointer_depth, isStatic, isConst,
-                isUnsigned, is_reference);
+                isUnsigned, is_reference, is_pointer_const);
         }
     } else {
         parser_->error("Expected identifier after type");
@@ -861,7 +899,7 @@ ASTNode *StatementParser::parseVariableDeclarationList(
     const std::string &first_var_name, const std::string &type_name,
     const std::string &base_type_name, TypeInfo base_type_info,
     TypeInfo declared_type_info, int pointer_depth, bool isStatic, bool isConst,
-    bool isUnsigned, bool is_reference) {
+    bool isUnsigned, bool is_reference, bool is_pointer_const) {
     std::vector<std::pair<std::string, std::unique_ptr<ASTNode>>> variables;
 
     // 最初の変数を追加
@@ -895,7 +933,6 @@ ASTNode *StatementParser::parseVariableDeclarationList(
         ASTNode *node = new ASTNode(ASTNodeType::AST_VAR_DECL);
         node->name = variables[0].first;
         node->type_name = type_name;
-        node->is_const = isConst;
         node->is_static = isStatic;
         node->is_unsigned = isUnsigned;
         node->is_reference = is_reference;
@@ -907,9 +944,20 @@ ASTNode *StatementParser::parseVariableDeclarationList(
             node->pointer_base_type_name = base_type_name;
             node->pointer_base_type = base_type_info;
             node->type_info = TYPE_POINTER;
+            // const修飾子を設定
+            if (isConst) {
+                // 型の前のconst: const T* → 指し先がconst
+                node->is_pointee_const_qualifier = true;
+            }
+            if (is_pointer_const) {
+                // ポインタの後のconst: T* const → ポインタ自体がconst
+                node->is_pointer_const_qualifier = true;
+            }
         } else {
             // 型情報を設定
             node->type_info = declared_type_info;
+            // 非ポインタ型の場合のみis_constを設定
+            node->is_const = isConst;
         }
 
         if (variables[0].second) {
@@ -941,7 +989,6 @@ ASTNode *StatementParser::parseVariableDeclarationList(
             ASTNode *var_node = new ASTNode(ASTNodeType::AST_VAR_DECL);
             var_node->name = var.first;
             var_node->type_name = type_name;
-            var_node->is_const = isConst;
             var_node->is_reference = is_reference;
             var_node->is_static = isStatic;
             var_node->is_unsigned = isUnsigned;
@@ -953,8 +1000,14 @@ ASTNode *StatementParser::parseVariableDeclarationList(
                 var_node->pointer_base_type_name = base_type_name;
                 var_node->pointer_base_type = base_type_info;
                 var_node->type_info = TYPE_POINTER;
+                // ポインタ型の場合、isConstは指し先のconstを意味する
+                if (isConst) {
+                    var_node->is_pointee_const_qualifier = true;
+                }
             } else {
                 var_node->type_info = node->type_info;
+                // 非ポインタ型の場合のみis_constを設定
+                var_node->is_const = isConst;
             }
 
             if (var.second) {

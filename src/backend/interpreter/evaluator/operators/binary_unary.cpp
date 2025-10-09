@@ -3,6 +3,7 @@
 #include "../../../../common/type_helpers.h"
 #include "../../core/pointer_metadata.h"
 #include <cmath>
+#include <functional>
 #include <stdexcept>
 
 namespace BinaryUnaryTypedHelpers {

@@ -1,7 +1,7 @@
 #include "managers/arrays/manager.h"
+#include "../../../../common/ast.h"
 #include "../../../../common/debug_messages.h"
 #include "../../../../common/type_alias.h"
-#include "../../../../common/ast.h"
 #include "../../../../common/type_helpers.h"
 #include "../../core/interpreter.h" // Variable の定義のため
 #include "../../services/debug_service.h"
@@ -516,20 +516,6 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
                             evaluate_expression_typed_safe(
                                 array_literal->arguments[i].get(),
                                 "array_literal_element");
-
-                        if (debug_mode) {
-                            std::cerr
-                                << "[ARRAY_INIT_DEBUG] Element[" << i
-                                << "] evaluated: "
-                                << "is_numeric=" << element_value.is_numeric()
-                                << ", is_floating="
-                                << element_value.is_floating() << std::endl;
-                            if (element_value.is_numeric()) {
-                                std::cerr
-                                    << "[ARRAY_INIT_DEBUG] Numeric value: "
-                                    << element_value.as_numeric() << std::endl;
-                            }
-                        }
 
                         if (!element_value.is_numeric()) {
                             throw std::runtime_error(
