@@ -14,7 +14,7 @@
 #ifndef ERROR_REPORTER_H
 #define ERROR_REPORTER_H
 
-#include "source_location.h"
+#include "source_location_utils.h"
 #include <string>
 #include <vector>
 #include <iostream>

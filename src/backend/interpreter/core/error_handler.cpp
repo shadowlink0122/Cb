@@ -1,6 +1,8 @@
 #include "core/error_handler.h"
 #include "../../../common/ast.h"
 #include "../../../common/debug.h"
+#include "../../../common/source_location_utils.h"
+#include "../../../common/error_reporter.h"
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -243,34 +245,33 @@ void throw_runtime_error(const std::string &message,
                                           location);
 }
 
-// 詳細なエラー表示機能の実装（日本語対応）
+// 詳細なエラー表示機能の実装（ErrorReporterベース）
 void print_error_with_location(const std::string &message,
                                const std::string &filename, int line,
                                int column, const std::string &source_line) {
-    // Use English for error messages
-    std::cerr << "Location: " << filename << ":" << line << ":" << column
-              << std::endl;
-    std::cerr << "Error: " << message << std::endl;
-
-    if (!source_line.empty()) {
-        if (debug_language == DebugLanguage::JAPANESE) {
-            std::cerr << "ソースコード:" << std::endl;
-        } else {
-            std::cerr << "Source:" << std::endl;
-        }
-
-        // 行番号の桁数を計算
-        int line_width = std::to_string(line).length();
-        std::cerr << "  " << line << " |" << source_line << std::endl;
-
-        // カラム位置にマーカーを追加
-        // プレフィックス "  line "
-        // の長さを計算して、正確にcolumn位置にマーカーを配置
-        int spaces_count =
-            2 + line_width + 4 + column - 1; // "  " + line + " " + (column-1)
-        std::string spaces(spaces_count, ' ');
-        std::cerr << spaces << "^" << std::endl;
+    // ErrorReporterを使用した強化版エラー表示
+    // source_lineが空の場合はファイルから読み込む
+    std::string actual_source = source_line;
+    if (actual_source.empty()) {
+        actual_source = get_source_line(filename, line);
     }
+    
+    // ソースコード全体が必要な場合はファイルから読み込む
+    std::string full_source;
+    std::ifstream file(filename);
+    if (file.is_open()) {
+        std::stringstream buffer;
+        buffer << file.rdbuf();
+        full_source = buffer.str();
+    } else {
+        // ファイルが読めない場合は、既知の行だけを使用
+        full_source = actual_source;
+    }
+    
+    // ErrorReporterで詳細なエラー表示
+    ErrorReporter reporter(full_source, filename);
+    SourceLocation location(filename, line, column);
+    reporter.report(ErrorSeverity::ERROR, location, message);
 }
 
 void print_error_with_ast_location(const std::string &message,

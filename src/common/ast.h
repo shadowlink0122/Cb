@@ -775,6 +775,13 @@ struct SourceLocation {
         return filename + ":" + std::to_string(line) + ":" +
                std::to_string(column);
     }
+    
+    // For compatibility with ErrorReporter
+    std::string toString() const { return to_string(); }
+    
+    bool isValid() const {
+        return !filename.empty() && line > 0;
+    }
 };
 
 // ASTノードの基底クラス
