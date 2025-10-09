@@ -1,15 +1,40 @@
-# Cb (C-flat) プログラミング言語
+# Cb (### 📊 品質指標（v0.9.2-dev）
 
-**最新バージョン**: v0.9.1 - Const Pointer Safety & Refactoring Complete  
-**リリース日**: 2025年10月9日
-
-### 📊 品質指標（v0.9.1）
-
+- **テストケース総数**: **556個** (+13個)
 - **統合テスト**: **2447個**（100%成功） 🎉
-- **単体テスト**: **50個**（100%成功） 🎉
-- **テストカバレッジ**: 全機能を網羅的にテスト
+- **ユニットテスト**: **50個**（100%成功） 🎉
+- **テストカバレッジ**: 全機能を網羅的にテスト + 新規エラーハンドリングテスト
 - **完全な型安全性**: 境界値・型不整合・const違反の自動検出
-- **ゼロ警告**: CI/CDで完全なクリーンビルド
+- **強化されたエラーメッセージ**: ソースコード引用・カレット表示
+
+### 🆕 v0.9.2-devの新機能（開発中）
+
+**Phase 1: インフラ改善**
+- **TypeHelpers拡張**: 7つの新しい型ユーティリティ関数
+  - `needsExplicitCast()`, `getCommonNumericType()`, `getTypeSize()` など
+- **エラーレポーター**: 詳細なエラーメッセージシステム
+  - ソースコード引用（前後の行も表示）
+  - カレット記号（^）でエラー位置を明示
+  - "Did you mean?" 提案機能の基盤
+- **テストカバレッジ向上**: 13個の新規テストケース
+  - エラーハンドリング、境界条件、リグレッションテスト
+
+詳細: [`docs/todo/v0.9.2_progress_report.md`](docs/todo/v0.9.2_progress_report.md)
+
+### 🔥 v0.9.1の主要機能グラミング言語
+
+**最新バージョン**: v0.9.2-dev - Infrastructure Improvements  
+**開発日**: 2025年10月9日  
+**ベース**: v0.9.1
+
+### 📊 品質指標（v0.9.2-dev）
+
+- **テストケース総数**: **556個** (+13個)
+- **統合テスト**: **2447個**（100%成功） 🎉
+- **ユニットテスト**: **50個**（100%成功） 🎉
+- **テストカバレッジ**: 全機能を網羅的にテスト + 新規エラーハンドリングテスト
+- **完全な型安全性**: 境界値・型不整合・const違反の自動検出
+- **強化されたエラーメッセージ**: ソースコード引用・カレット表示
 
 ### � v0.9.1の主要機能
 
@@ -129,13 +154,63 @@
 
 ---
 
-## 🚀 使い方
+## 🚀 クイックスタート
 
-### ビルド
+### 1. ビルド
 
 ```bash
+# リポジトリをクローン
+git clone https://github.com/shadowlink0122/Cb.git
+cd Cb
+
+# ビルド
 make
 ```
+
+### 2. 初めてのプログラム
+
+`hello.cb`を作成:
+
+```cb
+func int main() {
+    println("Hello, Cb World!");
+    return 0;
+}
+```
+
+実行:
+
+```bash
+./main hello.cb
+```
+
+出力:
+```
+Hello, Cb World!
+```
+
+### 3. サンプルプログラムを試す
+
+```bash
+# FizzBuzz
+./main sample/fizzbuzz.cb
+
+# フィボナッチ数列
+./main sample/fibonacci.cb
+
+# ポインタのデモ
+./main sample/function_pointer_demo.cb
+```
+
+### 4. もっと学ぶ
+
+- 📘 [基本構文ガイド](docs/tutorial/basic_syntax_guide.md) - 言語の基本を学ぶ
+- 💡 [サンプルコード集](docs/tutorial/sample_code_collection.md) - 実践的な例
+- ⚠️ [よくある間違い](docs/tutorial/common_mistakes.md) - トラブルシューティング
+
+---
+
+## 🔧 使い方
 
 ### プログラムの実行
 
@@ -406,14 +481,21 @@ void main() {
 
 ## 📚 ドキュメント
 
-### 主要ドキュメント
+### 🎓 チュートリアル（初学者向け）
+
+- **基本構文ガイド**: [`docs/tutorial/basic_syntax_guide.md`](docs/tutorial/basic_syntax_guide.md) - 言語の基本を学ぶ
+- **サンプルコード集**: [`docs/tutorial/sample_code_collection.md`](docs/tutorial/sample_code_collection.md) - 実践的なプログラム例
+- **よくある間違い**: [`docs/tutorial/common_mistakes.md`](docs/tutorial/common_mistakes.md) - トラブルシューティングガイド
+
+### 📖 仕様書・リファレンス
 
 - **言語仕様書**: [`docs/spec.md`](docs/spec.md) - Cb言語の完全な仕様
 - **BNF文法定義**: [`docs/BNF.md`](docs/BNF.md) - 文法の形式的定義
 - **ドキュメントガイド**: [`docs/README.md`](docs/README.md) - ドキュメント全体のナビゲーション
 
-### リリースノート
+### 📝 リリースノート
 
+- **v0.9.2-dev**: [`docs/todo/v0.9.2_progress_report.md`](docs/todo/v0.9.2_progress_report.md) - 開発中の進捗
 - **v0.9.1**: [`release_notes/v0.9.1.md`](release_notes/v0.9.1.md) - リファクタリング Phase 1-2 完了版
 - **v0.9.0**: [`release_notes/v0.9.0.md`](release_notes/v0.9.0.md) - 関数ポインタ完全実装版
 
