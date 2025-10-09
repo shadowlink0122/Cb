@@ -1,0 +1,108 @@
+// float/doubleポインタを関数引数として使用するテスト
+
+func void modify_float(float* ptr, float multiplier) {
+    *ptr = *ptr * multiplier;
+}
+
+func void swap_floats(float* a, float* b) {
+    float temp = *a;
+    *a = *b;
+    *b = temp;
+}
+
+func void scale_array(float*[5] ptrs, int count, float factor) {
+    for (int i = 0; i < count; i++) {
+        *ptrs[i] = *ptrs[i] * factor;
+    }
+}
+
+func double sum_through_pointers(double* a, double* b) {
+    return *a + *b;
+}
+
+func void increment_doubles(double*[3] ptrs, int count) {
+    for (int i = 0; i < count; i++) {
+        *ptrs[i] = *ptrs[i] + 1.0;
+    }
+}
+
+void main() {
+    println("=== Test 1: Modify float through function ===");
+    
+    float value = 10.0f;
+    float* ptr = &value;
+    
+    println("Before:");
+    println(value);  // 10.0
+    
+    modify_float(ptr, 3.0f);
+    
+    println("After multiply by 3:");
+    println(value);  // 30.0
+    
+    println("=== Test 2: Swap floats through function ===");
+    
+    float x = 1.5f, y = 2.5f;
+    
+    println("Before swap:");
+    println(x);  // 1.5
+    println(y);  // 2.5
+    
+    swap_floats(&x, &y);
+    
+    println("After swap:");
+    println(x);  // 2.5
+    println(y);  // 1.5
+    
+    println("=== Test 3: Scale array through function ===");
+    
+    float[5] data = [1.0f, 2.0f, 3.0f, 4.0f, 5.0f];
+    float*[5] data_ptrs;
+    
+    for (int i = 0; i < 5; i++) {
+        data_ptrs[i] = &data[i];
+    }
+    
+    println("Before scaling:");
+    for (int i = 0; i < 5; i++) {
+        println(data[i]);  // 1.0, 2.0, 3.0, 4.0, 5.0
+    }
+    
+    scale_array(data_ptrs, 5, 10.0f);
+    
+    println("After scaling by 10:");
+    for (int i = 0; i < 5; i++) {
+        println(data[i]);  // 10.0, 20.0, 30.0, 40.0, 50.0
+    }
+    
+    println("=== Test 4: Double pointer sum ===");
+    
+    double a = 123.456, b = 789.012;
+    double result = sum_through_pointers(&a, &b);
+    
+    println("Sum result:");
+    println(result);  // 912.468
+    
+    println("=== Test 5: Increment double array ===");
+    
+    double[3] values = [10.1, 20.2, 30.3];
+    double*[3] value_ptrs;
+    
+    for (int i = 0; i < 3; i++) {
+        value_ptrs[i] = &values[i];
+    }
+    
+    println("Before increment:");
+    for (int i = 0; i < 3; i++) {
+        println(values[i]);  // 10.1, 20.2, 30.3
+    }
+    
+    increment_doubles(value_ptrs, 3);
+    
+    println("After increment:");
+    for (int i = 0; i < 3; i++) {
+        println(values[i]);  // 11.1, 21.2, 31.3
+    }
+    
+    println("=== All float/double pointer function tests passed ===");
+}

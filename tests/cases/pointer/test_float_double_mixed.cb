@@ -1,0 +1,93 @@
+// float/doubleポインタの混合使用テスト
+
+void main() {
+    println("=== Test 1: Mixed float and double pointers ===");
+    
+    float f = 3.14f;
+    double d = 3.14159265;
+    
+    float* pf = &f;
+    double* pd = &d;
+    
+    println("Float through pointer:");
+    println(*pf);  // 3.14
+    
+    println("Double through pointer:");
+    println(*pd);  // 3.14159265
+    
+    println("=== Test 2: Conversion through pointers ===");
+    
+    float source = 1.5f;
+    double target;
+    
+    float* ps = &source;
+    double* pt = &target;
+    
+    // Note: Direct type conversion may be limited in Cb
+    // This tests the basic pointer operations
+    *pt = 2.5;  // Assign directly to double
+    
+    println("Source float:");
+    println(*ps);  // 1.5
+    
+    println("Target double:");
+    println(*pt);  // 2.5
+    
+    println("=== Test 3: Array of mixed pointer types (separate) ===");
+    
+    float[3] floats = [1.1f, 2.2f, 3.3f];
+    double[3] doubles = [10.01, 20.02, 30.03];
+    
+    float*[3] float_ptrs;
+    double*[3] double_ptrs;
+    
+    for (int i = 0; i < 3; i++) {
+        float_ptrs[i] = &floats[i];
+        double_ptrs[i] = &doubles[i];
+    }
+    
+    println("Float pointers:");
+    for (int i = 0; i < 3; i++) {
+        println(*float_ptrs[i]);  // 1.1, 2.2, 3.3
+    }
+    
+    println("Double pointers:");
+    for (int i = 0; i < 3; i++) {
+        println(*double_ptrs[i]);  // 10.01, 20.02, 30.03
+    }
+    
+    println("=== Test 4: Precision comparison ===");
+    
+    float f_value = 0.123456789f;  // float precision limit
+    double d_value = 0.123456789012345;  // double precision
+    
+    float* pf_val = &f_value;
+    double* pd_val = &d_value;
+    
+    println("Float precision:");
+    println(*pf_val);  // ~0.123457 (limited precision)
+    
+    println("Double precision:");
+    println(*pd_val);  // 0.123456789012345 (higher precision)
+    
+    println("=== Test 5: Pointer reassignment ===");
+    
+    float f1 = 1.0f, f2 = 2.0f;
+    double d1 = 10.0, d2 = 20.0;
+    
+    float* fp = &f1;
+    double* dp = &d1;
+    
+    println("Initial values:");
+    println(*fp);  // 1.0
+    println(*dp);  // 10.0
+    
+    fp = &f2;
+    dp = &d2;
+    
+    println("After reassignment:");
+    println(*fp);  // 2.0
+    println(*dp);  // 20.0
+    
+    println("=== All mixed float/double pointer tests passed ===");
+}

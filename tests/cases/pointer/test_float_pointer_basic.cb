@@ -1,0 +1,78 @@
+// float型ポインタの基本操作テスト
+
+void main() {
+    println("=== Test 1: Basic float pointer ===");
+    
+    float value = 3.14f;
+    float* ptr = &value;
+    
+    println("Original value:");
+    println(*ptr);  // 3.14
+    
+    *ptr = 2.71f;
+    println("After modification through pointer:");
+    println(value);  // 2.71
+    
+    println("=== Test 2: Float pointer array ===");
+    
+    float[5] floats = [1.1f, 2.2f, 3.3f, 4.4f, 5.5f];
+    float*[5] float_ptrs;
+    
+    for (int i = 0; i < 5; i++) {
+        float_ptrs[i] = &floats[i];
+    }
+    
+    println("Float array through pointers:");
+    for (int i = 0; i < 5; i++) {
+        println(*float_ptrs[i]);  // 1.1, 2.2, 3.3, 4.4, 5.5
+    }
+    
+    println("=== Test 3: Modify through pointer array ===");
+    
+    for (int i = 0; i < 5; i++) {
+        *float_ptrs[i] = *float_ptrs[i] * 2.0f;
+    }
+    
+    println("After doubling:");
+    for (int i = 0; i < 5; i++) {
+        println(floats[i]);  // 2.2, 4.4, 6.6, 8.8, 11.0
+    }
+    
+    println("=== Test 4: Float pointer swap ===");
+    
+    float a = 10.5f, b = 20.5f;
+    float* pa = &a;
+    float* pb = &b;
+    
+    println("Before swap:");
+    println(*pa);  // 10.5
+    println(*pb);  // 20.5
+    
+    // Swap pointers
+    float* temp = pa;
+    pa = pb;
+    pb = temp;
+    
+    println("After pointer swap:");
+    println(*pa);  // 20.5
+    println(*pb);  // 10.5
+    
+    println("=== Test 5: Float pointer arithmetic ===");
+    
+    float x = 5.0f, y = 3.0f;
+    float* px = &x;
+    float* py = &y;
+    
+    float sum = *px + *py;
+    float diff = *px - *py;
+    float product = *px * *py;
+    float quotient = *px / *py;
+    
+    println("Arithmetic through pointers:");
+    println(sum);      // 8.0
+    println(diff);     // 2.0
+    println(product);  // 15.0
+    println(quotient); // 1.666...
+    
+    println("=== All float pointer tests passed ===");
+}

@@ -1,0 +1,44 @@
+// 仕様書のstrlen実装が動作するかテスト
+// docs/spec.mdの例をそのまま使用
+
+func int strlen(string str) {
+    int len = 0;
+    // \0が見つかるまでループ
+    while (str[len] != '\0') {
+        len = len + 1;
+    }
+    return len;
+}
+
+void main() {
+    println("=== Test 1: strlen from spec.md ===");
+    
+    string s = "Hello";
+    int len = strlen(s);
+    println("Length of 'Hello':");
+    println(len);  // Expected: 5
+    
+    println("=== Test 2: Various string lengths ===");
+    
+    println("Empty string:");
+    println(strlen(""));  // Expected: 0
+    
+    println("Single char:");
+    println(strlen("a"));  // Expected: 1
+    
+    println("Long string:");
+    println(strlen("Hello, World!"));  // Expected: 13
+    
+    println("=== Test 3: Direct null terminator access ===");
+    
+    string test = "abc";
+    println("Characters in 'abc':");
+    println(test[0]);  // 'a' = 97
+    println(test[1]);  // 'b' = 98
+    println(test[2]);  // 'c' = 99
+    
+    println("Attempting to access null terminator at index 3:");
+    println(test[3]);  // Expected: '\0' = 0, but may fail if not implemented
+    
+    println("=== strlen spec test completed ===");
+}

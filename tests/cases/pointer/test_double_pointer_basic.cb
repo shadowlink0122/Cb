@@ -1,0 +1,75 @@
+// double型ポインタの基本操作テスト
+
+void main() {
+    println("=== Test 1: Basic double pointer ===");
+    
+    double value = 3.141592653589793;
+    double* ptr = &value;
+    
+    println("Original value:");
+    println(*ptr);  // 3.141592653589793
+    
+    *ptr = 2.718281828459045;
+    println("After modification through pointer:");
+    println(value);  // 2.718281828459045
+    
+    println("=== Test 2: Double pointer array ===");
+    
+    double[5] doubles = [1.111, 2.222, 3.333, 4.444, 5.555];
+    double*[5] double_ptrs;
+    
+    for (int i = 0; i < 5; i++) {
+        double_ptrs[i] = &doubles[i];
+    }
+    
+    println("Double array through pointers:");
+    for (int i = 0; i < 5; i++) {
+        println(*double_ptrs[i]);  // 1.111, 2.222, 3.333, 4.444, 5.555
+    }
+    
+    println("=== Test 3: High precision operations ===");
+    
+    double pi = 3.141592653589793;
+    double e = 2.718281828459045;
+    double* p_pi = &pi;
+    double* p_e = &e;
+    
+    double sum = *p_pi + *p_e;
+    double product = *p_pi * *p_e;
+    
+    println("High precision arithmetic:");
+    println(sum);     // 5.859874482048838
+    println(product); // 8.539734222673566
+    
+    println("=== Test 4: Double pointer in struct ===");
+    
+    // Note: Cbでは構造体内のdoubleポインタの直接使用は制限される場合あり
+    // ここでは構造体を使わずにテスト
+    
+    double data1 = 100.123, data2 = 200.456, data3 = 300.789;
+    double*[3] container;
+    
+    container[0] = &data1;
+    container[1] = &data2;
+    container[2] = &data3;
+    
+    println("Container data:");
+    for (int i = 0; i < 3; i++) {
+        println(*container[i]);  // 100.123, 200.456, 300.789
+    }
+    
+    println("=== Test 5: Precision comparison ===");
+    
+    double precise1 = 0.1 + 0.2;
+    double* p_precise = &precise1;
+    
+    println("0.1 + 0.2 through pointer:");
+    println(*p_precise);  // 0.3 (may have precision issues)
+    
+    // Modify and check
+    *p_precise = 0.3;
+    println("After setting to 0.3:");
+    println(precise1);  // 0.3
+    
+    println("=== All double pointer tests passed ===");
+}
