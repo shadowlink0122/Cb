@@ -1,0 +1,11 @@
+// エラーテスト: const pointerのアドレスを非const double pointerに代入
+int main() {
+    const int x = 42;
+    const int* ptr1 = &x;  // OK
+    
+    // const pointerのアドレスを非const double pointerに代入しようとする
+    int** ptr2;
+    ptr2 = &ptr1;  // エラーになるべき: const int* のアドレスを int** に代入
+    
+    return 0;
+}

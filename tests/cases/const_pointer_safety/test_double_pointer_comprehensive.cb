@@ -1,0 +1,45 @@
+// const pointer と double pointer の包括的テスト
+int main() {
+    println("=== Const Pointer and Double Pointer Safety Tests ===");
+    println("");
+    
+    // テスト1: const変数 -> const pointer (OK)
+    const int x = 42;
+    const int* ptr1 = &x;
+    println("Test 1 PASSED: const int* ptr = &const_var");
+    
+    // テスト2: const pointer -> const double pointer (OK)
+    const int** ptr2 = &ptr1;
+    println("Test 2 PASSED: const int** ptr = &(const int*)");
+    
+    // テスト3: 非const変数 -> 非const pointer (OK)
+    int y = 100;
+    int* ptr3 = &y;
+    println("Test 3 PASSED: int* ptr = &non_const_var");
+    
+    // テスト4: 非const pointer -> 非const double pointer (OK)
+    int** ptr4 = &ptr3;
+    println("Test 4 PASSED: int** ptr = &(int*)");
+    
+    // テスト5: const pointer (T* const) のケース
+    int z = 200;
+    int* const ptr5 = &z;  // ポインタ自体がconst
+    println("Test 5 PASSED: int* const ptr = &var");
+    
+    // エラーケースはコメントアウト:
+    // const int* ptr_err1;
+    // ptr_err1 = &y;  // これはOK（非constからconstへ）
+    
+    // int* ptr_err2;
+    // ptr_err2 = &x;  // Error: const変数のアドレスを非constポインタに
+    
+    // int** ptr_err3;
+    // ptr_err3 = &ptr1;  // Error: const int* のアドレスを int** に
+    
+    // int** ptr_err4;
+    // ptr_err4 = &ptr5;  // Error: int* const のアドレスを int** に
+    
+    println("");
+    println("=== All tests PASSED ===");
+    return 0;
+}

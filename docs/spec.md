@@ -1,7 +1,7 @@
-# Cb言語 完全仕様書 v0.9.0
+# Cb言語 完全仕様書 v0.9.1
 
-**最終更新**: 2025年10月5日  
-**バージョン**: v0.9.0 - ポインタシステム完全実装版
+**最終更新**: 2025年10月9日  
+**バージョン**: v0.9.1 - Const Pointer Safety追加版
 
 ## 目次
 
@@ -1631,7 +1631,111 @@ void main() {
 }
 ```
 
+### Const Pointer Safety（v0.9.1）✅
+
+**const変数のアドレスを非constポインタに代入することを防ぐ安全機能**です。constの制約を迂回してデータを変更する危険なコードを検出します。
+
+#### 検出される違反パターン
+
+##### 1. const変数のアドレス → 非constポインタ
+
+**エラーになるコード**:
+```c++
+const int x = 42;
+int* ptr;
+ptr = &x;  // ❌ Error: Cannot assign address of const variable to non-const pointer
 ```
+
+**正しいコード**:
+```c++
+const int x = 42;
+const int* ptr = &x;  // ✅ OK
+*ptr;  // 値の読み取りは可能
+// *ptr = 100;  // エラー: const経由で変更不可
+```
+
+##### 2. const T*のアドレス → T**（ダブルポインタ）
+
+**エラーになるコード**:
+```c++
+const int* ptr1 = &x;
+int** ptr2 = &ptr1;  // ❌ Error: Cannot assign address of pointer to const
+```
+
+**正しいコード**:
+```c++
+const int* ptr1 = &x;
+const int** ptr2 = &ptr1;  // ✅ OK
+```
+
+##### 3. T* constのアドレス → T**
+
+**エラーになるコード**:
+```c++
+int* const ptr1 = &x;
+int** ptr2 = &ptr1;  // ❌ Error: Cannot assign address of const pointer
+```
+
+**正しいコード**:
+```c++
+int* const ptr1 = &x;
+int* const* ptr2 = &ptr1;  // ✅ OK
+```
+
+#### エラーメッセージ
+
+すべてのエラーメッセージは適切な修正方法を提示します：
+
+```
+Error: Cannot assign address of const variable 'x' to non-const pointer 'ptr'. 
+Use 'const int*' instead of 'int*'
+```
+
+```
+Error: Cannot assign address of pointer to const (const T*) 'ptr1' to non-const double pointer 'ptr2'. 
+The pointee should be 'const T**', not 'T**'
+```
+
+```
+Error: Cannot assign address of const pointer (T* const) 'ptr1' to non-const double pointer 'ptr2'. 
+Use 'const' qualifier appropriately
+```
+
+#### 正しい使用パターン
+
+```c++
+// パターン1: const変数とconst pointer
+const int x = 42;
+const int* ptr = &x;
+println(*ptr);  // 42
+
+// パターン2: 非const変数もconst pointerで読める
+int y = 100;
+const int* ptr2 = &y;
+println(*ptr2);  // 100
+
+// パターン3: 非const変数と非const pointer
+int z = 200;
+int* ptr3 = &z;
+*ptr3 = 300;  // 値の変更も可能
+println(z);   // 300
+
+// パターン4: ダブルポインタの正しい使用
+const int val = 42;
+const int* ptr_a = &val;
+const int** ptr_b = &ptr_a;
+println(**ptr_b);  // 42
+```
+
+#### 設計思想
+
+**なぜ実行時エラーなのか？**
+
+Cb言語は現在インタープリタとして実装されており、型チェックは実行時に行われます。将来的にコンパイラを実装する際には、これをコンパイル時エラーに変更することも可能です。
+
+**既存機能との関係**
+
+この機能は、既存のconstポインタ機能（`const T*`, `T* const`, `const T* const`）と組み合わせて、完全な型安全性を提供します。
 
 ---
 

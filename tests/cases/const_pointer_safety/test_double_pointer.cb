@@ -1,0 +1,14 @@
+// const pointerへのポインタのテスト
+int main() {
+    const int x = 42;
+    const int* ptr1 = &x;  // OK: const変数のアドレスをconst pointerで受ける
+    
+    // const pointerへのポインタ（二重ポインタ）
+    const int** ptr2 = &ptr1;  // これは許可されるべき
+    
+    println("x =", x);
+    println("*ptr1 =", *ptr1);
+    println("**ptr2 =", **ptr2);
+
+    return 0;
+}

@@ -20,6 +20,7 @@
 #include "const_array/test_const_array.hpp"
 #include "const_parameters/test_const_parameters.hpp"
 #include "const_pointer/const_pointer_tests.hpp"
+#include "const_pointer_safety/const_pointer_safety_tests.hpp"
 #include "const_variables/test_const_variables.hpp"
 #include "cross_type/test_cross_type.hpp"
 #include "dynamic_array_error/test_dynamic_array_error.hpp"
@@ -204,6 +205,9 @@ int main() {
                            failed_tests);
     run_test_with_continue(test_integration_const_parameters,
                            "Const Parameter Tests", failed_tests);
+    run_test_with_continue(
+        ConstPointerSafetyTests::run_all_const_pointer_safety_tests,
+        "Const Pointer Safety Tests", failed_tests);
     run_test_with_continue(test_integration_global_vars,
                            "Global Variable Tests", failed_tests);
     run_test_with_continue(test_integration_static_variables,
