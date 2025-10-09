@@ -154,8 +154,20 @@ docs/
 - ✅ **ポインタ配列**（`int*[N]`）
 - ✅ 16進数アドレス表示
 
-### v0.9.1で追加された機能
-- ✅ **Const Pointer Safety**（const安全性機能）- `spec.md`の「Const Pointer Safety」セクション参照
+### v0.9.1で追加された機能（2025年10月9日リリース）
+- ✅ **Const Pointer Safety**（const安全性機能）
+  - `const int*`（ポインタが指す先がconst）
+  - `int* const`（ポインタ自体がconst）
+  - `const int* const`（両方const）
+  - const違反の完全な検出と防止
+- ✅ **多次元配列ポインタ**
+  - `&matrix[i][j]`形式のポインタ取得
+  - 多次元配列要素のアドレス操作
+- ✅ **Phase 5-8リファクタリング完了**
+  - ディレクトリ構造の再編成（evaluator, executors, handlers, managers）
+  - DRY原則の徹底適用（TypeHelpers導入）
+
+詳細は `spec.md`の「Const Pointer Safety」セクションおよび `../release_notes/v0.9.1.md` を参照してください。
 
 ### 参照型システム
 - ✅ **基本参照型**（`int&`）
@@ -175,11 +187,11 @@ docs/
 
 ---
 
-## 🚀 v0.10.0で実装予定の機能
+## 🚀 v0.9.2で実装予定の機能
 
 ### 高度なポインタ機能
 1. ~~constポインタ（完全実装）~~ ✅ v0.9.1で実装完了
-2. 多次元配列へのポインタ
+2. ~~多次元配列へのポインタ~~ ✅ v0.9.1で実装完了
 3. 構造体配列メンバーの関数戻り値代入
 4. 多次元配列の関数戻り値からメンバー代入
 5. 多重ポインタ（`int**`, `int***`）
@@ -191,7 +203,7 @@ docs/
 9. キャスト演算子
 10. 動的配列アクセス `[]`
 
-詳細は `todo/v0.10.0_advanced_pointer_features.md` を参照してください。
+詳細は `todo/v0.9.2_plan.md` を参照してください。
 
 ---
 
@@ -254,6 +266,6 @@ docs/
 
 ---
 
-**最終更新**: 2025年10月8日  
-**Cb言語バージョン**: v0.9.2 (Phase 7リファクタリング完了)  
+**最終更新**: 2025年10月9日  
+**Cb言語バージョン**: v0.9.1 (Const Pointer Safety & Refactoring Complete)  
 **管理者**: Cb開発チーム
