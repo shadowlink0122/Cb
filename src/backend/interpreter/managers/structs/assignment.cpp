@@ -543,10 +543,6 @@ void StructAssignmentManager::assign_struct_member_array_element(
         throw std::runtime_error("Array index out of bounds");
     }
 
-    if (interpreter_->debug_mode) {
-        debug_print("About to assign value to array_values[%d]\n", index);
-    }
-
     int64_t adjusted_value = value;
     if (member_var->is_unsigned && adjusted_value < 0) {
         if (interpreter_->debug_mode) {
@@ -561,6 +557,22 @@ void StructAssignmentManager::assign_struct_member_array_element(
 
     member_var->array_values[index] = adjusted_value;
     member_var->is_assigned = true;
+
+    // ダイレクトアクセス親配列変数も更新（find_variableで取得される変数）
+    // 構造体メンバー配列は2つの変数として管理されている：
+    // 1. struct_members内の変数（get_struct_memberで取得）
+    // 2. スコープ内のダイレクトアクセス変数（find_variableで取得）
+    // printf等のtyped評価では2番目の変数が使用されるため、両方を更新する必要がある
+    std::string direct_array_name = var_name + "." + member_name;
+    Variable *direct_array_var = interpreter_->find_variable(direct_array_name);
+    if (direct_array_var && direct_array_var != member_var) {
+        // 配列サイズを確認して更新
+        if (static_cast<size_t>(index) <
+            direct_array_var->array_values.size()) {
+            direct_array_var->array_values[index] = adjusted_value;
+            direct_array_var->is_assigned = true;
+        }
+    }
 
     // ダイレクトアクセス配列要素変数も更新
     std::string direct_element_name =
@@ -1216,6 +1228,30 @@ void StructAssignmentManager::process_named_initialization(
                 }
             }
             struct_member_var.is_assigned = true;
+
+            // ダイレクトアクセス配列変数も更新（find_variableで取得される変数）
+            // これは構造体メンバー配列の要素代入と同じ問題への対処
+            std::string direct_array_name = var_name + "." + member_name;
+            Variable *direct_array_var =
+                interpreter_->find_variable(direct_array_name);
+            if (direct_array_var && direct_array_var->is_array &&
+                direct_array_var != &struct_member_var) {
+                // 配列値を同期
+                direct_array_var->array_values = struct_member_var.array_values;
+                direct_array_var->array_float_values =
+                    struct_member_var.array_float_values;
+                direct_array_var->array_double_values =
+                    struct_member_var.array_double_values;
+                direct_array_var->array_size = struct_member_var.array_size;
+                direct_array_var->is_assigned = true;
+
+                if (interpreter_->debug_mode) {
+                    debug_print(
+                        "Synced direct access array variable: %s (size=%d)\n",
+                        direct_array_name.c_str(),
+                        direct_array_var->array_size);
+                }
+            }
         } else if ((struct_member_var.type == TYPE_STRING ||
                     interpreter_->type_manager_->is_union_type(
                         struct_member_var)) &&

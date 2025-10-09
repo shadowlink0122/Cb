@@ -450,13 +450,9 @@ void ReturnHandler::handle_array_variable_return(const ASTNode *node,
             : type_info;
 
     // 構造体配列
-    if (debug_mode) {
-        std::cerr
-            << "[DEBUG_RETURN] handle_array_variable_return: var->is_struct="
-            << var->is_struct << ", var->type=" << static_cast<int>(var->type)
-            << ", var->struct_type_name=" << var->struct_type_name << std::endl;
-    }
-    if (var->is_struct) {
+    bool is_struct_array = var->is_struct || base_type == TYPE_STRUCT;
+
+    if (is_struct_array) {
         if (debug_mode) {
             std::cerr << "[DEBUG_RETURN] Throwing struct array ReturnException"
                       << std::endl;
@@ -494,6 +490,10 @@ void ReturnHandler::handle_array_variable_return(const ASTNode *node,
             Variable *element_var = interpreter_->find_variable(element_name);
 
             if (element_var && element_var->is_struct) {
+                // 配列要素に対する個別メンバー変数と構造体本体を同期
+                interpreter_->sync_struct_members_from_direct_access(
+                    element_name);
+
                 Variable struct_element = *element_var;
                 struct_element.is_struct = true;
                 struct_element.type = TYPE_STRUCT;

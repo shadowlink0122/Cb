@@ -1,34 +1,38 @@
 // Interfaceとimplのポインタ操作テスト
 
 interface Drawable {
-    func void draw();
-    func int get_area();
+    void draw();
+    int get_area();
 };
 
-impl Rectangle for Drawable {
+struct Rectangle {
     int width;
     int height;
-    
-    func void draw() {
+};
+
+struct Circle {
+    int radius;
+};
+
+impl Drawable for Rectangle {
+    void draw() {
         println("Drawing rectangle:");
         println(self.width);
         println(self.height);
     }
     
-    func int get_area() {
+    int get_area() {
         return self.width * self.height;
     }
 };
 
-impl Circle for Drawable {
-    int radius;
-    
-    func void draw() {
+impl Drawable for Circle {
+    void draw() {
         println("Drawing circle with radius:");
         println(self.radius);
     }
     
-    func int get_area() {
+    int get_area() {
         // 簡易的に radius * radius * 3 で計算
         return self.radius * self.radius * 3;
     }
@@ -143,5 +147,5 @@ void main() {
     println("Area through pointer:");
     println(area);  // 96
     
-    println("=== All impl pointer tests passed ===");
+    println("=== All impl pointer basic tests passed ===");
 }

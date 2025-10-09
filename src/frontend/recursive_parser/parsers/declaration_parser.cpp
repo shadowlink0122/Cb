@@ -85,6 +85,7 @@ ASTNode *DeclarationParser::parseTypedefVariableDeclaration() {
         node->is_pointer = true;
         node->pointer_depth = pointer_depth;
         node->pointer_base_type_name = typedef_name;
+        node->type_info = TYPE_POINTER;
 
         // typedefの解決済み型を取得
         TypeInfo base_type_info = TYPE_UNKNOWN;
@@ -277,7 +278,6 @@ ASTNode *DeclarationParser::parseFunctionDeclaration() {
 
     // bodyフィールドに設定
     function_node->body = std::unique_ptr<ASTNode>(body_node);
-
     return function_node;
 }
 
@@ -312,7 +312,6 @@ ASTNode *DeclarationParser::parseFunctionDeclarationAfterName(
             // パラメータ型
             std::string param_type = parser_->parseType();
             ParsedTypeInfo param_parsed = parser_->getLastParsedTypeInfo();
-
             // パラメータ名
             if (!parser_->check(TokenType::TOK_IDENTIFIER)) {
                 parser_->error("Expected parameter name");

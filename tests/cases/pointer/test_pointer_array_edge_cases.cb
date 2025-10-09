@@ -127,5 +127,5 @@ void main() {
         println(*dynamic[i]);  // 10, 20, 30
     }
     
-    println("=== All edge case tests passed ===");
+    println("=== All pointer array edge case tests passed ===");
 }

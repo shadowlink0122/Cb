@@ -11,12 +11,12 @@ struct Line {
 };
 
 struct Shape {
-    Line edges[4];
+    Line[4] edges;
     int edge_count;
 };
 
 struct Container {
-    Shape shapes[3];
+    Shape[3] shapes;
     int shape_count;
 };
 
@@ -125,5 +125,5 @@ void main() {
     println(container.shapes[1].edges[0].start.x);  // 999
     println(container.shapes[1].edges[0].start.y);  // 888
     
-    println("=== All deeply nested structure tests passed ===");
+    println("=== All deep nested struct tests passed ===");
 }

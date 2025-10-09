@@ -296,6 +296,8 @@ static std::vector<DebugMessageTemplate> init_debug_messages() {
         "[PARSE_NODE] Creating type spec node",
         "[PARSE_NODE] 型指定ノード作成"};
 
+    messages[static_cast<int>(DebugMsgId::GENERIC_DEBUG)] = {"%s", "%s"};
+
     // 関数関連のメッセージ
     messages[static_cast<int>(DebugMsgId::FUNC_DECL_REGISTER_COMPLETE)] = {
         "[INTERPRETER_FUNC] Function registration complete: %s",

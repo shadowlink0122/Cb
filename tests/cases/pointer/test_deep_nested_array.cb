@@ -141,5 +141,5 @@ void main() {
     println(matrix[1][1]);  // 888
     println(matrix[2][2]);  // 777
     
-    println("=== All deeply nested array tests passed ===");
+    println("=== All deep nested array tests passed ===");
 }

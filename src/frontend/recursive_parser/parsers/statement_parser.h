@@ -59,6 +59,8 @@ class StatementParser {
         TypeInfo declared_type_info, int pointer_depth, bool isStatic,
         bool isConst, bool isUnsigned, bool is_reference,
         bool is_pointer_const = false);
+
+    void applyDeclarationModifiers(ASTNode *node, bool isConst, bool isStatic);
 };
 
 #endif // STATEMENT_PARSER_H

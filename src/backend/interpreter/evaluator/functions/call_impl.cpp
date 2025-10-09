@@ -20,6 +20,8 @@
 #include "evaluator/core/evaluator.h"
 #include "evaluator/core/helpers.h"
 #include <cstdlib>
+#include <iomanip>
+#include <sstream>
 
 int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
     if (interpreter_.is_debug_mode()) {
@@ -595,6 +597,31 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
     }
 
     if (!func) {
+        // 組み込み関数のチェック
+        if (node->name == "hex" && !is_method_call) {
+            // hex(num) - 整数を16進数文字列に変換
+            if (node->arguments.size() != 1) {
+                throw std::runtime_error("hex() requires exactly 1 argument");
+            }
+
+            int64_t value =
+                interpreter_.eval_expression(node->arguments[0].get());
+            uint64_t unsigned_value = static_cast<uint64_t>(value);
+
+            // ポインタメタデータのタグビット（最上位ビット）を除去
+            if (unsigned_value & (1ULL << 63)) {
+                unsigned_value &= ~(1ULL << 63);
+            }
+
+            // 16進数文字列を生成
+            std::ostringstream oss;
+            oss << "0x" << std::hex << unsigned_value;
+            std::string hex_str = oss.str();
+
+            // 文字列を返す（ReturnExceptionを使用）
+            throw ReturnException(hex_str);
+        }
+
         if (is_method_call) {
             std::string debug_type_name;
             if (is_method_call) {
@@ -1023,6 +1050,28 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
     try {
         // パラメータの評価と設定
         if (func->parameters.size() != node->arguments.size()) {
+            if (debug_mode) {
+                std::cerr << "[FUNC_CALL] Argument count mismatch: function '"
+                          << node->name << "' expected "
+                          << func->parameters.size() << " args, got "
+                          << node->arguments.size() << std::endl;
+                std::cerr << "[FUNC_CALL] Parameters:" << std::endl;
+                for (const auto &param : func->parameters) {
+                    std::cerr << "  - " << param->name
+                              << " type_info=" << param->type_info
+                              << " is_array=" << param->is_array
+                              << " is_reference=" << param->is_reference
+                              << std::endl;
+                }
+                std::cerr << "[FUNC_CALL] Arguments:" << std::endl;
+                for (const auto &arg : node->arguments) {
+                    std::cerr
+                        << "  - node_type=" << static_cast<int>(arg->node_type)
+                        << " type_info=" << arg->type_info
+                        << " is_array=" << arg->is_array << " name='"
+                        << arg->name << "'" << std::endl;
+                }
+            }
             throw std::runtime_error("Argument count mismatch for function: " +
                                      node->name);
         }
@@ -1175,6 +1224,32 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
 
                     // unsigned情報もコピー
                     array_ref.is_unsigned = source_var->is_unsigned;
+
+                    // 実データベクトルもコピー（参照でも正しいデータにアクセスできるように）
+                    // これにより、参照解決前でも型情報に基づいた正しいアクセスが可能
+                    // 書き込み時は元の配列とこのコピー両方を更新
+                    // 関数終了時にはこのコピーから元の配列にコピーバックする必要がある
+                    if (source_var->is_multidimensional) {
+                        array_ref.multidim_array_values =
+                            source_var->multidim_array_values;
+                        array_ref.multidim_array_float_values =
+                            source_var->multidim_array_float_values;
+                        array_ref.multidim_array_double_values =
+                            source_var->multidim_array_double_values;
+                        array_ref.multidim_array_quad_values =
+                            source_var->multidim_array_quad_values;
+                        array_ref.multidim_array_strings =
+                            source_var->multidim_array_strings;
+                    } else {
+                        array_ref.array_values = source_var->array_values;
+                        array_ref.array_float_values =
+                            source_var->array_float_values;
+                        array_ref.array_double_values =
+                            source_var->array_double_values;
+                        array_ref.array_quad_values =
+                            source_var->array_quad_values;
+                        array_ref.array_strings = source_var->array_strings;
+                    }
 
                     // const修飾を設定
                     if (param->is_const) {
@@ -1909,6 +1984,41 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                 }
             }
 
+            // 配列参照のコピーバック処理
+            // 関数終了時に、参照変数のデータベクトルを元の配列にコピーバック
+            for (auto &var_pair : interpreter_.current_scope().variables) {
+                Variable &var = var_pair.second;
+                if (var.is_reference && var.is_array) {
+                    // 元の配列へのポインタを取得
+                    Variable *original_array =
+                        reinterpret_cast<Variable *>(var.value);
+                    if (original_array) {
+                        // データベクトルをコピーバック
+                        if (var.is_multidimensional) {
+                            original_array->multidim_array_values =
+                                var.multidim_array_values;
+                            original_array->multidim_array_float_values =
+                                var.multidim_array_float_values;
+                            original_array->multidim_array_double_values =
+                                var.multidim_array_double_values;
+                            original_array->multidim_array_quad_values =
+                                var.multidim_array_quad_values;
+                            original_array->multidim_array_strings =
+                                var.multidim_array_strings;
+                        } else {
+                            original_array->array_values = var.array_values;
+                            original_array->array_float_values =
+                                var.array_float_values;
+                            original_array->array_double_values =
+                                var.array_double_values;
+                            original_array->array_quad_values =
+                                var.array_quad_values;
+                            original_array->array_strings = var.array_strings;
+                        }
+                    }
+                }
+            }
+
             cleanup_method_context();
             interpreter_.pop_scope();
             method_scope_active = false;
@@ -2039,6 +2149,38 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                 }
             }
 
+            // 配列参照のコピーバック処理
+            for (auto &var_pair : interpreter_.current_scope().variables) {
+                Variable &var = var_pair.second;
+                if (var.is_reference && var.is_array) {
+                    Variable *original_array =
+                        reinterpret_cast<Variable *>(var.value);
+                    if (original_array) {
+                        if (var.is_multidimensional) {
+                            original_array->multidim_array_values =
+                                var.multidim_array_values;
+                            original_array->multidim_array_float_values =
+                                var.multidim_array_float_values;
+                            original_array->multidim_array_double_values =
+                                var.multidim_array_double_values;
+                            original_array->multidim_array_quad_values =
+                                var.multidim_array_quad_values;
+                            original_array->multidim_array_strings =
+                                var.multidim_array_strings;
+                        } else {
+                            original_array->array_values = var.array_values;
+                            original_array->array_float_values =
+                                var.array_float_values;
+                            original_array->array_double_values =
+                                var.array_double_values;
+                            original_array->array_quad_values =
+                                var.array_quad_values;
+                            original_array->array_strings = var.array_strings;
+                        }
+                    }
+                }
+            }
+
             cleanup_method_context();
             interpreter_.pop_scope();
             method_scope_active = false;
@@ -2125,6 +2267,39 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
         }
 
         // 再投げされたReturnExceptionを処理
+        // 配列参照のコピーバック処理
+        if (method_scope_active) {
+            for (auto &var_pair : interpreter_.current_scope().variables) {
+                Variable &var = var_pair.second;
+                if (var.is_reference && var.is_array) {
+                    Variable *original_array =
+                        reinterpret_cast<Variable *>(var.value);
+                    if (original_array) {
+                        if (var.is_multidimensional) {
+                            original_array->multidim_array_values =
+                                var.multidim_array_values;
+                            original_array->multidim_array_float_values =
+                                var.multidim_array_float_values;
+                            original_array->multidim_array_double_values =
+                                var.multidim_array_double_values;
+                            original_array->multidim_array_quad_values =
+                                var.multidim_array_quad_values;
+                            original_array->multidim_array_strings =
+                                var.multidim_array_strings;
+                        } else {
+                            original_array->array_values = var.array_values;
+                            original_array->array_float_values =
+                                var.array_float_values;
+                            original_array->array_double_values =
+                                var.array_double_values;
+                            original_array->array_quad_values =
+                                var.array_quad_values;
+                            original_array->array_strings = var.array_strings;
+                        }
+                    }
+                }
+            }
+        }
         cleanup_method_context();
         if (method_scope_active) {
             interpreter_.pop_scope();
@@ -2139,6 +2314,39 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
             impl_context_active = false;
         }
 
+        // 配列参照のコピーバック処理
+        if (method_scope_active) {
+            for (auto &var_pair : interpreter_.current_scope().variables) {
+                Variable &var = var_pair.second;
+                if (var.is_reference && var.is_array) {
+                    Variable *original_array =
+                        reinterpret_cast<Variable *>(var.value);
+                    if (original_array) {
+                        if (var.is_multidimensional) {
+                            original_array->multidim_array_values =
+                                var.multidim_array_values;
+                            original_array->multidim_array_float_values =
+                                var.multidim_array_float_values;
+                            original_array->multidim_array_double_values =
+                                var.multidim_array_double_values;
+                            original_array->multidim_array_quad_values =
+                                var.multidim_array_quad_values;
+                            original_array->multidim_array_strings =
+                                var.multidim_array_strings;
+                        } else {
+                            original_array->array_values = var.array_values;
+                            original_array->array_float_values =
+                                var.array_float_values;
+                            original_array->array_double_values =
+                                var.array_double_values;
+                            original_array->array_quad_values =
+                                var.array_quad_values;
+                            original_array->array_strings = var.array_strings;
+                        }
+                    }
+                }
+            }
+        }
         cleanup_method_context();
         if (method_scope_active) {
             interpreter_.pop_scope();

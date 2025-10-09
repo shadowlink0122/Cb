@@ -125,6 +125,14 @@ class VariableManager {
      */
     bool handle_typedef_resolution(const ASTNode *node, Variable &var);
 
+    int resolve_array_size_expression(const std::string &size_expr,
+                                      const ASTNode *node);
+    std::vector<ArrayDimension>
+    parse_array_dimensions(const std::string &array_part, const ASTNode *node);
+    void initialize_array_from_dimensions(
+        Variable &var, TypeInfo base_type,
+        const std::vector<ArrayDimension> &dimensions);
+
     /**
      * @brief 構造体変数のメンバー初期化を行う
      * @param node 変数宣言ノード

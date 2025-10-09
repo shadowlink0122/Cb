@@ -52,6 +52,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
+#include <vector>
 
 // ========================================================================
 // Core Functions & Infrastructure
@@ -1217,15 +1218,6 @@ void Interpreter::assign_array_literal(const std::string &name,
 
 void Interpreter::assign_array_from_return(const std::string &name,
                                            const ReturnException &ret) {
-    std::cerr << "[DEBUG_ASSIGN_RETURN] assign_array_from_return called for: "
-              << name << std::endl;
-    std::cerr << "[DEBUG_ASSIGN_RETURN] ret.is_array: " << ret.is_array
-              << std::endl;
-    std::cerr << "[DEBUG_ASSIGN_RETURN] ret.int_array_3d.empty(): "
-              << ret.int_array_3d.empty() << std::endl;
-    std::cerr << "[DEBUG_ASSIGN_RETURN] ret.str_array_3d.empty(): "
-              << ret.str_array_3d.empty() << std::endl;
-
     if (!ret.is_array) {
         throw std::runtime_error("Return value is not an array");
     }
@@ -1242,6 +1234,82 @@ void Interpreter::assign_array_from_return(const std::string &name,
     }
 
     if (!var->is_array) {
+        bool inferred_array = false;
+
+        if (var->type >= TYPE_ARRAY_BASE) {
+            inferred_array = true;
+        } else if (!var->array_dimensions.empty() ||
+                   var->array_type_info.is_array()) {
+            inferred_array = true;
+        } else {
+            std::string alias_name;
+            if (!var->struct_type_name.empty()) {
+                alias_name = var->struct_type_name;
+            } else if (!var->type_name.empty()) {
+                alias_name = var->type_name;
+            }
+
+            if (!alias_name.empty()) {
+                std::string resolved =
+                    type_manager_->resolve_typedef(alias_name);
+                size_t bracket_pos = resolved.find('[');
+                if (bracket_pos != std::string::npos) {
+                    inferred_array = true;
+                    std::string base = resolved.substr(0, bracket_pos);
+                    TypeInfo base_type =
+                        type_manager_->string_to_type_info(base);
+                    if (base_type != TYPE_UNKNOWN) {
+                        var->type =
+                            static_cast<TypeInfo>(TYPE_ARRAY_BASE + base_type);
+                        if (!var->array_type_info.is_array()) {
+                            var->array_type_info.base_type = base_type;
+                        }
+                    }
+
+                    if (var->array_dimensions.empty()) {
+                        std::vector<int> inferred_dimensions;
+                        std::vector<ArrayDimension> inferred_array_dims;
+                        size_t pos = bracket_pos;
+                        while (pos < resolved.size() && resolved[pos] == '[') {
+                            size_t end = resolved.find(']', pos);
+                            if (end == std::string::npos)
+                                break;
+                            std::string dim_str =
+                                resolved.substr(pos + 1, end - pos - 1);
+                            if (!dim_str.empty()) {
+                                try {
+                                    int parsed =
+                                        static_cast<int>(std::stoll(dim_str));
+                                    inferred_dimensions.push_back(parsed);
+                                    inferred_array_dims.emplace_back(parsed,
+                                                                     false);
+                                } catch (const std::exception &) {
+                                    inferred_dimensions.clear();
+                                    inferred_array_dims.clear();
+                                    break;
+                                }
+                            } else {
+                                inferred_dimensions.push_back(-1);
+                                inferred_array_dims.emplace_back(-1, true);
+                            }
+                            pos = end + 1;
+                        }
+                        if (!inferred_dimensions.empty()) {
+                            var->array_dimensions = inferred_dimensions;
+                            var->array_type_info.dimensions =
+                                inferred_array_dims;
+                        }
+                    }
+                }
+            }
+        }
+
+        if (inferred_array) {
+            var->is_array = true;
+        }
+    }
+
+    if (!var->is_array) {
         throw std::runtime_error("Variable '" + name +
                                  "' is not declared as array");
     }
@@ -1252,15 +1320,6 @@ void Interpreter::assign_array_from_return(const std::string &name,
     // 元の宣言されたサイズを保存
     int declared_array_size = var->array_size;
     int actual_return_size = 0;
-
-    std::cerr << "[DEBUG_ASSIGN_RETURN] declared_array_size: "
-              << declared_array_size << std::endl;
-    std::cerr << "[DEBUG_ASSIGN_RETURN] var->array_dimensions.size(): "
-              << var->array_dimensions.size() << std::endl;
-    if (!var->array_dimensions.empty()) {
-        std::cerr << "[DEBUG_ASSIGN_RETURN] var->array_dimensions[0]: "
-                  << var->array_dimensions[0] << std::endl;
-    }
 
     // ReturnExceptionから配列データを取得して変数に代入
     if (!ret.str_array_3d.empty()) {
@@ -1417,6 +1476,7 @@ void Interpreter::assign_array_from_return(const std::string &name,
 
         var->type = static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_INT);
         var->array_strings.clear();
+
     } else {
         throw std::runtime_error(
             "Return exception contains no valid array data");

@@ -1,7 +1,7 @@
 // ポインタ配列を関数引数として使用するテスト
 
 // ポインタ配列の全要素を出力
-void print_through_pointers(int** ptr_array, int size) {
+void print_through_pointers(int*[] ptr_array, int size) {
     println("Printing through pointer array:");
     for (int i = 0; i < size; i++) {
         println(*ptr_array[i]);
@@ -9,21 +9,21 @@ void print_through_pointers(int** ptr_array, int size) {
 }
 
 // ポインタ配列の全要素に値を加算
-void add_to_all(int** ptr_array, int size, int value) {
+void add_to_all(int*[] ptr_array, int size, int value) {
     for (int i = 0; i < size; i++) {
         *ptr_array[i] = *ptr_array[i] + value;
     }
 }
 
 // ポインタ配列の要素を入れ替え
-void swap_pointers(int** ptr_array, int i, int j) {
+void swap_pointers(int*[] ptr_array, int i, int j) {
     int* temp = ptr_array[i];
     ptr_array[i] = ptr_array[j];
     ptr_array[j] = temp;
 }
 
 // ポインタ配列の最大値を持つ要素のインデックスを返す
-int find_max_index(int** ptr_array, int size) {
+int find_max_index(int*[] ptr_array, int size) {
     int max_idx = 0;
     int max_val = *ptr_array[0];
     

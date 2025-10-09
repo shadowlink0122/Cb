@@ -1,5 +1,7 @@
 #include "output/output_manager.h"
+#include "../evaluator/access/member_helpers.h"
 #include "core/interpreter.h"
+#include "core/pointer_metadata.h"
 #include "services/expression_service.h" // DRY効率化: 統一式評価サービス
 // #include "services/expression_service.h" // DRY効率化:
 // 循環依存解決まで一時コメントアウト
@@ -26,6 +28,17 @@ std::string numeric_to_string(TypeInfo type, int64_t int_value,
                               double double_value, long double quad_value) {
     std::ostringstream oss;
     switch (type) {
+    case TYPE_POINTER: {
+        // ポインタの場合は16進数で表示
+        uint64_t unsigned_val = static_cast<uint64_t>(int_value);
+        // ポインタメタデータのタグビットを除去
+        uint64_t clean_value = unsigned_val;
+        if (unsigned_val & (1ULL << 63)) {
+            clean_value &= ~(1ULL << 63);
+        }
+        oss << "0x" << std::hex << clean_value;
+        break;
+    }
     case TYPE_FLOAT:
     case TYPE_DOUBLE: {
         oss << std::setprecision(15) << std::defaultfloat << double_value;
@@ -122,10 +135,36 @@ void OutputManager::print_value(const ASTNode *expr) {
                 value_type = typed.is_floating() ? TYPE_DOUBLE : TYPE_INT;
             }
 
-            // ポインタ型の場合、16進数で表示
+            // ポインタ型の場合、参照解除して値を表示（printlnの単一引数の場合）
+            // ただし、exprがUNARY_OP (ADDRESS_OF)の場合のみ
             int64_t numeric_val = typed.as_numeric();
-            if (value_type == TYPE_POINTER) {
-                // タグビットが設定されている場合は除去
+            if (value_type == TYPE_POINTER &&
+                expr->node_type == ASTNodeType::AST_UNARY_OP &&
+                expr->op == "ADDRESS_OF") {
+                // &arr[i]のようなケースで、参照解除してその値を表示
+                try {
+                    // ADDRESS_OFの対象（arr[i]）を直接評価
+                    if (expr->left) {
+                        TypedValue deref_value =
+                            interpreter_->evaluate_typed_expression(
+                                expr->left.get());
+                        if (deref_value.is_numeric()) {
+                            TypeInfo deref_type =
+                                deref_value.numeric_type != TYPE_UNKNOWN
+                                    ? deref_value.numeric_type
+                                    : deref_value.type.type_info;
+                            write_numeric_value(io_interface_, deref_type,
+                                                deref_value.as_numeric(),
+                                                deref_value.as_double(),
+                                                deref_value.as_quad());
+                            return;
+                        }
+                    }
+                } catch (...) {
+                    // エラーの場合は通常のポインタ表示に進む
+                }
+
+                // 通常のポインタ表示（16進数）
                 uint64_t clean_value = static_cast<uint64_t>(numeric_val);
                 if (numeric_val & (1LL << 63)) {
                     clean_value &= ~(1ULL << 63);
@@ -146,17 +185,44 @@ void OutputManager::print_value(const ASTNode *expr) {
     };
 
     auto evaluate_numeric_and_write = [&](const ASTNode *node) {
-        int64_t value = evaluate_expression(node);
-        // ポインタ値の場合、タグビットを除去して16進数で表示
-        if (value & (1LL << 63)) {
-            // タグビットが設定されている場合、ポインタメタデータと判断
-            uint64_t clean_value = static_cast<uint64_t>(value) & ~(1ULL << 63);
-            std::ostringstream oss;
-            oss << "0x" << std::hex << clean_value;
-            io_interface_->write_string(oss.str().c_str());
-        } else {
-            io_interface_->write_number(value);
+        // 型情報を取得するためにevaluate_typed_expressionを使用
+        TypedValue typed = interpreter_->evaluate_typed_expression(node);
+
+        // TypedValueが文字列の場合
+        if (typed.is_string()) {
+            io_interface_->write_string(typed.as_string().c_str());
+            return;
         }
+
+        // 数値の場合
+        if (typed.is_numeric()) {
+            int64_t value = typed.as_numeric();
+            TypeInfo value_type = typed.numeric_type != TYPE_UNKNOWN
+                                      ? typed.numeric_type
+                                      : typed.type.type_info;
+
+            // ポインタ型の場合は16進数で表示
+            if (value_type == TYPE_POINTER) {
+                uint64_t unsigned_val = static_cast<uint64_t>(value);
+                // ポインタメタデータのタグビットを除去
+                uint64_t clean_value = unsigned_val;
+                if (unsigned_val & (1ULL << 63)) {
+                    clean_value &= ~(1ULL << 63);
+                }
+                std::ostringstream oss;
+                oss << "0x" << std::hex << clean_value;
+                io_interface_->write_string(oss.str().c_str());
+                return;
+            }
+
+            // 通常の数値表示
+            write_numeric_value(io_interface_, value_type, value,
+                                typed.as_double(), typed.as_quad());
+            return;
+        }
+
+        // その他の場合は0を表示
+        io_interface_->write_number(0);
     };
 
     auto print_string_array_element = [&](Variable *var, int64_t index) {
@@ -447,32 +513,82 @@ void OutputManager::print_value(const ASTNode *expr) {
             struct_name = expr->left->name;
         } else if (expr->left &&
                    expr->left->node_type == ASTNodeType::AST_ARRAY_REF) {
-            // 配列要素のメンバーアクセス: array[index].member または
-            // func()[index].member
             if (!expr->left->left) {
                 io_interface_->write_string("(null array reference)");
                 return;
             }
 
-            // 通常の配列要素のメンバーアクセス: array[index].member
+            if (expr->left->left->node_type == ASTNodeType::AST_FUNC_CALL) {
+                try {
+                    TypedValue array_element =
+                        interpreter_->evaluate_typed_expression(
+                            expr->left.get());
+
+                    if (array_element.is_struct() &&
+                        array_element.struct_data) {
+                        Variable member_var = MemberAccessHelpers::
+                            get_struct_member_from_variable(
+                                *array_element.struct_data, member_name,
+                                *interpreter_);
+
+                        if (member_var.type == TYPE_STRING) {
+                            io_interface_->write_string(
+                                member_var.str_value.c_str());
+                        } else {
+                            write_numeric_value(io_interface_, member_var.type,
+                                                member_var.value,
+                                                member_var.double_value,
+                                                member_var.quad_value);
+                        }
+                        return;
+                    }
+
+                    TypedValue typed_result =
+                        interpreter_->evaluate_typed_expression(expr);
+                    write_typed_value(typed_result);
+                    return;
+                } catch (const ReturnException &ret) {
+                    if (TypeHelpers::isString(ret.type)) {
+                        io_interface_->write_string(ret.str_value.c_str());
+                        return;
+                    }
+
+                    if (TypeHelpers::isFloating(ret.type) ||
+                        ret.type == TYPE_QUAD) {
+                        write_numeric_value(io_interface_, ret.type, ret.value,
+                                            ret.double_value, ret.quad_value);
+                        return;
+                    }
+
+                    if (ret.is_struct) {
+                        io_interface_->write_string("(struct)");
+                        return;
+                    }
+
+                    write_numeric_value(io_interface_, ret.type, ret.value,
+                                        ret.double_value, ret.quad_value);
+                    return;
+                } catch (const std::exception &e) {
+                    io_interface_->write_string("(member access error)");
+                    return;
+                }
+            }
+
+            // 通常の配列要素アクセス: array[index].member
             std::string array_name = expr->left->left->name;
             int64_t index = evaluate_expression(expr->left->array_index.get());
             struct_name = array_name + "[" + std::to_string(index) + "]";
         } else if (expr->left &&
                    expr->left->node_type == ASTNodeType::AST_UNARY_OP &&
                    expr->left->op == "DEREFERENCE") {
-            // デリファレンスされたポインタからのメンバーアクセス: (*pp).x
-            // デリファレンスを評価して構造体を取得
             try {
                 int64_t ptr_value = evaluate_expression(expr->left.get());
-                // ポインタ値から構造体変数を取得
                 Variable *struct_var = reinterpret_cast<Variable *>(ptr_value);
                 if (!struct_var) {
                     io_interface_->write_string("(null pointer dereference)");
                     return;
                 }
 
-                // メンバーにアクセス
                 auto member_it = struct_var->struct_members.find(member_name);
                 if (member_it != struct_var->struct_members.end()) {
                     if (member_it->second.type == TYPE_STRING) {

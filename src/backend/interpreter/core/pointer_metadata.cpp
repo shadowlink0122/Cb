@@ -129,7 +129,7 @@ int64_t PointerMetadata::read_int_value() const {
 
 // 整数値を書き込み
 void PointerMetadata::write_int_value(int64_t value) {
-    if (target_type == PointerTargetType::NULLPTR_VALUE || address == 0) {
+    if (target_type == PointerTargetType::NULLPTR_VALUE) {
         throw std::runtime_error("Cannot write through nullptr");
     }
 

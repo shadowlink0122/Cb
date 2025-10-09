@@ -1,4 +1,5 @@
 #include "variable_declaration.h"
+#include "../../../../common/debug.h"
 #include "../../../../common/type_helpers.h"
 #include "../statement_executor.h"
 #include "core/error_handler.h"
@@ -6,6 +7,8 @@
 #include "managers/types/manager.h"
 #include "managers/variables/manager.h"
 #include <cstdio>
+#include <iomanip>
+#include <sstream>
 
 namespace DeclarationHandlers {
 
@@ -13,12 +16,18 @@ void execute_variable_declaration(StatementExecutor *executor,
                                   Interpreter &interpreter,
                                   const ASTNode *node) {
     if (debug_mode) {
-        std::cerr << "[DEBUG_EXEC] Executing variable declaration: "
-                  << node->name << ", type_info: " << (int)node->type_info
-                  << ", type_name: " << node->type_name
-                  << ", is_pointer: " << node->is_pointer
-                  << ", pointer_base_type: " << (int)node->pointer_base_type
-                  << ", is_reference: " << node->is_reference << std::endl;
+        debug_log_line("[DEBUG_EXEC] Executing variable declaration: " +
+                       node->name);
+        debug_log_line("  type_info: " +
+                       std::to_string(static_cast<int>(node->type_info)));
+        debug_log_line("  type_name: " + node->type_name);
+        debug_log_line(std::string("  is_pointer: ") +
+                       (node->is_pointer ? "true" : "false"));
+        debug_log_line(
+            "  pointer_base_type: " +
+            std::to_string(static_cast<int>(node->pointer_base_type)));
+        debug_log_line(std::string("  is_reference: ") +
+                       (node->is_reference ? "true" : "false"));
     }
 
     // 参照型の場合の特別処理
@@ -49,8 +58,8 @@ void execute_variable_declaration(StatementExecutor *executor,
         }
 
         if (debug_mode) {
-            std::cerr << "[DEBUG_EXEC] Creating reference " << node->name
-                      << " -> " << target_var_name << std::endl;
+            debug_log_line("[DEBUG_EXEC] Creating reference " + node->name +
+                           " -> " + target_var_name);
         }
 
         // 参照変数を作成
@@ -68,9 +77,9 @@ void execute_variable_declaration(StatementExecutor *executor,
         ref_var.is_assigned = true;
 
         if (debug_mode) {
-            std::cerr << "[DEBUG_EXEC] Creating reference variable: "
-                      << node->name << ", target_value: " << target_var->value
-                      << std::endl;
+            debug_log_line(
+                "[DEBUG_EXEC] Creating reference variable: " + node->name +
+                ", target_value: " + std::to_string(target_var->value));
         }
 
         interpreter.current_scope().variables[node->name] = ref_var;
@@ -82,10 +91,11 @@ void execute_variable_declaration(StatementExecutor *executor,
         node->init_expr ? node->init_expr.get() : node->right.get();
     if (debug_mode && init_node &&
         init_node->node_type == ASTNodeType::AST_UNARY_OP) {
-        std::cerr << "[FUNC_PTR_CHECK] Found UNARY_OP: op=" << init_node->op
-                  << ", is_function_address=" << init_node->is_function_address
-                  << ", function_address_name="
-                  << init_node->function_address_name << std::endl;
+        debug_log_line(
+            "[FUNC_PTR_CHECK] Found UNARY_OP: op=" + init_node->op +
+            ", is_function_address=" +
+            (init_node->is_function_address ? "true" : "false") +
+            ", function_address_name=" + init_node->function_address_name);
     }
     if (init_node && init_node->node_type == ASTNodeType::AST_UNARY_OP &&
         init_node->op == "ADDRESS_OF" && init_node->is_function_address) {
@@ -110,9 +120,9 @@ void execute_variable_declaration(StatementExecutor *executor,
         interpreter.current_scope().function_pointers[node->name] = func_ptr;
 
         if (debug_mode) {
-            std::cerr
-                << "[FUNC_PTR] Registered function pointer during declaration: "
-                << node->name << " -> " << func_name << std::endl;
+            debug_log_line(
+                "[FUNC_PTR] Registered function pointer during declaration: " +
+                node->name + " -> " + func_name);
         }
 
         return; // 関数ポインタの処理完了
@@ -132,11 +142,58 @@ void execute_variable_declaration(StatementExecutor *executor,
     if (node->array_type_info.base_type != TYPE_UNKNOWN) {
         // ArrayTypeInfoが設定されている場合は配列として処理
         var.is_array = true;
-        var.type = node->array_type_info.base_type;
+        // ポインタ配列の場合（例:
+        // double*[5]）、base_typeはTYPE_POINTERであるべき
+        // しかし、パーサーのバグでTYPE_INTなどになっている場合は、is_pointerフラグから判定
+        TypeInfo base_type = node->array_type_info.base_type;
+        if (debug_mode) {
+            debug_log_line("DEBUG: Array declaration for " + node->name);
+            debug_log_line(std::string("  node->is_pointer: ") +
+                           (node->is_pointer ? "true" : "false"));
+            debug_log_line("  node->array_type_info.base_type: " +
+                           std::to_string(static_cast<int>(base_type)));
+            debug_log_line("  TYPE_POINTER: " +
+                           std::to_string(static_cast<int>(TYPE_POINTER)));
+        }
+
+        if (node->is_pointer && base_type != TYPE_POINTER) {
+            // ポインタ配列だがbase_typeが正しくない場合、TYPE_POINTERに修正
+            if (debug_mode) {
+                debug_log_line("  CORRECTING to TYPE_POINTER");
+            }
+            base_type = TYPE_POINTER;
+        }
+        // 配列の型は TYPE_ARRAY_BASE + 基本型
+        var.type = static_cast<TypeInfo>(TYPE_ARRAY_BASE + base_type);
+        if (debug_mode) {
+            debug_log_line("  Final var.type: " +
+                           std::to_string(static_cast<int>(var.type)));
+        }
 
         // typedef名を保存（interfaceでの型マッチングに使用）
-        if (!node->type_name.empty()) {
-            var.struct_type_name = node->type_name;
+        if (!node->type_name.empty() || !node->original_type_name.empty()) {
+            std::string declared_name = !node->original_type_name.empty()
+                                            ? node->original_type_name
+                                            : node->type_name;
+
+            if (!declared_name.empty()) {
+                std::string resolved_name =
+                    interpreter.get_type_manager()->resolve_typedef(
+                        declared_name);
+                bool is_alias = (resolved_name != declared_name);
+
+                if (is_alias) {
+                    var.struct_type_name = declared_name;
+                    var.type_name = declared_name;
+                } else if (node->array_type_info.base_type == TYPE_STRUCT) {
+                    std::string struct_type = resolved_name;
+                    size_t bracket_pos = struct_type.find('[');
+                    if (bracket_pos != std::string::npos) {
+                        struct_type = struct_type.substr(0, bracket_pos);
+                    }
+                    var.struct_type_name = struct_type;
+                }
+            }
         }
 
         // struct配列の場合、is_structフラグも設定
@@ -146,17 +203,18 @@ void execute_variable_declaration(StatementExecutor *executor,
 
         // デバッグ出力
         if (debug_mode) {
-            std::cerr << "DEBUG: Setting array for typedef variable "
-                      << node->name << " with base_type=" << var.type
-                      << " is_array=" << var.is_array << std::endl;
+            debug_log_line("DEBUG: Setting array for typedef variable " +
+                           node->name + " with base_type=" +
+                           std::to_string(static_cast<int>(var.type)) +
+                           " is_array=" + (var.is_array ? "true" : "false"));
         }
 
         // 配列サイズ情報をコピー
         for (const auto &dim : node->array_type_info.dimensions) {
             var.array_dimensions.push_back(dim.size);
             if (debug_mode) {
-                std::cerr << "DEBUG: Adding dimension size=" << dim.size
-                          << std::endl;
+                debug_log_line("DEBUG: Adding dimension size=" +
+                               std::to_string(dim.size));
             }
         }
 
@@ -171,14 +229,16 @@ void execute_variable_declaration(StatementExecutor *executor,
             if (TypeHelpers::isString(var.type)) {
                 var.array_strings.resize(total_size, "");
                 if (debug_mode) {
-                    std::cerr << "DEBUG: Initialized string array with size="
-                              << total_size << std::endl;
+                    debug_log_line(
+                        "DEBUG: Initialized string array with size=" +
+                        std::to_string(total_size));
                 }
             } else {
                 var.array_values.resize(total_size, 0);
                 if (debug_mode) {
-                    std::cerr << "DEBUG: Initialized numeric array with size="
-                              << total_size << std::endl;
+                    debug_log_line(
+                        "DEBUG: Initialized numeric array with size=" +
+                        std::to_string(total_size));
                 }
             }
         }
@@ -190,13 +250,30 @@ void execute_variable_declaration(StatementExecutor *executor,
         var.type = TYPE_INT;    // デフォルト
     } else if (!var.is_array) { // 配列でない場合のみ設定
         var.type = node->type_info;
+    } else {
+        // 配列の場合、TYPE_ARRAY_BASE + 基本型に設定
+        // ただし、既にarray_type_info.base_typeから設定されている場合はそれを維持
+        if (var.type < TYPE_ARRAY_BASE &&
+            node->array_type_info.base_type != TYPE_UNKNOWN) {
+            var.type = static_cast<TypeInfo>(TYPE_ARRAY_BASE +
+                                             node->array_type_info.base_type);
+            if (debug_mode) {
+                debug_log_line("DEBUG: Array type set to TYPE_ARRAY_BASE + " +
+                               std::to_string(static_cast<int>(
+                                   node->array_type_info.base_type)) +
+                               " = " +
+                               std::to_string(static_cast<int>(var.type)));
+            }
+        }
     }
 
     // struct型の特別処理
     if (node->type_info == TYPE_STRUCT && !node->type_name.empty()) {
         // struct変数を作成
-        std::cerr << "[DEBUG_STMT] Creating struct variable: " << node->name
-                  << " of type: " << node->type_name << std::endl;
+        if (debug_mode) {
+            debug_log_line("[DEBUG_STMT] Creating struct variable: " +
+                           node->name + " of type: " + node->type_name);
+        }
         interpreter.create_struct_variable(node->name, node->type_name);
         return; // struct変数は専用処理で完了
     }
@@ -204,8 +281,10 @@ void execute_variable_declaration(StatementExecutor *executor,
     // union型の特別処理
     if (!node->type_name.empty() &&
         interpreter.get_type_manager()->is_union_type(node->type_name)) {
-        std::cerr << "[DEBUG_STMT] Creating union variable: " << node->name
-                  << " of type: " << node->type_name << std::endl;
+        if (debug_mode) {
+            debug_log_line("[DEBUG_STMT] Creating union variable: " +
+                           node->name + " of type: " + node->type_name);
+        }
 
         // union型変数を作成（初期値なし）
         var.type = TYPE_UNION;
@@ -273,10 +352,11 @@ void execute_variable_declaration(StatementExecutor *executor,
 
             TypedValue typed_value = interpreter.evaluate_typed(init_node);
             if (debug_mode) {
-                std::cerr
-                    << "[STMT_EXEC] Pointer initialization: typed_value.value="
+                std::ostringstream oss;
+                oss << "[STMT_EXEC] Pointer initialization: typed_value.value="
                     << typed_value.value << " (0x" << std::hex
-                    << typed_value.value << std::dec << ")" << std::endl;
+                    << typed_value.value << std::dec << ")";
+                debug_log_line(oss.str());
             }
             interpreter.current_scope().variables[node->name].value =
                 typed_value.value;
@@ -287,16 +367,16 @@ void execute_variable_declaration(StatementExecutor *executor,
 
             // constポインタフラグは既にLine 128-129で設定済み
             if (debug_mode) {
-                std::cerr
-                    << "[STMT_EXEC] Pointer initialization complete: variables["
+                std::ostringstream oss;
+                oss << "[STMT_EXEC] Pointer initialization complete: variables["
                     << node->name << "].value="
                     << interpreter.current_scope().variables[node->name].value
                     << " (0x" << std::hex
                     << interpreter.current_scope().variables[node->name].value
                     << std::dec << "), is_pointer_const="
-                    << node->is_pointer_const_qualifier
-                    << ", is_pointee_const=" << node->is_pointee_const_qualifier
-                    << std::endl;
+                    << node->is_pointer_const_qualifier << ", is_pointee_const="
+                    << node->is_pointee_const_qualifier;
+                debug_log_line(oss.str());
             }
             return; // ポインタ型の初期化はここで完了
         } else if (init_node->node_type == ASTNodeType::AST_TERNARY_OP) {
@@ -320,10 +400,11 @@ void execute_variable_declaration(StatementExecutor *executor,
                     true;
             } catch (const ReturnException &ret) {
                 if (debug_mode) {
-                    std::cerr
-                        << "[DEBUG_STMT] ReturnException caught: is_array="
-                        << ret.is_array << ", is_struct=" << ret.is_struct
-                        << ", type=" << static_cast<int>(ret.type) << std::endl;
+                    debug_log_line(
+                        "[DEBUG_STMT] ReturnException caught: is_array=" +
+                        std::to_string(ret.is_array) +
+                        ", is_struct=" + std::to_string(ret.is_struct) +
+                        ", type=" + std::to_string(static_cast<int>(ret.type)));
                 }
                 if (ret.is_array) {
                     // 配列戻り値の場合
@@ -479,10 +560,10 @@ void execute_variable_declaration(StatementExecutor *executor,
                     } else if (ret.is_struct) {
                         // 構造体配列の場合
                         if (debug_mode) {
-                            std::cerr
-                                << "[DEBUG_STMT] Struct array return caught, "
-                                   "calling assign_array_from_return for "
-                                << node->name << std::endl;
+                            debug_log_line(
+                                "[DEBUG_STMT] Struct array return caught, "
+                                "calling assign_array_from_return for " +
+                                node->name);
                         }
                         interpreter.assign_array_from_return(node->name, ret);
                     } else {

@@ -48,7 +48,15 @@
 #include "multidim_literal/test_multidim_literal.hpp"
 #include "multiple_var_decl/test_multiple_var_decl.hpp"
 #include "performance/test_performance.hpp"
+#include "pointer/function_pointer_tests.hpp"
+#include "pointer/pointer_advanced_tests.hpp"
+#include "pointer/pointer_array_tests.hpp"
+#include "pointer/pointer_arrow_tests.hpp"
+#include "pointer/pointer_basic_tests.hpp"
+#include "pointer/pointer_comprehensive_tests.hpp"
+#include "pointer/pointer_struct_tests.hpp"
 #include "pointer/pointer_tests.hpp"
+#include "pointer/pointer_type_tests.hpp"
 #include "printf/test_printf.hpp"
 #include "println/test_println.hpp"
 #include "reference/reference_tests.hpp"
@@ -268,8 +276,25 @@ int main() {
                            failed_tests);
     run_test_with_continue(ImplStaticTests::run_all_tests,
                            "impl Static Variable Tests", failed_tests);
-    run_test_with_continue(PointerTests::run_all_pointer_tests, "Pointer Tests",
-                           failed_tests);
+
+    // ポインタテスト（カテゴリ別）
+    run_test_with_continue(PointerBasicTests::run_all_tests,
+                           "Pointer Basic Tests", failed_tests);
+    run_test_with_continue(PointerArrowTests::run_all_tests,
+                           "Pointer Arrow Tests", failed_tests);
+    run_test_with_continue(PointerStructTests::run_all_tests,
+                           "Pointer Struct Tests", failed_tests);
+    run_test_with_continue(PointerComprehensiveTests::run_all_tests,
+                           "Pointer Comprehensive Tests", failed_tests);
+    run_test_with_continue(FunctionPointerTests::run_all_tests,
+                           "Function Pointer Tests", failed_tests);
+    run_test_with_continue(PointerArrayTests::run_all_tests,
+                           "Pointer Array Tests", failed_tests);
+    run_test_with_continue(PointerTypeTests::run_all_tests,
+                           "Pointer Type Tests", failed_tests);
+    run_test_with_continue(PointerAdvancedTests::run_all_tests,
+                           "Pointer Advanced Tests", failed_tests);
+
     run_test_with_continue(ConstPointerTests::run_all_const_pointer_tests,
                            "Const Pointer Tests", failed_tests);
     run_test_with_continue(ReferenceTests::run_all_reference_tests,

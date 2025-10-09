@@ -10,11 +10,25 @@
 #include "managers/types/manager.h"
 #include "managers/variables/manager.h"
 #include <algorithm>
+#include <cctype>
 #include <cstdio>
 #include <numeric>
 #include <utility>
 
 namespace {
+
+std::string trim(const std::string &str) {
+    auto begin = std::find_if_not(str.begin(), str.end(), [](unsigned char ch) {
+        return std::isspace(ch);
+    });
+    auto end = std::find_if_not(str.rbegin(), str.rend(), [](unsigned char ch) {
+                   return std::isspace(ch);
+               }).base();
+    if (begin >= end) {
+        return "";
+    }
+    return std::string(begin, end);
+}
 
 void setNumericFields(Variable &var, long double quad_value) {
     var.quad_value = quad_value;
@@ -363,6 +377,28 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
                                 "' is not allowed for union type " +
                                 var.type_name);
                         }
+                    } else if (ret.is_array) {
+                        auto &scope_vars = current_scope().variables;
+                        bool inserted_temp = false;
+                        auto it = scope_vars.find(node->name);
+                        if (it == scope_vars.end()) {
+                            scope_vars[node->name] = var;
+                            inserted_temp = true;
+                        } else {
+                            it->second = var;
+                        }
+
+                        try {
+                            interpreter_->assign_array_from_return(node->name,
+                                                                   ret);
+                            var = scope_vars[node->name];
+                            var.is_assigned = true;
+                        } catch (...) {
+                            if (inserted_temp) {
+                                scope_vars.erase(node->name);
+                            }
+                            throw;
+                        }
                     } else if (!ret.is_array && !ret.is_struct) {
                         // 数値戻り値の場合
                         int64_t numeric_value = ret.value;
@@ -403,24 +439,18 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
 
         // 配列サイズを解析
         size_t bracket_pos = node->type_name.find("[");
-        size_t close_bracket_pos = node->type_name.find("]");
 
-        if (bracket_pos != std::string::npos &&
-            close_bracket_pos != std::string::npos) {
-            std::string size_str = node->type_name.substr(
-                bracket_pos + 1, close_bracket_pos - bracket_pos - 1);
-            var.array_size = std::stoi(size_str);
+        if (bracket_pos != std::string::npos) {
+            std::string base = trim(node->type_name.substr(0, bracket_pos));
+            std::string array_part = node->type_name.substr(bracket_pos);
 
-            // array_dimensionsを設定
-            var.array_dimensions.clear();
-            var.array_dimensions.push_back(var.array_size);
+            TypeInfo base_type =
+                interpreter_->type_manager_->string_to_type_info(base);
+            var.type = static_cast<TypeInfo>(TYPE_ARRAY_BASE + base_type);
+            var.type_name = node->type_name;
 
-            // 配列初期化
-            if (var.type == TYPE_STRING) {
-                var.array_strings.resize(var.array_size, "");
-            } else {
-                var.array_values.resize(var.array_size, 0);
-            }
+            auto dimensions = parse_array_dimensions(array_part, node);
+            initialize_array_from_dimensions(var, base_type, dimensions);
         }
     }
 
@@ -855,7 +885,7 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
             var.str_value = node->init_expr->str_value;
             var.value = 0; // プレースホルダー
             var.is_assigned = true;
-        } else if (var.is_array &&
+        } else if (var.is_array && !var.is_assigned &&
                    node->init_expr->node_type == ASTNodeType::AST_FUNC_CALL) {
             // 配列を返す関数呼び出し
             try {

@@ -1,55 +1,60 @@
 // Implポインタを関数で使用するテスト
 
 interface Shape {
-    func int get_perimeter();
-    func void scale(int factor);
+    int get_perimeter();
+    void scale(int factor);
 };
 
-impl Square for Shape {
+struct Square {
     int side;
-    
-    func int get_perimeter() {
-        return self.side * 4;
-    }
-    
-    func void scale(int factor) {
-        self.side = self.side * factor;
-    }
 };
 
-impl Triangle for Shape {
+struct Triangle {
     int base;
     int height;
     int side1;
     int side2;
-    
-    func int get_perimeter() {
+};
+
+impl Shape for Square {
+
+    int get_perimeter() {
+        return self.side * 4;
+    }
+
+    void scale(int factor) {
+        self.side = self.side * factor;
+    }
+}
+
+impl Shape for Triangle {
+    int get_perimeter() {
         return self.base + self.side1 + self.side2;
     }
     
-    func void scale(int factor) {
+    void scale(int factor) {
         self.base = self.base * factor;
         self.height = self.height * factor;
         self.side1 = self.side1 * factor;
         self.side2 = self.side2 * factor;
     }
-};
+}
 
-func void double_size(Square* s) {
+void double_size(Square* s) {
     s->side = s->side * 2;
 }
 
-func int calculate_perimeter(Square* s) {
+int calculate_perimeter(Square* s) {
     return s->side * 4;
 }
 
-func void scale_squares(Square*[3] ptrs, int count, int factor) {
+void scale_squares(Square*[] ptrs, int count, int factor) {
     for (int i = 0; i < count; i++) {
         ptrs[i]->side = ptrs[i]->side * factor;
     }
 }
 
-func void swap_triangles(Triangle* a, Triangle* b) {
+void swap_triangles(Triangle* a, Triangle* b) {
     // 一時変数を使って値を交換
     int temp_base = a->base;
     int temp_height = a->height;
@@ -67,7 +72,7 @@ func void swap_triangles(Triangle* a, Triangle* b) {
     b->side2 = temp_side2;
 }
 
-func int sum_sides(Square*[5] ptrs, int count) {
+int sum_sides(Square*[] ptrs, int count) {
     int total = 0;
     for (int i = 0; i < count; i++) {
         total = total + ptrs[i]->side;

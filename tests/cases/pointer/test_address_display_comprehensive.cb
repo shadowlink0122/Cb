@@ -9,8 +9,8 @@ int main() {
     int[5] arr = [10, 20, 30, 40, 50];
     int* p = &arr[0];
     
-    println("  Array base: &arr[0] =", &arr[0]);
-    println("  Pointer p =", p);
+    println("  Array base: &arr[0] =", hex(&arr[0]));
+    println("  Pointer p =", hex(p));
     println("  Value *p =", *p);
     
     if (*p != 10) {
@@ -21,17 +21,17 @@ int main() {
     
     // テスト2: ポインタ加算とアドレス遷移
     println("Test 2: Pointer arithmetic and address transition");
-    println("  Initial: p =", p, ", *p =", *p);
+    println("  Initial: p =", hex(p), ", *p =", *p);
     
     p = p + 1;
-    println("  After p+1: p =", p, ", *p =", *p);
+    println("  After p+1: p =", hex(p), ", *p =", *p);
     if (*p != 20) {
         println("  FAIL: p+1 value");
         return 1;
     }
     
     p = p + 1;
-    println("  After p+1: p =", p, ", *p =", *p);
+    println("  After p+1: p =", hex(p), ", *p =", *p);
     if (*p != 30) {
         println("  FAIL: Second p+1 value");
         return 1;
@@ -40,10 +40,10 @@ int main() {
     
     // テスト3: ポインタ減算とアドレス遷移
     println("Test 3: Pointer subtraction");
-    println("  Before: p =", p, ", *p =", *p);
+    println("  Before: p =", hex(p), ", *p =", *p);
     
     p = p - 1;
-    println("  After p-1: p =", p, ", *p =", *p);
+    println("  After p-1: p =", hex(p), ", *p =", *p);
     if (*p != 20) {
         println("  FAIL: p-1 value");
         return 1;
@@ -56,9 +56,9 @@ int main() {
     int* p2 = &arr[2];
     int* p3 = &arr[4];
     
-    println("  p1 =", p1, ", *p1 =", *p1);
-    println("  p2 =", p2, ", *p2 =", *p2);
-    println("  p3 =", p3, ", *p3 =", *p3);
+    println("  p1 =", hex(p1), ", *p1 =", *p1);
+    println("  p2 =", hex(p2), ", *p2 =", *p2);
+    println("  p3 =", hex(p3), ", *p3 =", *p3);
     
     if (*p1 != 10 || *p2 != 30 || *p3 != 50) {
         println("  FAIL: Multiple pointers value");
@@ -69,17 +69,17 @@ int main() {
     // テスト5: インクリメント/デクリメントとアドレス
     println("Test 5: Increment/Decrement and address");
     int* q = &arr[2];
-    println("  Initial q =", q, ", *q =", *q);
+    println("  Initial q =", hex(q), ", *q =", *q);
     
     q++;
-    println("  After q++: q =", q, ", *q =", *q);
+    println("  After q++: q =", hex(q), ", *q =", *q);
     if (*q != 40) {
         println("  FAIL: q++ value");
         return 1;
     }
     
     q--;
-    println("  After q--: q =", q, ", *q =", *q);
+    println("  After q--: q =", hex(q), ", *q =", *q);
     if (*q != 30) {
         println("  FAIL: q-- value");
         return 1;
@@ -88,8 +88,8 @@ int main() {
     
     // テスト6: ポインタ変数自身のアドレス
     println("Test 6: Address of pointer variable itself");
-    println("  Pointer value: p =", p);
-    println("  Address of pointer: &p =", &p);
+    println("  Pointer value: p =", hex(p));
+    println("  Address of pointer: &p =", hex(&p));
     println("  Value pointed to: *p =", *p);
     println("  ✓ Test 6 passed");
     

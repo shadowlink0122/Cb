@@ -30,6 +30,7 @@
 #include "../recursive_parser.h"
 #include "primary_expression_parser.h"
 #include "src/common/debug.h"
+#include <cstdio>
 
 ExpressionParser::ExpressionParser(RecursiveParser *parser)
     : parser_(parser), primary_expression_parser_(
@@ -395,6 +396,13 @@ ASTNode *ExpressionParser::parseComparison() {
 
         ASTNode *binary = new ASTNode(ASTNodeType::AST_BINARY_OP);
         binary->op = op.value;
+        if (parser_->debug_mode_) {
+            std::fprintf(stderr,
+                         "[EXPR_DEBUG] comparison op=%s left=%p right=%p\n",
+                         op.value.c_str(), static_cast<void *>(left),
+                         static_cast<void *>(right));
+            std::fflush(stderr);
+        }
         binary->left = std::unique_ptr<ASTNode>(left);
         binary->right = std::unique_ptr<ASTNode>(right);
 

@@ -100,8 +100,9 @@ void execute_assignment(StatementExecutor *executor, Interpreter &interpreter,
         AssignmentHelpers::check_const_pointer_modification(
             interpreter, node->left->left.get());
 
-        // 右辺を評価
-        int64_t value = interpreter.evaluate(node->right.get());
+        // 右辺を型付きで評価（float/doubleにも対応）
+        TypedValue typed_value =
+            interpreter.evaluate_typed_expression(node->right.get());
 
         // ポインタがメタデータを持つかチェック
         if (ptr_value & (1LL << 63)) {
@@ -118,15 +119,43 @@ void execute_assignment(StatementExecutor *executor, Interpreter &interpreter,
 
             if (debug_mode) {
                 std::cerr << "[POINTER_METADATA] Assignment through pointer: "
-                          << meta->to_string() << " = " << value << std::endl;
+                          << meta->to_string() << std::endl;
             }
 
-            // メタデータを通じて値を書き込み
-            meta->write_int_value(value);
+            // 型に応じてメタデータを通じて値を書き込み
+            if (typed_value.is_floating()) {
+                double float_val = typed_value.as_double();
+                if (meta->pointed_type == TYPE_FLOAT ||
+                    meta->pointed_type == TYPE_DOUBLE ||
+                    meta->pointed_type == TYPE_QUAD) {
+                    meta->write_float_value(float_val);
+                } else {
+                    // 整数型へのfloat代入は切り捨て
+                    meta->write_int_value(static_cast<int64_t>(float_val));
+                }
+            } else {
+                meta->write_int_value(typed_value.as_numeric());
+            }
         } else {
             // 従来の方式（変数ポインタ）
             Variable *var = reinterpret_cast<Variable *>(ptr_value);
-            var->value = value;
+
+            // 型に応じて値を設定
+            if (typed_value.is_floating()) {
+                double float_val = typed_value.as_double();
+                if (var->type == TYPE_FLOAT) {
+                    var->float_value = static_cast<float>(float_val);
+                } else if (var->type == TYPE_DOUBLE) {
+                    var->double_value = float_val;
+                } else if (var->type == TYPE_QUAD) {
+                    var->quad_value = static_cast<long double>(float_val);
+                } else {
+                    // 整数型への代入は切り捨て
+                    var->value = static_cast<int64_t>(float_val);
+                }
+            } else {
+                var->value = typed_value.as_numeric();
+            }
             var->is_assigned = true;
         }
         return;
@@ -343,14 +372,12 @@ void execute_assignment(StatementExecutor *executor, Interpreter &interpreter,
         if (node->left->left &&
             node->left->left->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
             // obj.member[index] = value のケース
-            debug_print("DEBUG: Detected struct member 1D array assignment\n");
             std::string obj_name;
             if (node->left->left->left && (node->left->left->left->node_type ==
                                                ASTNodeType::AST_VARIABLE ||
                                            node->left->left->left->node_type ==
                                                ASTNodeType::AST_IDENTIFIER)) {
                 obj_name = node->left->left->left->name;
-                debug_print("DEBUG: obj_name = %s\n", obj_name.c_str());
             } else {
                 if (node->left->left->left) {
                     debug_print(

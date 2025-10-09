@@ -1,8 +1,9 @@
 // ポインタ配列を返す関数のテスト
 
 // ポインタ配列を返す関数（配列へのポインタをセット）
-func void setup_pointers(int*[5] result, int[5] data) {
-    for (int i = 0; i < 5; i++) {
+// サイズはループで決定される
+func void setup_pointers(int*[] result, int[] data, int size) {
+    for (int i = 0; i < size; i++) {
         result[i] = &data[i];
     }
 }
@@ -24,7 +25,7 @@ void main() {
     int[5] values = [10, 20, 30, 40, 50];
     int*[5] ptrs;
     
-    setup_pointers(ptrs, values);
+    setup_pointers(ptrs, values, 5);
     
     println("Pointers set by function:");
     for (int i = 0; i < 5; i++) {
@@ -57,8 +58,8 @@ void main() {
     int*[3] ptrs1;
     int*[3] ptrs2;
     
-    setup_pointers(ptrs1, set1);
-    setup_pointers(ptrs2, set2);
+    setup_pointers(ptrs1, set1, 3);
+    setup_pointers(ptrs2, set2, 3);
     
     println("First set through function:");
     for (int i = 0; i < 3; i++) {
@@ -70,5 +71,5 @@ void main() {
         println(*ptrs2[i]);  // 111, 222, 333
     }
     
-    println("=== All function return tests passed ===");
+    println("=== All pointer array function return tests passed ===");
 }

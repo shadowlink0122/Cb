@@ -89,5 +89,5 @@ void main() {
     println(*fp);  // 2.0
     println(*dp);  // 20.0
     
-    println("=== All mixed float/double pointer tests passed ===");
+    println("=== All float/double mixed tests passed ===");
 }

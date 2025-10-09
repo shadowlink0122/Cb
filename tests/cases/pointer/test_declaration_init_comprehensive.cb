@@ -103,8 +103,8 @@ int main() {
     
     // テスト10: ポインタ変数のアドレス表示
     println("Test 10: Pointer address display");
-    println("  Pointer value: p =", p);
-    println("  Address of pointer: &p =", &p);
+    println("  Pointer value: p =", hex(p));
+    println("  Address of pointer: &p =", hex(&p));
     println("  ✓ Test 10 passed");
     
     println("");

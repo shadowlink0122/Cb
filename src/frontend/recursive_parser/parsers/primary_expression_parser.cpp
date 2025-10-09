@@ -170,6 +170,12 @@ ASTNode *PrimaryExpressionParser::parsePrimary() {
                 } while (parser_->match(TokenType::TOK_COMMA));
             }
 
+            if (parser_->debug_mode_) {
+                std::fprintf(
+                    stderr, "[CALL_DEBUG] Parsed call %s with %zu args\n",
+                    call_node->name.c_str(), call_node->arguments.size());
+            }
+
             parser_->consume(TokenType::TOK_RPAREN,
                              "Expected ')' after function arguments");
 

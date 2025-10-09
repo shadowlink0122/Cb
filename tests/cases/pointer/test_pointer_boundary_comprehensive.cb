@@ -154,9 +154,9 @@ int main() {
     int[2] addr_test = [111, 222];
     int* addr_ptr = &addr_test[0];
     
-    println("  addr_ptr =", addr_ptr);
-    println("  &addr_test[0] =", &addr_test[0]);
-    println("  &addr_test[1] =", &addr_test[1]);
+    println("  addr_ptr =", hex(addr_ptr));
+    println("  &addr_test[0] =", hex(&addr_test[0]));
+    println("  &addr_test[1] =", hex(&addr_test[1]));
     println("  *addr_ptr = 111");
     println("  ✓ Test 7 passed (address format verified)");
     
