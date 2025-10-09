@@ -94,5 +94,5 @@ void main() {
     println("Array 2 after add:");
     print_through_pointers(ptrs2, 3);  // 24, 25, 26
     
-    println("=== All function argument tests passed ===");
+    println("=== All pointer array function argument tests passed ===");
 }
