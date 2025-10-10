@@ -135,8 +135,19 @@ void execute_variable_declaration(StatementExecutor *executor,
     var.is_const = node->is_const;
     var.is_array = false;
     var.is_unsigned = node->is_unsigned;
+    
+    // ポインタ情報
+    if (node->is_pointer) {
+        var.type = TYPE_POINTER;
+        var.is_pointer = true;
+        var.pointer_depth = node->pointer_depth;
+        var.pointer_base_type = node->pointer_base_type;
+        var.pointer_base_type_name = node->pointer_base_type_name;
+    }
+    
     // ポインタのconst修飾子
     var.is_pointer_const = node->is_pointer_const_qualifier;
+    var.is_pointee_const = node->is_pointee_const_qualifier;
 
     // typedef配列の場合の特別処理
     if (node->array_type_info.base_type != TYPE_UNKNOWN) {

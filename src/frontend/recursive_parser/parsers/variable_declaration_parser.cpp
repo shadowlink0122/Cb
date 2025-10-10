@@ -189,6 +189,7 @@ ASTNode *VariableDeclarationParser::parseVariableDeclaration() {
         node->is_reference = parsed.is_reference;
         node->is_unsigned = parsed.is_unsigned;
         node->is_pointer_const_qualifier = parsed.is_pointer_const;
+        node->is_pointee_const_qualifier = parsed.is_const && parsed.is_pointer;
 
         if (parsed.is_array) {
             node->array_type_info = parsed.array_info;
@@ -215,6 +216,7 @@ ASTNode *VariableDeclarationParser::parseVariableDeclaration() {
         node->is_reference = base_parsed_type.is_reference;
         node->is_unsigned = base_parsed_type.is_unsigned;
         node->is_pointer_const_qualifier = base_parsed_type.is_pointer_const;
+        node->is_pointee_const_qualifier = base_parsed_type.is_const && base_parsed_type.is_pointer;
         if (base_parsed_type.is_array) {
             node->array_type_info = base_parsed_type.array_info;
             node->is_array = true;
@@ -237,6 +239,7 @@ ASTNode *VariableDeclarationParser::parseVariableDeclaration() {
             var_node->is_reference = parsed.is_reference;
             var_node->is_unsigned = parsed.is_unsigned;
             var_node->is_pointer_const_qualifier = parsed.is_pointer_const;
+            var_node->is_pointee_const_qualifier = parsed.is_const && parsed.is_pointer;
 
             if (parsed.is_array) {
                 var_node->array_type_info = parsed.array_info;

@@ -1700,14 +1700,6 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
     }
 
     current_scope().variables[node->name] = var;
-
-    if (interpreter_->is_debug_mode() && node->name == "ptr") {
-        Variable *registered = find_variable(node->name);
-        if (registered) {
-            std::cerr << "[VAR_MANAGER] After registration, ptr value="
-                      << registered->value << std::endl;
-        }
-    }
     // std::cerr << "DEBUG: Variable created: " << node->name << ",
     // is_array=" << var.is_array << std::endl;
 }

@@ -335,6 +335,9 @@ ASTNode *DeclarationParser::parseFunctionDeclarationAfterName(
             param->is_reference = param_parsed.is_reference;
             param->is_unsigned = param_parsed.is_unsigned;
             param->is_const = param_parsed.is_const;
+            // ポインタのconst修飾を設定
+            param->is_pointer_const_qualifier = param_parsed.is_pointer_const;
+            param->is_pointee_const_qualifier = param_parsed.is_const && param_parsed.is_pointer;
             if (param_parsed.is_array) {
                 param->array_type_info = param_parsed.array_info;
                 param->is_array = true;
