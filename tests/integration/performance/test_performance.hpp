@@ -5,7 +5,7 @@
 #include <sstream>
 
 inline void test_integration_performance() {
-    std::cout << "[integration] Running performance tests..." << std::endl;
+    std::cout << "[integration-test] Running performance tests..." << std::endl;
     
     // パーサー効率性テスト
     const std::string test_file_parser = "../../tests/cases/performance/parser_efficiency_test.cb";
@@ -121,5 +121,5 @@ inline void test_integration_performance() {
         });
     integration_test_passed_with_time_auto("parser pure efficiency test", test_file_pure);
     
-    std::cout << "[integration] Performance tests completed" << std::endl;
+    std::cout << "[integration-test] Performance tests completed" << std::endl;
 }

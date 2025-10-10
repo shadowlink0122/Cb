@@ -8,7 +8,7 @@ namespace StructTests {
 
 // 基本的なstruct宣言と使用のテスト
 inline void test_basic_struct() {
-    std::cout << "[integration] Running test_basic_struct..." << std::endl;
+    std::cout << "[integration-test] Running test_basic_struct..." << std::endl;
     
     double execution_time;
     run_cb_test_with_output_and_time("../../tests/cases/struct/basic_struct.cb", 
@@ -25,7 +25,7 @@ inline void test_basic_struct() {
 
 // Struct literal初期化のテスト
 inline void test_struct_literal() {
-    std::cout << "[integration] Running test_struct_literal..." << std::endl;
+    std::cout << "[integration-test] Running test_struct_literal..." << std::endl;
     
     double execution_time;
     run_cb_test_with_output_and_time("../../tests/cases/struct/struct_literal.cb", 
@@ -42,7 +42,7 @@ inline void test_struct_literal() {
 
 // Struct配列メンバーのテスト
 inline void test_struct_array_member() {
-    std::cout << "[integration] Running test_struct_array_member..." << std::endl;
+    std::cout << "[integration-test] Running test_struct_array_member..." << std::endl;
     
     double execution_time;
     run_cb_test_with_output_and_time("../../tests/cases/struct/struct_array_member.cb", 
@@ -59,7 +59,7 @@ inline void test_struct_array_member() {
 
 // Struct配列メンバーのliteral初期化のテスト
 inline void test_struct_array_literal() {
-    std::cout << "[integration] Running test_struct_array_literal..." << std::endl;
+    std::cout << "[integration-test] Running test_struct_array_literal..." << std::endl;
     
     run_cb_test_with_output_and_time_auto("../../tests/cases/struct/struct_array_literal.cb", 
         [](const std::string& output, int exit_code) {
@@ -75,7 +75,7 @@ inline void test_struct_array_literal() {
 
 // 構造体定数サイズ配列メンバーの個別代入テスト（新規追加）
 inline void test_const_size_array_assignment() {
-    std::cout << "[integration] Running test_const_size_array_assignment..." << std::endl;
+    std::cout << "[integration-test] Running test_const_size_array_assignment..." << std::endl;
     
     run_cb_test_with_output_and_time_auto("../../tests/cases/struct/const_size_array_assignment.cb", 
         [](const std::string& output, int exit_code) {
@@ -91,7 +91,7 @@ inline void test_const_size_array_assignment() {
 
 // const構造体メンバーへの再代入（構造体自体がconst）のエラーテスト
 inline void test_const_struct_member_parent_const_error() {
-    std::cout << "[integration] Running test_const_struct_member_parent_const_error..." << std::endl;
+    std::cout << "[integration-test] Running test_const_struct_member_parent_const_error..." << std::endl;
 
     run_cb_test_with_output_and_time_auto(
         "../../tests/cases/struct/const_struct_member_parent_const_error.cb",
@@ -106,7 +106,7 @@ inline void test_const_struct_member_parent_const_error() {
 
 // プライベートフィールドの成功ケース
 inline void test_struct_private_field_access_ok() {
-    std::cout << "[integration] Running test_struct_private_field_access_ok..." << std::endl;
+    std::cout << "[integration-test] Running test_struct_private_field_access_ok..." << std::endl;
 
     double execution_time;
     run_cb_test_with_output_and_time("../../tests/cases/struct/private_field_access_ok.cb",
@@ -127,7 +127,7 @@ inline void test_struct_private_field_access_ok() {
 
 // プライベートフィールドへの外部アクセスは失敗する
 inline void test_struct_private_field_access_error() {
-    std::cout << "[integration] Running test_struct_private_field_access_error..." << std::endl;
+    std::cout << "[integration-test] Running test_struct_private_field_access_error..." << std::endl;
 
     double execution_time;
     run_cb_test_with_output_and_time("../../tests/cases/struct/private_field_access_error.cb",
@@ -147,7 +147,7 @@ inline void test_struct_private_field_access_error() {
 
 // 構造体の配列のテスト
 inline void test_struct_array() {
-    std::cout << "[integration] Running test_struct_array..." << std::endl;
+    std::cout << "[integration-test] Running test_struct_array..." << std::endl;
     
     run_cb_test_with_output_and_time_auto("../../tests/cases/struct/struct_array.cb", 
         [](const std::string& output, int exit_code) {
@@ -171,7 +171,7 @@ inline void test_struct_array() {
 
 // 入れ子構造のテスト（現在は簡略版で実装）
 inline void test_nested_struct() {
-    std::cout << "[integration] Running test_nested_struct..." << std::endl;
+    std::cout << "[integration-test] Running test_nested_struct..." << std::endl;
     
     run_cb_test_with_output_and_time_auto("../../tests/cases/struct/nested_struct.cb", 
         [](const std::string& output, int exit_code) {
@@ -185,7 +185,7 @@ inline void test_nested_struct() {
 
 // 入れ子構造のフラット実装版テスト（現在の実装で動作する代替案）
 inline void test_nested_struct_flat() {
-    std::cout << "[integration] Running test_nested_struct_flat..." << std::endl;
+    std::cout << "[integration-test] Running test_nested_struct_flat..." << std::endl;
     
     run_cb_test_with_output_and_time_auto("../../tests/cases/struct/nested_struct_flat.cb", 
         [](const std::string& output, int exit_code) {
@@ -201,7 +201,7 @@ inline void test_nested_struct_flat() {
 
 // 多次元配列メンバーのテスト（現在は基本機能のみサポート）
 inline void test_multidim_array_member() {
-    std::cout << "[integration] Running test_multidim_array_member..." << std::endl;
+    std::cout << "[integration-test] Running test_multidim_array_member..." << std::endl;
     
     run_cb_test_with_output_and_time_auto("../../tests/cases/struct/multidim_array_member.cb", 
         [](const std::string& output, int exit_code) {
@@ -218,7 +218,7 @@ inline void test_multidim_array_member() {
 
 // Struct関数引数のテスト（現在は未実装）
 inline void test_struct_function_param() {
-    std::cout << "[integration] Running test_struct_function_param (skipped - struct function parameters not implemented)..." << std::endl;
+    std::cout << "[integration-test] Running test_struct_function_param (skipped - struct function parameters not implemented)..." << std::endl;
     
     // 構造体の関数引数は複雑な機能のため、現在はスキップ
     // TODO: 将来実装予定
@@ -227,7 +227,7 @@ inline void test_struct_function_param() {
 
 // Struct関数戻り値のテスト
 inline void test_struct_function_return() {
-    std::cout << "[integration] Running test_struct_function_return..." << std::endl;
+    std::cout << "[integration-test] Running test_struct_function_return..." << std::endl;
     
     // 基本的な構造体関数戻り値テスト（数値のみ）
     run_cb_test_with_output_and_time_auto("../../tests/cases/struct/struct_function_return.cb", 
@@ -244,7 +244,7 @@ inline void test_struct_function_return() {
 
 // Struct配列関数戻り値のチェーン処理テスト（新規追加）
 inline void test_struct_function_array_chain() {
-    std::cout << "[integration] Running test_struct_function_array_chain..." << std::endl;
+    std::cout << "[integration-test] Running test_struct_function_array_chain..." << std::endl;
     
     run_cb_test_with_output_and_time_auto("../../tests/cases/struct/struct_function_array_chain.cb", 
         [](const std::string& output, int exit_code) {
@@ -307,7 +307,7 @@ inline void test_struct_function_array_chain() {
 
 // Struct関数での文字列メンバテスト
 inline void test_struct_function_string_members() {
-    std::cout << "[integration] Running test_struct_function_string_members..." << std::endl;
+    std::cout << "[integration-test] Running test_struct_function_string_members..." << std::endl;
     
     run_cb_test_with_output_and_time_auto("../../tests/cases/struct/struct_function_string_members.cb", 
         [](const std::string& output, int exit_code) {
@@ -328,7 +328,7 @@ inline void test_struct_function_string_members() {
 
 // Struct関数での配列メンバテスト
 inline void test_struct_function_array_members() {
-    std::cout << "[integration] Running test_struct_function_array_members..." << std::endl;
+    std::cout << "[integration-test] Running test_struct_function_array_members..." << std::endl;
     
     run_cb_test_with_output_and_time_auto("../../tests/cases/struct/struct_function_array_members.cb", 
         [](const std::string& output, int exit_code) {
@@ -364,7 +364,7 @@ inline void test_struct_function_array_members() {
 
 // 混合データ型のテスト
 inline void test_mixed_types() {
-    std::cout << "[integration] Running test_mixed_types..." << std::endl;
+    std::cout << "[integration-test] Running test_mixed_types..." << std::endl;
     
     run_cb_test_with_output_and_time_auto("../../tests/cases/struct/mixed_types.cb", 
         [](const std::string& output, int exit_code) {
@@ -380,7 +380,7 @@ inline void test_mixed_types() {
 
 // Typedef structのテスト
 inline void test_typedef_struct() {
-    std::cout << "[integration] Running test_typedef_struct..." << std::endl;
+    std::cout << "[integration-test] Running test_typedef_struct..." << std::endl;
     
     run_cb_test_with_output_and_time_auto("../../tests/cases/struct/typedef_struct.cb", 
         [](const std::string& output, int exit_code) {
@@ -398,7 +398,7 @@ inline void test_typedef_struct() {
 
 // エラーハンドリングのテスト
 inline void test_struct_error_handling() {
-    std::cout << "[integration] Running test_struct_error_handling..." << std::endl;
+    std::cout << "[integration-test] Running test_struct_error_handling..." << std::endl;
     
     run_cb_test_with_output_and_time_auto("../../tests/cases/struct/struct_error_handling.cb", 
         [](const std::string& output, int exit_code) {
@@ -412,7 +412,7 @@ inline void test_struct_error_handling() {
 
 // 大きなstruct パフォーマンステスト
 inline void test_large_struct() {
-    std::cout << "[integration] Running test_large_struct..." << std::endl;
+    std::cout << "[integration-test] Running test_large_struct..." << std::endl;
     
     run_cb_test_with_output_and_time_auto("../../tests/cases/struct/large_struct.cb", 
         [](const std::string& output, int exit_code) {
@@ -430,7 +430,7 @@ inline void test_large_struct() {
 
 // 統合テスト
 inline void test_comprehensive() {
-    std::cout << "[integration] Running test_comprehensive..." << std::endl;
+    std::cout << "[integration-test] Running test_comprehensive..." << std::endl;
     
     run_cb_test_with_output_and_time_auto("../../tests/cases/struct/comprehensive_test.cb", 
         [](const std::string& output, int exit_code) {
@@ -458,7 +458,7 @@ inline void test_comprehensive() {
 
 // 深くネストした構造体リテラルのテスト（5レベル）
 inline void test_deep_nested_literal() {
-    std::cout << "[integration] Running test_deep_nested_literal..." << std::endl;
+    std::cout << "[integration-test] Running test_deep_nested_literal..." << std::endl;
     
     double execution_time;
     run_cb_test_with_output_and_time("../../tests/cases/struct/test_deep_nested_literal.cb", 
@@ -475,7 +475,7 @@ inline void test_deep_nested_literal() {
 
 // 多数の構造体メンバのテスト
 inline void test_multiple_struct_members() {
-    std::cout << "[integration] Running test_multiple_struct_members..." << std::endl;
+    std::cout << "[integration-test] Running test_multiple_struct_members..." << std::endl;
     
     double execution_time;
     run_cb_test_with_output_and_time("../../tests/cases/struct/test_multiple_struct_members.cb", 
@@ -494,7 +494,7 @@ inline void test_multiple_struct_members() {
 
 // 総合的なネスト構造体リテラルのテスト
 inline void test_comprehensive_nested_literal() {
-    std::cout << "[integration] Running test_comprehensive_nested_literal..." << std::endl;
+    std::cout << "[integration-test] Running test_comprehensive_nested_literal..." << std::endl;
     
     double execution_time;
     run_cb_test_with_output_and_time("../../tests/cases/struct/test_comprehensive_nested_literal.cb", 
@@ -513,7 +513,7 @@ inline void test_comprehensive_nested_literal() {
 
 // 混合型構造体メンバのテスト
 inline void test_mixed_type_members() {
-    std::cout << "[integration] Running test_mixed_type_members..." << std::endl;
+    std::cout << "[integration-test] Running test_mixed_type_members..." << std::endl;
     
     double execution_time;
     run_cb_test_with_output_and_time("../../tests/cases/struct/test_mixed_type_members.cb", 
@@ -532,7 +532,7 @@ inline void test_mixed_type_members() {
 
 // 同じ構造体型の複数メンバのテスト
 inline void test_same_type_multiple_members() {
-    std::cout << "[integration] Running test_same_type_multiple_members..." << std::endl;
+    std::cout << "[integration-test] Running test_same_type_multiple_members..." << std::endl;
     
     double execution_time;
     run_cb_test_with_output_and_time("../../tests/cases/struct/test_same_type_multiple_members.cb", 
@@ -551,7 +551,7 @@ inline void test_same_type_multiple_members() {
 
 // ネストメンバへの直接代入のテスト
 inline void test_nested_member_assignment() {
-    std::cout << "[integration] Running test_nested_member_assignment..." << std::endl;
+    std::cout << "[integration-test] Running test_nested_member_assignment..." << std::endl;
     
     double execution_time;
     run_cb_test_with_output_and_time("../../tests/cases/struct/test_nested_member_assignment.cb", 
@@ -566,7 +566,7 @@ inline void test_nested_member_assignment() {
 
 // 自己再帰構造体のOKケーステスト
 inline void test_self_recursive_ok() {
-    std::cout << "[integration] Running test_self_recursive_ok..." << std::endl;
+    std::cout << "[integration-test] Running test_self_recursive_ok..." << std::endl;
     
     double execution_time;
     run_cb_test_with_output_and_time("../../tests/cases/struct/self_recursive_ok.cb", 
@@ -585,7 +585,7 @@ inline void test_self_recursive_ok() {
 
 // 自己再帰構造体のエラーケーステスト
 inline void test_self_recursive_error() {
-    std::cout << "[integration] Running test_self_recursive_error..." << std::endl;
+    std::cout << "[integration-test] Running test_self_recursive_error..." << std::endl;
     
     double execution_time;
     run_cb_test_with_output_and_time("../../tests/cases/struct/self_recursive_error.cb", 
@@ -600,7 +600,7 @@ inline void test_self_recursive_error() {
 
 // typedef structでの自己再帰OKケーステスト
 inline void test_typedef_self_recursive_ok() {
-    std::cout << "[integration] Running test_typedef_self_recursive_ok..." << std::endl;
+    std::cout << "[integration-test] Running test_typedef_self_recursive_ok..." << std::endl;
     
     double execution_time;
     run_cb_test_with_output_and_time("../../tests/cases/struct/typedef_self_recursive_ok.cb", 
@@ -619,7 +619,7 @@ inline void test_typedef_self_recursive_ok() {
 
 // typedef structでの自己再帰エラーケーステスト
 inline void test_typedef_self_recursive_error() {
-    std::cout << "[integration] Running test_typedef_self_recursive_error..." << std::endl;
+    std::cout << "[integration-test] Running test_typedef_self_recursive_error..." << std::endl;
     
     double execution_time;
     run_cb_test_with_output_and_time("../../tests/cases/struct/typedef_self_recursive_error.cb", 
@@ -634,9 +634,9 @@ inline void test_typedef_self_recursive_error() {
 
 // 全structテストを実行
 inline void run_all_struct_tests() {
-    std::cout << "[integration] ========================================" << std::endl;
-    std::cout << "[integration] Running Struct Integration Tests" << std::endl;
-    std::cout << "[integration] ========================================" << std::endl;
+    std::cout << "[integration-test] ========================================" << std::endl;
+    std::cout << "[integration-test] Running Struct Integration Tests" << std::endl;
+    std::cout << "[integration-test] ========================================" << std::endl;
     
     try {
         test_basic_struct();
@@ -673,12 +673,12 @@ inline void run_all_struct_tests() {
         test_typedef_self_recursive_error(); // typedef自己再帰（エラー）
         // test_comprehensive(); // 複雑な機能
         
-        std::cout << "[integration] ========================================" << std::endl;
-        std::cout << "[integration] All Struct tests completed successfully!" << std::endl;
-        std::cout << "[integration] ========================================" << std::endl;
+        std::cout << "[integration-test] ========================================" << std::endl;
+        std::cout << "[integration-test] All Struct tests completed successfully!" << std::endl;
+        std::cout << "[integration-test] ========================================" << std::endl;
         
     } catch (const std::exception& e) {
-        std::cerr << "[integration] Struct test suite failed: " << e.what() << std::endl;
+        std::cerr << "[integration-test] Struct test suite failed: " << e.what() << std::endl;
         throw;
     }
 }

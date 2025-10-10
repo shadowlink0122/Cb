@@ -10,11 +10,26 @@
 #include "managers/types/manager.h"
 #include "managers/variables/manager.h"
 #include <algorithm>
+#include <cctype>
 #include <cstdio>
+#include <functional>
 #include <numeric>
 #include <utility>
 
 namespace {
+
+std::string trim(const std::string &str) {
+    auto begin = std::find_if_not(str.begin(), str.end(), [](unsigned char ch) {
+        return std::isspace(ch);
+    });
+    auto end = std::find_if_not(str.rbegin(), str.rend(), [](unsigned char ch) {
+                   return std::isspace(ch);
+               }).base();
+    if (begin >= end) {
+        return "";
+    }
+    return std::string(begin, end);
+}
 
 void setNumericFields(Variable &var, long double quad_value) {
     var.quad_value = quad_value;
@@ -305,8 +320,9 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
                                   << std::endl;
                     }
 
-                    // 型範囲チェック（ポインタ型は除外）
-                    if (var.type != TYPE_STRING && var.type != TYPE_POINTER) {
+                    // 型範囲チェック（ポインタ型・ポインタ配列は除外）
+                    if (var.type != TYPE_STRING && var.type != TYPE_POINTER &&
+                        !(var.is_pointer && var.is_array)) {
                         interpreter_->type_manager_->check_type_range(
                             var.type, var.value, node->name, var.is_unsigned);
                     }
@@ -362,6 +378,28 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
                                 "' is not allowed for union type " +
                                 var.type_name);
                         }
+                    } else if (ret.is_array) {
+                        auto &scope_vars = current_scope().variables;
+                        bool inserted_temp = false;
+                        auto it = scope_vars.find(node->name);
+                        if (it == scope_vars.end()) {
+                            scope_vars[node->name] = var;
+                            inserted_temp = true;
+                        } else {
+                            it->second = var;
+                        }
+
+                        try {
+                            interpreter_->assign_array_from_return(node->name,
+                                                                   ret);
+                            var = scope_vars[node->name];
+                            var.is_assigned = true;
+                        } catch (...) {
+                            if (inserted_temp) {
+                                scope_vars.erase(node->name);
+                            }
+                            throw;
+                        }
                     } else if (!ret.is_array && !ret.is_struct) {
                         // 数値戻り値の場合
                         int64_t numeric_value = ret.value;
@@ -371,8 +409,10 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
                         var.value = numeric_value;
                         var.is_assigned = true;
 
-                        // 型範囲チェック
-                        if (var.type != TYPE_STRING) {
+                        // 型範囲チェック（ポインタ型・ポインタ配列は除外）
+                        if (var.type != TYPE_STRING &&
+                            var.type != TYPE_POINTER &&
+                            !(var.is_pointer && var.is_array)) {
                             interpreter_->type_manager_->check_type_range(
                                 var.type, var.value, node->name,
                                 var.is_unsigned);
@@ -400,24 +440,18 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
 
         // 配列サイズを解析
         size_t bracket_pos = node->type_name.find("[");
-        size_t close_bracket_pos = node->type_name.find("]");
 
-        if (bracket_pos != std::string::npos &&
-            close_bracket_pos != std::string::npos) {
-            std::string size_str = node->type_name.substr(
-                bracket_pos + 1, close_bracket_pos - bracket_pos - 1);
-            var.array_size = std::stoi(size_str);
+        if (bracket_pos != std::string::npos) {
+            std::string base = trim(node->type_name.substr(0, bracket_pos));
+            std::string array_part = node->type_name.substr(bracket_pos);
 
-            // array_dimensionsを設定
-            var.array_dimensions.clear();
-            var.array_dimensions.push_back(var.array_size);
+            TypeInfo base_type =
+                interpreter_->type_manager_->string_to_type_info(base);
+            var.type = static_cast<TypeInfo>(TYPE_ARRAY_BASE + base_type);
+            var.type_name = node->type_name;
 
-            // 配列初期化
-            if (var.type == TYPE_STRING) {
-                var.array_strings.resize(var.array_size, "");
-            } else {
-                var.array_values.resize(var.array_size, 0);
-            }
+            auto dimensions = parse_array_dimensions(array_part, node);
+            initialize_array_from_dimensions(var, base_type, dimensions);
         }
     }
 
@@ -447,6 +481,85 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
         // 配列リテラル初期化処理
         else if (handle_array_literal_initialization(node, var)) {
             return; // 配列リテラル初期化完了（早期return）
+        } else if (var.is_struct && node->init_expr->node_type ==
+                                        ASTNodeType::AST_MEMBER_ACCESS) {
+            // struct member accessからの代入の処理: Middle m2 = o1.val;
+            // メンバーアクセスを評価して構造体を取得
+            TypedValue member_value =
+                interpreter_->evaluate_typed(node->init_expr.get());
+
+            // メンバーアクセスのパスを構築
+            std::function<std::string(const ASTNode *)> build_member_path;
+            build_member_path = [&](const ASTNode *n) -> std::string {
+                if (!n)
+                    return "";
+                if (n->node_type == ASTNodeType::AST_VARIABLE) {
+                    return n->name;
+                } else if (n->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
+                    std::string base = build_member_path(n->left.get());
+                    return base.empty() ? n->name : base + "." + n->name;
+                }
+                return "";
+            };
+
+            std::string source_path = build_member_path(node->init_expr.get());
+            Variable *source_var = find_variable(source_path);
+
+            if (!source_var || !source_var->is_struct) {
+                throw std::runtime_error("Source member is not a struct: " +
+                                         source_path);
+            }
+
+            if (source_var->struct_type_name != var.struct_type_name) {
+                throw std::runtime_error(
+                    "Cannot assign struct of different type (expected: " +
+                    var.struct_type_name +
+                    ", got: " + source_var->struct_type_name + ")");
+            }
+
+            // まず変数を登録
+            current_scope().variables[node->name] = var;
+
+            // struct_membersを深くコピー
+            current_scope().variables[node->name].struct_members =
+                source_var->struct_members;
+
+            // 全メンバを直接アクセス変数としてもコピー
+            std::function<void(const std::string &, const std::string &,
+                               const std::map<std::string, Variable> &)>
+                copy_nested;
+            copy_nested = [&](const std::string &dest_base,
+                              const std::string &source_base,
+                              const std::map<std::string, Variable> &members) {
+                for (const auto &member : members) {
+                    std::string source_member_name =
+                        source_base + "." + member.first;
+                    std::string dest_member_name =
+                        dest_base + "." + member.first;
+
+                    Variable *source_member_var =
+                        find_variable(source_member_name);
+                    if (source_member_var) {
+                        current_scope().variables[dest_member_name] =
+                            *source_member_var;
+
+                        // ネストした構造体の場合は再帰
+                        if (source_member_var->is_struct &&
+                            !source_member_var->struct_members.empty()) {
+                            copy_nested(dest_member_name, source_member_name,
+                                        source_member_var->struct_members);
+                        }
+                    }
+                }
+            };
+
+            copy_nested(node->name, source_path, source_var->struct_members);
+
+            // 代入完了
+            current_scope().variables[node->name].is_assigned = true;
+
+            return; // struct member access代入処理完了後は早期リターン
+
         } else if (var.is_struct &&
                    node->init_expr->node_type == ASTNodeType::AST_VARIABLE) {
             // struct to struct代入の処理: Person p2 = p1;
@@ -852,7 +965,7 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
             var.str_value = node->init_expr->str_value;
             var.value = 0; // プレースホルダー
             var.is_assigned = true;
-        } else if (var.is_array &&
+        } else if (var.is_array && !var.is_assigned &&
                    node->init_expr->node_type == ASTNodeType::AST_FUNC_CALL) {
             // 配列を返す関数呼び出し
             try {
@@ -1441,8 +1554,9 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
                 var.is_assigned = true;
             }
 
-            // 型範囲チェック
-            if (var.type != TYPE_STRING) {
+            // 型範囲チェック（ポインタ型・ポインタ配列は除外）
+            if (var.type != TYPE_STRING && var.type != TYPE_POINTER &&
+                !(var.is_pointer && var.is_array)) {
                 interpreter_->type_manager_->check_type_range(
                     var.type, var.value, node->name, var.is_unsigned);
             }
@@ -1571,6 +1685,47 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
                           << std::endl;
             }
 
+            // Phase 2: 初期化式内に関数呼び出しがある場合、const情報をチェック
+            // (v0.9.2)
+            // init_node自体またはその子ノードに関数呼び出しがある可能性
+            ASTNode *func_call_node = nullptr;
+            if (init_node->node_type == ASTNodeType::AST_FUNC_CALL) {
+                func_call_node = init_node;
+            } else if (init_node->left && init_node->left->node_type ==
+                                              ASTNodeType::AST_FUNC_CALL) {
+                func_call_node = init_node->left.get();
+            } else if (init_node->right && init_node->right->node_type ==
+                                               ASTNodeType::AST_FUNC_CALL) {
+                func_call_node = init_node->right.get();
+            }
+
+            if (func_call_node && node->is_pointer &&
+                !node->is_function_pointer) {
+                std::string func_name = func_call_node->name;
+                auto func_it =
+                    interpreter_->global_scope.functions.find(func_name);
+                if (func_it != interpreter_->global_scope.functions.end()) {
+                    const ASTNode *func_def = func_it->second;
+                    std::string return_type = func_def->return_type_name;
+
+                    // "const T*" パターンをチェック
+                    size_t const_pos = return_type.find("const");
+                    size_t star_pos = return_type.find("*");
+
+                    if (const_pos != std::string::npos &&
+                        star_pos != std::string::npos && const_pos < star_pos &&
+                        !node->is_pointee_const_qualifier) {
+                        throw std::runtime_error(
+                            "Type mismatch: Cannot assign function '" +
+                            func_name + "' return value with type (" +
+                            return_type + ") to variable '" + node->name +
+                            "' of type (int*)\n" +
+                            "  Cannot discard const qualifier from pointed-to "
+                            "type in return value");
+                    }
+                }
+            }
+
             // 関数呼び出しの場合、ReturnExceptionをキャッチする
             if (init_node->node_type == ASTNodeType::AST_FUNC_CALL) {
                 try {
@@ -1626,6 +1781,7 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
                     }
                 }
             } else {
+                // 関数呼び出し以外の初期化式（変数、演算子など）
                 TypedValue typed_value =
                     interpreter_->expression_evaluator_
                         ->evaluate_typed_expression(init_node);
@@ -1666,14 +1822,6 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
     }
 
     current_scope().variables[node->name] = var;
-
-    if (interpreter_->is_debug_mode() && node->name == "ptr") {
-        Variable *registered = find_variable(node->name);
-        if (registered) {
-            std::cerr << "[VAR_MANAGER] After registration, ptr value="
-                      << registered->value << std::endl;
-        }
-    }
     // std::cerr << "DEBUG: Variable created: " << node->name << ",
     // is_array=" << var.is_array << std::endl;
 }

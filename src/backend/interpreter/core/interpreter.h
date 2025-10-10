@@ -279,6 +279,14 @@ class ReturnException {
     std::string function_pointer_name;
     const ASTNode *function_pointer_node = nullptr;
 
+    // ポインタ戻り値のconst情報サポート (v0.9.2)
+    bool is_pointer = false;
+    bool is_pointee_const = false; // const T*
+    bool is_pointer_const = false; // T* const
+    int pointer_depth = 0;
+    TypeInfo pointer_base_type = TYPE_UNKNOWN;
+    std::string pointer_base_type_name;
+
     // 完全初期化コンストラクタ群
     ReturnException(int64_t val, TypeInfo t = TYPE_INT)
         : value(val), double_value(static_cast<double>(val)),
@@ -286,27 +294,37 @@ class ReturnException {
           is_array(false), is_struct(false), is_struct_array(false),
           is_reference(false), reference_target(nullptr),
           is_function_pointer(false), function_pointer_name(""),
-          function_pointer_node(nullptr) {}
+          function_pointer_node(nullptr), is_pointer(false),
+          is_pointee_const(false), is_pointer_const(false), pointer_depth(0),
+          pointer_base_type(TYPE_UNKNOWN), pointer_base_type_name("") {}
     ReturnException(double val, TypeInfo t = TYPE_DOUBLE)
         : value(static_cast<int64_t>(val)), double_value(val),
           quad_value(static_cast<long double>(val)), str_value(""), type(t),
           is_array(false), is_struct(false), is_struct_array(false),
           is_reference(false), reference_target(nullptr),
           is_function_pointer(false), function_pointer_name(""),
-          function_pointer_node(nullptr) {}
+          function_pointer_node(nullptr), is_pointer(false),
+          is_pointee_const(false), is_pointer_const(false), pointer_depth(0),
+          pointer_base_type(TYPE_UNKNOWN), pointer_base_type_name("") {}
     ReturnException(long double val, TypeInfo t = TYPE_QUAD)
         : value(static_cast<int64_t>(val)),
           double_value(static_cast<double>(val)), quad_value(val),
           str_value(""), type(t), is_array(false), is_struct(false),
           is_struct_array(false), is_reference(false),
           reference_target(nullptr), is_function_pointer(false),
-          function_pointer_name(""), function_pointer_node(nullptr) {}
+          function_pointer_name(""), function_pointer_node(nullptr),
+          is_pointer(false), is_pointee_const(false), is_pointer_const(false),
+          pointer_depth(0), pointer_base_type(TYPE_UNKNOWN),
+          pointer_base_type_name("") {}
     ReturnException(const std::string &str)
         : value(0), double_value(0.0), quad_value(0.0L), str_value(str),
           type(TYPE_STRING), is_array(false), is_struct(false),
           is_struct_array(false), is_reference(false),
           reference_target(nullptr), is_function_pointer(false),
-          function_pointer_name(""), function_pointer_node(nullptr) {}
+          function_pointer_name(""), function_pointer_node(nullptr),
+          is_pointer(false), is_pointee_const(false), is_pointer_const(false),
+          pointer_depth(0), pointer_base_type(TYPE_UNKNOWN),
+          pointer_base_type_name("") {}
 
     // 配列戻り値用コンストラクタ
     ReturnException(const std::vector<std::vector<std::vector<int64_t>>> &arr,
@@ -315,7 +333,10 @@ class ReturnException {
           is_array(true), int_array_3d(arr), array_type_name(type_name),
           is_struct(false), is_struct_array(false), is_reference(false),
           reference_target(nullptr), is_function_pointer(false),
-          function_pointer_name(""), function_pointer_node(nullptr) {}
+          function_pointer_name(""), function_pointer_node(nullptr),
+          is_pointer(false), is_pointee_const(false), is_pointer_const(false),
+          pointer_depth(0), pointer_base_type(TYPE_UNKNOWN),
+          pointer_base_type_name("") {}
 
     ReturnException(
         const std::vector<std::vector<std::vector<std::string>>> &arr,
@@ -324,7 +345,10 @@ class ReturnException {
           is_array(true), str_array_3d(arr), array_type_name(type_name),
           is_struct(false), is_struct_array(false), is_reference(false),
           reference_target(nullptr), is_function_pointer(false),
-          function_pointer_name(""), function_pointer_node(nullptr) {}
+          function_pointer_name(""), function_pointer_node(nullptr),
+          is_pointer(false), is_pointee_const(false), is_pointer_const(false),
+          pointer_depth(0), pointer_base_type(TYPE_UNKNOWN),
+          pointer_base_type_name("") {}
 
     // float/double配列戻り値用コンストラクタ
     ReturnException(const std::vector<std::vector<std::vector<double>>> &arr,
@@ -333,7 +357,10 @@ class ReturnException {
           is_array(true), double_array_3d(arr), array_type_name(type_name),
           is_struct(false), is_struct_array(false), is_reference(false),
           reference_target(nullptr), is_function_pointer(false),
-          function_pointer_name(""), function_pointer_node(nullptr) {}
+          function_pointer_name(""), function_pointer_node(nullptr),
+          is_pointer(false), is_pointee_const(false), is_pointer_const(false),
+          pointer_depth(0), pointer_base_type(TYPE_UNKNOWN),
+          pointer_base_type_name("") {}
 
     // struct戻り値用コンストラクタ
     ReturnException(const Variable &struct_var)
@@ -341,7 +368,10 @@ class ReturnException {
           type(struct_var.type), is_array(false), is_struct(true),
           struct_value(struct_var), is_struct_array(false), is_reference(false),
           reference_target(nullptr), is_function_pointer(false),
-          function_pointer_name(""), function_pointer_node(nullptr) {}
+          function_pointer_name(""), function_pointer_node(nullptr),
+          is_pointer(false), is_pointee_const(false), is_pointer_const(false),
+          pointer_depth(0), pointer_base_type(TYPE_UNKNOWN),
+          pointer_base_type_name("") {}
 
     // 構造体配列戻り値用コンストラクタ
     ReturnException(
@@ -352,7 +382,10 @@ class ReturnException {
           is_struct_array(true), struct_array_3d(struct_arr),
           struct_type_name(type_name), is_reference(false),
           reference_target(nullptr), is_function_pointer(false),
-          function_pointer_name(""), function_pointer_node(nullptr) {}
+          function_pointer_name(""), function_pointer_node(nullptr),
+          is_pointer(false), is_pointee_const(false), is_pointer_const(false),
+          pointer_depth(0), pointer_base_type(TYPE_UNKNOWN),
+          pointer_base_type_name("") {}
 
     // 参照戻り値用コンストラクタ
     ReturnException(Variable *ref_target)
@@ -360,7 +393,10 @@ class ReturnException {
           type(ref_target ? ref_target->type : TYPE_UNKNOWN), is_array(false),
           is_struct(false), is_struct_array(false), is_reference(true),
           reference_target(ref_target), is_function_pointer(false),
-          function_pointer_name(""), function_pointer_node(nullptr) {}
+          function_pointer_name(""), function_pointer_node(nullptr),
+          is_pointer(false), is_pointee_const(false), is_pointer_const(false),
+          pointer_depth(0), pointer_base_type(TYPE_UNKNOWN),
+          pointer_base_type_name("") {}
 
     // 関数ポインタ戻り値用コンストラクタ
     ReturnException(int64_t val, const std::string &func_name,
@@ -370,7 +406,9 @@ class ReturnException {
           is_array(false), is_struct(false), is_struct_array(false),
           is_reference(false), reference_target(nullptr),
           is_function_pointer(true), function_pointer_name(func_name),
-          function_pointer_node(func_node) {}
+          function_pointer_node(func_node), is_pointer(false),
+          is_pointee_const(false), is_pointer_const(false), pointer_depth(0),
+          pointer_base_type(TYPE_UNKNOWN), pointer_base_type_name("") {}
 };
 
 class BreakException {

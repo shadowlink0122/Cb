@@ -3,6 +3,7 @@
 #include "../../managers/types/enums.h"
 #include "../../managers/types/manager.h"
 #include <functional>
+#include <iostream>
 #include <stdexcept>
 
 namespace SpecialAccessHelpers {
@@ -21,6 +22,12 @@ int64_t evaluate_arrow_access(
     // ポインタを評価して値を取得
     int64_t ptr_value = evaluate_expression_func(node->left.get());
 
+    if (interpreter.is_debug_mode()) {
+        std::cerr << "[ARROW_DEBUG] ptr_value=" << ptr_value
+                  << " has_meta=" << ((ptr_value & (1LL << 63)) ? "yes" : "no")
+                  << std::endl;
+    }
+
     if (ptr_value == 0) {
         throw std::runtime_error("Null pointer dereference in arrow operator");
     }
@@ -30,6 +37,20 @@ int64_t evaluate_arrow_access(
 
     if (!struct_var) {
         throw std::runtime_error("Invalid pointer in arrow operator");
+    }
+
+    if (interpreter.is_debug_mode()) {
+        auto member_it = struct_var->struct_members.find(member_name);
+        if (member_it != struct_var->struct_members.end()) {
+            std::cerr << "[ARROW_DEBUG] struct_var=" << struct_var
+                      << " member=" << member_name
+                      << " value=" << member_it->second.value << " is_assigned="
+                      << (member_it->second.is_assigned ? "true" : "false")
+                      << std::endl;
+        } else {
+            std::cerr << "[ARROW_DEBUG] struct_var=" << struct_var
+                      << " member=" << member_name << " not found" << std::endl;
+        }
     }
 
     // 構造体型またはInterface型をチェック
@@ -51,6 +72,17 @@ int64_t evaluate_arrow_access(
     } else if (member_var.type == TYPE_POINTER) {
         // ポインタメンバの場合はそのまま値を返す
         return member_var.value;
+    } else if (member_var.type == TYPE_STRUCT ||
+               member_var.type == TYPE_INTERFACE) {
+        // 構造体メンバの場合は、その構造体へのポインタを返す
+        // struct_membersから実際の変数へのポインタを取得
+        auto member_it = struct_var->struct_members.find(member_name);
+        if (member_it != struct_var->struct_members.end()) {
+            return reinterpret_cast<int64_t>(&member_it->second);
+        }
+        // fallback: member_varのアドレスを返す(コピーなので注意)
+        throw std::runtime_error(
+            "Cannot get address of temporary struct member");
     } else if (member_var.type == TYPE_FLOAT ||
                member_var.type == TYPE_DOUBLE || member_var.type == TYPE_QUAD) {
         // 浮動小数点数の場合

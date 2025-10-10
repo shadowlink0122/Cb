@@ -24,7 +24,7 @@ inline void test_correct_usage() {
         },
         execution_time
     );
-    printf("[✓] test_correct_usage passed (%.3fms)\n", execution_time);
+    printf("[integration-test] test_correct_usage passed (%.3fms)\n", execution_time);
 }
 
 // 包括的な単一ポインタテスト
@@ -45,7 +45,7 @@ inline void test_comprehensive() {
         },
         execution_time
     );
-    printf("[✓] test_comprehensive passed (%.3fms)\n", execution_time);
+    printf("[integration-test] test_comprehensive passed (%.3fms)\n", execution_time);
 }
 
 // ダブルポインタの正常系テスト
@@ -64,7 +64,7 @@ inline void test_double_pointer() {
         },
         execution_time
     );
-    printf("[✓] test_double_pointer passed (%.3fms)\n", execution_time);
+    printf("[integration-test] test_double_pointer passed (%.3fms)\n", execution_time);
 }
 
 // ダブルポインタの包括的テスト
@@ -89,7 +89,7 @@ inline void test_double_pointer_comprehensive() {
         },
         execution_time
     );
-    printf("[✓] test_double_pointer_comprehensive passed (%.3fms)\n", execution_time);
+    printf("[integration-test] test_double_pointer_comprehensive passed (%.3fms)\n", execution_time);
 }
 
 // ============================================================================
@@ -108,7 +108,7 @@ inline void test_error_assign_const_to_nonconst() {
         },
         execution_time
     );
-    printf("[✓] test_error_assign_const_to_nonconst passed (%.3fms)\n", execution_time);
+    printf("[integration-test] test_error_assign_const_to_nonconst passed (%.3fms)\n", execution_time);
 }
 
 // エラーテスト: const T*のアドレスをT**に代入
@@ -124,7 +124,7 @@ inline void test_error_double_pointer() {
         },
         execution_time
     );
-    printf("[✓] test_error_double_pointer passed (%.3fms)\n", execution_time);
+    printf("[integration-test] test_error_double_pointer passed (%.3fms)\n", execution_time);
 }
 
 // エラーテスト: T* constのアドレスをT**に代入
@@ -140,7 +140,7 @@ inline void test_error_const_pointer_address() {
         },
         execution_time
     );
-    printf("[✓] test_error_const_pointer_address passed (%.3fms)\n", execution_time);
+    printf("[integration-test] test_error_const_pointer_address passed (%.3fms)\n", execution_time);
 }
 
 // ============================================================================

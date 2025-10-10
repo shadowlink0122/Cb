@@ -1,0 +1,19 @@
+// シンプルなデバッグ用テスト
+
+void test_func(int* ptr) {
+    println("In function");
+    *ptr = 999;
+}
+
+void main() {
+    int x = 42;
+    const int* const ptr = &x;
+    
+    println("Before call");
+    println(x);  // 42
+    
+    test_func(ptr);  // エラーになるべき
+    
+    println("After call");
+    println(x);  // 999に変更されている
+}

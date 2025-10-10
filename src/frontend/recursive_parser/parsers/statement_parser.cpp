@@ -1,6 +1,7 @@
 #include "statement_parser.h"
 #include "../recursive_lexer.h"
 #include "../recursive_parser.h"
+#include <cstdio>
 #include <memory>
 #include <stdexcept>
 
@@ -248,164 +249,26 @@ StatementParser::parseTypedefTypeStatement(const std::string &type_name,
     parser_->current_token_ = temp_current;
 
     if (is_function) {
-        // 関数定義
-        std::string return_type = parser_->advance().value; // 型名を取得
-
-        // 配列戻り値の場合: Person[2] function_name()
-        if (parser_->check(TokenType::TOK_LBRACKET)) {
-            return_type += parser_->advance().value; // '['
-            while (!parser_->check(TokenType::TOK_RBRACKET) &&
-                   !parser_->isAtEnd()) {
-                return_type += parser_->advance().value;
-            }
-            if (parser_->check(TokenType::TOK_RBRACKET)) {
-                return_type += parser_->advance().value; // ']'
-            }
-        }
+        // 関数定義 - parseType()を使ってconst修飾子を含む完全な型情報を取得
+        std::string return_type =
+            parser_->parseType(); // const修飾子を含む完全な型
+        ParsedTypeInfo return_type_info = parser_->getLastParsedTypeInfo();
 
         std::string function_name = parser_->advance().value;
         debug_msg(DebugMsgId::PARSE_FUNCTION_DECL_FOUND, function_name.c_str(),
                   return_type.c_str());
-        return parser_->parseFunctionDeclarationAfterName(return_type,
-                                                          function_name);
+        ASTNode *func_node = parser_->parseFunctionDeclarationAfterName(
+            return_type, function_name);
+        // 戻り値のconst情報を設定
+        if (func_node && return_type_info.is_pointer) {
+            func_node->is_pointee_const_qualifier =
+                return_type_info.is_pointee_const;
+        }
+        return func_node;
     } else if (is_struct_type) {
-        // 構造体変数宣言
-        debug_msg(DebugMsgId::PARSE_STRUCT_VAR_DECL_FOUND, type_name.c_str());
-        std::string struct_type = parser_->advance().value;
-
-        // ポインタまたは参照チェック
-        bool is_pointer = false;
-        bool is_reference = false;
-        int pointer_depth = 0;
-        bool is_pointer_const = false;
-
-        while (parser_->check(TokenType::TOK_MUL)) {
-            is_pointer = true;
-            pointer_depth++;
-            parser_->advance();
-        }
-
-        // ポインタの後のconst修飾子をチェック (T* const)
-        if (is_pointer && parser_->check(TokenType::TOK_CONST)) {
-            is_pointer_const = true;
-            parser_->advance();
-        }
-
-        if (parser_->check(TokenType::TOK_BIT_AND)) {
-            is_reference = true;
-            parser_->advance();
-        }
-
-        // ポインタまたは参照の場合
-        if (is_pointer || is_reference) {
-            if (!parser_->check(TokenType::TOK_IDENTIFIER)) {
-                parser_->error(
-                    "Expected variable name after pointer/reference type");
-                return nullptr;
-            }
-
-            std::string var_name = parser_->advance().value;
-
-            ASTNode *var_node = new ASTNode(ASTNodeType::AST_VAR_DECL);
-            var_node->name = var_name;
-            var_node->type_name = struct_type;
-            var_node->type_info = is_pointer ? TYPE_POINTER : TYPE_STRUCT;
-            var_node->is_pointer = is_pointer;
-            var_node->pointer_depth = pointer_depth;
-            var_node->is_reference = is_reference;
-            var_node->pointer_base_type = TYPE_STRUCT;
-            var_node->pointer_base_type_name = struct_type;
-
-            // constポインタ情報を設定
-            if (is_pointer) {
-                var_node->is_pointer_const_qualifier = is_pointer_const;
-                // isConstが前置constの場合、指し先がconst
-                if (isConst) {
-                    var_node->is_pointee_const_qualifier = true;
-                }
-            } else {
-                // 参照の場合は通常のconst
-                var_node->is_const = isConst;
-            }
-
-            // 初期化式のチェック
-            if (parser_->match(TokenType::TOK_ASSIGN)) {
-                var_node->init_expr =
-                    std::unique_ptr<ASTNode>(parser_->parseExpression());
-            }
-
-            parser_->consume(
-                TokenType::TOK_SEMICOLON,
-                "Expected ';' after pointer/reference variable declaration");
-            return var_node;
-        }
-
-        // 配列チェック: Person[3] people; または Person people;
-        if (parser_->check(TokenType::TOK_LBRACKET)) {
-            // struct配列宣言
-            debug_msg(DebugMsgId::PARSE_STRUCT_ARRAY_DECL, struct_type.c_str());
-            parser_->advance(); // consume '['
-            ASTNode *size_expr = parser_->parseExpression();
-            parser_->consume(TokenType::TOK_RBRACKET,
-                             "Expected ']' after array size");
-
-            std::string var_name = parser_->advance().value;
-            debug_msg(DebugMsgId::PARSE_STRUCT_ARRAY_VAR_NAME,
-                      var_name.c_str());
-
-            ASTNode *var_node = new ASTNode(ASTNodeType::AST_ARRAY_DECL);
-            var_node->name = var_name;
-            var_node->type_name = struct_type;
-            var_node->type_info = TYPE_STRUCT;
-            var_node->is_const = isConst;
-            var_node->array_size_expr = std::unique_ptr<ASTNode>(size_expr);
-
-            // array_type_infoを設定
-            var_node->array_type_info.base_type = TYPE_STRUCT;
-            var_node->array_type_info.dimensions.push_back({0});
-
-            // 初期化式のチェック
-            if (parser_->match(TokenType::TOK_ASSIGN)) {
-                if (parser_->check(TokenType::TOK_LBRACKET)) {
-                    var_node->init_expr =
-                        std::unique_ptr<ASTNode>(parser_->parseArrayLiteral());
-                } else {
-                    var_node->init_expr =
-                        std::unique_ptr<ASTNode>(parser_->parseExpression());
-                }
-            }
-
-            parser_->consume(TokenType::TOK_SEMICOLON,
-                             "Expected ';' after struct array declaration");
-            return var_node;
-        } else {
-            // 通常のstruct変数宣言
-            std::string var_name = parser_->advance().value;
-
-            debug_msg(DebugMsgId::PARSE_VAR_DECL, var_name.c_str(),
-                      struct_type.c_str());
-
-            ASTNode *var_node = new ASTNode(ASTNodeType::AST_VAR_DECL);
-            var_node->name = var_name;
-            var_node->type_name = struct_type;
-            var_node->type_info = TYPE_STRUCT;
-            var_node->is_const = isConst;
-
-            // 初期化式のチェック
-            if (parser_->match(TokenType::TOK_ASSIGN)) {
-                if (parser_->check(TokenType::TOK_LBRACE)) {
-                    var_node->init_expr =
-                        std::unique_ptr<ASTNode>(parser_->parseStructLiteral());
-                } else {
-                    var_node->init_expr =
-                        std::unique_ptr<ASTNode>(parser_->parseExpression());
-                }
-            }
-
-            parser_->consume(TokenType::TOK_SEMICOLON,
-                             "Expected ';' after struct variable declaration");
-            return var_node;
-        }
+        ASTNode *node = parser_->parseVariableDeclaration();
+        applyDeclarationModifiers(node, isConst, isStatic);
+        return node;
     } else if (is_interface_type) {
         // interface変数宣言
         debug_msg(DebugMsgId::PARSE_STRUCT_VAR_DECL_FOUND, type_name.c_str());
@@ -485,32 +348,232 @@ StatementParser::parseTypedefTypeStatement(const std::string &type_name,
         debug_msg(DebugMsgId::PARSE_VAR_DECL, "", type_name.c_str());
         std::string enum_type = parser_->advance().value;
 
+        // ポインタ修飾子のチェック
+        int pointer_depth = 0;
+        bool is_pointer_const = false;
+        while (parser_->check(TokenType::TOK_MUL)) {
+            pointer_depth++;
+            parser_->advance();
+
+            // ポインタ自体のconst修飾子チェック（* const）
+            if (parser_->check(TokenType::TOK_CONST)) {
+                is_pointer_const = true;
+                parser_->advance();
+            }
+        }
+
+        // 参照修飾子のチェック
+        bool is_reference = false;
+        if (parser_->check(TokenType::TOK_AND)) {
+            is_reference = true;
+            parser_->advance();
+        }
+
+        // 配列の次元チェック（例: Color[5]）
+        std::vector<ArrayDimension> dimensions;
+        bool is_array = false;
+        while (parser_->check(TokenType::TOK_LBRACKET)) {
+            is_array = true;
+            parser_->advance(); // consume '['
+
+            if (parser_->check(TokenType::TOK_RBRACKET)) {
+                // 動的配列 []
+                dimensions.push_back(ArrayDimension(-1, true));
+                parser_->advance(); // consume ']'
+            } else {
+                // サイズ指定あり [N]
+                ASTNode *size_expr = parser_->parseExpression();
+                if (size_expr->node_type == ASTNodeType::AST_NUMBER) {
+                    int size = static_cast<int>(size_expr->int_value);
+                    dimensions.push_back(ArrayDimension(size, false));
+                } else if (size_expr->node_type == ASTNodeType::AST_VARIABLE) {
+                    // 定数識別子による指定
+                    dimensions.push_back(
+                        ArrayDimension(-1, true, size_expr->name));
+                } else {
+                    dimensions.push_back(ArrayDimension(-1, true));
+                }
+                delete size_expr;
+
+                parser_->consume(TokenType::TOK_RBRACKET,
+                                 "Expected ']' after array size");
+            }
+        }
+
         if (!parser_->check(TokenType::TOK_IDENTIFIER)) {
             parser_->error("Expected enum variable name");
             return nullptr;
         }
 
-        std::string var_name = parser_->advance().value;
+        // 最初の変数名
+        std::string first_var_name = parser_->advance().value;
 
-        ASTNode *var_node = new ASTNode(ASTNodeType::AST_VAR_DECL);
-        var_node->name = var_name;
-        var_node->type_name = enum_type;
-        var_node->type_info = TYPE_ENUM;
-        var_node->is_const = isConst;
+        // 複数変数宣言のためのベクター
+        std::vector<std::pair<std::string, std::unique_ptr<ASTNode>>> variables;
 
-        // 初期化式のチェック
+        // 最初の変数を追加
+        std::unique_ptr<ASTNode> init_expr = nullptr;
         if (parser_->match(TokenType::TOK_ASSIGN)) {
-            var_node->init_expr =
-                std::unique_ptr<ASTNode>(parser_->parseExpression());
+            init_expr = std::unique_ptr<ASTNode>(parser_->parseExpression());
+        }
+        variables.emplace_back(first_var_name, std::move(init_expr));
+
+        // カンマで区切られた追加の変数をパース
+        while (parser_->match(TokenType::TOK_COMMA)) {
+            if (!parser_->check(TokenType::TOK_IDENTIFIER)) {
+                parser_->error("Expected variable name after ','");
+                return nullptr;
+            }
+
+            std::string var_name = parser_->advance().value;
+            std::unique_ptr<ASTNode> var_init = nullptr;
+
+            if (parser_->match(TokenType::TOK_ASSIGN)) {
+                var_init = std::unique_ptr<ASTNode>(parser_->parseExpression());
+            }
+
+            variables.emplace_back(var_name, std::move(var_init));
         }
 
         parser_->consume(TokenType::TOK_SEMICOLON,
                          "Expected ';' after enum variable declaration");
 
-        return var_node;
+        // 単一変数か複数変数かに応じてノードを作成
+        if (variables.size() == 1) {
+            ASTNode *var_node = new ASTNode(ASTNodeType::AST_VAR_DECL);
+            var_node->name = variables[0].first;
+            var_node->type_name = enum_type;
+            var_node->is_const = isConst;
+
+            // 配列情報の設定
+            if (is_array) {
+                var_node->is_array = true;
+                var_node->array_type_info =
+                    ArrayTypeInfo(TYPE_ENUM, dimensions);
+                var_node->type_info =
+                    static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_ENUM);
+
+                // type_nameに配列次元を追加
+                for (const auto &dim : dimensions) {
+                    var_node->type_name += "[";
+                    if (!dim.is_dynamic && dim.size >= 0) {
+                        var_node->type_name += std::to_string(dim.size);
+                    }
+                    var_node->type_name += "]";
+                }
+            }
+            // ポインタと参照の情報を設定
+            else if (pointer_depth > 0) {
+                var_node->is_pointer = true;
+                var_node->pointer_depth = pointer_depth;
+                var_node->pointer_base_type_name = enum_type;
+                var_node->pointer_base_type = TYPE_ENUM;
+                var_node->type_info = TYPE_POINTER;
+
+                // constポインタ情報を設定
+                var_node->is_pointer_const_qualifier = is_pointer_const;
+                if (isConst) {
+                    var_node->is_pointee_const_qualifier = true;
+                }
+
+                for (int i = 0; i < pointer_depth; i++) {
+                    var_node->type_name += "*";
+                }
+            } else {
+                var_node->type_info = TYPE_ENUM;
+            }
+
+            if (is_reference) {
+                var_node->is_reference = true;
+                var_node->type_name += "&";
+            }
+
+            // 初期化式を設定
+            if (variables[0].second) {
+                var_node->init_expr = std::move(variables[0].second);
+            }
+
+            return var_node;
+        } else {
+            // 複数変数宣言: AST_MULTIPLE_VAR_DECLノードを作成
+            ASTNode *multi_node =
+                new ASTNode(ASTNodeType::AST_MULTIPLE_VAR_DECL);
+            multi_node->type_name = enum_type;
+            multi_node->is_const = isConst;
+            multi_node->is_reference = is_reference;
+
+            // ポインタ情報を設定
+            if (pointer_depth > 0) {
+                multi_node->is_pointer = true;
+                multi_node->pointer_depth = pointer_depth;
+                multi_node->pointer_base_type_name = enum_type;
+                multi_node->pointer_base_type = TYPE_ENUM;
+            }
+
+            // 配列情報を設定
+            if (is_array) {
+                multi_node->is_array = true;
+                multi_node->array_type_info =
+                    ArrayTypeInfo(TYPE_ENUM, dimensions);
+            }
+
+            // 各変数をvar_declarations_に追加
+            for (auto &var_pair : variables) {
+                ASTNode *var_node = new ASTNode(ASTNodeType::AST_VAR_DECL);
+                var_node->name = var_pair.first;
+                var_node->type_name = enum_type;
+                var_node->is_const = isConst;
+                var_node->is_reference = is_reference;
+
+                // ポインタ情報をコピー
+                if (pointer_depth > 0) {
+                    var_node->is_pointer = true;
+                    var_node->pointer_depth = pointer_depth;
+                    var_node->pointer_base_type_name = enum_type;
+                    var_node->pointer_base_type = TYPE_ENUM;
+                    var_node->type_info = TYPE_POINTER;
+
+                    var_node->is_pointer_const_qualifier = is_pointer_const;
+                    if (isConst) {
+                        var_node->is_pointee_const_qualifier = true;
+                    }
+
+                    for (int i = 0; i < pointer_depth; i++) {
+                        var_node->type_name += "*";
+                    }
+                } else if (is_array) {
+                    var_node->is_array = true;
+                    var_node->array_type_info =
+                        ArrayTypeInfo(TYPE_ENUM, dimensions);
+                    var_node->type_info =
+                        static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_ENUM);
+
+                    for (const auto &dim : dimensions) {
+                        var_node->type_name += "[";
+                        if (!dim.is_dynamic && dim.size >= 0) {
+                            var_node->type_name += std::to_string(dim.size);
+                        }
+                        var_node->type_name += "]";
+                    }
+                } else {
+                    var_node->type_info = TYPE_ENUM;
+                }
+
+                // 初期化式を移動
+                if (var_pair.second) {
+                    var_node->init_expr = std::move(var_pair.second);
+                }
+
+                multi_node->children.push_back(
+                    std::unique_ptr<ASTNode>(var_node));
+            }
+
+            return multi_node;
+        }
     } else {
-        // typedef型変数宣言
-        return parser_->parseTypedefVariableDeclaration();
+        ASTNode *node = parser_->parseVariableDeclaration();
+        applyDeclarationModifiers(node, isConst, isStatic);
+        return node;
     }
 }
 
@@ -624,7 +687,7 @@ ASTNode *StatementParser::parseBasicTypeStatement(bool isStatic, bool isConst,
     if (parser_->check(TokenType::TOK_LBRACKET)) {
         return parseArrayDeclaration(base_type_name, type_name, base_type_info,
                                      declared_type_info, isStatic, isConst,
-                                     isUnsigned, is_reference);
+                                     isUnsigned, is_reference, pointer_depth);
     }
 
     // ポインタ型の後のconst修飾子をチェック (T* const の場合)
@@ -642,8 +705,18 @@ ASTNode *StatementParser::parseBasicTypeStatement(bool isStatic, bool isConst,
 
         if (parser_->check(TokenType::TOK_LPAREN)) {
             // これは関数定義
-            return parser_->parseFunctionDeclarationAfterName(type_name,
-                                                              name_token.value);
+            // constがポインタの指し先に適用される場合、戻り値型の名前に含める
+            std::string full_return_type = type_name;
+            if (isConst && pointer_depth > 0) {
+                full_return_type = "const " + full_return_type;
+            }
+            ASTNode *func_node = parser_->parseFunctionDeclarationAfterName(
+                full_return_type, name_token.value);
+            // 戻り値のconst情報を設定
+            if (func_node && isConst && pointer_depth > 0) {
+                func_node->is_pointee_const_qualifier = true;
+            }
+            return func_node;
         } else {
             // 変数宣言: type identifier [, identifier2, ...] [= expr];
             return parseVariableDeclarationList(
@@ -661,7 +734,7 @@ ASTNode *StatementParser::parseBasicTypeStatement(bool isStatic, bool isConst,
 ASTNode *StatementParser::parseArrayDeclaration(
     const std::string &base_type_name, const std::string &type_name,
     TypeInfo base_type_info, TypeInfo declared_type_info, bool isStatic,
-    bool isConst, bool isUnsigned, bool is_reference) {
+    bool isConst, bool isUnsigned, bool is_reference, int pointer_depth) {
     // 全ての配列次元を解析
     std::vector<std::string> array_sizes;
 
@@ -727,6 +800,14 @@ ASTNode *StatementParser::parseArrayDeclaration(
     node->is_static = isStatic;
     node->is_unsigned = isUnsigned;
     node->is_reference = is_reference;
+
+    // ポインタ配列の場合、ポインタフラグを設定
+    if (pointer_depth > 0) {
+        node->is_pointer = true;
+        node->pointer_depth = pointer_depth;
+        node->pointer_base_type = base_type_info;
+        node->pointer_base_type_name = base_type_name;
+    }
 
     // ArrayTypeInfoを構築
     std::vector<ArrayDimension> dimensions;
@@ -1021,6 +1102,37 @@ ASTNode *StatementParser::parseVariableDeclarationList(
     }
 }
 
+void StatementParser::applyDeclarationModifiers(ASTNode *node, bool isConst,
+                                                bool isStatic) {
+    if (!node) {
+        return;
+    }
+
+    auto apply_to_single = [&](ASTNode *target) {
+        if (!target) {
+            return;
+        }
+        if (isStatic) {
+            target->is_static = true;
+        }
+        if (isConst) {
+            if (target->is_pointer && !target->is_reference) {
+                target->is_pointee_const_qualifier = true;
+            } else {
+                target->is_const = true;
+            }
+        }
+    };
+
+    apply_to_single(node);
+
+    if (node->node_type == ASTNodeType::AST_MULTIPLE_VAR_DECL) {
+        for (auto &child : node->children) {
+            apply_to_single(child.get());
+        }
+    }
+}
+
 ASTNode *StatementParser::parseCompoundStatement() {
     parser_->advance(); // consume '{'
 
@@ -1055,7 +1167,15 @@ ASTNode *StatementParser::parseIfStatement() {
     parser_->consume(TokenType::TOK_LPAREN, "Expected '(' after if");
 
     ASTNode *if_node = new ASTNode(ASTNodeType::AST_IF_STMT);
-    if_node->condition = std::unique_ptr<ASTNode>(parser_->parseExpression());
+    ASTNode *condition_node = parser_->parseExpression();
+    if_node->condition = std::unique_ptr<ASTNode>(condition_node);
+    if (parser_->debug_mode_) {
+        std::fprintf(
+            stderr, "[IF_DEBUG] condition parsed node=%p type=%d\n",
+            static_cast<void *>(condition_node),
+            condition_node ? static_cast<int>(condition_node->node_type) : -1);
+        std::fflush(stderr);
+    }
 
     parser_->consume(TokenType::TOK_RPAREN, "Expected ')' after if condition");
 

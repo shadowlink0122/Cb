@@ -1,6 +1,8 @@
 #ifndef DEBUG_H
 #define DEBUG_H
 
+#include <string>
+
 // デバッグ言語設定
 enum class DebugLanguage { ENGLISH, JAPANESE };
 
@@ -403,6 +405,8 @@ enum class DebugMsgId {
     TYPED_EVAL_INTERNAL_ENTRY, // typed expression internal評価エントリー
     TYPED_MEMBER_ACCESS_CASE,  // AST_MEMBER_ACCESSケース処理
 
+    GENERIC_DEBUG, // 汎用デバッグライン出力
+
     MAX_DEBUG_MSG_ID // 最大値マーカー
 };
 
@@ -418,5 +422,11 @@ void debug_msg(DebugMsgId msg_id, ...);
 
 // 多言語対応エラー出力関数（新規）
 void error_msg(DebugMsgId msg_id, ...);
+
+inline void debug_log_line(const std::string &message) {
+    if (!debug_mode)
+        return;
+    debug_msg(DebugMsgId::GENERIC_DEBUG, message.c_str());
+}
 
 #endif // DEBUG_H

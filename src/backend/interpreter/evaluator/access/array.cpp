@@ -248,6 +248,14 @@ int64_t evaluate_array_ref(
         throw std::runtime_error("Undefined array: " + array_name);
     }
 
+    // 配列参照の解決（配列が参照として渡された場合）
+    if (var->is_reference && var->is_array) {
+        var = reinterpret_cast<Variable *>(var->value);
+        if (!var) {
+            throw std::runtime_error("Invalid array reference: " + array_name);
+        }
+    }
+
     // 文字列配列の文字アクセス（例: names[0][0]）
     if (var->is_array && !var->array_strings.empty() && indices.size() == 2) {
         int64_t array_index = indices[0];
@@ -259,8 +267,15 @@ int64_t evaluate_array_ref(
         }
 
         std::string str = var->array_strings[array_index];
+
+        // C言語互換: 文字列長と同じインデックスでnullターミネータ('\0'=0)を返す
+        if (char_index ==
+            static_cast<int64_t>(utf8_utils::utf8_char_count(str))) {
+            return 0; // '\0'
+        }
+
         if (char_index < 0 ||
-            char_index >=
+            char_index >
                 static_cast<int64_t>(utf8_utils::utf8_char_count(str))) {
             throw std::runtime_error("String index out of bounds");
         }
@@ -274,8 +289,13 @@ int64_t evaluate_array_ref(
         int64_t index = indices[0];
         std::string str = var->str_value;
 
+        // C言語互換: 文字列長と同じインデックスでnullターミネータ('\0'=0)を返す
+        if (index == static_cast<int64_t>(utf8_utils::utf8_char_count(str))) {
+            return 0; // '\0'
+        }
+
         if (index < 0 ||
-            index >= static_cast<int64_t>(utf8_utils::utf8_char_count(str))) {
+            index > static_cast<int64_t>(utf8_utils::utf8_char_count(str))) {
             throw std::runtime_error("String index out of bounds");
         }
 

@@ -51,13 +51,13 @@ void test_struct_typedef_comprehensive() {
 
 // Main struct typedef test function
 void test_integration_struct_typedef() {
-    std::cout << "[integration] Running struct typedef tests..." << std::endl;
+    std::cout << "[integration-test] Running struct typedef tests..." << std::endl;
     test_struct_typedef_basic();
     test_struct_typedef_separated();
     test_struct_typedef_literals();
     test_struct_typedef_functions();
     test_struct_typedef_comprehensive();
-    std::cout << "[integration] Struct typedef tests completed" << std::endl;
+    std::cout << "[integration-test] Struct typedef tests completed" << std::endl;
 }
 
 #endif // TEST_STRUCT_TYPEDEF_HPP

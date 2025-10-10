@@ -3,7 +3,7 @@
 #include "../framework/integration_test_framework.hpp"
 
 inline void test_interface_type_inference_chain() {
-    std::cout << "[integration] Running interface type inference chain test..." << std::endl;
+    std::cout << "[integration-test] Running interface type inference chain test..." << std::endl;
 
     run_cb_test_with_output_and_time_auto("../../tests/cases/interface/type_inference_chain.cb",
         [](const std::string& output, int exit_code) {
@@ -28,5 +28,5 @@ inline void test_interface_type_inference_chain() {
 
     integration_test_passed_with_time_auto("Interface type inference chain", "type_inference_chain.cb");
 
-    std::cout << "[integration] Interface type inference chain test completed" << std::endl;
+    std::cout << "[integration-test] Interface type inference chain test completed" << std::endl;
 }

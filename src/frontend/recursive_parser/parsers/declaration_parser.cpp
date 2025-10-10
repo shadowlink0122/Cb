@@ -85,6 +85,7 @@ ASTNode *DeclarationParser::parseTypedefVariableDeclaration() {
         node->is_pointer = true;
         node->pointer_depth = pointer_depth;
         node->pointer_base_type_name = typedef_name;
+        node->type_info = TYPE_POINTER;
 
         // typedefの解決済み型を取得
         TypeInfo base_type_info = TYPE_UNKNOWN;
@@ -277,7 +278,6 @@ ASTNode *DeclarationParser::parseFunctionDeclaration() {
 
     // bodyフィールドに設定
     function_node->body = std::unique_ptr<ASTNode>(body_node);
-
     return function_node;
 }
 
@@ -312,7 +312,6 @@ ASTNode *DeclarationParser::parseFunctionDeclarationAfterName(
             // パラメータ型
             std::string param_type = parser_->parseType();
             ParsedTypeInfo param_parsed = parser_->getLastParsedTypeInfo();
-
             // パラメータ名
             if (!parser_->check(TokenType::TOK_IDENTIFIER)) {
                 parser_->error("Expected parameter name");
@@ -336,6 +335,10 @@ ASTNode *DeclarationParser::parseFunctionDeclarationAfterName(
             param->is_reference = param_parsed.is_reference;
             param->is_unsigned = param_parsed.is_unsigned;
             param->is_const = param_parsed.is_const;
+            // ポインタのconst修飾を設定
+            param->is_pointer_const_qualifier = param_parsed.is_pointer_const;
+            param->is_pointee_const_qualifier =
+                param_parsed.is_const && param_parsed.is_pointer;
             if (param_parsed.is_array) {
                 param->array_type_info = param_parsed.array_info;
                 param->is_array = true;

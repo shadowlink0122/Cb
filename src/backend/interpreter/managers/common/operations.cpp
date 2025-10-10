@@ -275,6 +275,23 @@ void CommonOperations::assign_array_element_safe(Variable *var, int64_t index,
         throw std::runtime_error("Variable not found: " + var_name);
     }
 
+    // 配列参照の場合、参照変数のデータベクトルを更新する必要がある
+    Variable *ref_var = nullptr; // 参照変数自体を保持
+    bool is_const_ref = var->is_const;
+
+    if (var->is_reference && var->is_array) {
+        // constチェックは参照の時点で行う必要がある
+        if (is_const_ref && var->is_assigned) {
+            throw std::runtime_error("Cannot assign to const variable: " +
+                                     var_name);
+        }
+        ref_var = var; // 参照変数を保存（データベクトル更新のため）
+        var = reinterpret_cast<Variable *>(var->value);
+        if (!var) {
+            throw std::runtime_error("Invalid array reference: " + var_name);
+        }
+    }
+
     if (!var->is_array) {
         throw std::runtime_error("Variable is not an array: " + var_name);
     }
@@ -294,15 +311,44 @@ void CommonOperations::assign_array_element_safe(Variable *var, int64_t index,
         adjusted_value = 0;
     }
 
-    // 型チェック（配列の要素型に対して）
+    // 型チェック（配列の要素型に対して、ただしポインタ型とポインタ配列は除外）
     TypeInfo elem_type =
         (var->type >= TYPE_ARRAY_BASE)
             ? static_cast<TypeInfo>(var->type - TYPE_ARRAY_BASE)
             : var->type;
-    interpreter_->get_type_manager()->check_type_range(
-        elem_type, adjusted_value, var_name, var->is_unsigned);
+
+    // デバッグ: 配列への代入時の型情報を確認
+    if (interpreter_->is_debug_mode()) {
+        std::cerr << "[ARRAY_ASSIGN_DEBUG] Assigning to " << var_name << "["
+                  << index << "]" << std::endl;
+        std::cerr << "  var->type: " << static_cast<int>(var->type)
+                  << std::endl;
+        std::cerr << "  elem_type: " << static_cast<int>(elem_type)
+                  << std::endl;
+        std::cerr << "  TYPE_POINTER: " << static_cast<int>(TYPE_POINTER)
+                  << std::endl;
+        std::cerr << "  Value: " << adjusted_value << " (0x" << std::hex
+                  << adjusted_value << std::dec << ")" << std::endl;
+        std::cerr << "  Has tag bit: "
+                  << ((adjusted_value & (1LL << 63)) ? "YES" : "NO")
+                  << std::endl;
+    }
+
+    // ポインタ配列の場合は型範囲チェックをスキップ（ポインタ値はアドレスなので範囲チェック不要）
+    if (elem_type != TYPE_POINTER && !var->is_pointer) {
+        interpreter_->get_type_manager()->check_type_range(
+            elem_type, adjusted_value, var_name, var->is_unsigned);
+    }
 
     var->array_values[index] = adjusted_value;
+
+    // 参照変数の場合、参照変数自体のデータベクトルも更新
+    // これにより関数内での読み取りが正しく動作し、
+    // 関数終了時のコピーバックで元の配列に反映される
+    if (ref_var && index < static_cast<int64_t>(ref_var->array_values.size())) {
+        ref_var->array_values[index] = adjusted_value;
+    }
+
     debug_array_operation("assign_element", var_name, index, adjusted_value);
 }
 
@@ -311,6 +357,23 @@ void CommonOperations::assign_array_element_safe(Variable *var, int64_t index,
                                                  const std::string &var_name) {
     if (!var) {
         throw std::runtime_error("Variable not found: " + var_name);
+    }
+
+    // 配列参照の場合、参照変数のデータベクトルを更新する必要がある
+    Variable *ref_var = nullptr; // 参照変数自体を保持
+    bool is_const_ref = var->is_const;
+
+    if (var->is_reference && var->is_array) {
+        // constチェックは参照の時点で行う必要がある
+        if (is_const_ref && var->is_assigned) {
+            throw std::runtime_error("Cannot assign to const variable: " +
+                                     var_name);
+        }
+        ref_var = var; // 参照変数を保存（データベクトル更新のため）
+        var = reinterpret_cast<Variable *>(var->value);
+        if (!var) {
+            throw std::runtime_error("Invalid array reference: " + var_name);
+        }
     }
 
     if (!var->is_array) {
@@ -323,6 +386,12 @@ void CommonOperations::assign_array_element_safe(Variable *var, int64_t index,
     // 文字列配列の場合
     if (var->array_strings.size() > static_cast<size_t>(index)) {
         var->array_strings[index] = value;
+
+        // 参照変数の場合、参照変数自体のデータベクトルも更新
+        if (ref_var &&
+            index < static_cast<int64_t>(ref_var->array_strings.size())) {
+            ref_var->array_strings[index] = value;
+        }
     } else {
         throw std::runtime_error("String array index out of bounds: " +
                                  var_name);
@@ -445,6 +514,15 @@ CommonOperations::infer_array_element_type(const ASTNode *literal_node) {
     case ASTNodeType::AST_STRING_LITERAL:
         return TYPE_STRING;
     case ASTNodeType::AST_NUMBER:
+        // 浮動小数点リテラルかチェック
+        if (first_element->is_float_literal) {
+            // literal_typeが設定されていればそれを使用
+            if (first_element->literal_type != TYPE_UNKNOWN) {
+                return first_element->literal_type;
+            }
+            // デフォルトでFLOAT
+            return TYPE_FLOAT;
+        }
         return TYPE_INT;
     default:
         // 複雑な式の場合はINTと仮定（評価後に適切な型が決まる）

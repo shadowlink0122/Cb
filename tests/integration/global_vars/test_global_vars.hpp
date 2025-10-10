@@ -3,7 +3,7 @@
 #include "../framework/integration_test_framework.hpp"
 
 inline void test_integration_global_vars() {
-    std::cout << "[integration] Running global vars tests..." << std::endl;
+    std::cout << "[integration-test] Running global vars tests..." << std::endl;
     
     // Test basic global variables
     run_cb_test_with_output_and_time_auto("../../tests/cases/global_vars/basic.cb", 
@@ -34,5 +34,5 @@ inline void test_integration_global_vars() {
         });
     integration_test_passed_with_error_and_time_auto("global vars redeclare test", "redeclare.cb");
     
-    std::cout << "[integration] Global vars tests completed" << std::endl;
+    std::cout << "[integration-test] Global vars tests completed" << std::endl;
 }

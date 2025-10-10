@@ -52,6 +52,9 @@ FRONTEND_OBJS=$(FRONTEND_DIR)/main.o $(FRONTEND_DIR)/help_messages.o $(FRONTEND_
 # Interpreterオブジェクトファイル（グループ化）
 INTERPRETER_CORE_OBJS = \
 	$(INTERPRETER_CORE)/interpreter.o \
+	$(INTERPRETER_CORE)/initialization.o \
+	$(INTERPRETER_CORE)/cleanup.o \
+	$(INTERPRETER_CORE)/utility.o \
 	$(INTERPRETER_CORE)/error_handler.o \
 	$(INTERPRETER_CORE)/pointer_metadata.o \
 	$(INTERPRETER_CORE)/type_inference.o
@@ -135,7 +138,7 @@ COMMON_OBJS=$(COMMON_DIR)/type_utils.o $(COMMON_DIR)/type_alias.o $(COMMON_DIR)/
 MAIN_TARGET=main
 CGEN_TARGET=cgen_main
 
-.PHONY: all clean lint fmt unit-test integration-test integration-test-verbose integration-test-old test debug debug-build-test setup-dirs deep-clean clean-all backup-old help
+.PHONY: all clean lint fmt unit-test integration-test integration-test-verbose integration-test-old test debug setup-dirs deep-clean clean-all backup-old help
 
 all: setup-dirs $(MAIN_TARGET)
 
@@ -253,7 +256,7 @@ unit-test: $(TESTS_DIR)/unit/test_main
 	@echo "============================================================="
 	@echo "Running Cb Unit Test Suite"
 	@echo "============================================================="
-	@cd tests/unit && ./test_main
+	cd tests/unit && ./test_main
 
 # Integration test binary target
 $(TESTS_DIR)/integration/test_main: $(TESTS_DIR)/integration/main.cpp $(MAIN_TARGET)
@@ -263,7 +266,7 @@ integration-test: $(TESTS_DIR)/integration/test_main
 	@echo "============================================================="
 	@echo "Running Cb Integration Test Suite"
 	@echo "============================================================="
-	@cd tests/integration && ./test_main 2>&1 | fold -s -w 80
+	@bash -c "set -o pipefail; cd tests/integration && ./test_main 2>&1 | fold -s -w 80"
 
 # より詳細な出力が必要な場合の統合テスト（フル出力）
 integration-test-verbose: $(TESTS_DIR)/integration/test_main
@@ -274,13 +277,6 @@ test: integration-test unit-test
 	@echo "=== Test Summary ==="
 	@echo "Integration tests: completed"
 	@echo "Unit tests: 50 tests"
-
-# デバッグ版のテスト実行
-debug-build-test: CFLAGS += -DYYDEBUG=1 -DDEBUG=1
-debug-build-test: clean $(MAIN_TARGET) integration-test unit-test
-	@echo "=== Debug Build Test Summary ==="
-	@echo "Integration tests: completed (debug mode)"
-	@echo "Unit tests: completed (debug mode)"
 
 # クリーンアップ
 clean:
@@ -329,7 +325,6 @@ help:
 	@echo "  lint                   - Check code formatting"
 	@echo "  fmt                    - Format code"
 	@echo "  test                   - Run all tests"
-	@echo "  debug-build-test       - Build with debug flags and run all tests"
 	@echo "  unit-test              - Run unit tests (50 tests)"
 	@echo "  integration-test       - Run integration tests (formatted output)"
 	@echo "  integration-test-verbose - Run integration tests (full output)"

@@ -35,9 +35,9 @@ void test_while_loop_continue() {
 }
 
 inline void test_integration_loop() {
-    std::cout << "[integration] Running loop tests..." << std::endl;
+    std::cout << "[integration-test] Running loop tests..." << std::endl;
     test_break_continue();
     test_nested_loop_break();
     test_while_loop_continue();
-    std::cout << "[integration] Loop tests completed" << std::endl;
+    std::cout << "[integration-test] Loop tests completed" << std::endl;
 }

@@ -8,7 +8,7 @@ void test_import_export_basic() {
         [](const std::string& output, int exit_code) {
             // import/exportのテストは現在実装されていない可能性があるため
             // とりあえず実行できることを確認
-            std::cout << "[integration] import_export basic test executed with exit_code: " 
+            std::cout << "[integration-test] import_export basic test executed with exit_code: " 
                       << exit_code << std::endl;
         });
     integration_test_passed_with_time_auto("test_import_export_basic", "test_basic_import_export.cb");
@@ -16,9 +16,9 @@ void test_import_export_basic() {
 
 // Main import_export test function
 void test_integration_import_export() {
-    std::cout << "[integration] Running import_export tests..." << std::endl;
+    std::cout << "[integration-test] Running import_export tests..." << std::endl;
     test_import_export_basic();
-    std::cout << "[integration] Import_export tests completed" << std::endl;
+    std::cout << "[integration-test] Import_export tests completed" << std::endl;
 }
 
 #endif // TEST_IMPORT_EXPORT_HPP

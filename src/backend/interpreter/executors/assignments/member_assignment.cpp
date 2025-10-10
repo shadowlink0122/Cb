@@ -5,6 +5,7 @@
 #include "core/error_handler.h"
 #include "core/interpreter.h"
 #include "managers/variables/manager.h"
+#include "recursive_member_resolver.h"
 
 namespace AssignmentHandlers {
 
@@ -110,19 +111,32 @@ void execute_member_assignment(StatementExecutor *executor,
             debug_print("DEBUG: Dereference member assignment completed\n");
         }
         return;
-    } else if (member_access->left && member_access->left->node_type ==
-                                          ASTNodeType::AST_MEMBER_ACCESS) {
+    } else if (member_access->left &&
+               (member_access->left->node_type ==
+                    ASTNodeType::AST_MEMBER_ACCESS ||
+                member_access->left->node_type == ASTNodeType::AST_ARRAY_REF)) {
         // ネストメンバアクセス: obj.mid.data.value = 100
-        // member_accessの左側のメンバアクセスチェーンを評価して、最後の構造体変数を取得
-        debug_print("DEBUG: Nested member access assignment - member=%s\n",
-                    member_access->name.c_str());
+        // または配列を含むネスト: container.shapes[0].edges[0].start.x = 10
+        debug_print(
+            "DEBUG: Nested/Array member access assignment - member=%s\n",
+            member_access->name.c_str());
 
-        // ルート変数名を取得
+        // 評価用のラムダ関数
+        auto evaluate_index =
+            [&interpreter](const ASTNode *idx_node) -> int64_t {
+            return interpreter.evaluate(idx_node);
+        };
+
+        // ルート変数名を取得してconstチェック
         const ASTNode *root_node = member_access->left.get();
         while (root_node &&
-               root_node->node_type == ASTNodeType::AST_MEMBER_ACCESS &&
-               root_node->left) {
-            root_node = root_node->left.get();
+               (root_node->node_type == ASTNodeType::AST_MEMBER_ACCESS ||
+                root_node->node_type == ASTNodeType::AST_ARRAY_REF)) {
+            if (root_node->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
+                root_node = root_node->left.get();
+            } else if (root_node->node_type == ASTNodeType::AST_ARRAY_REF) {
+                root_node = root_node->left.get();
+            }
         }
         std::string root_var_name;
         if (root_node &&
@@ -141,116 +155,108 @@ void execute_member_assignment(StatementExecutor *executor,
             }
         }
 
-        // ネストメンバアクセスを評価して対象の構造体変数を取得
-        Variable *target_struct =
-            executor->evaluate_nested_member_access(member_access->left.get());
+        // 再帰的に親構造体と最終メンバー名を解決
+        auto [parent_struct, final_member] =
+            AssignmentHelpers::resolve_nested_member_for_assignment(
+                interpreter, member_access, evaluate_index);
 
-        if (!target_struct) {
-            throw std::runtime_error("Cannot resolve nested member access");
+        if (!parent_struct || !parent_struct->is_struct) {
+            throw std::runtime_error("Parent is not a struct");
         }
 
-        // 左側のメンバアクセスのメンバ名を取得
-        std::string parent_member = member_access->left->name;
-        debug_print("DEBUG: Parent member: %s\n", parent_member.c_str());
-
-        // parent_memberが構造体メンバかどうか確認
-        auto parent_it = target_struct->struct_members.find(parent_member);
-        if (parent_it == target_struct->struct_members.end()) {
-            throw std::runtime_error("Parent member not found: " +
-                                     parent_member);
+        if (debug_mode) {
+            debug_print(
+                "DEBUG: parent_struct=%p, final_member=%s, members=%zu\n",
+                static_cast<void *>(parent_struct), final_member.c_str(),
+                parent_struct->struct_members.size());
         }
 
-        Variable &parent_member_var = parent_it->second;
-        if (parent_member_var.type != TYPE_STRUCT) {
-            throw std::runtime_error("Parent member is not a struct: " +
-                                     parent_member);
-        }
-
-        // 最終的なメンバ名を取得
-        std::string member_name = member_access->name;
-        debug_print("DEBUG: Final member: %s\n", member_name.c_str());
+        debug_print("DEBUG: Resolved parent struct, final member: %s\n",
+                    final_member.c_str());
 
         // constメンバへの代入チェック
-        auto final_member_it =
-            parent_member_var.struct_members.find(member_name);
-        if (final_member_it != parent_member_var.struct_members.end()) {
-            debug_print("DEBUG: Nested member const check: %s.%s - "
-                        "is_const=%d, is_assigned=%d\n",
-                        parent_member.c_str(), member_name.c_str(),
-                        final_member_it->second.is_const ? 1 : 0,
-                        final_member_it->second.is_assigned ? 1 : 0);
+        auto final_member_it = parent_struct->struct_members.find(final_member);
+        if (final_member_it != parent_struct->struct_members.end()) {
             if (final_member_it->second.is_const &&
                 final_member_it->second.is_assigned) {
                 throw std::runtime_error("Cannot assign to const member '" +
-                                         member_name +
+                                         final_member +
                                          "' after initialization");
             }
         }
 
-        //  完全なパスを構築
-        std::function<std::string(const ASTNode *)> build_full_path;
-        build_full_path = [&](const ASTNode *n) -> std::string {
-            if (!n)
-                return "";
-            if (n->node_type == ASTNodeType::AST_VARIABLE ||
-                n->node_type == ASTNodeType::AST_IDENTIFIER) {
-                return n->name;
-            } else if (n->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
-                std::string base = build_full_path(n->left.get());
-                return base.empty() ? n->name : base + "." + n->name;
-            }
-            return "";
-        };
-        std::string full_member_path = build_full_path(member_access);
+        // 親のstruct_membersに直接代入
+        auto &member_ref = parent_struct->struct_members[final_member];
 
-        if (debug_mode) {
-            debug_print("DEBUG: Nested member assignment - full_path='%s'\n",
-                        full_member_path.c_str());
-        }
-
-        // 完全パスで個別変数を直接更新
-        if (!full_member_path.empty()) {
-            Variable *individual_var =
-                interpreter.find_variable(full_member_path);
-            if (individual_var) {
-                if (node->right->node_type == ASTNodeType::AST_STRING_LITERAL) {
-                    individual_var->str_value = node->right->str_value;
-                    individual_var->type = TYPE_STRING;
-                } else {
-                    TypedValue typed_value =
-                        interpreter.evaluate_typed(node->right.get());
-                    individual_var->value = typed_value.as_numeric();
-                    individual_var->type = typed_value.type.type_info;
-                }
-                individual_var->is_assigned = true;
-
-                if (debug_mode) {
-                    debug_print(
-                        "DEBUG: Updated individual variable '%s' = %lld\n",
-                        full_member_path.c_str(), individual_var->value);
-                }
-            } else {
-                if (debug_mode) {
-                    debug_print("DEBUG: Individual variable '%s' not found!\n",
-                                full_member_path.c_str());
-                }
-            }
-        }
-
-        // struct_members階層も更新（互換性のため）
+        // 右辺を評価して代入
         if (node->right->node_type == ASTNodeType::AST_STRING_LITERAL) {
-            parent_member_var.struct_members[member_name].str_value =
-                node->right->str_value;
-            parent_member_var.struct_members[member_name].type = TYPE_STRING;
+            member_ref.str_value = node->right->str_value;
+            member_ref.type = TYPE_STRING;
         } else {
             TypedValue typed_value =
                 interpreter.evaluate_typed(node->right.get());
-            parent_member_var.struct_members[member_name].value =
-                typed_value.as_numeric();
-            parent_member_var.struct_members[member_name].type =
-                typed_value.type.type_info;
+            if (typed_value.is_floating()) {
+                member_ref.double_value = typed_value.as_double();
+                member_ref.type = typed_value.type.type_info;
+            } else {
+                member_ref.value = typed_value.as_numeric();
+                member_ref.type = typed_value.type.type_info;
+            }
         }
-        parent_member_var.struct_members[member_name].is_assigned = true;
+        member_ref.is_assigned = true;
+
+        if (debug_mode) {
+            debug_print("DEBUG: member_ref after assignment -> value=%lld, "
+                        "is_assigned=%d\n",
+                        member_ref.value, member_ref.is_assigned ? 1 : 0);
+        }
+
+        debug_print("DEBUG: Nested member assignment completed: %s = %lld\n",
+                    final_member.c_str(), member_ref.value);
+
+        // 個別変数システムとの同期
+        // 完全なベースパスを構築 (例: points[0])
+        std::function<std::string(const ASTNode *)> build_base_path =
+            [&](const ASTNode *base) -> std::string {
+            if (!base)
+                return "";
+            if (base->node_type == ASTNodeType::AST_VARIABLE ||
+                base->node_type == ASTNodeType::AST_IDENTIFIER) {
+                return base->name;
+            } else if (base->node_type == ASTNodeType::AST_ARRAY_REF) {
+                std::string left_path = build_base_path(base->left.get());
+                int64_t index = interpreter.evaluate(base->array_index.get());
+                return left_path + "[" + std::to_string(index) + "]";
+            } else if (base->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
+                std::string left_path = build_base_path(base->left.get());
+                return left_path + "." + base->name;
+            }
+            return "";
+        };
+
+        std::string base_path = build_base_path(member_access->left.get());
+        if (!base_path.empty()) {
+            std::string full_member_path = base_path + "." + final_member;
+            Variable *individual_var =
+                interpreter.find_variable(full_member_path);
+            if (individual_var) {
+                individual_var->value = member_ref.value;
+                individual_var->type = member_ref.type;
+                individual_var->str_value = member_ref.str_value;
+                individual_var->is_assigned = member_ref.is_assigned;
+                individual_var->is_const = member_ref.is_const;
+                individual_var->is_unsigned = member_ref.is_unsigned;
+                if (member_ref.type == TYPE_FLOAT ||
+                    member_ref.type == TYPE_DOUBLE ||
+                    member_ref.type == TYPE_QUAD) {
+                    individual_var->float_value = member_ref.float_value;
+                    individual_var->double_value = member_ref.double_value;
+                    individual_var->quad_value = member_ref.quad_value;
+                }
+                debug_print("DEBUG: Synced individual variable: %s = %lld\n",
+                            full_member_path.c_str(), individual_var->value);
+            }
+        }
 
         return;
     } else if (member_access->left &&

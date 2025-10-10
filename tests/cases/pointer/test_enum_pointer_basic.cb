@@ -1,0 +1,112 @@
+// enum配列へのポインタ操作テスト
+
+enum Color {
+    RED,
+    GREEN,
+    BLUE,
+    YELLOW,
+    MAGENTA
+};
+
+enum Status {
+    IDLE = 0,
+    RUNNING = 1,
+    PAUSED = 2,
+    STOPPED = 3
+};
+
+void main() {
+    println("=== Test 1: Basic enum pointer ===");
+    
+    Color favorite = Color::RED;
+    Color* ptr = &favorite;
+    
+    println("Original color (RED):");
+    println(*ptr);  // 0
+    
+    *ptr = Color::BLUE;
+    println("After change to BLUE:");
+    println(favorite);  // 2
+    
+    println("=== Test 2: Enum array with pointers ===");
+    
+    Color[5] palette = [Color::RED, Color::GREEN, Color::BLUE, Color::YELLOW, Color::MAGENTA];
+    Color*[5] palette_ptrs;
+    
+    for (int i = 0; i < 5; i++) {
+        palette_ptrs[i] = &palette[i];
+    }
+    
+    println("Palette through pointers:");
+    for (int i = 0; i < 5; i++) {
+        println(*palette_ptrs[i]);  // 0, 1, 2, 3, 4
+    }
+    
+    println("=== Test 3: Modify enum through pointer array ===");
+    
+    // 全て同じ色に変更
+    for (int i = 0; i < 5; i++) {
+        *palette_ptrs[i] = Color::GREEN;
+    }
+    
+    println("After changing all to GREEN:");
+    for (int i = 0; i < 5; i++) {
+        println(palette[i]);  // 1, 1, 1, 1, 1
+    }
+    
+    println("=== Test 4: Status enum with explicit values ===");
+    
+    Status[4] states = [Status::IDLE, Status::RUNNING, Status::PAUSED, Status::STOPPED];
+    Status*[4] state_ptrs;
+    
+    for (int i = 0; i < 4; i++) {
+        state_ptrs[i] = &states[i];
+    }
+    
+    println("States through pointers:");
+    for (int i = 0; i < 4; i++) {
+        println(*state_ptrs[i]);  // 0, 1, 2, 3
+    }
+    
+    println("=== Test 5: Enum pointer swap ===");
+    
+    Color c1 = Color::RED, c2 = Color::BLUE;
+    Color* p1 = &c1;
+    Color* p2 = &c2;
+    
+    println("Before swap:");
+    println(*p1);  // 0 (RED)
+    println(*p2);  // 2 (BLUE)
+    
+    // Swap pointers
+    Color* temp = p1;
+    p1 = p2;
+    p2 = temp;
+    
+    println("After pointer swap:");
+    println(*p1);  // 2 (BLUE)
+    println(*p2);  // 0 (RED)
+    
+    println("=== Test 6: Conditional enum modification ===");
+    
+    Color[5] colors = [Color::RED, Color::GREEN, Color::RED, Color::BLUE, Color::RED];
+    Color*[5] color_ptrs;
+    
+    for (int i = 0; i < 5; i++) {
+        color_ptrs[i] = &colors[i];
+    }
+    
+    // すべてのREDをYELLOWに変更
+    for (int i = 0; i < 5; i++) {
+        if (*color_ptrs[i] == Color::RED) {
+            *color_ptrs[i] = Color::YELLOW;
+        }
+    }
+    
+    println("After replacing RED with YELLOW:");
+    for (int i = 0; i < 5; i++) {
+        println(colors[i]);  // 3, 1, 3, 2, 3
+    }
+    
+    println("=== All enum pointer tests passed ===");
+}

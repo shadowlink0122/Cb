@@ -82,7 +82,7 @@ void test_compound_self_assign() {
 }
 
 inline void test_integration_self_assign() {
-    std::cout << "[integration] Running self assign tests..." << std::endl;
+    std::cout << "[integration-test] Running self assign tests..." << std::endl;
     
     test_self_assign_basic();
     test_self_assign_array();
@@ -91,5 +91,5 @@ inline void test_integration_self_assign() {
     test_bitwise_self_assign();
     test_compound_self_assign();
     
-    std::cout << "[integration] Self assign tests completed" << std::endl;
+    std::cout << "[integration-test] Self assign tests completed" << std::endl;
 }

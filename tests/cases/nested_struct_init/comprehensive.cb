@@ -1,0 +1,68 @@
+// ネストした構造体の宣言時初期化 - 総合テスト
+
+struct Level0 {
+    int value;
+};
+
+struct Level1 {
+    Level0 l0;
+    int v1;
+};
+
+struct Level2 {
+    Level1 l1;
+    int v2;
+};
+
+struct Level3 {
+    Level2 l2;
+    int v3;
+};
+
+int main() {
+    // 4層ネスト構造体の初期化
+    Level3 root = {
+        l2: {
+            l1: {
+                l0: {value: 999},
+                v1: 111
+            },
+            v2: 222
+        },
+        v3: 333
+    };
+    
+    // パターン1: 最深層からの初期化
+    Level0 extracted_l0 = root.l2.l1.l0;
+    assert(extracted_l0.value == 999);
+    println("Pattern 1: Deep extraction passed");
+    
+    // パターン2: 中間層からの初期化
+    Level1 extracted_l1 = root.l2.l1;
+    assert(extracted_l1.l0.value == 999);
+    assert(extracted_l1.v1 == 111);
+    println("Pattern 2: Mid-level extraction passed");
+    
+    // パターン3: 2層目からの初期化
+    Level2 extracted_l2 = root.l2;
+    assert(extracted_l2.l1.l0.value == 999);
+    assert(extracted_l2.l1.v1 == 111);
+    assert(extracted_l2.v2 == 222);
+    println("Pattern 3: Upper-level extraction passed");
+    
+    // パターン4: 連鎖的な初期化
+    Level2 chain_l2 = root.l2;
+    Level1 chain_l1 = chain_l2.l1;
+    Level0 chain_l0 = chain_l1.l0;
+    assert(chain_l0.value == 999);
+    println("Pattern 4: Chained extraction passed");
+    
+    // パターン5: 変更後の独立性確認
+    extracted_l0.value = 123;
+    assert(root.l2.l1.l0.value == 999);
+    assert(extracted_l0.value == 123);
+    println("Pattern 5: Independence verification passed");
+    
+    println("All comprehensive nested struct tests passed!");
+    return 0;
+}

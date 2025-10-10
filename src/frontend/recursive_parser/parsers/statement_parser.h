@@ -51,7 +51,7 @@ class StatementParser {
                                    TypeInfo base_type_info,
                                    TypeInfo declared_type_info, bool isStatic,
                                    bool isConst, bool isUnsigned,
-                                   bool is_reference);
+                                   bool is_reference, int pointer_depth);
 
     ASTNode *parseVariableDeclarationList(
         const std::string &first_var_name, const std::string &type_name,
@@ -59,6 +59,8 @@ class StatementParser {
         TypeInfo declared_type_info, int pointer_depth, bool isStatic,
         bool isConst, bool isUnsigned, bool is_reference,
         bool is_pointer_const = false);
+
+    void applyDeclarationModifiers(ASTNode *node, bool isConst, bool isStatic);
 };
 
 #endif // STATEMENT_PARSER_H

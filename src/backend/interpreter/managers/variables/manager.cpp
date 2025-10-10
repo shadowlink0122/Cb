@@ -12,6 +12,7 @@
 #include "managers/types/enums.h"
 #include "managers/types/manager.h"
 #include <algorithm>
+#include <cctype>
 #include <cstdio>
 #include <numeric>
 #include <utility>
@@ -27,6 +28,19 @@ void setNumericFields(Variable &var, long double quad_value) {
     var.double_value = static_cast<double>(quad_value);
     var.float_value = static_cast<float>(quad_value);
     var.value = static_cast<int64_t>(quad_value);
+}
+
+std::string trim(const std::string &str) {
+    auto begin = std::find_if_not(str.begin(), str.end(), [](unsigned char ch) {
+        return std::isspace(ch);
+    });
+    auto end = std::find_if_not(str.rbegin(), str.rend(), [](unsigned char ch) {
+                   return std::isspace(ch);
+               }).base();
+    if (begin >= end) {
+        return "";
+    }
+    return std::string(begin, end);
 }
 
 } // namespace
@@ -105,6 +119,213 @@ Variable *VariableManager::find_variable(const std::string &name) {
     // std::endl;
 
     return nullptr;
+}
+
+int VariableManager::resolve_array_size_expression(const std::string &size_expr,
+                                                   const ASTNode *node) {
+    std::string trimmed = trim(size_expr);
+    if (trimmed.empty()) {
+        error_msg(DebugMsgId::DYNAMIC_ARRAY_NOT_SUPPORTED,
+                  node ? node->name.c_str() : "<anonymous>");
+        throw std::runtime_error("Dynamic arrays are not supported yet");
+    }
+
+    try {
+        size_t processed = 0;
+        int value = std::stoi(trimmed, &processed, 0);
+        if (processed == trimmed.size()) {
+            if (value < 0) {
+                throw std::runtime_error("Array size cannot be negative: " +
+                                         trimmed);
+            }
+            return value;
+        }
+    } catch (const std::invalid_argument &) {
+        // fall through to identifier resolution
+    } catch (const std::out_of_range &) {
+        throw std::runtime_error("Array size out of range: " + trimmed);
+    }
+
+    if (Variable *const_var = find_variable(trimmed)) {
+        if (const_var->is_const && const_var->is_assigned) {
+            switch (const_var->type) {
+            case TYPE_TINY:
+            case TYPE_SHORT:
+            case TYPE_INT:
+            case TYPE_LONG:
+            case TYPE_CHAR:
+            case TYPE_BOOL:
+                if (const_var->value < 0) {
+                    throw std::runtime_error("Array size cannot be negative: " +
+                                             trimmed);
+                }
+                return static_cast<int>(const_var->value);
+            default:
+                break;
+            }
+        }
+    }
+
+    // enum参照 (EnumName::Member または EnumName.Member)
+    EnumManager *enum_manager = interpreter_->get_enum_manager();
+    if (enum_manager) {
+        auto resolve_enum = [&](const std::string &separator,
+                                int &out_value) -> bool {
+            size_t pos = trimmed.find(separator);
+            if (pos == std::string::npos) {
+                return false;
+            }
+            std::string enum_name = trim(trimmed.substr(0, pos));
+            std::string member_name =
+                trim(trimmed.substr(pos + separator.size()));
+            if (enum_name.empty() || member_name.empty()) {
+                return false;
+            }
+            int64_t enum_value = 0;
+            if (!enum_manager->get_enum_value(enum_name, member_name,
+                                              enum_value)) {
+                return false;
+            }
+            if (enum_value < 0) {
+                throw std::runtime_error("Array size cannot be negative: " +
+                                         trimmed);
+            }
+            out_value = static_cast<int>(enum_value);
+            return true;
+        };
+
+        int enum_result = 0;
+        if (resolve_enum("::", enum_result)) {
+            return enum_result;
+        }
+        if (resolve_enum(".", enum_result)) {
+            return enum_result;
+        }
+    }
+
+    throw std::runtime_error("Array size must be a constant integer: " +
+                             trimmed);
+}
+
+std::vector<ArrayDimension>
+VariableManager::parse_array_dimensions(const std::string &array_part,
+                                        const ASTNode *node) {
+    std::vector<ArrayDimension> dimensions;
+    std::string remaining = trim(array_part);
+
+    while (!remaining.empty()) {
+        if (remaining[0] != '[') {
+            break;
+        }
+
+        size_t close_bracket = remaining.find(']');
+        if (close_bracket == std::string::npos) {
+            throw std::runtime_error("Invalid array syntax: missing ']' in " +
+                                     remaining);
+        }
+
+        std::string size_str = remaining.substr(1, close_bracket - 1);
+        std::string trimmed_size = trim(size_str);
+        int dimension_size = resolve_array_size_expression(trimmed_size, node);
+
+        dimensions.emplace_back(dimension_size, false, trimmed_size);
+
+        if (close_bracket + 1 >= remaining.size()) {
+            remaining.clear();
+        } else {
+            remaining = trim(remaining.substr(close_bracket + 1));
+        }
+    }
+
+    return dimensions;
+}
+
+void VariableManager::initialize_array_from_dimensions(
+    Variable &var, TypeInfo base_type,
+    const std::vector<ArrayDimension> &dimensions) {
+    var.array_type_info.base_type = base_type;
+    var.array_type_info.dimensions = dimensions;
+    var.array_dimensions.clear();
+    var.is_array = true;
+
+    if (dimensions.empty()) {
+        var.array_size = 0;
+        var.is_multidimensional = false;
+        var.array_values.clear();
+        var.array_float_values.clear();
+        var.array_double_values.clear();
+        var.array_quad_values.clear();
+        var.array_strings.clear();
+        var.multidim_array_values.clear();
+        var.multidim_array_float_values.clear();
+        var.multidim_array_double_values.clear();
+        var.multidim_array_quad_values.clear();
+        var.multidim_array_strings.clear();
+        return;
+    }
+
+    int total_size = 1;
+    for (const auto &dim : dimensions) {
+        var.array_dimensions.push_back(dim.size);
+        if (dim.size < 0) {
+            error_msg(DebugMsgId::DYNAMIC_ARRAY_NOT_SUPPORTED,
+                      var.type_name.c_str());
+            throw std::runtime_error("Dynamic arrays are not supported yet");
+        }
+        total_size *= dim.size;
+    }
+
+    var.array_size = total_size;
+    var.is_multidimensional = dimensions.size() > 1;
+
+    auto clear_numeric_vectors = [&]() {
+        var.array_values.clear();
+        var.array_float_values.clear();
+        var.array_double_values.clear();
+        var.array_quad_values.clear();
+        var.multidim_array_values.clear();
+        var.multidim_array_float_values.clear();
+        var.multidim_array_double_values.clear();
+        var.multidim_array_quad_values.clear();
+    };
+
+    if (var.is_multidimensional) {
+        if (base_type == TYPE_STRING) {
+            var.multidim_array_strings.assign(total_size, "");
+            clear_numeric_vectors();
+        } else if (base_type == TYPE_FLOAT) {
+            clear_numeric_vectors();
+            var.multidim_array_float_values.assign(total_size, 0.0f);
+        } else if (base_type == TYPE_DOUBLE) {
+            clear_numeric_vectors();
+            var.multidim_array_double_values.assign(total_size, 0.0);
+        } else if (base_type == TYPE_QUAD) {
+            clear_numeric_vectors();
+            var.multidim_array_quad_values.assign(total_size, 0.0L);
+        } else {
+            clear_numeric_vectors();
+            var.multidim_array_values.assign(total_size, 0);
+        }
+        var.array_strings.clear();
+    } else {
+        if (base_type == TYPE_STRING) {
+            var.array_strings.assign(total_size, "");
+            clear_numeric_vectors();
+        } else if (base_type == TYPE_FLOAT) {
+            clear_numeric_vectors();
+            var.array_float_values.assign(total_size, 0.0f);
+        } else if (base_type == TYPE_DOUBLE) {
+            clear_numeric_vectors();
+            var.array_double_values.assign(total_size, 0.0);
+        } else if (base_type == TYPE_QUAD) {
+            clear_numeric_vectors();
+            var.array_quad_values.assign(total_size, 0.0L);
+        } else {
+            clear_numeric_vectors();
+            var.array_values.assign(total_size, 0);
+        }
+        var.multidim_array_strings.clear();
+    }
 }
 
 bool VariableManager::is_global_variable(const std::string &name) {
@@ -343,6 +564,19 @@ std::string VariableManager::resolve_interface_source_type(
         return source_var.struct_type_name;
     }
 
+    if (!source_var.type_name.empty() && source_var.type != TYPE_UNION) {
+        const std::string &alias_name = source_var.type_name;
+        std::string resolved_type =
+            interpreter_->type_manager_->resolve_typedef(alias_name);
+
+        bool is_alias = resolved_type != alias_name;
+        bool is_array_alias = alias_name.find('[') != std::string::npos;
+
+        if (is_alias || is_array_alias) {
+            return alias_name;
+        }
+    }
+
     if (TypeHelpers::isInterface(source_var.type) &&
         !source_var.implementing_struct.empty()) {
         return source_var.implementing_struct;
@@ -396,6 +630,44 @@ void VariableManager::declare_global_variable(const ASTNode *node) {
 
     Variable var;
 
+    auto assign_custom_type_metadata = [&](Variable &target) {
+        std::string declared = !node->original_type_name.empty()
+                                   ? node->original_type_name
+                                   : node->type_name;
+        if (declared.empty()) {
+            return;
+        }
+
+        std::string resolved =
+            interpreter_->type_manager_->resolve_typedef(declared);
+        std::string resolved_base = resolved;
+        size_t bracket_pos = resolved_base.find('[');
+        if (bracket_pos != std::string::npos) {
+            resolved_base = resolved_base.substr(0, bracket_pos);
+        }
+
+        bool is_alias = (resolved != declared);
+        bool is_struct_type =
+            node->type_info == TYPE_STRUCT ||
+            (!resolved_base.empty() &&
+             interpreter_->find_struct_definition(resolved_base) != nullptr);
+        bool is_union_alias =
+            interpreter_->get_type_manager()->is_union_type(declared);
+
+        if (!is_alias && !is_struct_type && !is_union_alias) {
+            return;
+        }
+
+        std::string stored_name = is_alias ? declared : resolved_base;
+
+        target.struct_type_name = stored_name;
+        if (is_alias) {
+            target.type_name = declared;
+        } else if (is_struct_type) {
+            target.type_name = stored_name;
+        }
+    };
+
     // typedef解決
     if (node->type_info == TYPE_UNKNOWN && !node->type_name.empty()) {
         std::string resolved_type =
@@ -403,79 +675,45 @@ void VariableManager::declare_global_variable(const ASTNode *node) {
 
         // 配列typedefの場合
         if (resolved_type.find("[") != std::string::npos) {
-            std::string base = resolved_type.substr(0, resolved_type.find("["));
+            std::string base =
+                trim(resolved_type.substr(0, resolved_type.find("[")));
             std::string array_part =
                 resolved_type.substr(resolved_type.find("["));
 
             TypeInfo base_type =
                 interpreter_->type_manager_->string_to_type_info(base);
             var.type = static_cast<TypeInfo>(TYPE_ARRAY_BASE + base_type);
-            var.is_array = true;
 
-            // 配列サイズを解析 [3] -> 3
-            if (array_part.length() > 2 && array_part[0] == '[' &&
-                array_part[array_part.length() - 1] == ']') {
-                std::string size_str =
-                    array_part.substr(1, array_part.length() - 2);
+            auto dimensions = parse_array_dimensions(array_part, node);
+            initialize_array_from_dimensions(var, base_type, dimensions);
 
-                if (size_str.empty()) {
-                    // 動的配列（TYPE[]）はサポートされていない
-                    error_msg(DebugMsgId::DYNAMIC_ARRAY_NOT_SUPPORTED,
-                              node->name.c_str());
-                    throw std::runtime_error(
-                        "Dynamic arrays are not supported yet");
-                }
-
-                var.array_size = std::stoi(size_str);
-
-                // array_dimensionsを設定
-                var.array_dimensions.clear();
-                var.array_dimensions.push_back(var.array_size);
-
-            } else {
-                var.array_size = 0; // 動的配列
-            }
-            // 配列初期化
-            if (base_type == TYPE_STRING) {
-                var.array_strings.resize(var.array_size, "");
-            } else {
-                var.array_values.resize(var.array_size, 0);
-            }
+            var.current_type = var.type;
 
         } else {
             var.type = interpreter_->type_manager_->string_to_type_info(
                 node->type_name);
+            var.current_type = var.type;
         }
     } else if (!node->type_name.empty() &&
                node->type_name.find("[") != std::string::npos) {
         // 直接配列宣言の場合（例：int[5] global_array）
-        std::string base = node->type_name.substr(0, node->type_name.find("["));
+        std::string base =
+            trim(node->type_name.substr(0, node->type_name.find("[")));
         std::string array_part =
             node->type_name.substr(node->type_name.find("["));
 
         TypeInfo base_type =
             interpreter_->type_manager_->string_to_type_info(base);
         var.type = static_cast<TypeInfo>(TYPE_ARRAY_BASE + base_type);
-        var.is_array = true;
 
-        // 配列サイズを解析 [5] -> 5
-        if (array_part.length() > 2 && array_part[0] == '[' &&
-            array_part[array_part.length() - 1] == ']') {
-            std::string size_str =
-                array_part.substr(1, array_part.length() - 2);
-            var.array_size = std::stoi(size_str);
-        } else {
-            var.array_size = 0; // 動的配列
-        }
+        auto dimensions = parse_array_dimensions(array_part, node);
+        initialize_array_from_dimensions(var, base_type, dimensions);
 
-        // 配列初期化
-        if (base_type == TYPE_STRING) {
-            var.array_strings.resize(var.array_size, "");
-        } else {
-            var.array_values.resize(var.array_size, 0);
-        }
+        var.current_type = var.type;
+
     } else {
         var.type = node->type_info;
+        var.current_type = var.type;
     }
 
     if (node->is_pointer) {
@@ -502,6 +740,12 @@ void VariableManager::declare_global_variable(const ASTNode *node) {
     }
     var.is_assigned = false;
 
+    if (var.current_type == TYPE_UNKNOWN) {
+        var.current_type = var.type;
+    }
+
+    assign_custom_type_metadata(var);
+
     interpreter_->global_scope.variables[node->name] = var;
 }
 
@@ -510,6 +754,44 @@ void VariableManager::declare_local_variable(const ASTNode *node) {
     Variable var;
     var.is_array = false;
     var.array_size = 0;
+
+    auto assign_custom_type_metadata = [&](Variable &target) {
+        std::string declared = !node->original_type_name.empty()
+                                   ? node->original_type_name
+                                   : node->type_name;
+        if (declared.empty()) {
+            return;
+        }
+
+        std::string resolved =
+            interpreter_->type_manager_->resolve_typedef(declared);
+        std::string resolved_base = resolved;
+        size_t bracket_pos = resolved_base.find('[');
+        if (bracket_pos != std::string::npos) {
+            resolved_base = resolved_base.substr(0, bracket_pos);
+        }
+
+        bool is_alias = (resolved != declared);
+        bool is_struct_type =
+            node->type_info == TYPE_STRUCT ||
+            (!resolved_base.empty() &&
+             interpreter_->find_struct_definition(resolved_base) != nullptr);
+        bool is_union_alias =
+            interpreter_->get_type_manager()->is_union_type(declared);
+
+        if (!is_alias && !is_struct_type && !is_union_alias) {
+            return;
+        }
+
+        std::string stored_name = is_alias ? declared : resolved_base;
+
+        target.struct_type_name = stored_name;
+        if (is_alias) {
+            target.type_name = declared;
+        } else if (is_struct_type) {
+            target.type_name = stored_name;
+        }
+    };
 
     // ポインタ情報は最初に設定（型解決より前に処理）
     if (node->is_pointer) {
@@ -534,40 +816,19 @@ void VariableManager::declare_local_variable(const ASTNode *node) {
 
         // 配列typedefの場合
         if (resolved_type.find("[") != std::string::npos) {
-            std::string base = resolved_type.substr(0, resolved_type.find("["));
+            std::string base =
+                trim(resolved_type.substr(0, resolved_type.find("[")));
             std::string array_part =
                 resolved_type.substr(resolved_type.find("["));
 
             TypeInfo base_type =
                 interpreter_->type_manager_->string_to_type_info(base);
             var.type = static_cast<TypeInfo>(TYPE_ARRAY_BASE + base_type);
-            var.is_array = true;
 
-            // 配列サイズを解析 [3] -> 3
-            if (array_part.length() > 2 && array_part[0] == '[' &&
-                array_part[array_part.length() - 1] == ']') {
-                std::string size_str =
-                    array_part.substr(1, array_part.length() - 2);
+            auto dimensions = parse_array_dimensions(array_part, node);
+            initialize_array_from_dimensions(var, base_type, dimensions);
 
-                if (size_str.empty()) {
-                    // 動的配列（TYPE[]）はサポートされていない
-                    error_msg(DebugMsgId::DYNAMIC_ARRAY_NOT_SUPPORTED,
-                              node->name.c_str());
-                    throw std::runtime_error(
-                        "Dynamic arrays are not supported yet");
-                }
-
-                var.array_size = std::stoi(size_str);
-            } else {
-                var.array_size = 0; // 動的配列
-            }
-
-            // 配列初期化
-            if (base_type == TYPE_STRING) {
-                var.array_strings.resize(var.array_size, "");
-            } else {
-                var.array_values.resize(var.array_size, 0);
-            }
+            var.current_type = var.type;
         } else {
             var.type =
                 interpreter_->type_manager_->string_to_type_info(resolved_type);
@@ -582,34 +843,22 @@ void VariableManager::declare_local_variable(const ASTNode *node) {
     } else if (!node->type_name.empty() &&
                node->type_name.find("[") != std::string::npos) {
         // 直接配列宣言の場合（例：int[5] local_array）
-        std::string base = node->type_name.substr(0, node->type_name.find("["));
+        std::string base =
+            trim(node->type_name.substr(0, node->type_name.find("[")));
         std::string array_part =
             node->type_name.substr(node->type_name.find("["));
 
         TypeInfo base_type =
             interpreter_->type_manager_->string_to_type_info(base);
         var.type = static_cast<TypeInfo>(TYPE_ARRAY_BASE + base_type);
-        var.is_array = true;
 
-        // 配列サイズを解析 [5] -> 5
-        if (array_part.length() > 2 && array_part[0] == '[' &&
-            array_part[array_part.length() - 1] == ']') {
-            std::string size_str =
-                array_part.substr(1, array_part.length() - 2);
-            var.array_size = std::stoi(size_str);
-        } else {
-            var.array_size = 0; // 動的配列
-        }
-
-        // 配列初期化
-        if (base_type == TYPE_STRING) {
-            var.array_strings.resize(var.array_size, "");
-        } else {
-            var.array_values.resize(var.array_size, 0);
-        }
+        auto dimensions = parse_array_dimensions(array_part, node);
+        initialize_array_from_dimensions(var, base_type, dimensions);
+        var.current_type = var.type;
     } else if (!node->is_pointer) {
         // ポインタでない場合のみ型を設定
         var.type = node->type_info != TYPE_VOID ? node->type_info : TYPE_INT;
+        var.current_type = var.type;
     }
 
     var.is_unsigned = node->is_unsigned;
@@ -639,6 +888,12 @@ void VariableManager::declare_local_variable(const ASTNode *node) {
                 var.type, value, node->name, var.is_unsigned);
         }
     }
+
+    if (var.current_type == TYPE_UNKNOWN) {
+        var.current_type = var.type;
+    }
+
+    assign_custom_type_metadata(var);
 
     current_scope().variables[node->name] = var;
 }
@@ -1110,10 +1365,55 @@ void VariableManager::assign_function_parameter(const std::string &name,
 void VariableManager::assign_array_parameter(const std::string &name,
                                              const Variable &source_array,
                                              TypeInfo type) {
-    Variable array_param = source_array;
-    array_param.type = type != TYPE_UNKNOWN ? type : source_array.type;
-    array_param.is_assigned = true;
-    current_scope().variables[name] = array_param;
+    // 配列は参照として渡される（C/C++の動作と同じ）
+    // しかし、配列リテラルからの一時変数の場合はデータをコピーする必要がある
+
+    // source_arrayが一時変数（is_referenceがfalseでデータが直接格納されている）の場合、
+    // データをコピーして保存する
+    bool is_temp_literal = !source_array.is_reference &&
+                           (!source_array.array_values.empty() ||
+                            !source_array.array_strings.empty() ||
+                            !source_array.array_double_values.empty());
+
+    Variable array_ref;
+
+    if (is_temp_literal) {
+        // 配列リテラルの場合: データを完全にコピー
+        array_ref = source_array; // すべてのメンバをコピー
+        array_ref.is_reference = false;
+        array_ref.is_assigned = true;
+    } else {
+        // 配列変数の場合: 参照として渡す
+        array_ref.is_reference = true;
+        array_ref.is_assigned = true;
+        array_ref.type = source_array.type;
+
+        // 元の配列変数へのポインタを保存
+        array_ref.value =
+            reinterpret_cast<int64_t>(const_cast<Variable *>(&source_array));
+
+        // 配列情報をコピー（参照として動作するために必要）
+        array_ref.is_array = source_array.is_array;
+        array_ref.is_multidimensional = source_array.is_multidimensional;
+        array_ref.array_size = source_array.array_size;
+        array_ref.array_dimensions = source_array.array_dimensions;
+        array_ref.array_type_info = source_array.array_type_info;
+
+        // ポインタ配列情報もコピー
+        array_ref.is_pointer = source_array.is_pointer;
+        array_ref.pointer_depth = source_array.pointer_depth;
+        array_ref.pointer_base_type = source_array.pointer_base_type;
+        array_ref.pointer_base_type_name = source_array.pointer_base_type_name;
+
+        // struct配列情報もコピー
+        array_ref.is_struct = source_array.is_struct;
+        array_ref.struct_type_name = source_array.struct_type_name;
+
+        // unsigned情報もコピー
+        array_ref.is_unsigned = source_array.is_unsigned;
+    }
+
+    current_scope().variables[name] = array_ref;
 }
 
 void VariableManager::process_var_decl_or_assign(const ASTNode *node) {

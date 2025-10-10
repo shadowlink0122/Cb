@@ -3,7 +3,7 @@
 #include "../framework/integration_test_framework.hpp"
 
 inline void test_bool_expr_basic() {
-    std::cout << "[integration] Running bool expr tests..." << std::endl;
+    std::cout << "[integration-test] Running bool expr tests..." << std::endl;
     
     // Test basic boolean expressions
     double execution_time;
@@ -21,5 +21,5 @@ inline void test_bool_expr_basic() {
         }, execution_time);
     integration_test_passed_with_time("bool_expr basic test", "basic.cb", execution_time);
     
-    std::cout << "[integration] Bool expr tests completed" << std::endl;
+    std::cout << "[integration-test] Bool expr tests completed" << std::endl;
 }

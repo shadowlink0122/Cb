@@ -20,6 +20,8 @@
 #include "evaluator/core/evaluator.h"
 #include "evaluator/core/helpers.h"
 #include <cstdlib>
+#include <iomanip>
+#include <sstream>
 
 int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
     if (interpreter_.is_debug_mode()) {
@@ -595,6 +597,31 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
     }
 
     if (!func) {
+        // 組み込み関数のチェック
+        if (node->name == "hex" && !is_method_call) {
+            // hex(num) - 整数を16進数文字列に変換
+            if (node->arguments.size() != 1) {
+                throw std::runtime_error("hex() requires exactly 1 argument");
+            }
+
+            int64_t value =
+                interpreter_.eval_expression(node->arguments[0].get());
+            uint64_t unsigned_value = static_cast<uint64_t>(value);
+
+            // ポインタメタデータのタグビット（最上位ビット）を除去
+            if (unsigned_value & (1ULL << 63)) {
+                unsigned_value &= ~(1ULL << 63);
+            }
+
+            // 16進数文字列を生成
+            std::ostringstream oss;
+            oss << "0x" << std::hex << unsigned_value;
+            std::string hex_str = oss.str();
+
+            // 文字列を返す（ReturnExceptionを使用）
+            throw ReturnException(hex_str);
+        }
+
         if (is_method_call) {
             std::string debug_type_name;
             if (is_method_call) {
@@ -1023,6 +1050,28 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
     try {
         // パラメータの評価と設定
         if (func->parameters.size() != node->arguments.size()) {
+            if (debug_mode) {
+                std::cerr << "[FUNC_CALL] Argument count mismatch: function '"
+                          << node->name << "' expected "
+                          << func->parameters.size() << " args, got "
+                          << node->arguments.size() << std::endl;
+                std::cerr << "[FUNC_CALL] Parameters:" << std::endl;
+                for (const auto &param : func->parameters) {
+                    std::cerr << "  - " << param->name
+                              << " type_info=" << param->type_info
+                              << " is_array=" << param->is_array
+                              << " is_reference=" << param->is_reference
+                              << std::endl;
+                }
+                std::cerr << "[FUNC_CALL] Arguments:" << std::endl;
+                for (const auto &arg : node->arguments) {
+                    std::cerr
+                        << "  - node_type=" << static_cast<int>(arg->node_type)
+                        << " type_info=" << arg->type_info
+                        << " is_array=" << arg->is_array << " name='"
+                        << arg->name << "'" << std::endl;
+                }
+            }
             throw std::runtime_error("Argument count mismatch for function: " +
                                      node->name);
         }
@@ -1143,18 +1192,73 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                             param->name);
                     }
 
-                    // 配列をコピーしてパラメータに設定
-                    interpreter_.assign_array_parameter(
-                        param->name, *source_var, param->type_info);
+                    // 配列は参照として渡される（C/C++と同じ動作）
+                    // 参照変数を作成
+                    Variable array_ref;
+                    array_ref.is_reference = true;
+                    array_ref.is_array = true;
+                    array_ref.is_assigned = true;
+                    // 型情報は元の配列と同じにする（配列型を保持）
+                    array_ref.type = source_var->type;
+
+                    // 元の配列変数へのポインタを保存
+                    array_ref.value = reinterpret_cast<int64_t>(source_var);
+
+                    // 配列情報をコピー（参照として動作するために必要）
+                    array_ref.is_multidimensional =
+                        source_var->is_multidimensional;
+                    array_ref.array_size = source_var->array_size;
+                    array_ref.array_dimensions = source_var->array_dimensions;
+                    array_ref.array_type_info = source_var->array_type_info;
+
+                    // ポインタ配列情報もコピー
+                    array_ref.is_pointer = source_var->is_pointer;
+                    array_ref.pointer_depth = source_var->pointer_depth;
+                    array_ref.pointer_base_type = source_var->pointer_base_type;
+                    array_ref.pointer_base_type_name =
+                        source_var->pointer_base_type_name;
+
+                    // struct配列情報もコピー
+                    array_ref.is_struct = source_var->is_struct;
+                    array_ref.struct_type_name = source_var->struct_type_name;
+
+                    // unsigned情報もコピー
+                    array_ref.is_unsigned = source_var->is_unsigned;
+
+                    // 実データベクトルもコピー（参照でも正しいデータにアクセスできるように）
+                    // これにより、参照解決前でも型情報に基づいた正しいアクセスが可能
+                    // 書き込み時は元の配列とこのコピー両方を更新
+                    // 関数終了時にはこのコピーから元の配列にコピーバックする必要がある
+                    if (source_var->is_multidimensional) {
+                        array_ref.multidim_array_values =
+                            source_var->multidim_array_values;
+                        array_ref.multidim_array_float_values =
+                            source_var->multidim_array_float_values;
+                        array_ref.multidim_array_double_values =
+                            source_var->multidim_array_double_values;
+                        array_ref.multidim_array_quad_values =
+                            source_var->multidim_array_quad_values;
+                        array_ref.multidim_array_strings =
+                            source_var->multidim_array_strings;
+                    } else {
+                        array_ref.array_values = source_var->array_values;
+                        array_ref.array_float_values =
+                            source_var->array_float_values;
+                        array_ref.array_double_values =
+                            source_var->array_double_values;
+                        array_ref.array_quad_values =
+                            source_var->array_quad_values;
+                        array_ref.array_strings = source_var->array_strings;
+                    }
 
                     // const修飾を設定
                     if (param->is_const) {
-                        Variable *param_var =
-                            interpreter_.find_variable(param->name);
-                        if (param_var) {
-                            param_var->is_const = true;
-                        }
+                        array_ref.is_const = true;
                     }
+
+                    // パラメータとして登録
+                    interpreter_.current_scope().variables[param->name] =
+                        array_ref;
                 } else if (arg->node_type == ASTNodeType::AST_ARRAY_LITERAL) {
                     // 配列リテラルとして直接渡された場合
                     debug_msg(
@@ -1703,6 +1807,34 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                                 param->name + "'");
                         }
 
+                        // ポインタパラメータの場合、引数のconst情報を事前に取得
+                        bool arg_is_pointer = false;
+                        bool arg_is_pointee_const = false;
+                        bool arg_is_pointer_const = false;
+                        int arg_pointer_depth = 0;
+                        TypeInfo arg_pointer_base_type = TYPE_UNKNOWN;
+                        std::string arg_pointer_base_type_name;
+
+                        if (param->is_pointer &&
+                            (arg->node_type == ASTNodeType::AST_VARIABLE ||
+                             arg->node_type == ASTNodeType::AST_IDENTIFIER)) {
+                            // 引数変数のconst情報を取得（関数スコープ作成前に）
+                            Variable *arg_var =
+                                interpreter_.find_variable(arg->name);
+                            if (arg_var && arg_var->is_pointer) {
+                                arg_is_pointer = true;
+                                arg_is_pointee_const =
+                                    arg_var->is_pointee_const;
+                                arg_is_pointer_const =
+                                    arg_var->is_pointer_const;
+                                arg_pointer_depth = arg_var->pointer_depth;
+                                arg_pointer_base_type =
+                                    arg_var->pointer_base_type;
+                                arg_pointer_base_type_name =
+                                    arg_var->pointer_base_type_name;
+                            }
+                        }
+
                         TypedValue arg_value =
                             evaluate_typed_expression(arg.get());
                         interpreter_.assign_function_parameter(
@@ -1715,6 +1847,65 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                                 interpreter_.find_variable(param->name);
                             if (param_var) {
                                 param_var->is_const = true;
+                            }
+                        }
+
+                        // ポインタパラメータの場合、const情報を保持・チェック
+                        if (param->is_pointer && arg_is_pointer) {
+                            // 型安全性チェック: const → non-const は禁止
+                            // const T* → T* への変換をチェック
+                            if (arg_is_pointee_const &&
+                                !param->is_pointee_const_qualifier) {
+                                throw std::runtime_error(
+                                    "Type mismatch in function call to '" +
+                                    node->name + "':\n" +
+                                    "  Cannot pass pointer to const (" +
+                                    (arg_pointer_base_type_name.empty()
+                                         ? "const T*"
+                                         : "const " +
+                                               arg_pointer_base_type_name +
+                                               "*") +
+                                    ") to parameter of type pointer to "
+                                    "non-const (" +
+                                    (param->type_name.empty()
+                                         ? "T*"
+                                         : param->type_name) +
+                                    ")\n" +
+                                    "  Cannot discard const qualifier from "
+                                    "pointed-to type");
+                            }
+
+                            // T* const → T* への変換をチェック
+                            if (arg_is_pointer_const &&
+                                !param->is_pointer_const_qualifier) {
+                                throw std::runtime_error(
+                                    "Type mismatch in function call to '" +
+                                    node->name + "':\n" +
+                                    "  Cannot pass const pointer (" +
+                                    (arg_pointer_base_type_name.empty()
+                                         ? "T* const"
+                                         : arg_pointer_base_type_name +
+                                               "* const") +
+                                    ") to parameter of type non-const "
+                                    "pointer\n" +
+                                    "  Cannot discard const qualifier from "
+                                    "pointer itself");
+                            }
+
+                            Variable *param_var =
+                                interpreter_.find_variable(param->name);
+                            if (param_var) {
+                                // const情報を伝播
+                                param_var->is_pointee_const =
+                                    arg_is_pointee_const;
+                                param_var->is_pointer_const =
+                                    arg_is_pointer_const;
+                                param_var->pointer_depth = arg_pointer_depth;
+                                param_var->pointer_base_type =
+                                    arg_pointer_base_type;
+                                param_var->pointer_base_type_name =
+                                    arg_pointer_base_type_name;
+                                param_var->is_pointer = true;
                             }
                         }
                     }
@@ -1880,6 +2071,41 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                 }
             }
 
+            // 配列参照のコピーバック処理
+            // 関数終了時に、参照変数のデータベクトルを元の配列にコピーバック
+            for (auto &var_pair : interpreter_.current_scope().variables) {
+                Variable &var = var_pair.second;
+                if (var.is_reference && var.is_array) {
+                    // 元の配列へのポインタを取得
+                    Variable *original_array =
+                        reinterpret_cast<Variable *>(var.value);
+                    if (original_array) {
+                        // データベクトルをコピーバック
+                        if (var.is_multidimensional) {
+                            original_array->multidim_array_values =
+                                var.multidim_array_values;
+                            original_array->multidim_array_float_values =
+                                var.multidim_array_float_values;
+                            original_array->multidim_array_double_values =
+                                var.multidim_array_double_values;
+                            original_array->multidim_array_quad_values =
+                                var.multidim_array_quad_values;
+                            original_array->multidim_array_strings =
+                                var.multidim_array_strings;
+                        } else {
+                            original_array->array_values = var.array_values;
+                            original_array->array_float_values =
+                                var.array_float_values;
+                            original_array->array_double_values =
+                                var.array_double_values;
+                            original_array->array_quad_values =
+                                var.array_quad_values;
+                            original_array->array_strings = var.array_strings;
+                        }
+                    }
+                }
+            }
+
             cleanup_method_context();
             interpreter_.pop_scope();
             method_scope_active = false;
@@ -2010,6 +2236,38 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                 }
             }
 
+            // 配列参照のコピーバック処理
+            for (auto &var_pair : interpreter_.current_scope().variables) {
+                Variable &var = var_pair.second;
+                if (var.is_reference && var.is_array) {
+                    Variable *original_array =
+                        reinterpret_cast<Variable *>(var.value);
+                    if (original_array) {
+                        if (var.is_multidimensional) {
+                            original_array->multidim_array_values =
+                                var.multidim_array_values;
+                            original_array->multidim_array_float_values =
+                                var.multidim_array_float_values;
+                            original_array->multidim_array_double_values =
+                                var.multidim_array_double_values;
+                            original_array->multidim_array_quad_values =
+                                var.multidim_array_quad_values;
+                            original_array->multidim_array_strings =
+                                var.multidim_array_strings;
+                        } else {
+                            original_array->array_values = var.array_values;
+                            original_array->array_float_values =
+                                var.array_float_values;
+                            original_array->array_double_values =
+                                var.array_double_values;
+                            original_array->array_quad_values =
+                                var.array_quad_values;
+                            original_array->array_strings = var.array_strings;
+                        }
+                    }
+                }
+            }
+
             cleanup_method_context();
             interpreter_.pop_scope();
             method_scope_active = false;
@@ -2096,6 +2354,39 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
         }
 
         // 再投げされたReturnExceptionを処理
+        // 配列参照のコピーバック処理
+        if (method_scope_active) {
+            for (auto &var_pair : interpreter_.current_scope().variables) {
+                Variable &var = var_pair.second;
+                if (var.is_reference && var.is_array) {
+                    Variable *original_array =
+                        reinterpret_cast<Variable *>(var.value);
+                    if (original_array) {
+                        if (var.is_multidimensional) {
+                            original_array->multidim_array_values =
+                                var.multidim_array_values;
+                            original_array->multidim_array_float_values =
+                                var.multidim_array_float_values;
+                            original_array->multidim_array_double_values =
+                                var.multidim_array_double_values;
+                            original_array->multidim_array_quad_values =
+                                var.multidim_array_quad_values;
+                            original_array->multidim_array_strings =
+                                var.multidim_array_strings;
+                        } else {
+                            original_array->array_values = var.array_values;
+                            original_array->array_float_values =
+                                var.array_float_values;
+                            original_array->array_double_values =
+                                var.array_double_values;
+                            original_array->array_quad_values =
+                                var.array_quad_values;
+                            original_array->array_strings = var.array_strings;
+                        }
+                    }
+                }
+            }
+        }
         cleanup_method_context();
         if (method_scope_active) {
             interpreter_.pop_scope();
@@ -2110,6 +2401,39 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
             impl_context_active = false;
         }
 
+        // 配列参照のコピーバック処理
+        if (method_scope_active) {
+            for (auto &var_pair : interpreter_.current_scope().variables) {
+                Variable &var = var_pair.second;
+                if (var.is_reference && var.is_array) {
+                    Variable *original_array =
+                        reinterpret_cast<Variable *>(var.value);
+                    if (original_array) {
+                        if (var.is_multidimensional) {
+                            original_array->multidim_array_values =
+                                var.multidim_array_values;
+                            original_array->multidim_array_float_values =
+                                var.multidim_array_float_values;
+                            original_array->multidim_array_double_values =
+                                var.multidim_array_double_values;
+                            original_array->multidim_array_quad_values =
+                                var.multidim_array_quad_values;
+                            original_array->multidim_array_strings =
+                                var.multidim_array_strings;
+                        } else {
+                            original_array->array_values = var.array_values;
+                            original_array->array_float_values =
+                                var.array_float_values;
+                            original_array->array_double_values =
+                                var.array_double_values;
+                            original_array->array_quad_values =
+                                var.array_quad_values;
+                            original_array->array_strings = var.array_strings;
+                        }
+                    }
+                }
+            }
+        }
         cleanup_method_context();
         if (method_scope_active) {
             interpreter_.pop_scope();

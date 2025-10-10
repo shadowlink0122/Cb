@@ -107,13 +107,13 @@ inline void run_cb_test_with_output(const std::string& test_file,
     try {
         validator(output, exit_code);
     } catch (const std::exception& e) {
-        std::cerr << "[integration] TEST FAILURE in file: " << test_file << std::endl;
-        std::cerr << "[integration] Error: " << e.what() << std::endl;
-        std::cerr << "[integration] Command: " << command << std::endl;
-        std::cerr << "[integration] Exit code: " << exit_code << std::endl;
-        std::cerr << "[integration] Output:" << std::endl;
+        std::cerr << "[integration-test] TEST FAILURE in file: " << test_file << std::endl;
+        std::cerr << "[integration-test] Error: " << e.what() << std::endl;
+        std::cerr << "[integration-test] Command: " << command << std::endl;
+        std::cerr << "[integration-test] Exit code: " << exit_code << std::endl;
+        std::cerr << "[integration-test] Output:" << std::endl;
         std::cerr << output << std::endl;
-        std::cerr << "[integration] --- End of output ---" << std::endl;
+        std::cerr << "[integration-test] --- End of output ---" << std::endl;
         throw;
     }
 }
@@ -129,14 +129,14 @@ inline void run_cb_test_with_output_and_time(const std::string& test_file,
     try {
         validator(output, exit_code);
     } catch (const std::exception& e) {
-        std::cerr << "[integration] TEST FAILURE in file: " << test_file << std::endl;
-        std::cerr << "[integration] Error: " << e.what() << std::endl;
-        std::cerr << "[integration] Command: " << command << std::endl;
-        std::cerr << "[integration] Exit code: " << exit_code << std::endl;
-        std::cerr << "[integration] Execution time: " << execution_time_ms << " ms" << std::endl;
-        std::cerr << "[integration] Output:" << std::endl;
+        std::cerr << "[integration-test] TEST FAILURE in file: " << test_file << std::endl;
+        std::cerr << "[integration-test] Error: " << e.what() << std::endl;
+        std::cerr << "[integration-test] Command: " << command << std::endl;
+        std::cerr << "[integration-test] Exit code: " << exit_code << std::endl;
+        std::cerr << "[integration-test] Execution time: " << execution_time_ms << " ms" << std::endl;
+        std::cerr << "[integration-test] Output:" << std::endl;
         std::cerr << output << std::endl;
-        std::cerr << "[integration] --- End of output ---" << std::endl;
+        std::cerr << "[integration-test] --- End of output ---" << std::endl;
         throw;
     }
 }
@@ -146,8 +146,8 @@ inline void run_cb_test_with_output_and_time(const std::string& test_file,
     do { \
         IntegrationTestCounter::increment_total(); \
         if (!(condition)) { \
-            std::cerr << "[integration] ASSERTION FAILED at " << __FILE__ << ":" << __LINE__ << std::endl; \
-            std::cerr << "[integration] " << message << std::endl; \
+            std::cerr << "[integration-test] ASSERTION FAILED at " << __FILE__ << ":" << __LINE__ << std::endl; \
+            std::cerr << "[integration-test] " << message << std::endl; \
             IntegrationTestCounter::increment_failed(); \
             throw std::runtime_error(std::string(__FILE__) + ":" + std::to_string(__LINE__) + " - " + message); \
         } else { \
@@ -160,10 +160,10 @@ inline void run_cb_test_with_output_and_time(const std::string& test_file,
     do { \
         IntegrationTestCounter::increment_total(); \
         if (!((expected) == (actual))) { \
-            std::cerr << "[integration] ASSERTION FAILED at " << __FILE__ << ":" << __LINE__ << std::endl; \
-            std::cerr << "[integration] Expected: " << (expected) << std::endl; \
-            std::cerr << "[integration] Actual: " << (actual) << std::endl; \
-            std::cerr << "[integration] " << message << std::endl; \
+            std::cerr << "[integration-test] ASSERTION FAILED at " << __FILE__ << ":" << __LINE__ << std::endl; \
+            std::cerr << "[integration-test] Expected: " << (expected) << std::endl; \
+            std::cerr << "[integration-test] Actual: " << (actual) << std::endl; \
+            std::cerr << "[integration-test] " << message << std::endl; \
             IntegrationTestCounter::increment_failed(); \
             throw std::runtime_error(std::string(__FILE__) + ":" + std::to_string(__LINE__) + " - " + message); \
         } else { \
@@ -175,10 +175,10 @@ inline void run_cb_test_with_output_and_time(const std::string& test_file,
     do { \
         IntegrationTestCounter::increment_total(); \
         if ((not_expected) == (actual)) { \
-            std::cerr << "[integration] ASSERTION FAILED at " << __FILE__ << ":" << __LINE__ << std::endl; \
-            std::cerr << "[integration] Expected NOT: " << (not_expected) << std::endl; \
-            std::cerr << "[integration] Actual: " << (actual) << std::endl; \
-            std::cerr << "[integration] " << message << std::endl; \
+            std::cerr << "[integration-test] ASSERTION FAILED at " << __FILE__ << ":" << __LINE__ << std::endl; \
+            std::cerr << "[integration-test] Expected NOT: " << (not_expected) << std::endl; \
+            std::cerr << "[integration-test] Actual: " << (actual) << std::endl; \
+            std::cerr << "[integration-test] " << message << std::endl; \
             IntegrationTestCounter::increment_failed(); \
             throw std::runtime_error(std::string(__FILE__) + ":" + std::to_string(__LINE__) + " - " + message); \
         } else { \
@@ -190,10 +190,10 @@ inline void run_cb_test_with_output_and_time(const std::string& test_file,
     do { \
         IntegrationTestCounter::increment_total(); \
         if (!contains((haystack), (needle))) { \
-            std::cerr << "[integration] ASSERTION FAILED at " << __FILE__ << ":" << __LINE__ << std::endl; \
-            std::cerr << "[integration] Expected to find: " << (needle) << std::endl; \
-            std::cerr << "[integration] In output: " << (haystack) << std::endl; \
-            std::cerr << "[integration] " << message << std::endl; \
+            std::cerr << "[integration-test] ASSERTION FAILED at " << __FILE__ << ":" << __LINE__ << std::endl; \
+            std::cerr << "[integration-test] Expected to find: " << (needle) << std::endl; \
+            std::cerr << "[integration-test] In output: " << (haystack) << std::endl; \
+            std::cerr << "[integration-test] " << message << std::endl; \
             IntegrationTestCounter::increment_failed(); \
             throw std::runtime_error(std::string(__FILE__) + ":" + std::to_string(__LINE__) + " - " + message); \
         } else { \
@@ -205,10 +205,10 @@ inline void run_cb_test_with_output_and_time(const std::string& test_file,
     do { \
         IntegrationTestCounter::increment_total(); \
         if (contains((haystack), (needle))) { \
-            std::cerr << "[integration] ASSERTION FAILED at " << __FILE__ << ":" << __LINE__ << std::endl; \
-            std::cerr << "[integration] Did not expect to find: " << (needle) << std::endl; \
-            std::cerr << "[integration] In output: " << (haystack) << std::endl; \
-            std::cerr << "[integration] " << message << std::endl; \
+            std::cerr << "[integration-test] ASSERTION FAILED at " << __FILE__ << ":" << __LINE__ << std::endl; \
+            std::cerr << "[integration-test] Did not expect to find: " << (needle) << std::endl; \
+            std::cerr << "[integration-test] In output: " << (haystack) << std::endl; \
+            std::cerr << "[integration-test] " << message << std::endl; \
             IntegrationTestCounter::increment_failed(); \
             throw std::runtime_error(std::string(__FILE__) + ":" + std::to_string(__LINE__) + " - " + message); \
         } else { \

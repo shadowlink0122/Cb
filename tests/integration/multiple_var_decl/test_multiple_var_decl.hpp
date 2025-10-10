@@ -14,7 +14,7 @@ void test_multiple_variable_declaration() {
 }
 
 inline void test_integration_multiple_var_decl() {
-    std::cout << "[integration] Running multiple variable declaration tests..." << std::endl;
+    std::cout << "[integration-test] Running multiple variable declaration tests..." << std::endl;
     
     // 既存のテスト
     test_multiple_variable_declaration();
@@ -56,5 +56,5 @@ inline void test_integration_multiple_var_decl() {
         });
     integration_test_passed_with_time_auto("test_multiple_var_init_expressions", "multiple_var_init_expressions.cb");
     
-    std::cout << "[integration] Multiple variable declaration tests completed" << std::endl;
+    std::cout << "[integration-test] Multiple variable declaration tests completed" << std::endl;
 }

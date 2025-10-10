@@ -3,6 +3,7 @@
 #include "../../../../common/debug.h"
 #include "../../core/interpreter.h"
 #include "../../core/pointer_metadata.h"
+#include "recursive_member_evaluator.h"
 #include <iostream>
 #include <stdexcept>
 
@@ -112,6 +113,16 @@ int64_t evaluate_address_of(
             throw std::runtime_error("Undefined array: " + array_name);
         }
 
+        // 配列参照の場合、元の配列を取得
+        // これにより、関数から戻った後もポインタが有効になる
+        if (array_var->is_reference && array_var->is_array) {
+            array_var = reinterpret_cast<Variable *>(array_var->value);
+            if (!array_var) {
+                throw std::runtime_error(
+                    "Invalid array reference in address-of");
+            }
+        }
+
         // 配列要素のアドレス取得（1次元・多次元両対応）
         // 要素の型を判定
         TypeInfo elem_type = TYPE_INT; // デフォルト
@@ -150,6 +161,36 @@ int64_t evaluate_address_of(
             flat_index = static_cast<size_t>(index);
         }
 
+        // 構造体/インターフェース配列の場合は、要素変数への直接ポインタを返す
+        bool is_struct_like_element =
+            (array_var->is_struct && !array_var->struct_type_name.empty()) ||
+            elem_type == TYPE_STRUCT || elem_type == TYPE_INTERFACE;
+
+        if (is_struct_like_element) {
+            std::string element_name =
+                interpreter.extract_array_element_name(node->left.get());
+            Variable *element_var = interpreter.find_variable(element_name);
+
+            if (!element_var && array_var->is_struct &&
+                !array_var->struct_type_name.empty()) {
+                interpreter.create_struct_variable(element_name,
+                                                   array_var->struct_type_name);
+                element_var = interpreter.find_variable(element_name);
+            }
+
+            if (!element_var) {
+                throw std::runtime_error("Struct array element not found: " +
+                                         element_name);
+            }
+
+            if (debug_mode) {
+                std::cerr << "[ADDRESS_OF] Returning struct element pointer: "
+                          << element_name << " -> " << element_var << std::endl;
+            }
+
+            return reinterpret_cast<int64_t>(element_var);
+        }
+
         // メタデータを作成してヒープに配置
         PointerMetadata *meta = new PointerMetadata();
         *meta = PointerMetadata::create_array_element_pointer(
@@ -182,15 +223,47 @@ int64_t evaluate_address_of(
 
         return ptr_value;
     }
-    // 構造体メンバーのアドレス取得: &obj.member
+    // 構造体メンバーのアドレス取得: &obj.member または
+    // &container.shapes[0].edges[0].start.x
     else if (node->left->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
-        std::string obj_name = node->left->left->name;
-        std::string member_name = node->left->name;
+        // 深いネスト対応: 再帰的リゾルバを使用
+        Variable *member_var = nullptr;
+        std::string member_path;
 
-        std::string member_path = obj_name + "." + member_name;
-        Variable *member_var = interpreter.find_variable(member_path);
+        // leftがMEMBER_ACCESSまたはARRAY_REFを含む場合、再帰リゾルバを使用
+        if (node->left->left &&
+            (node->left->left->node_type == ASTNodeType::AST_MEMBER_ACCESS ||
+             node->left->left->node_type == ASTNodeType::AST_ARRAY_REF)) {
+
+            // 再帰的に解決
+            auto evaluate_index = [&evaluate_expression_func](
+                                      const ASTNode *idx_node) -> int64_t {
+                return evaluate_expression_func(idx_node);
+            };
+
+            member_var =
+                MemberEvaluationHelpers::resolve_nested_member_for_evaluation(
+                    interpreter, node->left.get(), evaluate_index);
+
+            // member_pathを再構築（デバッグ用）
+            member_path = node->left->name + " (nested)";
+
+        } else {
+            // 単純な obj.member の場合: 従来の方法
+            std::string obj_name = node->left->left->name;
+            std::string member_name = node->left->name;
+            member_path = obj_name + "." + member_name;
+            member_var = interpreter.find_variable(member_path);
+        }
+
         if (!member_var) {
             throw std::runtime_error("Undefined member: " + member_path);
+        }
+
+        if (debug_mode) {
+            std::cerr << "[ADDRESS_OF] member_var found: " << member_var
+                      << ", is_assigned=" << member_var->is_assigned
+                      << ", value=" << member_var->value << std::endl;
         }
 
         // 構造体メンバーへのポインタもメタデータで表現
@@ -201,6 +274,8 @@ int64_t evaluate_address_of(
         if (debug_mode) {
             std::cerr << "[POINTER_METADATA] Created struct member pointer: "
                       << meta->to_string() << std::endl;
+            std::cerr << "[ADDRESS_OF] meta->member_var = " << meta->member_var
+                      << std::endl;
         }
 
         // メタデータのアドレスをタグ付きで返す

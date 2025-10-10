@@ -2,7 +2,7 @@
 #include "../framework/integration_test_framework.hpp"
 
 void test_integration_basic() {
-    std::cout << "[integration] Running basic tests..." << std::endl;
+    std::cout << "[integration-test] Running basic tests..." << std::endl;
     
     // Basic main function test (with timing)
     double execution_time;
@@ -13,5 +13,5 @@ void test_integration_basic() {
     
     integration_test_passed_with_time("basic main function", "simple_main.cb", execution_time);
     
-    std::cout << "[integration] Basic tests completed" << std::endl;
+    std::cout << "[integration-test] Basic tests completed" << std::endl;
 }

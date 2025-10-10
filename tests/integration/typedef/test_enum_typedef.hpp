@@ -46,12 +46,12 @@ void test_enum_typedef_comprehensive() {
 
 // Main enum typedef test function
 void test_integration_enum_typedef() {
-    std::cout << "[integration] Running enum typedef tests..." << std::endl;
+    std::cout << "[integration-test] Running enum typedef tests..." << std::endl;
     test_enum_typedef_basic();
     test_enum_typedef_separated();  
     test_enum_typedef_functions();
     test_enum_typedef_comprehensive();
-    std::cout << "[integration] Enum typedef tests completed" << std::endl;
+    std::cout << "[integration-test] Enum typedef tests completed" << std::endl;
 }
 
 #endif // TEST_ENUM_TYPEDEF_HPP

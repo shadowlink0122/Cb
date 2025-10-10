@@ -3,7 +3,7 @@
 #include "../framework/integration_test_framework.hpp"
 
 inline void test_integration_bitwise() {
-    std::cout << "[integration] Running bitwise tests..." << std::endl;
+    std::cout << "[integration-test] Running bitwise tests..." << std::endl;
     
     // ビット演算子の基本テスト
     const std::string test_file_basic = "../../tests/cases/bitwise/basic_bitwise.cb";
@@ -34,5 +34,5 @@ inline void test_integration_bitwise() {
         });
     integration_test_passed_with_time_auto("bitwise complex test", test_file_complex);
     
-    std::cout << "[integration] Bitwise tests completed" << std::endl;
+    std::cout << "[integration-test] Bitwise tests completed" << std::endl;
 }

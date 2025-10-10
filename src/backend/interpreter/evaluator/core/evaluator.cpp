@@ -141,11 +141,23 @@ TypedValue ExpressionEvaluator::evaluate_typed_expression(const ASTNode *node) {
                               InferredType(TYPE_QUAD, "quad"));
         }
 
-        // 通常の数値の場合
-        return TypedValue(
+        // 通常の数値の場合（ポインタを含む）
+        TypedValue tv(
             ret_ex.value,
             InferredType(ret_ex.type,
                          ExpressionHelpers::type_info_to_string(ret_ex.type)));
+
+        // ポインタの場合、const情報を保持する（Phase 2: v0.9.2）
+        if (ret_ex.type == TYPE_POINTER || ret_ex.is_pointer) {
+            tv.is_pointer = true;
+            tv.is_pointee_const = ret_ex.is_pointee_const;
+            tv.is_pointer_const = ret_ex.is_pointer_const;
+            tv.pointer_depth = ret_ex.pointer_depth;
+            tv.pointer_base_type = ret_ex.pointer_base_type;
+            tv.pointer_base_type_name = ret_ex.pointer_base_type_name;
+        }
+
+        return tv;
     }
 }
 
@@ -537,6 +549,8 @@ ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode *node) {
         bool resolved = false;
 
         std::string base_name = build_base_name(node->left.get());
+        debug_print("[EVAL_TYPED] base_name='%s', member='%s'\n",
+                    base_name.c_str(), node->name.c_str());
         debug_msg(DebugMsgId::NESTED_MEMBER_BASE_PATH, base_name.c_str(),
                   node->name.c_str());
 
@@ -544,6 +558,12 @@ ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode *node) {
             // まず個別変数を検索（優先）
             debug_msg(DebugMsgId::NESTED_MEMBER_RESOLVE_FROM_BASE);
             resolved = resolve_from_base_name(base_name, resolved_value);
+            debug_print("[EVAL_TYPED] resolve_from_base_name returned: %d, "
+                        "value=%lld\n",
+                        resolved,
+                        resolved_value.is_numeric()
+                            ? resolved_value.as_numeric()
+                            : 0LL);
             if (resolved) {
                 debug_msg(DebugMsgId::NESTED_MEMBER_RESOLVE_SUCCESS,
                           resolved_value.is_numeric()
@@ -769,6 +789,34 @@ ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode *node) {
                         ? static_cast<TypeInfo>(var->type - TYPE_ARRAY_BASE)
                         : var->type;
 
+                // ポインタ型配列の場合（例: double*[5], int*[10]）
+                if (base_type == TYPE_POINTER && indices.size() == 1) {
+                    int64_t idx = indices[0];
+                    if (idx >= 0 &&
+                        idx < static_cast<int64_t>(var->array_values.size())) {
+                        int64_t ptr_value = var->array_values[idx];
+
+                        if (interpreter_.is_debug_mode()) {
+                            std::cerr << "[POINTER_ARRAY_READ] Reading from "
+                                      << array_name << "[" << idx << "]"
+                                      << std::endl;
+                            std::cerr << "  Value: " << ptr_value << " (0x"
+                                      << std::hex << ptr_value << std::dec
+                                      << ")" << std::endl;
+                            std::cerr
+                                << "  Has tag bit: "
+                                << ((ptr_value & (1LL << 63)) ? "YES" : "NO")
+                                << std::endl;
+                        }
+
+                        // ポインタ配列の要素はポインタ型として返す
+                        InferredType ptr_type(TYPE_POINTER, "pointer");
+                        TypedValue result(ptr_value, ptr_type);
+                        result.numeric_type = TYPE_POINTER;
+                        return result;
+                    }
+                }
+
                 // float/double/quad配列の場合
                 if (base_type == TYPE_FLOAT || base_type == TYPE_DOUBLE ||
                     base_type == TYPE_QUAD) {
@@ -839,6 +887,101 @@ ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode *node) {
                         }
                     }
                 }
+
+                // 整数配列の処理（tiny, short, long, int, big）
+                // tiny/short/longなど、符号付き整数型の配列要素取得
+                if ((base_type == TYPE_TINY || base_type == TYPE_SHORT ||
+                     base_type == TYPE_LONG || base_type == TYPE_INT ||
+                     base_type == TYPE_BIG) &&
+                    indices.size() == 1) {
+                    int64_t idx = indices[0];
+
+                    if (idx >= 0 &&
+                        idx < static_cast<int64_t>(var->array_values.size())) {
+                        int64_t raw_value = var->array_values[idx];
+
+                        // 型に応じて符号拡張を行う
+                        int64_t typed_value = raw_value;
+                        switch (base_type) {
+                        case TYPE_TINY: {
+                            // 8ビット符号付き整数として解釈
+                            int8_t tiny_val =
+                                static_cast<int8_t>(raw_value & 0xFF);
+                            typed_value = static_cast<int64_t>(tiny_val);
+                            break;
+                        }
+                        case TYPE_SHORT: {
+                            // 16ビット符号付き整数として解釈
+                            int16_t short_val =
+                                static_cast<int16_t>(raw_value & 0xFFFF);
+                            typed_value = static_cast<int64_t>(short_val);
+                            break;
+                        }
+                        case TYPE_LONG: {
+                            // 64ビット符号付き整数（そのまま使用）
+                            typed_value = raw_value;
+                            break;
+                        }
+                        case TYPE_INT: {
+                            // 32ビット符号付き整数として解釈
+                            int32_t int_val =
+                                static_cast<int32_t>(raw_value & 0xFFFFFFFF);
+                            typed_value = static_cast<int64_t>(int_val);
+                            break;
+                        }
+                        default:
+                            // BIGなどはそのまま
+                            typed_value = raw_value;
+                            break;
+                        }
+
+                        return TypedValue(
+                            typed_value,
+                            InferredType(base_type,
+                                         type_info_to_string_basic(base_type)));
+                    }
+                }
+            }
+        }
+
+        // 構造体メンバー配列要素アクセスのケース: s.member[index]
+        // このケースはextract_array_name()が"s.member"を返すため、
+        // find_variable("s.member")で直接アクセス変数が見つかり、
+        // 上記の整数配列処理で既に処理されている
+        if (node->left &&
+            node->left->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
+
+            // オブジェクト名とメンバー名を取得
+            std::string obj_name;
+            if (node->left->left) {
+                if (node->left->left->node_type == ASTNodeType::AST_VARIABLE ||
+                    node->left->left->node_type ==
+                        ASTNodeType::AST_IDENTIFIER) {
+                    obj_name = node->left->left->name;
+                }
+            }
+
+            if (!obj_name.empty()) {
+                std::string member_name = node->left->name;
+                int64_t index = evaluate_expression(node->array_index.get());
+
+                // 構造体メンバー配列要素を取得
+                try {
+                    int64_t value =
+                        interpreter_.get_struct_member_array_element(
+                            obj_name, member_name, static_cast<int>(index));
+
+                    // 型情報を含めて返す
+                    return consume_numeric_typed_value(node, value,
+                                                       inferred_type);
+                } catch (const std::exception &e) {
+                    if (debug_mode) {
+                        debug_print(
+                            "Failed to get struct member array element: %s\n",
+                            e.what());
+                    }
+                    // フォールバックに進む
+                }
             }
         }
 
@@ -860,6 +1003,15 @@ ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode *node) {
                         var->value, it->second.function_name,
                         it->second.function_node, inferred_type);
                 }
+            }
+
+            // ポインタ変数の場合、TYPE_POINTERで返す
+            if (var->is_pointer) {
+                InferredType ptr_type;
+                ptr_type.type_info = TYPE_POINTER;
+                ptr_type.is_array = false;
+                TypedValue result(var->value, ptr_type);
+                return result;
             }
         }
         // 通常の識別子の場合は通常評価

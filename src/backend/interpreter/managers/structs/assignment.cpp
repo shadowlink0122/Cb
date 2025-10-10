@@ -459,7 +459,7 @@ void StructAssignmentManager::assign_struct_member_struct(
         }
     }
 
-    // 構造体データをコピー
+    // 構造体データをコピー（struct_membersも含む）
     *member_var = struct_value;
     member_var->is_assigned = true;
 
@@ -481,19 +481,10 @@ void StructAssignmentManager::assign_struct_member_struct(
         }
     }
 
-    // 構造体のメンバー変数も個別に更新
-    for (const auto &member : struct_value.struct_members) {
-        std::string nested_var_name = direct_var_name + "." + member.first;
-        Variable *nested_var = interpreter_->find_variable(nested_var_name);
-        if (nested_var) {
-            *nested_var = member.second;
-            nested_var->is_assigned = true;
-            if (interpreter_->debug_mode) {
-                debug_print("Updated nested member: %s = %lld\n",
-                            nested_var_name.c_str(), member.second.value);
-            }
-        }
-    }
+    // 構造体のメンバー変数を再帰的に更新
+    // ネストした構造体メンバーも正しく展開する
+    sync_nested_struct_members_recursive(direct_var_name,
+                                         struct_value.struct_members);
 }
 
 void StructAssignmentManager::assign_struct_member_array_element(
@@ -543,10 +534,6 @@ void StructAssignmentManager::assign_struct_member_array_element(
         throw std::runtime_error("Array index out of bounds");
     }
 
-    if (interpreter_->debug_mode) {
-        debug_print("About to assign value to array_values[%d]\n", index);
-    }
-
     int64_t adjusted_value = value;
     if (member_var->is_unsigned && adjusted_value < 0) {
         if (interpreter_->debug_mode) {
@@ -561,6 +548,22 @@ void StructAssignmentManager::assign_struct_member_array_element(
 
     member_var->array_values[index] = adjusted_value;
     member_var->is_assigned = true;
+
+    // ダイレクトアクセス親配列変数も更新（find_variableで取得される変数）
+    // 構造体メンバー配列は2つの変数として管理されている：
+    // 1. struct_members内の変数（get_struct_memberで取得）
+    // 2. スコープ内のダイレクトアクセス変数（find_variableで取得）
+    // printf等のtyped評価では2番目の変数が使用されるため、両方を更新する必要がある
+    std::string direct_array_name = var_name + "." + member_name;
+    Variable *direct_array_var = interpreter_->find_variable(direct_array_name);
+    if (direct_array_var && direct_array_var != member_var) {
+        // 配列サイズを確認して更新
+        if (static_cast<size_t>(index) <
+            direct_array_var->array_values.size()) {
+            direct_array_var->array_values[index] = adjusted_value;
+            direct_array_var->is_assigned = true;
+        }
+    }
 
     // ダイレクトアクセス配列要素変数も更新
     std::string direct_element_name =
@@ -1216,6 +1219,30 @@ void StructAssignmentManager::process_named_initialization(
                 }
             }
             struct_member_var.is_assigned = true;
+
+            // ダイレクトアクセス配列変数も更新（find_variableで取得される変数）
+            // これは構造体メンバー配列の要素代入と同じ問題への対処
+            std::string direct_array_name = var_name + "." + member_name;
+            Variable *direct_array_var =
+                interpreter_->find_variable(direct_array_name);
+            if (direct_array_var && direct_array_var->is_array &&
+                direct_array_var != &struct_member_var) {
+                // 配列値を同期
+                direct_array_var->array_values = struct_member_var.array_values;
+                direct_array_var->array_float_values =
+                    struct_member_var.array_float_values;
+                direct_array_var->array_double_values =
+                    struct_member_var.array_double_values;
+                direct_array_var->array_size = struct_member_var.array_size;
+                direct_array_var->is_assigned = true;
+
+                if (interpreter_->debug_mode) {
+                    debug_print(
+                        "Synced direct access array variable: %s (size=%d)\n",
+                        direct_array_name.c_str(),
+                        direct_array_var->array_size);
+                }
+            }
         } else if ((struct_member_var.type == TYPE_STRING ||
                     interpreter_->type_manager_->is_union_type(
                         struct_member_var)) &&
@@ -1627,5 +1654,63 @@ void StructAssignmentManager::process_positional_initialization(
             }
         }
         it->second.is_assigned = true;
+    }
+}
+
+// ネストした構造体メンバーを再帰的に同期する
+void StructAssignmentManager::sync_nested_struct_members_recursive(
+    const std::string &base_path,
+    const std::map<std::string, Variable> &members) {
+
+    if (interpreter_->debug_mode) {
+        debug_print("sync_nested_struct_members_recursive: base_path=%s, "
+                    "members.size=%zu\n",
+                    base_path.c_str(), members.size());
+    }
+
+    for (const auto &member : members) {
+        const std::string &member_name = member.first;
+        const Variable &member_var = member.second;
+        std::string nested_var_name = base_path + "." + member_name;
+
+        // ダイレクトアクセス変数を更新
+        Variable *nested_var = interpreter_->find_variable(nested_var_name);
+        if (nested_var) {
+            // 既存の変数を更新
+            *nested_var = member_var;
+            nested_var->is_assigned = true;
+
+            if (interpreter_->debug_mode) {
+                debug_print("Updated nested member: %s (type=%d)\n",
+                            nested_var_name.c_str(), member_var.type);
+            }
+        } else {
+            // 変数が存在しない場合は新規作成
+            // これは深いネスト初期化で必要
+            // Interpreterのvariable managerを通じて変数を作成
+            // 注: この場合、親の構造体メンバーに既に値が入っているので
+            // ダイレクトアクセス変数が未作成でも問題ない
+            // スキップして、struct_membersマップだけを信頼する
+
+            if (interpreter_->debug_mode) {
+                debug_print("Skipped creating nested member (not found): %s\n",
+                            nested_var_name.c_str());
+            }
+        }
+
+        // もしこのメンバーが構造体型なら、さらに再帰的に展開
+        if ((member_var.type == TYPE_STRUCT || member_var.is_struct) &&
+            !member_var.struct_members.empty()) {
+
+            if (interpreter_->debug_mode) {
+                debug_print("Recursing into struct member: %s "
+                            "(struct_members.size=%zu)\n",
+                            nested_var_name.c_str(),
+                            member_var.struct_members.size());
+            }
+
+            sync_nested_struct_members_recursive(nested_var_name,
+                                                 member_var.struct_members);
+        }
     }
 }

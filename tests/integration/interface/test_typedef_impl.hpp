@@ -3,7 +3,7 @@
 #include "../framework/integration_test_framework.hpp"
 
 inline void test_typedef_impl_basic() {
-    std::cout << "[integration] Running test_typedef_impl_basic..." << std::endl;
+    std::cout << "[integration-test] Running test_typedef_impl_basic..." << std::endl;
     
     double execution_time;
     run_cb_test_with_output_and_time("../../tests/cases/interface/typedef_impl_test.cb", 
@@ -35,7 +35,7 @@ inline void test_typedef_impl_basic() {
 }
 
 inline void test_recursive_typedef_independence() {
-    std::cout << "[integration] Running test_recursive_typedef_independence..." << std::endl;
+    std::cout << "[integration-test] Running test_recursive_typedef_independence..." << std::endl;
     
     double execution_time;
     run_cb_test_with_output_and_time("../../tests/cases/interface/recursive_typedef_independence.cb", 

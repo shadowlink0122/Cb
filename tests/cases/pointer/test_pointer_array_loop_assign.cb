@@ -1,0 +1,69 @@
+// ポインタ配列へのループ代入テスト
+
+void main() {
+    println("=== Test 1: Loop assignment to pointer array ===");
+    
+    // 配列を用意
+    int[10] values = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
+    
+    // ポインタ配列を宣言
+    int*[10] ptrs;
+    
+    // ループで各要素へのポインタを代入
+    for (int i = 0; i < 10; i++) {
+        ptrs[i] = &values[i];
+    }
+    
+    // 検証: ポインタ経由でアクセス
+    for (int i = 0; i < 10; i++) {
+        println(*ptrs[i]);  // 10, 20, 30, ..., 100
+    }
+    
+    println("=== Test 2: Modify through loop-assigned pointers ===");
+    
+    // ポインタ経由で値を変更
+    for (int i = 0; i < 10; i++) {
+        *ptrs[i] = *ptrs[i] + 5;
+    }
+    
+    // 元の配列が変更されていることを確認
+    for (int i = 0; i < 10; i++) {
+        println(values[i]);  // 15, 25, 35, ..., 105
+    }
+    
+    println("=== Test 3: Reverse pointer array using loop ===");
+    
+    int*[10] reversed;
+    
+    // 逆順でポインタを代入
+    for (int i = 0; i < 10; i++) {
+        reversed[i] = &values[9 - i];
+    }
+    
+    // 検証: 逆順でアクセス
+    for (int i = 0; i < 10; i++) {
+        println(*reversed[i]);  // 105, 95, 85, ..., 15
+    }
+    
+    println("=== Test 4: Conditional pointer assignment ===");
+    
+    int[5] even = [2, 4, 6, 8, 10];
+    int[5] odd = [1, 3, 5, 7, 9];
+    int*[5] selective;
+    
+    // 条件に応じてポインタを代入
+    for (int i = 0; i < 5; i++) {
+        if (i % 2 == 0) {
+            selective[i] = &even[i];
+        } else {
+            selective[i] = &odd[i];
+        }
+    }
+    
+    // 検証
+    for (int i = 0; i < 5; i++) {
+        println(*selective[i]);  // 2, 3, 6, 7, 10
+    }
+    
+    println("=== All loop assignment tests passed ===");
+}

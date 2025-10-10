@@ -1,0 +1,51 @@
+// ネストした構造体のメンバーアクセスからの宣言時初期化テスト
+
+struct Inner {
+    int x;
+    int y;
+};
+
+struct Middle {
+    Inner val;
+    int z;
+};
+
+struct Outer {
+    Middle val;
+    int w;
+};
+
+int main() {
+    // 3層ネスト構造体の初期化
+    Outer o1 = {val: {val: {x: 100, y: 200}, z: 300}, w: 400};
+    
+    // テスト1: 2層目からの初期化
+    Middle m1 = o1.val;
+    assert(m1.val.x == 100);
+    assert(m1.val.y == 200);
+    assert(m1.z == 300);
+    println("Test 1: Mid-level extraction - PASSED");
+    
+    // テスト2: 1層目からの初期化
+    Inner i1 = o1.val.val;
+    assert(i1.x == 100);
+    assert(i1.y == 200);
+    println("Test 2: Deep-level extraction - PASSED");
+    
+    // テスト3: メンバーアクセスを使った初期化
+    Inner i2 = m1.val;
+    assert(i2.x == 100);
+    assert(i2.y == 200);
+    println("Test 3: From extracted struct - PASSED");
+    
+    // テスト4: 複数レベルの初期化
+    Outer o2 = {val: {val: {x: 11, y: 22}, z: 33}, w: 44};
+    Middle m2 = o2.val;
+    Inner i3 = m2.val;
+    assert(i3.x == 11);
+    assert(i3.y == 22);
+    println("Test 4: Chained extraction - PASSED");
+    
+    println("All nested struct declaration tests passed!");
+    return 0;
+}

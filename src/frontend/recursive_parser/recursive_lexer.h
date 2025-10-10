@@ -106,6 +106,7 @@ enum class TokenType {
     TOK_NEW,
     TOK_DELETE,
     TOK_NULLPTR,
+    TOK_NULL,
     TOK_UNSIGNED,
     TOK_ASSERT,
 

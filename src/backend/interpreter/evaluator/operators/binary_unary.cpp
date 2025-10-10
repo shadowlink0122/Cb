@@ -583,12 +583,21 @@ TypedValue evaluate_unary_op_typed(
                 throw std::runtime_error("Invalid pointer metadata");
             }
 
-            // メタデータから値を読み取り
-            int64_t value = meta->read_int_value();
-            // PointerTargetTypeをTypeInfoに変換
-            TypeInfo elem_type = static_cast<TypeInfo>(meta->target_type);
-            InferredType deref_type(elem_type, "");
-            return TypedValue(value, deref_type);
+            // メタデータから型に応じて値を読み取り
+            TypeInfo elem_type = meta->pointed_type;
+            InferredType deref_type(elem_type,
+                                    type_info_to_string_simple(elem_type));
+
+            if (elem_type == TYPE_FLOAT || elem_type == TYPE_DOUBLE ||
+                elem_type == TYPE_QUAD) {
+                // 浮動小数点数の場合
+                double float_value = meta->read_float_value();
+                return TypedValue(float_value, deref_type);
+            } else {
+                // 整数型の場合
+                int64_t value = meta->read_int_value();
+                return TypedValue(value, deref_type);
+            }
         } else {
             // 従来の方式（変数ポインタ）
             Variable *var = reinterpret_cast<Variable *>(ptr_int);

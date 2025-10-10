@@ -1,0 +1,11 @@
+// Test: Empty array literal
+// Tests edge case of zero-length arrays
+
+func int main() {
+    // Empty arrays should be allowed syntactically
+    // but might have restrictions
+    int[0] empty_arr = [];
+    
+    println("Empty array test");
+    return 0;
+}

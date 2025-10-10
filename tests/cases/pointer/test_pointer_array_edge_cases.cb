@@ -1,0 +1,131 @@
+// ポインタ配列のエッジケースとエラーハンドリングテスト
+
+void main() {
+    println("=== Test 1: Single element pointer array ===");
+    
+    int value = 42;
+    int*[1] single_ptr;
+    single_ptr[0] = &value;
+    
+    println(*single_ptr[0]);  // 42
+    *single_ptr[0] = 99;
+    println(value);  // 99
+    
+    println("=== Test 2: Large pointer array ===");
+    
+    int[100] large_array;
+    int*[100] large_ptrs;
+    
+    // 大きな配列の初期化とポインタ設定
+    for (int i = 0; i < 100; i++) {
+        large_array[i] = i * 10;
+        large_ptrs[i] = &large_array[i];
+    }
+    
+    // サンプル検証（最初と最後）
+    println(*large_ptrs[0]);   // 0
+    println(*large_ptrs[50]);  // 500
+    println(*large_ptrs[99]);  // 990
+    
+    println("=== Test 3: Pointer array with same target ===");
+    
+    int shared = 100;
+    int*[5] all_same;
+    
+    // すべてのポインタが同じ変数を指す
+    for (int i = 0; i < 5; i++) {
+        all_same[i] = &shared;
+    }
+    
+    // どれかを通して変更すると全部に影響
+    *all_same[2] = 200;
+    
+    println("All pointers point to same value:");
+    for (int i = 0; i < 5; i++) {
+        println(*all_same[i]);  // すべて 200
+    }
+    
+    println(shared);  // 200
+    
+    println("=== Test 4: Pointer array bounds ===");
+    
+    int[5] bounded = [1, 2, 3, 4, 5];
+    int*[5] bounded_ptrs;
+    
+    // 正常な範囲
+    for (int i = 0; i < 5; i++) {
+        bounded_ptrs[i] = &bounded[i];
+    }
+    
+    // 最初と最後の要素
+    println("First element:");
+    println(*bounded_ptrs[0]);  // 1
+    
+    println("Last element:");
+    println(*bounded_ptrs[4]);  // 5
+    
+    println("=== Test 5: Mixed pointer assignments ===");
+    
+    int a = 10, b = 20, c = 30, d = 40, e = 50;
+    int*[5] mixed;
+    
+    mixed[0] = &a;
+    mixed[1] = &c;  // スキップ
+    mixed[2] = &b;
+    mixed[3] = &e;
+    mixed[4] = &d;
+    
+    println("Mixed order:");
+    println(*mixed[0]);  // 10
+    println(*mixed[1]);  // 30
+    println(*mixed[2]);  // 20
+    println(*mixed[3]);  // 50
+    println(*mixed[4]);  // 40
+    
+    println("=== Test 6: Pointer array with zero values ===");
+    
+    int[5] zeros = [0, 0, 0, 0, 0];
+    int*[5] zero_ptrs;
+    
+    for (int i = 0; i < 5; i++) {
+        zero_ptrs[i] = &zeros[i];
+    }
+    
+    println("Zero values through pointers:");
+    for (int i = 0; i < 5; i++) {
+        println(*zero_ptrs[i]);  // すべて 0
+    }
+    
+    // ゼロから非ゼロへ変更
+    *zero_ptrs[2] = 100;
+    println("After modification:");
+    println(zeros[2]);  // 100
+    
+    println("=== Test 7: Pointer array reassignment patterns ===");
+    
+    int[3] original = [1, 2, 3];
+    int[3] alternate = [10, 20, 30];
+    int*[3] dynamic;
+    
+    // 最初にoriginalを指す
+    for (int i = 0; i < 3; i++) {
+        dynamic[i] = &original[i];
+    }
+    
+    println("Original values:");
+    for (int i = 0; i < 3; i++) {
+        println(*dynamic[i]);  // 1, 2, 3
+    }
+    
+    // alternateに切り替え
+    for (int i = 0; i < 3; i++) {
+        dynamic[i] = &alternate[i];
+    }
+    
+    println("Alternate values:");
+    for (int i = 0; i < 3; i++) {
+        println(*dynamic[i]);  // 10, 20, 30
+    }
+    
+    println("=== All pointer array edge case tests passed ===");
+}

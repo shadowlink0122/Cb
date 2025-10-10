@@ -139,7 +139,7 @@ void test_typedef_multidim_array_function() {
 }
 
 void run_typedef_tests() {
-    std::cout << "[integration] Running typedef tests..." << std::endl;
+    std::cout << "[integration-test] Running typedef tests..." << std::endl;
     test_typedef_basic();
     test_typedef_advanced();
     test_typedef_array();
@@ -149,7 +149,7 @@ void run_typedef_tests() {
     test_typedef_multidim_array_function();
     test_typedef_recursive();
     test_typedef_conversion();
-    std::cout << "[integration] Typedef tests completed" << std::endl;
+    std::cout << "[integration-test] Typedef tests completed" << std::endl;
 }
 
 void test_integration_typedef() {

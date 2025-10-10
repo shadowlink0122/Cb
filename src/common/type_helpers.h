@@ -3,6 +3,8 @@
 
 #include "../backend/interpreter/core/type_inference.h"
 #include "ast.h"
+#include <cstddef> // for size_t
+#include <cstdint> // for int64_t, INT64_MIN, INT64_MAX
 
 /**
  * @brief 型チェックヘルパー関数群
@@ -279,6 +281,186 @@ inline bool isImplicitlyConvertible(const TypedValue &from,
         return true;
 
     return false;
+}
+
+// ===========================
+// v0.9.2: 型変換・サイズ関連 (New)
+// ===========================
+
+/**
+ * @brief 明示的なキャストが必要かどうかを判定
+ * @param from 変換元の型
+ * @param to 変換先の型
+ * @return true if explicit cast is needed
+ */
+inline bool needsExplicitCast(const TypedValue &from, const TypedValue &to) {
+    // 暗黙的に変換可能な場合はキャスト不要
+    if (isImplicitlyConvertible(from, to))
+        return false;
+
+    // ポインタ型と整数型の変換は明示的キャストが必要
+    if ((isPointer(from) && isInteger(to)) ||
+        (isInteger(from) && isPointer(to)))
+        return true;
+
+    // 浮動小数点から整数への変換は明示的キャストが必要
+    if (isFloating(from) && isInteger(to))
+        return true;
+
+    // 構造体型の変換は明示的キャストが必要
+    if (isStruct(from) || isStruct(to))
+        return true;
+
+    return true;
+}
+
+/**
+ * @brief 2つの数値型の共通型を取得
+ * @param type1 型1
+ * @param type2 型2
+ * @return より大きい方の型（昇格規則に従う）
+ */
+inline TypeInfo getCommonNumericType(TypeInfo type1, TypeInfo type2) {
+    // 両方とも数値型でない場合はTYPE_UNKNOWNを返す
+    if (!isNumeric(type1) || !isNumeric(type2))
+        return TYPE_UNKNOWN;
+
+    // どちらかがdoubleならdouble
+    if (type1 == TYPE_DOUBLE || type2 == TYPE_DOUBLE)
+        return TYPE_DOUBLE;
+
+    // どちらかがfloatならfloat
+    if (type1 == TYPE_FLOAT || type2 == TYPE_FLOAT)
+        return TYPE_FLOAT;
+
+    // 整数型の昇格規則: long > int > short > tiny
+    if (type1 == TYPE_LONG || type2 == TYPE_LONG)
+        return TYPE_LONG;
+
+    if (type1 == TYPE_INT || type2 == TYPE_INT)
+        return TYPE_INT;
+
+    if (type1 == TYPE_SHORT || type2 == TYPE_SHORT)
+        return TYPE_SHORT;
+
+    return TYPE_TINY;
+}
+
+/**
+ * @brief 型のサイズをバイト数で取得
+ * @param type 型情報
+ * @return サイズ（バイト）、不明な型の場合は0
+ */
+inline size_t getTypeSize(TypeInfo type) {
+    switch (type) {
+    case TYPE_TINY:
+        return 1; // 8-bit
+    case TYPE_SHORT:
+        return 2; // 16-bit
+    case TYPE_INT:
+        return 4; // 32-bit
+    case TYPE_LONG:
+        return 8; // 64-bit
+    case TYPE_FLOAT:
+        return 4; // 32-bit
+    case TYPE_DOUBLE:
+        return 8; // 64-bit
+    case TYPE_BOOL:
+        return 1; // 1-byte
+    case TYPE_POINTER:
+        return 8; // 64-bit pointer (assuming 64-bit system)
+    case TYPE_STRING:
+        return sizeof(void *); // ポインタサイズ
+    case TYPE_FUNCTION_POINTER:
+        return sizeof(void *); // ポインタサイズ
+    default:
+        return 0; // Unknown or complex types (struct, array, etc.)
+    }
+}
+
+/**
+ * @brief 型のアライメント要件を取得
+ * @param type 型情報
+ * @return アライメント（バイト）
+ */
+inline size_t getTypeAlignment(TypeInfo type) {
+    // Most types align to their size
+    size_t size = getTypeSize(type);
+    if (size == 0)
+        return 8; // Default alignment for unknown types
+
+    // Alignment is typically the same as size, but max out at 8 bytes
+    return size > 8 ? 8 : size;
+}
+
+/**
+ * @brief 型が符号付き整数型かどうかを判定
+ * @param type 型情報
+ * @return true if signed integer type
+ */
+inline bool isSignedInteger(TypeInfo type) {
+    return type == TYPE_TINY || type == TYPE_SHORT || type == TYPE_INT ||
+           type == TYPE_LONG;
+}
+
+/**
+ * @brief 型の最小値を取得（整数型のみ）
+ * @param type 型情報
+ * @param is_unsigned 符号なしフラグ
+ * @return 最小値
+ */
+inline int64_t getTypeMinValue(TypeInfo type, bool is_unsigned) {
+    if (is_unsigned)
+        return 0;
+
+    switch (type) {
+    case TYPE_TINY:
+        return -128; // -2^7
+    case TYPE_SHORT:
+        return -32768; // -2^15
+    case TYPE_INT:
+        return -2147483648; // -2^31
+    case TYPE_LONG:
+        return INT64_MIN; // -2^63
+    default:
+        return 0;
+    }
+}
+
+/**
+ * @brief 型の最大値を取得（整数型のみ）
+ * @param type 型情報
+ * @param is_unsigned 符号なしフラグ
+ * @return 最大値
+ */
+inline int64_t getTypeMaxValue(TypeInfo type, bool is_unsigned) {
+    if (is_unsigned) {
+        switch (type) {
+        case TYPE_TINY:
+            return 255; // 2^8 - 1
+        case TYPE_SHORT:
+            return 65535; // 2^16 - 1
+        case TYPE_INT:
+            return 4294967295; // 2^32 - 1
+        case TYPE_LONG:
+            return INT64_MAX; // Cannot represent full 2^64-1 in int64_t
+        default:
+            return 0;
+        }
+    } else {
+        switch (type) {
+        case TYPE_TINY:
+            return 127; // 2^7 - 1
+        case TYPE_SHORT:
+            return 32767; // 2^15 - 1
+        case TYPE_INT:
+            return 2147483647; // 2^31 - 1
+        case TYPE_LONG:
+            return INT64_MAX; // 2^63 - 1
+        default:
+            return 0;
+        }
+    }
 }
 
 } // namespace TypeHelpers

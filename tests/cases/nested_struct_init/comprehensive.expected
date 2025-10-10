@@ -1,0 +1,6 @@
+Pattern 1: Deep extraction passed
+Pattern 2: Mid-level extraction passed
+Pattern 3: Upper-level extraction passed
+Pattern 4: Chained extraction passed
+Pattern 5: Independence verification passed
+All comprehensive nested struct tests passed!

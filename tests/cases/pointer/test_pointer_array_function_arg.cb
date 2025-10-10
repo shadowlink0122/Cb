@@ -1,0 +1,98 @@
+// ポインタ配列を関数引数として使用するテスト
+
+// ポインタ配列の全要素を出力
+void print_through_pointers(int*[] ptr_array, int size) {
+    println("Printing through pointer array:");
+    for (int i = 0; i < size; i++) {
+        println(*ptr_array[i]);
+    }
+}
+
+// ポインタ配列の全要素に値を加算
+void add_to_all(int*[] ptr_array, int size, int value) {
+    for (int i = 0; i < size; i++) {
+        *ptr_array[i] = *ptr_array[i] + value;
+    }
+}
+
+// ポインタ配列の要素を入れ替え
+void swap_pointers(int*[] ptr_array, int i, int j) {
+    int* temp = ptr_array[i];
+    ptr_array[i] = ptr_array[j];
+    ptr_array[j] = temp;
+}
+
+// ポインタ配列の最大値を持つ要素のインデックスを返す
+int find_max_index(int*[] ptr_array, int size) {
+    int max_idx = 0;
+    int max_val = *ptr_array[0];
+    
+    for (int i = 1; i < size; i++) {
+        if (*ptr_array[i] > max_val) {
+            max_val = *ptr_array[i];
+            max_idx = i;
+        }
+    }
+    
+    return max_idx;
+}
+
+void main() {
+    println("=== Test 1: Pass pointer array to function ===");
+    
+    int[5] values = [10, 20, 30, 40, 50];
+    int*[5] ptrs;
+    
+    for (int i = 0; i < 5; i++) {
+        ptrs[i] = &values[i];
+    }
+    
+    print_through_pointers(ptrs, 5);  // 10, 20, 30, 40, 50
+    
+    println("=== Test 2: Modify through function ===");
+    
+    add_to_all(ptrs, 5, 5);
+    print_through_pointers(ptrs, 5);  // 15, 25, 35, 45, 55
+    
+    println("=== Test 3: Swap pointers in function ===");
+    
+    swap_pointers(ptrs, 0, 4);  // 先頭と末尾を入れ替え
+    print_through_pointers(ptrs, 5);  // 55, 25, 35, 45, 15
+    
+    println("=== Test 4: Find max through function ===");
+    
+    int max_idx = find_max_index(ptrs, 5);
+    println("Max index:");
+    println(max_idx);  // 0 (55が最大)
+    println("Max value:");
+    println(*ptrs[max_idx]);  // 55
+    
+    println("=== Test 5: Multiple pointer arrays ===");
+    
+    int[3] arr1 = [1, 2, 3];
+    int[3] arr2 = [4, 5, 6];
+    int*[3] ptrs1;
+    int*[3] ptrs2;
+    
+    for (int i = 0; i < 3; i++) {
+        ptrs1[i] = &arr1[i];
+        ptrs2[i] = &arr2[i];
+    }
+    
+    println("Array 1:");
+    print_through_pointers(ptrs1, 3);  // 1, 2, 3
+    
+    println("Array 2:");
+    print_through_pointers(ptrs2, 3);  // 4, 5, 6
+    
+    add_to_all(ptrs1, 3, 10);
+    add_to_all(ptrs2, 3, 20);
+    
+    println("Array 1 after add:");
+    print_through_pointers(ptrs1, 3);  // 11, 12, 13
+    
+    println("Array 2 after add:");
+    print_through_pointers(ptrs2, 3);  // 24, 25, 26
+    
+    println("=== All pointer array function argument tests passed ===");
+}

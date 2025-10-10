@@ -1,0 +1,62 @@
+=== Level 5: 全ドットアクセス ===
+1. root.val.val.val.val.val.x = 0
+
+=== Level 5: ドット + アロー ===
+2. root.val.val.val.val.ptr->x = 100
+3. root.val.val.val.ptr->val.x = 41
+4. root.val.val.ptr->val.val.x = 0
+5. root.val.ptr->val.val.val.x = 0
+6. root.ptr->val.val.val.val.x = 0
+
+=== Level 5: 複数アロー ===
+7. root.val.val.val.ptr->ptr->x = 100
+8. root.val.val.ptr->ptr->val.x = 41
+9. root.val.ptr->ptr->val.val.x = 0
+10. root.ptr->ptr->val.val.val.x = 0
+11. root.ptr->ptr->ptr->val.val.x = 0
+12. root.ptr->ptr->ptr->ptr->val.x = 41
+13. root.ptr->ptr->ptr->ptr->ptr->x = 100
+
+=== Level 5: デリファレンス + ドット ===
+14. (*p1).val.val.val.val.x = 11
+15. (*root.ptr).val.val.val.val.x = 11
+
+=== Level 5: デリファレンス + アロー ===
+16. (*p1).val.val.val.ptr->x = 100
+17. (*p1).val.val.ptr->val.x = 41
+18. (*p1).val.ptr->val.val.x = 0
+19. (*p1).ptr->val.val.val.x = 0
+20. (*p1).ptr->ptr->val.val.x = 0
+21. (*p1).ptr->ptr->ptr->val.x = 41
+22. (*p1).ptr->ptr->ptr->ptr->x = 100
+
+=== Level 5: 二重デリファレンス ===
+23. (**pp1).val.val.val.val.x = 11
+24. (**pp1).val.val.val.ptr->x = 100
+25. (**pp1).val.val.ptr->val.x = 41
+26. (**pp1).ptr->val.val.val.x = 0
+27. (**pp1).ptr->ptr->val.val.x = 0
+28. (**pp1).ptr->ptr->ptr->ptr->x = 100
+
+=== Level 5: 三重デリファレンス ===
+29. (***ppp1).val.val.val.val.x = (nested member access error)
+30. (***ppp1).val.val.ptr->val.x = (nested member access error)
+31. (***ppp1).ptr->ptr->ptr->ptr->x = 100
+
+=== Level 5: デリファレンスとアローの混合 ===
+32. (*p0).val.val.val.val.val.x = 11
+33. (*p0).ptr->val.val.val.val.x = 0
+34. (*p0).ptr->ptr->val.val.val.x = 0
+35. (*p0->ptr).val.val.val.val.x = 11
+36. (*p0->ptr).ptr->val.val.val.x = 0
+37. (*(*p0).ptr).val.val.val.val.x = 11
+38. (*(*p0).ptr).ptr->val.val.val.x = 0
+
+=== Level 6: さらに深いネスト ===
+39. p0->val.val.val.val.val.val.x = 11
+40. p0->ptr->val.val.val.val.val.x = 11
+41. p0->ptr->ptr->val.val.val.val.x = 21
+42. p0->ptr->ptr->ptr->val.val.val.x = 31
+43. p0->ptr->ptr->ptr->ptr->val.val.x = 41
+44. p0->ptr->ptr->ptr->ptr->ptr->val.x = (nested member access error)
+45. p0->ptr->ptr->ptr->ptr->ptr->ptr->x = 

@@ -1,0 +1,107 @@
+// 構造体メンバーとしてのポインタ配列テスト
+
+struct PointerContainer {
+    int*[5] ptrs;
+    int count;
+};
+
+struct DataManager {
+    int*[10] data_ptrs;
+    int size;
+    int capacity;
+};
+
+void main() {
+    println("=== Test 1: Basic struct with pointer array ===");
+    
+    int[5] values = [10, 20, 30, 40, 50];
+    PointerContainer container;
+    container.count = 5;
+    
+    // 構造体のポインタ配列メンバーに代入
+    for (int i = 0; i < 5; i++) {
+        container.ptrs[i] = &values[i];
+    }
+    
+    // 検証
+    for (int i = 0; i < container.count; i++) {
+        println(*container.ptrs[i]);  // 10, 20, 30, 40, 50
+    }
+    
+    println("=== Test 2: Modify through struct member ===");
+    
+    // 構造体のポインタ配列経由で値を変更
+    for (int i = 0; i < container.count; i++) {
+        *container.ptrs[i] = *container.ptrs[i] * 2;
+    }
+    
+    // 元の配列が変更されていることを確認
+    for (int i = 0; i < 5; i++) {
+        println(values[i]);  // 20, 40, 60, 80, 100
+    }
+    
+    println("=== Test 3: Data manager struct ===");
+    
+    int[10] data = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+    DataManager manager;
+    manager.size = 10;
+    manager.capacity = 10;
+    
+    // データマネージャーにポインタを設定
+    for (int i = 0; i < manager.size; i++) {
+        manager.data_ptrs[i] = &data[i];
+    }
+    
+    // 検証
+    println("Data through manager:");
+    for (int i = 0; i < manager.size; i++) {
+        println(*manager.data_ptrs[i]);  // 1, 2, 3, ..., 10
+    }
+    
+    println("=== Test 4: Multiple containers ===");
+    
+    int[3] set1 = [100, 200, 300];
+    int[3] set2 = [111, 222, 333];
+    
+    PointerContainer c1;
+    PointerContainer c2;
+    c1.count = 3;
+    c2.count = 3;
+    
+    for (int i = 0; i < 3; i++) {
+        c1.ptrs[i] = &set1[i];
+        c2.ptrs[i] = &set2[i];
+    }
+    
+    println("Container 1:");
+    for (int i = 0; i < c1.count; i++) {
+        println(*c1.ptrs[i]);  // 100, 200, 300
+    }
+    
+    println("Container 2:");
+    for (int i = 0; i < c2.count; i++) {
+        println(*c2.ptrs[i]);  // 111, 222, 333
+    }
+    
+    println("=== Test 5: Pointer reassignment in struct ===");
+    
+    int alt1 = 999, alt2 = 888, alt3 = 777;
+    
+    // c1の最初の3つのポインタを別の変数に向ける
+    c1.ptrs[0] = &alt1;
+    c1.ptrs[1] = &alt2;
+    c1.ptrs[2] = &alt3;
+    
+    println("Container 1 after reassignment:");
+    for (int i = 0; i < c1.count; i++) {
+        println(*c1.ptrs[i]);  // 999, 888, 777
+    }
+    
+    // set1は変更されていない
+    println("Original set1 unchanged:");
+    for (int i = 0; i < 3; i++) {
+        println(set1[i]);  // 100, 200, 300
+    }
+    
+    println("=== All pointer array struct member tests passed ===");
+}

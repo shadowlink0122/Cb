@@ -50,6 +50,31 @@ TypedValue consume_numeric_typed_value(
             type_info_to_string_simple(resolved_type.type_info);
     }
 
+    // ポインタ値かどうかを確認
+    // 注意: 単純に最上位ビットをチェックすると負の整数と誤判定される
+    // ポインタは通常、ユーザー空間アドレスの範囲内（0x0000000100000000〜0x00007fffffffffff）
+    // またはカーネル空間（0xffff800000000000以上）にある
+    // 負の小さな整数（-128など）は 0xffffffffffffff80 となり、
+    // これは有効なポインタアドレスとは考えにくい
+    bool is_pointer_value = false;
+    uint64_t unsigned_val = static_cast<uint64_t>(numeric_result);
+
+    // ユーザー空間アドレス範囲: 0x0000000100000000 〜 0x00007fffffffffff
+    // (macOS/Linux典型的な範囲) カーネル空間アドレス: 0xffff800000000000
+    // 以上（負の整数の小さな値を除外）
+    if ((unsigned_val >= 0x0000000100000000ULL &&
+         unsigned_val <= 0x00007fffffffFFFFULL) ||
+        (unsigned_val >= 0xffff800000000000ULL)) {
+        is_pointer_value = true;
+    }
+
+    // ポインタ値の場合は、型にかかわらずそのまま返す
+    if (is_pointer_value) {
+        // ポインタメタデータのタグが付いている場合、TYPE_POINTERとして扱う
+        return TypedValue(numeric_result,
+                          InferredType(TYPE_POINTER, "pointer"));
+    }
+
     switch (resolved_type.type_info) {
     case TYPE_FLOAT:
     case TYPE_DOUBLE:

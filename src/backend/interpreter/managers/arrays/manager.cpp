@@ -237,15 +237,31 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
 
         var.type = TYPE_STRUCT;
         var.is_struct = true; // struct配列の識別のためtrueに設定
-        var.struct_type_name = node->type_name;
+
+        std::string struct_type_name = node->type_name;
+        size_t bracket_pos = struct_type_name.find('[');
+        if (bracket_pos != std::string::npos) {
+            struct_type_name = struct_type_name.substr(0, bracket_pos);
+        }
+        var.struct_type_name = struct_type_name;
     } else {
-        var.type = static_cast<TypeInfo>(TYPE_ARRAY_BASE + node->type_info);
+        // ポインタ配列の場合、要素型はTYPE_POINTERを使用
+        TypeInfo elem_type = node->is_pointer ? TYPE_POINTER : node->type_info;
+        var.type = static_cast<TypeInfo>(TYPE_ARRAY_BASE + elem_type);
     }
 
     var.is_const = node->is_const;
     var.is_array = true;
     var.is_assigned = false;
     var.is_unsigned = node->is_unsigned;
+
+    // ポインタ配列の特別処理
+    if (node->is_pointer) {
+        var.is_pointer = true;
+        var.pointer_depth = node->pointer_depth;
+        var.pointer_base_type = node->pointer_base_type;
+        var.pointer_base_type_name = node->pointer_base_type_name;
+    }
 
     // 多次元配列かどうかチェック
     if (node->array_dimensions.size() > 1) {
@@ -284,6 +300,10 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
         TypeInfo elem_type = node->type_info;
         if (elem_type == TYPE_STRING) {
             var.multidim_array_strings.resize(total_size, "");
+        } else if (node->is_pointer) {
+            // ポインタ配列の場合は、ポインタ値を格納する配列として初期化
+            // NULLポインタ（0）で初期化
+            var.multidim_array_values.assign(total_size, 0);
         } else {
             ensure_numeric_storage(var, static_cast<size_t>(total_size), true,
                                    elem_type);
@@ -312,6 +332,14 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
             // 配列要素を初期化
             if (node->type_info == TYPE_STRING) {
                 var.array_strings.resize(size, "");
+            } else if (node->is_pointer) {
+                // ポインタ配列の場合は、ポインタ値を格納する配列として初期化
+                // NULLポインタ（0）で初期化
+                debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
+                          "Initializing pointer array storage");
+                var.array_values.assign(size, 0);
+                debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
+                          "Pointer array storage prepared");
             } else {
                 debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
                           "Ensuring numeric storage for 1D array");
@@ -396,6 +424,9 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
                 if (node->type_info != TYPE_STRUCT) {
                     if (node->type_info == TYPE_STRING) {
                         var.array_strings.resize(size, "");
+                    } else if (node->is_pointer) {
+                        // ポインタ配列の場合は、ポインタ値を格納する配列として初期化
+                        var.array_values.assign(size, 0);
                     } else {
                         ensure_numeric_storage(var, static_cast<size_t>(size),
                                                false, node->type_info);
@@ -427,6 +458,9 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
             // 配列要素を初期化
             if (node->type_info == TYPE_STRING) {
                 var.array_strings.resize(size, "");
+            } else if (node->is_pointer) {
+                // ポインタ配列の場合は、ポインタ値を格納する配列として初期化
+                var.array_values.assign(size, 0);
             } else {
                 ensure_numeric_storage(var, static_cast<size_t>(size), false,
                                        node->type_info);
@@ -831,6 +865,13 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
                                     actual_return_size += row.size();
                                 }
                             }
+                        } else if (!ret.double_array_3d.empty()) {
+                            // double/float配列のサイズを計算
+                            for (const auto &plane : ret.double_array_3d) {
+                                for (const auto &row : plane) {
+                                    actual_return_size += row.size();
+                                }
+                            }
                         }
 
                         // 配列データを設定
@@ -889,6 +930,34 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
                             }
                             var.type = static_cast<TypeInfo>(TYPE_ARRAY_BASE +
                                                              TYPE_STRING);
+                        } else if (!ret.double_array_3d.empty()) {
+                            if (var.is_multidimensional) {
+                                // 多次元double/float配列の場合、multidim_array_double_valuesに設定
+                                var.multidim_array_double_values.clear();
+                                for (const auto &plane : ret.double_array_3d) {
+                                    for (const auto &row : plane) {
+                                        for (const auto &element : row) {
+                                            var.multidim_array_double_values
+                                                .push_back(element);
+                                        }
+                                    }
+                                }
+                                var.array_double_values.clear();
+                            } else {
+                                // 1次元double/float配列の場合、array_double_valuesに設定
+                                var.array_double_values.clear();
+                                for (const auto &plane : ret.double_array_3d) {
+                                    for (const auto &row : plane) {
+                                        for (const auto &element : row) {
+                                            var.array_double_values.push_back(
+                                                element);
+                                        }
+                                    }
+                                }
+                                var.multidim_array_double_values.clear();
+                            }
+                            var.type = static_cast<TypeInfo>(TYPE_ARRAY_BASE +
+                                                             TYPE_DOUBLE);
                         }
 
                         var.array_size = actual_return_size;
@@ -922,20 +991,26 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
                    ", size: " + std::to_string(var.array_size))
                       .c_str());
 
+        std::string struct_type_name = node->type_name;
+        size_t bracket_pos = struct_type_name.find('[');
+        if (bracket_pos != std::string::npos) {
+            struct_type_name = struct_type_name.substr(0, bracket_pos);
+        }
+
         const StructDefinition *struct_def =
             variable_manager_->getInterpreter()->find_struct_definition(
                 variable_manager_->getInterpreter()
-                    ->type_manager_->resolve_typedef(node->type_name));
+                    ->type_manager_->resolve_typedef(struct_type_name));
         if (!struct_def) {
             debug_msg(
                 DebugMsgId::INTERPRETER_VAR_NOT_FOUND,
-                ("Struct definition not found: " + node->type_name).c_str());
+                ("Struct definition not found: " + struct_type_name).c_str());
             throw std::runtime_error("Struct definition not found: " +
-                                     node->type_name);
+                                     struct_type_name);
         }
 
         debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
-                  ("Found struct definition: " + node->type_name).c_str());
+                  ("Found struct definition: " + struct_type_name).c_str());
 
         for (int i = 0; i < var.array_size; i++) {
             std::string element_name =
@@ -948,7 +1023,7 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
             // 基本フィールドの明示的初期化
             struct_element.type = TYPE_STRUCT;
             struct_element.is_struct = true;
-            struct_element.struct_type_name = node->type_name;
+            struct_element.struct_type_name = struct_type_name;
             struct_element.is_assigned = false;
             struct_element.is_array = false;
             struct_element.is_multidimensional = false;
@@ -966,7 +1041,7 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
             struct_element.multidim_array_strings.clear();
 
             debug_msg(DebugMsgId::INTERPRETER_STRUCT_REGISTERED,
-                      element_name.c_str(), node->type_name.c_str());
+                      element_name.c_str(), struct_type_name.c_str());
 
             // メンバーを初期化
             for (const auto &member : struct_def->members) {
@@ -1212,6 +1287,13 @@ TypedValue ArrayManager::getMultidimensionalArrayElementTyped(
     const Variable &var, const std::vector<int64_t> &indices) {
     if (!var.is_multidimensional) {
         throw std::runtime_error("Variable is not a multidimensional array");
+    }
+
+    // 参照変数が渡された場合はエラー（参照は事前に解決されているべき）
+    if (var.is_reference) {
+        throw std::runtime_error(
+            "INTERNAL ERROR: Reference variable passed to "
+            "getMultidimensionalArrayElementTyped - should be resolved first");
     }
 
     std::vector<int> int_indices;

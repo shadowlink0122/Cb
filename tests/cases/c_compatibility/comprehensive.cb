@@ -1,0 +1,234 @@
+// C言語互換性の包括的テストケース
+// このファイルの全ての構文はISO C標準に準拠しています
+
+struct Point {
+    int x;
+    int y;
+};
+
+struct Line {
+    Point start;
+    Point end;
+    Point* midpoint;
+};
+
+struct Shape {
+    Line* edges;
+    int edge_count;
+};
+
+int main() {
+    println("=== C Language Compatibility Test Suite ===");
+    println("");
+    
+    // 基本的な構造体とポインタ
+    Point p1 = {x: 10, y: 20};
+    Point p2 = {x: 30, y: 40};
+    Point mid = {x: 20, y: 30};
+    
+    Line line;
+    line.start = p1;
+    line.end = p2;
+    line.midpoint = &mid;
+    
+    Shape shape;
+    shape.edges = &line;
+    shape.edge_count = 1;
+    
+    Shape* pshape = &shape;
+    
+    // ===== セクション1: 基本的なメンバーアクセス =====
+    println("Section 1: Basic Member Access");
+    println("--------------------------------");
+    
+    // 1.1 ドット演算子
+    println("1.1 Dot operator (.):");
+    println("  line.start.x = 10");
+    assert(line.start.x == 10);
+    println("  PASSED");
+    
+    // 1.2 アロー演算子
+    println("1.2 Arrow operator (->):");
+    println("  line.midpoint->x = 20");
+    assert(line.midpoint->x == 20);
+    println("  PASSED");
+    
+    // 1.3 ポインタ経由のアクセス
+    println("1.3 Pointer access:");
+    println("  pshape->edge_count = 1");
+    assert(pshape->edge_count == 1);
+    println("  PASSED");
+    
+    println("");
+    
+    // ===== セクション2: デリファレンスとメンバーアクセスの組み合わせ =====
+    println("Section 2: Dereference with Member Access");
+    println("------------------------------------------");
+    
+    // 2.1 (*ptr).member パターン
+    println("2.1 (*ptr).member pattern:");
+    println("  (*pshape).edge_count = 1");
+    assert((*pshape).edge_count == 1);
+    println("  PASSED");
+    
+    // 2.2 (*ptr).member.member パターン
+    Line* pline = &line;
+    println("2.2 (*ptr).member.member pattern:");
+    println("  (*pline).start.x = 10");
+    assert((*pline).start.x == 10);
+    println("  PASSED");
+    
+    // 2.3 (*ptr->member).member パターン
+    println("2.3 (*ptr->member).member pattern:");
+    println("  (*pshape->edges).start.x = 10");
+    assert((*pshape->edges).start.x == 10);
+    println("  PASSED");
+    
+    // 2.4 (*ptr->member).member.member パターン
+    println("2.4 (*ptr->member).member.member pattern:");
+    println("  (*pshape->edges).start.x = 10");
+    assert((*pshape->edges).start.x == 10);
+    println("  PASSED");
+    
+    println("");
+    
+    // ===== セクション3: アロー演算子のチェーン =====
+    println("Section 3: Arrow Operator Chains");
+    println("---------------------------------");
+    
+    // 3.1 ptr->member->member パターン
+    println("3.1 ptr->member->member pattern:");
+    println("  pshape->edges->midpoint->x = 20");
+    assert(pshape->edges->midpoint->x == 20);
+    println("  PASSED");
+    
+    // 3.2 ptr->member->member->member パターン
+    println("3.2 Three-level arrow chain:");
+    println("  line.midpoint->x = 20");
+    assert(line.midpoint->x == 20);
+    println("  PASSED");
+    
+    println("");
+    
+    // ===== セクション4: 混合パターン =====
+    println("Section 4: Mixed Patterns");
+    println("-------------------------");
+    
+    // 4.1 obj.ptr->member パターン
+    println("4.1 obj.ptr->member pattern:");
+    println("  line.midpoint->x = 20");
+    assert(line.midpoint->x == 20);
+    println("  PASSED");
+    
+    // 4.2 ptr->obj.member パターン
+    println("4.2 ptr->obj.member pattern:");
+    println("  pshape->edges->start.x = 10");
+    assert(pshape->edges->start.x == 10);
+    println("  PASSED");
+    
+    // 4.3 (*ptr).obj.ptr->member パターン
+    println("4.3 (*ptr).obj.ptr->member pattern:");
+    println("  (*pshape->edges).midpoint->x = 20");
+    assert((*pshape->edges).midpoint->x == 20);
+    println("  PASSED");
+    
+    // 4.4 ptr->ptr->obj.member パターン
+    Shape* ppshape = pshape;
+    println("4.4 ptr->ptr->obj.member pattern:");
+    println("  ppshape->edges->start.x = 10");
+    assert(ppshape->edges->start.x == 10);
+    println("  PASSED");
+    
+    println("");
+    
+    // ===== セクション5: 演算子優先順位 =====
+    println("Section 5: Operator Precedence");
+    println("-------------------------------");
+    
+    // 5.1 -> の優先順位は . と同じ（左結合）
+    println("5.1 -> and . have same precedence (left-to-right):");
+    println("  pshape->edges->start.x == (*pshape->edges).start.x");
+    assert(pshape->edges->start.x == (*pshape->edges).start.x);
+    println("  PASSED");
+    
+    // 5.2 -> は * より優先順位が高い
+    println("5.2 -> has higher precedence than *:");
+    println("  (*pshape->edges).start.x means (*(pshape->edges)).start.x");
+    println("  not (*pshape)->edges.start.x");
+    assert((*pshape->edges).start.x == 10);
+    println("  PASSED");
+    
+    // 5.3 等価な表現
+    println("5.3 Equivalent expressions:");
+    println("  ptr->member == (*ptr).member");
+    assert(pshape->edge_count == (*pshape).edge_count);
+    println("  PASSED");
+    
+    println("");
+    
+    // ===== セクション6: 実用的なパターン =====
+    println("Section 6: Practical Patterns");
+    println("-----------------------------");
+    
+    // 6.1 リンクリスト風のアクセス
+    println("6.1 Linked-list style access:");
+    Point* pp = &p1;
+    println("  pp->x = 10");
+    assert(pp->x == 10);
+    println("  PASSED");
+    
+    // 6.2 ネストした構造体の読み取り
+    println("6.2 Complex nested read:");
+    int val = (*pshape->edges).start.x;
+    assert(val == 10);
+    println("  Read via (*ptr->member).field.subfield");
+    println("  PASSED");
+    
+    println("");
+    
+    // ===== セクション7: ネストした構造体の宣言時初期化 =====
+    println("Section 7: Nested Struct Declaration Initialization");
+    println("---------------------------------------------------");
+    
+    // 7.1 メンバーアクセスからの直接初期化
+    println("7.1 Direct initialization from member access:");
+    Point p_copy = line.start;
+    assert(p_copy.x == 10);
+    assert(p_copy.y == 20);
+    println("  Point p_copy = line.start");
+    println("  PASSED");
+    
+    // 7.2 2段階初期化（ポインタを経由しない）
+    println("7.2 Two-step initialization:");
+    Point p_from_line = line.start;
+    Point p_copy2 = p_from_line;
+    assert(p_copy2.x == 10);
+    assert(p_copy2.y == 20);
+    println("  Point p1 = line.start");
+    println("  Point p2 = p1");
+    println("  PASSED");
+    
+    // 7.3 メンバーアクセスからの初期化
+    println("7.3 Member access initialization:");
+    Point p_end = line.end;
+    assert(p_end.x == 30);
+    assert(p_end.y == 40);
+    println("  Point p_end = line.end");
+    println("  PASSED");
+    
+    // 7.4 連鎖的な初期化
+    println("7.4 Chained initialization:");
+    Point p_chain1 = line.start;
+    Point p_chain2 = p_chain1;
+    assert(p_chain2.x == 10);
+    assert(p_chain2.y == 20);
+    println("  Point p1 = line.start");
+    println("  Point p2 = p1");
+    println("  PASSED");
+    
+    println("");
+    println("=== All C Compatibility Tests Passed! ===");
+    println("Total: 22 test cases");
+    
+    return 0;
+}

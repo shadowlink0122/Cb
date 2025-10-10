@@ -1,0 +1,75 @@
+// ポインタ配列を返す関数のテスト
+
+// ポインタ配列を返す関数（配列へのポインタをセット）
+// サイズはループで決定される
+func void setup_pointers(int*[] result, int[] data, int size) {
+    for (int i = 0; i < size; i++) {
+        result[i] = &data[i];
+    }
+}
+
+// ポインタ配列を受け取り、別のポインタ配列に変換して返す
+func void filter_even(int*[10] result, int*[10] source, int size) {
+    int result_idx = 0;
+    for (int i = 0; i < size; i++) {
+        if (*source[i] % 2 == 0) {
+            result[result_idx] = source[i];
+            result_idx++;
+        }
+    }
+}
+
+void main() {
+    println("=== Test 1: Function setting up pointer array ===");
+    
+    int[5] values = [10, 20, 30, 40, 50];
+    int*[5] ptrs;
+    
+    setup_pointers(ptrs, values, 5);
+    
+    println("Pointers set by function:");
+    for (int i = 0; i < 5; i++) {
+        println(*ptrs[i]);  // 10, 20, 30, 40, 50
+    }
+    
+    println("=== Test 2: Function filtering pointers ===");
+    
+    int[10] numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+    int*[10] all_ptrs;
+    int*[10] even_ptrs;
+    
+    // すべての数値へのポインタを設定
+    for (int i = 0; i < 10; i++) {
+        all_ptrs[i] = &numbers[i];
+    }
+    
+    // 偶数のみをフィルタ
+    filter_even(even_ptrs, all_ptrs, 10);
+    
+    println("Filtered even numbers:");
+    for (int i = 0; i < 5; i++) {
+        println(*even_ptrs[i]);  // 2, 4, 6, 8, 10
+    }
+    
+    println("=== Test 3: Multiple function calls ===");
+    
+    int[3] set1 = [100, 200, 300];
+    int[3] set2 = [111, 222, 333];
+    int*[3] ptrs1;
+    int*[3] ptrs2;
+    
+    setup_pointers(ptrs1, set1, 3);
+    setup_pointers(ptrs2, set2, 3);
+    
+    println("First set through function:");
+    for (int i = 0; i < 3; i++) {
+        println(*ptrs1[i]);  // 100, 200, 300
+    }
+    
+    println("Second set through function:");
+    for (int i = 0; i < 3; i++) {
+        println(*ptrs2[i]);  // 111, 222, 333
+    }
+    
+    println("=== All pointer array function return tests passed ===");
+}

@@ -6,6 +6,7 @@
 #include "managers/structs/operations.h"
 #include "managers/types/manager.h"
 #include "managers/variables/manager.h"
+#include <cctype>
 #include <stdexcept>
 #include <string>
 
@@ -20,8 +21,38 @@ void StructVariableManager::create_struct_variable(
             var_name.c_str(), struct_type_name.c_str());
     }
 
-    const StructDefinition *struct_def = interpreter_->find_struct_definition(
-        interpreter_->get_type_manager()->resolve_typedef(struct_type_name));
+    auto trim = [](std::string &text) {
+        while (!text.empty() &&
+               std::isspace(static_cast<unsigned char>(text.front()))) {
+            text.erase(text.begin());
+        }
+        while (!text.empty() &&
+               std::isspace(static_cast<unsigned char>(text.back()))) {
+            text.pop_back();
+        }
+    };
+
+    std::string normalized_type_name = struct_type_name;
+    trim(normalized_type_name);
+
+    size_t array_pos = normalized_type_name.find('[');
+    if (array_pos != std::string::npos) {
+        normalized_type_name = normalized_type_name.substr(0, array_pos);
+        trim(normalized_type_name);
+    }
+
+    // Remove trailing pointer qualifiers for lookup (e.g., "Rect*" -> "Rect")
+    while (!normalized_type_name.empty() &&
+           normalized_type_name.back() == '*') {
+        normalized_type_name.pop_back();
+        trim(normalized_type_name);
+    }
+
+    std::string resolved_type_name =
+        interpreter_->get_type_manager()->resolve_typedef(normalized_type_name);
+
+    const StructDefinition *struct_def =
+        interpreter_->find_struct_definition(resolved_type_name);
     if (!struct_def) {
         throw std::runtime_error("Struct type not found: " + struct_type_name);
     }
@@ -29,7 +60,8 @@ void StructVariableManager::create_struct_variable(
     Variable struct_var;
     struct_var.type = TYPE_STRUCT;
     struct_var.is_struct = true;
-    struct_var.struct_type_name = struct_type_name;
+    struct_var.struct_type_name =
+        normalized_type_name.empty() ? struct_type_name : normalized_type_name;
     struct_var.is_assigned = false;
     struct_var.struct_members.clear();
 
@@ -97,6 +129,36 @@ void StructVariableManager::create_struct_member_variables_recursively(
 
         // parent_varのstruct_membersに追加
         parent_var.struct_members[member_def.name] = member_var;
+
+        // 配列が構造体配列の場合、struct_membersにも構造体情報を設定
+        if (interpreter_->is_debug_mode()) {
+            debug_print("Check struct array: name=%s, is_array=%d, "
+                        "base_type=%d, TYPE_STRUCT=%d, type_alias='%s'\n",
+                        member_def.name.c_str(),
+                        member_def.array_info.is_array() ? 1 : 0,
+                        static_cast<int>(member_def.array_info.base_type),
+                        static_cast<int>(TYPE_STRUCT),
+                        member_def.type_alias.c_str());
+        }
+        if (member_def.array_info.is_array() &&
+            member_def.array_info.base_type == TYPE_STRUCT &&
+            !member_def.type_alias.empty()) {
+            std::string element_type_name = member_def.type_alias;
+            size_t bracket_pos = element_type_name.find('[');
+            if (bracket_pos != std::string::npos) {
+                element_type_name = element_type_name.substr(0, bracket_pos);
+            }
+            parent_var.struct_members[member_def.name].is_struct = true;
+            parent_var.struct_members[member_def.name].struct_type_name =
+                element_type_name;
+
+            if (interpreter_->is_debug_mode()) {
+                debug_print("Set struct array info: %s.%s -> is_struct=true, "
+                            "struct_type=%s\n",
+                            base_path.c_str(), member_def.name.c_str(),
+                            element_type_name.c_str());
+            }
+        }
 
         // 構造体メンバの場合
         if (TypeHelpers::isStruct(member_def.type) &&
@@ -212,6 +274,19 @@ void StructVariableManager::process_1d_array_member(const std::string &var_name,
     array_member.is_private_member = member.is_private;
     array_member.is_unsigned = member.is_unsigned;
     array_member.is_const = member.is_const;
+
+    // 構造体配列の場合、構造体情報も設定
+    TypeInfo elem_type =
+        static_cast<TypeInfo>(static_cast<int>(member.type) - TYPE_ARRAY_BASE);
+    if (elem_type == TYPE_STRUCT && !member.type_alias.empty()) {
+        std::string elem_type_name = member.type_alias;
+        size_t bracket_pos = elem_type_name.find('[');
+        if (bracket_pos != std::string::npos) {
+            elem_type_name = elem_type_name.substr(0, bracket_pos);
+        }
+        array_member.is_struct = true;
+        array_member.struct_type_name = elem_type_name;
+    }
 
     // 配列の値を初期化
     array_member.array_values.resize(array_size, 0);
@@ -439,6 +514,10 @@ void StructVariableManager::process_array_member_recursively(
         if (bracket_pos != std::string::npos) {
             element_type_name = element_type_name.substr(0, bracket_pos);
         }
+
+        // 配列変数自身にも構造体情報を設定
+        member_var.is_struct = true;
+        member_var.struct_type_name = element_type_name;
 
         for (int i = 0; i < member_var.array_size; ++i) {
             std::string element_name =

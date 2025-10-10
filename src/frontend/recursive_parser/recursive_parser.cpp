@@ -197,6 +197,7 @@ ASTNode *RecursiveParser::cloneAstNode(const ASTNode *node) {
     clone->str_value = node->str_value;
     clone->name = node->name;
     clone->type_name = node->type_name;
+    clone->original_type_name = node->original_type_name;
     clone->return_type_name = node->return_type_name;
     clone->op = node->op;
     clone->module_name = node->module_name;

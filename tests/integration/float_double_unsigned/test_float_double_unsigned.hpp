@@ -2,7 +2,7 @@
 #include "../framework/integration_test_framework.hpp"
 
 void test_integration_float_double_unsigned() {
-    std::cout << "[integration] Running float/double/unsigned tests..." << std::endl;
+    std::cout << "[integration-test] Running float/double/unsigned tests..." << std::endl;
     
     // Float basic operations test
     double execution_time;
@@ -136,5 +136,5 @@ void test_integration_float_double_unsigned() {
     
     integration_test_passed_with_time("literals and type inference", "literals.cb", execution_time);
     
-    std::cout << "[integration] Float/double/unsigned tests completed" << std::endl;
+    std::cout << "[integration-test] Float/double/unsigned tests completed" << std::endl;
 }

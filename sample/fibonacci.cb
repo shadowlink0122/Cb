@@ -1,34 +1,35 @@
 const int FIB_NUM = 100; // 92で答えがlongの最大値になる
-long[FIB_NUM + 1] memo; // 0..FIB_NUMまでアクセスするために+1確保
+const unsigned long MAX_ULONG = 9223372036854775807; // 64bit符号なし整数の最大値
+unsigned long[FIB_NUM + 1] memo; // 0..FIB_NUMまでアクセスするために+1確保
 
 interface IFibonacci {
-    long fib();
-};
+    unsigned long fib();
+}
 
 impl IFibonacci for int {
-    private long getNumber(int n) {
+    private unsigned long getNumber(int n) {
         if (n <= 0) return 0;
         if (n == 1) return memo[n] = 1;
-        if (n >= 93) return memo[n] = -1;
+        if (n > FIB_NUM) return memo[n] = -1;
         if (memo[n] != 0) return memo[n];
         return memo[n] = self.getNumber(n - 1) + self.getNumber(n - 2);
     }
 
-    private void println(long n) {
+    private void println(unsigned long n) {
         print(self, ": ");
-        if (n == -1) {
+        if (n == -1 || n == MAX_ULONG) {
             println("Overflow");
         } else {
             println(n);
         }
     }
 
-    long fib() {
-        long res = self.getNumber(self);
+    unsigned long fib() {
+        unsigned long res = self.getNumber(self);
         self.println(res);
         return res;
     }
-};
+}
 
 int main(){
     println("=== Fibonacci Sequence ===");

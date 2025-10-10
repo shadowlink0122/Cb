@@ -899,7 +899,8 @@ void StatementExecutor::execute_ternary_variable_initialization(
 
     // 三項演算子の条件を評価
     int64_t condition = interpreter_.evaluate(ternary_node->left.get());
-    printf("DEBUG: Ternary condition = %lld\n", condition);
+    printf("DEBUG: Ternary condition = %lld\n",
+           static_cast<long long>(condition));
 
     // 条件に基づいて選択される分岐を決定
     const ASTNode *selected_branch =
@@ -1023,6 +1024,98 @@ Variable *StatementExecutor::evaluate_nested_member_access(
         if (parent_struct->type != TYPE_STRUCT) {
             throw std::runtime_error("Intermediate member is not a struct: " +
                                      intermediate_member);
+        }
+    } else if (member_access_node->left->node_type ==
+               ASTNodeType::AST_ARRAY_REF) {
+        // 配列アクセスを含むネストメンバアクセス: obj.arr[0].member
+        // AST_ARRAY_REFの構造: left = 配列（変数 or
+        // メンバアクセス）、array_index = インデックス
+        const ASTNode *array_ref = member_access_node->left.get();
+
+        // 配列参照の左側を再帰的に処理
+        if (array_ref->left->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
+            // struct.array[index] の場合 - 再帰的にstructを取得
+            Variable *intermediate_struct =
+                evaluate_nested_member_access(array_ref->left.get());
+            if (!intermediate_struct) {
+                return nullptr;
+            }
+
+            // メンバ名（配列名）を取得
+            std::string array_member = array_ref->left->name;
+
+            // 配列メンバを取得
+            auto it = intermediate_struct->struct_members.find(array_member);
+            if (it == intermediate_struct->struct_members.end()) {
+                throw std::runtime_error("Array member not found: " +
+                                         array_member);
+            }
+
+            Variable &array_var = it->second;
+            if (!array_var.is_array) {
+                throw std::runtime_error("Member is not an array: " +
+                                         array_member);
+            }
+
+            // インデックスを評価
+            int64_t index = interpreter_.evaluate(array_ref->array_index.get());
+
+            // 配列要素の変数名を構築
+            // 構造体配列の要素は "struct_name.array_name[index]"
+            // という変数名で管理される
+            std::string struct_name;
+            if (array_ref->left->left->node_type == ASTNodeType::AST_VARIABLE ||
+                array_ref->left->left->node_type ==
+                    ASTNodeType::AST_IDENTIFIER) {
+                struct_name = array_ref->left->left->name;
+            } else if (array_ref->left->left->node_type ==
+                       ASTNodeType::AST_ARRAY_REF) {
+                // さらにネストした配列アクセス: container.shapes[0].edges[0]
+                // このケースは再帰的に処理する必要があるため、一旦配列要素を評価
+                // 親構造体の完全な名前を構築
+                std::function<std::string(const ASTNode *)> build_full_path;
+                build_full_path = [&](const ASTNode *node) -> std::string {
+                    if (!node)
+                        return "";
+
+                    if (node->node_type == ASTNodeType::AST_VARIABLE ||
+                        node->node_type == ASTNodeType::AST_IDENTIFIER) {
+                        return node->name;
+                    } else if (node->node_type ==
+                               ASTNodeType::AST_MEMBER_ACCESS) {
+                        std::string left_path =
+                            build_full_path(node->left.get());
+                        return left_path + "." + node->name;
+                    } else if (node->node_type == ASTNodeType::AST_ARRAY_REF) {
+                        std::string left_path =
+                            build_full_path(node->left.get());
+                        int64_t idx =
+                            interpreter_.evaluate(node->array_index.get());
+                        return left_path + "[" + std::to_string(idx) + "]";
+                    }
+                    return "";
+                };
+
+                struct_name = build_full_path(array_ref->left->left.get());
+            } else {
+                throw std::runtime_error(
+                    "Complex struct access not yet supported in nested member");
+            }
+
+            // 配列要素の変数名を構築
+            std::string element_name = struct_name + "." + array_member + "[" +
+                                       std::to_string(index) + "]";
+
+            // 要素変数を取得
+            parent_struct = interpreter_.find_variable(element_name);
+            if (!parent_struct) {
+                throw std::runtime_error("Struct array element not found: " +
+                                         element_name);
+            }
+        } else {
+            // 単純な配列[index]の場合
+            throw std::runtime_error(
+                "Simple array access not supported in this context");
         }
     } else {
         throw std::runtime_error(

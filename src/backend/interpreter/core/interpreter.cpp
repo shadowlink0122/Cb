@@ -36,6 +36,12 @@
 #include "services/debug_service.h" // DRY効率化: 統一デバッグサービス
 #include "services/expression_service.h" // DRY効率化: 統一式評価サービス
 #include "services/variable_access_service.h" // DRY効率化: 統一変数アクセスサービス
+
+// 分割されたファイル
+#include "cleanup.h"
+#include "initialization.h"
+#include "utility.h"
+
 #include <algorithm>
 #include <cctype>
 #include <cstdlib>
@@ -46,9 +52,10 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
+#include <vector>
 
 // ========================================================================
-// SECTION 0: Core Functions & Infrastructure (~1,000 lines)
+// Core Functions & Infrastructure
 // ========================================================================
 // インタプリタのコア機能、初期化、スコープ管理
 //
@@ -66,141 +73,13 @@
 // - 一時変数管理: add_temp_variable, remove_temp_variable, clear_temp_variables
 // ========================================================================
 
-Interpreter::Interpreter(bool debug)
-    : debug_mode(debug), output_manager_(std::make_unique<OutputManager>(this)),
-      variable_manager_(std::make_unique<VariableManager>(this)),
-      type_manager_(std::make_unique<TypeManager>(this)) {
+// ========================================================================
+// コンストラクタ、デストラクタ、スコープ管理、変数検索は
+// initialization.cpp, cleanup.cpp, utility.cpp に移動しました
+// ========================================================================
 
-    // ExpressionEvaluatorを最初に初期化
-    expression_evaluator_ = std::make_unique<ExpressionEvaluator>(*this);
-
-    // ArrayManagerはVariableManagerとExpressionEvaluatorが必要なので後で初期化
-    array_manager_ = std::make_unique<ArrayManager>(
-        variable_manager_.get(), expression_evaluator_.get(), this);
-
-    // StatementExecutorを初期化
-    statement_executor_ = std::make_unique<StatementExecutor>(*this);
-
-    // CommonOperationsを初期化（他のManagerが必要なので最後に初期化）
-    common_operations_ = std::make_unique<CommonOperations>(this);
-
-    // DRY効率化: 統一変数アクセスサービスを初期化
-    variable_access_service_ = std::make_unique<VariableAccessService>(this);
-
-    // DRY効率化: 統一式評価サービスを初期化
-    expression_service_ = std::make_unique<ExpressionService>(this);
-
-    // DRY効率化: 統一配列処理サービスを初期化
-    array_processing_service_ = std::make_unique<ArrayProcessingService>(
-        this, common_operations_.get());
-
-    // enum管理サービスを初期化
-    enum_manager_ = std::make_unique<EnumManager>();
-
-    // static変数管理サービスを初期化
-    static_variable_manager_ = std::make_unique<StaticVariableManager>(this);
-
-    // interface/impl管理サービスを初期化
-    interface_operations_ = std::make_unique<InterfaceOperations>(this);
-
-    // struct操作管理サービスを初期化
-    struct_operations_ = std::make_unique<StructOperations>(this);
-
-    // struct変数管理サービスを初期化
-    struct_variable_manager_ = std::make_unique<StructVariableManager>(this);
-
-    // struct代入管理サービスを初期化
-    struct_assignment_manager_ =
-        std::make_unique<StructAssignmentManager>(this);
-
-    // struct同期管理サービスを初期化
-    struct_sync_manager_ = std::make_unique<StructSyncManager>(this);
-
-    // グローバル初期化管理サービスを初期化
-    global_initialization_manager_ =
-        std::make_unique<GlobalInitializationManager>(this);
-
-    // 制御フロー実行サービスを初期化
-    control_flow_executor_ = std::make_unique<ControlFlowExecutor>(this);
-
-    // 文リスト・複合文実行サービスを初期化
-    statement_list_executor_ = std::make_unique<StatementListExecutor>(this);
-
-    // return文処理サービスを初期化
-    return_handler_ = std::make_unique<ReturnHandler>(this);
-
-    // アサーション文処理サービスを初期化
-    assertion_handler_ = std::make_unique<AssertionHandler>(this);
-
-    // break/continue文処理サービスを初期化
-    break_continue_handler_ = std::make_unique<BreakContinueHandler>(this);
-
-    // 関数宣言処理サービスを初期化
-    function_declaration_handler_ =
-        std::make_unique<FunctionDeclarationHandler>(this);
-
-    // 構造体宣言処理サービスを初期化
-    struct_declaration_handler_ =
-        std::make_unique<StructDeclarationHandler>(this);
-
-    // インターフェース宣言処理サービスを初期化
-    interface_declaration_handler_ =
-        std::make_unique<InterfaceDeclarationHandler>(this);
-
-    // impl宣言処理サービスを初期化
-    impl_declaration_handler_ = std::make_unique<ImplDeclarationHandler>(this);
-
-    // 式文処理サービスを初期化
-    expression_statement_handler_ =
-        std::make_unique<ExpressionStatementHandler>(this);
-
-    // グローバルスコープを初期化
-    // ネストされた関数呼び出しに備えて容量を予約（再割り当てを防ぐ）
-    scope_stack.reserve(64);
-    scope_stack.push_back(global_scope);
-}
-
+// デストラクタ（unique_ptrの完全な型定義が必要なため、ここに残す）
 Interpreter::~Interpreter() = default;
-
-void Interpreter::push_scope() { variable_manager_->push_scope(); }
-
-void Interpreter::pop_scope() { variable_manager_->pop_scope(); }
-
-Scope &Interpreter::current_scope() {
-    return variable_manager_->current_scope();
-}
-
-Variable *Interpreter::find_variable(const std::string &name) {
-    return variable_manager_->find_variable(name);
-}
-
-std::string
-Interpreter::find_variable_name_by_address(const Variable *target_var) {
-    if (!target_var) {
-        return "";
-    }
-
-    // 現在のスコープスタックから検索
-    // 全スコープを逆順に検索（最新のスコープから）
-    if (!scope_stack.empty()) {
-        for (auto it = scope_stack.rbegin(); it != scope_stack.rend(); ++it) {
-            for (const auto &[name, var] : it->variables) {
-                if (&var == target_var) {
-                    return name;
-                }
-            }
-        }
-    }
-
-    // グローバルスコープも確認
-    for (const auto &[name, var] : global_scope.variables) {
-        if (&var == target_var) {
-            return name;
-        }
-    }
-
-    return "";
-}
 
 const ASTNode *Interpreter::find_function(const std::string &name) {
     // グローバルスコープの関数を検索
@@ -228,10 +107,11 @@ const ASTNode *Interpreter::find_function(const std::string &name) {
 }
 
 // ========================================================================
-// SECTION 1: Initialization & Global Declarations (~400 lines)
+// Initialization & Global Declarations
 // ========================================================================
-// - register_global_declarations() - グローバル宣言の登録
-// - initialize_global_variables() - グローバル変数の初期化
+// グローバル宣言の登録とグローバル変数の初期化
+// - register_global_declarations(): グローバル宣言の登録
+// - initialize_global_variables(): グローバル変数の初期化
 // - sync_enum_definitions_from_parser() - Enum定義の同期
 // - sync_struct_definitions_from_parser() - Struct定義の同期
 //
@@ -971,15 +851,8 @@ void Interpreter::execute_statement(const ASTNode *node) {
         break;
     }
 }
-// ============================================================================
-// execute_statement メソッド終了
-// ============================================================================
 
 // ========================================================================
-// SECTION 4: Variable Assignment & Parameters (~300 lines)
-// ========================================================================
-// 変数代入、関数パラメータ、配列要素代入などを管理
-//
 // これらのメソッドは主にVariableManagerに委譲しているため、
 // 将来的により完全にManagerに移動することを検討
 //
@@ -992,6 +865,13 @@ void Interpreter::execute_statement(const ASTNode *node) {
 // - assign_array_element, assign_array_element_float
 // - assign_string_element
 // - print_value, print_formatted
+// ========================================================================
+
+// ========================================================================
+// Variable Operations (managers/variables/へ完全委譲)
+// ========================================================================
+// 変数の代入、union変数、関数パラメータ、配列パラメータの処理
+// 実装は variable_manager_ に完全委譲されています
 // ========================================================================
 
 void Interpreter::assign_variable(const std::string &name, int64_t value,
@@ -1075,6 +955,20 @@ void Interpreter::assign_interface_view(const std::string &dest_name,
     variable_manager_->assign_interface_view(
         dest_name, std::move(interface_var), source_var, source_var_name);
 }
+
+// ========================================================================
+// Array Operations (managers/arrays/ と array_processing_service_ へ委譲)
+// ========================================================================
+// 配列要素の代入、多次元配列アクセス、配列リテラル処理
+// ほとんどの実装は以下に委譲:
+// - array_manager_: 基本的な配列操作
+// - array_processing_service_: 統一されたアクセスインターフェース
+// - common_operations_: 安全な配列要素代入
+//
+// 注意: assign_array_element, assign_string_element には
+// エラーハンドリングと境界チェックのロジックが含まれているため、
+// これらは現時点では interpreter.cpp に残しています
+// ========================================================================
 
 void Interpreter::assign_array_element(const std::string &name, int64_t index,
                                        int64_t value) {
@@ -1206,6 +1100,10 @@ void Interpreter::assign_string_element(const std::string &name, int64_t index,
     debug_msg(DebugMsgId::STRING_AFTER_REPLACE_DEBUG, var->str_value.c_str());
 }
 
+// print_value と print_formatted は薄いラッパーなので、
+// 呼び出し側で直接 output_manager_->method() を使用するよう変更予定
+// 現在は後方互換性のために残しています
+
 void Interpreter::print_value(const ASTNode *expr) {
     output_manager_->print_value(expr);
 }
@@ -1215,47 +1113,24 @@ void Interpreter::print_formatted(const ASTNode *format_str,
     output_manager_->print_formatted(format_str, arg_list);
 }
 
-void Interpreter::check_type_range(TypeInfo type, int64_t value,
-                                   const std::string &name, bool is_unsigned) {
-    type_manager_->check_type_range(type, value, name, is_unsigned);
-}
-
-// エラー表示ヘルパー関数の実装
-void Interpreter::throw_runtime_error_with_location(const std::string &message,
-                                                    const ASTNode *node) {
-    print_error_with_ast_location(message, node);
-    throw std::runtime_error(message);
-}
-
-void Interpreter::print_error_at_node(const std::string &message,
-                                      const ASTNode *node) {
-    print_error_with_ast_location(message, node);
-}
-
 // ========================================================================
-// SECTION 5: Array Operations (~300 lines)
+// Array Operations (managers/arrays/ と array_processing_service_ へ委譲)
 // ========================================================================
-// 多次元配列のアクセス、設定、抽出を管理
+// 配列要素の代入、多次元配列アクセス、配列リテラル処理
+// ほとんどの実装は以下に委譲:
+// - array_manager_: 基本的な配列操作
+// - array_processing_service_: 統一されたアクセスインターフェース
+// - common_operations_: 安全な配列要素代入
 //
-// これらのメソッドは主にArrayManagerに委譲しているため、
-// 将来的により完全にManagerに移動することを検討
-//
-// 含まれる機能：
-// - getMultidimensionalArrayElement (2 overloads)
-// - setMultidimensionalArrayElement (2 overloads)
-// - getMultidimensionalStringArrayElement
-// - setMultidimensionalStringArrayElement
-// - extract_array_name, extract_array_indices, extract_array_element_name
-// - assign_array_literal, assign_array_from_return
-// - process_ndim_array_literal
+// 注意: assign_array_element, assign_string_element には
+// エラーハンドリングと境界チェックのロジックが含まれているため、
+// これらは現時点では interpreter.cpp に残しています
 // ========================================================================
 
 int64_t Interpreter::getMultidimensionalArrayElement(
     Variable &var, const std::vector<int64_t> &indices) {
-    // Priority 3: ArrayProcessingServiceを使用した統一アクセス
     std::string var_name = find_variable_name(&var);
     if (var_name.empty()) {
-        // 名前が見つからない場合は従来の方法にフォールバック
         return array_manager_->getMultidimensionalArrayElement(var, indices);
     }
     return array_processing_service_->getArrayElement(
@@ -1265,10 +1140,8 @@ int64_t Interpreter::getMultidimensionalArrayElement(
 
 void Interpreter::setMultidimensionalArrayElement(
     Variable &var, const std::vector<int64_t> &indices, int64_t value) {
-    // Priority 3: ArrayProcessingServiceを使用した統一アクセス
     std::string var_name = find_variable_name(&var);
     if (var_name.empty()) {
-        // 名前が見つからない場合は従来の方法にフォールバック
         array_manager_->setMultidimensionalArrayElement(var, indices, value);
         return;
     }
@@ -1277,19 +1150,15 @@ void Interpreter::setMultidimensionalArrayElement(
         ArrayProcessingService::ArrayContext::MULTIDIMENSIONAL);
 }
 
-// float/double値での多次元配列要素設定（オーバーロード）
 void Interpreter::setMultidimensionalArrayElement(
     Variable &var, const std::vector<int64_t> &indices, double value) {
-    // 直接ArrayManagerを呼び出す
     array_manager_->setMultidimensionalArrayElement(var, indices, value);
 }
 
 std::string Interpreter::getMultidimensionalStringArrayElement(
     Variable &var, const std::vector<int64_t> &indices) {
-    // Priority 3: ArrayProcessingServiceを使用した統一アクセス
     std::string var_name = find_variable_name(&var);
     if (var_name.empty()) {
-        // 名前が見つからない場合は従来の方法にフォールバック
         return array_manager_->getMultidimensionalStringArrayElement(var,
                                                                      indices);
     }
@@ -1301,10 +1170,8 @@ std::string Interpreter::getMultidimensionalStringArrayElement(
 void Interpreter::setMultidimensionalStringArrayElement(
     Variable &var, const std::vector<int64_t> &indices,
     const std::string &value) {
-    // Priority 3: ArrayProcessingServiceを使用した統一アクセス
     std::string var_name = find_variable_name(&var);
     if (var_name.empty()) {
-        // 名前が見つからない場合は従来の方法にフォールバック
         array_manager_->setMultidimensionalStringArrayElement(var, indices,
                                                               value);
         return;
@@ -1312,15 +1179,6 @@ void Interpreter::setMultidimensionalStringArrayElement(
     array_processing_service_->setStringArrayElement(
         var_name, indices, value,
         ArrayProcessingService::ArrayContext::MULTIDIMENSIONAL);
-}
-
-// Priority 3: 変数ポインターから名前を取得するヘルパー
-std::string Interpreter::find_variable_name(const Variable *target_var) {
-    if (!target_var)
-        return "";
-
-    // VariableManagerから変数名を取得
-    return variable_manager_->find_variable_name(target_var);
 }
 
 void Interpreter::assign_array_literal(const std::string &name,
@@ -1360,15 +1218,6 @@ void Interpreter::assign_array_literal(const std::string &name,
 
 void Interpreter::assign_array_from_return(const std::string &name,
                                            const ReturnException &ret) {
-    std::cerr << "[DEBUG_ASSIGN_RETURN] assign_array_from_return called for: "
-              << name << std::endl;
-    std::cerr << "[DEBUG_ASSIGN_RETURN] ret.is_array: " << ret.is_array
-              << std::endl;
-    std::cerr << "[DEBUG_ASSIGN_RETURN] ret.int_array_3d.empty(): "
-              << ret.int_array_3d.empty() << std::endl;
-    std::cerr << "[DEBUG_ASSIGN_RETURN] ret.str_array_3d.empty(): "
-              << ret.str_array_3d.empty() << std::endl;
-
     if (!ret.is_array) {
         throw std::runtime_error("Return value is not an array");
     }
@@ -1385,6 +1234,82 @@ void Interpreter::assign_array_from_return(const std::string &name,
     }
 
     if (!var->is_array) {
+        bool inferred_array = false;
+
+        if (var->type >= TYPE_ARRAY_BASE) {
+            inferred_array = true;
+        } else if (!var->array_dimensions.empty() ||
+                   var->array_type_info.is_array()) {
+            inferred_array = true;
+        } else {
+            std::string alias_name;
+            if (!var->struct_type_name.empty()) {
+                alias_name = var->struct_type_name;
+            } else if (!var->type_name.empty()) {
+                alias_name = var->type_name;
+            }
+
+            if (!alias_name.empty()) {
+                std::string resolved =
+                    type_manager_->resolve_typedef(alias_name);
+                size_t bracket_pos = resolved.find('[');
+                if (bracket_pos != std::string::npos) {
+                    inferred_array = true;
+                    std::string base = resolved.substr(0, bracket_pos);
+                    TypeInfo base_type =
+                        type_manager_->string_to_type_info(base);
+                    if (base_type != TYPE_UNKNOWN) {
+                        var->type =
+                            static_cast<TypeInfo>(TYPE_ARRAY_BASE + base_type);
+                        if (!var->array_type_info.is_array()) {
+                            var->array_type_info.base_type = base_type;
+                        }
+                    }
+
+                    if (var->array_dimensions.empty()) {
+                        std::vector<int> inferred_dimensions;
+                        std::vector<ArrayDimension> inferred_array_dims;
+                        size_t pos = bracket_pos;
+                        while (pos < resolved.size() && resolved[pos] == '[') {
+                            size_t end = resolved.find(']', pos);
+                            if (end == std::string::npos)
+                                break;
+                            std::string dim_str =
+                                resolved.substr(pos + 1, end - pos - 1);
+                            if (!dim_str.empty()) {
+                                try {
+                                    int parsed =
+                                        static_cast<int>(std::stoll(dim_str));
+                                    inferred_dimensions.push_back(parsed);
+                                    inferred_array_dims.emplace_back(parsed,
+                                                                     false);
+                                } catch (const std::exception &) {
+                                    inferred_dimensions.clear();
+                                    inferred_array_dims.clear();
+                                    break;
+                                }
+                            } else {
+                                inferred_dimensions.push_back(-1);
+                                inferred_array_dims.emplace_back(-1, true);
+                            }
+                            pos = end + 1;
+                        }
+                        if (!inferred_dimensions.empty()) {
+                            var->array_dimensions = inferred_dimensions;
+                            var->array_type_info.dimensions =
+                                inferred_array_dims;
+                        }
+                    }
+                }
+            }
+        }
+
+        if (inferred_array) {
+            var->is_array = true;
+        }
+    }
+
+    if (!var->is_array) {
         throw std::runtime_error("Variable '" + name +
                                  "' is not declared as array");
     }
@@ -1395,15 +1320,6 @@ void Interpreter::assign_array_from_return(const std::string &name,
     // 元の宣言されたサイズを保存
     int declared_array_size = var->array_size;
     int actual_return_size = 0;
-
-    std::cerr << "[DEBUG_ASSIGN_RETURN] declared_array_size: "
-              << declared_array_size << std::endl;
-    std::cerr << "[DEBUG_ASSIGN_RETURN] var->array_dimensions.size(): "
-              << var->array_dimensions.size() << std::endl;
-    if (!var->array_dimensions.empty()) {
-        std::cerr << "[DEBUG_ASSIGN_RETURN] var->array_dimensions[0]: "
-                  << var->array_dimensions[0] << std::endl;
-    }
 
     // ReturnExceptionから配列データを取得して変数に代入
     if (!ret.str_array_3d.empty()) {
@@ -1560,6 +1476,7 @@ void Interpreter::assign_array_from_return(const std::string &name,
 
         var->type = static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_INT);
         var->array_strings.clear();
+
     } else {
         throw std::runtime_error(
             "Return exception contains no valid array data");
@@ -1590,105 +1507,22 @@ void Interpreter::assign_array_from_return(const std::string &name,
 // ========================================================================
 // SECTION 7: Type Resolution (~30 lines)
 // ========================================================================
-// 型解決関連のメソッド - TypeManagerへの薄いラッパー
-// これらは完全にTypeManagerに委譲されており、将来的には削除可能
+// Static Variable Management (StaticVariableManagerへ委譲)
 // ========================================================================
-
-std::string Interpreter::resolve_typedef(const std::string &type_name) {
-    return type_manager_->resolve_typedef(type_name);
-}
-
-TypeInfo Interpreter::resolve_type_alias(TypeInfo base_type,
-                                         const std::string &type_name) {
-    std::string resolved_type = type_manager_->resolve_typedef(type_name);
-    if (resolved_type != type_name) {
-        return type_manager_->string_to_type_info(resolved_type);
-    }
-    return base_type;
-}
-
-TypeInfo Interpreter::string_to_type_info(const std::string &type_str) {
-    return type_manager_->string_to_type_info(type_str);
-}
-
-// N次元配列アクセス用のヘルパー関数
-std::string Interpreter::extract_array_name(const ASTNode *node) {
-    return variable_manager_->extract_array_name(node);
-}
-
-std::vector<int64_t> Interpreter::extract_array_indices(const ASTNode *node) {
-    return variable_manager_->extract_array_indices(node);
-}
-
-std::string Interpreter::extract_array_element_name(const ASTNode *node) {
-    // 配列要素名を生成 (例: arr[0] -> "arr[0]")
-    std::string array_name = extract_array_name(node);
-    std::vector<int64_t> indices = extract_array_indices(node);
-
-    std::string element_name = array_name;
-    for (int64_t index : indices) {
-        element_name += "[" + std::to_string(index) + "]";
-    }
-
-    return element_name;
-}
-
-// ArrayManagerへのアクセス
-int64_t Interpreter::getMultidimensionalArrayElement(
-    const Variable &var, const std::vector<int64_t> &indices) {
-    return array_manager_->getMultidimensionalArrayElement(var, indices);
-}
-
-// static変数の検索
-// ========================================================================
-// SECTION 6: Static Variable Management (StaticVariableManagerへ委譲)
-// ========================================================================
-// Static変数とimpl static変数の管理はStaticVariableManagerに移譲済み
+// Static変数とimpl static変数の管理はStaticVariableManagerに委譲済み
 // 以下のメソッドは薄いラッパーとして機能
 // ========================================================================
 
-Variable *Interpreter::find_static_variable(const std::string &name) {
-    return static_variable_manager_->find_static_variable(name);
-}
-
-void Interpreter::create_static_variable(const std::string &name,
-                                         const ASTNode *node) {
-    static_variable_manager_->create_static_variable(name, node);
-}
-
-Variable *Interpreter::find_impl_static_variable(const std::string &name) {
-    return static_variable_manager_->find_impl_static_variable(name);
-}
-
-void Interpreter::create_impl_static_variable(const std::string &name,
-                                              const ASTNode *node) {
-    static_variable_manager_->create_impl_static_variable(name, node);
-}
-
-void Interpreter::enter_impl_context(const std::string &interface_name,
-                                     const std::string &struct_type_name) {
-    static_variable_manager_->enter_impl_context(interface_name,
-                                                 struct_type_name);
-}
-
-void Interpreter::exit_impl_context() {
-    static_variable_manager_->exit_impl_context();
-}
-
-std::string Interpreter::get_impl_static_namespace() const {
-    return static_variable_manager_->get_impl_static_namespace();
-}
+// Moved to utility.cpp, cleanup.cpp, or initialization.cpp
 
 // ========================================================================
+// Struct Operations (managers/structs/へ完全委譲)
 // ========================================================================
-// SECTION 2: Struct Operations (Phase 3.4-3.5: 部分的に委譲)
-// ========================================================================
-// Phase 3.4a: register_struct_definition, validate_struct_recursion_rules
-// Phase 3.4b: find_struct_definition, sync_struct_definitions_from_parser
-// Phase 3.4c: is_current_impl_context_for, ensure_struct_member_access_allowed
-// Phase 3.4d: get_struct_member
-// Phase 3.5a: sync_individual_member_from_struct
-// その他のメソッドは引き続きInterpreterに実装
+// これらは薄いラッパーとして機能。実装は以下に分散:
+// - struct_operations_: 基本操作、定義管理
+// - struct_variable_manager_: 変数作成、メンバー変数管理
+// - struct_assignment_manager_: 値の代入
+// - struct_sync_manager_: 同期処理
 // ========================================================================
 
 void Interpreter::register_struct_definition(
@@ -1833,13 +1667,9 @@ void Interpreter::assign_struct_member_array_literal(
         var_name, member_name, array_literal);
 }
 
-void Interpreter::initialize_global_variables(const ASTNode *node) {
-    global_initialization_manager_->initialize_global_variables(node);
-}
+// Moved to utility.cpp, cleanup.cpp, or initialization.cpp
 
-void Interpreter::sync_enum_definitions_from_parser(RecursiveParser *parser) {
-    global_initialization_manager_->sync_enum_definitions_from_parser(parser);
-}
+// Moved to utility.cpp, cleanup.cpp, or initialization.cpp
 
 void Interpreter::sync_struct_members_from_direct_access(
     const std::string &var_name) {
@@ -1855,8 +1685,11 @@ void Interpreter::sync_direct_access_from_struct_value(
 // ========================================================================
 // SECTION 3: Interface Operations (InterfaceOperationsへ委譲)
 // ========================================================================
-// Interface定義、Impl実装、メソッドディスパッチはInterfaceOperationsに移譲済み
-// 以下のメソッドは薄いラッパーとして機能
+// ========================================================================
+// Interface/Impl Operations (InterfaceOperationsへ完全委譲)
+// ========================================================================
+// これらは薄いラッパーとして機能。将来的には呼び出し側で
+// 直接 interface_operations_->method() を使用することを検討
 // ========================================================================
 
 void Interpreter::register_interface_definition(
@@ -1912,18 +1745,11 @@ TypedValue Interpreter::evaluate_ternary_typed(const ASTNode *node) {
     return expression_evaluator_->evaluate_ternary_typed(node);
 }
 
-void Interpreter::add_temp_variable(const std::string &name,
-                                    const Variable &var) {
-    interface_operations_->add_temp_variable(name, var);
-}
+// Moved to utility.cpp, cleanup.cpp, or initialization.cpp
 
-void Interpreter::remove_temp_variable(const std::string &name) {
-    interface_operations_->remove_temp_variable(name);
-}
+// Moved to utility.cpp, cleanup.cpp, or initialization.cpp
 
-void Interpreter::clear_temp_variables() {
-    interface_operations_->clear_temp_variables();
-}
+// Moved to utility.cpp, cleanup.cpp, or initialization.cpp
 
 // 型定義検索メソッド
 const ASTNode *

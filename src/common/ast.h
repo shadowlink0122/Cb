@@ -775,6 +775,11 @@ struct SourceLocation {
         return filename + ":" + std::to_string(line) + ":" +
                std::to_string(column);
     }
+
+    // For compatibility with ErrorReporter
+    std::string toString() const { return to_string(); }
+
+    bool isValid() const { return !filename.empty() && line > 0; }
 };
 
 // ASTノードの基底クラス
@@ -811,7 +816,8 @@ struct ASTNode {
     std::string literal_text;             // 元のリテラル文字列表現
     std::string str_value;
     std::string name;
-    std::string type_name; // typedef名など、型の文字列表現
+    std::string type_name;          // typedef名など、型の文字列表現
+    std::string original_type_name; // 元の宣言型（typedefエイリアス等）
     std::string return_type_name; // 戻り値型の文字列表現（配列型対応）
     std::string op;
 

@@ -85,7 +85,7 @@ void test_func_return_error_typedef_mismatch() {
 }
 
 void test_integration_func_return_type_check() {
-    std::cout << "[integration] Running function return type checking tests..." << std::endl;
+    std::cout << "[integration-test] Running function return type checking tests..." << std::endl;
     
     test_func_return_basic();
     test_func_return_arrays();
@@ -93,13 +93,13 @@ void test_integration_func_return_type_check() {
     test_func_return_typedef_chains();
     
     // エラーケースは現在の実装では戻り値型チェックが実装されていないためスキップ
-    std::cout << "[integration] test_func_return_error_int_string (error_int_return_string.cb (skipped - return type checking not implemented)) ... passed" << std::endl;
-    std::cout << "[integration] test_func_return_error_string_int (error_string_return_int.cb (skipped - return type checking not implemented)) ... passed" << std::endl;
-    std::cout << "[integration] test_func_return_error_int_array_return_int (error_int_array_return_int.cb (skipped - return type checking not implemented)) ... passed" << std::endl;
-    std::cout << "[integration] test_func_return_error_string_array_return_string (error_string_array_return_string.cb (skipped - return type checking not implemented)) ... passed" << std::endl;
-    std::cout << "[integration] test_func_return_error_typedef_userid_string (error_typedef_userid_string.cb (skipped - return type checking not implemented)) ... passed" << std::endl;
-    std::cout << "[integration] test_func_return_error_typedef_username_int (error_typedef_username_int.cb (skipped - return type checking not implemented)) ... passed" << std::endl;
-    std::cout << "[integration] test_func_return_error_typedef_statuslist_bool (error_typedef_statuslist_bool.cb (skipped - return type checking not implemented)) ... passed" << std::endl;
+    std::cout << "[integration-test] test_func_return_error_int_string (error_int_return_string.cb (skipped - return type checking not implemented)) ... passed" << std::endl;
+    std::cout << "[integration-test] test_func_return_error_string_int (error_string_return_int.cb (skipped - return type checking not implemented)) ... passed" << std::endl;
+    std::cout << "[integration-test] test_func_return_error_int_array_return_int (error_int_array_return_int.cb (skipped - return type checking not implemented)) ... passed" << std::endl;
+    std::cout << "[integration-test] test_func_return_error_string_array_return_string (error_string_array_return_string.cb (skipped - return type checking not implemented)) ... passed" << std::endl;
+    std::cout << "[integration-test] test_func_return_error_typedef_userid_string (error_typedef_userid_string.cb (skipped - return type checking not implemented)) ... passed" << std::endl;
+    std::cout << "[integration-test] test_func_return_error_typedef_username_int (error_typedef_username_int.cb (skipped - return type checking not implemented)) ... passed" << std::endl;
+    std::cout << "[integration-test] test_func_return_error_typedef_statuslist_bool (error_typedef_statuslist_bool.cb (skipped - return type checking not implemented)) ... passed" << std::endl;
     
     integration_test_passed_with_time_auto("test_func_return_error_int_string", "error_int_return_string.cb (skipped - return type checking not implemented)");
     integration_test_passed_with_time_auto("test_func_return_error_string_int", "error_string_return_int.cb (skipped - return type checking not implemented)");
@@ -109,7 +109,7 @@ void test_integration_func_return_type_check() {
     integration_test_passed_with_time_auto("test_func_return_error_typedef_username_int", "error_typedef_username_int.cb (skipped - return type checking not implemented)");
     integration_test_passed_with_time_auto("test_func_return_error_typedef_statuslist_bool", "error_typedef_statuslist_bool.cb (skipped - return type checking not implemented)");
     
-    std::cout << "[integration] Function return type checking tests completed" << std::endl;
+    std::cout << "[integration-test] Function return type checking tests completed" << std::endl;
 }
 
 #endif // TEST_FUNC_RETURN_TYPE_CHECK_HPP

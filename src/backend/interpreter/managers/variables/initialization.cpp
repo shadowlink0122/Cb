@@ -60,19 +60,28 @@ bool VariableManager::handle_typedef_resolution(const ASTNode *node,
                                                 Variable &var) {
     // typedef解決処理（ArrayTypeInfoが設定されていない場合）
     // type_infoが基本型でも、type_nameがtypedef名の場合は処理する
-    if (!node->type_name.empty() &&
-        interpreter_->type_manager_->resolve_typedef(node->type_name) !=
-            node->type_name) {
+    const std::string &declared_type_name = !node->original_type_name.empty()
+                                                ? node->original_type_name
+                                                : node->type_name;
+
+    if (!declared_type_name.empty() &&
+        interpreter_->type_manager_->resolve_typedef(declared_type_name) !=
+            declared_type_name) {
         if (debug_mode) {
             debug_print("TYPEDEF_DEBUG: Entering typedef resolution branch\n");
         }
         std::string resolved_type =
-            interpreter_->type_manager_->resolve_typedef(node->type_name);
+            interpreter_->type_manager_->resolve_typedef(declared_type_name);
+
+        if (debug_mode) {
+            debug_print("TYPEDEF_DEBUG: Declared='%s' Resolved='%s'\n",
+                        declared_type_name.c_str(), resolved_type.c_str());
+        }
 
         if (debug_mode) {
             debug_print("TYPEDEF_DEBUG: Resolving typedef '%s' -> '%s' "
                         "(type_info=%d)\n",
-                        node->type_name.c_str(), resolved_type.c_str(),
+                        declared_type_name.c_str(), resolved_type.c_str(),
                         static_cast<int>(node->type_info));
         }
 
@@ -89,8 +98,16 @@ bool VariableManager::handle_typedef_resolution(const ASTNode *node,
 
             TypeInfo base_type =
                 interpreter_->type_manager_->string_to_type_info(base);
+            if (debug_mode) {
+                debug_print("TYPEDEF_DEBUG: Array base='%s' base_type=%d "
+                            "node.info=%d\n",
+                            base.c_str(), static_cast<int>(base_type),
+                            static_cast<int>(node->type_info));
+            }
             var.type = static_cast<TypeInfo>(TYPE_ARRAY_BASE + base_type);
             var.is_array = true;
+            var.array_type_info.base_type = base_type;
+            var.array_type_info.dimensions.clear();
 
             // 多次元配列の次元解析 [2][3] -> {2, 3}
             std::vector<int> dimensions;
@@ -99,7 +116,7 @@ bool VariableManager::handle_typedef_resolution(const ASTNode *node,
             if (debug_mode) {
                 debug_print("TYPEDEF_DEBUG: Processing typedef array: %s "
                             "(array_part: %s)\n",
-                            node->type_name.c_str(), array_part.c_str());
+                            declared_type_name.c_str(), array_part.c_str());
             }
 
             while (!remaining.empty() && remaining[0] == '[') {
@@ -136,6 +153,8 @@ bool VariableManager::handle_typedef_resolution(const ASTNode *node,
                 }
 
                 dimensions.push_back(dimension_size);
+                var.array_type_info.dimensions.emplace_back(dimension_size,
+                                                            false, size_str);
                 remaining = remaining.substr(close_bracket + 1);
             }
 
@@ -179,6 +198,14 @@ bool VariableManager::handle_typedef_resolution(const ASTNode *node,
                 }
             }
 
+            if (!dimensions.empty()) {
+                var.array_dimensions = dimensions;
+            }
+
+            if (!declared_type_name.empty()) {
+                var.struct_type_name = declared_type_name;
+            }
+
         } else {
             // 構造体typedefかチェック
             const StructDefinition *struct_def =
@@ -187,7 +214,8 @@ bool VariableManager::handle_typedef_resolution(const ASTNode *node,
                 if (debug_mode) {
                     debug_print("TYPEDEF_DEBUG: Resolving struct typedef "
                                 "'%s' -> '%s'\n",
-                                node->type_name.c_str(), resolved_type.c_str());
+                                declared_type_name.c_str(),
+                                resolved_type.c_str());
                 }
                 var.type = TYPE_STRUCT;
                 var.is_struct = true;
@@ -202,6 +230,10 @@ bool VariableManager::handle_typedef_resolution(const ASTNode *node,
                     } else {
                         member_var.value = 0;
                     }
+
+                    var.struct_type_name = declared_type_name;
+                    var.type_name = declared_type_name;
+                    var.current_type = var.type;
                     member_var.is_assigned = false;
                     var.struct_members[member.name] = member_var;
 
@@ -221,20 +253,22 @@ bool VariableManager::handle_typedef_resolution(const ASTNode *node,
                     resolved_type);
 
                 // プリミティブtypedefでもimpl解決のためにstruct_type_nameを設定
-                var.struct_type_name = node->type_name;
+                var.struct_type_name = declared_type_name;
 
                 if (debug_mode) {
                     debug_print("TYPEDEF_DEBUG: Set primitive typedef '%s' "
                                 "with struct_type_name='%s'\n",
-                                node->type_name.c_str(),
-                                node->type_name.c_str());
+                                declared_type_name.c_str(),
+                                declared_type_name.c_str());
                 }
             }
         }
 
         // カスタム型の保存（union以外）
         if (var.type != TYPE_UNION) {
-            var.type_name = node->type_name;
+            if (!var.is_struct) {
+                var.type_name.clear();
+            }
             var.current_type = var.type;
         }
 
@@ -301,40 +335,82 @@ void VariableManager::assign_union_value(Variable &var,
             }
 
             // 1. カスタム型（typedef型）のチェック
-            if (!source_var->type_name.empty()) {
-                if (interpreter_->get_type_manager()
-                        ->is_custom_type_allowed_for_union(
-                            union_type_name, source_var->type_name)) {
-                    // カスタム型として許可されている場合、値をコピー
-                    var.value = source_var->value;
-                    var.str_value = source_var->str_value;
-                    var.current_type = source_var->current_type;
-                    // var.type_name = source_var->type_name; //
-                    // Union型変数の型名は変更しない
+            std::string custom_type_name = source_var->type_name;
+            if (custom_type_name.empty() &&
+                !source_var->struct_type_name.empty() &&
+                !source_var->is_struct) {
+                custom_type_name = source_var->struct_type_name;
+            }
 
-                    // 構造体の場合は構造体データも完全にコピー
-                    if (source_var->is_struct) {
-                        var.is_struct = true;
-                        var.struct_type_name = source_var->struct_type_name;
-                        var.struct_members = source_var->struct_members;
-                        var.current_type = TYPE_STRUCT;
+            if (!custom_type_name.empty()) {
+                bool treat_as_primitive = false;
+                std::string resolved_name =
+                    interpreter_->get_type_manager()->resolve_typedef(
+                        custom_type_name);
+                if (resolved_name == custom_type_name) {
+                    TypeInfo resolved_type =
+                        interpreter_->get_type_manager()->string_to_type_info(
+                            resolved_name);
+                    switch (resolved_type) {
+                    case TYPE_TINY:
+                    case TYPE_SHORT:
+                    case TYPE_INT:
+                    case TYPE_LONG:
+                    case TYPE_BOOL:
+                    case TYPE_CHAR:
+                    case TYPE_FLOAT:
+                    case TYPE_DOUBLE:
+                    case TYPE_STRING:
+                    case TYPE_BIG:
+                    case TYPE_QUAD:
+                        treat_as_primitive = true;
+                        break;
+                    default:
+                        break;
                     }
+                }
 
-                    var.is_assigned = true;
-                    if (debug_mode) {
-                        debug_print(
-                            "UNION_DEBUG: Assigned custom type '%s' to union "
-                            "variable (current_type=%d, str_value='%s')\n",
-                            source_var->type_name.c_str(),
-                            static_cast<int>(source_var->current_type),
-                            source_var->str_value.c_str());
+                if (!treat_as_primitive) {
+                    if (interpreter_->get_type_manager()
+                            ->is_custom_type_allowed_for_union(
+                                union_type_name, custom_type_name)) {
+                        // カスタム型として許可されている場合、値をコピー
+                        var.value = source_var->value;
+                        var.str_value = source_var->str_value;
+                        var.current_type = source_var->current_type;
+                        // var.type_name = source_var->type_name; //
+                        // Union型変数の型名は変更しない
+
+                        // 構造体の場合は構造体データも完全にコピー
+                        if (source_var->is_struct) {
+                            var.is_struct = true;
+                            var.struct_type_name = source_var->struct_type_name;
+                            var.struct_members = source_var->struct_members;
+                            var.current_type = TYPE_STRUCT;
+                        }
+
+                        var.is_assigned = true;
+                        if (debug_mode) {
+                            debug_print(
+                                "UNION_DEBUG: Assigned custom type '%s' to "
+                                "union "
+                                "variable (current_type=%d, str_value='%s')\n",
+                                custom_type_name.c_str(),
+                                static_cast<int>(source_var->current_type),
+                                source_var->str_value.c_str());
+                        }
+                        return;
+                    } else {
+                        // カスタム型が許可されていない場合はエラー
+                        throw std::runtime_error(
+                            "Type mismatch: Custom type '" + custom_type_name +
+                            "' is not allowed for union type " +
+                            union_type_name);
                     }
-                    return;
-                } else {
-                    // カスタム型が許可されていない場合はエラー
-                    throw std::runtime_error(
-                        "Type mismatch: Custom type '" + source_var->type_name +
-                        "' is not allowed for union type " + union_type_name);
+                }
+
+                if (treat_as_primitive) {
+                    custom_type_name.clear();
                 }
             }
 
@@ -779,7 +855,16 @@ bool VariableManager::handle_array_type_info_declaration(const ASTNode *node,
 
         // typedef名を保存（interfaceでの型マッチングに使用）
         if (!node->type_name.empty()) {
-            var.struct_type_name = node->type_name;
+            std::string stored_type_name = node->type_name;
+            if (node->array_type_info.base_type == TYPE_STRUCT ||
+                node->array_type_info.base_type == TYPE_INTERFACE ||
+                node->array_type_info.base_type == TYPE_UNION) {
+                size_t bracket_pos = stored_type_name.find('[');
+                if (bracket_pos != std::string::npos) {
+                    stored_type_name = stored_type_name.substr(0, bracket_pos);
+                }
+            }
+            var.struct_type_name = stored_type_name;
         }
 
         // 配列サイズ情報をコピーし、動的サイズを解決
@@ -900,10 +985,16 @@ void VariableManager::handle_struct_member_initialization(const ASTNode *node,
         // typedef名を実際のstruct名に解決
         std::string resolved_struct_type =
             interpreter_->type_manager_->resolve_typedef(node->type_name);
-        var.struct_type_name = resolved_struct_type;
+
+        // 実際の構造体名（配列表記を取り除いたもの）を基底型として保持
+        std::string base_struct_type = resolved_struct_type;
+        size_t base_bracket_pos = base_struct_type.find('[');
+        if (base_bracket_pos != std::string::npos) {
+            base_struct_type = base_struct_type.substr(0, base_bracket_pos);
+        }
+        var.struct_type_name = base_struct_type;
 
         // 構造体配列かどうかをチェック
-        std::string base_struct_type = resolved_struct_type;
         bool is_struct_array = false;
         int struct_array_size = 0;
         std::vector<int> struct_array_dimensions;
@@ -1246,6 +1337,74 @@ void VariableManager::handle_struct_member_initialization(const ASTNode *node,
                                             element_member_var.value = 0;
                                         }
 
+                                        // 配列メンバーの場合、配列情報を設定
+                                        if (element_member.array_info
+                                                .is_array()) {
+                                            element_member_var.is_array = true;
+                                            element_member_var.array_size =
+                                                element_member.array_info
+                                                        .dimensions.empty()
+                                                    ? 0
+                                                    : element_member.array_info
+                                                          .dimensions[0]
+                                                          .size;
+                                            element_member_var.array_type_info =
+                                                element_member.array_info;
+
+                                            // 構造体配列の場合、構造体情報も設定
+                                            TypeInfo elem_type =
+                                                static_cast<TypeInfo>(
+                                                    static_cast<int>(
+                                                        element_member.type) -
+                                                    TYPE_ARRAY_BASE);
+                                            if (interpreter_->debug_mode) {
+                                                debug_print(
+                                                    "Array element member: "
+                                                    "name=%s, type=%d, "
+                                                    "elem_type=%d, "
+                                                    "TYPE_STRUCT=%d, "
+                                                    "type_alias='%s'\n",
+                                                    element_member.name.c_str(),
+                                                    static_cast<int>(
+                                                        element_member.type),
+                                                    static_cast<int>(elem_type),
+                                                    static_cast<int>(
+                                                        TYPE_STRUCT),
+                                                    element_member.type_alias
+                                                        .c_str());
+                                            }
+                                            if (elem_type == TYPE_STRUCT &&
+                                                !element_member.type_alias
+                                                     .empty()) {
+                                                std::string elem_type_name =
+                                                    element_member.type_alias;
+                                                size_t bracket_pos =
+                                                    elem_type_name.find('[');
+                                                if (bracket_pos !=
+                                                    std::string::npos) {
+                                                    elem_type_name =
+                                                        elem_type_name.substr(
+                                                            0, bracket_pos);
+                                                }
+                                                element_member_var.is_struct =
+                                                    true;
+                                                element_member_var
+                                                    .struct_type_name =
+                                                    elem_type_name;
+
+                                                if (interpreter_->debug_mode) {
+                                                    debug_print(
+                                                        "Set struct array "
+                                                        "member: name=%s, "
+                                                        "is_struct=true, "
+                                                        "struct_type='%s'\n",
+                                                        element_member.name
+                                                            .c_str(),
+                                                        elem_type_name.c_str());
+                                                }
+                                            }
+                                        }
+
                                         element_var.struct_members
                                             [element_member.name] =
                                             element_member_var;
@@ -1309,17 +1468,47 @@ void VariableManager::handle_struct_member_initialization(const ASTNode *node,
                             }
                         }
 
+                        // 構造体配列の場合、配列自体にも構造体情報を設定
+                        // 配列の要素型がTYPE_STRUCTの場合（type =
+                        // TYPE_ARRAY_BASE + TYPE_STRUCT）
+                        TypeInfo element_type = static_cast<TypeInfo>(
+                            static_cast<int>(member.type) - TYPE_ARRAY_BASE);
+                        if (interpreter_->debug_mode) {
+                            debug_print("Check array member: name=%s, type=%d, "
+                                        "element_type=%d, TYPE_STRUCT=%d, "
+                                        "type_alias='%s'\n",
+                                        member.name.c_str(),
+                                        static_cast<int>(member.type),
+                                        static_cast<int>(element_type),
+                                        static_cast<int>(TYPE_STRUCT),
+                                        member.type_alias.c_str());
+                        }
+                        if (element_type == TYPE_STRUCT &&
+                            !member.type_alias.empty()) {
+                            std::string element_type_name = member.type_alias;
+                            size_t bracket_pos = element_type_name.find('[');
+                            if (bracket_pos != std::string::npos) {
+                                element_type_name =
+                                    element_type_name.substr(0, bracket_pos);
+                            }
+                            member_var.is_struct = true;
+                            member_var.struct_type_name = element_type_name;
+                        }
+
                         var.struct_members[member.name] = member_var;
 
                         if (interpreter_->debug_mode) {
                             debug_print("Added to struct_members[%s]: "
                                         "is_multidimensional=%s, "
-                                        "array_dimensions.size()=%zu\n",
+                                        "array_dimensions.size()=%zu, "
+                                        "is_struct=%s, struct_type='%s'\n",
                                         member.name.c_str(),
                                         member_var.is_multidimensional
                                             ? "true"
                                             : "false",
-                                        member_var.array_dimensions.size());
+                                        member_var.array_dimensions.size(),
+                                        member_var.is_struct ? "true" : "false",
+                                        member_var.struct_type_name.c_str());
                         }
                     } else {
                         // 通常のメンバーの場合

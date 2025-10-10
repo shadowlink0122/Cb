@@ -1,0 +1,12 @@
+// const T* const のエラーケーステスト
+// 値の変更もポインタの再代入も禁止されることを確認
+
+int main() {
+    int x = 10;
+    const int* const ptr = &x;
+    
+    println("Attempting to modify value through const * const pointer...");
+    *ptr = 20;  // Error: Cannot modify value through const int* const
+    
+    return 0;
+}

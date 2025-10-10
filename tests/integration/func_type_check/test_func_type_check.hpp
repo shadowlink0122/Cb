@@ -120,7 +120,7 @@ void test_func_type_comprehensive_typedef() {
 }
 
 inline void test_integration_func_type_check() {
-    std::cout << "[integration] Running function type checking tests..." << std::endl;
+    std::cout << "[integration-test] Running function type checking tests..." << std::endl;
     
     test_func_type_basic();
     test_func_type_arrays();
@@ -133,5 +133,5 @@ inline void test_integration_func_type_check() {
     test_func_type_error_int_to_string();
     test_func_type_error_array_mismatch();
     
-    std::cout << "[integration] Function type checking tests completed" << std::endl;
+    std::cout << "[integration-test] Function type checking tests completed" << std::endl;
 }
