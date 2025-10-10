@@ -1,0 +1,17 @@
+// const * const型情報が関数戻り値で失われることを確認するテスト
+
+int global_x = 42;
+
+const int* const get_const_pointer() {
+    const int* const ptr = &global_x;  // const * const型
+    return ptr;  // const * constを返すはず
+}
+
+void main() {
+    // ❌ 期待: const * constを返す関数の戻り値を非constポインタで受け取るとエラーになるべき
+    int* ptr = get_const_pointer();  // 型が一致しないはずだがエラーが出ない可能性
+    
+    *ptr = 200;  // const経由での変更が許されてしまう
+    println(*ptr);
+    println(global_x);
+}
