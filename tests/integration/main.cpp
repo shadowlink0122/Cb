@@ -47,6 +47,7 @@
 #include "multidim_array/test_multidim_array.hpp"
 #include "multidim_literal/test_multidim_literal.hpp"
 #include "multiple_var_decl/test_multiple_var_decl.hpp"
+#include "nested_struct_init/test_nested_struct_init.hpp"
 #include "performance/test_performance.hpp"
 #include "pointer/function_pointer_tests.hpp"
 #include "pointer/pointer_advanced_tests.hpp"
@@ -261,6 +262,8 @@ int main() {
                            "Basic Struct Tests", failed_tests);
     run_test_with_continue(StructTests::run_all_struct_tests, "Struct Tests",
                            failed_tests);
+    run_test_with_continue(NestedStructInitTests::run_all_tests,
+                           "Nested Struct Init Tests", failed_tests);
     run_test_with_continue(InterfaceTests::run_all_interface_tests,
                            "Interface Tests", failed_tests);
     run_test_with_continue(test_interface_type_inference_chain,

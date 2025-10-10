@@ -509,6 +509,35 @@ void OutputManager::print_value(const ASTNode *expr) {
         std::string struct_name;
         std::string member_name = expr->name;
 
+        // 複雑なネスト（MEMBER_ACCESS、ARROW_ACCESS、ARRAY_REF、UNARY_OP）の場合、
+        // 式全体を評価して結果を出力
+        if (expr->left &&
+            (expr->left->node_type == ASTNodeType::AST_MEMBER_ACCESS ||
+             expr->left->node_type == ASTNodeType::AST_ARROW_ACCESS ||
+             (expr->left->node_type == ASTNodeType::AST_UNARY_OP &&
+              expr->left->op == "DEREFERENCE"))) {
+            try {
+                TypedValue typed_result =
+                    interpreter_->evaluate_typed_expression(expr);
+
+                if (typed_result.is_string()) {
+                    io_interface_->write_string(
+                        typed_result.string_value.c_str());
+                } else if (typed_result.is_struct()) {
+                    io_interface_->write_string("(struct)");
+                } else {
+                    write_numeric_value(
+                        io_interface_, typed_result.numeric_type,
+                        typed_result.value, typed_result.double_value,
+                        typed_result.quad_value);
+                }
+                return;
+            } catch (const std::exception &e) {
+                io_interface_->write_string("(nested member access error)");
+                return;
+            }
+        }
+
         if (expr->left && expr->left->node_type == ASTNodeType::AST_VARIABLE) {
             struct_name = expr->left->name;
         } else if (expr->left &&

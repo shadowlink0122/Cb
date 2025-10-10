@@ -72,6 +72,17 @@ int64_t evaluate_arrow_access(
     } else if (member_var.type == TYPE_POINTER) {
         // ポインタメンバの場合はそのまま値を返す
         return member_var.value;
+    } else if (member_var.type == TYPE_STRUCT ||
+               member_var.type == TYPE_INTERFACE) {
+        // 構造体メンバの場合は、その構造体へのポインタを返す
+        // struct_membersから実際の変数へのポインタを取得
+        auto member_it = struct_var->struct_members.find(member_name);
+        if (member_it != struct_var->struct_members.end()) {
+            return reinterpret_cast<int64_t>(&member_it->second);
+        }
+        // fallback: member_varのアドレスを返す(コピーなので注意)
+        throw std::runtime_error(
+            "Cannot get address of temporary struct member");
     } else if (member_var.type == TYPE_FLOAT ||
                member_var.type == TYPE_DOUBLE || member_var.type == TYPE_QUAD) {
         // 浮動小数点数の場合

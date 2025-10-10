@@ -1,0 +1,5 @@
+Test 1: Mid-level extraction - PASSED
+Test 2: Deep-level extraction - PASSED
+Test 3: From extracted struct - PASSED
+Test 4: Chained extraction - PASSED
+All nested struct declaration tests passed!

@@ -1,6 +1,7 @@
 #ifndef CB_INTERPRETER_STRUCT_ASSIGNMENT_MANAGER_H
 #define CB_INTERPRETER_STRUCT_ASSIGNMENT_MANAGER_H
 
+#include <map>
 #include <string>
 #include <vector>
 
@@ -138,6 +139,16 @@ class StructAssignmentManager {
     void process_positional_initialization(
         Variable *var, const std::string &var_name, const ASTNode *literal_node,
         const struct StructDefinition *struct_def);
+
+    /**
+     * @brief ネストした構造体メンバーを再帰的に同期する
+     *
+     * @param base_path 基底パス（例: "obj.member"）
+     * @param members 同期する構造体メンバーマップ
+     */
+    void sync_nested_struct_members_recursive(
+        const std::string &base_path,
+        const std::map<std::string, Variable> &members);
 };
 
 #endif // CB_INTERPRETER_STRUCT_ASSIGNMENT_MANAGER_H

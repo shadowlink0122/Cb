@@ -459,7 +459,7 @@ void StructAssignmentManager::assign_struct_member_struct(
         }
     }
 
-    // 構造体データをコピー
+    // 構造体データをコピー（struct_membersも含む）
     *member_var = struct_value;
     member_var->is_assigned = true;
 
@@ -481,19 +481,10 @@ void StructAssignmentManager::assign_struct_member_struct(
         }
     }
 
-    // 構造体のメンバー変数も個別に更新
-    for (const auto &member : struct_value.struct_members) {
-        std::string nested_var_name = direct_var_name + "." + member.first;
-        Variable *nested_var = interpreter_->find_variable(nested_var_name);
-        if (nested_var) {
-            *nested_var = member.second;
-            nested_var->is_assigned = true;
-            if (interpreter_->debug_mode) {
-                debug_print("Updated nested member: %s = %lld\n",
-                            nested_var_name.c_str(), member.second.value);
-            }
-        }
-    }
+    // 構造体のメンバー変数を再帰的に更新
+    // ネストした構造体メンバーも正しく展開する
+    sync_nested_struct_members_recursive(direct_var_name,
+                                         struct_value.struct_members);
 }
 
 void StructAssignmentManager::assign_struct_member_array_element(
@@ -1663,5 +1654,63 @@ void StructAssignmentManager::process_positional_initialization(
             }
         }
         it->second.is_assigned = true;
+    }
+}
+
+// ネストした構造体メンバーを再帰的に同期する
+void StructAssignmentManager::sync_nested_struct_members_recursive(
+    const std::string &base_path,
+    const std::map<std::string, Variable> &members) {
+
+    if (interpreter_->debug_mode) {
+        debug_print("sync_nested_struct_members_recursive: base_path=%s, "
+                    "members.size=%zu\n",
+                    base_path.c_str(), members.size());
+    }
+
+    for (const auto &member : members) {
+        const std::string &member_name = member.first;
+        const Variable &member_var = member.second;
+        std::string nested_var_name = base_path + "." + member_name;
+
+        // ダイレクトアクセス変数を更新
+        Variable *nested_var = interpreter_->find_variable(nested_var_name);
+        if (nested_var) {
+            // 既存の変数を更新
+            *nested_var = member_var;
+            nested_var->is_assigned = true;
+
+            if (interpreter_->debug_mode) {
+                debug_print("Updated nested member: %s (type=%d)\n",
+                            nested_var_name.c_str(), member_var.type);
+            }
+        } else {
+            // 変数が存在しない場合は新規作成
+            // これは深いネスト初期化で必要
+            // Interpreterのvariable managerを通じて変数を作成
+            // 注: この場合、親の構造体メンバーに既に値が入っているので
+            // ダイレクトアクセス変数が未作成でも問題ない
+            // スキップして、struct_membersマップだけを信頼する
+
+            if (interpreter_->debug_mode) {
+                debug_print("Skipped creating nested member (not found): %s\n",
+                            nested_var_name.c_str());
+            }
+        }
+
+        // もしこのメンバーが構造体型なら、さらに再帰的に展開
+        if ((member_var.type == TYPE_STRUCT || member_var.is_struct) &&
+            !member_var.struct_members.empty()) {
+
+            if (interpreter_->debug_mode) {
+                debug_print("Recursing into struct member: %s "
+                            "(struct_members.size=%zu)\n",
+                            nested_var_name.c_str(),
+                            member_var.struct_members.size());
+            }
+
+            sync_nested_struct_members_recursive(nested_var_name,
+                                                 member_var.struct_members);
+        }
     }
 }

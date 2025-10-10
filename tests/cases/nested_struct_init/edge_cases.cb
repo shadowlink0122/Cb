@@ -1,0 +1,93 @@
+// ネストした構造体宣言時初期化のエッジケーステスト
+
+struct A { int x; };
+struct B { A a; };
+struct C { B b; };
+struct D { C c; };
+struct E { D d; };
+
+int main() {
+    println("=== Edge Case Tests for Nested Struct Initialization ===");
+    
+    // テスト1: 最大深度のネスト (5層)
+    println("\nTest 1: Maximum depth nesting (5 levels)");
+    E root = {d: {c: {b: {a: {x: 42}}}}};
+    
+    D extracted_d = root.d;
+    assert(extracted_d.c.b.a.x == 42);
+    
+    C extracted_c = root.d.c;
+    assert(extracted_c.b.a.x == 42);
+    
+    B extracted_b = root.d.c.b;
+    assert(extracted_b.a.x == 42);
+    
+    A extracted_a = root.d.c.b.a;
+    assert(extracted_a.x == 42);
+    
+    println("  All depth levels: PASSED");
+    
+    // テスト2: 同一型の複数メンバー
+    println("\nTest 2: Multiple members of same type");
+    struct Container {
+        A first;
+        A second;
+        A third;
+    };
+    
+    Container cnt = {first: {x: 1}, second: {x: 2}, third: {x: 3}};
+    
+    A f = cnt.first;
+    A s = cnt.second;
+    A t = cnt.third;
+    
+    assert(f.x == 1);
+    assert(s.x == 2);
+    assert(t.x == 3);
+    println("  Multiple members: PASSED");
+    
+    // テスト3: 空の構造体を含む
+    println("\nTest 3: Empty struct handling");
+    struct Empty { };
+    struct WithEmpty {
+        int before;
+        Empty empty;
+        int after;
+    };
+    
+    WithEmpty we = {before: 100, after: 200};
+    assert(we.before == 100);
+    assert(we.after == 200);
+    println("  Empty struct: PASSED");
+    
+    // テスト4: 初期化後の変更と独立性
+    println("\nTest 4: Modification and independence");
+    C original = {b: {a: {x: 999}}};
+    B copy_b = original.b;
+    
+    // originalを変更
+    original.b.a.x = 111;
+    
+    // copyは独立しているべき（値コピー）
+    assert(copy_b.a.x == 999);
+    assert(original.b.a.x == 111);
+    println("  Independence: PASSED");
+    
+    // テスト5: 連続した初期化
+    println("\nTest 5: Sequential initialization");
+    E e1 = {d: {c: {b: {a: {x: 10}}}}};
+    E e2 = {d: {c: {b: {a: {x: 20}}}}};
+    E e3 = {d: {c: {b: {a: {x: 30}}}}};
+    
+    A a1 = e1.d.c.b.a;
+    A a2 = e2.d.c.b.a;
+    A a3 = e3.d.c.b.a;
+    
+    assert(a1.x == 10);
+    assert(a2.x == 20);
+    assert(a3.x == 30);
+    println("  Sequential: PASSED");
+    
+    println("\n=== All Edge Case Tests Passed! ===");
+    return 0;
+}

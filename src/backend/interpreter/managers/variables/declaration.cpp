@@ -480,6 +480,85 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
         // 配列リテラル初期化処理
         else if (handle_array_literal_initialization(node, var)) {
             return; // 配列リテラル初期化完了（早期return）
+        } else if (var.is_struct && node->init_expr->node_type ==
+                                        ASTNodeType::AST_MEMBER_ACCESS) {
+            // struct member accessからの代入の処理: Middle m2 = o1.val;
+            // メンバーアクセスを評価して構造体を取得
+            TypedValue member_value =
+                interpreter_->evaluate_typed(node->init_expr.get());
+
+            // メンバーアクセスのパスを構築
+            std::function<std::string(const ASTNode *)> build_member_path;
+            build_member_path = [&](const ASTNode *n) -> std::string {
+                if (!n)
+                    return "";
+                if (n->node_type == ASTNodeType::AST_VARIABLE) {
+                    return n->name;
+                } else if (n->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
+                    std::string base = build_member_path(n->left.get());
+                    return base.empty() ? n->name : base + "." + n->name;
+                }
+                return "";
+            };
+
+            std::string source_path = build_member_path(node->init_expr.get());
+            Variable *source_var = find_variable(source_path);
+
+            if (!source_var || !source_var->is_struct) {
+                throw std::runtime_error("Source member is not a struct: " +
+                                         source_path);
+            }
+
+            if (source_var->struct_type_name != var.struct_type_name) {
+                throw std::runtime_error(
+                    "Cannot assign struct of different type (expected: " +
+                    var.struct_type_name +
+                    ", got: " + source_var->struct_type_name + ")");
+            }
+
+            // まず変数を登録
+            current_scope().variables[node->name] = var;
+
+            // struct_membersを深くコピー
+            current_scope().variables[node->name].struct_members =
+                source_var->struct_members;
+
+            // 全メンバを直接アクセス変数としてもコピー
+            std::function<void(const std::string &, const std::string &,
+                               const std::map<std::string, Variable> &)>
+                copy_nested;
+            copy_nested = [&](const std::string &dest_base,
+                              const std::string &source_base,
+                              const std::map<std::string, Variable> &members) {
+                for (const auto &member : members) {
+                    std::string source_member_name =
+                        source_base + "." + member.first;
+                    std::string dest_member_name =
+                        dest_base + "." + member.first;
+
+                    Variable *source_member_var =
+                        find_variable(source_member_name);
+                    if (source_member_var) {
+                        current_scope().variables[dest_member_name] =
+                            *source_member_var;
+
+                        // ネストした構造体の場合は再帰
+                        if (source_member_var->is_struct &&
+                            !source_member_var->struct_members.empty()) {
+                            copy_nested(dest_member_name, source_member_name,
+                                        source_member_var->struct_members);
+                        }
+                    }
+                }
+            };
+
+            copy_nested(node->name, source_path, source_var->struct_members);
+
+            // 代入完了
+            current_scope().variables[node->name].is_assigned = true;
+
+            return; // struct member access代入処理完了後は早期リターン
+
         } else if (var.is_struct &&
                    node->init_expr->node_type == ASTNodeType::AST_VARIABLE) {
             // struct to struct代入の処理: Person p2 = p1;

@@ -1,0 +1,11 @@
+=== Arrow-Dereference-Dot Pattern Test ===
+Test 1: (*head->data).x
+PASSED: (*head->data).x = 30
+Test 2: (*head->data).y
+PASSED: (*head->data).y = 40
+Test 3: (*head->next->data).x
+PASSED: (*head->next->data).x = 10
+Test 4: Equivalent expressions
+PASSED: (*ptr->member).field == ptr->member->field
+
+=== All Tests Passed ===

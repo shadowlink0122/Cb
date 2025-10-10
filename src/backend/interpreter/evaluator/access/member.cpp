@@ -29,8 +29,35 @@ int64_t ExpressionEvaluator::evaluate_member_access_impl(const ASTNode *node) {
                 member_name.c_str(), node->member_chain.size(),
                 node->left ? static_cast<int>(node->left->node_type) : -1);
 
+    // ARROW_ACCESSまたはUNARY_OPが含まれる場合、member_chainパスをスキップ
+    // これらは再帰的解決でのみ正しく処理できる
+    // 再帰的にチェック：ネストした式の中にARROW/DEREFがある場合も検出
+    bool has_arrow_or_deref = false;
+    std::function<bool(const ASTNode *)> check_for_arrow_or_deref;
+    check_for_arrow_or_deref = [&](const ASTNode *n) -> bool {
+        if (!n)
+            return false;
+        if (n->node_type == ASTNodeType::AST_ARROW_ACCESS)
+            return true;
+        if (n->node_type == ASTNodeType::AST_UNARY_OP && n->op == "DEREFERENCE")
+            return true;
+        if (n->left)
+            return check_for_arrow_or_deref(n->left.get());
+        return false;
+    };
+
+    if (node->left) {
+        has_arrow_or_deref = check_for_arrow_or_deref(node->left.get());
+        if (has_arrow_or_deref) {
+            debug_print("[MEMBER_EVAL] Left contains ARROW/DEREF (possibly "
+                        "nested), will use recursive resolution\n");
+        }
+    }
+
     // ネストしたメンバーアクセスの場合（再帰的に処理）
-    if (!node->member_chain.empty() && node->member_chain.size() > 1) {
+    // ただし、ARROW_ACCESSやDEREFが含まれる場合はこのパスをスキップ
+    if (!has_arrow_or_deref && !node->member_chain.empty() &&
+        node->member_chain.size() > 1) {
         // ベース変数を取得
         Variable base_var;
         if (node->left->node_type == ASTNodeType::AST_VARIABLE) {
@@ -136,17 +163,25 @@ int64_t ExpressionEvaluator::evaluate_member_access_impl(const ASTNode *node) {
         }
     }
 
-    // leftがAST_MEMBER_ACCESSまたはAST_ARRAY_REFの場合、再帰的に解決
+    // leftがAST_MEMBER_ACCESS、AST_ARRAY_REF、AST_ARROW_ACCESS、またはUNARY_OP
+    // (DEREFERENCE)の場合、再帰的に解決
     debug_print("[MEMBER_EVAL] Checking recursive condition: "
-                "left->node_type=%d (MEMBER_ACCESS=%d, ARRAY_REF=%d)\n",
+                "left->node_type=%d (MEMBER_ACCESS=%d, ARRAY_REF=%d, "
+                "ARROW_ACCESS=%d, UNARY_OP=%d)\n",
                 static_cast<int>(node->left->node_type),
                 static_cast<int>(ASTNodeType::AST_MEMBER_ACCESS),
-                static_cast<int>(ASTNodeType::AST_ARRAY_REF));
+                static_cast<int>(ASTNodeType::AST_ARRAY_REF),
+                static_cast<int>(ASTNodeType::AST_ARROW_ACCESS),
+                static_cast<int>(ASTNodeType::AST_UNARY_OP));
 
     if (node->left->node_type == ASTNodeType::AST_MEMBER_ACCESS ||
-        node->left->node_type == ASTNodeType::AST_ARRAY_REF) {
+        node->left->node_type == ASTNodeType::AST_ARRAY_REF ||
+        node->left->node_type == ASTNodeType::AST_ARROW_ACCESS ||
+        (node->left->node_type == ASTNodeType::AST_UNARY_OP &&
+         node->left->op == "DEREFERENCE")) {
         debug_msg(DebugMsgId::NESTED_MEMBER_EVAL_START,
-                  "left is nested access (AST_MEMBER_ACCESS or AST_ARRAY_REF)");
+                  "left is nested access (AST_MEMBER_ACCESS, AST_ARRAY_REF, "
+                  "AST_ARROW_ACCESS, or DEREFERENCE)");
 
         // 再帰的なヘルパーを使用してメンバーを解決
         auto evaluate_index = [this](const ASTNode *idx_node) -> int64_t {
@@ -497,6 +532,15 @@ int64_t ExpressionEvaluator::evaluate_member_access_impl(const ASTNode *node) {
             typed_result.is_numeric_result = false;
             last_typed_result_ = typed_result;
             return 0;
+        } else if (TypeHelpers::isStruct(member_var.type)) {
+            // メンバーが構造体の場合、その構造体へのポインタを返す
+            // これにより、(*ptr).val.x のようなパターンをサポート
+            auto member_it = struct_var->struct_members.find(member_name);
+            if (member_it != struct_var->struct_members.end()) {
+                return reinterpret_cast<int64_t>(&member_it->second);
+            }
+            // フォールバック: member_varのvalueを返す（構造体の場合は通常0）
+            return member_var.value;
         } else if (TypeHelpers::isFloating(member_var.type) ||
                    member_var.type == TYPE_QUAD) {
             InferredType float_type(member_var.type, "");

@@ -285,7 +285,9 @@ void execute_variable_declaration(StatementExecutor *executor,
             debug_log_line("[DEBUG_STMT] Creating struct variable: " +
                            node->name + " of type: " + node->type_name);
         }
+
         interpreter.create_struct_variable(node->name, node->type_name);
+
         return; // struct変数は専用処理で完了
     }
 
