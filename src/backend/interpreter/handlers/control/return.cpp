@@ -217,7 +217,15 @@ void ReturnHandler::handle_identifier_return(const ASTNode *node) {
             } else if (var->type == TYPE_STRING) {
                 throw ReturnException(var->str_value);
             } else if (var->type == TYPE_POINTER) {
-                throw ReturnException(var->value);
+                ReturnException ret(var->value);
+                ret.type = TYPE_POINTER;
+                ret.is_pointer = true;
+                ret.is_pointee_const = var->is_pointee_const;
+                ret.is_pointer_const = var->is_pointer_const;
+                ret.pointer_depth = var->pointer_depth;
+                ret.pointer_base_type = var->pointer_base_type;
+                ret.pointer_base_type_name = var->pointer_base_type_name;
+                throw ret;
             } else {
                 throw ReturnException(var->value);
             }
@@ -283,7 +291,15 @@ void ReturnHandler::handle_variable_return(const ASTNode *node) {
                        (var->is_assigned && !var->str_value.empty()))) {
         throw ReturnException(var->str_value);
     } else if (var && var->type == TYPE_POINTER) {
-        throw ReturnException(var->value);
+        ReturnException ret(var->value);
+        ret.type = TYPE_POINTER;
+        ret.is_pointer = true;
+        ret.is_pointee_const = var->is_pointee_const;
+        ret.is_pointer_const = var->is_pointer_const;
+        ret.pointer_depth = var->pointer_depth;
+        ret.pointer_base_type = var->pointer_base_type;
+        ret.pointer_base_type_name = var->pointer_base_type_name;
+        throw ret;
     } else if (var) {
         // 数値変数を型推論で正しく返す
         TypedValue typed_result =

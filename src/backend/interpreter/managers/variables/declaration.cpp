@@ -1654,18 +1654,92 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
                             ret.function_pointer_node->type_info);
                         interpreter_->current_scope()
                             .function_pointers[node->name] = func_ptr;
+                    } else if (ret.is_pointer) {
+                        // ポインタ戻り値の場合、const型安全性をチェック
+                        // const T* → T* への変換をチェック
+                        if (ret.is_pointee_const && !node->is_pointee_const_qualifier) {
+                            throw std::runtime_error(
+                                "Type mismatch: Cannot assign pointer to const (" +
+                                (ret.pointer_base_type_name.empty() 
+                                    ? "const T*" 
+                                    : "const " + ret.pointer_base_type_name + "*") +
+                                ") to pointer to non-const (" +
+                                (node->pointer_base_type_name.empty() ? "T*" : node->pointer_base_type_name + "*") + ")\n" +
+                                "  Cannot discard const qualifier from pointed-to type in variable '" + 
+                                node->name + "'");
+                        }
+                        
+                        // T* const → T* への変換をチェック (この場合は許可)
+                        // ポインタ自体のconstは代入時に失われても問題ない
+                        
+                        var.value = ret.value;
+                        var.is_assigned = true;
+                        // 戻り値のconst情報を変数に伝播
+                        var.is_pointee_const = ret.is_pointee_const;
+                        var.is_pointer_const = ret.is_pointer_const;
                     } else {
                         var.value = ret.value;
                         var.is_assigned = true;
                     }
                 }
             } else {
-                TypedValue typed_value =
-                    interpreter_->expression_evaluator_
+                // 関数呼び出しの場合、ReturnExceptionを直接キャッチしてconst情報を検証
+                bool caught_return_exception = false;
+                TypedValue typed_value(static_cast<int64_t>(0), InferredType(TYPE_UNKNOWN));
+                
+                if (init_node->node_type == ASTNodeType::AST_FUNC_CALL) {
+                    try {
+                        typed_value = interpreter_->expression_evaluator_
+                            ->evaluate_typed_expression(init_node);
+                    } catch (const ReturnException &ret) {
+                        // ポインタ戻り値のconst情報をチェック
+                        if (ret.is_pointer && node->is_pointer) {
+                            // const T* → T* への変換をチェック
+                            if (ret.is_pointee_const && !node->is_pointee_const_qualifier) {
+                                throw std::runtime_error(
+                                    "Type mismatch: Cannot assign function return value pointer to const (" +
+                                    (ret.pointer_base_type_name.empty() 
+                                        ? "const T*" 
+                                        : "const " + ret.pointer_base_type_name + "*") +
+                                    ") to pointer to non-const (" +
+                                    (node->pointer_base_type_name.empty() ? "T*" : node->pointer_base_type_name + "*") + ")\n" +
+                                    "  Cannot discard const qualifier from pointed-to type in variable '" + 
+                                    node->name + "'");
+                            }
+                            var.value = ret.value;
+                            var.is_assigned = true;
+                            var.is_pointee_const = ret.is_pointee_const;
+                            var.is_pointer_const = ret.is_pointer_const;
+                            caught_return_exception = true;
+                        } else {
+                            // ポインタ以外はそのまま再投げ
+                            throw;
+                        }
+                    }
+                } else {
+                    typed_value = interpreter_->expression_evaluator_
                         ->evaluate_typed_expression(init_node);
-
-                // TypedValueに関数ポインタ情報がある場合
-                if (typed_value.is_function_pointer) {
+                }
+                
+                if (caught_return_exception) {
+                    // ReturnExceptionで処理済み、次の処理へ
+                } else if (typed_value.is_pointer) {
+                    // TypedValueのポインタ型const情報をチェック
+                    if (typed_value.is_pointee_const && !node->is_pointee_const_qualifier) {
+                        throw std::runtime_error(
+                            "Type mismatch: Cannot assign pointer to const (" +
+                            (typed_value.pointer_base_type_name.empty() 
+                                ? "const T*" 
+                                : "const " + typed_value.pointer_base_type_name + "*") +
+                            ") to pointer to non-const (" +
+                            (node->pointer_base_type_name.empty() ? "T*" : node->pointer_base_type_name + "*") + ")\n" +
+                            "  Cannot discard const qualifier from pointed-to type in variable '" + 
+                            node->name + "'");
+                    }
+                    var.value = typed_value.value;
+                    var.is_assigned = true;
+                } else if (typed_value.is_function_pointer) {
+                    // TypedValueに関数ポインタ情報がある場合
                     if (interpreter_->debug_mode) {
                         std::cerr << "[VAR_MANAGER] TypedValue contains "
                                      "function pointer: "

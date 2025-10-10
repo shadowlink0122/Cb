@@ -62,6 +62,14 @@ struct TypedValue {
     std::string function_pointer_name;
     const ASTNode *function_pointer_node;
 
+    // ポインタのconst情報フィールド (v0.9.2)
+    bool is_pointer;
+    bool is_pointee_const;  // const T*
+    bool is_pointer_const;  // T* const
+    int pointer_depth;
+    TypeInfo pointer_base_type;
+    std::string pointer_base_type_name;
+
     TypedValue(int64_t val, const InferredType &t)
         : value(val), double_value(static_cast<double>(val)),
           quad_value(static_cast<long double>(val)), string_value(""),
@@ -69,7 +77,9 @@ struct TypedValue {
           numeric_type(t.type_info), type(t), deferred_node(nullptr),
           is_deferred(false), is_struct_result(false), struct_data(nullptr),
           is_function_pointer(false), function_pointer_name(""),
-          function_pointer_node(nullptr) {
+          function_pointer_node(nullptr), is_pointer(false),
+          is_pointee_const(false), is_pointer_const(false), pointer_depth(0),
+          pointer_base_type(TYPE_UNKNOWN), pointer_base_type_name("") {
         // デバッグ: ポインタ型の場合のみ出力
         extern bool debug_mode;
         if (debug_mode && t.type_info == TYPE_POINTER) {
@@ -87,7 +97,9 @@ struct TypedValue {
           numeric_type(t.type_info), type(t), deferred_node(nullptr),
           is_deferred(false), is_struct_result(false), struct_data(nullptr),
           is_function_pointer(false), function_pointer_name(""),
-          function_pointer_node(nullptr) {}
+          function_pointer_node(nullptr), is_pointer(false),
+          is_pointee_const(false), is_pointer_const(false), pointer_depth(0),
+          pointer_base_type(TYPE_UNKNOWN), pointer_base_type_name("") {}
 
     TypedValue(long double val, const InferredType &t)
         : value((t.type_info == TYPE_POINTER)
@@ -100,7 +112,9 @@ struct TypedValue {
           numeric_type(t.type_info), type(t), deferred_node(nullptr),
           is_deferred(false), is_struct_result(false), struct_data(nullptr),
           is_function_pointer(false), function_pointer_name(""),
-          function_pointer_node(nullptr) {
+          function_pointer_node(nullptr), is_pointer(false),
+          is_pointee_const(false), is_pointer_const(false), pointer_depth(0),
+          pointer_base_type(TYPE_UNKNOWN), pointer_base_type_name("") {
         // デバッグ: ポインタ型の場合のみ出力
         extern bool debug_mode;
         if (debug_mode && t.type_info == TYPE_POINTER) {
@@ -117,7 +131,9 @@ struct TypedValue {
           numeric_type(TYPE_UNKNOWN), type(t), deferred_node(nullptr),
           is_deferred(false), is_struct_result(false), struct_data(nullptr),
           is_function_pointer(false), function_pointer_name(""),
-          function_pointer_node(nullptr) {}
+          function_pointer_node(nullptr), is_pointer(false),
+          is_pointee_const(false), is_pointer_const(false), pointer_depth(0),
+          pointer_base_type(TYPE_UNKNOWN), pointer_base_type_name("") {}
 
     // 構造体用コンストラクタ
     TypedValue(const Variable &struct_var, const InferredType &t)
@@ -125,7 +141,9 @@ struct TypedValue {
           deferred_node(nullptr), is_deferred(false), is_struct_result(true),
           struct_data(std::make_shared<Variable>(struct_var)),
           is_function_pointer(false), function_pointer_name(""),
-          function_pointer_node(nullptr) {}
+          function_pointer_node(nullptr), is_pointer(false),
+          is_pointee_const(false), is_pointer_const(false), pointer_depth(0),
+          pointer_base_type(TYPE_UNKNOWN), pointer_base_type_name("") {}
 
     // 遅延評価用コンストラクタ
     static TypedValue deferred(const ASTNode *node, const InferredType &t) {
