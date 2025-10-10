@@ -899,7 +899,8 @@ void StatementExecutor::execute_ternary_variable_initialization(
 
     // 三項演算子の条件を評価
     int64_t condition = interpreter_.evaluate(ternary_node->left.get());
-    printf("DEBUG: Ternary condition = %lld\n", condition);
+    printf("DEBUG: Ternary condition = %lld\n",
+           static_cast<long long>(condition));
 
     // 条件に基づいて選択される分岐を決定
     const ASTNode *selected_branch =

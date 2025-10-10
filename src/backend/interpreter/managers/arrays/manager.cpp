@@ -865,6 +865,13 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
                                     actual_return_size += row.size();
                                 }
                             }
+                        } else if (!ret.double_array_3d.empty()) {
+                            // double/float配列のサイズを計算
+                            for (const auto &plane : ret.double_array_3d) {
+                                for (const auto &row : plane) {
+                                    actual_return_size += row.size();
+                                }
+                            }
                         }
 
                         // 配列データを設定
@@ -923,6 +930,34 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
                             }
                             var.type = static_cast<TypeInfo>(TYPE_ARRAY_BASE +
                                                              TYPE_STRING);
+                        } else if (!ret.double_array_3d.empty()) {
+                            if (var.is_multidimensional) {
+                                // 多次元double/float配列の場合、multidim_array_double_valuesに設定
+                                var.multidim_array_double_values.clear();
+                                for (const auto &plane : ret.double_array_3d) {
+                                    for (const auto &row : plane) {
+                                        for (const auto &element : row) {
+                                            var.multidim_array_double_values
+                                                .push_back(element);
+                                        }
+                                    }
+                                }
+                                var.array_double_values.clear();
+                            } else {
+                                // 1次元double/float配列の場合、array_double_valuesに設定
+                                var.array_double_values.clear();
+                                for (const auto &plane : ret.double_array_3d) {
+                                    for (const auto &row : plane) {
+                                        for (const auto &element : row) {
+                                            var.array_double_values.push_back(
+                                                element);
+                                        }
+                                    }
+                                }
+                                var.multidim_array_double_values.clear();
+                            }
+                            var.type = static_cast<TypeInfo>(TYPE_ARRAY_BASE +
+                                                             TYPE_DOUBLE);
                         }
 
                         var.array_size = actual_return_size;
