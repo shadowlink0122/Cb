@@ -4,6 +4,7 @@
 
 // デバッグ言語設定（外部変数）
 extern DebugLanguage debug_language;
+extern bool debug_mode;
 
 namespace LiteralEvalHelpers {
 
@@ -67,9 +68,21 @@ TypedValue evaluate_number_literal_typed(const ASTNode *node,
                                        : InferredType(TYPE_DOUBLE, "double");
         return TypedValue(node->double_value, double_type);
     }
-    InferredType int_type = inferred_type.type_info == TYPE_UNKNOWN
-                                ? InferredType(TYPE_INT, "int")
-                                : inferred_type;
+    // リテラルの値から適切な型を判定
+    // 大きなリテラルの場合は推論された型を無視してlong型を使用
+    InferredType int_type;
+    int64_t value = node->int_value;
+
+    // リテラルの値がint32_tの範囲を超える場合は、推論型に関係なくlong型を使用
+    if (value < INT32_MIN || value > INT32_MAX) {
+        int_type = InferredType(TYPE_LONG, "long");
+    } else if (inferred_type.type_info != TYPE_UNKNOWN) {
+        // 推論された型がある場合はそれを使用
+        int_type = inferred_type;
+    } else {
+        // 推論型がない場合はintをデフォルトとして使用
+        int_type = InferredType(TYPE_INT, "int");
+    }
     return TypedValue(node->int_value, int_type);
 }
 

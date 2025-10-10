@@ -141,11 +141,23 @@ TypedValue ExpressionEvaluator::evaluate_typed_expression(const ASTNode *node) {
                               InferredType(TYPE_QUAD, "quad"));
         }
 
-        // 通常の数値の場合
-        return TypedValue(
+        // 通常の数値の場合（ポインタを含む）
+        TypedValue tv(
             ret_ex.value,
             InferredType(ret_ex.type,
                          ExpressionHelpers::type_info_to_string(ret_ex.type)));
+
+        // ポインタの場合、const情報を保持する（Phase 2: v0.9.2）
+        if (ret_ex.type == TYPE_POINTER || ret_ex.is_pointer) {
+            tv.is_pointer = true;
+            tv.is_pointee_const = ret_ex.is_pointee_const;
+            tv.is_pointer_const = ret_ex.is_pointer_const;
+            tv.pointer_depth = ret_ex.pointer_depth;
+            tv.pointer_base_type = ret_ex.pointer_base_type;
+            tv.pointer_base_type_name = ret_ex.pointer_base_type_name;
+        }
+
+        return tv;
     }
 }
 
@@ -906,14 +918,19 @@ ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode *node) {
                             break;
                         }
                         case TYPE_LONG: {
+                            // 64ビット符号付き整数（そのまま使用）
+                            typed_value = raw_value;
+                            break;
+                        }
+                        case TYPE_INT: {
                             // 32ビット符号付き整数として解釈
-                            int32_t long_val =
+                            int32_t int_val =
                                 static_cast<int32_t>(raw_value & 0xFFFFFFFF);
-                            typed_value = static_cast<int64_t>(long_val);
+                            typed_value = static_cast<int64_t>(int_val);
                             break;
                         }
                         default:
-                            // INT, BIGはそのまま
+                            // BIGなどはそのまま
                             typed_value = raw_value;
                             break;
                         }

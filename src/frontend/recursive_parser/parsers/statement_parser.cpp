@@ -249,26 +249,22 @@ StatementParser::parseTypedefTypeStatement(const std::string &type_name,
     parser_->current_token_ = temp_current;
 
     if (is_function) {
-        // 関数定義
-        std::string return_type = parser_->advance().value; // 型名を取得
-
-        // 配列戻り値の場合: Person[2] function_name()
-        if (parser_->check(TokenType::TOK_LBRACKET)) {
-            return_type += parser_->advance().value; // '['
-            while (!parser_->check(TokenType::TOK_RBRACKET) &&
-                   !parser_->isAtEnd()) {
-                return_type += parser_->advance().value;
-            }
-            if (parser_->check(TokenType::TOK_RBRACKET)) {
-                return_type += parser_->advance().value; // ']'
-            }
-        }
+        // 関数定義 - parseType()を使ってconst修飾子を含む完全な型情報を取得
+        std::string return_type =
+            parser_->parseType(); // const修飾子を含む完全な型
+        ParsedTypeInfo return_type_info = parser_->getLastParsedTypeInfo();
 
         std::string function_name = parser_->advance().value;
         debug_msg(DebugMsgId::PARSE_FUNCTION_DECL_FOUND, function_name.c_str(),
                   return_type.c_str());
-        return parser_->parseFunctionDeclarationAfterName(return_type,
-                                                          function_name);
+        ASTNode *func_node = parser_->parseFunctionDeclarationAfterName(
+            return_type, function_name);
+        // 戻り値のconst情報を設定
+        if (func_node && return_type_info.is_pointer) {
+            func_node->is_pointee_const_qualifier =
+                return_type_info.is_pointee_const;
+        }
+        return func_node;
     } else if (is_struct_type) {
         ASTNode *node = parser_->parseVariableDeclaration();
         applyDeclarationModifiers(node, isConst, isStatic);
@@ -709,8 +705,18 @@ ASTNode *StatementParser::parseBasicTypeStatement(bool isStatic, bool isConst,
 
         if (parser_->check(TokenType::TOK_LPAREN)) {
             // これは関数定義
-            return parser_->parseFunctionDeclarationAfterName(type_name,
-                                                              name_token.value);
+            // constがポインタの指し先に適用される場合、戻り値型の名前に含める
+            std::string full_return_type = type_name;
+            if (isConst && pointer_depth > 0) {
+                full_return_type = "const " + full_return_type;
+            }
+            ASTNode *func_node = parser_->parseFunctionDeclarationAfterName(
+                full_return_type, name_token.value);
+            // 戻り値のconst情報を設定
+            if (func_node && isConst && pointer_depth > 0) {
+                func_node->is_pointee_const_qualifier = true;
+            }
+            return func_node;
         } else {
             // 変数宣言: type identifier [, identifier2, ...] [= expr];
             return parseVariableDeclarationList(

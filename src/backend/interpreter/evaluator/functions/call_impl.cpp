@@ -1814,22 +1814,27 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                         int arg_pointer_depth = 0;
                         TypeInfo arg_pointer_base_type = TYPE_UNKNOWN;
                         std::string arg_pointer_base_type_name;
-                        
+
                         if (param->is_pointer &&
                             (arg->node_type == ASTNodeType::AST_VARIABLE ||
                              arg->node_type == ASTNodeType::AST_IDENTIFIER)) {
                             // 引数変数のconst情報を取得（関数スコープ作成前に）
-                            Variable *arg_var = interpreter_.find_variable(arg->name);
+                            Variable *arg_var =
+                                interpreter_.find_variable(arg->name);
                             if (arg_var && arg_var->is_pointer) {
                                 arg_is_pointer = true;
-                                arg_is_pointee_const = arg_var->is_pointee_const;
-                                arg_is_pointer_const = arg_var->is_pointer_const;
+                                arg_is_pointee_const =
+                                    arg_var->is_pointee_const;
+                                arg_is_pointer_const =
+                                    arg_var->is_pointer_const;
                                 arg_pointer_depth = arg_var->pointer_depth;
-                                arg_pointer_base_type = arg_var->pointer_base_type;
-                                arg_pointer_base_type_name = arg_var->pointer_base_type_name;
+                                arg_pointer_base_type =
+                                    arg_var->pointer_base_type;
+                                arg_pointer_base_type_name =
+                                    arg_var->pointer_base_type_name;
                             }
                         }
-                        
+
                         TypedValue arg_value =
                             evaluate_typed_expression(arg.get());
                         interpreter_.assign_function_parameter(
@@ -1849,43 +1854,57 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                         if (param->is_pointer && arg_is_pointer) {
                             // 型安全性チェック: const → non-const は禁止
                             // const T* → T* への変換をチェック
-                            if (arg_is_pointee_const && 
+                            if (arg_is_pointee_const &&
                                 !param->is_pointee_const_qualifier) {
                                 throw std::runtime_error(
-                                    "Type mismatch in function call to '" + 
+                                    "Type mismatch in function call to '" +
                                     node->name + "':\n" +
                                     "  Cannot pass pointer to const (" +
-                                    (arg_pointer_base_type_name.empty() 
-                                        ? "const T*" 
-                                        : "const " + arg_pointer_base_type_name + "*") +
-                                    ") to parameter of type pointer to non-const (" +
-                                    (param->type_name.empty() ? "T*" : param->type_name) + ")\n" +
-                                    "  Cannot discard const qualifier from pointed-to type");
+                                    (arg_pointer_base_type_name.empty()
+                                         ? "const T*"
+                                         : "const " +
+                                               arg_pointer_base_type_name +
+                                               "*") +
+                                    ") to parameter of type pointer to "
+                                    "non-const (" +
+                                    (param->type_name.empty()
+                                         ? "T*"
+                                         : param->type_name) +
+                                    ")\n" +
+                                    "  Cannot discard const qualifier from "
+                                    "pointed-to type");
                             }
-                            
+
                             // T* const → T* への変換をチェック
-                            if (arg_is_pointer_const && 
+                            if (arg_is_pointer_const &&
                                 !param->is_pointer_const_qualifier) {
                                 throw std::runtime_error(
-                                    "Type mismatch in function call to '" + 
+                                    "Type mismatch in function call to '" +
                                     node->name + "':\n" +
                                     "  Cannot pass const pointer (" +
-                                    (arg_pointer_base_type_name.empty() 
-                                        ? "T* const" 
-                                        : arg_pointer_base_type_name + "* const") +
-                                    ") to parameter of type non-const pointer\n" +
-                                    "  Cannot discard const qualifier from pointer itself");
+                                    (arg_pointer_base_type_name.empty()
+                                         ? "T* const"
+                                         : arg_pointer_base_type_name +
+                                               "* const") +
+                                    ") to parameter of type non-const "
+                                    "pointer\n" +
+                                    "  Cannot discard const qualifier from "
+                                    "pointer itself");
                             }
-                            
+
                             Variable *param_var =
                                 interpreter_.find_variable(param->name);
                             if (param_var) {
                                 // const情報を伝播
-                                param_var->is_pointee_const = arg_is_pointee_const;
-                                param_var->is_pointer_const = arg_is_pointer_const;
+                                param_var->is_pointee_const =
+                                    arg_is_pointee_const;
+                                param_var->is_pointer_const =
+                                    arg_is_pointer_const;
                                 param_var->pointer_depth = arg_pointer_depth;
-                                param_var->pointer_base_type = arg_pointer_base_type;
-                                param_var->pointer_base_type_name = arg_pointer_base_type_name;
+                                param_var->pointer_base_type =
+                                    arg_pointer_base_type;
+                                param_var->pointer_base_type_name =
+                                    arg_pointer_base_type_name;
                                 param_var->is_pointer = true;
                             }
                         }

@@ -281,8 +281,8 @@ class ReturnException {
 
     // ポインタ戻り値のconst情報サポート (v0.9.2)
     bool is_pointer = false;
-    bool is_pointee_const = false;  // const T*
-    bool is_pointer_const = false;  // T* const
+    bool is_pointee_const = false; // const T*
+    bool is_pointer_const = false; // T* const
     int pointer_depth = 0;
     TypeInfo pointer_base_type = TYPE_UNKNOWN;
     std::string pointer_base_type_name;

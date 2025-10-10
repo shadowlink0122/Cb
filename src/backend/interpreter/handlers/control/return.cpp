@@ -217,6 +217,7 @@ void ReturnHandler::handle_identifier_return(const ASTNode *node) {
             } else if (var->type == TYPE_STRING) {
                 throw ReturnException(var->str_value);
             } else if (var->type == TYPE_POINTER) {
+                // ポインタ戻り値の場合、const情報を保持する（Phase 2: v0.9.2）
                 ReturnException ret(var->value);
                 ret.type = TYPE_POINTER;
                 ret.is_pointer = true;
@@ -291,6 +292,7 @@ void ReturnHandler::handle_variable_return(const ASTNode *node) {
                        (var->is_assigned && !var->str_value.empty()))) {
         throw ReturnException(var->str_value);
     } else if (var && var->type == TYPE_POINTER) {
+        // ポインタ戻り値の場合、const情報を保持する（Phase 2: v0.9.2）
         ReturnException ret(var->value);
         ret.type = TYPE_POINTER;
         ret.is_pointer = true;

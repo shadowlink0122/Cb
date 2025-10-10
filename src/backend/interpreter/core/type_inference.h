@@ -64,8 +64,8 @@ struct TypedValue {
 
     // ポインタのconst情報フィールド (v0.9.2)
     bool is_pointer;
-    bool is_pointee_const;  // const T*
-    bool is_pointer_const;  // T* const
+    bool is_pointee_const; // const T*
+    bool is_pointer_const; // T* const
     int pointer_depth;
     TypeInfo pointer_base_type;
     std::string pointer_base_type_name;
