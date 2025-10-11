@@ -67,7 +67,7 @@ make unit-test
 
 **ステータス**: ✅ 実装完了 - 全テストパス
 
-#### 2.3 コピーコンストラクタ (実装待ち)
+#### 2.3 コピーコンストラクタ ✅ **完了**
 
 **場所**: `tests/cases/constructor/copy_constructor_test.cb`
 
@@ -76,18 +76,28 @@ make unit-test
 - ディープコピーの検証
 - 独立性の確認
 
-**テスト要件**:
-1. ✅ パーサー対応済み
-2. ⏳ インタープリタ実装待ち
-   - 構文: `Point p2 = p1;`
-   - const参照の処理
+**実装内容**:
+1. ✅ 代入初期化の検出: `Point p2 = p1;`
+2. ✅ const参照パラメータの認識
+3. ✅ コピーコンストラクタの自動呼び出し
+4. ✅ メンバーワイズコピーのフォールバック
 
-**実装必要項目**:
-- 代入によるコピー検出
-- const参照パラメータの処理
-- コピーコンストラクタの自動呼び出し
+**テスト結果**:
+```
+=== Copy Constructor Test ===
+Test 1: Basic copy construction
+Point copy constructor: copying ( 10 ,  20 )
+  [PASS] Values copied correctly
 
-**ステータス**: ⏳ 実装待ち
+Test 2: Independence after copy
+  [PASS] Original unchanged (deep copy)
+
+Test 3: Copy construction with complex type
+String copy constructor: copying string (len= 10 , cap= 32 )
+  [PASS] Deep copy successful
+```
+
+**ステータス**: ✅ 完了
 
 #### 2.4 ムーブコンストラクタ (実装待ち)
 
@@ -127,38 +137,43 @@ make unit-test
    - 自動呼び出し: ✅ 完了
    - テスト: ✅ 全て成功
 
-2. **引数付きコンストラクタ** ✨ **NEW**
+2. **引数付きコンストラクタ** ✅ **完了**
    - パーサー: ✅ 完了 - `Point p(10, 20);` 構文サポート
    - インタープリタ: ✅ 完了 - 引数評価と受け渡し
    - オーバーロード解決: ✅ 完了 - パラメータ数ベース
+   - デフォルト引数: ✅ 完了 - 既存のデフォルト引数機能を活用
    - テスト: ✅ 全て成功
 
-3. **コンストラクタ内での`self`アクセス**
+3. **コピーコンストラクタ** ✅ **完了** (2025/10/11)
+   - 代入初期化の検出: ✅ 完了 - `Point p2 = p1;` サポート
+   - const参照の処理: ✅ 完了 - `self(const T& other)` 認識
+   - 自動呼び出し: ✅ 完了 - 構造体間代入で自動実行
+   - メンバーワイズコピー: ✅ 完了 - フォールバック機能
+   - テスト: ✅ 全て成功
+
+4. **コンストラクタ内での`self`アクセス**
    - `self.member = value`: ✅ 動作
    - メンバー初期化: ✅ 動作
 
-4. **ドキュメント**
+5. **ドキュメント**
    - spec.md: ✅ コンストラクタ/デストラクタセクション追加
    - ムーブセマンティクス（`&&`）: ✅ 仕様更新
 
 ### 実装待ち ⏳
 
-1. **デフォルト引数付きコンストラクタ**
-   - デフォルト引数の処理
-   - 部分的な引数指定
-
-2. **コピーコンストラクタ**
-   - 代入検出
-   - const参照の処理
-   - 自動呼び出し
-
-3. **ムーブコンストラクタ**
+1. **ムーブコンストラクタ**
    - `&&`（右辺値参照）の実装
    - `move()`関数
    - 所有権移動
    - const制約
 
-4. **デストラクタ**
+2. **ムーブコンストラクタ**
+   - `&&`（右辺値参照）の実装
+   - `move()`関数
+   - 所有権移動
+   - const制約
+
+3. **デストラクタ**
    - スコープ終了時の自動呼び出し
    - 逆順実行
 
@@ -176,10 +191,10 @@ make unit-test
 
 ### 特定の統合テスト
 ```bash
-./main tests/cases/constructor/default_constructor_test.cb
-./main tests/cases/constructor/parameterized_constructor_test.cb  # 実装後
-./main tests/cases/constructor/copy_constructor_test.cb          # 実装後
-./main tests/cases/constructor/move_constructor_test.cb          # 実装後
+./main tests/cases/constructor/default_constructor_test.cb        # ✅ 動作
+./main tests/cases/constructor/parameterized_constructor_test.cb  # ✅ 動作
+./main tests/cases/constructor/copy_constructor_test.cb           # ✅ 動作
+./main tests/cases/constructor/move_constructor_test.cb           # ⏳ 実装待ち
 ```
 
 ## 次のステップ

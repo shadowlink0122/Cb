@@ -12,8 +12,9 @@ void ReturnHandler::execute_return_statement(const ASTNode *node) {
     debug_msg(DebugMsgId::INTERPRETER_RETURN_STMT);
 
     if (!node->left) {
-        // return値なし
-        return;
+        // return値なし（void関数のreturn）
+        // ReturnExceptionを投げて関数から抜ける
+        throw ReturnException(static_cast<int64_t>(0)); // voidの場合は0を返す
     }
 
     debug_msg(DebugMsgId::INTERPRETER_RETURN_STMT);

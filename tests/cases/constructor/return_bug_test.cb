@@ -1,0 +1,28 @@
+// return文のバグをテストする簡単なケース
+
+void test_simple_return() {
+    println("Before if");
+    if (true) {
+        println("Inside if, before return");
+        return;
+    }
+    println("[ERROR] After return - should not print");
+}
+
+void test_with_variable() {
+    println("Test with variable");
+    int x = 1;
+    if (x == 1) {
+        println("x is 1, returning");
+        return;
+    }
+    println("[ERROR] After return - should not print");
+}
+
+void main() {
+    println("=== Return Bug Test ===");
+    test_simple_return();
+    println("");
+    test_with_variable();
+    println("=== Test Completed ===");
+}

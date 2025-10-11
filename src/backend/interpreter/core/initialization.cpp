@@ -127,6 +127,10 @@ Interpreter::Interpreter(bool debug)
     // ネストされた関数呼び出しに備えて容量を予約（再割り当てを防ぐ）
     scope_stack.reserve(64);
     scope_stack.push_back(global_scope);
+
+    // v0.10.0: デストラクタスタックをグローバルスコープ用に初期化
+    destructor_stacks_.push_back(
+        std::vector<std::pair<std::string, std::string>>());
 }
 
 // ========================================================================

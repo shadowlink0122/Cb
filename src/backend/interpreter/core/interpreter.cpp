@@ -1969,6 +1969,149 @@ void Interpreter::call_constructor(const std::string &var_name,
     pop_scope(); // コンストラクタスコープを終了
 }
 
+void Interpreter::call_copy_constructor(const std::string &var_name,
+                                        const std::string &struct_type_name,
+                                        const std::string &source_var_name) {
+    // コピーコンストラクタを探す（パラメータが1つでconst参照型）
+    auto it = struct_constructors_.find(struct_type_name);
+    if (it == struct_constructors_.end() || it->second.empty()) {
+        if (debug_mode) {
+            debug_print("No constructor defined for struct: %s, using "
+                        "memberwise copy\n",
+                        struct_type_name.c_str());
+        }
+        // コピーコンストラクタがない場合は、メンバーワイズコピーを実行
+        Variable *dest_var = find_variable(var_name);
+        Variable *source_var = find_variable(source_var_name);
+        if (dest_var && source_var) {
+            dest_var->struct_members = source_var->struct_members;
+            // 個別変数も更新
+            for (const auto &[member_name, member_value] :
+                 source_var->struct_members) {
+                std::string dest_member_path = var_name + "." + member_name;
+                std::string source_member_path =
+                    source_var_name + "." + member_name;
+                Variable *dest_member = find_variable(dest_member_path);
+                Variable *source_member = find_variable(source_member_path);
+                if (dest_member && source_member) {
+                    *dest_member = *source_member;
+                }
+            }
+        }
+        return;
+    }
+
+    // const T& 型のパラメータを持つコンストラクタを探す
+    const ASTNode *copy_ctor = nullptr;
+    for (const auto *ctor : it->second) {
+        if (ctor->parameters.size() == 1) {
+            const auto &param = ctor->parameters[0];
+            // const参照型で、型名が一致するかチェック
+            if (param->is_reference && param->is_const) {
+                // 型名をチェック（基底型名と一致するか）
+                std::string param_type = param->type_name;
+                // "const Type&" から "Type" を抽出
+                size_t const_pos = param_type.find("const");
+                size_t ref_pos = param_type.find("&");
+                if (const_pos != std::string::npos) {
+                    param_type =
+                        param_type.substr(const_pos + 5); // "const " をスキップ
+                }
+                if (ref_pos != std::string::npos) {
+                    param_type = param_type.substr(0, param_type.find("&"));
+                }
+                // 空白を削除
+                param_type.erase(std::remove_if(param_type.begin(),
+                                                param_type.end(), ::isspace),
+                                 param_type.end());
+
+                if (param_type == struct_type_name) {
+                    copy_ctor = ctor;
+                    break;
+                }
+            }
+        }
+    }
+
+    if (!copy_ctor) {
+        // コピーコンストラクタが見つからない場合は、メンバーワイズコピー
+        if (debug_mode) {
+            debug_print("No copy constructor found for struct: %s, using "
+                        "memberwise copy\n",
+                        struct_type_name.c_str());
+        }
+        Variable *dest_var = find_variable(var_name);
+        Variable *source_var = find_variable(source_var_name);
+        if (dest_var && source_var) {
+            dest_var->struct_members = source_var->struct_members;
+            // 個別変数も更新
+            for (const auto &[member_name, member_value] :
+                 source_var->struct_members) {
+                std::string dest_member_path = var_name + "." + member_name;
+                std::string source_member_path =
+                    source_var_name + "." + member_name;
+                Variable *dest_member = find_variable(dest_member_path);
+                Variable *source_member = find_variable(source_member_path);
+                if (dest_member && source_member) {
+                    *dest_member = *source_member;
+                }
+            }
+        }
+        return;
+    }
+
+    if (debug_mode) {
+        debug_print("Calling copy constructor for %s from %s\n",
+                    var_name.c_str(), source_var_name.c_str());
+    }
+
+    // 構造体変数を取得
+    Variable *dest_var = find_variable(var_name);
+    Variable *source_var = find_variable(source_var_name);
+    if (!dest_var || !source_var) {
+        throw std::runtime_error("Variable not found in copy constructor");
+    }
+
+    // コピーコンストラクタ用の新しいスコープを作成
+    push_scope();
+
+    // selfを現在の変数のコピーとして設定
+    Variable self_var = *dest_var;
+    current_scope().variables["self"] = self_var;
+
+    // パラメータ（ソース変数への参照）を設定
+    const auto &param = copy_ctor->parameters[0];
+    current_scope().variables[param->name] = *source_var;
+
+    if (debug_mode) {
+        debug_print("  Copy parameter %s set to source variable\n",
+                    param->name.c_str());
+    }
+
+    // コピーコンストラクタ本体を実行
+    if (copy_ctor->body) {
+        execute_statement(copy_ctor->body.get());
+    }
+
+    // selfへの変更を元の変数に反映
+    Variable *self = find_variable("self");
+    if (self && dest_var) {
+        // selfのstruct_membersを元の変数にコピー
+        dest_var->struct_members = self->struct_members;
+
+        // メンバー変数の直接アクセス用変数も更新
+        for (const auto &[member_name, member_value] : self->struct_members) {
+            std::string member_path = var_name + "." + member_name;
+            Variable *direct_member = find_variable(member_path);
+            if (direct_member) {
+                *direct_member = member_value;
+            }
+        }
+    }
+
+    pop_scope(); // コピーコンストラクタスコープを終了
+}
+
 void Interpreter::call_destructor(const std::string &var_name,
                                   const std::string &struct_type_name) {
     // デストラクタを探す
@@ -1989,6 +2132,10 @@ void Interpreter::call_destructor(const std::string &var_name,
                     var_name.c_str());
     }
 
+    // v0.10.0: デストラクタ呼び出し中フラグを設定（無限再帰防止）
+    bool prev_flag = is_calling_destructor_;
+    is_calling_destructor_ = true;
+
     // デストラクタ本体を実行
     push_scope(); // デストラクタ用の新しいスコープ
 
@@ -2005,6 +2152,74 @@ void Interpreter::call_destructor(const std::string &var_name,
     }
 
     pop_scope(); // デストラクタスコープを終了
+
+    // フラグを元に戻す
+    is_calling_destructor_ = prev_flag;
+}
+
+void Interpreter::register_destructor_call(
+    const std::string &var_name, const std::string &struct_type_name) {
+    if (destructor_stacks_.empty()) {
+        if (debug_mode) {
+            debug_print("WARNING: destructor_stacks_ is empty when registering "
+                        "%s, ignoring\n",
+                        var_name.c_str());
+        }
+        // スタックが空の場合は登録しない（グローバル変数など）
+        return;
+    }
+
+    // v0.10.0: ネストした構造体の値メンバーのデストラクタを再帰的に登録
+    // まず構造体定義を取得
+    std::string resolved_type =
+        type_manager_->resolve_typedef(struct_type_name);
+    const StructDefinition *struct_def = find_struct_definition(resolved_type);
+
+    if (struct_def) {
+        // 構造体の各メンバーをチェック
+        for (const auto &member : struct_def->members) {
+            // 値メンバー（ポインタでも参照でもない）で構造体型の場合
+            if (member.type == TYPE_STRUCT && !member.is_pointer &&
+                !member.is_reference && !member.type_alias.empty()) {
+                // メンバーの完全な変数名
+                std::string member_var_name = var_name + "." + member.name;
+
+                // メンバーの型名を解決
+                std::string member_type =
+                    type_manager_->resolve_typedef(member.type_alias);
+
+                // デストラクタが定義されているかチェック
+                // find_impl_for_structの第2引数は空文字列（デストラクタはimpl
+                // Structブロックにある）
+                const ImplDefinition *impl_def =
+                    interface_operations_->find_impl_for_struct(member_type,
+                                                                "");
+
+                if (impl_def && impl_def->destructor) {
+                    // 再帰的に登録（メンバーの値メンバーも処理される）
+                    register_destructor_call(member_var_name, member_type);
+
+                    if (debug_mode) {
+                        debug_print("  Registered nested value member for "
+                                    "destruction: %s (type: %s)\n",
+                                    member_var_name.c_str(),
+                                    member_type.c_str());
+                    }
+                }
+            }
+        }
+    }
+
+    // 最後に自分自身を登録（これにより、メンバーが先に破壊される）
+    destructor_stacks_.back().push_back(
+        std::make_pair(var_name, struct_type_name));
+
+    if (debug_mode) {
+        debug_print(
+            "Registered for destruction: %s (type: %s), stack depth: %zu\n",
+            var_name.c_str(), struct_type_name.c_str(),
+            destructor_stacks_.size());
+    }
 }
 
 // ========================================================================

@@ -23,6 +23,7 @@
 #include "const_pointer_safety/const_pointer_safety_tests.hpp"
 #include "const_variables/test_const_variables.hpp"
 #include "constructor/test_constructor.hpp"
+#include "constructor/test_destructor.hpp"
 #include "cross_type/test_cross_type.hpp"
 #include "default_args/test_default_args.hpp"
 #include "default_member/test_default_member.hpp"
@@ -277,8 +278,10 @@ int main() {
                            failed_tests);
     run_test_with_continue(NestedStructInitTests::run_all_tests,
                            "Nested Struct Init Tests", failed_tests);
-    run_test_with_continue(run_all_constructor_tests,
-                           "Constructor/Destructor Tests", failed_tests);
+    run_test_with_continue(run_all_constructor_tests, "Constructor Tests",
+                           failed_tests);
+    run_test_with_continue(run_all_destructor_tests, "Destructor Tests",
+                           failed_tests);
     run_test_with_continue(InterfaceTests::run_all_interface_tests,
                            "Interface Tests", failed_tests);
     run_test_with_continue(test_interface_type_inference_chain,
