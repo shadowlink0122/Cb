@@ -825,8 +825,9 @@ struct ASTNode {
     int pointer_depth = 0;              // ポインタの深さ
     std::string pointer_base_type_name; // ポインタ基底型名
     TypeInfo pointer_base_type = TYPE_UNKNOWN; // ポインタ基底型
-    bool is_reference = false;                 // 参照型フラグ
-    bool is_unsigned = false;                  // unsigned修飾子
+    bool is_reference = false; // 参照型フラグ（左辺値参照 T&）
+    bool is_rvalue_reference = false; // 右辺値参照フラグ（T&&）v0.10.0
+    bool is_unsigned = false;         // unsigned修飾子
     bool is_function_address = false;  // 関数アドレス(&関数)フラグ
     std::string function_address_name; // 関数アドレスの関数名
 

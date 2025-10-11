@@ -55,10 +55,12 @@ struct Variable {
     TypeInfo pointer_base_type;         // ポインタ基底型
     bool is_pointer_const = false;      // ポインタ自体がconst (T* const)
     bool is_pointee_const = false;      // ポイント先がconst (const T*)
-    bool is_reference = false;          // 参照型かどうか
-    bool is_unsigned = false;           // unsigned修飾子かどうか
-    std::string struct_type_name;       // struct型名
-    bool is_private_member = false;     // struct privateメンバーフラグ
+    bool is_reference = false;          // 参照型かどうか (T&)
+    bool is_rvalue_reference = false; // 右辺値参照かどうか (T&&) v0.10.0
+    std::string reference_target;     // 参照している変数名 v0.10.0
+    bool is_unsigned = false;         // unsigned修飾子かどうか
+    std::string struct_type_name;     // struct型名
+    bool is_private_member = false;   // struct privateメンバーフラグ
 
     // union型用
     std::string type_name; // union型名（union型の場合）
@@ -272,6 +274,7 @@ class ReturnException {
 
     // 参照戻り値サポート
     bool is_reference = false;
+    bool is_rvalue_reference = false;     // v0.10.0: 右辺値参照
     Variable *reference_target = nullptr; // 参照先の変数へのポインタ
 
     // 関数ポインタ戻り値サポート

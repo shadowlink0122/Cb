@@ -1,0 +1,20 @@
+// Test: T&& syntax parsing
+// Status: ✅ PASS (v0.10.0)
+// Description: T&& 構文が正しくパースされることを確認
+
+struct Point {
+    int x;
+    int y;
+};
+
+int main() {
+    Point p1;
+    p1.x = 10;
+    p1.y = 20;
+    
+    // T&& 構文（パースのみ成功）
+    Point&& ref = p1;
+    
+    println("Syntax parse test: PASS");
+    return 0;
+}
