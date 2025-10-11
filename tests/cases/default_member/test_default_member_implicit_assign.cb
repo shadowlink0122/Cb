@@ -1,0 +1,14 @@
+// デフォルトメンバーへの暗黙的代入のテスト
+
+struct String {
+    default string value;
+};
+
+void main() {
+    String s = {"Hello"};
+    println(s.value);  // Hello
+    
+    // 暗黙的代入: s.value = "World" として解釈されるべき
+    s = "World";
+    println(s.value);  // World
+}

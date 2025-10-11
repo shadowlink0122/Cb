@@ -427,6 +427,7 @@ TokenType RecursiveLexer::getKeywordType(const std::string &text) {
         {"unsigned", TokenType::TOK_UNSIGNED},
         {"assert", TokenType::TOK_ASSERT},
         {"defer", TokenType::TOK_DEFER},
+        {"default", TokenType::TOK_DEFAULT},
         {"switch", TokenType::TOK_SWITCH},
         {"case", TokenType::TOK_CASE}};
 

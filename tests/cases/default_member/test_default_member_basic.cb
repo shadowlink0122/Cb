@@ -1,0 +1,16 @@
+// 基本的なデフォルトメンバーのテスト
+
+struct String {
+    default string value;
+};
+
+void main() {
+    // 構造体リテラルで初期化
+    String s = {"Hello"};
+    
+    // 明示的なメンバーアクセス
+    println(s.value);  // Hello
+    
+    s.value = "World";
+    println(s.value);  // World
+}
