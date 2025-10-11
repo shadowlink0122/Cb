@@ -1,0 +1,42 @@
+// OR演算子を使ったswitch文のテスト
+void main() {
+    println("=== Switch OR Test ===");
+    
+    // テスト1: OR条件（||）
+    int x = 3;
+    switch (x) {
+        case (1 || 2 || 3) {
+            println("One, Two or Three");
+        } case (4 || 5) {
+            println("Four or Five");
+        } else {
+            println("Other");
+        }
+    }
+    
+    // テスト2: 別の値でOR条件
+    x = 5;
+    switch (x) {
+        case (1 || 2 || 3) {
+            println("One, Two or Three");
+        } case (4 || 5) {
+            println("Four or Five");
+        } else {
+            println("Other");
+        }
+    }
+    
+    // テスト3: どれにもマッチしない
+    x = 10;
+    switch (x) {
+        case (1 || 2 || 3) {
+            println("One, Two or Three");
+        } case (4 || 5) {
+            println("Four or Five");
+        } else {
+            println("Other");
+        }
+    }
+    
+    println("=== Test completed ===");
+}

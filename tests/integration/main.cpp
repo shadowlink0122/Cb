@@ -63,6 +63,7 @@
 #include "println/test_println.hpp"
 #include "reference/reference_tests.hpp"
 #include "sample_scenarios/test_sample_scenarios.hpp"
+#include "switch/test_switch.hpp"
 // #include "samples/test_actual_samples.hpp"
 #include "self_assign/test_self_assign.hpp"
 #include "static_variables/test_static_variables.hpp"
@@ -252,6 +253,8 @@ int main() {
     run_test_with_continue(test_integration_cross_type, "Cross Type Tests",
                            failed_tests);
     run_test_with_continue(test_integration_defer, "Defer Statement Tests",
+                           failed_tests);
+    run_test_with_continue(test_integration_switch, "Switch Statement Tests",
                            failed_tests);
     run_test_with_continue(test_integration_enum, "Enum Tests", failed_tests);
     run_test_with_continue(UnionTests::run_all_union_tests, "Union Type Tests",

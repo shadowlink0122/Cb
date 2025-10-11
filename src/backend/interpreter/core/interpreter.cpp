@@ -804,6 +804,10 @@ void Interpreter::execute_statement(const ASTNode *node) {
         control_flow_executor_->execute_for_statement(node);
         break;
 
+    case ASTNodeType::AST_SWITCH_STMT:
+        control_flow_executor_->execute_switch_statement(node);
+        break;
+
     // ========================================================================
     // assert文（ASSERT_STMT）
     // AssertionHandlerに委譲済み

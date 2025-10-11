@@ -698,7 +698,10 @@ enum class ASTNodeType {
     AST_BREAK_STMT,
     AST_CONTINUE_STMT,
     AST_RETURN_STMT,
-    AST_DEFER_STMT, // defer文
+    AST_DEFER_STMT,  // defer文
+    AST_SWITCH_STMT, // switch文
+    AST_CASE_CLAUSE, // case節
+    AST_RANGE_EXPR,  // 範囲式 (start...end)
 
     // 宣言
     AST_VAR_DECL,
@@ -899,6 +902,19 @@ struct ASTNode {
     // constポインタ関連（v0.10.0新機能）
     bool is_pointer_const_qualifier = false; // ポインタ自体がconst (T* const)
     bool is_pointee_const_qualifier = false; // ポイント先がconst (const T*)
+
+    // switch文関連（v0.10.0新機能）
+    std::unique_ptr<ASTNode> switch_expr;        // switch対象の式
+    std::vector<std::unique_ptr<ASTNode>> cases; // case節のリスト
+    std::unique_ptr<ASTNode> else_body; // else節（defaultに相当）
+
+    // case節関連
+    std::vector<std::unique_ptr<ASTNode>> case_values; // case条件（OR結合用）
+    std::unique_ptr<ASTNode> case_body;                // caseの本体
+
+    // 範囲式関連
+    std::unique_ptr<ASTNode> range_start; // 範囲の開始値
+    std::unique_ptr<ASTNode> range_end;   // 範囲の終了値
 
     // コンストラクタ - 全フィールドの明示的初期化
     ASTNode(ASTNodeType type)

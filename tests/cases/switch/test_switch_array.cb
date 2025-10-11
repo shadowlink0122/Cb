@@ -1,0 +1,49 @@
+// 配列要素を使ったswitch文のテスト
+void main() {
+    println("=== Switch Array Element Test ===");
+    
+    // 配列の作成
+    int[5] scores = [95, 85, 75, 65, 55];
+    
+    // 各配列要素でswitch
+    for (int i = 0; i < 5; i++) {
+        println("Score at index:");
+        println(i);
+        
+        switch (scores[i]) {
+            case (90...100) {
+                println("Grade A");
+            } case (80...89) {
+                println("Grade B");
+            } case (70...79) {
+                println("Grade C");
+            } case (60...69) {
+                println("Grade D");
+            } else {
+                println("Grade F");
+            }
+        }
+    }
+    
+    // 多次元配列のテスト
+    println("Multidimensional array test:");
+    int[2][3] matrix = [[1, 5, 9], [15, 20, 25]];
+    
+    for (int i = 0; i < 2; i++) {
+        for (int j = 0; j < 3; j++) {
+            switch (matrix[i][j]) {
+                case (1...10) {
+                    println("Small");
+                } case (11...20) {
+                    println("Medium");
+                } case (21...30) {
+                    println("Large");
+                } else {
+                    println("Other");
+                }
+            }
+        }
+    }
+    
+    println("=== Test completed ===");
+}

@@ -1,0 +1,88 @@
+// 構造体メンバを使ったswitch文のテスト
+struct Student {
+    string name;
+    int score;
+    int age;
+};
+
+string evaluate_student(Student s) {
+    switch (s.score) {
+        case (90...100) {
+            return "Excellent";
+        } case (80...89) {
+            return "Good";
+        } case (70...79) {
+            return "Average";
+        } case (60...69) {
+            return "Below Average";
+        } else {
+            return "Fail";
+        }
+    }
+}
+
+string check_student_age(Student s) {
+    switch (s.age) {
+        case (15...17) {
+            return "High School";
+        } case (18...22) {
+            return "University";
+        } case (23...30) {
+            return "Graduate";
+        } else {
+            return "Other";
+        }
+    }
+}
+
+void main() {
+    println("=== Switch Struct Member Test ===");
+    
+    // 学生データの作成
+    Student alice;
+    alice.name = "Alice";
+    alice.score = 95;
+    alice.age = 20;
+    
+    Student bob;
+    bob.name = "Bob";
+    bob.score = 75;
+    bob.age = 18;
+    
+    Student charlie;
+    charlie.name = "Charlie";
+    charlie.score = 55;
+    charlie.age = 25;
+    
+    // スコアでの評価
+    println("Alice score evaluation:");
+    println(evaluate_student(alice));
+    
+    println("Bob score evaluation:");
+    println(evaluate_student(bob));
+    
+    println("Charlie score evaluation:");
+    println(evaluate_student(charlie));
+    
+    // 年齢でのチェック
+    println("Alice age check:");
+    println(check_student_age(alice));
+    
+    println("Bob age check:");
+    println(check_student_age(bob));
+    
+    println("Charlie age check:");
+    println(check_student_age(charlie));
+    
+    // 直接メンバアクセスでswitch
+    println("Direct member access:");
+    switch (alice.age) {
+        case (18...22) {
+            println("Alice is university age");
+        } else {
+            println("Alice is not university age");
+        }
+    }
+    
+    println("=== Test completed ===");
+}

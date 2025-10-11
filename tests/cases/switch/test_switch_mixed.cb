@@ -1,0 +1,62 @@
+// ORと範囲を組み合わせたswitch文のテスト
+void main() {
+    println("=== Switch Mixed Test ===");
+    
+    // テスト1: 単一値とOR条件の組み合わせ
+    int x = 1;
+    switch (x) {
+        case (1) {
+            println("One");
+        } case (2 || 3) {
+            println("Two or Three");
+        } case (10...20) {
+            println("Ten to Twenty");
+        } else {
+            println("Other");
+        }
+    }
+    
+    // テスト2: OR条件
+    x = 3;
+    switch (x) {
+        case (1) {
+            println("One");
+        } case (2 || 3) {
+            println("Two or Three");
+        } case (10...20) {
+            println("Ten to Twenty");
+        } else {
+            println("Other");
+        }
+    }
+    
+    // テスト3: 範囲
+    x = 15;
+    switch (x) {
+        case (1) {
+            println("One");
+        } case (2 || 3) {
+            println("Two or Three");
+        } case (10...20) {
+            println("Ten to Twenty");
+        } else {
+            println("Other");
+        }
+    }
+    
+    // テスト4: else節
+    x = 100;
+    switch (x) {
+        case (1) {
+            println("One");
+        } case (2 || 3) {
+            println("Two or Three");
+        } case (10...20) {
+            println("Ten to Twenty");
+        } else {
+            println("Other");
+        }
+    }
+    
+    println("=== Test completed ===");
+}

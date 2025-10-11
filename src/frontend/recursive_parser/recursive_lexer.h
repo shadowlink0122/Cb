@@ -110,6 +110,9 @@ enum class TokenType {
     TOK_UNSIGNED,
     TOK_ASSERT,
     TOK_DEFER,
+    TOK_SWITCH,
+    TOK_CASE,
+    TOK_RANGE, // ... (range operator)
 
     // Special
     TOK_EOF,

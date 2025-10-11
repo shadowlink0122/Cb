@@ -158,6 +158,9 @@ ASTNode *StatementParser::parseControlFlowStatement() {
     if (parser_->check(TokenType::TOK_DEFER)) {
         return parseDeferStatement();
     }
+    if (parser_->check(TokenType::TOK_SWITCH)) {
+        return parseSwitchStatement();
+    }
     if (parser_->check(TokenType::TOK_IF)) {
         return parseIfStatement();
     }
@@ -1431,4 +1434,118 @@ ASTNode *StatementParser::parsePrintStatement() {
     parser_->consume(TokenType::TOK_SEMICOLON,
                      "Expected ';' after print statement");
     return print_node;
+}
+
+/**
+ * @brief switch文を解析
+ * @return 解析されたASTswitch文ノード
+ *
+ * 構文:
+ * switch (expr) {
+ *     case (value1) { stmt1; }
+ *     case (value2 || value3) { stmt2; }
+ *     case (10...20) { stmt3; }
+ *     else { stmt4; }
+ * }
+ */
+ASTNode *StatementParser::parseSwitchStatement() {
+    Token switch_token = parser_->advance(); // consume 'switch'
+    ASTNode *switch_node = new ASTNode(ASTNodeType::AST_SWITCH_STMT);
+    switch_node->location.line = switch_token.line;
+    switch_node->location.column = switch_token.column;
+
+    // switch対象の式を解析
+    parser_->consume(TokenType::TOK_LPAREN, "Expected '(' after switch");
+    switch_node->switch_expr =
+        std::unique_ptr<ASTNode>(parser_->parseExpression());
+    parser_->consume(TokenType::TOK_RPAREN,
+                     "Expected ')' after switch expression");
+
+    // switch本体（case節のリスト）
+    parser_->consume(TokenType::TOK_LBRACE,
+                     "Expected '{' after switch expression");
+
+    // case節を解析
+    while (!parser_->check(TokenType::TOK_RBRACE) && !parser_->isAtEnd()) {
+        if (parser_->check(TokenType::TOK_CASE)) {
+            switch_node->cases.push_back(
+                std::unique_ptr<ASTNode>(parseCaseClause()));
+        } else if (parser_->check(TokenType::TOK_ELSE)) {
+            // else節（default相当）
+            parser_->advance(); // consume 'else'
+            if (!parser_->check(TokenType::TOK_LBRACE)) {
+                parser_->error("Expected '{' after else in switch");
+                break;
+            }
+            switch_node->else_body =
+                std::unique_ptr<ASTNode>(parseCompoundStatement());
+            break; // elseは最後なので終了
+        } else {
+            parser_->error("Expected 'case' or 'else' in switch body");
+            break;
+        }
+    }
+
+    parser_->consume(TokenType::TOK_RBRACE, "Expected '}' after switch body");
+    return switch_node;
+}
+
+/**
+ * @brief case節を解析
+ * @return 解析されたASTcase節ノード
+ *
+ * 構文:
+ * case (value) { body }
+ * case (value1 || value2) { body }
+ * case (start...end) { body }
+ */
+ASTNode *StatementParser::parseCaseClause() {
+    Token case_token = parser_->advance(); // consume 'case'
+    ASTNode *case_node = new ASTNode(ASTNodeType::AST_CASE_CLAUSE);
+    case_node->location.line = case_token.line;
+    case_node->location.column = case_token.column;
+
+    // case条件を解析
+    parser_->consume(TokenType::TOK_LPAREN, "Expected '(' after case");
+
+    // OR結合された値または範囲式を解析
+    do {
+        ASTNode *value = parseCaseValue();
+        case_node->case_values.push_back(std::unique_ptr<ASTNode>(value));
+    } while (parser_->match(TokenType::TOK_OR)); // || で結合
+
+    parser_->consume(TokenType::TOK_RPAREN, "Expected ')' after case value");
+
+    // case本体を解析（parseCompoundStatementが{を消費するので、ここでは消費しない）
+    if (!parser_->check(TokenType::TOK_LBRACE)) {
+        parser_->error("Expected '{' after case condition");
+        return case_node;
+    }
+    case_node->case_body = std::unique_ptr<ASTNode>(parseCompoundStatement());
+
+    return case_node;
+}
+
+/**
+ * @brief case値（範囲式を含む）を解析
+ * @return 解析されたAST値ノードまたは範囲式ノード
+ *
+ * Note: parseComparison()を使用することで、論理OR演算子(||)を
+ *       case値の区切りとして使用できるようにしています
+ */
+ASTNode *StatementParser::parseCaseValue() {
+    ASTNode *start = parser_->parseComparison();
+
+    // 範囲演算子（...）をチェック
+    if (parser_->check(TokenType::TOK_RANGE)) {
+        parser_->advance(); // consume '...'
+        ASTNode *end = parser_->parseComparison();
+
+        ASTNode *range_node = new ASTNode(ASTNodeType::AST_RANGE_EXPR);
+        range_node->range_start = std::unique_ptr<ASTNode>(start);
+        range_node->range_end = std::unique_ptr<ASTNode>(end);
+        return range_node;
+    }
+
+    return start;
 }
