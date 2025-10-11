@@ -916,6 +916,12 @@ struct ASTNode {
     std::unique_ptr<ASTNode> range_start; // 範囲の開始値
     std::unique_ptr<ASTNode> range_end;   // 範囲の終了値
 
+    // デフォルト引数関連（v0.10.0新機能）
+    std::unique_ptr<ASTNode> default_value; // パラメータのデフォルト値
+    bool has_default_value = false;         // デフォルト値があるか
+    int first_default_param_index =
+        -1; // 最初のデフォルト引数のインデックス（関数ノード用）
+
     // コンストラクタ - 全フィールドの明示的初期化
     ASTNode(ASTNodeType type)
         : node_type(type), type_info(TYPE_INT), is_const(false),

@@ -23,6 +23,7 @@
 #include "const_pointer_safety/const_pointer_safety_tests.hpp"
 #include "const_variables/test_const_variables.hpp"
 #include "cross_type/test_cross_type.hpp"
+#include "default_args/test_default_args.hpp"
 #include "defer/test_defer.hpp"
 #include "dynamic_array_error/test_dynamic_array_error.hpp"
 #include "enum/test_enum.hpp"
@@ -254,6 +255,8 @@ int main() {
                            failed_tests);
     run_test_with_continue(test_integration_defer, "Defer Statement Tests",
                            failed_tests);
+    run_test_with_continue(test_integration_default_args,
+                           "Default Arguments Tests", failed_tests);
     run_test_with_continue(test_integration_switch, "Switch Statement Tests",
                            failed_tests);
     run_test_with_continue(test_integration_enum, "Enum Tests", failed_tests);
