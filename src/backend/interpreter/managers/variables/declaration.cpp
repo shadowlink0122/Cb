@@ -1823,7 +1823,14 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
 
     current_scope().variables[node->name] = var;
     // std::cerr << "DEBUG: Variable created: " << node->name << ",
-    // is_array=" << var.is_array << std::endl;
+    // is_array=" << var.is_assigned << std::endl;
+
+    // v0.10.0: 構造体変数のデフォルトコンストラクタを自動呼び出し
+    if (var.is_struct && !var.struct_type_name.empty()) {
+        std::string resolved_type =
+            interpreter_->type_manager_->resolve_typedef(var.struct_type_name);
+        interpreter_->call_default_constructor(node->name, resolved_type);
+    }
 }
 
 // ============================================================================

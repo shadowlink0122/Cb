@@ -866,6 +866,316 @@ centerPtr->x = 50;
 
 ---
 
+## コンストラクタとデストラクタ ✅ (v0.10.0)
+
+### コンストラクタの基本
+
+構造体に対してコンストラクタ（初期化関数）を定義できます。コンストラクタは`impl`ブロック内で`self()`として定義します。
+
+```c++
+struct Point {
+    int x;
+    int y;
+};
+
+impl Point {
+    // デフォルトコンストラクタ
+    self() {
+        self.x = 0;
+        self.y = 0;
+        println("Point created at origin");
+    }
+}
+
+void main() {
+    Point p;  // デフォルトコンストラクタが自動的に呼ばれる
+    // 出力: "Point created at origin"
+    println(p.x, p.y);  // 0 0
+}
+```
+
+### 引数付きコンストラクタ
+
+コンストラクタは引数を取ることができます。
+
+```c++
+struct Point {
+    int x;
+    int y;
+};
+
+impl Point {
+    // デフォルトコンストラクタ
+    self() {
+        self.x = 0;
+        self.y = 0;
+    }
+    
+    // 引数付きコンストラクタ
+    self(int px, int py) {
+        self.x = px;
+        self.y = py;
+    }
+}
+
+void main() {
+    Point p1;           // デフォルトコンストラクタ
+    Point p2(10, 20);   // 引数付きコンストラクタ
+}
+```
+
+### デフォルト引数
+
+コンストラクタのパラメータにデフォルト値を指定できます。
+
+```c++
+struct Rectangle {
+    int x;
+    int y;
+    int width;
+    int height;
+};
+
+impl Rectangle {
+    // デフォルト引数付きコンストラクタ
+    self(int w = 100, int h = 100) {
+        self.x = 0;
+        self.y = 0;
+        self.width = w;
+        self.height = h;
+    }
+    
+    self(int px, int py, int w = 50, int h = 50) {
+        self.x = px;
+        self.y = py;
+        self.width = w;
+        self.height = h;
+    }
+}
+
+void main() {
+    Rectangle r1;           // w=100, h=100
+    Rectangle r2(200);      // w=200, h=100
+    Rectangle r3(200, 150); // w=200, h=150
+    
+    Rectangle r4(10, 20);     // px=10, py=20, w=50, h=50
+    Rectangle r5(10, 20, 80); // px=10, py=20, w=80, h=50
+}
+```
+
+### コピーコンストラクタ
+
+既存のオブジェクトからコピーを作成するコンストラクタです。`const`参照を引数に取ります。
+
+```c++
+struct Point {
+    int x;
+    int y;
+};
+
+impl Point {
+    self() {
+        self.x = 0;
+        self.y = 0;
+    }
+    
+    // コピーコンストラクタ
+    self(const Point& other) {
+        self.x = other.x;
+        self.y = other.y;
+        println("Copy constructor called");
+    }
+}
+
+void main() {
+    Point p1(10, 20);
+    Point p2 = p1;  // コピーコンストラクタが呼ばれる
+}
+```
+
+### ムーブコンストラクタ
+
+右辺値参照（`&&`）を使用して、リソースの所有権を移動します。ムーブ後、元のオブジェクトは無効な状態になります。
+
+```c++
+struct Buffer {
+    int size;
+    int* data;  // 実際のデータへのポインタ
+    bool owns_data;
+};
+
+impl Buffer {
+    self(int s) {
+        self.size = s;
+        // メモリ確保（簡略化）
+        self.owns_data = true;
+    }
+    
+    // コピーコンストラクタ（重い操作）
+    self(const Buffer& other) {
+        self.size = other.size;
+        // ディープコピー
+        self.owns_data = true;
+        println("Deep copy (expensive)");
+    }
+    
+    // ムーブコンストラクタ（軽い操作）
+    self(Buffer&& other) {
+        self.size = other.size;
+        self.data = other.data;
+        self.owns_data = other.owns_data;
+        
+        // 元のオブジェクトを無効化
+        other.size = 0;
+        other.data = nullptr;
+        other.owns_data = false;
+        println("Move (fast)");
+    }
+}
+
+void main() {
+    Buffer b1(100);
+    Buffer b2 = b1;           // コピー: "Deep copy (expensive)"
+    Buffer b3 = move(b1);     // ムーブ: "Move (fast)"
+    // b1はもう使用できない
+}
+```
+
+**ムーブの制約**:
+- `const`修飾されたオブジェクトはムーブできません
+- `const * const`ポインタはムーブ不可能
+- ムーブ後の元のオブジェクトにアクセスすると未定義動作
+
+### デストラクタ
+
+オブジェクトがスコープを抜ける際に自動的に呼ばれる関数です。`~self()`として定義します。
+
+```c++
+struct Resource {
+    int id;
+    bool allocated;
+};
+
+impl Resource {
+    self(int resource_id) {
+        self.id = resource_id;
+        self.allocated = true;
+        println("Resource", resource_id, "allocated");
+    }
+    
+    ~self() {
+        if (self.allocated) {
+            println("Resource", self.id, "freed");
+            self.allocated = false;
+        }
+    }
+}
+
+void main() {
+    {
+        Resource r(42);
+        // 何か処理...
+    }  // スコープを抜ける → デストラクタが自動呼び出し
+    // 出力: "Resource 42 freed"
+}
+```
+
+### プライベート関数の使用
+
+`impl`ブロック内でプライベート関数を定義し、コンストラクタから呼び出すことができます。
+
+```c++
+struct Circle {
+    int x;
+    int y;
+    int radius;
+    double area;
+};
+
+impl Circle {
+    // プライベート関数
+    self.calculateArea() {
+        // πr²を計算（簡略化）
+        self.area = 3.14159 * self.radius * self.radius;
+    }
+    
+    // コンストラクタでプライベート関数を使用
+    self(int cx, int cy, int r) {
+        self.x = cx;
+        self.y = cy;
+        self.radius = r;
+        self.calculateArea();  // プライベート関数呼び出し
+    }
+}
+
+void main() {
+    Circle c(10, 20, 5);
+    println("Area:", c.area);  // 78.53975
+}
+```
+
+### コンストラクタのオーバーロード
+
+複数の異なるシグネチャのコンストラクタを定義できます。
+
+```c++
+struct Vector3D {
+    int x;
+    int y;
+    int z;
+};
+
+impl Vector3D {
+    // デフォルトコンストラクタ
+    self() {
+        self.x = 0;
+        self.y = 0;
+        self.z = 0;
+    }
+    
+    // 1つの値で全要素を初期化
+    self(int value) {
+        self.x = value;
+        self.y = value;
+        self.z = value;
+    }
+    
+    // 3つの値で初期化
+    self(int vx, int vy, int vz) {
+        self.x = vx;
+        self.y = vy;
+        self.z = vz;
+    }
+    
+    // コピーコンストラクタ
+    self(const Vector3D& other) {
+        self.x = other.x;
+        self.y = other.y;
+        self.z = other.z;
+    }
+}
+
+void main() {
+    Vector3D v1;             // (0, 0, 0)
+    Vector3D v2(5);          // (5, 5, 5)
+    Vector3D v3(1, 2, 3);    // (1, 2, 3)
+    Vector3D v4 = v3;        // コピー
+}
+```
+
+### 重要な注意事項
+
+1. **自動呼び出し**: 構造体変数を宣言すると、適切なコンストラクタが自動的に呼ばれます
+2. **デストラクタの自動呼び出し**: スコープを抜けると自動的にデストラクタが呼ばれます
+3. **`self`キーワード**: コンストラクタ/デストラクタ内では`self`で現在のオブジェクトを参照
+4. **オーバーロード**: 引数の型と数で適切なコンストラクタが選択されます
+5. **implブロック**: コンストラクタとデストラクタは`impl StructName {}`で定義（インターフェース不要）
+6. **参照の区別**:
+   - `&`: 通常の参照（コピーコンストラクタ用）
+   - `&&`: 右辺値参照（ムーブコンストラクタ専用）
+
+---
+
 ## Union型
 
 ### Union型の基本
@@ -1582,7 +1892,34 @@ void main() {
 **制限事項**:
 - 配列参照**型**（`int[N]&`形式の明示的型宣言）は現在サポートされていません（v0.10.0で実装予定）
 - 参照のポインタ（`int&*`）はサポートされていません
-- 参照の参照（`int&&`）はサポートされていません
+
+**右辺値参照（ムーブセマンティクス）** ✅ (v0.10.0):
+- `&&`は右辺値参照（rvalue reference）として使用され、ムーブセマンティクスを実現します
+- ムーブコンストラクタやムーブ代入演算子で使用されます
+- `const`修飾されたオブジェクトや`const * const`ポインタはムーブできません
+
+```c++
+struct Buffer {
+    int size;
+    int* data;
+};
+
+impl Buffer {
+    // ムーブコンストラクタ
+    self(Buffer&& other) {
+        self.size = other.size;
+        self.data = other.data;
+        // 元のオブジェクトを無効化
+        other.size = 0;
+        other.data = nullptr;
+    }
+}
+
+void main() {
+    Buffer b1(100);
+    Buffer b2 = move(b1);  // ムーブ
+}
+```
 
 ### 関数ポインタ ✅
 

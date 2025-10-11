@@ -1,0 +1,137 @@
+// 引数付きコンストラクタテスト
+// ⚠️ PENDING IMPLEMENTATION: インタープリタでの引数付きコンストラクタ呼び出しはまだ実装されていません
+//    想定される構文: Point p(10, 20);
+//
+// 📝 テスト要件:
+//    1. デフォルト引数の検証
+//    2. プライベート関数（self.prvtFunc）の使用
+
+struct Point {
+    int x;
+    int y;
+};
+
+impl Point {
+    // プライベート関数: 初期化処理
+    self.initialize(int px, int py) {
+        self.x = px;
+        self.y = py;
+        println("Point initialized at (", px, ", ", py, ")");
+    }
+    
+    // デフォルトコンストラクタ
+    self() {
+        self.initialize(0, 0);
+    }
+    
+    // 引数付きコンストラクタ（2つの引数）
+    self(int px, int py) {
+        self.initialize(px, py);
+    }
+    
+    // デフォルト引数付きコンストラクタ
+    self(int px, int py = 50) {
+        self.initialize(px, py);
+        println("Using default argument: py =", py);
+    }
+}
+
+struct Rectangle {
+    int x;
+    int y;
+    int width;
+    int height;
+};
+
+impl Rectangle {
+    // プライベート関数: 矩形の面積を計算
+    self.calculateArea() {
+        return self.width * self.height;
+    }
+    
+    // プライベート関数: 検証
+    self.validate() {
+        if (self.width <= 0) {
+            self.width = 1;
+        }
+        if (self.height <= 0) {
+            self.height = 1;
+        }
+    }
+    
+    // デフォルト引数付きコンストラクタ
+    self(int w = 100, int h = 100) {
+        self.x = 0;
+        self.y = 0;
+        self.width = w;
+        self.height = h;
+        self.validate();
+        println("Rectangle created: ", w, "x", h);
+    }
+    
+    self(int w, int h) {
+        self.x = 0;
+        self.y = 0;
+        self.width = w;
+        self.height = h;
+        self.validate();
+    }
+    
+    self(int px, int py, int w = 50, int h = 50) {
+        self.x = px;
+        self.y = py;
+        self.width = w;
+        self.height = h;
+        self.validate();
+        println("Rectangle at (", px, ",", py, ") size ", w, "x", h);
+    }
+}
+
+void main() {
+    println("=== Parameterized Constructor Test ===");
+    println("⚠️  This test requires interpreter support for constructor arguments");
+    println("    Expected syntax: Point p(10, 20);");
+    println("");
+    
+    // TODO: 以下のコードはインタープリタ実装後に有効化
+    /*
+    println("Test 1: Two-parameter constructor");
+    Point p1(10, 20);
+    println("  p1: (", p1.x, ", ", p1.y, ") - expected: (10, 20)");
+    
+    if (p1.x == 10 && p1.y == 20) {
+        println("  [PASS] Two-parameter constructor works");
+    } else {
+        println("  [FAIL] Constructor parameters not applied");
+    }
+    println("");
+    
+    println("Test 2: Constructor overloading");
+    Rectangle r1;  // デフォルトコンストラクタ
+    Rectangle r2(100, 50);  // 2パラメータ
+    Rectangle r3(10, 10, 200, 100);  // 4パラメータ
+    
+    println("  r1: pos=(", r1.x, ", ", r1.y, "), size=(", r1.width, ", ", r1.height, ")");
+    println("  r2: pos=(", r2.x, ", ", r2.y, "), size=(", r2.width, ", ", r2.height, ")");
+    println("  r3: pos=(", r3.x, ", ", r3.y, "), size=(", r3.width, ", ", r3.height, ")");
+    
+    if (r1.width == 10 && r2.width == 100 && r3.width == 200) {
+        println("  [PASS] Constructor overloading works");
+    } else {
+        println("  [FAIL] Overload resolution failed");
+    }
+    */
+    
+    // 現在はデフォルトコンストラクタのみテスト可能
+    println("Currently testing default constructor only:");
+    Point p1;
+    Rectangle r1;
+    println("  p1: (", p1.x, ", ", p1.y, ")");
+    println("  r1: (", r1.x, ", ", r1.y, ", ", r1.width, ", ", r1.height, ")");
+    
+    println("");
+    println("=== Implementation Required ===");
+    println("1. Parse constructor call syntax: Type var(args);");
+    println("2. Match parameters to find correct constructor");
+    println("3. Create scope and invoke constructor with arguments");
+}

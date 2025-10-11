@@ -656,6 +656,11 @@ struct ImplDefinition {
     std::vector<const ASTNode *>
         methods; // 実装されたメソッドのASTノード（非所有ポインタ）
 
+    // v0.10.0: コンストラクタ/デストラクタのサポート
+    std::vector<const ASTNode *>
+        constructors; // コンストラクタのリスト（オーバーロード対応）
+    const ASTNode *destructor = nullptr; // デストラクタ（1つのみ）
+
     ImplDefinition() {}
     ImplDefinition(const std::string &iface, const std::string &struct_name)
         : interface_name(iface), struct_name(struct_name) {}
@@ -668,6 +673,14 @@ struct ImplDefinition {
 
     void add_method(const ASTNode *method_ast) {
         methods.push_back(method_ast);
+    }
+
+    void add_constructor(const ASTNode *constructor_ast) {
+        constructors.push_back(constructor_ast);
+    }
+
+    void set_destructor(const ASTNode *destructor_ast) {
+        destructor = destructor_ast;
     }
 };
 
@@ -722,6 +735,8 @@ enum class ASTNodeType {
     AST_INTERFACE_DECL,           // interface宣言
     AST_IMPL_DECL,                // impl宣言
     AST_ENUM_ACCESS,              // enum値アクセス (EnumName::member)
+    AST_CONSTRUCTOR_DECL,         // コンストラクタ宣言 (self)
+    AST_DESTRUCTOR_DECL,          // デストラクタ宣言 (~self)
 
     // 式
     AST_FUNC_CALL,
@@ -926,6 +941,11 @@ struct ASTNode {
     int first_default_param_index =
         -1; // 最初のデフォルト引数のインデックス（関数ノード用）
 
+    // コンストラクタ/デストラクタ関連（v0.10.0新機能）
+    bool is_constructor = false; // コンストラクタかどうか
+    bool is_destructor = false;  // デストラクタかどうか
+    std::string constructor_struct_name; // コンストラクタが属する構造体名
+
     // コンストラクタ - 全フィールドの明示的初期化
     ASTNode(ASTNodeType type)
         : node_type(type), type_info(TYPE_INT), is_const(false),
@@ -934,7 +954,8 @@ struct ASTNode {
           is_function_address(false), int_value(0), array_size(-1),
           is_exported(false), is_qualified_call(false),
           is_function_pointer(false), is_pointer_const_qualifier(false),
-          is_pointee_const_qualifier(false) {}
+          is_pointee_const_qualifier(false), is_constructor(false),
+          is_destructor(false) {}
 
     // デストラクタは自動管理（unique_ptr使用）
     virtual ~ASTNode() = default;
