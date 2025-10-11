@@ -150,11 +150,23 @@ void test_integration_destructor_simple() {
             INTEGRATION_ASSERT_CONTAINS(output, "All counters created",
                 "All counters should be created");
             
-            // LIFO順の検証
-            size_t pos_destroy_3 = output.find("Counter destructor: value= 3");
-            size_t pos_destroy_2 = output.find("Counter destructor: value= 2");
-            size_t pos_destroy_1 = output.find("Counter destructor: value= 1");
+            // LIFO順の検証: Test 2のセクション内で検証
+            size_t test2_start = output.find("=== Test 2: Multiple Destructors (LIFO) ===");
+            size_t test3_start = output.find("=== Test 3: Early Return ===");
             
+            INTEGRATION_ASSERT(test2_start != std::string::npos && test3_start != std::string::npos,
+                "Test 2 and Test 3 sections should exist");
+            
+            // Test 2のセクション内でのみ検索
+            std::string test2_section = output.substr(test2_start, test3_start - test2_start);
+            size_t pos_destroy_3 = test2_section.find("Counter destructor: value= 3");
+            size_t pos_destroy_2 = test2_section.find("Counter destructor: value= 2");
+            size_t pos_destroy_1 = test2_section.find("Counter destructor: value= 1");
+            
+            INTEGRATION_ASSERT(pos_destroy_3 != std::string::npos && 
+                              pos_destroy_2 != std::string::npos && 
+                              pos_destroy_1 != std::string::npos,
+                "All three destructors should be called in Test 2");
             INTEGRATION_ASSERT(pos_destroy_3 < pos_destroy_2,
                 "Counter 3 should be destructed before counter 2");
             INTEGRATION_ASSERT(pos_destroy_2 < pos_destroy_1,

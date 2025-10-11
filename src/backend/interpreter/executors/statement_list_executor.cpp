@@ -20,25 +20,31 @@ void StatementListExecutor::execute_statement_list(const ASTNode *node) {
                   << " statements" << std::endl;
     }
 
-    for (size_t i = 0; i < node->statements.size(); ++i) {
-        if (interpreter_->debug_mode) {
-            std::cerr << "[STMT_LIST_DEBUG] Processing statement " << (i + 1)
-                      << "/" << node->statements.size() << ", type="
-                      << static_cast<int>(node->statements[i]->node_type)
-                      << std::endl;
+    try {
+        for (size_t i = 0; i < node->statements.size(); ++i) {
+            if (interpreter_->debug_mode) {
+                std::cerr << "[STMT_LIST_DEBUG] Processing statement "
+                          << (i + 1) << "/" << node->statements.size()
+                          << ", type="
+                          << static_cast<int>(node->statements[i]->node_type)
+                          << std::endl;
+            }
+
+            interpreter_->execute_statement(node->statements[i].get());
+
+            if (interpreter_->debug_mode) {
+                std::cerr << "[STMT_LIST_DEBUG] Completed statement " << (i + 1)
+                          << "/" << node->statements.size() << std::endl;
+            }
         }
 
-        interpreter_->execute_statement(node->statements[i].get());
-
         if (interpreter_->debug_mode) {
-            std::cerr << "[STMT_LIST_DEBUG] Completed statement " << (i + 1)
-                      << "/" << node->statements.size() << std::endl;
+            std::cerr << "[STMT_LIST_DEBUG] All " << node->statements.size()
+                      << " statements processed" << std::endl;
         }
-    }
-
-    if (interpreter_->debug_mode) {
-        std::cerr << "[STMT_LIST_DEBUG] All " << node->statements.size()
-                  << " statements processed" << std::endl;
+    } catch (const ReturnException &) {
+        // ReturnExceptionは再スロー（関数から抜ける必要がある）
+        throw;
     }
 }
 
@@ -55,8 +61,16 @@ void StatementListExecutor::execute_compound_statement(const ASTNode *node) {
     // TODO v0.11.0: 複合文{}ごとにスコープを作成し、デストラクタとdeferを実行
     // interpreter_->push_scope();
 
-    for (const auto &stmt : node->statements) {
-        interpreter_->execute_statement(stmt.get());
+    try {
+        for (const auto &stmt : node->statements) {
+            interpreter_->execute_statement(stmt.get());
+        }
+    } catch (const ReturnException &) {
+        // ReturnExceptionは再スロー（関数から抜ける必要がある）
+        // TODO v0.11.0:
+        // スコープ終了時にデストラクタとdeferを実行してから再スロー
+        // interpreter_->pop_scope();
+        throw;
     }
 
     // TODO v0.11.0: スコープ終了時にデストラクタとdeferを実行
