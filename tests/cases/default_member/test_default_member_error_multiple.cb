@@ -1,0 +1,10 @@
+// 複数のdefaultメンバーのエラーテスト
+
+struct Invalid {
+    default int x;
+    default int y;  // エラー: 複数のdefaultメンバー
+};
+
+void main() {
+    Invalid v;
+}

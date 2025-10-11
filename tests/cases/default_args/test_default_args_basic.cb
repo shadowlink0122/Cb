@@ -1,0 +1,16 @@
+// デフォルト引数の基本テスト
+
+func int add(int a, int b = 10, int c = 20) {
+    return a + b + c;
+}
+
+void main() {
+    // 全ての引数を指定
+    println(add(1, 2, 3));  // 6
+
+    // 最後の引数をデフォルト使用
+    println(add(1, 2));     // 23 (1 + 2 + 20)
+
+    // 2つの引数をデフォルト使用
+    println(add(1));        // 31 (1 + 10 + 20)
+}

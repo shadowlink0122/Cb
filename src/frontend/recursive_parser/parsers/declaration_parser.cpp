@@ -427,12 +427,44 @@ ASTNode *DeclarationParser::parseFunctionDeclarationAfterName(
                 param->type_info = parser_->getTypeInfoFromString(param_type);
             }
 
+            // デフォルト引数の解析（v0.10.0新機能）
+            if (parser_->match(TokenType::TOK_ASSIGN)) {
+                // デフォルト値を解析
+                ASTNode *default_val = parser_->parseExpression();
+                if (!default_val) {
+                    parser_->error("Expected default value after '='");
+                    delete param;
+                    return nullptr;
+                }
+                param->default_value = std::unique_ptr<ASTNode>(default_val);
+                param->has_default_value = true;
+            }
+
             function_node->parameters.push_back(
                 std::unique_ptr<ASTNode>(param));
         } while (parser_->match(TokenType::TOK_COMMA));
     }
 
     parser_->consume(TokenType::TOK_RPAREN, "Expected ')' after parameters");
+
+    // デフォルト引数の検証（右側から連続しているかチェック）
+    bool found_default = false;
+    int first_default_index = -1;
+    for (size_t i = 0; i < function_node->parameters.size(); ++i) {
+        auto &param = function_node->parameters[i];
+        if (param->has_default_value) {
+            if (first_default_index == -1) {
+                first_default_index = static_cast<int>(i);
+            }
+            found_default = true;
+        } else if (found_default) {
+            // デフォルト引数の後に非デフォルト引数が来た
+            parser_->error("Non-default parameter '" + param->name +
+                           "' after default parameter");
+            return nullptr;
+        }
+    }
+    function_node->first_default_param_index = first_default_index;
 
     // return_typeをTypeInfo enum値として設定
     if (return_type.find("[") != std::string::npos) {

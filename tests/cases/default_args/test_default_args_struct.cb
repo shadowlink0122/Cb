@@ -1,0 +1,36 @@
+// デフォルト引数とstruct型のテスト
+
+struct Point {
+    int x;
+    int y;
+};
+
+func Point create_point(int x = 10, int y = 20) {
+    Point p;
+    p.x = x;
+    p.y = y;
+    return p;
+}
+
+func void print_point(Point p, string label = "Point") {
+    println(label + ": (" + p.x + ", " + p.y + ")");
+}
+
+void main() {
+    println("--- Function returning struct with default args ---");
+    Point p1 = create_point();
+    print_point(p1);
+    
+    Point p2 = create_point(100);
+    print_point(p2, "P2");
+    
+    Point p3 = create_point(100, 200);
+    print_point(p3, "P3");
+    
+    println("--- Struct parameter with default label ---");
+    Point p4;
+    p4.x = 50;
+    p4.y = 75;
+    print_point(p4);
+    print_point(p4, "Custom");
+}

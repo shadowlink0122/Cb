@@ -546,6 +546,7 @@ struct StructMember {
     bool is_reference = false;                 // 参照メンバかどうか
     bool is_unsigned = false; // unsigned修飾子が付与されているか
     bool is_const = false; // const指定かどうか（Rustのnot mutと同等）
+    bool is_default = false; // デフォルトメンバーかどうか
 
     StructMember() : type(TYPE_UNKNOWN) {}
     StructMember(const std::string &n, TypeInfo t,
@@ -557,6 +558,8 @@ struct StructDefinition {
     std::string name;                    // struct名
     std::vector<StructMember> members;   // メンバ変数のリスト
     bool is_forward_declaration = false; // 前方宣言かどうか
+    bool has_default_member = false; // デフォルトメンバーを持つか
+    std::string default_member_name; // デフォルトメンバーの名前
 
     StructDefinition() {}
     StructDefinition(const std::string &n) : name(n) {}
@@ -802,6 +805,7 @@ struct ASTNode {
     bool is_array_return = false;       // 配列戻り値フラグ
     bool is_private_method = false;     // privateメソッドフラグ
     bool is_private_member = false;     // struct privateメンバフラグ
+    bool is_default_member = false;     // struct defaultメンバフラグ
     bool is_pointer = false;            // ポインタ型フラグ
     int pointer_depth = 0;              // ポインタの深さ
     std::string pointer_base_type_name; // ポインタ基底型名
@@ -915,6 +919,12 @@ struct ASTNode {
     // 範囲式関連
     std::unique_ptr<ASTNode> range_start; // 範囲の開始値
     std::unique_ptr<ASTNode> range_end;   // 範囲の終了値
+
+    // デフォルト引数関連（v0.10.0新機能）
+    std::unique_ptr<ASTNode> default_value; // パラメータのデフォルト値
+    bool has_default_value = false;         // デフォルト値があるか
+    int first_default_param_index =
+        -1; // 最初のデフォルト引数のインデックス（関数ノード用）
 
     // コンストラクタ - 全フィールドの明示的初期化
     ASTNode(ASTNodeType type)
