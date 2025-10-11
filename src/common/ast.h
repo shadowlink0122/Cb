@@ -698,6 +698,7 @@ enum class ASTNodeType {
     AST_BREAK_STMT,
     AST_CONTINUE_STMT,
     AST_RETURN_STMT,
+    AST_DEFER_STMT, // defer文
 
     // 宣言
     AST_VAR_DECL,

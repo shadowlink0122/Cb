@@ -1,0 +1,32 @@
+// defer文のスコープテスト
+void main() {
+    println("main: start");
+    defer println("main: defer");
+    
+    {
+        println("block1: start");
+        defer println("block1: defer");
+        println("block1: end");
+    }
+    
+    println("main: middle");
+    
+    {
+        println("block2: start");
+        defer println("block2: defer");
+        println("block2: end");
+    }
+    
+    println("main: end");
+}
+// 期待される出力:
+// main: start
+// block1: start
+// block1: end
+// block1: defer
+// main: middle
+// block2: start
+// block2: end
+// block2: defer
+// main: end
+// main: defer

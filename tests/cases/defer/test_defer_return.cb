@@ -1,0 +1,48 @@
+// defer文とreturn文のテスト
+int test1() {
+    println("test1: start");
+    defer println("test1: defer");
+    return 42;
+}
+
+int test2(int x) {
+    println("test2: start");
+    defer println("test2: defer");
+    
+    if (x < 0) {
+        println("test2: early return");
+        return -1;
+    }
+    
+    println("test2: normal path");
+    return x * 2;
+}
+
+void main() {
+    int result1 = test1();
+    println("result1: ");
+    println(result1);
+    
+    int result2 = test2(5);
+    println("result2: ");
+    println(result2);
+    
+    int result3 = test2(-5);
+    println("result3: ");
+    println(result3);
+}
+// 期待される出力:
+// test1: start
+// test1: defer
+// result1: 
+// 42
+// test2: start
+// test2: normal path
+// test2: defer
+// result2: 
+// 10
+// test2: start
+// test2: early return
+// test2: defer
+// result3: 
+// -1

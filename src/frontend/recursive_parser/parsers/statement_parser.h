@@ -28,6 +28,9 @@ class StatementParser {
     ASTNode *parseBreakStatement();
     ASTNode *parseContinueStatement();
 
+    // リソース管理
+    ASTNode *parseDeferStatement();
+
     // その他
     ASTNode *parseAssertStatement();
     ASTNode *parsePrintlnStatement();

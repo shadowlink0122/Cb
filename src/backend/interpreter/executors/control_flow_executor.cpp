@@ -30,6 +30,9 @@ void ControlFlowExecutor::execute_if_statement(const ASTNode *node) {
 void ControlFlowExecutor::execute_while_statement(const ASTNode *node) {
     debug_msg(DebugMsgId::INTERPRETER_WHILE_STMT_START, "");
 
+    // whileループ用のdeferスコープのみを作成（変数スコープは作成しない）
+    interpreter_->push_defer_scope();
+
     try {
         int iteration = 0;
         while (true) {
@@ -58,12 +61,20 @@ void ControlFlowExecutor::execute_while_statement(const ASTNode *node) {
         debug_msg(DebugMsgId::INTERPRETER_WHILE_BREAK, "");
     }
 
+    // whileループのdeferスコープを終了（deferを実行）
+    interpreter_->pop_defer_scope();
+
     debug_msg(DebugMsgId::INTERPRETER_WHILE_STMT_END, "");
 }
 
 // FOR文の実行
 void ControlFlowExecutor::execute_for_statement(const ASTNode *node) {
     debug_msg(DebugMsgId::INTERPRETER_FOR_STMT_START, "");
+
+    // forループ用のdeferスコープのみを作成（変数スコープは作成しない）
+    // これにより、deferはループ終了時に実行されるが、
+    // ループ内で作成された変数は親スコープに属する
+    interpreter_->push_defer_scope();
 
     try {
         if (node->init_expr) {
@@ -105,4 +116,7 @@ void ControlFlowExecutor::execute_for_statement(const ASTNode *node) {
     } catch (const BreakException &e) {
         // break文でループ脱出
     }
+
+    // forループのdeferスコープを終了（deferを実行）
+    interpreter_->pop_defer_scope();
 }

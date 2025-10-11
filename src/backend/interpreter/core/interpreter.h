@@ -435,6 +435,9 @@ class Interpreter : public EvaluatorInterface {
     std::map<std::string, StructDefinition>
         struct_definitions_; // struct定義の保存
 
+    // Defer管理（スコープごとのdeferスタック）
+    std::vector<std::vector<const ASTNode *>> defer_stacks_;
+
     // Manager instances
     std::unique_ptr<VariableManager> variable_manager_;
     std::unique_ptr<ArrayManager> array_manager_;
@@ -522,6 +525,12 @@ class Interpreter : public EvaluatorInterface {
     Scope &current_scope();
     Scope &get_current_scope() { return current_scope(); }
     Scope &get_global_scope() { return global_scope; }
+
+    // Defer管理
+    void push_defer_scope();
+    void pop_defer_scope();
+    void add_defer(const ASTNode *stmt);
+    void execute_defers();
 
     // 変数・関数アクセス
     Variable *find_variable(const std::string &name);

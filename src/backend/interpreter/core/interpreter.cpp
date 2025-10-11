@@ -509,6 +509,7 @@ void Interpreter::process(const ASTNode *ast) {
         execute_statement(main_func->body.get());
         pop_scope();
     } catch (const ReturnException &e) {
+        pop_scope(); // return時もスコープをクリーンアップ
         debug_msg(DebugMsgId::MAIN_FUNC_EXIT, e.value);
     }
 }
@@ -833,6 +834,16 @@ void Interpreter::execute_statement(const ASTNode *node) {
 
     case ASTNodeType::AST_CONTINUE_STMT:
         break_continue_handler_->handle_continue(node);
+        break;
+
+    // ========================================================================
+    // defer文（DEFER_STMT）
+    // スコープ終了時に実行される文を登録
+    // ========================================================================
+    case ASTNodeType::AST_DEFER_STMT:
+        if (node->body) {
+            add_defer(node->body.get());
+        }
         break;
 
     // ========================================================================

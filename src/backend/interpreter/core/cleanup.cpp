@@ -11,9 +11,15 @@
 // ========================================================================
 // スコープ管理
 // ========================================================================
-void Interpreter::push_scope() { variable_manager_->push_scope(); }
+void Interpreter::push_scope() {
+    variable_manager_->push_scope();
+    push_defer_scope();
+}
 
 void Interpreter::pop_scope() {
+    // deferを実行
+    pop_defer_scope();
+
     // 配列参照のコピーバック処理
     // 関数終了時に、参照変数のデータベクトルを元の配列にコピーバック
     for (auto &var_pair : current_scope().variables) {
@@ -53,6 +59,42 @@ void Interpreter::pop_scope() {
 Scope &Interpreter::current_scope() {
     return variable_manager_->current_scope();
 }
+
+// ========================================================================
+// Defer管理
+// ========================================================================
+void Interpreter::push_defer_scope() {
+    defer_stacks_.push_back(std::vector<const ASTNode *>());
+}
+
+void Interpreter::pop_defer_scope() {
+    if (defer_stacks_.empty()) {
+        return;
+    }
+
+    // LIFO順でdeferを実行するため、コピーを作成
+    // (execute_statement内でスコープが変更される可能性があるため)
+    std::vector<const ASTNode *> defers_to_execute = defer_stacks_.back();
+    defer_stacks_.pop_back();
+
+    for (auto it = defers_to_execute.rbegin(); it != defers_to_execute.rend();
+         ++it) {
+        try {
+            execute_statement(*it);
+        } catch (...) {
+            // deferの実行中のエラーは無視して次のdeferを実行
+            // (Goの仕様と同様)
+        }
+    }
+}
+
+void Interpreter::add_defer(const ASTNode *stmt) {
+    if (!defer_stacks_.empty()) {
+        defer_stacks_.back().push_back(stmt);
+    }
+}
+
+void Interpreter::execute_defers() { pop_defer_scope(); }
 
 // ========================================================================
 // 一時変数管理

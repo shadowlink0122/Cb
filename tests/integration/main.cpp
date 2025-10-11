@@ -23,6 +23,7 @@
 #include "const_pointer_safety/const_pointer_safety_tests.hpp"
 #include "const_variables/test_const_variables.hpp"
 #include "cross_type/test_cross_type.hpp"
+#include "defer/test_defer.hpp"
 #include "dynamic_array_error/test_dynamic_array_error.hpp"
 #include "enum/test_enum.hpp"
 #include "error_handling/test_error_handling.hpp"
@@ -249,6 +250,8 @@ int main() {
     run_test_with_continue(test_integration_struct_typedef,
                            "Struct Typedef Tests", failed_tests);
     run_test_with_continue(test_integration_cross_type, "Cross Type Tests",
+                           failed_tests);
+    run_test_with_continue(test_integration_defer, "Defer Statement Tests",
                            failed_tests);
     run_test_with_continue(test_integration_enum, "Enum Tests", failed_tests);
     run_test_with_continue(UnionTests::run_all_union_tests, "Union Type Tests",

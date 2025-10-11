@@ -155,6 +155,9 @@ ASTNode *StatementParser::parseControlFlowStatement() {
     if (parser_->check(TokenType::TOK_CONTINUE)) {
         return parser_->parseContinueStatement();
     }
+    if (parser_->check(TokenType::TOK_DEFER)) {
+        return parseDeferStatement();
+    }
     if (parser_->check(TokenType::TOK_IF)) {
         return parseIfStatement();
     }
@@ -1306,6 +1309,23 @@ ASTNode *StatementParser::parseContinueStatement() {
     parser_->consume(TokenType::TOK_SEMICOLON,
                      "Expected ';' after continue statement");
     return continue_node;
+}
+
+/**
+ * @brief defer文を解析
+ * @return 解析されたASTdefer文ノード
+ *
+ * 構文: defer statement;
+ * スコープ終了時に実行される文を登録（LIFO順）
+ */
+ASTNode *StatementParser::parseDeferStatement() {
+    parser_->advance(); // consume 'defer'
+    ASTNode *defer_node = new ASTNode(ASTNodeType::AST_DEFER_STMT);
+
+    // defer対象の文を解析
+    defer_node->body = std::unique_ptr<ASTNode>(parser_->parseStatement());
+
+    return defer_node;
 }
 
 // ========================================
