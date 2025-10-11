@@ -205,8 +205,106 @@ void test_integration_destructor_simple() {
     std::cout << "[integration-test] Simple destructor tests completed" << std::endl;
 }
 
+void test_integration_destructor_nested_value_members() {
+    std::cout << "[integration-test] Running nested value member destructor tests..." << std::endl;
+    
+    double execution_time;
+    run_cb_test_with_output_and_time("../cases/constructor/nested_value_destructor_test.cb", 
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "nested_value_destructor_test.cb should execute successfully");
+            
+            // === Test 1: Nested Struct Value Member ===
+            INTEGRATION_ASSERT_CONTAINS(output, "=== Test 1: Nested Struct Value Member ===",
+                "Test 1 header should be present");
+            INTEGRATION_ASSERT_CONTAINS(output, "[Outer] Constructor: id= 1",
+                "Outer constructor should be called");
+            INTEGRATION_ASSERT_CONTAINS(output, "[Outer] Destructor: id= 1",
+                "Outer destructor should be called");
+            INTEGRATION_ASSERT_CONTAINS(output, "[Inner] Destructor: value= 100",
+                "Inner member destructor should be called with correct value");
+            
+            // 破壊順序の検証: Inner member → Outer
+            size_t pos_outer_destroy = output.find("[Outer] Destructor: id= 1");
+            size_t pos_inner_destroy = output.find("[Inner] Destructor: value= 100");
+            INTEGRATION_ASSERT(pos_outer_destroy < pos_inner_destroy,
+                "Outer should be destructed before its inner member (parent first, then members)");
+            
+            // === Test 2: Multiple Value Members ===
+            INTEGRATION_ASSERT_CONTAINS(output, "=== Test 2: Multiple Value Members ===",
+                "Test 2 header should be present");
+            INTEGRATION_ASSERT_CONTAINS(output, "[MultiMember] Constructor: id= 2",
+                "MultiMember constructor should be called");
+            INTEGRATION_ASSERT_CONTAINS(output, "[MultiMember] Destructor: id= 2",
+                "MultiMember destructor should be called");
+            INTEGRATION_ASSERT_CONTAINS(output, "[Inner] Destructor: value= 200",
+                "First inner member destructor should be called");
+            INTEGRATION_ASSERT_CONTAINS(output, "[Inner] Destructor: value= 201",
+                "Second inner member destructor should be called");
+            
+            // 破壊順序の検証: MultiMember → second(201) → first(200) (LIFO)
+            size_t pos_multi_destroy = output.find("[MultiMember] Destructor: id= 2");
+            size_t pos_second_destroy = output.find("[Inner] Destructor: value= 201");
+            size_t pos_first_destroy = output.find("[Inner] Destructor: value= 200");
+            
+            INTEGRATION_ASSERT(pos_multi_destroy < pos_second_destroy,
+                "MultiMember should be destructed before its members");
+            INTEGRATION_ASSERT(pos_second_destroy < pos_first_destroy,
+                "Second member should be destructed before first member (LIFO order)");
+            
+            // === Test 3: Deep Nested Members ===
+            INTEGRATION_ASSERT_CONTAINS(output, "=== Test 3: Deep Nested Members ===",
+                "Test 3 header should be present");
+            INTEGRATION_ASSERT_CONTAINS(output, "[DeepNested] Constructor: depth= 3",
+                "DeepNested constructor should be called");
+            INTEGRATION_ASSERT_CONTAINS(output, "[DeepNested] Destructor: depth= 3",
+                "DeepNested destructor should be called");
+            INTEGRATION_ASSERT_CONTAINS(output, "[Outer] Destructor: id= 300",
+                "Outer member destructor should be called");
+            
+            // 破壊順序の検証: DeepNested → Outer → Inner (deep nesting)
+            size_t pos_deep_destroy = output.find("[DeepNested] Destructor: depth= 3");
+            size_t pos_outer_member_destroy = output.find("[Outer] Destructor: id= 300");
+            
+            INTEGRATION_ASSERT(pos_deep_destroy < pos_outer_member_destroy,
+                "DeepNested should be destructed before its Outer member");
+            
+            // === Test 4: Mixed Value and Pointer Members ===
+            INTEGRATION_ASSERT_CONTAINS(output, "=== Test 4: Mixed Value and Pointer Members ===",
+                "Test 4 header should be present");
+            INTEGRATION_ASSERT_CONTAINS(output, "[Inner] Constructor: value= 400",
+                "Standalone Inner object should be constructed");
+            INTEGRATION_ASSERT_CONTAINS(output, "[MixedMembers] Constructor: id= 4",
+                "MixedMembers constructor should be called");
+            INTEGRATION_ASSERT_CONTAINS(output, "[MixedMembers] Destructor: id= 4",
+                "MixedMembers destructor should be called");
+            INTEGRATION_ASSERT_CONTAINS(output, "[Inner] Destructor: value= 401",
+                "Value member destructor should be called");
+            INTEGRATION_ASSERT_CONTAINS(output, "[Inner] Destructor: value= 400",
+                "Standalone Inner destructor should be called");
+            
+            // 破壊順序の検証: MixedMembers → value_member(401) → standalone(400)
+            size_t pos_mixed_destroy = output.find("[MixedMembers] Destructor: id= 4");
+            size_t pos_value_member_destroy = output.find("[Inner] Destructor: value= 401");
+            size_t pos_standalone_destroy_mixed = output.rfind("[Inner] Destructor: value= 400");
+            
+            INTEGRATION_ASSERT(pos_mixed_destroy < pos_value_member_destroy,
+                "MixedMembers should be destructed before its value member");
+            INTEGRATION_ASSERT(pos_value_member_destroy < pos_standalone_destroy_mixed,
+                "Value member should be destructed before standalone object");
+            
+            // Test suite completion
+            INTEGRATION_ASSERT_CONTAINS(output, "=== All Tests Completed ===",
+                "Test suite should complete");
+        }, execution_time);
+    
+    integration_test_passed_with_time("nested value member destructors", "nested_value_destructor_test.cb", execution_time);
+    
+    std::cout << "[integration-test] Nested value member destructor tests completed" << std::endl;
+}
+
 // すべてのデストラクタテストを実行
 void run_all_destructor_tests() {
     test_integration_destructor();
     test_integration_destructor_simple();
+    test_integration_destructor_nested_value_members();
 }

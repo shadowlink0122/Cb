@@ -2169,6 +2169,48 @@ void Interpreter::register_destructor_call(
         return;
     }
 
+    // v0.10.0: ネストした構造体の値メンバーのデストラクタを再帰的に登録
+    // まず構造体定義を取得
+    std::string resolved_type =
+        type_manager_->resolve_typedef(struct_type_name);
+    const StructDefinition *struct_def = find_struct_definition(resolved_type);
+
+    if (struct_def) {
+        // 構造体の各メンバーをチェック
+        for (const auto &member : struct_def->members) {
+            // 値メンバー（ポインタでも参照でもない）で構造体型の場合
+            if (member.type == TYPE_STRUCT && !member.is_pointer &&
+                !member.is_reference && !member.type_alias.empty()) {
+                // メンバーの完全な変数名
+                std::string member_var_name = var_name + "." + member.name;
+
+                // メンバーの型名を解決
+                std::string member_type =
+                    type_manager_->resolve_typedef(member.type_alias);
+
+                // デストラクタが定義されているかチェック
+                // find_impl_for_structの第2引数は空文字列（デストラクタはimpl
+                // Structブロックにある）
+                const ImplDefinition *impl_def =
+                    interface_operations_->find_impl_for_struct(member_type,
+                                                                "");
+
+                if (impl_def && impl_def->destructor) {
+                    // 再帰的に登録（メンバーの値メンバーも処理される）
+                    register_destructor_call(member_var_name, member_type);
+
+                    if (debug_mode) {
+                        debug_print("  Registered nested value member for "
+                                    "destruction: %s (type: %s)\n",
+                                    member_var_name.c_str(),
+                                    member_type.c_str());
+                    }
+                }
+            }
+        }
+    }
+
+    // 最後に自分自身を登録（これにより、メンバーが先に破壊される）
     destructor_stacks_.back().push_back(
         std::make_pair(var_name, struct_type_name));
 

@@ -53,6 +53,8 @@ void InterfaceOperations::register_impl_definition(
     ImplDefinition stored_def(trim(impl_def.interface_name),
                               trim(impl_def.struct_name));
     stored_def.methods = impl_def.methods;
+    stored_def.destructor =
+        impl_def.destructor; // v0.10.0: デストラクタもコピー
 
     auto existing = std::find_if(
         impl_definitions_.begin(), impl_definitions_.end(),
@@ -210,14 +212,9 @@ void InterfaceOperations::handle_impl_declaration(const ASTNode *node) {
     interface_name = trim(interface_name);
     struct_name = trim(struct_name);
 
-    if (interface_name.empty()) {
-        debug_msg(
-            DebugMsgId::PARSE_STRUCT_DEF,
-            ("Skipping impl registration due to missing interface name: " +
-             node->name)
-                .c_str());
-        return;
-    }
+    // v0.10.0: impl Struct（インターフェースなし）の場合もimpl定義を登録する
+    // interface_nameが空の場合は、デストラクタやコンストラクタのためのimpl定義
+    // 以前はここで早期リターンしていたが、デストラクタのために登録を続ける
 
     ImplDefinition impl_def(interface_name, struct_name);
 
@@ -234,20 +231,30 @@ void InterfaceOperations::handle_impl_declaration(const ASTNode *node) {
         interpreter_->exit_impl_context();
     }
 
-    // メソッドの登録
+    // v0.10.0: コンストラクタ、デストラクタ、メソッドの登録
     for (const auto &method_node : node->arguments) {
-        if (!method_node ||
-            method_node->node_type != ASTNodeType::AST_FUNC_DECL) {
+        if (!method_node) {
             continue;
         }
 
-        if (method_node->type_name.empty()) {
-            method_node->type_name = struct_name;
-        }
-        method_node->qualified_name =
-            interface_name + "::" + struct_name + "::" + method_node->name;
+        if (method_node->node_type == ASTNodeType::AST_CONSTRUCTOR_DECL) {
+            // コンストラクタはargumentsに含まれるが、ImplDefinitionには追加しない
+            // (struct_constructors_に直接格納される)
+            continue;
+        } else if (method_node->node_type == ASTNodeType::AST_DESTRUCTOR_DECL) {
+            // v0.10.0: デストラクタをImplDefinitionに追加
+            impl_def.destructor = method_node.get();
+            continue;
+        } else if (method_node->node_type == ASTNodeType::AST_FUNC_DECL) {
+            // 通常のメソッド
+            if (method_node->type_name.empty()) {
+                method_node->type_name = struct_name;
+            }
+            method_node->qualified_name =
+                interface_name + "::" + struct_name + "::" + method_node->name;
 
-        impl_def.add_method(method_node.get());
+            impl_def.add_method(method_node.get());
+        }
     }
 
     register_impl_definition(impl_def);
