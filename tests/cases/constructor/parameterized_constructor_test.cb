@@ -1,0 +1,98 @@
+// 引数付きコンストラクタテスト
+// ⚠️ PENDING IMPLEMENTATION: インタープリタでの引数付きコンストラクタ呼び出しはまだ実装されていません
+//    想定される構文: Point p(10, 20);
+//
+// 📝 テスト要件:
+//    1. デフォルト引数の検証
+//    2. プライベート関数（self.prvtFunc）の使用
+
+struct Point {
+    int x;
+    int y;
+};
+
+impl Point {
+    // デフォルトコンストラクタ
+    self() {
+        self.x = 0;
+        self.y = 0;
+        println("Point default constructor");
+    }
+    
+    // 引数付きコンストラクタ（2つの引数）
+    self(int px, int py) {
+        self.x = px;
+        self.y = py;
+        println("Point parameterized constructor: (", px, ", ", py, ")");
+    }
+}
+
+struct Rectangle {
+    int x;
+    int y;
+    int width;
+    int height;
+};
+
+impl Rectangle {
+    // デフォルトコンストラクタ
+    self() {
+        self.x = 0;
+        self.y = 0;
+        self.width = 100;
+        self.height = 100;
+        println("Rectangle default constructor: 100x100");
+    }
+    
+    // 2パラメータコンストラクタ
+    self(int w, int h) {
+        self.x = 0;
+        self.y = 0;
+        self.width = w;
+        self.height = h;
+        println("Rectangle 2-param constructor: ", w, "x", h);
+    }
+    
+    // 4パラメータコンストラクタ
+    self(int px, int py, int w, int h) {
+        self.x = px;
+        self.y = py;
+        self.width = w;
+        self.height = h;
+        println("Rectangle 4-param constructor at (", px, ",", py, ") size ", w, "x", h);
+    }
+}
+
+void main() {
+    println("=== Parameterized Constructor Test ===");
+    println("");
+    
+    println("Test 1: Two-parameter constructor");
+    Point p1(10, 20);
+    println("  p1: (", p1.x, ", ", p1.y, ") - expected: (10, 20)");
+    
+    if (p1.x == 10 && p1.y == 20) {
+        println("  [PASS] Two-parameter constructor works");
+    } else {
+        println("  [FAIL] Constructor parameters not applied");
+    }
+    println("");
+    
+    println("Test 2: Constructor overloading");
+    Rectangle r1;  // デフォルトコンストラクタ
+    Rectangle r2(100, 50);  // 2パラメータ
+    Rectangle r3(10, 10, 200, 100);  // 4パラメータ
+    
+    println("  r1: pos=(", r1.x, ", ", r1.y, "), size=(", r1.width, ", ", r1.height, ")");
+    println("  r2: pos=(", r2.x, ", ", r2.y, "), size=(", r2.width, ", ", r2.height, ")");
+    println("  r3: pos=(", r3.x, ", ", r3.y, "), size=(", r3.width, ", ", r3.height, ")");
+    
+    if (r1.width == 100 && r2.width == 100 && r3.width == 200) {
+        println("  [PASS] Constructor overloading works");
+    } else {
+        println("  [FAIL] Overload resolution failed");
+    }
+    
+    println("");
+    println("=== All Tests Completed ===");
+}

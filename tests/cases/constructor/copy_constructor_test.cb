@@ -1,0 +1,126 @@
+// コピーコンストラクタテスト
+// ⚠️ PENDING IMPLEMENTATION: インタープリタでのコピーコンストラクタ呼び出しはまだ実装されていません
+//    想定される構文: Point p2 = p1;  または  Point p2(p1);
+
+struct Point {
+    int x;
+    int y;
+};
+
+impl Point {
+    // デフォルトコンストラクタ
+    self() {
+        self.x = 0;
+        self.y = 0;
+        println("Point default constructor");
+    }
+    
+    // 引数付きコンストラクタ
+    self(int px, int py) {
+        self.x = px;
+        self.y = py;
+        println("Point parameterized constructor: (", px, ", ", py, ")");
+    }
+    
+    // コピーコンストラクタ（const参照）
+    self(const Point& other) {
+        self.x = other.x;
+        self.y = other.y;
+        println("Point copy constructor: copying (", other.x, ", ", other.y, ")");
+    }
+}
+
+struct String {
+    int length;
+    int capacity;
+    // Note: 実際にはchar*やデータを持つが、簡略化のため整数のみ
+};
+
+impl String {
+    self() {
+        self.length = 0;
+        self.capacity = 16;
+        println("String default constructor");
+    }
+    
+    self(int initial_capacity) {
+        self.length = 0;
+        self.capacity = initial_capacity;
+        println("String constructor with capacity: ", initial_capacity);
+    }
+    
+    // コピーコンストラクタ - ディープコピー
+    self(const String& other) {
+        self.length = other.length;
+        self.capacity = other.capacity;
+        println("String copy constructor: copying string (len=", other.length, ", cap=", other.capacity, ")");
+    }
+}
+
+void main() {
+    println("=== Copy Constructor Test ===");
+    println("⚠️  This test requires interpreter support for copy constructors");
+    println("    Expected syntax: Point p2 = p1;  or  Point p2(p1);");
+    println("");
+    
+    // TODO: 以下のコードはインタープリタ実装後に有効化
+    /*
+    println("Test 1: Basic copy construction");
+    Point p1(10, 20);
+    Point p2 = p1;  // コピーコンストラクタを呼び出す
+    
+    println("  p1: (", p1.x, ", ", p1.y, ")");
+    println("  p2: (", p2.x, ", ", p2.y, ")");
+    
+    if (p2.x == p1.x && p2.y == p1.y) {
+        println("  [PASS] Values copied correctly");
+    } else {
+        println("  [FAIL] Copy failed");
+    }
+    println("");
+    
+    println("Test 2: Independence after copy");
+    p2.x = 99;
+    p2.y = 88;
+    println("  Modified p2: (", p2.x, ", ", p2.y, ")");
+    println("  Original p1: (", p1.x, ", ", p1.y, ")");
+    
+    if (p1.x == 10 && p1.y == 20) {
+        println("  [PASS] Original unchanged (deep copy)");
+    } else {
+        println("  [FAIL] Original was affected");
+    }
+    println("");
+    
+    println("Test 3: Copy construction with complex type");
+    String s1(32);
+    s1.length = 10;
+    String s2 = s1;
+    
+    println("  s1: length=", s1.length, ", capacity=", s1.capacity);
+    println("  s2: length=", s2.length, ", capacity=", s2.capacity);
+    
+    s2.length = 5;
+    if (s1.length == 10 && s2.length == 5) {
+        println("  [PASS] Deep copy successful");
+    } else {
+        println("  [FAIL] Shallow copy detected");
+    }
+    */
+    
+    // 現在はデフォルトコンストラクタのみテスト可能
+    println("Currently testing default constructor only:");
+    Point p1;
+    String s1;
+    println("  p1: (", p1.x, ", ", p1.y, ")");
+    println("  s1: length=", s1.length, ", capacity=", s1.capacity);
+    
+    println("");
+    println("=== Implementation Required ===");
+    println("1. Detect copy scenarios:");
+    println("   - Type var = existing_var;");
+    println("   - Type var(existing_var);");
+    println("   - Function parameter passing by value");
+    println("2. Find copy constructor (1 param, const T& type)");
+    println("3. Invoke copy constructor with source variable");
+}

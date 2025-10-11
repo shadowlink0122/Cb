@@ -435,6 +435,12 @@ class Interpreter : public EvaluatorInterface {
     std::map<std::string, StructDefinition>
         struct_definitions_; // struct定義の保存
 
+    // v0.10.0: コンストラクタ/デストラクタ管理
+    // struct名 → コンストラクタリスト（オーバーロード対応）
+    std::map<std::string, std::vector<const ASTNode *>> struct_constructors_;
+    // struct名 → デストラクタ（1つのみ）
+    std::map<std::string, const ASTNode *> struct_destructors_;
+
     // Defer管理（スコープごとのdeferスタック）
     std::vector<std::vector<const ASTNode *>> defer_stacks_;
 
@@ -667,6 +673,15 @@ class Interpreter : public EvaluatorInterface {
     // static変数処理 (StaticVariableManagerへ委譲)
     Variable *find_static_variable(const std::string &name);
     void create_static_variable(const std::string &name, const ASTNode *node);
+
+    // v0.10.0: コンストラクタ/デストラクタ呼び出し
+    void call_default_constructor(const std::string &var_name,
+                                  const std::string &struct_type_name);
+    void call_constructor(const std::string &var_name,
+                          const std::string &struct_type_name,
+                          const std::vector<TypedValue> &args);
+    void call_destructor(const std::string &var_name,
+                         const std::string &struct_type_name);
 
     // impl static変数処理 (StaticVariableManagerへ委譲)
     Variable *find_impl_static_variable(const std::string &name);

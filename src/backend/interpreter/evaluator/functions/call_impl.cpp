@@ -2208,6 +2208,122 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                 }
             }
 
+            // メソッド通常終了時も、selfの変更をレシーバーに同期
+            if (has_receiver && !receiver_name.empty()) {
+                Variable *receiver_var = nullptr;
+
+                // If we used pointer dereference, write back to the
+                // dereferenced struct
+                if (used_resolution_ptr && dereferenced_struct_ptr) {
+                    receiver_var = dereferenced_struct_ptr;
+                    if (debug_mode) {
+                        debug_print(
+                            "SELF_WRITEBACK_PTR: Using dereferenced struct at "
+                            "%p\n",
+                            static_cast<void *>(dereferenced_struct_ptr));
+                    }
+                } else {
+                    receiver_var = interpreter_.find_variable(receiver_name);
+                }
+
+                if (receiver_var && (receiver_var->type == TYPE_STRUCT ||
+                                     receiver_var->type == TYPE_INTERFACE)) {
+                    // すべての self.* 変数を検索して書き戻し
+                    auto &current_scope = interpreter_.get_current_scope();
+                    for (const auto &var_pair : current_scope.variables) {
+                        const std::string &var_name = var_pair.first;
+
+                        // self. で始まる変数を検索
+                        if (var_name.find("self.") == 0) {
+                            // self.member または self.member.nested の形式
+                            std::string member_path =
+                                var_name.substr(5); // "self." を除去
+
+                            const Variable &self_member_var = var_pair.second;
+
+                            // If using dereferenced pointer, write directly to
+                            // struct_members
+                            if (used_resolution_ptr &&
+                                dereferenced_struct_ptr) {
+                                // Extract member name (first component of
+                                // member_path)
+                                std::string member_name = member_path;
+                                size_t dot_pos = member_path.find('.');
+                                if (dot_pos != std::string::npos) {
+                                    member_name =
+                                        member_path.substr(0, dot_pos);
+                                }
+
+                                // Write directly to struct_members
+                                if (receiver_var->struct_members.find(
+                                        member_name) !=
+                                    receiver_var->struct_members.end()) {
+                                    receiver_var->struct_members[member_name]
+                                        .value = self_member_var.value;
+                                    receiver_var->struct_members[member_name]
+                                        .str_value = self_member_var.str_value;
+                                    receiver_var->struct_members[member_name]
+                                        .is_assigned =
+                                        self_member_var.is_assigned;
+                                    receiver_var->struct_members[member_name]
+                                        .float_value =
+                                        self_member_var.float_value;
+                                    receiver_var->struct_members[member_name]
+                                        .double_value =
+                                        self_member_var.double_value;
+                                    receiver_var->struct_members[member_name]
+                                        .quad_value =
+                                        self_member_var.quad_value;
+
+                                    // Also sync to individual variable if it
+                                    // exists
+                                    interpreter_
+                                        .sync_individual_member_from_struct(
+                                            receiver_var, member_name);
+
+                                    if (debug_mode) {
+                                        debug_print(
+                                            "SELF_WRITEBACK_PTR: %s -> "
+                                            "struct_members[%s] (value=%lld)\n",
+                                            var_name.c_str(),
+                                            member_name.c_str(),
+                                            self_member_var.value);
+                                    }
+                                }
+                            } else {
+                                // Normal writeback to named variables
+                                std::string receiver_path =
+                                    receiver_name + "." + member_path;
+
+                                // receiver側の対応する変数に値を書き戻し
+                                Variable *receiver_member_var =
+                                    interpreter_.find_variable(receiver_path);
+                                if (receiver_member_var) {
+                                    receiver_member_var->value =
+                                        self_member_var.value;
+                                    receiver_member_var->str_value =
+                                        self_member_var.str_value;
+                                    receiver_member_var->is_assigned =
+                                        self_member_var.is_assigned;
+                                    receiver_member_var->float_value =
+                                        self_member_var.float_value;
+                                    receiver_member_var->double_value =
+                                        self_member_var.double_value;
+                                    receiver_member_var->quad_value =
+                                        self_member_var.quad_value;
+
+                                    debug_print("SELF_WRITEBACK: %s -> %s "
+                                                "(value=%lld)\n",
+                                                var_name.c_str(),
+                                                receiver_path.c_str(),
+                                                self_member_var.value);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             cleanup_method_context();
             interpreter_.pop_scope();
             method_scope_active = false;

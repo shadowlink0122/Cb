@@ -1,0 +1,157 @@
+// ムーブコンストラクタテスト
+// ⚠️ PENDING IMPLEMENTATION: インタープリタでのムーブコンストラクタ呼び出しはまだ実装されていません
+//    想定される構文: Point p2 = move(p1);
+// 
+// ⚠️ 重要な変更（v0.10.0）:
+//    - ムーブコンストラクタは&&（右辺値参照）を使用
+//    - &は通常の参照のみ（コピーコンストラクタ用）
+//    - const * constはムーブ不可能
+
+struct Point {
+    int x;
+    int y;
+};
+
+impl Point {
+    self() {
+        self.x = 0;
+        self.y = 0;
+        println("Point default constructor");
+    }
+    
+    self(int px, int py) {
+        self.x = px;
+        self.y = py;
+        println("Point parameterized constructor");
+    }
+    
+    // コピーコンストラクタ（const参照）
+    self(const Point& other) {
+        self.x = other.x;
+        self.y = other.y;
+        println("Point copy constructor");
+    }
+    
+    // ムーブコンストラクタ（右辺値参照 &&）
+    self(Point&& other) {
+        self.x = other.x;
+        self.y = other.y;
+        // ムーブ後、元のオブジェクトはリセット
+        other.x = 0;
+        other.y = 0;
+        println("Point move constructor: moved and reset source");
+    }
+}
+
+struct Buffer {
+    int size;
+    int data;  // 簡略化: 実際にはポインタ
+    bool owns_data;
+};
+
+impl Buffer {
+    self() {
+        self.size = 0;
+        self.data = 0;
+        self.owns_data = false;
+        println("Buffer default constructor");
+    }
+    
+    self(int s) {
+        self.size = s;
+        self.data = s * 10;  // 仮のデータ
+        self.owns_data = true;
+        println("Buffer constructor: size=", s);
+    }
+    
+    // コピーコンストラクタ - ディープコピー（重い操作）
+    self(const Buffer& other) {
+        self.size = other.size;
+        self.data = other.data;  // 実際にはメモリコピー
+        self.owns_data = true;
+        println("Buffer copy constructor: DEEP COPY (expensive)");
+    }
+    
+    // ムーブコンストラクタ - 所有権移動（軽い操作）- 右辺値参照使用
+    self(Buffer&& other) {
+        self.size = other.size;
+        self.data = other.data;
+        self.owns_data = other.owns_data;
+        
+        // 元のオブジェクトから所有権を奪う
+        other.size = 0;
+        other.data = 0;
+        other.owns_data = false;
+        println("Buffer move constructor: ownership transferred (fast)");
+    }
+}
+
+void main() {
+    println("=== Move Constructor Test ===");
+    println("⚠️  This test requires interpreter support for move constructors");
+    println("    Expected syntax: Point p2 = move(p1);");
+    println("");
+    
+    // TODO: 以下のコードはインタープリタ実装後に有効化
+    /*
+    println("Test 1: Basic move construction");
+    Point p1(10, 20);
+    println("  Before move - p1: (", p1.x, ", ", p1.y, ")");
+    
+    Point p2 = move(p1);  // ムーブコンストラクタを呼び出す
+    println("  After move - p1: (", p1.x, ", ", p1.y, ") (should be reset)");
+    println("  After move - p2: (", p2.x, ", ", p2.y, ")");
+    
+    if (p2.x == 10 && p2.y == 20 && p1.x == 0 && p1.y == 0) {
+        println("  [PASS] Move successful, source reset");
+    } else {
+        println("  [FAIL] Move semantics not working");
+    }
+    println("");
+    
+    println("Test 2: Move vs Copy performance demonstration");
+    Buffer b1(100);
+    println("  Created b1: size=", b1.size, ", owns_data=", b1.owns_data);
+    
+    Buffer b2 = b1;  // コピー（重い）
+    println("  Copied to b2 (should see 'DEEP COPY' message)");
+    
+    Buffer b3 = move(b1);  // ムーブ（軽い）
+    println("  Moved to b3 (should see 'ownership transferred' message)");
+    
+    println("  b1: size=", b1.size, ", owns=", b1.owns_data, " (moved from)");
+    println("  b2: size=", b2.size, ", owns=", b2.owns_data, " (copy)");
+    println("  b3: size=", b3.size, ", owns=", b3.owns_data, " (moved to)");
+    
+    if (!b1.owns_data && b3.owns_data) {
+        println("  [PASS] Ownership transferred correctly");
+    } else {
+        println("  [FAIL] Ownership not transferred");
+    }
+    */
+    
+    // 現在はデフォルトコンストラクタのみテスト可能
+    println("Currently testing default constructor only:");
+    Point p1;
+    Buffer b1;
+    println("  p1: (", p1.x, ", ", p1.y, ")");
+    println("  b1: size=", b1.size, ", owns_data=", b1.owns_data);
+    
+    println("");
+    println("=== Implementation Required ===");
+    println("1. Add move() function or detect rvalue references");
+    println("2. Detect move scenarios:");
+    println("   - Type var = move(other);");
+    println("   - Function return value optimization");
+    println("3. Find move constructor (1 param, non-const T& type)");
+    println("4. Invoke move constructor and transfer ownership");
+    println("");
+    println("Move vs Copy distinction:");
+    println("  - Copy: self(const T& other) - preserves source");
+    println("  - Move: self(T&& other) - transfers ownership (rvalue reference)");
+    println("");
+    println("Important notes:");
+    println("  - && is rvalue reference (move semantics only)");
+    println("  - & is lvalue reference (for copy constructor)");
+    println("  - const objects and const * const pointers cannot be moved");
+}

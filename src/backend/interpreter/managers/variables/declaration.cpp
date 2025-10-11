@@ -1823,7 +1823,28 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
 
     current_scope().variables[node->name] = var;
     // std::cerr << "DEBUG: Variable created: " << node->name << ",
-    // is_array=" << var.is_array << std::endl;
+    // is_array=" << var.is_assigned << std::endl;
+
+    // v0.10.0: 構造体変数のコンストラクタを自動呼び出し
+    if (var.is_struct && !var.struct_type_name.empty()) {
+        std::string resolved_type =
+            interpreter_->type_manager_->resolve_typedef(var.struct_type_name);
+
+        // 引数がある場合は引数付きコンストラクタを呼び出し
+        if (!node->arguments.empty()) {
+            // 引数を評価してTypedValueに変換
+            std::vector<TypedValue> args;
+            for (const auto &arg_node : node->arguments) {
+                TypedValue typed_val =
+                    interpreter_->evaluate_typed_expression(arg_node.get());
+                args.push_back(typed_val);
+            }
+            interpreter_->call_constructor(node->name, resolved_type, args);
+        } else {
+            // 引数なしの場合はデフォルトコンストラクタを呼び出し
+            interpreter_->call_default_constructor(node->name, resolved_type);
+        }
+    }
 }
 
 // ============================================================================
