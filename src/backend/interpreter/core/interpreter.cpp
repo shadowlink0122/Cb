@@ -275,6 +275,8 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
                         array_member.is_reference = member_node->is_reference;
                         array_member.is_unsigned = member_node->is_unsigned;
                         array_member.is_const = member_node->is_const;
+                        array_member.is_default =
+                            member_node->is_default_member;
                         struct_def.members.push_back(array_member);
 
                         debug_msg(
@@ -299,10 +301,27 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
                             member_node->is_private_member,
                             member_node->is_reference, member_node->is_unsigned,
                             member_node->is_const);
+
+                        // デフォルトメンバーの設定
+                        if (member_node->is_default_member) {
+                            StructMember &added_member =
+                                struct_def.members.back();
+                            added_member.is_default = true;
+                        }
+
                         debug_msg(DebugMsgId::INTERPRETER_STRUCT_MEMBER_ADDED,
                                   member_node->name.c_str(),
                                   (int)member_node->type_info);
                     }
+                }
+            }
+
+            // デフォルトメンバー情報を設定
+            for (const auto &member : struct_def.members) {
+                if (member.is_default) {
+                    struct_def.has_default_member = true;
+                    struct_def.default_member_name = member.name;
+                    break; // 1つだけのはず
                 }
             }
 
@@ -1626,6 +1645,13 @@ void Interpreter::assign_struct_member(const std::string &var_name,
     value_var.double_value = typed_value.double_value;
     value_var.float_value = static_cast<float>(typed_value.double_value);
     value_var.quad_value = typed_value.quad_value;
+    value_var.str_value = typed_value.string_value; // 文字列の値もコピー
+
+    // 型がUNKNOWNで文字列の場合、型をSTRINGに設定
+    if (value_var.type == TYPE_UNKNOWN && !value_var.str_value.empty()) {
+        value_var.type = TYPE_STRING;
+    }
+
     struct_assignment_manager_->assign_struct_member(var_name, member_name,
                                                      value_var);
 }

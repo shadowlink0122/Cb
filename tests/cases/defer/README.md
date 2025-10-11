@@ -185,6 +185,15 @@ int func() {
 - **メモリ安全性**: defer実行前にベクトルのコピーを作成（イテレータ無効化防止）
 - **例外処理**: defer実行中のエラーは無視して次のdeferを実行（Go仕様準拠）
 
+## 関連ドキュメント
+
+### 📚 機能の詳細ドキュメント
+- **[docs/features/defer_statement.md](../../../docs/features/defer_statement.md)** - 完全な機能仕様、実装の詳細、テスト結果
+
+### その他
+- `../../docs/spec.md` - 言語仕様書
+- `../../docs/todo/defer_implementation_design.md` - 設計ドキュメント
+
 ## 今後の拡張（将来の検討事項）
 
 - [ ] defer内でのreturn禁止の実装（コンパイル時エラー）

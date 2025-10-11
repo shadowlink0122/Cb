@@ -2,6 +2,7 @@
 #include "../../../../common/debug.h"
 #include "../../managers/types/enums.h"
 #include "../../managers/types/manager.h"
+#include "../core/evaluator.h"
 #include <functional>
 #include <iostream>
 #include <stdexcept>
@@ -10,6 +11,7 @@ namespace SpecialAccessHelpers {
 
 int64_t evaluate_arrow_access(
     const ASTNode *node, Interpreter &interpreter,
+    ExpressionEvaluator &evaluator,
     std::function<int64_t(const ASTNode *)> evaluate_expression_func,
     std::function<Variable(const Variable &, const std::string &)>
         get_struct_member_func) {
@@ -63,11 +65,21 @@ int64_t evaluate_arrow_access(
     Variable member_var = get_struct_member_func(*struct_var, member_name);
 
     if (member_var.type == TYPE_STRING) {
+        if (interpreter.is_debug_mode()) {
+            std::cerr << "[ARROW_DEBUG] STRING member found: str_value='"
+                      << member_var.str_value << "'" << std::endl;
+        }
         TypedValue typed_result(static_cast<int64_t>(0),
                                 InferredType(TYPE_STRING, "string"));
         typed_result.string_value = member_var.str_value;
         typed_result.is_numeric_result = false;
-        // Note: last_typed_result_へのアクセスは呼び出し側で処理
+        // last_typed_result_に設定
+        evaluator.set_last_typed_result(typed_result);
+        if (interpreter.is_debug_mode()) {
+            std::cerr
+                << "[ARROW_DEBUG] set_last_typed_result called with string: '"
+                << typed_result.string_value << "'" << std::endl;
+        }
         return 0;
     } else if (member_var.type == TYPE_POINTER) {
         // ポインタメンバの場合はそのまま値を返す

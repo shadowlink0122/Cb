@@ -89,6 +89,13 @@ void StructOperations::register_struct_definition(
     debug_msg(DebugMsgId::INTERPRETER_STRUCT_DEFINITION_STORED,
               struct_name.c_str());
 
+    if (interpreter_->is_debug_mode()) {
+        std::cerr << "[REGISTER_STRUCT] " << struct_name
+                  << ": has_default_member=" << definition.has_default_member
+                  << ", default_member_name=" << definition.default_member_name
+                  << std::endl;
+    }
+
     interpreter_->struct_definitions_[struct_name] = definition;
     validate_struct_recursion_rules();
 }
@@ -278,6 +285,14 @@ void StructOperations::sync_struct_definitions_from_parser(
 
         // Interpreterのstruct_definitions_に登録
         interpreter_->struct_definitions_[struct_name] = struct_def;
+
+        if (interpreter_->is_debug_mode()) {
+            std::cerr << "[SYNC_STRUCT] " << struct_name
+                      << ": has_default_member="
+                      << struct_def.has_default_member
+                      << ", default_member_name="
+                      << struct_def.default_member_name << std::endl;
+        }
 
         debug_msg(DebugMsgId::INTERPRETER_STRUCT_SYNCED, struct_name.c_str(),
                   struct_def.members.size());

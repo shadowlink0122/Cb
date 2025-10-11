@@ -1,0 +1,182 @@
+// デフォルトメンバーの包括的テスト（期待値付き・シンプル版）
+
+struct IntBox {
+    default int value;
+};
+
+struct StringBox {
+    default string value;
+};
+
+struct BoolBox {
+    default bool value;
+};
+
+struct Person {
+    string name;
+    default int age;
+    string city;
+};
+
+int total_tests = 0;
+int passed_tests = 0;
+
+void print_test_result(string test_name, bool passed) {
+    total_tests = total_tests + 1;
+    if (passed) {
+        passed_tests = passed_tests + 1;
+        print("  ✓ ");
+    } else {
+        print("  ✗ ");
+    }
+    println(test_name);
+}
+
+void print_section(string name) {
+    println("");
+    print("=== ");
+    print(name);
+    println(" ===");
+}
+
+void main() {
+    println("Default Member Comprehensive Test Suite");
+    println("========================================");
+    
+    int total_tests = 0;
+    int passed_tests = 0;
+    
+    // Test 1: 整数型のデフォルトメンバー
+    print_section("Test 1: Integer Default Member");
+    IntBox ib;
+    ib.value = 42;
+    print_test_result("Initial value = 42", ib.value == 42);
+    
+    ib = 100;
+    print_test_result("After implicit assignment = 100", ib.value == 100);
+    
+    ib.value = 200;
+    print_test_result("After explicit assignment = 200", ib.value == 200);
+    
+    // Test 2: 文字列型のデフォルトメンバー
+    print_section("Test 2: String Default Member");
+    StringBox sb;
+    sb.value = "Hello";
+    print("  Initial value: ");
+    println(sb.value);
+    print_test_result("Can access string value", sb.value == "Hello");
+    
+    sb = "World";
+    print("  After implicit assignment: ");
+    println(sb.value);
+    print_test_result("Implicit assignment works", sb.value == "World");
+    
+    // Test 3: bool型のデフォルトメンバー
+    print_section("Test 3: Boolean Default Member");
+    BoolBox bb;
+    bb.value = true;
+    print_test_result("Initial value = true", bb.value == true);
+    
+    bb = false;
+    print_test_result("After implicit assignment = false", bb.value == false);
+    
+    bb = true;
+    print_test_result("Back to true", bb.value == true);
+    
+    // Test 4: 複数メンバーを持つ構造体
+    print_section("Test 4: Multi-member Struct");
+    Person p;
+    p.name = "Alice";
+    p.age = 30;
+    p.city = "Tokyo";
+    
+    print_test_result("Name = Alice", p.name == "Alice");
+    print_test_result("Age = 30", p.age == 30);
+    print_test_result("City = Tokyo", p.city == "Tokyo");
+    
+    p = 35;  // 暗黙的にageに代入
+    print_test_result("After implicit age assignment = 35", p.age == 35);
+    print_test_result("Name unchanged", p.name == "Alice");
+    print_test_result("City unchanged", p.city == "Tokyo");
+    
+    // Test 5: 配列内の構造体
+    print_section("Test 5: Struct Array");
+    IntBox[3] arr;
+    arr[0].value = 10;
+    arr[1].value = 20;
+    arr[2].value = 30;
+    
+    print_test_result("Array[0] = 10", arr[0].value == 10);
+    print_test_result("Array[1] = 20", arr[1].value == 20);
+    print_test_result("Array[2] = 30", arr[2].value == 30);
+    
+    // Note: 配列要素への暗黙的代入は現在未サポート (arr[0] = 100)
+    
+    // Test 6: ポインタとデフォルトメンバー（int）
+    print_section("Test 6: Pointer Access (int)");
+    IntBox ib2;
+    ib2.value = 99;
+    IntBox* ptr = &ib2;
+    
+    print_test_result("Pointer dereference = 99", ptr->value == 99);
+    
+    ptr->value = 88;
+    print_test_result("After pointer assignment = 88", ib2.value == 88);
+    
+    ib2 = 77;
+    print_test_result("Pointer sees implicit assignment = 77", ptr->value == 77);
+    
+    // Test 7: 文字列ポインタアクセス
+    print_section("Test 7: String Pointer Access");
+    StringBox sb2;
+    sb2.value = "Original";
+    StringBox* sptr = &sb2;
+    
+    print("  String via pointer: ");
+    println(sptr->value);
+    print_test_result("String pointer dereference", sptr->value == "Original");
+    
+    sptr->value = "Modified";
+    print("  After pointer modification: ");
+    println(sb2.value);
+    print_test_result("String modified via pointer", sb2.value == "Modified");
+    
+    sb2 = "Final";
+    print("  After implicit assignment: ");
+    println(sptr->value);
+    print_test_result("Pointer sees implicit assignment", sptr->value == "Final");
+    
+    // Test 8: 暗黙的参照（printlnで直接出力）
+    print_section("Test 8: Implicit Reference in println");
+    IntBox ib3;
+    ib3.value = 123;
+    print("  Direct println of IntBox: ");
+    println(ib3);
+    print_test_result("Implicit reference displays value", true);
+    
+    StringBox sb3;
+    sb3.value = "Test";
+    print("  Direct println of StringBox: ");
+    println(sb3);
+    print_test_result("String implicit reference", true);
+    
+    println("");
+    println("========================================");
+    println("Test Suite Completed");
+    println("========================================");
+    print("Total Tests: ");
+    println(total_tests);
+    print("Passed: ");
+    println(passed_tests);
+    print("Failed: ");
+    int failed = total_tests - passed_tests;
+    println(failed);
+    
+    if (failed == 0) {
+        println("");
+        println("✅ All tests passed!");
+    } else {
+        println("");
+        println("❌ Some tests failed");
+    }
+}

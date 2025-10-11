@@ -1,0 +1,15 @@
+// デフォルトメンバーの暗黙的参照テスト
+
+struct String {
+    default string value;
+};
+
+void main() {
+    String s = {"Hello"};
+    
+    // 暗黙的参照: s.value として解釈されるべき
+    println(s);  // Hello (期待)
+    
+    s = "World";
+    println(s);  // World (期待)
+}

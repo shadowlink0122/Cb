@@ -67,6 +67,23 @@ Cbインタープリターの内部設計とアーキテクチャドキュメン
 
 ## 📁 サブフォルダ
 
+### `features/` - 機能別ドキュメント ⭐ **NEW**
+実装済み機能の詳細なドキュメントが格納されています。
+
+**主要ドキュメント**:
+- `default_member.md` - デフォルトメンバー機能（v0.10.0）
+- `defer_statement.md` - defer文（v0.10.0）
+
+**内容**:
+- 機能仕様と使用例
+- 実装の詳細とアーキテクチャ
+- テスト結果と検証方法
+- 技術的特徴とパフォーマンス情報
+
+**参照時**: 特定の機能の詳細を理解したい場合
+
+---
+
 ### `archive/` - アーカイブドキュメント
 過去のドキュメントや、統合・更新されたドキュメントが格納されています。
 
@@ -105,13 +122,18 @@ Cbインタープリターの内部設計とアーキテクチャドキュメン
 ### 2. 文法を正確に理解する
 → `BNF.md` を読む
 
-### 3. 今後の実装を確認する
+### 3. 特定の機能を詳しく学ぶ ⭐ **NEW**
+→ `features/` フォルダの該当ドキュメントを読む
+- デフォルトメンバー: `features/default_member.md`
+- defer文: `features/defer_statement.md`
+
+### 4. 今後の実装を確認する
 → `todo/v0.10.0_advanced_pointer_features.md` を読む
 
-### 4. 過去の実装を振り返る
+### 5. 過去の実装を振り返る
 → `todo/v0.9.0_final_implementation_report_complete.md` を読む
 
-### 5. 古いドキュメントを探す
+### 6. 古いドキュメントを探す
 → `archive/` フォルダを確認
 
 ---
@@ -124,7 +146,12 @@ docs/
 ├── spec.md                            # 言語仕様書（最重要）
 ├── BNF.md                             # BNF文法定義
 ├── architecture.md                    # アーキテクチャ設計
+├── features/                          # 機能別ドキュメント（NEW）
+│   ├── default_member.md              # デフォルトメンバー機能
+│   └── defer_statement.md             # defer文
 ├── archive/                           # アーカイブドキュメント
+│   ├── defer_implementation_complete.md  # defer実装完了報告
+│   ├── defer_segfault_fix.md          # deferセグフォルト修正
 │   ├── phase7_refactoring_complete_report.md  # Phase 7完了報告
 │   ├── interpreter_refactoring_*.md   # リファクタリング記録
 │   ├── phase*.md                      # 各フェーズ実装記録
