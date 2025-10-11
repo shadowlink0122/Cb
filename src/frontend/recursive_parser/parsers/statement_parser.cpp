@@ -244,9 +244,53 @@ StatementParser::parseTypedefTypeStatement(const std::string &type_name,
     if (parser_->check(TokenType::TOK_IDENTIFIER)) {
         parser_->advance(); // 識別子をスキップ
 
-        // '(' があれば関数定義
+        // '(' があるかチェック
         if (parser_->check(TokenType::TOK_LPAREN)) {
-            is_function = true;
+            // 次のトークンを見て、関数定義かコンストラクタ呼び出しかを判断
+            parser_->advance(); // '(' をスキップ
+
+            // ')' なら引数なしのコンストラクタ or 引数なしの関数宣言
+            // 型名（int, void等）なら関数宣言
+            // それ以外（数値、文字列、変数名等）ならコンストラクタ呼び出し
+            if (parser_->check(TokenType::TOK_RPAREN)) {
+                // 空の括弧 - デフォルトでは関数宣言と見なす
+                // ただし、後続に';'があればコンストラクタ呼び出しの可能性
+                parser_->advance(); // ')' をスキップ
+                if (parser_->check(TokenType::TOK_SEMICOLON)) {
+                    // Point p(); のような構文 - コンストラクタ呼び出しの可能性
+                    is_function = false;
+                } else if (parser_->check(TokenType::TOK_LBRACE)) {
+                    // Point p() { ... } - 関数定義
+                    is_function = true;
+                } else {
+                    is_function = true; // デフォルトは関数
+                }
+            } else if (parser_->check(TokenType::TOK_INT) ||
+                       parser_->check(TokenType::TOK_VOID) ||
+                       parser_->check(TokenType::TOK_FLOAT) ||
+                       parser_->check(TokenType::TOK_DOUBLE) ||
+                       parser_->check(TokenType::TOK_STRING_TYPE) ||
+                       parser_->check(TokenType::TOK_BOOL) ||
+                       parser_->check(TokenType::TOK_LONG) ||
+                       parser_->check(TokenType::TOK_SHORT) ||
+                       parser_->check(TokenType::TOK_TINY) ||
+                       parser_->check(TokenType::TOK_CONST) ||
+                       parser_->check(TokenType::TOK_UNSIGNED) ||
+                       parser_->check(TokenType::TOK_IDENTIFIER)) {
+                // 型名が続く場合は関数定義
+                // TOK_IDENTIFIERはtypedef型やstruct型の可能性がある
+                is_function = true;
+            } else if (parser_->check(TokenType::TOK_NUMBER) ||
+                       parser_->check(TokenType::TOK_STRING) ||
+                       parser_->check(TokenType::TOK_TRUE) ||
+                       parser_->check(TokenType::TOK_FALSE)) {
+                // リテラルが続く場合はコンストラクタ呼び出し
+                is_function = false;
+            } else {
+                // その他の場合は関数定義とみなす（デフォルト動作）
+                // これにより、曖昧なケースでは既存の動作を維持
+                is_function = true;
+            }
         }
     }
 

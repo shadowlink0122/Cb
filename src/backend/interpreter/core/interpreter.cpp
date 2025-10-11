@@ -1880,12 +1880,93 @@ void Interpreter::call_default_constructor(
 void Interpreter::call_constructor(const std::string &var_name,
                                    const std::string &struct_type_name,
                                    const std::vector<TypedValue> &args) {
-    // 引数付きコンストラクタの呼び出し（将来実装）
-    // TODO: パラメータマッチングとオーバーロード解決
-    (void)var_name;
-    (void)struct_type_name;
-    (void)args;
-    throw std::runtime_error("Parameterized constructors not yet implemented");
+    // 引数付きコンストラクタを探す
+    auto it = struct_constructors_.find(struct_type_name);
+    if (it == struct_constructors_.end() || it->second.empty()) {
+        throw std::runtime_error("No constructor defined for struct: " +
+                                 struct_type_name);
+    }
+
+    // パラメータ数が一致するコンストラクタを探す
+    const ASTNode *matching_ctor = nullptr;
+    for (const auto *ctor : it->second) {
+        if (ctor->parameters.size() == args.size()) {
+            // TODO: 型チェックを追加（より厳密なマッチング）
+            matching_ctor = ctor;
+            break;
+        }
+    }
+
+    if (!matching_ctor) {
+        throw std::runtime_error("No matching constructor found for struct " +
+                                 struct_type_name + " with " +
+                                 std::to_string(args.size()) + " arguments");
+    }
+
+    if (debug_mode) {
+        debug_print("Calling constructor for %s.%s with %zu arguments\n",
+                    struct_type_name.c_str(), var_name.c_str(), args.size());
+    }
+
+    // 構造体変数を取得
+    Variable *struct_var = find_variable(var_name);
+    if (!struct_var) {
+        throw std::runtime_error("Variable not found: " + var_name);
+    }
+
+    // コンストラクタ用の新しいスコープを作成
+    push_scope();
+
+    // selfを現在の変数のコピーとして設定
+    Variable self_var = *struct_var;
+    current_scope().variables["self"] = self_var;
+
+    // パラメータを設定
+    for (size_t i = 0; i < matching_ctor->parameters.size(); ++i) {
+        const auto &param = matching_ctor->parameters[i];
+        const auto &arg = args[i];
+
+        Variable param_var;
+        param_var.type = arg.type.type_info;
+        param_var.value = arg.value;
+        param_var.double_value = arg.double_value;
+        param_var.str_value = arg.string_value;
+        param_var.is_assigned = true;
+
+        current_scope().variables[param->name] = param_var;
+
+        if (debug_mode) {
+            debug_print("  Parameter %s = ", param->name.c_str());
+            if (arg.type.type_info == TYPE_STRING) {
+                debug_print("\"%s\"\n", arg.string_value.c_str());
+            } else {
+                debug_print("%lld\n", (long long)arg.value);
+            }
+        }
+    }
+
+    // コンストラクタ本体を実行
+    if (matching_ctor->body) {
+        execute_statement(matching_ctor->body.get());
+    }
+
+    // selfへの変更を元の変数に反映
+    Variable *self = find_variable("self");
+    if (self && struct_var) {
+        // selfのstruct_membersを元の変数にコピー
+        struct_var->struct_members = self->struct_members;
+
+        // メンバー変数の直接アクセス用変数も更新
+        for (const auto &[member_name, member_value] : self->struct_members) {
+            std::string member_path = var_name + "." + member_name;
+            Variable *direct_member = find_variable(member_path);
+            if (direct_member) {
+                *direct_member = member_value;
+            }
+        }
+    }
+
+    pop_scope(); // コンストラクタスコープを終了
 }
 
 void Interpreter::call_destructor(const std::string &var_name,

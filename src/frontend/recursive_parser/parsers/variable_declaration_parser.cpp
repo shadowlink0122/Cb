@@ -63,6 +63,8 @@ ASTNode *VariableDeclarationParser::parseVariableDeclaration() {
         bool is_array;
         ParsedTypeInfo parsed_type;
         bool is_private;
+        std::vector<std::unique_ptr<ASTNode>>
+            ctor_arguments; // コンストラクタ引数
 
         VariableInfo(const std::string &n, std::unique_ptr<ASTNode> expr,
                      const ArrayTypeInfo &arr_info, bool arr,
@@ -156,12 +158,33 @@ ASTNode *VariableDeclarationParser::parseVariableDeclaration() {
         }
         var_parsed.full_type = combined_full_type;
 
+        // コンストラクタ引数の解析 (例: Point p(10, 20);)
+        std::vector<std::unique_ptr<ASTNode>> ctor_arguments;
+        if (parser_->check(TokenType::TOK_LPAREN)) {
+            parser_->advance(); // '(' を消費
+
+            // 引数リストを解析
+            if (!parser_->check(TokenType::TOK_RPAREN)) {
+                do {
+                    ctor_arguments.push_back(
+                        std::unique_ptr<ASTNode>(parser_->parseExpression()));
+                } while (parser_->match(TokenType::TOK_COMMA));
+            }
+
+            parser_->consume(TokenType::TOK_RPAREN, "Expected ')'");
+        }
+
         if (parser_->match(TokenType::TOK_ASSIGN)) {
             init_expr = std::unique_ptr<ASTNode>(parser_->parseExpression());
         }
 
         variables.emplace_back(var_name, std::move(init_expr), array_info,
                                is_array, var_parsed, false);
+
+        // コンストラクタ引数を保存
+        if (!ctor_arguments.empty()) {
+            variables.back().ctor_arguments = std::move(ctor_arguments);
+        }
 
     } while (parser_->match(TokenType::TOK_COMMA));
 
@@ -198,6 +221,11 @@ ASTNode *VariableDeclarationParser::parseVariableDeclaration() {
 
         if (var_info.init_expr) {
             node->init_expr = std::move(var_info.init_expr);
+        }
+
+        // コンストラクタ引数を設定
+        if (!var_info.ctor_arguments.empty()) {
+            node->arguments = std::move(var_info.ctor_arguments);
         }
 
         return node;
