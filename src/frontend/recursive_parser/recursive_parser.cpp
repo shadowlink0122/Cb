@@ -524,6 +524,13 @@ ASTNode *RecursiveParser::parseStructDeclaration() {
             advance();
         }
 
+        // default修飾子のチェック
+        bool is_default_member = false;
+        if (check(TokenType::TOK_DEFAULT)) {
+            is_default_member = true;
+            advance();
+        }
+
         // const修飾子のチェック
         bool is_const_member = false;
         if (check(TokenType::TOK_CONST)) {
@@ -585,6 +592,12 @@ ASTNode *RecursiveParser::parseStructDeclaration() {
                 added.array_info = var_parsed.array_info;
             }
 
+            // デフォルトメンバーの設定
+            if (is_default_member) {
+                StructMember &added = struct_def.members.back();
+                added.is_default = true;
+            }
+
             // 旧式の配列宣言をチェック（int data[2][2];）- エラーとして処理
             if (check(TokenType::TOK_LBRACKET)) {
                 error("Old-style array declaration is not supported in struct "
@@ -606,6 +619,31 @@ ASTNode *RecursiveParser::parseStructDeclaration() {
 
     consume(TokenType::TOK_RBRACE, "Expected '}' after struct members");
     consume(TokenType::TOK_SEMICOLON, "Expected ';' after struct definition");
+
+    // デフォルトメンバーの検証: 複数のdefaultメンバーがないか確認
+    int default_count = 0;
+    std::string default_member;
+    for (const auto &member : struct_def.members) {
+        if (member.is_default) {
+            default_count++;
+            default_member = member.name;
+            if (default_count > 1) {
+                error("Struct '" + struct_name +
+                      "' has multiple default members. Only one default member "
+                      "is allowed per struct.");
+                return nullptr;
+            }
+        }
+    }
+    if (default_count == 1) {
+        struct_def.has_default_member = true;
+        struct_def.default_member_name = default_member;
+
+        if (debug_mode) {
+            std::cerr << "[PARSER] Struct " << struct_name
+                      << " has default member: " << default_member << std::endl;
+        }
+    }
 
     // struct定義をパーサー内に保存（変数宣言の認識のため）
     // 前方宣言を完全な定義で上書き
@@ -656,6 +694,7 @@ ASTNode *RecursiveParser::parseStructDeclaration() {
         member_node->is_unsigned = member.is_unsigned;
         member_node->is_private_member = member.is_private;
         member_node->is_const = member.is_const;
+        member_node->is_default_member = member.is_default;
         member_node->array_type_info = member.array_info; // 配列情報をコピー
         if (member.array_info.is_array()) {
             member_node->is_array = true;

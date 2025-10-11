@@ -96,6 +96,9 @@ void StructVariableManager::create_struct_variable(
 
     // 構造体配列メンバーの要素を再度追加（変数登録後に行う）
     post_process_array_elements(var_name, struct_def);
+
+    // v0.10.0: デフォルトコンストラクタを自動呼び出し
+    interpreter_->call_default_constructor(var_name, resolved_type_name);
 }
 
 void StructVariableManager::create_struct_member_variables_recursively(

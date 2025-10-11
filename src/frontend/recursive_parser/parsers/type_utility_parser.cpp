@@ -12,8 +12,13 @@ TypeUtilityParser::TypeUtilityParser(RecursiveParser *parser)
     : parser_(parser) {}
 
 std::string TypeUtilityParser::parseType() {
-    ParsedTypeInfo parsed;
+    // CRITICAL FIX: Initialize parsed with default values to prevent stale data
+    ParsedTypeInfo parsed =
+        ParsedTypeInfo(); // Use default constructor explicitly
     parsed.array_info = ArrayTypeInfo();
+    // Explicitly initialize reference flags to ensure no garbage values
+    parsed.is_reference = false;
+    parsed.is_rvalue_reference = false;
 
     std::string base_type;
     std::string original_type;
@@ -181,9 +186,22 @@ std::string TypeUtilityParser::parseType() {
         parsed.is_pointee_const = true;
     }
 
-    if (parser_->check(TokenType::TOK_BIT_AND)) {
-        parsed.is_reference = true;
+    // 参照型のチェック: & または &&
+    // v0.10.0: 右辺値参照（&&）のサポート
+    if (parser_->check(TokenType::TOK_AND)) {
+        // && が1つのトークンとして来た場合（右辺値参照）
         parser_->advance();
+        parsed.is_rvalue_reference = true;
+    } else if (parser_->check(TokenType::TOK_BIT_AND)) {
+        parser_->advance();
+        // 次が & なら右辺値参照（&&）
+        if (parser_->check(TokenType::TOK_BIT_AND)) {
+            parsed.is_rvalue_reference = true;
+            parser_->advance();
+        } else {
+            // 単一の & なら左辺値参照
+            parsed.is_reference = true;
+        }
     }
 
     std::vector<ArrayDimension> dimensions;

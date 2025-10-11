@@ -1,0 +1,32 @@
+// 基本的なswitch文のテスト
+void main() {
+    println("=== Basic Switch Test ===");
+    
+    // テスト1: 単一値のマッチング
+    int x = 2;
+    switch (x) {
+        case (1) {
+            println("One");
+        } case (2) {
+            println("Two");
+        } case (3) {
+            println("Three");
+        } else {
+            println("Other");
+        }
+    }
+    
+    // テスト2: else節のテスト
+    x = 10;
+    switch (x) {
+        case (1) {
+            println("One");
+        } case (2) {
+            println("Two");
+        } else {
+            println("Not one or two");
+        }
+    }
+    
+    println("=== Test completed ===");
+}

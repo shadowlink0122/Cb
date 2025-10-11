@@ -59,7 +59,8 @@
         "vector": "cpp",
         "fstream": "cpp",
         "algorithm": "cpp",
-        "__memory": "cpp"
+        "__memory": "cpp",
+        "type_traits": "cpp"
     },
     "makefile.configureOnOpen": false
 }

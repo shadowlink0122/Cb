@@ -28,8 +28,9 @@ struct ParsedTypeInfo {
     TypeInfo base_type_info = TYPE_UNKNOWN; // 基本型のTypeInfo
     bool is_array = false;                  // 配列型かどうか
     ArrayTypeInfo array_info;               // 配列情報（多次元対応）
-    bool is_reference = false;              // 参照型かどうか
-    bool is_unsigned = false;               // unsigned修飾子かどうか
+    bool is_reference = false; // 参照型かどうか（左辺値参照 T&）
+    bool is_rvalue_reference = false; // 右辺値参照（T&&）v0.10.0
+    bool is_unsigned = false;         // unsigned修飾子かどうか
     bool is_const = false; // const修飾子かどうか（前置const）
     bool is_pointer_const = false; // ポインタ自体がconst (T* const)
     bool is_pointee_const = false; // 指し先がconst (const T*)

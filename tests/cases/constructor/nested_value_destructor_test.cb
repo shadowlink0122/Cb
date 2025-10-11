@@ -1,0 +1,180 @@
+// ネストした構造体の値メンバーに対するデストラクタテスト
+// v0.10.0: 値メンバーのデストラクタを自動的に呼ぶ
+
+struct Inner {
+    int value;
+};
+
+interface IInner {
+    void display();
+}
+
+impl Inner {
+    self(int v) {
+        self.value = v;
+        println("[Inner] Constructor: value=", v);
+    }
+    
+    ~self() {
+        println("[Inner] Destructor: value=", self.value);
+    }
+}
+
+impl IInner for Inner {
+    void display() {
+        println("[Inner] Display: value=", self.value);
+    }
+}
+
+struct Outer {
+    Inner inner_member;  // 値メンバー
+    int id;
+};
+
+interface IOuter {
+    void show();
+}
+
+impl Outer {
+    self(int outer_id, int inner_val) {
+        self.id = outer_id;
+        // 値メンバーは直接初期化できないため、メンバーを個別に設定
+        self.inner_member.value = inner_val;
+        println("[Outer] Constructor: id=", outer_id, ", inner_value=", inner_val);
+    }
+    
+    ~self() {
+        println("[Outer] Destructor: id=", self.id);
+        // v0.10.0: inner_memberのデストラクタは自動的に呼ばれるべき
+    }
+}
+
+impl IOuter for Outer {
+    void show() {
+        println("[Outer] Show: id=", self.id);
+        self.inner_member.display();
+    }
+}
+
+void test_nested_value_member() {
+    println("=== Test 1: Nested Struct Value Member ===");
+    Outer outer(1, 100);
+    outer.show();
+    println("[MAIN] Before function end");
+    println("");
+    // 期待される動作:
+    // 1. [Inner] Destructor: value=100  (outer.inner_memberのデストラクタ)
+    // 2. [Outer] Destructor: id=1      (outerのデストラクタ)
+    // つまり、内側のメンバーから外側へと破壊される
+}
+
+struct MultiMember {
+    Inner first;
+    Inner second;
+    int id;
+};
+
+impl MultiMember {
+    self(int my_id, int v1, int v2) {
+        self.id = my_id;
+        self.first.value = v1;
+        self.second.value = v2;
+        println("[MultiMember] Constructor: id=", my_id);
+    }
+    
+    ~self() {
+        println("[MultiMember] Destructor: id=", self.id);
+        // v0.10.0: first と second のデストラクタは自動的に呼ばれるべき
+        // 破壊順序: second → first → self (宣言の逆順)
+    }
+}
+
+void test_multiple_value_members() {
+    println("=== Test 2: Multiple Value Members ===");
+    MultiMember multi(2, 200, 201);
+    println("[MAIN] Before function end");
+    println("");
+    // 期待される動作:
+    // 1. [Inner] Destructor: value=201  (multi.second)
+    // 2. [Inner] Destructor: value=200  (multi.first)
+    // 3. [MultiMember] Destructor: id=2 (multi自身)
+}
+
+struct DeepNested {
+    Outer outer_member;  // Outer自身がInnerメンバーを持つ
+    int depth;
+};
+
+impl DeepNested {
+    self(int d, int outer_id, int inner_val) {
+        self.depth = d;
+        self.outer_member.id = outer_id;
+        self.outer_member.inner_member.value = inner_val;
+        println("[DeepNested] Constructor: depth=", d);
+    }
+    
+    ~self() {
+        println("[DeepNested] Destructor: depth=", self.depth);
+        // v0.10.0: outer_memberのデストラクタが呼ばれ、
+        // さらにouter_member.inner_memberのデストラクタも呼ばれるべき
+    }
+}
+
+void test_deep_nested_members() {
+    println("=== Test 3: Deep Nested Members ===");
+    DeepNested deep(3, 300, 3000);
+    println("[MAIN] Before function end");
+    println("");
+    // 期待される動作:
+    // 1. [Inner] Destructor: value=3000  (deep.outer_member.inner_member)
+    // 2. [Outer] Destructor: id=300      (deep.outer_member)
+    // 3. [DeepNested] Destructor: depth=3 (deep自身)
+}
+
+struct MixedMembers {
+    Inner value_member;   // 値メンバー (デストラクタを呼ぶ)
+    Inner* pointer_member; // ポインタメンバー (デストラクタを呼ばない)
+    int id;
+};
+
+impl MixedMembers {
+    self(int my_id, int val) {
+        self.id = my_id;
+        self.value_member.value = val;
+        self.pointer_member = nullptr;  // 初期化
+        println("[MixedMembers] Constructor: id=", my_id);
+    }
+    
+    ~self() {
+        println("[MixedMembers] Destructor: id=", self.id);
+        // v0.10.0: value_memberのデストラクタは呼ばれる
+        // pointer_memberのデストラクタは呼ばれない（ポインタは所有権を持たない）
+    }
+}
+
+void test_mixed_value_and_pointer_members() {
+    println("=== Test 4: Mixed Value and Pointer Members ===");
+    Inner standalone(400);
+    MixedMembers mixed(4, 401);
+    mixed.pointer_member = &standalone;
+    println("[MAIN] Before function end");
+    println("");
+    // 期待される動作:
+    // 1. [Inner] Destructor: value=401  (mixed.value_member)
+    // 2. [MixedMembers] Destructor: id=4 (mixed自身)
+    // 3. [Inner] Destructor: value=400  (standalone)
+    // 注: mixed.pointer_memberはstandaloneを指しているが、
+    //     pointer_memberのデストラクタは呼ばれない
+}
+
+void main() {
+    println("=== Nested Value Member Destructor Tests ===");
+    println("");
+    
+    test_nested_value_member();
+    test_multiple_value_members();
+    test_deep_nested_members();
+    test_mixed_value_and_pointer_members();
+    
+    println("=== All Tests Completed ===");
+}

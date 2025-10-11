@@ -1,0 +1,66 @@
+// デフォルトメンバーの配列とポインタテスト
+
+struct IntBox {
+    default int value;
+};
+
+struct StringBox {
+    default string value;
+};
+
+void main() {
+    println("=== 構造体配列のデフォルトメンバーテスト ===");
+    
+    // 配列の初期化
+    IntBox[3] boxes;
+    boxes[0].value = 10;
+    boxes[1].value = 20;
+    boxes[2].value = 30;
+    
+    println(boxes[0].value);  // 10
+    println(boxes[1].value);  // 20
+    println(boxes[2].value);  // 30
+    
+    // 暗黙的代入
+    boxes[0] = 100;
+    boxes[1] = 200;
+    boxes[2] = 300;
+    
+    println(boxes[0]);  // 100
+    println(boxes[1]);  // 200
+    println(boxes[2]);  // 300
+    
+    println("\n=== ポインタとデフォルトメンバーテスト ===");
+    
+    IntBox ib = {42};
+    println(ib);  // 42
+    
+    IntBox* p = &ib;
+    println(p->value);  // 42
+    
+    // ポインタ経由での暗黙的代入
+    p->value = 100;
+    println(ib);  // 100
+    println(p->value);  // 100
+    
+    // 暗黙的代入
+    ib = 200;
+    println(ib);  // 200
+    println(p->value);  // 200
+    
+    println("\n=== 文字列ボックスのポインタテスト ===");
+    
+    StringBox sb = {"Hello"};
+    println(sb);  // Hello
+    
+    StringBox* sp = &sb;
+    println(sp->value);  // Hello
+    
+    sp->value = "World";
+    println(sb);  // World
+    println(sp->value);  // World
+    
+    sb = "Pointer";
+    println(sb);  // Pointer
+    println(sp->value);  // Pointer
+}

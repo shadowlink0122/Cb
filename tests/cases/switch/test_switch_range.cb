@@ -1,0 +1,62 @@
+// 範囲演算子を使ったswitch文のテスト
+void main() {
+    println("=== Switch Range Test ===");
+    
+    // テスト1: 範囲の最小値
+    int score = 90;
+    switch (score) {
+        case (90...100) {
+            println("Grade A");
+        } case (80...89) {
+            println("Grade B");
+        } case (70...79) {
+            println("Grade C");
+        } else {
+            println("Grade F");
+        }
+    }
+    
+    // テスト2: 範囲の中間値
+    score = 85;
+    switch (score) {
+        case (90...100) {
+            println("Grade A");
+        } case (80...89) {
+            println("Grade B");
+        } case (70...79) {
+            println("Grade C");
+        } else {
+            println("Grade F");
+        }
+    }
+    
+    // テスト3: 範囲の最大値
+    score = 89;
+    switch (score) {
+        case (90...100) {
+            println("Grade A");
+        } case (80...89) {
+            println("Grade B");
+        } case (70...79) {
+            println("Grade C");
+        } else {
+            println("Grade F");
+        }
+    }
+    
+    // テスト4: 範囲外（else節）
+    score = 50;
+    switch (score) {
+        case (90...100) {
+            println("Grade A");
+        } case (80...89) {
+            println("Grade B");
+        } case (70...79) {
+            println("Grade C");
+        } else {
+            println("Grade F");
+        }
+    }
+    
+    println("=== Test completed ===");
+}

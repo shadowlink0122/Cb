@@ -1,0 +1,6 @@
+// defer文の最小テスト
+void main() {
+    int x = 1;
+    defer x = 3;
+    x = 2;
+}

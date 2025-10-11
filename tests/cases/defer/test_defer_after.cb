@@ -1,0 +1,7 @@
+// deferの後にprintln
+void main() {
+    println("Start");
+    defer println("2");
+    defer println("1");
+    println("Middle");
+}

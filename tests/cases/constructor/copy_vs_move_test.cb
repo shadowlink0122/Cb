@@ -1,0 +1,53 @@
+// v0.10.0 ムーブセマンティクス - コピーとムーブの比較テスト
+
+struct Point {
+    int x;
+    int y;
+};
+
+impl Point {
+    self(int px, int py) {
+        self.x = px;
+        self.y = py;
+        println("[DEBUG] Default constructor: (", px, ", ", py, ")");
+    }
+    
+    // コピーコンストラクタ
+    self(const Point& other) {
+        self.x = other.x;
+        self.y = other.y;
+        println("[DEBUG] Copy constructor called");
+    }
+    
+    // ムーブコンストラクタ
+    self(Point&& other) {
+        self.x = other.x;
+        self.y = other.y;
+        other.x = 0;
+        other.y = 0;
+        println("[DEBUG] Move constructor called");
+    }
+    
+    ~self() {
+        println("[DEBUG] Destructor: (", self.x, ", ", self.y, ")");
+    }
+}
+
+void main() {
+    println("=== Copy vs Move Test ===");
+    
+    println("\n1. Creating p1:");
+    Point p1(10, 20);
+    
+    println("\n2. Copy p1 to p2:");
+    Point p2 = p1;
+    println("   p1: (", p1.x, ", ", p1.y, ")");
+    println("   p2: (", p2.x, ", ", p2.y, ")");
+    
+    println("\n3. Move p1 to p3:");
+    Point p3 = move(p1);
+    println("   p1: (", p1.x, ", ", p1.y, ")");
+    println("   p3: (", p3.x, ", ", p3.y, ")");
+    
+    println("\n4. End of main");
+}

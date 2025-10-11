@@ -559,15 +559,13 @@ int64_t ExpressionEvaluator::evaluate_member_access_impl(const ASTNode *node) {
         throw std::runtime_error("Invalid member access");
     }
 
-    // 参照型変数の場合、参照先を取得
-    Variable *base_var = interpreter_.find_variable(var_name);
+    // v0.10.0: 参照型変数の場合、参照先を取得
+    // TODO v0.10.1: メンバーアクセスでの参照解決を完全実装
+    // 現在find_variable()は参照を辿るが、actual_var_nameの更新が必要
     std::string actual_var_name = var_name;
 
-    if (base_var && base_var->is_reference) {
-        // 参照の場合、参照先の変数から直接メンバを取得
-        debug_print("[DEBUG] Member access on reference variable: %s\n",
-                    var_name.c_str());
-    }
+    // 実際の変数を取得（find_variable()は参照チェーンを辿る）
+    Variable *base_var = interpreter_.find_variable(var_name);
 
     // 個別変数として直接アクセスを試す（構造体配列の場合）
     std::string full_member_path = actual_var_name + "." + member_name;

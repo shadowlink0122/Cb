@@ -1,0 +1,38 @@
+// defer文とネストした関数呼び出しのテスト
+void cleanup(int id) {
+    println("cleanup:");
+    println(id);
+}
+
+void inner() {
+    println("inner: start");
+    defer cleanup(2);
+    println("inner: end");
+}
+
+void outer() {
+    println("outer: start");
+    defer cleanup(1);
+    inner();
+    println("outer: end");
+}
+
+void main() {
+    println("main: start");
+    defer cleanup(0);
+    outer();
+    println("main: end");
+}
+// 期待される出力:
+// main: start
+// outer: start
+// inner: start
+// inner: end
+// cleanup:
+// 2
+// outer: end
+// cleanup:
+// 1
+// main: end
+// cleanup:
+// 0

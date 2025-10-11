@@ -19,8 +19,15 @@ class ControlFlowExecutor {
     // FOR文の実行
     void execute_for_statement(const ASTNode *node);
 
+    // SWITCH文の実行
+    void execute_switch_statement(const ASTNode *node);
+
   private:
     Interpreter *interpreter_;
+
+    // Switch文のヘルパー関数
+    bool match_case_value(const ASTNode *switch_expr_value,
+                          const ASTNode *case_value);
 };
 
 #endif // CONTROL_FLOW_EXECUTOR_H

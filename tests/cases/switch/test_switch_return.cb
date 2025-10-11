@@ -1,0 +1,28 @@
+// switch文内でのreturnのテスト
+string get_grade(int score) {
+    switch (score) {
+        case (90...100) {
+            return "A";
+        } case (80...89) {
+            return "B";
+        } case (70...79) {
+            return "C";
+        } case (60...69) {
+            return "D";
+        } else {
+            return "F";
+        }
+    }
+}
+
+void main() {
+    println("=== Switch Return Test ===");
+    
+    println(get_grade(95));
+    println(get_grade(85));
+    println(get_grade(75));
+    println(get_grade(65));
+    println(get_grade(50));
+    
+    println("=== Test completed ===");
+}

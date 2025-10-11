@@ -1,0 +1,21 @@
+// プリミティブ型にmove()を適用するテスト
+
+void main() {
+    println("=== Primitive Move Test ===");
+    
+    println("\n1. int型のムーブテスト:");
+    int x = 42;
+    println("   x before: ", x);
+    
+    int y = move(x);
+    println("   x after: ", x);
+    println("   y: ", y);
+    
+    println("\n2. double型のムーブテスト:");
+    double d1 = 3.14;
+    println("   d1 before: ", d1);
+    
+    double d2 = move(d1);
+    println("   d1 after: ", d1);
+    println("   d2: ", d2);
+}

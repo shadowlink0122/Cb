@@ -1,0 +1,96 @@
+// デフォルトコンストラクタの詳細テスト
+
+struct Point {
+    int x;
+    int y;
+};
+
+impl Point {
+    // デフォルトコンストラクタ（引数なし）
+    self() {
+        self.x = 100;
+        self.y = 200;
+        println("Point default constructor called");
+    }
+}
+
+struct Vector3D {
+    int x;
+    int y;
+    int z;
+};
+
+impl Vector3D {
+    self() {
+        self.x = 1;
+        self.y = 2;
+        self.z = 3;
+        println("Vector3D default constructor called");
+    }
+}
+
+void main() {
+    println("=== Default Constructor Test ===");
+    println("");
+    
+    // テスト1: 基本的なデフォルトコンストラクタ
+    println("Test 1: Basic default constructor");
+    Point p1;
+    println("  p1.x = ", p1.x, " (expected: 100)");
+    println("  p1.y = ", p1.y, " (expected: 200)");
+    
+    if (p1.x == 100 && p1.y == 200) {
+        println("  [PASS] Default constructor initialized correctly");
+    } else {
+        println("  [FAIL] Default constructor values incorrect");
+    }
+    println("");
+    
+    // テスト2: 複数のインスタンス作成
+    println("Test 2: Multiple instances");
+    Point p2;
+    Point p3;
+    println("  p2: (", p2.x, ", ", p2.y, ")");
+    println("  p3: (", p3.x, ", ", p3.y, ")");
+    
+    if (p2.x == 100 && p2.y == 200 && p3.x == 100 && p3.y == 200) {
+        println("  [PASS] All instances initialized correctly");
+    } else {
+        println("  [FAIL] Some instances not initialized correctly");
+    }
+    println("");
+    
+    // テスト3: 別の構造体型
+    println("Test 3: Different struct type");
+    Vector3D v1;
+    println("  v1: (", v1.x, ", ", v1.y, ", ", v1.z, ")");
+    
+    if (v1.x == 1 && v1.y == 2 && v1.z == 3) {
+        println("  [PASS] Vector3D initialized correctly");
+    } else {
+        println("  [FAIL] Vector3D not initialized correctly");
+    }
+    println("");
+    
+    // テスト4: 初期化後の値変更
+    println("Test 4: Modify values after construction");
+    p1.x = 10;
+    p1.y = 20;
+    println("  Modified p1: (", p1.x, ", ", p1.y, ")");
+    
+    if (p1.x == 10 && p1.y == 20) {
+        println("  [PASS] Values modified successfully");
+    } else {
+        println("  [FAIL] Value modification failed");
+    }
+    
+    // p2とp3は変更されていないことを確認
+    if (p2.x == 100 && p3.x == 100) {
+        println("  [PASS] Other instances unchanged");
+    } else {
+        println("  [FAIL] Other instances affected");
+    }
+    println("");
+    
+    println("=== Test Complete ===");
+}

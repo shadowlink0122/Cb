@@ -1,0 +1,16 @@
+// defer文とループのテスト
+void main() {
+    println("Loop test:");
+    defer println("defer");
+    for (int i = 0; i < 3; i = i + 1) {
+        println(i);
+    }
+    println("Done");
+}
+// 期待される出力:
+// Loop test:
+// 0
+// 1
+// 2
+// Done
+// defer

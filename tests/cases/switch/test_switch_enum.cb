@@ -1,0 +1,85 @@
+// enum型を使ったswitch文のテスト
+enum Color {
+    RED = 1,
+    GREEN = 2,
+    BLUE = 3,
+    YELLOW = 4,
+    BLACK = 5
+};
+
+enum Status {
+    PENDING = 0,
+    PROCESSING = 1,
+    COMPLETED = 2,
+    FAILED = 3
+};
+
+void print_color(Color c) {
+    switch (c) {
+        case (1) {
+            println("Red");
+        } case (2) {
+            println("Green");
+        } case (3) {
+            println("Blue");
+        } case (4 || 5) {
+            println("Yellow or Black");
+        } else {
+            println("Unknown color");
+        }
+    }
+}
+
+string get_status_message(Status s) {
+    switch (s) {
+        case (0) {
+            return "Waiting";
+        } case (1) {
+            return "In progress";
+        } case (2) {
+            return "Done";
+        } case (3) {
+            return "Error";
+        } else {
+            return "Unknown status";
+        }
+    }
+}
+
+void main() {
+    println("=== Switch Enum Test ===");
+    
+    // Color enum test
+    Color red = 1;
+    Color green = 2;
+    Color yellow = 4;
+    
+    print_color(red);
+    print_color(green);
+    print_color(yellow);
+    
+    // Status enum test
+    Status pending = 0;
+    Status processing = 1;
+    Status completed = 2;
+    Status failed = 3;
+    
+    println(get_status_message(pending));
+    println(get_status_message(processing));
+    println(get_status_message(completed));
+    println(get_status_message(failed));
+    
+    // 範囲でのenum値チェック
+    println("Range check:");
+    switch (green) {
+        case (1...3) {
+            println("Primary color");
+        } case (4...5) {
+            println("Secondary color");
+        } else {
+            println("Other");
+        }
+    }
+    
+    println("=== Test completed ===");
+}

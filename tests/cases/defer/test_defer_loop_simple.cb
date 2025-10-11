@@ -1,0 +1,8 @@
+// シンプルなループdeferテスト
+void main() {
+    for (int i = 0; i < 2; i = i + 1) {
+        defer println("d");
+        println("i");
+    }
+    println("Done");
+}

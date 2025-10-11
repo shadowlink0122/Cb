@@ -62,6 +62,17 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
     var.is_pointer_const = node->is_pointer_const_qualifier;
     var.is_pointee_const = node->is_pointee_const_qualifier;
 
+    // v0.10.0: 参照型のサポート（T& と T&&）
+    var.is_reference = node->is_reference;
+    var.is_rvalue_reference = node->is_rvalue_reference;
+
+    // 右辺値参照（T&&）は構造体型のみ許可
+    if (var.is_rvalue_reference && node->type_info != TYPE_STRUCT) {
+        throw std::runtime_error(
+            "Rvalue references (T&&) are only supported for struct types. "
+            "Use regular lvalue references (T&) for primitive types.");
+    }
+
     // struct変数の場合の追加設定
     if (node->type_info == TYPE_STRUCT && !node->type_name.empty()) {
         var.is_struct = true;
@@ -559,91 +570,6 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
             current_scope().variables[node->name].is_assigned = true;
 
             return; // struct member access代入処理完了後は早期リターン
-
-        } else if (var.is_struct &&
-                   node->init_expr->node_type == ASTNodeType::AST_VARIABLE) {
-            // struct to struct代入の処理: Person p2 = p1;
-            std::string source_var_name = node->init_expr->name;
-            Variable *source_var = find_variable(source_var_name);
-            if (!source_var) {
-                throw std::runtime_error("Source variable not found: " +
-                                         source_var_name);
-            }
-
-            if (!source_var->is_struct) {
-                throw std::runtime_error(
-                    "Cannot assign non-struct to struct variable");
-            }
-
-            if (source_var->struct_type_name != var.struct_type_name) {
-                throw std::runtime_error(
-                    "Cannot assign struct of different type");
-            }
-
-            // まず変数を登録
-            current_scope().variables[node->name] = var;
-
-            // 全メンバをコピー
-            for (const auto &member : source_var->struct_members) {
-                current_scope()
-                    .variables[node->name]
-                    .struct_members[member.first] = member.second;
-
-                // 直接アクセス変数もコピー
-                std::string source_member_name =
-                    source_var_name + "." + member.first;
-                std::string dest_member_name = node->name + "." + member.first;
-                Variable *source_member_var = find_variable(source_member_name);
-                if (source_member_var) {
-                    Variable member_copy = *source_member_var;
-                    current_scope().variables[dest_member_name] = member_copy;
-
-                    // 配列メンバの場合、個別要素変数もコピー
-                    if (source_member_var->is_array) {
-                        for (int i = 0; i < source_member_var->array_size;
-                             i++) {
-                            std::string source_element_name =
-                                source_member_name + "[" + std::to_string(i) +
-                                "]";
-                            std::string dest_element_name =
-                                dest_member_name + "[" + std::to_string(i) +
-                                "]";
-                            Variable *source_element_var =
-                                find_variable(source_element_name);
-                            if (source_element_var) {
-                                Variable element_copy = *source_element_var;
-                                current_scope().variables[dest_element_name] =
-                                    element_copy;
-
-                                if (interpreter_->debug_mode) {
-                                    if (source_element_var->type ==
-                                        TYPE_STRING) {
-                                        debug_print("STRUCT_COPY: Copied array "
-                                                    "element %s = '%s' to %s\n",
-                                                    source_element_name.c_str(),
-                                                    source_element_var
-                                                        ->str_value.c_str(),
-                                                    dest_element_name.c_str());
-                                    } else {
-                                        debug_print(
-                                            "STRUCT_COPY: Copied array "
-                                            "element %s = %lld to %s\n",
-                                            source_element_name.c_str(),
-                                            (long long)
-                                                source_element_var->value,
-                                            dest_element_name.c_str());
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            // 代入完了
-            current_scope().variables[node->name].is_assigned = true;
-
-            return; // struct代入処理完了後は早期リターン
 
         } else if (var.is_struct &&
                    node->init_expr->node_type == ASTNodeType::AST_FUNC_CALL) {
@@ -1823,7 +1749,109 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
 
     current_scope().variables[node->name] = var;
     // std::cerr << "DEBUG: Variable created: " << node->name << ",
-    // is_array=" << var.is_array << std::endl;
+    // is_array=" << var.is_assigned << std::endl;
+
+    // v0.10.0: 構造体変数のコンストラクタを自動呼び出し
+    if (interpreter_->debug_mode) {
+        debug_print("CONSTRUCTOR_CHECK_PRE: var=%s, is_struct=%d, "
+                    "struct_type_name='%s'\n",
+                    node->name.c_str(), var.is_struct,
+                    var.struct_type_name.c_str());
+    }
+
+    if (var.is_struct && !var.struct_type_name.empty()) {
+        std::string resolved_type =
+            interpreter_->type_manager_->resolve_typedef(var.struct_type_name);
+
+        // v0.10.0: スコープ終了時にデストラクタを呼び出すために記録
+        // ただし、参照変数の場合はデストラクタを呼び出さない
+        bool is_ref_var = var.is_reference || var.is_rvalue_reference;
+        if (!is_ref_var) {
+            interpreter_->register_destructor_call(node->name, resolved_type);
+        }
+
+        if (interpreter_->debug_mode) {
+            debug_print("CONSTRUCTOR_CHECK: var=%s, has_arguments=%d, "
+                        "has_init_expr=%d\n",
+                        node->name.c_str(), !node->arguments.empty(),
+                        node->init_expr != nullptr);
+            if (node->init_expr) {
+                debug_print("  init_expr->node_type=%d, AST_VARIABLE=%d\n",
+                            static_cast<int>(node->init_expr->node_type),
+                            static_cast<int>(ASTNodeType::AST_VARIABLE));
+                if (node->init_expr->node_type == ASTNodeType::AST_VARIABLE) {
+                    debug_print("  init_expr->name=%s\n",
+                                node->init_expr->name.c_str());
+                }
+            }
+        }
+
+        // 引数がある場合は引数付きコンストラクタを呼び出し
+        if (!node->arguments.empty()) {
+            // 引数を評価してTypedValueに変換
+            std::vector<TypedValue> args;
+            for (const auto &arg_node : node->arguments) {
+                TypedValue typed_val =
+                    interpreter_->evaluate_typed_expression(arg_node.get());
+                args.push_back(typed_val);
+            }
+            interpreter_->call_constructor(node->name, resolved_type, args);
+        } else if (node->init_expr &&
+                   node->init_expr->node_type == ASTNodeType::AST_VARIABLE) {
+            // v0.10.0: コピーコンストラクタの検出
+            // Point p2 = p1; のような代入初期化
+            std::string source_var_name = node->init_expr->name;
+            Variable *source_var = interpreter_->find_variable(source_var_name);
+
+            // v0.10.0: 参照型（T& または T&&）の処理
+            if ((var.is_reference || var.is_rvalue_reference) && source_var) {
+                // 参照変数は元の変数へのエイリアスとして機能
+                // 実装:
+                // 参照型フラグと参照元を記録し、元の変数の完全なコピーを作成
+                if (interpreter_->debug_mode) {
+                    debug_print("Creating reference variable: %s -> %s "
+                                "(is_rvalue_ref=%d)\n",
+                                node->name.c_str(), source_var_name.c_str(),
+                                var.is_rvalue_reference);
+                }
+                // 参照変数は元の変数への完全なエイリアスとして動作
+                // source_varの全ての内容をref_varにコピー
+                Variable ref_var =
+                    *source_var; // 元の変数の完全なコピー（struct_members含む）
+                ref_var.is_reference = true;
+                ref_var.is_rvalue_reference = var.is_rvalue_reference;
+                ref_var.reference_target = source_var_name;
+                // 名前は参照変数の名前に設定
+                // （元のsource_varの名前ではなく、新しい参照変数の名前）
+                interpreter_->current_scope().variables[node->name] = ref_var;
+
+                // 注:
+                // これだけでは不十分。参照のセマンティクスを完全に実現するには
+                // メンバーアクセスと代入時に reference_target を辿る必要がある
+                // 注: 参照は元の変数と同じメモリを共有するため、
+                // デストラクタは register_destructor_call
+                // で既に登録されていない
+            } else if (source_var && source_var->is_struct &&
+                       source_var->struct_type_name == var.struct_type_name) {
+                // 同じ構造体型からのコピー初期化
+                if (interpreter_->debug_mode) {
+                    debug_print("Detected copy initialization: %s = %s\n",
+                                node->name.c_str(), source_var_name.c_str());
+                }
+
+                // コピーコンストラクタを呼び出し
+                interpreter_->call_copy_constructor(node->name, resolved_type,
+                                                    source_var_name);
+            } else {
+                // 通常のデフォルトコンストラクタを呼び出し
+                interpreter_->call_default_constructor(node->name,
+                                                       resolved_type);
+            }
+        } else {
+            // 引数なしの場合はデフォルトコンストラクタを呼び出し
+            interpreter_->call_default_constructor(node->name, resolved_type);
+        }
+    }
 }
 
 // ============================================================================

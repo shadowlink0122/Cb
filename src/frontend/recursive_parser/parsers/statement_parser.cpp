@@ -155,6 +155,12 @@ ASTNode *StatementParser::parseControlFlowStatement() {
     if (parser_->check(TokenType::TOK_CONTINUE)) {
         return parser_->parseContinueStatement();
     }
+    if (parser_->check(TokenType::TOK_DEFER)) {
+        return parseDeferStatement();
+    }
+    if (parser_->check(TokenType::TOK_SWITCH)) {
+        return parseSwitchStatement();
+    }
     if (parser_->check(TokenType::TOK_IF)) {
         return parseIfStatement();
     }
@@ -238,9 +244,53 @@ StatementParser::parseTypedefTypeStatement(const std::string &type_name,
     if (parser_->check(TokenType::TOK_IDENTIFIER)) {
         parser_->advance(); // 識別子をスキップ
 
-        // '(' があれば関数定義
+        // '(' があるかチェック
         if (parser_->check(TokenType::TOK_LPAREN)) {
-            is_function = true;
+            // 次のトークンを見て、関数定義かコンストラクタ呼び出しかを判断
+            parser_->advance(); // '(' をスキップ
+
+            // ')' なら引数なしのコンストラクタ or 引数なしの関数宣言
+            // 型名（int, void等）なら関数宣言
+            // それ以外（数値、文字列、変数名等）ならコンストラクタ呼び出し
+            if (parser_->check(TokenType::TOK_RPAREN)) {
+                // 空の括弧 - デフォルトでは関数宣言と見なす
+                // ただし、後続に';'があればコンストラクタ呼び出しの可能性
+                parser_->advance(); // ')' をスキップ
+                if (parser_->check(TokenType::TOK_SEMICOLON)) {
+                    // Point p(); のような構文 - コンストラクタ呼び出しの可能性
+                    is_function = false;
+                } else if (parser_->check(TokenType::TOK_LBRACE)) {
+                    // Point p() { ... } - 関数定義
+                    is_function = true;
+                } else {
+                    is_function = true; // デフォルトは関数
+                }
+            } else if (parser_->check(TokenType::TOK_INT) ||
+                       parser_->check(TokenType::TOK_VOID) ||
+                       parser_->check(TokenType::TOK_FLOAT) ||
+                       parser_->check(TokenType::TOK_DOUBLE) ||
+                       parser_->check(TokenType::TOK_STRING_TYPE) ||
+                       parser_->check(TokenType::TOK_BOOL) ||
+                       parser_->check(TokenType::TOK_LONG) ||
+                       parser_->check(TokenType::TOK_SHORT) ||
+                       parser_->check(TokenType::TOK_TINY) ||
+                       parser_->check(TokenType::TOK_CONST) ||
+                       parser_->check(TokenType::TOK_UNSIGNED) ||
+                       parser_->check(TokenType::TOK_IDENTIFIER)) {
+                // 型名が続く場合は関数定義
+                // TOK_IDENTIFIERはtypedef型やstruct型の可能性がある
+                is_function = true;
+            } else if (parser_->check(TokenType::TOK_NUMBER) ||
+                       parser_->check(TokenType::TOK_STRING) ||
+                       parser_->check(TokenType::TOK_TRUE) ||
+                       parser_->check(TokenType::TOK_FALSE)) {
+                // リテラルが続く場合はコンストラクタ呼び出し
+                is_function = false;
+            } else {
+                // その他の場合は関数定義とみなす（デフォルト動作）
+                // これにより、曖昧なケースでは既存の動作を維持
+                is_function = true;
+            }
         }
     }
 
@@ -1308,6 +1358,23 @@ ASTNode *StatementParser::parseContinueStatement() {
     return continue_node;
 }
 
+/**
+ * @brief defer文を解析
+ * @return 解析されたASTdefer文ノード
+ *
+ * 構文: defer statement;
+ * スコープ終了時に実行される文を登録（LIFO順）
+ */
+ASTNode *StatementParser::parseDeferStatement() {
+    parser_->advance(); // consume 'defer'
+    ASTNode *defer_node = new ASTNode(ASTNodeType::AST_DEFER_STMT);
+
+    // defer対象の文を解析
+    defer_node->body = std::unique_ptr<ASTNode>(parser_->parseStatement());
+
+    return defer_node;
+}
+
 // ========================================
 // 出力・デバッグ
 // ========================================
@@ -1411,4 +1478,118 @@ ASTNode *StatementParser::parsePrintStatement() {
     parser_->consume(TokenType::TOK_SEMICOLON,
                      "Expected ';' after print statement");
     return print_node;
+}
+
+/**
+ * @brief switch文を解析
+ * @return 解析されたASTswitch文ノード
+ *
+ * 構文:
+ * switch (expr) {
+ *     case (value1) { stmt1; }
+ *     case (value2 || value3) { stmt2; }
+ *     case (10...20) { stmt3; }
+ *     else { stmt4; }
+ * }
+ */
+ASTNode *StatementParser::parseSwitchStatement() {
+    Token switch_token = parser_->advance(); // consume 'switch'
+    ASTNode *switch_node = new ASTNode(ASTNodeType::AST_SWITCH_STMT);
+    switch_node->location.line = switch_token.line;
+    switch_node->location.column = switch_token.column;
+
+    // switch対象の式を解析
+    parser_->consume(TokenType::TOK_LPAREN, "Expected '(' after switch");
+    switch_node->switch_expr =
+        std::unique_ptr<ASTNode>(parser_->parseExpression());
+    parser_->consume(TokenType::TOK_RPAREN,
+                     "Expected ')' after switch expression");
+
+    // switch本体（case節のリスト）
+    parser_->consume(TokenType::TOK_LBRACE,
+                     "Expected '{' after switch expression");
+
+    // case節を解析
+    while (!parser_->check(TokenType::TOK_RBRACE) && !parser_->isAtEnd()) {
+        if (parser_->check(TokenType::TOK_CASE)) {
+            switch_node->cases.push_back(
+                std::unique_ptr<ASTNode>(parseCaseClause()));
+        } else if (parser_->check(TokenType::TOK_ELSE)) {
+            // else節（default相当）
+            parser_->advance(); // consume 'else'
+            if (!parser_->check(TokenType::TOK_LBRACE)) {
+                parser_->error("Expected '{' after else in switch");
+                break;
+            }
+            switch_node->else_body =
+                std::unique_ptr<ASTNode>(parseCompoundStatement());
+            break; // elseは最後なので終了
+        } else {
+            parser_->error("Expected 'case' or 'else' in switch body");
+            break;
+        }
+    }
+
+    parser_->consume(TokenType::TOK_RBRACE, "Expected '}' after switch body");
+    return switch_node;
+}
+
+/**
+ * @brief case節を解析
+ * @return 解析されたASTcase節ノード
+ *
+ * 構文:
+ * case (value) { body }
+ * case (value1 || value2) { body }
+ * case (start...end) { body }
+ */
+ASTNode *StatementParser::parseCaseClause() {
+    Token case_token = parser_->advance(); // consume 'case'
+    ASTNode *case_node = new ASTNode(ASTNodeType::AST_CASE_CLAUSE);
+    case_node->location.line = case_token.line;
+    case_node->location.column = case_token.column;
+
+    // case条件を解析
+    parser_->consume(TokenType::TOK_LPAREN, "Expected '(' after case");
+
+    // OR結合された値または範囲式を解析
+    do {
+        ASTNode *value = parseCaseValue();
+        case_node->case_values.push_back(std::unique_ptr<ASTNode>(value));
+    } while (parser_->match(TokenType::TOK_OR)); // || で結合
+
+    parser_->consume(TokenType::TOK_RPAREN, "Expected ')' after case value");
+
+    // case本体を解析（parseCompoundStatementが{を消費するので、ここでは消費しない）
+    if (!parser_->check(TokenType::TOK_LBRACE)) {
+        parser_->error("Expected '{' after case condition");
+        return case_node;
+    }
+    case_node->case_body = std::unique_ptr<ASTNode>(parseCompoundStatement());
+
+    return case_node;
+}
+
+/**
+ * @brief case値（範囲式を含む）を解析
+ * @return 解析されたAST値ノードまたは範囲式ノード
+ *
+ * Note: parseComparison()を使用することで、論理OR演算子(||)を
+ *       case値の区切りとして使用できるようにしています
+ */
+ASTNode *StatementParser::parseCaseValue() {
+    ASTNode *start = parser_->parseComparison();
+
+    // 範囲演算子（...）をチェック
+    if (parser_->check(TokenType::TOK_RANGE)) {
+        parser_->advance(); // consume '...'
+        ASTNode *end = parser_->parseComparison();
+
+        ASTNode *range_node = new ASTNode(ASTNodeType::AST_RANGE_EXPR);
+        range_node->range_start = std::unique_ptr<ASTNode>(start);
+        range_node->range_end = std::unique_ptr<ASTNode>(end);
+        return range_node;
+    }
+
+    return start;
 }

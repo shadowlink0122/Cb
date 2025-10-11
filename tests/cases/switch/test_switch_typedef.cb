@@ -1,0 +1,65 @@
+// typedef型を使ったswitch文のテスト
+typedef int Age;
+typedef int Score;
+
+void check_age(Age age) {
+    switch (age) {
+        case (0...12) {
+            println("Child");
+        } case (13...19) {
+            println("Teenager");
+        } case (20...64) {
+            println("Adult");
+        } case (65...120) {
+            println("Senior");
+        } else {
+            println("Invalid age");
+        }
+    }
+}
+
+string get_grade(Score score) {
+    switch (score) {
+        case (90...100) {
+            return "A";
+        } case (80...89) {
+            return "B";
+        } case (70...79) {
+            return "C";
+        } case (60...69) {
+            return "D";
+        } else {
+            return "F";
+        }
+    }
+}
+
+void main() {
+    println("=== Switch Typedef Test ===");
+    
+    // Age型のテスト
+    Age age1 = 10;
+    Age age2 = 15;
+    Age age3 = 30;
+    Age age4 = 70;
+    
+    check_age(age1);
+    check_age(age2);
+    check_age(age3);
+    check_age(age4);
+    
+    // Score型のテスト
+    Score s1 = 95;
+    Score s2 = 85;
+    Score s3 = 75;
+    Score s4 = 65;
+    Score s5 = 55;
+    
+    println(get_grade(s1));
+    println(get_grade(s2));
+    println(get_grade(s3));
+    println(get_grade(s4));
+    println(get_grade(s5));
+    
+    println("=== Test completed ===");
+}
