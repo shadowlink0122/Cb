@@ -49,6 +49,7 @@
 #include "interface/test_typedef_impl.hpp"
 #include "loop/test_loop.hpp"
 #include "module_functions/test_module_functions.hpp"
+#include "move_constructor/move_constructor_tests.hpp"
 #include "multidim_array/test_multidim_array.hpp"
 #include "multidim_literal/test_multidim_literal.hpp"
 #include "multiple_var_decl/test_multiple_var_decl.hpp"
@@ -66,6 +67,7 @@
 #include "printf/test_printf.hpp"
 #include "println/test_println.hpp"
 #include "reference/reference_tests.hpp"
+#include "rvalue_reference/rvalue_reference_tests.hpp"
 #include "sample_scenarios/test_sample_scenarios.hpp"
 #include "switch/test_switch.hpp"
 // #include "samples/test_actual_samples.hpp"
@@ -320,6 +322,10 @@ int main() {
                            "Const Pointer Tests", failed_tests);
     run_test_with_continue(ReferenceTests::run_all_reference_tests,
                            "Reference Tests", failed_tests);
+    run_test_with_continue(RvalueReferenceTests::run_all_rvalue_reference_tests,
+                           "Rvalue Reference (T&&) Tests", failed_tests);
+    run_test_with_continue(MoveConstructorTests::run_all_move_constructor_tests,
+                           "Move Constructor Tests", failed_tests);
     run_test_with_continue(
         TypedefPointerReferenceTests::run_all_typedef_pointer_reference_tests,
         "Typedef Pointer/Reference Tests", failed_tests);

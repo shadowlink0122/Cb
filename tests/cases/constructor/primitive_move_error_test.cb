@@ -1,0 +1,7 @@
+// プリミティブ型へのmove()エラーテスト（簡潔版）
+
+void main() {
+    int x = 42;
+    int y = move(x);  // これがエラーになるべき
+    println("Should not reach here");
+}

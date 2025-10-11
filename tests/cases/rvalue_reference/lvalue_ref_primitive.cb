@@ -1,0 +1,18 @@
+// Test: T& (lvalue reference) for primitive types
+// Status: ✅ PASS (v0.10.0)
+// Description: T& はプリミティブ型で使用可能（構文のみ）
+// Note: 実際の参照セマンティクスは v0.10.1以降で実装
+
+int main() {
+    int x = 10;
+    
+    // T& はプリミティブ型でも使用可能（構文的に）
+    int& ref = x;
+    
+    println("T& syntax for primitive types: PASS");
+    
+    // 注: 現在は構文解析のみで、実際の参照動作は未実装
+    // v0.10.1以降で ref = 20 のような操作が x を変更するようになる
+    
+    return 0;
+}

@@ -210,6 +210,7 @@ ASTNode *VariableDeclarationParser::parseVariableDeclaration() {
         node->pointer_base_type_name = parsed.base_type;
         node->pointer_base_type = parsed.base_type_info;
         node->is_reference = parsed.is_reference;
+        node->is_rvalue_reference = parsed.is_rvalue_reference; // v0.10.0
         node->is_unsigned = parsed.is_unsigned;
         node->is_pointer_const_qualifier = parsed.is_pointer_const;
         node->is_pointee_const_qualifier = parsed.is_const && parsed.is_pointer;
@@ -266,6 +267,8 @@ ASTNode *VariableDeclarationParser::parseVariableDeclaration() {
             var_node->pointer_base_type_name = parsed.base_type;
             var_node->pointer_base_type = parsed.base_type_info;
             var_node->is_reference = parsed.is_reference;
+            var_node->is_rvalue_reference =
+                parsed.is_rvalue_reference; // v0.10.0
             var_node->is_unsigned = parsed.is_unsigned;
             var_node->is_pointer_const_qualifier = parsed.is_pointer_const;
             var_node->is_pointee_const_qualifier =

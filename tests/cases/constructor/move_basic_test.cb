@@ -1,0 +1,50 @@
+// v0.10.0 ムーブセマンティクス - 基本テスト
+// Phase 1 & 2の動作確認: 構文解析のみ
+
+struct Point {
+    int x;
+    int y;
+};
+
+impl Point {
+    self(int px, int py) {
+        self.x = px;
+        self.y = py;
+        println("Point constructor: (", px, ", ", py, ")");
+    }
+    
+    // コピーコンストラクタ（const左辺値参照）
+    self(const Point& other) {
+        self.x = other.x;
+        self.y = other.y;
+        println("Copy constructor");
+    }
+    
+    // ムーブコンストラクタ（右辺値参照）
+    self(Point&& other) {
+        self.x = other.x;
+        self.y = other.y;
+        // 元のオブジェクトを無効化
+        other.x = 0;
+        other.y = 0;
+        println("Move constructor");
+    }
+    
+    ~self() {
+        println("Destructor: (", self.x, ", ", self.y, ")");
+    }
+}
+
+void main() {
+    println("=== Move Semantics Test (Phase 3) ===");
+    
+    Point p1(10, 20);
+    println("Created p1: (", p1.x, ", ", p1.y, ")");
+    
+    // ムーブコンストラクタの実行テスト
+    Point p2 = move(p1);
+    println("After move - p2: (", p2.x, ", ", p2.y, ")");
+    println("After move - p1: (", p1.x, ", ", p1.y, ")");
+    
+    println("Test completed (move executed)");
+}

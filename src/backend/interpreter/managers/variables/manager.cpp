@@ -90,7 +90,16 @@ Variable *VariableManager::find_variable(const std::string &name) {
                 std::cerr << "DEBUG: Found temp variable in local scope"
                           << std::endl;
             }
-            return &var_it->second;
+
+            // v0.10.0: 参照変数の場合は参照元の変数を辿る
+            Variable *result = &var_it->second;
+            if ((result->is_reference || result->is_rvalue_reference) &&
+                !result->reference_target.empty()) {
+                // 参照元の変数を再帰的に検索
+                return find_variable(result->reference_target);
+            }
+
+            return result;
         }
     }
 
@@ -98,6 +107,12 @@ Variable *VariableManager::find_variable(const std::string &name) {
     // std::cerr << "DEBUG: Searching in global scope" << std::endl;
     auto global_var_it = interpreter_->global_scope.variables.find(name);
     if (global_var_it != interpreter_->global_scope.variables.end()) {
+        // v0.10.0: グローバルスコープでも参照を辿る
+        Variable *result = &global_var_it->second;
+        if ((result->is_reference || result->is_rvalue_reference) &&
+            !result->reference_target.empty()) {
+            return find_variable(result->reference_target);
+        }
         // std::cerr << "DEBUG: Found " << name << " in global scope" <<
         // std::endl;
         return &global_var_it->second;

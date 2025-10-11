@@ -1,0 +1,27 @@
+// T&のテスト（既存機能の確認）
+
+struct Point {
+    int x;
+    int y;
+};
+
+impl Point {
+    self(int px, int py) {
+        self.x = px;
+        self.y = py;
+    }
+}
+
+void main() {
+    println("Test start");
+    Point p1(10, 20);
+    println("p1 created: (", p1.x, ", ", p1.y, ")");
+    
+    Point& ref = p1;
+    println("ref created: (", ref.x, ", ", ref.y, ")");
+    
+    ref.x = 100;
+    println("After ref.x = 100:");
+    println("  ref: (", ref.x, ", ", ref.y, ")");
+    println("  p1: (", p1.x, ", ", p1.y, ")");
+}

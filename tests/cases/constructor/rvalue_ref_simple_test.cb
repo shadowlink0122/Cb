@@ -1,0 +1,26 @@
+// シンプルなT&&変数テスト
+
+struct Point {
+    int x;
+    int y;
+};
+
+impl Point {
+    self(int px, int py) {
+        self.x = px;
+        self.y = py;
+    }
+    
+    ~self() {
+        println("Destructor: (", self.x, ", ", self.y, ")");
+    }
+}
+
+void main() {
+    println("Test start");
+    Point p1(10, 20);
+    println("p1 created");
+    Point&& ref = move(p1);
+    println("ref created");
+    println("ref: (", ref.x, ", ", ref.y, ")");
+}

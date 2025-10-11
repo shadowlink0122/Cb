@@ -62,6 +62,17 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
     var.is_pointer_const = node->is_pointer_const_qualifier;
     var.is_pointee_const = node->is_pointee_const_qualifier;
 
+    // v0.10.0: 参照型のサポート（T& と T&&）
+    var.is_reference = node->is_reference;
+    var.is_rvalue_reference = node->is_rvalue_reference;
+
+    // 右辺値参照（T&&）は構造体型のみ許可
+    if (var.is_rvalue_reference && node->type_info != TYPE_STRUCT) {
+        throw std::runtime_error(
+            "Rvalue references (T&&) are only supported for struct types. "
+            "Use regular lvalue references (T&) for primitive types.");
+    }
+
     // struct変数の場合の追加設定
     if (node->type_info == TYPE_STRUCT && !node->type_name.empty()) {
         var.is_struct = true;
@@ -1753,7 +1764,11 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
             interpreter_->type_manager_->resolve_typedef(var.struct_type_name);
 
         // v0.10.0: スコープ終了時にデストラクタを呼び出すために記録
-        interpreter_->register_destructor_call(node->name, resolved_type);
+        // ただし、参照変数の場合はデストラクタを呼び出さない
+        bool is_ref_var = var.is_reference || var.is_rvalue_reference;
+        if (!is_ref_var) {
+            interpreter_->register_destructor_call(node->name, resolved_type);
+        }
 
         if (interpreter_->debug_mode) {
             debug_print("CONSTRUCTOR_CHECK: var=%s, has_arguments=%d, "
@@ -1788,8 +1803,36 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
             std::string source_var_name = node->init_expr->name;
             Variable *source_var = interpreter_->find_variable(source_var_name);
 
-            if (source_var && source_var->is_struct &&
-                source_var->struct_type_name == var.struct_type_name) {
+            // v0.10.0: 参照型（T& または T&&）の処理
+            if ((var.is_reference || var.is_rvalue_reference) && source_var) {
+                // 参照変数は元の変数へのエイリアスとして機能
+                // 実装:
+                // 参照型フラグと参照元を記録し、元の変数の完全なコピーを作成
+                if (interpreter_->debug_mode) {
+                    debug_print("Creating reference variable: %s -> %s "
+                                "(is_rvalue_ref=%d)\n",
+                                node->name.c_str(), source_var_name.c_str(),
+                                var.is_rvalue_reference);
+                }
+                // 参照変数は元の変数への完全なエイリアスとして動作
+                // source_varの全ての内容をref_varにコピー
+                Variable ref_var =
+                    *source_var; // 元の変数の完全なコピー（struct_members含む）
+                ref_var.is_reference = true;
+                ref_var.is_rvalue_reference = var.is_rvalue_reference;
+                ref_var.reference_target = source_var_name;
+                // 名前は参照変数の名前に設定
+                // （元のsource_varの名前ではなく、新しい参照変数の名前）
+                interpreter_->current_scope().variables[node->name] = ref_var;
+
+                // 注:
+                // これだけでは不十分。参照のセマンティクスを完全に実現するには
+                // メンバーアクセスと代入時に reference_target を辿る必要がある
+                // 注: 参照は元の変数と同じメモリを共有するため、
+                // デストラクタは register_destructor_call
+                // で既に登録されていない
+            } else if (source_var && source_var->is_struct &&
+                       source_var->struct_type_name == var.struct_type_name) {
                 // 同じ構造体型からのコピー初期化
                 if (interpreter_->debug_mode) {
                     debug_print("Detected copy initialization: %s = %s\n",
