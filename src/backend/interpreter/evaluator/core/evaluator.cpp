@@ -1075,7 +1075,8 @@ TypedValue ExpressionEvaluator::consume_numeric_typed_value(
     const InferredType &inferred_type) {
     // メンバーアクセスヘルパーに移動（28行）
     return MemberAccessHelpers::consume_numeric_typed_value(
-        node, numeric_result, inferred_type, last_captured_function_value_);
+        node, numeric_result, inferred_type, last_captured_function_value_,
+        &last_typed_result_);
 }
 
 // 構造体メンバー取得関数の実装

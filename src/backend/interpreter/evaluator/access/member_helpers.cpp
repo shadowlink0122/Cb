@@ -30,7 +30,8 @@ TypedValue consume_numeric_typed_value(
     const ASTNode *node, int64_t numeric_result,
     const InferredType &inferred_type,
     std::optional<std::pair<const ASTNode *, TypedValue>>
-        &last_captured_function_value) {
+        &last_captured_function_value,
+    const TypedValue *last_typed_result) {
     if (last_captured_function_value.has_value()) {
         if (last_captured_function_value->first == node) {
             TypedValue captured =
@@ -39,6 +40,13 @@ TypedValue consume_numeric_typed_value(
             return captured;
         }
         last_captured_function_value = std::nullopt;
+    }
+
+    // AST_ARROW_ACCESSの文字列結果の場合、last_typed_resultを参照
+    // (evaluate_arrow_accessがset_last_typed_resultを呼び出している)
+    if (node && node->node_type == ASTNodeType::AST_ARROW_ACCESS &&
+        last_typed_result && last_typed_result->type.type_info == TYPE_STRING) {
+        return *last_typed_result;
     }
 
     InferredType resolved_type = inferred_type;

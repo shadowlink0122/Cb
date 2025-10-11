@@ -222,7 +222,8 @@ int64_t ExpressionDispatcher::dispatch_expression(const ASTNode *node) {
                                                                          name);
         };
         return SpecialAccessHelpers::evaluate_arrow_access(
-            node, interpreter_, eval_func, get_member_func);
+            node, interpreter_, expression_evaluator_, eval_func,
+            get_member_func);
     }
 
     case ASTNodeType::AST_MEMBER_ARRAY_ACCESS: {

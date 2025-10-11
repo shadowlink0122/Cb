@@ -63,7 +63,20 @@ void StructAssignmentManager::assign_struct_member(
     bool is_union_member = (member_var->type == TYPE_UNION);
 
     // value_varの型に応じて値を代入
-    if (value_var.type == TYPE_FLOAT) {
+    if (value_var.type == TYPE_STRING || !value_var.str_value.empty()) {
+        // 文字列型の場合
+        member_var->str_value = value_var.str_value;
+        if (!is_union_member) {
+            member_var->type = TYPE_STRING;
+        } else {
+            member_var->current_type = TYPE_STRING;
+        }
+        // 数値フィールドをクリア
+        member_var->value = 0;
+        member_var->float_value = 0.0f;
+        member_var->double_value = 0.0;
+        member_var->quad_value = 0.0L;
+    } else if (value_var.type == TYPE_FLOAT) {
         member_var->float_value = value_var.float_value;
         if (!is_union_member) {
             member_var->type = TYPE_FLOAT;
@@ -120,7 +133,20 @@ void StructAssignmentManager::assign_struct_member(
 
         bool is_union_direct = (direct_var->type == TYPE_UNION);
 
-        if (value_var.type == TYPE_FLOAT) {
+        if (value_var.type == TYPE_STRING || !value_var.str_value.empty()) {
+            // 文字列型の場合
+            direct_var->str_value = value_var.str_value;
+            if (!is_union_direct) {
+                direct_var->type = TYPE_STRING;
+            } else {
+                direct_var->current_type = TYPE_STRING;
+            }
+            // 数値フィールドをクリア
+            direct_var->value = 0;
+            direct_var->float_value = 0.0f;
+            direct_var->double_value = 0.0;
+            direct_var->quad_value = 0.0L;
+        } else if (value_var.type == TYPE_FLOAT) {
             direct_var->float_value = value_var.float_value;
             if (!is_union_direct) {
                 direct_var->type = TYPE_FLOAT;

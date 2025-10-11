@@ -638,6 +638,11 @@ ASTNode *RecursiveParser::parseStructDeclaration() {
     if (default_count == 1) {
         struct_def.has_default_member = true;
         struct_def.default_member_name = default_member;
+
+        if (debug_mode) {
+            std::cerr << "[PARSER] Struct " << struct_name
+                      << " has default member: " << default_member << std::endl;
+        }
     }
 
     // struct定義をパーサー内に保存（変数宣言の認識のため）

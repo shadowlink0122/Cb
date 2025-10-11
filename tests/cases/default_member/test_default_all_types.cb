@@ -1,0 +1,62 @@
+// デフォルトメンバーの全型テスト
+
+// 1. 整数型のデフォルトメンバー
+struct IntWrapper {
+    default int value;
+};
+
+// 2. 浮動小数点型のデフォルトメンバー
+struct FloatWrapper {
+    default float value;
+};
+
+struct DoubleWrapper {
+    default double value;
+};
+
+// 3. bool型のデフォルトメンバー
+struct BoolWrapper {
+    default bool value;
+};
+
+// 4. 複数メンバーを持つ構造体
+struct Person {
+    string name;
+    default int age;
+    string address;
+};
+
+void main() {
+    println("=== 整数型テスト ===");
+    IntWrapper i = {42};
+    println(i);           // 42
+    i = 100;
+    println(i);           // 100
+    println(i.value);     // 100
+    
+    println("\n=== 浮動小数点型テスト ===");
+    FloatWrapper f = {3.14};
+    println(f);           // 3.14
+    f = 2.71;
+    println(f);           // 2.71
+    
+    DoubleWrapper d = {1.414};
+    println(d);           // 1.414
+    d = 2.718;
+    println(d);           // 2.718
+    
+    println("\n=== bool型テスト ===");
+    BoolWrapper b = {true};
+    println(b);           // 1 (true)
+    b = false;
+    println(b);           // 0 (false)
+    
+    println("\n=== 複数メンバー構造体テスト ===");
+    Person p = {"Alice", 30, "Tokyo"};
+    println(p.name);      // Alice
+    println(p);           // 30 (デフォルトメンバー)
+    println(p.address);   // Tokyo
+    p = 35;               // age に暗黙的代入
+    println(p);           // 35
+    println(p.name);      // Alice (変更なし)
+}
