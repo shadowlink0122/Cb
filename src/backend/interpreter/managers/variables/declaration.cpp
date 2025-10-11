@@ -92,11 +92,14 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
     }
 
     // 新しいArrayTypeInfoが設定されている場合の処理
-    if (handle_array_type_info_declaration(node, var)) {
+    bool array_handled = handle_array_type_info_declaration(node, var);
+    if (array_handled) {
         // ArrayTypeInfoで処理完了、次の分岐へ
     }
     // typedef解決処理（ArrayTypeInfoが設定されていない場合）
-    else if (handle_typedef_resolution(node, var)) {
+    bool typedef_handled =
+        !array_handled && handle_typedef_resolution(node, var);
+    if (typedef_handled) {
         // Union型の場合は既に処理完了しているので早期リターン
         if (var.type == TYPE_UNION) {
             return; // Union型は handle_union_typedef_declaration 内で全て完了
@@ -339,8 +342,12 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
                     }
                 } catch (const ReturnException &ret) {
                     // 関数戻り値の処理
+                    std::cerr << "[VAR_MANAGER] Caught ReturnException"
+                              << std::endl;
                     if (ret.is_function_pointer) {
                         // 関数ポインタ戻り値の場合
+                        std::cerr << "[VAR_MANAGER] Processing function pointer"
+                                  << std::endl;
                         if (debug_mode) {
                             std::cerr
                                 << "[VAR_MANAGER] Function pointer return: "
@@ -351,13 +358,20 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
                         var.is_assigned = true;
                         var.is_function_pointer = true;
 
+                        std::cerr << "[VAR_MANAGER] Creating FunctionPointer"
+                                  << std::endl;
                         // function_pointersマップに登録
                         FunctionPointer func_ptr(
                             ret.function_pointer_node,
                             ret.function_pointer_name,
                             ret.function_pointer_node->type_info);
+                        std::cerr
+                            << "[VAR_MANAGER] Registering to current scope"
+                            << std::endl;
                         interpreter_->current_scope()
                             .function_pointers[node->name] = func_ptr;
+                        std::cerr << "[VAR_MANAGER] Function pointer registered"
+                                  << std::endl;
                     } else if (var.type == TYPE_STRING &&
                                ret.type == TYPE_STRING) {
                         // 文字列戻り値の場合
@@ -468,6 +482,44 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
 
     // 初期化式がある場合
     if (node->init_expr) {
+        // v0.10.0: ラムダ式の処理（最優先で処理）
+        if (node->init_expr->node_type == ASTNodeType::AST_LAMBDA_EXPR) {
+            // ラムダ式を評価（ReturnExceptionで関数ポインタ情報が返される）
+            try {
+                TypedValue lambda_result =
+                    interpreter_->expression_evaluator_
+                        ->evaluate_typed_expression(node->init_expr.get());
+
+                // 通常はここには来ない（ReturnExceptionが投げられるはず）
+                throw std::runtime_error(
+                    "Lambda expression did not throw ReturnException");
+
+            } catch (const ReturnException &ret) {
+                if (ret.is_function_pointer) {
+                    // 関数ポインタ変数として設定
+                    var.is_function_pointer = true;
+                    var.function_pointer_name = ret.function_pointer_name;
+                    var.value = ret.value;
+                    var.is_assigned = true;
+
+                    // function_pointersマップに登録
+                    FunctionPointer func_ptr(
+                        ret.function_pointer_node, ret.function_pointer_name,
+                        ret.function_pointer_node->type_info);
+                    interpreter_->current_scope()
+                        .function_pointers[node->name] = func_ptr;
+
+                    // 変数を登録
+                    current_scope().variables[node->name] = var;
+
+                    return; // 処理完了、早期リターン
+                } else {
+                    throw std::runtime_error(
+                        "Lambda expression did not return function pointer");
+                }
+            }
+        }
+
         if (var.is_struct &&
             node->init_expr->node_type == ASTNodeType::AST_STRUCT_LITERAL) {
             // struct literal初期化の処理: Person p = {25, "Bob"};
@@ -1605,11 +1657,6 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
         if (node->init_expr || node->right) {
             ASTNode *init_node =
                 node->init_expr ? node->init_expr.get() : node->right.get();
-            if (interpreter_->debug_mode) {
-                std::cerr << "[VAR_MANAGER] Evaluating normal pointer "
-                             "initialization expression"
-                          << std::endl;
-            }
 
             // Phase 2: 初期化式内に関数呼び出しがある場合、const情報をチェック
             // (v0.9.2)
@@ -1652,8 +1699,9 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
                 }
             }
 
-            // 関数呼び出しの場合、ReturnExceptionをキャッチする
-            if (init_node->node_type == ASTNodeType::AST_FUNC_CALL) {
+            // 関数呼び出しまたはラムダ式の場合、ReturnExceptionをキャッチする
+            if (init_node->node_type == ASTNodeType::AST_FUNC_CALL ||
+                init_node->node_type == ASTNodeType::AST_LAMBDA_EXPR) {
                 try {
                     // evaluate_typed_expressionを使って型情報も取得
                     TypedValue typed_value =
@@ -1662,13 +1710,6 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
 
                     // TypedValueに関数ポインタ情報がある場合
                     if (typed_value.is_function_pointer) {
-                        if (interpreter_->debug_mode) {
-                            std::cerr << "[VAR_MANAGER] Function returned "
-                                         "function pointer: "
-                                      << typed_value.function_pointer_name
-                                      << " -> " << typed_value.value
-                                      << std::endl;
-                        }
                         var.value = typed_value.value;
                         var.is_assigned = true;
                         var.is_function_pointer = true;

@@ -114,6 +114,7 @@ enum class TokenType {
     TOK_SWITCH,
     TOK_CASE,
     TOK_RANGE, // ... (range operator)
+    TOK_FUNC,  // func (for lambda expressions)
 
     // Special
     TOK_EOF,

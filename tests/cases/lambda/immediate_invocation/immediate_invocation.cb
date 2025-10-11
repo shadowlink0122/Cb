@@ -1,0 +1,41 @@
+// ラムダ式の即座実行テスト
+// int func(int a, int b){return a * b;}(10, 20) 形式
+
+int main() {
+    println("=== Lambda Immediate Invocation Test ===");
+    
+    // テスト1: 基本的な即座実行
+    println("\nTest 1: Basic immediate invocation");
+    int result1 = int func(int a, int b) {
+        return a * b;
+    }(10, 20);
+    
+    print("10 * 20 = ");
+    println(result1);
+    assert(result1 == 200);
+    
+    // テスト2: 単一パラメータの即座実行
+    println("\nTest 2: Single parameter immediate invocation");
+    int result2 = int func(int x) {
+        return x * x;
+    }(7);
+    
+    print("7 * 7 = ");
+    println(result2);
+    assert(result2 == 49);
+    
+    // テスト3: 複雑な式での即座実行
+    println("\nTest 3: Complex expression with immediate invocation");
+    int result3 = int func(int a, int b) {
+        int sum = a + b;
+        int product = a * b;
+        return sum + product;
+    }(5, 3);
+    
+    print("(5 + 3) + (5 * 3) = ");
+    println(result3);
+    assert(result3 == 23);
+    
+    println("\n=== All tests passed! ===");
+    return 0;
+}

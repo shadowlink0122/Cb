@@ -1,12 +1,12 @@
 // 様々な型のデフォルト引数テスト
 
-func void test_types(int n = 42, string s = "hello", bool b = true) {
+void test_types(int n = 42, string s = "hello", bool b = true) {
     println(n);
     println(s);
     println(b);
 }
 
-func int multiply(int a, int b = 2, int c = 3) {
+int multiply(int a, int b = 2, int c = 3) {
     return a * b * c;
 }
 

@@ -5,14 +5,14 @@ struct Point {
     int y;
 };
 
-func Point create_point(int x = 10, int y = 20) {
+Point create_point(int x = 10, int y = 20) {
     Point p;
     p.x = x;
     p.y = y;
     return p;
 }
 
-func void print_point(Point p, string label = "Point") {
+void print_point(Point p, string label = "Point") {
     println(label + ": (" + p.x + ", " + p.y + ")");
 }
 

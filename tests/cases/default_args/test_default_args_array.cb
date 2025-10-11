@@ -1,6 +1,6 @@
 // デフォルト引数と配列パラメータのテスト
 
-func int sum_array(int[5] arr, int multiplier = 1) {
+int sum_array(int[5] arr, int multiplier = 1) {
     int total = 0;
     for (int i = 0; i < 5; i++) {
         total = total + arr[i] * multiplier;
@@ -8,7 +8,7 @@ func int sum_array(int[5] arr, int multiplier = 1) {
     return total;
 }
 
-func void print_array(int[3] arr, string prefix = "Array:") {
+void print_array(int[3] arr, string prefix = "Array:") {
     println(prefix);
     for (int i = 0; i < 3; i++) {
         println(arr[i]);

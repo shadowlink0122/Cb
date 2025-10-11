@@ -134,6 +134,15 @@ ASTNode *PrimaryExpressionParser::parsePrimary() {
     if (parser_->check(TokenType::TOK_IDENTIFIER)) {
         Token token = parser_->advance();
 
+        // 無名変数 (_) のチェック
+        if (token.value == "_") {
+            ASTNode *node = new ASTNode(ASTNodeType::AST_DISCARD_VARIABLE);
+            node->name = "_";
+            node->is_discard = true;
+            parser_->setLocation(node, token.line, token.column);
+            return node;
+        }
+
         // enum値アクセス（EnumName::member）をチェック
         if (parser_->check(TokenType::TOK_SCOPE)) {
             parser_->advance(); // consume '::'
@@ -232,6 +241,38 @@ ASTNode *PrimaryExpressionParser::parsePrimary() {
     // 構造体リテラルの処理 {member: value, ...}
     if (parser_->check(TokenType::TOK_LBRACE)) {
         return parseStructLiteral();
+    }
+
+    // 無名関数（ラムダ式）の処理: 型 func(params) { body }
+    // 例: int func(int x) { return x * 2; }
+    if (parser_->check(TokenType::TOK_INT) ||
+        parser_->check(TokenType::TOK_VOID) ||
+        parser_->check(TokenType::TOK_LONG) ||
+        parser_->check(TokenType::TOK_SHORT) ||
+        parser_->check(TokenType::TOK_TINY) ||
+        parser_->check(TokenType::TOK_FLOAT) ||
+        parser_->check(TokenType::TOK_DOUBLE) ||
+        parser_->check(TokenType::TOK_BOOL) ||
+        parser_->check(TokenType::TOK_STRING_TYPE) ||
+        parser_->check(TokenType::TOK_CHAR_TYPE)) {
+
+        // 先読みして無名関数かチェック
+        RecursiveLexer temp_lexer = parser_->lexer_;
+        Token temp_current = parser_->current_token_;
+
+        parser_->advance(); // 型をスキップ
+
+        // `func` キーワードがあれば無名関数
+        if (parser_->check(TokenType::TOK_FUNC)) {
+            // 状態を戻してparseLambdaを呼ぶ
+            parser_->lexer_ = temp_lexer;
+            parser_->current_token_ = temp_current;
+            return parseLambda();
+        }
+
+        // 無名関数でない場合は状態を戻す
+        parser_->lexer_ = temp_lexer;
+        parser_->current_token_ = temp_current;
     }
 
     parser_->error("Unexpected token");
@@ -355,4 +396,122 @@ ASTNode *PrimaryExpressionParser::parseArrayLiteral() {
     parser_->consume(TokenType::TOK_RBRACKET,
                      "Expected ']' after array literal");
     return array_literal;
+}
+
+ASTNode *PrimaryExpressionParser::parseLambda() {
+    // 戻り値の型を解析
+    std::string return_type = parser_->parseType();
+
+    // 'func' キーワードを消費
+    if (!parser_->check(TokenType::TOK_FUNC)) {
+        parser_->error("Expected 'func' keyword in lambda expression");
+        return nullptr;
+    }
+    parser_->advance();
+
+    // '(' を消費
+    parser_->consume(TokenType::TOK_LPAREN,
+                     "Expected '(' after 'func' in lambda expression");
+
+    // 無名関数ノードを作成
+    ASTNode *lambda = new ASTNode(ASTNodeType::AST_LAMBDA_EXPR);
+    lambda->is_lambda = true;
+    lambda->lambda_return_type_name = return_type;
+
+    // 型名をTypeInfoに変換（parser_->getTypeInfoFromStringを使用）
+    lambda->lambda_return_type = parser_->getTypeInfoFromString(return_type);
+    lambda->type_info = lambda->lambda_return_type; // ASTNodeのtype_infoも設定
+
+    // 内部識別子を生成
+    extern std::string generate_lambda_name();
+    lambda->internal_name = generate_lambda_name();
+    lambda->name = lambda->internal_name;
+
+    // パラメータリストを解析
+    if (!parser_->check(TokenType::TOK_RPAREN)) {
+        do {
+            // パラメータの型を解析
+            std::string param_type = parser_->parseType();
+
+            // パラメータ名を解析
+            if (!parser_->check(TokenType::TOK_IDENTIFIER)) {
+                parser_->error("Expected parameter name in lambda expression");
+                delete lambda;
+                return nullptr;
+            }
+
+            std::string param_name = parser_->current_token_.value;
+            parser_->advance();
+
+            // パラメータノードを作成
+            ASTNode *param = new ASTNode(ASTNodeType::AST_PARAM_DECL);
+            param->name = param_name;
+            param->type_name = param_type;
+            param->type_info = parser_->getTypeInfoFromString(param_type);
+
+            lambda->lambda_params.push_back(std::unique_ptr<ASTNode>(param));
+
+        } while (parser_->match(TokenType::TOK_COMMA));
+    }
+
+    // ')' を消費
+    parser_->consume(TokenType::TOK_RPAREN,
+                     "Expected ')' after lambda parameters");
+
+    // '{' を消費
+    parser_->consume(TokenType::TOK_LBRACE, "Expected '{' before lambda body");
+
+    // 文のリストノードを作成（関数本体と同じパターン）
+    ASTNode *body_node = new ASTNode(ASTNodeType::AST_STMT_LIST);
+
+    // 文の解析
+    while (!parser_->check(TokenType::TOK_RBRACE) && !parser_->isAtEnd()) {
+        ASTNode *stmt = parser_->parseStatement();
+        if (stmt != nullptr) {
+            body_node->statements.push_back(std::unique_ptr<ASTNode>(stmt));
+        }
+    }
+
+    // '}' を消費
+    parser_->consume(TokenType::TOK_RBRACE, "Expected '}' after lambda body");
+
+    // 本体をlambda_bodyに設定
+    lambda->lambda_body = std::unique_ptr<ASTNode>(body_node);
+
+    // parametersフィールドにlambda_paramsの参照を設定（インタプリタで使用）
+    // lambda_paramsとparametersで同じデータを参照する
+    lambda->parameters.reserve(lambda->lambda_params.size());
+    for (size_t i = 0; i < lambda->lambda_params.size(); ++i) {
+        // unique_ptrなので所有権を移動
+        lambda->parameters.push_back(std::move(lambda->lambda_params[i]));
+    }
+    lambda->lambda_params.clear(); // 移動したのでクリア
+
+    // ラムダの直接実行をサポート: int func(int x){return x;}(10) 形式
+    // チェーン呼び出しもサポート: func()()() 形式
+    ASTNode *result = lambda;
+    while (parser_->check(TokenType::TOK_LPAREN)) {
+        parser_->advance(); // consume '('
+
+        // ラムダ即座実行ノードを作成
+        ASTNode *call_node = new ASTNode(ASTNodeType::AST_FUNC_CALL);
+        call_node->left =
+            std::unique_ptr<ASTNode>(result); // ラムダまたは前の呼び出し結果
+        call_node->is_lambda_call = true; // ラムダ呼び出しフラグ
+
+        // 引数リストの解析
+        if (!parser_->check(TokenType::TOK_RPAREN)) {
+            do {
+                ASTNode *arg = parser_->parseExpression();
+                call_node->arguments.push_back(std::unique_ptr<ASTNode>(arg));
+            } while (parser_->match(TokenType::TOK_COMMA));
+        }
+
+        parser_->consume(TokenType::TOK_RPAREN,
+                         "Expected ')' after lambda call arguments");
+
+        result = call_node; // 次のチェーンのために更新
+    }
+
+    return result;
 }

@@ -1,0 +1,77 @@
+// 無名関数（Lambda Expression）のテスト
+
+// テスト1: 基本的な無名関数
+void test_basic_lambda() {
+    println("Test 1: Basic lambda expression");
+    
+    int* add = int func(int a, int b) {
+        return a + b;
+    };
+    
+    int result = add(5, 3);
+    println("5 + 3 = ");
+    println(result);
+    
+    assert(result == 8);
+    println("OK: Basic lambda works");
+}
+
+// テスト2: 複数の無名関数
+void test_multiple_lambdas() {
+    println("Test 2: Multiple lambda expressions");
+    
+    int* f1 = int func(int x) {
+        return x + 1;
+    };
+    
+    int* f2 = int func(int x) {
+        return x * 2;
+    };
+    
+    int* f3 = int func(int x) {
+        return x * x;
+    };
+    
+    println("f1(5) = ");
+    println(f1(5));
+    assert(f1(5) == 6);
+    
+    println("f2(5) = ");
+    println(f2(5));
+    assert(f2(5) == 10);
+    
+    println("f3(5) = ");
+    println(f3(5));
+    assert(f3(5) == 25);
+    
+    println("OK: Multiple lambdas work");
+}
+
+// テスト3: void戻り値の無名関数
+void test_void_lambda() {
+    println("Test 3: Void lambda expression");
+    
+    void* print_hello = void func() {
+        println("Hello from lambda!");
+    };
+    
+    print_hello();
+    
+    println("OK: Void lambda works");
+}
+
+void main() {
+    println("=== Lambda Expression Tests ===");
+    println("");
+    
+    test_basic_lambda();
+    println("");
+    
+    test_multiple_lambdas();
+    println("");
+    
+    test_void_lambda();
+    println("");
+    
+    println("=== All tests passed! ===");
+}

@@ -1,7 +1,7 @@
 // Test: Pointer arithmetic edge cases
 // Tests boundary conditions for pointer arithmetic
 
-func int main() {
+int main() {
     int[5] arr = [10, 20, 30, 40, 50];
     int* ptr = &arr[0];
     

@@ -1,0 +1,7 @@
+// Debug lambda parsing
+int main() {
+    println("Test start");
+    int* f = int func(int x) { return x; };
+    println("Lambda assigned");
+    return 0;
+}

@@ -289,6 +289,37 @@ ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode *node) {
                                                            inferred_type);
     }
 
+    // ========================================================================
+    // 無名変数（DISCARD_VARIABLE）v0.10.0新機能
+    // 無名変数の参照は許可されない
+    // ========================================================================
+    case ASTNodeType::AST_DISCARD_VARIABLE: {
+        throw std::runtime_error("Cannot reference discard variable '_'");
+    }
+
+    // ========================================================================
+    // 無名関数（LAMBDA_EXPR）v0.10.0新機能
+    // 無名関数を評価して関数ポインタとして返す
+    // ========================================================================
+    case ASTNodeType::AST_LAMBDA_EXPR: {
+        // 無名関数を通常の関数として登録
+        // 1. 内部識別子を使用して関数として登録
+        std::string lambda_name = node->internal_name;
+
+        // 2. ラムダ本体を関数宣言として構築
+        // ラムダは既にASTノードとして存在するので、それを関数として登録
+        interpreter_.register_function_to_global(lambda_name, node);
+
+        // 3. 関数ポインタとして返す
+        // ReturnExceptionを使用することで、変数宣言時に正しく処理される
+        ReturnException ret(static_cast<int64_t>(0));
+        ret.is_function_pointer = true;
+        ret.function_pointer_name = lambda_name;
+        ret.function_pointer_node = node;
+        ret.type = node->lambda_return_type;
+        throw ret;
+    }
+
     case ASTNodeType::AST_MEMBER_ACCESS: {
         debug_msg(DebugMsgId::TYPED_MEMBER_ACCESS_CASE, node->name.c_str(),
                   node->member_chain.size());

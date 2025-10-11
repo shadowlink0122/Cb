@@ -1,0 +1,5 @@
+void main() {
+    void print_func = void func(int x) { println(x); };
+    
+    print_func(42);
+}

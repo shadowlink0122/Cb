@@ -778,7 +778,11 @@ enum class ASTNodeType {
     AST_THROW_STMT,   // throw文
 
     // デバッグ・検証
-    AST_ASSERT_STMT // assert文
+    AST_ASSERT_STMT, // assert文
+
+    // v0.10.0 新機能
+    AST_DISCARD_VARIABLE, // 無名変数 (_)
+    AST_LAMBDA_EXPR       // 無名関数式
 };
 
 // 位置情報構造体
@@ -946,6 +950,20 @@ struct ASTNode {
     bool is_constructor = false; // コンストラクタかどうか
     bool is_destructor = false;  // デストラクタかどうか
     std::string constructor_struct_name; // コンストラクタが属する構造体名
+
+    // 無名変数関連（v0.10.0新機能）
+    bool is_discard = false;    // 無名変数かどうか
+    std::string internal_name;  // 内部識別子（無名変数/関数用）
+    static int discard_counter; // 無名変数カウンター
+    static int lambda_counter;  // 無名関数カウンター
+
+    // 無名関数関連（v0.10.0新機能）
+    bool is_lambda = false; // 無名関数かどうか
+    bool is_lambda_call = false; // 無名関数の即座実行呼び出しかどうか
+    std::unique_ptr<ASTNode> lambda_body; // 無名関数の本体
+    std::vector<std::unique_ptr<ASTNode>> lambda_params; // 無名関数のパラメータ
+    TypeInfo lambda_return_type = TYPE_UNKNOWN; // 無名関数の戻り値型
+    std::string lambda_return_type_name; // 無名関数の戻り値型名
 
     // コンストラクタ - 全フィールドの明示的初期化
     ASTNode(ASTNodeType type)

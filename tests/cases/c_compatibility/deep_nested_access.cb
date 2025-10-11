@@ -8,7 +8,7 @@ struct L2 { L3 val; L3* ptr; };
 struct L1 { L2 val; L2* ptr; };
 struct L0 { L1 val; L1* ptr; };
 
-func int main() {
+int main() {
     // 深い構造の初期化
     L5 leaf = {x: 100, name: "leaf"};
     L4 lv4 = {val: {x: 41, name: "lv4_val"}, ptr: &leaf};

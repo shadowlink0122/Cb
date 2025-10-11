@@ -1,0 +1,11 @@
+// Very basic lambda test - just assignment
+int main() {
+    println("Before lambda");
+    
+    int* myLambda = int func(int x) {
+        return x + 1;
+    };
+    
+    println("After lambda assignment");
+    return 0;
+}

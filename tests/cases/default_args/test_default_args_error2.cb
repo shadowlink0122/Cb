@@ -1,7 +1,7 @@
 // エラーケース: 必須引数の不足
 // これは実行時エラーになるべき
 
-func int add(int a, int b = 10) {
+int add(int a, int b = 10) {
     return a + b;
 }
 

@@ -1,0 +1,9 @@
+int compute() {
+    println("Computing...");
+    return 42;
+}
+
+void main() {
+    int _ = compute();
+    println("OK: Return discarded");
+}

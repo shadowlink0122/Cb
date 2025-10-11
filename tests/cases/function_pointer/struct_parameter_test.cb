@@ -6,21 +6,21 @@ struct Point {
     int y;
 };
 
-func Point add_points(Point p1, Point p2) {
+Point add_points(Point p1, Point p2) {
     Point result;
     result.x = p1.x + p2.x;
     result.y = p1.y + p2.y;
     return result;
 }
 
-func Point multiply_point(Point p, int factor) {
+Point multiply_point(Point p, int factor) {
     Point result;
     result.x = p.x * factor;
     result.y = p.y * factor;
     return result;
 }
 
-func int main() {
+int main() {
     Point p1;
     p1.x = 10;
     p1.y = 20;

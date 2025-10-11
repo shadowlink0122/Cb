@@ -20,7 +20,7 @@ struct Root {
     int root_data;
 };
 
-func int main() {
+int main() {
     Root r;
     r.root_data = 100;
     r.level1.data1 = 200;

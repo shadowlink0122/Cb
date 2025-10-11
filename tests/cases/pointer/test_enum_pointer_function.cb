@@ -14,7 +14,7 @@ enum Priority {
     CRITICAL = 20
 };
 
-func void rotate_direction(Direction* dir) {
+void rotate_direction(Direction* dir) {
     // 方向を時計回りに回転
     if (*dir == Direction::NORTH) {
         *dir = Direction::EAST;
@@ -27,19 +27,19 @@ func void rotate_direction(Direction* dir) {
     }
 }
 
-func void swap_directions(Direction* a, Direction* b) {
+void swap_directions(Direction* a, Direction* b) {
     Direction temp = *a;
     *a = *b;
     *b = temp;
 }
 
-func void reset_directions(Direction*[4] ptrs, int count) {
+void reset_directions(Direction*[4] ptrs, int count) {
     for (int i = 0; i < count; i++) {
         *ptrs[i] = Direction::NORTH;
     }
 }
 
-func int sum_priorities(Priority*[5] ptrs, int count) {
+int sum_priorities(Priority*[5] ptrs, int count) {
     int total = 0;
     for (int i = 0; i < count; i++) {
         total = total + *ptrs[i];
@@ -47,7 +47,7 @@ func int sum_priorities(Priority*[5] ptrs, int count) {
     return total;
 }
 
-func void upgrade_priority(Priority* p) {
+void upgrade_priority(Priority* p) {
     if (*p == Priority::LOW) {
         *p = Priority::MEDIUM;
     } else if (*p == Priority::MEDIUM) {

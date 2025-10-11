@@ -1,7 +1,7 @@
 // Test: Type conversion chain
 // Tests complex type conversions across different types
 
-func int main() {
+int main() {
     // tiny -> short -> int -> long chain
     tiny t = 100;
     short s = t;

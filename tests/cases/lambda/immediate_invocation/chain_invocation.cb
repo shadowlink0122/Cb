@@ -1,0 +1,47 @@
+// ラムダのチェーン呼び出しテスト
+// 即座実行とメソッドチェインのテスト
+
+int main() {
+    println("=== Lambda Chain Invocation Test ===");
+    
+    // テスト1: 即座実行の結果を使った計算
+    println("\nTest 1: Immediate invocation in expression");
+    
+    int result1 = int func(int a, int b) {
+        return a + b;
+    }(10, 20) * 2;
+    
+    print("(10 + 20) * 2 = ");
+    println(result1);
+    assert(result1 == 60);
+    
+    // テスト2: 複数のラムダを連続して実行
+    println("\nTest 2: Multiple lambda invocations");
+    
+    int result2a = int func(int x) {
+        return x * 2;
+    }(5);
+    
+    int result2b = int func(int x) {
+        return x + 10;
+    }(result2a);
+    
+    print("(5 * 2) + 10 = ");
+    println(result2b);
+    assert(result2b == 20);
+    
+    // テスト3: ネストしたラムダの即座実行
+    println("\nTest 3: Nested lambda immediate invocation");
+    
+    int result3 = int func(int base) {
+        int multiplier = 3;
+        return base * multiplier;
+    }(7);
+    
+    print("7 * 3 = ");
+    println(result3);
+    assert(result3 == 21);
+    
+    println("\n=== All tests passed! ===");
+    return 0;
+}

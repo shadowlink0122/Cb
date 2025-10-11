@@ -132,7 +132,7 @@ BACKEND_OBJS = \
 	$(INTERPRETER_SERVICES_OBJS) \
 	$(INTERPRETER_OUTPUT_OBJS)
 PLATFORM_OBJS=$(NATIVE_DIR)/native_stdio_output.o $(BAREMETAL_DIR)/baremetal_uart_output.o
-COMMON_OBJS=$(COMMON_DIR)/type_utils.o $(COMMON_DIR)/type_alias.o $(COMMON_DIR)/array_type_info.o $(COMMON_DIR)/utf8_utils.o $(COMMON_DIR)/io_interface.o $(COMMON_DIR)/debug_impl.o $(COMMON_DIR)/debug_messages.o $(PLATFORM_OBJS)
+COMMON_OBJS=$(COMMON_DIR)/type_utils.o $(COMMON_DIR)/type_alias.o $(COMMON_DIR)/array_type_info.o $(COMMON_DIR)/utf8_utils.o $(COMMON_DIR)/io_interface.o $(COMMON_DIR)/debug_impl.o $(COMMON_DIR)/debug_messages.o $(COMMON_DIR)/ast.o $(PLATFORM_OBJS)
 
 # 実行ファイル
 MAIN_TARGET=main

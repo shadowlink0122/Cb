@@ -90,6 +90,44 @@ ASTNode *VariableDeclarationParser::parseVariableDeclaration() {
         }
 
         std::string var_name = parser_->advance().value;
+
+        // 無名変数 (_) のチェック
+        if (var_name == "_") {
+            // 無名変数の場合、一意な内部識別子を生成
+            extern std::string generate_discard_name();
+            std::string internal_name = generate_discard_name();
+
+            // 初期化式のみを解析（あれば）
+            std::unique_ptr<ASTNode> init_expr = nullptr;
+            if (parser_->match(TokenType::TOK_ASSIGN)) {
+                init_expr =
+                    std::unique_ptr<ASTNode>(parser_->parseExpression());
+            }
+
+            // セミコロンまたはカンマをチェック
+            if (parser_->check(TokenType::TOK_COMMA)) {
+                continue; // 次の変数へ
+            } else if (parser_->check(TokenType::TOK_SEMICOLON)) {
+                parser_->advance();
+
+                // 無名変数ノードを作成
+                ASTNode *discard_node =
+                    new ASTNode(ASTNodeType::AST_DISCARD_VARIABLE);
+                discard_node->name = "_";
+                discard_node->is_discard = true;
+                discard_node->internal_name = internal_name;
+                discard_node->type_name = base_parsed_type.full_type;
+
+                if (init_expr) {
+                    discard_node->init_expr = std::move(init_expr);
+                }
+
+                return discard_node;
+            } else {
+                parser_->error("Expected ',' or ';' after discard variable");
+            }
+        }
+
         std::unique_ptr<ASTNode> init_expr = nullptr;
         ParsedTypeInfo var_parsed = base_parsed_type;
         ArrayTypeInfo array_info = var_parsed.array_info;

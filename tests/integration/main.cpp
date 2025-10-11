@@ -28,6 +28,7 @@
 #include "default_args/test_default_args.hpp"
 #include "default_member/test_default_member.hpp"
 #include "defer/test_defer.hpp"
+#include "discard_variable/discard_variable_tests.hpp"
 #include "dynamic_array_error/test_dynamic_array_error.hpp"
 #include "enum/test_enum.hpp"
 #include "error_handling/test_error_handling.hpp"
@@ -47,6 +48,7 @@
 #include "interface/test_interface_private.hpp"
 #include "interface/test_type_inference_chain.hpp"
 #include "interface/test_typedef_impl.hpp"
+#include "lambda/lambda_tests.hpp"
 #include "loop/test_loop.hpp"
 #include "module_functions/test_module_functions.hpp"
 #include "move_constructor/move_constructor_tests.hpp"
@@ -270,6 +272,16 @@ int main() {
     run_test_with_continue(UnionTests::run_all_union_tests, "Union Type Tests",
                            failed_tests);
     CategoryTimingStats::print_category_summary("Type System");
+
+    // v0.10.0 新機能テスト群
+    std::cout << "\n[integration-test] === v0.10.0 New Features ==="
+              << std::endl;
+    CategoryTimingStats::set_current_category("v0.10.0 Features");
+    run_test_with_continue(test_discard_variable, "Discard Variable Tests",
+                           failed_tests);
+    run_test_with_continue(test_lambda_function, "Lambda Function Tests",
+                           failed_tests);
+    CategoryTimingStats::print_category_summary("v0.10.0 Features");
 
     // 構造体・インターフェーステスト群
     std::cout << "\n[integration-test] === Advanced Features ===" << std::endl;

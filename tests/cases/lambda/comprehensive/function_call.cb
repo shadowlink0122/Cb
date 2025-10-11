@@ -1,0 +1,30 @@
+// Lambda function call test
+// Tests basic lambda creation and invocation
+
+int main() {
+    println("=== Lambda Function Call Test ===");
+    
+    // Test 1: Basic lambda with single parameter
+    println("\nTest 1: Basic lambda");
+    int* double_func = int func(int x) {
+        return x * 2;
+    };
+    println("Lambda created");
+    
+    int result = (*double_func)(5);
+    print("Result: ");
+    println(result);  // Should print 10
+    
+    // Test 2: Lambda with multiple parameters
+    println("\nTest 2: Lambda with multiple parameters");
+    int* add_func = int func(int a, int b) {
+        return a + b;
+    };
+    
+    int sum = (*add_func)(3, 7);
+    print("Sum: ");
+    println(sum);  // Should print 10
+    
+    println("\n=== All tests completed ===");
+    return 0;
+}

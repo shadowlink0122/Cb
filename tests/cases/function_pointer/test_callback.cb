@@ -19,9 +19,9 @@ int applyOperation(int x, int y, int* operation) {
 }
 
 // コールバック関数を受け取る別の例（形式1使用）
-int compute(int a, int b, int* func) {
+int compute(int a, int b, int* callback) {
     // 形式1: (*ptr)(args)
-    return (*func)(a, b);
+    return (*callback)(a, b);
 }
 
 void main() {

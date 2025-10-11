@@ -116,23 +116,30 @@ int64_t evaluate_function_pointer_call(const ASTNode *node,
 
     // 関数本体を実行
     int64_t result = 0;
+    // ラムダの場合はlambda_bodyを、通常の関数の場合はbodyを使用
+    const ASTNode *body_to_execute = func_node->lambda_body
+                                         ? func_node->lambda_body.get()
+                                         : func_node->body.get();
+
     if (debug_mode) {
         std::cerr << "[FUNC_PTR] func_node->body exists: "
                   << (func_node->body ? "yes" : "no") << std::endl;
-        if (func_node->body) {
-            std::cerr << "[FUNC_PTR] func_node->body type: "
-                      << static_cast<int>(func_node->body->node_type)
+        std::cerr << "[FUNC_PTR] func_node->lambda_body exists: "
+                  << (func_node->lambda_body ? "yes" : "no") << std::endl;
+        if (body_to_execute) {
+            std::cerr << "[FUNC_PTR] body_to_execute type: "
+                      << static_cast<int>(body_to_execute->node_type)
                       << std::endl;
         }
     }
     try {
-        if (func_node->body) {
+        if (body_to_execute) {
             if (debug_mode) {
                 std::cerr << "[FUNC_PTR] Executing function body: node_type="
-                          << static_cast<int>(func_node->body->node_type)
+                          << static_cast<int>(body_to_execute->node_type)
                           << std::endl;
             }
-            interpreter.exec_statement(func_node->body.get());
+            interpreter.exec_statement(body_to_execute);
             if (debug_mode) {
                 std::cerr << "[FUNC_PTR] Function body execution finished "
                              "without exception"
@@ -140,9 +147,9 @@ int64_t evaluate_function_pointer_call(const ASTNode *node,
             }
         } else {
             if (debug_mode) {
-                std::cerr
-                    << "[FUNC_PTR] No function body (func_node->body is null)"
-                    << std::endl;
+                std::cerr << "[FUNC_PTR] No function body (both body and "
+                             "lambda_body are null)"
+                          << std::endl;
             }
         }
     } catch (const ReturnException &ret) {

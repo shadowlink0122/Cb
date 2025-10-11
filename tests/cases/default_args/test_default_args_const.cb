@@ -4,12 +4,12 @@ const int DEFAULT_WIDTH = 800;
 const int DEFAULT_HEIGHT = 600;
 const string DEFAULT_TITLE = "Window";
 
-func void create_window(int w = DEFAULT_WIDTH, int h = DEFAULT_HEIGHT, string title = DEFAULT_TITLE) {
+void create_window(int w = DEFAULT_WIDTH, int h = DEFAULT_HEIGHT, string title = DEFAULT_TITLE) {
     println("Window: " + title);
     println("Size: " + w + "x" + h);
 }
 
-func int compute(int base, int multiplier = 10) {
+int compute(int base, int multiplier = 10) {
     return base * multiplier;
 }
 

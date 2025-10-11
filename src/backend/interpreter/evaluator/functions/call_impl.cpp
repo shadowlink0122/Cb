@@ -29,6 +29,92 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                   << node->name << std::endl;
     }
 
+    // ラムダの即座実行をチェック: int func(int x){return x;}(10) 形式
+    if (node->is_lambda_call && node->left) {
+        const ASTNode *lambda_node = node->left.get();
+
+        if (lambda_node->node_type == ASTNodeType::AST_LAMBDA_EXPR) {
+            if (interpreter_.is_debug_mode()) {
+                std::cerr << "[LAMBDA_CALL] Direct lambda invocation with "
+                          << node->arguments.size() << " arguments"
+                          << std::endl;
+            }
+
+            // ラムダを一時的に関数ポインタとして登録
+            std::string temp_lambda_name = lambda_node->internal_name;
+
+            // ラムダを関数として登録（一時的）
+            FunctionPointer lambda_fp;
+            lambda_fp.function_name = temp_lambda_name;
+            lambda_fp.function_node = lambda_node;
+
+            interpreter_.current_scope().function_pointers[temp_lambda_name] =
+                lambda_fp;
+
+            // 新しいスコープを作成してラムダを実行
+            interpreter_.push_scope();
+
+            // パラメータをバインド
+            if (node->arguments.size() != lambda_node->parameters.size()) {
+                std::cerr
+                    << "Error: Lambda call argument count mismatch: expected "
+                    << lambda_node->parameters.size() << ", got "
+                    << node->arguments.size() << std::endl;
+                std::exit(1);
+            }
+
+            for (size_t i = 0; i < lambda_node->parameters.size(); ++i) {
+                const ASTNode *param = lambda_node->parameters[i].get();
+                int64_t arg_value =
+                    evaluate_expression(node->arguments[i].get());
+
+                Variable var;
+                var.type = param->type_info;
+                var.value = arg_value;
+                var.is_const = param->is_const;
+
+                interpreter_.current_scope().variables[param->name] = var;
+            }
+
+            // ラムダ本体を実行
+            int64_t result = 0;
+            if (lambda_node->lambda_body) {
+                try {
+                    // lambda_bodyはAST_STMT_LISTなので、その中の文を順次実行
+                    for (const auto &stmt :
+                         lambda_node->lambda_body->statements) {
+                        interpreter_.execute_statement(stmt.get());
+                    }
+                } catch (const ReturnException &e) {
+                    result = e.value;
+                }
+            }
+
+            // スコープをクリーンアップ
+            interpreter_.pop_scope();
+
+            // 一時的な関数ポインタを削除
+            interpreter_.current_scope().function_pointers.erase(
+                temp_lambda_name);
+
+            return result;
+        }
+
+        // node->leftが別の関数呼び出しの場合（チェーン呼び出し）
+        if (lambda_node->node_type == ASTNodeType::AST_FUNC_CALL) {
+            // 前の呼び出しを評価して、その結果（関数ポインタ）を使って呼び出す
+            int64_t lambda_ptr = evaluate_expression(lambda_node);
+
+            // lambda_ptrが関数ポインタか確認
+            FunctionPointer *fp =
+                reinterpret_cast<FunctionPointer *>(lambda_ptr);
+            if (fp && fp->function_node) {
+                // 関数ポインタを通常の関数呼び出しとして実行
+                // TODO: この部分は既存の関数ポインタ呼び出しロジックと統合
+            }
+        }
+    }
+
     // 関数を探す
     const ASTNode *func = nullptr;
 
@@ -145,8 +231,13 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                     // 関数本体を実行
                     int64_t result = 0;
                     try {
-                        if (func_node->body) {
-                            interpreter_.exec_statement(func_node->body.get());
+                        // ラムダの場合はlambda_bodyを、通常の関数の場合はbodyを使用
+                        const ASTNode *body_to_execute =
+                            func_node->lambda_body
+                                ? func_node->lambda_body.get()
+                                : func_node->body.get();
+                        if (body_to_execute) {
+                            interpreter_.exec_statement(body_to_execute);
                         }
                     } catch (const ReturnException &ret) {
                         interpreter_.pop_interpreter_scope();
@@ -220,8 +311,12 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
             // 関数本体を実行
             int64_t result = 0;
             try {
-                if (func_node->body) {
-                    interpreter_.exec_statement(func_node->body.get());
+                // ラムダの場合はlambda_bodyを、通常の関数の場合はbodyを使用
+                const ASTNode *body_to_execute =
+                    func_node->lambda_body ? func_node->lambda_body.get()
+                                           : func_node->body.get();
+                if (body_to_execute) {
+                    interpreter_.exec_statement(body_to_execute);
                 }
             } catch (const ReturnException &ret) {
                 interpreter_.pop_interpreter_scope();
@@ -371,8 +466,12 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                 // 関数本体を実行
                 int64_t result = 0;
                 try {
-                    if (func_node->body) {
-                        interpreter_.exec_statement(func_node->body.get());
+                    // ラムダの場合はlambda_bodyを、通常の関数の場合はbodyを使用
+                    const ASTNode *body_to_execute =
+                        func_node->lambda_body ? func_node->lambda_body.get()
+                                               : func_node->body.get();
+                    if (body_to_execute) {
+                        interpreter_.exec_statement(body_to_execute);
                     }
                 } catch (const ReturnException &ret) {
                     interpreter_.pop_interpreter_scope();

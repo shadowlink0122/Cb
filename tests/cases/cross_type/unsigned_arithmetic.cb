@@ -1,7 +1,7 @@
 // Test: Unsigned type arithmetic
 // Tests unsigned type operations and overflow behavior
 
-func int main() {
+int main() {
     unsigned tiny ut = 200;
     unsigned short us = 50000;
     unsigned int ui = 3000000000;
