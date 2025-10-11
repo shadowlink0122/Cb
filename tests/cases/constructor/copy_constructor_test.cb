@@ -59,12 +59,7 @@ impl String {
 
 void main() {
     println("=== Copy Constructor Test ===");
-    println("⚠️  This test requires interpreter support for copy constructors");
-    println("    Expected syntax: Point p2 = p1;  or  Point p2(p1);");
-    println("");
     
-    // TODO: 以下のコードはインタープリタ実装後に有効化
-    /*
     println("Test 1: Basic copy construction");
     Point p1(10, 20);
     Point p2 = p1;  // コピーコンストラクタを呼び出す
@@ -106,21 +101,7 @@ void main() {
     } else {
         println("  [FAIL] Shallow copy detected");
     }
-    */
-    
-    // 現在はデフォルトコンストラクタのみテスト可能
-    println("Currently testing default constructor only:");
-    Point p1;
-    String s1;
-    println("  p1: (", p1.x, ", ", p1.y, ")");
-    println("  s1: length=", s1.length, ", capacity=", s1.capacity);
     
     println("");
-    println("=== Implementation Required ===");
-    println("1. Detect copy scenarios:");
-    println("   - Type var = existing_var;");
-    println("   - Type var(existing_var);");
-    println("   - Function parameter passing by value");
-    println("2. Find copy constructor (1 param, const T& type)");
-    println("3. Invoke copy constructor with source variable");
+    println("=== All Tests Completed ===");
 }

@@ -444,6 +444,12 @@ class Interpreter : public EvaluatorInterface {
     // Defer管理（スコープごとのdeferスタック）
     std::vector<std::vector<const ASTNode *>> defer_stacks_;
 
+    // v0.10.0: デストラクタ管理（スコープごとのstruct変数スタック）
+    // 各スコープで作成されたstruct変数を記録（LIFO順で破棄するため）
+    std::vector<std::vector<std::pair<std::string, std::string>>>
+        destructor_stacks_;
+    // pair<変数名, struct型名>
+
     // Manager instances
     std::unique_ptr<VariableManager> variable_manager_;
     std::unique_ptr<ArrayManager> array_manager_;
@@ -680,8 +686,13 @@ class Interpreter : public EvaluatorInterface {
     void call_constructor(const std::string &var_name,
                           const std::string &struct_type_name,
                           const std::vector<TypedValue> &args);
+    void call_copy_constructor(const std::string &var_name,
+                               const std::string &struct_type_name,
+                               const std::string &source_var_name);
     void call_destructor(const std::string &var_name,
                          const std::string &struct_type_name);
+    void register_destructor_call(const std::string &var_name,
+                                  const std::string &struct_type_name);
 
     // impl static変数処理 (StaticVariableManagerへ委譲)
     Variable *find_impl_static_variable(const std::string &name);
@@ -719,6 +730,9 @@ class Interpreter : public EvaluatorInterface {
     void print_value(const ASTNode *expr);
     void print_formatted(const ASTNode *format_str, const ASTNode *arg_list);
     void validate_struct_recursion_rules();
+
+    // v0.10.0: デストラクタ呼び出し中フラグ（無限再帰防止）
+    bool is_calling_destructor_ = false;
 
     // N次元配列リテラル処理の再帰関数
     void process_ndim_array_literal(const ASTNode *literal_node, Variable &var,

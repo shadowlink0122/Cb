@@ -50,7 +50,15 @@ void StatementListExecutor::execute_compound_statement(const ASTNode *node) {
     debug_msg(DebugMsgId::INTERPRETER_COMPOUND_STMT_EXEC,
               node->statements.size());
 
+    // v0.10.0: 複合文のスコープ作成は将来のバージョンで対応
+    // 現在は関数スコープのみでデストラクタを動作させる
+    // TODO v0.11.0: 複合文{}ごとにスコープを作成し、デストラクタとdeferを実行
+    // interpreter_->push_scope();
+
     for (const auto &stmt : node->statements) {
         interpreter_->execute_statement(stmt.get());
     }
+
+    // TODO v0.11.0: スコープ終了時にデストラクタとdeferを実行
+    // interpreter_->pop_scope();
 }

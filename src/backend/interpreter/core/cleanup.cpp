@@ -12,17 +12,75 @@
 // スコープ管理
 // ========================================================================
 void Interpreter::push_scope() {
+    if (debug_mode) {
+        debug_print("push_scope: destructor_stacks_ size before: %zu\n",
+                    destructor_stacks_.size());
+    }
+
     variable_manager_->push_scope();
     push_defer_scope();
+    // v0.10.0: デストラクタスタックも追加
+    destructor_stacks_.push_back(
+        std::vector<std::pair<std::string, std::string>>());
+
+    if (debug_mode) {
+        debug_print("push_scope: destructor_stacks_ size after: %zu\n",
+                    destructor_stacks_.size());
+    }
 }
 
 void Interpreter::pop_scope() {
+    if (debug_mode) {
+        debug_print("pop_scope: destructor_stacks_ size before: %zu, "
+                    "is_calling_destructor: %d, scope_stack_size: %zu\n",
+                    destructor_stacks_.size(), is_calling_destructor_,
+                    scope_stack.size());
+    }
+
+    // v0.10.0: デストラクタをLIFO順で呼び出す（最後に作成された変数から破棄）
+    if (!destructor_stacks_.empty()) {
+        if (!is_calling_destructor_) {
+            // 通常のスコープ終了時：デストラクタを呼び出す
+            const auto &destroy_list = destructor_stacks_.back();
+            if (debug_mode && !destroy_list.empty()) {
+                debug_print("pop_scope: calling %zu destructors\n",
+                            destroy_list.size());
+            }
+            for (auto it = destroy_list.rbegin(); it != destroy_list.rend();
+                 ++it) {
+                const std::string &var_name = it->first;
+                const std::string &struct_type_name = it->second;
+
+                if (debug_mode) {
+                    debug_print("Destroying variable %s of type %s\n",
+                                var_name.c_str(), struct_type_name.c_str());
+                }
+
+                // デストラクタを呼び出す
+                call_destructor(var_name, struct_type_name);
+            }
+        }
+        // デストラクタ呼び出し中でも必ずスタックをpop
+        destructor_stacks_.pop_back();
+
+        if (debug_mode) {
+            debug_print("pop_scope: destructor_stacks_ size after pop: %zu\n",
+                        destructor_stacks_.size());
+        }
+    } else {
+        if (debug_mode) {
+            debug_print("pop_scope: WARNING - destructor_stacks_ is empty!\n");
+        }
+    }
+
     // deferを実行
     pop_defer_scope();
 
     // 配列参照のコピーバック処理
     // 関数終了時に、参照変数のデータベクトルを元の配列にコピーバック
-    for (auto &var_pair : current_scope().variables) {
+    // NOTE: current_scope()はvariable_manager_->pop_scope()の前に呼ぶ必要がある
+    Scope &scope_to_pop = current_scope();
+    for (auto &var_pair : scope_to_pop.variables) {
         Variable &var = var_pair.second;
         if (var.is_reference && var.is_array) {
             // 元の配列へのポインタを取得
