@@ -1,7 +1,7 @@
-# Cb言語 完全仕様書 v0.9.2
+# Cb言語 完全仕様書 v0.10.0
 
-**最終更新**: 2025年10月10日  
-**バージョン**: v0.9.2 - Long Type Fix & Const Safety
+**最終更新**: 2025年10月12日  
+**バージョン**: v0.10.0 - Move Semantics & Complete Cleanup
 
 ## 目次
 
@@ -1163,14 +1163,88 @@ void main() {
 }
 ```
 
+### スコープとクリーンアップのタイミング ✅ (v0.10.0)
+
+**スコープの終了とは**:
+1. **通常のブロック終了**: `}` に到達したとき
+2. **return文の実行**: return文は実行前にスコープ終了として扱われる
+
+#### return文での自動クリーンアップ
+
+return文を実行する直前に、以下の順序でクリーンアップが実行されます:
+
+1. **defer文の実行**（LIFO順）
+2. **ローカル変数のデストラクタ実行**（LIFO順）
+3. **return値の評価とコピー/ムーブ**
+
+```c++
+struct Resource {
+    int id;
+    
+    self(int i) {
+        self.id = i;
+        println("Resource", self.id, "created");
+    }
+    
+    ~self() {
+        println("Resource", self.id, "destroyed");
+    }
+}
+
+Resource create_resource() {
+    Resource r(1);
+    defer println("Defer statement");
+    
+    println("Before return");
+    return r;  // ✅ ここでdefer→デストラクタ→returnの順に実行
+}
+
+void main() {
+    println("=== Start ===");
+    Resource result = create_resource();
+    println("=== After create ===");
+}
+
+// 出力:
+// === Start ===
+// Resource 1 created
+// Before return
+// Defer statement          ← return前に実行
+// Resource 1 destroyed     ← return前に実行
+// === After create ===
+// Resource 1 destroyed     ← main終了時
+```
+
+#### 複数のreturn経路
+
+どのreturn文でも、同じクリーンアップルールが適用されます:
+
+```c++
+void process(bool condition) {
+    Resource r1(1);
+    defer println("Defer 1");
+    
+    if (condition) {
+        Resource r2(2);
+        defer println("Defer 2");
+        return;  // ✅ Defer 2 → r2デストラクタ → Defer 1 → r1デストラクタ
+    }
+    
+    Resource r3(3);
+    defer println("Defer 3");
+    return;  // ✅ Defer 3 → r3デストラクタ → Defer 1 → r1デストラクタ
+}
+```
+
 ### 重要な注意事項
 
 1. **自動呼び出し**: 構造体変数を宣言すると、適切なコンストラクタが自動的に呼ばれます
 2. **デストラクタの自動呼び出し**: スコープを抜けると自動的にデストラクタが呼ばれます
-3. **`self`キーワード**: コンストラクタ/デストラクタ内では`self`で現在のオブジェクトを参照
-4. **オーバーロード**: 引数の型と数で適切なコンストラクタが選択されます
-5. **implブロック**: コンストラクタとデストラクタは`impl StructName {}`で定義（インターフェース不要）
-6. **参照の区別**:
+3. **return前のクリーンアップ**: return文実行前にdefer/デストラクタが実行される (v0.10.0)
+4. **`self`キーワード**: コンストラクタ/デストラクタ内では`self`で現在のオブジェクトを参照
+5. **オーバーロード**: 引数の型と数で適切なコンストラクタが選択されます
+6. **implブロック**: コンストラクタとデストラクタは`impl StructName {}`で定義（インターフェース不要）
+7. **参照の区別**:
    - `&`: 通常の参照（コピーコンストラクタ用）
    - `&&`: 右辺値参照（ムーブコンストラクタ専用）
 
@@ -2160,6 +2234,68 @@ export int public_function() {
     return internal_helper();
 }
 ```
+
+### impl構文のexport/import ✅ (v0.10.0)
+
+implブロック（コンストラクタ、インターフェース実装）もexport/import可能です。
+
+#### implブロックのexport
+
+**point.cb**:
+```c++
+export struct Point {
+    int x;
+    int y;
+}
+
+// コンストラクタのexport
+export impl Point {
+    self(int px, int py) {
+        self.x = px;
+        self.y = py;
+    }
+    
+    void print() {
+        println("Point(", self.x, ", ", self.y, ")");
+    }
+}
+
+// インターフェース実装のexport
+interface Printable {
+    void print();
+}
+
+export impl Printable for Point {
+    void print() {
+        println("Printable: Point(", self.x, ", ", self.y, ")");
+    }
+}
+```
+
+#### implブロックのimport
+
+**main.cb**:
+```c++
+import "point.cb";
+
+void main() {
+    // エクスポートされたコンストラクタを使用
+    Point p(10, 20);
+    
+    // エクスポートされたメソッドを使用
+    p.print();  // Point(10, 20)
+    
+    // エクスポートされたインターフェース実装を使用
+    Printable& printable = p;
+    printable.print();  // Printable: Point(10, 20)
+}
+```
+
+#### 制約事項
+
+1. **export impl**: 構造体自体が`export`されていなければならない
+2. **インターフェース実装**: インターフェースも`export`が必要
+3. **スコープルール**: implブロックは通常のスコープルールに従う
 
 ---
 

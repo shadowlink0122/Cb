@@ -1,80 +1,154 @@
 # Cb (シーフラット) プログラミング言語
 
-**最新バージョン**: v0.9.2 - Long Type Fix & Const Safety  
-**リリース日**: 2025年10月10日  
-**ベース**: v0.9.1
+**最新バージョン**: v0.10.0 - Move Semantics & Complete Cleanup  
+**リリース日**: 2025年10月12日  
+**ベース**: v0.9.2
 
-### 📊 品質指標（v0.9.2）
+### 📊 品質指標（v0.10.0）
 
-- **統合テスト**: **2,379個**（100%成功） 🎉
+- **統合テスト**: **2,924個**（100%成功） 🎉
+- **Deferテスト**: **131個**（return前cleanup含む） 🎉
 - **ユニットテスト**: **30個**（100%成功） 🎉
-- **総テスト数**: **2,409個**（100%成功） 🎉
+- **総テスト数**: **2,954個**（100%成功） 🎉
 - **テストカバレッジ**: 全機能を網羅的にテスト
-- **完全な型安全性**: 境界値・型不整合・const違反の自動検出
+- **完全なRIII**: デストラクタとdeferの自動実行
 
-### 🆕 v0.9.2の新機能
+### 🆕 v0.10.0の新機能
+
+**1. � C++互換ムーブセマンティクス**
+- **右辺値参照（`T&&`）**: ゼロコストの所有権移動
+- **ムーブコンストラクタ**: `self(T&& other)` による効率的なリソース転送
+- **move()組み込み関数**: 明示的なムーブ操作
+- **デストラクタからの自動削除**: ムーブされたオブジェクトは破棄されない
+
+```cb
+struct Resource {
+    int id;
+    bool allocated;
+    
+    // ムーブコンストラクタ
+    self(Resource&& other) {
+        self.id = other.id;
+        self.allocated = other.allocated;
+        other.allocated = false;  // 元のオブジェクトを無効化
+        println("Move constructor");
+    }
+    
+    ~self() {
+        if (self.allocated) {
+            println("Resource destroyed", self.id);
+        }
+    }
+}
+
+void main() {
+    Resource r1(1);
+    Resource r2 = move(r1);  // ムーブ、r1は無効化される
+}
+// 出力:
+// Move constructor
+// Resource destroyed 1  ← r2のみが破棄される
+```
+
+**2. 🔄 return文直前のdefer/デストラクタ実行**
+- **スコープ終了としてのreturn**: return実行前に自動クリーンアップ
+- **実行順序の保証**: defer文（LIFO）→ デストラクタ（LIFO）→ return
+- **複数return経路対応**: どのreturn文でも同じクリーンアップルール
+
+```cb
+Resource create_resource() {
+    Resource r(1);
+    defer println("Defer statement");
+    return r;  // ✅ return前にdefer→デストラクタ実行
+}
+
+void main() {
+    Resource r = create_resource();
+    println("After create");
+}
+// 出力:
+// Defer statement      ← return前に実行
+// Resource destroyed 1 ← return前に実行
+// After create
+// Resource destroyed 1 ← main終了時
+```
+
+**3. � impl構文のexport/import対応**
+- **implブロックのexport**: コンストラクタ、インターフェース実装をモジュール間で共有
+- **モジュール境界を越えた実装**: 構造体定義と実装を分離可能
+
+```cb
+// module_a.cb
+export struct Point { int x; int y; }
+
+export impl Point {
+    self(int px, int py) {
+        self.x = px;
+        self.y = py;
+    }
+}
+
+// main.cb
+import "module_a.cb";
+
+void main() {
+    Point p(10, 20);  // ✅ エクスポートされたコンストラクタを使用
+}
+```
+
+**4. 🏗️ ネスト構造体デストラクタ**
+- **値メンバーのデストラクタ**: 構造体が値メンバーを持つ場合、自動的にデストラクタを呼び出し
+- **LIFO順の保証**: メンバーは宣言の逆順で破棄される
+
+```cb
+struct Inner {
+    int id;
+    ~self() { println("Inner destroyed", self.id); }
+}
+
+struct Outer {
+    Inner inner;
+    ~self() { println("Outer destroyed"); }
+}
+
+void main() {
+    Outer o;
+    o.inner.id = 1;
+}
+// 出力:
+// Outer destroyed
+// Inner destroyed 1  ← 値メンバーのデストラクタも自動実行
+```
+
+**5. テストの拡充**
+- 全2,954テストが100%成功
+- 新規追加: 126テスト（defer 131個、impl export/import 7個）
+- ムーブセマンティクスの包括的なテスト
+
+詳細: [`release_notes/v0.10.0.md`](release_notes/v0.10.0.md)
+
+---
+
+### 🔥 v0.9.2の主要機能
 
 **1. 🔴 Long型オーバーフロー修正（重要なバグ修正）**
 - Fibonacci計算でF(48)以降が正しく計算されない問題を修正
 - `TYPE_LONG`配列の読み取りを64bit値として正しく処理
 - 大きな整数リテラル(>INT32_MAX)を自動的にTYPE_LONGに分類
 
-```cb
-// 修正前: F(48) = 512559680 (誤り)
-// 修正後: F(48) = 4807526976 (正しい) ✅
-long fib_value = fibonacci(92);  // 正しく計算可能に
-```
-
 **2. 🛡️ Const型安全性の部分実装**
 - `const T*` (pointed-to constness) のチェック
 - `T* const` (pointer constness) のチェック
 - 関数パラメータでのconst違反検出
 
-```cb
-const int* ptr = &x;
-*ptr = 100;  // ❌ Error: Cannot modify value through const pointer
-
-int* const ptr2 = &y;
-ptr2 = &z;  // ❌ Error: Cannot reassign const pointer
-```
-
 **3. 🔄 配列の参照渡し（関数引数）**
 - 関数に配列を渡す際、C/C++と同様に参照として渡される
 - 関数内での配列要素の変更が呼び出し元に反映される
-
-```cb
-void modify(int[3] arr) {
-    arr[0] = 100;  // 呼び出し元の配列が変更される
-}
-
-void main() {
-    int[3] nums = [1, 2, 3];
-    modify(nums);
-    println(nums[0]);  // 100
-}
-```
 
 **4. 🏗️ 構造体メンバの再帰的代入とネスト初期化**
 - ネストした構造体メンバへの直接代入をサポート
 - 4レベル以上の深いネストにも対応
 - 宣言時のメンバーアクセス初期化に対応
-
-```cb
-// ネストメンバへの代入
-obj.mid.data.value = 100;
-deep.l2.l3.l4.x = 999;
-
-// 宣言時初期化
-struct Outer { struct Middle { struct Inner { int x; } val; } val; };
-Outer o1 = {val: {val: {x: 99}}};
-Middle mid = o1.val;  // struct_membersが正しくコピーされる
-println(mid.val.x);   // 99
-```
-
-**5. テストの完全合格**
-- 全2,409テストが100%成功
-- Long型修正により、より正確な計算が可能に
-- Const安全性により、型安全性が向上
 
 詳細: [`release_notes/v0.9.2.md`](release_notes/v0.9.2.md)
 
@@ -119,7 +193,27 @@ println(mid.val.x);   // 99
 
 ## 🎯 主要特徴
 
-### ✅ 完全実装済み機能（v0.9.0）
+### ✅ 完全実装済み機能（v0.10.0）
+
+#### 🚀 ムーブセマンティクス（v0.10.0完全実装）
+- **✅ 右辺値参照**: `T&&` による所有権移動
+- **✅ ムーブコンストラクタ**: `self(T&& other)` でリソース転送
+- **✅ move()関数**: 明示的なムーブ操作
+- **✅ デストラクタからの自動削除**: ムーブされたオブジェクトは破棄されない
+- **✅ ネスト構造体デストラクタ**: 値メンバーの自動破棄（LIFO順）
+- **✅ コピーコンストラクタ**: `self(const T& other)` で値のコピー
+
+#### 🔄 スコープとクリーンアップ（v0.10.0完全実装）
+- **✅ return前のdefer実行**: return文実行前にdefer文を自動実行（LIFO順）
+- **✅ return前のデストラクタ実行**: return文実行前にデストラクタを自動実行（LIFO順）
+- **✅ 複数return経路対応**: どのreturn文でも同じクリーンアップルール
+- **✅ 実行順序の保証**: defer → デストラクタ → return値の評価
+
+#### 📦 モジュールシステム（v0.10.0強化）
+- **✅ impl export/import**: コンストラクタ、インターフェース実装の共有
+- **✅ export impl構文**: `export impl S { ... }` でimplブロックをエクスポート
+- **✅ インターフェース実装のexport**: `export impl I for S { ... }`
+- **✅ モジュール境界を越えた実装**: 構造体定義と実装を分離可能
 
 #### 🎯 ポインタシステム（v0.9.0完全実装）
 - **✅ 基本ポインタ**: アドレス演算子（`&`）、デリファレンス（`*`）
@@ -129,12 +223,12 @@ println(mid.val.x);   // 99
 - **✅ 構造体ポインタ**: `(*ptr).member` 構文でメンバーアクセス
 - **✅ アロー演算子**: `ptr->member` による簡潔なメンバーアクセス
 - **✅ Interfaceポインタ**: ポリモーフィックメソッド呼び出し
-- **✅ 関数ポインタ**: 関数のアドレス取得、呼び出し、コールバック 🆕
-- **✅ ポインタ配列**: `int*[N]` 形式（初期化付き宣言）🆕
-- **✅ 参照型**: `int&`, `Struct&` による参照渡し 🆕
+- **✅ 関数ポインタ**: 関数のアドレス取得、呼び出し、コールバック
+- **✅ ポインタ配列**: `int*[N]` 形式（初期化付き宣言）
+- **✅ 参照型**: `int&`, `Struct&`, `T&&` による参照渡し
 
 #### 🎨 Interface/Implシステム（v0.9.0強化）
-- **✅ impl内static変数 🆕**: implブロック内でstatic変数をサポート
+- **✅ impl内static変数**: implブロック内でstatic変数をサポート
 - **✅ 型ごとの独立性**: `impl I for A`と`impl I for B`で異なるstatic変数を持つ
 - **✅ 永続的な状態管理**: プログラム実行中ずっと保持される
 - **✅ const修飾子サポート**: `static const int MAX = 100;` が可能
@@ -541,14 +635,17 @@ void main() {
 
 ### 📝 リリースノート
 
-- **v0.9.2-dev**: [`docs/todo/v0.9.2_progress_report.md`](docs/todo/v0.9.2_progress_report.md) - 開発中の進捗
+- **v0.10.0**: [`release_notes/v0.10.0.md`](release_notes/v0.10.0.md) - ムーブセマンティクス & 完全なクリーンアップ 🆕
+- **v0.9.2**: [`release_notes/v0.9.2.md`](release_notes/v0.9.2.md) - Long型修正 & Const安全性
 - **v0.9.1**: [`release_notes/v0.9.1.md`](release_notes/v0.9.1.md) - リファクタリング Phase 1-2 完了版
 - **v0.9.0**: [`release_notes/v0.9.0.md`](release_notes/v0.9.0.md) - 関数ポインタ完全実装版
 
 ### 実装計画・設計ドキュメント
 
 今後の実装計画や設計ドキュメントは [`docs/todo/`](docs/todo/) に格納されています：
-- **v0.10.0実装計画**: [`docs/todo/v0.10.0_advanced_pointer_features.md`](docs/todo/v0.10.0_advanced_pointer_features.md)
+- **v0.11.0実装計画**: [`docs/todo/v0.11.0_implementation_plan.md`](docs/todo/v0.11.0_implementation_plan.md) - スコープ、ジェネリクス、エラーハンドリング 🆕
+- **v0.11.0ジェネリクス仕様**: [`docs/todo/v0.11.0_generics_spec.md`](docs/todo/v0.11.0_generics_spec.md) - 詳細な型システム設計 🆕
+- **v0.10.1実装計画**: [`docs/todo/v0.10.1_implementation_plan.md`](docs/todo/v0.10.1_implementation_plan.md) - ムーブセマンティクス完成 🆕
 - **実装ロードマップ**: [`docs/todo/implementation_roadmap.md`](docs/todo/implementation_roadmap.md)
 
 ### サンプルコード
@@ -597,42 +694,61 @@ make unit-test          # 単体テスト（50個）
 
 ### テスト成功率
 
-- **v0.9.2**: 2,506/2,506 統合テスト + 50/50 単体テスト = **100%成功** 🎉
-- **v0.9.1**: 2,447/2,447 統合テスト + 50/50 単体テスト = **100%成功** 🎉
+- **v0.10.0**: 2,924/2,924 統合テスト + 30/30 単体テスト = **100%成功** 🎉
+- **v0.9.2**: 2,798/2,798 統合テスト + 30/30 単体テスト = **100%成功** 🎉
+- **v0.9.1**: 2,447/2,447 統合テスト + 30/30 単体テスト = **100%成功** 🎉
 - **v0.9.0**: 2,349/2,349 統合テスト + 30/30 単体テスト = **100%成功** 🎉
 
 ---
 
 ## 🔧 開発状況
 
+### v0.10.0 - Move Semantics & Complete Cleanup（2025年10月12日）
+
+#### ✅ 主要新機能
+- **ムーブセマンティクス**: 右辺値参照（`T&&`）、ムーブコンストラクタ、move()関数
+- **return前のクリーンアップ**: defer文とデストラクタの自動実行
+- **impl export/import**: コンストラクタとインターフェース実装の共有
+- **ネスト構造体デストラクタ**: 値メンバーの自動破棄（LIFO順）
+
+#### 📈 テスト統計
+- 統合テスト: 2798個 → **2924個**（+126個）
+- Deferテスト: **131個**（return前cleanup含む）
+- 成功率: **100%**
+
+#### 📚 ドキュメント
+- [`release_notes/v0.10.0.md`](release_notes/v0.10.0.md) - リリースノート
+- [`docs/spec.md`](docs/spec.md) - 言語仕様書（v0.10.0対応）
+- [`docs/todo/v0.11.0_implementation_plan.md`](docs/todo/v0.11.0_implementation_plan.md) - 次期バージョン計画
+
+### v0.9.2 - Long Type Fix & Const Safety（2025年10月10日）
+
+#### ✅ 主要改善
+- **Long型オーバーフロー修正**: Fibonacci(92)まで正確に計算可能
+- **Const型安全性**: `const T*` と `T* const` のチェック
+- **配列の参照渡し**: 関数引数での配列変更が呼び出し元に反映
+- **構造体メンバの再帰的代入**: 4レベル以上の深いネストに対応
+
+#### 📈 テスト統計
+- 統合テスト: **2798個**（100%成功）
+- 実行時間: 最適化により高速化
+
 ### v0.9.1 - リファクタリング Phase 1-2 完了版（2025年1月）
 
 #### 🏗️ 主要改善
-- **Phase 1: パーサー分離の基盤構築**
-  - 新ディレクトリ構造: `parsers/` と `utils/`
-  - 5つのパーサークラスを定義（53メソッドを分類）
-  - friend宣言による内部状態アクセス
-  - unique_ptrによる自動メモリ管理
-  
-- **Phase 2: 委譲パターンの実装**
-  - 全パーサークラスで委譲実装完了
-  - ゼロ破壊的変更
-  - 既存実装を完全維持
+- **Phase 1-2: パーサー分離**: 5つのパーサークラスに分割
+- **DRY原則の適用**: コード重複の削減
+- **大規模リファクタリング**: 230ファイル変更、46,382行追加
 
 #### 📈 テスト統計
-- 統合テスト: **2380個**（100%成功）
-- 実行時間: 863ms（+3.6%、許容範囲内）
+- 統合テスト: **2447個**（100%成功）
 - 後方互換性: 完全維持
-
-#### 📚 ドキュメント
-- [`docs/refactoring_progress.md`](docs/refactoring_progress.md) - 詳細な進捗
-- [`release_notes/v0.9.1.md`](release_notes/v0.9.1.md) - リリースノート
 
 ### v0.9.0 - 関数ポインタ完全実装版（2025年10月6日）
 
 #### ✅ 主要新機能
-- **関数ポインタ**: 宣言、初期化、呼び出し（暗黙的・明示的）、コールバック、チェーン呼び出し
-- **ポインタ配列**: `int*[N]` 形式（初期化付き宣言）
+- **関数ポインタ**: 宣言、初期化、呼び出し、コールバック
+- **ポインタ配列**: `int*[N]` 形式
 - **参照型**: `int&`, `Struct&` による参照渡し
 - **impl内static変数**: Interface/Implシステムの強化
 
