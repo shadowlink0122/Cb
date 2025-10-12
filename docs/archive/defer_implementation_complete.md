@@ -95,7 +95,7 @@ test_defer_break.cb   ✅ PASSED (修正済み)
 
 ### 手動テスト
 ```bash
-cd /Users/shadowlink/Documents/git/Cb
+# プロジェクトルートから
 
 # 個別テスト
 ./main tests/cases/defer/test_defer_basic.cb

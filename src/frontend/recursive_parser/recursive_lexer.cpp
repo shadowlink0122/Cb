@@ -430,7 +430,9 @@ TokenType RecursiveLexer::getKeywordType(const std::string &text) {
         {"default", TokenType::TOK_DEFAULT},
         {"switch", TokenType::TOK_SWITCH},
         {"case", TokenType::TOK_CASE},
-        {"func", TokenType::TOK_FUNC}};
+        {"func", TokenType::TOK_FUNC},
+        {"import", TokenType::TOK_IMPORT},
+        {"export", TokenType::TOK_EXPORT}};
 
     auto it = keywords.find(text);
     if (it != keywords.end()) {

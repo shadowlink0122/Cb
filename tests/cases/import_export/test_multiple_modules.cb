@@ -1,0 +1,39 @@
+// Test importing multiple independent modules
+import "module_a.cb";
+import "module_b.cb";
+
+int main() {
+    println("=== Multiple Module Import Test ===");
+    
+    // Test functions from module_a
+    int sum = add(10, 5);
+    print("add(10, 5) = ");
+    print(sum);
+    println();
+    
+    int diff = subtract(10, 5);
+    print("subtract(10, 5) = ");
+    print(diff);
+    println();
+    
+    // Test functions from module_b
+    int product = multiply(10, 5);
+    print("multiply(10, 5) = ");
+    print(product);
+    println();
+    
+    int quotient = divide(10, 5);
+    print("divide(10, 5) = ");
+    print(quotient);
+    println();
+    
+    // Combined test
+    int result = add(multiply(3, 4), subtract(20, 5));
+    print("add(multiply(3, 4), subtract(20, 5)) = ");
+    print(result);
+    print(" (expected: 27 = 12 + 15)");
+    println();
+    
+    println("Multiple module test completed!");
+    return 0;
+}

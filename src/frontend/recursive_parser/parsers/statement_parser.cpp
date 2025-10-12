@@ -29,6 +29,20 @@ StatementParser::StatementParser(RecursiveParser *parser) : parser_(parser) {}
  * トークンの種類に応じて適切な解析メソッドを呼び出します
  */
 ASTNode *StatementParser::parseStatement() {
+    // export修飾子のチェック（最初にチェック）
+    bool isExported = false;
+    bool isDefaultExport = false;
+    if (parser_->check(TokenType::TOK_EXPORT)) {
+        isExported = true;
+        parser_->advance();
+
+        // default exportのチェック
+        if (parser_->check(TokenType::TOK_DEFAULT)) {
+            isDefaultExport = true;
+            parser_->advance();
+        }
+    }
+
     // 修飾子のチェック
     bool isStatic = false;
     if (parser_->check(TokenType::TOK_STATIC)) {
@@ -52,18 +66,32 @@ ASTNode *StatementParser::parseStatement() {
     debug_msg(DebugMsgId::PARSE_CURRENT_TOKEN,
               parser_->current_token_.value.c_str(), token_type_str.c_str());
 
-    // 宣言文の処理（typedef, struct, enum, interface, impl, main）
-    ASTNode *decl = parseDeclarationStatement(isStatic, isConst);
-    if (decl)
+    // 宣言文の処理（typedef, struct, enum, interface, impl, main, import）
+    ASTNode *decl = parseDeclarationStatement(isStatic, isConst, isExported);
+    if (decl) {
+        if (isDefaultExport) {
+            decl->is_default_export = true;
+        }
         return decl;
+    }
 
     // typedef型・構造体型・インターフェース型の変数宣言/関数定義
     if (parser_->check(TokenType::TOK_IDENTIFIER)) {
         std::string type_name = parser_->current_token_.value;
         ASTNode *result =
             parseTypedefTypeStatement(type_name, isStatic, isConst);
-        if (result)
+        if (result) {
+            // exportフラグが設定されている場合、関数宣言・変数宣言にフラグを設定
+            if (isExported &&
+                (result->node_type == ASTNodeType::AST_FUNC_DECL ||
+                 result->node_type == ASTNodeType::AST_VAR_DECL)) {
+                result->is_exported = true;
+                if (isDefaultExport) {
+                    result->is_default_export = true;
+                }
+            }
             return result;
+        }
     }
 
     // unsigned修飾子のチェック
@@ -75,8 +103,17 @@ ASTNode *StatementParser::parseStatement() {
 
     // 基本型の変数宣言/関数定義
     ASTNode *basicType = parseBasicTypeStatement(isStatic, isConst, isUnsigned);
-    if (basicType)
+    if (basicType) {
+        // exportフラグが設定されている場合、関数宣言・変数宣言にフラグを設定
+        if (isExported && (basicType->node_type == ASTNodeType::AST_FUNC_DECL ||
+                           basicType->node_type == ASTNodeType::AST_VAR_DECL)) {
+            basicType->is_exported = true;
+            if (isDefaultExport) {
+                basicType->is_default_export = true;
+            }
+        }
         return basicType;
+    }
 
     // 制御フロー文
     ASTNode *controlFlow = parseControlFlowStatement();
@@ -88,15 +125,24 @@ ASTNode *StatementParser::parseStatement() {
 }
 
 // 宣言文の処理
-ASTNode *StatementParser::parseDeclarationStatement(bool isStatic,
-                                                    bool isConst) {
+ASTNode *StatementParser::parseDeclarationStatement(bool isStatic, bool isConst,
+                                                    bool isExported) {
+    // import文
+    if (parser_->check(TokenType::TOK_IMPORT)) {
+        return parseImportStatement();
+    }
+
     // main関数
     if (parser_->check(TokenType::TOK_MAIN)) {
         Token main_token = parser_->current_token_;
         parser_->advance();
         if (parser_->check(TokenType::TOK_LPAREN)) {
-            return parser_->parseFunctionDeclarationAfterName("int",
-                                                              main_token.value);
+            ASTNode *func = parser_->parseFunctionDeclarationAfterName(
+                "int", main_token.value);
+            if (func && isExported) {
+                func->is_exported = true;
+            }
+            return func;
         } else {
             parser_->error("Expected '(' after main");
             return nullptr;
@@ -107,35 +153,55 @@ ASTNode *StatementParser::parseDeclarationStatement(bool isStatic,
     if (parser_->check(TokenType::TOK_TYPEDEF)) {
         debug_msg(DebugMsgId::PARSE_TYPEDEF_START,
                   parser_->current_token_.line);
-        return parser_->parseTypedefDeclaration();
+        ASTNode *typedef_node = parser_->parseTypedefDeclaration();
+        if (typedef_node && isExported) {
+            typedef_node->is_exported = true;
+        }
+        return typedef_node;
     }
 
     // struct宣言
     if (parser_->check(TokenType::TOK_STRUCT)) {
         debug_msg(DebugMsgId::PARSE_STRUCT_DECL_START,
                   parser_->current_token_.line);
-        return parser_->parseStructDeclaration();
+        ASTNode *struct_node = parser_->parseStructDeclaration();
+        if (struct_node && isExported) {
+            struct_node->is_exported = true;
+        }
+        return struct_node;
     }
 
     // enum宣言
     if (parser_->check(TokenType::TOK_ENUM)) {
         debug_msg(DebugMsgId::PARSE_ENUM_DECL_START,
                   parser_->current_token_.line);
-        return parser_->parseEnumDeclaration();
+        ASTNode *enum_node = parser_->parseEnumDeclaration();
+        if (enum_node && isExported) {
+            enum_node->is_exported = true;
+        }
+        return enum_node;
     }
 
     // interface宣言
     if (parser_->check(TokenType::TOK_INTERFACE)) {
         debug_msg(DebugMsgId::PARSE_ENUM_DECL_START,
                   parser_->current_token_.line);
-        return parser_->parseInterfaceDeclaration();
+        ASTNode *interface_node = parser_->parseInterfaceDeclaration();
+        if (interface_node && isExported) {
+            interface_node->is_exported = true;
+        }
+        return interface_node;
     }
 
     // impl宣言
     if (parser_->check(TokenType::TOK_IMPL)) {
         debug_msg(DebugMsgId::PARSE_ENUM_DECL_START,
                   parser_->current_token_.line);
-        return parser_->parseImplDeclaration();
+        ASTNode *impl_node = parser_->parseImplDeclaration();
+        if (impl_node && isExported) {
+            impl_node->is_exported = true;
+        }
+        return impl_node;
     }
 
     return nullptr; // 宣言文ではない
@@ -210,8 +276,42 @@ StatementParser::parseTypedefTypeStatement(const std::string &type_name,
     bool is_enum_type = parser_->enum_definitions_.find(type_name) !=
                         parser_->enum_definitions_.end();
 
+    // 既知の型でない場合、先読みして型宣言のパターンかチェック
+    // パターン: TypeName identifier; または TypeName identifier = ...;
+    bool looks_like_type_declaration = false;
     if (!is_typedef && !is_struct_type && !is_interface_type &&
         !is_union_type && !is_enum_type) {
+        // 先読みで次のトークンが識別子かチェック
+        RecursiveLexer temp_lexer = parser_->lexer_;
+        Token temp_current = parser_->current_token_;
+
+        parser_->advance(); // 型名候補をスキップ
+
+        // ポインタ修飾子をスキップ
+        while (parser_->check(TokenType::TOK_MUL) ||
+               parser_->check(TokenType::TOK_BIT_AND)) {
+            parser_->advance();
+        }
+
+        // 次が識別子で、その後に ; または = があれば型宣言の可能性が高い
+        if (parser_->check(TokenType::TOK_IDENTIFIER)) {
+            parser_->advance(); // 識別子をスキップ
+            if (parser_->check(TokenType::TOK_SEMICOLON) ||
+                parser_->check(TokenType::TOK_ASSIGN) ||
+                parser_->check(TokenType::TOK_LPAREN)) {
+                looks_like_type_declaration = true;
+                // 実行時に型が解決される可能性があるため、型として扱う
+                is_struct_type = true; // 構造体型として仮定
+            }
+        }
+
+        // 元の位置に戻す
+        parser_->lexer_ = temp_lexer;
+        parser_->current_token_ = temp_current;
+    }
+
+    if (!is_typedef && !is_struct_type && !is_interface_type &&
+        !is_union_type && !is_enum_type && !looks_like_type_declaration) {
         return nullptr; // この識別子は型ではない
     }
 
@@ -1592,4 +1692,140 @@ ASTNode *StatementParser::parseCaseValue() {
     }
 
     return start;
+}
+
+/**
+ * @brief import文を解析
+ * @return 解析されたASTインポート文ノード
+ *
+ * 構文: import "module_name.cb";
+ *
+ * import文は外部モジュールから関数や定数をインポートします。
+ */
+ASTNode *StatementParser::parseImportStatement() {
+    Token import_token = parser_->advance(); // consume 'import'
+
+    ASTNode *import_node = new ASTNode(ASTNodeType::AST_IMPORT_STMT);
+    import_node->location.line = import_token.line;
+    import_node->location.column = import_token.column;
+
+    // 2つのパターンをサポート:
+    // 1. import "path/to/module.cb";  (文字列リテラル - 相対パス)
+    // 2. import stdlib.math.basic;    (ドット記法 - モジュールパス)
+    // 3. import stdlib.math.basic as math;  (エイリアス)
+    // 4. import stdlib.math.basic { func1, func2 };  (個別インポート)
+    // 5. import stdlib.math.basic { func1 as f1, func2 };  (個別エイリアス)
+
+    std::string module_path;
+
+    if (parser_->check(TokenType::TOK_STRING)) {
+        // パターン1: 文字列リテラル（相対パス）
+        module_path = parser_->current_token_.value;
+        parser_->advance();
+    } else if (parser_->check(TokenType::TOK_IDENTIFIER)) {
+        // パターン2-5: ドット記法のモジュールパス
+        module_path = parser_->current_token_.value;
+        parser_->advance();
+
+        // ドット記法で続くパスを結合
+        while (parser_->check(TokenType::TOK_DOT)) {
+            parser_->advance(); // consume '.'
+
+            if (!parser_->check(TokenType::TOK_IDENTIFIER)) {
+                parser_->error("Expected identifier after '.' in import path");
+                delete import_node;
+                return nullptr;
+            }
+
+            module_path += ".";
+            module_path += parser_->current_token_.value;
+            parser_->advance();
+        }
+    } else {
+        parser_->error("Expected module path or string literal after 'import'");
+        delete import_node;
+        return nullptr;
+    }
+
+    import_node->import_path = module_path;
+
+    // asキーワードでモジュール全体のエイリアスをチェック
+    if (parser_->check(TokenType::TOK_IDENTIFIER) &&
+        parser_->current_token_.value == "as") {
+        parser_->advance(); // consume 'as'
+
+        if (!parser_->check(TokenType::TOK_IDENTIFIER)) {
+            parser_->error("Expected identifier after 'as'");
+            delete import_node;
+            return nullptr;
+        }
+
+        std::string alias = parser_->current_token_.value;
+        parser_->advance();
+
+        // モジュール全体のエイリアス
+        import_node->import_aliases["*"] = alias;
+    }
+    // 中括弧で個別インポートをチェック
+    else if (parser_->check(TokenType::TOK_LBRACE)) {
+        parser_->advance(); // consume '{'
+
+        // 個別項目をパース
+        while (!parser_->check(TokenType::TOK_RBRACE) &&
+               !parser_->check(TokenType::TOK_EOF)) {
+            if (!parser_->check(TokenType::TOK_IDENTIFIER)) {
+                parser_->error("Expected identifier in import list");
+                delete import_node;
+                return nullptr;
+            }
+
+            std::string item_name = parser_->current_token_.value;
+            parser_->advance();
+
+            // 個別項目のエイリアスをチェック
+            if (parser_->check(TokenType::TOK_IDENTIFIER) &&
+                parser_->current_token_.value == "as") {
+                parser_->advance(); // consume 'as'
+
+                if (!parser_->check(TokenType::TOK_IDENTIFIER)) {
+                    parser_->error("Expected identifier after 'as'");
+                    delete import_node;
+                    return nullptr;
+                }
+
+                std::string alias = parser_->current_token_.value;
+                parser_->advance();
+
+                import_node->import_items.push_back(item_name);
+                import_node->import_aliases[item_name] = alias;
+            } else {
+                import_node->import_items.push_back(item_name);
+            }
+
+            // カンマをチェック
+            if (parser_->check(TokenType::TOK_COMMA)) {
+                parser_->advance();
+            } else if (!parser_->check(TokenType::TOK_RBRACE)) {
+                parser_->error("Expected ',' or '}' in import list");
+                delete import_node;
+                return nullptr;
+            }
+        }
+
+        if (!parser_->check(TokenType::TOK_RBRACE)) {
+            parser_->error("Expected '}' after import list");
+            delete import_node;
+            return nullptr;
+        }
+        parser_->advance(); // consume '}'
+    }
+
+    // セミコロンを消費
+    parser_->consume(TokenType::TOK_SEMICOLON,
+                     "Expected ';' after import statement");
+
+    // 名前フィールドにもパスを設定（後方互換性のため）
+    import_node->name = module_path;
+
+    return import_node;
 }

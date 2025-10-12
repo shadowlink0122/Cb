@@ -1,0 +1,11 @@
+// 定数のimportテスト
+import math { PI, E };
+
+void main() {
+    println("=== Import Const Test ===");
+    
+    println("PI = ", PI);
+    println("E = ", E);
+    
+    println("Import const test completed!");
+}

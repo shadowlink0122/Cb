@@ -324,6 +324,51 @@ ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode *node) {
         debug_msg(DebugMsgId::TYPED_MEMBER_ACCESS_CASE, node->name.c_str(),
                   node->member_chain.size());
 
+        // 修飾アクセスのチェック: module.constant
+        if (node->left && node->left->node_type == ASTNodeType::AST_VARIABLE) {
+            std::string potential_module = node->left->name;
+            bool is_variable =
+                (interpreter_.find_variable(potential_module) != nullptr);
+            bool is_module = interpreter_.is_module_imported(potential_module);
+
+            if (!is_variable && is_module) {
+                // module.name の形式で変数を検索
+                std::string qualified_name =
+                    potential_module + "." + node->name;
+                Variable *var = interpreter_.find_variable(qualified_name);
+                if (var) {
+                    if (debug_mode) {
+                        std::cerr << "[QUALIFIED_ACCESS] Found variable: "
+                                  << qualified_name << std::endl;
+                    }
+
+                    // 変数の型に応じてTypedValueを返す
+                    if (var->type == TYPE_STRING) {
+                        return TypedValue(var->str_value,
+                                          InferredType(TYPE_STRING, "string"));
+                    } else if (var->type == TYPE_FLOAT) {
+                        return TypedValue(static_cast<double>(var->float_value),
+                                          InferredType(TYPE_FLOAT, "float"));
+                    } else if (var->type == TYPE_DOUBLE) {
+                        return TypedValue(var->double_value,
+                                          InferredType(TYPE_DOUBLE, "double"));
+                    } else if (var->type == TYPE_QUAD) {
+                        return TypedValue(var->quad_value,
+                                          InferredType(TYPE_QUAD, "quad"));
+                    } else if (var->type == TYPE_STRUCT || var->is_struct) {
+                        return TypedValue(
+                            *var,
+                            InferredType(TYPE_STRUCT, var->struct_type_name));
+                    } else {
+                        return TypedValue(
+                            var->value,
+                            InferredType(var->type,
+                                         ::type_info_to_string(var->type)));
+                    }
+                }
+            }
+        }
+
         // member_chainが2つ以上ある場合（ネストメンバアクセス）
         if (!node->member_chain.empty() && node->member_chain.size() > 1) {
             // ベース変数を取得

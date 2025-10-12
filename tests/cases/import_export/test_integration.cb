@@ -1,0 +1,29 @@
+// 修飾呼び出しと構造体インポートの統合テスト
+
+import math;
+import types;
+
+int main() {
+    println("=== Qualified Call & Import Integration Test ===");
+    
+    // 関数の修飾呼び出し
+    int sum = math.add(10, 20);
+    println("math.add(10, 20) = ", sum);
+    
+    // 定数の修飾アクセス
+    int pi_value = math.PI;
+    println("math.PI = ", pi_value);
+    
+    // インポートした構造体の使用
+    Point p;
+    p.x = 100;
+    p.y = 200;
+    println("Point: (", p.x, ", ", p.y, ")");
+    
+    // 関数の通常の呼び出しも動作
+    int product = multiply(3, 7);
+    println("multiply(3, 7) = ", product);
+    
+    println("Integration test completed!");
+    return 0;
+}

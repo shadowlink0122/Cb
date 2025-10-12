@@ -1,0 +1,64 @@
+// インポートした構造体のコンストラクタ・デストラクタ・implテスト
+
+import shapes;
+
+int main() {
+    println("=== Constructor/Destructor/Impl Import Test ===");
+    
+    // テスト1: コンストラクタの使用
+    println("\n[Test 1] Constructor call:");
+    Rectangle rect1 = Rectangle(10, 20);
+    
+    // テスト2: implメソッドの使用 (interface実装)
+    println("\n[Test 2] Impl methods (Shape interface):");
+    rect1.display();
+    int area1 = rect1.getArea();
+    println("Calculated area: ", area1);
+    assert(area1 == 200);
+    
+    // テスト3: メンバーへの直接アクセス
+    println("\n[Test 3] Direct member access:");
+    println("Width: ", rect1.width);
+    println("Height: ", rect1.height);
+    assert(rect1.width == 10);
+    assert(rect1.height == 20);
+    
+    // テスト4: 複数のインスタンス作成
+    println("\n[Test 4] Multiple instances:");
+    Rectangle rect2 = Rectangle(5, 8);
+    rect2.display();
+    int area2 = rect2.getArea();
+    println("Second rectangle area: ", area2);
+    assert(area2 == 40);
+    
+    // テスト5: インスタンスの独立性確認
+    println("\n[Test 5] Instance independence:");
+    println("rect1 width: ", rect1.width, " (should be 10)");
+    println("rect2 width: ", rect2.width, " (should be 5)");
+    assert(rect1.width == 10);
+    assert(rect2.width == 5);
+    
+    // テスト6: デフォルトコンストラクタ（パラメータなし）
+    // Note: 関数オーバーロードが未実装のため、デフォルトコンストラクタは後で登録された方が優先される
+    // TODO: オーバーロード解決実装後に有効化
+    // println("\n[Test 6] Default constructor:");
+    // Rectangle rect3 = Rectangle();
+    // println("Default rect created");
+    // rect3.display();
+    
+    // テスト7: 異なるパラメータでの動作確認
+    println("\n[Test 7] Edge cases:");
+    Rectangle rect4 = Rectangle(0, 0);
+    int area4 = rect4.getArea();
+    println("Zero dimensions area: ", area4);
+    assert(area4 == 0);
+    
+    Rectangle rect5 = Rectangle(1, 1);
+    int area5 = rect5.getArea();
+    println("Unit square area: ", area5);
+    assert(area5 == 1);
+    
+    println("\n=== All tests passed! ===");
+    
+    return 0;
+}

@@ -1,0 +1,15 @@
+// modules/types.cb - 型定義モジュール
+
+// 構造体のexport
+export struct Point {
+    int x;
+    int y;
+};
+
+// typedef のexport
+export typedef int Number;
+
+// インターフェースのexport
+export interface Drawable {
+    void draw();
+};

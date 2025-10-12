@@ -1,0 +1,16 @@
+// 基本的なコンストラクタインポートテスト
+
+import shapes;
+
+int main() {
+    println("=== Simple Constructor Import Test ===");
+    
+    Rectangle rect = Rectangle(10, 20);
+    println("Constructor succeeded");
+    
+    println("Width: ", rect.width);
+    println("Height: ", rect.height);
+    
+    println("Test completed");
+    return 0;
+}

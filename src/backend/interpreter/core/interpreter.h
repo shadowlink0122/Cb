@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <iostream>
 #include <map>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -453,6 +454,9 @@ class Interpreter : public EvaluatorInterface {
         destructor_stacks_;
     // pair<変数名, struct型名>
 
+    // v0.10.0: モジュール管理（インポート済みモジュールの追跡）
+    std::set<std::string> loaded_modules;
+
     // Manager instances
     std::unique_ptr<VariableManager> variable_manager_;
     std::unique_ptr<ArrayManager> array_manager_;
@@ -745,6 +749,9 @@ class Interpreter : public EvaluatorInterface {
     // impl宣言処理ヘルパー
     void handle_impl_declaration(const ASTNode *node);
 
+    // import文処理ヘルパー
+    void handle_import_statement(const ASTNode *node);
+
   public:
     void check_type_range(TypeInfo type, int64_t value, const std::string &name,
                           bool is_unsigned = false);
@@ -763,6 +770,11 @@ class Interpreter : public EvaluatorInterface {
     // デバッグ機能
     void set_debug_mode(bool debug) { debug_mode = debug; }
     bool is_debug_mode() const { return debug_mode; }
+
+    // モジュール機能
+    bool is_module_imported(const std::string &module_name) const {
+        return loaded_modules.find(module_name) != loaded_modules.end();
+    }
 
     // 共通操作へのアクセス
     CommonOperations *get_common_operations() {

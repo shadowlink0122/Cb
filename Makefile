@@ -249,7 +249,7 @@ $(TESTS_DIR)/unit/dummy.o: $(TESTS_DIR)/unit/dummy.cpp
 	$(CXX) $(TEST_CXXFLAGS) -c -o $@ $<
 
 # Unit test binary target
-$(TESTS_DIR)/unit/test_main: $(TESTS_DIR)/unit/main.cpp $(TESTS_DIR)/unit/dummy.o $(BACKEND_OBJS) $(COMMON_OBJS)
+$(TESTS_DIR)/unit/test_main: $(TESTS_DIR)/unit/main.cpp $(TESTS_DIR)/unit/dummy.o $(BACKEND_OBJS) $(COMMON_OBJS) $(PARSER_OBJS) $(FRONTEND_DIR)/recursive_parser/recursive_parser.o $(FRONTEND_DIR)/recursive_parser/recursive_lexer.o
 	$(CXX) $(TEST_CXXFLAGS) -o $@ $^
 
 unit-test: $(TESTS_DIR)/unit/test_main

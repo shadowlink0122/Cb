@@ -880,7 +880,11 @@ struct ASTNode {
     // モジュール関連
     std::string module_name;               // モジュール名 (std.io等)
     std::vector<std::string> import_items; // インポートする項目リスト
-    bool is_exported = false;              // export宣言されているか
+    std::unordered_map<std::string, std::string>
+        import_aliases; // import時のエイリアス (名前 -> エイリアス)
+    bool is_exported = false;       // export宣言されているか
+    bool is_default_export = false; // default export かどうか
+    std::string import_path; // import文のパス ("stdlib.math.basic"など)
 
     // 例外処理関連
     std::unique_ptr<ASTNode> try_body;     // try block

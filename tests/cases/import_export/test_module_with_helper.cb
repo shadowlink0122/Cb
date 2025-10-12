@@ -1,0 +1,25 @@
+// Test module with both exported and non-exported functions
+
+// Exported function
+export int public_add(int a, int b) {
+    return a + b;
+}
+
+// Exported multiply function
+export int public_multiply(int x, int y) {
+    return x * y;
+}
+
+// Non-exported helper (should not be accessible from outside)
+// Note: Currently, non-exported functions in modules cannot be called 
+// even from other functions in the same module. This is a known limitation.
+int private_helper(int x) {
+    return x + 1;
+}
+
+// Another exported function
+export int calculate(int a, int b) {
+    int sum = public_add(a, b);
+    int product = public_multiply(a, b);
+    return sum + product;
+}

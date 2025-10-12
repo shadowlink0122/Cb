@@ -45,8 +45,10 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdlib>
+#include <fstream>
 #include <functional>
 #include <iostream>
+#include <set>
 #include <sstream>
 #include <stdexcept>
 #include <unordered_map>
@@ -176,6 +178,12 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
 
     switch (node->node_type) {
     case ASTNodeType::AST_STMT_LIST:
+        // まずimport文を処理（他の宣言よりも先に実行）
+        for (const auto &stmt : node->statements) {
+            if (stmt->node_type == ASTNodeType::AST_IMPORT_STMT) {
+                register_global_declarations(stmt.get());
+            }
+        }
         // 2パス変数宣言処理: 先にconst変数、次に配列
         // まずconst変数（配列以外）のみを処理
         for (const auto &stmt : node->statements) {
@@ -246,7 +254,8 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
                 stmt->node_type != ASTNodeType::AST_INTERFACE_DECL &&
                 stmt->node_type != ASTNodeType::AST_IMPL_DECL &&
                 stmt->node_type != ASTNodeType::AST_CONSTRUCTOR_DECL &&
-                stmt->node_type != ASTNodeType::AST_DESTRUCTOR_DECL) {
+                stmt->node_type != ASTNodeType::AST_DESTRUCTOR_DECL &&
+                stmt->node_type != ASTNodeType::AST_IMPORT_STMT) {
                 register_global_declarations(stmt.get());
             }
         }
@@ -447,6 +456,11 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
         debug_msg(DebugMsgId::FUNC_DECL_REGISTER, node->name.c_str());
         global_scope.functions[node->name] = node;
         debug_msg(DebugMsgId::FUNC_DECL_REGISTER_COMPLETE, node->name.c_str());
+        break;
+
+    case ASTNodeType::AST_IMPORT_STMT:
+        // import文を処理
+        handle_import_statement(node);
         break;
 
     case ASTNodeType::AST_TYPEDEF_DECL:
@@ -962,6 +976,14 @@ void Interpreter::execute_statement(const ASTNode *node) {
         break;
 
     // ========================================================================
+    // import文（IMPORT_STMT）
+    // モジュールをロードして定義をインポート
+    // ========================================================================
+    case ASTNodeType::AST_IMPORT_STMT:
+        handle_import_statement(node);
+        break;
+
+    // ========================================================================
     // 未対応の文型（式文として評価を試みる）
     // ========================================================================
     default:
@@ -1044,6 +1066,345 @@ void Interpreter::assign_union_variable(const std::string &name,
 
 void Interpreter::handle_impl_declaration(const ASTNode *node) {
     interface_operations_->handle_impl_declaration(node);
+}
+
+void Interpreter::handle_import_statement(const ASTNode *node) {
+    if (!node || node->import_path.empty()) {
+        throw std::runtime_error(
+            "Invalid import statement: no module path specified");
+    }
+
+    std::string module_path = node->import_path;
+
+    // モジュールが既にロード済みかチェック
+    if (loaded_modules.find(module_path) != loaded_modules.end()) {
+        return; // 既にロード済み
+    }
+
+    // モジュールファイルのパスを解決
+    // モジュールパスを相対ファイルパスに変換
+    // 例: "stdlib.math.basic" -> "stdlib/math/basic.cb"
+    //     "mymodule" -> "mymodule.cb"
+    //     "../utils/helper.cb" -> "../utils/helper.cb" (そのまま)
+
+    std::string file_path = module_path;
+
+    // 既に.cbが含まれている場合はそのまま使用
+    if (file_path.find(".cb") != std::string::npos) {
+        // そのまま使用
+    }
+    // ドット記法の場合、パスに変換
+    else if (module_path.find('.') != std::string::npos &&
+             module_path.find('/') == std::string::npos &&
+             module_path.find("..") == std::string::npos) {
+        // ドット記法: stdlib.math.basic -> stdlib/math/basic.cb
+        std::replace(file_path.begin(), file_path.end(), '.', '/');
+        file_path += ".cb";
+    } else {
+        // 拡張子がない場合は追加
+        file_path += ".cb";
+    }
+
+    // 検索パスの優先順位:
+    // 1. 相対パス（カレントディレクトリから）
+    // 2. modules/ ディレクトリ
+    // 3. プロジェクトルート
+    // 4. テストディレクトリ（テスト用）
+    std::string resolved_path;
+    std::ifstream file;
+    std::vector<std::string> search_paths;
+
+    // 相対パス（../ や ./）の場合、そのまま試す
+    if (file_path.find("../") == 0 || file_path.find("./") == 0) {
+        search_paths.push_back(file_path);
+    } else {
+        // 通常のモジュール検索パス
+        search_paths = {
+            file_path,                    // カレントディレクトリ
+            "modules/" + file_path,       // modulesディレクトリ
+            "../modules/" + file_path,    // 1つ上のmodulesディレクトリ
+            "../../modules/" + file_path, // 2つ上のmodulesディレクトリ
+            "../" + file_path,            // 1つ上のディレクトリ
+            "../../" + file_path,         // 2つ上のディレクトリ
+            "tests/cases/import_export/" + file_path, // テストディレクトリ
+            "../../tests/cases/import_export/" +
+                file_path // tests/integration/から
+        };
+    }
+
+    for (const auto &path : search_paths) {
+        file.open(path);
+        if (file.is_open()) {
+            resolved_path = path;
+            break;
+        }
+    }
+
+    if (!file.is_open()) {
+        throw std::runtime_error("Failed to open module file: " + module_path +
+                                 " (searched: " + file_path + ")");
+    }
+
+    std::string source_code((std::istreambuf_iterator<char>(file)),
+                            std::istreambuf_iterator<char>());
+    file.close();
+
+    // パーサーを使ってモジュールをパース
+    RecursiveParser parser(source_code, module_path);
+    ASTNode *module_ast = nullptr;
+    try {
+        module_ast = parser.parse();
+    } catch (const std::exception &e) {
+        throw std::runtime_error("Failed to parse module '" + module_path +
+                                 "': " + e.what());
+    }
+
+    if (!module_ast) {
+        throw std::runtime_error("Failed to parse module: " + module_path);
+    }
+
+    // import項目の指定があるかチェック
+    bool has_specific_items = !node->import_items.empty();
+    std::unordered_set<std::string> import_items_set(node->import_items.begin(),
+                                                     node->import_items.end());
+
+    // モジュールのステートメントを実行
+    if (!module_ast->statements.empty()) {
+        for (const auto &stmt_ptr : module_ast->statements) {
+            const ASTNode *stmt = stmt_ptr.get();
+            if (!stmt || !stmt->is_exported)
+                continue;
+
+            // 特定の項目のみをインポートする場合、それ以外はスキップ
+            if (has_specific_items &&
+                import_items_set.find(stmt->name) == import_items_set.end()) {
+                continue;
+            }
+
+            // エイリアスを取得（あれば）
+            std::string imported_name = stmt->name;
+            auto alias_it = node->import_aliases.find(stmt->name);
+            if (alias_it != node->import_aliases.end()) {
+                imported_name = alias_it->second;
+            }
+            // モジュール全体のエイリアス（as構文）
+            auto module_alias_it = node->import_aliases.find("*");
+            if (module_alias_it != node->import_aliases.end()) {
+                imported_name = module_alias_it->second + "." + stmt->name;
+            }
+
+            // export要素を適切なスコープに登録
+            switch (stmt->node_type) {
+            case ASTNodeType::AST_FUNC_DECL: {
+                // 通常の名前で登録
+                global_scope.functions[imported_name] = stmt;
+                // 修飾名でも登録（module.function()で呼び出せるように）
+                std::string qualified_name = module_path + "." + stmt->name;
+                global_scope.functions[qualified_name] = stmt;
+                if (debug_mode) {
+                    std::cerr
+                        << "[IMPORT] Function registered: " << imported_name
+                        << " (also as " << qualified_name << ")" << std::endl;
+                }
+            } break;
+
+            case ASTNodeType::AST_STRUCT_DECL:
+                // 構造体定義を登録
+                {
+                    if (debug_mode) {
+                        std::cerr
+                            << "[IMPORT] Registering struct: " << imported_name
+                            << " with " << stmt->arguments.size() << " members"
+                            << std::endl;
+                    }
+
+                    StructDefinition struct_def(imported_name);
+                    // メンバーをstmt->argumentsから登録
+                    for (const auto &member : stmt->arguments) {
+                        if (debug_mode) {
+                            std::cerr
+                                << "[IMPORT]   Member node_type: "
+                                << static_cast<int>(member->node_type)
+                                << " (AST_VAR_DECL="
+                                << static_cast<int>(ASTNodeType::AST_VAR_DECL)
+                                << ")" << std::endl;
+                        }
+                        if (member->node_type == ASTNodeType::AST_VAR_DECL) {
+                            if (debug_mode) {
+                                std::cerr << "[IMPORT]   Adding member: "
+                                          << member->name << " type="
+                                          << static_cast<int>(member->type_info)
+                                          << std::endl;
+                            }
+                            struct_def.add_member(
+                                member->name, member->type_info,
+                                member->type_name, member->is_pointer,
+                                member->pointer_depth,
+                                member->pointer_base_type_name,
+                                member->pointer_base_type,
+                                member->is_private_member, member->is_reference,
+                                member->is_unsigned, member->is_const);
+                            if (member->is_default_member) {
+                                struct_def.has_default_member = true;
+                                struct_def.default_member_name = member->name;
+                            }
+                        }
+                    }
+
+                    if (debug_mode) {
+                        std::cerr << "[IMPORT] Struct " << imported_name
+                                  << " registered with "
+                                  << struct_def.members.size() << " members"
+                                  << std::endl;
+                    }
+
+                    struct_definitions_[imported_name] = struct_def;
+                }
+                break;
+
+            case ASTNodeType::AST_INTERFACE_DECL:
+                // インターフェース定義を登録（ASTノードを直接保存）
+                // interfaceは実行時に処理されるため、ここでは何もしない
+                // グローバルスコープにASTを保存しておく必要がある場合は追加
+                break;
+
+            case ASTNodeType::AST_IMPL_DECL:
+                // impl定義を登録
+                {
+                    if (debug_mode) {
+                        std::cerr << "[IMPORT] Registering impl for struct: "
+                                  << stmt->struct_name
+                                  << " interface: " << stmt->interface_name
+                                  << std::endl;
+                    }
+
+                    // コンストラクタ・デストラクタの登録処理
+                    std::string struct_name = stmt->struct_name;
+                    for (const auto &arg : stmt->arguments) {
+                        if (!arg) {
+                            continue;
+                        }
+
+                        if (arg->node_type ==
+                            ASTNodeType::AST_CONSTRUCTOR_DECL) {
+                            struct_constructors_[struct_name].push_back(
+                                arg.get());
+
+                            // コンストラクタを関数としても登録（Rectangle()で呼び出せるように）
+                            // コンストラクタASTノードを直接関数として登録
+                            register_function_to_global(struct_name, arg.get());
+                            // 修飾名でも登録
+                            std::string qualified_name =
+                                module_path + "." + struct_name;
+                            register_function_to_global(qualified_name,
+                                                        arg.get());
+
+                            if (debug_mode) {
+                                std::cerr
+                                    << "[IMPORT] Registered constructor for "
+                                    << struct_name
+                                    << " (params: " << arg->parameters.size()
+                                    << ")" << std::endl;
+                                std::cerr
+                                    << "[IMPORT] Also registered as function: "
+                                    << struct_name << " and " << qualified_name
+                                    << std::endl;
+                            }
+                        } else if (arg->node_type ==
+                                   ASTNodeType::AST_DESTRUCTOR_DECL) {
+                            struct_destructors_[struct_name] = arg.get();
+                            if (debug_mode) {
+                                std::cerr
+                                    << "[IMPORT] Registered destructor for "
+                                    << struct_name << std::endl;
+                            }
+                        }
+                    }
+
+                    // implメソッドをグローバルに登録
+                    handle_impl_declaration(stmt);
+                }
+                break;
+
+            case ASTNodeType::AST_TYPEDEF_DECL:
+            case ASTNodeType::AST_UNION_TYPEDEF_DECL:
+            case ASTNodeType::AST_ENUM_TYPEDEF_DECL:
+                // typedef定義を登録
+                if (type_manager_) {
+                    // typedefマップに登録（型名 -> 基底型）
+                    typedef_map[imported_name] = stmt->type_name;
+                }
+                break;
+
+            case ASTNodeType::AST_VAR_DECL: {
+                // グローバル変数を登録
+                if (stmt->is_const) {
+                    // const変数の値を評価して登録
+                    if (stmt->init_expr) {
+                        TypedValue typed_val =
+                            expression_evaluator_->evaluate_typed_expression(
+                                stmt->init_expr.get());
+                        Variable var;
+                        var.type = stmt->type_info;
+                        var.is_const = true;
+                        var.value = typed_val.value;
+                        if (stmt->type_info == TYPE_FLOAT ||
+                            stmt->type_info == TYPE_DOUBLE ||
+                            stmt->type_info == TYPE_QUAD) {
+                            var.float_value = typed_val.double_value;
+                        } else if (stmt->type_info == TYPE_STRING) {
+                            var.str_value = typed_val.string_value;
+                        }
+                        global_scope.variables[imported_name] = var;
+                        // 修飾名でも登録
+                        std::string qualified_name =
+                            module_path + "." + stmt->name;
+                        global_scope.variables[qualified_name] = var;
+                    }
+                } else {
+                    // 通常のグローバル変数
+                    Variable var;
+                    var.type = stmt->type_info;
+                    if (stmt->init_expr) {
+                        TypedValue typed_val =
+                            expression_evaluator_->evaluate_typed_expression(
+                                stmt->init_expr.get());
+                        var.value = typed_val.value;
+                        if (stmt->type_info == TYPE_FLOAT ||
+                            stmt->type_info == TYPE_DOUBLE ||
+                            stmt->type_info == TYPE_QUAD) {
+                            var.float_value = typed_val.double_value;
+                        } else if (stmt->type_info == TYPE_STRING) {
+                            var.str_value = typed_val.string_value;
+                        }
+                    }
+                    global_scope.variables[imported_name] = var;
+                    // 修飾名でも登録
+                    std::string qualified_name = module_path + "." + stmt->name;
+                    global_scope.variables[qualified_name] = var;
+                }
+            } break;
+
+            case ASTNodeType::AST_ENUM_DECL:
+                // enum定義を登録
+                if (enum_manager_) {
+                    enum_manager_->register_enum(imported_name,
+                                                 stmt->enum_definition);
+                }
+                break;
+
+            default:
+                // その他の宣言はスキップ
+                break;
+            }
+        }
+    }
+
+    // モジュールをロード済みとしてマーク
+    loaded_modules.insert(module_path);
+
+    // ASTノードは削除しない（定義として保持する必要があるため）
+    // delete module_ast;
 }
 
 void Interpreter::assign_function_parameter(const std::string &name,

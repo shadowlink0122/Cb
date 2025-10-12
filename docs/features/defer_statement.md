@@ -156,7 +156,7 @@ void nestedFunction() {
 
 ### 統合テスト
 ```bash
-cd /Users/shadowlink/Documents/git/Cb
+# プロジェクトルートから
 make integration-test
 ```
 

@@ -277,7 +277,7 @@ void example() {
 
 ### 統合テスト
 ```bash
-cd /Users/shadowlink/Documents/git/Cb
+# プロジェクトルートから
 make integration-test 2>&1 | grep -A 12 "Default Member"
 ```
 

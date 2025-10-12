@@ -41,11 +41,15 @@ class StatementParser {
     ASTNode *parsePrintlnStatement();
     ASTNode *parsePrintStatement();
 
+    // Import/Export
+    ASTNode *parseImportStatement();
+
   private:
     RecursiveParser *parser_;
 
     // parseStatementのヘルパーメソッド
-    ASTNode *parseDeclarationStatement(bool isStatic, bool isConst);
+    ASTNode *parseDeclarationStatement(bool isStatic, bool isConst,
+                                       bool isExported = false);
     ASTNode *parseTypedefTypeStatement(const std::string &type_name,
                                        bool isStatic, bool isConst);
     ASTNode *parseBasicTypeStatement(bool isStatic, bool isConst,

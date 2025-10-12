@@ -337,9 +337,33 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
     }
 
     // 通常の関数呼び出し
-    // 通常の関数呼び出し
+    // 修飾呼び出しのチェック: module.function()
+    // node->leftがAST_VARIABLEで、変数として存在せず、モジュールとして存在する場合
+    bool is_qualified_call = false;
+    std::string qualified_module_name;
+    if (node->left && node->left->node_type == ASTNodeType::AST_VARIABLE) {
+        std::string potential_module = node->left->name;
+        // 変数として存在するかチェック
+        bool is_variable =
+            (interpreter_.find_variable(potential_module) != nullptr);
+        // モジュールとして存在するかチェック
+        bool is_module = interpreter_.is_module_imported(potential_module);
+
+        if (!is_variable && is_module) {
+            is_qualified_call = true;
+            qualified_module_name = potential_module;
+
+            if (interpreter_.is_debug_mode()) {
+                std::cerr << "[QUALIFIED_CALL] Module: "
+                          << qualified_module_name
+                          << ", Function: " << node->name << std::endl;
+            }
+        }
+    }
+
     bool is_method_call =
-        (node->left != nullptr); // レシーバーがある場合はメソッド呼び出し
+        (node->left != nullptr &&
+         !is_qualified_call); // レシーバーがある場合はメソッド呼び出し
     bool has_receiver = is_method_call;
     std::string receiver_name;
     MethodReceiverResolution receiver_resolution;
@@ -689,9 +713,28 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
         }
     } else {
         auto &global_scope = interpreter_.get_global_scope();
-        auto it = global_scope.functions.find(node->name);
-        if (it != global_scope.functions.end()) {
-            func = it->second;
+
+        // 修飾呼び出しの場合: module.function()
+        if (is_qualified_call) {
+            // モジュール名をプレフィックスとして関数を検索
+            std::string qualified_name =
+                qualified_module_name + "." + node->name;
+            auto it = global_scope.functions.find(qualified_name);
+            if (it != global_scope.functions.end()) {
+                func = it->second;
+
+                if (interpreter_.is_debug_mode()) {
+                    std::cerr
+                        << "[QUALIFIED_CALL] Found function: " << qualified_name
+                        << std::endl;
+                }
+            }
+        } else {
+            // 通常の関数呼び出し
+            auto it = global_scope.functions.find(node->name);
+            if (it != global_scope.functions.end()) {
+                func = it->second;
+            }
         }
     }
 
@@ -817,6 +860,52 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
     };
     interpreter_.push_scope();
     bool method_scope_active = true;
+
+    // コンストラクタの場合、selfコンテキストを設定
+    bool is_constructor =
+        (func && (func->node_type == ASTNodeType::AST_CONSTRUCTOR_DECL ||
+                  func->is_constructor));
+    if (is_constructor && func) {
+        // コンストラクタの場合、空のselfを作成
+        std::string struct_name = func->constructor_struct_name;
+        if (struct_name.empty() && func->type_name == func->name) {
+            struct_name = func->name; // Rectangle()の場合、関数名が構造体名
+        }
+
+        if (!struct_name.empty()) {
+            // 構造体定義を取得してselfを作成
+            const StructDefinition *struct_def =
+                interpreter_.find_struct_definition(struct_name);
+            if (struct_def) {
+                Variable self_var;
+                self_var.type = TYPE_STRUCT;
+                self_var.is_struct = true;
+                self_var.struct_type_name = struct_name;
+
+                // メンバーを初期化
+                for (const auto &member : struct_def->members) {
+                    Variable member_var;
+                    member_var.type = member.type;
+                    member_var.is_assigned = false;
+                    self_var.struct_members[member.name] = member_var;
+
+                    // self.memberとしてもアクセス可能にする
+                    std::string self_member_path = "self." + member.name;
+                    interpreter_.get_current_scope()
+                        .variables[self_member_path] = member_var;
+                }
+
+                interpreter_.get_current_scope().variables["self"] = self_var;
+
+                if (debug_mode) {
+                    debug_print("CONSTRUCTOR_SELF_SETUP: Created self for "
+                                "struct %s with %zu members\n",
+                                struct_name.c_str(),
+                                self_var.struct_members.size());
+                }
+            }
+        }
+    }
 
     // メソッド呼び出しの場合、selfコンテキストを設定
     bool used_resolution_ptr = false; // Track if we used pointer dereference
