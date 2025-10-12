@@ -161,6 +161,11 @@
             color: #A31515;
         }
         
+        .function {
+            color: #008080;
+            font-weight: 500;
+        }
+        
         table {
             width: 100%;
             border-collapse: collapse;
@@ -304,8 +309,8 @@
             <ul style="font-size: 8.5pt; margin-bottom: 6px;">
                 <li><strong>AIを使ったバイブコーディング</strong>で開発中</li>
                 <li><strong>開発期間:</strong> 2〜3ヶ月程度で主要機能を実装</li>
-                <li><strong>現在:</strong> ASTインタープリタとして動作</li>
-                <li>OSdev.jp コミュニティで開発中</li>
+                <li><strong>現在:</strong> インタープリタとして動作</li>
+                <li>osdev-jp コミュニティで開発中</li>
             </ul>
             
             <h3>設計原則</h3>
@@ -321,10 +326,10 @@
             <h3>技術スタック</h3>
             <table style="font-size: 7.5pt;">
                 <tr>
-                    <td><strong>言語</strong></td><td>C++17</td>
+                    <td><strong>実装言語</strong></td><td>C++17</td>
                 </tr>
                 <tr>
-                    <td><strong>実行</strong></td><td>ASTインタープリタ</td>
+                    <td><strong>実行方式</strong></td><td>インタープリタ</td>
                 </tr>
                 <tr>
                     <td><strong>ビルド</strong></td><td>Make (macOS/Linux)</td>
@@ -340,8 +345,8 @@
             <p style="font-size: 10pt;"><strong>ゼロコストの所有権移動</strong> (move()関数は今後実装予定)</p>
             
             <div class="code-block"><span class="keyword">struct</span> <span class="type">Resource</span> {
-    <span class="type">int</span>* data;
-    <span class="type">int</span> size;
+    <span class="keyword">int</span>* data;
+    <span class="keyword">int</span> size;
 }
 
 <span class="keyword">impl</span> <span class="type">Resource</span> {
@@ -356,14 +361,14 @@
     ~<span class="keyword">self</span>() {
         <span class="keyword">if</span> (self.data != <span class="keyword">nullptr</span>) {
             <span class="comment">// リソース解放</span>
-            free(self.data);
+            <span class="function">free</span>(self.data);
         }
     }
 }</div>
             
             <h3>2. TypeScript風Union型</h3>
             <div class="code-block"><span class="keyword">typedef</span> <span class="type">Status</span> = 200 | 404 | 500;
-<span class="keyword">typedef</span> <span class="type">Value</span> = <span class="type">int</span> | <span class="type">string</span>;
+<span class="keyword">typedef</span> <span class="type">Value</span> = <span class="keyword">int</span> | <span class="keyword">string</span>;
 
 <span class="type">Status</span> code = 200;
 <span class="type">Value</span> data = 42;
@@ -371,26 +376,26 @@ data = <span class="string">"Hello"</span>;  <span class="comment">// 型変更O
             
             <h3>3. Rust風Interface/Impl</h3>
             <div class="code-block"><span class="keyword">interface</span> <span class="type">Drawable</span> {
-    <span class="keyword">void</span> draw();
+    <span class="keyword">void</span> <span class="function">draw</span>();
 }
 
 <span class="keyword">struct</span> <span class="type">Circle</span> {
-    <span class="type">int</span> radius;
+    <span class="keyword">int</span> radius;
 }
 
 <span class="keyword">impl</span> <span class="type">Drawable</span> <span class="keyword">for</span> <span class="type">Circle</span> {
-    <span class="keyword">void</span> draw() {
-        println(<span class="string">"Circle"</span>, self.radius);
+    <span class="keyword">void</span> <span class="function">draw</span>() {
+        <span class="function">println</span>(<span class="string">"Circle"</span>, self.radius);
     }
 }</div>
 
             <h3>4. 関数ポインタ</h3>
-            <div class="code-block"><span class="type">int</span> add(<span class="type">int</span> a, <span class="type">int</span> b) {
+            <div class="code-block"><span class="keyword">int</span> <span class="function">add</span>(<span class="keyword">int</span> a, <span class="keyword">int</span> b) {
     <span class="keyword">return</span> a + b;
 }
-<span class="keyword">void</span> main() {
-    <span class="type">int</span>* op = &amp;add;
-    println(op(5, 3));  <span class="comment">// 8</span>
+<span class="keyword">int</span> <span class="function">main</span>() {
+    <span class="type">int</span>* op = &amp;<span class="function">add</span>;
+    <span class="function">println</span>(op(5, 3));  <span class="comment">// 8</span>
 }</div>
         </div>
     </div>
@@ -454,7 +459,7 @@ data = <span class="string">"Hello"</span>;  <span class="comment">// 型変更O
                         <td>○</td>
                         <td>×</td>
                         <td>○</td>
-                        <td>○</td>
+                        <td>×</td>
                     </tr>
                     <tr>
                         <td>Interface</td>
@@ -469,12 +474,16 @@ data = <span class="string">"Hello"</span>;  <span class="comment">// 型変更O
             <h3>Cbが優れている点</h3>
             <ul style="font-size: 10pt;">
                 <li><strong>低い学習コスト</strong> - C/C++に似た構文</li>
-                <li><strong>型安全性</strong> - Union型、Interface/Impl</li>
+                <li><strong>型安全性</strong> - TypeScript風Union型、Interface/Impl</li>
                 <li><strong>実用的</strong> - 関数ポインタ、ムーブセマンティクス</li>
                 <li><strong>開発が容易</strong> - シンプルなビルド、明確なエラー</li>
             </ul>
             
-            <h2>将来のビジョン</h2>
+            <p style="font-size: 8pt; margin-top: 4px; color: #7F8C8D;">
+                <strong>※</strong> Union型: TypeScript風の型合成（int | string等）。C++のunion、Rustのenumとは別機能
+            </p>
+            
+            <h2>ロードマップ</h2>
             
             <h3>Phase 1: 基礎完成 (完了) (v0.1-v0.10.0)</h3>
             <ul style="font-size: 10pt;">
@@ -530,19 +539,19 @@ data = <span class="string">"Hello"</span>;  <span class="comment">// 型変更O
             <h2>サンプルプログラム</h2>
             
             <h4>例1: FizzBuzz（Interface活用）</h4>
-            <div class="code-block"><span class="keyword">interface</span> <span class="type">IFizzbuzz</span> { <span class="keyword">void</span> fizzbuzz(); }
+            <div class="code-block"><span class="keyword">interface</span> <span class="type">IFizzbuzz</span> { <span class="keyword">void</span> <span class="function">fizzbuzz</span>(); }
 
-<span class="keyword">impl</span> <span class="type">IFizzbuzz</span> <span class="keyword">for</span> <span class="type">int</span> {
-    <span class="keyword">void</span> fizzbuzz() {
-        <span class="keyword">if</span> (self % 15 == 0) println(<span class="string">"FizzBuzz"</span>);
-        <span class="keyword">else if</span> (self % 3 == 0) println(<span class="string">"Fizz"</span>);
-        <span class="keyword">else if</span> (self % 5 == 0) println(<span class="string">"Buzz"</span>);
-        <span class="keyword">else</span> println(self);
+<span class="keyword">impl</span> <span class="type">IFizzbuzz</span> <span class="keyword">for</span> <span class="keyword">int</span> {
+    <span class="keyword">void</span> <span class="function">fizzbuzz</span>() {
+        <span class="keyword">if</span> (self % 15 == 0) <span class="function">println</span>(<span class="string">"FizzBuzz"</span>);
+        <span class="keyword">else if</span> (self % 3 == 0) <span class="function">println</span>(<span class="string">"Fizz"</span>);
+        <span class="keyword">else if</span> (self % 5 == 0) <span class="function">println</span>(<span class="string">"Buzz"</span>);
+        <span class="keyword">else</span> <span class="function">println</span>(self);
     }
 }
-<span class="type">int</span> main() {
-    <span class="keyword">for</span> (<span class="type">int</span> i = 1; i &lt;= 100; i++) {
-        i.fizzbuzz();  <span class="comment">// メソッド呼び出し！</span>
+<span class="keyword">int</span> <span class="function">main</span>() {
+    <span class="keyword">for</span> (<span class="keyword">int</span> i = 1; i &lt;= 100; i++) {
+        i.<span class="function">fizzbuzz</span>();  <span class="comment">// メソッド呼び出し！</span>
     }
 }</div>
             
@@ -551,19 +560,19 @@ data = <span class="string">"Hello"</span>;  <span class="comment">// 型変更O
             </div>
             
             <h4>例2: リソース管理（RAII）</h4>
-            <div class="code-block"><span class="keyword">struct</span> <span class="type">File</span> { <span class="type">string</span> name; <span class="type">bool</span> is_open; }
+            <div class="code-block"><span class="keyword">struct</span> <span class="type">File</span> { <span class="keyword">string</span> name; <span class="keyword">bool</span> is_open; }
 
 <span class="keyword">impl</span> <span class="type">File</span> {
-    <span class="keyword">self</span>(<span class="type">string</span> fn) {
+    <span class="keyword">self</span>(<span class="keyword">string</span> fn) {
         self.name = fn; self.is_open = <span class="keyword">true</span>;
-        println(<span class="string">"File opened:"</span>, fn);
+        <span class="function">println</span>(<span class="string">"File opened:"</span>, fn);
     }
     ~<span class="keyword">self</span>() {
         <span class="keyword">if</span> (self.is_open)
-            println(<span class="string">"File closed:"</span>, self.name);
+            <span class="function">println</span>(<span class="string">"File closed:"</span>, self.name);
     }
 }
-<span class="keyword">void</span> main() {
+<span class="keyword">int</span> <span class="function">main</span>() {
     <span class="type">File</span> f(<span class="string">"data.txt"</span>);
     <span class="comment">// スコープ終了時にデストラクタ実行</span>
     <span class="comment">// 注: {}スコープは未対応(修正予定)</span>
@@ -586,8 +595,8 @@ cd Cb &amp;&amp; make
                 <img src="x-icon.svg" style="width: 12px; height: 12px; vertical-align: middle; margin-right: 3px;">
                 <strong>(旧Twitter):</strong> @sl_0122
             </p>
-            <p style="font-size: 9pt; margin-bottom: 3px;"><strong>コミュニティ:</strong> OSdev.jp (https://osdev.jp/)</p>
-            <p style="font-size: 9pt; margin-bottom: 3px;"><strong style="color: #E74C3C;">Discord:</strong> OSdev.jpサーバーで開発中</p>
+            <p style="font-size: 9pt; margin-bottom: 3px;"><strong>コミュニティ:</strong> osdev-jp (https://osdev.jp/)</p>
+            <p style="font-size: 9pt; margin-bottom: 3px;"><strong style="color: #E74C3C;">Discord:</strong> osdev-jpサーバーで開発中</p>
             <p style="font-size: 9pt; margin-bottom: 3px;"><strong>ドキュメント:</strong> docs/spec.md, docs/tutorial/</p>
             <p style="font-size: 9pt; margin-bottom: 8px;"><strong>リリースノート:</strong> release_notes/v0.10.0.md</p>
             

@@ -41,7 +41,7 @@ struct Resource {
     }
 }
 
-void main() {
+int main() {
     Resource r1(1);
     Resource r2 = move(r1);  // ムーブ、r1は無効化される
 }
@@ -62,7 +62,7 @@ Resource create_resource() {
     return r;  // ✅ return前にdefer→デストラクタ実行
 }
 
-void main() {
+int main() {
     Resource r = create_resource();
     println("After create");
 }
@@ -91,7 +91,7 @@ export impl Point {
 // main.cb
 import "module_a.cb";
 
-void main() {
+int main() {
     Point p(10, 20);  // ✅ エクスポートされたコンストラクタを使用
 }
 ```
@@ -111,7 +111,7 @@ struct Outer {
     ~self() { println("Outer destroyed"); }
 }
 
-void main() {
+int main() {
     Outer o;
     o.inner.id = 1;
 }
@@ -388,7 +388,7 @@ make unit-test
 ### ポインタの基本操作
 
 ```c++
-void main() {
+int main() {
     int[5] arr = [10, 20, 30, 40, 50];
     
     // 宣言時初期化
@@ -421,7 +421,7 @@ int subtract(int a, int b) {
     return a - b;
 }
 
-void main() {
+int main() {
     // 関数ポインタの宣言と初期化
     int* op = &add;
     
@@ -451,7 +451,7 @@ int multiply(int a, int b) {
     return a * b;
 }
 
-void main() {
+int main() {
     int result = apply(&multiply, 6, 7);
     println(result);  // 42
 }
@@ -474,7 +474,7 @@ void move_point(Point& p, int dx, int dy) {
     p.y = p.y + dy;
 }
 
-void main() {
+int main() {
     int value = 10;
     increment(value);
     println(value);  // 11
@@ -495,7 +495,7 @@ struct Point {
     int y;
 };
 
-void main() {
+int main() {
     Point p;
     p.x = 10;
     p.y = 20;
@@ -531,7 +531,7 @@ impl Shape for Rectangle {
     }
 };
 
-void main() {
+int main() {
     Rectangle rect;
     rect.width = 10;
     rect.height = 5;
@@ -550,7 +550,7 @@ void main() {
 typedef Status = 200 | 404 | 500;
 typedef StringOrInt = string | int;
 
-void main() {
+int main() {
     Status code = 200;
     println("HTTP Status:", code);
     
@@ -565,7 +565,7 @@ void main() {
 ### 複合代入演算子
 
 ```c++
-void main() {
+int main() {
     int x = 10;
     
     x += 5;    // x = 15
@@ -585,7 +585,7 @@ void main() {
 ### FizzBuzz
 
 ```c++
-void main() {
+int main() {
     for (int i = 1; i <= 100; i++) {
         if (i % 15 == 0) {
             println("FizzBuzz");
@@ -610,7 +610,7 @@ int fibonacci(int n) {
     return fibonacci(n - 1) + fibonacci(n - 2);
 }
 
-void main() {
+int main() {
     for (int i = 0; i < 10; i++) {
         println("fib(", i, ") =", fibonacci(i));
     }
@@ -619,7 +619,18 @@ void main() {
 
 ---
 
-## 📚 ドキュメント
+## � チラシ・宣伝資料
+
+Cb言語の概要をまとめたチラシ（A4・2ページ）をご用意しています：
+
+- **🎨 カラー版**: [Cb_Language_Flyer_Color.html](https://htmlpreview.github.io/?https://github.com/shadowlink0122/Cb/blob/main/docs/flyer/Cb_Language_Flyer_Color.html) - デジタル表示・カラー印刷用
+- **🖨️ 白黒版**: [Cb_Language_Flyer_BW.html](https://htmlpreview.github.io/?https://github.com/shadowlink0122/Cb/blob/main/docs/flyer/Cb_Language_Flyer_BW.html) - モノクロ印刷最適化版
+
+**内容**: v0.10.0の主要機能、技術スタック、開発背景、イベント情報（2025/10/25 OSSカンファレンス Tokyo/Fall）を掲載
+
+---
+
+## �📚 ドキュメント
 
 ### 🎓 チュートリアル（初学者向け）
 
