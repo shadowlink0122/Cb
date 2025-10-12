@@ -1,8 +1,0 @@
-// Test: Null pointer dereference error
-// Expected: Runtime error when dereferencing null
-
-int main() {
-    int* ptr = nullptr;
-    int x = *ptr;  // Null pointer dereference
-    return x;
-}

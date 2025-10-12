@@ -1,8 +1,0 @@
-// パーサーのstruct定義確認用
-struct String {
-    default string value;
-};
-
-void main() {
-    println("Test");
-}
