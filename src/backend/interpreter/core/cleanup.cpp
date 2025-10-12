@@ -154,6 +154,30 @@ void Interpreter::add_defer(const ASTNode *stmt) {
 
 void Interpreter::execute_defers() { pop_defer_scope(); }
 
+// return文実行前のクリーンアップ処理
+// deferとデストラクタを実行するが、変数スコープはpopしない
+void Interpreter::execute_pre_return_cleanup() {
+    // 1. defer実行（LIFO順）
+    if (!defer_stacks_.empty() && !defer_stacks_.back().empty()) {
+        std::vector<const ASTNode *> defers = defer_stacks_.back();
+        defer_stacks_.pop_back();
+        for (auto it = defers.rbegin(); it != defers.rend(); ++it) {
+            execute_statement(*it);
+        }
+    }
+
+    // 2. デストラクタ実行（LIFO順）
+    if (!destructor_stacks_.empty() && !destructor_stacks_.back().empty()) {
+        const auto &destroy_list = destructor_stacks_.back();
+        for (auto it = destroy_list.rbegin(); it != destroy_list.rend(); ++it) {
+            const std::string &var_name = it->first;
+            const std::string &struct_type_name = it->second;
+            call_destructor(var_name, struct_type_name);
+        }
+        destructor_stacks_.pop_back();
+    }
+}
+
 // ========================================================================
 // 一時変数管理
 // ========================================================================

@@ -163,5 +163,133 @@ void test_integration_defer() {
         }, execution_time);
     integration_test_passed_with_time("Defer with break statement", "test_defer_break.cb", execution_time);
     
+    // Test 9: Defer before return statement
+    run_cb_test_with_output_and_time("../cases/defer/test_defer_before_return.cb", 
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "test_defer_before_return.cb should execute successfully");
+            
+            // Test 1: Simple defer before return
+            INTEGRATION_ASSERT_CONTAINS(output, "test1: start", "Should print 'test1: start'");
+            INTEGRATION_ASSERT_CONTAINS(output, "test1: before return", "Should print 'test1: before return'");
+            INTEGRATION_ASSERT_CONTAINS(output, "test1: defer executed", "Should execute defer before return");
+            INTEGRATION_ASSERT_CONTAINS(output, "42", "Should return 42");
+            
+            // Check order: defer should execute after "before return" but before return value
+            size_t pos_before = output.find("test1: before return");
+            size_t pos_defer = output.find("test1: defer executed");
+            size_t pos_result = output.find("42");
+            INTEGRATION_ASSERT(pos_before < pos_defer, "defer should execute after 'before return'");
+            INTEGRATION_ASSERT(pos_defer < pos_result, "defer should execute before return");
+            
+            // Test 2: Multiple defers (LIFO order)
+            INTEGRATION_ASSERT_CONTAINS(output, "test2: start", "Should print 'test2: start'");
+            INTEGRATION_ASSERT_CONTAINS(output, "test2: before return", "Should print 'test2: before return'");
+            INTEGRATION_ASSERT_CONTAINS(output, "test2: defer 1", "Should execute defer 1");
+            INTEGRATION_ASSERT_CONTAINS(output, "test2: defer 2", "Should execute defer 2");
+            INTEGRATION_ASSERT_CONTAINS(output, "test2: defer 3", "Should execute defer 3");
+            INTEGRATION_ASSERT_CONTAINS(output, "100", "Should return 100");
+            
+            // Check LIFO order: defer 3, 2, 1
+            size_t pos_defer3 = output.find("test2: defer 3");
+            size_t pos_defer2 = output.find("test2: defer 2");
+            size_t pos_defer1 = output.find("test2: defer 1");
+            INTEGRATION_ASSERT(pos_defer3 < pos_defer2, "defer 3 should execute first (LIFO)");
+            INTEGRATION_ASSERT(pos_defer2 < pos_defer1, "defer 2 should execute second (LIFO)");
+            
+            // Test 3: Defer in if statement with return
+            INTEGRATION_ASSERT_CONTAINS(output, "test3: start", "Should print 'test3: start'");
+            INTEGRATION_ASSERT_CONTAINS(output, "test3: before return in if", "Should print 'test3: before return in if'");
+            INTEGRATION_ASSERT_CONTAINS(output, "test3: inner defer", "Should execute inner defer");
+            INTEGRATION_ASSERT_CONTAINS(output, "test3: outer defer", "Should execute outer defer");
+            INTEGRATION_ASSERT_CONTAINS(output, "20", "Should return 20");
+            
+            // Check order: inner defer before outer defer
+            size_t pos_inner = output.find("test3: inner defer");
+            size_t pos_outer = output.find("test3: outer defer");
+            INTEGRATION_ASSERT(pos_inner < pos_outer, "inner defer should execute before outer defer");
+        }, execution_time);
+    integration_test_passed_with_time("Defer before return statement", "test_defer_before_return.cb", execution_time);
+    
+    // Test 10: Destructor before return statement
+    run_cb_test_with_output_and_time("../cases/defer/test_destructor_before_return.cb", 
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "test_destructor_before_return.cb should execute successfully");
+            
+            // Test 1: Simple destructor before return
+            INTEGRATION_ASSERT_CONTAINS(output, "test1: start", "Should print 'test1: start'");
+            INTEGRATION_ASSERT_CONTAINS(output, "Resource constructed", "Should construct resource");
+            INTEGRATION_ASSERT_CONTAINS(output, "test1: before return", "Should print 'test1: before return'");
+            INTEGRATION_ASSERT_CONTAINS(output, "Resource destroyed 1", "Should destroy resource 1 before return");
+            INTEGRATION_ASSERT_CONTAINS(output, "42", "Should return 42");
+            
+            // Check order: destructor should execute after "before return" but before return value
+            auto lines = split_lines(output);
+            int before_return_idx = -1;
+            int destroyed_idx = -1;
+            int result_idx = -1;
+            
+            for (size_t i = 0; i < lines.size(); i++) {
+                if (lines[i].find("test1: before return") != std::string::npos) before_return_idx = i;
+                if (lines[i].find("Resource destroyed 1") != std::string::npos && destroyed_idx == -1) destroyed_idx = i;
+                if (lines[i] == "42") result_idx = i;
+            }
+            
+            INTEGRATION_ASSERT(before_return_idx >= 0, "Should find 'before return' message");
+            INTEGRATION_ASSERT(destroyed_idx >= 0, "Should find 'Resource destroyed 1' message");
+            INTEGRATION_ASSERT(result_idx >= 0, "Should find return value '42'");
+            INTEGRATION_ASSERT(before_return_idx < destroyed_idx, "Destructor should execute after 'before return'");
+            INTEGRATION_ASSERT(destroyed_idx < result_idx, "Destructor should execute before return");
+            
+            // Test 2: Multiple destructors (LIFO order)
+            INTEGRATION_ASSERT_CONTAINS(output, "test2: start", "Should print 'test2: start'");
+            INTEGRATION_ASSERT_CONTAINS(output, "test2: before return", "Should print 'test2: before return'");
+            
+            // Check destructor calls with IDs (LIFO: 3, 2, 1)
+            INTEGRATION_ASSERT_CONTAINS(output, "Resource destroyed 3", "Should destroy resource 3");
+            INTEGRATION_ASSERT_CONTAINS(output, "Resource destroyed 2", "Should destroy resource 2");
+            
+            // Check LIFO order of destructors (search within test2 section)
+            size_t test2_start = output.find("test2: start");
+            size_t test2_end = output.find("--- Test 3", test2_start);
+            std::string test2_output = output.substr(test2_start, test2_end - test2_start);
+            
+            size_t pos_destroy3 = test2_output.find("Resource destroyed 3");
+            size_t pos_destroy2 = test2_output.find("Resource destroyed 2");
+            size_t pos_destroy1 = test2_output.find("Resource destroyed 1");
+            INTEGRATION_ASSERT(pos_destroy3 < pos_destroy2, "Resource 3 should be destroyed first (LIFO)");
+            INTEGRATION_ASSERT(pos_destroy2 < pos_destroy1, "Resource 2 should be destroyed second (LIFO)");
+            
+            // Test 3: Destructor in if statement
+            INTEGRATION_ASSERT_CONTAINS(output, "test3: start", "Should print 'test3: start'");
+            INTEGRATION_ASSERT_CONTAINS(output, "test3: before return in if", "Should print 'test3: before return in if'");
+            INTEGRATION_ASSERT_CONTAINS(output, "Resource destroyed 20", "Should destroy inner resource 20");
+            INTEGRATION_ASSERT_CONTAINS(output, "Resource destroyed 10", "Should destroy outer resource 10");
+            
+            // Check LIFO order: inner (20) before outer (10) - search within first test3 section
+            size_t test3_start = output.find("--- Test 3 (x > 0) ---");
+            size_t test3_end = output.find("--- Test 3 (x = 0) ---", test3_start);
+            std::string test3_output = output.substr(test3_start, test3_end - test3_start);
+            
+            size_t pos_destroy20 = test3_output.find("Resource destroyed 20");
+            size_t pos_destroy10 = test3_output.find("Resource destroyed 10");
+            INTEGRATION_ASSERT(pos_destroy20 < pos_destroy10, "Inner resource should be destroyed before outer (LIFO)");
+            
+            // Test 4: Defer and destructor together
+            INTEGRATION_ASSERT_CONTAINS(output, "test4: start", "Should print 'test4: start'");
+            INTEGRATION_ASSERT_CONTAINS(output, "test4: before return", "Should print 'test4: before return'");
+            INTEGRATION_ASSERT_CONTAINS(output, "test4: defer 1", "Should execute defer 1");
+            INTEGRATION_ASSERT_CONTAINS(output, "test4: defer 2", "Should execute defer 2");
+            INTEGRATION_ASSERT_CONTAINS(output, "Resource destroyed 100", "Should destroy resource 100");
+            
+            // Check order: defer before destructor
+            size_t pos_defer2 = output.find("test4: defer 2");
+            size_t pos_defer1 = output.find("test4: defer 1");
+            size_t pos_destroyed100 = output.find("Resource destroyed 100");
+            
+            INTEGRATION_ASSERT(pos_defer2 < pos_defer1, "defer 2 should execute first (LIFO)");
+            INTEGRATION_ASSERT(pos_defer1 < pos_destroyed100, "Defer should execute before destructor");
+        }, execution_time);
+    integration_test_passed_with_time("Destructor before return statement", "test_destructor_before_return.cb", execution_time);
+    
     std::cout << "[integration-test] Defer tests completed successfully" << std::endl;
 }

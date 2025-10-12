@@ -550,6 +550,7 @@ class Interpreter : public EvaluatorInterface {
     void pop_defer_scope();
     void add_defer(const ASTNode *stmt);
     void execute_defers();
+    void execute_pre_return_cleanup(); // return文実行前のクリーンアップ
 
     // 変数・関数アクセス
     Variable *find_variable(const std::string &name);
