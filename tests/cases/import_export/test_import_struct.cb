@@ -1,0 +1,14 @@
+// 構造体のimportテスト
+import types { Point };
+
+void main() {
+    println("=== Import Struct Test ===");
+    
+    Point p;
+    p.x = 10;
+    p.y = 20;
+    
+    println("Point: (", p.x, ", ", p.y, ")");
+    
+    println("Import struct test completed!");
+}

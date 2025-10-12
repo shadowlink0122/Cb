@@ -1,0 +1,147 @@
+// デストラクタ統合テスト
+// デストラクタ内でself.メンバーにアクセスできることを検証
+// integration-testから実行される
+
+interface ITestObject {
+    void display();
+};
+
+struct TestObject {
+    int public_value;
+    int internal_resource;
+};
+
+impl TestObject {
+    // コンストラクタ
+    self(int id) {
+        self.public_value = id;
+        self.internal_resource = id * 100;
+        println("[CONSTRUCTOR] TestObject created with id:", self.public_value);
+    }
+    
+    // デストラクタ内でselfメンバーにアクセス
+    ~self() {
+        println("[DESTRUCTOR] Starting cleanup for id:", self.public_value);
+        println("[CLEANUP] Releasing resource:", self.internal_resource);
+        println("[DESTRUCTOR] Cleanup completed for id:", self.public_value);
+    }
+};
+
+impl ITestObject for TestObject {
+    // パブリックメソッド
+    void display() {
+        println("[DISPLAY] Object id:", self.public_value);
+    }
+};
+
+interface IComplexObject {
+    void use_object();
+};
+
+struct ComplexObject {
+    int id;
+    int internal_counter;
+};
+
+impl ComplexObject {
+    self(int object_id) {
+        self.id = object_id;
+        self.internal_counter = 0;
+        println("[CONSTRUCTOR] ComplexObject", self.id, "created");
+    }
+    
+    ~self() {
+        println("[DESTRUCTOR] ComplexObject", self.id, "cleaning up");
+        // デストラクタ内でメンバー変数を直接操作
+        self.internal_counter = self.internal_counter + 1;
+        println("[DESTRUCTOR] Counter incremented to:", self.internal_counter);
+        self.internal_counter = self.internal_counter + 1;
+        println("[DESTRUCTOR] Counter incremented to:", self.internal_counter);
+        println("[DESTRUCTOR] Final counter value:", self.internal_counter);
+        println("[DESTRUCTOR] ComplexObject", self.id, "destroyed");
+    }
+};
+
+impl IComplexObject for ComplexObject {
+    void use_object() {
+        self.internal_counter = self.internal_counter + 1;
+        println("[USE] Object", self.id, "used, counter:", self.internal_counter);
+    }
+};
+
+struct ResourceManager {
+    int manager_id;
+    int allocated_memory;
+};
+
+impl ResourceManager {
+    self(int id, int memory) {
+        self.manager_id = id;
+        self.allocated_memory = memory;
+        println("[CONSTRUCTOR] ResourceManager", self.manager_id, "allocated", self.allocated_memory, "bytes");
+    }
+    
+    ~self() {
+        println("[DESTRUCTOR] ResourceManager", self.manager_id, "starting destruction");
+        println("[DESTRUCTOR] Logging destruction of manager", self.manager_id);
+        println("[DESTRUCTOR] Freeing", self.allocated_memory, "bytes of memory");
+        println("[DESTRUCTOR] ResourceManager", self.manager_id, "fully destroyed");
+    }
+};
+
+void test_single_destructor_with_prvt() {
+    println("=== Test 1: Single Destructor with Private Methods ===");
+    TestObject obj(1);
+    obj.display();
+    println("");
+    // デストラクタが関数終了時に呼ばれ、prvtメソッドが実行される
+}
+
+void test_multiple_destructors_lifo() {
+    println("=== Test 2: Multiple Destructors LIFO Order ===");
+    TestObject obj1(10);
+    TestObject obj2(20);
+    TestObject obj3(30);
+    println("[MAIN] All objects created");
+    println("");
+    // デストラクタは逆順で呼ばれる: obj3, obj2, obj1
+}
+
+void test_complex_destructor_logic() {
+    println("=== Test 3: Complex Destructor Logic ===");
+    ComplexObject complex(100);
+    complex.use_object();
+    complex.use_object();
+    println("");
+    // デストラクタ内でprvtメソッドが呼ばれ、内部状態が変更される
+}
+
+void test_resource_manager_cleanup() {
+    println("=== Test 4: Resource Manager Cleanup ===");
+    ResourceManager rm1(1, 1024);
+    ResourceManager rm2(2, 2048);
+    println("[MAIN] Resources allocated");
+    println("");
+    // 各デストラクタがprvtメソッドを使ってリソースを解放
+}
+
+void test_early_return_with_prvt() {
+    println("=== Test 5: Destructor on Function End ===");
+    TestObject obj(999);
+    println("[MAIN] Function will end, destructor will be called");
+    println("");
+    // 関数終了時にデストラクタが呼ばれる
+}
+
+void main() {
+    println("===== Destructor Integration Test Suite =====");
+    println("");
+    
+    test_single_destructor_with_prvt();
+    test_multiple_destructors_lifo();
+    test_complex_destructor_logic();
+    test_resource_manager_cleanup();
+    test_early_return_with_prvt();
+    
+    println("===== All Integration Tests Completed =====");
+}

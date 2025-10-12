@@ -1,0 +1,57 @@
+// return実行直前のdefer実行テスト
+
+// テスト1: 単純なreturn前のdefer
+int test1() {
+    println("test1: start");
+    defer println("test1: defer executed");
+    println("test1: before return");
+    return 42;
+}
+
+// テスト2: 複数のdefer（LIFO順で実行される）
+int test2() {
+    println("test2: start");
+    defer println("test2: defer 1");
+    defer println("test2: defer 2");
+    defer println("test2: defer 3");
+    println("test2: before return");
+    return 100;
+}
+
+// テスト3: if文内のreturn前のdefer
+int test3(int x) {
+    println("test3: start");
+    defer println("test3: outer defer");
+    
+    if (x > 0) {
+        defer println("test3: inner defer");
+        println("test3: before return in if");
+        return x * 2;
+    }
+    
+    println("test3: before return outside if");
+    return 0;
+}
+
+// メイン処理
+void main() {
+    println("=== Defer before return tests ===");
+    
+    println("--- Test 1 ---");
+    int result1 = test1();
+    println(result1);
+    
+    println("--- Test 2 ---");
+    int result2 = test2();
+    println(result2);
+    
+    println("--- Test 3 (x > 0) ---");
+    int result3 = test3(10);
+    println(result3);
+    
+    println("--- Test 3 (x = 0) ---");
+    int result4 = test3(0);
+    println(result4);
+    
+    println("=== All tests completed ===");
+}

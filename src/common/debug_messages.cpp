@@ -883,6 +883,28 @@ static std::vector<DebugMessageTemplate> init_debug_messages() {
         "[INTERPRETER_FOR] Executing update iteration: %d",
         "[INTERPRETER_FOR] 更新実行回数: %d"};
 
+    // SWITCH文関連のメッセージ
+    messages[static_cast<int>(DebugMsgId::INTERPRETER_SWITCH_STMT_START)] = {
+        "[INTERPRETER_SWITCH] Switch statement start",
+        "[INTERPRETER_SWITCH] switch文開始"};
+    messages[static_cast<int>(DebugMsgId::INTERPRETER_SWITCH_VALUE)] = {
+        "[INTERPRETER_SWITCH] Switch value: %lld",
+        "[INTERPRETER_SWITCH] switch値: %lld"};
+    messages[static_cast<int>(DebugMsgId::INTERPRETER_SWITCH_CASE_MATCHED)] = {
+        "[INTERPRETER_SWITCH] Case matched", "[INTERPRETER_SWITCH] caseマッチ"};
+    messages[static_cast<int>(DebugMsgId::INTERPRETER_SWITCH_ELSE_EXEC)] = {
+        "[INTERPRETER_SWITCH] Executing else clause",
+        "[INTERPRETER_SWITCH] else節実行"};
+    messages[static_cast<int>(DebugMsgId::INTERPRETER_SWITCH_STMT_END)] = {
+        "[INTERPRETER_SWITCH] Switch statement end",
+        "[INTERPRETER_SWITCH] switch文終了"};
+    messages[static_cast<int>(DebugMsgId::INTERPRETER_SWITCH_RANGE_CHECK)] = {
+        "[INTERPRETER_SWITCH] Range check: %lld...%lld",
+        "[INTERPRETER_SWITCH] 範囲チェック: %lld...%lld"};
+    messages[static_cast<int>(DebugMsgId::INTERPRETER_SWITCH_VALUE_CHECK)] = {
+        "[INTERPRETER_SWITCH] Value check: %lld == %lld",
+        "[INTERPRETER_SWITCH] 値チェック: %lld == %lld"};
+
     // 式評価関連のメッセージ
     messages[static_cast<int>(DebugMsgId::EXPR_EVAL_START)] = {
         "[EXPR_EVAL] Starting expression evaluation: %s",

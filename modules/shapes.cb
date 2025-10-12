@@ -1,0 +1,53 @@
+// modules/shapes.cb - 図形モジュール (コンストラクタ・デストラクタ・impl付き)
+
+// インターフェース定義
+export interface Shape {
+    int getArea();
+    void display();
+};
+
+// 構造体定義
+export struct Rectangle {
+    int width;
+    int height;
+};
+
+// コンストラクタ・デストラクタ定義
+export impl Rectangle {
+    // パラメータ付きコンストラクタ
+    self(int w, int h) {
+        self.width = w;
+        self.height = h;
+        println("Rectangle constructor called: ", w, " x ", h);
+        return self;
+    }
+    
+    // デフォルトコンストラクタ（パラメータなし）
+    // Note: 関数オーバーロードが未実装のため、複数のコンストラクタは最後のものが優先される
+    // TODO: オーバーロード解決実装後に有効化
+    // self() {
+    //     self.width = 0;
+    //     self.height = 0;
+    //     println("Rectangle default constructor called");
+    //     return self;
+    // }
+
+    // デストラクタ
+    ~self() {
+        println("Rectangle destructor called");
+        self.width = 0;
+        self.height = 0;
+        return self;
+    }
+}
+
+// impl定義
+export impl Shape for Rectangle {
+    int getArea() {
+        return self.width * self.height;
+    }
+    
+    void display() {
+        println("Rectangle: ", self.width, " x ", self.height, " (Area: ", self.getArea(), ")");
+    }
+};

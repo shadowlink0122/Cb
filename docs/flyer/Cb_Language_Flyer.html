@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content        .highlight-box {
+            background-color: #EBF5FB;
+            border: 2px solid #3498DB;
+            border-radius: 5px;
+            padding: 6px;
+            margin: 6px 0;
+        }=device-width, initial-scale=1.0">
+    <title>Cb言語紹介チラシ v0.10.0</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 15mm;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Meiryo', sans-serif;
+            font-size: 10pt;
+            line-height: 1.35;
+            color: #2C3E50;
+            background: white;
+        }
+        
+        .page {
+            width: 210mm;
+            height: 297mm;
+            padding: 12mm;
+            margin: 0 auto 20px;
+            background: white;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            page-break-after: always;
+        }
+        
+        .two-column {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8mm;
+            height: 100%;
+        }
+        
+        .column {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        h1 {
+            font-size: 24pt;
+            font-weight: bold;
+            color: #2C3E50;
+            margin-bottom: 5px;
+            text-align: center;
+        }
+        
+        .version {
+            font-size: 14pt;
+            font-style: italic;
+            color: #7F8C8D;
+            text-align: center;
+            margin-bottom: 15px;
+        }
+        
+        h2 {
+            font-size: 14pt;
+            font-weight: bold;
+            color: #3498DB;
+            margin: 8px 0 4px 0;
+            padding-bottom: 2px;
+            border-bottom: 2px solid #3498DB;
+        }
+        
+        h3 {
+            font-size: 11pt;
+            font-weight: bold;
+            color: #2ECC71;
+            margin: 6px 0 3px 0;
+        }
+        
+        h4 {
+            font-size: 10pt;
+            font-weight: bold;
+            color: #E74C3C;
+            margin: 5px 0 2px 0;
+        }
+        
+        p {
+            margin-bottom: 3px;
+        }
+        
+        ul, ol {
+            margin-left: 15px;
+            margin-bottom: 4px;
+        }
+        
+        li {
+            margin-bottom: 1px;
+        }
+        
+        .highlight-box {
+            background-color: #EBF5FB;
+            border: 2px solid #3498DB;
+            border-radius: 5px;
+            padding: 5px;
+            margin: 4px 0;
+        }
+        
+        .code-block {
+            background-color: white;
+            border: 2px solid #3498DB;
+            border-radius: 3px;
+            padding: 6px;
+            font-family: 'Courier New', 'Monaco', monospace;
+            font-size: 8pt;
+            line-height: 1.25;
+            overflow-x: auto;
+            white-space: pre;
+            margin: 4px 0;
+            color: #2C3E50;
+        }                .keyword {
+            font-weight: bold;
+            color: #0066CC;
+        }
+        
+        .type {
+            color: #CC0000;
+            font-weight: 500;
+        }
+        
+        .comment {
+            font-style: italic;
+            color: #808080;
+        }
+        
+        .string {
+            color: #009900;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 5px 0;
+            font-size: 9pt;
+        }
+        
+        table th {
+            background: #3498DB;
+            color: white;
+            padding: 4px;
+            border: 1px solid #BDC3C7;
+            font-weight: bold;
+        }
+        
+        table td {
+            padding: 4px;
+            border: 1px solid #BDC3C7;
+        }
+        
+        table tr:nth-child(even) {
+            background: #F8F9FA;
+        }
+        
+        .point-box {
+            background: #FFF9E6;
+            border: 2px solid #F39C12;
+            border-radius: 5px;
+            padding: 5px;
+            margin: 4px 0;
+            font-size: 8.5pt;
+        }
+        
+        .output-box {
+            background: #E8F5E9;
+            border: 1px solid #2ECC71;
+            border-radius: 3px;
+            padding: 5px;
+            margin: 4px 0;
+            font-family: 'Menlo', 'Monaco', monospace;
+            font-size: 7.5pt;
+        }
+        
+        .footer-box {
+            background: #AED6F1;
+            color: #2C3E50;
+            padding: 6px;
+            text-align: center;
+            border-radius: 5px;
+            border: 2px solid #3498DB;
+            margin-top: 6px;
+            font-weight: bold;
+            font-size: 9pt;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 3px;
+            margin: 5px 0;
+            font-size: 8pt;
+        }
+        
+        .stat-item {
+            background: #ECF0F1;
+            padding: 3px;
+            border-radius: 3px;
+        }
+        
+        .emoji {
+            font-size: 12pt;
+        }
+        
+        .principles-box {
+            background-color: #E8F8F5;
+            border: 2px dashed #2ECC71;
+            border-radius: 5px;
+            padding: 5px;
+            margin: 4px 0;
+        }
+        
+        @media print {
+            .page {
+                box-shadow: none;
+                margin: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ========== 表面 ========== -->
+<div class="page">
+    <h1>Cb <span style="font-size: 18pt;">(シーフラット)</span> プログラミング言語</h1>
+    <div class="version">v0.10.0 - ムーブセマンティクス完全実装版</div>
+    
+    <div class="two-column">
+        <!-- 左列 -->
+        <div class="column">
+            <h2><span class="emoji">🎯</span> なぜCbを作ったのか？</h2>
+            
+            <h3>背景と動機</h3>
+            <div style="background: linear-gradient(135deg, #E8F4F8 0%, #D6EAF8 100%); border-left: 4px solid #3498DB; padding: 8px; margin: 6px 0; border-radius: 4px;">
+                <p style="font-size: 11pt; font-weight: bold; color: #2C3E50; margin: 0;">「使いやすく、安全で、高速な言語」を作りたかった</p>
+            </div>
+            
+            <p style="font-size: 9.5pt; line-height: 1.4;">プログラミング言語の設計には常にトレードオフが存在します。C++の強力さ、Rustの安全性、TypeScriptの使いやすさ——これらを統合した言語を目指しました。</p>
+            
+            <div class="highlight-box">
+                <h4>既存言語の課題</h4>
+                <ul style="font-size: 9pt;">
+                    <li><strong>C/C++</strong>: 強力だが型安全性が弱く、メモリ管理が複雑</li>
+                    <li><strong>TypeScript</strong>: 優れた型システムだがランタイムオーバーヘッドが大</li>
+                    <li><strong>Rust</strong>: 最高の安全性だが学習曲線が非常に急峻</li>
+                </ul>
+            </div>
+            
+            <h4>Cbが目指す3つの柱</h4>
+            <ol style="font-size: 9.5pt;">
+                <li><strong>実用性重視</strong> - 実際に使える機能を段階的に追加。理論より実践を優先</li>
+                <li><strong>型安全性</strong> - コンパイル時の厳密な型チェックで実行時エラーを防ぐ</li>
+                <li><strong>学習しやすさ</strong> - C/C++経験者がすぐに書ける親しみやすい構文</li>
+            </ol>
+            
+            <h4>開発者の視点</h4>
+            <p style="font-size: 9pt; line-height: 1.3;">個人開発だからこそ、実験的な機能を迅速に試し、フィードバックを即座に反映できます。大規模言語にはない柔軟性と進化の速さが強みです。</p>
+            
+            <h3>開発の経緯</h3>
+            <ul style="font-size: 8.5pt; margin-bottom: 6px;">
+                <li><strong>v0.6.0</strong> (2024): 基本型、配列、構造体</li>
+                <li><strong>v0.8.0</strong> (2024): Union型、Interface/Impl</li>
+                <li><strong>v0.9.0</strong>: 関数ポインタ、参照型</li>
+                <li><strong>v0.10.0</strong>: ムーブセマンティクス</li>
+            </ul>
+            
+            <h3>開発の原動力</h3>
+            <ul style="font-size: 8.5pt; margin-left: 20px;">
+                <li>コンパイラ理論への興味と実践</li>
+                <li>2,954個のテストで品質保証</li>
+                <li>GitHubでのオープンソース開発</li>
+            </ul>
+            
+            <h3>設計原則</h3>
+            <div class="principles-box">
+                <ul style="font-size: 8.5pt; margin: 3px 0 3px 20px;">
+                    <li><strong>ゼロコスト抽象化</strong> - 最小オーバーヘッド</li>
+                    <li><strong>明示的メモリ管理</strong> - GCなし、RAII</li>
+                    <li><strong>段階的学習</strong> - 基本→高度な機能</li>
+                    <li><strong>実用性重視</strong> - 使いやすさを優先</li>
+                </ul>
+            </div>
+            
+            <h3>技術スタック</h3>
+            <table style="font-size: 8pt;">
+                <tr>
+                    <td><strong>言語</strong></td><td>C++17</td>
+                </tr>
+                <tr>
+                    <td><strong>実行</strong></td><td>ASTインタープリタ</td>
+                </tr>
+                <tr>
+                    <td><strong>ビルド</strong></td><td>Make (macOS/Linux)</td>
+                </tr>
+            </table>
+        </div>
+        
+        <!-- 右列 -->
+        <div class="column">
+            <h2><span class="emoji">🔥</span> Cbの特徴</h2>
+            
+            <h3>1. ムーブセマンティクス</h3>
+            <p style="font-size: 10pt;"><strong>ゼロコストの所有権移動</strong></p>
+            
+            <div class="code-block"><span class="keyword">struct</span> <span class="type">Resource</span> {
+    <span class="type">int</span>* data;
+    <span class="type">int</span> size;
+}
+
+<span class="keyword">impl</span> <span class="type">Resource</span> {
+    <span class="comment">// ムーブコンストラクタ</span>
+    <span class="keyword">self</span>(<span class="type">Resource</span>&& other) {
+        self.data = other.data;
+        self.size = other.size;
+        other.data = <span class="keyword">nullptr</span>;  <span class="comment">// 元を無効化</span>
+        other.size = <span class="keyword">0</span>;
+    }
+    
+    ~<span class="keyword">self</span>() {
+        <span class="keyword">if</span> (self.data != <span class="keyword">nullptr</span>) {
+            <span class="comment">// リソース解放</span>
+            free(self.data);
+        }
+    }
+}
+
+<span class="keyword">void</span> main() {
+    <span class="type">Resource</span> r1(100);
+    <span class="type">Resource</span> r2 = <span class="keyword">move</span>(r1);  <span class="comment">// 所有権移動</span>
+}</div>
+            
+            <h3>2. TypeScript風Union型</h3>
+            <div class="code-block"><span class="keyword">typedef</span> <span class="type">Status</span> = 200 | 404 | 500;
+<span class="keyword">typedef</span> <span class="type">Value</span> = <span class="type">int</span> | <span class="type">string</span>;
+
+<span class="type">Status</span> code = 200;
+<span class="type">Value</span> data = 42;
+data = <span class="string">"Hello"</span>;  <span class="comment">// 型変更OK</span></div>
+            
+            <h3>3. Rust風Interface/Impl</h3>
+            <div class="code-block"><span class="keyword">interface</span> <span class="type">Drawable</span> {
+    <span class="keyword">void</span> draw();
+}
+
+<span class="keyword">struct</span> <span class="type">Circle</span> {
+    <span class="type">int</span> radius;
+}
+
+<span class="keyword">impl</span> <span class="type">Drawable</span> <span class="keyword">for</span> <span class="type">Circle</span> {
+    <span class="keyword">void</span> draw() {
+        println(<span class="string">"Circle"</span>, self.radius);
+    }
+}</div>
+
+            <h3>4. 関数ポインタ</h3>
+            <div class="code-block"><span class="type">int</span> add(<span class="type">int</span> a, <span class="type">int</span> b) {
+    <span class="keyword">return</span> a + b;
+}
+<span class="keyword">void</span> main() {
+    <span class="type">int</span>* op = &amp;add;
+    println(op(5, 3));  <span class="comment">// 8</span>
+}</div>
+        </div>
+    </div>
+</div>
+
+<!-- ========== 裏面 ========== -->
+<div class="page">
+    <div class="two-column">
+        <!-- 左列 -->
+        <div class="column">
+            <h2><span class="emoji">🌟</span> 他の言語との比較</h2>
+            
+            <table>
+                <thead>
+                    <tr>
+                        <th>特徴</th>
+                        <th><strong>Cb</strong></th>
+                        <th>C++</th>
+                        <th>TS</th>
+                        <th>Rust</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>型安全性</td>
+                        <td>✅ 強</td>
+                        <td>△ 弱</td>
+                        <td>✅ 強</td>
+                        <td>✅ 最強</td>
+                    </tr>
+                    <tr>
+                        <td>メモリ管理</td>
+                        <td>✅ RAII</td>
+                        <td>✅ RAII</td>
+                        <td>❌ GC</td>
+                        <td>✅ 所有権</td>
+                    </tr>
+                    <tr>
+                        <td>ムーブ</td>
+                        <td>✅</td>
+                        <td>✅</td>
+                        <td>❌</td>
+                        <td>✅</td>
+                    </tr>
+                    <tr>
+                        <td>学習コスト</td>
+                        <td>🟢 低</td>
+                        <td>🔴 高</td>
+                        <td>🟢 低</td>
+                        <td>🔴 高</td>
+                    </tr>
+                    <tr>
+                        <td>実行速度</td>
+                        <td>🟡 中</td>
+                        <td>🟢 高</td>
+                        <td>🔴 遅</td>
+                        <td>🟢 高</td>
+                    </tr>
+                    <tr>
+                        <td>Union型</td>
+                        <td>✅</td>
+                        <td>❌</td>
+                        <td>✅</td>
+                        <td>✅</td>
+                    </tr>
+                    <tr>
+                        <td>Interface</td>
+                        <td>✅</td>
+                        <td>❌</td>
+                        <td>✅</td>
+                        <td>✅</td>
+                    </tr>
+                </tbody>
+            </table>
+            
+            <h3>Cbが優れている点</h3>
+            <ul style="font-size: 10pt;">
+                <li><strong>低い学習コスト</strong> - C/C++に似た構文</li>
+                <li><strong>型安全性</strong> - Union型、Interface/Impl</li>
+                <li><strong>実用的</strong> - 関数ポインタ、ムーブセマンティクス</li>
+                <li><strong>開発が容易</strong> - シンプルなビルド、明確なエラー</li>
+            </ul>
+            
+            <h2><span class="emoji">🎯</span> 将来のビジョン</h2>
+            
+            <h3>Phase 1: 基礎完成 ✅ (v0.1-v0.10.0)</h3>
+            <ul style="font-size: 10pt;">
+                <li>✅ 基本型、配列、構造体、ポインタ</li>
+                <li>✅ コンストラクタ/デストラクタ</li>
+                <li>✅ ムーブセマンティクス、完全なRAII</li>
+            </ul>
+            
+            <h3>Phase 2: 高度な機能 🚧 (v0.11-v1.0)</h3>
+            <ul style="font-size: 10pt;">
+                <li>🔲 ジェネリクス/テンプレート</li>
+                <li>🔲 スマートポインタ（unique_ptr, shared_ptr）</li>
+                <li>🔲 Result型エラーハンドリング</li>
+                <li>🔲 標準ライブラリ拡充</li>
+            </ul>
+            
+            <h3>Phase 3: 最適化 🎯 (v1.1+)</h3>
+            <ul style="font-size: 10pt;">
+                <li>🎯 LLVMバックエンド（ネイティブコンパイル）</li>
+                <li>🎯 VSCode拡張、パッケージマネージャー</li>
+                <li>🎯 静的解析、デバッガー統合</li>
+            </ul>
+            
+            <div class="highlight-box" style="background: #000000; color: white; text-align: center; margin-top: 10px; border: 3px solid #000000;">
+                <strong style="font-size: 13pt;">"使いやすく、安全で、高速な言語"</strong>
+            </div>
+            
+            <h2><span class="emoji">📊</span> 品質指標</h2>
+            
+            <table style="font-size: 10pt;">
+                <tr>
+                    <td><strong>統合テスト</strong></td>
+                    <td>2,924個（100%成功）🎉</td>
+                </tr>
+                <tr>
+                    <td><strong>ユニットテスト</strong></td>
+                    <td>30個（100%成功）🎉</td>
+                </tr>
+                <tr>
+                    <td><strong>総テスト数</strong></td>
+                    <td>2,954個（100%成功）🎉</td>
+                </tr>
+                <tr>
+                    <td><strong>コード行数</strong></td>
+                    <td>約50,000行</td>
+                </tr>
+            </table>
+        </div>
+        
+        <!-- 右列 -->
+        <div class="column">
+            <h2><span class="emoji">📝</span> サンプルプログラム</h2>
+            
+            <h4>例1: FizzBuzz（Interface活用）</h4>
+            <div class="code-block"><span class="keyword">interface</span> <span class="type">IFizzbuzz</span> { <span class="keyword">void</span> fizzbuzz(); }
+
+<span class="keyword">impl</span> <span class="type">IFizzbuzz</span> <span class="keyword">for</span> <span class="type">int</span> {
+    <span class="keyword">void</span> fizzbuzz() {
+        <span class="keyword">if</span> (self % 15 == 0) println(<span class="string">"FizzBuzz"</span>);
+        <span class="keyword">else if</span> (self % 3 == 0) println(<span class="string">"Fizz"</span>);
+        <span class="keyword">else if</span> (self % 5 == 0) println(<span class="string">"Buzz"</span>);
+        <span class="keyword">else</span> println(self);
+    }
+}
+<span class="type">int</span> main() {
+    <span class="keyword">for</span> (<span class="type">int</span> i = 1; i &lt;= 100; i++) {
+        i.fizzbuzz();  <span class="comment">// メソッド呼び出し！</span>
+    }
+}</div>
+            
+            <div class="point-box">
+                <strong>✨ ポイント:</strong> プリミティブ型（int）にメソッド追加、selfで現在の値を参照
+            </div>
+            
+            <h4>例2: リソース管理（RAII）</h4>
+            <div class="code-block"><span class="keyword">struct</span> <span class="type">File</span> { <span class="type">string</span> name; <span class="type">bool</span> is_open; }
+
+<span class="keyword">impl</span> <span class="type">File</span> {
+    <span class="keyword">self</span>(<span class="type">string</span> fn) {
+        self.name = fn; self.is_open = <span class="keyword">true</span>;
+        println(<span class="string">"File opened:"</span>, fn);
+    }
+    ~<span class="keyword">self</span>() {
+        <span class="keyword">if</span> (self.is_open)
+            println(<span class="string">"File closed:"</span>, self.name);
+    }
+}
+<span class="keyword">void</span> main() {
+    { <span class="type">File</span> f(<span class="string">"data.txt"</span>); }  <span class="comment">// 自動でデストラクタ実行</span>
+    println(<span class="string">"Outside"</span>);
+}</div>
+            
+            <div class="output-box"><strong>出力:</strong> File opened: data.txt → File closed: data.txt → Outside</div>
+            
+            <h2><span class="emoji"></span> クイックスタート</h2>
+            
+            <div class="code-block" style="background: #000; color: #0F0;">git clone https://github.com/shadowlink0122/Cb.git
+cd Cb &amp;&amp; make
+echo 'void main() { println("Hello!"); }' &gt; hello.cb
+./main hello.cb
+./main sample/fizzbuzz.cb  <span class="comment" style="color: #888;"># サンプル</span></div>
+            
+            <h2><span class="emoji">📚</span> 詳細情報</h2>
+            <p style="font-size: 8.5pt; margin-bottom: 3px;"><strong>GitHub:</strong> github.com/shadowlink0122/Cb</p>
+            <p style="font-size: 8.5pt; margin-bottom: 3px;"><strong>ドキュメント:</strong> docs/spec.md, docs/tutorial/basic_syntax_guide.md</p>
+            <p style="font-size: 8.5pt; margin-bottom: 8px;"><strong>リリースノート:</strong> release_notes/v0.10.0.md</p>
+            
+            <div class="footer-box" style="margin-top: 8px;">
+                <strong style="font-size: 10pt;">Cb言語 v0.10.0</strong><br>
+                <span style="font-size: 8.5pt;">C++の表現力とTypeScriptの型安全性を融合</span><br>
+                <span style="font-size: 7.5pt;">開発者: shadowlink0122 | 更新: 2025/10/12</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

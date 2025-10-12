@@ -5,6 +5,8 @@
 #include "../../core/interpreter.h"
 #include <functional>
 
+class ExpressionEvaluator; // 前方宣言
+
 namespace SpecialAccessHelpers {
 
 /**
@@ -15,12 +17,14 @@ namespace SpecialAccessHelpers {
  *
  * @param node AST_ARROW_ACCESSノード
  * @param interpreter インタプリタインスタンス
+ * @param evaluator 式評価インスタンス（文字列結果の設定に必要）
  * @param evaluate_expression_func evaluate_expressionの参照
  * @param get_struct_member_func get_struct_member_from_variableの参照
  * @return int64_t メンバー値
  */
 int64_t evaluate_arrow_access(
     const ASTNode *node, Interpreter &interpreter,
+    ExpressionEvaluator &evaluator,
     std::function<int64_t(const ASTNode *)> evaluate_expression_func,
     std::function<Variable(const Variable &, const std::string &)>
         get_struct_member_func);

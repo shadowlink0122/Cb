@@ -1,0 +1,17 @@
+// String module with exported functions and constants
+
+// For now, exported constants are not supported, only functions
+const char* LIBRARY_NAME = "StringLib v1.0";
+
+export int get_string_length(char* str) {
+    int len = 0;
+    while (str[len] != '\0') {
+        len = len + 1;
+    }
+    return len;
+}
+
+// Non-exported helper (should not be accessible from outside)
+int internal_counter(int x) {
+    return x + 1;
+}

@@ -80,6 +80,21 @@ void execute_variable_declaration(StatementExecutor *executor,
             debug_log_line(
                 "[DEBUG_EXEC] Creating reference variable: " + node->name +
                 ", target_value: " + std::to_string(target_var->value));
+            debug_print("[REF_DEBUG] Reference created:\n");
+            debug_print("  ref_name=%s\n", node->name.c_str());
+            debug_print("  target_name=%s\n", target_var_name.c_str());
+            debug_print("  target_var ptr=%p\n", (void *)target_var);
+            debug_print("  target_var->is_struct=%d\n", target_var->is_struct);
+            debug_print("  target_var->struct_type_name=%s\n",
+                        target_var->struct_type_name.c_str());
+            debug_print("  target_var->struct_members.size()=%zu\n",
+                        target_var->struct_members.size());
+            if (target_var->is_struct && !target_var->struct_members.empty()) {
+                debug_print("  First member: name=%s, value=%lld\n",
+                            target_var->struct_members.begin()->first.c_str(),
+                            (long long)target_var->struct_members.begin()
+                                ->second.value);
+            }
         }
 
         interpreter.current_scope().variables[node->name] = ref_var;

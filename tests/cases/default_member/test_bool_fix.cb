@@ -1,0 +1,21 @@
+// bool型のデフォルトメンバーテスト
+
+struct BoolBox {
+    default bool value;
+};
+
+void main() {
+    println("=== bool型デフォルトメンバーテスト ===");
+    
+    BoolBox b = {true};
+    println(b);  // 1
+    println(b.value);  // 1
+    
+    b = false;
+    println(b);  // 0 (期待)
+    println(b.value);  // 0 (期待)
+    
+    b = true;
+    println(b);  // 1
+    println(b.value);  // 1
+}

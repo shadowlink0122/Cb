@@ -1,0 +1,6 @@
+void main() {
+    int add_func = int func(int x, int y) { return x + y; };
+    
+    int result = add_func(3, 7);
+    println(result);
+}

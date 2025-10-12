@@ -1,0 +1,16 @@
+// Test duplicate import handling
+import "math_module.cb";
+import "math_module.cb";  // Import the same module twice
+
+int main() {
+    println("=== Duplicate Import Test ===");
+    
+    // Should work fine - duplicate imports should be handled gracefully
+    int result = multiply(6, 7);
+    print("multiply(6, 7) = ");
+    print(result);
+    println();
+    
+    println("Duplicate import test completed!");
+    return 0;
+}

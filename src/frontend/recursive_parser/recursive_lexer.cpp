@@ -183,6 +183,11 @@ Token RecursiveLexer::nextToken() {
         return makeToken(TokenType::TOK_COLON, ":");
 
     case '.':
+        if (peek() == '.' && peekNext() == '.') {
+            advance(); // consume second '.'
+            advance(); // consume third '.'
+            return makeToken(TokenType::TOK_RANGE, "...");
+        }
         return makeToken(TokenType::TOK_DOT, ".");
 
     case '"':
@@ -420,7 +425,14 @@ TokenType RecursiveLexer::getKeywordType(const std::string &text) {
         {"nullptr", TokenType::TOK_NULLPTR},
         {"null", TokenType::TOK_NULL},
         {"unsigned", TokenType::TOK_UNSIGNED},
-        {"assert", TokenType::TOK_ASSERT}};
+        {"assert", TokenType::TOK_ASSERT},
+        {"defer", TokenType::TOK_DEFER},
+        {"default", TokenType::TOK_DEFAULT},
+        {"switch", TokenType::TOK_SWITCH},
+        {"case", TokenType::TOK_CASE},
+        {"func", TokenType::TOK_FUNC},
+        {"import", TokenType::TOK_IMPORT},
+        {"export", TokenType::TOK_EXPORT}};
 
     auto it = keywords.find(text);
     if (it != keywords.end()) {

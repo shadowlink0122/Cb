@@ -1,0 +1,12 @@
+// 簡単なラムダテスト
+
+void main() {
+    println("Testing lambda expression...");
+    
+    // 簡単なラムダ式
+    int* double_func = int func(int x) {
+        return x * 2;
+    };
+    
+    println("Lambda created successfully!");
+}

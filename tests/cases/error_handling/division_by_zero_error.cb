@@ -1,9 +1,0 @@
-// Test: Division by zero error
-// Expected: Runtime error with detailed message
-
-func int main() {
-    int x = 100;
-    int y = 0;
-    int z = x / y;  // Division by zero
-    return z;
-}

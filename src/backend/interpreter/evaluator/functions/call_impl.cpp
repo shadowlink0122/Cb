@@ -29,6 +29,92 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                   << node->name << std::endl;
     }
 
+    // ラムダの即座実行をチェック: int func(int x){return x;}(10) 形式
+    if (node->is_lambda_call && node->left) {
+        const ASTNode *lambda_node = node->left.get();
+
+        if (lambda_node->node_type == ASTNodeType::AST_LAMBDA_EXPR) {
+            if (interpreter_.is_debug_mode()) {
+                std::cerr << "[LAMBDA_CALL] Direct lambda invocation with "
+                          << node->arguments.size() << " arguments"
+                          << std::endl;
+            }
+
+            // ラムダを一時的に関数ポインタとして登録
+            std::string temp_lambda_name = lambda_node->internal_name;
+
+            // ラムダを関数として登録（一時的）
+            FunctionPointer lambda_fp;
+            lambda_fp.function_name = temp_lambda_name;
+            lambda_fp.function_node = lambda_node;
+
+            interpreter_.current_scope().function_pointers[temp_lambda_name] =
+                lambda_fp;
+
+            // 新しいスコープを作成してラムダを実行
+            interpreter_.push_scope();
+
+            // パラメータをバインド
+            if (node->arguments.size() != lambda_node->parameters.size()) {
+                std::cerr
+                    << "Error: Lambda call argument count mismatch: expected "
+                    << lambda_node->parameters.size() << ", got "
+                    << node->arguments.size() << std::endl;
+                std::exit(1);
+            }
+
+            for (size_t i = 0; i < lambda_node->parameters.size(); ++i) {
+                const ASTNode *param = lambda_node->parameters[i].get();
+                int64_t arg_value =
+                    evaluate_expression(node->arguments[i].get());
+
+                Variable var;
+                var.type = param->type_info;
+                var.value = arg_value;
+                var.is_const = param->is_const;
+
+                interpreter_.current_scope().variables[param->name] = var;
+            }
+
+            // ラムダ本体を実行
+            int64_t result = 0;
+            if (lambda_node->lambda_body) {
+                try {
+                    // lambda_bodyはAST_STMT_LISTなので、その中の文を順次実行
+                    for (const auto &stmt :
+                         lambda_node->lambda_body->statements) {
+                        interpreter_.execute_statement(stmt.get());
+                    }
+                } catch (const ReturnException &e) {
+                    result = e.value;
+                }
+            }
+
+            // スコープをクリーンアップ
+            interpreter_.pop_scope();
+
+            // 一時的な関数ポインタを削除
+            interpreter_.current_scope().function_pointers.erase(
+                temp_lambda_name);
+
+            return result;
+        }
+
+        // node->leftが別の関数呼び出しの場合（チェーン呼び出し）
+        if (lambda_node->node_type == ASTNodeType::AST_FUNC_CALL) {
+            // 前の呼び出しを評価して、その結果（関数ポインタ）を使って呼び出す
+            int64_t lambda_ptr = evaluate_expression(lambda_node);
+
+            // lambda_ptrが関数ポインタか確認
+            FunctionPointer *fp =
+                reinterpret_cast<FunctionPointer *>(lambda_ptr);
+            if (fp && fp->function_node) {
+                // 関数ポインタを通常の関数呼び出しとして実行
+                // TODO: この部分は既存の関数ポインタ呼び出しロジックと統合
+            }
+        }
+    }
+
     // 関数を探す
     const ASTNode *func = nullptr;
 
@@ -145,8 +231,13 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                     // 関数本体を実行
                     int64_t result = 0;
                     try {
-                        if (func_node->body) {
-                            interpreter_.exec_statement(func_node->body.get());
+                        // ラムダの場合はlambda_bodyを、通常の関数の場合はbodyを使用
+                        const ASTNode *body_to_execute =
+                            func_node->lambda_body
+                                ? func_node->lambda_body.get()
+                                : func_node->body.get();
+                        if (body_to_execute) {
+                            interpreter_.exec_statement(body_to_execute);
                         }
                     } catch (const ReturnException &ret) {
                         interpreter_.pop_interpreter_scope();
@@ -220,8 +311,12 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
             // 関数本体を実行
             int64_t result = 0;
             try {
-                if (func_node->body) {
-                    interpreter_.exec_statement(func_node->body.get());
+                // ラムダの場合はlambda_bodyを、通常の関数の場合はbodyを使用
+                const ASTNode *body_to_execute =
+                    func_node->lambda_body ? func_node->lambda_body.get()
+                                           : func_node->body.get();
+                if (body_to_execute) {
+                    interpreter_.exec_statement(body_to_execute);
                 }
             } catch (const ReturnException &ret) {
                 interpreter_.pop_interpreter_scope();
@@ -242,9 +337,33 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
     }
 
     // 通常の関数呼び出し
-    // 通常の関数呼び出し
+    // 修飾呼び出しのチェック: module.function()
+    // node->leftがAST_VARIABLEで、変数として存在せず、モジュールとして存在する場合
+    bool is_qualified_call = false;
+    std::string qualified_module_name;
+    if (node->left && node->left->node_type == ASTNodeType::AST_VARIABLE) {
+        std::string potential_module = node->left->name;
+        // 変数として存在するかチェック
+        bool is_variable =
+            (interpreter_.find_variable(potential_module) != nullptr);
+        // モジュールとして存在するかチェック
+        bool is_module = interpreter_.is_module_imported(potential_module);
+
+        if (!is_variable && is_module) {
+            is_qualified_call = true;
+            qualified_module_name = potential_module;
+
+            if (interpreter_.is_debug_mode()) {
+                std::cerr << "[QUALIFIED_CALL] Module: "
+                          << qualified_module_name
+                          << ", Function: " << node->name << std::endl;
+            }
+        }
+    }
+
     bool is_method_call =
-        (node->left != nullptr); // レシーバーがある場合はメソッド呼び出し
+        (node->left != nullptr &&
+         !is_qualified_call); // レシーバーがある場合はメソッド呼び出し
     bool has_receiver = is_method_call;
     std::string receiver_name;
     MethodReceiverResolution receiver_resolution;
@@ -371,8 +490,12 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                 // 関数本体を実行
                 int64_t result = 0;
                 try {
-                    if (func_node->body) {
-                        interpreter_.exec_statement(func_node->body.get());
+                    // ラムダの場合はlambda_bodyを、通常の関数の場合はbodyを使用
+                    const ASTNode *body_to_execute =
+                        func_node->lambda_body ? func_node->lambda_body.get()
+                                               : func_node->body.get();
+                    if (body_to_execute) {
+                        interpreter_.exec_statement(body_to_execute);
                     }
                 } catch (const ReturnException &ret) {
                     interpreter_.pop_interpreter_scope();
@@ -590,9 +713,28 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
         }
     } else {
         auto &global_scope = interpreter_.get_global_scope();
-        auto it = global_scope.functions.find(node->name);
-        if (it != global_scope.functions.end()) {
-            func = it->second;
+
+        // 修飾呼び出しの場合: module.function()
+        if (is_qualified_call) {
+            // モジュール名をプレフィックスとして関数を検索
+            std::string qualified_name =
+                qualified_module_name + "." + node->name;
+            auto it = global_scope.functions.find(qualified_name);
+            if (it != global_scope.functions.end()) {
+                func = it->second;
+
+                if (interpreter_.is_debug_mode()) {
+                    std::cerr
+                        << "[QUALIFIED_CALL] Found function: " << qualified_name
+                        << std::endl;
+                }
+            }
+        } else {
+            // 通常の関数呼び出し
+            auto it = global_scope.functions.find(node->name);
+            if (it != global_scope.functions.end()) {
+                func = it->second;
+            }
         }
     }
 
@@ -718,6 +860,52 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
     };
     interpreter_.push_scope();
     bool method_scope_active = true;
+
+    // コンストラクタの場合、selfコンテキストを設定
+    bool is_constructor =
+        (func && (func->node_type == ASTNodeType::AST_CONSTRUCTOR_DECL ||
+                  func->is_constructor));
+    if (is_constructor && func) {
+        // コンストラクタの場合、空のselfを作成
+        std::string struct_name = func->constructor_struct_name;
+        if (struct_name.empty() && func->type_name == func->name) {
+            struct_name = func->name; // Rectangle()の場合、関数名が構造体名
+        }
+
+        if (!struct_name.empty()) {
+            // 構造体定義を取得してselfを作成
+            const StructDefinition *struct_def =
+                interpreter_.find_struct_definition(struct_name);
+            if (struct_def) {
+                Variable self_var;
+                self_var.type = TYPE_STRUCT;
+                self_var.is_struct = true;
+                self_var.struct_type_name = struct_name;
+
+                // メンバーを初期化
+                for (const auto &member : struct_def->members) {
+                    Variable member_var;
+                    member_var.type = member.type;
+                    member_var.is_assigned = false;
+                    self_var.struct_members[member.name] = member_var;
+
+                    // self.memberとしてもアクセス可能にする
+                    std::string self_member_path = "self." + member.name;
+                    interpreter_.get_current_scope()
+                        .variables[self_member_path] = member_var;
+                }
+
+                interpreter_.get_current_scope().variables["self"] = self_var;
+
+                if (debug_mode) {
+                    debug_print("CONSTRUCTOR_SELF_SETUP: Created self for "
+                                "struct %s with %zu members\n",
+                                struct_name.c_str(),
+                                self_var.struct_members.size());
+                }
+            }
+        }
+    }
 
     // メソッド呼び出しの場合、selfコンテキストを設定
     bool used_resolution_ptr = false; // Track if we used pointer dereference
@@ -1048,19 +1236,27 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
     debug_msg(DebugMsgId::METHOD_CALL_EXECUTE, node->name.c_str());
 
     try {
-        // パラメータの評価と設定
-        if (func->parameters.size() != node->arguments.size()) {
+        // パラメータの評価と設定（デフォルト引数対応）
+        size_t num_params = func->parameters.size();
+        size_t num_args = node->arguments.size();
+        size_t required_args = (func->first_default_param_index >= 0)
+                                   ? func->first_default_param_index
+                                   : num_params;
+
+        // 引数数の検証（デフォルト引数を考慮）
+        if (num_args < required_args || num_args > num_params) {
             if (debug_mode) {
                 std::cerr << "[FUNC_CALL] Argument count mismatch: function '"
-                          << node->name << "' expected "
-                          << func->parameters.size() << " args, got "
-                          << node->arguments.size() << std::endl;
+                          << node->name << "' expected " << required_args
+                          << " to " << num_params << " args, got " << num_args
+                          << std::endl;
                 std::cerr << "[FUNC_CALL] Parameters:" << std::endl;
                 for (const auto &param : func->parameters) {
                     std::cerr << "  - " << param->name
                               << " type_info=" << param->type_info
                               << " is_array=" << param->is_array
                               << " is_reference=" << param->is_reference
+                              << " has_default=" << param->has_default_value
                               << std::endl;
                 }
                 std::cerr << "[FUNC_CALL] Arguments:" << std::endl;
@@ -1072,774 +1268,255 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                         << arg->name << "'" << std::endl;
                 }
             }
-            throw std::runtime_error("Argument count mismatch for function: " +
-                                     node->name);
+            throw std::runtime_error(
+                "Argument count mismatch for function: " + node->name +
+                " (expected " + std::to_string(required_args) + " to " +
+                std::to_string(num_params) + ", got " +
+                std::to_string(num_args) + ")");
         }
 
-        for (size_t i = 0; i < func->parameters.size(); i++) {
+        for (size_t i = 0; i < num_params; i++) {
             const auto &param = func->parameters[i];
-            const auto &arg = node->arguments[i];
 
-            // 関数ポインタパラメータのサポート
-            if (param->type_info == TYPE_POINTER &&
-                arg->node_type == ASTNodeType::AST_UNARY_OP &&
-                arg->op == "ADDRESS_OF" && arg->is_function_address) {
-                // 引数が関数アドレス（&func形式）の場合
-                // まず関数が実際に存在するかを確認
-                std::string func_name = arg->function_address_name;
-                const ASTNode *target_func =
-                    interpreter_.find_function(func_name);
+            // 引数が提供されている場合
+            if (i < num_args) {
+                const auto &arg = node->arguments[i];
 
-                // 関数が見つかった場合のみ関数ポインタとして処理
-                if (target_func) {
-                    // 関数ポインタとして登録
-                    FunctionPointer func_ptr(target_func, func_name,
-                                             target_func->type_info);
-                    interpreter_.current_scope()
-                        .function_pointers[param->name] = func_ptr;
+                // 関数ポインタパラメータのサポート
+                if (param->type_info == TYPE_POINTER &&
+                    arg->node_type == ASTNodeType::AST_UNARY_OP &&
+                    arg->op == "ADDRESS_OF" && arg->is_function_address) {
+                    // 引数が関数アドレス（&func形式）の場合
+                    // まず関数が実際に存在するかを確認
+                    std::string func_name = arg->function_address_name;
+                    const ASTNode *target_func =
+                        interpreter_.find_function(func_name);
 
-                    // 変数としても登録（値は関数ノードの実際のメモリアドレス）
-                    int64_t func_address =
-                        reinterpret_cast<int64_t>(target_func);
-                    interpreter_.assign_function_parameter(
-                        param->name, func_address, TYPE_POINTER, false);
+                    // 関数が見つかった場合のみ関数ポインタとして処理
+                    if (target_func) {
+                        // 関数ポインタとして登録
+                        FunctionPointer func_ptr(target_func, func_name,
+                                                 target_func->type_info);
+                        interpreter_.current_scope()
+                            .function_pointers[param->name] = func_ptr;
 
-                    // 変数に関数ポインタフラグを設定
-                    Variable *param_var =
-                        interpreter_.find_variable(param->name);
-                    if (param_var) {
-                        param_var->is_function_pointer = true;
-                        param_var->function_pointer_name = func_name;
-                    }
+                        // 変数としても登録（値は関数ノードの実際のメモリアドレス）
+                        int64_t func_address =
+                            reinterpret_cast<int64_t>(target_func);
+                        interpreter_.assign_function_parameter(
+                            param->name, func_address, TYPE_POINTER, false);
 
-                    if (debug_mode) {
-                        std::cerr << "[FUNC_CALL] Registered function pointer "
-                                     "argument: "
-                                  << param->name << " = &" << func_name
-                                  << std::endl;
-                    }
-
-                    continue; // 次のパラメータへ
-                }
-                // 関数が見つからない場合は通常のポインタパラメータとして処理を継続
-            }
-
-            // 参照パラメータのサポート
-            if (param->is_reference) {
-                // 参照パラメータは変数のみを受け取れる
-                if (arg->node_type != ASTNodeType::AST_VARIABLE &&
-                    arg->node_type != ASTNodeType::AST_IDENTIFIER) {
-                    throw std::runtime_error(
-                        "Reference parameter '" + param->name +
-                        "' requires a variable, not an expression");
-                }
-
-                // 引数の変数を取得
-                Variable *source_var = interpreter_.find_variable(arg->name);
-                if (!source_var) {
-                    throw std::runtime_error(
-                        "Undefined variable for reference parameter: " +
-                        arg->name);
-                }
-
-                // 参照変数を作成（参照先のポインタを保存）
-                Variable ref_var;
-                ref_var.is_reference = true;
-                ref_var.is_assigned = true;
-                ref_var.type = source_var->type;
-                ref_var.value = reinterpret_cast<int64_t>(source_var);
-
-                // 構造体型情報をコピー
-                ref_var.struct_type_name = source_var->struct_type_name;
-                ref_var.is_struct = source_var->is_struct;
-                ref_var.type_name = source_var->type_name;
-                ref_var.interface_name = source_var->interface_name;
-                ref_var.implementing_struct = source_var->implementing_struct;
-
-                // ポインタ型情報をコピー
-                ref_var.is_pointer = source_var->is_pointer;
-                ref_var.pointer_depth = source_var->pointer_depth;
-                ref_var.pointer_base_type = source_var->pointer_base_type;
-                ref_var.pointer_base_type_name =
-                    source_var->pointer_base_type_name;
-
-                // 参照の連鎖対応（source_varも参照なら実体を取得）
-                if (source_var->is_reference) {
-                    Variable *target_var =
-                        reinterpret_cast<Variable *>(source_var->value);
-                    ref_var.value = reinterpret_cast<int64_t>(target_var);
-                    // 参照先の型情報も更新
-                    ref_var.type = target_var->type;
-                    ref_var.struct_type_name = target_var->struct_type_name;
-                    ref_var.is_struct = target_var->is_struct;
-                    ref_var.type_name = target_var->type_name;
-                }
-
-                // パラメータスコープに参照変数を登録
-                interpreter_.current_scope().variables[param->name] = ref_var;
-                continue; // 次のパラメータへ
-            }
-
-            // 配列パラメータのサポート
-            if (param->is_array) {
-                if (arg->node_type == ASTNodeType::AST_VARIABLE) {
-                    // 変数として渡された場合
-                    Variable *source_var =
-                        interpreter_.find_variable(arg->name);
-                    if (!source_var || !source_var->is_array) {
-                        throw std::runtime_error(
-                            "Array argument expected for parameter: " +
-                            param->name);
-                    }
-
-                    // 配列は参照として渡される（C/C++と同じ動作）
-                    // 参照変数を作成
-                    Variable array_ref;
-                    array_ref.is_reference = true;
-                    array_ref.is_array = true;
-                    array_ref.is_assigned = true;
-                    // 型情報は元の配列と同じにする（配列型を保持）
-                    array_ref.type = source_var->type;
-
-                    // 元の配列変数へのポインタを保存
-                    array_ref.value = reinterpret_cast<int64_t>(source_var);
-
-                    // 配列情報をコピー（参照として動作するために必要）
-                    array_ref.is_multidimensional =
-                        source_var->is_multidimensional;
-                    array_ref.array_size = source_var->array_size;
-                    array_ref.array_dimensions = source_var->array_dimensions;
-                    array_ref.array_type_info = source_var->array_type_info;
-
-                    // ポインタ配列情報もコピー
-                    array_ref.is_pointer = source_var->is_pointer;
-                    array_ref.pointer_depth = source_var->pointer_depth;
-                    array_ref.pointer_base_type = source_var->pointer_base_type;
-                    array_ref.pointer_base_type_name =
-                        source_var->pointer_base_type_name;
-
-                    // struct配列情報もコピー
-                    array_ref.is_struct = source_var->is_struct;
-                    array_ref.struct_type_name = source_var->struct_type_name;
-
-                    // unsigned情報もコピー
-                    array_ref.is_unsigned = source_var->is_unsigned;
-
-                    // 実データベクトルもコピー（参照でも正しいデータにアクセスできるように）
-                    // これにより、参照解決前でも型情報に基づいた正しいアクセスが可能
-                    // 書き込み時は元の配列とこのコピー両方を更新
-                    // 関数終了時にはこのコピーから元の配列にコピーバックする必要がある
-                    if (source_var->is_multidimensional) {
-                        array_ref.multidim_array_values =
-                            source_var->multidim_array_values;
-                        array_ref.multidim_array_float_values =
-                            source_var->multidim_array_float_values;
-                        array_ref.multidim_array_double_values =
-                            source_var->multidim_array_double_values;
-                        array_ref.multidim_array_quad_values =
-                            source_var->multidim_array_quad_values;
-                        array_ref.multidim_array_strings =
-                            source_var->multidim_array_strings;
-                    } else {
-                        array_ref.array_values = source_var->array_values;
-                        array_ref.array_float_values =
-                            source_var->array_float_values;
-                        array_ref.array_double_values =
-                            source_var->array_double_values;
-                        array_ref.array_quad_values =
-                            source_var->array_quad_values;
-                        array_ref.array_strings = source_var->array_strings;
-                    }
-
-                    // const修飾を設定
-                    if (param->is_const) {
-                        array_ref.is_const = true;
-                    }
-
-                    // パラメータとして登録
-                    interpreter_.current_scope().variables[param->name] =
-                        array_ref;
-                } else if (arg->node_type == ASTNodeType::AST_ARRAY_LITERAL) {
-                    // 配列リテラルとして直接渡された場合
-                    debug_msg(
-                        DebugMsgId::ARRAY_LITERAL_INIT_PROCESSING,
-                        ("Processing array literal argument for parameter: " +
-                         param->name)
-                            .c_str());
-
-                    // 一時的な配列変数を作成
-                    std::string temp_var_name =
-                        "__temp_array_" + std::to_string(i);
-                    Variable temp_var;
-                    temp_var.is_array = true;
-                    temp_var.type = param->type_info;
-                    temp_var.is_assigned = false;
-
-                    // 配列リテラルから値を取得
-                    std::vector<int64_t> values;
-                    std::vector<std::string> str_values;
-
-                    for (const auto &element : arg->arguments) {
-                        if (element->node_type ==
-                            ASTNodeType::AST_STRING_LITERAL) {
-                            str_values.push_back(element->str_value);
-                        } else {
-                            int64_t val = evaluate_expression(element.get());
-                            values.push_back(val);
-                        }
-                    }
-
-                    // 一時変数に値を設定
-                    if (!str_values.empty()) {
-                        temp_var.array_strings = str_values;
-                        temp_var.array_size = str_values.size();
-                        temp_var.type = static_cast<TypeInfo>(TYPE_ARRAY_BASE +
-                                                              TYPE_STRING);
-                    } else {
-                        temp_var.array_values = values;
-                        temp_var.array_size = values.size();
-                        temp_var.type =
-                            static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_INT);
-                    }
-                    temp_var.is_assigned = true;
-
-                    // パラメータに設定
-                    interpreter_.assign_array_parameter(param->name, temp_var,
-                                                        param->type_info);
-
-                    // const修飾を設定
-                    if (param->is_const) {
+                        // 変数に関数ポインタフラグを設定
                         Variable *param_var =
                             interpreter_.find_variable(param->name);
                         if (param_var) {
-                            param_var->is_const = true;
+                            param_var->is_function_pointer = true;
+                            param_var->function_pointer_name = func_name;
                         }
+
+                        if (debug_mode) {
+                            std::cerr
+                                << "[FUNC_CALL] Registered function pointer "
+                                   "argument: "
+                                << param->name << " = &" << func_name
+                                << std::endl;
+                        }
+
+                        continue; // 次のパラメータへ
                     }
-                } else {
-                    throw std::runtime_error("Only array variables can be "
-                                             "passed as array parameters");
-                }
-            } else {
-                // 通常の値パラメータの型チェック
-                // 引数の型を事前にチェック
-                if (arg->node_type == ASTNodeType::AST_STRING_LITERAL &&
-                    param->type_info != TYPE_STRING) {
-                    throw std::runtime_error(
-                        "Type mismatch: cannot pass string literal to "
-                        "non-string parameter '" +
-                        param->name + "'");
+                    // 関数が見つからない場合は通常のポインタパラメータとして処理を継続
                 }
 
-                // 文字列パラメータの場合
-                if (param->type_info == TYPE_STRING) {
-                    if (arg->node_type == ASTNodeType::AST_STRING_LITERAL) {
-                        // 文字列リテラルを直接代入
-                        Variable param_var;
-                        param_var.type = TYPE_STRING;
-                        param_var.str_value = arg->str_value;
-                        param_var.is_assigned = true;
-                        param_var.is_const =
-                            param->is_const; // パラメータのconst修飾を保持
-                        interpreter_.current_scope().variables[param->name] =
-                            param_var;
-                    } else if (arg->node_type == ASTNodeType::AST_VARIABLE) {
-                        // 文字列変数を代入
+                // 参照パラメータのサポート
+                if (param->is_reference) {
+                    // 参照パラメータは変数のみを受け取れる
+                    if (arg->node_type != ASTNodeType::AST_VARIABLE &&
+                        arg->node_type != ASTNodeType::AST_IDENTIFIER) {
+                        throw std::runtime_error(
+                            "Reference parameter '" + param->name +
+                            "' requires a variable, not an expression");
+                    }
+
+                    // 引数の変数を取得
+                    Variable *source_var =
+                        interpreter_.find_variable(arg->name);
+                    if (!source_var) {
+                        throw std::runtime_error(
+                            "Undefined variable for reference parameter: " +
+                            arg->name);
+                    }
+
+                    // 参照変数を作成（参照先のポインタを保存）
+                    Variable ref_var;
+                    ref_var.is_reference = true;
+                    ref_var.is_assigned = true;
+                    ref_var.type = source_var->type;
+                    ref_var.value = reinterpret_cast<int64_t>(source_var);
+
+                    // 構造体型情報をコピー
+                    ref_var.struct_type_name = source_var->struct_type_name;
+                    ref_var.is_struct = source_var->is_struct;
+                    ref_var.type_name = source_var->type_name;
+                    ref_var.interface_name = source_var->interface_name;
+                    ref_var.implementing_struct =
+                        source_var->implementing_struct;
+
+                    // ポインタ型情報をコピー
+                    ref_var.is_pointer = source_var->is_pointer;
+                    ref_var.pointer_depth = source_var->pointer_depth;
+                    ref_var.pointer_base_type = source_var->pointer_base_type;
+                    ref_var.pointer_base_type_name =
+                        source_var->pointer_base_type_name;
+
+                    // 参照の連鎖対応（source_varも参照なら実体を取得）
+                    if (source_var->is_reference) {
+                        Variable *target_var =
+                            reinterpret_cast<Variable *>(source_var->value);
+                        ref_var.value = reinterpret_cast<int64_t>(target_var);
+                        // 参照先の型情報も更新
+                        ref_var.type = target_var->type;
+                        ref_var.struct_type_name = target_var->struct_type_name;
+                        ref_var.is_struct = target_var->is_struct;
+                        ref_var.type_name = target_var->type_name;
+                    }
+
+                    // パラメータスコープに参照変数を登録
+                    interpreter_.current_scope().variables[param->name] =
+                        ref_var;
+                    continue; // 次のパラメータへ
+                }
+
+                // 配列パラメータのサポート
+                if (param->is_array) {
+                    if (arg->node_type == ASTNodeType::AST_VARIABLE) {
+                        // 変数として渡された場合
                         Variable *source_var =
                             interpreter_.find_variable(arg->name);
-                        if (!source_var || source_var->type != TYPE_STRING) {
+                        if (!source_var || !source_var->is_array) {
                             throw std::runtime_error(
-                                "Type mismatch: expected string variable for "
-                                "parameter '" +
-                                param->name + "'");
+                                "Array argument expected for parameter: " +
+                                param->name);
                         }
-                        Variable param_var;
-                        param_var.type = TYPE_STRING;
-                        param_var.str_value = source_var->str_value;
-                        param_var.is_assigned = true;
-                        param_var.is_const =
-                            param->is_const; // パラメータのconst修飾を保持
+
+                        // 配列は参照として渡される（C/C++と同じ動作）
+                        // 参照変数を作成
+                        Variable array_ref;
+                        array_ref.is_reference = true;
+                        array_ref.is_array = true;
+                        array_ref.is_assigned = true;
+                        // 型情報は元の配列と同じにする（配列型を保持）
+                        array_ref.type = source_var->type;
+
+                        // 元の配列変数へのポインタを保存
+                        array_ref.value = reinterpret_cast<int64_t>(source_var);
+
+                        // 配列情報をコピー（参照として動作するために必要）
+                        array_ref.is_multidimensional =
+                            source_var->is_multidimensional;
+                        array_ref.array_size = source_var->array_size;
+                        array_ref.array_dimensions =
+                            source_var->array_dimensions;
+                        array_ref.array_type_info = source_var->array_type_info;
+
+                        // ポインタ配列情報もコピー
+                        array_ref.is_pointer = source_var->is_pointer;
+                        array_ref.pointer_depth = source_var->pointer_depth;
+                        array_ref.pointer_base_type =
+                            source_var->pointer_base_type;
+                        array_ref.pointer_base_type_name =
+                            source_var->pointer_base_type_name;
+
+                        // struct配列情報もコピー
+                        array_ref.is_struct = source_var->is_struct;
+                        array_ref.struct_type_name =
+                            source_var->struct_type_name;
+
+                        // unsigned情報もコピー
+                        array_ref.is_unsigned = source_var->is_unsigned;
+
+                        // 実データベクトルもコピー（参照でも正しいデータにアクセスできるように）
+                        // これにより、参照解決前でも型情報に基づいた正しいアクセスが可能
+                        // 書き込み時は元の配列とこのコピー両方を更新
+                        // 関数終了時にはこのコピーから元の配列にコピーバックする必要がある
+                        if (source_var->is_multidimensional) {
+                            array_ref.multidim_array_values =
+                                source_var->multidim_array_values;
+                            array_ref.multidim_array_float_values =
+                                source_var->multidim_array_float_values;
+                            array_ref.multidim_array_double_values =
+                                source_var->multidim_array_double_values;
+                            array_ref.multidim_array_quad_values =
+                                source_var->multidim_array_quad_values;
+                            array_ref.multidim_array_strings =
+                                source_var->multidim_array_strings;
+                        } else {
+                            array_ref.array_values = source_var->array_values;
+                            array_ref.array_float_values =
+                                source_var->array_float_values;
+                            array_ref.array_double_values =
+                                source_var->array_double_values;
+                            array_ref.array_quad_values =
+                                source_var->array_quad_values;
+                            array_ref.array_strings = source_var->array_strings;
+                        }
+
+                        // const修飾を設定
+                        if (param->is_const) {
+                            array_ref.is_const = true;
+                        }
+
+                        // パラメータとして登録
                         interpreter_.current_scope().variables[param->name] =
-                            param_var;
-                    } else {
-                        throw std::runtime_error(
-                            "Type mismatch: cannot pass non-string expression "
-                            "to string parameter '" +
-                            param->name + "'");
-                    }
-                } else {
-                    auto is_interface_compatible = [](const Variable *var) {
-                        if (!var) {
-                            return false;
-                        }
-                        if (var->is_struct || var->type == TYPE_INTERFACE) {
-                            return true;
-                        }
-                        if (var->type >= TYPE_ARRAY_BASE) {
-                            return true;
-                        }
-                        switch (var->type) {
-                        case TYPE_INT:
-                        case TYPE_LONG:
-                        case TYPE_SHORT:
-                        case TYPE_TINY:
-                        case TYPE_BOOL:
-                        case TYPE_STRING:
-                        case TYPE_CHAR:
-                            return true;
-                        default:
-                            return false;
-                        }
-                    };
+                            array_ref;
+                    } else if (arg->node_type ==
+                               ASTNodeType::AST_ARRAY_LITERAL) {
+                        // 配列リテラルとして直接渡された場合
+                        debug_msg(DebugMsgId::ARRAY_LITERAL_INIT_PROCESSING,
+                                  ("Processing array literal argument for "
+                                   "parameter: " +
+                                   param->name)
+                                      .c_str());
 
-                    auto assign_interface_argument =
-                        [&](const Variable &source,
-                            const std::string &source_name) {
-                            Variable interface_placeholder(param->type_name,
-                                                           true);
-                            interpreter_.assign_interface_view(
-                                param->name, interface_placeholder, source,
-                                source_name);
-                        };
+                        // 一時的な配列変数を作成
+                        std::string temp_var_name =
+                            "__temp_array_" + std::to_string(i);
+                        Variable temp_var;
+                        temp_var.is_array = true;
+                        temp_var.type = param->type_info;
+                        temp_var.is_assigned = false;
 
-                    bool param_is_interface = false;
-                    if (param->type_info == TYPE_INTERFACE) {
-                        param_is_interface = true;
-                    } else if (!param->type_name.empty()) {
-                        if (interpreter_.find_interface_definition(
-                                param->type_name) != nullptr) {
-                            param_is_interface = true;
-                        }
-                    }
+                        // 配列リテラルから値を取得
+                        std::vector<int64_t> values;
+                        std::vector<std::string> str_values;
 
-                    if (param_is_interface) {
-                        if (arg->node_type == ASTNodeType::AST_VARIABLE ||
-                            arg->node_type == ASTNodeType::AST_IDENTIFIER) {
-                            std::string source_name = arg->name;
-                            Variable *source_var =
-                                interpreter_.find_variable(source_name);
-                            if (!source_var) {
-                                throw std::runtime_error(
-                                    "Source variable not found: " +
-                                    source_name);
-                            }
-                            if (!is_interface_compatible(source_var)) {
-                                throw std::runtime_error(
-                                    "Cannot pass non-struct/non-primitive to "
-                                    "interface parameter '" +
-                                    param->name + "'");
-                            }
-                            assign_interface_argument(*source_var, source_name);
-                        } else if (arg->node_type ==
-                                   ASTNodeType::AST_STRING_LITERAL) {
-                            Variable temp;
-                            temp.type = TYPE_STRING;
-                            temp.str_value = arg->str_value;
-                            temp.is_assigned = true;
-                            temp.struct_type_name = "string";
-                            assign_interface_argument(temp, "");
-                        } else {
-                            auto build_temp_from_primitive =
-                                [&](TypeInfo value_type, int64_t numeric_value,
-                                    const std::string &string_value) {
-                                    Variable temp;
-                                    temp.type = value_type;
-                                    temp.is_assigned = true;
-                                    if (!arg->type_name.empty()) {
-                                        temp.struct_type_name = arg->type_name;
-                                    } else {
-                                        temp.struct_type_name = std::string(
-                                            ::type_info_to_string(value_type));
-                                    }
-                                    if (value_type == TYPE_STRING) {
-                                        temp.str_value = string_value;
-                                    } else {
-                                        temp.value = numeric_value;
-                                    }
-                                    return temp;
-                                };
-
-                            try {
-                                int64_t numeric_value =
-                                    evaluate_expression(arg.get());
-                                TypeInfo resolved_type =
-                                    arg->type_info != TYPE_UNKNOWN
-                                        ? arg->type_info
-                                        : TYPE_INT;
-                                if (resolved_type == TYPE_STRING) {
-                                    Variable temp = build_temp_from_primitive(
-                                        TYPE_STRING, 0, arg->str_value);
-                                    assign_interface_argument(temp, "");
-                                } else {
-                                    Variable temp = build_temp_from_primitive(
-                                        resolved_type, numeric_value, "");
-                                    assign_interface_argument(temp, "");
-                                }
-                            } catch (const ReturnException &ret) {
-                                if (ret.is_array) {
-                                    throw std::runtime_error(
-                                        "Cannot pass array return value to "
-                                        "interface parameter '" +
-                                        param->name + "'");
-                                }
-                                if (!ret.is_struct &&
-                                    TypeHelpers::isString(ret.type)) {
-                                    Variable temp = build_temp_from_primitive(
-                                        TYPE_STRING, 0, ret.str_value);
-                                    assign_interface_argument(temp, "");
-                                } else if (!ret.is_struct) {
-                                    Variable temp = build_temp_from_primitive(
-                                        ret.type, ret.value, ret.str_value);
-                                    assign_interface_argument(temp, "");
-                                } else {
-                                    assign_interface_argument(ret.struct_value,
-                                                              "");
-                                }
-                            }
-                        }
-                        continue;
-                    }
-
-                    // struct型パラメータかチェック
-                    if (param->type_info == TYPE_STRUCT) {
-                        Variable *source_var = nullptr;
-                        std::string source_var_name;
-
-                        if (arg->node_type == ASTNodeType::AST_VARIABLE) {
-                            // struct変数を引数として渡す場合
-                            source_var_name = arg->name;
-                            source_var = interpreter_.find_variable(arg->name);
-                        } else if (arg->node_type ==
-                                   ASTNodeType::AST_ARRAY_REF) {
-                            // 構造体配列要素を引数として渡す場合
-                            // (struct_array[0])
-                            std::string array_name = arg->left->name;
-                            int64_t index =
-                                evaluate_expression(arg->array_index.get());
-                            source_var_name =
-                                array_name + "[" + std::to_string(index) + "]";
-
-                            // 配列要素の最新状態を同期
-                            interpreter_.sync_struct_members_from_direct_access(
-                                source_var_name);
-                            // 同期後に再度取得
-                            source_var =
-                                interpreter_.find_variable(source_var_name);
-                        }
-
-                        if (source_var && source_var->is_struct) {
-
-                            // typedef名を実際のstruct名に解決
-                            std::string resolved_struct_type =
-                                interpreter_.resolve_typedef(param->type_name);
-                            std::string source_resolved_type =
-                                interpreter_.resolve_typedef(
-                                    source_var->struct_type_name);
-
-                            // struct型の互換性チェック
-                            // "struct Point"と"Point"は同じ型として扱う
-                            std::string normalized_resolved =
-                                resolved_struct_type;
-                            std::string normalized_source =
-                                source_resolved_type;
-
-                            // "struct StructName"を"StructName"に正規化
-                            if (normalized_resolved.substr(0, 7) == "struct " &&
-                                normalized_resolved.length() > 7) {
-                                normalized_resolved =
-                                    normalized_resolved.substr(7);
-                            }
-                            if (normalized_source.substr(0, 7) == "struct " &&
-                                normalized_source.length() > 7) {
-                                normalized_source = normalized_source.substr(7);
-                            }
-
-                            if (normalized_resolved != normalized_source) {
-                                throw std::runtime_error(
-                                    "Type mismatch: cannot pass struct type '" +
-                                    source_var->struct_type_name +
-                                    "' to parameter '" + param->name +
-                                    "' of type '" + param->type_name + "'");
-                            }
-
-                            // ソース構造体の最新状態を同期
-                            Variable *sync_source_var = nullptr;
-                            if (!source_var_name.empty()) {
-                                interpreter_
-                                    .sync_struct_members_from_direct_access(
-                                        source_var_name);
-                                sync_source_var =
-                                    interpreter_.find_variable(source_var_name);
+                        for (const auto &element : arg->arguments) {
+                            if (element->node_type ==
+                                ASTNodeType::AST_STRING_LITERAL) {
+                                str_values.push_back(element->str_value);
                             } else {
-                                debug_print("WARNING: Empty source_var_name, "
-                                            "skipping sync\n");
+                                int64_t val =
+                                    evaluate_expression(element.get());
+                                values.push_back(val);
                             }
+                        }
 
-                            if (!sync_source_var) {
-                                throw std::runtime_error(
-                                    "Source struct variable not found: " +
-                                    source_var_name);
-                            }
-
-                            // 文字列配列メンバの場合、追加で確実にarray_stringsを同期
-                            for (auto &source_member_pair :
-                                 sync_source_var->struct_members) {
-                                if (source_member_pair.second.is_array &&
-                                    source_member_pair.second.type ==
-                                        TYPE_STRING) {
-                                    // 個別要素変数から文字列配列を再構築
-                                    std::string base_name =
-                                        source_var_name.empty()
-                                            ? "unknown"
-                                            : source_var_name;
-                                    std::string source_member_name =
-                                        base_name + "." +
-                                        source_member_pair.first;
-                                    for (int i = 0;
-                                         i <
-                                         source_member_pair.second.array_size;
-                                         i++) {
-                                        std::string element_name =
-                                            source_member_name + "[" +
-                                            std::to_string(i) + "]";
-                                        Variable *element_var =
-                                            interpreter_.find_variable(
-                                                element_name);
-                                        if (element_var &&
-                                            element_var->type == TYPE_STRING) {
-                                            if (source_member_pair.second
-                                                    .array_strings.size() <=
-                                                static_cast<size_t>(i)) {
-                                                source_member_pair.second
-                                                    .array_strings.resize(i +
-                                                                          1);
-                                            }
-                                            source_member_pair.second
-                                                .array_strings[i] =
-                                                element_var->str_value;
-                                        }
-                                    }
-                                }
-                            }
-
-                            // struct変数をコピーしてパラメータに設定
-                            Variable param_var = *sync_source_var;
-                            param_var.is_const =
-                                param->is_const; // パラメータのconst修飾を保持
-                            param_var.is_struct =
-                                true; // 明示的にstructフラグを設定
-                            param_var.type = TYPE_STRUCT; // 型情報も設定
-                            // 解決されたstruct型名を設定
-                            param_var.struct_type_name = resolved_struct_type;
-
-                            // struct_membersの配列要素も確実にコピー
-                            for (auto &member_pair : param_var.struct_members) {
-                                if (member_pair.second.is_array &&
-                                    TypeHelpers::isString(
-                                        member_pair.second.type)) {
-                                    // 文字列配列の場合、array_stringsを確実にコピー
-                                    const auto &source_member =
-                                        sync_source_var->struct_members.find(
-                                            member_pair.first);
-                                    if (source_member !=
-                                        sync_source_var->struct_members.end()) {
-                                        debug_print(
-                                            "DEBUG: Copying string array %s: "
-                                            "size=%d\n",
-                                            member_pair.first.c_str(),
-                                            static_cast<int>(
-                                                source_member->second
-                                                    .array_strings.size()));
-                                        member_pair.second.array_strings =
-                                            source_member->second.array_strings;
-                                        if (!source_member->second.array_strings
-                                                 .empty()) {
-                                            debug_print(
-                                                "DEBUG: First element: '%s'\n",
-                                                source_member->second
-                                                    .array_strings[0]
-                                                    .c_str());
-                                        }
-                                    }
-                                }
-                            }
-
-                            interpreter_.current_scope()
-                                .variables[param->name] = param_var;
-
-                            // 個別メンバー変数も作成（値を正しく設定）
-                            // 元の構造体定義から type_name 情報を取得
-                            const StructDefinition *struct_def =
-                                interpreter_.find_struct_definition(
-                                    resolved_struct_type);
-                            for (const auto &member_pair :
-                                 sync_source_var->struct_members) {
-                                // 配列要素のキー (例: "dimensions[0]")
-                                // をスキップ
-                                if (member_pair.first.find('[') !=
-                                    std::string::npos) {
-                                    continue;
-                                }
-
-                                std::string full_member_name =
-                                    param->name + "." + member_pair.first;
-                                Variable member_var = member_pair.second;
-                                // 値を確実に設定
-                                member_var.is_assigned = true;
-
-                                // 元の構造体定義から type_name を取得して設定
-                                if (struct_def) {
-                                    for (const auto &member :
-                                         struct_def->members) {
-                                        if (member.name == member_pair.first) {
-                                            member_var.type_name =
-                                                member.type_alias;
-                                            member_var.is_pointer =
-                                                member.is_pointer;
-                                            member_var.pointer_depth =
-                                                member.pointer_depth;
-                                            member_var.pointer_base_type_name =
-                                                member.pointer_base_type_name;
-                                            member_var.pointer_base_type =
-                                                member.pointer_base_type;
-                                            member_var.is_reference =
-                                                member.is_reference;
-                                            member_var.is_unsigned =
-                                                member.is_unsigned;
-                                            break;
-                                        }
-                                    }
-                                }
-
-                                interpreter_.current_scope()
-                                    .variables[full_member_name] = member_var;
-
-                                // 配列メンバの場合、個別要素変数も作成
-                                if (member_var.is_array) {
-                                    // ソース側の配列要素変数をコピー
-                                    std::string source_member_name =
-                                        source_var_name + "." +
-                                        member_pair.first;
-                                    for (int i = 0; i < member_var.array_size;
-                                         i++) {
-                                        std::string source_element_name =
-                                            source_member_name + "[" +
-                                            std::to_string(i) + "]";
-                                        std::string param_element_name =
-                                            full_member_name + "[" +
-                                            std::to_string(i) + "]";
-
-                                        Variable *source_element =
-                                            interpreter_.find_variable(
-                                                source_element_name);
-                                        if (source_element) {
-                                            Variable element_var =
-                                                *source_element;
-                                            element_var.is_assigned = true;
-                                            interpreter_.current_scope()
-                                                .variables[param_element_name] =
-                                                element_var;
-                                        } else {
-                                            // 個別要素変数が存在しない場合、struct_membersの配列から作成
-                                            Variable element_var;
-                                            if (member_var.type ==
-                                                    TYPE_STRING &&
-                                                i < static_cast<int>(
-                                                        sync_source_var
-                                                            ->struct_members
-                                                                [member_pair
-                                                                     .first]
-                                                            .array_strings
-                                                            .size())) {
-                                                element_var.type = TYPE_STRING;
-                                                element_var.str_value =
-                                                    sync_source_var
-                                                        ->struct_members
-                                                            [member_pair.first]
-                                                        .array_strings[i];
-                                            } else if (
-                                                member_var.type !=
-                                                    TYPE_STRING &&
-                                                i < static_cast<int>(
-                                                        sync_source_var
-                                                            ->struct_members
-                                                                [member_pair
-                                                                     .first]
-                                                            .array_values
-                                                            .size())) {
-                                                element_var.type =
-                                                    member_var.type;
-                                                element_var.value =
-                                                    sync_source_var
-                                                        ->struct_members
-                                                            [member_pair.first]
-                                                        .array_values[i];
-                                            } else {
-                                                // デフォルト値を設定
-                                                element_var.type =
-                                                    member_var.type;
-                                                if (member_var.type ==
-                                                    TYPE_STRING) {
-                                                    element_var.str_value = "";
-                                                } else {
-                                                    element_var.value = 0;
-                                                }
-                                            }
-                                            element_var.is_assigned = true;
-                                            interpreter_.current_scope()
-                                                .variables[param_element_name] =
-                                                element_var;
-                                        }
-                                    }
-                                }
-                            }
+                        // 一時変数に値を設定
+                        if (!str_values.empty()) {
+                            temp_var.array_strings = str_values;
+                            temp_var.array_size = str_values.size();
+                            temp_var.type = static_cast<TypeInfo>(
+                                TYPE_ARRAY_BASE + TYPE_STRING);
                         } else {
-                            throw std::runtime_error(
-                                "Type mismatch: cannot pass non-struct "
-                                "expression to struct parameter '" +
-                                param->name + "'");
+                            temp_var.array_values = values;
+                            temp_var.array_size = values.size();
+                            temp_var.type = static_cast<TypeInfo>(
+                                TYPE_ARRAY_BASE + TYPE_INT);
                         }
-                    } else {
-                        // 数値パラメータの場合
-                        if (arg->node_type == ASTNodeType::AST_STRING_LITERAL) {
-                            throw std::runtime_error(
-                                "Type mismatch: cannot pass string literal to "
-                                "numeric parameter '" +
-                                param->name + "'");
-                        }
+                        temp_var.is_assigned = true;
 
-                        // ポインタパラメータの場合、引数のconst情報を事前に取得
-                        bool arg_is_pointer = false;
-                        bool arg_is_pointee_const = false;
-                        bool arg_is_pointer_const = false;
-                        int arg_pointer_depth = 0;
-                        TypeInfo arg_pointer_base_type = TYPE_UNKNOWN;
-                        std::string arg_pointer_base_type_name;
-
-                        if (param->is_pointer &&
-                            (arg->node_type == ASTNodeType::AST_VARIABLE ||
-                             arg->node_type == ASTNodeType::AST_IDENTIFIER)) {
-                            // 引数変数のconst情報を取得（関数スコープ作成前に）
-                            Variable *arg_var =
-                                interpreter_.find_variable(arg->name);
-                            if (arg_var && arg_var->is_pointer) {
-                                arg_is_pointer = true;
-                                arg_is_pointee_const =
-                                    arg_var->is_pointee_const;
-                                arg_is_pointer_const =
-                                    arg_var->is_pointer_const;
-                                arg_pointer_depth = arg_var->pointer_depth;
-                                arg_pointer_base_type =
-                                    arg_var->pointer_base_type;
-                                arg_pointer_base_type_name =
-                                    arg_var->pointer_base_type_name;
-                            }
-                        }
-
-                        TypedValue arg_value =
-                            evaluate_typed_expression(arg.get());
-                        interpreter_.assign_function_parameter(
-                            param->name, arg_value, param->type_info,
-                            param->is_unsigned);
+                        // パラメータに設定
+                        interpreter_.assign_array_parameter(
+                            param->name, temp_var, param->type_info);
 
                         // const修飾を設定
                         if (param->is_const) {
@@ -1849,66 +1526,679 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                                 param_var->is_const = true;
                             }
                         }
+                    } else {
+                        throw std::runtime_error("Only array variables can be "
+                                                 "passed as array parameters");
+                    }
+                } else {
+                    // 通常の値パラメータの型チェック
+                    // 引数の型を事前にチェック
+                    if (arg->node_type == ASTNodeType::AST_STRING_LITERAL &&
+                        param->type_info != TYPE_STRING) {
+                        throw std::runtime_error(
+                            "Type mismatch: cannot pass string literal to "
+                            "non-string parameter '" +
+                            param->name + "'");
+                    }
 
-                        // ポインタパラメータの場合、const情報を保持・チェック
-                        if (param->is_pointer && arg_is_pointer) {
-                            // 型安全性チェック: const → non-const は禁止
-                            // const T* → T* への変換をチェック
-                            if (arg_is_pointee_const &&
-                                !param->is_pointee_const_qualifier) {
+                    // 文字列パラメータの場合
+                    if (param->type_info == TYPE_STRING) {
+                        if (arg->node_type == ASTNodeType::AST_STRING_LITERAL) {
+                            // 文字列リテラルを直接代入
+                            Variable param_var;
+                            param_var.type = TYPE_STRING;
+                            param_var.str_value = arg->str_value;
+                            param_var.is_assigned = true;
+                            param_var.is_const =
+                                param->is_const; // パラメータのconst修飾を保持
+                            interpreter_.current_scope()
+                                .variables[param->name] = param_var;
+                        } else if (arg->node_type ==
+                                   ASTNodeType::AST_VARIABLE) {
+                            // 文字列変数を代入
+                            Variable *source_var =
+                                interpreter_.find_variable(arg->name);
+                            if (!source_var ||
+                                source_var->type != TYPE_STRING) {
                                 throw std::runtime_error(
-                                    "Type mismatch in function call to '" +
-                                    node->name + "':\n" +
-                                    "  Cannot pass pointer to const (" +
-                                    (arg_pointer_base_type_name.empty()
-                                         ? "const T*"
-                                         : "const " +
-                                               arg_pointer_base_type_name +
-                                               "*") +
-                                    ") to parameter of type pointer to "
-                                    "non-const (" +
-                                    (param->type_name.empty()
-                                         ? "T*"
-                                         : param->type_name) +
-                                    ")\n" +
-                                    "  Cannot discard const qualifier from "
-                                    "pointed-to type");
+                                    "Type mismatch: expected string variable "
+                                    "for "
+                                    "parameter '" +
+                                    param->name + "'");
+                            }
+                            Variable param_var;
+                            param_var.type = TYPE_STRING;
+                            param_var.str_value = source_var->str_value;
+                            param_var.is_assigned = true;
+                            param_var.is_const =
+                                param->is_const; // パラメータのconst修飾を保持
+                            interpreter_.current_scope()
+                                .variables[param->name] = param_var;
+                        } else {
+                            throw std::runtime_error(
+                                "Type mismatch: cannot pass non-string "
+                                "expression "
+                                "to string parameter '" +
+                                param->name + "'");
+                        }
+                    } else {
+                        auto is_interface_compatible = [](const Variable *var) {
+                            if (!var) {
+                                return false;
+                            }
+                            if (var->is_struct || var->type == TYPE_INTERFACE) {
+                                return true;
+                            }
+                            if (var->type >= TYPE_ARRAY_BASE) {
+                                return true;
+                            }
+                            switch (var->type) {
+                            case TYPE_INT:
+                            case TYPE_LONG:
+                            case TYPE_SHORT:
+                            case TYPE_TINY:
+                            case TYPE_BOOL:
+                            case TYPE_STRING:
+                            case TYPE_CHAR:
+                                return true;
+                            default:
+                                return false;
+                            }
+                        };
+
+                        auto assign_interface_argument =
+                            [&](const Variable &source,
+                                const std::string &source_name) {
+                                Variable interface_placeholder(param->type_name,
+                                                               true);
+                                interpreter_.assign_interface_view(
+                                    param->name, interface_placeholder, source,
+                                    source_name);
+                            };
+
+                        bool param_is_interface = false;
+                        if (param->type_info == TYPE_INTERFACE) {
+                            param_is_interface = true;
+                        } else if (!param->type_name.empty()) {
+                            if (interpreter_.find_interface_definition(
+                                    param->type_name) != nullptr) {
+                                param_is_interface = true;
+                            }
+                        }
+
+                        if (param_is_interface) {
+                            if (arg->node_type == ASTNodeType::AST_VARIABLE ||
+                                arg->node_type == ASTNodeType::AST_IDENTIFIER) {
+                                std::string source_name = arg->name;
+                                Variable *source_var =
+                                    interpreter_.find_variable(source_name);
+                                if (!source_var) {
+                                    throw std::runtime_error(
+                                        "Source variable not found: " +
+                                        source_name);
+                                }
+                                if (!is_interface_compatible(source_var)) {
+                                    throw std::runtime_error(
+                                        "Cannot pass non-struct/non-primitive "
+                                        "to "
+                                        "interface parameter '" +
+                                        param->name + "'");
+                                }
+                                assign_interface_argument(*source_var,
+                                                          source_name);
+                            } else if (arg->node_type ==
+                                       ASTNodeType::AST_STRING_LITERAL) {
+                                Variable temp;
+                                temp.type = TYPE_STRING;
+                                temp.str_value = arg->str_value;
+                                temp.is_assigned = true;
+                                temp.struct_type_name = "string";
+                                assign_interface_argument(temp, "");
+                            } else {
+                                auto build_temp_from_primitive =
+                                    [&](TypeInfo value_type,
+                                        int64_t numeric_value,
+                                        const std::string &string_value) {
+                                        Variable temp;
+                                        temp.type = value_type;
+                                        temp.is_assigned = true;
+                                        if (!arg->type_name.empty()) {
+                                            temp.struct_type_name =
+                                                arg->type_name;
+                                        } else {
+                                            temp.struct_type_name = std::string(
+                                                ::type_info_to_string(
+                                                    value_type));
+                                        }
+                                        if (value_type == TYPE_STRING) {
+                                            temp.str_value = string_value;
+                                        } else {
+                                            temp.value = numeric_value;
+                                        }
+                                        return temp;
+                                    };
+
+                                try {
+                                    int64_t numeric_value =
+                                        evaluate_expression(arg.get());
+                                    TypeInfo resolved_type =
+                                        arg->type_info != TYPE_UNKNOWN
+                                            ? arg->type_info
+                                            : TYPE_INT;
+                                    if (resolved_type == TYPE_STRING) {
+                                        Variable temp =
+                                            build_temp_from_primitive(
+                                                TYPE_STRING, 0, arg->str_value);
+                                        assign_interface_argument(temp, "");
+                                    } else {
+                                        Variable temp =
+                                            build_temp_from_primitive(
+                                                resolved_type, numeric_value,
+                                                "");
+                                        assign_interface_argument(temp, "");
+                                    }
+                                } catch (const ReturnException &ret) {
+                                    if (ret.is_array) {
+                                        throw std::runtime_error(
+                                            "Cannot pass array return value to "
+                                            "interface parameter '" +
+                                            param->name + "'");
+                                    }
+                                    if (!ret.is_struct &&
+                                        TypeHelpers::isString(ret.type)) {
+                                        Variable temp =
+                                            build_temp_from_primitive(
+                                                TYPE_STRING, 0, ret.str_value);
+                                        assign_interface_argument(temp, "");
+                                    } else if (!ret.is_struct) {
+                                        Variable temp =
+                                            build_temp_from_primitive(
+                                                ret.type, ret.value,
+                                                ret.str_value);
+                                        assign_interface_argument(temp, "");
+                                    } else {
+                                        assign_interface_argument(
+                                            ret.struct_value, "");
+                                    }
+                                }
+                            }
+                            continue;
+                        }
+
+                        // struct型パラメータかチェック
+                        if (param->type_info == TYPE_STRUCT) {
+                            Variable *source_var = nullptr;
+                            std::string source_var_name;
+
+                            if (arg->node_type == ASTNodeType::AST_VARIABLE) {
+                                // struct変数を引数として渡す場合
+                                source_var_name = arg->name;
+                                source_var =
+                                    interpreter_.find_variable(arg->name);
+                            } else if (arg->node_type ==
+                                       ASTNodeType::AST_ARRAY_REF) {
+                                // 構造体配列要素を引数として渡す場合
+                                // (struct_array[0])
+                                std::string array_name = arg->left->name;
+                                int64_t index =
+                                    evaluate_expression(arg->array_index.get());
+                                source_var_name = array_name + "[" +
+                                                  std::to_string(index) + "]";
+
+                                // 配列要素の最新状態を同期
+                                interpreter_
+                                    .sync_struct_members_from_direct_access(
+                                        source_var_name);
+                                // 同期後に再度取得
+                                source_var =
+                                    interpreter_.find_variable(source_var_name);
                             }
 
-                            // T* const → T* への変換をチェック
-                            if (arg_is_pointer_const &&
-                                !param->is_pointer_const_qualifier) {
+                            if (source_var && source_var->is_struct) {
+
+                                // typedef名を実際のstruct名に解決
+                                std::string resolved_struct_type =
+                                    interpreter_.resolve_typedef(
+                                        param->type_name);
+                                std::string source_resolved_type =
+                                    interpreter_.resolve_typedef(
+                                        source_var->struct_type_name);
+
+                                // struct型の互換性チェック
+                                // "struct Point"と"Point"は同じ型として扱う
+                                std::string normalized_resolved =
+                                    resolved_struct_type;
+                                std::string normalized_source =
+                                    source_resolved_type;
+
+                                // "struct StructName"を"StructName"に正規化
+                                if (normalized_resolved.substr(0, 7) ==
+                                        "struct " &&
+                                    normalized_resolved.length() > 7) {
+                                    normalized_resolved =
+                                        normalized_resolved.substr(7);
+                                }
+                                if (normalized_source.substr(0, 7) ==
+                                        "struct " &&
+                                    normalized_source.length() > 7) {
+                                    normalized_source =
+                                        normalized_source.substr(7);
+                                }
+
+                                if (normalized_resolved != normalized_source) {
+                                    throw std::runtime_error(
+                                        "Type mismatch: cannot pass struct "
+                                        "type '" +
+                                        source_var->struct_type_name +
+                                        "' to parameter '" + param->name +
+                                        "' of type '" + param->type_name + "'");
+                                }
+
+                                // ソース構造体の最新状態を同期
+                                Variable *sync_source_var = nullptr;
+                                if (!source_var_name.empty()) {
+                                    interpreter_
+                                        .sync_struct_members_from_direct_access(
+                                            source_var_name);
+                                    sync_source_var =
+                                        interpreter_.find_variable(
+                                            source_var_name);
+                                } else {
+                                    debug_print(
+                                        "WARNING: Empty source_var_name, "
+                                        "skipping sync\n");
+                                }
+
+                                if (!sync_source_var) {
+                                    throw std::runtime_error(
+                                        "Source struct variable not found: " +
+                                        source_var_name);
+                                }
+
+                                // 文字列配列メンバの場合、追加で確実にarray_stringsを同期
+                                for (auto &source_member_pair :
+                                     sync_source_var->struct_members) {
+                                    if (source_member_pair.second.is_array &&
+                                        source_member_pair.second.type ==
+                                            TYPE_STRING) {
+                                        // 個別要素変数から文字列配列を再構築
+                                        std::string base_name =
+                                            source_var_name.empty()
+                                                ? "unknown"
+                                                : source_var_name;
+                                        std::string source_member_name =
+                                            base_name + "." +
+                                            source_member_pair.first;
+                                        for (int i = 0;
+                                             i < source_member_pair.second
+                                                     .array_size;
+                                             i++) {
+                                            std::string element_name =
+                                                source_member_name + "[" +
+                                                std::to_string(i) + "]";
+                                            Variable *element_var =
+                                                interpreter_.find_variable(
+                                                    element_name);
+                                            if (element_var &&
+                                                element_var->type ==
+                                                    TYPE_STRING) {
+                                                if (source_member_pair.second
+                                                        .array_strings.size() <=
+                                                    static_cast<size_t>(i)) {
+                                                    source_member_pair.second
+                                                        .array_strings.resize(
+                                                            i + 1);
+                                                }
+                                                source_member_pair.second
+                                                    .array_strings[i] =
+                                                    element_var->str_value;
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // struct変数をコピーしてパラメータに設定
+                                Variable param_var = *sync_source_var;
+                                param_var.is_const =
+                                    param
+                                        ->is_const; // パラメータのconst修飾を保持
+                                param_var.is_struct =
+                                    true; // 明示的にstructフラグを設定
+                                param_var.type = TYPE_STRUCT; // 型情報も設定
+                                // 解決されたstruct型名を設定
+                                param_var.struct_type_name =
+                                    resolved_struct_type;
+
+                                // struct_membersの配列要素も確実にコピー
+                                for (auto &member_pair :
+                                     param_var.struct_members) {
+                                    if (member_pair.second.is_array &&
+                                        TypeHelpers::isString(
+                                            member_pair.second.type)) {
+                                        // 文字列配列の場合、array_stringsを確実にコピー
+                                        const auto &source_member =
+                                            sync_source_var->struct_members
+                                                .find(member_pair.first);
+                                        if (source_member !=
+                                            sync_source_var->struct_members
+                                                .end()) {
+                                            debug_print(
+                                                "DEBUG: Copying string array "
+                                                "%s: "
+                                                "size=%d\n",
+                                                member_pair.first.c_str(),
+                                                static_cast<int>(
+                                                    source_member->second
+                                                        .array_strings.size()));
+                                            member_pair.second.array_strings =
+                                                source_member->second
+                                                    .array_strings;
+                                            if (!source_member->second
+                                                     .array_strings.empty()) {
+                                                debug_print(
+                                                    "DEBUG: First element: "
+                                                    "'%s'\n",
+                                                    source_member->second
+                                                        .array_strings[0]
+                                                        .c_str());
+                                            }
+                                        }
+                                    }
+                                }
+
+                                interpreter_.current_scope()
+                                    .variables[param->name] = param_var;
+
+                                // 個別メンバー変数も作成（値を正しく設定）
+                                // 元の構造体定義から type_name 情報を取得
+                                const StructDefinition *struct_def =
+                                    interpreter_.find_struct_definition(
+                                        resolved_struct_type);
+                                for (const auto &member_pair :
+                                     sync_source_var->struct_members) {
+                                    // 配列要素のキー (例: "dimensions[0]")
+                                    // をスキップ
+                                    if (member_pair.first.find('[') !=
+                                        std::string::npos) {
+                                        continue;
+                                    }
+
+                                    std::string full_member_name =
+                                        param->name + "." + member_pair.first;
+                                    Variable member_var = member_pair.second;
+                                    // 値を確実に設定
+                                    member_var.is_assigned = true;
+
+                                    // 元の構造体定義から type_name
+                                    // を取得して設定
+                                    if (struct_def) {
+                                        for (const auto &member :
+                                             struct_def->members) {
+                                            if (member.name ==
+                                                member_pair.first) {
+                                                member_var.type_name =
+                                                    member.type_alias;
+                                                member_var.is_pointer =
+                                                    member.is_pointer;
+                                                member_var.pointer_depth =
+                                                    member.pointer_depth;
+                                                member_var
+                                                    .pointer_base_type_name =
+                                                    member
+                                                        .pointer_base_type_name;
+                                                member_var.pointer_base_type =
+                                                    member.pointer_base_type;
+                                                member_var.is_reference =
+                                                    member.is_reference;
+                                                member_var.is_unsigned =
+                                                    member.is_unsigned;
+                                                break;
+                                            }
+                                        }
+                                    }
+
+                                    interpreter_.current_scope()
+                                        .variables[full_member_name] =
+                                        member_var;
+
+                                    // 配列メンバの場合、個別要素変数も作成
+                                    if (member_var.is_array) {
+                                        // ソース側の配列要素変数をコピー
+                                        std::string source_member_name =
+                                            source_var_name + "." +
+                                            member_pair.first;
+                                        for (int i = 0;
+                                             i < member_var.array_size; i++) {
+                                            std::string source_element_name =
+                                                source_member_name + "[" +
+                                                std::to_string(i) + "]";
+                                            std::string param_element_name =
+                                                full_member_name + "[" +
+                                                std::to_string(i) + "]";
+
+                                            Variable *source_element =
+                                                interpreter_.find_variable(
+                                                    source_element_name);
+                                            if (source_element) {
+                                                Variable element_var =
+                                                    *source_element;
+                                                element_var.is_assigned = true;
+                                                interpreter_.current_scope()
+                                                    .variables
+                                                        [param_element_name] =
+                                                    element_var;
+                                            } else {
+                                                // 個別要素変数が存在しない場合、struct_membersの配列から作成
+                                                Variable element_var;
+                                                if (member_var.type ==
+                                                        TYPE_STRING &&
+                                                    i < static_cast<int>(
+                                                            sync_source_var
+                                                                ->struct_members
+                                                                    [member_pair
+                                                                         .first]
+                                                                .array_strings
+                                                                .size())) {
+                                                    element_var.type =
+                                                        TYPE_STRING;
+                                                    element_var.str_value =
+                                                        sync_source_var
+                                                            ->struct_members
+                                                                [member_pair
+                                                                     .first]
+                                                            .array_strings[i];
+                                                } else if (
+                                                    member_var.type !=
+                                                        TYPE_STRING &&
+                                                    i < static_cast<int>(
+                                                            sync_source_var
+                                                                ->struct_members
+                                                                    [member_pair
+                                                                         .first]
+                                                                .array_values
+                                                                .size())) {
+                                                    element_var.type =
+                                                        member_var.type;
+                                                    element_var.value =
+                                                        sync_source_var
+                                                            ->struct_members
+                                                                [member_pair
+                                                                     .first]
+                                                            .array_values[i];
+                                                } else {
+                                                    // デフォルト値を設定
+                                                    element_var.type =
+                                                        member_var.type;
+                                                    if (member_var.type ==
+                                                        TYPE_STRING) {
+                                                        element_var.str_value =
+                                                            "";
+                                                    } else {
+                                                        element_var.value = 0;
+                                                    }
+                                                }
+                                                element_var.is_assigned = true;
+                                                interpreter_.current_scope()
+                                                    .variables
+                                                        [param_element_name] =
+                                                    element_var;
+                                            }
+                                        }
+                                    }
+                                }
+                            } else {
                                 throw std::runtime_error(
-                                    "Type mismatch in function call to '" +
-                                    node->name + "':\n" +
-                                    "  Cannot pass const pointer (" +
-                                    (arg_pointer_base_type_name.empty()
-                                         ? "T* const"
-                                         : arg_pointer_base_type_name +
-                                               "* const") +
-                                    ") to parameter of type non-const "
-                                    "pointer\n" +
-                                    "  Cannot discard const qualifier from "
-                                    "pointer itself");
+                                    "Type mismatch: cannot pass non-struct "
+                                    "expression to struct parameter '" +
+                                    param->name + "'");
+                            }
+                        } else {
+                            // 数値パラメータの場合
+                            if (arg->node_type ==
+                                ASTNodeType::AST_STRING_LITERAL) {
+                                throw std::runtime_error(
+                                    "Type mismatch: cannot pass string literal "
+                                    "to "
+                                    "numeric parameter '" +
+                                    param->name + "'");
                             }
 
-                            Variable *param_var =
-                                interpreter_.find_variable(param->name);
-                            if (param_var) {
-                                // const情報を伝播
-                                param_var->is_pointee_const =
-                                    arg_is_pointee_const;
-                                param_var->is_pointer_const =
-                                    arg_is_pointer_const;
-                                param_var->pointer_depth = arg_pointer_depth;
-                                param_var->pointer_base_type =
-                                    arg_pointer_base_type;
-                                param_var->pointer_base_type_name =
-                                    arg_pointer_base_type_name;
-                                param_var->is_pointer = true;
+                            // ポインタパラメータの場合、引数のconst情報を事前に取得
+                            bool arg_is_pointer = false;
+                            bool arg_is_pointee_const = false;
+                            bool arg_is_pointer_const = false;
+                            int arg_pointer_depth = 0;
+                            TypeInfo arg_pointer_base_type = TYPE_UNKNOWN;
+                            std::string arg_pointer_base_type_name;
+
+                            if (param->is_pointer &&
+                                (arg->node_type == ASTNodeType::AST_VARIABLE ||
+                                 arg->node_type ==
+                                     ASTNodeType::AST_IDENTIFIER)) {
+                                // 引数変数のconst情報を取得（関数スコープ作成前に）
+                                Variable *arg_var =
+                                    interpreter_.find_variable(arg->name);
+                                if (arg_var && arg_var->is_pointer) {
+                                    arg_is_pointer = true;
+                                    arg_is_pointee_const =
+                                        arg_var->is_pointee_const;
+                                    arg_is_pointer_const =
+                                        arg_var->is_pointer_const;
+                                    arg_pointer_depth = arg_var->pointer_depth;
+                                    arg_pointer_base_type =
+                                        arg_var->pointer_base_type;
+                                    arg_pointer_base_type_name =
+                                        arg_var->pointer_base_type_name;
+                                }
+                            }
+
+                            TypedValue arg_value =
+                                evaluate_typed_expression(arg.get());
+                            interpreter_.assign_function_parameter(
+                                param->name, arg_value, param->type_info,
+                                param->is_unsigned);
+
+                            // const修飾を設定
+                            if (param->is_const) {
+                                Variable *param_var =
+                                    interpreter_.find_variable(param->name);
+                                if (param_var) {
+                                    param_var->is_const = true;
+                                }
+                            }
+
+                            // ポインタパラメータの場合、const情報を保持・チェック
+                            if (param->is_pointer && arg_is_pointer) {
+                                // 型安全性チェック: const → non-const は禁止
+                                // const T* → T* への変換をチェック
+                                if (arg_is_pointee_const &&
+                                    !param->is_pointee_const_qualifier) {
+                                    throw std::runtime_error(
+                                        "Type mismatch in function call to '" +
+                                        node->name + "':\n" +
+                                        "  Cannot pass pointer to const (" +
+                                        (arg_pointer_base_type_name.empty()
+                                             ? "const T*"
+                                             : "const " +
+                                                   arg_pointer_base_type_name +
+                                                   "*") +
+                                        ") to parameter of type pointer to "
+                                        "non-const (" +
+                                        (param->type_name.empty()
+                                             ? "T*"
+                                             : param->type_name) +
+                                        ")\n" +
+                                        "  Cannot discard const qualifier from "
+                                        "pointed-to type");
+                                }
+
+                                // T* const → T* への変換をチェック
+                                if (arg_is_pointer_const &&
+                                    !param->is_pointer_const_qualifier) {
+                                    throw std::runtime_error(
+                                        "Type mismatch in function call to '" +
+                                        node->name + "':\n" +
+                                        "  Cannot pass const pointer (" +
+                                        (arg_pointer_base_type_name.empty()
+                                             ? "T* const"
+                                             : arg_pointer_base_type_name +
+                                                   "* const") +
+                                        ") to parameter of type non-const "
+                                        "pointer\n" +
+                                        "  Cannot discard const qualifier from "
+                                        "pointer itself");
+                                }
+
+                                Variable *param_var =
+                                    interpreter_.find_variable(param->name);
+                                if (param_var) {
+                                    // const情報を伝播
+                                    param_var->is_pointee_const =
+                                        arg_is_pointee_const;
+                                    param_var->is_pointer_const =
+                                        arg_is_pointer_const;
+                                    param_var->pointer_depth =
+                                        arg_pointer_depth;
+                                    param_var->pointer_base_type =
+                                        arg_pointer_base_type;
+                                    param_var->pointer_base_type_name =
+                                        arg_pointer_base_type_name;
+                                    param_var->is_pointer = true;
+                                }
                             }
                         }
                     }
+                }
+            } else {
+                // 引数が提供されていない場合、デフォルト値を使用
+                if (!param->has_default_value) {
+                    throw std::runtime_error(
+                        "Missing required argument for parameter: " +
+                        param->name);
+                }
+
+                // デフォルト値を評価
+                TypedValue default_val =
+                    evaluate_typed_expression(param->default_value.get());
+
+                // パラメータに設定
+                interpreter_.assign_function_parameter(param->name, default_val,
+                                                       param->type_info,
+                                                       param->is_unsigned);
+
+                // const修飾を設定
+                if (param->is_const) {
+                    Variable *param_var =
+                        interpreter_.find_variable(param->name);
+                    if (param_var) {
+                        param_var->is_const = true;
+                    }
+                }
+
+                if (debug_mode) {
+                    std::cerr
+                        << "[FUNC_CALL] Used default value for parameter: "
+                        << param->name << std::endl;
                 }
             }
         }
@@ -2101,6 +2391,122 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                             original_array->array_quad_values =
                                 var.array_quad_values;
                             original_array->array_strings = var.array_strings;
+                        }
+                    }
+                }
+            }
+
+            // メソッド通常終了時も、selfの変更をレシーバーに同期
+            if (has_receiver && !receiver_name.empty()) {
+                Variable *receiver_var = nullptr;
+
+                // If we used pointer dereference, write back to the
+                // dereferenced struct
+                if (used_resolution_ptr && dereferenced_struct_ptr) {
+                    receiver_var = dereferenced_struct_ptr;
+                    if (debug_mode) {
+                        debug_print(
+                            "SELF_WRITEBACK_PTR: Using dereferenced struct at "
+                            "%p\n",
+                            static_cast<void *>(dereferenced_struct_ptr));
+                    }
+                } else {
+                    receiver_var = interpreter_.find_variable(receiver_name);
+                }
+
+                if (receiver_var && (receiver_var->type == TYPE_STRUCT ||
+                                     receiver_var->type == TYPE_INTERFACE)) {
+                    // すべての self.* 変数を検索して書き戻し
+                    auto &current_scope = interpreter_.get_current_scope();
+                    for (const auto &var_pair : current_scope.variables) {
+                        const std::string &var_name = var_pair.first;
+
+                        // self. で始まる変数を検索
+                        if (var_name.find("self.") == 0) {
+                            // self.member または self.member.nested の形式
+                            std::string member_path =
+                                var_name.substr(5); // "self." を除去
+
+                            const Variable &self_member_var = var_pair.second;
+
+                            // If using dereferenced pointer, write directly to
+                            // struct_members
+                            if (used_resolution_ptr &&
+                                dereferenced_struct_ptr) {
+                                // Extract member name (first component of
+                                // member_path)
+                                std::string member_name = member_path;
+                                size_t dot_pos = member_path.find('.');
+                                if (dot_pos != std::string::npos) {
+                                    member_name =
+                                        member_path.substr(0, dot_pos);
+                                }
+
+                                // Write directly to struct_members
+                                if (receiver_var->struct_members.find(
+                                        member_name) !=
+                                    receiver_var->struct_members.end()) {
+                                    receiver_var->struct_members[member_name]
+                                        .value = self_member_var.value;
+                                    receiver_var->struct_members[member_name]
+                                        .str_value = self_member_var.str_value;
+                                    receiver_var->struct_members[member_name]
+                                        .is_assigned =
+                                        self_member_var.is_assigned;
+                                    receiver_var->struct_members[member_name]
+                                        .float_value =
+                                        self_member_var.float_value;
+                                    receiver_var->struct_members[member_name]
+                                        .double_value =
+                                        self_member_var.double_value;
+                                    receiver_var->struct_members[member_name]
+                                        .quad_value =
+                                        self_member_var.quad_value;
+
+                                    // Also sync to individual variable if it
+                                    // exists
+                                    interpreter_
+                                        .sync_individual_member_from_struct(
+                                            receiver_var, member_name);
+
+                                    if (debug_mode) {
+                                        debug_print(
+                                            "SELF_WRITEBACK_PTR: %s -> "
+                                            "struct_members[%s] (value=%lld)\n",
+                                            var_name.c_str(),
+                                            member_name.c_str(),
+                                            self_member_var.value);
+                                    }
+                                }
+                            } else {
+                                // Normal writeback to named variables
+                                std::string receiver_path =
+                                    receiver_name + "." + member_path;
+
+                                // receiver側の対応する変数に値を書き戻し
+                                Variable *receiver_member_var =
+                                    interpreter_.find_variable(receiver_path);
+                                if (receiver_member_var) {
+                                    receiver_member_var->value =
+                                        self_member_var.value;
+                                    receiver_member_var->str_value =
+                                        self_member_var.str_value;
+                                    receiver_member_var->is_assigned =
+                                        self_member_var.is_assigned;
+                                    receiver_member_var->float_value =
+                                        self_member_var.float_value;
+                                    receiver_member_var->double_value =
+                                        self_member_var.double_value;
+                                    receiver_member_var->quad_value =
+                                        self_member_var.quad_value;
+
+                                    debug_print("SELF_WRITEBACK: %s -> %s "
+                                                "(value=%lld)\n",
+                                                var_name.c_str(),
+                                                receiver_path.c_str(),
+                                                self_member_var.value);
+                                }
+                            }
                         }
                     }
                 }

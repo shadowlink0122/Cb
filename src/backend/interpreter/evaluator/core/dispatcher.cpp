@@ -222,7 +222,8 @@ int64_t ExpressionDispatcher::dispatch_expression(const ASTNode *node) {
                                                                          name);
         };
         return SpecialAccessHelpers::evaluate_arrow_access(
-            node, interpreter_, eval_func, get_member_func);
+            node, interpreter_, expression_evaluator_, eval_func,
+            get_member_func);
     }
 
     case ASTNodeType::AST_MEMBER_ARRAY_ACCESS: {
@@ -243,6 +244,27 @@ int64_t ExpressionDispatcher::dispatch_expression(const ASTNode *node) {
 
     case ASTNodeType::AST_ENUM_ACCESS:
         return SpecialAccessHelpers::evaluate_enum_access(node, interpreter_);
+
+    // v0.10.0: 無名変数（Discard Variable）
+    case ASTNodeType::AST_DISCARD_VARIABLE:
+        throw std::runtime_error("Cannot reference discard variable '_'");
+
+    // v0.10.0: 無名関数（Lambda Expression）
+    case ASTNodeType::AST_LAMBDA_EXPR: {
+        // ラムダ式はevaluate_typed_expressionで処理されるべき
+        // ここではReturnExceptionがスローされるため到達しないはず
+        // しかし、何らかの理由でここに到達した場合のフォールバック
+        std::string lambda_name = node->internal_name;
+        interpreter_.register_function_to_global(lambda_name, node);
+
+        // ReturnExceptionを投げて適切に処理させる
+        ReturnException ret(static_cast<int64_t>(0));
+        ret.is_function_pointer = true;
+        ret.function_pointer_name = lambda_name;
+        ret.function_pointer_node = node;
+        ret.type = node->lambda_return_type;
+        throw ret;
+    }
 
     default:
         error_msg(DebugMsgId::UNSUPPORTED_EXPR_NODE_ERROR);

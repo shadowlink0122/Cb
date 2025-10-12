@@ -38,6 +38,15 @@ class PrimaryExpressionParser {
      */
     ASTNode *parseArrayLiteral();
 
+    /**
+     * @brief 無名関数（ラムダ式）を解析
+     * @return 解析されたASTラムダ式ノード
+     *
+     * 構文: 型 func(パラメータ) { 本体 }
+     * 例: int func(int x) { return x * 2; }
+     */
+    ASTNode *parseLambda();
+
   private:
     RecursiveParser *parser_;
 };

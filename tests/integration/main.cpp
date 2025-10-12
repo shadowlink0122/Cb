@@ -22,7 +22,13 @@
 #include "const_pointer/const_pointer_tests.hpp"
 #include "const_pointer_safety/const_pointer_safety_tests.hpp"
 #include "const_variables/test_const_variables.hpp"
+#include "constructor/test_constructor.hpp"
+#include "constructor/test_destructor.hpp"
 #include "cross_type/test_cross_type.hpp"
+#include "default_args/test_default_args.hpp"
+#include "default_member/test_default_member.hpp"
+#include "defer/test_defer.hpp"
+#include "discard_variable/discard_variable_tests.hpp"
 #include "dynamic_array_error/test_dynamic_array_error.hpp"
 #include "enum/test_enum.hpp"
 #include "error_handling/test_error_handling.hpp"
@@ -42,8 +48,10 @@
 #include "interface/test_interface_private.hpp"
 #include "interface/test_type_inference_chain.hpp"
 #include "interface/test_typedef_impl.hpp"
+#include "lambda/lambda_tests.hpp"
 #include "loop/test_loop.hpp"
 #include "module_functions/test_module_functions.hpp"
+#include "move_constructor/move_constructor_tests.hpp"
 #include "multidim_array/test_multidim_array.hpp"
 #include "multidim_literal/test_multidim_literal.hpp"
 #include "multiple_var_decl/test_multiple_var_decl.hpp"
@@ -61,7 +69,9 @@
 #include "printf/test_printf.hpp"
 #include "println/test_println.hpp"
 #include "reference/reference_tests.hpp"
+#include "rvalue_reference/rvalue_reference_tests.hpp"
 #include "sample_scenarios/test_sample_scenarios.hpp"
+#include "switch/test_switch.hpp"
 // #include "samples/test_actual_samples.hpp"
 #include "self_assign/test_self_assign.hpp"
 #include "static_variables/test_static_variables.hpp"
@@ -250,10 +260,28 @@ int main() {
                            "Struct Typedef Tests", failed_tests);
     run_test_with_continue(test_integration_cross_type, "Cross Type Tests",
                            failed_tests);
+    run_test_with_continue(test_integration_defer, "Defer Statement Tests",
+                           failed_tests);
+    run_test_with_continue(test_integration_default_args,
+                           "Default Arguments Tests", failed_tests);
+    run_test_with_continue(DefaultMemberTests::run_all_default_member_tests,
+                           "Default Member Tests", failed_tests);
+    run_test_with_continue(test_integration_switch, "Switch Statement Tests",
+                           failed_tests);
     run_test_with_continue(test_integration_enum, "Enum Tests", failed_tests);
     run_test_with_continue(UnionTests::run_all_union_tests, "Union Type Tests",
                            failed_tests);
     CategoryTimingStats::print_category_summary("Type System");
+
+    // v0.10.0 新機能テスト群
+    std::cout << "\n[integration-test] === v0.10.0 New Features ==="
+              << std::endl;
+    CategoryTimingStats::set_current_category("v0.10.0 Features");
+    run_test_with_continue(test_discard_variable, "Discard Variable Tests",
+                           failed_tests);
+    run_test_with_continue(test_lambda_function, "Lambda Function Tests",
+                           failed_tests);
+    CategoryTimingStats::print_category_summary("v0.10.0 Features");
 
     // 構造体・インターフェーステスト群
     std::cout << "\n[integration-test] === Advanced Features ===" << std::endl;
@@ -264,6 +292,10 @@ int main() {
                            failed_tests);
     run_test_with_continue(NestedStructInitTests::run_all_tests,
                            "Nested Struct Init Tests", failed_tests);
+    run_test_with_continue(run_all_constructor_tests, "Constructor Tests",
+                           failed_tests);
+    run_test_with_continue(run_all_destructor_tests, "Destructor Tests",
+                           failed_tests);
     run_test_with_continue(InterfaceTests::run_all_interface_tests,
                            "Interface Tests", failed_tests);
     run_test_with_continue(test_interface_type_inference_chain,
@@ -302,6 +334,10 @@ int main() {
                            "Const Pointer Tests", failed_tests);
     run_test_with_continue(ReferenceTests::run_all_reference_tests,
                            "Reference Tests", failed_tests);
+    run_test_with_continue(RvalueReferenceTests::run_all_rvalue_reference_tests,
+                           "Rvalue Reference (T&&) Tests", failed_tests);
+    run_test_with_continue(MoveConstructorTests::run_all_move_constructor_tests,
+                           "Move Constructor Tests", failed_tests);
     run_test_with_continue(
         TypedefPointerReferenceTests::run_all_typedef_pointer_reference_tests,
         "Typedef Pointer/Reference Tests", failed_tests);

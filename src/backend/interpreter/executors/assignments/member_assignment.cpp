@@ -435,6 +435,14 @@ void execute_member_assignment(StatementExecutor *executor,
             member_var.type = TYPE_STRING;
             member_var.is_assigned = true;
 
+            // 参照変数自体のstruct_membersも更新（エイリアシング）
+            auto ref_member_it = base_var->struct_members.find(member_name);
+            if (ref_member_it != base_var->struct_members.end()) {
+                ref_member_it->second.str_value = node->right->str_value;
+                ref_member_it->second.type = TYPE_STRING;
+                ref_member_it->second.is_assigned = true;
+            }
+
             // ダイレクトアクセス変数も更新
             std::string actual_var_name =
                 interpreter.find_variable_name_by_address(actual_var);
@@ -455,6 +463,14 @@ void execute_member_assignment(StatementExecutor *executor,
             member_var.value = typed_value.value;
             member_var.type = typed_value.numeric_type;
             member_var.is_assigned = true;
+
+            // 参照変数自体のstruct_membersも更新（エイリアシング）
+            auto ref_member_it = base_var->struct_members.find(member_name);
+            if (ref_member_it != base_var->struct_members.end()) {
+                ref_member_it->second.value = typed_value.value;
+                ref_member_it->second.type = typed_value.numeric_type;
+                ref_member_it->second.is_assigned = true;
+            }
 
             // ダイレクトアクセス変数も更新
             std::string actual_var_name =

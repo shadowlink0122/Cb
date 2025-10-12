@@ -1,7 +1,7 @@
 // 仕様書のstrlen実装が動作するかテスト
 // docs/spec.mdの例をそのまま使用
 
-func int strlen(string str) {
+int strlen(string str) {
     int len = 0;
     // \0が見つかるまでループ
     while (str[len] != '\0') {

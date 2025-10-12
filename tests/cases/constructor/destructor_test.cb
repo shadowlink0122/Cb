@@ -1,0 +1,101 @@
+// デストラクタテスト (v0.10.0)
+// 関数終了時に自動的にデストラクタが呼び出されることをテスト
+// NOTE: v0.10.0では関数スコープのみ対応。複合文{}のスコープはv0.11.0で対応予定
+
+struct Counter {
+    int value;
+};
+
+impl Counter {
+    // デフォルトコンストラクタ
+    self() {
+        self.value = 0;
+        println("Counter constructor: value=", self.value);
+    }
+    
+    // パラメータ付きコンストラクタ
+    self(int v) {
+        self.value = v;
+        println("Counter constructor: value=", self.value);
+    }
+    
+    // デストラクタ
+    ~self() {
+        println("Counter destructor: value=", self.value);
+    }
+}
+
+struct Resource {
+    int id;
+    bool active;
+};
+
+impl Resource {
+    self(int resource_id) {
+        self.id = resource_id;
+        self.active = true;
+        println("Resource ", self.id, " acquired");
+    }
+    
+    ~self() {
+        println("Resource ", self.id, " released");
+    }
+}
+
+void test_basic_destructor() {
+    println("=== Test 1: Basic Destructor ===");
+    Counter c(10);
+    println("Inside function: c.value=", c.value);
+    // デストラクタは関数終了時（ここ）に呼ばれる
+    println("");
+}
+
+void test_multiple_destructors() {
+    println("=== Test 2: Multiple Destructors (LIFO) ===");
+    Counter c1(1);
+    Counter c2(2);
+    Counter c3(3);
+    println("All counters created");
+    // デストラクタは関数終了時に逆順で呼ばれる: c3, c2, c1
+    println("");
+}
+
+void test_early_return() {
+    println("=== Test 3: Early Return ===");
+    Counter c(100);
+    if (true) {
+        println("Early return");
+        // returnの直前にデストラクタが呼ばれる
+        return;
+    }
+    println("This should not be printed");
+}
+
+void test_nested_scopes() {
+    println("=== Test 4: Nested Scopes (v0.11.0で対応予定) ===");
+    // v0.10.0では複合文{}のスコープ未対応のため、スキップ
+    println("Skipped in v0.10.0");
+    println("");
+}
+
+void test_resource_management() {
+    println("=== Test 5: Resource Management ===");
+    Resource r1(1);
+    Resource r2(2);
+    println("Resources in use");
+    // リソースは関数終了時に自動的に解放される（r2, r1の順）
+    println("");
+}
+
+void main() {
+    println("===== Destructor Test Suite =====");
+    println("");
+    
+    test_basic_destructor();
+    test_multiple_destructors();
+    test_early_return();
+    test_nested_scopes();
+    test_resource_management();
+    
+    println("===== All Destructor Tests Completed =====");
+}

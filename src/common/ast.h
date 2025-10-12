@@ -3,6 +3,7 @@
 #include <iostream>
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 // 型定義
@@ -546,6 +547,7 @@ struct StructMember {
     bool is_reference = false;                 // 参照メンバかどうか
     bool is_unsigned = false; // unsigned修飾子が付与されているか
     bool is_const = false; // const指定かどうか（Rustのnot mutと同等）
+    bool is_default = false; // デフォルトメンバーかどうか
 
     StructMember() : type(TYPE_UNKNOWN) {}
     StructMember(const std::string &n, TypeInfo t,
@@ -557,6 +559,8 @@ struct StructDefinition {
     std::string name;                    // struct名
     std::vector<StructMember> members;   // メンバ変数のリスト
     bool is_forward_declaration = false; // 前方宣言かどうか
+    bool has_default_member = false; // デフォルトメンバーを持つか
+    std::string default_member_name; // デフォルトメンバーの名前
 
     StructDefinition() {}
     StructDefinition(const std::string &n) : name(n) {}
@@ -653,6 +657,11 @@ struct ImplDefinition {
     std::vector<const ASTNode *>
         methods; // 実装されたメソッドのASTノード（非所有ポインタ）
 
+    // v0.10.0: コンストラクタ/デストラクタのサポート
+    std::vector<const ASTNode *>
+        constructors; // コンストラクタのリスト（オーバーロード対応）
+    const ASTNode *destructor = nullptr; // デストラクタ（1つのみ）
+
     ImplDefinition() {}
     ImplDefinition(const std::string &iface, const std::string &struct_name)
         : interface_name(iface), struct_name(struct_name) {}
@@ -665,6 +674,14 @@ struct ImplDefinition {
 
     void add_method(const ASTNode *method_ast) {
         methods.push_back(method_ast);
+    }
+
+    void add_constructor(const ASTNode *constructor_ast) {
+        constructors.push_back(constructor_ast);
+    }
+
+    void set_destructor(const ASTNode *destructor_ast) {
+        destructor = destructor_ast;
     }
 };
 
@@ -698,6 +715,10 @@ enum class ASTNodeType {
     AST_BREAK_STMT,
     AST_CONTINUE_STMT,
     AST_RETURN_STMT,
+    AST_DEFER_STMT,  // defer文
+    AST_SWITCH_STMT, // switch文
+    AST_CASE_CLAUSE, // case節
+    AST_RANGE_EXPR,  // 範囲式 (start...end)
 
     // 宣言
     AST_VAR_DECL,
@@ -715,6 +736,8 @@ enum class ASTNodeType {
     AST_INTERFACE_DECL,           // interface宣言
     AST_IMPL_DECL,                // impl宣言
     AST_ENUM_ACCESS,              // enum値アクセス (EnumName::member)
+    AST_CONSTRUCTOR_DECL,         // コンストラクタ宣言 (self)
+    AST_DESTRUCTOR_DECL,          // デストラクタ宣言 (~self)
 
     // 式
     AST_FUNC_CALL,
@@ -756,7 +779,11 @@ enum class ASTNodeType {
     AST_THROW_STMT,   // throw文
 
     // デバッグ・検証
-    AST_ASSERT_STMT // assert文
+    AST_ASSERT_STMT, // assert文
+
+    // v0.10.0 新機能
+    AST_DISCARD_VARIABLE, // 無名変数 (_)
+    AST_LAMBDA_EXPR       // 無名関数式
 };
 
 // 位置情報構造体
@@ -798,12 +825,14 @@ struct ASTNode {
     bool is_array_return = false;       // 配列戻り値フラグ
     bool is_private_method = false;     // privateメソッドフラグ
     bool is_private_member = false;     // struct privateメンバフラグ
+    bool is_default_member = false;     // struct defaultメンバフラグ
     bool is_pointer = false;            // ポインタ型フラグ
     int pointer_depth = 0;              // ポインタの深さ
     std::string pointer_base_type_name; // ポインタ基底型名
     TypeInfo pointer_base_type = TYPE_UNKNOWN; // ポインタ基底型
-    bool is_reference = false;                 // 参照型フラグ
-    bool is_unsigned = false;                  // unsigned修飾子
+    bool is_reference = false; // 参照型フラグ（左辺値参照 T&）
+    bool is_rvalue_reference = false; // 右辺値参照フラグ（T&&）v0.10.0
+    bool is_unsigned = false;         // unsigned修飾子
     bool is_function_address = false;  // 関数アドレス(&関数)フラグ
     std::string function_address_name; // 関数アドレスの関数名
 
@@ -852,7 +881,11 @@ struct ASTNode {
     // モジュール関連
     std::string module_name;               // モジュール名 (std.io等)
     std::vector<std::string> import_items; // インポートする項目リスト
-    bool is_exported = false;              // export宣言されているか
+    std::unordered_map<std::string, std::string>
+        import_aliases; // import時のエイリアス (名前 -> エイリアス)
+    bool is_exported = false;       // export宣言されているか
+    bool is_default_export = false; // default export かどうか
+    std::string import_path; // import文のパス ("stdlib.math.basic"など)
 
     // 例外処理関連
     std::unique_ptr<ASTNode> try_body;     // try block
@@ -899,6 +932,44 @@ struct ASTNode {
     bool is_pointer_const_qualifier = false; // ポインタ自体がconst (T* const)
     bool is_pointee_const_qualifier = false; // ポイント先がconst (const T*)
 
+    // switch文関連（v0.10.0新機能）
+    std::unique_ptr<ASTNode> switch_expr;        // switch対象の式
+    std::vector<std::unique_ptr<ASTNode>> cases; // case節のリスト
+    std::unique_ptr<ASTNode> else_body; // else節（defaultに相当）
+
+    // case節関連
+    std::vector<std::unique_ptr<ASTNode>> case_values; // case条件（OR結合用）
+    std::unique_ptr<ASTNode> case_body;                // caseの本体
+
+    // 範囲式関連
+    std::unique_ptr<ASTNode> range_start; // 範囲の開始値
+    std::unique_ptr<ASTNode> range_end;   // 範囲の終了値
+
+    // デフォルト引数関連（v0.10.0新機能）
+    std::unique_ptr<ASTNode> default_value; // パラメータのデフォルト値
+    bool has_default_value = false;         // デフォルト値があるか
+    int first_default_param_index =
+        -1; // 最初のデフォルト引数のインデックス（関数ノード用）
+
+    // コンストラクタ/デストラクタ関連（v0.10.0新機能）
+    bool is_constructor = false; // コンストラクタかどうか
+    bool is_destructor = false;  // デストラクタかどうか
+    std::string constructor_struct_name; // コンストラクタが属する構造体名
+
+    // 無名変数関連（v0.10.0新機能）
+    bool is_discard = false;    // 無名変数かどうか
+    std::string internal_name;  // 内部識別子（無名変数/関数用）
+    static int discard_counter; // 無名変数カウンター
+    static int lambda_counter;  // 無名関数カウンター
+
+    // 無名関数関連（v0.10.0新機能）
+    bool is_lambda = false; // 無名関数かどうか
+    bool is_lambda_call = false; // 無名関数の即座実行呼び出しかどうか
+    std::unique_ptr<ASTNode> lambda_body; // 無名関数の本体
+    std::vector<std::unique_ptr<ASTNode>> lambda_params; // 無名関数のパラメータ
+    TypeInfo lambda_return_type = TYPE_UNKNOWN; // 無名関数の戻り値型
+    std::string lambda_return_type_name; // 無名関数の戻り値型名
+
     // コンストラクタ - 全フィールドの明示的初期化
     ASTNode(ASTNodeType type)
         : node_type(type), type_info(TYPE_INT), is_const(false),
@@ -907,7 +978,8 @@ struct ASTNode {
           is_function_address(false), int_value(0), array_size(-1),
           is_exported(false), is_qualified_call(false),
           is_function_pointer(false), is_pointer_const_qualifier(false),
-          is_pointee_const_qualifier(false) {}
+          is_pointee_const_qualifier(false), is_constructor(false),
+          is_destructor(false) {}
 
     // デストラクタは自動管理（unique_ptr使用）
     virtual ~ASTNode() = default;

@@ -185,7 +185,7 @@ ASTNode* RecursiveParser::parseStatement() {
 
 ### ステップ3: テストの実行
 ```bash
-cd /Users/shadowlink/Documents/git/Cb
+# プロジェクトルートから
 make clean && make
 ./main tests/cases/struct_member_incdec/test_struct_member_incdec.cb
 ```

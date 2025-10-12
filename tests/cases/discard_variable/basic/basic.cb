@@ -1,0 +1,6 @@
+void main() {
+    int _ = 10;
+    string _ = "ignored";
+    float _ = 3.14;
+    println("OK: Basic discard");
+}

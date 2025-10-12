@@ -1,0 +1,81 @@
+// デフォルトメンバーのinterface実装テスト
+
+struct Text {
+    default string value;
+};
+
+interface TextOperations {
+    string getValue();
+    int getLength();
+};
+
+impl TextOperations for Text {
+    string getValue() {
+        return self.value;
+    }
+    
+    int getLength() {
+        // TODO: 将来的には self が暗黙的に self.value を参照すべき
+        // return len(self);  // 暗黙的参照版（未実装）
+        // len()関数が未実装なので固定値を返す
+        return 5;
+    }
+};
+
+struct Counter {
+    default int count;
+};
+
+interface CounterOperations {
+    void increment();
+    void add(int n);
+    int getValue();
+};
+
+impl CounterOperations for Counter {
+    void increment() {
+        self.count += 1;
+    }
+    
+    void add(int n) {
+        self.count += n;
+    }
+    
+    int getValue() {
+        return self.count;
+    }
+};
+
+void main() {
+    println("=== interface実装でのデフォルトメンバーテスト ===");
+    
+    Text t = {"Hello"};
+    println(t);              // Hello (暗黙的参照)
+    
+    TextOperations textOps = t;
+    println(textOps.getValue());   // Hello
+    println(textOps.getLength());  // 5
+    
+    t = "World";
+    println(t);              // World
+    textOps = t;
+    println(textOps.getValue());   // World
+    println(textOps.getLength());  // 5
+    
+    println("\n=== Counter interface テスト ===");
+    Counter c = {0};
+    println(c);              // 0
+    
+    CounterOperations counterOps = c;
+    counterOps.increment();
+    println(counterOps.getValue());  // 1
+    
+    counterOps.add(5);
+    println(counterOps.getValue());  // 6
+    
+    // 直接操作もテスト
+    c.count = 10;
+    println(c);              // 10
+    c = 20;
+    println(c);              // 20 (暗黙的代入)
+}

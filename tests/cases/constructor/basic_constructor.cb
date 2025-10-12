@@ -1,0 +1,36 @@
+// 基本的なコンストラクタのテスト
+
+struct Point {
+    int x;
+    int y;
+};
+
+impl Point {
+    self() {
+        self.x = 100;
+        self.y = 200;
+        println("Default constructor called");
+    }
+    
+    self(int px, int py) {
+        self.x = px;
+        self.y = py;
+        println("Constructor with parameters called: (", px, ", ", py, ")");
+    }
+    
+    ~self() {
+        println("Destructor called for Point(", self.x, ", ", self.y, ")");
+    }
+}
+
+void main() {
+    println("=== Constructor/Destructor Test ===");
+    
+    // Phase 1: まずは構文が正しく解析されるかテスト
+    // コンストラクタ呼び出しは後で実装
+    
+    Point p1;
+    println("p1.x =", p1.x, ", p1.y =", p1.y);
+    
+    println("=== End of main ===");
+}

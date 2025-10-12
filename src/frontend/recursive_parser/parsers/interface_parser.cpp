@@ -164,72 +164,84 @@ ASTNode *InterfaceParser::parseImplDeclaration() {
     parser_->consume(TokenType::TOK_IMPL, "Expected 'impl'");
 
     if (!parser_->check(TokenType::TOK_IDENTIFIER)) {
-        parser_->error("Expected interface name after 'impl'");
+        parser_->error("Expected identifier after 'impl'");
         return nullptr;
     }
 
-    std::string interface_name = parser_->current_token_.value;
-
-    // ★ 課題1の解決: 存在しないinterfaceを実装しようとする場合のエラー検出
-    if (parser_->interface_definitions_.find(interface_name) ==
-        parser_->interface_definitions_.end()) {
-        parser_->error("Interface '" + interface_name +
-                       "' is not defined. Please declare the interface before "
-                       "implementing it.");
-        return nullptr;
-    }
-
+    std::string first_name = parser_->current_token_.value;
     parser_->advance();
 
-    // 'for' keyword
-    if (!parser_->check(TokenType::TOK_FOR) &&
-        !(parser_->check(TokenType::TOK_IDENTIFIER) &&
-          parser_->current_token_.value == "for")) {
-        parser_->error(
-            "Expected 'for' after interface name in impl declaration");
-        return nullptr;
-    }
-    parser_->advance(); // consume 'for'
-
-    if (!parser_->check(TokenType::TOK_IDENTIFIER) &&
-        !parser_->check(TokenType::TOK_STRING_TYPE) &&
-        !parser_->check(TokenType::TOK_INT) &&
-        !parser_->check(TokenType::TOK_LONG) &&
-        !parser_->check(TokenType::TOK_SHORT) &&
-        !parser_->check(TokenType::TOK_TINY) &&
-        !parser_->check(TokenType::TOK_BOOL) &&
-        !parser_->check(TokenType::TOK_CHAR_TYPE)) {
-        parser_->error(
-            "Expected type name (struct or primitive type) after 'for'");
-        return nullptr;
-    }
-
+    // パターン判定: impl Struct {} または impl Interface for Struct {}
+    bool is_constructor_impl = false;
+    std::string interface_name;
     std::string struct_name;
-    if (parser_->check(TokenType::TOK_STRING_TYPE)) {
-        struct_name = "string";
-    } else if (parser_->check(TokenType::TOK_INT)) {
-        struct_name = "int";
-    } else if (parser_->check(TokenType::TOK_LONG)) {
-        struct_name = "long";
-    } else if (parser_->check(TokenType::TOK_SHORT)) {
-        struct_name = "short";
-    } else if (parser_->check(TokenType::TOK_TINY)) {
-        struct_name = "tiny";
-    } else if (parser_->check(TokenType::TOK_BOOL)) {
-        struct_name = "bool";
-    } else if (parser_->check(TokenType::TOK_CHAR_TYPE)) {
-        struct_name = "char";
-    } else {
-        struct_name =
-            parser_->current_token_.value; // 識別子（構造体名またはtypedef名）
-    }
-    parser_->advance();
 
-    // 生の配列型チェック - 配列記法が続く場合はエラー
-    if (parser_->check(TokenType::TOK_LBRACKET)) {
-        parser_->error("Cannot implement interface for raw array type '" +
-                       struct_name +
-                       "[...]'. Use typedef to define array type first.");
+    if (parser_->check(TokenType::TOK_LBRACE)) {
+        // パターン1: impl Struct {} (コンストラクタ/デストラクタ用)
+        is_constructor_impl = true;
+        struct_name = first_name;
+        interface_name = ""; // interface名なし
+    } else if (parser_->check(TokenType::TOK_FOR) ||
+               (parser_->check(TokenType::TOK_IDENTIFIER) &&
+                parser_->current_token_.value == "for")) {
+        // パターン2: impl Interface for Struct {} (通常のメソッド実装)
+        interface_name = first_name;
+
+        // ★ 課題1の解決: 存在しないinterfaceを実装しようとする場合のエラー検出
+        if (parser_->interface_definitions_.find(interface_name) ==
+            parser_->interface_definitions_.end()) {
+            parser_->error(
+                "Interface '" + interface_name +
+                "' is not defined. Please declare the interface before "
+                "implementing it.");
+            return nullptr;
+        }
+
+        parser_->advance(); // consume 'for'
+
+        if (!parser_->check(TokenType::TOK_IDENTIFIER) &&
+            !parser_->check(TokenType::TOK_STRING_TYPE) &&
+            !parser_->check(TokenType::TOK_INT) &&
+            !parser_->check(TokenType::TOK_LONG) &&
+            !parser_->check(TokenType::TOK_SHORT) &&
+            !parser_->check(TokenType::TOK_TINY) &&
+            !parser_->check(TokenType::TOK_BOOL) &&
+            !parser_->check(TokenType::TOK_CHAR_TYPE)) {
+            parser_->error(
+                "Expected type name (struct or primitive type) after 'for'");
+            return nullptr;
+        }
+
+        if (parser_->check(TokenType::TOK_STRING_TYPE)) {
+            struct_name = "string";
+        } else if (parser_->check(TokenType::TOK_INT)) {
+            struct_name = "int";
+        } else if (parser_->check(TokenType::TOK_LONG)) {
+            struct_name = "long";
+        } else if (parser_->check(TokenType::TOK_SHORT)) {
+            struct_name = "short";
+        } else if (parser_->check(TokenType::TOK_TINY)) {
+            struct_name = "tiny";
+        } else if (parser_->check(TokenType::TOK_BOOL)) {
+            struct_name = "bool";
+        } else if (parser_->check(TokenType::TOK_CHAR_TYPE)) {
+            struct_name = "char";
+        } else {
+            struct_name = parser_->current_token_
+                              .value; // 識別子（構造体名またはtypedef名）
+        }
+        parser_->advance();
+
+        // 生の配列型チェック - 配列記法が続く場合はエラー
+        if (parser_->check(TokenType::TOK_LBRACKET)) {
+            parser_->error("Cannot implement interface for raw array type '" +
+                           struct_name +
+                           "[...]'. Use typedef to define array type first.");
+            return nullptr;
+        }
+    } else {
+        parser_->error(
+            "Expected '{' or 'for' after struct name in impl declaration");
         return nullptr;
     }
 
@@ -243,6 +255,115 @@ ASTNode *InterfaceParser::parseImplDeclaration() {
 
     // メソッド実装の解析
     while (!parser_->check(TokenType::TOK_RBRACE) && !parser_->isAtEnd()) {
+        // デストラクタのチェック (~self)
+        if (is_constructor_impl && parser_->check(TokenType::TOK_BIT_NOT)) {
+            parser_->advance(); // consume '~'
+
+            if (!parser_->check(TokenType::TOK_SELF)) {
+                parser_->error(
+                    "Expected 'self' after '~' in destructor declaration");
+                return nullptr;
+            }
+            parser_->advance(); // consume 'self'
+
+            parser_->consume(TokenType::TOK_LPAREN,
+                             "Expected '(' after '~self'");
+            parser_->consume(TokenType::TOK_RPAREN,
+                             "Expected ')' after '~self('");
+
+            // デストラクタ本体の解析
+            ASTNode *destructor_body = parser_->parseCompoundStatement();
+            if (!destructor_body) {
+                parser_->error("Expected destructor body");
+                return nullptr;
+            }
+
+            // デストラクタノードを作成
+            ASTNode *destructor = new ASTNode(ASTNodeType::AST_DESTRUCTOR_DECL);
+            destructor->is_destructor = true;
+            destructor->constructor_struct_name = struct_name;
+            destructor->body.reset(destructor_body);
+            parser_->setLocation(destructor, parser_->current_token_);
+
+            impl_def.set_destructor(destructor);
+            method_nodes.push_back(std::unique_ptr<ASTNode>(destructor));
+
+            debug_msg(DebugMsgId::PARSE_VAR_DECL, struct_name.c_str(),
+                      "destructor");
+            continue;
+        }
+
+        // コンストラクタのチェック (self)
+        if (is_constructor_impl && parser_->check(TokenType::TOK_SELF)) {
+            parser_->advance(); // consume 'self'
+
+            parser_->consume(TokenType::TOK_LPAREN,
+                             "Expected '(' after 'self'");
+
+            // パラメータリストの解析
+            std::vector<std::unique_ptr<ASTNode>> parameters;
+            if (!parser_->check(TokenType::TOK_RPAREN)) {
+                do {
+                    // パラメータ型
+                    std::string param_type = parser_->parseType();
+                    ParsedTypeInfo param_parsed =
+                        parser_->getLastParsedTypeInfo();
+
+                    // パラメータ名
+                    if (!parser_->check(TokenType::TOK_IDENTIFIER)) {
+                        parser_->error(
+                            "Expected parameter name in constructor");
+                        return nullptr;
+                    }
+                    Token param_name = parser_->advance();
+
+                    // パラメータノードを作成
+                    ASTNode *param = new ASTNode(ASTNodeType::AST_PARAM_DECL);
+                    param->name = param_name.value;
+                    param->type_name = param_type;
+                    param->type_info = param_parsed.base_type_info;
+                    param->is_pointer = param_parsed.is_pointer;
+                    param->pointer_depth = param_parsed.pointer_depth;
+                    param->is_reference = param_parsed.is_reference;
+                    param->is_unsigned = param_parsed.is_unsigned;
+                    param->is_const = param_parsed.is_const;
+                    param->is_pointer_const_qualifier =
+                        param_parsed.is_pointer_const;
+                    param->is_pointee_const_qualifier =
+                        param_parsed.is_const && param_parsed.is_pointer;
+                    parser_->setLocation(param, param_name);
+
+                    parameters.push_back(std::unique_ptr<ASTNode>(param));
+                } while (parser_->match(TokenType::TOK_COMMA));
+            }
+
+            parser_->consume(TokenType::TOK_RPAREN,
+                             "Expected ')' after constructor parameters");
+
+            // コンストラクタ本体の解析
+            ASTNode *constructor_body = parser_->parseCompoundStatement();
+            if (!constructor_body) {
+                parser_->error("Expected constructor body");
+                return nullptr;
+            }
+
+            // コンストラクタノードを作成
+            ASTNode *constructor =
+                new ASTNode(ASTNodeType::AST_CONSTRUCTOR_DECL);
+            constructor->is_constructor = true;
+            constructor->constructor_struct_name = struct_name;
+            constructor->parameters = std::move(parameters);
+            constructor->body.reset(constructor_body);
+            parser_->setLocation(constructor, parser_->current_token_);
+
+            impl_def.add_constructor(constructor);
+            method_nodes.push_back(std::unique_ptr<ASTNode>(constructor));
+
+            debug_msg(DebugMsgId::PARSE_VAR_DECL, struct_name.c_str(),
+                      "constructor");
+            continue;
+        }
+
         // static修飾子のチェック（impl staticの可能性）
         if (parser_->check(TokenType::TOK_STATIC)) {
             parser_->advance(); // consume 'static'
@@ -305,6 +426,15 @@ ASTNode *InterfaceParser::parseImplDeclaration() {
                       "impl_static_variable");
 
             continue; // 次の宣言へ
+        }
+
+        // impl Struct {} の場合、コンストラクタ/デストラクタ以外は禁止
+        if (is_constructor_impl) {
+            parser_->error(
+                "impl Struct {} can only contain constructors (self), "
+                "destructor (~self), and static variables. "
+                "For regular methods, use 'impl Interface for Struct'");
+            return nullptr;
         }
 
         // private修飾子のチェック
@@ -469,34 +599,39 @@ ASTNode *InterfaceParser::parseImplDeclaration() {
     }
 
     // ★ interfaceの全メソッドが実装されているかチェック
-    auto interface_it = parser_->interface_definitions_.find(interface_name);
-    if (interface_it != parser_->interface_definitions_.end()) {
-        for (const auto &interface_method : interface_it->second.methods) {
-            bool implemented = false;
-            for (const auto *impl_method : impl_def.methods) {
-                if (impl_method->name == interface_method.name) {
-                    implemented = true;
-                    break;
+    // （impl Struct {} の場合はスキップ）
+    if (!is_constructor_impl) {
+        auto interface_it =
+            parser_->interface_definitions_.find(interface_name);
+        if (interface_it != parser_->interface_definitions_.end()) {
+            for (const auto &interface_method : interface_it->second.methods) {
+                bool implemented = false;
+                for (const auto *impl_method : impl_def.methods) {
+                    if (impl_method->name == interface_method.name) {
+                        implemented = true;
+                        break;
+                    }
+                }
+                if (!implemented) {
+                    parser_->error("Incomplete implementation: Method '" +
+                                   interface_method.name +
+                                   "' declared in interface '" +
+                                   interface_name + "' is not implemented");
+                    return nullptr;
                 }
             }
-            if (!implemented) {
-                parser_->error("Incomplete implementation: Method '" +
-                               interface_method.name +
-                               "' declared in interface '" + interface_name +
-                               "' is not implemented");
+        }
+
+        // ★ 課題3の解決: 重複impl定義の検出
+        for (const auto &existing_impl : parser_->impl_definitions_) {
+            if (existing_impl.interface_name == interface_name &&
+                existing_impl.struct_name == struct_name) {
+                parser_->error("Duplicate implementation: Interface '" +
+                               interface_name +
+                               "' is already implemented for struct '" +
+                               struct_name + "'");
                 return nullptr;
             }
-        }
-    }
-
-    // ★ 課題3の解決: 重複impl定義の検出
-    for (const auto &existing_impl : parser_->impl_definitions_) {
-        if (existing_impl.interface_name == interface_name &&
-            existing_impl.struct_name == struct_name) {
-            parser_->error(
-                "Duplicate implementation: Interface '" + interface_name +
-                "' is already implemented for struct '" + struct_name + "'");
-            return nullptr;
         }
     }
 

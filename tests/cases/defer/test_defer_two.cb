@@ -1,0 +1,5 @@
+// 2つのdefer文のテスト
+void main() {
+    defer println("2");
+    defer println("1");
+}

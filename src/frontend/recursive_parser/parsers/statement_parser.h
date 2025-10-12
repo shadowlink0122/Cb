@@ -22,22 +22,34 @@ class StatementParser {
     ASTNode *parseIfStatement();
     ASTNode *parseForStatement();
     ASTNode *parseWhileStatement();
+    ASTNode *parseSwitchStatement();
 
     // ジャンプ文
     ASTNode *parseReturnStatement();
     ASTNode *parseBreakStatement();
     ASTNode *parseContinueStatement();
 
+    // リソース管理
+    ASTNode *parseDeferStatement();
+
+    // Switch関連ヘルパー
+    ASTNode *parseCaseClause();
+    ASTNode *parseCaseValue();
+
     // その他
     ASTNode *parseAssertStatement();
     ASTNode *parsePrintlnStatement();
     ASTNode *parsePrintStatement();
 
+    // Import/Export
+    ASTNode *parseImportStatement();
+
   private:
     RecursiveParser *parser_;
 
     // parseStatementのヘルパーメソッド
-    ASTNode *parseDeclarationStatement(bool isStatic, bool isConst);
+    ASTNode *parseDeclarationStatement(bool isStatic, bool isConst,
+                                       bool isExported = false);
     ASTNode *parseTypedefTypeStatement(const std::string &type_name,
                                        bool isStatic, bool isConst);
     ASTNode *parseBasicTypeStatement(bool isStatic, bool isConst,

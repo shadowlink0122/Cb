@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <iostream>
 #include <map>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -55,10 +56,12 @@ struct Variable {
     TypeInfo pointer_base_type;         // ポインタ基底型
     bool is_pointer_const = false;      // ポインタ自体がconst (T* const)
     bool is_pointee_const = false;      // ポイント先がconst (const T*)
-    bool is_reference = false;          // 参照型かどうか
-    bool is_unsigned = false;           // unsigned修飾子かどうか
-    std::string struct_type_name;       // struct型名
-    bool is_private_member = false;     // struct privateメンバーフラグ
+    bool is_reference = false;          // 参照型かどうか (T&)
+    bool is_rvalue_reference = false; // 右辺値参照かどうか (T&&) v0.10.0
+    std::string reference_target;     // 参照している変数名 v0.10.0
+    bool is_unsigned = false;         // unsigned修飾子かどうか
+    std::string struct_type_name;     // struct型名
+    bool is_private_member = false;   // struct privateメンバーフラグ
 
     // union型用
     std::string type_name; // union型名（union型の場合）
@@ -272,6 +275,7 @@ class ReturnException {
 
     // 参照戻り値サポート
     bool is_reference = false;
+    bool is_rvalue_reference = false;     // v0.10.0: 右辺値参照
     Variable *reference_target = nullptr; // 参照先の変数へのポインタ
 
     // 関数ポインタ戻り値サポート
@@ -435,6 +439,24 @@ class Interpreter : public EvaluatorInterface {
     std::map<std::string, StructDefinition>
         struct_definitions_; // struct定義の保存
 
+    // v0.10.0: コンストラクタ/デストラクタ管理
+    // struct名 → コンストラクタリスト（オーバーロード対応）
+    std::map<std::string, std::vector<const ASTNode *>> struct_constructors_;
+    // struct名 → デストラクタ（1つのみ）
+    std::map<std::string, const ASTNode *> struct_destructors_;
+
+    // Defer管理（スコープごとのdeferスタック）
+    std::vector<std::vector<const ASTNode *>> defer_stacks_;
+
+    // v0.10.0: デストラクタ管理（スコープごとのstruct変数スタック）
+    // 各スコープで作成されたstruct変数を記録（LIFO順で破棄するため）
+    std::vector<std::vector<std::pair<std::string, std::string>>>
+        destructor_stacks_;
+    // pair<変数名, struct型名>
+
+    // v0.10.0: モジュール管理（インポート済みモジュールの追跡）
+    std::set<std::string> loaded_modules;
+
     // Manager instances
     std::unique_ptr<VariableManager> variable_manager_;
     std::unique_ptr<ArrayManager> array_manager_;
@@ -522,6 +544,13 @@ class Interpreter : public EvaluatorInterface {
     Scope &current_scope();
     Scope &get_current_scope() { return current_scope(); }
     Scope &get_global_scope() { return global_scope; }
+
+    // Defer管理
+    void push_defer_scope();
+    void pop_defer_scope();
+    void add_defer(const ASTNode *stmt);
+    void execute_defers();
+    void execute_pre_return_cleanup(); // return文実行前のクリーンアップ
 
     // 変数・関数アクセス
     Variable *find_variable(const std::string &name);
@@ -659,6 +688,20 @@ class Interpreter : public EvaluatorInterface {
     Variable *find_static_variable(const std::string &name);
     void create_static_variable(const std::string &name, const ASTNode *node);
 
+    // v0.10.0: コンストラクタ/デストラクタ呼び出し
+    void call_default_constructor(const std::string &var_name,
+                                  const std::string &struct_type_name);
+    void call_constructor(const std::string &var_name,
+                          const std::string &struct_type_name,
+                          const std::vector<TypedValue> &args);
+    void call_copy_constructor(const std::string &var_name,
+                               const std::string &struct_type_name,
+                               const std::string &source_var_name);
+    void call_destructor(const std::string &var_name,
+                         const std::string &struct_type_name);
+    void register_destructor_call(const std::string &var_name,
+                                  const std::string &struct_type_name);
+
     // impl static変数処理 (StaticVariableManagerへ委譲)
     Variable *find_impl_static_variable(const std::string &name);
     void create_impl_static_variable(const std::string &name,
@@ -696,6 +739,9 @@ class Interpreter : public EvaluatorInterface {
     void print_formatted(const ASTNode *format_str, const ASTNode *arg_list);
     void validate_struct_recursion_rules();
 
+    // v0.10.0: デストラクタ呼び出し中フラグ（無限再帰防止）
+    bool is_calling_destructor_ = false;
+
     // N次元配列リテラル処理の再帰関数
     void process_ndim_array_literal(const ASTNode *literal_node, Variable &var,
                                     TypeInfo elem_type, int &flat_index,
@@ -703,6 +749,9 @@ class Interpreter : public EvaluatorInterface {
 
     // impl宣言処理ヘルパー
     void handle_impl_declaration(const ASTNode *node);
+
+    // import文処理ヘルパー
+    void handle_import_statement(const ASTNode *node);
 
   public:
     void check_type_range(TypeInfo type, int64_t value, const std::string &name,
@@ -722,6 +771,11 @@ class Interpreter : public EvaluatorInterface {
     // デバッグ機能
     void set_debug_mode(bool debug) { debug_mode = debug; }
     bool is_debug_mode() const { return debug_mode; }
+
+    // モジュール機能
+    bool is_module_imported(const std::string &module_name) const {
+        return loaded_modules.find(module_name) != loaded_modules.end();
+    }
 
     // 共通操作へのアクセス
     CommonOperations *get_common_operations() {

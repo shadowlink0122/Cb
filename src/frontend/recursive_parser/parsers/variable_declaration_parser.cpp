@@ -37,6 +37,11 @@ ASTNode *VariableDeclarationParser::parseVariableDeclaration() {
                        (base_parsed_type.is_pointer ? "true" : "false"));
         debug_log_line(std::string("  is_array: ") +
                        (base_parsed_type.is_array ? "true" : "false"));
+        debug_log_line(std::string("  is_reference: ") +
+                       (base_parsed_type.is_reference ? "true" : "false"));
+        debug_log_line(
+            std::string("  is_rvalue_reference: ") +
+            (base_parsed_type.is_rvalue_reference ? "true" : "false"));
 
         debug_log_line(
             "  base_type_info: " +
@@ -63,6 +68,8 @@ ASTNode *VariableDeclarationParser::parseVariableDeclaration() {
         bool is_array;
         ParsedTypeInfo parsed_type;
         bool is_private;
+        std::vector<std::unique_ptr<ASTNode>>
+            ctor_arguments; // コンストラクタ引数
 
         VariableInfo(const std::string &n, std::unique_ptr<ASTNode> expr,
                      const ArrayTypeInfo &arr_info, bool arr,
@@ -88,6 +95,44 @@ ASTNode *VariableDeclarationParser::parseVariableDeclaration() {
         }
 
         std::string var_name = parser_->advance().value;
+
+        // 無名変数 (_) のチェック
+        if (var_name == "_") {
+            // 無名変数の場合、一意な内部識別子を生成
+            extern std::string generate_discard_name();
+            std::string internal_name = generate_discard_name();
+
+            // 初期化式のみを解析（あれば）
+            std::unique_ptr<ASTNode> init_expr = nullptr;
+            if (parser_->match(TokenType::TOK_ASSIGN)) {
+                init_expr =
+                    std::unique_ptr<ASTNode>(parser_->parseExpression());
+            }
+
+            // セミコロンまたはカンマをチェック
+            if (parser_->check(TokenType::TOK_COMMA)) {
+                continue; // 次の変数へ
+            } else if (parser_->check(TokenType::TOK_SEMICOLON)) {
+                parser_->advance();
+
+                // 無名変数ノードを作成
+                ASTNode *discard_node =
+                    new ASTNode(ASTNodeType::AST_DISCARD_VARIABLE);
+                discard_node->name = "_";
+                discard_node->is_discard = true;
+                discard_node->internal_name = internal_name;
+                discard_node->type_name = base_parsed_type.full_type;
+
+                if (init_expr) {
+                    discard_node->init_expr = std::move(init_expr);
+                }
+
+                return discard_node;
+            } else {
+                parser_->error("Expected ',' or ';' after discard variable");
+            }
+        }
+
         std::unique_ptr<ASTNode> init_expr = nullptr;
         ParsedTypeInfo var_parsed = base_parsed_type;
         ArrayTypeInfo array_info = var_parsed.array_info;
@@ -156,12 +201,33 @@ ASTNode *VariableDeclarationParser::parseVariableDeclaration() {
         }
         var_parsed.full_type = combined_full_type;
 
+        // コンストラクタ引数の解析 (例: Point p(10, 20);)
+        std::vector<std::unique_ptr<ASTNode>> ctor_arguments;
+        if (parser_->check(TokenType::TOK_LPAREN)) {
+            parser_->advance(); // '(' を消費
+
+            // 引数リストを解析
+            if (!parser_->check(TokenType::TOK_RPAREN)) {
+                do {
+                    ctor_arguments.push_back(
+                        std::unique_ptr<ASTNode>(parser_->parseExpression()));
+                } while (parser_->match(TokenType::TOK_COMMA));
+            }
+
+            parser_->consume(TokenType::TOK_RPAREN, "Expected ')'");
+        }
+
         if (parser_->match(TokenType::TOK_ASSIGN)) {
             init_expr = std::unique_ptr<ASTNode>(parser_->parseExpression());
         }
 
         variables.emplace_back(var_name, std::move(init_expr), array_info,
                                is_array, var_parsed, false);
+
+        // コンストラクタ引数を保存
+        if (!ctor_arguments.empty()) {
+            variables.back().ctor_arguments = std::move(ctor_arguments);
+        }
 
     } while (parser_->match(TokenType::TOK_COMMA));
 
@@ -186,7 +252,10 @@ ASTNode *VariableDeclarationParser::parseVariableDeclaration() {
         node->pointer_depth = parsed.pointer_depth;
         node->pointer_base_type_name = parsed.base_type;
         node->pointer_base_type = parsed.base_type_info;
-        node->is_reference = parsed.is_reference;
+        node->is_reference =
+            parsed.is_reference ||
+            parsed.is_rvalue_reference; // rvalue referenceも参照
+        node->is_rvalue_reference = parsed.is_rvalue_reference; // v0.10.0
         node->is_unsigned = parsed.is_unsigned;
         node->is_pointer_const_qualifier = parsed.is_pointer_const;
         node->is_pointee_const_qualifier = parsed.is_const && parsed.is_pointer;
@@ -198,6 +267,11 @@ ASTNode *VariableDeclarationParser::parseVariableDeclaration() {
 
         if (var_info.init_expr) {
             node->init_expr = std::move(var_info.init_expr);
+        }
+
+        // コンストラクタ引数を設定
+        if (!var_info.ctor_arguments.empty()) {
+            node->arguments = std::move(var_info.ctor_arguments);
         }
 
         return node;
@@ -213,7 +287,8 @@ ASTNode *VariableDeclarationParser::parseVariableDeclaration() {
         node->pointer_depth = base_parsed_type.pointer_depth;
         node->pointer_base_type_name = base_parsed_type.base_type;
         node->pointer_base_type = base_parsed_type.base_type_info;
-        node->is_reference = base_parsed_type.is_reference;
+        node->is_reference = base_parsed_type.is_reference ||
+                             base_parsed_type.is_rvalue_reference;
         node->is_unsigned = base_parsed_type.is_unsigned;
         node->is_pointer_const_qualifier = base_parsed_type.is_pointer_const;
         node->is_pointee_const_qualifier =
@@ -237,7 +312,11 @@ ASTNode *VariableDeclarationParser::parseVariableDeclaration() {
             var_node->pointer_depth = parsed.pointer_depth;
             var_node->pointer_base_type_name = parsed.base_type;
             var_node->pointer_base_type = parsed.base_type_info;
-            var_node->is_reference = parsed.is_reference;
+            var_node->is_reference =
+                parsed.is_reference ||
+                parsed.is_rvalue_reference; // rvalue referenceも参照
+            var_node->is_rvalue_reference =
+                parsed.is_rvalue_reference; // v0.10.0
             var_node->is_unsigned = parsed.is_unsigned;
             var_node->is_pointer_const_qualifier = parsed.is_pointer_const;
             var_node->is_pointee_const_qualifier =

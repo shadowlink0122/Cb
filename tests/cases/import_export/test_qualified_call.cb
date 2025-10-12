@@ -1,0 +1,27 @@
+// Test for qualified function calls (module.function())
+
+import math;
+
+int main() {
+    println("=== Qualified Call Test ===");
+    
+    // 修飾呼び出し: math.add(3, 5)
+    int result1 = math.add(3, 5);
+    println("math.add(3, 5) = ", result1);
+    
+    // 修飾呼び出し: math.multiply(4, 7)
+    int result2 = math.multiply(4, 7);
+    println("math.multiply(4, 7) = ", result2);
+    
+    // デフォルトexportの修飾呼び出し
+    int result3 = math.subtract(10, 3);
+    println("math.subtract(10, 3) = ", result3);
+    
+    // 定数の修飾アクセス
+    println("math.PI = ", math.PI);
+    println("math.E = ", math.E);
+    
+    println("Qualified call test completed!");
+    
+    return 0;
+}

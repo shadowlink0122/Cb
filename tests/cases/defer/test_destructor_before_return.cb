@@ -1,0 +1,87 @@
+// return実行直前のデストラクタ実行テスト
+
+// テスト用の構造体（デストラクタあり）
+struct Resource {
+    int id;
+};
+
+impl Resource {
+    self(int resource_id) {
+        println("Resource constructed");
+        self.id = resource_id;
+    }
+    
+    ~self() {
+        println("Resource destroyed", self.id);
+    }
+}
+
+// テスト1: 単純なreturn前のデストラクタ
+int test1() {
+    println("test1: start");
+    Resource res(1);
+    println("test1: before return");
+    return 42;
+}
+
+// テスト2: 複数のオブジェクト（LIFO順でデストラクタ実行）
+int test2() {
+    println("test2: start");
+    Resource res1(1);
+    Resource res2(2);
+    Resource res3(3);
+    println("test2: before return");
+    return 100;
+}
+
+// テスト3: if文内のreturn前のデストラクタ
+int test3(int x) {
+    println("test3: start");
+    Resource outer_res(10);
+    
+    if (x > 0) {
+        Resource inner_res(20);
+        println("test3: before return in if");
+        return x * 2;
+    }
+    
+    println("test3: before return outside if");
+    return 0;
+}
+
+// テスト4: deferとデストラクタの両方
+int test4() {
+    println("test4: start");
+    Resource res(100);
+    defer println("test4: defer 1");
+    defer println("test4: defer 2");
+    println("test4: before return");
+    return 999;
+}
+
+// メイン処理
+void main() {
+    println("=== Destructor before return tests ===");
+    
+    println("--- Test 1 ---");
+    int result1 = test1();
+    println(result1);
+    
+    println("--- Test 2 ---");
+    int result2 = test2();
+    println(result2);
+    
+    println("--- Test 3 (x > 0) ---");
+    int result3 = test3(10);
+    println(result3);
+    
+    println("--- Test 3 (x = 0) ---");
+    int result4 = test3(0);
+    println(result4);
+    
+    println("--- Test 4 ---");
+    int result5 = test4();
+    println(result5);
+    
+    println("=== All tests completed ===");
+}

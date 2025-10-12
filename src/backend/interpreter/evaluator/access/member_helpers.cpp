@@ -30,7 +30,8 @@ TypedValue consume_numeric_typed_value(
     const ASTNode *node, int64_t numeric_result,
     const InferredType &inferred_type,
     std::optional<std::pair<const ASTNode *, TypedValue>>
-        &last_captured_function_value) {
+        &last_captured_function_value,
+    const TypedValue *last_typed_result) {
     if (last_captured_function_value.has_value()) {
         if (last_captured_function_value->first == node) {
             TypedValue captured =
@@ -39,6 +40,13 @@ TypedValue consume_numeric_typed_value(
             return captured;
         }
         last_captured_function_value = std::nullopt;
+    }
+
+    // AST_ARROW_ACCESSの文字列結果の場合、last_typed_resultを参照
+    // (evaluate_arrow_accessがset_last_typed_resultを呼び出している)
+    if (node && node->node_type == ASTNodeType::AST_ARROW_ACCESS &&
+        last_typed_result && last_typed_result->type.type_info == TYPE_STRING) {
+        return *last_typed_result;
     }
 
     InferredType resolved_type = inferred_type;
@@ -92,6 +100,7 @@ Variable get_struct_member_from_variable(const Variable &struct_var,
                                          Interpreter &interpreter) {
     // 参照型の場合、参照先の変数を取得
     const Variable *actual_var = &struct_var;
+
     if (struct_var.is_reference) {
         // 参照先はvalueフィールドにポインタとして格納されている
         actual_var = reinterpret_cast<Variable *>(struct_var.value);
@@ -101,24 +110,50 @@ Variable get_struct_member_from_variable(const Variable &struct_var,
         debug_print("[DEBUG] get_struct_member_from_variable: resolving "
                     "reference to target (type=%d)\n",
                     actual_var->type);
+        debug_print("[MEMBER_ACCESS_DEBUG] Reference resolved:\n");
+        debug_print("  ref_var ptr=%p\n", (void *)&struct_var);
+        debug_print("  actual_var ptr=%p\n", (void *)actual_var);
+        debug_print("  actual_var->struct_type_name=%s\n",
+                    actual_var->struct_type_name.c_str());
+        debug_print("  actual_var->struct_members.size()=%zu\n",
+                    actual_var->struct_members.size());
     }
 
     if (actual_var->type != TYPE_STRUCT) {
         throw std::runtime_error("Variable is not a struct");
     }
 
+    // 参照変数の場合でも、常に参照先(actual_var)のstruct_membersを使用
+    // 参照は常に最新の参照先のデータを反映すべき
+    const std::map<std::string, Variable> *members_to_use =
+        &actual_var->struct_members;
+
     debug_print("[DEBUG] get_struct_member_from_variable: looking for '%s' in "
                 "struct (type='%s', members=%zu)\n",
                 member_name.c_str(), actual_var->struct_type_name.c_str(),
-                actual_var->struct_members.size());
-    for (const auto &pair : actual_var->struct_members) {
-        debug_print("[DEBUG]   - member: '%s' (type=%d)\n", pair.first.c_str(),
-                    pair.second.type);
+                members_to_use->size());
+    for (const auto &pair : *members_to_use) {
+        debug_print("[DEBUG]   - member: '%s' (type=%d, is_reference=%d)\n",
+                    pair.first.c_str(), pair.second.type,
+                    pair.second.is_reference);
     }
 
     auto enforce_privacy = [&](const Variable &member_var) -> Variable {
-        if (!member_var.is_private_member) {
-            return member_var;
+        // メンバーが参照の場合、参照先を解決
+        const Variable *final_member = &member_var;
+        if (member_var.is_reference) {
+            final_member = reinterpret_cast<Variable *>(member_var.value);
+            if (!final_member) {
+                throw std::runtime_error(
+                    "Invalid reference in member variable");
+            }
+            debug_print("[DEBUG] Member is a reference, resolving to target "
+                        "(type=%d, value=%lld)\n",
+                        final_member->type, (long long)final_member->value);
+        }
+
+        if (!final_member->is_private_member) {
+            return *final_member;
         }
 
         std::string struct_type = actual_var->struct_type_name;
@@ -133,12 +168,12 @@ Variable get_struct_member_from_variable(const Variable &struct_var,
                                      type_label + "." + member_name);
         }
 
-        return member_var;
+        return *final_member;
     };
 
     // まず struct_members から直接検索
-    auto member_it = actual_var->struct_members.find(member_name);
-    if (member_it != actual_var->struct_members.end()) {
+    auto member_it = members_to_use->find(member_name);
+    if (member_it != members_to_use->end()) {
         // ネストされた構造体メンバーの場合、そのstruct_membersを確認
         if (member_it->second.type == TYPE_STRUCT) {
             debug_print("[DEBUG] Found struct member '%s' (type=%d, "

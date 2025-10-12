@@ -109,6 +109,14 @@ enum class TokenType {
     TOK_NULL,
     TOK_UNSIGNED,
     TOK_ASSERT,
+    TOK_DEFER,
+    TOK_DEFAULT,
+    TOK_SWITCH,
+    TOK_CASE,
+    TOK_RANGE,  // ... (range operator)
+    TOK_FUNC,   // func (for lambda expressions)
+    TOK_IMPORT, // import
+    TOK_EXPORT, // export
 
     // Special
     TOK_EOF,

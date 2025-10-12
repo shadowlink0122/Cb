@@ -418,6 +418,30 @@ void OutputManager::print_value(const ASTNode *expr) {
         TypedValue typed = interpreter_->evaluate_typed_expression(expr);
         if (!typed.needs_deferred_evaluation()) {
             if (typed.is_struct()) {
+                // デフォルトメンバーがあればその値を出力
+                if (typed.struct_data && !typed.type.type_name.empty()) {
+                    const StructDefinition *struct_def =
+                        interpreter_->find_struct_definition(
+                            typed.type.type_name);
+                    if (struct_def && struct_def->has_default_member) {
+                        // struct_data からデフォルトメンバーの値を取得
+                        auto it = typed.struct_data->struct_members.find(
+                            struct_def->default_member_name);
+                        if (it != typed.struct_data->struct_members.end()) {
+                            const Variable &member_var = it->second;
+                            if (member_var.type == TYPE_STRING) {
+                                io_interface_->write_string(
+                                    member_var.str_value.c_str());
+                            } else {
+                                write_numeric_value(
+                                    io_interface_, member_var.type,
+                                    member_var.value, member_var.double_value,
+                                    member_var.quad_value);
+                            }
+                            return;
+                        }
+                    }
+                }
                 io_interface_->write_string("(struct)");
                 return;
             }

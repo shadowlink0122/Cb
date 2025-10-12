@@ -1,0 +1,32 @@
+// Test: Member assignment through T&& reference
+// Status: ✅ PASS (v0.10.0) - 完全実装
+// Expected: ref.x = 100 で p1.x が変更される
+// Actual: p1.x は 100 に変更される (正しい)
+
+struct Point {
+    int x;
+    int y;
+};
+
+int main() {
+    Point p1;
+    p1.x = 10;
+    p1.y = 20;
+    
+    Point&& ref = p1;
+    
+    print("Before: p1.x = ");
+    println(p1.x);  // 10
+    
+    // ref経由で代入
+    ref.x = 100;
+    ref.y = 200;
+    
+    print("After: p1.x = ");
+    println(p1.x);  // 期待: 100, 実際: 100 ✅
+    
+    print("After: p1.y = ");
+    println(p1.y);  // 期待: 200, 実際: 200 ✅
+    
+    return 0;
+}

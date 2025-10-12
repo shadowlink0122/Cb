@@ -45,8 +45,10 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdlib>
+#include <fstream>
 #include <functional>
 #include <iostream>
+#include <set>
 #include <sstream>
 #include <stdexcept>
 #include <unordered_map>
@@ -158,6 +160,12 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
         case ASTNodeType::AST_UNION_TYPEDEF_DECL:
             node_type_name = "AST_UNION_TYPEDEF_DECL";
             break;
+        case ASTNodeType::AST_CONSTRUCTOR_DECL:
+            node_type_name = "AST_CONSTRUCTOR_DECL";
+            break;
+        case ASTNodeType::AST_DESTRUCTOR_DECL:
+            node_type_name = "AST_DESTRUCTOR_DECL";
+            break;
         default:
             break;
         }
@@ -170,6 +178,12 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
 
     switch (node->node_type) {
     case ASTNodeType::AST_STMT_LIST:
+        // まずimport文を処理（他の宣言よりも先に実行）
+        for (const auto &stmt : node->statements) {
+            if (stmt->node_type == ASTNodeType::AST_IMPORT_STMT) {
+                register_global_declarations(stmt.get());
+            }
+        }
         // 2パス変数宣言処理: 先にconst変数、次に配列
         // まずconst変数（配列以外）のみを処理
         for (const auto &stmt : node->statements) {
@@ -238,7 +252,10 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
                 stmt->node_type != ASTNodeType::AST_TYPEDEF_DECL &&
                 stmt->node_type != ASTNodeType::AST_UNION_TYPEDEF_DECL &&
                 stmt->node_type != ASTNodeType::AST_INTERFACE_DECL &&
-                stmt->node_type != ASTNodeType::AST_IMPL_DECL) {
+                stmt->node_type != ASTNodeType::AST_IMPL_DECL &&
+                stmt->node_type != ASTNodeType::AST_CONSTRUCTOR_DECL &&
+                stmt->node_type != ASTNodeType::AST_DESTRUCTOR_DECL &&
+                stmt->node_type != ASTNodeType::AST_IMPORT_STMT) {
                 register_global_declarations(stmt.get());
             }
         }
@@ -275,6 +292,8 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
                         array_member.is_reference = member_node->is_reference;
                         array_member.is_unsigned = member_node->is_unsigned;
                         array_member.is_const = member_node->is_const;
+                        array_member.is_default =
+                            member_node->is_default_member;
                         struct_def.members.push_back(array_member);
 
                         debug_msg(
@@ -299,10 +318,27 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
                             member_node->is_private_member,
                             member_node->is_reference, member_node->is_unsigned,
                             member_node->is_const);
+
+                        // デフォルトメンバーの設定
+                        if (member_node->is_default_member) {
+                            StructMember &added_member =
+                                struct_def.members.back();
+                            added_member.is_default = true;
+                        }
+
                         debug_msg(DebugMsgId::INTERPRETER_STRUCT_MEMBER_ADDED,
                                   member_node->name.c_str(),
                                   (int)member_node->type_info);
                     }
+                }
+            }
+
+            // デフォルトメンバー情報を設定
+            for (const auto &member : struct_def.members) {
+                if (member.is_default) {
+                    struct_def.has_default_member = true;
+                    struct_def.default_member_name = member.name;
+                    break; // 1つだけのはず
                 }
             }
 
@@ -422,6 +458,11 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
         debug_msg(DebugMsgId::FUNC_DECL_REGISTER_COMPLETE, node->name.c_str());
         break;
 
+    case ASTNodeType::AST_IMPORT_STMT:
+        // import文を処理
+        handle_import_statement(node);
+        break;
+
     case ASTNodeType::AST_TYPEDEF_DECL:
         // typedef宣言をTypeManagerに委譲
         type_manager_->register_typedef(node->name, node->type_name);
@@ -458,7 +499,62 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
         break;
 
     case ASTNodeType::AST_IMPL_DECL:
+        // impl宣言を処理（メソッド登録）
         handle_impl_declaration(node);
+
+        // v0.10.0: コンストラクタ/デストラクタを登録
+        {
+            std::string struct_name = node->struct_name;
+            if (debug_mode) {
+                debug_print("Processing impl for struct: %s\n",
+                            struct_name.c_str());
+                debug_print("Number of arguments: %zu\n",
+                            node->arguments.size());
+            }
+
+            for (size_t i = 0; i < node->arguments.size(); ++i) {
+                const auto &arg = node->arguments[i];
+                if (!arg) {
+                    if (debug_mode) {
+                        debug_print(
+                            "Warning: null argument %zu in impl block\n", i);
+                    }
+                    continue;
+                }
+
+                if (debug_mode) {
+                    debug_print("Processing argument %zu, node_type: %d\n", i,
+                                static_cast<int>(arg->node_type));
+                }
+
+                if (arg->node_type == ASTNodeType::AST_CONSTRUCTOR_DECL) {
+                    struct_constructors_[struct_name].push_back(arg.get());
+                    if (debug_mode) {
+                        size_t param_count = arg->parameters.size();
+                        debug_print(
+                            "Registered constructor for %s (params: %zu)\n",
+                            struct_name.c_str(), param_count);
+                    }
+                } else if (arg->node_type == ASTNodeType::AST_DESTRUCTOR_DECL) {
+                    struct_destructors_[struct_name] = arg.get();
+                    if (debug_mode) {
+                        debug_print("Registered destructor for %s\n",
+                                    struct_name.c_str());
+                    }
+                } else {
+                    if (debug_mode) {
+                        debug_print("Skipping non-constructor/destructor "
+                                    "argument (type: %d)\n",
+                                    static_cast<int>(arg->node_type));
+                    }
+                }
+            }
+
+            if (debug_mode) {
+                debug_print("Finished processing impl for %s\n",
+                            struct_name.c_str());
+            }
+        }
         break;
 
     case ASTNodeType::AST_ARRAY_ASSIGN:
@@ -509,6 +605,7 @@ void Interpreter::process(const ASTNode *ast) {
         execute_statement(main_func->body.get());
         pop_scope();
     } catch (const ReturnException &e) {
+        pop_scope(); // return時もスコープをクリーンアップ
         debug_msg(DebugMsgId::MAIN_FUNC_EXIT, e.value);
     }
 }
@@ -705,6 +802,27 @@ void Interpreter::execute_statement(const ASTNode *node) {
         break;
 
     // ========================================================================
+    // 無名変数（DISCARD_VARIABLE）v0.10.0新機能
+    // 初期化式を評価するが、値は保存しない
+    // ========================================================================
+    case ASTNodeType::AST_DISCARD_VARIABLE:
+        if (node->init_expr) {
+            // 初期化式を評価（副作用のため）
+            evaluate(node->init_expr.get());
+        }
+        // 変数は登録しない（破棄される）
+        break;
+
+    // ========================================================================
+    // 無名関数（LAMBDA_EXPR）v0.10.0新機能
+    // 無名関数を内部的に通常の関数として登録
+    // ========================================================================
+    case ASTNodeType::AST_LAMBDA_EXPR:
+        // 無名関数は評価器で処理される（関数ポインタとして扱う）
+        // ここでは何もしない（式として評価される）
+        break;
+
+    // ========================================================================
     // 代入文（ASSIGN）
     // StatementExecutorに委譲済み
     // ========================================================================
@@ -803,6 +921,10 @@ void Interpreter::execute_statement(const ASTNode *node) {
         control_flow_executor_->execute_for_statement(node);
         break;
 
+    case ASTNodeType::AST_SWITCH_STMT:
+        control_flow_executor_->execute_switch_statement(node);
+        break;
+
     // ========================================================================
     // assert文（ASSERT_STMT）
     // AssertionHandlerに委譲済み
@@ -836,11 +958,29 @@ void Interpreter::execute_statement(const ASTNode *node) {
         break;
 
     // ========================================================================
+    // defer文（DEFER_STMT）
+    // スコープ終了時に実行される文を登録
+    // ========================================================================
+    case ASTNodeType::AST_DEFER_STMT:
+        if (node->body) {
+            add_defer(node->body.get());
+        }
+        break;
+
+    // ========================================================================
     // 関数宣言（FUNC_DECL）
     // 関数定義をグローバルスコープに登録
     // ========================================================================
     case ASTNodeType::AST_FUNC_DECL:
         function_declaration_handler_->handle_function_declaration(node);
+        break;
+
+    // ========================================================================
+    // import文（IMPORT_STMT）
+    // モジュールをロードして定義をインポート
+    // ========================================================================
+    case ASTNodeType::AST_IMPORT_STMT:
+        handle_import_statement(node);
         break;
 
     // ========================================================================
@@ -926,6 +1066,345 @@ void Interpreter::assign_union_variable(const std::string &name,
 
 void Interpreter::handle_impl_declaration(const ASTNode *node) {
     interface_operations_->handle_impl_declaration(node);
+}
+
+void Interpreter::handle_import_statement(const ASTNode *node) {
+    if (!node || node->import_path.empty()) {
+        throw std::runtime_error(
+            "Invalid import statement: no module path specified");
+    }
+
+    std::string module_path = node->import_path;
+
+    // モジュールが既にロード済みかチェック
+    if (loaded_modules.find(module_path) != loaded_modules.end()) {
+        return; // 既にロード済み
+    }
+
+    // モジュールファイルのパスを解決
+    // モジュールパスを相対ファイルパスに変換
+    // 例: "stdlib.math.basic" -> "stdlib/math/basic.cb"
+    //     "mymodule" -> "mymodule.cb"
+    //     "../utils/helper.cb" -> "../utils/helper.cb" (そのまま)
+
+    std::string file_path = module_path;
+
+    // 既に.cbが含まれている場合はそのまま使用
+    if (file_path.find(".cb") != std::string::npos) {
+        // そのまま使用
+    }
+    // ドット記法の場合、パスに変換
+    else if (module_path.find('.') != std::string::npos &&
+             module_path.find('/') == std::string::npos &&
+             module_path.find("..") == std::string::npos) {
+        // ドット記法: stdlib.math.basic -> stdlib/math/basic.cb
+        std::replace(file_path.begin(), file_path.end(), '.', '/');
+        file_path += ".cb";
+    } else {
+        // 拡張子がない場合は追加
+        file_path += ".cb";
+    }
+
+    // 検索パスの優先順位:
+    // 1. 相対パス（カレントディレクトリから）
+    // 2. modules/ ディレクトリ
+    // 3. プロジェクトルート
+    // 4. テストディレクトリ（テスト用）
+    std::string resolved_path;
+    std::ifstream file;
+    std::vector<std::string> search_paths;
+
+    // 相対パス（../ や ./）の場合、そのまま試す
+    if (file_path.find("../") == 0 || file_path.find("./") == 0) {
+        search_paths.push_back(file_path);
+    } else {
+        // 通常のモジュール検索パス
+        search_paths = {
+            file_path,                    // カレントディレクトリ
+            "modules/" + file_path,       // modulesディレクトリ
+            "../modules/" + file_path,    // 1つ上のmodulesディレクトリ
+            "../../modules/" + file_path, // 2つ上のmodulesディレクトリ
+            "../" + file_path,            // 1つ上のディレクトリ
+            "../../" + file_path,         // 2つ上のディレクトリ
+            "tests/cases/import_export/" + file_path, // テストディレクトリ
+            "../../tests/cases/import_export/" +
+                file_path // tests/integration/から
+        };
+    }
+
+    for (const auto &path : search_paths) {
+        file.open(path);
+        if (file.is_open()) {
+            resolved_path = path;
+            break;
+        }
+    }
+
+    if (!file.is_open()) {
+        throw std::runtime_error("Failed to open module file: " + module_path +
+                                 " (searched: " + file_path + ")");
+    }
+
+    std::string source_code((std::istreambuf_iterator<char>(file)),
+                            std::istreambuf_iterator<char>());
+    file.close();
+
+    // パーサーを使ってモジュールをパース
+    RecursiveParser parser(source_code, module_path);
+    ASTNode *module_ast = nullptr;
+    try {
+        module_ast = parser.parse();
+    } catch (const std::exception &e) {
+        throw std::runtime_error("Failed to parse module '" + module_path +
+                                 "': " + e.what());
+    }
+
+    if (!module_ast) {
+        throw std::runtime_error("Failed to parse module: " + module_path);
+    }
+
+    // import項目の指定があるかチェック
+    bool has_specific_items = !node->import_items.empty();
+    std::unordered_set<std::string> import_items_set(node->import_items.begin(),
+                                                     node->import_items.end());
+
+    // モジュールのステートメントを実行
+    if (!module_ast->statements.empty()) {
+        for (const auto &stmt_ptr : module_ast->statements) {
+            const ASTNode *stmt = stmt_ptr.get();
+            if (!stmt || !stmt->is_exported)
+                continue;
+
+            // 特定の項目のみをインポートする場合、それ以外はスキップ
+            if (has_specific_items &&
+                import_items_set.find(stmt->name) == import_items_set.end()) {
+                continue;
+            }
+
+            // エイリアスを取得（あれば）
+            std::string imported_name = stmt->name;
+            auto alias_it = node->import_aliases.find(stmt->name);
+            if (alias_it != node->import_aliases.end()) {
+                imported_name = alias_it->second;
+            }
+            // モジュール全体のエイリアス（as構文）
+            auto module_alias_it = node->import_aliases.find("*");
+            if (module_alias_it != node->import_aliases.end()) {
+                imported_name = module_alias_it->second + "." + stmt->name;
+            }
+
+            // export要素を適切なスコープに登録
+            switch (stmt->node_type) {
+            case ASTNodeType::AST_FUNC_DECL: {
+                // 通常の名前で登録
+                global_scope.functions[imported_name] = stmt;
+                // 修飾名でも登録（module.function()で呼び出せるように）
+                std::string qualified_name = module_path + "." + stmt->name;
+                global_scope.functions[qualified_name] = stmt;
+                if (debug_mode) {
+                    std::cerr
+                        << "[IMPORT] Function registered: " << imported_name
+                        << " (also as " << qualified_name << ")" << std::endl;
+                }
+            } break;
+
+            case ASTNodeType::AST_STRUCT_DECL:
+                // 構造体定義を登録
+                {
+                    if (debug_mode) {
+                        std::cerr
+                            << "[IMPORT] Registering struct: " << imported_name
+                            << " with " << stmt->arguments.size() << " members"
+                            << std::endl;
+                    }
+
+                    StructDefinition struct_def(imported_name);
+                    // メンバーをstmt->argumentsから登録
+                    for (const auto &member : stmt->arguments) {
+                        if (debug_mode) {
+                            std::cerr
+                                << "[IMPORT]   Member node_type: "
+                                << static_cast<int>(member->node_type)
+                                << " (AST_VAR_DECL="
+                                << static_cast<int>(ASTNodeType::AST_VAR_DECL)
+                                << ")" << std::endl;
+                        }
+                        if (member->node_type == ASTNodeType::AST_VAR_DECL) {
+                            if (debug_mode) {
+                                std::cerr << "[IMPORT]   Adding member: "
+                                          << member->name << " type="
+                                          << static_cast<int>(member->type_info)
+                                          << std::endl;
+                            }
+                            struct_def.add_member(
+                                member->name, member->type_info,
+                                member->type_name, member->is_pointer,
+                                member->pointer_depth,
+                                member->pointer_base_type_name,
+                                member->pointer_base_type,
+                                member->is_private_member, member->is_reference,
+                                member->is_unsigned, member->is_const);
+                            if (member->is_default_member) {
+                                struct_def.has_default_member = true;
+                                struct_def.default_member_name = member->name;
+                            }
+                        }
+                    }
+
+                    if (debug_mode) {
+                        std::cerr << "[IMPORT] Struct " << imported_name
+                                  << " registered with "
+                                  << struct_def.members.size() << " members"
+                                  << std::endl;
+                    }
+
+                    struct_definitions_[imported_name] = struct_def;
+                }
+                break;
+
+            case ASTNodeType::AST_INTERFACE_DECL:
+                // インターフェース定義を登録（ASTノードを直接保存）
+                // interfaceは実行時に処理されるため、ここでは何もしない
+                // グローバルスコープにASTを保存しておく必要がある場合は追加
+                break;
+
+            case ASTNodeType::AST_IMPL_DECL:
+                // impl定義を登録
+                {
+                    if (debug_mode) {
+                        std::cerr << "[IMPORT] Registering impl for struct: "
+                                  << stmt->struct_name
+                                  << " interface: " << stmt->interface_name
+                                  << std::endl;
+                    }
+
+                    // コンストラクタ・デストラクタの登録処理
+                    std::string struct_name = stmt->struct_name;
+                    for (const auto &arg : stmt->arguments) {
+                        if (!arg) {
+                            continue;
+                        }
+
+                        if (arg->node_type ==
+                            ASTNodeType::AST_CONSTRUCTOR_DECL) {
+                            struct_constructors_[struct_name].push_back(
+                                arg.get());
+
+                            // コンストラクタを関数としても登録（Rectangle()で呼び出せるように）
+                            // コンストラクタASTノードを直接関数として登録
+                            register_function_to_global(struct_name, arg.get());
+                            // 修飾名でも登録
+                            std::string qualified_name =
+                                module_path + "." + struct_name;
+                            register_function_to_global(qualified_name,
+                                                        arg.get());
+
+                            if (debug_mode) {
+                                std::cerr
+                                    << "[IMPORT] Registered constructor for "
+                                    << struct_name
+                                    << " (params: " << arg->parameters.size()
+                                    << ")" << std::endl;
+                                std::cerr
+                                    << "[IMPORT] Also registered as function: "
+                                    << struct_name << " and " << qualified_name
+                                    << std::endl;
+                            }
+                        } else if (arg->node_type ==
+                                   ASTNodeType::AST_DESTRUCTOR_DECL) {
+                            struct_destructors_[struct_name] = arg.get();
+                            if (debug_mode) {
+                                std::cerr
+                                    << "[IMPORT] Registered destructor for "
+                                    << struct_name << std::endl;
+                            }
+                        }
+                    }
+
+                    // implメソッドをグローバルに登録
+                    handle_impl_declaration(stmt);
+                }
+                break;
+
+            case ASTNodeType::AST_TYPEDEF_DECL:
+            case ASTNodeType::AST_UNION_TYPEDEF_DECL:
+            case ASTNodeType::AST_ENUM_TYPEDEF_DECL:
+                // typedef定義を登録
+                if (type_manager_) {
+                    // typedefマップに登録（型名 -> 基底型）
+                    typedef_map[imported_name] = stmt->type_name;
+                }
+                break;
+
+            case ASTNodeType::AST_VAR_DECL: {
+                // グローバル変数を登録
+                if (stmt->is_const) {
+                    // const変数の値を評価して登録
+                    if (stmt->init_expr) {
+                        TypedValue typed_val =
+                            expression_evaluator_->evaluate_typed_expression(
+                                stmt->init_expr.get());
+                        Variable var;
+                        var.type = stmt->type_info;
+                        var.is_const = true;
+                        var.value = typed_val.value;
+                        if (stmt->type_info == TYPE_FLOAT ||
+                            stmt->type_info == TYPE_DOUBLE ||
+                            stmt->type_info == TYPE_QUAD) {
+                            var.float_value = typed_val.double_value;
+                        } else if (stmt->type_info == TYPE_STRING) {
+                            var.str_value = typed_val.string_value;
+                        }
+                        global_scope.variables[imported_name] = var;
+                        // 修飾名でも登録
+                        std::string qualified_name =
+                            module_path + "." + stmt->name;
+                        global_scope.variables[qualified_name] = var;
+                    }
+                } else {
+                    // 通常のグローバル変数
+                    Variable var;
+                    var.type = stmt->type_info;
+                    if (stmt->init_expr) {
+                        TypedValue typed_val =
+                            expression_evaluator_->evaluate_typed_expression(
+                                stmt->init_expr.get());
+                        var.value = typed_val.value;
+                        if (stmt->type_info == TYPE_FLOAT ||
+                            stmt->type_info == TYPE_DOUBLE ||
+                            stmt->type_info == TYPE_QUAD) {
+                            var.float_value = typed_val.double_value;
+                        } else if (stmt->type_info == TYPE_STRING) {
+                            var.str_value = typed_val.string_value;
+                        }
+                    }
+                    global_scope.variables[imported_name] = var;
+                    // 修飾名でも登録
+                    std::string qualified_name = module_path + "." + stmt->name;
+                    global_scope.variables[qualified_name] = var;
+                }
+            } break;
+
+            case ASTNodeType::AST_ENUM_DECL:
+                // enum定義を登録
+                if (enum_manager_) {
+                    enum_manager_->register_enum(imported_name,
+                                                 stmt->enum_definition);
+                }
+                break;
+
+            default:
+                // その他の宣言はスキップ
+                break;
+            }
+        }
+    }
+
+    // モジュールをロード済みとしてマーク
+    loaded_modules.insert(module_path);
+
+    // ASTノードは削除しない（定義として保持する必要があるため）
+    // delete module_ast;
 }
 
 void Interpreter::assign_function_parameter(const std::string &name,
@@ -1611,6 +2090,13 @@ void Interpreter::assign_struct_member(const std::string &var_name,
     value_var.double_value = typed_value.double_value;
     value_var.float_value = static_cast<float>(typed_value.double_value);
     value_var.quad_value = typed_value.quad_value;
+    value_var.str_value = typed_value.string_value; // 文字列の値もコピー
+
+    // 型がUNKNOWNで文字列の場合、型をSTRINGに設定
+    if (value_var.type == TYPE_UNKNOWN && !value_var.str_value.empty()) {
+        value_var.type = TYPE_STRING;
+    }
+
     struct_assignment_manager_->assign_struct_member(var_name, member_name,
                                                      value_var);
 }
@@ -1680,6 +2166,442 @@ void Interpreter::sync_direct_access_from_struct_value(
     const std::string &var_name, const Variable &struct_value) {
     struct_sync_manager_->sync_direct_access_from_struct_value(var_name,
                                                                struct_value);
+}
+
+// ========================================================================
+// v0.10.0: Constructor/Destructor Support
+// ========================================================================
+
+void Interpreter::call_default_constructor(
+    const std::string &var_name, const std::string &struct_type_name) {
+    // デフォルトコンストラクタ（パラメータなし）を探す
+    auto it = struct_constructors_.find(struct_type_name);
+    if (it == struct_constructors_.end() || it->second.empty()) {
+        // コンストラクタが定義されていない場合は何もしない
+        if (debug_mode) {
+            debug_print("No constructor defined for struct: %s\n",
+                        struct_type_name.c_str());
+        }
+        return;
+    }
+
+    // パラメータなしのコンストラクタを探す
+    const ASTNode *default_ctor = nullptr;
+    for (const auto *ctor : it->second) {
+        if (ctor->parameters.empty()) {
+            default_ctor = ctor;
+            break;
+        }
+    }
+
+    if (!default_ctor) {
+        // デフォルトコンストラクタが見つからない場合は何もしない
+        if (debug_mode) {
+            debug_print("No default constructor (0 params) for struct: %s\n",
+                        struct_type_name.c_str());
+        }
+        return;
+    }
+
+    if (debug_mode) {
+        debug_print("Calling default constructor for %s.%s\n",
+                    struct_type_name.c_str(), var_name.c_str());
+    }
+
+    // まず、スコープをプッシュする前に構造体変数を取得
+    Variable *struct_var = find_variable(var_name);
+
+    if (debug_mode) {
+        debug_print("DEBUG: find_variable(%s) returned: %p\n", var_name.c_str(),
+                    (void *)struct_var);
+    }
+
+    // コンストラクタ本体を実行
+    push_scope(); // コンストラクタ用の新しいスコープ
+
+    // selfを現在の変数のコピーとして設定
+    if (struct_var) {
+        // self変数を作成（構造体変数の完全なコピー）
+        Variable self_var = *struct_var;
+        current_scope().variables["self"] = self_var;
+
+        if (debug_mode) {
+            debug_print("Created self variable with %zu struct_members\n",
+                        self_var.struct_members.size());
+            for (const auto &[name, member] : self_var.struct_members) {
+                debug_print("  self.%s (type: %d)\n", name.c_str(),
+                            static_cast<int>(member.type));
+            }
+        }
+    }
+
+    // コンストラクタ本体を実行
+    if (default_ctor->body) {
+        execute_statement(default_ctor->body.get());
+    }
+
+    // selfへの変更を元の変数に反映
+    Variable *self = find_variable("self");
+    if (self && struct_var) {
+        // selfのstruct_membersを元の変数にコピー
+        struct_var->struct_members = self->struct_members;
+
+        // メンバー変数の直接アクセス用変数も更新
+        for (const auto &[member_name, member_value] : self->struct_members) {
+            std::string member_path = var_name + "." + member_name;
+            Variable *direct_member = find_variable(member_path);
+            if (direct_member) {
+                *direct_member = member_value;
+            }
+        }
+    }
+
+    pop_scope(); // コンストラクタスコープを終了
+}
+
+void Interpreter::call_constructor(const std::string &var_name,
+                                   const std::string &struct_type_name,
+                                   const std::vector<TypedValue> &args) {
+    // 引数付きコンストラクタを探す
+    auto it = struct_constructors_.find(struct_type_name);
+    if (it == struct_constructors_.end() || it->second.empty()) {
+        throw std::runtime_error("No constructor defined for struct: " +
+                                 struct_type_name);
+    }
+
+    // パラメータ数が一致するコンストラクタを探す
+    const ASTNode *matching_ctor = nullptr;
+    for (const auto *ctor : it->second) {
+        if (ctor->parameters.size() == args.size()) {
+            // TODO: 型チェックを追加（より厳密なマッチング）
+            matching_ctor = ctor;
+            break;
+        }
+    }
+
+    if (!matching_ctor) {
+        throw std::runtime_error("No matching constructor found for struct " +
+                                 struct_type_name + " with " +
+                                 std::to_string(args.size()) + " arguments");
+    }
+
+    if (debug_mode) {
+        debug_print("Calling constructor for %s.%s with %zu arguments\n",
+                    struct_type_name.c_str(), var_name.c_str(), args.size());
+    }
+
+    // 構造体変数を取得
+    Variable *struct_var = find_variable(var_name);
+    if (!struct_var) {
+        throw std::runtime_error("Variable not found: " + var_name);
+    }
+
+    // コンストラクタ用の新しいスコープを作成
+    push_scope();
+
+    // selfを現在の変数のコピーとして設定
+    Variable self_var = *struct_var;
+    current_scope().variables["self"] = self_var;
+
+    // パラメータを設定
+    for (size_t i = 0; i < matching_ctor->parameters.size(); ++i) {
+        const auto &param = matching_ctor->parameters[i];
+        const auto &arg = args[i];
+
+        Variable param_var;
+        param_var.type = arg.type.type_info;
+        param_var.value = arg.value;
+        param_var.double_value = arg.double_value;
+        param_var.str_value = arg.string_value;
+        param_var.is_assigned = true;
+
+        current_scope().variables[param->name] = param_var;
+
+        if (debug_mode) {
+            debug_print("  Parameter %s = ", param->name.c_str());
+            if (arg.type.type_info == TYPE_STRING) {
+                debug_print("\"%s\"\n", arg.string_value.c_str());
+            } else {
+                debug_print("%lld\n", (long long)arg.value);
+            }
+        }
+    }
+
+    // コンストラクタ本体を実行
+    if (matching_ctor->body) {
+        execute_statement(matching_ctor->body.get());
+    }
+
+    // selfへの変更を元の変数に反映
+    Variable *self = find_variable("self");
+    if (self && struct_var) {
+        // selfのstruct_membersを元の変数にコピー
+        struct_var->struct_members = self->struct_members;
+
+        // メンバー変数の直接アクセス用変数も更新
+        for (const auto &[member_name, member_value] : self->struct_members) {
+            std::string member_path = var_name + "." + member_name;
+            Variable *direct_member = find_variable(member_path);
+            if (direct_member) {
+                *direct_member = member_value;
+            }
+        }
+    }
+
+    pop_scope(); // コンストラクタスコープを終了
+}
+
+void Interpreter::call_copy_constructor(const std::string &var_name,
+                                        const std::string &struct_type_name,
+                                        const std::string &source_var_name) {
+    // コピーコンストラクタを探す（パラメータが1つでconst参照型）
+    auto it = struct_constructors_.find(struct_type_name);
+    if (it == struct_constructors_.end() || it->second.empty()) {
+        if (debug_mode) {
+            debug_print("No constructor defined for struct: %s, using "
+                        "memberwise copy\n",
+                        struct_type_name.c_str());
+        }
+        // コピーコンストラクタがない場合は、メンバーワイズコピーを実行
+        Variable *dest_var = find_variable(var_name);
+        Variable *source_var = find_variable(source_var_name);
+        if (dest_var && source_var) {
+            dest_var->struct_members = source_var->struct_members;
+            // 個別変数も更新
+            for (const auto &[member_name, member_value] :
+                 source_var->struct_members) {
+                std::string dest_member_path = var_name + "." + member_name;
+                std::string source_member_path =
+                    source_var_name + "." + member_name;
+                Variable *dest_member = find_variable(dest_member_path);
+                Variable *source_member = find_variable(source_member_path);
+                if (dest_member && source_member) {
+                    *dest_member = *source_member;
+                }
+            }
+        }
+        return;
+    }
+
+    // const T& 型のパラメータを持つコンストラクタを探す
+    const ASTNode *copy_ctor = nullptr;
+    for (const auto *ctor : it->second) {
+        if (ctor->parameters.size() == 1) {
+            const auto &param = ctor->parameters[0];
+            // const参照型で、型名が一致するかチェック
+            if (param->is_reference && param->is_const) {
+                // 型名をチェック（基底型名と一致するか）
+                std::string param_type = param->type_name;
+                // "const Type&" から "Type" を抽出
+                size_t const_pos = param_type.find("const");
+                size_t ref_pos = param_type.find("&");
+                if (const_pos != std::string::npos) {
+                    param_type =
+                        param_type.substr(const_pos + 5); // "const " をスキップ
+                }
+                if (ref_pos != std::string::npos) {
+                    param_type = param_type.substr(0, param_type.find("&"));
+                }
+                // 空白を削除
+                param_type.erase(std::remove_if(param_type.begin(),
+                                                param_type.end(), ::isspace),
+                                 param_type.end());
+
+                if (param_type == struct_type_name) {
+                    copy_ctor = ctor;
+                    break;
+                }
+            }
+        }
+    }
+
+    if (!copy_ctor) {
+        // コピーコンストラクタが見つからない場合は、メンバーワイズコピー
+        if (debug_mode) {
+            debug_print("No copy constructor found for struct: %s, using "
+                        "memberwise copy\n",
+                        struct_type_name.c_str());
+        }
+        Variable *dest_var = find_variable(var_name);
+        Variable *source_var = find_variable(source_var_name);
+        if (dest_var && source_var) {
+            dest_var->struct_members = source_var->struct_members;
+            // 個別変数も更新
+            for (const auto &[member_name, member_value] :
+                 source_var->struct_members) {
+                std::string dest_member_path = var_name + "." + member_name;
+                std::string source_member_path =
+                    source_var_name + "." + member_name;
+                Variable *dest_member = find_variable(dest_member_path);
+                Variable *source_member = find_variable(source_member_path);
+                if (dest_member && source_member) {
+                    *dest_member = *source_member;
+                }
+            }
+        }
+        return;
+    }
+
+    if (debug_mode) {
+        debug_print("Calling copy constructor for %s from %s\n",
+                    var_name.c_str(), source_var_name.c_str());
+    }
+
+    // 構造体変数を取得
+    Variable *dest_var = find_variable(var_name);
+    Variable *source_var = find_variable(source_var_name);
+    if (!dest_var || !source_var) {
+        throw std::runtime_error("Variable not found in copy constructor");
+    }
+
+    // コピーコンストラクタ用の新しいスコープを作成
+    push_scope();
+
+    // selfを現在の変数のコピーとして設定
+    Variable self_var = *dest_var;
+    current_scope().variables["self"] = self_var;
+
+    // パラメータ（ソース変数への参照）を設定
+    const auto &param = copy_ctor->parameters[0];
+    current_scope().variables[param->name] = *source_var;
+
+    if (debug_mode) {
+        debug_print("  Copy parameter %s set to source variable\n",
+                    param->name.c_str());
+    }
+
+    // コピーコンストラクタ本体を実行
+    if (copy_ctor->body) {
+        execute_statement(copy_ctor->body.get());
+    }
+
+    // selfへの変更を元の変数に反映
+    Variable *self = find_variable("self");
+    if (self && dest_var) {
+        // selfのstruct_membersを元の変数にコピー
+        dest_var->struct_members = self->struct_members;
+
+        // メンバー変数の直接アクセス用変数も更新
+        for (const auto &[member_name, member_value] : self->struct_members) {
+            std::string member_path = var_name + "." + member_name;
+            Variable *direct_member = find_variable(member_path);
+            if (direct_member) {
+                *direct_member = member_value;
+            }
+        }
+    }
+
+    pop_scope(); // コピーコンストラクタスコープを終了
+}
+
+void Interpreter::call_destructor(const std::string &var_name,
+                                  const std::string &struct_type_name) {
+    // デストラクタを探す
+    auto it = struct_destructors_.find(struct_type_name);
+    if (it == struct_destructors_.end() || !it->second) {
+        // デストラクタが定義されていない場合は何もしない
+        if (debug_mode) {
+            debug_print("No destructor defined for struct: %s\n",
+                        struct_type_name.c_str());
+        }
+        return;
+    }
+
+    const ASTNode *destructor = it->second;
+
+    if (debug_mode) {
+        debug_print("Calling destructor for %s.%s\n", struct_type_name.c_str(),
+                    var_name.c_str());
+    }
+
+    // v0.10.0: デストラクタ呼び出し中フラグを設定（無限再帰防止）
+    bool prev_flag = is_calling_destructor_;
+    is_calling_destructor_ = true;
+
+    // デストラクタ本体を実行
+    push_scope(); // デストラクタ用の新しいスコープ
+
+    // selfを現在の変数のコピーとして設定
+    Variable *struct_var = find_variable(var_name);
+    if (struct_var) {
+        Variable self_var = *struct_var;
+        current_scope().variables["self"] = self_var;
+    }
+
+    // デストラクタ本体を実行
+    if (destructor->body) {
+        execute_statement(destructor->body.get());
+    }
+
+    pop_scope(); // デストラクタスコープを終了
+
+    // フラグを元に戻す
+    is_calling_destructor_ = prev_flag;
+}
+
+void Interpreter::register_destructor_call(
+    const std::string &var_name, const std::string &struct_type_name) {
+    if (destructor_stacks_.empty()) {
+        if (debug_mode) {
+            debug_print("WARNING: destructor_stacks_ is empty when registering "
+                        "%s, ignoring\n",
+                        var_name.c_str());
+        }
+        // スタックが空の場合は登録しない（グローバル変数など）
+        return;
+    }
+
+    // v0.10.0: ネストした構造体の値メンバーのデストラクタを再帰的に登録
+    // まず構造体定義を取得
+    std::string resolved_type =
+        type_manager_->resolve_typedef(struct_type_name);
+    const StructDefinition *struct_def = find_struct_definition(resolved_type);
+
+    if (struct_def) {
+        // 構造体の各メンバーをチェック
+        for (const auto &member : struct_def->members) {
+            // 値メンバー（ポインタでも参照でもない）で構造体型の場合
+            if (member.type == TYPE_STRUCT && !member.is_pointer &&
+                !member.is_reference && !member.type_alias.empty()) {
+                // メンバーの完全な変数名
+                std::string member_var_name = var_name + "." + member.name;
+
+                // メンバーの型名を解決
+                std::string member_type =
+                    type_manager_->resolve_typedef(member.type_alias);
+
+                // デストラクタが定義されているかチェック
+                // find_impl_for_structの第2引数は空文字列（デストラクタはimpl
+                // Structブロックにある）
+                const ImplDefinition *impl_def =
+                    interface_operations_->find_impl_for_struct(member_type,
+                                                                "");
+
+                if (impl_def && impl_def->destructor) {
+                    // 再帰的に登録（メンバーの値メンバーも処理される）
+                    register_destructor_call(member_var_name, member_type);
+
+                    if (debug_mode) {
+                        debug_print("  Registered nested value member for "
+                                    "destruction: %s (type: %s)\n",
+                                    member_var_name.c_str(),
+                                    member_type.c_str());
+                    }
+                }
+            }
+        }
+    }
+
+    // 最後に自分自身を登録（これにより、メンバーが先に破壊される）
+    destructor_stacks_.back().push_back(
+        std::make_pair(var_name, struct_type_name));
+
+    if (debug_mode) {
+        debug_print(
+            "Registered for destruction: %s (type: %s), stack depth: %zu\n",
+            var_name.c_str(), struct_type_name.c_str(),
+            destructor_stacks_.size());
+    }
 }
 
 // ========================================================================

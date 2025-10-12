@@ -1,26 +1,26 @@
 // float/doubleポインタを関数引数として使用するテスト
 
-func void modify_float(float* ptr, float multiplier) {
+void modify_float(float* ptr, float multiplier) {
     *ptr = *ptr * multiplier;
 }
 
-func void swap_floats(float* a, float* b) {
+void swap_floats(float* a, float* b) {
     float temp = *a;
     *a = *b;
     *b = temp;
 }
 
-func void scale_array(float*[5] ptrs, int count, float factor) {
+void scale_array(float*[5] ptrs, int count, float factor) {
     for (int i = 0; i < count; i++) {
         *ptrs[i] = *ptrs[i] * factor;
     }
 }
 
-func double sum_through_pointers(double* a, double* b) {
+double sum_through_pointers(double* a, double* b) {
     return *a + *b;
 }
 
-func void increment_doubles(double*[3] ptrs, int count) {
+void increment_doubles(double*[3] ptrs, int count) {
     for (int i = 0; i < count; i++) {
         *ptrs[i] = *ptrs[i] + 1.0;
     }

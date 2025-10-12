@@ -1,0 +1,35 @@
+// Test: T&& reference aliasing semantics
+// Status: ✅ PASS (v0.10.0) - 完全実装
+// Expected: ref は p1 のエイリアスとして動作
+// Actual: ref は p1 の完全なエイリアスとして動作 (正しい)
+
+struct Point {
+    int x;
+    int y;
+};
+
+int main() {
+    Point p1;
+    p1.x = 10;
+    p1.y = 20;
+    
+    Point&& ref = p1;
+    
+    // 元の変数を変更
+    p1.x = 99;
+    p1.y = 88;
+    
+    print("p1.x = ");
+    println(p1.x);  // 99
+    
+    print("ref.x = ");
+    println(ref.x);  // 期待: 99, 実際: 99 ✅
+    
+    print("p1.y = ");
+    println(p1.y);  // 88
+    
+    print("ref.y = ");
+    println(ref.y);  // 期待: 88, 実際: 88 ✅
+    
+    return 0;
+}

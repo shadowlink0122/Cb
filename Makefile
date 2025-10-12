@@ -132,7 +132,7 @@ BACKEND_OBJS = \
 	$(INTERPRETER_SERVICES_OBJS) \
 	$(INTERPRETER_OUTPUT_OBJS)
 PLATFORM_OBJS=$(NATIVE_DIR)/native_stdio_output.o $(BAREMETAL_DIR)/baremetal_uart_output.o
-COMMON_OBJS=$(COMMON_DIR)/type_utils.o $(COMMON_DIR)/type_alias.o $(COMMON_DIR)/array_type_info.o $(COMMON_DIR)/utf8_utils.o $(COMMON_DIR)/io_interface.o $(COMMON_DIR)/debug_impl.o $(COMMON_DIR)/debug_messages.o $(PLATFORM_OBJS)
+COMMON_OBJS=$(COMMON_DIR)/type_utils.o $(COMMON_DIR)/type_alias.o $(COMMON_DIR)/array_type_info.o $(COMMON_DIR)/utf8_utils.o $(COMMON_DIR)/io_interface.o $(COMMON_DIR)/debug_impl.o $(COMMON_DIR)/debug_messages.o $(COMMON_DIR)/ast.o $(PLATFORM_OBJS)
 
 # 実行ファイル
 MAIN_TARGET=main
@@ -249,7 +249,7 @@ $(TESTS_DIR)/unit/dummy.o: $(TESTS_DIR)/unit/dummy.cpp
 	$(CXX) $(TEST_CXXFLAGS) -c -o $@ $<
 
 # Unit test binary target
-$(TESTS_DIR)/unit/test_main: $(TESTS_DIR)/unit/main.cpp $(TESTS_DIR)/unit/dummy.o $(BACKEND_OBJS) $(COMMON_OBJS)
+$(TESTS_DIR)/unit/test_main: $(TESTS_DIR)/unit/main.cpp $(TESTS_DIR)/unit/dummy.o $(BACKEND_OBJS) $(COMMON_OBJS) $(PARSER_OBJS) $(FRONTEND_DIR)/recursive_parser/recursive_parser.o $(FRONTEND_DIR)/recursive_parser/recursive_lexer.o
 	$(CXX) $(TEST_CXXFLAGS) -o $@ $^
 
 unit-test: $(TESTS_DIR)/unit/test_main

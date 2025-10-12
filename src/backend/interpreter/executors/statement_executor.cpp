@@ -632,17 +632,33 @@ void StatementExecutor::execute_self_member_assignment(
     const std::string &member_name, const ASTNode *value_node) {
     debug_msg(DebugMsgId::SELF_MEMBER_ACCESS_START, member_name.c_str());
 
-    // selfメンバーへのパスを構築
-    std::string self_member_path = "self." + member_name;
-
-    // selfメンバー変数を検索
-    Variable *self_member = interpreter_.find_variable(self_member_path);
-    if (!self_member) {
-        throw std::runtime_error("Self member not found: " + member_name);
+    // まず、self変数を取得
+    Variable *self_var = interpreter_.find_variable("self");
+    if (!self_var) {
+        throw std::runtime_error("Self variable not found");
     }
+
+    // selfのstruct_membersからメンバーを取得
+    auto it = self_var->struct_members.find(member_name);
+    if (it == self_var->struct_members.end()) {
+        // struct_membersになければ、直接アクセス変数を探す
+        std::string self_member_path = "self." + member_name;
+        Variable *self_member = interpreter_.find_variable(self_member_path);
+        if (!self_member) {
+            throw std::runtime_error("Self member not found: " + member_name);
+        }
+        // 見つかった場合は、そのまま使用
+        it = self_var->struct_members.find(member_name);
+        if (it == self_var->struct_members.end()) {
+            throw std::runtime_error("Self member not found: " + member_name);
+        }
+    }
+
+    Variable *self_member = &(it->second);
 
     // constメンバへの代入チェック
     if (self_member->is_const && self_member->is_assigned) {
+        std::string self_member_path = "self." + member_name;
         error_msg(DebugMsgId::CONST_REASSIGN_ERROR, self_member_path.c_str());
         throw std::runtime_error("Cannot assign to const self member: " +
                                  member_name);
@@ -651,7 +667,6 @@ void StatementExecutor::execute_self_member_assignment(
     debug_msg(DebugMsgId::SELF_MEMBER_ACCESS_FOUND, member_name.c_str());
 
     // 元のレシーバー変数からselfメンバーのパスを取得
-    Variable *self_var = interpreter_.find_variable("self");
     Variable *receiver_info = interpreter_.find_variable("__self_receiver__");
     std::string original_receiver_path;
 
@@ -807,6 +822,18 @@ void StatementExecutor::execute_self_member_assignment(
 
         debug_print("SELF_ASSIGN: %s = %lld\n", member_name.c_str(),
                     (long long)value);
+    }
+
+    // self.member個別変数も同時に更新（sync_struct_members_from_direct_accessで上書きされないように）
+    std::string self_member_path = "self." + member_name;
+    Variable *self_member_var = interpreter_.find_variable(self_member_path);
+    if (self_member_var) {
+        self_member_var->value = self_member->value;
+        self_member_var->str_value = self_member->str_value;
+        self_member_var->type = self_member->type;
+        self_member_var->is_assigned = true;
+        debug_print("SELF_ASSIGN_DIRECT: %s = %lld\n", self_member_path.c_str(),
+                    (long long)self_member_var->value);
     }
 
     std::string self_value_str = std::to_string(self_member->value);

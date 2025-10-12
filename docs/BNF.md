@@ -1,7 +1,7 @@
 # Cb言語 BNF文法定義
 
-**バージョン**: v0.9.0  
-**最終更新**: 2025年10月5日
+**バージョン**: v0.10.0  
+**最終更新**: 2025年10月12日
 
 ## 概要
 
@@ -405,6 +405,8 @@
 
 <export_statement> ::= 'export' <function_declaration>
                      | 'export' <variable_declaration>
+                     | 'export' <impl_block>
+                     | 'export' <interface_impl_block>
 ```
 
 ---

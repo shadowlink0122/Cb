@@ -1,0 +1,34 @@
+// デフォルト引数と配列パラメータのテスト
+
+int sum_array(int[5] arr, int multiplier = 1) {
+    int total = 0;
+    for (int i = 0; i < 5; i++) {
+        total = total + arr[i] * multiplier;
+    }
+    return total;
+}
+
+void print_array(int[3] arr, string prefix = "Array:") {
+    println(prefix);
+    for (int i = 0; i < 3; i++) {
+        println(arr[i]);
+    }
+}
+
+void main() {
+    int[5] numbers = [1, 2, 3, 4, 5];
+    
+    println("--- Sum with default multiplier ---");
+    println(sum_array(numbers));  // 15
+    
+    println("--- Sum with custom multiplier ---");
+    println(sum_array(numbers, 2));  // 30
+    
+    int[3] values = [10, 20, 30];
+    
+    println("--- Print with default prefix ---");
+    print_array(values);
+    
+    println("--- Print with custom prefix ---");
+    print_array(values, "Values:");
+}

@@ -11,9 +11,14 @@
 void ReturnHandler::execute_return_statement(const ASTNode *node) {
     debug_msg(DebugMsgId::INTERPRETER_RETURN_STMT);
 
+    // return実行前にdefer/デストラクタを実行
+    // これにより、現在のスコープで登録されたクリーンアップ処理が実行される
+    interpreter_->execute_pre_return_cleanup();
+
     if (!node->left) {
-        // return値なし
-        return;
+        // return値なし（void関数のreturn）
+        // ReturnExceptionを投げて関数から抜ける
+        throw ReturnException(static_cast<int64_t>(0)); // voidの場合は0を返す
     }
 
     debug_msg(DebugMsgId::INTERPRETER_RETURN_STMT);

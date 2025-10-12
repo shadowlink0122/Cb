@@ -1,0 +1,21 @@
+// Math module with exported functions and constants
+
+// For now, exported constants are not supported, only functions
+const int MATH_CONSTANT = 42;
+
+export int multiply(int a, int b) {
+    return a * b;
+}
+
+export int divide(int a, int b) {
+    if (b == 0) {
+        print("Error: Division by zero");
+        return 0;
+    }
+    return a / b;
+}
+
+// Non-exported helper function (should not be accessible)
+int internal_helper(int x) {
+    return x * 2;
+}

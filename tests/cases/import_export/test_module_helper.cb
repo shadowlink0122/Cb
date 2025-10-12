@@ -1,0 +1,31 @@
+// Test that verifies we can use exported functions from imported module
+import "test_module_with_helper.cb";
+
+int main() {
+    println("=== Module Helper Test ===");
+    
+    // Test exported function
+    int result1 = public_add(5, 3);
+    print("public_add(5, 3) = ");
+    print(result1);
+    println();
+    
+    // Test multiply function
+    int result2 = public_multiply(4, 3);
+    print("public_multiply(4, 3) = ");
+    print(result2);
+    println();
+    
+    // Test another exported function that combines others
+    int result3 = calculate(4, 3);
+    print("calculate(4, 3) = ");
+    print(result3);
+    print(" (expected: 19 = (4+3)+(4*3))");
+    println();
+    
+    // Note: Trying to call private_helper would fail
+    // int result4 = private_helper(5);  // This should cause an error
+    
+    println("Module helper test completed!");
+    return 0;
+}

@@ -1,0 +1,19 @@
+// defer文とbreakのテスト
+void main() {
+    println("Break test:");
+    defer println("defer");
+    for (int i = 0; i < 5; i = i + 1) {
+        println(i);
+        if (i == 2) {
+            break;
+        }
+    }
+    println("Done");
+}
+// 期待される出力:
+// Break test:
+// 0
+// 1
+// 2
+// Done
+// defer

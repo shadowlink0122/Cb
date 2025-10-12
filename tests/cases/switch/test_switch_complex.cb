@@ -1,0 +1,54 @@
+// 複雑な条件（||と...の複合）のテスト
+void main() {
+    println("=== Switch Complex Conditions Test ===");
+    
+    // テスト1: OR演算子と範囲演算子の複合
+    int x = 5;
+    switch (x) {
+        case (1 || 2 || 3...5) {
+            println("1, 2, or 3 to 5");
+        } case (10...15 || 20) {
+            println("10 to 15, or 20");
+        } else {
+            println("Other");
+        }
+    }
+    
+    // テスト2: 複数の範囲
+    x = 12;
+    switch (x) {
+        case (1 || 2 || 3...5) {
+            println("1, 2, or 3 to 5");
+        } case (10...15 || 20) {
+            println("10 to 15, or 20");
+        } else {
+            println("Other");
+        }
+    }
+    
+    // テスト3: 単一値と範囲の混在
+    x = 20;
+    switch (x) {
+        case (1 || 2 || 3...5) {
+            println("1, 2, or 3 to 5");
+        } case (10...15 || 20) {
+            println("10 to 15, or 20");
+        } else {
+            println("Other");
+        }
+    }
+    
+    // テスト4: else節
+    x = 100;
+    switch (x) {
+        case (1 || 2 || 3...5) {
+            println("1, 2, or 3 to 5");
+        } case (10...15 || 20) {
+            println("10 to 15, or 20");
+        } else {
+            println("Other");
+        }
+    }
+    
+    println("=== Test completed ===");
+}

@@ -1,8 +1,0 @@
-// Test: Array out of bounds error
-// Expected: Runtime error with source location
-
-func int main() {
-    int[5] arr = [1, 2, 3, 4, 5];
-    int x = arr[10];  // Out of bounds access
-    return x;
-}

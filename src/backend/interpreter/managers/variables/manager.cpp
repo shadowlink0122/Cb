@@ -90,7 +90,16 @@ Variable *VariableManager::find_variable(const std::string &name) {
                 std::cerr << "DEBUG: Found temp variable in local scope"
                           << std::endl;
             }
-            return &var_it->second;
+
+            // v0.10.0: 参照変数の場合は参照元の変数を辿る
+            Variable *result = &var_it->second;
+            if ((result->is_reference || result->is_rvalue_reference) &&
+                !result->reference_target.empty()) {
+                // 参照元の変数を再帰的に検索
+                return find_variable(result->reference_target);
+            }
+
+            return result;
         }
     }
 
@@ -98,6 +107,12 @@ Variable *VariableManager::find_variable(const std::string &name) {
     // std::cerr << "DEBUG: Searching in global scope" << std::endl;
     auto global_var_it = interpreter_->global_scope.variables.find(name);
     if (global_var_it != interpreter_->global_scope.variables.end()) {
+        // v0.10.0: グローバルスコープでも参照を辿る
+        Variable *result = &global_var_it->second;
+        if ((result->is_reference || result->is_rvalue_reference) &&
+            !result->reference_target.empty()) {
+            return find_variable(result->reference_target);
+        }
         // std::cerr << "DEBUG: Found " << name << " in global scope" <<
         // std::endl;
         return &global_var_it->second;
@@ -1011,6 +1026,82 @@ void VariableManager::assign_variable(const std::string &name,
             }
         }
         return;
+    }
+
+    // デフォルトメンバーへの暗黙的代入
+    // 構造体変数に基本型の値を代入する場合、defaultメンバーがあれば
+    // そのメンバーへの代入として処理
+    if (var && var->is_struct && !typed_value.is_struct()) {
+        if (interpreter_->is_debug_mode()) {
+            std::cerr << "[DEFAULT_MEMBER_CHECK] Variable " << name
+                      << " is struct, checking for default member" << std::endl;
+        }
+        auto it = interpreter_->struct_definitions_.find(var->struct_type_name);
+        if (it != interpreter_->struct_definitions_.end()) {
+            const StructDefinition &struct_def = it->second;
+            if (interpreter_->is_debug_mode()) {
+                std::cerr << "[DEFAULT_MEMBER_CHECK] Found struct definition: "
+                          << var->struct_type_name << ", has_default_member="
+                          << struct_def.has_default_member << std::endl;
+            }
+
+            if (struct_def.has_default_member) {
+                // defaultメンバーの型を取得
+                const StructMember *default_member =
+                    struct_def.find_member(struct_def.default_member_name);
+
+                if (default_member) {
+                    // 型が一致するか確認
+                    TypeInfo rhs_type = typed_value.numeric_type;
+                    if (rhs_type == TYPE_UNKNOWN) {
+                        if (typed_value.is_string()) {
+                            rhs_type = TYPE_STRING;
+                        } else if (typed_value.type.type_info != TYPE_UNKNOWN) {
+                            rhs_type = typed_value.type.type_info;
+                        }
+                    }
+
+                    if (interpreter_->is_debug_mode()) {
+                        std::cerr << "[DEFAULT_MEMBER] Type check: "
+                                     "default_member->type="
+                                  << static_cast<int>(default_member->type)
+                                  << ", rhs_type=" << static_cast<int>(rhs_type)
+                                  << ", is_string=" << typed_value.is_string()
+                                  << ", string_value='"
+                                  << typed_value.string_value << "'"
+                                  << std::endl;
+                    }
+
+                    // 型が一致すればdefaultメンバーへの代入として処理
+                    // bool型は数値として扱われるため、intからの変換を許可
+                    bool type_compatible =
+                        (default_member->type == rhs_type) ||
+                        (TypeHelpers::isNumeric(default_member->type) &&
+                         TypeHelpers::isNumeric(rhs_type)) ||
+                        (default_member->type == TYPE_BOOL &&
+                         TypeHelpers::isNumeric(rhs_type));
+
+                    if (type_compatible) {
+                        if (interpreter_->is_debug_mode()) {
+                            std::cerr
+                                << "[DEFAULT_MEMBER] Implicit assignment to "
+                                << "default member: " << name << "."
+                                << struct_def.default_member_name << std::endl;
+                        }
+
+                        interpreter_->assign_struct_member(
+                            name, struct_def.default_member_name, typed_value);
+                        return;
+                    } else {
+                        if (interpreter_->is_debug_mode()) {
+                            std::cerr << "[DEFAULT_MEMBER] Type mismatch, not "
+                                         "assigning"
+                                      << std::endl;
+                        }
+                    }
+                }
+            }
+        }
     }
 
     if (interpreter_->is_debug_mode() && name == "ptr") {

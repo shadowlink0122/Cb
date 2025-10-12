@@ -1,0 +1,6 @@
+void main() {
+    int _ = 1;
+    int _ = 2;
+    int _ = 3;
+    println("OK: Multiple discards");
+}

@@ -1,0 +1,25 @@
+// Test: Member access through T&& reference
+// Status: ✅ PASS (v0.10.0) - 完全実装
+// Expected: ref.x が p1.x と同じ値を持つ
+// Actual: ref.x は 10 (正しい値)
+
+struct Point {
+    int x;
+    int y;
+};
+
+int main() {
+    Point p1;
+    p1.x = 10;
+    p1.y = 20;
+    
+    Point&& ref = p1;
+    
+    print("p1.x = ");
+    println(p1.x);  // 10
+    
+    print("ref.x = ");
+    println(ref.x);  // 期待: 10, 実際: 10 ✅
+    
+    return 0;
+}

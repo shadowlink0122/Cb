@@ -166,6 +166,13 @@ void StructParser::parseStructMembers(StructDefinition *struct_def) {
             parser_->advance();
         }
 
+        // default修飾子のチェック
+        bool is_default_member = false;
+        if (parser_->check(TokenType::TOK_DEFAULT)) {
+            is_default_member = true;
+            parser_->advance();
+        }
+
         // const修飾子のチェック
         bool is_const_member = false;
         if (parser_->check(TokenType::TOK_CONST)) {
@@ -228,6 +235,12 @@ void StructParser::parseStructMembers(StructDefinition *struct_def) {
             if (var_parsed.is_array) {
                 StructMember &added = struct_def->members.back();
                 added.array_info = var_parsed.array_info;
+            }
+
+            // デフォルトメンバーの設定
+            if (is_default_member) {
+                StructMember &added = struct_def->members.back();
+                added.is_default = true;
             }
 
             // 旧式の配列宣言をチェック（int data[2][2];）- エラーとして処理

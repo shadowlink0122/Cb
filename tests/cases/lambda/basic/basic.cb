@@ -1,0 +1,6 @@
+void main() {
+    int double_func = int func(int x) { return x * 2; };
+    
+    int result = (*double_func)(5);
+    println(result);
+}

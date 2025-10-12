@@ -289,9 +289,85 @@ ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode *node) {
                                                            inferred_type);
     }
 
+    // ========================================================================
+    // 無名変数（DISCARD_VARIABLE）v0.10.0新機能
+    // 無名変数の参照は許可されない
+    // ========================================================================
+    case ASTNodeType::AST_DISCARD_VARIABLE: {
+        throw std::runtime_error("Cannot reference discard variable '_'");
+    }
+
+    // ========================================================================
+    // 無名関数（LAMBDA_EXPR）v0.10.0新機能
+    // 無名関数を評価して関数ポインタとして返す
+    // ========================================================================
+    case ASTNodeType::AST_LAMBDA_EXPR: {
+        // 無名関数を通常の関数として登録
+        // 1. 内部識別子を使用して関数として登録
+        std::string lambda_name = node->internal_name;
+
+        // 2. ラムダ本体を関数宣言として構築
+        // ラムダは既にASTノードとして存在するので、それを関数として登録
+        interpreter_.register_function_to_global(lambda_name, node);
+
+        // 3. 関数ポインタとして返す
+        // ReturnExceptionを使用することで、変数宣言時に正しく処理される
+        ReturnException ret(static_cast<int64_t>(0));
+        ret.is_function_pointer = true;
+        ret.function_pointer_name = lambda_name;
+        ret.function_pointer_node = node;
+        ret.type = node->lambda_return_type;
+        throw ret;
+    }
+
     case ASTNodeType::AST_MEMBER_ACCESS: {
         debug_msg(DebugMsgId::TYPED_MEMBER_ACCESS_CASE, node->name.c_str(),
                   node->member_chain.size());
+
+        // 修飾アクセスのチェック: module.constant
+        if (node->left && node->left->node_type == ASTNodeType::AST_VARIABLE) {
+            std::string potential_module = node->left->name;
+            bool is_variable =
+                (interpreter_.find_variable(potential_module) != nullptr);
+            bool is_module = interpreter_.is_module_imported(potential_module);
+
+            if (!is_variable && is_module) {
+                // module.name の形式で変数を検索
+                std::string qualified_name =
+                    potential_module + "." + node->name;
+                Variable *var = interpreter_.find_variable(qualified_name);
+                if (var) {
+                    if (debug_mode) {
+                        std::cerr << "[QUALIFIED_ACCESS] Found variable: "
+                                  << qualified_name << std::endl;
+                    }
+
+                    // 変数の型に応じてTypedValueを返す
+                    if (var->type == TYPE_STRING) {
+                        return TypedValue(var->str_value,
+                                          InferredType(TYPE_STRING, "string"));
+                    } else if (var->type == TYPE_FLOAT) {
+                        return TypedValue(static_cast<double>(var->float_value),
+                                          InferredType(TYPE_FLOAT, "float"));
+                    } else if (var->type == TYPE_DOUBLE) {
+                        return TypedValue(var->double_value,
+                                          InferredType(TYPE_DOUBLE, "double"));
+                    } else if (var->type == TYPE_QUAD) {
+                        return TypedValue(var->quad_value,
+                                          InferredType(TYPE_QUAD, "quad"));
+                    } else if (var->type == TYPE_STRUCT || var->is_struct) {
+                        return TypedValue(
+                            *var,
+                            InferredType(TYPE_STRUCT, var->struct_type_name));
+                    } else {
+                        return TypedValue(
+                            var->value,
+                            InferredType(var->type,
+                                         ::type_info_to_string(var->type)));
+                    }
+                }
+            }
+        }
 
         // member_chainが2つ以上ある場合（ネストメンバアクセス）
         if (!node->member_chain.empty() && node->member_chain.size() > 1) {
@@ -1075,7 +1151,8 @@ TypedValue ExpressionEvaluator::consume_numeric_typed_value(
     const InferredType &inferred_type) {
     // メンバーアクセスヘルパーに移動（28行）
     return MemberAccessHelpers::consume_numeric_typed_value(
-        node, numeric_result, inferred_type, last_captured_function_value_);
+        node, numeric_result, inferred_type, last_captured_function_value_,
+        &last_typed_result_);
 }
 
 // 構造体メンバー取得関数の実装

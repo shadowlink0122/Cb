@@ -1,0 +1,14 @@
+// Test: T&& type restriction (struct only)
+// Status: ✅ PASS (v0.10.0)
+// Description: T&& はプリミティブ型で使用できないことを確認
+// Expected: エラーメッセージが表示される
+
+int main() {
+    int x = 10;
+    
+    // これはエラーになるべき
+    int&& ref = x;  // Error: Rvalue references (T&&) are only supported for struct types
+    
+    println("This should not be reached");
+    return 0;
+}
