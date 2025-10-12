@@ -830,6 +830,10 @@ bool VariableManager::handle_reference_variable(const ASTNode *node) {
         ref_var.is_struct = target_var->is_struct;
         ref_var.struct_type_name = target_var->struct_type_name;
 
+        // 構造体の場合、struct_membersはコピーしない
+        // メンバーアクセス時に動的に参照先のstruct_membersを参照する
+        // (get_struct_member_from_variableで参照先を解決)
+
         // 参照先変数のポインタを値として保存
         ref_var.value = reinterpret_cast<int64_t>(target_var);
         ref_var.is_assigned = true;

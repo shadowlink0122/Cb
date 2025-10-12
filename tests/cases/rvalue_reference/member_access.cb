@@ -1,7 +1,7 @@
 // Test: Member access through T&& reference
-// Status: ❌ FAIL (v0.10.0) - 実装未完成
-// Expected (v0.10.1+): ref.x が p1.x と同じ値を持つ
-// Actual (v0.10.0): ref.x は 0 (デフォルト値)
+// Status: ✅ PASS (v0.10.0) - 完全実装
+// Expected: ref.x が p1.x と同じ値を持つ
+// Actual: ref.x は 10 (正しい値)
 
 struct Point {
     int x;
@@ -19,11 +19,7 @@ int main() {
     println(p1.x);  // 10
     
     print("ref.x = ");
-    println(ref.x);  // 期待: 10, 実際: 0 ❌
-    
-    // v0.10.1以降で以下を確認:
-    // assert(ref.x == 10, "ref.x should equal p1.x");
-    // assert(ref.y == 20, "ref.y should equal p1.y");
+    println(ref.x);  // 期待: 10, 実際: 10 ✅
     
     return 0;
 }

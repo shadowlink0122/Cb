@@ -37,6 +37,11 @@ ASTNode *VariableDeclarationParser::parseVariableDeclaration() {
                        (base_parsed_type.is_pointer ? "true" : "false"));
         debug_log_line(std::string("  is_array: ") +
                        (base_parsed_type.is_array ? "true" : "false"));
+        debug_log_line(std::string("  is_reference: ") +
+                       (base_parsed_type.is_reference ? "true" : "false"));
+        debug_log_line(
+            std::string("  is_rvalue_reference: ") +
+            (base_parsed_type.is_rvalue_reference ? "true" : "false"));
 
         debug_log_line(
             "  base_type_info: " +
@@ -247,7 +252,9 @@ ASTNode *VariableDeclarationParser::parseVariableDeclaration() {
         node->pointer_depth = parsed.pointer_depth;
         node->pointer_base_type_name = parsed.base_type;
         node->pointer_base_type = parsed.base_type_info;
-        node->is_reference = parsed.is_reference;
+        node->is_reference =
+            parsed.is_reference ||
+            parsed.is_rvalue_reference; // rvalue referenceも参照
         node->is_rvalue_reference = parsed.is_rvalue_reference; // v0.10.0
         node->is_unsigned = parsed.is_unsigned;
         node->is_pointer_const_qualifier = parsed.is_pointer_const;
@@ -280,7 +287,8 @@ ASTNode *VariableDeclarationParser::parseVariableDeclaration() {
         node->pointer_depth = base_parsed_type.pointer_depth;
         node->pointer_base_type_name = base_parsed_type.base_type;
         node->pointer_base_type = base_parsed_type.base_type_info;
-        node->is_reference = base_parsed_type.is_reference;
+        node->is_reference = base_parsed_type.is_reference ||
+                             base_parsed_type.is_rvalue_reference;
         node->is_unsigned = base_parsed_type.is_unsigned;
         node->is_pointer_const_qualifier = base_parsed_type.is_pointer_const;
         node->is_pointee_const_qualifier =
@@ -304,7 +312,9 @@ ASTNode *VariableDeclarationParser::parseVariableDeclaration() {
             var_node->pointer_depth = parsed.pointer_depth;
             var_node->pointer_base_type_name = parsed.base_type;
             var_node->pointer_base_type = parsed.base_type_info;
-            var_node->is_reference = parsed.is_reference;
+            var_node->is_reference =
+                parsed.is_reference ||
+                parsed.is_rvalue_reference; // rvalue referenceも参照
             var_node->is_rvalue_reference =
                 parsed.is_rvalue_reference; // v0.10.0
             var_node->is_unsigned = parsed.is_unsigned;

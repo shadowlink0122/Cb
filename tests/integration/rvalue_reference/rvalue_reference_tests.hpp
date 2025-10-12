@@ -73,19 +73,15 @@ inline void test_member_access_known_issue() {
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_EQ(0, exit_code, "Should execute without crash");
             
-            // v0.10.0: 既知の問題 - ref.x は 0 になる（期待: 10）
+            // v0.10.0 fix applied: ref.x now correctly returns 10
             INTEGRATION_ASSERT_CONTAINS(output, "p1.x = 10", 
                 "p1.x should be 10");
-            INTEGRATION_ASSERT_CONTAINS(output, "ref.x = 0", 
-                "ref.x is 0 in v0.10.0 (known issue, expected: 10 in v0.10.1)");
-            
-            // TODO v0.10.1: 以下のアサーションを有効化
-            // INTEGRATION_ASSERT_CONTAINS(output, "ref.x = 10", 
-            //     "ref.x should equal p1.x");
+            INTEGRATION_ASSERT_CONTAINS(output, "ref.x = 10", 
+                "ref.x should equal p1.x");
         },
         execution_time
     );
-    integration_test_passed_with_time("T&& member access (known issue)", "member_access.cb", execution_time);
+    integration_test_passed_with_time("T&& member access", "member_access.cb", execution_time);
 }
 
 inline void test_member_assignment_known_issue() {
@@ -95,23 +91,17 @@ inline void test_member_assignment_known_issue() {
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_EQ(0, exit_code, "Should execute without crash");
             
-            // v0.10.0: 既知の問題 - p1.x は変更されない
+            // v0.10.0 fix applied: p1.x and p1.y now correctly modified through ref
             INTEGRATION_ASSERT_CONTAINS(output, "Before: p1.x = 10", 
                 "p1.x initial value should be 10");
-            INTEGRATION_ASSERT_CONTAINS(output, "After: p1.x = 10", 
-                "p1.x is unchanged in v0.10.0 (known issue, expected: 100 in v0.10.1)");
-            INTEGRATION_ASSERT_CONTAINS(output, "After: p1.y = 20", 
-                "p1.y is unchanged in v0.10.0 (known issue, expected: 200 in v0.10.1)");
-            
-            // TODO v0.10.1: 以下のアサーションを有効化
-            // INTEGRATION_ASSERT_CONTAINS(output, "After: p1.x = 100", 
-            //     "p1.x should be modified through ref");
-            // INTEGRATION_ASSERT_CONTAINS(output, "After: p1.y = 200", 
-            //     "p1.y should be modified through ref");
+            INTEGRATION_ASSERT_CONTAINS(output, "After: p1.x = 100", 
+                "p1.x should be modified through ref");
+            INTEGRATION_ASSERT_CONTAINS(output, "After: p1.y = 200", 
+                "p1.y should be modified through ref");
         },
         execution_time
     );
-    integration_test_passed_with_time("T&& member assignment (known issue)", "member_assignment.cb", execution_time);
+    integration_test_passed_with_time("T&& member assignment", "member_assignment.cb", execution_time);
 }
 
 inline void test_aliasing_known_issue() {
@@ -121,25 +111,19 @@ inline void test_aliasing_known_issue() {
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_EQ(0, exit_code, "Should execute without crash");
             
-            // v0.10.0: 既知の問題 - ref は p1 の変更を反映しない
+            // v0.10.0 fix applied: ref now correctly reflects changes to p1
             INTEGRATION_ASSERT_CONTAINS(output, "p1.x = 99", 
                 "p1.x should be modified to 99");
-            INTEGRATION_ASSERT_CONTAINS(output, "ref.x = 0", 
-                "ref.x is 0 in v0.10.0 (known issue, expected: 99 in v0.10.1)");
+            INTEGRATION_ASSERT_CONTAINS(output, "ref.x = 99", 
+                "ref should reflect changes to p1");
             INTEGRATION_ASSERT_CONTAINS(output, "p1.y = 88", 
                 "p1.y should be modified to 88");
-            INTEGRATION_ASSERT_CONTAINS(output, "ref.y = 0", 
-                "ref.y is 0 in v0.10.0 (known issue, expected: 88 in v0.10.1)");
-            
-            // TODO v0.10.1: 以下のアサーションを有効化
-            // INTEGRATION_ASSERT_CONTAINS(output, "ref.x = 99", 
-            //     "ref should reflect changes to p1");
-            // INTEGRATION_ASSERT_CONTAINS(output, "ref.y = 88", 
-            //     "ref should reflect changes to p1");
+            INTEGRATION_ASSERT_CONTAINS(output, "ref.y = 88", 
+                "ref should reflect changes to p1");
         },
         execution_time
     );
-    integration_test_passed_with_time("T&& aliasing (known issue)", "aliasing.cb", execution_time);
+    integration_test_passed_with_time("T&& aliasing", "aliasing.cb", execution_time);
 }
 
 // ============================================================================
@@ -148,22 +132,21 @@ inline void test_aliasing_known_issue() {
 
 inline void run_all_rvalue_reference_tests() {
     std::cout << "\n============================================================" << std::endl;
-    std::cout << "Running Rvalue Reference (T&&) Tests - v0.10.0 Partial Implementation" << std::endl;
+    std::cout << "Running Rvalue Reference (T&&) Tests - v0.10.0 Complete Implementation" << std::endl;
     std::cout << "============================================================" << std::endl;
     
-    std::cout << "\n--- Working Tests (v0.10.0) ---" << std::endl;
+    std::cout << "\n--- Syntax Tests ---" << std::endl;
     test_syntax_parse();
     test_type_restriction();
     test_lvalue_ref_primitive();
     
-    std::cout << "\n--- Known Issues (Will be fixed in v0.10.1) ---" << std::endl;
+    std::cout << "\n--- Semantics Tests (Fixed in v0.10.0) ---" << std::endl;
     test_member_access_known_issue();
     test_member_assignment_known_issue();
     test_aliasing_known_issue();
     
     std::cout << "\n✅ PASS: Rvalue Reference Tests (6 tests)" << std::endl;
-    std::cout << "   - 3 working tests (syntax level)" << std::endl;
-    std::cout << "   - 3 known issues (semantics level, to be fixed in v0.10.1)" << std::endl;
+    std::cout << "   - All reference semantics now working correctly" << std::endl;
 }
 
 } // namespace RvalueReferenceTests
