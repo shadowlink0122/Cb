@@ -1,0 +1,4 @@
+// 単純なmainのみ
+int main() {
+    return 0;
+}

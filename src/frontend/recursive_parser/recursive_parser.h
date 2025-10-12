@@ -99,6 +99,10 @@ class RecursiveParser {
 
     // Type and declaration parsing
     std::string parseType();
+
+    // Namespace & Using (v0.11.0)
+    ASTNode *parseNamespaceDeclaration();
+    ASTNode *parseUsingStatement();
     const ParsedTypeInfo &getLastParsedTypeInfo() const {
         return last_parsed_type_info_;
     }

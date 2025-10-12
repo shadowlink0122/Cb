@@ -1,0 +1,14 @@
+// ネストされたnamespaceのテスト
+namespace outer {
+    namespace inner {
+        int multiply(int a, int b) {
+            return a * b;
+        }
+    }
+}
+
+int main() {
+    int result = outer::inner::multiply(3, 4);
+    print(result);  // 12を出力
+    return 0;
+}

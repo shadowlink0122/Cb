@@ -29,6 +29,10 @@ class DeclarationParser {
     ASTNode *parseTypedefDeclaration();
     ASTNode *parseFunctionPointerTypedefDeclaration();
 
+    // Namespace (v0.11.0)
+    ASTNode *parseNamespaceDeclaration();
+    ASTNode *parseUsingStatement();
+
   private:
     RecursiveParser *parser_;
     std::unique_ptr<VariableDeclarationParser> variable_declaration_parser_;

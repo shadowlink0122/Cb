@@ -127,6 +127,15 @@ std::string RecursiveParser::parseType() {
     return type_utility_parser_->parseType();
 }
 
+// Namespace & Using (v0.11.0)
+ASTNode *RecursiveParser::parseNamespaceDeclaration() {
+    return declaration_parser_->parseNamespaceDeclaration();
+}
+
+ASTNode *RecursiveParser::parseUsingStatement() {
+    return declaration_parser_->parseUsingStatement();
+}
+
 TypeInfo
 RecursiveParser::resolveParsedTypeInfo(const ParsedTypeInfo &parsed) const {
     TypeInfo resolved = parsed.base_type_info;

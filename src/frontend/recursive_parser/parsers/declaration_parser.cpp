@@ -1074,3 +1074,147 @@ ASTNode *DeclarationParser::parseFunctionPointerTypedefDeclaration() {
 
     return node;
 }
+
+// ========================================
+// Namespace宣言 (v0.11.0)
+// ========================================
+
+/**
+ * @brief namespace宣言を解析
+ * @return 解析されたASTnamespace宣言ノード
+ *
+ * サポートする構文:
+ * - namespace std { ... }
+ * - export namespace std { ... }
+ *
+ * 例:
+ * namespace math {
+ *     int add(int a, int b) {
+ *         return a + b;
+ *     }
+ * }
+ */
+ASTNode *DeclarationParser::parseNamespaceDeclaration() {
+    // DEBUG: Parsing namespace declaration
+
+    // 'export' キーワードのチェック
+    bool is_exported = false;
+    if (parser_->check(TokenType::TOK_EXPORT)) {
+        is_exported = true;
+        parser_->advance();
+    }
+
+    // 'namespace' キーワードの消費
+    parser_->consume(TokenType::TOK_NAMESPACE, "Expected 'namespace' keyword");
+
+    // namespace名の取得
+    if (!parser_->check(TokenType::TOK_IDENTIFIER)) {
+        parser_->error("Expected namespace name after 'namespace'");
+    }
+    Token name_token = parser_->advance();
+    std::string namespace_name = name_token.value;
+
+    // namespace階層のパース (std::io::core など)
+    std::vector<std::string> namespace_path;
+    namespace_path.push_back(namespace_name);
+
+    while (parser_->check(TokenType::TOK_SCOPE_RESOLUTION)) {
+        parser_->advance(); // '::'を消費
+        if (!parser_->check(TokenType::TOK_IDENTIFIER)) {
+            parser_->error("Expected namespace name after '::'");
+        }
+        Token part_token = parser_->advance();
+        namespace_path.push_back(part_token.value);
+    }
+
+    // '{' の消費
+    parser_->consume(TokenType::TOK_LBRACE,
+                     "Expected '{' after namespace name");
+
+    // namespace本体の解析
+    std::vector<std::unique_ptr<ASTNode>> body;
+
+    while (!parser_->check(TokenType::TOK_RBRACE) && !parser_->isAtEnd()) {
+        ASTNode *stmt = parser_->parseStatement();
+        if (stmt) {
+            body.push_back(std::unique_ptr<ASTNode>(stmt));
+        }
+    }
+
+    // '}' の消費
+    parser_->consume(TokenType::TOK_RBRACE,
+                     "Expected '}' after namespace body");
+
+    // ASTノードの作成
+    ASTNode *node = new ASTNode(ASTNodeType::AST_NAMESPACE_DECL);
+    node->namespace_name = namespace_name;
+    node->namespace_path = namespace_path;
+    node->namespace_body = std::move(body);
+    node->is_exported = is_exported;
+    node->is_namespace_export = is_exported;
+
+    parser_->setLocation(node, parser_->current_token_);
+
+    // DEBUG: Parsed namespace: namespace_name
+
+    return node;
+}
+
+/**
+ * @brief using文を解析
+ * @return 解析されたASTusing文ノード
+ *
+ * サポートする構文:
+ * - using namespace std;
+ * - using namespace std::io;
+ *
+ * 例:
+ * using namespace math;
+ * add(1, 2);  // math::add() が呼ばれる
+ */
+ASTNode *DeclarationParser::parseUsingStatement() {
+    // DEBUG: Parsing using statement
+
+    // 'using' キーワードの消費
+    parser_->consume(TokenType::TOK_USING, "Expected 'using' keyword");
+
+    // 'namespace' キーワードの消費
+    parser_->consume(TokenType::TOK_NAMESPACE,
+                     "Expected 'namespace' keyword after 'using'");
+
+    // namespace名の取得
+    if (!parser_->check(TokenType::TOK_IDENTIFIER)) {
+        parser_->error("Expected namespace name after 'using namespace'");
+    }
+    Token name_token = parser_->advance();
+    std::string namespace_name = name_token.value;
+
+    // namespace階層のパース (std::io など)
+    std::vector<std::string> namespace_path;
+    namespace_path.push_back(namespace_name);
+
+    while (parser_->check(TokenType::TOK_SCOPE_RESOLUTION)) {
+        parser_->advance(); // '::'を消費
+        if (!parser_->check(TokenType::TOK_IDENTIFIER)) {
+            parser_->error("Expected namespace name after '::'");
+        }
+        Token part_token = parser_->advance();
+        namespace_path.push_back(part_token.value);
+    }
+
+    // ';' の消費
+    parser_->consume(TokenType::TOK_SEMICOLON,
+                     "Expected ';' after using namespace statement");
+
+    // ASTノードの作成
+    ASTNode *node = new ASTNode(ASTNodeType::AST_USING_STMT);
+    node->namespace_name = namespace_name;
+    node->namespace_path = namespace_path;
+    node->is_using_namespace = true;
+
+    parser_->setLocation(node, parser_->current_token_);
+
+    // DEBUG: Parsed using namespace: namespace_name
+
+    return node;
+}

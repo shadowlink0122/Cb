@@ -1,0 +1,20 @@
+// using namespaceのテスト
+namespace math {
+    int add(int a, int b) {
+        return a + b;
+    }
+    
+    int multiply(int a, int b) {
+        return a * b;
+    }
+}
+
+using namespace math;
+
+int main() {
+    int sum = add(1, 2);      // 修飾名なしで呼び出し
+    int prod = multiply(3, 4); // 修飾名なしで呼び出し
+    print(sum);
+    print(prod);
+    return 0;
+}

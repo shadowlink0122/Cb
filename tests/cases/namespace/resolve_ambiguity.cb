@@ -1,0 +1,24 @@
+// 名前衝突の解決 - 修飾名を使えば呼び出せる
+namespace math {
+    int calculate(int a, int b) {
+        return a + b;
+    }
+}
+
+namespace physics {
+    int calculate(int a, int b) {
+        return a * b;
+    }
+}
+
+using namespace math;
+using namespace physics;
+
+int main() {
+    // 修飾名を使えば曖昧さなく呼び出せる
+    int sum = math::calculate(2, 3);      // 5
+    int product = physics::calculate(2, 3); // 6
+    print(sum);
+    print(product);
+    return 0;
+}

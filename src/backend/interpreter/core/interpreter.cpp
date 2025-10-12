@@ -166,6 +166,12 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
         case ASTNodeType::AST_DESTRUCTOR_DECL:
             node_type_name = "AST_DESTRUCTOR_DECL";
             break;
+        case ASTNodeType::AST_NAMESPACE_DECL:
+            node_type_name = "AST_NAMESPACE_DECL";
+            break;
+        case ASTNodeType::AST_USING_STMT:
+            node_type_name = "AST_USING_STMT";
+            break;
         default:
             break;
         }
@@ -242,6 +248,19 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
             }
         }
 
+        // namespace宣言を処理 (v0.11.0)
+        for (const auto &stmt : node->statements) {
+            if (stmt->node_type == ASTNodeType::AST_NAMESPACE_DECL) {
+                register_global_declarations(stmt.get());
+            }
+        }
+        // using namespace文を処理 (v0.11.0)
+        for (const auto &stmt : node->statements) {
+            if (stmt->node_type == ASTNodeType::AST_USING_STMT) {
+                register_global_declarations(stmt.get());
+            }
+        }
+
         // 最後にその他の宣言（関数など）を処理
         for (const auto &stmt : node->statements) {
             if (stmt->node_type != ASTNodeType::AST_VAR_DECL &&
@@ -255,7 +274,9 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
                 stmt->node_type != ASTNodeType::AST_IMPL_DECL &&
                 stmt->node_type != ASTNodeType::AST_CONSTRUCTOR_DECL &&
                 stmt->node_type != ASTNodeType::AST_DESTRUCTOR_DECL &&
-                stmt->node_type != ASTNodeType::AST_IMPORT_STMT) {
+                stmt->node_type != ASTNodeType::AST_IMPORT_STMT &&
+                stmt->node_type != ASTNodeType::AST_NAMESPACE_DECL &&
+                stmt->node_type != ASTNodeType::AST_USING_STMT) {
                 register_global_declarations(stmt.get());
             }
         }
@@ -461,6 +482,16 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
     case ASTNodeType::AST_IMPORT_STMT:
         // import文を処理
         handle_import_statement(node);
+        break;
+
+    case ASTNodeType::AST_NAMESPACE_DECL:
+        // v0.11.0: namespace宣言を処理
+        handle_namespace_declaration(node);
+        break;
+
+    case ASTNodeType::AST_USING_STMT:
+        // v0.11.0: using namespace文を処理
+        handle_using_statement(node);
         break;
 
     case ASTNodeType::AST_TYPEDEF_DECL:
@@ -981,6 +1012,22 @@ void Interpreter::execute_statement(const ASTNode *node) {
     // ========================================================================
     case ASTNodeType::AST_IMPORT_STMT:
         handle_import_statement(node);
+        break;
+
+    // ========================================================================
+    // namespace宣言（NAMESPACE_DECL）v0.11.0
+    // 名前空間を登録してスコープ内の文を実行
+    // ========================================================================
+    case ASTNodeType::AST_NAMESPACE_DECL:
+        handle_namespace_declaration(node);
+        break;
+
+    // ========================================================================
+    // using namespace文（USING_STMT）v0.11.0
+    // 名前空間をインポートして非修飾名でアクセス可能にする
+    // ========================================================================
+    case ASTNodeType::AST_USING_STMT:
+        handle_using_statement(node);
         break;
 
     // ========================================================================
@@ -2686,4 +2733,96 @@ Interpreter::find_typedef_definition(const std::string &typedef_name) {
     // typedef定義をマップから検索（簡易実装）
     // 実際の実装では typedef_definitions_ マップを使用
     return nullptr; // 簡易実装：typedefサポートは後で実装
+}
+
+// ========================================================================
+// v0.11.0: Namespace処理
+// ========================================================================
+
+void Interpreter::handle_namespace_declaration(const ASTNode *node) {
+    if (!node) {
+        throw std::runtime_error("Invalid namespace declaration: null node");
+    }
+
+    // デバッグ: namespace_registry_がnullでないか確認
+    if (!namespace_registry_) {
+        throw std::runtime_error("FATAL: namespace_registry_ is nullptr!");
+    }
+
+    // デバッグ情報
+    if (debug_mode) {
+        std::cerr << "[DEBUG] handle_namespace_declaration called" << std::endl;
+        std::cerr << "[DEBUG] namespace_name: '" << node->namespace_name << "'"
+                  << std::endl;
+        std::cerr << "[DEBUG] namespace_path size: "
+                  << node->namespace_path.size() << std::endl;
+        for (size_t i = 0; i < node->namespace_path.size(); ++i) {
+            std::cerr << "[DEBUG] namespace_path[" << i << "]: '"
+                      << node->namespace_path[i] << "'" << std::endl;
+        }
+    }
+
+    // 名前空間パスを構築 (namespace_pathから"::"で結合)
+    std::string ns_path = "";
+    if (!node->namespace_path.empty()) {
+        for (size_t i = 0; i < node->namespace_path.size(); ++i) {
+            if (i > 0)
+                ns_path += "::";
+            ns_path += node->namespace_path[i];
+        }
+    } else if (!node->namespace_name.empty()) {
+        // フォールバック: namespace_pathが空の場合はnamespace_nameを使用
+        ns_path = node->namespace_name;
+    }
+
+    if (ns_path.empty()) {
+        throw std::runtime_error("Invalid namespace declaration: empty name");
+    }
+
+    if (debug_mode) {
+        std::cerr << "[DEBUG] Constructed ns_path: '" << ns_path << "'"
+                  << std::endl;
+    }
+
+    // 名前空間を登録
+    namespace_registry_->registerNamespace(ns_path, node,
+                                           node->is_namespace_export);
+
+    // 名前空間スコープに入る
+    namespace_registry_->enterNamespace(ns_path);
+
+    // 名前空間内の本体を実行
+    if (!node->namespace_body.empty()) {
+        for (const auto &stmt : node->namespace_body) {
+            execute_statement(stmt.get());
+        }
+    }
+
+    // 名前空間スコープから出る
+    namespace_registry_->exitNamespace();
+}
+
+void Interpreter::handle_using_statement(const ASTNode *node) {
+    if (!node) {
+        throw std::runtime_error("Invalid using statement: null node");
+    }
+
+    // namespace_pathを"::"で結合してns_pathを構築
+    std::string ns_path = "";
+    if (!node->namespace_path.empty()) {
+        for (size_t i = 0; i < node->namespace_path.size(); ++i) {
+            if (i > 0)
+                ns_path += "::";
+            ns_path += node->namespace_path[i];
+        }
+    }
+
+    // 名前空間が存在するか確認
+    if (!namespace_registry_->namespaceExists(ns_path)) {
+        throw std::runtime_error("Namespace '" + ns_path +
+                                 "' not found (using statement)");
+    }
+
+    // using namespace を有効化
+    namespace_registry_->addUsingNamespace(ns_path);
 }

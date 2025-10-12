@@ -1,0 +1,3 @@
+// テスト: mainなしのnamespace宣言のみ
+namespace test {
+}

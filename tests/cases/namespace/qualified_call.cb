@@ -1,0 +1,12 @@
+// テスト: 修飾名での関数呼び出し
+namespace math {
+    int add(int a, int b) {
+        return a + b;
+    }
+}
+
+int main() {
+    int result = math::add(1, 2);
+    print(result);  // 3を出力
+    return 0;
+}

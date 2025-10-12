@@ -57,7 +57,8 @@ INTERPRETER_CORE_OBJS = \
 	$(INTERPRETER_CORE)/utility.o \
 	$(INTERPRETER_CORE)/error_handler.o \
 	$(INTERPRETER_CORE)/pointer_metadata.o \
-	$(INTERPRETER_CORE)/type_inference.o
+	$(INTERPRETER_CORE)/type_inference.o \
+	$(INTERPRETER_CORE)/namespace_registry.o
 
 INTERPRETER_EVALUATOR_OBJS = \
 	$(INTERPRETER_EVALUATOR)/core/evaluator.o \

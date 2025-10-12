@@ -1,0 +1,22 @@
+// 基本的なnamespace機能のテスト
+
+namespace math {
+    int add(int a, int b) {
+        return a + b;
+    }
+    
+    int multiply(int x, int y) {
+        return x * y;
+    }
+}
+
+int main() {
+    // 修飾名での呼び出し
+    int result1 = math::add(10, 20);
+    printf("math::add(10, 20) = %d\n", result1);
+    
+    int result2 = math::multiply(5, 6);
+    printf("math::multiply(5, 6) = %d\n", result2);
+    
+    return 0;
+}

@@ -714,8 +714,21 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
     } else {
         auto &global_scope = interpreter_.get_global_scope();
 
+        // Namespace修飾呼び出しのチェック: namespace::function()
+        // まずglobal_scopeで完全修飾名を検索（最も効率的）
+        if (node->name.find("::") != std::string::npos) {
+            auto it = global_scope.functions.find(node->name);
+            if (it != global_scope.functions.end()) {
+                func = it->second;
+
+                if (interpreter_.is_debug_mode()) {
+                    std::cerr << "[NAMESPACE_QUALIFIED_CALL] Found function: "
+                              << node->name << std::endl;
+                }
+            }
+        }
         // 修飾呼び出しの場合: module.function()
-        if (is_qualified_call) {
+        else if (is_qualified_call) {
             // モジュール名をプレフィックスとして関数を検索
             std::string qualified_name =
                 qualified_module_name + "." + node->name;
@@ -734,6 +747,33 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
             auto it = global_scope.functions.find(node->name);
             if (it != global_scope.functions.end()) {
                 func = it->second;
+            }
+
+            // 見つからない場合、using namespaceから検索
+            if (!func) {
+                auto *registry = interpreter_.get_namespace_registry();
+                if (registry) {
+                    // resolveName()を使用して、using
+                    // namespaceでインポートされた名前空間から検索
+                    std::vector<ResolvedSymbol> candidates =
+                        registry->resolveName(node->name);
+
+                    if (candidates.size() == 1) {
+                        // 一意に解決できた場合
+                        func = candidates[0].declaration;
+
+                        if (interpreter_.is_debug_mode()) {
+                            std::cerr
+                                << "[USING_NAMESPACE_CALL] Resolved function: "
+                                << node->name << " from namespace" << std::endl;
+                        }
+                    } else if (candidates.size() > 1) {
+                        // 曖昧な参照（複数のnamespaceに同じ名前の関数がある）
+                        throw std::runtime_error(
+                            "Ambiguous function call: '" + node->name +
+                            "' found in multiple namespaces");
+                    }
+                }
             }
         }
     }

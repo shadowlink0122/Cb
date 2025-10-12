@@ -37,6 +37,7 @@
 // ========================================================================
 Interpreter::Interpreter(bool debug)
     : debug_mode(debug), output_manager_(std::make_unique<OutputManager>(this)),
+      namespace_registry_(std::make_unique<NamespaceRegistry>()),
       variable_manager_(std::make_unique<VariableManager>(this)),
       type_manager_(std::make_unique<TypeManager>(this)) {
 

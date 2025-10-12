@@ -178,7 +178,7 @@ Token RecursiveLexer::nextToken() {
     case ':':
         if (peek() == ':') {
             advance(); // consume second ':'
-            return makeToken(TokenType::TOK_SCOPE, "::");
+            return makeToken(TokenType::TOK_SCOPE_RESOLUTION, "::");
         }
         return makeToken(TokenType::TOK_COLON, ":");
 
@@ -432,7 +432,9 @@ TokenType RecursiveLexer::getKeywordType(const std::string &text) {
         {"case", TokenType::TOK_CASE},
         {"func", TokenType::TOK_FUNC},
         {"import", TokenType::TOK_IMPORT},
-        {"export", TokenType::TOK_EXPORT}};
+        {"export", TokenType::TOK_EXPORT},
+        {"namespace", TokenType::TOK_NAMESPACE},
+        {"using", TokenType::TOK_USING}};
 
     auto it = keywords.find(text);
     if (it != keywords.end()) {

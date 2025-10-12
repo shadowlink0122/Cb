@@ -1,0 +1,23 @@
+// 複数のnamespaceとusing namespaceのテスト
+namespace math {
+    int add(int a, int b) {
+        return a + b;
+    }
+}
+
+namespace utils {
+    int subtract(int a, int b) {
+        return a - b;
+    }
+}
+
+using namespace math;
+using namespace utils;
+
+int main() {
+    int sum = add(10, 5);        // math::add
+    int diff = subtract(10, 5);   // utils::subtract
+    print(sum);   // 15
+    print(diff);  // 5
+    return 0;
+}

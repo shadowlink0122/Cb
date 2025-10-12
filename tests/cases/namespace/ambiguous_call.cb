@@ -1,0 +1,22 @@
+// 名前衝突テスト - 同じ名前の関数が複数のnamespaceにある場合
+namespace math {
+    int calculate(int a, int b) {
+        return a + b;
+    }
+}
+
+namespace physics {
+    int calculate(int a, int b) {
+        return a * b;
+    }
+}
+
+using namespace math;
+using namespace physics;
+
+int main() {
+    // エラーになるべき: calculate は曖昧（math::calculate か physics::calculate か）
+    int result = calculate(2, 3);
+    print(result);
+    return 0;
+}

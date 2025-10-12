@@ -1,0 +1,10 @@
+// テスト: namespace内に関数を定義
+namespace math {
+    int add(int a, int b) {
+        return a + b;
+    }
+}
+
+int main() {
+    return 0;
+}

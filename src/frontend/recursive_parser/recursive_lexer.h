@@ -60,7 +60,7 @@ enum class TokenType {
     TOK_RBRACKET,  // ]
     TOK_DOT,       // .
     TOK_ARROW,     // ->
-    TOK_SCOPE,     // ::
+    TOK_SCOPE,     // :: (deprecated, use TOK_SCOPE_RESOLUTION)
 
     // Literals
     TOK_IDENTIFIER,
@@ -113,10 +113,13 @@ enum class TokenType {
     TOK_DEFAULT,
     TOK_SWITCH,
     TOK_CASE,
-    TOK_RANGE,  // ... (range operator)
-    TOK_FUNC,   // func (for lambda expressions)
-    TOK_IMPORT, // import
-    TOK_EXPORT, // export
+    TOK_RANGE,            // ... (range operator)
+    TOK_FUNC,             // func (for lambda expressions)
+    TOK_IMPORT,           // import
+    TOK_EXPORT,           // export
+    TOK_NAMESPACE,        // namespace
+    TOK_USING,            // using
+    TOK_SCOPE_RESOLUTION, // :: (namespace scope resolution)
 
     // Special
     TOK_EOF,

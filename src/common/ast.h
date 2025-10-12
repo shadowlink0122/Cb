@@ -768,9 +768,11 @@ enum class ASTNodeType {
     STORAGE_SPEC,
 
     // モジュールシステム
-    AST_IMPORT_STMT, // import文
-    AST_EXPORT_STMT, // export文
-    AST_MODULE_DECL, // module宣言
+    AST_IMPORT_STMT,    // import文
+    AST_EXPORT_STMT,    // export文
+    AST_MODULE_DECL,    // module宣言
+    AST_NAMESPACE_DECL, // namespace宣言
+    AST_USING_STMT,     // using文
 
     // 例外処理
     AST_TRY_STMT,     // try文
@@ -886,6 +888,13 @@ struct ASTNode {
     bool is_exported = false;       // export宣言されているか
     bool is_default_export = false; // default export かどうか
     std::string import_path; // import文のパス ("stdlib.math.basic"など)
+
+    // namespace関連（v0.11.0新機能）
+    std::string namespace_name;              // namespace名 (std, io等)
+    std::vector<std::string> namespace_path; // namespace階層 (std::io::core)
+    std::vector<std::unique_ptr<ASTNode>> namespace_body; // namespace内の定義
+    bool is_using_namespace = false;  // using namespace文かどうか
+    bool is_namespace_export = false; // export namespace かどうか
 
     // 例外処理関連
     std::unique_ptr<ASTNode> try_body;     // try block

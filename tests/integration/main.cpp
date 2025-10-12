@@ -55,6 +55,7 @@
 #include "multidim_array/test_multidim_array.hpp"
 #include "multidim_literal/test_multidim_literal.hpp"
 #include "multiple_var_decl/test_multiple_var_decl.hpp"
+#include "namespace/test_namespace.hpp"
 #include "nested_struct_init/test_nested_struct_init.hpp"
 #include "performance/test_performance.hpp"
 #include "pointer/function_pointer_tests.hpp"
@@ -212,6 +213,8 @@ int main() {
                            "Import/Export Tests", failed_tests);
     run_test_with_continue(test_integration_module_functions,
                            "Module Function Tests", failed_tests);
+    run_test_with_continue(test_integration_namespace, "Namespace Tests",
+                           failed_tests);
     CategoryTimingStats::print_category_summary("Functions");
 
     // 変数・定数テスト群

@@ -132,6 +132,16 @@ ASTNode *StatementParser::parseDeclarationStatement(bool isStatic, bool isConst,
         return parseImportStatement();
     }
 
+    // namespace宣言 (v0.11.0)
+    if (parser_->check(TokenType::TOK_NAMESPACE)) {
+        return parser_->parseNamespaceDeclaration();
+    }
+
+    // using文 (v0.11.0)
+    if (parser_->check(TokenType::TOK_USING)) {
+        return parser_->parseUsingStatement();
+    }
+
     // main関数
     if (parser_->check(TokenType::TOK_MAIN)) {
         Token main_token = parser_->current_token_;

@@ -143,24 +143,62 @@ ASTNode *PrimaryExpressionParser::parsePrimary() {
             return node;
         }
 
-        // enum値アクセス（EnumName::member）をチェック
-        if (parser_->check(TokenType::TOK_SCOPE)) {
-            parser_->advance(); // consume '::'
+        // enum値アクセス（EnumName::member）または修飾名（namespace::function）をチェック
+        if (parser_->check(TokenType::TOK_SCOPE_RESOLUTION)) {
+            // 修飾名のパス全体を構築: outer::inner::multiply
+            std::string qualified_name = token.value;
 
-            if (!parser_->check(TokenType::TOK_IDENTIFIER)) {
-                parser_->error("Expected enum member name after '::'");
-                return nullptr;
+            while (parser_->check(TokenType::TOK_SCOPE_RESOLUTION)) {
+                parser_->advance(); // consume '::'
+
+                if (!parser_->check(TokenType::TOK_IDENTIFIER)) {
+                    parser_->error("Expected identifier after '::'");
+                    return nullptr;
+                }
+
+                qualified_name += "::" + parser_->current_token_.value;
+                parser_->advance(); // consume identifier
             }
 
-            std::string member_name = parser_->current_token_.value;
-            parser_->advance(); // consume member name
+            // 修飾名関数呼び出し: namespace::function() or
+            // outer::inner::multiply()
+            if (parser_->check(TokenType::TOK_LPAREN)) {
+                parser_->advance(); // consume '('
 
-            ASTNode *enum_access = new ASTNode(ASTNodeType::AST_ENUM_ACCESS);
-            enum_access->enum_name = token.value;
-            enum_access->enum_member = member_name;
-            parser_->setLocation(enum_access, token.line, token.column);
+                ASTNode *call_node = new ASTNode(ASTNodeType::AST_FUNC_CALL);
+                call_node->name = qualified_name; // 完全修飾名
 
-            return enum_access;
+                // 引数リストの解析
+                if (!parser_->check(TokenType::TOK_RPAREN)) {
+                    do {
+                        ASTNode *arg = parser_->parseExpression();
+                        call_node->arguments.push_back(
+                            std::unique_ptr<ASTNode>(arg));
+                    } while (parser_->match(TokenType::TOK_COMMA));
+                }
+
+                parser_->consume(TokenType::TOK_RPAREN,
+                                 "Expected ')' after function arguments");
+
+                parser_->setLocation(call_node, token.line, token.column);
+                return call_node;
+            }
+
+            // enum値アクセス: EnumName::member (単一の::のみ)
+            // qualified_nameが "EnumName::member" の形式の場合
+            size_t last_colon = qualified_name.rfind("::");
+            if (last_colon != std::string::npos) {
+                std::string enum_name = qualified_name.substr(0, last_colon);
+                std::string enum_member = qualified_name.substr(last_colon + 2);
+
+                ASTNode *enum_access =
+                    new ASTNode(ASTNodeType::AST_ENUM_ACCESS);
+                enum_access->enum_name = enum_name;
+                enum_access->enum_member = enum_member;
+                parser_->setLocation(enum_access, token.line, token.column);
+
+                return enum_access;
+            }
         }
 
         // 関数呼び出しをチェック

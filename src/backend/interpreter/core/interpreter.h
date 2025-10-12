@@ -1,6 +1,7 @@
 #pragma once
 #include "../../../common/ast.h"
 #include "../../../common/debug.h"
+#include "namespace_registry.h"
 #include "type_inference.h"
 #include <cstdio>
 #include <iostream>
@@ -434,6 +435,10 @@ class Interpreter : public EvaluatorInterface {
     Scope global_scope;
     bool debug_mode;
     std::unique_ptr<OutputManager> output_manager_;
+
+    // v0.11.0: 名前空間管理 (早期初期化が必要)
+    std::unique_ptr<NamespaceRegistry> namespace_registry_;
+
     std::map<std::string, std::string>
         typedef_map; // typedef alias -> base type mapping
     std::map<std::string, StructDefinition>
@@ -753,6 +758,10 @@ class Interpreter : public EvaluatorInterface {
     // import文処理ヘルパー
     void handle_import_statement(const ASTNode *node);
 
+    // v0.11.0: namespace処理ヘルパー
+    void handle_namespace_declaration(const ASTNode *node);
+    void handle_using_statement(const ASTNode *node);
+
   public:
     void check_type_range(TypeInfo type, int64_t value, const std::string &name,
                           bool is_unsigned = false);
@@ -775,6 +784,11 @@ class Interpreter : public EvaluatorInterface {
     // モジュール機能
     bool is_module_imported(const std::string &module_name) const {
         return loaded_modules.find(module_name) != loaded_modules.end();
+    }
+
+    // v0.11.0: 名前空間機能
+    NamespaceRegistry *get_namespace_registry() {
+        return namespace_registry_.get();
     }
 
     // 共通操作へのアクセス

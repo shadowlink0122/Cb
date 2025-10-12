@@ -60,7 +60,9 @@
         "fstream": "cpp",
         "algorithm": "cpp",
         "__memory": "cpp",
-        "type_traits": "cpp"
+        "type_traits": "cpp",
+        "set": "cpp",
+        "unordered_set": "cpp"
     },
     "makefile.configureOnOpen": false
 }

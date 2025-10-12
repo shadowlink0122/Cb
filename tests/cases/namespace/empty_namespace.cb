@@ -1,0 +1,8 @@
+// 最小限のnamespaceテスト
+
+namespace test {
+}
+
+int main() {
+    return 0;
+}
