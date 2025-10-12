@@ -340,8 +340,8 @@
             <p style="font-size: 10pt;"><strong>ゼロコストの所有権移動</strong> (move()関数は今後実装予定)</p>
             
             <div class="code-block"><span class="keyword">struct</span> <span class="type">Resource</span> {
-    <span class="type">int</span>* data;
-    <span class="type">int</span> size;
+    <span class="keyword">int</span>* data;
+    <span class="keyword">int</span> size;
 }
 
 <span class="keyword">impl</span> <span class="type">Resource</span> {
@@ -363,7 +363,7 @@
             
             <h3>2. TypeScript風Union型</h3>
             <div class="code-block"><span class="keyword">typedef</span> <span class="type">Status</span> = 200 | 404 | 500;
-<span class="keyword">typedef</span> <span class="type">Value</span> = <span class="type">int</span> | <span class="type">string</span>;
+<span class="keyword">typedef</span> <span class="type">Value</span> = <span class="keyword">int</span> | <span class="keyword">string</span>;
 
 <span class="type">Status</span> code = 200;
 <span class="type">Value</span> data = 42;
@@ -371,24 +371,24 @@ data = <span class="string">"Hello"</span>;  <span class="comment">// 型変更O
             
             <h3>3. Rust風Interface/Impl</h3>
             <div class="code-block"><span class="keyword">interface</span> <span class="type">Drawable</span> {
-    <span class="keyword">void</span> draw();
+    <strong><span class="keyword">void</span></strong> draw();
 }
 
 <span class="keyword">struct</span> <span class="type">Circle</span> {
-    <span class="type">int</span> radius;
+    <span class="keyword">int</span> radius;
 }
 
 <span class="keyword">impl</span> <span class="type">Drawable</span> <span class="keyword">for</span> <span class="type">Circle</span> {
-    <span class="keyword">void</span> draw() {
+    <strong><span class="keyword">void</span></strong> draw() {
         println(<span class="string">"Circle"</span>, self.radius);
     }
 }</div>
 
             <h3>4. 関数ポインタ</h3>
-            <div class="code-block"><span class="type">int</span> add(<span class="type">int</span> a, <span class="type">int</span> b) {
+            <div class="code-block"><strong><span class="keyword">int</span></strong> add(<span class="keyword">int</span> a, <span class="keyword">int</span> b) {
     <span class="keyword">return</span> a + b;
 }
-<span class="keyword">void</span> main() {
+<strong><span class="keyword">int</span></strong> main() {
     <span class="type">int</span>* op = &amp;add;
     println(op(5, 3));  <span class="comment">// 8</span>
 }</div>
@@ -534,18 +534,18 @@ data = <span class="string">"Hello"</span>;  <span class="comment">// 型変更O
             <h2>サンプルプログラム</h2>
             
             <h4>例1: FizzBuzz（Interface活用）</h4>
-            <div class="code-block"><span class="keyword">interface</span> <span class="type">IFizzbuzz</span> { <span class="keyword">void</span> fizzbuzz(); }
+            <div class="code-block"><span class="keyword">interface</span> <span class="type">IFizzbuzz</span> { <strong><span class="keyword">void</span></strong> fizzbuzz(); }
 
-<span class="keyword">impl</span> <span class="type">IFizzbuzz</span> <span class="keyword">for</span> <span class="type">int</span> {
-    <span class="keyword">void</span> fizzbuzz() {
+<span class="keyword">impl</span> <span class="type">IFizzbuzz</span> <span class="keyword">for</span> <span class="keyword">int</span> {
+    <strong><span class="keyword">void</span></strong> fizzbuzz() {
         <span class="keyword">if</span> (self % 15 == 0) println(<span class="string">"FizzBuzz"</span>);
         <span class="keyword">else if</span> (self % 3 == 0) println(<span class="string">"Fizz"</span>);
         <span class="keyword">else if</span> (self % 5 == 0) println(<span class="string">"Buzz"</span>);
         <span class="keyword">else</span> println(self);
     }
 }
-<span class="type">int</span> main() {
-    <span class="keyword">for</span> (<span class="type">int</span> i = 1; i &lt;= 100; i++) {
+<strong><span class="keyword">int</span></strong> main() {
+    <span class="keyword">for</span> (<span class="keyword">int</span> i = 1; i &lt;= 100; i++) {
         i.fizzbuzz();  <span class="comment">// メソッド呼び出し！</span>
     }
 }</div>
@@ -555,10 +555,10 @@ data = <span class="string">"Hello"</span>;  <span class="comment">// 型変更O
             </div>
             
             <h4>例2: リソース管理（RAII）</h4>
-            <div class="code-block"><span class="keyword">struct</span> <span class="type">File</span> { <span class="type">string</span> name; <span class="type">bool</span> is_open; }
+            <div class="code-block"><span class="keyword">struct</span> <span class="type">File</span> { <span class="keyword">string</span> name; <span class="keyword">bool</span> is_open; }
 
 <span class="keyword">impl</span> <span class="type">File</span> {
-    <span class="keyword">self</span>(<span class="type">string</span> fn) {
+    <span class="keyword">self</span>(<span class="keyword">string</span> fn) {
         self.name = fn; self.is_open = <span class="keyword">true</span>;
         println(<span class="string">"File opened:"</span>, fn);
     }
@@ -567,7 +567,7 @@ data = <span class="string">"Hello"</span>;  <span class="comment">// 型変更O
             println(<span class="string">"File closed:"</span>, self.name);
     }
 }
-<span class="keyword">void</span> main() {
+<strong><span class="keyword">int</span></strong> main() {
     <span class="type">File</span> f(<span class="string">"data.txt"</span>);
     <span class="comment">// スコープ終了時にデストラクタ実行</span>
     <span class="comment">// 注: {}スコープは未対応(修正予定)</span>
