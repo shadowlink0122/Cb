@@ -1,0 +1,12 @@
+// 識別子の一部が誤展開される問題のテスト
+#define PI 3.14159
+
+int main() {
+    // APIという変数名が A3.14159 に誤展開される？
+    int API = 100;
+    
+    print("API = ");
+    println(API);
+    
+    return 0;
+}

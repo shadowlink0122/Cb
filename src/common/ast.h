@@ -774,6 +774,10 @@ enum class ASTNodeType {
     AST_NAMESPACE_DECL, // namespace宣言
     AST_USING_STMT,     // using文
 
+    // マクロシステム
+    AST_MACRO_DECL, // macro宣言
+    AST_MACRO_CALL, // macro呼び出し
+
     // 例外処理
     AST_TRY_STMT,     // try文
     AST_CATCH_STMT,   // catch文
@@ -895,6 +899,14 @@ struct ASTNode {
     std::vector<std::unique_ptr<ASTNode>> namespace_body; // namespace内の定義
     bool is_using_namespace = false;  // using namespace文かどうか
     bool is_namespace_export = false; // export namespace かどうか
+
+    // マクロ関連（v0.11.0新機能）
+    std::string macro_name;                    // マクロ名
+    std::vector<std::string> macro_parameters; // マクロパラメータ名リスト
+    std::unique_ptr<ASTNode> macro_body;       // マクロ本体
+    std::vector<std::unique_ptr<ASTNode>> macro_args; // マクロ呼び出し時の引数
+    bool is_macro_call = false;     // マクロ呼び出しか
+    bool is_macro_expanded = false; // 既に展開済みか
 
     // 例外処理関連
     std::unique_ptr<ASTNode> try_body;     // try block

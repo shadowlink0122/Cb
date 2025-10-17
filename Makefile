@@ -6,6 +6,7 @@ YACC=bison
 # ディレクトリ設定
 SRC_DIR=src
 FRONTEND_DIR=$(SRC_DIR)/frontend
+PREPROCESSOR_DIR=$(FRONTEND_DIR)/preprocessor
 BACKEND_DIR=$(SRC_DIR)/backend
 COMMON_DIR=$(SRC_DIR)/common
 PLATFORM_DIR=$(SRC_DIR)/platform
@@ -48,7 +49,14 @@ PARSER_OBJS=$(FRONTEND_DIR)/recursive_parser/parsers/expression_parser.o \
             $(FRONTEND_DIR)/recursive_parser/parsers/interface_parser.o \
             $(FRONTEND_DIR)/recursive_parser/parsers/union_parser.o \
             $(FRONTEND_DIR)/recursive_parser/parsers/type_utility_parser.o
-FRONTEND_OBJS=$(FRONTEND_DIR)/main.o $(FRONTEND_DIR)/help_messages.o $(FRONTEND_DIR)/recursive_parser/recursive_lexer.o $(FRONTEND_DIR)/recursive_parser/recursive_parser.o $(PARSER_OBJS)
+
+# プリプロセッサのオブジェクトファイル
+PREPROCESSOR_OBJS=$(PREPROCESSOR_DIR)/preprocessor.o \
+                  $(PREPROCESSOR_DIR)/macro_expander.o \
+                  $(PREPROCESSOR_DIR)/directive_parser.o \
+                  $(PREPROCESSOR_DIR)/token_preprocessor.o
+
+FRONTEND_OBJS=$(FRONTEND_DIR)/main.o $(FRONTEND_DIR)/help_messages.o $(FRONTEND_DIR)/recursive_parser/recursive_lexer.o $(FRONTEND_DIR)/recursive_parser/recursive_parser.o $(PARSER_OBJS) $(PREPROCESSOR_OBJS)
 # Interpreterオブジェクトファイル（グループ化）
 INTERPRETER_CORE_OBJS = \
 	$(INTERPRETER_CORE)/interpreter.o \
@@ -250,7 +258,7 @@ $(TESTS_DIR)/unit/dummy.o: $(TESTS_DIR)/unit/dummy.cpp
 	$(CXX) $(TEST_CXXFLAGS) -c -o $@ $<
 
 # Unit test binary target
-$(TESTS_DIR)/unit/test_main: $(TESTS_DIR)/unit/main.cpp $(TESTS_DIR)/unit/dummy.o $(BACKEND_OBJS) $(COMMON_OBJS) $(PARSER_OBJS) $(FRONTEND_DIR)/recursive_parser/recursive_parser.o $(FRONTEND_DIR)/recursive_parser/recursive_lexer.o
+$(TESTS_DIR)/unit/test_main: $(TESTS_DIR)/unit/main.cpp $(TESTS_DIR)/unit/dummy.o $(BACKEND_OBJS) $(COMMON_OBJS) $(PARSER_OBJS) $(PREPROCESSOR_OBJS) $(FRONTEND_DIR)/recursive_parser/recursive_parser.o $(FRONTEND_DIR)/recursive_parser/recursive_lexer.o
 	$(CXX) $(TEST_CXXFLAGS) -o $@ $^
 
 unit-test: $(TESTS_DIR)/unit/test_main
@@ -277,7 +285,7 @@ integration-test-verbose: $(TESTS_DIR)/integration/test_main
 test: integration-test unit-test
 	@echo "=== Test Summary ==="
 	@echo "Integration tests: completed"
-	@echo "Unit tests: 50 tests"
+	@echo "Unit tests: 54 tests (30 backend + 24 preprocessor)"
 
 # クリーンアップ
 clean:

@@ -1,0 +1,15 @@
+// マクロテスト: オブジェクト形式マクロ
+#define PI 3.14159
+#define TRUE 1
+#define FALSE 0
+
+int main() {
+    println("=== Cb Preprocessor Demo ===");
+    print("PI = ");
+    println(PI);
+    print("TRUE = ");
+    println(TRUE);
+    print("FALSE = ");
+    println(FALSE);
+    return 0;
+}

@@ -1,0 +1,7 @@
+#define MAX 100
+
+int main() {
+    println("MAX value in string");
+    int x = MAX;
+    println("x = %d", x);
+}

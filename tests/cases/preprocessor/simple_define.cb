@@ -1,0 +1,19 @@
+// テスト: 単純なマクロ定義と展開
+#define PI 3.14159
+#define TRUE 1
+#define FALSE 0
+#define VERSION "0.11.0"
+
+int main() {
+    println("PI =", PI);
+    println("TRUE =", TRUE);
+    println("FALSE =", FALSE);
+    println("VERSION =", VERSION);
+    return 0;
+}
+
+// 期待される出力:
+// PI = 3.14159
+// TRUE = 1
+// FALSE = 0
+// VERSION = "0.11.0"

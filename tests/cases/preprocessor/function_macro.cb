@@ -1,0 +1,23 @@
+// テスト: 関数形式マクロ
+#define SQUARE(x) ((x) * (x))
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+#define ABS(x) ((x) < 0 ? -(x) : (x))
+
+int main() {
+    int a = 5;
+    int b = 3;
+    
+    println("SQUARE(5) =", SQUARE(a));
+    println("MAX(5, 3) =", MAX(a, b));
+    println("MIN(5, 3) =", MIN(a, b));
+    println("ABS(-7) =", ABS(-7));
+    
+    return 0;
+}
+
+// 期待される出力:
+// SQUARE(5) = 25
+// MAX(5, 3) = 5
+// MIN(5, 3) = 3
+// ABS(-7) = 7

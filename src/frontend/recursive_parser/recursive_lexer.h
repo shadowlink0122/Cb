@@ -121,6 +121,11 @@ enum class TokenType {
     TOK_USING,            // using
     TOK_SCOPE_RESOLUTION, // :: (namespace scope resolution)
 
+    // Preprocessor directives
+    TOK_HASH,                // #
+    TOK_PREPROCESSOR_DEFINE, // #define
+    TOK_PREPROCESSOR_UNDEF,  // #undef
+
     // Special
     TOK_EOF,
     TOK_ERROR
@@ -161,6 +166,7 @@ class RecursiveLexer {
     Token makeNumber();
     Token makeString();
     Token makeChar();
+    Token makePreprocessorDirective();
     TokenType getKeywordType(const std::string &text);
     bool isAlpha(char c);
     bool isDigit(char c);

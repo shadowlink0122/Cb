@@ -182,6 +182,9 @@ Token RecursiveLexer::nextToken() {
         }
         return makeToken(TokenType::TOK_COLON, ":");
 
+    case '#':
+        return makePreprocessorDirective();
+
     case '.':
         if (peek() == '.' && peekNext() == '.') {
             advance(); // consume second '.'
@@ -451,5 +454,48 @@ bool RecursiveLexer::isAlpha(char c) {
 bool RecursiveLexer::isDigit(char c) { return c >= '0' && c <= '9'; }
 
 bool RecursiveLexer::isAlphaNumeric(char c) { return isAlpha(c) || isDigit(c); }
+
+Token RecursiveLexer::makePreprocessorDirective() {
+    // Save start position (already consumed '#')
+    size_t start = current_ - 1;
+
+    // Skip whitespace after '#'
+    while (!isAtEnd() && (peek() == ' ' || peek() == '\t')) {
+        advance();
+    }
+
+    // Check for directive keyword
+    if (!isAtEnd() && (isAlpha(peek()) || peek() == '_')) {
+        size_t directiveStart = current_;
+
+        // Read directive name
+        while (!isAtEnd() && (isAlphaNumeric(peek()) || peek() == '_')) {
+            advance();
+        }
+
+        std::string directiveName =
+            source_.substr(directiveStart, current_ - directiveStart);
+
+        if (directiveName == "define" || directiveName == "undef") {
+            // Read the rest of the line
+            while (!isAtEnd() && peek() != '\n') {
+                advance();
+            }
+
+            std::string fullDirective = source_.substr(start, current_ - start);
+
+            if (directiveName == "define") {
+                return makeToken(TokenType::TOK_PREPROCESSOR_DEFINE,
+                                 fullDirective);
+            } else {
+                return makeToken(TokenType::TOK_PREPROCESSOR_UNDEF,
+                                 fullDirective);
+            }
+        }
+    }
+
+    // Just '#' by itself or unknown directive
+    return makeToken(TokenType::TOK_HASH, "#");
+}
 
 } // namespace RecursiveParserNS

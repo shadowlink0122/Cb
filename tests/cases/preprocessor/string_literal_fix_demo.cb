@@ -1,0 +1,18 @@
+// 文字列リテラル内のマクロ展開バグ修正確認
+#define PI 3.14159
+#define MAX 100
+
+int main() {
+    // 文字列リテラル内の PI と MAX は展開されるべきではない
+    println("PI is a mathematical constant");
+    println("MAX value should not be replaced");
+    println("The value of PI is:");
+    
+    // しかし、変数としては展開される
+    println(PI);
+    
+    int value = MAX;
+    println(value);
+    
+    return 0;
+}

@@ -67,6 +67,7 @@
 #include "pointer/pointer_struct_tests.hpp"
 #include "pointer/pointer_tests.hpp"
 #include "pointer/pointer_type_tests.hpp"
+#include "preprocessor/test_preprocessor.hpp"
 #include "printf/test_printf.hpp"
 #include "println/test_println.hpp"
 #include "reference/reference_tests.hpp"
@@ -161,6 +162,11 @@ int main() {
     run_test_with_continue(test_integration_boundary, "Boundary Tests",
                            failed_tests);
     run_test_with_continue(test_integration_type, "Type Tests", failed_tests);
+
+    // プリプロセッサテスト
+    run_test_with_continue(test_integration_preprocessor, "Preprocessor Tests",
+                           failed_tests);
+
     CategoryTimingStats::print_category_summary("Core Language");
 
     // 配列テスト群

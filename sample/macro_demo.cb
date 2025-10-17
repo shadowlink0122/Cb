@@ -1,0 +1,23 @@
+#define PI 3.14159
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
+#define SQUARE(x) ((x) * (x))
+#define CIRCLE_AREA(r) (PI * (r) * (r))
+
+int main() {
+    println("=== Preprocessor Macro Demo ===");
+    
+    println("PI =", PI);
+    
+    int a = 10;
+    int b = 20;
+    println("MAX(10, 20) =", MAX(a, b));
+    println("SQUARE(5) =", SQUARE(5));
+    
+    int result = MAX(SQUARE(5), SQUARE(4));
+    println("MAX(SQUARE(5), SQUARE(4)) =", result);
+    
+    int radius = 5;
+    println("CIRCLE_AREA(5) =", CIRCLE_AREA(radius));
+    
+    return 0;
+}

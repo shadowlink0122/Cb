@@ -1,0 +1,25 @@
+// 関数形式マクロのテスト
+#define SQUARE(x) ((x) * (x))
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+
+int main() {
+    println("=== Function Macro Demo ===");
+    
+    int a = 5;
+    int b = 3;
+    
+    print("SQUARE(5) = ");
+    println(SQUARE(a));
+    
+    print("MAX(5, 3) = ");
+    println(MAX(a, b));
+    
+    print("MIN(5, 3) = ");
+    println(MIN(a, b));
+    
+    print("SQUARE(2 + 3) = ");
+    println(SQUARE(2 + 3));
+    
+    return 0;
+}

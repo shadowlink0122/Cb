@@ -4,6 +4,8 @@
 #include "../common/debug.h"
 
 // Recursive parser only
+#include "preprocessor/token_preprocessor.h"
+#include "recursive_parser/recursive_lexer.h"
 #include "recursive_parser/recursive_parser.h"
 
 #include <cstdarg>
@@ -15,6 +17,46 @@
 #include <vector>
 
 using namespace RecursiveParserNS;
+
+// トークン列を文字列に変換（スペースを適切に挿入）
+std::string tokensToString(const std::vector<Token> &tokens) {
+    std::string result;
+    TokenType lastType = TokenType::TOK_EOF;
+
+    for (const auto &token : tokens) {
+        // 前のトークンとの間にスペースが必要か判断
+        bool needsSpace = false;
+        if (!result.empty()) {
+            // 識別子、数値、キーワードの後には通常スペースが必要
+            if (lastType == TokenType::TOK_IDENTIFIER ||
+                lastType == TokenType::TOK_NUMBER ||
+                (lastType >= TokenType::TOK_MAIN &&
+                 lastType <= TokenType::TOK_SCOPE_RESOLUTION)) {
+                // 次のトークンが記号でない場合はスペースを追加
+                if (token.type == TokenType::TOK_IDENTIFIER ||
+                    token.type == TokenType::TOK_NUMBER ||
+                    (token.type >= TokenType::TOK_MAIN &&
+                     token.type <= TokenType::TOK_SCOPE_RESOLUTION)) {
+                    needsSpace = true;
+                }
+            }
+        }
+
+        if (needsSpace) {
+            result += " ";
+        }
+
+        // 文字列リテラルは引用符で囲む
+        if (token.type == TokenType::TOK_STRING) {
+            result += "\"" + token.value + "\"";
+        } else {
+            result += token.value;
+        }
+        lastType = token.type;
+    }
+
+    return result;
+}
 
 // エラー表示用のグローバル変数
 const char *current_filename = nullptr;
@@ -73,9 +115,50 @@ int main(int argc, char **argv) {
                            std::istreambuf_iterator<char>());
         input.close();
 
+        // TokenPreprocessor でマクロを展開（文字列リテラル保護）
+        RecursiveLexer lexer(source);
+        std::vector<Token> tokens;
+        bool hasPreprocessorDirectives = false;
+
+        while (!lexer.isAtEnd()) {
+            Token token = lexer.nextToken();
+            if (token.type == TokenType::TOK_EOF) {
+                break;
+            }
+            // プリプロセッサディレクティブがあるか確認
+            if (token.type == TokenType::TOK_PREPROCESSOR_DEFINE ||
+                token.type == TokenType::TOK_PREPROCESSOR_UNDEF) {
+                hasPreprocessorDirectives = true;
+            }
+            tokens.push_back(token);
+        }
+
+        std::string processedSource = source; // デフォルトは元のソース
+
+        // プリプロセッサディレクティブがある場合のみ処理
+        if (hasPreprocessorDirectives) {
+            TokenPreprocessor preprocessor;
+            std::vector<Token> processedTokens = preprocessor.process(tokens);
+
+            if (preprocessor.hasError()) {
+                std::fprintf(stderr, "Preprocessor Error: %s\n",
+                             preprocessor.getError().c_str());
+                return 1;
+            }
+
+            // トークン列を文字列に戻す
+            processedSource = tokensToString(processedTokens);
+
+            // Debug: output processed source
+            if (debug_mode) {
+                std::fprintf(stderr, "Processed source:\n%s\n",
+                             processedSource.c_str());
+            }
+        }
+
         debug_msg(DebugMsgId::PARSE_USING_RECURSIVE_PARSER);
 
-        RecursiveParser parser(source, filename);
+        RecursiveParser parser(processedSource, filename);
         parser.setDebugMode(debug_mode);
         root = parser.parseProgram();
 

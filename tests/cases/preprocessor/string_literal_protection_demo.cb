@@ -1,0 +1,19 @@
+#define PI 3.14159
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
+
+int main() {
+    // マクロは通常展開される
+    println("PI value: %f", PI);
+    
+    // 文字列リテラル内のPIは展開されない（これがバグ修正）
+    println("The constant PI represents the ratio of a circle's circumference to its diameter.");
+    println("MAX function can be used to find the maximum value");
+    
+    // マクロとして正しく展開
+    int a = 10;
+    int b = 20;
+    int max_val = MAX(a, b);
+    println("MAX(%d, %d) = %d", a, b, max_val);
+    
+    println("Test passed: String literals are protected from macro expansion!");
+}

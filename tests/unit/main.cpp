@@ -8,6 +8,14 @@
 #include "backend/test_interpreter.hpp"
 #include "backend/test_pointer.hpp"
 
+// フロントエンドのテスト群
+#include "frontend/preprocessor/test_directive_parser.hpp"
+#include "frontend/preprocessor/test_macro_definition.hpp"
+#include "frontend/preprocessor/test_macro_expander.hpp"
+#include "frontend/preprocessor/test_preprocessor.hpp"
+#include "frontend/preprocessor/test_token_preprocessor.hpp"
+#include "frontend/recursive_parser/test_lexer_preprocessor.hpp"
+
 int main() {
     std::cout << "Running comprehensive unit tests..." << std::endl;
 
@@ -19,6 +27,18 @@ int main() {
         register_cross_type_tests();
         register_function_tests();
         register_pointer_tests();
+
+        // プリプロセッサのテストを登録
+        register_macro_definition_tests();
+        register_directive_parser_tests();
+        register_macro_expander_tests();
+        register_preprocessor_tests();
+
+        // レキサーのプリプロセッサテスト
+        run_lexer_preprocessor_tests();
+
+        // トークンベースプリプロセッサのテスト
+        run_token_preprocessor_tests();
 
         // すべてのテストを実行
         test_runner.run_all();

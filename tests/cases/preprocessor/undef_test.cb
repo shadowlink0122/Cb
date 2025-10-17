@@ -1,0 +1,21 @@
+// テスト: マクロの未定義化
+#define DEBUG 1
+
+int main() {
+    println("DEBUG mode:", DEBUG);
+    
+    #undef DEBUG
+    
+    // この時点で DEBUG は未定義なので、展開されない
+    println("DEBUG is now undefined");
+    
+    #define DEBUG 2
+    println("DEBUG mode (redefined):", DEBUG);
+    
+    return 0;
+}
+
+// 期待される出力:
+// DEBUG mode: 1
+// DEBUG is now undefined
+// DEBUG mode (redefined): 2
