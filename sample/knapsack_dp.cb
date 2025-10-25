@@ -132,27 +132,19 @@ void main() {
     }
     println("DP calculation completed.");
     
-    // DPテーブルの表示（コンパクト版）
-    println("\n=== DP Table (partial view) ===");
-    println("Showing key capacity points:");
-    int[5] check_points = [0, 5, 10, 15, capacity];
+    // DPテーブルの表示（全容量）
+    println("\n=== DP Table ===");
     
     print("Item\\Cap:");
-    for (int p = 0; p < 5; p++) {
-        int cap = check_points[p];
-        if (cap <= capacity) {
-            print("  %2d", cap);
-        }
+    for (int w = 0; w <= capacity; w++) {
+        print("  %2d", w);
     }
     println("");
     
     for (int i = 0; i <= n; i++) {
         print("Item %d:  ", i);
-        for (int p = 0; p < 5; p++) {
-            int cap = check_points[p];
-            if (cap <= capacity) {
-                print(" %3d", dp[i][cap]);
-            }
+        for (int w = 0; w <= capacity; w++) {
+            print(" %3d", dp[i][w]);
         }
         println("");
     }

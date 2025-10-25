@@ -869,6 +869,13 @@ bool VariableManager::handle_array_type_info_declaration(const ASTNode *node,
                 }
             }
             var.struct_type_name = stored_type_name;
+
+            // 構造体配列の場合、is_structフラグも設定
+            if (node->array_type_info.base_type == TYPE_STRUCT &&
+                interpreter_->find_struct_definition(stored_type_name) !=
+                    nullptr) {
+                var.is_struct = true;
+            }
         }
 
         // 配列サイズ情報をコピーし、動的サイズを解決

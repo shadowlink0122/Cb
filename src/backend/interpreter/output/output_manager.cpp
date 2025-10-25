@@ -962,18 +962,28 @@ bool OutputManager::has_unescaped_format_specifiers(const std::string &str) {
             }
             // 次の文字がフォーマット指定子かチェック
             if (i + 1 < str.length()) {
-                char next = str[i + 1];
-                if (next == 'd' or next == 's' or next == 'c' or next == 'p' or
-                    next == 'f' or next == '%') {
-                    debug_msg(DebugMsgId::OUTPUT_FORMAT_SPEC_FOUND,
-                              std::string(1, next).c_str());
-                    return true;
+                // 幅指定子（数字）をスキップ
+                size_t pos = i + 1;
+                while (pos < str.length() && std::isdigit(str[pos])) {
+                    pos++;
                 }
-                // %lld のチェック
-                if (next == 'l' && i + 3 < str.length() && str[i + 2] == 'l' &&
-                    str[i + 3] == 'd') {
-                    debug_msg(DebugMsgId::OUTPUT_FORMAT_SPEC_FOUND, "lld");
-                    return true;
+
+                // 幅指定後の文字を確認
+                if (pos < str.length()) {
+                    char format_char = str[pos];
+                    if (format_char == 'd' || format_char == 's' ||
+                        format_char == 'c' || format_char == 'p' ||
+                        format_char == 'f' || format_char == '%') {
+                        debug_msg(DebugMsgId::OUTPUT_FORMAT_SPEC_FOUND,
+                                  std::string(1, format_char).c_str());
+                        return true;
+                    }
+                    // %lld のチェック
+                    if (format_char == 'l' && pos + 2 < str.length() &&
+                        str[pos + 1] == 'l' && str[pos + 2] == 'd') {
+                        debug_msg(DebugMsgId::OUTPUT_FORMAT_SPEC_FOUND, "lld");
+                        return true;
+                    }
                 }
             }
         }
@@ -992,21 +1002,31 @@ size_t OutputManager::count_format_specifiers(const std::string &str) {
                 continue; // エスケープされている
             }
             if (i + 1 < str.length()) {
-                char next = str[i + 1];
-                if (next == 'd' or next == 's' or next == 'c' or next == 'p' or
-                    next == 'f') {
-                    count++;
-                    debug_msg(DebugMsgId::OUTPUT_FORMAT_COUNT,
-                              std::to_string(count).c_str());
-                } else if (next == 'l' && i + 3 < str.length() &&
-                           str[i + 2] == 'l' && str[i + 3] == 'd') {
-                    count++;
-                    debug_msg(DebugMsgId::OUTPUT_FORMAT_COUNT,
-                              std::to_string(count).c_str());
-                    i += 3; // %lld をスキップ
-                } else if (next == '%') {
-                    // %% は引数を消費しないのでカウントしない
-                    debug_msg(DebugMsgId::OUTPUT_FORMAT_SPEC_FOUND, "%%");
+                // 幅指定子（数字）をスキップ
+                size_t pos = i + 1;
+                while (pos < str.length() && std::isdigit(str[pos])) {
+                    pos++;
+                }
+
+                // 幅指定後の文字を確認
+                if (pos < str.length()) {
+                    char format_char = str[pos];
+                    if (format_char == 'd' || format_char == 's' ||
+                        format_char == 'c' || format_char == 'p' ||
+                        format_char == 'f') {
+                        count++;
+                        debug_msg(DebugMsgId::OUTPUT_FORMAT_COUNT,
+                                  std::to_string(count).c_str());
+                    } else if (format_char == 'l' && pos + 2 < str.length() &&
+                               str[pos + 1] == 'l' && str[pos + 2] == 'd') {
+                        count++;
+                        debug_msg(DebugMsgId::OUTPUT_FORMAT_COUNT,
+                                  std::to_string(count).c_str());
+                        i = pos + 2; // %lld をスキップ
+                    } else if (format_char == '%') {
+                        // %% は引数を消費しないのでカウントしない
+                        debug_msg(DebugMsgId::OUTPUT_FORMAT_SPEC_FOUND, "%%");
+                    }
                 }
                 // %% は引数を消費しないのでカウントしない
             }
