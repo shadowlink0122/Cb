@@ -477,6 +477,16 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
 
             auto dimensions = parse_array_dimensions(array_part, node);
             initialize_array_from_dimensions(var, base_type, dimensions);
+            
+            // 構造体配列の場合、is_structフラグとstruct_type_nameを設定
+            if (interpreter_->find_struct_definition(base) != nullptr) {
+                var.is_struct = true;
+                var.struct_type_name = base;
+                if (interpreter_->is_debug_mode()) {
+                    debug_print("[DEBUG_ARRAY_INIT] Set is_struct=true for array '%s', base='%s'\n",
+                                node->name.c_str(), base.c_str());
+                }
+            }
         }
     }
 

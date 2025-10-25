@@ -92,7 +92,37 @@ void StructVariableManager::create_struct_variable(
     }
 
     // 変数を登録
-    interpreter_->current_scope().variables[var_name] = struct_var;
+    // 配列要素の場合、親配列のスコープに登録する
+    bool is_array_element = (var_name.find('[') != std::string::npos);
+    if (is_array_element) {
+        // 配列名を抽出
+        std::string array_name = var_name.substr(0, var_name.find('['));
+        
+        // 親配列を検索（グローバルとローカルの両方を確認）
+        Variable *parent_array = interpreter_->find_variable(array_name);
+        
+        if (parent_array) {
+            // グローバルスコープで親配列を検索
+            bool is_global = false;
+            auto &global_vars = interpreter_->get_global_scope().variables;
+            if (global_vars.find(array_name) != global_vars.end()) {
+                is_global = true;
+            }
+            
+            // 親配列がグローバルなら、要素もグローバルに登録
+            if (is_global) {
+                interpreter_->get_global_scope().variables[var_name] = struct_var;
+            } else {
+                interpreter_->current_scope().variables[var_name] = struct_var;
+            }
+        } else {
+            // 親配列が見つからない場合は現在のスコープに登録
+            interpreter_->current_scope().variables[var_name] = struct_var;
+        }
+    } else {
+        // 通常の変数は現在のスコープに登録
+        interpreter_->current_scope().variables[var_name] = struct_var;
+    }
 
     // 構造体配列メンバーの要素を再度追加（変数登録後に行う）
     post_process_array_elements(var_name, struct_def);
