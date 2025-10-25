@@ -967,11 +967,11 @@ bool OutputManager::has_unescaped_format_specifiers(const std::string &str) {
                 while (pos < str.length() && std::isdigit(str[pos])) {
                     pos++;
                 }
-                
+
                 // 幅指定後の文字を確認
                 if (pos < str.length()) {
                     char format_char = str[pos];
-                    if (format_char == 'd' || format_char == 's' || 
+                    if (format_char == 'd' || format_char == 's' ||
                         format_char == 'c' || format_char == 'p' ||
                         format_char == 'f' || format_char == '%') {
                         debug_msg(DebugMsgId::OUTPUT_FORMAT_SPEC_FOUND,
@@ -979,7 +979,7 @@ bool OutputManager::has_unescaped_format_specifiers(const std::string &str) {
                         return true;
                     }
                     // %lld のチェック
-                    if (format_char == 'l' && pos + 2 < str.length() && 
+                    if (format_char == 'l' && pos + 2 < str.length() &&
                         str[pos + 1] == 'l' && str[pos + 2] == 'd') {
                         debug_msg(DebugMsgId::OUTPUT_FORMAT_SPEC_FOUND, "lld");
                         return true;
@@ -1007,11 +1007,11 @@ size_t OutputManager::count_format_specifiers(const std::string &str) {
                 while (pos < str.length() && std::isdigit(str[pos])) {
                     pos++;
                 }
-                
+
                 // 幅指定後の文字を確認
                 if (pos < str.length()) {
                     char format_char = str[pos];
-                    if (format_char == 'd' || format_char == 's' || 
+                    if (format_char == 'd' || format_char == 's' ||
                         format_char == 'c' || format_char == 'p' ||
                         format_char == 'f') {
                         count++;

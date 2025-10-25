@@ -97,10 +97,10 @@ void StructVariableManager::create_struct_variable(
     if (is_array_element) {
         // 配列名を抽出
         std::string array_name = var_name.substr(0, var_name.find('['));
-        
+
         // 親配列を検索（グローバルとローカルの両方を確認）
         Variable *parent_array = interpreter_->find_variable(array_name);
-        
+
         if (parent_array) {
             // グローバルスコープで親配列を検索
             bool is_global = false;
@@ -108,10 +108,11 @@ void StructVariableManager::create_struct_variable(
             if (global_vars.find(array_name) != global_vars.end()) {
                 is_global = true;
             }
-            
+
             // 親配列がグローバルなら、要素もグローバルに登録
             if (is_global) {
-                interpreter_->get_global_scope().variables[var_name] = struct_var;
+                interpreter_->get_global_scope().variables[var_name] =
+                    struct_var;
             } else {
                 interpreter_->current_scope().variables[var_name] = struct_var;
             }
