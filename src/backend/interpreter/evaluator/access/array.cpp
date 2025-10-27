@@ -4,6 +4,7 @@
 #include "../../../../common/utf8_utils.h"
 #include "../../core/error_handler.h"
 #include "../../core/interpreter.h"
+#include "../../core/pointer_metadata.h"
 #include <iostream>
 #include <stdexcept>
 
@@ -246,6 +247,63 @@ int64_t evaluate_array_ref(
     Variable *var = interpreter.find_variable(array_name);
     if (!var) {
         throw std::runtime_error("Undefined array: " + array_name);
+    }
+
+    // v0.11.0 Week 2 Day 3: ポインタ配列アクセス ptr[index]
+    // ポインタ変数の場合は、ポインタ演算として処理
+    if (var->is_pointer && indices.size() == 1) {
+        int64_t index = indices[0];
+        int64_t ptr_value = var->value;
+        
+        if (debug_mode) {
+            debug_print("Pointer array access: ptr=%lld, index=%lld\n", 
+                       ptr_value, index);
+        }
+        
+        // ポインタがメタデータを指しているかチェック（最上位ビット）
+        bool is_metadata_ptr = (ptr_value < 0); // 負の値 = メタデータ
+        
+        if (is_metadata_ptr) {
+            // メタデータポインタの場合
+            int64_t clean_ptr = ptr_value & ~(1LL << 63); // タグをクリア
+            PointerSystem::PointerMetadata *meta = 
+                reinterpret_cast<PointerSystem::PointerMetadata *>(clean_ptr);
+            
+            if (!meta || !meta->array_var) {
+                throw std::runtime_error("Invalid pointer metadata");
+            }
+            
+            // 元のインデックス + オフセット
+            int64_t effective_index = meta->element_index + index;
+            Variable *target_array = meta->array_var;
+            
+            // 範囲チェック
+            if (effective_index < 0 || 
+                effective_index >= static_cast<int64_t>(target_array->array_values.size())) {
+                throw std::runtime_error("Pointer array index out of bounds");
+            }
+            
+            return target_array->array_values[effective_index];
+        } else {
+            // 直接のVariable*ポインタの場合
+            Variable *target_array = reinterpret_cast<Variable *>(ptr_value);
+            if (!target_array) {
+                throw std::runtime_error("Invalid pointer value in array access");
+            }
+            
+            // 配列から値を取得
+            if (!target_array->is_array) {
+                throw std::runtime_error("Pointer does not point to an array");
+            }
+            
+            // インデックスチェック
+            if (index < 0 || 
+                index >= static_cast<int64_t>(target_array->array_values.size())) {
+                throw std::runtime_error("Pointer array index out of bounds");
+            }
+            
+            return target_array->array_values[index];
+        }
     }
 
     // 配列参照の解決（配列が参照として渡された場合）

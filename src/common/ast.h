@@ -912,6 +912,9 @@ struct ASTNode {
     // 多次元配列アクセス用
     std::vector<std::unique_ptr<ASTNode>>
         array_indices; // 多次元配列インデックス [i][j][k]
+    
+    // v0.11.0 Week 2 Day 3: ポインタ配列アクセス ptr[index]
+    bool is_pointer_array_access = false;  // ポインタ経由の配列アクセスか
 
     // モジュール関連
     std::string module_name;               // モジュール名 (std.io等)

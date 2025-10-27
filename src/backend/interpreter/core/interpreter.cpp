@@ -6,6 +6,7 @@
 #include "../../../common/utf8_utils.h"
 #include "../../../frontend/recursive_parser/recursive_parser.h"
 #include "core/error_handler.h"
+#include "core/pointer_metadata.h"
 #include "core/type_inference.h"
 #include "evaluator/core/evaluator.h"
 #include "executors/control_flow_executor.h" // 制御フロー実行サービス
@@ -1495,6 +1496,53 @@ void Interpreter::assign_array_element(const std::string &name, int64_t index,
         debug_msg(DebugMsgId::VARIABLE_NOT_FOUND, name.c_str());
         error_msg(DebugMsgId::UNDEFINED_ARRAY_ERROR, name.c_str());
         throw std::runtime_error("Undefined array");
+    }
+
+    // v0.11.0 Week 2 Day 3: ポインタ配列アクセスでの書き込み ptr[index] = value
+    if (var->is_pointer) {
+        int64_t ptr_value = var->value;
+        bool is_metadata_ptr = (ptr_value < 0); // 負の値 = メタデータ
+        
+        if (is_metadata_ptr) {
+            // メタデータポインタの場合
+            int64_t clean_ptr = ptr_value & ~(1LL << 63);
+            PointerSystem::PointerMetadata *meta = 
+                reinterpret_cast<PointerSystem::PointerMetadata *>(clean_ptr);
+            
+            if (!meta || !meta->array_var) {
+                throw std::runtime_error("Invalid pointer metadata in assignment");
+            }
+            
+            // 元のインデックス + オフセット
+            int64_t effective_index = meta->element_index + index;
+            Variable *target_array = meta->array_var;
+            
+            // 範囲チェック
+            if (effective_index < 0 || 
+                effective_index >= static_cast<int64_t>(target_array->array_values.size())) {
+                throw std::runtime_error("Pointer array index out of bounds in assignment");
+            }
+            
+            // 書き込み
+            target_array->array_values[effective_index] = value;
+            debug_msg(DebugMsgId::ARRAY_ELEMENT_ASSIGN_SUCCESS);
+            return;
+        } else {
+            // 直接のVariable*ポインタの場合
+            Variable *target_array = reinterpret_cast<Variable *>(ptr_value);
+            if (!target_array || !target_array->is_array) {
+                throw std::runtime_error("Pointer does not point to an array in assignment");
+            }
+            
+            if (index < 0 || 
+                index >= static_cast<int64_t>(target_array->array_values.size())) {
+                throw std::runtime_error("Pointer array index out of bounds in assignment");
+            }
+            
+            target_array->array_values[index] = value;
+            debug_msg(DebugMsgId::ARRAY_ELEMENT_ASSIGN_SUCCESS);
+            return;
+        }
     }
 
     // 共通実装を使用
