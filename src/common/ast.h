@@ -579,6 +579,10 @@ struct StructDefinition {
     std::vector<std::string> type_parameters; // 型パラメータリスト ["T", "E"]
     std::unordered_map<std::string, std::string>
         type_parameter_bindings; // 型パラメータの束縛 {"T" -> "int"}
+    
+    // v0.11.0 Phase 1a: インターフェース境界
+    std::unordered_map<std::string, std::string>
+        interface_bounds; // 型パラメータのインターフェース境界 {"A" -> "Allocator"}
 
     StructDefinition() {}
     StructDefinition(const std::string &n) : name(n) {}

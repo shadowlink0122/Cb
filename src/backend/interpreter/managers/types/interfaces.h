@@ -63,6 +63,15 @@ class InterfaceOperations {
         return &impl_definitions_;
     }
 
+    // v0.11.0 Phase 1a: インターフェース境界チェック
+    bool check_interface_bound(const std::string &type_name,
+                               const std::string &interface_name);
+    void validate_interface_bounds(
+        const std::string &struct_name,
+        const std::vector<std::string> &type_parameters,
+        const std::vector<std::string> &type_arguments,
+        const std::unordered_map<std::string, std::string> &interface_bounds);
+
   private:
     Interpreter *interpreter_; // 親Interpreterへの参照
 

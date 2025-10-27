@@ -10,6 +10,7 @@
 #include "../../../../frontend/recursive_parser/recursive_parser.h"
 #include "../../core/interpreter.h"
 #include "../types/manager.h"
+#include "../types/interfaces.h"
 #include "../variables/static.h"
 #include <algorithm>
 #include <functional>
@@ -94,6 +95,44 @@ void StructOperations::register_struct_definition(
                   << ": has_default_member=" << definition.has_default_member
                   << ", default_member_name=" << definition.default_member_name
                   << std::endl;
+    }
+
+    // v0.11.0 Phase 1a: インターフェース境界の検証
+    // インスタンス化されたジェネリック構造体の場合、型引数がインターフェースを実装しているか確認
+    if (interpreter_->is_debug_mode()) {
+        std::cerr << "[REGISTER_STRUCT] Checking interface bounds for " << struct_name << std::endl;
+        std::cerr << "  interface_bounds.size()=" << definition.interface_bounds.size() << std::endl;
+        std::cerr << "  type_parameters.size()=" << definition.type_parameters.size() << std::endl;
+        std::cerr << "  type_parameter_bindings.size()=" << definition.type_parameter_bindings.size() << std::endl;
+    }
+    
+    if (!definition.interface_bounds.empty() && 
+        !definition.type_parameters.empty() &&
+        !definition.type_parameter_bindings.empty()) {
+        
+        // 型引数のリストを構築
+        std::vector<std::string> type_arguments;
+        for (const auto &param : definition.type_parameters) {
+            auto it = definition.type_parameter_bindings.find(param);
+            if (it != definition.type_parameter_bindings.end()) {
+                type_arguments.push_back(it->second);
+            }
+        }
+        
+        if (interpreter_->is_debug_mode()) {
+            std::cerr << "[REGISTER_STRUCT] Type arguments: ";
+            for (const auto &arg : type_arguments) {
+                std::cerr << arg << " ";
+            }
+            std::cerr << std::endl;
+        }
+        
+        // インターフェース境界を検証
+        if (type_arguments.size() == definition.type_parameters.size()) {
+            interpreter_->interface_operations_->validate_interface_bounds(
+                struct_name, definition.type_parameters, type_arguments,
+                definition.interface_bounds);
+        }
     }
 
     interpreter_->struct_definitions_[struct_name] = definition;
@@ -282,6 +321,44 @@ void StructOperations::sync_struct_definitions_from_parser(
     for (const auto &pair : parser_structs) {
         const std::string &struct_name = pair.first;
         const StructDefinition &struct_def = pair.second;
+
+        // v0.11.0 Phase 1a: インターフェース境界の検証
+        // インスタンス化されたジェネリック構造体の場合、型引数がインターフェースを実装しているか確認
+        if (!struct_def.interface_bounds.empty() && 
+            !struct_def.type_parameters.empty() &&
+            !struct_def.type_parameter_bindings.empty()) {
+            
+            if (interpreter_->is_debug_mode()) {
+                std::cerr << "[SYNC_STRUCT] Checking interface bounds for " << struct_name << std::endl;
+                std::cerr << "  interface_bounds.size()=" << struct_def.interface_bounds.size() << std::endl;
+                std::cerr << "  type_parameters.size()=" << struct_def.type_parameters.size() << std::endl;
+                std::cerr << "  type_parameter_bindings.size()=" << struct_def.type_parameter_bindings.size() << std::endl;
+            }
+            
+            // 型引数のリストを構築
+            std::vector<std::string> type_arguments;
+            for (const auto &param : struct_def.type_parameters) {
+                auto it = struct_def.type_parameter_bindings.find(param);
+                if (it != struct_def.type_parameter_bindings.end()) {
+                    type_arguments.push_back(it->second);
+                }
+            }
+            
+            if (interpreter_->is_debug_mode()) {
+                std::cerr << "[SYNC_STRUCT] Type arguments: ";
+                for (const auto &arg : type_arguments) {
+                    std::cerr << arg << " ";
+                }
+                std::cerr << std::endl;
+            }
+            
+            // インターフェース境界を検証
+            if (type_arguments.size() == struct_def.type_parameters.size()) {
+                interpreter_->interface_operations_->validate_interface_bounds(
+                    struct_name, struct_def.type_parameters, type_arguments,
+                    struct_def.interface_bounds);
+            }
+        }
 
         // Interpreterのstruct_definitions_に登録
         interpreter_->struct_definitions_[struct_name] = struct_def;

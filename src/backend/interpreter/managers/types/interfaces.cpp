@@ -369,3 +369,102 @@ void InterfaceOperations::clear_temp_variables() {
         }
     }
 }
+
+// ========================================================================
+// v0.11.0 Phase 1a: インターフェース境界チェック
+// ========================================================================
+
+/**
+ * @brief 型がインターフェースを実装しているかチェック
+ * @param type_name 型名（例: "SystemAllocator"）
+ * @param interface_name インターフェース名（例: "Allocator"）
+ * @return 実装している場合true
+ */
+bool InterfaceOperations::check_interface_bound(
+    const std::string &type_name, const std::string &interface_name) {
+    
+    if (interpreter_->is_debug_mode()) {
+        std::cerr << "[TYPE_CHECK] Checking if '" << type_name 
+                  << "' implements '" << interface_name << "'" << std::endl;
+        std::cerr << "[TYPE_CHECK] Available impls:" << std::endl;
+        for (const auto &impl_def : impl_definitions_) {
+            std::cerr << "  - " << impl_def.interface_name << " for " << impl_def.struct_name << std::endl;
+        }
+    }
+    
+    // インターフェース定義が存在するか確認
+    const InterfaceDefinition *interface_def =
+        find_interface_definition(interface_name);
+    if (!interface_def) {
+        if (interpreter_->is_debug_mode()) {
+            std::cerr << "[TYPE_CHECK] Interface '" << interface_name << "' not found" << std::endl;
+        }
+        return false; // インターフェース自体が未定義
+    }
+
+    // 型がインターフェースを実装しているか確認
+    const ImplDefinition *impl_def =
+        find_impl_for_struct(type_name, interface_name);
+    
+    if (interpreter_->is_debug_mode()) {
+        std::cerr << "[TYPE_CHECK] Result: " << (impl_def ? "FOUND" : "NOT FOUND") << std::endl;
+    }
+    
+    return impl_def != nullptr;
+}
+
+/**
+ * @brief ジェネリック型インスタンス化時にインターフェース境界を検証
+ * @param struct_name 構造体名（例: "Vector"）
+ * @param type_parameters 型パラメータリスト（例: ["T", "A"]）
+ * @param type_arguments 型引数リスト（例: ["int", "SystemAllocator"]）
+ * @param interface_bounds 型パラメータのインターフェース境界（例: {"A": "Allocator"}）
+ * @throws std::runtime_error 型引数がインターフェースを実装していない場合
+ */
+void InterfaceOperations::validate_interface_bounds(
+    const std::string &struct_name,
+    const std::vector<std::string> &type_parameters,
+    const std::vector<std::string> &type_arguments,
+    const std::unordered_map<std::string, std::string> &interface_bounds) {
+    
+    // 型パラメータと型引数の数が一致しているか確認（この段階では既にチェック済みのはず）
+    if (type_parameters.size() != type_arguments.size()) {
+        throw std::runtime_error(
+            "Type parameter count mismatch in " + struct_name);
+    }
+
+    // 各型パラメータについて、インターフェース境界があればチェック
+    for (size_t i = 0; i < type_parameters.size(); ++i) {
+        const std::string &param_name = type_parameters[i];
+        const std::string &arg_type = type_arguments[i];
+
+        // この型パラメータにインターフェース境界があるか確認
+        auto bound_it = interface_bounds.find(param_name);
+        if (bound_it != interface_bounds.end()) {
+            const std::string &required_interface = bound_it->second;
+
+            // 型引数がインターフェースを実装しているかチェック
+            if (!check_interface_bound(arg_type, required_interface)) {
+                std::string error_msg =
+                    "Type '" + arg_type +
+                    "' does not implement interface '" + required_interface +
+                    "' required by type parameter '" + param_name +
+                    "' in '" + struct_name + "<";
+                
+                // 型パラメータリストを構築
+                for (size_t j = 0; j < type_parameters.size(); ++j) {
+                    if (j > 0) error_msg += ", ";
+                    error_msg += type_parameters[j];
+                    
+                    auto param_bound = interface_bounds.find(type_parameters[j]);
+                    if (param_bound != interface_bounds.end()) {
+                        error_msg += ": " + param_bound->second;
+                    }
+                }
+                error_msg += ">'";
+                
+                throw std::runtime_error(error_msg);
+            }
+        }
+    }
+}
