@@ -1016,6 +1016,10 @@ struct ASTNode {
     std::unordered_map<std::string, std::string> interface_bounds;
     // 型パラメータ名 -> インターフェース名のマッピング
     // 例: {"A" => "Allocator", "B" => "Iterator"}
+    
+    // 型パラメータメソッドアクセス（v0.11.0 Phase 1a - Day 4）
+    bool is_type_parameter_access = false;  // A.allocate() 形式か
+    std::string type_parameter_context;     // どの構造体/関数のコンテキストか
 
     // 文字列補間関連（v0.11.0新機能）
     std::vector<std::unique_ptr<ASTNode>>
