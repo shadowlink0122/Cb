@@ -1,0 +1,63 @@
+// String Interpolation - Expression Test
+// Tests interpolation with expressions
+
+void main() {
+    println("=== String Interpolation Expression Test ===");
+    
+    // Test 1: Addition
+    int a = 10;
+    int b = 20;
+    string add_str = "Sum: ${a + b}";
+    assert(add_str == "Sum: 30");
+    println("Test 1: Addition - PASSED");
+    
+    // Test 2: Subtraction
+    string sub_str = "Diff: ${b - a}";
+    assert(sub_str == "Diff: 10");
+    println("Test 2: Subtraction - PASSED");
+    
+    // Test 3: Multiplication
+    string mul_str = "Product: ${a * b}";
+    assert(mul_str == "Product: 200");
+    println("Test 3: Multiplication - PASSED");
+    
+    // Test 4: Division
+    string div_str = "Quotient: ${b / a}";
+    assert(div_str == "Quotient: 2");
+    println("Test 4: Division - PASSED");
+    
+    // Test 5: Modulo
+    int c = 17;
+    int d = 5;
+    string mod_str = "Remainder: ${c % d}";
+    assert(mod_str == "Remainder: 2");
+    println("Test 5: Modulo - PASSED");
+    
+    // Test 6: Complex expression
+    string complex = "Result: ${a + b * 2}";
+    assert(complex == "Result: 50");
+    println("Test 6: Complex expression - PASSED");
+    
+    // Test 7: Parentheses
+    string paren = "Result: ${(a + b) * 2}";
+    assert(paren == "Result: 60");
+    println("Test 7: Parentheses - PASSED");
+    
+    // Test 8: Comparison (equality)
+    bool equal = (a == 10);
+    string comp_str = "Equal: ${equal}";
+    assert(comp_str == "Equal: true");
+    println("Test 8: Comparison - PASSED");
+    
+    // Test 9: Unary minus
+    string unary = "Negative: ${-a}";
+    assert(unary == "Negative: -10");
+    println("Test 9: Unary minus - PASSED");
+    
+    // Test 10: Multiple expressions
+    string multi_expr = "${a} + ${b} = ${a + b}";
+    assert(multi_expr == "10 + 20 = 30");
+    println("Test 10: Multiple expressions - PASSED");
+    
+    println("=== All Expression Tests Passed ===");
+}

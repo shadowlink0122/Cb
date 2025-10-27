@@ -1,0 +1,4 @@
+void main() {
+    string s = "Test {{escaped}}";
+    println(s);
+}

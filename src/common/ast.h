@@ -809,7 +809,11 @@ enum class ASTNodeType {
     AST_TYPE_PARAMETER,      // 型パラメータ (T, E)
     AST_TYPE_PARAMETER_LIST, // 型パラメータリスト (<T, E>)
     AST_TYPE_ARGUMENT_LIST,  // 型引数リスト (<int, string>)
-    AST_GENERIC_STRUCT_DECL  // ジェネリック構造体宣言
+    AST_GENERIC_STRUCT_DECL, // ジェネリック構造体宣言
+
+    // v0.11.0 文字列補間
+    AST_INTERPOLATED_STRING, // 補間文字列全体
+    AST_STRING_INTERPOLATION_SEGMENT // 補間セグメント（文字列部分または式）
 };
 
 // 位置情報構造体
@@ -1004,6 +1008,13 @@ struct ASTNode {
     bool is_type_parameter = false; // 型パラメータそのものかどうか
     std::string type_parameter_name; // 型パラメータ名 ("T", "E"等)
 
+    // 文字列補間関連（v0.11.0新機能）
+    std::vector<std::unique_ptr<ASTNode>>
+        interpolation_segments; // 補間文字列のセグメントリスト
+    bool is_interpolation_text = false; // セグメントがテキスト部分か
+    bool is_interpolation_expr = false; // セグメントが式部分か
+    std::string interpolation_format; // フォーマット指定子 (":x", ":.2"等)
+
     // コンストラクタ - 全フィールドの明示的初期化
     ASTNode(ASTNodeType type)
         : node_type(type), type_info(TYPE_INT), is_const(false),
@@ -1013,7 +1024,8 @@ struct ASTNode {
           is_exported(false), is_qualified_call(false),
           is_function_pointer(false), is_pointer_const_qualifier(false),
           is_pointee_const_qualifier(false), is_constructor(false),
-          is_destructor(false), is_generic(false), is_type_parameter(false) {}
+          is_destructor(false), is_generic(false), is_type_parameter(false),
+          is_interpolation_text(false), is_interpolation_expr(false) {}
 
     // デストラクタは自動管理（unique_ptr使用）
     virtual ~ASTNode() = default;

@@ -1,0 +1,17 @@
+main() {
+    int a = 10;
+    int b = 20;
+    string str = "a = {a}, b = {b}";
+    println(str);
+    
+    string sum_str = "Sum: {a + b}";
+    println(sum_str);
+    
+    double pi = 3.14159;
+    string formatted = "Pi: {pi:.2}";
+    println(formatted);
+    
+    int num = 255;
+    string hex_str = "Hex: {num:x}";
+    println(hex_str);
+}

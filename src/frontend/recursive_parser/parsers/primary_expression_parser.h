@@ -47,6 +47,17 @@ class PrimaryExpressionParser {
      */
     ASTNode *parseLambda();
 
+    /**
+     * @brief 補間文字列を解析
+     * @param str 補間文字列の内容
+     * @return 解析されたAST補間文字列ノード
+     *
+     * v0.11.0 文字列補間
+     * 構文: "text {expression:format} text"
+     * 例: "Hello, {name}!" または "Pi: {pi:.2}"
+     */
+    ASTNode *parseInterpolatedString(const std::string &str);
+
   private:
     RecursiveParser *parser_;
 };

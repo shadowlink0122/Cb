@@ -66,6 +66,7 @@ enum class TokenType {
     TOK_IDENTIFIER,
     TOK_NUMBER,
     TOK_STRING,
+    TOK_INTERPOLATED_STRING, // v0.11.0 文字列補間
     TOK_CHAR,
 
     // Keywords

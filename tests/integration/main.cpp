@@ -77,6 +77,7 @@
 #include "self_assign/test_self_assign.hpp"
 #include "static_variables/test_static_variables.hpp"
 #include "string/test_string.hpp"
+#include "string_interpolation/test_string_interpolation.hpp"
 #include "struct/basic_struct_tests.hpp"
 #include "struct/struct_tests.hpp"
 #include "ternary/test_ternary.hpp"
@@ -245,6 +246,8 @@ int main() {
     CategoryTimingStats::set_current_category("String & I/O");
     run_test_with_continue(test_integration_string, "String Tests",
                            failed_tests);
+    run_test_with_continue(test_integration_string_interpolation,
+                           "String Interpolation Tests", failed_tests);
     run_test_with_continue(test_printf_all, "Printf Tests", failed_tests);
     run_test_with_continue(test_integration_println, "Println Tests",
                            failed_tests);

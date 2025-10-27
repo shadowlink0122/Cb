@@ -94,6 +94,11 @@ ASTNode *PrimaryExpressionParser::parsePrimary() {
         return node;
     }
 
+    if (parser_->check(TokenType::TOK_INTERPOLATED_STRING)) {
+        Token token = parser_->advance();
+        return parseInterpolatedString(token.value);
+    }
+
     if (parser_->check(TokenType::TOK_CHAR)) {
         Token token = parser_->advance();
         ASTNode *node = new ASTNode(ASTNodeType::AST_NUMBER);
@@ -729,4 +734,98 @@ ASTNode *PrimaryExpressionParser::parseLambda() {
     }
 
     return result;
+}
+
+ASTNode *
+PrimaryExpressionParser::parseInterpolatedString(const std::string &str) {
+    ASTNode *node = new ASTNode(ASTNodeType::AST_INTERPOLATED_STRING);
+
+    size_t pos = 0;
+    std::string current_text;
+
+    while (pos < str.length()) {
+        if (str[pos] == '{') {
+            if (pos + 1 < str.length() && str[pos + 1] == '{') {
+                // エスケープシーケンス {{
+                current_text += '{';
+                pos += 2;
+                continue;
+            }
+
+            // 現在のテキストセグメントを追加
+            if (!current_text.empty()) {
+                ASTNode *text_segment =
+                    new ASTNode(ASTNodeType::AST_STRING_INTERPOLATION_SEGMENT);
+                text_segment->is_interpolation_text = true;
+                text_segment->str_value = current_text;
+                node->interpolation_segments.push_back(
+                    std::unique_ptr<ASTNode>(text_segment));
+                current_text.clear();
+            }
+
+            // 式セグメントを探す
+            size_t end_pos = pos + 1;
+            int brace_count = 1;
+            while (end_pos < str.length() && brace_count > 0) {
+                if (str[end_pos] == '{')
+                    brace_count++;
+                else if (str[end_pos] == '}')
+                    brace_count--;
+                if (brace_count > 0)
+                    end_pos++;
+            }
+
+            if (brace_count != 0) {
+                parser_->error("Unmatched braces in interpolated string");
+            }
+
+            std::string expr_str = str.substr(pos + 1, end_pos - pos - 1);
+
+            // フォーマット指定子を分離
+            std::string format_spec;
+            size_t colon_pos = expr_str.find(':');
+            if (colon_pos != std::string::npos) {
+                format_spec = expr_str.substr(colon_pos + 1);
+                expr_str = expr_str.substr(0, colon_pos);
+            }
+
+            // 式をパース
+            RecursiveParser expr_parser(expr_str, "");
+            ASTNode *expr = expr_parser.parseExpression();
+
+            ASTNode *expr_segment =
+                new ASTNode(ASTNodeType::AST_STRING_INTERPOLATION_SEGMENT);
+            expr_segment->is_interpolation_expr = true;
+            expr_segment->left = std::unique_ptr<ASTNode>(expr);
+            expr_segment->interpolation_format = format_spec;
+            node->interpolation_segments.push_back(
+                std::unique_ptr<ASTNode>(expr_segment));
+
+            pos = end_pos + 1;
+        } else if (str[pos] == '}') {
+            if (pos + 1 < str.length() && str[pos + 1] == '}') {
+                // エスケープシーケンス }}
+                current_text += '}';
+                pos += 2;
+                continue;
+            }
+            parser_->error("Unmatched '}' in interpolated string");
+            pos++;
+        } else {
+            current_text += str[pos];
+            pos++;
+        }
+    }
+
+    // 残りのテキストセグメントを追加
+    if (!current_text.empty()) {
+        ASTNode *text_segment =
+            new ASTNode(ASTNodeType::AST_STRING_INTERPOLATION_SEGMENT);
+        text_segment->is_interpolation_text = true;
+        text_segment->str_value = current_text;
+        node->interpolation_segments.push_back(
+            std::unique_ptr<ASTNode>(text_segment));
+    }
+
+    return node;
 }

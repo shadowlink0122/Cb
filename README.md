@@ -849,6 +849,7 @@ make unit-test          # 単体テスト（50個）
 - 成功率: **100%**
 
 #### 📚 ドキュメント
+- [`docs/CODING_GUIDELINES.md`](docs/CODING_GUIDELINES.md) - **コーディング規約**（テスト作成手順含む）
 - [`release_notes/v0.10.0.md`](release_notes/v0.10.0.md) - リリースノート
 - [`docs/spec.md`](docs/spec.md) - 言語仕様書（v0.10.0対応）
 - [`docs/todo/v0.11.0_implementation_plan.md`](docs/todo/v0.11.0_implementation_plan.md) - 次期バージョン計画
@@ -988,12 +989,24 @@ impl Counter for Point {
 
 このプロジェクトは現在個人開発ですが、フィードバックや提案を歓迎します。
 
-### コーディング規約
+### 開発に参加する
+
+新機能を実装する場合は、必ず[コーディング規約](docs/CODING_GUIDELINES.md)に従ってください。
+
+**重要**: 新機能には必ずテストを作成してください：
+1. `tests/cases/<feature>/` にCbテストケースを作成
+2. `tests/integration/<feature>/` にIntegration testを作成  
+3. `tests/integration/main.cpp` にテストを登録
+
+詳細は [docs/CODING_GUIDELINES.md](docs/CODING_GUIDELINES.md) を参照してください。
+
+### コーディング規約（概要）
 
 - **変数・関数**: `snake_case`
 - **型・構造体**: `PascalCase`
 - **定数**: `UPPER_CASE`
 - **インデント**: スペース4つ
+- **テスト**: 必須（cases + integration）
 
 ---
 

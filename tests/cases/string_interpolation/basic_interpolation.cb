@@ -1,0 +1,49 @@
+// 基本的な文字列補間テスト
+// Python/C#風の{式}構文を使用
+
+fn main() {
+    // テスト1: 単一変数の補間
+    string name = "World";
+    println("Hello, {name}!");
+    // 期待: Hello, World!
+    
+    // テスト2: 複数変数の補間
+    string lang = "Cb";
+    int version = 11;
+    println("Welcome to {lang} v0.{version}!");
+    // 期待: Welcome to Cb v0.11!
+    
+    // テスト3: 整数型
+    int count = 42;
+    println("Count: {count}");
+    // 期待: Count: 42
+    
+    // テスト4: 浮動小数点型
+    double pi = 3.14159;
+    println("Pi: {pi}");
+    // 期待: Pi: 3.141590
+    
+    // テスト5: 複数の型混在
+    string item = "apples";
+    int quantity = 5;
+    double price = 1.99;
+    println("Item: {item}, Quantity: {quantity}, Price: ${price}");
+    // 期待: Item: apples, Quantity: 5, Price: $1.990000
+    
+    // テスト6: 文字型
+    char initial = 'A';
+    println("Initial: {initial}");
+    // 期待: Initial: A
+    
+    // テスト7: bool型
+    bool flag = true;
+    println("Flag: {flag}");
+    // 期待: Flag: true
+    
+    // テスト8: 同じ変数の再利用
+    int x = 5;
+    println("{x} * {x} = {x * x}");
+    // 期待: 5 * 5 = 25
+    
+    println("=== All Basic Interpolation Tests Passed ===");
+}

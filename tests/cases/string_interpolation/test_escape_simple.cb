@@ -1,0 +1,27 @@
+void main() {
+    println("=== String Interpolation Escape Test ===");
+    
+    string escaped = "Set: {{1, 2, 3}}";
+    assert(escaped == "Set: {1, 2, 3}");
+    println("Test 1: Escaped braces - PASSED");
+    
+    int value = 42;
+    string mixed = "Value: {{literal}}, Actual: {value}";
+    assert(mixed == "Value: {literal}, Actual: 42");
+    println("Test 2: Mixed escaped and interpolated - PASSED");
+    
+    string multi_escape = "{{A}} {{B}} {{C}}";
+    assert(multi_escape == "{A} {B} {C}");
+    println("Test 3: Multiple escapes - PASSED");
+    
+    int x = 10;
+    string partial = "Value: {{{x}}}";
+    assert(partial == "Value: {10}");
+    println("Test 4: Partial escape - PASSED");
+    
+    string empty = "Empty: {{}}";
+    assert(empty == "Empty: {}");
+    println("Test 5: Empty braces - PASSED");
+    
+    println("=== All Escape Tests Passed ===");
+}
