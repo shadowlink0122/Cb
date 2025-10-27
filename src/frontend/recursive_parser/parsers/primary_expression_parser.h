@@ -60,6 +60,15 @@ class PrimaryExpressionParser {
 
   private:
     RecursiveParser *parser_;
+    
+    /**
+     * @brief TypeInfoを文字列表現に変換
+     * @param type_info 型情報へのポインタ
+     * @return 型の文字列表現（例: "int", "char", "void"）
+     *
+     * v0.11.0 Week 2 型キャスト用ヘルパー
+     */
+    std::string typeInfoToString(const TypeInfo *type_info);
 };
 
 #endif // PRIMARY_EXPRESSION_PARSER_H

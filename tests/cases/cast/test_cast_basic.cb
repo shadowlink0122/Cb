@@ -1,3 +1,25 @@
+// 基本的な型キャストのテスト
+// v0.11.0 Week 2 Day 2
+
 void main() {
-    println("Cast test");
+    println("=== Cast Basic Tests ===");
+    
+    // Test 1: void*からint*へのキャスト
+    void* vp = nullptr;
+    int* ip = (int*)vp;
+    println("Test 1: void* to int* cast - OK");
+    
+    // Test 2: int*からvoid*へのキャスト
+    int x = 42;
+    int* px = &x;
+    void* vp2 = (void*)px;
+    println("Test 2: int* to void* cast - OK");
+    
+    // Test 3: char*からint*へのキャスト（unsafe）
+    char c = 'A';
+    char* pc = &c;
+    int* pi = (int*)pc;
+    println("Test 3: char* to int* cast - OK");
+    
+    println("All cast tests passed!");
 }

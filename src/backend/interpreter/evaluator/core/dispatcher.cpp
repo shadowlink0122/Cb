@@ -250,6 +250,16 @@ int64_t ExpressionDispatcher::dispatch_expression(const ASTNode *node) {
         return SpecialAccessHelpers::evaluate_enum_construct(node,
                                                              interpreter_);
 
+    // v0.11.0 Week 2: 型キャスト (type)expr
+    case ASTNodeType::AST_CAST_EXPR: {
+        // キャスト対象の式を評価
+        int64_t value = expression_evaluator_.evaluate_expression(node->cast_expr.get());
+        
+        // キャストノードには元の値をそのまま返す
+        // （型情報は既にcast_type_infoに格納されている）
+        return value;
+    }
+
     // v0.10.0: 無名変数（Discard Variable）
     case ASTNodeType::AST_DISCARD_VARIABLE:
         throw std::runtime_error("Cannot reference discard variable '_'");
