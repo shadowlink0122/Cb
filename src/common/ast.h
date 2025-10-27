@@ -28,6 +28,7 @@ enum TypeInfo {
     TYPE_POINTER = 16,          // ポインタ型
     TYPE_NULLPTR = 17,          // nullptr型
     TYPE_FUNCTION_POINTER = 18, // 関数ポインタ型
+    TYPE_GENERIC = 19, // ジェネリック型（型パラメータ）v0.11.0
     TYPE_ARRAY_BASE = 100 // 配列型は基底型 + 100（下位互換のため保持）
 };
 
@@ -76,6 +77,11 @@ struct EnumMember {
     int64_t value;       // enum メンバーの値
     bool explicit_value; // 明示的に値が指定されたかどうか
 
+    // v0.11.0: 関連値のサポート（Rust風enum）
+    bool has_associated_value = false;       // 関連値を持つか
+    TypeInfo associated_type = TYPE_UNKNOWN; // 関連値の型
+    std::string associated_type_name; // 関連値の型名（"T"など）
+
     EnumMember() : value(0), explicit_value(false) {}
     EnumMember(const std::string &n, int64_t v, bool explicit_val = true)
         : name(n), value(v), explicit_value(explicit_val) {}
@@ -84,6 +90,12 @@ struct EnumMember {
 struct EnumDefinition {
     std::string name;                // enum名
     std::vector<EnumMember> members; // enumメンバーのリスト
+
+    // v0.11.0: ジェネリクス対応
+    bool is_generic = false; // ジェネリックenumか
+    std::vector<std::string>
+        type_parameters; // 型パラメータリスト（例: ["T", "E"]）
+    bool has_associated_values = false; // 関連値を持つか（Rust風enum）
 
     EnumDefinition() {}
     EnumDefinition(const std::string &n) : name(n) {}
@@ -562,6 +574,12 @@ struct StructDefinition {
     bool has_default_member = false; // デフォルトメンバーを持つか
     std::string default_member_name; // デフォルトメンバーの名前
 
+    // ジェネリクス関連（v0.11.0）
+    bool is_generic = false; // ジェネリック構造体かどうか
+    std::vector<std::string> type_parameters; // 型パラメータリスト ["T", "E"]
+    std::unordered_map<std::string, std::string>
+        type_parameter_bindings; // 型パラメータの束縛 {"T" -> "int"}
+
     StructDefinition() {}
     StructDefinition(const std::string &n) : name(n) {}
 
@@ -736,8 +754,9 @@ enum class ASTNodeType {
     AST_INTERFACE_DECL,           // interface宣言
     AST_IMPL_DECL,                // impl宣言
     AST_ENUM_ACCESS,              // enum値アクセス (EnumName::member)
-    AST_CONSTRUCTOR_DECL,         // コンストラクタ宣言 (self)
-    AST_DESTRUCTOR_DECL,          // デストラクタ宣言 (~self)
+    AST_ENUM_CONSTRUCT,   // v0.11.0: enum値構築 (EnumName::member(value))
+    AST_CONSTRUCTOR_DECL, // コンストラクタ宣言 (self)
+    AST_DESTRUCTOR_DECL,  // デストラクタ宣言 (~self)
 
     // 式
     AST_FUNC_CALL,
@@ -783,7 +802,14 @@ enum class ASTNodeType {
 
     // v0.10.0 新機能
     AST_DISCARD_VARIABLE, // 無名変数 (_)
-    AST_LAMBDA_EXPR       // 無名関数式
+    AST_LAMBDA_EXPR,      // 無名関数式
+
+    // v0.11.0 新機能（ジェネリクス）
+    AST_GENERIC_TYPE,        // ジェネリック型 (Box<T>)
+    AST_TYPE_PARAMETER,      // 型パラメータ (T, E)
+    AST_TYPE_PARAMETER_LIST, // 型パラメータリスト (<T, E>)
+    AST_TYPE_ARGUMENT_LIST,  // 型引数リスト (<int, string>)
+    AST_GENERIC_STRUCT_DECL  // ジェネリック構造体宣言
 };
 
 // 位置情報構造体
@@ -970,6 +996,14 @@ struct ASTNode {
     TypeInfo lambda_return_type = TYPE_UNKNOWN; // 無名関数の戻り値型
     std::string lambda_return_type_name; // 無名関数の戻り値型名
 
+    // ジェネリクス関連（v0.11.0新機能）
+    bool is_generic = false; // ジェネリック型かどうか
+    std::vector<std::string> type_parameters; // 型パラメータリスト ["T", "E"]
+    std::vector<std::string> type_arguments; // 型引数リスト ["int", "string"]
+    std::string generic_base_name; // ジェネリック型の基底名 (Box, Result等)
+    bool is_type_parameter = false; // 型パラメータそのものかどうか
+    std::string type_parameter_name; // 型パラメータ名 ("T", "E"等)
+
     // コンストラクタ - 全フィールドの明示的初期化
     ASTNode(ASTNodeType type)
         : node_type(type), type_info(TYPE_INT), is_const(false),
@@ -979,7 +1013,7 @@ struct ASTNode {
           is_exported(false), is_qualified_call(false),
           is_function_pointer(false), is_pointer_const_qualifier(false),
           is_pointee_const_qualifier(false), is_constructor(false),
-          is_destructor(false) {}
+          is_destructor(false), is_generic(false), is_type_parameter(false) {}
 
     // デストラクタは自動管理（unique_ptr使用）
     virtual ~ASTNode() = default;

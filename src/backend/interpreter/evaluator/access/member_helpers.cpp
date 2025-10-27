@@ -119,8 +119,9 @@ Variable get_struct_member_from_variable(const Variable &struct_var,
                     actual_var->struct_members.size());
     }
 
-    if (actual_var->type != TYPE_STRUCT) {
-        throw std::runtime_error("Variable is not a struct");
+    // v0.11.0: enum型もサポート
+    if (actual_var->type != TYPE_STRUCT && !actual_var->is_enum) {
+        throw std::runtime_error("Variable is not a struct or enum");
     }
 
     // 参照変数の場合でも、常に参照先(actual_var)のstruct_membersを使用

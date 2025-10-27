@@ -37,6 +37,7 @@
 #include "func/test_func.hpp"
 #include "func_return_type_check/test_func_return_type_check.hpp"
 #include "func_type_check/test_func_type_check.hpp"
+#include "generics/test_generics.hpp"
 #include "global_array/test_global_array.hpp"
 #include "global_vars/test_global_vars.hpp"
 #include "if/test_if.hpp"
@@ -282,6 +283,14 @@ int main() {
     run_test_with_continue(test_lambda_function, "Lambda Function Tests",
                            failed_tests);
     CategoryTimingStats::print_category_summary("v0.10.0 Features");
+
+    // v0.11.0 新機能テスト群
+    std::cout << "\n[integration-test] === v0.11.0 New Features (Phase 0) ==="
+              << std::endl;
+    CategoryTimingStats::set_current_category("v0.11.0 Generics");
+    run_test_with_continue(GenericsTests::run_all_generics_tests,
+                           "Generic Struct Tests (Phase 0)", failed_tests);
+    CategoryTimingStats::print_category_summary("v0.11.0 Generics");
 
     // 構造体・インターフェーステスト群
     std::cout << "\n[integration-test] === Advanced Features ===" << std::endl;

@@ -47,9 +47,17 @@ inline Variable *resolve_nested_member_for_evaluation(
         std::string var_name = member_access_node->left->name;
         Variable *var = interpreter.find_variable(var_name);
 
-        if (!var || !var->is_struct) {
-            throw std::runtime_error("Base variable is not a struct: " +
+        // v0.11.0: enum型もメンバーアクセスをサポート
+        if (!var || (!var->is_struct && !var->is_enum)) {
+            throw std::runtime_error("Base variable is not a struct or enum: " +
                                      var_name);
+        }
+
+        // enum型の場合は特別処理（member.cppで処理済み）
+        if (var->is_enum) {
+            // このパスには到達しないはず（member.cppで先に処理）
+            throw std::runtime_error(
+                "Enum member access should be handled earlier");
         }
 
         // メンバーを取得

@@ -359,6 +359,11 @@ ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode *node) {
                         return TypedValue(
                             *var,
                             InferredType(TYPE_STRUCT, var->struct_type_name));
+                    } else if (var->is_enum) {
+                        // v0.11.0: enum型を返す
+                        return TypedValue(
+                            *var,
+                            InferredType(TYPE_STRUCT, var->enum_type_name));
                     } else {
                         return TypedValue(
                             var->value,
@@ -375,10 +380,12 @@ ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode *node) {
             Variable base_var;
             if (node->left->node_type == ASTNodeType::AST_VARIABLE) {
                 Variable *var = interpreter_.find_variable(node->left->name);
-                if (!var || var->type != TYPE_STRUCT) {
-                    throw std::runtime_error(
-                        "Base variable for nested access is not a struct: " +
-                        node->left->name);
+                // v0.11.0: enum型も許可
+                if (!var || (!var->is_struct && var->type != TYPE_STRUCT &&
+                             !var->is_enum)) {
+                    throw std::runtime_error("Base variable for nested access "
+                                             "is not a struct or enum: " +
+                                             node->left->name);
                 }
                 base_var = *var;
             } else {
@@ -539,6 +546,35 @@ ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode *node) {
                                           TypedValue &out) -> bool {
             if (base_name.empty()) {
                 return false;
+            }
+
+            // Check if base is an enum variable
+            if (Variable *base_var = interpreter_.find_variable(base_name)) {
+                if (base_var->is_enum) {
+                    std::string member_name = node->name;
+
+                    if (member_name == "variant") {
+                        // Return the variant name as a string
+                        out = TypedValue(base_var->enum_variant,
+                                         InferredType(TYPE_STRING, "string"));
+                        out.is_numeric_result = false;
+                        return true;
+                    } else if (member_name == "value") {
+                        if (base_var->has_associated_value) {
+                            // Return the associated value as integer
+                            out = TypedValue(base_var->associated_int_value,
+                                             InferredType(TYPE_INT, "int"));
+                            return true;
+                        } else {
+                            throw std::runtime_error(
+                                "Enum variant '" + base_var->enum_variant +
+                                "' has no associated value");
+                        }
+                    } else {
+                        throw std::runtime_error("Unknown enum member: " +
+                                                 member_name);
+                    }
+                }
             }
 
             try {

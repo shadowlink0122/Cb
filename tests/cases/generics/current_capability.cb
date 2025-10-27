@@ -1,0 +1,34 @@
+// v0.11.0 Phase 0 - Current Implementation Test
+// Test: What we CAN execute right now (non-generic usage)
+
+struct Box<T> {
+    T value;
+};
+
+// 通常の構造体も定義
+struct IntBox {
+    int value;
+};
+
+struct StringBox {
+    string value;
+};
+
+void main() {
+    // 現時点ではジェネリックインスタンス化は未実装なので
+    // 通常の構造体で動作確認
+    IntBox int_box;
+    int_box.value = 42;
+    
+    println("int_box.value = ");
+    println(int_box.value);
+    
+    StringBox str_box;
+    str_box.value = "Hello, World!";
+    
+    println("str_box.value = ");
+    println(str_box.value);
+    
+    println("Test passed: Parser accepts generic struct definitions");
+    println("Next step: Implement generic instantiation (Box<int>)");
+}

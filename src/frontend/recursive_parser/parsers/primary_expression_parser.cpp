@@ -143,7 +143,77 @@ ASTNode *PrimaryExpressionParser::parsePrimary() {
             return node;
         }
 
-        // enum値アクセス（EnumName::member）をチェック
+        // v0.11.0: ジェネリック型のenum値アクセス・構築をチェック
+        // Option<int>::Some(42) または Status::Ok の形式
+        std::string enum_type_name = token.value;
+
+        // ジェネリック型引数がある場合（Option<int>）
+        // ヒューリスティック: 識別子が大文字で始まる場合のみ <
+        // をジェネリック型として扱う これにより x < y
+        // のような比較演算子と区別できる
+        bool looks_like_type =
+            !token.value.empty() && std::isupper(token.value[0]);
+        if (looks_like_type && parser_->check(TokenType::TOK_LT)) {
+            // 型引数を含む完全な型名を構築
+            enum_type_name += "<";
+            parser_->advance(); // consume '<'
+
+            // 型引数をパース（カンマ区切りで複数対応）
+            int depth = 1; // ネストした < > のカウント
+            while (depth > 0 && !parser_->isAtEnd()) {
+                if (parser_->check(TokenType::TOK_LT)) {
+                    enum_type_name += "<";
+                    depth++;
+                    parser_->advance();
+                } else if (parser_->check(TokenType::TOK_GT)) {
+                    enum_type_name += ">";
+                    depth--;
+                    parser_->advance();
+                } else if (parser_->check(TokenType::TOK_COMMA)) {
+                    enum_type_name += ",";
+                    parser_->advance();
+                } else if (parser_->check(TokenType::TOK_IDENTIFIER)) {
+                    enum_type_name += parser_->current_token_.value;
+                    parser_->advance();
+                } else if (parser_->check(TokenType::TOK_MUL)) {
+                    enum_type_name += "*";
+                    parser_->advance();
+                } else if (parser_->check(TokenType::TOK_LBRACKET)) {
+                    enum_type_name += "[";
+                    parser_->advance();
+                } else if (parser_->check(TokenType::TOK_RBRACKET)) {
+                    enum_type_name += "]";
+                    parser_->advance();
+                } else if (parser_->check(TokenType::TOK_NUMBER)) {
+                    enum_type_name += parser_->current_token_.value;
+                    parser_->advance();
+                    // 型キーワードも処理
+                } else if (parser_->check(TokenType::TOK_INT) ||
+                           parser_->check(TokenType::TOK_LONG) ||
+                           parser_->check(TokenType::TOK_SHORT) ||
+                           parser_->check(TokenType::TOK_TINY) ||
+                           parser_->check(TokenType::TOK_FLOAT) ||
+                           parser_->check(TokenType::TOK_DOUBLE) ||
+                           parser_->check(TokenType::TOK_BOOL) ||
+                           parser_->check(TokenType::TOK_STRING_TYPE) ||
+                           parser_->check(TokenType::TOK_CHAR_TYPE) ||
+                           parser_->check(TokenType::TOK_VOID)) {
+                    enum_type_name += parser_->current_token_.value;
+                    parser_->advance();
+                } else {
+                    parser_->error(
+                        "Unexpected token in generic type arguments");
+                    return nullptr;
+                }
+            }
+
+            if (depth != 0) {
+                parser_->error("Unmatched '<' in generic type");
+                return nullptr;
+            }
+        }
+
+        // :: をチェック
         if (parser_->check(TokenType::TOK_SCOPE)) {
             parser_->advance(); // consume '::'
 
@@ -155,12 +225,151 @@ ASTNode *PrimaryExpressionParser::parsePrimary() {
             std::string member_name = parser_->current_token_.value;
             parser_->advance(); // consume member name
 
+            // v0.11.0: EnumName::member(value) の構築構文をチェック
+            if (parser_->check(TokenType::TOK_LPAREN)) {
+                parser_->advance(); // consume '('
+
+                // Enum値の構築（関連値付き）
+                ASTNode *enum_construct =
+                    new ASTNode(ASTNodeType::AST_ENUM_CONSTRUCT);
+                enum_construct->enum_name =
+                    enum_type_name; // ジェネリック型名を使用
+                enum_construct->enum_member = member_name;
+
+                // 関連値の引数を解析
+                if (!parser_->check(TokenType::TOK_RPAREN)) {
+                    ASTNode *arg = parser_->parseExpression();
+                    enum_construct->arguments.push_back(
+                        std::unique_ptr<ASTNode>(arg));
+                }
+
+                parser_->consume(
+                    TokenType::TOK_RPAREN,
+                    "Expected ')' after enum constructor argument");
+                parser_->setLocation(enum_construct, token.line, token.column);
+
+                return enum_construct;
+            }
+
+            // 通常のenum値アクセス（関連値なし）
             ASTNode *enum_access = new ASTNode(ASTNodeType::AST_ENUM_ACCESS);
-            enum_access->enum_name = token.value;
+            enum_access->enum_name = enum_type_name; // ジェネリック型名を使用
             enum_access->enum_member = member_name;
             parser_->setLocation(enum_access, token.line, token.column);
 
             return enum_access;
+        }
+
+        // v0.11.0: ジェネリック関数呼び出しの型引数をチェック
+        // func<int>(args) の形式
+        std::vector<std::string> type_arguments;
+        if (parser_->check(TokenType::TOK_LT)) {
+            // 先読みで関数呼び出しかどうか判定
+            // func<T>(...) vs x < y
+            RecursiveLexer temp_lexer = parser_->lexer_;
+            Token temp_current = parser_->current_token_;
+
+            parser_->advance(); // '<' をスキップ
+
+            // '>' までスキップして、その後に '(' があるかチェック
+            int depth = 1;
+            bool is_function_call = false;
+            while (depth > 0 && !parser_->isAtEnd()) {
+                if (parser_->check(TokenType::TOK_LT)) {
+                    depth++;
+                } else if (parser_->check(TokenType::TOK_GT)) {
+                    depth--;
+                    if (depth == 0) {
+                        parser_->advance(); // '>' を消費
+                        // 次が '(' なら関数呼び出し
+                        if (parser_->check(TokenType::TOK_LPAREN)) {
+                            is_function_call = true;
+                        }
+                        break;
+                    }
+                }
+                parser_->advance();
+            }
+
+            // 元の位置に戻す
+            parser_->lexer_ = temp_lexer;
+            parser_->current_token_ = temp_current;
+
+            // 関数呼び出しなら型引数をパース
+            if (is_function_call) {
+                parser_->advance(); // '<' を消費
+
+                // 型引数のリストを解析
+                do {
+                    // 型名を構築（int, Box<int>, int* など）
+                    std::string type_arg;
+                    int type_depth = 0;
+
+                    while (true) {
+                        if (parser_->check(TokenType::TOK_GT) &&
+                            type_depth == 0) {
+                            break;
+                        } else if (parser_->check(TokenType::TOK_COMMA) &&
+                                   type_depth == 0) {
+                            break;
+                        } else if (parser_->check(TokenType::TOK_LT)) {
+                            type_arg += "<";
+                            type_depth++;
+                            parser_->advance();
+                        } else if (parser_->check(TokenType::TOK_GT)) {
+                            type_arg += ">";
+                            type_depth--;
+                            parser_->advance();
+                        } else if (parser_->check(TokenType::TOK_IDENTIFIER)) {
+                            type_arg += parser_->current_token_.value;
+                            parser_->advance();
+                        } else if (parser_->check(TokenType::TOK_MUL)) {
+                            type_arg += "*";
+                            parser_->advance();
+                        } else if (parser_->check(TokenType::TOK_LBRACKET)) {
+                            type_arg += "[";
+                            parser_->advance();
+                        } else if (parser_->check(TokenType::TOK_RBRACKET)) {
+                            type_arg += "]";
+                            parser_->advance();
+                        } else if (parser_->check(TokenType::TOK_INT) ||
+                                   parser_->check(TokenType::TOK_LONG) ||
+                                   parser_->check(TokenType::TOK_SHORT) ||
+                                   parser_->check(TokenType::TOK_TINY) ||
+                                   parser_->check(TokenType::TOK_FLOAT) ||
+                                   parser_->check(TokenType::TOK_DOUBLE) ||
+                                   parser_->check(TokenType::TOK_BOOL) ||
+                                   parser_->check(TokenType::TOK_STRING_TYPE) ||
+                                   parser_->check(TokenType::TOK_CHAR_TYPE) ||
+                                   parser_->check(TokenType::TOK_VOID)) {
+                            type_arg += parser_->current_token_.value;
+                            parser_->advance();
+                        } else if (parser_->check(TokenType::TOK_NUMBER)) {
+                            type_arg += parser_->current_token_.value;
+                            parser_->advance();
+                        } else {
+                            parser_->error("Unexpected token in type argument");
+                            return nullptr;
+                        }
+                    }
+
+                    if (!type_arg.empty()) {
+                        type_arguments.push_back(type_arg);
+                    }
+
+                    if (parser_->check(TokenType::TOK_COMMA)) {
+                        parser_->advance(); // ',' を消費
+                    } else {
+                        break;
+                    }
+                } while (true);
+
+                if (!parser_->check(TokenType::TOK_GT)) {
+                    parser_->error("Expected '>' after type arguments");
+                    return nullptr;
+                }
+                parser_->advance(); // '>' を消費
+            }
         }
 
         // 関数呼び出しをチェック
@@ -169,6 +378,12 @@ ASTNode *PrimaryExpressionParser::parsePrimary() {
 
             ASTNode *call_node = new ASTNode(ASTNodeType::AST_FUNC_CALL);
             call_node->name = token.value;
+
+            // v0.11.0: 型引数を設定
+            if (!type_arguments.empty()) {
+                call_node->is_generic = true;
+                call_node->type_arguments = type_arguments;
+            }
 
             // 引数リストの解析
             if (!parser_->check(TokenType::TOK_RPAREN)) {

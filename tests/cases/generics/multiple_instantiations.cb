@@ -1,0 +1,44 @@
+// v0.11.0 Phase 0 - Same Generic Type with Different Arguments
+// Test: Multiple instantiations of the same generic type
+
+struct Pair<A, B> {
+    A first;
+    B second;
+};
+
+void main() {
+    // Pair<int, int>
+    Pair<int, int> int_pair;
+    int_pair.first = 10;
+    int_pair.second = 20;
+    
+    println("int_pair: (");
+    println(int_pair.first);
+    println(", ");
+    println(int_pair.second);
+    println(")");
+    
+    // Pair<string, int>
+    Pair<string, int> str_int_pair;
+    str_int_pair.first = "Answer";
+    str_int_pair.second = 42;
+    
+    println("str_int_pair: (");
+    println(str_int_pair.first);
+    println(", ");
+    println(str_int_pair.second);
+    println(")");
+    
+    // Pair<int, string>
+    Pair<int, string> int_str_pair;
+    int_str_pair.first = 100;
+    int_str_pair.second = "percent";
+    
+    println("int_str_pair: (");
+    println(int_str_pair.first);
+    println(", ");
+    println(int_str_pair.second);
+    println(")");
+    
+    println("Multiple instantiations test passed!");
+}

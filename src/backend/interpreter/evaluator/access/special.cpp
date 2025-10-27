@@ -226,9 +226,43 @@ int64_t evaluate_enum_access(const ASTNode *node, Interpreter &interpreter) {
     EnumManager *enum_manager = interpreter.get_enum_manager();
     int64_t enum_value;
 
+    std::string enum_name = node->enum_name;
+
+    // ジェネリック型の場合（Option<int>）、インスタンス化された名前に変換
+    // Option<int> -> Option_int
+    if (enum_name.find('<') != std::string::npos) {
+        // 型名の正規化（< > , を _ に置換）
+        std::string instantiated_name;
+        bool in_type_args = false;
+
+        for (char c : enum_name) {
+            if (c == '<') {
+                in_type_args = true;
+                instantiated_name += '_';
+            } else if (c == '>') {
+                in_type_args = false;
+                // 末尾の _ は追加しない
+            } else if (c == ',' || c == ' ') {
+                if (in_type_args) {
+                    instantiated_name += '_';
+                }
+            } else if (c == '*') {
+                instantiated_name += "_ptr";
+            } else if (c == '[') {
+                instantiated_name += "_array";
+            } else if (c == ']') {
+                // 配列サイズは既に処理済み
+            } else {
+                instantiated_name += c;
+            }
+        }
+
+        enum_name = instantiated_name;
+    }
+
     // typedef名を実際のenum名に解決
     std::string resolved_enum_name =
-        interpreter.get_type_manager()->resolve_typedef(node->enum_name);
+        interpreter.get_type_manager()->resolve_typedef(enum_name);
 
     if (enum_manager->get_enum_value(resolved_enum_name, node->enum_member,
                                      enum_value)) {
@@ -239,6 +273,141 @@ int64_t evaluate_enum_access(const ASTNode *node, Interpreter &interpreter) {
                                     "::" + node->enum_member;
         throw std::runtime_error(error_message);
     }
+}
+
+// v0.11.0: enum値の構築 (EnumName::member(value))
+int64_t evaluate_enum_construct(const ASTNode *node, Interpreter &interpreter) {
+    // enum値の構築: Option<int>::Some(42)
+
+    std::string enum_name = node->enum_name;
+    std::string original_enum_name = enum_name; // デバッグ用に元の名前を保存
+    std::vector<std::string> type_arguments;
+    std::string base_enum_name;
+
+    // ジェネリック型の場合（Option<int>）、インスタンス化が必要
+    if (enum_name.find('<') != std::string::npos) {
+        // 基底名と型引数を抽出
+        size_t lt_pos = enum_name.find('<');
+        base_enum_name = enum_name.substr(0, lt_pos);
+
+        // 型引数を抽出（簡易版: カンマで分割）
+        size_t start = lt_pos + 1;
+        size_t end = enum_name.find_last_of('>');
+        if (end != std::string::npos && end > start) {
+            std::string args_str = enum_name.substr(start, end - start);
+
+            // カンマで分割（ネストした<>は考慮しない簡易版）
+            std::string current_arg;
+            for (char c : args_str) {
+                if (c == ',') {
+                    if (!current_arg.empty()) {
+                        // 空白を削除
+                        current_arg.erase(0,
+                                          current_arg.find_first_not_of(" \t"));
+                        current_arg.erase(current_arg.find_last_not_of(" \t") +
+                                          1);
+                        type_arguments.push_back(current_arg);
+                        current_arg.clear();
+                    }
+                } else {
+                    current_arg += c;
+                }
+            }
+            if (!current_arg.empty()) {
+                current_arg.erase(0, current_arg.find_first_not_of(" \t"));
+                current_arg.erase(current_arg.find_last_not_of(" \t") + 1);
+                type_arguments.push_back(current_arg);
+            }
+        }
+
+        // インスタンス化された型名を生成
+        std::string instantiated_name = base_enum_name;
+        for (const auto &arg : type_arguments) {
+            // 型名の正規化を適用
+            std::string normalized_arg = arg;
+            std::string temp;
+            for (char c : normalized_arg) {
+                if (c == '*') {
+                    temp += "_ptr";
+                } else if (c == '[') {
+                    temp += "_array";
+                } else if (c == ']') {
+                    // skip
+                } else if (c == ' ') {
+                    // skip
+                } else {
+                    temp += c;
+                }
+            }
+            instantiated_name += "_" + temp;
+        }
+
+        enum_name = instantiated_name;
+
+        // ジェネリックenumのインスタンス化を試みる
+        // TODO:
+        // Parser経由でインスタンス化すべきだが、現時点ではinterpreterから直接アクセスできない
+        // この時点でインスタンス化されていない場合はエラーになる
+    }
+
+    // typedef名を実際のenum名に解決
+    std::string resolved_enum_name =
+        interpreter.get_type_manager()->resolve_typedef(enum_name);
+
+    // enum定義を取得
+    EnumManager *enum_manager = interpreter.get_enum_manager();
+    const EnumDefinition *enum_def =
+        enum_manager->get_enum_definition(resolved_enum_name);
+
+    if (!enum_def) {
+        std::string error_message = "Undefined enum: " + original_enum_name +
+                                    " (resolved to: " + resolved_enum_name +
+                                    ")";
+        if (!type_arguments.empty()) {
+            error_message += "\nHint: Generic enum '" + base_enum_name +
+                             "' needs to be instantiated before use.";
+            error_message += "\nTry using it in a type context first (e.g., "
+                             "variable declaration).";
+        }
+        throw std::runtime_error(error_message);
+    }
+
+    // メンバーを検索
+    const EnumMember *member = enum_def->find_member(node->enum_member);
+    if (!member) {
+        std::string error_message =
+            "Undefined enum member: " + node->enum_name +
+            "::" + node->enum_member;
+        throw std::runtime_error(error_message);
+    }
+
+    // 関連値の有無をチェック
+    if (!member->has_associated_value) {
+        std::string error_message = "Enum member " + node->enum_name +
+                                    "::" + node->enum_member +
+                                    " does not have an associated value";
+        throw std::runtime_error(error_message);
+    }
+
+    // 引数を評価（現時点では単純な値のみサポート）
+    if (node->arguments.empty()) {
+        std::string error_message = "Enum constructor " + node->enum_name +
+                                    "::" + node->enum_member +
+                                    " requires an argument";
+        throw std::runtime_error(error_message);
+    }
+
+    // 関連値を評価して返す
+    // Option<int>::Some(42) の場合、42 を返す
+    int64_t arg_value = interpreter.eval_expression(node->arguments[0].get());
+
+    // デバッグ出力
+    debug_msg(DebugMsgId::EXPR_EVAL_NUMBER, arg_value);
+
+    // v0.11.0: 簡易実装として関連値を直接返す
+    // enum型変数への代入時は、variable_declaration.cppで特別処理される
+    // TODO: 将来的にはenum値オブジェクトを返し、型に応じて自動変換する
+    return arg_value;
 }
 
 } // namespace SpecialAccessHelpers

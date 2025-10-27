@@ -136,6 +136,10 @@ ASTNode *StatementParser::parseDeclarationStatement(bool isStatic, bool isConst,
     if (parser_->check(TokenType::TOK_MAIN)) {
         Token main_token = parser_->current_token_;
         parser_->advance();
+
+        // main関数は型パラメータを持たない（将来的にはint
+        // main<T>()も可能だが、現在は非対応）
+
         if (parser_->check(TokenType::TOK_LPAREN)) {
             ASTNode *func = parser_->parseFunctionDeclarationAfterName(
                 "int", main_token.value);
@@ -276,8 +280,25 @@ StatementParser::parseTypedefTypeStatement(const std::string &type_name,
     bool is_enum_type = parser_->enum_definitions_.find(type_name) !=
                         parser_->enum_definitions_.end();
 
+    // v0.11.0: ジェネリック型のチェック（struct/enum）
+    // 次のトークンが < なら、ジェネリック型の可能性がある
+    if (parser_->check(TokenType::TOK_LT)) {
+        // 構造体またはenumのジェネリック定義をチェック
+        auto struct_it = parser_->struct_definitions_.find(type_name);
+        auto enum_it = parser_->enum_definitions_.find(type_name);
+
+        if (struct_it != parser_->struct_definitions_.end() &&
+            struct_it->second.is_generic) {
+            is_struct_type = true;
+        } else if (enum_it != parser_->enum_definitions_.end() &&
+                   enum_it->second.is_generic) {
+            is_enum_type = true;
+        }
+    }
+
     // 既知の型でない場合、先読みして型宣言のパターンかチェック
     // パターン: TypeName identifier; または TypeName identifier = ...;
+    // v0.11.0: TypeName identifier<T>(...) もチェック（ジェネリック関数）
     bool looks_like_type_declaration = false;
     if (!is_typedef && !is_struct_type && !is_interface_type &&
         !is_union_type && !is_enum_type) {
@@ -293,9 +314,24 @@ StatementParser::parseTypedefTypeStatement(const std::string &type_name,
             parser_->advance();
         }
 
-        // 次が識別子で、その後に ; または = があれば型宣言の可能性が高い
+        // 次が識別子で、その後に ; または = または < または (
+        // があれば型宣言の可能性が高い
         if (parser_->check(TokenType::TOK_IDENTIFIER)) {
             parser_->advance(); // 識別子をスキップ
+
+            // v0.11.0: <があれば型パラメータ付き関数の可能性
+            if (parser_->check(TokenType::TOK_LT)) {
+                // '<' から '>' までスキップ
+                parser_->advance();
+                while (!parser_->check(TokenType::TOK_GT) &&
+                       !parser_->check(TokenType::TOK_EOF)) {
+                    parser_->advance();
+                }
+                if (parser_->check(TokenType::TOK_GT)) {
+                    parser_->advance();
+                }
+            }
+
             if (parser_->check(TokenType::TOK_SEMICOLON) ||
                 parser_->check(TokenType::TOK_ASSIGN) ||
                 parser_->check(TokenType::TOK_LPAREN)) {
@@ -315,11 +351,35 @@ StatementParser::parseTypedefTypeStatement(const std::string &type_name,
         return nullptr; // この識別子は型ではない
     }
 
-    // 先読みして関数定義かチェック
+    // v0.11.0: 先読みして関数定義かチェック（ジェネリック対応版）
+    // ジェネリック関数の戻り値型に型パラメータが含まれる場合
+    // （例: Box<T> make_box<T>(...)）、型パラメータを事前に収集する
     RecursiveLexer temp_lexer = parser_->lexer_;
     Token temp_current = parser_->current_token_;
 
     parser_->advance(); // 型名をスキップ
+
+    // v0.11.0: 戻り値型がジェネリック型の場合、型引数をスキップ
+    // 例: Box<T> の <T> 部分
+    if (parser_->check(TokenType::TOK_LT)) {
+        int depth = 1;
+        parser_->advance(); // '<' をスキップ
+
+        while (depth > 0 && !parser_->check(TokenType::TOK_EOF)) {
+            if (parser_->check(TokenType::TOK_LT)) {
+                depth++;
+            } else if (parser_->check(TokenType::TOK_GT)) {
+                depth--;
+            }
+            if (depth > 0) {
+                parser_->advance();
+            }
+        }
+
+        if (parser_->check(TokenType::TOK_GT)) {
+            parser_->advance(); // '>' をスキップ
+        }
+    }
 
     // 配列戻り値型のチェック: Type[...] identifier(...)
     while (parser_->check(TokenType::TOK_LBRACKET)) {
@@ -339,10 +399,40 @@ StatementParser::parseTypedefTypeStatement(const std::string &type_name,
         parser_->advance();
     }
 
-    // 識別子が続くかチェック
+    // 識別子が続くかチェック + 型パラメータの先読み
     bool is_function = false;
+    std::vector<std::string> lookahead_type_params;
+    bool has_lookahead_type_params = false;
+
     if (parser_->check(TokenType::TOK_IDENTIFIER)) {
         parser_->advance(); // 識別子をスキップ
+
+        // v0.11.0: '<' があれば型パラメータ付き関数の可能性
+        // 型パラメータを収集（戻り値型のパース前にスタックにプッシュするため）
+        if (parser_->check(TokenType::TOK_LT)) {
+            has_lookahead_type_params = true;
+            parser_->advance(); // '<' をスキップ
+
+            // 型パラメータを収集
+            while (!parser_->check(TokenType::TOK_GT) &&
+                   !parser_->check(TokenType::TOK_EOF)) {
+                if (parser_->check(TokenType::TOK_IDENTIFIER)) {
+                    lookahead_type_params.push_back(
+                        parser_->current_token_.value);
+                    parser_->advance();
+
+                    if (parser_->check(TokenType::TOK_COMMA)) {
+                        parser_->advance(); // ',' をスキップ
+                    }
+                } else {
+                    parser_->advance(); // その他のトークンをスキップ
+                }
+            }
+
+            if (parser_->check(TokenType::TOK_GT)) {
+                parser_->advance(); // '>' をスキップ
+            }
+        }
 
         // '(' があるかチェック
         if (parser_->check(TokenType::TOK_LPAREN)) {
@@ -399,6 +489,12 @@ StatementParser::parseTypedefTypeStatement(const std::string &type_name,
     parser_->current_token_ = temp_current;
 
     if (is_function) {
+        // v0.11.0: 型パラメータを事前にスタックにプッシュ
+        // これにより、戻り値型に型パラメータ（例: Box<T>）を使用できる
+        if (has_lookahead_type_params && !lookahead_type_params.empty()) {
+            parser_->type_parameter_stack_.push_back(lookahead_type_params);
+        }
+
         // 関数定義 - parseType()を使ってconst修飾子を含む完全な型情報を取得
         std::string return_type =
             parser_->parseType(); // const修飾子を含む完全な型
@@ -407,8 +503,75 @@ StatementParser::parseTypedefTypeStatement(const std::string &type_name,
         std::string function_name = parser_->advance().value;
         debug_msg(DebugMsgId::PARSE_FUNCTION_DECL_FOUND, function_name.c_str(),
                   return_type.c_str());
+
+        // v0.11.0: 型パラメータのパース <T> または <T1, T2>
+        std::vector<std::string> type_parameters;
+        bool is_generic = false;
+
+        if (parser_->check(TokenType::TOK_LT)) {
+            is_generic = true;
+            parser_->advance(); // '<' を消費
+
+            // 型パラメータのリストを解析
+            do {
+                if (!parser_->check(TokenType::TOK_IDENTIFIER)) {
+                    parser_->error("Expected type parameter name after '<'");
+                    // スタックのクリーンアップ
+                    if (has_lookahead_type_params) {
+                        parser_->type_parameter_stack_.pop_back();
+                    }
+                    return nullptr;
+                }
+
+                std::string param_name = parser_->current_token_.value;
+                type_parameters.push_back(param_name);
+                parser_->advance();
+
+                if (parser_->check(TokenType::TOK_COMMA)) {
+                    parser_->advance(); // ',' を消費
+                } else {
+                    break;
+                }
+            } while (true);
+
+            if (!parser_->check(TokenType::TOK_GT)) {
+                parser_->error("Expected '>' after type parameters");
+                // スタックのクリーンアップ
+                if (has_lookahead_type_params) {
+                    parser_->type_parameter_stack_.pop_back();
+                }
+                return nullptr;
+            }
+            parser_->advance(); // '>' を消費
+
+            // 先読みでプッシュしたスタックを、実際にパースした型パラメータで更新
+            if (has_lookahead_type_params) {
+                parser_->type_parameter_stack_.pop_back();
+                parser_->type_parameter_stack_.push_back(type_parameters);
+            } else {
+                // 先読みで検出できなかった場合（通常の非ジェネリック戻り値型）
+                parser_->type_parameter_stack_.push_back(type_parameters);
+            }
+        } else if (has_lookahead_type_params) {
+            // 先読みで検出したが実際にはなかった場合（エラー状態）
+            // スタックをクリーンアップ
+            parser_->type_parameter_stack_.pop_back();
+        }
+
         ASTNode *func_node = parser_->parseFunctionDeclarationAfterName(
             return_type, function_name);
+
+        // 型パラメータスタックをポップ
+        if (is_generic) {
+            parser_->type_parameter_stack_.pop_back();
+        }
+
+        // 型パラメータ情報を設定
+        if (func_node && is_generic) {
+            func_node->is_generic = true;
+            func_node->type_parameters = type_parameters;
+        }
+
         // 戻り値のconst情報を設定
         if (func_node && return_type_info.is_pointer) {
             func_node->is_pointee_const_qualifier =
@@ -496,7 +659,51 @@ StatementParser::parseTypedefTypeStatement(const std::string &type_name,
     } else if (is_enum_type) {
         // enum型変数宣言
         debug_msg(DebugMsgId::PARSE_VAR_DECL, "", type_name.c_str());
-        std::string enum_type = parser_->advance().value;
+
+        // v0.11.0: ジェネリックenum対応
+        // ここではまだtype_nameしか分かっていないので、
+        // 先に型全体をparseType()で解析する
+        // まず、type_nameをスキップ（既にIDENTIFIERトークンにいる）
+        parser_->advance(); // 'Option'をスキップ
+
+        std::string enum_type = type_name;
+
+        // ジェネリック型かチェック
+        if (parser_->check(TokenType::TOK_LT)) {
+            // parseType()的に型引数を解析
+            parser_->advance(); // '<'
+
+            parser_->type_parameter_stack_.push_back({});
+
+            std::vector<std::string> type_arguments;
+            do {
+                std::string arg = parser_->parseType();
+                if (arg.empty()) {
+                    parser_->error("Expected type argument");
+                    return nullptr;
+                }
+                type_arguments.push_back(arg);
+
+                if (parser_->check(TokenType::TOK_COMMA)) {
+                    parser_->advance();
+                } else {
+                    break;
+                }
+            } while (true);
+
+            parser_->consume(TokenType::TOK_GT,
+                             "Expected '>' after type arguments");
+            parser_->type_parameter_stack_.pop_back();
+
+            // インスタンス化
+            parser_->instantiateGenericEnum(type_name, type_arguments);
+
+            // インスタンス化された型名を生成
+            enum_type = type_name;
+            for (const auto &arg : type_arguments) {
+                enum_type += "_" + arg;
+            }
+        }
 
         // ポインタ修飾子のチェック
         int pointer_depth = 0;
@@ -853,6 +1060,39 @@ ASTNode *StatementParser::parseBasicTypeStatement(bool isStatic, bool isConst,
         Token name_token = parser_->current_token_;
         parser_->advance(); // consume identifier/main
 
+        // v0.11.0: 型パラメータのチェック <T> または <T1, T2>
+        std::vector<std::string> type_parameters;
+        bool is_generic = false;
+
+        if (parser_->check(TokenType::TOK_LT)) {
+            is_generic = true;
+            parser_->advance(); // '<' を消費
+
+            // 型パラメータのリストを解析
+            do {
+                if (!parser_->check(TokenType::TOK_IDENTIFIER)) {
+                    parser_->error("Expected type parameter name after '<'");
+                    return nullptr;
+                }
+
+                std::string param_name = parser_->current_token_.value;
+                type_parameters.push_back(param_name);
+                parser_->advance();
+
+                if (parser_->check(TokenType::TOK_COMMA)) {
+                    parser_->advance(); // ',' を消費
+                } else {
+                    break;
+                }
+            } while (true);
+
+            if (!parser_->check(TokenType::TOK_GT)) {
+                parser_->error("Expected '>' after type parameters");
+                return nullptr;
+            }
+            parser_->advance(); // '>' を消費
+        }
+
         if (parser_->check(TokenType::TOK_LPAREN)) {
             // これは関数定義
             // constがポインタの指し先に適用される場合、戻り値型の名前に含める
@@ -862,6 +1102,13 @@ ASTNode *StatementParser::parseBasicTypeStatement(bool isStatic, bool isConst,
             }
             ASTNode *func_node = parser_->parseFunctionDeclarationAfterName(
                 full_return_type, name_token.value);
+
+            // 型パラメータ情報を設定
+            if (func_node && is_generic) {
+                func_node->is_generic = true;
+                func_node->type_parameters = type_parameters;
+            }
+
             // 戻り値のconst情報を設定
             if (func_node && isConst && pointer_depth > 0) {
                 func_node->is_pointee_const_qualifier = true;

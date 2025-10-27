@@ -1,0 +1,41 @@
+// ジェネリック関数 - 構造体との連携
+// Phase 1: ジェネリック構造体を扱うジェネリック関数
+
+struct Box<T> {
+    T value;
+};
+
+// Box<T>を作成する関数
+Box<T> make_box<T>(T value) {
+    Box<T> box;
+    box.value = value;
+    return box;
+}
+
+// Box<T>から値を取り出す関数
+T unbox<T>(Box<T> box) {
+    return box.value;
+}
+
+// Box<T>の値を表示
+void print_box<T>(Box<T> box) {
+    println("Box contains:", box.value);
+}
+
+int main() {
+    // intのBox
+    Box<int> int_box = make_box<int>(42);
+    println("int_box.value =", int_box.value);
+    
+    int extracted = unbox<int>(int_box);
+    println("Extracted value =", extracted);
+    
+    print_box<int>(int_box);
+    
+    // longのBox
+    Box<long> long_box = make_box<long>(999);
+    println("long_box.value =", long_box.value);
+    
+    println("Generic function with struct tests passed!");
+    return 0;
+}

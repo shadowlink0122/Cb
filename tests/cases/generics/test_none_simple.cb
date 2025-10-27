@@ -1,0 +1,10 @@
+enum Option<T> {
+    Some(T),
+    None
+};
+
+int main() {
+    Option<int> x = Option<int>::None;
+    println("Created None variant");
+    return 0;
+}

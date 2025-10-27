@@ -26,7 +26,9 @@ using namespace RecursiveParserNS;
 RecursiveParser::RecursiveParser(const std::string &source,
                                  const std::string &filename)
     : lexer_(source), current_token_(TokenType::TOK_EOF, "", 0, 0),
-      filename_(filename), source_(source), debug_mode_(false) {
+      filename_(filename), source_(source), debug_mode_(false),
+      has_split_gt_token_(false),
+      split_gt_token_(TokenType::TOK_EOF, "", 0, 0) {
     // ソースコードを行ごとに分割
     std::istringstream iss(source);
     std::string line;
@@ -68,7 +70,30 @@ bool RecursiveParser::check(TokenType type) {
 
 Token RecursiveParser::advance() {
     Token previous = current_token_;
+
+    // v0.11.0: >> トークン分割処理（ネストしたジェネリクス対応）
+    // 分割された > トークンがある場合、それを返す
+    if (has_split_gt_token_) {
+        current_token_ = split_gt_token_;
+        has_split_gt_token_ = false;
+        return previous;
+    }
+
     current_token_ = lexer_.nextToken();
+
+    // >> トークンをジェネリクスのコンテキストで2つの > に分割
+    // type_parameter_stack_ が空でない = ジェネリクス型のパース中
+    if (current_token_.type == TokenType::TOK_RIGHT_SHIFT &&
+        !type_parameter_stack_.empty()) {
+        // >> を最初の > として扱い、2番目の > を保存
+        Token first_gt(TokenType::TOK_GT, ">", current_token_.line,
+                       current_token_.column);
+        split_gt_token_ = Token(TokenType::TOK_GT, ">", current_token_.line,
+                                current_token_.column + 1);
+        has_split_gt_token_ = true;
+        current_token_ = first_gt;
+    }
+
     return previous;
 }
 
@@ -475,6 +500,7 @@ std::string RecursiveParser::extractBaseType(const std::string &type_name) {
 // DELETED: 10 lines moved to type_utility_parser.cpp
 
 // struct宣言の解析: struct name { members };
+// v0.11.0: ジェネリクス対応 struct Box<T> { T value; };
 ASTNode *RecursiveParser::parseStructDeclaration() {
     consume(TokenType::TOK_STRUCT, "Expected 'struct'");
 
@@ -486,7 +512,41 @@ ASTNode *RecursiveParser::parseStructDeclaration() {
     std::string struct_name = current_token_.value;
     advance(); // struct名をスキップ
 
+    // v0.11.0: 型パラメータリストのチェック <T> または <T, E>
+    std::vector<std::string> type_parameters;
+    bool is_generic = false;
+
+    if (check(TokenType::TOK_LT)) {
+        is_generic = true;
+        advance(); // '<' を消費
+
+        // 型パラメータのリストを解析
+        do {
+            if (!check(TokenType::TOK_IDENTIFIER)) {
+                error("Expected type parameter name after '<'");
+                return nullptr;
+            }
+
+            std::string param_name = current_token_.value;
+            type_parameters.push_back(param_name);
+            advance();
+
+            if (check(TokenType::TOK_COMMA)) {
+                advance(); // ',' を消費
+            } else {
+                break;
+            }
+        } while (true);
+
+        if (!check(TokenType::TOK_GT)) {
+            error("Expected '>' after type parameters");
+            return nullptr;
+        }
+        advance(); // '>' を消費
+    }
+
     // 前方宣言のチェック: struct Name; の形式
+    // ジェネリクス構造体の前方宣言もサポート: struct Box<T>;
     if (check(TokenType::TOK_SEMICOLON)) {
         advance(); // セミコロンを消費
 
@@ -495,6 +555,8 @@ ASTNode *RecursiveParser::parseStructDeclaration() {
             struct_definitions_.end()) {
             StructDefinition forward_decl(struct_name);
             forward_decl.is_forward_declaration = true;
+            forward_decl.is_generic = is_generic;
+            forward_decl.type_parameters = type_parameters;
             struct_definitions_[struct_name] = forward_decl;
 
             debug_msg(DebugMsgId::PARSE_STRUCT_DEF,
@@ -502,8 +564,12 @@ ASTNode *RecursiveParser::parseStructDeclaration() {
         }
 
         // 前方宣言用のASTノードを作成
-        ASTNode *node = new ASTNode(ASTNodeType::AST_STRUCT_DECL);
+        ASTNode *node =
+            new ASTNode(is_generic ? ASTNodeType::AST_GENERIC_STRUCT_DECL
+                                   : ASTNodeType::AST_STRUCT_DECL);
         node->name = struct_name;
+        node->is_generic = is_generic;
+        node->type_parameters = type_parameters;
         setLocation(node, current_token_);
         return node;
     }
@@ -511,6 +577,14 @@ ASTNode *RecursiveParser::parseStructDeclaration() {
     consume(TokenType::TOK_LBRACE, "Expected '{' after struct name");
 
     StructDefinition struct_def(struct_name);
+    struct_def.is_generic = is_generic;
+    struct_def.type_parameters = type_parameters;
+
+    // v0.11.0: ジェネリック構造体の場合、型パラメータをスタックにプッシュ
+    // メンバーの型解析時に型パラメータを認識できるようにする
+    if (is_generic) {
+        type_parameter_stack_.push_back(type_parameters);
+    }
 
     // 自己参照を許可するため、構造体名を前方宣言として登録
     // これにより、メンバーのパース中に "Node*" などの型を認識できる
@@ -620,6 +694,11 @@ ASTNode *RecursiveParser::parseStructDeclaration() {
     consume(TokenType::TOK_RBRACE, "Expected '}' after struct members");
     consume(TokenType::TOK_SEMICOLON, "Expected ';' after struct definition");
 
+    // v0.11.0: ジェネリック構造体の型パラメータをスタックからポップ
+    if (is_generic) {
+        type_parameter_stack_.pop_back();
+    }
+
     // デフォルトメンバーの検証: 複数のdefaultメンバーがないか確認
     int default_count = 0;
     std::string default_member;
@@ -676,8 +755,12 @@ ASTNode *RecursiveParser::parseStructDeclaration() {
     debug_msg(DebugMsgId::PARSE_STRUCT_DEF, struct_name.c_str());
 
     // ASTノードを作成してstruct定義情報を保存
-    ASTNode *node = new ASTNode(ASTNodeType::AST_STRUCT_DECL);
+    ASTNode *node =
+        new ASTNode(is_generic ? ASTNodeType::AST_GENERIC_STRUCT_DECL
+                               : ASTNodeType::AST_STRUCT_DECL);
     node->name = struct_name;
+    node->is_generic = is_generic;
+    node->type_parameters = type_parameters;
     setLocation(node, current_token_);
 
     // struct定義情報をASTノードに保存
@@ -1425,4 +1508,209 @@ bool RecursiveParser::isFunctionPointerTypedef() {
 // 関数ポインタtypedef宣言の解析
 ASTNode *RecursiveParser::parseFunctionPointerTypedefDeclaration() {
     return declaration_parser_->parseFunctionPointerTypedefDeclaration();
+}
+
+// v0.11.0: ジェネリック構造体のインスタンス化
+// 例: Box<int> をインスタンス化 -> Box_int という具体的な構造体を生成
+// v0.11.0: ジェネリック型のインスタンス化
+
+// 型名を正規化してインスタンス名に使用可能な形式に変換
+// 例: "int*" -> "int_ptr", "int[3]" -> "int_array_3"
+static std::string
+normalizeTypeNameForInstantiation(const std::string &type_name) {
+    std::string normalized = type_name;
+
+    // ポインタの '*' を '_ptr' に置換
+    size_t star_pos = normalized.find('*');
+    while (star_pos != std::string::npos) {
+        normalized.replace(star_pos, 1, "_ptr");
+        star_pos = normalized.find('*', star_pos + 4);
+    }
+
+    // 配列の '[N]' を '_array_N' に置換
+    size_t bracket_pos = normalized.find('[');
+    if (bracket_pos != std::string::npos) {
+        size_t end_bracket = normalized.find(']', bracket_pos);
+        if (end_bracket != std::string::npos) {
+            std::string size = normalized.substr(bracket_pos + 1,
+                                                 end_bracket - bracket_pos - 1);
+            std::string replacement = "_array";
+            if (!size.empty()) {
+                replacement += "_" + size;
+            }
+            normalized.replace(bracket_pos, end_bracket - bracket_pos + 1,
+                               replacement);
+        }
+    }
+
+    // 参照の '&' を '_ref' に置換
+    size_t amp_pos = normalized.find('&');
+    while (amp_pos != std::string::npos) {
+        normalized.replace(amp_pos, 1, "_ref");
+        amp_pos = normalized.find('&', amp_pos + 4);
+    }
+
+    return normalized;
+}
+
+void RecursiveParser::instantiateGenericStruct(
+    const std::string &base_name,
+    const std::vector<std::string> &type_arguments) {
+
+    // インスタンス化された型名を生成: Box<int*> -> Box_int_ptr
+    std::string instantiated_name = base_name;
+    for (const auto &arg : type_arguments) {
+        instantiated_name += "_" + normalizeTypeNameForInstantiation(arg);
+    }
+
+    // 既にインスタンス化済みかチェック
+    if (struct_definitions_.find(instantiated_name) !=
+        struct_definitions_.end()) {
+        return; // 既に存在する
+    }
+
+    // ジェネリック基底の定義を取得
+    auto it = struct_definitions_.find(base_name);
+    if (it == struct_definitions_.end()) {
+        error("Generic struct '" + base_name + "' not found");
+        return;
+    }
+
+    const StructDefinition &generic_base = it->second;
+    if (!generic_base.is_generic) {
+        error("Struct '" + base_name + "' is not a generic type");
+        return;
+    }
+
+    // 型パラメータと型引数のマッピングを作成
+    std::unordered_map<std::string, std::string> type_map;
+    for (size_t i = 0; i < generic_base.type_parameters.size(); ++i) {
+        type_map[generic_base.type_parameters[i]] = type_arguments[i];
+    }
+
+    // インスタンス化された構造体定義を作成
+    StructDefinition instantiated_struct(instantiated_name);
+    instantiated_struct.is_generic = false; // インスタンス化後は通常の構造体
+    instantiated_struct.is_forward_declaration = false;
+
+    // メンバーを型置換してコピー
+    for (const auto &member : generic_base.members) {
+        std::string member_type_alias = member.type_alias;
+        TypeInfo member_type_info = member.type;
+
+        // 型パラメータを具体的な型に置換
+        if (type_map.find(member_type_alias) != type_map.end()) {
+            member_type_alias = type_map[member_type_alias];
+            // 具体的な型のTypeInfoを取得
+            member_type_info =
+                type_utility_parser_->getTypeInfoFromString(member_type_alias);
+        }
+
+        instantiated_struct.add_member(
+            member.name, member_type_info, member_type_alias, member.is_pointer,
+            member.pointer_depth, member.pointer_base_type_name,
+            member.pointer_base_type, member.is_private, member.is_reference,
+            member.is_unsigned, member.is_const);
+
+        // 配列情報もコピー
+        if (member.array_info.is_array()) {
+            instantiated_struct.members.back().array_info = member.array_info;
+        }
+    }
+
+    // インスタンス化された構造体を登録
+    struct_definitions_[instantiated_name] = instantiated_struct;
+
+    if (debug_mode_) {
+        std::cerr << "[GENERICS] Instantiated " << base_name << "<";
+        for (size_t i = 0; i < type_arguments.size(); ++i) {
+            if (i > 0)
+                std::cerr << ", ";
+            std::cerr << type_arguments[i];
+        }
+        std::cerr << "> as " << instantiated_name << std::endl;
+    }
+}
+
+// v0.11.0: ジェネリックenumのインスタンス化
+void RecursiveParser::instantiateGenericEnum(
+    const std::string &base_name,
+    const std::vector<std::string> &type_arguments) {
+
+    // インスタンス化された型名を生成: Option<int*> -> Option_int_ptr
+    std::string instantiated_name = base_name;
+    for (const auto &arg : type_arguments) {
+        instantiated_name += "_" + normalizeTypeNameForInstantiation(arg);
+    }
+
+    // 既にインスタンス化済みかチェック
+    if (enum_definitions_.find(instantiated_name) != enum_definitions_.end()) {
+        return; // 既に存在する
+    }
+
+    // ジェネリック基底の定義を取得
+    auto it = enum_definitions_.find(base_name);
+    if (it == enum_definitions_.end()) {
+        error("Generic enum '" + base_name + "' not found");
+        return;
+    }
+
+    const EnumDefinition &generic_base = it->second;
+    if (!generic_base.is_generic) {
+        error("Enum '" + base_name + "' is not a generic type");
+        return;
+    }
+
+    // 型パラメータの数をチェック
+    if (type_arguments.size() != generic_base.type_parameters.size()) {
+        error("Generic enum '" + base_name + "' expects " +
+              std::to_string(generic_base.type_parameters.size()) +
+              " type argument(s), but got " +
+              std::to_string(type_arguments.size()));
+        return;
+    }
+
+    // 型パラメータと型引数のマッピングを作成
+    std::unordered_map<std::string, std::string> type_map;
+    for (size_t i = 0; i < generic_base.type_parameters.size(); ++i) {
+        type_map[generic_base.type_parameters[i]] = type_arguments[i];
+    }
+
+    // インスタンス化されたenum定義を作成
+    EnumDefinition instantiated_enum(instantiated_name);
+    instantiated_enum.is_generic = false; // インスタンス化後は通常のenum
+    instantiated_enum.has_associated_values =
+        generic_base.has_associated_values;
+
+    // メンバーを型置換してコピー
+    for (const auto &member : generic_base.members) {
+        EnumMember new_member = member;
+
+        if (member.has_associated_value) {
+            // 型パラメータを具体的な型に置換
+            if (type_map.find(member.associated_type_name) != type_map.end()) {
+                std::string concrete_type =
+                    type_map[member.associated_type_name];
+                new_member.associated_type_name = concrete_type;
+                // 具体的な型のTypeInfoを取得
+                new_member.associated_type =
+                    type_utility_parser_->getTypeInfoFromString(concrete_type);
+            }
+        }
+
+        instantiated_enum.members.push_back(new_member);
+    }
+
+    // インスタンス化されたenumを登録
+    enum_definitions_[instantiated_name] = instantiated_enum;
+
+    if (debug_mode_) {
+        std::cerr << "[GENERICS] Instantiated enum " << base_name << "<";
+        for (size_t i = 0; i < type_arguments.size(); ++i) {
+            if (i > 0)
+                std::cerr << ", ";
+            std::cerr << type_arguments[i];
+        }
+        std::cerr << "> as " << instantiated_name << std::endl;
+    }
 }

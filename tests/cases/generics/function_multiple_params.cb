@@ -1,0 +1,32 @@
+// ジェネリック関数 - 複数型パラメータ
+// Phase 1: 複数の型パラメータを持つ関数
+
+// 2つの型パラメータ
+T1 first<T1, T2>(T1 a, T2 b) {
+    return a;
+}
+
+T2 second<T1, T2>(T1 a, T2 b) {
+    return b;
+}
+
+// ペアを作る関数（将来的には構造体を返す）
+void print_pair<T1, T2>(T1 a, T2 b) {
+    println("Pair: (%d, %d)", a, b);
+}
+
+int main() {
+    // 異なる型の組み合わせ
+    int x = first<int, long>(42, 100);
+    println("first<int, long>(42, 100) =", x);
+    
+    long y = second<int, long>(42, 100);
+    println("second<int, long>(42, 100) =", y);
+
+    // void関数
+    print_pair<int, long>(10, 20);
+    print_pair<long, int>(30, 40);
+    
+    println("Multiple type parameter tests passed!");
+    return 0;
+}

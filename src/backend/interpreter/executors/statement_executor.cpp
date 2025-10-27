@@ -249,9 +249,11 @@ void StatementExecutor::execute_member_array_assignment(const ASTNode *node) {
 
         // 親構造体から配列要素を探す（最初に親のstruct_membersを確認）
         Variable *parent_struct = interpreter_.find_variable(obj_name);
-        if (!parent_struct || !parent_struct->is_struct) {
-            throw std::runtime_error("Parent variable is not a struct: " +
-                                     obj_name);
+        // v0.11.0: enum型もチェック
+        if (!parent_struct ||
+            (!parent_struct->is_struct && !parent_struct->is_enum)) {
+            throw std::runtime_error(
+                "Parent variable is not a struct or enum: " + obj_name);
         }
 
         // 配列要素の構造体を探す - まず親のstruct_membersから

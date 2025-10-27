@@ -929,7 +929,9 @@ Variable *StructAssignmentManager::prepare_struct_literal_assignment(
     Variable *var = interpreter_->find_variable(var_name);
 
     // 変数が見つからない、または構造体でない場合、親構造体のstruct_membersと構造体定義から確認
-    if (var && !var->is_struct && var_name.find('.') != std::string::npos) {
+    // v0.11.0: enum型もチェック
+    if (var && !var->is_struct && !var->is_enum &&
+        var_name.find('.') != std::string::npos) {
         // "o.inner" -> "o" and "inner"
         size_t dot_pos = var_name.rfind('.');
         std::string parent_name = var_name.substr(0, dot_pos);
@@ -1062,8 +1064,17 @@ Variable *StructAssignmentManager::prepare_struct_literal_assignment(
     if (!var) {
         throw std::runtime_error("Variable not found: " + var_name);
     }
-    if (!var->is_struct) {
-        throw std::runtime_error("Variable is not a struct: " + var_name);
+    // v0.11.0: enum型もメンバーアクセスをサポート
+    if (!var->is_struct && !var->is_enum) {
+        throw std::runtime_error("Variable is not a struct or enum: " +
+                                 var_name);
+    }
+
+    // enum型の場合は、evaluator側で処理されるのでここには来ないはず
+    if (var->is_enum) {
+        throw std::runtime_error(
+            "Enum member assignment should be handled in evaluator: " +
+            var_name);
     }
 
     if (var->is_const && var->is_assigned) {
@@ -1289,9 +1300,13 @@ void StructAssignmentManager::process_named_initialization(
             // 構造体メンバに別の構造体変数を代入
             Variable *source_var =
                 interpreter_->find_variable(member_init->right->name);
-            if (!source_var || source_var->type != TYPE_STRUCT) {
-                throw std::runtime_error("Source variable is not a struct: " +
-                                         member_init->right->name);
+            // v0.11.0: enum型もチェック（将来的にenum to
+            // struct代入もサポート可能）
+            if (!source_var ||
+                (source_var->type != TYPE_STRUCT && !source_var->is_enum)) {
+                throw std::runtime_error(
+                    "Source variable is not a struct or enum: " +
+                    member_init->right->name);
             }
 
             struct_member_var = *source_var;

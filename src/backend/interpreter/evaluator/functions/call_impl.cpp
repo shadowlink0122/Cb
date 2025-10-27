@@ -19,6 +19,7 @@
 #include "evaluator/access/receiver_resolution.h"
 #include "evaluator/core/evaluator.h"
 #include "evaluator/core/helpers.h"
+#include "generic_instantiation.h"
 #include <cstdlib>
 #include <iomanip>
 #include <sstream>
@@ -734,6 +735,77 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
             auto it = global_scope.functions.find(node->name);
             if (it != global_scope.functions.end()) {
                 func = it->second;
+            }
+        }
+    }
+
+    // v0.11.0: ジェネリック関数のインスタンス化（キャッシュ付き）
+    std::unique_ptr<ASTNode> instantiated_func;
+    const ASTNode *cached_func = nullptr;
+
+    // デバッグ: 条件を表示
+    if (interpreter_.is_debug_mode()) {
+        std::cerr << "[GENERIC_DEBUG] func=" << (func ? "yes" : "no")
+                  << " func->is_generic="
+                  << (func && func->is_generic ? "yes" : "no")
+                  << " node->is_generic=" << (node->is_generic ? "yes" : "no")
+                  << " type_arguments.size()=" << node->type_arguments.size()
+                  << std::endl;
+        if (func) {
+            std::cerr << "[GENERIC_DEBUG] Original func has "
+                      << func->statements.size() << " statements" << std::endl;
+        }
+    }
+
+    if (func && func->is_generic && node->is_generic &&
+        !node->type_arguments.empty()) {
+        // キャッシュキーを生成
+        std::string cache_key = GenericInstantiation::generate_cache_key(
+            node->name, node->type_arguments);
+
+        // キャッシュをチェック
+        cached_func = GenericInstantiation::get_cached_instance(cache_key);
+
+        if (cached_func) {
+            // キャッシュヒット
+            func = cached_func;
+            if (interpreter_.is_debug_mode()) {
+                std::cerr << "[GENERIC_CACHE] Cache hit for " << cache_key
+                          << std::endl;
+            }
+        } else {
+            // キャッシュミス：新しくインスタンス化
+            try {
+                instantiated_func =
+                    GenericInstantiation::instantiate_generic_function(
+                        func, node->type_arguments);
+                func = instantiated_func.get();
+
+                // キャッシュに保存（move前にポインタを取得）
+                const ASTNode *func_to_cache = func;
+                GenericInstantiation::cache_instance(
+                    cache_key, std::move(instantiated_func));
+                func = func_to_cache; // キャッシュされたインスタンスを使用
+
+                if (interpreter_.is_debug_mode()) {
+                    std::cerr
+                        << "[GENERIC_INST] Instantiated generic function: "
+                        << node->name << " with type arguments: ";
+                    for (const auto &type_arg : node->type_arguments) {
+                        std::cerr << type_arg << " ";
+                    }
+                    std::cerr << std::endl;
+                    std::cerr << "[GENERIC_INST] Cached as " << cache_key
+                              << std::endl;
+                    std::cerr << "[GENERIC_INST] Instantiated func has "
+                              << func->statements.size() << " statements, "
+                              << func->parameters.size() << " parameters"
+                              << std::endl;
+                }
+            } catch (const std::exception &e) {
+                throw std::runtime_error(
+                    "Failed to instantiate generic function " + node->name +
+                    ": " + e.what());
             }
         }
     }

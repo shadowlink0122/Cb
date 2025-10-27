@@ -1,5 +1,126 @@
 # Cb (シーフラット) プログラミング言語
 
+**最新バージョン**: v0.11.0 - Generics & Enum Support (開発中)  
+**リリース日**: 2025年11月 (予定)  
+**前バージョン**: v0.10.0
+
+### 📊 品質指標（v0.11.0）
+
+- **統合テスト**: **2,977個**（100%成功） 🎉
+- **Genericテスト**: **53個** (Structs/Enums/Functions含む) 🎉
+- **Enumテスト**: **3個**（包括的テストスイート含む） 🎉
+- **Deferテスト**: **131個**（return前cleanup含む） 🎉
+- **ユニットテスト**: **30個**（100%成功） 🎉
+- **総テスト数**: **3,007個**（100%成功） 🎉
+- **テストカバレッジ**: 全機能を網羅的にテスト
+- **完全なRIII**: デストラクタとdeferの自動実行
+
+### 🆕 v0.11.0の新機能
+
+**1. 🔧 ジェネリック型パラメータ**
+- **Generic Structs**: `struct Vec<T> { ... }` による型パラメータ化
+- **Nested Generics**: `Vec<Vec<int>>` のようなネストされたジェネリクス対応
+- **Generic Instantiation**: `Vec<int> v;` による具体的な型の生成
+
+```cb
+struct Vec<T> {
+    T data[10];
+    int size;
+}
+
+int main() {
+    Vec<int> numbers;
+    Vec<Vec<int>> matrix;  // ネストされたジェネリクス
+}
+```
+
+**2. 📦 Enum with Associated Values**
+- **Generic Enums**: `enum Option<T> { Some(T), None }` による型パラメータ化
+- **Associated Values**: バリアントに値を関連付け
+- **Member Access**: `.variant` と `.value` でアクセス
+
+```cb
+enum Option<T> {
+    Some(T),
+    None
+};
+
+int main() {
+    Option<int> some_val = Option<int>::Some(42);
+    println(some_val.variant);  // "Some"
+    println(some_val.value);    // 42
+    
+    Option<int> none_val = Option<int>::None;
+    println(none_val.variant);  // "None"
+}
+```
+
+**3. ⚡ ジェネリック関数**
+- **型パラメータ**: `func<T>(...)` による型の抽象化
+- **複数型パラメータ**: `func<T1, T2>(...)` 対応
+- **ランタイムインスタンス化**: 呼び出し時に型を特定して関数を生成
+- **型パラメータの使用**: 関数本体内で型パラメータを変数の型として使用可能
+- **ジェネリック構造体型の戻り値**: `Box<T> make_box<T>(...)` のような複雑な型も対応 🆕
+- **インスタンス化キャッシュ**: 同じ型引数での複数回呼び出しを高速化 🆕
+
+```cb
+// 基本的なジェネリック関数
+T identity<T>(T value) {
+    return value;
+}
+
+// 複数の型パラメータ
+T max<T>(T a, T b) {
+    return a > b ? a : b;
+}
+
+// 型パラメータを関数本体で使用
+T duplicate<T>(T value) {
+    T copy = value;  // 型パラメータを変数宣言で使用
+    return copy;
+}
+
+// ジェネリック構造体型を戻り値に使用（v0.11.0 新機能）
+struct Box<T> {
+    T value;
+};
+
+Box<T> make_box<T>(T val) {
+    Box<T> box;
+    box.value = val;
+    return box;
+}
+
+int main() {
+    int x = identity<int>(42);      // T=int でインスタンス化
+    long y = identity<long>(100);   // T=long でインスタンス化
+    
+    int m = max<int>(10, 20);       // 20
+    
+    // ジェネリック構造体型の戻り値
+    Box<int> box = make_box<int>(42);
+    println("box.value =", box.value);  // 42
+    
+    println("x =", x);  // 42
+    println("y =", y);  // 100
+    println("max =", m);  // 20
+}
+```
+
+**実装の詳細**:
+- ASTノードのディープクローン
+- 型パラメータの再帰的な置換
+- 呼び出しサイトでの透過的なインスタンス化
+- インスタンス化キャッシュによるパフォーマンス最適化
+- 先読みによる型パラメータスタック管理（パーサーリファクタリング）
+- テスト済み: `identity<T>`, `max<T>`, `Box<T> make_box<T>(...)`
+
+---
+
+## v0.10.0の機能
+
+**1. 🚀 C++互換ムーブセマンティクス**ミング言語
+
 **最新バージョン**: v0.10.0 - Move Semantics & Complete Cleanup  
 **リリース日**: 2025年10月12日  
 **ベース**: v0.9.2

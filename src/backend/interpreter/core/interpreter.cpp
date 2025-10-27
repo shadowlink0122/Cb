@@ -213,7 +213,8 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
         }
         // enumの定義を処理
         for (const auto &stmt : node->statements) {
-            if (stmt->node_type == ASTNodeType::AST_ENUM_DECL) {
+            if (stmt->node_type == ASTNodeType::AST_ENUM_DECL ||
+                stmt->node_type == ASTNodeType::AST_ENUM_TYPEDEF_DECL) {
                 register_global_declarations(stmt.get());
             }
         }
@@ -249,6 +250,7 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
                 stmt->node_type != ASTNodeType::AST_STRUCT_DECL &&
                 stmt->node_type != ASTNodeType::AST_STRUCT_TYPEDEF_DECL &&
                 stmt->node_type != ASTNodeType::AST_ENUM_DECL &&
+                stmt->node_type != ASTNodeType::AST_ENUM_TYPEDEF_DECL &&
                 stmt->node_type != ASTNodeType::AST_TYPEDEF_DECL &&
                 stmt->node_type != ASTNodeType::AST_UNION_TYPEDEF_DECL &&
                 stmt->node_type != ASTNodeType::AST_INTERFACE_DECL &&
@@ -364,6 +366,36 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
             if (debug_mode) {
                 debug_print("Successfully registered enum: %s\n",
                             node->name.c_str());
+            }
+        }
+        break;
+
+    case ASTNodeType::AST_ENUM_TYPEDEF_DECL:
+        // typedef enum定義を登録
+        {
+            debug_msg(DebugMsgId::INTERPRETER_ENUM_REGISTERING,
+                      node->name.c_str());
+            DEBUG_DEBUG(GENERAL, "Registering typedef enum definition: %s",
+                        node->name.c_str());
+
+            // ASTノードからenum定義情報を構築
+            // arguments内に各メンバー情報が格納されている
+            EnumDefinition enum_def;
+            enum_def.name = node->name;
+
+            for (const auto &member_node : node->arguments) {
+                if (member_node->node_type == ASTNodeType::AST_VAR_DECL) {
+                    enum_def.add_member(member_node->name,
+                                        member_node->int_value, true);
+                }
+            }
+
+            enum_manager_->register_enum(node->name, enum_def);
+
+            if (debug_mode) {
+                debug_print("Successfully registered typedef enum: %s with %zu "
+                            "members\n",
+                            node->name.c_str(), enum_def.members.size());
             }
         }
         break;

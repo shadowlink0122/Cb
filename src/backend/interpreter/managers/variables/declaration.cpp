@@ -42,7 +42,8 @@ void setNumericFields(Variable &var, long double quad_value) {
 
 void VariableManager::process_variable_declaration(const ASTNode *node) {
     // 変数宣言の処理
-    Variable var;
+    Variable var = Variable(); // 明示的にデフォルトコンストラクタを呼ぶ
+
     // ポインタ型の場合はTYPE_POINTERを設定
     if (node->is_pointer) {
         var.type = TYPE_POINTER;
@@ -77,6 +78,158 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
     if (node->type_info == TYPE_STRUCT && !node->type_name.empty()) {
         var.is_struct = true;
         var.struct_type_name = node->type_name;
+    }
+
+    // enum変数の場合の追加設定 (v0.11.0 generics)
+    if (node->type_info == TYPE_ENUM && !node->type_name.empty()) {
+        debug_print("[ENUM_VAR_DECL_MANAGER] Creating enum variable: "
+                    "name='%s', type_name='%s'\n",
+                    node->name.c_str(), node->type_name.c_str());
+
+        var.is_enum = true;
+        var.enum_type_name = node->type_name; // 例: "Option_int"
+        var.type = TYPE_ENUM;
+
+        debug_print(
+            "[ENUM_VAR_DECL_MANAGER] Set is_enum=true for variable '%s'\n",
+            node->name.c_str());
+
+        // 初期化式がある場合は処理
+        if (node->right || node->init_expr) {
+            ASTNode *init_node =
+                node->init_expr ? node->init_expr.get() : node->right.get();
+
+            debug_print("[ENUM_VAR_DECL_MANAGER] Processing enum initializer, "
+                        "node_type=%d\n",
+                        static_cast<int>(init_node->node_type));
+
+            // AST_ENUM_CONSTRUCTの場合（関連値あり）
+            if (init_node->node_type == ASTNodeType::AST_ENUM_CONSTRUCT) {
+                debug_print("[ENUM_VAR_DECL_MANAGER] AST_ENUM_CONSTRUCT "
+                            "detected, enum_member='%s'\n",
+                            init_node->enum_member.c_str());
+
+                var.enum_variant = init_node->enum_member;
+
+                // 関連値を評価
+                debug_print(
+                    "[ENUM_VAR_DECL_MANAGER] Checking arguments, size=%zu\n",
+                    init_node->arguments.size());
+
+                if (!init_node->arguments.empty()) {
+                    debug_print("[ENUM_VAR_DECL_MANAGER] About to evaluate "
+                                "argument expression\n");
+
+                    int64_t assoc_value = interpreter_->eval_expression(
+                        init_node->arguments[0].get());
+
+                    debug_print(
+                        "[ENUM_VAR_DECL_MANAGER] Argument evaluated to: %lld\n",
+                        assoc_value);
+
+                    var.has_associated_value = true;
+                    var.associated_int_value =
+                        assoc_value; // TODO: 型に応じて適切なフィールドを使用
+
+                    debug_print("[ENUM_VAR_DECL_MANAGER] Enum initialized with "
+                                "variant='%s', value=%lld\n",
+                                var.enum_variant.c_str(), assoc_value);
+                } else {
+                    debug_print("[ENUM_VAR_DECL_MANAGER] Enum initialized with "
+                                "variant='%s' (no associated value)\n",
+                                var.enum_variant.c_str());
+                }
+
+                var.is_assigned = true;
+            }
+            // AST_ENUM_ACCESSの場合（関連値なし - Noneなど）
+            else if (init_node->node_type == ASTNodeType::AST_ENUM_ACCESS) {
+                debug_print("[ENUM_VAR_DECL_MANAGER] AST_ENUM_ACCESS "
+                            "detected, enum_member='%s'\n",
+                            init_node->enum_member.c_str());
+
+                var.enum_variant = init_node->enum_member;
+                var.has_associated_value = false;
+
+                // 古いスタイルのenum値を評価
+                int64_t enum_val = interpreter_->eval_expression(init_node);
+                var.value = enum_val;
+
+                var.is_assigned = true;
+
+                debug_print("[ENUM_VAR_DECL_MANAGER] Enum initialized with "
+                            "variant='%s', value=%lld (no associated value)\n",
+                            var.enum_variant.c_str(), enum_val);
+            }
+            // その他の式（関数呼び出しなど）の場合：評価してから値を取得
+            else {
+                debug_print("[ENUM_VAR_DECL_MANAGER] Evaluating init "
+                            "expression (node_type=%d)\n",
+                            static_cast<int>(init_node->node_type));
+
+                // 式を評価（関数呼び出しなど）
+                int64_t result_value = interpreter_->eval_expression(init_node);
+
+                // 古いスタイルのenum（整数値）として扱う
+                var.value = result_value;
+                var.is_assigned = true;
+
+                debug_print("[ENUM_VAR_DECL_MANAGER] Enum initialized from "
+                            "expression result: %lld\n",
+                            result_value);
+            }
+        }
+
+        // 変数をスコープに追加して早期リターン
+        debug_print(
+            "[ENUM_VAR_DECL_MANAGER] About to add variable '%s' to scope, "
+            "is_enum=%d, has_associated_value=%d, associated_int_value=%lld\n",
+            node->name.c_str(), var.is_enum, var.has_associated_value,
+            (long long)var.associated_int_value);
+
+        // emplaceを使って明示的に配置
+        auto &scope_map = interpreter_->current_scope().variables;
+        scope_map.erase(node->name); // 既存のエントリを削除
+        auto [iter, inserted] = scope_map.emplace(node->name, var);
+
+        // 手動でis_enumを設定（ワークアラウンド）
+        iter->second.is_enum = true;
+        iter->second.enum_type_name = var.enum_type_name;
+        iter->second.enum_variant = var.enum_variant;
+        iter->second.has_associated_value = true; // 明示的にtrueに設定
+        iter->second.associated_int_value = var.associated_int_value;
+        iter->second.associated_str_value = var.associated_str_value;
+
+        debug_print("[ENUM_VAR_DECL_MANAGER] After manual fix: is_enum=%d, "
+                    "has_associated_value=%d, associated_int_value=%lld\n",
+                    iter->second.is_enum, iter->second.has_associated_value,
+                    (long long)iter->second.associated_int_value);
+
+        debug_print(
+            "[ENUM_VAR_DECL_MANAGER] Enum variable '%s' added to scope\n",
+            node->name.c_str());
+
+        // 確認：スコープから直接アクセス
+        auto &scope_variables = interpreter_->current_scope().variables;
+        if (scope_variables.find(node->name) != scope_variables.end()) {
+            debug_print(
+                "[ENUM_VAR_DECL_MANAGER] Direct map access: is_enum=%d\n",
+                scope_variables[node->name].is_enum);
+        }
+
+        // 確認：find_variableで取得
+        Variable *stored_var = interpreter_->find_variable(node->name);
+        if (stored_var) {
+            debug_print("[ENUM_VAR_DECL_MANAGER] Verification: stored variable "
+                        "'%s' has is_enum=%d\n",
+                        node->name.c_str(), stored_var->is_enum);
+        } else {
+            debug_print("[ENUM_VAR_DECL_MANAGER] ERROR: Variable '%s' not "
+                        "found after insertion!\n",
+                        node->name.c_str());
+        }
+
+        return;
     }
 
     // interface変数の場合の追加設定
@@ -1799,25 +1952,31 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
         }
     }
 
-    current_scope().variables[node->name] = var;
-    // std::cerr << "DEBUG: Variable created: " << node->name << ",
-    // is_array=" << var.is_assigned << std::endl;
+    auto &scope_vars = current_scope().variables;
+
+    // v0.10.0: 構造体変数のコンストラクタ呼び出しのために情報を保存
+    bool var_is_struct = var.is_struct;
+    std::string var_struct_type_name = var.struct_type_name;
+    bool var_is_reference = var.is_reference;
+    bool var_is_rvalue_reference = var.is_rvalue_reference;
+
+    scope_vars.insert_or_assign(node->name, std::move(var));
 
     // v0.10.0: 構造体変数のコンストラクタを自動呼び出し
     if (interpreter_->debug_mode) {
         debug_print("CONSTRUCTOR_CHECK_PRE: var=%s, is_struct=%d, "
                     "struct_type_name='%s'\n",
-                    node->name.c_str(), var.is_struct,
-                    var.struct_type_name.c_str());
+                    node->name.c_str(), var_is_struct,
+                    var_struct_type_name.c_str());
     }
 
-    if (var.is_struct && !var.struct_type_name.empty()) {
+    if (var_is_struct && !var_struct_type_name.empty()) {
         std::string resolved_type =
-            interpreter_->type_manager_->resolve_typedef(var.struct_type_name);
+            interpreter_->type_manager_->resolve_typedef(var_struct_type_name);
 
         // v0.10.0: スコープ終了時にデストラクタを呼び出すために記録
         // ただし、参照変数の場合はデストラクタを呼び出さない
-        bool is_ref_var = var.is_reference || var.is_rvalue_reference;
+        bool is_ref_var = var_is_reference || var_is_rvalue_reference;
         if (!is_ref_var) {
             interpreter_->register_destructor_call(node->name, resolved_type);
         }
@@ -1856,7 +2015,7 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
             Variable *source_var = interpreter_->find_variable(source_var_name);
 
             // v0.10.0: 参照型（T& または T&&）の処理
-            if ((var.is_reference || var.is_rvalue_reference) && source_var) {
+            if ((var_is_reference || var_is_rvalue_reference) && source_var) {
                 // 参照変数は元の変数へのエイリアスとして機能
                 // 実装:
                 // 参照型フラグと参照元を記録し、元の変数の完全なコピーを作成
@@ -1864,14 +2023,14 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
                     debug_print("Creating reference variable: %s -> %s "
                                 "(is_rvalue_ref=%d)\n",
                                 node->name.c_str(), source_var_name.c_str(),
-                                var.is_rvalue_reference);
+                                var_is_rvalue_reference);
                 }
                 // 参照変数は元の変数への完全なエイリアスとして動作
                 // source_varの全ての内容をref_varにコピー
                 Variable ref_var =
                     *source_var; // 元の変数の完全なコピー（struct_members含む）
                 ref_var.is_reference = true;
-                ref_var.is_rvalue_reference = var.is_rvalue_reference;
+                ref_var.is_rvalue_reference = var_is_rvalue_reference;
                 ref_var.reference_target = source_var_name;
                 // 名前は参照変数の名前に設定
                 // （元のsource_varの名前ではなく、新しい参照変数の名前）
@@ -1884,7 +2043,7 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
                 // デストラクタは register_destructor_call
                 // で既に登録されていない
             } else if (source_var && source_var->is_struct &&
-                       source_var->struct_type_name == var.struct_type_name) {
+                       source_var->struct_type_name == var_struct_type_name) {
                 // 同じ構造体型からのコピー初期化
                 if (interpreter_->debug_mode) {
                     debug_print("Detected copy initialization: %s = %s\n",

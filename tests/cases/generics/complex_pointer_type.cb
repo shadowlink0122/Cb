@@ -1,0 +1,21 @@
+// v0.11.0: 複雑なポインタ型のジェネリクステスト
+
+struct DoublePointerBox<T> {
+    T ptr_ptr;
+};
+
+int main() {
+    // ダブルポインタ型のテスト
+    DoublePointerBox<int**> box;
+    
+    int value = 100;
+    int* ptr = &value;
+    box.ptr_ptr = &ptr;
+    
+    println("Double pointer value:");
+    println(**box.ptr_ptr);
+    
+    println("Complex pointer generic test passed!");
+    
+    return 0;
+}

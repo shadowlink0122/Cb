@@ -293,6 +293,16 @@ void execute_variable_declaration(StatementExecutor *executor,
         }
     }
 
+    // デバッグ: 型情報を出力
+    if (debug_mode) {
+        debug_log_line(
+            "[DEBUG_STMT] Variable declaration: name=" + node->name +
+            ", type_info=" + std::to_string(static_cast<int>(node->type_info)) +
+            ", type_name=" + node->type_name +
+            ", TYPE_STRUCT=" + std::to_string(static_cast<int>(TYPE_STRUCT)) +
+            ", TYPE_ENUM=" + std::to_string(static_cast<int>(TYPE_ENUM)));
+    }
+
     // struct型の特別処理
     if (node->type_info == TYPE_STRUCT && !node->type_name.empty()) {
         // struct変数を作成
@@ -304,6 +314,90 @@ void execute_variable_declaration(StatementExecutor *executor,
         interpreter.create_struct_variable(node->name, node->type_name);
 
         return; // struct変数は専用処理で完了
+    }
+
+    // enum型の特別処理（v0.11.0 generics）
+    debug_print("[ENUM_CHECK] About to check enum condition: type_info=%d "
+                "(TYPE_ENUM=%d), type_name='%s', empty=%d\n",
+                node->type_info, TYPE_ENUM, node->type_name.c_str(),
+                node->type_name.empty());
+    if (node->type_info == TYPE_ENUM && !node->type_name.empty()) {
+        debug_print("[ENUM_VAR_DECL] Entering enum variable creation: "
+                    "name='%s', type_name='%s'\n",
+                    node->name.c_str(), node->type_name.c_str());
+
+        if (debug_mode) {
+            debug_log_line("[DEBUG_STMT] Creating enum variable: " +
+                           node->name + " of type: " + node->type_name);
+        }
+
+        // enum型変数を作成
+        var.type = TYPE_ENUM;
+        var.is_enum = true;
+        var.enum_type_name = node->type_name; // 例: "Option_int"
+        var.is_assigned = false;              // 初期化前はfalse
+
+        debug_print("[ENUM_VAR_DECL] Set is_enum=true for variable '%s'\n",
+                    node->name.c_str());
+
+        // 初期化式がある場合は処理
+        if (init_node) {
+            if (debug_mode) {
+                debug_log_line(
+                    "[DEBUG_STMT] Enum variable has initializer, node_type=" +
+                    std::to_string(static_cast<int>(init_node->node_type)));
+            }
+
+            // AST_ENUM_CONSTRUCTの場合は特別処理
+            if (init_node->node_type == ASTNodeType::AST_ENUM_CONSTRUCT) {
+                // ASTノードから直接情報を取得
+                var.enum_variant = init_node->enum_member;
+
+                // 関連値を評価
+                if (!init_node->arguments.empty()) {
+                    int64_t assoc_value = interpreter.eval_expression(
+                        init_node->arguments[0].get());
+                    var.has_associated_value = true;
+                    var.associated_int_value = assoc_value;
+                }
+
+                var.is_assigned = true;
+
+                if (debug_mode) {
+                    debug_log_line(
+                        "[DEBUG_STMT] Enum initialized with variant: " +
+                        var.enum_variant + ", value=" +
+                        (var.has_associated_value
+                             ? std::to_string(var.associated_int_value)
+                             : "none"));
+                }
+            } else {
+                // その他の初期化式（例: 変数、関数呼び出しなど）
+                if (debug_mode) {
+                    debug_log_line(
+                        "[DEBUG_STMT] Evaluating enum init expression "
+                        "(node_type=" +
+                        std::to_string(static_cast<int>(init_node->node_type)) +
+                        ")");
+                }
+
+                // 式を評価（関数呼び出しなど）
+                int64_t result_value = interpreter.eval_expression(init_node);
+
+                // 古いスタイルのenum（整数値）として扱う
+                var.value = result_value;
+                var.is_assigned = true;
+
+                if (debug_mode) {
+                    debug_log_line("[DEBUG_STMT] Enum initialized from "
+                                   "expression result: " +
+                                   std::to_string(result_value));
+                }
+            }
+        }
+
+        interpreter.current_scope().variables[node->name] = var;
+        return; // enum変数は専用処理で完了
     }
 
     // union型の特別処理

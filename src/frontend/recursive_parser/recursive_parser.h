@@ -208,6 +208,14 @@ class RecursiveParser {
     // 直近に解析した型情報
     ParsedTypeInfo last_parsed_type_info_;
 
+    // ジェネリクス関連（v0.11.0 Phase 0）
+    // 現在パース中の構造体の型パラメータリスト（ネストした構造体も対応）
+    std::vector<std::vector<std::string>> type_parameter_stack_;
+
+    // >> トークン分割用（ネストしたジェネリクス対応）
+    bool has_split_gt_token_ = false; // 分割された > を保持しているか
+    Token split_gt_token_;            // 分割された > トークン
+
   public:
     // enum定義へのアクセサ
     const std::unordered_map<std::string, EnumDefinition> &
@@ -250,4 +258,11 @@ class RecursiveParser {
                                  const std::string &member_type,
                                  std::unordered_set<std::string> &visited,
                                  std::vector<std::string> &path);
+
+    // v0.11.0: ジェネリック型のインスタンス化
+    void
+    instantiateGenericStruct(const std::string &base_name,
+                             const std::vector<std::string> &type_arguments);
+    void instantiateGenericEnum(const std::string &base_name,
+                                const std::vector<std::string> &type_arguments);
 };

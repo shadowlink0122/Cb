@@ -29,6 +29,52 @@ int64_t ExpressionEvaluator::evaluate_member_access_impl(const ASTNode *node) {
                 member_name.c_str(), node->member_chain.size(),
                 node->left ? static_cast<int>(node->left->node_type) : -1);
 
+    // v0.11.0: Enum値へのメンバーアクセス
+    // Option<int> x = Some(42); の後、x.variantやx.valueへアクセス
+    if (node->left && node->left->node_type == ASTNodeType::AST_VARIABLE) {
+        Variable *base_var = interpreter_.find_variable(node->left->name);
+        debug_print(
+            "[MEMBER_EVAL_IMPL] Checking variable '%s': found=%d, is_enum=%d\n",
+            node->left->name.c_str(), base_var != nullptr,
+            base_var ? base_var->is_enum : 0);
+
+        if (base_var && base_var->is_enum) {
+            debug_print("[MEMBER_EVAL_IMPL] Enum member access: member='%s', "
+                        "has_associated_value=%d, associated_int_value=%lld\n",
+                        member_name.c_str(), base_var->has_associated_value,
+                        (long long)base_var->associated_int_value);
+
+            if (member_name == "variant") {
+                // variant名を文字列として返す
+                // 文字列を返すためにlast_typed_resultを使用
+                TypedValue typed_result(static_cast<int64_t>(0),
+                                        InferredType(TYPE_STRING, "string"));
+                typed_result.string_value = base_var->enum_variant;
+                typed_result.is_numeric_result = false;
+                set_last_typed_result(typed_result);
+                debug_print("[MEMBER_EVAL_IMPL] Returning variant: '%s'\n",
+                            base_var->enum_variant.c_str());
+                return 0;
+            } else if (member_name == "value") {
+                // 関連値を返す
+                if (base_var->has_associated_value) {
+                    int64_t val = base_var->associated_int_value;
+                    debug_print(
+                        "[MEMBER_EVAL_IMPL] Returning associated value: %lld\n",
+                        (long long)val);
+                    return val;
+                } else {
+                    throw std::runtime_error(
+                        "Enum variant '" + base_var->enum_variant +
+                        "' does not have an associated value");
+                }
+            } else {
+                throw std::runtime_error("Unknown enum member: " + member_name +
+                                         ". Available: variant, value");
+            }
+        }
+    }
+
     // ARROW_ACCESSまたはUNARY_OPが含まれる場合、member_chainパスをスキップ
     // これらは再帰的解決でのみ正しく処理できる
     // 再帰的にチェック：ネストした式の中にARROW/DEREFがある場合も検出
@@ -62,10 +108,11 @@ int64_t ExpressionEvaluator::evaluate_member_access_impl(const ASTNode *node) {
         Variable base_var;
         if (node->left->node_type == ASTNodeType::AST_VARIABLE) {
             Variable *var = interpreter_.find_variable(node->left->name);
-            if (!var || var->type != TYPE_STRUCT) {
-                throw std::runtime_error(
-                    "Base variable for nested access is not a struct: " +
-                    node->left->name);
+            // v0.11.0: enum型もメンバーチェーンをサポート（将来的に）
+            if (!var || (var->type != TYPE_STRUCT && !var->is_enum)) {
+                throw std::runtime_error("Base variable for nested access is "
+                                         "not a struct or enum: " +
+                                         node->left->name);
             }
             base_var = *var;
         } else if (node->left->node_type == ASTNodeType::AST_IDENTIFIER &&
@@ -102,10 +149,12 @@ int64_t ExpressionEvaluator::evaluate_member_access_impl(const ASTNode *node) {
             };
             std::string full_path = build_path(node->left.get());
             Variable *var = interpreter_.find_variable(full_path);
-            if (!var || var->type != TYPE_STRUCT) {
-                throw std::runtime_error(
-                    "Base variable for nested access is not a struct: " +
-                    full_path);
+            // v0.11.0: enum型もサポート
+            if (!var || (!var->is_struct && var->type != TYPE_STRUCT &&
+                         !var->is_enum)) {
+                throw std::runtime_error("Base variable for nested access is "
+                                         "not a struct or enum: " +
+                                         full_path);
             }
             base_var = *var;
         } else {

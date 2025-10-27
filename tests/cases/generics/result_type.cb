@@ -1,0 +1,34 @@
+// v0.11.0 Phase 0 - Generic Struct with Multiple Type Parameters
+// Test: Execute Result<T, E> pattern
+
+struct Result<T, E> {
+    bool is_ok;
+    T ok_value;
+    E err_value;
+};
+
+void main() {
+    // Result<int, string> のインスタンス化
+    Result<int, string> result1;
+    result1.is_ok = true;
+    result1.ok_value = 100;
+    result1.err_value = "";
+    
+    if (result1.is_ok) {
+        println("Result1 is OK, value = ");
+        println(result1.ok_value);
+    }
+    
+    // Result<string, int> のインスタンス化
+    Result<string, int> result2;
+    result2.is_ok = false;
+    result2.ok_value = "";
+    result2.err_value = 404;
+    
+    if (!result2.is_ok) {
+        println("Result2 is Error, code = ");
+        println(result2.err_value);
+    }
+    
+    println("Multiple type parameters test passed!");
+}

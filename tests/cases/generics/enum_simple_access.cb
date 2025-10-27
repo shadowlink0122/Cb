@@ -1,0 +1,21 @@
+// Simple enum member access test
+
+enum Option<T> {
+    Some(T),
+    None
+};
+
+int main() {
+    // Enum変数を作成
+    Option<int> x = Option<int>::Some(42);
+    println("Created enum variable");
+    
+    // 関連値へのアクセス（intなので問題なし）
+    int val = x.value;
+    println("x.value =", val);
+    
+    // variantの直接出力は避けて、後で対処
+    // string variant_name = x.variant;
+    
+    return 0;
+}

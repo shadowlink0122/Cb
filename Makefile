@@ -75,6 +75,7 @@ INTERPRETER_EVALUATOR_OBJS = \
 	$(INTERPRETER_EVALUATOR)/access/receiver_resolution.o \
 	$(INTERPRETER_EVALUATOR)/functions/call.o \
 	$(INTERPRETER_EVALUATOR)/functions/call_impl.o \
+	$(INTERPRETER_EVALUATOR)/functions/generic_instantiation.o \
 	$(INTERPRETER_EVALUATOR)/literals/eval.o
 
 INTERPRETER_EXECUTORS_OBJS = \
@@ -276,7 +277,7 @@ integration-test-verbose: $(TESTS_DIR)/integration/test_main
 test: integration-test unit-test
 	@echo "=== Test Summary ==="
 	@echo "Integration tests: completed"
-	@echo "Unit tests: 50 tests"
+	@echo "Unit tests: completed"
 
 # クリーンアップ
 clean:
@@ -325,7 +326,7 @@ help:
 	@echo "  lint                   - Check code formatting"
 	@echo "  fmt                    - Format code"
 	@echo "  test                   - Run all tests"
-	@echo "  unit-test              - Run unit tests (50 tests)"
+	@echo "  unit-test              - Run unit tests (30 tests)"
 	@echo "  integration-test       - Run integration tests (formatted output)"
 	@echo "  integration-test-verbose - Run integration tests (full output)"
 	@echo "  help                   - Show this help"

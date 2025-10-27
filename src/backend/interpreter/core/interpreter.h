@@ -44,39 +44,48 @@ class RecursiveParser;            // enum定義同期用
 
 // 変数・関数の格納構造
 struct Variable {
-    TypeInfo type;
+    TypeInfo type = TYPE_INT; // デフォルト型
     bool is_const = false;
     bool is_array = false;
     bool is_assigned = false;
-    bool is_multidimensional = false;   // 多次元配列フラグ
-    bool is_struct = false;             // struct型かどうか
-    bool is_pointer = false;            // ポインタ型かどうか
-    int pointer_depth = 0;              // ポインタの深さ
-    std::string pointer_base_type_name; // ポインタ基底型名
-    TypeInfo pointer_base_type;         // ポインタ基底型
-    bool is_pointer_const = false;      // ポインタ自体がconst (T* const)
-    bool is_pointee_const = false;      // ポイント先がconst (const T*)
-    bool is_reference = false;          // 参照型かどうか (T&)
+    bool is_multidimensional = false;          // 多次元配列フラグ
+    bool is_struct = false;                    // struct型かどうか
+    bool is_pointer = false;                   // ポインタ型かどうか
+    int pointer_depth = 0;                     // ポインタの深さ
+    std::string pointer_base_type_name;        // ポインタ基底型名
+    TypeInfo pointer_base_type = TYPE_UNKNOWN; // ポインタ基底型
+    bool is_pointer_const = false;    // ポインタ自体がconst (T* const)
+    bool is_pointee_const = false;    // ポイント先がconst (const T*)
+    bool is_reference = false;        // 参照型かどうか (T&)
     bool is_rvalue_reference = false; // 右辺値参照かどうか (T&&) v0.10.0
     std::string reference_target;     // 参照している変数名 v0.10.0
     bool is_unsigned = false;         // unsigned修飾子かどうか
     std::string struct_type_name;     // struct型名
     bool is_private_member = false;   // struct privateメンバーフラグ
 
+    // enum型用（v0.11.0 generics）
+    bool is_enum = false;       // enum型かどうか
+    std::string enum_type_name; // enum型名（"Option_int"など）
+    std::string enum_variant;   // バリアント名（"Some", "None"など）
+    // 関連値（簡易版：int64_tとstringのみサポート）
+    bool has_associated_value = false;
+    int64_t associated_int_value = 0;
+    std::string associated_str_value;
+
     // union型用
-    std::string type_name; // union型名（union型の場合）
-    TypeInfo current_type; // union変数の現在の型
+    std::string type_name;                // union型名（union型の場合）
+    TypeInfo current_type = TYPE_UNKNOWN; // union変数の現在の型
 
     // 値
-    int64_t value;
+    int64_t value = 0;
     std::string str_value;
-    float float_value;
-    double double_value;
-    long double quad_value;
-    __int128_t big_value;
+    float float_value = 0.0f;
+    double double_value = 0.0;
+    long double quad_value = 0.0L;
+    __int128_t big_value = 0;
 
     // 配列用
-    int array_size;
+    int array_size = 0;
     std::vector<int64_t> array_values;
     std::vector<float> array_float_values;
     std::vector<double> array_double_values;
@@ -91,7 +100,7 @@ struct Variable {
     std::string implementing_struct; // interfaceを実装しているstruct名
 
     // 関数ポインタ用
-    bool is_function_pointer;          // 関数ポインタかどうか
+    bool is_function_pointer = false;  // 関数ポインタかどうか
     std::string function_pointer_name; // 指している関数名
 
     // 多次元配列用
@@ -112,20 +121,140 @@ struct Variable {
     // - 境界チェック: 配列アクセス時の自動境界検証
     // - 型安全性: 異なるサイズの静的配列間での代入エラー検出
 
-    Variable()
-        : type(TYPE_INT), is_const(false), is_array(false), is_assigned(false),
-          is_multidimensional(false), is_struct(false), is_pointer(false),
-          pointer_depth(0), pointer_base_type_name(""),
-          pointer_base_type(TYPE_UNKNOWN), is_reference(false),
-          is_unsigned(false), struct_type_name(""), is_private_member(false),
-          type_name(""), current_type(TYPE_UNKNOWN), value(0), str_value(""),
-          float_value(0.0f), double_value(0.0), quad_value(0.0L), big_value(0),
-          array_size(0), is_function_pointer(false), function_pointer_name("") {
-        // デバッグ出力を削除（無限再帰を防ぐため）
-        // extern bool debug_mode;
-        // if (debug_mode) {
-        //     debug_msg(DebugMsgId::VAR_CREATE_NEW);
-        // }
+    Variable() = default; // コンパイラ生成のデフォルトコンストラクタを使用
+
+    // ムーブコンストラクタとムーブ代入演算子をデフォルトに
+    Variable(Variable &&) = default;
+    Variable &operator=(Variable &&) = default;
+
+    // コピーコンストラクタをデバッグ出力付きで定義
+    __attribute__((noinline)) Variable(const Variable &other) {
+        // すべてのメンバをコピー
+        type = other.type;
+        is_const = other.is_const;
+        is_array = other.is_array;
+        is_assigned = other.is_assigned;
+        is_multidimensional = other.is_multidimensional;
+        is_struct = other.is_struct;
+        is_pointer = other.is_pointer;
+        pointer_depth = other.pointer_depth;
+        pointer_base_type_name = other.pointer_base_type_name;
+        pointer_base_type = other.pointer_base_type;
+        is_pointer_const = other.is_pointer_const;
+        is_pointee_const = other.is_pointee_const;
+        is_reference = other.is_reference;
+        is_rvalue_reference = other.is_rvalue_reference;
+        reference_target = other.reference_target;
+        is_unsigned = other.is_unsigned;
+        struct_type_name = other.struct_type_name;
+        is_private_member = other.is_private_member;
+
+        // enum関連フィールド
+        is_enum = other.is_enum;
+        enum_type_name = other.enum_type_name;
+        enum_variant = other.enum_variant;
+        has_associated_value = other.has_associated_value;
+        associated_int_value = other.associated_int_value;
+        associated_str_value = other.associated_str_value;
+
+        debug_print("[VAR_COPY_CTOR] Copying Variable: is_enum %d -> %d\n",
+                    other.is_enum, is_enum);
+
+        // 残りのメンバをコピー
+        type_name = other.type_name;
+        current_type = other.current_type;
+        value = other.value;
+        str_value = other.str_value;
+        float_value = other.float_value;
+        double_value = other.double_value;
+        quad_value = other.quad_value;
+        big_value = other.big_value;
+        array_size = other.array_size;
+        array_values = other.array_values;
+        array_float_values = other.array_float_values;
+        array_double_values = other.array_double_values;
+        array_quad_values = other.array_quad_values;
+        array_strings = other.array_strings;
+        struct_members = other.struct_members;
+        interface_name = other.interface_name;
+        implementing_struct = other.implementing_struct;
+        is_function_pointer = other.is_function_pointer;
+        function_pointer_name = other.function_pointer_name;
+        array_type_info = other.array_type_info;
+        array_dimensions = other.array_dimensions;
+        multidim_array_values = other.multidim_array_values;
+        multidim_array_float_values = other.multidim_array_float_values;
+        multidim_array_double_values = other.multidim_array_double_values;
+        multidim_array_quad_values = other.multidim_array_quad_values;
+        multidim_array_strings = other.multidim_array_strings;
+    }
+
+    // 代入演算子をデバッグ出力付きで定義
+    Variable &operator=(const Variable &other) {
+        if (this != &other) {
+            debug_print(
+                "[VAR_ASSIGN_OP] Before: this.is_enum=%d, other.is_enum=%d\n",
+                is_enum, other.is_enum);
+
+            // すべてのメンバをコピー
+            type = other.type;
+            is_const = other.is_const;
+            is_array = other.is_array;
+            is_assigned = other.is_assigned;
+            is_multidimensional = other.is_multidimensional;
+            is_struct = other.is_struct;
+            is_pointer = other.is_pointer;
+            pointer_depth = other.pointer_depth;
+            pointer_base_type_name = other.pointer_base_type_name;
+            pointer_base_type = other.pointer_base_type;
+            is_pointer_const = other.is_pointer_const;
+            is_pointee_const = other.is_pointee_const;
+            is_reference = other.is_reference;
+            is_rvalue_reference = other.is_rvalue_reference;
+            reference_target = other.reference_target;
+            is_unsigned = other.is_unsigned;
+            struct_type_name = other.struct_type_name;
+            is_private_member = other.is_private_member;
+
+            // enum関連フィールド
+            is_enum = other.is_enum;
+            enum_type_name = other.enum_type_name;
+            enum_variant = other.enum_variant;
+            has_associated_value = other.has_associated_value;
+            associated_int_value = other.associated_int_value;
+            associated_str_value = other.associated_str_value;
+
+            debug_print("[VAR_ASSIGN_OP] After: this.is_enum=%d\n", is_enum);
+
+            // 残りのメンバをコピー
+            type_name = other.type_name;
+            current_type = other.current_type;
+            value = other.value;
+            str_value = other.str_value;
+            float_value = other.float_value;
+            double_value = other.double_value;
+            quad_value = other.quad_value;
+            big_value = other.big_value;
+            array_size = other.array_size;
+            array_values = other.array_values;
+            array_float_values = other.array_float_values;
+            array_double_values = other.array_double_values;
+            array_quad_values = other.array_quad_values;
+            array_strings = other.array_strings;
+            struct_members = other.struct_members;
+            interface_name = other.interface_name;
+            implementing_struct = other.implementing_struct;
+            is_function_pointer = other.is_function_pointer;
+            function_pointer_name = other.function_pointer_name;
+            array_type_info = other.array_type_info;
+            array_dimensions = other.array_dimensions;
+            multidim_array_values = other.multidim_array_values;
+            multidim_array_float_values = other.multidim_array_float_values;
+            multidim_array_double_values = other.multidim_array_double_values;
+            multidim_array_quad_values = other.multidim_array_quad_values;
+            multidim_array_strings = other.multidim_array_strings;
+        }
+        return *this;
     }
 
     // 多次元配列用コンストラクタ
@@ -133,9 +262,13 @@ struct Variable {
         : type(TYPE_INT), is_const(false), is_array(true), is_assigned(false),
           is_multidimensional(true), is_struct(false), is_pointer(false),
           pointer_depth(0), pointer_base_type_name(""),
-          pointer_base_type(TYPE_UNKNOWN), is_reference(false),
-          is_unsigned(false), struct_type_name(""), is_private_member(false),
-          type_name(""), current_type(TYPE_UNKNOWN), value(0), str_value(""),
+          pointer_base_type(TYPE_UNKNOWN), is_pointer_const(false),
+          is_pointee_const(false), is_reference(false),
+          is_rvalue_reference(false), reference_target(""), is_unsigned(false),
+          struct_type_name(""), is_private_member(false), is_enum(false),
+          enum_type_name(""), enum_variant(""), has_associated_value(false),
+          associated_int_value(0), associated_str_value(""), type_name(""),
+          current_type(TYPE_UNKNOWN), value(0), str_value(""),
           float_value(0.0f), double_value(0.0), quad_value(0.0L), big_value(0),
           array_size(0), is_function_pointer(false), function_pointer_name(""),
           array_type_info(array_info) {}
@@ -145,9 +278,13 @@ struct Variable {
         : type(TYPE_STRUCT), is_const(false), is_array(false),
           is_assigned(false), is_multidimensional(false), is_struct(true),
           is_pointer(false), pointer_depth(0), pointer_base_type_name(""),
-          pointer_base_type(TYPE_UNKNOWN), is_reference(false),
-          is_unsigned(false), struct_type_name(struct_name),
-          is_private_member(false), type_name(""), current_type(TYPE_UNKNOWN),
+          pointer_base_type(TYPE_UNKNOWN), is_pointer_const(false),
+          is_pointee_const(false), is_reference(false),
+          is_rvalue_reference(false), reference_target(""), is_unsigned(false),
+          struct_type_name(struct_name), is_private_member(false),
+          is_enum(false), enum_type_name(""), enum_variant(""),
+          has_associated_value(false), associated_int_value(0),
+          associated_str_value(""), type_name(""), current_type(TYPE_UNKNOWN),
           value(0), str_value(""), float_value(0.0f), double_value(0.0),
           quad_value(0.0L), big_value(0), array_size(0),
           is_function_pointer(false), function_pointer_name("") {
@@ -164,9 +301,13 @@ struct Variable {
         : type(TYPE_INTERFACE), is_const(false), is_array(false),
           is_assigned(false), is_multidimensional(false), is_struct(false),
           is_pointer(false), pointer_depth(0), pointer_base_type_name(""),
-          pointer_base_type(TYPE_UNKNOWN), is_reference(false),
-          is_unsigned(false), struct_type_name(""), is_private_member(false),
-          type_name(""), current_type(TYPE_UNKNOWN), value(0), str_value(""),
+          pointer_base_type(TYPE_UNKNOWN), is_pointer_const(false),
+          is_pointee_const(false), is_reference(false),
+          is_rvalue_reference(false), reference_target(""), is_unsigned(false),
+          struct_type_name(""), is_private_member(false), is_enum(false),
+          enum_type_name(""), enum_variant(""), has_associated_value(false),
+          associated_int_value(0), associated_str_value(""), type_name(""),
+          current_type(TYPE_UNKNOWN), value(0), str_value(""),
           float_value(0.0f), double_value(0.0), quad_value(0.0L), big_value(0),
           array_size(0), interface_name(interface_name),
           is_function_pointer(false), function_pointer_name("") {

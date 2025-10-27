@@ -1,0 +1,199 @@
+// v0.11.0 Phase 0 - Generics Test Suite
+// Comprehensive test for generic struct implementation
+
+// =====================================
+// Test 1: Basic Generic Struct
+// =====================================
+struct Box<T> {
+    T value;
+};
+
+void test_basic_generic() {
+    println("=== Test 1: Basic Generic Struct ===");
+    
+    Box<int> int_box;
+    int_box.value = 42;
+    
+    println("int_box.value = ");
+    println(int_box.value);
+    assert(int_box.value == 42);
+    
+    Box<string> str_box;
+    str_box.value = "Hello, Generics!";
+    
+    println("str_box.value = ");
+    println(str_box.value);
+    
+    println("✓ Basic generic struct test passed");
+    println("");
+}
+
+// =====================================
+// Test 2: Multiple Type Parameters
+// =====================================
+struct Result<T, E> {
+    bool is_ok;
+    T ok_value;
+    E err_value;
+};
+
+void test_multiple_type_params() {
+    println("=== Test 2: Multiple Type Parameters ===");
+    
+    Result<int, string> result1;
+    result1.is_ok = true;
+    result1.ok_value = 100;
+    result1.err_value = "";
+    
+    if (result1.is_ok) {
+        println("Result1 is OK, value = ");
+        println(result1.ok_value);
+        assert(result1.ok_value == 100);
+    }
+    
+    Result<string, int> result2;
+    result2.is_ok = false;
+    result2.ok_value = "";
+    result2.err_value = 404;
+    
+    if (!result2.is_ok) {
+        println("Result2 is Error, code = ");
+        println(result2.err_value);
+        assert(result2.err_value == 404);
+    }
+    
+    println("✓ Multiple type parameters test passed");
+    println("");
+}
+
+// =====================================
+// Test 3: Multiple Instantiations
+// =====================================
+struct Pair<A, B> {
+    A first;
+    B second;
+};
+
+void test_multiple_instantiations() {
+    println("=== Test 3: Multiple Instantiations ===");
+    
+    // Pair<int, int>
+    Pair<int, int> int_pair;
+    int_pair.first = 10;
+    int_pair.second = 20;
+    
+    println("int_pair: (");
+    println(int_pair.first);
+    println(", ");
+    println(int_pair.second);
+    println(")");
+    assert(int_pair.first == 10);
+    assert(int_pair.second == 20);
+    
+    // Pair<string, int>
+    Pair<string, int> str_int_pair;
+    str_int_pair.first = "Answer";
+    str_int_pair.second = 42;
+    
+    println("str_int_pair: (");
+    println(str_int_pair.first);
+    println(", ");
+    println(str_int_pair.second);
+    println(")");
+    assert(str_int_pair.second == 42);
+    
+    // Pair<int, string>
+    Pair<int, string> int_str_pair;
+    int_str_pair.first = 100;
+    int_str_pair.second = "percent";
+    
+    println("int_str_pair: (");
+    println(int_str_pair.first);
+    println(", ");
+    println(int_str_pair.second);
+    println(")");
+    assert(int_str_pair.first == 100);
+    
+    println("✓ Multiple instantiations test passed");
+    println("");
+}
+
+// =====================================
+// Test 4: Nested Generics
+// =====================================
+struct Container<T> {
+    T data;
+    int count;
+};
+
+void test_nested_usage() {
+    println("=== Test 4: Nested Generic Usage ===");
+    
+    // Container of Box (v0.11.0: >> auto-split support!)
+    Container<Box<int>> container;
+    container.data.value = 999;
+    container.count = 1;
+    
+    println("container.data.value = ");
+    println(container.data.value);
+    println("container.count = ");
+    println(container.count);
+    assert(container.data.value == 999);
+    assert(container.count == 1);
+    
+    println("✓ Nested generic usage test passed");
+    println("");
+}
+
+// =====================================
+// Test 5: Forward Declaration
+// =====================================
+struct Node<T>;
+
+struct Node<T> {
+    T data;
+    Node* next;
+};
+
+void test_forward_declaration() {
+    println("=== Test 5: Forward Declaration ===");
+    
+    Node<int> node1;
+    node1.data = 10;
+    node1.next = nullptr;
+    
+    Node<int> node2;
+    node2.data = 20;
+    node2.next = &node1;
+    
+    println("node2.data = ");
+    println(node2.data);
+    println("node2.next->data = ");
+    println(node2.next->data);
+    assert(node2.data == 20);
+    assert(node2.next->data == 10);
+    
+    println("✓ Forward declaration test passed");
+    println("");
+}
+
+// =====================================
+// Main Test Runner
+// =====================================
+void main() {
+    println("╔════════════════════════════════════════╗");
+    println("║  v0.11.0 Generics Test Suite          ║");
+    println("║  Phase 0: Generic Struct Support      ║");
+    println("╚════════════════════════════════════════╝");
+    println("");
+    
+    test_basic_generic();
+    test_multiple_type_params();
+    test_multiple_instantiations();
+    test_nested_usage();
+    test_forward_declaration();
+    
+    println("╔════════════════════════════════════════╗");
+    println("║  All Generic Tests Passed! ✓           ║");
+    println("╚════════════════════════════════════════╝");
+}

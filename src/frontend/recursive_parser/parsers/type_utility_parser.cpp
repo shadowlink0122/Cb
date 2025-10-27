@@ -8,6 +8,45 @@
 #include <stdexcept>
 #include <string>
 
+// v0.11.0: 型名を正規化してインスタンス名に使用可能な形式に変換
+// 例: "int*" -> "int_ptr", "int[3]" -> "int_array_3"
+static std::string
+normalizeTypeNameForInstantiation(const std::string &type_name) {
+    std::string normalized = type_name;
+
+    // ポインタの '*' を '_ptr' に置換
+    size_t star_pos = normalized.find('*');
+    while (star_pos != std::string::npos) {
+        normalized.replace(star_pos, 1, "_ptr");
+        star_pos = normalized.find('*', star_pos + 4);
+    }
+
+    // 配列の '[N]' を '_array_N' に置換
+    size_t bracket_pos = normalized.find('[');
+    if (bracket_pos != std::string::npos) {
+        size_t end_bracket = normalized.find(']', bracket_pos);
+        if (end_bracket != std::string::npos) {
+            std::string size = normalized.substr(bracket_pos + 1,
+                                                 end_bracket - bracket_pos - 1);
+            std::string replacement = "_array";
+            if (!size.empty()) {
+                replacement += "_" + size;
+            }
+            normalized.replace(bracket_pos, end_bracket - bracket_pos + 1,
+                               replacement);
+        }
+    }
+
+    // 参照の '&' を '_ref' に置換
+    size_t amp_pos = normalized.find('&');
+    while (amp_pos != std::string::npos) {
+        normalized.replace(amp_pos, 1, "_ref");
+        amp_pos = normalized.find('&', amp_pos + 4);
+    }
+
+    return normalized;
+}
+
 TypeUtilityParser::TypeUtilityParser(RecursiveParser *parser)
     : parser_(parser) {}
 
@@ -91,8 +130,27 @@ std::string TypeUtilityParser::parseType() {
         base_type = original_type;
     } else if (parser_->check(TokenType::TOK_IDENTIFIER)) {
         std::string identifier = parser_->current_token_.value;
-        if (parser_->typedef_map_.find(identifier) !=
-            parser_->typedef_map_.end()) {
+
+        // v0.11.0: 型パラメータかどうかをチェック
+        bool is_type_parameter = false;
+        if (!parser_->type_parameter_stack_.empty()) {
+            // 現在のスコープの型パラメータリストをチェック
+            const auto &current_type_params =
+                parser_->type_parameter_stack_.back();
+            is_type_parameter =
+                std::find(current_type_params.begin(),
+                          current_type_params.end(),
+                          identifier) != current_type_params.end();
+        }
+
+        if (is_type_parameter) {
+            // 型パラメータとして扱う
+            parser_->advance();
+            original_type = identifier;
+            set_base_type(identifier);
+            parsed.base_type_info = TYPE_GENERIC;
+        } else if (parser_->typedef_map_.find(identifier) !=
+                   parser_->typedef_map_.end()) {
             parser_->advance();
             original_type = identifier;
             std::string resolved = resolveTypedefChain(identifier);
@@ -101,16 +159,163 @@ std::string TypeUtilityParser::parseType() {
                 throw std::runtime_error("Unknown type: " + identifier);
             }
             set_base_type(resolved);
+        } else if (parser_->enum_definitions_.find(identifier) !=
+                   parser_->enum_definitions_.end()) {
+            // v0.11.0: ジェネリックenumのチェック（構造体より先にチェック）
+            const auto &enum_def = parser_->enum_definitions_[identifier];
+            parser_->advance(); // 識別子をスキップ
+
+            if (enum_def.is_generic && parser_->check(TokenType::TOK_LT)) {
+                // ジェネリックenumのインスタンス化
+                parser_->advance(); // '<'
+
+                // v0.11.0: ネストしたジェネリクス対応のため、空のスタックをpush
+                parser_->type_parameter_stack_.push_back({});
+
+                std::vector<std::string> type_arguments;
+
+                // 型引数のリストを解析
+                do {
+                    std::string arg = parseType();
+                    if (arg.empty()) {
+                        parser_->error("Expected type argument");
+                        throw std::runtime_error("Empty type argument");
+                    }
+                    type_arguments.push_back(arg);
+
+                    if (parser_->check(TokenType::TOK_COMMA)) {
+                        parser_->advance(); // ','
+                    } else {
+                        break;
+                    }
+                } while (true);
+
+                if (!parser_->check(TokenType::TOK_GT)) {
+                    parser_->error("Expected '>' after type arguments");
+                    throw std::runtime_error("Missing '>' in generic type");
+                }
+                parser_->advance(); // '>'
+
+                // スタックをpop
+                parser_->type_parameter_stack_.pop_back();
+
+                // 型引数の数をチェック
+                if (type_arguments.size() != enum_def.type_parameters.size()) {
+                    parser_->error(
+                        "Generic enum '" + identifier + "' expects " +
+                        std::to_string(enum_def.type_parameters.size()) +
+                        " type arguments but got " +
+                        std::to_string(type_arguments.size()));
+                    throw std::runtime_error("Type argument count mismatch");
+                }
+
+                // インスタンス化された型名を生成: Option<int*> ->
+                // Option_int_ptr
+                std::string instantiated_name = identifier;
+                for (const auto &arg : type_arguments) {
+                    instantiated_name +=
+                        "_" + normalizeTypeNameForInstantiation(arg);
+                }
+
+                original_type = identifier + "<" + type_arguments[0];
+                for (size_t i = 1; i < type_arguments.size(); ++i) {
+                    original_type += "," + type_arguments[i];
+                }
+                original_type += ">";
+
+                // ジェネリックenumをインスタンス化
+                parser_->instantiateGenericEnum(identifier, type_arguments);
+
+                // インスタンス化された型名を返す
+                set_base_type(instantiated_name);
+            } else {
+                // 非ジェネリックenumまたはジェネリックでも型引数なし
+                original_type = identifier;
+                set_base_type(identifier);
+            }
         } else if (parser_->struct_definitions_.find(identifier) !=
                    parser_->struct_definitions_.end()) {
             parser_->advance();
             original_type = identifier;
             set_base_type(identifier);
-        } else if (parser_->enum_definitions_.find(identifier) !=
-                   parser_->enum_definitions_.end()) {
-            parser_->advance();
-            original_type = identifier;
-            set_base_type(identifier);
+
+            // v0.11.0: ジェネリック型のインスタンス化チェック Box<int>
+            if (parser_->check(TokenType::TOK_LT)) {
+                const auto &struct_def =
+                    parser_->struct_definitions_.at(identifier);
+                if (!struct_def.is_generic) {
+                    parser_->error(
+                        "Struct '" + identifier +
+                        "' is not a generic type, cannot use type arguments");
+                    throw std::runtime_error(
+                        "Non-generic struct with type arguments");
+                }
+
+                parser_->advance(); // '<' を消費
+
+                // v0.11.0: ネストしたジェネリクス対応のため、空のスタックをpush
+                // これにより >> の自動分割が有効になる
+                parser_->type_parameter_stack_.push_back({});
+
+                std::vector<std::string> type_arguments;
+
+                // 型引数のリストを解析
+                do {
+                    // 再帰的にparseType()を呼んで型引数を解析
+                    std::string type_arg =
+                        parser_->type_utility_parser_->parseType();
+                    if (type_arg.empty()) {
+                        parser_->error("Expected type argument");
+                        throw std::runtime_error("Empty type argument");
+                    }
+                    type_arguments.push_back(type_arg);
+
+                    if (parser_->check(TokenType::TOK_COMMA)) {
+                        parser_->advance(); // ',' を消費
+                    } else {
+                        break;
+                    }
+                } while (true);
+
+                if (!parser_->check(TokenType::TOK_GT)) {
+                    parser_->error("Expected '>' after type arguments");
+                    throw std::runtime_error("Missing '>' in generic type");
+                }
+                parser_->advance(); // '>' を消費
+
+                // スタックをpop
+                parser_->type_parameter_stack_.pop_back();
+
+                // 型引数の数をチェック
+                if (type_arguments.size() !=
+                    struct_def.type_parameters.size()) {
+                    parser_->error(
+                        "Generic struct '" + identifier + "' expects " +
+                        std::to_string(struct_def.type_parameters.size()) +
+                        " type arguments but got " +
+                        std::to_string(type_arguments.size()));
+                    throw std::runtime_error("Type argument count mismatch");
+                }
+
+                // インスタンス化された型名を生成: Box<int*> -> Box_int_ptr
+                std::string instantiated_name = identifier;
+                for (const auto &arg : type_arguments) {
+                    instantiated_name +=
+                        "_" + normalizeTypeNameForInstantiation(arg);
+                }
+
+                original_type = identifier + "<" + type_arguments[0];
+                for (size_t i = 1; i < type_arguments.size(); ++i) {
+                    original_type += "," + type_arguments[i];
+                }
+                original_type += ">";
+
+                // ジェネリック型をインスタンス化
+                parser_->instantiateGenericStruct(identifier, type_arguments);
+
+                // インスタンス化された型名を返す
+                set_base_type(instantiated_name);
+            }
         } else if (parser_->interface_definitions_.find(identifier) !=
                    parser_->interface_definitions_.end()) {
             parser_->advance();

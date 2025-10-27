@@ -228,7 +228,12 @@ void StructSyncManager::sync_struct_members_from_direct_access(
         debug_msg(DebugMsgId::INTERPRETER_VAR_NOT_FOUND, var_name.c_str());
         return;
     }
+    // v0.11.0: enum型の場合は同期不要（メンバーなし）
     if (!var->is_struct) {
+        if (var->is_enum) {
+            // enum型は同期不要
+            return;
+        }
         debug_msg(DebugMsgId::INTERPRETER_VAR_NOT_STRUCT, var_name.c_str());
         return;
     }

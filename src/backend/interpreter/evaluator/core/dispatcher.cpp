@@ -245,6 +245,11 @@ int64_t ExpressionDispatcher::dispatch_expression(const ASTNode *node) {
     case ASTNodeType::AST_ENUM_ACCESS:
         return SpecialAccessHelpers::evaluate_enum_access(node, interpreter_);
 
+    // v0.11.0: enum値の構築 (EnumName::member(value))
+    case ASTNodeType::AST_ENUM_CONSTRUCT:
+        return SpecialAccessHelpers::evaluate_enum_construct(node,
+                                                             interpreter_);
+
     // v0.10.0: 無名変数（Discard Variable）
     case ASTNodeType::AST_DISCARD_VARIABLE:
         throw std::runtime_error("Cannot reference discard variable '_'");

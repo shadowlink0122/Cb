@@ -454,7 +454,19 @@ Variable *StructOperations::get_struct_member(const std::string &var_name,
               member_name.c_str());
 
     Variable *var = interpreter_->find_variable(var_name);
-    if (!var || !var->is_struct) {
+
+    // v0.11.0: enum型の場合は、この関数を使わずにevaluatorで処理すべき
+    // しかし、ここに到達した場合でもエラーにしないで、ダミーを返す
+    if (var && var->is_enum) {
+        // enum型のメンバーアクセスはevaluatorで処理される
+        // ここに到達するのは想定外だが、エラーを避けるためダミーを返す
+        static Variable dummy;
+        dummy = *var; // 元の変数をコピー
+        return &dummy;
+    }
+
+    // v0.11.0: enum型もチェックを緩和
+    if (!var || (!var->is_struct && !var->is_enum)) {
         // 配列要素の場合、自動的に作成を試みる (例: people[0])
         size_t bracket_pos = var_name.find('[');
         if (bracket_pos != std::string::npos) {
@@ -472,10 +484,22 @@ Variable *StructOperations::get_struct_member(const std::string &var_name,
             }
         }
 
-        if (!var || !var->is_struct) {
+        // v0.11.0: enum型もメンバーアクセスをサポート
+        if (!var || (!var->is_struct && !var->is_enum)) {
             debug_msg(DebugMsgId::INTERPRETER_VAR_NOT_STRUCT, var_name.c_str());
-            throw std::runtime_error("Variable is not a struct: " + var_name);
+            debug_print("[DEBUG] get_struct_member: var=%p, var_name='%s', "
+                        "is_struct=%d, is_enum=%d\n",
+                        (void *)var, var_name.c_str(),
+                        var ? var->is_struct : -1, var ? var->is_enum : -1);
+            throw std::runtime_error("Variable is not a struct or enum: " +
+                                     var_name);
         }
+    }
+
+    // enum型の場合は、evaluator側で処理されるのでここには来ないはず
+    if (var && var->is_enum) {
+        throw std::runtime_error(
+            "Enum member access should be handled in evaluator: " + var_name);
     }
 
     // 参照型の場合、参照先の変数を取得
