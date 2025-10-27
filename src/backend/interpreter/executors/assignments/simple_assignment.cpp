@@ -217,18 +217,56 @@ void execute_assignment(StatementExecutor *executor, Interpreter &interpreter,
                                               node->right.get());
             return;
         } else if (node->left->node_type == ASTNodeType::AST_ARRAY_REF) {
-            // 配列要素への構造体リテラル代入 (team[0] = {})
+            // v0.11.0 Week 3 Day 1: 配列要素への構造体リテラル代入 (tasks[0] = {1, 2})
             if (debug_mode) {
                 std::cerr << "DEBUG: Struct literal assignment to array element"
                           << std::endl;
             }
-            std::string element_name =
-                interpreter.extract_array_element_name(node->left.get());
-            if (debug_mode) {
-                std::cerr << "DEBUG: Array element name: " << element_name
-                          << std::endl;
+            
+            std::string array_name =
+                interpreter.extract_array_name(node->left.get());
+            std::vector<int64_t> indices =
+                interpreter.extract_array_indices(node->left.get());
+
+            if (indices.empty()) {
+                throw std::runtime_error(
+                    "Cannot extract array index for struct literal assignment");
             }
+
+            int64_t idx = indices[0]; // 1次元配列のみサポート
+
+            if (debug_mode) {
+                std::cerr << "DEBUG: Array name: " << array_name 
+                          << ", index: " << idx << std::endl;
+            }
+            
+            // 配列要素の変数名を生成
+            std::string element_name = array_name + "[" + std::to_string(idx) + "]";
+            
+            // 配列変数の型情報を確認
+            Variable *array_var = interpreter.find_variable(array_name);
+            if (!array_var || !array_var->is_array) {
+                throw std::runtime_error("Not an array: " + array_name);
+            }
+            
+            if (array_var->type != TYPE_STRUCT && !array_var->is_struct) {
+                throw std::runtime_error("Not a struct array: " + array_name);
+            }
+            
+            // 配列要素変数が存在するか確認
+            Variable *element_var = interpreter.find_variable(element_name);
+            if (!element_var) {
+                // 変数が存在しない場合は作成
+                interpreter.current_scope().variables[element_name] = Variable();
+                element_var = &interpreter.current_scope().variables[element_name];
+                element_var->type = TYPE_STRUCT;
+                element_var->is_struct = true;
+                element_var->struct_type_name = array_var->struct_type_name;
+            }
+            
+            // 構造体リテラルを配列要素に代入
             interpreter.assign_struct_literal(element_name, node->right.get());
+            
             return;
         } else {
             throw std::runtime_error("Struct literal can only be assigned to "
@@ -248,44 +286,31 @@ void execute_assignment(StatementExecutor *executor, Interpreter &interpreter,
                 // 通常の数値戻り値の場合は通常処理を継続
             } catch (const ReturnException &ret) {
                 if (ret.is_struct) {
-                    // 構造体戻り値を配列要素に代入
-                    std::string element_name =
-                        interpreter.extract_array_element_name(
-                            node->left.get());
+                    // v0.11.0 Week 3 Day 1: 構造体戻り値を配列要素に代入
+                    std::string array_name =
+                        interpreter.extract_array_name(node->left.get());
+                    std::vector<int64_t> indices =
+                        interpreter.extract_array_indices(node->left.get());
+
+                    if (indices.empty()) {
+                        throw std::runtime_error(
+                            "Cannot extract array index for struct return value assignment");
+                    }
+
+                    int64_t idx = indices[0]; // 1次元配列のみサポート
+
                     debug_msg(
                         DebugMsgId::INTERPRETER_STRUCT_REGISTERED,
-                        "Assigning struct return value to array element: %s",
-                        element_name.c_str());
+                        "Assigning struct return value to array element: %s[%lld]",
+                        array_name.c_str(), idx);
 
                     debug_print("ReturnException struct_value: "
                                 "struct_members.size() = %zu\n",
                                 ret.struct_value.struct_members.size());
 
-                    // 構造体変数を作成・代入
-                    interpreter.current_scope().variables[element_name] =
-                        ret.struct_value;
-
-                    Variable &assigned_var =
-                        interpreter.current_scope().variables[element_name];
-                    debug_print(
-                        "Assigned variable: struct_members.size() = %zu\n",
-                        assigned_var.struct_members.size());
-
-                    // 個別メンバー変数も更新する必要がある
-                    for (const auto &member : assigned_var.struct_members) {
-                        std::string member_path =
-                            element_name + "." + member.first;
-                        Variable *member_var =
-                            interpreter.find_variable(member_path);
-                        if (member_var) {
-                            member_var->value = member.second.value;
-                            member_var->str_value = member.second.str_value;
-                            member_var->is_assigned = true;
-                            debug_print("Updated member variable: %s = %lld\n",
-                                        member_path.c_str(),
-                                        member.second.value);
-                        }
-                    }
+                    // 新しい関数を使用して配列要素に直接代入
+                    interpreter.assign_struct_to_array_element(
+                        array_name, idx, ret.struct_value);
 
                     return;
                 } else {
@@ -318,16 +343,26 @@ void execute_assignment(StatementExecutor *executor, Interpreter &interpreter,
                 float_rvalue = ret.double_value;
                 rvalue = static_cast<int64_t>(float_rvalue);
             } else if (ret.is_struct) {
-                // 構造体変数または構造体戻り値を配列要素に代入
-                std::string element_name =
-                    interpreter.extract_array_element_name(node->left.get());
+                // v0.11.0 Week 3 Day 1: 構造体変数または構造体戻り値を配列要素に代入
+                std::string array_name =
+                    interpreter.extract_array_name(node->left.get());
+                std::vector<int64_t> indices =
+                    interpreter.extract_array_indices(node->left.get());
+
+                if (indices.empty()) {
+                    throw std::runtime_error(
+                        "Cannot extract array index for struct assignment");
+                }
+
+                int64_t idx = indices[0]; // 1次元配列のみサポート
+
                 debug_msg(DebugMsgId::INTERPRETER_STRUCT_REGISTERED,
                           "Assigning struct variable/return value to array "
-                          "element: %s",
-                          element_name.c_str());
+                          "element: %s[%lld]",
+                          array_name.c_str(), idx);
 
                 std::cerr << "DEBUG: Struct assignment to array element: "
-                          << element_name << std::endl;
+                          << array_name << "[" << idx << "]" << std::endl;
                 std::cerr << "DEBUG: struct_type_name="
                           << ret.struct_value.struct_type_name << std::endl;
                 std::cerr << "DEBUG: struct_members.size()="
@@ -342,29 +377,9 @@ void execute_assignment(StatementExecutor *executor, Interpreter &interpreter,
                               << ")" << std::endl;
                 }
 
-                // 構造体変数を作成・代入
-                interpreter.current_scope().variables[element_name] =
-                    ret.struct_value;
-
-                Variable &assigned_var =
-                    interpreter.current_scope().variables[element_name];
-
-                // 個別メンバー変数も更新する必要がある
-                for (const auto &member : assigned_var.struct_members) {
-                    std::string member_path = element_name + "." + member.first;
-                    Variable *member_var =
-                        interpreter.find_variable(member_path);
-                    if (member_var) {
-                        member_var->value = member.second.value;
-                        member_var->str_value = member.second.str_value;
-                        member_var->is_assigned = member.second.is_assigned;
-                        std::cerr
-                            << "DEBUG: Updated member variable: " << member_path
-                            << " = " << member.second.value
-                            << " (assigned=" << member.second.is_assigned << ")"
-                            << std::endl;
-                    }
-                }
+                // 新しい関数を使用して配列要素に直接代入
+                interpreter.assign_struct_to_array_element(
+                    array_name, idx, ret.struct_value);
 
                 return;
             } else {

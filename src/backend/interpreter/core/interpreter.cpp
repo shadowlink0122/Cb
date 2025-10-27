@@ -1850,6 +1850,97 @@ void Interpreter::assign_string_element(const std::string &name, int64_t index,
     debug_msg(DebugMsgId::STRING_AFTER_REPLACE_DEBUG, var->str_value.c_str());
 }
 
+// v0.11.0 Week 3 Day 1: 構造体配列要素への代入
+void Interpreter::assign_struct_to_array_element(const std::string &array_name,
+                                                 int64_t index,
+                                                 const Variable &struct_value) {
+    debug_msg(DebugMsgId::INTERPRETER_STRUCT_REGISTERED,
+              "Assigning struct to array element: %s[%lld]",
+              array_name.c_str(), index);
+
+    // 配列変数を取得
+    Variable *array_var = find_variable(array_name);
+    if (!array_var) {
+        error_msg(DebugMsgId::UNDEFINED_ARRAY_ERROR, array_name.c_str());
+        throw std::runtime_error("Array not found: " + array_name);
+    }
+
+    if (!array_var->is_array) {
+        throw std::runtime_error("Not an array: " + array_name);
+    }
+
+    // 構造体配列の確認
+    if (array_var->type != TYPE_STRUCT && !array_var->is_struct) {
+        throw std::runtime_error("Not a struct array: " + array_name);
+    }
+
+    // 範囲チェック
+    if (index < 0 || index >= array_var->array_size) {
+        debug_msg(DebugMsgId::ARRAY_INDEX_OUT_OF_BOUNDS, index,
+                  array_var->array_size);
+        error_msg(DebugMsgId::ARRAY_OUT_OF_BOUNDS_ERROR, array_name.c_str());
+        throw std::runtime_error("Array index out of bounds");
+    }
+
+    // 構造体配列要素は個別の名前付き変数として保存されている
+    // 例: tasks[0], tasks[1], etc.
+    std::string element_name = array_name + "[" + std::to_string(index) + "]";
+    
+    // 既存の変数を探す
+    Variable *element_var = find_variable(element_name);
+    if (!element_var) {
+        // 変数が存在しない場合は作成（初期化されていない配列の場合）
+        current_scope().variables[element_name] = Variable();
+        element_var = &current_scope().variables[element_name];
+        element_var->type = TYPE_STRUCT;
+        element_var->is_struct = true;
+        element_var->struct_type_name = struct_value.struct_type_name;
+        
+        // 構造体定義に基づいてメンバー変数を作成
+        std::string resolved_type = type_manager_->resolve_typedef(struct_value.struct_type_name);
+        const StructDefinition *struct_def = find_struct_definition(resolved_type);
+        if (struct_def) {
+            for (const auto &member : struct_def->members) {
+                Variable member_var;
+                member_var.type = member.type;
+                member_var.is_unsigned = member.is_unsigned;
+                member_var.is_assigned = false;
+                
+                if (member.type == TYPE_STRUCT) {
+                    member_var.is_struct = true;
+                    member_var.struct_type_name = member.type_alias;
+                }
+                
+                element_var->struct_members[member.name] = member_var;
+                
+                // 個別のメンバー変数も作成（例: tasks[0].task_id）
+                std::string member_path = element_name + "." + member.name;
+                current_scope().variables[member_path] = member_var;
+            }
+        }
+    }
+    
+    // 構造体データをコピー
+    element_var->struct_members = struct_value.struct_members;
+    element_var->is_assigned = true;
+
+    // 各メンバー変数も更新（例: tasks[0].task_id）
+    for (const auto &member : struct_value.struct_members) {
+        std::string member_path = element_name + "." + member.first;
+        Variable *member_var = find_variable(member_path);
+        if (member_var) {
+            *member_var = member.second;
+        } else {
+            // メンバー変数が存在しない場合は作成
+            current_scope().variables[member_path] = member.second;
+        }
+    }
+
+    debug_msg(DebugMsgId::INTERPRETER_STRUCT_REGISTERED,
+              "Struct assigned to array element: %s[%lld]",
+              array_name.c_str(), index);
+}
+
 // print_value と print_formatted は薄いラッパーなので、
 // 呼び出し側で直接 output_manager_->method() を使用するよう変更予定
 // 現在は後方互換性のために残しています

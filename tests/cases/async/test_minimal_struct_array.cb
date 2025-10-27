@@ -1,0 +1,16 @@
+// 最小テスト: 構造体配列の代入
+
+struct Task {
+    int task_id;
+    int priority;
+};
+
+void main() {
+    Task[3] tasks;
+    
+    // 構造体リテラルの代入
+    tasks[0] = {42, 5};
+    
+    println("task_id = ", tasks[0].task_id);
+    println("priority = ", tasks[0].priority);
+}
