@@ -1,0 +1,29 @@
+// Test void* (generic pointer) functionality
+
+void* test_void_ptr_return() {
+    println("Returning void* (nullptr)");
+    return nullptr;
+}
+
+void test_void_ptr_param(void* ptr) {
+    println("Received void* parameter");
+}
+
+void main() {
+    println("=== Testing void* ===");
+    
+    // Test 1: void* return value
+    println("\nTest 1: void* return value");
+    void* ptr = test_void_ptr_return();
+    
+    // Test 2: void* parameter
+    println("\nTest 2: void* parameter");
+    test_void_ptr_param(ptr);
+    
+    // Test 3: nullptr assignment
+    println("\nTest 3: nullptr assignment");
+    void* null_ptr = nullptr;
+    println("Assigned nullptr to void* variable");
+    
+    println("\nvoid* test complete");
+}

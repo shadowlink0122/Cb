@@ -1,0 +1,52 @@
+// SystemAllocator - malloc/free wrapper for Cb
+// Part of Week 2: Allocator Implementation
+
+interface Allocator {
+    void* allocate(int size);
+    void deallocate(void* ptr);
+    int get_allocation_count();
+}
+
+struct SystemAllocator {
+    int allocation_count;
+    int deallocation_count;
+};
+
+impl Allocator for SystemAllocator {
+    void* allocate(int size) {
+        println("[SystemAllocator] Allocating %d bytes", size);
+        // Note: malloc() not available in Cb yet
+        // Returning nullptr for now
+        return nullptr;
+    }
+    
+    void deallocate(void* ptr) {
+        println("[SystemAllocator] Deallocating pointer");
+        // Note: free() not available in Cb yet
+    }
+    
+    int get_allocation_count() {
+        return 0;  // Placeholder
+    }
+}
+
+void test_system_allocator() {
+    println("=== Testing SystemAllocator ===");
+    
+    SystemAllocator alloc;
+    alloc.allocation_count = 0;
+    alloc.deallocation_count = 0;
+    
+    // Test allocation (simulated)
+    println("\nTest 1: Allocate 100 bytes");
+    void* ptr = alloc.allocate(100);
+    
+    println("\nTest 2: Deallocate");
+    alloc.deallocate(ptr);
+    
+    println("\nSystemAllocator test complete");
+}
+
+void main() {
+    test_system_allocator();
+}
