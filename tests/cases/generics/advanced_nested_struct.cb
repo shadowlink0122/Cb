@@ -1,0 +1,89 @@
+// ネストしたジェネリクス構造体の高度なテスト
+// Advanced nested generic struct test
+
+struct Inner<T> {
+    T data;
+};
+
+struct Outer<T> {
+    Inner<T> inner;
+    T direct;
+};
+
+struct Container<T> {
+    T value;
+    Container<T>* next;
+};
+
+struct Triple<T1, T2, T3> {
+    T1 first;
+    T2 second;
+    T3 third;
+};
+
+// ネストした構造体を扱う関数
+T get_inner_data<T>(Outer<T> outer) {
+    return outer.inner.data;
+}
+
+Outer<T> make_outer<T>(T value) {
+    Outer<T> result;
+    result.inner.data = value;
+    result.direct = value;
+    return result;
+}
+
+// 3つの型パラメータ
+T2 get_middle<T1, T2, T3>(Triple<T1, T2, T3> triple) {
+    return triple.second;
+}
+
+int main() {
+    println("=== Advanced Nested Generic Struct Test ===");
+    
+    // Test 1: ネストした構造体
+    Outer<int> outer1;
+    outer1.inner.data = 42;
+    outer1.direct = 43;
+    println("Outer<int>.inner.data:", outer1.inner.data);
+    println("Outer<int>.direct:", outer1.direct);
+    
+    // Test 2: 関数でネストした構造体を扱う
+    int inner_data = get_inner_data<int>(outer1);
+    println("get_inner_data<int>:", inner_data);
+    
+    // Test 3: make_outer関数
+    Outer<long> outer2 = make_outer<long>(999);
+    println("make_outer<long>.inner.data:", outer2.inner.data);
+    println("make_outer<long>.direct:", outer2.direct);
+    
+    // Test 4: 再帰的構造体
+    Container<int> cont1;
+    cont1.value = 10;
+    cont1.next = nullptr;
+    
+    Container<int> cont2;
+    cont2.value = 20;
+    cont2.next = &cont1;
+    
+    println("Container chain: ", cont2.value, " ->", cont2.next->value);
+    
+    // Test 5: 3つの型パラメータ
+    Triple<int, long, int> triple;
+    triple.first = 1;
+    triple.second = 2;
+    triple.third = 3;
+    long middle = get_middle<int, long, int>(triple);
+    println("Triple middle value:", middle);
+    
+    // Test 6: 複雑なネスト
+    Outer<long> outer3;
+    outer3.inner.data = 777;
+    outer3.direct = 888;
+    long nested_value = get_inner_data<long>(outer3);
+    println("Complex nested value:", nested_value);
+    
+    println("=== All Advanced Tests Passed ===");
+    
+    return 0;
+}

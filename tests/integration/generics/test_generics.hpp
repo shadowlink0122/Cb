@@ -256,7 +256,55 @@ void run_all_generics_tests() {
         }, execution_time);
     integration_test_passed_with_time("Generic Complex Types", "complex_types.cb", execution_time);
     
-    std::cout << "[integration-test] Generics tests completed (20 tests)" << std::endl;
+    // Test 21: Recursive Generic Struct
+    run_cb_test_with_output_and_time("../../tests/cases/generics/recursive_struct.cb",
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "recursive_struct.cb should execute successfully");
+            INTEGRATION_ASSERT_CONTAINS(output, "=== Recursive Generic Struct Test ===", "Expected test header");
+            INTEGRATION_ASSERT_CONTAINS(output, "Node 3 value: 30", "Expected node 3 value");
+            INTEGRATION_ASSERT_CONTAINS(output, "Node 2 value: 20", "Expected node 2 value");
+            INTEGRATION_ASSERT_CONTAINS(output, "Node 1 value: 10", "Expected node 1 value");
+            INTEGRATION_ASSERT_CONTAINS(output, "Long node 2 value: 200", "Expected long node 2 value");
+            INTEGRATION_ASSERT_CONTAINS(output, "Long node 1 value: 100", "Expected long node 1 value");
+            INTEGRATION_ASSERT_CONTAINS(output, "=== Recursive Generic Struct Test Passed ===", "Expected success message");
+        }, execution_time);
+    integration_test_passed_with_time("Recursive Generic Struct", "recursive_struct.cb", execution_time);
+    
+    // Test 22: Generic Struct as Function Parameter
+    run_cb_test_with_output_and_time("../../tests/cases/generics/struct_as_function_param.cb",
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "struct_as_function_param.cb should execute successfully");
+            INTEGRATION_ASSERT_CONTAINS(output, "=== Generic Struct as Function Parameter Test ===", "Expected test header");
+            INTEGRATION_ASSERT_CONTAINS(output, "Extracted from Box<int>: 42", "Expected extract<int> result");
+            INTEGRATION_ASSERT_CONTAINS(output, "Wrapped Box<long> value: 999", "Expected wrap_twice<long> result");
+            INTEGRATION_ASSERT_CONTAINS(output, "get_first<int, long>: 10", "Expected get_first result");
+            INTEGRATION_ASSERT_CONTAINS(output, "get_second<int, long>: 20", "Expected get_second result");
+            INTEGRATION_ASSERT_CONTAINS(output, "Swapped pair: ( 20 , 10 )", "Expected swap_pair result");
+            INTEGRATION_ASSERT_CONTAINS(output, "Box contains: 42", "Expected print_box result");
+            INTEGRATION_ASSERT_CONTAINS(output, "Pair: ( 10 , 20 )", "Expected print_pair result");
+            INTEGRATION_ASSERT_CONTAINS(output, "Nested call result: 123", "Expected nested call result");
+            INTEGRATION_ASSERT_CONTAINS(output, "=== All Tests Passed ===", "Expected success message");
+        }, execution_time);
+    integration_test_passed_with_time("Generic Struct as Function Parameter", "struct_as_function_param.cb", execution_time);
+    
+    // Test 23: Advanced Nested Generic Struct
+    run_cb_test_with_output_and_time("../../tests/cases/generics/advanced_nested_struct.cb",
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "advanced_nested_struct.cb should execute successfully");
+            INTEGRATION_ASSERT_CONTAINS(output, "=== Advanced Nested Generic Struct Test ===", "Expected test header");
+            INTEGRATION_ASSERT_CONTAINS(output, "Outer<int>.inner.data: 42", "Expected outer.inner.data");
+            INTEGRATION_ASSERT_CONTAINS(output, "Outer<int>.direct: 43", "Expected outer.direct");
+            INTEGRATION_ASSERT_CONTAINS(output, "get_inner_data<int>: 42", "Expected get_inner_data result");
+            INTEGRATION_ASSERT_CONTAINS(output, "make_outer<long>.inner.data: 0", "Expected make_outer inner.data");
+            INTEGRATION_ASSERT_CONTAINS(output, "make_outer<long>.direct: 999", "Expected make_outer direct");
+            INTEGRATION_ASSERT_CONTAINS(output, "Container chain:  20  -> 10", "Expected container chain");
+            INTEGRATION_ASSERT_CONTAINS(output, "Triple middle value: 2", "Expected triple middle value");
+            INTEGRATION_ASSERT_CONTAINS(output, "Complex nested value: 0", "Expected complex nested value");
+            INTEGRATION_ASSERT_CONTAINS(output, "=== All Advanced Tests Passed ===", "Expected success message");
+        }, execution_time);
+    integration_test_passed_with_time("Advanced Nested Generic Struct", "advanced_nested_struct.cb", execution_time);
+    
+    std::cout << "[integration-test] Generics tests completed (23 tests)" << std::endl;
 }
 
 } // namespace GenericsTests

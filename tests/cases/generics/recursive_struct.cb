@@ -1,0 +1,44 @@
+// 再帰的なジェネリクス構造体のテスト
+// Linked list using recursive generic struct
+
+struct Node<T> {
+    T value;
+    Node<T>* next;
+};
+
+int main() {
+    println("=== Recursive Generic Struct Test ===");
+    
+    // ノードの作成
+    Node<int> node1;
+    node1.value = 10;
+    node1.next = nullptr;
+    
+    Node<int> node2;
+    node2.value = 20;
+    node2.next = &node1;
+    
+    Node<int> node3;
+    node3.value = 30;
+    node3.next = &node2;
+    
+    println("Node 3 value:", node3.value);
+    println("Node 2 value:", node3.next->value);
+    println("Node 1 value:", node3.next->next->value);
+    
+    // long型でも同様に
+    Node<long> long_node1;
+    long_node1.value = 100;
+    long_node1.next = nullptr;
+    
+    Node<long> long_node2;
+    long_node2.value = 200;
+    long_node2.next = &long_node1;
+    
+    println("Long node 2 value:", long_node2.value);
+    println("Long node 1 value:", long_node2.next->value);
+    
+    println("=== Recursive Generic Struct Test Passed ===");
+    
+    return 0;
+}

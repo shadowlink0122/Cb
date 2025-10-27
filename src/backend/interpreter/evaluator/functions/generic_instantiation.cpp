@@ -2,6 +2,7 @@
 #include "../../../../common/ast.h"
 #include "../../../../common/debug.h"
 #include "../../../../common/type_alias.h"
+#include <algorithm>
 #include <iostream>
 #include <map>
 #include <memory>
@@ -15,6 +16,165 @@ namespace GenericInstantiation {
 // キー: "function_name<type1,type2,...>"
 // 値: インスタンス化されたASTノード
 static std::map<std::string, std::unique_ptr<ASTNode>> instantiation_cache;
+
+// 正規化されたジェネリック型名を置換（例: "Box_T" + {"T"->"int"} -> "Box_int"）
+static std::string substitute_normalized_generic_type(
+    const std::string &type_name,
+    const std::map<std::string, std::string> &type_map) {
+    
+    // '_'で分割して型パラメータを探す
+    // 例: "Box_T" -> ["Box", "T"]
+    //     "Pair_T1_T2" -> ["Pair", "T1", "T2"]
+    std::vector<std::string> parts;
+    std::string current_part;
+    
+    for (char c : type_name) {
+        if (c == '_') {
+            if (!current_part.empty()) {
+                parts.push_back(current_part);
+                current_part.clear();
+            }
+        } else {
+            current_part += c;
+        }
+    }
+    if (!current_part.empty()) {
+        parts.push_back(current_part);
+    }
+    
+    if (parts.empty()) {
+        return type_name;
+    }
+    
+    // 最初の部分は構造体名
+    std::string result = parts[0];
+    
+    // 残りの部分は型パラメータ
+    for (size_t i = 1; i < parts.size(); ++i) {
+        result += "_";
+        // 型パラメータを置換
+        auto it = type_map.find(parts[i]);
+        if (it != type_map.end()) {
+            result += it->second;
+        } else {
+            result += parts[i];
+        }
+    }
+    
+    return result;
+}
+
+// ジェネリック型名を正規化（例: "Box<int>" -> "Box_int"）
+static std::string normalize_generic_type_name(const std::string &type_name) {
+    std::string result = type_name;
+    
+    // '<'を'_'に、'>'を削除、','と空白を'_'に置換
+    for (char &c : result) {
+        if (c == '<' || c == ',' || c == ' ') {
+            c = '_';
+        } else if (c == '>') {
+            c = '\0';  // 削除マーク
+        }
+    }
+    
+    // '\0'（削除マーク）を削除
+    result.erase(std::remove(result.begin(), result.end(), '\0'), result.end());
+    
+    // 連続するアンダースコアを1つに
+    std::string normalized;
+    bool last_was_underscore = false;
+    for (char c : result) {
+        if (c == '_') {
+            if (!last_was_underscore) {
+                normalized += c;
+                last_was_underscore = true;
+            }
+        } else {
+            normalized += c;
+            last_was_underscore = false;
+        }
+    }
+    
+    // 末尾のアンダースコアを削除
+    while (!normalized.empty() && normalized.back() == '_') {
+        normalized.pop_back();
+    }
+    
+    return normalized;
+}
+
+// ジェネリック型名の型パラメータを置換するヘルパー関数
+// 例: "Box<T>" + {"T" -> "int"} => "Box<int>"
+static std::string substitute_generic_type_name(
+    const std::string &type_name,
+    const std::map<std::string, std::string> &type_map) {
+    
+    // '<' がない場合は通常の型名
+    size_t lt_pos = type_name.find('<');
+    if (lt_pos == std::string::npos) {
+        // 単純な型パラメータの置換
+        auto it = type_map.find(type_name);
+        if (it != type_map.end()) {
+            return it->second;
+        }
+        return type_name;
+    }
+    
+    // ジェネリック型名: "Box<T>" や "Pair<T1, T2>"
+    std::string base_name = type_name.substr(0, lt_pos);
+    size_t gt_pos = type_name.rfind('>');
+    if (gt_pos == std::string::npos) {
+        return type_name; // 不正な形式
+    }
+    
+    std::string type_params_str = type_name.substr(lt_pos + 1, gt_pos - lt_pos - 1);
+    
+    // 型パラメータをカンマで分割
+    std::vector<std::string> type_params;
+    std::string current_param;
+    int depth = 0;
+    
+    for (char c : type_params_str) {
+        if (c == '<') {
+            depth++;
+            current_param += c;
+        } else if (c == '>') {
+            depth--;
+            current_param += c;
+        } else if (c == ',' && depth == 0) {
+            // トリム
+            size_t start = current_param.find_first_not_of(" \t");
+            size_t end = current_param.find_last_not_of(" \t");
+            if (start != std::string::npos) {
+                type_params.push_back(current_param.substr(start, end - start + 1));
+            }
+            current_param.clear();
+        } else {
+            current_param += c;
+        }
+    }
+    
+    // 最後のパラメータを追加
+    if (!current_param.empty()) {
+        size_t start = current_param.find_first_not_of(" \t");
+        size_t end = current_param.find_last_not_of(" \t");
+        if (start != std::string::npos) {
+            type_params.push_back(current_param.substr(start, end - start + 1));
+        }
+    }
+    
+    // 各型パラメータを置換
+    std::string result = base_name + "<";
+    for (size_t i = 0; i < type_params.size(); ++i) {
+        if (i > 0) result += ", ";
+        
+        // 再帰的に置換（ネストしたジェネリクスのため）
+        result += substitute_generic_type_name(type_params[i], type_map);
+    }
+    result += ">";
+    
+    return result;
+}
 
 // キャッシュキーを生成
 std::string generate_cache_key(const std::string &function_name,
@@ -127,30 +287,93 @@ void substitute_type_parameters(
 
     // 型名の置換
     if (!node->type_name.empty()) {
-        auto it = type_map.find(node->type_name);
-        if (it != type_map.end()) {
-            node->type_name = it->second;
-            // 型情報も更新
-            node->type_info = parse_type_from_string(it->second);
+        std::string substituted;
+        
+        // 正規化済みのジェネリック型名 (例: Box_T) または通常のジェネリック型名 (例: Box<T>)
+        if (node->type_name.find('<') != std::string::npos) {
+            // Box<T> 形式
+            substituted = substitute_generic_type_name(node->type_name, type_map);
+            if (substituted != node->type_name) {
+                node->type_name = substituted;
+                // ジェネリック型名を正規化 (例: Box<int> -> Box_int)
+                if (substituted.find('<') != std::string::npos) {
+                    node->type_name = normalize_generic_type_name(substituted);
+                }
+            }
+        } else if (node->type_name.find('_') != std::string::npos) {
+            // Box_T 形式（既に正規化済み）
+            substituted = substitute_normalized_generic_type(node->type_name, type_map);
+            if (substituted != node->type_name) {
+                node->type_name = substituted;
+            }
+        } else {
+            // 単純な型パラメータ (例: T)
+            substituted = substitute_generic_type_name(node->type_name, type_map);
+            if (substituted != node->type_name) {
+                node->type_name = substituted;
+            }
+        }
+        
+        // 基本型の場合のみtype_infoを更新
+        if (!node->type_name.empty() && 
+            node->type_name.find('<') == std::string::npos &&
+            node->type_name.find('_') == std::string::npos) {
+            node->type_info = parse_type_from_string(node->type_name);
         }
     }
 
     // 戻り値型の置換
     if (!node->return_type_name.empty()) {
-        auto it = type_map.find(node->return_type_name);
-        if (it != type_map.end()) {
-            node->return_type_name = it->second;
-            // 戻り値型情報はtype_infoで管理（関数宣言の場合）
+        std::string substituted;
+        if (node->return_type_name.find('<') != std::string::npos) {
+            substituted = substitute_generic_type_name(node->return_type_name, type_map);
+            if (substituted != node->return_type_name) {
+                node->return_type_name = substituted;
+                if (substituted.find('<') != std::string::npos) {
+                    node->return_type_name = normalize_generic_type_name(substituted);
+                }
+            }
+        } else if (node->return_type_name.find('_') != std::string::npos) {
+            substituted = substitute_normalized_generic_type(node->return_type_name, type_map);
+            if (substituted != node->return_type_name) {
+                node->return_type_name = substituted;
+            }
+        } else {
+            substituted = substitute_generic_type_name(node->return_type_name, type_map);
+            if (substituted != node->return_type_name) {
+                node->return_type_name = substituted;
+            }
         }
     }
 
     // ポインタベース型の置換
     if (!node->pointer_base_type_name.empty()) {
-        auto it = type_map.find(node->pointer_base_type_name);
-        if (it != type_map.end()) {
-            node->pointer_base_type_name = it->second;
-            // ポインタベース型情報も更新
-            node->pointer_base_type = parse_type_from_string(it->second);
+        std::string substituted;
+        if (node->pointer_base_type_name.find('<') != std::string::npos) {
+            substituted = substitute_generic_type_name(node->pointer_base_type_name, type_map);
+            if (substituted != node->pointer_base_type_name) {
+                node->pointer_base_type_name = substituted;
+                if (substituted.find('<') != std::string::npos) {
+                    node->pointer_base_type_name = normalize_generic_type_name(substituted);
+                }
+            }
+        } else if (node->pointer_base_type_name.find('_') != std::string::npos) {
+            substituted = substitute_normalized_generic_type(node->pointer_base_type_name, type_map);
+            if (substituted != node->pointer_base_type_name) {
+                node->pointer_base_type_name = substituted;
+            }
+        } else {
+            substituted = substitute_generic_type_name(node->pointer_base_type_name, type_map);
+            if (substituted != node->pointer_base_type_name) {
+                node->pointer_base_type_name = substituted;
+            }
+        }
+        
+        // 基本型の場合のみtype_infoを更新
+        if (!node->pointer_base_type_name.empty() &&
+            node->pointer_base_type_name.find('<') == std::string::npos &&
+            node->pointer_base_type_name.find('_') == std::string::npos) {
+            node->pointer_base_type = parse_type_from_string(node->pointer_base_type_name);
         }
     }
 
