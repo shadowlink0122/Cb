@@ -1,0 +1,48 @@
+// Test 9: Multiple type parameters with same interface
+// Expected: Both parameters implement the same interface
+
+interface Allocator {
+    void* allocate(int size);
+    void deallocate(void* ptr);
+}
+
+struct Allocator1 {
+    int id1;
+};
+
+struct Allocator2 {
+    int id2;
+};
+
+impl Allocator for Allocator1 {
+    void* allocate(int size) {
+        println("Allocator1.allocate(%d)", size);
+        return nullptr;
+    }
+    
+    void deallocate(void* ptr) {
+        println("Allocator1.deallocate()");
+    }
+}
+
+impl Allocator for Allocator2 {
+    void* allocate(int size) {
+        println("Allocator2.allocate(%d)", size);
+        return nullptr;
+    }
+    
+    void deallocate(void* ptr) {
+        println("Allocator2.deallocate()");
+    }
+}
+
+// 両方のパラメータが同じインターフェースを実装
+struct BiAllocator<A1: Allocator, A2: Allocator> {
+    int size;
+};
+
+void main() {
+    BiAllocator<Allocator1, Allocator2> ba;
+    ba.size = 100;
+    println("Same interface for multiple params: size=%d", ba.size);
+}

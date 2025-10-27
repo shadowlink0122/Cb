@@ -1,0 +1,34 @@
+// Test 7: Forward declaration with interface bounds
+// Expected: Parse and type check successfully
+
+interface Allocator {
+    void* allocate(int size);
+    void deallocate(void* ptr);
+}
+
+// 前方宣言 with bounds
+struct Vector<T, A: Allocator>;
+
+struct SystemAllocator {};
+
+impl Allocator for SystemAllocator {
+    void* allocate(int size) {
+        println("SystemAllocator.allocate(%d)", size);
+        return nullptr;
+    }
+    
+    void deallocate(void* ptr) {
+        println("SystemAllocator.deallocate()");
+    }
+}
+
+// 完全定義
+struct Vector<T, A: Allocator> {
+    int capacity;
+};
+
+void main() {
+    Vector<int, SystemAllocator> vec;
+    vec.capacity = 100;
+    println("Forward declaration with bounds: OK (capacity=%d)", vec.capacity);
+}

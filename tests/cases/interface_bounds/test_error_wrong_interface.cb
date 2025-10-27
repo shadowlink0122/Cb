@@ -1,0 +1,33 @@
+// Test 11: Error - Wrong interface
+// Expected: Type check error for implementing wrong interface
+
+interface Allocator {
+    void* allocate(int size);
+    void deallocate(void* ptr);
+}
+
+interface Iterator {
+    bool has_next();
+    int next();
+}
+
+struct MyIterator {};
+
+impl Iterator for MyIterator {
+    bool has_next() {
+        return false;
+    }
+    
+    int next() {
+        return 0;
+    }
+}
+
+struct Vector<T, A: Allocator> {
+    int capacity;
+};
+
+void main() {
+    Vector<int, MyIterator> vec;  // エラー期待: IteratorではなくAllocatorが必要
+    println("This should not execute");
+}
