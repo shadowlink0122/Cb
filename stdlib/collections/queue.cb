@@ -1,0 +1,13 @@
+// Queue<T> - Generic Queue Interface
+// Part of v0.11.0 Week 3 Day 1: Event Loop Implementation
+//
+// モダンなC++/Rustスタイルのキューインターフェース
+// push, pop, top, is_empty, size などの標準的なメソッドを提供
+
+interface Queue<T> {
+    void push(T& item);
+    T pop();
+    T& top();
+    bool is_empty();
+    int size();
+}

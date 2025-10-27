@@ -1,0 +1,176 @@
+// TaskQueue - Priority-based Task Queue with Dynamic Array
+// Part of v0.11.0 Week 3 Day 1: Event Loop Implementation
+//
+// Vector<T, A: Allocator>ベースの優先度付きタスクキュー
+// interface/implパターンでモダンなAPI設計
+
+// Task定義
+struct Task {
+    int task_id;
+    int priority;      // 0 = highest priority
+    int callback_type;
+    void* data;
+};
+
+// Allocatorインターフェース（stdlib/collections/vector.cbから）
+interface Allocator {
+    void* allocate(int size);
+    void deallocate(void* ptr);
+}
+
+struct SystemAllocator {
+    int allocation_count;
+};
+
+impl Allocator for SystemAllocator {
+    void* allocate(int size) {
+        return nullptr;  // プレースホルダー
+    }
+    
+    void deallocate(void* ptr) {
+        // プレースホルダー
+    }
+}
+
+// Vector<T, A>（簡易版 - Task専用）
+struct TaskVector<A: Allocator> {
+    int capacity;
+    int length;
+    Task[100] data;  // 固定サイズ配列（将来的に動的確保）
+};
+
+// TaskQueue - 優先度付きキュー
+struct TaskQueue<A: Allocator> {
+    TaskVector<A> tasks;
+    int next_id;
+};
+
+// Queue<Task>インターフェースの実装
+// Note: 現在interfaceのジェネリック実装は制限があるため、
+// 直接メソッドを定義
+
+// TaskQueue操作
+void init(TaskQueue<SystemAllocator>& queue) {
+    queue.tasks.length = 0;
+    queue.tasks.capacity = 100;
+    queue.next_id = 1;
+}
+
+void push(TaskQueue<SystemAllocator>& queue, Task& task) {
+    if (queue.tasks.length >= queue.tasks.capacity) {
+        println("[TaskQueue] Queue full! Cannot push task %d", task.task_id);
+        return;
+    }
+    
+    // 末尾に追加
+    int idx = queue.tasks.length;
+    queue.tasks.data[idx].task_id = task.task_id;
+    queue.tasks.data[idx].priority = task.priority;
+    queue.tasks.data[idx].callback_type = task.callback_type;
+    queue.tasks.data[idx].data = task.data;
+    queue.tasks.length = queue.tasks.length + 1;
+    
+    // 優先度順にソート（挿入ソート）
+    int i = queue.tasks.length - 1;
+    while (i > 0) {
+        int curr_priority = queue.tasks.data[i].priority;
+        int prev_priority = queue.tasks.data[i - 1].priority;
+        
+        if (curr_priority < prev_priority) {
+            // 交換
+            Task temp;
+            temp.task_id = queue.tasks.data[i].task_id;
+            temp.priority = queue.tasks.data[i].priority;
+            temp.callback_type = queue.tasks.data[i].callback_type;
+            temp.data = queue.tasks.data[i].data;
+            
+            queue.tasks.data[i].task_id = queue.tasks.data[i - 1].task_id;
+            queue.tasks.data[i].priority = queue.tasks.data[i - 1].priority;
+            queue.tasks.data[i].callback_type = queue.tasks.data[i - 1].callback_type;
+            queue.tasks.data[i].data = queue.tasks.data[i - 1].data;
+            
+            queue.tasks.data[i - 1].task_id = temp.task_id;
+            queue.tasks.data[i - 1].priority = temp.priority;
+            queue.tasks.data[i - 1].callback_type = temp.callback_type;
+            queue.tasks.data[i - 1].data = temp.data;
+            
+            i = i - 1;
+        } else {
+            i = 0;  // 終了
+        }
+    }
+}
+
+Task pop(TaskQueue<SystemAllocator>& queue) {
+    Task result;
+    
+    if (queue.tasks.length <= 0) {
+        result.task_id = -1;
+        result.priority = 999;
+        result.callback_type = -1;
+        result.data = nullptr;
+        return result;
+    }
+    
+    // 先頭を取得
+    result.task_id = queue.tasks.data[0].task_id;
+    result.priority = queue.tasks.data[0].priority;
+    result.callback_type = queue.tasks.data[0].callback_type;
+    result.data = queue.tasks.data[0].data;
+    
+    // 配列を前に詰める
+    int i = 0;
+    while (i < queue.tasks.length - 1) {
+        queue.tasks.data[i].task_id = queue.tasks.data[i + 1].task_id;
+        queue.tasks.data[i].priority = queue.tasks.data[i + 1].priority;
+        queue.tasks.data[i].callback_type = queue.tasks.data[i + 1].callback_type;
+        queue.tasks.data[i].data = queue.tasks.data[i + 1].data;
+        i = i + 1;
+    }
+    
+    queue.tasks.length = queue.tasks.length - 1;
+    return result;
+}
+
+Task& top(TaskQueue<SystemAllocator>& queue) {
+    return queue.tasks.data[0];
+}
+
+bool is_empty(TaskQueue<SystemAllocator>& queue) {
+    return queue.tasks.length <= 0;
+}
+
+int size(TaskQueue<SystemAllocator>& queue) {
+    return queue.tasks.length;
+}
+
+// Task作成ヘルパー
+Task create_task(int id, int priority, int callback_type) {
+    Task t;
+    t.task_id = id;
+    t.priority = priority;
+    t.callback_type = callback_type;
+    t.data = nullptr;
+    return t;
+}
+
+// デバッグ用
+void print_task(Task& t) {
+    println("  Task(id=%d, priority=%d, callback=%d)", 
+            t.task_id, t.priority, t.callback_type);
+}
+
+void print_queue(TaskQueue<SystemAllocator>& queue) {
+    println("[TaskQueue] size=%d, capacity=%d", 
+            queue.tasks.length, queue.tasks.capacity);
+    
+    if (queue.tasks.length > 0) {
+        println("  Tasks (priority order):");
+        int i = 0;
+        while (i < queue.tasks.length) {
+            Task t = queue.tasks.data[i];
+            print_task(t);
+            i = i + 1;
+        }
+    }
+}

@@ -229,9 +229,83 @@ void vector_resize_int_system(Vector<int, SystemAllocator>& vec, int new_capacit
 - Memory growth scenarios
 - Allocator stress tests
 
-## Week 3 Preview
+## Week 2 Completion Summary
 
-### Critical Parser Extensions
+### Week 2 Achievements ✅
+1. **Day 1: Allocator Trait** (100%)
+   - SystemAllocator (malloc/free wrapper)
+   - BumpAllocator (linear allocator)
+   - Vector<T, A: Allocator> structure
+   - Vector operations (push, pop, resize)
+   - Tests: All passing
+
+2. **Day 2: Type Casting** (100%)
+   - `as` operator for explicit type casts
+   - Primitive type conversions (int ↔ float ↔ double)
+   - Pointer type casting
+   - Struct/interface up/down casting
+   - Tests: All passing
+
+3. **Day 3: Pointer Array Access** (100%)
+   - Int pointer arrays: `ptr[0]` read/write ✅
+   - Float/Double pointer arrays with type preservation ✅
+   - Struct pointer arrays: `ptr[0]->member` ✅
+   - ReturnException-based type propagation ✅
+   - Tests: All passing
+
+### Technical Achievements
+
+#### Type Preservation System
+- **Problem**: Float/double values lost type information through int64_t
+- **Solution**: ReturnException with TYPE_FLOAT/TYPE_DOUBLE
+- **Result**: Correct type propagation throughout evaluation
+
+#### Zero-Cost Abstraction
+- Interface bounds provide compile-time polymorphism
+- No virtual functions or runtime overhead
+- Static dispatch for all allocator operations
+
+#### Pointer Metadata System
+- `array_name` field enables struct array element lookup
+- Metadata pointer (negative int64_t) vs direct pointer
+- Seamless integration with existing pointer infrastructure
+
+## Week 3 Preview: Event Loop Foundation
+
+### Phase 1 Week 1: Event Loop Core
+With Allocator infrastructure complete, we can now build:
+
+1. **Task Queue**
+   ```cb
+   struct Task {
+       void* callback;
+       int task_id;
+       int priority;
+   };
+   
+   struct TaskQueue<A: Allocator> {
+       Vector<Task, A> tasks;
+   };
+   ```
+
+2. **Event Loop**
+   ```cb
+   struct EventLoop<A: Allocator> {
+       TaskQueue<A> pending_tasks;
+       bool is_running;
+   };
+   
+   void event_loop_run(EventLoop<A>& loop);
+   void event_loop_schedule(EventLoop<A>& loop, Task task);
+   ```
+
+3. **Timer System**
+   ```cb
+   void sleep_ms(int milliseconds);
+   void set_timeout(int ms, void* callback);
+   ```
+
+### Critical Parser Extensions (Week 3)
 1. **Function Type Parameter Bounds**
    ```cb
    void vector_init<T, A: Allocator>(Vector<T, A>& vec);
@@ -249,27 +323,22 @@ void vector_resize_int_system(Vector<int, SystemAllocator>& vec, int new_capacit
    };
    ```
 
-### Event Loop Foundation
-With Vector<T, A> complete, we can build:
-- Queue<T, A>: FIFO for task scheduling
-- Stack<T, A>: LIFO for call stacks
-- EventLoop: Using Queue<Task, BumpAllocator>
-
 ## Success Metrics
 
-### Week 2 Goals
-- ✅ Create 2+ allocator implementations
-- ✅ Implement Vector<T, A: Allocator>
+### Week 2 Goals ✅ 100% Complete
+- ✅ Create 2+ allocator implementations (SystemAllocator, BumpAllocator)
+- ✅ Implement Vector<T, A: Allocator> with operations
 - ✅ Demonstrate zero-cost abstraction
-- 🔵 Vector operations (in progress)
+- ✅ Type casting system (`as` operator)
+- ✅ Pointer array access (all types)
 
 ### Overall Progress
 - Week 1: Interface bounds foundation (100% complete)
-- Week 2: Allocator implementation (60% complete)
-  - ✅ Allocators created
-  - ✅ Vector structure created
-  - ⚪ Vector operations pending
-- Week 3: Event Loop (0% - planned)
+- Week 2: Allocator + Casting + Pointers (100% complete)
+  - ✅ Day 1: Allocators & Vector
+  - ✅ Day 2: Type Casting
+  - ✅ Day 3: Pointer Array Access
+- Week 3: Event Loop (Ready to start)
 
 ## Technical Validation
 

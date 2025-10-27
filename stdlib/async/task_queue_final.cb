@@ -1,0 +1,117 @@
+// TaskQueue - 優先度付きタスクキュー
+// Part of v0.11.0 Week 3 Day 1: Event Loop Implementation
+//
+// 並列配列実装を使用（Cbの構造体配列の制限を回避）
+// 優先度順（priority値が小さいほど高優先度）にタスクを管理
+
+struct Task {
+    int task_id;
+    int priority;
+    int callback_type;
+    void* data;
+};
+
+struct TaskQueue {
+    // Parallel arrays to store task fields
+    int[100] task_ids;
+    int[100] priorities;
+    int[100] callback_types;
+    void*[100] data_ptrs;
+    int length;
+    int capacity;
+};
+
+// Initialize empty queue
+void init(TaskQueue& queue) {
+    queue.length = 0;
+    queue.capacity = 100;
+}
+
+// Push task maintaining priority order
+void push(TaskQueue& queue, Task& task) {
+    if (queue.length >= queue.capacity) {
+        return;
+    }
+    
+    // Add to end
+    int idx = queue.length;
+    queue.task_ids[idx] = task.task_id;
+    queue.priorities[idx] = task.priority;
+    queue.callback_types[idx] = task.callback_type;
+    queue.data_ptrs[idx] = task.data;
+    queue.length = queue.length + 1;
+    
+    // Insertion sort to maintain priority order
+    int i = queue.length - 1;
+    while (i > 0) {
+        int curr_pr = queue.priorities[i];
+        int prev_pr = queue.priorities[i - 1];
+        
+        if (curr_pr < prev_pr) {
+            // Swap all parallel array elements
+            int temp_id = queue.task_ids[i];
+            int temp_pr = queue.priorities[i];
+            int temp_cb = queue.callback_types[i];
+            void* temp_data = queue.data_ptrs[i];
+            
+            queue.task_ids[i] = queue.task_ids[i - 1];
+            queue.priorities[i] = queue.priorities[i - 1];
+            queue.callback_types[i] = queue.callback_types[i - 1];
+            queue.data_ptrs[i] = queue.data_ptrs[i - 1];
+            
+            queue.task_ids[i - 1] = temp_id;
+            queue.priorities[i - 1] = temp_pr;
+            queue.callback_types[i - 1] = temp_cb;
+            queue.data_ptrs[i - 1] = temp_data;
+            
+            i = i - 1;
+        } else {
+            i = 0;
+        }
+    }
+}
+
+// Pop highest priority task
+Task pop(TaskQueue& queue) {
+    if (queue.length <= 0) {
+        Task invalid = {-1, 999, -1, nullptr};
+        return invalid;
+    }
+    
+    // Get first element using literal initialization
+    Task result = {
+        queue.task_ids[0],
+        queue.priorities[0],
+        queue.callback_types[0],
+        queue.data_ptrs[0]
+    };
+    
+    // Shift arrays forward
+    int i = 0;
+    while (i < queue.length - 1) {
+        queue.task_ids[i] = queue.task_ids[i + 1];
+        queue.priorities[i] = queue.priorities[i + 1];
+        queue.callback_types[i] = queue.callback_types[i + 1];
+        queue.data_ptrs[i] = queue.data_ptrs[i + 1];
+        i = i + 1;
+    }
+    
+    queue.length = queue.length - 1;
+    return result;
+}
+
+// Check if queue is empty
+bool is_empty(TaskQueue& queue) {
+    return queue.length <= 0;
+}
+
+// Get current size
+int size(TaskQueue& queue) {
+    return queue.length;
+}
+
+// Helper: Create task using literal initialization
+Task create_task(int id, int priority, int callback_type) {
+    Task task = {id, priority, callback_type, nullptr};
+    return task;
+}

@@ -1,0 +1,134 @@
+// TaskQueue - 理想的な実装（インタプリタ修正後に使用）
+// 構造体配列への代入が正しく動作することを前提
+//
+// 注意: 現在のCbインタプリタではこのコードは動作しません
+// 構造体配列への代入（tasks[i] = task）が実装されていないため
+// 
+// このファイルは将来の参照用です
+
+struct Task {
+    int task_id;
+    int priority;
+    int callback_type;
+    void* data;
+};
+
+struct TaskQueue {
+    Task[100] tasks;  // ✅ 構造体配列を直接使用
+    int length;
+    int capacity;
+};
+
+// Initialize empty queue
+void init(TaskQueue& queue) {
+    queue.length = 0;
+    queue.capacity = 100;
+}
+
+// Push task maintaining priority order
+void push(TaskQueue& queue, Task& task) {
+    if (queue.length >= queue.capacity) {
+        return;
+    }
+    
+    // 構造体を配列に直接代入
+    queue.tasks[queue.length] = task;
+    queue.length = queue.length + 1;
+    
+    // Insertion sort to maintain priority order
+    int i = queue.length - 1;
+    while (i > 0) {
+        // 配列要素のメンバーに直接アクセス
+        if (queue.tasks[i].priority < queue.tasks[i - 1].priority) {
+            // 構造体全体をスワップ
+            Task temp = queue.tasks[i];
+            queue.tasks[i] = queue.tasks[i - 1];
+            queue.tasks[i - 1] = temp;
+            i = i - 1;
+        } else {
+            i = 0;
+        }
+    }
+}
+
+// Pop highest priority task
+Task pop(TaskQueue& queue) {
+    if (queue.length <= 0) {
+        return {-1, 999, -1, nullptr};
+    }
+    
+    // 配列から構造体を直接取得
+    Task result = queue.tasks[0];
+    
+    // Shift array forward
+    int i = 0;
+    while (i < queue.length - 1) {
+        queue.tasks[i] = queue.tasks[i + 1];
+        i = i + 1;
+    }
+    
+    queue.length = queue.length - 1;
+    return result;
+}
+
+// Check if queue is empty
+bool is_empty(TaskQueue& queue) {
+    return queue.length <= 0;
+}
+
+// Get current size
+int size(TaskQueue& queue) {
+    return queue.length;
+}
+
+// Helper: Create task
+Task create_task(int id, int priority, int callback_type) {
+    Task task = {id, priority, callback_type, nullptr};
+    return task;
+}
+
+// Peek at highest priority task without removing
+Task& peek(TaskQueue& queue) {
+    return queue.tasks[0];
+}
+
+// Clear all tasks
+void clear(TaskQueue& queue) {
+    queue.length = 0;
+}
+
+// Get task at specific index (for debugging)
+Task& get_at(TaskQueue& queue, int index) {
+    return queue.tasks[index];
+}
+
+void main() {
+    println("╔════════════════════════════════════════════════════════════╗");
+    println("║  TaskQueue Ideal Implementation (requires interpreter fix) ║");
+    println("╚════════════════════════════════════════════════════════════╝\n");
+    
+    println("⚠️  This implementation requires struct array assignment support");
+    println("⚠️  Current interpreter does not support: tasks[i] = task\n");
+    
+    // Test would go here...
+    // Currently will fail at first push() call
+    
+    TaskQueue queue;
+    init(queue);
+    
+    println("Initialized queue: length=", queue.length);
+    
+    Task t1 = create_task(1, 5, 0);
+    println("\nAttempting to push task (will fail)...");
+    push(queue, t1);
+    
+    println("After push: length=", queue.length);
+    
+    if (queue.length > 0) {
+        println("✅ Struct array assignment works!");
+        println("Task in queue: id=", queue.tasks[0].task_id);
+    } else {
+        println("❌ Struct array assignment failed (as expected)");
+        println("Please fix interpreter to support: tasks[i] = task");
+    }
+}

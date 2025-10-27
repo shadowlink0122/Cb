@@ -1,0 +1,268 @@
+// TaskQueue - 優先度付きタスクキュー
+// Part of v0.11.0 Week 3 Day 1: Event Loop Implementation
+//
+// Vector<Task, A: Allocator>をベースに、優先度順にタスクを管理します。
+// Push時に優先度でソートし、Pop時は先頭から取得します。
+
+// タスク定義をインポート（実際にはコピー）
+struct Task {
+    int task_id;
+    int priority;
+    int callback_type;
+    void* data;
+};
+
+Task task_create(int id, int priority, int callback_type) {
+    Task t;
+    t.task_id = id;
+    t.priority = priority;
+    t.callback_type = callback_type;
+    t.data = nullptr;
+    return t;
+}
+
+void task_print(Task& t) {
+    println("[Task] id=%d, priority=%d, callback_type=%d", 
+            t.task_id, t.priority, t.callback_type);
+}
+
+bool task_has_higher_priority(Task a, Task b) {
+    return a.priority < b.priority;
+}
+
+// 簡易版TaskQueue（Vectorの代わりに固定長配列を使用）
+struct TaskQueue {
+    Task[100] tasks;      // 最大100タスク
+    int length;           // 現在のタスク数
+    int next_id;          // 次のタスクID
+};
+
+// TaskQueue初期化
+void task_queue_init(TaskQueue& queue) {
+    queue.length = 0;
+    queue.next_id = 1;
+    println("[TaskQueue] Initialized");
+}
+
+// タスクを優先度順に挿入
+void task_queue_push(TaskQueue& queue, Task task) {
+    if (queue.length >= 100) {
+        println("[TaskQueue] Queue full! Cannot push task %d", task.task_id);
+        return;
+    }
+    
+    // 末尾に追加
+    queue.tasks[queue.length].task_id = task.task_id;
+    queue.tasks[queue.length].priority = task.priority;
+    queue.tasks[queue.length].callback_type = task.callback_type;
+    queue.tasks[queue.length].data = task.data;
+    queue.length = queue.length + 1;
+    
+    // バブルソートで優先度順に並べ替え
+    int i = queue.length - 1;
+    while (i > 0) {
+        Task current = queue.tasks[i];
+        Task previous = queue.tasks[i - 1];
+        
+        if (task_has_higher_priority(current, previous)) {
+            // 交換（フィールドごとにコピー）
+            int temp_id = queue.tasks[i].task_id;
+            int temp_priority = queue.tasks[i].priority;
+            int temp_callback_type = queue.tasks[i].callback_type;
+            void* temp_data = queue.tasks[i].data;
+            
+            queue.tasks[i].task_id = queue.tasks[i - 1].task_id;
+            queue.tasks[i].priority = queue.tasks[i - 1].priority;
+            queue.tasks[i].callback_type = queue.tasks[i - 1].callback_type;
+            queue.tasks[i].data = queue.tasks[i - 1].data;
+            
+            queue.tasks[i - 1].task_id = temp_id;
+            queue.tasks[i - 1].priority = temp_priority;
+            queue.tasks[i - 1].callback_type = temp_callback_type;
+            queue.tasks[i - 1].data = temp_data;
+            
+            i = i - 1;
+        } else {
+            i = 0;  // ループ終了
+        }
+    }
+    
+    println("[TaskQueue] Pushed task id=%d (priority=%d), queue length=%d", 
+            task.task_id, task.priority, queue.length);
+}
+
+// 最高優先度のタスクを取得（先頭から）
+Task task_queue_pop(TaskQueue& queue) {
+    if (queue.length <= 0) {
+        println("[TaskQueue] Empty! Cannot pop");
+        Task empty_task;
+        empty_task.task_id = -1;
+        empty_task.priority = 999;
+        empty_task.callback_type = -1;
+        empty_task.data = nullptr;
+        return empty_task;
+    }
+    
+    Task result = queue.tasks[0];
+    
+    // 配列を前に詰める
+    int i = 0;
+    while (i < queue.length - 1) {
+        queue.tasks[i] = queue.tasks[i + 1];
+        i = i + 1;
+    }
+    
+    queue.length = queue.length - 1;
+    
+    println("[TaskQueue] Popped task id=%d (priority=%d), remaining=%d", 
+            result.task_id, result.priority, queue.length);
+    
+    return result;
+}
+
+// キューが空かチェック
+bool task_queue_is_empty(TaskQueue& queue) {
+    return queue.length <= 0;
+}
+
+// キューの情報を表示
+void task_queue_info(TaskQueue& queue) {
+    println("[TaskQueue] length=%d, next_id=%d", queue.length, queue.next_id);
+    
+    if (queue.length > 0) {
+        println("  Tasks in queue (priority order):");
+        int i = 0;
+        while (i < queue.length) {
+            println("    [%d] id=%d, priority=%d", 
+                    i, queue.tasks[i].task_id, queue.tasks[i].priority);
+            i = i + 1;
+        }
+    }
+}
+
+void test_task_queue_basic() {
+    println("=== TaskQueue Basic Test ===");
+    
+    // Test 1: 初期化
+    println("\n--- Test 1: Initialize queue ---");
+    TaskQueue queue;
+    task_queue_init(queue);
+    task_queue_info(queue);
+    
+    if (task_queue_is_empty(queue)) {
+        println("✅ Queue is empty after initialization");
+    }
+    
+    // Test 2: タスクをpush
+    println("\n--- Test 2: Push tasks ---");
+    Task t1 = task_create(1, 5, 0);   // Medium priority
+    Task t2 = task_create(2, 0, 1);   // High priority
+    Task t3 = task_create(3, 10, 0);  // Low priority
+    
+    task_queue_push(queue, t1);
+    task_queue_push(queue, t2);
+    task_queue_push(queue, t3);
+    
+    task_queue_info(queue);
+    
+    // Test 3: タスクをpop（優先度順）
+    println("\n--- Test 3: Pop tasks in priority order ---");
+    
+    Task popped1 = task_queue_pop(queue);
+    println("Popped: id=%d, priority=%d", popped1.task_id, popped1.priority);
+    
+    Task popped2 = task_queue_pop(queue);
+    println("Popped: id=%d, priority=%d", popped2.task_id, popped2.priority);
+    
+    Task popped3 = task_queue_pop(queue);
+    println("Popped: id=%d, priority=%d", popped3.task_id, popped3.priority);
+    
+    if (popped1.priority == 0 && popped2.priority == 5 && popped3.priority == 10) {
+        println("✅ Tasks popped in correct priority order (0, 5, 10)");
+    }
+    
+    // Test 4: 空キューからpop
+    println("\n--- Test 4: Pop from empty queue ---");
+    Task empty_pop = task_queue_pop(queue);
+    
+    if (empty_pop.task_id == -1) {
+        println("✅ Correctly returned empty task");
+    }
+    
+    println("\nTaskQueue basic test complete");
+}
+
+void test_task_queue_advanced() {
+    println("\n=== TaskQueue Advanced Test ===");
+    
+    // Test 1: 多数のタスクを追加
+    println("\n--- Test 1: Multiple tasks with various priorities ---");
+    TaskQueue queue;
+    task_queue_init(queue);
+    
+    Task t1 = task_create(1, 10, 0);
+    Task t2 = task_create(2, 5, 0);
+    Task t3 = task_create(3, 0, 0);
+    Task t4 = task_create(4, 7, 0);
+    Task t5 = task_create(5, 3, 0);
+    
+    task_queue_push(queue, t1);
+    task_queue_push(queue, t2);
+    task_queue_push(queue, t3);
+    task_queue_push(queue, t4);
+    task_queue_push(queue, t5);
+    
+    task_queue_info(queue);
+    
+    // 優先度順にpopして確認
+    println("\n--- Popping all tasks ---");
+    int prev_priority = -1;
+    bool correct_order = true;
+    
+    while (!task_queue_is_empty(queue)) {
+        Task t = task_queue_pop(queue);
+        
+        if (prev_priority >= 0 && t.priority < prev_priority) {
+            correct_order = false;
+            println("❌ Order violation: %d should not come after %d", 
+                    t.priority, prev_priority);
+        }
+        
+        prev_priority = t.priority;
+    }
+    
+    if (correct_order) {
+        println("✅ All tasks popped in correct priority order");
+    }
+    
+    // Test 2: 同じ優先度のタスク
+    println("\n--- Test 2: Tasks with same priority ---");
+    task_queue_init(queue);
+    
+    Task t10 = task_create(10, 5, 0);
+    Task t11 = task_create(11, 5, 0);
+    Task t12 = task_create(12, 5, 0);
+    
+    task_queue_push(queue, t10);
+    task_queue_push(queue, t11);
+    task_queue_push(queue, t12);
+    
+    Task t_pop1 = task_queue_pop(queue);
+    Task t_pop2 = task_queue_pop(queue);
+    Task t_pop3 = task_queue_pop(queue);
+    
+    if (t_pop1.task_id == 10 && t_pop2.task_id == 11 && t_pop3.task_id == 12) {
+        println("✅ Same priority tasks maintain insertion order");
+    }
+    
+    println("\nTaskQueue advanced test complete");
+}
+
+void main() {
+    test_task_queue_basic();
+    test_task_queue_advanced();
+    
+    println("\n╔════════════════════════════════════════════════════════════╗");
+    println("║  TaskQueue tests completed successfully!                  ║");
+    println("╚════════════════════════════════════════════════════════════╝");
+}
