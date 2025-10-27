@@ -1007,6 +1007,11 @@ struct ASTNode {
     std::string generic_base_name; // ジェネリック型の基底名 (Box, Result等)
     bool is_type_parameter = false; // 型パラメータそのものかどうか
     std::string type_parameter_name; // 型パラメータ名 ("T", "E"等)
+    
+    // インターフェース境界（v0.11.0 Phase 1新機能）
+    std::unordered_map<std::string, std::string> interface_bounds;
+    // 型パラメータ名 -> インターフェース名のマッピング
+    // 例: {"A" => "Allocator", "B" => "Iterator"}
 
     // 文字列補間関連（v0.11.0新機能）
     std::vector<std::unique_ptr<ASTNode>>
