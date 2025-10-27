@@ -295,11 +295,11 @@ void run_all_generics_tests() {
             INTEGRATION_ASSERT_CONTAINS(output, "Outer<int>.inner.data: 42", "Expected outer.inner.data");
             INTEGRATION_ASSERT_CONTAINS(output, "Outer<int>.direct: 43", "Expected outer.direct");
             INTEGRATION_ASSERT_CONTAINS(output, "get_inner_data<int>: 42", "Expected get_inner_data result");
-            INTEGRATION_ASSERT_CONTAINS(output, "make_outer<long>.inner.data: 0", "Expected make_outer inner.data");
+            INTEGRATION_ASSERT_CONTAINS(output, "make_outer<long>.inner.data: 999", "Expected make_outer inner.data");
             INTEGRATION_ASSERT_CONTAINS(output, "make_outer<long>.direct: 999", "Expected make_outer direct");
             INTEGRATION_ASSERT_CONTAINS(output, "Container chain:  20  -> 10", "Expected container chain");
             INTEGRATION_ASSERT_CONTAINS(output, "Triple middle value: 2", "Expected triple middle value");
-            INTEGRATION_ASSERT_CONTAINS(output, "Complex nested value: 0", "Expected complex nested value");
+            INTEGRATION_ASSERT_CONTAINS(output, "Complex nested value: 777", "Expected complex nested value");
             INTEGRATION_ASSERT_CONTAINS(output, "=== All Advanced Tests Passed ===", "Expected success message");
         }, execution_time);
     integration_test_passed_with_time("Advanced Nested Generic Struct", "advanced_nested_struct.cb", execution_time);

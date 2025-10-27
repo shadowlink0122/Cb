@@ -1,0 +1,57 @@
+// Test nested generic types as function parameters: S<P<T>>
+
+struct Box<T> {
+    T value;
+};
+
+struct Wrapper<T> {
+    T data;
+};
+
+// ジェネリック関数: ネストされたジェネリック型をパラメータとして受け取る
+T unwrap_nested<T>(Wrapper<Box<T>> nested) {
+    return nested.data.value;
+}
+
+// ジェネリック関数: ネストされたジェネリック型を返す
+Wrapper<Box<T> > wrap_nested<T>(T value) {
+    Wrapper<Box<T> > result;
+    result.data.value = value;
+    return result;
+}
+
+// ジェネリック関数: ネストされたジェネリック型を受け取って別のネストされた型を返す
+Wrapper<Box<T> > transform_nested<T>(Wrapper<Box<T> > input) {
+    Wrapper<Box<T> > output;
+    output.data.value = input.data.value;
+    return output;
+}
+
+void main() {
+    println("=== Nested Generic Type Parameter Test ===");
+    
+    // Test 1: unwrap_nested
+    Wrapper<Box<int> > int_nested;
+    int_nested.data.value = 42;
+    
+    int result1 = unwrap_nested<int>(int_nested);
+    println("unwrap_nested<int>: ", result1);
+    
+    // Test 2: wrap_nested
+    Wrapper<Box<long> > long_nested = wrap_nested<long>(999);
+    println("wrap_nested<long>.data.value: ", long_nested.data.value);
+    
+    // Test 3: transform_nested
+    Wrapper<Box<int> > transformed = transform_nested<int>(int_nested);
+    println("transform_nested<int>.data.value: ", transformed.data.value);
+    
+    // Test 4: 複数回のネスト
+    Wrapper<Box<long> > nested1;
+    nested1.data.value = 100;
+    
+    Wrapper<Box<long> > nested2 = transform_nested<long>(nested1);
+    long final_value = unwrap_nested<long>(nested2);
+    println("Multiple nested operations: ", final_value);
+    
+    println("=== All Nested Generic Type Tests Passed ===");
+}

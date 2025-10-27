@@ -313,6 +313,41 @@ void execute_variable_declaration(StatementExecutor *executor,
 
         interpreter.create_struct_variable(node->name, node->type_name);
 
+        // 初期化式がある場合は評価して代入
+        if (init_node) {
+            if (init_node->node_type == ASTNodeType::AST_FUNC_CALL) {
+                try {
+                    TypedValue typed_value =
+                        interpreter.evaluate_typed(init_node);
+                    if (typed_value.is_struct() && typed_value.struct_data) {
+                        // 構造体の値を代入
+                        Variable &target_var =
+                            interpreter.current_scope().variables[node->name];
+                        target_var = *typed_value.struct_data;
+                        target_var.is_assigned = true;
+
+                        // ネストされたメンバー変数を同期
+                        interpreter.sync_direct_access_from_struct_value(
+                            node->name, target_var);
+                    }
+                    interpreter.current_scope()
+                        .variables[node->name]
+                        .is_assigned = true;
+                } catch (const ReturnException &ret) {
+                    if (ret.is_struct) {
+                        Variable &target_var =
+                            interpreter.current_scope().variables[node->name];
+                        target_var = ret.struct_value;
+                        target_var.is_assigned = true;
+
+                        // ネストされたメンバー変数を同期
+                        interpreter.sync_direct_access_from_struct_value(
+                            node->name, target_var);
+                    }
+                }
+            }
+        }
+
         return; // struct変数は専用処理で完了
     }
 
@@ -741,6 +776,12 @@ void execute_variable_declaration(StatementExecutor *executor,
                         // 構造体戻り値の場合
                         // printf("STRUCT_VAR_DECL_DEBUG: Assigning struct
                         // return to variable %s\n", node->name.c_str());
+                        printf("STRUCT_VAR_DECL_DEBUG: Assigning struct return "
+                               "to variable %s\n",
+                               node->name.c_str());
+                        printf("STRUCT_VAR_DECL_DEBUG: ret.struct_value has "
+                               "%zu members\n",
+                               ret.struct_value.struct_members.size());
 
                         // 変数を構造体型に設定
                         Variable &target_var =
@@ -753,8 +794,32 @@ void execute_variable_declaration(StatementExecutor *executor,
                              ret.struct_value.struct_members) {
                             std::string member_path =
                                 node->name + "." + member.first;
+                            printf("STRUCT_VAR_DECL_DEBUG: Creating member %s, "
+                                   "is_struct=%d, members=%zu\n",
+                                   member_path.c_str(), member.second.is_struct,
+                                   member.second.struct_members.size());
                             interpreter.current_scope().variables[member_path] =
                                 member.second;
+
+                            // ネストされた構造体メンバーの場合、その子メンバーも再帰的に作成
+                            if (member.second.is_struct &&
+                                !member.second.struct_members.empty()) {
+                                printf("STRUCT_VAR_DECL_DEBUG: Recursively "
+                                       "creating nested members for %s\n",
+                                       member_path.c_str());
+                                for (const auto &nested_member :
+                                     member.second.struct_members) {
+                                    std::string nested_path =
+                                        member_path + "." + nested_member.first;
+                                    printf("STRUCT_VAR_DECL_DEBUG:   Creating "
+                                           "nested %s, value=%lld\n",
+                                           nested_path.c_str(),
+                                           nested_member.second.value);
+                                    interpreter.current_scope()
+                                        .variables[nested_path] =
+                                        nested_member.second;
+                                }
+                            }
                         }
                     } else if (TypeHelpers::isString(ret.type)) {
                         interpreter.current_scope()
@@ -812,6 +877,9 @@ void execute_variable_declaration(StatementExecutor *executor,
                         printf("STRUCT_INIT_DEBUG: Assigning struct return to "
                                "variable %s\n",
                                node->name.c_str());
+                        printf("STRUCT_INIT_DEBUG: ret.struct_value has %zu "
+                               "members\n",
+                               ret.struct_value.struct_members.size());
 
                         Variable &target_var =
                             interpreter.current_scope().variables[node->name];
@@ -823,8 +891,32 @@ void execute_variable_declaration(StatementExecutor *executor,
                              ret.struct_value.struct_members) {
                             std::string member_path =
                                 node->name + "." + member.first;
+                            printf("STRUCT_INIT_DEBUG: Creating member %s, "
+                                   "is_struct=%d, members=%zu\n",
+                                   member_path.c_str(), member.second.is_struct,
+                                   member.second.struct_members.size());
                             interpreter.current_scope().variables[member_path] =
                                 member.second;
+
+                            // ネストされた構造体メンバーの場合、その子メンバーも再帰的に作成
+                            if (member.second.is_struct &&
+                                !member.second.struct_members.empty()) {
+                                printf("STRUCT_INIT_DEBUG: Recursively "
+                                       "creating nested members for %s\n",
+                                       member_path.c_str());
+                                for (const auto &nested_member :
+                                     member.second.struct_members) {
+                                    std::string nested_path =
+                                        member_path + "." + nested_member.first;
+                                    printf("STRUCT_INIT_DEBUG:   Creating "
+                                           "nested %s, value=%lld\n",
+                                           nested_path.c_str(),
+                                           nested_member.second.value);
+                                    interpreter.current_scope()
+                                        .variables[nested_path] =
+                                        nested_member.second;
+                                }
+                            }
                         }
                     } else if (TypeHelpers::isString(ret.type)) {
                         interpreter.current_scope()

@@ -2286,6 +2286,9 @@ void Interpreter::call_default_constructor(
                 *direct_member = member_value;
             }
         }
+        
+        // ネストされた構造体メンバーの個別変数も同期
+        sync_direct_access_from_struct_value(var_name, *struct_var);
     }
 
     pop_scope(); // コンストラクタスコープを終了
@@ -2378,6 +2381,9 @@ void Interpreter::call_constructor(const std::string &var_name,
                 *direct_member = member_value;
             }
         }
+        
+        // ネストされた構造体メンバーの個別変数も同期
+        sync_direct_access_from_struct_value(var_name, *struct_var);
     }
 
     pop_scope(); // コンストラクタスコープを終了

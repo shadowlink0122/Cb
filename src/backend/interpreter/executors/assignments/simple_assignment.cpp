@@ -798,11 +798,35 @@ void execute_assignment(StatementExecutor *executor, Interpreter &interpreter,
                                             false);
             } catch (const ReturnException &ret) {
                 if (ret.is_struct) {
+                    printf(
+                        "SIMPLE_ASSIGN_STRUCT: Assigning struct return to %s\n",
+                        target_name.c_str());
+                    printf("SIMPLE_ASSIGN_STRUCT: ret.struct_value has %zu "
+                           "members\n",
+                           ret.struct_value.struct_members.size());
+
                     interpreter.current_scope().variables[target_name] =
                         ret.struct_value;
                     interpreter.sync_direct_access_from_struct_value(
                         target_name,
                         interpreter.current_scope().variables[target_name]);
+
+                    // ネストされた構造体メンバーの処理
+                    for (const auto &member : ret.struct_value.struct_members) {
+                        if (member.second.is_struct &&
+                            !member.second.struct_members.empty()) {
+                            printf("SIMPLE_ASSIGN_STRUCT: Nested struct member "
+                                   "%s.%s with %zu sub-members\n",
+                                   target_name.c_str(), member.first.c_str(),
+                                   member.second.struct_members.size());
+                            // ネストされたメンバーも再帰的に同期
+                            std::string member_path =
+                                target_name + "." + member.first;
+                            interpreter.sync_direct_access_from_struct_value(
+                                member_path, interpreter.current_scope()
+                                                 .variables[member_path]);
+                        }
+                    }
                 } else {
                     throw;
                 }

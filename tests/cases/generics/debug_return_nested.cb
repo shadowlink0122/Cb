@@ -1,0 +1,25 @@
+// Debug returning nested struct
+
+struct Box<T> {
+    T value;
+};
+
+struct Wrapper<T> {
+    T data;
+};
+
+Wrapper<Box<T> > identity<T>(Wrapper<Box<T> > input) {
+    println("  Inside function, input.data.value =", input.data.value);
+    return input;
+}
+
+void main() {
+    println("=== Return Nested Struct Debug ===");
+    
+    Wrapper<Box<int> > my_nested;
+    my_nested.data.value = 42;
+    println("Before call:", my_nested.data.value);
+    
+    Wrapper<Box<int> > result = identity<int>(my_nested);
+    println("After call:", result.data.value);
+}

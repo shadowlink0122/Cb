@@ -834,197 +834,107 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
                     // マップの再ハッシュを防ぐため、全ての変数を一時マップに収集してから一括登録
                     std::map<std::string, Variable> vars_batch;
 
-                    // 個別メンバー変数を収集
-                    for (const auto &member : ret.struct_value.struct_members) {
-                        // scores[0]のような配列要素キーはスキップ（後で個別に処理される）
-                        if (member.first.find('[') != std::string::npos) {
-                            if (interpreter_->debug_mode &&
-                                node->name == "student1") {
-                                debug_print(
-                                    "FUNC_RETURN: Skipping array element "
-                                    "key from struct_members: '%s'\n",
-                                    member.first.c_str());
+                    // 再帰的にネストされた構造体メンバーを収集する関数
+                    std::function<void(const std::string &,
+                                       const std::map<std::string, Variable> &)>
+                        collect_nested_members;
+                    collect_nested_members = [&](const std::string &base_path,
+                                                 const std::map<std::string,
+                                                                Variable>
+                                                     &members) {
+                        for (const auto &member : members) {
+                            // 配列要素キーはスキップ
+                            if (member.first.find('[') != std::string::npos) {
+                                continue;
                             }
-                            continue;
-                        }
 
-                        std::string member_path =
-                            node->name + "." + member.first;
-                        // 一時マップに追加
-                        vars_batch[member_path] = member.second;
+                            std::string member_path =
+                                base_path + "." + member.first;
+                            vars_batch[member_path] = member.second;
 
-                        // 配列メンバーの場合、個別要素変数も収集
-                        if (member.second.is_array) {
-                            for (int i = 0; i < member.second.array_size; i++) {
-                                std::string element_name =
-                                    member_path + "[" + std::to_string(i) + "]";
-                                std::string element_key = member.first + "[" +
-                                                          std::to_string(i) +
-                                                          "]";
+                            // ネストされた構造体の場合、再帰的に処理
+                            if (member.second.is_struct &&
+                                !member.second.struct_members.empty()) {
+                                collect_nested_members(
+                                    member_path, member.second.struct_members);
+                            }
 
-                                // 構造体配列要素の場合
-                                auto element_it =
-                                    ret.struct_value.struct_members.find(
-                                        element_key);
-                                if (element_it !=
-                                        ret.struct_value.struct_members.end() &&
-                                    element_it->second.is_struct) {
-                                    Variable element_var = element_it->second;
-                                    element_var.is_assigned = true;
-                                    vars_batch[element_name] = element_var;
+                            // 配列メンバーの場合、個別要素変数も収集
+                            if (member.second.is_array) {
+                                for (int i = 0; i < member.second.array_size;
+                                     i++) {
+                                    std::string element_name =
+                                        member_path + "[" + std::to_string(i) +
+                                        "]";
+                                    std::string element_key =
+                                        member.first + "[" + std::to_string(i) +
+                                        "]";
 
-                                    // 構造体要素のメンバー変数も収集
-                                    for (const auto &sub_member :
-                                         element_var.struct_members) {
-                                        std::string sub_member_path =
-                                            element_name + "." +
-                                            sub_member.first;
-                                        vars_batch[sub_member_path] =
-                                            sub_member.second;
-                                    }
-                                } else {
-                                    // プリミティブ型配列の要素
-                                    if (interpreter_->debug_mode &&
-                                        node->name == "student1") {
-                                        debug_print(
-                                            "FUNC_RETURN_ELEMENT: "
-                                            "member.second.type=%d, "
-                                            "array_values.size()=%zu, "
-                                            "i=%d\n",
-                                            (int)member.second.type,
-                                            member.second.array_values.size(),
-                                            i);
-                                    }
+                                    // 構造体配列要素の場合
+                                    auto element_it =
+                                        ret.struct_value.struct_members.find(
+                                            element_key);
+                                    if (element_it !=
+                                            ret.struct_value.struct_members
+                                                .end() &&
+                                        element_it->second.is_struct) {
+                                        Variable element_var =
+                                            element_it->second;
+                                        element_var.is_assigned = true;
+                                        vars_batch[element_name] = element_var;
 
-                                    Variable element_var;
-                                    element_var.type =
-                                        member.second.type >= TYPE_ARRAY_BASE
-                                            ? static_cast<TypeInfo>(
-                                                  member.second.type -
-                                                  TYPE_ARRAY_BASE)
-                                            : member.second.type;
-                                    element_var.is_assigned = true;
-
-                                    if (element_var.type == TYPE_STRING &&
-                                        i < static_cast<int>(
-                                                member.second.array_strings
-                                                    .size())) {
-                                        element_var.str_value =
-                                            member.second.array_strings[i];
-                                    } else if (element_var.type !=
-                                                   TYPE_STRING &&
-                                               i < static_cast<int>(
-                                                       member.second
-                                                           .array_values
-                                                           .size())) {
-                                        element_var.value =
-                                            member.second.array_values[i];
-                                    }
-
-                                    if (interpreter_->debug_mode &&
-                                        node->name == "student1") {
-                                        debug_print(
-                                            "FUNC_RETURN_BATCH: Created "
-                                            "element_var for %s: type=%d, "
-                                            "value=%lld, is_assigned=%d\n",
-                                            element_name.c_str(),
-                                            (int)element_var.type,
-                                            (long long)element_var.value,
-                                            element_var.is_assigned);
-                                    }
-
-                                    if (interpreter_->debug_mode &&
-                                        node->name == "student1") {
-                                        auto existing =
-                                            vars_batch.find(element_name);
-                                        if (existing != vars_batch.end()) {
-                                            debug_print(
-                                                "FUNC_RETURN_BATCH: KEY "
-                                                "ALREADY EXISTS! '%s' "
-                                                "current: type=%d, "
-                                                "value=%lld\n",
-                                                element_name.c_str(),
-                                                (int)existing->second.type,
-                                                (long long)
-                                                    existing->second.value);
+                                        // 構造体要素のメンバー変数も収集
+                                        for (const auto &sub_member :
+                                             element_var.struct_members) {
+                                            std::string sub_member_path =
+                                                element_name + "." +
+                                                sub_member.first;
+                                            vars_batch[sub_member_path] =
+                                                sub_member.second;
                                         }
-                                    }
+                                    } else {
+                                        // プリミティブ型配列の要素
+                                        Variable element_var;
+                                        element_var.type =
+                                            member.second.type >=
+                                                    TYPE_ARRAY_BASE
+                                                ? static_cast<TypeInfo>(
+                                                      member.second.type -
+                                                      TYPE_ARRAY_BASE)
+                                                : member.second.type;
+                                        element_var.is_assigned = true;
 
-                                    vars_batch[element_name] = element_var;
+                                        if (element_var.type == TYPE_STRING &&
+                                            i < static_cast<int>(
+                                                    member.second.array_strings
+                                                        .size())) {
+                                            element_var.str_value =
+                                                member.second.array_strings[i];
+                                        } else if (element_var.type !=
+                                                       TYPE_STRING &&
+                                                   i < static_cast<int>(
+                                                           member.second
+                                                               .array_values
+                                                               .size())) {
+                                            element_var.value =
+                                                member.second.array_values[i];
+                                        }
 
-                                    if (interpreter_->debug_mode &&
-                                        node->name == "student1") {
-                                        debug_print(
-                                            "FUNC_RETURN_BATCH: Set %s: "
-                                            "type=%d, value=%lld, "
-                                            "is_assigned=%d\n",
-                                            element_name.c_str(),
-                                            (int)element_var.type,
-                                            (long long)element_var.value,
-                                            element_var.is_assigned);
+                                        vars_batch[element_name] = element_var;
                                     }
                                 }
                             }
                         }
-                    }
+                    };
 
-                    // バッチ内容を確認（親構造体追加前）
-                    if (interpreter_->debug_mode && node->name == "student1") {
-                        debug_print("FUNC_RETURN: Batch size before adding "
-                                    "parent: %zu variables\n",
-                                    vars_batch.size());
-                        debug_print("FUNC_RETURN: All keys in batch "
-                                    "(BEFORE parent):\n");
-                        for (const auto &var_pair : vars_batch) {
-                            if (var_pair.first.find("scores[") !=
-                                std::string::npos) {
-                                debug_print("  '%s': type=%d, value=%lld, "
-                                            "is_assigned=%d\n",
-                                            var_pair.first.c_str(),
-                                            (int)var_pair.second.type,
-                                            (long long)var_pair.second.value,
-                                            var_pair.second.is_assigned);
-                            }
-                        }
-                    }
+                    // トップレベルのメンバーから再帰的に収集を開始
+                    collect_nested_members(node->name,
+                                           ret.struct_value.struct_members);
 
-                    // 親構造体変数も追加（その前にstruct_membersを確認）
-                    if (interpreter_->debug_mode && node->name == "student1") {
-                        debug_print("FUNC_RETURN: Parent "
-                                    "var.struct_members has %zu members\n",
-                                    var.struct_members.size());
-                        for (const auto &sm : var.struct_members) {
-                            debug_print("  struct_member key: '%s', "
-                                        "type=%d, is_array=%d\n",
-                                        sm.first.c_str(), (int)sm.second.type,
-                                        sm.second.is_array);
-                        }
-                    }
+                    // 親構造体変数も追加
                     vars_batch[node->name] = var;
 
-                    // バッチ内容をデバッグ出力（親構造体追加後）
-                    if (interpreter_->debug_mode && node->name == "student1") {
-                        debug_print("FUNC_RETURN: Batch size after adding "
-                                    "parent: %zu variables\n",
-                                    vars_batch.size());
-                        debug_print("FUNC_RETURN: All keys in batch (AFTER "
-                                    "parent):\n");
-                        for (const auto &var_pair : vars_batch) {
-                            if (var_pair.first.find("scores[") !=
-                                std::string::npos) {
-                                debug_print("  '%s': type=%d, value=%lld, "
-                                            "is_assigned=%d\n",
-                                            var_pair.first.c_str(),
-                                            (int)var_pair.second.type,
-                                            (long long)var_pair.second.value,
-                                            var_pair.second.is_assigned);
-                            }
-                        }
-                    }
-
                     // 一括登録: std::mapに順次追加
-                    // std::mapは再バランスで要素が移動する可能性があるが、
-                    // 全ての変数をここで一度に登録するため、後続の参照は安全
                     for (const auto &var_pair : vars_batch) {
                         current_scope().variables[var_pair.first] =
                             var_pair.second;

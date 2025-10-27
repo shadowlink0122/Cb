@@ -524,6 +524,26 @@ void StructSyncManager::sync_struct_members_from_direct_access(
                 member_value.struct_type_name = direct_var->struct_type_name;
                 member_value.struct_members = direct_var->struct_members;
 
+                // ネストされた構造体の場合、再帰的に同期
+                if (direct_var->is_struct &&
+                    !direct_var->struct_members.empty()) {
+                    sync_struct_members_from_direct_access(direct_var_name);
+                    // 再度取得して最新の値を使用
+                    Variable *updated_direct_var =
+                        interpreter_->find_variable(direct_var_name);
+                    if (updated_direct_var) {
+                        member_value.struct_members =
+                            updated_direct_var->struct_members;
+                        if (interpreter_->debug_mode) {
+                            debug_print(
+                                "SYNC_STRUCT: Recursively synced nested struct "
+                                "%s with %zu members\n",
+                                direct_var_name.c_str(),
+                                updated_direct_var->struct_members.size());
+                        }
+                    }
+                }
+
                 var->struct_members[member.name] = member_value;
                 debug_msg(DebugMsgId::INTERPRETER_STRUCT_SYNCED,
                           member.name.c_str(),
