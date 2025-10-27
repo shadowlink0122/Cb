@@ -727,6 +727,7 @@ enum class ASTNodeType {
     AST_BINARY_OP,
     AST_UNARY_OP,
     AST_TERNARY_OP, // 三項演算子 condition ? value1 : value2
+    AST_CAST_EXPR,  // 型キャスト (type)expr
     AST_ASSIGN,
     AST_ARRAY_ASSIGN, // 配列代入 (arr1 = arr2)
 
@@ -1027,6 +1028,11 @@ struct ASTNode {
     bool is_interpolation_text = false; // セグメントがテキスト部分か
     bool is_interpolation_expr = false; // セグメントが式部分か
     std::string interpolation_format; // フォーマット指定子 (":x", ":.2"等)
+
+    // 型キャスト関連（v0.11.0 Week 2新機能）
+    std::string cast_target_type;      // キャスト先の型名 ("int*", "char*"等)
+    TypeInfo cast_type_info = TYPE_UNKNOWN; // パース済みの型情報
+    std::unique_ptr<ASTNode> cast_expr;     // キャストする式
 
     // コンストラクタ - 全フィールドの明示的初期化
     ASTNode(ASTNodeType type)
