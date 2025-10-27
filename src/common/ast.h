@@ -579,10 +579,11 @@ struct StructDefinition {
     std::vector<std::string> type_parameters; // 型パラメータリスト ["T", "E"]
     std::unordered_map<std::string, std::string>
         type_parameter_bindings; // 型パラメータの束縛 {"T" -> "int"}
-    
+
     // v0.11.0 Phase 1a: インターフェース境界
     std::unordered_map<std::string, std::string>
-        interface_bounds; // 型パラメータのインターフェース境界 {"A" -> "Allocator"}
+        interface_bounds; // 型パラメータのインターフェース境界 {"A" ->
+                          // "Allocator"}
 
     StructDefinition() {}
     StructDefinition(const std::string &n) : name(n) {}
@@ -912,9 +913,9 @@ struct ASTNode {
     // 多次元配列アクセス用
     std::vector<std::unique_ptr<ASTNode>>
         array_indices; // 多次元配列インデックス [i][j][k]
-    
+
     // v0.11.0 Week 2 Day 3: ポインタ配列アクセス ptr[index]
-    bool is_pointer_array_access = false;  // ポインタ経由の配列アクセスか
+    bool is_pointer_array_access = false; // ポインタ経由の配列アクセスか
 
     // モジュール関連
     std::string module_name;               // モジュール名 (std.io等)
@@ -1015,15 +1016,15 @@ struct ASTNode {
     std::string generic_base_name; // ジェネリック型の基底名 (Box, Result等)
     bool is_type_parameter = false; // 型パラメータそのものかどうか
     std::string type_parameter_name; // 型パラメータ名 ("T", "E"等)
-    
+
     // インターフェース境界（v0.11.0 Phase 1新機能）
     std::unordered_map<std::string, std::string> interface_bounds;
     // 型パラメータ名 -> インターフェース名のマッピング
     // 例: {"A" => "Allocator", "B" => "Iterator"}
-    
+
     // 型パラメータメソッドアクセス（v0.11.0 Phase 1a - Day 4）
-    bool is_type_parameter_access = false;  // A.allocate() 形式か
-    std::string type_parameter_context;     // どの構造体/関数のコンテキストか
+    bool is_type_parameter_access = false; // A.allocate() 形式か
+    std::string type_parameter_context; // どの構造体/関数のコンテキストか
 
     // 文字列補間関連（v0.11.0新機能）
     std::vector<std::unique_ptr<ASTNode>>
@@ -1033,7 +1034,7 @@ struct ASTNode {
     std::string interpolation_format; // フォーマット指定子 (":x", ":.2"等)
 
     // 型キャスト関連（v0.11.0 Week 2新機能）
-    std::string cast_target_type;      // キャスト先の型名 ("int*", "char*"等)
+    std::string cast_target_type; // キャスト先の型名 ("int*", "char*"等)
     TypeInfo cast_type_info = TYPE_UNKNOWN; // パース済みの型情報
     std::unique_ptr<ASTNode> cast_expr;     // キャストする式
 

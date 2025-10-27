@@ -664,6 +664,40 @@ ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode *node) {
             }
         }
 
+        // ptr[index].member パターンをチェック（ポインタの配列アクセス）
+        if (node->left && node->left->node_type == ASTNodeType::AST_ARRAY_REF &&
+            node->left->left &&
+            node->left->left->node_type == ASTNodeType::AST_VARIABLE) {
+            Variable *var = interpreter_.find_variable(node->left->left->name);
+            if (var && var->is_pointer) {
+                debug_print("Processing ptr[index].member pattern: %s[].%s\n",
+                            node->left->left->name.c_str(), node->name.c_str());
+
+                try {
+                    // evaluate_expressionを使用してReturnExceptionを取得
+                    (void)evaluate_expression(node->left.get());
+                    debug_print("ERROR: No ReturnException was thrown!\n");
+                    throw std::runtime_error("Expected struct return exception");
+
+                } catch (const ReturnException &struct_ret) {
+                    debug_print("Caught ReturnException, is_struct=%d\n", struct_ret.is_struct);
+                    if (struct_ret.is_struct) {
+                        TypedValue member_value(static_cast<int64_t>(0),
+                                                InferredType());
+                        if (resolve_from_struct(struct_ret.struct_value,
+                                                member_value)) {
+                            debug_print("Successfully resolved member: %s\n", node->name.c_str());
+                            last_typed_result_ = member_value;
+                            return member_value;
+                        }
+                        debug_print("Failed to resolve member: %s\n", node->name.c_str());
+                    }
+                    throw std::runtime_error(
+                        "Expected struct element from pointer array access");
+                }
+            }
+        }
+
         TypedValue resolved_value(static_cast<int64_t>(0), InferredType());
         bool resolved = false;
 

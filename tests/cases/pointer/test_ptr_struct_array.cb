@@ -1,0 +1,49 @@
+// 構造体配列のポインタアクセステスト
+
+struct Point {
+    int x;
+    int y;
+};
+
+void test_struct_ptr_array() {
+    println("=== Struct Pointer Array Access Test ===");
+    
+    // 構造体配列を作成
+    Point[3] points;
+    points[0].x = 10;
+    points[0].y = 20;
+    points[1].x = 30;
+    points[1].y = 40;
+    points[2].x = 50;
+    points[2].y = 60;
+    
+    // ポインタで受け取る
+    Point* ptr = &points[0];
+    
+    // 読み取りテスト
+    println("\n--- Read Test ---");
+    println("ptr[0].x = %d, ptr[0].y = %d", ptr[0].x, ptr[0].y);
+    println("ptr[1].x = %d, ptr[1].y = %d", ptr[1].x, ptr[1].y);
+    println("ptr[2].x = %d, ptr[2].y = %d", ptr[2].x, ptr[2].y);
+    
+    // 書き込みテスト
+    println("\n--- Write Test ---");
+    ptr[0].x = 100;
+    ptr[0].y = 200;
+    ptr[1].x = 300;
+    ptr[1].y = 400;
+    
+    println("After write:");
+    println("ptr[0].x = %d, ptr[0].y = %d", ptr[0].x, ptr[0].y);
+    println("ptr[1].x = %d, ptr[1].y = %d", ptr[1].x, ptr[1].y);
+    
+    // 元の配列も変わっているか確認
+    println("\nOriginal array:");
+    println("points[0].x = %d, points[0].y = %d", points[0].x, points[0].y);
+    println("points[1].x = %d, points[1].y = %d", points[1].x, points[1].y);
+}
+
+void main() {
+    test_struct_ptr_array();
+    println("\n✅ All tests passed!");
+}

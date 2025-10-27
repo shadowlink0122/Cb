@@ -857,7 +857,7 @@ class Interpreter : public EvaluatorInterface {
                                        const InterfaceDefinition &definition);
     const InterfaceDefinition *
     find_interface_definition(const std::string &interface_name);
-    
+
     // v0.11.0 Phase 1a: インターフェース境界の型チェック
     void validate_all_interface_bounds();
 

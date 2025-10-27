@@ -9,8 +9,8 @@
 #include "../../../../common/type_helpers.h"
 #include "../../../../frontend/recursive_parser/recursive_parser.h"
 #include "../../core/interpreter.h"
-#include "../types/manager.h"
 #include "../types/interfaces.h"
+#include "../types/manager.h"
 #include "../variables/static.h"
 #include <algorithm>
 #include <functional>

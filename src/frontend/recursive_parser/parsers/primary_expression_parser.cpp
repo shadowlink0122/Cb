@@ -450,9 +450,9 @@ ASTNode *PrimaryExpressionParser::parsePrimary() {
         // 先読みしてキャストか括弧式かを判定
         RecursiveLexer saved_lexer = parser_->lexer_;
         Token saved_token = parser_->current_token_;
-        
+
         parser_->advance(); // consume '('
-        
+
         // 型名かどうかをチェック
         bool is_cast = false;
         if (parser_->check(TokenType::TOK_INT) ||
@@ -467,11 +467,11 @@ ASTNode *PrimaryExpressionParser::parsePrimary() {
             parser_->check(TokenType::TOK_STRING_TYPE) ||
             parser_->check(TokenType::TOK_CHAR_TYPE) ||
             parser_->check(TokenType::TOK_IDENTIFIER)) {
-            
+
             // 型をパースしてみる
             RecursiveLexer type_check_lexer = parser_->lexer_;
             Token type_check_token = parser_->current_token_;
-            
+
             try {
                 std::string type_str = parser_->parseType();
                 // 次が ')' ならキャスト
@@ -482,32 +482,34 @@ ASTNode *PrimaryExpressionParser::parsePrimary() {
                 // 型パースに失敗したら括弧式
                 is_cast = false;
             }
-            
+
             // 状態を戻す
             parser_->lexer_ = type_check_lexer;
             parser_->current_token_ = type_check_token;
         }
-        
+
         if (is_cast) {
             // キャストとして処理: (type)expr
             std::string type_str = parser_->parseType();
-            parser_->consume(TokenType::TOK_RPAREN, "Expected ')' after cast type");
-            
+            parser_->consume(TokenType::TOK_RPAREN,
+                             "Expected ')' after cast type");
+
             // キャスト対象の式をパース（単項式レベル）
             ASTNode *expr = parser_->parseUnary();
-            
+
             // キャストノードを作成
             ASTNode *cast_node = new ASTNode(ASTNodeType::AST_CAST_EXPR);
             cast_node->cast_target_type = type_str;
-            cast_node->cast_type_info = parser_->getTypeInfoFromString(type_str);
+            cast_node->cast_type_info =
+                parser_->getTypeInfoFromString(type_str);
             cast_node->cast_expr = std::unique_ptr<ASTNode>(expr);
-            
+
             return cast_node;
         } else {
             // 括弧式として処理: (expr)
             parser_->lexer_ = saved_lexer;
             parser_->current_token_ = saved_token;
-            
+
             parser_->advance(); // consume '('
             ASTNode *expr = parser_->parseExpression();
             parser_->consume(TokenType::TOK_RPAREN, "Expected ')'");
@@ -893,24 +895,51 @@ PrimaryExpressionParser::parseInterpolatedString(const std::string &str) {
 }
 
 // TypeInfoを文字列表現に変換するヘルパー関数
-std::string PrimaryExpressionParser::typeInfoToString(const TypeInfo *type_info) {
+std::string
+PrimaryExpressionParser::typeInfoToString(const TypeInfo *type_info) {
     std::string result;
-    
+
     switch (*type_info) {
-        case TYPE_INT:    result = "int"; break;
-        case TYPE_CHAR:   result = "char"; break;
-        case TYPE_VOID:   result = "void"; break;
-        case TYPE_FLOAT:  result = "float"; break;
-        case TYPE_DOUBLE: result = "double"; break;
-        case TYPE_LONG:   result = "long"; break;
-        case TYPE_SHORT:  result = "short"; break;
-        case TYPE_TINY:   result = "tiny"; break;
-        case TYPE_BOOL:   result = "bool"; break;
-        case TYPE_STRING: result = "string"; break;
-        case TYPE_STRUCT: result = "struct"; break;
-        case TYPE_INTERFACE: result = "interface"; break;
-        default:          result = "unknown"; break;
+    case TYPE_INT:
+        result = "int";
+        break;
+    case TYPE_CHAR:
+        result = "char";
+        break;
+    case TYPE_VOID:
+        result = "void";
+        break;
+    case TYPE_FLOAT:
+        result = "float";
+        break;
+    case TYPE_DOUBLE:
+        result = "double";
+        break;
+    case TYPE_LONG:
+        result = "long";
+        break;
+    case TYPE_SHORT:
+        result = "short";
+        break;
+    case TYPE_TINY:
+        result = "tiny";
+        break;
+    case TYPE_BOOL:
+        result = "bool";
+        break;
+    case TYPE_STRING:
+        result = "string";
+        break;
+    case TYPE_STRUCT:
+        result = "struct";
+        break;
+    case TYPE_INTERFACE:
+        result = "interface";
+        break;
+    default:
+        result = "unknown";
+        break;
     }
-    
+
     return result;
 }

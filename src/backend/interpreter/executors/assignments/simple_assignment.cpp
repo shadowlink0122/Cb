@@ -312,7 +312,12 @@ void execute_assignment(StatementExecutor *executor, Interpreter &interpreter,
                 rvalue = typed_rvalue.as_numeric();
             }
         } catch (const ReturnException &ret) {
-            if (ret.is_struct) {
+            if (ret.type == TYPE_FLOAT || ret.type == TYPE_DOUBLE) {
+                // v0.11.0 Week 2 Day 3: float/double ポインタ配列アクセスから戻ってきた値
+                is_floating = true;
+                float_rvalue = ret.double_value;
+                rvalue = static_cast<int64_t>(float_rvalue);
+            } else if (ret.is_struct) {
                 // 構造体変数または構造体戻り値を配列要素に代入
                 std::string element_name =
                     interpreter.extract_array_element_name(node->left.get());
@@ -551,11 +556,18 @@ void execute_assignment(StatementExecutor *executor, Interpreter &interpreter,
                 interpreter.assign_string_element(
                     var_name, index, std::string(1, static_cast<char>(rvalue)));
             } else {
+                // v0.11.0 Week 2 Day 3: ポインタの場合でもfloat/double判定が必要
+                // ポインタの場合はポインタが指す型をチェック
+                TypeInfo check_type = var->type;
+                if (var->is_pointer && var->pointer_base_type != TYPE_UNKNOWN) {
+                    check_type = var->pointer_base_type;
+                }
+                
                 // float/double/quad配列の場合はfloat値を使用
                 TypeInfo base_type =
-                    (var->type >= TYPE_ARRAY_BASE)
-                        ? static_cast<TypeInfo>(var->type - TYPE_ARRAY_BASE)
-                        : var->type;
+                    (check_type >= TYPE_ARRAY_BASE)
+                        ? static_cast<TypeInfo>(check_type - TYPE_ARRAY_BASE)
+                        : check_type;
                 if (is_floating &&
                     (base_type == TYPE_FLOAT || base_type == TYPE_DOUBLE ||
                      base_type == TYPE_QUAD)) {

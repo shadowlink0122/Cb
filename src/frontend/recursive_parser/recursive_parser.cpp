@@ -536,12 +536,13 @@ ASTNode *RecursiveParser::parseStructDeclaration() {
             // インターフェース境界のチェック: A: Allocator
             if (check(TokenType::TOK_COLON)) {
                 advance(); // ':' を消費
-                
+
                 if (!check(TokenType::TOK_IDENTIFIER)) {
-                    error("Expected interface name after ':' in type parameter bound");
+                    error("Expected interface name after ':' in type parameter "
+                          "bound");
                     return nullptr;
                 }
-                
+
                 std::string interface_name = current_token_.value;
                 interface_bounds[param_name] = interface_name;
                 advance();
@@ -1611,12 +1612,13 @@ void RecursiveParser::instantiateGenericStruct(
     StructDefinition instantiated_struct(instantiated_name);
     instantiated_struct.is_generic = false; // インスタンス化後は通常の構造体
     instantiated_struct.is_forward_declaration = false;
-    
+
     // v0.11.0 Phase 1a: インターフェース境界情報を保持
     // 実際の型チェックはインタープリター側で行う
     instantiated_struct.interface_bounds = generic_base.interface_bounds;
     instantiated_struct.type_parameters = generic_base.type_parameters;
-    instantiated_struct.type_parameter_bindings = type_map; // 型引数のバインディングを保存
+    instantiated_struct.type_parameter_bindings =
+        type_map; // 型引数のバインディングを保存
 
     // メンバーを型置換してコピー
     for (const auto &member : generic_base.members) {

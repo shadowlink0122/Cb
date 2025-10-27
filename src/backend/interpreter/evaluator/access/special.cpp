@@ -21,8 +21,46 @@ int64_t evaluate_arrow_access(
 
     std::string member_name = node->name;
 
-    // ポインタを評価して値を取得
-    int64_t ptr_value = evaluate_expression_func(node->left.get());
+    // v0.11.0 Week 2 Day 3: ptr[index]->member パターン対応
+    // 左側がポインタ配列アクセス (ptr[0]) の場合、ReturnExceptionで構造体が返される
+    Variable *struct_var = nullptr;
+    int64_t ptr_value = 0;
+
+    try {
+        // ポインタを評価して値を取得
+        ptr_value = evaluate_expression_func(node->left.get());
+    } catch (const ReturnException &ret) {
+        // 構造体が返された場合（ptr[index]からの構造体）
+        if (ret.is_struct) {
+            if (interpreter.is_debug_mode()) {
+                std::cerr << "[ARROW_DEBUG] Caught struct from ptr[index]"
+                          << " struct_type=" << ret.struct_value.struct_type_name
+                          << std::endl;
+            }
+
+            // 構造体からメンバーを取得
+            Variable member_var = get_struct_member_func(ret.struct_value, member_name);
+
+            if (member_var.type == TYPE_STRING) {
+                TypedValue typed_result(static_cast<int64_t>(0),
+                                        InferredType(TYPE_STRING, "string"));
+                typed_result.string_value = member_var.str_value;
+                typed_result.is_numeric_result = false;
+                evaluator.set_last_typed_result(typed_result);
+                return 0;
+            } else if (member_var.type == TYPE_POINTER) {
+                return member_var.value;
+            } else if (member_var.type == TYPE_FLOAT ||
+                       member_var.type == TYPE_DOUBLE || member_var.type == TYPE_QUAD) {
+                return static_cast<int64_t>(member_var.float_value);
+            } else {
+                return member_var.value;
+            }
+        } else {
+            // その他のReturnExceptionは再投げ
+            throw;
+        }
+    }
 
     if (interpreter.is_debug_mode()) {
         std::cerr << "[ARROW_DEBUG] ptr_value=" << ptr_value
@@ -35,7 +73,7 @@ int64_t evaluate_arrow_access(
     }
 
     // ポインタ値から構造体変数を取得
-    Variable *struct_var = reinterpret_cast<Variable *>(ptr_value);
+    struct_var = reinterpret_cast<Variable *>(ptr_value);
 
     if (!struct_var) {
         throw std::runtime_error("Invalid pointer in arrow operator");

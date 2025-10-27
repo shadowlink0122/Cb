@@ -252,7 +252,7 @@ int64_t evaluate_incdec(
                     // 新しいメタデータを作成
                     PointerMetadata temp_meta =
                         PointerMetadata::create_array_element_pointer(
-                            meta->array_var, new_index, meta->element_type);
+                            meta->array_var, new_index, meta->element_type, meta->array_name);
                     PointerMetadata *new_meta = new PointerMetadata(temp_meta);
 
                     // タグ付きポインタ

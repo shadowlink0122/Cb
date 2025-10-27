@@ -60,7 +60,7 @@ class PrimaryExpressionParser {
 
   private:
     RecursiveParser *parser_;
-    
+
     /**
      * @brief TypeInfoを文字列表現に変換
      * @param type_info 型情報へのポインタ

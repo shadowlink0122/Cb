@@ -16,7 +16,7 @@ PointerMetadata PointerMetadata::create_variable_pointer(Variable *var) {
 
 // 配列要素へのポインタを作成
 PointerMetadata PointerMetadata::create_array_element_pointer(
-    Variable *array_var_param, size_t index, TypeInfo elem_type) {
+    Variable *array_var_param, size_t index, TypeInfo elem_type, const std::string &array_name) {
     PointerMetadata meta;
     meta.target_type = PointerTargetType::ARRAY_ELEMENT;
     meta.array_var = array_var_param;
@@ -24,6 +24,7 @@ PointerMetadata PointerMetadata::create_array_element_pointer(
     meta.element_type = elem_type;
     meta.pointed_type = elem_type;
     meta.type_size = get_type_size(elem_type);
+    meta.array_name = array_name; // 配列名を保存
 
     // 真のポインタシステム：配列要素の実際のメモリアドレスを取得
     // array_values[index]のアドレスを取得

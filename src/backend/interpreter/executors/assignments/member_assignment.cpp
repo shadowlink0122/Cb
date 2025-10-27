@@ -4,6 +4,7 @@
 #include "const_check_helpers.h"
 #include "core/error_handler.h"
 #include "core/interpreter.h"
+#include "core/pointer_metadata.h"
 #include "managers/variables/manager.h"
 #include "recursive_member_resolver.h"
 
@@ -659,19 +660,89 @@ void execute_arrow_assignment(StatementExecutor *executor,
         throw std::runtime_error("Invalid arrow access in assignment");
     }
 
-    // ポインタを評価
-    int64_t ptr_value = interpreter.evaluate(arrow_access->left.get());
+    // v0.11.0 Week 2 Day 3: ptr[index]->member = value パターン対応
+    // 左側がポインタ配列アクセス (ptr[0]) の場合、ReturnExceptionで構造体が返される
+    Variable *struct_var = nullptr;
+    std::string struct_element_name; // 構造体配列要素の変数名（例: "points[0]"）
 
-    if (ptr_value == 0) {
-        throw std::runtime_error(
-            "Null pointer dereference in arrow assignment");
-    }
+    try {
+        // ポインタを評価
+        int64_t ptr_value = interpreter.evaluate(arrow_access->left.get());
 
-    // ポインタから構造体変数を取得
-    Variable *struct_var = reinterpret_cast<Variable *>(ptr_value);
+        if (ptr_value == 0) {
+            throw std::runtime_error(
+                "Null pointer dereference in arrow assignment");
+        }
 
-    if (!struct_var) {
-        throw std::runtime_error("Invalid pointer in arrow assignment");
+        // ポインタから構造体変数を取得
+        struct_var = reinterpret_cast<Variable *>(ptr_value);
+
+        if (!struct_var) {
+            throw std::runtime_error("Invalid pointer in arrow assignment");
+        }
+    } catch (const ReturnException &ret) {
+        // 構造体が返された場合（ptr[index]からの構造体）
+        if (ret.is_struct) {
+            // ptr[index]から返された構造体は一時的なコピーなので、
+            // 元の配列要素の変数名を取得する必要がある
+            // AST構造から配列名とインデックスを抽出
+            if (arrow_access->left &&
+                arrow_access->left->node_type == ASTNodeType::AST_ARRAY_REF) {
+                std::string ptr_var_name;
+                if (arrow_access->left->left &&
+                    arrow_access->left->left->node_type == ASTNodeType::AST_VARIABLE) {
+                    ptr_var_name = arrow_access->left->left->name;
+                } else if (!arrow_access->left->name.empty()) {
+                    ptr_var_name = arrow_access->left->name;
+                }
+
+                // ポインタ変数を取得し、メタデータから配列名を取得
+                Variable *ptr_var = interpreter.find_variable(ptr_var_name);
+                if (!ptr_var || !ptr_var->is_pointer) {
+                    throw std::runtime_error(
+                        "Invalid pointer variable in arrow assignment");
+                }
+
+                std::string array_name;
+                int64_t ptr_value = ptr_var->value;
+                bool is_metadata_ptr = (ptr_value < 0); // 負の値 = メタデータ
+
+                if (is_metadata_ptr) {
+                    // メタデータポインタの場合
+                    int64_t clean_ptr = ptr_value & ~(1LL << 63);
+                    PointerSystem::PointerMetadata *meta =
+                        reinterpret_cast<PointerSystem::PointerMetadata *>(clean_ptr);
+
+                    if (meta && !meta->array_name.empty()) {
+                        array_name = meta->array_name;
+                    } else {
+                        throw std::runtime_error(
+                            "Pointer metadata does not contain array name");
+                    }
+                } else {
+                    // 直接のVariable*ポインタの場合は配列変数名を推定できない
+                    throw std::runtime_error(
+                        "Direct pointer does not have array name information");
+                }
+
+                int64_t index = interpreter.evaluate(
+                    arrow_access->left->array_index.get());
+                struct_element_name = array_name + "[" + std::to_string(index) + "]";
+
+                // 元の配列要素変数を取得
+                struct_var = interpreter.find_variable(struct_element_name);
+                if (!struct_var) {
+                    throw std::runtime_error(
+                        "Struct array element not found: " + struct_element_name);
+                }
+            } else {
+                throw std::runtime_error(
+                    "Cannot determine struct element name from arrow assignment");
+            }
+        } else {
+            // その他のReturnExceptionは再投げ
+            throw;
+        }
     }
 
     // メンバ名を取得

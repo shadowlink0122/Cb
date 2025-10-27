@@ -184,17 +184,33 @@ int64_t evaluate_address_of(
             }
 
             if (debug_mode) {
-                std::cerr << "[ADDRESS_OF] Returning struct element pointer: "
+                std::cerr << "[ADDRESS_OF] Creating metadata for struct element pointer: "
                           << element_name << " -> " << element_var << std::endl;
             }
 
-            return reinterpret_cast<int64_t>(element_var);
+            // 構造体配列要素の場合もメタデータポインタを作成
+            // これにより ptr[index] でのアクセスが可能になる
+            PointerMetadata *meta = new PointerMetadata();
+            *meta = PointerMetadata::create_array_element_pointer(
+                array_var, flat_index, elem_type, array_name);
+
+            // メタデータのアドレスをint64_tとして返す
+            int64_t ptr_value = reinterpret_cast<int64_t>(meta);
+            ptr_value |= (1LL << 63); // タグビット
+
+            if (debug_mode) {
+                std::cerr << "[ADDRESS_OF] Returning struct metadata ptr_value=" << ptr_value
+                          << " (0x" << std::hex << ptr_value << std::dec << ")"
+                          << std::endl;
+            }
+
+            return ptr_value;
         }
 
         // メタデータを作成してヒープに配置
         PointerMetadata *meta = new PointerMetadata();
         *meta = PointerMetadata::create_array_element_pointer(
-            array_var, flat_index, elem_type);
+            array_var, flat_index, elem_type, array_name);
 
         if (debug_mode) {
             std::cerr << "[POINTER_METADATA] Created array element pointer: "

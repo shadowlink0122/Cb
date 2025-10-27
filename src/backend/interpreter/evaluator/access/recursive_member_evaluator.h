@@ -4,6 +4,7 @@
 #include "../../../../common/ast.h"
 #include "../../../../common/debug.h"
 #include "../../core/interpreter.h"
+#include "../../core/pointer_metadata.h"
 #include <functional>
 #include <stdexcept>
 #include <string>
@@ -625,8 +626,36 @@ case_4_arrow_access:
                 "Unsupported array reference type in evaluation");
         }
 
-        if (!array_parent || !array_parent->is_array) {
+        if (!array_parent || (!array_parent->is_array && !array_parent->is_pointer)) {
             throw std::runtime_error("Not an array: " + array_member_name);
+        }
+
+        // ポインタの場合は、実際の配列を取得
+        if (array_parent->is_pointer) {
+            // ポインタの値を取得
+            int64_t ptr_value = array_parent->value;
+            bool is_metadata_ptr = (ptr_value & (1LL << 63)) != 0;
+            
+            if (is_metadata_ptr) {
+                // メタデータポインタの場合
+                int64_t clean_ptr = ptr_value & ~(1LL << 63);
+                PointerSystem::PointerMetadata *meta =
+                    reinterpret_cast<PointerSystem::PointerMetadata *>(clean_ptr);
+                
+                if (meta && meta->array_var) {
+                    // 実際の配列と調整されたインデックスを使用
+                    array_parent = meta->array_var;
+                    index += meta->element_index;
+                    if (!meta->array_name.empty()) {
+                        array_member_name = meta->array_name;
+                    }
+                } else {
+                    throw std::runtime_error("Invalid pointer metadata");
+                }
+            } else {
+                // 直接ポインタの場合（後方互換性）
+                throw std::runtime_error("Direct pointer array evaluation not supported");
+            }
         }
 
         // 配列が構造体配列かチェック
