@@ -341,11 +341,40 @@ docs/tutorial/
 
 ## 🚀 次のステップ: Week 3 Day 2
 
-### EventLoop実装予定
+### 優先タスク
+
+#### 1. インタプリタ修正（最優先）
+- 構造体配列への代入をサポート
+- `tasks[i] = task`が正しく動作するように
+- Phase 1への移行を可能にする
+
+#### 2. TaskQueue Phase 1移行
+- `task_queue_ideal.cb`を正式版に
+- 固定配列`Task[100]`を使用
+- テストを更新
+
+#### 3. Vector API整備
+- `vector_erase(vec, index)` - 要素削除
+- `vector_set(vec, index, value)` - 要素設定
+- Phase 2準備
+
+#### 4. TaskQueue Phase 2実装
+- `Vector<Task, A: Allocator>`ベース
+- 容量制限撤廃
+- 動的リサイズ対応
+
+### EventLoop実装（Day 2-3）
+
+構造体配列修正完了後：
 
 1. **EventLoopContext構造体**
-   - TaskQueueを内部で使用
-   - イベント登録・実行機能
+   ```cb
+   struct EventLoop<A: Allocator> {
+       TaskQueue<A> tasks;  // Vector版を使用
+       bool running;
+       A allocator;
+   };
+   ```
 
 2. **イベントハンドラ**
    - コールバック関数の登録
@@ -353,14 +382,63 @@ docs/tutorial/
 
 3. **基本API**
    ```cb
-   void event_loop_init(EventLoop& loop);
-   void event_loop_register_task(EventLoop& loop, Task& task);
-   void event_loop_run(EventLoop& loop);
+   void event_loop_init<A>(EventLoop<A>& loop, A& alloc);
+   void event_loop_register_task<A>(EventLoop<A>& loop, Task& task);
+   void event_loop_run<A>(EventLoop<A>& loop);
+   void event_loop_stop<A>(EventLoop<A>& loop);
    ```
 
 4. **統合テスト**
    - 複数タスクの実行順序検証
    - 優先度制御の確認
+   - 大量タスクのパフォーマンステスト
+
+### Phase 3: 最適化（Day 4-5）
+
+1. **ヒープ構造への変更**
+   - Min-Heap実装
+   - Push: O(n) → O(log n)
+   - Pop: O(n) → O(log n)
+
+2. **メモリプール最適化**
+   - タスクオブジェクトのプーリング
+   - アロケーション回数削減
+
+---
+
+## 🎯 実装の全体像
+
+```
+Week 3全体の構造:
+
+┌─────────────────────────────────────────┐
+│  Phase 0: 並列配列 (現在)               │
+│  - int[100] task_ids                    │
+│  - int[100] priorities, ...             │
+│  - 緊急回避策                           │
+└─────────────────────────────────────────┘
+              ↓ インタプリタ修正
+┌─────────────────────────────────────────┐
+│  Phase 1: 固定配列                      │
+│  - Task[100] tasks                      │
+│  - テスト・学習用                       │
+│  - 容量制限あり                         │
+└─────────────────────────────────────────┘
+              ↓ Vector統合
+┌─────────────────────────────────────────┐
+│  Phase 2: 動的配列 (本来の実装)        │
+│  - Vector<Task, A> tasks                │
+│  - 容量無制限                           │
+│  - メモリ効率的                         │
+└─────────────────────────────────────────┘
+              ↓ 最適化
+┌─────────────────────────────────────────┐
+│  Phase 3: ヒープ構造                    │
+│  - Min-Heap実装                         │
+│  - O(log n) push/pop                    │
+│  - 高パフォーマンス                     │
+└─────────────────────────────────────────┘
+```
 
 ---
 
@@ -372,13 +450,26 @@ docs/tutorial/
 2. **言語の制限を理解** - 回避策を見つけて実装
 3. **包括的テスト** - エッジケースを含めて検証
 4. **ドキュメント重視** - コーディング規約を更新
+5. **段階的実装** - Phase 0（回避策）→ Phase 1（固定配列）→ Phase 2（動的配列）
 
 ### Cb言語の特性
 
 - 構造体リテラル初期化は推奨パターン
-- 構造体配列の制限は並列配列で対応
-- 直接returnは将来の改善項目
+- 構造体配列の制限は並列配列で一時回避
+- **固定配列も回避策** - 本来はVectorを使うべき
 - テスト駆動で実装の妥当性を確認
+
+### 実装の段階的改善
+
+```
+Phase 0 (現在): 並列配列
+   ↓ インタプリタ修正
+Phase 1: Task[100]固定配列  
+   ↓ Vector統合
+Phase 2: Vector<Task, A>動的配列 ← 本来の姿
+   ↓ 最適化
+Phase 3: Heap構造でO(log n)
+```
 
 ---
 

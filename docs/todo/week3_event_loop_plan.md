@@ -11,44 +11,76 @@ Week 3では、非同期処理の基盤となるEvent Loopを実装します。W
 
 ## Week 3 Goals
 
-### Day 1: Task Structure & Queue (Monday)
+### Day 1: Task Structure & Queue (Monday) 🔄
 **Goal**: タスクの基本構造とキュー実装
 
+**Status**: Phase 0完了（緊急回避策）、Phase 1-2待機中
+
 **Tasks**:
-1. Task構造体の定義
+1. ✅ Task構造体の定義
    ```cb
    struct Task {
        int task_id;
        int priority;      // 0 = highest
-       void* callback;    // 関数ポインタ（将来実装）
+       int callback_type; // コールバック種別
        void* data;        // タスクデータ
    };
    ```
 
-2. TaskQueue実装（Vectorベース）
+2. ⚠️ TaskQueue実装（段階的移行）
+   
+   **Phase 0** (現状 - 緊急回避策):
+   ```cb
+   struct TaskQueue {
+       // 構造体配列の代入バグ回避のため並列配列を使用
+       int[100] task_ids;
+       int[100] priorities;
+       int[100] callback_types;
+       void*[100] data_ptrs;
+       int length;
+   };
+   ```
+   
+   **Phase 1** (インタプリタ修正後):
+   ```cb
+   struct TaskQueue {
+       Task[100] tasks;  // 固定配列（テスト用）
+       int length;
+   };
+   ```
+   
+   **Phase 2** (本来の実装 - Vector使用):
    ```cb
    struct TaskQueue<A: Allocator> {
-       Vector<Task, A> tasks;
-       int next_id;
+       Vector<Task, A> tasks;  // 動的配列
+       A allocator;
    };
-   
-   void task_queue_init<A: Allocator>(TaskQueue<A>& queue);
-   void task_queue_push(TaskQueue<A>& queue, Task task);
-   Task task_queue_pop(TaskQueue<A>& queue);
-   bool task_queue_is_empty(TaskQueue<A>& queue);
    ```
 
-3. 優先度付きキュー（簡易版）
+3. ✅ 優先度付きキュー（挿入ソート版）
    - Push時にpriorityでソート
    - Pop時は先頭から取得
+   - O(n) push, O(n) pop（Phase 2でヒープ化予定）
 
 **Deliverables**:
-- `stdlib/async/task.cb`
-- `stdlib/async/task_queue.cb`
-- Test: `tests/cases/async/test_task_queue.cb`
+- ✅ `stdlib/async/task.cb` - Task構造体
+- ✅ `stdlib/async/task_queue_final.cb` - 並列配列版（Phase 0）
+- ✅ `stdlib/async/task_queue_ideal.cb` - 固定配列版（Phase 1用）
+- 📋 `stdlib/async/task_queue_vector.cb` - Vector版（Phase 2用）
+- ✅ Test: `tests/cases/async/test_task_queue_comprehensive.cb`
+- ✅ Doc: `docs/features/week3_day1_taskqueue_report.md`
 
 **Success Criteria**:
 - ✅ タスクの追加・取得が動作
+- ✅ 優先度順のソートが正しく機能
+- ✅ 8/8テスト合格
+- ⚠️ 並列配列パターン（一時的）
+
+**Blockers**:
+- 🔴 **Critical**: 構造体配列への代入未実装
+  - Issue: `docs/todo/struct_array_assignment_bug.md`
+  - Impact: `Task[100]`が使えず並列配列で回避
+  - Next: インタプリタ修正 → Phase 1移行
 - ✅ 優先度順にタスクが処理される
 - ✅ 空チェックが正しく動作
 
