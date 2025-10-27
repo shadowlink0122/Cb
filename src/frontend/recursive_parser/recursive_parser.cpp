@@ -513,7 +513,9 @@ ASTNode *RecursiveParser::parseStructDeclaration() {
     advance(); // struct名をスキップ
 
     // v0.11.0: 型パラメータリストのチェック <T> または <T, E>
+    // v0.11.0 Phase 1a: インターフェース境界のサポート <T, A: Allocator>
     std::vector<std::string> type_parameters;
+    std::unordered_map<std::string, std::string> interface_bounds;
     bool is_generic = false;
 
     if (check(TokenType::TOK_LT)) {
@@ -530,6 +532,20 @@ ASTNode *RecursiveParser::parseStructDeclaration() {
             std::string param_name = current_token_.value;
             type_parameters.push_back(param_name);
             advance();
+
+            // インターフェース境界のチェック: A: Allocator
+            if (check(TokenType::TOK_COLON)) {
+                advance(); // ':' を消費
+                
+                if (!check(TokenType::TOK_IDENTIFIER)) {
+                    error("Expected interface name after ':' in type parameter bound");
+                    return nullptr;
+                }
+                
+                std::string interface_name = current_token_.value;
+                interface_bounds[param_name] = interface_name;
+                advance();
+            }
 
             if (check(TokenType::TOK_COMMA)) {
                 advance(); // ',' を消費
@@ -570,6 +586,7 @@ ASTNode *RecursiveParser::parseStructDeclaration() {
         node->name = struct_name;
         node->is_generic = is_generic;
         node->type_parameters = type_parameters;
+        node->interface_bounds = interface_bounds;
         setLocation(node, current_token_);
         return node;
     }
@@ -761,6 +778,7 @@ ASTNode *RecursiveParser::parseStructDeclaration() {
     node->name = struct_name;
     node->is_generic = is_generic;
     node->type_parameters = type_parameters;
+    node->interface_bounds = interface_bounds;
     setLocation(node, current_token_);
 
     // struct定義情報をASTノードに保存

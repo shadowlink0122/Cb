@@ -235,20 +235,20 @@ int main() {
 
 ## 🔌 アロケータの抽象化
 
-### インターフェース定義（トレイト方式）
+### インターフェース定義（既存のinterface/impl機能を使用）
 
 ```cb
 // std/core/allocator.cb
 
-// アロケータトレイト（interface的なもの）
-trait Allocator {
+// アロケータインターフェース
+interface Allocator {
     void* allocate(int size);
     void deallocate(void* ptr);
 }
 
 // 使用例：
 // struct Vector<T, A: Allocator> { ... }
-// ↑ Aは Allocator トレイトを実装している型でなければならない
+// ↑ Aは Allocator インターフェースを実装している型でなければならない
 ```
 
 ### システムアロケータ（OS環境）
