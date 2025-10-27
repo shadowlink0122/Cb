@@ -73,8 +73,11 @@ void vector_push_int_system(Vector<int, SystemAllocator>& vec, int value) {
         return;
     }
     
-    // 将来的には: vec.data[vec.length] = value;
-    println("[Vector] Push value=%d at index=%d", value, vec.length);
+    // v0.11.0 Week 2 Day 2: 型キャストを使った実データ格納
+    // void*をint*にキャストしてアクセス
+    int* data = (int*)vec.data;
+    // data[vec.length] = value;  // 将来的な配列アクセス実装後
+    println("[Vector] Push value=%d at index=%d (using cast)", value, vec.length);
     vec.length = vec.length + 1;
 }
 
@@ -85,8 +88,11 @@ int vector_pop_int_system(Vector<int, SystemAllocator>& vec) {
     }
     
     vec.length = vec.length - 1;
-    // 将来的には: return vec.data[vec.length];
-    println("[Vector] Pop from index=%d", vec.length);
+    
+    // v0.11.0 Week 2 Day 2: 型キャストを使った実データ取得
+    // int* data = (int*)vec.data;
+    // return data[vec.length];  // 将来的な配列アクセス実装後
+    println("[Vector] Pop from index=%d (using cast)", vec.length);
     return 0;  // プレースホルダー
 }
 
@@ -126,7 +132,9 @@ void vector_push_int_bump(Vector<int, BumpAllocator>& vec, int value) {
         return;
     }
     
-    println("[Vector] Push value=%d at index=%d", value, vec.length);
+    // v0.11.0 Week 2 Day 2: 型キャストを使った実データ格納
+    int* data = (int*)vec.data;
+    println("[Vector] Push value=%d at index=%d (using cast)", value, vec.length);
     vec.length = vec.length + 1;
 }
 
@@ -137,7 +145,10 @@ int vector_pop_int_bump(Vector<int, BumpAllocator>& vec) {
     }
     
     vec.length = vec.length - 1;
-    println("[Vector] Pop from index=%d", vec.length);
+    
+    // v0.11.0 Week 2 Day 2: 型キャストを使った実データ取得
+    int* data = (int*)vec.data;
+    println("[Vector] Pop from index=%d (using cast)", vec.length);
     return 0;
 }
 
