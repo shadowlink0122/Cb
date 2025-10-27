@@ -615,6 +615,10 @@ void Interpreter::process(const ASTNode *ast) {
 
     debug_msg(DebugMsgId::GLOBAL_DECL_COMPLETE);
 
+    // v0.11.0 Phase 1a: インスタンス化されたジェネリック構造体の型チェック
+    // すべてのグローバル宣言(interface/impl含む)が登録された後に実行
+    validate_all_interface_bounds();
+
     debug_msg(DebugMsgId::MAIN_FUNC_SEARCH);
     // main関数を探して実行
     const ASTNode *main_func = find_function("main");
@@ -2724,4 +2728,39 @@ Interpreter::find_typedef_definition(const std::string &typedef_name) {
     // typedef定義をマップから検索（簡易実装）
     // 実際の実装では typedef_definitions_ マップを使用
     return nullptr; // 簡易実装：typedefサポートは後で実装
+}
+
+// v0.11.0 Phase 1a: すべてのインスタンス化されたジェネリック構造体の型チェック
+void Interpreter::validate_all_interface_bounds() {
+    // sync時に遅延させた型チェックをここで実行
+    for (const auto &pair : struct_definitions_) {
+        const std::string &struct_name = pair.first;
+        const StructDefinition &struct_def = pair.second;
+        
+        // インターフェース境界がある構造体のみチェック
+        if (!struct_def.interface_bounds.empty() && 
+            !struct_def.type_parameters.empty() &&
+            !struct_def.type_parameter_bindings.empty()) {
+            
+            if (is_debug_mode()) {
+                std::cerr << "[VALIDATE_BOUNDS] Checking " << struct_name << std::endl;
+            }
+            
+            // 型引数のリストを構築
+            std::vector<std::string> type_arguments;
+            for (const auto &param : struct_def.type_parameters) {
+                auto it = struct_def.type_parameter_bindings.find(param);
+                if (it != struct_def.type_parameter_bindings.end()) {
+                    type_arguments.push_back(it->second);
+                }
+            }
+            
+            // インターフェース境界を検証
+            if (type_arguments.size() == struct_def.type_parameters.size()) {
+                interface_operations_->validate_interface_bounds(
+                    struct_name, struct_def.type_parameters, type_arguments,
+                    struct_def.interface_bounds);
+            }
+        }
+    }
 }
