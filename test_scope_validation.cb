@@ -1,0 +1,38 @@
+// Test: Scope validation for destructors
+// {}ブロックが本当にスコープとして機能するか検証
+
+struct Item {
+    int id;
+};
+
+impl Item {
+    ~self() {
+        println("[Destructor] Item {self.id} destroyed");
+    }
+}
+
+void test_bare_block() {
+    println("=== Test: Bare Block Scope ===");
+    println("Before block");
+    
+    {
+        Item item;
+        item.id = 1;
+        println("Inside block: created item {item.id}");
+        println("Exiting block...");
+    }
+    
+    println("After block - destructor should have been called");
+    println("Creating another item...");
+    
+    Item item2;
+    item2.id = 2;
+    println("Created item {item2.id}");
+    
+    println("Exiting function...");
+}
+
+void main() {
+    test_bare_block();
+    println("\nFunction exited");
+}

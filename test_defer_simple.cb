@@ -1,0 +1,6 @@
+void main() {
+    println("Start");
+    defer println("Defer 1");
+    defer println("Defer 2");
+    println("End");
+}

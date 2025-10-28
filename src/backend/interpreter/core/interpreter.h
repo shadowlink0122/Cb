@@ -686,6 +686,10 @@ class Interpreter : public EvaluatorInterface {
     Scope &get_current_scope() { return current_scope(); }
     Scope &get_global_scope() { return global_scope; }
 
+    // デストラクタスコープ管理（変数スコープは作成しない）
+    void push_destructor_scope();
+    void pop_destructor_scope();
+
     // Defer管理
     void push_defer_scope();
     void pop_defer_scope();

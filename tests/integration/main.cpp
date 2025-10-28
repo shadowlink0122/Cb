@@ -28,6 +28,7 @@
 #include "default_args/test_default_args.hpp"
 #include "default_member/test_default_member.hpp"
 #include "defer/test_defer.hpp"
+#include "destructor/test_destructor.hpp"
 #include "discard_variable/discard_variable_tests.hpp"
 #include "dynamic_array_error/test_dynamic_array_error.hpp"
 #include "enum/test_enum.hpp"
@@ -312,6 +313,8 @@ int main() {
                            failed_tests);
     run_test_with_continue(run_all_destructor_tests, "Destructor Tests",
                            failed_tests);
+    run_test_with_continue(test_integration_generic_destructor,
+                           "Generic Destructor Tests", failed_tests);
     run_test_with_continue(InterfaceTests::run_all_interface_tests,
                            "Interface Tests", failed_tests);
     run_test_with_continue(test_interface_type_inference_chain,

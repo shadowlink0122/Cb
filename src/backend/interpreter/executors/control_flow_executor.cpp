@@ -115,10 +115,20 @@ void ControlFlowExecutor::execute_for_statement(const ASTNode *node) {
         }
     } catch (const BreakException &e) {
         // break文でループ脱出
+        if (interpreter_->is_debug_mode()) {
+            fprintf(stderr, "[DEBUG_PRINT] FOR LOOP: Caught BreakException\n");
+        }
     }
 
     // forループのdeferスコープを終了（deferを実行）
+    if (interpreter_->is_debug_mode()) {
+        fprintf(stderr,
+                "[DEBUG_PRINT] FOR LOOP: About to call pop_defer_scope()\n");
+    }
     interpreter_->pop_defer_scope();
+    if (interpreter_->is_debug_mode()) {
+        fprintf(stderr, "[DEBUG_PRINT] FOR LOOP: Finished pop_defer_scope()\n");
+    }
 }
 
 // SWITCH文の実行

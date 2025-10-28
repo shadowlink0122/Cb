@@ -1,0 +1,30 @@
+struct Point {
+    int x;
+    int y;
+};
+
+void main() {
+    println("=== For Loop Scope Test ===");
+    
+    Point[3] points;
+    
+    println("Before loop");
+    
+    // ループを使用して構造体配列を初期化
+    for (int i = 0; i < 3; i++) {
+        println("In loop, i={i}");
+        points[i].x = i * 10;
+        points[i].y = i * 20;
+        println("Set points[{i}].x = {points[i].x}");
+        println("Set points[{i}].y = {points[i].y}");
+    }
+    
+    println("After loop");
+    
+    // ループを使用して構造体配列を表示
+    for (int i = 0; i < 3; i++) {
+        println("Point {i}:");
+        println("  x = {points[i].x}");
+        println("  y = {points[i].y}");
+    }
+}

@@ -2955,22 +2955,67 @@ void Interpreter::call_copy_constructor(const std::string &var_name,
 
 void Interpreter::call_destructor(const std::string &var_name,
                                   const std::string &struct_type_name) {
-    // デストラクタを探す
+    // v0.11.0: マングルされた型名をアンマングル
+    // 例: Vector_int_SystemAllocator -> Vector<int, SystemAllocator>
+    auto unmangle_type_name = [](const std::string &mangled) -> std::string {
+        size_t first_underscore = mangled.find('_');
+        if (first_underscore == std::string::npos) {
+            return mangled; // マングルされていない
+        }
+
+        std::string base_name = mangled.substr(0, first_underscore);
+        std::string params_part = mangled.substr(first_underscore + 1);
+
+        std::vector<std::string> params;
+        size_t pos = 0;
+        while (pos < params_part.length()) {
+            size_t next_underscore = params_part.find('_', pos);
+            if (next_underscore == std::string::npos) {
+                params.push_back(params_part.substr(pos));
+                break;
+            }
+            params.push_back(params_part.substr(pos, next_underscore - pos));
+            pos = next_underscore + 1;
+        }
+
+        if (params.empty()) {
+            return mangled;
+        }
+
+        std::string result = base_name + "<";
+        for (size_t i = 0; i < params.size(); ++i) {
+            if (i > 0)
+                result += ", ";
+            result += params[i];
+        }
+        result += ">";
+        return result;
+    };
+
+    std::string unmangled_type_name = unmangle_type_name(struct_type_name);
+
+    // デストラクタを探す（マングル名とアンマングル名の両方で試す）
     auto it = struct_destructors_.find(struct_type_name);
     if (it == struct_destructors_.end() || !it->second) {
-        // デストラクタが定義されていない場合は何もしない
-        if (debug_mode) {
-            debug_print("No destructor defined for struct: %s\n",
-                        struct_type_name.c_str());
+        // アンマングル名でも試す
+        it = struct_destructors_.find(unmangled_type_name);
+        if (it == struct_destructors_.end() || !it->second) {
+            // デストラクタが定義されていない場合は何もしない
+            if (debug_mode) {
+                debug_print(
+                    "No destructor defined for struct: %s (unmangled: %s)\n",
+                    struct_type_name.c_str(), unmangled_type_name.c_str());
+            }
+            return;
         }
-        return;
     }
 
     const ASTNode *destructor = it->second;
 
     if (debug_mode) {
-        debug_print("Calling destructor for %s.%s\n", struct_type_name.c_str(),
-                    var_name.c_str());
+        debug_print("Calling destructor for %s (type: %s, unmangled: %s)\n",
+                    var_name.c_str(), struct_type_name.c_str(),
+                    unmangled_type_name.c_str());
     }
 
     // v0.10.0: デストラクタ呼び出し中フラグを設定（無限再帰防止）

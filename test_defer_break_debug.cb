@@ -1,0 +1,16 @@
+void main() {
+    println("Break test:");
+    defer println("defer from main");
+    
+    println("Before for loop");
+    for (int i = 0; i < 5; i = i + 1) {
+        println(i);
+        if (i == 2) {
+            println("About to break");
+            break;
+        }
+    }
+    println("After for loop");
+    println("Done");
+    println("About to exit main");
+}

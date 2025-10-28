@@ -1,0 +1,28 @@
+// Test: Verify that if(true){} creates a proper scope
+
+struct Item {
+    int id;
+};
+
+impl Item {
+    ~self() {
+        println("[Destructor] Item {self.id} destroyed");
+    }
+}
+
+void main() {
+    println("Before if block");
+    if (true) {
+        Item item;
+        item.id = 1;
+        println("Inside if block: created item {item.id}");
+    }
+    println("After if block - destructor should have been called");
+    
+    println("\nCreating another item...");
+    Item item2;
+    item2.id = 2;
+    println("Created item {item2.id}");
+    
+    println("Exiting function...");
+}

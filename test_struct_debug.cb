@@ -1,0 +1,19 @@
+struct Point {
+    int x;
+    int y;
+};
+
+void main() {
+    println("=== Struct Array with Debug ===");
+    
+    Point[3] points;
+    
+    println("Setting points[0]");
+    {
+        points[0].x = 100;
+        points[0].y = 200;
+        println("In block: points[0].x = {points[0].x}");
+    }
+    
+    println("After block: points[0].x = {points[0].x}");
+}

@@ -1,0 +1,85 @@
+// test_vector_destructor.cb
+// Vector destroy()メソッドの動作確認テスト
+// Note: ジェネリクス構造体は自動デストラクタをサポートしていないため、
+// 明示的にdestroy()を呼び出す必要があります
+
+import "stdlib/collections/vector.cb";
+
+int main() {
+    println("╔════════════════════════════════════╗");
+    println("║  Vector destroy() Method Tests    ║");
+    println("╚════════════════════════════════════╝");
+    println("");
+    
+    // Test 1: 基本的なdestroy()呼び出し
+    println("=== Test 1: Basic destroy() call ===");
+    Vector<int, SystemAllocator> vec1;
+    vec1.init(5);
+    vec1.push(10);
+    vec1.push(20);
+    vec1.push(30);
+    println("Vector created with 3 elements");
+    vec1.info();
+    vec1.destroy();
+    println("After destroy():");
+    vec1.info();
+    println("✅ Test 1: PASSED");
+    println("");
+    
+    // Test 2: resize後のdestroy()
+    println("=== Test 2: destroy() after resize ===");
+    Vector<int, SystemAllocator> vec2;
+    vec2.init(2);
+    vec2.push(10);
+    vec2.push(20);
+    
+    println("Before resize:");
+    vec2.info();
+    
+    vec2.resize(10);
+    
+    println("After resize:");
+    vec2.info();
+    
+    vec2.push(30);
+    vec2.push(40);
+    
+    vec2.destroy();
+    println("After destroy():");
+    vec2.info();
+    println("✅ Test 2: PASSED");
+    println("");
+    
+    // Test 3: 空のベクターのdestroy()
+    println("=== Test 3: Empty vector destroy() ===");
+    Vector<int, SystemAllocator> vec3;
+    vec3.init(5);
+    println("Empty vector created (no push)");
+    vec3.info();
+    vec3.destroy();
+    println("After destroy():");
+    vec3.info();
+    println("✅ Test 3: PASSED");
+    println("");
+    
+    // Test 4: destroy()の二重呼び出し（安全性確認）
+    println("=== Test 4: Double destroy() call ===");
+    Vector<int, SystemAllocator> vec4;
+    vec4.init(3);
+    vec4.push(1);
+    vec4.push(2);
+    println("Vector created");
+    vec4.destroy();
+    println("First destroy() done");
+    vec4.destroy();
+    println("Second destroy() done (should be safe - data is null)");
+    println("✅ Test 4: PASSED");
+    println("");
+    
+    // 完了メッセージ
+    println("╔════════════════════════════════════╗");
+    println("║  All destroy() tests passed!      ║");
+    println("╚════════════════════════════════════╝");
+    
+    return 0;
+}

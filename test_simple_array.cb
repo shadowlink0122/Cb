@@ -1,0 +1,18 @@
+void main() {
+    println("=== Simple Array Test ===");
+    
+    int[3] arr;
+    arr[0] = 10;
+    arr[1] = 20;
+    arr[2] = 30;
+    
+    println("Before block: arr[1] = {arr[1]}");
+    
+    {
+        println("In block: arr[1] = {arr[1]}");
+        arr[1] = 99;
+        println("After assignment: arr[1] = {arr[1]}");
+    }
+    
+    println("After block: arr[1] = {arr[1]}");
+}

@@ -1,0 +1,17 @@
+void main() {
+    println("=== Nested Scope Array Test ===");
+    
+    int[3] arr;
+    arr[0] = 0;
+    arr[1] = 0;
+    arr[2] = 0;
+    
+    println("Before block: arr[1] = {arr[1]}");
+    
+    {
+        arr[1] = 99;
+        println("In block: arr[1] = {arr[1]}");
+    }
+    
+    println("After block: arr[1] = {arr[1]}");
+}

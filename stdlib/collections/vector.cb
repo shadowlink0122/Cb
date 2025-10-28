@@ -60,6 +60,7 @@ export interface VectorOps {
     int get_length();
     int get_capacity();
     bool is_empty();
+    void destroy();  // 明示的なメモリ解放メソッド（後方互換性のため残存、~self()が自動的に呼ばれる）
 }
 
 // Implementation of VectorOps for Vector<int, SystemAllocator>
@@ -145,6 +146,29 @@ impl VectorOps for Vector<int, SystemAllocator> {
     bool is_empty() {
         return self.length == 0;
     }
+    
+    // 明示的なメモリ解放メソッド（デストラクタの代わり）
+    // Note: ジェネリクス構造体は~self()デストラクタをサポートしていないため
+    void destroy() {
+        if (self.data != nullptr) {
+            println("[Vector] destroy(): Freeing memory at {hex(self.data)}");
+            delete self.data;
+            self.data = nullptr;
+            self.length = 0;
+            self.capacity = 0;
+        }
+    }
+}
+
+// Destructor for Vector<int, SystemAllocator>
+// 自動メモリ管理：スコープを抜ける時に自動的にメモリを解放
+impl Vector<int, SystemAllocator> {
+    ~self() {
+        if (self.data != nullptr) {
+            println("[Vector<int, SystemAllocator>] Destructor: Freeing memory at {hex(self.data)}");
+            delete self.data;
+        }
+    }
 }
 
 // Implementation of VectorOps for Vector<int, BumpAllocator>
@@ -203,6 +227,14 @@ impl VectorOps for Vector<int, BumpAllocator> {
     
     bool is_empty() {
         return self.length == 0;
+    }
+    
+    // BumpAllocatorではメモリ解放は何もしない（バンプアロケータの特性）
+    void destroy() {
+        println("[Vector<BumpAllocator>] destroy(): BumpAllocator does not free individual allocations");
+        self.length = 0;
+        self.capacity = 0;
+        self.data = nullptr;
     }
 }
 
@@ -327,10 +359,46 @@ void test_vector_with_allocators() {
     println("Allocator test complete");
 }
 
+void test_vector_automatic_destructor() {
+    println("\n=== Testing Vector Automatic Destructor ===");
+    
+    // Test 1: 基本的な自動デストラクタ
+    println("\n--- Test 1: Basic automatic destructor ---");
+    {
+        Vector<int, SystemAllocator> vec1;
+        vec1.init(5);
+        vec1.push(10);
+        vec1.push(20);
+        vec1.push(30);
+        vec1.info();
+        println("Exiting scope... destructor should be called automatically");
+    }
+    println("Scope exited - destructor was called");
+    
+    // Test 2: resize後の自動デストラクタ
+    println("\n--- Test 2: Automatic destructor after resize ---");
+    {
+        Vector<int, SystemAllocator> vec2;
+        vec2.init(2);
+        vec2.push(10);
+        vec2.push(20);
+        println("Before resize:");
+        vec2.info();
+        vec2.resize(10);
+        println("After resize:");
+        vec2.info();
+        println("Exiting scope... destructor will free the resized memory");
+    }
+    println("Scope exited - resized memory was freed");
+    
+    println("\nAutomatic destructor test complete");
+}
+
 void main() {
     test_vector_basic();
     test_vector_operations();
     test_vector_with_allocators();
+    test_vector_automatic_destructor();
     
     println("\n╔════════════════════════════════════════════════════════════╗");
     println("║  All Vector tests completed successfully!                 ║");

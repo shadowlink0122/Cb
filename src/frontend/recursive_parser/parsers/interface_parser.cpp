@@ -176,15 +176,64 @@ ASTNode *InterfaceParser::parseImplDeclaration() {
     std::string interface_name;
     std::string struct_name;
 
+    // 型パラメータの解析（ジェネリクス対応）
+    // impl Vector<T, A: Allocator> {} のような構文をサポート
+    std::string first_name_with_generics = first_name;
+    if (parser_->check(TokenType::TOK_LT)) {
+        first_name_with_generics += "<";
+        parser_->advance(); // consume '<'
+
+        int depth = 1;
+        while (depth > 0 && !parser_->isAtEnd()) {
+            if (parser_->check(TokenType::TOK_LT)) {
+                depth++;
+                first_name_with_generics += "<";
+            } else if (parser_->check(TokenType::TOK_GT)) {
+                depth--;
+                first_name_with_generics += ">";
+            } else if (parser_->check(TokenType::TOK_IDENTIFIER)) {
+                first_name_with_generics += parser_->current_token_.value;
+            } else if (parser_->check(TokenType::TOK_INT)) {
+                first_name_with_generics += "int";
+            } else if (parser_->check(TokenType::TOK_LONG)) {
+                first_name_with_generics += "long";
+            } else if (parser_->check(TokenType::TOK_SHORT)) {
+                first_name_with_generics += "short";
+            } else if (parser_->check(TokenType::TOK_TINY)) {
+                first_name_with_generics += "tiny";
+            } else if (parser_->check(TokenType::TOK_BOOL)) {
+                first_name_with_generics += "bool";
+            } else if (parser_->check(TokenType::TOK_CHAR_TYPE)) {
+                first_name_with_generics += "char";
+            } else if (parser_->check(TokenType::TOK_STRING_TYPE)) {
+                first_name_with_generics += "string";
+            } else if (parser_->check(TokenType::TOK_COMMA)) {
+                first_name_with_generics += ", ";
+            } else if (parser_->check(TokenType::TOK_COLON)) {
+                first_name_with_generics += ": ";
+            } else {
+                first_name_with_generics += parser_->current_token_.value;
+            }
+            parser_->advance();
+        }
+
+        if (depth != 0) {
+            parser_->error(
+                "Unmatched '<' in type parameters for impl declaration");
+            return nullptr;
+        }
+    }
+
     if (parser_->check(TokenType::TOK_LBRACE)) {
-        // パターン1: impl Struct {} (コンストラクタ/デストラクタ用)
+        // パターン1: impl Struct<...> {} (コンストラクタ/デストラクタ用)
         is_constructor_impl = true;
-        struct_name = first_name;
+        struct_name = first_name_with_generics;
         interface_name = ""; // interface名なし
     } else if (parser_->check(TokenType::TOK_FOR) ||
                (parser_->check(TokenType::TOK_IDENTIFIER) &&
                 parser_->current_token_.value == "for")) {
-        // パターン2: impl Interface for Struct {} (通常のメソッド実装)
+        // パターン2: impl Interface for Struct<...> {} (通常のメソッド実装)
+        // ここではfirst_nameはinterface名、ジェネリクスは含まない
         interface_name = first_name;
 
         // ★ 課題1の解決: 存在しないinterfaceを実装しようとする場合のエラー検出

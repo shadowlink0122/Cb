@@ -1,0 +1,135 @@
+// Test: Generic Struct Destructor
+// ジェネリック構造体のデストラクタ機能確認
+
+// Simple generic struct
+export struct Container<T> {
+    int size;
+    int value;  // T の代わりにintを使用（簡略化）
+};
+
+impl Container<int> {
+    ~self() {
+        println("[Container<int>] Destructor called (size={self.size}, value={self.value})");
+    }
+}
+
+// Generic struct with trait bound
+export interface Allocator {
+    void* allocate(int size);
+    void deallocate(void* ptr);
+}
+
+export struct SystemAllocator {
+    int allocation_count;
+};
+
+impl Allocator for SystemAllocator {
+    void* allocate(int size) {
+        return nullptr;
+    }
+    
+    void deallocate(void* ptr) {
+        // No-op for test
+    }
+}
+
+export struct Vector<T, A: Allocator> {
+    int capacity;
+    int length;
+    void* data;
+};
+
+impl Vector<int, SystemAllocator> {
+    ~self() {
+        if (self.data != nullptr) {
+            println("[Vector<int, SystemAllocator>] Destructor: capacity={self.capacity}, length={self.length}");
+            println("[Vector] Freeing memory at {hex(self.data)}");
+            delete self.data;
+        } else {
+            println("[Vector<int, SystemAllocator>] Destructor: data is nullptr");
+        }
+    }
+}
+
+void test_simple_generic() {
+    println("=== Test 1: Simple Generic Struct ===");
+    {
+        Container<int> c;
+        c.size = 5;
+        c.value = 42;
+        println("Container created: size={c.size}, value={c.value}");
+        println("Exiting scope...");
+    }
+    println("✓ Generic destructor called\n");
+}
+
+void test_generic_with_trait_bound() {
+    println("=== Test 2: Generic with Trait Bound ===");
+    {
+        Vector<int, SystemAllocator> vec;
+        vec.capacity = 10;
+        vec.length = 0;
+        vec.data = new int[10];
+        println("Vector created: capacity={vec.capacity}, data at {hex(vec.data)}");
+        println("Exiting scope...");
+    }
+    println("✓ Generic destructor with trait bound called\n");
+}
+
+void test_multiple_generic_instances() {
+    println("=== Test 3: Multiple Generic Instances ===");
+    {
+        Container<int> c1;
+        c1.size = 1;
+        c1.value = 10;
+        println("Created Container 1");
+        
+        Vector<int, SystemAllocator> v1;
+        v1.capacity = 5;
+        v1.length = 0;
+        v1.data = new int[5];
+        println("Created Vector 1 at {hex(v1.data)}");
+        
+        Container<int> c2;
+        c2.size = 2;
+        c2.value = 20;
+        println("Created Container 2");
+        
+        Vector<int, SystemAllocator> v2;
+        v2.capacity = 3;
+        v2.length = 0;
+        v2.data = new int[3];
+        println("Created Vector 2 at {hex(v2.data)}");
+        
+        println("Exiting scope... (expect LIFO: v2, c2, v1, c1)");
+    }
+    println("✓ All generic destructors called in correct order\n");
+}
+
+void test_nullptr_handling() {
+    println("=== Test 4: nullptr Handling ===");
+    {
+        Vector<int, SystemAllocator> vec;
+        vec.capacity = 0;
+        vec.length = 0;
+        vec.data = nullptr;
+        println("Vector created with nullptr data");
+        println("Exiting scope...");
+    }
+    println("✓ Destructor handled nullptr correctly\n");
+}
+
+void main() {
+    println("╔══════════════════════════════════════════════════╗");
+    println("║  Generic Struct Destructor Tests                ║");
+    println("╚══════════════════════════════════════════════════╝\n");
+    
+    test_simple_generic();
+    test_generic_with_trait_bound();
+    test_multiple_generic_instances();
+    test_nullptr_handling();
+    
+    println("╔══════════════════════════════════════════════════╗");
+    println("║  All Generic Destructor Tests Passed!           ║");
+    println("╚══════════════════════════════════════════════════╝");
+}
