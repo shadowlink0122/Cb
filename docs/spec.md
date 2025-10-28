@@ -1,7 +1,7 @@
-# Cb言語 完全仕様書 v0.10.0
+# Cb言語 完全仕様書 v0.11.0
 
-**最終更新**: 2025年10月12日  
-**バージョン**: v0.10.0 - Move Semantics & Complete Cleanup
+**最終更新**: 2025年10月28日  
+**バージョン**: v0.11.0 - Generics, String Interpolation & Destructors
 
 ## 目次
 
@@ -11,15 +11,18 @@
 4. [演算子](#演算子)
 5. [制御構造](#制御構造)
 6. [関数](#関数)
-7. [配列](#配列)
-8. [構造体](#構造体)
-9. [Union型](#union型)
-10. [Interface/Implシステム](#interfaceimplシステム)
-11. [ポインタと参照](#ポインタと参照)
-12. [モジュールシステム](#モジュールシステム)
-13. [入出力](#入出力)
-14. [エラーハンドリング](#エラーハンドリング)
-15. [メモリ管理](#メモリ管理)
+7. [ジェネリクス](#ジェネリクス)
+8. [配列](#配列)
+9. [構造体](#構造体)
+10. [Union型](#union型)
+11. [Interface/Implシステム](#interfaceimplシステム)
+12. [デストラクタとRAII](#デストラクタとraii)
+13. [文字列補間](#文字列補間)
+14. [ポインタと参照](#ポインタと参照)
+15. [モジュールシステム](#モジュールシステム)
+16. [入出力](#入出力)
+17. [エラーハンドリング](#エラーハンドリング)
+18. [メモリ管理](#メモリ管理)
 
 ---
 
@@ -570,6 +573,171 @@ Matrix2x2 create_identity() {
     m[1][0] = 0; m[1][1] = 1;
     return m;
 }
+```
+
+---
+
+## ジェネリクス
+
+### ジェネリック構造体
+
+#### 基本的な定義
+
+```cb
+struct Box<T> {
+    T value;
+};
+
+struct Pair<K, V> {
+    K key;
+    V value;
+};
+```
+
+#### 使用例
+
+```cb
+int main() {
+    // 型パラメータを指定してインスタンス化
+    Box<int> int_box;
+    int_box.value = 42;
+    
+    Box<string> str_box;
+    str_box.value = "Hello";
+    
+    Pair<string, int> age_pair;
+    age_pair.key = "Alice";
+    age_pair.value = 30;
+    
+    return 0;
+}
+```
+
+#### ネストされたジェネリクス
+
+```cb
+struct Vec<T> {
+    T data[10];
+    int size;
+};
+
+int main() {
+    Vec<int> numbers;
+    Vec<Vec<int>> matrix;  // Vec<Vec<int>> のネスト
+    
+    return 0;
+}
+```
+
+### ジェネリック関数
+
+#### 基本的な定義
+
+```cb
+T identity<T>(T value) {
+    return value;
+}
+
+T max<T>(T a, T b) {
+    return a > b ? a : b;
+}
+```
+
+#### 使用例
+
+```cb
+int main() {
+    int x = identity<int>(42);
+    long y = identity<long>(100);
+    
+    int m = max<int>(10, 20);        // 20
+    double d = max<double>(3.14, 2.71);  // 3.14
+    
+    return 0;
+}
+```
+
+#### 型パラメータを関数本体で使用
+
+```cb
+T duplicate<T>(T value) {
+    T copy = value;  // 型パラメータを変数の型として使用
+    return copy;
+}
+
+void swap<T>(T* a, T* b) {
+    T temp = *a;
+    *a = *b;
+    *b = temp;
+}
+```
+
+#### ジェネリック構造体を返す関数
+
+```cb
+struct Box<T> {
+    T value;
+};
+
+Box<T> make_box<T>(T val) {
+    Box<T> box;
+    box.value = val;
+    return box;
+}
+
+int main() {
+    Box<int> int_box = make_box<int>(42);
+    Box<string> str_box = make_box<string>("Hello");
+    
+    return 0;
+}
+```
+
+### ジェネリック Enum
+
+#### 基本的な定義
+
+```cb
+enum Option<T> {
+    Some(T),
+    None
+};
+
+enum Result<T, E> {
+    Ok(T),
+    Err(E)
+};
+```
+
+#### 使用例
+
+```cb
+int main() {
+    Option<int> some_val = Option<int>::Some(42);
+    println(some_val.variant);  // "Some"
+    println(some_val.value);    // 42
+    
+    Option<int> none_val = Option<int>::None;
+    println(none_val.variant);  // "None"
+    
+    Result<int, string> ok = Result<int, string>::Ok(100);
+    Result<int, string> err = Result<int, string>::Err("Error occurred");
+    
+    return 0;
+}
+```
+
+### インターフェース境界（未実装）
+
+将来のバージョンで、インターフェース境界がサポートされる予定です：
+
+```cb
+// 未実装: インターフェース境界
+struct Vector<T, A: Allocator> {
+    T* data;
+    int size;
+    A allocator;
+};
 ```
 
 ---
@@ -1727,6 +1895,284 @@ impl Debugger for Tracer {
     }
 };
 ```
+
+---
+
+## デストラクタとRAII
+
+### デストラクタの基本
+
+デストラクタは、構造体がスコープを抜けるときに自動的に呼び出される特別なメソッドです。リソースの自動解放を実現します。
+
+#### 基本構文
+
+```cb
+struct Resource {
+    int id;
+};
+
+impl Resource {
+    fn deinit() {
+        println("Resource {id} destroyed");
+    }
+};
+```
+
+#### 実行タイミング
+
+```cb
+int main() {
+    {
+        Resource r;
+        r.id = 1;
+        println("Resource created");
+        // スコープ終了時に自動的に r.deinit() が呼ばれる
+    }
+    println("After scope");
+    
+    return 0;
+}
+
+// 出力:
+// Resource created
+// Resource 1 destroyed
+// After scope
+```
+
+### LIFO順序
+
+複数の変数がある場合、デストラクタは宣言の逆順（LIFO: Last In, First Out）で実行されます。
+
+```cb
+struct Item {
+    int id;
+};
+
+impl Item {
+    fn deinit() {
+        println("Item {id} destroyed");
+    }
+};
+
+int main() {
+    Item a;
+    a.id = 1;
+    Item b;
+    b.id = 2;
+    Item c;
+    c.id = 3;
+    
+    return 0;
+}
+
+// 出力:
+// Item 3 destroyed
+// Item 2 destroyed
+// Item 1 destroyed
+```
+
+### ジェネリック構造体のデストラクタ
+
+ジェネリック構造体でもデストラクタを定義できます。
+
+```cb
+struct Vector<T, A: Allocator> {
+    T* data;
+    int size;
+    int capacity;
+    A allocator;
+};
+
+impl Vector<T, A: Allocator> {
+    fn deinit() {
+        println("Vector deinit - cleaning up {size} elements");
+        if (data != NULL) {
+            allocator.free(data);
+        }
+    }
+};
+
+int main() {
+    Vector<int, SystemAllocator> vec;
+    vec.size = 10;
+    // スコープ終了時に vec.deinit() が自動実行される
+    return 0;
+}
+```
+
+### deferとの組み合わせ
+
+デストラクタとdefer文は組み合わせて使用できます。実行順序はLIFO（後入れ先出し）です。
+
+```cb
+struct Resource {
+    int id;
+};
+
+impl Resource {
+    fn deinit() {
+        println("Resource {id} destroyed");
+    }
+};
+
+int main() {
+    Resource r;
+    r.id = 1;
+    
+    defer println("Defer 1");
+    defer println("Defer 2");
+    
+    return 0;
+}
+
+// 出力:
+// Defer 2
+// Defer 1
+// Resource 1 destroyed
+```
+
+### break/continueとの統合
+
+break文やcontinue文でループから抜ける場合でも、デストラクタは正しく実行されます。
+
+```cb
+struct Item {
+    int id;
+};
+
+impl Item {
+    fn deinit() {
+        println("Item {id} destroyed");
+    }
+};
+
+int main() {
+    for (int i = 0; i < 5; i++) {
+        Item item;
+        item.id = i;
+        
+        if (i == 2) {
+            break;  // break前に item.deinit() が実行される
+        }
+    }
+    
+    return 0;
+}
+
+// 出力:
+// Item 0 destroyed
+// Item 1 destroyed
+// Item 2 destroyed
+```
+
+### 制限事項
+
+1. **スコープベースの呼び出しのみ**: デストラクタはスコープ終了時にのみ自動呼び出しされます
+2. **ヒープオブジェクトは手動管理**: ポインタで管理されるヒープ上のオブジェクトは手動で解放が必要
+3. **明示的呼び出し不可**: デストラクタを直接呼び出すことはできません
+
+---
+
+## 文字列補間
+
+### 基本的な使い方
+
+文字列リテラル内で`{}`を使用して式を埋め込むことができます。
+
+```cb
+int x = 42;
+string name = "Alice";
+string message = "Hello, {name}! The answer is {x}";
+// "Hello, Alice! The answer is 42"
+```
+
+### 式の埋め込み
+
+任意の式を埋め込むことができます。
+
+```cb
+int a = 10;
+int b = 20;
+println("Sum: {a + b}");        // "Sum: 30"
+println("Product: {a * b}");    // "Product: 200"
+println("Comparison: {a < b}"); // "Comparison: true"
+```
+
+### フォーマット指定子
+
+#### 整数フォーマット
+
+```cb
+int num = 255;
+
+println("{num:d}");   // "255" (10進数)
+println("{num:x}");   // "ff" (16進数小文字)
+println("{num:X}");   // "FF" (16進数大文字)
+println("{num:o}");   // "377" (8進数)
+println("{num:b}");   // "11111111" (2進数)
+```
+
+#### 幅指定
+
+```cb
+int value = 42;
+
+println("{value:5d}");   // "   42" (右詰め、幅5)
+println("{value:05d}");  // "00042" (ゼロ埋め、幅5)
+```
+
+#### 浮動小数点フォーマット
+
+```cb
+double pi = 3.14159265;
+
+println("{pi:f}");       // "3.141593" (デフォルト精度)
+println("{pi:.2f}");     // "3.14" (小数点以下2桁)
+println("{pi:8.3f}");    // "   3.142" (幅8、精度3)
+println("{pi:e}");       // "3.141593e+00" (指数表記)
+```
+
+### 複数の補間
+
+```cb
+string first = "John";
+string last = "Doe";
+int age = 30;
+
+string profile = "{first} {last} is {age} years old";
+// "John Doe is 30 years old"
+```
+
+### 構造体メンバーアクセス
+
+```cb
+struct Point {
+    int x;
+    int y;
+};
+
+Point p;
+p.x = 10;
+p.y = 20;
+
+println("Point at ({p.x}, {p.y})");
+// "Point at (10, 20)"
+```
+
+### エスケープ
+
+`{}`を文字として出力する場合は、`{{`と`}}`を使用します。
+
+```cb
+println("Use {{}} for interpolation");
+// "Use {} for interpolation"
+```
+
+### 制限事項
+
+1. **フォーマット指定子は数値型のみ**: 文字列型には適用できません
+2. **ネストした補間は未対応**: `"{"{x}"}"` のような記述はできません
+3. **実行時評価**: 式は実行時に評価されるため、静的な文字列結合よりオーバーヘッドがあります
 
 ---
 

@@ -513,9 +513,10 @@ ASTNode *RecursiveParser::parseStructDeclaration() {
     advance(); // struct名をスキップ
 
     // v0.11.0: 型パラメータリストのチェック <T> または <T, E>
-    // v0.11.0 Phase 1a: インターフェース境界のサポート <T, A: Allocator>
+    // v0.11.0 Phase 1a: 複数インターフェース境界のサポート <T, A: Allocator +
+    // Clone>
     std::vector<std::string> type_parameters;
-    std::unordered_map<std::string, std::string> interface_bounds;
+    std::unordered_map<std::string, std::vector<std::string>> interface_bounds;
     bool is_generic = false;
 
     if (check(TokenType::TOK_LT)) {
@@ -533,19 +534,32 @@ ASTNode *RecursiveParser::parseStructDeclaration() {
             type_parameters.push_back(param_name);
             advance();
 
-            // インターフェース境界のチェック: A: Allocator
+            // インターフェース境界のチェック: A: Allocator または A: Allocator
+            // + Clone + Debug
             if (check(TokenType::TOK_COLON)) {
                 advance(); // ':' を消費
 
-                if (!check(TokenType::TOK_IDENTIFIER)) {
-                    error("Expected interface name after ':' in type parameter "
-                          "bound");
-                    return nullptr;
-                }
+                std::vector<std::string> bounds;
+                do {
+                    if (!check(TokenType::TOK_IDENTIFIER)) {
+                        error("Expected interface name after ':' or '+' in "
+                              "type parameter "
+                              "bound");
+                        return nullptr;
+                    }
 
-                std::string interface_name = current_token_.value;
-                interface_bounds[param_name] = interface_name;
-                advance();
+                    bounds.push_back(current_token_.value);
+                    advance();
+
+                    // '+' があれば次のインターフェース境界を読む
+                    if (check(TokenType::TOK_PLUS)) {
+                        advance(); // '+' を消費
+                    } else {
+                        break;
+                    }
+                } while (true);
+
+                interface_bounds[param_name] = bounds;
             }
 
             if (check(TokenType::TOK_COMMA)) {

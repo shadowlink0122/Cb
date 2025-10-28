@@ -14,155 +14,54 @@
 
 **⚠️ 重要: 新機能を実装する際は、必ずテストを作成してください。**
 
-### テスト作成の必須手順
+### 📚 詳細なテスト作成ガイド
+
+テストの作成方法については、専用のドキュメントを参照してください：
+
+- **Integration Test作成ガイド**: [`docs/testing/integration_test_guide.md`](testing/integration_test_guide.md)
+  - Cbテストファイル（`.cb`）の作成方法
+  - Integration Testファイル（`.hpp`）の作成方法
+  - `main.cpp`への登録方法
+  - テストのベストプラクティス
+
+- **標準ライブラリテスト構造**: [`docs/testing/stdlib_test_structure.md`](testing/stdlib_test_structure.md)
+  - 標準ライブラリのテスト体制
+  - Cb言語レベルのテストとC++統合テストの違い
+
+### テスト作成の概要
 
 新機能を実装する際は、以下の3つのステップを**必ず実行**してください：
 
-#### 1. Cbテストケースの作成 (`tests/cases/`)
+#### 1. Cbテストケースの作成 (`tests/cases/<feature_name>/`)
+- 機能ごとにディレクトリを作成
+- `README.md`、`test_basic.cb`等のテストファイルを作成
+- 詳細: [`docs/testing/integration_test_guide.md`](testing/integration_test_guide.md)
 
-機能ごとにディレクトリを作成し、テストケースを配置します。
+#### 2. Integration Testの作成 (`tests/integration/<feature_name>/`)
+- `.hpp`ファイルでCbテストの出力を検証
+- アサーションマクロで期待値をチェック
+- 詳細: [`docs/testing/integration_test_guide.md`](testing/integration_test_guide.md)
 
-```bash
-tests/cases/<feature_name>/
-├── README.md                    # テスト概要と実行方法
-├── test_basic.cb               # 基本機能テスト
-├── test_edge_cases.cb          # エッジケーステスト
-├── test_error_handling.cb      # エラーハンドリングテスト
-└── <other_tests>.cb            # その他のテスト
-```
+#### 3. main.cppへの登録
+- `tests/integration/main.cpp`にincludeとテスト呼び出しを追加
+- 詳細: [`docs/testing/integration_test_guide.md`](testing/integration_test_guide.md)
 
-**例: 文字列補間機能の場合**
-```bash
-tests/cases/string_interpolation/
-├── README.md
-├── test_basic.cb
-├── test_expressions.cb
-├── test_array_access.cb
-├── test_member_access.cb
-├── test_types.cb
-├── format_specifiers.cb
-└── test_edge_cases.cb
-```
-
-#### 2. Integration Testの作成 (`tests/integration/`)
-
-各機能ごとにディレクトリと`.hpp`ファイルを作成します。
-
-```bash
-tests/integration/<feature_name>/
-└── test_<feature_name>.hpp
-```
-
-**テストファイルの構造:**
-
-```cpp
-#pragma once
-
-#include "../framework/integration_test_framework.hpp"
-
-inline void test_integration_<feature_name>() {
-    std::cout << "[integration-test] Running <feature name> tests..." << std::endl;
-    
-    // テスト1: 基本機能
-    double execution_time_basic;
-    run_cb_test_with_output_and_time("../../tests/cases/<feature_name>/test_basic.cb", 
-        [](const std::string& output, int exit_code) {
-            // 終了コードの検証
-            INTEGRATION_ASSERT_EQ(0, exit_code, "test_basic.cb should execute successfully");
-            
-            // 出力内容の検証
-            INTEGRATION_ASSERT_CONTAINS(output, "Expected output", "Should contain expected output");
-            INTEGRATION_ASSERT_CONTAINS(output, "Test passed", "Should show success message");
-        }, execution_time_basic);
-    integration_test_passed_with_time("<test name>", "test_basic.cb", execution_time_basic);
-    
-    // 追加のテストケース...
-    
-    std::cout << "[integration-test] <Feature name> tests completed" << std::endl;
-}
-```
-
-**アサーションマクロ:**
-
-- `INTEGRATION_ASSERT_EQ(expected, actual, message)` - 値の等価性チェック
-- `INTEGRATION_ASSERT_CONTAINS(output, substring, message)` - 出力に文字列が含まれるかチェック
-- `integration_test_passed_with_time(name, file, time)` - テスト成功の記録
-
-#### 3. main.cppへの登録 (`tests/integration/main.cpp`)
-
-作成したテストを必ず`main.cpp`に登録してください。
-
-**手順:**
-
-1. **includeの追加:**
-```cpp
-#include "<feature_name>/test_<feature_name>.hpp"
-```
-
-2. **テスト関数の呼び出し:**
-```cpp
-// 適切なカテゴリセクションに追加
-std::cout << "\n[integration-test] === <Category Name> ===" << std::endl;
-CategoryTimingStats::set_current_category("<Category Name>");
-run_test_with_continue(test_integration_<feature_name>, "<Feature Name> Tests",
-                       failed_tests);
-```
-
-**例: 文字列補間の場合**
-```cpp
-// ファイル上部
-#include "string_interpolation/test_string_interpolation.hpp"
-
-// テスト実行部分
-std::cout << "\n[integration-test] === String & I/O Tests ===" << std::endl;
-CategoryTimingStats::set_current_category("String & I/O");
-run_test_with_continue(test_integration_string, "String Tests", failed_tests);
-run_test_with_continue(test_integration_string_interpolation, "String Interpolation Tests", failed_tests);
-```
-
-### テスト内でのバリデーション
-
-Cbテストファイル内では、2つの方法でバリデーションを行います：
-
-#### 方法1: `assert()`を使用（推奨）
-
-テストケース内で直接検証を行います：
+### Cbテストファイルの基本構造
 
 ```cb
 void main() {
-    println("=== Feature Test ===");
+    println("=== <Feature Name> Test ===");
     
-    // Test 1
-    int result = calculate(5);
-    assert(result == 25);
-    println("Test 1: Calculation - PASSED");
+    // Test 1: Description
+    // ... test code ...
+    println("Test 1: <Description> - PASSED");
     
-    // Test 2
-    string output = format("Value: {}", 42);
-    assert(output == "Value: 42");
-    println("Test 2: Format - PASSED");
+    // Test 2: Description  
+    // ... test code ...
+    println("Test 2: <Description> - PASSED");
     
     println("=== All Tests Passed ===");
 }
-```
-
-#### 方法2: 期待する出力をhppでハンドリング
-
-Integration test側で出力を検証します：
-
-```cpp
-run_cb_test_with_output_and_time("../../tests/cases/feature/test.cb", 
-    [](const std::string& output, int exit_code) {
-        INTEGRATION_ASSERT_EQ(0, exit_code, "Should execute successfully");
-        
-        // 期待する出力の検証
-        INTEGRATION_ASSERT_CONTAINS(output, "Test 1: Calculation - PASSED", "Test 1 should pass");
-        INTEGRATION_ASSERT_CONTAINS(output, "Test 2: Format - PASSED", "Test 2 should pass");
-        INTEGRATION_ASSERT_CONTAINS(output, "=== All Tests Passed ===", "All tests should complete");
-        
-        // 具体的な値の検証
-        INTEGRATION_ASSERT_CONTAINS(output, "Result: 42", "Should output correct value");
-    }, execution_time);
 ```
 
 ### テストの実行
@@ -174,50 +73,21 @@ make test
 # Integration testのみ実行
 make integration-test
 
-# Unit testのみ実行
-make unit-test
-
 # 個別のCbファイルを実行
-./main tests/cases/feature/test_basic.cb
+./main tests/cases/<feature>/test_basic.cb
 ```
+
+**詳細な実行方法**: [`docs/testing/integration_test_guide.md`](testing/integration_test_guide.md)
 
 ### テストのベストプラクティス
 
-1. **テストファイルの命名規則:**
-   - `test_<feature>.cb` - 機能別テスト
-   - `test_basic.cb` - 基本的な機能テスト
-   - `test_edge_cases.cb` - エッジケース
-   - `test_error_handling.cb` - エラーケース
+1. **テストファイルの命名**: `test_<feature>.cb`、`test_basic.cb`、`test_edge_cases.cb`等
+2. **テスト構造**: 「=== Test Name ===」で開始し、各テストに番号と説明を付ける
+3. **アサーションの使用**: すべての検証に`assert()`を使用
+4. **エラーテストの記述**: エラーケースも明示的にテスト
+5. **テストの独立性**: 各テストは独立して実行可能であること
 
-2. **テストの構造:**
-   ```cb
-   void main() {
-       println("=== <Feature Name> Test ===");
-       
-       // Test 1: Description
-       // ... test code ...
-       println("Test 1: <Description> - PASSED");
-       
-       // Test 2: Description
-       // ... test code ...
-       println("Test 2: <Description> - PASSED");
-       
-       println("=== All Tests Passed ===");
-   }
-   ```
-
-3. **アサーションの使用:**
-   - すべての検証に`assert()`を使用
-   - エラーメッセージは明確に記述
-   - テストが失敗した場合、どのテストが失敗したかすぐに分かるようにする
-
-4. **エラーテストの記述:**
-   - エラーが期待される場合も明示的にテストする
-   - Integration testで`exit_code != 0`を検証
-
-5. **テストの独立性:**
-   - 各テストケースは独立して実行可能であること
-   - テスト間で状態を共有しないこと
+**詳細**: [`docs/testing/integration_test_guide.md`](testing/integration_test_guide.md)
 
 ---
 

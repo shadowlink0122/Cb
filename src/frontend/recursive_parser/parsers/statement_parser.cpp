@@ -505,7 +505,11 @@ StatementParser::parseTypedefTypeStatement(const std::string &type_name,
                   return_type.c_str());
 
         // v0.11.0: 型パラメータのパース <T> または <T1, T2>
+        // v0.11.0 Phase 1a: 複数インターフェース境界のサポート <T, A: Allocator
+        // + Clone>
         std::vector<std::string> type_parameters;
+        std::unordered_map<std::string, std::vector<std::string>>
+            interface_bounds;
         bool is_generic = false;
 
         if (parser_->check(TokenType::TOK_LT)) {
@@ -526,6 +530,36 @@ StatementParser::parseTypedefTypeStatement(const std::string &type_name,
                 std::string param_name = parser_->current_token_.value;
                 type_parameters.push_back(param_name);
                 parser_->advance();
+
+                // インターフェース境界のチェック: A: Allocator または A:
+                // Allocator + Clone
+                if (parser_->check(TokenType::TOK_COLON)) {
+                    parser_->advance(); // ':' を消費
+
+                    std::vector<std::string> bounds;
+                    do {
+                        if (!parser_->check(TokenType::TOK_IDENTIFIER)) {
+                            parser_->error("Expected interface name after ':' "
+                                           "or '+' in type parameter bound");
+                            if (has_lookahead_type_params) {
+                                parser_->type_parameter_stack_.pop_back();
+                            }
+                            return nullptr;
+                        }
+
+                        bounds.push_back(parser_->current_token_.value);
+                        parser_->advance();
+
+                        // '+' があれば次のインターフェース境界を読む
+                        if (parser_->check(TokenType::TOK_PLUS)) {
+                            parser_->advance(); // '+' を消費
+                        } else {
+                            break;
+                        }
+                    } while (true);
+
+                    interface_bounds[param_name] = bounds;
+                }
 
                 if (parser_->check(TokenType::TOK_COMMA)) {
                     parser_->advance(); // ',' を消費
@@ -570,6 +604,7 @@ StatementParser::parseTypedefTypeStatement(const std::string &type_name,
         if (func_node && is_generic) {
             func_node->is_generic = true;
             func_node->type_parameters = type_parameters;
+            func_node->interface_bounds = interface_bounds;
         }
 
         // 戻り値のconst情報を設定
@@ -1061,7 +1096,11 @@ ASTNode *StatementParser::parseBasicTypeStatement(bool isStatic, bool isConst,
         parser_->advance(); // consume identifier/main
 
         // v0.11.0: 型パラメータのチェック <T> または <T1, T2>
+        // v0.11.0 Phase 1a: 複数インターフェース境界のサポート <T, A: Allocator
+        // + Clone>
         std::vector<std::string> type_parameters;
+        std::unordered_map<std::string, std::vector<std::string>>
+            interface_bounds;
         bool is_generic = false;
 
         if (parser_->check(TokenType::TOK_LT)) {
@@ -1078,6 +1117,31 @@ ASTNode *StatementParser::parseBasicTypeStatement(bool isStatic, bool isConst,
                 std::string param_name = parser_->current_token_.value;
                 type_parameters.push_back(param_name);
                 parser_->advance();
+
+                // インターフェース境界のチェック
+                if (parser_->check(TokenType::TOK_COLON)) {
+                    parser_->advance(); // ':' を消費
+
+                    std::vector<std::string> bounds;
+                    do {
+                        if (!parser_->check(TokenType::TOK_IDENTIFIER)) {
+                            parser_->error("Expected interface name after ':' "
+                                           "or '+' in type parameter bound");
+                            return nullptr;
+                        }
+
+                        bounds.push_back(parser_->current_token_.value);
+                        parser_->advance();
+
+                        if (parser_->check(TokenType::TOK_PLUS)) {
+                            parser_->advance(); // '+' を消費
+                        } else {
+                            break;
+                        }
+                    } while (true);
+
+                    interface_bounds[param_name] = bounds;
+                }
 
                 if (parser_->check(TokenType::TOK_COMMA)) {
                     parser_->advance(); // ',' を消費
@@ -1107,6 +1171,7 @@ ASTNode *StatementParser::parseBasicTypeStatement(bool isStatic, bool isConst,
             if (func_node && is_generic) {
                 func_node->is_generic = true;
                 func_node->type_parameters = type_parameters;
+                func_node->interface_bounds = interface_bounds;
             }
 
             // 戻り値のconst情報を設定

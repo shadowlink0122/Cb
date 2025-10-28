@@ -70,6 +70,46 @@ void InterfaceOperations::register_impl_definition(
             stored_def.interface_name.c_str(), stored_def.struct_name.c_str(),
             (void *)&impl_definitions_);
     } else {
+        // 新規implブロックを追加する前に、同じ構造体に対する既存のimplブロックと
+        // メソッド名の衝突がないかチェック
+        std::string normalized_new_struct =
+            normalize_struct(stored_def.struct_name);
+
+        // この構造体の既存のimplブロックを全て収集
+        std::map<std::string, std::string> method_to_interface;
+
+        for (const auto &existing_impl : impl_definitions_) {
+            std::string normalized_existing =
+                normalize_struct(existing_impl.struct_name);
+
+            // 同じ構造体に対するimplブロックの場合
+            if (normalized_existing == normalized_new_struct) {
+                // 既存のimplブロックの全メソッドを記録
+                for (const auto *method : existing_impl.methods) {
+                    if (method) {
+                        method_to_interface[method->name] =
+                            existing_impl.interface_name;
+                    }
+                }
+            }
+        }
+
+        // 新しいimplブロックのメソッドが既存のものと衝突しないかチェック
+        for (const auto *new_method : stored_def.methods) {
+            if (new_method) {
+                auto it = method_to_interface.find(new_method->name);
+                if (it != method_to_interface.end()) {
+                    // メソッド名が衝突している
+                    throw std::runtime_error(
+                        "Method name conflict: method '" + new_method->name +
+                        "' is already defined in impl '" + it->second +
+                        "' for type '" + normalized_new_struct +
+                        "'. Cannot redefine in impl '" +
+                        stored_def.interface_name + "'.");
+                }
+            }
+        }
+
         impl_definitions_.emplace_back(stored_def);
         existing = std::prev(impl_definitions_.end());
         debug_print("IMPL_DEF_STORAGE: Added new impl '%s' for '%s' (total: "
@@ -422,14 +462,15 @@ bool InterfaceOperations::check_interface_bound(
  * @param type_parameters 型パラメータリスト（例: ["T", "A"]）
  * @param type_arguments 型引数リスト（例: ["int", "SystemAllocator"]）
  * @param interface_bounds 型パラメータのインターフェース境界（例: {"A":
- * "Allocator"}）
- * @throws std::runtime_error 型引数がインターフェースを実装していない場合
+ * "Allocator", "Clone"}）
+ * @throws std::runtime_error 型引数が必要なインターフェースを実装していない場合
  */
 void InterfaceOperations::validate_interface_bounds(
     const std::string &struct_name,
     const std::vector<std::string> &type_parameters,
     const std::vector<std::string> &type_arguments,
-    const std::unordered_map<std::string, std::string> &interface_bounds) {
+    const std::unordered_map<std::string, std::vector<std::string>>
+        &interface_bounds) {
 
     // 型パラメータと型引数の数が一致しているか確認（この段階では既にチェック済みのはず）
     if (type_parameters.size() != type_arguments.size()) {
@@ -437,38 +478,116 @@ void InterfaceOperations::validate_interface_bounds(
                                  struct_name);
     }
 
+    // 各型パラメータについて、複数のインターフェース境界がある場合、
+    // メソッド名の衝突をチェック
+    for (const auto &bound_entry : interface_bounds) {
+        const std::string &param_name = bound_entry.first;
+        const std::vector<std::string> &interfaces = bound_entry.second;
+
+        if (interfaces.size() > 1) {
+            // 複数のインターフェースがある場合、メソッド名の衝突をチェック
+            std::map<std::string, std::vector<std::string>>
+                method_to_interfaces;
+
+            for (const auto &interface_name : interfaces) {
+                auto it = interface_definitions_.find(interface_name);
+                if (it != interface_definitions_.end()) {
+                    const InterfaceDefinition &interface_def = it->second;
+
+                    // このインターフェースの全メソッドをチェック
+                    for (const auto &method : interface_def.methods) {
+                        method_to_interfaces[method.name].push_back(
+                            interface_name);
+                    }
+                }
+            }
+
+            // 同じメソッド名が複数のインターフェースに存在するかチェック
+            for (const auto &entry : method_to_interfaces) {
+                const std::string &method_name = entry.first;
+                const std::vector<std::string> &defining_interfaces =
+                    entry.second;
+
+                if (defining_interfaces.size() > 1) {
+                    std::string error_msg =
+                        "Method name conflict: method '" + method_name +
+                        "' is defined in multiple interfaces (";
+                    for (size_t i = 0; i < defining_interfaces.size(); ++i) {
+                        if (i > 0)
+                            error_msg += ", ";
+                        error_msg += defining_interfaces[i];
+                    }
+                    error_msg += ") required by type parameter '" + param_name +
+                                 "' in '" + struct_name + "<";
+
+                    // 型パラメータリストを構築
+                    for (size_t j = 0; j < type_parameters.size(); ++j) {
+                        if (j > 0)
+                            error_msg += ", ";
+                        error_msg += type_parameters[j];
+
+                        auto param_bound =
+                            interface_bounds.find(type_parameters[j]);
+                        if (param_bound != interface_bounds.end()) {
+                            error_msg += ": ";
+                            for (size_t k = 0; k < param_bound->second.size();
+                                 ++k) {
+                                if (k > 0)
+                                    error_msg += " + ";
+                                error_msg += param_bound->second[k];
+                            }
+                        }
+                    }
+                    error_msg += ">'";
+
+                    throw std::runtime_error(error_msg);
+                }
+            }
+        }
+    }
+
     // 各型パラメータについて、インターフェース境界があればチェック
     for (size_t i = 0; i < type_parameters.size(); ++i) {
         const std::string &param_name = type_parameters[i];
         const std::string &arg_type = type_arguments[i];
 
-        // この型パラメータにインターフェース境界があるか確認
+        // この型パラメータに複数のインターフェース境界があるか確認
         auto bound_it = interface_bounds.find(param_name);
         if (bound_it != interface_bounds.end()) {
-            const std::string &required_interface = bound_it->second;
+            const std::vector<std::string> &required_interfaces =
+                bound_it->second;
 
-            // 型引数がインターフェースを実装しているかチェック
-            if (!check_interface_bound(arg_type, required_interface)) {
-                std::string error_msg =
-                    "Type '" + arg_type + "' does not implement interface '" +
-                    required_interface + "' required by type parameter '" +
-                    param_name + "' in '" + struct_name + "<";
+            // すべてのインターフェースが実装されているかチェック
+            for (const auto &required_interface : required_interfaces) {
+                if (!check_interface_bound(arg_type, required_interface)) {
+                    std::string error_msg =
+                        "Type '" + arg_type +
+                        "' does not implement interface '" +
+                        required_interface + "' required by type parameter '" +
+                        param_name + "' in '" + struct_name + "<";
 
-                // 型パラメータリストを構築
-                for (size_t j = 0; j < type_parameters.size(); ++j) {
-                    if (j > 0)
-                        error_msg += ", ";
-                    error_msg += type_parameters[j];
+                    // 型パラメータリストを構築
+                    for (size_t j = 0; j < type_parameters.size(); ++j) {
+                        if (j > 0)
+                            error_msg += ", ";
+                        error_msg += type_parameters[j];
 
-                    auto param_bound =
-                        interface_bounds.find(type_parameters[j]);
-                    if (param_bound != interface_bounds.end()) {
-                        error_msg += ": " + param_bound->second;
+                        auto param_bound =
+                            interface_bounds.find(type_parameters[j]);
+                        if (param_bound != interface_bounds.end()) {
+                            error_msg += ": ";
+                            for (size_t k = 0; k < param_bound->second.size();
+                                 ++k) {
+                                if (k > 0)
+                                    error_msg += " + ";
+                                error_msg += param_bound->second[k];
+                            }
+                        }
                     }
-                }
-                error_msg += ">'";
+                    error_msg += ">'";
 
-                throw std::runtime_error(error_msg);
+                    throw std::runtime_error(error_msg);
+                }
             }
         }
     }

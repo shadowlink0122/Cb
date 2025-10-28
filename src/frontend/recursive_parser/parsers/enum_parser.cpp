@@ -33,7 +33,9 @@ ASTNode *EnumParser::parseEnumDeclaration() {
     parser_->advance(); // consume enum name
 
     // v0.11.0: 型パラメータリストの解析（ジェネリックenum）
+    // v0.11.0 Phase 1a: 複数インターフェース境界のサポート
     std::vector<std::string> type_parameters;
+    std::unordered_map<std::string, std::vector<std::string>> interface_bounds;
     bool is_generic = false;
 
     if (parser_->check(TokenType::TOK_LT)) {
@@ -55,6 +57,31 @@ ASTNode *EnumParser::parseEnumDeclaration() {
             parser_->type_parameter_stack_.back().push_back(param_name);
             parser_->advance();
 
+            // インターフェース境界のチェック
+            if (parser_->check(TokenType::TOK_COLON)) {
+                parser_->advance(); // ':' を消費
+
+                std::vector<std::string> bounds;
+                do {
+                    if (!parser_->check(TokenType::TOK_IDENTIFIER)) {
+                        parser_->error("Expected interface name after ':' or "
+                                       "'+' in type parameter bound");
+                        return nullptr;
+                    }
+
+                    bounds.push_back(parser_->current_token_.value);
+                    parser_->advance();
+
+                    if (parser_->check(TokenType::TOK_PLUS)) {
+                        parser_->advance(); // '+' を消費
+                    } else {
+                        break;
+                    }
+                } while (true);
+
+                interface_bounds[param_name] = bounds;
+            }
+
             if (parser_->check(TokenType::TOK_COMMA)) {
                 parser_->advance();
             } else {
@@ -75,6 +102,7 @@ ASTNode *EnumParser::parseEnumDeclaration() {
     EnumDefinition enum_def(enum_name);
     enum_def.is_generic = is_generic;
     enum_def.type_parameters = type_parameters;
+    enum_def.interface_bounds = interface_bounds;
 
     int64_t current_value = 0; // デフォルトの開始値
 

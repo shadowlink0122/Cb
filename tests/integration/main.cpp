@@ -50,6 +50,7 @@
 #include "interface/test_interface_private.hpp"
 #include "interface/test_type_inference_chain.hpp"
 #include "interface/test_typedef_impl.hpp"
+#include "interface_bounds/test_interface_bounds.hpp"
 #include "lambda/lambda_tests.hpp"
 #include "loop/test_loop.hpp"
 #include "memory/test_memory.hpp"
@@ -278,6 +279,8 @@ int main() {
     run_test_with_continue(test_integration_enum, "Enum Tests", failed_tests);
     run_test_with_continue(UnionTests::run_all_union_tests, "Union Type Tests",
                            failed_tests);
+    run_test_with_continue(test_integration_interface_bounds,
+                           "Interface Bounds Tests", failed_tests);
     CategoryTimingStats::print_category_summary("Type System");
 
     // v0.10.0 新機能テスト群

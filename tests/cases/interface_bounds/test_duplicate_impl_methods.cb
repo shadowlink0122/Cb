@@ -1,0 +1,45 @@
+// Test: Duplicate method names across multiple impl blocks
+// Expected: Should detect method name conflict
+
+interface Allocator {
+    void* allocate(int size);
+    void reset();
+}
+
+interface Resettable {
+    void reset();
+}
+
+struct MyType {
+    int value;
+};
+
+// 両方のimplで reset() を実装
+impl Allocator for MyType {
+    void* allocate(int size) {
+        return nullptr;
+    }
+    
+    void reset() {
+        println("Allocator::reset called");
+    }
+}
+
+impl Resettable for MyType {
+    void reset() {  // 衝突！
+        println("Resettable::reset called");
+    }
+}
+
+int main() {
+    println("=== Duplicate Impl Methods Test ===");
+    println("Testing: Two impl blocks with same method name for MyType");
+    println("Expected: Method name conflict error");
+    
+    MyType obj;
+    obj.value = 42;
+    
+    // ここには到達しないはず
+    println("ERROR: Duplicate method was not detected!");
+    return 1;
+}

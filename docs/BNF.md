@@ -1,7 +1,7 @@
 # Cb言語 BNF文法定義
 
-**バージョン**: v0.10.0  
-**最終更新**: 2025年10月12日
+**バージョン**: v0.11.0  
+**最終更新**: 2025年10月28日
 
 ## 概要
 
@@ -108,7 +108,19 @@
 ### 構造体
 
 ```
-<struct_declaration> ::= 'struct' <identifier> '{' <member_list> '}' ';'  // 構造体 ✅
+<struct_declaration> ::= 'struct' <identifier> [ <generic_params> ] '{' <member_list> '}' ';'  // 構造体 ✅
+
+<generic_params> ::= '<' <generic_param_list> '>'
+
+<generic_param_list> ::= <generic_param> { ',' <generic_param> }
+
+<generic_param> ::= <identifier> [ ':' <interface_bound> ]
+
+<interface_bound> ::= <identifier> { '+' <identifier> }
+
+<generic_args> ::= '<' <type_list> '>'
+
+<type_list> ::= <type_specifier> { ',' <type_specifier> }
 
 <member_list> ::= <member_declaration> { <member_declaration> }
 
@@ -133,7 +145,15 @@
 
 <method_signature> ::= <type_specifier> <identifier> '(' <parameter_list> ')' ';'
 
-<impl_block> ::= 'impl' <identifier> 'for' <type_specifier> '{' <method_list> '}' ';'
+<impl_block> ::= 'impl' <identifier> [ <generic_params> ] [ 'for' <type_specifier> ] '{' <impl_body> '}' ';'
+
+<impl_body> ::= { <impl_member> }
+
+<impl_member> ::= <method_declaration>
+                | <static_variable>
+                | <destructor_declaration>
+
+<destructor_declaration> ::= 'fn' 'deinit' '(' ')' <block>
 
 <method_list> ::= <method_declaration> { <method_declaration> }
 
@@ -177,11 +197,13 @@
 ## 関数
 
 ```
-<function_declaration> ::= [ 'export' ] <type_specifier> <identifier> '(' <parameter_list> ')' <block>
+<function_declaration> ::= [ 'export' ] <type_specifier> <identifier> [ <generic_params> ] '(' <parameter_list> ')' <block>
 
 <parameter_list> ::= [ <parameter> { ',' <parameter> } ]
 
-<parameter> ::= [ 'const' ] <type_specifier> <identifier>
+<parameter> ::= [ 'const' ] <type_specifier> <identifier> [ '=' <default_value> ]
+
+<default_value> ::= <expression>
 ```
 
 ---
@@ -226,6 +248,8 @@
 <break_statement> ::= 'break' ';'
 
 <continue_statement> ::= 'continue' ';'
+
+<defer_statement> ::= 'defer' <statement>
 
 <block> ::= '{' { <statement> } '}'
 ```
@@ -376,7 +400,26 @@
 
 <char_literal> ::= "'" (<char> | <escape_sequence>) "'"
 
-<string_literal> ::= '"' { <char> | <escape_sequence> } '"'
+<string_literal> ::= '"' { <char> | <escape_sequence> | <interpolation> } '"'
+
+<interpolation> ::= '{' <expression> [ ':' <format_specifier> ] '}'
+
+<format_specifier> ::= <width> [ '.' <precision> ] <format_type>
+
+<width> ::= <digit>+
+
+<precision> ::= <digit>+
+
+<format_type> ::= 'd'    // 10進数
+                | 'x'    // 16進数（小文字）
+                | 'X'    // 16進数（大文字）
+                | 'o'    // 8進数
+                | 'b'    // 2進数
+                | 'f'    // 浮動小数点数
+                | 'e'    // 指数表記（小文字）
+                | 'E'    // 指数表記（大文字）
+                | 'g'    // 汎用フォーマット（小文字）
+                | 'G'    // 汎用フォーマット（大文字）
 
 <boolean_literal> ::= 'true' | 'false'
 

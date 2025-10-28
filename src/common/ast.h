@@ -97,6 +97,10 @@ struct EnumDefinition {
         type_parameters; // 型パラメータリスト（例: ["T", "E"]）
     bool has_associated_values = false; // 関連値を持つか（Rust風enum）
 
+    // v0.11.0 Phase 1a: インターフェース境界（複数対応）
+    std::unordered_map<std::string, std::vector<std::string>>
+        interface_bounds; // 型パラメータの複数インターフェース境界
+
     EnumDefinition() {}
     EnumDefinition(const std::string &n) : name(n) {}
 
@@ -580,10 +584,10 @@ struct StructDefinition {
     std::unordered_map<std::string, std::string>
         type_parameter_bindings; // 型パラメータの束縛 {"T" -> "int"}
 
-    // v0.11.0 Phase 1a: インターフェース境界
-    std::unordered_map<std::string, std::string>
-        interface_bounds; // 型パラメータのインターフェース境界 {"A" ->
-                          // "Allocator"}
+    // v0.11.0 Phase 1a: インターフェース境界（複数対応）
+    std::unordered_map<std::string, std::vector<std::string>>
+        interface_bounds; // 型パラメータの複数インターフェース境界
+                          // {"A" -> ["Allocator", "Clone"]}
 
     StructDefinition() {}
     StructDefinition(const std::string &n) : name(n) {}
@@ -1022,10 +1026,10 @@ struct ASTNode {
     bool is_type_parameter = false; // 型パラメータそのものかどうか
     std::string type_parameter_name; // 型パラメータ名 ("T", "E"等)
 
-    // インターフェース境界（v0.11.0 Phase 1新機能）
-    std::unordered_map<std::string, std::string> interface_bounds;
-    // 型パラメータ名 -> インターフェース名のマッピング
-    // 例: {"A" => "Allocator", "B" => "Iterator"}
+    // インターフェース境界（v0.11.0 Phase 1新機能、複数境界対応）
+    std::unordered_map<std::string, std::vector<std::string>> interface_bounds;
+    // 型パラメータ名 -> インターフェース名リストのマッピング
+    // 例: {"A" => ["Allocator", "Clone"], "B" => ["Iterator"]}
 
     // 型パラメータメソッドアクセス（v0.11.0 Phase 1a - Day 4）
     bool is_type_parameter_access = false; // A.allocate() 形式か

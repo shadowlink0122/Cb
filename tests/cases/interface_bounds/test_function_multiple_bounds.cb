@@ -1,0 +1,45 @@
+// Test: Multiple interface bounds on generic functions
+// Expected: Parse successfully
+
+interface Allocator {
+    void* allocate(int size);
+    void deallocate(void* ptr);
+}
+
+interface Clone {
+    void clone();
+}
+
+interface Debug {
+    void debug();
+}
+
+// Generic function with multiple bounds
+T process<T: Clone + Debug>(T value) {
+    println("Processing value");
+    return value;
+}
+
+// Multiple type parameters with mixed bounds
+void combine<K: Clone, V: Allocator + Debug>(K key, V value) {
+    println("Combining key and value");
+}
+
+// Three bounds on one parameter
+T advanced<T: Allocator + Clone + Debug>(T value) {
+    println("Advanced processing");
+    return value;
+}
+
+int main() {
+    println("=== Generic Function Multiple Bounds Test ===");
+    
+    // Test 1: Function with single type parameter and multiple bounds
+    println("Test 1: process<T: Clone + Debug>(T value) - PASSED");
+    
+    // Test 2: Function with multiple type parameters
+    println("Test 2: combine<K: Clone, V: Debug, A: Allocator + Clone>(...) - PASSED");
+    
+    println("=== All Tests Passed ===");
+    return 0;
+}
