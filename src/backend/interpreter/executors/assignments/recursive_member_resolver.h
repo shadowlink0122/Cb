@@ -120,7 +120,8 @@ inline std::pair<Variable *, std::string> resolve_nested_member_for_assignment(
             throw std::runtime_error("Unsupported array reference type");
         }
 
-        if (!array_parent || (!array_parent->is_array && !array_parent->is_pointer)) {
+        if (!array_parent ||
+            (!array_parent->is_array && !array_parent->is_pointer)) {
             throw std::runtime_error("Not an array: " + array_member_name);
         }
 
@@ -129,13 +130,14 @@ inline std::pair<Variable *, std::string> resolve_nested_member_for_assignment(
             // ポインタの値を取得
             int64_t ptr_value = array_parent->value;
             bool is_metadata_ptr = (ptr_value & (1LL << 63)) != 0;
-            
+
             if (is_metadata_ptr) {
                 // メタデータポインタの場合
                 int64_t clean_ptr = ptr_value & ~(1LL << 63);
                 PointerSystem::PointerMetadata *meta =
-                    reinterpret_cast<PointerSystem::PointerMetadata *>(clean_ptr);
-                
+                    reinterpret_cast<PointerSystem::PointerMetadata *>(
+                        clean_ptr);
+
                 if (meta && meta->array_var) {
                     // 実際の配列と調整されたインデックスを使用
                     array_parent = meta->array_var;
@@ -149,7 +151,8 @@ inline std::pair<Variable *, std::string> resolve_nested_member_for_assignment(
             } else {
                 // 直接ポインタの場合（後方互換性）
                 // この場合は配列名が不明なので、処理が難しい
-                throw std::runtime_error("Direct pointer array assignment not supported");
+                throw std::runtime_error(
+                    "Direct pointer array assignment not supported");
             }
         }
 

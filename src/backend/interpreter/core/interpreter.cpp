@@ -1498,8 +1498,13 @@ void Interpreter::assign_array_element(const std::string &name, int64_t index,
         throw std::runtime_error("Undefined array");
     }
 
-    // v0.11.0 Week 2 Day 3: ポインタ配列アクセスでの書き込み ptr[index] = value
-    if (var->is_pointer) {
+    // v0.11.0 Week 2 Day 3 修正: ポインタ経由の配列アクセスとポインタ配列を区別
+    // - var->is_pointer && var->is_array:
+    // ポインタ配列（通常の配列代入として処理）
+    // - var->is_pointer && !var->is_array:
+    // 単一ポインタ（ポインタ経由のアクセス）
+    if (var->is_pointer && !var->is_array) {
+        // 単一ポインタが配列を指している場合のみ、ポインタ経由のアクセスとして処理
         int64_t ptr_value = var->value;
         bool is_metadata_ptr = (ptr_value < 0); // 負の値 = メタデータ
 
@@ -1525,16 +1530,24 @@ void Interpreter::assign_array_element(const std::string &name, int64_t index,
                 memcpy(&f_val, &value, sizeof(float));
                 if (!target_array->array_float_values.empty()) {
                     if (effective_index < 0 ||
-                        effective_index >= static_cast<int64_t>(target_array->array_float_values.size())) {
-                        throw std::runtime_error("Pointer array index out of bounds in assignment");
+                        effective_index >=
+                            static_cast<int64_t>(
+                                target_array->array_float_values.size())) {
+                        throw std::runtime_error(
+                            "Pointer array index out of bounds in assignment");
                     }
                     target_array->array_float_values[effective_index] = f_val;
                 } else if (!target_array->multidim_array_float_values.empty()) {
                     if (effective_index < 0 ||
-                        effective_index >= static_cast<int64_t>(target_array->multidim_array_float_values.size())) {
-                        throw std::runtime_error("Pointer array index out of bounds in assignment");
+                        effective_index >=
+                            static_cast<int64_t>(
+                                target_array->multidim_array_float_values
+                                    .size())) {
+                        throw std::runtime_error(
+                            "Pointer array index out of bounds in assignment");
                     }
-                    target_array->multidim_array_float_values[effective_index] = f_val;
+                    target_array->multidim_array_float_values[effective_index] =
+                        f_val;
                 } else {
                     throw std::runtime_error("Float array not initialized");
                 }
@@ -1543,24 +1556,35 @@ void Interpreter::assign_array_element(const std::string &name, int64_t index,
                 memcpy(&d_val, &value, sizeof(double));
                 if (!target_array->array_double_values.empty()) {
                     if (effective_index < 0 ||
-                        effective_index >= static_cast<int64_t>(target_array->array_double_values.size())) {
-                        throw std::runtime_error("Pointer array index out of bounds in assignment");
+                        effective_index >=
+                            static_cast<int64_t>(
+                                target_array->array_double_values.size())) {
+                        throw std::runtime_error(
+                            "Pointer array index out of bounds in assignment");
                     }
                     target_array->array_double_values[effective_index] = d_val;
-                } else if (!target_array->multidim_array_double_values.empty()) {
+                } else if (!target_array->multidim_array_double_values
+                                .empty()) {
                     if (effective_index < 0 ||
-                        effective_index >= static_cast<int64_t>(target_array->multidim_array_double_values.size())) {
-                        throw std::runtime_error("Pointer array index out of bounds in assignment");
+                        effective_index >=
+                            static_cast<int64_t>(
+                                target_array->multidim_array_double_values
+                                    .size())) {
+                        throw std::runtime_error(
+                            "Pointer array index out of bounds in assignment");
                     }
-                    target_array->multidim_array_double_values[effective_index] = d_val;
+                    target_array
+                        ->multidim_array_double_values[effective_index] = d_val;
                 } else {
                     throw std::runtime_error("Double array not initialized");
                 }
             } else {
                 // int配列など整数型の場合
                 if (effective_index < 0 ||
-                    effective_index >= static_cast<int64_t>(target_array->array_values.size())) {
-                    throw std::runtime_error("Pointer array index out of bounds in assignment");
+                    effective_index >= static_cast<int64_t>(
+                                           target_array->array_values.size())) {
+                    throw std::runtime_error(
+                        "Pointer array index out of bounds in assignment");
                 }
                 target_array->array_values[effective_index] = value;
             }
@@ -1576,20 +1600,28 @@ void Interpreter::assign_array_element(const std::string &name, int64_t index,
             }
 
             TypeInfo base_type = (target_array->type >= TYPE_ARRAY_BASE)
-                ? static_cast<TypeInfo>(target_array->type - TYPE_ARRAY_BASE)
-                : target_array->type;
+                                     ? static_cast<TypeInfo>(
+                                           target_array->type - TYPE_ARRAY_BASE)
+                                     : target_array->type;
 
             if (base_type == TYPE_FLOAT) {
                 float f_val;
                 memcpy(&f_val, &value, sizeof(float));
                 if (!target_array->array_float_values.empty()) {
-                    if (index < 0 || index >= static_cast<int64_t>(target_array->array_float_values.size())) {
-                        throw std::runtime_error("Pointer array index out of bounds in assignment");
+                    if (index < 0 ||
+                        index >= static_cast<int64_t>(
+                                     target_array->array_float_values.size())) {
+                        throw std::runtime_error(
+                            "Pointer array index out of bounds in assignment");
                     }
                     target_array->array_float_values[index] = f_val;
                 } else if (!target_array->multidim_array_float_values.empty()) {
-                    if (index < 0 || index >= static_cast<int64_t>(target_array->multidim_array_float_values.size())) {
-                        throw std::runtime_error("Pointer array index out of bounds in assignment");
+                    if (index < 0 ||
+                        index >= static_cast<int64_t>(
+                                     target_array->multidim_array_float_values
+                                         .size())) {
+                        throw std::runtime_error(
+                            "Pointer array index out of bounds in assignment");
                     }
                     target_array->multidim_array_float_values[index] = f_val;
                 } else {
@@ -1599,13 +1631,22 @@ void Interpreter::assign_array_element(const std::string &name, int64_t index,
                 double d_val;
                 memcpy(&d_val, &value, sizeof(double));
                 if (!target_array->array_double_values.empty()) {
-                    if (index < 0 || index >= static_cast<int64_t>(target_array->array_double_values.size())) {
-                        throw std::runtime_error("Pointer array index out of bounds in assignment");
+                    if (index < 0 ||
+                        index >=
+                            static_cast<int64_t>(
+                                target_array->array_double_values.size())) {
+                        throw std::runtime_error(
+                            "Pointer array index out of bounds in assignment");
                     }
                     target_array->array_double_values[index] = d_val;
-                } else if (!target_array->multidim_array_double_values.empty()) {
-                    if (index < 0 || index >= static_cast<int64_t>(target_array->multidim_array_double_values.size())) {
-                        throw std::runtime_error("Pointer array index out of bounds in assignment");
+                } else if (!target_array->multidim_array_double_values
+                                .empty()) {
+                    if (index < 0 ||
+                        index >= static_cast<int64_t>(
+                                     target_array->multidim_array_double_values
+                                         .size())) {
+                        throw std::runtime_error(
+                            "Pointer array index out of bounds in assignment");
                     }
                     target_array->multidim_array_double_values[index] = d_val;
                 } else {
@@ -1613,8 +1654,11 @@ void Interpreter::assign_array_element(const std::string &name, int64_t index,
                 }
             } else {
                 // int配列など整数型の場合
-                if (index < 0 || index >= static_cast<int64_t>(target_array->array_values.size())) {
-                    throw std::runtime_error("Pointer array index out of bounds in assignment");
+                if (index < 0 ||
+                    index >= static_cast<int64_t>(
+                                 target_array->array_values.size())) {
+                    throw std::runtime_error(
+                        "Pointer array index out of bounds in assignment");
                 }
                 target_array->array_values[index] = value;
             }
@@ -1648,8 +1692,13 @@ void Interpreter::assign_array_element_float(const std::string &name,
         throw std::runtime_error("Undefined array");
     }
 
-    // v0.11.0 Week 2 Day 3: ポインタ配列アクセスでの書き込み ptr[index] = value
-    if (var->is_pointer) {
+    // v0.11.0 Week 2 Day 3 修正: ポインタ経由の配列アクセスとポインタ配列を区別
+    // - var->is_pointer && var->is_array:
+    // ポインタ配列（通常の配列代入として処理）
+    // - var->is_pointer && !var->is_array:
+    // 単一ポインタ（ポインタ経由のアクセス）
+    if (var->is_pointer && !var->is_array) {
+        // 単一ポインタが配列を指している場合のみ、ポインタ経由のアクセスとして処理
         int64_t ptr_value = var->value;
         bool is_metadata_ptr = (ptr_value < 0); // 負の値 = メタデータ
 
@@ -1673,37 +1722,56 @@ void Interpreter::assign_array_element_float(const std::string &name,
             if (elem_type == TYPE_FLOAT) {
                 if (!target_array->array_float_values.empty()) {
                     if (effective_index < 0 ||
-                        effective_index >= static_cast<int64_t>(target_array->array_float_values.size())) {
-                        throw std::runtime_error("Pointer array index out of bounds in assignment");
+                        effective_index >=
+                            static_cast<int64_t>(
+                                target_array->array_float_values.size())) {
+                        throw std::runtime_error(
+                            "Pointer array index out of bounds in assignment");
                     }
-                    target_array->array_float_values[effective_index] = static_cast<float>(value);
+                    target_array->array_float_values[effective_index] =
+                        static_cast<float>(value);
                 } else if (!target_array->multidim_array_float_values.empty()) {
                     if (effective_index < 0 ||
-                        effective_index >= static_cast<int64_t>(target_array->multidim_array_float_values.size())) {
-                        throw std::runtime_error("Pointer array index out of bounds in assignment");
+                        effective_index >=
+                            static_cast<int64_t>(
+                                target_array->multidim_array_float_values
+                                    .size())) {
+                        throw std::runtime_error(
+                            "Pointer array index out of bounds in assignment");
                     }
-                    target_array->multidim_array_float_values[effective_index] = static_cast<float>(value);
+                    target_array->multidim_array_float_values[effective_index] =
+                        static_cast<float>(value);
                 } else {
                     throw std::runtime_error("Float array not initialized");
                 }
             } else if (elem_type == TYPE_DOUBLE) {
                 if (!target_array->array_double_values.empty()) {
                     if (effective_index < 0 ||
-                        effective_index >= static_cast<int64_t>(target_array->array_double_values.size())) {
-                        throw std::runtime_error("Pointer array index out of bounds in assignment");
+                        effective_index >=
+                            static_cast<int64_t>(
+                                target_array->array_double_values.size())) {
+                        throw std::runtime_error(
+                            "Pointer array index out of bounds in assignment");
                     }
                     target_array->array_double_values[effective_index] = value;
-                } else if (!target_array->multidim_array_double_values.empty()) {
+                } else if (!target_array->multidim_array_double_values
+                                .empty()) {
                     if (effective_index < 0 ||
-                        effective_index >= static_cast<int64_t>(target_array->multidim_array_double_values.size())) {
-                        throw std::runtime_error("Pointer array index out of bounds in assignment");
+                        effective_index >=
+                            static_cast<int64_t>(
+                                target_array->multidim_array_double_values
+                                    .size())) {
+                        throw std::runtime_error(
+                            "Pointer array index out of bounds in assignment");
                     }
-                    target_array->multidim_array_double_values[effective_index] = value;
+                    target_array
+                        ->multidim_array_double_values[effective_index] = value;
                 } else {
                     throw std::runtime_error("Double array not initialized");
                 }
             } else {
-                throw std::runtime_error("assign_array_element_float called on non-float pointer");
+                throw std::runtime_error(
+                    "assign_array_element_float called on non-float pointer");
             }
 
             debug_msg(DebugMsgId::ARRAY_ELEMENT_ASSIGN_SUCCESS);
@@ -1712,43 +1780,64 @@ void Interpreter::assign_array_element_float(const std::string &name,
             // 直接のVariable*ポインタの場合
             Variable *target_array = reinterpret_cast<Variable *>(ptr_value);
             if (!target_array || !target_array->is_array) {
-                throw std::runtime_error("Pointer does not point to an array in assignment");
+                throw std::runtime_error(
+                    "Pointer does not point to an array in assignment");
             }
 
             TypeInfo base_type = (target_array->type >= TYPE_ARRAY_BASE)
-                ? static_cast<TypeInfo>(target_array->type - TYPE_ARRAY_BASE)
-                : target_array->type;
+                                     ? static_cast<TypeInfo>(
+                                           target_array->type - TYPE_ARRAY_BASE)
+                                     : target_array->type;
 
             if (base_type == TYPE_FLOAT) {
                 if (!target_array->array_float_values.empty()) {
-                    if (index < 0 || index >= static_cast<int64_t>(target_array->array_float_values.size())) {
-                        throw std::runtime_error("Pointer array index out of bounds in assignment");
+                    if (index < 0 ||
+                        index >= static_cast<int64_t>(
+                                     target_array->array_float_values.size())) {
+                        throw std::runtime_error(
+                            "Pointer array index out of bounds in assignment");
                     }
-                    target_array->array_float_values[index] = static_cast<float>(value);
+                    target_array->array_float_values[index] =
+                        static_cast<float>(value);
                 } else if (!target_array->multidim_array_float_values.empty()) {
-                    if (index < 0 || index >= static_cast<int64_t>(target_array->multidim_array_float_values.size())) {
-                        throw std::runtime_error("Pointer array index out of bounds in assignment");
+                    if (index < 0 ||
+                        index >= static_cast<int64_t>(
+                                     target_array->multidim_array_float_values
+                                         .size())) {
+                        throw std::runtime_error(
+                            "Pointer array index out of bounds in assignment");
                     }
-                    target_array->multidim_array_float_values[index] = static_cast<float>(value);
+                    target_array->multidim_array_float_values[index] =
+                        static_cast<float>(value);
                 } else {
                     throw std::runtime_error("Float array not initialized");
                 }
             } else if (base_type == TYPE_DOUBLE) {
                 if (!target_array->array_double_values.empty()) {
-                    if (index < 0 || index >= static_cast<int64_t>(target_array->array_double_values.size())) {
-                        throw std::runtime_error("Pointer array index out of bounds in assignment");
+                    if (index < 0 ||
+                        index >=
+                            static_cast<int64_t>(
+                                target_array->array_double_values.size())) {
+                        throw std::runtime_error(
+                            "Pointer array index out of bounds in assignment");
                     }
                     target_array->array_double_values[index] = value;
-                } else if (!target_array->multidim_array_double_values.empty()) {
-                    if (index < 0 || index >= static_cast<int64_t>(target_array->multidim_array_double_values.size())) {
-                        throw std::runtime_error("Pointer array index out of bounds in assignment");
+                } else if (!target_array->multidim_array_double_values
+                                .empty()) {
+                    if (index < 0 ||
+                        index >= static_cast<int64_t>(
+                                     target_array->multidim_array_double_values
+                                         .size())) {
+                        throw std::runtime_error(
+                            "Pointer array index out of bounds in assignment");
                     }
                     target_array->multidim_array_double_values[index] = value;
                 } else {
                     throw std::runtime_error("Double array not initialized");
                 }
             } else {
-                throw std::runtime_error("assign_array_element_float called on non-float pointer");
+                throw std::runtime_error(
+                    "assign_array_element_float called on non-float pointer");
             }
 
             debug_msg(DebugMsgId::ARRAY_ELEMENT_ASSIGN_SUCCESS);
@@ -1855,8 +1944,8 @@ void Interpreter::assign_struct_to_array_element(const std::string &array_name,
                                                  int64_t index,
                                                  const Variable &struct_value) {
     debug_msg(DebugMsgId::INTERPRETER_STRUCT_REGISTERED,
-              "Assigning struct to array element: %s[%lld]",
-              array_name.c_str(), index);
+              "Assigning struct to array element: %s[%lld]", array_name.c_str(),
+              index);
 
     // 配列変数を取得
     Variable *array_var = find_variable(array_name);
@@ -1885,7 +1974,7 @@ void Interpreter::assign_struct_to_array_element(const std::string &array_name,
     // 構造体配列要素は個別の名前付き変数として保存されている
     // 例: tasks[0], tasks[1], etc.
     std::string element_name = array_name + "[" + std::to_string(index) + "]";
-    
+
     // 既存の変数を探す
     Variable *element_var = find_variable(element_name);
     if (!element_var) {
@@ -1895,31 +1984,33 @@ void Interpreter::assign_struct_to_array_element(const std::string &array_name,
         element_var->type = TYPE_STRUCT;
         element_var->is_struct = true;
         element_var->struct_type_name = struct_value.struct_type_name;
-        
+
         // 構造体定義に基づいてメンバー変数を作成
-        std::string resolved_type = type_manager_->resolve_typedef(struct_value.struct_type_name);
-        const StructDefinition *struct_def = find_struct_definition(resolved_type);
+        std::string resolved_type =
+            type_manager_->resolve_typedef(struct_value.struct_type_name);
+        const StructDefinition *struct_def =
+            find_struct_definition(resolved_type);
         if (struct_def) {
             for (const auto &member : struct_def->members) {
                 Variable member_var;
                 member_var.type = member.type;
                 member_var.is_unsigned = member.is_unsigned;
                 member_var.is_assigned = false;
-                
+
                 if (member.type == TYPE_STRUCT) {
                     member_var.is_struct = true;
                     member_var.struct_type_name = member.type_alias;
                 }
-                
+
                 element_var->struct_members[member.name] = member_var;
-                
+
                 // 個別のメンバー変数も作成（例: tasks[0].task_id）
                 std::string member_path = element_name + "." + member.name;
                 current_scope().variables[member_path] = member_var;
             }
         }
     }
-    
+
     // 構造体データをコピー
     element_var->struct_members = struct_value.struct_members;
     element_var->is_assigned = true;
@@ -1937,8 +2028,8 @@ void Interpreter::assign_struct_to_array_element(const std::string &array_name,
     }
 
     debug_msg(DebugMsgId::INTERPRETER_STRUCT_REGISTERED,
-              "Struct assigned to array element: %s[%lld]",
-              array_name.c_str(), index);
+              "Struct assigned to array element: %s[%lld]", array_name.c_str(),
+              index);
 }
 
 // print_value と print_formatted は薄いラッパーなので、

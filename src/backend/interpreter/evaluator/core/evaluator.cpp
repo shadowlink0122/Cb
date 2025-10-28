@@ -677,20 +677,24 @@ ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode *node) {
                     // evaluate_expressionを使用してReturnExceptionを取得
                     (void)evaluate_expression(node->left.get());
                     debug_print("ERROR: No ReturnException was thrown!\n");
-                    throw std::runtime_error("Expected struct return exception");
+                    throw std::runtime_error(
+                        "Expected struct return exception");
 
                 } catch (const ReturnException &struct_ret) {
-                    debug_print("Caught ReturnException, is_struct=%d\n", struct_ret.is_struct);
+                    debug_print("Caught ReturnException, is_struct=%d\n",
+                                struct_ret.is_struct);
                     if (struct_ret.is_struct) {
                         TypedValue member_value(static_cast<int64_t>(0),
                                                 InferredType());
                         if (resolve_from_struct(struct_ret.struct_value,
                                                 member_value)) {
-                            debug_print("Successfully resolved member: %s\n", node->name.c_str());
+                            debug_print("Successfully resolved member: %s\n",
+                                        node->name.c_str());
                             last_typed_result_ = member_value;
                             return member_value;
                         }
-                        debug_print("Failed to resolve member: %s\n", node->name.c_str());
+                        debug_print("Failed to resolve member: %s\n",
+                                    node->name.c_str());
                     }
                     throw std::runtime_error(
                         "Expected struct element from pointer array access");

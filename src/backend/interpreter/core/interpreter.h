@@ -748,11 +748,11 @@ class Interpreter : public EvaluatorInterface {
                                     double value);
     void assign_string_element(const std::string &name, int64_t index,
                                const std::string &value);
-    
+
     // v0.11.0 Week 3 Day 1: 構造体配列要素への代入
     void assign_struct_to_array_element(const std::string &array_name,
-                                       int64_t index,
-                                       const Variable &struct_value);
+                                        int64_t index,
+                                        const Variable &struct_value);
 
     // 配列リテラル割り当て
     void assign_array_literal(const std::string &name,

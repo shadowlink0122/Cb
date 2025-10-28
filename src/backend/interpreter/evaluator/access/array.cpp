@@ -249,9 +249,13 @@ int64_t evaluate_array_ref(
         throw std::runtime_error("Undefined array: " + array_name);
     }
 
-    // v0.11.0 Week 2 Day 3: ポインタ配列アクセス ptr[index]
-    // ポインタ変数の場合は、ポインタ演算として処理
-    if (var->is_pointer && indices.size() == 1) {
+    // v0.11.0 Week 2 Day 3 修正: ポインタ経由の配列アクセスとポインタ配列を区別
+    // - var->is_pointer && var->is_array:
+    // ポインタ配列（通常の配列アクセスとして処理）
+    // - var->is_pointer && !var->is_array:
+    // 単一ポインタ（ポインタ経由のアクセス）
+    if (var->is_pointer && !var->is_array && indices.size() == 1) {
+        // 単一ポインタが配列を指している場合のみ、ポインタ経由のアクセスとして処理
         int64_t index = indices[0];
         int64_t ptr_value = var->value;
 
@@ -281,13 +285,12 @@ int64_t evaluate_array_ref(
             if (target_array->is_struct && target_array->is_array) {
                 // 構造体配列要素の変数名を生成: points[0], points[1], etc.
                 // メタデータから元の配列名を取得
-                std::string base_array_name = meta->array_name.empty() 
-                    ? array_name 
-                    : meta->array_name;
-                std::string element_name =
-                    base_array_name + "[" + std::to_string(effective_index) + "]";
-                Variable *element_var =
-                    interpreter.find_variable(element_name);
+                std::string base_array_name =
+                    meta->array_name.empty() ? array_name : meta->array_name;
+                std::string element_name = base_array_name + "[" +
+                                           std::to_string(effective_index) +
+                                           "]";
+                Variable *element_var = interpreter.find_variable(element_name);
                 if (!element_var) {
                     throw std::runtime_error(
                         "Struct array element not found: " + element_name);
@@ -299,23 +302,37 @@ int64_t evaluate_array_ref(
             // 数値配列の場合
             // 型を判定
             TypeInfo elem_type = meta->element_type;
-            
+
             // float配列の場合
             if (elem_type == TYPE_FLOAT) {
                 // 1次元と多次元の両方をチェック
                 if (!target_array->array_float_values.empty()) {
-                    if (effective_index < 0 || effective_index >= static_cast<int64_t>(target_array->array_float_values.size())) {
-                        throw std::runtime_error("Pointer array index out of bounds");
+                    if (effective_index < 0 ||
+                        effective_index >=
+                            static_cast<int64_t>(
+                                target_array->array_float_values.size())) {
+                        throw std::runtime_error(
+                            "Pointer array index out of bounds");
                     }
-                    float f_val = target_array->array_float_values[effective_index];
+                    float f_val =
+                        target_array->array_float_values[effective_index];
                     // floatをReturnExceptionで返す
-                    throw ReturnException(static_cast<double>(f_val), TYPE_FLOAT);
+                    throw ReturnException(static_cast<double>(f_val),
+                                          TYPE_FLOAT);
                 } else if (!target_array->multidim_array_float_values.empty()) {
-                    if (effective_index < 0 || effective_index >= static_cast<int64_t>(target_array->multidim_array_float_values.size())) {
-                        throw std::runtime_error("Pointer array index out of bounds");
+                    if (effective_index < 0 ||
+                        effective_index >=
+                            static_cast<int64_t>(
+                                target_array->multidim_array_float_values
+                                    .size())) {
+                        throw std::runtime_error(
+                            "Pointer array index out of bounds");
                     }
-                    float f_val = target_array->multidim_array_float_values[effective_index];
-                    throw ReturnException(static_cast<double>(f_val), TYPE_FLOAT);
+                    float f_val =
+                        target_array
+                            ->multidim_array_float_values[effective_index];
+                    throw ReturnException(static_cast<double>(f_val),
+                                          TYPE_FLOAT);
                 } else {
                     throw std::runtime_error("Float array not initialized");
                 }
@@ -323,16 +340,29 @@ int64_t evaluate_array_ref(
             // double配列の場合
             else if (elem_type == TYPE_DOUBLE) {
                 if (!target_array->array_double_values.empty()) {
-                    if (effective_index < 0 || effective_index >= static_cast<int64_t>(target_array->array_double_values.size())) {
-                        throw std::runtime_error("Pointer array index out of bounds");
+                    if (effective_index < 0 ||
+                        effective_index >=
+                            static_cast<int64_t>(
+                                target_array->array_double_values.size())) {
+                        throw std::runtime_error(
+                            "Pointer array index out of bounds");
                     }
-                    double d_val = target_array->array_double_values[effective_index];
+                    double d_val =
+                        target_array->array_double_values[effective_index];
                     throw ReturnException(d_val, TYPE_DOUBLE);
-                } else if (!target_array->multidim_array_double_values.empty()) {
-                    if (effective_index < 0 || effective_index >= static_cast<int64_t>(target_array->multidim_array_double_values.size())) {
-                        throw std::runtime_error("Pointer array index out of bounds");
+                } else if (!target_array->multidim_array_double_values
+                                .empty()) {
+                    if (effective_index < 0 ||
+                        effective_index >=
+                            static_cast<int64_t>(
+                                target_array->multidim_array_double_values
+                                    .size())) {
+                        throw std::runtime_error(
+                            "Pointer array index out of bounds");
                     }
-                    double d_val = target_array->multidim_array_double_values[effective_index];
+                    double d_val =
+                        target_array
+                            ->multidim_array_double_values[effective_index];
                     throw ReturnException(d_val, TYPE_DOUBLE);
                 } else {
                     throw std::runtime_error("Double array not initialized");
@@ -342,8 +372,10 @@ int64_t evaluate_array_ref(
             else {
                 // 範囲チェック
                 if (effective_index < 0 ||
-                    effective_index >= static_cast<int64_t>(target_array->array_values.size())) {
-                    throw std::runtime_error("Pointer array index out of bounds");
+                    effective_index >= static_cast<int64_t>(
+                                           target_array->array_values.size())) {
+                    throw std::runtime_error(
+                        "Pointer array index out of bounds");
                 }
                 return target_array->array_values[effective_index];
             }
@@ -366,8 +398,7 @@ int64_t evaluate_array_ref(
                 // 構造体配列要素の変数名を生成: points[0], points[1], etc.
                 std::string element_name =
                     array_name + "[" + std::to_string(index) + "]";
-                Variable *element_var =
-                    interpreter.find_variable(element_name);
+                Variable *element_var = interpreter.find_variable(element_name);
                 if (!element_var) {
                     throw std::runtime_error(
                         "Struct array element not found: " + element_name);
@@ -380,23 +411,34 @@ int64_t evaluate_array_ref(
             // 型を判定
             TypeInfo base_type = TYPE_INT; // デフォルト
             if (target_array->type >= TYPE_ARRAY_BASE) {
-                base_type = static_cast<TypeInfo>(target_array->type - TYPE_ARRAY_BASE);
+                base_type =
+                    static_cast<TypeInfo>(target_array->type - TYPE_ARRAY_BASE);
             }
-            
+
             // float配列の場合
             if (base_type == TYPE_FLOAT) {
                 if (!target_array->array_float_values.empty()) {
-                    if (index < 0 || index >= static_cast<int64_t>(target_array->array_float_values.size())) {
-                        throw std::runtime_error("Pointer array index out of bounds");
+                    if (index < 0 ||
+                        index >= static_cast<int64_t>(
+                                     target_array->array_float_values.size())) {
+                        throw std::runtime_error(
+                            "Pointer array index out of bounds");
                     }
                     float f_val = target_array->array_float_values[index];
-                    throw ReturnException(static_cast<double>(f_val), TYPE_FLOAT);
+                    throw ReturnException(static_cast<double>(f_val),
+                                          TYPE_FLOAT);
                 } else if (!target_array->multidim_array_float_values.empty()) {
-                    if (index < 0 || index >= static_cast<int64_t>(target_array->multidim_array_float_values.size())) {
-                        throw std::runtime_error("Pointer array index out of bounds");
+                    if (index < 0 ||
+                        index >= static_cast<int64_t>(
+                                     target_array->multidim_array_float_values
+                                         .size())) {
+                        throw std::runtime_error(
+                            "Pointer array index out of bounds");
                     }
-                    float f_val = target_array->multidim_array_float_values[index];
-                    throw ReturnException(static_cast<double>(f_val), TYPE_FLOAT);
+                    float f_val =
+                        target_array->multidim_array_float_values[index];
+                    throw ReturnException(static_cast<double>(f_val),
+                                          TYPE_FLOAT);
                 } else {
                     throw std::runtime_error("Float array not initialized");
                 }
@@ -404,16 +446,26 @@ int64_t evaluate_array_ref(
             // double配列の場合
             else if (base_type == TYPE_DOUBLE) {
                 if (!target_array->array_double_values.empty()) {
-                    if (index < 0 || index >= static_cast<int64_t>(target_array->array_double_values.size())) {
-                        throw std::runtime_error("Pointer array index out of bounds");
+                    if (index < 0 ||
+                        index >=
+                            static_cast<int64_t>(
+                                target_array->array_double_values.size())) {
+                        throw std::runtime_error(
+                            "Pointer array index out of bounds");
                     }
                     double d_val = target_array->array_double_values[index];
                     throw ReturnException(d_val, TYPE_DOUBLE);
-                } else if (!target_array->multidim_array_double_values.empty()) {
-                    if (index < 0 || index >= static_cast<int64_t>(target_array->multidim_array_double_values.size())) {
-                        throw std::runtime_error("Pointer array index out of bounds");
+                } else if (!target_array->multidim_array_double_values
+                                .empty()) {
+                    if (index < 0 ||
+                        index >= static_cast<int64_t>(
+                                     target_array->multidim_array_double_values
+                                         .size())) {
+                        throw std::runtime_error(
+                            "Pointer array index out of bounds");
                     }
-                    double d_val = target_array->multidim_array_double_values[index];
+                    double d_val =
+                        target_array->multidim_array_double_values[index];
                     throw ReturnException(d_val, TYPE_DOUBLE);
                 } else {
                     throw std::runtime_error("Double array not initialized");
@@ -421,8 +473,11 @@ int64_t evaluate_array_ref(
             }
             // int配列など整数型の場合
             else {
-                if (index < 0 || index >= static_cast<int64_t>(target_array->array_values.size())) {
-                    throw std::runtime_error("Pointer array index out of bounds");
+                if (index < 0 ||
+                    index >= static_cast<int64_t>(
+                                 target_array->array_values.size())) {
+                    throw std::runtime_error(
+                        "Pointer array index out of bounds");
                 }
                 return target_array->array_values[index];
             }
@@ -593,6 +648,38 @@ int64_t evaluate_array_ref(
     if (flat_index < 0 ||
         flat_index >= static_cast<int64_t>(var->array_values.size())) {
         throw std::runtime_error("Array index out of bounds");
+    }
+
+    // ポインタ配列の場合、型メタデータを保持する必要がある
+    // 例: Rectangle*[3] rect_ptrs; rect_ptrs[i]->width にアクセスするため
+    if (var->is_pointer && var->is_array && indices.size() == 1) {
+        int64_t ptr_value = var->array_values[flat_index];
+
+        // nullptrチェック
+        if (ptr_value == 0) {
+            return 0; // nullptrはそのまま返す
+        }
+
+        // すでにメタデータポインタ（最上位ビットが1）の場合は、そのまま返す
+        // ADDRESS_OF演算子により既にメタデータとして保存されている
+        if (ptr_value & (1LL << 63)) {
+            return ptr_value;
+        }
+
+        // メタデータポインタではない場合のみ、新しくメタデータを作成
+        // （後方互換性のため）
+        PointerSystem::PointerMetadata *meta =
+            new PointerSystem::PointerMetadata();
+        meta->target_type = PointerSystem::PointerTargetType::VARIABLE;
+        meta->pointed_type = var->pointer_base_type; // Rectangle等
+        meta->type_size = 0; // TODO: 必要に応じて設定
+        meta->address = static_cast<uintptr_t>(ptr_value);
+        meta->var_ptr = reinterpret_cast<Variable *>(ptr_value);
+
+        // メタデータポインタとしてマーク（最上位ビットを1にする）
+        int64_t result = reinterpret_cast<int64_t>(meta);
+        result |= (1LL << 63);
+        return result;
     }
 
     return var->array_values[flat_index];

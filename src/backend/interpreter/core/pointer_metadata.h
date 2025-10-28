@@ -31,7 +31,7 @@ struct PointerMetadata {
     Variable *array_var;     // 配列の場合の配列変数
     size_t array_start_addr; // 配列の開始アドレス
     size_t array_end_addr;   // 配列の終了アドレス
-    std::string array_name;  // 配列変数の名前（構造体配列アクセス用）
+    std::string array_name; // 配列変数の名前（構造体配列アクセス用）
 
     // レガシー情報（後方互換性のため保持）
     Variable *var_ptr;
@@ -44,16 +44,16 @@ struct PointerMetadata {
     PointerMetadata()
         : target_type(PointerTargetType::NULLPTR_VALUE), address(0),
           pointed_type(TYPE_UNKNOWN), type_size(0), array_var(nullptr),
-          array_start_addr(0), array_end_addr(0), array_name(""), var_ptr(nullptr),
-          element_index(0), element_type(TYPE_UNKNOWN), member_var(nullptr),
-          member_path("") {}
+          array_start_addr(0), array_end_addr(0), array_name(""),
+          var_ptr(nullptr), element_index(0), element_type(TYPE_UNKNOWN),
+          member_var(nullptr), member_path("") {}
 
     // 静的ファクトリメソッド
     static PointerMetadata create_variable_pointer(Variable *var);
-    static PointerMetadata create_array_element_pointer(Variable *array_var,
-                                                        size_t index,
-                                                        TypeInfo elem_type,
-                                                        const std::string &array_name = "");
+    static PointerMetadata
+    create_array_element_pointer(Variable *array_var, size_t index,
+                                 TypeInfo elem_type,
+                                 const std::string &array_name = "");
     static PointerMetadata
     create_struct_member_pointer(Variable *member_var, const std::string &path);
     static PointerMetadata create_nullptr();

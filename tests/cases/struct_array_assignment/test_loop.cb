@@ -1,0 +1,39 @@
+// Test 3: Loop assignment to array elements
+// このテストは、ループ内で構造体を配列要素に代入するパターンを検証します
+
+struct Task {
+    int task_id;
+    int priority;
+};
+
+int main() {
+    println("=== Test 1: Loop assignment ===");
+    
+    Task[10] tasks;
+    
+    // ループ内での代入
+    for (int i = 0; i < 10; i++) {
+        Task t = {i, i * 2};
+        tasks[i] = t;
+    }
+    
+    // 検証: 全ての要素が正しく設定されているか
+    bool all_passed = true;
+    for (int i = 0; i < 10; i++) {
+        if (tasks[i].task_id != i || tasks[i].priority != i * 2) {
+            println("FAILED at index ", i);
+            println("Expected: task_id=", i, ", priority=", i * 2);
+            println("Got: task_id=", tasks[i].task_id, ", priority=", tasks[i].priority);
+            all_passed = false;
+        }
+    }
+    
+    if (all_passed) {
+        println("Test 1: Loop assignment - PASSED");
+        println("All 10 elements correctly assigned");
+        return 0;
+    } else {
+        println("Test 1: Loop assignment - FAILED");
+        return 1;
+    }
+}

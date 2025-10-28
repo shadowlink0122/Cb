@@ -1,0 +1,264 @@
+// Week 3 Day 1: 構造体配列代入の包括的テスト
+// バグ修正: tasks[i] = task が正しく動作することを確認
+
+struct Task {
+    int task_id;
+    int priority;
+    int callback_type;
+    void* data;
+};
+
+// Test 1: 構造体変数を配列要素に代入
+int test_struct_variable_assignment() {
+    Task[10] tasks;
+    Task t = {task_id: 42, priority: 5, callback_type: 1, data: nullptr};
+    
+    // 構造体変数を配列要素に代入
+    tasks[0] = t;
+    
+    // 検証
+    if (tasks[0].task_id != 42) {
+        println("ERROR: test_struct_variable_assignment - tasks[0].task_id should be 42, got %d", tasks[0].task_id);
+        return 1;
+    }
+    
+    if (tasks[0].priority != 5) {
+        println("ERROR: test_struct_variable_assignment - tasks[0].priority should be 5, got %d", tasks[0].priority);
+        return 1;
+    }
+    
+    return 0;
+}
+
+// Test 2: 構造体リテラルを配列要素に代入
+int test_struct_literal_assignment() {
+    Task[5] tasks;
+    
+    // 構造体リテラルを直接代入
+    tasks[0] = {task_id: 100, priority: 10, callback_type: 2, data: nullptr};
+    
+    // 検証
+    if (tasks[0].task_id != 100) {
+        println("ERROR: test_struct_literal_assignment - tasks[0].task_id should be 100, got %d", tasks[0].task_id);
+        return 1;
+    }
+    
+    if (tasks[0].priority != 10) {
+        println("ERROR: test_struct_literal_assignment - tasks[0].priority should be 10, got %d", tasks[0].priority);
+        return 1;
+    }
+    
+    return 0;
+}
+
+// Test 3: ループ内での構造体代入
+int test_loop_assignment() {
+    Task[10] tasks;
+    
+    // ループ内で構造体を作成して代入
+    for (int i = 0; i < 10; i++) {
+        Task t = {task_id: i, priority: i * 2, callback_type: 1, data: nullptr};
+        tasks[i] = t;
+    }
+    
+    // 検証
+    for (int i = 0; i < 10; i++) {
+        if (tasks[i].task_id != i) {
+            println("ERROR: test_loop_assignment - tasks[%d].task_id should be %d, got %d", i, i, tasks[i].task_id);
+            return 1;
+        }
+        
+        if (tasks[i].priority != i * 2) {
+            println("ERROR: test_loop_assignment - tasks[%d].priority should be %d, got %d", i, i * 2, tasks[i].priority);
+            return 1;
+        }
+    }
+    
+    return 0;
+}
+
+// Test 4: 配列要素間のコピー
+int test_array_element_copy() {
+    Task[5] src;
+    Task[5] dst;
+    
+    // ソース配列を初期化
+    src[0] = {task_id: 1, priority: 10, callback_type: 1, data: nullptr};
+    src[1] = {task_id: 2, priority: 20, callback_type: 1, data: nullptr};
+    
+    // 配列要素間のコピー
+    dst[0] = src[0];
+    dst[1] = src[1];
+    
+    // 検証
+    if (dst[0].task_id != 1) {
+        println("ERROR: test_array_element_copy - dst[0].task_id should be 1, got %d", dst[0].task_id);
+        return 1;
+    }
+    
+    if (dst[1].task_id != 2) {
+        println("ERROR: test_array_element_copy - dst[1].task_id should be 2, got %d", dst[1].task_id);
+        return 1;
+    }
+    
+    if (dst[0].priority != 10) {
+        println("ERROR: test_array_element_copy - dst[0].priority should be 10, got %d", dst[0].priority);
+        return 1;
+    }
+    
+    if (dst[1].priority != 20) {
+        println("ERROR: test_array_element_copy - dst[1].priority should be 20, got %d", dst[1].priority);
+        return 1;
+    }
+    
+    return 0;
+}
+
+// Test 5: 関数戻り値の代入
+Task task_create(int id, int priority) {
+    Task t = {task_id: id, priority: priority, callback_type: 1, data: nullptr};
+    return t;
+}
+
+int test_function_return_assignment() {
+    Task[3] tasks;
+    
+    // 関数戻り値を配列要素に代入
+    tasks[0] = task_create(999, 88);
+    tasks[1] = task_create(888, 77);
+    
+    // 検証
+    if (tasks[0].task_id != 999) {
+        println("ERROR: test_function_return_assignment - tasks[0].task_id should be 999, got %d", tasks[0].task_id);
+        return 1;
+    }
+    
+    if (tasks[0].priority != 88) {
+        println("ERROR: test_function_return_assignment - tasks[0].priority should be 88, got %d", tasks[0].priority);
+        return 1;
+    }
+    
+    if (tasks[1].task_id != 888) {
+        println("ERROR: test_function_return_assignment - tasks[1].task_id should be 888, got %d", tasks[1].task_id);
+        return 1;
+    }
+    
+    if (tasks[1].priority != 77) {
+        println("ERROR: test_function_return_assignment - tasks[1].priority should be 77, got %d", tasks[1].priority);
+        return 1;
+    }
+    
+    return 0;
+}
+
+// Test 6: 同じ配列内での要素移動
+int test_same_array_copy() {
+    Task[5] tasks;
+    
+    // 初期化
+    tasks[0] = {task_id: 100, priority: 50, callback_type: 1, data: nullptr};
+    
+    // 同じ配列内でコピー
+    tasks[1] = tasks[0];
+    tasks[2] = tasks[1];
+    
+    // 検証
+    if (tasks[1].task_id != 100) {
+        println("ERROR: test_same_array_copy - tasks[1].task_id should be 100, got %d", tasks[1].task_id);
+        return 1;
+    }
+    
+    if (tasks[2].task_id != 100) {
+        println("ERROR: test_same_array_copy - tasks[2].task_id should be 100, got %d", tasks[2].task_id);
+        return 1;
+    }
+    
+    if (tasks[1].priority != 50) {
+        println("ERROR: test_same_array_copy - tasks[1].priority should be 50, got %d", tasks[1].priority);
+        return 1;
+    }
+    
+    if (tasks[2].priority != 50) {
+        println("ERROR: test_same_array_copy - tasks[2].priority should be 50, got %d", tasks[2].priority);
+        return 1;
+    }
+    
+    return 0;
+}
+
+int main() {
+    println("=== Struct Array Assignment Tests ===");
+    println("");
+    
+    int failed = 0;
+    
+    // Test 1
+    println("Test 1: Struct variable assignment");
+    if (test_struct_variable_assignment() != 0) {
+        println("  FAILED");
+        failed++;
+    } else {
+        println("  PASSED");
+    }
+    println("");
+    
+    // Test 2
+    println("Test 2: Struct literal assignment");
+    if (test_struct_literal_assignment() != 0) {
+        println("  FAILED");
+        failed++;
+    } else {
+        println("  PASSED");
+    }
+    println("");
+    
+    // Test 3
+    println("Test 3: Loop assignment");
+    if (test_loop_assignment() != 0) {
+        println("  FAILED");
+        failed++;
+    } else {
+        println("  PASSED");
+    }
+    println("");
+    
+    // Test 4
+    println("Test 4: Array element copy");
+    if (test_array_element_copy() != 0) {
+        println("  FAILED");
+        failed++;
+    } else {
+        println("  PASSED");
+    }
+    println("");
+    
+    // Test 5
+    println("Test 5: Function return assignment");
+    if (test_function_return_assignment() != 0) {
+        println("  FAILED");
+        failed++;
+    } else {
+        println("  PASSED");
+    }
+    println("");
+    
+    // Test 6
+    println("Test 6: Same array copy");
+    if (test_same_array_copy() != 0) {
+        println("  FAILED");
+        failed++;
+    } else {
+        println("  PASSED");
+    }
+    println("");
+    
+    // 結果サマリー
+    println("=== Test Summary ===");
+    if (failed == 0) {
+        println("All 6 tests PASSED");
+        return 0;
+    } else {
+        println("%d test(s) FAILED", failed);
+        return 1;
+    }
+}

@@ -1,5 +1,6 @@
 #include "special.h"
 #include "../../../../common/debug.h"
+#include "../../core/pointer_metadata.h"
 #include "../../managers/types/enums.h"
 #include "../../managers/types/manager.h"
 #include "../core/evaluator.h"
@@ -22,7 +23,8 @@ int64_t evaluate_arrow_access(
     std::string member_name = node->name;
 
     // v0.11.0 Week 2 Day 3: ptr[index]->member パターン対応
-    // 左側がポインタ配列アクセス (ptr[0]) の場合、ReturnExceptionで構造体が返される
+    // 左側がポインタ配列アクセス (ptr[0])
+    // の場合、ReturnExceptionで構造体が返される
     Variable *struct_var = nullptr;
     int64_t ptr_value = 0;
 
@@ -34,12 +36,13 @@ int64_t evaluate_arrow_access(
         if (ret.is_struct) {
             if (interpreter.is_debug_mode()) {
                 std::cerr << "[ARROW_DEBUG] Caught struct from ptr[index]"
-                          << " struct_type=" << ret.struct_value.struct_type_name
-                          << std::endl;
+                          << " struct_type="
+                          << ret.struct_value.struct_type_name << std::endl;
             }
 
             // 構造体からメンバーを取得
-            Variable member_var = get_struct_member_func(ret.struct_value, member_name);
+            Variable member_var =
+                get_struct_member_func(ret.struct_value, member_name);
 
             if (member_var.type == TYPE_STRING) {
                 TypedValue typed_result(static_cast<int64_t>(0),
@@ -51,7 +54,8 @@ int64_t evaluate_arrow_access(
             } else if (member_var.type == TYPE_POINTER) {
                 return member_var.value;
             } else if (member_var.type == TYPE_FLOAT ||
-                       member_var.type == TYPE_DOUBLE || member_var.type == TYPE_QUAD) {
+                       member_var.type == TYPE_DOUBLE ||
+                       member_var.type == TYPE_QUAD) {
                 return static_cast<int64_t>(member_var.float_value);
             } else {
                 return member_var.value;
@@ -72,8 +76,52 @@ int64_t evaluate_arrow_access(
         throw std::runtime_error("Null pointer dereference in arrow operator");
     }
 
-    // ポインタ値から構造体変数を取得
-    struct_var = reinterpret_cast<Variable *>(ptr_value);
+    // メタデータポインタかどうかをチェック（最上位ビットが1）
+    bool has_metadata = (ptr_value & (1LL << 63)) != 0;
+
+    if (has_metadata) {
+        // メタデータポインタの場合、最上位ビットをクリアして実際のポインタを取得
+        int64_t meta_ptr = ptr_value & ~(1LL << 63);
+        PointerSystem::PointerMetadata *metadata =
+            reinterpret_cast<PointerSystem::PointerMetadata *>(meta_ptr);
+
+        if (!metadata) {
+            throw std::runtime_error(
+                "Invalid metadata pointer in arrow operator");
+        }
+
+        // メタデータの種類に応じて処理
+        if (metadata->target_type ==
+                PointerSystem::PointerTargetType::VARIABLE &&
+            metadata->var_ptr) {
+            struct_var = metadata->var_ptr;
+        } else if (metadata->target_type ==
+                   PointerSystem::PointerTargetType::ARRAY_ELEMENT) {
+            // 配列要素の場合、array_valuesから実際の要素ポインタを取得
+            // 構造体配列の場合、array_name[index] という変数名を構築
+            if (!metadata->array_var) {
+                throw std::runtime_error(
+                    "Invalid array metadata in arrow operator");
+            }
+
+            // 配列要素の変数名を構築: "rectangles[0]" など
+            std::string element_name = metadata->array_name + "[" +
+                                       std::to_string(metadata->element_index) +
+                                       "]";
+            struct_var = interpreter.find_variable(element_name);
+
+            if (!struct_var) {
+                throw std::runtime_error("Struct array element not found: " +
+                                         element_name);
+            }
+        } else {
+            throw std::runtime_error(
+                "Unsupported metadata type in arrow operator");
+        }
+    } else {
+        // 通常のポインタの場合
+        struct_var = reinterpret_cast<Variable *>(ptr_value);
+    }
 
     if (!struct_var) {
         throw std::runtime_error("Invalid pointer in arrow operator");

@@ -217,12 +217,13 @@ void execute_assignment(StatementExecutor *executor, Interpreter &interpreter,
                                               node->right.get());
             return;
         } else if (node->left->node_type == ASTNodeType::AST_ARRAY_REF) {
-            // v0.11.0 Week 3 Day 1: 配列要素への構造体リテラル代入 (tasks[0] = {1, 2})
+            // v0.11.0 Week 3 Day 1: 配列要素への構造体リテラル代入 (tasks[0] =
+            // {1, 2})
             if (debug_mode) {
                 std::cerr << "DEBUG: Struct literal assignment to array element"
                           << std::endl;
             }
-            
+
             std::string array_name =
                 interpreter.extract_array_name(node->left.get());
             std::vector<int64_t> indices =
@@ -236,37 +237,28 @@ void execute_assignment(StatementExecutor *executor, Interpreter &interpreter,
             int64_t idx = indices[0]; // 1次元配列のみサポート
 
             if (debug_mode) {
-                std::cerr << "DEBUG: Array name: " << array_name 
+                std::cerr << "DEBUG: Array name: " << array_name
                           << ", index: " << idx << std::endl;
             }
-            
+
             // 配列要素の変数名を生成
-            std::string element_name = array_name + "[" + std::to_string(idx) + "]";
-            
+            std::string element_name =
+                array_name + "[" + std::to_string(idx) + "]";
+
             // 配列変数の型情報を確認
             Variable *array_var = interpreter.find_variable(array_name);
             if (!array_var || !array_var->is_array) {
                 throw std::runtime_error("Not an array: " + array_name);
             }
-            
+
             if (array_var->type != TYPE_STRUCT && !array_var->is_struct) {
                 throw std::runtime_error("Not a struct array: " + array_name);
             }
-            
-            // 配列要素変数が存在するか確認
-            Variable *element_var = interpreter.find_variable(element_name);
-            if (!element_var) {
-                // 変数が存在しない場合は作成
-                interpreter.current_scope().variables[element_name] = Variable();
-                element_var = &interpreter.current_scope().variables[element_name];
-                element_var->type = TYPE_STRUCT;
-                element_var->is_struct = true;
-                element_var->struct_type_name = array_var->struct_type_name;
-            }
-            
+
             // 構造体リテラルを配列要素に代入
+            // assign_struct_literal()が配列要素変数とメンバー変数を自動的に作成する
             interpreter.assign_struct_literal(element_name, node->right.get());
-            
+
             return;
         } else {
             throw std::runtime_error("Struct literal can only be assigned to "
@@ -294,15 +286,16 @@ void execute_assignment(StatementExecutor *executor, Interpreter &interpreter,
 
                     if (indices.empty()) {
                         throw std::runtime_error(
-                            "Cannot extract array index for struct return value assignment");
+                            "Cannot extract array index for struct return "
+                            "value assignment");
                     }
 
                     int64_t idx = indices[0]; // 1次元配列のみサポート
 
-                    debug_msg(
-                        DebugMsgId::INTERPRETER_STRUCT_REGISTERED,
-                        "Assigning struct return value to array element: %s[%lld]",
-                        array_name.c_str(), idx);
+                    debug_msg(DebugMsgId::INTERPRETER_STRUCT_REGISTERED,
+                              "Assigning struct return value to array element: "
+                              "%s[%lld]",
+                              array_name.c_str(), idx);
 
                     debug_print("ReturnException struct_value: "
                                 "struct_members.size() = %zu\n",
@@ -320,7 +313,104 @@ void execute_assignment(StatementExecutor *executor, Interpreter &interpreter,
             }
         }
 
-        // 右辺の評価（構造体変数やその他の式）
+        // v0.11.0 Week 3 Day 1: 右辺が構造体変数の場合を特別処理
+        // tasks[0] = t のようなケース
+        if (node->right &&
+            (node->right->node_type == ASTNodeType::AST_VARIABLE ||
+             node->right->node_type == ASTNodeType::AST_IDENTIFIER)) {
+
+            Variable *right_var = interpreter.find_variable(node->right->name);
+            if (right_var && right_var->is_struct) {
+                // 左辺の配列型を確認（ポインタ配列は除外）
+                std::string array_name =
+                    interpreter.extract_array_name(node->left.get());
+                Variable *left_array = interpreter.find_variable(array_name);
+
+                // ポインタ配列の場合は通常の代入処理に委ねる
+                if (left_array && left_array->is_pointer) {
+                    // Skip struct-specific handling for pointer arrays
+                    if (debug_mode) {
+                        std::cerr << "DEBUG: Skipping struct handling for "
+                                     "pointer array: "
+                                  << array_name << std::endl;
+                    }
+                } else {
+                    // 構造体変数を配列要素に代入
+                    std::vector<int64_t> indices =
+                        interpreter.extract_array_indices(node->left.get());
+
+                    if (indices.empty()) {
+                        throw std::runtime_error(
+                            "Cannot extract array index for struct variable "
+                            "assignment");
+                    }
+
+                    int64_t idx = indices[0]; // 1次元配列のみサポート
+
+                    if (debug_mode) {
+                        std::cerr << "DEBUG: Struct variable assignment: "
+                                  << array_name << "[" << idx
+                                  << "] = " << node->right->name << std::endl;
+                    }
+
+                    interpreter.assign_struct_to_array_element(array_name, idx,
+                                                               *right_var);
+
+                    return;
+                }
+            }
+        }
+
+        // v0.11.0 Week 3 Day 1: 右辺が配列要素（構造体）の場合を処理
+        // tasks[1] = tasks[0] のようなケース
+        if (node->right &&
+            node->right->node_type == ASTNodeType::AST_ARRAY_REF) {
+            std::string right_element_name =
+                interpreter.extract_array_element_name(node->right.get());
+            Variable *right_var = interpreter.find_variable(right_element_name);
+
+            if (right_var && right_var->is_struct) {
+                // 左辺の配列型を確認（ポインタ配列は除外）
+                std::string array_name =
+                    interpreter.extract_array_name(node->left.get());
+                Variable *left_array = interpreter.find_variable(array_name);
+
+                // ポインタ配列の場合は通常の代入処理に委ねる
+                if (left_array && left_array->is_pointer) {
+                    // Skip struct-specific handling for pointer arrays
+                    if (debug_mode) {
+                        std::cerr << "DEBUG: Skipping struct handling for "
+                                     "pointer array: "
+                                  << array_name << std::endl;
+                    }
+                } else {
+                    // 配列要素（構造体）を別の配列要素に代入
+                    std::vector<int64_t> indices =
+                        interpreter.extract_array_indices(node->left.get());
+
+                    if (indices.empty()) {
+                        throw std::runtime_error(
+                            "Cannot extract array index for struct array "
+                            "element assignment");
+                    }
+
+                    int64_t idx = indices[0]; // 1次元配列のみサポート
+
+                    if (debug_mode) {
+                        std::cerr << "DEBUG: Struct array element copy: "
+                                  << array_name << "[" << idx
+                                  << "] = " << right_element_name << std::endl;
+                    }
+
+                    interpreter.assign_struct_to_array_element(array_name, idx,
+                                                               *right_var);
+
+                    return;
+                }
+            }
+        }
+
+        // 右辺の評価（数値やその他の式）
         // TypedValueで評価して、float/doubleにも対応
         int64_t rvalue = 0;
         bool is_floating = false;
@@ -338,12 +428,14 @@ void execute_assignment(StatementExecutor *executor, Interpreter &interpreter,
             }
         } catch (const ReturnException &ret) {
             if (ret.type == TYPE_FLOAT || ret.type == TYPE_DOUBLE) {
-                // v0.11.0 Week 2 Day 3: float/double ポインタ配列アクセスから戻ってきた値
+                // v0.11.0 Week 2 Day 3: float/double
+                // ポインタ配列アクセスから戻ってきた値
                 is_floating = true;
                 float_rvalue = ret.double_value;
                 rvalue = static_cast<int64_t>(float_rvalue);
             } else if (ret.is_struct) {
-                // v0.11.0 Week 3 Day 1: 構造体変数または構造体戻り値を配列要素に代入
+                // v0.11.0 Week 3 Day 1:
+                // 構造体変数または構造体戻り値を配列要素に代入
                 std::string array_name =
                     interpreter.extract_array_name(node->left.get());
                 std::vector<int64_t> indices =
@@ -378,8 +470,8 @@ void execute_assignment(StatementExecutor *executor, Interpreter &interpreter,
                 }
 
                 // 新しい関数を使用して配列要素に直接代入
-                interpreter.assign_struct_to_array_element(
-                    array_name, idx, ret.struct_value);
+                interpreter.assign_struct_to_array_element(array_name, idx,
+                                                           ret.struct_value);
 
                 return;
             } else {
@@ -571,13 +663,14 @@ void execute_assignment(StatementExecutor *executor, Interpreter &interpreter,
                 interpreter.assign_string_element(
                     var_name, index, std::string(1, static_cast<char>(rvalue)));
             } else {
-                // v0.11.0 Week 2 Day 3: ポインタの場合でもfloat/double判定が必要
+                // v0.11.0 Week 2 Day 3:
+                // ポインタの場合でもfloat/double判定が必要
                 // ポインタの場合はポインタが指す型をチェック
                 TypeInfo check_type = var->type;
                 if (var->is_pointer && var->pointer_base_type != TYPE_UNKNOWN) {
                     check_type = var->pointer_base_type;
                 }
-                
+
                 // float/double/quad配列の場合はfloat値を使用
                 TypeInfo base_type =
                     (check_type >= TYPE_ARRAY_BASE)

@@ -184,7 +184,8 @@ int64_t evaluate_address_of(
             }
 
             if (debug_mode) {
-                std::cerr << "[ADDRESS_OF] Creating metadata for struct element pointer: "
+                std::cerr << "[ADDRESS_OF] Creating metadata for struct "
+                             "element pointer: "
                           << element_name << " -> " << element_var << std::endl;
             }
 
@@ -199,9 +200,9 @@ int64_t evaluate_address_of(
             ptr_value |= (1LL << 63); // タグビット
 
             if (debug_mode) {
-                std::cerr << "[ADDRESS_OF] Returning struct metadata ptr_value=" << ptr_value
-                          << " (0x" << std::hex << ptr_value << std::dec << ")"
-                          << std::endl;
+                std::cerr << "[ADDRESS_OF] Returning struct metadata ptr_value="
+                          << ptr_value << " (0x" << std::hex << ptr_value
+                          << std::dec << ")" << std::endl;
             }
 
             return ptr_value;

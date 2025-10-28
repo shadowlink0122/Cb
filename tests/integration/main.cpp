@@ -80,6 +80,7 @@
 #include "string_interpolation/test_string_interpolation.hpp"
 #include "struct/basic_struct_tests.hpp"
 #include "struct/struct_tests.hpp"
+#include "struct_array_assignment/test_struct_array_assignment.hpp"
 #include "ternary/test_ternary.hpp"
 #include "type/test_type.hpp"
 #include "typedef/test_enum_typedef.hpp"
@@ -302,6 +303,8 @@ int main() {
                            "Basic Struct Tests", failed_tests);
     run_test_with_continue(StructTests::run_all_struct_tests, "Struct Tests",
                            failed_tests);
+    run_test_with_continue(test_integration_struct_array_assignment,
+                           "Struct Array Assignment Tests", failed_tests);
     run_test_with_continue(NestedStructInitTests::run_all_tests,
                            "Nested Struct Init Tests", failed_tests);
     run_test_with_continue(run_all_constructor_tests, "Constructor Tests",
