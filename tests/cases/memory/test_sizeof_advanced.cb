@@ -1,0 +1,125 @@
+// test_sizeof_advanced.cb
+// sizeof演算子の高度なテスト: typedef, ネスト, ジェネリクス
+
+// 基本構造体
+struct Point {
+    int x;
+    int y;
+};
+
+// typedef
+typedef int Integer;
+typedef Point PointAlias;
+
+// ネストした構造体
+struct Line {
+    Point start;
+    Point end;
+};
+
+// 深くネストした構造体
+struct Shape {
+    Line line1;
+    Line line2;
+    int id;
+};
+
+// ジェネリクス構造体
+struct Box<T> {
+    T value;
+    int count;
+};
+
+void test_sizeof_typedef() {
+    println("=== Test sizeof (typedef) ===");
+    
+    int size_int = sizeof(int);
+    int size_integer = sizeof(Integer);
+    println("sizeof(int) = {size_int}");
+    println("sizeof(Integer) = {size_integer}");
+    assert(size_int == size_integer);
+    
+    int size_point = sizeof(Point);
+    int size_point_alias = sizeof(PointAlias);
+    println("sizeof(Point) = {size_point}");
+    println("sizeof(PointAlias) = {size_point_alias}");
+    assert(size_point == size_point_alias);
+    
+    println("typedef test passed\n");
+}
+
+void test_sizeof_nested() {
+    println("=== Test sizeof (nested struct) ===");
+    
+    int size_point = sizeof(Point);
+    int size_line = sizeof(Line);
+    int size_shape = sizeof(Shape);
+    
+    println("sizeof(Point) = {size_point} (expected: 8)");
+    println("sizeof(Line) = {size_line} (expected: 16 = 8+8)");
+    println("sizeof(Shape) = {size_shape} (expected: 36 = 16+16+4)");
+    
+    assert(size_point == 8);
+    assert(size_line == 16);
+    assert(size_shape == 36);
+    
+    println("nested struct test passed\n");
+}
+
+void test_sizeof_generic() {
+    println("=== Test sizeof (generic struct) ===");
+    
+    // 注意: ジェネリクス構造体のサイズは型パラメータが解決された後に計算される
+    // 現在は未インスタンス化の構造体として扱われるため、実際のサイズとは異なる場合がある
+    
+    // Box<int>のサイズ
+    int size_box_int = sizeof(Box<int>);
+    println("sizeof(Box<int>) = {size_box_int}");
+    
+    // Box<long>のサイズ  
+    int size_box_long = sizeof(Box<long>);
+    println("sizeof(Box<long>) = {size_box_long}");
+    
+    // Box<Point>のサイズ
+    int size_box_point = sizeof(Box<Point>);
+    println("sizeof(Box<Point>) = {size_box_point}");
+    
+    // TODO: ジェネリクス型のインスタンス化されたサイズ計算は将来の実装
+    println("NOTE: Generic struct sizeof needs type parameter resolution");
+    
+    println("generic struct test completed (partial support)\n");
+}
+
+void test_malloc_with_sizeof() {
+    println("=== Test new with sizeof ===");
+    
+    // new T[sizeof(T)] のようなパターン
+    Point* points = new Point[3];
+    println("Allocated Point[3] at {hex(points)}");
+    
+    Shape* shape = new Shape;
+    int shape_size = sizeof(Shape);
+    println("Allocated Shape at {hex(shape)} (size: {shape_size} bytes)");
+    
+    delete points;
+    delete shape;
+    
+    println("malloc with sizeof test passed\n");
+}
+
+int main() {
+    println("╔════════════════════════════════════╗");
+    println("║  sizeof Advanced Feature Tests    ║");
+    println("╚════════════════════════════════════╝\n");
+    
+    test_sizeof_typedef();
+    test_sizeof_nested();
+    test_sizeof_generic();
+    test_malloc_with_sizeof();
+    
+    println("╔════════════════════════════════════╗");
+    println("║  All advanced tests passed!        ║");
+    println("╚════════════════════════════════════╝");
+    
+    return 0;
+}

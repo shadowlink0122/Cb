@@ -329,6 +329,175 @@ void main() {
 }
 ```
 
+#### 文字列出力 (println/printf)
+
+**⚠️ 重要: 文字列補間を使用してください**
+
+変数を出力する際は、`%d`や`%s`などのフォーマット指定子ではなく、**文字列補間 `{変数名}`** を使用してください。
+
+**基本的な使い方:**
+```cb
+void main() {
+    int value = 42;
+    string name = "Alice";
+    double pi = 3.14159;
+    
+    // ✅ 正しい: 文字列補間を使用
+    println("Value: {value}");
+    println("Name: {name}, Age: {value}");
+    println("Pi = {pi}");
+    
+    // 式も補間可能
+    println("Result: {value + 10}");
+    println("Double: {value * 2}");
+}
+```
+
+**フォーマット指定子:**
+
+Cbの文字列補間は、強力なフォーマット機能を提供します：
+
+```cb
+void main() {
+    int num = 255;
+    double pi = 3.14159265359;
+    int* ptr = new int;
+    
+    // 16進数表示（ポインタに推奨）
+    println("Pointer: {hex(ptr)}");           // "Pointer: 0x7f8a4c0"
+    println("Hex value: {hex(num)}");         // "Hex value: 0xff"
+    
+    // 8進数表示
+    println("Octal: {oct(num)}");             // "Octal: 0o377"
+    
+    // 2進数表示
+    println("Binary: {bin(num)}");            // "Binary: 0b11111111"
+    
+    // 浮動小数点の精度指定
+    println("Pi (2桁): {pi:.2}");             // "Pi (2桁): 3.14"
+    println("Pi (4桁): {pi:.4}");             // "Pi (4桁): 3.1416"
+    
+    // 幅指定（右寄せ）
+    println("Padded: {num:5}");               // "Padded:    42"
+    println("Aligned: |{num:10}|");           // "Aligned: |        42|"
+    
+    // 幅指定 + ゼロ埋め
+    println("Zero-padded: {num:05}");         // "Zero-padded: 00042"
+    
+    // 組み合わせ
+    println("Hex padded: {hex(ptr):16}");     // 16文字幅で16進数表示
+    println("Float formatted: {pi:8.3}");     // 8文字幅、3桁精度
+    
+    delete ptr;
+}
+```
+
+**フォーマット構文:**
+
+| 構文 | 説明 | 例 | 出力 |
+|------|------|-----|------|
+| `{var}` | デフォルト表示 | `{42}` | `42` |
+| `{hex(var)}` | 16進数 (0xプリフィックス付き) | `{hex(255)}` | `0xff` |
+| `{oct(var)}` | 8進数 (0oプリフィックス付き) | `{oct(8)}` | `0o10` |
+| `{bin(var)}` | 2進数 (0bプリフィックス付き) | `{bin(5)}` | `0b101` |
+| `{var:.N}` | 浮動小数点のN桁精度 | `{3.14159:.2}` | `3.14` |
+| `{var:W}` | W文字幅（右寄せ） | `{42:5}` | `   42` |
+| `{var:0W}` | W文字幅（ゼロ埋め） | `{42:05}` | `00042` |
+| `{var:W.N}` | 幅と精度の組み合わせ | `{3.14:8.2}` | `    3.14` |
+
+**ポインタ表示のベストプラクティス:**
+
+```cb
+void main() {
+    int* ptr = new int;
+    
+    // ✅ 推奨: hex()を使用（0xプリフィックス付き）
+    println("Address: {hex(ptr)}");
+    
+    // ❌ 非推奨: 生の整数値として表示
+    println("Address: {ptr}");  // 10進数で表示されてしまう
+    
+    // ❌ 非推奨: :x指定子（プリフィックスなし）
+    println("Address: {ptr:x}");  // "7f8a4c0" (0xなし)
+    
+    delete ptr;
+}
+```
+
+**数値フォーマットの例:**
+
+```cb
+void main() {
+    int count = 42;
+    double ratio = 0.75;
+    
+    // レポート風の整形出力
+    println("╔════════════════════════════╗");
+    println("║  Statistics Report         ║");
+    println("╠════════════════════════════╣");
+    println("║  Count: {count:10}      ║");  // 右寄せ
+    println("║  Ratio: {ratio:10.2}    ║");  // 右寄せ+精度
+    println("╚════════════════════════════╝");
+    
+    // テーブル形式
+    println("ID    | Value  | Hex");
+    println("------|--------|--------");
+    println("{1:5} | {count:6} | {hex(count)}");
+}
+```
+
+**非推奨の書き方:**
+```cb
+void main() {
+    int value = 42;
+    
+    // ❌ 非推奨: C言語スタイルのフォーマット指定子
+    println("Value: %d", value);  // 動作はするが推奨されない
+    printf("Value: %d\n", value); // 動作はするが推奨されない
+    printf("Hex: %x\n", value);   // プリフィックスなし
+    printf("Hex: 0x%x\n", value); // 手動でプリフィックス付与
+}
+```
+
+**理由:**
+1. **可読性**: コード内で変数名が見える
+2. **型安全**: 補間が型を自動判定
+3. **保守性**: フォーマット文字列と変数の対応が明確
+4. **Cb言語の慣用的な書き方**: 文字列補間はCbの標準機能
+5. **16進数の一貫性**: `hex()`は常に`0x`プリフィックスを付与
+
+**複雑な例:**
+```cb
+struct Point {
+    int x;
+    int y;
+};
+
+void main() {
+    Point p;
+    p.x = 10;
+    p.y = 20;
+    int* ptr = new int;
+    
+    // 構造体メンバーアクセス
+    println("Point: ({p.x}, {p.y})");
+    
+    // ポインタ値（16進数）
+    println("Pointer address: {hex(ptr)}");
+    
+    // 配列要素
+    int arr[3];
+    arr[0] = 100;
+    println("First element: {arr[0]}");
+    
+    // フォーマット付き
+    println("Formatted point: ({p.x:3}, {p.y:3})");
+    println("Pointer (padded): {hex(ptr):16}");
+    
+    delete ptr;
+}
+```
+
 ---
 
 ## 命名規則

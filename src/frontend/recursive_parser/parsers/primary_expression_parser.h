@@ -58,6 +58,35 @@ class PrimaryExpressionParser {
      */
     ASTNode *parseInterpolatedString(const std::string &str);
 
+    /**
+     * @brief new演算子を解析
+     * @return 解析されたASTノード
+     *
+     * v0.11.0 Phase 1a メモリ管理
+     * 構文: new T または new T[size]
+     * 例: new Point または new int[10]
+     */
+    ASTNode *parseNewExpression();
+
+    /**
+     * @brief delete演算子を解析
+     * @return 解析されたASTノード
+     *
+     * v0.11.0 Phase 1a メモリ管理
+     * 構文: delete ptr または delete[] ptr
+     */
+    ASTNode *parseDeleteExpression();
+
+    /**
+     * @brief sizeof演算子を解析
+     * @return 解析されたASTノード
+     *
+     * v0.11.0 Phase 1a メモリ管理
+     * 構文: sizeof(T) または sizeof(expr)
+     * 例: sizeof(int) または sizeof(arr)
+     */
+    ASTNode *parseSizeofExpression();
+
   private:
     RecursiveParser *parser_;
 

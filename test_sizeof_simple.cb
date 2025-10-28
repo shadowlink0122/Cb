@@ -1,0 +1,11 @@
+// test_sizeof_simple.cb  
+// sizeof演算子の簡単なテスト
+
+void main() {
+    println("Testing sizeof operator");
+    
+    int size_int = sizeof(int);
+    println("sizeof(int) = %d", size_int);
+    
+    println("Test complete");
+}

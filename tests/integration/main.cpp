@@ -51,6 +51,7 @@
 #include "interface/test_typedef_impl.hpp"
 #include "lambda/lambda_tests.hpp"
 #include "loop/test_loop.hpp"
+#include "memory/test_memory.hpp"
 #include "module_functions/test_module_functions.hpp"
 #include "move_constructor/move_constructor_tests.hpp"
 #include "multidim_array/test_multidim_array.hpp"
@@ -344,6 +345,10 @@ int main() {
                            "Pointer Type Tests", failed_tests);
     run_test_with_continue(PointerAdvancedTests::run_all_tests,
                            "Pointer Advanced Tests", failed_tests);
+
+    // Memory Management Tests (new/delete/sizeof)
+    run_test_with_continue(test_integration_memory, "Memory Management Tests",
+                           failed_tests);
 
     run_test_with_continue(ConstPointerTests::run_all_const_pointer_tests,
                            "Const Pointer Tests", failed_tests);

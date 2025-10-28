@@ -971,6 +971,30 @@ class Interpreter : public EvaluatorInterface {
     // Parserからのstruct定義同期
     void sync_struct_definitions_from_parser(RecursiveParser *parser);
 
+    // struct定義へのアクセス（sizeof演算子などから使用）
+    const std::map<std::string, StructDefinition> &get_struct_definitions() const {
+        return struct_definitions_;
+    }
+    
+    bool has_struct_definition(const std::string &struct_name) const {
+        return struct_definitions_.find(struct_name) != struct_definitions_.end();
+    }
+    
+    const StructDefinition *get_struct_definition(const std::string &struct_name) const {
+        auto it = struct_definitions_.find(struct_name);
+        return (it != struct_definitions_.end()) ? &it->second : nullptr;
+    }
+
+    // typedef定義へのアクセス（sizeof演算子などから使用）
+    const std::map<std::string, std::string> &get_typedef_map() const {
+        return typedef_map;
+    }
+    
+    std::string resolve_typedef(const std::string &type_name) const {
+        auto it = typedef_map.find(type_name);
+        return (it != typedef_map.end()) ? it->second : type_name;
+    }
+
     // N次元配列アクセス用のヘルパー関数
     std::string extract_array_name(const ASTNode *node);
     std::vector<int64_t> extract_array_indices(const ASTNode *node);
@@ -1020,4 +1044,9 @@ class Interpreter : public EvaluatorInterface {
     // self処理用ヘルパー関数 (InterfaceOperationsへ委譲)
     std::string get_self_receiver_path();
     void sync_self_to_receiver(const std::string &receiver_path);
+
+    // v0.11.0 Phase 1a: メモリ管理演算子
+    int64_t evaluate_new_expression(const ASTNode *node);
+    int64_t evaluate_delete_expression(const ASTNode *node);
+    int64_t evaluate_sizeof_expression(const ASTNode *node);
 };

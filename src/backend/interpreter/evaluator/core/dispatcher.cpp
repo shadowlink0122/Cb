@@ -261,6 +261,16 @@ int64_t ExpressionDispatcher::dispatch_expression(const ASTNode *node) {
         return value;
     }
 
+    // v0.11.0 Phase 1a: メモリ管理演算子
+    case ASTNodeType::AST_NEW_EXPR:
+        return interpreter_.evaluate_new_expression(node);
+
+    case ASTNodeType::AST_DELETE_EXPR:
+        return interpreter_.evaluate_delete_expression(node);
+
+    case ASTNodeType::AST_SIZEOF_EXPR:
+        return interpreter_.evaluate_sizeof_expression(node);
+
     // v0.10.0: 無名変数（Discard Variable）
     case ASTNodeType::AST_DISCARD_VARIABLE:
         throw std::runtime_error("Cannot reference discard variable '_'");
