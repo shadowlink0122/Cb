@@ -1,0 +1,18 @@
+// invalid_pointer_arithmetic.cb
+// 無効なポインタ演算のテスト（エラーが期待される）
+
+int main() {
+    println("=== Invalid Pointer Arithmetic Test ===");
+    
+    int* ptr = new int;
+    println("Allocated int* at {hex(ptr)}");
+    
+    // ポインタに直接値を代入（無効な操作）
+    ptr = 0x12345678;  // 任意のアドレス
+    
+    // 無効なポインタのdelete（エラーが期待される）
+    delete ptr;
+    println("Deleted invalid pointer (ERROR: should not reach here)");
+    
+    return 0;
+}

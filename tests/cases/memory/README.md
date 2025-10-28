@@ -52,16 +52,17 @@
 - 複数の同時割り当て・解放
 - ネストされた構造体配列
 
-### test_memory_errors.cb
-エラーケースとベストプラクティス
-- nullポインタの削除（安全）
-- ゼロサイズ配列の割り当て
-- 適切なメモリ管理パターン
-- 大量割り当て・解放テスト
-- 異なる型の混合割り当て
-- 二重削除の警告（ドキュメント目的）
-- ダングリングポインタの警告（ドキュメント目的）
-- メモリリークの例（ドキュメント目的）
+### errors/ ディレクトリ
+エラーケースの個別テスト（詳細はerrors/README.md参照）
+- **double_delete.cb**: 二重削除エラー（abortが期待される）
+- **use_after_delete.cb**: delete後の使用エラー（abortが期待される）
+- **delete_uninitialized.cb**: 未初期化ポインタの削除（abortが期待される）
+- **memory_leak_detection.cb**: メモリリーク検出（正常終了、リーク有り）
+- **dangling_pointer_return.cb**: ダングリングポインタ返却（エラーが期待される）
+- **invalid_pointer_arithmetic.cb**: 無効なポインタ演算（abortが期待される）
+
+⚠️ **注意**: エラーテストは意図的にクラッシュを引き起こすため、
+integration testからは除外され、手動でのみ実行されます。
 
 ## 型サイズ定義
 
@@ -80,11 +81,20 @@ Cb言語の型サイズ:
 ## 実行方法
 
 ```bash
-# 個別テスト実行
+# 個別テスト実行（正常系）
 ./main tests/cases/memory/test_new_delete_sizeof.cb
 ./main tests/cases/memory/test_sizeof_advanced.cb
+./main tests/cases/memory/test_memory_edge_cases.cb
 
-# Integration test実行
+# エラーケーステスト（個別実行、クラッシュが期待される）
+./main tests/cases/memory/errors/double_delete.cb          # Expected: abort
+./main tests/cases/memory/errors/use_after_delete.cb        # Expected: abort
+./main tests/cases/memory/errors/delete_uninitialized.cb    # Expected: abort
+./main tests/cases/memory/errors/memory_leak_detection.cb   # Expected: success (with leak)
+./main tests/cases/memory/errors/dangling_pointer_return.cb # Expected: error
+./main tests/cases/memory/errors/invalid_pointer_arithmetic.cb # Expected: abort
+
+# Integration test実行（エラーケースは除外）
 make integration-test
 
 # 全テスト実行

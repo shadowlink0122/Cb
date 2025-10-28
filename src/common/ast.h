@@ -731,7 +731,7 @@ enum class ASTNodeType {
     AST_CAST_EXPR,  // 型キャスト (type)expr
     AST_ASSIGN,
     AST_ARRAY_ASSIGN, // 配列代入 (arr1 = arr2)
-    
+
     // メモリ管理
     AST_NEW_EXPR,    // new演算子 (new T または new T[size])
     AST_DELETE_EXPR, // delete演算子 (delete ptr または delete[] ptr)
@@ -1045,15 +1045,15 @@ struct ASTNode {
 
     // メモリ管理関連（v0.11.0 Phase 1a新機能）
     // new/delete演算子用
-    std::string new_type_name;              // new T の型名
-    TypeInfo new_type_info = TYPE_UNKNOWN;  // new T の型情報
+    std::string new_type_name;               // new T の型名
+    TypeInfo new_type_info = TYPE_UNKNOWN;   // new T の型情報
     std::unique_ptr<ASTNode> new_array_size; // new T[size] のサイズ式
-    bool is_array_new = false;              // new T[size] かどうか
-    std::unique_ptr<ASTNode> delete_expr;   // delete する式
+    bool is_array_new = false;               // new T[size] かどうか
+    std::unique_ptr<ASTNode> delete_expr;    // delete する式
     // sizeof演算子用
-    std::string sizeof_type_name;           // sizeof(T) の型名
+    std::string sizeof_type_name;             // sizeof(T) の型名
     TypeInfo sizeof_type_info = TYPE_UNKNOWN; // sizeof(T) の型情報
-    std::unique_ptr<ASTNode> sizeof_expr;   // sizeof(expr) の式
+    std::unique_ptr<ASTNode> sizeof_expr;     // sizeof(expr) の式
 
     // コンストラクタ - 全フィールドの明示的初期化
     ASTNode(ASTNodeType type)

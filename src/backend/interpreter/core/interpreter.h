@@ -972,15 +972,18 @@ class Interpreter : public EvaluatorInterface {
     void sync_struct_definitions_from_parser(RecursiveParser *parser);
 
     // struct定義へのアクセス（sizeof演算子などから使用）
-    const std::map<std::string, StructDefinition> &get_struct_definitions() const {
+    const std::map<std::string, StructDefinition> &
+    get_struct_definitions() const {
         return struct_definitions_;
     }
-    
+
     bool has_struct_definition(const std::string &struct_name) const {
-        return struct_definitions_.find(struct_name) != struct_definitions_.end();
+        return struct_definitions_.find(struct_name) !=
+               struct_definitions_.end();
     }
-    
-    const StructDefinition *get_struct_definition(const std::string &struct_name) const {
+
+    const StructDefinition *
+    get_struct_definition(const std::string &struct_name) const {
         auto it = struct_definitions_.find(struct_name);
         return (it != struct_definitions_.end()) ? &it->second : nullptr;
     }
@@ -989,7 +992,7 @@ class Interpreter : public EvaluatorInterface {
     const std::map<std::string, std::string> &get_typedef_map() const {
         return typedef_map;
     }
-    
+
     std::string resolve_typedef(const std::string &type_name) const {
         auto it = typedef_map.find(type_name);
         return (it != typedef_map.end()) ? it->second : type_name;

@@ -8,24 +8,25 @@
 #include <unordered_map>
 
 // 型名からサイズを取得するヘルパー関数（再帰対応）
-static size_t get_type_size(const std::string &type_name, const Interpreter *interpreter) {
+static size_t get_type_size(const std::string &type_name,
+                            const Interpreter *interpreter) {
     // プリミティブ型のサイズマップ
     // Cb型定義: tiny=8bit, short=16bit, int=32bit, long=64bit
     static const std::unordered_map<std::string, size_t> type_sizes = {
-        {"int", 4},              // 32bit
-        {"long", 8},             // 64bit
-        {"short", 2},            // 16bit
-        {"tiny", 1},             // 8bit
-        {"char", 1},             // 8bit
-        {"bool", 1},             // 8bit
-        {"float", 4},            // 32bit
-        {"double", 8},           // 64bit
-        {"void*", sizeof(void *)},        // ポインタサイズ（64bit環境で8）
-        {"string", sizeof(void *)},       // 文字列はポインタとして扱う
-        {"unsigned int", 4},     // 32bit
-        {"unsigned long", 8},    // 64bit
-        {"unsigned short", 2},   // 16bit
-        {"unsigned tiny", 1},    // 8bit
+        {"int", 4},                // 32bit
+        {"long", 8},               // 64bit
+        {"short", 2},              // 16bit
+        {"tiny", 1},               // 8bit
+        {"char", 1},               // 8bit
+        {"bool", 1},               // 8bit
+        {"float", 4},              // 32bit
+        {"double", 8},             // 64bit
+        {"void*", sizeof(void *)}, // ポインタサイズ（64bit環境で8）
+        {"string", sizeof(void *)}, // 文字列はポインタとして扱う
+        {"unsigned int", 4},        // 32bit
+        {"unsigned long", 8},       // 64bit
+        {"unsigned short", 2},      // 16bit
+        {"unsigned tiny", 1},       // 8bit
     };
 
     // ポインタ型（*が含まれる）
@@ -52,14 +53,15 @@ static size_t get_type_size(const std::string &type_name, const Interpreter *int
     }
 
     // 構造体のサイズを計算
-    const StructDefinition *struct_def = interpreter->get_struct_definition(type_name);
+    const StructDefinition *struct_def =
+        interpreter->get_struct_definition(type_name);
     if (struct_def) {
         size_t total_size = 0;
-        
+
         // 各メンバーのサイズを合計
         for (const auto &member : struct_def->members) {
             size_t member_size = 0;
-            
+
             // メンバーの型に応じてサイズを決定
             if (member.is_pointer) {
                 // ポインタメンバー
@@ -68,54 +70,54 @@ static size_t get_type_size(const std::string &type_name, const Interpreter *int
                 // 型名を決定
                 std::string member_type_str;
                 switch (member.type) {
-                    case TYPE_INT:
-                        member_type_str = "int";
+                case TYPE_INT:
+                    member_type_str = "int";
+                    break;
+                case TYPE_LONG:
+                    member_type_str = "long";
+                    break;
+                case TYPE_SHORT:
+                    member_type_str = "short";
+                    break;
+                case TYPE_TINY:
+                    member_type_str = "tiny";
+                    break;
+                case TYPE_CHAR:
+                    member_type_str = "char";
+                    break;
+                case TYPE_BOOL:
+                    member_type_str = "bool";
+                    break;
+                case TYPE_FLOAT:
+                    member_type_str = "float";
+                    break;
+                case TYPE_DOUBLE:
+                    member_type_str = "double";
+                    break;
+                case TYPE_STRING:
+                    member_type_str = "string";
+                    break;
+                case TYPE_STRUCT:
+                    // ネストした構造体: type_aliasまたは推論
+                    if (!member.type_alias.empty()) {
+                        member_type_str = member.type_alias;
+                    } else {
+                        // フォールバック: ポインタサイズ
+                        member_size = sizeof(void *);
                         break;
-                    case TYPE_LONG:
-                        member_type_str = "long";
-                        break;
-                    case TYPE_SHORT:
-                        member_type_str = "short";
-                        break;
-                    case TYPE_TINY:
-                        member_type_str = "tiny";
-                        break;
-                    case TYPE_CHAR:
-                        member_type_str = "char";
-                        break;
-                    case TYPE_BOOL:
-                        member_type_str = "bool";
-                        break;
-                    case TYPE_FLOAT:
-                        member_type_str = "float";
-                        break;
-                    case TYPE_DOUBLE:
-                        member_type_str = "double";
-                        break;
-                    case TYPE_STRING:
-                        member_type_str = "string";
-                        break;
-                    case TYPE_STRUCT:
-                        // ネストした構造体: type_aliasまたは推論
-                        if (!member.type_alias.empty()) {
-                            member_type_str = member.type_alias;
-                        } else {
-                            // フォールバック: ポインタサイズ
-                            member_size = sizeof(void *);
-                            break;
-                        }
-                        break;
-                    default:
-                        // 不明な型はint扱い
-                        member_type_str = "int";
+                    }
+                    break;
+                default:
+                    // 不明な型はint扱い
+                    member_type_str = "int";
                 }
-                
+
                 // 再帰的にサイズを取得
                 if (!member_type_str.empty()) {
                     member_size = get_type_size(member_type_str, interpreter);
                 }
             }
-            
+
             // 配列の場合はサイズを掛ける
             if (member.array_info.is_array()) {
                 size_t array_total_size = 1;
@@ -126,10 +128,10 @@ static size_t get_type_size(const std::string &type_name, const Interpreter *int
                 }
                 member_size *= array_total_size;
             }
-            
+
             total_size += member_size;
         }
-        
+
         return total_size > 0 ? total_size : sizeof(void *);
     }
 
@@ -141,8 +143,8 @@ static size_t get_type_size(const std::string &type_name, const Interpreter *int
 int64_t Interpreter::evaluate_new_expression(const ASTNode *node) {
     if (node->is_array_new) {
         // new T[size]
-        int64_t array_size =
-            expression_evaluator_->evaluate_expression(node->new_array_size.get());
+        int64_t array_size = expression_evaluator_->evaluate_expression(
+            node->new_array_size.get());
         size_t element_size = get_type_size(node->new_type_name, this);
         size_t total_size = static_cast<size_t>(array_size) * element_size;
 
@@ -156,8 +158,9 @@ int64_t Interpreter::evaluate_new_expression(const ASTNode *node) {
 
         if (debug_mode) {
             std::cerr << "[new] Allocated array: type=" << node->new_type_name
-                      << ", size=" << array_size << ", total_bytes=" << total_size
-                      << ", ptr=" << ptr << std::endl;
+                      << ", size=" << array_size
+                      << ", total_bytes=" << total_size << ", ptr=" << ptr
+                      << std::endl;
         }
 
         return reinterpret_cast<int64_t>(ptr);
@@ -183,7 +186,8 @@ int64_t Interpreter::evaluate_new_expression(const ASTNode *node) {
 
 // delete演算子の評価 (delete[]構文は廃止、統一してdelete ptr;のみ)
 int64_t Interpreter::evaluate_delete_expression(const ASTNode *node) {
-    int64_t ptr_value = expression_evaluator_->evaluate_expression(node->delete_expr.get());
+    int64_t ptr_value =
+        expression_evaluator_->evaluate_expression(node->delete_expr.get());
     void *ptr = reinterpret_cast<void *>(ptr_value);
 
     if (ptr == nullptr) {
@@ -218,7 +222,8 @@ int64_t Interpreter::evaluate_sizeof_expression(const ASTNode *node) {
         result_size = sizeof(int64_t);
 
         if (debug_mode) {
-            std::cerr << "[sizeof] Expression, size=" << result_size << std::endl;
+            std::cerr << "[sizeof] Expression, size=" << result_size
+                      << std::endl;
         }
     }
 
