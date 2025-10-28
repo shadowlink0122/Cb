@@ -962,6 +962,54 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
             return dest_value;
         }
 
+        // array_get_int(ptr, index) - 配列要素を取得
+        if (node->name == "array_get_int" && !is_method_call) {
+            if (node->arguments.size() != 2) {
+                throw std::runtime_error("array_get_int() requires 2 arguments: array_get_int(ptr, index)");
+            }
+
+            int64_t ptr_value = interpreter_.eval_expression(node->arguments[0].get());
+            int64_t index = interpreter_.eval_expression(node->arguments[1].get());
+
+            if (ptr_value == 0) {
+                std::cerr << "[array_get_int] Error: null pointer" << std::endl;
+                return 0;
+            }
+
+            if (index < 0) {
+                std::cerr << "[array_get_int] Error: negative index " << index << std::endl;
+                return 0;
+            }
+
+            int* arr = reinterpret_cast<int*>(ptr_value);
+            return static_cast<int64_t>(arr[index]);
+        }
+
+        // array_set_int(ptr, index, value) - 配列要素を設定
+        if (node->name == "array_set_int" && !is_method_call) {
+            if (node->arguments.size() != 3) {
+                throw std::runtime_error("array_set_int() requires 3 arguments: array_set_int(ptr, index, value)");
+            }
+
+            int64_t ptr_value = interpreter_.eval_expression(node->arguments[0].get());
+            int64_t index = interpreter_.eval_expression(node->arguments[1].get());
+            int64_t value = interpreter_.eval_expression(node->arguments[2].get());
+
+            if (ptr_value == 0) {
+                std::cerr << "[array_set_int] Error: null pointer" << std::endl;
+                return 0;
+            }
+
+            if (index < 0) {
+                std::cerr << "[array_set_int] Error: negative index " << index << std::endl;
+                return 0;
+            }
+
+            int* arr = reinterpret_cast<int*>(ptr_value);
+            arr[index] = static_cast<int>(value);
+            return 0;
+        }
+
         if (is_method_call) {
             std::string debug_type_name;
             if (is_method_call) {

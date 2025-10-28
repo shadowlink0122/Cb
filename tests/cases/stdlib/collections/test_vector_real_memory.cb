@@ -1,0 +1,114 @@
+// test_vector_real_memory.cb
+// Vector実メモリ実装のテスト
+
+import "stdlib/collections/vector.cb";
+
+void test_vector_push_pop() {
+    println("=== Test Vector push/pop with real memory ===\n");
+    
+    Vector<int, SystemAllocator> vec;
+    vec.init(5);
+    vec.info();
+    
+    println("\n--- Pushing values ---");
+    vec.push(10);
+    vec.push(20);
+    vec.push(30);
+    vec.info();
+    
+    println("\n--- Popping values ---");
+    int v1 = vec.pop();
+    println("Popped: {v1}");
+    int v2 = vec.pop();
+    println("Popped: {v2}");
+    vec.info();
+    
+    println("\n--- Pushing more ---");
+    vec.push(40);
+    vec.push(50);
+    vec.push(60);
+    vec.info();
+    
+    println("\nTest complete\n");
+}
+
+void test_vector_auto_resize() {
+    println("=== Test Vector auto-resize ===\n");
+    
+    Vector<int, SystemAllocator> vec;
+    vec.init(3);  // 小さい容量から開始
+    vec.info();
+    
+    println("\n--- Pushing beyond capacity ---");
+    vec.push(1);
+    vec.push(2);
+    vec.push(3);
+    println("Capacity reached, next push will trigger resize:");
+    vec.push(4);  // これでリサイズが発生
+    vec.info();
+    
+    println("\n--- Continue pushing ---");
+    vec.push(5);
+    vec.push(6);
+    vec.push(7);  // 再度リサイズ
+    vec.info();
+    
+    println("\n--- Pop all values ---");
+    int count = vec.get_length();
+    println("Length: {count}");
+    
+    int i = 0;
+    while (i < count) {
+        int val = vec.pop();
+        println("Popped: {val}");
+        i = i + 1;
+    }
+    
+    vec.info();
+    println("\nTest complete\n");
+}
+
+void test_vector_values_preserved() {
+    println("=== Test Vector values are preserved ===\n");
+    
+    Vector<int, SystemAllocator> vec;
+    vec.init(2);
+    
+    println("--- Push initial values ---");
+    vec.push(100);
+    vec.push(200);
+    vec.info();
+    
+    println("\n--- Trigger resize ---");
+    vec.push(300);  // リサイズ発生
+    vec.info();
+    
+    println("\n--- Verify all values preserved ---");
+    int v3 = vec.pop();
+    int v2 = vec.pop();
+    int v1 = vec.pop();
+    
+    println("Values (reverse order): {v3}, {v2}, {v1}");
+    
+    if (v1 == 100 && v2 == 200 && v3 == 300) {
+        println("✅ PASS: All values correctly preserved after resize!");
+    } else {
+        println("❌ FAIL: Values not preserved");
+    }
+    
+    println("\nTest complete\n");
+}
+
+void main() {
+    println("╔════════════════════════════════════════════════════════════╗");
+    println("║        Vector Real Memory Implementation Tests            ║");
+    println("╚════════════════════════════════════════════════════════════╝\n");
+    
+    test_vector_push_pop();
+    test_vector_auto_resize();
+    test_vector_values_preserved();
+    
+    println("╔════════════════════════════════════════════════════════════╗");
+    println("║            All tests completed successfully!              ║");
+    println("╚════════════════════════════════════════════════════════════╝");
+}

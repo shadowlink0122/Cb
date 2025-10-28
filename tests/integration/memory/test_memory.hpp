@@ -117,7 +117,76 @@ inline void test_integration_memory() {
         }, execution_time_edge);
     integration_test_passed_with_time("memory edge cases", "test_memory_edge_cases.cb", execution_time_edge);
     
-    // Test 4: エラーケース（個別テスト）
+    // Test 4: memcpy基本機能
+    double execution_time_memcpy_verify;
+    run_cb_test_with_output_and_time("../../tests/cases/memory/test_memcpy_verify.cb", 
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "test_memcpy_verify.cb should execute successfully");
+            
+            INTEGRATION_ASSERT_CONTAINS(output, "Before: src=(100, 200), dest=(0, 0)", 
+                "Should show initial values");
+            INTEGRATION_ASSERT_CONTAINS(output, "After: src=(100, 200), dest=(100, 200)", 
+                "Should show copied values");
+            INTEGRATION_ASSERT_CONTAINS(output, "✅ PASS: memcpy works correctly", 
+                "Should confirm memcpy success");
+        }, execution_time_memcpy_verify);
+    integration_test_passed_with_time("memcpy verification", "test_memcpy_verify.cb", execution_time_memcpy_verify);
+    
+    // Test 5: memcpy基本テスト
+    double execution_time_memcpy_basic;
+    run_cb_test_with_output_and_time("../../tests/cases/memory/test_memcpy_basic.cb", 
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "test_memcpy_basic.cb should execute successfully");
+            
+            // Test 1: 基本的なコピー
+            INTEGRATION_ASSERT_CONTAINS(output, "Test 1: Basic struct copy - PASSED", 
+                "Basic struct copy should pass");
+            INTEGRATION_ASSERT_CONTAINS(output, "Source: x=100, y=200", 
+                "Source values should be correct");
+            INTEGRATION_ASSERT_CONTAINS(output, "Dest:   x=100, y=200", 
+                "Dest values should be copied correctly");
+            
+            // Test 2: データ独立性
+            INTEGRATION_ASSERT_CONTAINS(output, "Test 2: Data independence - PASSED", 
+                "Data independence test should pass");
+            INTEGRATION_ASSERT_CONTAINS(output, "Source: x=999, y=888", 
+                "Modified source values");
+            INTEGRATION_ASSERT_CONTAINS(output, "Dest:   x=10, y=20", 
+                "Dest should remain unchanged");
+            
+            // Test 3: 複数のコピー
+            INTEGRATION_ASSERT_CONTAINS(output, "Test 3: Multiple struct copies - PASSED", 
+                "Multiple copies should pass");
+            INTEGRATION_ASSERT_CONTAINS(output, "Dest1: (1, 2)", "First copy should work");
+            INTEGRATION_ASSERT_CONTAINS(output, "Dest2: (3, 4)", "Second copy should work");
+            INTEGRATION_ASSERT_CONTAINS(output, "Dest3: (5, 6)", "Third copy should work");
+            
+            // Test 4: サイズ0
+            INTEGRATION_ASSERT_CONTAINS(output, "Test 4: Zero-size copy - PASSED", 
+                "Zero-size copy should pass");
+            
+            // 完了メッセージ
+            INTEGRATION_ASSERT_CONTAINS(output, "All memcpy tests passed!", 
+                "All tests should complete successfully");
+        }, execution_time_memcpy_basic);
+    integration_test_passed_with_time("memcpy basic operations", "test_memcpy_basic.cb", execution_time_memcpy_basic);
+    
+    // Test 6: 配列アクセス関数
+    double execution_time_array_access;
+    run_cb_test_with_output_and_time("../../tests/cases/memory/test_array_access.cb", 
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "test_array_access.cb should execute successfully");
+            
+            INTEGRATION_ASSERT_CONTAINS(output, "Test 1: Basic array access - PASSED", 
+                "Basic array access should work");
+            INTEGRATION_ASSERT_CONTAINS(output, "Test 2: Multiple elements - PASSED", 
+                "Multiple element access should work");
+            INTEGRATION_ASSERT_CONTAINS(output, "All array access tests passed!", 
+                "All array access tests should complete");
+        }, execution_time_array_access);
+    integration_test_passed_with_time("array access functions", "test_array_access.cb", execution_time_array_access);
+    
+    // Test 7: エラーケース（個別テスト）
     // Note: これらのテストは意図的にエラーを引き起こすため、
     // 通常のintegration testからは除外し、別途手動テストを行う
     std::cout << "[integration-test] Error case tests (manual validation):" << std::endl;

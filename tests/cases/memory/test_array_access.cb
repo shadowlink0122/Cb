@@ -1,0 +1,72 @@
+// test_array_access.cb
+// 配列アクセス組み込み関数のテスト
+
+int main() {
+    println("╔════════════════════════════════════╗");
+    println("║  Array Access Function Tests      ║");
+    println("╚════════════════════════════════════╝");
+    println("");
+    
+    // Test 1: 基本的な配列アクセス
+    println("=== Test 1: Basic array access ===");
+    int* arr = new int[5];
+    
+    // 書き込み
+    array_set_int(arr, 0, 10);
+    array_set_int(arr, 1, 20);
+    array_set_int(arr, 2, 30);
+    
+    // 読み取り
+    int val0 = array_get_int(arr, 0);
+    int val1 = array_get_int(arr, 1);
+    int val2 = array_get_int(arr, 2);
+    
+    assert(val0 == 10);
+    assert(val1 == 20);
+    assert(val2 == 30);
+    
+    println("arr[0] = {val0}");
+    println("arr[1] = {val1}");
+    println("arr[2] = {val2}");
+    println("✅ Test 1: Basic array access - PASSED");
+    println("");
+    
+    delete arr;
+    
+    // Test 2: 複数要素の読み書き
+    println("=== Test 2: Multiple elements ===");
+    int* arr2 = new int[10];
+    
+    // 0-9を書き込む
+    array_set_int(arr2, 0, 0);
+    array_set_int(arr2, 1, 1);
+    array_set_int(arr2, 2, 2);
+    array_set_int(arr2, 3, 3);
+    array_set_int(arr2, 4, 4);
+    array_set_int(arr2, 5, 5);
+    array_set_int(arr2, 6, 6);
+    array_set_int(arr2, 7, 7);
+    array_set_int(arr2, 8, 8);
+    array_set_int(arr2, 9, 9);
+    
+    // 検証
+    int sum = 0;
+    for (int i = 0; i < 10; i = i + 1) {
+        int value = array_get_int(arr2, i);
+        sum = sum + value;
+    }
+    
+    assert(sum == 45);
+    println("Sum of elements [0..9]: {sum}");
+    println("✅ Test 2: Multiple elements - PASSED");
+    println("");
+    
+    delete arr2;
+    
+    // 完了メッセージ
+    println("╔════════════════════════════════════╗");
+    println("║  All array access tests passed!   ║");
+    println("╚════════════════════════════════════╝");
+    
+    return 0;
+}

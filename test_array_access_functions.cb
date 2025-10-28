@@ -1,0 +1,43 @@
+// test_array_access_functions.cb
+// array_get_int/array_set_int builtin関数のテスト
+
+int main() {
+    println("=== Testing array access functions ===");
+    
+    int* arr = new int[5];
+    println("Allocated int[5] at {hex(arr)}");
+    
+    // 値を設定
+    println("\nSetting values...");
+    array_set_int(arr, 0, 10);
+    array_set_int(arr, 1, 20);
+    array_set_int(arr, 2, 30);
+    array_set_int(arr, 3, 40);
+    array_set_int(arr, 4, 50);
+    println("Values set");
+    
+    // 値を取得
+    println("\nGetting values...");
+    int v0 = array_get_int(arr, 0);
+    int v1 = array_get_int(arr, 1);
+    int v2 = array_get_int(arr, 2);
+    int v3 = array_get_int(arr, 3);
+    int v4 = array_get_int(arr, 4);
+    
+    println("arr[0] = {v0}");
+    println("arr[1] = {v1}");
+    println("arr[2] = {v2}");
+    println("arr[3] = {v3}");
+    println("arr[4] = {v4}");
+    
+    // 検証
+    if (v0 == 10 && v1 == 20 && v2 == 30 && v3 == 40 && v4 == 50) {
+        println("\n✅ PASS: All values correct!");
+    } else {
+        println("\n❌ FAIL: Values incorrect");
+    }
+    
+    delete arr;
+    println("\nTest complete");
+    return 0;
+}

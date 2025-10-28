@@ -24,6 +24,16 @@
    - typedef型: `sizeof(Integer)`
    - ジェネリクス構造体: `sizeof(Box<int>)`
 
+4. **memcpy組み込み関数**
+   - メモリブロックのコピー: `memcpy(dest, src, size)`
+   - 構造体のコピー（Variable*の深いコピー）
+   - 生ポインタのバイト列コピー
+
+5. **配列アクセス組み込み関数**
+   - 配列要素の読み取り: `array_get_int(ptr, index)`
+   - 配列要素の書き込み: `array_set_int(ptr, index, value)`
+   - newで確保したポインタへの配列アクセスをサポート
+
 ## テストファイル
 
 ### test_new_delete_sizeof.cb
@@ -51,6 +61,25 @@
 - 式に対するsizeof
 - 複数の同時割り当て・解放
 - ネストされた構造体配列
+
+### test_memcpy_verify.cb
+memcpy基本動作の検証テスト
+- 構造体の基本的なコピー
+- コピー前後の値の検証
+- メモリコピーの正確性確認
+
+### test_memcpy_basic.cb
+memcpy機能の包括的テスト
+- 単純な構造体のコピー
+- 配列アクセス関数との組み合わせ
+- 複数の構造体のコピー
+- コピー後のデータ独立性検証
+
+### test_array_access.cb
+配列アクセス組み込み関数のテスト
+- array_get_int/array_set_intの基本動作
+- newで確保した配列への読み書き
+- 範囲内の正常なアクセス確認
 
 ### errors/ ディレクトリ
 エラーケースの個別テスト（詳細はerrors/README.md参照）

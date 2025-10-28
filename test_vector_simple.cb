@@ -1,0 +1,112 @@
+// test_vector_simple.cb
+// Vector実メモリの基本テスト
+
+export interface Allocator {
+    void* allocate(int size);
+    void deallocate(void* ptr);
+}
+
+export struct SystemAllocator {
+    int allocation_count;
+};
+
+impl Allocator for SystemAllocator {
+    void* allocate(int size) {
+        return nullptr;
+    }
+    
+    void deallocate(void* ptr) {
+    }
+}
+
+export struct Vector<T, A: Allocator> {
+    int capacity;
+    int length;
+    void* data;
+};
+
+export interface VectorOps {
+    void init(int initial_capacity);
+    void push(int value);
+    int pop();
+    void info();
+}
+
+impl VectorOps for Vector<int, SystemAllocator> {
+    void init(int initial_capacity) {
+        self.capacity = initial_capacity;
+        self.length = 0;
+        self.data = new int[initial_capacity];
+        println("[Vector] Init: capacity={initial_capacity}, data={hex(self.data)}");
+    }
+    
+    void push(int value) {
+        if (self.length >= self.capacity) {
+            println("[Vector] Error: Capacity full!");
+            return;
+        }
+        
+        array_set_int(self.data, self.length, value);
+        self.length = self.length + 1;
+        println("[Vector] Pushed value={value} at index={self.length - 1}");
+    }
+    
+    int pop() {
+        if (self.length <= 0) {
+            println("[Vector] Error: Empty!");
+            return 0;
+        }
+        
+        self.length = self.length - 1;
+        int value = array_get_int(self.data, self.length);
+        println("[Vector] Popped value={value} from index={self.length}");
+        return value;
+    }
+    
+    void info() {
+        println("[Vector] length={self.length}, capacity={self.capacity}, data={hex(self.data)}");
+    }
+}
+
+void main() {
+    println("=== Simple Vector Test ===\n");
+    
+    Vector<int, SystemAllocator> vec;
+    vec.init(5);
+    vec.info();
+    
+    println("\n--- Push values ---");
+    vec.push(10);
+    vec.push(20);
+    vec.push(30);
+    vec.info();
+    
+    println("\n--- Pop values ---");
+    int v1 = vec.pop();
+    println("Got: {v1}");
+    int v2 = vec.pop();
+    println("Got: {v2}");
+    vec.info();
+    
+    println("\n--- Push more ---");
+    vec.push(40);
+    vec.push(50);
+    vec.info();
+    
+    println("\n--- Verify values ---");
+    int v5 = vec.pop();
+    int v4 = vec.pop();
+    int v3 = vec.pop();
+    
+    println("Values (reverse): {v5}, {v4}, {v3}");
+    
+    if (v3 == 10 && v4 == 40 && v5 == 50) {
+        println("\n✅ PASS: All values correct!");
+    } else {
+        println("\n❌ FAIL: Values incorrect");
+    }
+    
+    println("\n╔═══════════════════════════════════════╗");
+    println("║   Vector basic test complete!        ║");
+    println("╚═══════════════════════════════════════╝");
+}
