@@ -1,13 +1,13 @@
 // SystemAllocator - malloc/free wrapper for Cb
 // Part of Week 2: Allocator Implementation
 
-interface Allocator {
+export interface Allocator {
     void* allocate(int size);
     void deallocate(void* ptr);
     int get_allocation_count();
 }
 
-struct SystemAllocator {
+export struct SystemAllocator {
     int allocation_count;
     int deallocation_count;
 };

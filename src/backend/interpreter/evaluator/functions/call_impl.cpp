@@ -699,8 +699,58 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
         if (it != global_scope.functions.end()) {
             func = it->second;
         } else {
+            // マングル名から元の型名への変換を試みる
+            // 例: Vector_int_SystemAllocator -> Vector<int, SystemAllocator>
+            auto unmangle_type_name =
+                [](const std::string &mangled) -> std::string {
+                // '_'を検索して型パラメータの開始位置を特定
+                size_t first_underscore = mangled.find('_');
+                if (first_underscore == std::string::npos) {
+                    return mangled; // マングルされていない
+                }
+
+                // 基本型名を取得（最初の'_'まで）
+                std::string base_name = mangled.substr(0, first_underscore);
+
+                // 残りの部分を型パラメータとして処理
+                std::string params_part = mangled.substr(first_underscore + 1);
+
+                // '_'で分割して型パラメータを抽出
+                std::vector<std::string> params;
+                size_t pos = 0;
+                while (pos < params_part.length()) {
+                    size_t next_underscore = params_part.find('_', pos);
+                    if (next_underscore == std::string::npos) {
+                        params.push_back(params_part.substr(pos));
+                        break;
+                    }
+                    params.push_back(
+                        params_part.substr(pos, next_underscore - pos));
+                    pos = next_underscore + 1;
+                }
+
+                if (params.empty()) {
+                    return mangled; // パラメータなし
+                }
+
+                // 元の形式に再構築: Base<Param1, Param2, ...>
+                std::string result = base_name + "<";
+                for (size_t i = 0; i < params.size(); ++i) {
+                    if (i > 0)
+                        result += ", ";
+                    result += params[i];
+                }
+                result += ">";
+
+                return result;
+            };
+
+            std::string unmangled_type_name = unmangle_type_name(type_name);
+
             for (const auto &impl_def : interpreter_.get_impl_definitions()) {
-                if (impl_def.struct_name == type_name) {
+                // 元の型名とマングル名の両方でチェック
+                if (impl_def.struct_name == type_name ||
+                    impl_def.struct_name == unmangled_type_name) {
                     std::string method_full_name = impl_def.interface_name +
                                                    "_" + impl_def.struct_name +
                                                    "_" + node->name;

@@ -63,24 +63,22 @@ Week 3では、非同期処理の基盤となるEvent Loopを実装します。W
    - O(n) push, O(n) pop（Phase 2でヒープ化予定）
 
 **Deliverables**:
-- ✅ `stdlib/async/task.cb` - Task構造体
-- ✅ `stdlib/async/task_queue_final.cb` - 並列配列版（Phase 0）
-- ✅ `stdlib/async/task_queue_ideal.cb` - 固定配列版（Phase 1用）
-- 📋 `stdlib/async/task_queue_vector.cb` - Vector版（Phase 2用）
+- ✅ `stdlib/async/task.cb` - Task構造体 (export追加)
+- ✅ `stdlib/async/task_queue.cb` - Task[100]配列版 (export追加、統合完了)
 - ✅ Test: `tests/cases/async/test_task_queue_comprehensive.cb`
 - ✅ Doc: `docs/features/week3_day1_taskqueue_report.md`
+- ✅ Cleanup: 実験版削除 (v2, ideal, parallel, final)
 
 **Success Criteria**:
 - ✅ タスクの追加・取得が動作
 - ✅ 優先度順のソートが正しく機能
 - ✅ 8/8テスト合格
-- ⚠️ 並列配列パターン（一時的）
+- ✅ Task[100]配列形式への統合完了
+- ✅ export宣言による標準ライブラリ化
 
 **Blockers**:
-- 🔴 **Critical**: 構造体配列への代入未実装
-  - Issue: `docs/todo/struct_array_assignment_bug.md`
-  - Impact: `Task[100]`が使えず並列配列で回避
-  - Next: インタプリタ修正 → Phase 1移行
+- ✅ **Resolved**: 構造体配列への代入が実装済み
+  - Task[100]配列形式が正常に動作
 - ✅ 優先度順にタスクが処理される
 - ✅ 空チェックが正しく動作
 

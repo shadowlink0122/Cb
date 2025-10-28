@@ -7,12 +7,12 @@
 // - No individual deallocation (free all at once)
 // - Perfect for temporary allocations
 
-interface Allocator {
+export interface Allocator {
     void* allocate(int size);
     void deallocate(void* ptr);
 }
 
-struct BumpAllocator {
+export struct BumpAllocator {
     int buffer_size;
     int current_offset;
     int allocation_count;
@@ -35,14 +35,14 @@ impl Allocator for BumpAllocator {
     }
 }
 
-void bump_allocator_init(BumpAllocator& alloc, int size) {
+export void bump_allocator_init(BumpAllocator& alloc, int size) {
     alloc.buffer_size = size;
     alloc.current_offset = 0;
     alloc.allocation_count = 0;
     println("[BumpAllocator] Initialized with %d bytes", size);
 }
 
-void bump_allocator_reset(BumpAllocator& alloc) {
+export void bump_allocator_reset(BumpAllocator& alloc) {
     alloc.current_offset = 0;
     alloc.allocation_count = 0;
     println("[BumpAllocator] Reset (all memory reclaimed)");

@@ -4,7 +4,7 @@
 // タスクは Event Loop で実行される作業の単位を表します。
 // 優先度、ID、コールバック情報を持ちます。
 
-struct Task {
+export struct Task {
     int task_id;        // タスクの一意なID
     int priority;       // 優先度（0 = 最高優先度、値が小さいほど優先）
     int callback_type;  // コールバックの種類（0=TaskA, 1=TaskB, etc.）
@@ -12,19 +12,19 @@ struct Task {
 };
 
 // タスク作成ヘルパー関数（リテラル初期化を使用）
-Task task_create(int id, int priority, int callback_type) {
+export Task task_create(int id, int priority, int callback_type) {
     Task t = {id, priority, callback_type, nullptr};
     return t;
 }
 
 // タスク情報を表示
-void task_print(Task& t) {
+export void task_print(Task& t) {
     println("[Task] id=%d, priority=%d, callback_type=%d", 
             t.task_id, t.priority, t.callback_type);
 }
 
 // タスクの優先度比較（小さい値が高優先度）
-bool task_has_higher_priority(Task& a, Task& b) {
+export bool task_has_higher_priority(Task& a, Task& b) {
     return a.priority < b.priority;
 }
 

@@ -1,51 +1,26 @@
 // TaskQueue - 優先度付きタスクキュー
 // Part of v0.11.0 Week 3 Day 1: Event Loop Implementation
 //
-// Vector<Task, A: Allocator>をベースに、優先度順にタスクを管理します。
+// Task[100]の固定長配列を使用して優先度順にタスクを管理します。
 // Push時に優先度でソートし、Pop時は先頭から取得します。
 
-// タスク定義をインポート（実際にはコピー）
-struct Task {
-    int task_id;
-    int priority;
-    int callback_type;
-    void* data;
-};
+import "task.cb";
 
-Task task_create(int id, int priority, int callback_type) {
-    Task t;
-    t.task_id = id;
-    t.priority = priority;
-    t.callback_type = callback_type;
-    t.data = nullptr;
-    return t;
-}
-
-void task_print(Task& t) {
-    println("[Task] id=%d, priority=%d, callback_type=%d", 
-            t.task_id, t.priority, t.callback_type);
-}
-
-bool task_has_higher_priority(Task a, Task b) {
-    return a.priority < b.priority;
-}
-
-// 簡易版TaskQueue（Vectorの代わりに固定長配列を使用）
-struct TaskQueue {
+export struct TaskQueue {
     Task[100] tasks;      // 最大100タスク
     int length;           // 現在のタスク数
     int next_id;          // 次のタスクID
 };
 
 // TaskQueue初期化
-void task_queue_init(TaskQueue& queue) {
+export void task_queue_init(TaskQueue& queue) {
     queue.length = 0;
     queue.next_id = 1;
     println("[TaskQueue] Initialized");
 }
 
 // タスクを優先度順に挿入
-void task_queue_push(TaskQueue& queue, Task task) {
+export void task_queue_push(TaskQueue& queue, Task task) {
     if (queue.length >= 100) {
         println("[TaskQueue] Queue full! Cannot push task %d", task.task_id);
         return;
@@ -64,7 +39,7 @@ void task_queue_push(TaskQueue& queue, Task task) {
         Task current = queue.tasks[i];
         Task previous = queue.tasks[i - 1];
         
-        if (task_has_higher_priority(current, previous)) {
+        if (current.priority < previous.priority) {
             // 交換（フィールドごとにコピー）
             int temp_id = queue.tasks[i].task_id;
             int temp_priority = queue.tasks[i].priority;
@@ -92,7 +67,7 @@ void task_queue_push(TaskQueue& queue, Task task) {
 }
 
 // 最高優先度のタスクを取得（先頭から）
-Task task_queue_pop(TaskQueue& queue) {
+export Task task_queue_pop(TaskQueue& queue) {
     if (queue.length <= 0) {
         println("[TaskQueue] Empty! Cannot pop");
         Task empty_task;
@@ -121,12 +96,12 @@ Task task_queue_pop(TaskQueue& queue) {
 }
 
 // キューが空かチェック
-bool task_queue_is_empty(TaskQueue& queue) {
+export bool task_queue_is_empty(TaskQueue& queue) {
     return queue.length <= 0;
 }
 
 // キューの情報を表示
-void task_queue_info(TaskQueue& queue) {
+export void task_queue_info(TaskQueue& queue) {
     println("[TaskQueue] length=%d, next_id=%d", queue.length, queue.next_id);
     
     if (queue.length > 0) {

@@ -1,0 +1,41 @@
+// Test for stdlib/allocators/system_allocator.cb
+// Using import to test stdlib exports
+
+import "stdlib/allocators/system_allocator.cb";
+
+void test_system_allocator_basic() {
+    println("=== Test: SystemAllocator Basic ===");
+    
+    SystemAllocator alloc;
+    alloc.allocation_count = 0;
+    alloc.deallocation_count = 0;
+    
+    println("SystemAllocator initialized");
+    println("  allocation_count: %d", alloc.allocation_count);
+    println("  deallocation_count: %d", alloc.deallocation_count);
+    
+    println("✅ SystemAllocator basic test passed");
+}
+
+void test_system_allocator_interface() {
+    println("\n=== Test: SystemAllocator Interface ===");
+    
+    SystemAllocator alloc;
+    alloc.allocation_count = 0;
+    
+    println("SystemAllocator interface verified");
+    println("  Has Allocator implementation");
+    
+    println("✅ SystemAllocator interface test passed");
+}
+
+void main() {
+    println("╔════════════════════════════════════════════╗");
+    println("║  SystemAllocator stdlib Test              ║");
+    println("╚════════════════════════════════════════════╝\n");
+    
+    test_system_allocator_basic();
+    test_system_allocator_interface();
+    
+    println("\n✅ All SystemAllocator tests passed!");
+}

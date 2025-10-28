@@ -274,10 +274,43 @@ integration-test-verbose: $(TESTS_DIR)/integration/test_main
 	@echo "Running integration tests (verbose mode)..."
 	@cd tests/integration && ./test_main
 
-test: integration-test unit-test
+# Stdlib test binary target
+$(TESTS_DIR)/stdlib/test_main: $(TESTS_DIR)/stdlib/main.cpp $(MAIN_TARGET)
+	@cd tests/stdlib && $(CC) $(CFLAGS) -I../../$(SRC_DIR) -I. -o test_main main.cpp
+
+# Stdlib tests (C++ infrastructure tests)
+stdlib-test-cpp: $(TESTS_DIR)/stdlib/test_main
+	@echo "============================================================="
+	@echo "Running Cb Standard Library Tests (C++)"
+	@echo "============================================================="
+	@cd tests/stdlib && ./test_main
+
+# Stdlib tests (Cb language tests)
+stdlib-test-cb: $(MAIN_TARGET)
+	@echo "============================================================="
+	@echo "Running Cb Standard Library Tests (Cb)"
+	@echo "============================================================="
+	@echo "\n[Allocators]"
+	@echo "[1/2] Testing SystemAllocator..."
+	@./$(MAIN_TARGET) tests/cases/stdlib/allocators/test_system_allocator.cb
+	@echo "\n[2/2] Testing BumpAllocator..."
+	@./$(MAIN_TARGET) tests/cases/stdlib/allocators/test_bump_allocator.cb
+	@echo "\n[Collections]"
+	@echo "[1/1] Testing Vector..."
+	@./$(MAIN_TARGET) tests/cases/stdlib/collections/test_vector.cb
+	@echo "\n✅ All stdlib .cb tests passed!"
+
+# Run both C++ and Cb stdlib tests
+stdlib-test: stdlib-test-cpp stdlib-test-cb
+	@echo "\n╔════════════════════════════════════════════════════════════╗"
+	@echo "║    All Standard Library Tests Completed Successfully!     ║"
+	@echo "╚════════════════════════════════════════════════════════════╝"
+
+test: integration-test unit-test stdlib-test
 	@echo "=== Test Summary ==="
 	@echo "Integration tests: completed"
 	@echo "Unit tests: completed"
+	@echo "Stdlib tests: completed"
 
 # クリーンアップ
 clean:
@@ -285,10 +318,12 @@ clean:
 	rm -f $(MAIN_TARGET) $(CGEN_TARGET)
 	rm -f tests/integration/test_main
 	rm -f tests/unit/test_main tests/unit/dummy.o
+	rm -f tests/stdlib/test_main
 	find . -name "*.o" -type f -delete
 	rm -rf **/*.dSYM *.dSYM
 	rm -rf tests/integration/*.dSYM
 	rm -rf tests/unit/*.dSYM
+	rm -rf tests/stdlib/*.dSYM
 	@echo "Clean completed."
 
 # ディープクリーン（すべての生成ファイルを削除）
@@ -325,8 +360,11 @@ help:
 	@echo "  clean-all              - Clean all subdirectories too"
 	@echo "  lint                   - Check code formatting"
 	@echo "  fmt                    - Format code"
-	@echo "  test                   - Run all tests"
+	@echo "  test                   - Run all tests (integration + unit + stdlib)"
 	@echo "  unit-test              - Run unit tests (30 tests)"
 	@echo "  integration-test       - Run integration tests (formatted output)"
 	@echo "  integration-test-verbose - Run integration tests (full output)"
+	@echo "  stdlib-test            - Run stdlib tests (C++ + Cb)"
+	@echo "  stdlib-test-cpp        - Run stdlib C++ infrastructure tests"
+	@echo "  stdlib-test-cb         - Run stdlib Cb language tests"
 	@echo "  help                   - Show this help"

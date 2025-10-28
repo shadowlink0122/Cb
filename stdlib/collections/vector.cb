@@ -7,12 +7,12 @@
 // - Bare-metal: Use BumpAllocator or custom allocators
 // - Zero-cost abstraction: Compile-time dispatch
 
-interface Allocator {
+export interface Allocator {
     void* allocate(int size);
     void deallocate(void* ptr);
 }
 
-struct SystemAllocator {
+export struct SystemAllocator {
     int allocation_count;
 };
 
@@ -27,7 +27,7 @@ impl Allocator for SystemAllocator {
     }
 }
 
-struct BumpAllocator {
+export struct BumpAllocator {
     int buffer_size;
     int current_offset;
 };
@@ -44,124 +44,140 @@ impl Allocator for BumpAllocator {
 }
 
 // Vector structure with allocator type parameter
-struct Vector<T, A: Allocator> {
+export struct Vector<T, A: Allocator> {
     int capacity;
     int length;
     void* data;        // データ領域（将来的に実際のメモリを指す）
 };
 
-// Vector operations
-// Note: Function type parameters don't support interface bounds yet
-// For now, we'll use concrete type instantiations
-
-void vector_init_int_system(Vector<int, SystemAllocator>& vec, int initial_capacity) {
-    vec.capacity = initial_capacity;
-    vec.length = 0;
-    vec.data = nullptr;  // プレースホルダー（将来的にアロケータで確保）
-    println("[Vector] Initialized with capacity=%d", initial_capacity);
+// VectorOps interface - defines operations for Vector
+export interface VectorOps {
+    void init(int initial_capacity);
+    void push(int value);
+    int pop();
+    void resize(int new_capacity);
+    void info();
+    int get_length();
+    int get_capacity();
+    bool is_empty();
 }
 
-void vector_info_int_system(Vector<int, SystemAllocator>& vec) {
-    println("[Vector] length=%d, capacity=%d", vec.length, vec.capacity);
-}
-
-void vector_push_int_system(Vector<int, SystemAllocator>& vec, int value) {
-    // 容量チェック（簡易版）
-    if (vec.length >= vec.capacity) {
-        println("[Vector] Capacity full! Need resize (current=%d)", vec.capacity);
-        // 将来的にはリサイズ処理
-        return;
+// Implementation of VectorOps for Vector<int, SystemAllocator>
+impl VectorOps for Vector<int, SystemAllocator> {
+    void init(int initial_capacity) {
+        self.capacity = initial_capacity;
+        self.length = 0;
+        self.data = nullptr;
+        println("[Vector<int, SystemAllocator>] Initialized with capacity=%d", initial_capacity);
     }
     
-    // v0.11.0 Week 2 Day 2: 型キャストを使った実データ格納
-    // void*をint*にキャストしてアクセス
-    int* data = (int*)vec.data;
-    // data[vec.length] = value;  // 将来的な配列アクセス実装後
-    println("[Vector] Push value=%d at index=%d (using cast)", value, vec.length);
-    vec.length = vec.length + 1;
-}
-
-int vector_pop_int_system(Vector<int, SystemAllocator>& vec) {
-    if (vec.length <= 0) {
-        println("[Vector] Empty! Cannot pop");
-        return 0;
+    void push(int value) {
+        if (self.length >= self.capacity) {
+            println("[Vector] Capacity full! Need resize (current=%d)", self.capacity);
+            return;
+        }
+        
+        println("[Vector] Push value=%d at index=%d", value, self.length);
+        self.length = self.length + 1;
     }
     
-    vec.length = vec.length - 1;
-    
-    // v0.11.0 Week 2 Day 2: 型キャストを使った実データ取得
-    // int* data = (int*)vec.data;
-    // return data[vec.length];  // 将来的な配列アクセス実装後
-    println("[Vector] Pop from index=%d (using cast)", vec.length);
-    return 0;  // プレースホルダー
-}
-
-void vector_resize_int_system(Vector<int, SystemAllocator>& vec, int new_capacity) {
-    if (new_capacity <= vec.capacity) {
-        println("[Vector] New capacity %d <= current %d, no resize needed", 
-                new_capacity, vec.capacity);
-        return;
+    int pop() {
+        if (self.length <= 0) {
+            println("[Vector] Empty! Cannot pop");
+            return 0;
+        }
+        
+        self.length = self.length - 1;
+        println("[Vector] Pop from index=%d", self.length);
+        return 0;  // プレースホルダー
     }
     
-    println("[Vector] Resizing from capacity=%d to %d", vec.capacity, new_capacity);
-    
-    // 将来的には:
-    // 1. 新しいメモリを確保: void* new_data = allocator.allocate(new_capacity * sizeof(T))
-    // 2. 古いデータをコピー
-    // 3. 古いメモリを解放: allocator.deallocate(vec.data)
-    // 4. ポインタを更新: vec.data = new_data
-    
-    vec.capacity = new_capacity;
-    println("[Vector] Resize complete (new capacity=%d)", new_capacity);
-}
-
-void vector_init_int_bump(Vector<int, BumpAllocator>& vec, int initial_capacity) {
-    vec.capacity = initial_capacity;
-    vec.length = 0;
-    vec.data = nullptr;
-    println("[Vector] Initialized with capacity=%d", initial_capacity);
-}
-
-void vector_info_int_bump(Vector<int, BumpAllocator>& vec) {
-    println("[Vector] length=%d, capacity=%d", vec.length, vec.capacity);
-}
-
-void vector_push_int_bump(Vector<int, BumpAllocator>& vec, int value) {
-    if (vec.length >= vec.capacity) {
-        println("[Vector] Capacity full! Need resize (current=%d)", vec.capacity);
-        return;
+    void resize(int new_capacity) {
+        if (new_capacity <= self.capacity) {
+            println("[Vector] New capacity %d <= current %d, no resize needed", 
+                    new_capacity, self.capacity);
+            return;
+        }
+        
+        println("[Vector] Resizing from capacity=%d to %d", self.capacity, new_capacity);
+        self.capacity = new_capacity;
+        println("[Vector] Resize complete (new capacity=%d)", new_capacity);
     }
     
-    // v0.11.0 Week 2 Day 2: 型キャストを使った実データ格納
-    int* data = (int*)vec.data;
-    println("[Vector] Push value=%d at index=%d (using cast)", value, vec.length);
-    vec.length = vec.length + 1;
-}
-
-int vector_pop_int_bump(Vector<int, BumpAllocator>& vec) {
-    if (vec.length <= 0) {
-        println("[Vector] Empty! Cannot pop");
-        return 0;
+    void info() {
+        println("[Vector] length=%d, capacity=%d", self.length, self.capacity);
     }
     
-    vec.length = vec.length - 1;
-    
-    // v0.11.0 Week 2 Day 2: 型キャストを使った実データ取得
-    int* data = (int*)vec.data;
-    println("[Vector] Pop from index=%d (using cast)", vec.length);
-    return 0;
-}
-
-void vector_resize_int_bump(Vector<int, BumpAllocator>& vec, int new_capacity) {
-    if (new_capacity <= vec.capacity) {
-        println("[Vector] New capacity %d <= current %d, no resize needed", 
-                new_capacity, vec.capacity);
-        return;
+    int get_length() {
+        return self.length;
     }
     
-    println("[Vector] Resizing from capacity=%d to %d", vec.capacity, new_capacity);
-    vec.capacity = new_capacity;
-    println("[Vector] Resize complete (new capacity=%d)", new_capacity);
+    int get_capacity() {
+        return self.capacity;
+    }
+    
+    bool is_empty() {
+        return self.length == 0;
+    }
+}
+
+// Implementation of VectorOps for Vector<int, BumpAllocator>
+impl VectorOps for Vector<int, BumpAllocator> {
+    void init(int initial_capacity) {
+        self.capacity = initial_capacity;
+        self.length = 0;
+        self.data = nullptr;
+        println("[Vector<int, BumpAllocator>] Initialized with capacity=%d", initial_capacity);
+    }
+    
+    void push(int value) {
+        if (self.length >= self.capacity) {
+            println("[Vector] Capacity full! Need resize (current=%d)", self.capacity);
+            return;
+        }
+        
+        println("[Vector] Push value=%d at index=%d", value, self.length);
+        self.length = self.length + 1;
+    }
+    
+    int pop() {
+        if (self.length <= 0) {
+            println("[Vector] Empty! Cannot pop");
+            return 0;
+        }
+        
+        self.length = self.length - 1;
+        println("[Vector] Pop from index=%d", self.length);
+        return 0;  // プレースホルダー
+    }
+    
+    void resize(int new_capacity) {
+        if (new_capacity <= self.capacity) {
+            println("[Vector] New capacity %d <= current %d, no resize needed", 
+                    new_capacity, self.capacity);
+            return;
+        }
+        
+        println("[Vector] Resizing from capacity=%d to %d", self.capacity, new_capacity);
+        self.capacity = new_capacity;
+        println("[Vector] Resize complete (new capacity=%d", new_capacity);
+    }
+    
+    void info() {
+        println("[Vector] length=%d, capacity=%d", self.length, self.capacity);
+    }
+    
+    int get_length() {
+        return self.length;
+    }
+    
+    int get_capacity() {
+        return self.capacity;
+    }
+    
+    bool is_empty() {
+        return self.length == 0;
+    }
 }
 
 void test_vector_basic() {
@@ -170,35 +186,35 @@ void test_vector_basic() {
     // Test 1: Vector with SystemAllocator
     println("\n--- Test 1: Vector with SystemAllocator ---");
     Vector<int, SystemAllocator> vec1;
-    vector_init_int_system(vec1, 10);
-    vector_info_int_system(vec1);
+    vec1.init(10);
+    vec1.info();
     
     vec1.length = 5;
     vec1.capacity = 10;
-    vector_info_int_system(vec1);
+    vec1.info();
     
     // Test 2: Vector with BumpAllocator
     println("\n--- Test 2: Vector with BumpAllocator ---");
     Vector<int, BumpAllocator> vec2;
-    vector_init_int_bump(vec2, 20);
-    vector_info_int_bump(vec2);
+    vec2.init(20);
+    vec2.info();
     
     vec2.length = 8;
     vec2.capacity = 20;
-    vector_info_int_bump(vec2);
+    vec2.info();
     
     // Test 3: Multiple vectors with different allocators
     println("\n--- Test 3: Multiple vectors coexisting ---");
     Vector<int, SystemAllocator> sys_vec;
     Vector<int, BumpAllocator> bump_vec;
     
-    vector_init_int_system(sys_vec, 5);
-    vector_init_int_bump(bump_vec, 15);
+    sys_vec.init(5);
+    bump_vec.init(15);
     
     println("SystemAllocator vector:");
-    vector_info_int_system(sys_vec);
+    sys_vec.info();
     println("BumpAllocator vector:");
-    vector_info_int_bump(bump_vec);
+    bump_vec.info();
     
     println("\nVector basic test complete");
 }
@@ -209,54 +225,54 @@ void test_vector_operations() {
     // Test 1: Push operations
     println("\n--- Test 1: Push operations ---");
     Vector<int, SystemAllocator> vec;
-    vector_init_int_system(vec, 5);
+    vec.init(5);
     
-    vector_push_int_system(vec, 10);
-    vector_push_int_system(vec, 20);
-    vector_push_int_system(vec, 30);
-    vector_info_int_system(vec);
+    vec.push(10);
+    vec.push(20);
+    vec.push(30);
+    vec.info();
     
     // Test 2: Pop operations
     println("\n--- Test 2: Pop operations ---");
-    int val1 = vector_pop_int_system(vec);
-    int val2 = vector_pop_int_system(vec);
-    vector_info_int_system(vec);
+    int val1 = vec.pop();
+    int val2 = vec.pop();
+    vec.info();
     
     // Test 3: Capacity full scenario
     println("\n--- Test 3: Capacity full ---");
     Vector<int, SystemAllocator> small_vec;
-    vector_init_int_system(small_vec, 3);
+    small_vec.init(3);
     
-    vector_push_int_system(small_vec, 1);
-    vector_push_int_system(small_vec, 2);
-    vector_push_int_system(small_vec, 3);
-    vector_info_int_system(small_vec);
+    small_vec.push(1);
+    small_vec.push(2);
+    small_vec.push(3);
+    small_vec.info();
     
     println("Trying to push when full:");
-    vector_push_int_system(small_vec, 4);  // Should fail
+    small_vec.push(4);  // Should fail
     
     // Test 4: Resize operation
     println("\n--- Test 4: Resize operation ---");
     println("Before resize:");
-    vector_info_int_system(small_vec);
+    small_vec.info();
     
-    vector_resize_int_system(small_vec, 10);
+    small_vec.resize(10);
     
     println("After resize:");
-    vector_info_int_system(small_vec);
+    small_vec.info();
     
     println("Now we can push:");
-    vector_push_int_system(small_vec, 4);
-    vector_push_int_system(small_vec, 5);
-    vector_info_int_system(small_vec);
+    small_vec.push(4);
+    small_vec.push(5);
+    small_vec.info();
     
     // Test 5: Pop from empty
     println("\n--- Test 5: Pop from empty ---");
     Vector<int, BumpAllocator> empty_vec;
-    vector_init_int_bump(empty_vec, 5);
+    empty_vec.init(5);
     
     println("Trying to pop from empty vector:");
-    int val = vector_pop_int_bump(empty_vec);
+    int val = empty_vec.pop();
     
     println("\nVector operations test complete");
 }
@@ -266,19 +282,19 @@ void test_vector_with_allocators() {
     
     println("\n--- SystemAllocator Vector ---");
     Vector<int, SystemAllocator> sys_vec;
-    vector_init_int_system(sys_vec, 3);
+    sys_vec.init(3);
     
-    vector_push_int_system(sys_vec, 100);
-    vector_push_int_system(sys_vec, 200);
-    vector_info_int_system(sys_vec);
+    sys_vec.push(100);
+    sys_vec.push(200);
+    sys_vec.info();
     
     println("\n--- BumpAllocator Vector ---");
     Vector<int, BumpAllocator> bump_vec;
-    vector_init_int_bump(bump_vec, 3);
+    bump_vec.init(3);
     
-    vector_push_int_bump(bump_vec, 100);
-    vector_push_int_bump(bump_vec, 200);
-    vector_info_int_bump(bump_vec);
+    bump_vec.push(100);
+    bump_vec.push(200);
+    bump_vec.info();
     
     println("\nBoth allocators work with same operations!");
     println("Allocator test complete");

@@ -232,6 +232,54 @@ ASTNode *InterfaceParser::parseImplDeclaration() {
         }
         parser_->advance();
 
+        // 型パラメータのチェック: Vector<int, SystemAllocator> のような場合
+        if (parser_->check(TokenType::TOK_LT)) {
+            struct_name += "<";
+            parser_->advance(); // consume '<'
+
+            // 型パラメータを解析
+            int depth = 1; // ネストレベルを追跡
+            while (depth > 0 && !parser_->isAtEnd()) {
+                if (parser_->check(TokenType::TOK_LT)) {
+                    depth++;
+                    struct_name += "<";
+                } else if (parser_->check(TokenType::TOK_GT)) {
+                    depth--;
+                    struct_name += ">";
+                } else if (parser_->check(TokenType::TOK_IDENTIFIER)) {
+                    struct_name += parser_->current_token_.value;
+                } else if (parser_->check(TokenType::TOK_INT)) {
+                    struct_name += "int";
+                } else if (parser_->check(TokenType::TOK_LONG)) {
+                    struct_name += "long";
+                } else if (parser_->check(TokenType::TOK_SHORT)) {
+                    struct_name += "short";
+                } else if (parser_->check(TokenType::TOK_TINY)) {
+                    struct_name += "tiny";
+                } else if (parser_->check(TokenType::TOK_BOOL)) {
+                    struct_name += "bool";
+                } else if (parser_->check(TokenType::TOK_CHAR_TYPE)) {
+                    struct_name += "char";
+                } else if (parser_->check(TokenType::TOK_STRING_TYPE)) {
+                    struct_name += "string";
+                } else if (parser_->check(TokenType::TOK_COMMA)) {
+                    struct_name += ", ";
+                } else if (parser_->check(TokenType::TOK_COLON)) {
+                    struct_name += ": ";
+                } else {
+                    // その他のトークン（数値リテラルなど）
+                    struct_name += parser_->current_token_.value;
+                }
+                parser_->advance();
+            }
+
+            if (depth != 0) {
+                parser_->error(
+                    "Unmatched '<' in type parameters for impl declaration");
+                return nullptr;
+            }
+        }
+
         // 生の配列型チェック - 配列記法が続く場合はエラー
         if (parser_->check(TokenType::TOK_LBRACKET)) {
             parser_->error("Cannot implement interface for raw array type '" +
