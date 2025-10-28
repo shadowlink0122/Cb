@@ -1,0 +1,264 @@
+// test_memcpy.cb
+// memcpy関数のテスト
+
+import "stdlib/std/memory.cb";
+
+struct Point {
+    int x;
+    int y;
+};
+
+struct Rectangle {
+    Point p1;
+    Point p2;
+    int area;
+};
+
+// プリミティブ型の配列コピー
+void test_memcpy_int_array() {
+    println("=== Test memcpy (int array) ===");
+    
+    int* src = new int[5];
+    src[0] = 10;
+    src[1] = 20;
+    src[2] = 30;
+    src[3] = 40;
+    src[4] = 50;
+    
+    int* dest = new int[5];
+    
+    // memcpyでコピー
+    void* result = memcpy(dest, src, 5 * sizeof(int));
+    println("memcpy returned: {hex(result)}");
+    
+    // コピーされたことを確認
+    println("src[0] = {src[0]}, dest[0] = {dest[0]}");
+    println("src[1] = {src[1]}, dest[1] = {dest[1]}");
+    println("src[2] = {src[2]}, dest[2] = {dest[2]}");
+    println("src[3] = {src[3]}, dest[3] = {dest[3]}");
+    println("src[4] = {src[4]}, dest[4] = {dest[4]}");
+    
+    // 値が一致することを確認
+    if (dest[0] == 10 && dest[1] == 20 && dest[2] == 30 && 
+        dest[3] == 40 && dest[4] == 50) {
+        println("✅ All values copied correctly");
+    }
+    
+    delete src;
+    delete dest;
+    println("memcpy int array test complete\n");
+}
+
+// 構造体のコピー
+void test_memcpy_struct() {
+    println("=== Test memcpy (struct) ===");
+    
+    Point* src = new Point;
+    src->x = 100;
+    src->y = 200;
+    
+    Point* dest = new Point;
+    
+    // memcpyで構造体をコピー
+    memcpy(dest, src, sizeof(Point));
+    
+    println("src: x={src->x}, y={src->y}");
+    println("dest: x={dest->x}, y={dest->y}");
+    
+    if (dest->x == 100 && dest->y == 200) {
+        println("✅ Struct copied correctly");
+    }
+    
+    delete src;
+    delete dest;
+    println("memcpy struct test complete\n");
+}
+
+// 構造体配列のコピー
+void test_memcpy_struct_array() {
+    println("=== Test memcpy (struct array) ===");
+    
+    Point* src = new Point[3];
+    src[0].x = 1; src[0].y = 2;
+    src[1].x = 3; src[1].y = 4;
+    src[2].x = 5; src[2].y = 6;
+    
+    Point* dest = new Point[3];
+    
+    // 3つのPoint構造体をコピー
+    memcpy(dest, src, 3 * sizeof(Point));
+    
+    println("src[0]: x={src[0].x}, y={src[0].y}");
+    println("dest[0]: x={dest[0].x}, y={dest[0].y}");
+    println("src[1]: x={src[1].x}, y={src[1].y}");
+    println("dest[1]: x={dest[1].x}, y={dest[1].y}");
+    println("src[2]: x={src[2].x}, y={src[2].y}");
+    println("dest[2]: x={dest[2].x}, y={dest[2].y}");
+    
+    if (dest[0].x == 1 && dest[0].y == 2 &&
+        dest[1].x == 3 && dest[1].y == 4 &&
+        dest[2].x == 5 && dest[2].y == 6) {
+        println("✅ Struct array copied correctly");
+    }
+    
+    delete src;
+    delete dest;
+    println("memcpy struct array test complete\n");
+}
+
+// 部分コピー
+void test_memcpy_partial() {
+    println("=== Test memcpy (partial copy) ===");
+    
+    int* src = new int[10];
+    for (int i = 0; i < 10; i = i + 1) {
+        src[i] = i * 10;
+    }
+    
+    int* dest = new int[10];
+    // 0で初期化されている（newの仕様）
+    
+    // 最初の5要素のみコピー
+    memcpy(dest, src, 5 * sizeof(int));
+    
+    println("Copied first 5 elements:");
+    println("dest[0] = {dest[0]} (expected: 0)");
+    println("dest[1] = {dest[1]} (expected: 10)");
+    println("dest[4] = {dest[4]} (expected: 40)");
+    println("dest[5] = {dest[5]} (expected: 0, not copied)");
+    
+    if (dest[0] == 0 && dest[1] == 10 && dest[4] == 40 && dest[5] == 0) {
+        println("✅ Partial copy works correctly");
+    }
+    
+    delete src;
+    delete dest;
+    println("memcpy partial test complete\n");
+}
+
+// ネストした構造体のコピー
+void test_memcpy_nested_struct() {
+    println("=== Test memcpy (nested struct) ===");
+    
+    Rectangle* src = new Rectangle;
+    src->p1.x = 10;
+    src->p1.y = 20;
+    src->p2.x = 30;
+    src->p2.y = 40;
+    src->area = 200;
+    
+    Rectangle* dest = new Rectangle;
+    
+    // ネストした構造体をコピー
+    memcpy(dest, src, sizeof(Rectangle));
+    
+    println("src: p1=({src->p1.x},{src->p1.y}), p2=({src->p2.x},{src->p2.y}), area={src->area}");
+    println("dest: p1=({dest->p1.x},{dest->p1.y}), p2=({dest->p2.x},{dest->p2.y}), area={dest->area}");
+    
+    if (dest->p1.x == 10 && dest->p1.y == 20 &&
+        dest->p2.x == 30 && dest->p2.y == 40 &&
+        dest->area == 200) {
+        println("✅ Nested struct copied correctly");
+    }
+    
+    delete src;
+    delete dest;
+    println("memcpy nested struct test complete\n");
+}
+
+// nullポインタチェック
+void test_memcpy_null_check() {
+    println("=== Test memcpy (null pointer check) ===");
+    
+    int* src = new int[5];
+    
+    // nullポインタを渡す
+    void* result = memcpy(nullptr, src, 5 * sizeof(int));
+    
+    if (result == nullptr) {
+        println("✅ memcpy correctly handles null destination");
+    }
+    
+    result = memcpy(src, nullptr, 5 * sizeof(int));
+    
+    if (result == nullptr) {
+        println("✅ memcpy correctly handles null source");
+    }
+    
+    delete src;
+    println("memcpy null check test complete\n");
+}
+
+// ゼロサイズコピー
+void test_memcpy_zero_size() {
+    println("=== Test memcpy (zero size) ===");
+    
+    int* src = new int[5];
+    int* dest = new int[5];
+    
+    src[0] = 99;
+    dest[0] = 0;
+    
+    // サイズ0でコピー
+    void* result = memcpy(dest, src, 0);
+    
+    // destは変更されないはず
+    if (dest[0] == 0) {
+        println("✅ Zero size copy does not modify destination");
+    }
+    
+    delete src;
+    delete dest;
+    println("memcpy zero size test complete\n");
+}
+
+// 独立性の確認（コピー後に元を変更）
+void test_memcpy_independence() {
+    println("=== Test memcpy (independence) ===");
+    
+    int* src = new int[3];
+    src[0] = 10;
+    src[1] = 20;
+    src[2] = 30;
+    
+    int* dest = new int[3];
+    memcpy(dest, src, 3 * sizeof(int));
+    
+    // コピー後にsrcを変更
+    src[0] = 999;
+    src[1] = 888;
+    
+    println("After modifying src:");
+    println("src[0] = {src[0]}, dest[0] = {dest[0]}");
+    println("src[1] = {src[1]}, dest[1] = {dest[1]}");
+    
+    // destは影響を受けないはず
+    if (dest[0] == 10 && dest[1] == 20) {
+        println("✅ Copied data is independent from source");
+    }
+    
+    delete src;
+    delete dest;
+    println("memcpy independence test complete\n");
+}
+
+int main() {
+    println("╔════════════════════════════════════╗");
+    println("║  memcpy Function Tests            ║");
+    println("╚════════════════════════════════════╝\n");
+    
+    test_memcpy_int_array();
+    test_memcpy_struct();
+    test_memcpy_struct_array();
+    test_memcpy_partial();
+    test_memcpy_nested_struct();
+    test_memcpy_null_check();
+    test_memcpy_zero_size();
+    test_memcpy_independence();
+    
+    println("╔════════════════════════════════════╗");
+    println("║  All memcpy tests passed!         ║");
+    println("╚════════════════════════════════════╝");
+    
+    return 0;
+}

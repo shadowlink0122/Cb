@@ -1,0 +1,27 @@
+// test_new_struct_only.cb
+// new構造体の基本テスト
+
+struct Point {
+    int x;
+    int y;
+};
+
+int main() {
+    println("=== Test new struct ===");
+    
+    Point* ptr = new Point;
+    println("Allocated Point* at {hex(ptr)}");
+    
+    println("Trying to set x...");
+    ptr->x = 100;
+    println("Set x = {ptr->x}");
+    
+    println("Trying to set y...");
+    ptr->y = 200;
+    println("Set y = {ptr->y}");
+    
+    delete ptr;
+    println("Test complete");
+    
+    return 0;
+}

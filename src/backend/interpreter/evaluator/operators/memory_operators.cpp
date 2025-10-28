@@ -166,21 +166,62 @@ int64_t Interpreter::evaluate_new_expression(const ASTNode *node) {
         return reinterpret_cast<int64_t>(ptr);
     } else {
         // new T
-        size_t type_size = get_type_size(node->new_type_name, this);
-        void *ptr = std::malloc(type_size);
-        if (!ptr) {
-            throw std::runtime_error("Memory allocation failed");
+        // 構造体型かどうかをチェック
+        const StructDefinition *struct_def =
+            get_struct_definition(node->new_type_name);
+
+        if (struct_def) {
+            // 構造体の場合: Variableオブジェクトをヒープに作成
+            Variable *struct_var = new Variable();
+            struct_var->type = TYPE_STRUCT;
+            struct_var->struct_type_name = node->new_type_name;
+            struct_var->is_assigned = true;
+            struct_var->is_struct = true; // 構造体フラグを設定
+
+            // 各メンバーを初期化
+            for (const auto &member : struct_def->members) {
+                Variable member_var;
+                member_var.type = member.type;
+                member_var.is_pointer = member.is_pointer;
+                member_var.is_assigned = false;
+                member_var.value = 0;
+                member_var.float_value = 0.0;
+
+                // 構造体メンバーの場合、型名を設定
+                if (member.type == TYPE_STRUCT && !member.type_alias.empty()) {
+                    member_var.struct_type_name = member.type_alias;
+                }
+
+                // メンバーを追加
+                struct_var->struct_members[member.name] = member_var;
+            }
+
+            if (debug_mode) {
+                std::cerr << "[new] Allocated struct: type="
+                          << node->new_type_name << ", Variable*=" << struct_var
+                          << std::endl;
+            }
+
+            return reinterpret_cast<int64_t>(struct_var);
+        } else {
+            // プリミティブ型の場合: 生メモリを確保
+            size_t type_size = get_type_size(node->new_type_name, this);
+            void *ptr = std::malloc(type_size);
+            if (!ptr) {
+                throw std::runtime_error("Memory allocation failed");
+            }
+
+            // メモリをゼロクリア
+            std::memset(ptr, 0, type_size);
+
+            if (debug_mode) {
+                std::cerr << "[new] Allocated object: type="
+                          << node->new_type_name << ", size=" << type_size
+                          << ", ptr=" << ptr << std::endl;
+            }
+
+            return reinterpret_cast<int64_t>(ptr);
         }
-
-        // メモリをゼロクリア
-        std::memset(ptr, 0, type_size);
-
-        if (debug_mode) {
-            std::cerr << "[new] Allocated object: type=" << node->new_type_name
-                      << ", size=" << type_size << ", ptr=" << ptr << std::endl;
-        }
-
-        return reinterpret_cast<int64_t>(ptr);
     }
 }
 
@@ -188,18 +229,44 @@ int64_t Interpreter::evaluate_new_expression(const ASTNode *node) {
 int64_t Interpreter::evaluate_delete_expression(const ASTNode *node) {
     int64_t ptr_value =
         expression_evaluator_->evaluate_expression(node->delete_expr.get());
-    void *ptr = reinterpret_cast<void *>(ptr_value);
 
-    if (ptr == nullptr) {
+    if (ptr_value == 0) {
         // nullptr削除は何もしない
         return 0;
     }
 
-    if (debug_mode) {
-        std::cerr << "[delete] Freeing ptr=" << ptr << std::endl;
+    // ポインタがVariable*（構造体）かどうかを判定
+    Variable *potential_var = reinterpret_cast<Variable *>(ptr_value);
+
+    // Variable構造体の場合、type==TYPE_STRUCTでis_struct==trueのはず
+    // ただし、生ポインタを誤判定しないよう慎重に判定
+    bool is_struct_variable = false;
+    try {
+        // メモリアクセス可能かつ、Variableの構造体フラグが立っているか
+        if (potential_var->type == TYPE_STRUCT && potential_var->is_struct) {
+            is_struct_variable = true;
+        }
+    } catch (...) {
+        // アクセス違反なら生ポインタ
+        is_struct_variable = false;
     }
 
-    std::free(ptr);
+    if (debug_mode) {
+        std::cerr << "[delete] Freeing ptr="
+                  << reinterpret_cast<void *>(ptr_value)
+                  << " is_struct=" << (is_struct_variable ? "yes" : "no")
+                  << std::endl;
+    }
+
+    if (is_struct_variable) {
+        // Variable*（構造体）の場合: C++ deleteを使用
+        delete potential_var;
+    } else {
+        // 生ポインタ（プリミティブ型）の場合: freeを使用
+        void *ptr = reinterpret_cast<void *>(ptr_value);
+        std::free(ptr);
+    }
+
     return 0;
 }
 

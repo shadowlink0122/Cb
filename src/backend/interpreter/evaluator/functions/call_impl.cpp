@@ -21,6 +21,7 @@
 #include "evaluator/core/helpers.h"
 #include "generic_instantiation.h"
 #include <cstdlib>
+#include <cstring> // for std::memcpy
 #include <iomanip>
 #include <sstream>
 
@@ -884,6 +885,81 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
 
             // 文字列を返す（ReturnExceptionを使用）
             throw ReturnException(hex_str);
+        }
+
+        // memcpy(dest, src, size) - メモリコピー組み込み関数
+        if (node->name == "memcpy" && !is_method_call) {
+            if (node->arguments.size() != 3) {
+                throw std::runtime_error("memcpy() requires exactly 3 "
+                                         "arguments: memcpy(dest, src, size)");
+            }
+
+            // 引数を評価
+            int64_t dest_value =
+                interpreter_.eval_expression(node->arguments[0].get());
+            int64_t src_value =
+                interpreter_.eval_expression(node->arguments[1].get());
+            int64_t size =
+                interpreter_.eval_expression(node->arguments[2].get());
+
+            // null チェック
+            if (dest_value == 0) {
+                std::cerr << "[memcpy] Error: destination pointer is null"
+                          << std::endl;
+                return 0;
+            }
+            if (src_value == 0) {
+                std::cerr << "[memcpy] Error: source pointer is null"
+                          << std::endl;
+                return 0;
+            }
+
+            // サイズチェック
+            if (size <= 0) {
+                return dest_value;
+            }
+
+            // 構造体（Variable*）かどうかを判定
+            Variable *dest_var = reinterpret_cast<Variable *>(dest_value);
+            Variable *src_var = reinterpret_cast<Variable *>(src_value);
+
+            bool is_struct_copy = false;
+            try {
+                // Variable*として有効かチェック
+                if (dest_var->type == TYPE_STRUCT && dest_var->is_struct &&
+                    src_var->type == TYPE_STRUCT && src_var->is_struct) {
+                    is_struct_copy = true;
+                }
+            } catch (...) {
+                // アクセス違反なら生ポインタ
+                is_struct_copy = false;
+            }
+
+            if (is_struct_copy) {
+                // Variable構造体の場合: struct_membersをコピー
+                for (const auto &member_pair : src_var->struct_members) {
+                    dest_var->struct_members[member_pair.first] =
+                        member_pair.second;
+                }
+
+                if (interpreter_.is_debug_mode()) {
+                    std::cerr << "[memcpy] Copied struct members from "
+                              << src_var << " to " << dest_var << std::endl;
+                }
+            } else {
+                // 生ポインタの場合: std::memcpyを使用
+                void *dest = reinterpret_cast<void *>(dest_value);
+                void *src = reinterpret_cast<void *>(src_value);
+                std::memcpy(dest, src, static_cast<size_t>(size));
+
+                if (interpreter_.is_debug_mode()) {
+                    std::cerr << "[memcpy] Copied " << size << " bytes from "
+                              << src << " to " << dest << std::endl;
+                }
+            }
+
+            // destポインタを返す
+            return dest_value;
         }
 
         if (is_method_call) {
