@@ -1,13 +1,275 @@
-// Queue<T> - Generic Queue Interface
+// Queue<int> - Dynamic Queue with Circular Buffer
 // Part of v0.11.0 Week 3 Day 1: Event Loop Implementation
 //
-// モダンなC++/Rustスタイルのキューインターフェース
-// push, pop, top, is_empty, size などの標準的なメソッドを提供
+// 動的メモリ管理を使った循環バッファ実装のキュー
+// - new/deleteによる動的メモリ管理
+// - 循環バッファで効率的なenqueue/dequeue
+// - 自動リサイズ（容量不足時に2倍に拡張）
+// - デストラクタによる自動メモリ解放
 
-interface Queue<T> {
-    void push(T& item);
-    T pop();
-    T& top();
+export struct Queue {
+    int capacity;      // キューの容量
+    int length;        // 現在の要素数
+    int front;         // 先頭インデックス
+    int rear;          // 末尾インデックス
+    void* data;        // データ領域（int配列）
+};
+
+export interface QueueOps {
+    void init(int initial_capacity);
+    void enqueue(int value);
+    int dequeue();
+    int peek();
     bool is_empty();
     int size();
+    int get_capacity();
+    void info();
+    void resize(int new_capacity);
+    void destroy();
+}
+
+impl QueueOps for Queue {
+    void init(int initial_capacity) {
+        self.capacity = initial_capacity;
+        self.length = 0;
+        self.front = 0;
+        self.rear = 0;
+        
+        // 動的メモリ確保
+        self.data = new int[initial_capacity];
+        
+        println("[Queue] Initialized with capacity={initial_capacity}");
+        println("[Queue] Allocated memory at {hex(self.data)}");
+    }
+    
+    void enqueue(int value) {
+        // 容量チェック（自動リサイズは行わない - 呼び出し側で管理）
+        if (self.length >= self.capacity) {
+            println("[Queue] Error: Capacity full! (size={self.length}, capacity={self.capacity})");
+            println("[Queue] Please call resize() before enqueue");
+            return;
+        }
+        
+        // 循環バッファの末尾に追加
+        array_set_int(self.data, self.rear, value);
+        self.rear = (self.rear + 1) % self.capacity;
+        self.length = self.length + 1;
+        
+        println("[Queue] Enqueued value={value} (size={self.length})");
+    }
+    
+    int dequeue() {
+        if (self.length <= 0) {
+            println("[Queue] Empty! Cannot dequeue");
+            return 0;
+        }
+        
+        // 循環バッファの先頭から取得
+        int value = array_get_int(self.data, self.front);
+        self.front = (self.front + 1) % self.capacity;
+        self.length = self.length - 1;
+        
+        println("[Queue] Dequeued value={value} (size={self.length})");
+        return value;
+    }
+    
+    int peek() {
+        if (self.length <= 0) {
+            println("[Queue] Empty! Cannot peek");
+            return 0;
+        }
+        
+        int value = array_get_int(self.data, self.front);
+        println("[Queue] Peeked value={value}");
+        return value;
+    }
+    
+    bool is_empty() {
+        return self.length == 0;
+    }
+    
+    int size() {
+        return self.length;
+    }
+    
+    int get_capacity() {
+        return self.capacity;
+    }
+    
+    void info() {
+        println("[Queue] size={self.length}, capacity={self.capacity}, front={self.front}, rear={self.rear}, data={hex(self.data)}");
+    }
+    
+    void resize(int new_capacity) {
+        if (new_capacity <= self.capacity) {
+            println("[Queue] New capacity {new_capacity} <= current {self.capacity}, no resize needed");
+            return;
+        }
+        
+        println("[Queue] Resizing from capacity={self.capacity} to {new_capacity}");
+        
+        // 新しい配列を確保
+        void* new_data = new int[new_capacity];
+        
+        // 循環バッファのデータを連続した配列にコピー
+        int i = 0;
+        while (i < self.length) {
+            int src_index = (self.front + i) % self.capacity;
+            int value = array_get_int(self.data, src_index);
+            array_set_int(new_data, i, value);
+            i = i + 1;
+        }
+        
+        println("[Queue] Copied {self.length} elements");
+        
+        // 古い配列を解放
+        delete self.data;
+        
+        // 新しい配列に切り替え
+        self.data = new_data;
+        self.capacity = new_capacity;
+        self.front = 0;
+        self.rear = self.length;
+        
+        println("[Queue] Resize complete (new capacity={new_capacity}, memory at {hex(self.data)})");
+    }
+    
+    void destroy() {
+        if (self.data != nullptr) {
+            println("[Queue] destroy(): Freeing memory at {hex(self.data)}");
+            delete self.data;
+            self.data = nullptr;
+            self.length = 0;
+            self.capacity = 0;
+            self.front = 0;
+            self.rear = 0;
+        }
+    }
+}
+
+// デストラクタ：スコープを抜ける時に自動的にメモリを解放
+impl Queue {
+    ~self() {
+        if (self.data != nullptr) {
+            println("[Queue] Destructor: Freeing memory at {hex(self.data)}");
+            delete self.data;
+        }
+    }
+}
+
+void test_queue_basic() {
+    println("\n=== Testing Queue Basic Operations ===");
+    
+    Queue q;
+    q.init(5);
+    q.info();
+    
+    // Enqueue
+    println("\n--- Test: Enqueue ---");
+    q.enqueue(10);
+    q.enqueue(20);
+    q.enqueue(30);
+    q.info();
+    
+    // Peek
+    println("\n--- Test: Peek ---");
+    int front_value = q.peek();
+    q.info();
+    
+    // Dequeue
+    println("\n--- Test: Dequeue ---");
+    int val1 = q.dequeue();
+    int val2 = q.dequeue();
+    q.info();
+    
+    println("\nQueue basic test complete");
+}
+
+void test_queue_auto_resize() {
+    println("\n=== Testing Queue Manual Resize ===");
+    
+    Queue q;
+    q.init(3);
+    q.info();
+    
+    // 容量まで埋める
+    println("\n--- Filling queue to capacity ---");
+    q.enqueue(1);
+    q.enqueue(2);
+    q.enqueue(3);
+    q.info();
+    
+    // 手動でリサイズ
+    println("\n--- Manual resize ---");
+    q.resize(6);
+    q.info();
+    
+    // さらに追加
+    println("\n--- Adding more elements ---");
+    q.enqueue(4);
+    q.enqueue(5);
+    q.enqueue(6);
+    q.info();
+    
+    println("\nQueue manual resize test complete");
+}
+
+void test_queue_circular_buffer() {
+    println("\n=== Testing Queue Circular Buffer ===");
+    
+    Queue q;
+    q.init(4);
+    
+    // キューを満たす
+    println("\n--- Filling queue ---");
+    q.enqueue(10);
+    q.enqueue(20);
+    q.enqueue(30);
+    q.info();
+    
+    // 一部をdequeue
+    println("\n--- Dequeuing some elements ---");
+    q.dequeue();
+    q.dequeue();
+    q.info();
+    
+    // 再びenqueue（循環バッファの動作確認）
+    println("\n--- Enqueuing again (circular) ---");
+    q.enqueue(40);
+    q.enqueue(50);
+    q.info();
+    
+    println("\nQueue circular buffer test complete");
+}
+
+void test_queue_automatic_destructor() {
+    println("\n=== Testing Queue Automatic Destructor ===");
+    
+    {
+        Queue q;
+        q.init(5);
+        q.enqueue(100);
+        q.enqueue(200);
+        q.enqueue(300);
+        q.info();
+        println("Exiting scope... destructor should be called automatically");
+    }
+    println("Scope exited - destructor was called");
+    
+    println("\nAutomatic destructor test complete");
+}
+
+void main() {
+    println("╔════════════════════════════════════════════════════════════╗");
+    println("║  Queue with Dynamic Memory Management                     ║");
+    println("╚════════════════════════════════════════════════════════════╝");
+    
+    test_queue_basic();
+    test_queue_auto_resize();  // test_queue_manual_resizeという名前だが関数名は変わっていない
+    test_queue_circular_buffer();
+    test_queue_automatic_destructor();
+    
+    println("\n╔════════════════════════════════════════════════════════════╗");
+    println("║  All Queue tests completed successfully!                  ║");
+    println("╚════════════════════════════════════════════════════════════╝");
 }

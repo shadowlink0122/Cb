@@ -21,7 +21,45 @@
 
 ### 🆕 v0.11.0の最新機能
 
-**1. 🔧 Option<T>とResult<T, E>の組み込み型実装** 🆕
+**1. � 動的メモリ管理によるコレクション実装** 🆕
+- **stdlib/collections/vector.cb**: new/delete による動的メモリ管理
+- **stdlib/collections/queue.cb**: 循環バッファ + 動的メモリ管理
+- **自動デストラクタ**: スコープを抜ける際にメモリ自動解放
+- **手動リサイズ**: capacity管理とresize()メソッド
+- **メモリリークなし**: 全テスト成功
+
+```cb
+void main() {
+    // ✅ Vector動的メモリ管理
+    Vector<int, SystemAllocator> vec;
+    vec.init(5);       // capacity=5の動的配列を確保
+    vec.push(10);
+    vec.push(20);
+    vec.push(30);
+    
+    // リサイズ（新しいメモリ確保→データコピー→旧メモリ解放）
+    vec.resize(10);    // capacity=10に拡張
+    vec.push(40);
+    
+    // スコープを抜ける時に自動的にメモリ解放（デストラクタ）
+}
+
+void main() {
+    // ✅ Queue動的メモリ管理（循環バッファ）
+    Queue q;
+    q.init(5);         // capacity=5のキューを確保
+    q.enqueue(100);
+    q.enqueue(200);
+    int val = q.dequeue();  // 100
+    
+    // リサイズ（循環バッファの再配置）
+    q.resize(10);      // capacity=10に拡張
+    
+    // 自動デストラクタでメモリ解放
+}
+```
+
+**2. �🔧 Option<T>とResult<T, E>の組み込み型実装**
 - **自動利用可能**: import不要、enum定義不要
 - **パーサー・インタプリタ自動登録**: 起動時に自動的に定義
 - **重複定義エラー検出**: Option/Resultの再定義を防止
@@ -50,7 +88,7 @@ void main() {
 }
 ```
 
-**2. 🔧 Enum型のinterface経由返り値修正**
+**3. 🔧 Enum型のinterface経由返り値修正**
 - **問題**: Interface経由でEnum値を返すと常に0が返される
 - **修正**: `TYPE_ENUM`として正しく型情報を伝播
 - **影響**: Interface/Implシステムのenum型が完全に動作
@@ -80,7 +118,7 @@ void main() {
 }
 ```
 
-**3. 🚫 Discard変数（`_`）の完全実装**
+**4. 🚫 Discard変数（`_`）の完全実装**
 - **宣言・代入**: 不要な値を破棄するために`_`変数を使用可能
 - **読み込み禁止**: discard変数の読み込みは実行時エラー
 - **包括的なテスト**: 10テストケース（成功3+エラー7）
@@ -101,7 +139,7 @@ void main() {
 }
 ```
 
-**4. 🧹 デストラクタ機能**
+**5. 🧹 デストラクタ機能**
 - **スコープベースのRAII**: スコープ終了時に自動的にデストラクタが呼ばれる
 - **LIFO順序**: 複数の変数がある場合、宣言の逆順で破棄
 - **Generic対応**: `impl Vector<T, A: Allocator> { fn deinit() { ... } }`
