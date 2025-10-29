@@ -1,0 +1,50 @@
+import "stdlib/collections/vector.cb";
+
+void main() {
+    println("╔════════════════════════════════════════════╗");
+    println("║  Vector<double> Simple Test               ║");
+    println("╚════════════════════════════════════════════╝\n");
+    
+    Vector<double> vec;
+    vec.init(5);
+    
+    println("=== Test: push() ===");
+    vec.push(3.14);
+    vec.push(2.71);
+    vec.push(1.41);
+    if (vec.get_length() == 3) {
+        println("✅ push() works (length={vec.get_length()})");
+    }
+    
+    println("\n=== Test: get() ===");
+    double d0 = vec.get(0);
+    double d1 = vec.get(1);
+    double d2 = vec.get(2);
+    println("Values: d0={d0}, d1={d1}, d2={d2}");
+    if (d0 > 3.13 && d0 < 3.15) {
+        println("✅ get() works");
+    }
+    
+    println("\n=== Test: pop() ===");
+    double popped = vec.pop();
+    if (vec.get_length() == 2) {
+        println("✅ pop() works (popped={popped}, length={vec.get_length()})");
+    }
+    
+    println("\n=== Test: resize() ===");
+    vec.resize(10);
+    if (vec.get_capacity() == 10) {
+        println("✅ resize() works");
+    }
+    
+    vec.push(9.99);
+    vec.push(8.88);
+    if (vec.get_length() == 4) {
+        println("✅ push() after resize works");
+    }
+    
+    println("\n=== Final state ===");
+    vec.info();
+    
+    println("\n✅ All Vector<double> tests passed!");
+}

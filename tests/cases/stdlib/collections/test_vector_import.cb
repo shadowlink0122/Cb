@@ -6,7 +6,7 @@ import "stdlib/collections/vector.cb";
 void test_vector_import() {
     println("=== Test: Vector Import ===");
     
-    Vector<int, SystemAllocator> vec;
+    Vector<int> vec;
     vec.init(5);
     
     println("✅ Vector import and struct creation successful");
@@ -15,7 +15,7 @@ void test_vector_import() {
 void test_vector_basic_operations() {
     println("\n=== Test: Vector Basic Operations ===");
     
-    Vector<int, SystemAllocator> vec;
+    Vector<int> vec;
     vec.init(5);
     
     vec.push(10);
@@ -34,7 +34,7 @@ void test_vector_basic_operations() {
 void test_vector_resize() {
     println("\n=== Test: Vector Resize ===");
     
-    Vector<int, SystemAllocator> vec;
+    Vector<int> vec;
     vec.init(2);
     
     vec.push(1);
@@ -53,7 +53,7 @@ void test_vector_destructor() {
     println("\n=== Test: Vector Destructor ===");
     
     {
-        Vector<int, SystemAllocator> vec;
+        Vector<int> vec;
         vec.init(3);
         vec.push(10);
         vec.push(20);

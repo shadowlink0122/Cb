@@ -1,0 +1,39 @@
+// 最もシンプルな構造体ポインタテスト
+
+struct Point {
+    int x;
+    int y;
+};
+
+int main() {
+    println("=== Minimal Struct Pointer Test ===");
+    
+    // 1つだけ確保
+    int point_size = sizeof(Point);
+    println("sizeof(Point) = {point_size}");
+    
+    void* raw_ptr = malloc(point_size);
+    println("malloc returned: {hex(raw_ptr)}");
+    
+    if (raw_ptr == nullptr) {
+        println("❌ malloc failed");
+        return 1;
+    }
+    
+    // void*をPoint*にキャスト
+    Point* p = raw_ptr;
+    println("After cast to Point*: {hex(p)}");
+    
+    // メンバーに書き込み
+    println("\nTrying to write p->x = 42...");
+    p->x = 42;
+    println("✅ p->x = {p->x}");
+    
+    println("Trying to write p->y = 99...");
+    p->y = 99;
+    println("✅ p->y = {p->y}");
+    
+    free(raw_ptr);
+    println("\n✅ Test completed!");
+    return 0;
+}

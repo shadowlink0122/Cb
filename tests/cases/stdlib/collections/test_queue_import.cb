@@ -1,21 +1,21 @@
-// Test for Queue library import and usage
-// This test verifies that Queue can be imported and used as a library
+// Test for Queue<T> library import and usage
+// This test verifies that generic Queue can be imported and used as a library
 
 import "stdlib/collections/queue.cb";
 
 void test_queue_import() {
-    println("=== Test: Queue Import ===");
+    println("=== Test: Queue<int> Import ===");
     
-    Queue q;
+    Queue<int> q;
     q.init(5);
     
-    println("✅ Queue import and struct creation successful");
+    println("✅ Queue<int> import and struct creation successful");
 }
 
 void test_queue_basic_operations() {
-    println("\n=== Test: Queue Basic Operations ===");
+    println("\n=== Test: Queue<int> Basic Operations ===");
     
-    Queue q;
+    Queue<int> q;
     q.init(5);
     
     q.enqueue(10);
@@ -23,23 +23,23 @@ void test_queue_basic_operations() {
     q.enqueue(30);
     
     assert(q.size() == 3);
-    println("✅ Queue enqueue operations work");
+    println("✅ Queue<int> enqueue operations work");
     
     int val = q.dequeue();
     assert(val == 10);
     assert(q.size() == 2);
-    println("✅ Queue dequeue operations work");
+    println("✅ Queue<int> dequeue operations work");
     
     int peek_val = q.peek();
     assert(peek_val == 20);
     assert(q.size() == 2);
-    println("✅ Queue peek operations work");
+    println("✅ Queue<int> peek operations work");
 }
 
 void test_queue_resize() {
-    println("\n=== Test: Queue Resize ===");
+    println("\n=== Test: Queue<int> Resize ===");
     
-    Queue q;
+    Queue<int> q;
     q.init(3);
     
     q.enqueue(1);
@@ -48,17 +48,17 @@ void test_queue_resize() {
     
     q.resize(6);
     assert(q.get_capacity() == 6);
-    println("✅ Queue resize works");
+    println("✅ Queue<int> resize works");
     
     q.enqueue(4);
     assert(q.size() == 4);
-    println("✅ Queue operations after resize work");
+    println("✅ Queue<int> operations after resize work");
 }
 
 void test_queue_circular_buffer() {
-    println("\n=== Test: Queue Circular Buffer ===");
+    println("\n=== Test: Queue<int> Circular Buffer ===");
     
-    Queue q;
+    Queue<int> q;
     q.init(4);
     
     q.enqueue(10);
@@ -72,25 +72,25 @@ void test_queue_circular_buffer() {
     q.enqueue(50);
     
     assert(q.size() == 3);
-    println("✅ Queue circular buffer works");
+    println("✅ Queue<int> circular buffer works");
 }
 
 void test_queue_destructor() {
-    println("\n=== Test: Queue Destructor ===");
+    println("\n=== Test: Queue<int> Destructor ===");
     
     {
-        Queue q;
+        Queue<int> q;
         q.init(3);
         q.enqueue(10);
         q.enqueue(20);
     }
     
-    println("✅ Queue destructor works (no crash on scope exit)");
+    println("✅ Queue<int> destructor works (no crash on scope exit)");
 }
 
 void main() {
     println("╔════════════════════════════════════════════╗");
-    println("║  Queue Library Import Test                ║");
+    println("║  Queue<T> Library Import Test             ║");
     println("╚════════════════════════════════════════════╝\n");
     
     test_queue_import();
@@ -100,6 +100,6 @@ void main() {
     test_queue_destructor();
     
     println("\n╔════════════════════════════════════════════╗");
-    println("║  All Queue library tests passed!          ║");
+    println("║  All Queue<int> library tests passed!     ║");
     println("╚════════════════════════════════════════════╝");
 }

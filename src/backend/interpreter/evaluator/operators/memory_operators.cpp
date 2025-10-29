@@ -270,6 +270,75 @@ int64_t Interpreter::evaluate_delete_expression(const ASTNode *node) {
     return 0;
 }
 
+// Variableの型からサイズを取得するヘルパー関数
+static size_t get_variable_size(const Variable *var) {
+    if (!var)
+        return 0;
+
+    if (var->is_pointer) {
+        return sizeof(void *);
+    }
+
+    switch (var->type) {
+    case TYPE_INT:
+        return sizeof(int);
+    case TYPE_LONG:
+        return sizeof(long);
+    case TYPE_SHORT:
+        return sizeof(short);
+    case TYPE_TINY:
+        return sizeof(char);
+    case TYPE_CHAR:
+        return sizeof(char);
+    case TYPE_BOOL:
+        return sizeof(bool);
+    case TYPE_FLOAT:
+        return sizeof(float);
+    case TYPE_DOUBLE:
+        return sizeof(double);
+    case TYPE_QUAD:
+        return sizeof(long double);
+    case TYPE_STRING:
+        return sizeof(void *);
+    case TYPE_STRUCT:
+        return sizeof(void *);
+    default:
+        return sizeof(int64_t);
+    }
+}
+
+// TypedValueからサイズを取得するヘルパー関数
+static size_t get_typed_value_size(const TypedValue &tv) {
+    switch (tv.type.type_info) {
+    case TYPE_INT:
+        return sizeof(int);
+    case TYPE_LONG:
+        return sizeof(long);
+    case TYPE_SHORT:
+        return sizeof(short);
+    case TYPE_TINY:
+        return sizeof(char);
+    case TYPE_CHAR:
+        return sizeof(char);
+    case TYPE_BOOL:
+        return sizeof(bool);
+    case TYPE_FLOAT:
+        return sizeof(float);
+    case TYPE_DOUBLE:
+        return sizeof(double);
+    case TYPE_QUAD:
+        return sizeof(long double);
+    case TYPE_STRING:
+        return sizeof(void *);
+    case TYPE_POINTER:
+        return sizeof(void *);
+    case TYPE_STRUCT:
+        return sizeof(void *);
+    default:
+        return sizeof(int64_t);
+    }
+}
+
 // sizeof演算子の評価
 int64_t Interpreter::evaluate_sizeof_expression(const ASTNode *node) {
     size_t result_size = 0;
@@ -284,9 +353,22 @@ int64_t Interpreter::evaluate_sizeof_expression(const ASTNode *node) {
         }
     } else if (node->sizeof_expr) {
         // sizeof(expr) - 式の型からサイズを取得
-        // TODO: 式の型情報を正しく取得する必要がある
-        // 今は仮としてint64_tのサイズを返す
-        result_size = sizeof(int64_t);
+        const ASTNode *expr = node->sizeof_expr.get();
+
+        // 変数の場合、その型を直接取得
+        if (expr->node_type == ASTNodeType::AST_VARIABLE) {
+            Variable *var = find_variable(expr->name);
+            if (var) {
+                result_size = get_variable_size(var);
+            } else {
+                // 変数が見つからない場合、型名として解釈
+                result_size = get_type_size(expr->name, this);
+            }
+        } else {
+            // 式の型を推論
+            TypedValue typed_val = evaluate_typed(expr);
+            result_size = get_typed_value_size(typed_val);
+        }
 
         if (debug_mode) {
             std::cerr << "[sizeof] Expression, size=" << result_size

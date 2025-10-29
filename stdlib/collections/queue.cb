@@ -1,25 +1,31 @@
-// Queue<int> - Dynamic Queue with Circular Buffer
+// Queue<T> - Generic Dynamic Queue with Circular Buffer
 // Part of v0.11.0 Week 3 Day 1: Event Loop Implementation
 //
-// 動的メモリ管理を使った循環バッファ実装のキュー
+// 動的メモリ管理を使った循環バッファ実装のジェネリックキュー
+// - 任意の型Tに対応（int, string, struct, interface, typedefなど）
 // - new/deleteによる動的メモリ管理
 // - 循環バッファで効率的なenqueue/dequeue
 // - 自動リサイズ（容量不足時に2倍に拡張）
 // - デストラクタによる自動メモリ解放
+//
+// 使用例:
+//   Queue<int> int_queue;
+//   Queue<string> str_queue;
+//   Queue<Point> point_queue;
 
-export struct Queue {
+export struct Queue<T> {
     int capacity;      // キューの容量
     int length;        // 現在の要素数
     int front;         // 先頭インデックス
     int rear;          // 末尾インデックス
-    void* data;        // データ領域（int配列）
+    void* data;        // データ領域（T型配列）
 };
 
-export interface QueueOps {
+export interface QueueOps<T> {
     void init(int initial_capacity);
-    void enqueue(int value);
-    int dequeue();
-    int peek();
+    void enqueue(T value);
+    T dequeue();
+    T peek();
     bool is_empty();
     int size();
     int get_capacity();
@@ -28,7 +34,11 @@ export interface QueueOps {
     void destroy();
 }
 
-impl QueueOps for Queue {
+// =============================================================================
+// Queue<int> 特殊化実装
+// =============================================================================
+
+impl QueueOps<int> for Queue<int> {
     void init(int initial_capacity) {
         self.capacity = initial_capacity;
         self.length = 0;
@@ -38,15 +48,15 @@ impl QueueOps for Queue {
         // 動的メモリ確保
         self.data = new int[initial_capacity];
         
-        println("[Queue] Initialized with capacity={initial_capacity}");
-        println("[Queue] Allocated memory at {hex(self.data)}");
+        println("[Queue<int>] Initialized with capacity={initial_capacity}");
+        println("[Queue<int>] Allocated memory at {hex(self.data)}");
     }
     
     void enqueue(int value) {
         // 容量チェック（自動リサイズは行わない - 呼び出し側で管理）
         if (self.length >= self.capacity) {
-            println("[Queue] Error: Capacity full! (size={self.length}, capacity={self.capacity})");
-            println("[Queue] Please call resize() before enqueue");
+            println("[Queue<int>] Error: Capacity full! (size={self.length}, capacity={self.capacity})");
+            println("[Queue<int>] Please call resize() before enqueue");
             return;
         }
         
@@ -55,12 +65,12 @@ impl QueueOps for Queue {
         self.rear = (self.rear + 1) % self.capacity;
         self.length = self.length + 1;
         
-        println("[Queue] Enqueued value={value} (size={self.length})");
+        println("[Queue<int>] Enqueued value={value} (size={self.length})");
     }
     
     int dequeue() {
         if (self.length <= 0) {
-            println("[Queue] Empty! Cannot dequeue");
+            println("[Queue<int>] Empty! Cannot dequeue");
             return 0;
         }
         
@@ -69,18 +79,18 @@ impl QueueOps for Queue {
         self.front = (self.front + 1) % self.capacity;
         self.length = self.length - 1;
         
-        println("[Queue] Dequeued value={value} (size={self.length})");
+        println("[Queue<int>] Dequeued value={value} (size={self.length})");
         return value;
     }
     
     int peek() {
         if (self.length <= 0) {
-            println("[Queue] Empty! Cannot peek");
+            println("[Queue<int>] Empty! Cannot peek");
             return 0;
         }
         
         int value = array_get_int(self.data, self.front);
-        println("[Queue] Peeked value={value}");
+        println("[Queue<int>] Peeked value={value}");
         return value;
     }
     
@@ -97,16 +107,16 @@ impl QueueOps for Queue {
     }
     
     void info() {
-        println("[Queue] size={self.length}, capacity={self.capacity}, front={self.front}, rear={self.rear}, data={hex(self.data)}");
+        println("[Queue<int>] size={self.length}, capacity={self.capacity}, front={self.front}, rear={self.rear}, data={hex(self.data)}");
     }
     
     void resize(int new_capacity) {
         if (new_capacity <= self.capacity) {
-            println("[Queue] New capacity {new_capacity} <= current {self.capacity}, no resize needed");
+            println("[Queue<int>] New capacity {new_capacity} <= current {self.capacity}, no resize needed");
             return;
         }
         
-        println("[Queue] Resizing from capacity={self.capacity} to {new_capacity}");
+        println("[Queue<int>] Resizing from capacity={self.capacity} to {new_capacity}");
         
         // 新しい配列を確保
         void* new_data = new int[new_capacity];
@@ -120,7 +130,7 @@ impl QueueOps for Queue {
             i = i + 1;
         }
         
-        println("[Queue] Copied {self.length} elements");
+        println("[Queue<int>] Copied {self.length} elements");
         
         // 古い配列を解放
         delete self.data;
@@ -131,12 +141,12 @@ impl QueueOps for Queue {
         self.front = 0;
         self.rear = self.length;
         
-        println("[Queue] Resize complete (new capacity={new_capacity}, memory at {hex(self.data)})");
+        println("[Queue<int>] Resize complete (new capacity={new_capacity}, memory at {hex(self.data)})");
     }
     
     void destroy() {
         if (self.data != nullptr) {
-            println("[Queue] destroy(): Freeing memory at {hex(self.data)}");
+            println("[Queue<int>] destroy(): Freeing memory at {hex(self.data)}");
             delete self.data;
             self.data = nullptr;
             self.length = 0;
@@ -148,11 +158,136 @@ impl QueueOps for Queue {
 }
 
 // デストラクタ：スコープを抜ける時に自動的にメモリを解放
-impl Queue {
+impl Queue<int> {
     ~self() {
         if (self.data != nullptr) {
-            println("[Queue] Destructor: Freeing memory at {hex(self.data)}");
+            println("[Queue<int>] Destructor: Freeing memory at {hex(self.data)}");
             delete self.data;
+        }
+    }
+}
+
+// =============================================================================
+// Queue<string> 特殊化実装
+// =============================================================================
+
+impl QueueOps<string> for Queue<string> {
+    void init(int initial_capacity) {
+        self.capacity = initial_capacity;
+        self.length = 0;
+        self.front = 0;
+        self.rear = 0;
+        
+        // string配列用のメモリ確保（ポインタ配列として扱う）
+        int string_size = 8;  // sizeof(void*)
+        self.data = malloc(initial_capacity * string_size);
+        
+        println("[Queue<string>] Initialized with capacity={initial_capacity}");
+        println("[Queue<string>] Allocated memory at {hex(self.data)}");
+    }
+    
+    void enqueue(string value) {
+        if (self.length >= self.capacity) {
+            println("[Queue<string>] Error: Capacity full! (size={self.length}, capacity={self.capacity})");
+            println("[Queue<string>] Please call resize() before enqueue");
+            return;
+        }
+        
+        array_set_string(self.data, self.rear, value);
+        self.rear = (self.rear + 1) % self.capacity;
+        self.length = self.length + 1;
+        
+        println("[Queue<string>] Enqueued value='{value}' (size={self.length})");
+    }
+    
+    string dequeue() {
+        if (self.length <= 0) {
+            println("[Queue<string>] Empty! Cannot dequeue");
+            return "";
+        }
+        
+        string value = array_get_string(self.data, self.front);
+        self.front = (self.front + 1) % self.capacity;
+        self.length = self.length - 1;
+        
+        println("[Queue<string>] Dequeued value='{value}' (size={self.length})");
+        return value;
+    }
+    
+    string peek() {
+        if (self.length <= 0) {
+            println("[Queue<string>] Empty! Cannot peek");
+            return "";
+        }
+        
+        string value = array_get_string(self.data, self.front);
+        println("[Queue<string>] Peeked value='{value}'");
+        return value;
+    }
+    
+    bool is_empty() {
+        return self.length == 0;
+    }
+    
+    int size() {
+        return self.length;
+    }
+    
+    int get_capacity() {
+        return self.capacity;
+    }
+    
+    void info() {
+        println("[Queue<string>] length={self.length}, capacity={self.capacity}, front={self.front}, rear={self.rear}");
+    }
+    
+    void resize(int new_capacity) {
+        if (new_capacity <= self.capacity) {
+            println("[Queue<string>] No resize needed");
+            return;
+        }
+        
+        println("[Queue<string>] Resizing from {self.capacity} to {new_capacity}");
+        
+        int string_size = 8;
+        void* new_data = malloc(new_capacity * string_size);
+        
+        // 循環バッファの要素をコピー
+        int i = 0;
+        while (i < self.length) {
+            int index = (self.front + i) % self.capacity;
+            string value = array_get_string(self.data, index);
+            array_set_string(new_data, i, value);
+            i = i + 1;
+        }
+        
+        free(self.data);
+        self.data = new_data;
+        self.capacity = new_capacity;
+        self.front = 0;
+        self.rear = self.length;
+        
+        println("[Queue<string>] Resize complete");
+    }
+    
+    void destroy() {
+        if (self.data != nullptr) {
+            println("[Queue<string>] Destructor: Freeing memory at {hex(self.data)}");
+            free(self.data);
+            self.data = nullptr;
+            self.length = 0;
+            self.capacity = 0;
+            self.front = 0;
+            self.rear = 0;
+        }
+    }
+}
+
+impl Queue<string> {
+    ~self() {
+        if (self.data != nullptr) {
+            println("[Queue<string>] Destructor: Freeing memory at {hex(self.data)}");
+            free(self.data);
         }
     }
 }

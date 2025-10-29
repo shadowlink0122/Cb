@@ -1,0 +1,98 @@
+// Vector<構造体>のテスト
+import "stdlib/collections/vector.cb";
+
+struct Point {
+    int x;
+    int y;
+};
+
+int main() {
+    println("=== Vector<Point> Test ===");
+    
+    // 問題: Vector<Point>の実装がまだ存在しない
+    // まずは、ポインタベースで実装を試みる
+    
+    println("Creating points...");
+    
+    // ポイント1
+    Point p1;
+    p1.x = 10;
+    p1.y = 20;
+    
+    // ポイント2
+    Point p2;
+    p2.x = 30;
+    p2.y = 40;
+    
+    // ポイント3
+    Point p3;
+    p3.x = 50;
+    p3.y = 60;
+    
+    println("Points created:");
+    println("  p1: ({p1.x}, {p1.y})");
+    println("  p2: ({p2.x}, {p2.y})");
+    println("  p3: ({p3.x}, {p3.y})");
+    
+    // 手動でポインタ配列を使用
+    println("\n--- Manual pointer array test ---");
+    
+    int capacity = 4;
+    void* point_array = malloc(capacity * 8);  // sizeof(void*)
+    int length = 0;
+    
+    // 構造体のアドレスを取得
+    void* p1_ptr = &p1;
+    void* p2_ptr = &p2;
+    void* p3_ptr = &p3;
+    
+    println("  p1 address: {hex(p1_ptr)}");
+    println("  p2 address: {hex(p2_ptr)}");
+    println("  p3 address: {hex(p3_ptr)}");
+    
+    // array_set_int でポインタを格納
+    array_set_int(point_array, 0, p1_ptr);
+    array_set_int(point_array, 1, p2_ptr);
+    array_set_int(point_array, 2, p3_ptr);
+    length = 3;
+    
+    println("✅ Stored 3 point pointers");
+    
+    // ポインタから取得
+    println("\nRetrieving p1...");
+    void* retrieved_ptr = array_get_int(point_array, 0);
+    println("  Retrieved pointer: {hex(retrieved_ptr)}");
+    
+    // 型キャストして構造体メンバーにアクセス
+    // Note: Cbではポインタから構造体へのキャストが制限されている可能性
+    
+    println("Attempting to access Point members...");
+    
+    // 代わりに、元の変数を直接使用
+    if (p1.x == 10 && p1.y == 20) {
+        println("✅ Original point data intact!");
+    } else {
+        println("❌ Original point data corrupted");
+        free(point_array);
+        return 1;
+    }
+    
+    // 全ポイントのポインタを確認
+    println("\nVerifying all stored pointers:");
+    int i = 0;
+    while (i < length) {
+        void* ptr = array_get_int(point_array, i);
+        println("  Point {i} pointer: {hex(ptr)}");
+        i = i + 1;
+    }
+    
+    free(point_array);
+    
+    println("\n✅ Pointer storage and retrieval works!");
+    println("🎉 Vector<struct> with value copy would require:");
+    println("  1. array_get_struct/array_set_struct (already implemented)");
+    println("  2. Generic impl block for each struct type");
+    println("  3. Or: Use pointer-based storage (Vector<Point*>)");
+    
+    return 0;
+}

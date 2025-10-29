@@ -1,0 +1,289 @@
+import "stdlib/collections/vector.cb";
+
+// テスト用構造体
+struct Point {
+    int x;
+    int y;
+};
+
+// Vector<Point>の実装
+impl VectorOps<Point> for Vector<Point> {
+    void init(int initial_capacity) {
+        self.capacity = initial_capacity;
+        self.length = 0;
+        self.data = new Point[initial_capacity];
+        
+        println("[Vector<Point>] Initialized with capacity={initial_capacity}");
+        println("[Vector<Point>] Allocated memory at {hex(self.data)}");
+    }
+    
+    void push(Point value) {
+        if (self.length >= self.capacity) {
+            println("[Vector<Point>] Error: Capacity full! (size={self.length}, capacity={self.capacity})");
+            return;
+        }
+        
+        array_set_struct(self.data, self.length, value);
+        self.length = self.length + 1;
+        
+        println("[Vector<Point>] Pushed Point({value.x}, {value.y}) at index={self.length - 1}");
+    }
+    
+    Point pop() {
+        if (self.length <= 0) {
+            println("[Vector<Point>] Empty! Cannot pop");
+            Point empty;
+            empty.x = 0;
+            empty.y = 0;
+            return empty;
+        }
+        
+        self.length = self.length - 1;
+        Point value = array_get_struct<Point>(self.data, self.length);
+        
+        println("[Vector<Point>] Popped Point({value.x}, {value.y}) from index={self.length}");
+        return value;
+    }
+    
+    Point get(int index) {
+        if (index < 0 || index >= self.length) {
+            println("[Vector<Point>] Error: Index out of bounds (index={index}, length={self.length})");
+            Point empty;
+            empty.x = 0;
+            empty.y = 0;
+            return empty;
+        }
+        
+        Point value = array_get_struct<Point>(self.data, index);
+        return value;
+    }
+    
+    void resize(int new_capacity) {
+        if (new_capacity <= self.capacity) {
+            println("[Vector<Point>] No resize needed");
+            return;
+        }
+        
+        println("[Vector<Point>] Resizing from {self.capacity} to {new_capacity}");
+        
+        void* new_data = new Point[new_capacity];
+        
+        int copy_size = self.length * sizeof(Point);
+        memcpy(new_data, self.data, copy_size);
+        
+        println("[Vector<Point>] Copied {self.length} elements ({copy_size} bytes)");
+        
+        delete self.data;
+        self.data = new_data;
+        self.capacity = new_capacity;
+        
+        println("[Vector<Point>] Resize complete");
+    }
+    
+    void info() {
+        println("[Vector<Point>] length={self.length}, capacity={self.capacity}");
+    }
+    
+    int get_length() {
+        return self.length;
+    }
+    
+    int get_capacity() {
+        return self.capacity;
+    }
+    
+    bool is_empty() {
+        return self.length == 0;
+    }
+    
+    void destroy() {
+        println("[Vector<Point>] Destructor: Freeing memory");
+        delete self.data;
+    }
+    
+    void destroy() {
+        if (self.data != nullptr) {
+            println("[Vector<Point>] Destructor: Freeing memory at {hex(self.data)}");
+            delete self.data;
+            self.data = nullptr;
+        }
+    }
+}
+
+void test_vector_string() {
+    println("\n╔════════════════════════════════════════════╗");
+    println("║  Vector<string> Test                      ║");
+    println("╚════════════════════════════════════════════╝\n");
+    
+    Vector<string> vec;
+    vec.init(5);
+    
+    println("=== Test: push() ===");
+    vec.push("Hello");
+    vec.push("World");
+    vec.push("Cb");
+    vec.push("Language");
+    if (vec.get_length() == 4) {
+        println("✅ Vector<string> push works (length={vec.get_length()})");
+    }
+    
+    println("\n=== Test: get() ===");
+    string s0 = vec.get(0);
+    string s1 = vec.get(1);
+    string s3 = vec.get(3);
+    if (s0 == "Hello" && s1 == "World" && s3 == "Language") {
+        println("✅ Vector<string> get works (s0={s0}, s1={s1}, s3={s3})");
+    }
+    
+    println("\n=== Test: pop() ===");
+    string popped = vec.pop();
+    if (popped == "Language" && vec.get_length() == 3) {
+        println("✅ Vector<string> pop works (popped={popped}, length={vec.get_length()})");
+    }
+    
+    println("\n=== Test: resize() ===");
+    vec.resize(10);
+    if (vec.get_capacity() == 10) {
+        println("✅ Vector<string> resize works (capacity={vec.get_capacity()})");
+    }
+    vec.push("After");
+    vec.push("Resize");
+    if (vec.get_length() == 5) {
+        println("✅ Vector<string> push after resize works (length={vec.get_length()})");
+    }
+    
+    println("\n=== Test: is_empty() ===");
+    if (!vec.is_empty()) {
+        println("✅ Vector<string> is_empty works (is_empty={vec.is_empty()})");
+    }
+    
+    println("\n=== Test: info() ===");
+    vec.info();
+}
+
+void test_vector_double() {
+    println("\n╔════════════════════════════════════════════╗");
+    println("║  Vector<double> Test                      ║");
+    println("╚════════════════════════════════════════════╝\n");
+    
+    Vector<double> vec;
+    vec.init(5);
+    
+    println("=== Test: push() ===");
+    vec.push(3.14);
+    vec.push(2.71);
+    vec.push(1.41);
+    if (vec.get_length() == 3) {
+        println("✅ Vector<double> push works (length={vec.get_length()})");
+    }
+    
+    println("\n=== Test: get() ===");
+    double d0 = vec.get(0);
+    double d1 = vec.get(1);
+    double d2 = vec.get(2);
+    println("Values: d0={d0}, d1={d1}, d2={d2}");
+    if (d0 > 3.13 && d0 < 3.15 && d1 > 2.70 && d1 < 2.72) {
+        println("✅ Vector<double> get works");
+    }
+    
+    println("\n=== Test: pop() ===");
+    double popped = vec.pop();
+    println("Popped: {popped}");
+    if (vec.get_length() == 2) {
+        println("✅ Vector<double> pop works (length={vec.get_length()})");
+    }
+    
+    println("\n=== Test: resize() ===");
+    vec.resize(10);
+    if (vec.get_capacity() == 10) {
+        println("✅ Vector<double> resize works (capacity={vec.get_capacity()})");
+    }
+    vec.push(9.99);
+    vec.push(8.88);
+    if (vec.get_length() == 4) {
+        println("✅ Vector<double> push after resize works (length={vec.get_length()})");
+    }
+    
+    println("\n=== Test: info() ===");
+    vec.info();
+}
+
+void test_vector_point() {
+    println("\n╔════════════════════════════════════════════╗");
+    println("║  Vector<Point> Test (struct type)        ║");
+    println("╚════════════════════════════════════════════╝\n");
+    
+    Vector<Point> vec;
+    vec.init(5);
+    
+    println("=== Test: push() ===");
+    Point p1;
+    p1.x = 10;
+    p1.y = 20;
+    vec.push(p1);
+    
+    Point p2;
+    p2.x = 30;
+    p2.y = 40;
+    vec.push(p2);
+    
+    Point p3;
+    p3.x = 50;
+    p3.y = 60;
+    vec.push(p3);
+    
+    if (vec.get_length() == 3) {
+        println("✅ Vector<Point> push works (length={vec.get_length()})");
+    }
+    
+    println("\n=== Test: get() ===");
+    Point retrieved = vec.get(0);
+    println("Retrieved Point: ({retrieved.x}, {retrieved.y})");
+    if (retrieved.x == 10 && retrieved.y == 20) {
+        println("✅ Vector<Point> get works");
+    }
+    
+    Point retrieved2 = vec.get(1);
+    println("Retrieved Point: ({retrieved2.x}, {retrieved2.y})");
+    if (retrieved2.x == 30 && retrieved2.y == 40) {
+        println("✅ Vector<Point> get works for index 1");
+    }
+    
+    println("\n=== Test: pop() ===");
+    Point popped = vec.pop();
+    println("Popped Point: ({popped.x}, {popped.y})");
+    if (popped.x == 50 && popped.y == 60 && vec.get_length() == 2) {
+        println("✅ Vector<Point> pop works (length={vec.get_length()})");
+    }
+    
+    println("\n=== Test: resize() ===");
+    vec.resize(10);
+    if (vec.get_capacity() == 10) {
+        println("✅ Vector<Point> resize works (capacity={vec.get_capacity()})");
+    }
+    
+    Point p4;
+    p4.x = 70;
+    p4.y = 80;
+    vec.push(p4);
+    if (vec.get_length() == 3) {
+        println("✅ Vector<Point> push after resize works (length={vec.get_length()})");
+    }
+    
+    println("\n=== Test: info() ===");
+    vec.info();
+}
+
+void main() {
+    println("╔════════════════════════════════════════════════════════════╗");
+    println("║  Vector Generic Types Comprehensive Test                  ║");
+    println("╚════════════════════════════════════════════════════════════╝");
+    
+    test_vector_string();
+    test_vector_double();
+    test_vector_point();
+    
+    println("\n╔════════════════════════════════════════════════════════════╗");
+    println("║  All Vector Generic Type Tests Completed!                 ║");
+    println("╚════════════════════════════════════════════════════════════╝");
+}

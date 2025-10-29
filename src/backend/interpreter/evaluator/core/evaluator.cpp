@@ -237,6 +237,18 @@ ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode *node) {
             InferredType function_return_type =
                 type_engine_.infer_function_return_type(node->name, {});
 
+            // array_get_double は特別扱い: ビット表現からdoubleに変換
+            if (node->name == "array_get_double") {
+                int64_t bits = evaluate_expression(node);
+                union {
+                    double d;
+                    int64_t i;
+                } converter;
+                converter.i = bits;
+                return TypedValue(converter.d,
+                                  InferredType(TYPE_DOUBLE, "double"));
+            }
+
             // 関数を実行して結果を取得
             int64_t numeric_result = evaluate_expression(node);
 

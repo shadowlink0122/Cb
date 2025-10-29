@@ -466,4 +466,75 @@ instantiate_generic_function(const ASTNode *func,
     return instantiated;
 }
 
+// implブロックをインスタンス化（新機能: impl VectorOps<T> for Vector<T>対応）
+// impl_node: implブロックのASTノード
+// type_arguments: 型引数リスト ["int"] など
+// interface_name: インターフェース名 "VectorOps<T>" など
+// struct_name: 構造体名 "Vector<T>" など
+// 戻り値: {インスタンス化されたinterfacename, 構造体名, ASTノード}
+std::tuple<std::string, std::string, std::unique_ptr<ASTNode>>
+instantiate_generic_impl(const ASTNode *impl_node,
+                         const std::vector<std::string> &type_arguments,
+                         const std::string &interface_name,
+                         const std::string &struct_name) {
+    if (!impl_node) {
+        throw std::runtime_error("instantiate_generic_impl: null impl_node");
+    }
+
+    // 型パラメータの抽出（interface_nameから）
+    // "VectorOps<T>" -> ["T"]
+    std::vector<std::string> type_parameters;
+
+    // interface_nameから型パラメータを抽出
+    size_t lt_pos = interface_name.find('<');
+    if (lt_pos != std::string::npos) {
+        size_t gt_pos = interface_name.rfind('>');
+        if (gt_pos != std::string::npos) {
+            std::string params_str =
+                interface_name.substr(lt_pos + 1, gt_pos - lt_pos - 1);
+            // カンマで分割（簡易版、ネストしたジェネリクスは未対応）
+            std::stringstream ss(params_str);
+            std::string param;
+            while (std::getline(ss, param, ',')) {
+                // トリム
+                size_t start = param.find_first_not_of(" \t");
+                size_t end = param.find_last_not_of(" \t");
+                if (start != std::string::npos) {
+                    type_parameters.push_back(
+                        param.substr(start, end - start + 1));
+                }
+            }
+        }
+    }
+
+    // 型パラメータと型引数の数が一致するかチェック
+    if (type_parameters.size() != type_arguments.size()) {
+        throw std::runtime_error(
+            "Type argument count mismatch for impl: expected " +
+            std::to_string(type_parameters.size()) + ", got " +
+            std::to_string(type_arguments.size()));
+    }
+
+    // 型パラメータ → 型引数のマッピングを作成
+    std::map<std::string, std::string> type_map;
+    for (size_t i = 0; i < type_parameters.size(); ++i) {
+        type_map[type_parameters[i]] = type_arguments[i];
+    }
+
+    // implノードをクローン
+    auto instantiated = clone_ast_node(impl_node);
+
+    // 型パラメータを置換
+    substitute_type_parameters(instantiated.get(), type_map);
+
+    // interface_nameとstruct_nameも置換
+    std::string instantiated_interface =
+        substitute_generic_type_name(interface_name, type_map);
+    std::string instantiated_struct =
+        substitute_generic_type_name(struct_name, type_map);
+
+    return {instantiated_interface, instantiated_struct,
+            std::move(instantiated)};
+}
+
 } // namespace GenericInstantiation

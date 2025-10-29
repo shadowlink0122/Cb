@@ -1,0 +1,142 @@
+// 構造体配列の動的確保の代替実装
+// malloc の制限により、構造体配列はラッパー構造体経由でアクセスする
+
+struct Point {
+    int x;
+    int y;
+};
+
+// Point配列をラップする構造体
+struct PointArray {
+    Point* data;
+    int capacity;
+    int element_size;
+};
+
+// PointArrayを初期化
+PointArray* point_array_new(int capacity) {
+    PointArray* arr = malloc(sizeof(PointArray));
+    arr->capacity = capacity;
+    arr->element_size = sizeof(Point);
+    arr->data = malloc(arr->element_size * capacity);
+    return arr;
+}
+
+// インデックスiの要素のアドレスを計算
+void* point_array_get_ptr(PointArray* arr, int index) {
+    if (index < 0 || index >= arr->capacity) {
+        println("Error: index out of bounds");
+        return nullptr;
+    }
+    long base = arr->data;
+    long offset = index * arr->element_size;
+    long target = base + offset;
+    void* result = target;
+    return result;
+}
+
+// メンバーを設定（低レベルAPI使用）
+void point_array_set(PointArray* arr, int index, int x_val, int y_val) {
+    void* ptr = point_array_get_ptr(arr, index);
+    if (ptr == nullptr) return;
+    
+    // x は offset 0
+    array_set_int(ptr, 0, x_val);
+    // y は offset 1 (intサイズ単位)
+    array_set_int(ptr, 1, y_val);
+}
+
+// メンバーを取得
+int point_array_get_x(PointArray* arr, int index) {
+    void* ptr = point_array_get_ptr(arr, index);
+    if (ptr == nullptr) return 0;
+    return array_get_int(ptr, 0);
+}
+
+int point_array_get_y(PointArray* arr, int index) {
+    void* ptr = point_array_get_ptr(arr, index);
+    if (ptr == nullptr) return 0;
+    return array_get_int(ptr, 1);
+}
+
+// 解放
+void point_array_free(PointArray* arr) {
+    if (arr->data != nullptr) {
+        free(arr->data);
+    }
+    free(arr);
+}
+
+int main() {
+    println("=== Dynamic Struct Array (Alternative Implementation) ===\n");
+    
+    println("--- Test 1: PointArray creation and initialization ---");
+    int N = 5;
+    PointArray* points = point_array_new(N);
+    println("✅ Created PointArray with capacity {N}");
+    
+    // 初期化
+    println("\nInitializing elements...");
+    int i = 0;
+    while (i < N) {
+        point_array_set(points, i, i * 10, i * 20);
+        int x = point_array_get_x(points, i);
+        int y = point_array_get_y(points, i);
+        println("  points[{i}] = ({x}, {y})");
+        i = i + 1;
+    }
+    
+    // 読み出し
+    println("\n--- Test 2: Reading values ---");
+    i = 0;
+    bool values_ok = true;
+    while (i < N) {
+        int x = point_array_get_x(points, i);
+        int y = point_array_get_y(points, i);
+        int expected_x = i * 10;
+        int expected_y = i * 20;
+        
+        if (x != expected_x || y != expected_y) {
+            println("❌ points[{i}] has wrong values: ({x}, {y})");
+            values_ok = false;
+        }
+        i = i + 1;
+    }
+    
+    if (values_ok) {
+        println("✅ All values are correct");
+    }
+    
+    // 変更
+    println("\n--- Test 3: Modifying elements ---");
+    point_array_set(points, 0, 100, 200);
+    point_array_set(points, 2, 300, 400);
+    
+    int x0 = point_array_get_x(points, 0);
+    int y0 = point_array_get_y(points, 0);
+    println("points[0] = ({x0}, {y0})");
+    
+    int x2 = point_array_get_x(points, 2);
+    int y2 = point_array_get_y(points, 2);
+    println("points[2] = ({x2}, {y2})");
+    
+    // points[1]が影響を受けていないことを確認
+    int x1 = point_array_get_x(points, 1);
+    int y1 = point_array_get_y(points, 1);
+    if (x1 == 10 && y1 == 20) {
+        println("✅ points[1] remains unchanged: ({x1}, {y1})");
+    } else {
+        println("❌ points[1] was corrupted: ({x1}, {y1})");
+    }
+    
+    point_array_free(points);
+    println("\n✅ Memory freed");
+    
+    println("\n🎉 Dynamic Struct Array (Alternative) Tests Passed!");
+    println("\nNOTE: Due to interpreter limitations, malloc'd memory cannot");
+    println("      directly support struct member access (ptr->member).");
+    println("      This implementation uses array_get_int/array_set_int as");
+    println("      a workaround for low-level memory access.");
+    
+    return 0;
+}

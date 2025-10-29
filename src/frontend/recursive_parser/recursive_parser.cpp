@@ -16,6 +16,7 @@
 #include <cctype>
 #include <fstream>
 #include <iostream>
+#include <set>
 #include <sstream>
 #include <unordered_set>
 
@@ -1889,13 +1890,24 @@ std::string RecursiveParser::resolveModulePath(const std::string &module_path) {
  *
  * これにより、import後に型を使用する際にParser側で型が認識される
  */
-void RecursiveParser::processImport(const std::string &module_path) {
+void RecursiveParser::processImport(
+    const std::string &module_path,
+    const std::vector<std::string> &import_items) {
     // パス解決
     std::string resolved_path = resolveModulePath(module_path);
 
     if (debug_mode_) {
         std::cerr << "[IMPORT] Processing import: " << module_path << " -> "
                   << resolved_path << std::endl;
+        if (!import_items.empty()) {
+            std::cerr << "[IMPORT] Selective import: {";
+            for (size_t i = 0; i < import_items.size(); ++i) {
+                if (i > 0)
+                    std::cerr << ", ";
+                std::cerr << import_items[i];
+            }
+            std::cerr << "}" << std::endl;
+        }
     }
 
     // ファイルを開く
@@ -1933,11 +1945,88 @@ void RecursiveParser::processImport(const std::string &module_path) {
         return;
     }
 
+    // 選択的importの場合は、指定された項目のみをチェック
+    // 空の場合は全てimport（デフォルトimport）
+    bool is_selective = !import_items.empty();
+
+    // 選択的importで必要な依存関係を自動的に追加するための一時リスト
+    std::set<std::string> items_to_import;
+    if (is_selective) {
+        items_to_import.insert(import_items.begin(), import_items.end());
+    }
+
+    auto should_import_item = [&](const std::string &name) -> bool {
+        if (!is_selective) {
+            return true; // デフォルトimport: 全てimport
+        }
+        // 選択的import: 指定された項目または依存関係に含まれるもの
+        return items_to_import.find(name) != items_to_import.end();
+    };
+
+    // 選択的importの場合、依存関係を解決
+    // 例: SystemAllocatorをimportする場合、Allocatorインターフェースも必要
+    if (is_selective) {
+        // struct定義をチェックして、依存するinterfaceを追加
+        for (const auto &item_name : import_items) {
+            auto it = module_parser.struct_definitions_.find(item_name);
+            if (it != module_parser.struct_definitions_.end()) {
+                const StructDefinition &def = it->second;
+
+                // 型パラメータの境界インターフェースをチェック
+                // 例: A: Allocator の場合、Allocatorを自動的にimport
+                for (const auto &bound_pair : def.interface_bounds) {
+                    for (const auto &bound : bound_pair.second) {
+                        items_to_import.insert(bound);
+                        if (debug_mode_) {
+                            std::cerr << "[IMPORT] Auto-importing dependency: "
+                                      << bound << " (required by " << item_name
+                                      << ")" << std::endl;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     // モジュールからexportされた定義を取り込む
-    // 1. struct定義
+    // 1. interface定義（structより先に処理して依存関係を解決）
+    for (const auto &pair : module_parser.interface_definitions_) {
+        const std::string &name = pair.first;
+        const InterfaceDefinition &def = pair.second;
+
+        // 選択的importの場合、指定された項目かチェック
+        if (!should_import_item(name)) {
+            continue;
+        }
+
+        bool is_exported = false;
+        if (module_ast && !module_ast->statements.empty()) {
+            for (const auto &stmt : module_ast->statements) {
+                if (stmt && stmt->name == name && stmt->is_exported) {
+                    is_exported = true;
+                    break;
+                }
+            }
+        }
+
+        if (is_exported) {
+            interface_definitions_[name] = def;
+            if (debug_mode_) {
+                std::cerr << "[IMPORT] Imported interface: " << name
+                          << std::endl;
+            }
+        }
+    }
+
+    // 2. struct定義
     for (const auto &pair : module_parser.struct_definitions_) {
         const std::string &name = pair.first;
         const StructDefinition &def = pair.second;
+
+        // 選択的importの場合、指定された項目かチェック
+        if (!should_import_item(name)) {
+            continue;
+        }
 
         // 元のASTでis_exportedフラグをチェック
         bool is_exported = false;
@@ -1963,34 +2052,15 @@ void RecursiveParser::processImport(const std::string &module_path) {
         }
     }
 
-    // 2. interface定義
-    for (const auto &pair : module_parser.interface_definitions_) {
-        const std::string &name = pair.first;
-        const InterfaceDefinition &def = pair.second;
-
-        bool is_exported = false;
-        if (module_ast && !module_ast->statements.empty()) {
-            for (const auto &stmt : module_ast->statements) {
-                if (stmt && stmt->name == name && stmt->is_exported) {
-                    is_exported = true;
-                    break;
-                }
-            }
-        }
-
-        if (is_exported) {
-            interface_definitions_[name] = def;
-            if (debug_mode_) {
-                std::cerr << "[IMPORT] Imported interface: " << name
-                          << std::endl;
-            }
-        }
-    }
-
     // 3. enum定義
     for (const auto &pair : module_parser.enum_definitions_) {
         const std::string &name = pair.first;
         const EnumDefinition &def = pair.second;
+
+        // 選択的importの場合、指定された項目かチェック
+        if (!should_import_item(name)) {
+            continue;
+        }
 
         bool is_exported = false;
         if (module_ast && !module_ast->statements.empty()) {
@@ -2017,10 +2087,44 @@ void RecursiveParser::processImport(const std::string &module_path) {
         // exportされたstructまたはinterfaceに関連するimplのみを取り込む
         bool should_import = false;
 
+        if (debug_mode_) {
+            std::cerr << "[IMPORT] Checking impl: struct_name='"
+                      << impl.struct_name << "' interface_name='"
+                      << impl.interface_name << "'" << std::endl;
+        }
+
         // struct_nameがexportされているかチェック
+        // ジェネリック型の場合、"Vector<int,
+        // SystemAllocator>"や"Vector_int_SystemAllocator"から"Vector"を抽出
+        std::string base_struct_name = impl.struct_name;
+
+        // パターン1: "Vector<int, SystemAllocator>" -> "Vector"
+        size_t bracket_pos = impl.struct_name.find('<');
+        if (bracket_pos != std::string::npos) {
+            base_struct_name = impl.struct_name.substr(0, bracket_pos);
+        } else {
+            // パターン2: "Vector_int_SystemAllocator" -> "Vector"
+            size_t underscore_pos = impl.struct_name.find('_');
+            if (underscore_pos != std::string::npos) {
+                base_struct_name = impl.struct_name.substr(0, underscore_pos);
+            }
+        }
+
         if (struct_definitions_.find(impl.struct_name) !=
             struct_definitions_.end()) {
             should_import = true;
+            if (debug_mode_) {
+                std::cerr << "[IMPORT]   -> Matched by full name" << std::endl;
+            }
+        } else if (base_struct_name != impl.struct_name &&
+                   struct_definitions_.find(base_struct_name) !=
+                       struct_definitions_.end()) {
+            // ジェネリック型の場合、ベース名でもチェック
+            should_import = true;
+            if (debug_mode_) {
+                std::cerr << "[IMPORT]   -> Matched by base name '"
+                          << base_struct_name << "'" << std::endl;
+            }
         }
 
         // interface_nameがexportされているかチェック
@@ -2028,6 +2132,10 @@ void RecursiveParser::processImport(const std::string &module_path) {
             interface_definitions_.find(impl.interface_name) !=
                 interface_definitions_.end()) {
             should_import = true;
+            if (debug_mode_) {
+                std::cerr << "[IMPORT]   -> Matched by interface name"
+                          << std::endl;
+            }
         }
 
         if (should_import) {
@@ -2036,6 +2144,8 @@ void RecursiveParser::processImport(const std::string &module_path) {
                 std::cerr << "[IMPORT] Imported impl: " << impl.struct_name
                           << " for " << impl.interface_name << std::endl;
             }
+        } else if (debug_mode_) {
+            std::cerr << "[IMPORT]   -> NOT imported (no match)" << std::endl;
         }
     }
 

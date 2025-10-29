@@ -5,52 +5,77 @@
 #include <iostream>
 #include <string>
 
-// Vector library import tests
-// NOTE: Generic type import is not yet supported in the parser.
-// These tests are disabled until parser-time import preprocessing is implemented.
-// See: docs/features/import_system_limitations.md
+/**
+ * @brief Vector stdlib test
+ * 
+ * Tests the Vector library from stdlib/collections/vector.cb
+ * using the test file: tests/cases/stdlib/collections/test_vector_import.cb
+ * 
+ * This test verifies:
+ * 1. Vector import with generic types
+ * 2. Basic operations (push, pop)
+ * 3. Resize functionality
+ * 4. Destructor behavior
+ */
 
-inline void test_vector_library_import() {
-    // DISABLED: Generic type import requires parser-time preprocessing
-    std::cout << "[1/5] Testing Vector library import... SKIPPED (generic type import not supported)\n";
-}
-
-inline void test_vector_library_operations() {
-    // DISABLED: Generic type import requires parser-time preprocessing
-    std::cout << "[2/5] Testing Vector library operations... SKIPPED (generic type import not supported)\n";
-}
-
-inline void test_vector_library_resize() {
-    // DISABLED: Generic type import requires parser-time preprocessing
-    std::cout << "[3/5] Testing Vector library resize... SKIPPED (generic type import not supported)\n";
-}
-
-inline void test_vector_library_destructor() {
-    // DISABLED: Generic type import requires parser-time preprocessing
-    std::cout << "[4/5] Testing Vector library destructor... SKIPPED (generic type import not supported)\n";
-}
-
-inline void test_vector_demo_execution() {
-    // Test that sample/vector_demo.cb also works
-    std::cout << "[5/5] Testing Vector demo...\n";
+inline void test_vector_import_comprehensive() {
+    std::cout << "[Collections] Testing Vector library import...\n";
     
-    std::string cmd = "cd ../.. && ./main sample/vector_demo.cb > /dev/null 2>&1";
-    int status = system(cmd.c_str());
-    int exit_code = WEXITSTATUS(status);
+    // Run the Cb test file
+    auto [output, exit_code] = run_cb_test(
+        "tests/cases/stdlib/collections/test_vector_import.cb");
     
-    STDLIB_ASSERT_EQ(exit_code, 0);
+    // Verify exit code (should be 0 for success)
+    STDLIB_ASSERT_EQ(0, exit_code);
+    
+    // Verify output contains expected test results
+    STDLIB_ASSERT_CONTAINS(output, "Vector Library Import Test");
+    STDLIB_ASSERT_CONTAINS(output, "=== Test: Vector Import ===");
+    STDLIB_ASSERT_CONTAINS(output, "✅ Vector import and struct creation successful");
+    
+    STDLIB_ASSERT_CONTAINS(output, "=== Test: Vector Basic Operations ===");
+    STDLIB_ASSERT_CONTAINS(output, "✅ Vector push operations work");
+    STDLIB_ASSERT_CONTAINS(output, "✅ Vector pop operations work");
+    
+    STDLIB_ASSERT_CONTAINS(output, "=== Test: Vector Resize ===");
+    STDLIB_ASSERT_CONTAINS(output, "✅ Vector resize works");
+    STDLIB_ASSERT_CONTAINS(output, "✅ Vector operations after resize work");
+    
+    STDLIB_ASSERT_CONTAINS(output, "=== Test: Vector Destructor ===");
+    STDLIB_ASSERT_CONTAINS(output, "✅ Vector destructor works");
+    
+    STDLIB_ASSERT_CONTAINS(output, "All Vector library tests passed!");
+}
+
+inline void test_vector_selective_import() {
+    std::cout << "[Collections] Testing Vector selective import...\n";
+    
+    // Run the selective import test
+    auto [output, exit_code] = run_cb_test(
+        "tests/cases/stdlib/collections/test_selective_import.cb");
+    
+    STDLIB_ASSERT_EQ(0, exit_code);
+    STDLIB_ASSERT_CONTAINS(output, "✅ Default import works");
+    STDLIB_ASSERT_CONTAINS(output, "✅ Selective import works");
+}
+
+inline void test_vector_advanced_selective() {
+    std::cout << "[Collections] Testing Vector advanced selective import...\n";
+    
+    // Run the advanced selective import test
+    auto [output, exit_code] = run_cb_test(
+        "tests/cases/stdlib/collections/test_advanced_selective.cb");
+    
+    STDLIB_ASSERT_EQ(0, exit_code);
+    STDLIB_ASSERT_CONTAINS(output, "✅ Multiple selective import works");
+    STDLIB_ASSERT_CONTAINS(output, "✅ Single selective import works");
 }
 
 // Register all Vector tests
 inline void register_vector_tests(StdlibTestRunner& runner) {
-    // Import tests disabled until generic type import support is implemented
-    // runner.add_test("vector_library_import", test_vector_library_import);
-    // runner.add_test("vector_library_operations", test_vector_library_operations);
-    // runner.add_test("vector_library_resize", test_vector_library_resize);
-    // runner.add_test("vector_library_destructor", test_vector_library_destructor);
-    
-    // Demo execution test still valid
-    runner.add_test("vector_demo_execution", test_vector_demo_execution);
+    runner.add_test("vector_import_comprehensive", test_vector_import_comprehensive);
+    runner.add_test("vector_selective_import", test_vector_selective_import);
+    runner.add_test("vector_advanced_selective", test_vector_advanced_selective);
 }
 
 #endif // TEST_VECTOR_HPP

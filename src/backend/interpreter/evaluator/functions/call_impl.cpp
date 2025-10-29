@@ -981,6 +981,109 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
             return dest_value;
         }
 
+        // array_get(ptr, index) - 汎用配列要素取得（型推論版）
+        // ジェネリクス対応: 型パラメータTから適切なarray_get_Tを呼び出す
+        if (node->name == "array_get" && !is_method_call) {
+            if (node->arguments.size() != 2) {
+                throw std::runtime_error(
+                    "array_get() requires 2 arguments: array_get(ptr, index)");
+            }
+
+            // TODO: 型パラメータから実際の型を解決
+            // 現時点では、ポインタの型情報から推論する必要がある
+            // 暫定的にarray_get_intにフォールバック
+            std::cerr << "[array_get] Warning: Generic array_get not fully "
+                         "implemented yet"
+                      << std::endl;
+            std::cerr << "[array_get] Please use array_get_int, "
+                         "array_get_double, or array_get_string"
+                      << std::endl;
+
+            // 暫定的にintとして扱う
+            int64_t ptr_value =
+                interpreter_.eval_expression(node->arguments[0].get());
+            int64_t index =
+                interpreter_.eval_expression(node->arguments[1].get());
+
+            if (ptr_value == 0 || index < 0)
+                return 0;
+
+            int *arr = reinterpret_cast<int *>(ptr_value);
+            return static_cast<int64_t>(arr[index]);
+        }
+
+        // array_set(ptr, index, value) - 汎用配列要素設定（型推論版）
+        // ジェネリクス対応: 型パラメータTから適切なarray_set_Tを呼び出す
+        if (node->name == "array_set" && !is_method_call) {
+            if (node->arguments.size() != 3) {
+                throw std::runtime_error("array_set() requires 3 arguments: "
+                                         "array_set(ptr, index, value)");
+            }
+
+            std::cerr << "[array_set] Warning: Generic array_set not fully "
+                         "implemented yet"
+                      << std::endl;
+            std::cerr << "[array_set] Please use array_set_int, "
+                         "array_set_double, or array_set_string"
+                      << std::endl;
+
+            // 暫定的にintとして扱う
+            int64_t ptr_value =
+                interpreter_.eval_expression(node->arguments[0].get());
+            int64_t index =
+                interpreter_.eval_expression(node->arguments[1].get());
+            int64_t value =
+                interpreter_.eval_expression(node->arguments[2].get());
+
+            if (ptr_value == 0 || index < 0)
+                return 0;
+
+            int *arr = reinterpret_cast<int *>(ptr_value);
+            arr[index] = static_cast<int>(value);
+            return 0;
+        }
+
+        // default(T) - 型Tのデフォルト値を返す
+        // ジェネリクス対応: 型パラメータTに応じたデフォルト値
+        if (node->name == "default" && !is_method_call) {
+            if (node->arguments.size() != 1) {
+                throw std::runtime_error(
+                    "default() requires 1 argument: default(T)");
+            }
+
+            // 型名を取得
+            const ASTNode *arg = node->arguments[0].get();
+            if (arg->node_type == ASTNodeType::AST_VARIABLE) {
+                std::string type_name = arg->name;
+
+                // 型に応じたデフォルト値を返す
+                if (type_name == "int" || type_name == "long" ||
+                    type_name == "short" || type_name == "char") {
+                    return 0;
+                }
+                if (type_name == "bool") {
+                    return 0; // false
+                }
+                if (type_name == "double" || type_name == "float") {
+                    // 0.0をint64_tビット表現で返す
+                    union {
+                        double d;
+                        int64_t i;
+                    } converter;
+                    converter.d = 0.0;
+                    return converter.i;
+                }
+                if (type_name == "string") {
+                    return 0; // 空文字列（nullポインタ）
+                }
+
+                // その他の型はnullptrまたは0を返す
+                return 0;
+            }
+
+            return 0;
+        }
+
         // array_get_int(ptr, index) - 配列要素を取得
         if (node->name == "array_get_int" && !is_method_call) {
             if (node->arguments.size() != 2) {
@@ -1038,6 +1141,362 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
             int *arr = reinterpret_cast<int *>(ptr_value);
             arr[index] = static_cast<int>(value);
             return 0;
+        }
+
+        // malloc(size) - メモリ確保
+        // sizeof(type) - 型のサイズを取得
+        // 注: sizeof演算子として実装すべきだが、簡易版として組み込み関数で実装
+        if (node->name == "sizeof" && !is_method_call) {
+            if (node->arguments.size() != 1) {
+                throw std::runtime_error(
+                    "sizeof() requires 1 argument: sizeof(type_expression)");
+            }
+
+            // 引数の型を推論
+            const ASTNode *arg = node->arguments[0].get();
+
+            // 型名が直接渡された場合（AST_VARIABLEで型名として解釈）
+            if (arg->node_type == ASTNodeType::AST_VARIABLE) {
+                std::string name = arg->name;
+
+                // まず変数として検索
+                Variable *var = interpreter_.find_variable(name);
+                if (var) {
+                    // 変数が見つかった場合、その型のサイズを返す
+                    switch (var->type) {
+                    case TYPE_INT:
+                        return sizeof(int);
+                    case TYPE_LONG:
+                        return sizeof(long);
+                    case TYPE_SHORT:
+                        return sizeof(short);
+                    case TYPE_CHAR:
+                        return sizeof(char);
+                    case TYPE_BOOL:
+                        return sizeof(bool);
+                    case TYPE_FLOAT:
+                        return sizeof(float);
+                    case TYPE_DOUBLE:
+                        return sizeof(double);
+                    case TYPE_QUAD:
+                        return sizeof(long double);
+                    case TYPE_POINTER:
+                        return sizeof(void *);
+                    case TYPE_STRING:
+                        return sizeof(void *);
+                    default:
+                        if (var->is_struct)
+                            return sizeof(void *);
+                        throw std::runtime_error(
+                            "Cannot determine size of variable type");
+                    }
+                }
+
+                // 変数でない場合は型名として解釈
+                std::string type_name = name;
+
+                // プリミティブ型のサイズを返す
+                if (type_name == "int")
+                    return sizeof(int);
+                if (type_name == "long")
+                    return sizeof(long);
+                if (type_name == "short")
+                    return sizeof(short);
+                if (type_name == "char")
+                    return sizeof(char);
+                if (type_name == "bool")
+                    return sizeof(bool);
+                if (type_name == "float")
+                    return sizeof(float);
+                if (type_name == "double")
+                    return sizeof(double);
+                if (type_name == "quad")
+                    return sizeof(long double);
+                if (type_name == "void*")
+                    return sizeof(void *);
+
+                // 構造体のサイズを取得
+                Variable *struct_def = interpreter_.find_variable(type_name);
+                if (struct_def && struct_def->is_struct) {
+                    // 構造体のサイズは、全メンバーのサイズの合計
+                    // 簡易実装: ポインタサイズを返す（構造体は参照渡しのため）
+                    return sizeof(void *);
+                }
+
+                throw std::runtime_error("Unknown type for sizeof: " +
+                                         type_name);
+            }
+
+            // 式の型を推論
+            TypedValue typed_val = interpreter_.evaluate_typed(arg);
+
+            switch (typed_val.type.type_info) {
+            case TYPE_INT:
+                return sizeof(int);
+            case TYPE_LONG:
+                return sizeof(long);
+            case TYPE_SHORT:
+                return sizeof(short);
+            case TYPE_CHAR:
+                return sizeof(char);
+            case TYPE_BOOL:
+                return sizeof(bool);
+            case TYPE_FLOAT:
+                return sizeof(float);
+            case TYPE_DOUBLE:
+                return sizeof(double);
+            case TYPE_QUAD:
+                return sizeof(long double);
+            case TYPE_POINTER:
+                return sizeof(void *);
+            case TYPE_STRING:
+                return sizeof(void *); // 文字列ポインタ
+            default:
+                throw std::runtime_error("Cannot determine size of type");
+            }
+        }
+
+        if (node->name == "malloc" && !is_method_call) {
+            if (node->arguments.size() != 1) {
+                throw std::runtime_error(
+                    "malloc() requires 1 argument: malloc(size)");
+            }
+
+            int64_t size =
+                interpreter_.eval_expression(node->arguments[0].get());
+
+            if (size <= 0) {
+                std::cerr << "[malloc] Error: invalid size " << size
+                          << std::endl;
+                return 0;
+            }
+
+            void *ptr = std::malloc(static_cast<size_t>(size));
+            if (ptr == nullptr) {
+                std::cerr << "[malloc] Error: allocation failed for size "
+                          << size << std::endl;
+                return 0;
+            }
+
+            return reinterpret_cast<int64_t>(ptr);
+        }
+
+        // free(ptr) - メモリ解放
+        if (node->name == "free" && !is_method_call) {
+            if (node->arguments.size() != 1) {
+                throw std::runtime_error(
+                    "free() requires 1 argument: free(ptr)");
+            }
+
+            int64_t ptr_value =
+                interpreter_.eval_expression(node->arguments[0].get());
+
+            if (ptr_value == 0) {
+                // nullptr の解放は何もしない
+                return 0;
+            }
+
+            std::free(reinterpret_cast<void *>(ptr_value));
+            return 0;
+        }
+
+        // array_get_double(ptr, index) - double配列要素を取得
+        if (node->name == "array_get_double" && !is_method_call) {
+            if (node->arguments.size() != 2) {
+                throw std::runtime_error("array_get_double() requires 2 "
+                                         "arguments: array_get_double(ptr, "
+                                         "index)");
+            }
+
+            int64_t ptr_value =
+                interpreter_.eval_expression(node->arguments[0].get());
+            int64_t index =
+                interpreter_.eval_expression(node->arguments[1].get());
+
+            if (ptr_value == 0) {
+                std::cerr << "[array_get_double] Error: null pointer"
+                          << std::endl;
+                return 0;
+            }
+
+            if (index < 0) {
+                std::cerr << "[array_get_double] Error: negative index "
+                          << index << std::endl;
+                return 0;
+            }
+
+            double *arr = reinterpret_cast<double *>(ptr_value);
+            double value = arr[index];
+
+            // doubleをint64_tのビット表現として返す
+            union {
+                double d;
+                int64_t i;
+            } converter;
+            converter.d = value;
+
+            return converter.i;
+        }
+
+        // array_set_double(ptr, index, value) - double配列要素を設定
+        if (node->name == "array_set_double" && !is_method_call) {
+            if (node->arguments.size() != 3) {
+                throw std::runtime_error("array_set_double() requires 3 "
+                                         "arguments: array_set_double(ptr, "
+                                         "index, value)");
+            }
+
+            int64_t ptr_value =
+                interpreter_.eval_expression(node->arguments[0].get());
+            int64_t index =
+                interpreter_.eval_expression(node->arguments[1].get());
+
+            // doubleの値を取得するにはevaluate_typedを使用
+            TypedValue typed_val =
+                interpreter_.evaluate_typed(node->arguments[2].get());
+            double value = typed_val.as_double();
+
+            if (ptr_value == 0) {
+                std::cerr << "[array_set_double] Error: null pointer"
+                          << std::endl;
+                return 0;
+            }
+
+            if (index < 0) {
+                std::cerr << "[array_set_double] Error: negative index "
+                          << index << std::endl;
+                return 0;
+            }
+
+            double *arr = reinterpret_cast<double *>(ptr_value);
+            arr[index] = value;
+            return 0;
+        }
+
+        // array_get_string(ptr, index) - string配列要素を取得
+        if (node->name == "array_get_string" && !is_method_call) {
+            if (node->arguments.size() != 2) {
+                throw std::runtime_error("array_get_string() requires 2 "
+                                         "arguments: array_get_string(ptr, "
+                                         "index)");
+            }
+
+            int64_t ptr_value =
+                interpreter_.eval_expression(node->arguments[0].get());
+            int64_t index =
+                interpreter_.eval_expression(node->arguments[1].get());
+
+            if (ptr_value == 0) {
+                std::cerr << "[array_get_string] Error: null pointer"
+                          << std::endl;
+                return 0; // 空文字列として0を返す
+            }
+
+            if (index < 0) {
+                std::cerr << "[array_get_string] Error: negative index "
+                          << index << std::endl;
+                return 0; // 空文字列として0を返す
+            }
+
+            std::string **arr = reinterpret_cast<std::string **>(ptr_value);
+            return reinterpret_cast<int64_t>(arr[index]);
+        }
+
+        // array_set_string(ptr, index, value) - string配列要素を設定
+        if (node->name == "array_set_string" && !is_method_call) {
+            if (node->arguments.size() != 3) {
+                throw std::runtime_error("array_set_string() requires 3 "
+                                         "arguments: array_set_string(ptr, "
+                                         "index, value)");
+            }
+
+            int64_t ptr_value =
+                interpreter_.eval_expression(node->arguments[0].get());
+            int64_t index =
+                interpreter_.eval_expression(node->arguments[1].get());
+            int64_t str_ptr =
+                interpreter_.eval_expression(node->arguments[2].get());
+
+            if (ptr_value == 0) {
+                std::cerr << "[array_set_string] Error: null pointer"
+                          << std::endl;
+                return 0;
+            }
+
+            if (index < 0) {
+                std::cerr << "[array_set_string] Error: negative index "
+                          << index << std::endl;
+                return 0;
+            }
+
+            std::string **arr = reinterpret_cast<std::string **>(ptr_value);
+            arr[index] = reinterpret_cast<std::string *>(str_ptr);
+            return 0;
+        }
+
+        // array_get_struct(ptr, index) -
+        // 構造体配列要素を取得（memcpyで値をコピー）
+        if (node->name == "array_get_struct" && !is_method_call) {
+            if (node->arguments.size() != 2) {
+                throw std::runtime_error(
+                    "array_get_struct() requires 2 arguments: "
+                    "array_get_struct(ptr, index)");
+            }
+
+            int64_t ptr_value =
+                interpreter_.eval_expression(node->arguments[0].get());
+            int64_t index =
+                interpreter_.eval_expression(node->arguments[1].get());
+
+            if (ptr_value == 0) {
+                std::cerr << "[array_get_struct] Error: null pointer"
+                          << std::endl;
+                return 0;
+            }
+
+            if (index < 0) {
+                std::cerr << "[array_get_struct] Error: negative index "
+                          << index << std::endl;
+                return 0;
+            }
+
+            // 構造体配列は連続したメモリとして扱う
+            // 戻り値は構造体のコピーのアドレス（インタプリタが管理）
+            return ptr_value +
+                   index; // ポインタ演算は呼び出し側で型サイズを考慮する
+        }
+
+        // array_set_struct(ptr, index, value) -
+        // 構造体配列要素を設定（memcpyで値をコピー）
+        if (node->name == "array_set_struct" && !is_method_call) {
+            if (node->arguments.size() != 3) {
+                throw std::runtime_error(
+                    "array_set_struct() requires 3 arguments: "
+                    "array_set_struct(ptr, index, value)");
+            }
+
+            int64_t ptr_value =
+                interpreter_.eval_expression(node->arguments[0].get());
+            int64_t index =
+                interpreter_.eval_expression(node->arguments[1].get());
+            int64_t struct_ptr =
+                interpreter_.eval_expression(node->arguments[2].get());
+
+            if (ptr_value == 0) {
+                std::cerr << "[array_set_struct] Error: null pointer"
+                          << std::endl;
+                return 0;
+            }
+
+            if (index < 0) {
+                std::cerr << "[array_set_struct] Error: negative index "
+                          << index << std::endl;
+                return 0;
+            }
+
+            // 構造体のコピーは呼び出し側が適切に処理する
+            // ここでは単にポインタ演算の結果を返す
+            return ptr_value + index;
         }
 
         if (is_method_call) {

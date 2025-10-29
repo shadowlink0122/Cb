@@ -364,42 +364,49 @@ TypedValue evaluate_binary_op_typed(
     } else if (node->op == "==") {
         if (inferred_type.type_info == TYPE_QUAD ||
             inferred_type.type_info == TYPE_DOUBLE ||
-            inferred_type.type_info == TYPE_FLOAT) {
+            inferred_type.type_info == TYPE_FLOAT || left_value.is_floating() ||
+            right_value.is_floating()) {
             return make_bool_typed_value(left_quad == right_quad);
         }
         return make_bool_typed_value(left_int == right_int);
     } else if (node->op == "!=") {
         if (inferred_type.type_info == TYPE_QUAD ||
             inferred_type.type_info == TYPE_DOUBLE ||
-            inferred_type.type_info == TYPE_FLOAT) {
+            inferred_type.type_info == TYPE_FLOAT || left_value.is_floating() ||
+            right_value.is_floating()) {
             return make_bool_typed_value(left_quad != right_quad);
         }
         return make_bool_typed_value(left_int != right_int);
     } else if (node->op == "<") {
         if (inferred_type.type_info == TYPE_QUAD ||
             inferred_type.type_info == TYPE_DOUBLE ||
-            inferred_type.type_info == TYPE_FLOAT) {
+            inferred_type.type_info == TYPE_FLOAT || left_value.is_floating() ||
+            right_value.is_floating()) {
             return make_bool_typed_value(left_quad < right_quad);
         }
         return make_bool_typed_value(left_int < right_int);
     } else if (node->op == ">") {
+        // オペランドのいずれかが浮動小数点型なら浮動小数点比較
         if (inferred_type.type_info == TYPE_QUAD ||
             inferred_type.type_info == TYPE_DOUBLE ||
-            inferred_type.type_info == TYPE_FLOAT) {
+            inferred_type.type_info == TYPE_FLOAT || left_value.is_floating() ||
+            right_value.is_floating()) {
             return make_bool_typed_value(left_quad > right_quad);
         }
         return make_bool_typed_value(left_int > right_int);
     } else if (node->op == "<=") {
         if (inferred_type.type_info == TYPE_QUAD ||
             inferred_type.type_info == TYPE_DOUBLE ||
-            inferred_type.type_info == TYPE_FLOAT) {
+            inferred_type.type_info == TYPE_FLOAT || left_value.is_floating() ||
+            right_value.is_floating()) {
             return make_bool_typed_value(left_quad <= right_quad);
         }
         return make_bool_typed_value(left_int <= right_int);
     } else if (node->op == ">=") {
         if (inferred_type.type_info == TYPE_QUAD ||
             inferred_type.type_info == TYPE_DOUBLE ||
-            inferred_type.type_info == TYPE_FLOAT) {
+            inferred_type.type_info == TYPE_FLOAT || left_value.is_floating() ||
+            right_value.is_floating()) {
             return make_bool_typed_value(left_quad >= right_quad);
         }
         return make_bool_typed_value(left_int >= right_int);

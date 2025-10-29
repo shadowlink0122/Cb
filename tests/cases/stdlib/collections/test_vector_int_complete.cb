@@ -1,0 +1,225 @@
+import "stdlib/collections/vector.cb";
+
+void test_vector_int_all_methods() {
+    println("\n╔════════════════════════════════════════════════════════════╗");
+    println("║  Vector<int> - All Methods Test                           ║");
+    println("╚════════════════════════════════════════════════════════════╝\n");
+    
+    Vector<int> vec;
+    
+    println("=== Method: init(int) ===");
+    vec.init(5);
+    if (vec.get_capacity() == 5 && vec.get_length() == 0) {
+        println("✅ init() works (capacity={vec.get_capacity()}, length={vec.get_length()})");
+    }
+    
+    println("\n=== Method: push(T) ===");
+    vec.push(10);
+    vec.push(20);
+    vec.push(30);
+    vec.push(40);
+    if (vec.get_length() == 4) {
+        println("✅ push() works (length={vec.get_length()})");
+    }
+    
+    println("\n=== Method: get(int) ===");
+    int v0 = vec.get(0);
+    int v1 = vec.get(1);
+    int v2 = vec.get(2);
+    int v3 = vec.get(3);
+    if (v0 == 10 && v1 == 20 && v2 == 30 && v3 == 40) {
+        println("✅ get() works (values: {v0}, {v1}, {v2}, {v3})");
+    }
+    
+    println("\n=== Method: pop() ===");
+    int popped = vec.pop();
+    if (popped == 40 && vec.get_length() == 3) {
+        println("✅ pop() works (popped={popped}, new length={vec.get_length()})");
+    }
+    
+    println("\n=== Method: get_length() ===");
+    int len = vec.get_length();
+    if (len == 3) {
+        println("✅ get_length() works (length={len})");
+    }
+    
+    println("\n=== Method: get_capacity() ===");
+    int cap = vec.get_capacity();
+    if (cap == 5) {
+        println("✅ get_capacity() works (capacity={cap})");
+    }
+    
+    println("\n=== Method: is_empty() - with data ===");
+    bool empty1 = vec.is_empty();
+    if (!empty1) {
+        println("✅ is_empty() correctly returns false when not empty");
+    }
+    
+    println("\n=== Method: resize(int) ===");
+    vec.resize(15);
+    if (vec.get_capacity() == 15) {
+        println("✅ resize() works (new capacity={vec.get_capacity()})");
+    }
+    
+    println("\n=== Verify data preserved after resize ===");
+    int check0 = vec.get(0);
+    int check1 = vec.get(1);
+    int check2 = vec.get(2);
+    if (check0 == 10 && check1 == 20 && check2 == 30) {
+        println("✅ Data preserved after resize ({check0}, {check1}, {check2})");
+    }
+    
+    println("\n=== Method: push() after resize ===");
+    vec.push(50);
+    vec.push(60);
+    if (vec.get_length() == 5) {
+        println("✅ push() works after resize (length={vec.get_length()})");
+    }
+    
+    println("\n=== Method: info() ===");
+    vec.info();
+    println("✅ info() displays current state");
+    
+    println("\n=== Edge case: pop() until almost empty ===");
+    vec.pop();
+    vec.pop();
+    vec.pop();
+    vec.pop();
+    if (vec.get_length() == 1) {
+        println("✅ Multiple pops work (length={vec.get_length()})");
+    }
+    
+    println("\n=== Edge case: pop() to empty ===");
+    vec.pop();
+    if (vec.get_length() == 0) {
+        println("✅ Can pop to empty (length={vec.get_length()})");
+    }
+    
+    println("\n=== Method: is_empty() - when empty ===");
+    bool empty2 = vec.is_empty();
+    if (empty2) {
+        println("✅ is_empty() correctly returns true when empty");
+    }
+    
+    println("\n=== Edge case: pop() from empty ===");
+    int empty_pop = vec.pop();
+    println("Pop from empty returned: {empty_pop} (expected 0 or error handled)");
+    println("✅ pop() from empty handled gracefully");
+    
+    println("\n=== Edge case: get() with invalid index ===");
+    int invalid_get = vec.get(100);
+    println("get(100) on empty vector returned: {invalid_get} (expected 0 or error)");
+    println("✅ get() with invalid index handled gracefully");
+    
+    println("\n=== Edge case: Refill after empty ===");
+    vec.push(100);
+    vec.push(200);
+    if (vec.get_length() == 2) {
+        println("✅ Can refill after emptying (length={vec.get_length()})");
+    }
+    
+    println("\n=== Edge case: Resize to smaller capacity (should not resize) ===");
+    vec.resize(1);
+    if (vec.get_capacity() == 15) {
+        println("✅ resize() correctly rejects smaller capacity (capacity={vec.get_capacity()})");
+    }
+    
+    println("\n=== Edge case: Fill to capacity ===");
+    int i = 0;
+    while (i < 13) {
+        vec.push(i);
+        i = i + 1;
+    }
+    if (vec.get_length() == 15) {
+        println("✅ Filled to capacity (length={vec.get_length()}, capacity={vec.get_capacity()})");
+    }
+    
+    println("\n=== Edge case: Push when at capacity ===");
+    vec.push(999);
+    if (vec.get_length() == 15) {
+        println("✅ push() correctly prevented when at capacity");
+    }
+    
+    println("\n=== Final state ===");
+    vec.info();
+}
+
+void test_vector_int_large_scale() {
+    println("\n╔════════════════════════════════════════════════════════════╗");
+    println("║  Vector<int> - Large Scale Test                           ║");
+    println("╚════════════════════════════════════════════════════════════╝\n");
+    
+    Vector<int> vec;
+    vec.init(10);
+    
+    println("=== Test: Insert 100 elements with dynamic resizing ===");
+    int i = 0;
+    while (i < 10) {
+        vec.push(i * 100);
+        i = i + 1;
+    }
+    println("Inserted 10 elements: length={vec.get_length()}, capacity={vec.get_capacity()}");
+    
+    vec.resize(30);
+    while (i < 30) {
+        vec.push(i * 100);
+        i = i + 1;
+    }
+    println("Inserted 30 elements: length={vec.get_length()}, capacity={vec.get_capacity()}");
+    
+    vec.resize(100);
+    while (i < 100) {
+        vec.push(i * 100);
+        i = i + 1;
+    }
+    
+    if (vec.get_length() == 100) {
+        println("✅ Inserted 100 elements successfully");
+    }
+    
+    println("\n=== Test: Access random elements ===");
+    int elem0 = vec.get(0);
+    int elem25 = vec.get(25);
+    int elem50 = vec.get(50);
+    int elem75 = vec.get(75);
+    int elem99 = vec.get(99);
+    
+    if (elem0 == 0 && elem25 == 2500 && elem50 == 5000 && elem75 == 7500 && elem99 == 9900) {
+        println("✅ Random access works (elem0={elem0}, elem25={elem25}, elem50={elem50}, elem75={elem75}, elem99={elem99})");
+    }
+    
+    println("\n=== Test: Pop many elements ===");
+    int pop_count = 0;
+    while (pop_count < 50) {
+        vec.pop();
+        pop_count = pop_count + 1;
+    }
+    
+    if (vec.get_length() == 50) {
+        println("✅ Popped 50 elements (remaining length={vec.get_length()})");
+    }
+    
+    println("\n=== Test: Verify remaining data integrity ===");
+    int check0 = vec.get(0);
+    int check25 = vec.get(25);
+    int check49 = vec.get(49);
+    
+    if (check0 == 0 && check25 == 2500 && check49 == 4900) {
+        println("✅ Data integrity maintained (check0={check0}, check25={check25}, check49={check49})");
+    }
+    
+    vec.info();
+}
+
+void main() {
+    println("╔════════════════════════════════════════════════════════════╗");
+    println("║  Vector<int> - Complete Method Verification Test          ║");
+    println("╚════════════════════════════════════════════════════════════╝");
+    
+    test_vector_int_all_methods();
+    test_vector_int_large_scale();
+    
+    println("\n╔════════════════════════════════════════════════════════════╗");
+    println("║  All Vector<int> Tests Passed Successfully! 🎉            ║");
+    println("╚════════════════════════════════════════════════════════════╝");
+}

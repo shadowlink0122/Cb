@@ -1,0 +1,43 @@
+// ポインタ演算のシンプルなテスト
+
+void* ptr_offset(void* ptr, int offset) {
+    long base_long = ptr;
+    long target_long = base_long + offset;
+    void* result = target_long;
+    return result;
+}
+
+int main() {
+    println("=== Pointer Arithmetic Test ===");
+    
+    // intの配列で試す
+    int* arr = malloc(sizeof(int) * 5);
+    println("Allocated int array at {hex(arr)}");
+    
+    // 直接書き込み
+    arr[0] = 10;
+    println("Set arr[0] = 10 (direct array access)");
+    println("arr[0] = {arr[0]}");
+    
+    // ptr_offsetで2番目の要素にアクセス
+    println("\nUsing ptr_offset...");
+    int size_of_int = sizeof(int);
+    println("sizeof(int) = {size_of_int}");
+    
+    int offset = 1 * size_of_int;
+    println("offset for index 1 = {offset}");
+    
+    void* ptr1_void = ptr_offset(arr, offset);
+    println("ptr_offset(arr, {offset}) = {hex(ptr1_void)}");
+    
+    int* ptr1 = ptr1_void;
+    ptr1[0] = 20;
+    println("Set element via ptr_offset to 20");
+    
+    // 読み出し
+    println("Value at arr[1] = {arr[1]}");
+    
+    free(arr);
+    println("✅ Test completed");
+    return 0;
+}

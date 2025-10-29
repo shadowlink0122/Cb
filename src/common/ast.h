@@ -658,6 +658,12 @@ struct InterfaceDefinition {
     std::string name;                     // interface名
     std::vector<InterfaceMember> methods; // メソッドのリスト
 
+    // v0.11.0+: ジェネリクスサポート
+    bool is_generic = false; // ジェネリックinterfaceか？
+    std::vector<std::string> type_parameters; // 型パラメータ: <T>, <T, U>
+    std::unordered_map<std::string, std::vector<std::string>> interface_bounds;
+    // T: Comparable, A: Allocator + Clone
+
     InterfaceDefinition() {}
     InterfaceDefinition(const std::string &n) : name(n) {}
 

@@ -253,7 +253,8 @@ class RecursiveParser {
     }
 
     // v0.11.0: import処理（パース時にモジュールをロードして定義を取り込む）
-    void processImport(const std::string &module_path);
+    void processImport(const std::string &module_path,
+                       const std::vector<std::string> &import_items = {});
     std::string resolveModulePath(const std::string &module_path);
 
   private:

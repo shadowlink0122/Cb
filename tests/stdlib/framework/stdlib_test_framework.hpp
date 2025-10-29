@@ -104,21 +104,41 @@ public:
 
 // ヘルパー関数: Cbテストファイルを実行して出力とexit codeを取得
 inline std::pair<std::string, int> run_cb_test(const std::string& test_file) {
-    std::string command = "../../main " + test_file + " 2>&1";
+    // tests/stdlib/ から実行される場合、ルートディレクトリに移動してから実行
+    // これにより、import "stdlib/..." のパス解決が正しく動作する
+    std::string command = "cd ../.. && ./main " + test_file + " 2>&1; echo \"__EXIT_CODE__=$?\"";
     FILE* pipe = popen(command.c_str(), "r");
     if (!pipe) {
         return {"", -1};
     }
     
-    std::stringstream output;
+    std::stringstream output_stream;
     std::array<char, 128> buffer;
     while (fgets(buffer.data(), buffer.size(), pipe) != nullptr) {
-        output << buffer.data();
+        output_stream << buffer.data();
     }
     
-    int exit_code = pclose(pipe);
-    // WEXITSTATUS extracts the actual exit code from the status returned by pclose
-    return {output.str(), WEXITSTATUS(exit_code)};
+    pclose(pipe);
+    
+    // 出力から exit code を抽出
+    std::string full_output = output_stream.str();
+    int exit_code = 0;
+    
+    // "__EXIT_CODE__=<number>" の形式で exit code が含まれている
+    size_t pos = full_output.rfind("__EXIT_CODE__=");
+    if (pos != std::string::npos) {
+        std::string exit_code_str = full_output.substr(pos + 14);
+        size_t newline_pos = exit_code_str.find('\n');
+        if (newline_pos != std::string::npos) {
+            exit_code_str = exit_code_str.substr(0, newline_pos);
+        }
+        exit_code = std::stoi(exit_code_str);
+        
+        // exit code 行を出力から削除
+        full_output = full_output.substr(0, pos);
+    }
+    
+    return {full_output, exit_code};
 }
 
 #endif // STDLIB_TEST_FRAMEWORK_HPP

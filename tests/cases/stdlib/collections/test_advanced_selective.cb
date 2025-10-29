@@ -1,0 +1,54 @@
+// Advanced Selective Import Test
+// 選択的import機能の詳細テスト
+
+// テスト1: 複数項目の選択的import
+import stdlib.collections.vector { Vector, SystemAllocator };
+
+// テスト2: 単一項目の選択的import
+import stdlib.collections.queue { Queue };
+
+void test_multiple_selective() {
+    println("=== Test: Multiple Selective Import ===");
+    
+    // VectorとSystemAllocatorは使える
+    Vector<int> vec;
+    vec.init(3);
+    vec.push(10);
+    vec.push(20);
+    
+    println("Vector length: {vec.get_length()}");
+    println("✅ Multiple selective import works");
+    
+    // NOTE: BumpAllocatorはimportしていないので使えない
+    // Vector<int, BumpAllocator> vec2;  // これはエラーになるはず
+}
+
+void test_single_selective() {
+    println("\n=== Test: Single Selective Import ===");
+    
+    // Queue<int>のみimport
+    Queue<int> q;
+    q.init(4);
+    q.enqueue(100);
+    q.enqueue(200);
+    
+    int val = q.dequeue();
+    println("Dequeued: {val}");
+    println("✅ Single selective import works");
+    
+    // NOTE: QueueOpsはimportしていないが、
+    // implは自動的にimportされるので問題ない
+}
+
+void main() {
+    println("╔════════════════════════════════════════════╗");
+    println("║  Advanced Selective Import Test          ║");
+    println("╚════════════════════════════════════════════╝\n");
+    
+    test_multiple_selective();
+    test_single_selective();
+    
+    println("\n╔════════════════════════════════════════════╗");
+    println("║  All advanced tests passed!               ║");
+    println("╚════════════════════════════════════════════╝");
+}

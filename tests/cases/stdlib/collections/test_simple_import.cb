@@ -1,12 +1,12 @@
-// Simple import test - Check if Queue can be imported
+// Simple import test - Check if Queue<int> can be imported
 import "stdlib/collections/queue.cb";
 
 int main() {
-    println("Queue imported successfully!");
+    println("Queue<int> imported successfully!");
     
-    // Try to use Queue type
-    Queue q;
-    println("Queue variable declared!");
+    // Try to use Queue<int> type
+    Queue<int> q;
+    println("Queue<int> variable declared!");
     
     return 0;
 }

@@ -1,0 +1,150 @@
+// Queue<string>のテスト
+import "stdlib/collections/queue.cb";
+
+int main() {
+    println("=== Queue<string> Tests ===\n");
+    
+    // 1. 初期化
+    Queue<string> queue;
+    queue.init(5);
+    println("✅ Queue<string> initialized");
+    
+    // 2. enqueue操作
+    queue.enqueue("First");
+    queue.enqueue("Second");
+    queue.enqueue("Third");
+    println("✅ Enqueued 3 strings");
+    
+    // 3. peek操作
+    string peeked = queue.peek();
+    if (peeked == "First") {
+        println("✅ Peek works: '{peeked}'");
+    } else {
+        println("❌ Peek failed");
+        queue.destroy();
+        return 1;
+    }
+    
+    // 4. dequeue操作
+    string first = queue.dequeue();
+    if (first == "First") {
+        println("✅ Dequeued correct value: '{first}'");
+    } else {
+        println("❌ Dequeue failed");
+        queue.destroy();
+        return 1;
+    }
+    
+    // 5. サイズ確認
+    int size = queue.size();
+    if (size == 2) {
+        println("✅ Size after dequeue is correct: {size}");
+    } else {
+        println("❌ Size is incorrect: {size}");
+        queue.destroy();
+        return 1;
+    }
+    
+    // 6. 循環バッファのテスト
+    queue.enqueue("Fourth");
+    queue.enqueue("Fifth");
+    println("✅ Enqueued 2 more strings (circular buffer test)");
+    
+    string second = queue.dequeue();
+    string third = queue.dequeue();
+    
+    if (second == "Second" && third == "Third") {
+        println("✅ Circular buffer works correctly");
+    } else {
+        println("❌ Circular buffer failed");
+        queue.destroy();
+        return 1;
+    }
+    
+    // 7. 残りの要素確認
+    string fourth = queue.dequeue();
+    string fifth = queue.dequeue();
+    
+    if (fourth == "Fourth" && fifth == "Fifth") {
+        println("✅ All elements dequeued correctly");
+    } else {
+        println("❌ Element order corrupted");
+        queue.destroy();
+        return 1;
+    }
+    
+    // 8. 空チェック
+    bool empty = queue.is_empty();
+    if (empty) {
+        println("✅ Queue is empty after all dequeues");
+    } else {
+        println("❌ Queue should be empty");
+        queue.destroy();
+        return 1;
+    }
+    
+    // 9. 長い文字列のテスト
+    queue.enqueue("This is a very long string with many characters!");
+    string long_str = queue.dequeue();
+    if (long_str == "This is a very long string with many characters!") {
+        println("✅ Long string handling works");
+    } else {
+        println("❌ Long string handling failed");
+        queue.destroy();
+        return 1;
+    }
+    
+    // 10. 空文字列のテスト
+    queue.enqueue("");
+    string empty_str = queue.dequeue();
+    if (empty_str == "") {
+        println("✅ Empty string handling works");
+    } else {
+        println("❌ Empty string handling failed");
+        queue.destroy();
+        return 1;
+    }
+    
+    // 11. resize テスト
+    println("\n--- Resize Test ---");
+    queue.enqueue("A");
+    queue.enqueue("B");
+    queue.enqueue("C");
+    
+    queue.resize(10);
+    
+    queue.enqueue("D");
+    queue.enqueue("E");
+    
+    int final_size = queue.size();
+    if (final_size == 5) {
+        println("✅ Size after resize is correct: {final_size}");
+    } else {
+        println("❌ Size after resize is incorrect: {final_size}");
+        queue.destroy();
+        return 1;
+    }
+    
+    // 全要素を取り出して確認
+    string a = queue.dequeue();
+    string b = queue.dequeue();
+    string c = queue.dequeue();
+    string d = queue.dequeue();
+    string e = queue.dequeue();
+    
+    bool order_ok = a == "A" && b == "B" && c == "C" && d == "D" && e == "E";
+    if (order_ok) {
+        println("✅ Element order preserved after resize");
+    } else {
+        println("❌ Element order corrupted after resize");
+        queue.destroy();
+        return 1;
+    }
+    
+    // 12. クリーンアップ
+    queue.destroy();
+    println("✅ Queue destroyed");
+    
+    println("\n🎉 All Queue<string> Tests Passed!");
+    return 0;
+}

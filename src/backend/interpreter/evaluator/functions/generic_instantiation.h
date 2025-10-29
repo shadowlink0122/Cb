@@ -70,6 +70,16 @@ void cache_instance(const std::string &cache_key,
 // キャッシュをクリア（テスト用）
 void clear_cache();
 
+// v0.12.0: implブロックのインスタンス化
+// impl VectorOps<T> for Vector<T>のような汎用implブロックを
+// impl VectorOps<int> for Vector<int>のように具体的な型でインスタンス化
+// 戻り値: {インスタンス化されたinterface名, struct名, ASTノード}
+std::tuple<std::string, std::string, std::unique_ptr<ASTNode>>
+instantiate_generic_impl(const ASTNode *impl_node,
+                         const std::vector<std::string> &type_arguments,
+                         const std::string &interface_name,
+                         const std::string &struct_name);
+
 } // namespace GenericInstantiation
 
 #endif // GENERIC_INSTANTIATION_H

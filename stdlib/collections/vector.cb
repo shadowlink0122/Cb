@@ -1,220 +1,144 @@
-// Vector<T, A: Allocator> - Dynamic array with custom allocator
-// Part of Week 2: Vector Implementation
-//
-// A generic dynamic array that uses a custom allocator for memory management
-// This enables:
-// - OS environments: Use SystemAllocator (malloc/free)
-// - Bare-metal: Use BumpAllocator or custom allocators
-// - Zero-cost abstraction: Compile-time dispatch
+// Vector<T> - 真のジェネリック動的配列
+// 汎用array_get/array_set関数を使用した統一実装
 
-export interface Allocator {
-    void* allocate(int size);
-    void deallocate(void* ptr);
-}
-
-export struct SystemAllocator {
-    int allocation_count;
-};
-
-impl Allocator for SystemAllocator {
-    void* allocate(int size) {
-        println("[SystemAllocator] Allocate %d bytes", size);
-        return nullptr;
-    }
-    
-    void deallocate(void* ptr) {
-        println("[SystemAllocator] Deallocate");
-    }
-}
-
-export struct BumpAllocator {
-    int buffer_size;
-    int current_offset;
-};
-
-impl Allocator for BumpAllocator {
-    void* allocate(int size) {
-        println("[BumpAllocator] Allocate %d bytes (offset=%d)", size, 0);
-        return nullptr;
-    }
-    
-    void deallocate(void* ptr) {
-        println("[BumpAllocator] Deallocate ignored");
-    }
-}
-
-// Vector structure with allocator type parameter
-export struct Vector<T, A: Allocator> {
-    int capacity;
+export struct Vector<T> {
+    void* data;
     int length;
-    void* data;        // データ領域（将来的に実際のメモリを指す）
-};
+    int capacity;
+}
 
-// VectorOps interface - defines operations for Vector
-export interface VectorOps {
+export interface VectorOps<T> {
     void init(int initial_capacity);
-    void push(int value);
-    int pop();
-    void resize(int new_capacity);
-    void info();
+    void push(T value);
+    T pop();
+    T get(int index);
+    void set(int index, T value);
     int get_length();
     int get_capacity();
+    void clear();
     bool is_empty();
-    void destroy();  // 明示的なメモリ解放メソッド（後方互換性のため残存、~self()が自動的に呼ばれる）
+    void reserve(int new_capacity);
 }
 
-// Implementation of VectorOps for Vector<int, SystemAllocator>
-impl VectorOps for Vector<int, SystemAllocator> {
+// ===== Vector<int> の実装 =====
+impl VectorOps<int> for Vector<int> {
     void init(int initial_capacity) {
-        self.capacity = initial_capacity;
+        int element_size = sizeof(int);
+        self.data = malloc(initial_capacity * element_size);
         self.length = 0;
-        
-        // 実メモリを確保
-        self.data = new int[initial_capacity];
-        
-        println("[Vector<int, SystemAllocator>] Initialized with capacity={initial_capacity}");
-        println("[Vector] Allocated memory at {hex(self.data)}");
+        self.capacity = initial_capacity;
     }
     
     void push(int value) {
         if (self.length >= self.capacity) {
-            // 容量が足りない場合はエラー（呼び出し側でリサイズ管理）
-            println("[Vector] Error: Capacity full! (size={self.length}, capacity={self.capacity})");
-            println("[Vector] Please call resize() before push");
-            return;
+            self.reserve(self.capacity * 2);
         }
-        
-        // 配列に値を書き込み
-        array_set_int(self.data, self.length, value);
+        array_set(self.data, self.length, value);
         self.length = self.length + 1;
-        
-        println("[Vector] Pushed value={value} at index={self.length - 1}");
     }
     
     int pop() {
         if (self.length <= 0) {
-            println("[Vector] Empty! Cannot pop");
+            println("[Vector<int>] Error: Empty vector");
             return 0;
         }
-        
         self.length = self.length - 1;
-        int value = array_get_int(self.data, self.length);
-        
-        println("[Vector] Popped value={value} from index={self.length}");
-        return value;
+        return array_get(self.data, self.length);
     }
     
-    void resize(int new_capacity) {
+    int get(int index) {
+        if (index < 0 || index >= self.length) {
+            println("[Vector<int>] Error: Index out of bounds");
+            return 0;
+        }
+        return array_get(self.data, index);
+    }
+    
+    void set(int index, int value) {
+        if (index < 0 || index >= self.length) {
+            println("[Vector<int>] Error: Index out of bounds");
+            return;
+        }
+        array_set(self.data, index, value);
+    }
+    
+    int get_length() {
+        return self.length;
+    }
+    
+    int get_capacity() {
+        return self.capacity;
+    }
+    
+    void clear() {
+        self.length = 0;
+    }
+    
+    bool is_empty() {
+        return self.length == 0;
+    }
+    
+    void reserve(int new_capacity) {
         if (new_capacity <= self.capacity) {
-            println("[Vector] New capacity {new_capacity} <= current {self.capacity}, no resize needed");
             return;
         }
         
-        println("[Vector] Resizing from capacity={self.capacity} to {new_capacity}");
+        int element_size = sizeof(int);
+        void* new_data = malloc(new_capacity * element_size);
+        memcpy(new_data, self.data, self.length * element_size);
+        free(self.data);
         
-        // 新しい配列を確保
-        void* new_data = new int[new_capacity];
-        
-        // 既存データをコピー (memcpyを使用)
-        int copy_size = self.length * sizeof(int);
-        memcpy(new_data, self.data, copy_size);
-        
-        println("[Vector] Copied {self.length} elements ({copy_size} bytes)");
-        
-        // 古い配列を解放
-        delete self.data;
-        
-        // 新しい配列に切り替え
         self.data = new_data;
         self.capacity = new_capacity;
-        
-        println("[Vector] Resize complete (new capacity={new_capacity}, memory at {hex(self.data)})");
-    }
-    
-    void info() {
-        println("[Vector] length={self.length}, capacity={self.capacity}, data={hex(self.data)}");
-    }
-    
-    int get_length() {
-        return self.length;
-    }
-    
-    int get_capacity() {
-        return self.capacity;
-    }
-    
-    bool is_empty() {
-        return self.length == 0;
-    }
-    
-    // 明示的なメモリ解放メソッド（デストラクタの代わり）
-    // Note: ジェネリクス構造体は~self()デストラクタをサポートしていないため
-    void destroy() {
-        if (self.data != nullptr) {
-            println("[Vector] destroy(): Freeing memory at {hex(self.data)}");
-            delete self.data;
-            self.data = nullptr;
-            self.length = 0;
-            self.capacity = 0;
-        }
     }
 }
 
-// Destructor for Vector<int, SystemAllocator>
-// 自動メモリ管理：スコープを抜ける時に自動的にメモリを解放
-impl Vector<int, SystemAllocator> {
+impl Vector<int> {
     ~self() {
-        if (self.data != nullptr) {
-            println("[Vector<int, SystemAllocator>] Destructor: Freeing memory at {hex(self.data)}");
-            delete self.data;
-        }
+        free(self.data);
     }
 }
 
-// Implementation of VectorOps for Vector<int, BumpAllocator>
-impl VectorOps for Vector<int, BumpAllocator> {
+// ===== Vector<double> の実装 =====
+impl VectorOps<double> for Vector<double> {
     void init(int initial_capacity) {
-        self.capacity = initial_capacity;
+        int element_size = sizeof(double);
+        self.data = malloc(initial_capacity * element_size);
         self.length = 0;
-        self.data = nullptr;
-        println("[Vector<int, BumpAllocator>] Initialized with capacity=%d", initial_capacity);
+        self.capacity = initial_capacity;
     }
     
-    void push(int value) {
+    void push(double value) {
         if (self.length >= self.capacity) {
-            println("[Vector] Capacity full! Need resize (current=%d)", self.capacity);
-            return;
+            self.reserve(self.capacity * 2);
         }
-        
-        println("[Vector] Push value=%d at index=%d", value, self.length);
+        array_set(self.data, self.length, value);
         self.length = self.length + 1;
     }
     
-    int pop() {
+    double pop() {
         if (self.length <= 0) {
-            println("[Vector] Empty! Cannot pop");
-            return 0;
+            println("[Vector<double>] Error: Empty vector");
+            return 0.0;
         }
-        
         self.length = self.length - 1;
-        println("[Vector] Pop from index=%d", self.length);
-        return 0;  // プレースホルダー
+        return array_get(self.data, self.length);
     }
     
-    void resize(int new_capacity) {
-        if (new_capacity <= self.capacity) {
-            println("[Vector] New capacity %d <= current %d, no resize needed", 
-                    new_capacity, self.capacity);
+    double get(int index) {
+        if (index < 0 || index >= self.length) {
+            println("[Vector<double>] Error: Index out of bounds");
+            return 0.0;
+        }
+        return array_get(self.data, index);
+    }
+    
+    void set(int index, double value) {
+        if (index < 0 || index >= self.length) {
+            println("[Vector<double>] Error: Index out of bounds");
             return;
         }
-        
-        println("[Vector] Resizing from capacity=%d to %d", self.capacity, new_capacity);
-        self.capacity = new_capacity;
-        println("[Vector] Resize complete (new capacity=%d", new_capacity);
-    }
-    
-    void info() {
-        println("[Vector] length=%d, capacity=%d", self.length, self.capacity);
+        array_set(self.data, index, value);
     }
     
     int get_length() {
@@ -225,15 +149,110 @@ impl VectorOps for Vector<int, BumpAllocator> {
         return self.capacity;
     }
     
+    void clear() {
+        self.length = 0;
+    }
+    
     bool is_empty() {
         return self.length == 0;
     }
     
-    // BumpAllocatorではメモリ解放は何もしない（バンプアロケータの特性）
-    void destroy() {
-        println("[Vector<BumpAllocator>] destroy(): BumpAllocator does not free individual allocations");
+    void reserve(int new_capacity) {
+        if (new_capacity <= self.capacity) {
+            return;
+        }
+        
+        int element_size = sizeof(double);
+        void* new_data = malloc(new_capacity * element_size);
+        memcpy(new_data, self.data, self.length * element_size);
+        free(self.data);
+        
+        self.data = new_data;
+        self.capacity = new_capacity;
+    }
+}
+
+impl Vector<double> {
+    ~self() {
+        free(self.data);
+    }
+}
+
+// ===== Vector<string> の実装 =====
+impl VectorOps<string> for Vector<string> {
+    void init(int initial_capacity) {
+        int element_size = sizeof(string);
+        self.data = malloc(initial_capacity * element_size);
         self.length = 0;
-        self.capacity = 0;
-        self.data = nullptr;
+        self.capacity = initial_capacity;
+    }
+    
+    void push(string value) {
+        if (self.length >= self.capacity) {
+            self.reserve(self.capacity * 2);
+        }
+        array_set(self.data, self.length, value);
+        self.length = self.length + 1;
+    }
+    
+    string pop() {
+        if (self.length <= 0) {
+            println("[Vector<string>] Error: Empty vector");
+            return "";
+        }
+        self.length = self.length - 1;
+        return array_get(self.data, self.length);
+    }
+    
+    string get(int index) {
+        if (index < 0 || index >= self.length) {
+            println("[Vector<string>] Error: Index out of bounds");
+            return "";
+        }
+        return array_get(self.data, index);
+    }
+    
+    void set(int index, string value) {
+        if (index < 0 || index >= self.length) {
+            println("[Vector<string>] Error: Index out of bounds");
+            return;
+        }
+        array_set(self.data, index, value);
+    }
+    
+    int get_length() {
+        return self.length;
+    }
+    
+    int get_capacity() {
+        return self.capacity;
+    }
+    
+    void clear() {
+        self.length = 0;
+    }
+    
+    bool is_empty() {
+        return self.length == 0;
+    }
+    
+    void reserve(int new_capacity) {
+        if (new_capacity <= self.capacity) {
+            return;
+        }
+        
+        int element_size = sizeof(string);
+        void* new_data = malloc(new_capacity * element_size);
+        memcpy(new_data, self.data, self.length * element_size);
+        free(self.data);
+        
+        self.data = new_data;
+        self.capacity = new_capacity;
+    }
+}
+
+impl Vector<string> {
+    ~self() {
+        free(self.data);
     }
 }

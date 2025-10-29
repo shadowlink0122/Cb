@@ -2,7 +2,9 @@
 #include "../../../../common/ast.h"
 #include "../../../../common/debug_messages.h"
 #include "../../core/interpreter.h"
+#include "../../evaluator/functions/generic_instantiation.h"
 #include <algorithm>
+#include <sstream>
 
 InterfaceOperations::InterfaceOperations(Interpreter *interpreter)
     : interpreter_(interpreter) {}
@@ -221,12 +223,100 @@ InterfaceOperations::get_impl_definitions() const {
 const ImplDefinition *
 InterfaceOperations::find_impl_for_struct(const std::string &struct_name,
                                           const std::string &interface_name) {
+    // 1. 完全一致で検索（既存の動作）
     for (const auto &impl_def : impl_definitions_) {
         if (impl_def.struct_name == struct_name &&
             impl_def.interface_name == interface_name) {
             return &impl_def;
         }
     }
+
+    // 2. ジェネリックimplのインスタンス化を試みる
+    // 例: Vector<int>が要求された場合、impl VectorOps<T> for
+    // Vector<T>を探してインスタンス化
+
+    // struct_nameから型引数を抽出（例: "Vector<int>" -> ["int"]）
+    std::vector<std::string> type_arguments;
+    std::string base_struct_name;
+
+    size_t lt_pos = struct_name.find('<');
+    if (lt_pos != std::string::npos) {
+        base_struct_name = struct_name.substr(0, lt_pos);
+        size_t gt_pos = struct_name.rfind('>');
+        if (gt_pos != std::string::npos) {
+            std::string args_str =
+                struct_name.substr(lt_pos + 1, gt_pos - lt_pos - 1);
+            std::stringstream ss(args_str);
+            std::string arg;
+            while (std::getline(ss, arg, ',')) {
+                // トリム
+                size_t start = arg.find_first_not_of(" \t");
+                size_t end = arg.find_last_not_of(" \t");
+                if (start != std::string::npos) {
+                    type_arguments.push_back(
+                        arg.substr(start, end - start + 1));
+                }
+            }
+        }
+    }
+
+    // interface_nameからも同様に抽出
+    std::string base_interface_name;
+    if (!interface_name.empty()) {
+        size_t if_lt_pos = interface_name.find('<');
+        if (if_lt_pos != std::string::npos) {
+            base_interface_name = interface_name.substr(0, if_lt_pos);
+        } else {
+            base_interface_name = interface_name;
+        }
+    }
+
+    // ジェネリックimplを探す（例: impl VectorOps<T> for Vector<T>）
+    if (!type_arguments.empty()) {
+        std::string generic_struct_pattern = base_struct_name + "<T>";
+        std::string generic_interface_pattern =
+            base_interface_name.empty() ? "" : base_interface_name + "<T>";
+
+        for (const auto &impl_def : impl_definitions_) {
+            // ジェネリックパターンにマッチするか確認
+            bool struct_match =
+                (impl_def.struct_name == generic_struct_pattern);
+            bool interface_match =
+                (interface_name.empty() && impl_def.interface_name.empty()) ||
+                (impl_def.interface_name == generic_interface_pattern);
+
+            if (struct_match && interface_match && impl_def.impl_node) {
+                // インスタンス化を試みる
+                try {
+                    auto [inst_interface, inst_struct, inst_node] =
+                        GenericInstantiation::instantiate_generic_impl(
+                            impl_def.impl_node, type_arguments,
+                            impl_def.interface_name, impl_def.struct_name);
+
+                    // インスタンス化されたimplを登録
+                    ImplDefinition new_impl;
+                    new_impl.interface_name = inst_interface;
+                    new_impl.struct_name = inst_struct;
+                    new_impl.impl_node = inst_node.release(); // 所有権を移譲
+                    new_impl.methods =
+                        impl_def
+                            .methods; // メソッド情報はコピー（後で更新が必要かも）
+
+                    impl_definitions_.push_back(new_impl);
+
+                    debug_print("[GENERIC_IMPL] Instantiated: %s for %s\n",
+                                inst_interface.c_str(), inst_struct.c_str());
+
+                    // 新しく追加されたimplを返す
+                    return &impl_definitions_.back();
+                } catch (const std::exception &e) {
+                    debug_print("[GENERIC_IMPL] Failed to instantiate: %s\n",
+                                e.what());
+                }
+            }
+        }
+    }
+
     return nullptr;
 }
 

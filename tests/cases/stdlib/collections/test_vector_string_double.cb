@@ -1,0 +1,112 @@
+import "stdlib/collections/vector.cb";
+
+void test_vector_string() {
+    println("\n╔════════════════════════════════════════════╗");
+    println("║  Vector<string> Test                      ║");
+    println("╚════════════════════════════════════════════╝\n");
+    
+    Vector<string> vec;
+    vec.init(5);
+    
+    println("=== Test: push() ===");
+    vec.push("Hello");
+    vec.push("World");
+    vec.push("Cb");
+    vec.push("Language");
+    if (vec.get_length() == 4) {
+        println("✅ Vector<string> push works (length={vec.get_length()})");
+    }
+    
+    println("\n=== Test: get() ===");
+    string s0 = vec.get(0);
+    string s1 = vec.get(1);
+    string s3 = vec.get(3);
+    if (s0 == "Hello" && s1 == "World" && s3 == "Language") {
+        println("✅ Vector<string> get works (s0={s0}, s1={s1}, s3={s3})");
+    }
+    
+    println("\n=== Test: pop() ===");
+    string popped = vec.pop();
+    if (popped == "Language" && vec.get_length() == 3) {
+        println("✅ Vector<string> pop works (popped={popped}, length={vec.get_length()})");
+    }
+    
+    println("\n=== Test: resize() ===");
+    vec.resize(10);
+    if (vec.get_capacity() == 10) {
+        println("✅ Vector<string> resize works (capacity={vec.get_capacity()})");
+    }
+    vec.push("After");
+    vec.push("Resize");
+    if (vec.get_length() == 5) {
+        println("✅ Vector<string> push after resize works (length={vec.get_length()})");
+    }
+    
+    println("\n=== Test: is_empty() ===");
+    if (!vec.is_empty()) {
+        println("✅ Vector<string> is_empty works (is_empty={vec.is_empty()})");
+    }
+    
+    println("\n=== Test: info() ===");
+    vec.info();
+}
+
+void test_vector_double() {
+    println("\n╔════════════════════════════════════════════╗");
+    println("║  Vector<double> Test                      ║");
+    println("╚════════════════════════════════════════════╝\n");
+    
+    Vector<double> vec;
+    vec.init(5);
+    
+    println("=== Test: push() ===");
+    vec.push(3.14);
+    vec.push(2.71);
+    vec.push(1.41);
+    if (vec.get_length() == 3) {
+        println("✅ Vector<double> push works (length={vec.get_length()})");
+    }
+    
+    println("\n=== Test: get() ===");
+    double d0 = vec.get(0);
+    double d1 = vec.get(1);
+    double d2 = vec.get(2);
+    println("Values: d0={d0}, d1={d1}, d2={d2}");
+    if (d0 > 3.13 && d0 < 3.15 && d1 > 2.70 && d1 < 2.72) {
+        println("✅ Vector<double> get works");
+    }
+    
+    println("\n=== Test: pop() ===");
+    double popped = vec.pop();
+    println("Popped: {popped}");
+    if (vec.get_length() == 2) {
+        println("✅ Vector<double> pop works (length={vec.get_length()})");
+    }
+    
+    println("\n=== Test: resize() ===");
+    vec.resize(10);
+    if (vec.get_capacity() == 10) {
+        println("✅ Vector<double> resize works (capacity={vec.get_capacity()})");
+    }
+    vec.push(9.99);
+    vec.push(8.88);
+    if (vec.get_length() == 4) {
+        println("✅ Vector<double> push after resize works (length={vec.get_length()})");
+    }
+    
+    println("\n=== Test: info() ===");
+    vec.info();
+}
+
+void main() {
+    println("╔════════════════════════════════════════════════════════════╗");
+    println("║  Vector Generic Types Test (string & double)              ║");
+    println("╚════════════════════════════════════════════════════════════╝");
+    
+    test_vector_string();
+    test_vector_double();
+    
+    println("\n╔════════════════════════════════════════════════════════════╗");
+    println("║  All Vector Generic Type Tests Completed!                 ║");
+    println("╚════════════════════════════════════════════════════════════╝");
+}

@@ -5,12 +5,12 @@ import "stdlib/collections/queue.cb";
 int main() {
     println("Imports completed");
     
-    // Try Queue (non-generic)
-    Queue q;
-    println("Queue declared!");
+    // Try Queue<int>
+    Queue<int> q;
+    println("Queue<int> declared!");
     
     // This will fail - but let's see the error
-    Vector<int, SystemAllocator> vec;
+    Vector<int> vec;
     
     return 0;
 }

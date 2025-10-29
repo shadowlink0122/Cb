@@ -2146,7 +2146,7 @@ ASTNode *StatementParser::parseImportStatement() {
     // v0.11.0: パース時にimportを処理し、型定義を取り込む
     // これにより、import後の変数宣言で型が認識される
     try {
-        parser_->processImport(module_path);
+        parser_->processImport(module_path, import_node->import_items);
     } catch (const std::exception &e) {
         parser_->error("Import failed: " + std::string(e.what()));
     }

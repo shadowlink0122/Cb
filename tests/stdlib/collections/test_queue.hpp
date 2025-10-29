@@ -5,51 +5,69 @@
 #include <iostream>
 #include <string>
 
-// Queue library import tests
-// NOTE: Import tests temporarily disabled pending import system stabilization
+/**
+ * @brief Queue<T> stdlib test
+ * 
+ * Tests the Queue<T> library from stdlib/collections/queue.cb
+ * using the test file: tests/cases/stdlib/collections/test_queue_import.cb
+ * 
+ * This test verifies:
+ * 1. Queue<int> import
+ * 2. Basic operations (enqueue, dequeue, peek)
+ * 3. Resize functionality
+ * 4. Circular buffer behavior
+ * 5. Destructor behavior
+ */
 
-inline void test_queue_library_import() {
-    std::cout << "[1/6] Testing Queue library import... SKIPPED (import system under development)\n";
-}
-
-inline void test_queue_library_operations() {
-    std::cout << "[2/6] Testing Queue library operations... SKIPPED (import system under development)\n";
-}
-
-inline void test_queue_library_resize() {
-    std::cout << "[3/6] Testing Queue library resize... SKIPPED (import system under development)\n";
-}
-
-inline void test_queue_library_circular_buffer() {
-    std::cout << "[4/6] Testing Queue library circular buffer... SKIPPED (import system under development)\n";
-}
-
-inline void test_queue_library_destructor() {
-    std::cout << "[5/6] Testing Queue library destructor... SKIPPED (import system under development)\n";
-}
-
-inline void test_queue_demo_execution() {
-    // Test that sample/queue_demo.cb also works
-    std::cout << "[6/6] Testing Queue demo...\n";
+inline void test_queue_import_comprehensive() {
+    std::cout << "[Collections] Testing Queue<T> library import...\n";
     
-    std::string cmd = "cd ../.. && ./main sample/queue_demo.cb > /dev/null 2>&1";
-    int status = system(cmd.c_str());
-    int exit_code = WEXITSTATUS(status);
+    // Run the Cb test file
+    auto [output, exit_code] = run_cb_test(
+        "tests/cases/stdlib/collections/test_queue_import.cb");
     
-    STDLIB_ASSERT_EQ(exit_code, 0);
+    // Verify exit code (should be 0 for success)
+    STDLIB_ASSERT_EQ(0, exit_code);
+    
+    // Verify output contains expected test results
+    STDLIB_ASSERT_CONTAINS(output, "Queue<T> Library Import Test");
+    STDLIB_ASSERT_CONTAINS(output, "=== Test: Queue<int> Import ===");
+    STDLIB_ASSERT_CONTAINS(output, "✅ Queue<int> import and struct creation successful");
+    
+    STDLIB_ASSERT_CONTAINS(output, "=== Test: Queue<int> Basic Operations ===");
+    STDLIB_ASSERT_CONTAINS(output, "✅ Queue<int> enqueue operations work");
+    STDLIB_ASSERT_CONTAINS(output, "✅ Queue<int> dequeue operations work");
+    STDLIB_ASSERT_CONTAINS(output, "✅ Queue<int> peek operations work");
+    
+    STDLIB_ASSERT_CONTAINS(output, "=== Test: Queue<int> Resize ===");
+    STDLIB_ASSERT_CONTAINS(output, "✅ Queue<int> resize works");
+    STDLIB_ASSERT_CONTAINS(output, "✅ Queue<int> operations after resize work");
+    
+    STDLIB_ASSERT_CONTAINS(output, "=== Test: Queue<int> Circular Buffer ===");
+    STDLIB_ASSERT_CONTAINS(output, "✅ Queue<int> circular buffer works");
+    
+    STDLIB_ASSERT_CONTAINS(output, "=== Test: Queue<int> Destructor ===");
+    STDLIB_ASSERT_CONTAINS(output, "✅ Queue<int> destructor works");
+    
+    STDLIB_ASSERT_CONTAINS(output, "All Queue<int> library tests passed!");
+}
+
+inline void test_queue_simple_import() {
+    std::cout << "[Collections] Testing Queue<int> simple import...\n";
+    
+    // Run the simple import test
+    auto [output, exit_code] = run_cb_test(
+        "tests/cases/stdlib/collections/test_simple_import.cb");
+    
+    STDLIB_ASSERT_EQ(0, exit_code);
+    STDLIB_ASSERT_CONTAINS(output, "Queue<int> imported successfully!");
+    STDLIB_ASSERT_CONTAINS(output, "Queue<int> variable declared!");
 }
 
 // Register all Queue tests
 inline void register_queue_tests(StdlibTestRunner& runner) {
-    // Import tests disabled until import system is stabilized
-    // runner.add_test("queue_library_import", test_queue_library_import);
-    // runner.add_test("queue_library_operations", test_queue_library_operations);
-    // runner.add_test("queue_library_resize", test_queue_library_resize);
-    // runner.add_test("queue_library_circular_buffer", test_queue_library_circular_buffer);
-    // runner.add_test("queue_library_destructor", test_queue_library_destructor);
-    
-    // Demo execution test still valid
-    runner.add_test("queue_demo_execution", test_queue_demo_execution);
+    runner.add_test("queue_import_comprehensive", test_queue_import_comprehensive);
+    runner.add_test("queue_simple_import", test_queue_simple_import);
 }
 
 #endif // TEST_QUEUE_HPP
