@@ -1,6 +1,6 @@
 // Comprehensive enum test - tests all enum functionality
 
-enum Option<T> {
+enum MaybeValue<T> {
     Some(T),
     None
 };
@@ -11,23 +11,23 @@ int main() {
     
     // Test 1: Basic enum creation with Some variant
     println("Test 1 - Basic Creation (Some):");
-    Option<int> opt1 = Option<int>::Some(42);
-    println("  Created Option<int> with Some(42)");
+    MaybeValue<int> opt1 = MaybeValue<int>::Some(42);
+    println("  Created MaybeValue<int> with Some(42)");
     int val1 = opt1.value;
     println("  opt1.value =", val1);
     println("");
     
     // Test 2: Enum creation with None variant
     println("Test 2 - Basic Creation (None):");
-    Option<int> opt2 = Option<int>::None;
-    println("  Created Option<int> with None");
+    MaybeValue<int> opt2 = MaybeValue<int>::None;
+    println("  Created MaybeValue<int> with None");
     println("");
     
     // Test 3: Multiple enum instances with different values
     println("Test 3 - Multiple Instances:");
-    Option<int> a = Option<int>::Some(10);
-    Option<int> b = Option<int>::Some(20);
-    Option<int> c = Option<int>::Some(30);
+    MaybeValue<int> a = MaybeValue<int>::Some(10);
+    MaybeValue<int> b = MaybeValue<int>::Some(20);
+    MaybeValue<int> c = MaybeValue<int>::Some(30);
     println("  Created 3 instances: Some(10), Some(20), Some(30)");
     int val_a = a.value;
     int val_b = b.value;
@@ -39,9 +39,9 @@ int main() {
     
     // Test 4: Value access with different numbers
     println("Test 4 - Various Values:");
-    Option<int> large = Option<int>::Some(999999);
-    Option<int> zero = Option<int>::Some(0);
-    Option<int> negative = Option<int>::Some(-42);
+    MaybeValue<int> large = MaybeValue<int>::Some(999999);
+    MaybeValue<int> zero = MaybeValue<int>::Some(0);
+    MaybeValue<int> negative = MaybeValue<int>::Some(-42);
     println("  Created Some(999999), Some(0), Some(-42)");
     int val_large = large.value;
     int val_zero = zero.value;
@@ -53,26 +53,26 @@ int main() {
     
     // Test 5: Reassignment
     println("Test 5 - Reassignment:");
-    Option<int> mutable = Option<int>::Some(100);
+    MaybeValue<int> mutable = MaybeValue<int>::Some(100);
     println("  Initial: Some(100)");
     int val_before = mutable.value;
     println("  mutable.value =", val_before);
     
-    mutable = Option<int>::Some(200);
+    mutable = MaybeValue<int>::Some(200);
     println("  After reassignment: Some(200)");
     int val_after = mutable.value;
     println("  mutable.value =", val_after);
     
-    mutable = Option<int>::None;
+    mutable = MaybeValue<int>::None;
     println("  After reassignment: None");
     println("");
     
     // Test 6: Mix of Some and None
     println("Test 6 - Mixed Some/None:");
-    Option<int> mix1 = Option<int>::Some(111);
-    Option<int> mix2 = Option<int>::None;
-    Option<int> mix3 = Option<int>::Some(222);
-    Option<int> mix4 = Option<int>::None;
+    MaybeValue<int> mix1 = MaybeValue<int>::Some(111);
+    MaybeValue<int> mix2 = MaybeValue<int>::None;
+    MaybeValue<int> mix3 = MaybeValue<int>::Some(222);
+    MaybeValue<int> mix4 = MaybeValue<int>::None;
     println("  Created: Some(111), None, Some(222), None");
     int mix1_val = mix1.value;
     int mix3_val = mix3.value;

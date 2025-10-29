@@ -194,7 +194,7 @@ void run_all_generics_tests() {
     run_cb_test_with_output_and_time("../../tests/cases/generics/enum_init_test.cb",
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_EQ(0, exit_code, "enum_init_test.cb should execute successfully");
-            INTEGRATION_ASSERT_CONTAINS(output, "Option<int> x = Some(42); works", "Expected initialization success");
+            INTEGRATION_ASSERT_CONTAINS(output, "MaybeValue<int> x = Some(42); works", "Expected initialization success");
         }, execution_time);
     integration_test_passed_with_time("Generic Enum Initialization", "enum_init_test.cb", execution_time);
     
@@ -204,10 +204,10 @@ void run_all_generics_tests() {
             INTEGRATION_ASSERT_EQ(0, exit_code, "enum_comprehensive.cb should execute successfully");
             INTEGRATION_ASSERT_CONTAINS(output, "=== Comprehensive Enum Test Suite ===", "Expected test suite header");
             INTEGRATION_ASSERT_CONTAINS(output, "Test 1 - Basic Creation (Some):", "Expected test 1");
-            INTEGRATION_ASSERT_CONTAINS(output, "Created Option<int> with Some(42)", "Expected Some creation");
+            INTEGRATION_ASSERT_CONTAINS(output, "Created MaybeValue<int> with Some(42)", "Expected Some creation");
             INTEGRATION_ASSERT_CONTAINS(output, "opt1.value = 42", "Expected opt1 value");
             INTEGRATION_ASSERT_CONTAINS(output, "Test 2 - Basic Creation (None):", "Expected test 2");
-            INTEGRATION_ASSERT_CONTAINS(output, "Created Option<int> with None", "Expected None creation");
+            INTEGRATION_ASSERT_CONTAINS(output, "Created MaybeValue<int> with None", "Expected None creation");
             INTEGRATION_ASSERT_CONTAINS(output, "Test 3 - Multiple Instances:", "Expected test 3");
             INTEGRATION_ASSERT_CONTAINS(output, "a.value = 10", "Expected instance a");
             INTEGRATION_ASSERT_CONTAINS(output, "b.value = 20", "Expected instance b");

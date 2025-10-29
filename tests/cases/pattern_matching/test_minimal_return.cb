@@ -1,10 +1,5 @@
 // 最小限の関数返り値テスト
 
-enum Result<T, E> {
-    Ok(T),
-    Err(E)
-};
-
 Result<int, int> test() {
     return Result<int, int>::Ok(42);
 }

@@ -31,7 +31,7 @@ void test_basic_generic() {
 // =====================================
 // Test 2: Multiple Type Parameters
 // =====================================
-struct Result<T, E> {
+struct ResultType<T, E> {
     bool is_ok;
     T ok_value;
     E err_value;
@@ -40,7 +40,7 @@ struct Result<T, E> {
 void test_multiple_type_params() {
     println("=== Test 2: Multiple Type Parameters ===");
     
-    Result<int, string> result1;
+    ResultType<int, string> result1;
     result1.is_ok = true;
     result1.ok_value = 100;
     result1.err_value = "";
@@ -51,7 +51,7 @@ void test_multiple_type_params() {
         assert(result1.ok_value == 100);
     }
     
-    Result<string, int> result2;
+    ResultType<string, int> result2;
     result2.is_ok = false;
     result2.ok_value = "";
     result2.err_value = 404;

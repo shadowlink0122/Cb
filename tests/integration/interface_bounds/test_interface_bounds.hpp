@@ -79,7 +79,7 @@ inline void test_integration_interface_bounds() {
                 "=== Generic Enum Multiple Bounds Test ===",
                 "Should show test header");
             INTEGRATION_ASSERT_CONTAINS(output, 
-                "Test 1: Result<T: Clone + Debug, E> - PASSED",
+                "Test 1: Response<T: Clone + Debug, E> - PASSED",
                 "Enum test 1 should pass");
             INTEGRATION_ASSERT_CONTAINS(output, 
                 "Test 2: Container<T: Allocator + Clone + Debug> - PASSED",

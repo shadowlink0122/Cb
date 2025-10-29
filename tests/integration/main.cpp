@@ -16,6 +16,7 @@
 #include "bitwise/test_bitwise.hpp"
 #include "bool_expr/test_bool_expr.hpp"
 #include "boundary/test_boundary.hpp"
+#include "builtin_types/test_builtin_types.hpp"
 #include "compound_assign/test_compound_assign.hpp"
 #include "const_array/test_const_array.hpp"
 #include "const_parameters/test_const_parameters.hpp"
@@ -261,6 +262,8 @@ int main() {
     // 型システムテスト群
     std::cout << "\n[integration-test] === Type System Tests ===" << std::endl;
     CategoryTimingStats::set_current_category("Type System");
+    run_test_with_continue(test_integration_builtin_types,
+                           "Builtin Types (Option/Result) Tests", failed_tests);
     run_test_with_continue(test_integration_typedef, "Typedef Tests",
                            failed_tests);
     run_test_with_continue(test_integration_enum_typedef, "Enum Typedef Tests",

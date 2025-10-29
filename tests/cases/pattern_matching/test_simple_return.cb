@@ -1,10 +1,5 @@
 // シンプルな関数返り値テスト
 
-enum Result<T, E> {
-    Ok(T),
-    Err(E)
-};
-
 Result<int, int> make_ok() {
     Result<int, int> r = Result<int, int>::Ok(42);
     return r;

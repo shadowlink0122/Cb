@@ -1,7 +1,7 @@
 // v0.11.0 Phase 0 - Multiple Type Parameters Test
 // Test: Parse generic struct with multiple type parameters
 
-struct Result<T, E> {
+struct ResultType<T, E> {
     bool is_ok;
     T ok_value;
     E err_value;

@@ -6,21 +6,51 @@
 
 ### 📊 品質指標（v0.11.0）
 
-- **統合テスト**: **3,341個**（100%成功） 🎉
+- **統合テスト**: **3,463個**（100%成功） 🎉
 - **Genericテスト**: **53個** (Structs/Enums/Functions含む) 🎉
 - **Enumテスト**: **3個**（包括的テストスイート含む） 🎉
+- **Builtin Typesテスト**: **20個**（Option/Result組み込み型） 🆕
 - **Discard変数テスト**: **10個**（成功3+エラー7） 🆕
 - **Deferテスト**: **131個**（return/break/continue前cleanup含む） 🎉
 - **Destructorテスト**: **4個**（スコープクリーンアップ含む） 🎉
 - **String Interpolationテスト**: **150個以上** 🎉
 - **ユニットテスト**: **30個**（100%成功） 🎉
-- **総テスト数**: **3,341個**（100%成功） 🎉
+- **総テスト数**: **3,463個**（100%成功） 🎉
 - **テストカバレッジ**: 全機能を網羅的にテスト
 - **完全なRAII**: デストラクタとdeferの自動実行
 
-### 🆕 v0.11.0の新機能
+### 🆕 v0.11.0の最新機能
 
-**1. 🔧 Enum型のinterface経由返り値修正** 🆕
+**1. 🔧 Option<T>とResult<T, E>の組み込み型実装** 🆕
+- **自動利用可能**: import不要、enum定義不要
+- **パーサー・インタプリタ自動登録**: 起動時に自動的に定義
+- **重複定義エラー検出**: Option/Resultの再定義を防止
+- **完全なジェネリクス対応**: `Option<int>`, `Result<string, int>` など
+
+```cb
+// import不要！enum定義不要！自動的に利用可能
+void main() {
+    // Option<T>の使用
+    Option<int> some_value = Option<int>::Some(42);
+    Option<int> none_value = Option<int>::None;
+    
+    match (some_value) {
+        Some(value) => println("Value: ", value),
+        None => println("No value")
+    }
+    
+    // Result<T, E>の使用
+    Result<int, string> ok_result = Result<int, string>::Ok(100);
+    Result<int, string> err_result = Result<int, string>::Err("Error");
+    
+    match (ok_result) {
+        Ok(value) => println("Success: ", value),
+        Err(error) => println("Error: ", error)
+    }
+}
+```
+
+**2. 🔧 Enum型のinterface経由返り値修正**
 - **問題**: Interface経由でEnum値を返すと常に0が返される
 - **修正**: `TYPE_ENUM`として正しく型情報を伝播
 - **影響**: Interface/Implシステムのenum型が完全に動作
@@ -50,7 +80,7 @@ void main() {
 }
 ```
 
-**2. 🚫 Discard変数（`_`）の完全実装** 🆕
+**3. 🚫 Discard変数（`_`）の完全実装**
 - **宣言・代入**: 不要な値を破棄するために`_`変数を使用可能
 - **読み込み禁止**: discard変数の読み込みは実行時エラー
 - **包括的なテスト**: 10テストケース（成功3+エラー7）
@@ -71,7 +101,7 @@ void main() {
 }
 ```
 
-**3. 🧹 デストラクタ機能**
+**4. 🧹 デストラクタ機能**
 - **スコープベースのRAII**: スコープ終了時に自動的にデストラクタが呼ばれる
 - **LIFO順序**: 複数の変数がある場合、宣言の逆順で破棄
 - **Generic対応**: `impl Vector<T, A: Allocator> { fn deinit() { ... } }`

@@ -1,11 +1,6 @@
 // Test 2: Result型の基本的なパターンマッチング
 // Pattern matching basic test with Result enum
 
-enum Result<T, E> {
-    Ok(T),
-    Err(E)
-};
-
 Result<int, int> divide(int a, int b) {
     if (b == 0) {
         return Result<int, int>::Err(1);  // エラーコード1

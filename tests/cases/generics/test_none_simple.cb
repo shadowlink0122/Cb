@@ -1,10 +1,10 @@
-enum Option<T> {
+enum MaybeValue<T> {
     Some(T),
     None
 };
 
 int main() {
-    Option<int> x = Option<int>::None;
+    MaybeValue<int> x = MaybeValue<int>::None;
     println("Created None variant");
     return 0;
 }

@@ -1,10 +1,5 @@
 // パターンマッチング最小テスト
 
-enum Option<T> {
-    Some(T),
-    None
-};
-
 int main() {
     println("Test start");
     Option<int> x = Option<int>::Some(42);

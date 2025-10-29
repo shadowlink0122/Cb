@@ -1,11 +1,6 @@
 // Test 8: switch文とmatch文の併用テスト
 // Combined switch and match test
 
-enum Result<T, E> {
-    Ok(T),
-    Err(E)
-};
-
 Result<int, int> process_by_code(int code) {
     // switch文で前処理
     switch (code) {

@@ -1,10 +1,5 @@
 // 関数返り値のデバッグテスト
 
-enum Result<T, E> {
-    Ok(T),
-    Err(E)
-};
-
 Result<int, int> test_func() {
     println("In test_func");
     Result<int, int> r = Result<int, int>::Ok(42);

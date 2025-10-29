@@ -1,10 +1,6 @@
 // Test 1: Option型の基本的なパターンマッチング
 // Pattern matching basic test with Option enum
-
-enum Option<T> {
-    Some(T),
-    None
-};
+// v0.11.0: Option<T> is now a builtin type
 
 int main() {
     println("=== Test 1: Option<int> basic pattern matching ===");

@@ -1,14 +1,8 @@
 // Cb Standard Library Test - Option Type
 // Tests for stdlib/std/option.cb
-// ⚠️ Note: Currently using inline definition because generic enum export/import is not yet fully supported
+// v0.11.0: Option<T> is now a builtin type - no enum definition needed
 
-// TODO: Enable when generic enum export/import is implemented
-// import "stdlib/std/option.cb" { Option };
-
-enum Option<T> {
-    Some(T),
-    None
-};
+// Option<T> is automatically available - no import or definition required!
 
 void main() {
     println("=== Option<T> stdlib test ===");

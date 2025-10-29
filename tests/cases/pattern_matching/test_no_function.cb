@@ -1,10 +1,5 @@
 // デバッグ：関数の返り値なしテスト
 
-enum Result<T, E> {
-    Ok(T),
-    Err(E)
-};
-
 int main() {
     println("Test 1: Direct assignment");
     Result<int, int> r1 = Result<int, int>::Ok(42);

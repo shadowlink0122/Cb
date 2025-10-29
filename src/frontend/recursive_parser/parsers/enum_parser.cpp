@@ -228,6 +228,14 @@ ASTNode *EnumParser::parseEnumDeclaration() {
         return nullptr;
     }
 
+    // v0.11.0: 組み込み型との重複チェック
+    if (enum_name == "Option" || enum_name == "Result") {
+        parser_->error("Cannot redefine builtin type '" + enum_name +
+                       "'. Option<T> and Result<T, E> are automatically "
+                       "available without definition.");
+        return nullptr;
+    }
+
     // enum定義を保存
     parser_->enum_definitions_[enum_name] = enum_def;
 

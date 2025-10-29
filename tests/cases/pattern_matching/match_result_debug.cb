@@ -1,10 +1,5 @@
 // Result型のデバッグテスト
 
-enum Result<T, E> {
-    Ok(T),
-    Err(E)
-};
-
 int main() {
     println("=== Result Debug Test ===");
     

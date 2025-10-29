@@ -15,9 +15,9 @@ interface Allocator {
 }
 
 // Enum with multiple bounds
-enum Result<T: Clone + Debug, E> {
-    Ok(T),
-    Err(E)
+enum Response<T: Clone + Debug, E> {
+    Success(T),
+    Failure(E)
 };
 
 // Enum with three bounds on one parameter
@@ -30,7 +30,7 @@ int main() {
     println("=== Generic Enum Multiple Bounds Test ===");
     
     // Test 1: Enum with single type parameter and multiple bounds
-    println("Test 1: Result<T: Clone + Debug, E> - PASSED");
+    println("Test 1: Response<T: Clone + Debug, E> - PASSED");
     
     // Test 2: Enum with type parameter having three bounds
     println("Test 2: Container<T: Allocator + Clone + Debug> - PASSED");

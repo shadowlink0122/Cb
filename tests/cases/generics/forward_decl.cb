@@ -2,14 +2,14 @@
 // Test: Parse generic struct forward declarations
 
 struct Box<T>;
-struct Result<T, E>;
+struct ResultType<T, E>;
 struct Node<T>;
 
 struct Box<T> {
     T value;
 };
 
-struct Result<T, E> {
+struct ResultType<T, E> {
     bool is_ok;
     T ok_value;
     E err_value;

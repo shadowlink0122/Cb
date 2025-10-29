@@ -1,15 +1,15 @@
 // v0.11.0: Enum variable initialization test
-// Option<int> x = Option<int>::Some(42); のような初期化をテスト
+// MaybeValue<int> x = MaybeValue<int>::Some(42); のような初期化をテスト
 
-enum Option<T> {
+enum MaybeValue<T> {
     Some(T),
     None
 };
 
 int main() {
     // Test 1: Enum型変数への初期化
-    Option<int> x = Option<int>::Some(42);
-    println("✓ Test 1: Option<int> x = Some(42); works");
+    MaybeValue<int> x = MaybeValue<int>::Some(42);
+    println("✓ Test 1: MaybeValue<int> x = Some(42); works");
     
     // TODO: 値へのアクセス機能を実装後にテスト
     // println("  x.variant:", x.variant);  // "Some"を期待

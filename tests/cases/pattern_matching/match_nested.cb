@@ -1,16 +1,6 @@
 // Test 4: ネストされたmatch文のテスト
 // Nested match statement test
 
-enum Option<T> {
-    Some(T),
-    None
-};
-
-enum Result<T, E> {
-    Ok(T),
-    Err(E)
-};
-
 Result<int, int> parse_number(int input) {
     if (input < 0) {
         return Result<int, int>::Err(1);

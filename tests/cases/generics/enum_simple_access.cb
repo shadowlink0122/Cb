@@ -1,13 +1,13 @@
 // Simple enum member access test
 
-enum Option<T> {
+enum MaybeValue<T> {
     Some(T),
     None
 };
 
 int main() {
     // Enum変数を作成
-    Option<int> x = Option<int>::Some(42);
+    MaybeValue<int> x = MaybeValue<int>::Some(42);
     println("Created enum variable");
     
     // 関連値へのアクセス（intなので問題なし）

@@ -1,11 +1,6 @@
 // Test 7: 関数からの返り値に対するパターンマッチング
 // Pattern matching on function return values
 
-enum Result<T, E> {
-    Ok(T),
-    Err(E)
-};
-
 Result<int, int> safe_divide(int a, int b) {
     if (b == 0) {
         return Result<int, int>::Err(1);
