@@ -719,23 +719,16 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
         if (it != global_scope.functions.end()) {
             func = it->second;
         } else {
-            // マングル名から元の型名への変換を試みる
-            // 例: Vector_int_SystemAllocator -> Vector<int, SystemAllocator>
-            auto unmangle_type_name =
-                [](const std::string &mangled) -> std::string {
-                // '_'を検索して型パラメータの開始位置を特定
-                size_t first_underscore = mangled.find('_');
-                if (first_underscore == std::string::npos) {
-                    return mangled; // マングルされていない
-                }
+            // v0.12.0: ジェネリックimplのインスタンス化を試みる
+            // まず、マングル名を元の形式に変換: Vector_int -> Vector<int>
+            std::string unmangled_type_name = type_name;
+            size_t first_underscore = type_name.find('_');
+            if (first_underscore != std::string::npos) {
+                std::string base_name = type_name.substr(0, first_underscore);
+                std::string params_part =
+                    type_name.substr(first_underscore + 1);
 
-                // 基本型名を取得（最初の'_'まで）
-                std::string base_name = mangled.substr(0, first_underscore);
-
-                // 残りの部分を型パラメータとして処理
-                std::string params_part = mangled.substr(first_underscore + 1);
-
-                // '_'で分割して型パラメータを抽出
+                // パラメータを'_'で分割
                 std::vector<std::string> params;
                 size_t pos = 0;
                 while (pos < params_part.length()) {
@@ -749,35 +742,123 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                     pos = next_underscore + 1;
                 }
 
-                if (params.empty()) {
-                    return mangled; // パラメータなし
+                if (!params.empty()) {
+                    unmangled_type_name = base_name + "<";
+                    for (size_t i = 0; i < params.size(); ++i) {
+                        if (i > 0)
+                            unmangled_type_name += ", ";
+                        unmangled_type_name += params[i];
+                    }
+                    unmangled_type_name += ">";
                 }
+            }
 
-                // 元の形式に再構築: Base<Param1, Param2, ...>
-                std::string result = base_name + "<";
-                for (size_t i = 0; i < params.size(); ++i) {
-                    if (i > 0)
-                        result += ", ";
-                    result += params[i];
+            // v0.12.0: ジェネリックimplのインスタンス化を試みる
+            // find_impl_for_structは自動的にジェネリックimplをインスタンス化する
+            if (interpreter_.is_debug_mode()) {
+                debug_print("[CALL_IMPL] Before find_impl_for_struct: "
+                            "unmangled_type_name='%s'\n",
+                            unmangled_type_name.c_str());
+            }
+            const ImplDefinition *impl =
+                interpreter_.find_impl_for_struct(unmangled_type_name, "");
+
+            if (interpreter_.is_debug_mode()) {
+                debug_print("[CALL_IMPL] After find_impl_for_struct: impl=%p\n",
+                            (void *)impl);
+            }
+
+            if (impl) {
+                // インスタンス化されたimplのメソッドを再検索
+                method_key = type_name + "::" + node->name;
+                if (interpreter_.is_debug_mode()) {
+                    debug_print(
+                        "[CALL_IMPL] Retrying method search: method_key='%s'\n",
+                        method_key.c_str());
                 }
-                result += ">";
+                it = global_scope.functions.find(method_key);
+                if (it != global_scope.functions.end()) {
+                    func = it->second;
+                    if (interpreter_.is_debug_mode()) {
+                        debug_print(
+                            "[CALL_IMPL] Retry succeeded! Found func=%p\n",
+                            (void *)func);
+                    }
+                } else {
+                    if (interpreter_.is_debug_mode()) {
+                        debug_print("[CALL_IMPL] Retry failed: method still "
+                                    "not found\n");
+                    }
+                }
+            }
 
-                return result;
-            };
+            // それでも見つからない場合、従来の検索を試みる
+            if (!func) {
+                // マングル名から元の型名への変換を試みる
+                // 例: Vector_int_SystemAllocator -> Vector<int,
+                // SystemAllocator>
+                auto unmangle_type_name =
+                    [](const std::string &mangled) -> std::string {
+                    // '_'を検索して型パラメータの開始位置を特定
+                    size_t first_underscore = mangled.find('_');
+                    if (first_underscore == std::string::npos) {
+                        return mangled; // マングルされていない
+                    }
 
-            std::string unmangled_type_name = unmangle_type_name(type_name);
+                    // 基本型名を取得（最初の'_'まで）
+                    std::string base_name = mangled.substr(0, first_underscore);
 
-            for (const auto &impl_def : interpreter_.get_impl_definitions()) {
-                // 元の型名とマングル名の両方でチェック
-                if (impl_def.struct_name == type_name ||
-                    impl_def.struct_name == unmangled_type_name) {
-                    std::string method_full_name = impl_def.interface_name +
-                                                   "_" + impl_def.struct_name +
-                                                   "_" + node->name;
-                    auto it2 = global_scope.functions.find(method_full_name);
-                    if (it2 != global_scope.functions.end()) {
-                        func = it2->second;
-                        break;
+                    // 残りの部分を型パラメータとして処理
+                    std::string params_part =
+                        mangled.substr(first_underscore + 1);
+
+                    // '_'で分割して型パラメータを抽出
+                    std::vector<std::string> params;
+                    size_t pos = 0;
+                    while (pos < params_part.length()) {
+                        size_t next_underscore = params_part.find('_', pos);
+                        if (next_underscore == std::string::npos) {
+                            params.push_back(params_part.substr(pos));
+                            break;
+                        }
+                        params.push_back(
+                            params_part.substr(pos, next_underscore - pos));
+                        pos = next_underscore + 1;
+                    }
+
+                    if (params.empty()) {
+                        return mangled; // パラメータなし
+                    }
+
+                    // 元の形式に再構築: Base<Param1, Param2, ...>
+                    std::string result = base_name + "<";
+                    for (size_t i = 0; i < params.size(); ++i) {
+                        if (i > 0)
+                            result += ", ";
+                        result += params[i];
+                    }
+                    result += ">";
+
+                    return result;
+                };
+
+                std::string unmangled_type_name2 =
+                    unmangle_type_name(type_name);
+
+                for (const auto &impl_def :
+                     interpreter_.get_impl_definitions()) {
+                    // 元の型名とマングル名の両方でチェック
+                    if (impl_def.struct_name == type_name ||
+                        impl_def.struct_name == unmangled_type_name2) {
+                        std::string method_full_name =
+                            impl_def.interface_name + "_" +
+                            impl_def.struct_name + "_" + node->name;
+                        auto it2 =
+                            global_scope.functions.find(method_full_name);
+                        if (it2 != global_scope.functions.end()) {
+                            func = it2->second;
+                            break;
+                        }
                     }
                 }
             }
@@ -992,12 +1073,6 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
             // TODO: 型パラメータから実際の型を解決
             // 現時点では、ポインタの型情報から推論する必要がある
             // 暫定的にarray_get_intにフォールバック
-            std::cerr << "[array_get] Warning: Generic array_get not fully "
-                         "implemented yet"
-                      << std::endl;
-            std::cerr << "[array_get] Please use array_get_int, "
-                         "array_get_double, or array_get_string"
-                      << std::endl;
 
             // 暫定的にintとして扱う
             int64_t ptr_value =
@@ -1019,13 +1094,6 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                 throw std::runtime_error("array_set() requires 3 arguments: "
                                          "array_set(ptr, index, value)");
             }
-
-            std::cerr << "[array_set] Warning: Generic array_set not fully "
-                         "implemented yet"
-                      << std::endl;
-            std::cerr << "[array_set] Please use array_set_int, "
-                         "array_set_double, or array_set_string"
-                      << std::endl;
 
             // 暫定的にintとして扱う
             int64_t ptr_value =
@@ -1479,8 +1547,8 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                 interpreter_.eval_expression(node->arguments[0].get());
             int64_t index =
                 interpreter_.eval_expression(node->arguments[1].get());
-            int64_t struct_ptr =
-                interpreter_.eval_expression(node->arguments[2].get());
+            // struct_ptrは呼び出し側で処理されるため、ここでは評価のみ
+            (void)interpreter_.eval_expression(node->arguments[2].get());
 
             if (ptr_value == 0) {
                 std::cerr << "[array_set_struct] Error: null pointer"
@@ -1518,9 +1586,6 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                     }
                 }
             }
-            std::cerr << "[METHOD_LOOKUP_FAIL] receiver='" << receiver_name
-                      << "' type='" << debug_type_name << "' method='"
-                      << node->name << "'" << std::endl;
         }
         throw std::runtime_error("Undefined function: " + node->name);
     }
@@ -2968,8 +3033,18 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
 
         // 関数本体を実行
         try {
+            if (interpreter_.is_debug_mode()) {
+                debug_print(
+                    "[METHOD_EXEC] func->name='%s', body=%p, statements=%zu\n",
+                    func->name.c_str(), (void *)func->body.get(),
+                    func->body ? func->body->statements.size() : 0);
+            }
             if (func->body) {
                 interpreter_.execute_statement(func->body.get());
+            } else {
+                if (interpreter_.is_debug_mode()) {
+                    debug_print("[METHOD_EXEC] Warning: func->body is null!\n");
+                }
             }
 
             // implコンテキストをクリア

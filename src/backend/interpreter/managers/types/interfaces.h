@@ -79,4 +79,7 @@ class InterfaceOperations {
     // Interface/Impl定義ストレージ
     std::map<std::string, InterfaceDefinition> interface_definitions_;
     std::vector<ImplDefinition> impl_definitions_;
+
+    // v0.12.0: インスタンス化されたimplノードのキャッシュ
+    std::vector<std::unique_ptr<ASTNode>> instantiated_impl_nodes_;
 };

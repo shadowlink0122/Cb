@@ -9,6 +9,7 @@
 #include "core/pointer_metadata.h"
 #include "core/type_inference.h"
 #include "evaluator/core/evaluator.h"
+#include "evaluator/functions/generic_instantiation.h"
 #include "executors/control_flow_executor.h" // 制御フロー実行サービス
 #include "executors/statement_executor.h"    // ヘッダーから移動
 #include "executors/statement_list_executor.h" // 文リスト・複合文実行サービス
@@ -1418,6 +1419,16 @@ void Interpreter::handle_import_statement(const ASTNode *node) {
                     ImplDefinition impl_def;
                     impl_def.struct_name = stmt->struct_name;
                     impl_def.interface_name = stmt->interface_name;
+                    impl_def.impl_node = stmt; // v0.12.0: ジェネリックimpl用
+
+                    if (debug_mode) {
+                        std::cerr << "[IMPORT] Creating impl_def: struct="
+                                  << stmt->struct_name
+                                  << ", interface=" << stmt->interface_name
+                                  << ", impl_node=" << (void *)stmt
+                                  << std::endl;
+                    }
+
                     // メソッドをimpl_defに追加（境界チェックに必要）
                     for (const auto &arg : stmt->arguments) {
                         if (arg &&
@@ -2742,12 +2753,111 @@ void Interpreter::call_default_constructor(
     // デフォルトコンストラクタ（パラメータなし）を探す
     auto it = struct_constructors_.find(struct_type_name);
     if (it == struct_constructors_.end() || it->second.empty()) {
-        // コンストラクタが定義されていない場合は何もしない
-        if (debug_mode) {
-            debug_print("No constructor defined for struct: %s\n",
-                        struct_type_name.c_str());
+        // v0.13.0:
+        // ジェネリック構造体の場合、implをインスタンス化してコンストラクタを登録
+        if (struct_type_name.find('_') != std::string::npos) {
+            std::vector<std::string> type_arguments;
+            std::string base_name;
+
+            size_t underscore_pos = struct_type_name.find('_');
+            if (underscore_pos != std::string::npos) {
+                base_name = struct_type_name.substr(0, underscore_pos);
+                std::string type_args_str =
+                    struct_type_name.substr(underscore_pos + 1);
+                type_arguments.push_back(type_args_str);
+
+                if (debug_mode) {
+                    debug_print("[GENERIC_CTOR] Instantiating impl for %s "
+                                "(base: %s, type_arg: %s)\n",
+                                struct_type_name.c_str(), base_name.c_str(),
+                                type_args_str.c_str());
+                }
+
+                // ジェネリックimplを探してインスタンス化
+                const ImplDefinition *impl_def =
+                    interface_operations_->find_impl_for_struct(
+                        base_name + "<T>", "");
+
+                if (impl_def && impl_def->impl_node) {
+                    if (debug_mode) {
+                        debug_print("[GENERIC_CTOR] Found generic impl, "
+                                    "instantiating...\n");
+                    }
+
+                    try {
+                        auto result =
+                            GenericInstantiation::instantiate_generic_impl(
+                                impl_def->impl_node, type_arguments, "",
+                                base_name + "<T>");
+
+                        auto &inst_node = std::get<2>(result);
+                        ASTNode *inst_node_ptr = inst_node.release();
+
+                        // コンストラクタ/デストラクタを登録
+                        for (const auto &method_node :
+                             inst_node_ptr->arguments) {
+                            if (!method_node)
+                                continue;
+
+                            if (method_node->node_type ==
+                                ASTNodeType::AST_CONSTRUCTOR_DECL) {
+                                register_constructor(struct_type_name,
+                                                     method_node.get());
+                            } else if (method_node->node_type ==
+                                       ASTNodeType::AST_DESTRUCTOR_DECL) {
+                                register_destructor(struct_type_name,
+                                                    method_node.get());
+                            }
+                        }
+
+                        // 再度コンストラクタを探す
+                        it = struct_constructors_.find(struct_type_name);
+                        if (it != struct_constructors_.end() &&
+                            !it->second.empty()) {
+                            // コンストラクタが見つかった場合、処理を続行
+                            if (debug_mode) {
+                                debug_print("[GENERIC_CTOR] Constructor "
+                                            "registered, continuing...\n");
+                            }
+                        } else {
+                            if (debug_mode) {
+                                debug_print("[GENERIC_CTOR] No constructor "
+                                            "found after instantiation\n");
+                            }
+                            return;
+                        }
+                    } catch (const std::exception &e) {
+                        if (debug_mode) {
+                            debug_print(
+                                "[GENERIC_CTOR] Failed to instantiate: %s\n",
+                                e.what());
+                        }
+                        return;
+                    }
+                } else {
+                    // ジェネリックimplが見つからない場合は何もしない
+                    if (debug_mode) {
+                        debug_print("No generic impl found for struct: %s\n",
+                                    (base_name + "<T>").c_str());
+                    }
+                    return;
+                }
+            } else {
+                // コンストラクタが定義されていない場合は何もしない
+                if (debug_mode) {
+                    debug_print("No constructor defined for struct: %s\n",
+                                struct_type_name.c_str());
+                }
+                return;
+            }
+        } else {
+            // コンストラクタが定義されていない場合は何もしない
+            if (debug_mode) {
+                debug_print("No constructor defined for struct: %s\n",
+                            struct_type_name.c_str());
+            }
+            return;
         }
-        return;
     }
 
     // パラメータなしのコンストラクタを探す
@@ -2833,8 +2943,94 @@ void Interpreter::call_constructor(const std::string &var_name,
     // 引数付きコンストラクタを探す
     auto it = struct_constructors_.find(struct_type_name);
     if (it == struct_constructors_.end() || it->second.empty()) {
-        throw std::runtime_error("No constructor defined for struct: " +
-                                 struct_type_name);
+        // v0.13.0:
+        // ジェネリック構造体の場合、implをインスタンス化してコンストラクタを登録
+        if (struct_type_name.find('_') != std::string::npos) {
+            std::vector<std::string> type_arguments;
+            std::string base_name;
+
+            size_t underscore_pos = struct_type_name.find('_');
+            if (underscore_pos != std::string::npos) {
+                base_name = struct_type_name.substr(0, underscore_pos);
+                std::string type_args_str =
+                    struct_type_name.substr(underscore_pos + 1);
+                type_arguments.push_back(type_args_str);
+
+                if (debug_mode) {
+                    debug_print("[GENERIC_CTOR] Instantiating impl for %s "
+                                "(base: %s, type_arg: %s)\n",
+                                struct_type_name.c_str(), base_name.c_str(),
+                                type_args_str.c_str());
+                }
+
+                // ジェネリックimplを探してインスタンス化
+                const ImplDefinition *impl_def =
+                    interface_operations_->find_impl_for_struct(
+                        base_name + "<T>", "");
+
+                if (impl_def && impl_def->impl_node) {
+                    if (debug_mode) {
+                        debug_print("[GENERIC_CTOR] Found generic impl, "
+                                    "instantiating...\n");
+                    }
+
+                    try {
+                        auto result =
+                            GenericInstantiation::instantiate_generic_impl(
+                                impl_def->impl_node, type_arguments, "",
+                                base_name + "<T>");
+
+                        auto &inst_node = std::get<2>(result);
+                        ASTNode *inst_node_ptr = inst_node.release();
+
+                        // コンストラクタ/デストラクタを登録
+                        for (const auto &method_node :
+                             inst_node_ptr->arguments) {
+                            if (!method_node)
+                                continue;
+
+                            if (method_node->node_type ==
+                                ASTNodeType::AST_CONSTRUCTOR_DECL) {
+                                register_constructor(struct_type_name,
+                                                     method_node.get());
+                            } else if (method_node->node_type ==
+                                       ASTNodeType::AST_DESTRUCTOR_DECL) {
+                                register_destructor(struct_type_name,
+                                                    method_node.get());
+                            }
+                        }
+
+                        // 再度コンストラクタを探す
+                        it = struct_constructors_.find(struct_type_name);
+                        if (it == struct_constructors_.end() ||
+                            it->second.empty()) {
+                            throw std::runtime_error(
+                                "No constructor defined for struct: " +
+                                struct_type_name);
+                        }
+                    } catch (const std::exception &e) {
+                        if (debug_mode) {
+                            debug_print(
+                                "[GENERIC_CTOR] Failed to instantiate: %s\n",
+                                e.what());
+                        }
+                        throw std::runtime_error(
+                            "No constructor defined for struct: " +
+                            struct_type_name);
+                    }
+                } else {
+                    throw std::runtime_error(
+                        "No constructor defined for struct: " +
+                        struct_type_name);
+                }
+            } else {
+                throw std::runtime_error("No constructor defined for struct: " +
+                                         struct_type_name);
+            }
+        } else {
+            throw std::runtime_error("No constructor defined for struct: " +
+                                     struct_type_name);
+        }
     }
 
     // パラメータ数が一致するコンストラクタを探す
@@ -3337,5 +3533,35 @@ void Interpreter::validate_all_interface_bounds() {
                     struct_def.interface_bounds);
             }
         }
+    }
+}
+
+// v0.13.0: コンストラクタ/デストラクタの登録
+void Interpreter::register_constructor(const std::string &struct_name,
+                                       const ASTNode *ctor_node) {
+    if (!ctor_node) {
+        return;
+    }
+
+    struct_constructors_[struct_name].push_back(ctor_node);
+
+    if (debug_mode) {
+        debug_print(
+            "[REGISTER_CTOR] Registered constructor for %s (params: %zu)\n",
+            struct_name.c_str(), ctor_node->parameters.size());
+    }
+}
+
+void Interpreter::register_destructor(const std::string &struct_name,
+                                      const ASTNode *dtor_node) {
+    if (!dtor_node) {
+        return;
+    }
+
+    struct_destructors_[struct_name] = dtor_node;
+
+    if (debug_mode) {
+        debug_print("[REGISTER_DTOR] Registered destructor for %s\n",
+                    struct_name.c_str());
     }
 }

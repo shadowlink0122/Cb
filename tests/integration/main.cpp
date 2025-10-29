@@ -39,6 +39,7 @@
 #include "func/test_func.hpp"
 #include "func_return_type_check/test_func_return_type_check.hpp"
 #include "func_type_check/test_func_type_check.hpp"
+#include "generic_constructor/test_generic_constructor.hpp"
 #include "generics/test_generics.hpp"
 #include "global_array/test_global_array.hpp"
 #include "global_vars/test_global_vars.hpp"
@@ -80,6 +81,7 @@
 #include "switch/test_switch.hpp"
 // #include "samples/test_actual_samples.hpp"
 #include "self_assign/test_self_assign.hpp"
+#include "sizeof_array/test_sizeof_array.hpp"
 #include "static_variables/test_static_variables.hpp"
 #include "string/test_string.hpp"
 #include "string_interpolation/test_string_interpolation.hpp"
@@ -324,6 +326,8 @@ int main() {
                            failed_tests);
     run_test_with_continue(test_integration_generic_destructor,
                            "Generic Destructor Tests", failed_tests);
+    run_test_with_continue(test_integration_generic_constructor,
+                           "Generic Constructor Tests", failed_tests);
     run_test_with_continue(InterfaceTests::run_all_interface_tests,
                            "Interface Tests", failed_tests);
     run_test_with_continue(test_interface_type_inference_chain,
@@ -360,6 +364,8 @@ int main() {
 
     // Memory Management Tests (new/delete/sizeof)
     run_test_with_continue(test_integration_memory, "Memory Management Tests",
+                           failed_tests);
+    run_test_with_continue(register_sizeof_array_tests, "sizeof Array Tests",
                            failed_tests);
 
     run_test_with_continue(ConstPointerTests::run_all_const_pointer_tests,

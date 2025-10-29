@@ -6,6 +6,7 @@
 #include <iostream>
 #include <map>
 #include <memory>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -241,6 +242,12 @@ std::unique_ptr<ASTNode> clone_ast_node(const ASTNode *node) {
     cloned->type_parameters = node->type_parameters;
     cloned->type_arguments = node->type_arguments;
 
+    // sizeof関連のフィールドをコピー
+    cloned->sizeof_type_name = node->sizeof_type_name;
+    if (node->sizeof_expr) {
+        cloned->sizeof_expr = clone_ast_node(node->sizeof_expr.get());
+    }
+
     // 子ノードを再帰的にコピー
     if (node->left) {
         cloned->left = clone_ast_node(node->left.get());
@@ -394,6 +401,20 @@ void substitute_type_parameters(
         }
     }
 
+    // sizeof型名の置換
+    if (!node->sizeof_type_name.empty()) {
+        std::string substituted =
+            substitute_generic_type_name(node->sizeof_type_name, type_map);
+        if (substituted != node->sizeof_type_name) {
+            node->sizeof_type_name = substituted;
+        }
+    }
+
+    // sizeof式の処理
+    if (node->sizeof_expr) {
+        substitute_type_parameters(node->sizeof_expr.get(), type_map);
+    }
+
     // 子ノードを再帰的に処理
     if (node->left) {
         substitute_type_parameters(node->left.get(), type_map);
@@ -481,17 +502,20 @@ instantiate_generic_impl(const ASTNode *impl_node,
         throw std::runtime_error("instantiate_generic_impl: null impl_node");
     }
 
-    // 型パラメータの抽出（interface_nameから）
-    // "VectorOps<T>" -> ["T"]
+    // 型パラメータの抽出（interface_nameまたはstruct_nameから）
+    // "VectorOps<T>" -> ["T"] または "Box<T>" -> ["T"]
     std::vector<std::string> type_parameters;
 
-    // interface_nameから型パラメータを抽出
-    size_t lt_pos = interface_name.find('<');
+    // まずinterface_nameから型パラメータを抽出を試みる
+    std::string source_name =
+        interface_name.empty() ? struct_name : interface_name;
+
+    size_t lt_pos = source_name.find('<');
     if (lt_pos != std::string::npos) {
-        size_t gt_pos = interface_name.rfind('>');
+        size_t gt_pos = source_name.rfind('>');
         if (gt_pos != std::string::npos) {
             std::string params_str =
-                interface_name.substr(lt_pos + 1, gt_pos - lt_pos - 1);
+                source_name.substr(lt_pos + 1, gt_pos - lt_pos - 1);
             // カンマで分割（簡易版、ネストしたジェネリクスは未対応）
             std::stringstream ss(params_str);
             std::string param;
@@ -522,7 +546,31 @@ instantiate_generic_impl(const ASTNode *impl_node,
     }
 
     // implノードをクローン
+    debug_print("[INSTANTIATE_IMPL] Cloning impl node: arguments.size()=%zu\n",
+                impl_node->arguments.size());
+    for (size_t i = 0; i < impl_node->arguments.size(); ++i) {
+        const auto &arg = impl_node->arguments[i];
+        if (arg && arg->node_type == ASTNodeType::AST_FUNC_DECL) {
+            debug_print("[INSTANTIATE_IMPL] Method[%zu]: name='%s', body=%p, "
+                        "statements.size()=%zu\n",
+                        i, arg->name.c_str(), (void *)arg->body.get(),
+                        arg->body ? arg->body->statements.size() : 0);
+        }
+    }
+
     auto instantiated = clone_ast_node(impl_node);
+
+    debug_print("[INSTANTIATE_IMPL] After clone: arguments.size()=%zu\n",
+                instantiated->arguments.size());
+    for (size_t i = 0; i < instantiated->arguments.size(); ++i) {
+        const auto &arg = instantiated->arguments[i];
+        if (arg && arg->node_type == ASTNodeType::AST_FUNC_DECL) {
+            debug_print("[INSTANTIATE_IMPL] Cloned method[%zu]: name='%s', "
+                        "body=%p, statements.size()=%zu\n",
+                        i, arg->name.c_str(), (void *)arg->body.get(),
+                        arg->body ? arg->body->statements.size() : 0);
+        }
+    }
 
     // 型パラメータを置換
     substitute_type_parameters(instantiated.get(), type_map);
@@ -532,6 +580,11 @@ instantiate_generic_impl(const ASTNode *impl_node,
         substitute_generic_type_name(interface_name, type_map);
     std::string instantiated_struct =
         substitute_generic_type_name(struct_name, type_map);
+
+    // v0.12.0: インスタンス化されたnodeのフィールドを更新
+    instantiated->interface_name = instantiated_interface;
+    instantiated->struct_name = instantiated_struct;
+    instantiated->name = instantiated_interface + "_for_" + instantiated_struct;
 
     return {instantiated_interface, instantiated_struct,
             std::move(instantiated)};

@@ -1,0 +1,58 @@
+// sizeof(T)がコンストラクタ内で正しく動作することのテスト
+
+struct Container<T> {
+    T value;
+    int element_size;
+    int capacity;
+};
+
+impl Container<T> {
+    self(T v, int cap) {
+        self.value = v;
+        // sizeof(T)がコンストラクタ内で正しく動作
+        self.element_size = sizeof(T);
+        self.capacity = cap;
+        
+        println("Container<T> constructor:");
+        println("  sizeof(T) = ", self.element_size);
+        println("  capacity = ", self.capacity);
+        println("  total_size = ", self.element_size * self.capacity);
+    }
+}
+
+void main() {
+    println("=== sizeof(T) in Constructor Test ===");
+    println("");
+    
+    // int型のコンテナ
+    println("Test 1: Container<int>");
+    Container<int> c1(42, 10);
+    if (c1.element_size != 4) {
+        println("ERROR: Container<int>.element_size should be 4, got ", c1.element_size);
+        return;
+    }
+    println("✓ sizeof(T) correctly evaluated as 4");
+    println("");
+    
+    // long型のコンテナ
+    println("Test 2: Container<long>");
+    Container<long> c2(123456789, 5);
+    if (c2.element_size != 8) {
+        println("ERROR: Container<long>.element_size should be 8, got ", c2.element_size);
+        return;
+    }
+    println("✓ sizeof(T) correctly evaluated as 8");
+    println("");
+    
+    // short型のコンテナ
+    println("Test 3: Container<short>");
+    Container<short> c3(999, 20);
+    if (c3.element_size != 2) {
+        println("ERROR: Container<short>.element_size should be 2, got ", c3.element_size);
+        return;
+    }
+    println("✓ sizeof(T) correctly evaluated as 2");
+    println("");
+    
+    println("=== All Tests Passed ===");
+}

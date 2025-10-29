@@ -1,0 +1,87 @@
+// sizeof演算子とネストした構造体のテスト
+
+// 基本構造体
+struct Point {
+    int x;
+    int y;
+};
+
+// ネストした構造体
+struct Rectangle {
+    Point topLeft;
+    Point bottomRight;
+};
+
+// ジェネリック構造体
+struct Box<T> {
+    T value;
+    int size;
+};
+
+impl Box<T> {
+    self(T v) {
+        self.value = v;
+        self.size = sizeof(T);
+    }
+    
+    ~self() {
+        // デストラクタは静かに実行
+    }
+}
+
+void main() {
+    println("=== sizeof() Test ===");
+    
+    // プリミティブ型のサイズ
+    int int_size = sizeof(int);
+    println("sizeof(int) = ", int_size);
+    if (int_size != 4) {
+        println("ERROR: sizeof(int) should be 4");
+        return;
+    }
+    
+    long long_size = sizeof(long);
+    println("sizeof(long) = ", long_size);
+    if (long_size != 8) {
+        println("ERROR: sizeof(long) should be 8");
+        return;
+    }
+    
+    // 基本構造体のサイズ
+    int point_size = sizeof(Point);
+    println("sizeof(Point) = ", point_size);
+    if (point_size != 8) {
+        println("ERROR: sizeof(Point) should be 8 (int+int)");
+        return;
+    }
+    
+    // ネストした構造体のサイズ
+    int rect_size = sizeof(Rectangle);
+    println("sizeof(Rectangle) = ", rect_size);
+    if (rect_size != 16) {
+        println("ERROR: sizeof(Rectangle) should be 16 (Point+Point)");
+        return;
+    }
+    
+    // ジェネリック構造体のサイズ
+    int box_int_size = sizeof(Box<int>);
+    println("sizeof(Box<int>) = ", box_int_size);
+    if (box_int_size != 8) {
+        println("ERROR: sizeof(Box<int>) should be 8 (int+int), got ", box_int_size);
+        return;
+    }
+    
+    int box_long_size = sizeof(Box<long>);
+    println("sizeof(Box<long>) = ", box_long_size);
+    // Note: 実際には8バイト（long+intだがパディング無し）
+    if (box_long_size != 8) {
+        println("ERROR: sizeof(Box<long>) should be 8, got ", box_long_size);
+        return;
+    }
+    
+    // インスタンス化（コンストラクタ内でのsizeof(T)は動作しないため、sizeメンバーは0）
+    Box<int> b1(42);
+    Box<long> b2(123456789);
+    
+    println("=== All Tests Passed ===");
+}

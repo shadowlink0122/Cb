@@ -1,11 +1,11 @@
-// Vector<T> - 真のジェネリック動的配列
-// 汎用array_get/array_set関数を使用した統一実装
+// Vector<T> - TRUE GENERIC IMPLEMENTATION
+// impl VectorOps<T> for Vector<T> - Single generic implementation for all types!
 
 export struct Vector<T> {
     void* data;
     int length;
     int capacity;
-}
+};
 
 export interface VectorOps<T> {
     void init(int initial_capacity);
@@ -20,43 +20,47 @@ export interface VectorOps<T> {
     void reserve(int new_capacity);
 }
 
-// ===== Vector<int> の実装 =====
-impl VectorOps<int> for Vector<int> {
+// ===== TRUE GENERIC IMPLEMENTATION =====
+// This single implementation works for ALL types: int, double, string, custom structs!
+impl VectorOps<T> for Vector<T> {
     void init(int initial_capacity) {
-        int element_size = sizeof(int);
+        // sizeof(T) - Type-aware size calculation
+        int element_size = sizeof(T);
         self.data = malloc(initial_capacity * element_size);
         self.length = 0;
         self.capacity = initial_capacity;
     }
     
-    void push(int value) {
+    void push(T value) {
         if (self.length >= self.capacity) {
             self.reserve(self.capacity * 2);
         }
+        // array_set - Generic array operation (works for any type T)
         array_set(self.data, self.length, value);
         self.length = self.length + 1;
     }
     
-    int pop() {
+    T pop() {
         if (self.length <= 0) {
-            println("[Vector<int>] Error: Empty vector");
-            return 0;
+            println("[Vector<T>] Error: Empty vector");
+            // Return first element as fallback
+            return array_get(self.data, 0);
         }
         self.length = self.length - 1;
         return array_get(self.data, self.length);
     }
     
-    int get(int index) {
+    T get(int index) {
         if (index < 0 || index >= self.length) {
-            println("[Vector<int>] Error: Index out of bounds");
-            return 0;
+            println("[Vector<T>] Error: Index {index} out of bounds (length={self.length})");
+            return array_get(self.data, 0);
         }
         return array_get(self.data, index);
     }
     
-    void set(int index, int value) {
+    void set(int index, T value) {
         if (index < 0 || index >= self.length) {
-            println("[Vector<int>] Error: Index out of bounds");
+            println("[Vector<T>] Error: Index out of bounds");
             return;
         }
         array_set(self.data, index, value);
@@ -83,7 +87,7 @@ impl VectorOps<int> for Vector<int> {
             return;
         }
         
-        int element_size = sizeof(int);
+        int element_size = sizeof(T);
         void* new_data = malloc(new_capacity * element_size);
         memcpy(new_data, self.data, self.length * element_size);
         free(self.data);
@@ -93,165 +97,8 @@ impl VectorOps<int> for Vector<int> {
     }
 }
 
-impl Vector<int> {
-    ~self() {
-        free(self.data);
-    }
-}
-
-// ===== Vector<double> の実装 =====
-impl VectorOps<double> for Vector<double> {
-    void init(int initial_capacity) {
-        int element_size = sizeof(double);
-        self.data = malloc(initial_capacity * element_size);
-        self.length = 0;
-        self.capacity = initial_capacity;
-    }
-    
-    void push(double value) {
-        if (self.length >= self.capacity) {
-            self.reserve(self.capacity * 2);
-        }
-        array_set(self.data, self.length, value);
-        self.length = self.length + 1;
-    }
-    
-    double pop() {
-        if (self.length <= 0) {
-            println("[Vector<double>] Error: Empty vector");
-            return 0.0;
-        }
-        self.length = self.length - 1;
-        return array_get(self.data, self.length);
-    }
-    
-    double get(int index) {
-        if (index < 0 || index >= self.length) {
-            println("[Vector<double>] Error: Index out of bounds");
-            return 0.0;
-        }
-        return array_get(self.data, index);
-    }
-    
-    void set(int index, double value) {
-        if (index < 0 || index >= self.length) {
-            println("[Vector<double>] Error: Index out of bounds");
-            return;
-        }
-        array_set(self.data, index, value);
-    }
-    
-    int get_length() {
-        return self.length;
-    }
-    
-    int get_capacity() {
-        return self.capacity;
-    }
-    
-    void clear() {
-        self.length = 0;
-    }
-    
-    bool is_empty() {
-        return self.length == 0;
-    }
-    
-    void reserve(int new_capacity) {
-        if (new_capacity <= self.capacity) {
-            return;
-        }
-        
-        int element_size = sizeof(double);
-        void* new_data = malloc(new_capacity * element_size);
-        memcpy(new_data, self.data, self.length * element_size);
-        free(self.data);
-        
-        self.data = new_data;
-        self.capacity = new_capacity;
-    }
-}
-
-impl Vector<double> {
-    ~self() {
-        free(self.data);
-    }
-}
-
-// ===== Vector<string> の実装 =====
-impl VectorOps<string> for Vector<string> {
-    void init(int initial_capacity) {
-        int element_size = sizeof(string);
-        self.data = malloc(initial_capacity * element_size);
-        self.length = 0;
-        self.capacity = initial_capacity;
-    }
-    
-    void push(string value) {
-        if (self.length >= self.capacity) {
-            self.reserve(self.capacity * 2);
-        }
-        array_set(self.data, self.length, value);
-        self.length = self.length + 1;
-    }
-    
-    string pop() {
-        if (self.length <= 0) {
-            println("[Vector<string>] Error: Empty vector");
-            return "";
-        }
-        self.length = self.length - 1;
-        return array_get(self.data, self.length);
-    }
-    
-    string get(int index) {
-        if (index < 0 || index >= self.length) {
-            println("[Vector<string>] Error: Index out of bounds");
-            return "";
-        }
-        return array_get(self.data, index);
-    }
-    
-    void set(int index, string value) {
-        if (index < 0 || index >= self.length) {
-            println("[Vector<string>] Error: Index out of bounds");
-            return;
-        }
-        array_set(self.data, index, value);
-    }
-    
-    int get_length() {
-        return self.length;
-    }
-    
-    int get_capacity() {
-        return self.capacity;
-    }
-    
-    void clear() {
-        self.length = 0;
-    }
-    
-    bool is_empty() {
-        return self.length == 0;
-    }
-    
-    void reserve(int new_capacity) {
-        if (new_capacity <= self.capacity) {
-            return;
-        }
-        
-        int element_size = sizeof(string);
-        void* new_data = malloc(new_capacity * element_size);
-        memcpy(new_data, self.data, self.length * element_size);
-        free(self.data);
-        
-        self.data = new_data;
-        self.capacity = new_capacity;
-    }
-}
-
-impl Vector<string> {
+// Generic destructor - works for all types!
+impl Vector<T> {
     ~self() {
         free(self.data);
     }

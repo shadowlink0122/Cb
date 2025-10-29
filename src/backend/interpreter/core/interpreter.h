@@ -858,6 +858,12 @@ class Interpreter : public EvaluatorInterface {
     void register_destructor_call(const std::string &var_name,
                                   const std::string &struct_type_name);
 
+    // v0.13.0: コンストラクタ/デストラクタの登録
+    void register_constructor(const std::string &struct_name,
+                              const ASTNode *ctor_node);
+    void register_destructor(const std::string &struct_name,
+                             const ASTNode *dtor_node);
+
     // impl static変数処理 (StaticVariableManagerへ委譲)
     Variable *find_impl_static_variable(const std::string &name);
     void create_impl_static_variable(const std::string &name,

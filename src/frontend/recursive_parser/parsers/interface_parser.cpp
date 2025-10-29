@@ -886,20 +886,20 @@ ASTNode *InterfaceParser::parseImplDeclaration() {
         }
 
         // ★ 課題3の解決: 重複impl定義の検出
-        for (const auto &existing_impl : parser_->impl_definitions_) {
-            if (existing_impl.interface_name == interface_name &&
-                existing_impl.struct_name == struct_name) {
-                parser_->error("Duplicate implementation: Interface '" +
-                               interface_name +
-                               "' is already implemented for struct '" +
-                               struct_name + "'");
-                return nullptr;
+        // interface_nameが空の場合（デストラクタのみのimplブロック）は重複チェックをスキップ
+        if (!interface_name.empty()) {
+            for (const auto &existing_impl : parser_->impl_definitions_) {
+                if (existing_impl.interface_name == interface_name &&
+                    existing_impl.struct_name == struct_name) {
+                    parser_->error("Duplicate implementation: Interface '" +
+                                   interface_name +
+                                   "' is already implemented for struct '" +
+                                   struct_name + "'");
+                    return nullptr;
+                }
             }
         }
     }
-
-    // impl定義を保存（ポインタ参照のみ保持）
-    parser_->impl_definitions_.push_back(impl_def);
 
     // ASTノードを作成
     ASTNode *node = new ASTNode(ASTNodeType::AST_IMPL_DECL);
@@ -907,6 +907,10 @@ ASTNode *InterfaceParser::parseImplDeclaration() {
     node->type_name = struct_name;         // struct名を保存
     node->interface_name = interface_name; // interface名を保存
     node->struct_name = struct_name;       // struct名を明示的に保存
+    // v0.12.0: ジェネリックimplは interface_name や struct_name に <T>
+    // が含まれることで判定
+    node->is_generic = (interface_name.find('<') != std::string::npos) ||
+                       (struct_name.find('<') != std::string::npos);
     parser_->setLocation(node, parser_->current_token_);
 
     // impl static変数の所有権をASTノードに移動
@@ -918,6 +922,12 @@ ASTNode *InterfaceParser::parseImplDeclaration() {
     for (auto &method_node : method_nodes) {
         node->arguments.push_back(std::move(method_node));
     }
+
+    // impl定義を保存
+    parser_->impl_definitions_.push_back(std::move(impl_def));
+
+    // v0.12.0: ジェネリックimpl用にASTノードを保存（push_back後に設定）
+    parser_->impl_definitions_.back().impl_node = node;
 
     return node;
 }

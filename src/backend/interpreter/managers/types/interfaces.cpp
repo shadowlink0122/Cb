@@ -57,6 +57,8 @@ void InterfaceOperations::register_impl_definition(
     stored_def.methods = impl_def.methods;
     stored_def.destructor =
         impl_def.destructor; // v0.10.0: デストラクタもコピー
+    stored_def.impl_node =
+        impl_def.impl_node; // v0.12.0: ジェネリックimpl用にASTノードもコピー
 
     auto existing = std::find_if(
         impl_definitions_.begin(), impl_definitions_.end(),
@@ -223,10 +225,14 @@ InterfaceOperations::get_impl_definitions() const {
 const ImplDefinition *
 InterfaceOperations::find_impl_for_struct(const std::string &struct_name,
                                           const std::string &interface_name) {
+    debug_print("[FIND_IMPL] Searching for: struct='%s', interface='%s'\n",
+                struct_name.c_str(), interface_name.c_str());
+
     // 1. 完全一致で検索（既存の動作）
     for (const auto &impl_def : impl_definitions_) {
         if (impl_def.struct_name == struct_name &&
             impl_def.interface_name == interface_name) {
+            debug_print("[FIND_IMPL] Found exact match\n");
             return &impl_def;
         }
     }
@@ -273,42 +279,104 @@ InterfaceOperations::find_impl_for_struct(const std::string &struct_name,
 
     // ジェネリックimplを探す（例: impl VectorOps<T> for Vector<T>）
     if (!type_arguments.empty()) {
+        debug_print("[FIND_IMPL] Looking for generic impl: base_struct='%s', "
+                    "type_args_count=%zu\n",
+                    base_struct_name.c_str(), type_arguments.size());
+
         std::string generic_struct_pattern = base_struct_name + "<T>";
         std::string generic_interface_pattern =
             base_interface_name.empty() ? "" : base_interface_name + "<T>";
 
+        debug_print("[FIND_IMPL] Patterns: struct='%s', interface='%s'\n",
+                    generic_struct_pattern.c_str(),
+                    generic_interface_pattern.c_str());
+
         for (const auto &impl_def : impl_definitions_) {
+            debug_print("[FIND_IMPL] Checking impl: struct='%s', "
+                        "interface='%s', impl_node=%p\n",
+                        impl_def.struct_name.c_str(),
+                        impl_def.interface_name.c_str(),
+                        (void *)impl_def.impl_node);
+
             // ジェネリックパターンにマッチするか確認
+            // 重要: 型パラメータTを含むimplのみをマッチ対象にする
+            // これにより、インスタンス化済みのVector<int>がVector<T>として再処理されるのを防ぐ
             bool struct_match =
                 (impl_def.struct_name == generic_struct_pattern);
-            bool interface_match =
-                (interface_name.empty() && impl_def.interface_name.empty()) ||
-                (impl_def.interface_name == generic_interface_pattern);
+            bool interface_match = false;
+
+            if (interface_name.empty()) {
+                // interface_nameが指定されていない場合（メソッド検索時）、
+                // 非空のinterface_nameを持つimplをマッチング
+                interface_match = !impl_def.interface_name.empty();
+            } else {
+                // interface_nameが指定されている場合は完全一致
+                interface_match =
+                    (impl_def.interface_name == generic_interface_pattern);
+            }
+
+            debug_print("[FIND_IMPL] Match result: struct_match=%d, "
+                        "interface_match=%d\n",
+                        struct_match, interface_match);
 
             if (struct_match && interface_match && impl_def.impl_node) {
                 // インスタンス化を試みる
                 try {
-                    auto [inst_interface, inst_struct, inst_node] =
+                    auto result =
                         GenericInstantiation::instantiate_generic_impl(
                             impl_def.impl_node, type_arguments,
                             impl_def.interface_name, impl_def.struct_name);
 
-                    // インスタンス化されたimplを登録
-                    ImplDefinition new_impl;
-                    new_impl.interface_name = inst_interface;
-                    new_impl.struct_name = inst_struct;
-                    new_impl.impl_node = inst_node.release(); // 所有権を移譲
-                    new_impl.methods =
-                        impl_def
-                            .methods; // メソッド情報はコピー（後で更新が必要かも）
+                    auto &inst_interface = std::get<0>(result);
+                    auto &inst_struct = std::get<1>(result);
+                    auto &inst_node = std::get<2>(result);
 
-                    impl_definitions_.push_back(new_impl);
-
-                    debug_print("[GENERIC_IMPL] Instantiated: %s for %s\n",
+                    debug_print("[GENERIC_IMPL] Instantiated: %s for %s, "
+                                "processing...\n",
                                 inst_interface.c_str(), inst_struct.c_str());
 
-                    // 新しく追加されたimplを返す
-                    return &impl_definitions_.back();
+                    // v0.12.0:
+                    // インスタンス化されたnodeをキャッシュに保存（ダングリングポインタを防ぐ）
+                    // TODO: メモリ管理を改善する
+                    ASTNode *inst_node_ptr =
+                        inst_node
+                            .release(); // unique_ptrから所有権を解放（意図的なリーク）
+
+                    // インスタンス化されたimplブロックの内容を確認
+                    if (interpreter_->is_debug_mode()) {
+                        debug_print("[GENERIC_IMPL] inst_node: name='%s', "
+                                    "struct_name='%s', interface_name='%s'\n",
+                                    inst_node_ptr->name.c_str(),
+                                    inst_node_ptr->struct_name.c_str(),
+                                    inst_node_ptr->interface_name.c_str());
+                    }
+
+                    // インスタンス化されたimplブロックを処理（メソッドをグローバル関数として登録）
+                    handle_impl_declaration(inst_node_ptr);
+
+                    // 処理されたimpl定義を検索して返す
+                    debug_print("[GENERIC_IMPL] Searching for: struct='%s', "
+                                "interface='%s'\n",
+                                inst_struct.c_str(), inst_interface.c_str());
+                    debug_print("[GENERIC_IMPL] Total impl definitions: %zu\n",
+                                impl_definitions_.size());
+
+                    for (const auto &impl : impl_definitions_) {
+                        debug_print("[GENERIC_IMPL] Checking impl: "
+                                    "struct='%s', interface='%s'\n",
+                                    impl.struct_name.c_str(),
+                                    impl.interface_name.c_str());
+                        if (impl.struct_name == inst_struct &&
+                            impl.interface_name == inst_interface) {
+                            debug_print(
+                                "[GENERIC_IMPL] Found processed impl\n");
+                            return &impl;
+                        }
+                    }
+
+                    debug_print(
+                        "[GENERIC_IMPL] Warning: processed impl not found\n");
+                    return nullptr;
                 } catch (const std::exception &e) {
                     debug_print("[GENERIC_IMPL] Failed to instantiate: %s\n",
                                 e.what());
@@ -352,6 +420,13 @@ void InterfaceOperations::handle_impl_declaration(const ASTNode *node) {
         return;
     }
 
+    if (interpreter_->is_debug_mode()) {
+        debug_print("[HANDLE_IMPL] Processing impl: struct='%s', "
+                    "interface='%s', name='%s'\n",
+                    node->struct_name.c_str(), node->interface_name.c_str(),
+                    node->name.c_str());
+    }
+
     auto trim = [](const std::string &text) {
         const char *whitespace = " \t\r\n";
         size_t start = text.find_first_not_of(whitespace);
@@ -367,22 +442,42 @@ void InterfaceOperations::handle_impl_declaration(const ASTNode *node) {
     std::string interface_name = combined_name;
     std::string struct_name = node->type_name;
 
-    size_t delim_pos = combined_name.find(delimiter);
-    if (delim_pos != std::string::npos) {
-        interface_name = combined_name.substr(0, delim_pos);
-        if (struct_name.empty()) {
-            struct_name = combined_name.substr(delim_pos + delimiter.size());
+    // v0.12.0:
+    // node->struct_nameを優先的に使用（ジェネリックimplでは正しい名前が設定されている）
+    if (!node->struct_name.empty()) {
+        struct_name = node->struct_name;
+    }
+
+    // v0.12.0: node->interface_nameを優先的に使用
+    if (!node->interface_name.empty()) {
+        interface_name = node->interface_name;
+    } else {
+        // 古い形式: 名前から抽出
+        size_t delim_pos = combined_name.find(delimiter);
+        if (delim_pos != std::string::npos) {
+            interface_name = combined_name.substr(0, delim_pos);
+            if (struct_name.empty()) {
+                struct_name =
+                    combined_name.substr(delim_pos + delimiter.size());
+            }
         }
     }
 
     interface_name = trim(interface_name);
     struct_name = trim(struct_name);
 
+    if (interpreter_->is_debug_mode()) {
+        debug_print(
+            "[HANDLE_IMPL] After extraction: struct='%s', interface='%s'\n",
+            struct_name.c_str(), interface_name.c_str());
+    }
+
     // v0.10.0: impl Struct（インターフェースなし）の場合もimpl定義を登録する
     // interface_nameが空の場合は、デストラクタやコンストラクタのためのimpl定義
     // 以前はここで早期リターンしていたが、デストラクタのために登録を続ける
 
     ImplDefinition impl_def(interface_name, struct_name);
+    impl_def.impl_node = node; // v0.12.0: ジェネリックimpl用にASTノードを保存
 
     // impl static変数の登録（implコンテキストは一時的に設定）
     for (const auto &static_var_node : node->impl_static_variables) {
@@ -404,12 +499,27 @@ void InterfaceOperations::handle_impl_declaration(const ASTNode *node) {
         }
 
         if (method_node->node_type == ASTNodeType::AST_CONSTRUCTOR_DECL) {
-            // コンストラクタはargumentsに含まれるが、ImplDefinitionには追加しない
-            // (struct_constructors_に直接格納される)
+            // v0.13.0: コンストラクタをstruct_constructors_に登録
+            interpreter_->register_constructor(struct_name, method_node.get());
+
+            if (interpreter_->is_debug_mode()) {
+                debug_print("[IMPL_REGISTER] Registered constructor for %s "
+                            "(params: %zu)\n",
+                            struct_name.c_str(),
+                            method_node->parameters.size());
+            }
             continue;
         } else if (method_node->node_type == ASTNodeType::AST_DESTRUCTOR_DECL) {
             // v0.10.0: デストラクタをImplDefinitionに追加
             impl_def.destructor = method_node.get();
+
+            // v0.13.0: デストラクタをstruct_destructors_にも登録
+            interpreter_->register_destructor(struct_name, method_node.get());
+
+            if (interpreter_->is_debug_mode()) {
+                debug_print("[IMPL_REGISTER] Registered destructor for %s\n",
+                            struct_name.c_str());
+            }
             continue;
         } else if (method_node->node_type == ASTNodeType::AST_FUNC_DECL) {
             // 通常のメソッド
@@ -420,6 +530,17 @@ void InterfaceOperations::handle_impl_declaration(const ASTNode *node) {
                 interface_name + "::" + struct_name + "::" + method_node->name;
 
             impl_def.add_method(method_node.get());
+
+            // v0.12.0: メソッドをグローバル関数として登録
+            // メソッド名のマングリング: struct_name::method_name
+            std::string method_key = struct_name + "::" + method_node->name;
+            interpreter_->get_global_scope().functions[method_key] =
+                method_node.get();
+
+            if (interpreter_->is_debug_mode()) {
+                debug_print("[IMPL_REGISTER] Registered method: %s\n",
+                            method_key.c_str());
+            }
         }
     }
 

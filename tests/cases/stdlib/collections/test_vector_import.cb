@@ -40,7 +40,7 @@ void test_vector_resize() {
     vec.push(1);
     vec.push(2);
     
-    vec.resize(5);
+    vec.reserve(5);
     assert(vec.get_capacity() == 5);
     println("✅ Vector resize works");
     

@@ -173,12 +173,21 @@ void Interpreter::sync_impl_definitions_from_parser(RecursiveParser *parser) {
         return;
 
     const auto &impl_defs = parser->get_impl_definitions();
-    for (const auto &impl_def : impl_defs) {
+
+    if (debug_mode) {
+        std::cerr << "[SYNC_IMPL] Total impl definitions: " << impl_defs.size()
+                  << std::endl;
+    }
+
+    for (size_t i = 0; i < impl_defs.size(); ++i) {
+        const auto &impl_def = impl_defs[i];
         interface_operations_->register_impl_definition(impl_def);
 
         if (debug_mode) {
-            std::cerr << "[SYNC_IMPL] " << impl_def.struct_name << " for "
-                      << impl_def.interface_name << std::endl;
+            std::cerr << "[SYNC_IMPL] [" << i << "] " << impl_def.interface_name
+                      << " for " << impl_def.struct_name;
+            std::cerr << ", impl_node=" << (void *)impl_def.impl_node;
+            std::cerr << ", methods=" << impl_def.methods.size() << std::endl;
         }
 
         // メソッドを登録（ASTノードから）

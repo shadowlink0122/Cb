@@ -38,6 +38,9 @@ RecursiveParser::RecursiveParser(const std::string &source,
         source_lines_.push_back(line);
     }
 
+    // impl定義用のメモリを事前確保（リサイズによるポインタ無効化を防ぐ）
+    impl_definitions_.reserve(100);
+
     // 分離されたパーサーのインスタンスを初期化
     // Phase 2: 全パーサーの有効化（委譲パターン）
     expression_parser_ = std::make_unique<ExpressionParser>(this);

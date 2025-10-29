@@ -695,6 +695,10 @@ struct ImplDefinition {
         constructors; // コンストラクタのリスト（オーバーロード対応）
     const ASTNode *destructor = nullptr; // デストラクタ（1つのみ）
 
+    // v0.12.0: ジェネリックimplのインスタンス化サポート
+    const ASTNode *impl_node =
+        nullptr; // implブロック全体のASTノード（ジェネリックimpl用）
+
     ImplDefinition() {}
     ImplDefinition(const std::string &iface, const std::string &struct_name)
         : interface_name(iface), struct_name(struct_name) {}

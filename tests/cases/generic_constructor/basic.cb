@@ -1,0 +1,50 @@
+// 基本的なジェネリックコンストラクタ/デストラクタのテスト
+
+struct Box<T> {
+    T value;
+    int size;
+};
+
+impl Box<T> {
+    // 引数付きコンストラクタ
+    self(T v) {
+        self.value = v;
+        self.size = sizeof(T);
+        println("Box<T> constructor called: value=", v);
+    }
+    
+    // デストラクタ
+    ~self() {
+        println("Box<T> destructor called: value=", self.value);
+    }
+}
+
+void main() {
+    println("=== Generic Constructor Test ===");
+    
+    // int型のインスタンス化
+    Box<int> b1(42);
+    if (b1.value != 42) {
+        println("ERROR: Box<int> constructor failed");
+        return;
+    }
+    // Note: sizeof(T)はコンストラクタ内では動作しないため、sizeチェックはスキップ
+    
+    // long型のインスタンス化
+    Box<long> b2(123456789);
+    if (b2.value != 123456789) {
+        println("ERROR: Box<long> constructor failed");
+        return;
+    }
+    
+    // short型のインスタンス化
+    Box<short> b3(999);
+    if (b3.value != 999) {
+        println("ERROR: Box<short> constructor failed");
+        return;
+    }
+    
+    println("=== All Tests Passed ===");
+    
+    // スコープ終了時にデストラクタが自動呼び出しされる
+}

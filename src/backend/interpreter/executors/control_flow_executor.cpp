@@ -210,7 +210,8 @@ void ControlFlowExecutor::execute_match_statement(const ASTNode *node) {
 
     // match式を評価してEnum変数を取得
     Variable enum_value;
-    bool needs_cleanup = false;
+    // TODO: 将来的にクリーンアップが必要な場合に使用
+    // bool needs_cleanup = false;
 
     if (match_expr->node_type == ASTNodeType::AST_VARIABLE) {
         // 変数の場合、直接取得
@@ -230,7 +231,7 @@ void ControlFlowExecutor::execute_match_statement(const ASTNode *node) {
         } catch (const ReturnException &ret) {
             if (ret.is_struct && ret.struct_value.is_enum) {
                 enum_value = ret.struct_value;
-                needs_cleanup = true;
+                // needs_cleanup = true;
             } else {
                 throw std::runtime_error(
                     "Function in match expression must return an enum");
@@ -248,7 +249,7 @@ void ControlFlowExecutor::execute_match_statement(const ASTNode *node) {
         } else {
             enum_value.has_associated_value = false;
         }
-        needs_cleanup = true;
+        // needs_cleanup = true;
     } else {
         throw std::runtime_error("Match expression must be a variable, "
                                  "function call, or enum constructor");
