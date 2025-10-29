@@ -60,6 +60,7 @@
 #include "multidim_literal/test_multidim_literal.hpp"
 #include "multiple_var_decl/test_multiple_var_decl.hpp"
 #include "nested_struct_init/test_nested_struct_init.hpp"
+#include "pattern_matching/test_pattern_matching.hpp"
 #include "performance/test_performance.hpp"
 #include "pointer/function_pointer_tests.hpp"
 #include "pointer/pointer_advanced_tests.hpp"
@@ -277,6 +278,8 @@ int main() {
     run_test_with_continue(test_integration_switch, "Switch Statement Tests",
                            failed_tests);
     run_test_with_continue(test_integration_enum, "Enum Tests", failed_tests);
+    run_test_with_continue(test_integration_pattern_matching,
+                           "Pattern Matching Tests", failed_tests);
     run_test_with_continue(UnionTests::run_all_union_tests, "Union Type Tests",
                            failed_tests);
     run_test_with_continue(test_integration_interface_bounds,

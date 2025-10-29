@@ -1,0 +1,17 @@
+// Cb Standard Library - Option Type
+// Represents an optional value: either Some(T) or None
+// Inspired by Rust's Option<T>
+
+export enum Option<T> {
+    Some(T),
+    None
+};
+
+// Option utility functions will be added when method implementation is complete
+// Future additions:
+// - unwrap() -> T
+// - unwrap_or(T default) -> T
+// - is_some() -> bool
+// - is_none() -> bool
+// - map<U>(fn: T -> U) -> Option<U>
+// - and_then<U>(fn: T -> Option<U>) -> Option<U>

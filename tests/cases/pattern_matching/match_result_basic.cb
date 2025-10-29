@@ -1,0 +1,53 @@
+// Test 2: Result型の基本的なパターンマッチング
+// Pattern matching basic test with Result enum
+
+enum Result<T, E> {
+    Ok(T),
+    Err(E)
+};
+
+Result<int, int> divide(int a, int b) {
+    if (b == 0) {
+        return Result<int, int>::Err(1);  // エラーコード1
+    }
+    return Result<int, int>::Ok(a / b);
+}
+
+int main() {
+    println("=== Test 2: Result<int, int> basic pattern matching ===");
+    
+    // 成功ケース
+    Result<int, int> result1 = divide(10, 2);
+    
+    match (result1) {
+        Ok(value) => {
+            println("Division succeeded:");
+            println(value);
+        }
+        Err(code) => {
+            println("Division failed with error code:");
+            println(code);
+        }
+    }
+    
+    println("");
+    
+    // エラーケース（ゼロ除算）
+    Result<int, int> result2 = divide(10, 0);
+    
+    match (result2) {
+        Ok(value) => {
+            println("Division succeeded:");
+            println(value);
+        }
+        Err(code) => {
+            println("Division failed with error code:");
+            println(code);
+        }
+    }
+    
+    println("");
+    println("Test 2: PASSED");
+    
+    return 0;
+}

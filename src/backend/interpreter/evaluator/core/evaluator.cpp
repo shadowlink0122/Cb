@@ -368,9 +368,17 @@ ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode *node) {
                             InferredType(TYPE_STRUCT, var->struct_type_name));
                     } else if (var->is_enum) {
                         // v0.11.0: enum型を返す
-                        return TypedValue(
-                            *var,
-                            InferredType(TYPE_STRUCT, var->enum_type_name));
+                        // 古いスタイルのenum（整数値）の場合はTYPE_ENUMとして返す
+                        if (var->has_associated_value) {
+                            return TypedValue(
+                                *var,
+                                InferredType(TYPE_ENUM, var->enum_type_name));
+                        } else {
+                            // 古いスタイルenum: 整数値を返す
+                            return TypedValue(
+                                var->value,
+                                InferredType(TYPE_ENUM, var->enum_type_name));
+                        }
                     } else {
                         return TypedValue(
                             var->value,

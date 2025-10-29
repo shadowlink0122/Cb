@@ -406,6 +406,23 @@ void execute_variable_declaration(StatementExecutor *executor,
                              ? std::to_string(var.associated_int_value)
                              : "none"));
                 }
+            }
+            // AST_ENUM_ACCESSの場合（古いスタイルのenum - Status::ERROR等）
+            else if (init_node->node_type == ASTNodeType::AST_ENUM_ACCESS) {
+                var.enum_variant = init_node->enum_member;
+                var.has_associated_value = false;
+
+                // 古いスタイルのenum値を評価
+                int64_t enum_val = interpreter.eval_expression(init_node);
+                var.value = enum_val;
+                var.is_assigned = true;
+
+                if (debug_mode) {
+                    debug_log_line(
+                        "[DEBUG_STMT] Enum initialized with variant: " +
+                        var.enum_variant +
+                        ", value=" + std::to_string(enum_val));
+                }
             } else {
                 // その他の初期化式（例: 変数、関数呼び出しなど）
                 if (debug_mode) {
@@ -416,17 +433,80 @@ void execute_variable_declaration(StatementExecutor *executor,
                         ")");
                 }
 
-                // 式を評価（関数呼び出しなど）
-                int64_t result_value = interpreter.eval_expression(init_node);
+                // 関数呼び出しの場合、ReturnExceptionをキャッチしてEnum情報を取得
+                if (init_node->node_type == ASTNodeType::AST_FUNC_CALL) {
+                    try {
+                        interpreter.eval_expression(init_node);
+                        // 通常ここには到達しない（Returnが投げられる）
+                    } catch (const ReturnException &ret) {
+                        // ReturnExceptionからEnum変数を復元
+                        if (ret.is_struct && ret.struct_value.is_enum) {
+                            var.enum_variant = ret.struct_value.enum_variant;
+                            var.has_associated_value =
+                                ret.struct_value.has_associated_value;
+                            var.associated_int_value =
+                                ret.struct_value.associated_int_value;
+                            var.is_assigned = true;
 
-                // 古いスタイルのenum（整数値）として扱う
-                var.value = result_value;
-                var.is_assigned = true;
+                            if (debug_mode) {
+                                debug_log_line(
+                                    "[DEBUG_STMT] Enum initialized from "
+                                    "function return: variant=" +
+                                    var.enum_variant + ", value=" +
+                                    (var.has_associated_value
+                                         ? std::to_string(
+                                               var.associated_int_value)
+                                         : "none"));
+                            }
+                        } else {
+                            // 古いスタイルのenum（整数値）として扱う
+                            var.value = ret.value;
+                            var.is_assigned = true;
 
-                if (debug_mode) {
-                    debug_log_line("[DEBUG_STMT] Enum initialized from "
-                                   "expression result: " +
-                                   std::to_string(result_value));
+                            if (debug_mode) {
+                                debug_log_line(
+                                    "[DEBUG_STMT] Enum initialized from "
+                                    "function (old-style): value=" +
+                                    std::to_string(ret.value));
+                            }
+                        }
+                    }
+                } else if (init_node->node_type == ASTNodeType::AST_VARIABLE) {
+                    // 変数からの初期化
+                    Variable *source_var =
+                        interpreter.find_variable(init_node->name);
+                    if (source_var && source_var->is_enum) {
+                        var.enum_variant = source_var->enum_variant;
+                        var.has_associated_value =
+                            source_var->has_associated_value;
+                        var.associated_int_value =
+                            source_var->associated_int_value;
+                        var.is_assigned = true;
+
+                        if (debug_mode) {
+                            debug_log_line("[DEBUG_STMT] Enum initialized from "
+                                           "variable: variant=" +
+                                           var.enum_variant);
+                        }
+                    } else {
+                        // 古いスタイルのenum（整数値）として扱う
+                        int64_t result_value =
+                            interpreter.eval_expression(init_node);
+                        var.value = result_value;
+                        var.is_assigned = true;
+                    }
+                } else {
+                    // その他の式（古いスタイルのenum）
+                    int64_t result_value =
+                        interpreter.eval_expression(init_node);
+                    var.value = result_value;
+                    var.is_assigned = true;
+
+                    if (debug_mode) {
+                        debug_log_line("[DEBUG_STMT] Enum initialized from "
+                                       "expression result: " +
+                                       std::to_string(result_value));
+                    }
                 }
             }
         }

@@ -50,6 +50,8 @@
               | <if_statement>
               | <for_statement>
               | <while_statement>
+              | <switch_statement>
+              | <match_statement>
               | <return_statement>
               | <break_statement>
               | <continue_statement>
@@ -238,6 +240,38 @@
                | ε
 
 <while_statement> ::= 'while' '(' <expression> ')' <statement_or_block>
+```
+
+### switch文
+
+```
+<switch_statement> ::= 'switch' '(' <expression> ')' '{' { <switch_case> } [ <default_case> ] '}'
+
+<switch_case> ::= 'case' <constant_expression> ':' { <statement> }
+
+<default_case> ::= 'default' ':' { <statement> }
+```
+
+### match文（パターンマッチング）
+
+```
+<match_statement> ::= 'match' '(' <expression> ')' '{' <match_arm_list> '}'
+
+<match_arm_list> ::= <match_arm> { ',' <match_arm> } [ ',' ]
+
+<match_arm> ::= <pattern> '=>' ( <statement> | <block> )
+
+<pattern> ::= <enum_pattern>
+            | <wildcard_pattern>
+
+<enum_pattern> ::= <identifier> [ '(' <pattern_binding_list> ')' ]
+
+<pattern_binding_list> ::= <pattern_binding> { ',' <pattern_binding> }
+
+<pattern_binding> ::= <identifier>
+                    | '_'
+
+<wildcard_pattern> ::= '_'
 ```
 
 ### その他

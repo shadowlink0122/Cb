@@ -29,6 +29,12 @@ class ReturnHandler {
     // 変数のreturn処理
     void handle_variable_return(const ASTNode *node);
 
+    // Enum構築式のreturn処理（v0.11.0: パターンマッチング対応）
+    void handle_enum_construct_return(const ASTNode *node);
+
+    // 古いスタイルのEnum（AST_ENUM_ACCESS）のreturn処理
+    void handle_enum_access_return(const ASTNode *node);
+
     // 配列変数のreturn処理
     void handle_array_variable_return(const ASTNode *node, Variable *var);
 

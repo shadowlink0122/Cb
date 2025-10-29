@@ -484,6 +484,99 @@ for (int i = 0; i < 10; i++) {
 }
 ```
 
+### match文（パターンマッチング）
+
+v0.11.0でEnum専用のパターンマッチングが実装されました。
+
+**基本構文:**
+
+```cb
+match (expression) {
+    Pattern1 => statement,
+    Pattern2 => { block },
+    Pattern3 => statement,
+}
+```
+
+**Option<T>のマッチング:**
+
+```cb
+enum Option<T> {
+    Some(T),
+    None
+};
+
+int main() {
+    Option<int> opt = Option<int>::Some(42);
+    
+    match (opt) {
+        Some(value) => {
+            println("Value: ", value);
+        },
+        None => {
+            println("No value");
+        }
+    }
+    
+    return 0;
+}
+```
+
+**Result<T, E>のマッチング:**
+
+```cb
+enum Result<T, E> {
+    Ok(T),
+    Err(E)
+};
+
+Result<int, string> divide(int a, int b) {
+    if (b == 0) {
+        return Result<int, string>::Err("Division by zero");
+    }
+    return Result<int, string>::Ok(a / b);
+}
+
+int main() {
+    match (divide(10, 2)) {
+        Ok(value) => println("Result: ", value),
+        Err(error) => println("Error: ", error),
+    }
+    
+    return 0;
+}
+```
+
+**ワイルドカードパターン:**
+
+```cb
+enum Status {
+    Ready(int),
+    Running(int),
+    Stopped(int),
+    Done,
+    Failed
+};
+
+int main() {
+    Status s = Status::Running(50);
+    
+    match (s) {
+        Ready(value) => println("Ready: ", value),
+        Running(_) => println("Running (value discarded)"),
+        _ => println("Other status"),
+    }
+    
+    return 0;
+}
+```
+
+**機能:**
+- Enum variantのマッチング
+- 関連値の抽出（destructuring）
+- ワイルドカード（`_`）バインディング
+- 変数、関数呼び出し、Enum構築式のサポート
+
 ---
 
 ## 関数

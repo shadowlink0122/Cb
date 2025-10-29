@@ -41,6 +41,16 @@ void ReturnHandler::execute_return_statement(const ASTNode *node) {
         handle_variable_return(node);
         break;
 
+    case ASTNodeType::AST_ENUM_CONSTRUCT:
+        // v0.11.0: Enum構築式の返り値処理（パターンマッチング対応）
+        handle_enum_construct_return(node);
+        break;
+
+    case ASTNodeType::AST_ENUM_ACCESS:
+        // v0.11.0: 古いスタイルのenum（Status::ERROR等）の返り値処理
+        handle_enum_access_return(node);
+        break;
+
     default:
         // その他の式（メンバーアクセス、関数呼び出し、算術式など）
         handle_expression_return(node);
@@ -204,6 +214,9 @@ void ReturnHandler::handle_identifier_return(const ASTNode *node) {
                 } else {
                     throw ReturnException(var);
                 }
+            } else if (var->is_enum) {
+                // v0.11.0: Enum変数の返り値処理（パターンマッチング対応）
+                throw ReturnException(*var);
             } else if (var->is_array) {
                 // 配列の場合、handle_array_variable_returnに委譲
                 handle_array_variable_return(node, var);
@@ -267,7 +280,12 @@ void ReturnHandler::handle_variable_return(const ASTNode *node) {
         }
     }
 
-    if (var && var->is_struct) {
+    if (var && var->is_enum) {
+        // v0.11.0: Enum変数の返り値処理（パターンマッチング対応）
+        // Enumのメタデータ（variant名、関連値）を保持したまま返す
+        debug_msg(DebugMsgId::INTERPRETER_RETURN_VAR, node->left->name.c_str());
+        throw ReturnException(*var);
+    } else if (var && var->is_struct) {
         interpreter_->sync_struct_members_from_direct_access(node->left->name);
         if (var->type != TYPE_INTERFACE) {
             var->type = TYPE_STRUCT;
@@ -340,6 +358,51 @@ void ReturnHandler::handle_variable_return(const ASTNode *node) {
                                   typed_result.numeric_type);
         }
     }
+}
+
+// Enum構築式のreturn処理（v0.11.0: パターンマッチング対応）
+void ReturnHandler::handle_enum_construct_return(const ASTNode *node) {
+    // nodeはAST_RETURN_STMTなので、node->leftがAST_ENUM_CONSTRUCTノード
+    const auto *enum_construct = node->left.get();
+
+    // Enum変数を作成
+    Variable enum_var;
+    enum_var.is_enum = true;
+    enum_var.enum_variant = enum_construct->enum_member;
+
+    // 関連値を評価
+    if (!enum_construct->arguments.empty()) {
+        int64_t assoc_value =
+            interpreter_->eval_expression(enum_construct->arguments[0].get());
+        enum_var.has_associated_value = true;
+        enum_var.associated_int_value = assoc_value;
+    } else {
+        enum_var.has_associated_value = false;
+    }
+
+    throw ReturnException(enum_var);
+}
+
+// 古いスタイルのEnum（AST_ENUM_ACCESS）のreturn処理
+void ReturnHandler::handle_enum_access_return(const ASTNode *node) {
+    // nodeはAST_RETURN_STMTなので、node->leftがAST_ENUM_ACCESSノード
+    const auto *enum_access = node->left.get();
+
+    // enum値を評価
+    int64_t enum_value = interpreter_->eval_expression(enum_access);
+
+    // enum型変数として返す（v0.11.0互換）
+    Variable enum_var;
+    enum_var.is_enum =
+        false; // 古いスタイルenumはis_enum=falseで整数値として扱う
+    enum_var.type = TYPE_ENUM;
+    enum_var.value = enum_value;
+    enum_var.enum_variant = enum_access->enum_member; // variant名を保存
+    enum_var.has_associated_value = false;
+    enum_var.is_assigned = true;
+
+    // 整数値として返す（古いスタイルenum）
+    throw ReturnException(enum_value, TYPE_INT);
 }
 
 // 配列変数のreturn処理
@@ -614,19 +677,42 @@ void ReturnHandler::handle_member_access_return(const ASTNode *node) {
 
 // 式のreturn処理（デフォルト）
 void ReturnHandler::handle_expression_return(const ASTNode *node) {
+    bool debug_mode = interpreter_->is_debug_mode();
+
+    if (debug_mode) {
+        debug_print("[RETURN_EXPR] Handling expression return, node_type=%d\n",
+                    static_cast<int>(node->left->node_type));
+    }
+
     // まず、式を評価してReturnExceptionをキャッチする（関数呼び出しの場合）
     try {
         interpreter_->expression_evaluator_->evaluate_expression(
             node->left.get());
     } catch (const ReturnException &ret_ex) {
+        if (debug_mode) {
+            debug_print("[RETURN_EXPR] Caught ReturnException from "
+                        "evaluate_expression\n");
+        }
         // 関数呼び出しの結果がReturnExceptionとして返ってきた場合、そのまま再スロー
         throw ret_ex;
+    }
+
+    if (debug_mode) {
+        debug_print(
+            "[RETURN_EXPR] No exception, evaluating typed expression\n");
     }
 
     // それ以外の場合、型推論を使用して正しい型で返す
     TypedValue typed_result =
         interpreter_->expression_evaluator_->evaluate_typed_expression(
             node->left.get());
+
+    if (debug_mode) {
+        debug_print("[RETURN_EXPR] TypedValue: numeric_type=%d, "
+                    "type.type_info=%d, value=%lld\n",
+                    typed_result.numeric_type, typed_result.type.type_info,
+                    (long long)typed_result.value);
+    }
 
     if (typed_result.is_function_pointer) {
         throw ReturnException(
@@ -644,6 +730,15 @@ void ReturnHandler::handle_expression_return(const ASTNode *node) {
         }
     } else if (typed_result.is_string()) {
         throw ReturnException(typed_result.string_value);
+    } else if (typed_result.numeric_type == TYPE_ENUM ||
+               typed_result.type.type_info == TYPE_ENUM) {
+        // Enum型の場合、TYPE_ENUMとして返す（古いスタイルenum）
+        if (debug_mode) {
+            debug_print(
+                "[RETURN_EXPR] Returning enum as TYPE_ENUM: value=%lld\n",
+                (long long)typed_result.value);
+        }
+        throw ReturnException(typed_result.value, TYPE_ENUM);
     } else {
         // 数値の場合、型情報を保持
         if (typed_result.numeric_type == TYPE_FLOAT) {

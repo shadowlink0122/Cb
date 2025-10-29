@@ -231,6 +231,9 @@ ASTNode *StatementParser::parseControlFlowStatement() {
     if (parser_->check(TokenType::TOK_SWITCH)) {
         return parseSwitchStatement();
     }
+    if (parser_->check(TokenType::TOK_MATCH)) {
+        return parseMatchStatement();
+    }
     if (parser_->check(TokenType::TOK_IF)) {
         return parseIfStatement();
     }
@@ -1091,9 +1094,10 @@ ASTNode *StatementParser::parseBasicTypeStatement(bool isStatic, bool isConst,
 
     // 関数宣言か通常の変数宣言かチェック
     if (parser_->check(TokenType::TOK_IDENTIFIER) ||
-        parser_->check(TokenType::TOK_MAIN)) {
+        parser_->check(TokenType::TOK_MAIN) ||
+        parser_->check(TokenType::TOK_UNDERSCORE)) {
         Token name_token = parser_->current_token_;
-        parser_->advance(); // consume identifier/main
+        parser_->advance(); // consume identifier/main/underscore
 
         // v0.11.0: 型パラメータのチェック <T> または <T1, T2>
         // v0.11.0 Phase 1a: 複数インターフェース境界のサポート <T, A: Allocator
@@ -2140,4 +2144,107 @@ ASTNode *StatementParser::parseImportStatement() {
     import_node->name = module_path;
 
     return import_node;
+}
+
+/**
+ * @brief match文を解析
+ * @return 解析されたASTmatch文ノード
+ *
+ * 構文:
+ * match (expr) {
+ *     VariantName(binding) => { body }
+ *     VariantName => { body }
+ *     _ => { body }
+ * }
+ */
+ASTNode *StatementParser::parseMatchStatement() {
+    Token match_token = parser_->advance(); // consume 'match'
+    ASTNode *match_node = new ASTNode(ASTNodeType::AST_MATCH_STMT);
+    match_node->location.line = match_token.line;
+    match_node->location.column = match_token.column;
+
+    // match対象の式を解析
+    parser_->consume(TokenType::TOK_LPAREN, "Expected '(' after match");
+    match_node->match_expr =
+        std::unique_ptr<ASTNode>(parser_->parseExpression());
+    parser_->consume(TokenType::TOK_RPAREN,
+                     "Expected ')' after match expression");
+
+    // match本体（arm節のリスト）
+    parser_->consume(TokenType::TOK_LBRACE,
+                     "Expected '{' after match expression");
+
+    // match arm を解析
+    while (!parser_->check(TokenType::TOK_RBRACE) && !parser_->isAtEnd()) {
+        MatchArm arm = parseMatchArm();
+        match_node->match_arms.push_back(std::move(arm));
+    }
+
+    parser_->consume(TokenType::TOK_RBRACE, "Expected '}' after match body");
+    return match_node;
+}
+
+/**
+ * @brief match armを解析
+ * @return 解析されたMatchArm構造体
+ *
+ * 構文:
+ * VariantName(binding) => { body }
+ * VariantName => { body }
+ * _ => { body }
+ */
+MatchArm StatementParser::parseMatchArm() {
+    MatchArm arm;
+
+    // パターンを解析
+    if (parser_->check(TokenType::TOK_UNDERSCORE)) {
+        // ワイルドカードパターン
+        arm.pattern_type = PatternType::PATTERN_WILDCARD;
+        parser_->advance(); // consume '_'
+    } else if (parser_->check(TokenType::TOK_IDENTIFIER)) {
+        // Enumバリアントパターン
+        arm.pattern_type = PatternType::PATTERN_ENUM_VARIANT;
+        arm.variant_name = parser_->current_token_.value;
+        parser_->advance(); // consume variant name
+
+        // バインディングをチェック（オプション）
+        if (parser_->check(TokenType::TOK_LPAREN)) {
+            parser_->advance(); // consume '('
+
+            // バインディング変数を解析（識別子または_）
+            if (parser_->check(TokenType::TOK_UNDERSCORE)) {
+                // ワイルドカードバインディング（値を無視）
+                arm.bindings.push_back("_");
+                parser_->advance(); // consume '_'
+            } else if (parser_->check(TokenType::TOK_IDENTIFIER)) {
+                arm.bindings.push_back(parser_->current_token_.value);
+                parser_->advance(); // consume binding name
+            }
+
+            parser_->consume(TokenType::TOK_RPAREN,
+                             "Expected ')' after binding");
+        }
+    } else {
+        parser_->error("Expected pattern in match arm");
+        return arm;
+    }
+
+    // Fat arrow (=>)
+    parser_->consume(TokenType::TOK_FAT_ARROW,
+                     "Expected '=>' after match pattern");
+
+    // 本体を解析
+    // 単一式または複合文（{}）
+    if (parser_->check(TokenType::TOK_LBRACE)) {
+        arm.body = std::unique_ptr<ASTNode>(parseCompoundStatement());
+    } else {
+        // 単一式の場合
+        arm.body = std::unique_ptr<ASTNode>(parser_->parseExpression());
+        // セミコロンは省略可能だが、あれば消費
+        if (parser_->check(TokenType::TOK_SEMICOLON)) {
+            parser_->advance();
+        }
+    }
+
+    return arm;
 }

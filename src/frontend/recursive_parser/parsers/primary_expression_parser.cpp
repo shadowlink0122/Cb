@@ -146,6 +146,16 @@ ASTNode *PrimaryExpressionParser::parsePrimary() {
         return node;
     }
 
+    // 無名変数 (_) のチェック
+    if (parser_->check(TokenType::TOK_UNDERSCORE)) {
+        Token token = parser_->advance();
+        ASTNode *node = new ASTNode(ASTNodeType::AST_DISCARD_VARIABLE);
+        node->name = "_";
+        node->is_discard = true;
+        parser_->setLocation(node, token.line, token.column);
+        return node;
+    }
+
     if (parser_->check(TokenType::TOK_IDENTIFIER)) {
         Token token = parser_->advance();
 
@@ -217,15 +227,6 @@ ASTNode *PrimaryExpressionParser::parsePrimary() {
 
             parser_->consume(TokenType::TOK_RPAREN,
                              "Expected ')' after sizeof");
-            return node;
-        }
-
-        // 無名変数 (_) のチェック
-        if (token.value == "_") {
-            ASTNode *node = new ASTNode(ASTNodeType::AST_DISCARD_VARIABLE);
-            node->name = "_";
-            node->is_discard = true;
-            parser_->setLocation(node, token.line, token.column);
             return node;
         }
 

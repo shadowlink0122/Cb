@@ -1,0 +1,33 @@
+enum Priority {
+    LOW = 1,
+    MEDIUM = 2,
+    HIGH = 3
+};
+
+struct Task {
+    int id;
+    Priority priority;
+};
+
+interface ITask {
+    Priority getPriority();
+};
+
+impl ITask for Task {
+    Priority getPriority() {
+        return self.priority;
+    }
+};
+
+int main() {
+    // Direct access works
+    Task task = {1, 2};
+    println("Direct access:", task.priority);
+    
+    // Interface access
+    ITask itask = task;
+    Priority p = itask.getPriority();
+    println("Interface access:", p);
+    
+    return 0;
+}

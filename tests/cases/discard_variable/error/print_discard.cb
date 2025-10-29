@@ -1,0 +1,5 @@
+// エラー: discard変数をprintで出力
+void main() {
+    string _ = "hidden";
+    println(_); // エラー: Cannot reference discard variable '_'
+}

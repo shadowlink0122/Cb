@@ -1,0 +1,76 @@
+// Test 4: ネストされたmatch文のテスト
+// Nested match statement test
+
+enum Option<T> {
+    Some(T),
+    None
+};
+
+enum Result<T, E> {
+    Ok(T),
+    Err(E)
+};
+
+Result<int, int> parse_number(int input) {
+    if (input < 0) {
+        return Result<int, int>::Err(1);
+    }
+    return Result<int, int>::Ok(input);
+}
+
+Option<int> get_value(int flag) {
+    if (flag == 0) {
+        return Option<int>::None;
+    }
+    return Option<int>::Some(flag);
+}
+
+int main() {
+    println("=== Test 4: Nested match statements ===");
+    
+    // Test 1: Resultの中でOptionをチェック
+    int flag = 5;
+    Result<int, int> result = parse_number(flag);
+    
+    match (result) {
+        Ok(val) => {
+            println("Outer match: Ok with value:");
+            println(val);
+            
+            Option<int> opt = get_value(val);
+            match (opt) {
+                Some(inner_val) => {
+                    println("Inner match: Some with value:");
+                    println(inner_val);
+                }
+                None => {
+                    println("Inner match: None");
+                }
+            }
+        }
+        Err(code) => {
+            println("Outer match: Err with code:");
+            println(code);
+        }
+    }
+    
+    println("");
+    
+    // Test 2: エラーケース
+    Result<int, int> result2 = parse_number(-1);
+    
+    match (result2) {
+        Ok(val) => {
+            println("Outer match: Ok");
+        }
+        Err(code) => {
+            println("Outer match: Err with code:");
+            println(code);
+        }
+    }
+    
+    println("");
+    println("Test 4: PASSED");
+    
+    return 0;
+}

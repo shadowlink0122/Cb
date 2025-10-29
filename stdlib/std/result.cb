@@ -1,0 +1,17 @@
+// Cb Standard Library - Result Type
+// Represents a value that can be either a success (Ok) or an error (Err)
+// Inspired by Rust's Result<T, E>
+
+export enum Result<T, E> {
+    Ok(T),
+    Err(E)
+};
+
+// Result utility functions will be added when method implementation is complete
+// Future additions:
+// - unwrap() / expect(string message) -> T
+// - unwrap_or(T default) -> T
+// - is_ok() -> bool
+// - is_err() -> bool
+// - map<U>(fn: T -> U) -> Result<U, E>
+// - and_then<U>(fn: T -> Result<U, E>) -> Result<U, E>

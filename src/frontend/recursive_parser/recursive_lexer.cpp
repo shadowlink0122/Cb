@@ -101,6 +101,11 @@ Token RecursiveLexer::nextToken() {
             advance();
             return makeToken(TokenType::TOK_EQ, "==");
         }
+        // v0.11.0: => (fat arrow) for pattern matching
+        if (peek() == '>') {
+            advance();
+            return makeToken(TokenType::TOK_FAT_ARROW, "=>");
+        }
         return makeToken(TokenType::TOK_ASSIGN, "=");
 
     case '!':
@@ -264,6 +269,12 @@ Token RecursiveLexer::makeIdentifier() {
     }
 
     std::string text = source_.substr(start, current_ - start);
+
+    // v0.11.0: 単独の _ はワイルドカードパターン
+    if (text == "_") {
+        return makeToken(TokenType::TOK_UNDERSCORE, text);
+    }
+
     TokenType type = getKeywordType(text);
 
     return makeToken(type, text);
@@ -454,6 +465,7 @@ TokenType RecursiveLexer::getKeywordType(const std::string &text) {
         {"default", TokenType::TOK_DEFAULT},
         {"switch", TokenType::TOK_SWITCH},
         {"case", TokenType::TOK_CASE},
+        {"match", TokenType::TOK_MATCH}, // v0.11.0: match keyword
         {"func", TokenType::TOK_FUNC},
         {"import", TokenType::TOK_IMPORT},
         {"export", TokenType::TOK_EXPORT}};

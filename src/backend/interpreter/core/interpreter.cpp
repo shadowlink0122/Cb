@@ -964,6 +964,14 @@ void Interpreter::execute_statement(const ASTNode *node) {
         break;
 
     // ========================================================================
+    // match文（MATCH_STMT）
+    // v0.11.0: パターンマッチング
+    // ========================================================================
+    case ASTNodeType::AST_MATCH_STMT:
+        control_flow_executor_->execute_match_statement(node);
+        break;
+
+    // ========================================================================
     // assert文（ASSERT_STMT）
     // AssertionHandlerに委譲済み
     // ========================================================================

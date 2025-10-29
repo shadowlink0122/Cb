@@ -1,7 +1,7 @@
 # Cb (シーフラット) プログラミング言語
 
 **最新バージョン**: v0.11.0 - Generics, String Interpolation & Destructors  
-**リリース日**: 2025年10月28日  
+**リリース日**: 2025年10月29日（更新）  
 **前バージョン**: v0.10.0
 
 ### 📊 品質指標（v0.11.0）
@@ -9,6 +9,7 @@
 - **統合テスト**: **3,341個**（100%成功） 🎉
 - **Genericテスト**: **53個** (Structs/Enums/Functions含む) 🎉
 - **Enumテスト**: **3個**（包括的テストスイート含む） 🎉
+- **Discard変数テスト**: **10個**（成功3+エラー7） 🆕
 - **Deferテスト**: **131個**（return/break/continue前cleanup含む） 🎉
 - **Destructorテスト**: **4個**（スコープクリーンアップ含む） 🎉
 - **String Interpolationテスト**: **150個以上** 🎉
@@ -19,7 +20,58 @@
 
 ### 🆕 v0.11.0の新機能
 
-**1. 🧹 デストラクタ機能**
+**1. 🔧 Enum型のinterface経由返り値修正** 🆕
+- **問題**: Interface経由でEnum値を返すと常に0が返される
+- **修正**: `TYPE_ENUM`として正しく型情報を伝播
+- **影響**: Interface/Implシステムのenum型が完全に動作
+
+```cb
+interface ColorProvider {
+    Color get_color();
+}
+
+struct ColorImpl {
+    Color color;
+}
+
+impl ColorProvider for ColorImpl {
+    Color get_color() {
+        return self.color;  // ✅ 正しくEnum値を返す
+    }
+}
+
+void main() {
+    ColorImpl impl;
+    impl.color = Red;  // Red = 1
+    
+    ColorProvider* provider = &impl;
+    Color c = provider->get_color();  // ✅ 1が返される
+    println("Color: ", c);  // Color: 1
+}
+```
+
+**2. 🚫 Discard変数（`_`）の完全実装** 🆕
+- **宣言・代入**: 不要な値を破棄するために`_`変数を使用可能
+- **読み込み禁止**: discard変数の読み込みは実行時エラー
+- **包括的なテスト**: 10テストケース（成功3+エラー7）
+
+```cb
+void main() {
+    // ✅ 基本的な使用
+    int _ = get_value();  // 戻り値を破棄
+    _ = 200;              // 再代入も可能
+    
+    // ✅ 複数のdiscard変数
+    int _ = 100;
+    int _ = 200;  // 別のdiscard変数として扱われる
+    
+    // ❌ 読み込みは禁止
+    int a = _;    // エラー: "Cannot read from discard variable '_'"
+    println(_);   // エラー: 読み込みは禁止
+}
+```
+
+**3. 🧹 デストラクタ機能**
 - **スコープベースのRAII**: スコープ終了時に自動的にデストラクタが呼ばれる
 - **LIFO順序**: 複数の変数がある場合、宣言の逆順で破棄
 - **Generic対応**: `impl Vector<T, A: Allocator> { fn deinit() { ... } }`
@@ -105,7 +157,47 @@ int main() {
 }
 ```
 
-**3. ⚡ ジェネリック関数**
+**3. 🎯 パターンマッチング (match文)**
+- **Enum専用マッチング**: Result<T, E>やOption<T>の効率的な処理
+- **関連値の抽出**: destructuringによる値の取り出し
+- **ワイルドカード**: `_`による柔軟なパターン指定
+- **関数返り値のマッチング**: 直接match式で関数呼び出し可能
+
+```cb
+enum Result<T, E> {
+    Ok(T),
+    Err(E)
+};
+
+Result<int, string> divide(int a, int b) {
+    if (b == 0) {
+        return Result<int, string>::Err("Division by zero");
+    }
+    return Result<int, string>::Ok(a / b);
+}
+
+int main() {
+    // 関数返り値を直接マッチング
+    match (divide(10, 2)) {
+        Ok(value) => println("Result: ", value),
+        Err(error) => println("Error: ", error),
+    }
+    
+    // ワイルドカードパターン
+    enum Status { Ready(int), Running(int), Done };
+    Status s = Status::Running(50);
+    
+    match (s) {
+        Ready(value) => println("Ready: ", value),
+        Running(_) => println("Running"),  // 値を無視
+        _ => println("Other status"),      // その他すべて
+    }
+    
+    return 0;
+}
+```
+
+**4. ⚡ ジェネリック関数**
 - **型パラメータ**: `func<T>(...)` による型の抽象化
 - **複数型パラメータ**: `func<T1, T2>(...)` 対応
 - **ランタイムインスタンス化**: 呼び出し時に型を特定して関数を生成
@@ -885,7 +977,7 @@ make unit-test          # 単体テスト（50個）
 
 ## 🔧 開発状況
 
-### v0.11.0 - Generics, String Interpolation & Destructors（2025年10月28日）
+### v0.11.0 - Generics, String Interpolation & Destructors（2025年10月29日更新）
 
 #### ✅ 主要新機能
 - **ジェネリクス**: 構造体、Enum、関数の型パラメータ化
@@ -893,11 +985,16 @@ make unit-test          # 単体テスト（50個）
 - **デストラクタ**: スコープベースの自動リソース管理（RAII）
 - **break/continue cleanup**: ループ脱出時のデストラクタ実行
 
+#### 🐛 Week 4 Day 1 バグ修正（2025年10月29日）
+- **Enum型のinterface経由返り値修正**: `TYPE_ENUM`として正しく型情報を伝播
+- **Discard変数の完全実装**: `_`変数の宣言・代入・読み込み禁止をサポート
+
 #### 📈 テスト統計
 - 統合テスト: 2924個 → **3341個**（+417個）
 - Genericテスト: **53個**
 - String Interpolationテスト: **150個以上**
 - Destructorテスト: **4個**
+- Discard変数テスト: **10個**（成功3+エラー7） 🆕
 - 成功率: **100%**
 
 #### 📚 ドキュメント
@@ -906,6 +1003,7 @@ make unit-test          # 単体テスト（50個）
 - [`docs/BNF.md`](docs/BNF.md) - BNF文法定義（v0.11.0対応）
 - [`docs/features/string_interpolation.md`](docs/features/string_interpolation.md) - 文字列補間の詳細
 - [`tests/cases/destructor/README.md`](tests/cases/destructor/README.md) - デストラクタテスト
+- [`tests/cases/discard_variable/README.md`](tests/cases/discard_variable/README.md) - Discard変数テスト 🆕
 
 ### v0.10.0 - Move Semantics & Complete Cleanup（2025年10月12日）
 

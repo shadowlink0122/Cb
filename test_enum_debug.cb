@@ -1,0 +1,24 @@
+// Debug enum test
+typedef enum { SUCCESS = 0, ERROR = 1, PENDING = -1 } Status;
+
+Status get_status(int code) {
+    if (code == 0) return Status::SUCCESS;
+    if (code == 1) return Status::ERROR;
+    return Status::PENDING;
+}
+
+int main() {
+    // 直接初期化
+    Status s1 = Status::ERROR;
+    println("Direct:", s1);
+    
+    // 関数経由
+    Status s2 = get_status(1);
+    println("From function:", s2);
+    
+    // int型として
+    int x = Status::ERROR;
+    println("As int:", x);
+    
+    return 0;
+}

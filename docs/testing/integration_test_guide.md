@@ -27,20 +27,27 @@ tests/
 ├── cases/                          # Cbテストファイル（.cb）
 │   ├── <feature_name>/
 │   │   ├── README.md              # テスト概要と実行方法
-│   │   ├── test_basic.cb          # 基本機能テスト
-│   │   ├── test_edge_cases.cb     # エッジケーステスト
-│   │   ├── test_error_handling.cb # エラーハンドリングテスト
+│   │   ├── basic.cb               # 基本機能テスト
+│   │   ├── edge_cases.cb          # エッジケーステスト
+│   │   ├── error_handling.cb      # エラーハンドリングテスト
 │   │   └── <other_tests>.cb       # その他のテスト
 │   │
 │   ├── string_interpolation/
 │   │   ├── README.md
-│   │   ├── test_basic.cb
-│   │   ├── test_expressions.cb
+│   │   ├── basic.cb
+│   │   ├── expressions.cb
+│   │   └── ...
+│   │
+│   ├── pattern_matching/
+│   │   ├── README.md
+│   │   ├── match_option_basic.cb
+│   │   ├── match_result_basic.cb
+│   │   ├── match_wildcard.cb
 │   │   └── ...
 │   │
 │   └── interface_bounds/
 │       ├── README.md
-│       ├── test_multiple_bounds_per_param.cb
+│       ├── multiple_bounds_per_param.cb
 │       └── ...
 │
 └── integration/                    # Integration Testファイル（.hpp）
@@ -75,35 +82,46 @@ tests/
 ```bash
 tests/cases/<feature_name>/
 ├── README.md                    # テスト概要と実行方法
-├── test_basic.cb               # 基本機能テスト
-├── test_edge_cases.cb          # エッジケーステスト
-├── test_error_handling.cb      # エラーハンドリングテスト
-└── <other_tests>.cb            # その他のテスト
+├── basic.cb                     # 基本機能テスト
+├── edge_cases.cb                # エッジケーステスト
+├── error_handling.cb            # エラーハンドリングテスト
+└── <other_tests>.cb             # その他のテスト
 ```
 
 **例: 文字列補間機能の場合**
 ```bash
 tests/cases/string_interpolation/
 ├── README.md
-├── test_basic.cb
-├── test_expressions.cb
-├── test_array_access.cb
-├── test_member_access.cb
-├── test_types.cb
+├── basic.cb
+├── expressions.cb
+├── array_access.cb
+├── member_access.cb
+├── types.cb
 ├── format_specifiers.cb
-└── test_edge_cases.cb
+└── edge_cases.cb
+```
+
+**例: パターンマッチング機能の場合**
+```bash
+tests/cases/pattern_matching/
+├── README.md
+├── match_option_basic.cb
+├── match_result_basic.cb
+├── match_wildcard.cb
+├── match_nested.cb
+└── match_return_value.cb
 ```
 
 **例: インターフェース境界機能の場合**
 ```bash
 tests/cases/interface_bounds/
 ├── README.md
-├── test_multiple_bounds_per_param.cb
-├── test_function_multiple_bounds.cb
-├── test_enum_multiple_bounds.cb
-├── test_conflict_methods.cb
-├── test_duplicate_impl_methods.cb
-└── test_no_conflict_different_types.cb
+├── multiple_bounds_per_param.cb
+├── function_multiple_bounds.cb
+├── enum_multiple_bounds.cb
+├── conflict_methods.cb
+├── duplicate_impl_methods.cb
+└── no_conflict_different_types.cb
 ```
 
 ### 1.2 Cbテストファイルの作成
@@ -129,7 +147,7 @@ void main() {
 **例1: 正常系テスト**
 
 ```cb
-// tests/cases/interface_bounds/test_multiple_bounds_per_param.cb
+// tests/cases/interface_bounds/multiple_bounds_per_param.cb
 interface Allocator {
     void* allocate(int size);
     void deallocate(void* ptr);
@@ -164,7 +182,7 @@ void main() {
 **例2: エラーケーステスト**
 
 ```cb
-// tests/cases/interface_bounds/test_conflict_methods.cb
+// tests/cases/interface_bounds/conflict_methods.cb
 interface Allocator {
     void reset();
 }
@@ -221,7 +239,7 @@ void main() {
 
 ## テストファイル
 
-### 1. test_basic.cb
+### 1. basic.cb
 基本機能のテスト
 
 **テスト内容**:
@@ -230,7 +248,7 @@ void main() {
 
 **実行方法**:
 \`\`\`bash
-./main tests/cases/<feature>/test_basic.cb
+./main tests/cases/<feature>/basic.cb
 \`\`\`
 
 **期待される出力**:
@@ -242,7 +260,7 @@ Test 1: ... - PASSED
 
 ---
 
-### 2. test_edge_cases.cb
+### 2. edge_cases.cb
 エッジケースのテスト
 
 ...
@@ -268,13 +286,13 @@ done
 
 ```bash
 # 個別実行
-./main tests/cases/<feature>/test_basic.cb
+./main tests/cases/<feature>/basic.cb
 
 # 正常終了の確認（exit code == 0）
 echo $?  # 0が表示されるはず
 
 # エラーケースの確認（exit code != 0）
-./main tests/cases/<feature>/test_error.cb
+./main tests/cases/<feature>/error.cb
 echo $?  # 0以外が表示されるはず
 ```
 
@@ -312,11 +330,11 @@ inline void test_integration_<feature_name>() {
     // テスト1: 基本機能
     double execution_time_basic;
     run_cb_test_with_output_and_time(
-        "../../tests/cases/<feature_name>/test_basic.cb", 
+        "../../tests/cases/<feature_name>/basic.cb", 
         [](const std::string& output, int exit_code) {
             // 終了コードの検証
             INTEGRATION_ASSERT_EQ(0, exit_code, 
-                "test_basic.cb should execute successfully");
+                "basic.cb should execute successfully");
             
             // 出力内容の検証
             INTEGRATION_ASSERT_CONTAINS(output, "Expected output", 
@@ -326,7 +344,7 @@ inline void test_integration_<feature_name>() {
         }, 
         execution_time_basic
     );
-    integration_test_passed_with_time("<test name>", "test_basic.cb", 
+    integration_test_passed_with_time("<test name>", "basic.cb", 
                                       execution_time_basic);
     
     // 追加のテストケース...
@@ -348,7 +366,7 @@ inline void test_integration_interface_bounds() {
     // Test 1: Multiple bounds per parameter
     double execution_time_1;
     run_cb_test_with_output_and_time(
-        "../../tests/cases/interface_bounds/test_multiple_bounds_per_param.cb",
+        "../../tests/cases/interface_bounds/multiple_bounds_per_param.cb",
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_EQ(0, exit_code, 
                 "Multiple bounds test should execute successfully");
@@ -366,14 +384,14 @@ inline void test_integration_interface_bounds() {
     );
     integration_test_passed_with_time(
         "Interface Bounds", 
-        "test_multiple_bounds_per_param.cb", 
+        "multiple_bounds_per_param.cb", 
         execution_time_1
     );
     
     // Test 2: Function multiple bounds
     double execution_time_2;
     run_cb_test_with_output_and_time(
-        "../../tests/cases/interface_bounds/test_function_multiple_bounds.cb",
+        "../../tests/cases/interface_bounds/function_multiple_bounds.cb",
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_EQ(0, exit_code, 
                 "Function bounds test should succeed");
@@ -385,14 +403,14 @@ inline void test_integration_interface_bounds() {
     );
     integration_test_passed_with_time(
         "Interface Bounds", 
-        "test_function_multiple_bounds.cb", 
+        "function_multiple_bounds.cb", 
         execution_time_2
     );
     
     // Test 3: Error case - conflict detection
     double execution_time_3;
     run_cb_test_with_output_and_time(
-        "../../tests/cases/interface_bounds/test_conflict_methods.cb",
+        "../../tests/cases/interface_bounds/conflict_methods.cb",
         [](const std::string& output, int exit_code) {
             // エラーケースなので exit_code != 0 が期待される
             INTEGRATION_ASSERT_NE(0, exit_code, 
@@ -408,7 +426,7 @@ inline void test_integration_interface_bounds() {
     );
     integration_test_passed_with_time(
         "Interface Bounds", 
-        "test_conflict_methods.cb (error case)", 
+        "conflict_methods.cb (error case)", 
         execution_time_3
     );
     
@@ -547,7 +565,7 @@ make unit-test
 
 ```bash
 # 個別のCbファイルを実行
-./main tests/cases/<feature>/test_basic.cb
+./main tests/cases/<feature>/basic.cb
 
 # 終了コードの確認
 echo $?
@@ -559,10 +577,22 @@ echo $?
 
 ### 1. テストファイルの命名規則
 
-- `test_<feature>.cb` - 機能別テスト
-- `test_basic.cb` - 基本的な機能テスト
-- `test_edge_cases.cb` - エッジケース
-- `test_error_handling.cb` - エラーケース
+**⚠️ 重要:** テストファイル名には`test_`プレフィックスを**付けないでください**。
+
+**正しい命名:**
+- ✅ `basic.cb` - 基本的な機能テスト
+- ✅ `edge_cases.cb` - エッジケース
+- ✅ `error_handling.cb` - エラーケース
+- ✅ `<feature_name>.cb` - 機能別テスト
+- ✅ `match_option_basic.cb` - パターンマッチングの基本
+- ✅ `match_wildcard.cb` - ワイルドカードパターン
+
+**間違った命名:**
+- ❌ `test_basic.cb`
+- ❌ `test_edge_cases.cb`
+- ❌ `test_match_option.cb`
+
+**理由:** Cbの統合テストシステムでは、`test_`プレフィックスは特別な意味を持たず、ファイル名が冗長になります。簡潔で明確な名前を使用してください。
 
 ### 2. テストの構造
 
@@ -613,7 +643,7 @@ Integration test側で`exit_code != 0`を検証：
 
 ```cpp
 run_cb_test_with_output_and_time(
-    "../../tests/cases/feature/test_error.cb",
+    "../../tests/cases/feature/error.cb",
     [](const std::string& output, int exit_code) {
         INTEGRATION_ASSERT_NE(0, exit_code, "Should fail with error");
         INTEGRATION_ASSERT_CONTAINS(output, "Error:", "Should show error");
@@ -644,9 +674,9 @@ run_cb_test_with_output_and_time(
 
 - [ ] `tests/cases/<feature>/` ディレクトリ作成
 - [ ] `tests/cases/<feature>/README.md` 作成
-- [ ] 基本機能テスト (`test_basic.cb`) 作成
-- [ ] エッジケーステスト (`test_edge_cases.cb`) 作成
-- [ ] エラーケーステスト (`test_error_handling.cb`) 作成
+- [ ] 基本機能テスト (`basic.cb`) 作成（⚠️ `test_`プレフィックスなし）
+- [ ] エッジケーステスト (`edge_cases.cb`) 作成
+- [ ] エラーケーステスト (`error_handling.cb`) 作成
 - [ ] 各テストファイルを個別実行して動作確認
 - [ ] `tests/integration/<feature>/test_<feature>.hpp` 作成
 - [ ] Integration testで各Cbテストの出力を検証

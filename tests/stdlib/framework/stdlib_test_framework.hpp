@@ -6,6 +6,9 @@
 #include <vector>
 #include <functional>
 #include <stdexcept>
+#include <cstdlib>
+#include <sstream>
+#include <array>
 
 // テスト結果の統計
 struct StdlibTestStats {
@@ -93,5 +96,29 @@ public:
     if ((a) == (b)) { \
         throw std::runtime_error("Assertion failed: " #a " != " #b); \
     }
+
+#define STDLIB_ASSERT_CONTAINS(output, substring) \
+    if ((output).find(substring) == std::string::npos) { \
+        throw std::runtime_error(std::string("Assertion failed: output does not contain \"") + substring + "\""); \
+    }
+
+// ヘルパー関数: Cbテストファイルを実行して出力とexit codeを取得
+inline std::pair<std::string, int> run_cb_test(const std::string& test_file) {
+    std::string command = "../../main " + test_file + " 2>&1";
+    FILE* pipe = popen(command.c_str(), "r");
+    if (!pipe) {
+        return {"", -1};
+    }
+    
+    std::stringstream output;
+    std::array<char, 128> buffer;
+    while (fgets(buffer.data(), buffer.size(), pipe) != nullptr) {
+        output << buffer.data();
+    }
+    
+    int exit_code = pclose(pipe);
+    // WEXITSTATUS extracts the actual exit code from the status returned by pclose
+    return {output.str(), WEXITSTATUS(exit_code)};
+}
 
 #endif // STDLIB_TEST_FRAMEWORK_HPP

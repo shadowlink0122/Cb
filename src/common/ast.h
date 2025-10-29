@@ -712,6 +712,36 @@ struct ImplDefinition {
     }
 };
 
+// v0.11.0: パターンマッチング用の型定義
+
+// パターンの種類
+enum class PatternType {
+    PATTERN_ENUM_VARIANT, // Enum variant: Some(value), Ok(value)
+    PATTERN_WILDCARD,     // ワイルドカード: _ （将来の拡張）
+    PATTERN_LITERAL,      // リテラル: 42, "string" （将来の拡張）
+};
+
+// Match Arm（match文の各分岐）
+struct MatchArm {
+    PatternType pattern_type = PatternType::PATTERN_ENUM_VARIANT;
+    std::string variant_name;          // "Some", "Ok", "Err", "None"
+    std::vector<std::string> bindings; // 束縛する変数名 ["value", "error"]
+    std::unique_ptr<ASTNode> body;     // armの本体（statement or block）
+
+    // v0.11.0: Enum型の完全名（型チェック用）
+    std::string enum_type_name; // "Option<int>", "Result<int, string>"
+
+    MatchArm() = default;
+
+    // コピー禁止（unique_ptrを持つため）
+    MatchArm(const MatchArm &) = delete;
+    MatchArm &operator=(const MatchArm &) = delete;
+
+    // ムーブは許可
+    MatchArm(MatchArm &&) noexcept = default;
+    MatchArm &operator=(MatchArm &&) noexcept = default;
+};
+
 // 型名を文字列に変換する関数
 const char *type_info_to_string(TypeInfo type);
 const char *type_info_to_string_basic(TypeInfo type);
@@ -751,6 +781,8 @@ enum class ASTNodeType {
     AST_DEFER_STMT,  // defer文
     AST_SWITCH_STMT, // switch文
     AST_CASE_CLAUSE, // case節
+    AST_MATCH_STMT,  // v0.11.0: match文（パターンマッチング）
+    AST_MATCH_ARM,   // v0.11.0: match文のアーム（1つの分岐）
     AST_RANGE_EXPR,  // 範囲式 (start...end)
 
     // 宣言
@@ -988,6 +1020,10 @@ struct ASTNode {
     // case節関連
     std::vector<std::unique_ptr<ASTNode>> case_values; // case条件（OR結合用）
     std::unique_ptr<ASTNode> case_body;                // caseの本体
+
+    // v0.11.0: match文関連（パターンマッチング）
+    std::unique_ptr<ASTNode> match_expr; // match対象の式
+    std::vector<MatchArm> match_arms;    // match文の各分岐（arm）
 
     // 範囲式関連
     std::unique_ptr<ASTNode> range_start; // 範囲の開始値

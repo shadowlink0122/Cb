@@ -114,10 +114,13 @@ enum class TokenType {
     TOK_DEFAULT,
     TOK_SWITCH,
     TOK_CASE,
-    TOK_RANGE,  // ... (range operator)
-    TOK_FUNC,   // func (for lambda expressions)
-    TOK_IMPORT, // import
-    TOK_EXPORT, // export
+    TOK_MATCH,      // v0.11.0: match (pattern matching)
+    TOK_FAT_ARROW,  // v0.11.0: => (fat arrow)
+    TOK_UNDERSCORE, // v0.11.0: _ (wildcard pattern)
+    TOK_RANGE,      // ... (range operator)
+    TOK_FUNC,       // func (for lambda expressions)
+    TOK_IMPORT,     // import
+    TOK_EXPORT,     // export
 
     // Special
     TOK_EOF,

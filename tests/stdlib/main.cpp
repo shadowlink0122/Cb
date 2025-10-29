@@ -2,6 +2,8 @@
 #include "allocators/test_system_allocator.hpp"
 #include "collections/test_vector.hpp"
 #include "framework/stdlib_test_framework.hpp"
+#include "std/option_test.hpp"
+#include "std/result_test.hpp"
 
 #include <cstdlib>
 #include <iostream>
@@ -13,6 +15,8 @@ int main() {
     register_system_allocator_tests(runner);
     register_bump_allocator_tests(runner);
     register_vector_tests(runner);
+    register_result_tests(runner);
+    register_option_tests(runner);
 
     // Run all tests
     runner.run_all();

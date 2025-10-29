@@ -167,25 +167,88 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
                             "expression (node_type=%d)\n",
                             static_cast<int>(init_node->node_type));
 
-                // 式を評価（関数呼び出しなど）
-                int64_t result_value = interpreter_->eval_expression(init_node);
+                // AST_FUNC_CALLの場合、ReturnExceptionをキャッチ
+                if (init_node->node_type == ASTNodeType::AST_FUNC_CALL) {
+                    debug_print(
+                        "[ENUM_VAR_DECL_MANAGER] Function call detected, "
+                        "catching ReturnException\n");
+                    try {
+                        int64_t result =
+                            interpreter_->eval_expression(init_node);
+                        // eval_expressionは例外を投げずに値を返す
+                        var.value = result;
+                        var.is_assigned = true;
+                        debug_print("[ENUM_VAR_DECL_MANAGER] Function returned "
+                                    "value: %lld\n",
+                                    (long long)result);
+                    } catch (const ReturnException &ret) {
+                        debug_print(
+                            "[ENUM_VAR_DECL_MANAGER] Caught "
+                            "ReturnException, is_struct=%d, ret.value=%lld, "
+                            "ret.type=%d\n",
+                            ret.is_struct, (long long)ret.value, ret.type);
 
-                // 古いスタイルのenum（整数値）として扱う
-                var.value = result_value;
-                var.is_assigned = true;
+                        if (ret.is_struct && ret.struct_value.is_enum) {
+                            // Enum返り値を正しく処理（新スタイル: 関連値あり）
+                            var.enum_variant = ret.struct_value.enum_variant;
+                            var.has_associated_value =
+                                ret.struct_value.has_associated_value;
+                            var.associated_int_value =
+                                ret.struct_value.associated_int_value;
+                            var.is_assigned = true;
 
-                debug_print("[ENUM_VAR_DECL_MANAGER] Enum initialized from "
-                            "expression result: %lld\n",
-                            result_value);
+                            debug_print(
+                                "[ENUM_VAR_DECL_MANAGER] Enum initialized from "
+                                "function return (new-style): variant='%s', "
+                                "value=%lld\n",
+                                var.enum_variant.c_str(),
+                                var.associated_int_value);
+                        } else if (ret.type == TYPE_ENUM) {
+                            // 古いスタイルのenum（TYPE_ENUMとして返される）
+                            var.value = ret.value;
+                            var.is_assigned = true;
+
+                            debug_print(
+                                "[ENUM_VAR_DECL_MANAGER] Enum initialized as "
+                                "old-style enum with TYPE_ENUM: value=%lld\n",
+                                (long long)ret.value);
+                        } else {
+                            // その他（整数値として返される - 後方互換性）
+                            var.value = ret.value;
+                            var.is_assigned = true;
+
+                            debug_print(
+                                "[ENUM_VAR_DECL_MANAGER] Enum initialized as "
+                                "old-style enum (legacy): value=%lld\n",
+                                (long long)ret.value);
+                        }
+
+                        debug_print("[ENUM_VAR_DECL_MANAGER] After assignment: "
+                                    "is_assigned=%d, "
+                                    "value=%lld, is_enum=%d\n",
+                                    var.is_assigned, (long long)var.value,
+                                    var.is_enum);
+                    }
+                } else {
+                    // その他の式（整数値として評価）
+                    int64_t result_value =
+                        interpreter_->eval_expression(init_node);
+                    var.value = result_value;
+                    var.is_assigned = true;
+
+                    debug_print("[ENUM_VAR_DECL_MANAGER] Enum initialized from "
+                                "expression result: %lld\n",
+                                result_value);
+                }
             }
         }
 
         // 変数をスコープに追加して早期リターン
         debug_print(
             "[ENUM_VAR_DECL_MANAGER] About to add variable '%s' to scope, "
-            "is_enum=%d, has_associated_value=%d, associated_int_value=%lld\n",
-            node->name.c_str(), var.is_enum, var.has_associated_value,
-            (long long)var.associated_int_value);
+            "is_enum=%d, value=%lld, has_associated_value=%d\n",
+            node->name.c_str(), var.is_enum, (long long)var.value,
+            var.has_associated_value);
 
         // emplaceを使って明示的に配置
         auto &scope_map = interpreter_->current_scope().variables;
@@ -196,14 +259,18 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
         iter->second.is_enum = true;
         iter->second.enum_type_name = var.enum_type_name;
         iter->second.enum_variant = var.enum_variant;
-        iter->second.has_associated_value = true; // 明示的にtrueに設定
+        iter->second.has_associated_value =
+            var.has_associated_value; // 元の値を保持
         iter->second.associated_int_value = var.associated_int_value;
         iter->second.associated_str_value = var.associated_str_value;
+        iter->second.value = var.value; // 古いスタイルenum用のvalueも保持
 
-        debug_print("[ENUM_VAR_DECL_MANAGER] After manual fix: is_enum=%d, "
-                    "has_associated_value=%d, associated_int_value=%lld\n",
-                    iter->second.is_enum, iter->second.has_associated_value,
-                    (long long)iter->second.associated_int_value);
+        debug_print(
+            "[ENUM_VAR_DECL_MANAGER] After manual fix: is_enum=%d, "
+            "value=%lld, has_associated_value=%d, associated_int_value=%lld\n",
+            iter->second.is_enum, (long long)iter->second.value,
+            iter->second.has_associated_value,
+            (long long)iter->second.associated_int_value);
 
         debug_print(
             "[ENUM_VAR_DECL_MANAGER] Enum variable '%s' added to scope\n",

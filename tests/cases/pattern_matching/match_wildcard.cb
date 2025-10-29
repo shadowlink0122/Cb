@@ -1,0 +1,63 @@
+// Test 3: ワイルドカードパターンのテスト
+// Wildcard pattern matching test
+
+enum Status {
+    Ready(int),
+    Processing(int),
+    Done(int),
+    Failed(int)
+};
+
+int main() {
+    println("=== Test 3: Wildcard pattern matching ===");
+    
+    // Test 1: Readyパターン
+    Status status1 = Status::Ready(100);
+    
+    match (status1) {
+        Ready(val) => {
+            println("Status: Ready with value:");
+            println(val);
+        }
+        _ => {
+            println("Status: Other");
+        }
+    }
+    
+    println("");
+    
+    // Test 2: Processingパターン（ワイルドカードでキャッチ）
+    Status status2 = Status::Processing(50);
+    
+    match (status2) {
+        Ready(val) => {
+            println("Status: Ready with value:");
+            println(val);
+        }
+        _ => {
+            println("Status: Other (caught by wildcard)");
+        }
+    }
+    
+    println("");
+    
+    // Test 3: Doneパターン（ワイルドカードでキャッチ）
+    Status status3 = Status::Done(200);
+    
+    match (status3) {
+        Ready(val) => {
+            println("Status: Ready");
+        }
+        Processing(val) => {
+            println("Status: Processing");
+        }
+        _ => {
+            println("Status: Done or Failed (caught by wildcard)");
+        }
+    }
+    
+    println("");
+    println("Test 3: PASSED");
+    
+    return 0;
+}
