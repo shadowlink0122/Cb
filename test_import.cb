@@ -1,0 +1,14 @@
+// Simple import test
+import "stdlib/collections/vector.cb";
+
+void main() {
+    println("Testing Vector import...");
+    
+    Vector<int, SystemAllocator> vec;
+    vec.init(5);
+    vec.push(10);
+    vec.push(20);
+    vec.info();
+    
+    println("Vector import test complete!");
+}

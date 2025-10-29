@@ -2,73 +2,55 @@
 #define TEST_VECTOR_HPP
 
 #include "../framework/stdlib_test_framework.hpp"
+#include <iostream>
+#include <string>
 
-// Vector tests
-inline void test_vector_execution() {
-    // Test that the .cb file with Vector executes successfully
-    
-    // This test verifies that:
-    // 1. Vector<T, A: Allocator> is properly exported
-    // 2. Generic types work with export/import
-    // 3. Interface bounds (A: Allocator) are handled
-    // 4. All vector operations are exported
-    
-    STDLIB_ASSERT_TRUE(true);  // Placeholder - actual test done by running .cb file
+// Vector library import tests
+// NOTE: Generic type import is not yet supported in the parser.
+// These tests are disabled until parser-time import preprocessing is implemented.
+// See: docs/features/import_system_limitations.md
+
+inline void test_vector_library_import() {
+    // DISABLED: Generic type import requires parser-time preprocessing
+    std::cout << "[1/5] Testing Vector library import... SKIPPED (generic type import not supported)\n";
 }
 
-inline void test_vector_interface() {
-    // Test that Vector interface is complete
-    
-    // Expected operations:
-    // - vector_init_int_system(Vector&, int)
-    // - vector_push_int_system(Vector&, int)
-    // - vector_pop_int_system(Vector&) -> int
-    // - vector_resize_int_system(Vector&, int)
-    // - vector_info_int_system(Vector&)
-    // - Similar operations for BumpAllocator
-    
-    STDLIB_ASSERT_TRUE(true);  // Placeholder
+inline void test_vector_library_operations() {
+    // DISABLED: Generic type import requires parser-time preprocessing
+    std::cout << "[2/5] Testing Vector library operations... SKIPPED (generic type import not supported)\n";
 }
 
-inline void test_vector_with_system_allocator() {
-    // Test Vector<int, SystemAllocator> operations
-    
-    // Vector operations:
-    // - init: capacity設定
-    // - push: length増加
-    // - pop: length減少
-    // - resize: capacity変更
-    
-    STDLIB_ASSERT_TRUE(true);  // Placeholder
+inline void test_vector_library_resize() {
+    // DISABLED: Generic type import requires parser-time preprocessing
+    std::cout << "[3/5] Testing Vector library resize... SKIPPED (generic type import not supported)\n";
 }
 
-inline void test_vector_with_bump_allocator() {
-    // Test Vector<int, BumpAllocator> operations
-    
-    // BumpAllocatorとの組み合わせ:
-    // - 同じVector操作が使える
-    // - アロケータの違いを抽象化
-    
-    STDLIB_ASSERT_TRUE(true);  // Placeholder
+inline void test_vector_library_destructor() {
+    // DISABLED: Generic type import requires parser-time preprocessing
+    std::cout << "[4/5] Testing Vector library destructor... SKIPPED (generic type import not supported)\n";
 }
 
-inline void test_vector_generic_type() {
-    // Test that Vector supports generic types
+inline void test_vector_demo_execution() {
+    // Test that sample/vector_demo.cb also works
+    std::cout << "[5/5] Testing Vector demo...\n";
     
-    // Generic型パラメータ:
-    // - T: 要素型
-    // - A: Allocator: アロケータ型（interface制約付き）
+    std::string cmd = "cd ../.. && ./main sample/vector_demo.cb > /dev/null 2>&1";
+    int status = system(cmd.c_str());
+    int exit_code = WEXITSTATUS(status);
     
-    STDLIB_ASSERT_TRUE(true);  // Placeholder
+    STDLIB_ASSERT_EQ(exit_code, 0);
 }
 
 // Register all Vector tests
 inline void register_vector_tests(StdlibTestRunner& runner) {
-    runner.add_test("vector_execution", test_vector_execution);
-    runner.add_test("vector_interface", test_vector_interface);
-    runner.add_test("vector_with_system_allocator", test_vector_with_system_allocator);
-    runner.add_test("vector_with_bump_allocator", test_vector_with_bump_allocator);
-    runner.add_test("vector_generic_type", test_vector_generic_type);
+    // Import tests disabled until generic type import support is implemented
+    // runner.add_test("vector_library_import", test_vector_library_import);
+    // runner.add_test("vector_library_operations", test_vector_library_operations);
+    // runner.add_test("vector_library_resize", test_vector_library_resize);
+    // runner.add_test("vector_library_destructor", test_vector_library_destructor);
+    
+    // Demo execution test still valid
+    runner.add_test("vector_demo_execution", test_vector_demo_execution);
 }
 
 #endif // TEST_VECTOR_HPP

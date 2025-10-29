@@ -1,5 +1,6 @@
 #include "allocators/test_bump_allocator.hpp"
 #include "allocators/test_system_allocator.hpp"
+#include "collections/test_queue.hpp"
 #include "collections/test_vector.hpp"
 #include "framework/stdlib_test_framework.hpp"
 #include "std/option_test.hpp"
@@ -15,6 +16,7 @@ int main() {
     register_system_allocator_tests(runner);
     register_bump_allocator_tests(runner);
     register_vector_tests(runner);
+    register_queue_tests(runner);
     register_result_tests(runner);
     register_option_tests(runner);
 

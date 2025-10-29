@@ -981,6 +981,10 @@ class Interpreter : public EvaluatorInterface {
     // Parserからのstruct定義同期
     void sync_struct_definitions_from_parser(RecursiveParser *parser);
 
+    // v0.11.0: Parserからのinterface/impl定義同期
+    void sync_interface_definitions_from_parser(RecursiveParser *parser);
+    void sync_impl_definitions_from_parser(RecursiveParser *parser);
+
     // struct定義へのアクセス（sizeof演算子などから使用）
     const std::map<std::string, StructDefinition> &
     get_struct_definitions() const {

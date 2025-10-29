@@ -2143,6 +2143,14 @@ ASTNode *StatementParser::parseImportStatement() {
     // 名前フィールドにもパスを設定（後方互換性のため）
     import_node->name = module_path;
 
+    // v0.11.0: パース時にimportを処理し、型定義を取り込む
+    // これにより、import後の変数宣言で型が認識される
+    try {
+        parser_->processImport(module_path);
+    } catch (const std::exception &e) {
+        parser_->error("Import failed: " + std::string(e.what()));
+    }
+
     return import_node;
 }
 

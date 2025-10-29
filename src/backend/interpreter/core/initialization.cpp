@@ -149,3 +149,40 @@ void Interpreter::initialize_global_variables(const ASTNode *node) {
 void Interpreter::sync_enum_definitions_from_parser(RecursiveParser *parser) {
     global_initialization_manager_->sync_enum_definitions_from_parser(parser);
 }
+
+// v0.11.0: Parserからinterface/impl定義を同期
+void Interpreter::sync_interface_definitions_from_parser(
+    RecursiveParser *parser) {
+    if (!parser)
+        return;
+
+    const auto &interface_defs = parser->get_interface_definitions();
+    for (const auto &pair : interface_defs) {
+        interface_operations_->register_interface_definition(pair.first,
+                                                             pair.second);
+
+        if (debug_mode) {
+            std::cerr << "[SYNC_INTERFACE] " << pair.first << " with "
+                      << pair.second.methods.size() << " methods" << std::endl;
+        }
+    }
+}
+
+void Interpreter::sync_impl_definitions_from_parser(RecursiveParser *parser) {
+    if (!parser)
+        return;
+
+    const auto &impl_defs = parser->get_impl_definitions();
+    for (const auto &impl_def : impl_defs) {
+        interface_operations_->register_impl_definition(impl_def);
+
+        if (debug_mode) {
+            std::cerr << "[SYNC_IMPL] " << impl_def.struct_name << " for "
+                      << impl_def.interface_name << std::endl;
+        }
+
+        // メソッドを登録（ASTノードから）
+        // implのメソッドをグローバル関数として登録する必要がある
+        // これにはASTノードが必要なので、Parser側から取得する必要がある
+    }
+}

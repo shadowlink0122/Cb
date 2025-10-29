@@ -697,6 +697,25 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
         std::string method_key = type_name + "::" + node->name;
         auto &global_scope = interpreter_.get_global_scope();
         auto it = global_scope.functions.find(method_key);
+
+        if (interpreter_.is_debug_mode()) {
+            std::cerr << "[METHOD_SEARCH] Searching for: " << method_key
+                      << " ... "
+                      << (it != global_scope.functions.end() ? "FOUND"
+                                                             : "NOT FOUND")
+                      << std::endl;
+            std::cerr << "[METHOD_SEARCH] Global functions count: "
+                      << global_scope.functions.size() << std::endl;
+
+            // Vectorに関連する関数をリスト
+            for (const auto &[key, val] : global_scope.functions) {
+                if (key.find("Vector") != std::string::npos &&
+                    key.find("init") != std::string::npos) {
+                    std::cerr << "[METHOD_SEARCH]   - " << key << std::endl;
+                }
+            }
+        }
+
         if (it != global_scope.functions.end()) {
             func = it->second;
         } else {

@@ -14,6 +14,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <fstream>
 #include <iostream>
 #include <sstream>
 #include <unordered_set>
@@ -1822,5 +1823,229 @@ void RecursiveParser::initialize_builtin_types() {
         std::cerr << "[BUILTIN_TYPES] Registered Option<T> and Result<T, E> as "
                      "builtin enum types"
                   << std::endl;
+    }
+}
+
+/**
+ * @brief モジュールパスを実際のファイルパスに解決
+ *
+ * ドット記法（stdlib.collections.vector）をスラッシュ区切り（stdlib/collections/vector.cb）に変換
+ * また、検索パス（stdlib/, modules/など）を試行して実際のファイルを探す
+ */
+std::string RecursiveParser::resolveModulePath(const std::string &module_path) {
+    std::string file_path = module_path;
+
+    // 既に.cbが含まれている場合（文字列リテラル形式）
+    if (file_path.find(".cb") != std::string::npos) {
+        return file_path; // そのまま使用
+    }
+
+    // ドット記法の場合、パスに変換
+    // stdlib.collections.vector -> stdlib/collections/vector.cb
+    if (module_path.find('.') != std::string::npos &&
+        module_path.find('/') == std::string::npos &&
+        module_path.find("..") == std::string::npos) {
+        std::replace(file_path.begin(), file_path.end(), '.', '/');
+        file_path += ".cb";
+    } else if (file_path.find(".cb") == std::string::npos) {
+        // 拡張子がない場合は追加
+        file_path += ".cb";
+    }
+
+    // 検索パスの優先順位
+    std::vector<std::string> search_paths;
+
+    // 相対パス（../ や ./）の場合、そのまま試す
+    if (file_path.find("../") == 0 || file_path.find("./") == 0) {
+        search_paths.push_back(file_path);
+    } else {
+        // 通常のモジュール検索パス
+        search_paths = {
+            file_path,                    // カレントディレクトリ
+            "stdlib/" + file_path,        // stdlibディレクトリ
+            "modules/" + file_path,       // modulesディレクトリ
+            "../modules/" + file_path,    // 1つ上のmodulesディレクトリ
+            "../../modules/" + file_path, // 2つ上のmodulesディレクトリ
+            "../" + file_path,            // 1つ上のディレクトリ
+            "../../" + file_path,         // 2つ上のディレクトリ
+        };
+    }
+
+    // ファイルが存在するパスを探す
+    for (const auto &path : search_paths) {
+        std::ifstream file(path);
+        if (file.is_open()) {
+            file.close();
+            return path;
+        }
+    }
+
+    // 見つからない場合は元のパスを返す（エラーは後で処理）
+    return file_path;
+}
+
+/**
+ * @brief import文をパース時に処理し、モジュールの定義を取り込む
+ *
+ * これにより、import後に型を使用する際にParser側で型が認識される
+ */
+void RecursiveParser::processImport(const std::string &module_path) {
+    // パス解決
+    std::string resolved_path = resolveModulePath(module_path);
+
+    if (debug_mode_) {
+        std::cerr << "[IMPORT] Processing import: " << module_path << " -> "
+                  << resolved_path << std::endl;
+    }
+
+    // ファイルを開く
+    std::ifstream file(resolved_path);
+    if (!file.is_open()) {
+        // ファイルが見つからない場合は警告のみ
+        // 実行時にInterpreter側でロードされる可能性があるため
+        if (debug_mode_) {
+            std::cerr << "[IMPORT] Warning: Module file not found: "
+                      << module_path << " (will try runtime import)"
+                      << std::endl;
+        }
+        return;
+    }
+
+    // ファイル内容を読み込む
+    std::string source_code((std::istreambuf_iterator<char>(file)),
+                            std::istreambuf_iterator<char>());
+    file.close();
+
+    // 新しいParserインスタンスでモジュールをパース
+    RecursiveParser module_parser(source_code, resolved_path);
+    module_parser.setDebugMode(debug_mode_);
+
+    ASTNode *module_ast = nullptr;
+    try {
+        module_ast = module_parser.parseProgram();
+    } catch (const std::exception &e) {
+        error("Failed to parse module '" + module_path + "': " + e.what());
+        return;
+    }
+
+    if (!module_ast) {
+        error("Failed to parse module: " + module_path);
+        return;
+    }
+
+    // モジュールからexportされた定義を取り込む
+    // 1. struct定義
+    for (const auto &pair : module_parser.struct_definitions_) {
+        const std::string &name = pair.first;
+        const StructDefinition &def = pair.second;
+
+        // 元のASTでis_exportedフラグをチェック
+        bool is_exported = false;
+        if (module_ast && !module_ast->statements.empty()) {
+            for (const auto &stmt : module_ast->statements) {
+                if (stmt && stmt->name == name && stmt->is_exported) {
+                    is_exported = true;
+                    break;
+                }
+            }
+        }
+
+        if (is_exported) {
+            struct_definitions_[name] = def;
+            if (debug_mode_) {
+                std::cerr << "[IMPORT] Imported struct: " << name;
+                if (def.is_generic) {
+                    std::cerr << " (generic, type_params: "
+                              << def.type_parameters.size() << ")";
+                }
+                std::cerr << std::endl;
+            }
+        }
+    }
+
+    // 2. interface定義
+    for (const auto &pair : module_parser.interface_definitions_) {
+        const std::string &name = pair.first;
+        const InterfaceDefinition &def = pair.second;
+
+        bool is_exported = false;
+        if (module_ast && !module_ast->statements.empty()) {
+            for (const auto &stmt : module_ast->statements) {
+                if (stmt && stmt->name == name && stmt->is_exported) {
+                    is_exported = true;
+                    break;
+                }
+            }
+        }
+
+        if (is_exported) {
+            interface_definitions_[name] = def;
+            if (debug_mode_) {
+                std::cerr << "[IMPORT] Imported interface: " << name
+                          << std::endl;
+            }
+        }
+    }
+
+    // 3. enum定義
+    for (const auto &pair : module_parser.enum_definitions_) {
+        const std::string &name = pair.first;
+        const EnumDefinition &def = pair.second;
+
+        bool is_exported = false;
+        if (module_ast && !module_ast->statements.empty()) {
+            for (const auto &stmt : module_ast->statements) {
+                if (stmt && stmt->name == name && stmt->is_exported) {
+                    is_exported = true;
+                    break;
+                }
+            }
+        }
+
+        if (is_exported) {
+            enum_definitions_[name] = def;
+            if (debug_mode_) {
+                std::cerr << "[IMPORT] Imported enum: " << name << std::endl;
+            }
+        }
+    }
+
+    // 4. impl定義も取り込む（struct/interfaceと関連）
+    // implブロックはexportできず、自動的に実装される
+    // exportされたstruct/interfaceに関連するimplは全て取り込む
+    for (const auto &impl : module_parser.impl_definitions_) {
+        // exportされたstructまたはinterfaceに関連するimplのみを取り込む
+        bool should_import = false;
+
+        // struct_nameがexportされているかチェック
+        if (struct_definitions_.find(impl.struct_name) !=
+            struct_definitions_.end()) {
+            should_import = true;
+        }
+
+        // interface_nameがexportされているかチェック
+        if (!should_import &&
+            interface_definitions_.find(impl.interface_name) !=
+                interface_definitions_.end()) {
+            should_import = true;
+        }
+
+        if (should_import) {
+            impl_definitions_.push_back(impl);
+            if (debug_mode_) {
+                std::cerr << "[IMPORT] Imported impl: " << impl.struct_name
+                          << " for " << impl.interface_name << std::endl;
+            }
+        }
+    }
+
+    // NOTE: ASTノードは削除しない
+    // impl定義内のメソッドポインタ（methods配列）がこのASTツリーを参照しているため、
+    // 削除するとダングリングポインタになる
+    // メモリリークになるが、プログラム終了時にOSが回収するので許容する
+    // TODO: 将来的にはスマートポインタやASTノードのクローン機能を実装すべき
+    if (debug_mode_ && module_ast) {
+        std::cerr << "[IMPORT] AST not deleted (referenced by impl methods): "
+                  << module_path << std::endl;
     }
 }

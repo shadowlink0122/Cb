@@ -1,0 +1,105 @@
+// Test for Queue library import and usage
+// This test verifies that Queue can be imported and used as a library
+
+import "stdlib/collections/queue.cb";
+
+void test_queue_import() {
+    println("=== Test: Queue Import ===");
+    
+    Queue q;
+    q.init(5);
+    
+    println("✅ Queue import and struct creation successful");
+}
+
+void test_queue_basic_operations() {
+    println("\n=== Test: Queue Basic Operations ===");
+    
+    Queue q;
+    q.init(5);
+    
+    q.enqueue(10);
+    q.enqueue(20);
+    q.enqueue(30);
+    
+    assert(q.size() == 3);
+    println("✅ Queue enqueue operations work");
+    
+    int val = q.dequeue();
+    assert(val == 10);
+    assert(q.size() == 2);
+    println("✅ Queue dequeue operations work");
+    
+    int peek_val = q.peek();
+    assert(peek_val == 20);
+    assert(q.size() == 2);
+    println("✅ Queue peek operations work");
+}
+
+void test_queue_resize() {
+    println("\n=== Test: Queue Resize ===");
+    
+    Queue q;
+    q.init(3);
+    
+    q.enqueue(1);
+    q.enqueue(2);
+    q.enqueue(3);
+    
+    q.resize(6);
+    assert(q.get_capacity() == 6);
+    println("✅ Queue resize works");
+    
+    q.enqueue(4);
+    assert(q.size() == 4);
+    println("✅ Queue operations after resize work");
+}
+
+void test_queue_circular_buffer() {
+    println("\n=== Test: Queue Circular Buffer ===");
+    
+    Queue q;
+    q.init(4);
+    
+    q.enqueue(10);
+    q.enqueue(20);
+    q.enqueue(30);
+    
+    q.dequeue();
+    q.dequeue();
+    
+    q.enqueue(40);
+    q.enqueue(50);
+    
+    assert(q.size() == 3);
+    println("✅ Queue circular buffer works");
+}
+
+void test_queue_destructor() {
+    println("\n=== Test: Queue Destructor ===");
+    
+    {
+        Queue q;
+        q.init(3);
+        q.enqueue(10);
+        q.enqueue(20);
+    }
+    
+    println("✅ Queue destructor works (no crash on scope exit)");
+}
+
+void main() {
+    println("╔════════════════════════════════════════════╗");
+    println("║  Queue Library Import Test                ║");
+    println("╚════════════════════════════════════════════╝\n");
+    
+    test_queue_import();
+    test_queue_basic_operations();
+    test_queue_resize();
+    test_queue_circular_buffer();
+    test_queue_destructor();
+    
+    println("\n╔════════════════════════════════════════════╗");
+    println("║  All Queue library tests passed!          ║");
+    println("╚════════════════════════════════════════════╝");
+}

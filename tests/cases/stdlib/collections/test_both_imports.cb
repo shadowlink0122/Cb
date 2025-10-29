@@ -1,0 +1,16 @@
+// Test if Vector is imported
+import "stdlib/collections/vector.cb";
+import "stdlib/collections/queue.cb";
+
+int main() {
+    println("Imports completed");
+    
+    // Try Queue (non-generic)
+    Queue q;
+    println("Queue declared!");
+    
+    // This will fail - but let's see the error
+    Vector<int, SystemAllocator> vec;
+    
+    return 0;
+}

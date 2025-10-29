@@ -128,10 +128,39 @@ void InterfaceOperations::register_impl_definition(
         debug_print("IMPL_REGISTER: Registered method key '%s'\n", key.c_str());
     };
 
+    // 型名のマングル変換（Vector<int, SystemAllocator> →
+    // Vector_int_SystemAllocator）
+    auto mangle_type_name = [](const std::string &type_name) -> std::string {
+        std::string mangled = type_name;
+        // '<', '>', ' ', ',' を '_' に置換
+        for (char &c : mangled) {
+            if (c == '<' || c == '>' || c == ' ' || c == ',') {
+                c = '_';
+            }
+        }
+        // 連続するアンダースコアを1つに
+        std::string result;
+        char prev = '\0';
+        for (char c : mangled) {
+            if (c != '_' || prev != '_') {
+                result += c;
+            }
+            prev = c;
+        }
+        // 末尾のアンダースコアを削除
+        while (!result.empty() && result.back() == '_') {
+            result.pop_back();
+        }
+        return result;
+    };
+
     std::string normalized_struct_name =
         normalize_struct(existing->struct_name);
     std::string original_struct_name = existing->struct_name;
     std::string interface_name = existing->interface_name;
+
+    // マングル名も生成
+    std::string mangled_struct_name = mangle_type_name(normalized_struct_name);
 
     for (const auto *method : existing->methods) {
         if (!method) {
@@ -140,9 +169,16 @@ void InterfaceOperations::register_impl_definition(
 
         std::string method_name = method->name;
 
+        // 元の型名で登録（Vector<int, SystemAllocator>::init）
         if (!normalized_struct_name.empty()) {
             register_function(normalized_struct_name + "::" + method_name,
                               method);
+        }
+
+        // マングル名でも登録（Vector_int_SystemAllocator::init）
+        if (!mangled_struct_name.empty() &&
+            mangled_struct_name != normalized_struct_name) {
+            register_function(mangled_struct_name + "::" + method_name, method);
         }
 
         if (!original_struct_name.empty() &&

@@ -98,6 +98,10 @@ int main(int argc, char **argv) {
         // Parserからstruct定義を同期
         interpreter.sync_struct_definitions_from_parser(&parser);
 
+        // v0.11.0: Parserからinterface/impl定義を同期
+        interpreter.sync_interface_definitions_from_parser(&parser);
+        interpreter.sync_impl_definitions_from_parser(&parser);
+
         interpreter.process(root);
 
         // 正常終了：デストラクタをスキップして即座に終了

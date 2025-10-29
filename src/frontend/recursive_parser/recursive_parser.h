@@ -252,6 +252,10 @@ class RecursiveParser {
         return function_pointer_typedefs_;
     }
 
+    // v0.11.0: import処理（パース時にモジュールをロードして定義を取り込む）
+    void processImport(const std::string &module_path);
+    std::string resolveModulePath(const std::string &module_path);
+
   private:
     // v0.11.0: 組み込み型の初期化
     void initialize_builtin_types();

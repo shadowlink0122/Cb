@@ -1308,10 +1308,99 @@ void Interpreter::handle_import_statement(const ASTNode *node) {
                 }
                 break;
 
+            case ASTNodeType::AST_GENERIC_STRUCT_DECL:
+                // ジェネリック構造体定義を登録
+                {
+                    if (debug_mode) {
+                        std::cerr << "[IMPORT] Registering generic struct: "
+                                  << imported_name << " with "
+                                  << stmt->type_parameters.size()
+                                  << " type parameters" << std::endl;
+                    }
+
+                    // ジェネリック構造体もStructDefinitionとして登録
+                    StructDefinition struct_def(imported_name);
+                    struct_def.is_generic = true;
+                    struct_def.type_parameters = stmt->type_parameters;
+
+                    // インターフェース境界をコピー
+                    struct_def.interface_bounds = stmt->interface_bounds;
+
+                    // メンバーをstmt->argumentsから登録
+                    for (const auto &member : stmt->arguments) {
+                        if (member->node_type == ASTNodeType::AST_VAR_DECL) {
+                            if (debug_mode) {
+                                std::cerr << "[IMPORT]   Generic member: "
+                                          << member->name
+                                          << " type=" << member->type_name
+                                          << std::endl;
+                            }
+                            struct_def.add_member(
+                                member->name, member->type_info,
+                                member->type_name, member->is_pointer,
+                                member->pointer_depth,
+                                member->pointer_base_type_name,
+                                member->pointer_base_type,
+                                member->is_private_member, member->is_reference,
+                                member->is_unsigned, member->is_const);
+                        }
+                    }
+
+                    if (debug_mode) {
+                        std::cerr << "[IMPORT] Generic struct " << imported_name
+                                  << " registered with "
+                                  << struct_def.members.size() << " members"
+                                  << std::endl;
+                    }
+
+                    struct_definitions_[imported_name] = struct_def;
+                }
+                break;
+
             case ASTNodeType::AST_INTERFACE_DECL:
-                // インターフェース定義を登録（ASTノードを直接保存）
-                // interfaceは実行時に処理されるため、ここでは何もしない
-                // グローバルスコープにASTを保存しておく必要がある場合は追加
+                // インターフェース定義を登録
+                {
+                    if (debug_mode) {
+                        std::cerr << "[IMPORT] Registering interface: "
+                                  << imported_name << std::endl;
+                    }
+
+                    // InterfaceDefinitionを作成して登録
+                    InterfaceDefinition interface_def;
+                    interface_def.name = imported_name;
+
+                    // インターフェースメソッドを登録
+                    for (const auto &member : stmt->arguments) {
+                        if (!member)
+                            continue;
+
+                        if (member->node_type == ASTNodeType::AST_FUNC_DECL) {
+                            InterfaceMember iface_member(member->name,
+                                                         member->type_info,
+                                                         member->is_unsigned);
+
+                            // パラメータを追加
+                            for (const auto &param : member->parameters) {
+                                iface_member.add_parameter(param->name,
+                                                           param->type_info,
+                                                           param->is_unsigned);
+                            }
+
+                            interface_def.methods.push_back(iface_member);
+                        }
+                    }
+
+                    // interface_operations_に登録
+                    interface_operations_->register_interface_definition(
+                        imported_name, interface_def);
+
+                    if (debug_mode) {
+                        std::cerr << "[IMPORT] Interface " << imported_name
+                                  << " registered with "
+                                  << interface_def.methods.size() << " methods"
+                                  << std::endl;
+                    }
+                }
                 break;
 
             case ASTNodeType::AST_IMPL_DECL:
@@ -1323,6 +1412,20 @@ void Interpreter::handle_import_statement(const ASTNode *node) {
                                   << " interface: " << stmt->interface_name
                                   << std::endl;
                     }
+
+                    // ImplDefinitionを作成して登録
+                    // これにより、interface境界チェックでimpl関係が認識される
+                    ImplDefinition impl_def;
+                    impl_def.struct_name = stmt->struct_name;
+                    impl_def.interface_name = stmt->interface_name;
+                    // メソッドをimpl_defに追加（境界チェックに必要）
+                    for (const auto &arg : stmt->arguments) {
+                        if (arg &&
+                            arg->node_type == ASTNodeType::AST_FUNC_DECL) {
+                            impl_def.add_method(arg.get());
+                        }
+                    }
+                    interface_operations_->register_impl_definition(impl_def);
 
                     // コンストラクタ・デストラクタの登録処理
                     std::string struct_name = stmt->struct_name;
