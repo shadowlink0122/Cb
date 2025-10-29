@@ -53,6 +53,7 @@ FRONTEND_OBJS=$(FRONTEND_DIR)/main.o $(FRONTEND_DIR)/help_messages.o $(FRONTEND_
 INTERPRETER_CORE_OBJS = \
 	$(INTERPRETER_CORE)/interpreter.o \
 	$(INTERPRETER_CORE)/initialization.o \
+	$(INTERPRETER_CORE)/builtin_types.o \
 	$(INTERPRETER_CORE)/cleanup.o \
 	$(INTERPRETER_CORE)/utility.o \
 	$(INTERPRETER_CORE)/error_handler.o \

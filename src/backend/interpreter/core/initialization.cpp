@@ -131,6 +131,9 @@ Interpreter::Interpreter(bool debug)
     // v0.10.0: デストラクタスタックをグローバルスコープ用に初期化
     destructor_stacks_.push_back(
         std::vector<std::pair<std::string, std::string>>());
+
+    // v0.11.0: 組み込み型（Option<T>, Result<T, E>）の初期化
+    initialize_builtin_types();
 }
 
 // ========================================================================

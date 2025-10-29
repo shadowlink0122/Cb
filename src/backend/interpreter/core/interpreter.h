@@ -716,6 +716,12 @@ class Interpreter : public EvaluatorInterface {
     // AST処理
     void register_global_declarations(const ASTNode *node);
     void initialize_global_variables(const ASTNode *node);
+
+    // 組み込み型の初期化
+    void initialize_builtin_types();
+    void register_builtin_enum_option();
+    void register_builtin_enum_result();
+
     void execute_statement(const ASTNode *node);
     void exec_statement(const ASTNode *node) { execute_statement(node); }
     int64_t eval_expression(const ASTNode *node) { return evaluate(node); }

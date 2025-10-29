@@ -48,6 +48,9 @@ RecursiveParser::RecursiveParser(const std::string &source,
     union_parser_ = std::make_unique<UnionParser>(this);
     type_utility_parser_ = std::make_unique<TypeUtilityParser>(this);
 
+    // v0.11.0: 組み込み型（Option<T>, Result<T, E>）の定義を登録
+    initialize_builtin_types();
+
     advance();
 }
 
@@ -1753,5 +1756,71 @@ void RecursiveParser::instantiateGenericEnum(
             std::cerr << type_arguments[i];
         }
         std::cerr << "> as " << instantiated_name << std::endl;
+    }
+}
+
+// ========================================================================
+// v0.11.0: 組み込み型の初期化
+// Option<T>, Result<T, E> を自動的にenum定義として登録
+// ========================================================================
+void RecursiveParser::initialize_builtin_types() {
+    // Option<T> enum定義
+    EnumDefinition option_def;
+    option_def.name = "Option";
+    option_def.is_generic = true;
+    option_def.has_associated_values = true;
+    option_def.type_parameters.push_back("T");
+
+    // Some(T) variant
+    EnumMember some_member;
+    some_member.name = "Some";
+    some_member.value = 0;
+    some_member.explicit_value = true;
+    some_member.has_associated_value = true;
+    some_member.associated_type_name = "T";
+    option_def.members.push_back(some_member);
+
+    // None variant
+    EnumMember none_member;
+    none_member.name = "None";
+    none_member.value = 1;
+    none_member.explicit_value = true;
+    none_member.has_associated_value = false;
+    option_def.members.push_back(none_member);
+
+    enum_definitions_["Option"] = option_def;
+
+    // Result<T, E> enum定義
+    EnumDefinition result_def;
+    result_def.name = "Result";
+    result_def.is_generic = true;
+    result_def.has_associated_values = true;
+    result_def.type_parameters.push_back("T");
+    result_def.type_parameters.push_back("E");
+
+    // Ok(T) variant
+    EnumMember ok_member;
+    ok_member.name = "Ok";
+    ok_member.value = 0;
+    ok_member.explicit_value = true;
+    ok_member.has_associated_value = true;
+    ok_member.associated_type_name = "T";
+    result_def.members.push_back(ok_member);
+
+    // Err(E) variant
+    EnumMember err_member;
+    err_member.name = "Err";
+    err_member.value = 1;
+    err_member.explicit_value = true;
+    err_member.has_associated_value = true;
+    err_member.associated_type_name = "E";
+    result_def.members.push_back(err_member);
+
+    enum_definitions_["Result"] = result_def;
+
+    if (debug_mode_) {
+        std::cerr << "[BUILTIN_TYPES] Registered Option<T> and Result<T, E> as "
+                     "builtin enum types"
+                  << std::endl;
     }
 }

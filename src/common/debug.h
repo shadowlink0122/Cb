@@ -412,6 +412,11 @@ enum class DebugMsgId {
     TYPED_EVAL_INTERNAL_ENTRY, // typed expression internal評価エントリー
     TYPED_MEMBER_ACCESS_CASE,  // AST_MEMBER_ACCESSケース処理
 
+    // v0.11.0: 組み込み型関連
+    INTERPRETER_BUILTIN_TYPES_INIT_START,    // 組み込み型初期化開始
+    INTERPRETER_BUILTIN_TYPES_INIT_COMPLETE, // 組み込み型初期化完了
+    INTERPRETER_BUILTIN_ENUM_REGISTERED,     // 組み込みenum登録
+
     GENERIC_DEBUG, // 汎用デバッグライン出力
 
     MAX_DEBUG_MSG_ID // 最大値マーカー

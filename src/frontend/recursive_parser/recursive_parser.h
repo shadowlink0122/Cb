@@ -253,6 +253,9 @@ class RecursiveParser {
     }
 
   private:
+    // v0.11.0: 組み込み型の初期化
+    void initialize_builtin_types();
+
     // 循環参照検出用のヘルパー関数
     bool detectCircularReference(const std::string &struct_name,
                                  const std::string &member_type,

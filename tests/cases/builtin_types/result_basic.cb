@@ -1,0 +1,38 @@
+// Test: 組み込み型Result<T, E>の基本動作テスト
+// v0.11.0: Result<T, E>がインタプリタ起動時に自動登録されることを確認
+// enum定義が不要であることを確認
+
+void main() {
+    // Ok(T)の作成
+    Result<int, string> ok_value = Result<int, string>::Ok(100);
+    
+    // Err(E)の作成
+    Result<int, string> err_value = Result<int, string>::Err("error message");
+    
+    // パターンマッチング（Ok）
+    match (ok_value) {
+        Ok(value) => {
+            println("Ok: ");
+            println(value);
+        }
+        Err(error) => {
+            println("Err: ");
+            println(error);
+        }
+    }
+    
+    // パターンマッチング（Err）
+    match (err_value) {
+        Ok(value) => {
+            println("Ok: ");
+            println(value);
+        }
+        Err(error) => {
+            println("Err: ");
+            println(error);
+            println(" (expected)");
+        }
+    }
+    
+    println("Result<T, E> builtin test passed!");
+}
