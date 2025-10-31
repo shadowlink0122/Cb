@@ -248,6 +248,13 @@ std::unique_ptr<ASTNode> clone_ast_node(const ASTNode *node) {
         cloned->sizeof_expr = clone_ast_node(node->sizeof_expr.get());
     }
 
+    // キャスト関連のフィールドをコピー (v0.11.0 Fix)
+    cloned->cast_target_type = node->cast_target_type;
+    cloned->cast_type_info = node->cast_type_info;
+    if (node->cast_expr) {
+        cloned->cast_expr = clone_ast_node(node->cast_expr.get());
+    }
+
     // 子ノードを再帰的にコピー
     if (node->left) {
         cloned->left = clone_ast_node(node->left.get());
@@ -413,6 +420,20 @@ void substitute_type_parameters(
     // sizeof式の処理
     if (node->sizeof_expr) {
         substitute_type_parameters(node->sizeof_expr.get(), type_map);
+    }
+
+    // キャスト式の処理 (v0.11.0 Fix: QueueNode<T>* キャストのサポート)
+    if (node->cast_expr) {
+        substitute_type_parameters(node->cast_expr.get(), type_map);
+    }
+
+    // キャストターゲット型の置換 (例: QueueNode<T>* -> QueueNode<int>*)
+    if (!node->cast_target_type.empty()) {
+        std::string substituted =
+            substitute_generic_type_name(node->cast_target_type, type_map);
+        if (substituted != node->cast_target_type) {
+            node->cast_target_type = substituted;
+        }
     }
 
     // 子ノードを再帰的に処理

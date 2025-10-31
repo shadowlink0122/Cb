@@ -256,6 +256,50 @@ int64_t ExpressionDispatcher::dispatch_expression(const ASTNode *node) {
         int64_t value =
             expression_evaluator_.evaluate_expression(node->cast_expr.get());
 
+        // 構造体ポインタへのキャストの場合、メタデータを更新
+        // (Point*)ptr のようなキャストを検出
+        if (node->cast_type_info == TYPE_POINTER &&
+            node->cast_target_type.find('*') != std::string::npos) {
+            // 型名から構造体名を抽出（"Point*" -> "Point"）
+            std::string struct_type_name = node->cast_target_type;
+            size_t star_pos = struct_type_name.find('*');
+            if (star_pos != std::string::npos) {
+                struct_type_name = struct_type_name.substr(0, star_pos);
+            }
+
+            // 構造体定義が存在するか確認
+            const StructDefinition *struct_def =
+                interpreter_.find_struct_definition(struct_type_name);
+
+            if (struct_def) {
+                // 構造体ポインタへのキャスト
+                // メタデータポインタかどうかをチェック（最上位ビットが1）
+                bool has_metadata = (value & (1LL << 63)) != 0;
+
+                if (has_metadata) {
+                    // メタデータポインタの場合、最上位ビットをクリアして実際のポインタを取得
+                    int64_t meta_ptr = value & ~(1LL << 63);
+                    PointerSystem::PointerMetadata *metadata =
+                        reinterpret_cast<PointerSystem::PointerMetadata *>(
+                            meta_ptr);
+
+                    if (metadata) {
+                        metadata->struct_type_name = struct_type_name;
+                        metadata->pointed_type = TYPE_STRUCT;
+
+                        if (interpreter_.is_debug_mode()) {
+                            std::cerr
+                                << "[CAST_DEBUG] Updated pointer "
+                                   "metadata: "
+                                << "ptr=" << reinterpret_cast<void *>(value)
+                                << " struct_type=" << struct_type_name
+                                << std::endl;
+                        }
+                    }
+                }
+            }
+        }
+
         // キャストノードには元の値をそのまま返す
         // （型情報は既にcast_type_infoに格納されている）
         return value;

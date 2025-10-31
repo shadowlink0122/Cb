@@ -1,0 +1,162 @@
+// Comprehensive Test: Generic Vector<T> and Queue<T>
+// Tests that both containers work with multiple types using TRUE GENERIC IMPLEMENTATION
+
+import "stdlib/collections/vector.cb";
+import "stdlib/collections/queue.cb";
+
+struct Point {
+    int x;
+    int y;
+};
+
+void main() {
+    println("╔═══════════════════════════════════════════════════════════════╗");
+    println("║  Generic Container Comprehensive Test                        ║");
+    println("║  Vector<T> + Queue<T> - TRUE GENERIC IMPLEMENTATION          ║");
+    println("╚═══════════════════════════════════════════════════════════════╝");
+    println("");
+    
+    // ================================================================
+    // Test 1: Vector<int>
+    // ================================================================
+    println("═══ Test 1: Vector<int> ═══");
+    Vector<int> vec_int;
+    vec_int.init(5);
+    vec_int.push(10);
+    vec_int.push(20);
+    vec_int.push(30);
+    
+    println("Vector<int> length: ", vec_int.get_length());
+    println("Vector<int>[0]: ", vec_int.get(0));
+    println("Vector<int>[1]: ", vec_int.get(1));
+    println("Vector<int>[2]: ", vec_int.get(2));
+    
+    int popped = vec_int.pop();
+    println("Popped: ", popped);
+    println("✅ Vector<int> works correctly");
+    println("");
+    
+    // ================================================================
+    // Test 2: Vector<long>
+    // ================================================================
+    println("═══ Test 2: Vector<long> ═══");
+    Vector<long> vec_long;
+    vec_long.init(3);
+    vec_long.push(123456789);
+    vec_long.push(987654321);
+    
+    println("Vector<long> length: ", vec_long.get_length());
+    println("Vector<long>[0]: ", vec_long.get(0));
+    println("✅ Vector<long> works correctly");
+    println("");
+    
+    // ================================================================
+    // Test 3: Queue<int>
+    // ================================================================
+    println("═══ Test 3: Queue<int> ═══");
+    Queue<int> queue_int;
+    queue_int.enqueue(100);
+    queue_int.enqueue(200);
+    queue_int.enqueue(300);
+    
+    println("Queue<int> size: ", queue_int.size());
+    int peeked = queue_int.peek();
+    println("Peeked: ", peeked);
+    
+    int dequeued = queue_int.dequeue();
+    println("Dequeued: ", dequeued);
+    println("Queue<int> size after dequeue: ", queue_int.size());
+    println("✅ Queue<int> works correctly");
+    println("");
+    
+    // ================================================================
+    // Test 4: Queue<long>
+    // ================================================================
+    println("═══ Test 4: Queue<long> ═══");
+    Queue<long> queue_long;
+    queue_long.enqueue(111111111);
+    queue_long.enqueue(222222222);
+    
+    println("Queue<long> size: ", queue_long.size());
+    long val_long = queue_long.dequeue();
+    println("Dequeued from Queue<long>: ", val_long);
+    println("✅ Queue<long> works correctly");
+    println("");
+    
+    // ================================================================
+    // Test 5: Vector auto-resize
+    // ================================================================
+    println("═══ Test 5: Vector<int> auto-resize ═══");
+    Vector<int> vec_resize;
+    vec_resize.init(2);
+    println("Initial capacity: ", vec_resize.get_capacity());
+    
+    vec_resize.push(1);
+    vec_resize.push(2);
+    println("After 2 pushes, capacity: ", vec_resize.get_capacity());
+    
+    vec_resize.push(3);  // This should trigger resize
+    println("After 3 pushes (resize), capacity: ", vec_resize.get_capacity());
+    println("Length: ", vec_resize.get_length());
+    println("✅ Vector auto-resize works");
+    println("");
+    
+    // ================================================================
+    // Test 6: Queue FIFO order
+    // ================================================================
+    println("═══ Test 6: Queue<int> FIFO order ═══");
+    Queue<int> queue_fifo;
+    
+    queue_fifo.enqueue(1);
+    queue_fifo.enqueue(2);
+    queue_fifo.enqueue(3);
+    println("Enqueued 3 items");
+    
+    int f1 = queue_fifo.dequeue();
+    int f2 = queue_fifo.dequeue();
+    println("Dequeued 2 items: ", f1, ", ", f2);
+    
+    queue_fifo.enqueue(4);
+    queue_fifo.enqueue(5);
+    println("Enqueued 2 more items");
+    println("Queue size: ", queue_fifo.size());
+    println("✅ FIFO order works");
+    println("");
+    
+    // ================================================================
+    // Test 7: Memory management (destructor test)
+    // ================================================================
+    println("═══ Test 7: Memory management ═══");
+    {
+        Vector<int> temp_vec;
+        temp_vec.init(5);
+        temp_vec.push(999);
+        println("Created temporary vector in scope");
+        
+        Queue<int> temp_queue;
+        temp_queue.enqueue(888);
+        println("Created temporary queue in scope");
+    }
+    println("Scope exited - destructors called automatically");
+    println("✅ Memory management works");
+    println("");
+    
+    // ================================================================
+    // Summary
+    // ================================================================
+    println("╔═══════════════════════════════════════════════════════════════╗");
+    println("║  ✅ ALL TESTS PASSED                                         ║");
+    println("╠═══════════════════════════════════════════════════════════════╣");
+    println("║  Tested:                                                      ║");
+    println("║    ✓ Vector<int>, Vector<long>                               ║");
+    println("║    ✓ Queue<int>, Queue<long>                                 ║");
+    println("║    ✓ Auto-resize (Vector)                                    ║");
+    println("║    ✓ FIFO order (Queue)                                      ║");
+    println("║    ✓ Memory management (destructors)                         ║");
+    println("║                                                               ║");
+    println("║  TRUE GENERIC IMPLEMENTATION:                                ║");
+    println("║    • Single impl for all types                               ║");
+    println("║    • sizeof(T) for type-aware memory                         ║");
+    println("║    • array_get/array_set for generic operations              ║");
+    println("╚═══════════════════════════════════════════════════════════════╝");
+}

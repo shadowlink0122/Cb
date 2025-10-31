@@ -1,12 +1,22 @@
-// Simple import test - Check if Queue<int> can be imported
+// Simple import test - Check if Queue<T> can be imported and used
 import "stdlib/collections/queue.cb";
 
 int main() {
-    println("Queue<int> imported successfully!");
+    println("Queue<T> imported successfully!");
     
-    // Try to use Queue<int> type
+    // Test Queue<int>
     Queue<int> q;
-    println("Queue<int> variable declared!");
+    println("Queue<int> created!");
+    
+    q.enqueue(10);
+    println("Queue<int> enqueue works!");
+    
+    int val = q.dequeue();
+    println("Queue<int> dequeue works! Got: ", val);
+    
+    // Explicitly destroy before return
+    q.destroy();
+    println("Queue<int> destroyed!");
     
     return 0;
 }

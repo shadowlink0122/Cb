@@ -382,11 +382,13 @@ struct Scope {
     std::map<std::string, const ASTNode *> functions;
     std::map<std::string, FunctionPointer>
         function_pointers; // 関数ポインタ変数
+    std::string scope_id; // スコープの一意識別子（implメソッド用）
 
     void clear() {
         variables.clear();
         functions.clear();
         function_pointers.clear();
+        scope_id.clear();
     }
 };
 class ReturnException {
@@ -679,6 +681,7 @@ class Interpreter : public EvaluatorInterface {
 
     // スコープ管理
     void push_scope();
+    void push_scope(const std::string &scope_id); // スコープID付きpush
     void pop_scope();
     void push_interpreter_scope() { push_scope(); }
     void pop_interpreter_scope() { pop_scope(); }

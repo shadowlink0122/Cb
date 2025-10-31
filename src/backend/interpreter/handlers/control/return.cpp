@@ -719,14 +719,20 @@ void ReturnHandler::handle_expression_return(const ASTNode *node) {
             typed_result.value, typed_result.function_pointer_name,
             typed_result.function_pointer_node, typed_result.numeric_type);
     } else if (typed_result.is_struct_result) {
-        // 構造体の場合、再度評価してReturnExceptionを取得
-        try {
-            interpreter_->expression_evaluator_->evaluate_expression(
-                node->left.get());
-            throw std::runtime_error(
-                "Struct evaluation did not throw ReturnException");
-        } catch (const ReturnException &ret_ex) {
-            throw ret_ex;
+        // 構造体の場合、struct_dataから直接ReturnExceptionを作成
+        if (typed_result.struct_data) {
+            // struct_dataが存在する場合、それを使用
+            throw ReturnException(*typed_result.struct_data);
+        } else {
+            // struct_dataがない場合、再度評価してReturnExceptionを取得（従来の動作）
+            try {
+                interpreter_->expression_evaluator_->evaluate_expression(
+                    node->left.get());
+                throw std::runtime_error(
+                    "Struct evaluation did not throw ReturnException");
+            } catch (const ReturnException &ret_ex) {
+                throw ret_ex;
+            }
         }
     } else if (typed_result.is_string()) {
         throw ReturnException(typed_result.string_value);

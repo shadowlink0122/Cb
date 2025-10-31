@@ -391,6 +391,20 @@ inline void test_self_member_arrow_field() {
 }
 
 // Comprehensive self pointer test
+inline void test_self_pointer_simple() {
+    std::cout << "[integration-test] Running test_self_pointer_simple..." << std::endl;
+    
+    double execution_time;
+    run_cb_test_with_output_and_time("../../tests/cases/interface/test_self_pointer_simple.cb",
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "Self pointer simple test should exit with code 0");
+            INTEGRATION_ASSERT_CONTAINS(output, "=== Self Pointer Member Access Test ===",
+                "Should contain test header");
+            INTEGRATION_ASSERT_CONTAINS(output, "150",
+                "Should output 150 (100 + 50)");
+        }, execution_time);
+}
+
 inline void test_self_pointer_comprehensive() {
     std::cout << "[integration-test] Running test_self_pointer_comprehensive..." << std::endl;
     
@@ -439,6 +453,7 @@ inline void run_all_interface_tests() {
     test_arrow_assignment_comprehensive();
     test_self_pointer_member_comprehensive();
     test_self_member_arrow_field();
+    test_self_pointer_simple();
     test_self_pointer_comprehensive();
     
     std::cout << "[integration-test] Interface tests completed" << std::endl;

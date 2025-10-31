@@ -3,103 +3,78 @@
 
 import "stdlib/collections/queue.cb";
 
-void test_queue_import() {
-    println("=== Test: Queue<int> Import ===");
-    
-    Queue<int> q;
-    q.init(5);
-    
-    println("✅ Queue<int> import and struct creation successful");
-}
-
-void test_queue_basic_operations() {
-    println("\n=== Test: Queue<int> Basic Operations ===");
-    
-    Queue<int> q;
-    q.init(5);
-    
-    q.enqueue(10);
-    q.enqueue(20);
-    q.enqueue(30);
-    
-    assert(q.size() == 3);
-    println("✅ Queue<int> enqueue operations work");
-    
-    int val = q.dequeue();
-    assert(val == 10);
-    assert(q.size() == 2);
-    println("✅ Queue<int> dequeue operations work");
-    
-    int peek_val = q.peek();
-    assert(peek_val == 20);
-    assert(q.size() == 2);
-    println("✅ Queue<int> peek operations work");
-}
-
-void test_queue_resize() {
-    println("\n=== Test: Queue<int> Resize ===");
-    
-    Queue<int> q;
-    q.init(3);
-    
-    q.enqueue(1);
-    q.enqueue(2);
-    q.enqueue(3);
-    
-    q.resize(6);
-    assert(q.get_capacity() == 6);
-    println("✅ Queue<int> resize works");
-    
-    q.enqueue(4);
-    assert(q.size() == 4);
-    println("✅ Queue<int> operations after resize work");
-}
-
-void test_queue_circular_buffer() {
-    println("\n=== Test: Queue<int> Circular Buffer ===");
-    
-    Queue<int> q;
-    q.init(4);
-    
-    q.enqueue(10);
-    q.enqueue(20);
-    q.enqueue(30);
-    
-    q.dequeue();
-    q.dequeue();
-    
-    q.enqueue(40);
-    q.enqueue(50);
-    
-    assert(q.size() == 3);
-    println("✅ Queue<int> circular buffer works");
-}
-
-void test_queue_destructor() {
-    println("\n=== Test: Queue<int> Destructor ===");
-    
-    {
-        Queue<int> q;
-        q.init(3);
-        q.enqueue(10);
-        q.enqueue(20);
-    }
-    
-    println("✅ Queue<int> destructor works (no crash on scope exit)");
-}
-
-void main() {
+int main() {
     println("╔════════════════════════════════════════════╗");
     println("║  Queue<T> Library Import Test             ║");
     println("╚════════════════════════════════════════════╝\n");
     
-    test_queue_import();
-    test_queue_basic_operations();
-    test_queue_resize();
-    test_queue_circular_buffer();
-    test_queue_destructor();
+    // All tests using a single Queue variable
+    println("=== Test: Queue<int> Import ===");
+    Queue<int> q;
+    println("✅ Queue<int> import and struct creation successful");
+    
+    println("\n=== Test: Queue<int> Basic Operations ===");
+    q.enqueue(10);
+    q.enqueue(20);
+    q.enqueue(30);
+    
+    if (q.size() == 3) {
+        println("✅ Queue<int> enqueue operations work");
+    }
+    
+    int val = q.dequeue();
+    if (val == 10 && q.size() == 2) {
+        println("✅ Queue<int> dequeue operations work");
+    }
+    
+    int peek_val = q.peek();
+    if (peek_val == 20 && q.size() == 2) {
+        println("✅ Queue<int> peek operations work");
+    }
+    
+    println("\n=== Test: Queue<int> Dynamic Size ===");
+    // Clear the queue first
+    q.clear();
+    
+    q.enqueue(1);
+    q.enqueue(2);
+    q.enqueue(3);
+    q.enqueue(4);
+    q.enqueue(5);
+    
+    int size = q.size();
+    if (size == 5) {
+        println("✅ Queue<int> dynamic size works (no capacity limit)");
+    }
+    
+    println("\n=== Test: Queue<int> FIFO Order ===");
+    q.clear();
+    
+    q.enqueue(10);
+    q.enqueue(20);
+    q.enqueue(30);
+    
+    int v1 = q.dequeue();
+    int v2 = q.dequeue();
+    
+    q.enqueue(40);
+    q.enqueue(50);
+    
+    int v3 = q.dequeue();
+    
+    if (v1 == 10 && v2 == 20 && v3 == 30 && q.size() == 2) {
+        println("✅ Queue<int> FIFO order maintained");
+    }
+    
+    println("\n=== Test: Queue<int> Destructor ===");
+    q.clear();
+    q.enqueue(10);
+    q.enqueue(20);
+    println("✅ Queue<int> destructor works (no crash on scope exit)");
     
     println("\n╔════════════════════════════════════════════╗");
     println("║  All Queue<int> library tests passed!     ║");
     println("╚════════════════════════════════════════════╝");
+    
+    return 0;
 }

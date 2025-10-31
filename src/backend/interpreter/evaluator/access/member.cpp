@@ -560,10 +560,94 @@ int64_t ExpressionEvaluator::evaluate_member_access_impl(const ASTNode *node) {
         debug_msg(DebugMsgId::EXPR_EVAL_START,
                   "Pointer dereference member access");
 
-        // デリファレンスを評価して構造体のポインタ値を取得
-        int64_t ptr_value = evaluate_expression(node->left.get());
+        // デリファレンスを型情報付きで評価
+        TypedValue deref_result = evaluate_typed_expression(node->left.get());
 
-        // ポインタ値から構造体変数を取得
+        debug_print("[DEREF_MEMBER] deref_result: type=%d, value=%lld\n",
+                    static_cast<int>(deref_result.type.type_info),
+                    (long long)deref_result.value);
+
+        // 構造体ポインタのデリファレンスの場合
+        if (deref_result.type.type_info == TYPE_STRUCT) {
+            debug_print("[DEREF_MEMBER] Struct pointer dereference detected\n");
+            // 生メモリポインタの場合、valueフィールドにアドレスがある
+            void *base_ptr = reinterpret_cast<void *>(deref_result.value);
+            if (!base_ptr) {
+                throw std::runtime_error(
+                    "Null pointer dereference in member access");
+            }
+
+            // 構造体定義を取得
+            const StructDefinition *struct_def =
+                interpreter_.find_struct_definition(
+                    deref_result.type.type_name);
+            if (!struct_def) {
+                throw std::runtime_error("Struct definition not found: " +
+                                         deref_result.type.type_name);
+            }
+
+            // 構造体定義からメンバーを取得
+            const std::vector<StructMember> &members = struct_def->members;
+
+            // メンバーのオフセットを計算
+            size_t offset = 0;
+            TypeInfo member_type = TYPE_UNKNOWN;
+            bool found = false;
+
+            for (const auto &member : members) {
+                if (member.name == member_name) {
+                    member_type = member.type;
+                    found = true;
+                    break;
+                }
+                // メンバーのサイズを加算
+                if (member.type == TYPE_INT || member.type == TYPE_LONG ||
+                    member.type == TYPE_POINTER) {
+                    offset += sizeof(int64_t);
+                } else if (member.type == TYPE_FLOAT) {
+                    offset += sizeof(float);
+                } else if (member.type == TYPE_DOUBLE) {
+                    offset += sizeof(double);
+                } else {
+                    throw std::runtime_error(
+                        "Unsupported member type in dereference access: " +
+                        std::string(type_info_to_string_basic(member.type)));
+                }
+            }
+
+            if (!found) {
+                throw std::runtime_error("Member not found: " + member_name);
+            }
+
+            // 生メモリから値を読み取り
+            void *member_ptr = static_cast<char *>(base_ptr) + offset;
+
+            if (member_type == TYPE_INT || member_type == TYPE_LONG) {
+                int64_t *int_ptr = static_cast<int64_t *>(member_ptr);
+                return *int_ptr;
+            } else if (member_type == TYPE_FLOAT) {
+                float *float_ptr = static_cast<float *>(member_ptr);
+                InferredType float_type(TYPE_FLOAT, "float");
+                last_typed_result_ =
+                    TypedValue(static_cast<double>(*float_ptr), float_type);
+                return static_cast<int64_t>(*float_ptr);
+            } else if (member_type == TYPE_DOUBLE) {
+                double *double_ptr = static_cast<double *>(member_ptr);
+                InferredType double_type(TYPE_DOUBLE, "double");
+                last_typed_result_ = TypedValue(*double_ptr, double_type);
+                return static_cast<int64_t>(*double_ptr);
+            } else if (member_type == TYPE_POINTER) {
+                int64_t *ptr_ptr = static_cast<int64_t *>(member_ptr);
+                return *ptr_ptr;
+            } else {
+                throw std::runtime_error(
+                    "Unsupported member type in dereference access: " +
+                    std::string(type_info_to_string_basic(member_type)));
+            }
+        }
+
+        // 従来の方式（変数ポインタ）
+        int64_t ptr_value = deref_result.value;
         Variable *struct_var = reinterpret_cast<Variable *>(ptr_value);
         if (!struct_var) {
             throw std::runtime_error(

@@ -39,12 +39,11 @@ inline void test_queue_import_comprehensive() {
     STDLIB_ASSERT_CONTAINS(output, "✅ Queue<int> dequeue operations work");
     STDLIB_ASSERT_CONTAINS(output, "✅ Queue<int> peek operations work");
     
-    STDLIB_ASSERT_CONTAINS(output, "=== Test: Queue<int> Resize ===");
-    STDLIB_ASSERT_CONTAINS(output, "✅ Queue<int> resize works");
-    STDLIB_ASSERT_CONTAINS(output, "✅ Queue<int> operations after resize work");
+    STDLIB_ASSERT_CONTAINS(output, "=== Test: Queue<int> Dynamic Size ===");
+    STDLIB_ASSERT_CONTAINS(output, "✅ Queue<int> dynamic size works");
     
-    STDLIB_ASSERT_CONTAINS(output, "=== Test: Queue<int> Circular Buffer ===");
-    STDLIB_ASSERT_CONTAINS(output, "✅ Queue<int> circular buffer works");
+    STDLIB_ASSERT_CONTAINS(output, "=== Test: Queue<int> FIFO Order ===");
+    STDLIB_ASSERT_CONTAINS(output, "✅ Queue<int> FIFO order maintained");
     
     STDLIB_ASSERT_CONTAINS(output, "=== Test: Queue<int> Destructor ===");
     STDLIB_ASSERT_CONTAINS(output, "✅ Queue<int> destructor works");
@@ -53,15 +52,18 @@ inline void test_queue_import_comprehensive() {
 }
 
 inline void test_queue_simple_import() {
-    std::cout << "[Collections] Testing Queue<int> simple import...\n";
+    std::cout << "[Collections] Testing Queue<T> simple import...\n";
     
     // Run the simple import test
     auto [output, exit_code] = run_cb_test(
         "tests/cases/stdlib/collections/test_simple_import.cb");
     
     STDLIB_ASSERT_EQ(0, exit_code);
-    STDLIB_ASSERT_CONTAINS(output, "Queue<int> imported successfully!");
-    STDLIB_ASSERT_CONTAINS(output, "Queue<int> variable declared!");
+    STDLIB_ASSERT_CONTAINS(output, "Queue<T> imported successfully!");
+    STDLIB_ASSERT_CONTAINS(output, "Queue<int> created!");
+    STDLIB_ASSERT_CONTAINS(output, "Queue<int> enqueue works!");
+    STDLIB_ASSERT_CONTAINS(output, "Queue<int> dequeue works! Got:  10");
+    STDLIB_ASSERT_CONTAINS(output, "Queue<int> destroyed!");
 }
 
 // Register all Queue tests

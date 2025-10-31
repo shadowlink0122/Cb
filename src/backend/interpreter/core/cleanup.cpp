@@ -29,6 +29,30 @@ void Interpreter::push_scope() {
     }
 }
 
+void Interpreter::push_scope(const std::string &scope_id) {
+    if (debug_mode) {
+        debug_print(
+            "push_scope(scope_id='%s'): destructor_stacks_ size before: %zu\n",
+            scope_id.c_str(), destructor_stacks_.size());
+    }
+
+    variable_manager_->push_scope();
+    push_defer_scope();
+    // v0.10.0: デストラクタスタックも追加
+    destructor_stacks_.push_back(
+        std::vector<std::pair<std::string, std::string>>());
+
+    // TODO:
+    // スコープIDの設定（variable_manager内部のスコープスタックにアクセスが必要）
+    // 現在は未実装
+
+    if (debug_mode) {
+        debug_print(
+            "push_scope(scope_id='%s'): destructor_stacks_ size after: %zu\n",
+            scope_id.c_str(), destructor_stacks_.size());
+    }
+}
+
 void Interpreter::pop_scope() {
     if (debug_mode) {
         debug_print("pop_scope: destructor_stacks_ size before: %zu, "

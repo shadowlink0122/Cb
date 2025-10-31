@@ -28,7 +28,6 @@ void test_single_selective() {
     
     // Queue<int>のみimport
     Queue<int> q;
-    q.init(4);
     q.enqueue(100);
     q.enqueue(200);
     

@@ -1157,13 +1157,32 @@ void VariableManager::assign_variable(const std::string &name,
         }
 
         if (typed_value.is_struct()) {
+            if (interpreter_->debug_mode) {
+                std::cerr << "[ASSIGN_VAR_DEBUG] Assigning struct to: " << name
+                          << ", struct_data="
+                          << (typed_value.struct_data ? "exists" : "null")
+                          << std::endl;
+            }
             if (typed_value.struct_data) {
                 bool was_const = target.is_const;
                 bool was_unsigned = target.is_unsigned;
+                if (interpreter_->debug_mode) {
+                    std::cerr
+                        << "[ASSIGN_VAR_DEBUG] Before assignment: target.type="
+                        << static_cast<int>(target.type) << std::endl;
+                    std::cerr << "[ASSIGN_VAR_DEBUG] struct_data.type="
+                              << static_cast<int>(typed_value.struct_data->type)
+                              << std::endl;
+                }
                 target = *typed_value.struct_data;
                 target.is_const = was_const;
                 target.is_unsigned = was_unsigned;
                 target.is_assigned = true;
+                if (interpreter_->debug_mode) {
+                    std::cerr
+                        << "[ASSIGN_VAR_DEBUG] After assignment: target.type="
+                        << static_cast<int>(target.type) << std::endl;
+                }
                 // 構造体戻り値や代入で生成された最新のメンバー状態を
                 // ダイレクトアクセス変数にも反映させる
                 interpreter_->sync_direct_access_from_struct_value(name,

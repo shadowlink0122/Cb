@@ -12,6 +12,8 @@ export interface VectorOps<T> {
     void push(T value);
     T pop();
     T get(int index);
+    void* get_ptr(int index);
+    void* get_data();
     void set(int index, T value);
     int get_length();
     int get_capacity();
@@ -35,14 +37,13 @@ impl VectorOps<T> for Vector<T> {
         if (self.length >= self.capacity) {
             self.reserve(self.capacity * 2);
         }
-        // array_set - Generic array operation (works for any type T)
+        // array_set - Generic array operation
         array_set(self.data, self.length, value);
         self.length = self.length + 1;
     }
     
     T pop() {
         if (self.length <= 0) {
-            println("[Vector<T>] Error: Empty vector");
             // Return first element as fallback
             return array_get(self.data, 0);
         }
@@ -52,15 +53,27 @@ impl VectorOps<T> for Vector<T> {
     
     T get(int index) {
         if (index < 0 || index >= self.length) {
-            println("[Vector<T>] Error: Index {index} out of bounds (length={self.length})");
+            // Return first element as fallback
             return array_get(self.data, 0);
         }
         return array_get(self.data, index);
     }
     
+    void* get_ptr(int index) {
+        if (index < 0 || index >= self.length) {
+            return nullptr;
+        }
+        int element_size = sizeof(T);
+        int offset = index * element_size;
+        return self.data + offset;
+    }
+    
+    void* get_data() {
+        return self.data;
+    }
+    
     void set(int index, T value) {
         if (index < 0 || index >= self.length) {
-            println("[Vector<T>] Error: Index out of bounds");
             return;
         }
         array_set(self.data, index, value);

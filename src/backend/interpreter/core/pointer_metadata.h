@@ -3,6 +3,7 @@
 #include "../../../common/ast.h"
 #include <cstdint>
 #include <string>
+#include <vector>
 
 // 前方宣言
 struct Variable;
@@ -33,6 +34,9 @@ struct PointerMetadata {
     size_t array_end_addr;   // 配列の終了アドレス
     std::string array_name; // 配列変数の名前（構造体配列アクセス用）
 
+    // 構造体ポインタ情報
+    std::string struct_type_name; // 構造体型へのキャスト時の型名
+
     // レガシー情報（後方互換性のため保持）
     Variable *var_ptr;
     size_t element_index;
@@ -45,8 +49,8 @@ struct PointerMetadata {
         : target_type(PointerTargetType::NULLPTR_VALUE), address(0),
           pointed_type(TYPE_UNKNOWN), type_size(0), array_var(nullptr),
           array_start_addr(0), array_end_addr(0), array_name(""),
-          var_ptr(nullptr), element_index(0), element_type(TYPE_UNKNOWN),
-          member_var(nullptr), member_path("") {}
+          struct_type_name(""), var_ptr(nullptr), element_index(0),
+          element_type(TYPE_UNKNOWN), member_var(nullptr), member_path("") {}
 
     // 静的ファクトリメソッド
     static PointerMetadata create_variable_pointer(Variable *var);
@@ -118,6 +122,14 @@ struct PointerValue {
     PointerMetadata *get_metadata() const {
         return has_metadata ? metadata : nullptr;
     }
+
+    // メタデータの取得（変更可能）
+    PointerMetadata *get_metadata_mut() {
+        return has_metadata ? metadata : nullptr;
+    }
 };
+
+// メタデータのグローバルプール（メモリリーク対策）
+extern std::vector<PointerMetadata *> global_metadata_pool;
 
 } // namespace PointerSystem

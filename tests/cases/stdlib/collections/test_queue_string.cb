@@ -4,10 +4,9 @@ import "stdlib/collections/queue.cb";
 int main() {
     println("=== Queue<string> Tests ===\n");
     
-    // 1. 初期化
+    // 1. 作成
     Queue<string> queue;
-    queue.init(5);
-    println("✅ Queue<string> initialized");
+    println("✅ Queue<string> created");
     
     // 2. enqueue操作
     queue.enqueue("First");
@@ -21,7 +20,7 @@ int main() {
         println("✅ Peek works: '{peeked}'");
     } else {
         println("❌ Peek failed");
-        queue.destroy();
+        queue.clear();
         return 1;
     }
     
@@ -31,7 +30,7 @@ int main() {
         println("✅ Dequeued correct value: '{first}'");
     } else {
         println("❌ Dequeue failed");
-        queue.destroy();
+        queue.clear();
         return 1;
     }
     
@@ -45,18 +44,18 @@ int main() {
         return 1;
     }
     
-    // 6. 循環バッファのテスト
+    // 6. FIFO順序のテスト
     queue.enqueue("Fourth");
     queue.enqueue("Fifth");
-    println("✅ Enqueued 2 more strings (circular buffer test)");
+    println("✅ Enqueued 2 more strings");
     
     string second = queue.dequeue();
     string third = queue.dequeue();
     
     if (second == "Second" && third == "Third") {
-        println("✅ Circular buffer works correctly");
+        println("✅ FIFO order works correctly");
     } else {
-        println("❌ Circular buffer failed");
+        println("❌ FIFO order failed");
         queue.destroy();
         return 1;
     }
@@ -105,22 +104,19 @@ int main() {
         return 1;
     }
     
-    // 11. resize テスト
-    println("\n--- Resize Test ---");
+    // 11. 複数要素のテスト
+    println("\n--- Multiple Elements Test ---");
     queue.enqueue("A");
     queue.enqueue("B");
     queue.enqueue("C");
-    
-    queue.resize(10);
-    
     queue.enqueue("D");
     queue.enqueue("E");
     
     int final_size = queue.size();
     if (final_size == 5) {
-        println("✅ Size after resize is correct: {final_size}");
+        println("✅ Size is correct: {final_size}");
     } else {
-        println("❌ Size after resize is incorrect: {final_size}");
+        println("❌ Size is incorrect: {final_size}");
         queue.destroy();
         return 1;
     }
@@ -134,9 +130,9 @@ int main() {
     
     bool order_ok = a == "A" && b == "B" && c == "C" && d == "D" && e == "E";
     if (order_ok) {
-        println("✅ Element order preserved after resize");
+        println("✅ Element order preserved");
     } else {
-        println("❌ Element order corrupted after resize");
+        println("❌ Element order corrupted");
         queue.destroy();
         return 1;
     }

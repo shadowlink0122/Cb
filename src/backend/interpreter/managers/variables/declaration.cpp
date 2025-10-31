@@ -51,6 +51,10 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
         var.pointer_depth = node->pointer_depth;
         var.pointer_base_type = node->pointer_base_type;
         var.pointer_base_type_name = node->pointer_base_type_name;
+        // ポインタ型の型名を設定（例: "Point*"）
+        if (!node->type_name.empty()) {
+            var.type_name = node->type_name;
+        }
     } else {
         var.type = node->type_info;
     }

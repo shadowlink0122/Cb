@@ -13,6 +13,36 @@ namespace PointerBasicTests {
 // 基本的なポインタ操作のテスト
 // ============================================================================
 
+inline void test_pointer_increment_decrement() {
+    double execution_time = 0.0;
+    run_cb_test_with_output_and_time(
+        "../../tests/cases/pointer/test_pointer_incdec.cb",
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, 
+                "ポインタインクリメント/デクリメントテストがエラー終了");
+            
+            // Test 1: p++
+            INTEGRATION_ASSERT(output.find("Test 1: p++") != std::string::npos,
+                             "Test 1のヘッダーが出力されていない");
+            INTEGRATION_ASSERT(output.find("*p =  20") != std::string::npos ||
+                             output.find("*p = 20") != std::string::npos,
+                             "p++後の*pの値が20でない");
+            
+            // Test 2: p--
+            INTEGRATION_ASSERT(output.find("Test 2: p--") != std::string::npos,
+                             "Test 2のヘッダーが出力されていない");
+            INTEGRATION_ASSERT(output.find("*p =  10") != std::string::npos ||
+                             output.find("*p = 10") != std::string::npos,
+                             "p--後の*pの値が10でない");
+        },
+        execution_time
+    );
+    
+    integration_test_passed_with_time("Pointer Increment/Decrement", 
+                                      "test_pointer_incdec.cb", 
+                                      execution_time);
+}
+
 inline void test_basic_pointer_operations() {
     double execution_time = 0.0;
     run_cb_test_with_output_and_time(
@@ -826,6 +856,7 @@ inline void test_pointer_boundary_comprehensive() {
 
 inline void run_all_tests() {
     printf("\n=== Pointer Basic Tests ===\n");
+    test_pointer_increment_decrement();
     test_basic_pointer_operations();
     test_pointer_function_parameters();
     test_pointer_chains();

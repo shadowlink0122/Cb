@@ -628,6 +628,45 @@ void StructOperations::sync_individual_member_from_struct(
         individual_var->is_const = member_value.is_const;
         individual_var->is_unsigned = member_value.is_unsigned;
 
+        // 構造体メンバーの場合、struct_membersもコピー
+        if (member_value.type == TYPE_STRUCT &&
+            !member_value.struct_members.empty()) {
+            individual_var->is_struct = true;
+            individual_var->struct_type_name = member_value.struct_type_name;
+            individual_var->struct_members = member_value.struct_members;
+
+            if (interpreter_->debug_mode) {
+                std::cerr
+                    << "[SYNC_INDIVIDUAL_STRUCT] Copied struct_members for "
+                    << full_member_path
+                    << ", members count: " << member_value.struct_members.size()
+                    << std::endl;
+            }
+
+            // ネストされた構造体のメンバーも再帰的に同期
+            for (const auto &nested_member : member_value.struct_members) {
+                std::string nested_member_path =
+                    full_member_path + "." + nested_member.first;
+                Variable *nested_var =
+                    interpreter_->find_variable(nested_member_path);
+                if (nested_var) {
+                    const Variable &nested_value = nested_member.second;
+                    nested_var->value = nested_value.value;
+                    nested_var->type = nested_value.type;
+                    nested_var->str_value = nested_value.str_value;
+                    nested_var->is_assigned = nested_value.is_assigned;
+                    nested_var->is_const = nested_value.is_const;
+                    nested_var->is_unsigned = nested_value.is_unsigned;
+
+                    if (interpreter_->debug_mode) {
+                        std::cerr << "[SYNC_NESTED_MEMBER] Updated "
+                                  << nested_member_path << " = "
+                                  << nested_value.value << std::endl;
+                    }
+                }
+            }
+        }
+
         if (interpreter_->debug_mode) {
             debug_print(
                 "DEBUG: sync_individual_member_from_struct - updated %s\n",

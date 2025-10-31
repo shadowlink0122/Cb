@@ -192,6 +192,11 @@ int64_t evaluate_address_of(
             // 構造体配列要素の場合もメタデータポインタを作成
             // これにより ptr[index] でのアクセスが可能になる
             PointerMetadata *meta = new PointerMetadata();
+
+            // グローバルプールに追加（自動管理）
+            using namespace PointerSystem;
+            global_metadata_pool.push_back(meta);
+
             *meta = PointerMetadata::create_array_element_pointer(
                 array_var, flat_index, elem_type, array_name);
 
@@ -210,6 +215,11 @@ int64_t evaluate_address_of(
 
         // メタデータを作成してヒープに配置
         PointerMetadata *meta = new PointerMetadata();
+
+        // グローバルプールに追加（自動管理）
+        using namespace PointerSystem;
+        global_metadata_pool.push_back(meta);
+
         *meta = PointerMetadata::create_array_element_pointer(
             array_var, flat_index, elem_type, array_name);
 

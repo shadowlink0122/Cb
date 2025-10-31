@@ -34,11 +34,8 @@ int64_t evaluate_arrow_access(
     } catch (const ReturnException &ret) {
         // 構造体が返された場合（ptr[index]からの構造体）
         if (ret.is_struct) {
-            if (interpreter.is_debug_mode()) {
-                std::cerr << "[ARROW_DEBUG] Caught struct from ptr[index]"
-                          << " struct_type="
-                          << ret.struct_value.struct_type_name << std::endl;
-            }
+            debug_print("[ARROW_OP] Caught struct from ptr[index], type='%s'\n",
+                        ret.struct_value.struct_type_name.c_str());
 
             // 構造体からメンバーを取得
             Variable member_var =
@@ -66,11 +63,9 @@ int64_t evaluate_arrow_access(
         }
     }
 
-    if (interpreter.is_debug_mode()) {
-        std::cerr << "[ARROW_DEBUG] ptr_value=" << ptr_value
-                  << " has_meta=" << ((ptr_value & (1LL << 63)) ? "yes" : "no")
-                  << std::endl;
-    }
+    debug_print("[ARROW_OP] ptr_value=0x%llx has_meta=%s\n",
+                static_cast<unsigned long long>(ptr_value),
+                (ptr_value & (1LL << 63)) ? "yes" : "no");
 
     if (ptr_value == 0) {
         throw std::runtime_error("Null pointer dereference in arrow operator");
@@ -114,31 +109,260 @@ int64_t evaluate_arrow_access(
                 throw std::runtime_error("Struct array element not found: " +
                                          element_name);
             }
+        } else if (!metadata->struct_type_name.empty()) {
+            // 構造体ポインタ（型キャスト済み）の場合
+            // 生メモリから直接メンバーにアクセス
+            const StructDefinition *struct_def =
+                interpreter.find_struct_definition(metadata->struct_type_name);
+
+            if (!struct_def) {
+                throw std::runtime_error("Struct definition not found: " +
+                                         metadata->struct_type_name);
+            }
+
+            // メンバーのオフセットを計算
+            size_t offset = 0;
+            bool found = false;
+            TypeInfo member_type = TYPE_UNKNOWN;
+            std::string member_struct_type;
+
+            for (const auto &member : struct_def->members) {
+                if (member.name == member_name) {
+                    found = true;
+                    member_type = member.type;
+                    member_struct_type = member.type_alias;
+                    break;
+                }
+                // 次のメンバーのオフセットを計算
+                if (member.type == TYPE_INT) {
+                    offset += 4;
+                } else if (member.type == TYPE_LONG) {
+                    offset += 8;
+                } else if (member.type == TYPE_POINTER) {
+                    offset += 8;
+                } else if (member.type == TYPE_STRUCT) {
+                    // 構造体メンバーのサイズを取得
+                    const StructDefinition *member_struct_def =
+                        interpreter.find_struct_definition(member.type_alias);
+                    if (member_struct_def) {
+                        size_t member_size = 0;
+                        for (const auto &sub_member :
+                             member_struct_def->members) {
+                            if (sub_member.type == TYPE_INT) {
+                                member_size += 4;
+                            } else if (sub_member.type == TYPE_LONG) {
+                                member_size += 8;
+                            } else if (sub_member.type == TYPE_POINTER) {
+                                member_size += 8;
+                            }
+                        }
+                        offset += member_size;
+                    } else {
+                        offset += 8; // デフォルトサイズ
+                    }
+                }
+            }
+
+            if (!found) {
+                throw std::runtime_error("Member '" + member_name +
+                                         "' not found in struct " +
+                                         metadata->struct_type_name);
+            }
+
+            // 生メモリから直接値を読み取り
+            void *base_ptr = reinterpret_cast<void *>(metadata->address);
+            void *member_ptr = static_cast<char *>(base_ptr) + offset;
+
+            debug_print("[ARROW_OP] Raw memory access: base_ptr=%p offset=%zu "
+                        "member_ptr=%p struct_type='%s'\n",
+                        base_ptr, offset, member_ptr,
+                        metadata->struct_type_name.c_str());
+
+            if (member_type == TYPE_INT) {
+                int *int_ptr = static_cast<int *>(member_ptr);
+                return static_cast<int64_t>(*int_ptr);
+            } else if (member_type == TYPE_LONG) {
+                int64_t *long_ptr = static_cast<int64_t *>(member_ptr);
+                return *long_ptr;
+            } else if (member_type == TYPE_POINTER) {
+                void **ptr_ptr = static_cast<void **>(member_ptr);
+                return reinterpret_cast<int64_t>(*ptr_ptr);
+            } else {
+                throw std::runtime_error(
+                    "Unsupported member type in raw pointer access");
+            }
         } else {
             throw std::runtime_error(
                 "Unsupported metadata type in arrow operator");
         }
     } else {
-        // 通常のポインタの場合
+        // メタデータなしのポインタの場合
+        std::string struct_type_name;
+
+        // 左側がキャスト式の場合、キャストの型情報を使用
+        if (node->left && node->left->node_type == ASTNodeType::AST_CAST_EXPR) {
+            if (!node->left->cast_target_type.empty() &&
+                node->left->cast_target_type.find('*') != std::string::npos) {
+                struct_type_name = node->left->cast_target_type;
+                size_t star_pos = struct_type_name.find('*');
+                if (star_pos != std::string::npos) {
+                    struct_type_name = struct_type_name.substr(0, star_pos);
+                }
+
+                debug_print(
+                    "[ARROW_OP] Cast expression: cast_target_type='%s', "
+                    "struct_type_name='%s'\n",
+                    node->left->cast_target_type.c_str(),
+                    struct_type_name.c_str());
+            }
+        }
+        // 左側が変数参照なら、その変数の型情報をチェック
+        else if (node->left &&
+                 node->left->node_type == ASTNodeType::AST_VARIABLE) {
+            Variable *ptr_var = interpreter.find_variable(node->left->name);
+
+            if (interpreter.is_debug_mode()) {
+                debug_print(
+                    "[ARROW_OP] Variable '%s' found=%d, type_name='%s'\n",
+                    node->left->name.c_str(), ptr_var != nullptr ? 1 : 0,
+                    (ptr_var ? ptr_var->type_name.c_str() : ""));
+            }
+
+            if (ptr_var && !ptr_var->type_name.empty() &&
+                ptr_var->type_name.find('*') != std::string::npos) {
+                struct_type_name = ptr_var->type_name;
+                size_t star_pos = struct_type_name.find('*');
+                if (star_pos != std::string::npos) {
+                    struct_type_name = struct_type_name.substr(0, star_pos);
+                }
+            }
+        }
+
+        // 構造体ポインタとして処理
+        if (!struct_type_name.empty()) {
+            // スペースを除去
+            struct_type_name.erase(std::remove_if(struct_type_name.begin(),
+                                                  struct_type_name.end(),
+                                                  ::isspace),
+                                   struct_type_name.end());
+
+            // 構造体定義を取得
+            const StructDefinition *struct_def =
+                interpreter.find_struct_definition(struct_type_name);
+
+            if (struct_def) {
+                // まずVariable*として扱うことを試みる
+                // &変数 の場合、ポインタはVariable*を指している
+                struct_var = reinterpret_cast<Variable *>(ptr_value);
+
+                // Variable*として有効かチェック：
+                // 1. struct_type_nameが一致
+                // 2. struct_membersが空でない
+                bool is_variable_ptr = false;
+                try {
+                    if (struct_var && struct_var->type == TYPE_STRUCT &&
+                        struct_var->struct_type_name == struct_type_name &&
+                        !struct_var->struct_members.empty()) {
+                        is_variable_ptr = true;
+                        debug_print(
+                            "[ARROW_OP] Treating as Variable* to struct '%s'\n",
+                            struct_type_name.c_str());
+                    }
+                } catch (...) {
+                    // ポインタが不正な場合、例外を無視して生メモリアクセスにフォールバック
+                    is_variable_ptr = false;
+                }
+
+                if (is_variable_ptr || struct_def->has_default_member) {
+                    // Variable*として扱う（後続処理で変数テーブルからアクセス）
+                    goto variable_access;
+                }
+
+                debug_print("[ARROW_OP] Raw pointer access to struct '%s', "
+                            "ptr=0x%llx\n",
+                            struct_type_name.c_str(),
+                            static_cast<unsigned long long>(ptr_value));
+                // 生メモリから直接メンバーにアクセス
+                void *base_ptr = reinterpret_cast<void *>(ptr_value);
+
+                // メンバーのオフセットを計算
+                size_t offset = 0;
+                bool found = false;
+                TypeInfo member_type = TYPE_UNKNOWN;
+
+                for (const auto &member : struct_def->members) {
+                    // 現在のメンバーが目的のメンバーなら、現在のオフセットを使う
+                    if (member.name == member_name) {
+                        found = true;
+                        member_type = member.type;
+                        break;
+                    }
+                    // 次のメンバーに進む前にオフセットを増やす
+                    if (member.type == TYPE_INT || member.type == TYPE_LONG ||
+                        member.type == TYPE_POINTER) {
+                        offset += sizeof(int64_t);
+                    } else if (member.type == TYPE_FLOAT) {
+                        offset += sizeof(float);
+                    } else if (member.type == TYPE_DOUBLE) {
+                        offset += sizeof(double);
+                    }
+                }
+
+                if (!found) {
+                    throw std::runtime_error("Member not found: " +
+                                             member_name);
+                }
+
+                debug_print(
+                    "[ARROW_OP] Member '%s' found at offset %zu, type=%d, "
+                    "base_ptr=0x%lx\n",
+                    member_name.c_str(), offset, static_cast<int>(member_type),
+                    reinterpret_cast<uintptr_t>(base_ptr));
+
+                // 生メモリから値を読み取り
+                void *member_ptr = static_cast<char *>(base_ptr) + offset;
+
+                if (member_type == TYPE_INT || member_type == TYPE_LONG) {
+                    int64_t *int_ptr = static_cast<int64_t *>(member_ptr);
+                    int64_t value = *int_ptr;
+                    debug_print(
+                        "[ARROW_OP] Read int64_t value: %lld from 0x%lx\n",
+                        value, reinterpret_cast<uintptr_t>(member_ptr));
+                    return value;
+                } else if (member_type == TYPE_FLOAT) {
+                    float *float_ptr = static_cast<float *>(member_ptr);
+                    return static_cast<int64_t>(*float_ptr);
+                } else if (member_type == TYPE_DOUBLE) {
+                    double *double_ptr = static_cast<double *>(member_ptr);
+                    return static_cast<int64_t>(*double_ptr);
+                } else if (member_type == TYPE_POINTER) {
+                    void **ptr_ptr = static_cast<void **>(member_ptr);
+                    return reinterpret_cast<int64_t>(*ptr_ptr);
+                } else {
+                    throw std::runtime_error(
+                        "Unsupported member type in arrow operator");
+                }
+            }
+        }
+
+        // 通常のポインタの場合（Variable*へのポインタ）
         struct_var = reinterpret_cast<Variable *>(ptr_value);
     }
 
+variable_access:
     if (!struct_var) {
         throw std::runtime_error("Invalid pointer in arrow operator");
     }
 
-    if (interpreter.is_debug_mode()) {
-        auto member_it = struct_var->struct_members.find(member_name);
-        if (member_it != struct_var->struct_members.end()) {
-            std::cerr << "[ARROW_DEBUG] struct_var=" << struct_var
-                      << " member=" << member_name
-                      << " value=" << member_it->second.value << " is_assigned="
-                      << (member_it->second.is_assigned ? "true" : "false")
-                      << std::endl;
-        } else {
-            std::cerr << "[ARROW_DEBUG] struct_var=" << struct_var
-                      << " member=" << member_name << " not found" << std::endl;
-        }
+    auto member_it = struct_var->struct_members.find(member_name);
+    if (member_it != struct_var->struct_members.end()) {
+        debug_print(
+            "[ARROW_OP] struct_var=%p member='%s' value=%lld is_assigned=%d\n",
+            static_cast<void *>(struct_var), member_name.c_str(),
+            member_it->second.value, member_it->second.is_assigned ? 1 : 0);
+    } else {
+        debug_print("[ARROW_OP] struct_var=%p member='%s' not found\n",
+                    static_cast<void *>(struct_var), member_name.c_str());
     }
 
     // 構造体型またはInterface型をチェック
@@ -151,21 +375,19 @@ int64_t evaluate_arrow_access(
     Variable member_var = get_struct_member_func(*struct_var, member_name);
 
     if (member_var.type == TYPE_STRING) {
-        if (interpreter.is_debug_mode()) {
-            std::cerr << "[ARROW_DEBUG] STRING member found: str_value='"
-                      << member_var.str_value << "'" << std::endl;
-        }
+        debug_print("[ARROW_OP] STRING member found: str_value='%s'\n",
+                    member_var.str_value.c_str());
+
         TypedValue typed_result(static_cast<int64_t>(0),
                                 InferredType(TYPE_STRING, "string"));
         typed_result.string_value = member_var.str_value;
         typed_result.is_numeric_result = false;
         // last_typed_result_に設定
         evaluator.set_last_typed_result(typed_result);
-        if (interpreter.is_debug_mode()) {
-            std::cerr
-                << "[ARROW_DEBUG] set_last_typed_result called with string: '"
-                << typed_result.string_value << "'" << std::endl;
-        }
+
+        debug_print(
+            "[ARROW_OP] set_last_typed_result called with string: '%s'\n",
+            typed_result.string_value.c_str());
         return 0;
     } else if (member_var.type == TYPE_POINTER) {
         // ポインタメンバの場合はそのまま値を返す

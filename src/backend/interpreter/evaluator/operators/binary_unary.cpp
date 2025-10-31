@@ -295,6 +295,11 @@ TypedValue evaluate_binary_op_typed(
 
                     // 新しいメタデータを作成
                     PointerMetadata *new_meta = new PointerMetadata();
+
+                    // グローバルプールに追加（自動管理）
+                    using namespace PointerSystem;
+                    global_metadata_pool.push_back(new_meta);
+
                     new_meta->target_type = meta->target_type;
                     new_meta->address = new_address;
                     new_meta->pointed_type = meta->pointed_type;
@@ -573,8 +578,67 @@ TypedValue evaluate_unary_op_typed(
         TypedValue ptr_value = evaluate_typed_func(node->left.get());
         int64_t ptr_int = ptr_value.as_numeric();
 
+        // 変数参照の場合、変数の型情報も取得
+        std::string var_type_name;
+        if (node->left && node->left->node_type == ASTNodeType::AST_VARIABLE) {
+            Variable *var = interpreter.find_variable(node->left->name);
+            if (var) {
+                var_type_name = var->type_name;
+            }
+        }
+
+        if (debug_mode) {
+            std::cerr << "[DEREFERENCE] ptr_int=0x" << std::hex << ptr_int
+                      << std::dec
+                      << ", has_meta=" << ((ptr_int & (1LL << 63)) != 0)
+                      << ", type_name='" << ptr_value.type.type_name << "'"
+                      << ", var_type_name='" << var_type_name << "'"
+                      << std::endl;
+        }
+
         if (ptr_int == 0) {
             throw std::runtime_error("Null pointer dereference");
+        }
+
+        // 構造体ポインタのチェック（型名から判定）
+        // 1. TypedValueの型名をチェック
+        // 2. 変数の型名をチェック（キャスト式の結果が変数に保存されている場合）
+        std::string check_type_name = ptr_value.type.type_name;
+        if (check_type_name == "pointer" && !var_type_name.empty()) {
+            check_type_name = var_type_name;
+        }
+
+        if (!check_type_name.empty() &&
+            check_type_name.find('*') != std::string::npos) {
+            // 構造体型名から'*'を除去
+            std::string struct_name = check_type_name;
+            size_t star_pos = struct_name.find('*');
+            if (star_pos != std::string::npos) {
+                struct_name = struct_name.substr(0, star_pos);
+            }
+
+            // スペースを除去（"Point *" -> "Point"）
+            struct_name.erase(std::remove_if(struct_name.begin(),
+                                             struct_name.end(), ::isspace),
+                              struct_name.end());
+
+            // 構造体定義を確認
+            const StructDefinition *struct_def =
+                interpreter.find_struct_definition(struct_name);
+
+            if (struct_def) {
+                // 構造体ポインタのデリファレンス
+                if (debug_mode) {
+                    std::cerr << "[DEREFERENCE] Struct pointer: " << struct_name
+                              << ", address=0x" << std::hex << ptr_int
+                              << std::dec << std::endl;
+                }
+
+                // Variable*としてデリファレンス
+                Variable *var = reinterpret_cast<Variable *>(ptr_int);
+                InferredType struct_type(TYPE_STRUCT, struct_name);
+                return TypedValue(*var, struct_type);
+            }
         }
 
         // ポインタがメタデータを持つかチェック（最上位ビット）
@@ -588,6 +652,56 @@ TypedValue evaluate_unary_op_typed(
 
             if (!meta) {
                 throw std::runtime_error("Invalid pointer metadata");
+            }
+
+            // 構造体ポインタ（型キャスト済み）の場合
+            if (debug_mode) {
+                std::cerr << "[DEREFERENCE] Checking struct_type_name: '"
+                          << meta->struct_type_name << "'" << std::endl;
+            }
+
+            if (!meta->struct_type_name.empty()) {
+                // 構造体型名から'*'を除去
+                std::string struct_name = meta->struct_type_name;
+                size_t star_pos = struct_name.find('*');
+                if (star_pos != std::string::npos) {
+                    struct_name = struct_name.substr(0, star_pos);
+                }
+
+                if (debug_mode) {
+                    std::cerr << "[DEREFERENCE] Struct pointer detected: "
+                              << struct_name << ", address=0x" << std::hex
+                              << meta->address << std::dec << std::endl;
+                }
+
+                // 構造体定義を取得
+                const StructDefinition *struct_def =
+                    interpreter.find_struct_definition(struct_name);
+                if (!struct_def) {
+                    throw std::runtime_error(
+                        "Dereference requires struct or interface pointer");
+                }
+
+                // 構造体ポインタのデリファレンスは、構造体インスタンスを返す
+                // 実際には、生メモリから構造体全体を読み取るのは複雑なため、
+                // メンバーアクセス時に処理する
+                // ここでは、構造体型情報を持つTypedValueを返す
+                InferredType struct_type(TYPE_STRUCT, struct_name);
+
+                // メタデータのポインタ値（生メモリのアドレス）を返す
+                // これはメンバーアクセス時に使用される
+                void *base_ptr = reinterpret_cast<void *>(meta->address);
+
+                if (debug_mode) {
+                    std::cerr << "[DEREFERENCE] Returning TypedValue: "
+                              << "base_ptr=0x" << std::hex
+                              << reinterpret_cast<int64_t>(base_ptr) << std::dec
+                              << ", type=TYPE_STRUCT(" << struct_name << ")"
+                              << std::endl;
+                }
+
+                return TypedValue(reinterpret_cast<int64_t>(base_ptr),
+                                  struct_type);
             }
 
             // メタデータから型に応じて値を読み取り

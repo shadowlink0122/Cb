@@ -1190,6 +1190,12 @@ ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode *node) {
                 TypedValue result(var->value, ptr_type);
                 return result;
             }
+
+            // 構造体変数の場合、TypedValueとして返す（ReturnExceptionを避ける）
+            if (var->type == TYPE_STRUCT) {
+                return TypedValue(
+                    *var, InferredType(TYPE_STRUCT, var->struct_type_name));
+            }
         }
         // 通常の識別子の場合は通常評価
         int64_t numeric_result = evaluate_expression(node);

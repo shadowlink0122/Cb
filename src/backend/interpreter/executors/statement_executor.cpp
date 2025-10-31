@@ -708,10 +708,51 @@ void StatementExecutor::execute_self_member_assignment(
 
         debug_print("SELF_ASSIGN: %s = \"%s\"\n", member_name.c_str(),
                     value_node->str_value.c_str());
-    } else if (value_node->node_type == ASTNodeType::AST_VARIABLE) {
+    } else if (value_node->node_type == ASTNodeType::AST_VARIABLE ||
+               value_node->node_type == ASTNodeType::AST_IDENTIFIER) {
         // 変数参照の場合
         Variable *source_var = interpreter_.find_variable(value_node->name);
-        if (source_var && source_var->type == TYPE_STRING) {
+
+        // 構造体の場合の特別処理
+        if (source_var && source_var->type == TYPE_STRUCT) {
+            if (debug_mode) {
+                std::cerr
+                    << "[SELF_ASSIGN_STRUCT] Assigning struct from variable: "
+                    << value_node->name << " to self." << member_name
+                    << std::endl;
+            }
+
+            // 構造体データをコピー
+            bool was_const = self_member->is_const;
+            bool was_unsigned = self_member->is_unsigned;
+            *self_member = *source_var;
+            self_member->is_const = was_const;
+            self_member->is_unsigned = was_unsigned;
+            self_member->is_assigned = true;
+
+            // 元の変数のメンバーも同時に更新
+            if (!original_receiver_path.empty()) {
+                Variable *original_member =
+                    interpreter_.find_variable(original_receiver_path);
+                if (original_member) {
+                    bool orig_was_const = original_member->is_const;
+                    bool orig_was_unsigned = original_member->is_unsigned;
+                    *original_member = *source_var;
+                    original_member->is_const = orig_was_const;
+                    original_member->is_unsigned = orig_was_unsigned;
+                    original_member->is_assigned = true;
+                }
+            }
+
+            // ダイレクトアクセス変数も更新
+            interpreter_.sync_direct_access_from_struct_value(
+                "self." + member_name, *self_member);
+
+            if (debug_mode) {
+                std::cerr << "[SELF_ASSIGN_STRUCT] Successfully assigned struct"
+                          << std::endl;
+            }
+        } else if (source_var && source_var->type == TYPE_STRING) {
             self_member->str_value = source_var->str_value;
             self_member->type = TYPE_STRING;
 

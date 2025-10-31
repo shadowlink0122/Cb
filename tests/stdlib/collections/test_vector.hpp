@@ -71,11 +71,90 @@ inline void test_vector_advanced_selective() {
     STDLIB_ASSERT_CONTAINS(output, "✅ Single selective import works");
 }
 
+inline void test_generic_containers_comprehensive() {
+    std::cout << "[Collections] Testing Vector and Queue generic containers...\n";
+    
+    // Run the comprehensive generic containers test
+    auto [output, exit_code] = run_cb_test(
+        "tests/cases/stdlib/collections/test_generic_containers.cb");
+    
+    STDLIB_ASSERT_EQ(0, exit_code);
+    
+    // Test headers
+    STDLIB_ASSERT_CONTAINS(output, "Generic Container Comprehensive Test");
+    
+    // Vector<int> tests
+    STDLIB_ASSERT_CONTAINS(output, "═══ Test 1: Vector<int> ═══");
+    STDLIB_ASSERT_CONTAINS(output, "✅ Vector<int> works correctly");
+    
+    // Vector<long> tests
+    STDLIB_ASSERT_CONTAINS(output, "═══ Test 2: Vector<long> ═══");
+    STDLIB_ASSERT_CONTAINS(output, "✅ Vector<long> works correctly");
+    
+    // Queue<int> tests
+    STDLIB_ASSERT_CONTAINS(output, "═══ Test 3: Queue<int> ═══");
+    STDLIB_ASSERT_CONTAINS(output, "✅ Queue<int> works correctly");
+    
+    // Queue<long> tests
+    STDLIB_ASSERT_CONTAINS(output, "═══ Test 4: Queue<long> ═══");
+    STDLIB_ASSERT_CONTAINS(output, "✅ Queue<long> works correctly");
+    
+    // Auto-resize test
+    STDLIB_ASSERT_CONTAINS(output, "═══ Test 5: Vector<int> auto-resize ═══");
+    STDLIB_ASSERT_CONTAINS(output, "✅ Vector auto-resize works");
+    
+    // Circular buffer test
+    STDLIB_ASSERT_CONTAINS(output, "═══ Test 6: Queue<int> circular buffer ═══");
+    STDLIB_ASSERT_CONTAINS(output, "✅ Circular buffer works");
+    
+    // Memory management test
+    STDLIB_ASSERT_CONTAINS(output, "═══ Test 7: Memory management ═══");
+    STDLIB_ASSERT_CONTAINS(output, "✅ Memory management works");
+    
+    // Final summary
+    STDLIB_ASSERT_CONTAINS(output, "✅ ALL TESTS PASSED");
+    STDLIB_ASSERT_CONTAINS(output, "TRUE GENERIC IMPLEMENTATION");
+}
+
+inline void test_containers_comprehensive() {
+    std::cout << "[Collections] Testing comprehensive Vector and Queue operations...\n";
+    
+    // Run the comprehensive containers test
+    auto [output, exit_code] = run_cb_test(
+        "tests/cases/stdlib/collections/test_containers_comprehensive.cb");
+    
+    STDLIB_ASSERT_EQ(0, exit_code);
+    
+    // Test execution
+    STDLIB_ASSERT_CONTAINS(output, "Vector<T> and Queue<T> Comprehensive Test");
+    
+    // Individual test verifications
+    STDLIB_ASSERT_CONTAINS(output, "═══ Test 1: Vector<int> ═══");
+    STDLIB_ASSERT_CONTAINS(output, "✅ Vector<int> works!");
+    
+    STDLIB_ASSERT_CONTAINS(output, "═══ Test 2: Vector<long> ═══");
+    STDLIB_ASSERT_CONTAINS(output, "✅ Vector<long> works!");
+    
+    STDLIB_ASSERT_CONTAINS(output, "═══ Test 3: Queue<int> ═══");
+    STDLIB_ASSERT_CONTAINS(output, "✅ Queue<int> works!");
+    
+    STDLIB_ASSERT_CONTAINS(output, "═══ Test 4: Queue<long> ═══");
+    STDLIB_ASSERT_CONTAINS(output, "✅ Queue<long> works!");
+    
+    STDLIB_ASSERT_CONTAINS(output, "═══ Test 5: Queue<short> ═══");
+    STDLIB_ASSERT_CONTAINS(output, "✅ Queue<short> works!");
+    
+    // Final message
+    STDLIB_ASSERT_CONTAINS(output, "All tests passed! ✅");
+}
+
 // Register all Vector tests
 inline void register_vector_tests(StdlibTestRunner& runner) {
     runner.add_test("vector_import_comprehensive", test_vector_import_comprehensive);
     runner.add_test("vector_selective_import", test_vector_selective_import);
     runner.add_test("vector_advanced_selective", test_vector_advanced_selective);
+    runner.add_test("generic_containers_comprehensive", test_generic_containers_comprehensive);
+    runner.add_test("containers_comprehensive", test_containers_comprehensive);
 }
 
 #endif // TEST_VECTOR_HPP

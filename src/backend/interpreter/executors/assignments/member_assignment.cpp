@@ -703,6 +703,13 @@ void execute_arrow_assignment(StatementExecutor *executor,
                         "Invalid array metadata in arrow assignment");
                 }
 
+                if (debug_mode) {
+                    debug_print("DEBUG: ARROW_ASSIGN metadata - "
+                                "array_name='%s', element_index=%zu\n",
+                                metadata->array_name.c_str(),
+                                metadata->element_index);
+                }
+
                 struct_element_name = metadata->array_name + "[" +
                                       std::to_string(metadata->element_index) +
                                       "]";

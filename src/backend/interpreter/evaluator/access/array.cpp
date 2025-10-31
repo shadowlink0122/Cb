@@ -377,7 +377,16 @@ int64_t evaluate_array_ref(
                     throw std::runtime_error(
                         "Pointer array index out of bounds");
                 }
-                return target_array->array_values[effective_index];
+
+                // ポインタ配列の場合、メタデータビットを保持
+                int64_t value = target_array->array_values[effective_index];
+                if (target_array->is_pointer && target_array->is_array) {
+                    // 既にメタデータポインタの場合はそのまま返す
+                    if (value & (1LL << 63)) {
+                        return value;
+                    }
+                }
+                return value;
             }
         } else {
             // 直接のVariable*ポインタの場合
@@ -479,7 +488,16 @@ int64_t evaluate_array_ref(
                     throw std::runtime_error(
                         "Pointer array index out of bounds");
                 }
-                return target_array->array_values[index];
+
+                // ポインタ配列の場合、メタデータビットを保持
+                int64_t value = target_array->array_values[index];
+                if (target_array->is_pointer && target_array->is_array) {
+                    // 既にメタデータポインタの場合はそのまま返す
+                    if (value & (1LL << 63)) {
+                        return value;
+                    }
+                }
+                return value;
             }
         }
     }
@@ -675,6 +693,10 @@ int64_t evaluate_array_ref(
         meta->type_size = 0; // TODO: 必要に応じて設定
         meta->address = static_cast<uintptr_t>(ptr_value);
         meta->var_ptr = reinterpret_cast<Variable *>(ptr_value);
+
+        // グローバルプールに追加
+        using namespace PointerSystem;
+        global_metadata_pool.push_back(meta);
 
         // メタデータポインタとしてマーク（最上位ビットを1にする）
         int64_t result = reinterpret_cast<int64_t>(meta);

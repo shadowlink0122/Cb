@@ -6,6 +6,9 @@
 
 namespace PointerSystem {
 
+// グローバルメタデータプール
+std::vector<PointerMetadata *> global_metadata_pool;
+
 // 変数へのポインタを作成
 PointerMetadata PointerMetadata::create_variable_pointer(Variable *var) {
     PointerMetadata meta;

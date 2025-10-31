@@ -23,7 +23,6 @@ void test_selective_import() {
     
     // Queueのみimportしたので、Queue<int>は使える
     Queue<int> q;
-    q.init(5);
     q.enqueue(100);
     
     println("✅ Selective import works (Queue<int>)");
