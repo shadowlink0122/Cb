@@ -90,9 +90,8 @@ impl QueueOps<T> for Queue<T> {
             return dummy;
         }
         
-        // 一時的なメモリを確保してデータをコピー
-        void* temp_data = malloc(sizeof(T));
-        memcpy(temp_data, self.front, sizeof(T));
+        // array_getでデータを読み取る（array_setと対になる）
+        T result = array_get(self.front, 0);
         
         // 次のノードへのポインタを取得
         int data_size = sizeof(T);
@@ -113,10 +112,6 @@ impl QueueOps<T> for Queue<T> {
         }
         
         self.length = self.length - 1;
-        
-        // 一時メモリから結果を取得
-        T result = array_get(temp_data, 0);
-        free(temp_data);
         
         return result;
     }
@@ -143,11 +138,17 @@ impl QueueOps<T> for Queue<T> {
     void clear() {
         // 全ノードを手動で解放
         while (self.front != nullptr) {
+            // nextフィールドの位置を計算
+            // ノードレイアウト: [T data][void* next]
             int data_size = sizeof(T);
-            long front_addr = (long)self.front;
-            long next_addr = front_addr + data_size;
-            void** next_ptr = (void**)next_addr;
-            void* next_node = *next_ptr;
+            
+            // self.frontはmalloc()が返したアドレスを指すVariable*
+            // nextフィールドはdata_sizeオフセットに配置されている
+            long node_addr = (long)self.front;
+            long next_field_addr = node_addr + data_size;
+            
+            void** next_field_ptr = (void**)next_field_addr;
+            void* next_node = *next_field_ptr;
             
             free(self.front);
             self.front = next_node;
@@ -211,8 +212,8 @@ impl QueueOps<T> for Queue<T> {
             return dummy;
         }
         
-        void* temp_data = malloc(sizeof(T));
-        memcpy(temp_data, self.front, sizeof(T));
+        // array_getでデータを読み取る（array_setと対になる）
+        T result = array_get(self.front, 0);
         
         int data_size = sizeof(T);
         long front_addr = (long)self.front;
@@ -228,9 +229,6 @@ impl QueueOps<T> for Queue<T> {
         }
         
         self.length = self.length - 1;
-        
-        T result = array_get(temp_data, 0);
-        free(temp_data);
         
         return result;
     }
@@ -251,7 +249,7 @@ impl QueueOps<T> for Queue<T> {
     }
 }
 
-// デストラクタ：スコープを抜ける時に自動的に全ノードを解放
+// コンストラクタ/デストラクタ：メモリ管理を自動化
 impl Queue<T> {
     self() {
         self.front = nullptr;
@@ -259,21 +257,16 @@ impl Queue<T> {
         self.length = 0;
     }
     ~self() {
-        // 全ノードを解放
+        // 全ノードを直接解放（clear()を呼ばない）
         while (self.front != nullptr) {
             int data_size = sizeof(T);
-            long front_addr = (long)self.front;
-            long next_addr = front_addr + data_size;
-            void** next_ptr = (void**)next_addr;
-            void* next_node = *next_ptr;
+            long node_addr = (long)self.front;
+            long next_field_addr = node_addr + data_size;
+            void** next_field_ptr = (void**)next_field_addr;
+            void* next_node = *next_field_ptr;
             
             free(self.front);
             self.front = next_node;
         }
-        
-        // 状態をリセット（二重解放を防ぐ）
-        self.front = nullptr;
-        self.rear = nullptr;
-        self.length = 0;
     }
 }

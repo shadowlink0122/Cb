@@ -525,7 +525,18 @@ TypedValue evaluate_unary_op_typed(
 
             std::string ptr_type = var->type_name + "*";
             InferredType pointer_type(TYPE_POINTER, ptr_type);
-            return TypedValue(reinterpret_cast<int64_t>(var), pointer_type);
+
+            // Variable*を返す（従来の方式）
+            int64_t addr = reinterpret_cast<int64_t>(var);
+
+            if (debug_mode || true) { // Always log
+                std::cerr << "[ADDRESS_OF evaluate_typed] var=" << var
+                          << ", is_struct=" << var->is_struct
+                          << ", is_array=" << var->is_array
+                          << ", returning Variable* addr=" << addr << std::endl;
+            }
+
+            return TypedValue(addr, pointer_type);
         }
 
         if (!node->left) {
@@ -544,7 +555,18 @@ TypedValue evaluate_unary_op_typed(
             // ポインタ型として返す
             std::string ptr_type = var->type_name + "*";
             InferredType pointer_type(TYPE_POINTER, ptr_type);
-            return TypedValue(reinterpret_cast<int64_t>(var), pointer_type);
+
+            // Variable*を返す（従来の方式）
+            int64_t addr = reinterpret_cast<int64_t>(var);
+
+            if (debug_mode || true) { // Always log
+                std::cerr << "[ADDRESS_OF evaluate_typed AST_VARIABLE] var="
+                          << var << ", is_struct=" << var->is_struct
+                          << ", is_array=" << var->is_array
+                          << ", returning Variable* addr=" << addr << std::endl;
+            }
+
+            return TypedValue(addr, pointer_type);
         }
         // 配列要素や構造体メンバーの場合は通常評価にフォールバック
         else {

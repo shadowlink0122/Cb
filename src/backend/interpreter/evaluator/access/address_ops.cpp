@@ -83,18 +83,50 @@ int64_t evaluate_address_of(
         throw std::runtime_error("Address-of operator requires an operand");
     }
 
-    // 変数のアドレス取得
-    if (node->left->node_type == ASTNodeType::AST_VARIABLE) {
+    // 変数のアドレス取得 (AST_VARIABLE または AST_IDENTIFIER)
+    // FIX v0.11.0: selfはAST_IDENTIFIERとして解析されるため、両方をサポート
+    if (node->left->node_type == ASTNodeType::AST_VARIABLE ||
+        node->left->node_type == ASTNodeType::AST_IDENTIFIER) {
         Variable *var = interpreter.find_variable(node->left->name);
+
+        if (debug_mode || true) { // Always log for debugging
+            std::cerr << "[ADDRESS_OF] "
+                      << (node->left->node_type == ASTNodeType::AST_VARIABLE
+                              ? "AST_VARIABLE"
+                              : "AST_IDENTIFIER")
+                      << ": name=" << node->left->name
+                      << ", var=" << static_cast<void *>(var);
+            if (var) {
+                std::cerr << ", type=" << var->type
+                          << ", is_assigned=" << var->is_assigned
+                          << ", value=" << var->value << std::endl;
+            } else {
+                std::cerr << " (NULL)" << std::endl;
+            }
+        }
+
         if (!var) {
+            std::cerr << "[DEBUG] Address-of failed for variable: "
+                      << node->left->name << std::endl;
+
             error_msg(DebugMsgId::UNDEFINED_VAR_ERROR,
                       node->left->name.c_str());
             throw std::runtime_error("Undefined variable");
         }
 
-        // 変数のアドレスを返す（従来の方式: Variable*をint64_tとして返す）
-        // メタデータは不要（変数ポインタは後方互換性のため従来の方式を維持）
-        return reinterpret_cast<int64_t>(var);
+        // Variable*を返す（従来の方式）
+        // Variable構造体がstd::mapに格納されているため、&(var->value)を返すと
+        // mapのrehash時にアドレスが無効になる
+        int64_t result = reinterpret_cast<int64_t>(var);
+
+        if (debug_mode || true) {
+            std::cerr << "[ADDRESS_OF] Returning Variable*: " << result
+                      << " (0x" << std::hex << result << std::dec << ")"
+                      << ", is_struct=" << var->is_struct
+                      << ", is_array=" << var->is_array << std::endl;
+        }
+
+        return result;
     }
     // 配列要素のアドレス取得: &arr[index]
     else if (node->left->node_type == ASTNodeType::AST_ARRAY_REF) {
@@ -310,6 +342,13 @@ int64_t evaluate_address_of(
         ptr_value |= (1LL << 63);
         return ptr_value;
     } else {
+        std::cerr << "[DEBUG] Address-of failed: node->left->node_type="
+                  << static_cast<int>(node->left->node_type) << std::endl;
+        if (node->left->node_type == ASTNodeType::AST_VARIABLE) {
+            std::cerr << "[DEBUG] Variable name: " << node->left->name
+                      << std::endl;
+        }
+
         throw std::runtime_error("Address-of operator requires a variable, "
                                  "array element, or struct member");
     }

@@ -113,6 +113,8 @@ impl VectorOps<T> for Vector<T> {
 // Generic destructor - works for all types!
 impl Vector<T> {
     ~self() {
-        free(self.data);
+        if (self.data != nullptr) {
+            free(self.data);
+        }
     }
 }

@@ -62,6 +62,8 @@ struct Variable {
     bool is_unsigned = false;         // unsigned修飾子かどうか
     std::string struct_type_name;     // struct型名
     bool is_private_member = false;   // struct privateメンバーフラグ
+    bool destructor_called =
+        false; // デストラクタが既に呼ばれたかどうか (double free防止)
 
     // enum型用（v0.11.0 generics）
     bool is_enum = false;       // enum型かどうか

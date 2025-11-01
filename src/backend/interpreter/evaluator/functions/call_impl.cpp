@@ -368,6 +368,8 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
          !is_qualified_call); // レシーバーがある場合はメソッド呼び出し
     bool has_receiver = is_method_call;
     std::string receiver_name;
+    std::string
+        type_name; // メソッド呼び出しの構造体型名（ジェネリックキャッシュに使用）
     MethodReceiverResolution receiver_resolution;
     bool impl_context_active = false; // implコンテキストが有効かどうか
     struct MethodCallContext {
@@ -591,8 +593,6 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                   receiver_name.c_str());
         debug_print("RECEIVER_DEBUG: Looking for receiver '%s'\n",
                     receiver_name.c_str());
-
-        std::string type_name;
 
         auto resolve_struct_like_type =
             [&](const Variable &var) -> std::string {
@@ -911,18 +911,59 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
     if (func && func->is_generic && node->is_generic &&
         !node->type_arguments.empty()) {
         // キャッシュキーを生成
+        // FIX:
+        // メソッド呼び出しの場合、type_name（正規化された構造体名）を含める
+        // これにより Queue_int::push と Queue_long::push
+        // が別々にキャッシュされる また、Vector<long>::push と
+        // Queue<long>::push も別々にキャッシュされる
+        std::string function_name = node->name;
+        if (is_method_call) {
+            if (!type_name.empty()) {
+                // メソッド呼び出しの場合：type_name::method_name形式
+                function_name = type_name + "::" + node->name;
+            } else if (func->name.find("::") != std::string::npos) {
+                // type_nameが空でもfunc->nameに::が含まれる場合は使用
+                function_name = func->name;
+            } else {
+                // フォールバック：関数定義時の名前を使用
+                // この場合でも一意性を保つために警告を出す
+                if (interpreter_.is_debug_mode()) {
+                    std::cerr << "[GENERIC_CACHE_KEY_WARNING] type_name is "
+                                 "empty for method call: "
+                              << node->name << std::endl;
+                }
+                // 少なくとも関数ポインタアドレスを含めて一意性を確保
+                function_name =
+                    std::to_string(reinterpret_cast<uintptr_t>(func)) + "_" +
+                    node->name;
+            }
+        }
         std::string cache_key = GenericInstantiation::generate_cache_key(
-            node->name, node->type_arguments);
+            function_name, node->type_arguments);
+
+        if (interpreter_.is_debug_mode()) {
+            std::cerr << "[GENERIC_CACHE_KEY] is_method_call=" << is_method_call
+                      << ", type_name='" << type_name << "', node->name='"
+                      << node->name << "', function_name='" << function_name
+                      << "', cache_key='" << cache_key << "'" << std::endl;
+        }
 
         // キャッシュをチェック
-        cached_func = GenericInstantiation::get_cached_instance(cache_key);
+        // FIX v0.11.0: キャッシュを無効化
+        // 理由:
+        // キャッシュからクローンしても、複数回呼び出しでローカル変数スコープが壊れる
+        // TODO: 根本原因を調査して、キャッシュを再有効化する
+        cached_func =
+            nullptr; // GenericInstantiation::get_cached_instance(cache_key);
 
         if (cached_func) {
-            // キャッシュヒット
-            func = cached_func;
+            // キャッシュヒット（現在無効化）
+            instantiated_func =
+                GenericInstantiation::clone_ast_node(cached_func);
+            func = instantiated_func.get();
             if (interpreter_.is_debug_mode()) {
                 std::cerr << "[GENERIC_CACHE] Cache hit for " << cache_key
-                          << std::endl;
+                          << " (cloned)" << std::endl;
             }
         } else {
             // キャッシュミス：新しくインスタンス化
@@ -932,16 +973,18 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                         func, node->type_arguments);
                 func = instantiated_func.get();
 
-                // キャッシュに保存（move前にポインタを取得）
-                const ASTNode *func_to_cache = func;
-                GenericInstantiation::cache_instance(
-                    cache_key, std::move(instantiated_func));
-                func = func_to_cache; // キャッシュされたインスタンスを使用
+                // FIX v0.11.0: キャッシュへの保存を無効化
+                // 理由: キャッシュからの取得を無効化しているため、保存も不要
+                // TODO: 根本原因を調査して、キャッシュを再有効化する
+                // GenericInstantiation::cache_instance(
+                //     cache_key, std::move(instantiated_func));
+                // funcポインタはinstantiated_funcから取得しているので、
+                // instantiated_funcをmoveしない限り有効
 
                 if (interpreter_.is_debug_mode()) {
                     std::cerr
                         << "[GENERIC_INST] Instantiated generic function: "
-                        << node->name << " with type arguments: ";
+                        << func->name << " with type arguments: ";
                     for (const auto &type_arg : node->type_arguments) {
                         std::cerr << type_arg << " ";
                     }
@@ -1002,6 +1045,11 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
             int64_t size =
                 interpreter_.eval_expression(node->arguments[2].get());
 
+            // デバッグ出力（コメントアウト）
+            // std::cerr << "[memcpy ENTRY] dest=" << std::hex << dest_value
+            //           << ", src=" << src_value << ", size=" << std::dec <<
+            //           size << std::endl;
+
             // null チェック
             if (dest_value == 0) {
                 std::cerr << "[memcpy] Error: destination pointer is null"
@@ -1019,24 +1067,98 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                 return dest_value;
             }
 
-            // 構造体（Variable*）かどうかを判定
+            // Variable*として有効かどうかをチェック
             Variable *dest_var = reinterpret_cast<Variable *>(dest_value);
             Variable *src_var = reinterpret_cast<Variable *>(src_value);
 
-            bool is_struct_copy = false;
+            bool dest_is_var = false;
+            bool src_is_var = false;
+            void *actual_dest = reinterpret_cast<void *>(dest_value);
+            void *actual_src = reinterpret_cast<void *>(src_value);
+
+            // destがVariable*かチェック（安全に）
             try {
-                // Variable*として有効かチェック
-                if (dest_var->type == TYPE_STRUCT && dest_var->is_struct &&
-                    src_var->type == TYPE_STRUCT && src_var->is_struct) {
-                    is_struct_copy = true;
+                // TypeInfoが有効範囲か簡易チェック（is_assignedは不要、未初期化変数もサポート）
+                // FIX: TYPE_TINYとTYPE_SHORTも含める
+                // FIX v0.11.0:
+                // 型の範囲チェックを厳格化（生のメモリアドレスを誤認識しないため）
+                // FIX v0.11.0: TYPE_POINTER, TYPE_STRUCTも含める
+                if ((dest_var->type >= TYPE_TINY &&
+                     dest_var->type <= TYPE_BIG) ||
+                    dest_var->type == TYPE_POINTER ||
+                    dest_var->type == TYPE_STRUCT) {
+                    dest_is_var = true;
+
+                    // std::cerr << "[memcpy DEBUG dest] Variable*=" << dest_var
+                    //           << ", type=" <<
+                    //           static_cast<int>(dest_var->type)
+                    //           << ", is_struct=" << dest_var->is_struct
+                    //           << ", is_array=" << dest_var->is_array
+                    //           << ", value=" << dest_var->value << std::endl;
+
+                    // プリミティブ型なら&(var->value)を使う
+                    if (!dest_var->is_struct && !dest_var->is_array &&
+                        dest_var->type != TYPE_POINTER &&
+                        dest_var->type != TYPE_STRUCT) {
+                        actual_dest = &(dest_var->value);
+                    } else if (dest_var->is_array &&
+                               !dest_var->array_values.empty()) {
+                        actual_dest = dest_var->array_values.data();
+                    } else if (dest_var->is_struct ||
+                               dest_var->type == TYPE_POINTER ||
+                               dest_var->type == TYPE_STRUCT) {
+                        // 構造体ポインタの場合、valueに実際のアドレスが格納されている
+                        actual_dest = reinterpret_cast<void *>(dest_var->value);
+                        // std::cerr << "[memcpy DEBUG dest] Struct/Pointer:
+                        // actual_dest=" << actual_dest << std::endl;
+                    }
                 }
             } catch (...) {
-                // アクセス違反なら生ポインタ
-                is_struct_copy = false;
+                dest_is_var = false;
             }
 
-            if (is_struct_copy) {
-                // Variable構造体の場合: struct_membersをコピー
+            // srcがVariable*かチェック（安全に）
+            try {
+                // FIX: TYPE_TINYとTYPE_SHORTも含める
+                // FIX v0.11.0:
+                // 型の範囲チェックを厳格化（生のメモリアドレスを誤認識しないため）
+                // FIX v0.11.0: TYPE_POINTER, TYPE_STRUCTも含める
+                if ((src_var->type >= TYPE_TINY && src_var->type <= TYPE_BIG) ||
+                    src_var->type == TYPE_POINTER ||
+                    src_var->type == TYPE_STRUCT) {
+                    src_is_var = true;
+
+                    // std::cerr << "[memcpy DEBUG src] Variable*=" << src_var
+                    //           << ", type=" << static_cast<int>(src_var->type)
+                    //           << ", is_struct=" << src_var->is_struct
+                    //           << ", is_array=" << src_var->is_array
+                    //           << ", value=" << src_var->value << std::endl;
+
+                    // プリミティブ型なら&(var->value)を使う
+                    if (!src_var->is_struct && !src_var->is_array &&
+                        src_var->type != TYPE_POINTER &&
+                        src_var->type != TYPE_STRUCT) {
+                        actual_src = &(src_var->value);
+                    } else if (src_var->is_array &&
+                               !src_var->array_values.empty()) {
+                        actual_src = src_var->array_values.data();
+                    } else if (src_var->is_struct ||
+                               src_var->type == TYPE_POINTER ||
+                               src_var->type == TYPE_STRUCT) {
+                        // 構造体ポインタの場合、valueに実際のアドレスが格納されている
+                        actual_src = reinterpret_cast<void *>(src_var->value);
+                        // std::cerr << "[memcpy DEBUG src] Struct/Pointer:
+                        // actual_src=" << actual_src << std::endl;
+                    }
+                }
+            } catch (...) {
+                src_is_var = false;
+            }
+
+            // 構造体コピーの特別処理
+            if (dest_is_var && src_is_var && dest_var->is_struct &&
+                src_var->is_struct) {
+                // Variable構造体のstruct_membersをコピー
                 for (const auto &member_pair : src_var->struct_members) {
                     dest_var->struct_members[member_pair.first] =
                         member_pair.second;
@@ -1047,14 +1169,28 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                               << src_var << " to " << dest_var << std::endl;
                 }
             } else {
-                // 生ポインタの場合: std::memcpyを使用
-                void *dest = reinterpret_cast<void *>(dest_value);
-                void *src = reinterpret_cast<void *>(src_value);
-                std::memcpy(dest, src, static_cast<size_t>(size));
+                // 通常のmemcpy: actual_destとactual_srcを使用
+                std::memcpy(actual_dest, actual_src, static_cast<size_t>(size));
 
                 if (interpreter_.is_debug_mode()) {
                     std::cerr << "[memcpy] Copied " << size << " bytes from "
-                              << src << " to " << dest << std::endl;
+                              << actual_src << " to " << actual_dest
+                              << " (dest_is_var=" << dest_is_var
+                              << ", src_is_var=" << src_is_var << ")"
+                              << std::endl;
+
+                    // 書き込み確認: actual_destから読み戻してみる
+                    if (size == 8 && !dest_is_var && src_is_var) {
+                        int64_t written_value =
+                            *reinterpret_cast<int64_t *>(actual_dest);
+                        int64_t source_value =
+                            *reinterpret_cast<int64_t *>(actual_src);
+                        std::cerr
+                            << "[memcpy] Verification: wrote " << source_value
+                            << ", read back " << written_value
+                            << " (match=" << (written_value == source_value)
+                            << ")" << std::endl;
+                    }
                 }
             }
 
@@ -3075,8 +3211,66 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
 
                 if (receiver_var && (receiver_var->type == TYPE_STRUCT ||
                                      receiver_var->type == TYPE_INTERFACE)) {
-                    // すべての self.* 変数を検索して書き戻し
+                    // v0.13.0:
+                    // まず、全てのself.member変数をself.struct_membersにマージ
                     auto &current_scope = interpreter_.get_current_scope();
+                    if (current_scope.variables.find("self") !=
+                        current_scope.variables.end()) {
+                        Variable &self_var = current_scope.variables["self"];
+
+                        // Step 1:
+                        // self.で始まる全ての変数をselfのstruct_membersに書き戻す
+                        for (const auto &var_pair : current_scope.variables) {
+                            const std::string &var_name = var_pair.first;
+                            if (var_name.find("self.") == 0 &&
+                                var_name.find('.', 5) == std::string::npos) {
+                                // self.memberの形式（ネストしていない）
+                                std::string member_name = var_name.substr(5);
+                                const Variable &member_var = var_pair.second;
+
+                                // selfのstruct_membersに反映
+                                if (self_var.struct_members.find(member_name) !=
+                                    self_var.struct_members.end()) {
+                                    self_var.struct_members[member_name] =
+                                        member_var;
+                                    if (debug_mode) {
+                                        debug_print("SELF_MERGE: %s -> "
+                                                    "self.struct_members[%s] "
+                                                    "(value=%lld)\n",
+                                                    var_name.c_str(),
+                                                    member_name.c_str(),
+                                                    member_var.value);
+                                    }
+                                }
+                            }
+                        }
+
+                        // Step 2: selfの全フィールドをreceiver_varにコピー
+                        receiver_var->struct_members = self_var.struct_members;
+                        receiver_var->value = self_var.value;
+                        receiver_var->str_value = self_var.str_value;
+                        receiver_var->float_value = self_var.float_value;
+                        receiver_var->double_value = self_var.double_value;
+                        receiver_var->quad_value = self_var.quad_value;
+                        receiver_var->big_value = self_var.big_value;
+                        receiver_var->array_values = self_var.array_values;
+                        receiver_var->array_float_values =
+                            self_var.array_float_values;
+                        receiver_var->array_double_values =
+                            self_var.array_double_values;
+                        receiver_var->array_quad_values =
+                            self_var.array_quad_values;
+                        receiver_var->array_strings = self_var.array_strings;
+                        receiver_var->is_assigned = self_var.is_assigned;
+
+                        if (debug_mode) {
+                            debug_print("SELF_WRITEBACK_FULL: Copied all "
+                                        "fields from self to %s\n",
+                                        receiver_name.c_str());
+                        }
+                    }
+
+                    // すべての self.* 変数を検索して書き戻し
                     for (const auto &var_pair : current_scope.variables) {
                         const std::string &var_name = var_pair.first;
 
@@ -3356,8 +3550,66 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
 
                 if (receiver_var && (receiver_var->type == TYPE_STRUCT ||
                                      receiver_var->type == TYPE_INTERFACE)) {
-                    // すべての self.* 変数を検索して書き戻し
+                    // v0.13.0:
+                    // まず、全てのself.member変数をself.struct_membersにマージ
                     auto &current_scope = interpreter_.get_current_scope();
+                    if (current_scope.variables.find("self") !=
+                        current_scope.variables.end()) {
+                        Variable &self_var = current_scope.variables["self"];
+
+                        // Step 1:
+                        // self.で始まる全ての変数をselfのstruct_membersに書き戻す
+                        for (const auto &var_pair : current_scope.variables) {
+                            const std::string &var_name = var_pair.first;
+                            if (var_name.find("self.") == 0 &&
+                                var_name.find('.', 5) == std::string::npos) {
+                                // self.memberの形式（ネストしていない）
+                                std::string member_name = var_name.substr(5);
+                                const Variable &member_var = var_pair.second;
+
+                                // selfのstruct_membersに反映
+                                if (self_var.struct_members.find(member_name) !=
+                                    self_var.struct_members.end()) {
+                                    self_var.struct_members[member_name] =
+                                        member_var;
+                                    if (debug_mode) {
+                                        debug_print("SELF_MERGE: %s -> "
+                                                    "self.struct_members[%s] "
+                                                    "(value=%lld)\n",
+                                                    var_name.c_str(),
+                                                    member_name.c_str(),
+                                                    member_var.value);
+                                    }
+                                }
+                            }
+                        }
+
+                        // Step 2: selfの全フィールドをreceiver_varにコピー
+                        receiver_var->struct_members = self_var.struct_members;
+                        receiver_var->value = self_var.value;
+                        receiver_var->str_value = self_var.str_value;
+                        receiver_var->float_value = self_var.float_value;
+                        receiver_var->double_value = self_var.double_value;
+                        receiver_var->quad_value = self_var.quad_value;
+                        receiver_var->big_value = self_var.big_value;
+                        receiver_var->array_values = self_var.array_values;
+                        receiver_var->array_float_values =
+                            self_var.array_float_values;
+                        receiver_var->array_double_values =
+                            self_var.array_double_values;
+                        receiver_var->array_quad_values =
+                            self_var.array_quad_values;
+                        receiver_var->array_strings = self_var.array_strings;
+                        receiver_var->is_assigned = self_var.is_assigned;
+
+                        if (debug_mode) {
+                            debug_print("SELF_WRITEBACK_FULL: Copied all "
+                                        "fields from self to %s\n",
+                                        receiver_name.c_str());
+                        }
+                    }
+
+                    // すべての self.* 変数を検索して書き戻し
                     for (const auto &var_pair : current_scope.variables) {
                         const std::string &var_name = var_pair.first;
 

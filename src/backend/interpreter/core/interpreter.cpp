@@ -3263,6 +3263,16 @@ void Interpreter::call_copy_constructor(const std::string &var_name,
 
 void Interpreter::call_destructor(const std::string &var_name,
                                   const std::string &struct_type_name) {
+    // v0.11.0: Double free防止 - 既にデストラクタが呼ばれている場合はスキップ
+    Variable *var = find_variable(var_name);
+    if (var && var->destructor_called) {
+        if (debug_mode) {
+            debug_print("Destructor already called for %s, skipping\n",
+                        var_name.c_str());
+        }
+        return;
+    }
+
     // v0.11.0: マングルされた型名をアンマングル
     // 例: Vector_int_SystemAllocator -> Vector<int, SystemAllocator>
     auto unmangle_type_name = [](const std::string &mangled) -> std::string {
@@ -3346,6 +3356,14 @@ void Interpreter::call_destructor(const std::string &var_name,
     }
 
     pop_scope(); // デストラクタスコープを終了
+
+    // v0.11.0: デストラクタ呼び出し完了フラグを設定（double free防止）
+    if (var) {
+        var->destructor_called = true;
+        if (debug_mode) {
+            debug_print("Marked destructor_called for %s\n", var_name.c_str());
+        }
+    }
 
     // フラグを元に戻す
     is_calling_destructor_ = prev_flag;
