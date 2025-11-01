@@ -602,6 +602,13 @@ class Interpreter : public EvaluatorInterface {
     // v0.10.0: モジュール管理（インポート済みモジュールの追跡）
     std::set<std::string> loaded_modules;
 
+    // v0.11.0: 実行時型解決システム
+    // メソッド呼び出し時の型コンテキストスタック（ネストした呼び出しに対応）
+    std::vector<TypeContext> type_context_stack_;
+
+    // v0.11.0: implノードの所有権管理（Parser破棄後もノードを保持）
+    std::vector<std::unique_ptr<ASTNode>> impl_nodes_;
+
     // Manager instances
     std::unique_ptr<VariableManager> variable_manager_;
     std::unique_ptr<ArrayManager> array_manager_;
@@ -1072,6 +1079,25 @@ class Interpreter : public EvaluatorInterface {
     // self処理用ヘルパー関数 (InterfaceOperationsへ委譲)
     std::string get_self_receiver_path();
     void sync_self_to_receiver(const std::string &receiver_path);
+
+    // v0.11.0: 実行時型解決システム - TypeContext管理
+    void push_type_context(const TypeContext &ctx) {
+        type_context_stack_.push_back(ctx);
+    }
+    void pop_type_context() {
+        if (!type_context_stack_.empty()) {
+            type_context_stack_.pop_back();
+        }
+    }
+    const TypeContext *get_current_type_context() const {
+        return type_context_stack_.empty() ? nullptr
+                                           : &type_context_stack_.back();
+    }
+    // 型名を現在のコンテキストで解決
+    std::string resolve_type_in_context(const std::string &type_name) const {
+        auto ctx = get_current_type_context();
+        return ctx ? ctx->resolve_complex_type(type_name) : type_name;
+    }
 
     // v0.11.0 Phase 1a: メモリ管理演算子
     int64_t evaluate_new_expression(const ASTNode *node);

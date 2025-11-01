@@ -179,6 +179,21 @@ void Interpreter::sync_impl_definitions_from_parser(RecursiveParser *parser) {
                   << std::endl;
     }
 
+    // v0.11.0: Parserからimpl_nodes_の所有権を転送（use-after-free対策）
+    auto &parser_impl_nodes = parser->get_impl_nodes_for_transfer();
+    if (!parser_impl_nodes.empty()) {
+        if (debug_mode) {
+            std::cerr << "[SYNC_IMPL] Transferring " << parser_impl_nodes.size()
+                      << " impl nodes from parser to interpreter" << std::endl;
+        }
+
+        // 所有権を移動
+        for (auto &node : parser_impl_nodes) {
+            impl_nodes_.push_back(std::move(node));
+        }
+        parser_impl_nodes.clear();
+    }
+
     for (size_t i = 0; i < impl_defs.size(); ++i) {
         const auto &impl_def = impl_defs[i];
         interface_operations_->register_impl_definition(impl_def);

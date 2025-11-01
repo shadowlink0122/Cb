@@ -1,6 +1,7 @@
 #pragma once
 #include <cstdint>
 #include <iostream>
+#include <map>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -683,6 +684,49 @@ struct InterfaceDefinition {
     }
 };
 
+// v0.11.0: 実行時型解決システム
+// ジェネリック型のメソッド呼び出し時に型パラメータを動的に解決するための情報
+struct TypeContext {
+    std::map<std::string, std::string> type_map; // T -> int 等のマッピング
+    const struct ImplDefinition *impl_source = nullptr; // 元のimpl定義
+
+    TypeContext() = default;
+    TypeContext(const std::map<std::string, std::string> &map)
+        : type_map(map) {}
+
+    // 型名を解決（ジェネリック型パラメータを実際の型に変換）
+    std::string resolve_type(const std::string &type_name) const {
+        auto it = type_map.find(type_name);
+        return (it != type_map.end()) ? it->second : type_name;
+    }
+
+    // 複雑な型（ポインタ、配列等）を解決
+    std::string resolve_complex_type(const std::string &type_name) const {
+        // T* -> int* のような変換
+        size_t star_pos = type_name.find('*');
+        if (star_pos != std::string::npos) {
+            std::string base = type_name.substr(0, star_pos);
+            std::string suffix = type_name.substr(star_pos);
+            return resolve_type(base) + suffix;
+        }
+
+        // T[] -> int[] のような変換
+        size_t bracket_pos = type_name.find('[');
+        if (bracket_pos != std::string::npos) {
+            std::string base = type_name.substr(0, bracket_pos);
+            std::string suffix = type_name.substr(bracket_pos);
+            return resolve_type(base) + suffix;
+        }
+
+        return resolve_type(type_name);
+    }
+
+    bool empty() const { return type_map.empty(); }
+    bool has_mapping_for(const std::string &type_param) const {
+        return type_map.find(type_param) != type_map.end();
+    }
+};
+
 // Impl定義情報を格納する構造体
 struct ImplDefinition {
     std::string interface_name; // 実装するinterface名
@@ -696,14 +740,23 @@ struct ImplDefinition {
     const ASTNode *destructor = nullptr; // デストラクタ（1つのみ）
 
     // v0.12.0: ジェネリックimplのインスタンス化サポート
+    // v0.13.1 DESIGN FIX: 生ポインタに戻す（所有権はパーサーが持つ）
+    // unique_ptrでの所有はclone_ast_nodeの不完全性により問題が発生したため
     const ASTNode *impl_node =
-        nullptr; // implブロック全体のASTノード（ジェネリックimpl用）
+        nullptr; // implブロック全体のASTノード（ジェネリックimpl用、非所有）
+
+    // v0.13.1: 実行時型解決のための情報
+    // ジェネリックimplがインスタンス化された場合の型マッピング
+    // 例: T -> int, U -> string
+    std::map<std::string, std::string> type_parameter_map;
+    bool is_generic_instance =
+        false; // このimplがジェネリックからインスタンス化されたものか
 
     ImplDefinition() {}
     ImplDefinition(const std::string &iface, const std::string &struct_name)
         : interface_name(iface), struct_name(struct_name) {}
 
-    // デフォルトコピー/ムーブで十分（vector<const ASTNode*> はコピー可能）
+    // v0.13.1: 生ポインタに戻したため、デフォルトのコピー/ムーブで十分
     ImplDefinition(const ImplDefinition &) = default;
     ImplDefinition &operator=(const ImplDefinition &) = default;
     ImplDefinition(ImplDefinition &&) noexcept = default;
@@ -719,6 +772,13 @@ struct ImplDefinition {
 
     void set_destructor(const ASTNode *destructor_ast) {
         destructor = destructor_ast;
+    }
+
+    // v0.11.0: TypeContextを取得
+    TypeContext get_type_context() const {
+        TypeContext ctx(type_parameter_map);
+        ctx.impl_source = this;
+        return ctx;
     }
 };
 

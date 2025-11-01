@@ -186,6 +186,8 @@ class RecursiveParser {
 
     // impl管理
     std::vector<ImplDefinition> impl_definitions_; // impl定義の保存
+    std::vector<std::unique_ptr<ASTNode>>
+        impl_nodes_; // v0.11.0: implノードの所有権を保持
 
     // 関数ポインタtypedef管理
     std::unordered_map<std::string, FunctionPointerTypeInfo>
@@ -238,6 +240,12 @@ class RecursiveParser {
     // impl定義へのアクセサ
     const std::vector<ImplDefinition> &get_impl_definitions() const {
         return impl_definitions_;
+    }
+
+    // v0.11.0:
+    // implノードの所有権転送用（Interpreter::sync_impl_definitions_from_parser用）
+    std::vector<std::unique_ptr<ASTNode>> &get_impl_nodes_for_transfer() {
+        return impl_nodes_;
     }
 
     // union定義へのアクセサ

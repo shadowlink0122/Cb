@@ -1,4 +1,5 @@
 #include "interface_parser.h"
+#include "../../../backend/interpreter/evaluator/functions/generic_instantiation.h"
 #include "../../../common/debug.h"
 #include "../recursive_parser.h"
 #include <iostream>
@@ -914,20 +915,29 @@ ASTNode *InterfaceParser::parseImplDeclaration() {
     parser_->setLocation(node, parser_->current_token_);
 
     // impl static変数の所有権をASTノードに移動
+    node->impl_static_variables.reserve(static_var_nodes.size());
     for (auto &static_var : static_var_nodes) {
         node->impl_static_variables.push_back(std::move(static_var));
     }
 
-    // implメソッドの所有権をASTノードに移動
+    // v0.11.0: implメソッドの所有権をASTノードに移動
+    // vector再配置を防ぐため、事前にreserve()を呼ぶ
+    node->arguments.reserve(method_nodes.size());
     for (auto &method_node : method_nodes) {
         node->arguments.push_back(std::move(method_node));
     }
 
-    // impl定義を保存
-    parser_->impl_definitions_.push_back(std::move(impl_def));
+    // v0.11.0: implノードの所有権をparserに移動（use-after-free対策）
+    // 重要:
+    // vectorへの追加前にimpl_defを保存してはいけない（nodeのアドレスが変わる）
+    parser_->impl_nodes_.push_back(std::unique_ptr<ASTNode>(node));
 
-    // v0.12.0: ジェネリックimpl用にASTノードを保存（push_back後に設定）
-    parser_->impl_definitions_.back().impl_node = node;
+    // v0.11.0: vectorに追加後の実際のポインタを取得
+    const ASTNode *stable_node_ptr = parser_->impl_nodes_.back().get();
+
+    // impl定義を保存（安定したポインタを使用）
+    impl_def.impl_node = stable_node_ptr;
+    parser_->impl_definitions_.push_back(std::move(impl_def));
 
     return node;
 }

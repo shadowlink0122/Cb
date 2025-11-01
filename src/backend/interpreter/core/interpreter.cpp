@@ -1419,7 +1419,8 @@ void Interpreter::handle_import_statement(const ASTNode *node) {
                     ImplDefinition impl_def;
                     impl_def.struct_name = stmt->struct_name;
                     impl_def.interface_name = stmt->interface_name;
-                    impl_def.impl_node = stmt; // v0.12.0: ジェネリックimpl用
+                    // v0.13.1: 生ポインタに戻したので、そのまま代入
+                    impl_def.impl_node = stmt;
 
                     if (debug_mode) {
                         std::cerr << "[IMPORT] Creating impl_def: struct="
@@ -2753,99 +2754,58 @@ void Interpreter::call_default_constructor(
     // デフォルトコンストラクタ（パラメータなし）を探す
     auto it = struct_constructors_.find(struct_type_name);
     if (it == struct_constructors_.end() || it->second.empty()) {
-        // v0.13.0:
+        // v0.11.0: 実行時型解決アプローチ
         // ジェネリック構造体の場合、implをインスタンス化してコンストラクタを登録
-        if (struct_type_name.find('_') != std::string::npos) {
-            std::vector<std::string> type_arguments;
-            std::string base_name;
+        // Queue<int> 形式で判定（マングリングしない）
+        if (struct_type_name.find('<') != std::string::npos) {
+            if (debug_mode) {
+                debug_print("[GENERIC_CTOR] Looking for impl for %s\n",
+                            struct_type_name.c_str());
+            }
 
-            size_t underscore_pos = struct_type_name.find('_');
-            if (underscore_pos != std::string::npos) {
-                base_name = struct_type_name.substr(0, underscore_pos);
-                std::string type_args_str =
-                    struct_type_name.substr(underscore_pos + 1);
-                type_arguments.push_back(type_args_str);
+            // find_impl_for_structは自動的にインスタンス化を試みる
+            const ImplDefinition *impl_def =
+                interface_operations_->find_impl_for_struct(struct_type_name,
+                                                            "");
 
+            if (impl_def && impl_def->is_generic_instance) {
                 if (debug_mode) {
-                    debug_print("[GENERIC_CTOR] Instantiating impl for %s "
-                                "(base: %s, type_arg: %s)\n",
-                                struct_type_name.c_str(), base_name.c_str(),
-                                type_args_str.c_str());
+                    debug_print("[GENERIC_CTOR] Found generic instance impl "
+                                "with %zu constructors\n",
+                                impl_def->constructors.size());
                 }
 
-                // ジェネリックimplを探してインスタンス化
-                const ImplDefinition *impl_def =
-                    interface_operations_->find_impl_for_struct(
-                        base_name + "<T>", "");
+                // TypeContextをpush（実行時型解決用）
+                push_type_context(impl_def->get_type_context());
 
-                if (impl_def && impl_def->impl_node) {
-                    if (debug_mode) {
-                        debug_print("[GENERIC_CTOR] Found generic impl, "
-                                    "instantiating...\n");
+                // コンストラクタを登録
+                for (const auto *ctor : impl_def->constructors) {
+                    if (ctor) {
+                        register_constructor(struct_type_name, ctor);
                     }
+                }
+                if (impl_def->destructor) {
+                    register_destructor(struct_type_name, impl_def->destructor);
+                }
 
-                    try {
-                        auto result =
-                            GenericInstantiation::instantiate_generic_impl(
-                                impl_def->impl_node, type_arguments, "",
-                                base_name + "<T>");
-
-                        auto &inst_node = std::get<2>(result);
-                        ASTNode *inst_node_ptr = inst_node.release();
-
-                        // コンストラクタ/デストラクタを登録
-                        for (const auto &method_node :
-                             inst_node_ptr->arguments) {
-                            if (!method_node)
-                                continue;
-
-                            if (method_node->node_type ==
-                                ASTNodeType::AST_CONSTRUCTOR_DECL) {
-                                register_constructor(struct_type_name,
-                                                     method_node.get());
-                            } else if (method_node->node_type ==
-                                       ASTNodeType::AST_DESTRUCTOR_DECL) {
-                                register_destructor(struct_type_name,
-                                                    method_node.get());
-                            }
-                        }
-
-                        // 再度コンストラクタを探す
-                        it = struct_constructors_.find(struct_type_name);
-                        if (it != struct_constructors_.end() &&
-                            !it->second.empty()) {
-                            // コンストラクタが見つかった場合、処理を続行
-                            if (debug_mode) {
-                                debug_print("[GENERIC_CTOR] Constructor "
-                                            "registered, continuing...\n");
-                            }
-                        } else {
-                            if (debug_mode) {
-                                debug_print("[GENERIC_CTOR] No constructor "
-                                            "found after instantiation\n");
-                            }
-                            return;
-                        }
-                    } catch (const std::exception &e) {
-                        if (debug_mode) {
-                            debug_print(
-                                "[GENERIC_CTOR] Failed to instantiate: %s\n",
-                                e.what());
-                        }
-                        return;
+                // 再度コンストラクタを探す
+                it = struct_constructors_.find(struct_type_name);
+                if (it != struct_constructors_.end() && !it->second.empty()) {
+                    if (debug_mode) {
+                        debug_print("[GENERIC_CTOR] Constructor registered "
+                                    "successfully\n");
                     }
                 } else {
-                    // ジェネリックimplが見つからない場合は何もしない
                     if (debug_mode) {
-                        debug_print("No generic impl found for struct: %s\n",
-                                    (base_name + "<T>").c_str());
+                        debug_print("[GENERIC_CTOR] No constructor found after "
+                                    "registration\n");
                     }
+                    pop_type_context(); // cleanup
                     return;
                 }
             } else {
-                // コンストラクタが定義されていない場合は何もしない
                 if (debug_mode) {
-                    debug_print("No constructor defined for struct: %s\n",
+                    debug_print("[GENERIC_CTOR] No impl found for %s\n",
                                 struct_type_name.c_str());
                 }
                 return;
@@ -2935,6 +2895,12 @@ void Interpreter::call_default_constructor(
     }
 
     pop_scope(); // コンストラクタスコープを終了
+
+    // v0.11.0: ジェネリックimplの場合、TypeContextをpop
+    // Queue<int> 形式で判定（マングリングしない）
+    if (struct_type_name.find('<') != std::string::npos) {
+        pop_type_context();
+    }
 }
 
 void Interpreter::call_constructor(const std::string &var_name,
@@ -3353,7 +3319,7 @@ void Interpreter::call_destructor(const std::string &var_name,
         // v0.13.0: selfのデストラクタは呼ばない（既に呼び出し中）
         self_var.destructor_called = true;
         current_scope().variables["self"] = self_var;
-        
+
         if (debug_mode) {
             debug_print("[DESTRUCTOR] Set self: type=%d, is_struct=%d, "
                         "struct_type_name=%s, members=%zu\n",
@@ -3374,14 +3340,15 @@ void Interpreter::call_destructor(const std::string &var_name,
     if (struct_var) {
         // まず元の変数にdestructor_calledフラグを設定（double free防止）
         struct_var->destructor_called = true;
-        
+
         // TODO v0.13.0: writebackは現在無効化（クラッシュする）
         // Variable *self_after = find_variable("self");
         // if (self_after) {
         //     // selfの全メンバーを元の変数にコピー
         //     struct_var->struct_members = self_after->struct_members;
         //     if (debug_mode) {
-        //         debug_print("Wrote back self changes to %s after destructor\n",
+        //         debug_print("Wrote back self changes to %s after
+        //         destructor\n",
         //                     var_name.c_str());
         //     }
         // }
@@ -3415,14 +3382,15 @@ void Interpreter::call_destructor(const std::string &var_name,
 
 void Interpreter::register_destructor_call(
     const std::string &var_name, const std::string &struct_type_name) {
-    // v0.13.0: selfのデストラクタは登録しない（デストラクタ実行中のコピーであるため）
+    // v0.13.0:
+    // selfのデストラクタは登録しない（デストラクタ実行中のコピーであるため）
     if (var_name == "self") {
         if (debug_mode) {
             debug_print("Skipping destructor registration for 'self'\n");
         }
         return;
     }
-    
+
     if (destructor_stacks_.empty()) {
         if (debug_mode) {
             debug_print("WARNING: destructor_stacks_ is empty when registering "

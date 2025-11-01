@@ -1,5 +1,6 @@
 #include "recursive_parser.h"
 #include "../../backend/interpreter/core/error_handler.h"
+#include "../../backend/interpreter/evaluator/functions/generic_instantiation.h"
 #include "../../common/debug.h"
 #include "../../common/debug_messages.h"
 #include "parsers/declaration_parser.h"
@@ -1487,7 +1488,8 @@ implemented"); return nullptr;
     }
 
     // impl定義を保存（ポインタ参照のみ保持）
-    impl_definitions_.push_back(impl_def);
+    // v0.13.0: unique_ptrを含むため move
+    impl_definitions_.push_back(std::move(impl_def));
 
     // ASTノードを作成
     ASTNode* node = new ASTNode(ASTNodeType::AST_IMPL_DECL);
@@ -1599,11 +1601,15 @@ void RecursiveParser::instantiateGenericStruct(
     const std::string &base_name,
     const std::vector<std::string> &type_arguments) {
 
-    // インスタンス化された型名を生成: Box<int*> -> Box_int_ptr
-    std::string instantiated_name = base_name;
-    for (const auto &arg : type_arguments) {
-        instantiated_name += "_" + normalizeTypeNameForInstantiation(arg);
+    // v0.11.0: インスタンス化された型名を生成: Queue<int> 形式のまま
+    // マングリングしない（シンプルで、typeofの実装が容易）
+    std::string instantiated_name = base_name + "<";
+    for (size_t i = 0; i < type_arguments.size(); ++i) {
+        if (i > 0)
+            instantiated_name += ", ";
+        instantiated_name += type_arguments[i];
     }
+    instantiated_name += ">";
 
     // 既にインスタンス化済みかチェック
     if (struct_definitions_.find(instantiated_name) !=
@@ -1686,11 +1692,15 @@ void RecursiveParser::instantiateGenericEnum(
     const std::string &base_name,
     const std::vector<std::string> &type_arguments) {
 
-    // インスタンス化された型名を生成: Option<int*> -> Option_int_ptr
-    std::string instantiated_name = base_name;
-    for (const auto &arg : type_arguments) {
-        instantiated_name += "_" + normalizeTypeNameForInstantiation(arg);
+    // v0.11.0: インスタンス化された型名を生成: Option<int> 形式のまま
+    // マングリングしない（シンプルで、typeofの実装が容易）
+    std::string instantiated_name = base_name + "<";
+    for (size_t i = 0; i < type_arguments.size(); ++i) {
+        if (i > 0)
+            instantiated_name += ", ";
+        instantiated_name += type_arguments[i];
     }
+    instantiated_name += ">";
 
     // 既にインスタンス化済みかチェック
     if (enum_definitions_.find(instantiated_name) != enum_definitions_.end()) {
@@ -2142,23 +2152,41 @@ void RecursiveParser::processImport(
         }
 
         if (should_import) {
-            impl_definitions_.push_back(impl);
+            // v0.13.1: 生ポインタに戻したので、通常のコピーでOK
+            ImplDefinition imported_impl = impl; // コピー可能
+
             if (debug_mode_) {
-                std::cerr << "[IMPORT] Imported impl: " << impl.struct_name
-                          << " for " << impl.interface_name << std::endl;
+                std::cerr << "[IMPORT] Imported impl: "
+                          << imported_impl.struct_name << " for "
+                          << imported_impl.interface_name << std::endl;
             }
+            impl_definitions_.push_back(imported_impl);
         } else if (debug_mode_) {
             std::cerr << "[IMPORT]   -> NOT imported (no match)" << std::endl;
         }
     }
 
-    // NOTE: ASTノードは削除しない
-    // impl定義内のメソッドポインタ（methods配列）がこのASTツリーを参照しているため、
-    // 削除するとダングリングポインタになる
-    // メモリリークになるが、プログラム終了時にOSが回収するので許容する
-    // TODO: 将来的にはスマートポインタやASTノードのクローン機能を実装すべき
+    // v0.11.0: implノードの所有権を転送（use-after-free対策）
+    // module_parserのimpl_nodes_をこのparserに移動
+    auto &module_impl_nodes = module_parser.get_impl_nodes_for_transfer();
+    if (!module_impl_nodes.empty()) {
+        if (debug_mode_) {
+            std::cerr << "[IMPORT] Transferring " << module_impl_nodes.size()
+                      << " impl nodes from module parser" << std::endl;
+        }
+
+        for (auto &node : module_impl_nodes) {
+            impl_nodes_.push_back(std::move(node));
+        }
+        module_impl_nodes.clear();
+    }
+
+    // NOTE: ASTノードの所有権はimpl_nodes_に移動済み
+    // impl定義内のimpl_nodeポインタはこのimpl_nodes_内のノードを参照
+    // 最終的にInterpreter::sync_impl_definitions_from_parser()で
+    // Interpreterに転送され、プログラム終了まで保持される
     if (debug_mode_ && module_ast) {
-        std::cerr << "[IMPORT] AST not deleted (referenced by impl methods): "
+        std::cerr << "[IMPORT] impl nodes transferred to parser: "
                   << module_path << std::endl;
     }
 }

@@ -297,18 +297,18 @@ std::string TypeUtilityParser::parseType() {
                     throw std::runtime_error("Type argument count mismatch");
                 }
 
-                // インスタンス化された型名を生成: Box<int*> -> Box_int_ptr
-                std::string instantiated_name = identifier;
-                for (const auto &arg : type_arguments) {
-                    instantiated_name +=
-                        "_" + normalizeTypeNameForInstantiation(arg);
+                // v0.11.0: インスタンス化された型名を生成: Queue<int>
+                // 形式のまま
+                // マングリングしない（シンプルで、typeofの実装が容易）
+                std::string instantiated_name = identifier + "<";
+                for (size_t i = 0; i < type_arguments.size(); ++i) {
+                    if (i > 0)
+                        instantiated_name += ", ";
+                    instantiated_name += type_arguments[i];
                 }
+                instantiated_name += ">";
 
-                original_type = identifier + "<" + type_arguments[0];
-                for (size_t i = 1; i < type_arguments.size(); ++i) {
-                    original_type += "," + type_arguments[i];
-                }
-                original_type += ">";
+                original_type = instantiated_name;
 
                 // ジェネリック型をインスタンス化
                 parser_->instantiateGenericStruct(identifier, type_arguments);

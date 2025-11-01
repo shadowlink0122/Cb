@@ -3167,6 +3167,42 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
             }
         }
 
+        // v0.11.0: ジェネリックメソッド呼び出しの型コンテキスト管理
+        bool type_context_pushed = false;
+        std::string receiver_type_name;
+
+        if (is_method_call && !receiver_name.empty()) {
+            Variable *receiver_var = nullptr;
+            if (used_resolution_ptr && dereferenced_struct_ptr) {
+                receiver_var = dereferenced_struct_ptr;
+            } else {
+                receiver_var = interpreter_.find_variable(receiver_name);
+            }
+
+            if (receiver_var && receiver_var->type == TYPE_STRUCT) {
+                receiver_type_name = receiver_var->struct_type_name;
+
+                // Queue<int>のようなジェネリック型のメソッド呼び出し
+                if (receiver_type_name.find('<') != std::string::npos) {
+                    const ImplDefinition *impl_def =
+                        interpreter_.find_impl_for_struct(receiver_type_name,
+                                                          "");
+
+                    if (impl_def && impl_def->is_generic_instance) {
+                        interpreter_.push_type_context(
+                            impl_def->get_type_context());
+                        type_context_pushed = true;
+
+                        if (interpreter_.is_debug_mode()) {
+                            debug_print("[TYPE_CONTEXT] Pushed for %s::%s\n",
+                                        receiver_type_name.c_str(),
+                                        node->name.c_str());
+                        }
+                    }
+                }
+            }
+        }
+
         // 関数本体を実行
         try {
             if (interpreter_.is_debug_mode()) {
@@ -3180,6 +3216,15 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
             } else {
                 if (interpreter_.is_debug_mode()) {
                     debug_print("[METHOD_EXEC] Warning: func->body is null!\n");
+                }
+            }
+
+            // v0.11.0: 型コンテキストをクリア
+            if (type_context_pushed) {
+                interpreter_.pop_type_context();
+                if (interpreter_.is_debug_mode()) {
+                    debug_print("[TYPE_CONTEXT] Popped after %s::%s\n",
+                                receiver_type_name.c_str(), node->name.c_str());
                 }
             }
 
@@ -3522,6 +3567,16 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
             interpreter_.current_function_name = prev_function_name;
             return 0;
         } catch (const ReturnException &ret) {
+            // v0.11.0: 型コンテキストをクリア（例外時）
+            if (type_context_pushed) {
+                interpreter_.pop_type_context();
+                if (interpreter_.is_debug_mode()) {
+                    debug_print(
+                        "[TYPE_CONTEXT] Popped (exception) after %s::%s\n",
+                        receiver_type_name.c_str(), node->name.c_str());
+                }
+            }
+
             // implコンテキストをクリア
             if (impl_context_active) {
                 interpreter_.exit_impl_context();
