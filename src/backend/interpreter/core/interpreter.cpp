@@ -3347,7 +3347,20 @@ void Interpreter::call_destructor(const std::string &var_name,
     Variable *struct_var = find_variable(var_name);
     if (struct_var) {
         Variable self_var = *struct_var;
+        // v0.13.0: 明示的に型情報を保持
+        self_var.type = TYPE_STRUCT;
+        self_var.is_struct = true;
+        // v0.13.0: selfのデストラクタは呼ばない（既に呼び出し中）
+        self_var.destructor_called = true;
         current_scope().variables["self"] = self_var;
+        
+        if (debug_mode) {
+            debug_print("[DESTRUCTOR] Set self: type=%d, is_struct=%d, "
+                        "struct_type_name=%s, members=%zu\n",
+                        self_var.type, self_var.is_struct,
+                        self_var.struct_type_name.c_str(),
+                        self_var.struct_members.size());
+        }
     }
 
     // デストラクタ本体を実行
@@ -3355,14 +3368,45 @@ void Interpreter::call_destructor(const std::string &var_name,
         execute_statement(destructor->body.get());
     }
 
+    // v0.13.0: デストラクタ内でselfへの変更を元の変数に書き戻す
+    // （Queueのデストラクタでself.frontが更新されるなど）
+    // 重要：pop_scope()の前に実行し、元の変数を先にマークする
+    if (struct_var) {
+        // まず元の変数にdestructor_calledフラグを設定（double free防止）
+        struct_var->destructor_called = true;
+        
+        // TODO v0.13.0: writebackは現在無効化（クラッシュする）
+        // Variable *self_after = find_variable("self");
+        // if (self_after) {
+        //     // selfの全メンバーを元の変数にコピー
+        //     struct_var->struct_members = self_after->struct_members;
+        //     if (debug_mode) {
+        //         debug_print("Wrote back self changes to %s after destructor\n",
+        //                     var_name.c_str());
+        //     }
+        // }
+    }
+
     pop_scope(); // デストラクタスコープを終了
 
+    if (debug_mode) {
+        debug_print("[DESTRUCTOR] pop_scope completed for %s\n",
+                    var_name.c_str());
+    }
+
     // v0.11.0: デストラクタ呼び出し完了フラグを設定（double free防止）
-    if (var) {
-        var->destructor_called = true;
+    // pop_scope()の後に元の変数を再取得（ポインタが無効化されている可能性があるため）
+    Variable *var_after = find_variable(var_name);
+    if (var_after) {
+        var_after->destructor_called = true;
         if (debug_mode) {
             debug_print("Marked destructor_called for %s\n", var_name.c_str());
         }
+    }
+
+    if (debug_mode) {
+        debug_print("[DESTRUCTOR] Completed call_destructor for %s\n",
+                    var_name.c_str());
     }
 
     // フラグを元に戻す
@@ -3371,6 +3415,14 @@ void Interpreter::call_destructor(const std::string &var_name,
 
 void Interpreter::register_destructor_call(
     const std::string &var_name, const std::string &struct_type_name) {
+    // v0.13.0: selfのデストラクタは登録しない（デストラクタ実行中のコピーであるため）
+    if (var_name == "self") {
+        if (debug_mode) {
+            debug_print("Skipping destructor registration for 'self'\n");
+        }
+        return;
+    }
+    
     if (destructor_stacks_.empty()) {
         if (debug_mode) {
             debug_print("WARNING: destructor_stacks_ is empty when registering "

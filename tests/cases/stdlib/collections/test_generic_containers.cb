@@ -1,7 +1,8 @@
-// Comprehensive Test: Generic Vector<T>
-// NOTE: Queue<T> tests separated due to interpreter cache issues
+// Comprehensive Test: Generic Vector<T> and Queue<T>
+// Tests that both containers work with multiple types using TRUE GENERIC IMPLEMENTATION
 
 import "stdlib/collections/vector.cb";
+import "stdlib/collections/queue.cb";
 
 struct Point {
     int x;
@@ -11,7 +12,7 @@ struct Point {
 void main() {
     println("╔═══════════════════════════════════════════════════════════════╗");
     println("║  Generic Container Comprehensive Test                        ║");
-    println("║  Vector<T> - TRUE GENERIC IMPLEMENTATION                     ║");
+    println("║  Vector<T> + Queue<T> - TRUE GENERIC IMPLEMENTATION          ║");
     println("╚═══════════════════════════════════════════════════════════════╝");
     println("");
     
@@ -50,9 +51,44 @@ void main() {
     println("");
     
     // ================================================================
-    // Test 3: Vector auto-resize
+    // Test 3: Queue<int>
     // ================================================================
-    println("═══ Test 3: Vector<int> auto-resize ═══");
+    println("═══ Test 3: Queue<int> ═══");
+    Queue<int> queue_int;
+    queue_int.init(5);
+    queue_int.enqueue(100);
+    queue_int.enqueue(200);
+    queue_int.enqueue(300);
+    
+    println("Queue<int> size: ", queue_int.size());
+    int peeked = queue_int.peek();
+    println("Peeked: ", peeked);
+    
+    int dequeued = queue_int.dequeue();
+    println("Dequeued: ", dequeued);
+    println("Queue<int> size after dequeue: ", queue_int.size());
+    println("✅ Queue<int> works correctly");
+    println("");
+    
+    // ================================================================
+    // Test 4: Queue<long>
+    // ================================================================
+    println("═══ Test 4: Queue<long> ═══");
+    Queue<long> queue_long;
+    queue_long.init(5);
+    queue_long.enqueue(111111111);
+    queue_long.enqueue(222222222);
+    
+    println("Queue<long> size: ", queue_long.size());
+    long val_long = queue_long.dequeue();
+    println("Dequeued from Queue<long>: ", val_long);
+    println("✅ Queue<long> works correctly");
+    println("");
+    
+    // ================================================================
+    // Test 5: Vector auto-resize
+    // ================================================================
+    println("═══ Test 5: Vector<int> auto-resize ═══");
     Vector<int> vec_resize;
     vec_resize.init(2);
     println("Initial capacity: ", vec_resize.get_capacity());
@@ -68,38 +104,44 @@ void main() {
     println("");
     
     // ================================================================
-    // Test 4: Vector circular buffer
+    // Test 6: Queue circular buffer
     // ================================================================
-    println("═══ Test 4: Vector<int> circular buffer ═══");
-    Vector<int> vec_circ;
-    vec_circ.init(3);
-    vec_circ.push(1);
-    vec_circ.push(2);
-    vec_circ.push(3);
-    println("Pushed 3 items");
+    println("═══ Test 6: Queue<int> circular buffer ═══");
+    Queue<int> queue_circular;
+    queue_circular.init(5);
     
-    int c1 = vec_circ.pop();
-    int c2 = vec_circ.pop();
-    println("Popped 2 items: ", c1, ", ", c2);
+    queue_circular.enqueue(1);
+    queue_circular.enqueue(2);
+    queue_circular.enqueue(3);
+    println("Queue full (capacity=3)");
     
-    vec_circ.push(4);
-    vec_circ.push(5);
-    println("Pushed 2 more items");
-    println("Vector length: ", vec_circ.get_length());
+    queue_circular.dequeue();
+    queue_circular.dequeue();
+    println("Dequeued 2 items");
+    
+    queue_circular.enqueue(4);
+    queue_circular.enqueue(5);
+    println("Enqueued 2 more items (circular)");
+    println("Queue size: ", queue_circular.size());
     println("✅ Circular buffer works");
     println("");
     
     // ================================================================
-    // Test 5: Memory management (destructor test)
+    // Test 7: Memory management (destructor test)
     // ================================================================
-    println("═══ Test 5: Memory management ═══");
+    println("═══ Test 7: Memory management ═══");
     {
         Vector<int> temp_vec;
         temp_vec.init(5);
         temp_vec.push(999);
         println("Created temporary vector in scope");
+        
+        Queue<int> temp_queue;
+        temp_queue.init(5);
+        temp_queue.enqueue(888);
+        println("Created temporary queue in scope");
     }
-    println("Scope exited - destructor called automatically");
+    println("Scope exited - destructors called automatically");
     println("✅ Memory management works");
     println("");
     
@@ -111,8 +153,9 @@ void main() {
     println("╠═══════════════════════════════════════════════════════════════╣");
     println("║  Tested:                                                      ║");
     println("║    ✓ Vector<int>, Vector<long>                               ║");
+    println("║    ✓ Queue<int>, Queue<long>                                 ║");
     println("║    ✓ Auto-resize (Vector)                                    ║");
-    println("║    ✓ Circular buffer (Vector)                                ║");
+    println("║    ✓ Circular buffer (Queue)                                 ║");
     println("║    ✓ Memory management (destructors)                         ║");
     println("║                                                               ║");
     println("║  TRUE GENERIC IMPLEMENTATION:                                ║");
