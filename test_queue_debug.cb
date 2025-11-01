@@ -1,14 +1,7 @@
-// Test for Queue<T> library import and usage
-// This test verifies that generic Queue can be imported and used as a library
-
+// Test matching test_queue_import.cb structure
 import "stdlib/collections/queue.cb";
 
 int main() {
-    println("╔════════════════════════════════════════════╗");
-    println("║  Queue<T> Library Import Test             ║");
-    println("╚════════════════════════════════════════════╝\n");
-    
-    // Test 1: Import and Basic Operations
     println("=== Test: Queue<int> Import ===");
     Queue<int> q;
     println("✅ Queue<int> import and struct creation successful");
@@ -32,12 +25,11 @@ int main() {
         println("✅ Queue<int> peek operations work");
     }
     
-    // Empty the queue before continuing (TODO v0.13.0: workaround for destructor issues)
+    // Empty the queue
     q.dequeue();
     q.dequeue();
     
     println("\n=== Test: Queue<int> Dynamic Size ===");
-    // Create a new queue for this test (writeback issues - TODO v0.13.0)
     Queue<int> q2;
     
     q2.enqueue(1);
@@ -51,15 +43,15 @@ int main() {
         println("✅ Queue<int> dynamic size works (no capacity limit)");
     }
     
-    // Empty q2 (TODO v0.13.0: workaround for destructor issues)
+    println("About to empty q2...");
     q2.dequeue(); 
     q2.dequeue(); 
     q2.dequeue(); 
     q2.dequeue(); 
     q2.dequeue();
+    println("q2 emptied");
     
-    println("\n=== Test: Queue<int> FIFO Order ===");
-    // Create a new queue for FIFO test
+    println("Creating q3...");
     Queue<int> q3;
     
     q3.enqueue(10);
@@ -78,23 +70,22 @@ int main() {
         println("✅ Queue<int> FIFO order maintained");
     }
     
-    // Empty q3 (TODO v0.13.0: workaround for destructor issues)
+    println("About to empty q3...");
     q3.dequeue(); 
     q3.dequeue();
+    println("q3 emptied");
     
-    println("\n=== Test: Queue<int> Destructor ===");
-    // Create a new queue for destructor test
+    println("Creating q4...");
     Queue<int> q4;
     q4.enqueue(10);
     q4.enqueue(20);
-    // Dequeue all before exit (TODO v0.13.0: destructor has issues)
+    
+    println("About to empty q4...");
     q4.dequeue(); 
     q4.dequeue();
-    println("✅ Queue<int> destructor works (no crash on scope exit)");
+    println("q4 emptied");
     
-    println("\n╔════════════════════════════════════════════╗");
-    println("║  All Queue<int> library tests passed!     ║");
-    println("╚════════════════════════════════════════════╝");
-    
+    println("✅ All tests passed");
+    println("Returning from main...");
     return 0;
 }

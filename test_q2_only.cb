@@ -1,0 +1,24 @@
+// Test q2 only, without q
+import "stdlib/collections/queue.cb";
+
+int main() {
+    println("Test: Create q2 and enqueue 5 items");
+    Queue<int> q2;
+    
+    q2.enqueue(1);
+    println("Enqueued 1");
+    q2.enqueue(2);
+    println("Enqueued 2");
+    q2.enqueue(3);
+    println("Enqueued 3");
+    q2.enqueue(4);
+    println("Enqueued 4");
+    q2.enqueue(5);
+    println("Enqueued 5");
+    
+    int size = q2.size();
+    println("q2 size: ", size);
+    
+    println("Test passed!");
+    return 0;
+}

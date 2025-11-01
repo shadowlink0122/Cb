@@ -52,11 +52,7 @@ int main() {
     }
     
     // Empty q2 (TODO v0.13.0: workaround for destructor issues)
-    q2.dequeue(); 
-    q2.dequeue(); 
-    q2.dequeue(); 
-    q2.dequeue(); 
-    q2.dequeue();
+    q2.dequeue(); q2.dequeue(); q2.dequeue(); q2.dequeue(); q2.dequeue();
     
     println("\n=== Test: Queue<int> FIFO Order ===");
     // Create a new queue for FIFO test
@@ -79,8 +75,7 @@ int main() {
     }
     
     // Empty q3 (TODO v0.13.0: workaround for destructor issues)
-    q3.dequeue(); 
-    q3.dequeue();
+    q3.dequeue(); q3.dequeue();
     
     println("\n=== Test: Queue<int> Destructor ===");
     // Create a new queue for destructor test
@@ -88,8 +83,7 @@ int main() {
     q4.enqueue(10);
     q4.enqueue(20);
     // Dequeue all before exit (TODO v0.13.0: destructor has issues)
-    q4.dequeue(); 
-    q4.dequeue();
+    q4.dequeue(); q4.dequeue();
     println("✅ Queue<int> destructor works (no crash on scope exit)");
     
     println("\n╔════════════════════════════════════════════╗");
