@@ -1,0 +1,32 @@
+// Test case that crashes - multiple items
+import "stdlib/collections/queue.cb";
+
+int main() {
+    Queue<int> q;
+    
+    println("Enqueue 3 items...");
+    q.enqueue(10);
+    q.enqueue(20);
+    q.enqueue(30);
+    println("Size: ", q.size());
+    
+    println("\nDequeue first item...");
+    int v1 = q.dequeue();
+    println("Dequeued: ", v1, ", Size: ", q.size());
+    
+    println("\nDequeue second item...");
+    int v2 = q.dequeue();
+    println("Dequeued: ", v2, ", Size: ", q.size());
+    
+    println("\nEnqueue 2 more items...");
+    q.enqueue(40);
+    q.enqueue(50);
+    println("Size: ", q.size());
+    
+    println("\nDequeue third item...");
+    int v3 = q.dequeue();
+    println("Dequeued: ", v3, ", Size: ", q.size());
+    
+    println("Test completed!");
+    return 0;
+}

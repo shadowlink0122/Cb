@@ -55,7 +55,6 @@ void main() {
     // ================================================================
     println("═══ Test 3: Queue<int> ═══");
     Queue<int> queue_int;
-    queue_int.init(5);
     queue_int.enqueue(100);
     queue_int.enqueue(200);
     queue_int.enqueue(300);
@@ -75,7 +74,6 @@ void main() {
     // ================================================================
     println("═══ Test 4: Queue<long> ═══");
     Queue<long> queue_long;
-    queue_long.init(5);
     queue_long.enqueue(111111111);
     queue_long.enqueue(222222222);
     
@@ -108,7 +106,6 @@ void main() {
     // ================================================================
     println("═══ Test 6: Queue<int> circular buffer ═══");
     Queue<int> queue_circular;
-    queue_circular.init(5);
     
     queue_circular.enqueue(1);
     queue_circular.enqueue(2);
@@ -137,7 +134,6 @@ void main() {
         println("Created temporary vector in scope");
         
         Queue<int> temp_queue;
-        temp_queue.init(5);
         temp_queue.enqueue(888);
         println("Created temporary queue in scope");
     }

@@ -1,0 +1,26 @@
+// Minimal test case for writeback issue
+import "stdlib/collections/queue.cb";
+
+int main() {
+    Queue<int> q;
+    
+    println("First enqueue...");
+    q.enqueue(10);
+    println("Size after first enqueue: ", q.size());
+    
+    println("\nFirst dequeue...");
+    int v1 = q.dequeue();
+    println("Dequeued value: ", v1);
+    println("Size after first dequeue: ", q.size());
+    
+    println("\nSecond enqueue...");
+    q.enqueue(20);
+    println("Size after second enqueue: ", q.size());
+    
+    println("\nSecond dequeue...");
+    int v2 = q.dequeue();
+    println("Dequeued value: ", v2);
+    
+    println("Test completed successfully!");
+    return 0;
+}

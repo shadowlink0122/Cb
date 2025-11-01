@@ -1,0 +1,13 @@
+// Test to isolate destructor issue
+import "stdlib/collections/queue.cb";
+
+void main() {
+    println("Creating Queue...");
+    {
+        Queue<int> q;
+        q.enqueue(10);
+        println("Enqueued 10");
+    }
+    println("Scope exited - should call destructor");
+    println("Done");
+}
