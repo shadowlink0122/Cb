@@ -28,6 +28,11 @@ INTERPRETER_OUTPUT=$(INTERPRETER_DIR)/output
 CXXFLAGS=-Wall -g -std=c++17
 CFLAGS=$(CXXFLAGS) -I. -I$(SRC_DIR) -I$(INTERPRETER_DIR)
 
+# AddressSanitizer用フラグ
+ASAN_FLAGS=-fsanitize=address -fno-omit-frame-pointer -O1
+ASAN_CXXFLAGS=$(CXXFLAGS) $(ASAN_FLAGS)
+ASAN_CFLAGS=$(ASAN_CXXFLAGS) -I. -I$(SRC_DIR) -I$(INTERPRETER_DIR)
+
 # テスト用フラグ
 TEST_CXXFLAGS=$(CXXFLAGS) -I$(SRC_DIR) -I$(INTERPRETER_DIR) -I$(TESTS_DIR)/unit
 
@@ -229,6 +234,14 @@ $(BAREMETAL_DIR)/%.o: $(BAREMETAL_DIR)/%.cpp
 # メイン実行ファイル
 $(MAIN_TARGET): $(FRONTEND_OBJS) $(BACKEND_OBJS) $(COMMON_OBJS)
 	$(CC) $(CFLAGS) -o $(MAIN_TARGET) $(FRONTEND_OBJS) $(BACKEND_OBJS) $(COMMON_OBJS)
+
+# AddressSanitizer有効版（メモリ破損検出用）
+main-asan: CFLAGS=$(ASAN_CFLAGS)
+main-asan: clean
+	@echo "Building with AddressSanitizer..."
+	$(MAKE) $(MAIN_TARGET) CFLAGS="$(ASAN_CFLAGS)"
+	@mv $(MAIN_TARGET) main-asan
+	@echo "Built main-asan with AddressSanitizer"
 
 # Cb→Cコード変換ツール（将来の拡張）
 $(CGEN_TARGET):
