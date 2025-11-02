@@ -109,11 +109,9 @@ const ASTNode *Interpreter::find_function(const std::string &name) {
     auto ctor_it = struct_constructors_.find(name);
     if (ctor_it != struct_constructors_.end() && !ctor_it->second.empty()) {
         if (debug_mode) {
-            std::cerr << "[FIND_FUNCTION] Found constructor: " << name
-                      << std::endl;
+            std::cerr << "[FIND_FUNCTION] Found constructor: " << name << std::endl;
         }
-        return ctor_it
-            ->second[0]; // 最初のコンストラクタを返す（オーバーロード未実装）
+        return ctor_it->second[0]; // 最初のコンストラクタを返す（オーバーロード未実装）
     }
 
     if (debug_mode) {
@@ -1136,10 +1134,8 @@ void Interpreter::handle_import_statement(const ASTNode *node) {
     std::string module_path = node->import_path;
 
     if (debug_mode) {
-        std::cerr << "[IMPORT] handle_import_statement called for: "
-                  << module_path << std::endl;
-        std::cerr << "[IMPORT]   loaded_modules.size()="
-                  << loaded_modules.size() << std::endl;
+        std::cerr << "[IMPORT] handle_import_statement called for: " << module_path << std::endl;
+        std::cerr << "[IMPORT]   loaded_modules.size()=" << loaded_modules.size() << std::endl;
         if (!loaded_modules.empty()) {
             std::cerr << "[IMPORT]   loaded_modules: ";
             for (const auto &m : loaded_modules) {
@@ -1521,7 +1517,7 @@ void Interpreter::handle_import_statement(const ASTNode *node) {
     // v0.11.0: module parserのimpl_nodes_とimpl_definitions_をInterpreterに転送
     // module_parserはローカル変数なので、この関数の終わりで破棄される
     // 破棄される前にimpl_nodes_とimpl_definitions_の所有権/内容を転送する必要がある
-    //
+    // 
     // sync_impl_definitions_from_parserを使用することで：
     // 1. impl_nodes_をInterpreterに転送
     // 2. impl_definitions_の内容（constructors/methodsのポインタ）をコピー
@@ -2776,13 +2772,40 @@ void Interpreter::call_default_constructor(
                     debug_print("[GENERIC_CTOR] No impl found for %s\n",
                                 struct_type_name.c_str());
                 }
+                // v0.11.1: implが見つからない場合でも、構造体のメンバーを初期化
+                // struct定義からメンバー変数を作成
+                Variable *struct_var = find_variable(var_name);
+                if (debug_mode) {
+                    debug_print("[GENERIC_CTOR] find_variable(%s) returned: %p\n",
+                                var_name.c_str(), (void*)struct_var);
+                }
+                if (struct_var) {
+                    // メンバー変数を再帰的に作成
+                    create_struct_member_variables_recursively(var_name, struct_type_name, *struct_var);
+                    if (debug_mode) {
+                        debug_print("[GENERIC_CTOR] Created struct member variables for %s\n",
+                                    var_name.c_str());
+                    }
+                } else if (debug_mode) {
+                    debug_print("[GENERIC_CTOR] ERROR: Variable %s not found\n",
+                                var_name.c_str());
+                }
                 return;
             }
         } else {
-            // コンストラクタが定義されていない場合は何もしない
+            // コンストラクタが定義されていない場合、構造体のメンバーを初期化
             if (debug_mode) {
                 debug_print("No constructor defined for struct: %s\n",
                             struct_type_name.c_str());
+            }
+            // v0.11.1: struct定義からメンバー変数を作成
+            Variable *struct_var = find_variable(var_name);
+            if (struct_var) {
+                create_struct_member_variables_recursively(var_name, struct_type_name, *struct_var);
+                if (debug_mode) {
+                    debug_print("Created struct member variables for %s\n",
+                                var_name.c_str());
+                }
             }
             return;
         }
@@ -2878,33 +2901,28 @@ void Interpreter::call_constructor(const std::string &var_name,
     auto it = struct_constructors_.find(struct_type_name);
     if (it == struct_constructors_.end() || it->second.empty()) {
         // v0.13.0: ジェネリック構造体 Box<int> の場合、Box<T> で検索を試みる
-        bool found_generic = false;
         if (struct_type_name.find('<') != std::string::npos) {
             size_t bracket_pos = struct_type_name.find('<');
             std::string base_name = struct_type_name.substr(0, bracket_pos);
             std::string generic_key = base_name + "<T>";
-
+            
             if (debug_mode) {
                 std::cerr << "[GENERIC_CTOR] Looking for generic constructor: "
-                          << struct_type_name << " -> " << generic_key
-                          << std::endl;
+                          << struct_type_name << " -> " << generic_key << std::endl;
             }
-
+            
             it = struct_constructors_.find(generic_key);
             if (it != struct_constructors_.end() && !it->second.empty()) {
                 if (debug_mode) {
-                    std::cerr
-                        << "[GENERIC_CTOR] Found generic constructor for: "
-                        << generic_key << std::endl;
+                    std::cerr << "[GENERIC_CTOR] Found generic constructor for: "
+                              << generic_key << std::endl;
                 }
-                found_generic = true;
                 // 見つかったのでそのまま続行
             }
         }
-
+        
         // マングリング形式 (Box_int) でも試す
-        if (!found_generic &&
-            (it == struct_constructors_.end() || it->second.empty()) &&
+        if ((it == struct_constructors_.end() || it->second.empty()) &&
             struct_type_name.find('_') != std::string::npos) {
             std::vector<std::string> type_arguments;
             std::string base_name;
@@ -2987,8 +3005,7 @@ void Interpreter::call_constructor(const std::string &var_name,
                 throw std::runtime_error("No constructor defined for struct: " +
                                          struct_type_name);
             }
-        } else if (!found_generic) {
-            // ジェネリックも見つからず、マングリング形式でもない場合のみエラー
+        } else {
             throw std::runtime_error("No constructor defined for struct: " +
                                      struct_type_name);
         }
@@ -3026,13 +3043,11 @@ void Interpreter::call_constructor(const std::string &var_name,
     if (is_generic) {
         size_t open_bracket = struct_type_name.find('<');
         size_t close_bracket = struct_type_name.find('>');
-        if (open_bracket != std::string::npos &&
-            close_bracket != std::string::npos) {
-            std::string type_arg = struct_type_name.substr(
-                open_bracket + 1, close_bracket - open_bracket - 1);
+        if (open_bracket != std::string::npos && close_bracket != std::string::npos) {
+            std::string type_arg = struct_type_name.substr(open_bracket + 1, 
+                                                           close_bracket - open_bracket - 1);
             if (debug_mode) {
-                std::cerr << "[GENERIC_CTOR] Pushing TypeContext: T="
-                          << type_arg << std::endl;
+                std::cerr << "[GENERIC_CTOR] Pushing TypeContext: T=" << type_arg << std::endl;
             }
             TypeContext ctx;
             ctx.type_map["T"] = type_arg;
