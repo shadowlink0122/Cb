@@ -958,6 +958,11 @@ class Interpreter : public EvaluatorInterface {
     const std::string &get_current_function_name() const {
         return current_function_name;
     }
+    
+    // v0.13.1: デストラクタ実行中かチェック
+    bool is_calling_destructor() const {
+        return is_calling_destructor_;
+    }
 
     // エラー表示ヘルパー関数
     void throw_runtime_error_with_location(const std::string &message,

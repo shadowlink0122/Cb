@@ -257,23 +257,20 @@ impl Queue<T> {
         self.length = 0;
     }
     ~self() {
-        // TODO(v0.13.1): Destructor disabled - investigating segfault
-        // Same logic as clear() but crashes in normal builds
-        // 
-        // Temporary workaround: Users must manually call clear()
-        // 
-        // while (self.front != nullptr) {
-        //     int data_size = sizeof(T);
-        //     long front_addr = (long)self.front;
-        //     long next_addr = front_addr + data_size;
-        //     void** next_ptr = (void**)next_addr;
-        //     void* next_node = *next_ptr;
-        //     
-        //     free(self.front);
-        //     self.front = next_node;
-        // }
-        // 
-        // self.rear = nullptr;
-        // self.length = 0;
+        // v0.13.1: 正常に動作するようになったデストラクタ
+        // sizeof(T)が正しく解決されることを確認済み
+        while (self.front != nullptr) {
+            int data_size = sizeof(T);
+            long front_addr = (long)self.front;
+            long next_addr = front_addr + data_size;
+            void** next_ptr = (void**)next_addr;
+            void* next_node = *next_ptr;
+            
+            free(self.front);
+            self.front = next_node;
+        }
+        
+        self.rear = nullptr;
+        self.length = 0;
     }
 }
