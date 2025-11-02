@@ -853,6 +853,20 @@ void StructAssignmentManager::assign_struct_member_array_literal(
                         }
                     }
                 }
+                
+                // Also update the direct variable (e.g., "matrix.data") so sync can access the full array
+                std::string direct_var_name = var_name + "." + member_name;
+                Variable *direct_var = interpreter_->find_variable(direct_var_name);
+                if (direct_var) {
+                    direct_var->multidim_array_values = member_var->multidim_array_values;
+                    direct_var->array_values = member_var->array_values;
+                    direct_var->is_assigned = true;
+                    if (interpreter_->debug_mode) {
+                        debug_print("Updated direct variable %s with %zu multidim_array_values\n",
+                                    direct_var_name.c_str(),
+                                    direct_var->multidim_array_values.size());
+                    }
+                }
             } else {
                 // 1次元配列の場合（既存の処理）
                 for (size_t i = 0; i < result.size && i < assigned_count; i++) {
