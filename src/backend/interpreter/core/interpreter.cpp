@@ -2915,15 +2915,41 @@ void Interpreter::call_constructor(const std::string &var_name,
             if (it != struct_constructors_.end() && !it->second.empty()) {
                 if (debug_mode) {
                     std::cerr << "[GENERIC_CTOR] Found generic constructor for: "
-                              << generic_key << std::endl;
+                              << generic_key << " (count: " << it->second.size() << ")" << std::endl;
                 }
-                // 見つかったのでそのまま続行
+                // v0.13.1: Box<T> のコンストラクタをそのまま Box<int> 用に登録
+                // (実行時型解決により、元のノードを再利用できる)
+                for (const auto *ctor_node : it->second) {
+                    register_constructor(struct_type_name, ctor_node);
+                    if (debug_mode) {
+                        std::cerr << "[GENERIC_CTOR] Registered constructor from " 
+                                  << generic_key << " for: " << struct_type_name << std::endl;
+                    }
+                }
+                
+                // デストラクタも登録
+                auto dtor_it = struct_destructors_.find(generic_key);
+                if (dtor_it != struct_destructors_.end() && dtor_it->second) {
+                    register_destructor(struct_type_name, dtor_it->second);
+                    if (debug_mode) {
+                        std::cerr << "[GENERIC_CTOR] Registered destructor from " 
+                                  << generic_key << " for: " << struct_type_name << std::endl;
+                    }
+                }
+                
+                // 再度コンストラクタを探す
+                it = struct_constructors_.find(struct_type_name);
+                if (debug_mode) {
+                    std::cerr << "[GENERIC_CTOR] After registration, constructor found: "
+                              << (it != struct_constructors_.end() && !it->second.empty()) << std::endl;
+                }
             }
         }
         
-        // マングリング形式 (Box_int) でも試す
-        if ((it == struct_constructors_.end() || it->second.empty()) &&
-            struct_type_name.find('_') != std::string::npos) {
+        // コンストラクタが見つかっていない場合のみ、マングリング形式を試す
+        if (it == struct_constructors_.end() || it->second.empty()) {
+            // マングリング形式 (Box_int) でも試す
+            if (struct_type_name.find('_') != std::string::npos) {
             std::vector<std::string> type_arguments;
             std::string base_name;
 
@@ -3005,9 +3031,10 @@ void Interpreter::call_constructor(const std::string &var_name,
                 throw std::runtime_error("No constructor defined for struct: " +
                                          struct_type_name);
             }
-        } else {
-            throw std::runtime_error("No constructor defined for struct: " +
-                                     struct_type_name);
+            } else {
+                throw std::runtime_error("No constructor defined for struct: " +
+                                         struct_type_name);
+            }
         }
     }
 
