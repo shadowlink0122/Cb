@@ -954,6 +954,9 @@ class Interpreter : public EvaluatorInterface {
     bool is_module_imported(const std::string &module_name) const {
         return loaded_modules.find(module_name) != loaded_modules.end();
     }
+    void mark_module_loaded(const std::string &module_path) {
+        loaded_modules.insert(module_path);
+    }
 
     // 共通操作へのアクセス
     CommonOperations *get_common_operations() {

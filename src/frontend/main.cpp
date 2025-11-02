@@ -102,6 +102,17 @@ int main(int argc, char **argv) {
         interpreter.sync_interface_definitions_from_parser(&parser);
         interpreter.sync_impl_definitions_from_parser(&parser);
 
+        // v0.11.0: パース時にインポートされたモジュールをloaded_modulesに追加
+        // これにより、実行時のhandle_import_statementで重複ロードを防ぐ
+        if (root && !root->statements.empty()) {
+            for (const auto &stmt : root->statements) {
+                if (stmt && stmt->node_type == ASTNodeType::AST_IMPORT_STMT &&
+                    !stmt->import_path.empty()) {
+                    interpreter.mark_module_loaded(stmt->import_path);
+                }
+            }
+        }
+
         interpreter.process(root);
 
         // 正常終了：デストラクタをスキップして即座に終了

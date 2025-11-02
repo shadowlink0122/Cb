@@ -1123,8 +1123,23 @@ void Interpreter::handle_import_statement(const ASTNode *node) {
 
     std::string module_path = node->import_path;
 
+    if (debug_mode) {
+        std::cerr << "[IMPORT] handle_import_statement called for: " << module_path << std::endl;
+        std::cerr << "[IMPORT]   loaded_modules.size()=" << loaded_modules.size() << std::endl;
+        if (!loaded_modules.empty()) {
+            std::cerr << "[IMPORT]   loaded_modules: ";
+            for (const auto &m : loaded_modules) {
+                std::cerr << "'" << m << "' ";
+            }
+            std::cerr << std::endl;
+        }
+    }
+
     // モジュールが既にロード済みかチェック
     if (loaded_modules.find(module_path) != loaded_modules.end()) {
+        if (debug_mode) {
+            std::cerr << "[IMPORT]   Already loaded, skipping" << std::endl;
+        }
         return; // 既にロード済み
     }
 
@@ -1489,29 +1504,16 @@ void Interpreter::handle_import_statement(const ASTNode *node) {
         }
     }
 
-    // v0.11.0: module parserのimpl_nodes_をInterpreterに転送
+    // v0.11.0: module parserのimpl_nodes_とimpl_definitions_をInterpreterに転送
     // module_parserはローカル変数なので、この関数の終わりで破棄される
-    // 破棄される前にimpl_nodes_の所有権を転送する必要がある
-    auto &parser_impl_nodes = parser.get_impl_nodes_for_transfer();
-    if (!parser_impl_nodes.empty()) {
-        if (debug_mode) {
-            std::cerr << "[IMPORT] Transferring " << parser_impl_nodes.size()
-                      << " impl nodes from module parser to interpreter"
-                      << std::endl;
-        }
-
-        // 所有権を移動
-        for (auto &node : parser_impl_nodes) {
-            if (debug_mode) {
-                std::cerr << "[IMPORT]   Transferring impl_node="
-                          << (void *)node.get()
-                          << ", arguments.size()=" << node->arguments.size()
-                          << std::endl;
-            }
-            impl_nodes_.push_back(std::move(node));
-        }
-        parser_impl_nodes.clear();
-    }
+    // 破棄される前にimpl_nodes_とimpl_definitions_の所有権/内容を転送する必要がある
+    // 
+    // sync_impl_definitions_from_parserを使用することで：
+    // 1. impl_nodes_をInterpreterに転送
+    // 2. impl_definitions_の内容（constructors/methodsのポインタ）をコピー
+    // 3. 転送後のノードでポインタを更新
+    // 4. Parser側のimpl_definitions_をクリア
+    sync_impl_definitions_from_parser(&parser);
 
     // モジュールをロード済みとしてマーク
     loaded_modules.insert(module_path);
