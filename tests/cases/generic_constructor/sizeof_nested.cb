@@ -73,9 +73,9 @@ void main() {
     
     int box_long_size = sizeof(Box<long>);
     println("sizeof(Box<long>) = ", box_long_size);
-    // Note: 実際には8バイト（long+intだがパディング無し）
-    if (box_long_size != 8) {
-        println("ERROR: sizeof(Box<long>) should be 8, got ", box_long_size);
+    // long(8) + int(4) = 12バイト（アラインメント処理なし）
+    if (box_long_size != 12) {
+        println("ERROR: sizeof(Box<long>) should be 12, got ", box_long_size);
         return;
     }
     

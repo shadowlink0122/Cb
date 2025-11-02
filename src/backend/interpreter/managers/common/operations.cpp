@@ -86,11 +86,21 @@ void CommonOperations::assign_array_literal_to_variable(
     // const配列への代入チェック
     check_const_assignment(var, "array");
 
-    // サイズチェック
-    if (result.size > static_cast<size_t>(var->array_size)) {
+    // サイズチェック（多次元配列の場合はtotal sizeを計算）
+    size_t total_size = var->array_size;
+    if (var->is_multidimensional && var->array_dimensions.size() > 1) {
+        total_size = 1;
+        for (int dim : var->array_dimensions) {
+            if (dim > 0) {
+                total_size *= dim;
+            }
+        }
+    }
+    
+    if (result.size > total_size) {
         throw std::runtime_error("Array literal has too many elements: " +
                                  std::to_string(result.size) + " > " +
-                                 std::to_string(var->array_size));
+                                 std::to_string(total_size));
     }
 
     // 配列に代入
@@ -111,7 +121,7 @@ void CommonOperations::assign_array_literal_to_variable(
         if (var->is_multidimensional && var->array_dimensions.size() > 1) {
             var->multidim_array_strings = result.string_values;
             // 残りの要素を空文字で埋める
-            var->multidim_array_strings.resize(var->array_size, "");
+            var->multidim_array_strings.resize(total_size, "");
             var->multidim_array_values.clear();
         } else {
             var->array_strings = result.string_values;
@@ -149,9 +159,9 @@ void CommonOperations::assign_array_literal_to_variable(
         }
 
         if (var->is_multidimensional && var->array_dimensions.size() > 1) {
-            // 多次元配列
+            // 多次元配列 - total_sizeを使用
             var->multidim_array_values = int_repr;
-            var->multidim_array_values.resize(var->array_size, 0);
+            var->multidim_array_values.resize(total_size, 0);
 
             if (base_type == TYPE_FLOAT) {
                 var->multidim_array_float_values.clear();
@@ -159,12 +169,12 @@ void CommonOperations::assign_array_literal_to_variable(
                     var->multidim_array_float_values.push_back(
                         static_cast<float>(val));
                 }
-                var->multidim_array_float_values.resize(var->array_size, 0.0f);
+                var->multidim_array_float_values.resize(total_size, 0.0f);
                 var->multidim_array_double_values.clear();
                 var->multidim_array_quad_values.clear();
             } else if (base_type == TYPE_DOUBLE) {
                 var->multidim_array_double_values = result.float_values;
-                var->multidim_array_double_values.resize(var->array_size, 0.0);
+                var->multidim_array_double_values.resize(total_size, 0.0);
                 var->multidim_array_float_values.clear();
                 var->multidim_array_quad_values.clear();
             } else { // TYPE_QUAD
@@ -173,13 +183,13 @@ void CommonOperations::assign_array_literal_to_variable(
                     var->multidim_array_quad_values.push_back(
                         static_cast<long double>(val));
                 }
-                var->multidim_array_quad_values.resize(var->array_size, 0.0L);
+                var->multidim_array_quad_values.resize(total_size, 0.0L);
                 var->multidim_array_float_values.clear();
                 var->multidim_array_double_values.clear();
             }
 
             var->array_values = int_repr;
-            var->array_values.resize(var->array_size, 0);
+            var->array_values.resize(total_size, 0);
             var->multidim_array_strings.clear();
         } else {
             // 1次元配列
@@ -246,9 +256,9 @@ void CommonOperations::assign_array_literal_to_variable(
 
     if (var->is_multidimensional && var->array_dimensions.size() > 1) {
         var->multidim_array_values = adjusted_values;
-        var->multidim_array_values.resize(var->array_size, 0);
+        var->multidim_array_values.resize(total_size, 0);
         var->array_values = adjusted_values;
-        var->array_values.resize(var->array_size, 0);
+        var->array_values.resize(total_size, 0);
         var->multidim_array_strings.clear();
     } else {
         var->array_values = adjusted_values;

@@ -348,17 +348,24 @@ void StructSyncManager::sync_struct_members_from_direct_access(
                 // 多次元配列の場合は multidim_array_values
                 // も初期化（元の値をコピー）
                 if (var->struct_members[member.name].is_multidimensional) {
+                    // 多次元配列のtotal sizeを計算
+                    size_t total_size = 1;
+                    for (int dim : direct_var->array_dimensions) {
+                        if (dim > 0) {
+                            total_size *= dim;
+                        }
+                    }
+                    
                     // 既存の multidim_array_values
                     // をバックアップしてからリサイズ
                     std::vector<int64_t> backup_values =
                         direct_var->multidim_array_values;
                     var->struct_members[member.name]
-                        .multidim_array_values.resize(direct_var->array_size);
+                        .multidim_array_values.resize(total_size);
 
                     // バックアップした値を復元
                     size_t copy_size =
-                        std::min(backup_values.size(),
-                                 static_cast<size_t>(direct_var->array_size));
+                        std::min(backup_values.size(), total_size);
                     for (size_t i = 0; i < copy_size; i++) {
                         var->struct_members[member.name]
                             .multidim_array_values[i] = backup_values[i];
@@ -366,9 +373,9 @@ void StructSyncManager::sync_struct_members_from_direct_access(
 
                     debug_print(
                         "SYNC_STRUCT: Initialized multidim_array_values for "
-                        "%s.%s (size: %d, copied: %zu values)\n",
+                        "%s.%s (total_size: %zu, copied: %zu values)\n",
                         var_name.c_str(), member.name.c_str(),
-                        direct_var->array_size, copy_size);
+                        total_size, copy_size);
                 }
 
                 // 個別要素変数からデータをコピー
