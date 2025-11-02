@@ -97,6 +97,10 @@ struct Variable {
 
     // struct用メンバ変数
     std::map<std::string, Variable> struct_members;
+    
+    // v0.13.1: デストラクタスコープでの参照用
+    // nullptrでない場合、struct_membersの代わりにこちらを参照する
+    std::map<std::string, Variable>* struct_members_ref = nullptr;
 
     // interface用
     std::string interface_name;      // interface型の場合のinterface名
@@ -190,6 +194,9 @@ struct Variable {
         multidim_array_double_values = other.multidim_array_double_values;
         multidim_array_quad_values = other.multidim_array_quad_values;
         multidim_array_strings = other.multidim_array_strings;
+        
+        // v0.13.1: 参照はコピーしない（デストラクタ専用）
+        struct_members_ref = nullptr;
     }
 
     // 代入演算子をデバッグ出力付きで定義
@@ -256,6 +263,9 @@ struct Variable {
             multidim_array_double_values = other.multidim_array_double_values;
             multidim_array_quad_values = other.multidim_array_quad_values;
             multidim_array_strings = other.multidim_array_strings;
+            
+            // v0.13.1: 参照はコピーしない（デストラクタ専用）
+            struct_members_ref = nullptr;
         }
         return *this;
     }
@@ -275,6 +285,15 @@ struct Variable {
           float_value(0.0f), double_value(0.0), quad_value(0.0L), big_value(0),
           array_size(0), is_function_pointer(false), function_pointer_name(""),
           array_type_info(array_info) {}
+
+    // v0.13.1: struct_membersへのアクセス（参照があればそれを使う）
+    std::map<std::string, Variable>& get_struct_members() {
+        return struct_members_ref ? *struct_members_ref : struct_members;
+    }
+    
+    const std::map<std::string, Variable>& get_struct_members() const {
+        return struct_members_ref ? *struct_members_ref : struct_members;
+    }
 
     // struct用コンストラクタ
     Variable(const std::string &struct_name)

@@ -3450,7 +3450,30 @@ void Interpreter::call_destructor(const std::string &var_name,
             debug_print("[DESTRUCTOR] Executing destructor body for %s\n",
                         var_name.c_str());
         }
-        execute_statement(destructor->body.get());
+        
+        // v0.13.1: デストラクタ専用の実行ループ
+        // ループ内でselfの変更を逐次反映する必要がある
+        if (destructor->body->node_type == ASTNodeType::AST_STMT_LIST) {
+            // Statement listの場合、各ステートメントを1つずつ実行してwriteback
+            for (const auto& stmt : destructor->body->statements) {
+                execute_statement(stmt.get());
+                
+                // 各ステートメント後にselfの変更を元の変数に書き戻す
+                if (struct_var) {
+                    Variable *self_after = find_variable("self");
+                    if (self_after) {
+                        struct_var->struct_members = self_after->struct_members;
+                        if (debug_mode) {
+                            debug_print("[DESTRUCTOR] Wrote back self after statement\n");
+                        }
+                    }
+                }
+            }
+        } else {
+            // 単一ステートメントの場合は通常通り実行
+            execute_statement(destructor->body.get());
+        }
+        
         if (debug_mode) {
             debug_print(
                 "[DESTRUCTOR] Destructor body execution completed for %s\n",
@@ -3458,29 +3481,24 @@ void Interpreter::call_destructor(const std::string &var_name,
         }
     }
 
-    // v0.13.0: デストラクタ内でselfへの変更を元の変数に書き戻す
+    // v0.13.1: デストラクタ内でselfへの変更を元の変数に書き戻す
     // （Queueのデストラクタでself.frontが更新されるなど）
     // 重要：pop_scope()の前に実行し、元の変数を先にマークする
     if (struct_var) {
         // まず元の変数にdestructor_calledフラグを設定（double free防止）
         struct_var->destructor_called = true;
 
-        // TODO v0.14.0: writebackは現在無効化（ループ内のself更新で問題が発生）
-        // 理由: デストラクタ内でselfメンバーをループ内で更新する場合、
-        //       writebackが最後に1回だけ実行されるため、ループの各イテレーションで
-        //       古い値を読み取ってしまい、クラッシュの原因となる
-        // 
-        // 解決には、各ステートメント実行後にwritebackを行う必要があるが、
-        // パフォーマンスへの影響が大きい
-        //
-        // Variable *self_after = find_variable("self");
-        // if (self_after) {
-        //     struct_var->struct_members = self_after->struct_members;
-        //     if (debug_mode) {
-        //         debug_print("Wrote back self changes to %s after destructor\n",
-        //                     var_name.c_str());
-        //     }
-        // }
+        // v0.13.1: 参照メカニズムを使用している場合、明示的なwritebackは不要
+        // しかし、参照が設定されていない場合のフォールバックとして残す
+        Variable *self_after = find_variable("self");
+        if (self_after && !self_after->struct_members_ref) {
+            // 参照が使われていない場合のみwriteback
+            struct_var->struct_members = self_after->struct_members;
+            if (debug_mode) {
+                debug_print("Wrote back self changes to %s after destructor\n",
+                            var_name.c_str());
+            }
+        }
     }
 
     pop_scope(); // デストラクタスコープを終了
