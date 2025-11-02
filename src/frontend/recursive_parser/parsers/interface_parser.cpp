@@ -4,6 +4,7 @@
 #include "../recursive_parser.h"
 #include <iostream>
 #include <memory>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 
@@ -483,7 +484,8 @@ ASTNode *InterfaceParser::parseImplDeclaration() {
             destructor->body.reset(destructor_body);
             parser_->setLocation(destructor, parser_->current_token_);
 
-            impl_def.set_destructor(destructor);
+            // v0.11.0: vector再配置対策のため、後でnode->argumentsから設定
+            // impl_def.set_destructor(destructor);
             method_nodes.push_back(std::unique_ptr<ASTNode>(destructor));
 
             debug_msg(DebugMsgId::PARSE_VAR_DECL, struct_name.c_str(),
@@ -554,7 +556,8 @@ ASTNode *InterfaceParser::parseImplDeclaration() {
             constructor->body.reset(constructor_body);
             parser_->setLocation(constructor, parser_->current_token_);
 
-            impl_def.add_constructor(constructor);
+            // v0.11.0: vector再配置対策のため、後でnode->argumentsから設定
+            // impl_def.add_constructor(constructor);
             method_nodes.push_back(std::unique_ptr<ASTNode>(constructor));
 
             debug_msg(DebugMsgId::PARSE_VAR_DECL, struct_name.c_str(),
@@ -848,8 +851,9 @@ ASTNode *InterfaceParser::parseImplDeclaration() {
                 }
             }
 
+            // v0.11.0: vector再配置対策のため、後でnode->argumentsから設定
             // メソッド情報を保存（ImplDefinitionにはポインタのみ保持）
-            impl_def.add_method(method_impl.get());
+            // impl_def.add_method(method_impl.get());
             method_nodes.push_back(std::move(method_impl));
             debug_msg(DebugMsgId::PARSE_VAR_DECL, method_name.c_str(),
                       "impl_method");
@@ -902,7 +906,7 @@ ASTNode *InterfaceParser::parseImplDeclaration() {
         }
     }
 
-    // ASTノードを作成
+    // ASTNode を作成
     ASTNode *node = new ASTNode(ASTNodeType::AST_IMPL_DECL);
     node->name = interface_name + "_for_" + struct_name;
     node->type_name = struct_name;         // struct名を保存
@@ -912,6 +916,40 @@ ASTNode *InterfaceParser::parseImplDeclaration() {
     // が含まれることで判定
     node->is_generic = (interface_name.find('<') != std::string::npos) ||
                        (struct_name.find('<') != std::string::npos);
+
+    // v0.11.0: 型パラメータを抽出（struct_nameから）
+    // 例: Queue<T> → type_parameters = ["T"]
+    if (node->is_generic) {
+        std::vector<std::string> extracted_params;
+        std::string target = struct_name.empty() ? interface_name : struct_name;
+        size_t lt = target.find('<');
+        size_t gt = target.rfind('>');
+        if (lt != std::string::npos && gt != std::string::npos && gt > lt) {
+            std::string params_str = target.substr(lt + 1, gt - lt - 1);
+            // カンマで分割（簡易版：ネストした<>は考慮しない）
+            std::stringstream ss(params_str);
+            std::string param;
+            while (std::getline(ss, param, ',')) {
+                // 前後の空白を削除
+                size_t start = param.find_first_not_of(" \t");
+                size_t end = param.find_last_not_of(" \t");
+                if (start != std::string::npos) {
+                    param = param.substr(start, end - start + 1);
+                    // : Allocator のような境界は削除
+                    size_t colon = param.find(':');
+                    if (colon != std::string::npos) {
+                        param = param.substr(0, colon);
+                        // 再度空白削除
+                        end = param.find_last_not_of(" \t");
+                        param = param.substr(0, end + 1);
+                    }
+                    extracted_params.push_back(param);
+                }
+            }
+        }
+        node->type_parameters = extracted_params;
+    }
+
     parser_->setLocation(node, parser_->current_token_);
 
     // impl static変数の所有権をASTノードに移動
@@ -934,6 +972,21 @@ ASTNode *InterfaceParser::parseImplDeclaration() {
 
     // v0.11.0: vectorに追加後の実際のポインタを取得
     const ASTNode *stable_node_ptr = parser_->impl_nodes_.back().get();
+
+    // v0.11.0: impl定義のメソッド/コンストラクタ/デストラクタを
+    // node->argumentsから設定（vector再配置後の安定したポインタを使用）
+    impl_def.methods.clear();
+    impl_def.constructors.clear();
+    impl_def.destructor = nullptr;
+    for (const auto &arg : stable_node_ptr->arguments) {
+        if (arg->node_type == ASTNodeType::AST_FUNC_DECL) {
+            impl_def.methods.push_back(arg.get());
+        } else if (arg->node_type == ASTNodeType::AST_CONSTRUCTOR_DECL) {
+            impl_def.constructors.push_back(arg.get());
+        } else if (arg->node_type == ASTNodeType::AST_DESTRUCTOR_DECL) {
+            impl_def.destructor = arg.get();
+        }
+    }
 
     // impl定義を保存（安定したポインタを使用）
     impl_def.impl_node = stable_node_ptr;

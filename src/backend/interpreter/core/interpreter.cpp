@@ -1405,85 +1405,13 @@ void Interpreter::handle_import_statement(const ASTNode *node) {
                 break;
 
             case ASTNodeType::AST_IMPL_DECL:
-                // impl定義を登録
-                {
-                    if (debug_mode) {
-                        std::cerr << "[IMPORT] Registering impl for struct: "
-                                  << stmt->struct_name
-                                  << " interface: " << stmt->interface_name
-                                  << std::endl;
-                    }
-
-                    // ImplDefinitionを作成して登録
-                    // これにより、interface境界チェックでimpl関係が認識される
-                    ImplDefinition impl_def;
-                    impl_def.struct_name = stmt->struct_name;
-                    impl_def.interface_name = stmt->interface_name;
-                    // v0.13.1: 生ポインタに戻したので、そのまま代入
-                    impl_def.impl_node = stmt;
-
-                    if (debug_mode) {
-                        std::cerr << "[IMPORT] Creating impl_def: struct="
-                                  << stmt->struct_name
-                                  << ", interface=" << stmt->interface_name
-                                  << ", impl_node=" << (void *)stmt
-                                  << std::endl;
-                    }
-
-                    // メソッドをimpl_defに追加（境界チェックに必要）
-                    for (const auto &arg : stmt->arguments) {
-                        if (arg &&
-                            arg->node_type == ASTNodeType::AST_FUNC_DECL) {
-                            impl_def.add_method(arg.get());
-                        }
-                    }
-                    interface_operations_->register_impl_definition(impl_def);
-
-                    // コンストラクタ・デストラクタの登録処理
-                    std::string struct_name = stmt->struct_name;
-                    for (const auto &arg : stmt->arguments) {
-                        if (!arg) {
-                            continue;
-                        }
-
-                        if (arg->node_type ==
-                            ASTNodeType::AST_CONSTRUCTOR_DECL) {
-                            struct_constructors_[struct_name].push_back(
-                                arg.get());
-
-                            // コンストラクタを関数としても登録（Rectangle()で呼び出せるように）
-                            // コンストラクタASTノードを直接関数として登録
-                            register_function_to_global(struct_name, arg.get());
-                            // 修飾名でも登録
-                            std::string qualified_name =
-                                module_path + "." + struct_name;
-                            register_function_to_global(qualified_name,
-                                                        arg.get());
-
-                            if (debug_mode) {
-                                std::cerr
-                                    << "[IMPORT] Registered constructor for "
-                                    << struct_name
-                                    << " (params: " << arg->parameters.size()
-                                    << ")" << std::endl;
-                                std::cerr
-                                    << "[IMPORT] Also registered as function: "
-                                    << struct_name << " and " << qualified_name
-                                    << std::endl;
-                            }
-                        } else if (arg->node_type ==
-                                   ASTNodeType::AST_DESTRUCTOR_DECL) {
-                            struct_destructors_[struct_name] = arg.get();
-                            if (debug_mode) {
-                                std::cerr
-                                    << "[IMPORT] Registered destructor for "
-                                    << struct_name << std::endl;
-                            }
-                        }
-                    }
-
-                    // implメソッドをグローバルに登録
-                    handle_impl_declaration(stmt);
+                // v0.11.0: impl定義の登録は、impl_nodes転送後に処理される
+                // （上のimpl_nodes転送コードを参照）
+                // ここではスキップして、転送後のノードを使用する
+                if (debug_mode) {
+                    std::cerr << "[IMPORT] Skipping AST_IMPL_DECL (will be "
+                                 "processed after impl_nodes transfer): "
+                              << stmt->struct_name << std::endl;
                 }
                 break;
 
@@ -1559,6 +1487,30 @@ void Interpreter::handle_import_statement(const ASTNode *node) {
                 break;
             }
         }
+    }
+
+    // v0.11.0: module parserのimpl_nodes_をInterpreterに転送
+    // module_parserはローカル変数なので、この関数の終わりで破棄される
+    // 破棄される前にimpl_nodes_の所有権を転送する必要がある
+    auto &parser_impl_nodes = parser.get_impl_nodes_for_transfer();
+    if (!parser_impl_nodes.empty()) {
+        if (debug_mode) {
+            std::cerr << "[IMPORT] Transferring " << parser_impl_nodes.size()
+                      << " impl nodes from module parser to interpreter"
+                      << std::endl;
+        }
+
+        // 所有権を移動
+        for (auto &node : parser_impl_nodes) {
+            if (debug_mode) {
+                std::cerr << "[IMPORT]   Transferring impl_node="
+                          << (void *)node.get()
+                          << ", arguments.size()=" << node->arguments.size()
+                          << std::endl;
+            }
+            impl_nodes_.push_back(std::move(node));
+        }
+        parser_impl_nodes.clear();
     }
 
     // モジュールをロード済みとしてマーク
@@ -3479,7 +3431,7 @@ void Interpreter::register_impl_definition(const ImplDefinition &impl_def) {
     interface_operations_->register_impl_definition(impl_def);
 }
 
-const std::vector<ImplDefinition> &Interpreter::get_impl_definitions() const {
+const std::deque<ImplDefinition> &Interpreter::get_impl_definitions() const {
     return interface_operations_->get_impl_definitions();
 }
 

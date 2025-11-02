@@ -7,7 +7,9 @@
 #include <sstream>
 
 InterfaceOperations::InterfaceOperations(Interpreter *interpreter)
-    : interpreter_(interpreter) {}
+    : interpreter_(interpreter) {
+    // v0.11.0: deque使用によりreserve不要（要素追加時に既存要素が移動しない）
+}
 
 // ========================================================================
 // Interface定義管理
@@ -55,10 +57,30 @@ void InterfaceOperations::register_impl_definition(
     ImplDefinition stored_def(trim(impl_def.interface_name),
                               trim(impl_def.struct_name));
     stored_def.methods = impl_def.methods;
+    stored_def.constructors =
+        impl_def.constructors; // v0.11.0: constructorsもコピー
     stored_def.destructor =
         impl_def.destructor; // v0.10.0: デストラクタもコピー
     // v0.13.1: 生ポインタなのでそのままコピー（所有権はパーサーが持つ）
     stored_def.impl_node = impl_def.impl_node;
+
+    // v0.11.0: type_parameter_mapとis_generic_instanceもコピー
+    stored_def.type_parameter_map = impl_def.type_parameter_map;
+    stored_def.is_generic_instance = impl_def.is_generic_instance;
+
+    debug_print("[REGISTER_IMPL] Copying ImplDefinition: methods.size()=%zu, "
+                "constructors.size()=%zu\n",
+                stored_def.methods.size(), stored_def.constructors.size());
+    debug_print("[REGISTER_IMPL]   methods.data()=%p (from %p)\n",
+                (void *)stored_def.methods.data(),
+                (void *)impl_def.methods.data());
+    debug_print("[REGISTER_IMPL]   constructors.data()=%p (from %p)\n",
+                (void *)stored_def.constructors.data(),
+                (void *)impl_def.constructors.data());
+    for (size_t i = 0; i < stored_def.constructors.size(); ++i) {
+        debug_print("[REGISTER_IMPL]   constructors[%zu]=%p\n", i,
+                    (void *)stored_def.constructors[i]);
+    }
 
     auto existing = std::find_if(
         impl_definitions_.begin(), impl_definitions_.end(),
@@ -215,7 +237,7 @@ void InterfaceOperations::register_impl_definition(
                 impl_definitions_.size());
 }
 
-const std::vector<ImplDefinition> &
+const std::deque<ImplDefinition> &
 InterfaceOperations::get_impl_definitions() const {
     debug_print("GET_IMPL_DEFS: Called! size=%zu, addr=%p\n",
                 impl_definitions_.size(), (void *)&impl_definitions_);
@@ -316,10 +338,20 @@ InterfaceOperations::find_impl_for_struct(const std::string &struct_name,
             }
 
             debug_print("[FIND_IMPL] Match result: struct_match=%d, "
-                        "interface_match=%d\n",
-                        struct_match, interface_match);
+                        "interface_match=%d, interface_name='%s'\n",
+                        struct_match, interface_match,
+                        impl_def.interface_name.c_str());
 
-            if (struct_match && interface_match && impl_def.impl_node) {
+            // v0.13.1: interface impl と constructor-only impl の両方を処理
+            // 1. interface implの場合: struct_match && interface_match
+            // 2. constructor-only implの場合: struct_match &&
+            // interface_name.empty()
+            bool is_interface_impl = struct_match && interface_match;
+            bool is_constructor_impl =
+                struct_match && impl_def.interface_name.empty();
+
+            if ((is_interface_impl || is_constructor_impl) &&
+                impl_def.impl_node) {
                 // v0.13.1: 実行時型解決アプローチ
                 // ノードをクローンせず、型マッピング情報を含む新しいImplDefinitionを作成
                 try {
@@ -339,19 +371,91 @@ InterfaceOperations::find_impl_for_struct(const std::string &struct_name,
                     // 型パラメータマッピングを作成
                     std::map<std::string, std::string> type_map;
                     auto type_params = impl_def.impl_node->type_parameters;
+                    debug_print(
+                        "[GENERIC_IMPL] Building type_map: "
+                        "type_params.size()=%zu, type_arguments.size()=%zu\n",
+                        type_params.size(), type_arguments.size());
                     for (size_t i = 0;
                          i < type_params.size() && i < type_arguments.size();
                          ++i) {
+                        debug_print("[GENERIC_IMPL]   Mapping: %s -> %s\n",
+                                    type_params[i].c_str(),
+                                    type_arguments[i].c_str());
                         type_map[type_params[i]] = type_arguments[i];
                     }
 
                     // 既にこのインスタンス化が存在するかチェック
-                    for (const auto &impl : impl_definitions_) {
+                    for (size_t cached_idx = 0;
+                         cached_idx < impl_definitions_.size(); ++cached_idx) {
+                        const auto &impl = impl_definitions_[cached_idx];
                         if (impl.struct_name == inst_struct &&
                             impl.interface_name == inst_interface) {
+                            debug_print("[GENERIC_IMPL] Found cached instance: "
+                                        "%s for %s (index=%zu)\n",
+                                        inst_interface.c_str(),
+                                        inst_struct.c_str(), cached_idx);
                             debug_print(
-                                "[GENERIC_IMPL] Found cached instance\n");
-                            return &impl;
+                                "[GENERIC_IMPL]   impl_node=%p, "
+                                "methods.size()=%zu, constructors.size()=%zu\n",
+                                (void *)impl.impl_node, impl.methods.size(),
+                                impl.constructors.size());
+                            debug_print("[GENERIC_IMPL]   "
+                                        "type_parameter_map.size()=%zu, "
+                                        "is_generic_instance=%d\n",
+                                        impl.type_parameter_map.size(),
+                                        (int)impl.is_generic_instance);
+                            if (!impl.type_parameter_map.empty()) {
+                                for (const auto &pair :
+                                     impl.type_parameter_map) {
+                                    debug_print("[GENERIC_IMPL]     %s -> %s\n",
+                                                pair.first.c_str(),
+                                                pair.second.c_str());
+                                }
+                            }
+                            if (!impl.methods.empty()) {
+                                debug_print(
+                                    "[GENERIC_IMPL]   First method=%p\n",
+                                    (void *)impl.methods[0]);
+                            }
+
+                            // v0.13.1: constructor-only
+                            // implからconstructorを追加 interface
+                            // implにconstructorがない場合、同じstructのconstructor-only
+                            // implを探す
+                            if (impl.constructors.empty()) {
+                                debug_print("[GENERIC_IMPL] No constructors in "
+                                            "cached impl, searching for "
+                                            "constructor-only impl\n");
+                                for (const auto &ctor_impl :
+                                     impl_definitions_) {
+                                    if (ctor_impl.struct_name ==
+                                            generic_struct_pattern &&
+                                        ctor_impl.interface_name.empty() &&
+                                        !ctor_impl.constructors.empty()) {
+                                        debug_print(
+                                            "[GENERIC_IMPL] Found "
+                                            "constructor-only impl with %zu "
+                                            "constructors\n",
+                                            ctor_impl.constructors.size());
+                                        // constructorを追加（非const参照経由）
+                                        auto &mutable_impl =
+                                            impl_definitions_[cached_idx];
+                                        for (const auto *ctor :
+                                             ctor_impl.constructors) {
+                                            mutable_impl.constructors.push_back(
+                                                ctor);
+                                            debug_print(
+                                                "[GENERIC_IMPL]   Added "
+                                                "constructor at %p\n",
+                                                (void *)ctor);
+                                        }
+                                        break;
+                                    }
+                                }
+                            }
+
+                            // インデックス経由でポインタを返す（参照の安全性向上）
+                            return &impl_definitions_[cached_idx];
                         }
                     }
 
@@ -364,38 +468,152 @@ InterfaceOperations::find_impl_for_struct(const std::string &struct_name,
                     new_impl.type_parameter_map = type_map;
                     new_impl.is_generic_instance = true;
 
+                    debug_print("[GENERIC_IMPL] Creating new instance: "
+                                "type_map.size()=%zu\n",
+                                type_map.size());
+                    for (const auto &pair : type_map) {
+                        debug_print("[GENERIC_IMPL]   Setting map: %s -> %s\n",
+                                    pair.first.c_str(), pair.second.c_str());
+                    }
+
                     // implノードからメソッド、コンストラクタ、デストラクタを抽出
                     if (impl_def.impl_node &&
                         !impl_def.impl_node->arguments.empty()) {
+                        // v0.11.0: ベクター再配置を防ぐため、事前にreserve
+                        new_impl.methods.reserve(
+                            impl_def.impl_node->arguments.size());
+                        new_impl.constructors.reserve(
+                            impl_def.impl_node->arguments.size());
+
+                        debug_print("[GENERIC_IMPL] Extracting methods from "
+                                    "impl_node=%p, "
+                                    "arguments.size()=%zu\n",
+                                    (void *)impl_def.impl_node,
+                                    impl_def.impl_node->arguments.size());
+
                         for (const auto &arg : impl_def.impl_node->arguments) {
                             if (!arg)
                                 continue;
 
+                            debug_print(
+                                "[GENERIC_IMPL]   arg=%p, arg.get()=%p, "
+                                "node_type=%d, impl_def.impl_node=%p\n",
+                                (void *)&arg, (void *)arg.get(),
+                                (int)arg->node_type,
+                                (void *)impl_def.impl_node);
+
+                            // AST_FUNC_DECL (methods) と AST_CONSTRUCTOR_DECL
+                            // (constructors) と AST_DESTRUCTOR_DECL
+                            // (destructor) を処理
                             if (arg->node_type == ASTNodeType::AST_FUNC_DECL) {
                                 if (arg->name == "new") {
                                     new_impl.constructors.push_back(arg.get());
+                                    debug_print("[GENERIC_IMPL]     Added "
+                                                "constructor (new): %s at %p\n",
+                                                arg->name.c_str(),
+                                                (void *)arg.get());
                                 } else if (arg->name.find('~') == 0) {
                                     new_impl.destructor = arg.get();
+                                    debug_print("[GENERIC_IMPL]     Added "
+                                                "destructor: %s at %p\n",
+                                                arg->name.c_str(),
+                                                (void *)arg.get());
                                 } else {
                                     new_impl.methods.push_back(arg.get());
+                                    debug_print("[GENERIC_IMPL]     Added "
+                                                "method: %s at %p\n",
+                                                arg->name.c_str(),
+                                                (void *)arg.get());
                                 }
+                            } else if (arg->node_type ==
+                                       ASTNodeType::AST_CONSTRUCTOR_DECL) {
+                                new_impl.constructors.push_back(arg.get());
+                                debug_print(
+                                    "[GENERIC_IMPL]     Added constructor "
+                                    "(self): %s at %p\n",
+                                    arg->constructor_struct_name.c_str(),
+                                    (void *)arg.get());
+                            } else if (arg->node_type ==
+                                       ASTNodeType::AST_DESTRUCTOR_DECL) {
+                                new_impl.destructor = arg.get();
+                                debug_print("[GENERIC_IMPL]     Added "
+                                            "destructor (~self): at %p\n",
+                                            (void *)arg.get());
                             }
                         }
                     }
 
                     impl_definitions_.push_back(new_impl);
 
-                    debug_print("[GENERIC_IMPL] Created runtime instance: %zu "
-                                "methods, %zu constructors\n",
-                                new_impl.methods.size(),
-                                new_impl.constructors.size());
+                    size_t pushed_idx = impl_definitions_.size() - 1;
+
+                    // v0.13.1: constructor-only implからconstructorを追加
+                    // interface
+                    // implにconstructorがない場合、同じstructのconstructor-only
+                    // implを探す
+                    if (impl_definitions_[pushed_idx].constructors.empty()) {
+                        debug_print(
+                            "[GENERIC_IMPL] New impl has no constructors, "
+                            "searching for constructor-only impl\n");
+                        for (const auto &ctor_impl : impl_definitions_) {
+                            if (ctor_impl.struct_name ==
+                                    generic_struct_pattern &&
+                                ctor_impl.interface_name.empty() &&
+                                !ctor_impl.constructors.empty()) {
+                                debug_print(
+                                    "[GENERIC_IMPL] Found constructor-only "
+                                    "impl with %zu constructors\n",
+                                    ctor_impl.constructors.size());
+                                debug_print(
+                                    "[GENERIC_IMPL]   ctor_impl.impl_node=%p, "
+                                    "arguments.size()=%zu\n",
+                                    (void *)ctor_impl.impl_node,
+                                    ctor_impl.impl_node
+                                        ? ctor_impl.impl_node->arguments.size()
+                                        : 0);
+
+                                // constructorを追加（ctor_implのimpl_nodeからではなく、直接constructorsから）
+                                for (const auto *ctor :
+                                     ctor_impl.constructors) {
+                                    debug_print("[GENERIC_IMPL]   Constructor "
+                                                "pointer: %p\n",
+                                                (void *)ctor);
+                                    impl_definitions_[pushed_idx]
+                                        .constructors.push_back(ctor);
+                                    debug_print(
+                                        "[GENERIC_IMPL]   Added constructor at "
+                                        "%p to new impl\n",
+                                        (void *)ctor);
+                                }
+                                break;
+                            }
+                        }
+                    }
+
+                    debug_print(
+                        "[GENERIC_IMPL] Created runtime instance: %zu "
+                        "methods, %zu constructors, type_map.size=%zu\n",
+                        impl_definitions_[pushed_idx].methods.size(),
+                        impl_definitions_[pushed_idx].constructors.size(),
+                        impl_definitions_[pushed_idx]
+                            .type_parameter_map.size());
+
+                    // push_back後の確認
+                    debug_print("[GENERIC_IMPL] After push_back: "
+                                "impl_definitions_[%zu].type_parameter_map."
+                                "size()=%zu\n",
+                                pushed_idx,
+                                impl_definitions_[pushed_idx]
+                                    .type_parameter_map.size());
 
                     // v0.11.0: メソッドをグローバル関数として登録
                     // Queue<int>::enqueue 形式で登録（マングリングしない）
-                    const ImplDefinition &registered_impl =
-                        impl_definitions_.back();
+                    // 注意: impl_definitions_が再配置される可能性があるため、
+                    // 参照ではなくインデックスを使用
+                    size_t impl_index = impl_definitions_.size() - 1;
 
-                    for (const auto *method : registered_impl.methods) {
+                    for (const auto *method :
+                         impl_definitions_[impl_index].methods) {
                         if (!method)
                             continue;
 
@@ -409,7 +627,7 @@ InterfaceOperations::find_impl_for_struct(const std::string &struct_name,
                                     method_key.c_str());
                     }
 
-                    return &impl_definitions_.back();
+                    return &impl_definitions_[impl_index];
 
                     debug_print(
                         "[GENERIC_IMPL] Warning: processed impl not found\n");

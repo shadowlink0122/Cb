@@ -3,6 +3,7 @@
 #include "../../../common/debug.h"
 #include "type_inference.h"
 #include <cstdio>
+#include <deque>
 #include <iostream>
 #include <map>
 #include <set>
@@ -906,7 +907,7 @@ class Interpreter : public EvaluatorInterface {
     Variable *get_interface_variable(const std::string &var_name);
 
     // impl定義へのアクセサ (InterfaceOperationsへ委譲)
-    const std::vector<ImplDefinition> &get_impl_definitions() const;
+    const std::deque<ImplDefinition> &get_impl_definitions() const;
 
     // 関数コンテキスト
     std::string current_function_name; // 現在実行中の関数名

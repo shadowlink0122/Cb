@@ -333,6 +333,7 @@ test: integration-test unit-test stdlib-test
 clean:
 	@echo "Cleaning up build artifacts..."
 	rm -f $(MAIN_TARGET) $(CGEN_TARGET)
+	rm -f main_asan
 	rm -f tests/integration/test_main
 	rm -f tests/unit/test_main tests/unit/dummy.o
 	rm -f tests/stdlib/test_main

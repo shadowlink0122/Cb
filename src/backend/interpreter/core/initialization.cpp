@@ -172,7 +172,10 @@ void Interpreter::sync_impl_definitions_from_parser(RecursiveParser *parser) {
     if (!parser)
         return;
 
-    const auto &impl_defs = parser->get_impl_definitions();
+    // v0.11.0: Parserからimpl_definitions_のコピーを作成（後でクリアするため）
+    const auto &impl_defs_ref = parser->get_impl_definitions();
+    std::vector<ImplDefinition> impl_defs(impl_defs_ref.begin(),
+                                          impl_defs_ref.end());
 
     if (debug_mode) {
         std::cerr << "[SYNC_IMPL] Total impl definitions: " << impl_defs.size()
@@ -189,13 +192,80 @@ void Interpreter::sync_impl_definitions_from_parser(RecursiveParser *parser) {
 
         // 所有権を移動
         for (auto &node : parser_impl_nodes) {
+            debug_print(
+                "[SYNC_IMPL] Transferring impl_node=%p, arguments.size()=%zu\n",
+                (void *)node.get(), node->arguments.size());
             impl_nodes_.push_back(std::move(node));
         }
         parser_impl_nodes.clear();
+
+        debug_print(
+            "[SYNC_IMPL] After transfer, interpreter has %zu impl_nodes\n",
+            impl_nodes_.size());
     }
 
+    // v0.11.0:
+    // Parserのimpl_definitions_をクリア（Parser破棄時のuse-after-free対策）
+    // これらはInterpreterに転送されるので、Parser側では不要
+    auto &parser_impl_defs = parser->get_impl_definitions_for_clear();
+    debug_print("[SYNC_IMPL] Clearing %zu impl_definitions from parser\n",
+                parser_impl_defs.size());
+    parser_impl_defs.clear();
+
+    // v0.11.0: impl_defのimpl_nodeポインタを転送されたノードに更新
+    // （Parserのノードを指したままだと、Parser破棄時にuse-after-freeが発生）
+    // node_idxは今回転送されたノードの開始位置から始める
+    size_t node_idx = impl_nodes_.size() - impl_defs.size();
     for (size_t i = 0; i < impl_defs.size(); ++i) {
-        const auto &impl_def = impl_defs[i];
+        auto impl_def = impl_defs[i]; // コピー（ポインタを更新するため）
+
+        // impl_nodeをInterpreterの所有するノードに更新
+        if (node_idx < impl_nodes_.size()) {
+            impl_def.impl_node = impl_nodes_[node_idx].get();
+
+            if (debug_mode) {
+                std::cerr << "[SYNC_IMPL] [" << i
+                          << "] Updated impl_node to interpreter's node: "
+                          << (void *)impl_def.impl_node << std::endl;
+            }
+
+            // methods/constructors/destructorも更新されたノードから取得
+            impl_def.methods.clear();
+            impl_def.constructors.clear();
+            impl_def.destructor = nullptr;
+            for (const auto &arg : impl_def.impl_node->arguments) {
+                if (arg->node_type == ASTNodeType::AST_FUNC_DECL) {
+                    impl_def.methods.push_back(arg.get());
+                } else if (arg->node_type ==
+                           ASTNodeType::AST_CONSTRUCTOR_DECL) {
+                    impl_def.constructors.push_back(arg.get());
+
+                    // struct_constructors_にも登録
+                    struct_constructors_[impl_def.struct_name].push_back(
+                        arg.get());
+
+                    if (debug_mode) {
+                        std::cerr << "[SYNC_IMPL]   Extracted constructor at "
+                                  << (void *)arg.get()
+                                  << ", registered to struct_constructors_["
+                                  << impl_def.struct_name << "]" << std::endl;
+                    }
+                } else if (arg->node_type == ASTNodeType::AST_DESTRUCTOR_DECL) {
+                    impl_def.destructor = arg.get();
+
+                    // struct_destructors_にも登録
+                    struct_destructors_[impl_def.struct_name] = arg.get();
+
+                    if (debug_mode) {
+                        std::cerr << "[SYNC_IMPL]   Extracted destructor for "
+                                  << impl_def.struct_name << std::endl;
+                    }
+                }
+            }
+
+            node_idx++;
+        }
+
         interface_operations_->register_impl_definition(impl_def);
 
         if (debug_mode) {

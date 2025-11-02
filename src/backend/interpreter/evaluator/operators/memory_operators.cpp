@@ -45,6 +45,20 @@ static size_t get_type_size(const std::string &type_name,
         return sizeof(void *);
     }
 
+    // v0.11.0: ジェネリック型パラメータ（T, U等）を現在のTypeContextで解決
+    std::string resolved_in_context =
+        interpreter->resolve_type_in_context(type_name);
+    debug_print(
+        "[get_type_size] type_name='%s', resolved='%s', TypeContext=%s\n",
+        type_name.c_str(), resolved_in_context.c_str(),
+        (interpreter->get_current_type_context() ? "ACTIVE" : "NULL"));
+    if (resolved_in_context != type_name) {
+        // TypeContextで解決された型（例: T → int）
+        debug_print("[get_type_size] Resolved '%s' -> '%s' via TypeContext\n",
+                    type_name.c_str(), resolved_in_context.c_str());
+        return get_type_size(resolved_in_context, interpreter);
+    }
+
     // typedefを解決
     std::string resolved_type = interpreter->resolve_typedef(type_name);
     if (resolved_type != type_name) {

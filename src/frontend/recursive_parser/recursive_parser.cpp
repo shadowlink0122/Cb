@@ -2152,15 +2152,9 @@ void RecursiveParser::processImport(
         }
 
         if (should_import) {
-            // v0.13.1: 生ポインタに戻したので、通常のコピーでOK
-            ImplDefinition imported_impl = impl; // コピー可能
-
-            if (debug_mode_) {
-                std::cerr << "[IMPORT] Imported impl: "
-                          << imported_impl.struct_name << " for "
-                          << imported_impl.interface_name << std::endl;
-            }
-            impl_definitions_.push_back(imported_impl);
+            // v0.11.0:
+            // impl定義はimpl_nodes転送後に追加する（ポインタ更新のため）
+            // imported_implは後で処理
         } else if (debug_mode_) {
             std::cerr << "[IMPORT]   -> NOT imported (no match)" << std::endl;
         }
@@ -2169,6 +2163,9 @@ void RecursiveParser::processImport(
     // v0.11.0: implノードの所有権を転送（use-after-free対策）
     // module_parserのimpl_nodes_をこのparserに移動
     auto &module_impl_nodes = module_parser.get_impl_nodes_for_transfer();
+    size_t transferred_node_count = module_impl_nodes.size();
+    size_t impl_node_start_idx = impl_nodes_.size();
+
     if (!module_impl_nodes.empty()) {
         if (debug_mode_) {
             std::cerr << "[IMPORT] Transferring " << module_impl_nodes.size()
@@ -2180,6 +2177,54 @@ void RecursiveParser::processImport(
         }
         module_impl_nodes.clear();
     }
+
+    // v0.11.0: impl定義を追加し、impl_nodeポインタを更新済みノードに設定
+    // すべてのimpl定義を追加（元のループですでにフィルタリング済み）
+    const auto &module_impl_defs = module_parser.get_impl_definitions();
+    size_t node_idx = impl_node_start_idx;
+    for (size_t impl_idx = 0;
+         impl_idx < module_impl_defs.size() && node_idx < impl_nodes_.size();
+         ++impl_idx) {
+        const auto &impl = module_impl_defs[impl_idx];
+
+        // v0.11.0: 常にインポート（元のループで既にフィルタリング済み）
+        if (true) {
+            ImplDefinition imported_impl = impl; // コピー
+
+            // impl_nodeポインタを転送済みノードに更新
+            imported_impl.impl_node = impl_nodes_[node_idx].get();
+
+            // methods/constructors/destructorも更新済みノードから取得
+            imported_impl.methods.clear();
+            imported_impl.constructors.clear();
+            imported_impl.destructor = nullptr;
+            for (const auto &arg : imported_impl.impl_node->arguments) {
+                if (arg->node_type == ASTNodeType::AST_FUNC_DECL) {
+                    imported_impl.methods.push_back(arg.get());
+                } else if (arg->node_type ==
+                           ASTNodeType::AST_CONSTRUCTOR_DECL) {
+                    imported_impl.constructors.push_back(arg.get());
+                } else if (arg->node_type == ASTNodeType::AST_DESTRUCTOR_DECL) {
+                    imported_impl.destructor = arg.get();
+                }
+            }
+
+            if (debug_mode_) {
+                std::cerr << "[IMPORT] Imported impl: "
+                          << imported_impl.struct_name << " for "
+                          << imported_impl.interface_name << std::endl;
+            }
+
+            impl_definitions_.push_back(imported_impl);
+            node_idx++;
+        }
+    }
+
+    // v0.11.0:
+    // module_parserのimpl_definitions_をクリア（破棄時のuse-after-free対策）
+    auto &module_impl_defs_clear =
+        module_parser.get_impl_definitions_for_clear();
+    module_impl_defs_clear.clear();
 
     // NOTE: ASTノードの所有権はimpl_nodes_に移動済み
     // impl定義内のimpl_nodeポインタはこのimpl_nodes_内のノードを参照

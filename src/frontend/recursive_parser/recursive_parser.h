@@ -248,6 +248,11 @@ class RecursiveParser {
         return impl_nodes_;
     }
 
+    // v0.11.0: impl_definitions_クリア用（Parser破棄時のuse-after-free対策）
+    std::vector<ImplDefinition> &get_impl_definitions_for_clear() {
+        return impl_definitions_;
+    }
+
     // union定義へのアクセサ
     const std::unordered_map<std::string, UnionDefinition> &
     get_union_definitions() const {

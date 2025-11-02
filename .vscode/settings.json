@@ -61,7 +61,8 @@
         "algorithm": "cpp",
         "__memory": "cpp",
         "type_traits": "cpp",
-        "set": "cpp"
+        "set": "cpp",
+        "deque": "cpp"
     },
     "makefile.configureOnOpen": false
 }
