@@ -3420,7 +3420,13 @@ void Interpreter::call_destructor(const std::string &var_name,
 
     // デストラクタ本体を実行
     if (destructor->body) {
+        if (debug_mode) {
+            debug_print("[DESTRUCTOR] Executing destructor body for %s\n", var_name.c_str());
+        }
         execute_statement(destructor->body.get());
+        if (debug_mode) {
+            debug_print("[DESTRUCTOR] Destructor body execution completed for %s\n", var_name.c_str());
+        }
     }
 
     // v0.13.0: デストラクタ内でselfへの変更を元の変数に書き戻す

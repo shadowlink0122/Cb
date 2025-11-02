@@ -742,6 +742,31 @@ TypedValue evaluate_unary_op_typed(
                 return TypedValue(value, deref_type);
             }
         } else {
+            // v0.13.1: void* と void** の場合は生のポインタ値として扱う
+            // Variable* として reinterpret_cast するのは危険
+            if (check_type_name == "void**" || var_type_name == "void**") {
+                // void** をデリファレンスした結果は void* （生のポインタ値）
+                if (debug_mode) {
+                    std::cerr << "[DEREFERENCE] void** dereference: returning raw void* value=0x"
+                              << std::hex << ptr_int << std::dec << std::endl;
+                }
+                InferredType void_ptr_type(TYPE_POINTER, "void*");
+                return TypedValue(ptr_int, void_ptr_type);
+            }
+            
+            if (check_type_name == "void*" || var_type_name == "void*") {
+                // void* のデリファレンスは未定義動作だが、
+                // 暫定的に int として読み取る（malloc からの読み取りなど）
+                if (debug_mode) {
+                    std::cerr << "[DEREFERENCE] void* dereference: reading as int from 0x"
+                              << std::hex << ptr_int << std::dec << std::endl;
+                }
+                int *int_ptr = reinterpret_cast<int *>(ptr_int);
+                int value = *int_ptr;
+                InferredType int_type(TYPE_INT, "int");
+                return TypedValue(static_cast<int64_t>(value), int_type);
+            }
+            
             // 従来の方式（変数ポインタ）
             Variable *var = reinterpret_cast<Variable *>(ptr_int);
 
