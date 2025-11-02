@@ -96,7 +96,7 @@ void CommonOperations::assign_array_literal_to_variable(
             }
         }
     }
-    
+
     if (result.size > total_size) {
         throw std::runtime_error("Array literal has too many elements: " +
                                  std::to_string(result.size) + " > " +

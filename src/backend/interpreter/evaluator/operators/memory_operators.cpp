@@ -285,7 +285,8 @@ int64_t Interpreter::evaluate_delete_expression(const ASTNode *node) {
 }
 
 // Variableの型からサイズを取得するヘルパー関数
-static size_t get_variable_size(const Variable *var, Interpreter *interpreter = nullptr) {
+static size_t get_variable_size(const Variable *var,
+                                Interpreter *interpreter = nullptr) {
     if (!var)
         return 0;
 
@@ -375,7 +376,8 @@ static size_t get_variable_size(const Variable *var, Interpreter *interpreter = 
 }
 
 // TypedValueからサイズを取得するヘルパー関数
-static size_t get_typed_value_size(const TypedValue &tv, Interpreter *interpreter = nullptr) {
+static size_t get_typed_value_size(const TypedValue &tv,
+                                   Interpreter *interpreter = nullptr) {
     switch (tv.type.type_info) {
     case TYPE_INT:
         return sizeof(int);
@@ -438,23 +440,27 @@ int64_t Interpreter::evaluate_sizeof_expression(const ASTNode *node) {
             Variable *var = find_variable(expr->name);
             if (var) {
                 if (debug_mode) {
-                    std::cerr << "[sizeof] Variable '" << expr->name 
+                    std::cerr << "[sizeof] Variable '" << expr->name
                               << "', type=" << static_cast<int>(var->type)
-                              << ", struct_type_name='" << var->struct_type_name << "'" << std::endl;
+                              << ", struct_type_name='" << var->struct_type_name
+                              << "'" << std::endl;
                 }
                 result_size = get_variable_size(var, this);
             } else {
                 // 変数が見つからない場合、型名として解釈
                 result_size = get_type_size(expr->name, this);
             }
-        } else if (expr->node_type == ASTNodeType::AST_MEMBER_ACCESS && expr->left && expr->left->name == "self") {
-            // sizeof(self.member) のようなケース、または単に sizeof(self) が AST_MEMBER_ACCESS として解釈される場合
-            // "self" 変数を直接取得
+        } else if (expr->node_type == ASTNodeType::AST_MEMBER_ACCESS &&
+                   expr->left && expr->left->name == "self") {
+            // sizeof(self.member) のようなケース、または単に sizeof(self) が
+            // AST_MEMBER_ACCESS として解釈される場合 "self" 変数を直接取得
             Variable *self_var = find_variable("self");
             if (self_var) {
                 if (debug_mode) {
-                    std::cerr << "[sizeof] Self variable, type=" << static_cast<int>(self_var->type)
-                              << ", struct_type_name='" << self_var->struct_type_name << "'" << std::endl;
+                    std::cerr << "[sizeof] Self variable, type="
+                              << static_cast<int>(self_var->type)
+                              << ", struct_type_name='"
+                              << self_var->struct_type_name << "'" << std::endl;
                 }
                 result_size = get_variable_size(self_var, this);
             } else {

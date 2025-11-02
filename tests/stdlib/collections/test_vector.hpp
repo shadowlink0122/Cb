@@ -93,16 +93,24 @@ inline void test_generic_containers_comprehensive() {
     STDLIB_ASSERT_CONTAINS(output, "═══ Test 2: Vector<long> ═══");
     STDLIB_ASSERT_CONTAINS(output, "✅ Vector<long> works correctly");
     
+    // Queue<int> tests
+    STDLIB_ASSERT_CONTAINS(output, "═══ Test 3: Queue<int> ═══");
+    STDLIB_ASSERT_CONTAINS(output, "✅ Queue<int> works correctly");
+    
+    // Queue<long> tests
+    STDLIB_ASSERT_CONTAINS(output, "═══ Test 4: Queue<long> ═══");
+    STDLIB_ASSERT_CONTAINS(output, "✅ Queue<long> works correctly");
+    
     // Auto-resize test
-    STDLIB_ASSERT_CONTAINS(output, "═══ Test 3: Vector<int> auto-resize ═══");
+    STDLIB_ASSERT_CONTAINS(output, "═══ Test 5: Vector<int> auto-resize ═══");
     STDLIB_ASSERT_CONTAINS(output, "✅ Vector auto-resize works");
     
     // Circular buffer test
-    STDLIB_ASSERT_CONTAINS(output, "═══ Test 4: Vector<int> circular buffer ═══");
+    STDLIB_ASSERT_CONTAINS(output, "═══ Test 6: Queue<int> circular buffer ═══");
     STDLIB_ASSERT_CONTAINS(output, "✅ Circular buffer works");
     
     // Memory management test
-    STDLIB_ASSERT_CONTAINS(output, "═══ Test 5: Memory management ═══");
+    STDLIB_ASSERT_CONTAINS(output, "═══ Test 7: Memory management ═══");
     STDLIB_ASSERT_CONTAINS(output, "✅ Memory management works");
     
     // Final summary

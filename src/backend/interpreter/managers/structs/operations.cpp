@@ -748,14 +748,16 @@ int64_t StructOperations::get_struct_member_multidim_array_element(
         }
 
         if (interpreter_->debug_mode) {
-            debug_print("Calculated flat_index: %zu, multidim_array_values.size(): %zu\n", 
-                       flat_index, member_var->multidim_array_values.size());
+            debug_print("Calculated flat_index: %zu, "
+                        "multidim_array_values.size(): %zu\n",
+                        flat_index, member_var->multidim_array_values.size());
         }
 
         if (flat_index >= member_var->multidim_array_values.size()) {
-            throw std::runtime_error("Calculated flat index out of bounds: " +
-                                   std::to_string(flat_index) + " >= " +
-                                   std::to_string(member_var->multidim_array_values.size()));
+            throw std::runtime_error(
+                "Calculated flat index out of bounds: " +
+                std::to_string(flat_index) + " >= " +
+                std::to_string(member_var->multidim_array_values.size()));
         }
 
         if (interpreter_->debug_mode) {

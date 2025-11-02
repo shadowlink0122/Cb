@@ -1204,11 +1204,6 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                     "array_get() requires 2 arguments: array_get(ptr, index)");
             }
 
-            // TODO: 型パラメータから実際の型を解決
-            // 現時点では、ポインタの型情報から推論する必要がある
-            // 暫定的にarray_get_intにフォールバック
-
-            // 暫定的にintとして扱う
             int64_t ptr_value =
                 interpreter_.eval_expression(node->arguments[0].get());
             int64_t index =
@@ -1217,6 +1212,27 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
             if (ptr_value == 0 || index < 0)
                 return 0;
 
+            // v0.13.1: 型コンテキストからTの実際の型を取得
+            const TypeContext *type_ctx =
+                interpreter_.get_current_type_context();
+            if (type_ctx && type_ctx->has_mapping_for("T")) {
+                std::string actual_type = type_ctx->resolve_type("T");
+
+                // 型に応じて適切にメモリから読み取る
+                if (actual_type == "short") {
+                    short *arr = reinterpret_cast<short *>(ptr_value);
+                    return static_cast<int64_t>(arr[index]);
+                } else if (actual_type == "long") {
+                    long *arr = reinterpret_cast<long *>(ptr_value);
+                    return static_cast<int64_t>(arr[index]);
+                } else if (actual_type == "char") {
+                    char *arr = reinterpret_cast<char *>(ptr_value);
+                    return static_cast<int64_t>(arr[index]);
+                }
+                // int, その他はデフォルトのint扱い
+            }
+
+            // デフォルトはintとして扱う
             int *arr = reinterpret_cast<int *>(ptr_value);
             return static_cast<int64_t>(arr[index]);
         }
@@ -1229,7 +1245,6 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                                          "array_set(ptr, index, value)");
             }
 
-            // 暫定的にintとして扱う
             int64_t ptr_value =
                 interpreter_.eval_expression(node->arguments[0].get());
             int64_t index =
@@ -1240,6 +1255,30 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
             if (ptr_value == 0 || index < 0)
                 return 0;
 
+            // v0.13.1: 型コンテキストからTの実際の型を取得
+            const TypeContext *type_ctx =
+                interpreter_.get_current_type_context();
+            if (type_ctx && type_ctx->has_mapping_for("T")) {
+                std::string actual_type = type_ctx->resolve_type("T");
+
+                // 型に応じて適切にメモリに書き込む
+                if (actual_type == "short") {
+                    short *arr = reinterpret_cast<short *>(ptr_value);
+                    arr[index] = static_cast<short>(value);
+                    return 0;
+                } else if (actual_type == "long") {
+                    long *arr = reinterpret_cast<long *>(ptr_value);
+                    arr[index] = static_cast<long>(value);
+                    return 0;
+                } else if (actual_type == "char") {
+                    char *arr = reinterpret_cast<char *>(ptr_value);
+                    arr[index] = static_cast<char>(value);
+                    return 0;
+                }
+                // int, その他はデフォルトのint扱い
+            }
+
+            // デフォルトはintとして扱う
             int *arr = reinterpret_cast<int *>(ptr_value);
             arr[index] = static_cast<int>(value);
             return 0;
@@ -3469,6 +3508,65 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                                                 var_name.c_str(),
                                                 receiver_path.c_str(),
                                                 self_member_var.value);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // v0.13.1: メソッド内でメソッドを呼んだ場合、parent
+            // scopeのselfも更新する
+            // これにより、vec.push()内でself.reserve()を呼んだ後、push()内のselfが更新される
+            if (has_receiver && !receiver_name.empty()) {
+                auto &scope_stack = interpreter_.get_scope_stack();
+                // 現在のスコープ(呼ばれたメソッドのスコープ)の1つ上を確認
+                if (scope_stack.size() >= 2) {
+                    auto &parent_scope = scope_stack[scope_stack.size() - 2];
+                    // parent
+                    // scopeにselfが存在し、同じreceiverを参照している場合
+                    if (parent_scope.variables.find("self") !=
+                        parent_scope.variables.end()) {
+                        Variable &parent_self = parent_scope.variables["self"];
+                        // receiverと同じstruct_type_nameを持つ場合、更新する
+                        Variable *receiver_var_for_parent = nullptr;
+                        if (used_resolution_ptr && dereferenced_struct_ptr) {
+                            receiver_var_for_parent = dereferenced_struct_ptr;
+                        } else {
+                            receiver_var_for_parent =
+                                interpreter_.find_variable(receiver_name);
+                        }
+
+                        if (receiver_var_for_parent &&
+                            parent_self.struct_type_name ==
+                                receiver_var_for_parent->struct_type_name) {
+                            // parent scopeのselfを更新
+                            parent_self.struct_members =
+                                receiver_var_for_parent->struct_members;
+                            parent_self.value = receiver_var_for_parent->value;
+                            parent_self.str_value =
+                                receiver_var_for_parent->str_value;
+                            parent_self.float_value =
+                                receiver_var_for_parent->float_value;
+                            parent_self.double_value =
+                                receiver_var_for_parent->double_value;
+                            parent_self.quad_value =
+                                receiver_var_for_parent->quad_value;
+                            parent_self.big_value =
+                                receiver_var_for_parent->big_value;
+
+                            // parent scopeのself.member変数も更新
+                            for (const auto &member_pair :
+                                 parent_self.struct_members) {
+                                const std::string &member_name =
+                                    member_pair.first;
+                                const Variable &member_var = member_pair.second;
+                                std::string var_name = "self." + member_name;
+
+                                if (parent_scope.variables.find(var_name) !=
+                                    parent_scope.variables.end()) {
+                                    parent_scope.variables[var_name] =
+                                        member_var;
                                 }
                             }
                         }

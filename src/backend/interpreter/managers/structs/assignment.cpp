@@ -853,16 +853,20 @@ void StructAssignmentManager::assign_struct_member_array_literal(
                         }
                     }
                 }
-                
-                // Also update the direct variable (e.g., "matrix.data") so sync can access the full array
+
+                // Also update the direct variable (e.g., "matrix.data") so sync
+                // can access the full array
                 std::string direct_var_name = var_name + "." + member_name;
-                Variable *direct_var = interpreter_->find_variable(direct_var_name);
+                Variable *direct_var =
+                    interpreter_->find_variable(direct_var_name);
                 if (direct_var) {
-                    direct_var->multidim_array_values = member_var->multidim_array_values;
+                    direct_var->multidim_array_values =
+                        member_var->multidim_array_values;
                     direct_var->array_values = member_var->array_values;
                     direct_var->is_assigned = true;
                     if (interpreter_->debug_mode) {
-                        debug_print("Updated direct variable %s with %zu multidim_array_values\n",
+                        debug_print("Updated direct variable %s with %zu "
+                                    "multidim_array_values\n",
                                     direct_var_name.c_str(),
                                     direct_var->multidim_array_values.size());
                     }

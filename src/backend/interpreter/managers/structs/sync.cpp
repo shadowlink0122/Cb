@@ -275,7 +275,7 @@ void StructSyncManager::sync_struct_members_from_direct_access(
                 direct_var->is_array) {
                 // v0.11.1: 配列サイズの決定
                 int array_size = -1;
-                
+
                 // 1. direct_varが有効な配列でサイズが設定されている場合
                 if (direct_var->is_array && direct_var->array_size > 0) {
                     array_size = direct_var->array_size;
@@ -288,8 +288,10 @@ void StructSyncManager::sync_struct_members_from_direct_access(
                 // 3. 実際の配列要素をカウント
                 else {
                     int count = 0;
-                    for (int i = 0; i < 1000; ++i) {  // 上限1000
-                        std::string element_name = var_name + "." + member.name + "[" + std::to_string(i) + "]";
+                    for (int i = 0; i < 1000; ++i) { // 上限1000
+                        std::string element_name = var_name + "." +
+                                                   member.name + "[" +
+                                                   std::to_string(i) + "]";
                         if (!interpreter_->find_variable(element_name)) {
                             break;
                         }
@@ -298,18 +300,17 @@ void StructSyncManager::sync_struct_members_from_direct_access(
                     if (count > 0) {
                         array_size = count;
                     } else {
-                        array_size = 1;  // デフォルト
+                        array_size = 1; // デフォルト
                     }
                 }
-                
+
                 if (interpreter_->debug_mode) {
                     debug_print("[SYNC_DEBUG] member=%s, final array_size=%d\n",
                                 member.name.c_str(), array_size);
                 }
-                
+
                 debug_msg(DebugMsgId::INTERPRETER_STRUCT_ARRAY_MEMBER_ADDED,
-                          member.name.c_str(), (int)member.type,
-                          array_size);
+                          member.name.c_str(), (int)member.type, array_size);
 
                 // 既存のメンバーがあれば保持、なければ新規作成
                 if (var->struct_members.find(member.name) ==
@@ -355,7 +356,7 @@ void StructSyncManager::sync_struct_members_from_direct_access(
                             total_size *= dim;
                         }
                     }
-                    
+
                     // 既存の multidim_array_values
                     // をバックアップしてからリサイズ
                     std::vector<int64_t> backup_values =
@@ -374,8 +375,8 @@ void StructSyncManager::sync_struct_members_from_direct_access(
                     debug_print(
                         "SYNC_STRUCT: Initialized multidim_array_values for "
                         "%s.%s (total_size: %zu, copied: %zu values)\n",
-                        var_name.c_str(), member.name.c_str(),
-                        total_size, copy_size);
+                        var_name.c_str(), member.name.c_str(), total_size,
+                        copy_size);
                 }
 
                 // 個別要素変数からデータをコピー
