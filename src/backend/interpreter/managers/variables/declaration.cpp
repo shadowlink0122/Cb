@@ -79,9 +79,28 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
     }
 
     // struct変数の場合の追加設定
-    if (node->type_info == TYPE_STRUCT && !node->type_name.empty()) {
+    // v0.11.1: ジェネリック struct (例: Box<int*>) の場合、
+    // 型引数にポインタが含まれるとパーサーが誤って TYPE_POINTER
+    // と判定することがあるため、 type_name に '<' が含まれている場合も struct
+    // として扱う
+    bool is_generic_struct = !node->type_name.empty() &&
+                             node->type_name.find('<') != std::string::npos;
+    if (interpreter_->debug_mode) {
+        debug_print(
+            "[VAR_DECL_DEBUG] Checking struct condition for '%s': type_info=%d "
+            "(TYPE_STRUCT=%d), type_name='%s', is_generic_struct=%d\n",
+            node->name.c_str(), static_cast<int>(node->type_info), TYPE_STRUCT,
+            node->type_name.c_str(), is_generic_struct);
+    }
+    if ((node->type_info == TYPE_STRUCT || is_generic_struct) &&
+        !node->type_name.empty()) {
         var.is_struct = true;
         var.struct_type_name = node->type_name;
+        if (interpreter_->debug_mode) {
+            debug_print("[VAR_DECL_DEBUG] Set is_struct=true for '%s', "
+                        "struct_type_name='%s'\n",
+                        node->name.c_str(), node->type_name.c_str());
+        }
     }
 
     // enum変数の場合の追加設定 (v0.11.0 generics)

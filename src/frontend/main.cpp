@@ -102,8 +102,11 @@ int main(int argc, char **argv) {
         interpreter.sync_interface_definitions_from_parser(&parser);
         interpreter.sync_impl_definitions_from_parser(&parser);
 
-        // v0.11.0: パース時にインポートされたモジュールをloaded_modulesに追加
-        // これにより、実行時のhandle_import_statementで重複ロードを防ぐ
+        // v0.11.1: パース時のimportは型情報のみを取り込む
+        // 関数定義はインタプリタ側で登録する必要があるため、
+        // loaded_modulesへの追加はhandle_import_statementに任せる
+        // （重複パースは許容するが、loaded_modulesチェックで重複登録は防ぐ）
+        /*
         if (root && !root->statements.empty()) {
             for (const auto &stmt : root->statements) {
                 if (stmt && stmt->node_type == ASTNodeType::AST_IMPORT_STMT &&
@@ -112,6 +115,7 @@ int main(int argc, char **argv) {
                 }
             }
         }
+        */
 
         interpreter.process(root);
 

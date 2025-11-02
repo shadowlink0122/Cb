@@ -853,7 +853,7 @@ ASTNode *InterfaceParser::parseImplDeclaration() {
 
             // v0.11.0: vector再配置対策のため、後でnode->argumentsから設定
             // メソッド情報を保存（ImplDefinitionにはポインタのみ保持）
-            // impl_def.add_method(method_impl.get());
+            impl_def.add_method(method_impl.get());
             method_nodes.push_back(std::move(method_impl));
             debug_msg(DebugMsgId::PARSE_VAR_DECL, method_name.c_str(),
                       "impl_method");

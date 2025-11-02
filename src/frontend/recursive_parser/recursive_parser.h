@@ -269,6 +269,8 @@ class RecursiveParser {
     void processImport(const std::string &module_path,
                        const std::vector<std::string> &import_items = {});
     std::string resolveModulePath(const std::string &module_path);
+    std::string
+    getSourceDirectory() const; // ソースファイルのディレクトリを取得
 
   private:
     // v0.11.0: 組み込み型の初期化

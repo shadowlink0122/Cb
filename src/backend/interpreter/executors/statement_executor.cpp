@@ -783,9 +783,16 @@ void StatementExecutor::execute_self_member_assignment(
             debug_print("SELF_ASSIGN: %s = \"%s\" (from variable)\n",
                         member_name.c_str(), source_var->str_value.c_str());
         } else {
+            // 右辺の型情報を取得
+            bool is_nullptr =
+                (value_node->node_type == ASTNodeType::AST_NULLPTR);
+
             int64_t value = interpreter_.evaluate(value_node);
             self_member->value = value;
-            if (self_member->type != TYPE_STRING) {
+
+            // nullptr の場合、または元の型が TYPE_POINTER の場合は型を保持
+            if (self_member->type != TYPE_STRING && !is_nullptr &&
+                self_member->type != TYPE_POINTER) {
                 self_member->type = TYPE_INT; // デフォルトはint型
             }
 
@@ -800,7 +807,8 @@ void StatementExecutor::execute_self_member_assignment(
                     debug_print("SELF_ASSIGN_DEBUG: Found original member, "
                                 "updating numeric value from variable\n");
                     original_member->value = value;
-                    if (original_member->type != TYPE_STRING) {
+                    if (original_member->type != TYPE_STRING && !is_nullptr &&
+                        original_member->type != TYPE_POINTER) {
                         original_member->type = TYPE_INT;
                     }
                     original_member->is_assigned = true;
@@ -834,8 +842,12 @@ void StatementExecutor::execute_self_member_assignment(
             }
         }
 
+        // nullptr または TYPE_POINTER の場合は型を保持
+        bool is_nullptr = (value_node->node_type == ASTNodeType::AST_NULLPTR);
+
         self_member->value = value;
-        if (self_member->type != TYPE_STRING) {
+        if (self_member->type != TYPE_STRING && !is_nullptr &&
+            self_member->type != TYPE_POINTER) {
             self_member->type = TYPE_INT;
         }
         self_member->is_assigned = true;
@@ -850,7 +862,8 @@ void StatementExecutor::execute_self_member_assignment(
                 debug_print("SELF_ASSIGN_DEBUG: Found original member, "
                             "updating numeric value\n");
                 original_member->value = value;
-                if (original_member->type != TYPE_STRING) {
+                if (original_member->type != TYPE_STRING && !is_nullptr &&
+                    original_member->type != TYPE_POINTER) {
                     original_member->type = TYPE_INT;
                 }
                 original_member->is_assigned = true;
@@ -965,18 +978,20 @@ void StatementExecutor::execute_ternary_assignment(const ASTNode *node) {
 
 void StatementExecutor::execute_ternary_variable_initialization(
     const ASTNode *var_decl_node, const ASTNode *ternary_node) {
-    printf("DEBUG: execute_ternary_variable_initialization called\n");
+    debug_msg(DebugMsgId::TERNARY_VAR_INIT_START,
+              "execute_ternary_variable_initialization");
 
     // 三項演算子の条件を評価
     int64_t condition = interpreter_.evaluate(ternary_node->left.get());
-    printf("DEBUG: Ternary condition = %lld\n",
-           static_cast<long long>(condition));
+    debug_msg(DebugMsgId::TERNARY_VAR_CONDITION,
+              std::to_string(condition).c_str());
 
     // 条件に基づいて選択される分岐を決定
     const ASTNode *selected_branch =
         condition ? ternary_node->right.get() : ternary_node->third.get();
-    printf("DEBUG: Selected branch node_type = %d\n",
-           static_cast<int>(selected_branch->node_type));
+    debug_msg(
+        DebugMsgId::TERNARY_VAR_BRANCH_TYPE,
+        std::to_string(static_cast<int>(selected_branch->node_type)).c_str());
 
     std::string var_name = var_decl_node->name;
     Variable *var = interpreter_.get_variable(var_name);

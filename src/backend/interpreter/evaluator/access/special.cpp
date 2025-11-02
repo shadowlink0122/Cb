@@ -535,6 +535,7 @@ int64_t evaluate_enum_access(const ASTNode *node, Interpreter &interpreter) {
     int64_t enum_value;
 
     std::string enum_name = node->enum_name;
+    std::string original_enum_name = enum_name; // デバッグ用
 
     // ジェネリック型の場合（Option<int>）、インスタンス化された名前に変換
     // Option<int> -> Option_int
@@ -566,21 +567,48 @@ int64_t evaluate_enum_access(const ASTNode *node, Interpreter &interpreter) {
         }
 
         enum_name = instantiated_name;
+
+        if (interpreter.is_debug_mode()) {
+            std::cerr << "[ENUM_ACCESS] Mangled: " << original_enum_name
+                      << " -> " << enum_name << std::endl;
+        }
     }
 
     // typedef名を実際のenum名に解決
     std::string resolved_enum_name =
         interpreter.get_type_manager()->resolve_typedef(enum_name);
 
+    if (interpreter.is_debug_mode()) {
+        std::cerr << "[ENUM_ACCESS] Resolved typedef: " << enum_name << " -> "
+                  << resolved_enum_name << std::endl;
+        std::cerr << "[ENUM_ACCESS] Looking for: " << resolved_enum_name
+                  << "::" << node->enum_member << std::endl;
+    }
+
     if (enum_manager->get_enum_value(resolved_enum_name, node->enum_member,
                                      enum_value)) {
         debug_msg(DebugMsgId::EXPR_EVAL_NUMBER, enum_value);
         return enum_value;
-    } else {
-        std::string error_message = "Undefined enum value: " + node->enum_name +
-                                    "::" + node->enum_member;
-        throw std::runtime_error(error_message);
     }
+
+    // v0.11.1: マングリングされた名前で見つからない場合、元の形式も試す
+    // （ジェネリックenumはOption<int>という形式で登録されている可能性がある）
+    if (original_enum_name != resolved_enum_name) {
+        if (interpreter.is_debug_mode()) {
+            std::cerr << "[ENUM_ACCESS] Trying original name: "
+                      << original_enum_name << "::" << node->enum_member
+                      << std::endl;
+        }
+        if (enum_manager->get_enum_value(original_enum_name, node->enum_member,
+                                         enum_value)) {
+            debug_msg(DebugMsgId::EXPR_EVAL_NUMBER, enum_value);
+            return enum_value;
+        }
+    }
+
+    std::string error_message =
+        "Undefined enum value: " + node->enum_name + "::" + node->enum_member;
+    throw std::runtime_error(error_message);
 }
 
 // v0.11.0: enum値の構築 (EnumName::member(value))
@@ -666,6 +694,20 @@ int64_t evaluate_enum_construct(const ASTNode *node, Interpreter &interpreter) {
     EnumManager *enum_manager = interpreter.get_enum_manager();
     const EnumDefinition *enum_def =
         enum_manager->get_enum_definition(resolved_enum_name);
+
+    // v0.11.1:
+    // マングリングされた名前で見つからない場合、元の形式（角括弧）も試す
+    if (!enum_def && original_enum_name != resolved_enum_name) {
+        if (interpreter.is_debug_mode()) {
+            std::cerr << "[ENUM_CONSTRUCT] Trying original name: "
+                      << original_enum_name << std::endl;
+        }
+        enum_def = enum_manager->get_enum_definition(original_enum_name);
+        if (enum_def) {
+            // 見つかった場合、resolved_enum_nameを更新
+            resolved_enum_name = original_enum_name;
+        }
+    }
 
     if (!enum_def) {
         std::string error_message = "Undefined enum: " + original_enum_name +

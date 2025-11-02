@@ -137,26 +137,60 @@ void execute_assignment(StatementExecutor *executor, Interpreter &interpreter,
                 meta->write_int_value(typed_value.as_numeric());
             }
         } else {
-            // 従来の方式（変数ポインタ）
-            Variable *var = reinterpret_cast<Variable *>(ptr_value);
-
-            // 型に応じて値を設定
-            if (typed_value.is_floating()) {
-                double float_val = typed_value.as_double();
-                if (var->type == TYPE_FLOAT) {
-                    var->float_value = static_cast<float>(float_val);
-                } else if (var->type == TYPE_DOUBLE) {
-                    var->double_value = float_val;
-                } else if (var->type == TYPE_QUAD) {
-                    var->quad_value = static_cast<long double>(float_val);
-                } else {
-                    // 整数型への代入は切り捨て
-                    var->value = static_cast<int64_t>(float_val);
-                }
-            } else {
-                var->value = typed_value.as_numeric();
+            // 従来の方式（変数ポインタまたは生メモリアドレス）
+            // 左辺の変数を取得して、その型を確認
+            Variable *ptr_var = nullptr;
+            if (node->left->left &&
+                node->left->left->node_type == ASTNodeType::AST_VARIABLE) {
+                ptr_var = interpreter.find_variable(node->left->left->name);
             }
-            var->is_assigned = true;
+
+            if (debug_mode) {
+                std::cerr << "[POINTER_ASSIGN] ptr_value=0x" << std::hex
+                          << ptr_value << std::dec;
+                if (ptr_var) {
+                    std::cerr
+                        << ", ptr_var->type=" << static_cast<int>(ptr_var->type)
+                        << ", pointer_depth=" << ptr_var->pointer_depth
+                        << ", type_name='" << ptr_var->pointer_base_type_name
+                        << "'" << std::endl;
+                } else {
+                    std::cerr << ", ptr_var=nullptr" << std::endl;
+                }
+            }
+
+            // void**
+            // のようなダブルポインタの場合、生メモリへの書き込みとして処理
+            if (ptr_var && ptr_var->pointer_depth >= 2) {
+                if (debug_mode) {
+                    std::cerr << "[POINTER_ASSIGN] Double pointer write: depth="
+                              << ptr_var->pointer_depth << std::endl;
+                }
+                // 単純なメモリ書き込み
+                int64_t *target = reinterpret_cast<int64_t *>(ptr_value);
+                *target = typed_value.as_numeric();
+            } else {
+                // 通常のVariableポインタへの代入
+                Variable *var = reinterpret_cast<Variable *>(ptr_value);
+
+                // 型に応じて値を設定
+                if (typed_value.is_floating()) {
+                    double float_val = typed_value.as_double();
+                    if (var->type == TYPE_FLOAT) {
+                        var->float_value = static_cast<float>(float_val);
+                    } else if (var->type == TYPE_DOUBLE) {
+                        var->double_value = float_val;
+                    } else if (var->type == TYPE_QUAD) {
+                        var->quad_value = static_cast<long double>(float_val);
+                    } else {
+                        // 整数型への代入は切り捨て
+                        var->value = static_cast<int64_t>(float_val);
+                    }
+                } else {
+                    var->value = typed_value.as_numeric();
+                }
+                var->is_assigned = true;
+            }
         }
         return;
     }
@@ -918,12 +952,14 @@ void execute_assignment(StatementExecutor *executor, Interpreter &interpreter,
                                             false);
             } catch (const ReturnException &ret) {
                 if (ret.is_struct) {
-                    printf(
-                        "SIMPLE_ASSIGN_STRUCT: Assigning struct return to %s\n",
-                        target_name.c_str());
-                    printf("SIMPLE_ASSIGN_STRUCT: ret.struct_value has %zu "
-                           "members\n",
-                           ret.struct_value.struct_members.size());
+                    debug_msg(DebugMsgId::PARSE_VAR_DECL, target_name.c_str(),
+                              "Assigning struct return (simple_assign)");
+                    debug_msg(DebugMsgId::PARSE_VAR_DECL, target_name.c_str(),
+                              ("ret.struct_value has " +
+                               std::to_string(
+                                   ret.struct_value.struct_members.size()) +
+                               " members")
+                                  .c_str());
 
                     interpreter.current_scope().variables[target_name] =
                         ret.struct_value;
@@ -935,10 +971,14 @@ void execute_assignment(StatementExecutor *executor, Interpreter &interpreter,
                     for (const auto &member : ret.struct_value.struct_members) {
                         if (member.second.is_struct &&
                             !member.second.struct_members.empty()) {
-                            printf("SIMPLE_ASSIGN_STRUCT: Nested struct member "
-                                   "%s.%s with %zu sub-members\n",
-                                   target_name.c_str(), member.first.c_str(),
-                                   member.second.struct_members.size());
+                            debug_msg(
+                                DebugMsgId::PARSE_VAR_DECL,
+                                (target_name + "." + member.first).c_str(),
+                                ("Nested struct member with " +
+                                 std::to_string(
+                                     member.second.struct_members.size()) +
+                                 " sub-members")
+                                    .c_str());
                             // ネストされたメンバーも再帰的に同期
                             std::string member_path =
                                 target_name + "." + member.first;

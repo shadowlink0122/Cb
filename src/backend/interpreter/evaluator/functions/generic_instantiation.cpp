@@ -337,10 +337,9 @@ void substitute_type_parameters(
                 substitute_generic_type_name(node->type_name, type_map);
             if (substituted != node->type_name) {
                 node->type_name = substituted;
-                // ジェネリック型名を正規化 (例: Box<int> -> Box_int)
-                if (substituted.find('<') != std::string::npos) {
-                    node->type_name = normalize_generic_type_name(substituted);
-                }
+                // v0.11.1: 正規化を削除 - Box<int>のまま保持
+                // 構造体定義が Box<int> という名前で登録されているため
+                // マングリングすると型の不一致が起こる
             }
         } else if (node->type_name.find('_') != std::string::npos) {
             // Box_T 形式（既に正規化済み）
@@ -374,10 +373,7 @@ void substitute_type_parameters(
                 substitute_generic_type_name(node->return_type_name, type_map);
             if (substituted != node->return_type_name) {
                 node->return_type_name = substituted;
-                if (substituted.find('<') != std::string::npos) {
-                    node->return_type_name =
-                        normalize_generic_type_name(substituted);
-                }
+                // v0.11.1: 正規化を削除
             }
         } else if (node->return_type_name.find('_') != std::string::npos) {
             substituted = substitute_normalized_generic_type(
@@ -402,10 +398,7 @@ void substitute_type_parameters(
                 node->pointer_base_type_name, type_map);
             if (substituted != node->pointer_base_type_name) {
                 node->pointer_base_type_name = substituted;
-                if (substituted.find('<') != std::string::npos) {
-                    node->pointer_base_type_name =
-                        normalize_generic_type_name(substituted);
-                }
+                // v0.11.1: 正規化を削除
             }
         } else if (node->pointer_base_type_name.find('_') !=
                    std::string::npos) {

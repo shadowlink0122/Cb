@@ -1841,6 +1841,17 @@ void RecursiveParser::initialize_builtin_types() {
 }
 
 /**
+ * @brief ソースファイルのディレクトリを取得
+ */
+std::string RecursiveParser::getSourceDirectory() const {
+    size_t last_slash = filename_.find_last_of("/\\");
+    if (last_slash != std::string::npos) {
+        return filename_.substr(0, last_slash + 1);
+    }
+    return "./";
+}
+
+/**
  * @brief モジュールパスを実際のファイルパスに解決
  *
  * ドット記法（stdlib.collections.vector）をスラッシュ区切り（stdlib/collections/vector.cb）に変換
@@ -1849,25 +1860,29 @@ void RecursiveParser::initialize_builtin_types() {
 std::string RecursiveParser::resolveModulePath(const std::string &module_path) {
     std::string file_path = module_path;
 
-    // 既に.cbが含まれている場合（文字列リテラル形式）
-    if (file_path.find(".cb") != std::string::npos) {
-        return file_path; // そのまま使用
+    // .cbが既に含まれているか確認
+    bool has_extension = (file_path.find(".cb") != std::string::npos);
+
+    if (!has_extension) {
+        // ドット記法の場合、パスに変換
+        // stdlib.collections.vector -> stdlib/collections/vector.cb
+        if (module_path.find('.') != std::string::npos &&
+            module_path.find('/') == std::string::npos &&
+            module_path.find("..") == std::string::npos) {
+            std::replace(file_path.begin(), file_path.end(), '.', '/');
+            file_path += ".cb";
+        } else {
+            // 拡張子がない場合は追加
+            file_path += ".cb";
+        }
     }
 
-    // ドット記法の場合、パスに変換
-    // stdlib.collections.vector -> stdlib/collections/vector.cb
-    if (module_path.find('.') != std::string::npos &&
-        module_path.find('/') == std::string::npos &&
-        module_path.find("..") == std::string::npos) {
-        std::replace(file_path.begin(), file_path.end(), '.', '/');
-        file_path += ".cb";
-    } else if (file_path.find(".cb") == std::string::npos) {
-        // 拡張子がない場合は追加
-        file_path += ".cb";
-    }
+    // Note: .cbが既に含まれている場合も、検索パスの対象とする
+    // （早期リターンせず、source directoryなどを試行する）
 
     // 検索パスの優先順位
     std::vector<std::string> search_paths;
+    std::string source_dir = getSourceDirectory();
 
     // 相対パス（../ や ./）の場合、そのまま試す
     if (file_path.find("../") == 0 || file_path.find("./") == 0) {
@@ -1875,6 +1890,8 @@ std::string RecursiveParser::resolveModulePath(const std::string &module_path) {
     } else {
         // 通常のモジュール検索パス
         search_paths = {
+            source_dir +
+                file_path, // ソースファイルと同じディレクトリ（最優先）
             file_path,                    // カレントディレクトリ
             "stdlib/" + file_path,        // stdlibディレクトリ
             "modules/" + file_path,       // modulesディレクトリ
@@ -1890,6 +1907,9 @@ std::string RecursiveParser::resolveModulePath(const std::string &module_path) {
         std::ifstream file(path);
         if (file.is_open()) {
             file.close();
+            if (debug_mode_) {
+                std::cerr << "[IMPORT] Found module at: " << path << std::endl;
+            }
             return path;
         }
     }
@@ -1930,8 +1950,8 @@ void RecursiveParser::processImport(
         // 実行時にInterpreter側でロードされる可能性があるため
         if (debug_mode_) {
             std::cerr << "[IMPORT] Warning: Module file not found: "
-                      << module_path << " (will try runtime import)"
-                      << std::endl;
+                      << module_path << " (tried: " << resolved_path << ")"
+                      << " (will try runtime import)" << std::endl;
         }
         return;
     }

@@ -105,6 +105,17 @@ const ASTNode *Interpreter::find_function(const std::string &name) {
         return func_it->second;
     }
 
+    // v0.11.1: コンストラクタもチェック
+    auto ctor_it = struct_constructors_.find(name);
+    if (ctor_it != struct_constructors_.end() && !ctor_it->second.empty()) {
+        if (debug_mode) {
+            std::cerr << "[FIND_FUNCTION] Found constructor: " << name
+                      << std::endl;
+        }
+        return ctor_it
+            ->second[0]; // 最初のコンストラクタを返す（オーバーロード未実装）
+    }
+
     if (debug_mode) {
         std::cerr << "[FIND_FUNCTION] Not found: " << name << std::endl;
     }
@@ -184,7 +195,8 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
         // まずimport文を処理（他の宣言よりも先に実行）
         for (const auto &stmt : node->statements) {
             if (stmt->node_type == ASTNodeType::AST_IMPORT_STMT) {
-                register_global_declarations(stmt.get());
+                // v0.11.1: import文は実行が必要（関数定義を登録するため）
+                handle_import_statement(stmt.get());
             }
         }
         // 2パス変数宣言処理: 先にconst変数、次に配列
@@ -1124,8 +1136,10 @@ void Interpreter::handle_import_statement(const ASTNode *node) {
     std::string module_path = node->import_path;
 
     if (debug_mode) {
-        std::cerr << "[IMPORT] handle_import_statement called for: " << module_path << std::endl;
-        std::cerr << "[IMPORT]   loaded_modules.size()=" << loaded_modules.size() << std::endl;
+        std::cerr << "[IMPORT] handle_import_statement called for: "
+                  << module_path << std::endl;
+        std::cerr << "[IMPORT]   loaded_modules.size()="
+                  << loaded_modules.size() << std::endl;
         if (!loaded_modules.empty()) {
             std::cerr << "[IMPORT]   loaded_modules: ";
             for (const auto &m : loaded_modules) {
@@ -1507,7 +1521,7 @@ void Interpreter::handle_import_statement(const ASTNode *node) {
     // v0.11.0: module parserのimpl_nodes_とimpl_definitions_をInterpreterに転送
     // module_parserはローカル変数なので、この関数の終わりで破棄される
     // 破棄される前にimpl_nodes_とimpl_definitions_の所有権/内容を転送する必要がある
-    // 
+    //
     // sync_impl_definitions_from_parserを使用することで：
     // 1. impl_nodes_をInterpreterに転送
     // 2. impl_definitions_の内容（constructors/methodsのポインタ）をコピー
@@ -2863,9 +2877,35 @@ void Interpreter::call_constructor(const std::string &var_name,
     // 引数付きコンストラクタを探す
     auto it = struct_constructors_.find(struct_type_name);
     if (it == struct_constructors_.end() || it->second.empty()) {
-        // v0.13.0:
-        // ジェネリック構造体の場合、implをインスタンス化してコンストラクタを登録
-        if (struct_type_name.find('_') != std::string::npos) {
+        // v0.13.0: ジェネリック構造体 Box<int> の場合、Box<T> で検索を試みる
+        bool found_generic = false;
+        if (struct_type_name.find('<') != std::string::npos) {
+            size_t bracket_pos = struct_type_name.find('<');
+            std::string base_name = struct_type_name.substr(0, bracket_pos);
+            std::string generic_key = base_name + "<T>";
+
+            if (debug_mode) {
+                std::cerr << "[GENERIC_CTOR] Looking for generic constructor: "
+                          << struct_type_name << " -> " << generic_key
+                          << std::endl;
+            }
+
+            it = struct_constructors_.find(generic_key);
+            if (it != struct_constructors_.end() && !it->second.empty()) {
+                if (debug_mode) {
+                    std::cerr
+                        << "[GENERIC_CTOR] Found generic constructor for: "
+                        << generic_key << std::endl;
+                }
+                found_generic = true;
+                // 見つかったのでそのまま続行
+            }
+        }
+
+        // マングリング形式 (Box_int) でも試す
+        if (!found_generic &&
+            (it == struct_constructors_.end() || it->second.empty()) &&
+            struct_type_name.find('_') != std::string::npos) {
             std::vector<std::string> type_arguments;
             std::string base_name;
 
@@ -2947,7 +2987,8 @@ void Interpreter::call_constructor(const std::string &var_name,
                 throw std::runtime_error("No constructor defined for struct: " +
                                          struct_type_name);
             }
-        } else {
+        } else if (!found_generic) {
+            // ジェネリックも見つからず、マングリング形式でもない場合のみエラー
             throw std::runtime_error("No constructor defined for struct: " +
                                      struct_type_name);
         }
@@ -2978,6 +3019,25 @@ void Interpreter::call_constructor(const std::string &var_name,
     Variable *struct_var = find_variable(var_name);
     if (!struct_var) {
         throw std::runtime_error("Variable not found: " + var_name);
+    }
+
+    // v0.13.0: ジェネリック構造体 (Box<int> 形式) の場合、TypeContextをプッシュ
+    bool is_generic = (struct_type_name.find('<') != std::string::npos);
+    if (is_generic) {
+        size_t open_bracket = struct_type_name.find('<');
+        size_t close_bracket = struct_type_name.find('>');
+        if (open_bracket != std::string::npos &&
+            close_bracket != std::string::npos) {
+            std::string type_arg = struct_type_name.substr(
+                open_bracket + 1, close_bracket - open_bracket - 1);
+            if (debug_mode) {
+                std::cerr << "[GENERIC_CTOR] Pushing TypeContext: T="
+                          << type_arg << std::endl;
+            }
+            TypeContext ctx;
+            ctx.type_map["T"] = type_arg;
+            push_type_context(ctx);
+        }
     }
 
     // コンストラクタ用の新しいスコープを作成
@@ -3036,6 +3096,14 @@ void Interpreter::call_constructor(const std::string &var_name,
     }
 
     pop_scope(); // コンストラクタスコープを終了
+
+    // v0.13.0: ジェネリック構造体の場合、TypeContextをpop
+    if (is_generic) {
+        if (debug_mode) {
+            std::cerr << "[GENERIC_CTOR] Popping TypeContext" << std::endl;
+        }
+        pop_type_context();
+    }
 }
 
 void Interpreter::call_copy_constructor(const std::string &var_name,

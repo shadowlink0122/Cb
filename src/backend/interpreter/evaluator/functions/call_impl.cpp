@@ -883,10 +883,8 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
             }
         } else {
             // 通常の関数呼び出し
-            auto it = global_scope.functions.find(node->name);
-            if (it != global_scope.functions.end()) {
-                func = it->second;
-            }
+            // v0.11.1: find_function()を使用（コンストラクタもチェックする）
+            func = interpreter_.find_function(node->name);
         }
     }
 
@@ -2211,8 +2209,76 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                 std::to_string(num_args) + ")");
         }
 
+        // ジェネリックメソッドの場合、パラメータの型を解決
+        std::map<std::string, std::string> type_context;
+        if (is_method_call && !receiver_name.empty()) {
+            Variable *receiver_var = interpreter_.find_variable(receiver_name);
+            if (!receiver_var && receiver_resolution.variable_ptr) {
+                receiver_var = receiver_resolution.variable_ptr;
+            }
+
+            if (receiver_var) {
+                std::string type_name = receiver_var->struct_type_name;
+
+                // impl_defを探す
+                for (const auto &impl : interpreter_.get_impl_definitions()) {
+                    if (impl.struct_name == type_name &&
+                        !impl.type_parameter_map.empty()) {
+                        type_context = impl.type_parameter_map;
+
+                        if (debug_mode) {
+                            std::cerr
+                                << "[GENERIC_PARAM] Found type context for "
+                                << type_name << ":" << std::endl;
+                            for (const auto &pair : type_context) {
+                                std::cerr << "  " << pair.first << " -> "
+                                          << pair.second << std::endl;
+                            }
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+
         for (size_t i = 0; i < num_params; i++) {
-            const auto &param = func->parameters[i];
+            const auto &param_orig = func->parameters[i];
+
+            // ジェネリック型パラメータを解決
+            TypeInfo resolved_type_info = param_orig->type_info;
+            if (!type_context.empty() && !param_orig->type_name.empty()) {
+                auto it = type_context.find(param_orig->type_name);
+                if (it != type_context.end()) {
+                    const std::string &resolved_type = it->second;
+
+                    // 型情報を更新
+                    if (resolved_type == "string") {
+                        resolved_type_info = TYPE_STRING;
+                    } else if (resolved_type == "int") {
+                        resolved_type_info = TYPE_INT;
+                    } else if (resolved_type == "float") {
+                        resolved_type_info = TYPE_FLOAT;
+                    } else if (resolved_type == "double") {
+                        resolved_type_info = TYPE_DOUBLE;
+                    } else if (resolved_type == "bool") {
+                        resolved_type_info = TYPE_BOOL;
+                    } else if (resolved_type == "char") {
+                        resolved_type_info = TYPE_CHAR;
+                    }
+
+                    if (debug_mode) {
+                        std::cerr << "[GENERIC_PARAM] Resolved param '"
+                                  << param_orig->name
+                                  << "' type: " << param_orig->type_name
+                                  << " -> " << resolved_type << " (type_info="
+                                  << static_cast<int>(resolved_type_info) << ")"
+                                  << std::endl;
+                    }
+                }
+            }
+
+            // resolved_type_infoを使ってパラメータを処理
+            const auto &param = param_orig;
 
             // 引数が提供されている場合
             if (i < num_args) {
@@ -2468,17 +2534,17 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                     }
                 } else {
                     // 通常の値パラメータの型チェック
-                    // 引数の型を事前にチェック
+                    // 引数の型を事前にチェック（resolved_type_infoを使用）
                     if (arg->node_type == ASTNodeType::AST_STRING_LITERAL &&
-                        param->type_info != TYPE_STRING) {
+                        resolved_type_info != TYPE_STRING) {
                         throw std::runtime_error(
                             "Type mismatch: cannot pass string literal to "
                             "non-string parameter '" +
                             param->name + "'");
                     }
 
-                    // 文字列パラメータの場合
-                    if (param->type_info == TYPE_STRING) {
+                    // 文字列パラメータの場合（resolved_type_infoを使用）
+                    if (resolved_type_info == TYPE_STRING) {
                         if (arg->node_type == ASTNodeType::AST_STRING_LITERAL) {
                             // 文字列リテラルを直接代入
                             Variable param_var;

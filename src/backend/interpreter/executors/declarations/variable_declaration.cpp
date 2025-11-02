@@ -854,14 +854,16 @@ void execute_variable_declaration(StatementExecutor *executor,
                     // 非配列戻り値の場合
                     if (ret.is_struct) {
                         // 構造体戻り値の場合
-                        // printf("STRUCT_VAR_DECL_DEBUG: Assigning struct
-                        // return to variable %s\n", node->name.c_str());
-                        printf("STRUCT_VAR_DECL_DEBUG: Assigning struct return "
-                               "to variable %s\n",
-                               node->name.c_str());
-                        printf("STRUCT_VAR_DECL_DEBUG: ret.struct_value has "
-                               "%zu members\n",
-                               ret.struct_value.struct_members.size());
+                        debug_msg(DebugMsgId::PARSE_VAR_DECL,
+                                  node->name.c_str(),
+                                  "Assigning struct return to variable");
+                        debug_msg(DebugMsgId::PARSE_VAR_DECL,
+                                  node->name.c_str(),
+                                  ("ret.struct_value has " +
+                                   std::to_string(
+                                       ret.struct_value.struct_members.size()) +
+                                   " members")
+                                      .c_str());
 
                         // 変数を構造体型に設定
                         Variable &target_var =
@@ -874,27 +876,28 @@ void execute_variable_declaration(StatementExecutor *executor,
                              ret.struct_value.struct_members) {
                             std::string member_path =
                                 node->name + "." + member.first;
-                            printf("STRUCT_VAR_DECL_DEBUG: Creating member %s, "
-                                   "is_struct=%d, members=%zu\n",
-                                   member_path.c_str(), member.second.is_struct,
-                                   member.second.struct_members.size());
+                            debug_msg(DebugMsgId::PARSE_VAR_DECL,
+                                      member_path.c_str(),
+                                      ("Creating member, is_struct=" +
+                                       std::to_string(member.second.is_struct))
+                                          .c_str());
                             interpreter.current_scope().variables[member_path] =
                                 member.second;
 
                             // ネストされた構造体メンバーの場合、その子メンバーも再帰的に作成
                             if (member.second.is_struct &&
                                 !member.second.struct_members.empty()) {
-                                printf("STRUCT_VAR_DECL_DEBUG: Recursively "
-                                       "creating nested members for %s\n",
-                                       member_path.c_str());
+                                debug_msg(
+                                    DebugMsgId::PARSE_VAR_DECL,
+                                    member_path.c_str(),
+                                    "Recursively creating nested members");
                                 for (const auto &nested_member :
                                      member.second.struct_members) {
                                     std::string nested_path =
                                         member_path + "." + nested_member.first;
-                                    printf("STRUCT_VAR_DECL_DEBUG:   Creating "
-                                           "nested %s, value=%lld\n",
-                                           nested_path.c_str(),
-                                           nested_member.second.value);
+                                    debug_msg(DebugMsgId::PARSE_VAR_DECL,
+                                              nested_path.c_str(),
+                                              "Creating nested member");
                                     interpreter.current_scope()
                                         .variables[nested_path] =
                                         nested_member.second;
@@ -954,12 +957,16 @@ void execute_variable_declaration(StatementExecutor *executor,
                 } catch (const ReturnException &ret) {
                     if (ret.is_struct) {
                         // 構造体戻り値の場合
-                        printf("STRUCT_INIT_DEBUG: Assigning struct return to "
-                               "variable %s\n",
-                               node->name.c_str());
-                        printf("STRUCT_INIT_DEBUG: ret.struct_value has %zu "
-                               "members\n",
-                               ret.struct_value.struct_members.size());
+                        debug_msg(DebugMsgId::PARSE_VAR_DECL,
+                                  node->name.c_str(),
+                                  "Assigning struct return to variable (init)");
+                        debug_msg(DebugMsgId::PARSE_VAR_DECL,
+                                  node->name.c_str(),
+                                  ("ret.struct_value has " +
+                                   std::to_string(
+                                       ret.struct_value.struct_members.size()) +
+                                   " members")
+                                      .c_str());
 
                         Variable &target_var =
                             interpreter.current_scope().variables[node->name];
@@ -971,27 +978,28 @@ void execute_variable_declaration(StatementExecutor *executor,
                              ret.struct_value.struct_members) {
                             std::string member_path =
                                 node->name + "." + member.first;
-                            printf("STRUCT_INIT_DEBUG: Creating member %s, "
-                                   "is_struct=%d, members=%zu\n",
-                                   member_path.c_str(), member.second.is_struct,
-                                   member.second.struct_members.size());
+                            debug_msg(DebugMsgId::PARSE_VAR_DECL,
+                                      member_path.c_str(),
+                                      ("Creating member (init), is_struct=" +
+                                       std::to_string(member.second.is_struct))
+                                          .c_str());
                             interpreter.current_scope().variables[member_path] =
                                 member.second;
 
                             // ネストされた構造体メンバーの場合、その子メンバーも再帰的に作成
                             if (member.second.is_struct &&
                                 !member.second.struct_members.empty()) {
-                                printf("STRUCT_INIT_DEBUG: Recursively "
-                                       "creating nested members for %s\n",
-                                       member_path.c_str());
+                                debug_msg(DebugMsgId::PARSE_VAR_DECL,
+                                          member_path.c_str(),
+                                          "Recursively creating nested members "
+                                          "(init)");
                                 for (const auto &nested_member :
                                      member.second.struct_members) {
                                     std::string nested_path =
                                         member_path + "." + nested_member.first;
-                                    printf("STRUCT_INIT_DEBUG:   Creating "
-                                           "nested %s, value=%lld\n",
-                                           nested_path.c_str(),
-                                           nested_member.second.value);
+                                    debug_msg(DebugMsgId::PARSE_VAR_DECL,
+                                              nested_path.c_str(),
+                                              "Creating nested member (init)");
                                     interpreter.current_scope()
                                         .variables[nested_path] =
                                         nested_member.second;
