@@ -235,6 +235,15 @@ void StructVariableManager::create_struct_member_variables_recursively(
         member_var.is_unsigned = member_def.is_unsigned;
         member_var.is_assigned = false;
         member_var.is_const = parent_var.is_const || member_def.is_const;
+        
+        // ポインタ情報をコピー
+        member_var.is_pointer = member_def.is_pointer;
+        member_var.pointer_depth = member_def.pointer_depth;
+        member_var.pointer_base_type_name = member_def.pointer_base_type_name;
+        member_var.pointer_base_type = member_def.pointer_base_type;
+        
+        // プライベートメンバー情報をコピー
+        member_var.is_private_member = member_def.is_private;
 
         // 配列メンバーの場合
         if (member_def.array_info.is_array()) {
