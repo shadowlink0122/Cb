@@ -3465,14 +3465,19 @@ void Interpreter::call_destructor(const std::string &var_name,
         // まず元の変数にdestructor_calledフラグを設定（double free防止）
         struct_var->destructor_called = true;
 
-        // TODO v0.13.0: writebackは現在無効化（クラッシュする）
+        // TODO v0.14.0: writebackは現在無効化（ループ内のself更新で問題が発生）
+        // 理由: デストラクタ内でselfメンバーをループ内で更新する場合、
+        //       writebackが最後に1回だけ実行されるため、ループの各イテレーションで
+        //       古い値を読み取ってしまい、クラッシュの原因となる
+        // 
+        // 解決には、各ステートメント実行後にwritebackを行う必要があるが、
+        // パフォーマンスへの影響が大きい
+        //
         // Variable *self_after = find_variable("self");
         // if (self_after) {
-        //     // selfの全メンバーを元の変数にコピー
         //     struct_var->struct_members = self_after->struct_members;
         //     if (debug_mode) {
-        //         debug_print("Wrote back self changes to %s after
-        //         destructor\n",
+        //         debug_print("Wrote back self changes to %s after destructor\n",
         //                     var_name.c_str());
         //     }
         // }

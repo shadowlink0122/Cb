@@ -257,22 +257,25 @@ impl Queue<T> {
         self.length = 0;
     }
     ~self() {
-        // TODO v0.13.0: デストラクタが現在クラッシュするため一時的に無効化
-        // ユーザーは明示的にclear()またはdestroy()を呼ぶ必要があります
-        // （メモリリークが発生します）
+        // v0.13.1: デストラクタは現在無効化
+        // 
+        // void**書き込み機能は実装されたが、デストラクタスコープ内での
+        // selfメンバーの更新が次のループイテレーションで正しく反映されない問題が残る
+        // 
+        // 具体的な問題:
+        // 1. while (self.front != nullptr) のループ内で self.front を更新
+        // 2. デストラクタのwriteback機能は終了時に1回だけ実行される
+        // 3. ループの各イテレーションで self.front を読み取ると古い値になる
+        // 4. 結果として、同じノードを複数回freeしようとしてクラッシュ
+        //
+        // clear()メソッドは正常に動作する（通常のメソッド呼び出しのため）
+        // 
+        // 解決策:
+        // - ユーザーは明示的に clear() または destroy() を呼ぶ必要がある
+        // - または、全要素をdequeue()してから スコープを抜ける
+        //
+        // TODO v0.14.0: デストラクタスコープ内でのself更新を各イテレーションで反映する機能を実装
         
-        // FIXME: インタープリターのデストラクタ実装を修正してから有効化
-        // while (self.front != nullptr) {
-        //     int data_size = sizeof(T);
-        //     long node_addr = (long)self.front;
-        //     long next_field_addr = node_addr + data_size;
-        //     void** next_field_ptr = (void**)next_field_addr;
-        //     void* next_node = *next_field_ptr;
-        //     
-        //     free(self.front);
-        //     self.front = next_node;
-        // }
-        // self.rear = nullptr;
-        // self.length = 0;
+        // 完全に空のデストラクタ（メモリリークが発生しますが、クラッシュは防ぎます）
     }
 }
