@@ -21,7 +21,9 @@ struct Box<T> {
 impl Box<T> {
     self(T v) {
         self.value = v;
-        self.size = sizeof(T);
+        // sizeof(self) は構造体全体のサイズを返すべき
+        // Box<int> なら 8、Box<long> なら 12
+        self.size = sizeof(self);
     }
     
     ~self() {
@@ -79,9 +81,23 @@ void main() {
         return;
     }
     
-    // インスタンス化（コンストラクタ内でのsizeof(T)は動作しないため、sizeメンバーは0）
+    // インスタンス化して、コンストラクタ内でのsizeof(self)が正しく動作することを確認
     Box<int> b1(42);
     Box<long> b2(123456789);
+    
+    // b1.size は sizeof(Box<int>) = 8 であるべき
+    println("b1.size = ", b1.size);
+    if (b1.size != 8) {
+        println("ERROR: b1.size should be 8 (sizeof(Box<int>)), got ", b1.size);
+        return;
+    }
+    
+    // b2.size は sizeof(Box<long>) = 12 であるべき
+    println("b2.size = ", b2.size);
+    if (b2.size != 12) {
+        println("ERROR: b2.size should be 12 (sizeof(Box<long>)), got ", b2.size);
+        return;
+    }
     
     println("=== All Tests Passed ===");
 }

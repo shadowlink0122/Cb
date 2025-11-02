@@ -285,7 +285,7 @@ int64_t Interpreter::evaluate_delete_expression(const ASTNode *node) {
 }
 
 // Variableの型からサイズを取得するヘルパー関数
-static size_t get_variable_size(const Variable *var) {
+static size_t get_variable_size(const Variable *var, Interpreter *interpreter = nullptr) {
     if (!var)
         return 0;
 
@@ -340,7 +340,12 @@ static size_t get_variable_size(const Variable *var) {
         element_size = sizeof(void *);
         break;
     case TYPE_STRUCT:
-        element_size = sizeof(void *);
+        // 構造体の場合、struct_type_name から実際のサイズを取得
+        if (interpreter && !var->struct_type_name.empty()) {
+            element_size = get_type_size(var->struct_type_name, interpreter);
+        } else {
+            element_size = sizeof(void *);
+        }
         break;
     default:
         element_size = sizeof(int64_t);
@@ -370,7 +375,7 @@ static size_t get_variable_size(const Variable *var) {
 }
 
 // TypedValueからサイズを取得するヘルパー関数
-static size_t get_typed_value_size(const TypedValue &tv) {
+static size_t get_typed_value_size(const TypedValue &tv, Interpreter *interpreter = nullptr) {
     switch (tv.type.type_info) {
     case TYPE_INT:
         return sizeof(int);
@@ -395,6 +400,10 @@ static size_t get_typed_value_size(const TypedValue &tv) {
     case TYPE_POINTER:
         return sizeof(void *);
     case TYPE_STRUCT:
+        // 構造体の場合、type_name から実際のサイズを取得
+        if (interpreter && !tv.type.type_name.empty()) {
+            return get_type_size(tv.type.type_name, interpreter);
+        }
         return sizeof(void *);
     default:
         return sizeof(int64_t);
@@ -428,15 +437,35 @@ int64_t Interpreter::evaluate_sizeof_expression(const ASTNode *node) {
         if (expr->node_type == ASTNodeType::AST_VARIABLE) {
             Variable *var = find_variable(expr->name);
             if (var) {
-                result_size = get_variable_size(var);
+                if (debug_mode) {
+                    std::cerr << "[sizeof] Variable '" << expr->name 
+                              << "', type=" << static_cast<int>(var->type)
+                              << ", struct_type_name='" << var->struct_type_name << "'" << std::endl;
+                }
+                result_size = get_variable_size(var, this);
             } else {
                 // 変数が見つからない場合、型名として解釈
                 result_size = get_type_size(expr->name, this);
             }
+        } else if (expr->node_type == ASTNodeType::AST_MEMBER_ACCESS && expr->left && expr->left->name == "self") {
+            // sizeof(self.member) のようなケース、または単に sizeof(self) が AST_MEMBER_ACCESS として解釈される場合
+            // "self" 変数を直接取得
+            Variable *self_var = find_variable("self");
+            if (self_var) {
+                if (debug_mode) {
+                    std::cerr << "[sizeof] Self variable, type=" << static_cast<int>(self_var->type)
+                              << ", struct_type_name='" << self_var->struct_type_name << "'" << std::endl;
+                }
+                result_size = get_variable_size(self_var, this);
+            } else {
+                // 式の型を推論
+                TypedValue typed_val = evaluate_typed(expr);
+                result_size = get_typed_value_size(typed_val, this);
+            }
         } else {
             // 式の型を推論
             TypedValue typed_val = evaluate_typed(expr);
-            result_size = get_typed_value_size(typed_val);
+            result_size = get_typed_value_size(typed_val, this);
         }
 
         if (debug_mode) {
