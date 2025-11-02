@@ -3433,14 +3433,24 @@ void Interpreter::call_destructor(const std::string &var_name,
         self_var.is_struct = true;
         // v0.13.0: selfのデストラクタは呼ばない（既に呼び出し中）
         self_var.destructor_called = true;
+        // v0.13.1: まずstruct_members_refをnullにしてコピーを格納
+        self_var.struct_members_ref = nullptr;
         current_scope().variables["self"] = self_var;
-
-        if (debug_mode) {
-            debug_print("[DESTRUCTOR] Set self: type=%d, is_struct=%d, "
-                        "struct_type_name=%s, members=%zu\n",
-                        self_var.type, self_var.is_struct,
-                        self_var.struct_type_name.c_str(),
-                        self_var.struct_members.size());
+        
+        // v0.13.1 FIX: mapに挿入した後にstruct_members_refを設定
+        // これにより、mapの再配置による無効化を防ぐ
+        Variable *inserted_self = find_variable("self");
+        if (inserted_self) {
+            inserted_self->struct_members_ref = &(struct_var->struct_members);
+            
+            if (debug_mode) {
+                debug_print("[DESTRUCTOR] Set self: type=%d, is_struct=%d, "
+                            "struct_type_name=%s, members=%zu, ref=%p\n",
+                            inserted_self->type, inserted_self->is_struct,
+                            inserted_self->struct_type_name.c_str(),
+                            inserted_self->struct_members.size(),
+                            inserted_self->struct_members_ref);
+            }
         }
     }
 
@@ -3451,28 +3461,10 @@ void Interpreter::call_destructor(const std::string &var_name,
                         var_name.c_str());
         }
         
-        // v0.13.1: デストラクタ専用の実行ループ
-        // ループ内でselfの変更を逐次反映する必要がある
-        if (destructor->body->node_type == ASTNodeType::AST_STMT_LIST) {
-            // Statement listの場合、各ステートメントを1つずつ実行してwriteback
-            for (const auto& stmt : destructor->body->statements) {
-                execute_statement(stmt.get());
-                
-                // 各ステートメント後にselfの変更を元の変数に書き戻す
-                if (struct_var) {
-                    Variable *self_after = find_variable("self");
-                    if (self_after) {
-                        struct_var->struct_members = self_after->struct_members;
-                        if (debug_mode) {
-                            debug_print("[DESTRUCTOR] Wrote back self after statement\n");
-                        }
-                    }
-                }
-            }
-        } else {
-            // 単一ステートメントの場合は通常通り実行
-            execute_statement(destructor->body.get());
-        }
+        // v0.13.1: struct_members_refメカニズムにより、
+        // selfへの変更は自動的に元の変数に反映される
+        // per-statement writebackは不要（むしろ参照を破壊する）
+        execute_statement(destructor->body.get());
         
         if (debug_mode) {
             debug_print(

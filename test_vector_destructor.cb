@@ -1,0 +1,18 @@
+import "stdlib/collections/vector.cb";
+import "stdlib/collections/queue.cb";
+
+void main() {
+    println("Test 7: Memory management");
+    {
+        Vector<int> temp_vec;
+        temp_vec.init(5);
+        temp_vec.push(999);
+        println("Created temporary vector in scope");
+        
+        Queue<int> temp_queue;
+        temp_queue.enqueue(888);
+        println("Created temporary queue in scope");
+    }
+    println("Scope exited - destructors called automatically");
+    println("Memory management works");
+}

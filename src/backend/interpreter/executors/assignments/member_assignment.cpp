@@ -103,7 +103,9 @@ void execute_member_assignment(StatementExecutor *executor,
         new_value.is_assigned = true;
 
         // struct_membersに代入
-        struct_var->struct_members[member_name] = new_value;
+        // v0.13.1: 参照がある場合はそれを使用
+        auto& members = struct_var->get_struct_members();
+        members[member_name] = new_value;
 
         // 個別変数システムとの同期
         interpreter.sync_individual_member_from_struct(struct_var, member_name);
@@ -165,19 +167,22 @@ void execute_member_assignment(StatementExecutor *executor,
             throw std::runtime_error("Parent is not a struct");
         }
 
+        // v0.13.1: struct_members_refを考慮した参照取得
+        auto& members = parent_struct->get_struct_members();
+        
         if (debug_mode) {
             debug_print(
                 "DEBUG: parent_struct=%p, final_member=%s, members=%zu\n",
                 static_cast<void *>(parent_struct), final_member.c_str(),
-                parent_struct->struct_members.size());
+                members.size());
         }
 
         debug_print("DEBUG: Resolved parent struct, final member: %s\n",
                     final_member.c_str());
 
         // constメンバへの代入チェック
-        auto final_member_it = parent_struct->struct_members.find(final_member);
-        if (final_member_it != parent_struct->struct_members.end()) {
+        auto final_member_it = members.find(final_member);
+        if (final_member_it != members.end()) {
             if (final_member_it->second.is_const &&
                 final_member_it->second.is_assigned) {
                 throw std::runtime_error("Cannot assign to const member '" +
@@ -186,8 +191,8 @@ void execute_member_assignment(StatementExecutor *executor,
             }
         }
 
-        // 親のstruct_membersに直接代入
-        auto &member_ref = parent_struct->struct_members[final_member];
+        // 親のstruct_membersに直接代入（参照経由）
+        auto &member_ref = members[final_member];
 
         // 右辺を評価して代入
         if (node->right->node_type == ASTNodeType::AST_STRING_LITERAL) {
@@ -356,7 +361,9 @@ void execute_member_assignment(StatementExecutor *executor,
         new_value.is_assigned = true;
 
         // struct_membersに代入
-        struct_var->struct_members[member_name] = new_value;
+        // v0.13.1: 参照がある場合はそれを使用
+        auto& members = struct_var->get_struct_members();
+        members[member_name] = new_value;
 
         // 個別変数システムとの同期
         interpreter.sync_individual_member_from_struct(struct_var, member_name);
@@ -389,8 +396,10 @@ void execute_member_assignment(StatementExecutor *executor,
     }
 
     if (target_var && target_var->is_struct) {
-        auto member_it = target_var->struct_members.find(member_name);
-        if (member_it != target_var->struct_members.end()) {
+        // v0.13.1: struct_members_refを考慮
+        auto& members = target_var->get_struct_members();
+        auto member_it = members.find(member_name);
+        if (member_it != members.end()) {
             if (member_it->second.is_const && member_it->second.is_assigned) {
                 throw std::runtime_error("Cannot assign to const member '" +
                                          member_name + "' of struct '" +
@@ -422,9 +431,10 @@ void execute_member_assignment(StatementExecutor *executor,
                 "Invalid reference or non-struct in member assignment");
         }
 
-        // 参照の場合: actual_varのメンバーに直接代入
-        auto member_it = actual_var->struct_members.find(member_name);
-        if (member_it == actual_var->struct_members.end()) {
+        // v0.13.1: 参照の場合: actual_varのメンバーに直接代入
+        auto& actual_members = actual_var->get_struct_members();
+        auto member_it = actual_members.find(member_name);
+        if (member_it == actual_members.end()) {
             throw std::runtime_error("Struct member not found: " + member_name);
         }
 
@@ -436,9 +446,10 @@ void execute_member_assignment(StatementExecutor *executor,
             member_var.type = TYPE_STRING;
             member_var.is_assigned = true;
 
-            // 参照変数自体のstruct_membersも更新（エイリアシング）
-            auto ref_member_it = base_var->struct_members.find(member_name);
-            if (ref_member_it != base_var->struct_members.end()) {
+            // v0.13.1: 参照変数自体のstruct_membersも更新（エイリアシング）
+            auto& base_members = base_var->get_struct_members();
+            auto ref_member_it = base_members.find(member_name);
+            if (ref_member_it != base_members.end()) {
                 ref_member_it->second.str_value = node->right->str_value;
                 ref_member_it->second.type = TYPE_STRING;
                 ref_member_it->second.is_assigned = true;
@@ -465,9 +476,10 @@ void execute_member_assignment(StatementExecutor *executor,
             member_var.type = typed_value.numeric_type;
             member_var.is_assigned = true;
 
-            // 参照変数自体のstruct_membersも更新（エイリアシング）
-            auto ref_member_it = base_var->struct_members.find(member_name);
-            if (ref_member_it != base_var->struct_members.end()) {
+            // v0.13.1: 参照変数自体のstruct_membersも更新（エイリアシング）
+            auto& base_members = base_var->get_struct_members();
+            auto ref_member_it = base_members.find(member_name);
+            if (ref_member_it != base_members.end()) {
                 ref_member_it->second.value = typed_value.value;
                 ref_member_it->second.type = typed_value.numeric_type;
                 ref_member_it->second.is_assigned = true;
@@ -817,7 +829,9 @@ void execute_arrow_assignment(StatementExecutor *executor,
     new_value.is_assigned = true;
 
     // struct_membersに代入
-    struct_var->struct_members[member_name] = new_value;
+    // v0.13.1: 参照がある場合はそれを使用
+    auto& members = struct_var->get_struct_members();
+    members[member_name] = new_value;
 
     // 個別変数システムとの同期:
     // struct_var が指す実体の個別メンバ変数も更新する必要がある

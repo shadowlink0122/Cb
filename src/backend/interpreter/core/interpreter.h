@@ -195,8 +195,8 @@ struct Variable {
         multidim_array_quad_values = other.multidim_array_quad_values;
         multidim_array_strings = other.multidim_array_strings;
         
-        // v0.13.1: 参照はコピーしない（デストラクタ専用）
-        struct_members_ref = nullptr;
+        // v0.13.1: 参照もコピーする（デストラクタでselfが使用）
+        struct_members_ref = other.struct_members_ref;
     }
 
     // 代入演算子をデバッグ出力付きで定義
@@ -264,8 +264,8 @@ struct Variable {
             multidim_array_quad_values = other.multidim_array_quad_values;
             multidim_array_strings = other.multidim_array_strings;
             
-            // v0.13.1: 参照はコピーしない（デストラクタ専用）
-            struct_members_ref = nullptr;
+            // v0.13.1: 参照もコピーする（デストラクタでselfが使用）
+            struct_members_ref = other.struct_members_ref;
         }
         return *this;
     }
