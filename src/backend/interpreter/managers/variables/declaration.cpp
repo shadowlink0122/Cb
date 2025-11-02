@@ -1728,21 +1728,31 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
 
     // 未定義型のチェック（基本的な変数宣言の場合）
     if (!node->type_name.empty() && node->type_info == TYPE_UNKNOWN) {
-        // type_nameが指定されているがtype_infoがUNKNOWNの場合、未定義型の可能性
-        std::string resolved =
-            interpreter_->type_manager_->resolve_typedef(node->type_name);
-        bool is_union =
-            interpreter_->type_manager_->is_union_type(node->type_name);
-        bool is_struct =
-            (interpreter_->find_struct_definition(node->type_name) != nullptr);
-        bool is_enum =
-            (interpreter_->get_enum_manager() &&
-             interpreter_->get_enum_manager()->enum_exists(node->type_name));
+        // v0.13.1: まず型コンテキストで型パラメータ(T, U等)を解決
+        const TypeContext *type_ctx = interpreter_->get_current_type_context();
+        bool is_type_parameter = false;
+        if (type_ctx && type_ctx->has_mapping_for(node->type_name)) {
+            is_type_parameter = true;
+            // 型パラメータは有効な型として扱う（実行時に解決される）
+        }
+        
+        if (!is_type_parameter) {
+            // type_nameが指定されているがtype_infoがUNKNOWNの場合、未定義型の可能性
+            std::string resolved =
+                interpreter_->type_manager_->resolve_typedef(node->type_name);
+            bool is_union =
+                interpreter_->type_manager_->is_union_type(node->type_name);
+            bool is_struct =
+                (interpreter_->find_struct_definition(node->type_name) != nullptr);
+            bool is_enum =
+                (interpreter_->get_enum_manager() &&
+                 interpreter_->get_enum_manager()->enum_exists(node->type_name));
 
-        // typedef、union、struct、enumのいずれでもない場合はエラー
-        if (resolved == node->type_name && !is_union && !is_struct &&
-            !is_enum) {
-            throw std::runtime_error("Undefined type: " + node->type_name);
+            // typedef、union、struct、enumのいずれでもない場合はエラー
+            if (resolved == node->type_name && !is_union && !is_struct &&
+                !is_enum) {
+                throw std::runtime_error("Undefined type: " + node->type_name);
+            }
         }
     }
 

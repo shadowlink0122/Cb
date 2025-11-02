@@ -3348,13 +3348,38 @@ void Interpreter::call_destructor(const std::string &var_name,
         // アンマングル名でも試す
         it = struct_destructors_.find(unmangled_type_name);
         if (it == struct_destructors_.end() || !it->second) {
-            // デストラクタが定義されていない場合は何もしない
-            if (debug_mode) {
-                debug_print(
-                    "No destructor defined for struct: %s (unmangled: %s)\n",
-                    struct_type_name.c_str(), unmangled_type_name.c_str());
+            // v0.13.1: ジェネリック型の場合、ベース型で探す（例: Queue<int> -> Queue<T>）
+            if (struct_type_name.find('<') != std::string::npos) {
+                std::string base_name = struct_type_name.substr(0, struct_type_name.find('<'));
+                std::string generic_name = base_name + "<T>";
+                
+                if (debug_mode) {
+                    debug_print("Looking for generic destructor: %s -> %s\n",
+                                struct_type_name.c_str(), generic_name.c_str());
+                }
+                
+                auto generic_it = struct_destructors_.find(generic_name);
+                if (generic_it != struct_destructors_.end() && generic_it->second) {
+                    // ジェネリックデストラクタをこの具体型用に登録
+                    struct_destructors_[struct_type_name] = generic_it->second;
+                    it = struct_destructors_.find(struct_type_name);
+                    
+                    if (debug_mode) {
+                        debug_print("Registered generic destructor %s for %s\n",
+                                    generic_name.c_str(), struct_type_name.c_str());
+                    }
+                }
             }
-            return;
+            
+            if (it == struct_destructors_.end() || !it->second) {
+                // デストラクタが定義されていない場合は何もしない
+                if (debug_mode) {
+                    debug_print(
+                        "No destructor defined for struct: %s (unmangled: %s)\n",
+                        struct_type_name.c_str(), unmangled_type_name.c_str());
+                }
+                return;
+            }
         }
     }
 
