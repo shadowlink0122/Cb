@@ -104,7 +104,7 @@ void execute_member_assignment(StatementExecutor *executor,
 
         // struct_membersに代入
         // v0.13.1: 参照がある場合はそれを使用
-        auto& members = struct_var->get_struct_members();
+        auto &members = struct_var->get_struct_members();
         members[member_name] = new_value;
 
         // 個別変数システムとの同期
@@ -168,8 +168,8 @@ void execute_member_assignment(StatementExecutor *executor,
         }
 
         // v0.13.1: struct_members_refを考慮した参照取得
-        auto& members = parent_struct->get_struct_members();
-        
+        auto &members = parent_struct->get_struct_members();
+
         if (debug_mode) {
             debug_print(
                 "DEBUG: parent_struct=%p, final_member=%s, members=%zu\n",
@@ -362,7 +362,7 @@ void execute_member_assignment(StatementExecutor *executor,
 
         // struct_membersに代入
         // v0.13.1: 参照がある場合はそれを使用
-        auto& members = struct_var->get_struct_members();
+        auto &members = struct_var->get_struct_members();
         members[member_name] = new_value;
 
         // 個別変数システムとの同期
@@ -397,7 +397,7 @@ void execute_member_assignment(StatementExecutor *executor,
 
     if (target_var && target_var->is_struct) {
         // v0.13.1: struct_members_refを考慮
-        auto& members = target_var->get_struct_members();
+        auto &members = target_var->get_struct_members();
         auto member_it = members.find(member_name);
         if (member_it != members.end()) {
             if (member_it->second.is_const && member_it->second.is_assigned) {
@@ -432,7 +432,7 @@ void execute_member_assignment(StatementExecutor *executor,
         }
 
         // v0.13.1: 参照の場合: actual_varのメンバーに直接代入
-        auto& actual_members = actual_var->get_struct_members();
+        auto &actual_members = actual_var->get_struct_members();
         auto member_it = actual_members.find(member_name);
         if (member_it == actual_members.end()) {
             throw std::runtime_error("Struct member not found: " + member_name);
@@ -447,7 +447,7 @@ void execute_member_assignment(StatementExecutor *executor,
             member_var.is_assigned = true;
 
             // v0.13.1: 参照変数自体のstruct_membersも更新（エイリアシング）
-            auto& base_members = base_var->get_struct_members();
+            auto &base_members = base_var->get_struct_members();
             auto ref_member_it = base_members.find(member_name);
             if (ref_member_it != base_members.end()) {
                 ref_member_it->second.str_value = node->right->str_value;
@@ -477,7 +477,7 @@ void execute_member_assignment(StatementExecutor *executor,
             member_var.is_assigned = true;
 
             // v0.13.1: 参照変数自体のstruct_membersも更新（エイリアシング）
-            auto& base_members = base_var->get_struct_members();
+            auto &base_members = base_var->get_struct_members();
             auto ref_member_it = base_members.find(member_name);
             if (ref_member_it != base_members.end()) {
                 ref_member_it->second.value = typed_value.value;
@@ -830,7 +830,7 @@ void execute_arrow_assignment(StatementExecutor *executor,
 
     // struct_membersに代入
     // v0.13.1: 参照がある場合はそれを使用
-    auto& members = struct_var->get_struct_members();
+    auto &members = struct_var->get_struct_members();
     members[member_name] = new_value;
 
     // 個別変数システムとの同期:

@@ -1157,8 +1157,8 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
             if (dest_is_var && src_is_var && dest_var->is_struct &&
                 src_var->is_struct) {
                 // v0.13.1: Variable構造体のstruct_membersをコピー（参照も考慮）
-                auto& src_members = src_var->get_struct_members();
-                auto& dest_members = dest_var->get_struct_members();
+                auto &src_members = src_var->get_struct_members();
+                auto &dest_members = dest_var->get_struct_members();
                 for (const auto &member_pair : src_members) {
                     dest_members[member_pair.first] = member_pair.second;
                 }
@@ -1985,7 +1985,7 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
         if (receiver_var->type == TYPE_STRUCT ||
             receiver_var->type == TYPE_INTERFACE || receiver_var->is_struct) {
             // v0.13.1: struct_members_refを考慮
-            auto& receiver_members = receiver_var->get_struct_members();
+            auto &receiver_members = receiver_var->get_struct_members();
             for (const auto &member_pair : receiver_members) {
                 const std::string &member_name = member_pair.first;
                 std::string self_member_path = "self." + member_name;
@@ -2859,9 +2859,12 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                                         source_var_name);
                                 }
 
-                                // v0.13.1: 文字列配列メンバの場合、追加で確実にarray_stringsを同期
-                                auto& sync_source_members = sync_source_var->get_struct_members();
-                                for (auto &source_member_pair : sync_source_members) {
+                                // v0.13.1:
+                                // 文字列配列メンバの場合、追加で確実にarray_stringsを同期
+                                auto &sync_source_members =
+                                    sync_source_var->get_struct_members();
+                                for (auto &source_member_pair :
+                                     sync_source_members) {
                                     if (source_member_pair.second.is_array &&
                                         source_member_pair.second.type ==
                                             TYPE_STRING) {
@@ -2953,13 +2956,16 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                                 interpreter_.current_scope()
                                     .variables[param->name] = param_var;
 
-                                // v0.13.1: 個別メンバー変数も作成（値を正しく設定）
+                                // v0.13.1:
+                                // 個別メンバー変数も作成（値を正しく設定）
                                 // 元の構造体定義から type_name 情報を取得
                                 const StructDefinition *struct_def =
                                     interpreter_.find_struct_definition(
                                         resolved_struct_type);
-                                auto& sync_source_members_2 = sync_source_var->get_struct_members();
-                                for (const auto &member_pair : sync_source_members_2) {
+                                auto &sync_source_members_2 =
+                                    sync_source_var->get_struct_members();
+                                for (const auto &member_pair :
+                                     sync_source_members_2) {
                                     // 配列要素のキー (例: "dimensions[0]")
                                     // をスキップ
                                     if (member_pair.first.find('[') !=

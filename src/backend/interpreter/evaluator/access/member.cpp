@@ -669,7 +669,7 @@ int64_t ExpressionEvaluator::evaluate_member_access_impl(const ASTNode *node) {
             // メンバーが構造体の場合、その構造体へのポインタを返す
             // これにより、(*ptr).val.x のようなパターンをサポート
             // v0.13.1: 参照がある場合はそれを使用
-            auto& members = struct_var->get_struct_members();
+            auto &members = struct_var->get_struct_members();
             auto member_it = members.find(member_name);
             if (member_it != members.end()) {
                 return reinterpret_cast<int64_t>(&member_it->second);

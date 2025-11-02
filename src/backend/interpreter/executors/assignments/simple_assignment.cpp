@@ -159,8 +159,10 @@ void execute_assignment(StatementExecutor *executor, Interpreter &interpreter,
                 }
             }
 
-            // void** または型がvoid**/void*の場合、生メモリへの書き込みとして処理
-            // v0.13.1: malloc()から返されたアドレスはptr_var=nullptrのため、型情報も確認する
+            // void**
+            // または型がvoid**/void*の場合、生メモリへの書き込みとして処理
+            // v0.13.1:
+            // malloc()から返されたアドレスはptr_var=nullptrのため、型情報も確認する
             bool is_void_pointer_write = false;
             if (ptr_var) {
                 // pointer_depth >= 2 の場合
@@ -168,29 +170,33 @@ void execute_assignment(StatementExecutor *executor, Interpreter &interpreter,
                     is_void_pointer_write = true;
                 }
                 // 型名がvoid**の場合
-                else if (ptr_var->pointer_base_type_name == "void*" || 
+                else if (ptr_var->pointer_base_type_name == "void*" ||
                          ptr_var->struct_type_name == "void**" ||
                          ptr_var->pointer_base_type_name == "void") {
                     is_void_pointer_write = true;
                 }
             }
             // ptr_varがnullでも、左辺の型情報からvoid**かチェック
-            else if (node->left->left && node->left->left->type_name == "void**") {
+            else if (node->left->left &&
+                     node->left->left->type_name == "void**") {
                 is_void_pointer_write = true;
             }
-            
+
             if (is_void_pointer_write) {
                 if (debug_mode) {
-                    std::cerr << "[POINTER_ASSIGN] void** write to raw memory: ptr=0x"
-                              << std::hex << ptr_value << std::dec << std::endl;
+                    std::cerr
+                        << "[POINTER_ASSIGN] void** write to raw memory: ptr=0x"
+                        << std::hex << ptr_value << std::dec << std::endl;
                 }
                 // void*のポインタサイズで書き込み（8 bytes on 64-bit）
                 void **target = reinterpret_cast<void **>(ptr_value);
-                void *value_as_ptr = reinterpret_cast<void *>(typed_value.as_numeric());
+                void *value_as_ptr =
+                    reinterpret_cast<void *>(typed_value.as_numeric());
                 *target = value_as_ptr;
                 if (debug_mode) {
                     std::cerr << "[POINTER_ASSIGN] Wrote void* value=0x"
-                              << std::hex << typed_value.as_numeric() << std::dec << std::endl;
+                              << std::hex << typed_value.as_numeric()
+                              << std::dec << std::endl;
                 }
             } else {
                 // 通常のVariableポインタへの代入

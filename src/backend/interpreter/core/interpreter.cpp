@@ -3436,15 +3436,16 @@ void Interpreter::call_destructor(const std::string &var_name,
         // v0.13.1: まずstruct_members_refをnullにしてコピーを格納
         self_var.struct_members_ref = nullptr;
         current_scope().variables["self"] = self_var;
-        
+
         // v0.13.1 FIX: mapに挿入した後にstruct_members_refを設定
         // これにより、mapの再配置による無効化を防ぐ
         Variable *inserted_self = find_variable("self");
         if (inserted_self) {
             inserted_self->struct_members_ref = &(struct_var->struct_members);
-            // v0.13.1 FIX: struct_type_nameも確実に設定（ジェネリック型情報保持）
+            // v0.13.1 FIX:
+            // struct_type_nameも確実に設定（ジェネリック型情報保持）
             inserted_self->struct_type_name = struct_var->struct_type_name;
-            
+
             if (debug_mode) {
                 debug_print("[DESTRUCTOR] Set self: type=%d, is_struct=%d, "
                             "struct_type_name=%s, members=%zu, ref=%p\n",
@@ -3462,21 +3463,24 @@ void Interpreter::call_destructor(const std::string &var_name,
             debug_print("[DESTRUCTOR] Executing destructor body for %s\n",
                         var_name.c_str());
         }
-        
+
         // v0.13.1 FIX: ジェネリック型パラメータ解決のためTypeContextを設定
         // struct_type_nameから型パラメータを抽出（例: Queue<int> -> T=int）
         bool pushed_type_context = false;
-        if (struct_var && struct_var->struct_type_name.find('<') != std::string::npos) {
+        if (struct_var &&
+            struct_var->struct_type_name.find('<') != std::string::npos) {
             // ジェネリック型のインスタンス化（例: Queue<int>）
             TypeContext type_ctx;
-            
+
             // 型名からパラメータを抽出
             std::string type_name = struct_var->struct_type_name;
             size_t start = type_name.find('<');
             size_t end = type_name.rfind('>');
-            if (start != std::string::npos && end != std::string::npos && end > start) {
-                std::string params_str = type_name.substr(start + 1, end - start - 1);
-                
+            if (start != std::string::npos && end != std::string::npos &&
+                end > start) {
+                std::string params_str =
+                    type_name.substr(start + 1, end - start - 1);
+
                 // カンマで分割（簡易実装：ネストした<>は考慮しない）
                 std::vector<std::string> params;
                 size_t pos = 0;
@@ -3489,37 +3493,38 @@ void Interpreter::call_destructor(const std::string &var_name,
                     params.push_back(params_str.substr(pos, comma - pos));
                     pos = comma + 1;
                     // 先頭の空白をスキップ
-                    while (pos < params_str.length() && params_str[pos] == ' ') {
+                    while (pos < params_str.length() &&
+                           params_str[pos] == ' ') {
                         pos++;
                     }
                 }
-                
+
                 // T, U, V... にマッピング
-                const char* param_names[] = {"T", "U", "V", "W"};
+                const char *param_names[] = {"T", "U", "V", "W"};
                 for (size_t i = 0; i < params.size() && i < 4; i++) {
                     type_ctx.type_map[param_names[i]] = params[i];
-                    
+
                     if (debug_mode) {
                         debug_print("[DESTRUCTOR] TypeContext: %s = %s\n",
                                     param_names[i], params[i].c_str());
                     }
                 }
-                
+
                 push_type_context(type_ctx);
                 pushed_type_context = true;
             }
         }
-        
+
         // v0.13.1: struct_members_refメカニズムにより、
         // selfへの変更は自動的に元の変数に反映される
         // per-statement writebackは不要（むしろ参照を破壊する）
         execute_statement(destructor->body.get());
-        
+
         // TypeContextをpop
         if (pushed_type_context) {
             pop_type_context();
         }
-        
+
         if (debug_mode) {
             debug_print(
                 "[DESTRUCTOR] Destructor body execution completed for %s\n",

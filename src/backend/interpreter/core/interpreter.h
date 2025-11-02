@@ -97,10 +97,10 @@ struct Variable {
 
     // struct用メンバ変数
     std::map<std::string, Variable> struct_members;
-    
+
     // v0.13.1: デストラクタスコープでの参照用
     // nullptrでない場合、struct_membersの代わりにこちらを参照する
-    std::map<std::string, Variable>* struct_members_ref = nullptr;
+    std::map<std::string, Variable> *struct_members_ref = nullptr;
 
     // interface用
     std::string interface_name;      // interface型の場合のinterface名
@@ -194,7 +194,7 @@ struct Variable {
         multidim_array_double_values = other.multidim_array_double_values;
         multidim_array_quad_values = other.multidim_array_quad_values;
         multidim_array_strings = other.multidim_array_strings;
-        
+
         // v0.13.1: 参照もコピーする（デストラクタでselfが使用）
         struct_members_ref = other.struct_members_ref;
     }
@@ -263,7 +263,7 @@ struct Variable {
             multidim_array_double_values = other.multidim_array_double_values;
             multidim_array_quad_values = other.multidim_array_quad_values;
             multidim_array_strings = other.multidim_array_strings;
-            
+
             // v0.13.1: 参照もコピーする（デストラクタでselfが使用）
             struct_members_ref = other.struct_members_ref;
         }
@@ -287,11 +287,11 @@ struct Variable {
           array_type_info(array_info) {}
 
     // v0.13.1: struct_membersへのアクセス（参照があればそれを使う）
-    std::map<std::string, Variable>& get_struct_members() {
+    std::map<std::string, Variable> &get_struct_members() {
         return struct_members_ref ? *struct_members_ref : struct_members;
     }
-    
-    const std::map<std::string, Variable>& get_struct_members() const {
+
+    const std::map<std::string, Variable> &get_struct_members() const {
         return struct_members_ref ? *struct_members_ref : struct_members;
     }
 
@@ -958,11 +958,9 @@ class Interpreter : public EvaluatorInterface {
     const std::string &get_current_function_name() const {
         return current_function_name;
     }
-    
+
     // v0.13.1: デストラクタ実行中かチェック
-    bool is_calling_destructor() const {
-        return is_calling_destructor_;
-    }
+    bool is_calling_destructor() const { return is_calling_destructor_; }
 
     // エラー表示ヘルパー関数
     void throw_runtime_error_with_location(const std::string &message,
