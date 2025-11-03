@@ -1,8 +1,8 @@
 // Minimal test: single push
-import "stdlib/collections/queue.cb";
+import stdlib.collections.queue;
 
 int main() {
-    println("Testing single push...");
+    println("Testing single push//.");
     Queue<int> q;
     q.push(10);
     println("✅ Single push successful");

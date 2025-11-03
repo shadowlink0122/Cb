@@ -1,5 +1,5 @@
 // Cb Standard Library Test - Option Type
-// Tests for stdlib/std/option.cb
+// Tests for stdlib.std.option.cb
 // v0.11.0: Option<T> is now a builtin type - no enum definition needed
 
 // Option<T> is automatically available - no import or definition required!

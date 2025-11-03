@@ -1,8 +1,8 @@
 // Comprehensive Test: Generic Vector<T> and Queue<T>
 // Tests that both containers work with multiple types using TRUE GENERIC IMPLEMENTATION
 
-import "stdlib/collections/vector.cb";
-import "stdlib/collections/queue.cb";
+import stdlib.collections.vector;
+import stdlib.collections.queue;
 
 struct Point {
     int x;
@@ -153,6 +153,6 @@ void main() {
     println("║  TRUE GENERIC IMPLEMENTATION:                                ║");
     println("║    • Single impl for all types                               ║");
     println("║    • sizeof(T) for type-aware memory                         ║");
-    println("║    • array_get/array_set for generic operations              ║");
+    println("║    • array_get.array_set for generic operations              ║");
     println("╚═══════════════════════════════════════════════════════════════╝");
 }

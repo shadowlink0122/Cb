@@ -23,7 +23,7 @@ int main() {
     int size = sizeof(Point);
     println("Size of Point: {size} bytes");
     
-    println("Calling memcpy...");
+    println("Calling memcpy//.");
     void* result = memcpy(dest, src, size);
     println("memcpy returned: {hex(result)}");
     

@@ -1,5 +1,5 @@
 // Simple import test - Check if Queue<T> can be imported and used
-import "stdlib/collections/queue.cb";
+import stdlib.collections.queue;
 
 int main() {
     println("Queue<T> imported successfully!");

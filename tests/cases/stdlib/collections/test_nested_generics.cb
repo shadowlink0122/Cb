@@ -1,5 +1,5 @@
 // Test for nested generic types: Vector<Queue<T>> and Queue<Vector<T>>
-// v0.11.0: Nested struct support in array_get/array_set
+// v0.11.0: Nested struct support in array_get.array_set
 //
 // Tests deep copy functionality for nested generic containers.
 // Both Vector<Queue<T>> and Queue<Vector<T>> are fully supported.
@@ -209,7 +209,7 @@ int main() {
     //     print("\n=== Test 8: Large Nested Structures (SKIPPED) ===\n");
     //     Vector<Queue<int>> v;
     //     v.init(5);
-    //     ...
+    //     //.
     // }
 
     print("\n");

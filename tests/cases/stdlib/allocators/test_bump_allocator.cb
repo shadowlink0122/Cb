@@ -1,7 +1,7 @@
-// Test for stdlib/allocators/bump_allocator.cb
+// Test for stdlib.allocators.bump_allocator.cb
 // Using import to test stdlib exports
 
-import "stdlib/allocators/bump_allocator.cb";
+import stdlib.allocators.bump_allocator;
 
 void test_bump_allocator_init() {
     println("=== Test: BumpAllocator Init ===");

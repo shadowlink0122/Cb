@@ -20,7 +20,7 @@ int main() {
     println("arr[0] = {arr[0]}");
     
     // ptr_offsetで2番目の要素にアクセス
-    println("\nUsing ptr_offset...");
+    println("\nUsing ptr_offset//.");
     int size_of_int = sizeof(int);
     println("sizeof(int) = {size_of_int}");
     

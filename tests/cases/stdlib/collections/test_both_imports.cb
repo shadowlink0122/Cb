@@ -1,6 +1,6 @@
 // Test if Vector is imported
-import "stdlib/collections/vector.cb";
-import "stdlib/collections/queue.cb";
+import stdlib.collections.vector;
+import stdlib.collections.queue;
 
 int main() {
     println("Imports completed");

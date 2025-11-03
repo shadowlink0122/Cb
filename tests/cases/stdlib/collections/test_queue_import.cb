@@ -1,7 +1,7 @@
 // Test for Queue<T> library import and usage
 // This test verifies that generic Queue can be imported and used as a library
 
-import "stdlib/collections/queue.cb";
+import stdlib.collections.queue;
 
 int main() {
     println("╔════════════════════════════════════════════╗");

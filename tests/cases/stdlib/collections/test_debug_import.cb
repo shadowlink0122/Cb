@@ -1,5 +1,5 @@
 // Debug test - Very simple Vector import
-import "stdlib/collections/vector.cb";
+import stdlib.collections.vector;
 
 int main() {
     println("After import statement");

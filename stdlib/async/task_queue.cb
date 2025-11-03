@@ -7,8 +7,8 @@
 // - Push時に優先度でソートし、Pop時は先頭から取得
 // 注意: Queue<struct>のdequeueに問題があるため、Vector<Task>を使用
 
-import "stdlib/async/task.cb";
-import "stdlib/collections/vector.cb";
+import stdlib.async.task;
+import stdlib.collections.vector;
 
 export struct TaskQueue {
     Vector<Task> tasks;   // ジェネリックVectorを使用

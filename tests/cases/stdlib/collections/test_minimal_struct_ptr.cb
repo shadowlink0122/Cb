@@ -25,11 +25,11 @@ int main() {
     println("After cast to Point*: {hex(p)}");
     
     // メンバーに書き込み
-    println("\nTrying to write p->x = 42...");
+    println("\nTrying to write p->x = 42//.");
     p->x = 42;
     println("✅ p->x = {p->x}");
     
-    println("Trying to write p->y = 99...");
+    println("Trying to write p->y = 99//.");
     p->y = 99;
     println("✅ p->y = {p->y}");
     

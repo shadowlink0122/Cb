@@ -1,5 +1,5 @@
 // Queue<T> comprehensive test (separate from Vector to avoid interpreter crash)
-import "stdlib/collections/queue.cb";
+import stdlib.collections.queue;
 
 void test_queue_int() {
     println("═══ Test 1: Queue<int> ═══");
@@ -61,7 +61,7 @@ void test_queue_short() {
     q.push(s3);
     println("  Pushed 3 short values (10, 20, 30)");
     
-    println("  Verifying values...");
+    println("  Verifying values//.");
     
     short d1 = q.pop();
     short d2 = q.pop();

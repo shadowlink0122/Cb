@@ -57,7 +57,7 @@ int main() {
     }
     
     assert(sum == 45);
-    println("Sum of elements [0..9]: {sum}");
+    println("Sum of elements [0//9]: {sum}");
     println("✅ Test 2: Multiple elements - PASSED");
     println("");
     

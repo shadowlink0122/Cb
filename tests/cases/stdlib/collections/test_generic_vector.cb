@@ -28,7 +28,7 @@ int main() {
     println("\n🎉 Generic Vector<T> implementation complete!");
     println("✅ impl VectorOps<T> for Vector<T> - TRUE GENERICS!");
     println("✅ sizeof(T) - Type-aware size calculation");
-    println("✅ array_get/array_set - Generic array operations (暫定版)");
+    println("✅ array_get.array_set - Generic array operations (暫定版)");
     println("✅ default(T) - Type-aware default values");
     
     return 0;

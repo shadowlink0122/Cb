@@ -1,7 +1,7 @@
 // test_memcpy_simple.cb
 // memcpy関数のシンプルなテスト（配列アクセス制限を回避）
 
-import "stdlib/std/memory.cb";
+import stdlib.std.memory;
 
 struct Point {
     int x;
@@ -212,7 +212,7 @@ void test_memcpy_large_struct() {
     src->area = 100;
     
     int size = sizeof(Rectangle);
-    println("Copying {size} bytes...");
+    println("Copying {size} bytes//.");
     
     memcpy(dest, src, size);
     

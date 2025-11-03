@@ -1,5 +1,5 @@
 // Vector<構造体>のテスト
-import "stdlib/collections/vector.cb";
+import stdlib.collections.vector;
 
 struct Point {
     int x;
@@ -12,7 +12,7 @@ int main() {
     // 問題: Vector<Point>の実装がまだ存在しない
     // まずは、ポインタベースで実装を試みる
     
-    println("Creating points...");
+    println("Creating points//.");
     
     // ポイント1
     Point p1;
@@ -59,14 +59,14 @@ int main() {
     println("✅ Stored 3 point pointers");
     
     // ポインタから取得
-    println("\nRetrieving p1...");
+    println("\nRetrieving p1//.");
     void* retrieved_ptr = array_get_int(point_array, 0);
     println("  Retrieved pointer: {hex(retrieved_ptr)}");
     
     // 型キャストして構造体メンバーにアクセス
     // Note: Cbではポインタから構造体へのキャストが制限されている可能性
     
-    println("Attempting to access Point members...");
+    println("Attempting to access Point members//.");
     
     // 代わりに、元の変数を直接使用
     if (p1.x == 10 && p1.y == 20) {
@@ -90,7 +90,7 @@ int main() {
     
     println("\n✅ Pointer storage and retrieval works!");
     println("🎉 Vector<struct> with value copy would require:");
-    println("  1. array_get_struct/array_set_struct (already implemented)");
+    println("  1. array_get_struct.array_set_struct (already implemented)");
     println("  2. Generic impl block for each struct type");
     println("  3. Or: Use pointer-based storage (Vector<Point*>)");
     

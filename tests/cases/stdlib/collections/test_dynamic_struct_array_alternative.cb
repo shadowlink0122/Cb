@@ -76,7 +76,7 @@ int main() {
     println("✅ Created PointArray with capacity {N}");
     
     // 初期化
-    println("\nInitializing elements...");
+    println("\nInitializing elements//.");
     int i = 0;
     while (i < N) {
         point_array_set(points, i, i * 10, i * 20);
@@ -135,7 +135,7 @@ int main() {
     println("\n🎉 Dynamic Struct Array (Alternative) Tests Passed!");
     println("\nNOTE: Due to interpreter limitations, malloc'd memory cannot");
     println("      directly support struct member access (ptr->member).");
-    println("      This implementation uses array_get_int/array_set_int as");
+    println("      This implementation uses array_get_int.array_set_int as");
     println("      a workaround for low-level memory access.");
     
     return 0;

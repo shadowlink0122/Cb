@@ -1,5 +1,5 @@
 void main() {
-    println("=== malloc/free test ===");
+    println("=== malloc.free test ===");
     
     // 40バイト確保 (int 10個分)
     void* ptr = malloc(40);

@@ -12,11 +12,11 @@ int main() {
     Point* ptr = new Point;
     println("Allocated Point* at {hex(ptr)}");
     
-    println("Trying to set x...");
+    println("Trying to set x//.");
     ptr->x = 100;
     println("Set x = {ptr->x}");
     
-    println("Trying to set y...");
+    println("Trying to set y//.");
     ptr->y = 200;
     println("Set y = {ptr->y}");
     

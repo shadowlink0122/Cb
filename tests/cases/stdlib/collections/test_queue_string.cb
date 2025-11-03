@@ -1,5 +1,5 @@
 // Queue<string>のテスト
-import "stdlib/collections/queue.cb";
+import stdlib.collections.queue;
 
 int main() {
     println("=== Queue<string> Tests ===\n");

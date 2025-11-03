@@ -1,5 +1,5 @@
 // Cb Standard Library Test - Result Type
-// Tests for stdlib/std/result.cb
+// Tests for stdlib.std.result.cb
 // v0.11.0: Result<T, E> is now a builtin type - no enum definition needed
 
 // Result<T, E> is automatically available - no import or definition required!

@@ -1,7 +1,7 @@
 // test_memcpy.cb
 // memcpy関数のテスト
 
-import "stdlib/std/memory.cb";
+import stdlib.std.memory;
 
 struct Point {
     int x;

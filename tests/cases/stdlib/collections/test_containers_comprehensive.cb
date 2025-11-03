@@ -2,7 +2,7 @@
 // Note: Struct support is limited due to generic impl return value constraints
 // NOTE: Testing multiple Queue types separately to verify generic implementation
 
-import "stdlib/collections/queue.cb";
+import stdlib.collections.queue;
 
 void main() {
     println("╔═══════════════════════════════════════════════════════════════╗");

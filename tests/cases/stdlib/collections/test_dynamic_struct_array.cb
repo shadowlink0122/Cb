@@ -53,7 +53,7 @@ int main() {
     println("✅ Allocated memory for {N} Points at {hex(points)}");
     
     // 各要素を初期化
-    println("\nInitializing array elements...");
+    println("\nInitializing array elements//.");
     int i = 0;
     while (i < N) {
         // C風のポインタ演算: points + i * sizeof(Point)

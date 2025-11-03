@@ -1,5 +1,5 @@
 // Vector<string>の詳細デバッグテスト
-import "stdlib/collections/vector.cb";
+import stdlib.collections.vector;
 
 int main() {
     println("=== Vector<string> Debug Test ===");
@@ -39,8 +39,8 @@ int main() {
     println("  s1 == World: {test1}");
     println("  s2 == Test: {test2}");
     
-    // 3. array_get_string/array_set_stringの直接テスト
-    println("\n--- Test 3: Direct array_get_string/array_set_string ---");
+    // 3. array_get_string.array_set_stringの直接テスト
+    println("\n--- Test 3: Direct array_get_string.array_set_string ---");
     void* test_array = malloc(8 * 3);
     
     array_set_string(test_array, 0, "Direct1");

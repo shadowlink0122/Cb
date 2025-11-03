@@ -1,7 +1,7 @@
-// Test for stdlib/allocators/system_allocator.cb
+// Test for stdlib.allocators.system_allocator.cb
 // Using import to test stdlib exports
 
-import "stdlib/allocators/system_allocator.cb";
+import stdlib.allocators.system_allocator;
 
 void test_system_allocator_basic() {
     println("=== Test: SystemAllocator Basic ===");
