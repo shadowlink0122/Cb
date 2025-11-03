@@ -21,18 +21,18 @@ void main() {
     // ================================================================
     println("═══ Test 1: Vector<int> ═══");
     Vector<int> vec_int;
-    vec_int.init(5);
-    vec_int.push(10);
-    vec_int.push(20);
-    vec_int.push(30);
+    vec_int.push_back(10);
+    vec_int.push_back(20);
+    vec_int.push_back(30);
     
     println("Vector<int> length: ", vec_int.get_length());
-    println("Vector<int>[0]: ", vec_int.get(0));
-    println("Vector<int>[1]: ", vec_int.get(1));
-    println("Vector<int>[2]: ", vec_int.get(2));
+    println("Vector<int>[0]: ", vec_int.at(0));
+    println("Vector<int>[1]: ", vec_int.at(1));
+    println("Vector<int>[2]: ", vec_int.at(2));
     
-    int popped = vec_int.pop();
-    println("Popped: ", popped);
+    int last = vec_int.at(2);
+    vec_int.pop_back();
+    println("Popped: ", last);
     println("✅ Vector<int> works correctly");
     println("");
     
@@ -41,12 +41,11 @@ void main() {
     // ================================================================
     println("═══ Test 2: Vector<long> ═══");
     Vector<long> vec_long;
-    vec_long.init(3);
-    vec_long.push(123456789);
-    vec_long.push(987654321);
+    vec_long.push_back(123456789);
+    vec_long.push_back(987654321);
     
     println("Vector<long> length: ", vec_long.get_length());
-    println("Vector<long>[0]: ", vec_long.get(0));
+    println("Vector<long>[0]: ", vec_long.at(0));
     println("✅ Vector<long> works correctly");
     println("");
     
@@ -84,19 +83,18 @@ void main() {
     println("");
     
     // ================================================================
-    // Test 5: Vector auto-resize
+    // Test 5: Vector dynamic growth
     // ================================================================
     println("═══ Test 5: Vector<int> auto-resize ═══");
     Vector<int> vec_resize;
-    vec_resize.init(2);
-    println("Initial capacity: ", vec_resize.get_capacity());
+    println("Initial length: ", vec_resize.get_length());
     
-    vec_resize.push(1);
-    vec_resize.push(2);
-    println("After 2 pushes, capacity: ", vec_resize.get_capacity());
+    vec_resize.push_back(1);
+    vec_resize.push_back(2);
+    println("After 2 pushes, length: ", vec_resize.get_length());
     
-    vec_resize.push(3);  // This should trigger resize
-    println("After 3 pushes (resize), capacity: ", vec_resize.get_capacity());
+    vec_resize.push_back(3);  // Linked list grows dynamically
+    println("After 3 pushes, length: ", vec_resize.get_length());
     println("Length: ", vec_resize.get_length());
     println("✅ Vector auto-resize works");
     println("");
@@ -129,8 +127,7 @@ void main() {
     println("═══ Test 7: Memory management ═══");
     {
         Vector<int> temp_vec;
-        temp_vec.init(5);
-        temp_vec.push(999);
+        temp_vec.push_back(999);
         println("Created temporary vector in scope");
         
         Queue<int> temp_queue;
@@ -150,8 +147,7 @@ void main() {
     println("║  Tested:                                                      ║");
     println("║    ✓ Vector<int>, Vector<long>                               ║");
     println("║    ✓ Queue<int>, Queue<long>                                 ║");
-    println("║    ✓ Auto-resize (Vector)                                    ║");
-    println("║    ✓ Dynamic growth (Queue)                                  ║");
+    println("║    ✓ Dynamic growth (Vector & Queue)                         ║");
     println("║    ✓ Memory management (destructors)                         ║");
     println("║                                                               ║");
     println("║  TRUE GENERIC IMPLEMENTATION:                                ║");

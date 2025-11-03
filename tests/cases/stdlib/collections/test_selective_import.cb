@@ -12,10 +12,9 @@ void test_default_import() {
     
     // Vectorの全ての型が利用可能
     Vector<int> vec;
-    vec.init(5);
-    vec.push(10);
+    vec.push_back(10);
     
-    println("✅ Default import works (Vector, SystemAllocator, BumpAllocator)");
+    println("✅ Default import works");
 }
 
 void test_selective_import() {

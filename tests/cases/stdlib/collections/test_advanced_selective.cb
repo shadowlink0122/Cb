@@ -12,9 +12,8 @@ void test_multiple_selective() {
     
     // VectorとSystemAllocatorは使える
     Vector<int> vec;
-    vec.init(3);
-    vec.push(10);
-    vec.push(20);
+    vec.push_back(10);
+    vec.push_back(20);
     
     println("Vector length: {vec.get_length()}");
     println("✅ Multiple selective import works");

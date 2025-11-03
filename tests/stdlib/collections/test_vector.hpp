@@ -37,9 +37,9 @@ inline void test_vector_import_comprehensive() {
     STDLIB_ASSERT_CONTAINS(output, "✅ Vector push operations work");
     STDLIB_ASSERT_CONTAINS(output, "✅ Vector pop operations work");
     
-    STDLIB_ASSERT_CONTAINS(output, "=== Test: Vector Resize ===");
-    STDLIB_ASSERT_CONTAINS(output, "✅ Vector resize works");
-    STDLIB_ASSERT_CONTAINS(output, "✅ Vector operations after resize work");
+    STDLIB_ASSERT_CONTAINS(output, "=== Test: Vector Dynamic Growth ===");
+    STDLIB_ASSERT_CONTAINS(output, "✅ Vector dynamic growth works");
+    STDLIB_ASSERT_CONTAINS(output, "✅ Vector operations after growth work");
     
     STDLIB_ASSERT_CONTAINS(output, "=== Test: Vector Destructor ===");
     STDLIB_ASSERT_CONTAINS(output, "✅ Vector destructor works");
