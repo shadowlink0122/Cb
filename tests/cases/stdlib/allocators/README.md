@@ -73,7 +73,7 @@ make stdlib-test-cb
 2. **テストファイル作成**
    ```cb
    // tests/cases/stdlib/allocators/test_new_allocator.cb
-   import "stdlib/allocators/new_allocator.cb";
+   import stdlib.allocators.new_allocator;
    
    void test_new_allocator_basic() {
        println("✅ Test passed");

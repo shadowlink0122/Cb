@@ -112,7 +112,7 @@ touch tests/cases/stdlib/new_category/README.md
 
 ```cb
 // tests/cases/stdlib/new_category/test_module.cb
-import "stdlib/new_category/module.cb";
+import stdlib.new_category.module;
 
 void test_module_basic() {
     println("✅ Test passed");

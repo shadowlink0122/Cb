@@ -2014,9 +2014,14 @@ ASTNode *StatementParser::parseCaseValue() {
  * @brief import文を解析
  * @return 解析されたASTインポート文ノード
  *
- * 構文: import "module_name.cb";
+ * 構文: import module.path.name;
  *
  * import文は外部モジュールから関数や定数をインポートします。
+ * サポートされる形式:
+ * - import stdlib.math.basic;
+ * - import stdlib.math.basic as math;
+ * - import stdlib.math.basic { func1, func2 };
+ * - import stdlib.math.basic { func1 as f1, func2 };
  */
 ASTNode *StatementParser::parseImportStatement() {
     Token import_token = parser_->advance(); // consume 'import'
@@ -2025,21 +2030,10 @@ ASTNode *StatementParser::parseImportStatement() {
     import_node->location.line = import_token.line;
     import_node->location.column = import_token.column;
 
-    // 2つのパターンをサポート:
-    // 1. import "path/to/module.cb";  (文字列リテラル - 相対パス)
-    // 2. import stdlib.math.basic;    (ドット記法 - モジュールパス)
-    // 3. import stdlib.math.basic as math;  (エイリアス)
-    // 4. import stdlib.math.basic { func1, func2 };  (個別インポート)
-    // 5. import stdlib.math.basic { func1 as f1, func2 };  (個別エイリアス)
-
     std::string module_path;
 
-    if (parser_->check(TokenType::TOK_STRING)) {
-        // パターン1: 文字列リテラル（相対パス）
-        module_path = parser_->current_token_.value;
-        parser_->advance();
-    } else if (parser_->check(TokenType::TOK_IDENTIFIER)) {
-        // パターン2-5: ドット記法のモジュールパス
+    if (parser_->check(TokenType::TOK_IDENTIFIER)) {
+        // ドット記法のモジュールパス
         module_path = parser_->current_token_.value;
         parser_->advance();
 
@@ -2058,7 +2052,7 @@ ASTNode *StatementParser::parseImportStatement() {
             parser_->advance();
         }
     } else {
-        parser_->error("Expected module path or string literal after 'import'");
+        parser_->error("Expected module path after 'import'");
         delete import_node;
         return nullptr;
     }

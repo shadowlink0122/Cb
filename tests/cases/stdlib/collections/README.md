@@ -90,7 +90,7 @@ make stdlib-test-cb
 2. **テストファイル作成**
    ```cb
    // tests/cases/stdlib/collections/test_queue.cb
-   import "stdlib/collections/queue.cb";
+   import stdlib.collections.queue;
    
    void test_queue_basic() {
        println("Queue operations test");

@@ -1857,29 +1857,25 @@ std::string RecursiveParser::getSourceDirectory() const {
  *
  * ドット記法（stdlib.collections.vector）をスラッシュ区切り（stdlib/collections/vector.cb）に変換
  * また、検索パス（stdlib/, modules/など）を試行して実際のファイルを探す
+ * 例:
+ *   stdlib.collections.vector -> stdlib/collections/vector.cb
+ *   module_name -> module_name.cb
  */
 std::string RecursiveParser::resolveModulePath(const std::string &module_path) {
     std::string file_path = module_path;
 
-    // .cbが既に含まれているか確認
-    bool has_extension = (file_path.find(".cb") != std::string::npos);
-
-    if (!has_extension) {
-        // ドット記法の場合、パスに変換
+    // ドット記法の場合、パスに変換して .cb 拡張子を追加
+    if (module_path.find('.') != std::string::npos &&
+        module_path.find('/') == std::string::npos &&
+        module_path.find("..") == std::string::npos) {
+        // ドット区切りをスラッシュに変換
         // stdlib.collections.vector -> stdlib/collections/vector.cb
-        if (module_path.find('.') != std::string::npos &&
-            module_path.find('/') == std::string::npos &&
-            module_path.find("..") == std::string::npos) {
-            std::replace(file_path.begin(), file_path.end(), '.', '/');
-            file_path += ".cb";
-        } else {
-            // 拡張子がない場合は追加
-            file_path += ".cb";
-        }
+        std::replace(file_path.begin(), file_path.end(), '.', '/');
+        file_path += ".cb";
+    } else {
+        // ドットがない場合（相対パスimport: module_name）は.cbを追加
+        file_path += ".cb";
     }
-
-    // Note: .cbが既に含まれている場合も、検索パスの対象とする
-    // （早期リターンせず、source directoryなどを試行する）
 
     // 検索パスの優先順位
     std::vector<std::string> search_paths;

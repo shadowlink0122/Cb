@@ -420,7 +420,7 @@ export impl Point {
 }
 
 // main.cb
-import "module_a.cb";
+import module_a;
 
 int main() {
     Point p(10, 20);  // ✅ エクスポートされたコンストラクタを使用
