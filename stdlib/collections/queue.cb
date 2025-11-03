@@ -14,14 +14,14 @@
 
 // キューのノード構造
 export struct QueueNode<T> {
-    T data;
-    void* next;  // 次のノードへのポインタ（void*として扱う）
+    private T data;
+    private void* next;  // 次のノードへのポインタ（void*として扱う）
 };
 
 export struct Queue<T> {
-    void* front;   // 先頭ノードへのポインタ
-    void* rear;    // 末尾ノードへのポインタ
-    int length;    // 現在の要素数
+    private void* front;   // 先頭ノードへのポインタ
+    private void* rear;    // 末尾ノードへのポインタ
+    private int length;    // 現在の要素数
 };
 
 export interface QueueOps<T> {
@@ -48,7 +48,6 @@ export interface QueueOps<T> {
 impl QueueOps<T> for Queue<T> {
     void push(T value) {
         // 新しいノードのメモリ確保
-        // WORKAROUND: sizeof(QueueNode<T>)がvoid*を含めないバグがあるため手動計算
         int node_size = sizeof(T) + sizeof(void*);
         void* node_mem = malloc(node_size);
         
@@ -90,8 +89,8 @@ impl QueueOps<T> for Queue<T> {
             return dummy;
         }
         
-        // array_getでデータを読み取る（array_setと対になる）
-        T result = array_get(self.front, 0);
+        // ローカル変数を使わずに直接返す（Deep copy実装が完全になるまでの暫定対応）
+        void* front_node = self.front;
         
         // 次のノードへのポインタを取得
         int data_size = sizeof(T);
@@ -99,9 +98,6 @@ impl QueueOps<T> for Queue<T> {
         long next_addr = front_addr + data_size;
         void** next_ptr = (void**)next_addr;
         void* next_node = *next_ptr;
-        
-        // 古い先頭ノードを解放
-        free(self.front);
         
         // 先頭を次のノードに更新
         self.front = next_node;
@@ -113,7 +109,8 @@ impl QueueOps<T> for Queue<T> {
         
         self.length = self.length - 1;
         
-        return result;
+        // データを直接返す（ローカル変数経由せず）
+        return array_get(front_node, 0);
     }
     
     T top() {
@@ -141,9 +138,6 @@ impl QueueOps<T> for Queue<T> {
             // nextフィールドの位置を計算
             // ノードレイアウト: [T data][void* next]
             int data_size = sizeof(T);
-            
-            // self.frontはmalloc()が返したアドレスを指すVariable*
-            // nextフィールドはdata_sizeオフセットに配置されている
             long node_addr = (long)self.front;
             long next_field_addr = node_addr + data_size;
             
@@ -212,8 +206,7 @@ impl QueueOps<T> for Queue<T> {
             return dummy;
         }
         
-        // array_getでデータを読み取る（array_setと対になる）
-        T result = array_get(self.front, 0);
+        void* front_node = self.front;
         
         int data_size = sizeof(T);
         long front_addr = (long)self.front;
@@ -221,7 +214,6 @@ impl QueueOps<T> for Queue<T> {
         void** next_ptr = (void**)next_addr;
         void* next_node = *next_ptr;
         
-        free(self.front);
         self.front = next_node;
         
         if (self.front == nullptr) {
@@ -230,7 +222,7 @@ impl QueueOps<T> for Queue<T> {
         
         self.length = self.length - 1;
         
-        return result;
+        return array_get(front_node, 0);
     }
     
     T peek() {
@@ -257,8 +249,7 @@ impl Queue<T> {
         self.length = 0;
     }
     ~self() {
-        // v0.13.1: 正常に動作するようになったデストラクタ
-        // sizeof(T)が正しく解決されることを確認済み
+        // デストラクタ：すべてのノードを解放
         while (self.front != nullptr) {
             int data_size = sizeof(T);
             long front_addr = (long)self.front;

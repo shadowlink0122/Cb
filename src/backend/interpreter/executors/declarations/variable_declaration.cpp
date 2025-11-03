@@ -968,6 +968,16 @@ void execute_variable_declaration(StatementExecutor *executor,
                                    " members")
                                       .c_str());
 
+                        if (debug_mode) {
+                            std::cerr << "[EXECUTORS_VAR_DECL_STRUCT] Creating "
+                                         "member variables for "
+                                      << node->name << " (type: "
+                                      << ret.struct_value.struct_type_name
+                                      << "), members.size="
+                                      << ret.struct_value.struct_members.size()
+                                      << "\n";
+                        }
+
                         Variable &target_var =
                             interpreter.current_scope().variables[node->name];
                         target_var = ret.struct_value; // 構造体をコピー

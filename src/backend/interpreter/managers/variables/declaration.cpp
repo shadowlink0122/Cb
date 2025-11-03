@@ -624,6 +624,44 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
                         // struct戻り値の場合
                         var = ret.struct_value;
                         var.is_assigned = true;
+
+                        if (interpreter_->debug_mode) {
+                            debug_print(
+                                "[VAR_DECL_MEMBER_CREATE] Creating member "
+                                "variables for %s "
+                                "(type: %s), members.size=%zu\n",
+                                node->name.c_str(),
+                                ret.struct_value.struct_type_name.c_str(),
+                                ret.struct_value.struct_members.size());
+                        }
+
+                        // 個別メンバー変数を作成（デストラクタのために必要）
+                        std::function<void(
+                            const std::string &,
+                            const std::map<std::string, Variable> &)>
+                            create_member_variables;
+                        create_member_variables =
+                            [&](const std::string &base_path,
+                                const std::map<std::string, Variable>
+                                    &members) {
+                                for (const auto &member : members) {
+                                    std::string member_path =
+                                        base_path + "." + member.first;
+                                    current_scope().variables[member_path] =
+                                        member.second;
+
+                                    // ネストされた構造体メンバーの場合、再帰的に処理
+                                    if (member.second.is_struct &&
+                                        !member.second.struct_members.empty()) {
+                                        create_member_variables(
+                                            member_path,
+                                            member.second.struct_members);
+                                    }
+                                }
+                            };
+                        create_member_variables(
+                            node->name, ret.struct_value.struct_members);
+
                     } else if (ret.is_struct && var.type == TYPE_UNION) {
                         // union型変数への構造体代入の場合
                         if (interpreter_->get_type_manager()
@@ -1728,12 +1766,29 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
 
     // 未定義型のチェック（基本的な変数宣言の場合）
     if (!node->type_name.empty() && node->type_info == TYPE_UNKNOWN) {
-        // v0.13.1: まず型コンテキストで型パラメータ(T, U等)を解決
+        // 型コンテキストで型パラメータ(T, U等)を解決
         const TypeContext *type_ctx = interpreter_->get_current_type_context();
         bool is_type_parameter = false;
+        std::string resolved_type_name;
+
         if (type_ctx && type_ctx->has_mapping_for(node->type_name)) {
             is_type_parameter = true;
-            // 型パラメータは有効な型として扱う（実行時に解決される）
+            resolved_type_name = type_ctx->resolve_type(node->type_name);
+
+            // 型パラメータTがジェネリック構造体（Vector<long>など）に
+            // 解決される場合、var.is_structとvar.typeを設定する必要がある
+            if (resolved_type_name.find('<') != std::string::npos) {
+                // ジェネリック構造体に解決された場合
+                var.is_struct = true;
+                var.type = TYPE_STRUCT; // これが重要！
+                var.struct_type_name = resolved_type_name;
+                if (interpreter_->debug_mode) {
+                    debug_print("[VAR_DECL_TYPE_PARAM] Type parameter '%s' "
+                                "resolved to generic struct '%s'\n",
+                                node->type_name.c_str(),
+                                resolved_type_name.c_str());
+                }
+            }
         }
 
         if (!is_type_parameter) {

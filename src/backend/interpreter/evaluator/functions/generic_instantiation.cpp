@@ -66,7 +66,9 @@ static std::string substitute_normalized_generic_type(
 }
 
 // ジェネリック型名を正規化（例: "Box<int>" -> "Box_int"）
-static std::string normalize_generic_type_name(const std::string &type_name) {
+// NOTE: Currently unused, but kept for potential future use
+[[maybe_unused]] static std::string
+normalize_generic_type_name(const std::string &type_name) {
     std::string result = type_name;
 
     // '<'を'_'に、'>'を削除、','と空白を'_'に置換

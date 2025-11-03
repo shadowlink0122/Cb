@@ -446,8 +446,10 @@ void StructOperations::ensure_struct_member_access_allowed(
     }
 
     if (!is_current_impl_context_for(struct_type)) {
-        throw std::runtime_error("Cannot access private struct member: " +
-                                 accessor_name + "." + member_name);
+        std::cerr << "Error: Cannot access private member '" << accessor_name
+                  << "." << member_name << "' from outside its impl block"
+                  << std::endl;
+        std::exit(1);
     }
 }
 

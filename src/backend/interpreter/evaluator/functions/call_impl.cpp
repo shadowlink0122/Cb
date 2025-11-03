@@ -1210,6 +1210,12 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
             int64_t index =
                 interpreter_.eval_expression(node->arguments[1].get());
 
+            if (interpreter_.is_debug_mode()) {
+                std::cerr << "[array_get] Called with ptr=0x" << std::hex
+                          << ptr_value << std::dec << ", index=" << index
+                          << "\n";
+            }
+
             if (ptr_value == 0 || index < 0)
                 return 0;
 
@@ -1219,21 +1225,487 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
             if (type_ctx && type_ctx->has_mapping_for("T")) {
                 std::string actual_type = type_ctx->resolve_type("T");
 
+                if (interpreter_.is_debug_mode()) {
+                    std::cerr << "[array_get] Resolved T to: " << actual_type
+                              << "\n";
+                }
+
+                // 構造体型の場合、構造体定義を基にメモリから再構築
+                // ネストしたジェネリック構造体（Vector<Queue<T>>など）のサポート
+                auto struct_def =
+                    interpreter_.find_struct_definition(actual_type);
+
+                if (interpreter_.is_debug_mode()) {
+                    std::cerr << "[array_get] struct_def for " << actual_type
+                              << ": " << (struct_def ? "found" : "NOT FOUND")
+                              << "\n";
+                }
+                if (struct_def != nullptr) {
+                    // 構造体の実際のメモリサイズを取得
+                    // 各メンバーのサイズの合計を計算（8バイトアライメント）
+                    size_t total_size = 0;
+                    for (const auto &member : struct_def->members) {
+                        if (member.is_pointer) {
+                            total_size += sizeof(void *); // 8 bytes
+                        } else if (member.type == TYPE_LONG) {
+                            total_size += sizeof(long); // 8 bytes
+                        } else if (member.type == TYPE_INT) {
+                            total_size +=
+                                sizeof(long); // 8 bytes (アライメント)
+                        } else {
+                            total_size += sizeof(long); // 8 bytes デフォルト
+                        }
+                    }
+
+                    // 配列内の要素へのポインタを計算
+                    char *arr = reinterpret_cast<char *>(ptr_value);
+                    char *element_ptr = arr + (index * total_size);
+
+                    // メモリから構造体を再構築
+                    Variable result;
+                    result.is_struct = true;
+                    result.struct_type_name = actual_type;
+                    result.type_name = actual_type;
+                    result.is_assigned = true;
+
+                    // メンバーを再構築（8バイトアライメントで読み取り）
+                    size_t offset = 0;
+                    if (interpreter_.is_debug_mode()) {
+                        std::cerr << "[array_get] Reconstructing struct "
+                                  << actual_type << " from memory at "
+                                  << (void *)element_ptr << ", "
+                                  << struct_def->members.size() << " members\n";
+                    }
+
+                    for (const auto &member_def : struct_def->members) {
+                        Variable member_var;
+                        member_var.type = member_def.type;
+                        member_var.is_pointer = member_def.is_pointer;
+
+                        // すべてのメンバーを8バイトアライメントで読み取り
+                        member_var.value =
+                            *reinterpret_cast<int64_t *>(element_ptr + offset);
+                        offset += sizeof(long); // 常に8バイト進める
+
+                        member_var.is_assigned = true;
+                        result.struct_members[member_def.name] = member_var;
+
+                        if (interpreter_.is_debug_mode()) {
+                            std::cerr
+                                << "[array_get]   Member " << member_def.name
+                                << " at offset " << (offset - sizeof(long))
+                                << ": type="
+                                << static_cast<int>(member_def.type)
+                                << ", is_pointer=" << member_def.is_pointer
+                                << ", value=" << member_var.value << " (0x"
+                                << std::hex << member_var.value << std::dec
+                                << ")\n";
+                        }
+                    }
+
+                    // Deep copy for nested generic structs
+                    // Vector<T>とQueue<T>のポインタメンバーをdeep copy
+                    if (actual_type.find("Vector<") == 0) {
+                        // Vector<T>のdeep copy: data配列をコピー
+                        auto data_it = result.struct_members.find("data");
+                        auto length_it = result.struct_members.find("length");
+                        auto capacity_it =
+                            result.struct_members.find("capacity");
+
+                        if (data_it != result.struct_members.end() &&
+                            length_it != result.struct_members.end() &&
+                            capacity_it != result.struct_members.end()) {
+
+                            void *original_data =
+                                reinterpret_cast<void *>(data_it->second.value);
+                            int length =
+                                static_cast<int>(length_it->second.value);
+                            int capacity =
+                                static_cast<int>(capacity_it->second.value);
+
+                            if (interpreter_.is_debug_mode()) {
+                                std::cerr
+                                    << "[array_get] Vector deep copy check: "
+                                    << "data=" << original_data
+                                    << ", length=" << length
+                                    << ", capacity=" << capacity << "\n";
+                            }
+
+                            if (original_data != nullptr && capacity > 0) {
+                                // 要素の型を取得（Vector<T>のT）
+                                size_t start = actual_type.find('<') + 1;
+                                size_t end = actual_type.find_last_of('>');
+                                std::string element_type =
+                                    actual_type.substr(start, end - start);
+
+                                // 要素のサイズを計算
+                                size_t element_size = 0;
+                                auto element_struct_def =
+                                    interpreter_.find_struct_definition(
+                                        element_type);
+                                if (element_struct_def != nullptr) {
+                                    // 構造体の場合、8バイトアライメントで計算
+                                    for (size_t i = 0;
+                                         i < element_struct_def->members.size();
+                                         ++i) {
+                                        element_size += sizeof(long);
+                                    }
+                                } else {
+                                    // プリミティブ型の場合
+                                    element_size = sizeof(long);
+                                }
+
+                                // 新しいdata配列を割り当て
+                                size_t total_bytes = capacity * element_size;
+
+                                if (interpreter_.is_debug_mode()) {
+                                    std::cerr
+                                        << "[array_get] About to malloc: "
+                                           "capacity="
+                                        << capacity
+                                        << ", element_size=" << element_size
+                                        << ", total_bytes=" << total_bytes
+                                        << "\n";
+                                }
+
+                                void *new_data = malloc(total_bytes);
+
+                                if (interpreter_.is_debug_mode()) {
+                                    std::cerr
+                                        << "[array_get] malloc returned: 0x"
+                                        << std::hex << new_data << std::dec
+                                        << "\n";
+                                }
+
+                                if (new_data == nullptr) {
+                                    throw std::runtime_error(
+                                        "malloc failed in deep copy");
+                                }
+
+                                if (interpreter_.is_debug_mode()) {
+                                    std::cerr
+                                        << "[array_get] About to memcpy: src=0x"
+                                        << std::hex << original_data
+                                        << ", dst=0x" << new_data << std::dec
+                                        << ", bytes=" << total_bytes << "\n";
+                                }
+
+                                memcpy(new_data, original_data, total_bytes);
+
+                                if (interpreter_.is_debug_mode()) {
+                                    std::cerr << "[array_get] memcpy completed "
+                                                 "successfully\n";
+                                }
+
+                                // dataポインタを更新 + 要素型名を保存
+                                data_it->second.value =
+                                    reinterpret_cast<int64_t>(new_data);
+                                data_it->second.type_name =
+                                    element_type; // 要素型名を保存
+                                data_it->second.pointer_base_type_name =
+                                    element_type; // 念のため両方設定
+                                result.struct_members["data"] = data_it->second;
+
+                                // ポインタ要素型をグローバルマップに登録
+                                if (interpreter_.is_debug_mode()) {
+                                    std::cerr
+                                        << "[array_get] Registering pointer 0x"
+                                        << std::hex << new_data << std::dec
+                                        << " with element type: "
+                                        << element_type << "\n";
+                                }
+                                interpreter_.register_pointer_element_type(
+                                    new_data, element_type);
+                                if (interpreter_.is_debug_mode()) {
+                                    std::cerr << "[array_get] Registration "
+                                                 "completed\n";
+                                }
+
+                                if (interpreter_.is_debug_mode()) {
+                                    std::cerr << "[array_get] Updated "
+                                                 "result.struct_members["
+                                                 "\"data\"] to 0x"
+                                              << std::hex << new_data
+                                              << std::dec << " (was 0x"
+                                              << std::hex << original_data
+                                              << std::dec << ")\n";
+                                }
+
+                                if (interpreter_.is_debug_mode()) {
+                                    std::cerr << "[array_get] Deep copied "
+                                                 "Vector data: "
+                                              << total_bytes << " bytes from 0x"
+                                              << std::hex << original_data
+                                              << " to 0x" << new_data
+                                              << std::dec << "\n";
+
+                                    // メモリの内容を確認
+                                    if (element_type == "long" &&
+                                        capacity >= 3) {
+                                        long *src = reinterpret_cast<long *>(
+                                            original_data);
+                                        long *dst =
+                                            reinterpret_cast<long *>(new_data);
+                                        std::cerr
+                                            << "[array_get]   Original data[0]="
+                                            << src[0] << ", [1]=" << src[1]
+                                            << ", [2]=" << src[2] << "\n";
+                                        std::cerr
+                                            << "[array_get]   Copied data[0]="
+                                            << dst[0] << ", [1]=" << dst[1]
+                                            << ", [2]=" << dst[2] << "\n";
+                                    }
+                                }
+                            }
+                        }
+                    } else if (actual_type.find("Queue<") == 0) {
+                        // Queue<T>のdeep copy: リンクリストをコピー
+                        auto front_it = result.struct_members.find("front");
+                        auto rear_it = result.struct_members.find("rear");
+                        auto length_it = result.struct_members.find("length");
+
+                        if (front_it != result.struct_members.end() &&
+                            rear_it != result.struct_members.end() &&
+                            length_it != result.struct_members.end()) {
+
+                            void *original_front = reinterpret_cast<void *>(
+                                front_it->second.value);
+                            int length =
+                                static_cast<int>(length_it->second.value);
+
+                            if (original_front != nullptr && length > 0) {
+                                // 要素の型を取得（Queue<T>のT）
+                                size_t start = actual_type.find('<') + 1;
+                                size_t end = actual_type.find_last_of('>');
+                                std::string element_type =
+                                    actual_type.substr(start, end - start);
+
+                                // ノードのサイズを計算（T data + void* next）
+                                size_t data_size = 0;
+                                auto element_struct_def =
+                                    interpreter_.find_struct_definition(
+                                        element_type);
+                                if (element_struct_def != nullptr) {
+                                    for (size_t i = 0;
+                                         i < element_struct_def->members.size();
+                                         ++i) {
+                                        data_size += sizeof(long);
+                                    }
+                                } else {
+                                    data_size = sizeof(long);
+                                }
+                                size_t node_size =
+                                    data_size + sizeof(void *); // data + next
+
+                                // リンクリストをコピー
+                                void *new_front = nullptr;
+                                void *new_rear = nullptr;
+                                void *current_old = original_front;
+
+                                while (current_old != nullptr) {
+                                    // 新しいノードを割り当て
+                                    void *new_node = malloc(node_size);
+                                    memcpy(new_node, current_old, node_size);
+
+                                    // ノード内の要素がVectorの場合、deep copy
+                                    if (element_type.find("Vector<") == 0) {
+                                        // Vectorのメンバーを読み取り
+                                        char *node_data =
+                                            reinterpret_cast<char *>(new_node);
+                                        void *vec_data =
+                                            *reinterpret_cast<void **>(
+                                                node_data + 0); // data
+                                        // int vec_length =
+                                        //     *reinterpret_cast<int *>(
+                                        //         node_data +
+                                        //         sizeof(long)); // length
+                                        //         (unused)
+                                        int vec_capacity =
+                                            *reinterpret_cast<int *>(
+                                                node_data +
+                                                2 * sizeof(long)); // capacity
+
+                                        if (vec_data != nullptr &&
+                                            vec_capacity > 0) {
+                                            // Vector内の要素型を取得
+                                            size_t vec_start =
+                                                element_type.find('<') + 1;
+                                            size_t vec_end =
+                                                element_type.find_last_of('>');
+                                            std::string vec_element_type =
+                                                element_type.substr(
+                                                    vec_start,
+                                                    vec_end - vec_start);
+
+                                            // 要素サイズを計算
+                                            size_t vec_element_size = 0;
+                                            auto vec_element_struct_def =
+                                                interpreter_
+                                                    .find_struct_definition(
+                                                        vec_element_type);
+                                            if (vec_element_struct_def !=
+                                                nullptr) {
+                                                for (size_t i = 0;
+                                                     i < vec_element_struct_def
+                                                             ->members.size();
+                                                     ++i) {
+                                                    vec_element_size +=
+                                                        sizeof(long);
+                                                }
+                                            } else {
+                                                vec_element_size = sizeof(long);
+                                            }
+
+                                            // Vector data配列をコピー
+                                            size_t vec_total_bytes =
+                                                vec_capacity * vec_element_size;
+                                            void *new_vec_data =
+                                                malloc(vec_total_bytes);
+                                            memcpy(new_vec_data, vec_data,
+                                                   vec_total_bytes);
+
+                                            // 新しいdataポインタを設定
+                                            *reinterpret_cast<void **>(
+                                                node_data + 0) = new_vec_data;
+
+                                            if (interpreter_.is_debug_mode()) {
+                                                std::cerr
+                                                    << "[array_get] Deep "
+                                                       "copied "
+                                                       "Vector in Queue node: "
+                                                    << vec_total_bytes
+                                                    << " bytes\n";
+                                            }
+                                        }
+                                    }
+
+                                    // nextポインタをリセット（後で更新）
+                                    char *next_field_addr =
+                                        reinterpret_cast<char *>(new_node) +
+                                        data_size;
+                                    *reinterpret_cast<void **>(
+                                        next_field_addr) = nullptr;
+
+                                    if (new_front == nullptr) {
+                                        new_front = new_node;
+                                    }
+                                    if (new_rear != nullptr) {
+                                        // 前のノードのnextを更新
+                                        char *prev_next_field =
+                                            reinterpret_cast<char *>(new_rear) +
+                                            data_size;
+                                        *reinterpret_cast<void **>(
+                                            prev_next_field) = new_node;
+                                    }
+                                    new_rear = new_node;
+
+                                    // 次のノードへ
+                                    char *old_next_field =
+                                        reinterpret_cast<char *>(current_old) +
+                                        data_size;
+                                    current_old = *reinterpret_cast<void **>(
+                                        old_next_field);
+                                }
+
+                                // frontとrearポインタを更新
+                                front_it->second.value =
+                                    reinterpret_cast<int64_t>(new_front);
+                                rear_it->second.value =
+                                    reinterpret_cast<int64_t>(new_rear);
+                                result.struct_members["front"] =
+                                    front_it->second;
+                                result.struct_members["rear"] = rear_it->second;
+
+                                if (interpreter_.is_debug_mode()) {
+                                    std::cerr
+                                        << "[array_get] Deep copied Queue: "
+                                        << length << " nodes from 0x"
+                                        << std::hex << original_front
+                                        << " to 0x" << new_front << std::dec
+                                        << "\n";
+                                }
+                            }
+                        }
+                    }
+
+                    // ReturnExceptionで構造体を返す
+                    throw ReturnException(result);
+                }
+
                 // 型に応じて適切にメモリから読み取る
                 if (actual_type == "short") {
                     short *arr = reinterpret_cast<short *>(ptr_value);
                     return static_cast<int64_t>(arr[index]);
                 } else if (actual_type == "long") {
                     long *arr = reinterpret_cast<long *>(ptr_value);
+                    if (interpreter_.is_debug_mode()) {
+                        std::cerr << "[array_get] Reading long at ptr=0x"
+                                  << std::hex << ptr_value << std::dec
+                                  << ", index=" << index
+                                  << ", offset=" << (index * sizeof(long))
+                                  << ", value=" << arr[index] << "\n";
+                        // メモリ内容も確認
+                        std::cerr << "[array_get]   Memory: arr[0]=" << arr[0]
+                                  << ", arr[1]=" << arr[1]
+                                  << ", arr[2]=" << arr[2] << "\n";
+                    }
                     return static_cast<int64_t>(arr[index]);
                 } else if (actual_type == "char") {
                     char *arr = reinterpret_cast<char *>(ptr_value);
                     return static_cast<int64_t>(arr[index]);
                 }
                 // int, その他はデフォルトのint扱い
+            } else {
+                // 型コンテキストがない場合：ポインタ要素型マップから型名を取得
+                std::string element_type_name =
+                    interpreter_.get_pointer_element_type(
+                        reinterpret_cast<void *>(ptr_value));
+
+                if (interpreter_.is_debug_mode()) {
+                    if (!element_type_name.empty()) {
+                        std::cerr
+                            << "[array_get] Got element type from pointer map: "
+                            << element_type_name << " for ptr=0x" << std::hex
+                            << ptr_value << std::dec << "\n";
+                    } else {
+                        std::cerr
+                            << "[array_get] No element type in map for ptr=0x"
+                            << std::hex << ptr_value << std::dec << "\n";
+                    }
+                }
+
+                // 型名が取得できた場合、その型で読み取り
+                if (!element_type_name.empty()) {
+                    if (element_type_name == "long") {
+                        long *arr = reinterpret_cast<long *>(ptr_value);
+                        if (interpreter_.is_debug_mode()) {
+                            std::cerr << "[array_get] Reading long (from "
+                                         "pointer map) at ptr=0x"
+                                      << std::hex << ptr_value << std::dec
+                                      << ", index=" << index
+                                      << ", value=" << arr[index] << "\n";
+                        }
+                        return static_cast<int64_t>(arr[index]);
+                    } else if (element_type_name == "int") {
+                        int *arr = reinterpret_cast<int *>(ptr_value);
+                        return static_cast<int64_t>(arr[index]);
+                    } else if (element_type_name == "short") {
+                        short *arr = reinterpret_cast<short *>(ptr_value);
+                        return static_cast<int64_t>(arr[index]);
+                    } else if (element_type_name == "char") {
+                        char *arr = reinterpret_cast<char *>(ptr_value);
+                        return static_cast<int64_t>(arr[index]);
+                    }
+                }
             }
 
             // デフォルトはintとして扱う
+            if (interpreter_.is_debug_mode()) {
+                std::cerr
+                    << "[array_get] WARNING: Fallback to int type for ptr=0x"
+                    << std::hex << ptr_value << std::dec << ", index=" << index
+                    << "\n";
+            }
             int *arr = reinterpret_cast<int *>(ptr_value);
             return static_cast<int64_t>(arr[index]);
         }
@@ -1250,8 +1722,6 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                 interpreter_.eval_expression(node->arguments[0].get());
             int64_t index =
                 interpreter_.eval_expression(node->arguments[1].get());
-            int64_t value =
-                interpreter_.eval_expression(node->arguments[2].get());
 
             if (ptr_value == 0 || index < 0)
                 return 0;
@@ -1261,6 +1731,218 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                 interpreter_.get_current_type_context();
             if (type_ctx && type_ctx->has_mapping_for("T")) {
                 std::string actual_type = type_ctx->resolve_type("T");
+
+                // 構造体型の場合、構造体全体をメモリにコピー
+                auto struct_def =
+                    interpreter_.find_struct_definition(actual_type);
+                if (struct_def != nullptr) {
+                    // 第3引数は構造体変数
+                    const ASTNode *value_node = node->arguments[2].get();
+
+                    // 構造体変数を評価して取得
+                    try {
+                        (void)interpreter_.eval_expression(value_node);
+                        // 通常は数値が返るがエラー
+                        throw std::runtime_error(
+                            "array_set: expected struct but got numeric value");
+                    } catch (const ReturnException &ret) {
+                        if (ret.is_struct) {
+                            // 構造体のサイズを計算
+                            size_t total_size = 0;
+                            for (size_t i = 0; i < struct_def->members.size();
+                                 ++i) {
+                                total_size +=
+                                    sizeof(long); // 8バイトアライメント
+                            }
+
+                            // 配列内の書き込み位置を計算
+                            char *arr = reinterpret_cast<char *>(ptr_value);
+                            char *element_ptr = arr + (index * total_size);
+
+                            // 構造体メンバーをメモリに書き込み
+                            // Vector<T>の場合はdataポインタをdeep copyする
+                            bool is_vector = (actual_type.find("Vector<") == 0);
+                            void *original_data_ptr = nullptr;
+                            size_t vec_capacity = 0;
+                            std::string vec_element_type;
+
+                            if (is_vector) {
+                                // Vector<T>の要素型を取得
+                                size_t start = actual_type.find('<') + 1;
+                                size_t end = actual_type.find_last_of('>');
+                                vec_element_type =
+                                    actual_type.substr(start, end - start);
+
+                                // dataとcapacityを取得
+                                auto data_it =
+                                    ret.struct_value.struct_members.find(
+                                        "data");
+                                auto capacity_it =
+                                    ret.struct_value.struct_members.find(
+                                        "capacity");
+                                if (data_it !=
+                                        ret.struct_value.struct_members.end() &&
+                                    capacity_it !=
+                                        ret.struct_value.struct_members.end()) {
+                                    original_data_ptr =
+                                        reinterpret_cast<void *>(
+                                            data_it->second.value);
+                                    vec_capacity = static_cast<size_t>(
+                                        capacity_it->second.value);
+                                }
+                            }
+
+                            size_t offset = 0;
+                            for (const auto &member_def : struct_def->members) {
+                                auto it = ret.struct_value.struct_members.find(
+                                    member_def.name);
+                                if (it !=
+                                    ret.struct_value.struct_members.end()) {
+                                    int64_t value_to_write = it->second.value;
+
+                                    // Vector<T>のdataメンバーの場合、deep
+                                    // copyを行う
+                                    if (is_vector &&
+                                        member_def.name == "data" &&
+                                        original_data_ptr != nullptr &&
+                                        vec_capacity > 0) {
+                                        // 要素サイズを計算
+                                        size_t element_size = 0;
+                                        auto element_struct_def =
+                                            interpreter_.find_struct_definition(
+                                                vec_element_type);
+                                        if (element_struct_def != nullptr) {
+                                            for (size_t i = 0;
+                                                 i < element_struct_def->members
+                                                         .size();
+                                                 ++i) {
+                                                element_size += sizeof(long);
+                                            }
+                                        } else {
+                                            element_size = sizeof(long);
+                                        }
+
+                                        // 新しいdata配列を確保してコピー
+                                        size_t total_bytes =
+                                            vec_capacity * element_size;
+                                        void *new_data = malloc(total_bytes);
+                                        memcpy(new_data, original_data_ptr,
+                                               total_bytes);
+
+                                        // 新しいポインタを書き込む
+                                        value_to_write =
+                                            reinterpret_cast<int64_t>(new_data);
+
+                                        // ポインタ要素型を登録
+                                        interpreter_
+                                            .register_pointer_element_type(
+                                                new_data, vec_element_type);
+
+                                        if (interpreter_.is_debug_mode()) {
+                                            std::cerr
+                                                << "[array_set] Deep copied "
+                                                   "Vector data: "
+                                                << total_bytes
+                                                << " bytes from 0x" << std::hex
+                                                << original_data_ptr << " to 0x"
+                                                << new_data << std::dec << "\n";
+                                        }
+                                    }
+
+                                    *reinterpret_cast<int64_t *>(
+                                        element_ptr + offset) = value_to_write;
+                                } else {
+                                    *reinterpret_cast<int64_t *>(element_ptr +
+                                                                 offset) = 0;
+                                }
+                                offset += sizeof(long);
+                            }
+
+                            if (interpreter_.is_debug_mode()) {
+                                std::cerr << "[array_set] Wrote struct "
+                                          << actual_type
+                                          << " to array at index " << index
+                                          << ", total_size=" << total_size
+                                          << "\n";
+                                size_t debug_offset = 0;
+                                for (const auto &member_def :
+                                     struct_def->members) {
+                                    auto it =
+                                        ret.struct_value.struct_members.find(
+                                            member_def.name);
+                                    if (it !=
+                                        ret.struct_value.struct_members.end()) {
+                                        std::cerr << "[array_set]   Member "
+                                                  << member_def.name
+                                                  << " at offset "
+                                                  << debug_offset << ": "
+                                                  << it->second.value << "\n";
+                                    }
+                                    debug_offset += sizeof(long);
+                                }
+                            }
+
+                            return 0;
+                        }
+                    }
+
+                    // 構造体でなければ変数参照として処理
+                    std::string var_name;
+                    if (value_node->node_type == ASTNodeType::AST_VARIABLE) {
+                        var_name = value_node->name;
+                        Variable *struct_var =
+                            interpreter_.find_variable(var_name);
+                        if (struct_var && struct_var->is_struct) {
+                            // 構造体のサイズを計算
+                            size_t total_size = 0;
+                            for (size_t i = 0; i < struct_def->members.size();
+                                 ++i) {
+                                total_size +=
+                                    sizeof(long); // 8バイトアライメント
+                            }
+
+                            // 配列内の書き込み位置を計算
+                            char *arr = reinterpret_cast<char *>(ptr_value);
+                            char *element_ptr = arr + (index * total_size);
+
+                            // 構造体メンバーをメモリに書き込み
+                            size_t offset = 0;
+                            for (const auto &member_def : struct_def->members) {
+                                auto it = struct_var->struct_members.find(
+                                    member_def.name);
+                                if (it != struct_var->struct_members.end()) {
+                                    *reinterpret_cast<int64_t *>(element_ptr +
+                                                                 offset) =
+                                        it->second.value;
+                                } else {
+                                    *reinterpret_cast<int64_t *>(element_ptr +
+                                                                 offset) = 0;
+                                }
+                                offset += sizeof(long);
+                            }
+
+                            if (interpreter_.is_debug_mode()) {
+                                std::cerr << "[array_set] Wrote struct "
+                                          << actual_type << " (" << var_name
+                                          << ") to array at index " << index
+                                          << ", total_size=" << total_size
+                                          << "\n";
+                                for (const auto &m :
+                                     struct_var->struct_members) {
+                                    std::cerr << "[array_set]   " << m.first
+                                              << " = " << m.second.value
+                                              << "\n";
+                                }
+                            }
+
+                            return 0;
+                        }
+                    }
+                }
+
+                // プリミティブ型の処理
+                int64_t value =
+                    interpreter_.eval_expression(node->arguments[2].get());
 
                 // 型に応じて適切にメモリに書き込む
                 if (actual_type == "short") {
@@ -1280,6 +1962,8 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
             }
 
             // デフォルトはintとして扱う
+            int64_t value =
+                interpreter_.eval_expression(node->arguments[2].get());
             int *arr = reinterpret_cast<int *>(ptr_value);
             arr[index] = static_cast<int>(value);
             return 0;
@@ -1789,10 +2473,12 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                         for (const auto &method : impl_def.methods) {
                             if (method->name == node->name &&
                                 method->is_private_method) {
-                                throw std::runtime_error(
-                                    "Cannot access private method '" +
-                                    node->name +
-                                    "' from outside the impl block");
+                                std::cerr
+                                    << "Error: Cannot access private method '"
+                                    << node->name
+                                    << "' from outside its impl block"
+                                    << std::endl;
+                                std::exit(1);
                             }
                         }
                         break;

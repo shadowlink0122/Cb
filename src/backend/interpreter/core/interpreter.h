@@ -629,6 +629,9 @@ class Interpreter : public EvaluatorInterface {
     // v0.11.0: implノードの所有権管理（Parser破棄後もノードを保持）
     std::vector<std::unique_ptr<ASTNode>> impl_nodes_;
 
+    // ポインタ要素型マップ（deep copyされた配列の型情報保持）
+    std::map<uintptr_t, std::string> pointer_element_types_;
+
     // Manager instances
     std::unique_ptr<VariableManager> variable_manager_;
     std::unique_ptr<ArrayManager> array_manager_;
@@ -1114,6 +1117,25 @@ class Interpreter : public EvaluatorInterface {
         if (!type_context_stack_.empty()) {
             type_context_stack_.pop_back();
         }
+    }
+
+    // ポインタ要素型の登録と取得
+    void register_pointer_element_type(void *ptr,
+                                       const std::string &element_type) {
+        if (debug_mode) {
+            std::cerr << "[REGISTER_PTR] Registering 0x" << std::hex << ptr
+                      << std::dec << " -> " << element_type << "\n";
+        }
+        pointer_element_types_[reinterpret_cast<uintptr_t>(ptr)] = element_type;
+        if (debug_mode) {
+            std::cerr << "[REGISTER_PTR] Registration successful, map size="
+                      << pointer_element_types_.size() << "\n";
+        }
+    }
+
+    std::string get_pointer_element_type(void *ptr) const {
+        auto it = pointer_element_types_.find(reinterpret_cast<uintptr_t>(ptr));
+        return (it != pointer_element_types_.end()) ? it->second : "";
     }
     const TypeContext *get_current_type_context() const {
         return type_context_stack_.empty() ? nullptr

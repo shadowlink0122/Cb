@@ -135,7 +135,7 @@ inline void test_struct_private_field_access_error() {
             INTEGRATION_ASSERT_NE(0, exit_code, "Private field access error test should fail");
             INTEGRATION_ASSERT_CONTAINS(output, "Private field access error test:",
                                         "Should print test header before failing");
-            INTEGRATION_ASSERT_CONTAINS(output, "Cannot access private struct member: box.secret",
+            INTEGRATION_ASSERT_CONTAINS(output, "Cannot access private member",
                                         "Should report private member access violation");
         }, execution_time);
 

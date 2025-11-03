@@ -165,8 +165,10 @@ Variable get_struct_member_from_variable(const Variable &struct_var,
         if (!interpreter.is_current_impl_context_for(struct_type)) {
             std::string type_label =
                 struct_type.empty() ? std::string("<anonymous>") : struct_type;
-            throw std::runtime_error("Cannot access private struct member: " +
-                                     type_label + "." + member_name);
+            std::cerr << "Error: Cannot access private member '" << member_name
+                      << "' of '" << type_label
+                      << "' from outside its impl block" << std::endl;
+            std::exit(1);
         }
 
         return *final_member;

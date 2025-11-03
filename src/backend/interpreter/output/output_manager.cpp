@@ -557,8 +557,9 @@ void OutputManager::print_value(const ASTNode *expr) {
                 }
                 return;
             } catch (const std::exception &e) {
-                io_interface_->write_string("(nested member access error)");
-                return;
+                std::cerr << "Error: Nested member access failed: " << e.what()
+                          << std::endl;
+                std::exit(1);
             }
         }
 
@@ -622,8 +623,9 @@ void OutputManager::print_value(const ASTNode *expr) {
                                         ret.double_value, ret.quad_value);
                     return;
                 } catch (const std::exception &e) {
-                    io_interface_->write_string("(member access error)");
-                    return;
+                    std::cerr << "Error: Member access failed: " << e.what()
+                              << std::endl;
+                    std::exit(1);
                 }
             }
 
@@ -652,12 +654,14 @@ void OutputManager::print_value(const ASTNode *expr) {
                     }
                     return;
                 } else {
-                    io_interface_->write_string("(member not found)");
-                    return;
+                    std::cerr << "Error: Member '" << member_name
+                              << "' not found in struct" << std::endl;
+                    std::exit(1);
                 }
-            } catch (const std::exception &) {
-                io_interface_->write_string("(deref member access error)");
-                return;
+            } catch (const std::exception &e) {
+                std::cerr << "Error: Pointer dereference member access failed: "
+                          << e.what() << std::endl;
+                std::exit(1);
             }
         } else {
             io_interface_->write_string("(invalid member access)");
@@ -672,8 +676,11 @@ void OutputManager::print_value(const ASTNode *expr) {
             } else {
                 io_interface_->write_number(member_var->value);
             }
-        } catch (const std::exception &) {
-            io_interface_->write_string("(member access error)");
+        } catch (const std::exception &e) {
+            std::cerr << "Error: Cannot access member '" << member_name
+                      << "' of struct '" << struct_name << "': " << e.what()
+                      << std::endl;
+            std::exit(1);
         }
         return;
     }

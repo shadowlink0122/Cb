@@ -1560,7 +1560,8 @@ ASTNode *RecursiveParser::parseFunctionPointerTypedefDeclaration() {
 
 // 型名を正規化してインスタンス名に使用可能な形式に変換
 // 例: "int*" -> "int_ptr", "int[3]" -> "int_array_3"
-static std::string
+// NOTE: Currently unused, but kept for potential future use
+[[maybe_unused]] static std::string
 normalizeTypeNameForInstantiation(const std::string &type_name) {
     std::string normalized = type_name;
 
@@ -2183,7 +2184,7 @@ void RecursiveParser::processImport(
     // v0.11.0: implノードの所有権を転送（use-after-free対策）
     // module_parserのimpl_nodes_をこのparserに移動
     auto &module_impl_nodes = module_parser.get_impl_nodes_for_transfer();
-    size_t transferred_node_count = module_impl_nodes.size();
+    // size_t transferred_node_count = module_impl_nodes.size(); (unused)
     size_t impl_node_start_idx = impl_nodes_.size();
 
     if (!module_impl_nodes.empty()) {
