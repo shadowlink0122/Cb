@@ -1,11 +1,11 @@
-// Minimal test: single enqueue
+// Minimal test: single push
 import "stdlib/collections/queue.cb";
 
 int main() {
-    println("Testing single enqueue...");
+    println("Testing single push...");
     Queue<int> q;
-    q.enqueue(10);
-    println("✅ Single enqueue successful");
+    q.push(10);
+    println("✅ Single push successful");
     
     int sz = q.size();
     println("Size: ", sz);

@@ -61,8 +61,6 @@ int main() {
     
     free(test_array);
     
-    vec.destroy();
-    
     println("\n✅ Debug test completed");
     return 0;
 }

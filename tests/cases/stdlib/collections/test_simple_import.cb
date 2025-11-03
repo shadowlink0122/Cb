@@ -8,15 +8,11 @@ int main() {
     Queue<int> q;
     println("Queue<int> created!");
     
-    q.enqueue(10);
-    println("Queue<int> enqueue works!");
+    q.push(10);
+    println("Queue<int> push works!");
     
-    int val = q.dequeue();
-    println("Queue<int> dequeue works! Got: ", val);
-    
-    // Explicitly destroy before return
-    q.destroy();
-    println("Queue<int> destroyed!");
+    int val = q.pop();
+    println("Queue<int> pop works! Got: ", val);
     
     return 0;
 }

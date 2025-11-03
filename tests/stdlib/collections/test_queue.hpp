@@ -35,9 +35,9 @@ inline void test_queue_import_comprehensive() {
     STDLIB_ASSERT_CONTAINS(output, "✅ Queue<int> import and struct creation successful");
     
     STDLIB_ASSERT_CONTAINS(output, "=== Test: Queue<int> Basic Operations ===");
-    STDLIB_ASSERT_CONTAINS(output, "✅ Queue<int> enqueue operations work");
-    STDLIB_ASSERT_CONTAINS(output, "✅ Queue<int> dequeue operations work");
-    STDLIB_ASSERT_CONTAINS(output, "✅ Queue<int> peek operations work");
+    STDLIB_ASSERT_CONTAINS(output, "✅ Queue<int> push operations work");
+    STDLIB_ASSERT_CONTAINS(output, "✅ Queue<int> pop operations work");
+    STDLIB_ASSERT_CONTAINS(output, "✅ Queue<int> top operations work");
     
     STDLIB_ASSERT_CONTAINS(output, "=== Test: Queue<int> Dynamic Size ===");
     STDLIB_ASSERT_CONTAINS(output, "✅ Queue<int> dynamic size works");
@@ -61,9 +61,8 @@ inline void test_queue_simple_import() {
     STDLIB_ASSERT_EQ(0, exit_code);
     STDLIB_ASSERT_CONTAINS(output, "Queue<T> imported successfully!");
     STDLIB_ASSERT_CONTAINS(output, "Queue<int> created!");
-    STDLIB_ASSERT_CONTAINS(output, "Queue<int> enqueue works!");
-    STDLIB_ASSERT_CONTAINS(output, "Queue<int> dequeue works! Got:  10");
-    STDLIB_ASSERT_CONTAINS(output, "Queue<int> destroyed!");
+    STDLIB_ASSERT_CONTAINS(output, "Queue<int> push works!");
+    STDLIB_ASSERT_CONTAINS(output, "Queue<int> pop works! Got:  10");
 }
 
 // Register all Queue tests

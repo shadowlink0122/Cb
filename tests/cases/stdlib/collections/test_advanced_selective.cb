@@ -28,11 +28,11 @@ void test_single_selective() {
     
     // Queue<int>のみimport
     Queue<int> q;
-    q.enqueue(100);
-    q.enqueue(200);
+    q.push(100);
+    q.push(200);
     
-    int val = q.dequeue();
-    println("Dequeued: {val}");
+    int val = q.pop();
+    println("Popped: {val}");
     println("✅ Single selective import works");
     
     // NOTE: QueueOpsはimportしていないが、

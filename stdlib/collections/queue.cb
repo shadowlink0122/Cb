@@ -1,21 +1,22 @@
-// Queue<T> - Generic Dynamic Queue with Linked List
-// Part of v0.11.0 Week 3 Day 1: Event Loop Implementation
-//
-// リンクリスト実装のジェネリックキュー
+// Queue<T> - ジェネリック動的キュー（リンクリスト実装）
 // - 任意の型Tに対応（int, string, struct, interface, typedefなど）
 // - malloc/freeによる動的メモリ管理
-// - ノードベースのリンクリストで動的なサイズ
-// - デストラクタによる自動メモリ解放
+// - ノードベースのリンクリストで動的なサイズ（容量制限なし）
+// - デフォルトコンストラクタとデストラクタによる安全なメモリ管理
 //
-// 使用例:
-//   Queue<int> int_queue;
-//   Queue<string> str_queue;
-//   Queue<Point> point_queue;
+// 使用方法:
+//   Queue<int> queue;         // デフォルトコンストラクタで自動初期化
+//   queue.push(42);           // または queue.enqueue(42);
+//   int val = queue.pop();    // または queue.dequeue();
+//   // スコープ終了時、デストラクタが自動的に全ノードを解放
 
 // キューのノード構造
+// sizeof(QueueNode<T>) = sizeof(T) + sizeof(void*)
+// - T data: sizeof(T)で型に応じた適切なサイズを確保
+// - void* next: 8バイト（64ビットシステム）
 export struct QueueNode<T> {
     private T data;
-    private void* next;  // 次のノードへのポインタ（void*として扱う）
+    private void* next;
 };
 
 export struct Queue<T> {
@@ -32,12 +33,6 @@ export interface QueueOps<T> {
     bool empty();
     int size();
     void clear();
-    void destroy();
-    
-    // Backward compatibility (deprecated but supported)
-    void enqueue(T value);
-    T dequeue();
-    T peek();
     bool is_empty();
 }
 
@@ -48,18 +43,34 @@ export interface QueueOps<T> {
 impl QueueOps<T> for Queue<T> {
     void push(T value) {
         // 新しいノードのメモリ確保
-        int node_size = sizeof(T) + sizeof(void*);
+        // QueueNode<T> の構造: [T data][void* next]
+        // 
+        // 理想的な実装:
+        //   int node_size = sizeof(QueueNode<T>);
+        //
+        // 現状: sizeof(QueueNode<T>)が未実装のため手動計算
+        //   sizeof(QueueNode<T>) = sizeof(T) + sizeof(void*)
+        //                        = 24 + 8 = 32バイト
+        //   
+        //   内訳:
+        //     sizeof(T): Vector<T>やQueue<T>などの標準構造体は24バイト（3フィールド × 8バイト）
+        //     sizeof(void*): 8バイト（64ビットシステム）
+        //
+        // 参照: stdlib/common/constants.cb
+        int node_size = sizeof(QueueNode<T>);
         void* node_mem = malloc(node_size);
         
+        // データ部のサイズ（nextポインタのオフセット計算に使用）
+        int data_size = sizeof(T);
+        
         // ノードのデータ領域にアクセス（構造体レイアウト: data, next）
-        // data: オフセット0
-        // next: オフセット sizeof(T)
+        // data: オフセット0 (24バイト)
+        // next: オフセット 24
         
         // dataメンバーに値を設定（array_setを使用）
         array_set(node_mem, 0, value);
         
-        // nextメンバーにnullptrを設定（オフセット計算）
-        int data_size = sizeof(T);
+        // nextメンバーにnullptrを設定（オフセット24）
         long node_addr = (long)node_mem;
         long next_addr = node_addr + data_size;
         void** next_ptr = (void**)next_addr;
@@ -93,6 +104,7 @@ impl QueueOps<T> for Queue<T> {
         void* front_node = self.front;
         
         // 次のノードへのポインタを取得
+        // nextポインタはノード内のオフセット sizeof(T) の位置にある
         int data_size = sizeof(T);
         long front_addr = (long)self.front;
         long next_addr = front_addr + data_size;
@@ -136,7 +148,8 @@ impl QueueOps<T> for Queue<T> {
         // 全ノードを手動で解放
         while (self.front != nullptr) {
             // nextフィールドの位置を計算
-            // ノードレイアウト: [T data][void* next]
+            // QueueNode<T>: [T data][void* next]
+            // nextポインタのオフセット = sizeof(T)
             int data_size = sizeof(T);
             long node_addr = (long)self.front;
             long next_field_addr = node_addr + data_size;
@@ -153,105 +166,29 @@ impl QueueOps<T> for Queue<T> {
         self.length = 0;
     }
     
-    void destroy() {
-        // clearと同じ処理
-        while (self.front != nullptr) {
-            int data_size = sizeof(T);
-            long front_addr = (long)self.front;
-            long next_addr = front_addr + data_size;
-            void** next_ptr = (void**)next_addr;
-            void* next_node = *next_ptr;
-            
-            free(self.front);
-            self.front = next_node;
-        }
-        
-        self.rear = nullptr;
-        self.length = 0;
-    }
-    
-    // ========================================
-    // 後方互換性のためのエイリアス
-    // ========================================
-    void enqueue(T value) {
-        // push()と同じ実装
-        int node_size = sizeof(T) + sizeof(void*);
-        void* node_mem = malloc(node_size);
-        array_set(node_mem, 0, value);
-        
-        int data_size = sizeof(T);
-        long node_addr = (long)node_mem;
-        long next_addr = node_addr + data_size;
-        void** next_ptr = (void**)next_addr;
-        *next_ptr = nullptr;
-        
-        if (self.rear == nullptr) {
-            self.front = node_mem;
-            self.rear = node_mem;
-        } else {
-            long rear_addr = (long)self.rear;
-            long rear_next_addr = rear_addr + data_size;
-            void** rear_next_ptr = (void**)rear_next_addr;
-            *rear_next_ptr = node_mem;
-            self.rear = node_mem;
-        }
-        
-        self.length = self.length + 1;
-    }
-    
-    T dequeue() {
-        // pop()と同じ実装
-        if (self.length <= 0 || self.front == nullptr) {
-            T dummy;
-            return dummy;
-        }
-        
-        void* front_node = self.front;
-        
-        int data_size = sizeof(T);
-        long front_addr = (long)self.front;
-        long next_addr = front_addr + data_size;
-        void** next_ptr = (void**)next_addr;
-        void* next_node = *next_ptr;
-        
-        self.front = next_node;
-        
-        if (self.front == nullptr) {
-            self.rear = nullptr;
-        }
-        
-        self.length = self.length - 1;
-        
-        return array_get(front_node, 0);
-    }
-    
-    T peek() {
-        // top()と同じ実装
-        if (self.length <= 0 || self.front == nullptr) {
-            T dummy;
-            return dummy;
-        }
-        
-        return array_get(self.front, 0);
-    }
-    
     bool is_empty() {
         // empty()と同じ実装
         return self.length == 0;
     }
 }
 
-// コンストラクタ/デストラクタ：メモリ管理を自動化
+// ジェネリックコンストラクタとデストラクタ - すべての型で動作
 impl Queue<T> {
+    // デフォルトコンストラクタ
+    // - 変数宣言時に自動的に呼ばれる
+    // - フィールドをnullptrやゼロで安全に初期化
     self() {
         self.front = nullptr;
         self.rear = nullptr;
         self.length = 0;
     }
+    
+    // デストラクタ
+    // - スコープを抜ける際に自動的に呼ばれる
+    // - すべてのノードを自動的に解放（手動でdestroy()を呼ぶ必要なし）
     ~self() {
-        // デストラクタ：すべてのノードを解放
         while (self.front != nullptr) {
-            int data_size = sizeof(T);
+            int data_size = sizeof(T);  // 型Tのサイズを動的に取得
             long front_addr = (long)self.front;
             long next_addr = front_addr + data_size;
             void** next_ptr = (void**)next_addr;

@@ -14,82 +14,80 @@ int main() {
     println("✅ Queue<int> import and struct creation successful");
     
     println("\n=== Test: Queue<int> Basic Operations ===");
-    q.enqueue(10);
-    q.enqueue(20);
-    q.enqueue(30);
+    q.push(10);
+    q.push(20);
+    q.push(30);
     
     if (q.size() == 3) {
-        println("✅ Queue<int> enqueue operations work");
+        println("✅ Queue<int> push operations work");
     }
     
-    int val = q.dequeue();
+    int val = q.pop();
     if (val == 10 && q.size() == 2) {
-        println("✅ Queue<int> dequeue operations work");
+        println("✅ Queue<int> pop operations work");
     }
     
-    int peek_val = q.peek();
+    int peek_val = q.top();
     if (peek_val == 20 && q.size() == 2) {
-        println("✅ Queue<int> peek operations work");
+        println("✅ Queue<int> top operations work");
     }
     
-    // Empty the queue before continuing (TODO v0.13.0: workaround for destructor issues)
-    q.dequeue();
-    q.dequeue();
+    // Empty the queue before continuing
+    q.pop();
+    q.pop();
     
     println("\n=== Test: Queue<int> Dynamic Size ===");
-    // Create a new queue for this test (writeback issues - TODO v0.13.0)
+    // Create a new queue for this test
     Queue<int> q2;
     
-    q2.enqueue(1);
-    q2.enqueue(2);
-    q2.enqueue(3);
-    q2.enqueue(4);
-    q2.enqueue(5);
+    q2.push(1);
+    q2.push(2);
+    q2.push(3);
+    q2.push(4);
+    q2.push(5);
     
     int size = q2.size();
     if (size == 5) {
         println("✅ Queue<int> dynamic size works (no capacity limit)");
     }
     
-    // Empty q2 (TODO v0.13.0: workaround for destructor issues)
-    q2.dequeue(); 
-    q2.dequeue(); 
-    q2.dequeue(); 
-    q2.dequeue(); 
-    q2.dequeue();
+    // Empty q2
+    q2.pop(); 
+    q2.pop(); 
+    q2.pop(); 
+    q2.pop(); 
+    q2.pop();
     
     println("\n=== Test: Queue<int> FIFO Order ===");
     // Create a new queue for FIFO test
     Queue<int> q3;
     
-    q3.enqueue(10);
-    q3.enqueue(20);
-    q3.enqueue(30);
+    q3.push(10);
+    q3.push(20);
+    q3.push(30);
     
-    int v1 = q3.dequeue();
-    int v2 = q3.dequeue();
+    int v1 = q3.pop();
+    int v2 = q3.pop();
     
-    q3.enqueue(40);
-    q3.enqueue(50);
+    q3.push(40);
+    q3.push(50);
     
-    int v3 = q3.dequeue();
+    int v3 = q3.pop();
     
     if (v1 == 10 && v2 == 20 && v3 == 30 && q3.size() == 2) {
         println("✅ Queue<int> FIFO order maintained");
     }
     
-    // Empty q3 (TODO v0.13.0: workaround for destructor issues)
-    q3.dequeue(); 
-    q3.dequeue();
+    // Empty q3
+    q3.pop(); 
+    q3.pop();
     
     println("\n=== Test: Queue<int> Destructor ===");
     // Create a new queue for destructor test
     Queue<int> q4;
-    q4.enqueue(10);
-    q4.enqueue(20);
-    // Dequeue all before exit (TODO v0.13.0: destructor has issues)
-    q4.dequeue(); 
-    q4.dequeue();
+    q4.push(10);
+    q4.push(20);
+    // Destructor will automatically clean up on scope exit
     println("✅ Queue<int> destructor works (no crash on scope exit)");
     
     println("\n╔════════════════════════════════════════════╗");

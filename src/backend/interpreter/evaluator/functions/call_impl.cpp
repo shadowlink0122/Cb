@@ -1197,6 +1197,85 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
             return dest_value;
         }
 
+        // sizeof_type("T") - 型コンテキストからTの実際の型のサイズを返す
+        // 使用例: int size = sizeof_type("T"); //
+        // Queue<Vector<int>>の場合、"T"=Vector<int>で24を返す
+        if (node->name == "sizeof_type" && !is_method_call) {
+            if (node->arguments.size() != 1) {
+                throw std::runtime_error(
+                    "sizeof_type() requires 1 argument: sizeof_type(\"T\")");
+            }
+
+            // 型コンテキストから型パラメータを解決
+            const TypeContext *type_ctx =
+                interpreter_.get_current_type_context();
+            std::string type_name;
+
+            if (interpreter_.is_debug_mode()) {
+                std::cerr << "[sizeof_type] type_ctx="
+                          << (type_ctx ? "YES" : "NO");
+                if (type_ctx) {
+                    std::cerr
+                        << ", has_T="
+                        << (type_ctx->has_mapping_for("T") ? "YES" : "NO");
+                }
+                std::cerr << "\n";
+            }
+
+            if (type_ctx && type_ctx->has_mapping_for("T")) {
+                type_name = type_ctx->resolve_type("T");
+            } else {
+                // フォールバック: デフォルトサイズ（プリミティブ型と仮定）
+                if (interpreter_.is_debug_mode()) {
+                    std::cerr << "[sizeof_type] No type context, returning "
+                                 "default 8 bytes\n";
+                }
+                return 8;
+            }
+
+            // プリミティブ型のサイズ
+            if (type_name == "int" || type_name == "long" ||
+                type_name == "bool") {
+                return 8; // 8バイトアライメント
+            }
+            if (type_name == "void*" ||
+                type_name.find("*") != std::string::npos) {
+                return 8; // ポインタは8バイト
+            }
+
+            // 構造体のサイズを計算
+            auto struct_def = interpreter_.find_struct_definition(type_name);
+            if (struct_def != nullptr) {
+                size_t total_size = 0;
+                for (const auto &member : struct_def->members) {
+                    if (member.is_pointer) {
+                        total_size += sizeof(void *); // 8 bytes
+                    } else if (member.type == TYPE_LONG) {
+                        total_size += sizeof(long); // 8 bytes
+                    } else if (member.type == TYPE_INT) {
+                        total_size += sizeof(long); // 8 bytes (アライメント)
+                    } else {
+                        total_size += sizeof(long); // 8 bytes デフォルト
+                    }
+                }
+
+                if (interpreter_.is_debug_mode()) {
+                    std::cerr << "[sizeof_type] T=" << type_name << " => "
+                              << total_size << " bytes ("
+                              << struct_def->members.size() << " members)\n";
+                }
+
+                return static_cast<int64_t>(total_size);
+            }
+
+            // 未知の型の場合はデフォルト8バイト
+            if (interpreter_.is_debug_mode()) {
+                std::cerr << "[sizeof_type] T=" << type_name
+                          << " => 8 bytes (default)\n";
+            }
+            return 8;
+        }
+
         // array_get(ptr, index) - 汎用配列要素取得（型推論版）
         // ジェネリクス対応: 型パラメータTから適切なarray_get_Tを呼び出す
         if (node->name == "array_get" && !is_method_call) {
@@ -1460,6 +1539,11 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                         }
                     } else if (actual_type.find("Queue<") == 0) {
                         // Queue<T>のdeep copy: リンクリストをコピー
+                        if (interpreter_.is_debug_mode()) {
+                            std::cerr << "[array_get] Starting Queue<T> deep "
+                                         "copy for type: "
+                                      << actual_type << "\n";
+                        }
                         auto front_it = result.struct_members.find("front");
                         auto rear_it = result.struct_members.find("rear");
                         auto length_it = result.struct_members.find("length");
@@ -1481,6 +1565,9 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                                     actual_type.substr(start, end - start);
 
                                 // ノードのサイズを計算（T data + void* next）
+                                // 注意:
+                                // Cbインタープリタは全ての型を8バイトアライメントで扱うため、
+                                // primitive型でも8バイトとして計算する
                                 size_t data_size = 0;
                                 auto element_struct_def =
                                     interpreter_.find_struct_definition(
@@ -1489,13 +1576,26 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                                     for (size_t i = 0;
                                          i < element_struct_def->members.size();
                                          ++i) {
-                                        data_size += sizeof(long);
+                                        data_size += 8; // 常に8バイト
                                     }
                                 } else {
-                                    data_size = sizeof(long);
+                                    data_size = 8; // primitive型も8バイト
                                 }
                                 size_t node_size =
-                                    data_size + sizeof(void *); // data + next
+                                    data_size +
+                                    8; // data + next (両方8バイトアライメント)
+
+                                if (interpreter_.is_debug_mode()) {
+                                    std::cerr << "[array_get] Queue node "
+                                                 "calculation: element_type="
+                                              << element_type
+                                              << ", data_size=" << data_size
+                                              << ", node_size=" << node_size
+                                              << ", length=" << length << "\n";
+                                    std::cerr << "[array_get] original_front=0x"
+                                              << std::hex << original_front
+                                              << std::dec << "\n";
+                                }
 
                                 // リンクリストをコピー
                                 void *new_front = nullptr;
@@ -1503,27 +1603,79 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                                 void *current_old = original_front;
 
                                 while (current_old != nullptr) {
+                                    if (interpreter_.is_debug_mode()) {
+                                        std::cerr << "[array_get] Processing "
+                                                     "node at 0x"
+                                                  << std::hex << current_old
+                                                  << std::dec << "\n";
+                                        // ノードの内容をダンプ
+                                        int64_t *node_data =
+                                            reinterpret_cast<int64_t *>(
+                                                current_old);
+                                        std::cerr
+                                            << "[array_get]   Node data[0]="
+                                            << node_data[0] << ", data[1]=0x"
+                                            << std::hex << node_data[1]
+                                            << std::dec << "\n";
+                                    }
+
                                     // 新しいノードを割り当て
                                     void *new_node = malloc(node_size);
-                                    memcpy(new_node, current_old, node_size);
+
+                                    if (interpreter_.is_debug_mode()) {
+                                        std::cerr << "[array_get] Allocated "
+                                                     "new_node at 0x"
+                                                  << std::hex << new_node
+                                                  << std::dec << "\n";
+                                    }
+
+                                    // Vectorの場合は構造体全体（24バイト）をコピー、それ以外は8バイト
+                                    size_t copy_size = data_size;
+                                    if (element_type.find("Vector<") == 0) {
+                                        copy_size =
+                                            24; // Vector struct: data(8) +
+                                                // length(8) + capacity(8)
+                                    }
+                                    memcpy(new_node, current_old, copy_size);
+
+                                    if (interpreter_.is_debug_mode()) {
+                                        std::cerr << "[array_get] Copied data ("
+                                                  << copy_size << " bytes)\n";
+                                    }
+
+                                    // nextポインタを初期化（nullに設定）
+                                    char *next_field_addr =
+                                        reinterpret_cast<char *>(new_node) +
+                                        data_size;
+                                    *reinterpret_cast<void **>(
+                                        next_field_addr) = nullptr;
 
                                     // ノード内の要素がVectorの場合、deep copy
                                     if (element_type.find("Vector<") == 0) {
-                                        // Vectorのメンバーを読み取り
-                                        char *node_data =
+                                        char *new_node_data =
                                             reinterpret_cast<char *>(new_node);
+
+                                        // Vectorのメンバーを読み取り
                                         void *vec_data =
                                             *reinterpret_cast<void **>(
-                                                node_data + 0); // data
-                                        // int vec_length =
-                                        //     *reinterpret_cast<int *>(
-                                        //         node_data +
-                                        //         sizeof(long)); // length
-                                        //         (unused)
+                                                new_node_data + 0); // data
+                                        int vec_length =
+                                            *reinterpret_cast<int *>(
+                                                new_node_data + 8); // length
                                         int vec_capacity =
                                             *reinterpret_cast<int *>(
-                                                node_data +
-                                                2 * sizeof(long)); // capacity
+                                                new_node_data + 16); // capacity
+
+                                        if (interpreter_.is_debug_mode()) {
+                                            std::cerr
+                                                << "[array_get] Vector in "
+                                                   "Queue node: "
+                                                << "data=0x" << std::hex
+                                                << vec_data << std::dec
+                                                << ", length=" << vec_length
+                                                << ", capacity=" << vec_capacity
+                                                << "\n";
+                                        }
 
                                         if (vec_data != nullptr &&
                                             vec_capacity > 0) {
@@ -1566,7 +1718,8 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
 
                                             // 新しいdataポインタを設定
                                             *reinterpret_cast<void **>(
-                                                node_data + 0) = new_vec_data;
+                                                new_node_data + 0) =
+                                                new_vec_data;
 
                                             if (interpreter_.is_debug_mode()) {
                                                 std::cerr
@@ -1579,13 +1732,7 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                                         }
                                     }
 
-                                    // nextポインタをリセット（後で更新）
-                                    char *next_field_addr =
-                                        reinterpret_cast<char *>(new_node) +
-                                        data_size;
-                                    *reinterpret_cast<void **>(
-                                        next_field_addr) = nullptr;
-
+                                    // リンクリストを構築
                                     if (new_front == nullptr) {
                                         new_front = new_node;
                                     }

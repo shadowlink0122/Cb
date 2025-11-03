@@ -1,5 +1,15 @@
-// Vector<T> - TRUE GENERIC IMPLEMENTATION
-// impl VectorOps<T> for Vector<T> - Single generic implementation for all types!
+// Vector<T> - ジェネリック動的配列
+// - 任意の型Tに対応（int, double, string, struct, interfaceなど）
+// - 動的なメモリ管理（malloc/free）
+// - 自動リサイズ機能
+// - デフォルトコンストラクタとデストラクタによる安全なメモリ管理
+//
+// 使用方法:
+//   Vector<int> vec;      // デフォルトコンストラクタで安全に初期化
+//   vec.init(10);         // 初期容量10で初期化
+//   vec.push(42);         // 要素を追加
+//   int val = vec.pop();  // 要素を取得
+//   // スコープ終了時、デストラクタが自動的にメモリを解放
 
 export struct Vector<T> {
     void* data;
@@ -17,7 +27,6 @@ export interface VectorOps<T> {
     void set(int index, T value);
     int get_length();
     int get_capacity();
-    void clear();
     bool is_empty();
     void reserve(int new_capacity);
 }
@@ -87,10 +96,6 @@ impl VectorOps<T> for Vector<T> {
         return self.capacity;
     }
     
-    void clear() {
-        self.length = 0;
-    }
-    
     bool is_empty() {
         return self.length == 0;
     }
@@ -110,8 +115,21 @@ impl VectorOps<T> for Vector<T> {
     }
 }
 
-// Generic destructor - works for all types!
+// ジェネリックコンストラクタとデストラクタ - すべての型で動作
 impl Vector<T> {
+    // デフォルトコンストラクタ
+    // - 変数宣言時に自動的に呼ばれる
+    // - フィールドをnullptrやゼロで安全に初期化
+    // - 使用前に必ずinit()を呼ぶ必要がある
+    self() {
+        self.data = nullptr;
+        self.length = 0;
+        self.capacity = 0;
+    }
+    
+    // デストラクタ
+    // - スコープを抜ける際に自動的に呼ばれる
+    // - メモリを自動的に解放（手動でdestroy()を呼ぶ必要なし）
     ~self() {
         if (self.data != nullptr) {
             free(self.data);

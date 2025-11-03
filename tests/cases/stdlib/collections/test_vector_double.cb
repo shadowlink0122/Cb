@@ -88,10 +88,6 @@ int main() {
         return 1;
     }
     
-    // 6. destroy操作
-    vec.destroy();
-    println("✅ Vector destroyed");
-    
     println("\n🎉 All Vector<double> Tests Passed!");
     return 0;
 }

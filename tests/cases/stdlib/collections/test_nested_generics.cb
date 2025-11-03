@@ -44,8 +44,8 @@ int main() {
         v.init(2);
         
         Queue<long> q1;
-        q1.enqueue((long)100);
-        q1.enqueue((long)200);
+        q1.push((long)100);
+        q1.push((long)200);
         
         v.push(q1);
         
@@ -61,17 +61,17 @@ int main() {
         v.init(2);
         
         Queue<long> q1;
-        q1.enqueue((long)10);
-        q1.enqueue((long)20);
-        q1.enqueue((long)30);
+        q1.push((long)10);
+        q1.push((long)20);
+        q1.push((long)30);
         
         v.push(q1);
         
         Queue<long> retrieved = v.get(0);
         assert_true(retrieved.size() == 3, "Retrieved queue has correct size");
         
-        long val = retrieved.dequeue();
-        assert_true(val == 10, "First dequeued value is 10");
+        long val = retrieved.pop();
+        assert_true(val == 10, "First popped value is 10");
     }
 
     // Test 3: Vector<Queue<int>> - Multiple queues
@@ -82,13 +82,13 @@ int main() {
         v.init(3);
         
         Queue<int> q1;
-        q1.enqueue(1);
-        q1.enqueue(2);
+        q1.push(1);
+        q1.push(2);
         
         Queue<int> q2;
-        q2.enqueue(10);
-        q2.enqueue(20);
-        q2.enqueue(30);
+        q2.push(10);
+        q2.push(20);
+        q2.push(30);
         
         v.push(q1);
         v.push(q2);
@@ -102,9 +102,9 @@ int main() {
         assert_true(second.size() == 3, "Second queue has 3 elements");
     }
 
-    // Test 4: Queue<Vector<long>> - Create and enqueue
+    // Test 4: Queue<Vector<long>> - Create and push
     {
-        print("\n=== Test 4: Queue<Vector<long>> Creation and Enqueue ===\n");
+        print("\n=== Test 4: Queue<Vector<long>> Creation and Push ===\n");
         
         Queue<Vector<long>> q;
         
@@ -114,16 +114,16 @@ int main() {
         v1.push(200);
         v1.push(300);
         
-        q.enqueue(v1);
+        q.push(v1);
         
-        assert_true(q.size() == 1, "Queue<Vector<long>> has 1 element after enqueue");
+        assert_true(q.size() == 1, "Queue<Vector<long>> has 1 element after push");
         assert_true(v1.get_length() == 3, "Original vector still has 3 elements");
     }
 
-    // Test 5: Queue<Vector<long>> - Dequeue and verify
+    // Test 5: Queue<Vector<long>> - Pop and verify
     // NOTE: Deep copy now implemented - Vector's data pointer is properly copied
     {
-        print("\n=== Test 5: Queue<Vector<long>> Dequeue and Verify ===\n");
+        print("\n=== Test 5: Queue<Vector<long>> Pop and Verify ===\n");
         
         Queue<Vector<long>> q;
         
@@ -133,9 +133,9 @@ int main() {
         v1.push(20);
         v1.push(30);
         
-        q.enqueue(v1);
+        q.push(v1);
         
-        Vector<long> retrieved = q.dequeue();
+        Vector<long> retrieved = q.pop();
         
         assert_true(retrieved.get_length() == 3, "Retrieved vector has correct length");
         assert_true(retrieved.get(0) == 10, "First element is 10");
@@ -162,17 +162,17 @@ int main() {
         v2.push(20);
         v2.push(30);
         
-        q.enqueue(v1);
-        q.enqueue(v2);
+        q.push(v1);
+        q.push(v2);
         
         assert_true(q.size() == 2, "Queue has 2 vectors");
         
-        Vector<int> first = q.dequeue();
+        Vector<int> first = q.pop();
         assert_true(first.get_length() == 2, "First vector has 2 elements");
         // Only test first element due to shallow copy limitation
         // assert_true(first.get(0) == 1, "First vector first element is 1");
         
-        Vector<int> second = q.dequeue();
+        Vector<int> second = q.pop();
         assert_true(second.get_length() == 3, "Second vector has 3 elements");
         // assert_true(second.get(0) == 10, "Second vector first element is 10");
     }
@@ -195,9 +195,9 @@ int main() {
         
         Vector<long> empty_v;
         empty_v.init(1);
-        q.enqueue(empty_v);
+        q.push(empty_v);
         
-        Vector<long> retrieved_v = q.dequeue();
+        Vector<long> retrieved_v = q.pop();
         assert_true(retrieved_v.get_length() == 0, "Retrieved empty vector has length 0");
         assert_true(retrieved_v.is_empty(), "Retrieved vector is empty");
     }

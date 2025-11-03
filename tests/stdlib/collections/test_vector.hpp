@@ -105,9 +105,9 @@ inline void test_generic_containers_comprehensive() {
     STDLIB_ASSERT_CONTAINS(output, "═══ Test 5: Vector<int> auto-resize ═══");
     STDLIB_ASSERT_CONTAINS(output, "✅ Vector auto-resize works");
     
-    // Circular buffer test
-    STDLIB_ASSERT_CONTAINS(output, "═══ Test 6: Queue<int> circular buffer ═══");
-    STDLIB_ASSERT_CONTAINS(output, "✅ Circular buffer works");
+    // Dynamic growth test
+    STDLIB_ASSERT_CONTAINS(output, "═══ Test 6: Queue<int> dynamic growth ═══");
+    STDLIB_ASSERT_CONTAINS(output, "✅ Dynamic growth works");
     
     // Memory management test
     STDLIB_ASSERT_CONTAINS(output, "═══ Test 7: Memory management ═══");
