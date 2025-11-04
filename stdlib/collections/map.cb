@@ -1,0 +1,463 @@
+// Binary Search Tree implementation of Map<K, V>
+// 
+// 特徴:
+// - ジェネリック型パラメータK（キー）とV（値）
+//   - left, right で左右の子ノードを指す
+//   - 再帰的な挿入・検索により任意の深さの木構造をサポート
+// 
+// 計算量 (バランスされていない場合):
+//   - insert: 平均 O(log n)、最悪 O(n)
+//   - get: 平均 O(log n)、最悪 O(n)
+//   - contains: 平均 O(log n)、最悪 O(n)
+//   - remove: O(1) - 簡易実装（has_valueをfalseにするのみ）
+// 
+// 制限事項:
+//   - 平衡機能なし（AVL木やRed-Black木ではない）
+//   - 完全な削除は未実装（メモリリークの可能性あり）
+//   - 挿入順によっては木が偏る可能性あり
+// 
+
+// ノード構造体の定義
+export struct MapNode<K, V> {
+    K key;
+    V value;
+    bool has_value;
+    int height;
+    MapNode<K, V>* left;   // 左の子ノード
+    MapNode<K, V>* right;  // 右の子ノード
+};
+
+export interface MapOps<K, V> {
+    // Public API
+    void insert(K key, V value);
+    V get(K key, V default_val);            // 見つからない場合は指定したデフォルト値を返す
+    bool contains(K key);                   // キーの存在確認(エラーハンドリング用)
+    void remove(K key);
+    int size();
+    bool is_empty();
+    void clear();
+    
+    // Enhanced API (v0.11.0+)
+    bool try_remove(K key);             // 削除成功でtrue
+    
+    // Internal helper methods (private in impl)
+    int get_height(MapNode<K, V>* node);
+    void update_height(MapNode<K, V>* node);
+    int get_balance(MapNode<K, V>* node);
+    MapNode<K, V>* create_node(K key, V value);
+    MapNode<K, V>* insert_to_node(MapNode<K, V>* node, K key, V value);
+    V get_from_node(MapNode<K, V>* node, K key);
+    bool contains_in_node(MapNode<K, V>* node, K key);
+}
+
+export struct Map<K, V> {
+    MapNode<K, V>* root;  // ルートノード
+    int count;            // 要素数
+};
+
+impl MapOps<K, V> for Map<K, V> {
+    // Private: ノードの高さを取得
+    private int get_height(MapNode<K, V>* node) {
+        if (node == nullptr) {
+            return 0;
+        }
+        return node->height;
+    }
+    
+    // Private: ノードの高さを更新
+    private void update_height(MapNode<K, V>* node) {
+        if (node == nullptr) {
+            return;
+        }
+        
+        int left_h = self.get_height(node->left);
+        int right_h = self.get_height(node->right);
+        int max_h = left_h;
+        if (right_h > left_h) {
+            max_h = right_h;
+        }
+        
+        node->height = max_h + 1;
+    }
+    
+    // Private: バランス因子を計算
+    private int get_balance(MapNode<K, V>* node) {
+        if (node == nullptr) {
+            return 0;
+        }
+        
+        return self.get_height(node->left) - self.get_height(node->right);
+    }
+    
+    // Private: 右回転 (AVL用、現在は未使用)
+    private MapNode<K, V>* rotate_right(MapNode<K, V>* y) {
+        if (y == nullptr) {
+            return nullptr;
+        }
+        
+        MapNode<K, V>* x = y->left;
+        if (x == nullptr) {
+            return y;
+        }
+        
+        MapNode<K, V>* T2 = x->right;
+        
+        // 回転実行
+        x->right = y;
+        y->left = T2;
+        
+        // 高さ更新
+        self.update_height(y);
+        self.update_height(x);
+        
+        return x;
+    }
+    
+    // Private: 左回転 (AVL用、現在は未使用)
+    private MapNode<K, V>* rotate_left(MapNode<K, V>* x) {
+        if (x == nullptr) {
+            return nullptr;
+        }
+        
+        MapNode<K, V>* y = x->right;
+        if (y == nullptr) {
+            return x;
+        }
+        
+        MapNode<K, V>* T2 = y->left;
+        
+        // 回転実行
+        y->left = x;
+        x->right = T2;
+        
+        // 高さ更新
+        self.update_height(x);
+        self.update_height(y);
+        
+        return y;
+    }
+    
+    // Private: ノード作成
+    private MapNode<K, V>* create_node(K key, V value) {
+        println("CREATE_NODE: Getting sizeof");
+        int node_size = sizeof(MapNode<K, V>);
+        println("CREATE_NODE: node_size = ", node_size);
+        println("CREATE_NODE: Calling malloc");
+        void* mem = malloc(node_size);
+        println("CREATE_NODE: malloc returned");
+        MapNode<K, V>* new_node = (MapNode<K, V>*)mem;
+        
+        println("CREATE_NODE: Setting key");
+        new_node->key = key;
+        println("CREATE_NODE: Key set");
+        new_node->value = value;
+        new_node->has_value = true;
+        new_node->height = 1;
+        new_node->left = nullptr;
+        new_node->right = nullptr;
+        
+        return new_node;
+    }
+    
+    // Private: 再帰的に子ノードへ挿入
+    private MapNode<K, V>* insert_to_node(MapNode<K, V>* node, K key, V value) {
+        // ベースケース: ノードが空なら新しいノードを作成
+        if (node == nullptr) {
+            // self.create_node() 呼び出しでクラッシュするため、インライン実装
+            int node_size = sizeof(MapNode<K, V>);
+            void* mem = malloc(node_size);
+            MapNode<K, V>* new_node = (MapNode<K, V>*)mem;
+            new_node->key = key;
+            new_node->value = value;
+            new_node->has_value = true;
+            new_node->height = 1;
+            new_node->left = nullptr;
+            new_node->right = nullptr;
+            return new_node;
+        }
+        
+        K node_key = node->key;
+        
+        // キーが等しい場合は値を更新
+        if (key == node_key) {
+            node->value = value;
+            node->has_value = true;  // Make sure has_value is set!
+            return node;
+        }
+        
+        // 再帰的に挿入
+        if (key < node_key) {
+            MapNode<K, V>* left_child = node->left;
+            node->left = self.insert_to_node(left_child, key, value);
+        } else {
+            MapNode<K, V>* right_child = node->right;
+            node->right = self.insert_to_node(right_child, key, value);
+        }
+        
+        return node;
+    }
+    
+    // Private: ノードからの取得
+    private V get_from_node(MapNode<K, V>* node, K key) {
+        if (node == nullptr) {
+            V default_value;
+            return default_value;
+        }
+        
+        K node_key = node->key;
+        if (key == node_key) {
+            V node_value = node->value;
+            return node_value;
+        }
+        
+        if (key < node_key) {
+            MapNode<K, V>* left_child = node->left;
+            return self.get_from_node(left_child, key);
+        } else {
+            MapNode<K, V>* right_child = node->right;
+            return self.get_from_node(right_child, key);
+        }
+    }
+    
+    // Private: ノードに含まれるかチェック
+    private bool contains_in_node(MapNode<K, V>* node, K key) {
+        if (node == nullptr) {
+            return false;
+        }
+        
+        K node_key = node->key;
+        
+        if (key == node_key) {
+            bool has_val = node->has_value;
+            return has_val;
+        }
+        
+        if (key < node_key) {
+            MapNode<K, V>* left_child = node->left;
+            return self.contains_in_node(left_child, key);
+        } else {
+            MapNode<K, V>* right_child = node->right;
+            return self.contains_in_node(right_child, key);
+        }
+    }
+    
+    // Public: 挿入
+    void insert(K key, V value) {
+        // Note: カウント更新は後で実装
+        
+        // Handle empty tree
+        if (self.root == nullptr) {
+            int node_size = sizeof(MapNode<K, V>);
+            void* mem = malloc(node_size);
+            MapNode<K, V>* new_node = (MapNode<K, V>*)mem;
+            new_node->key = key;
+            new_node->value = value;
+            new_node->has_value = true;
+            new_node->height = 1;
+            new_node->left = nullptr;
+            new_node->right = nullptr;
+            self.root = new_node;
+            self.count = self.count + 1;
+            return;
+        }
+        
+        // Iterative insertion
+        MapNode<K, V>* current = self.root;
+        while (true) {
+            K current_key = current->key;
+            
+            // Key already exists, update value
+            if (key == current_key) {
+                current->value = value;
+                current->has_value = true;
+                return;
+            }
+            
+            // Go left
+            if (key < current_key) {
+                MapNode<K, V>* left_child = current->left;
+                if (left_child == nullptr) {
+                    // Create new node
+                    int node_size = sizeof(MapNode<K, V>);
+                    void* mem = malloc(node_size);
+                    MapNode<K, V>* new_node = (MapNode<K, V>*)mem;
+                    new_node->key = key;
+                    new_node->value = value;
+                    new_node->has_value = true;
+                    new_node->height = 1;
+                    new_node->left = nullptr;
+                    new_node->right = nullptr;
+                    current->left = new_node;
+                    self.count = self.count + 1;
+                    return;
+                }
+                current = left_child;
+            } else {
+                // Go right
+                MapNode<K, V>* right_child = current->right;
+                if (right_child == nullptr) {
+                    // Create new node
+                    int node_size = sizeof(MapNode<K, V>);
+                    void* mem = malloc(node_size);
+                    MapNode<K, V>* new_node = (MapNode<K, V>*)mem;
+                    new_node->key = key;
+                    new_node->value = value;
+                    new_node->has_value = true;
+                    new_node->height = 1;
+                    new_node->left = nullptr;
+                    new_node->right = nullptr;
+                    current->right = new_node;
+                    self.count = self.count + 1;
+                    return;
+                }
+                current = right_child;
+            }
+        }
+    }
+    
+    // Public: 取得(デフォルト値指定版)
+    V get(K key, V default_value) {
+        MapNode<K, V>* node = self.root;
+        
+        while (node != nullptr) {
+            K node_key = node->key;
+            
+            if (key == node_key) {
+                bool has_val = node->has_value;
+                if (has_val) {
+                    V the_value = node->value;
+                    return the_value;
+                }
+                return default_value;
+            }
+            
+            if (key < node_key) {
+                node = node->left;
+            } else {
+                node = node->right;
+            }
+        }
+        
+        return default_value;
+    }
+    
+    // Public: 含まれるかチェック
+    bool contains(K key) {
+        // Inline implementation to avoid private method call
+        MapNode<K, V>* node = self.root;
+        
+        // Iterative search instead of recursive
+        while (node != nullptr) {
+            K node_key = node->key;
+            
+            if (key == node_key) {
+                // Check if the value is marked as present (not deleted)
+                bool has_val = node->has_value;
+                return has_val;
+            }
+            
+            if (key < node_key) {
+                node = node->left;
+            } else {
+                node = node->right;
+            }
+        }
+        
+        return false;
+    }
+    
+    // Public: 削除（簡易実装：has_valueをfalseにする）
+    void remove(K key) {
+        MapNode<K, V>* node = self.root;
+        
+        // Iterative search for the key
+        while (node != nullptr) {
+            K node_key = node->key;
+            
+            if (key == node_key) {
+                // Found the key - mark as deleted if it had a value
+                bool had_value = node->has_value;
+                if (had_value) {
+                    node->has_value = false;
+                    if (self.count > 0) {
+                        self.count = self.count - 1;
+                    }
+                }
+                return;
+            }
+            
+            if (key < node_key) {
+                node = node->left;
+            } else {
+                node = node->right;
+            }
+        }
+        // Key not found - do nothing
+    }
+    
+    // Public: サイズ取得
+    int size() {
+        return self.count;
+    }
+    
+    // Public: 空かチェック
+    bool is_empty() {
+        return self.count == 0;
+    }
+    
+    // Public: クリア
+    void clear() {
+        // TODO: 全ノードのfree()
+        self.root = nullptr;
+        self.count = 0;
+    }
+    
+    // ===== Enhanced API (v0.11.0+) =====
+    
+    // try_remove: キーを削除し、成功したらtrueを返す
+    bool try_remove(K key) {
+        MapNode<K, V>* node = self.root;
+        
+        while (node != nullptr) {
+            K node_key = node->key;
+            
+            if (key == node_key) {
+                bool had_value = node->has_value;
+                if (had_value) {
+                    node->has_value = false;
+                    if (self.count > 0) {
+                        self.count = self.count - 1;
+                    }
+                    return true;
+                }
+                // Key exists but already deleted
+                return false;
+            }
+            
+            if (key < node_key) {
+                node = node->left;
+            } else {
+                node = node->right;
+            }
+        }
+        
+        // Key not found
+        return false;
+    }
+}
+
+// ジェネリックコンストラクタとデストラクタ
+impl Map<K, V> {
+    // デフォルトコンストラクタ
+    self() {
+        self.root = nullptr;
+        self.count = 0;
+    }
+    
+    // デストラクタ
+    ~self() {
+        // TODO: 全ノードのfree()を再帰的に実行
+        self.root = nullptr;
+        self.count = 0;
+    }
+}

@@ -228,6 +228,60 @@ int[5] arr1, arr2;                      // 同じサイズの配列
 string[3] names = ["Alice", "Bob"];     // 初期化付き
 ```
 
+### 配列操作組み込み関数
+
+#### array_get() - 配列要素の安全な取得
+
+実行時に配列境界チェックを行い、範囲外アクセスを防ぎます。
+
+**構文**:
+```cb
+T array_get<T>(T[] array, int index, int array_size)
+```
+
+**使用例**:
+```cb
+int[5] arr = [10, 20, 30, 40, 50];
+
+// 安全な配列アクセス
+int value = array_get(arr, 2, 5);  // 30
+println(value);
+
+// 範囲外アクセス（実行時エラー）
+// int bad = array_get(arr, 10, 5);  // Error: Array index out of bounds
+```
+
+**特徴**:
+- コンパイル時ではなく実行時にチェック
+- 範囲外アクセスでプログラムを停止
+- デバッグモードで詳細なエラーメッセージを表示
+
+#### array_set() - 配列要素の安全な設定
+
+実行時に配列境界チェックを行い、安全に値を設定します。
+
+**構文**:
+```cb
+void array_set<T>(T[] array, int index, T value, int array_size)
+```
+
+**使用例**:
+```cb
+int[5] arr = [1, 2, 3, 4, 5];
+
+// 安全な配列への代入
+array_set(arr, 2, 100, 5);  // arr[2] = 100
+println(arr[2]);  // 100
+
+// 範囲外への代入（実行時エラー）
+// array_set(arr, 10, 999, 5);  // Error: Array index out of bounds
+```
+
+**用途**:
+- 動的に計算されるインデックスでの安全なアクセス
+- デバッグモードでの境界チェック
+- 複雑な配列操作での安全性確保
+
 ### スコープ
 
 ```c++
@@ -687,6 +741,92 @@ struct Pair<K, V> {
 };
 ```
 
+### 組み込みジェネリック型
+
+#### Option<T> 型
+
+`Option<T>`は値が存在するか存在しないかを表現する型です。Rustの`Option`型に相当します。
+
+**定義**:
+```cb
+enum Option<T> {
+    Some(T),
+    None
+};
+```
+
+**使用例**:
+```cb
+Option<int> find_value(int[10] arr, int target) {
+    for (int i = 0; i < 10; i++) {
+        if (arr[i] == target) {
+            return Option<int>::Some(i);
+        }
+    }
+    return Option<int>::None;
+}
+
+int main() {
+    int[10] numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+    Option<int> result = find_value(numbers, 5);
+    
+    // variantフィールドで判定
+    if (result.variant == "Some") {
+        println("Found at index: {result.value}");
+    } else {
+        println("Not found");
+    }
+    
+    return 0;
+}
+```
+
+**match文での使用**:
+```cb
+match (result) {
+    Some(index) => println("Found at: {index}"),
+    None => println("Not found")
+}
+```
+
+#### Result<T, E> 型
+
+`Result<T, E>`は成功値または失敗値を表現する型です。エラーハンドリングに使用します。
+
+**定義**:
+```cb
+enum Result<T, E> {
+    Ok(T),
+    Err(E)
+};
+```
+
+**使用例**:
+```cb
+Result<int, string> divide(int a, int b) {
+    if (b == 0) {
+        return Result<int, string>::Err("Division by zero");
+    }
+    return Result<int, string>::Ok(a / b);
+}
+
+int main() {
+    Result<int, string> result = divide(10, 2);
+    
+    match (result) {
+        Ok(value) => println("Result: {value}"),
+        Err(error) => println("Error: {error}")
+    }
+    
+    return 0;
+}
+```
+
+**内部フィールド**:
+- `variant`: 文字列型。"Some"/"None"または"Ok"/"Err"
+- `value`: T型。Someまたはokの場合の値
+- `error`: E型。Errの場合のエラー値（Result専用）
+
 #### 使用例
 
 ```cb
@@ -820,17 +960,74 @@ int main() {
 }
 ```
 
-### インターフェース境界（未実装）
+### インターフェース境界（v0.11.0で実装済み）
 
-将来のバージョンで、インターフェース境界がサポートされる予定です：
+ジェネリック型パラメータにインターフェース制約を指定できます：
 
 ```cb
-// 未実装: インターフェース境界
+// Allocatorインターフェースを実装する型のみ受け入れる
 struct Vector<T, A: Allocator> {
     T* data;
     int size;
     A allocator;
-};
+}
+
+impl Vector<T, A: Allocator> {
+    void init() {
+        self.data = self.allocator.allocate(sizeof(T) * 10);
+        self.size = 0;
+    }
+    
+    ~self() {
+        if (self.data != nullptr) {
+            self.allocator.deallocate(self.data);
+        }
+    }
+}
+
+// 使用例
+int main() {
+    Vector<int, SystemAllocator> vec;
+    SystemAllocator alloc;
+    vec.allocator = alloc;
+    vec.init();
+    
+    return 0;
+}
+```
+
+#### 複数のインターフェース境界
+
+```cb
+// 複数のインターフェースを要求（+で結合）
+struct Container<T, A: Allocator + Clone> {
+    T* data;
+    A allocator;
+}
+
+// 複数の型パラメータにそれぞれ境界を指定
+struct MultiContainer<K: Clone + Debug, V, A: Allocator + Clone> {
+    K* keys;
+    V* values;
+    A allocator;
+}
+```
+
+#### 型チェック
+
+インターフェース境界に違反する型を使用するとコンパイルエラーになります：
+
+```cb
+struct NotAnAllocator {
+    int x;
+}
+
+int main() {
+    // エラー: NotAnAllocatorはAllocatorインターフェースを実装していない
+    Vector<int, NotAnAllocator> vec;  // コンパイルエラー
+    
+    return 0;
+}
 ```
 
 ---
@@ -2002,13 +2199,13 @@ impl Debugger for Tracer {
 ```cb
 struct Resource {
     int id;
-};
+}
 
 impl Resource {
-    fn deinit() {
+    ~self() {
         println("Resource {id} destroyed");
     }
-};
+}
 ```
 
 #### 実行タイミング
@@ -2019,7 +2216,7 @@ int main() {
         Resource r;
         r.id = 1;
         println("Resource created");
-        // スコープ終了時に自動的に r.deinit() が呼ばれる
+        // スコープ終了時に自動的にデストラクタが呼ばれる
     }
     println("After scope");
     
@@ -2039,13 +2236,13 @@ int main() {
 ```cb
 struct Item {
     int id;
-};
+}
 
 impl Item {
-    fn deinit() {
+    ~self() {
         println("Item {id} destroyed");
     }
-};
+}
 
 int main() {
     Item a;
@@ -2074,21 +2271,21 @@ struct Vector<T, A: Allocator> {
     int size;
     int capacity;
     A allocator;
-};
+}
 
 impl Vector<T, A: Allocator> {
-    fn deinit() {
+    ~self() {
         println("Vector deinit - cleaning up {size} elements");
         if (data != NULL) {
             allocator.free(data);
         }
     }
-};
+}
 
 int main() {
     Vector<int, SystemAllocator> vec;
     vec.size = 10;
-    // スコープ終了時に vec.deinit() が自動実行される
+    // スコープ終了時にデストラクタが自動実行される
     return 0;
 }
 ```
@@ -2738,14 +2935,41 @@ Cb言語は現在インタープリタとして実装されており、型チェ
 
 ### モジュールのインポート
 
-```c++
-import "math.cb";
-import "utils.cb";
+**v0.11.0以降の新構文**:
+
+```cb
+import math;
+import utils;
 
 int main() {
     int result = math_add(5, 3);
     return 0;
 }
+```
+
+**ネストしたモジュール**:
+
+```cb
+import collections.vector;
+import std.allocators.system;
+
+int main() {
+    Vector<int> vec;
+    return 0;
+}
+```
+
+**注意**: v0.11.0より、文字列リテラルimport構文（`import "path/to/file.cb";`）は**廃止**されました。
+モジュール識別子構文（`import module.path.name;`）を使用してください。
+
+**エラー例**:
+```cb
+import "math.cb";  // ❌ エラー: String literal import syntax is deprecated
+```
+
+**正しい書き方**:
+```cb
+import math;       // ✅ 正しい
 ```
 
 ### モジュール内の関数定義
@@ -2958,12 +3182,315 @@ void process_data() {
 }
 ```
 
-### 将来実装: スマートポインタ
+### 動的メモリ管理
 
-```c++
+#### malloc() - メモリの動的確保
+
+指定されたサイズのメモリブロックを確保します。C言語の`malloc()`に相当します。
+
+**構文**:
+```cb
+void* malloc(int size)
+```
+
+**使用例**:
+```cb
+// 整数10個分のメモリを確保
+int* ptr = malloc(40);  // sizeof(int) * 10 = 40 bytes
+
+if (ptr != NULL) {
+    // メモリを使用
+    ptr[0] = 10;
+    ptr[1] = 20;
+    
+    // 使用後は必ず解放
+    free(ptr);
+}
+```
+
+**注意事項**:
+- 確保に失敗するとNULLを返す
+- 確保したメモリは必ず`free()`で解放する必要がある
+- 型安全性がないため、キャスト時に注意が必要
+
+#### free() - メモリの解放
+
+`malloc()`で確保したメモリを解放します。
+
+**構文**:
+```cb
+void free(void* ptr)
+```
+
+**使用例**:
+```cb
+void* data = malloc(100);
+// データを使用...
+free(data);  // 必ず解放
+data = NULL;  // ダングリングポインタを防ぐ
+```
+
+**注意事項**:
+- 同じポインタを二重に`free()`しない（二重解放）
+- 解放後はポインタを使用しない（use-after-free）
+- NULLポインタを`free()`しても安全（何もしない）
+
+#### new 演算子 - 型安全な動的確保（v0.11.0 Phase 1aで実装済み）
+
+**実装状態**: ✅ v0.11.0 Phase 1aで実装済み
+
+**構文**:
+```cb
+T* new T;           // 単一オブジェクト確保
+T* new T[size];     // 配列確保
+```
+
+**使用例**:
+```cb
+struct Point {
+    int x;
+    int y;
+}
+
+int main() {
+    // 単一オブジェクト確保
+    Point* p = new Point;
+    p->x = 10;
+    p->y = 20;
+    
+    println("Point: ({p->x}, {p->y})");
+    
+    // 使用後はdeleteで解放
+    delete p;
+    
+    // 配列確保
+    int* arr = new int[10];
+    arr[0] = 100;
+    delete arr;
+    
+    return 0;
+}
+```
+
+**特徴**:
+- 型安全: 型から自動的にサイズを計算
+- 構造体の自動初期化: メンバーがゼロクリアされる
+- ゼロクリア: 確保したメモリは自動的に0で初期化される
+
+**注意**: コンストラクタ引数付きの構文(`new T(args)`)は将来実装予定です。
+
+#### delete 演算子 - 型安全な解放（v0.11.0 Phase 1aで実装済み）
+
+**実装状態**: ✅ v0.11.0 Phase 1aで実装済み
+
+**構文**:
+```cb
+delete ptr;  // 単一オブジェクトも配列も統一構文
+```
+
+**使用例**:
+```cb
+struct Resource {
+    int id;
+}
+
+impl Resource {
+    self() {
+        self.id = 0;
+    }
+}
+
+int main() {
+    // newで確保
+    Resource* r = new Resource;
+    r->id = 1;
+    
+    println("Resource ID: {r->id}");
+    
+    // deleteで解放
+    delete r;
+    
+    // 配列の解放も同じ構文
+    int* arr = new int[10];
+    delete arr;
+    
+    return 0;
+}
+```
+
+**特徴**:
+- nullptr セーフ: nullptrの解放は何もしない
+- 自動判別: 構造体ポインタと生ポインタを自動で識別
+- 統一構文: 配列もオブジェクトも同じ`delete ptr`構文
+
+**注意**: デストラクタの自動呼び出しは将来実装予定です。現在は手動で後処理を行う必要があります。
+
+**malloc/free vs new/delete**:
+
+| 機能 | malloc/free | new/delete |
+|------|-------------|------------|
+| 型安全性 | ❌ なし（キャスト必要） | ✅ あり（型から自動計算） |
+| 初期化 | ❌ なし（ゴミデータ） | ✅ ゼロクリア |
+| コンストラクタ | ❌ 呼ばれない | ⚠️ 将来実装予定 |
+| デストラクタ | ❌ 呼ばれない | ⚠️ 将来実装予定 |
+| サイズ指定 | 手動（バイト数） | 自動（型から計算） |
+| 実装状態 | ✅ v0.11.0で実装済み | ✅ v0.11.0 Phase 1aで実装済み |
+
+**注意**: コンストラクタ/デストラクタの自動呼び出しは将来のバージョンで実装予定です。現在は手動で初期化・後処理を行う必要があります。
+
+### 将来実装: スマートポインタ（v0.13.0以降で実装予定）
+
+```cb
 // 将来実装予定
-unique_ptr<Data> data = make_unique<Data>();
-shared_ptr<Resource> resource = make_shared<Resource>();
+let data: unique_ptr<Data> = make_unique<Data>();
+let resource: shared_ptr<Resource> = make_shared<Resource>();
+```
+
+---
+
+## 標準ライブラリ
+
+### collections.vector - Vector<T>
+
+v0.11.0で双方向リンクリストに完全リファクタリング。
+
+#### 基本的な使い方
+
+```cb
+// collections.vectorモジュールのインポート
+import collections.vector;
+
+int main() {
+    Vector<int> vec = Vector::new();
+    
+    // 要素の追加
+    vec.push_back(10);
+    vec.push_back(20);
+    vec.push_back(30);
+    
+    // 要素数の取得
+    int len = vec.get_length();  // 3
+    
+    // 要素の取得
+    int first = vec.get(0);   // 10
+    int last = vec.get(2);    // 30
+    
+    return 0;
+}
+```
+
+#### データ構造
+
+**ノードベース双方向リンクリスト**:
+```
+[Node]       [Node]       [Node]
+┌──────┐    ┌──────┐    ┌──────┐
+│ prev │◄───│ prev │◄───│ prev │
+├──────┤    ├──────┤    ├──────┤
+│ next │───►│ next │───►│ next │
+├──────┤    ├──────┤    ├──────┤
+│ data │    │ data │    │ data │
+└──────┘    └──────┘    └──────┘
+   ^                        ^
+   │                        │
+  head                    tail
+```
+
+**ノードメモリレイアウト**:
+```
+[prev (8 bytes)][next (8 bytes)][data (sizeof(T) bytes)]
+```
+
+#### 主要メソッド
+
+| メソッド | 時間計算量 | 説明 |
+|---------|-----------|------|
+| `push_back(T value)` | O(1) | 末尾に要素追加 |
+| `push_front(T value)` | O(1) | 先頭に要素追加 ✨新規 |
+| `pop_back()` | O(1) | 末尾要素を削除 |
+| `pop_front()` | O(1) | 先頭要素を削除 ✨新規 |
+| `get(int index)` | O(n) | 要素取得（インデックス指定） |
+| `set(int index, T value)` | O(n) | 要素更新 |
+| `delete_at(int index)` | O(n) | 任意位置の要素削除 ✨新規 |
+| `find(T value)` | O(n) | 要素検索 ✨新規 |
+| `sort()` | O(n²) | ソート（バブルソート） ✨新規 |
+| `get_length()` | O(1) | 要素数取得 |
+| `clear()` | O(n) | 全要素削除 |
+
+#### API変更（v0.11.0）
+
+**削除されたメソッド**:
+- `init()` - コンストラクタで代替
+- `reserve()` - リンクリストでは不要
+- `get_capacity()` - リンクリストでは不要
+
+**新規追加メソッド**:
+- `push_front()` - O(1)での先頭追加
+- `pop_front()` - O(1)での先頭削除
+- `delete_at()` - 任意位置の削除
+- `find()` - 線形探索
+- `sort()` - バブルソート実装
+
+#### 使用例
+
+**先頭への追加**:
+```cb
+Vector<int> vec;
+vec.push_front(10);  // [10]
+vec.push_front(20);  // [20, 10]
+vec.push_front(30);  // [30, 20, 10]
+```
+
+**要素の検索**:
+```cb
+Vector<int> vec;
+vec.push_back(10);
+vec.push_back(20);
+vec.push_back(30);
+
+int index = vec.find(20);  // 1
+```
+
+**要素の削除**:
+```cb
+Vector<int> vec;
+vec.push_back(10);
+vec.push_back(20);
+vec.push_back(30);
+
+vec.delete_at(1);  // [10, 30]
+```
+
+**ソート**:
+```cb
+Vector<int> vec;
+vec.push_back(30);
+vec.push_back(10);
+vec.push_back(20);
+
+vec.sort();  // [10, 20, 30]
+```
+
+#### パフォーマンス特性
+
+**v0.10.0（配列ベース） vs v0.11.0（リンクリスト）**:
+
+| 操作 | v0.10.0 | v0.11.0 |
+|-----|---------|---------|
+| 先頭追加 | O(n) | O(1) ✨ |
+| 末尾追加 | O(1) | O(1) |
+| 先頭削除 | O(n) | O(1) ✨ |
+| 末尾削除 | O(1) | O(1) |
+| ランダムアクセス | O(1) | O(n) |
+| メモリ | 連続 | 非連続 |
+
+#### アロケータ対応
+
+```cb
+import std.allocators.system;
+
+Vector<int> vec;
+vec.allocator = SystemAllocator::new();
 ```
 
 ---
@@ -2985,9 +3512,13 @@ make unit-test
 
 ### テスト統計
 
-- **統合テスト**: 2349個（100%成功）
-- **単体テストト**: 30個（100%成功）
-- **総カバレッジ**: 全機能をカバー
+| バージョン | 統合テスト | 単体テスト | 合計 | 成功率 |
+|-----------|-----------|-----------|------|--------|
+| v0.9.0 | 2,349 | 30 | 2,379 | 100% |
+| v0.9.1 | 2,447 | 30 | 2,477 | 100% |
+| v0.9.2 | 2,798 | 30 | 2,828 | 100% |
+| v0.10.0 | 2,924 | 30 | 2,954 | 100% |
+| **v0.11.0** | **3,341** | **30** | **3,371** | **100%** |
 
 ### テストケースの構造
 
@@ -3123,6 +3654,83 @@ const int maxSize = 100; // 定数はUPPER_CASE
 
 ---
 
-**ドキュメントバージョン**: v0.9.0  
-**最終更新日**: 2025年10月5日  
-**言語バージョン**: Cb v0.9.0 - ポインタシステム完全実装版
+## 変更履歴
+
+### v0.11.0 Part 1a（2025年11月3日）
+
+**主要な変更**:
+
+1. **Vector<T>の双方向リンクリスト実装**
+   - 配列ベースからノードベース双方向リンクリストに完全リファクタリング
+   - O(1)での先頭・末尾操作を実現
+   - 新規API追加: `push_front()`, `pop_front()`, `delete_at()`, `find()`, `sort()`
+   - 削除API: `init()`, `reserve()`, `get_capacity()`
+
+2. **import文の文字列リテラル構文廃止**
+   - 文字列リテラル構文（`import "path/to/file.cb";`）を廃止
+   - モジュールパス構文（`import module.path.name;`）に統一
+   - 41ファイルを更新
+
+3. **テスト拡充**
+   - 統合テスト: 2,924個 → 3,341個（+417個）
+   - すべてのテストが100%合格
+
+### v0.11.0（2025年10月28日）
+
+**主要な機能追加**:
+
+1. **ジェネリクスシステム**
+   - 構造体、関数、enumでのジェネリクス対応
+   - 型パラメータ、インスタンス化、型名マングリング
+
+2. **文字列補間**
+   - `{}` 内での式埋め込み
+   - フォーマット指定子（`:d`, `:x`, `:.2f` など）
+
+3. **デストラクタとRAII**
+   - `fn deinit()` 構文
+   - LIFO順序での自動呼び出し
+   - defer文との統合
+
+4. **パターンマッチング**
+   - `match` 文の実装
+   - Option<T>とResult<T, E>のマッチング
+   - ワイルドカードパターン
+
+### v0.10.0（2025年10月20日）
+
+**主要な機能追加**:
+
+1. **右辺値参照とムーブセマンティクス**
+   - `&&` 構文
+   - ムーブコンストラクタ
+   - `move()` 関数
+
+2. **デフォルト引数**
+   - 関数パラメータのデフォルト値
+   - コンストラクタでのデフォルト引数
+
+### v0.9.2（2025年10月15日）
+
+**機能追加**:
+- 配列の参照渡し（自動）
+- 配列を返す関数のサポート強化
+
+### v0.9.1（2025年10月10日）
+
+**機能追加**:
+- Const Pointer Safety
+- impl内static変数
+
+### v0.9.0（2025年10月5日）
+
+**主要な機能追加**:
+- ポインタシステム完全実装
+- 浮動小数点数型（float, double）
+- ネストした構造体（多階層対応）
+
+---
+
+**ドキュメントバージョン**: v0.11.0 Part 1a  
+**最終更新日**: 2025年11月3日  
+**言語バージョン**: Cb v0.11.0 - Generics, String Interpolation, Destructors & Vector Refactoring

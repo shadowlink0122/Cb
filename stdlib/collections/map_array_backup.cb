@@ -1,0 +1,177 @@
+// Map<K, V> - シンプルな連想配列実装（線形探索、別々の配列）
+// 2つのジェネリック型パラメータを持つため、構造体ベースではなく配列ベースで実装
+// AVL木の実装はCbの void* ポインタ操作の制限により困難なため、
+// シンプルな線形探索の実装を使用
+
+export struct Map<K, V> {
+    void* keys;       // K の配列
+    void* values;     // V の配列
+    void* occupied;   // int の配列（bool として使用）
+    int capacity;
+    int count;
+};
+
+// マップの初期化
+export void map_init<K, V>(Map<K, V>& m) {
+    m.capacity = 16;
+    m.count = 0;
+    
+    // 3つの独立した配列を確保
+    m.keys = malloc(sizeof(K) * m.capacity);
+    m.values = malloc(sizeof(V) * m.capacity);
+    m.occupied = malloc(sizeof(int) * m.capacity);
+    
+    // すべてのスロットを空として初期化
+    int i = 0;
+    while (i < m.capacity) {
+        array_set_int(m.occupied, i, 0);  // false
+        i = i + 1;
+    }
+}
+
+// マップのクリーンアップ
+export void map_cleanup<K, V>(Map<K, V>& m) {
+    if (m.keys != nullptr) {
+        free(m.keys);
+        m.keys = nullptr;
+    }
+    if (m.values != nullptr) {
+        free(m.values);
+        m.values = nullptr;
+    }
+    if (m.occupied != nullptr) {
+        free(m.occupied);
+        m.occupied = nullptr;
+    }
+    m.count = 0;
+    m.capacity = 0;
+}
+
+// キーの検索（インデックスを返す、見つからない場合は-1）
+export int map_find_index<K, V>(Map<K, V>& m, K key) {
+    int i = 0;
+    while (i < m.capacity) {
+        int is_occupied = array_get_int(m.occupied, i);
+        
+        if (is_occupied != 0) {
+            K entry_key = array_get(m.keys, i);
+            if (entry_key == key) {
+                return i;
+            }
+        }
+        i = i + 1;
+    }
+    
+    return -1;
+}
+
+// 空のスロットを見つける
+export int map_find_empty_slot<K, V>(Map<K, V>& m) {
+    int i = 0;
+    while (i < m.capacity) {
+        int is_occupied = array_get_int(m.occupied, i);
+        
+        if (is_occupied == 0) {
+            return i;
+        }
+        i = i + 1;
+    }
+    
+    return -1;
+}
+
+// 挿入または更新
+export void map_insert<K, V>(Map<K, V>& m, K key, V value) {
+    // 初期化チェック（コンストラクタが呼ばれない場合の対策）
+    if (m.keys == nullptr) {
+        map_init<K, V>(m);
+    }
+    
+    // 既存のキーを探す
+    int existing_idx = map_find_index<K, V>(m, key);
+    
+    if (existing_idx >= 0) {
+        // 更新
+        array_set(m.values, existing_idx, value);
+    } else {
+        // 新規挿入
+        int empty_idx = map_find_empty_slot<K, V>(m);
+        
+        if (empty_idx < 0) {
+            // 容量不足 - エラー処理（今回は簡略化のため無視）
+            return;
+        }
+        
+        array_set(m.keys, empty_idx, key);
+        array_set(m.values, empty_idx, value);
+        array_set_int(m.occupied, empty_idx, 1);  // true
+        
+        m.count = m.count + 1;
+    }
+}
+
+// 取得
+export V map_get<K, V>(Map<K, V>& m, K key) {
+    int idx = map_find_index<K, V>(m, key);
+    
+    if (idx >= 0) {
+        return array_get(m.values, idx);
+    }
+    
+    // 見つからない場合はデフォルト値を返す
+    V dummy;
+    return dummy;
+}
+
+// 削除
+export void map_remove<K, V>(Map<K, V>& m, K key) {
+    int idx = map_find_index<K, V>(m, key);
+    
+    if (idx >= 0) {
+        array_set_int(m.occupied, idx, 0);  // false
+        m.count = m.count - 1;
+    }
+}
+
+// 存在チェック
+export bool map_contains<K, V>(Map<K, V>& m, K key) {
+    return map_find_index<K, V>(m, key) >= 0;
+}
+
+// サイズ
+export int map_size<K, V>(Map<K, V>& m) {
+    return m.count;
+}
+
+// 空かどうか
+export bool map_is_empty<K, V>(Map<K, V>& m) {
+    return m.count == 0;
+}
+
+// クリア
+export void map_clear<K, V>(Map<K, V>& m) {
+    // すべてのスロットを空として初期化
+    int i = 0;
+    while (i < m.capacity) {
+        array_set_int(m.occupied, i, 0);  // false
+        i = i + 1;
+    }
+    
+    m.count = 0;
+}
+
+// デフォルトコンストラクタ
+impl Map<K, V> {
+    self() {
+        self.keys = nullptr;
+        self.values = nullptr;
+        self.occupied = nullptr;
+        self.capacity = 0;
+        self.count = 0;
+        map_init<K, V>(self);
+    }
+    
+    ~self() {
+        map_cleanup<K, V>(self);
+    }
+}

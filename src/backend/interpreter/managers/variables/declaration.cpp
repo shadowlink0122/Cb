@@ -83,23 +83,60 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
     // 型引数にポインタが含まれるとパーサーが誤って TYPE_POINTER
     // と判定することがあるため、 type_name に '<' が含まれている場合も struct
     // として扱う
+    // v0.11.2: ただし、ジェネリック構造体へのポインタ（例:
+    // MapNode<K,V>*）の場合は
+    // ポインタとして扱い、pointer_base_type_nameに基底型を設定する
     bool is_generic_struct = !node->type_name.empty() &&
                              node->type_name.find('<') != std::string::npos;
+    bool is_pointer_to_generic =
+        is_generic_struct && node->type_name.find('*') != std::string::npos;
+
     if (interpreter_->debug_mode) {
         debug_print(
             "[VAR_DECL_DEBUG] Checking struct condition for '%s': type_info=%d "
-            "(TYPE_STRUCT=%d), type_name='%s', is_generic_struct=%d\n",
+            "(TYPE_STRUCT=%d), type_name='%s', is_generic_struct=%d, "
+            "is_pointer_to_generic=%d\n",
             node->name.c_str(), static_cast<int>(node->type_info), TYPE_STRUCT,
-            node->type_name.c_str(), is_generic_struct);
+            node->type_name.c_str(), is_generic_struct, is_pointer_to_generic);
     }
+
     if ((node->type_info == TYPE_STRUCT || is_generic_struct) &&
-        !node->type_name.empty()) {
+        !node->type_name.empty() && !is_pointer_to_generic) {
+        // ポインタではないジェネリック構造体
         var.is_struct = true;
         var.struct_type_name = node->type_name;
         if (interpreter_->debug_mode) {
             debug_print("[VAR_DECL_DEBUG] Set is_struct=true for '%s', "
                         "struct_type_name='%s'\n",
                         node->name.c_str(), node->type_name.c_str());
+        }
+    } else if (is_pointer_to_generic) {
+        // ジェネリック構造体へのポインタ（例: MapNode<K,V>*）
+        // '*'より前の部分を基底型名として抽出
+        std::string base_type = node->type_name;
+        size_t star_pos = base_type.find('*');
+        if (star_pos != std::string::npos) {
+            base_type = base_type.substr(0, star_pos);
+            // 末尾の空白を削除
+            while (!base_type.empty() && base_type.back() == ' ') {
+                base_type.pop_back();
+            }
+        }
+
+        // TypeContextでジェネリック型パラメータを解決
+        std::string resolved_base_type =
+            interpreter_->resolve_type_in_context(base_type);
+
+        var.is_pointer = true;
+        var.pointer_base_type_name = resolved_base_type;
+        var.pointer_base_type = TYPE_STRUCT; // ポインタ先は構造体
+        var.pointer_depth = 1;
+
+        if (interpreter_->debug_mode) {
+            debug_print("[VAR_DECL_DEBUG] Set is_pointer=true for '%s', "
+                        "pointer_base_type_name='%s' (resolved from '%s')\n",
+                        node->name.c_str(), resolved_base_type.c_str(),
+                        base_type.c_str());
         }
     }
 
@@ -359,7 +396,8 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
 
                 if (ternary_result.is_string()) {
                     var.str_value = ternary_result.string_value;
-                    var.value = 0;
+                    // valueフィールドもコピー（generic型で使用）
+                    var.value = ternary_result.value;
                 } else {
                     var.value = ternary_result.value;
                     var.str_value = "";
@@ -429,7 +467,11 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
                 init_node->node_type == ASTNodeType::AST_STRING_LITERAL) {
                 // 文字列リテラル初期化
                 var.str_value = init_node->str_value;
-                var.value = 0; // プレースホルダー
+                // value フィールドに文字列のコピーのポインタを保存（generic
+                // 型で使用される） strdup
+                // で永続的なコピーを作成（メモリリーク注意: 将来 GC が必要）
+                var.value =
+                    reinterpret_cast<int64_t>(strdup(var.str_value.c_str()));
                 var.is_assigned = true;
             } else if (var.type == TYPE_STRING &&
                        init_node->node_type == ASTNodeType::AST_ARRAY_REF) {
@@ -1143,7 +1185,10 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
                        ASTNodeType::AST_STRING_LITERAL) {
             // 文字列初期化の処理
             var.str_value = node->init_expr->str_value;
-            var.value = 0; // プレースホルダー
+            // value フィールドに文字列のコピーのポインタを保存（generic
+            // 型で使用される）
+            var.value =
+                reinterpret_cast<int64_t>(strdup(var.str_value.c_str()));
             var.is_assigned = true;
         } else if (var.is_array && !var.is_assigned &&
                    node->init_expr->node_type == ASTNodeType::AST_FUNC_CALL) {
@@ -1516,7 +1561,8 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
 
                     if (typed_result.is_string()) {
                         var.str_value = typed_result.string_value;
-                        var.value = 0;
+                        // valueフィールドもコピー（generic型で使用）
+                        var.value = typed_result.value;
                     } else if (typed_result.numeric_type == TYPE_FLOAT ||
                                typed_result.numeric_type == TYPE_DOUBLE ||
                                typed_result.numeric_type == TYPE_QUAD) {
@@ -1678,6 +1724,8 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
                 if (typed_result.is_string()) {
                     var.type = TYPE_STRING;
                     var.str_value = typed_result.string_value;
+                    // valueフィールドもコピー（generic型で使用）
+                    var.value = typed_result.value;
                     setNumericFields(var, 0.0L);
                 } else if (typed_result.is_numeric()) {
                     var.str_value.clear();

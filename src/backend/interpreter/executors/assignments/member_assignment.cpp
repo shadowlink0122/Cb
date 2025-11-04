@@ -679,70 +679,125 @@ void execute_arrow_assignment(StatementExecutor *executor,
     std::string
         struct_element_name; // 構造体配列要素の変数名（例: "points[0]"）
 
+    // ポインタ戻り値の型情報を保持
+    bool is_generic_pointer_return = false;
+    std::string pointer_base_type_name;
+
     try {
-        // ポインタを評価
-        int64_t ptr_value = interpreter.evaluate(arrow_access->left.get());
+        // まず、ポインタ変数自体を取得（arrow_access->leftが変数参照の場合）
+        if (arrow_access->left &&
+            arrow_access->left->node_type == ASTNodeType::AST_VARIABLE) {
+            // 変数名からVariable*を取得
+            std::string var_name = arrow_access->left->name;
+            struct_var = interpreter.find_variable(var_name);
 
-        if (ptr_value == 0) {
-            throw std::runtime_error(
-                "Null pointer dereference in arrow assignment");
-        }
-
-        // メタデータポインタかどうかをチェック（最上位ビットが1）
-        bool has_metadata = (ptr_value & (1LL << 63)) != 0;
-
-        if (has_metadata) {
-            // メタデータポインタの場合、最上位ビットをクリア
-            int64_t meta_ptr = ptr_value & ~(1LL << 63);
-            PointerSystem::PointerMetadata *metadata =
-                reinterpret_cast<PointerSystem::PointerMetadata *>(meta_ptr);
-
-            if (!metadata) {
+            if (!struct_var) {
                 throw std::runtime_error(
-                    "Invalid metadata pointer in arrow assignment");
+                    "Variable not found in arrow assignment: " + var_name);
             }
 
-            // メタデータの種類に応じて処理
-            if (metadata->target_type ==
-                    PointerSystem::PointerTargetType::VARIABLE &&
-                metadata->var_ptr) {
-                struct_var = metadata->var_ptr;
-            } else if (metadata->target_type ==
-                       PointerSystem::PointerTargetType::ARRAY_ELEMENT) {
-                // 配列要素の場合、array_name[index]という変数名を構築
-                if (!metadata->array_var) {
-                    throw std::runtime_error(
-                        "Invalid array metadata in arrow assignment");
-                }
+            if (debug_mode) {
+                debug_print(
+                    "[ARROW_ASSIGN] Found variable '%s': is_pointer=%d, "
+                    "pointer_base_type_name='%s', value=0x%llx\n",
+                    var_name.c_str(), struct_var->is_pointer ? 1 : 0,
+                    struct_var->pointer_base_type_name.c_str(),
+                    (unsigned long long)struct_var->value);
+            }
 
-                if (debug_mode) {
-                    debug_print("DEBUG: ARROW_ASSIGN metadata - "
-                                "array_name='%s', element_index=%zu\n",
-                                metadata->array_name.c_str(),
-                                metadata->element_index);
-                }
-
-                struct_element_name = metadata->array_name + "[" +
-                                      std::to_string(metadata->element_index) +
-                                      "]";
-                struct_var = interpreter.find_variable(struct_element_name);
-
-                if (!struct_var) {
-                    throw std::runtime_error(
-                        "Struct array element not found: " +
-                        struct_element_name);
-                }
-            } else {
+            if (struct_var->value == 0) {
                 throw std::runtime_error(
-                    "Unsupported metadata type in arrow assignment");
+                    "Null pointer dereference in arrow assignment");
             }
         } else {
-            // 通常のポインタの場合
-            struct_var = reinterpret_cast<Variable *>(ptr_value);
-        }
+            // ポインタを評価（メソッド呼び出しや配列アクセスなど）
+            int64_t ptr_value = 0;
 
-        if (!struct_var) {
-            throw std::runtime_error("Invalid pointer in arrow assignment");
+            // ReturnExceptionをキャッチしてポインタ型情報を取得
+            try {
+                ptr_value = interpreter.evaluate(arrow_access->left.get());
+            } catch (const ReturnException &ret_ex) {
+                if (debug_mode) {
+                    debug_print("DEBUG: execute_arrow_assignment - caught "
+                                "ReturnException: "
+                                "is_pointer=%d, pointer_base_type_name='%s', "
+                                "value=0x%llx\n",
+                                ret_ex.is_pointer ? 1 : 0,
+                                ret_ex.pointer_base_type_name.c_str(),
+                                (unsigned long long)ret_ex.value);
+                }
+
+                // ポインタ情報を保存
+                if (ret_ex.is_pointer) {
+                    is_generic_pointer_return = true;
+                    pointer_base_type_name = ret_ex.pointer_base_type_name;
+                }
+
+                ptr_value = ret_ex.value;
+            }
+
+            if (ptr_value == 0) {
+                throw std::runtime_error(
+                    "Null pointer dereference in arrow assignment");
+            }
+
+            // メタデータポインタかどうかをチェック（最上位ビットが1）
+            bool has_metadata = (ptr_value & (1LL << 63)) != 0;
+
+            if (has_metadata) {
+                // メタデータポインタの場合、最上位ビットをクリア
+                int64_t meta_ptr = ptr_value & ~(1LL << 63);
+                PointerSystem::PointerMetadata *metadata =
+                    reinterpret_cast<PointerSystem::PointerMetadata *>(
+                        meta_ptr);
+
+                if (!metadata) {
+                    throw std::runtime_error(
+                        "Invalid metadata pointer in arrow assignment");
+                }
+
+                // メタデータの種類に応じて処理
+                if (metadata->target_type ==
+                        PointerSystem::PointerTargetType::VARIABLE &&
+                    metadata->var_ptr) {
+                    struct_var = metadata->var_ptr;
+                } else if (metadata->target_type ==
+                           PointerSystem::PointerTargetType::ARRAY_ELEMENT) {
+                    // 配列要素の場合、array_name[index]という変数名を構築
+                    if (!metadata->array_var) {
+                        throw std::runtime_error(
+                            "Invalid array metadata in arrow assignment");
+                    }
+
+                    if (debug_mode) {
+                        debug_print("DEBUG: ARROW_ASSIGN metadata - "
+                                    "array_name='%s', element_index=%zu\n",
+                                    metadata->array_name.c_str(),
+                                    metadata->element_index);
+                    }
+
+                    struct_element_name =
+                        metadata->array_name + "[" +
+                        std::to_string(metadata->element_index) + "]";
+                    struct_var = interpreter.find_variable(struct_element_name);
+
+                    if (!struct_var) {
+                        throw std::runtime_error(
+                            "Struct array element not found: " +
+                            struct_element_name);
+                    }
+                } else {
+                    throw std::runtime_error(
+                        "Unsupported metadata type in arrow assignment");
+                }
+            } else {
+                // 通常のポインタの場合
+                struct_var = reinterpret_cast<Variable *>(ptr_value);
+            }
+
+            if (!struct_var) {
+                throw std::runtime_error("Invalid pointer in arrow assignment");
+            }
         }
     } catch (const ReturnException &ret) {
         // 構造体が返された場合（ptr[index]からの構造体）
@@ -823,21 +878,309 @@ void execute_arrow_assignment(StatementExecutor *executor,
         new_value.type = TYPE_STRING;
     } else {
         TypedValue typed_value = interpreter.evaluate_typed(node->right.get());
-        new_value.value = typed_value.as_numeric();
         new_value.type = typed_value.type.type_info;
+
+        // 型に応じて適切なフィールドに値を格納
+        if (typed_value.type.type_info == TYPE_STRING) {
+            new_value.str_value = typed_value.string_value;
+        } else if (typed_value.type.type_info == TYPE_FLOAT) {
+            float f_val = static_cast<float>(typed_value.as_double());
+            new_value.float_value = f_val;
+            new_value.value = static_cast<int64_t>(f_val);
+        } else if (typed_value.type.type_info == TYPE_DOUBLE) {
+            double d_val = typed_value.as_double();
+            new_value.double_value = d_val;
+            new_value.value = static_cast<int64_t>(d_val);
+            if (debug_mode) {
+                debug_print(
+                    "[ARROW_ASSIGN] Setting double member '%s': "
+                    "typed_value.double_value=%f, new_value.double_value=%f\n",
+                    member_name.c_str(), typed_value.double_value,
+                    new_value.double_value);
+            }
+        } else if (typed_value.type.type_info == TYPE_QUAD) {
+            new_value.quad_value = typed_value.as_quad();
+            new_value.value = static_cast<int64_t>(typed_value.as_quad());
+        } else {
+            new_value.value = typed_value.as_numeric();
+        }
     }
     new_value.is_assigned = true;
 
-    // struct_membersに代入
-    // v0.13.1: 参照がある場合はそれを使用
-    auto &members = struct_var->get_struct_members();
-    members[member_name] = new_value;
+    // ポインタ経由のアクセスの場合、ポインタ先の構造体レイアウトに従って
+    // 生メモリに直接書き込む
+    if (struct_var->is_pointer && !struct_var->pointer_base_type_name.empty()) {
+        // ジェネリック型パラメータを現在のTypeContextで解決
+        std::string resolved_type_name = interpreter.resolve_type_in_context(
+            struct_var->pointer_base_type_name);
 
-    // 個別変数システムとの同期:
-    // struct_var が指す実体の個別メンバ変数も更新する必要がある
-    // interpreter の sync_struct_member 関数を使用（存在する場合）
-    // もしくは、struct_members の変更を反映するヘルパー関数を呼び出す
-    interpreter.sync_individual_member_from_struct(struct_var, member_name);
+        if (debug_mode) {
+            debug_print("[ARROW_ASSIGN] Pointer-to-struct access: "
+                        "base_type='%s', resolved='%s', member='%s'\n",
+                        struct_var->pointer_base_type_name.c_str(),
+                        resolved_type_name.c_str(), member_name.c_str());
+        }
+
+        // 構造体定義を取得
+        const StructDefinition *struct_def =
+            interpreter.get_struct_definition(resolved_type_name);
+
+        // 見つからない場合、ジェネリック構造体のベース定義を取得
+        if (!struct_def && resolved_type_name.find('<') != std::string::npos) {
+            // MapNode<int, int> から MapNode を抽出
+            size_t angle_pos = resolved_type_name.find('<');
+            std::string base_struct_name =
+                resolved_type_name.substr(0, angle_pos);
+
+            if (debug_mode) {
+                debug_print("[ARROW_ASSIGN] Trying base generic struct: "
+                            "base='%s', full='%s'\n",
+                            base_struct_name.c_str(),
+                            resolved_type_name.c_str());
+            }
+
+            // ベース定義を取得
+            struct_def = interpreter.get_struct_definition(base_struct_name);
+        }
+
+        if (!struct_def) {
+            throw std::runtime_error(
+                "Cannot find struct definition for pointer base type: " +
+                resolved_type_name);
+        }
+
+        // メンバーのオフセットを計算
+        size_t offset = 0;
+        bool member_found = false;
+        TypeInfo member_type = TYPE_UNKNOWN;
+
+        for (const auto &member : struct_def->members) {
+            // ジェネリック型パラメータを解決
+            TypeInfo actual_type = member.type;
+            if (actual_type == TYPE_UNKNOWN && !member.type_alias.empty()) {
+                std::string resolved =
+                    interpreter.resolve_type_in_context(member.type_alias);
+
+                if (resolved == "int")
+                    actual_type = TYPE_INT;
+                else if (resolved == "long")
+                    actual_type = TYPE_LONG;
+                else if (resolved == "short")
+                    actual_type = TYPE_SHORT;
+                else if (resolved == "tiny")
+                    actual_type = TYPE_TINY;
+                else if (resolved == "char")
+                    actual_type = TYPE_CHAR;
+                else if (resolved == "bool")
+                    actual_type = TYPE_BOOL;
+                else if (resolved == "float")
+                    actual_type = TYPE_FLOAT;
+                else if (resolved == "double")
+                    actual_type = TYPE_DOUBLE;
+                else if (resolved == "string")
+                    actual_type = TYPE_STRING;
+                else if (resolved.find('*') != std::string::npos)
+                    actual_type = TYPE_POINTER;
+            }
+
+            // メンバーのサイズを取得
+            size_t member_size = 0;
+            if (member.is_pointer || actual_type == TYPE_POINTER) {
+                member_size = sizeof(void *);
+            } else {
+                switch (actual_type) {
+                case TYPE_INT:
+                    member_size = 4;
+                    break;
+                case TYPE_LONG:
+                    member_size = 8;
+                    break;
+                case TYPE_SHORT:
+                    member_size = 2;
+                    break;
+                case TYPE_TINY:
+                    member_size = 1;
+                    break;
+                case TYPE_CHAR:
+                    member_size = 1;
+                    break;
+                case TYPE_BOOL:
+                    member_size = 1;
+                    break;
+                case TYPE_STRING:
+                    member_size = sizeof(void *);
+                    break;
+                case TYPE_FLOAT:
+                    member_size = 4;
+                    break;
+                case TYPE_DOUBLE:
+                    member_size = 8;
+                    break;
+                default:
+                    member_size = sizeof(void *);
+                    break;
+                }
+            }
+
+            // アライメントを適用
+            size_t alignment = member_size;
+            if (alignment > 8)
+                alignment = 8;
+            if (alignment > 0) {
+                size_t padding = (alignment - (offset % alignment)) % alignment;
+                offset += padding;
+            }
+
+            if (member.name == member_name) {
+                member_found = true;
+                member_type = member.type;
+
+                // ジェネリック型パラメータの場合、TypeContextで解決
+                if (member_type == TYPE_UNKNOWN && !member.type_alias.empty()) {
+                    std::string resolved_member_type =
+                        interpreter.resolve_type_in_context(member.type_alias);
+
+                    if (debug_mode) {
+                        debug_print(
+                            "[ARROW_ASSIGN] Member '%s' has generic type '%s', "
+                            "resolved to '%s'\n",
+                            member_name.c_str(), member.type_alias.c_str(),
+                            resolved_member_type.c_str());
+                    }
+
+                    // 解決された型からTypeInfoを取得
+                    if (resolved_member_type == "int")
+                        member_type = TYPE_INT;
+                    else if (resolved_member_type == "long")
+                        member_type = TYPE_LONG;
+                    else if (resolved_member_type == "short")
+                        member_type = TYPE_SHORT;
+                    else if (resolved_member_type == "tiny")
+                        member_type = TYPE_TINY;
+                    else if (resolved_member_type == "char")
+                        member_type = TYPE_CHAR;
+                    else if (resolved_member_type == "bool")
+                        member_type = TYPE_BOOL;
+                    else if (resolved_member_type == "float")
+                        member_type = TYPE_FLOAT;
+                    else if (resolved_member_type == "double")
+                        member_type = TYPE_DOUBLE;
+                    else if (resolved_member_type == "string")
+                        member_type = TYPE_STRING;
+                    else if (resolved_member_type.find('*') !=
+                             std::string::npos)
+                        member_type = TYPE_POINTER;
+                }
+
+                if (debug_mode) {
+                    debug_print("[ARROW_ASSIGN] Found member '%s': type=%d, "
+                                "is_pointer=%d, type_alias='%s'\n",
+                                member_name.c_str(), (int)member_type,
+                                member.is_pointer ? 1 : 0,
+                                member.type_alias.c_str());
+                }
+                break;
+            }
+
+            // 次のメンバーへ進む
+            offset += member_size;
+        }
+
+        if (!member_found) {
+            throw std::runtime_error("Member '" + member_name +
+                                     "' not found in struct " +
+                                     resolved_type_name);
+        }
+
+        // ポインタ先のメモリアドレスを取得
+        char *base_addr = reinterpret_cast<char *>(struct_var->value);
+        if (base_addr == nullptr) {
+            throw std::runtime_error(
+                "Null pointer dereference in arrow assignment");
+        }
+
+        // メンバーのアドレスを計算
+        char *member_addr = base_addr + offset;
+
+        // 型に応じてメモリに書き込む
+        switch (member_type) {
+        case TYPE_INT:
+            *reinterpret_cast<int32_t *>(member_addr) =
+                static_cast<int32_t>(new_value.value);
+            break;
+        case TYPE_LONG:
+            *reinterpret_cast<int64_t *>(member_addr) = new_value.value;
+            break;
+        case TYPE_SHORT:
+            *reinterpret_cast<int16_t *>(member_addr) =
+                static_cast<int16_t>(new_value.value);
+            break;
+        case TYPE_TINY:
+        case TYPE_CHAR:
+            *reinterpret_cast<int8_t *>(member_addr) =
+                static_cast<int8_t>(new_value.value);
+            break;
+        case TYPE_BOOL:
+            *reinterpret_cast<bool *>(member_addr) =
+                static_cast<bool>(new_value.value);
+            break;
+        case TYPE_FLOAT:
+            *reinterpret_cast<float *>(member_addr) = new_value.float_value;
+            break;
+        case TYPE_DOUBLE:
+            *reinterpret_cast<double *>(member_addr) = new_value.double_value;
+            break;
+        case TYPE_POINTER:
+            if (debug_mode) {
+                debug_print(
+                    "[ARROW_ASSIGN] Writing pointer: addr=%p, value=0x%llx\n",
+                    (void *)member_addr, (unsigned long long)new_value.value);
+            }
+            *reinterpret_cast<int64_t *>(member_addr) = new_value.value;
+            break;
+        case TYPE_STRING: {
+            // 文字列の場合、C文字列としてコピーしてポインタを保存
+            // 注意: メモリ管理が必要（将来的にはGC or デストラクタで解放）
+            // Variable は str_value フィールドを使用
+
+            // デバッグ: 入力値を確認
+            debug_print("[ARROW_ASSIGN] String assignment: str_value='%s', "
+                        "value=%lld (0x%llx)\n",
+                        new_value.str_value.c_str(), (long long)new_value.value,
+                        (unsigned long long)new_value.value);
+
+            const char *str_data = strdup(new_value.str_value.c_str());
+            *reinterpret_cast<const char **>(member_addr) = str_data;
+            debug_print(
+                "[ARROW_ASSIGN] Wrote string: addr=%p, ptr=%p, str='%s'\n",
+                (void *)member_addr, (void *)str_data, str_data);
+            break;
+        }
+        default:
+            throw std::runtime_error(
+                "Unsupported member type for pointer-based assignment");
+        }
+
+        if (debug_mode) {
+            debug_print(
+                "[ARROW_ASSIGN] Wrote to memory: addr=0x%llx, offset=%zu, "
+                "value=%lld\n",
+                (unsigned long long)base_addr, offset,
+                (long long)new_value.value);
+        }
+
+        // ポインタ経由の場合は struct_members への代入はスキップ
+        // （ポインタ変数自体には struct_members がない）
+    } else {
+        // 通常の構造体変数の場合
+        // struct_membersに代入
+        // v0.13.1: 参照がある場合はそれを使用
+        auto &members = struct_var->get_struct_members();
+        members[member_name] = new_value;
+
+        // 個別変数システムとの同期
+        interpreter.sync_individual_member_from_struct(struct_var, member_name);
+    }
 
     if (debug_mode) {
         debug_print("DEBUG: execute_arrow_assignment - completed\n");

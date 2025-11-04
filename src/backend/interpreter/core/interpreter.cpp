@@ -1550,6 +1550,16 @@ void Interpreter::assign_function_parameter(const std::string &name,
                                                  is_unsigned);
 }
 
+// v0.11.0 Phase 1a: 型名を受け取るオーバーロード
+void Interpreter::assign_function_parameter(const std::string &name,
+                                            const TypedValue &value,
+                                            TypeInfo type,
+                                            const std::string &type_name,
+                                            bool is_unsigned) {
+    variable_manager_->assign_function_parameter(name, value, type, type_name,
+                                                 is_unsigned);
+}
+
 void Interpreter::assign_array_parameter(const std::string &name,
                                          const Variable &source_array,
                                          TypeInfo type) {

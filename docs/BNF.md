@@ -138,6 +138,22 @@
                       | <expression>
 ```
 
+**ジェネリクス構造体の例** (v0.11.0):
+```cb
+struct Box<T> {
+    T value;
+};
+
+struct Pair<K, V> {
+    K key;
+    V value;
+};
+
+// 使用例
+Box<int> int_box;
+Pair<string, int> age_pair;
+```
+
 ### Interface/Impl
 
 ```
@@ -153,9 +169,12 @@
 
 <impl_member> ::= <method_declaration>
                 | <static_variable>
+                | <constructor_declaration>
                 | <destructor_declaration>
 
-<destructor_declaration> ::= 'fn' 'deinit' '(' ')' <block>
+<constructor_declaration> ::= 'self' '(' <parameter_list> ')' <block>
+
+<destructor_declaration> ::= '~' 'self' '(' ')' <block>
 
 <method_list> ::= <method_declaration> { <method_declaration> }
 
@@ -182,16 +201,34 @@
 ### enum
 
 ```
-<enum_declaration> ::= 'enum' <identifier> '{' <enum_member_list> '}' ';'
+<enum_declaration> ::= 'enum' <identifier> [ <generic_params> ] '{' <enum_member_list> '}' ';'
                      | 'typedef' 'enum' <identifier> '{' <enum_member_list> '}' <identifier> ';'
 
 <enum_member_list> ::= <enum_member> { ',' <enum_member> } [ ',' ]
 
 <enum_member> ::= <identifier> [ '=' <integer_literal> ]
+                | <identifier> '(' <type_specifier> ')'  // 関連値を持つvariant (v0.11.0)
 
 <enum_type> ::= 'enum' <identifier>
 
-<enum_access> ::= <identifier> '::' <identifier>
+<enum_access> ::= <identifier> '::' <identifier> [ '(' <expression> ')' ]
+```
+
+**ジェネリクスenumの例** (v0.11.0):
+```cb
+enum Option<T> {
+    Some(T),
+    None
+};
+
+enum Result<T, E> {
+    Ok(T),
+    Err(E)
+};
+
+// 使用例
+Option<int> some_val = Option<int>::Some(42);
+Result<int, string> ok = Result<int, string>::Ok(100);
 ```
 
 ---
@@ -206,6 +243,21 @@
 <parameter> ::= [ 'const' ] <type_specifier> <identifier> [ '=' <default_value> ]
 
 <default_value> ::= <expression>
+```
+
+**ジェネリクス関数の例** (v0.11.0):
+```cb
+T identity<T>(T value) {
+    return value;
+}
+
+T max<T>(T a, T b) {
+    return a > b ? a : b;
+}
+
+// 使用例
+int x = identity<int>(42);
+int m = max<int>(10, 20);
 ```
 
 ---
@@ -434,11 +486,14 @@
 
 <char_literal> ::= "'" (<char> | <escape_sequence>) "'"
 
+### 文字列補間構文
+
+```
 <string_literal> ::= '"' { <char> | <escape_sequence> | <interpolation> } '"'
 
-<interpolation> ::= '{' <expression> [ ':' <format_specifier> ] '}'
+<interpolation> ::= '{' <expression> [ ':' <format_specifier> ] '}'  // 文字列補間 (v0.11.0)
 
-<format_specifier> ::= <width> [ '.' <precision> ] <format_type>
+<format_specifier> ::= [ <width> ] [ '.' <precision> ] <format_type>
 
 <width> ::= <digit>+
 
@@ -454,6 +509,42 @@
                 | 'E'    // 指数表記（大文字）
                 | 'g'    // 汎用フォーマット（小文字）
                 | 'G'    // 汎用フォーマット（大文字）
+```
+
+**文字列補間の例** (v0.11.0):
+```cb
+int x = 42;
+string name = "Alice";
+
+// 基本的な変数埋め込み
+string msg = "Hello, {name}! The answer is {x}";
+
+// 式の埋め込み
+int a = 10;
+int b = 20;
+println("Sum: {a + b}");  // "Sum: 30"
+
+// フォーマット指定
+int num = 255;
+println("Hex: {num:x}");      // "Hex: ff"
+println("Binary: {num:b}");   // "Binary: 11111111"
+
+double pi = 3.14159;
+println("Pi: {pi:.2f}");      // "Pi: 3.14"
+
+// 構造体メンバーアクセス
+struct Point {
+    int x;
+    int y;
+};
+Point p;
+p.x = 10;
+p.y = 20;
+println("Point: ({p.x}, {p.y})");  // "Point: (10, 20)"
+
+// エスケープ
+println("Use {{}} for braces");  // "Use {} for braces"
+```
 
 <boolean_literal> ::= 'true' | 'false'
 
@@ -478,12 +569,28 @@
 ## モジュールシステム
 
 ```
-<import_statement> ::= 'import' <string_literal> ';'
+<import_statement> ::= 'import' <module_path> ';'  // v0.11.0で文字列リテラル構文を廃止
+
+<module_path> ::= <identifier> { '.' <identifier> }
 
 <export_statement> ::= 'export' <function_declaration>
                      | 'export' <variable_declaration>
                      | 'export' <impl_block>
                      | 'export' <interface_impl_block>
+```
+
+**注意**: v0.11.0より、文字列リテラルimport構文（`import "path/to/file.cb";`）は廃止されました。
+
+**旧構文（廃止）**:
+```cb
+import "path/to/module.cb";  // ❌ 廃止
+```
+
+**新構文**:
+```cb
+import module.path.name;  // ✅ v0.11.0以降
+import collections.vector;
+import std.allocators.system;
 ```
 
 ---
@@ -571,10 +678,134 @@
 以下のキーワードは予約語として識別子に使用できません：
 
 ```
-break, case, char, const, continue, default, do, double, else, enum,
+break, case, char, const, continue, default, defer, do, double, else, enum,
 export, extern, float, for, goto, if, impl, import, int, interface,
-long, return, short, signed, sizeof, static, string, struct, switch,
-tiny, typedef, union, unsigned, void, while, bool, true, false, self
+long, match, return, short, signed, sizeof, static, string, struct, switch,
+tiny, typedef, union, unsigned, void, while, bool, true, false, self,
+malloc, free, new, delete, array_get, array_set
+```
+
+---
+
+## 組み込み関数とメモリ管理
+
+### メモリ管理関数
+
+```
+<malloc_call> ::= 'malloc' '(' <expression> ')'
+<free_call> ::= 'free' '(' <expression> ')'
+<new_expression> ::= 'new' <type_specifier> [ '(' <argument_list> ')' ]  // 計画中
+<delete_statement> ::= 'delete' <expression> ';'  // 計画中
+```
+
+**malloc/free の例**:
+```cb
+// メモリ確保
+void* ptr = malloc(40);  // 40バイト確保
+int* int_ptr = ptr;      // 型キャスト
+
+// 使用
+int_ptr[0] = 10;
+int_ptr[1] = 20;
+
+// 解放
+free(ptr);
+ptr = NULL;
+```
+
+**new/delete の例（計画中）**:
+```cb
+// 型安全な確保
+int* ptr = new int;
+*ptr = 42;
+delete ptr;
+
+// 構造体
+struct Point {
+    int x;
+    int y;
+};
+
+Point* p = new Point;
+p->x = 10;
+delete p;  // デストラクタ自動呼び出し
+```
+
+### 配列操作関数
+
+```
+<array_get_call> ::= 'array_get' '(' <expression> ',' <expression> ',' <expression> ')'
+<array_set_call> ::= 'array_set' '(' <expression> ',' <expression> ',' <expression> ',' <expression> ')'
+```
+
+**配列境界チェック付きアクセス**:
+```cb
+int[5] arr = [10, 20, 30, 40, 50];
+
+// 安全な取得
+int value = array_get(arr, 2, 5);  // 30
+
+// 安全な設定
+array_set(arr, 2, 100, 5);  // arr[2] = 100
+
+// 範囲外アクセスは実行時エラー
+// int bad = array_get(arr, 10, 5);  // Error: Array index out of bounds
+```
+
+### 組み込みジェネリック型
+
+```
+<option_type> ::= 'Option' '<' <type_specifier> '>'
+<result_type> ::= 'Result' '<' <type_specifier> ',' <type_specifier> '>'
+
+<option_construction> ::= 'Option' '<' <type_specifier> '>' '::' ( 'Some' '(' <expression> ')' | 'None' )
+<result_construction> ::= 'Result' '<' <type_specifier> ',' <type_specifier> '>' '::' ( 'Ok' '(' <expression> ')' | 'Err' '(' <expression> ')' )
+```
+
+**Option<T> の例**:
+```cb
+enum Option<T> {
+    Some(T),
+    None
+};
+
+Option<int> find_index(int[10] arr, int value) {
+    for (int i = 0; i < 10; i++) {
+        if (arr[i] == value) {
+            return Option<int>::Some(i);
+        }
+    }
+    return Option<int>::None;
+}
+
+// 使用
+Option<int> result = find_index(arr, 42);
+match (result) {
+    Some(index) => println("Found at {index}"),
+    None => println("Not found")
+}
+```
+
+**Result<T, E> の例**:
+```cb
+enum Result<T, E> {
+    Ok(T),
+    Err(E)
+};
+
+Result<int, string> divide(int a, int b) {
+    if (b == 0) {
+        return Result<int, string>::Err("Division by zero");
+    }
+    return Result<int, string>::Ok(a / b);
+}
+
+// 使用
+Result<int, string> res = divide(10, 2);
+match (res) {
+    Ok(value) => println("Result: {value}"),
+    Err(error) => println("Error: {error}")
+}
 ```
 
 ---
@@ -696,5 +927,5 @@ Color c = Color::RED;
 
 ---
 
-**BNF定義 v0.9.0**  
-最終更新: 2025年10月5日
+**BNF定義 v0.11.0**  
+最終更新: 2025年11月3日

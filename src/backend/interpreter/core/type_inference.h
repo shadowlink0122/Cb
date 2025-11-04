@@ -173,7 +173,9 @@ struct TypedValue {
     }
     bool is_floating() const { return is_numeric() && is_float_result; }
     bool is_string() const {
-        return !is_numeric_result && !is_deferred && !is_struct_result;
+        return type.type_info == TYPE_STRING ||
+               (!is_numeric_result && !is_deferred && !is_struct_result &&
+                !string_value.empty());
     }
     bool is_struct() const {
         return is_struct_result && struct_data != nullptr;

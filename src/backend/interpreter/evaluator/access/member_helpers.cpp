@@ -42,11 +42,22 @@ TypedValue consume_numeric_typed_value(
         last_captured_function_value = std::nullopt;
     }
 
-    // AST_ARROW_ACCESSの文字列結果の場合、last_typed_resultを参照
+    // AST_ARROW_ACCESSの特別な結果の場合、last_typed_resultを参照
     // (evaluate_arrow_accessがset_last_typed_resultを呼び出している)
     if (node && node->node_type == ASTNodeType::AST_ARROW_ACCESS &&
-        last_typed_result && last_typed_result->type.type_info == TYPE_STRING) {
-        return *last_typed_result;
+        last_typed_result) {
+        debug_print("[consume_numeric] inferred=%d, last_result=%d\n",
+                    static_cast<int>(inferred_type.type_info),
+                    static_cast<int>(last_typed_result->type.type_info));
+
+        // 文字列、浮動小数点数の場合は常に last_typed_result を使用
+        // （型推論が不完全な場合があるため）
+        if (last_typed_result->type.type_info == TYPE_STRING ||
+            last_typed_result->type.type_info == TYPE_FLOAT ||
+            last_typed_result->type.type_info == TYPE_DOUBLE ||
+            last_typed_result->type.type_info == TYPE_QUAD) {
+            return *last_typed_result;
+        }
     }
 
     InferredType resolved_type = inferred_type;

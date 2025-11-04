@@ -28,6 +28,304 @@ int64_t evaluate_arrow_access(
     Variable *struct_var = nullptr;
     int64_t ptr_value = 0;
 
+    // v0.11.0 Phase 1a: ジェネリックポインタ変数からの直接アクセス
+    // node->left が AST_VARIABLE で、その変数が is_pointer かつ
+    // pointer_base_type_name を持つ場合
+    if (node->left && node->left->node_type == ASTNodeType::AST_VARIABLE) {
+        Variable *ptr_var = interpreter.find_variable(node->left->name);
+        if (ptr_var && ptr_var->is_pointer &&
+            !ptr_var->pointer_base_type_name.empty()) {
+            debug_print("[ARROW_OP] Direct pointer variable access: var='%s', "
+                        "pointer_base_type='%s', value=0x%llx\n",
+                        node->left->name.c_str(),
+                        ptr_var->pointer_base_type_name.c_str(),
+                        (unsigned long long)ptr_var->value);
+
+            // ポインタ値を取得
+            ptr_value = ptr_var->value;
+
+            // ジェネリック型を解決
+            std::string resolved_type_name =
+                interpreter.resolve_type_in_context(
+                    ptr_var->pointer_base_type_name);
+
+            // 構造体定義を取得
+            const StructDefinition *struct_def =
+                interpreter.get_struct_definition(resolved_type_name);
+
+            // 見つからない場合、ベース定義を取得
+            if (!struct_def &&
+                resolved_type_name.find('<') != std::string::npos) {
+                size_t angle_pos = resolved_type_name.find('<');
+                std::string base_struct_name =
+                    resolved_type_name.substr(0, angle_pos);
+                struct_def =
+                    interpreter.get_struct_definition(base_struct_name);
+            }
+
+            if (!struct_def) {
+                throw std::runtime_error(
+                    "Cannot find struct definition for pointer type: " +
+                    resolved_type_name);
+            }
+
+            if (ptr_value == 0) {
+                debug_print("[ARROW_OP] Null pointer access: var='%s', "
+                            "member='%s', returning default value\n",
+                            node->left->name.c_str(), member_name.c_str());
+                // nullポインタの場合、デフォルト値を返す
+                // メンバーの型を調べて、適切なデフォルト値を設定
+
+                // 構造体定義を取得してメンバーの型を確認
+                if (struct_def) {
+                    for (const auto &member : struct_def->members) {
+                        if (member.name == member_name) {
+                            // ポインタメンバーの場合は単純に0を返す
+                            if (member.is_pointer) {
+                                debug_print("[ARROW_OP] Member '%s' is "
+                                            "pointer, returning 0\n",
+                                            member_name.c_str());
+                                // TypedValue
+                                // をクリアして、ポインタ値として0を設定
+                                TypedValue typed_result(
+                                    static_cast<int64_t>(0),
+                                    InferredType(TYPE_POINTER, ""));
+                                typed_result.is_numeric_result = true;
+                                evaluator.set_last_typed_result(typed_result);
+                                return 0;
+                            }
+
+                            TypeInfo actual_type = member.type;
+                            if (actual_type == TYPE_UNKNOWN &&
+                                !member.type_alias.empty()) {
+                                std::string resolved =
+                                    interpreter.resolve_type_in_context(
+                                        member.type_alias);
+                                if (resolved == "string")
+                                    actual_type = TYPE_STRING;
+                            }
+
+                            if (actual_type == TYPE_STRING) {
+                                debug_print("[ARROW_OP] Member '%s' is string, "
+                                            "returning empty string\n",
+                                            member_name.c_str());
+                                TypedValue typed_result(
+                                    "", InferredType(TYPE_STRING, "string"));
+                                evaluator.set_last_typed_result(typed_result);
+                                return 0;
+                            }
+                            break;
+                        }
+                    }
+                }
+                debug_print("[ARROW_OP] Member '%s' type unknown or numeric, "
+                            "returning 0\n",
+                            member_name.c_str());
+                return 0; // 数値型のデフォルト
+            }
+
+            // メンバーを検索してオフセットを計算
+            size_t offset = 0;
+            bool member_found = false;
+            TypeInfo member_type = TYPE_UNKNOWN;
+            bool member_is_pointer = false;
+
+            for (const auto &member : struct_def->members) {
+                // ジェネリック型パラメータを解決
+                TypeInfo actual_type = member.type;
+                if (actual_type == TYPE_UNKNOWN && !member.type_alias.empty()) {
+                    std::string resolved =
+                        interpreter.resolve_type_in_context(member.type_alias);
+
+                    if (resolved == "int")
+                        actual_type = TYPE_INT;
+                    else if (resolved == "long")
+                        actual_type = TYPE_LONG;
+                    else if (resolved == "short")
+                        actual_type = TYPE_SHORT;
+                    else if (resolved == "tiny")
+                        actual_type = TYPE_TINY;
+                    else if (resolved == "char")
+                        actual_type = TYPE_CHAR;
+                    else if (resolved == "bool")
+                        actual_type = TYPE_BOOL;
+                    else if (resolved == "float")
+                        actual_type = TYPE_FLOAT;
+                    else if (resolved == "double")
+                        actual_type = TYPE_DOUBLE;
+                    else if (resolved == "string")
+                        actual_type = TYPE_STRING;
+                    else if (resolved.find('*') != std::string::npos)
+                        actual_type = TYPE_POINTER;
+                }
+
+                // メンバーのサイズを取得
+                size_t member_size = 0;
+                if (member.is_pointer || actual_type == TYPE_POINTER) {
+                    member_size = sizeof(void *);
+                } else {
+                    switch (actual_type) {
+                    case TYPE_INT:
+                        member_size = 4;
+                        break;
+                    case TYPE_LONG:
+                        member_size = 8;
+                        break;
+                    case TYPE_SHORT:
+                        member_size = 2;
+                        break;
+                    case TYPE_TINY:
+                        member_size = 1;
+                        break;
+                    case TYPE_CHAR:
+                        member_size = 1;
+                        break;
+                    case TYPE_BOOL:
+                        member_size = 1;
+                        break;
+                    case TYPE_FLOAT:
+                        member_size = 4;
+                        break;
+                    case TYPE_DOUBLE:
+                        member_size = 8;
+                        break;
+                    case TYPE_STRING:
+                        member_size = sizeof(void *);
+                        break;
+                    default:
+                        member_size = sizeof(void *);
+                        break;
+                    }
+                }
+
+                // アライメントを適用
+                size_t alignment = member_size;
+                if (alignment > 8)
+                    alignment = 8;
+                if (alignment > 0) {
+                    size_t padding =
+                        (alignment - (offset % alignment)) % alignment;
+                    offset += padding;
+                }
+
+                if (member.name == member_name) {
+                    member_found = true;
+                    member_type = actual_type;
+                    member_is_pointer = member.is_pointer;
+                    break;
+                }
+
+                offset += member_size;
+            }
+
+            if (!member_found) {
+                throw std::runtime_error("Member '" + member_name +
+                                         "' not found in struct " +
+                                         resolved_type_name);
+            }
+
+            // メモリから読み取り
+            char *base_addr = reinterpret_cast<char *>(ptr_value);
+            char *member_addr = base_addr + offset;
+
+            debug_print("[ARROW_OP] Reading from memory: addr=0x%llx, "
+                        "offset=%zu, type=%d\n",
+                        (unsigned long long)base_addr, offset,
+                        (int)member_type);
+
+            // 型に応じて読み取り
+            if (member_is_pointer || member_type == TYPE_POINTER) {
+                int64_t ptr_val = *reinterpret_cast<int64_t *>(member_addr);
+                debug_print("[ARROW_OP] Read pointer value: 0x%llx\n",
+                            (unsigned long long)ptr_val);
+                // TypedValueを設定してポインタ型を明示
+                TypedValue typed_result(ptr_val,
+                                        InferredType(TYPE_POINTER, "pointer"));
+                typed_result.is_pointer = true;
+                evaluator.set_last_typed_result(typed_result);
+                return ptr_val;
+            }
+
+            switch (member_type) {
+            case TYPE_INT: {
+                int32_t int_val = *reinterpret_cast<int32_t *>(member_addr);
+                TypedValue typed_result(static_cast<int64_t>(int_val),
+                                        InferredType(TYPE_INT, "int"));
+                typed_result.is_numeric_result = true;
+                evaluator.set_last_typed_result(typed_result);
+                return static_cast<int64_t>(int_val);
+            }
+            case TYPE_LONG: {
+                int64_t long_val = *reinterpret_cast<int64_t *>(member_addr);
+                TypedValue typed_result(long_val,
+                                        InferredType(TYPE_LONG, "long"));
+                typed_result.is_numeric_result = true;
+                evaluator.set_last_typed_result(typed_result);
+                return long_val;
+            }
+            case TYPE_SHORT: {
+                int16_t short_val = *reinterpret_cast<int16_t *>(member_addr);
+                TypedValue typed_result(static_cast<int64_t>(short_val),
+                                        InferredType(TYPE_SHORT, "short"));
+                typed_result.is_numeric_result = true;
+                evaluator.set_last_typed_result(typed_result);
+                return static_cast<int64_t>(short_val);
+            }
+            case TYPE_TINY:
+            case TYPE_CHAR: {
+                int8_t tiny_val = *reinterpret_cast<int8_t *>(member_addr);
+                TypedValue typed_result(
+                    static_cast<int64_t>(tiny_val),
+                    InferredType(member_type,
+                                 member_type == TYPE_TINY ? "tiny" : "char"));
+                typed_result.is_numeric_result = true;
+                evaluator.set_last_typed_result(typed_result);
+                return static_cast<int64_t>(tiny_val);
+            }
+            case TYPE_BOOL: {
+                bool bool_val = *reinterpret_cast<bool *>(member_addr);
+                TypedValue typed_result(static_cast<int64_t>(bool_val),
+                                        InferredType(TYPE_BOOL, "bool"));
+                typed_result.is_numeric_result = true;
+                evaluator.set_last_typed_result(typed_result);
+                return static_cast<int64_t>(bool_val);
+            }
+            case TYPE_FLOAT: {
+                float float_val = *reinterpret_cast<float *>(member_addr);
+                TypedValue typed_result(static_cast<double>(float_val),
+                                        InferredType(TYPE_FLOAT, "float"));
+                evaluator.set_last_typed_result(typed_result);
+                return 0;
+            }
+            case TYPE_DOUBLE: {
+                double double_val = *reinterpret_cast<double *>(member_addr);
+                TypedValue typed_result(double_val,
+                                        InferredType(TYPE_DOUBLE, "double"));
+                evaluator.set_last_typed_result(typed_result);
+                return 0;
+            }
+            case TYPE_STRING: {
+                // メモリからC文字列ポインタを読み取り
+                const char *str_ptr =
+                    *reinterpret_cast<const char **>(member_addr);
+                std::string str_val = (str_ptr != nullptr) ? str_ptr : "";
+                debug_print("[ARROW_OP] Read string value: ptr=%p, str='%s'\n",
+                            (void *)str_ptr, str_val.c_str());
+                TypedValue typed_result(str_val,
+                                        InferredType(TYPE_STRING, "string"));
+                // value
+                // フィールドにもポインタを保存（generic型での比較等で使用）
+                typed_result.value = reinterpret_cast<int64_t>(str_ptr);
+                evaluator.set_last_typed_result(typed_result);
+                return 0;
+            }
+            default:
+                throw std::runtime_error(
+                    "Unsupported member type for pointer-based read");
+            }
+        }
+    }
+
     try {
         // ポインタを評価して値を取得
         ptr_value = evaluate_expression_func(node->left.get());
@@ -68,7 +366,9 @@ int64_t evaluate_arrow_access(
                 (ptr_value & (1LL << 63)) ? "yes" : "no");
 
     if (ptr_value == 0) {
-        throw std::runtime_error("Null pointer dereference in arrow operator");
+        debug_print("[ARROW_OP] Null pointer access in ReturnException path, "
+                    "returning default\n");
+        return 0; // nullポインタの場合、デフォルト値を返す
     }
 
     // メタデータポインタかどうかをチェック（最上位ビットが1）
@@ -120,32 +420,68 @@ int64_t evaluate_arrow_access(
                                          metadata->struct_type_name);
             }
 
-            // メンバーのオフセットを計算
+            // メンバーのオフセットを計算（パディング込み）
             size_t offset = 0;
             bool found = false;
             TypeInfo member_type = TYPE_UNKNOWN;
             std::string member_struct_type;
 
             for (const auto &member : struct_def->members) {
-                if (member.name == member_name) {
-                    found = true;
-                    member_type = member.type;
-                    member_struct_type = member.type_alias;
-                    break;
+                // ジェネリック型パラメータを解決
+                TypeInfo actual_type = member.type;
+                if (actual_type == TYPE_UNKNOWN && !member.type_alias.empty()) {
+                    std::string resolved =
+                        interpreter.resolve_type_in_context(member.type_alias);
+
+                    if (resolved == "int")
+                        actual_type = TYPE_INT;
+                    else if (resolved == "long")
+                        actual_type = TYPE_LONG;
+                    else if (resolved == "short")
+                        actual_type = TYPE_SHORT;
+                    else if (resolved == "tiny")
+                        actual_type = TYPE_TINY;
+                    else if (resolved == "char")
+                        actual_type = TYPE_CHAR;
+                    else if (resolved == "bool")
+                        actual_type = TYPE_BOOL;
+                    else if (resolved == "float")
+                        actual_type = TYPE_FLOAT;
+                    else if (resolved == "double")
+                        actual_type = TYPE_DOUBLE;
+                    else if (resolved == "string")
+                        actual_type = TYPE_STRING;
+                    else if (resolved.find('*') != std::string::npos)
+                        actual_type = TYPE_POINTER;
                 }
-                // 次のメンバーのオフセットを計算
-                if (member.type == TYPE_INT) {
-                    offset += 4;
-                } else if (member.type == TYPE_LONG) {
-                    offset += 8;
-                } else if (member.type == TYPE_POINTER) {
-                    offset += 8;
-                } else if (member.type == TYPE_STRUCT) {
+
+                // メンバーのサイズを計算
+                size_t member_size = 0;
+                if (member.is_pointer || actual_type == TYPE_POINTER) {
+                    member_size = 8;
+                } else if (actual_type == TYPE_INT) {
+                    member_size = 4;
+                } else if (actual_type == TYPE_LONG) {
+                    member_size = 8;
+                } else if (actual_type == TYPE_SHORT) {
+                    member_size = 2;
+                } else if (actual_type == TYPE_TINY ||
+                           actual_type == TYPE_CHAR) {
+                    member_size = 1;
+                } else if (actual_type == TYPE_BOOL) {
+                    member_size = 1;
+                } else if (actual_type == TYPE_FLOAT) {
+                    member_size = 4;
+                } else if (actual_type == TYPE_DOUBLE) {
+                    member_size = 8;
+                } else if (actual_type == TYPE_STRING) {
+                    member_size = 8;
+                } else if (actual_type == TYPE_STRUCT) {
                     // 構造体メンバーのサイズを取得
                     const StructDefinition *member_struct_def =
                         interpreter.find_struct_definition(member.type_alias);
                     if (member_struct_def) {
-                        size_t member_size = 0;
+                        member_size = 0;
                         for (const auto &sub_member :
                              member_struct_def->members) {
                             if (sub_member.type == TYPE_INT) {
@@ -156,11 +492,31 @@ int64_t evaluate_arrow_access(
                                 member_size += 8;
                             }
                         }
-                        offset += member_size;
                     } else {
-                        offset += 8; // デフォルトサイズ
+                        member_size = 8; // デフォルトサイズ
                     }
+                } else {
+                    member_size = 4; // デフォルト
                 }
+
+                // アライメントを考慮
+                size_t alignment = member_size;
+                if (alignment > 8)
+                    alignment = 8;
+                if (alignment > 0) {
+                    size_t padding =
+                        (alignment - (offset % alignment)) % alignment;
+                    offset += padding;
+                }
+
+                if (member.name == member_name) {
+                    found = true;
+                    member_type = member.type;
+                    member_struct_type = member.type_alias;
+                    break;
+                }
+
+                offset += member_size;
             }
 
             if (!found) {
@@ -187,6 +543,13 @@ int64_t evaluate_arrow_access(
             } else if (member_type == TYPE_POINTER) {
                 void **ptr_ptr = static_cast<void **>(member_ptr);
                 return reinterpret_cast<int64_t>(*ptr_ptr);
+            } else if (member_type == TYPE_STRING) {
+                const char **str_ptr = static_cast<const char **>(member_ptr);
+                std::string str_val = (*str_ptr != nullptr) ? *str_ptr : "";
+                TypedValue typed_result(str_val,
+                                        InferredType(TYPE_STRING, "string"));
+                evaluator.set_last_typed_result(typed_result);
+                return 0;
             } else {
                 throw std::runtime_error(
                     "Unsupported member type in raw pointer access");
@@ -223,13 +586,32 @@ int64_t evaluate_arrow_access(
 
             if (interpreter.is_debug_mode()) {
                 debug_print(
-                    "[ARROW_OP] Variable '%s' found=%d, type_name='%s'\n",
+                    "[ARROW_OP] Variable '%s' found=%d, type_name='%s', "
+                    "is_pointer=%d, pointer_base_type_name='%s'\n",
                     node->left->name.c_str(), ptr_var != nullptr ? 1 : 0,
-                    (ptr_var ? ptr_var->type_name.c_str() : ""));
+                    (ptr_var ? ptr_var->type_name.c_str() : ""),
+                    (ptr_var ? ptr_var->is_pointer : 0),
+                    (ptr_var ? ptr_var->pointer_base_type_name.c_str() : ""));
             }
 
-            if (ptr_var && !ptr_var->type_name.empty() &&
-                ptr_var->type_name.find('*') != std::string::npos) {
+            // v0.11.0 Phase 1a: pointer_base_type_name
+            // が設定されている場合はそれを優先
+            if (ptr_var && ptr_var->is_pointer &&
+                !ptr_var->pointer_base_type_name.empty()) {
+                struct_type_name = ptr_var->pointer_base_type_name;
+
+                // ジェネリック型を解決
+                struct_type_name =
+                    interpreter.resolve_type_in_context(struct_type_name);
+
+                if (interpreter.is_debug_mode()) {
+                    debug_print("[ARROW_OP] Using pointer_base_type_name: '%s' "
+                                "(resolved: '%s')\n",
+                                ptr_var->pointer_base_type_name.c_str(),
+                                struct_type_name.c_str());
+                }
+            } else if (ptr_var && !ptr_var->type_name.empty() &&
+                       ptr_var->type_name.find('*') != std::string::npos) {
                 struct_type_name = ptr_var->type_name;
                 size_t star_pos = struct_type_name.find('*');
                 if (star_pos != std::string::npos) {
@@ -289,23 +671,140 @@ int64_t evaluate_arrow_access(
                 size_t offset = 0;
                 bool found = false;
                 TypeInfo member_type = TYPE_UNKNOWN;
+                bool member_is_pointer = false;
 
                 for (const auto &member : struct_def->members) {
+                    // メンバーのサイズを計算
+                    size_t member_size = 0;
+                    if (member.is_pointer) {
+                        member_size = sizeof(void *);
+                    } else {
+                        TypeInfo this_member_type = member.type;
+
+                        // ジェネリック型パラメータの解決
+                        if (this_member_type == TYPE_UNKNOWN &&
+                            !member.type_alias.empty()) {
+                            std::string resolved =
+                                interpreter.resolve_type_in_context(
+                                    member.type_alias);
+
+                            if (resolved == "int")
+                                this_member_type = TYPE_INT;
+                            else if (resolved == "long")
+                                this_member_type = TYPE_LONG;
+                            else if (resolved == "short")
+                                this_member_type = TYPE_SHORT;
+                            else if (resolved == "tiny")
+                                this_member_type = TYPE_TINY;
+                            else if (resolved == "char")
+                                this_member_type = TYPE_CHAR;
+                            else if (resolved == "bool")
+                                this_member_type = TYPE_BOOL;
+                            else if (resolved == "float")
+                                this_member_type = TYPE_FLOAT;
+                            else if (resolved == "double")
+                                this_member_type = TYPE_DOUBLE;
+                            else if (resolved == "string")
+                                this_member_type = TYPE_STRING;
+                            else if (resolved.find('*') != std::string::npos)
+                                this_member_type = TYPE_POINTER;
+                        }
+
+                        switch (this_member_type) {
+                        case TYPE_INT:
+                            member_size = 4;
+                            break;
+                        case TYPE_LONG:
+                            member_size = 8;
+                            break;
+                        case TYPE_SHORT:
+                            member_size = 2;
+                            break;
+                        case TYPE_TINY:
+                            member_size = 1;
+                            break;
+                        case TYPE_CHAR:
+                            member_size = 1;
+                            break;
+                        case TYPE_BOOL:
+                            member_size = 1;
+                            break;
+                        case TYPE_FLOAT:
+                            member_size = 4;
+                            break;
+                        case TYPE_DOUBLE:
+                            member_size = 8;
+                            break;
+                        case TYPE_STRING:
+                            member_size = sizeof(void *);
+                            break;
+                        case TYPE_POINTER:
+                            member_size = sizeof(void *);
+                            break;
+                        default:
+                            member_size = sizeof(void *);
+                            break;
+                        }
+                    }
+
+                    // アライメントを考慮
+                    size_t alignment = member_size;
+                    if (alignment > 8)
+                        alignment = 8;
+                    if (alignment > 0) {
+                        size_t padding =
+                            (alignment - (offset % alignment)) % alignment;
+                        offset += padding;
+                    }
+
                     // 現在のメンバーが目的のメンバーなら、現在のオフセットを使う
                     if (member.name == member_name) {
                         found = true;
                         member_type = member.type;
+                        member_is_pointer = member.is_pointer;
+
+                        // v0.11.0 Phase 1a: ジェネリック型パラメータの解決
+                        if (member_type == TYPE_UNKNOWN &&
+                            !member.type_alias.empty()) {
+                            std::string resolved_member_type =
+                                interpreter.resolve_type_in_context(
+                                    member.type_alias);
+
+                            if (resolved_member_type == "int")
+                                member_type = TYPE_INT;
+                            else if (resolved_member_type == "long")
+                                member_type = TYPE_LONG;
+                            else if (resolved_member_type == "short")
+                                member_type = TYPE_SHORT;
+                            else if (resolved_member_type == "tiny")
+                                member_type = TYPE_TINY;
+                            else if (resolved_member_type == "char")
+                                member_type = TYPE_CHAR;
+                            else if (resolved_member_type == "bool")
+                                member_type = TYPE_BOOL;
+                            else if (resolved_member_type == "float")
+                                member_type = TYPE_FLOAT;
+                            else if (resolved_member_type == "double")
+                                member_type = TYPE_DOUBLE;
+                            else if (resolved_member_type == "string")
+                                member_type = TYPE_STRING;
+                            else if (resolved_member_type.find('*') !=
+                                     std::string::npos)
+                                member_type = TYPE_POINTER;
+
+                            if (interpreter.is_debug_mode()) {
+                                debug_print("[ARROW_OP] Resolved generic "
+                                            "member type: '%s' -> '%s' -> %d\n",
+                                            member.type_alias.c_str(),
+                                            resolved_member_type.c_str(),
+                                            (int)member_type);
+                            }
+                        }
+
                         break;
                     }
-                    // 次のメンバーに進む前にオフセットを増やす
-                    if (member.type == TYPE_INT || member.type == TYPE_LONG ||
-                        member.type == TYPE_POINTER) {
-                        offset += sizeof(int64_t);
-                    } else if (member.type == TYPE_FLOAT) {
-                        offset += sizeof(float);
-                    } else if (member.type == TYPE_DOUBLE) {
-                        offset += sizeof(double);
-                    }
+
+                    offset += member_size;
                 }
 
                 if (!found) {
@@ -322,7 +821,22 @@ int64_t evaluate_arrow_access(
                 // 生メモリから値を読み取り
                 void *member_ptr = static_cast<char *>(base_ptr) + offset;
 
-                if (member_type == TYPE_INT || member_type == TYPE_LONG) {
+                if (member_is_pointer || member_type == TYPE_POINTER) {
+                    void **ptr_ptr = static_cast<void **>(member_ptr);
+                    int64_t ptr_val = reinterpret_cast<int64_t>(*ptr_ptr);
+                    debug_print(
+                        "[ARROW_OP] Read pointer value: 0x%llx from 0x%lx\n",
+                        (unsigned long long)ptr_val,
+                        reinterpret_cast<uintptr_t>(member_ptr));
+                    return ptr_val;
+                } else if (member_type == TYPE_INT) {
+                    int32_t *int_ptr = static_cast<int32_t *>(member_ptr);
+                    int64_t value = static_cast<int64_t>(*int_ptr);
+                    debug_print(
+                        "[ARROW_OP] Read int32_t value: %lld from 0x%lx\n",
+                        value, reinterpret_cast<uintptr_t>(member_ptr));
+                    return value;
+                } else if (member_type == TYPE_LONG) {
                     int64_t *int_ptr = static_cast<int64_t *>(member_ptr);
                     int64_t value = *int_ptr;
                     debug_print(
@@ -331,13 +845,41 @@ int64_t evaluate_arrow_access(
                     return value;
                 } else if (member_type == TYPE_FLOAT) {
                     float *float_ptr = static_cast<float *>(member_ptr);
-                    return static_cast<int64_t>(*float_ptr);
+                    float float_value = *float_ptr;
+                    TypedValue typed_result(static_cast<double>(float_value),
+                                            InferredType(TYPE_FLOAT, "float"));
+                    typed_result.is_numeric_result = true;
+                    typed_result.is_float_result = true;
+                    evaluator.set_last_typed_result(typed_result);
+                    debug_print("[ARROW_OP] Read float value: %f from 0x%lx\n",
+                                float_value,
+                                reinterpret_cast<uintptr_t>(member_ptr));
+                    return 0; // dummy value
                 } else if (member_type == TYPE_DOUBLE) {
                     double *double_ptr = static_cast<double *>(member_ptr);
-                    return static_cast<int64_t>(*double_ptr);
-                } else if (member_type == TYPE_POINTER) {
-                    void **ptr_ptr = static_cast<void **>(member_ptr);
-                    return reinterpret_cast<int64_t>(*ptr_ptr);
+                    double double_value = *double_ptr;
+                    TypedValue typed_result(
+                        static_cast<int64_t>(0),
+                        InferredType(TYPE_DOUBLE, "double"));
+                    typed_result.double_value = double_value;
+                    typed_result.is_numeric_result = true;
+                    evaluator.set_last_typed_result(typed_result);
+                    debug_print("[ARROW_OP] Read double value: %f from 0x%lx\n",
+                                double_value,
+                                reinterpret_cast<uintptr_t>(member_ptr));
+                    return 0; // dummy value
+                } else if (member_type == TYPE_STRING) {
+                    const char **str_ptr =
+                        static_cast<const char **>(member_ptr);
+                    std::string str_val = (*str_ptr != nullptr) ? *str_ptr : "";
+                    TypedValue typed_result(
+                        str_val, InferredType(TYPE_STRING, "string"));
+                    evaluator.set_last_typed_result(typed_result);
+                    debug_print(
+                        "[ARROW_OP] Read string value: '%s' from 0x%lx\n",
+                        str_val.c_str(),
+                        reinterpret_cast<uintptr_t>(member_ptr));
+                    return 0; // dummy value
                 } else {
                     throw std::runtime_error(
                         "Unsupported member type in arrow operator");
@@ -374,6 +916,11 @@ variable_access:
     // メンバーを取得
     Variable member_var = get_struct_member_func(*struct_var, member_name);
 
+    debug_print("[ARROW_OP] member_var retrieved: type=%d, value=%lld, "
+                "double_value=%f\n",
+                static_cast<int>(member_var.type), member_var.value,
+                member_var.double_value);
+
     if (member_var.type == TYPE_STRING) {
         debug_print("[ARROW_OP] STRING member found: str_value='%s'\n",
                     member_var.str_value.c_str());
@@ -403,12 +950,39 @@ variable_access:
         // fallback: member_varのアドレスを返す(コピーなので注意)
         throw std::runtime_error(
             "Cannot get address of temporary struct member");
-    } else if (member_var.type == TYPE_FLOAT ||
-               member_var.type == TYPE_DOUBLE || member_var.type == TYPE_QUAD) {
-        // 浮動小数点数の場合
-        // Note: last_typed_result_の設定は呼び出し側で処理
-        return static_cast<int64_t>(member_var.float_value);
+    } else if (member_var.type == TYPE_FLOAT) {
+        // float の場合
+        TypedValue typed_result(static_cast<double>(member_var.float_value),
+                                InferredType(TYPE_FLOAT, "float"));
+        typed_result.is_numeric_result = true;
+        typed_result.is_float_result = true;
+        evaluator.set_last_typed_result(typed_result);
+        return 0; // dummy value
+    } else if (member_var.type == TYPE_DOUBLE) {
+        // double の場合
+        debug_print(
+            "[ARROW_OP] Reading double member: member_var.double_value=%f\n",
+            member_var.double_value);
+        // double コンストラクタを使用（is_float_result が自動的に true になる）
+        TypedValue typed_result(member_var.double_value,
+                                InferredType(TYPE_DOUBLE, "double"));
+        evaluator.set_last_typed_result(typed_result);
+        return 0; // dummy value
+    } else if (member_var.type == TYPE_QUAD) {
+        // quad の場合
+        // long double コンストラクタを使用（is_float_result が自動的に true
+        // になる）
+        TypedValue typed_result(member_var.quad_value,
+                                InferredType(TYPE_QUAD, "quad"));
+        evaluator.set_last_typed_result(typed_result);
+        return 0; // dummy value
     } else {
+        // INT, BOOL などの通常の型の場合も last_typed_result を設定
+        TypedValue typed_result(
+            member_var.value,
+            InferredType(member_var.type,
+                         type_info_to_string(member_var.type)));
+        evaluator.set_last_typed_result(typed_result);
         return member_var.value;
     }
 }

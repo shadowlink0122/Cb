@@ -92,6 +92,19 @@ int64_t ExpressionDispatcher::dispatch_expression(const ASTNode *node) {
         return ArrayAccessHelpers::evaluate_array_literal(node, interpreter_);
 
     case ASTNodeType::AST_BINARY_OP: {
+        // 比較演算子の場合、文字列比較をサポートするためtyped評価を使用
+        if (node->op == "<" || node->op == ">" || node->op == "<=" ||
+            node->op == ">=" || node->op == "==" || node->op == "!=") {
+            auto evaluate_typed_lambda = [&](const ASTNode *n) {
+                return expression_evaluator_.evaluate_typed_expression(n);
+            };
+            TypedValue typed_result =
+                BinaryUnaryTypedHelpers::evaluate_binary_op_typed(
+                    node, interpreter_, InferredType(), evaluate_typed_lambda);
+            return typed_result.as_numeric();
+        }
+
+        // その他の演算子は従来通り
         int64_t left = dispatch_expression(node->left.get());
         int64_t right = dispatch_expression(node->right.get());
 
@@ -99,10 +112,6 @@ int64_t ExpressionDispatcher::dispatch_expression(const ASTNode *node) {
         if (node->op == "+" || node->op == "-" || node->op == "*" ||
             node->op == "/" || node->op == "%") {
             result = ExpressionHelpers::evaluate_arithmetic_binary(node->op,
-                                                                   left, right);
-        } else if (node->op == "<" || node->op == ">" || node->op == "<=" ||
-                   node->op == ">=" || node->op == "==" || node->op == "!=") {
-            result = ExpressionHelpers::evaluate_comparison_binary(node->op,
                                                                    left, right);
         } else if (node->op == "&&" || node->op == "||") {
             result = ExpressionHelpers::evaluate_logical_binary(node->op, left,

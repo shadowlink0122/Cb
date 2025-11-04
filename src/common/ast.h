@@ -702,6 +702,53 @@ struct TypeContext {
 
     // 複雑な型（ポインタ、配列等）を解決
     std::string resolve_complex_type(const std::string &type_name) const {
+        // MapNode<K, V> -> MapNode<int, int> のような変換
+        size_t angle_open = type_name.find('<');
+        if (angle_open != std::string::npos) {
+            size_t angle_close = type_name.rfind('>');
+            if (angle_close != std::string::npos) {
+                std::string base = type_name.substr(0, angle_open);
+                std::string params = type_name.substr(
+                    angle_open + 1, angle_close - angle_open - 1);
+                std::string suffix = (angle_close + 1 < type_name.size())
+                                         ? type_name.substr(angle_close + 1)
+                                         : "";
+
+                // パラメータをカンマで分割して個別に解決
+                std::string resolved_params;
+                size_t start = 0;
+                while (start < params.size()) {
+                    // 先頭の空白をスキップ
+                    while (start < params.size() && params[start] == ' ')
+                        start++;
+                    if (start >= params.size())
+                        break;
+
+                    // 次のカンマまたは末尾を探す
+                    size_t comma = params.find(',', start);
+                    size_t end =
+                        (comma == std::string::npos) ? params.size() : comma;
+
+                    // パラメータを抽出して末尾の空白を削除
+                    std::string param = params.substr(start, end - start);
+                    while (!param.empty() && param.back() == ' ')
+                        param.pop_back();
+
+                    // パラメータを解決
+                    std::string resolved_param = resolve_type(param);
+
+                    if (!resolved_params.empty())
+                        resolved_params += ", ";
+                    resolved_params += resolved_param;
+
+                    start = (comma == std::string::npos) ? params.size()
+                                                         : comma + 1;
+                }
+
+                return base + "<" + resolved_params + ">" + suffix;
+            }
+        }
+
         // T* -> int* のような変換
         size_t star_pos = type_name.find('*');
         if (star_pos != std::string::npos) {

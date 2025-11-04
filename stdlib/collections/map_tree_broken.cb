@@ -1,0 +1,282 @@
+// Map<K, V> - 二分探索木（BST）ベースの連想配列
+// 各Mapノード自体がキー・値のペアと左右の子を持つ木構造
+// 基本操作: insert, get, contains は O(log n) (平均)、O(n) (最悪)
+
+// Map操作のインターフェース
+export interface MapOps<K, V> {
+    void insert(K key, V value);
+    V get(K key);
+    bool contains(K key);
+    void remove(K key);
+    int size();
+    bool is_empty();
+    void clear();
+}
+
+// Map構造体 - 木構造のノード
+// left と right は Map 型そのものを保持（値型）
+export struct Map<K, V> {
+    K key;
+    V value;
+    bool has_value;     // このノードが有効なエントリかどうか
+    bool has_left;      // 左の子が存在するか
+    bool has_right;     // 右の子が存在するか
+    void* left_ptr;     // 左の子ノードへのポインタ（内部的にMap<K,V>*）
+    void* right_ptr;    // 右の子ノードへのポインタ（内部的にMap<K,V>*）
+    int count;          // このサブツリーの要素数
+};
+
+// MapOpsインターフェースの実装
+impl MapOps<K, V> for Map<K, V> {
+    // キー・値のペアを挿入または更新
+    void insert(K key, V value) {
+        map_insert<K, V>(self, key, value);
+    }
+    
+    
+    V get(K key) {
+        return map_get<K, V>(self, key);
+    }
+    
+    bool contains(K key) {
+        return map_contains<K, V>(self, key);
+    }
+    
+    void remove(K key) {
+        map_remove<K, V>(self, key);
+    }
+    
+    int size() {
+        return map_size<K, V>(self);
+    }
+    
+    bool is_empty() {
+        return map_is_empty<K, V>(self);
+    }
+    
+    void clear() {
+        map_clear<K, V>(self);
+    }
+}
+
+// コンストラクタとデストラクタ
+impl Map<K, V> {
+    // デフォルトコンストラクタ - 空のマップを作成
+    self() {
+        self.has_value = false;
+        self.has_left = false;
+        self.has_right = false;
+        self.left_ptr = nullptr;
+        self.right_ptr = nullptr;
+        self.count = 0;
+    }
+    
+    // デストラクタ - すべての子ノードを解放
+    ~self() {
+        if (self.has_left) {
+            Map<K, V>* left_node = self.left_ptr;
+            (*left_node).clear();
+            free(self.left_ptr);
+        }
+        
+        if (self.has_right) {
+            Map<K, V>* right_node = self.right_ptr;
+            (*right_node).clear();
+            free(self.right_ptr);
+        }
+    }
+}
+
+// グローバル関数（interface メソッドと同じ実装を直接提供）
+export void map_insert<K, V>(Map<K, V>& m, K key, V value) {
+    if (!m.has_value) {
+        m.key = key;
+        m.value = value;
+        m.has_value = true;
+        m.count = 1;
+    } else if (key == m.key) {
+        m.value = value;
+    } else if (key < m.key) {
+        if (!m.has_left) {
+            // 左の子ノードを malloc で確保
+            m.left_ptr = malloc(sizeof(Map<K, V>));
+            
+            // void* を使って初期化
+            void* left = m.left_ptr;
+            
+            // キーを設定（オフセット 0）
+            array_set(left, 0, key);
+            
+            // 値を設定（オフセット 1）
+            void* value_ptr = left + sizeof(K);
+            array_set(value_ptr, 0, value);
+            
+            // has_value を設定（オフセット 2）
+            void* has_value_ptr = left + sizeof(K) + sizeof(V);
+            array_set_int(has_value_ptr, 0, 1);  // true
+            
+            // has_left を設定
+            void* has_left_ptr = left + sizeof(K) + sizeof(V) + 4;
+            array_set_int(has_left_ptr, 0, 0);  // false
+            
+            // has_right を設定
+            void* has_right_ptr = left + sizeof(K) + sizeof(V) + 8;
+            array_set_int(has_right_ptr, 0, 0);  // false
+            
+            // left_ptr を nullptr に設定
+            void* left_left_ptr = left + sizeof(K) + sizeof(V) + 12;
+            array_set(left_left_ptr, 0, nullptr);
+            
+            // right_ptr を nullptr に設定
+            void* left_right_ptr = left + sizeof(K) + sizeof(V) + 12 + 8;
+            array_set(left_right_ptr, 0, nullptr);
+            
+            // count を 1 に設定
+            void* count_ptr = left + sizeof(K) + sizeof(V) + 12 + 16;
+            array_set_int(count_ptr, 0, 1);
+            
+            m.has_left = true;
+            m.count = m.count + 1;
+        } else {
+            // 再帰的に左の子に挿入
+            void* left = m.left_ptr;
+            void* count_ptr = left + sizeof(K) + sizeof(V) + 12 + 16;
+            int old_count = array_get_int(count_ptr, 0);
+            
+            // left_ptr を Map<K, V>& として扱うためのヘルパー変数
+            Map<K, V>& left_ref = array_get(left, 0);  // これは動作しない可能性がある
+            map_insert<K, V>(left_ref, key, value);
+            
+            int new_count = array_get_int(count_ptr, 0);
+            if (new_count > old_count) {
+                m.count = m.count + 1;
+            }
+        }
+    } else {
+        if (!m.has_right) {
+            // 右の子ノードを malloc で確保
+            m.right_ptr = malloc(sizeof(Map<K, V>));
+            
+            void* right = m.right_ptr;
+            array_set(right, 0, key);
+            
+            void* value_ptr = right + sizeof(K);
+            array_set(value_ptr, 0, value);
+            
+            void* has_value_ptr = right + sizeof(K) + sizeof(V);
+            array_set_int(has_value_ptr, 0, 1);
+            
+            void* has_left_ptr = right + sizeof(K) + sizeof(V) + 4;
+            array_set_int(has_left_ptr, 0, 0);
+            
+            void* has_right_ptr = right + sizeof(K) + sizeof(V) + 8;
+            array_set_int(has_right_ptr, 0, 0);
+            
+            void* right_left_ptr = right + sizeof(K) + sizeof(V) + 12;
+            array_set(right_left_ptr, 0, nullptr);
+            
+            void* right_right_ptr = right + sizeof(K) + sizeof(V) + 12 + 8;
+            array_set(right_right_ptr, 0, nullptr);
+            
+            void* count_ptr = right + sizeof(K) + sizeof(V) + 12 + 16;
+            array_set_int(count_ptr, 0, 1);
+            
+            m.has_right = true;
+            m.count = m.count + 1;
+        } else {
+            void* right = m.right_ptr;
+            void* count_ptr = right + sizeof(K) + sizeof(V) + 12 + 16;
+            int old_count = array_get_int(count_ptr, 0);
+            
+            Map<K, V>& right_ref = array_get(right, 0);
+            map_insert<K, V>(right_ref, key, value);
+            
+            int new_count = array_get_int(count_ptr, 0);
+            if (new_count > old_count) {
+                m.count = m.count + 1;
+            }
+        }
+    }
+}
+
+export V map_get<K, V>(Map<K, V>& m, K key) {
+    if (m.has_value && key == m.key) {
+        return m.value;
+    } else if (key < m.key && m.has_left) {
+        Map<K, V>* left_node = m.left_ptr;
+        return map_get<K, V>(*left_node, key);
+    } else if (key > m.key && m.has_right) {
+        Map<K, V>* right_node = m.right_ptr;
+        return map_get<K, V>(*right_node, key);
+    }
+    
+    V dummy;
+    return dummy;
+}
+
+export bool map_contains<K, V>(Map<K, V>& m, K key) {
+    if (m.has_value && key == m.key) {
+        return true;
+    } else if (key < m.key && m.has_left) {
+        Map<K, V>* left_node = m.left_ptr;
+        return map_contains<K, V>(*left_node, key);
+    } else if (key > m.key && m.has_right) {
+        Map<K, V>* right_node = m.right_ptr;
+        return map_contains<K, V>(*right_node, key);
+    }
+    
+    return false;
+}
+
+export void map_remove<K, V>(Map<K, V>& m, K key) {
+    if (m.has_value && key == m.key) {
+        m.has_value = false;
+        m.count = m.count - 1;
+    } else if (key < m.key && m.has_left) {
+        Map<K, V>* left_node = m.left_ptr;
+        int old_count = (*left_node).count;
+        map_remove<K, V>(*left_node, key);
+        if ((*left_node).count < old_count) {
+            m.count = m.count - 1;
+        }
+    } else if (key > m.key && m.has_right) {
+        Map<K, V>* right_node = m.right_ptr;
+        int old_count = (*right_node).count;
+        map_remove<K, V>(*right_node, key);
+        if ((*right_node).count < old_count) {
+            m.count = m.count - 1;
+        }
+    }
+}
+
+export int map_size<K, V>(Map<K, V>& m) {
+    if (m.has_value) {
+        return m.count;
+    }
+    return 0;
+}
+
+export bool map_is_empty<K, V>(Map<K, V>& m) {
+    return !m.has_value || m.count == 0;
+}
+
+export void map_clear<K, V>(Map<K, V>& m) {
+    if (m.has_left) {
+        Map<K, V>* left_node = m.left_ptr;
+        map_clear<K, V>(*left_node);
+        free(m.left_ptr);
+        m.left_ptr = nullptr;
+        m.has_left = false;
+    }
+    
+    if (m.has_right) {
+        Map<K, V>* right_node = m.right_ptr;
+        map_clear<K, V>(*right_node);
+        free(m.right_ptr);
+        m.right_ptr = nullptr;
+        m.has_right = false;
+    }
+    
+    m.has_value = false;
+    m.count = 0;
+}

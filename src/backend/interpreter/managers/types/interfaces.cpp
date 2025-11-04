@@ -321,10 +321,33 @@ InterfaceOperations::find_impl_for_struct(const std::string &struct_name,
                         (void *)impl_def.impl_node);
 
             // ジェネリックパターンにマッチするか確認
-            // 重要: 型パラメータTを含むimplのみをマッチ対象にする
+            // 重要: 型パラメータを含むimplのみをマッチ対象にする
             // これにより、インスタンス化済みのVector<int>がVector<T>として再処理されるのを防ぐ
-            bool struct_match =
-                (impl_def.struct_name == generic_struct_pattern);
+            // v0.14.0: 複数の型パラメータにも対応（例: Map<K, V>）
+            bool struct_match = false;
+
+            // impl_def.struct_nameから型パラメータ数を取得
+            size_t impl_type_param_count = 0;
+            if (impl_def.impl_node &&
+                !impl_def.impl_node->type_parameters.empty()) {
+                impl_type_param_count =
+                    impl_def.impl_node->type_parameters.size();
+            }
+
+            // base_struct_nameが一致し、型パラメータ数も一致する場合にマッチ
+            size_t impl_lt_pos = impl_def.struct_name.find('<');
+            if (impl_lt_pos != std::string::npos) {
+                std::string impl_base =
+                    impl_def.struct_name.substr(0, impl_lt_pos);
+                if (impl_base == base_struct_name &&
+                    impl_type_param_count == type_arguments.size()) {
+                    struct_match = true;
+                    debug_print("[FIND_IMPL] Struct match: impl_base='%s', "
+                                "type_param_count=%zu\n",
+                                impl_base.c_str(), impl_type_param_count);
+                }
+            }
+
             bool interface_match = false;
 
             if (interface_name.empty()) {
@@ -332,9 +355,23 @@ InterfaceOperations::find_impl_for_struct(const std::string &struct_name,
                 // 非空のinterface_nameを持つimplをマッチング
                 interface_match = !impl_def.interface_name.empty();
             } else {
-                // interface_nameが指定されている場合は完全一致
-                interface_match =
-                    (impl_def.interface_name == generic_interface_pattern);
+                // interface_nameが指定されている場合
+                // v0.14.0: 複数の型パラメータにも対応
+                size_t if_impl_lt_pos = impl_def.interface_name.find('<');
+                if (if_impl_lt_pos != std::string::npos) {
+                    std::string impl_if_base =
+                        impl_def.interface_name.substr(0, if_impl_lt_pos);
+                    if (impl_if_base == base_interface_name &&
+                        impl_type_param_count == type_arguments.size()) {
+                        interface_match = true;
+                        debug_print(
+                            "[FIND_IMPL] Interface match: impl_if_base='%s'\n",
+                            impl_if_base.c_str());
+                    }
+                } else if (impl_def.interface_name == interface_name) {
+                    // 型パラメータなしの完全一致
+                    interface_match = true;
+                }
             }
 
             debug_print("[FIND_IMPL] Match result: struct_match=%d, "

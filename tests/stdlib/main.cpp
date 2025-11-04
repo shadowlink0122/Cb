@@ -1,6 +1,7 @@
 #include "allocators/test_bump_allocator.hpp"
 #include "allocators/test_system_allocator.hpp"
 // #include "collections/test_nested_generics.hpp"  // TODO: Fix segfault
+#include "collections/test_map.hpp"
 #include "collections/test_queue.hpp"
 #include "collections/test_vector.hpp"
 #include "framework/stdlib_test_framework.hpp"
@@ -18,6 +19,7 @@ int main() {
     register_bump_allocator_tests(runner);
     register_vector_tests(runner);
     register_queue_tests(runner);
+    register_map_tests(runner);
     // register_nested_generics_tests(runner);  // TODO: Fix segfault
     register_result_tests(runner);
     register_option_tests(runner);

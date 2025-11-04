@@ -367,6 +367,12 @@ TypedValue evaluate_binary_op_typed(
         }
         return make_integer_typed_value(left_int % right_int);
     } else if (node->op == "==") {
+        // 文字列比較
+        if (left_value.is_string() || right_value.is_string()) {
+            return make_bool_typed_value(left_value.string_value ==
+                                         right_value.string_value);
+        }
+        // 浮動小数点比較
         if (inferred_type.type_info == TYPE_QUAD ||
             inferred_type.type_info == TYPE_DOUBLE ||
             inferred_type.type_info == TYPE_FLOAT || left_value.is_floating() ||
@@ -375,6 +381,12 @@ TypedValue evaluate_binary_op_typed(
         }
         return make_bool_typed_value(left_int == right_int);
     } else if (node->op == "!=") {
+        // 文字列比較
+        if (left_value.is_string() || right_value.is_string()) {
+            return make_bool_typed_value(left_value.string_value !=
+                                         right_value.string_value);
+        }
+        // 浮動小数点比較
         if (inferred_type.type_info == TYPE_QUAD ||
             inferred_type.type_info == TYPE_DOUBLE ||
             inferred_type.type_info == TYPE_FLOAT || left_value.is_floating() ||
@@ -383,6 +395,12 @@ TypedValue evaluate_binary_op_typed(
         }
         return make_bool_typed_value(left_int != right_int);
     } else if (node->op == "<") {
+        // 文字列比較
+        if (left_value.is_string() || right_value.is_string()) {
+            return make_bool_typed_value(left_value.string_value <
+                                         right_value.string_value);
+        }
+        // 浮動小数点比較
         if (inferred_type.type_info == TYPE_QUAD ||
             inferred_type.type_info == TYPE_DOUBLE ||
             inferred_type.type_info == TYPE_FLOAT || left_value.is_floating() ||
@@ -391,6 +409,11 @@ TypedValue evaluate_binary_op_typed(
         }
         return make_bool_typed_value(left_int < right_int);
     } else if (node->op == ">") {
+        // 文字列比較
+        if (left_value.is_string() || right_value.is_string()) {
+            return make_bool_typed_value(left_value.string_value >
+                                         right_value.string_value);
+        }
         // オペランドのいずれかが浮動小数点型なら浮動小数点比較
         if (inferred_type.type_info == TYPE_QUAD ||
             inferred_type.type_info == TYPE_DOUBLE ||
@@ -400,6 +423,12 @@ TypedValue evaluate_binary_op_typed(
         }
         return make_bool_typed_value(left_int > right_int);
     } else if (node->op == "<=") {
+        // 文字列比較
+        if (left_value.is_string() || right_value.is_string()) {
+            return make_bool_typed_value(left_value.string_value <=
+                                         right_value.string_value);
+        }
+        // 浮動小数点比較
         if (inferred_type.type_info == TYPE_QUAD ||
             inferred_type.type_info == TYPE_DOUBLE ||
             inferred_type.type_info == TYPE_FLOAT || left_value.is_floating() ||
@@ -408,6 +437,12 @@ TypedValue evaluate_binary_op_typed(
         }
         return make_bool_typed_value(left_int <= right_int);
     } else if (node->op == ">=") {
+        // 文字列比較
+        if (left_value.is_string() || right_value.is_string()) {
+            return make_bool_typed_value(left_value.string_value >=
+                                         right_value.string_value);
+        }
+        // 浮動小数点比較
         if (inferred_type.type_info == TYPE_QUAD ||
             inferred_type.type_info == TYPE_DOUBLE ||
             inferred_type.type_info == TYPE_FLOAT || left_value.is_floating() ||

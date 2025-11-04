@@ -718,6 +718,26 @@ void ReturnHandler::handle_expression_return(const ASTNode *node) {
         throw ReturnException(
             typed_result.value, typed_result.function_pointer_name,
             typed_result.function_pointer_node, typed_result.numeric_type);
+    } else if (typed_result.is_pointer) {
+        // ポインタの場合、ポインタ型情報を保持してReturnExceptionを作成
+        if (debug_mode) {
+            debug_print(
+                "[RETURN_EXPR] Returning pointer: value=0x%llx, depth=%d, "
+                "base_type=%d, base_type_name='%s'\n",
+                (unsigned long long)typed_result.value,
+                typed_result.pointer_depth, typed_result.pointer_base_type,
+                typed_result.pointer_base_type_name.c_str());
+        }
+
+        // ポインタ用ReturnExceptionコンストラクタを使用
+        ReturnException ret_ex(typed_result.value, TYPE_POINTER);
+        ret_ex.is_pointer = true;
+        ret_ex.pointer_depth = typed_result.pointer_depth;
+        ret_ex.pointer_base_type = typed_result.pointer_base_type;
+        ret_ex.pointer_base_type_name = typed_result.pointer_base_type_name;
+        ret_ex.is_pointee_const = typed_result.is_pointee_const;
+        ret_ex.is_pointer_const = typed_result.is_pointer_const;
+        throw ret_ex;
     } else if (typed_result.is_struct_result) {
         // 構造体の場合、struct_dataから直接ReturnExceptionを作成
         if (typed_result.struct_data) {

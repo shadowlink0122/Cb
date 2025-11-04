@@ -69,6 +69,68 @@ static size_t get_type_size(const std::string &type_name,
     // 構造体のサイズを計算
     const StructDefinition *struct_def =
         interpreter->get_struct_definition(type_name);
+
+    // ジェネリック構造体の場合、ベース名で定義を取得し、型パラメータをパース
+    std::unordered_map<std::string, std::string> type_arg_map;
+    if (!struct_def && type_name.find('<') != std::string::npos) {
+        size_t angle_pos = type_name.find('<');
+        std::string base_struct_name = type_name.substr(0, angle_pos);
+
+        debug_print("[get_type_size] Trying base generic struct: base='%s', "
+                    "full='%s'\n",
+                    base_struct_name.c_str(), type_name.c_str());
+
+        struct_def = interpreter->get_struct_definition(base_struct_name);
+
+        // ジェネリック型の実引数を抽出（例: "MapNode<string, int>" ->
+        // ["string", "int"]）
+        if (struct_def && struct_def->is_generic) {
+            size_t close_angle = type_name.rfind('>');
+            if (close_angle != std::string::npos &&
+                close_angle > angle_pos + 1) {
+                std::string args_str = type_name.substr(
+                    angle_pos + 1, close_angle - angle_pos - 1);
+
+                // カンマで分割
+                std::vector<std::string> type_args;
+                size_t start = 0;
+                int depth = 0;
+                for (size_t i = 0; i < args_str.length(); ++i) {
+                    if (args_str[i] == '<') {
+                        depth++;
+                    } else if (args_str[i] == '>') {
+                        depth--;
+                    } else if (args_str[i] == ',' && depth == 0) {
+                        std::string arg = args_str.substr(start, i - start);
+                        // 前後の空白を削除
+                        arg.erase(0, arg.find_first_not_of(" \t\n\r"));
+                        arg.erase(arg.find_last_not_of(" \t\n\r") + 1);
+                        type_args.push_back(arg);
+                        start = i + 1;
+                    }
+                }
+                // 最後の引数
+                if (start < args_str.length()) {
+                    std::string arg = args_str.substr(start);
+                    arg.erase(0, arg.find_first_not_of(" \t\n\r"));
+                    arg.erase(arg.find_last_not_of(" \t\n\r") + 1);
+                    type_args.push_back(arg);
+                }
+
+                // 型パラメータ名と実引数をマッピング
+                for (size_t i = 0; i < struct_def->type_parameters.size() &&
+                                   i < type_args.size();
+                     ++i) {
+                    type_arg_map[struct_def->type_parameters[i]] = type_args[i];
+                    debug_print(
+                        "[get_type_size] Type param mapping: %s -> %s\n",
+                        struct_def->type_parameters[i].c_str(),
+                        type_args[i].c_str());
+                }
+            }
+        }
+    }
+
     if (struct_def) {
         size_t total_size = 0;
 
@@ -115,6 +177,15 @@ static size_t get_type_size(const std::string &type_name,
                     // ネストした構造体: type_aliasまたは推論
                     if (!member.type_alias.empty()) {
                         member_type_str = member.type_alias;
+                        // 型パラメータ（K, V等）なら実際の型に解決
+                        auto it = type_arg_map.find(member_type_str);
+                        if (it != type_arg_map.end()) {
+                            member_type_str = it->second;
+                            debug_print("[get_type_size] Resolved type param "
+                                        "'%s' -> '%s'\n",
+                                        member.type_alias.c_str(),
+                                        member_type_str.c_str());
+                        }
                     } else {
                         // フォールバック: ポインタサイズ
                         member_size = sizeof(void *);
@@ -122,8 +193,22 @@ static size_t get_type_size(const std::string &type_name,
                     }
                     break;
                 default:
-                    // 不明な型はint扱い
-                    member_type_str = "int";
+                    // TYPE_UNKNOWNの場合、type_aliasをチェック
+                    if (!member.type_alias.empty()) {
+                        member_type_str = member.type_alias;
+                        // 型パラメータ（K, V等）なら実際の型に解決
+                        auto it = type_arg_map.find(member_type_str);
+                        if (it != type_arg_map.end()) {
+                            member_type_str = it->second;
+                            debug_print("[get_type_size] Resolved type param "
+                                        "'%s' -> '%s' (from UNKNOWN)\n",
+                                        member.type_alias.c_str(),
+                                        member_type_str.c_str());
+                        }
+                    } else {
+                        // 不明な型はint扱い
+                        member_type_str = "int";
+                    }
                 }
 
                 // 再帰的にサイズを取得
@@ -143,7 +228,28 @@ static size_t get_type_size(const std::string &type_name,
                 member_size *= array_total_size;
             }
 
+            // アライメントを考慮: メンバーサイズの倍数にパディング
+            // 次のメンバーのアライメント要求に合わせる
+            size_t alignment = member_size;
+            if (alignment > 8)
+                alignment = 8; // 最大8バイトアライメント
+            if (alignment > 0) {
+                size_t padding =
+                    (alignment - (total_size % alignment)) % alignment;
+                total_size += padding;
+            }
+
             total_size += member_size;
+        }
+
+        // 構造体全体のアライメント: 最大メンバーサイズの倍数にする
+        // 簡易実装: 8バイト境界にアライン
+        size_t struct_alignment = 8;
+        if (total_size > 0) {
+            size_t final_padding =
+                (struct_alignment - (total_size % struct_alignment)) %
+                struct_alignment;
+            total_size += final_padding;
         }
 
         return total_size > 0 ? total_size : sizeof(void *);

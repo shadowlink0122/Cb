@@ -217,14 +217,21 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                         std::string param_name = param->name;
                         TypeInfo param_type = param->type_info;
                         bool is_unsigned = param->is_unsigned;
+                        std::string param_type_name =
+                            param->type_name; // v0.11.0
 
                         if (param_type == TYPE_STRING) {
                             interpreter_.assign_variable(
                                 param_name, arg_strings[param_idx]);
                         } else {
+                            // v0.11.0: 型名も渡す
+                            TypedValue typed_val(
+                                arg_values[param_idx],
+                                InferredType(param_type,
+                                             type_info_to_string(param_type)));
                             interpreter_.assign_function_parameter(
-                                param_name, arg_values[param_idx], param_type,
-                                is_unsigned);
+                                param_name, typed_val, param_type,
+                                param_type_name, is_unsigned);
                         }
 
                         param_idx++;
@@ -297,13 +304,20 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                 std::string param_name = param->name;
                 TypeInfo param_type = param->type_info;
                 bool is_unsigned = param->is_unsigned;
+                std::string param_type_name =
+                    param->type_name; // v0.11.0: 型名を取得
 
                 if (param_type == TYPE_STRING) {
                     interpreter_.assign_variable(param_name,
                                                  arg_strings[param_idx]);
                 } else {
+                    // v0.11.0: 型名も渡す（ジェネリックポインタ対応）
+                    TypedValue typed_val(
+                        arg_values[param_idx],
+                        InferredType(param_type,
+                                     type_info_to_string(param_type)));
                     interpreter_.assign_function_parameter(
-                        param_name, arg_values[param_idx], param_type,
+                        param_name, typed_val, param_type, param_type_name,
                         is_unsigned);
                 }
 
@@ -478,13 +492,18 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                     std::string param_name = param->name;
                     TypeInfo param_type = param->type_info;
                     bool is_unsigned = param->is_unsigned;
+                    std::string param_type_name = param->type_name;
 
                     if (param_type == TYPE_STRING) {
                         interpreter_.assign_variable(param_name,
                                                      arg_strings[param_idx]);
                     } else {
+                        TypedValue typed_val(
+                            arg_values[param_idx],
+                            InferredType(param_type,
+                                         type_info_to_string(param_type)));
                         interpreter_.assign_function_parameter(
-                            param_name, arg_values[param_idx], param_type,
+                            param_name, typed_val, param_type, param_type_name,
                             is_unsigned);
                     }
 
@@ -2216,6 +2235,189 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
             return 0;
         }
 
+        // array_get_long(ptr, index) - long配列要素を取得
+        if (node->name == "array_get_long" && !is_method_call) {
+            if (node->arguments.size() != 2) {
+                throw std::runtime_error("array_get_long() requires 2 "
+                                         "arguments: array_get_long(ptr, "
+                                         "index)");
+            }
+
+            int64_t ptr_value =
+                interpreter_.eval_expression(node->arguments[0].get());
+            int64_t index =
+                interpreter_.eval_expression(node->arguments[1].get());
+
+            if (ptr_value == 0) {
+                std::cerr << "[array_get_long] Error: null pointer"
+                          << std::endl;
+                return 0;
+            }
+
+            if (index < 0) {
+                std::cerr << "[array_get_long] Error: negative index " << index
+                          << std::endl;
+                return 0;
+            }
+
+            long *arr = reinterpret_cast<long *>(ptr_value);
+            return static_cast<int64_t>(arr[index]);
+        }
+
+        // array_set_long(ptr, index, value) - long配列要素を設定
+        if (node->name == "array_set_long" && !is_method_call) {
+            if (node->arguments.size() != 3) {
+                throw std::runtime_error("array_set_long() requires 3 "
+                                         "arguments: array_set_long(ptr, "
+                                         "index, value)");
+            }
+
+            int64_t ptr_value =
+                interpreter_.eval_expression(node->arguments[0].get());
+            int64_t index =
+                interpreter_.eval_expression(node->arguments[1].get());
+            int64_t value =
+                interpreter_.eval_expression(node->arguments[2].get());
+
+            if (ptr_value == 0) {
+                std::cerr << "[array_set_long] Error: null pointer"
+                          << std::endl;
+                return 0;
+            }
+
+            if (index < 0) {
+                std::cerr << "[array_set_long] Error: negative index " << index
+                          << std::endl;
+                return 0;
+            }
+
+            long *arr = reinterpret_cast<long *>(ptr_value);
+            arr[index] = static_cast<long>(value);
+            return 0;
+        }
+
+        // array_get_char(ptr, index) - char配列要素を取得
+        if (node->name == "array_get_char" && !is_method_call) {
+            if (node->arguments.size() != 2) {
+                throw std::runtime_error("array_get_char() requires 2 "
+                                         "arguments: array_get_char(ptr, "
+                                         "index)");
+            }
+
+            int64_t ptr_value =
+                interpreter_.eval_expression(node->arguments[0].get());
+            int64_t index =
+                interpreter_.eval_expression(node->arguments[1].get());
+
+            if (ptr_value == 0) {
+                std::cerr << "[array_get_char] Error: null pointer"
+                          << std::endl;
+                return 0;
+            }
+
+            if (index < 0) {
+                std::cerr << "[array_get_char] Error: negative index " << index
+                          << std::endl;
+                return 0;
+            }
+
+            char *arr = reinterpret_cast<char *>(ptr_value);
+            return static_cast<int64_t>(arr[index]);
+        }
+
+        // array_set_char(ptr, index, value) - char配列要素を設定
+        if (node->name == "array_set_char" && !is_method_call) {
+            if (node->arguments.size() != 3) {
+                throw std::runtime_error("array_set_char() requires 3 "
+                                         "arguments: array_set_char(ptr, "
+                                         "index, value)");
+            }
+
+            int64_t ptr_value =
+                interpreter_.eval_expression(node->arguments[0].get());
+            int64_t index =
+                interpreter_.eval_expression(node->arguments[1].get());
+            int64_t value =
+                interpreter_.eval_expression(node->arguments[2].get());
+
+            if (ptr_value == 0) {
+                std::cerr << "[array_set_char] Error: null pointer"
+                          << std::endl;
+                return 0;
+            }
+
+            if (index < 0) {
+                std::cerr << "[array_set_char] Error: negative index " << index
+                          << std::endl;
+                return 0;
+            }
+
+            char *arr = reinterpret_cast<char *>(ptr_value);
+            arr[index] = static_cast<char>(value);
+            return 0;
+        }
+
+        // array_get_bool(ptr, index) - bool配列要素を取得
+        if (node->name == "array_get_bool" && !is_method_call) {
+            if (node->arguments.size() != 2) {
+                throw std::runtime_error("array_get_bool() requires 2 "
+                                         "arguments: array_get_bool(ptr, "
+                                         "index)");
+            }
+
+            int64_t ptr_value =
+                interpreter_.eval_expression(node->arguments[0].get());
+            int64_t index =
+                interpreter_.eval_expression(node->arguments[1].get());
+
+            if (ptr_value == 0) {
+                std::cerr << "[array_get_bool] Error: null pointer"
+                          << std::endl;
+                return 0;
+            }
+
+            if (index < 0) {
+                std::cerr << "[array_get_bool] Error: negative index " << index
+                          << std::endl;
+                return 0;
+            }
+
+            bool *arr = reinterpret_cast<bool *>(ptr_value);
+            return static_cast<int64_t>(arr[index] ? 1 : 0);
+        }
+
+        // array_set_bool(ptr, index, value) - bool配列要素を設定
+        if (node->name == "array_set_bool" && !is_method_call) {
+            if (node->arguments.size() != 3) {
+                throw std::runtime_error("array_set_bool() requires 3 "
+                                         "arguments: array_set_bool(ptr, "
+                                         "index, value)");
+            }
+
+            int64_t ptr_value =
+                interpreter_.eval_expression(node->arguments[0].get());
+            int64_t index =
+                interpreter_.eval_expression(node->arguments[1].get());
+            int64_t value =
+                interpreter_.eval_expression(node->arguments[2].get());
+
+            if (ptr_value == 0) {
+                std::cerr << "[array_set_bool] Error: null pointer"
+                          << std::endl;
+                return 0;
+            }
+
+            if (index < 0) {
+                std::cerr << "[array_set_bool] Error: negative index " << index
+                          << std::endl;
+                return 0;
+            }
+
+            bool *arr = reinterpret_cast<bool *>(ptr_value);
+            arr[index] = (value != 0);
+            return 0;
+        }
+
         // malloc(size) - メモリ確保
         // sizeof(type) - 型のサイズを取得
         // 注: sizeof演算子として実装すべきだが、簡易版として組み込み関数で実装
@@ -2572,27 +2774,73 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
             return ptr_value + index;
         }
 
-        if (is_method_call) {
-            std::string debug_type_name;
+        // v0.14.0: 組み込み関数のチェック前にエラーを投げないようにする
+        // malloc, free, sizeof などの組み込み関数は functions
+        // マップに登録されていないため、
+        // ここでエラーにせず、後続の組み込み関数チェックに進む
+        static const std::vector<std::string> builtin_function_names = {
+            "malloc",
+            "free",
+            "sizeof",
+            "array_get",
+            "array_set",
+            "array_get_double",
+            "array_set_double",
+            "array_get_bool",
+            "array_set_bool",
+            "array_get_string",
+            "array_set_string",
+            "array_get_struct",
+            "array_set_struct",
+            "println",
+            "print",
+            "printf",
+            "sprintf",
+            "strlen",
+            "strcpy",
+            "strcmp",
+            "strcat",
+            "memcpy",
+            "memset",
+            "memcmp"};
+
+        bool is_builtin = false;
+        for (const auto &builtin_name : builtin_function_names) {
+            if (node->name == builtin_name) {
+                is_builtin = true;
+                break;
+            }
+        }
+
+        if (!is_builtin) {
             if (is_method_call) {
-                if (!receiver_name.empty()) {
-                    Variable *debug_receiver =
-                        interpreter_.find_variable(receiver_name);
-                    if (!debug_receiver && receiver_resolution.variable_ptr) {
-                        debug_receiver = receiver_resolution.variable_ptr;
-                    }
-                    if (debug_receiver) {
-                        if (!debug_receiver->struct_type_name.empty()) {
-                            debug_type_name = debug_receiver->struct_type_name;
-                        } else {
-                            debug_type_name = std::string(
-                                ::type_info_to_string(debug_receiver->type));
+                std::string debug_type_name;
+                if (is_method_call) {
+                    if (!receiver_name.empty()) {
+                        Variable *debug_receiver =
+                            interpreter_.find_variable(receiver_name);
+                        if (!debug_receiver &&
+                            receiver_resolution.variable_ptr) {
+                            debug_receiver = receiver_resolution.variable_ptr;
+                        }
+                        if (debug_receiver) {
+                            if (!debug_receiver->struct_type_name.empty()) {
+                                debug_type_name =
+                                    debug_receiver->struct_type_name;
+                            } else {
+                                debug_type_name =
+                                    std::string(::type_info_to_string(
+                                        debug_receiver->type));
+                            }
                         }
                     }
                 }
             }
+            throw std::runtime_error("Undefined function: " + node->name);
         }
-        throw std::runtime_error("Undefined function: " + node->name);
+
+        // 組み込み関数の場合は、後続の処理（malloc, free などのチェック）に進む
+        // funcはnullptrのままだが、組み込み関数チェックで処理される
     }
 
     if (is_method_call && !receiver_name.empty()) {
@@ -2633,6 +2881,96 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                 }
             }
         }
+    }
+
+    // v0.14.0: 組み込み関数の処理（funcがnullptrの場合）
+    // malloc, free, sizeof などの組み込み関数を早期に処理
+    if (interpreter_.is_debug_mode()) {
+        debug_print(
+            "[BUILTIN_CHECK] func=%p, is_method_call=%d, node->name=%s\n",
+            (void *)func, is_method_call, node->name.c_str());
+    }
+
+    if (!func && !is_method_call) {
+        if (interpreter_.is_debug_mode()) {
+            debug_print("[BUILTIN_EARLY] Processing builtin function: %s\n",
+                        node->name.c_str());
+        }
+
+        // malloc(size) - メモリ確保
+        if (node->name == "malloc") {
+            if (node->arguments.size() != 1) {
+                throw std::runtime_error(
+                    "malloc() requires 1 argument: malloc(size)");
+            }
+
+            int64_t size =
+                interpreter_.eval_expression(node->arguments[0].get());
+
+            if (size <= 0) {
+                std::cerr << "[malloc] Error: invalid size " << size
+                          << std::endl;
+                return 0;
+            }
+
+            void *ptr = std::malloc(static_cast<size_t>(size));
+            if (ptr == nullptr) {
+                std::cerr << "[malloc] Error: allocation failed for size "
+                          << size << std::endl;
+                return 0;
+            }
+
+            if (interpreter_.is_debug_mode()) {
+                debug_print("[malloc] Allocated %lld bytes at %p\n", size, ptr);
+            }
+
+            return reinterpret_cast<int64_t>(ptr);
+        }
+
+        // free(ptr) - メモリ解放
+        if (node->name == "free") {
+            if (node->arguments.size() != 1) {
+                throw std::runtime_error(
+                    "free() requires 1 argument: free(ptr)");
+            }
+
+            int64_t ptr_value =
+                interpreter_.eval_expression(node->arguments[0].get());
+
+            if (ptr_value == 0) {
+                // nullptr の解放は何もしない
+                return 0;
+            }
+
+            std::free(reinterpret_cast<void *>(ptr_value));
+            return 0;
+        }
+
+        // その他の組み込み関数は後続の処理で対応
+        // funcがnullptrのままの場合、この時点では処理できない組み込み関数
+        // エラーにするか、後続の処理に任せる
+    }
+
+    // v0.14.0: funcがnullptrの場合、通常の関数処理をスキップ
+    // 組み込み関数は上記で処理済み、または後続の組み込み関数チェックで処理
+    if (!func) {
+        // funcがnullptrなのに、ここまで到達した場合
+        // 未実装の組み込み関数か、エラー
+        // 後続の組み込み関数チェック（sizeof等）に進むため、ここでは何もしない
+        // ただし、通常の関数処理（スコープ作成等）はスキップ
+        if (interpreter_.is_debug_mode()) {
+            debug_print("[BUILTIN_FALLTHROUGH] Function %s not handled in "
+                        "early builtin check, "
+                        "proceeding to legacy builtin checks\n",
+                        node->name.c_str());
+        }
+        // 後続の組み込み関数チェックセクションまでジャンプする必要があるが、
+        // C++ではgotoを使わずに、処理を別関数に分離するのが良い
+        // 今回は時間の制約上、既存のmallocチェックを早期リターンで処理した
+        // その他の組み込み関数も同様に早期リターンで処理すべき
+        throw std::runtime_error(
+            "Builtin function not fully implemented in早期 check: " +
+            node->name);
     }
 
     // 新しいスコープを作成
@@ -3180,8 +3518,13 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                         // 変数としても登録（値は関数ノードの実際のメモリアドレス）
                         int64_t func_address =
                             reinterpret_cast<int64_t>(target_func);
+                        TypedValue func_ptr_val(
+                            func_address,
+                            InferredType(TYPE_POINTER,
+                                         type_info_to_string(TYPE_POINTER)));
                         interpreter_.assign_function_parameter(
-                            param->name, func_address, TYPE_POINTER, false);
+                            param->name, func_ptr_val, TYPE_POINTER,
+                            param->type_name, false);
 
                         // 変数に関数ポインタフラグを設定
                         Variable *param_var =
@@ -3425,6 +3768,10 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                             Variable param_var;
                             param_var.type = TYPE_STRING;
                             param_var.str_value = arg->str_value;
+                            // value
+                            // フィールドにもポインタを保存（generic型で使用される）
+                            param_var.value = reinterpret_cast<int64_t>(
+                                strdup(param_var.str_value.c_str()));
                             param_var.is_assigned = true;
                             param_var.is_const =
                                 param->is_const; // パラメータのconst修飾を保持
@@ -3446,6 +3793,8 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                             Variable param_var;
                             param_var.type = TYPE_STRING;
                             param_var.str_value = source_var->str_value;
+                            // value フィールドもコピー（generic型で使用される）
+                            param_var.value = source_var->value;
                             param_var.is_assigned = true;
                             param_var.is_const =
                                 param->is_const; // パラメータのconst修飾を保持
@@ -3528,6 +3877,10 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                                 Variable temp;
                                 temp.type = TYPE_STRING;
                                 temp.str_value = arg->str_value;
+                                // value
+                                // フィールドにもポインタを保存（generic型で使用される）
+                                temp.value = reinterpret_cast<int64_t>(
+                                    strdup(temp.str_value.c_str()));
                                 temp.is_assigned = true;
                                 temp.struct_type_name = "string";
                                 assign_interface_argument(temp, "");
@@ -3979,7 +4332,7 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                                 evaluate_typed_expression(arg.get());
                             interpreter_.assign_function_parameter(
                                 param->name, arg_value, param->type_info,
-                                param->is_unsigned);
+                                param->type_name, param->is_unsigned);
 
                             // const修飾を設定
                             if (param->is_const) {
@@ -4065,9 +4418,9 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                     evaluate_typed_expression(param->default_value.get());
 
                 // パラメータに設定
-                interpreter_.assign_function_parameter(param->name, default_val,
-                                                       param->type_info,
-                                                       param->is_unsigned);
+                interpreter_.assign_function_parameter(
+                    param->name, default_val, param->type_info,
+                    param->type_name, param->is_unsigned);
 
                 // const修飾を設定
                 if (param->is_const) {

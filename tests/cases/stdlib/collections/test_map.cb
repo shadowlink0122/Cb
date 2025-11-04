@@ -1,0 +1,279 @@
+// tests/cases/stdlib/collections/test_map.cb
+// Map<K, V> Comprehensive Test Suite
+// Tests for the new method-based API with error handling
+
+import stdlib.collections.map;
+
+void test_basic_operations() {
+    println("=== Test 1: Basic Operations ===");
+    
+    Map<int, int> map;
+    map.insert(1, 100);
+    map.insert(2, 200);
+    map.insert(3, 300);
+    
+    assert(map.contains(1));
+    println("✓ Key 1 exists");
+    
+    int val = map.get(2, -1);
+    assert(val == 200);
+    println("✓ Value for key 2 is correct");
+    
+    assert(!map.contains(99));
+    println("✓ Key 99 does not exist");
+    
+    int size = map.size();
+    assert(size == 3);
+    println("✓ Size is correct: 3");
+    
+    println("");
+}
+
+void test_update() {
+    println("=== Test 2: Update Existing Key ===");
+    
+    Map<int, int> map;
+    map.insert(5, 500);
+    map.insert(5, 999);
+    
+    int val = map.get(5, -1);
+    assert(val == 999);
+    println("✓ Updated value correctly");
+    
+    int size = map.size();
+    assert(size == 1);
+    println("✓ Size remains 1 after update");
+    
+    println("");
+}
+
+void test_delete() {
+    println("=== Test 3: Delete Keys ===");
+    
+    Map<int, int> map;
+    map.insert(10, 1000);
+    map.insert(20, 2000);
+    map.insert(30, 3000);
+    
+    map.remove(20);
+    
+    assert(!map.contains(20));
+    println("✓ Key 20 no longer exists");
+    
+    assert(map.contains(10));
+    assert(map.contains(30));
+    println("✓ Other keys still exist");
+    
+    int size = map.size();
+    assert(size == 2);
+    println("✓ Size is now 2");
+    
+    println("");
+}
+
+void test_many_elements() {
+    println("=== Test 4: Many Elements (AVL Balance) ===");
+    
+    Map<int, int> map;
+    
+    for (int i = 1; i <= 100; i = i + 1) {
+        map.insert(i, i * 10);
+    }
+    
+    int size = map.size();
+    assert(size == 100);
+    println("✓ Inserted 100 elements");
+    
+    bool all_exist = true;
+    for (int i = 1; i <= 100; i = i + 1) {
+        if (!map.contains(i)) {
+            all_exist = false;
+        }
+    }
+    
+    assert(all_exist);
+    println("✓ All 100 keys exist");
+    
+    int val50 = map.get(50, -1);
+    assert(val50 == 500);
+    println("✓ Value for key 50 is correct");
+    
+    println("");
+}
+
+void test_clear() {
+    println("=== Test 5: Clear ===");
+    
+    Map<int, int> map;
+    map.insert(1, 10);
+    map.insert(2, 20);
+    map.insert(3, 30);
+    
+    map.clear();
+    
+    assert(map.is_empty());
+    println("✓ Map is empty after clear");
+    
+    int size = map.size();
+    assert(size == 0);
+    println("✓ Size is 0");
+    
+    println("");
+}
+
+void test_string_values() {
+    println("=== Test 6: String Values ===");
+    
+    Map<int, string> map;
+    map.insert(1, "one");
+    map.insert(2, "two");
+    map.insert(3, "three");
+    
+    string val = map.get(2, "");
+    assert(val == "two");
+    println("✓ Value for key 2: two");
+    
+    int size = map.size();
+    assert(size == 3);
+    println("✓ Size is correct: 3");
+    
+    println("");
+}
+
+void test_error_handling() {
+    println("=== Test 7: Error Handling with get() ===");
+    
+    Map<string, int> map;
+    map.insert("Alice", 100);
+    map.insert("Bob", 0);
+    
+    // Test 1: Existing key with non-zero value
+    int alice = map.get("Alice", -1);
+    assert(alice == 100);
+    println("✓ get('Alice', -1) returns 100");
+    
+    // Test 2: Existing key with zero value
+    int bob = map.get("Bob", -1);
+    assert(bob == 0);
+    println("✓ get('Bob', -1) returns 0");
+    
+    // Test 3: Non-existing key returns default
+    int charlie = map.get("Charlie", -1);
+    assert(charlie == -1);
+    println("✓ get('Charlie', -1) returns -1 (not found)");
+    
+    // Test 4: Recommended pattern with contains()
+    if (map.contains("Bob")) {
+        int val = map.get("Bob", -1);
+        assert(val == 0);
+        println("✓ contains() + get() pattern works");
+    }
+    
+    println("");
+}
+
+void test_try_remove() {
+    println("=== Test 8: try_remove() Method ===");
+    
+    Map<int, int> map;
+    map.insert(1, 10);
+    map.insert(2, 20);
+    
+    // Remove existing key
+    bool removed = map.try_remove(1);
+    assert(removed);
+    assert(!map.contains(1));
+    println("✓ try_remove() returns true for existing key");
+    
+    // Try to remove non-existing key
+    bool not_removed = map.try_remove(999);
+    assert(!not_removed);
+    println("✓ try_remove() returns false for non-existing key");
+    
+    println("");
+}
+
+void test_string_keys() {
+    println("=== Test 9: String Keys ===");
+    
+    Map<string, string> dict;
+    dict.insert("hello", "world");
+    dict.insert("foo", "bar");
+    dict.insert("", "empty");
+    
+    assert(dict.contains("hello"));
+    string val1 = dict.get("hello", "NOT_FOUND");
+    assert(val1 == "world");
+    println("✓ String key 'hello' works");
+    
+    assert(dict.contains(""));
+    string val2 = dict.get("", "NOT_FOUND");
+    assert(val2 == "empty");
+    println("✓ Empty string key works");
+    
+    assert(!dict.contains("missing"));
+    string val3 = dict.get("missing", "NOT_FOUND");
+    assert(val3 == "NOT_FOUND");
+    println("✓ Non-existing string key returns default");
+    
+    int size = dict.size();
+    assert(size == 3);
+    println("✓ Size is correct: 3");
+    
+    println("");
+}
+
+void test_multiple_types() {
+    println("=== Test 10: Multiple Type Combinations ===");
+    
+    // Map<int, int>
+    Map<int, int> map_ii;
+    map_ii.insert(1, 100);
+    assert(map_ii.get(1, -1) == 100);
+    println("✓ Map<int, int> works");
+    
+    // Map<string, int>
+    Map<string, int> map_si;
+    map_si.insert("count", 42);
+    assert(map_si.get("count", -1) == 42);
+    println("✓ Map<string, int> works");
+    
+    // Map<int, string>
+    Map<int, string> map_is;
+    map_is.insert(1, "first");
+    assert(map_is.get(1, "") == "first");
+    println("✓ Map<int, string> works");
+    
+    // Map<string, string>
+    Map<string, string> map_ss;
+    map_ss.insert("key", "value");
+    assert(map_ss.get("key", "") == "value");
+    println("✓ Map<string, string> works");
+    
+    println("");
+}
+
+int main() {
+    println("╔════════════════════════════════════════════╗");
+    println("║  Map<K, V> Comprehensive Test Suite       ║");
+    println("║  New API with Error Handling              ║");
+    println("╚════════════════════════════════════════════╝");
+    println("");
+    
+    test_basic_operations();
+    test_update();
+    test_delete();
+    test_many_elements();
+    test_clear();
+    test_string_values();
+    test_error_handling();
+    test_try_remove();
+    test_string_keys();
+    test_multiple_types();
+    
+    println("╔════════════════════════════════════════════╗");
+    println("║  ✓ All Map<K, V> tests passed!            ║");
+    println("╚════════════════════════════════════════════╝");
+    
+    return 0;
+}

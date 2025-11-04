@@ -1,0 +1,306 @@
+// Enhanced Map<K, V> with Option and Result types
+// 
+// 改善点:
+// 1. get_option(K key) -> Option<V>: キーが存在しない場合にNoneを返す
+// 2. try_insert(K key, V value) -> Result<void, string>: 将来的なバリデーション用
+// 3. remove()の修正: has_valueを使った削除の改善
+// 4. get()は後方互換性のため残すが、get_option()の使用を推奨
+//
+// 使用例:
+//   MapEnhanced<string, int> map;
+//   map.insert("key", 42);
+//   
+//   Option<int> opt = map.get_option("key");
+//   // match式やis_some()でチェック
+//   
+//   // 従来のget()も使用可能（デフォルト値を返す）
+//   int val = map.get("key");
+
+import stdlib.collections.map;
+
+// Re-export MapNode for use in MapEnhanced
+// MapNode is already defined in stdlib.collections.map
+
+// MapOps インターフェースの拡張版
+export interface MapOpsEnhanced<K, V> {
+    // 既存のAPI (後方互換性)
+    void insert(K key, V value);
+    V get(K key);
+    bool contains(K key);
+    void remove(K key);
+    int size();
+    bool is_empty();
+    void clear();
+    
+    // 新しいAPI (Option/Result型)
+    Option<V> get_option(K key);
+    Option<V> remove_and_get(K key);
+    bool try_remove(K key);
+}
+
+// Enhanced Map struct - 既存のMapを拡張
+export struct MapEnhanced<K, V> {
+    MapNode<K, V>* root;
+    int count;
+};
+
+impl MapOpsEnhanced<K, V> for MapEnhanced<K, V> {
+    
+    // ===== 既存APIの実装 (MapOpsから継承) =====
+    
+    void insert(K key, V value) {
+        if (self.root == nullptr) {
+            int node_size = sizeof(MapNode<K, V>);
+            void* mem = malloc(node_size);
+            MapNode<K, V>* new_node = (MapNode<K, V>*)mem;
+            new_node->key = key;
+            new_node->value = value;
+            new_node->has_value = true;
+            new_node->height = 1;
+            new_node->left = nullptr;
+            new_node->right = nullptr;
+            self.root = new_node;
+            self.count = self.count + 1;
+            return;
+        }
+        
+        MapNode<K, V>* current = self.root;
+        while (true) {
+            K current_key = current->key;
+            
+            if (key == current_key) {
+                current->value = value;
+                current->has_value = true;
+                return;
+            }
+            
+            if (key < current_key) {
+                MapNode<K, V>* left_child = current->left;
+                if (left_child == nullptr) {
+                    int node_size = sizeof(MapNode<K, V>);
+                    void* mem = malloc(node_size);
+                    MapNode<K, V>* new_node = (MapNode<K, V>*)mem;
+                    new_node->key = key;
+                    new_node->value = value;
+                    new_node->has_value = true;
+                    new_node->height = 1;
+                    new_node->left = nullptr;
+                    new_node->right = nullptr;
+                    current->left = new_node;
+                    self.count = self.count + 1;
+                    return;
+                }
+                current = left_child;
+            } else {
+                MapNode<K, V>* right_child = current->right;
+                if (right_child == nullptr) {
+                    int node_size = sizeof(MapNode<K, V>);
+                    void* mem = malloc(node_size);
+                    MapNode<K, V>* new_node = (MapNode<K, V>*)mem;
+                    new_node->key = key;
+                    new_node->value = value;
+                    new_node->has_value = true;
+                    new_node->height = 1;
+                    new_node->left = nullptr;
+                    new_node->right = nullptr;
+                    current->right = new_node;
+                    self.count = self.count + 1;
+                    return;
+                }
+                current = right_child;
+            }
+        }
+    }
+    
+    V get(K key) {
+        MapNode<K, V>* node = self.root;
+        
+        while (node != nullptr) {
+            K node_key = node->key;
+            
+            if (key == node_key) {
+                bool has_val = node->has_value;
+                if (has_val) {
+                    V the_value = node->value;
+                    return the_value;
+                }
+                V default_value;
+                return default_value;
+            }
+            
+            if (key < node_key) {
+                node = node->left;
+            } else {
+                node = node->right;
+            }
+        }
+        
+        V default_value;
+        return default_value;
+    }
+    
+    bool contains(K key) {
+        MapNode<K, V>* node = self.root;
+        
+        while (node != nullptr) {
+            K node_key = node->key;
+            
+            if (key == node_key) {
+                bool has_val = node->has_value;
+                return has_val;
+            }
+            
+            if (key < node_key) {
+                node = node->left;
+            } else {
+                node = node->right;
+            }
+        }
+        
+        return false;
+    }
+    
+    void remove(K key) {
+        MapNode<K, V>* node = self.root;
+        
+        while (node != nullptr) {
+            K node_key = node->key;
+            
+            if (key == node_key) {
+                bool had_value = node->has_value;
+                if (had_value) {
+                    node->has_value = false;
+                    if (self.count > 0) {
+                        self.count = self.count - 1;
+                    }
+                }
+                return;
+            }
+            
+            if (key < node_key) {
+                node = node->left;
+            } else {
+                node = node->right;
+            }
+        }
+    }
+    
+    int size() {
+        return self.count;
+    }
+    
+    bool is_empty() {
+        return self.count == 0;
+    }
+    
+    void clear() {
+        self.root = nullptr;
+        self.count = 0;
+    }
+    
+    // ===== 新しいAPI (Option型) =====
+    
+    // get_option: キーが存在すればSome(value)、存在しなければNoneを返す
+    Option<V> get_option(K key) {
+        MapNode<K, V>* node = self.root;
+        
+        while (node != nullptr) {
+            K node_key = node->key;
+            
+            if (key == node_key) {
+                bool has_val = node->has_value;
+                if (has_val) {
+                    V the_value = node->value;
+                    Option<V> result = Some(the_value);
+                    return result;
+                }
+                Option<V> result = None;
+                return result;
+            }
+            
+            if (key < node_key) {
+                node = node->left;
+            } else {
+                node = node->right;
+            }
+        }
+        
+        Option<V> result = None;
+        return result;
+    }
+    
+    // remove_and_get: キーを削除し、削除された値をSome(value)で返す
+    // 存在しない場合はNoneを返す
+    Option<V> remove_and_get(K key) {
+        MapNode<K, V>* node = self.root;
+        
+        while (node != nullptr) {
+            K node_key = node->key;
+            
+            if (key == node_key) {
+                bool had_value = node->has_value;
+                if (had_value) {
+                    V the_value = node->value;
+                    node->has_value = false;
+                    if (self.count > 0) {
+                        self.count = self.count - 1;
+                    }
+                    Option<V> result = Some(the_value);
+                    return result;
+                }
+                Option<V> result = None;
+                return result;
+            }
+            
+            if (key < node_key) {
+                node = node->left;
+            } else {
+                node = node->right;
+            }
+        }
+        
+        Option<V> result = None;
+        return result;
+    }
+    
+    // try_remove: キーを削除し、成功したらtrueを返す
+    bool try_remove(K key) {
+        MapNode<K, V>* node = self.root;
+        
+        while (node != nullptr) {
+            K node_key = node->key;
+            
+            if (key == node_key) {
+                bool had_value = node->has_value;
+                if (had_value) {
+                    node->has_value = false;
+                    if (self.count > 0) {
+                        self.count = self.count - 1;
+                    }
+                    return true;
+                }
+                return false;
+            }
+            
+            if (key < node_key) {
+                node = node->left;
+            } else {
+                node = node->right;
+            }
+        }
+        
+        return false;
+    }
+}
+
+impl MapEnhanced<K, V> {
+    self() {
+        self.root = nullptr;
+        self.count = 0;
+    }
+    
+    ~self() {
+        self.root = nullptr;
+        self.count = 0;
+    }
+}

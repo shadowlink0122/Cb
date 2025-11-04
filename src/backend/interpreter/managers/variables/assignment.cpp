@@ -91,6 +91,10 @@ void VariableManager::process_variable_assignment(const ASTNode *node) {
                 temp.type = value_type;
                 if (value_type == TYPE_STRING) {
                     temp.str_value = string_value;
+                    // value フィールドに文字列のコピーのポインタを保存（generic
+                    // 型で使用される）
+                    temp.value = reinterpret_cast<int64_t>(
+                        strdup(temp.str_value.c_str()));
                 } else {
                     temp.value = numeric_value;
                 }

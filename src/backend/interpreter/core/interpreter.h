@@ -781,6 +781,11 @@ class Interpreter : public EvaluatorInterface {
     void assign_function_parameter(const std::string &name,
                                    const TypedValue &value, TypeInfo type,
                                    bool is_unsigned);
+    // v0.11.0 Phase 1a: 型名を受け取るオーバーロード
+    void assign_function_parameter(const std::string &name,
+                                   const TypedValue &value, TypeInfo type,
+                                   const std::string &type_name,
+                                   bool is_unsigned);
     void assign_array_parameter(const std::string &name,
                                 const Variable &source_array, TypeInfo type);
     void assign_interface_view(const std::string &dest_name,

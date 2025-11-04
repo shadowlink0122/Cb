@@ -5,6 +5,22 @@
 inline void test_integration_memory() {
     std::cout << "[integration-test] Running Memory Management tests..." << std::endl;
     
+    // Test 0: 基本的なnew/delete機能（新規）
+    double execution_time_newdelete_basic;
+    run_cb_test_with_output_and_time("../../tests/cases/memory/test_new_delete_basic.cb", 
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "test_new_delete_basic.cb should execute successfully");
+            
+            INTEGRATION_ASSERT_CONTAINS(output, "Test 1: Primitive types", "Should test primitive types");
+            INTEGRATION_ASSERT_CONTAINS(output, "Test 2: Struct types", "Should test struct types");
+            INTEGRATION_ASSERT_CONTAINS(output, "Test 3: Arrays", "Should test arrays");
+            INTEGRATION_ASSERT_CONTAINS(output, "Test 4: sizeof", "Should test sizeof");
+            INTEGRATION_ASSERT_CONTAINS(output, "Test 5: nullptr handling", "Should test nullptr");
+            INTEGRATION_ASSERT_CONTAINS(output, "Test 6: Zero initialization", "Should test zero-init");
+            INTEGRATION_ASSERT_CONTAINS(output, "ALL 6 TESTS PASSED!", "All basic tests should pass");
+        }, execution_time_newdelete_basic);
+    integration_test_passed_with_time("new/delete basic operations", "test_new_delete_basic.cb", execution_time_newdelete_basic);
+    
     // Test 1: 基本的なnew/delete/sizeof
     double execution_time_basic;
     run_cb_test_with_output_and_time("../../tests/cases/memory/test_new_delete_sizeof.cb", 
@@ -186,7 +202,97 @@ inline void test_integration_memory() {
         }, execution_time_array_access);
     integration_test_passed_with_time("array access functions", "test_array_access.cb", execution_time_array_access);
     
-    // Test 7: エラーケース（個別テスト）
+    // Test 7: memcpy包括的テスト
+    double execution_time_memcpy_comprehensive;
+    run_cb_test_with_output_and_time("../../tests/cases/memory/test_memcpy_comprehensive.cb", 
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "test_memcpy_comprehensive.cb should execute successfully");
+            
+            // 10個のテストがすべて実行されたことを確認
+            INTEGRATION_ASSERT_CONTAINS(output, "Test 1: memcpy Point Struct", 
+                "Test 1 should be executed");
+            INTEGRATION_ASSERT_CONTAINS(output, "Test 2: memcpy Point Struct", 
+                "Test 2 should be executed");
+            INTEGRATION_ASSERT_CONTAINS(output, "Test 3: memcpy Data Struct", 
+                "Test 3 should be executed (double member test)");
+            INTEGRATION_ASSERT_CONTAINS(output, "Test 4: memcpy Multiple Structs", 
+                "Test 4 should be executed");
+            INTEGRATION_ASSERT_CONTAINS(output, "Test 5: Copy Independence", 
+                "Test 5 should be executed");
+            INTEGRATION_ASSERT_CONTAINS(output, "Test 6: Overwrite Existing Data", 
+                "Test 6 should be executed");
+            INTEGRATION_ASSERT_CONTAINS(output, "Test 7: Zero Values", 
+                "Test 7 should be executed");
+            INTEGRATION_ASSERT_CONTAINS(output, "Test 8: Negative Values", 
+                "Test 8 should be executed");
+            INTEGRATION_ASSERT_CONTAINS(output, "Test 9: Large Values", 
+                "Test 9 should be executed");
+            INTEGRATION_ASSERT_CONTAINS(output, "Test 10: Multiple Different Types", 
+                "Test 10 should be executed");
+            
+            // すべてのテストが成功したことを確認
+            INTEGRATION_ASSERT_CONTAINS(output, "✅ ALL 10 TESTS COMPLETED!", 
+                "All 10 tests should complete successfully");
+            
+            // 各種データ型のテストを確認
+            INTEGRATION_ASSERT_CONTAINS(output, "Single primitives (int)", 
+                "Should test primitive types");
+            INTEGRATION_ASSERT_CONTAINS(output, "Simple structs (Point)", 
+                "Should test simple structs");
+            INTEGRATION_ASSERT_CONTAINS(output, "Complex structs (Data with mixed types)", 
+                "Should test complex structs with double members");
+            INTEGRATION_ASSERT_CONTAINS(output, "Multiple independent copies", 
+                "Should test multiple copies");
+            INTEGRATION_ASSERT_CONTAINS(output, "Copy independence", 
+                "Should test copy independence");
+        }, execution_time_memcpy_comprehensive);
+    integration_test_passed_with_time("memcpy comprehensive (10 tests)", "test_memcpy_comprehensive.cb", execution_time_memcpy_comprehensive);
+    
+    // Test 8: ジェネリクス + メモリ統合テスト
+    double execution_time_generic_memory;
+    run_cb_test_with_output_and_time("../../tests/cases/memory/test_generic_memory_integration.cb", 
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "test_generic_memory_integration.cb should execute successfully");
+            
+            // 10個のテストがすべて実行されたことを確認
+            INTEGRATION_ASSERT_CONTAINS(output, "[Test 1] Vector<int> basic operations", 
+                "Test 1 should be executed");
+            INTEGRATION_ASSERT_CONTAINS(output, "[Test 2] Vector<long> with sizeof", 
+                "Test 2 should be executed");
+            INTEGRATION_ASSERT_CONTAINS(output, "[Test 3] Queue<int> basic operations", 
+                "Test 3 should be executed");
+            INTEGRATION_ASSERT_CONTAINS(output, "[Test 4] Vector<Point> with struct type", 
+                "Test 4 should be executed");
+            INTEGRATION_ASSERT_CONTAINS(output, "[Test 5] Queue<long> with large numbers", 
+                "Test 5 should be executed");
+            INTEGRATION_ASSERT_CONTAINS(output, "[Test 6] sizeof() with generic types", 
+                "Test 6 should be executed");
+            INTEGRATION_ASSERT_CONTAINS(output, "[Test 7] Memory leak prevention", 
+                "Test 7 should be executed");
+            INTEGRATION_ASSERT_CONTAINS(output, "[Test 8] new/delete with Point struct", 
+                "Test 8 should be executed");
+            INTEGRATION_ASSERT_CONTAINS(output, "[Test 9] memcpy() with Point struct", 
+                "Test 9 should be executed");
+            INTEGRATION_ASSERT_CONTAINS(output, "[Test 10] malloc/free basic operations", 
+                "Test 10 should be executed");
+            
+            // すべてのテストが成功したことを確認
+            INTEGRATION_ASSERT_CONTAINS(output, "ALL TESTS PASSED!", 
+                "All 10 tests should complete successfully");
+            
+            // 主要な機能を確認
+            INTEGRATION_ASSERT_CONTAINS(output, "Vector<T> and Queue<T> basic operations", 
+                "Should verify generic struct operations");
+            INTEGRATION_ASSERT_CONTAINS(output, "Generic structs with primitive and struct types", 
+                "Should verify type parameter variations");
+            INTEGRATION_ASSERT_CONTAINS(output, "sizeof() consistency", 
+                "Should verify sizeof() with generics");
+            INTEGRATION_ASSERT_CONTAINS(output, "Constructor/destructor memory management", 
+                "Should verify RAII memory management");
+        }, execution_time_generic_memory);
+    integration_test_passed_with_time("generic structs + memory (10 tests)", "test_generic_memory_integration.cb", execution_time_generic_memory);
+    
+    // Test 9: エラーケース（個別テスト）
     // Note: これらのテストは意図的にエラーを引き起こすため、
     // 通常のintegration testからは除外し、別途手動テストを行う
     std::cout << "[integration-test] Error case tests (manual validation):" << std::endl;

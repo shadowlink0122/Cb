@@ -626,6 +626,9 @@ void StructOperations::sync_individual_member_from_struct(
         individual_var->value = member_value.value;
         individual_var->type = member_value.type;
         individual_var->str_value = member_value.str_value;
+        individual_var->float_value = member_value.float_value;
+        individual_var->double_value = member_value.double_value;
+        individual_var->quad_value = member_value.quad_value;
         individual_var->is_assigned = member_value.is_assigned;
         individual_var->is_const = member_value.is_const;
         individual_var->is_unsigned = member_value.is_unsigned;
@@ -656,6 +659,9 @@ void StructOperations::sync_individual_member_from_struct(
                     nested_var->value = nested_value.value;
                     nested_var->type = nested_value.type;
                     nested_var->str_value = nested_value.str_value;
+                    nested_var->float_value = nested_value.float_value;
+                    nested_var->double_value = nested_value.double_value;
+                    nested_var->quad_value = nested_value.quad_value;
                     nested_var->is_assigned = nested_value.is_assigned;
                     nested_var->is_const = nested_value.is_const;
                     nested_var->is_unsigned = nested_value.is_unsigned;

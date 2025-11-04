@@ -412,14 +412,62 @@ ASTNode* ExpressionParser::parseExpression() {
 ### デストラクタ対応
 
 **Parser側の変更**:
-- `fn deinit()` 構文の解析
+- `~self()` 構文の解析（注意: `fn deinit()` ではない）
 - implブロック内でのデストラクタ宣言
+- コンストラクタ `self()` との併用
 
 **Interpreter側の変更**:
 - デストラクタスコープ管理（`push_destructor_scope()`, `pop_destructor_scope()`）
 - LIFO順序でのデストラクタ実行
 - break/continue時のスコープクリーンアップ
+- return文実行前のクリーンアップ（defer → デストラクタ → return）
 - ジェネリック構造体デストラクタの型名アンマングル
+
+### パターンマッチング
+
+**match文の実装**:
+- Enum専用のパターンマッチング
+- variant名による分岐
+- 関連値の抽出（destructuring）
+- ワイルドカードパターン `_` のサポート
+
+**サポートされるパターン**:
+```cb
+match (option) {
+    Some(value) => println("Value: {value}"),
+    None => println("No value")
+}
+
+match (result) {
+    Ok(val) => println("Success: {val}"),
+    Err(e) => println("Error: {e}")
+}
+```
+
+### 配列操作組み込み関数
+
+**array_get() / array_set()**:
+- 実行時境界チェック付き配列アクセス
+- 範囲外アクセス時にエラーメッセージを表示してプログラムを停止
+- デバッグモードでの詳細なエラー情報提供
+
+**使用例**:
+```cb
+int[5] arr = [1, 2, 3, 4, 5];
+int val = array_get(arr, 2, 5);  // 安全なアクセス
+array_set(arr, 3, 100, 5);       // 安全な設定
+```
+
+### メモリ管理関数
+
+**malloc() / free()**:
+- C言語スタイルの動的メモリ管理
+- `void*` 型の返却
+- 手動での型キャストが必要
+
+**実装状況**:
+- ✅ malloc/free: 実装済み
+- 🔄 new/delete: 計画中（型安全、コンストラクタ/デストラクタ自動呼び出し）
 
 ---
 
@@ -432,10 +480,63 @@ ASTNode* ExpressionParser::parseExpression() {
 | v0.9.2 | 2,798 | 30 | 2,828 | 100% |
 | v0.10.0 | 2,924 | 30 | 2,954 | 100% |
 | **v0.11.0** | **3,341** | **30** | **3,371** | **100%** |
-4. **パフォーマンス維持**: 804ms以下を維持
+
+---
+
+## 🆕 v0.11.0 Part 1a の主要変更（2025年11月3日）
+
+### Vector<T>の双方向リンクリスト実装
+
+**実装内容**:
+- 従来の配列ベースからノードベース双方向リンクリストに完全リファクタリング
+- O(1)での先頭・末尾への挿入/削除を実現
+- ノードメモリレイアウト: `[prev (sizeof(void*))][next (sizeof(void*))][data (sizeof(T))]`
+
+**API変更**:
+- **削除されたメソッド**: `init()`, `reserve()`, `get_capacity()`
+- **新規追加**: `push_front()`, `pop_front()`, `delete_at()`, `find()`, `sort()`
+- **保持**: `push_back()`, `pop_back()`, `get()`, `set()`, `get_length()`, `clear()`
+
+**パフォーマンス**:
+- 先頭追加: O(n) → O(1)
+- 末尾追加: O(1) → O(1)（変わらず）
+- ランダムアクセス: O(1) → O(n)（トレードオフ）
+
+**テスト**:
+- 新規テスト: 7個（リンクリスト機能）
+- 既存テスト: すべて合格（27/27）
+
+### import文の文字列リテラル構文廃止
+
+**実装内容**:
+- 文字列リテラルimport（`import "path/to/file.cb";`）を廃止
+- モジュールパス構文（`import module.path.name;`）に統一
+- パーサーレベルでのエラー検出を追加
+
+**変更された箇所**:
+- `statement_parser.cpp`: 文字列トークン検出時にエラーを報告
+- `recursive_parser.cpp`: 文字列リテラルimportの処理を削除
+
+**影響範囲**:
+- 41ファイルを更新
+- 全テストケース、サンプルコード、標準ライブラリを更新
+
+**エラーメッセージ**:
+```
+Error: String literal import syntax is deprecated. 
+Use 'import module.path.name;' instead of 'import "path/to/file.cb";'
+```
+
+**マイグレーション**:
+```bash
+# 旧構文から新構文への自動変換
+sed -i 's/import "\([^"]*\)";/import \1;/g' *.cb
+sed -i 's/\//./g' *.cb  # パス区切りを . に変換
+```
 
 ---
 
 **作成日**: 2025年1月  
-**バージョン**: v0.9.1  
+**最終更新**: 2025年11月3日  
+**バージョン**: v0.11.0 Part 1a  
 **ステータス**: Phase 3完了、Phase 4進行中
