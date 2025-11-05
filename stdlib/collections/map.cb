@@ -55,6 +55,7 @@ export interface MapOps<K, V> {
     MapNode<K, V>* remove_from_node(MapNode<K, V>* node, K key);
     MapNode<K, V>* rotate_left(MapNode<K, V>* node);
     MapNode<K, V>* rotate_right(MapNode<K, V>* node);
+    void free_all_nodes(MapNode<K, V>* node);
 }
 
 export struct Map<K, V> {
@@ -381,6 +382,20 @@ impl MapOps<K, V> for Map<K, V> {
         return node;
     }
     
+    // Private: 全ノードを再帰的に解放（v0.11.0+）
+    // デストラクタとclear()で使用
+    private void free_all_nodes(MapNode<K, V>* node) {
+        if (node == nullptr) {
+            return;
+        }
+        
+        // 後順巡回（post-order traversal）で削除
+        // 子ノードを先に削除してから、親ノードを削除
+        self.free_all_nodes(node->left);
+        self.free_all_nodes(node->right);
+        free(node);
+    }
+    
     // Public: 挿入
     void insert(K key, V value) {
         // Check if key already exists BEFORE insertion
@@ -472,9 +487,10 @@ impl MapOps<K, V> for Map<K, V> {
         return self.count == 0;
     }
     
-    // Public: クリア
+    // Public: クリア（v0.11.0+: 完全なメモリ解放）
     void clear() {
-        // TODO: 全ノードのfree()
+        // 全ノードを再帰的に解放
+        self.free_all_nodes(self.root);
         self.root = nullptr;
         self.count = 0;
     }
@@ -514,9 +530,10 @@ impl Map<K, V> {
         self.count = 0;
     }
     
-    // デストラクタ
+    // デストラクタ（v0.11.0+: 完全なメモリ解放）
     ~self() {
-        // TODO: 全ノードのfree()を再帰的に実行
+        // 全ノードを再帰的に解放
+        self.free_all_nodes(self.root);
         self.root = nullptr;
         self.count = 0;
     }
