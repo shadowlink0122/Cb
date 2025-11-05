@@ -4,6 +4,15 @@
 // - ノードベースのリンクリストで動的なサイズ（容量制限なし）
 // - デフォルトコンストラクタとデストラクタによる安全なメモリ管理
 //
+// 計算量:
+//   - push: O(1)
+//   - pop: O(1)
+//   - top: O(1)
+//   - empty/size: O(1)
+//
+// v0.11.0 改善点:
+//   - pop()のメモリリーク修正（free()追加）
+//
 // 使用方法:
 //   Queue<int> queue;         // デフォルトコンストラクタで自動初期化
 //   queue.push(42);           // または queue.enqueue(42);
@@ -100,13 +109,15 @@ impl QueueOps<T> for Queue<T> {
             return dummy;
         }
         
-        // ローカル変数を使わずに直接返す（Deep copy実装が完全になるまでの暫定対応）
+        // 先頭ノードを保存
         void* front_node = self.front;
         
+        // データをコピー（free前に）
+        T result = array_get(front_node, 0);
+        
         // 次のノードへのポインタを取得
-        // nextポインタはノード内のオフセット sizeof(T) の位置にある
         int data_size = sizeof(T);
-        long front_addr = (long)self.front;
+        long front_addr = (long)front_node;
         long next_addr = front_addr + data_size;
         void** next_ptr = (void**)next_addr;
         void* next_node = *next_ptr;
@@ -121,8 +132,10 @@ impl QueueOps<T> for Queue<T> {
         
         self.length = self.length - 1;
         
-        // データを直接返す（ローカル変数経由せず）
-        return array_get(front_node, 0);
+        // ノードを解放（v0.11.0+: メモリリーク修正）
+        free(front_node);
+        
+        return result;
     }
     
     T top() {

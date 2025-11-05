@@ -5,6 +5,19 @@
 // - コンストラクタとデストラクタによる安全なメモリ管理
 // - ソート機能（プリミティブ型のデフォルトソート、カスタム比較関数対応）
 //
+// 計算量:
+//   - push_back/push_front: O(1)
+//   - pop_back/pop_front: O(1)
+//   - delete_at: O(n)
+//   - at: O(n)
+//   - find: O(n)
+//   - sort: O(n log n) - マージソート
+//   - get_length/is_empty: O(1)
+//   - clear: O(n)
+//
+// v0.11.0 改善点:
+//   - sort()をバブルソート(O(n²))からマージソート(O(n log n))に改善
+//
 // 使用方法:
 //   Vector<int> vec;           // コンストラクタで自動初期化
 //   vec.push_back(42);         // 末尾に要素を追加
@@ -43,13 +56,17 @@ export interface VectorOps<T> {
     long find(T value);
     
     // ソート
-    void sort();  // プリミティブ型のデフォルト昇順ソート
+    void sort();  // O(n log n) マージソート
     void sort_with(void* compare_fn);  // カスタム比較関数でソート
     
     // ユーティリティ
     long get_length();
     bool is_empty();
     void clear();
+    
+    // Private helpers for merge sort
+    void* merge_sort_list(void* head, long length);
+    void* merge_two_lists(void* left, void* right);
 }
 
 // ===== Vector実装 - 双方向リンクリスト =====
@@ -270,87 +287,121 @@ impl VectorOps<T> for Vector<T> {
         return -1;  // 見つからなかった
     }
     
-    // O(n^2) - バブルソート（プリミティブ型のデフォルト昇順）
+    // Private: 2つのソート済みリストをマージ
+    private void* merge_two_lists(void* left, void* right) {
+        if (left == nullptr) {
+            return right;
+        }
+        if (right == nullptr) {
+            return left;
+        }
+        
+        int ptr_size = sizeof(void*);
+        void* left_data_ptr = left + ptr_size + ptr_size;
+        void* right_data_ptr = right + ptr_size + ptr_size;
+        T left_data = array_get(left_data_ptr, 0);
+        T right_data = array_get(right_data_ptr, 0);
+        
+        void* result = nullptr;
+        
+        if (left_data <= right_data) {
+            result = left;
+            void** left_next_ptr = left + ptr_size;
+            void* left_next = *left_next_ptr;
+            void* merged = self.merge_two_lists(left_next, right);
+            *left_next_ptr = merged;
+            if (merged != nullptr) {
+                void** merged_prev_ptr = merged;
+                *merged_prev_ptr = result;
+            }
+        } else {
+            result = right;
+            void** right_next_ptr = right + ptr_size;
+            void* right_next = *right_next_ptr;
+            void* merged = self.merge_two_lists(left, right_next);
+            *right_next_ptr = merged;
+            if (merged != nullptr) {
+                void** merged_prev_ptr = merged;
+                *merged_prev_ptr = result;
+            }
+        }
+        
+        return result;
+    }
+    
+    // Private: マージソート（リンクリスト版）
+    private void* merge_sort_list(void* head, long length) {
+        if (length <= 1 || head == nullptr) {
+            return head;
+        }
+        
+        // リストを2つに分割
+        long mid = length / 2;
+        int ptr_size = sizeof(void*);
+        void* current = head;
+        long i = 0;
+        
+        // mid-1番目のノードまで進む
+        while (i < mid - 1) {
+            void** next_ptr = current + ptr_size;
+            current = *next_ptr;
+            i = i + 1;
+        }
+        
+        // currentの次が右半分の開始
+        void** current_next_ptr = current + ptr_size;
+        void* right_head = *current_next_ptr;
+        
+        // 左半分と右半分を切り離す
+        *current_next_ptr = nullptr;
+        if (right_head != nullptr) {
+            void** right_prev_ptr = right_head;
+            *right_prev_ptr = nullptr;
+        }
+        
+        // 再帰的にソート
+        void* left = self.merge_sort_list(head, mid);
+        void* right = self.merge_sort_list(right_head, length - mid);
+        
+        // マージ
+        return self.merge_two_lists(left, right);
+    }
+    
+    // O(n log n) - マージソート（プリミティブ型のデフォルト昇順）
     void sort() {
         if (self.length <= 1) {
             return;
         }
         
-        // バブルソート実装
+        // マージソート実行
+        self.front = self.merge_sort_list(self.front, self.length);
+        
+        // backポインタを更新
         int ptr_size = sizeof(void*);
-        bool swapped = true;
-        while (swapped) {
-            swapped = false;
-            void* current = self.front;
-            
-            while (current != nullptr) {
-                void** next_ptr = current + ptr_size;
-                void* next_node = *next_ptr;
-                
-                if (next_node == nullptr) {
-                    break;
-                }
-                
-                void* current_data_ptr = current + ptr_size + ptr_size;
-                void* next_data_ptr = next_node + ptr_size + ptr_size;
-                T current_data = array_get(current_data_ptr, 0);
-                T next_data = array_get(next_data_ptr, 0);
-                
-                // 昇順: current > next なら交換
-                if (current_data > next_data) {
-                    array_set(current_data_ptr, 0, next_data);
-                    array_set(next_data_ptr, 0, current_data);
-                    swapped = true;
-                }
-                
-                current = next_node;
+        void* current = self.front;
+        while (current != nullptr) {
+            void** next_ptr = current + ptr_size;
+            void* next_node = *next_ptr;
+            if (next_node == nullptr) {
+                self.back = current;
+                break;
             }
+            current = next_node;
         }
     }
     
-    // O(n^2) - カスタム比較関数を使用したソート
+    // O(n log n) - カスタム比較関数を使用したソート
     // compare_fn: int (*)(T a, T b) - a < b なら負、a == b なら0、a > b なら正
+    // NOTE: 現在は関数ポインタ呼び出しが未実装のため、デフォルト比較を使用
     void sort_with(void* compare_fn) {
-        if (self.length <= 1 || compare_fn == nullptr) {
+        if (self.length <= 1) {
             return;
         }
         
-        // バブルソート実装（比較関数使用）
-        int ptr_size = sizeof(void*);
-        bool swapped = true;
-        while (swapped) {
-            swapped = false;
-            void* current = self.front;
-            
-            while (current != nullptr) {
-                void** next_ptr = current + ptr_size;
-                void* next_node = *next_ptr;
-                
-                if (next_node == nullptr) {
-                    break;
-                }
-                
-                void* current_data_ptr = current + ptr_size + ptr_size;
-                void* next_data_ptr = next_node + ptr_size + ptr_size;
-                T current_data = array_get(current_data_ptr, 0);
-                T next_data = array_get(next_data_ptr, 0);
-                
-                // 比較関数を呼び出し
-                // NOTE: Cbで関数ポインタ呼び出しの正確な構文を確認する必要がある
-                // 仮実装として、比較関数が正の値を返したら交換
-                // int result = compare_fn(current_data, next_data);
-                // if (result > 0) { ... }
-                
-                // 現時点では、プリミティブ型の比較のみ対応
-                if (current_data > next_data) {
-                    array_set(current_data_ptr, 0, next_data);
-                    array_set(next_data_ptr, 0, current_data);
-                    swapped = true;
-                }
-                
-                current = next_node;
-            }
-        }
+        // 現時点では、プリミティブ型のデフォルト比較を使用
+        // 将来的に関数ポインタ呼び出しが実装されたら、
+        // merge_two_listsとmerge_sort_listに比較関数を渡すように変更する
+        self.sort();
     }
     
     // O(1) - 要素数を取得
