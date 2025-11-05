@@ -1,7 +1,7 @@
 # Cb言語 完全仕様書 v0.11.0
 
-**最終更新**: 2025年10月28日  
-**バージョン**: v0.11.0 - Generics, String Interpolation & Destructors
+**最終更新**: 2025年11月5日  
+**バージョン**: v0.11.0 - Generics, String Interpolation, Destructors & Collections
 
 ## 目次
 
@@ -3349,6 +3349,205 @@ let resource: shared_ptr<Resource> = make_shared<Resource>();
 ---
 
 ## 標準ライブラリ
+
+### collections.map - Map<K, V>
+
+**v0.11.0で追加**: AVL自己平衡二分探索木による連想配列
+
+#### 基本的な使い方
+
+```cb
+import stdlib.collections.map;
+
+void main() {
+    Map<int, int> m;
+    m.init();
+    
+    // キー・バリューの挿入
+    m.insert(1, 100);
+    m.insert(2, 200);
+    m.insert(3, 300);
+    
+    // 値の取得
+    int val = m.get(2, -1);  // 200
+    int missing = m.get(99, -1);  // -1 (デフォルト値)
+    
+    // キーの存在確認
+    if (m.contains(1)) {
+        println("Key 1 exists");
+    }
+    
+    // 削除
+    bool removed = m.try_remove(2);  // true
+    
+    // サイズ
+    println("Size: {m.size()}");  // 2
+}
+```
+
+#### データ構造
+
+**AVL自己平衡二分探索木**:
+```
+        [4:400]  height=3
+       /        \
+    [2:200]    [6:600]  height=2
+    /    \      /    \
+ [1:100][3:300][5:500][7:700]  height=1
+```
+
+**MapNode構造**:
+```cb
+struct MapNode<K, V> {
+    K key;
+    V value;
+    MapNode<K, V>* left;
+    MapNode<K, V>* right;
+    int height;
+};
+```
+
+#### 主要メソッド
+
+| メソッド | 時間計算量 | 説明 |
+|---------|-----------|------|
+| `init()` | O(1) | マップ初期化 |
+| `insert(K key, V value)` | O(log n) | キー・バリュー挿入/更新 |
+| `get(K key, V default)` | O(log n) | 値取得（存在しない場合はデフォルト） |
+| `contains(K key)` | O(log n) | キー存在確認 |
+| `try_remove(K key)` | O(log n) | 削除（成功/失敗を返す） |
+| `clear()` | O(n) | 全要素削除 |
+| `size()` | O(1) | 要素数取得 |
+| `get_tree_height()` | O(1) | ツリー高さ取得（デバッグ用） |
+
+#### AVLバランシング
+
+**4つの回転ケース**:
+- **Left-Left (LL)**: 右回転
+- **Left-Right (LR)**: 左回転 → 右回転
+- **Right-Right (RR)**: 左回転
+- **Right-Left (RL)**: 右回転 → 左回転
+
+**バランス因子**:
+```
+balance = height(left) - height(right)
+-1 ≤ balance ≤ 1  （バランスが取れている）
+balance > 1 または balance < -1  （回転が必要）
+```
+
+#### パフォーマンス検証
+
+1000要素挿入時:
+- 実測高さ: 10
+- 理論最適値: log₂(1000) ≈ 9.97
+- 結論: **完璧なAVLバランス** ✅
+
+#### 対応型
+
+**キー型 (K)**:
+- プリミティブ型: int, long, double
+- String型
+
+**バリュー型 (V)**:
+- プリミティブ型: int, long, double
+- String型
+- 任意の構造体型
+
+**型組み合わせ例**:
+```cb
+Map<int, int> m1;           // 整数→整数
+Map<int, String> m2;        // 整数→文字列
+Map<String, int> m3;        // 文字列→整数
+Map<String, String> m4;     // 文字列→文字列
+```
+
+#### メモリ管理
+
+```cb
+impl Map<K, V> {
+    self() {
+        self.root = nullptr;
+        self.count = 0;
+    }
+    
+    ~self() {
+        self.clear();  // 全ノード自動削除
+    }
+}
+```
+
+---
+
+### collections.queue - Queue<T>
+
+**v0.11.0で実装**: 循環バッファによる効率的なFIFOキュー
+
+#### 基本的な使い方
+
+```cb
+import stdlib.collections.queue;
+
+void main() {
+    Queue<int> q;
+    q.init(5);  // 初期容量5
+    
+    // 要素の追加
+    q.enqueue(10);
+    q.enqueue(20);
+    q.enqueue(30);
+    
+    // 先頭要素の参照
+    int front = q.peek();  // 10
+    
+    // 要素の取り出し（FIFO）
+    int val = q.dequeue();  // 10
+    
+    // サイズ
+    println("Size: {q.size()}");  // 2
+}
+```
+
+#### データ構造
+
+**循環バッファ**:
+```
+[0][1][2][3][4]  capacity=5
+    ^front  ^rear
+    
+enqueue(40):
+[0][1][2][40][4]
+    ^front     ^rear
+
+dequeue():
+[0][1][2][40][4]
+       ^front  ^rear
+```
+
+#### 主要メソッド
+
+| メソッド | 時間計算量 | 説明 |
+|---------|-----------|------|
+| `init(int capacity)` | O(1) | キュー初期化 |
+| `enqueue(T value)` | O(1) | 末尾に要素追加 |
+| `dequeue()` | O(1) | 先頭要素を取り出し |
+| `peek()` | O(1) | 先頭要素を参照（削除しない） |
+| `resize(int new_capacity)` | O(n) | 容量変更 |
+| `is_empty()` | O(1) | 空判定 |
+| `size()` | O(1) | 要素数取得 |
+
+#### メモリ管理
+
+```cb
+impl Queue<T> {
+    ~self() {
+        if (self.data != nullptr) {
+            free(self.data);  // 自動メモリ解放
+        }
+    }
+}
+```
+
+---
 
 ### collections.vector - Vector<T>
 

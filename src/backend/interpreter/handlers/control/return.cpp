@@ -692,25 +692,8 @@ void ReturnHandler::handle_expression_return(const ASTNode *node) {
                     static_cast<int>(node->left->node_type));
     }
 
-    // まず、式を評価してReturnExceptionをキャッチする（関数呼び出しの場合）
-    try {
-        interpreter_->expression_evaluator_->evaluate_expression(
-            node->left.get());
-    } catch (const ReturnException &ret_ex) {
-        if (debug_mode) {
-            debug_print("[RETURN_EXPR] Caught ReturnException from "
-                        "evaluate_expression\n");
-        }
-        // 関数呼び出しの結果がReturnExceptionとして返ってきた場合、そのまま再スロー
-        throw ret_ex;
-    }
-
-    if (debug_mode) {
-        debug_print(
-            "[RETURN_EXPR] No exception, evaluating typed expression\n");
-    }
-
-    // それ以外の場合、型推論を使用して正しい型で返す
+    // 【v0.11.0 最適化】式を一度だけ評価する
+    // evaluate_typed_expressionのみを使用（ReturnExceptionも正しく処理される）
     TypedValue typed_result =
         interpreter_->expression_evaluator_->evaluate_typed_expression(
             node->left.get());

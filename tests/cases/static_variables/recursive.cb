@@ -3,8 +3,8 @@ int recursive_counter(int n){
     static int call_count = 0;
     call_count++;
     
-    println(call_count);
-    println(n);
+    println("count: {call_count}");
+    println("n: {n}");
     
     if(n <= 1){
         return n;

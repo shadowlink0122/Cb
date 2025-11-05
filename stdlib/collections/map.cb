@@ -4,18 +4,19 @@
 // - ジェネリック型パラメータK（キー）とV（値）
 // - AVL木による自動バランシング（高さバランス保証）
 //   - left, right で左右の子ノードを指す
-//   - 再帰的な挿入と回転により木の高さを O(log n) に保つ
+//   - 再帰的な挿入・削除と回転により木の高さを O(log n) に保つ
 // 
 // 計算量 (AVLバランシングあり):
 //   - insert: O(log n) - 保証（回転によるバランシング）
 //   - get: O(log n) - 保証
 //   - contains: O(log n) - 保証
-//   - remove: O(1) - 簡易実装（has_valueをfalseにするのみ）
+//   - remove: O(log n) - 完全削除+再バランシング（v0.11.0+）
 //   - get_tree_height: O(1) - ルートの高さフィールドを返す
 // 
-// 制限事項:
-//   - 完全な削除は未実装（メモリリークの可能性あり）
-//   - remove時のバランシング未実装（削除は論理削除のみ）
+// v0.11.0 改善点:
+//   - 完全な削除実装（free()でメモリ解放）
+//   - remove時のAVLバランシング実装
+//   - return文の二重評価バグ修正により、回転関数を活用した簡潔な実装
 // 
 
 // ノード構造体の定義
@@ -50,6 +51,10 @@ export interface MapOps<K, V> {
     MapNode<K, V>* insert_to_node(MapNode<K, V>* node, K key, V value);
     V get_from_node(MapNode<K, V>* node, K key);
     bool contains_in_node(MapNode<K, V>* node, K key);
+    MapNode<K, V>* find_min_node(MapNode<K, V>* node);
+    MapNode<K, V>* remove_from_node(MapNode<K, V>* node, K key);
+    MapNode<K, V>* rotate_left(MapNode<K, V>* node);
+    MapNode<K, V>* rotate_right(MapNode<K, V>* node);
 }
 
 export struct Map<K, V> {
@@ -155,8 +160,8 @@ impl MapOps<K, V> for Map<K, V> {
         return new_node;
     }
     
-    // Private: AVLバランシング付き再帰的挿入
-    // AVL木として平衡を保つため、O(log n)の深さを保証
+    // Private: AVLバランシング付き再帰的挿入（v0.11.0 最適化版）
+    // 回転関数を使用した簡潔な実装（118行→52行）
     private MapNode<K, V>* insert_to_node(MapNode<K, V>* node, K key, V value) {
         // ベースケース: ノードが空なら新しいノードを作成
         if (node == nullptr) {
@@ -201,37 +206,12 @@ impl MapOps<K, V> for Map<K, V> {
             MapNode<K, V>* left_child = node->left;
             if (left_child != nullptr) {
                 int left_balance = self.get_balance(left_child);
-                if (left_balance >= 0) {
-                    // 左左ケース - 右回転
-                    MapNode<K, V>* x = left_child;
-                    MapNode<K, V>* T2 = x->right;
-                    x->right = node;
-                    node->left = T2;
-                    self.update_height(node);
-                    self.update_height(x);
-                    return x;
-                } else {
+                if (left_balance < 0) {
                     // 左右ケース - 左回転してから右回転
-                    MapNode<K, V>* child_y = left_child->right;
-                    if (child_y != nullptr) {
-                        MapNode<K, V>* child_T2 = child_y->left;
-                        child_y->left = left_child;
-                        left_child->right = child_T2;
-                        self.update_height(left_child);
-                        self.update_height(child_y);
-                        node->left = child_y;
-                    }
-                    // 次に右回転
-                    MapNode<K, V>* x2 = node->left;
-                    if (x2 != nullptr) {
-                        MapNode<K, V>* T2_2 = x2->right;
-                        x2->right = node;
-                        node->left = T2_2;
-                        self.update_height(node);
-                        self.update_height(x2);
-                        return x2;
-                    }
+                    node->left = self.rotate_left(left_child);
                 }
+                // 左左ケースまたは左右ケース処理後 - 右回転
+                return self.rotate_right(node);
             }
         }
         
@@ -240,37 +220,12 @@ impl MapOps<K, V> for Map<K, V> {
             MapNode<K, V>* right_child = node->right;
             if (right_child != nullptr) {
                 int right_balance = self.get_balance(right_child);
-                if (right_balance <= 0) {
-                    // 右右ケース - 左回転
-                    MapNode<K, V>* y = right_child;
-                    MapNode<K, V>* T2 = y->left;
-                    y->left = node;
-                    node->right = T2;
-                    self.update_height(node);
-                    self.update_height(y);
-                    return y;
-                } else {
+                if (right_balance > 0) {
                     // 右左ケース - 右回転してから左回転
-                    MapNode<K, V>* child_x = right_child->left;
-                    if (child_x != nullptr) {
-                        MapNode<K, V>* child_T2 = child_x->right;
-                        child_x->right = right_child;
-                        right_child->left = child_T2;
-                        self.update_height(right_child);
-                        self.update_height(child_x);
-                        node->right = child_x;
-                    }
-                    // 次に左回転
-                    MapNode<K, V>* y2 = node->right;
-                    if (y2 != nullptr) {
-                        MapNode<K, V>* T2_2 = y2->left;
-                        y2->left = node;
-                        node->right = T2_2;
-                        self.update_height(node);
-                        self.update_height(y2);
-                        return y2;
-                    }
+                    node->right = self.rotate_right(right_child);
                 }
+                // 右右ケースまたは右左ケース処理後 - 左回転
+                return self.rotate_left(node);
             }
         }
         
@@ -319,6 +274,111 @@ impl MapOps<K, V> for Map<K, V> {
             MapNode<K, V>* right_child = node->right;
             return self.contains_in_node(right_child, key);
         }
+    }
+    
+    // Private: 最小ノード検索（削除の後継者ノード検索用）
+    private MapNode<K, V>* find_min_node(MapNode<K, V>* node) {
+        if (node == nullptr) {
+            return nullptr;
+        }
+        
+        // 左端のノードが最小値
+        MapNode<K, V>* current = node;
+        while (current->left != nullptr) {
+            current = current->left;
+        }
+        return current;
+    }
+    
+    // Private: AVLバランシング付き再帰的削除（v0.11.0+）
+    // ノードを完全に削除し、メモリを解放する
+    private MapNode<K, V>* remove_from_node(MapNode<K, V>* node, K key) {
+        // ベースケース: ノードが空
+        if (node == nullptr) {
+            return nullptr;
+        }
+        
+        K node_key = node->key;
+        
+        // 削除するノードを探す
+        if (key < node_key) {
+            node->left = self.remove_from_node(node->left, key);
+        } else if (key > node_key) {
+            node->right = self.remove_from_node(node->right, key);
+        } else {
+            // ノードを見つけた - 削除処理
+            
+            // ケース1: 子が0個または1個
+            if (node->left == nullptr) {
+                MapNode<K, V>* temp = node->right;
+                free(node);
+                return temp;
+            } else if (node->right == nullptr) {
+                MapNode<K, V>* temp = node->left;
+                free(node);
+                return temp;
+            }
+            
+            // ケース2: 子が2個
+            // 右部分木の最小ノードを見つけて、このノードと置き換える
+            //  find_min_nodeをインライン化（self.***呼び出しの問題を回避）
+            MapNode<K, V>* current = node->right;
+            while (current->left != nullptr) {
+                current = current->left;
+            }
+            MapNode<K, V>* successor = current;
+            
+            // 後継ノードのデータを先にコピー
+            K succ_key = successor->key;
+            V succ_value = successor->value;
+            bool succ_has_value = successor->has_value;
+            
+            // 後継ノードを右部分木から削除
+            node->right = self.remove_from_node(node->right, succ_key);
+            
+            // このノードに後継ノードのデータをコピー
+            node->key = succ_key;
+            node->value = succ_value;
+            node->has_value = succ_has_value;
+        }
+        
+        // 高さを更新
+        self.update_height(node);
+        
+        // バランス因子を取得
+        int balance = self.get_balance(node);
+        
+        // 左部分木が高すぎる場合
+        if (balance > 1) {
+            MapNode<K, V>* left_child = node->left;
+            if (left_child != nullptr) {
+                int left_balance = self.get_balance(left_child);
+                // 左左ケースまたは左右ケース
+                if (left_balance < 0) {
+                    // 左右ケース - 左回転してから右回転
+                    node->left = self.rotate_left(left_child);
+                }
+                // 右回転
+                return self.rotate_right(node);
+            }
+        }
+        
+        // 右部分木が高すぎる場合
+        if (balance < -1) {
+            MapNode<K, V>* right_child = node->right;
+            if (right_child != nullptr) {
+                int right_balance = self.get_balance(right_child);
+                // 右右ケースまたは右左ケース
+                if (right_balance > 0) {
+                    // 右左ケース - 右回転してから左回転
+                    node->right = self.rotate_right(right_child);
+                }
+                // 左回転
+                return self.rotate_left(node);
+            }
+        }
+        
+        return node;
     }
     
     // Public: 挿入
@@ -386,33 +446,20 @@ impl MapOps<K, V> for Map<K, V> {
         return false;
     }
     
-    // Public: 削除（簡易実装：has_valueをfalseにする）
+    // Public: 削除（v0.11.0+: 完全削除+AVL再バランシング）
     void remove(K key) {
-        MapNode<K, V>* node = self.root;
+        // キーが存在するかチェック
+        bool key_exists = self.contains(key);
         
-        // Iterative search for the key
-        while (node != nullptr) {
-            K node_key = node->key;
+        if (key_exists) {
+            // 完全削除を実行
+            self.root = self.remove_from_node(self.root, key);
             
-            if (key == node_key) {
-                // Found the key - mark as deleted if it had a value
-                bool had_value = node->has_value;
-                if (had_value) {
-                    node->has_value = false;
-                    if (self.count > 0) {
-                        self.count = self.count - 1;
-                    }
-                }
-                return;
-            }
-            
-            if (key < node_key) {
-                node = node->left;
-            } else {
-                node = node->right;
+            // カウントを減らす
+            if (self.count > 0) {
+                self.count = self.count - 1;
             }
         }
-        // Key not found - do nothing
     }
     
     // Public: サイズ取得
@@ -439,34 +486,22 @@ impl MapOps<K, V> for Map<K, V> {
     
     // ===== Enhanced API (v0.11.0+) =====
     
-    // try_remove: キーを削除し、成功したらtrueを返す
+    // try_remove: キーを削除し、成功したらtrueを返す（v0.11.0+: 完全削除）
     bool try_remove(K key) {
-        MapNode<K, V>* node = self.root;
+        // キーが存在するかチェック
+        bool key_exists = self.contains(key);
         
-        while (node != nullptr) {
-            K node_key = node->key;
+        if (key_exists) {
+            // 完全削除を実行
+            self.root = self.remove_from_node(self.root, key);
             
-            if (key == node_key) {
-                bool had_value = node->has_value;
-                if (had_value) {
-                    node->has_value = false;
-                    if (self.count > 0) {
-                        self.count = self.count - 1;
-                    }
-                    return true;
-                }
-                // Key exists but already deleted
-                return false;
+            // カウントを減らす
+            if (self.count > 0) {
+                self.count = self.count - 1;
             }
-            
-            if (key < node_key) {
-                node = node->left;
-            } else {
-                node = node->right;
-            }
+            return true;
         }
         
-        // Key not found
         return false;
     }
 }
