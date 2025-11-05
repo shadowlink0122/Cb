@@ -13,7 +13,7 @@ Point create_point(int x = 10, int y = 20) {
 }
 
 void print_point(Point p, string label = "Point") {
-    println(label + ": (" + p.x + ", " + p.y + ")");
+    println(label, ": (", p.x, ", ", p.y, ")");
 }
 
 void main() {

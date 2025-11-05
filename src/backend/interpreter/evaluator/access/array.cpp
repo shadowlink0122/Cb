@@ -254,6 +254,15 @@ int64_t evaluate_array_ref(
     // ポインタ配列（通常の配列アクセスとして処理）
     // - var->is_pointer && !var->is_array:
     // 単一ポインタ（ポインタ経由のアクセス）
+
+    // デバッグ情報を追加
+    if (debug_mode) {
+        debug_print("Array access check for '%s': is_pointer=%d, is_array=%d, "
+                    "type=%d (TYPE_STRING=%d)\n",
+                    array_name.c_str(), var->is_pointer, var->is_array,
+                    static_cast<int>(var->type), static_cast<int>(TYPE_STRING));
+    }
+
     if (var->is_pointer && !var->is_array && indices.size() == 1) {
         // 単一ポインタが配列を指している場合のみ、ポインタ経由のアクセスとして処理
         int64_t index = indices[0];
@@ -396,10 +405,52 @@ int64_t evaluate_array_ref(
                     "Invalid pointer value in array access");
             }
 
+            // 安全性チェック: ポインタが指す先が有効なVariableかを確認
+            // 型フィールドが妥当な範囲にあるか
+            bool looks_like_valid_variable =
+                (static_cast<int>(target_array->type) >= 0 &&
+                 static_cast<int>(target_array->type) < 100);
+
+            if (!looks_like_valid_variable) {
+                // 無効なポインタの場合、エラーをスローする
+                if (debug_mode) {
+                    debug_print("Invalid Variable pointer: type=%d\n",
+                                static_cast<int>(target_array->type));
+                }
+                throw std::runtime_error(
+                    "Invalid pointer in array access (corrupted memory)");
+            }
+
             // 配列から値を取得
             // 構造体配列要素へのポインタの場合、is_arrayはfalseだがis_structはtrueの可能性がある
-            if (!target_array->is_array && !target_array->is_struct) {
+            // また、string型（TYPE_STRING）はchar*として配列アクセス可能
+            if (debug_mode) {
+                debug_print("Array access check: is_array=%d, is_struct=%d, "
+                            "type=%d (TYPE_STRING=%d)\n",
+                            target_array->is_array, target_array->is_struct,
+                            static_cast<int>(target_array->type),
+                            static_cast<int>(TYPE_STRING));
+            }
+
+            if (!target_array->is_array && !target_array->is_struct &&
+                target_array->type != TYPE_STRING) {
                 throw std::runtime_error("Pointer does not point to an array");
+            }
+
+            // string型（char*）の場合、文字列として配列アクセス
+            if (target_array->type == TYPE_STRING && !target_array->is_array) {
+                // 終端文字('\0')へのアクセスも許可するため、length()まで
+                if (index < 0 ||
+                    index > static_cast<int64_t>(
+                                target_array->str_value.length())) {
+                    throw std::runtime_error("String index out of bounds");
+                }
+                // 文字を返す（終端文字の場合は0を返す）
+                if (index ==
+                    static_cast<int64_t>(target_array->str_value.length())) {
+                    return 0; // '\0'
+                }
+                return static_cast<int64_t>(target_array->str_value[index]);
             }
 
             // 構造体配列の場合 - 要素は個別の変数として管理されている

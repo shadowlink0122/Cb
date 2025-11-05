@@ -88,8 +88,20 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
     // ポインタとして扱い、pointer_base_type_nameに基底型を設定する
     bool is_generic_struct = !node->type_name.empty() &&
                              node->type_name.find('<') != std::string::npos;
-    bool is_pointer_to_generic =
-        is_generic_struct && node->type_name.find('*') != std::string::npos;
+    // ジェネリック構造体へのポインタかどうかをチェック
+    // 型名の最後（空白を除く）に'*'がある場合のみポインタとして扱う
+    // 例: "Box<int*>" は構造体、"Box<int>*" はポインタ
+    bool is_pointer_to_generic = false;
+    if (is_generic_struct) {
+        std::string trimmed_type = node->type_name;
+        // 末尾の空白を削除
+        while (!trimmed_type.empty() && trimmed_type.back() == ' ') {
+            trimmed_type.pop_back();
+        }
+        // 最後の文字が'*'の場合、ジェネリック構造体へのポインタ
+        is_pointer_to_generic =
+            !trimmed_type.empty() && trimmed_type.back() == '*';
+    }
 
     if (interpreter_->debug_mode) {
         debug_print(

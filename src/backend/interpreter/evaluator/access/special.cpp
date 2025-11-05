@@ -51,10 +51,9 @@ int64_t evaluate_arrow_access(
                 struct_var = reinterpret_cast<Variable *>(ptr_value);
 
                 // Variable構造体として有効かチェック
-                // is_structフラグまたはstruct_membersがあるか確認
+                // typeフィールドがTYPE_STRUCTで、かつis_structフラグが立っているか確認
                 bool looks_like_variable =
-                    (struct_var->is_struct ||
-                     !struct_var->struct_members.empty());
+                    (struct_var->type == TYPE_STRUCT && struct_var->is_struct);
 
                 if (looks_like_variable) {
                     // メンバーを取得
@@ -96,6 +95,7 @@ int64_t evaluate_arrow_access(
                         return member_var.value;
                     }
                 }
+                // looks_like_variableがfalseの場合、以下の通常処理にフォールスルー
             }
 
             // ジェネリック型を解決

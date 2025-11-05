@@ -6,29 +6,29 @@ void main() {
     
     // Test 1: Simple array access
     int[] nums = [10, 20, 30, 40, 50];
-    string arr_str = "Second element: ${nums[1]}";
+    string arr_str = "Second element: {nums[1]}";
     assert(arr_str == "Second element: 20");
     println("Test 1: Simple array - PASSED");
     
     // Test 2: Array access in expression
-    string expr_str = "Sum: ${nums[0] + nums[1]}";
+    string expr_str = "Sum: {nums[0] + nums[1]}";
     assert(expr_str == "Sum: 30");
     println("Test 2: Array in expression - PASSED");
     
     // Test 3: Multiple array accesses
-    string multi = "${nums[0]} ${nums[2]} ${nums[4]}";
+    string multi = "{nums[0]} {nums[2]} {nums[4]}";
     assert(multi == "10 30 50");
     println("Test 3: Multiple accesses - PASSED");
     
     // Test 4: String array
     string[] names = ["Alice", "Bob", "Charlie"];
-    string name_str = "First: ${names[0]}, Last: ${names[2]}";
+    string name_str = "First: {names[0]}, Last: {names[2]}";
     assert(name_str == "First: Alice, Last: Charlie");
     println("Test 4: String array - PASSED");
     
     // Test 5: Index variable
     int idx = 2;
-    string idx_str = "Element at ${idx}: ${nums[idx]}";
+    string idx_str = "Element at {idx}: {nums[idx]}";
     assert(idx_str == "Element at 2: 30");
     println("Test 5: Index variable - PASSED");
     

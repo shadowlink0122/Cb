@@ -907,8 +907,9 @@ void execute_arrow_assignment(StatementExecutor *executor,
     }
     new_value.is_assigned = true;
 
-    // ポインタ経由のアクセスの場合、ポインタ先の構造体レイアウトに従って
-    // 生メモリに直接書き込む
+    // ポインタ経由のアクセスの場合、ポインタ先の構造体レイアウトに従って処理
+    // ジェネリック構造体の場合は生メモリに直接書き込む
+    // 非ジェネリック構造体の場合はstruct_membersを更新
     if (struct_var->is_pointer && !struct_var->pointer_base_type_name.empty()) {
         // ジェネリック型パラメータを現在のTypeContextで解決
         std::string resolved_type_name = interpreter.resolve_type_in_context(
@@ -949,6 +950,46 @@ void execute_arrow_assignment(StatementExecutor *executor,
                 resolved_type_name);
         }
 
+        // 非ジェネリック構造体の場合、Variable*を取得してstruct_membersを更新
+        // ジェネリック構造体の場合のみ生メモリアクセス
+        bool is_generic_struct =
+            struct_def->is_generic ||
+            (resolved_type_name.find('<') != std::string::npos);
+
+        if (!is_generic_struct) {
+            // 非ジェネリック構造体: ポインタ先のVariable*を取得
+            Variable *target_var =
+                reinterpret_cast<Variable *>(struct_var->value);
+
+            if (!target_var) {
+                throw std::runtime_error(
+                    "Null pointer dereference in arrow assignment");
+            }
+
+            if (debug_mode) {
+                debug_print("[ARROW_ASSIGN] Non-generic struct: updating "
+                            "struct_members "
+                            "for member='%s', target_var=%p\n",
+                            member_name.c_str(), (void *)target_var);
+            }
+
+            // struct_membersに代入
+            auto &members = target_var->get_struct_members();
+            members[member_name] = new_value;
+
+            // 個別変数システムとの同期
+            interpreter.sync_individual_member_from_struct(target_var,
+                                                           member_name);
+
+            if (debug_mode) {
+                debug_print("[ARROW_ASSIGN] Updated struct_members for "
+                            "non-generic struct\n");
+            }
+
+            return; // 処理完了
+        }
+
+        // 以下はジェネリック構造体の場合のみ実行
         // メンバーのオフセットを計算
         size_t offset = 0;
         bool member_found = false;

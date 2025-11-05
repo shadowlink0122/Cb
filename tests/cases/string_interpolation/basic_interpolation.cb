@@ -27,7 +27,7 @@ fn main() {
     string item = "apples";
     int quantity = 5;
     double price = 1.99;
-    println("Item: {item}, Quantity: {quantity}, Price: ${price}");
+    println("Item: {item}, Quantity: {quantity}, Price: {price}");
     // 期待: Item: apples, Quantity: 5, Price: $1.990000
     
     // テスト6: 文字型

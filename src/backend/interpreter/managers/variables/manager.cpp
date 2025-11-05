@@ -1197,6 +1197,45 @@ void VariableManager::assign_variable(const std::string &name,
         }
 
         if (typed_value.is_string()) {
+            // デバッグ出力: 文字列代入時の type_hint を確認
+            if (interpreter_->is_debug_mode()) {
+                std::cerr << "[VAR_MANAGER] String assignment: type_hint="
+                          << static_cast<int>(type_hint)
+                          << " (TYPE_POINTER=" << static_cast<int>(TYPE_POINTER)
+                          << "), str=\"" << typed_value.string_value << "\""
+                          << std::endl;
+            }
+
+            // type_hintがTYPE_POINTERの場合、char*パラメータとして扱う
+            // (string -> char* の暗黙的な変換)
+            if (type_hint == TYPE_POINTER) {
+                // char*ポインタパラメータ: 単純にTYPE_STRING変数として扱う
+                // is_pointerをfalseに設定することで、array.cppの
+                // ポインタ経由アクセス処理を回避し、直接文字列アクセスが可能
+                target.type = TYPE_STRING;
+                target.str_value = typed_value.string_value;
+                target.value =
+                    reinterpret_cast<int64_t>(strdup(target.str_value.c_str()));
+                target.is_assigned = true;
+
+                // 明示的にis_pointerをfalseに設定（ポインタ経由アクセスを回避）
+                target.is_pointer = false;
+                target.pointer_depth = 0;
+
+                target.float_value = 0.0f;
+                target.double_value = 0.0;
+                target.quad_value = 0.0L;
+                target.big_value = 0;
+
+                if (interpreter_->is_debug_mode()) {
+                    std::cerr
+                        << "[VAR_MANAGER] String to char* parameter: "
+                        << "converted to TYPE_STRING for array access, str=\""
+                        << typed_value.string_value << "\"" << std::endl;
+                }
+                return;
+            }
+
             if ((allow_type_override || target.type == TYPE_UNKNOWN ||
                  TypeHelpers::isString(target.type)) &&
                 target.type != TYPE_UNION) {
@@ -1389,6 +1428,15 @@ void VariableManager::assign_function_parameter(const std::string &name,
                                                 const TypedValue &value,
                                                 TypeInfo type,
                                                 bool is_unsigned) {
+    if (interpreter_->is_debug_mode()) {
+        std::cerr << "[VAR_MANAGER] assign_function_parameter: name=" << name
+                  << ", type=" << static_cast<int>(type)
+                  << " (TYPE_POINTER=" << static_cast<int>(TYPE_POINTER) << ")"
+                  << ", is_string=" << value.is_string() << ", str=\""
+                  << (value.is_string() ? value.string_value : "N/A") << "\""
+                  << std::endl;
+    }
+
     Scope &scope = current_scope();
     auto iter = scope.variables.find(name);
     if (iter == scope.variables.end()) {
@@ -1472,11 +1520,33 @@ void VariableManager::assign_function_parameter(const std::string &name,
 
     assign_variable(name, value, type, false);
 
+    // assign_variable後の追加設定
     if (auto updated_iter = scope.variables.find(name);
         updated_iter != scope.variables.end()) {
         updated_iter->second.is_unsigned = is_unsigned;
+
+        // char*パラメータにstring値が渡された場合、is_pointerをfalseに確実に設定
+        // (assign_variable内での設定を確実にするための二重チェック)
+        if (type == TYPE_POINTER && value.is_string()) {
+            updated_iter->second.is_pointer = false;
+            updated_iter->second.pointer_depth = 0;
+            if (interpreter_->is_debug_mode()) {
+                std::cerr
+                    << "[VAR_MANAGER] Set pointer metadata for parameter '"
+                    << name << "': pointer_base_type_name='"
+                    << updated_iter->second.pointer_base_type_name
+                    << "', type_name='" << updated_iter->second.type_name << "'"
+                    << std::endl;
+            }
+        }
     } else if (Variable *updated_var = find_variable(name)) {
         updated_var->is_unsigned = is_unsigned;
+
+        // char*パラメータにstring値が渡された場合、is_pointerをfalseに確実に設定
+        if (type == TYPE_POINTER && value.is_string()) {
+            updated_var->is_pointer = false;
+            updated_var->pointer_depth = 0;
+        }
     }
 }
 
@@ -1508,33 +1578,51 @@ void VariableManager::assign_function_parameter(const std::string &name,
             // 変数を取得してポインタメタデータを設定
             Variable *var = find_variable(name);
             if (var) {
-                var->is_pointer = true;
-                var->pointer_depth = parsed.pointer_depth;
-                var->pointer_base_type =
-                    TYPE_STRUCT; // ジェネリック構造体と仮定
+                // char*パラメータにstring値が渡された場合の特別処理
+                // is_pointerをfalseに設定し、通常の文字列として扱う
+                if (parsed.base_name == "char" && value.is_string()) {
+                    var->is_pointer = false;
+                    var->pointer_depth = 0;
+                    var->pointer_base_type_name = "char";
+                    var->type_name = type_name;
 
-                // ベース型名を構築（型パラメータ含む）
-                if (!parsed.type_params.empty()) {
-                    std::string full_base_type = parsed.base_name + "<";
-                    for (size_t i = 0; i < parsed.type_params.size(); ++i) {
-                        if (i > 0)
-                            full_base_type += ", ";
-                        full_base_type += parsed.type_params[i];
+                    if (interpreter_->is_debug_mode()) {
+                        std::cerr << "[VAR_MANAGER] char* parameter with "
+                                     "string value: "
+                                  << "treating as TYPE_STRING, is_pointer=false"
+                                  << std::endl;
                     }
-                    full_base_type += ">";
-                    var->pointer_base_type_name = full_base_type;
                 } else {
-                    var->pointer_base_type_name = parsed.base_name;
-                }
+                    // 通常のポインタパラメータ（ジェネリック構造体など）
+                    var->is_pointer = true;
+                    var->pointer_depth = parsed.pointer_depth;
+                    var->pointer_base_type =
+                        TYPE_STRUCT; // ジェネリック構造体と仮定
 
-                var->type_name = type_name;
+                    // ベース型名を構築（型パラメータ含む）
+                    if (!parsed.type_params.empty()) {
+                        std::string full_base_type = parsed.base_name + "<";
+                        for (size_t i = 0; i < parsed.type_params.size(); ++i) {
+                            if (i > 0)
+                                full_base_type += ", ";
+                            full_base_type += parsed.type_params[i];
+                        }
+                        full_base_type += ">";
+                        var->pointer_base_type_name = full_base_type;
+                    } else {
+                        var->pointer_base_type_name = parsed.base_name;
+                    }
 
-                if (interpreter_->is_debug_mode()) {
-                    std::cerr
-                        << "[VAR_MANAGER] Set pointer metadata for parameter '"
-                        << name << "': pointer_base_type_name='"
-                        << var->pointer_base_type_name << "', type_name='"
-                        << var->type_name << "'" << std::endl;
+                    var->type_name = type_name;
+
+                    if (interpreter_->is_debug_mode()) {
+                        std::cerr << "[VAR_MANAGER] Set pointer metadata for "
+                                     "parameter '"
+                                  << name << "': pointer_base_type_name='"
+                                  << var->pointer_base_type_name
+                                  << "', type_name='" << var->type_name << "'"
+                                  << std::endl;
+                    }
                 }
             }
             return;
