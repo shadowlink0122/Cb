@@ -27,7 +27,7 @@ inline void test_map_comprehensive() {
     
     // Run the Cb test file
     auto [output, exit_code] = run_cb_test(
-        "tests/cases/stdlib/collections/test_map.cb");
+        "tests/cases/stdlib/collections/map/test_basic.cb");
     
     // Verify exit code (should be 0 for success)
     STDLIB_ASSERT_EQ(0, exit_code);

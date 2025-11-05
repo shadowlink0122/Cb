@@ -1,20 +1,21 @@
-// Binary Search Tree implementation of Map<K, V>
+// AVL Tree implementation of Map<K, V>
 // 
 // 特徴:
 // - ジェネリック型パラメータK（キー）とV（値）
+// - AVL木による自動バランシング（高さバランス保証）
 //   - left, right で左右の子ノードを指す
-//   - 再帰的な挿入・検索により任意の深さの木構造をサポート
+//   - 再帰的な挿入と回転により木の高さを O(log n) に保つ
 // 
-// 計算量 (バランスされていない場合):
-//   - insert: 平均 O(log n)、最悪 O(n)
-//   - get: 平均 O(log n)、最悪 O(n)
-//   - contains: 平均 O(log n)、最悪 O(n)
+// 計算量 (AVLバランシングあり):
+//   - insert: O(log n) - 保証（回転によるバランシング）
+//   - get: O(log n) - 保証
+//   - contains: O(log n) - 保証
 //   - remove: O(1) - 簡易実装（has_valueをfalseにするのみ）
+//   - get_tree_height: O(1) - ルートの高さフィールドを返す
 // 
 // 制限事項:
-//   - 平衡機能なし（AVL木やRed-Black木ではない）
 //   - 完全な削除は未実装（メモリリークの可能性あり）
-//   - 挿入順によっては木が偏る可能性あり
+//   - remove時のバランシング未実装（削除は論理削除のみ）
 // 
 
 // ノード構造体の定義
@@ -39,6 +40,7 @@ export interface MapOps<K, V> {
     
     // Enhanced API (v0.11.0+)
     bool try_remove(K key);             // 削除成功でtrue
+    int get_tree_height();              // AVL木の高さを取得（バランシング確認用）
     
     // Internal helper methods (private in impl)
     int get_height(MapNode<K, V>* node);
@@ -89,7 +91,7 @@ impl MapOps<K, V> for Map<K, V> {
         return self.get_height(node->left) - self.get_height(node->right);
     }
     
-    // Private: 右回転 (AVL用、現在は未使用)
+    // Private: 右回転 (AVL用)
     private MapNode<K, V>* rotate_right(MapNode<K, V>* y) {
         if (y == nullptr) {
             return nullptr;
@@ -113,7 +115,7 @@ impl MapOps<K, V> for Map<K, V> {
         return x;
     }
     
-    // Private: 左回転 (AVL用、現在は未使用)
+    // Private: 左回転 (AVL用)
     private MapNode<K, V>* rotate_left(MapNode<K, V>* x) {
         if (x == nullptr) {
             return nullptr;
@@ -139,17 +141,11 @@ impl MapOps<K, V> for Map<K, V> {
     
     // Private: ノード作成
     private MapNode<K, V>* create_node(K key, V value) {
-        println("CREATE_NODE: Getting sizeof");
         int node_size = sizeof(MapNode<K, V>);
-        println("CREATE_NODE: node_size = ", node_size);
-        println("CREATE_NODE: Calling malloc");
         void* mem = malloc(node_size);
-        println("CREATE_NODE: malloc returned");
         MapNode<K, V>* new_node = (MapNode<K, V>*)mem;
         
-        println("CREATE_NODE: Setting key");
         new_node->key = key;
-        println("CREATE_NODE: Key set");
         new_node->value = value;
         new_node->has_value = true;
         new_node->height = 1;
@@ -159,11 +155,11 @@ impl MapOps<K, V> for Map<K, V> {
         return new_node;
     }
     
-    // Private: 再帰的に子ノードへ挿入
+    // Private: AVLバランシング付き再帰的挿入
+    // AVL木として平衡を保つため、O(log n)の深さを保証
     private MapNode<K, V>* insert_to_node(MapNode<K, V>* node, K key, V value) {
         // ベースケース: ノードが空なら新しいノードを作成
         if (node == nullptr) {
-            // self.create_node() 呼び出しでクラッシュするため、インライン実装
             int node_size = sizeof(MapNode<K, V>);
             void* mem = malloc(node_size);
             MapNode<K, V>* new_node = (MapNode<K, V>*)mem;
@@ -181,7 +177,7 @@ impl MapOps<K, V> for Map<K, V> {
         // キーが等しい場合は値を更新
         if (key == node_key) {
             node->value = value;
-            node->has_value = true;  // Make sure has_value is set!
+            node->has_value = true;
             return node;
         }
         
@@ -192,6 +188,90 @@ impl MapOps<K, V> for Map<K, V> {
         } else {
             MapNode<K, V>* right_child = node->right;
             node->right = self.insert_to_node(right_child, key, value);
+        }
+        
+        // 高さを更新
+        self.update_height(node);
+        
+        // バランス因子を取得
+        int balance = self.get_balance(node);
+        
+        // 左部分木が高すぎる場合
+        if (balance > 1) {
+            MapNode<K, V>* left_child = node->left;
+            if (left_child != nullptr) {
+                int left_balance = self.get_balance(left_child);
+                if (left_balance >= 0) {
+                    // 左左ケース - 右回転
+                    MapNode<K, V>* x = left_child;
+                    MapNode<K, V>* T2 = x->right;
+                    x->right = node;
+                    node->left = T2;
+                    self.update_height(node);
+                    self.update_height(x);
+                    return x;
+                } else {
+                    // 左右ケース - 左回転してから右回転
+                    MapNode<K, V>* child_y = left_child->right;
+                    if (child_y != nullptr) {
+                        MapNode<K, V>* child_T2 = child_y->left;
+                        child_y->left = left_child;
+                        left_child->right = child_T2;
+                        self.update_height(left_child);
+                        self.update_height(child_y);
+                        node->left = child_y;
+                    }
+                    // 次に右回転
+                    MapNode<K, V>* x2 = node->left;
+                    if (x2 != nullptr) {
+                        MapNode<K, V>* T2_2 = x2->right;
+                        x2->right = node;
+                        node->left = T2_2;
+                        self.update_height(node);
+                        self.update_height(x2);
+                        return x2;
+                    }
+                }
+            }
+        }
+        
+        // 右部分木が高すぎる場合
+        if (balance < -1) {
+            MapNode<K, V>* right_child = node->right;
+            if (right_child != nullptr) {
+                int right_balance = self.get_balance(right_child);
+                if (right_balance <= 0) {
+                    // 右右ケース - 左回転
+                    MapNode<K, V>* y = right_child;
+                    MapNode<K, V>* T2 = y->left;
+                    y->left = node;
+                    node->right = T2;
+                    self.update_height(node);
+                    self.update_height(y);
+                    return y;
+                } else {
+                    // 右左ケース - 右回転してから左回転
+                    MapNode<K, V>* child_x = right_child->left;
+                    if (child_x != nullptr) {
+                        MapNode<K, V>* child_T2 = child_x->right;
+                        child_x->right = right_child;
+                        right_child->left = child_T2;
+                        self.update_height(right_child);
+                        self.update_height(child_x);
+                        node->right = child_x;
+                    }
+                    // 次に左回転
+                    MapNode<K, V>* y2 = node->right;
+                    if (y2 != nullptr) {
+                        MapNode<K, V>* T2_2 = y2->left;
+                        y2->left = node;
+                        node->right = T2_2;
+                        self.update_height(node);
+                        self.update_height(y2);
+                        return y2;
+                    }
+                }
+            }
         }
         
         return node;
@@ -243,75 +323,15 @@ impl MapOps<K, V> for Map<K, V> {
     
     // Public: 挿入
     void insert(K key, V value) {
-        // Note: カウント更新は後で実装
+        // Check if key already exists BEFORE insertion
+        bool key_exists = self.contains(key);
         
-        // Handle empty tree
-        if (self.root == nullptr) {
-            int node_size = sizeof(MapNode<K, V>);
-            void* mem = malloc(node_size);
-            MapNode<K, V>* new_node = (MapNode<K, V>*)mem;
-            new_node->key = key;
-            new_node->value = value;
-            new_node->has_value = true;
-            new_node->height = 1;
-            new_node->left = nullptr;
-            new_node->right = nullptr;
-            self.root = new_node;
+        // Insert node (will create new or update existing)
+        self.root = self.insert_to_node(self.root, key, value);
+        
+        // Increment count only if this was a NEW insertion
+        if (!key_exists) {
             self.count = self.count + 1;
-            return;
-        }
-        
-        // Iterative insertion
-        MapNode<K, V>* current = self.root;
-        while (true) {
-            K current_key = current->key;
-            
-            // Key already exists, update value
-            if (key == current_key) {
-                current->value = value;
-                current->has_value = true;
-                return;
-            }
-            
-            // Go left
-            if (key < current_key) {
-                MapNode<K, V>* left_child = current->left;
-                if (left_child == nullptr) {
-                    // Create new node
-                    int node_size = sizeof(MapNode<K, V>);
-                    void* mem = malloc(node_size);
-                    MapNode<K, V>* new_node = (MapNode<K, V>*)mem;
-                    new_node->key = key;
-                    new_node->value = value;
-                    new_node->has_value = true;
-                    new_node->height = 1;
-                    new_node->left = nullptr;
-                    new_node->right = nullptr;
-                    current->left = new_node;
-                    self.count = self.count + 1;
-                    return;
-                }
-                current = left_child;
-            } else {
-                // Go right
-                MapNode<K, V>* right_child = current->right;
-                if (right_child == nullptr) {
-                    // Create new node
-                    int node_size = sizeof(MapNode<K, V>);
-                    void* mem = malloc(node_size);
-                    MapNode<K, V>* new_node = (MapNode<K, V>*)mem;
-                    new_node->key = key;
-                    new_node->value = value;
-                    new_node->has_value = true;
-                    new_node->height = 1;
-                    new_node->left = nullptr;
-                    new_node->right = nullptr;
-                    current->right = new_node;
-                    self.count = self.count + 1;
-                    return;
-                }
-                current = right_child;
-            }
         }
     }
     
@@ -410,6 +430,11 @@ impl MapOps<K, V> for Map<K, V> {
         // TODO: 全ノードのfree()
         self.root = nullptr;
         self.count = 0;
+    }
+    
+    // Public: 木の高さを取得（AVLバランシング確認用）
+    int get_tree_height() {
+        return self.get_height(self.root);
     }
     
     // ===== Enhanced API (v0.11.0+) =====

@@ -315,11 +315,11 @@ stdlib-test-cb: $(MAIN_TARGET)
 	@./$(MAIN_TARGET) tests/cases/stdlib/allocators/test_bump_allocator.cb
 	@echo "\n[Collections]"
 	@echo "[1/3] Testing Vector..."
-	@./$(MAIN_TARGET) tests/cases/stdlib/collections/test_vector_import.cb
+	@./$(MAIN_TARGET) tests/cases/stdlib/collections/vector/test_vector_import.cb
 	@echo "\n[2/3] Testing Queue..."
-	@./$(MAIN_TARGET) tests/cases/stdlib/collections/test_queue_import.cb
+	@./$(MAIN_TARGET) tests/cases/stdlib/collections/queue/test_queue_import.cb
 	@echo "\n[3/3] Testing Map..."
-	@./$(MAIN_TARGET) tests/cases/stdlib/collections/test_map.cb
+	@./$(MAIN_TARGET) tests/cases/stdlib/collections/map/test_basic.cb
 	@echo "\n✅ All stdlib .cb tests passed!"
 
 # Run both C++ and Cb stdlib tests

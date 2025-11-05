@@ -24,7 +24,7 @@ inline void test_queue_import_comprehensive() {
     
     // Run the Cb test file
     auto [output, exit_code] = run_cb_test(
-        "tests/cases/stdlib/collections/test_queue_import.cb");
+        "tests/cases/stdlib/collections/queue/test_queue_import.cb");
     
     // Verify exit code (should be 0 for success)
     STDLIB_ASSERT_EQ(0, exit_code);

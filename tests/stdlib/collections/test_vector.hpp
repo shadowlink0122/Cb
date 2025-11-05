@@ -23,7 +23,7 @@ inline void test_vector_import_comprehensive() {
     
     // Run the Cb test file
     auto [output, exit_code] = run_cb_test(
-        "tests/cases/stdlib/collections/test_vector_import.cb");
+        "tests/cases/stdlib/collections/vector/test_vector_import.cb");
     
     // Verify exit code (should be 0 for success)
     STDLIB_ASSERT_EQ(0, exit_code);
