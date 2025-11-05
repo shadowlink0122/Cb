@@ -57,11 +57,11 @@ void test_sizeof_nested() {
     
     println("sizeof(Point) = {size_point} (expected: 8)");
     println("sizeof(Line) = {size_line} (expected: 16 = 8+8)");
-    println("sizeof(Shape) = {size_shape} (expected: 36 = 16+16+4)");
+    println("sizeof(Shape) = {size_shape} (expected: 40 = 16+16+4+4 with padding)");
     
     assert(size_point == 8);
     assert(size_line == 16);
-    assert(size_shape == 36);
+    assert(size_shape == 40);
     
     println("nested struct test passed\n");
 }

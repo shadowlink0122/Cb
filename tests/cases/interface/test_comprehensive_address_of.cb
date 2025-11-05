@@ -99,7 +99,8 @@ int main() {
     total = total + 1;
     float fval = 3.14;
     float* ptr8 = &fval;
-    if (ptr8 != 0 && *ptr8 == 3.14) {
+    // Float comparison: check if pointer is valid and value is close to 3.14
+    if (ptr8 != 0 && *ptr8 > 3.13 && *ptr8 < 3.15) {
         println("  PASSED");
         passed = passed + 1;
     }

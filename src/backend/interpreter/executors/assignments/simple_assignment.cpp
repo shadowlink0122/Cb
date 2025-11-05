@@ -199,26 +199,115 @@ void execute_assignment(StatementExecutor *executor, Interpreter &interpreter,
                               << std::dec << std::endl;
                 }
             } else {
-                // 通常のVariableポインタへの代入
-                Variable *var = reinterpret_cast<Variable *>(ptr_value);
+                // ptr_varの型情報を使って、生メモリかVariable*かを判別
+                // points_to_heap_memoryフラグで判定（new式で作成されたか）
+                bool is_raw_memory_ptr = false;
+                if (ptr_var && ptr_var->points_to_heap_memory) {
+                    // new式で作成された生メモリポインタ
+                    is_raw_memory_ptr = true;
+                    if (debug_mode) {
+                        std::cerr
+                            << "[POINTER_ASSIGN] Heap memory pointer detected"
+                            << ", type=" << static_cast<int>(ptr_var->type)
+                            << std::endl;
+                    }
+                }
 
-                // 型に応じて値を設定
-                if (typed_value.is_floating()) {
-                    double float_val = typed_value.as_double();
-                    if (var->type == TYPE_FLOAT) {
-                        var->float_value = static_cast<float>(float_val);
-                    } else if (var->type == TYPE_DOUBLE) {
-                        var->double_value = float_val;
-                    } else if (var->type == TYPE_QUAD) {
-                        var->quad_value = static_cast<long double>(float_val);
+                if (is_raw_memory_ptr) {
+                    // 生メモリへの書き込み（new int等で割り当てられたメモリ）
+                    if (debug_mode) {
+                        std::cerr
+                            << "[POINTER_ASSIGN] Raw memory write: ptr=0x"
+                            << std::hex << ptr_value << std::dec
+                            << ", type=" << static_cast<int>(ptr_var->type)
+                            << std::endl;
+                    }
+
+                    // 型に応じて適切なサイズで書き込む
+                    if (typed_value.is_floating()) {
+                        double float_val = typed_value.as_double();
+                        if (ptr_var->type == TYPE_FLOAT) {
+                            float *target =
+                                reinterpret_cast<float *>(ptr_value);
+                            *target = static_cast<float>(float_val);
+                        } else if (ptr_var->type == TYPE_DOUBLE) {
+                            double *target =
+                                reinterpret_cast<double *>(ptr_value);
+                            *target = float_val;
+                        } else if (ptr_var->type == TYPE_QUAD) {
+                            long double *target =
+                                reinterpret_cast<long double *>(ptr_value);
+                            *target = static_cast<long double>(float_val);
+                        } else {
+                            // 整数型への代入は切り捨て
+                            // 型に応じたサイズで書き込み
+                            int64_t int_val = static_cast<int64_t>(float_val);
+                            if (ptr_var->type == TYPE_INT ||
+                                ptr_var->type == TYPE_SHORT ||
+                                ptr_var->type == TYPE_TINY) {
+                                int *target =
+                                    reinterpret_cast<int *>(ptr_value);
+                                *target = static_cast<int>(int_val);
+                            } else if (ptr_var->type == TYPE_LONG ||
+                                       ptr_var->type == TYPE_BIG) {
+                                long *target =
+                                    reinterpret_cast<long *>(ptr_value);
+                                *target = static_cast<long>(int_val);
+                            } else if (ptr_var->type == TYPE_CHAR) {
+                                char *target =
+                                    reinterpret_cast<char *>(ptr_value);
+                                *target = static_cast<char>(int_val);
+                            } else {
+                                // デフォルトは4バイト整数
+                                int *target =
+                                    reinterpret_cast<int *>(ptr_value);
+                                *target = static_cast<int>(int_val);
+                            }
+                        }
                     } else {
-                        // 整数型への代入は切り捨て
-                        var->value = static_cast<int64_t>(float_val);
+                        int64_t int_val = typed_value.as_numeric();
+                        // 型に応じたサイズで書き込み
+                        if (ptr_var->type == TYPE_INT ||
+                            ptr_var->type == TYPE_SHORT ||
+                            ptr_var->type == TYPE_TINY) {
+                            int *target = reinterpret_cast<int *>(ptr_value);
+                            *target = static_cast<int>(int_val);
+                        } else if (ptr_var->type == TYPE_LONG ||
+                                   ptr_var->type == TYPE_BIG) {
+                            long *target = reinterpret_cast<long *>(ptr_value);
+                            *target = static_cast<long>(int_val);
+                        } else if (ptr_var->type == TYPE_CHAR) {
+                            char *target = reinterpret_cast<char *>(ptr_value);
+                            *target = static_cast<char>(int_val);
+                        } else {
+                            // デフォルトは4バイト整数
+                            int *target = reinterpret_cast<int *>(ptr_value);
+                            *target = static_cast<int>(int_val);
+                        }
                     }
                 } else {
-                    var->value = typed_value.as_numeric();
+                    // 通常のVariableポインタへの代入（変数のアドレス等）
+                    Variable *var = reinterpret_cast<Variable *>(ptr_value);
+
+                    // 型に応じて値を設定
+                    if (typed_value.is_floating()) {
+                        double float_val = typed_value.as_double();
+                        if (var->type == TYPE_FLOAT) {
+                            var->float_value = static_cast<float>(float_val);
+                        } else if (var->type == TYPE_DOUBLE) {
+                            var->double_value = float_val;
+                        } else if (var->type == TYPE_QUAD) {
+                            var->quad_value =
+                                static_cast<long double>(float_val);
+                        } else {
+                            // 整数型への代入は切り捨て
+                            var->value = static_cast<int64_t>(float_val);
+                        }
+                    } else {
+                        var->value = typed_value.as_numeric();
+                    }
+                    var->is_assigned = true;
                 }
-                var->is_assigned = true;
             }
         }
         return;

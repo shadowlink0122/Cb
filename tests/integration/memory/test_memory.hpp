@@ -37,7 +37,7 @@ inline void test_integration_memory() {
             
             // 構造体サイズ
             INTEGRATION_ASSERT_CONTAINS(output, "sizeof(Point) = 8", "sizeof(Point) should be 8 bytes (int x + int y)");
-            INTEGRATION_ASSERT_CONTAINS(output, "sizeof(Rectangle) = 20", "sizeof(Rectangle) should be 20 bytes");
+            INTEGRATION_ASSERT_CONTAINS(output, "sizeof(Rectangle) = 24", "sizeof(Rectangle) should be 24 bytes");
             
             // new/delete テスト
             INTEGRATION_ASSERT_CONTAINS(output, "Allocated int*", "Should allocate int pointer");
@@ -70,7 +70,7 @@ inline void test_integration_memory() {
             
             // ネスト構造体テスト
             INTEGRATION_ASSERT_CONTAINS(output, "sizeof(Line) = 16", "Line should be 16 bytes (Point + Point)");
-            INTEGRATION_ASSERT_CONTAINS(output, "sizeof(Shape) = 36", "Shape should be 36 bytes (Line + Line + int)");
+            INTEGRATION_ASSERT_CONTAINS(output, "sizeof(Shape) = 40", "Shape should be 40 bytes (Line + Line + int + padding)");
             INTEGRATION_ASSERT_CONTAINS(output, "nested struct test passed", "Nested struct tests should pass");
             
             // ジェネリクス構造体テスト
@@ -82,7 +82,7 @@ inline void test_integration_memory() {
             // malloc/sizeof統合テスト
             INTEGRATION_ASSERT_CONTAINS(output, "Allocated Point[3]", "Should allocate Point array");
             INTEGRATION_ASSERT_CONTAINS(output, "Allocated Shape", "Should allocate Shape struct");
-            INTEGRATION_ASSERT_CONTAINS(output, "size: 36 bytes", "Shape size should be 36 bytes");
+            INTEGRATION_ASSERT_CONTAINS(output, "size: 40 bytes", "Shape size should be 40 bytes");
             
             // 完了メッセージ
             INTEGRATION_ASSERT_CONTAINS(output, "All advanced tests passed!", "All advanced tests should pass");

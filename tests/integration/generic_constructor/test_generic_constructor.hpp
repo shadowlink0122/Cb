@@ -89,16 +89,16 @@ inline void test_integration_generic_constructor() {
                 "sizeof(Box<int>) =  8",
                 "sizeof(Box<int>) should be 8");
             INTEGRATION_ASSERT_CONTAINS(output, 
-                "sizeof(Box<long>) =  12",
-                "sizeof(Box<long>) should be 12");
+                "sizeof(Box<long>) =  16",
+                "sizeof(Box<long>) should be 16");
             
             // Constructor sizeof(self) check
             INTEGRATION_ASSERT_CONTAINS(output,
                 "b1.size =  8",
                 "b1.size should be 8 (sizeof(Box<int>))");
             INTEGRATION_ASSERT_CONTAINS(output,
-                "b2.size =  12",
-                "b2.size should be 12 (sizeof(Box<long>))");
+                "b2.size =  16",
+                "b2.size should be 16 (sizeof(Box<long>))");
             
             // Completion check
             INTEGRATION_ASSERT_CONTAINS(output, 

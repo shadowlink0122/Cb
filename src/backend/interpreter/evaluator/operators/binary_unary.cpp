@@ -814,28 +814,96 @@ TypedValue evaluate_unary_op_typed(
                 return TypedValue(static_cast<int64_t>(value), int_type);
             }
 
-            // 従来の方式（変数ポインタ）
-            Variable *var = reinterpret_cast<Variable *>(ptr_int);
+            // 元のポインタ変数の型情報を確認
+            Variable *ptr_var = nullptr;
+            if (node->left &&
+                node->left->node_type == ASTNodeType::AST_VARIABLE) {
+                ptr_var = interpreter.find_variable(node->left->name);
+            }
 
-            // 参照先の変数の型で返す
-            if (var->type == TYPE_STRUCT || var->is_struct) {
-                // 構造体の場合
-                InferredType deref_type(TYPE_STRUCT, var->struct_type_name);
-                return TypedValue(*var, deref_type);
-            } else if (var->type == TYPE_STRING) {
-                // 文字列の場合
-                InferredType deref_type(TYPE_STRING, "string");
-                return TypedValue(var->str_value, deref_type);
-            } else if (var->type == TYPE_FLOAT || var->type == TYPE_DOUBLE ||
-                       var->type == TYPE_QUAD) {
-                // 浮動小数点数の場合
-                InferredType deref_type(var->type,
-                                        type_info_to_string_simple(var->type));
-                return TypedValue(var->double_value, deref_type);
+            // プリミティブ型のポインタ（int*, float*など）かVariable*かを判別
+            // points_to_heap_memoryフラグで判定（new式で作成されたか）
+            bool is_raw_memory_ptr = false;
+            TypeInfo deref_elem_type = TYPE_INT; // デフォルト
+            if (ptr_var && ptr_var->points_to_heap_memory) {
+                // new式で作成された生メモリポインタ
+                is_raw_memory_ptr = true;
+                deref_elem_type = ptr_var->type;
+                if (debug_mode) {
+                    std::cerr << "[DEREFERENCE] Heap memory pointer detected"
+                              << ", type=" << static_cast<int>(deref_elem_type)
+                              << std::endl;
+                }
+            }
+
+            if (is_raw_memory_ptr) {
+                // 生メモリからの読み取り（new int等で割り当てられたメモリ）
+                if (debug_mode) {
+                    std::cerr << "[DEREFERENCE] Raw memory read: ptr=0x"
+                              << std::hex << ptr_int << std::dec
+                              << ", type=" << static_cast<int>(deref_elem_type)
+                              << std::endl;
+                }
+
+                // 型に応じて適切なサイズで読み取る
+                if (deref_elem_type == TYPE_FLOAT) {
+                    float *target = reinterpret_cast<float *>(ptr_int);
+                    InferredType float_type(TYPE_FLOAT, "float");
+                    return TypedValue(static_cast<double>(*target), float_type);
+                } else if (deref_elem_type == TYPE_DOUBLE) {
+                    double *target = reinterpret_cast<double *>(ptr_int);
+                    InferredType double_type(TYPE_DOUBLE, "double");
+                    return TypedValue(*target, double_type);
+                } else if (deref_elem_type == TYPE_QUAD) {
+                    long double *target =
+                        reinterpret_cast<long double *>(ptr_int);
+                    InferredType quad_type(TYPE_QUAD, "quad");
+                    return TypedValue(static_cast<double>(*target), quad_type);
+                } else {
+                    // 整数型
+                    std::string type_name =
+                        type_info_to_string_simple(deref_elem_type);
+                    InferredType int_type(deref_elem_type, type_name);
+                    if (deref_elem_type == TYPE_LONG ||
+                        deref_elem_type == TYPE_BIG) {
+                        long *target = reinterpret_cast<long *>(ptr_int);
+                        return TypedValue(static_cast<int64_t>(*target),
+                                          int_type);
+                    } else if (deref_elem_type == TYPE_CHAR) {
+                        char *target = reinterpret_cast<char *>(ptr_int);
+                        return TypedValue(static_cast<int64_t>(*target),
+                                          int_type);
+                    } else {
+                        // デフォルトは4バイト整数
+                        int *target = reinterpret_cast<int *>(ptr_int);
+                        return TypedValue(static_cast<int64_t>(*target),
+                                          int_type);
+                    }
+                }
             } else {
-                // その他（整数型など）
-                InferredType deref_type(var->type, var->type_name);
-                return TypedValue(var->value, deref_type);
+                // 従来の方式（変数ポインタ）
+                Variable *var = reinterpret_cast<Variable *>(ptr_int);
+
+                // 参照先の変数の型で返す
+                if (var->type == TYPE_STRUCT || var->is_struct) {
+                    // 構造体の場合
+                    InferredType deref_type(TYPE_STRUCT, var->struct_type_name);
+                    return TypedValue(*var, deref_type);
+                } else if (var->type == TYPE_STRING) {
+                    // 文字列の場合
+                    InferredType deref_type(TYPE_STRING, "string");
+                    return TypedValue(var->str_value, deref_type);
+                } else if (var->type == TYPE_FLOAT ||
+                           var->type == TYPE_DOUBLE || var->type == TYPE_QUAD) {
+                    // 浮動小数点数の場合
+                    InferredType deref_type(
+                        var->type, type_info_to_string_simple(var->type));
+                    return TypedValue(var->double_value, deref_type);
+                } else {
+                    // その他（整数型など）
+                    InferredType deref_type(var->type, var->type_name);
+                    return TypedValue(var->value, deref_type);
+                }
             }
         }
     }

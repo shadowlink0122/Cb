@@ -2052,6 +2052,27 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
                     interpreter_->expression_evaluator_
                         ->evaluate_typed_expression(init_node);
 
+                // new式の場合、生メモリポインタフラグを設定
+                if (var.is_pointer && init_node &&
+                    init_node->node_type == ASTNodeType::AST_NEW_EXPR) {
+                    // new式で作成されたポインタかどうかをチェック
+                    // 構造体のnewは除外（Variable*を返すため）
+                    const StructDefinition *struct_def =
+                        interpreter_->get_struct_definition(
+                            init_node->new_type_name);
+                    if (!struct_def) {
+                        // プリミティブ型のnew（new int等）または配列new（new
+                        // int[10]）
+                        var.points_to_heap_memory = true;
+                        if (interpreter_->debug_mode) {
+                            std::cerr << "[VAR_MANAGER] Pointer points to heap "
+                                         "memory (new "
+                                      << init_node->new_type_name << ")"
+                                      << std::endl;
+                        }
+                    }
+                }
+
                 // TypedValueに関数ポインタ情報がある場合
                 if (typed_value.is_function_pointer) {
                     if (interpreter_->debug_mode) {

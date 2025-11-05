@@ -65,6 +65,8 @@ struct Variable {
     bool is_private_member = false;   // struct privateメンバーフラグ
     bool destructor_called =
         false; // デストラクタが既に呼ばれたかどうか (double free防止)
+    bool points_to_heap_memory =
+        false; // new演算子で割り当てた生メモリを指すポインタかどうか
 
     // enum型用（v0.11.0 generics）
     bool is_enum = false;       // enum型かどうか

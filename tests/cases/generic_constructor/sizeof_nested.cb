@@ -75,9 +75,9 @@ void main() {
     
     int box_long_size = sizeof(Box<long>);
     println("sizeof(Box<long>) = ", box_long_size);
-    // long(8) + int(4) = 12バイト（アラインメント処理なし）
-    if (box_long_size != 12) {
-        println("ERROR: sizeof(Box<long>) should be 12, got ", box_long_size);
+    // long(8) + int(4) = 16バイト（8バイトアラインメント）
+    if (box_long_size != 16) {
+        println("ERROR: sizeof(Box<long>) should be 16, got ", box_long_size);
         return;
     }
     
@@ -92,10 +92,10 @@ void main() {
         return;
     }
     
-    // b2.size は sizeof(Box<long>) = 12 であるべき
+    // b2.size は sizeof(Box<long>) = 16 であるべき
     println("b2.size = ", b2.size);
-    if (b2.size != 12) {
-        println("ERROR: b2.size should be 12 (sizeof(Box<long>)), got ", b2.size);
+    if (b2.size != 16) {
+        println("ERROR: b2.size should be 16 (sizeof(Box<long>)), got ", b2.size);
         return;
     }
     

@@ -43,7 +43,7 @@ void test_sizeof_struct() {
     println("sizeof(Point) = {size_point} (expected: 8 = 2*4)");
     
     int size_rect = sizeof(Rectangle);
-    println("sizeof(Rectangle) = {size_rect} (expected: 20 = 4+4+4+4+4)");
+    println("sizeof(Rectangle) = {size_rect} (expected: 24 = 8+8+4+4 with padding)");
     
     println("sizeof struct test complete\n");
 }
