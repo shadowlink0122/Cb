@@ -1978,22 +1978,27 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
                     interpreter_->global_scope.functions.find(func_name);
                 if (func_it != interpreter_->global_scope.functions.end()) {
                     const ASTNode *func_def = func_it->second;
-                    std::string return_type = func_def->return_type_name;
+                    // Safety check: ensure func_def is valid before accessing
+                    if (func_def != nullptr) {
+                        std::string return_type = func_def->return_type_name;
 
-                    // "const T*" パターンをチェック
-                    size_t const_pos = return_type.find("const");
-                    size_t star_pos = return_type.find("*");
+                        // "const T*" パターンをチェック
+                        size_t const_pos = return_type.find("const");
+                        size_t star_pos = return_type.find("*");
 
-                    if (const_pos != std::string::npos &&
-                        star_pos != std::string::npos && const_pos < star_pos &&
-                        !node->is_pointee_const_qualifier) {
-                        throw std::runtime_error(
-                            "Type mismatch: Cannot assign function '" +
-                            func_name + "' return value with type (" +
-                            return_type + ") to variable '" + node->name +
-                            "' of type (int*)\n" +
-                            "  Cannot discard const qualifier from pointed-to "
-                            "type in return value");
+                        if (const_pos != std::string::npos &&
+                            star_pos != std::string::npos &&
+                            const_pos < star_pos &&
+                            !node->is_pointee_const_qualifier) {
+                            throw std::runtime_error(
+                                "Type mismatch: Cannot assign function '" +
+                                func_name + "' return value with type (" +
+                                return_type + ") to variable '" + node->name +
+                                "' of type (int*)\n" +
+                                "  Cannot discard const qualifier from "
+                                "pointed-to "
+                                "type in return value");
+                        }
                     }
                 }
             }
