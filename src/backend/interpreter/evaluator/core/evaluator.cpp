@@ -588,10 +588,20 @@ ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode *node) {
                         return true;
                     } else if (member_name == "value") {
                         if (base_var->has_associated_value) {
-                            // Return the associated value as integer
-                            out = TypedValue(base_var->associated_int_value,
-                                             InferredType(TYPE_INT, "int"));
-                            return true;
+                            // 文字列型の関連値の場合
+                            if (!base_var->associated_str_value.empty()) {
+                                out = TypedValue(
+                                    base_var->associated_str_value,
+                                    InferredType(TYPE_STRING, "string"));
+                                out.is_numeric_result = false;
+                                return true;
+                            }
+                            // 数値型の関連値の場合
+                            else {
+                                out = TypedValue(base_var->associated_int_value,
+                                                 InferredType(TYPE_INT, "int"));
+                                return true;
+                            }
                         } else {
                             throw std::runtime_error(
                                 "Enum variant '" + base_var->enum_variant +

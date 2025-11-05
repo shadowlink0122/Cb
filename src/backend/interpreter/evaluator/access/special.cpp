@@ -35,14 +35,68 @@ int64_t evaluate_arrow_access(
         Variable *ptr_var = interpreter.find_variable(node->left->name);
         if (ptr_var && ptr_var->is_pointer &&
             !ptr_var->pointer_base_type_name.empty()) {
-            debug_print("[ARROW_OP] Direct pointer variable access: var='%s', "
-                        "pointer_base_type='%s', value=0x%llx\n",
-                        node->left->name.c_str(),
-                        ptr_var->pointer_base_type_name.c_str(),
-                        (unsigned long long)ptr_var->value);
 
             // ポインタ値を取得
             ptr_value = ptr_var->value;
+
+            // 重要: ジェネリック型でない通常の構造体の場合のみ、
+            // ptr_valueをVariable*として扱う。
+            // ジェネリック構造体（MapNode<K,V>など）の場合は、
+            // 元のコードパス（生メモリアクセス）を使う必要がある。
+            bool is_non_generic_struct =
+                (ptr_value != 0 && ptr_var->pointer_base_type_name.find('<') ==
+                                       std::string::npos);
+
+            if (is_non_generic_struct) {
+                struct_var = reinterpret_cast<Variable *>(ptr_value);
+
+                // Variable構造体として有効かチェック
+                // is_structフラグまたはstruct_membersがあるか確認
+                bool looks_like_variable =
+                    (struct_var->is_struct ||
+                     !struct_var->struct_members.empty());
+
+                if (looks_like_variable) {
+                    // メンバーを取得
+                    Variable member_var =
+                        get_struct_member_func(*struct_var, member_name);
+
+                    if (member_var.type == TYPE_STRING) {
+                        TypedValue typed_result(
+                            static_cast<int64_t>(0),
+                            InferredType(TYPE_STRING, "string"));
+                        typed_result.string_value = member_var.str_value;
+                        typed_result.is_numeric_result = false;
+                        evaluator.set_last_typed_result(typed_result);
+                        return 0;
+                    } else if (member_var.type == TYPE_POINTER) {
+                        return member_var.value;
+                    } else if (member_var.type == TYPE_FLOAT) {
+                        TypedValue typed_result(
+                            static_cast<double>(member_var.float_value),
+                            InferredType(TYPE_FLOAT, "float"));
+                        typed_result.is_numeric_result = true;
+                        typed_result.is_float_result = true;
+                        evaluator.set_last_typed_result(typed_result);
+                        return 0;
+                    } else if (member_var.type == TYPE_DOUBLE) {
+                        TypedValue typed_result(
+                            member_var.double_value,
+                            InferredType(TYPE_DOUBLE, "double"));
+                        evaluator.set_last_typed_result(typed_result);
+                        return 0;
+                    } else if (member_var.type == TYPE_QUAD) {
+                        TypedValue typed_result(
+                            static_cast<long double>(member_var.quad_value),
+                            InferredType(TYPE_QUAD, "quad"));
+                        evaluator.set_last_typed_result(typed_result);
+                        return 0;
+                    } else {
+                        // 整数型
+                        return member_var.value;
+                    }
+                }
+            }
 
             // ジェネリック型を解決
             std::string resolved_type_name =

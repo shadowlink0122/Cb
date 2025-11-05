@@ -58,11 +58,27 @@ int64_t ExpressionEvaluator::evaluate_member_access_impl(const ASTNode *node) {
             } else if (member_name == "value") {
                 // 関連値を返す
                 if (base_var->has_associated_value) {
-                    int64_t val = base_var->associated_int_value;
-                    debug_print(
-                        "[MEMBER_EVAL_IMPL] Returning associated value: %lld\n",
-                        (long long)val);
-                    return val;
+                    // 関連値が文字列の場合はassociated_str_valueを返す
+                    if (!base_var->associated_str_value.empty()) {
+                        TypedValue typed_result(
+                            static_cast<int64_t>(0),
+                            InferredType(TYPE_STRING, "string"));
+                        typed_result.string_value =
+                            base_var->associated_str_value;
+                        typed_result.is_numeric_result = false;
+                        set_last_typed_result(typed_result);
+                        debug_print("[MEMBER_EVAL_IMPL] Returning associated "
+                                    "string value: '%s'\n",
+                                    base_var->associated_str_value.c_str());
+                        return 0;
+                    } else {
+                        // 数値の場合はassociated_int_valueを返す
+                        int64_t val = base_var->associated_int_value;
+                        debug_print("[MEMBER_EVAL_IMPL] Returning associated "
+                                    "int value: %lld\n",
+                                    (long long)val);
+                        return val;
+                    }
                 } else {
                     throw std::runtime_error(
                         "Enum variant '" + base_var->enum_variant +

@@ -370,12 +370,20 @@ void ReturnHandler::handle_enum_construct_return(const ASTNode *node) {
     enum_var.is_enum = true;
     enum_var.enum_variant = enum_construct->enum_member;
 
-    // 関連値を評価
+    // 関連値を評価（型に応じて適切なフィールドに格納）
     if (!enum_construct->arguments.empty()) {
-        int64_t assoc_value =
-            interpreter_->eval_expression(enum_construct->arguments[0].get());
+        TypedValue typed_result =
+            interpreter_->evaluate_typed(enum_construct->arguments[0].get());
         enum_var.has_associated_value = true;
-        enum_var.associated_int_value = assoc_value;
+
+        // 文字列型の場合
+        if (typed_result.type.type_info == TYPE_STRING) {
+            enum_var.associated_str_value = typed_result.string_value;
+        }
+        // 数値型の場合
+        else {
+            enum_var.associated_int_value = typed_result.as_numeric();
+        }
     } else {
         enum_var.has_associated_value = false;
     }

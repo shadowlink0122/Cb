@@ -388,24 +388,39 @@ void execute_variable_declaration(StatementExecutor *executor,
                 // ASTノードから直接情報を取得
                 var.enum_variant = init_node->enum_member;
 
-                // 関連値を評価
+                // 関連値を評価（型に応じて適切なフィールドに格納）
                 if (!init_node->arguments.empty()) {
-                    int64_t assoc_value = interpreter.eval_expression(
+                    TypedValue typed_result = interpreter.evaluate_typed(
                         init_node->arguments[0].get());
                     var.has_associated_value = true;
-                    var.associated_int_value = assoc_value;
+
+                    // 文字列型の場合
+                    if (typed_result.type.type_info == TYPE_STRING) {
+                        var.associated_str_value = typed_result.string_value;
+                        if (debug_mode) {
+                            debug_log_line(
+                                "[DEBUG_STMT] Enum initialized with variant: " +
+                                var.enum_variant +
+                                ", string_value=" + var.associated_str_value);
+                        }
+                    }
+                    // 数値型の場合
+                    else {
+                        var.associated_int_value = typed_result.as_numeric();
+                        if (debug_mode) {
+                            debug_log_line(
+                                "[DEBUG_STMT] Enum initialized with variant: " +
+                                var.enum_variant + ", int_value=" +
+                                std::to_string(var.associated_int_value));
+                        }
+                    }
+                } else if (debug_mode) {
+                    debug_log_line(
+                        "[DEBUG_STMT] Enum initialized with variant: " +
+                        var.enum_variant + ", value=none");
                 }
 
                 var.is_assigned = true;
-
-                if (debug_mode) {
-                    debug_log_line(
-                        "[DEBUG_STMT] Enum initialized with variant: " +
-                        var.enum_variant + ", value=" +
-                        (var.has_associated_value
-                             ? std::to_string(var.associated_int_value)
-                             : "none"));
-                }
             }
             // AST_ENUM_ACCESSの場合（古いスタイルのenum - Status::ERROR等）
             else if (init_node->node_type == ASTNodeType::AST_ENUM_ACCESS) {
@@ -446,17 +461,26 @@ void execute_variable_declaration(StatementExecutor *executor,
                                 ret.struct_value.has_associated_value;
                             var.associated_int_value =
                                 ret.struct_value.associated_int_value;
+                            var.associated_str_value =
+                                ret.struct_value.associated_str_value;
                             var.is_assigned = true;
 
                             if (debug_mode) {
+                                std::string value_str = "none";
+                                if (var.has_associated_value) {
+                                    if (!var.associated_str_value.empty()) {
+                                        value_str = "'" +
+                                                    var.associated_str_value +
+                                                    "'";
+                                    } else {
+                                        value_str = std::to_string(
+                                            var.associated_int_value);
+                                    }
+                                }
                                 debug_log_line(
                                     "[DEBUG_STMT] Enum initialized from "
                                     "function return: variant=" +
-                                    var.enum_variant + ", value=" +
-                                    (var.has_associated_value
-                                         ? std::to_string(
-                                               var.associated_int_value)
-                                         : "none"));
+                                    var.enum_variant + ", value=" + value_str);
                             }
                         } else {
                             // 古いスタイルのenum（整数値）として扱う

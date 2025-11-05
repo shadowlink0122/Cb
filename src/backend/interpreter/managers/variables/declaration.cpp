@@ -180,20 +180,30 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
                     debug_print("[ENUM_VAR_DECL_MANAGER] About to evaluate "
                                 "argument expression\n");
 
-                    int64_t assoc_value = interpreter_->eval_expression(
+                    // TypedValueで評価して型に応じて適切なフィールドに格納
+                    TypedValue typed_result = interpreter_->evaluate_typed(
                         init_node->arguments[0].get());
 
-                    debug_print(
-                        "[ENUM_VAR_DECL_MANAGER] Argument evaluated to: %lld\n",
-                        assoc_value);
-
                     var.has_associated_value = true;
-                    var.associated_int_value =
-                        assoc_value; // TODO: 型に応じて適切なフィールドを使用
 
-                    debug_print("[ENUM_VAR_DECL_MANAGER] Enum initialized with "
-                                "variant='%s', value=%lld\n",
-                                var.enum_variant.c_str(), assoc_value);
+                    // 文字列型の場合
+                    if (typed_result.type.type_info == TYPE_STRING) {
+                        var.associated_str_value = typed_result.string_value;
+                        debug_print(
+                            "[ENUM_VAR_DECL_MANAGER] Enum initialized with "
+                            "variant='%s', string_value='%s'\n",
+                            var.enum_variant.c_str(),
+                            var.associated_str_value.c_str());
+                    }
+                    // 数値型の場合
+                    else {
+                        int64_t assoc_value = typed_result.as_numeric();
+                        var.associated_int_value = assoc_value;
+                        debug_print(
+                            "[ENUM_VAR_DECL_MANAGER] Enum initialized with "
+                            "variant='%s', int_value=%lld\n",
+                            var.enum_variant.c_str(), assoc_value);
+                    }
                 } else {
                     debug_print("[ENUM_VAR_DECL_MANAGER] Enum initialized with "
                                 "variant='%s' (no associated value)\n",

@@ -282,7 +282,10 @@ integration-test: $(TESTS_DIR)/integration/test_main
 	@echo "============================================================="
 	@echo "Running Cb Integration Test Suite"
 	@echo "============================================================="
-	@bash -c "set -o pipefail; cd tests/integration && ./test_main 2>&1 | fold -s -w 80"
+	@bash -c "set -o pipefail; cd tests/integration && ./test_main 2>&1 | tee /tmp/cb_integration_raw.log | fold -s -w 80"; \
+	if grep -q "^Failed: [1-9]" /tmp/cb_integration_raw.log; then \
+		exit 1; \
+	fi
 
 # より詳細な出力が必要な場合の統合テスト（フル出力）
 integration-test-verbose: $(TESTS_DIR)/integration/test_main
@@ -320,16 +323,90 @@ stdlib-test-cb: $(MAIN_TARGET)
 	@echo "\n✅ All stdlib .cb tests passed!"
 
 # Run both C++ and Cb stdlib tests
-stdlib-test: stdlib-test-cpp stdlib-test-cb
-	@echo "\n╔════════════════════════════════════════════════════════════╗"
-	@echo "║    All Standard Library Tests Completed Successfully!     ║"
-	@echo "╚════════════════════════════════════════════════════════════╝"
+stdlib-test:
+	@CPP_RESULT=0; CB_RESULT=0; \
+	$(MAKE) stdlib-test-cpp || CPP_RESULT=$$?; \
+	$(MAKE) stdlib-test-cb || CB_RESULT=$$?; \
+	if [ $$CPP_RESULT -eq 0 ] && [ $$CB_RESULT -eq 0 ]; then \
+		echo ""; \
+		echo "╔════════════════════════════════════════════════════════════╗"; \
+		echo "║    All Standard Library Tests Completed Successfully!     ║"; \
+		echo "╚════════════════════════════════════════════════════════════╝"; \
+		exit 0; \
+	else \
+		echo ""; \
+		echo "⚠️  Some stdlib tests failed"; \
+		if [ $$CPP_RESULT -ne 0 ]; then echo "   - C++ tests: FAILED"; fi; \
+		if [ $$CB_RESULT -ne 0 ]; then echo "   - Cb tests: FAILED"; fi; \
+		exit 1; \
+	fi
 
-test: integration-test unit-test stdlib-test
-	@echo "=== Test Summary ==="
-	@echo "Integration tests: completed"
-	@echo "Unit tests: completed"
-	@echo "Stdlib tests: completed"
+test:
+	@echo "============================================================="
+	@echo "Running All Cb Test Suites"
+	@echo "============================================================="
+	@START_TIME=$$(date +%s); \
+	INTEGRATION_RESULT=0; UNIT_RESULT=0; STDLIB_RESULT=0; \
+	echo ""; \
+	echo "[1/3] Running Integration Tests..."; \
+	$(MAKE) integration-test || INTEGRATION_RESULT=$$?; \
+	echo ""; \
+	echo "[2/3] Running Unit Tests..."; \
+	$(MAKE) unit-test || UNIT_RESULT=$$?; \
+	echo ""; \
+	echo "[3/3] Running Stdlib Tests..."; \
+	$(MAKE) stdlib-test || STDLIB_RESULT=$$?; \
+	END_TIME=$$(date +%s); \
+	ELAPSED=$$((END_TIME - START_TIME)); \
+	echo ""; \
+	echo "============================================================="; \
+	echo "=== Final Test Summary ==="; \
+	echo "============================================================="; \
+	TOTAL_PASS=0; TOTAL_FAIL=0; \
+	if [ $$INTEGRATION_RESULT -eq 0 ]; then \
+		echo "✅ Integration tests: PASSED"; \
+		TOTAL_PASS=$$((TOTAL_PASS + 1)); \
+	else \
+		echo "❌ Integration tests: FAILED (exit code $$INTEGRATION_RESULT)"; \
+		TOTAL_FAIL=$$((TOTAL_FAIL + 1)); \
+		if [ -f /tmp/cb_integration_raw.log ]; then \
+			FAILED_COUNT=$$(grep "^Failed:" /tmp/cb_integration_raw.log | head -1 | awk '{print $$2}' || echo "0"); \
+			if [ "$$FAILED_COUNT" != "0" ]; then \
+				echo ""; \
+				echo "Integration test failures: $$FAILED_COUNT tests failed"; \
+				grep -E "^(Total:|Passed:|Failed:)" /tmp/cb_integration_raw.log | head -3 || true; \
+			fi; \
+		fi; \
+	fi; \
+	if [ $$UNIT_RESULT -eq 0 ]; then \
+		echo "✅ Unit tests: PASSED"; \
+		TOTAL_PASS=$$((TOTAL_PASS + 1)); \
+	else \
+		echo "❌ Unit tests: FAILED (exit code $$UNIT_RESULT)"; \
+		TOTAL_FAIL=$$((TOTAL_FAIL + 1)); \
+	fi; \
+	if [ $$STDLIB_RESULT -eq 0 ]; then \
+		echo "✅ Stdlib tests: PASSED"; \
+		TOTAL_PASS=$$((TOTAL_PASS + 1)); \
+	else \
+		echo "❌ Stdlib tests: FAILED (exit code $$STDLIB_RESULT)"; \
+		TOTAL_FAIL=$$((TOTAL_FAIL + 1)); \
+	fi; \
+	echo "============================================================="; \
+	echo "Test suites: $$TOTAL_PASS passed, $$TOTAL_FAIL failed"; \
+	echo "Total time: $${ELAPSED}s"; \
+	echo "============================================================="; \
+	if [ $$TOTAL_FAIL -eq 0 ]; then \
+		echo "🎉 All test suites passed!"; \
+		exit 0; \
+	else \
+		echo "⚠️  $$TOTAL_FAIL test suite(s) failed. Review output above for details."; \
+		if [ $$INTEGRATION_RESULT -ne 0 ]; then \
+			echo ""; \
+			echo "💡 Tip: Run 'make integration-test' separately for detailed failure info"; \
+		fi; \
+		exit 1; \
+	fi
 
 # クリーンアップ
 clean:
@@ -339,6 +416,7 @@ clean:
 	rm -f tests/integration/test_main
 	rm -f tests/unit/test_main tests/unit/dummy.o
 	rm -f tests/stdlib/test_main
+	rm -f /tmp/cb_integration_test.log
 	find . -name "*.o" -type f -delete
 	rm -rf **/*.dSYM *.dSYM
 	rm -rf tests/integration/*.dSYM

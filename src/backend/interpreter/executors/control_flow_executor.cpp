@@ -237,10 +237,18 @@ void ControlFlowExecutor::execute_match_statement(const ASTNode *node) {
         enum_value.is_enum = true;
         enum_value.enum_variant = match_expr->enum_member;
         if (!match_expr->arguments.empty()) {
-            int64_t assoc_value =
-                interpreter_->eval_expression(match_expr->arguments[0].get());
+            TypedValue typed_result =
+                interpreter_->evaluate_typed(match_expr->arguments[0].get());
             enum_value.has_associated_value = true;
-            enum_value.associated_int_value = assoc_value;
+
+            // 文字列型の場合
+            if (typed_result.type.type_info == TYPE_STRING) {
+                enum_value.associated_str_value = typed_result.string_value;
+            }
+            // 数値型の場合
+            else {
+                enum_value.associated_int_value = typed_result.as_numeric();
+            }
         } else {
             enum_value.has_associated_value = false;
         }
@@ -274,10 +282,17 @@ void ControlFlowExecutor::execute_match_statement(const ASTNode *node) {
 
                     // ワイルドカード(_)の場合は変数を作成しない
                     if (binding_name != "_") {
-                        // 新しいスコープを作成してバインディング変数を追加
-                        interpreter_->assign_variable(
-                            binding_name, enum_value.associated_int_value,
-                            TYPE_INT);
+                        // 型に応じて変数を作成
+                        if (!enum_value.associated_str_value.empty()) {
+                            // 文字列型の場合
+                            interpreter_->assign_variable(
+                                binding_name, enum_value.associated_str_value);
+                        } else {
+                            // 数値型の場合
+                            interpreter_->assign_variable(
+                                binding_name, enum_value.associated_int_value,
+                                TYPE_INT);
+                        }
                     }
                 }
             }

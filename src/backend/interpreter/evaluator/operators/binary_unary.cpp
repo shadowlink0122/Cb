@@ -564,7 +564,7 @@ TypedValue evaluate_unary_op_typed(
             // Variable*を返す（従来の方式）
             int64_t addr = reinterpret_cast<int64_t>(var);
 
-            if (debug_mode || true) { // Always log
+            if (debug_mode) {
                 std::cerr << "[ADDRESS_OF evaluate_typed] var=" << var
                           << ", is_struct=" << var->is_struct
                           << ", is_array=" << var->is_array
@@ -594,7 +594,7 @@ TypedValue evaluate_unary_op_typed(
             // Variable*を返す（従来の方式）
             int64_t addr = reinterpret_cast<int64_t>(var);
 
-            if (debug_mode || true) { // Always log
+            if (debug_mode) {
                 std::cerr << "[ADDRESS_OF evaluate_typed AST_VARIABLE] var="
                           << var << ", is_struct=" << var->is_struct
                           << ", is_array=" << var->is_array
