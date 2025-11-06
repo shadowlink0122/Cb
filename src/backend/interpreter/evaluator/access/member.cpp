@@ -29,6 +29,68 @@ int64_t ExpressionEvaluator::evaluate_member_access_impl(const ASTNode *node) {
                 member_name.c_str(), node->member_chain.size(),
                 node->left ? static_cast<int>(node->left->node_type) : -1);
 
+    // v0.11.0: Enum値へのメンバーアクセス
+    // Option<int> x = Some(42); の後、x.variantやx.valueへアクセス
+    if (node->left && node->left->node_type == ASTNodeType::AST_VARIABLE) {
+        Variable *base_var = interpreter_.find_variable(node->left->name);
+        debug_print(
+            "[MEMBER_EVAL_IMPL] Checking variable '%s': found=%d, is_enum=%d\n",
+            node->left->name.c_str(), base_var != nullptr,
+            base_var ? base_var->is_enum : 0);
+
+        if (base_var && base_var->is_enum) {
+            debug_print("[MEMBER_EVAL_IMPL] Enum member access: member='%s', "
+                        "has_associated_value=%d, associated_int_value=%lld\n",
+                        member_name.c_str(), base_var->has_associated_value,
+                        (long long)base_var->associated_int_value);
+
+            if (member_name == "variant") {
+                // variant名を文字列として返す
+                // 文字列を返すためにlast_typed_resultを使用
+                TypedValue typed_result(static_cast<int64_t>(0),
+                                        InferredType(TYPE_STRING, "string"));
+                typed_result.string_value = base_var->enum_variant;
+                typed_result.is_numeric_result = false;
+                set_last_typed_result(typed_result);
+                debug_print("[MEMBER_EVAL_IMPL] Returning variant: '%s'\n",
+                            base_var->enum_variant.c_str());
+                return 0;
+            } else if (member_name == "value") {
+                // 関連値を返す
+                if (base_var->has_associated_value) {
+                    // 関連値が文字列の場合はassociated_str_valueを返す
+                    if (!base_var->associated_str_value.empty()) {
+                        TypedValue typed_result(
+                            static_cast<int64_t>(0),
+                            InferredType(TYPE_STRING, "string"));
+                        typed_result.string_value =
+                            base_var->associated_str_value;
+                        typed_result.is_numeric_result = false;
+                        set_last_typed_result(typed_result);
+                        debug_print("[MEMBER_EVAL_IMPL] Returning associated "
+                                    "string value: '%s'\n",
+                                    base_var->associated_str_value.c_str());
+                        return 0;
+                    } else {
+                        // 数値の場合はassociated_int_valueを返す
+                        int64_t val = base_var->associated_int_value;
+                        debug_print("[MEMBER_EVAL_IMPL] Returning associated "
+                                    "int value: %lld\n",
+                                    (long long)val);
+                        return val;
+                    }
+                } else {
+                    throw std::runtime_error(
+                        "Enum variant '" + base_var->enum_variant +
+                        "' does not have an associated value");
+                }
+            } else {
+                throw std::runtime_error("Unknown enum member: " + member_name +
+                                         ". Available: variant, value");
+            }
+        }
+    }
+
     // ARROW_ACCESSまたはUNARY_OPが含まれる場合、member_chainパスをスキップ
     // これらは再帰的解決でのみ正しく処理できる
     // 再帰的にチェック：ネストした式の中にARROW/DEREFがある場合も検出
@@ -62,10 +124,11 @@ int64_t ExpressionEvaluator::evaluate_member_access_impl(const ASTNode *node) {
         Variable base_var;
         if (node->left->node_type == ASTNodeType::AST_VARIABLE) {
             Variable *var = interpreter_.find_variable(node->left->name);
-            if (!var || var->type != TYPE_STRUCT) {
-                throw std::runtime_error(
-                    "Base variable for nested access is not a struct: " +
-                    node->left->name);
+            // v0.11.0: enum型もメンバーチェーンをサポート（将来的に）
+            if (!var || (var->type != TYPE_STRUCT && !var->is_enum)) {
+                throw std::runtime_error("Base variable for nested access is "
+                                         "not a struct or enum: " +
+                                         node->left->name);
             }
             base_var = *var;
         } else if (node->left->node_type == ASTNodeType::AST_IDENTIFIER &&
@@ -102,10 +165,12 @@ int64_t ExpressionEvaluator::evaluate_member_access_impl(const ASTNode *node) {
             };
             std::string full_path = build_path(node->left.get());
             Variable *var = interpreter_.find_variable(full_path);
-            if (!var || var->type != TYPE_STRUCT) {
-                throw std::runtime_error(
-                    "Base variable for nested access is not a struct: " +
-                    full_path);
+            // v0.11.0: enum型もサポート
+            if (!var || (!var->is_struct && var->type != TYPE_STRUCT &&
+                         !var->is_enum)) {
+                throw std::runtime_error("Base variable for nested access is "
+                                         "not a struct or enum: " +
+                                         full_path);
             }
             base_var = *var;
         } else {
@@ -511,10 +576,94 @@ int64_t ExpressionEvaluator::evaluate_member_access_impl(const ASTNode *node) {
         debug_msg(DebugMsgId::EXPR_EVAL_START,
                   "Pointer dereference member access");
 
-        // デリファレンスを評価して構造体のポインタ値を取得
-        int64_t ptr_value = evaluate_expression(node->left.get());
+        // デリファレンスを型情報付きで評価
+        TypedValue deref_result = evaluate_typed_expression(node->left.get());
 
-        // ポインタ値から構造体変数を取得
+        debug_print("[DEREF_MEMBER] deref_result: type=%d, value=%lld\n",
+                    static_cast<int>(deref_result.type.type_info),
+                    (long long)deref_result.value);
+
+        // 構造体ポインタのデリファレンスの場合
+        if (deref_result.type.type_info == TYPE_STRUCT) {
+            debug_print("[DEREF_MEMBER] Struct pointer dereference detected\n");
+            // 生メモリポインタの場合、valueフィールドにアドレスがある
+            void *base_ptr = reinterpret_cast<void *>(deref_result.value);
+            if (!base_ptr) {
+                throw std::runtime_error(
+                    "Null pointer dereference in member access");
+            }
+
+            // 構造体定義を取得
+            const StructDefinition *struct_def =
+                interpreter_.find_struct_definition(
+                    deref_result.type.type_name);
+            if (!struct_def) {
+                throw std::runtime_error("Struct definition not found: " +
+                                         deref_result.type.type_name);
+            }
+
+            // 構造体定義からメンバーを取得
+            const std::vector<StructMember> &members = struct_def->members;
+
+            // メンバーのオフセットを計算
+            size_t offset = 0;
+            TypeInfo member_type = TYPE_UNKNOWN;
+            bool found = false;
+
+            for (const auto &member : members) {
+                if (member.name == member_name) {
+                    member_type = member.type;
+                    found = true;
+                    break;
+                }
+                // メンバーのサイズを加算
+                if (member.type == TYPE_INT || member.type == TYPE_LONG ||
+                    member.type == TYPE_POINTER) {
+                    offset += sizeof(int64_t);
+                } else if (member.type == TYPE_FLOAT) {
+                    offset += sizeof(float);
+                } else if (member.type == TYPE_DOUBLE) {
+                    offset += sizeof(double);
+                } else {
+                    throw std::runtime_error(
+                        "Unsupported member type in dereference access: " +
+                        std::string(type_info_to_string_basic(member.type)));
+                }
+            }
+
+            if (!found) {
+                throw std::runtime_error("Member not found: " + member_name);
+            }
+
+            // 生メモリから値を読み取り
+            void *member_ptr = static_cast<char *>(base_ptr) + offset;
+
+            if (member_type == TYPE_INT || member_type == TYPE_LONG) {
+                int64_t *int_ptr = static_cast<int64_t *>(member_ptr);
+                return *int_ptr;
+            } else if (member_type == TYPE_FLOAT) {
+                float *float_ptr = static_cast<float *>(member_ptr);
+                InferredType float_type(TYPE_FLOAT, "float");
+                last_typed_result_ =
+                    TypedValue(static_cast<double>(*float_ptr), float_type);
+                return static_cast<int64_t>(*float_ptr);
+            } else if (member_type == TYPE_DOUBLE) {
+                double *double_ptr = static_cast<double *>(member_ptr);
+                InferredType double_type(TYPE_DOUBLE, "double");
+                last_typed_result_ = TypedValue(*double_ptr, double_type);
+                return static_cast<int64_t>(*double_ptr);
+            } else if (member_type == TYPE_POINTER) {
+                int64_t *ptr_ptr = static_cast<int64_t *>(member_ptr);
+                return *ptr_ptr;
+            } else {
+                throw std::runtime_error(
+                    "Unsupported member type in dereference access: " +
+                    std::string(type_info_to_string_basic(member_type)));
+            }
+        }
+
+        // 従来の方式（変数ポインタ）
+        int64_t ptr_value = deref_result.value;
         Variable *struct_var = reinterpret_cast<Variable *>(ptr_value);
         if (!struct_var) {
             throw std::runtime_error(
@@ -528,15 +677,24 @@ int64_t ExpressionEvaluator::evaluate_member_access_impl(const ASTNode *node) {
         if (TypeHelpers::isString(member_var.type)) {
             TypedValue typed_result(static_cast<int64_t>(0),
                                     InferredType(TYPE_STRING, "string"));
-            typed_result.string_value = member_var.str_value;
+            // mallocで確保したstring型ポインタの場合
+            if (member_var.str_value.empty() && member_var.value != 0) {
+                const char *ptr =
+                    reinterpret_cast<const char *>(member_var.value);
+                typed_result.string_value = std::string(ptr);
+            } else {
+                typed_result.string_value = member_var.str_value;
+            }
             typed_result.is_numeric_result = false;
             last_typed_result_ = typed_result;
             return 0;
         } else if (TypeHelpers::isStruct(member_var.type)) {
             // メンバーが構造体の場合、その構造体へのポインタを返す
             // これにより、(*ptr).val.x のようなパターンをサポート
-            auto member_it = struct_var->struct_members.find(member_name);
-            if (member_it != struct_var->struct_members.end()) {
+            // v0.13.1: 参照がある場合はそれを使用
+            auto &members = struct_var->get_struct_members();
+            auto member_it = members.find(member_name);
+            if (member_it != members.end()) {
                 return reinterpret_cast<int64_t>(&member_it->second);
             }
             // フォールバック: member_varのvalueを返す（構造体の場合は通常0）
@@ -585,7 +743,15 @@ int64_t ExpressionEvaluator::evaluate_member_access_impl(const ASTNode *node) {
             if (TypeHelpers::isString(result_member.type)) {
                 TypedValue typed_result(static_cast<int64_t>(0),
                                         InferredType(TYPE_STRING, "string"));
-                typed_result.string_value = result_member.str_value;
+                // mallocで確保したstring型ポインタの場合
+                if (result_member.str_value.empty() &&
+                    result_member.value != 0) {
+                    const char *ptr =
+                        reinterpret_cast<const char *>(result_member.value);
+                    typed_result.string_value = std::string(ptr);
+                } else {
+                    typed_result.string_value = result_member.str_value;
+                }
                 typed_result.is_numeric_result = false;
                 last_typed_result_ = typed_result;
                 return 0;

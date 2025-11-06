@@ -1,0 +1,35 @@
+// Test: 組み込み型Option<T>の基本動作テスト
+// v0.11.0: Option<T>がインタプリタ起動時に自動登録されることを確認
+// enum定義が不要であることを確認
+
+void main() {
+    // Some(T)の作成
+    Option<int> some_value = Option<int>::Some(42);
+    
+    // Noneの作成
+    Option<int> none_value = Option<int>::None;
+    
+    // パターンマッチング（Some）
+    match (some_value) {
+        Some(value) => {
+            println("Some: ");
+            println(value);
+        }
+        None => {
+            println("None");
+        }
+    }
+    
+    // パターンマッチング（None）
+    match (none_value) {
+        Some(value) => {
+            println("Some: ");
+            println(value);
+        }
+        None => {
+            println("None (expected)");
+        }
+    }
+    
+    println("Option<T> builtin test passed!");
+}

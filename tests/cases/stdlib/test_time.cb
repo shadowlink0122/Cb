@@ -1,0 +1,135 @@
+// stdlib/std/time.cb の使用例とテスト
+
+import stdlib.std.time;
+
+void test_basic_sleep() {
+    println("\n=== テスト1: 基本的なスリープ ===");
+    println("開始");
+    sleep(SECOND);
+    println("1秒後");
+}
+
+void test_helper_functions() {
+    println("\n=== テスト2: ヘルパー関数 ===");
+    println("3秒待機開始");
+    sleep_seconds(3);
+    println("3秒待機完了");
+}
+
+void test_duration_creation() {
+    println("\n=== テスト3: Duration構造体 ===");
+    
+    // 65432ミリ秒 = 1分5秒432ミリ秒
+    Duration d1 = create_duration(65432);
+    print("65432ms = ");
+    format_duration(d1);
+    
+    // 3723000ミリ秒 = 1時間2分3秒
+    Duration d2 = create_duration(3723000);
+    print("3723000ms = ");
+    format_duration(d2);
+    
+    // 500ミリ秒
+    Duration d3 = create_duration(500);
+    print("500ms = ");
+    format_duration(d3);
+}
+
+void test_time_conversions() {
+    println("\n=== テスト4: 時間変換 ===");
+    
+    int five_minutes = minutes_to_milliseconds(5);
+    println("5分 = %dミリ秒", five_minutes);
+    
+    int two_hours = hours_to_milliseconds(2);
+    println("2時間 = %dミリ秒", two_hours);
+    
+    int thirty_seconds = seconds_to_milliseconds(30);
+    println("30秒 = %dミリ秒", thirty_seconds);
+    
+    int back_to_seconds = milliseconds_to_seconds(5000);
+    println("5000ミリ秒 = %d秒", back_to_seconds);
+}
+
+void test_countdown() {
+    println("\n=== テスト5: カウントダウン ===");
+    
+    int count = 5;
+    while (count > 0) {
+        println("%d...", count);
+        sleep_seconds(1);
+        count = count - 1;
+    }
+    println("発射!");
+}
+
+void test_time_constants() {
+    println("\n=== テスト6: 時間定数 ===");
+    println("1 MILLISECOND = %dms", MILLISECOND);
+    println("1 SECOND = %dms", SECOND);
+    println("1 MINUTE = %dms", MINUTE);
+    println("1 HOUR = %dms", HOUR);
+    
+    // 定数を使った計算
+    int half_minute = MINUTE / 2;
+    println("半分 = %dms", half_minute);
+}
+
+void test_duration_roundtrip() {
+    println("\n=== テスト7: Duration往復変換 ===");
+    
+    // ミリ秒 -> Duration -> ミリ秒
+    int original = 123456;
+    Duration d = create_duration(original);
+    int converted = duration_to_milliseconds(d);
+    
+    println("元の値: %dms", original);
+    print("Duration: ");
+    format_duration(d);
+    println("変換後: %dms", converted);
+    
+    if (original == converted) {
+        println("✓ 往復変換成功");
+    } else {
+        println("✗ 往復変換失敗");
+    }
+}
+
+void test_practical_example() {
+    println("\n=== テスト8: 実用例（プログレスバー風） ===");
+    
+    int steps = 5;
+    int i = 0;
+    
+    while (i < steps) {
+        int percent = (i * 100) / steps;
+        println("[%d%%] 処理中...", percent);
+        sleep(SECOND / 2);  // 0.5秒
+        i = i + 1;
+    }
+    println("[100%%] 完了!");
+}
+
+int main() {
+    println("========================================");
+    println("  stdlib/std/time.cb テストスイート");
+    println("========================================");
+    
+    // 基本機能テスト
+    test_basic_sleep();
+    test_helper_functions();
+    test_duration_creation();
+    test_time_conversions();
+    test_time_constants();
+    test_duration_roundtrip();
+    test_practical_example();
+    
+    // 最後にカウントダウン
+    test_countdown();
+    
+    println("\n========================================");
+    println("  全テスト完了!");
+    println("========================================");
+    
+    return 0;
+}

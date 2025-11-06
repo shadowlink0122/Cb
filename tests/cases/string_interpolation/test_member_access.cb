@@ -1,0 +1,36 @@
+// String Interpolation - Member Access Test
+// Tests interpolation with struct member access
+
+struct Point {
+    int x;
+    int y;
+};
+
+struct Person {
+    string name;
+    int age;
+};
+
+void main() {
+    println("=== String Interpolation Member Access Test ===");
+    
+    // Test 1: Simple struct member
+    Point p;
+    p.x = 10;
+    p.y = 20;
+    string point_str = "Point: ({p.x}, {p.y})";
+    assert(point_str == "Point: (10, 20)");
+    println("Test 1: Simple struct - PASSED");
+    
+    // Test 2: Member in expression
+    string expr_str = "Sum: {p.x + p.y}";
+    assert(expr_str == "Sum: 30");
+    println("Test 2: Member in expression - PASSED");
+    
+    // Test 3: Multiple members
+    string multi = "{p.x} * {p.y} = {p.x * p.y}";
+    assert(multi == "10 * 20 = 200");
+    println("Test 3: Multiple members - PASSED");
+    
+    println("=== All Member Access Tests Passed ===");
+}

@@ -712,6 +712,92 @@ int main() {
 
 ## 7. 構造体関連
 
+### 構造体の初期化は必ずリテラルを使う【重要】
+
+Cbでは構造体の初期化は**必ずリテラル初期化**を使用してください。フィールドごとの代入は非推奨です。
+
+**❌ 非推奨: フィールドごとの代入**
+```cb
+struct Point {
+    int x;
+    int y;
+};
+
+int main() {
+    Point p;
+    p.x = 10;  // 非推奨
+    p.y = 20;  // 非推奨
+    return 0;
+}
+```
+
+**✅ 推奨: リテラル初期化**
+```cb
+struct Point {
+    int x;
+    int y;
+};
+
+int main() {
+    Point p = {10, 20};  // 推奨: リテラル初期化
+    println(p.x);  // 10
+    println(p.y);  // 20
+    return 0;
+}
+```
+
+**✅ 関数でも同様**
+```cb
+struct Task {
+    int task_id;
+    int priority;
+    int callback_type;
+    void* data;
+};
+
+Task create_task(int id, int priority, int callback_type) {
+    // ✅ リテラル初期化を使用
+    return {id, priority, callback_type, nullptr};
+}
+
+int main() {
+    Task t = create_task(1, 5, 0);
+    println("Task ID: ", t.task_id);
+    return 0;
+}
+```
+
+**✅ 構造体の更新もリテラルで**
+```cb
+struct Config {
+    int width;
+    int height;
+    bool fullscreen;
+};
+
+void update_config(Config& cfg, int w, int h) {
+    // ✅ 新しいリテラルを作成して代入
+    cfg = {w, h, false};
+}
+
+int main() {
+    Config cfg = {800, 600, false};
+    update_config(cfg, 1920, 1080);
+    println("Width: ", cfg.width);  // 1920
+    return 0;
+}
+```
+
+**理由**:
+- リテラル初期化は最適化されており、高速で安全
+- フィールドごとの代入は冗長で、バグの温床になりやすい
+- コードが簡潔で読みやすくなる
+- インタプリタの実装も簡潔になる
+
+**注意**: リテラル初期化ができない場合は、インタプリタの実装不足です。その場合は実装の改善が必要です。
+
+---
+
 ### メンバーの初期化忘れ
 
 **❌ 問題のあるコード**
@@ -722,13 +808,13 @@ struct Point {
 };
 
 int main() {
-    Point p;
+    Point p;  // 未初期化
     println(p.x);  // 未初期化の値
     return 0;
 }
 ```
 
-**✅ 正しい**
+**✅ 正しい: リテラル初期化**
 ```cb
 struct Point {
     int x;
@@ -736,9 +822,7 @@ struct Point {
 };
 
 int main() {
-    Point p;
-    p.x = 0;  // 明示的に初期化
-    p.y = 0;
+    Point p = {0, 0};  // リテラル初期化
     println(p.x);  // 0
     return 0;
 }

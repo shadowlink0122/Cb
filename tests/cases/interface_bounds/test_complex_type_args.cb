@@ -1,0 +1,34 @@
+// Test 13: Complex type arguments
+// Note: Type parameter propagation in nested generics not yet supported
+// Testing with concrete type instantiation
+
+interface Allocator {
+    void* allocate(int size);
+    void deallocate(void* ptr);
+}
+
+struct SystemAllocator {};
+
+impl Allocator for SystemAllocator {
+    void* allocate(int size) {
+        return nullptr;
+    }
+    
+    void deallocate(void* ptr) {
+        // no-op
+    }
+}
+
+struct Box<T, A: Allocator> {
+    int value;
+};
+
+struct Container<T, A: Allocator> {
+    Box<int, SystemAllocator> data;  // 具体的な型を明示
+};
+
+void main() {
+    Container<int, SystemAllocator> c;
+    c.data.value = 123;
+    println("Complex type arguments: value=%d", c.data.value);
+}

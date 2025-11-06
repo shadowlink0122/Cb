@@ -1,0 +1,63 @@
+// Test: sizeof with arrays - comprehensive test
+// Description: Test sizeof operator with various array types and dimensions
+
+void main() {
+    println("=== 1D Arrays - Integer Types ===");
+    int[5] int_arr;
+    println("sizeof(int[5]) = ", sizeof(int_arr), " (expected: 20)");
+    
+    long[10] long_arr;
+    println("sizeof(long[10]) = ", sizeof(long_arr), " (expected: 80)");
+    
+    short[3] short_arr;
+    println("sizeof(short[3]) = ", sizeof(short_arr), " (expected: 6)");
+    
+    tiny[8] tiny_arr;
+    println("sizeof(tiny[8]) = ", sizeof(tiny_arr), " (expected: 8)");
+    
+    println("");
+    println("=== 1D Arrays - Floating Point Types ===");
+    float[4] float_arr;
+    println("sizeof(float[4]) = ", sizeof(float_arr), " (expected: 16)");
+    
+    double[5] double_arr;
+    println("sizeof(double[5]) = ", sizeof(double_arr), " (expected: 40)");
+    
+    println("");
+    println("=== 2D Arrays ===");
+    int[3][4] int_2d;
+    println("sizeof(int[3][4]) = ", sizeof(int_2d), " (expected: 48)");
+    
+    long[2][3] long_2d;
+    println("sizeof(long[2][3]) = ", sizeof(long_2d), " (expected: 48)");
+    
+    short[5][2] short_2d;
+    println("sizeof(short[5][2]) = ", sizeof(short_2d), " (expected: 20)");
+    
+    println("");
+    println("=== 3D Arrays ===");
+    int[2][3][4] int_3d;
+    println("sizeof(int[2][3][4]) = ", sizeof(int_3d), " (expected: 96)");
+    
+    short[2][2][2] short_3d;
+    println("sizeof(short[2][2][2]) = ", sizeof(short_3d), " (expected: 16)");
+    
+    println("");
+    println("=== Large Arrays ===");
+    int[100] large_int;
+    println("sizeof(int[100]) = ", sizeof(large_int), " (expected: 400)");
+    
+    long[50] large_long;
+    println("sizeof(long[50]) = ", sizeof(large_long), " (expected: 400)");
+    
+    println("");
+    println("=== Single Element Arrays ===");
+    int[1] single_int;
+    println("sizeof(int[1]) = ", sizeof(single_int), " (expected: 4)");
+    
+    long[1] single_long;
+    println("sizeof(long[1]) = ", sizeof(single_long), " (expected: 8)");
+    
+    println("");
+    println("=== All tests completed ===");
+}

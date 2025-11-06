@@ -1,0 +1,478 @@
+// String - 拡張文字列ライブラリ
+// Cbのプリミティブstring型をラップし、便利なメソッドを提供
+
+import stdlib.std.vector;
+
+export struct String {
+    default string data;
+    int length;
+};
+
+export interface StringOps {
+    // 基本操作
+    int size();
+    int len();
+    bool is_empty();
+    string get();
+    
+    // 比較
+    bool equals(String other);
+    bool equals_str(string other);
+    int compare(String other);
+    int compare_str(string other);
+    
+    // 検索
+    int index_of(string substring);
+    int last_index_of(string substring);
+    bool contains(string substring);
+    bool starts_with(string prefix);
+    bool ends_with(string suffix);
+    
+    // 変換
+    String to_upper();
+    String to_lower();
+    String trim();
+    String substring(int start, int end);
+    
+    // 分割・結合
+    Vector<String> split(string delimiter);
+    String concat(String other);
+    String concat_str(string other);
+    
+    // 文字アクセス
+    int char_at(int index);
+    
+    // ユーティリティ
+    void print();
+    void println();
+};
+
+impl StringOps for String {
+    // サイズを取得
+    int size() {
+        return self.length;
+    }
+    
+    // 長さを取得（sizeのエイリアス）
+    int len() {
+        return self.length;
+    }
+    
+    // 空かどうか
+    bool is_empty() {
+        return self.length == 0;
+    }
+    
+    // 生の文字列を取得
+    string get() {
+        return self.data;
+    }
+    
+    // Stringオブジェクトとの比較
+    bool equals(String other) {
+        if (self.length != other.length) {
+            return false;
+        }
+        return self.data == other.data;
+    }
+    
+    // 生文字列との比較
+    bool equals_str(string other) {
+        return self.data == other;
+    }
+    
+    // 辞書順比較（Stringオブジェクト）
+    int compare(String other) {
+        return self.compare_str(other.data);
+    }
+    
+    // 辞書順比較（生文字列）
+    // 戻り値: 負 = self < other, 0 = 等しい, 正 = self > other
+    int compare_str(string other) {
+        string data = self.data;
+        string data = self.data;
+        int other_len = strlen(other);
+        int min_len = self.length;
+        if (other_len < min_len) {
+            min_len = other_len;
+        }
+        
+        int i = 0;
+        while (i < min_len) {
+            int diff = data[i] - other[i];
+            if (diff != 0) {
+                return diff;
+            }
+            i = i + 1;
+        }
+        
+        // 同じプレフィックスの場合、長さで比較
+        return self.length - other_len;
+    }
+    
+    // 部分文字列の検索（最初の出現位置）
+    int index_of(string substring) {
+        string data = self.data;
+        int sub_len = strlen(substring);
+        if (sub_len == 0 || sub_len > self.length) {
+            return -1;
+        }
+        
+        int i = 0;
+        while (i <= self.length - sub_len) {
+            bool found = true;
+            int j = 0;
+            while (j < sub_len) {
+                if (data[i + j] != substring[j]) {
+                    found = false;
+                    break;
+                }
+                j = j + 1;
+            }
+            if (found) {
+                return i;
+            }
+            i = i + 1;
+        }
+        return -1;
+    }
+    
+    // 部分文字列の検索（最後の出現位置）
+    int last_index_of(string substring) {
+        string data = self.data;
+        int sub_len = strlen(substring);
+        if (sub_len == 0 || sub_len > self.length) {
+            return -1;
+        }
+        
+        int i = self.length - sub_len;
+        while (i >= 0) {
+            bool found = true;
+            int j = 0;
+            while (j < sub_len) {
+                if (data[i + j] != substring[j]) {
+                    found = false;
+                    break;
+                }
+                j = j + 1;
+            }
+            if (found) {
+                return i;
+            }
+            i = i - 1;
+        }
+        return -1;
+    }
+    
+    // 部分文字列を含むか
+    bool contains(string substring) {
+        return self.index_of(substring) >= 0;
+    }
+    
+    // 指定した文字列で始まるか
+    bool starts_with(string prefix) {
+        string data = self.data;
+        int prefix_len = strlen(prefix);
+        if (prefix_len > self.length) {
+            return false;
+        }
+        
+        int i = 0;
+        while (i < prefix_len) {
+            if (data[i] != prefix[i]) {
+                return false;
+            }
+            i = i + 1;
+        }
+        return true;
+    }
+    
+    // 指定した文字列で終わるか
+    bool ends_with(string suffix) {
+        string data = self.data;
+        int suffix_len = strlen(suffix);
+        if (suffix_len > self.length) {
+            return false;
+        }
+        
+        int offset = self.length - suffix_len;
+        int i = 0;
+        while (i < suffix_len) {
+            if (data[offset + i] != suffix[i]) {
+                return false;
+            }
+            i = i + 1;
+        }
+        return true;
+    }
+    
+    // 大文字に変換
+    String to_upper() {
+        string data = self.data;
+        
+        // 新しい文字列バッファを作成
+        string buffer = (string)malloc(self.length + 1);
+        int i = 0;
+        while (i < self.length) {
+            int ch = data[i];
+            // a(97) to z(122) を A(65) to Z(90) に変換
+            if (ch >= 97 && ch <= 122) {
+                ch = ch - 32;
+            }
+            buffer[i] = ch;
+            i = i + 1;
+        }
+        buffer[self.length] = 0;  // NULL終端
+        
+        // バッファからStringを作成
+        return string_from_buffer(buffer, self.length);
+    }
+    
+    // 小文字に変換
+    String to_lower() {
+        string data = self.data;
+        
+        // 新しい文字列バッファを作成
+        string buffer = (string)malloc(self.length + 1);
+        int i = 0;
+        while (i < self.length) {
+            int ch = data[i];
+            // A(65) to Z(90) を a(97) to z(122) に変換
+            if (ch >= 65 && ch <= 90) {
+                ch = ch + 32;
+            }
+            buffer[i] = ch;
+            i = i + 1;
+        }
+        buffer[self.length] = 0;  // NULL終端
+        
+        // バッファからStringを作成
+        return string_from_buffer(buffer, self.length);
+    }
+    
+    // 前後の空白を削除
+    String trim() {
+        string data = self.data;
+        if (self.length == 0) {
+            return self;
+        }
+        
+        // 先頭の空白をスキップ
+        int start = 0;
+        while (start < self.length) {
+            int ch = data[start];
+            if (ch != 32 && ch != 9 && ch != 10 && ch != 13) {  // space, tab, LF, CR
+                break;
+            }
+            start = start + 1;
+        }
+        
+        // 末尾の空白をスキップ
+        int end = self.length - 1;
+        while (end >= start) {
+            int ch = data[end];
+            if (ch != 32 && ch != 9 && ch != 10 && ch != 13) {
+                break;
+            }
+            end = end - 1;
+        }
+        
+        // 全て空白の場合
+        if (end < start) {
+            return string_empty();
+        }
+        
+        return self.substring(start, end + 1);
+    }
+    
+    // 部分文字列を取得
+    String substring(int start, int end) {
+        string data = self.data;
+        if (start < 0) {
+            start = 0;
+        }
+        if (end > self.length) {
+            end = self.length;
+        }
+        if (start >= end) {
+            return string_empty();
+        }
+        
+        int new_length = end - start;
+        string buffer = (string)malloc(new_length + 1);
+        
+        int i = 0;
+        while (i < new_length) {
+            int ch = data[start + i];
+            buffer[i] = ch;
+            i = i + 1;
+        }
+        buffer[new_length] = 0;  // NULL終端
+        
+        return string_from_buffer(buffer, new_length);
+    }
+    
+    // 文字列を分割
+    Vector<String> split(string delimiter) {
+        Vector<String> result;
+        
+        int delim_len = strlen(delimiter);
+        if (delim_len == 0) {
+            // 区切り文字が空の場合、元の文字列をそのまま返す
+            result.push_back(self);
+            return result;
+        }
+        
+        int start = 0;
+        int pos = self.index_of(delimiter);
+        
+        while (pos >= 0) {
+            // startからposまでの部分文字列を追加
+            String part = self.substring(start, pos);
+            result.push_back(part);
+            
+            start = pos + delim_len;
+            if (start >= self.length) {
+                break;
+            }
+            
+            // 次の区切り文字を検索
+            String remaining = self.substring(start, self.length);
+            int next_pos = remaining.index_of(delimiter);
+            if (next_pos >= 0) {
+                pos = start + next_pos;
+            } else {
+                pos = -1;
+            }
+        }
+        
+        // 最後の部分を追加
+        if (start < self.length) {
+            String part = self.substring(start, self.length);
+            result.push_back(part);
+        } else if (start == self.length && delim_len > 0) {
+            // 末尾が区切り文字の場合、空文字列を追加
+            result.push_back(string_empty());
+        }
+        
+        return result;
+    }
+    
+    // Stringオブジェクトを連結
+    String concat(String other) {
+        return self.concat_str(other.data);
+    }
+    
+    // 生文字列を連結
+    String concat_str(string other) {
+        string data = self.data;
+        int other_len = strlen(other);
+        int new_length = self.length + other_len;
+        
+        string buffer = (string)malloc(new_length + 1);
+        int i = 0;
+        while (i < self.length) {
+            int ch = data[i];
+            buffer[i] = ch;
+            i = i + 1;
+        }
+        int j = 0;
+        while (j < other_len) {
+            int ch = other[j];
+            buffer[self.length + j] = ch;
+            j = j + 1;
+        }
+        buffer[new_length] = 0;  // NULL終端
+        
+        return string_from_buffer(buffer, new_length);
+    }
+    
+    // 指定位置の文字を取得（ASCII値）
+    int char_at(int index) {
+        string data = self.data;
+        if (index < 0 || index >= self.length) {
+            return -1;  // エラー値
+        }
+        string data = self.data;
+        return data[index];
+    }
+    
+    // 文字列を出力
+    void print() {
+        print(self.data);
+    }
+    
+    // 文字列を出力（改行付き）
+    void println() {
+        println(self.data);
+    }
+};
+
+// コンストラクタとデストラクタ
+impl String {
+    // デフォルトコンストラクタ
+    self() {
+        self.data = "";
+        self.length = 0;
+    }
+    
+    // 文字列から構築
+    self(string str) {
+        self.data = str;
+        // 文字列長を計算
+        int len = 0;
+        int ch = str[len];
+        while (ch != 0) {
+            len = len + 1;
+            ch = str[len];
+        }
+        self.length = len;
+    }
+    
+    // デストラクタ
+    ~self() {
+        // プリミティブstring型なので解放不要
+    }
+};
+
+// ユーティリティ関数
+export String string_from(string str) {
+    String s;
+    s.data = str;
+    // 文字列長を計算
+    int len = 0;
+    int ch = str[len];
+    while (ch != 0) {
+        len = len + 1;
+        ch = str[len];
+    }
+    s.length = len;
+    return s;
+}
+
+export String string_empty() {
+    String s;
+    s.data = "";
+    s.length = 0;
+    return s;
+}
+
+// ポインタから文字列を作成（内部使用）
+// mallocで確保したバッファからStringを作成する
+export String string_from_buffer(string buffer, int length) {
+    String s;
+    s.data = buffer;
+    s.length = length;
+    return s;
+}
+
+// 文字列の長さを計算（ヘルパー関数）
+export int strlen(string str) {
+    int len = 0;
+    int ch = str[len];
+    while (ch != 0) {
+        len = len + 1;
+        ch = str[len];
+    }
+    return len;
+}

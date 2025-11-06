@@ -1,0 +1,16 @@
+// Test if Vector is imported
+import stdlib.std.vector;
+import stdlib.std.queue;
+
+int main() {
+    println("Imports completed");
+    
+    // Try Queue<int>
+    Queue<int> q;
+    println("Queue<int> declared!");
+    
+    // This will fail - but let's see the error
+    Vector<int> vec;
+    
+    return 0;
+}

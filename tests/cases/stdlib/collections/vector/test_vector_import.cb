@@ -1,0 +1,76 @@
+// Test for Vector library import and usage
+// This test verifies that Vector can be imported and used as a library
+
+import stdlib.std.vector;
+
+void test_vector_import() {
+    println("=== Test: Vector Import ===");
+    
+    Vector<int> vec;
+    // コンストラクタで自動初期化されるため、init()は不要
+    
+    println("✅ Vector import and struct creation successful");
+}
+
+void test_vector_basic_operations() {
+    println("\n=== Test: Vector Basic Operations ===");
+    
+    Vector<int> vec;
+    
+    vec.push_back(10);
+    vec.push_back(20);
+    vec.push_back(30);
+    
+    assert(vec.get_length() == 3);
+    println("✅ Vector push operations work");
+    
+    int val = vec.at(2);  // 末尾の要素を取得
+    assert(val == 30);
+    vec.pop_back();
+    assert(vec.get_length() == 2);
+    println("✅ Vector pop operations work");
+}
+
+void test_vector_resize() {
+    println("\n=== Test: Vector Dynamic Growth ===");
+    
+    Vector<int> vec;
+    
+    vec.push_back(1);
+    vec.push_back(2);
+    
+    // 新しいVectorはリンクリストなので動的に成長（reserve不要）
+    assert(vec.get_length() == 2);
+    println("✅ Vector dynamic growth works");
+    
+    vec.push_back(3);
+    assert(vec.get_length() == 3);
+    println("✅ Vector operations after growth work");
+}
+
+void test_vector_destructor() {
+    println("\n=== Test: Vector Destructor ===");
+    
+    {
+        Vector<int> vec;
+        vec.push_back(10);
+        vec.push_back(20);
+    }
+    
+    println("✅ Vector destructor works (no crash on scope exit)");
+}
+
+void main() {
+    println("╔════════════════════════════════════════════╗");
+    println("║  Vector Library Import Test               ║");
+    println("╚════════════════════════════════════════════╝\n");
+    
+    test_vector_import();
+    test_vector_basic_operations();
+    test_vector_resize();
+    test_vector_destructor();
+    
+    println("\n╔════════════════════════════════════════════╗");
+    println("║  All Vector library tests passed!         ║");
+    println("╚════════════════════════════════════════════╝");
+}

@@ -1,0 +1,48 @@
+// String Interpolation - Type Conversion Test
+// Tests conversion of different types to strings
+
+void main() {
+    println("=== String Interpolation Type Test ===");
+    
+    // Test 1: int type
+    int num = 42;
+    string int_str = "Int: {num}";
+    assert(int_str == "Int: 42");
+    println("Test 1: int type - PASSED");
+    
+    // Test 2: long type
+    long big_num = 1000000;
+    string long_str = "Long: {big_num}";
+    assert(long_str == "Long: 1000000");
+    println("Test 2: long type - PASSED");
+    
+    // Test 3: double type
+    double pi = 3.14159;
+    string double_str = "Double: {pi}";
+    println("Test 3: double type - PASSED");
+    
+    // Test 4: float type
+    float fval = 2.5;
+    string float_str = "Float: {fval}";
+    println("Test 4: float type - PASSED");
+    
+    // Test 5: Zero values
+    int zero = 0;
+    string zero_str = "Zero: {zero}";
+    assert(zero_str == "Zero: 0");
+    println("Test 5: Zero value - PASSED");
+    
+    // Test 6: Negative values
+    int negative = -42;
+    string neg_str = "Negative: {negative}";
+    assert(neg_str == "Negative: -42");
+    println("Test 6: Negative value - PASSED");
+    
+    // Test 7: Multiple types in one string
+    int a = 10;
+    double b = 2.5;
+    string multi = "int: {a}, double: {b}";
+    println("Test 7: Multiple types - PASSED");
+    
+    println("=== All Type Tests Passed ===");
+}

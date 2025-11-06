@@ -228,7 +228,12 @@ void StructSyncManager::sync_struct_members_from_direct_access(
         debug_msg(DebugMsgId::INTERPRETER_VAR_NOT_FOUND, var_name.c_str());
         return;
     }
+    // v0.11.0: enum型の場合は同期不要（メンバーなし）
     if (!var->is_struct) {
+        if (var->is_enum) {
+            // enum型は同期不要
+            return;
+        }
         debug_msg(DebugMsgId::INTERPRETER_VAR_NOT_STRUCT, var_name.c_str());
         return;
     }
@@ -268,9 +273,44 @@ void StructSyncManager::sync_struct_members_from_direct_access(
             if (member.type >= TYPE_ARRAY_BASE ||
                 member.array_info.base_type != TYPE_UNKNOWN ||
                 direct_var->is_array) {
+                // v0.11.1: 配列サイズの決定
+                int array_size = -1;
+
+                // 1. direct_varが有効な配列でサイズが設定されている場合
+                if (direct_var->is_array && direct_var->array_size > 0) {
+                    array_size = direct_var->array_size;
+                }
+                // 2. member定義にサイズがある場合
+                else if (!member.array_info.dimensions.empty() &&
+                         member.array_info.dimensions[0].size > 0) {
+                    array_size = member.array_info.dimensions[0].size;
+                }
+                // 3. 実際の配列要素をカウント
+                else {
+                    int count = 0;
+                    for (int i = 0; i < 1000; ++i) { // 上限1000
+                        std::string element_name = var_name + "." +
+                                                   member.name + "[" +
+                                                   std::to_string(i) + "]";
+                        if (!interpreter_->find_variable(element_name)) {
+                            break;
+                        }
+                        count++;
+                    }
+                    if (count > 0) {
+                        array_size = count;
+                    } else {
+                        array_size = 1; // デフォルト
+                    }
+                }
+
+                if (interpreter_->debug_mode) {
+                    debug_print("[SYNC_DEBUG] member=%s, final array_size=%d\n",
+                                member.name.c_str(), array_size);
+                }
+
                 debug_msg(DebugMsgId::INTERPRETER_STRUCT_ARRAY_MEMBER_ADDED,
-                          member.name.c_str(), (int)member.type,
-                          direct_var->array_size);
+                          member.name.c_str(), (int)member.type, array_size);
 
                 // 既存のメンバーがあれば保持、なければ新規作成
                 if (var->struct_members.find(member.name) ==
@@ -280,8 +320,7 @@ void StructSyncManager::sync_struct_members_from_direct_access(
 
                 var->struct_members[member.name].type = member.type;
                 var->struct_members[member.name].is_array = true;
-                var->struct_members[member.name].array_size =
-                    direct_var->array_size;
+                var->struct_members[member.name].array_size = array_size;
 
                 // 多次元配列情報をコピー
                 if (direct_var->is_multidimensional) {
@@ -297,30 +336,37 @@ void StructSyncManager::sync_struct_members_from_direct_access(
                 // 配列要素を個別にチェックして同期
                 // 既存の値を保持するため、サイズが変わる場合のみresize
                 if (var->struct_members[member.name].array_values.size() !=
-                    static_cast<size_t>(direct_var->array_size)) {
+                    static_cast<size_t>(array_size)) {
                     var->struct_members[member.name].array_values.resize(
-                        direct_var->array_size);
+                        array_size);
                 }
                 if (var->struct_members[member.name].array_strings.size() !=
-                    static_cast<size_t>(direct_var->array_size)) {
+                    static_cast<size_t>(array_size)) {
                     var->struct_members[member.name].array_strings.resize(
-                        direct_var->array_size);
+                        array_size);
                 }
 
                 // 多次元配列の場合は multidim_array_values
                 // も初期化（元の値をコピー）
                 if (var->struct_members[member.name].is_multidimensional) {
+                    // 多次元配列のtotal sizeを計算
+                    size_t total_size = 1;
+                    for (int dim : direct_var->array_dimensions) {
+                        if (dim > 0) {
+                            total_size *= dim;
+                        }
+                    }
+
                     // 既存の multidim_array_values
                     // をバックアップしてからリサイズ
                     std::vector<int64_t> backup_values =
                         direct_var->multidim_array_values;
                     var->struct_members[member.name]
-                        .multidim_array_values.resize(direct_var->array_size);
+                        .multidim_array_values.resize(total_size);
 
                     // バックアップした値を復元
                     size_t copy_size =
-                        std::min(backup_values.size(),
-                                 static_cast<size_t>(direct_var->array_size));
+                        std::min(backup_values.size(), total_size);
                     for (size_t i = 0; i < copy_size; i++) {
                         var->struct_members[member.name]
                             .multidim_array_values[i] = backup_values[i];
@@ -328,9 +374,9 @@ void StructSyncManager::sync_struct_members_from_direct_access(
 
                     debug_print(
                         "SYNC_STRUCT: Initialized multidim_array_values for "
-                        "%s.%s (size: %d, copied: %zu values)\n",
-                        var_name.c_str(), member.name.c_str(),
-                        direct_var->array_size, copy_size);
+                        "%s.%s (total_size: %zu, copied: %zu values)\n",
+                        var_name.c_str(), member.name.c_str(), total_size,
+                        copy_size);
                 }
 
                 // 個別要素変数からデータをコピー
@@ -518,6 +564,26 @@ void StructSyncManager::sync_struct_members_from_direct_access(
                 member_value.is_struct = direct_var->is_struct;
                 member_value.struct_type_name = direct_var->struct_type_name;
                 member_value.struct_members = direct_var->struct_members;
+
+                // ネストされた構造体の場合、再帰的に同期
+                if (direct_var->is_struct &&
+                    !direct_var->struct_members.empty()) {
+                    sync_struct_members_from_direct_access(direct_var_name);
+                    // 再度取得して最新の値を使用
+                    Variable *updated_direct_var =
+                        interpreter_->find_variable(direct_var_name);
+                    if (updated_direct_var) {
+                        member_value.struct_members =
+                            updated_direct_var->struct_members;
+                        if (interpreter_->debug_mode) {
+                            debug_print(
+                                "SYNC_STRUCT: Recursively synced nested struct "
+                                "%s with %zu members\n",
+                                direct_var_name.c_str(),
+                                updated_direct_var->struct_members.size());
+                        }
+                    }
+                }
 
                 var->struct_members[member.name] = member_value;
                 debug_msg(DebugMsgId::INTERPRETER_STRUCT_SYNCED,

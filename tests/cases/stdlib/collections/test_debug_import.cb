@@ -1,0 +1,7 @@
+// Debug test - Very simple Vector import
+import stdlib.std.vector;
+
+int main() {
+    println("After import statement");
+    return 0;
+}

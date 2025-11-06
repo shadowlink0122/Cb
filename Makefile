@@ -28,6 +28,11 @@ INTERPRETER_OUTPUT=$(INTERPRETER_DIR)/output
 CXXFLAGS=-Wall -g -std=c++17
 CFLAGS=$(CXXFLAGS) -I. -I$(SRC_DIR) -I$(INTERPRETER_DIR)
 
+# AddressSanitizer用フラグ
+ASAN_FLAGS=-fsanitize=address -fno-omit-frame-pointer -O1
+ASAN_CXXFLAGS=$(CXXFLAGS) $(ASAN_FLAGS)
+ASAN_CFLAGS=$(ASAN_CXXFLAGS) -I. -I$(SRC_DIR) -I$(INTERPRETER_DIR)
+
 # テスト用フラグ
 TEST_CXXFLAGS=$(CXXFLAGS) -I$(SRC_DIR) -I$(INTERPRETER_DIR) -I$(TESTS_DIR)/unit
 
@@ -53,6 +58,7 @@ FRONTEND_OBJS=$(FRONTEND_DIR)/main.o $(FRONTEND_DIR)/help_messages.o $(FRONTEND_
 INTERPRETER_CORE_OBJS = \
 	$(INTERPRETER_CORE)/interpreter.o \
 	$(INTERPRETER_CORE)/initialization.o \
+	$(INTERPRETER_CORE)/builtin_types.o \
 	$(INTERPRETER_CORE)/cleanup.o \
 	$(INTERPRETER_CORE)/utility.o \
 	$(INTERPRETER_CORE)/error_handler.o \
@@ -67,6 +73,7 @@ INTERPRETER_EVALUATOR_OBJS = \
 	$(INTERPRETER_EVALUATOR)/operators/assignment.o \
 	$(INTERPRETER_EVALUATOR)/operators/incdec.o \
 	$(INTERPRETER_EVALUATOR)/operators/ternary.o \
+	$(INTERPRETER_EVALUATOR)/operators/memory_operators.o \
 	$(INTERPRETER_EVALUATOR)/access/array.o \
 	$(INTERPRETER_EVALUATOR)/access/member.o \
 	$(INTERPRETER_EVALUATOR)/access/member_helpers.o \
@@ -75,6 +82,7 @@ INTERPRETER_EVALUATOR_OBJS = \
 	$(INTERPRETER_EVALUATOR)/access/receiver_resolution.o \
 	$(INTERPRETER_EVALUATOR)/functions/call.o \
 	$(INTERPRETER_EVALUATOR)/functions/call_impl.o \
+	$(INTERPRETER_EVALUATOR)/functions/generic_instantiation.o \
 	$(INTERPRETER_EVALUATOR)/literals/eval.o
 
 INTERPRETER_EXECUTORS_OBJS = \
@@ -227,6 +235,14 @@ $(BAREMETAL_DIR)/%.o: $(BAREMETAL_DIR)/%.cpp
 $(MAIN_TARGET): $(FRONTEND_OBJS) $(BACKEND_OBJS) $(COMMON_OBJS)
 	$(CC) $(CFLAGS) -o $(MAIN_TARGET) $(FRONTEND_OBJS) $(BACKEND_OBJS) $(COMMON_OBJS)
 
+# AddressSanitizer有効版（メモリ破損検出用）
+main-asan: CFLAGS=$(ASAN_CFLAGS)
+main-asan: clean
+	@echo "Building with AddressSanitizer..."
+	$(MAKE) $(MAIN_TARGET) CFLAGS="$(ASAN_CFLAGS)"
+	@mv $(MAIN_TARGET) main-asan
+	@echo "Built main-asan with AddressSanitizer"
+
 # Cb→Cコード変換ツール（将来の拡張）
 $(CGEN_TARGET):
 	@echo "Code generator is not implemented yet in new architecture"
@@ -266,28 +282,135 @@ integration-test: $(TESTS_DIR)/integration/test_main
 	@echo "============================================================="
 	@echo "Running Cb Integration Test Suite"
 	@echo "============================================================="
-	@bash -c "set -o pipefail; cd tests/integration && ./test_main 2>&1 | fold -s -w 80"
+	@bash -c "set -o pipefail; cd tests/integration && ./test_main 2>&1 | tee /tmp/cb_integration_raw.log | fold -s -w 80"; \
+	if grep -q "^Failed: [1-9]" /tmp/cb_integration_raw.log; then \
+		exit 1; \
+	fi
 
 # より詳細な出力が必要な場合の統合テスト（フル出力）
 integration-test-verbose: $(TESTS_DIR)/integration/test_main
 	@echo "Running integration tests (verbose mode)..."
 	@cd tests/integration && ./test_main
 
-test: integration-test unit-test
-	@echo "=== Test Summary ==="
-	@echo "Integration tests: completed"
-	@echo "Unit tests: 50 tests"
+# Stdlib test binary target
+$(TESTS_DIR)/stdlib/test_main: $(TESTS_DIR)/stdlib/main.cpp $(MAIN_TARGET)
+	@cd tests/stdlib && $(CC) $(CFLAGS) -I../../$(SRC_DIR) -I. -o test_main main.cpp
+
+# Stdlib tests (C++ infrastructure tests)
+stdlib-test-cpp: $(TESTS_DIR)/stdlib/test_main
+	@echo "============================================================="
+	@echo "Running Cb Standard Library Tests (C++)"
+	@echo "============================================================="
+	@cd tests/stdlib && ./test_main
+
+# Stdlib tests (Cb language tests) - 1つのファイルで全テスト実行
+stdlib-test-cb: $(MAIN_TARGET)
+	@echo "============================================================="
+	@echo "Running Cb Standard Library Tests (Cb)"
+	@echo "Single file test runner with Result-based error detection"
+	@echo "============================================================="
+	@./$(MAIN_TARGET) tests/cases/stdlib/test_stdlib_all.cb || exit 1
+
+# Run both C++ and Cb stdlib tests
+stdlib-test:
+	@CPP_RESULT=0; CB_RESULT=0; \
+	$(MAKE) stdlib-test-cpp || CPP_RESULT=$$?; \
+	$(MAKE) stdlib-test-cb || CB_RESULT=$$?; \
+	if [ $$CPP_RESULT -eq 0 ] && [ $$CB_RESULT -eq 0 ]; then \
+		echo ""; \
+		echo "╔════════════════════════════════════════════════════════════╗"; \
+		echo "║    All Standard Library Tests Completed Successfully!     ║"; \
+		echo "╚════════════════════════════════════════════════════════════╝"; \
+		exit 0; \
+	else \
+		echo ""; \
+		echo "⚠️  Some stdlib tests failed"; \
+		if [ $$CPP_RESULT -ne 0 ]; then echo "   - C++ tests: FAILED"; fi; \
+		if [ $$CB_RESULT -ne 0 ]; then echo "   - Cb tests: FAILED"; fi; \
+		exit 1; \
+	fi
+
+test:
+	@echo "============================================================="
+	@echo "Running All Cb Test Suites"
+	@echo "============================================================="
+	@START_TIME=$$(date +%s); \
+	INTEGRATION_RESULT=0; UNIT_RESULT=0; STDLIB_RESULT=0; \
+	echo ""; \
+	echo "[1/3] Running Integration Tests..."; \
+	$(MAKE) integration-test || INTEGRATION_RESULT=$$?; \
+	echo ""; \
+	echo "[2/3] Running Unit Tests..."; \
+	$(MAKE) unit-test || UNIT_RESULT=$$?; \
+	echo ""; \
+	echo "[3/3] Running Stdlib Tests..."; \
+	$(MAKE) stdlib-test || STDLIB_RESULT=$$?; \
+	END_TIME=$$(date +%s); \
+	ELAPSED=$$((END_TIME - START_TIME)); \
+	echo ""; \
+	echo "============================================================="; \
+	echo "=== Final Test Summary ==="; \
+	echo "============================================================="; \
+	TOTAL_PASS=0; TOTAL_FAIL=0; \
+	if [ $$INTEGRATION_RESULT -eq 0 ]; then \
+		echo "✅ Integration tests: PASSED"; \
+		TOTAL_PASS=$$((TOTAL_PASS + 1)); \
+	else \
+		echo "❌ Integration tests: FAILED (exit code $$INTEGRATION_RESULT)"; \
+		TOTAL_FAIL=$$((TOTAL_FAIL + 1)); \
+		if [ -f /tmp/cb_integration_raw.log ]; then \
+			FAILED_COUNT=$$(grep "^Failed:" /tmp/cb_integration_raw.log | head -1 | awk '{print $$2}' || echo "0"); \
+			if [ "$$FAILED_COUNT" != "0" ]; then \
+				echo ""; \
+				echo "Integration test failures: $$FAILED_COUNT tests failed"; \
+				grep -E "^(Total:|Passed:|Failed:)" /tmp/cb_integration_raw.log | head -3 || true; \
+			fi; \
+		fi; \
+	fi; \
+	if [ $$UNIT_RESULT -eq 0 ]; then \
+		echo "✅ Unit tests: PASSED"; \
+		TOTAL_PASS=$$((TOTAL_PASS + 1)); \
+	else \
+		echo "❌ Unit tests: FAILED (exit code $$UNIT_RESULT)"; \
+		TOTAL_FAIL=$$((TOTAL_FAIL + 1)); \
+	fi; \
+	if [ $$STDLIB_RESULT -eq 0 ]; then \
+		echo "✅ Stdlib tests: PASSED"; \
+		TOTAL_PASS=$$((TOTAL_PASS + 1)); \
+	else \
+		echo "❌ Stdlib tests: FAILED (exit code $$STDLIB_RESULT)"; \
+		TOTAL_FAIL=$$((TOTAL_FAIL + 1)); \
+	fi; \
+	echo "============================================================="; \
+	echo "Test suites: $$TOTAL_PASS passed, $$TOTAL_FAIL failed"; \
+	echo "Total time: $${ELAPSED}s"; \
+	echo "============================================================="; \
+	if [ $$TOTAL_FAIL -eq 0 ]; then \
+		echo "🎉 All test suites passed!"; \
+		exit 0; \
+	else \
+		echo "⚠️  $$TOTAL_FAIL test suite(s) failed. Review output above for details."; \
+		if [ $$INTEGRATION_RESULT -ne 0 ]; then \
+			echo ""; \
+			echo "💡 Tip: Run 'make integration-test' separately for detailed failure info"; \
+		fi; \
+		exit 1; \
+	fi
 
 # クリーンアップ
 clean:
 	@echo "Cleaning up build artifacts..."
 	rm -f $(MAIN_TARGET) $(CGEN_TARGET)
+	rm -f main_asan
 	rm -f tests/integration/test_main
 	rm -f tests/unit/test_main tests/unit/dummy.o
+	rm -f tests/stdlib/test_main
+	rm -f /tmp/cb_integration_test.log
 	find . -name "*.o" -type f -delete
 	rm -rf **/*.dSYM *.dSYM
 	rm -rf tests/integration/*.dSYM
 	rm -rf tests/unit/*.dSYM
+	rm -rf tests/stdlib/*.dSYM
 	@echo "Clean completed."
 
 # ディープクリーン（すべての生成ファイルを削除）
@@ -324,8 +447,11 @@ help:
 	@echo "  clean-all              - Clean all subdirectories too"
 	@echo "  lint                   - Check code formatting"
 	@echo "  fmt                    - Format code"
-	@echo "  test                   - Run all tests"
-	@echo "  unit-test              - Run unit tests (50 tests)"
+	@echo "  test                   - Run all tests (integration + unit + stdlib)"
+	@echo "  unit-test              - Run unit tests (30 tests)"
 	@echo "  integration-test       - Run integration tests (formatted output)"
 	@echo "  integration-test-verbose - Run integration tests (full output)"
+	@echo "  stdlib-test            - Run stdlib tests (C++ + Cb)"
+	@echo "  stdlib-test-cpp        - Run stdlib C++ infrastructure tests"
+	@echo "  stdlib-test-cb         - Run stdlib Cb language tests"
 	@echo "  help                   - Show this help"

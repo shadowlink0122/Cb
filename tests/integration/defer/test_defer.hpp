@@ -109,8 +109,8 @@ void test_integration_defer() {
                               "block1 defer should execute after block1 ends");
             INTEGRATION_ASSERT(pos_block2_end < pos_block2_defer, 
                               "block2 defer should execute after block2 ends");
-            INTEGRATION_ASSERT(pos_main_end < pos_block2_defer, 
-                              "nested block defer should execute before outer scope ends");
+            INTEGRATION_ASSERT(pos_block2_defer < pos_main_end, 
+                              "block2 defer should execute before main: end (scope-based defer)");
             INTEGRATION_ASSERT(pos_block2_defer < pos_main_defer, 
                               "block2 defer should execute before main defer");
             INTEGRATION_ASSERT(pos_block1_defer < pos_main_defer, 

@@ -1,0 +1,8 @@
+// パターンマッチング最小テスト
+
+int main() {
+    println("Test start");
+    Option<int> x = Option<int>::Some(42);
+    println("Created enum");
+    return 0;
+}

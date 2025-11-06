@@ -1,6 +1,6 @@
 // Test duplicate import handling
-import "math_module.cb";
-import "math_module.cb";  // Import the same module twice
+import math_module;
+import math_module;  // Import the same module twice
 
 int main() {
     println("=== Duplicate Import Test ===");

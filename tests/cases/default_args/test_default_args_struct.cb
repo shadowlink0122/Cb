@@ -13,7 +13,7 @@ Point create_point(int x = 10, int y = 20) {
 }
 
 void print_point(Point p, string label = "Point") {
-    println(label + ": (" + p.x + ", " + p.y + ")");
+    println(label, ": (", p.x, ", ", p.y, ")");
 }
 
 void main() {
@@ -33,4 +33,10 @@ void main() {
     p4.y = 75;
     print_point(p4);
     print_point(p4, "Custom");
+    
+    // 計算テスト（期待値: 30, 120, 300, 125）
+    println(p1.x + p1.y);  // 10 + 20 = 30
+    println(p2.x + p2.y);  // 100 + 20 = 120
+    println(p3.x + p3.y);  // 100 + 200 = 300
+    println(p4.x + p4.y);  // 50 + 75 = 125
 }

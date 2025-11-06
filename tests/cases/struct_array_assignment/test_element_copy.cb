@@ -1,0 +1,33 @@
+// Test 4: Array element to array element copy
+// このテストは、配列要素間で構造体をコピーするパターンを検証します
+
+struct Task {
+    int task_id;
+    int priority;
+};
+
+int main() {
+    println("=== Test 1: Array element copy ===");
+    
+    Task[10] src;
+    Task[10] dst;
+    
+    // ソース配列の初期化
+    Task t = {777, 99};
+    src[0] = t;
+    
+    // パターン3: 配列要素間のコピー
+    dst[0] = src[0];
+    
+    // 検証
+    println("dst[0].task_id = ", dst[0].task_id);
+    println("dst[0].priority = ", dst[0].priority);
+    
+    if (dst[0].task_id == 777 && dst[0].priority == 99) {
+        println("Test 1: Array element copy - PASSED");
+        return 0;
+    } else {
+        println("Test 1: FAILED");
+        return 1;
+    }
+}

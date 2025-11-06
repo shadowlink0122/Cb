@@ -1,0 +1,192 @@
+// Map<K, V> Stress Test
+// 1000要素の追加、検索パフォーマンステスト、削除テスト、String型のキー
+
+import stdlib.std.map;
+
+Map<int, int> global_map;
+
+void test_large_insertion_int() {
+    println("=== Test 1: Large Insertion with int keys (1000 elements) ===");
+    // 1000個の要素を追加
+    int count = 1000;
+    int i = 0;
+    while (i < count) {
+        global_map.insert(i, i * 10);
+        i = i + 1;
+    }
+    
+    int final_size = global_map.size();
+    int tree_height = global_map.get_tree_height();
+    
+    println("  Inserted elements: {count}");
+    println("  Final size: {final_size}");
+    println("  Tree height: {tree_height}");
+    
+    // AVL木の理論的最大高さを計算
+    // n個の要素を持つAVL木の高さは約 1.44 * log2(n)
+    // 1000要素の場合、log2(1000) ≈ 9.97、理論値 ≈ 14.4
+    // 実際には10-15程度になるはず
+    if (tree_height <= 15) {
+        println("  ✓ Tree height is balanced (height <= 15 for 1000 elements)");
+    } else {
+        println("  ✗ Tree might not be balanced properly (height = {tree_height})");
+    }
+    
+    // サイズ検証
+    if (final_size == count) {
+        println("  ✓ Size verification passed");
+        
+        // いくつかのキーが存在することを確認
+        bool check1 = global_map.contains(0);
+        bool check2 = global_map.contains(500);
+        bool check3 = global_map.contains(999);
+        
+        if (check1 && check2 && check3) {
+            println("  ✓ Key existence check passed (0, 500, 999)");
+        } else {
+            println("  ✗ Some keys not found: 0={check1} 500={check2} 999={check3}");
+        }
+    } else {
+        println("  ✗ Size verification failed: expected {count}, got {final_size}");
+    }
+}
+
+void test_search_performance() {
+    println("");
+    println("=== Test 2: Search Performance (1000 elements) ===");
+    
+    int current_size = global_map.size();
+    println("  Current map size: {current_size}");
+    
+    // 様々な位置の要素を検索
+    int search_count = 100;
+    int found_count = 0;
+    int not_found_count = 0;
+    
+    int j = 0;
+    while (j < search_count) {
+        // 存在するキーを検索（0から99まで）
+        if (global_map.contains(j)) {
+            found_count = found_count + 1;
+        }
+        
+        // 存在しないキーを検索（1000以降）
+        int missing_key = 1000 + j;
+        if (!global_map.contains(missing_key)) {
+            not_found_count = not_found_count + 1;
+        }
+        
+        j = j + 1;
+    }
+    
+    println("  Searched 100 existing keys: {found_count} found");
+    println("  Searched 100 missing keys: {not_found_count} correctly not found");
+    
+    if (found_count == search_count && not_found_count == search_count) {
+        println("  ✓ Search performance test passed");
+    } else {
+        println("  ✗ Search test failed: found={found_count} not_found={not_found_count}");
+    }
+}
+
+void test_deletion_stress() {
+    println("");
+    println("=== Test 3: Deletion Stress Test ===");
+    
+    int size_before = global_map.size();
+    println("  Initial size: {size_before}");
+    
+    // 500個削除（偶数インデックス）
+    int delete_count = 500;
+    int deleted = 0;
+    int j = 0;
+    while (j < delete_count) {
+        int idx = j * 2;
+        bool success = global_map.try_remove(idx);
+        if (success) {
+            deleted = deleted + 1;
+        }
+        j = j + 1;
+    }
+    
+    int size_after = global_map.size();
+    
+    println("  Attempted to delete {delete_count} elements");
+    println("  Actually deleted: {deleted} elements");
+    println("  Size after deletion: {size_after}");
+    
+    int expected_size = size_before - deleted;
+    println("  Expected size: {expected_size}");
+    
+    if (size_after == expected_size) {
+        println("  ✓ Size is correct after deletion");
+    } else {
+        println("  ✗ Size mismatch: expected {expected_size}, got {size_after}");
+    }
+}
+
+void test_string_keys() {
+    println("");
+    println("=== Test 4: Map<String, int> with String keys ===");
+    
+    Map<string, int> str_map;
+    
+    // 異なる文字列キーを追加
+    str_map.insert("apple", 1);
+    str_map.insert("banana", 2);
+    str_map.insert("cherry", 3);
+    str_map.insert("date", 4);
+    str_map.insert("elderberry", 5);
+    str_map.insert("fig", 6);
+    str_map.insert("grape", 7);
+    str_map.insert("honeydew", 8);
+    str_map.insert("kiwi", 9);
+    str_map.insert("lemon", 10);
+    
+    int final_size = str_map.size();
+    
+    println("  String keys inserted: 10");
+    println("  Final size: {final_size}");
+    
+    if (final_size == 10) {
+        println("  ✓ String key insertion successful");
+        
+        // いくつかのキーの検索
+        bool has_apple = str_map.contains("apple");
+        bool has_kiwi = str_map.contains("kiwi");
+        bool has_missing = str_map.contains("mango");
+        
+        if (has_apple && has_kiwi && !has_missing) {
+            println("  ✓ String key search works correctly");
+        } else {
+            println("  ✗ String key search failed");
+        }
+        
+        // 値の取得テスト
+        int val1 = str_map.get("banana", 0);
+        int val2 = str_map.get("lemon", 0);
+        
+        if (val1 == 2 && val2 == 10) {
+            println("  ✓ Value retrieval works correctly");
+        } else {
+            println("  ✗ Value retrieval failed: banana={val1} lemon={val2}");
+        }
+    } else {
+        println("  ✗ Size verification failed: expected 10, got {final_size}");
+    }
+}
+
+void main() {
+    println("Map<K, V> Stress Test Suite");
+    println("===========================");
+    println("");
+    
+    test_large_insertion_int();
+    test_search_performance();
+    test_deletion_stress();
+    test_string_keys();
+    
+    println("");
+    println("===========================");
+    println("All stress tests completed!");
+}

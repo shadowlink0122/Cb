@@ -47,8 +47,57 @@ class PrimaryExpressionParser {
      */
     ASTNode *parseLambda();
 
+    /**
+     * @brief 補間文字列を解析
+     * @param str 補間文字列の内容
+     * @return 解析されたAST補間文字列ノード
+     *
+     * v0.11.0 文字列補間
+     * 構文: "text {expression:format} text"
+     * 例: "Hello, {name}!" または "Pi: {pi:.2}"
+     */
+    ASTNode *parseInterpolatedString(const std::string &str);
+
+    /**
+     * @brief new演算子を解析
+     * @return 解析されたASTノード
+     *
+     * v0.11.0 Phase 1a メモリ管理
+     * 構文: new T または new T[size]
+     * 例: new Point または new int[10]
+     */
+    ASTNode *parseNewExpression();
+
+    /**
+     * @brief delete演算子を解析
+     * @return 解析されたASTノード
+     *
+     * v0.11.0 Phase 1a メモリ管理
+     * 構文: delete ptr または delete[] ptr
+     */
+    ASTNode *parseDeleteExpression();
+
+    /**
+     * @brief sizeof演算子を解析
+     * @return 解析されたASTノード
+     *
+     * v0.11.0 Phase 1a メモリ管理
+     * 構文: sizeof(T) または sizeof(expr)
+     * 例: sizeof(int) または sizeof(arr)
+     */
+    ASTNode *parseSizeofExpression();
+
   private:
     RecursiveParser *parser_;
+
+    /**
+     * @brief TypeInfoを文字列表現に変換
+     * @param type_info 型情報へのポインタ
+     * @return 型の文字列表現（例: "int", "char", "void"）
+     *
+     * v0.11.0 Week 2 型キャスト用ヘルパー
+     */
+    std::string typeInfoToString(const TypeInfo *type_info);
 };
 
 #endif // PRIMARY_EXPRESSION_PARSER_H

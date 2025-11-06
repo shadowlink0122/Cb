@@ -1,8 +1,10 @@
 #include "interface_parser.h"
+#include "../../../backend/interpreter/evaluator/functions/generic_instantiation.h"
 #include "../../../common/debug.h"
 #include "../recursive_parser.h"
 #include <iostream>
 #include <memory>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 
@@ -34,10 +36,76 @@ ASTNode *InterfaceParser::parseInterfaceDeclaration() {
     std::string interface_name = parser_->current_token_.value;
     parser_->advance(); // interface名をスキップ
 
+    // v0.11.0+: 型パラメータリストのチェック <T> または <T, U>
+    // StructParserと同じパターンでジェネリクスをサポート
+    std::vector<std::string> type_parameters;
+    std::unordered_map<std::string, std::vector<std::string>> interface_bounds;
+    bool is_generic = false;
+
+    if (parser_->check(TokenType::TOK_LT)) {
+        is_generic = true;
+        parser_->advance(); // '<' を消費
+
+        // 型パラメータのリストを解析
+        do {
+            if (!parser_->check(TokenType::TOK_IDENTIFIER)) {
+                parser_->error("Expected type parameter name after '<'");
+                return nullptr;
+            }
+
+            std::string param_name = parser_->current_token_.value;
+            type_parameters.push_back(param_name);
+            parser_->advance();
+
+            // インターフェース境界のチェック: T: Comparable または T:
+            // Comparable + Clone
+            if (parser_->check(TokenType::TOK_COLON)) {
+                parser_->advance(); // ':' を消費
+
+                std::vector<std::string> bounds;
+                do {
+                    if (!parser_->check(TokenType::TOK_IDENTIFIER)) {
+                        parser_->error(
+                            "Expected interface name after ':' or '+' in "
+                            "type parameter bound");
+                        return nullptr;
+                    }
+
+                    bounds.push_back(parser_->current_token_.value);
+                    parser_->advance();
+
+                    // '+' があれば次のインターフェース境界を読む
+                    if (parser_->check(TokenType::TOK_PLUS)) {
+                        parser_->advance(); // '+' を消費
+                    } else {
+                        break;
+                    }
+                } while (true);
+
+                interface_bounds[param_name] = bounds;
+            }
+
+            if (parser_->check(TokenType::TOK_COMMA)) {
+                parser_->advance(); // ',' を消費
+            } else {
+                break;
+            }
+        } while (true);
+
+        if (!parser_->check(TokenType::TOK_GT)) {
+            parser_->error("Expected '>' after type parameters");
+            return nullptr;
+        }
+        parser_->advance(); // '>' を消費
+    }
+
     parser_->consume(TokenType::TOK_LBRACE,
                      "Expected '{' after interface name");
 
     InterfaceDefinition interface_def(interface_name);
+    interface_def.is_generic = is_generic;
+    interface_def.type_parameters = type_parameters;
+    interface_def.interface_bounds = interface_bounds;
 
     // メソッド宣言の解析
     while (!parser_->check(TokenType::TOK_RBRACE) && !parser_->isAtEnd()) {
@@ -69,10 +137,24 @@ ASTNode *InterfaceParser::parseInterfaceDeclaration() {
         parser_->consume(TokenType::TOK_LPAREN,
                          "Expected '(' after method name");
 
-        TypeInfo resolved_return_type =
-            parser_->resolveParsedTypeInfo(return_parsed);
-        if (resolved_return_type == TYPE_UNKNOWN) {
-            resolved_return_type = parser_->getTypeInfoFromString(return_type);
+        TypeInfo resolved_return_type;
+        // 戻り値型が型パラメータかチェック
+        bool is_return_type_param = false;
+        for (const auto &tp : type_parameters) {
+            if (return_type == tp || return_parsed.base_type == tp) {
+                resolved_return_type = TYPE_GENERIC;
+                is_return_type_param = true;
+                break;
+            }
+        }
+
+        if (!is_return_type_param) {
+            resolved_return_type =
+                parser_->resolveParsedTypeInfo(return_parsed);
+            if (resolved_return_type == TYPE_UNKNOWN) {
+                resolved_return_type =
+                    parser_->getTypeInfoFromString(return_type);
+            }
         }
 
         InterfaceMember method(method_name, resolved_return_type,
@@ -96,11 +178,24 @@ ASTNode *InterfaceParser::parseInterfaceDeclaration() {
                     parser_->advance();
                 }
 
-                TypeInfo param_type_info =
-                    parser_->resolveParsedTypeInfo(param_parsed);
-                if (param_type_info == TYPE_UNKNOWN) {
+                TypeInfo param_type_info;
+                // パラメータ型が型パラメータかチェック
+                bool is_param_type_param = false;
+                for (const auto &tp : type_parameters) {
+                    if (param_type == tp || param_parsed.base_type == tp) {
+                        param_type_info = TYPE_GENERIC;
+                        is_param_type_param = true;
+                        break;
+                    }
+                }
+
+                if (!is_param_type_param) {
                     param_type_info =
-                        parser_->getTypeInfoFromString(param_type);
+                        parser_->resolveParsedTypeInfo(param_parsed);
+                    if (param_type_info == TYPE_UNKNOWN) {
+                        param_type_info =
+                            parser_->getTypeInfoFromString(param_type);
+                    }
                 }
 
                 method.add_parameter(param_name, param_type_info,
@@ -176,22 +271,78 @@ ASTNode *InterfaceParser::parseImplDeclaration() {
     std::string interface_name;
     std::string struct_name;
 
+    // 型パラメータの解析（ジェネリクス対応）
+    // impl Vector<T, A: Allocator> {} のような構文をサポート
+    std::string first_name_with_generics = first_name;
+    if (parser_->check(TokenType::TOK_LT)) {
+        first_name_with_generics += "<";
+        parser_->advance(); // consume '<'
+
+        int depth = 1;
+        while (depth > 0 && !parser_->isAtEnd()) {
+            if (parser_->check(TokenType::TOK_LT)) {
+                depth++;
+                first_name_with_generics += "<";
+            } else if (parser_->check(TokenType::TOK_GT)) {
+                depth--;
+                first_name_with_generics += ">";
+            } else if (parser_->check(TokenType::TOK_IDENTIFIER)) {
+                first_name_with_generics += parser_->current_token_.value;
+            } else if (parser_->check(TokenType::TOK_INT)) {
+                first_name_with_generics += "int";
+            } else if (parser_->check(TokenType::TOK_LONG)) {
+                first_name_with_generics += "long";
+            } else if (parser_->check(TokenType::TOK_SHORT)) {
+                first_name_with_generics += "short";
+            } else if (parser_->check(TokenType::TOK_TINY)) {
+                first_name_with_generics += "tiny";
+            } else if (parser_->check(TokenType::TOK_BOOL)) {
+                first_name_with_generics += "bool";
+            } else if (parser_->check(TokenType::TOK_CHAR_TYPE)) {
+                first_name_with_generics += "char";
+            } else if (parser_->check(TokenType::TOK_STRING_TYPE)) {
+                first_name_with_generics += "string";
+            } else if (parser_->check(TokenType::TOK_COMMA)) {
+                first_name_with_generics += ", ";
+            } else if (parser_->check(TokenType::TOK_COLON)) {
+                first_name_with_generics += ": ";
+            } else {
+                first_name_with_generics += parser_->current_token_.value;
+            }
+            parser_->advance();
+        }
+
+        if (depth != 0) {
+            parser_->error(
+                "Unmatched '<' in type parameters for impl declaration");
+            return nullptr;
+        }
+    }
+
     if (parser_->check(TokenType::TOK_LBRACE)) {
-        // パターン1: impl Struct {} (コンストラクタ/デストラクタ用)
+        // パターン1: impl Struct<...> {} (コンストラクタ/デストラクタ用)
         is_constructor_impl = true;
-        struct_name = first_name;
+        struct_name = first_name_with_generics;
         interface_name = ""; // interface名なし
     } else if (parser_->check(TokenType::TOK_FOR) ||
                (parser_->check(TokenType::TOK_IDENTIFIER) &&
                 parser_->current_token_.value == "for")) {
-        // パターン2: impl Interface for Struct {} (通常のメソッド実装)
-        interface_name = first_name;
+        // パターン2: impl Interface<T> for Struct<...> {} (通常のメソッド実装)
+        // first_name_with_genericsにはInterface<T>が含まれている
+        interface_name = first_name_with_generics;
+
+        // ベースのinterface名を抽出（<の前まで）
+        std::string base_interface_name = first_name;
+        size_t lt_pos = interface_name.find('<');
+        if (lt_pos != std::string::npos) {
+            base_interface_name = interface_name.substr(0, lt_pos);
+        }
 
         // ★ 課題1の解決: 存在しないinterfaceを実装しようとする場合のエラー検出
-        if (parser_->interface_definitions_.find(interface_name) ==
+        if (parser_->interface_definitions_.find(base_interface_name) ==
             parser_->interface_definitions_.end()) {
             parser_->error(
-                "Interface '" + interface_name +
+                "Interface '" + base_interface_name +
                 "' is not defined. Please declare the interface before "
                 "implementing it.");
             return nullptr;
@@ -231,6 +382,54 @@ ASTNode *InterfaceParser::parseImplDeclaration() {
                               .value; // 識別子（構造体名またはtypedef名）
         }
         parser_->advance();
+
+        // 型パラメータのチェック: Vector<int, SystemAllocator> のような場合
+        if (parser_->check(TokenType::TOK_LT)) {
+            struct_name += "<";
+            parser_->advance(); // consume '<'
+
+            // 型パラメータを解析
+            int depth = 1; // ネストレベルを追跡
+            while (depth > 0 && !parser_->isAtEnd()) {
+                if (parser_->check(TokenType::TOK_LT)) {
+                    depth++;
+                    struct_name += "<";
+                } else if (parser_->check(TokenType::TOK_GT)) {
+                    depth--;
+                    struct_name += ">";
+                } else if (parser_->check(TokenType::TOK_IDENTIFIER)) {
+                    struct_name += parser_->current_token_.value;
+                } else if (parser_->check(TokenType::TOK_INT)) {
+                    struct_name += "int";
+                } else if (parser_->check(TokenType::TOK_LONG)) {
+                    struct_name += "long";
+                } else if (parser_->check(TokenType::TOK_SHORT)) {
+                    struct_name += "short";
+                } else if (parser_->check(TokenType::TOK_TINY)) {
+                    struct_name += "tiny";
+                } else if (parser_->check(TokenType::TOK_BOOL)) {
+                    struct_name += "bool";
+                } else if (parser_->check(TokenType::TOK_CHAR_TYPE)) {
+                    struct_name += "char";
+                } else if (parser_->check(TokenType::TOK_STRING_TYPE)) {
+                    struct_name += "string";
+                } else if (parser_->check(TokenType::TOK_COMMA)) {
+                    struct_name += ", ";
+                } else if (parser_->check(TokenType::TOK_COLON)) {
+                    struct_name += ": ";
+                } else {
+                    // その他のトークン（数値リテラルなど）
+                    struct_name += parser_->current_token_.value;
+                }
+                parser_->advance();
+            }
+
+            if (depth != 0) {
+                parser_->error(
+                    "Unmatched '<' in type parameters for impl declaration");
+                return nullptr;
+            }
+        }
 
         // 生の配列型チェック - 配列記法が続く場合はエラー
         if (parser_->check(TokenType::TOK_LBRACKET)) {
@@ -285,7 +484,8 @@ ASTNode *InterfaceParser::parseImplDeclaration() {
             destructor->body.reset(destructor_body);
             parser_->setLocation(destructor, parser_->current_token_);
 
-            impl_def.set_destructor(destructor);
+            // v0.11.0: vector再配置対策のため、後でnode->argumentsから設定
+            // impl_def.set_destructor(destructor);
             method_nodes.push_back(std::unique_ptr<ASTNode>(destructor));
 
             debug_msg(DebugMsgId::PARSE_VAR_DECL, struct_name.c_str(),
@@ -356,7 +556,8 @@ ASTNode *InterfaceParser::parseImplDeclaration() {
             constructor->body.reset(constructor_body);
             parser_->setLocation(constructor, parser_->current_token_);
 
-            impl_def.add_constructor(constructor);
+            // v0.11.0: vector再配置対策のため、後でnode->argumentsから設定
+            // impl_def.add_constructor(constructor);
             method_nodes.push_back(std::unique_ptr<ASTNode>(constructor));
 
             debug_msg(DebugMsgId::PARSE_VAR_DECL, struct_name.c_str(),
@@ -479,12 +680,62 @@ ASTNode *InterfaceParser::parseImplDeclaration() {
             // privateメソッドの場合はinterface署名チェックをスキップ
             if (!is_private_method) {
                 // ★ 課題2の解決: メソッド署名の不一致の検出
+                // ベースのinterface名を抽出
+                std::string base_interface_name = interface_name;
+                size_t lt_pos = interface_name.find('<');
+                if (lt_pos != std::string::npos) {
+                    base_interface_name = interface_name.substr(0, lt_pos);
+                }
+
                 auto interface_it =
-                    parser_->interface_definitions_.find(interface_name);
+                    parser_->interface_definitions_.find(base_interface_name);
                 if (interface_it != parser_->interface_definitions_.end()) {
+                    const InterfaceDefinition &interface_def =
+                        interface_it->second;
+
+                    // 型パラメータの置換マップを作成
+                    // 例: QueueOps<int> の場合、T -> TYPE_INT
+                    std::unordered_map<std::string, TypeInfo> type_substitution;
+                    if (interface_def.is_generic &&
+                        lt_pos != std::string::npos) {
+                        // <int>部分を解析
+                        std::string generic_part =
+                            interface_name.substr(lt_pos + 1);
+                        size_t gt_pos = generic_part.rfind('>');
+                        if (gt_pos != std::string::npos) {
+                            generic_part = generic_part.substr(0, gt_pos);
+
+                            // 簡易的な解析: int, string等の単一型のみサポート
+                            TypeInfo concrete_type = TYPE_UNKNOWN;
+                            if (generic_part == "int") {
+                                concrete_type = TYPE_INT;
+                            } else if (generic_part == "string") {
+                                concrete_type = TYPE_STRING;
+                            } else if (generic_part == "long") {
+                                concrete_type = TYPE_LONG;
+                            } else if (generic_part == "short") {
+                                concrete_type = TYPE_SHORT;
+                            } else if (generic_part == "bool") {
+                                concrete_type = TYPE_BOOL;
+                            } else if (generic_part == "char") {
+                                concrete_type = TYPE_CHAR;
+                            } else if (generic_part == "float") {
+                                concrete_type = TYPE_FLOAT;
+                            } else if (generic_part == "double") {
+                                concrete_type = TYPE_DOUBLE;
+                            }
+
+                            // 型パラメータ（例: T）に具体的な型を対応付け
+                            if (!interface_def.type_parameters.empty()) {
+                                type_substitution[interface_def
+                                                      .type_parameters[0]] =
+                                    concrete_type;
+                            }
+                        }
+                    }
+
                     bool method_found = false;
-                    for (const auto &interface_method :
-                         interface_it->second.methods) {
+                    for (const auto &interface_method : interface_def.methods) {
                         if (interface_method.name == method_name) {
                             method_found = true;
                             auto format_type = [](TypeInfo type,
@@ -498,6 +749,14 @@ ASTNode *InterfaceParser::parseImplDeclaration() {
 
                             TypeInfo expected_return_type_info =
                                 interface_method.return_type;
+
+                            // TYPE_GENERICの場合、具体的な型に置換
+                            if (expected_return_type_info == TYPE_GENERIC &&
+                                !type_substitution.empty()) {
+                                expected_return_type_info =
+                                    type_substitution.begin()->second;
+                            }
+
                             bool expected_return_unsigned =
                                 interface_method.return_is_unsigned;
 
@@ -545,6 +804,14 @@ ASTNode *InterfaceParser::parseImplDeclaration() {
                                  i < interface_method.parameters.size(); ++i) {
                                 TypeInfo expected_param_type =
                                     interface_method.parameters[i].second;
+
+                                // TYPE_GENERICの場合、具体的な型に置換
+                                if (expected_param_type == TYPE_GENERIC &&
+                                    !type_substitution.empty()) {
+                                    expected_param_type =
+                                        type_substitution.begin()->second;
+                                }
+
                                 bool expected_param_unsigned =
                                     interface_method.get_parameter_is_unsigned(
                                         i);
@@ -584,6 +851,7 @@ ASTNode *InterfaceParser::parseImplDeclaration() {
                 }
             }
 
+            // v0.11.0: vector再配置対策のため、後でnode->argumentsから設定
             // メソッド情報を保存（ImplDefinitionにはポインタのみ保持）
             impl_def.add_method(method_impl.get());
             method_nodes.push_back(std::move(method_impl));
@@ -623,38 +891,106 @@ ASTNode *InterfaceParser::parseImplDeclaration() {
         }
 
         // ★ 課題3の解決: 重複impl定義の検出
-        for (const auto &existing_impl : parser_->impl_definitions_) {
-            if (existing_impl.interface_name == interface_name &&
-                existing_impl.struct_name == struct_name) {
-                parser_->error("Duplicate implementation: Interface '" +
-                               interface_name +
-                               "' is already implemented for struct '" +
-                               struct_name + "'");
-                return nullptr;
+        // interface_nameが空の場合（デストラクタのみのimplブロック）は重複チェックをスキップ
+        if (!interface_name.empty()) {
+            for (const auto &existing_impl : parser_->impl_definitions_) {
+                if (existing_impl.interface_name == interface_name &&
+                    existing_impl.struct_name == struct_name) {
+                    parser_->error("Duplicate implementation: Interface '" +
+                                   interface_name +
+                                   "' is already implemented for struct '" +
+                                   struct_name + "'");
+                    return nullptr;
+                }
             }
         }
     }
 
-    // impl定義を保存（ポインタ参照のみ保持）
-    parser_->impl_definitions_.push_back(impl_def);
-
-    // ASTノードを作成
+    // ASTNode を作成
     ASTNode *node = new ASTNode(ASTNodeType::AST_IMPL_DECL);
     node->name = interface_name + "_for_" + struct_name;
     node->type_name = struct_name;         // struct名を保存
     node->interface_name = interface_name; // interface名を保存
     node->struct_name = struct_name;       // struct名を明示的に保存
+    // v0.12.0: ジェネリックimplは interface_name や struct_name に <T>
+    // が含まれることで判定
+    node->is_generic = (interface_name.find('<') != std::string::npos) ||
+                       (struct_name.find('<') != std::string::npos);
+
+    // v0.11.0: 型パラメータを抽出（struct_nameから）
+    // 例: Queue<T> → type_parameters = ["T"]
+    if (node->is_generic) {
+        std::vector<std::string> extracted_params;
+        std::string target = struct_name.empty() ? interface_name : struct_name;
+        size_t lt = target.find('<');
+        size_t gt = target.rfind('>');
+        if (lt != std::string::npos && gt != std::string::npos && gt > lt) {
+            std::string params_str = target.substr(lt + 1, gt - lt - 1);
+            // カンマで分割（簡易版：ネストした<>は考慮しない）
+            std::stringstream ss(params_str);
+            std::string param;
+            while (std::getline(ss, param, ',')) {
+                // 前後の空白を削除
+                size_t start = param.find_first_not_of(" \t");
+                size_t end = param.find_last_not_of(" \t");
+                if (start != std::string::npos) {
+                    param = param.substr(start, end - start + 1);
+                    // : Allocator のような境界は削除
+                    size_t colon = param.find(':');
+                    if (colon != std::string::npos) {
+                        param = param.substr(0, colon);
+                        // 再度空白削除
+                        end = param.find_last_not_of(" \t");
+                        param = param.substr(0, end + 1);
+                    }
+                    extracted_params.push_back(param);
+                }
+            }
+        }
+        node->type_parameters = extracted_params;
+    }
+
     parser_->setLocation(node, parser_->current_token_);
 
     // impl static変数の所有権をASTノードに移動
+    node->impl_static_variables.reserve(static_var_nodes.size());
     for (auto &static_var : static_var_nodes) {
         node->impl_static_variables.push_back(std::move(static_var));
     }
 
-    // implメソッドの所有権をASTノードに移動
+    // v0.11.0: implメソッドの所有権をASTノードに移動
+    // vector再配置を防ぐため、事前にreserve()を呼ぶ
+    node->arguments.reserve(method_nodes.size());
     for (auto &method_node : method_nodes) {
         node->arguments.push_back(std::move(method_node));
     }
+
+    // v0.11.0: implノードの所有権をparserに移動（use-after-free対策）
+    // 重要:
+    // vectorへの追加前にimpl_defを保存してはいけない（nodeのアドレスが変わる）
+    parser_->impl_nodes_.push_back(std::unique_ptr<ASTNode>(node));
+
+    // v0.11.0: vectorに追加後の実際のポインタを取得
+    const ASTNode *stable_node_ptr = parser_->impl_nodes_.back().get();
+
+    // v0.11.0: impl定義のメソッド/コンストラクタ/デストラクタを
+    // node->argumentsから設定（vector再配置後の安定したポインタを使用）
+    impl_def.methods.clear();
+    impl_def.constructors.clear();
+    impl_def.destructor = nullptr;
+    for (const auto &arg : stable_node_ptr->arguments) {
+        if (arg->node_type == ASTNodeType::AST_FUNC_DECL) {
+            impl_def.methods.push_back(arg.get());
+        } else if (arg->node_type == ASTNodeType::AST_CONSTRUCTOR_DECL) {
+            impl_def.constructors.push_back(arg.get());
+        } else if (arg->node_type == ASTNodeType::AST_DESTRUCTOR_DECL) {
+            impl_def.destructor = arg.get();
+        }
+    }
+
+    // impl定義を保存（安定したポインタを使用）
+    impl_def.impl_node = stable_node_ptr;
+    parser_->impl_definitions_.push_back(std::move(impl_def));
 
     return node;
 }

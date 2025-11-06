@@ -1,0 +1,18 @@
+// Simple import test - Check if Queue<T> can be imported and used
+import stdlib.std.queue;
+
+int main() {
+    println("Queue<T> imported successfully!");
+    
+    // Test Queue<int>
+    Queue<int> q;
+    println("Queue<int> created!");
+    
+    q.push(10);
+    println("Queue<int> push works!");
+    
+    int val = q.pop();
+    println("Queue<int> pop works! Got: ", val);
+    
+    return 0;
+}

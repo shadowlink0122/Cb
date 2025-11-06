@@ -1,5 +1,6 @@
 #pragma once
 #include "../../core/interpreter.h"
+#include <deque>
 #include <map>
 #include <string>
 #include <vector>
@@ -35,7 +36,7 @@ class InterfaceOperations {
     const ImplDefinition *
     find_impl_for_struct(const std::string &struct_name,
                          const std::string &interface_name);
-    const std::vector<ImplDefinition> &get_impl_definitions() const;
+    const std::deque<ImplDefinition> &get_impl_definitions() const;
 
     // Interface型変数管理
     void create_interface_variable(const std::string &var_name,
@@ -59,14 +60,28 @@ class InterfaceOperations {
     get_interface_definitions_mutable() {
         return &interface_definitions_;
     }
-    std::vector<ImplDefinition> *get_impl_definitions_mutable() {
+    std::deque<ImplDefinition> *get_impl_definitions_mutable() {
         return &impl_definitions_;
     }
+
+    // v0.11.0 Phase 1a: インターフェース境界チェック（複数境界対応）
+    bool check_interface_bound(const std::string &type_name,
+                               const std::string &interface_name);
+    void validate_interface_bounds(
+        const std::string &struct_name,
+        const std::vector<std::string> &type_parameters,
+        const std::vector<std::string> &type_arguments,
+        const std::unordered_map<std::string, std::vector<std::string>>
+            &interface_bounds);
 
   private:
     Interpreter *interpreter_; // 親Interpreterへの参照
 
     // Interface/Impl定義ストレージ
     std::map<std::string, InterfaceDefinition> interface_definitions_;
-    std::vector<ImplDefinition> impl_definitions_;
+    // v0.11.0: dequeを使用してポインタ安定性を確保（vectorの再配置を回避）
+    std::deque<ImplDefinition> impl_definitions_;
+
+    // v0.12.0: インスタンス化されたimplノードのキャッシュ
+    std::vector<std::unique_ptr<ASTNode>> instantiated_impl_nodes_;
 };

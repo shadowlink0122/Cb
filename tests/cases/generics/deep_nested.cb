@@ -1,0 +1,35 @@
+// Test deeply nested generics
+struct Box<T> {
+    T value;
+};
+
+struct Pair<A, B> {
+    A first;
+    B second;
+};
+
+struct Container<T> {
+    T data;
+};
+
+void main() {
+    // 深くネストしたジェネリクス
+    Container<Pair<Box<int>, Box<string>>> complex;
+    
+    complex.data.first.value = 42;
+    complex.data.second.value = "nested";
+    
+    println("complex.data.first.value = ");
+    println(complex.data.first.value);
+    println("complex.data.second.value = ");
+    println(complex.data.second.value);
+    
+    // トリプルネスト
+    Box<Box<Box<int>>> triple;
+    triple.value.value.value = 777;
+    
+    println("triple.value.value.value = ");
+    println(triple.value.value.value);
+    
+    println("Deep nested generics: SUCCESS!");
+}

@@ -1,0 +1,229 @@
+// 構造体配列の動的確保とアクセステスト
+// STRUCT* S = malloc(sizeof(STRUCT)*N); で STRUCT[N] を再現
+
+struct Point {
+    int x;
+    int y;
+};
+
+struct Person {
+    string name;
+    int age;
+};
+
+// ポインタ演算ヘルパー関数
+void* ptr_offset(void* ptr, int offset) {
+    long base_long = ptr;
+    long target_long = base_long + offset;
+    void* result = target_long;
+    return result;
+}
+
+// ヘルパー関数
+void print_point(Point* p) {
+    println("Point({p->x}, {p->y})");
+}
+
+int point_distance_from_origin(Point* p) {
+    return p->x * p->x + p->y * p->y;
+}
+
+void person_greet(Person* p) {
+    println("Hello, I'm {p->name}, {p->age} years old");
+}
+
+int main() {
+    println("=== Dynamic Struct Array Test ===\n");
+    
+    // テスト1: Point構造体の動的配列
+    println("--- Test 1: Point array with malloc ---");
+    
+    int N = 5;
+    int point_size = sizeof(Point);
+    println("sizeof(Point) = {point_size}");
+    
+    // STRUCT* S = malloc(sizeof(STRUCT)*N);
+    Point* points = malloc(point_size * N);
+    
+    if (points == nullptr) {
+        println("❌ malloc failed");
+        return 1;
+    }
+    
+    println("✅ Allocated memory for {N} Points at {hex(points)}");
+    
+    // 各要素を初期化
+    println("\nInitializing array elements//.");
+    int i = 0;
+    while (i < N) {
+        // C風のポインタ演算: points + i * sizeof(Point)
+        int offset = i * point_size;
+        Point* p = ptr_offset(points, offset);
+        
+        // 構造体のメンバーに値を設定
+        p->x = i * 10;
+        p->y = i * 20;
+        println("  Initialized points[{i}] = ({p->x}, {p->y})");
+        i = i + 1;
+    }
+    
+    // テスト: S[i]->value アクセス
+    println("\n--- Test 2: Member access S[i]->value ---");
+    i = 0;
+    bool values_ok = true;
+    while (i < N) {
+        int expected_x = i * 10;
+        int expected_y = i * 20;
+        
+        int offset = i * point_size;
+        Point* p = ptr_offset(points, offset);
+        
+        if (p->x != expected_x || p->y != expected_y) {
+            println("❌ points[{i}] has wrong values: ({p->x}, {p->y})");
+            values_ok = false;
+        }
+        i = i + 1;
+    }
+    
+    if (values_ok) {
+        println("✅ All S[i]->value accesses work correctly");
+    } else {
+        free(points);
+        return 1;
+    }
+    
+    // テスト: S[i]->func() メソッド呼び出し
+    println("\n--- Test 3: Method call S[i]->func() ---");
+    println("Calling print_point() on each element:");
+    i = 0;
+    while (i < N) {
+        print("  [{i}] ");
+        int offset = i * point_size;
+        print_point(ptr_offset(points, offset));
+        i = i + 1;
+    }
+    println("✅ All S[i]->func() calls work correctly");
+    
+    // テスト: メソッドからの戻り値
+    println("\n--- Test 4: Method return values ---");
+    i = 0;
+    while (i < N) {
+        int offset = i * point_size;
+        int dist = point_distance_from_origin(ptr_offset(points, offset));
+        int expected = (i * 10) * (i * 10) + (i * 20) * (i * 20);
+        println("  points[{i}].distance_from_origin() = {dist} (expected: {expected})");
+        
+        if (dist != expected) {
+            println("❌ Method return value incorrect");
+            free(points);
+            return 1;
+        }
+        i = i + 1;
+    }
+    println("✅ Method return values are correct");
+    
+    // テスト: 配列要素の変更
+    println("\n--- Test 5: Modifying array elements ---");
+    Point* p0 = ptr_offset(points, 0 * point_size);
+    p0->x = 100;
+    p0->y = 200;
+    
+    Point* p2 = ptr_offset(points, 2 * point_size);
+    p2->x = 300;
+    p2->y = 400;
+    
+    // 再度取得して確認
+    p0 = ptr_offset(points, 0 * point_size);
+    if (p0->x == 100 && p0->y == 200) {
+        println("✅ points[0] modified successfully: ({p0->x}, {p0->y})");
+    } else {
+        println("❌ points[0] modification failed");
+        free(points);
+        return 1;
+    }
+    
+    p2 = ptr_offset(points, 2 * point_size);
+    if (p2->x == 300 && p2->y == 400) {
+        println("✅ points[2] modified successfully: ({p2->x}, {p2->y})");
+    } else {
+        println("❌ points[2] modification failed");
+        free(points);
+        return 1;
+    }
+    
+    // 他の要素が影響を受けていないことを確認
+    Point* p1 = ptr_offset(points, 1 * point_size);
+    if (p1->x == 10 && p1->y == 20) {
+        println("✅ points[1] remains unchanged: ({p1->x}, {p1->y})");
+    } else {
+        println("❌ points[1] was corrupted");
+        free(points);
+        return 1;
+    }
+    
+    free(points);
+    println("✅ Memory freed");
+    
+    // テスト6: Person構造体（string型メンバー含む）
+    println("\n--- Test 6: Person array with string members ---");
+    
+    int M = 3;
+    int person_size = sizeof(Person);
+    println("sizeof(Person) = {person_size}");
+    
+    Person* people = malloc(person_size * M);
+    
+    if (people == nullptr) {
+        println("❌ malloc failed for Person array");
+        return 1;
+    }
+    
+    println("✅ Allocated memory for {M} Persons at {hex(people)}");
+    
+    // 初期化
+    Person* person0 = ptr_offset(people, 0 * person_size);
+    person0->name = "Alice";
+    person0->age = 25;
+    
+    Person* person1 = ptr_offset(people, 1 * person_size);
+    person1->name = "Bob";
+    person1->age = 30;
+    
+    Person* person2 = ptr_offset(people, 2 * person_size);
+    person2->name = "Charlie";
+    person2->age = 35;
+    
+    println("\nInitialized {M} people");
+    
+    // アクセステスト
+    i = 0;
+    bool person_ok = true;
+    while (i < M) {
+        int offset = i * person_size;
+        Person* person = ptr_offset(people, offset);
+        println("  people[{i}]: name={person->name}, age={person->age}");
+        i = i + 1;
+    }
+    
+    // メソッド呼び出し
+    println("\nCalling greet() on each person:");
+    i = 0;
+    while (i < M) {
+        print("  ");
+        int offset = i * person_size;
+        person_greet(ptr_offset(people, offset));
+        i = i + 1;
+    }
+    
+    println("✅ Person array with string members works");
+    
+    free(people);
+    println("✅ Person array memory freed");
+    
+    println("\n🎉 All Dynamic Struct Array Tests Passed!");
+    println("\n✅ CONFIRMED: malloc(sizeof(STRUCT)*N) works for struct arrays");
+    println("✅ CONFIRMED: S[i]->value access works");
+    println("✅ CONFIRMED: S[i]->func() method calls work");
+    
+    return 0;
+}

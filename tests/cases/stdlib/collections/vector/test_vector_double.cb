@@ -1,0 +1,93 @@
+// Vector<double>のテスト
+import stdlib.std.vector;
+
+int main() {
+    println("=== Vector<double> Tests ===");
+    
+    // 1. 基本的な初期化とpush
+    Vector<double> vec;
+    vec.init(4);
+    println("✅ Vector<double> initialized");
+    
+    // 2. push操作
+    vec.push(3.14);
+    vec.push(2.71);
+    vec.push(1.41);
+    println("✅ Pushed 3 doubles: 3.14, 2.71, 1.41");
+    
+    // 3. get操作
+    double v0 = vec.get(0);
+    double v1 = vec.get(1);
+    double v2 = vec.get(2);
+    
+    println("Retrieved doubles from vector:");
+    println("  v0 = {v0}");
+    println("  v1 = {v1}");
+    println("  v2 = {v2}");
+    
+    // 値の検証
+    bool check1 = v0 > 3.13;
+    bool check2 = v0 < 3.15;
+    bool check_and = check1 && check2;
+    println("  v0 > 3.13: {check1}");
+    println("  v0 < 3.15: {check2}");
+    println("  check1 && check2: {check_and}");
+    
+    if (check1 && check2) {
+        println("✅ v0 is correct (3.14)");
+    } else {
+        println("❌ v0 is incorrect");
+        return 1;
+    }
+    
+    bool check3 = v1 > 2.70;
+    bool check4 = v1 < 2.72;
+    if (check3 && check4) {
+        println("✅ v1 is correct (2.71)");
+    } else {
+        println("❌ v1 is incorrect");
+        return 1;
+    }
+    
+    bool check5 = v2 > 1.40;
+    bool check6 = v2 < 1.42;
+    if (check5 && check6) {
+        println("✅ v2 is correct (1.41)");
+    } else {
+        println("❌ v2 is incorrect");
+        return 1;
+    }
+    
+    // 4. size確認
+    int size = vec.get_length();
+    println("Checking vector size");
+    if (size == 3) {
+        println("✅ Size is correct (3)");
+    } else {
+        println("❌ Size is incorrect");
+        return 1;
+    }
+    
+    // 5. pop操作
+    double popped = vec.pop();
+    println("Popped value from vector");
+    bool check7 = popped > 1.40;
+    bool check8 = popped < 1.42;
+    if (check7 && check8) {
+        println("✅ Popped correct value (1.41)");
+    } else {
+        println("❌ Popped incorrect value");
+        return 1;
+    }
+    
+    int new_size = vec.get_length();
+    if (new_size == 2) {
+        println("✅ Size after pop is correct (2)");
+    } else {
+        println("❌ Size after pop is incorrect");
+        return 1;
+    }
+    
+    println("\n🎉 All Vector<double> Tests Passed!");
+    return 0;
+}

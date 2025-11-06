@@ -1,0 +1,29 @@
+// implメソッド内でのselfポインタメンバーアクセステスト
+
+struct Node {
+    int* value_ptr;
+    int data;
+};
+
+interface Processor {
+    int process();
+};
+
+impl Processor for Node {
+    int process() {
+        // self.value_ptr でポインタメンバーに直接アクセス
+        return *self.value_ptr + self.data;
+    }
+};
+
+int main() {
+    println("=== Self Pointer Member Access Test ===");
+    
+    int val = 100;
+    Node n = {value_ptr: &val, data: 50};
+    
+    println("n.process() = ");
+    println(n.process());  // 期待値: 150
+    
+    return 0;
+}

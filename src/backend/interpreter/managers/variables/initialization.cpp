@@ -266,7 +266,8 @@ bool VariableManager::handle_typedef_resolution(const ASTNode *node,
 
         // カスタム型の保存（union以外）
         if (var.type != TYPE_UNION) {
-            if (!var.is_struct) {
+            // ポインタ型の場合は型名を保持（例: "Point*"）
+            if (!var.is_struct && var.type != TYPE_POINTER) {
                 var.type_name.clear();
             }
             var.current_type = var.type;

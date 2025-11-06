@@ -1,0 +1,23 @@
+void main() {
+    println("=== Double Variable Test ===");
+    
+    double x = 3.14;
+    println("x={x}");
+    
+    if (x > 3.13 && x < 3.15) {
+        println("✅ Double assignment works");
+    }
+    
+    // 配列なしで直接テスト
+    void* arr = new double[3];
+    
+    // ポインタを使って直接設定
+    double* ptr = arr;
+    ptr[0] = 3.14;
+    ptr[1] = 2.71;
+    ptr[2] = 1.41;
+    
+    println("Direct assignment: ptr[0]={ptr[0]}, ptr[1]={ptr[1]}, ptr[2]={ptr[2]}");
+    
+    delete arr;
+}

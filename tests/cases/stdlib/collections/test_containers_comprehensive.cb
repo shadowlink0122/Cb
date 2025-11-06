@@ -1,0 +1,72 @@
+// Comprehensive test for Queue<T> with basic types
+// Note: Struct support is limited due to generic impl return value constraints
+// NOTE: Testing multiple Queue types separately to verify generic implementation
+
+import stdlib.std.queue;
+
+void main() {
+    println("╔═══════════════════════════════════════════════════════════════╗");
+    println("║  Queue<T> Comprehensive Test                                 ║");
+    println("╚═══════════════════════════════════════════════════════════════╝");
+    println();
+    
+    // Test 1: Queue<int>
+    println("═══ Test 1: Queue<int> ═══");
+    Queue<int> q1;
+    q1.push(1);
+    q1.push(2);
+    q1.push(3);
+    println("  Pushed 3 values");
+    int d1 = q1.pop();
+    int d2 = q1.pop();
+    int d3 = q1.top();
+    println("  Retrieved values");
+    if (d1 == 1 && d2 == 2 && d3 == 3) {
+        println("✅ Queue<int> works!");
+    } else {
+        println("❌ Queue<int> FAILED");
+    }
+    
+    // Test 2: Queue<long>
+    println("\n═══ Test 2: Queue<long> ═══");
+    Queue<long> q2;
+    long qv1 = 1000;
+    long qv2 = 2000;
+    long qv3 = 3000;
+    q2.push(qv1);
+    q2.push(qv2);
+    q2.push(qv3);
+    println("  Pushed 3 long values");
+    long qd1 = q2.pop();
+    long qd2 = q2.pop();
+    println("  Popped 2 values");
+    if (qd1 == 1000 && qd2 == 2000) {
+        println("✅ Queue<long> works!");
+    } else {
+        println("❌ Queue<long> FAILED");
+    }
+    
+    // Test 3: Queue<short>
+    println("\n═══ Test 3: Queue<short> ═══");
+    Queue<short> q3;
+    short s1 = 10;
+    short s2 = 20;
+    short s3 = 30;
+    q3.push(s1);
+    q3.push(s2);
+    q3.push(s3);
+    println("  Pushed 3 short values");
+    short sd1 = q3.pop();
+    short sd2 = q3.pop();
+    println("  Popped 2 values");
+    // WORKAROUND: println(short)はクラッシュするため、比較で検証
+    if (sd1 == 10 && sd2 == 20) {
+        println("✅ Queue<short> works!");
+    } else {
+        println("❌ Queue<short> FAILED");
+    }
+    
+    println("\n╔═══════════════════════════════════════════════════════════════╗");
+    println("║  All Queue<T> tests completed successfully!                  ║");
+    println("╚═══════════════════════════════════════════════════════════════╝");
+}

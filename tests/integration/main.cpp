@@ -16,6 +16,7 @@
 #include "bitwise/test_bitwise.hpp"
 #include "bool_expr/test_bool_expr.hpp"
 #include "boundary/test_boundary.hpp"
+#include "builtin_types/test_builtin_types.hpp"
 #include "compound_assign/test_compound_assign.hpp"
 #include "const_array/test_const_array.hpp"
 #include "const_parameters/test_const_parameters.hpp"
@@ -28,6 +29,7 @@
 #include "default_args/test_default_args.hpp"
 #include "default_member/test_default_member.hpp"
 #include "defer/test_defer.hpp"
+#include "destructor/test_destructor.hpp"
 #include "discard_variable/discard_variable_tests.hpp"
 #include "dynamic_array_error/test_dynamic_array_error.hpp"
 #include "enum/test_enum.hpp"
@@ -37,6 +39,8 @@
 #include "func/test_func.hpp"
 #include "func_return_type_check/test_func_return_type_check.hpp"
 #include "func_type_check/test_func_type_check.hpp"
+#include "generic_constructor/test_generic_constructor.hpp"
+#include "generics/test_generics.hpp"
 #include "global_array/test_global_array.hpp"
 #include "global_vars/test_global_vars.hpp"
 #include "if/test_if.hpp"
@@ -48,14 +52,17 @@
 #include "interface/test_interface_private.hpp"
 #include "interface/test_type_inference_chain.hpp"
 #include "interface/test_typedef_impl.hpp"
+#include "interface_bounds/test_interface_bounds.hpp"
 #include "lambda/lambda_tests.hpp"
 #include "loop/test_loop.hpp"
+#include "memory/test_memory.hpp"
 #include "module_functions/test_module_functions.hpp"
 #include "move_constructor/move_constructor_tests.hpp"
 #include "multidim_array/test_multidim_array.hpp"
 #include "multidim_literal/test_multidim_literal.hpp"
 #include "multiple_var_decl/test_multiple_var_decl.hpp"
 #include "nested_struct_init/test_nested_struct_init.hpp"
+#include "pattern_matching/test_pattern_matching.hpp"
 #include "performance/test_performance.hpp"
 #include "pointer/function_pointer_tests.hpp"
 #include "pointer/pointer_advanced_tests.hpp"
@@ -74,10 +81,13 @@
 #include "switch/test_switch.hpp"
 // #include "samples/test_actual_samples.hpp"
 #include "self_assign/test_self_assign.hpp"
+#include "sizeof_array/test_sizeof_array.hpp"
 #include "static_variables/test_static_variables.hpp"
 #include "string/test_string.hpp"
+#include "string_interpolation/test_string_interpolation.hpp"
 #include "struct/basic_struct_tests.hpp"
 #include "struct/struct_tests.hpp"
+#include "struct_array_assignment/test_struct_array_assignment.hpp"
 #include "ternary/test_ternary.hpp"
 #include "type/test_type.hpp"
 #include "typedef/test_enum_typedef.hpp"
@@ -244,6 +254,8 @@ int main() {
     CategoryTimingStats::set_current_category("String & I/O");
     run_test_with_continue(test_integration_string, "String Tests",
                            failed_tests);
+    run_test_with_continue(test_integration_string_interpolation,
+                           "String Interpolation Tests", failed_tests);
     run_test_with_continue(test_printf_all, "Printf Tests", failed_tests);
     run_test_with_continue(test_integration_println, "Println Tests",
                            failed_tests);
@@ -252,6 +264,8 @@ int main() {
     // 型システムテスト群
     std::cout << "\n[integration-test] === Type System Tests ===" << std::endl;
     CategoryTimingStats::set_current_category("Type System");
+    run_test_with_continue(test_integration_builtin_types,
+                           "Builtin Types (Option/Result) Tests", failed_tests);
     run_test_with_continue(test_integration_typedef, "Typedef Tests",
                            failed_tests);
     run_test_with_continue(test_integration_enum_typedef, "Enum Typedef Tests",
@@ -269,8 +283,12 @@ int main() {
     run_test_with_continue(test_integration_switch, "Switch Statement Tests",
                            failed_tests);
     run_test_with_continue(test_integration_enum, "Enum Tests", failed_tests);
+    run_test_with_continue(test_integration_pattern_matching,
+                           "Pattern Matching Tests", failed_tests);
     run_test_with_continue(UnionTests::run_all_union_tests, "Union Type Tests",
                            failed_tests);
+    run_test_with_continue(test_integration_interface_bounds,
+                           "Interface Bounds Tests", failed_tests);
     CategoryTimingStats::print_category_summary("Type System");
 
     // v0.10.0 新機能テスト群
@@ -283,6 +301,14 @@ int main() {
                            failed_tests);
     CategoryTimingStats::print_category_summary("v0.10.0 Features");
 
+    // v0.11.0 新機能テスト群
+    std::cout << "\n[integration-test] === v0.11.0 New Features (Phase 0) ==="
+              << std::endl;
+    CategoryTimingStats::set_current_category("v0.11.0 Generics");
+    run_test_with_continue(GenericsTests::run_all_generics_tests,
+                           "Generic Struct Tests (Phase 0)", failed_tests);
+    CategoryTimingStats::print_category_summary("v0.11.0 Generics");
+
     // 構造体・インターフェーステスト群
     std::cout << "\n[integration-test] === Advanced Features ===" << std::endl;
     CategoryTimingStats::set_current_category("Advanced Features");
@@ -290,12 +316,18 @@ int main() {
                            "Basic Struct Tests", failed_tests);
     run_test_with_continue(StructTests::run_all_struct_tests, "Struct Tests",
                            failed_tests);
+    run_test_with_continue(test_integration_struct_array_assignment,
+                           "Struct Array Assignment Tests", failed_tests);
     run_test_with_continue(NestedStructInitTests::run_all_tests,
                            "Nested Struct Init Tests", failed_tests);
     run_test_with_continue(run_all_constructor_tests, "Constructor Tests",
                            failed_tests);
     run_test_with_continue(run_all_destructor_tests, "Destructor Tests",
                            failed_tests);
+    run_test_with_continue(test_integration_generic_destructor,
+                           "Generic Destructor Tests", failed_tests);
+    run_test_with_continue(test_integration_generic_constructor,
+                           "Generic Constructor Tests", failed_tests);
     run_test_with_continue(InterfaceTests::run_all_interface_tests,
                            "Interface Tests", failed_tests);
     run_test_with_continue(test_interface_type_inference_chain,
@@ -329,6 +361,12 @@ int main() {
                            "Pointer Type Tests", failed_tests);
     run_test_with_continue(PointerAdvancedTests::run_all_tests,
                            "Pointer Advanced Tests", failed_tests);
+
+    // Memory Management Tests (new/delete/sizeof)
+    run_test_with_continue(test_integration_memory, "Memory Management Tests",
+                           failed_tests);
+    run_test_with_continue(register_sizeof_array_tests, "sizeof Array Tests",
+                           failed_tests);
 
     run_test_with_continue(ConstPointerTests::run_all_const_pointer_tests,
                            "Const Pointer Tests", failed_tests);

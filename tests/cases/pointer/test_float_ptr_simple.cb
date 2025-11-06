@@ -1,0 +1,18 @@
+void test_simple() {
+    float[3] arr;
+    arr[0] = 1.5;
+    arr[1] = 2.5;
+    arr[2] = 3.5;
+    
+    println("Direct access: arr[0] = %f", arr[0]);
+    println("Direct access: arr[1] = %f", arr[1]);
+    
+    float* ptr = &arr[0];
+    float val = ptr[0];
+    
+    println("Through pointer: val = %f", val);
+}
+
+void main() {
+    test_simple();
+}

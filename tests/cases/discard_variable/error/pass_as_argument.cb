@@ -1,0 +1,9 @@
+// エラー: discard変数を関数引数として渡す
+void print_value(int value) {
+    println(value);
+}
+
+void main() {
+    int _ = 100;
+    print_value(_); // エラー: Cannot reference discard variable '_'
+}

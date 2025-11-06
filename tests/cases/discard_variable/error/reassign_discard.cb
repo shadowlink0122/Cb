@@ -1,0 +1,6 @@
+// エラー: discard変数を再代入しようとする
+void main() {
+    int _ = 10;
+    _ = 20; // エラー: Cannot reference discard variable '_'
+    println("Should not reach here");
+}

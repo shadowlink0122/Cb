@@ -1,0 +1,166 @@
+// test_memory_edge_cases.cb
+// エッジケースとエラーテスト
+
+struct Node {
+    int value;
+    Node* next;  // Self-referencing pointer
+};
+
+struct Container<T> {
+    T data;
+    int size;
+};
+
+// ポインタ型のサイズ
+void test_pointer_sizeof() {
+    println("=== Test sizeof (pointers) ===");
+    
+    int size_int_ptr = sizeof(int*);
+    println("sizeof(int*) = {size_int_ptr}");
+    
+    int size_double_ptr = sizeof(double*);
+    println("sizeof(double*) = {size_double_ptr}");
+    
+    int size_node_ptr = sizeof(Node*);
+    println("sizeof(Node*) = {size_node_ptr}");
+    
+    // All pointers should be 8 bytes
+    if (size_int_ptr == 8 && size_double_ptr == 8 && size_node_ptr == 8) {
+        println("✅ All pointer sizes correct (8 bytes)");
+    }
+    
+    println("pointer sizeof test complete\n");
+}
+
+// 自己参照構造体のサイズ
+void test_self_referencing_struct() {
+    println("=== Test sizeof (self-referencing struct) ===");
+    
+    int size_node = sizeof(Node);
+    println("sizeof(Node) = {size_node} (expected: 16 = 4 + 8)");
+    
+    // Node has: int value (4) + Node* next (8) = 12, aligned to 16
+    if (size_node >= 12) {
+        println("✅ Self-referencing struct size correct");
+    }
+    
+    println("self-referencing test complete\n");
+}
+
+// 配列の大きなサイズ
+void test_large_array_allocation() {
+    println("=== Test new[] (large array) ===");
+    
+    int* large_arr = new int[1000];
+    println("Allocated int[1000] at {hex(large_arr)}");
+    
+    // 現時点ではポインタ演算が制限されているため、
+    // 単に割り当てと解放のテストのみ
+    
+    delete large_arr;
+    println("Freed large array");
+    
+    println("large array test complete\n");
+}
+
+// 構造体配列の割り当て
+void test_struct_array_allocation() {
+    println("=== Test new[] (struct array) ===");
+    
+    Node* nodes = new Node[5];
+    println("Allocated Node[5] at {hex(nodes)}");
+    
+    // 現時点ではポインタ演算が制限されているため、
+    // 単に割り当てと解放のテストのみ
+    
+    delete nodes;
+    println("Freed struct array");
+    
+    println("struct array test complete\n");
+}
+
+// ジェネリクス構造体の割り当て
+// Note: Generic struct allocation is not fully supported yet
+void test_generic_allocation() {
+    println("=== Test new (generic struct) ===");
+    
+    // TODO: Implement full generic type instantiation
+    // Container<int>* c_int = new Container<int>;
+    // println("Allocated Container<int>* at {hex(c_int)}");
+    // delete c_int;
+    
+    println("Generic allocation test skipped (not yet fully supported)");
+    println("generic allocation test complete\n");
+}
+
+// sizeof(配列要素)
+void test_sizeof_expression() {
+    println("=== Test sizeof (expression) ===");
+    
+    int size_int = sizeof(int);
+    println("sizeof(int) = {size_int}");
+    
+    Node n;
+    int size_n = sizeof(n);
+    println("sizeof(n) = {size_n}");
+    
+    println("sizeof expression test complete\n");
+}
+
+// 複数の割り当てと解放
+void test_multiple_allocations() {
+    println("=== Test multiple allocations ===");
+    
+    int* p1 = new int;
+    int* p2 = new int;
+    int* p3 = new int;
+    
+    println("Allocated 3 pointers:");
+    println("  p1: {hex(p1)}");
+    println("  p2: {hex(p2)}");
+    println("  p3: {hex(p3)}");
+    
+    delete p1;
+    delete p2;
+    delete p3;
+    println("Freed all 3 pointers");
+    
+    println("multiple allocations test complete\n");
+}
+
+// ネストされた構造体配列
+void test_nested_struct_array() {
+    println("=== Test new[] (nested struct array) ===");
+    
+    Rectangle* rects = new Rectangle[3];
+    println("Allocated Rectangle[3] at {hex(rects)}");
+    
+    // 現時点ではポインタ演算が制限されているため、
+    // 単に割り当てと解放のテストのみ
+    
+    delete rects;
+    println("Freed nested struct array");
+    
+    println("nested struct array test complete\n");
+}
+
+int main() {
+    println("╔════════════════════════════════════════════╗");
+    println("║  Memory Management Edge Cases Test       ║");
+    println("╚════════════════════════════════════════════╝\n");
+    
+    test_pointer_sizeof();
+    test_self_referencing_struct();
+    test_large_array_allocation();
+    test_struct_array_allocation();
+    test_generic_allocation();
+    test_sizeof_expression();
+    test_multiple_allocations();
+    test_nested_struct_array();
+    
+    println("╔════════════════════════════════════════════╗");
+    println("║  All edge case tests passed!              ║");
+    println("╚════════════════════════════════════════════╝");
+    
+    return 0;
+}

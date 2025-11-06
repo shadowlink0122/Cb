@@ -1,0 +1,70 @@
+// Test: 組み込み型を使った関数の戻り値
+// v0.11.0: Option/Resultが関数の戻り値として正常に動作することを確認
+// enum定義が不要であることを確認
+
+Option<int> find_value(int target) {
+    if (target == 42) {
+        return Option<int>::Some(42);
+    }
+    return Option<int>::None;
+}
+
+Result<int, int> divide(int a, int b) {
+    if (b == 0) {
+        return Result<int, int>::Err(-1);
+    }
+    return Result<int, int>::Ok(a / b);
+}
+
+void main() {
+    // Option<T>の戻り値テスト
+    Option<int> found = find_value(42);
+    match (found) {
+        Some(value) => {
+            println("Found: ");
+            println(value);
+        }
+        None => {
+            println("Not found");
+        }
+    }
+    
+    Option<int> not_found = find_value(0);
+    match (not_found) {
+        Some(value) => {
+            println("Found: ");
+            println(value);
+        }
+        None => {
+            println("Not found (expected)");
+        }
+    }
+    
+    // Result<T, E>の戻り値テスト
+    Result<int, int> ok_result = divide(10, 2);
+    match (ok_result) {
+        Ok(value) => {
+            println("Result: ");
+            println(value);
+        }
+        Err(error) => {
+            println("Error: ");
+            println(error);
+        }
+    }
+    
+    Result<int, int> err_result = divide(10, 0);
+    match (err_result) {
+        Ok(value) => {
+            println("Result: ");
+            println(value);
+        }
+        Err(error) => {
+            println("Error: ");
+            println(error);
+            println(" (expected)");
+        }
+    }
+    
+    println("Function return builtin test passed!");
+}

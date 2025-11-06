@@ -23,6 +23,7 @@ class StatementParser {
     ASTNode *parseForStatement();
     ASTNode *parseWhileStatement();
     ASTNode *parseSwitchStatement();
+    ASTNode *parseMatchStatement();
 
     // ジャンプ文
     ASTNode *parseReturnStatement();
@@ -35,6 +36,9 @@ class StatementParser {
     // Switch関連ヘルパー
     ASTNode *parseCaseClause();
     ASTNode *parseCaseValue();
+
+    // Match関連ヘルパー
+    MatchArm parseMatchArm();
 
     // その他
     ASTNode *parseAssertStatement();

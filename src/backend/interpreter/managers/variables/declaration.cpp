@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdio>
+#include <cstring> // for strdup
 #include <functional>
 #include <numeric>
 #include <utility>
@@ -42,7 +43,8 @@ void setNumericFields(Variable &var, long double quad_value) {
 
 void VariableManager::process_variable_declaration(const ASTNode *node) {
     // 変数宣言の処理
-    Variable var;
+    Variable var = Variable(); // 明示的にデフォルトコンストラクタを呼ぶ
+
     // ポインタ型の場合はTYPE_POINTERを設定
     if (node->is_pointer) {
         var.type = TYPE_POINTER;
@@ -50,6 +52,10 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
         var.pointer_depth = node->pointer_depth;
         var.pointer_base_type = node->pointer_base_type;
         var.pointer_base_type_name = node->pointer_base_type_name;
+        // ポインタ型の型名を設定（例: "Point*"）
+        if (!node->type_name.empty()) {
+            var.type_name = node->type_name;
+        }
     } else {
         var.type = node->type_info;
     }
@@ -74,9 +80,306 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
     }
 
     // struct変数の場合の追加設定
-    if (node->type_info == TYPE_STRUCT && !node->type_name.empty()) {
+    // v0.11.1: ジェネリック struct (例: Box<int*>) の場合、
+    // 型引数にポインタが含まれるとパーサーが誤って TYPE_POINTER
+    // と判定することがあるため、 type_name に '<' が含まれている場合も struct
+    // として扱う
+    // v0.11.2: ただし、ジェネリック構造体へのポインタ（例:
+    // MapNode<K,V>*）の場合は
+    // ポインタとして扱い、pointer_base_type_nameに基底型を設定する
+    bool is_generic_struct = !node->type_name.empty() &&
+                             node->type_name.find('<') != std::string::npos;
+    // ジェネリック構造体へのポインタかどうかをチェック
+    // 型名の最後（空白を除く）に'*'がある場合のみポインタとして扱う
+    // 例: "Box<int*>" は構造体、"Box<int>*" はポインタ
+    bool is_pointer_to_generic = false;
+    if (is_generic_struct) {
+        std::string trimmed_type = node->type_name;
+        // 末尾の空白を削除
+        while (!trimmed_type.empty() && trimmed_type.back() == ' ') {
+            trimmed_type.pop_back();
+        }
+        // 最後の文字が'*'の場合、ジェネリック構造体へのポインタ
+        is_pointer_to_generic =
+            !trimmed_type.empty() && trimmed_type.back() == '*';
+    }
+
+    if (interpreter_->debug_mode) {
+        debug_print(
+            "[VAR_DECL_DEBUG] Checking struct condition for '%s': type_info=%d "
+            "(TYPE_STRUCT=%d), type_name='%s', is_generic_struct=%d, "
+            "is_pointer_to_generic=%d\n",
+            node->name.c_str(), static_cast<int>(node->type_info), TYPE_STRUCT,
+            node->type_name.c_str(), is_generic_struct, is_pointer_to_generic);
+    }
+
+    if ((node->type_info == TYPE_STRUCT || is_generic_struct) &&
+        !node->type_name.empty() && !is_pointer_to_generic) {
+        // ポインタではないジェネリック構造体
         var.is_struct = true;
         var.struct_type_name = node->type_name;
+        if (interpreter_->debug_mode) {
+            debug_print("[VAR_DECL_DEBUG] Set is_struct=true for '%s', "
+                        "struct_type_name='%s'\n",
+                        node->name.c_str(), node->type_name.c_str());
+        }
+    } else if (is_pointer_to_generic) {
+        // ジェネリック構造体へのポインタ（例: MapNode<K,V>*）
+        // '*'より前の部分を基底型名として抽出
+        std::string base_type = node->type_name;
+        size_t star_pos = base_type.find('*');
+        if (star_pos != std::string::npos) {
+            base_type = base_type.substr(0, star_pos);
+            // 末尾の空白を削除
+            while (!base_type.empty() && base_type.back() == ' ') {
+                base_type.pop_back();
+            }
+        }
+
+        // TypeContextでジェネリック型パラメータを解決
+        std::string resolved_base_type =
+            interpreter_->resolve_type_in_context(base_type);
+
+        var.is_pointer = true;
+        var.pointer_base_type_name = resolved_base_type;
+        var.pointer_base_type = TYPE_STRUCT; // ポインタ先は構造体
+        var.pointer_depth = 1;
+
+        if (interpreter_->debug_mode) {
+            debug_print("[VAR_DECL_DEBUG] Set is_pointer=true for '%s', "
+                        "pointer_base_type_name='%s' (resolved from '%s')\n",
+                        node->name.c_str(), resolved_base_type.c_str(),
+                        base_type.c_str());
+        }
+    }
+
+    // enum変数の場合の追加設定 (v0.11.0 generics)
+    if (node->type_info == TYPE_ENUM && !node->type_name.empty()) {
+        debug_print("[ENUM_VAR_DECL_MANAGER] Creating enum variable: "
+                    "name='%s', type_name='%s'\n",
+                    node->name.c_str(), node->type_name.c_str());
+
+        var.is_enum = true;
+        var.enum_type_name = node->type_name; // 例: "Option_int"
+        var.type = TYPE_ENUM;
+
+        debug_print(
+            "[ENUM_VAR_DECL_MANAGER] Set is_enum=true for variable '%s'\n",
+            node->name.c_str());
+
+        // 初期化式がある場合は処理
+        if (node->right || node->init_expr) {
+            ASTNode *init_node =
+                node->init_expr ? node->init_expr.get() : node->right.get();
+
+            debug_print("[ENUM_VAR_DECL_MANAGER] Processing enum initializer, "
+                        "node_type=%d\n",
+                        static_cast<int>(init_node->node_type));
+
+            // AST_ENUM_CONSTRUCTの場合（関連値あり）
+            if (init_node->node_type == ASTNodeType::AST_ENUM_CONSTRUCT) {
+                debug_print("[ENUM_VAR_DECL_MANAGER] AST_ENUM_CONSTRUCT "
+                            "detected, enum_member='%s'\n",
+                            init_node->enum_member.c_str());
+
+                var.enum_variant = init_node->enum_member;
+
+                // 関連値を評価
+                debug_print(
+                    "[ENUM_VAR_DECL_MANAGER] Checking arguments, size=%zu\n",
+                    init_node->arguments.size());
+
+                if (!init_node->arguments.empty()) {
+                    debug_print("[ENUM_VAR_DECL_MANAGER] About to evaluate "
+                                "argument expression\n");
+
+                    // TypedValueで評価して型に応じて適切なフィールドに格納
+                    TypedValue typed_result = interpreter_->evaluate_typed(
+                        init_node->arguments[0].get());
+
+                    var.has_associated_value = true;
+
+                    // 文字列型の場合
+                    if (typed_result.type.type_info == TYPE_STRING) {
+                        var.associated_str_value = typed_result.string_value;
+                        debug_print(
+                            "[ENUM_VAR_DECL_MANAGER] Enum initialized with "
+                            "variant='%s', string_value='%s'\n",
+                            var.enum_variant.c_str(),
+                            var.associated_str_value.c_str());
+                    }
+                    // 数値型の場合
+                    else {
+                        int64_t assoc_value = typed_result.as_numeric();
+                        var.associated_int_value = assoc_value;
+                        debug_print(
+                            "[ENUM_VAR_DECL_MANAGER] Enum initialized with "
+                            "variant='%s', int_value=%lld\n",
+                            var.enum_variant.c_str(), assoc_value);
+                    }
+                } else {
+                    debug_print("[ENUM_VAR_DECL_MANAGER] Enum initialized with "
+                                "variant='%s' (no associated value)\n",
+                                var.enum_variant.c_str());
+                }
+
+                var.is_assigned = true;
+            }
+            // AST_ENUM_ACCESSの場合（関連値なし - Noneなど）
+            else if (init_node->node_type == ASTNodeType::AST_ENUM_ACCESS) {
+                debug_print("[ENUM_VAR_DECL_MANAGER] AST_ENUM_ACCESS "
+                            "detected, enum_member='%s'\n",
+                            init_node->enum_member.c_str());
+
+                var.enum_variant = init_node->enum_member;
+                var.has_associated_value = false;
+
+                // 古いスタイルのenum値を評価
+                int64_t enum_val = interpreter_->eval_expression(init_node);
+                var.value = enum_val;
+
+                var.is_assigned = true;
+
+                debug_print("[ENUM_VAR_DECL_MANAGER] Enum initialized with "
+                            "variant='%s', value=%lld (no associated value)\n",
+                            var.enum_variant.c_str(), enum_val);
+            }
+            // その他の式（関数呼び出しなど）の場合：評価してから値を取得
+            else {
+                debug_print("[ENUM_VAR_DECL_MANAGER] Evaluating init "
+                            "expression (node_type=%d)\n",
+                            static_cast<int>(init_node->node_type));
+
+                // AST_FUNC_CALLの場合、ReturnExceptionをキャッチ
+                if (init_node->node_type == ASTNodeType::AST_FUNC_CALL) {
+                    debug_print(
+                        "[ENUM_VAR_DECL_MANAGER] Function call detected, "
+                        "catching ReturnException\n");
+                    try {
+                        int64_t result =
+                            interpreter_->eval_expression(init_node);
+                        // eval_expressionは例外を投げずに値を返す
+                        var.value = result;
+                        var.is_assigned = true;
+                        debug_print("[ENUM_VAR_DECL_MANAGER] Function returned "
+                                    "value: %lld\n",
+                                    (long long)result);
+                    } catch (const ReturnException &ret) {
+                        debug_print(
+                            "[ENUM_VAR_DECL_MANAGER] Caught "
+                            "ReturnException, is_struct=%d, ret.value=%lld, "
+                            "ret.type=%d\n",
+                            ret.is_struct, (long long)ret.value, ret.type);
+
+                        if (ret.is_struct && ret.struct_value.is_enum) {
+                            // Enum返り値を正しく処理（新スタイル: 関連値あり）
+                            var.enum_variant = ret.struct_value.enum_variant;
+                            var.has_associated_value =
+                                ret.struct_value.has_associated_value;
+                            var.associated_int_value =
+                                ret.struct_value.associated_int_value;
+                            var.is_assigned = true;
+
+                            debug_print(
+                                "[ENUM_VAR_DECL_MANAGER] Enum initialized from "
+                                "function return (new-style): variant='%s', "
+                                "value=%lld\n",
+                                var.enum_variant.c_str(),
+                                var.associated_int_value);
+                        } else if (ret.type == TYPE_ENUM) {
+                            // 古いスタイルのenum（TYPE_ENUMとして返される）
+                            var.value = ret.value;
+                            var.is_assigned = true;
+
+                            debug_print(
+                                "[ENUM_VAR_DECL_MANAGER] Enum initialized as "
+                                "old-style enum with TYPE_ENUM: value=%lld\n",
+                                (long long)ret.value);
+                        } else {
+                            // その他（整数値として返される - 後方互換性）
+                            var.value = ret.value;
+                            var.is_assigned = true;
+
+                            debug_print(
+                                "[ENUM_VAR_DECL_MANAGER] Enum initialized as "
+                                "old-style enum (legacy): value=%lld\n",
+                                (long long)ret.value);
+                        }
+
+                        debug_print("[ENUM_VAR_DECL_MANAGER] After assignment: "
+                                    "is_assigned=%d, "
+                                    "value=%lld, is_enum=%d\n",
+                                    var.is_assigned, (long long)var.value,
+                                    var.is_enum);
+                    }
+                } else {
+                    // その他の式（整数値として評価）
+                    int64_t result_value =
+                        interpreter_->eval_expression(init_node);
+                    var.value = result_value;
+                    var.is_assigned = true;
+
+                    debug_print("[ENUM_VAR_DECL_MANAGER] Enum initialized from "
+                                "expression result: %lld\n",
+                                result_value);
+                }
+            }
+        }
+
+        // 変数をスコープに追加して早期リターン
+        debug_print(
+            "[ENUM_VAR_DECL_MANAGER] About to add variable '%s' to scope, "
+            "is_enum=%d, value=%lld, has_associated_value=%d\n",
+            node->name.c_str(), var.is_enum, (long long)var.value,
+            var.has_associated_value);
+
+        // emplaceを使って明示的に配置
+        auto &scope_map = interpreter_->current_scope().variables;
+        scope_map.erase(node->name); // 既存のエントリを削除
+        auto [iter, inserted] = scope_map.emplace(node->name, var);
+
+        // 手動でis_enumを設定（ワークアラウンド）
+        iter->second.is_enum = true;
+        iter->second.enum_type_name = var.enum_type_name;
+        iter->second.enum_variant = var.enum_variant;
+        iter->second.has_associated_value =
+            var.has_associated_value; // 元の値を保持
+        iter->second.associated_int_value = var.associated_int_value;
+        iter->second.associated_str_value = var.associated_str_value;
+        iter->second.value = var.value; // 古いスタイルenum用のvalueも保持
+
+        debug_print(
+            "[ENUM_VAR_DECL_MANAGER] After manual fix: is_enum=%d, "
+            "value=%lld, has_associated_value=%d, associated_int_value=%lld\n",
+            iter->second.is_enum, (long long)iter->second.value,
+            iter->second.has_associated_value,
+            (long long)iter->second.associated_int_value);
+
+        debug_print(
+            "[ENUM_VAR_DECL_MANAGER] Enum variable '%s' added to scope\n",
+            node->name.c_str());
+
+        // 確認：スコープから直接アクセス
+        auto &scope_variables = interpreter_->current_scope().variables;
+        if (scope_variables.find(node->name) != scope_variables.end()) {
+            debug_print(
+                "[ENUM_VAR_DECL_MANAGER] Direct map access: is_enum=%d\n",
+                scope_variables[node->name].is_enum);
+        }
+
+        // 確認：find_variableで取得
+        Variable *stored_var = interpreter_->find_variable(node->name);
+        if (stored_var) {
+            debug_print("[ENUM_VAR_DECL_MANAGER] Verification: stored variable "
+                        "'%s' has is_enum=%d\n",
+                        node->name.c_str(), stored_var->is_enum);
+        } else {
+            debug_print("[ENUM_VAR_DECL_MANAGER] ERROR: Variable '%s' not "
+                        "found after insertion!\n",
+                        node->name.c_str());
+        }
+
+        return;
     }
 
     // interface変数の場合の追加設定
@@ -116,7 +419,8 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
 
                 if (ternary_result.is_string()) {
                     var.str_value = ternary_result.string_value;
-                    var.value = 0;
+                    // valueフィールドもコピー（generic型で使用）
+                    var.value = ternary_result.value;
                 } else {
                     var.value = ternary_result.value;
                     var.str_value = "";
@@ -186,7 +490,11 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
                 init_node->node_type == ASTNodeType::AST_STRING_LITERAL) {
                 // 文字列リテラル初期化
                 var.str_value = init_node->str_value;
-                var.value = 0; // プレースホルダー
+                // value フィールドに文字列のコピーのポインタを保存（generic
+                // 型で使用される） strdup
+                // で永続的なコピーを作成（メモリリーク注意: 将来 GC が必要）
+                var.value =
+                    reinterpret_cast<int64_t>(strdup(var.str_value.c_str()));
                 var.is_assigned = true;
             } else if (var.type == TYPE_STRING &&
                        init_node->node_type == ASTNodeType::AST_ARRAY_REF) {
@@ -381,6 +689,44 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
                         // struct戻り値の場合
                         var = ret.struct_value;
                         var.is_assigned = true;
+
+                        if (interpreter_->debug_mode) {
+                            debug_print(
+                                "[VAR_DECL_MEMBER_CREATE] Creating member "
+                                "variables for %s "
+                                "(type: %s), members.size=%zu\n",
+                                node->name.c_str(),
+                                ret.struct_value.struct_type_name.c_str(),
+                                ret.struct_value.struct_members.size());
+                        }
+
+                        // 個別メンバー変数を作成（デストラクタのために必要）
+                        std::function<void(
+                            const std::string &,
+                            const std::map<std::string, Variable> &)>
+                            create_member_variables;
+                        create_member_variables =
+                            [&](const std::string &base_path,
+                                const std::map<std::string, Variable>
+                                    &members) {
+                                for (const auto &member : members) {
+                                    std::string member_path =
+                                        base_path + "." + member.first;
+                                    current_scope().variables[member_path] =
+                                        member.second;
+
+                                    // ネストされた構造体メンバーの場合、再帰的に処理
+                                    if (member.second.is_struct &&
+                                        !member.second.struct_members.empty()) {
+                                        create_member_variables(
+                                            member_path,
+                                            member.second.struct_members);
+                                    }
+                                }
+                            };
+                        create_member_variables(
+                            node->name, ret.struct_value.struct_members);
+
                     } else if (ret.is_struct && var.type == TYPE_UNION) {
                         // union型変数への構造体代入の場合
                         if (interpreter_->get_type_manager()
@@ -681,197 +1027,107 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
                     // マップの再ハッシュを防ぐため、全ての変数を一時マップに収集してから一括登録
                     std::map<std::string, Variable> vars_batch;
 
-                    // 個別メンバー変数を収集
-                    for (const auto &member : ret.struct_value.struct_members) {
-                        // scores[0]のような配列要素キーはスキップ（後で個別に処理される）
-                        if (member.first.find('[') != std::string::npos) {
-                            if (interpreter_->debug_mode &&
-                                node->name == "student1") {
-                                debug_print(
-                                    "FUNC_RETURN: Skipping array element "
-                                    "key from struct_members: '%s'\n",
-                                    member.first.c_str());
+                    // 再帰的にネストされた構造体メンバーを収集する関数
+                    std::function<void(const std::string &,
+                                       const std::map<std::string, Variable> &)>
+                        collect_nested_members;
+                    collect_nested_members = [&](const std::string &base_path,
+                                                 const std::map<std::string,
+                                                                Variable>
+                                                     &members) {
+                        for (const auto &member : members) {
+                            // 配列要素キーはスキップ
+                            if (member.first.find('[') != std::string::npos) {
+                                continue;
                             }
-                            continue;
-                        }
 
-                        std::string member_path =
-                            node->name + "." + member.first;
-                        // 一時マップに追加
-                        vars_batch[member_path] = member.second;
+                            std::string member_path =
+                                base_path + "." + member.first;
+                            vars_batch[member_path] = member.second;
 
-                        // 配列メンバーの場合、個別要素変数も収集
-                        if (member.second.is_array) {
-                            for (int i = 0; i < member.second.array_size; i++) {
-                                std::string element_name =
-                                    member_path + "[" + std::to_string(i) + "]";
-                                std::string element_key = member.first + "[" +
-                                                          std::to_string(i) +
-                                                          "]";
+                            // ネストされた構造体の場合、再帰的に処理
+                            if (member.second.is_struct &&
+                                !member.second.struct_members.empty()) {
+                                collect_nested_members(
+                                    member_path, member.second.struct_members);
+                            }
 
-                                // 構造体配列要素の場合
-                                auto element_it =
-                                    ret.struct_value.struct_members.find(
-                                        element_key);
-                                if (element_it !=
-                                        ret.struct_value.struct_members.end() &&
-                                    element_it->second.is_struct) {
-                                    Variable element_var = element_it->second;
-                                    element_var.is_assigned = true;
-                                    vars_batch[element_name] = element_var;
+                            // 配列メンバーの場合、個別要素変数も収集
+                            if (member.second.is_array) {
+                                for (int i = 0; i < member.second.array_size;
+                                     i++) {
+                                    std::string element_name =
+                                        member_path + "[" + std::to_string(i) +
+                                        "]";
+                                    std::string element_key =
+                                        member.first + "[" + std::to_string(i) +
+                                        "]";
 
-                                    // 構造体要素のメンバー変数も収集
-                                    for (const auto &sub_member :
-                                         element_var.struct_members) {
-                                        std::string sub_member_path =
-                                            element_name + "." +
-                                            sub_member.first;
-                                        vars_batch[sub_member_path] =
-                                            sub_member.second;
-                                    }
-                                } else {
-                                    // プリミティブ型配列の要素
-                                    if (interpreter_->debug_mode &&
-                                        node->name == "student1") {
-                                        debug_print(
-                                            "FUNC_RETURN_ELEMENT: "
-                                            "member.second.type=%d, "
-                                            "array_values.size()=%zu, "
-                                            "i=%d\n",
-                                            (int)member.second.type,
-                                            member.second.array_values.size(),
-                                            i);
-                                    }
+                                    // 構造体配列要素の場合
+                                    auto element_it =
+                                        ret.struct_value.struct_members.find(
+                                            element_key);
+                                    if (element_it !=
+                                            ret.struct_value.struct_members
+                                                .end() &&
+                                        element_it->second.is_struct) {
+                                        Variable element_var =
+                                            element_it->second;
+                                        element_var.is_assigned = true;
+                                        vars_batch[element_name] = element_var;
 
-                                    Variable element_var;
-                                    element_var.type =
-                                        member.second.type >= TYPE_ARRAY_BASE
-                                            ? static_cast<TypeInfo>(
-                                                  member.second.type -
-                                                  TYPE_ARRAY_BASE)
-                                            : member.second.type;
-                                    element_var.is_assigned = true;
-
-                                    if (element_var.type == TYPE_STRING &&
-                                        i < static_cast<int>(
-                                                member.second.array_strings
-                                                    .size())) {
-                                        element_var.str_value =
-                                            member.second.array_strings[i];
-                                    } else if (element_var.type !=
-                                                   TYPE_STRING &&
-                                               i < static_cast<int>(
-                                                       member.second
-                                                           .array_values
-                                                           .size())) {
-                                        element_var.value =
-                                            member.second.array_values[i];
-                                    }
-
-                                    if (interpreter_->debug_mode &&
-                                        node->name == "student1") {
-                                        debug_print(
-                                            "FUNC_RETURN_BATCH: Created "
-                                            "element_var for %s: type=%d, "
-                                            "value=%lld, is_assigned=%d\n",
-                                            element_name.c_str(),
-                                            (int)element_var.type,
-                                            (long long)element_var.value,
-                                            element_var.is_assigned);
-                                    }
-
-                                    if (interpreter_->debug_mode &&
-                                        node->name == "student1") {
-                                        auto existing =
-                                            vars_batch.find(element_name);
-                                        if (existing != vars_batch.end()) {
-                                            debug_print(
-                                                "FUNC_RETURN_BATCH: KEY "
-                                                "ALREADY EXISTS! '%s' "
-                                                "current: type=%d, "
-                                                "value=%lld\n",
-                                                element_name.c_str(),
-                                                (int)existing->second.type,
-                                                (long long)
-                                                    existing->second.value);
+                                        // 構造体要素のメンバー変数も収集
+                                        for (const auto &sub_member :
+                                             element_var.struct_members) {
+                                            std::string sub_member_path =
+                                                element_name + "." +
+                                                sub_member.first;
+                                            vars_batch[sub_member_path] =
+                                                sub_member.second;
                                         }
-                                    }
+                                    } else {
+                                        // プリミティブ型配列の要素
+                                        Variable element_var;
+                                        element_var.type =
+                                            member.second.type >=
+                                                    TYPE_ARRAY_BASE
+                                                ? static_cast<TypeInfo>(
+                                                      member.second.type -
+                                                      TYPE_ARRAY_BASE)
+                                                : member.second.type;
+                                        element_var.is_assigned = true;
 
-                                    vars_batch[element_name] = element_var;
+                                        if (element_var.type == TYPE_STRING &&
+                                            i < static_cast<int>(
+                                                    member.second.array_strings
+                                                        .size())) {
+                                            element_var.str_value =
+                                                member.second.array_strings[i];
+                                        } else if (element_var.type !=
+                                                       TYPE_STRING &&
+                                                   i < static_cast<int>(
+                                                           member.second
+                                                               .array_values
+                                                               .size())) {
+                                            element_var.value =
+                                                member.second.array_values[i];
+                                        }
 
-                                    if (interpreter_->debug_mode &&
-                                        node->name == "student1") {
-                                        debug_print(
-                                            "FUNC_RETURN_BATCH: Set %s: "
-                                            "type=%d, value=%lld, "
-                                            "is_assigned=%d\n",
-                                            element_name.c_str(),
-                                            (int)element_var.type,
-                                            (long long)element_var.value,
-                                            element_var.is_assigned);
+                                        vars_batch[element_name] = element_var;
                                     }
                                 }
                             }
                         }
-                    }
+                    };
 
-                    // バッチ内容を確認（親構造体追加前）
-                    if (interpreter_->debug_mode && node->name == "student1") {
-                        debug_print("FUNC_RETURN: Batch size before adding "
-                                    "parent: %zu variables\n",
-                                    vars_batch.size());
-                        debug_print("FUNC_RETURN: All keys in batch "
-                                    "(BEFORE parent):\n");
-                        for (const auto &var_pair : vars_batch) {
-                            if (var_pair.first.find("scores[") !=
-                                std::string::npos) {
-                                debug_print("  '%s': type=%d, value=%lld, "
-                                            "is_assigned=%d\n",
-                                            var_pair.first.c_str(),
-                                            (int)var_pair.second.type,
-                                            (long long)var_pair.second.value,
-                                            var_pair.second.is_assigned);
-                            }
-                        }
-                    }
+                    // トップレベルのメンバーから再帰的に収集を開始
+                    collect_nested_members(node->name,
+                                           ret.struct_value.struct_members);
 
-                    // 親構造体変数も追加（その前にstruct_membersを確認）
-                    if (interpreter_->debug_mode && node->name == "student1") {
-                        debug_print("FUNC_RETURN: Parent "
-                                    "var.struct_members has %zu members\n",
-                                    var.struct_members.size());
-                        for (const auto &sm : var.struct_members) {
-                            debug_print("  struct_member key: '%s', "
-                                        "type=%d, is_array=%d\n",
-                                        sm.first.c_str(), (int)sm.second.type,
-                                        sm.second.is_array);
-                        }
-                    }
+                    // 親構造体変数も追加
                     vars_batch[node->name] = var;
 
-                    // バッチ内容をデバッグ出力（親構造体追加後）
-                    if (interpreter_->debug_mode && node->name == "student1") {
-                        debug_print("FUNC_RETURN: Batch size after adding "
-                                    "parent: %zu variables\n",
-                                    vars_batch.size());
-                        debug_print("FUNC_RETURN: All keys in batch (AFTER "
-                                    "parent):\n");
-                        for (const auto &var_pair : vars_batch) {
-                            if (var_pair.first.find("scores[") !=
-                                std::string::npos) {
-                                debug_print("  '%s': type=%d, value=%lld, "
-                                            "is_assigned=%d\n",
-                                            var_pair.first.c_str(),
-                                            (int)var_pair.second.type,
-                                            (long long)var_pair.second.value,
-                                            var_pair.second.is_assigned);
-                            }
-                        }
-                    }
-
                     // 一括登録: std::mapに順次追加
-                    // std::mapは再バランスで要素が移動する可能性があるが、
-                    // 全ての変数をここで一度に登録するため、後続の参照は安全
                     for (const auto &var_pair : vars_batch) {
                         current_scope().variables[var_pair.first] =
                             var_pair.second;
@@ -952,7 +1208,10 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
                        ASTNodeType::AST_STRING_LITERAL) {
             // 文字列初期化の処理
             var.str_value = node->init_expr->str_value;
-            var.value = 0; // プレースホルダー
+            // value フィールドに文字列のコピーのポインタを保存（generic
+            // 型で使用される）
+            var.value =
+                reinterpret_cast<int64_t>(strdup(var.str_value.c_str()));
             var.is_assigned = true;
         } else if (var.is_array && !var.is_assigned &&
                    node->init_expr->node_type == ASTNodeType::AST_FUNC_CALL) {
@@ -1325,7 +1584,8 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
 
                     if (typed_result.is_string()) {
                         var.str_value = typed_result.string_value;
-                        var.value = 0;
+                        // valueフィールドもコピー（generic型で使用）
+                        var.value = typed_result.value;
                     } else if (typed_result.numeric_type == TYPE_FLOAT ||
                                typed_result.numeric_type == TYPE_DOUBLE ||
                                typed_result.numeric_type == TYPE_QUAD) {
@@ -1487,6 +1747,8 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
                 if (typed_result.is_string()) {
                     var.type = TYPE_STRING;
                     var.str_value = typed_result.string_value;
+                    // valueフィールドもコピー（generic型で使用）
+                    var.value = typed_result.value;
                     setNumericFields(var, 0.0L);
                 } else if (typed_result.is_numeric()) {
                     var.str_value.clear();
@@ -1575,21 +1837,48 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
 
     // 未定義型のチェック（基本的な変数宣言の場合）
     if (!node->type_name.empty() && node->type_info == TYPE_UNKNOWN) {
-        // type_nameが指定されているがtype_infoがUNKNOWNの場合、未定義型の可能性
-        std::string resolved =
-            interpreter_->type_manager_->resolve_typedef(node->type_name);
-        bool is_union =
-            interpreter_->type_manager_->is_union_type(node->type_name);
-        bool is_struct =
-            (interpreter_->find_struct_definition(node->type_name) != nullptr);
-        bool is_enum =
-            (interpreter_->get_enum_manager() &&
-             interpreter_->get_enum_manager()->enum_exists(node->type_name));
+        // 型コンテキストで型パラメータ(T, U等)を解決
+        const TypeContext *type_ctx = interpreter_->get_current_type_context();
+        bool is_type_parameter = false;
+        std::string resolved_type_name;
 
-        // typedef、union、struct、enumのいずれでもない場合はエラー
-        if (resolved == node->type_name && !is_union && !is_struct &&
-            !is_enum) {
-            throw std::runtime_error("Undefined type: " + node->type_name);
+        if (type_ctx && type_ctx->has_mapping_for(node->type_name)) {
+            is_type_parameter = true;
+            resolved_type_name = type_ctx->resolve_type(node->type_name);
+
+            // 型パラメータTがジェネリック構造体（Vector<long>など）に
+            // 解決される場合、var.is_structとvar.typeを設定する必要がある
+            if (resolved_type_name.find('<') != std::string::npos) {
+                // ジェネリック構造体に解決された場合
+                var.is_struct = true;
+                var.type = TYPE_STRUCT; // これが重要！
+                var.struct_type_name = resolved_type_name;
+                if (interpreter_->debug_mode) {
+                    debug_print("[VAR_DECL_TYPE_PARAM] Type parameter '%s' "
+                                "resolved to generic struct '%s'\n",
+                                node->type_name.c_str(),
+                                resolved_type_name.c_str());
+                }
+            }
+        }
+
+        if (!is_type_parameter) {
+            // type_nameが指定されているがtype_infoがUNKNOWNの場合、未定義型の可能性
+            std::string resolved =
+                interpreter_->type_manager_->resolve_typedef(node->type_name);
+            bool is_union =
+                interpreter_->type_manager_->is_union_type(node->type_name);
+            bool is_struct = (interpreter_->find_struct_definition(
+                                  node->type_name) != nullptr);
+            bool is_enum = (interpreter_->get_enum_manager() &&
+                            interpreter_->get_enum_manager()->enum_exists(
+                                node->type_name));
+
+            // typedef、union、struct、enumのいずれでもない場合はエラー
+            if (resolved == node->type_name && !is_union && !is_struct &&
+                !is_enum) {
+                throw std::runtime_error("Undefined type: " + node->type_name);
+            }
         }
     }
 
@@ -1662,9 +1951,16 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
         }
 
         // 通常のポインタ処理
-        var.type = TYPE_POINTER;
+        // ただし、string型の場合は TYPE_STRING として扱う
+        if (node->return_type_name == "string" || node->type_name == "string") {
+            var.type = TYPE_STRING;
+        } else {
+            var.type = TYPE_POINTER;
+        }
 
         // ポインタ型の初期化式がある場合は評価して代入
+        debug_msg(DebugMsgId::VAR_DECL_POINTER_INIT, node->name.c_str(),
+                  node->init_expr != nullptr, node->right != nullptr);
         if (node->init_expr || node->right) {
             ASTNode *init_node =
                 node->init_expr ? node->init_expr.get() : node->right.get();
@@ -1690,22 +1986,27 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
                     interpreter_->global_scope.functions.find(func_name);
                 if (func_it != interpreter_->global_scope.functions.end()) {
                     const ASTNode *func_def = func_it->second;
-                    std::string return_type = func_def->return_type_name;
+                    // Safety check: ensure func_def is valid before accessing
+                    if (func_def != nullptr) {
+                        std::string return_type = func_def->return_type_name;
 
-                    // "const T*" パターンをチェック
-                    size_t const_pos = return_type.find("const");
-                    size_t star_pos = return_type.find("*");
+                        // "const T*" パターンをチェック
+                        size_t const_pos = return_type.find("const");
+                        size_t star_pos = return_type.find("*");
 
-                    if (const_pos != std::string::npos &&
-                        star_pos != std::string::npos && const_pos < star_pos &&
-                        !node->is_pointee_const_qualifier) {
-                        throw std::runtime_error(
-                            "Type mismatch: Cannot assign function '" +
-                            func_name + "' return value with type (" +
-                            return_type + ") to variable '" + node->name +
-                            "' of type (int*)\n" +
-                            "  Cannot discard const qualifier from pointed-to "
-                            "type in return value");
+                        if (const_pos != std::string::npos &&
+                            star_pos != std::string::npos &&
+                            const_pos < star_pos &&
+                            !node->is_pointee_const_qualifier) {
+                            throw std::runtime_error(
+                                "Type mismatch: Cannot assign function '" +
+                                func_name + "' return value with type (" +
+                                return_type + ") to variable '" + node->name +
+                                "' of type (int*)\n" +
+                                "  Cannot discard const qualifier from "
+                                "pointed-to "
+                                "type in return value");
+                        }
                     }
                 }
             }
@@ -1764,6 +2065,27 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
                     interpreter_->expression_evaluator_
                         ->evaluate_typed_expression(init_node);
 
+                // new式の場合、生メモリポインタフラグを設定
+                if (var.is_pointer && init_node &&
+                    init_node->node_type == ASTNodeType::AST_NEW_EXPR) {
+                    // new式で作成されたポインタかどうかをチェック
+                    // 構造体のnewは除外（Variable*を返すため）
+                    const StructDefinition *struct_def =
+                        interpreter_->get_struct_definition(
+                            init_node->new_type_name);
+                    if (!struct_def) {
+                        // プリミティブ型のnew（new int等）または配列new（new
+                        // int[10]）
+                        var.points_to_heap_memory = true;
+                        if (interpreter_->debug_mode) {
+                            std::cerr << "[VAR_MANAGER] Pointer points to heap "
+                                         "memory (new "
+                                      << init_node->new_type_name << ")"
+                                      << std::endl;
+                        }
+                    }
+                }
+
                 // TypedValueに関数ポインタ情報がある場合
                 if (typed_value.is_function_pointer) {
                     if (interpreter_->debug_mode) {
@@ -1786,8 +2108,22 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
                     interpreter_->current_scope()
                         .function_pointers[node->name] = func_ptr;
                 } else {
-                    var.value = typed_value.value;
-                    var.is_assigned = true;
+                    debug_msg(DebugMsgId::VAR_DECL_POINTER_VALUE,
+                              node->name.c_str(), static_cast<int>(var.type));
+
+                    // 文字列型でポインタ値のみの場合（malloc等）
+                    if (var.type == TYPE_STRING &&
+                        typed_value.string_value.empty() &&
+                        typed_value.value != 0) {
+                        var.value = typed_value.value; // ポインタ値
+                        var.str_value = "";            // 空の文字列
+                        var.is_assigned = true;
+                        debug_msg(DebugMsgId::VAR_DECL_STRING_PTR_INIT,
+                                  (void *)var.value);
+                    } else {
+                        var.value = typed_value.value;
+                        var.is_assigned = true;
+                    }
                 }
             }
 
@@ -1799,25 +2135,45 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
         }
     }
 
-    current_scope().variables[node->name] = var;
-    // std::cerr << "DEBUG: Variable created: " << node->name << ",
-    // is_array=" << var.is_assigned << std::endl;
+    auto &scope_vars = current_scope().variables;
+
+    // 文字列型で value が 0 の場合、初期化式を再評価
+    if (var.type == TYPE_STRING && var.value == 0 && var.str_value.empty() &&
+        (node->init_expr || node->right)) {
+        ASTNode *init_node =
+            node->init_expr ? node->init_expr.get() : node->right.get();
+        TypedValue typed_value =
+            interpreter_->expression_evaluator_->evaluate_typed_expression(
+                init_node);
+        if (typed_value.value != 0 && typed_value.string_value.empty()) {
+            var.value = typed_value.value;
+            var.is_assigned = true;
+        }
+    }
+
+    // v0.10.0: 構造体変数のコンストラクタ呼び出しのために情報を保存
+    bool var_is_struct = var.is_struct;
+    std::string var_struct_type_name = var.struct_type_name;
+    bool var_is_reference = var.is_reference;
+    bool var_is_rvalue_reference = var.is_rvalue_reference;
+
+    scope_vars.insert_or_assign(node->name, std::move(var));
 
     // v0.10.0: 構造体変数のコンストラクタを自動呼び出し
     if (interpreter_->debug_mode) {
         debug_print("CONSTRUCTOR_CHECK_PRE: var=%s, is_struct=%d, "
                     "struct_type_name='%s'\n",
-                    node->name.c_str(), var.is_struct,
-                    var.struct_type_name.c_str());
+                    node->name.c_str(), var_is_struct,
+                    var_struct_type_name.c_str());
     }
 
-    if (var.is_struct && !var.struct_type_name.empty()) {
+    if (var_is_struct && !var_struct_type_name.empty()) {
         std::string resolved_type =
-            interpreter_->type_manager_->resolve_typedef(var.struct_type_name);
+            interpreter_->type_manager_->resolve_typedef(var_struct_type_name);
 
         // v0.10.0: スコープ終了時にデストラクタを呼び出すために記録
         // ただし、参照変数の場合はデストラクタを呼び出さない
-        bool is_ref_var = var.is_reference || var.is_rvalue_reference;
+        bool is_ref_var = var_is_reference || var_is_rvalue_reference;
         if (!is_ref_var) {
             interpreter_->register_destructor_call(node->name, resolved_type);
         }
@@ -1856,7 +2212,7 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
             Variable *source_var = interpreter_->find_variable(source_var_name);
 
             // v0.10.0: 参照型（T& または T&&）の処理
-            if ((var.is_reference || var.is_rvalue_reference) && source_var) {
+            if ((var_is_reference || var_is_rvalue_reference) && source_var) {
                 // 参照変数は元の変数へのエイリアスとして機能
                 // 実装:
                 // 参照型フラグと参照元を記録し、元の変数の完全なコピーを作成
@@ -1864,14 +2220,14 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
                     debug_print("Creating reference variable: %s -> %s "
                                 "(is_rvalue_ref=%d)\n",
                                 node->name.c_str(), source_var_name.c_str(),
-                                var.is_rvalue_reference);
+                                var_is_rvalue_reference);
                 }
                 // 参照変数は元の変数への完全なエイリアスとして動作
                 // source_varの全ての内容をref_varにコピー
                 Variable ref_var =
                     *source_var; // 元の変数の完全なコピー（struct_members含む）
                 ref_var.is_reference = true;
-                ref_var.is_rvalue_reference = var.is_rvalue_reference;
+                ref_var.is_rvalue_reference = var_is_rvalue_reference;
                 ref_var.reference_target = source_var_name;
                 // 名前は参照変数の名前に設定
                 // （元のsource_varの名前ではなく、新しい参照変数の名前）
@@ -1884,7 +2240,7 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
                 // デストラクタは register_destructor_call
                 // で既に登録されていない
             } else if (source_var && source_var->is_struct &&
-                       source_var->struct_type_name == var.struct_type_name) {
+                       source_var->struct_type_name == var_struct_type_name) {
                 // 同じ構造体型からのコピー初期化
                 if (interpreter_->debug_mode) {
                     debug_print("Detected copy initialization: %s = %s\n",

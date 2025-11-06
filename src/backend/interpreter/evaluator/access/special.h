@@ -68,6 +68,14 @@ inline int64_t evaluate_struct_literal(const ASTNode *node) { return 0; }
  */
 int64_t evaluate_enum_access(const ASTNode *node, Interpreter &interpreter);
 
+/**
+ * v0.11.0: enum値の構築を評価
+ * @param node AST_ENUM_CONSTRUCTノード (EnumName::member(value))
+ * @param interpreter インタプリタインスタンス
+ * @return int64_t 構築されたEnum値
+ */
+int64_t evaluate_enum_construct(const ASTNode *node, Interpreter &interpreter);
+
 } // namespace SpecialAccessHelpers
 
 #endif // EXPRESSION_SPECIAL_ACCESS_H

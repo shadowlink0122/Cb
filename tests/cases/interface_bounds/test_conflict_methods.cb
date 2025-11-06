@@ -1,0 +1,49 @@
+// Test: Conflicting methods in multiple interface bounds
+// Expected: Should detect method name conflict
+
+interface Allocator {
+    void* allocate(int size);
+    void deallocate(void* ptr);
+    void reset();  // 共通メソッド
+}
+
+interface Resettable {
+    void reset();  // 同じメソッド名
+}
+
+// 両方のインターフェースが reset() メソッドを持つ
+struct Container<T, A: Allocator + Resettable> {
+    T* data;
+    A allocator;
+};
+
+struct DummyAllocator {
+    int dummy;
+};
+
+impl Allocator for DummyAllocator {
+    void* allocate(int size) {
+        return nullptr;
+    }
+    
+    void deallocate(void* ptr) {}
+    
+    void reset() {}
+}
+
+impl Resettable for DummyAllocator {
+    void reset() {}
+}
+
+int main() {
+    println("=== Method Conflict Detection Test ===");
+    println("Testing: Container<T, A: Allocator + Resettable>");
+    println("Expected: Method name conflict error");
+    
+    // これがコンフリクトを検出するはず
+    Container<int, DummyAllocator> container;
+    
+    // ここには到達しないはず
+    println("ERROR: Conflict was not detected!");
+    return 1;
+}

@@ -1,0 +1,180 @@
+// stdlib/std/time.cb
+// 時間関連の関数とユーティリティ
+
+// ========================================
+// 時間単位の定数
+// ========================================
+
+// ミリ秒単位の時間定数 - import時に利用可能
+export int MILLISECOND = 1;
+export int SECOND = 1000;
+export int MINUTE = 60000;
+export int HOUR = 3600000;
+
+// ========================================
+// sleep関数（組み込み）
+// ========================================
+
+// sleep - 指定されたミリ秒数だけ実行を一時停止
+// 
+// 引数:
+//   milliseconds (int) - 待機するミリ秒数
+// 
+// 戻り値: なし
+//
+// 使用例:
+//   import stdlib.std.time;
+//   
+//   println("待機開始");
+//   sleep(1000);  // 1秒待機
+//   println("待機終了");
+//   
+//   // または定数を使用
+//   sleep(SECOND);      // 1秒
+//   sleep(SECOND * 5);  // 5秒
+//   sleep(MINUTE);      // 1分
+//
+// 注意:
+//   - この関数は実行をブロックします
+//   - 非同期処理には適していません
+//   - 負の値を指定するとエラーになります
+//
+// 実装: 組み込み関数（C++実装）
+
+// ========================================
+// ヘルパー関数
+// ========================================
+
+// sleep_seconds - 秒単位でスリープ
+// 引数: seconds (int) - 待機する秒数
+export void sleep_seconds(int seconds) {
+    sleep(seconds * SECOND);
+}
+
+// sleep_minutes - 分単位でスリープ
+// 引数: minutes (int) - 待機する分数
+export void sleep_minutes(int minutes) {
+    sleep(minutes * MINUTE);
+}
+
+// ========================================
+// 時間計算ユーティリティ
+// ========================================
+
+// milliseconds_to_seconds - ミリ秒を秒に変換
+// 引数: ms (int) - ミリ秒
+// 戻り値: 秒数（小数点以下切り捨て）
+export int milliseconds_to_seconds(int ms) {
+    return ms / SECOND;
+}
+
+// seconds_to_milliseconds - 秒をミリ秒に変換
+// 引数: seconds (int) - 秒数
+// 戻り値: ミリ秒
+export int seconds_to_milliseconds(int seconds) {
+    return seconds * SECOND;
+}
+
+// minutes_to_milliseconds - 分をミリ秒に変換
+// 引数: minutes (int) - 分数
+// 戻り値: ミリ秒
+export int minutes_to_milliseconds(int minutes) {
+    return minutes * MINUTE;
+}
+
+// hours_to_milliseconds - 時をミリ秒に変換
+// 引数: hours (int) - 時間数
+// 戻り値: ミリ秒
+export int hours_to_milliseconds(int hours) {
+    return hours * HOUR;
+}
+
+// ========================================
+// 時間フォーマット構造体
+// ========================================
+
+export struct Duration {
+    int hours;
+    int minutes;
+    int seconds;
+    int milliseconds;
+};
+
+// create_duration - ミリ秒から Duration 構造体を作成
+// 引数: total_ms (int) - 総ミリ秒数
+// 戻り値: Duration 構造体
+export Duration create_duration(int total_ms) {
+    Duration d;
+    
+    d.hours = total_ms / HOUR;
+    int remaining = total_ms % HOUR;
+    
+    d.minutes = remaining / MINUTE;
+    remaining = remaining % MINUTE;
+    
+    d.seconds = remaining / SECOND;
+    d.milliseconds = remaining % SECOND;
+    
+    return d;
+}
+
+// duration_to_milliseconds - Duration 構造体をミリ秒に変換
+// 引数: d (Duration) - 期間
+// 戻り値: 総ミリ秒数
+export int duration_to_milliseconds(Duration d) {
+    return d.hours * HOUR + 
+           d.minutes * MINUTE + 
+           d.seconds * SECOND + 
+           d.milliseconds;
+}
+
+// format_duration - Duration を文字列形式で表示
+// 引数: d (Duration) - 期間
+// 戻り値: なし（標準出力に表示）
+export void format_duration(Duration d) {
+    if (d.hours > 0) {
+        println("%dh %dm %ds %dms", d.hours, d.minutes, d.seconds, d.milliseconds);
+    } else if (d.minutes > 0) {
+        println("%dm %ds %dms", d.minutes, d.seconds, d.milliseconds);
+    } else if (d.seconds > 0) {
+        println("%ds %dms", d.seconds, d.milliseconds);
+    } else {
+        println("%dms", d.milliseconds);
+    }
+}
+
+// ========================================
+// 使用例
+// ========================================
+
+// 基本的な使用例をコメントで記載:
+//
+// import stdlib.std.time;
+//
+// void main() {
+//     // 1. 基本的なスリープ
+//     println("開始");
+//     sleep(SECOND);  // 1秒待機
+//     println("1秒後");
+//     
+//     // 2. ヘルパー関数を使用
+//     sleep_seconds(3);  // 3秒待機
+//     println("さらに3秒後");
+//     
+//     // 3. Duration構造体を使用
+//     Duration d = create_duration(65432);  // 65.432秒
+//     format_duration(d);  // "1m 5s 432ms"
+//     
+//     // 4. 時間計算
+//     int five_minutes = minutes_to_milliseconds(5);
+//     println("5分 = %d ミリ秒", five_minutes);
+//     
+//     // 5. カウントダウン
+//     int countdown = 5;
+//     while (countdown > 0) {
+//         println("%d...", countdown);
+//         sleep_seconds(1);
+//         countdown = countdown - 1;
+//     }
+//     println("発射!");
+// }

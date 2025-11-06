@@ -1,0 +1,48 @@
+// String Interpolation - Basic Test
+// Tests basic variable interpolation functionality
+
+void main() {
+    println("=== String Interpolation Basic Test ===");
+    
+    // Test 1: Simple variable interpolation
+    string name = "World";
+    string greeting = "Hello, {name}!";
+    assert(greeting == "Hello, World!");
+    println("Test 1: Simple variable - PASSED");
+    
+    // Test 2: Integer interpolation
+    int count = 42;
+    string message = "The answer is {count}";
+    assert(message == "The answer is 42");
+    println("Test 2: Integer value - PASSED");
+    
+    // Test 3: Multiple interpolations
+    string first = "John";
+    string last = "Doe";
+    string full = "{first} {last}";
+    assert(full == "John Doe");
+    println("Test 3: Multiple interpolations - PASSED");
+    
+    // Test 4: Empty interpolation
+    string empty_str = "";
+    string with_empty = "Value: {empty_str}";
+    assert(with_empty == "Value: ");
+    println("Test 4: Empty string - PASSED");
+    
+    // Test 5: Interpolation at start
+    string at_start = "{name} says hello";
+    assert(at_start == "World says hello");
+    println("Test 5: Interpolation at start - PASSED");
+    
+    // Test 6: Interpolation at end
+    string at_end = "Hello {name}";
+    assert(at_end == "Hello World");
+    println("Test 6: Interpolation at end - PASSED");
+    
+    // Test 7: Only interpolation (no literal parts)
+    string only_interp = "{count}";
+    assert(only_interp == "42");
+    println("Test 7: Only interpolation - PASSED");
+    
+    println("=== All Basic Tests Passed ===");
+}

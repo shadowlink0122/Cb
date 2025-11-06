@@ -1,0 +1,6 @@
+// エラー: discard変数を式の中で使用
+void main() {
+    int _ = 10;
+    int result = _ + 5; // エラー: Cannot reference discard variable '_'
+    println(result);
+}

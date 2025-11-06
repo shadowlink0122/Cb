@@ -1,6 +1,6 @@
 // Test importing multiple independent modules
-import "module_a.cb";
-import "module_b.cb";
+import module_a;
+import module_b;
 
 int main() {
     println("=== Multiple Module Import Test ===");

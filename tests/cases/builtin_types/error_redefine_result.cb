@@ -1,0 +1,12 @@
+// Error Test: Cannot redefine Result builtin type
+// v0.11.0: This should produce a compile-time error
+// Expected: "Cannot redefine builtin type 'Result'"
+
+enum Result<T, E> {
+    Ok(T),
+    Err(E)
+};
+
+void main() {
+    println("This should not compile!");
+}

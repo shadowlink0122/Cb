@@ -1,0 +1,19 @@
+// Debug test: None variant matching issue
+
+void main() {
+    println("Test: Creating None");
+    Option<int> none_val = Option<int>::None;
+    
+    println("Test: Match None");
+    match (none_val) {
+        Some(v) => {
+            println("ERROR: Matched Some instead of None!");
+            assert(false);
+        }
+        None => {
+            println("SUCCESS: Matched None");
+        }
+    }
+    
+    println("Test completed");
+}

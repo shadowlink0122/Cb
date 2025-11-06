@@ -32,6 +32,67 @@ ASTNode *EnumParser::parseEnumDeclaration() {
     std::string enum_name = parser_->current_token_.value;
     parser_->advance(); // consume enum name
 
+    // v0.11.0: 型パラメータリストの解析（ジェネリックenum）
+    // v0.11.0 Phase 1a: 複数インターフェース境界のサポート
+    std::vector<std::string> type_parameters;
+    std::unordered_map<std::string, std::vector<std::string>> interface_bounds;
+    bool is_generic = false;
+
+    if (parser_->check(TokenType::TOK_LT)) {
+        is_generic = true;
+        parser_->advance(); // '<'
+
+        // 型パラメータスタックに新しいスコープを追加
+        parser_->type_parameter_stack_.push_back({});
+
+        // 型パラメータのリストを解析
+        do {
+            if (!parser_->check(TokenType::TOK_IDENTIFIER)) {
+                parser_->error("Expected type parameter name");
+                return nullptr;
+            }
+
+            std::string param_name = parser_->current_token_.value;
+            type_parameters.push_back(param_name);
+            parser_->type_parameter_stack_.back().push_back(param_name);
+            parser_->advance();
+
+            // インターフェース境界のチェック
+            if (parser_->check(TokenType::TOK_COLON)) {
+                parser_->advance(); // ':' を消費
+
+                std::vector<std::string> bounds;
+                do {
+                    if (!parser_->check(TokenType::TOK_IDENTIFIER)) {
+                        parser_->error("Expected interface name after ':' or "
+                                       "'+' in type parameter bound");
+                        return nullptr;
+                    }
+
+                    bounds.push_back(parser_->current_token_.value);
+                    parser_->advance();
+
+                    if (parser_->check(TokenType::TOK_PLUS)) {
+                        parser_->advance(); // '+' を消費
+                    } else {
+                        break;
+                    }
+                } while (true);
+
+                interface_bounds[param_name] = bounds;
+            }
+
+            if (parser_->check(TokenType::TOK_COMMA)) {
+                parser_->advance();
+            } else {
+                break;
+            }
+        } while (true);
+
+        parser_->consume(TokenType::TOK_GT,
+                         "Expected '>' after type parameters");
+    }
+
     parser_->consume(TokenType::TOK_LBRACE, "Expected '{' after enum name");
 
     ASTNode *enum_decl = new ASTNode(ASTNodeType::AST_ENUM_DECL);
@@ -39,6 +100,10 @@ ASTNode *EnumParser::parseEnumDeclaration() {
     parser_->setLocation(enum_decl, parser_->current_token_);
 
     EnumDefinition enum_def(enum_name);
+    enum_def.is_generic = is_generic;
+    enum_def.type_parameters = type_parameters;
+    enum_def.interface_bounds = interface_bounds;
+
     int64_t current_value = 0; // デフォルトの開始値
 
     // 空のenumはエラー
@@ -60,8 +125,29 @@ ASTNode *EnumParser::parseEnumDeclaration() {
         bool explicit_value = false;
         int64_t member_value = current_value;
 
-        // 明示的な値の指定をチェック
-        if (parser_->match(TokenType::TOK_ASSIGN)) {
+        // v0.11.0: 関連値の解析（Rust風enum: Some(T)）
+        bool has_associated_value = false;
+        std::string associated_type_name;
+
+        if (parser_->check(TokenType::TOK_LPAREN)) {
+            has_associated_value = true;
+            enum_def.has_associated_values = true;
+            parser_->advance(); // '('
+
+            // 関連値の型を解析
+            associated_type_name = parser_->parseType();
+            if (associated_type_name.empty()) {
+                parser_->error("Expected type in enum associated value");
+                return nullptr;
+            }
+
+            parser_->consume(TokenType::TOK_RPAREN,
+                             "Expected ')' after enum associated value type");
+
+            // 関連値を持つenumは明示的な整数値を持たない
+            explicit_value = false;
+        } else if (parser_->match(TokenType::TOK_ASSIGN)) {
+            // 明示的な値の指定をチェック（従来のenum）
             // 負の数値をチェック
             bool is_negative = false;
             if (parser_->check(TokenType::TOK_MINUS)) {
@@ -84,7 +170,34 @@ ASTNode *EnumParser::parseEnumDeclaration() {
         }
 
         // enumメンバーを追加
-        enum_def.add_member(member_name, member_value, explicit_value);
+        EnumMember member(member_name, member_value, explicit_value);
+        if (has_associated_value) {
+            member.has_associated_value = true;
+            member.associated_type_name = associated_type_name;
+
+            // 型パラメータかチェック
+            if (is_generic) {
+                bool is_type_param = false;
+                for (const auto &param : type_parameters) {
+                    if (param == associated_type_name) {
+                        is_type_param = true;
+                        member.associated_type = TYPE_GENERIC;
+                        break;
+                    }
+                }
+
+                if (!is_type_param) {
+                    // 具体的な型として解決
+                    member.associated_type =
+                        parser_->getTypeInfoFromString(associated_type_name);
+                }
+            } else {
+                member.associated_type =
+                    parser_->getTypeInfoFromString(associated_type_name);
+            }
+        }
+
+        enum_def.members.push_back(member);
         current_value++; // 次の暗黙的な値を準備
 
         // カンマまたは }をチェック
@@ -104,9 +217,22 @@ ASTNode *EnumParser::parseEnumDeclaration() {
     parser_->consume(TokenType::TOK_SEMICOLON,
                      "Expected ';' after enum declaration");
 
-    // 値の重複チェック
-    if (enum_def.has_duplicate_values()) {
+    // 型パラメータスタックをpop
+    if (is_generic) {
+        parser_->type_parameter_stack_.pop_back();
+    }
+
+    // 値の重複チェック（関連値を持たない従来のenumのみ）
+    if (!enum_def.has_associated_values && enum_def.has_duplicate_values()) {
         parser_->error("Enum has duplicate values - this is not allowed");
+        return nullptr;
+    }
+
+    // v0.11.0: 組み込み型との重複チェック
+    if (enum_name == "Option" || enum_name == "Result") {
+        parser_->error("Cannot redefine builtin type '" + enum_name +
+                       "'. Option<T> and Result<T, E> are automatically "
+                       "available without definition.");
         return nullptr;
     }
 

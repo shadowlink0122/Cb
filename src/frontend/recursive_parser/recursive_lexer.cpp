@@ -101,6 +101,11 @@ Token RecursiveLexer::nextToken() {
             advance();
             return makeToken(TokenType::TOK_EQ, "==");
         }
+        // v0.11.0: => (fat arrow) for pattern matching
+        if (peek() == '>') {
+            advance();
+            return makeToken(TokenType::TOK_FAT_ARROW, "=>");
+        }
         return makeToken(TokenType::TOK_ASSIGN, "=");
 
     case '!':
@@ -264,6 +269,12 @@ Token RecursiveLexer::makeIdentifier() {
     }
 
     std::string text = source_.substr(start, current_ - start);
+
+    // v0.11.0: 単独の _ はワイルドカードパターン
+    if (text == "_") {
+        return makeToken(TokenType::TOK_UNDERSCORE, text);
+    }
+
     TokenType type = getKeywordType(text);
 
     return makeToken(type, text);
@@ -318,6 +329,24 @@ Token RecursiveLexer::makeNumber() {
 
 Token RecursiveLexer::makeString() {
     size_t start = current_ - 1;
+    bool has_interpolation = false;
+
+    // 文字列内に{...}があるかチェック
+    size_t check_pos = current_;
+    while (check_pos < source_.length() && source_[check_pos] != '"') {
+        if (source_[check_pos] == '\\') {
+            // エスケープシーケンスをスキップ
+            check_pos += 2;
+            continue;
+        }
+        if (source_[check_pos] == '{' && check_pos + 1 < source_.length() &&
+            source_[check_pos + 1] != '{') {
+            // {{はエスケープなので無視、単独の{は補間
+            has_interpolation = true;
+            break;
+        }
+        check_pos++;
+    }
 
     while (peek() != '"' && !isAtEnd()) {
         if (peek() == '\n')
@@ -333,6 +362,12 @@ Token RecursiveLexer::makeString() {
 
     std::string text =
         source_.substr(start + 1, current_ - start - 2); // trim quotes
+
+    // 補間文字列の場合、特別なトークンタイプで返す
+    if (has_interpolation) {
+        return makeToken(TokenType::TOK_INTERPOLATED_STRING, text);
+    }
+
     return makeToken(TokenType::TOK_STRING, text);
 }
 
@@ -430,6 +465,7 @@ TokenType RecursiveLexer::getKeywordType(const std::string &text) {
         {"default", TokenType::TOK_DEFAULT},
         {"switch", TokenType::TOK_SWITCH},
         {"case", TokenType::TOK_CASE},
+        {"match", TokenType::TOK_MATCH}, // v0.11.0: match keyword
         {"func", TokenType::TOK_FUNC},
         {"import", TokenType::TOK_IMPORT},
         {"export", TokenType::TOK_EXPORT}};

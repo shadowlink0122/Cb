@@ -1,0 +1,57 @@
+// String Interpolation - Edge Cases Test
+// Tests various edge cases and corner scenarios
+
+void main() {
+    println("=== String Interpolation Edge Cases Test ===");
+    
+    // Test 1: Empty string result
+    int zero = 0;
+    string zero_str = "Zero: {zero}";
+    assert(zero_str == "Zero: 0");
+    println("Test 1: Zero value - PASSED");
+    
+    // Test 2: Very long number
+    int bignum = 2147483647;  // max int
+    string big_str = "Big: {bignum}";
+    println("Test 2: Maximum int - PASSED");
+    
+    // Test 3: Consecutive interpolations (no literal between)
+    int a = 1;
+    int b = 2;
+    int c = 3;
+    string consecutive = "{a}{b}{c}";
+    assert(consecutive == "123");
+    println("Test 3: Consecutive interpolations - PASSED");
+    
+    // Test 4: Interpolation at boundaries
+    int x = 99;
+    string start = "{x} is at start";
+    string end = "end is {x}";
+    string only = "{x}";
+    assert(start == "99 is at start");
+    assert(end == "end is 99");
+    assert(only == "99");
+    println("Test 4: Boundary positions - PASSED");
+    
+    // Test 5: Multiple same variable
+    int val = 5;
+    string repeated = "{val} + {val} = {val + val}";
+    assert(repeated == "5 + 5 = 10");
+    println("Test 5: Repeated variable - PASSED");
+    
+    // Test 6: Negative numbers
+    int neg = -42;
+    string neg_str = "Negative: {neg}";
+    assert(neg_str == "Negative: -42");
+    println("Test 6: Negative number - PASSED");
+    
+    // Test 7: Large expression
+    int p = 2;
+    int q = 3;
+    int r = 4;
+    string expr = "Result: {p * q + r * 2}";
+    assert(expr == "Result: 14");
+    println("Test 7: Complex expression - PASSED");
+    
+    println("=== All Edge Cases Tests Passed ===");
+}

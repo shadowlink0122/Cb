@@ -1,0 +1,20 @@
+// dangling_pointer_return.cb
+// ダングリングポインタを返す関数のテスト（エラーが期待される）
+
+int* create_dangling() {
+    int x = 42;
+    return &x;  // ローカル変数のアドレスを返す（ダングリング）
+}
+
+int main() {
+    println("=== Dangling Pointer Return Test ===");
+    
+    int* ptr = create_dangling();
+    println("Got pointer: {hex(ptr)}");
+    
+    // ダングリングポインタのアクセス（エラーが期待される）
+    int val = ptr[0];
+    println("Value: {val} (ERROR: should not reach here)");
+    
+    return 0;
+}

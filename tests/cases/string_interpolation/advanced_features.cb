@@ -1,0 +1,65 @@
+// 高度な機能テスト
+// エスケープとカスタムフォーマット
+
+fn main() {
+    println("=== Escape Tests ===");
+    
+    // リテラルの{}
+    println("Set: {{1, 2, 3}}");
+    // 期待: Set: {1, 2, 3}
+    
+    // 混在
+    int x = 42;
+    println("Value {{x}} is {x}");
+    // 期待: Value {x} is 42
+    
+    // 複数のエスケープ
+    println("{{{}}}");
+    // 期待: {{}}
+    
+    println("");
+    println("=== Complex Format Tests ===");
+    
+    // カスタムフィル文字
+    int num = 42;
+    println("Asterisks: {num:*>5}");
+    // 期待: Asterisks: ***42
+    
+    println("Hyphens: {num:-<5}");
+    // 期待: Hyphens: 42---
+    
+    println("Dots: {num:.^7}");
+    // 期待: Dots: ..42...
+    
+    // 16進数とプレフィックス
+    int hex_num = 255;
+    println("With prefix: {hex_num:#x}");
+    // 期待: With prefix: 0xff
+    
+    println("With prefix (upper): {hex_num:#X}");
+    // 期待: With prefix (upper): 0xFF
+    
+    // 符号表示
+    int positive = 42;
+    int negative = -42;
+    
+    println("Always sign: {positive:+}");
+    // 期待: Always sign: +42
+    
+    println("Always sign: {negative:+}");
+    // 期待: Always sign: -42
+    
+    println("");
+    println("=== Reuse Tests ===");
+    
+    // 同じ変数を複数回使用
+    int val = 7;
+    println("{val} * {val} = {val * val}");
+    // 期待: 7 * 7 = 49
+    
+    println("{val:b} in binary is {val} in decimal");
+    // 期待: 111 in binary is 7 in decimal
+    
+    println("");
+    println("=== All Advanced Tests Passed ===");
+}

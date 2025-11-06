@@ -26,7 +26,9 @@
 #include "evaluator/operators/ternary.h" // 三項演算子（?:）のヘルパー
 #include <cstdio>
 #include <functional>
+#include <iomanip>
 #include <iostream>
+#include <sstream>
 #include <stdexcept>
 
 ExpressionEvaluator::ExpressionEvaluator(Interpreter &interpreter)
@@ -184,6 +186,11 @@ ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode *node) {
                                                                  inferred_type);
     }
 
+    case ASTNodeType::AST_INTERPOLATED_STRING: {
+        // v0.11.0 補間文字列の評価
+        return evaluate_interpolated_string(node);
+    }
+
     case ASTNodeType::AST_NUMBER: {
         // 数値リテラルの評価はLiteralEvalHelpersに移動（18行）
         return LiteralEvalHelpers::evaluate_number_literal_typed(node,
@@ -193,6 +200,23 @@ ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode *node) {
     case ASTNodeType::AST_NULLPTR: {
         // nullptrの評価はLiteralEvalHelpersに移動（4行）
         return LiteralEvalHelpers::evaluate_nullptr_literal_typed();
+    }
+
+    case ASTNodeType::AST_CAST_EXPR: {
+        // キャスト式の評価
+        int64_t value = evaluate_expression(node);
+
+        // string型へのキャストの場合、ポインタ値を保持する
+        if (node->cast_type_info == TYPE_STRING) {
+            TypedValue result(static_cast<int64_t>(0),
+                              InferredType(TYPE_STRING, "string"));
+            result.value = value;     // ポインタ値を保存
+            result.string_value = ""; // 空の文字列
+            return result;
+        }
+
+        // その他のキャストは通常の処理
+        return consume_numeric_typed_value(node, value, inferred_type);
     }
 
     case ASTNodeType::AST_BINARY_OP: {
@@ -229,6 +253,18 @@ ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode *node) {
             // まず関数の戻り値型を推論
             InferredType function_return_type =
                 type_engine_.infer_function_return_type(node->name, {});
+
+            // array_get_double は特別扱い: ビット表現からdoubleに変換
+            if (node->name == "array_get_double") {
+                int64_t bits = evaluate_expression(node);
+                union {
+                    double d;
+                    int64_t i;
+                } converter;
+                converter.i = bits;
+                return TypedValue(converter.d,
+                                  InferredType(TYPE_DOUBLE, "double"));
+            }
 
             // 関数を実行して結果を取得
             int64_t numeric_result = evaluate_expression(node);
@@ -344,6 +380,14 @@ ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode *node) {
 
                     // 変数の型に応じてTypedValueを返す
                     if (var->type == TYPE_STRING) {
+                        // mallocで取得したポインタを文字列に変換
+                        if (var->str_value.empty() && var->value != 0) {
+                            const char *ptr =
+                                reinterpret_cast<const char *>(var->value);
+                            return TypedValue(
+                                std::string(ptr),
+                                InferredType(TYPE_STRING, "string"));
+                        }
                         return TypedValue(var->str_value,
                                           InferredType(TYPE_STRING, "string"));
                     } else if (var->type == TYPE_FLOAT) {
@@ -359,6 +403,19 @@ ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode *node) {
                         return TypedValue(
                             *var,
                             InferredType(TYPE_STRUCT, var->struct_type_name));
+                    } else if (var->is_enum) {
+                        // v0.11.0: enum型を返す
+                        // 古いスタイルのenum（整数値）の場合はTYPE_ENUMとして返す
+                        if (var->has_associated_value) {
+                            return TypedValue(
+                                *var,
+                                InferredType(TYPE_ENUM, var->enum_type_name));
+                        } else {
+                            // 古いスタイルenum: 整数値を返す
+                            return TypedValue(
+                                var->value,
+                                InferredType(TYPE_ENUM, var->enum_type_name));
+                        }
                     } else {
                         return TypedValue(
                             var->value,
@@ -375,10 +432,12 @@ ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode *node) {
             Variable base_var;
             if (node->left->node_type == ASTNodeType::AST_VARIABLE) {
                 Variable *var = interpreter_.find_variable(node->left->name);
-                if (!var || var->type != TYPE_STRUCT) {
-                    throw std::runtime_error(
-                        "Base variable for nested access is not a struct: " +
-                        node->left->name);
+                // v0.11.0: enum型も許可
+                if (!var || (!var->is_struct && var->type != TYPE_STRUCT &&
+                             !var->is_enum)) {
+                    throw std::runtime_error("Base variable for nested access "
+                                             "is not a struct or enum: " +
+                                             node->left->name);
                 }
                 base_var = *var;
             } else {
@@ -541,6 +600,45 @@ ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode *node) {
                 return false;
             }
 
+            // Check if base is an enum variable
+            if (Variable *base_var = interpreter_.find_variable(base_name)) {
+                if (base_var->is_enum) {
+                    std::string member_name = node->name;
+
+                    if (member_name == "variant") {
+                        // Return the variant name as a string
+                        out = TypedValue(base_var->enum_variant,
+                                         InferredType(TYPE_STRING, "string"));
+                        out.is_numeric_result = false;
+                        return true;
+                    } else if (member_name == "value") {
+                        if (base_var->has_associated_value) {
+                            // 文字列型の関連値の場合
+                            if (!base_var->associated_str_value.empty()) {
+                                out = TypedValue(
+                                    base_var->associated_str_value,
+                                    InferredType(TYPE_STRING, "string"));
+                                out.is_numeric_result = false;
+                                return true;
+                            }
+                            // 数値型の関連値の場合
+                            else {
+                                out = TypedValue(base_var->associated_int_value,
+                                                 InferredType(TYPE_INT, "int"));
+                                return true;
+                            }
+                        } else {
+                            throw std::runtime_error(
+                                "Enum variant '" + base_var->enum_variant +
+                                "' has no associated value");
+                        }
+                    } else {
+                        throw std::runtime_error("Unknown enum member: " +
+                                                 member_name);
+                    }
+                }
+            }
+
             try {
                 interpreter_.sync_struct_members_from_direct_access(base_name);
                 interpreter_.ensure_struct_member_access_allowed(base_name,
@@ -618,6 +716,44 @@ ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode *node) {
                 }
                 throw std::runtime_error(
                     "Expected struct element from function array access");
+            }
+        }
+
+        // ptr[index].member パターンをチェック（ポインタの配列アクセス）
+        if (node->left && node->left->node_type == ASTNodeType::AST_ARRAY_REF &&
+            node->left->left &&
+            node->left->left->node_type == ASTNodeType::AST_VARIABLE) {
+            Variable *var = interpreter_.find_variable(node->left->left->name);
+            if (var && var->is_pointer) {
+                debug_print("Processing ptr[index].member pattern: %s[].%s\n",
+                            node->left->left->name.c_str(), node->name.c_str());
+
+                try {
+                    // evaluate_expressionを使用してReturnExceptionを取得
+                    (void)evaluate_expression(node->left.get());
+                    debug_print("ERROR: No ReturnException was thrown!\n");
+                    throw std::runtime_error(
+                        "Expected struct return exception");
+
+                } catch (const ReturnException &struct_ret) {
+                    debug_print("Caught ReturnException, is_struct=%d\n",
+                                struct_ret.is_struct);
+                    if (struct_ret.is_struct) {
+                        TypedValue member_value(static_cast<int64_t>(0),
+                                                InferredType());
+                        if (resolve_from_struct(struct_ret.struct_value,
+                                                member_value)) {
+                            debug_print("Successfully resolved member: %s\n",
+                                        node->name.c_str());
+                            last_typed_result_ = member_value;
+                            return member_value;
+                        }
+                        debug_print("Failed to resolve member: %s\n",
+                                    node->name.c_str());
+                    }
+                    throw std::runtime_error(
+                        "Expected struct element from pointer array access");
+                }
             }
         }
 
@@ -1089,6 +1225,27 @@ ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode *node) {
                 TypedValue result(var->value, ptr_type);
                 return result;
             }
+
+            // 構造体変数の場合、TypedValueとして返す（ReturnExceptionを避ける）
+            if (var->type == TYPE_STRUCT) {
+                return TypedValue(
+                    *var, InferredType(TYPE_STRUCT, var->struct_type_name));
+            }
+
+            // 文字列変数の場合、ポインタ値から文字列を取得
+            if (var->type == TYPE_STRING) {
+                if (var->str_value.empty() && var->value != 0) {
+                    // mallocで取得したポインタを文字列に変換
+                    const char *ptr =
+                        reinterpret_cast<const char *>(var->value);
+                    return TypedValue(std::string(ptr),
+                                      InferredType(TYPE_STRING, "string"));
+                } else {
+                    // 通常の文字列値を返す
+                    return TypedValue(var->str_value,
+                                      InferredType(TYPE_STRING, "string"));
+                }
+            }
         }
         // 通常の識別子の場合は通常評価
         int64_t numeric_result = evaluate_expression(node);
@@ -1206,6 +1363,166 @@ TypedValue ExpressionEvaluator::evaluate_recursive_member_access(
 // resolve_arrow_receiver, create_chain_receiver_from_expression は
 // expression_receiver_resolution.cpp に移動しました
 // ============================================================================
+
+// ============================================================================
+// v0.11.0 String Interpolation - 補間文字列評価
+// ============================================================================
+TypedValue
+ExpressionEvaluator::evaluate_interpolated_string(const ASTNode *node) {
+    std::string result;
+
+    for (const auto &segment : node->interpolation_segments) {
+        if (segment->is_interpolation_text) {
+            // テキストセグメント
+            result += segment->str_value;
+        } else if (segment->is_interpolation_expr) {
+            // 式セグメント
+            TypedValue expr_value =
+                evaluate_typed_expression(segment->left.get());
+            std::string formatted = format_interpolated_value(
+                expr_value, segment->interpolation_format);
+            result += formatted;
+        }
+    }
+
+    // 文字列型の TypedValue を構築
+    InferredType string_type(TYPE_STRING, "string", false, 0);
+    return TypedValue(result, string_type);
+}
+
+std::string
+ExpressionEvaluator::format_interpolated_value(const TypedValue &value,
+                                               const std::string &format_spec) {
+    // フォーマット指定子がない場合はデフォルト変換
+    if (format_spec.empty()) {
+        if (value.type.type_info == TYPE_STRING) {
+            return value.string_value;
+        } else if (value.is_numeric_result) {
+            if (value.is_float_result) {
+                if (value.type.type_info == TYPE_QUAD) {
+                    return std::to_string(value.quad_value);
+                } else {
+                    return std::to_string(value.double_value);
+                }
+            } else {
+                return std::to_string(value.value);
+            }
+        } else if (value.type.type_info == TYPE_BOOL) {
+            return value.value ? "true" : "false";
+        }
+        return "";
+    }
+
+    // フォーマット指定子を解析
+    // 形式: [幅][.精度][型]
+    // 例: "05" -> 幅5、0埋め
+    //     ".2" -> 小数点以下2桁
+    //     "x" -> 16進数
+    //     "X" -> 16進数（大文字）
+    //     "b" -> 2進数
+
+    std::stringstream ss;
+    size_t pos = 0;
+
+    // 0埋めフラグ
+    bool zero_pad = false;
+    if (pos < format_spec.length() && format_spec[pos] == '0') {
+        zero_pad = true;
+        pos++;
+    }
+
+    // 幅の解析
+    int width = 0;
+    while (pos < format_spec.length() && std::isdigit(format_spec[pos])) {
+        width = width * 10 + (format_spec[pos] - '0');
+        pos++;
+    }
+
+    // 精度の解析
+    int precision = -1;
+    if (pos < format_spec.length() && format_spec[pos] == '.') {
+        pos++;
+        precision = 0;
+        while (pos < format_spec.length() && std::isdigit(format_spec[pos])) {
+            precision = precision * 10 + (format_spec[pos] - '0');
+            pos++;
+        }
+    }
+
+    // 型の解析
+    char type_char = '\0';
+    if (pos < format_spec.length()) {
+        type_char = format_spec[pos];
+    }
+
+    // フォーマット適用
+    if (type_char == 'x' || type_char == 'X') {
+        // 16進数
+        long long_val = value.value;
+
+        ss << std::hex;
+        if (type_char == 'X') {
+            ss << std::uppercase;
+        }
+        if (zero_pad && width > 0) {
+            ss << std::setfill('0') << std::setw(width);
+        } else if (width > 0) {
+            ss << std::setw(width);
+        }
+        ss << long_val;
+    } else if (type_char == 'b') {
+        // 2進数
+        long long_val = value.value;
+
+        std::string binary;
+        if (long_val == 0) {
+            binary = "0";
+        } else {
+            unsigned long uval = static_cast<unsigned long>(long_val);
+            while (uval > 0) {
+                binary = (uval % 2 == 0 ? "0" : "1") + binary;
+                uval /= 2;
+            }
+        }
+        if (zero_pad && width > 0) {
+            while (binary.length() < static_cast<size_t>(width)) {
+                binary = "0" + binary;
+            }
+        }
+        ss << binary;
+    } else {
+        // デフォルトまたは小数点精度
+        if (value.is_float_result) {
+            double dval = value.type.type_info == TYPE_QUAD
+                              ? value.quad_value
+                              : value.double_value;
+            if (precision >= 0) {
+                ss << std::fixed << std::setprecision(precision);
+            }
+            if (width > 0) {
+                if (zero_pad) {
+                    ss << std::setfill('0');
+                }
+                ss << std::setw(width);
+            }
+            ss << dval;
+        } else if (value.is_numeric_result) {
+            long long_val = value.value;
+            if (zero_pad && width > 0) {
+                ss << std::setfill('0') << std::setw(width);
+            } else if (width > 0) {
+                ss << std::setw(width);
+            }
+            ss << long_val;
+        } else if (value.type.type_info == TYPE_STRING) {
+            ss << value.string_value;
+        } else if (value.type.type_info == TYPE_BOOL) {
+            ss << (value.value ? "true" : "false");
+        }
+    }
+
+    return ss.str();
+}
 
 // ============================================================================
 // evaluate_binary_op_impl - AST_BINARY_OPケースの実装

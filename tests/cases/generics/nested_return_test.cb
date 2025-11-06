@@ -1,0 +1,28 @@
+// Test S<P<T>> with return value
+
+struct Box<T> {
+    T value;
+};
+
+struct Wrapper<T> {
+    T data;
+};
+
+// ジェネリック関数: ネストされた値を取得
+T get_nested_value<T>(Wrapper<Box<T> > nested) {
+    return nested.data.value;
+}
+
+void main() {
+    println("=== Nested Return Value Test ===");
+    
+    Wrapper<Box<int> > my_nested;
+    my_nested.data.value = 42;
+    
+    println("Direct access:", my_nested.data.value);
+    
+    int result = get_nested_value<int>(my_nested);
+    println("Through function:", result);
+    
+    println("=== Test Complete ===");
+}

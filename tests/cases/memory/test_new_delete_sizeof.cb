@@ -1,0 +1,111 @@
+// test_new_delete_sizeof.cb
+// new.delete.sizeof演算子のテスト
+
+struct Point {
+    int x;
+    int y;
+};
+
+struct Rectangle {
+    Point p1;
+    Point p2;
+    int area;
+};
+
+void test_sizeof() {
+    println("=== Test sizeof ===");
+    
+    int size_int = sizeof(int);
+    println("sizeof(int) = {size_int}");
+    
+    int size_double = sizeof(double);
+    println("sizeof(double) = {size_double}");
+    
+    int size_char = sizeof(char);
+    println("sizeof(char) = {size_char}");
+    
+    int size_bool = sizeof(bool);
+    println("sizeof(bool) = {size_bool}");
+    
+    int size_long = sizeof(long);
+    println("sizeof(long) = {size_long}");
+    
+    int size_short = sizeof(short);
+    println("sizeof(short) = {size_short}");
+    
+    println("sizeof test complete\n");
+}
+
+void test_sizeof_struct() {
+    println("=== Test sizeof (struct) ===");
+    
+    int size_point = sizeof(Point);
+    println("sizeof(Point) = {size_point} (expected: 8 = 2*4)");
+    
+    int size_rect = sizeof(Rectangle);
+    println("sizeof(Rectangle) = {size_rect} (expected: 24 = 8+8+4+4 with padding)");
+    
+    println("sizeof struct test complete\n");
+}
+
+void test_new_delete_single() {
+    println("=== Test new.delete (single object) ===");
+    
+    int* ptr = new int;
+    println("Allocated int* at {hex(ptr)}");
+    
+    delete ptr;
+    println("Freed ptr");
+    
+    println("new.delete single test complete\n");
+}
+
+void test_new_delete_array() {
+    println("=== Test new[].delete (array) ===");
+    
+    int* arr = new int[10];
+    println("Allocated int[10] at {hex(arr)}");
+    
+    delete arr;
+    println("Freed array");
+    
+    println("new[].delete array test complete\n");
+}
+
+void test_new_delete_struct() {
+    println("=== Test new.delete (struct) ===");
+    
+    Point* p = new Point;
+    int size_p = sizeof(Point);
+    println("Allocated Point* at {hex(p)} (size: {size_p} bytes)");
+    
+    delete p;
+    println("Freed Point");
+    
+    Rectangle* r = new Rectangle;
+    int size_r = sizeof(Rectangle);
+    println("Allocated Rectangle* at {hex(r)} (size: {size_r} bytes)");
+    
+    delete r;
+    println("Freed Rectangle");
+    
+    println("new.delete struct test complete\n");
+}
+
+int main() {
+    println("╔════════════════════════════════════╗");
+    println("║  Memory Management Operators Test ║");
+    println("╚════════════════════════════════════╝\n");
+    
+    test_sizeof();
+    test_sizeof_struct();
+    test_new_delete_single();
+    test_new_delete_struct();
+    test_new_delete_array();
+    
+    println("╔════════════════════════════════════╗");
+    println("║  All tests passed!                 ║");
+    println("╚════════════════════════════════════╝");
+    
+    return 0;
+}

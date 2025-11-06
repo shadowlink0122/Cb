@@ -1,0 +1,164 @@
+// ジェネリック関数 - 包括的テスト
+// すべてのジェネリック関数機能をテスト
+
+struct Box<T> {
+    T value;
+};
+
+struct Pair<T1, T2> {
+    T1 first;
+    T2 second;
+};
+
+// 基本的なジェネリック関数
+T identity<T>(T x) {
+    return x;
+}
+
+// 複数の型パラメータ
+T1 first<T1, T2>(T1 a, T2 b) {
+    return a;
+}
+
+T2 second<T1, T2>(T1 a, T2 b) {
+    return b;
+}
+
+// ジェネリック構造体を返す
+Box<T> make_box<T>(T value) {
+    Box<T> box;
+    box.value = value;
+    return box;
+}
+
+// ジェネリック構造体を受け取る
+T unbox<T>(Box<T> box) {
+    return box.value;
+}
+
+// 複数の型パラメータを持つ構造体
+Pair<T1, T2> make_pair<T1, T2>(T1 a, T2 b) {
+    Pair<T1, T2> p;
+    p.first = a;
+    p.second = b;
+    return p;
+}
+
+// ポインタを扱う
+void swap<T>(T* a, T* b) {
+    T temp = *a;
+    *a = *b;
+    *b = temp;
+}
+
+// voidを返す
+void print_value<T>(T value) {
+    println("Value:", value);
+}
+
+// 比較関数
+T max<T>(T a, T b) {
+    if (a > b) {
+        return a;
+    } else {
+        return b;
+    }
+}
+
+T min<T>(T a, T b) {
+    if (a < b) {
+        return a;
+    } else {
+        return b;
+    }
+}
+
+int main() {
+    println("=== Basic Generic Function Tests ===");
+    
+    // int型でのidentity
+    int i1 = identity<int>(42);
+    println("identity<int>(42) =", i1);
+    
+    // long型でのidentity
+    long l1 = identity<long>(100);
+    println("identity<long>(100) =", l1);
+    
+    println("");
+    println("=== Multiple Type Parameters ===");
+    
+    // 複数の型パラメータ
+    int f1 = first<int, long>(10, 20);
+    long s1 = second<int, long>(10, 20);
+    println("first<int, long>(10, 20) =", f1);
+    println("second<int, long>(10, 20) =", s1);
+    
+    println("");
+    println("=== Generic Struct Return ===");
+    
+    // Box<int>
+    Box<int> b1 = make_box<int>(999);
+    println("Box<int> b1.value =", b1.value);
+    
+    // Box<long>
+    Box<long> b2 = make_box<long>(777);
+    println("Box<long> b2.value =", b2.value);
+    
+    // unbox
+    int unboxed_int = unbox<int>(b1);
+    long unboxed_long = unbox<long>(b2);
+    println("unboxed int =", unboxed_int);
+    println("unboxed long =", unboxed_long);
+    
+    println("");
+    println("=== Multiple Type Param Struct ===");
+    
+    // Pair<int, long>
+    Pair<int, long> p1 = make_pair<int, long>(5, 10);
+    println("Pair<int, long>: (", p1.first, ",", p1.second, ")");
+    
+    // Pair<long, int>
+    Pair<long, int> p2 = make_pair<long, int>(20, 30);
+    println("Pair<long, int>: (", p2.first, ",", p2.second, ")");
+    
+    println("");
+    println("=== Pointer Operations ===");
+    
+    // swap<int>
+    int x = 1;
+    int y = 2;
+    println("Before swap: x=", x, ", y=", y);
+    swap<int>(&x, &y);
+    println("After swap: x=", x, ", y=", y);
+    
+    // swap<long>
+    long a = 100;
+    long b = 200;
+    println("Before swap: a=", a, ", b=", b);
+    swap<long>(&a, &b);
+    println("After swap: a=", a, ", b=", b);
+    
+    println("");
+    println("=== Void Return ===");
+    
+    print_value<int>(42);
+    print_value<long>(999);
+    
+    println("");
+    println("=== Comparison Functions ===");
+    
+    int max_int = max<int>(10, 20);
+    int min_int = min<int>(10, 20);
+    println("max<int>(10, 20) =", max_int);
+    println("min<int>(10, 20) =", min_int);
+    
+    long max_long = max<long>(50, 75);
+    long min_long = min<long>(50, 75);
+    println("max<long>(50, 75) =", max_long);
+    println("min<long>(50, 75) =", min_long);
+    
+    println("");
+    println("=== All Tests Passed! ===");
+    
+    return 0;
+}

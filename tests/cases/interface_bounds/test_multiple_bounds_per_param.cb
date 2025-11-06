@@ -1,0 +1,52 @@
+// Test: Multiple interface bounds on a single type parameter (A + B + C syntax)
+// Expected: Parse successfully and validate all bounds
+
+interface Allocator {
+    void* allocate(int size);
+    void deallocate(void* ptr);
+}
+
+interface Clone {
+    void clone();
+}
+
+interface Debug {
+    void debug();
+}
+
+// Single type parameter with multiple bounds using + syntax
+struct Container<T, A: Allocator + Clone> {
+    T* data;
+    int size;
+    A allocator;
+};
+
+// Type parameter with three bounds
+struct AdvancedContainer<T, A: Allocator + Clone + Debug> {
+    T* data;
+    A allocator;
+};
+
+// Multiple type parameters, each with multiple bounds
+struct MultiContainer<K: Clone + Debug, V, A: Allocator + Clone> {
+    K* keys;
+    V* values;
+    A allocator;
+    int size;
+};
+
+int main() {
+    println("=== Multiple Interface Bounds Per Parameter Test ===");
+    
+    // Test 1: Single type parameter with multiple bounds
+    println("Test 1: Container<T, A: Allocator + Clone> - PASSED");
+    
+    // Test 2: Type parameter with three bounds
+    println("Test 2: AdvancedContainer<T, A: Allocator + Clone + Debug> - PASSED");
+    
+    // Test 3: Multiple type parameters with different bounds
+    println("Test 3: MultiContainer<K: Clone + Debug, V, A: Allocator + Clone> - PASSED");
+    
+    println("=== All Tests Passed ===");
+    return 0;
+}

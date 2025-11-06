@@ -1,0 +1,61 @@
+// Cb Standard Library Test - Result Type
+// Tests for stdlib.std.result.cb
+// v0.11.0: Result<T, E> is now a builtin type - no enum definition needed
+
+// Result<T, E> is automatically available - no import or definition required!
+
+void main() {
+    println("=== Result<T, E> stdlib test ===");
+    
+    // Test 1: Result<int, string> - Ok variant
+    Result<int, string> ok_result = Result<int, string>::Ok(42);
+    assert(ok_result.variant == "Ok");
+    assert(ok_result.value == 42);
+    println("Test 1: Result<int, string>::Ok(42) - PASSED");
+    
+    // Test 2: Result<int, string> - Err variant
+    Result<int, string> err_result = Result<int, string>::Err("error message");
+    assert(err_result.variant == "Err");
+    assert(err_result.value == "error message");
+    println("Test 2: Result<int, string>::Err - PASSED");
+    
+    // Test 3: Result<long, int> - Ok with long value
+    Result<long, int> long_ok = Result<long, int>::Ok(1000000);
+    assert(long_ok.variant == "Ok");
+    assert(long_ok.value == 1000000);
+    println("Test 3: Result<long, int>::Ok(1000000) - PASSED");
+    
+    // Test 4: Result<long, int> - Err with error code
+    Result<long, int> long_err = Result<long, int>::Err(404);
+    assert(long_err.variant == "Err");
+    assert(long_err.value == 404);
+    println("Test 4: Result<long, int>::Err(404) - PASSED");
+    
+    // Test 5: Pattern matching with Result - Ok case
+    Result<int, int> divide_ok = Result<int, int>::Ok(10);
+    match (divide_ok) {
+        Ok(value) => {
+            assert(value == 10);
+            println("Test 5a: match Ok variant - PASSED");
+        }
+        Err(code) => {
+            println("ERROR: Should not reach Err branch");
+            assert(false);
+        }
+    }
+    
+    // Test 6: Pattern matching with Result - Err case
+    Result<int, int> divide_err = Result<int, int>::Err(1);
+    match (divide_err) {
+        Ok(value) => {
+            println("ERROR: Should not reach Ok branch");
+            assert(false);
+        }
+        Err(code) => {
+            assert(code == 1);
+            println("Test 5b: match Err variant - PASSED");
+        }
+    }
+    
+    println("=== All Result tests passed ===");
+}

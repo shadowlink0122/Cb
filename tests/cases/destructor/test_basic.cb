@@ -1,0 +1,90 @@
+// Test: Basic Destructor Functionality
+// 基本的なデストラクタの動作確認
+
+struct Point {
+    int x;
+    int y;
+};
+
+impl Point {
+    ~self() {
+        println("[Point] Destructor called for ({self.x}, {self.y})");
+    }
+}
+
+struct Resource {
+    int id;
+};
+
+impl Resource {
+    ~self() {
+        println("[Resource] Cleaning up resource ID: {self.id}");
+    }
+}
+
+void test_simple_destructor() {
+    println("=== Test 1: Simple Destructor ===");
+    {
+        Point p;
+        p.x = 10;
+        p.y = 20;
+        println("Point created: ({p.x}, {p.y})");
+        println("Exiting scope...");
+    }
+    println("✓ Destructor should have been called\n");
+}
+
+void test_multiple_variables() {
+    println("=== Test 2: Multiple Variables (LIFO Order) ===");
+    {
+        Resource r1;
+        r1.id = 1;
+        println("Created Resource 1");
+        
+        Resource r2;
+        r2.id = 2;
+        println("Created Resource 2");
+        
+        Resource r3;
+        r3.id = 3;
+        println("Created Resource 3");
+        
+        println("Exiting scope... (expect: 3, 2, 1)");
+    }
+    println("✓ All destructors called in LIFO order\n");
+}
+
+void test_nested_scopes() {
+    println("=== Test 3: Nested Scopes ===");
+    {
+        Point outer;
+        outer.x = 1;
+        outer.y = 1;
+        println("Outer scope: Point({outer.x}, {outer.y})");
+        
+        {
+            Point inner;
+            inner.x = 2;
+            inner.y = 2;
+            println("Inner scope: Point({inner.x}, {inner.y})");
+            println("Exiting inner scope...");
+        }
+        println("Back to outer scope");
+        println("Exiting outer scope...");
+    }
+    println("✓ Nested scope destructors called correctly\n");
+}
+
+void main() {
+    println("╔══════════════════════════════════════════════════╗");
+    println("║  Basic Destructor Tests                         ║");
+    println("╚══════════════════════════════════════════════════╝\n");
+    
+    test_simple_destructor();
+    test_multiple_variables();
+    test_nested_scopes();
+    
+    println("╔══════════════════════════════════════════════════╗");
+    println("║  All Basic Destructor Tests Passed!             ║");
+    println("╚══════════════════════════════════════════════════╝");
+}

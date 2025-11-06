@@ -1,0 +1,75 @@
+// test_new_delete_basic.cb
+// new/deleteの基本機能テスト（integration test用）
+
+struct Point {
+    int x;
+    int y;
+};
+
+void test1_primitive_new_delete() {
+    println("Test 1: Primitive types");
+    int* pi = new int;
+    *pi = 42;
+    println("  int: {*pi}");
+    delete pi;
+    println("  ✅ PASSED");
+}
+
+void test2_struct_new_delete() {
+    println("Test 2: Struct types");
+    Point* p = new Point;
+    p->x = 100;
+    p->y = 200;
+    println("  Point: ({p->x}, {p->y})");
+    delete p;
+    println("  ✅ PASSED");
+}
+
+void test3_array_new_delete() {
+    println("Test 3: Arrays");
+    int* arr = new int[10];
+    println("  int[10] at {hex(arr)}");
+    delete arr;
+    println("  ✅ PASSED");
+}
+
+void test4_sizeof() {
+    println("Test 4: sizeof");
+    println("  sizeof(int) = {sizeof(int)}");
+    println("  sizeof(Point) = {sizeof(Point)}");
+    println("  ✅ PASSED");
+}
+
+void test5_nullptr() {
+    println("Test 5: nullptr handling");
+    int* null_ptr = nullptr;
+    delete null_ptr;
+    println("  ✅ PASSED");
+}
+
+void test6_zero_init() {
+    println("Test 6: Zero initialization");
+    int* pi = new int;
+    if (*pi == 0) {
+        println("  int is zero-initialized");
+    }
+    delete pi;
+    println("  ✅ PASSED");
+}
+
+int main() {
+    println("╔════════════════════════════════════╗");
+    println("║  new/delete Basic Tests            ║");
+    println("╚════════════════════════════════════╝\n");
+    
+    test1_primitive_new_delete();
+    test2_struct_new_delete();
+    test3_array_new_delete();
+    test4_sizeof();
+    test5_nullptr();
+    test6_zero_init();
+    
+    println("\n✅ ALL 6 TESTS PASSED!");
+    
+    return 0;
+}

@@ -1,0 +1,22 @@
+// Test 10: Error - Missing impl
+// Expected: Type check error for missing implementation
+
+interface Allocator {
+    void* allocate(int size);
+    void deallocate(void* ptr);
+}
+
+struct BadAllocator {
+    int dummy;
+};
+
+// implが定義されていない!
+
+struct Vector<T, A: Allocator> {
+    int capacity;
+};
+
+void main() {
+    Vector<int, BadAllocator> vec;  // エラー期待
+    println("This should not execute");
+}

@@ -249,9 +249,11 @@ void StatementExecutor::execute_member_array_assignment(const ASTNode *node) {
 
         // 親構造体から配列要素を探す（最初に親のstruct_membersを確認）
         Variable *parent_struct = interpreter_.find_variable(obj_name);
-        if (!parent_struct || !parent_struct->is_struct) {
-            throw std::runtime_error("Parent variable is not a struct: " +
-                                     obj_name);
+        // v0.11.0: enum型もチェック
+        if (!parent_struct ||
+            (!parent_struct->is_struct && !parent_struct->is_enum)) {
+            throw std::runtime_error(
+                "Parent variable is not a struct or enum: " + obj_name);
         }
 
         // 配列要素の構造体を探す - まず親のstruct_membersから
@@ -706,10 +708,51 @@ void StatementExecutor::execute_self_member_assignment(
 
         debug_print("SELF_ASSIGN: %s = \"%s\"\n", member_name.c_str(),
                     value_node->str_value.c_str());
-    } else if (value_node->node_type == ASTNodeType::AST_VARIABLE) {
+    } else if (value_node->node_type == ASTNodeType::AST_VARIABLE ||
+               value_node->node_type == ASTNodeType::AST_IDENTIFIER) {
         // 変数参照の場合
         Variable *source_var = interpreter_.find_variable(value_node->name);
-        if (source_var && source_var->type == TYPE_STRING) {
+
+        // 構造体の場合の特別処理
+        if (source_var && source_var->type == TYPE_STRUCT) {
+            if (debug_mode) {
+                std::cerr
+                    << "[SELF_ASSIGN_STRUCT] Assigning struct from variable: "
+                    << value_node->name << " to self." << member_name
+                    << std::endl;
+            }
+
+            // 構造体データをコピー
+            bool was_const = self_member->is_const;
+            bool was_unsigned = self_member->is_unsigned;
+            *self_member = *source_var;
+            self_member->is_const = was_const;
+            self_member->is_unsigned = was_unsigned;
+            self_member->is_assigned = true;
+
+            // 元の変数のメンバーも同時に更新
+            if (!original_receiver_path.empty()) {
+                Variable *original_member =
+                    interpreter_.find_variable(original_receiver_path);
+                if (original_member) {
+                    bool orig_was_const = original_member->is_const;
+                    bool orig_was_unsigned = original_member->is_unsigned;
+                    *original_member = *source_var;
+                    original_member->is_const = orig_was_const;
+                    original_member->is_unsigned = orig_was_unsigned;
+                    original_member->is_assigned = true;
+                }
+            }
+
+            // ダイレクトアクセス変数も更新
+            interpreter_.sync_direct_access_from_struct_value(
+                "self." + member_name, *self_member);
+
+            if (debug_mode) {
+                std::cerr << "[SELF_ASSIGN_STRUCT] Successfully assigned struct"
+                          << std::endl;
+            }
+        } else if (source_var && source_var->type == TYPE_STRING) {
             self_member->str_value = source_var->str_value;
             self_member->type = TYPE_STRING;
 
@@ -740,9 +783,16 @@ void StatementExecutor::execute_self_member_assignment(
             debug_print("SELF_ASSIGN: %s = \"%s\" (from variable)\n",
                         member_name.c_str(), source_var->str_value.c_str());
         } else {
+            // 右辺の型情報を取得
+            bool is_nullptr =
+                (value_node->node_type == ASTNodeType::AST_NULLPTR);
+
             int64_t value = interpreter_.evaluate(value_node);
             self_member->value = value;
-            if (self_member->type != TYPE_STRING) {
+
+            // nullptr の場合、または元の型が TYPE_POINTER の場合は型を保持
+            if (self_member->type != TYPE_STRING && !is_nullptr &&
+                self_member->type != TYPE_POINTER) {
                 self_member->type = TYPE_INT; // デフォルトはint型
             }
 
@@ -757,7 +807,8 @@ void StatementExecutor::execute_self_member_assignment(
                     debug_print("SELF_ASSIGN_DEBUG: Found original member, "
                                 "updating numeric value from variable\n");
                     original_member->value = value;
-                    if (original_member->type != TYPE_STRING) {
+                    if (original_member->type != TYPE_STRING && !is_nullptr &&
+                        original_member->type != TYPE_POINTER) {
                         original_member->type = TYPE_INT;
                     }
                     original_member->is_assigned = true;
@@ -791,8 +842,12 @@ void StatementExecutor::execute_self_member_assignment(
             }
         }
 
+        // nullptr または TYPE_POINTER の場合は型を保持
+        bool is_nullptr = (value_node->node_type == ASTNodeType::AST_NULLPTR);
+
         self_member->value = value;
-        if (self_member->type != TYPE_STRING) {
+        if (self_member->type != TYPE_STRING && !is_nullptr &&
+            self_member->type != TYPE_POINTER) {
             self_member->type = TYPE_INT;
         }
         self_member->is_assigned = true;
@@ -807,7 +862,8 @@ void StatementExecutor::execute_self_member_assignment(
                 debug_print("SELF_ASSIGN_DEBUG: Found original member, "
                             "updating numeric value\n");
                 original_member->value = value;
-                if (original_member->type != TYPE_STRING) {
+                if (original_member->type != TYPE_STRING && !is_nullptr &&
+                    original_member->type != TYPE_POINTER) {
                     original_member->type = TYPE_INT;
                 }
                 original_member->is_assigned = true;
@@ -922,18 +978,20 @@ void StatementExecutor::execute_ternary_assignment(const ASTNode *node) {
 
 void StatementExecutor::execute_ternary_variable_initialization(
     const ASTNode *var_decl_node, const ASTNode *ternary_node) {
-    printf("DEBUG: execute_ternary_variable_initialization called\n");
+    debug_msg(DebugMsgId::TERNARY_VAR_INIT_START,
+              "execute_ternary_variable_initialization");
 
     // 三項演算子の条件を評価
     int64_t condition = interpreter_.evaluate(ternary_node->left.get());
-    printf("DEBUG: Ternary condition = %lld\n",
-           static_cast<long long>(condition));
+    debug_msg(DebugMsgId::TERNARY_VAR_CONDITION,
+              std::to_string(condition).c_str());
 
     // 条件に基づいて選択される分岐を決定
     const ASTNode *selected_branch =
         condition ? ternary_node->right.get() : ternary_node->third.get();
-    printf("DEBUG: Selected branch node_type = %d\n",
-           static_cast<int>(selected_branch->node_type));
+    debug_msg(
+        DebugMsgId::TERNARY_VAR_BRANCH_TYPE,
+        std::to_string(static_cast<int>(selected_branch->node_type)).c_str());
 
     std::string var_name = var_decl_node->name;
     Variable *var = interpreter_.get_variable(var_name);

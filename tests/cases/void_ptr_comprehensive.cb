@@ -1,0 +1,253 @@
+// Comprehensive void* usage examples in Cb
+
+// ============================================================================
+// Example 1: Basic void* operations
+// ============================================================================
+
+void* create_null_pointer() {
+    println("[Example 1] Creating null pointer");
+    return nullptr;
+}
+
+void accept_void_pointer(void* ptr) {
+    println("[Example 1] Received void* parameter");
+}
+
+void test_basic_void_ptr() {
+    println("\n=== Example 1: Basic void* operations ===");
+    
+    void* ptr = create_null_pointer();
+    accept_void_pointer(ptr);
+    
+    println("Basic operations: OK");
+}
+
+// ============================================================================
+// Example 2: Allocator interface with void*
+// ============================================================================
+
+interface Allocator {
+    void* allocate(int size);
+    void deallocate(void* ptr);
+}
+
+struct SystemAllocator {
+    int total_allocated;
+    int total_freed;
+};
+
+impl Allocator for SystemAllocator {
+    void* allocate(int size) {
+        println("[SystemAllocator] Allocate %d bytes", size);
+        return nullptr;  // Placeholder for actual malloc
+    }
+    
+    void deallocate(void* ptr) {
+        println("[SystemAllocator] Deallocate pointer");
+    }
+}
+
+void test_allocator_interface() {
+    println("\n=== Example 2: Allocator interface ===");
+    
+    SystemAllocator alloc;
+    alloc.total_allocated = 0;
+    alloc.total_freed = 0;
+    
+    // Allocate memory
+    void* ptr1 = alloc.allocate(64);
+    void* ptr2 = alloc.allocate(128);
+    void* ptr3 = alloc.allocate(256);
+    
+    // Deallocate memory
+    alloc.deallocate(ptr1);
+    alloc.deallocate(ptr2);
+    alloc.deallocate(ptr3);
+    
+    println("Allocator interface: OK");
+}
+
+// ============================================================================
+// Example 3: Multiple void* in struct
+// ============================================================================
+
+struct MemoryPool {
+    void* buffer;
+    void* current;
+    void* end;
+    int allocations;
+};
+
+void memory_pool_init(MemoryPool& pool) {
+    println("[MemoryPool] Initializing pool");
+    pool.buffer = nullptr;
+    pool.current = nullptr;
+    pool.end = nullptr;
+    pool.allocations = 0;
+}
+
+void* memory_pool_allocate(MemoryPool& pool, int size) {
+    println("[MemoryPool] Allocate %d bytes (total allocations: %d)", 
+            size, pool.allocations);
+    pool.allocations = pool.allocations + 1;
+    return nullptr;  // Placeholder
+}
+
+void test_memory_pool() {
+    println("\n=== Example 3: Memory pool with multiple void* ===");
+    
+    MemoryPool pool;
+    memory_pool_init(pool);
+    
+    void* ptr1 = memory_pool_allocate(pool, 32);
+    void* ptr2 = memory_pool_allocate(pool, 64);
+    void* ptr3 = memory_pool_allocate(pool, 128);
+    
+    println("Memory pool: OK (allocations=%d)", pool.allocations);
+}
+
+// ============================================================================
+// Example 4: Lambda/function pointer storage
+// ============================================================================
+
+void test_lambda_storage() {
+    println("\n=== Example 4: Lambda storage in void* ===");
+    
+    // Store void-returning lambda
+    void* callback1 = void func() {
+        println("[Lambda 1] Hello from callback!");
+    };
+    
+    void* callback2 = void func() {
+        println("[Lambda 2] Another callback!");
+    };
+    
+    // Invoke lambdas
+    println("Invoking callback 1:");
+    callback1();
+    
+    println("Invoking callback 2:");
+    callback2();
+    
+    println("Lambda storage: OK");
+}
+
+// ============================================================================
+// Example 5: Generic data structure (conceptual)
+// ============================================================================
+
+struct Node {
+    void* data;
+    int data_size;
+};
+
+void node_init(Node& node, int size) {
+    println("[Node] Initialize with data_size=%d", size);
+    node.data = nullptr;
+    node.data_size = size;
+}
+
+void node_set_data(Node& node, void* ptr) {
+    println("[Node] Setting data pointer");
+    node.data = ptr;
+}
+
+void test_generic_node() {
+    println("\n=== Example 5: Generic node structure ===");
+    
+    Node int_node;
+    node_init(int_node, 4);  // sizeof(int)
+    
+    Node struct_node;
+    node_init(struct_node, 16);  // sizeof(SomeStruct)
+    
+    void* dummy_data = nullptr;
+    node_set_data(int_node, dummy_data);
+    
+    println("Generic node: OK");
+}
+
+// ============================================================================
+// Example 6: Allocator comparison
+// ============================================================================
+
+struct BumpAllocator {
+    void* buffer;
+    int offset;
+    int capacity;
+};
+
+impl Allocator for BumpAllocator {
+    void* allocate(int size) {
+        println("[BumpAllocator] Allocate %d bytes (offset=%d)", size, self.offset);
+        return nullptr;
+    }
+    
+    void deallocate(void* ptr) {
+        println("[BumpAllocator] Deallocation ignored (bump allocator)");
+    }
+}
+
+void bump_allocator_init(BumpAllocator& alloc, int capacity) {
+    println("[BumpAllocator] Initialize with capacity=%d", capacity);
+    alloc.buffer = nullptr;
+    alloc.offset = 0;
+    alloc.capacity = capacity;
+}
+
+void test_allocator_comparison() {
+    println("\n=== Example 6: Different allocators ===");
+    
+    println("\n--- SystemAllocator ---");
+    SystemAllocator sys_alloc;
+    void* sys_ptr1 = sys_alloc.allocate(100);
+    void* sys_ptr2 = sys_alloc.allocate(200);
+    sys_alloc.deallocate(sys_ptr1);
+    sys_alloc.deallocate(sys_ptr2);
+    
+    println("\n--- BumpAllocator ---");
+    BumpAllocator bump_alloc;
+    bump_allocator_init(bump_alloc, 1024);
+    void* bump_ptr1 = bump_alloc.allocate(100);
+    void* bump_ptr2 = bump_alloc.allocate(200);
+    bump_alloc.deallocate(bump_ptr1);  // Ignored
+    bump_alloc.deallocate(bump_ptr2);  // Ignored
+    
+    println("\nAllocator comparison: OK");
+}
+
+// ============================================================================
+// Example 7: Nullptr checks (future feature)
+// ============================================================================
+
+void test_nullptr_checks() {
+    println("\n=== Example 7: Nullptr handling ===");
+    
+    void* ptr1 = nullptr;
+    void* ptr2 = create_null_pointer();
+    
+    println("Created two null pointers");
+    println("nullptr handling: OK");
+}
+
+// ============================================================================
+// Main test suite
+// ============================================================================
+
+void main() {
+    println("╔════════════════════════════════════════════════════════════╗");
+    println("║  Comprehensive void* Usage Examples in Cb                 ║");
+    println("╚════════════════════════════════════════════════════════════╝");
+    
+    test_basic_void_ptr();
+    test_allocator_interface();
+    test_memory_pool();
+    test_lambda_storage();
+    test_generic_node();
+    test_allocator_comparison();
+    test_nullptr_checks();
+    
+    println("\n╔════════════════════════════════════════════════════════════╗");
+    println("║  All void* examples completed successfully!               ║");
+    println("╚════════════════════════════════════════════════════════════╝");
+}

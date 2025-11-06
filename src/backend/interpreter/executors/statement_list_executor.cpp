@@ -56,10 +56,15 @@ void StatementListExecutor::execute_compound_statement(const ASTNode *node) {
     debug_msg(DebugMsgId::INTERPRETER_COMPOUND_STMT_EXEC,
               node->statements.size());
 
-    // v0.10.0: 複合文のスコープ作成は将来のバージョンで対応
-    // 現在は関数スコープのみでデストラクタを動作させる
-    // TODO v0.11.0: 複合文{}ごとにスコープを作成し、デストラクタとdeferを実行
-    // interpreter_->push_scope();
+    // v0.11.0: 複合文{}ごとにデストラクタスコープを作成
+    // 変数スコープは作成せず、デストラクタとdeferのみ管理
+    // v0.13.1 FIX: デストラクタ実行中はスコープpushをスキップ
+    // （struct_members_refの無効化を防ぐ）
+    bool pushed_scope = false;
+    if (!interpreter_->is_calling_destructor()) {
+        interpreter_->push_destructor_scope();
+        pushed_scope = true;
+    }
 
     try {
         for (const auto &stmt : node->statements) {
@@ -67,12 +72,29 @@ void StatementListExecutor::execute_compound_statement(const ASTNode *node) {
         }
     } catch (const ReturnException &) {
         // ReturnExceptionは再スロー（関数から抜ける必要がある）
-        // TODO v0.11.0:
         // スコープ終了時にデストラクタとdeferを実行してから再スロー
-        // interpreter_->pop_scope();
+        if (pushed_scope) {
+            interpreter_->pop_destructor_scope();
+        }
+        throw;
+    } catch (const BreakException &) {
+        // BreakExceptionは再スロー（ループから抜ける必要がある）
+        // スコープ終了時にデストラクタとdeferを実行してから再スロー
+        if (pushed_scope) {
+            interpreter_->pop_destructor_scope();
+        }
+        throw;
+    } catch (const ContinueException &) {
+        // ContinueExceptionは再スロー（次のイテレーションへ）
+        // スコープ終了時にデストラクタとdeferを実行してから再スロー
+        if (pushed_scope) {
+            interpreter_->pop_destructor_scope();
+        }
         throw;
     }
 
-    // TODO v0.11.0: スコープ終了時にデストラクタとdeferを実行
-    // interpreter_->pop_scope();
+    // スコープ終了時にデストラクタとdeferを実行
+    if (pushed_scope) {
+        interpreter_->pop_destructor_scope();
+    }
 }
