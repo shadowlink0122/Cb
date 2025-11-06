@@ -2176,6 +2176,98 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
             return 0;
         }
 
+        // call_function_pointer(func_ptr, arg1, arg2, ...) -
+        // 関数ポインタを呼び出す ジェネリック対応:
+        // 任意の数の引数で関数ポインタを呼び出す
+        if (node->name == "call_function_pointer" && !is_method_call) {
+            if (node->arguments.size() < 1) {
+                throw std::runtime_error(
+                    "call_function_pointer() requires at least 1 argument: "
+                    "call_function_pointer(func_ptr, arg1, arg2, ...)");
+            }
+
+            // 第1引数: 関数ポインタ（ASTNodeのアドレス）
+            int64_t func_ptr_value =
+                interpreter_.eval_expression(node->arguments[0].get());
+
+            if (func_ptr_value == 0) {
+                throw std::runtime_error(
+                    "call_function_pointer: function pointer is null");
+            }
+
+            // 関数ポインタの値はASTNode*のアドレス
+            // まずVariable*として試してみて、is_function_pointerかチェック
+            // そうでなければASTNode*として扱う
+            const ASTNode *func_def = nullptr;
+            std::string func_name;
+
+            // Variable*として解釈を試みる
+            Variable *func_ptr_var =
+                reinterpret_cast<Variable *>(func_ptr_value);
+            if (func_ptr_var->is_function_pointer) {
+                // Variable経由の関数ポインタ（パラメータとして渡された場合など）
+                func_name = func_ptr_var->function_pointer_name;
+                func_def = interpreter_.find_function(func_name);
+            } else {
+                // 直接ASTNode*として渡された場合（&func形式）
+                func_def = reinterpret_cast<const ASTNode *>(func_ptr_value);
+                func_name = func_def->name;
+            }
+
+            if (!func_def) {
+                throw std::runtime_error("call_function_pointer: function '" +
+                                         func_name + "' not found");
+            }
+
+            // 残りの引数を評価
+            std::vector<int64_t> arg_values;
+            for (size_t i = 1; i < node->arguments.size(); ++i) {
+                arg_values.push_back(
+                    interpreter_.eval_expression(node->arguments[i].get()));
+            }
+
+            // 引数の数をチェック
+            if (arg_values.size() != func_def->parameters.size()) {
+                throw std::runtime_error(
+                    "call_function_pointer: argument count mismatch for '" +
+                    func_name + "': expected " +
+                    std::to_string(func_def->parameters.size()) + ", got " +
+                    std::to_string(arg_values.size()));
+            }
+
+            // 新しいスコープを作成
+            interpreter_.push_scope();
+
+            try {
+                // パラメータをバインド
+                for (size_t i = 0; i < func_def->parameters.size(); ++i) {
+                    const ASTNode *param = func_def->parameters[i].get();
+                    Variable var;
+                    var.value = arg_values[i];
+                    var.is_assigned = true;
+                    var.type = param->type_info; // パラメータの型情報を使用
+                    interpreter_.current_scope().variables[param->name] = var;
+                }
+
+                // 関数本体を実行
+                try {
+                    interpreter_.execute_statement(func_def->body.get());
+                } catch (const ReturnException &re) {
+                    // 戻り値を取得
+                    interpreter_.pop_scope();
+                    return re.value;
+                }
+
+                // 戻り値なし（voidまたは明示的なreturn文なし）
+                interpreter_.pop_scope();
+                return 0;
+
+            } catch (...) {
+                interpreter_.pop_scope();
+                throw;
+            }
+        }
+
         // array_get_int(ptr, index) - 配列要素を取得
         if (node->name == "array_get_int" && !is_method_call) {
             if (node->arguments.size() != 2) {
