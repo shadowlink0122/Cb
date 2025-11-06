@@ -694,10 +694,6 @@ void execute_arrow_assignment(StatementExecutor *executor,
     std::string
         struct_element_name; // 構造体配列要素の変数名（例: "points[0]"）
 
-    // ポインタ戻り値の型情報を保持
-    bool is_generic_pointer_return = false;
-    std::string pointer_base_type_name;
-
     try {
         // まず、ポインタ変数自体を取得（arrow_access->leftが変数参照の場合）
         if (arrow_access->left &&
@@ -740,12 +736,6 @@ void execute_arrow_assignment(StatementExecutor *executor,
                                 ret_ex.is_pointer ? 1 : 0,
                                 ret_ex.pointer_base_type_name.c_str(),
                                 (unsigned long long)ret_ex.value);
-                }
-
-                // ポインタ情報を保存
-                if (ret_ex.is_pointer) {
-                    is_generic_pointer_return = true;
-                    pointer_base_type_name = ret_ex.pointer_base_type_name;
                 }
 
                 ptr_value = ret_ex.value;
