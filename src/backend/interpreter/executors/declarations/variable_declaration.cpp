@@ -563,6 +563,9 @@ void execute_variable_declaration(StatementExecutor *executor,
     interpreter.current_scope().variables[node->name] = var;
 
     if (init_node) {
+        debug_msg(DebugMsgId::VAR_DECL_INIT_TYPE,
+                  static_cast<int>(init_node->node_type), node->name.c_str());
+
         // ポインタ型の初期化を最優先で処理 (type_infoまたはis_pointerで判定)
         if (node->type_info == TYPE_POINTER || node->is_pointer) {
             // const安全性チェック:
@@ -962,9 +965,13 @@ void execute_variable_declaration(StatementExecutor *executor,
         } else {
             // 通常の初期化 - TypedValue を使用して float/double を保持
             if (init_node->node_type == ASTNodeType::AST_FUNC_CALL) {
+                std::cerr << "DEBUG: init_node is AST_FUNC_CALL for "
+                          << node->name << std::endl;
                 try {
                     TypedValue typed_value =
                         interpreter.evaluate_typed(init_node);
+                    debug_msg(DebugMsgId::VAR_DECL_TYPED_VALUE,
+                              node->name.c_str());
                     if (TypeHelpers::isString(var.type) &&
                         !typed_value.is_string()) {
                         // 文字列型なのに数値が返された場合
@@ -992,15 +999,10 @@ void execute_variable_declaration(StatementExecutor *executor,
                                    " members")
                                       .c_str());
 
-                        if (debug_mode) {
-                            std::cerr << "[EXECUTORS_VAR_DECL_STRUCT] Creating "
-                                         "member variables for "
-                                      << node->name << " (type: "
-                                      << ret.struct_value.struct_type_name
-                                      << "), members.size="
-                                      << ret.struct_value.struct_members.size()
-                                      << "\n";
-                        }
+                        debug_msg(DebugMsgId::VAR_DECL_STRUCT_MEMBERS,
+                                  node->name.c_str(),
+                                  ret.struct_value.struct_type_name.c_str(),
+                                  ret.struct_value.struct_members.size());
 
                         Variable &target_var =
                             interpreter.current_scope().variables[node->name];
@@ -1076,10 +1078,20 @@ void execute_variable_declaration(StatementExecutor *executor,
                 // float/double リテラルを含む全ての初期化式で TypedValue を使用
                 TypedValue typed_value = interpreter.evaluate_typed(init_node);
 
+                std::cerr << "DEBUG var_decl: " << node->name
+                          << " var.type=" << static_cast<int>(var.type)
+                          << " (TYPE_STRING=" << static_cast<int>(TYPE_STRING)
+                          << ")"
+                          << " typed_value.value=" << (void *)typed_value.value
+                          << " str='" << typed_value.string_value << "'"
+                          << std::endl;
+
                 if (TypeHelpers::isString(var.type)) {
-                    interpreter.current_scope()
-                        .variables[node->name]
-                        .str_value = init_node->str_value;
+                    // assign_variableに任せる（ポインタ値の処理を含む）
+                    debug_msg(DebugMsgId::VAR_DECL_ASSIGN_STRING,
+                              node->name.c_str());
+                    interpreter.assign_variable(node->name, typed_value,
+                                                node->type_info, false);
                 } else {
                     // const安全性チェック:
                     // const変数のアドレスを非constポインタで初期化しようとしていないか確認

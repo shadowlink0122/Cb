@@ -677,7 +677,14 @@ int64_t ExpressionEvaluator::evaluate_member_access_impl(const ASTNode *node) {
         if (TypeHelpers::isString(member_var.type)) {
             TypedValue typed_result(static_cast<int64_t>(0),
                                     InferredType(TYPE_STRING, "string"));
-            typed_result.string_value = member_var.str_value;
+            // mallocで確保したstring型ポインタの場合
+            if (member_var.str_value.empty() && member_var.value != 0) {
+                const char *ptr =
+                    reinterpret_cast<const char *>(member_var.value);
+                typed_result.string_value = std::string(ptr);
+            } else {
+                typed_result.string_value = member_var.str_value;
+            }
             typed_result.is_numeric_result = false;
             last_typed_result_ = typed_result;
             return 0;
@@ -736,7 +743,15 @@ int64_t ExpressionEvaluator::evaluate_member_access_impl(const ASTNode *node) {
             if (TypeHelpers::isString(result_member.type)) {
                 TypedValue typed_result(static_cast<int64_t>(0),
                                         InferredType(TYPE_STRING, "string"));
-                typed_result.string_value = result_member.str_value;
+                // mallocで確保したstring型ポインタの場合
+                if (result_member.str_value.empty() &&
+                    result_member.value != 0) {
+                    const char *ptr =
+                        reinterpret_cast<const char *>(result_member.value);
+                    typed_result.string_value = std::string(ptr);
+                } else {
+                    typed_result.string_value = result_member.str_value;
+                }
                 typed_result.is_numeric_result = false;
                 last_typed_result_ = typed_result;
                 return 0;

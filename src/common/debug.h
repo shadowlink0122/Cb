@@ -417,6 +417,25 @@ enum class DebugMsgId {
     INTERPRETER_BUILTIN_TYPES_INIT_COMPLETE, // 組み込み型初期化完了
     INTERPRETER_BUILTIN_ENUM_REGISTERED,     // 組み込みenum登録
 
+    // メンバーアクセス再帰処理関連
+    MEMBER_ACCESS_RECURSIVE_START, // 再帰的メンバーアクセス開始
+    MEMBER_ACCESS_LEVEL,           // メンバーアクセスレベル
+    MEMBER_ACCESS_SUCCESS,         // メンバーアクセス成功
+    MEMBER_ACCESS_FAILED,          // メンバーアクセス失敗
+    MEMBER_ACCESS_FINAL_TYPE,      // 最終結果の型
+
+    // 変数宣言関連
+    VAR_DECL_INIT_TYPE,       // 初期化式の型
+    VAR_DECL_TYPED_VALUE,     // TypedValue評価完了
+    VAR_DECL_STRUCT_MEMBERS,  // 構造体メンバー作成
+    VAR_DECL_ASSIGN_STRING,   // 文字列変数代入
+    VAR_DECL_POINTER_INIT,    // ポインタ初期化開始
+    VAR_DECL_POINTER_VALUE,   // ポインタ値設定
+    VAR_DECL_STRING_PTR_INIT, // 文字列ポインタ初期化
+
+    // メンバー代入関連
+    MEMBER_ASSIGN_STRUCT, // 構造体メンバー代入
+
     GENERIC_DEBUG, // 汎用デバッグライン出力
 
     MAX_DEBUG_MSG_ID // 最大値マーカー

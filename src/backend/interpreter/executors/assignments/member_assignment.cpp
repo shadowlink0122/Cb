@@ -525,12 +525,9 @@ void execute_member_assignment(StatementExecutor *executor,
                     "Expected struct variable to throw ReturnException");
             } catch (const ReturnException &ret_ex) {
                 if (TypeHelpers::isStruct(ret_ex.struct_value.type)) {
-                    std::cerr
-                        << "DEBUG: Assigning struct to member: " << obj_name
-                        << "." << member_name << std::endl;
-                    std::cerr << "DEBUG: Source struct type: "
-                              << ret_ex.struct_value.struct_type_name
-                              << std::endl;
+                    debug_msg(DebugMsgId::MEMBER_ASSIGN_STRUCT,
+                              obj_name.c_str(), member_name.c_str(),
+                              ret_ex.struct_value.struct_type_name.c_str());
 
                     // 構造体全体をメンバーに代入
                     interpreter.assign_struct_member_struct(
@@ -541,8 +538,16 @@ void execute_member_assignment(StatementExecutor *executor,
                 }
             }
         } else if (right_var->type == TYPE_STRING) {
-            interpreter.assign_struct_member(obj_name, member_name,
-                                             right_var->str_value);
+            // mallocで取得したポインタを文字列に変換
+            std::string str_value;
+            if (right_var->str_value.empty() && right_var->value != 0) {
+                const char *ptr =
+                    reinterpret_cast<const char *>(right_var->value);
+                str_value = std::string(ptr);
+            } else {
+                str_value = right_var->str_value;
+            }
+            interpreter.assign_struct_member(obj_name, member_name, str_value);
         } else {
             // TypedValueを使用して型情報を保持
             TypedValue typed_value =
@@ -571,8 +576,17 @@ void execute_member_assignment(StatementExecutor *executor,
         Variable *right_member_var =
             interpreter.get_struct_member(right_obj_name, right_member_name);
         if (right_member_var->type == TYPE_STRING) {
-            interpreter.assign_struct_member(obj_name, member_name,
-                                             right_member_var->str_value);
+            // mallocで取得したポインタを文字列に変換
+            std::string str_value;
+            if (right_member_var->str_value.empty() &&
+                right_member_var->value != 0) {
+                const char *ptr =
+                    reinterpret_cast<const char *>(right_member_var->value);
+                str_value = std::string(ptr);
+            } else {
+                str_value = right_member_var->str_value;
+            }
+            interpreter.assign_struct_member(obj_name, member_name, str_value);
         } else if (right_member_var->type == TYPE_FLOAT ||
                    right_member_var->type == TYPE_DOUBLE ||
                    right_member_var->type == TYPE_QUAD) {

@@ -812,8 +812,22 @@ void execute_assignment(StatementExecutor *executor, Interpreter &interpreter,
             }
 
             if (var->type == TYPE_STRING) {
-                interpreter.assign_string_element(
-                    var_name, index, std::string(1, static_cast<char>(rvalue)));
+                // 通常のstring型変数（str_valueを持つ）の場合
+                if (!var->str_value.empty() || var->value == 0) {
+                    interpreter.assign_string_element(
+                        var_name, index,
+                        std::string(1, static_cast<char>(rvalue)));
+                } else {
+                    // mallocで確保されたstring型ポインタの場合
+                    // var->value がポインタアドレスを持つ
+                    char *buffer = reinterpret_cast<char *>(var->value);
+                    if (buffer == nullptr) {
+                        throw std::runtime_error(
+                            "Null pointer access in string assignment");
+                    }
+                    // 直接メモリに書き込み
+                    buffer[index] = static_cast<char>(rvalue);
+                }
             } else {
                 // v0.11.0 Week 2 Day 3:
                 // ポインタの場合でもfloat/double判定が必要

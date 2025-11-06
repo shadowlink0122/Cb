@@ -1,0 +1,259 @@
+// Vector<T> ソート機能の包括的テスト
+// - smaller() / greater() / sort() のO(n log n)マージソート
+// - 効率的なO(n)検証関数（ポインタ直接アクセス）
+// - Cbテストフレームワークを使用
+
+import stdlib.collections.vector;
+import stdlib.std.test;
+
+// 効率的な検証関数: ポインタで直接走査 O(n)
+bool verify_ascending(Vector<int> vec) {
+    if (vec.get_length() <= 1) {
+        return true;
+    }
+    
+    int ptr_size = sizeof(void*);
+    int data_offset = ptr_size + ptr_size;  // prev + next
+    
+    void* current = vec.front;
+    while (current != nullptr) {
+        void** next_ptr_field = current + ptr_size;
+        void* next_node = *next_ptr_field;
+        
+        if (next_node != nullptr) {
+            void** current_data_ptr = current + data_offset;
+            int current_data = *current_data_ptr;
+            
+            void** next_data_ptr = next_node + data_offset;
+            int next_data = *next_data_ptr;
+            
+            if (current_data > next_data) {
+                return false;
+            }
+        }
+        
+        current = next_node;
+    }
+    
+    return true;
+}
+
+// 効率的な検証関数: ポインタで直接走査 O(n)（降順）
+bool verify_descending(Vector<int> vec) {
+    if (vec.get_length() <= 1) {
+        return true;
+    }
+    
+    int ptr_size = sizeof(void*);
+    int data_offset = ptr_size + ptr_size;  // prev + next
+    
+    void* current = vec.front;
+    while (current != nullptr) {
+        void** next_ptr_field = current + ptr_size;
+        void* next_node = *next_ptr_field;
+        
+        if (next_node != nullptr) {
+            void** current_data_ptr = current + data_offset;
+            int current_data = *current_data_ptr;
+            
+            void** next_data_ptr = next_node + data_offset;
+            int next_data = *next_data_ptr;
+            
+            if (current_data < next_data) {
+                return false;
+            }
+        }
+        
+        current = next_node;
+    }
+    
+    return true;
+}
+
+void test_smaller_basic(TestResult* t) {
+    print_section("Test 1: smaller() - Basic 10 elements");
+    Vector<int> vec;
+    
+    // 逆順にデータを追加
+    int i = 10;
+    while (i > 0) {
+        vec.push_back(i);
+        i = i - 1;
+    }
+    
+    vec.smaller();
+    
+    t.assert_true(verify_ascending(vec), "Data is sorted in ascending order");
+    t.assert_eq_long(vec.get_length(), 10, "Length is preserved (10 elements)");
+    t.assert_eq_int(vec.at(0), 1, "First element is 1");
+    t.assert_eq_int(vec.at(9), 10, "Last element is 10");
+}
+
+void test_greater_basic(TestResult* t) {
+    print_section("Test 2: greater() - Basic 10 elements");
+    Vector<int> vec;
+    
+    // 昇順にデータを追加
+    int i = 1;
+    while (i <= 10) {
+        vec.push_back(i);
+        i = i + 1;
+    }
+    
+    vec.greater();
+    
+    t.assert_true(verify_descending(vec), "Data is sorted in descending order");
+    t.assert_eq_long(vec.get_length(), 10, "Length is preserved (10 elements)");
+    t.assert_eq_int(vec.at(0), 10, "First element is 10");
+    t.assert_eq_int(vec.at(9), 1, "Last element is 1");
+}
+
+void test_sort_basic(TestResult* t) {
+    print_section("Test 3: sort() - Basic 10 elements");
+    Vector<int> vec;
+    
+    // ランダムな順序でデータを追加
+    vec.push_back(5);
+    vec.push_back(2);
+    vec.push_back(8);
+    vec.push_back(1);
+    vec.push_back(9);
+    vec.push_back(3);
+    vec.push_back(7);
+    vec.push_back(4);
+    vec.push_back(6);
+    vec.push_back(10);
+    
+    vec.sort();
+    
+    t.assert_true(verify_ascending(vec), "Data is sorted in ascending order");
+    t.assert_eq_long(vec.get_length(), 10, "Length is preserved (10 elements)");
+}
+
+void test_smaller_large(TestResult* t) {
+    print_section("Test 4: smaller() - Large 100 elements");
+    Vector<int> vec;
+    
+    int i = 100;
+    while (i > 0) {
+        vec.push_back(i);
+        i = i - 1;
+    }
+    
+    vec.smaller();
+    
+    t.assert_true(verify_ascending(vec), "Large dataset is sorted in ascending order");
+    t.assert_eq_long(vec.get_length(), 100, "Length is preserved (100 elements)");
+    t.assert_eq_int(vec.at(0), 1, "First element is 1");
+    t.assert_eq_int(vec.at(99), 100, "Last element is 100");
+}
+
+void test_greater_large(TestResult* t) {
+    print_section("Test 5: greater() - Large 100 elements");
+    Vector<int> vec;
+    
+    int i = 1;
+    while (i <= 100) {
+        vec.push_back(i);
+        i = i + 1;
+    }
+    
+    vec.greater();
+    
+    t.assert_true(verify_descending(vec), "Large dataset is sorted in descending order");
+    t.assert_eq_long(vec.get_length(), 100, "Length is preserved (100 elements)");
+    t.assert_eq_int(vec.at(0), 100, "First element is 100");
+    t.assert_eq_int(vec.at(99), 1, "Last element is 1");
+}
+
+void test_sort_already_sorted(TestResult* t) {
+    print_section("Test 6: sort() - Already sorted");
+    Vector<int> vec;
+    
+    int i = 1;
+    while (i <= 20) {
+        vec.push_back(i);
+        i = i + 1;
+    }
+    
+    vec.sort();
+    
+    t.assert_true(verify_ascending(vec), "Already sorted data remains sorted");
+    t.assert_eq_long(vec.get_length(), 20, "Length is preserved (20 elements)");
+}
+
+void test_sort_reverse_sorted(TestResult* t) {
+    print_section("Test 7: sort() - Reverse sorted");
+    Vector<int> vec;
+    
+    int i = 20;
+    while (i > 0) {
+        vec.push_back(i);
+        i = i - 1;
+    }
+    
+    vec.sort();
+    
+    t.assert_true(verify_ascending(vec), "Reverse sorted data is sorted correctly");
+    t.assert_eq_long(vec.get_length(), 20, "Length is preserved (20 elements)");
+}
+
+void test_sort_duplicates(TestResult* t) {
+    print_section("Test 8: sort() - Duplicate values");
+    Vector<int> vec;
+    
+    vec.push_back(5);
+    vec.push_back(2);
+    vec.push_back(5);
+    vec.push_back(1);
+    vec.push_back(2);
+    vec.push_back(5);
+    vec.push_back(1);
+    
+    vec.sort();
+    
+    t.assert_true(verify_ascending(vec), "Duplicate values are sorted correctly");
+    t.assert_eq_long(vec.get_length(), 7, "Length is preserved (7 elements)");
+}
+
+void test_sort_single_element(TestResult* t) {
+    print_section("Test 9: sort() - Single element");
+    Vector<int> vec;
+    vec.push_back(42);
+    
+    vec.sort();
+    
+    t.assert_eq_long(vec.get_length(), 1, "Length is preserved (1 element)");
+    t.assert_eq_int(vec.at(0), 42, "Single element value is preserved");
+}
+
+void test_sort_empty(TestResult* t) {
+    print_section("Test 10: sort() - Empty vector");
+    Vector<int> vec;
+    
+    vec.sort();
+    
+    t.assert_eq_long(vec.get_length(), 0, "Empty vector remains empty");
+    t.assert_true(vec.is_empty(), "is_empty() returns true");
+}
+
+void main() {
+    print_test_header("Vector<int> Sort - Comprehensive Test Suite");
+    println("Testing O(n log n) merge sort implementation");
+    println("Using efficient O(n) pointer-based verification");
+    
+    TestResult t;
+    
+    test_smaller_basic(&t);
+    test_greater_basic(&t);
+    test_sort_basic(&t);
+    test_smaller_large(&t);
+    test_greater_large(&t);
+    test_sort_already_sorted(&t);
+    test_sort_reverse_sorted(&t);
+    test_sort_duplicates(&t);
+    test_sort_single_element(&t);
+    test_sort_empty(&t);
+    
+    t.print_summary();
+}

@@ -1203,7 +1203,27 @@ void VariableManager::assign_variable(const std::string &name,
                           << static_cast<int>(type_hint)
                           << " (TYPE_POINTER=" << static_cast<int>(TYPE_POINTER)
                           << "), str=\"" << typed_value.string_value << "\""
+                          << ", value=" << (void *)typed_value.value
                           << std::endl;
+            }
+
+            // 文字列がポインタ値のみの場合（mallocなど）
+            if (typed_value.string_value.empty() && typed_value.value != 0) {
+                target.type = TYPE_STRING;
+                target.str_value = "";            // 空の文字列
+                target.value = typed_value.value; // ポインタ値を保存
+                target.is_assigned = true;
+                target.float_value = 0.0f;
+                target.double_value = 0.0;
+                target.quad_value = 0.0L;
+                target.big_value = 0;
+
+                if (interpreter_->is_debug_mode()) {
+                    std::cerr << "[VAR_MANAGER] String pointer assignment: "
+                              << "saved pointer=" << (void *)target.value
+                              << std::endl;
+                }
+                return;
             }
 
             // type_hintがTYPE_POINTERの場合、char*パラメータとして扱う

@@ -1950,9 +1950,16 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
         }
 
         // 通常のポインタ処理
-        var.type = TYPE_POINTER;
+        // ただし、string型の場合は TYPE_STRING として扱う
+        if (node->return_type_name == "string" || node->type_name == "string") {
+            var.type = TYPE_STRING;
+        } else {
+            var.type = TYPE_POINTER;
+        }
 
         // ポインタ型の初期化式がある場合は評価して代入
+        debug_msg(DebugMsgId::VAR_DECL_POINTER_INIT, node->name.c_str(),
+                  node->init_expr != nullptr, node->right != nullptr);
         if (node->init_expr || node->right) {
             ASTNode *init_node =
                 node->init_expr ? node->init_expr.get() : node->right.get();
@@ -2100,8 +2107,22 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
                     interpreter_->current_scope()
                         .function_pointers[node->name] = func_ptr;
                 } else {
-                    var.value = typed_value.value;
-                    var.is_assigned = true;
+                    debug_msg(DebugMsgId::VAR_DECL_POINTER_VALUE,
+                              node->name.c_str(), static_cast<int>(var.type));
+
+                    // 文字列型でポインタ値のみの場合（malloc等）
+                    if (var.type == TYPE_STRING &&
+                        typed_value.string_value.empty() &&
+                        typed_value.value != 0) {
+                        var.value = typed_value.value; // ポインタ値
+                        var.str_value = "";            // 空の文字列
+                        var.is_assigned = true;
+                        debug_msg(DebugMsgId::VAR_DECL_STRING_PTR_INIT,
+                                  (void *)var.value);
+                    } else {
+                        var.value = typed_value.value;
+                        var.is_assigned = true;
+                    }
                 }
             }
 
@@ -2114,6 +2135,20 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
     }
 
     auto &scope_vars = current_scope().variables;
+
+    // 文字列型で value が 0 の場合、初期化式を再評価
+    if (var.type == TYPE_STRING && var.value == 0 && var.str_value.empty() &&
+        (node->init_expr || node->right)) {
+        ASTNode *init_node =
+            node->init_expr ? node->init_expr.get() : node->right.get();
+        TypedValue typed_value =
+            interpreter_->expression_evaluator_->evaluate_typed_expression(
+                init_node);
+        if (typed_value.value != 0 && typed_value.string_value.empty()) {
+            var.value = typed_value.value;
+            var.is_assigned = true;
+        }
+    }
 
     // v0.10.0: 構造体変数のコンストラクタ呼び出しのために情報を保存
     bool var_is_struct = var.is_struct;

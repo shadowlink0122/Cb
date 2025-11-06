@@ -255,8 +255,16 @@ TypedValue evaluate_function_member_access(const ASTNode *func_node,
                 struct_var, member_name, evaluator.get_interpreter());
 
             if (member_var.type == TYPE_STRING) {
-                TypedValue result(member_var.str_value,
-                                  InferredType(TYPE_STRING, "string"));
+                // mallocで確保したstring型ポインタの場合
+                std::string str_val;
+                if (member_var.str_value.empty() && member_var.value != 0) {
+                    const char *ptr =
+                        reinterpret_cast<const char *>(member_var.value);
+                    str_val = std::string(ptr);
+                } else {
+                    str_val = member_var.str_value;
+                }
+                TypedValue result(str_val, InferredType(TYPE_STRING, "string"));
                 evaluator.set_last_typed_result(result);
                 return result;
             } else {
@@ -364,22 +372,14 @@ evaluate_recursive_member_access(const Variable &base_var,
         throw std::runtime_error("Empty member path for recursive access");
     }
 
-    std::cerr << "DEBUG_RECURSIVE: Starting recursive access with "
-              << member_path.size() << " levels" << std::endl;
-    for (size_t i = 0; i < member_path.size(); ++i) {
-        std::cerr << "DEBUG_RECURSIVE: Path[" << i << "] = " << member_path[i]
-                  << std::endl;
-    }
+    debug_msg(DebugMsgId::MEMBER_ACCESS_RECURSIVE_START, member_path.size());
 
     Variable current_var = base_var;
 
     // 各レベルでのメンバーアクセスを再帰的に処理
     for (size_t i = 0; i < member_path.size(); ++i) {
         const std::string &member_name = member_path[i];
-        std::cerr << "DEBUG_RECURSIVE: Accessing member[" << i
-                  << "] = " << member_name << std::endl;
-        std::cerr << "DEBUG_RECURSIVE: Current var type = "
-                  << static_cast<int>(current_var.type) << std::endl;
+        debug_msg(DebugMsgId::MEMBER_ACCESS_LEVEL, i, member_name.c_str());
 
         // 現在の変数が構造体でない場合はエラー
         if (current_var.type != TYPE_STRUCT) {
@@ -391,12 +391,10 @@ evaluate_recursive_member_access(const Variable &base_var,
         try {
             current_var = get_struct_member_from_variable(
                 current_var, member_name, interpreter);
-            std::cerr
-                << "DEBUG_RECURSIVE: Successfully accessed member, new type = "
-                << static_cast<int>(current_var.type) << std::endl;
+            debug_msg(DebugMsgId::MEMBER_ACCESS_SUCCESS,
+                      static_cast<int>(current_var.type));
         } catch (const std::exception &e) {
-            std::cerr << "DEBUG_RECURSIVE: Failed to access member '"
-                      << member_name << "': " << e.what() << std::endl;
+            debug_msg(DebugMsgId::MEMBER_ACCESS_FAILED, member_name.c_str());
             throw;
         }
 
@@ -408,8 +406,9 @@ evaluate_recursive_member_access(const Variable &base_var,
     }
 
     // 最終結果を TypedValue に変換
-    std::cerr << "DEBUG_RECURSIVE: Final result type = "
-              << static_cast<int>(current_var.type) << std::endl;
+    debug_msg(DebugMsgId::MEMBER_ACCESS_FINAL_TYPE,
+              static_cast<int>(current_var.type));
+
     if (current_var.type == TYPE_STRING) {
         TypedValue result(static_cast<int64_t>(0),
                           InferredType(TYPE_STRING, "string"));
@@ -421,8 +420,6 @@ evaluate_recursive_member_access(const Variable &base_var,
         TypedValue result(
             current_var,
             InferredType(TYPE_STRUCT, current_var.struct_type_name));
-        std::cerr << "DEBUG_RECURSIVE: Returning struct TypedValue"
-                  << std::endl;
         return result;
     } else {
         return TypedValue(current_var.value, InferredType(TYPE_INT, "int"));

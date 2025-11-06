@@ -151,6 +151,12 @@ TypedValue evaluate_variable_typed(const ASTNode *node,
 
     // 変数の型に基づいて適切なTypedValueを作成
     if (var->type == TYPE_STRING) {
+        // mallocで取得したポインタを文字列に変換
+        if (var->str_value.empty() && var->value != 0) {
+            const char *ptr = reinterpret_cast<const char *>(var->value);
+            return TypedValue(std::string(ptr),
+                              InferredType(TYPE_STRING, "string"));
+        }
         return TypedValue(var->str_value, InferredType(TYPE_STRING, "string"));
     } else if (var->type == TYPE_STRUCT) {
         return TypedValue(*var,

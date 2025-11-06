@@ -265,6 +265,20 @@ int64_t ExpressionDispatcher::dispatch_expression(const ASTNode *node) {
         int64_t value =
             expression_evaluator_.evaluate_expression(node->cast_expr.get());
 
+        // string型へのキャストの場合、メタデータを作成
+        if (node->cast_type_info == TYPE_STRING) {
+            // ポインタ値をchar*として扱うためのメタデータを作成
+            char *ptr = reinterpret_cast<char *>(value);
+
+            if (interpreter_.is_debug_mode()) {
+                std::cerr << "[CAST_DEBUG] Cast to string: ptr="
+                          << reinterpret_cast<void *>(ptr) << std::endl;
+            }
+
+            // メモリアドレスをそのまま返す（stringとして扱われる）
+            return value;
+        }
+
         // 構造体ポインタへのキャストの場合、メタデータを更新
         // (Point*)ptr のようなキャストを検出
         if (node->cast_type_info == TYPE_POINTER &&

@@ -202,6 +202,23 @@ ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode *node) {
         return LiteralEvalHelpers::evaluate_nullptr_literal_typed();
     }
 
+    case ASTNodeType::AST_CAST_EXPR: {
+        // キャスト式の評価
+        int64_t value = evaluate_expression(node);
+
+        // string型へのキャストの場合、ポインタ値を保持する
+        if (node->cast_type_info == TYPE_STRING) {
+            TypedValue result(static_cast<int64_t>(0),
+                              InferredType(TYPE_STRING, "string"));
+            result.value = value;     // ポインタ値を保存
+            result.string_value = ""; // 空の文字列
+            return result;
+        }
+
+        // その他のキャストは通常の処理
+        return consume_numeric_typed_value(node, value, inferred_type);
+    }
+
     case ASTNodeType::AST_BINARY_OP: {
         // 二項演算子の評価（typed版）はBinaryUnaryTypedHelpersに移動（318行）
         auto evaluate_typed_lambda = [this](const ASTNode *n) {
@@ -363,6 +380,14 @@ ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode *node) {
 
                     // 変数の型に応じてTypedValueを返す
                     if (var->type == TYPE_STRING) {
+                        // mallocで取得したポインタを文字列に変換
+                        if (var->str_value.empty() && var->value != 0) {
+                            const char *ptr =
+                                reinterpret_cast<const char *>(var->value);
+                            return TypedValue(
+                                std::string(ptr),
+                                InferredType(TYPE_STRING, "string"));
+                        }
                         return TypedValue(var->str_value,
                                           InferredType(TYPE_STRING, "string"));
                     } else if (var->type == TYPE_FLOAT) {
@@ -1205,6 +1230,21 @@ ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode *node) {
             if (var->type == TYPE_STRUCT) {
                 return TypedValue(
                     *var, InferredType(TYPE_STRUCT, var->struct_type_name));
+            }
+
+            // 文字列変数の場合、ポインタ値から文字列を取得
+            if (var->type == TYPE_STRING) {
+                if (var->str_value.empty() && var->value != 0) {
+                    // mallocで取得したポインタを文字列に変換
+                    const char *ptr =
+                        reinterpret_cast<const char *>(var->value);
+                    return TypedValue(std::string(ptr),
+                                      InferredType(TYPE_STRING, "string"));
+                } else {
+                    // 通常の文字列値を返す
+                    return TypedValue(var->str_value,
+                                      InferredType(TYPE_STRING, "string"));
+                }
             }
         }
         // 通常の識別子の場合は通常評価

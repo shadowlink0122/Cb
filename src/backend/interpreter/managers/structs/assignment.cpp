@@ -65,14 +65,22 @@ void StructAssignmentManager::assign_struct_member(
     // value_varの型に応じて値を代入
     if (value_var.type == TYPE_STRING || !value_var.str_value.empty()) {
         // 文字列型の場合
-        member_var->str_value = value_var.str_value;
+        // str_valueが空でvalueにポインタ値がある場合（mallocで確保したstring）
+        if (value_var.str_value.empty() && value_var.value != 0) {
+            // ポインタ値をそのままvalueフィールドにコピー
+            member_var->value = value_var.value;
+            member_var->str_value = ""; // str_valueは空のまま
+        } else {
+            // 通常のstring値
+            member_var->str_value = value_var.str_value;
+            member_var->value = 0;
+        }
         if (!is_union_member) {
             member_var->type = TYPE_STRING;
         } else {
             member_var->current_type = TYPE_STRING;
         }
-        // 数値フィールドをクリア
-        member_var->value = 0;
+        // その他の数値フィールドをクリア
         member_var->float_value = 0.0f;
         member_var->double_value = 0.0;
         member_var->quad_value = 0.0L;

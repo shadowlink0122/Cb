@@ -303,24 +303,13 @@ stdlib-test-cpp: $(TESTS_DIR)/stdlib/test_main
 	@echo "============================================================="
 	@cd tests/stdlib && ./test_main
 
-# Stdlib tests (Cb language tests)
+# Stdlib tests (Cb language tests) - 1つのファイルで全テスト実行
 stdlib-test-cb: $(MAIN_TARGET)
 	@echo "============================================================="
 	@echo "Running Cb Standard Library Tests (Cb)"
+	@echo "Single file test runner with Result-based error detection"
 	@echo "============================================================="
-	@echo "\n[Allocators]"
-	@echo "[1/2] Testing SystemAllocator..."
-	@./$(MAIN_TARGET) tests/cases/stdlib/allocators/test_system_allocator.cb
-	@echo "\n[2/2] Testing BumpAllocator..."
-	@./$(MAIN_TARGET) tests/cases/stdlib/allocators/test_bump_allocator.cb
-	@echo "\n[Collections]"
-	@echo "[1/3] Testing Vector..."
-	@./$(MAIN_TARGET) tests/cases/stdlib/collections/vector/test_vector_import.cb
-	@echo "\n[2/3] Testing Queue..."
-	@./$(MAIN_TARGET) tests/cases/stdlib/collections/queue/test_queue_import.cb
-	@echo "\n[3/3] Testing Map..."
-	@./$(MAIN_TARGET) tests/cases/stdlib/collections/map/test_basic.cb
-	@echo "\n✅ All stdlib .cb tests passed!"
+	@./$(MAIN_TARGET) tests/cases/stdlib/test_stdlib_all.cb || exit 1
 
 # Run both C++ and Cb stdlib tests
 stdlib-test:
