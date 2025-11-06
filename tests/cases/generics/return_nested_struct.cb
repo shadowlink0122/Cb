@@ -1,0 +1,28 @@
+// Test returning S<P<T>>
+
+struct Box<T> {
+    T value;
+};
+
+struct Wrapper<T> {
+    T data;
+};
+
+// ジェネリック関数: ネストされた構造体を作成して返す
+Wrapper<Box<T> > create_nested<T>(T val) {
+    Wrapper<Box<T> > result;
+    result.data.value = val;
+    return result;
+}
+
+void main() {
+    println("=== Return Nested Struct Test ===");
+    
+    Wrapper<Box<int> > my_nested = create_nested<int>(42);
+    println("Returned value:", my_nested.data.value);
+    
+    Wrapper<Box<long> > long_nested = create_nested<long>(999);
+    println("Long value:", long_nested.data.value);
+    
+    println("=== Test Complete ===");
+}

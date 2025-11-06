@@ -1,0 +1,71 @@
+// 式の評価テスト
+// {}内で式を評価
+
+fn main() {
+    println("=== Expression Evaluation Tests ===");
+    
+    // 算術式
+    int a = 10;
+    int b = 20;
+    
+    println("Sum: {a + b}");
+    // 期待: Sum: 30
+    
+    println("Product: {a * b}");
+    // 期待: Product: 200
+    
+    println("Difference: {b - a}");
+    // 期待: Difference: 10
+    
+    println("Division: {b / a}");
+    // 期待: Division: 2
+    
+    // 複雑な式
+    println("Complex: {(a + b) * 2}");
+    // 期待: Complex: 60
+    
+    // 関数呼び出し
+    println("Square: {square(5)}");
+    // 期待: Square: 25
+    
+    // メンバーアクセス
+    Person p = Person{"Bob", 30};
+    println("Name: {p.name}, Age: {p.age}");
+    // 期待: Name: Bob, Age: 30
+    
+    // 配列要素
+    int[] nums = [10, 20, 30, 40, 50];
+    println("Third element: {nums[2]}");
+    // 期待: Third element: 30
+    
+    // 条件式（三項演算子）
+    int score = 85;
+    println("Grade: {score >= 80 ? \"A\" : \"B\"}");
+    // 期待: Grade: A
+    
+    // ビット演算
+    int x = 5;
+    println("Shifted: {x << 2}");
+    // 期待: Shifted: 20
+    
+    println("Binary result: {(x << 2) | 1:b}");
+    // 期待: Binary result: 10101
+    
+    // 式とフォーマットの組み合わせ
+    println("Formatted square: {square(5):04}");
+    // 期待: Formatted square: 0025
+    
+    println("Hex sum: {a + b:x}");
+    // 期待: Hex sum: 1e
+    
+    println("=== All Expression Tests Passed ===");
+}
+
+int square(int n) {
+    return n * n;
+}
+
+struct Person {
+    string name;
+    int age;
+}

@@ -295,6 +295,11 @@ TypedValue evaluate_binary_op_typed(
 
                     // 新しいメタデータを作成
                     PointerMetadata *new_meta = new PointerMetadata();
+
+                    // グローバルプールに追加（自動管理）
+                    using namespace PointerSystem;
+                    global_metadata_pool.push_back(new_meta);
+
                     new_meta->target_type = meta->target_type;
                     new_meta->address = new_address;
                     new_meta->pointed_type = meta->pointed_type;
@@ -362,44 +367,86 @@ TypedValue evaluate_binary_op_typed(
         }
         return make_integer_typed_value(left_int % right_int);
     } else if (node->op == "==") {
+        // 文字列比較
+        if (left_value.is_string() || right_value.is_string()) {
+            return make_bool_typed_value(left_value.string_value ==
+                                         right_value.string_value);
+        }
+        // 浮動小数点比較
         if (inferred_type.type_info == TYPE_QUAD ||
             inferred_type.type_info == TYPE_DOUBLE ||
-            inferred_type.type_info == TYPE_FLOAT) {
+            inferred_type.type_info == TYPE_FLOAT || left_value.is_floating() ||
+            right_value.is_floating()) {
             return make_bool_typed_value(left_quad == right_quad);
         }
         return make_bool_typed_value(left_int == right_int);
     } else if (node->op == "!=") {
+        // 文字列比較
+        if (left_value.is_string() || right_value.is_string()) {
+            return make_bool_typed_value(left_value.string_value !=
+                                         right_value.string_value);
+        }
+        // 浮動小数点比較
         if (inferred_type.type_info == TYPE_QUAD ||
             inferred_type.type_info == TYPE_DOUBLE ||
-            inferred_type.type_info == TYPE_FLOAT) {
+            inferred_type.type_info == TYPE_FLOAT || left_value.is_floating() ||
+            right_value.is_floating()) {
             return make_bool_typed_value(left_quad != right_quad);
         }
         return make_bool_typed_value(left_int != right_int);
     } else if (node->op == "<") {
+        // 文字列比較
+        if (left_value.is_string() || right_value.is_string()) {
+            return make_bool_typed_value(left_value.string_value <
+                                         right_value.string_value);
+        }
+        // 浮動小数点比較
         if (inferred_type.type_info == TYPE_QUAD ||
             inferred_type.type_info == TYPE_DOUBLE ||
-            inferred_type.type_info == TYPE_FLOAT) {
+            inferred_type.type_info == TYPE_FLOAT || left_value.is_floating() ||
+            right_value.is_floating()) {
             return make_bool_typed_value(left_quad < right_quad);
         }
         return make_bool_typed_value(left_int < right_int);
     } else if (node->op == ">") {
+        // 文字列比較
+        if (left_value.is_string() || right_value.is_string()) {
+            return make_bool_typed_value(left_value.string_value >
+                                         right_value.string_value);
+        }
+        // オペランドのいずれかが浮動小数点型なら浮動小数点比較
         if (inferred_type.type_info == TYPE_QUAD ||
             inferred_type.type_info == TYPE_DOUBLE ||
-            inferred_type.type_info == TYPE_FLOAT) {
+            inferred_type.type_info == TYPE_FLOAT || left_value.is_floating() ||
+            right_value.is_floating()) {
             return make_bool_typed_value(left_quad > right_quad);
         }
         return make_bool_typed_value(left_int > right_int);
     } else if (node->op == "<=") {
+        // 文字列比較
+        if (left_value.is_string() || right_value.is_string()) {
+            return make_bool_typed_value(left_value.string_value <=
+                                         right_value.string_value);
+        }
+        // 浮動小数点比較
         if (inferred_type.type_info == TYPE_QUAD ||
             inferred_type.type_info == TYPE_DOUBLE ||
-            inferred_type.type_info == TYPE_FLOAT) {
+            inferred_type.type_info == TYPE_FLOAT || left_value.is_floating() ||
+            right_value.is_floating()) {
             return make_bool_typed_value(left_quad <= right_quad);
         }
         return make_bool_typed_value(left_int <= right_int);
     } else if (node->op == ">=") {
+        // 文字列比較
+        if (left_value.is_string() || right_value.is_string()) {
+            return make_bool_typed_value(left_value.string_value >=
+                                         right_value.string_value);
+        }
+        // 浮動小数点比較
         if (inferred_type.type_info == TYPE_QUAD ||
             inferred_type.type_info == TYPE_DOUBLE ||
-            inferred_type.type_info == TYPE_FLOAT) {
+            inferred_type.type_info == TYPE_FLOAT || left_value.is_floating() ||
+            right_value.is_floating()) {
             return make_bool_typed_value(left_quad >= right_quad);
         }
         return make_bool_typed_value(left_int >= right_int);
@@ -513,7 +560,18 @@ TypedValue evaluate_unary_op_typed(
 
             std::string ptr_type = var->type_name + "*";
             InferredType pointer_type(TYPE_POINTER, ptr_type);
-            return TypedValue(reinterpret_cast<int64_t>(var), pointer_type);
+
+            // Variable*を返す（従来の方式）
+            int64_t addr = reinterpret_cast<int64_t>(var);
+
+            if (debug_mode) {
+                std::cerr << "[ADDRESS_OF evaluate_typed] var=" << var
+                          << ", is_struct=" << var->is_struct
+                          << ", is_array=" << var->is_array
+                          << ", returning Variable* addr=" << addr << std::endl;
+            }
+
+            return TypedValue(addr, pointer_type);
         }
 
         if (!node->left) {
@@ -532,7 +590,18 @@ TypedValue evaluate_unary_op_typed(
             // ポインタ型として返す
             std::string ptr_type = var->type_name + "*";
             InferredType pointer_type(TYPE_POINTER, ptr_type);
-            return TypedValue(reinterpret_cast<int64_t>(var), pointer_type);
+
+            // Variable*を返す（従来の方式）
+            int64_t addr = reinterpret_cast<int64_t>(var);
+
+            if (debug_mode) {
+                std::cerr << "[ADDRESS_OF evaluate_typed AST_VARIABLE] var="
+                          << var << ", is_struct=" << var->is_struct
+                          << ", is_array=" << var->is_array
+                          << ", returning Variable* addr=" << addr << std::endl;
+            }
+
+            return TypedValue(addr, pointer_type);
         }
         // 配列要素や構造体メンバーの場合は通常評価にフォールバック
         else {
@@ -566,8 +635,67 @@ TypedValue evaluate_unary_op_typed(
         TypedValue ptr_value = evaluate_typed_func(node->left.get());
         int64_t ptr_int = ptr_value.as_numeric();
 
+        // 変数参照の場合、変数の型情報も取得
+        std::string var_type_name;
+        if (node->left && node->left->node_type == ASTNodeType::AST_VARIABLE) {
+            Variable *var = interpreter.find_variable(node->left->name);
+            if (var) {
+                var_type_name = var->type_name;
+            }
+        }
+
+        if (debug_mode) {
+            std::cerr << "[DEREFERENCE] ptr_int=0x" << std::hex << ptr_int
+                      << std::dec
+                      << ", has_meta=" << ((ptr_int & (1LL << 63)) != 0)
+                      << ", type_name='" << ptr_value.type.type_name << "'"
+                      << ", var_type_name='" << var_type_name << "'"
+                      << std::endl;
+        }
+
         if (ptr_int == 0) {
             throw std::runtime_error("Null pointer dereference");
+        }
+
+        // 構造体ポインタのチェック（型名から判定）
+        // 1. TypedValueの型名をチェック
+        // 2. 変数の型名をチェック（キャスト式の結果が変数に保存されている場合）
+        std::string check_type_name = ptr_value.type.type_name;
+        if (check_type_name == "pointer" && !var_type_name.empty()) {
+            check_type_name = var_type_name;
+        }
+
+        if (!check_type_name.empty() &&
+            check_type_name.find('*') != std::string::npos) {
+            // 構造体型名から'*'を除去
+            std::string struct_name = check_type_name;
+            size_t star_pos = struct_name.find('*');
+            if (star_pos != std::string::npos) {
+                struct_name = struct_name.substr(0, star_pos);
+            }
+
+            // スペースを除去（"Point *" -> "Point"）
+            struct_name.erase(std::remove_if(struct_name.begin(),
+                                             struct_name.end(), ::isspace),
+                              struct_name.end());
+
+            // 構造体定義を確認
+            const StructDefinition *struct_def =
+                interpreter.find_struct_definition(struct_name);
+
+            if (struct_def) {
+                // 構造体ポインタのデリファレンス
+                if (debug_mode) {
+                    std::cerr << "[DEREFERENCE] Struct pointer: " << struct_name
+                              << ", address=0x" << std::hex << ptr_int
+                              << std::dec << std::endl;
+                }
+
+                // Variable*としてデリファレンス
+                Variable *var = reinterpret_cast<Variable *>(ptr_int);
+                InferredType struct_type(TYPE_STRUCT, struct_name);
+                return TypedValue(*var, struct_type);
+            }
         }
 
         // ポインタがメタデータを持つかチェック（最上位ビット）
@@ -581,6 +709,56 @@ TypedValue evaluate_unary_op_typed(
 
             if (!meta) {
                 throw std::runtime_error("Invalid pointer metadata");
+            }
+
+            // 構造体ポインタ（型キャスト済み）の場合
+            if (debug_mode) {
+                std::cerr << "[DEREFERENCE] Checking struct_type_name: '"
+                          << meta->struct_type_name << "'" << std::endl;
+            }
+
+            if (!meta->struct_type_name.empty()) {
+                // 構造体型名から'*'を除去
+                std::string struct_name = meta->struct_type_name;
+                size_t star_pos = struct_name.find('*');
+                if (star_pos != std::string::npos) {
+                    struct_name = struct_name.substr(0, star_pos);
+                }
+
+                if (debug_mode) {
+                    std::cerr << "[DEREFERENCE] Struct pointer detected: "
+                              << struct_name << ", address=0x" << std::hex
+                              << meta->address << std::dec << std::endl;
+                }
+
+                // 構造体定義を取得
+                const StructDefinition *struct_def =
+                    interpreter.find_struct_definition(struct_name);
+                if (!struct_def) {
+                    throw std::runtime_error(
+                        "Dereference requires struct or interface pointer");
+                }
+
+                // 構造体ポインタのデリファレンスは、構造体インスタンスを返す
+                // 実際には、生メモリから構造体全体を読み取るのは複雑なため、
+                // メンバーアクセス時に処理する
+                // ここでは、構造体型情報を持つTypedValueを返す
+                InferredType struct_type(TYPE_STRUCT, struct_name);
+
+                // メタデータのポインタ値（生メモリのアドレス）を返す
+                // これはメンバーアクセス時に使用される
+                void *base_ptr = reinterpret_cast<void *>(meta->address);
+
+                if (debug_mode) {
+                    std::cerr << "[DEREFERENCE] Returning TypedValue: "
+                              << "base_ptr=0x" << std::hex
+                              << reinterpret_cast<int64_t>(base_ptr) << std::dec
+                              << ", type=TYPE_STRUCT(" << struct_name << ")"
+                              << std::endl;
+                }
+
+                return TypedValue(reinterpret_cast<int64_t>(base_ptr),
+                                  struct_type);
             }
 
             // メタデータから型に応じて値を読み取り
@@ -599,28 +777,133 @@ TypedValue evaluate_unary_op_typed(
                 return TypedValue(value, deref_type);
             }
         } else {
-            // 従来の方式（変数ポインタ）
-            Variable *var = reinterpret_cast<Variable *>(ptr_int);
+            // v0.13.1: void* と void** の場合は生のポインタ値として扱う
+            // Variable* として reinterpret_cast するのは危険
+            if (check_type_name == "void**" || var_type_name == "void**") {
+                // void** をデリファレンスした結果は void*
+                // （メモリから読み取る）
+                if (debug_mode) {
+                    std::cerr << "[DEREFERENCE] void** dereference: reading "
+                                 "void* from address 0x"
+                              << std::hex << ptr_int << std::dec << std::endl;
+                }
+                // ptr_int は void** のアドレス、そこから void* を読み取る
+                void **ptr_to_ptr = reinterpret_cast<void **>(ptr_int);
+                void *ptr_value = *ptr_to_ptr;
+                int64_t ptr_as_int = reinterpret_cast<int64_t>(ptr_value);
+                if (debug_mode) {
+                    std::cerr << "[DEREFERENCE] void** -> void*: value=0x"
+                              << std::hex << ptr_as_int << std::dec
+                              << std::endl;
+                }
+                InferredType void_ptr_type(TYPE_POINTER, "void*");
+                return TypedValue(ptr_as_int, void_ptr_type);
+            }
 
-            // 参照先の変数の型で返す
-            if (var->type == TYPE_STRUCT || var->is_struct) {
-                // 構造体の場合
-                InferredType deref_type(TYPE_STRUCT, var->struct_type_name);
-                return TypedValue(*var, deref_type);
-            } else if (var->type == TYPE_STRING) {
-                // 文字列の場合
-                InferredType deref_type(TYPE_STRING, "string");
-                return TypedValue(var->str_value, deref_type);
-            } else if (var->type == TYPE_FLOAT || var->type == TYPE_DOUBLE ||
-                       var->type == TYPE_QUAD) {
-                // 浮動小数点数の場合
-                InferredType deref_type(var->type,
-                                        type_info_to_string_simple(var->type));
-                return TypedValue(var->double_value, deref_type);
+            if (check_type_name == "void*" || var_type_name == "void*") {
+                // void* のデリファレンスは未定義動作だが、
+                // 暫定的に int として読み取る（malloc からの読み取りなど）
+                if (debug_mode) {
+                    std::cerr << "[DEREFERENCE] void* dereference: reading as "
+                                 "int from 0x"
+                              << std::hex << ptr_int << std::dec << std::endl;
+                }
+                int *int_ptr = reinterpret_cast<int *>(ptr_int);
+                int value = *int_ptr;
+                InferredType int_type(TYPE_INT, "int");
+                return TypedValue(static_cast<int64_t>(value), int_type);
+            }
+
+            // 元のポインタ変数の型情報を確認
+            Variable *ptr_var = nullptr;
+            if (node->left &&
+                node->left->node_type == ASTNodeType::AST_VARIABLE) {
+                ptr_var = interpreter.find_variable(node->left->name);
+            }
+
+            // プリミティブ型のポインタ（int*, float*など）かVariable*かを判別
+            // points_to_heap_memoryフラグで判定（new式で作成されたか）
+            bool is_raw_memory_ptr = false;
+            TypeInfo deref_elem_type = TYPE_INT; // デフォルト
+            if (ptr_var && ptr_var->points_to_heap_memory) {
+                // new式で作成された生メモリポインタ
+                is_raw_memory_ptr = true;
+                deref_elem_type = ptr_var->type;
+                if (debug_mode) {
+                    std::cerr << "[DEREFERENCE] Heap memory pointer detected"
+                              << ", type=" << static_cast<int>(deref_elem_type)
+                              << std::endl;
+                }
+            }
+
+            if (is_raw_memory_ptr) {
+                // 生メモリからの読み取り（new int等で割り当てられたメモリ）
+                if (debug_mode) {
+                    std::cerr << "[DEREFERENCE] Raw memory read: ptr=0x"
+                              << std::hex << ptr_int << std::dec
+                              << ", type=" << static_cast<int>(deref_elem_type)
+                              << std::endl;
+                }
+
+                // 型に応じて適切なサイズで読み取る
+                if (deref_elem_type == TYPE_FLOAT) {
+                    float *target = reinterpret_cast<float *>(ptr_int);
+                    InferredType float_type(TYPE_FLOAT, "float");
+                    return TypedValue(static_cast<double>(*target), float_type);
+                } else if (deref_elem_type == TYPE_DOUBLE) {
+                    double *target = reinterpret_cast<double *>(ptr_int);
+                    InferredType double_type(TYPE_DOUBLE, "double");
+                    return TypedValue(*target, double_type);
+                } else if (deref_elem_type == TYPE_QUAD) {
+                    long double *target =
+                        reinterpret_cast<long double *>(ptr_int);
+                    InferredType quad_type(TYPE_QUAD, "quad");
+                    return TypedValue(static_cast<double>(*target), quad_type);
+                } else {
+                    // 整数型
+                    std::string type_name =
+                        type_info_to_string_simple(deref_elem_type);
+                    InferredType int_type(deref_elem_type, type_name);
+                    if (deref_elem_type == TYPE_LONG ||
+                        deref_elem_type == TYPE_BIG) {
+                        long *target = reinterpret_cast<long *>(ptr_int);
+                        return TypedValue(static_cast<int64_t>(*target),
+                                          int_type);
+                    } else if (deref_elem_type == TYPE_CHAR) {
+                        char *target = reinterpret_cast<char *>(ptr_int);
+                        return TypedValue(static_cast<int64_t>(*target),
+                                          int_type);
+                    } else {
+                        // デフォルトは4バイト整数
+                        int *target = reinterpret_cast<int *>(ptr_int);
+                        return TypedValue(static_cast<int64_t>(*target),
+                                          int_type);
+                    }
+                }
             } else {
-                // その他（整数型など）
-                InferredType deref_type(var->type, var->type_name);
-                return TypedValue(var->value, deref_type);
+                // 従来の方式（変数ポインタ）
+                Variable *var = reinterpret_cast<Variable *>(ptr_int);
+
+                // 参照先の変数の型で返す
+                if (var->type == TYPE_STRUCT || var->is_struct) {
+                    // 構造体の場合
+                    InferredType deref_type(TYPE_STRUCT, var->struct_type_name);
+                    return TypedValue(*var, deref_type);
+                } else if (var->type == TYPE_STRING) {
+                    // 文字列の場合
+                    InferredType deref_type(TYPE_STRING, "string");
+                    return TypedValue(var->str_value, deref_type);
+                } else if (var->type == TYPE_FLOAT ||
+                           var->type == TYPE_DOUBLE || var->type == TYPE_QUAD) {
+                    // 浮動小数点数の場合
+                    InferredType deref_type(
+                        var->type, type_info_to_string_simple(var->type));
+                    return TypedValue(var->double_value, deref_type);
+                } else {
+                    // その他（整数型など）
+                    InferredType deref_type(var->type, var->type_name);
+                    return TypedValue(var->value, deref_type);
+                }
             }
         }
     }

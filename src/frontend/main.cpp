@@ -98,6 +98,25 @@ int main(int argc, char **argv) {
         // Parserからstruct定義を同期
         interpreter.sync_struct_definitions_from_parser(&parser);
 
+        // v0.11.0: Parserからinterface/impl定義を同期
+        interpreter.sync_interface_definitions_from_parser(&parser);
+        interpreter.sync_impl_definitions_from_parser(&parser);
+
+        // v0.11.1: パース時のimportは型情報のみを取り込む
+        // 関数定義はインタプリタ側で登録する必要があるため、
+        // loaded_modulesへの追加はhandle_import_statementに任せる
+        // （重複パースは許容するが、loaded_modulesチェックで重複登録は防ぐ）
+        /*
+        if (root && !root->statements.empty()) {
+            for (const auto &stmt : root->statements) {
+                if (stmt && stmt->node_type == ASTNodeType::AST_IMPORT_STMT &&
+                    !stmt->import_path.empty()) {
+                    interpreter.mark_module_loaded(stmt->import_path);
+                }
+            }
+        }
+        */
+
         interpreter.process(root);
 
         // 正常終了：デストラクタをスキップして即座に終了

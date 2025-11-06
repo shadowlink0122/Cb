@@ -1,0 +1,23 @@
+// デバッグ：関数の返り値なしテスト
+
+int main() {
+    println("Test 1: Direct assignment");
+    Result<int, int> r1 = Result<int, int>::Ok(42);
+    println("Created r1");
+    
+    match (r1) {
+        Ok(v) => {
+            println("r1 is Ok:");
+            println(v);
+        }
+        Err(e) => {
+            println("r1 is Err:");
+            println(e);
+        }
+    }
+    
+    println("");
+    println("Test PASSED");
+    
+    return 0;
+}

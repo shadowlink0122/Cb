@@ -1,0 +1,37 @@
+// test_memcpy_verify.cb
+// memcpyの検証テスト
+
+struct Point {
+    int x;
+    int y;
+};
+
+int main() {
+    println("=== memcpy verification ===");
+    
+    Point* src = new Point;
+    src->x = 100;
+    src->y = 200;
+    
+    Point* dest = new Point;
+    dest->x = 0;
+    dest->y = 0;
+    
+    println("Before: src=({src->x}, {src->y}), dest=({dest->x}, {dest->y})");
+    
+    memcpy(dest, src, sizeof(Point));
+    
+    println("After: src=({src->x}, {src->y}), dest=({dest->x}, {dest->y})");
+    
+    // 検証
+    if (dest->x == 100 && dest->y == 200) {
+        println("✅ PASS: memcpy works correctly");
+    } else {
+        println("❌ FAIL: dest->x={dest->x}, dest->y={dest->y} (expected 100, 200)");
+    }
+    
+    delete src;
+    delete dest;
+    
+    return 0;
+}

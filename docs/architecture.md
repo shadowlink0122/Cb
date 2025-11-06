@@ -1,4 +1,4 @@
-# Cb言語パーサーアーキテクチャ（v0.9.1）
+# Cb言語パーサーアーキテクチャ（v0.11.0）
 
 ## 📐 全体アーキテクチャ
 
@@ -8,15 +8,17 @@
 │                     (メインパーサークラス)                        │
 │                                                                 │
 │  役割: パーサー全体の調整、トークン管理、状態管理                  │
-│  サイズ: 5606行（Phase 5完了後は約3000行に削減予定）              │
+│  v0.11.0の改善: ジェネリクス、文字列補間、デストラクタ対応         │
 │                                                                 │
 │  主要メンバー:                                                   │
-│  - RecursiveLexer lexer_;          // 字句解析                  │
+│  - RecursiveLexer lexer_;          // 字句解析（文字列補間対応） │
 │  - Token current_token_;            // 現在のトークン             │
 │  - typedef_map_;                    // typedef管理              │
-│  - struct_definitions_;             // 構造体定義               │
-│  - enum_definitions_;               // enum定義                │
+│  - struct_definitions_;             // 構造体定義（Generic対応）  │
+│  - enum_definitions_;               // enum定義（Generic対応）   │
 │  - interface_definitions_;          // interface定義            │
+│  - generic_struct_instances_;       // Generic構造体インスタンス  │
+│  - generic_function_instances_;     // Generic関数インスタンス    │
 │  - unique_ptr<T> parsers_[5];       // 分離パーサーインスタンス    │
 │                                                                 │
 │  ┌─────────────────────────────────────────────────────────┐  │
@@ -375,11 +377,323 @@ ASTNode* ExpressionParser::parseExpression() {
 **設計原則**:
 1. **単一責任の原則**: 各パーサーは明確な責任を持つ
 2. **1000行ルール**: 各ファイルは1000行以下を維持
-3. **テスト駆動**: 各移行後に2380テスト全合格を確認
-4. **パフォーマンス維持**: 804ms以下を維持
+3. **テスト駆動**: 各移行後に全テスト合格を確認
+
+---
+
+## 🆕 v0.11.0の機能追加
+
+### ジェネリクス対応
+
+**Parser側の変更**:
+- `parseGenericParams()`: 型パラメータの解析
+- `parseGenericArgs()`: 型引数の解析
+- struct/enum/関数宣言でのジェネリクス構文サポート
+- `impl Struct<T, A: Allocator> {}` 構文の解析
+
+**Interpreter側の変更**:
+- Generic構造体のインスタンス化システム
+- Generic関数のランタイムインスタンス化
+- 型名のマングリング/アンマングリング
+- インスタンス化キャッシュによる高速化
+
+### 文字列補間対応
+
+**Lexer側の変更**:
+- `{}` 内の式解析
+- フォーマット指定子の解析（`:d`, `:x`, `:.2f` など）
+- エスケープシーケンス `{{` と `}}` の処理
+
+**Interpreter側の変更**:
+- 実行時の式評価
+- 型に応じたフォーマット処理
+- 文字列連結の最適化
+
+### デストラクタ対応
+
+**Parser側の変更**:
+- `~self()` 構文の解析（注意: `fn deinit()` ではない）
+- implブロック内でのデストラクタ宣言
+- コンストラクタ `self()` との併用
+
+**Interpreter側の変更**:
+- デストラクタスコープ管理（`push_destructor_scope()`, `pop_destructor_scope()`）
+- LIFO順序でのデストラクタ実行
+- break/continue時のスコープクリーンアップ
+- return文実行前のクリーンアップ（defer → デストラクタ → return）
+- ジェネリック構造体デストラクタの型名アンマングル
+
+### パターンマッチング
+
+**match文の実装**:
+- Enum専用のパターンマッチング
+- variant名による分岐
+- 関連値の抽出（destructuring）
+- ワイルドカードパターン `_` のサポート
+
+**サポートされるパターン**:
+```cb
+match (option) {
+    Some(value) => println("Value: {value}"),
+    None => println("No value")
+}
+
+match (result) {
+    Ok(val) => println("Success: {val}"),
+    Err(e) => println("Error: {e}")
+}
+```
+
+### 配列操作組み込み関数
+
+**array_get() / array_set()**:
+- 実行時境界チェック付き配列アクセス
+- 範囲外アクセス時にエラーメッセージを表示してプログラムを停止
+- デバッグモードでの詳細なエラー情報提供
+
+**使用例**:
+```cb
+int[5] arr = [1, 2, 3, 4, 5];
+int val = array_get(arr, 2, 5);  // 安全なアクセス
+array_set(arr, 3, 100, 5);       // 安全な設定
+```
+
+### メモリ管理関数
+
+**malloc() / free()**:
+- C言語スタイルの動的メモリ管理
+- `void*` 型の返却
+- 手動での型キャストが必要
+
+**実装状況**:
+- ✅ malloc/free: 実装済み
+- 🔄 new/delete: 計画中（型安全、コンストラクタ/デストラクタ自動呼び出し）
+
+---
+
+## 📊 テスト統計の推移
+
+| バージョン | 統合テスト | ユニットテスト | 合計 | 成功率 |
+|-----------|-----------|--------------|------|--------|
+| v0.9.0 | 2,349 | 30 | 2,379 | 100% |
+| v0.9.1 | 2,447 | 30 | 2,477 | 100% |
+| v0.9.2 | 2,798 | 30 | 2,828 | 100% |
+| v0.10.0 | 2,924 | 30 | 2,954 | 100% |
+| **v0.11.0** | **3,341** | **30** | **3,371** | **100%** |
+
+---
+
+## 🆕 v0.11.0 Part 1a の主要変更（2025年11月5日）
+
+### 標準コレクションライブラリの完成
+
+#### Map<K, V> - AVL自己平衡二分探索木
+**実装日**: 2025年11月5日
+
+**実装内容**:
+- AVLツリーによる自己平衡二分探索木
+- すべての操作でO(log n)のパフォーマンス保証
+- 4つの回転ケース（LL, LR, RR, RL）による自動バランシング
+- ジェネリック型対応: Map<K, V>で任意の型組み合わせ
+- デストラクタによる自動メモリ解放
+
+**パフォーマンス検証**:
+- 1000要素挿入: ツリー高さ10（理論最適値: 9.97）
+- 200回検索: 100%成功率
+- 500要素削除: 正常動作
+
+**API**:
+- `init()`: 初期化
+- `insert(K key, V value)`: O(log n)
+- `get(K key, V default)`: O(log n)
+- `contains(K key)`: O(log n)
+- `try_remove(K key)`: O(log n)
+- `clear()`: 全削除
+- `size()`: 要素数取得
+
+**テスト**:
+- test_basic.cb: 10テストケース成功
+- test_stress.cb: 4ストレステスト成功
+- stdlib-test: 全28テスト成功
+
+#### テスト構造の再編成
+**実装日**: 2025年11月5日
+
+**目的**: stdlib/の階層とテスト階層を一致させ、保守性向上
+
+**新構造**:
+```
+tests/cases/stdlib/collections/
+├── map/           # Map<K, V>テスト
+├── vector/        # Vector<T>テスト
+└── queue/         # Queue<T>テスト
+```
+
+**変更内容**:
+- 各コレクション型に専用フォルダを作成
+- 各フォルダにREADME.mdを追加
+- MakefileとC++テストのパスを更新
+- 全16テストファイルを移動
+
+**テスト結果**:
+- C++テスト: 28/28成功
+- Cbテスト: 3/3成功
+- make stdlib-test: 完全成功
+
+---
+
+### Vector<T>の双方向リンクリスト実装
+
+**実装内容**:
+- 従来の配列ベースからノードベース双方向リンクリストに完全リファクタリング
+- O(1)での先頭・末尾への挿入/削除を実現
+- ノードメモリレイアウト: `[prev (sizeof(void*))][next (sizeof(void*))][data (sizeof(T))]`
+
+**API変更**:
+- **削除されたメソッド**: `init()`, `reserve()`, `get_capacity()`
+- **新規追加**: `push_front()`, `pop_front()`, `delete_at()`, `find()`, `sort()`
+- **保持**: `push_back()`, `pop_back()`, `get()`, `set()`, `get_length()`, `clear()`
+
+**パフォーマンス**:
+- 先頭追加: O(n) → O(1)
+- 末尾追加: O(1) → O(1)（変わらず）
+- ランダムアクセス: O(1) → O(n)（トレードオフ）
+
+**テスト**:
+- 新規テスト: 7個（リンクリスト機能）
+- 既存テスト: すべて合格（27/27）
+
+### import文の文字列リテラル構文廃止
+
+**実装内容**:
+- 文字列リテラルimport（`import "path/to/file.cb";`）を廃止
+- モジュールパス構文（`import module.path.name;`）に統一
+- パーサーレベルでのエラー検出を追加
+
+**変更された箇所**:
+- `statement_parser.cpp`: 文字列トークン検出時にエラーを報告
+- `recursive_parser.cpp`: 文字列リテラルimportの処理を削除
+
+**影響範囲**:
+- 41ファイルを更新
+- 全テストケース、サンプルコード、標準ライブラリを更新
+
+**エラーメッセージ**:
+```
+Error: String literal import syntax is deprecated. 
+Use 'import module.path.name;' instead of 'import "path/to/file.cb";'
+```
+
+**マイグレーション**:
+```bash
+# 旧構文から新構文への自動変換
+sed -i 's/import "\([^"]*\)";/import \1;/g' *.cb
+sed -i 's/\//./g' *.cb  # パス区切りを . に変換
+```
+
+---
+
+## 🗂️ 標準ライブラリ構造（v0.11.0）
+
+### stdlib再編成
+
+**v0.11.0の変更点**:
+- `stdlib.collections.*` → `stdlib.std.*` に統合
+- 組み込み型（Result, Option, memory, io）を削除
+- `str.cb` → `string.cb` に名前変更
+
+### 最終ディレクトリ構造
+
+```
+stdlib/
+├── std/                    # 標準ライブラリ統合フォルダ
+│   ├── test.cb            # TestFramework, assert_*
+│   ├── string.cb          # String, StringOps (19メソッド)
+│   ├── vector.cb          # Vector<T> 双方向リンクリスト
+│   ├── queue.cb           # Queue<T> 循環バッファ
+│   └── map.cb             # Map<K, V> AVL自己平衡木
+├── async/                  # 非同期処理（v0.12.0予定）
+│   └── task_queue.cb      # TaskQueue（async/await用）
+└── allocators/             # メモリアロケータ
+    └── system.cb          # SystemAllocator
+```
+
+### import構文マッピング
+
+```cb
+// ❌ 旧（廃止）
+import stdlib.collections.vector;
+import stdlib.collections.queue;
+import stdlib.collections.map;
+import stdlib.std.str;
+import stdlib.std.result;
+import stdlib.std.option;
+
+// ✅ 新
+import stdlib.std.vector;
+import stdlib.std.queue;
+import stdlib.std.map;
+import stdlib.std.string;
+// Result<T, E> と Option<T> は組み込み型（import不要）
+```
+
+### ファイルパス解決
+
+```
+import stdlib.std.vector;
+  ↓
+stdlib/std/vector.cb
+
+import stdlib.std.queue;
+  ↓
+stdlib/std/queue.cb
+```
+
+### テスト構造
+
+```
+tests/cases/stdlib/
+├── collections/           # コレクションテスト
+│   ├── README.md
+│   ├── map/              # Mapテスト
+│   │   ├── README.md
+│   │   ├── test_basic.cb
+│   │   └── test_stress.cb
+│   ├── vector/           # Vectorテスト（10ファイル）
+│   │   ├── README.md
+│   │   └── test_vector_*.cb
+│   └── queue/            # Queueテスト（4ファイル）
+│       ├── README.md
+│       └── test_queue_*.cb
+└── string/               # 文字列ライブラリテスト
+    └── test_*.cb
+```
+
+### 完全なドキュメント
+
+```
+docs/stdlib/std/
+├── README.md             # 標準ライブラリ概要
+├── vector.md             # Vector<T> API文書
+├── queue.md              # Queue<T> API文書
+├── map.md                # Map<K, V> API文書
+├── string.md             # String API文書
+└── test.md               # TestFramework API文書
+```
+
+### API概要
+
+| ライブラリ | 主な型 | 主な機能 | パフォーマンス |
+|-----------|--------|---------|---------------|
+| **test.cb** | TestResult, TestFramework | assert_*, print_summary | - |
+| **string.cb** | String, StringOps | 19メソッド（比較、検索、変換） | O(n) |
+| **vector.cb** | Vector&lt;T&gt; | 双方向リンクリスト、ソート | O(1) 先頭/末尾、O(n) アクセス |
+| **queue.cb** | Queue&lt;T&gt; | 循環バッファ、FIFO | O(1) enqueue/dequeue |
+| **map.cb** | Map&lt;K, V&gt; | AVL自己平衡木、挿入/検索/削除 | O(log n) すべて |
 
 ---
 
 **作成日**: 2025年1月  
-**バージョン**: v0.9.1  
-**ステータス**: Phase 3完了、Phase 4進行中
+**最終更新**: 2025年11月7日  
+**バージョン**: v0.11.0 Part 1a  
+**ステータス**: コレクションライブラリ完成、stdlib再編成完了、ドキュメント整備完了

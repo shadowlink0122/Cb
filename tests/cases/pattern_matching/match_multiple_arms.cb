@@ -1,0 +1,101 @@
+// Test 5: 複数のmatch armのテスト
+// Multiple match arms test
+
+enum HttpStatus {
+    Ok(int),
+    Created(int),
+    BadRequest(int),
+    NotFound(int),
+    ServerError(int)
+};
+
+int main() {
+    println("=== Test 5: Multiple match arms ===");
+    
+    // Test 1: Ok
+    HttpStatus status1 = HttpStatus::Ok(200);
+    
+    match (status1) {
+        Ok(code) => {
+            println("HTTP 200 OK:");
+            println(code);
+        }
+        Created(code) => {
+            println("HTTP 201 Created:");
+            println(code);
+        }
+        BadRequest(code) => {
+            println("HTTP 400 Bad Request:");
+            println(code);
+        }
+        NotFound(code) => {
+            println("HTTP 404 Not Found:");
+            println(code);
+        }
+        ServerError(code) => {
+            println("HTTP 500 Server Error:");
+            println(code);
+        }
+    }
+    
+    println("");
+    
+    // Test 2: NotFound
+    HttpStatus status2 = HttpStatus::NotFound(404);
+    
+    match (status2) {
+        Ok(code) => {
+            println("HTTP 200 OK:");
+            println(code);
+        }
+        Created(code) => {
+            println("HTTP 201 Created:");
+            println(code);
+        }
+        BadRequest(code) => {
+            println("HTTP 400 Bad Request:");
+            println(code);
+        }
+        NotFound(code) => {
+            println("HTTP 404 Not Found:");
+            println(code);
+        }
+        ServerError(code) => {
+            println("HTTP 500 Server Error:");
+            println(code);
+        }
+    }
+    
+    println("");
+    
+    // Test 3: ServerError
+    HttpStatus status3 = HttpStatus::ServerError(500);
+    
+    match (status3) {
+        Ok(code) => {
+            println("HTTP 200 OK:");
+            println(code);
+        }
+        Created(code) => {
+            println("HTTP 201 Created:");
+            println(code);
+        }
+        BadRequest(code) => {
+            println("HTTP 400 Bad Request:");
+            println(code);
+        }
+        NotFound(code) => {
+            println("HTTP 404 Not Found:");
+            println(code);
+        }
+        ServerError(code) => {
+            println("HTTP 500 Server Error:");
+            println(code);
+        }
+    }
+    
+    println("");
+    println("Test 5: PASSED");
+    
+    return 0;
+}

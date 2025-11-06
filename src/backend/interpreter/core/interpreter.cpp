@@ -6,8 +6,10 @@
 #include "../../../common/utf8_utils.h"
 #include "../../../frontend/recursive_parser/recursive_parser.h"
 #include "core/error_handler.h"
+#include "core/pointer_metadata.h"
 #include "core/type_inference.h"
 #include "evaluator/core/evaluator.h"
+#include "evaluator/functions/generic_instantiation.h"
 #include "executors/control_flow_executor.h" // 制御フロー実行サービス
 #include "executors/statement_executor.h"    // ヘッダーから移動
 #include "executors/statement_list_executor.h" // 文リスト・複合文実行サービス
@@ -45,6 +47,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdlib>
+#include <cstring>
 #include <fstream>
 #include <functional>
 #include <iostream>
@@ -100,6 +103,17 @@ const ASTNode *Interpreter::find_function(const std::string &name) {
             std::cerr << "[FIND_FUNCTION] Found: " << name << std::endl;
         }
         return func_it->second;
+    }
+
+    // v0.11.1: コンストラクタもチェック
+    auto ctor_it = struct_constructors_.find(name);
+    if (ctor_it != struct_constructors_.end() && !ctor_it->second.empty()) {
+        if (debug_mode) {
+            std::cerr << "[FIND_FUNCTION] Found constructor: " << name
+                      << std::endl;
+        }
+        return ctor_it
+            ->second[0]; // 最初のコンストラクタを返す（オーバーロード未実装）
     }
 
     if (debug_mode) {
@@ -181,7 +195,8 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
         // まずimport文を処理（他の宣言よりも先に実行）
         for (const auto &stmt : node->statements) {
             if (stmt->node_type == ASTNodeType::AST_IMPORT_STMT) {
-                register_global_declarations(stmt.get());
+                // v0.11.1: import文は実行が必要（関数定義を登録するため）
+                handle_import_statement(stmt.get());
             }
         }
         // 2パス変数宣言処理: 先にconst変数、次に配列
@@ -213,7 +228,8 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
         }
         // enumの定義を処理
         for (const auto &stmt : node->statements) {
-            if (stmt->node_type == ASTNodeType::AST_ENUM_DECL) {
+            if (stmt->node_type == ASTNodeType::AST_ENUM_DECL ||
+                stmt->node_type == ASTNodeType::AST_ENUM_TYPEDEF_DECL) {
                 register_global_declarations(stmt.get());
             }
         }
@@ -249,6 +265,7 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
                 stmt->node_type != ASTNodeType::AST_STRUCT_DECL &&
                 stmt->node_type != ASTNodeType::AST_STRUCT_TYPEDEF_DECL &&
                 stmt->node_type != ASTNodeType::AST_ENUM_DECL &&
+                stmt->node_type != ASTNodeType::AST_ENUM_TYPEDEF_DECL &&
                 stmt->node_type != ASTNodeType::AST_TYPEDEF_DECL &&
                 stmt->node_type != ASTNodeType::AST_UNION_TYPEDEF_DECL &&
                 stmt->node_type != ASTNodeType::AST_INTERFACE_DECL &&
@@ -364,6 +381,36 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
             if (debug_mode) {
                 debug_print("Successfully registered enum: %s\n",
                             node->name.c_str());
+            }
+        }
+        break;
+
+    case ASTNodeType::AST_ENUM_TYPEDEF_DECL:
+        // typedef enum定義を登録
+        {
+            debug_msg(DebugMsgId::INTERPRETER_ENUM_REGISTERING,
+                      node->name.c_str());
+            DEBUG_DEBUG(GENERAL, "Registering typedef enum definition: %s",
+                        node->name.c_str());
+
+            // ASTノードからenum定義情報を構築
+            // arguments内に各メンバー情報が格納されている
+            EnumDefinition enum_def;
+            enum_def.name = node->name;
+
+            for (const auto &member_node : node->arguments) {
+                if (member_node->node_type == ASTNodeType::AST_VAR_DECL) {
+                    enum_def.add_member(member_node->name,
+                                        member_node->int_value, true);
+                }
+            }
+
+            enum_manager_->register_enum(node->name, enum_def);
+
+            if (debug_mode) {
+                debug_print("Successfully registered typedef enum: %s with %zu "
+                            "members\n",
+                            node->name.c_str(), enum_def.members.size());
             }
         }
         break;
@@ -582,6 +629,10 @@ void Interpreter::process(const ASTNode *ast) {
     initialize_global_variables(ast);
 
     debug_msg(DebugMsgId::GLOBAL_DECL_COMPLETE);
+
+    // v0.11.0 Phase 1a: インスタンス化されたジェネリック構造体の型チェック
+    // すべてのグローバル宣言(interface/impl含む)が登録された後に実行
+    validate_all_interface_bounds();
 
     debug_msg(DebugMsgId::MAIN_FUNC_SEARCH);
     // main関数を探して実行
@@ -926,6 +977,14 @@ void Interpreter::execute_statement(const ASTNode *node) {
         break;
 
     // ========================================================================
+    // match文（MATCH_STMT）
+    // v0.11.0: パターンマッチング
+    // ========================================================================
+    case ASTNodeType::AST_MATCH_STMT:
+        control_flow_executor_->execute_match_statement(node);
+        break;
+
+    // ========================================================================
     // assert文（ASSERT_STMT）
     // AssertionHandlerに委譲済み
     // ========================================================================
@@ -1076,8 +1135,25 @@ void Interpreter::handle_import_statement(const ASTNode *node) {
 
     std::string module_path = node->import_path;
 
+    if (debug_mode) {
+        std::cerr << "[IMPORT] handle_import_statement called for: "
+                  << module_path << std::endl;
+        std::cerr << "[IMPORT]   loaded_modules.size()="
+                  << loaded_modules.size() << std::endl;
+        if (!loaded_modules.empty()) {
+            std::cerr << "[IMPORT]   loaded_modules: ";
+            for (const auto &m : loaded_modules) {
+                std::cerr << "'" << m << "' ";
+            }
+            std::cerr << std::endl;
+        }
+    }
+
     // モジュールが既にロード済みかチェック
     if (loaded_modules.find(module_path) != loaded_modules.end()) {
+        if (debug_mode) {
+            std::cerr << "[IMPORT]   Already loaded, skipping" << std::endl;
+        }
         return; // 既にロード済み
     }
 
@@ -1262,67 +1338,109 @@ void Interpreter::handle_import_statement(const ASTNode *node) {
                 }
                 break;
 
-            case ASTNodeType::AST_INTERFACE_DECL:
-                // インターフェース定義を登録（ASTノードを直接保存）
-                // interfaceは実行時に処理されるため、ここでは何もしない
-                // グローバルスコープにASTを保存しておく必要がある場合は追加
-                break;
-
-            case ASTNodeType::AST_IMPL_DECL:
-                // impl定義を登録
+            case ASTNodeType::AST_GENERIC_STRUCT_DECL:
+                // ジェネリック構造体定義を登録
                 {
                     if (debug_mode) {
-                        std::cerr << "[IMPORT] Registering impl for struct: "
-                                  << stmt->struct_name
-                                  << " interface: " << stmt->interface_name
+                        std::cerr << "[IMPORT] Registering generic struct: "
+                                  << imported_name << " with "
+                                  << stmt->type_parameters.size()
+                                  << " type parameters" << std::endl;
+                    }
+
+                    // ジェネリック構造体もStructDefinitionとして登録
+                    StructDefinition struct_def(imported_name);
+                    struct_def.is_generic = true;
+                    struct_def.type_parameters = stmt->type_parameters;
+
+                    // インターフェース境界をコピー
+                    struct_def.interface_bounds = stmt->interface_bounds;
+
+                    // メンバーをstmt->argumentsから登録
+                    for (const auto &member : stmt->arguments) {
+                        if (member->node_type == ASTNodeType::AST_VAR_DECL) {
+                            if (debug_mode) {
+                                std::cerr << "[IMPORT]   Generic member: "
+                                          << member->name
+                                          << " type=" << member->type_name
+                                          << std::endl;
+                            }
+                            struct_def.add_member(
+                                member->name, member->type_info,
+                                member->type_name, member->is_pointer,
+                                member->pointer_depth,
+                                member->pointer_base_type_name,
+                                member->pointer_base_type,
+                                member->is_private_member, member->is_reference,
+                                member->is_unsigned, member->is_const);
+                        }
+                    }
+
+                    if (debug_mode) {
+                        std::cerr << "[IMPORT] Generic struct " << imported_name
+                                  << " registered with "
+                                  << struct_def.members.size() << " members"
                                   << std::endl;
                     }
 
-                    // コンストラクタ・デストラクタの登録処理
-                    std::string struct_name = stmt->struct_name;
-                    for (const auto &arg : stmt->arguments) {
-                        if (!arg) {
+                    struct_definitions_[imported_name] = struct_def;
+                }
+                break;
+
+            case ASTNodeType::AST_INTERFACE_DECL:
+                // インターフェース定義を登録
+                {
+                    if (debug_mode) {
+                        std::cerr << "[IMPORT] Registering interface: "
+                                  << imported_name << std::endl;
+                    }
+
+                    // InterfaceDefinitionを作成して登録
+                    InterfaceDefinition interface_def;
+                    interface_def.name = imported_name;
+
+                    // インターフェースメソッドを登録
+                    for (const auto &member : stmt->arguments) {
+                        if (!member)
                             continue;
-                        }
 
-                        if (arg->node_type ==
-                            ASTNodeType::AST_CONSTRUCTOR_DECL) {
-                            struct_constructors_[struct_name].push_back(
-                                arg.get());
+                        if (member->node_type == ASTNodeType::AST_FUNC_DECL) {
+                            InterfaceMember iface_member(member->name,
+                                                         member->type_info,
+                                                         member->is_unsigned);
 
-                            // コンストラクタを関数としても登録（Rectangle()で呼び出せるように）
-                            // コンストラクタASTノードを直接関数として登録
-                            register_function_to_global(struct_name, arg.get());
-                            // 修飾名でも登録
-                            std::string qualified_name =
-                                module_path + "." + struct_name;
-                            register_function_to_global(qualified_name,
-                                                        arg.get());
-
-                            if (debug_mode) {
-                                std::cerr
-                                    << "[IMPORT] Registered constructor for "
-                                    << struct_name
-                                    << " (params: " << arg->parameters.size()
-                                    << ")" << std::endl;
-                                std::cerr
-                                    << "[IMPORT] Also registered as function: "
-                                    << struct_name << " and " << qualified_name
-                                    << std::endl;
+                            // パラメータを追加
+                            for (const auto &param : member->parameters) {
+                                iface_member.add_parameter(param->name,
+                                                           param->type_info,
+                                                           param->is_unsigned);
                             }
-                        } else if (arg->node_type ==
-                                   ASTNodeType::AST_DESTRUCTOR_DECL) {
-                            struct_destructors_[struct_name] = arg.get();
-                            if (debug_mode) {
-                                std::cerr
-                                    << "[IMPORT] Registered destructor for "
-                                    << struct_name << std::endl;
-                            }
+
+                            interface_def.methods.push_back(iface_member);
                         }
                     }
 
-                    // implメソッドをグローバルに登録
-                    handle_impl_declaration(stmt);
+                    // interface_operations_に登録
+                    interface_operations_->register_interface_definition(
+                        imported_name, interface_def);
+
+                    if (debug_mode) {
+                        std::cerr << "[IMPORT] Interface " << imported_name
+                                  << " registered with "
+                                  << interface_def.methods.size() << " methods"
+                                  << std::endl;
+                    }
+                }
+                break;
+
+            case ASTNodeType::AST_IMPL_DECL:
+                // v0.11.0: impl定義の登録は、impl_nodes転送後に処理される
+                // （上のimpl_nodes転送コードを参照）
+                // ここではスキップして、転送後のノードを使用する
+                if (debug_mode) {
+                    std::cerr << "[IMPORT] Skipping AST_IMPL_DECL (will be "
+                                 "processed after impl_nodes transfer): "
+                              << stmt->struct_name << std::endl;
                 }
                 break;
 
@@ -1400,6 +1518,17 @@ void Interpreter::handle_import_statement(const ASTNode *node) {
         }
     }
 
+    // v0.11.0: module parserのimpl_nodes_とimpl_definitions_をInterpreterに転送
+    // module_parserはローカル変数なので、この関数の終わりで破棄される
+    // 破棄される前にimpl_nodes_とimpl_definitions_の所有権/内容を転送する必要がある
+    //
+    // sync_impl_definitions_from_parserを使用することで：
+    // 1. impl_nodes_をInterpreterに転送
+    // 2. impl_definitions_の内容（constructors/methodsのポインタ）をコピー
+    // 3. 転送後のノードでポインタを更新
+    // 4. Parser側のimpl_definitions_をクリア
+    sync_impl_definitions_from_parser(&parser);
+
     // モジュールをロード済みとしてマーク
     loaded_modules.insert(module_path);
 
@@ -1418,6 +1547,16 @@ void Interpreter::assign_function_parameter(const std::string &name,
                                             const TypedValue &value,
                                             TypeInfo type, bool is_unsigned) {
     variable_manager_->assign_function_parameter(name, value, type,
+                                                 is_unsigned);
+}
+
+// v0.11.0 Phase 1a: 型名を受け取るオーバーロード
+void Interpreter::assign_function_parameter(const std::string &name,
+                                            const TypedValue &value,
+                                            TypeInfo type,
+                                            const std::string &type_name,
+                                            bool is_unsigned) {
+    variable_manager_->assign_function_parameter(name, value, type, type_name,
                                                  is_unsigned);
 }
 
@@ -1461,6 +1600,176 @@ void Interpreter::assign_array_element(const std::string &name, int64_t index,
         throw std::runtime_error("Undefined array");
     }
 
+    // v0.11.0 Week 2 Day 3 修正: ポインタ経由の配列アクセスとポインタ配列を区別
+    // - var->is_pointer && var->is_array:
+    // ポインタ配列（通常の配列代入として処理）
+    // - var->is_pointer && !var->is_array:
+    // 単一ポインタ（ポインタ経由のアクセス）
+    if (var->is_pointer && !var->is_array) {
+        // 単一ポインタが配列を指している場合のみ、ポインタ経由のアクセスとして処理
+        int64_t ptr_value = var->value;
+        bool is_metadata_ptr = (ptr_value < 0); // 負の値 = メタデータ
+
+        if (is_metadata_ptr) {
+            // メタデータポインタの場合
+            int64_t clean_ptr = ptr_value & ~(1LL << 63);
+            PointerSystem::PointerMetadata *meta =
+                reinterpret_cast<PointerSystem::PointerMetadata *>(clean_ptr);
+
+            if (!meta || !meta->array_var) {
+                throw std::runtime_error(
+                    "Invalid pointer metadata in assignment");
+            }
+
+            // 元のインデックス + オフセット
+            int64_t effective_index = meta->element_index + index;
+            Variable *target_array = meta->array_var;
+            TypeInfo elem_type = meta->element_type;
+
+            // 型に応じた書き込み
+            if (elem_type == TYPE_FLOAT) {
+                float f_val;
+                memcpy(&f_val, &value, sizeof(float));
+                if (!target_array->array_float_values.empty()) {
+                    if (effective_index < 0 ||
+                        effective_index >=
+                            static_cast<int64_t>(
+                                target_array->array_float_values.size())) {
+                        throw std::runtime_error(
+                            "Pointer array index out of bounds in assignment");
+                    }
+                    target_array->array_float_values[effective_index] = f_val;
+                } else if (!target_array->multidim_array_float_values.empty()) {
+                    if (effective_index < 0 ||
+                        effective_index >=
+                            static_cast<int64_t>(
+                                target_array->multidim_array_float_values
+                                    .size())) {
+                        throw std::runtime_error(
+                            "Pointer array index out of bounds in assignment");
+                    }
+                    target_array->multidim_array_float_values[effective_index] =
+                        f_val;
+                } else {
+                    throw std::runtime_error("Float array not initialized");
+                }
+            } else if (elem_type == TYPE_DOUBLE) {
+                double d_val;
+                memcpy(&d_val, &value, sizeof(double));
+                if (!target_array->array_double_values.empty()) {
+                    if (effective_index < 0 ||
+                        effective_index >=
+                            static_cast<int64_t>(
+                                target_array->array_double_values.size())) {
+                        throw std::runtime_error(
+                            "Pointer array index out of bounds in assignment");
+                    }
+                    target_array->array_double_values[effective_index] = d_val;
+                } else if (!target_array->multidim_array_double_values
+                                .empty()) {
+                    if (effective_index < 0 ||
+                        effective_index >=
+                            static_cast<int64_t>(
+                                target_array->multidim_array_double_values
+                                    .size())) {
+                        throw std::runtime_error(
+                            "Pointer array index out of bounds in assignment");
+                    }
+                    target_array
+                        ->multidim_array_double_values[effective_index] = d_val;
+                } else {
+                    throw std::runtime_error("Double array not initialized");
+                }
+            } else {
+                // int配列など整数型の場合
+                if (effective_index < 0 ||
+                    effective_index >= static_cast<int64_t>(
+                                           target_array->array_values.size())) {
+                    throw std::runtime_error(
+                        "Pointer array index out of bounds in assignment");
+                }
+                target_array->array_values[effective_index] = value;
+            }
+
+            debug_msg(DebugMsgId::ARRAY_ELEMENT_ASSIGN_SUCCESS);
+            return;
+        } else {
+            // 直接のVariable*ポインタの場合
+            Variable *target_array = reinterpret_cast<Variable *>(ptr_value);
+            if (!target_array || !target_array->is_array) {
+                throw std::runtime_error(
+                    "Pointer does not point to an array in assignment");
+            }
+
+            TypeInfo base_type = (target_array->type >= TYPE_ARRAY_BASE)
+                                     ? static_cast<TypeInfo>(
+                                           target_array->type - TYPE_ARRAY_BASE)
+                                     : target_array->type;
+
+            if (base_type == TYPE_FLOAT) {
+                float f_val;
+                memcpy(&f_val, &value, sizeof(float));
+                if (!target_array->array_float_values.empty()) {
+                    if (index < 0 ||
+                        index >= static_cast<int64_t>(
+                                     target_array->array_float_values.size())) {
+                        throw std::runtime_error(
+                            "Pointer array index out of bounds in assignment");
+                    }
+                    target_array->array_float_values[index] = f_val;
+                } else if (!target_array->multidim_array_float_values.empty()) {
+                    if (index < 0 ||
+                        index >= static_cast<int64_t>(
+                                     target_array->multidim_array_float_values
+                                         .size())) {
+                        throw std::runtime_error(
+                            "Pointer array index out of bounds in assignment");
+                    }
+                    target_array->multidim_array_float_values[index] = f_val;
+                } else {
+                    throw std::runtime_error("Float array not initialized");
+                }
+            } else if (base_type == TYPE_DOUBLE) {
+                double d_val;
+                memcpy(&d_val, &value, sizeof(double));
+                if (!target_array->array_double_values.empty()) {
+                    if (index < 0 ||
+                        index >=
+                            static_cast<int64_t>(
+                                target_array->array_double_values.size())) {
+                        throw std::runtime_error(
+                            "Pointer array index out of bounds in assignment");
+                    }
+                    target_array->array_double_values[index] = d_val;
+                } else if (!target_array->multidim_array_double_values
+                                .empty()) {
+                    if (index < 0 ||
+                        index >= static_cast<int64_t>(
+                                     target_array->multidim_array_double_values
+                                         .size())) {
+                        throw std::runtime_error(
+                            "Pointer array index out of bounds in assignment");
+                    }
+                    target_array->multidim_array_double_values[index] = d_val;
+                } else {
+                    throw std::runtime_error("Double array not initialized");
+                }
+            } else {
+                // int配列など整数型の場合
+                if (index < 0 ||
+                    index >= static_cast<int64_t>(
+                                 target_array->array_values.size())) {
+                    throw std::runtime_error(
+                        "Pointer array index out of bounds in assignment");
+                }
+                target_array->array_values[index] = value;
+            }
+
+            debug_msg(DebugMsgId::ARRAY_ELEMENT_ASSIGN_SUCCESS);
+            return;
+        }
+    }
+
     // 共通実装を使用
     try {
         common_operations_->assign_array_element_safe(var, index, value, name);
@@ -1483,6 +1792,159 @@ void Interpreter::assign_array_element_float(const std::string &name,
         debug_msg(DebugMsgId::VARIABLE_NOT_FOUND, name.c_str());
         error_msg(DebugMsgId::UNDEFINED_ARRAY_ERROR, name.c_str());
         throw std::runtime_error("Undefined array");
+    }
+
+    // v0.11.0 Week 2 Day 3 修正: ポインタ経由の配列アクセスとポインタ配列を区別
+    // - var->is_pointer && var->is_array:
+    // ポインタ配列（通常の配列代入として処理）
+    // - var->is_pointer && !var->is_array:
+    // 単一ポインタ（ポインタ経由のアクセス）
+    if (var->is_pointer && !var->is_array) {
+        // 単一ポインタが配列を指している場合のみ、ポインタ経由のアクセスとして処理
+        int64_t ptr_value = var->value;
+        bool is_metadata_ptr = (ptr_value < 0); // 負の値 = メタデータ
+
+        if (is_metadata_ptr) {
+            // メタデータポインタの場合
+            int64_t clean_ptr = ptr_value & ~(1LL << 63);
+            PointerSystem::PointerMetadata *meta =
+                reinterpret_cast<PointerSystem::PointerMetadata *>(clean_ptr);
+
+            if (!meta || !meta->array_var) {
+                throw std::runtime_error(
+                    "Invalid pointer metadata in assignment");
+            }
+
+            // 元のインデックス + オフセット
+            int64_t effective_index = meta->element_index + index;
+            Variable *target_array = meta->array_var;
+            TypeInfo elem_type = meta->element_type;
+
+            // 型に応じた書き込み
+            if (elem_type == TYPE_FLOAT) {
+                if (!target_array->array_float_values.empty()) {
+                    if (effective_index < 0 ||
+                        effective_index >=
+                            static_cast<int64_t>(
+                                target_array->array_float_values.size())) {
+                        throw std::runtime_error(
+                            "Pointer array index out of bounds in assignment");
+                    }
+                    target_array->array_float_values[effective_index] =
+                        static_cast<float>(value);
+                } else if (!target_array->multidim_array_float_values.empty()) {
+                    if (effective_index < 0 ||
+                        effective_index >=
+                            static_cast<int64_t>(
+                                target_array->multidim_array_float_values
+                                    .size())) {
+                        throw std::runtime_error(
+                            "Pointer array index out of bounds in assignment");
+                    }
+                    target_array->multidim_array_float_values[effective_index] =
+                        static_cast<float>(value);
+                } else {
+                    throw std::runtime_error("Float array not initialized");
+                }
+            } else if (elem_type == TYPE_DOUBLE) {
+                if (!target_array->array_double_values.empty()) {
+                    if (effective_index < 0 ||
+                        effective_index >=
+                            static_cast<int64_t>(
+                                target_array->array_double_values.size())) {
+                        throw std::runtime_error(
+                            "Pointer array index out of bounds in assignment");
+                    }
+                    target_array->array_double_values[effective_index] = value;
+                } else if (!target_array->multidim_array_double_values
+                                .empty()) {
+                    if (effective_index < 0 ||
+                        effective_index >=
+                            static_cast<int64_t>(
+                                target_array->multidim_array_double_values
+                                    .size())) {
+                        throw std::runtime_error(
+                            "Pointer array index out of bounds in assignment");
+                    }
+                    target_array
+                        ->multidim_array_double_values[effective_index] = value;
+                } else {
+                    throw std::runtime_error("Double array not initialized");
+                }
+            } else {
+                throw std::runtime_error(
+                    "assign_array_element_float called on non-float pointer");
+            }
+
+            debug_msg(DebugMsgId::ARRAY_ELEMENT_ASSIGN_SUCCESS);
+            return;
+        } else {
+            // 直接のVariable*ポインタの場合
+            Variable *target_array = reinterpret_cast<Variable *>(ptr_value);
+            if (!target_array || !target_array->is_array) {
+                throw std::runtime_error(
+                    "Pointer does not point to an array in assignment");
+            }
+
+            TypeInfo base_type = (target_array->type >= TYPE_ARRAY_BASE)
+                                     ? static_cast<TypeInfo>(
+                                           target_array->type - TYPE_ARRAY_BASE)
+                                     : target_array->type;
+
+            if (base_type == TYPE_FLOAT) {
+                if (!target_array->array_float_values.empty()) {
+                    if (index < 0 ||
+                        index >= static_cast<int64_t>(
+                                     target_array->array_float_values.size())) {
+                        throw std::runtime_error(
+                            "Pointer array index out of bounds in assignment");
+                    }
+                    target_array->array_float_values[index] =
+                        static_cast<float>(value);
+                } else if (!target_array->multidim_array_float_values.empty()) {
+                    if (index < 0 ||
+                        index >= static_cast<int64_t>(
+                                     target_array->multidim_array_float_values
+                                         .size())) {
+                        throw std::runtime_error(
+                            "Pointer array index out of bounds in assignment");
+                    }
+                    target_array->multidim_array_float_values[index] =
+                        static_cast<float>(value);
+                } else {
+                    throw std::runtime_error("Float array not initialized");
+                }
+            } else if (base_type == TYPE_DOUBLE) {
+                if (!target_array->array_double_values.empty()) {
+                    if (index < 0 ||
+                        index >=
+                            static_cast<int64_t>(
+                                target_array->array_double_values.size())) {
+                        throw std::runtime_error(
+                            "Pointer array index out of bounds in assignment");
+                    }
+                    target_array->array_double_values[index] = value;
+                } else if (!target_array->multidim_array_double_values
+                                .empty()) {
+                    if (index < 0 ||
+                        index >= static_cast<int64_t>(
+                                     target_array->multidim_array_double_values
+                                         .size())) {
+                        throw std::runtime_error(
+                            "Pointer array index out of bounds in assignment");
+                    }
+                    target_array->multidim_array_double_values[index] = value;
+                } else {
+                    throw std::runtime_error("Double array not initialized");
+                }
+            } else {
+                throw std::runtime_error(
+                    "assign_array_element_float called on non-float pointer");
+            }
+
+            debug_msg(DebugMsgId::ARRAY_ELEMENT_ASSIGN_SUCCESS);
+            return;
+        }
     }
 
     // 境界チェック
@@ -1577,6 +2039,99 @@ void Interpreter::assign_string_element(const std::string &name, int64_t index,
 
     var->str_value = new_string;
     debug_msg(DebugMsgId::STRING_AFTER_REPLACE_DEBUG, var->str_value.c_str());
+}
+
+// v0.11.0 Week 3 Day 1: 構造体配列要素への代入
+void Interpreter::assign_struct_to_array_element(const std::string &array_name,
+                                                 int64_t index,
+                                                 const Variable &struct_value) {
+    debug_msg(DebugMsgId::INTERPRETER_STRUCT_REGISTERED,
+              "Assigning struct to array element: %s[%lld]", array_name.c_str(),
+              index);
+
+    // 配列変数を取得
+    Variable *array_var = find_variable(array_name);
+    if (!array_var) {
+        error_msg(DebugMsgId::UNDEFINED_ARRAY_ERROR, array_name.c_str());
+        throw std::runtime_error("Array not found: " + array_name);
+    }
+
+    if (!array_var->is_array) {
+        throw std::runtime_error("Not an array: " + array_name);
+    }
+
+    // 構造体配列の確認
+    if (array_var->type != TYPE_STRUCT && !array_var->is_struct) {
+        throw std::runtime_error("Not a struct array: " + array_name);
+    }
+
+    // 範囲チェック
+    if (index < 0 || index >= array_var->array_size) {
+        debug_msg(DebugMsgId::ARRAY_INDEX_OUT_OF_BOUNDS, index,
+                  array_var->array_size);
+        error_msg(DebugMsgId::ARRAY_OUT_OF_BOUNDS_ERROR, array_name.c_str());
+        throw std::runtime_error("Array index out of bounds");
+    }
+
+    // 構造体配列要素は個別の名前付き変数として保存されている
+    // 例: tasks[0], tasks[1], etc.
+    std::string element_name = array_name + "[" + std::to_string(index) + "]";
+
+    // 既存の変数を探す
+    Variable *element_var = find_variable(element_name);
+    if (!element_var) {
+        // 変数が存在しない場合は作成（初期化されていない配列の場合）
+        current_scope().variables[element_name] = Variable();
+        element_var = &current_scope().variables[element_name];
+        element_var->type = TYPE_STRUCT;
+        element_var->is_struct = true;
+        element_var->struct_type_name = struct_value.struct_type_name;
+
+        // 構造体定義に基づいてメンバー変数を作成
+        std::string resolved_type =
+            type_manager_->resolve_typedef(struct_value.struct_type_name);
+        const StructDefinition *struct_def =
+            find_struct_definition(resolved_type);
+        if (struct_def) {
+            for (const auto &member : struct_def->members) {
+                Variable member_var;
+                member_var.type = member.type;
+                member_var.is_unsigned = member.is_unsigned;
+                member_var.is_assigned = false;
+
+                if (member.type == TYPE_STRUCT) {
+                    member_var.is_struct = true;
+                    member_var.struct_type_name = member.type_alias;
+                }
+
+                element_var->struct_members[member.name] = member_var;
+
+                // 個別のメンバー変数も作成（例: tasks[0].task_id）
+                std::string member_path = element_name + "." + member.name;
+                current_scope().variables[member_path] = member_var;
+            }
+        }
+    }
+
+    // 構造体データをコピー
+    element_var->struct_members = struct_value.struct_members;
+    element_var->is_assigned = true;
+
+    // 各メンバー変数も更新（例: tasks[0].task_id）
+    for (const auto &member : struct_value.struct_members) {
+        std::string member_path = element_name + "." + member.first;
+        Variable *member_var = find_variable(member_path);
+        if (member_var) {
+            *member_var = member.second;
+        } else {
+            // メンバー変数が存在しない場合は作成
+            current_scope().variables[member_path] = member.second;
+        }
+    }
+
+    debug_msg(DebugMsgId::INTERPRETER_STRUCT_REGISTERED,
+              "Struct assigned to array element: %s[%lld]", array_name.c_str(),
+              index);
 }
 
 // print_value と print_formatted は薄いラッパーなので、
@@ -2177,12 +2732,101 @@ void Interpreter::call_default_constructor(
     // デフォルトコンストラクタ（パラメータなし）を探す
     auto it = struct_constructors_.find(struct_type_name);
     if (it == struct_constructors_.end() || it->second.empty()) {
-        // コンストラクタが定義されていない場合は何もしない
-        if (debug_mode) {
-            debug_print("No constructor defined for struct: %s\n",
-                        struct_type_name.c_str());
+        // v0.11.0: 実行時型解決アプローチ
+        // ジェネリック構造体の場合、implをインスタンス化してコンストラクタを登録
+        // Queue<int> 形式で判定（マングリングしない）
+        if (struct_type_name.find('<') != std::string::npos) {
+            if (debug_mode) {
+                debug_print("[GENERIC_CTOR] Looking for impl for %s\n",
+                            struct_type_name.c_str());
+            }
+
+            // find_impl_for_structは自動的にインスタンス化を試みる
+            const ImplDefinition *impl_def =
+                interface_operations_->find_impl_for_struct(struct_type_name,
+                                                            "");
+
+            if (impl_def && impl_def->is_generic_instance) {
+                if (debug_mode) {
+                    debug_print("[GENERIC_CTOR] Found generic instance impl "
+                                "with %zu constructors\n",
+                                impl_def->constructors.size());
+                }
+
+                // TypeContextをpush（実行時型解決用）
+                push_type_context(impl_def->get_type_context());
+
+                // コンストラクタを登録
+                for (const auto *ctor : impl_def->constructors) {
+                    if (ctor) {
+                        register_constructor(struct_type_name, ctor);
+                    }
+                }
+                if (impl_def->destructor) {
+                    register_destructor(struct_type_name, impl_def->destructor);
+                }
+
+                // 再度コンストラクタを探す
+                it = struct_constructors_.find(struct_type_name);
+                if (it != struct_constructors_.end() && !it->second.empty()) {
+                    if (debug_mode) {
+                        debug_print("[GENERIC_CTOR] Constructor registered "
+                                    "successfully\n");
+                    }
+                } else {
+                    if (debug_mode) {
+                        debug_print("[GENERIC_CTOR] No constructor found after "
+                                    "registration\n");
+                    }
+                    pop_type_context(); // cleanup
+                    return;
+                }
+            } else {
+                if (debug_mode) {
+                    debug_print("[GENERIC_CTOR] No impl found for %s\n",
+                                struct_type_name.c_str());
+                }
+                // v0.11.1: implが見つからない場合でも、構造体のメンバーを初期化
+                // struct定義からメンバー変数を作成
+                Variable *struct_var = find_variable(var_name);
+                if (debug_mode) {
+                    debug_print(
+                        "[GENERIC_CTOR] find_variable(%s) returned: %p\n",
+                        var_name.c_str(), (void *)struct_var);
+                }
+                if (struct_var) {
+                    // メンバー変数を再帰的に作成
+                    create_struct_member_variables_recursively(
+                        var_name, struct_type_name, *struct_var);
+                    if (debug_mode) {
+                        debug_print("[GENERIC_CTOR] Created struct member "
+                                    "variables for %s\n",
+                                    var_name.c_str());
+                    }
+                } else if (debug_mode) {
+                    debug_print("[GENERIC_CTOR] ERROR: Variable %s not found\n",
+                                var_name.c_str());
+                }
+                return;
+            }
+        } else {
+            // コンストラクタが定義されていない場合、構造体のメンバーを初期化
+            if (debug_mode) {
+                debug_print("No constructor defined for struct: %s\n",
+                            struct_type_name.c_str());
+            }
+            // v0.11.1: struct定義からメンバー変数を作成
+            Variable *struct_var = find_variable(var_name);
+            if (struct_var) {
+                create_struct_member_variables_recursively(
+                    var_name, struct_type_name, *struct_var);
+                if (debug_mode) {
+                    debug_print("Created struct member variables for %s\n",
+                                var_name.c_str());
+                }
+            }
+            return;
         }
-        return;
     }
 
     // パラメータなしのコンストラクタを探す
@@ -2254,9 +2898,18 @@ void Interpreter::call_default_constructor(
                 *direct_member = member_value;
             }
         }
+
+        // ネストされた構造体メンバーの個別変数も同期
+        sync_direct_access_from_struct_value(var_name, *struct_var);
     }
 
     pop_scope(); // コンストラクタスコープを終了
+
+    // v0.11.0: ジェネリックimplの場合、TypeContextをpop
+    // Queue<int> 形式で判定（マングリングしない）
+    if (struct_type_name.find('<') != std::string::npos) {
+        pop_type_context();
+    }
 }
 
 void Interpreter::call_constructor(const std::string &var_name,
@@ -2265,8 +2918,153 @@ void Interpreter::call_constructor(const std::string &var_name,
     // 引数付きコンストラクタを探す
     auto it = struct_constructors_.find(struct_type_name);
     if (it == struct_constructors_.end() || it->second.empty()) {
-        throw std::runtime_error("No constructor defined for struct: " +
-                                 struct_type_name);
+        // v0.13.0: ジェネリック構造体 Box<int> の場合、Box<T> で検索を試みる
+        if (struct_type_name.find('<') != std::string::npos) {
+            size_t bracket_pos = struct_type_name.find('<');
+            std::string base_name = struct_type_name.substr(0, bracket_pos);
+            std::string generic_key = base_name + "<T>";
+
+            if (debug_mode) {
+                std::cerr << "[GENERIC_CTOR] Looking for generic constructor: "
+                          << struct_type_name << " -> " << generic_key
+                          << std::endl;
+            }
+
+            it = struct_constructors_.find(generic_key);
+            if (it != struct_constructors_.end() && !it->second.empty()) {
+                if (debug_mode) {
+                    std::cerr
+                        << "[GENERIC_CTOR] Found generic constructor for: "
+                        << generic_key << " (count: " << it->second.size()
+                        << ")" << std::endl;
+                }
+                // v0.13.1: Box<T> のコンストラクタをそのまま Box<int> 用に登録
+                // (実行時型解決により、元のノードを再利用できる)
+                for (const auto *ctor_node : it->second) {
+                    register_constructor(struct_type_name, ctor_node);
+                    if (debug_mode) {
+                        std::cerr
+                            << "[GENERIC_CTOR] Registered constructor from "
+                            << generic_key << " for: " << struct_type_name
+                            << std::endl;
+                    }
+                }
+
+                // デストラクタも登録
+                auto dtor_it = struct_destructors_.find(generic_key);
+                if (dtor_it != struct_destructors_.end() && dtor_it->second) {
+                    register_destructor(struct_type_name, dtor_it->second);
+                    if (debug_mode) {
+                        std::cerr
+                            << "[GENERIC_CTOR] Registered destructor from "
+                            << generic_key << " for: " << struct_type_name
+                            << std::endl;
+                    }
+                }
+
+                // 再度コンストラクタを探す
+                it = struct_constructors_.find(struct_type_name);
+                if (debug_mode) {
+                    std::cerr << "[GENERIC_CTOR] After registration, "
+                                 "constructor found: "
+                              << (it != struct_constructors_.end() &&
+                                  !it->second.empty())
+                              << std::endl;
+                }
+            }
+        }
+
+        // コンストラクタが見つかっていない場合のみ、マングリング形式を試す
+        if (it == struct_constructors_.end() || it->second.empty()) {
+            // マングリング形式 (Box_int) でも試す
+            if (struct_type_name.find('_') != std::string::npos) {
+                std::vector<std::string> type_arguments;
+                std::string base_name;
+
+                size_t underscore_pos = struct_type_name.find('_');
+                if (underscore_pos != std::string::npos) {
+                    base_name = struct_type_name.substr(0, underscore_pos);
+                    std::string type_args_str =
+                        struct_type_name.substr(underscore_pos + 1);
+                    type_arguments.push_back(type_args_str);
+
+                    if (debug_mode) {
+                        debug_print("[GENERIC_CTOR] Instantiating impl for %s "
+                                    "(base: %s, type_arg: %s)\n",
+                                    struct_type_name.c_str(), base_name.c_str(),
+                                    type_args_str.c_str());
+                    }
+
+                    // ジェネリックimplを探してインスタンス化
+                    const ImplDefinition *impl_def =
+                        interface_operations_->find_impl_for_struct(
+                            base_name + "<T>", "");
+
+                    if (impl_def && impl_def->impl_node) {
+                        if (debug_mode) {
+                            debug_print("[GENERIC_CTOR] Found generic impl, "
+                                        "instantiating...\n");
+                        }
+
+                        try {
+                            auto result =
+                                GenericInstantiation::instantiate_generic_impl(
+                                    impl_def->impl_node, type_arguments, "",
+                                    base_name + "<T>");
+
+                            auto &inst_node = std::get<2>(result);
+                            ASTNode *inst_node_ptr = inst_node.release();
+
+                            // コンストラクタ/デストラクタを登録
+                            for (const auto &method_node :
+                                 inst_node_ptr->arguments) {
+                                if (!method_node)
+                                    continue;
+
+                                if (method_node->node_type ==
+                                    ASTNodeType::AST_CONSTRUCTOR_DECL) {
+                                    register_constructor(struct_type_name,
+                                                         method_node.get());
+                                } else if (method_node->node_type ==
+                                           ASTNodeType::AST_DESTRUCTOR_DECL) {
+                                    register_destructor(struct_type_name,
+                                                        method_node.get());
+                                }
+                            }
+
+                            // 再度コンストラクタを探す
+                            it = struct_constructors_.find(struct_type_name);
+                            if (it == struct_constructors_.end() ||
+                                it->second.empty()) {
+                                throw std::runtime_error(
+                                    "No constructor defined for struct: " +
+                                    struct_type_name);
+                            }
+                        } catch (const std::exception &e) {
+                            if (debug_mode) {
+                                debug_print("[GENERIC_CTOR] Failed to "
+                                            "instantiate: %s\n",
+                                            e.what());
+                            }
+                            throw std::runtime_error(
+                                "No constructor defined for struct: " +
+                                struct_type_name);
+                        }
+                    } else {
+                        throw std::runtime_error(
+                            "No constructor defined for struct: " +
+                            struct_type_name);
+                    }
+                } else {
+                    throw std::runtime_error(
+                        "No constructor defined for struct: " +
+                        struct_type_name);
+                }
+            } else {
+                throw std::runtime_error("No constructor defined for struct: " +
+                                         struct_type_name);
+            }
+        }
     }
 
     // パラメータ数が一致するコンストラクタを探す
@@ -2294,6 +3092,25 @@ void Interpreter::call_constructor(const std::string &var_name,
     Variable *struct_var = find_variable(var_name);
     if (!struct_var) {
         throw std::runtime_error("Variable not found: " + var_name);
+    }
+
+    // v0.13.0: ジェネリック構造体 (Box<int> 形式) の場合、TypeContextをプッシュ
+    bool is_generic = (struct_type_name.find('<') != std::string::npos);
+    if (is_generic) {
+        size_t open_bracket = struct_type_name.find('<');
+        size_t close_bracket = struct_type_name.find('>');
+        if (open_bracket != std::string::npos &&
+            close_bracket != std::string::npos) {
+            std::string type_arg = struct_type_name.substr(
+                open_bracket + 1, close_bracket - open_bracket - 1);
+            if (debug_mode) {
+                std::cerr << "[GENERIC_CTOR] Pushing TypeContext: T="
+                          << type_arg << std::endl;
+            }
+            TypeContext ctx;
+            ctx.type_map["T"] = type_arg;
+            push_type_context(ctx);
+        }
     }
 
     // コンストラクタ用の新しいスコープを作成
@@ -2346,9 +3163,20 @@ void Interpreter::call_constructor(const std::string &var_name,
                 *direct_member = member_value;
             }
         }
+
+        // ネストされた構造体メンバーの個別変数も同期
+        sync_direct_access_from_struct_value(var_name, *struct_var);
     }
 
     pop_scope(); // コンストラクタスコープを終了
+
+    // v0.13.0: ジェネリック構造体の場合、TypeContextをpop
+    if (is_generic) {
+        if (debug_mode) {
+            std::cerr << "[GENERIC_CTOR] Popping TypeContext" << std::endl;
+        }
+        pop_type_context();
+    }
 }
 
 void Interpreter::call_copy_constructor(const std::string &var_name,
@@ -2496,22 +3324,107 @@ void Interpreter::call_copy_constructor(const std::string &var_name,
 
 void Interpreter::call_destructor(const std::string &var_name,
                                   const std::string &struct_type_name) {
-    // デストラクタを探す
-    auto it = struct_destructors_.find(struct_type_name);
-    if (it == struct_destructors_.end() || !it->second) {
-        // デストラクタが定義されていない場合は何もしない
+    // v0.11.0: Double free防止 - 既にデストラクタが呼ばれている場合はスキップ
+    Variable *var = find_variable(var_name);
+    if (var && var->destructor_called) {
         if (debug_mode) {
-            debug_print("No destructor defined for struct: %s\n",
-                        struct_type_name.c_str());
+            debug_print("Destructor already called for %s, skipping\n",
+                        var_name.c_str());
         }
         return;
+    }
+
+    // v0.11.0: マングルされた型名をアンマングル
+    // 例: Vector_int_SystemAllocator -> Vector<int, SystemAllocator>
+    auto unmangle_type_name = [](const std::string &mangled) -> std::string {
+        size_t first_underscore = mangled.find('_');
+        if (first_underscore == std::string::npos) {
+            return mangled; // マングルされていない
+        }
+
+        std::string base_name = mangled.substr(0, first_underscore);
+        std::string params_part = mangled.substr(first_underscore + 1);
+
+        std::vector<std::string> params;
+        size_t pos = 0;
+        while (pos < params_part.length()) {
+            size_t next_underscore = params_part.find('_', pos);
+            if (next_underscore == std::string::npos) {
+                params.push_back(params_part.substr(pos));
+                break;
+            }
+            params.push_back(params_part.substr(pos, next_underscore - pos));
+            pos = next_underscore + 1;
+        }
+
+        if (params.empty()) {
+            return mangled;
+        }
+
+        std::string result = base_name + "<";
+        for (size_t i = 0; i < params.size(); ++i) {
+            if (i > 0)
+                result += ", ";
+            result += params[i];
+        }
+        result += ">";
+        return result;
+    };
+
+    std::string unmangled_type_name = unmangle_type_name(struct_type_name);
+
+    // デストラクタを探す（マングル名とアンマングル名の両方で試す）
+    auto it = struct_destructors_.find(struct_type_name);
+    if (it == struct_destructors_.end() || !it->second) {
+        // アンマングル名でも試す
+        it = struct_destructors_.find(unmangled_type_name);
+        if (it == struct_destructors_.end() || !it->second) {
+            // v0.13.1: ジェネリック型の場合、ベース型で探す（例: Queue<int> ->
+            // Queue<T>）
+            if (struct_type_name.find('<') != std::string::npos) {
+                std::string base_name =
+                    struct_type_name.substr(0, struct_type_name.find('<'));
+                std::string generic_name = base_name + "<T>";
+
+                if (debug_mode) {
+                    debug_print("Looking for generic destructor: %s -> %s\n",
+                                struct_type_name.c_str(), generic_name.c_str());
+                }
+
+                auto generic_it = struct_destructors_.find(generic_name);
+                if (generic_it != struct_destructors_.end() &&
+                    generic_it->second) {
+                    // ジェネリックデストラクタをこの具体型用に登録
+                    struct_destructors_[struct_type_name] = generic_it->second;
+                    it = struct_destructors_.find(struct_type_name);
+
+                    if (debug_mode) {
+                        debug_print("Registered generic destructor %s for %s\n",
+                                    generic_name.c_str(),
+                                    struct_type_name.c_str());
+                    }
+                }
+            }
+
+            if (it == struct_destructors_.end() || !it->second) {
+                // デストラクタが定義されていない場合は何もしない
+                if (debug_mode) {
+                    debug_print("No destructor defined for struct: %s "
+                                "(unmangled: %s)\n",
+                                struct_type_name.c_str(),
+                                unmangled_type_name.c_str());
+                }
+                return;
+            }
+        }
     }
 
     const ASTNode *destructor = it->second;
 
     if (debug_mode) {
-        debug_print("Calling destructor for %s.%s\n", struct_type_name.c_str(),
-                    var_name.c_str());
+        debug_print("Calling destructor for %s (type: %s, unmangled: %s)\n",
+                    var_name.c_str(), struct_type_name.c_str(),
+                    unmangled_type_name.c_str());
     }
 
     // v0.10.0: デストラクタ呼び出し中フラグを設定（無限再帰防止）
@@ -2525,15 +3438,151 @@ void Interpreter::call_destructor(const std::string &var_name,
     Variable *struct_var = find_variable(var_name);
     if (struct_var) {
         Variable self_var = *struct_var;
+        // v0.13.0: 明示的に型情報を保持
+        self_var.type = TYPE_STRUCT;
+        self_var.is_struct = true;
+        // v0.13.0: selfのデストラクタは呼ばない（既に呼び出し中）
+        self_var.destructor_called = true;
+        // v0.13.1: まずstruct_members_refをnullにしてコピーを格納
+        self_var.struct_members_ref = nullptr;
         current_scope().variables["self"] = self_var;
+
+        // v0.13.1 FIX: mapに挿入した後にstruct_members_refを設定
+        // これにより、mapの再配置による無効化を防ぐ
+        Variable *inserted_self = find_variable("self");
+        if (inserted_self) {
+            inserted_self->struct_members_ref = &(struct_var->struct_members);
+            // v0.13.1 FIX:
+            // struct_type_nameも確実に設定（ジェネリック型情報保持）
+            inserted_self->struct_type_name = struct_var->struct_type_name;
+
+            if (debug_mode) {
+                debug_print("[DESTRUCTOR] Set self: type=%d, is_struct=%d, "
+                            "struct_type_name=%s, members=%zu, ref=%p\n",
+                            inserted_self->type, inserted_self->is_struct,
+                            inserted_self->struct_type_name.c_str(),
+                            inserted_self->struct_members.size(),
+                            inserted_self->struct_members_ref);
+            }
+        }
     }
 
     // デストラクタ本体を実行
     if (destructor->body) {
+        if (debug_mode) {
+            debug_print("[DESTRUCTOR] Executing destructor body for %s\n",
+                        var_name.c_str());
+        }
+
+        // v0.13.1 FIX: ジェネリック型パラメータ解決のためTypeContextを設定
+        // struct_type_nameから型パラメータを抽出（例: Queue<int> -> T=int）
+        bool pushed_type_context = false;
+        if (struct_var &&
+            struct_var->struct_type_name.find('<') != std::string::npos) {
+            // ジェネリック型のインスタンス化（例: Queue<int>）
+            TypeContext type_ctx;
+
+            // 型名からパラメータを抽出
+            std::string type_name = struct_var->struct_type_name;
+            size_t start = type_name.find('<');
+            size_t end = type_name.rfind('>');
+            if (start != std::string::npos && end != std::string::npos &&
+                end > start) {
+                std::string params_str =
+                    type_name.substr(start + 1, end - start - 1);
+
+                // カンマで分割（簡易実装：ネストした<>は考慮しない）
+                std::vector<std::string> params;
+                size_t pos = 0;
+                while (pos < params_str.length()) {
+                    size_t comma = params_str.find(',', pos);
+                    if (comma == std::string::npos) {
+                        params.push_back(params_str.substr(pos));
+                        break;
+                    }
+                    params.push_back(params_str.substr(pos, comma - pos));
+                    pos = comma + 1;
+                    // 先頭の空白をスキップ
+                    while (pos < params_str.length() &&
+                           params_str[pos] == ' ') {
+                        pos++;
+                    }
+                }
+
+                // T, U, V... にマッピング
+                const char *param_names[] = {"T", "U", "V", "W"};
+                for (size_t i = 0; i < params.size() && i < 4; i++) {
+                    type_ctx.type_map[param_names[i]] = params[i];
+
+                    if (debug_mode) {
+                        debug_print("[DESTRUCTOR] TypeContext: %s = %s\n",
+                                    param_names[i], params[i].c_str());
+                    }
+                }
+
+                push_type_context(type_ctx);
+                pushed_type_context = true;
+            }
+        }
+
+        // v0.13.1: struct_members_refメカニズムにより、
+        // selfへの変更は自動的に元の変数に反映される
+        // per-statement writebackは不要（むしろ参照を破壊する）
         execute_statement(destructor->body.get());
+
+        // TypeContextをpop
+        if (pushed_type_context) {
+            pop_type_context();
+        }
+
+        if (debug_mode) {
+            debug_print(
+                "[DESTRUCTOR] Destructor body execution completed for %s\n",
+                var_name.c_str());
+        }
+    }
+
+    // v0.13.1: デストラクタ内でselfへの変更を元の変数に書き戻す
+    // （Queueのデストラクタでself.frontが更新されるなど）
+    // 重要：pop_scope()の前に実行し、元の変数を先にマークする
+    if (struct_var) {
+        // まず元の変数にdestructor_calledフラグを設定（double free防止）
+        struct_var->destructor_called = true;
+
+        // v0.13.1: 参照メカニズムを使用している場合、明示的なwritebackは不要
+        // しかし、参照が設定されていない場合のフォールバックとして残す
+        Variable *self_after = find_variable("self");
+        if (self_after && !self_after->struct_members_ref) {
+            // 参照が使われていない場合のみwriteback
+            struct_var->struct_members = self_after->struct_members;
+            if (debug_mode) {
+                debug_print("Wrote back self changes to %s after destructor\n",
+                            var_name.c_str());
+            }
+        }
     }
 
     pop_scope(); // デストラクタスコープを終了
+
+    if (debug_mode) {
+        debug_print("[DESTRUCTOR] pop_scope completed for %s\n",
+                    var_name.c_str());
+    }
+
+    // v0.11.0: デストラクタ呼び出し完了フラグを設定（double free防止）
+    // pop_scope()の後に元の変数を再取得（ポインタが無効化されている可能性があるため）
+    Variable *var_after = find_variable(var_name);
+    if (var_after) {
+        var_after->destructor_called = true;
+        if (debug_mode) {
+            debug_print("Marked destructor_called for %s\n", var_name.c_str());
+        }
+    }
+
+    if (debug_mode) {
+        debug_print("[DESTRUCTOR] Completed call_destructor for %s\n",
+                    var_name.c_str());
+    }
 
     // フラグを元に戻す
     is_calling_destructor_ = prev_flag;
@@ -2541,6 +3590,15 @@ void Interpreter::call_destructor(const std::string &var_name,
 
 void Interpreter::register_destructor_call(
     const std::string &var_name, const std::string &struct_type_name) {
+    // v0.13.0:
+    // selfのデストラクタは登録しない（デストラクタ実行中のコピーであるため）
+    if (var_name == "self") {
+        if (debug_mode) {
+            debug_print("Skipping destructor registration for 'self'\n");
+        }
+        return;
+    }
+
     if (destructor_stacks_.empty()) {
         if (debug_mode) {
             debug_print("WARNING: destructor_stacks_ is empty when registering "
@@ -2629,7 +3687,7 @@ void Interpreter::register_impl_definition(const ImplDefinition &impl_def) {
     interface_operations_->register_impl_definition(impl_def);
 }
 
-const std::vector<ImplDefinition> &Interpreter::get_impl_definitions() const {
+const std::deque<ImplDefinition> &Interpreter::get_impl_definitions() const {
     return interface_operations_->get_impl_definitions();
 }
 
@@ -2686,4 +3744,70 @@ Interpreter::find_typedef_definition(const std::string &typedef_name) {
     // typedef定義をマップから検索（簡易実装）
     // 実際の実装では typedef_definitions_ マップを使用
     return nullptr; // 簡易実装：typedefサポートは後で実装
+}
+
+// v0.11.0 Phase 1a: すべてのインスタンス化されたジェネリック構造体の型チェック
+void Interpreter::validate_all_interface_bounds() {
+    // sync時に遅延させた型チェックをここで実行
+    for (const auto &pair : struct_definitions_) {
+        const std::string &struct_name = pair.first;
+        const StructDefinition &struct_def = pair.second;
+
+        // インターフェース境界がある構造体のみチェック
+        if (!struct_def.interface_bounds.empty() &&
+            !struct_def.type_parameters.empty() &&
+            !struct_def.type_parameter_bindings.empty()) {
+
+            if (is_debug_mode()) {
+                std::cerr << "[VALIDATE_BOUNDS] Checking " << struct_name
+                          << std::endl;
+            }
+
+            // 型引数のリストを構築
+            std::vector<std::string> type_arguments;
+            for (const auto &param : struct_def.type_parameters) {
+                auto it = struct_def.type_parameter_bindings.find(param);
+                if (it != struct_def.type_parameter_bindings.end()) {
+                    type_arguments.push_back(it->second);
+                }
+            }
+
+            // インターフェース境界を検証
+            if (type_arguments.size() == struct_def.type_parameters.size()) {
+                interface_operations_->validate_interface_bounds(
+                    struct_name, struct_def.type_parameters, type_arguments,
+                    struct_def.interface_bounds);
+            }
+        }
+    }
+}
+
+// v0.13.0: コンストラクタ/デストラクタの登録
+void Interpreter::register_constructor(const std::string &struct_name,
+                                       const ASTNode *ctor_node) {
+    if (!ctor_node) {
+        return;
+    }
+
+    struct_constructors_[struct_name].push_back(ctor_node);
+
+    if (debug_mode) {
+        debug_print(
+            "[REGISTER_CTOR] Registered constructor for %s (params: %zu)\n",
+            struct_name.c_str(), ctor_node->parameters.size());
+    }
+}
+
+void Interpreter::register_destructor(const std::string &struct_name,
+                                      const ASTNode *dtor_node) {
+    if (!dtor_node) {
+        return;
+    }
+
+    struct_destructors_[struct_name] = dtor_node;
+
+    if (debug_mode) {
+        debug_print("[REGISTER_DTOR] Registered destructor for %s\n",
+                    struct_name.c_str());
+    }
 }

@@ -1,0 +1,26 @@
+// Test S<P<T>> as function parameter - minimal case
+
+struct Box<T> {
+    T value;
+};
+
+struct Wrapper<T> {
+    T data;
+};
+
+// ジェネリック関数: 単純にネストされた構造体のメンバーを表示
+void print_nested<T>(Wrapper<Box<T>> nested) {
+    println("Nested value:", nested.data.value);
+}
+
+void main() {
+    println("=== Minimal Nested Parameter Test ===");
+    
+    Wrapper<Box<int> > my_nested;
+    my_nested.data.value = 42;
+    
+    println("Before function call:", my_nested.data.value);
+    print_nested<int>(my_nested);
+    
+    println("=== Test Complete ===");
+}

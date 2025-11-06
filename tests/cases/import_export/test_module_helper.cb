@@ -1,5 +1,5 @@
 // Test that verifies we can use exported functions from imported module
-import "test_module_with_helper.cb";
+import test_module_with_helper;
 
 int main() {
     println("=== Module Helper Test ===");

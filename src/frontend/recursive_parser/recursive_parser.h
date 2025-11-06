@@ -186,6 +186,8 @@ class RecursiveParser {
 
     // impl管理
     std::vector<ImplDefinition> impl_definitions_; // impl定義の保存
+    std::vector<std::unique_ptr<ASTNode>>
+        impl_nodes_; // v0.11.0: implノードの所有権を保持
 
     // 関数ポインタtypedef管理
     std::unordered_map<std::string, FunctionPointerTypeInfo>
@@ -207,6 +209,14 @@ class RecursiveParser {
 
     // 直近に解析した型情報
     ParsedTypeInfo last_parsed_type_info_;
+
+    // ジェネリクス関連（v0.11.0 Phase 0）
+    // 現在パース中の構造体の型パラメータリスト（ネストした構造体も対応）
+    std::vector<std::vector<std::string>> type_parameter_stack_;
+
+    // >> トークン分割用（ネストしたジェネリクス対応）
+    bool has_split_gt_token_ = false; // 分割された > を保持しているか
+    Token split_gt_token_;            // 分割された > トークン
 
   public:
     // enum定義へのアクセサ
@@ -232,6 +242,17 @@ class RecursiveParser {
         return impl_definitions_;
     }
 
+    // v0.11.0:
+    // implノードの所有権転送用（Interpreter::sync_impl_definitions_from_parser用）
+    std::vector<std::unique_ptr<ASTNode>> &get_impl_nodes_for_transfer() {
+        return impl_nodes_;
+    }
+
+    // v0.11.0: impl_definitions_クリア用（Parser破棄時のuse-after-free対策）
+    std::vector<ImplDefinition> &get_impl_definitions_for_clear() {
+        return impl_definitions_;
+    }
+
     // union定義へのアクセサ
     const std::unordered_map<std::string, UnionDefinition> &
     get_union_definitions() const {
@@ -244,10 +265,27 @@ class RecursiveParser {
         return function_pointer_typedefs_;
     }
 
+    // v0.11.0: import処理（パース時にモジュールをロードして定義を取り込む）
+    void processImport(const std::string &module_path,
+                       const std::vector<std::string> &import_items = {});
+    std::string resolveModulePath(const std::string &module_path);
+    std::string
+    getSourceDirectory() const; // ソースファイルのディレクトリを取得
+
   private:
+    // v0.11.0: 組み込み型の初期化
+    void initialize_builtin_types();
+
     // 循環参照検出用のヘルパー関数
     bool detectCircularReference(const std::string &struct_name,
                                  const std::string &member_type,
                                  std::unordered_set<std::string> &visited,
                                  std::vector<std::string> &path);
+
+    // v0.11.0: ジェネリック型のインスタンス化
+    void
+    instantiateGenericStruct(const std::string &base_name,
+                             const std::vector<std::string> &type_arguments);
+    void instantiateGenericEnum(const std::string &base_name,
+                                const std::vector<std::string> &type_arguments);
 };

@@ -1,0 +1,24 @@
+// Debug test: Function returning None
+
+Option<int> get_none() {
+    return Option<int>::None;
+}
+
+void main() {
+    println("Test: Call function returning None");
+    Option<int> result = get_none();
+    
+    println("Test: Match function result");
+    match (result) {
+        Some(v) => {
+            println("ERROR: Matched Some!");
+            println(v);
+            assert(false);
+        }
+        None => {
+            println("SUCCESS: Matched None from function");
+        }
+    }
+    
+    println("Test completed");
+}

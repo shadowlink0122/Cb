@@ -1,0 +1,16 @@
+// v0.11.0: 配列型のジェネリクステスト
+
+struct Wrapper<T> {
+    T value;
+};
+
+int main() {
+    // 配列型のラッパー
+    Wrapper<int[3]> wrapper;
+    
+    println("Array type generic test - Type instantiated successfully");
+    println("Wrapper<int[3]> -> Wrapper_int_array_3");
+    
+    return 0;
+}
+

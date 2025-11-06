@@ -1,0 +1,228 @@
+import stdlib.std.vector;
+
+void test_vector_int_comprehensive() {
+    println("\n╔════════════════════════════════════════════╗");
+    println("║  Vector<int> Comprehensive Test           ║");
+    println("╚════════════════════════════════════════════╝\n");
+    
+    Vector<int> vec;
+    vec.init(3);
+    
+    println("=== Test 1: Basic push() ===");
+    vec.push(10);
+    vec.push(20);
+    vec.push(30);
+    if (vec.get_length() == 3) {
+        println("✅ push() works (length={vec.get_length()})");
+    }
+    
+    println("\n=== Test 2: get() with various indices ===");
+    int v0 = vec.get(0);
+    int v1 = vec.get(1);
+    int v2 = vec.get(2);
+    if (v0 == 10 && v1 == 20 && v2 == 30) {
+        println("✅ get() works (v0={v0}, v1={v1}, v2={v2})");
+    }
+    
+    println("\n=== Test 3: pop() ===");
+    int popped = vec.pop();
+    if (popped == 30 && vec.get_length() == 2) {
+        println("✅ pop() works (popped={popped}, length={vec.get_length()})");
+    }
+    
+    println("\n=== Test 4: resize() ===");
+    vec.resize(10);
+    if (vec.get_capacity() == 10) {
+        println("✅ resize() works (new capacity={vec.get_capacity()})");
+    }
+    
+    println("\n=== Test 5: push() after resize ===");
+    vec.push(40);
+    vec.push(50);
+    vec.push(60);
+    if (vec.get_length() == 5) {
+        println("✅ push() after resize works (length={vec.get_length()})");
+    }
+    
+    println("\n=== Test 6: Verify data integrity after resize ===");
+    int check0 = vec.get(0);
+    int check1 = vec.get(1);
+    if (check0 == 10 && check1 == 20) {
+        println("✅ Data preserved after resize (check0={check0}, check1={check1})");
+    }
+    
+    println("\n=== Test 7: get_length() and get_capacity() ===");
+    int len = vec.get_length();
+    int cap = vec.get_capacity();
+    if (len == 5 && cap == 10) {
+        println("✅ get_length()={len}, get_capacity()={cap}");
+    }
+    
+    println("\n=== Test 8: is_empty() ===");
+    bool empty = vec.is_empty();
+    if (!empty) {
+        println("✅ is_empty() works (is_empty={empty})");
+    }
+    
+    println("\n=== Test 9: Multiple pops ===");
+    vec.pop();
+    vec.pop();
+    vec.pop();
+    if (vec.get_length() == 2) {
+        println("✅ Multiple pops work (length={vec.get_length()})");
+    }
+    
+    println("\n=== Test 10: info() ===");
+    vec.info();
+}
+
+void test_vector_double_comprehensive() {
+    println("\n╔════════════════════════════════════════════╗");
+    println("║  Vector<double> Comprehensive Test        ║");
+    println("╚════════════════════════════════════════════╝\n");
+    
+    Vector<double> vec;
+    vec.init(3);
+    
+    println("=== Test 1: Basic push() ===");
+    vec.push(3.14);
+    vec.push(2.71);
+    vec.push(1.41);
+    if (vec.get_length() == 3) {
+        println("✅ push() works (length={vec.get_length()})");
+    }
+    
+    println("\n=== Test 2: get() with various indices ===");
+    double d0 = vec.get(0);
+    double d1 = vec.get(1);
+    double d2 = vec.get(2);
+    println("Values: d0={d0}, d1={d1}, d2={d2}");
+    if (d0 > 3.13 && d0 < 3.15) {
+        println("✅ get() works for doubles");
+    }
+    
+    println("\n=== Test 3: pop() ===");
+    double popped = vec.pop();
+    println("Popped value: {popped}");
+    if (vec.get_length() == 2) {
+        println("✅ pop() works (length={vec.get_length()})");
+    }
+    
+    println("\n=== Test 4: resize() ===");
+    vec.resize(8);
+    if (vec.get_capacity() == 8) {
+        println("✅ resize() works (new capacity={vec.get_capacity()})");
+    }
+    
+    println("\n=== Test 5: push() after resize ===");
+    vec.push(9.99);
+    vec.push(8.88);
+    vec.push(7.77);
+    if (vec.get_length() == 5) {
+        println("✅ push() after resize works (length={vec.get_length()})");
+    }
+    
+    println("\n=== Test 6: Verify data integrity after resize ===");
+    double check0 = vec.get(0);
+    double check1 = vec.get(1);
+    println("check0={check0}, check1={check1}");
+    if (check0 > 3.13 && check0 < 3.15 && check1 > 2.70 && check1 < 2.72) {
+        println("✅ Data preserved after resize");
+    }
+    
+    println("\n=== Test 7: Edge case - capacity full ===");
+    vec.push(6.66);
+    vec.push(5.55);
+    vec.push(4.44);
+    if (vec.get_length() == 8) {
+        println("✅ Filled to capacity (length={vec.get_length()}, capacity={vec.get_capacity()})");
+    }
+    
+    println("\n=== Test 8: Attempt push when full ===");
+    vec.push(3.33);  // Should fail
+    if (vec.get_length() == 8) {
+        println("✅ Correctly prevented push when full");
+    }
+    
+    println("\n=== Test 9: is_empty() ===");
+    if (!vec.is_empty()) {
+        println("✅ is_empty() works (is_empty={vec.is_empty()})");
+    }
+    
+    println("\n=== Test 10: info() ===");
+    vec.info();
+}
+
+void test_vector_int_edge_cases() {
+    println("\n╔════════════════════════════════════════════╗");
+    println("║  Vector<int> Edge Cases Test              ║");
+    println("╚════════════════════════════════════════════╝\n");
+    
+    Vector<int> vec;
+    vec.init(1);
+    
+    println("=== Test 1: Single element capacity ===");
+    vec.push(100);
+    if (vec.get_length() == 1 && vec.get_capacity() == 1) {
+        println("✅ Single element works");
+    }
+    
+    println("\n=== Test 2: Pop from single element ===");
+    int val = vec.pop();
+    if (val == 100 && vec.get_length() == 0) {
+        println("✅ Pop from single element works (val={val})");
+    }
+    
+    println("\n=== Test 3: is_empty() when empty ===");
+    if (vec.is_empty()) {
+        println("✅ is_empty() correctly returns true");
+    }
+    
+    println("\n=== Test 4: Pop from empty (should handle gracefully) ===");
+    int empty_val = vec.pop();
+    println("Pop from empty returned: {empty_val}");
+    println("✅ Handled empty pop gracefully");
+    
+    println("\n=== Test 5: get() with invalid index ===");
+    int invalid = vec.get(10);
+    println("get(10) on empty vector returned: {invalid}");
+    println("✅ Handled invalid index gracefully");
+    
+    println("\n=== Test 6: Large resize ===");
+    vec.resize(100);
+    if (vec.get_capacity() == 100) {
+        println("✅ Large resize works (capacity={vec.get_capacity()})");
+    }
+    
+    println("\n=== Test 7: Fill large vector ===");
+    int i = 0;
+    while (i < 50) {
+        vec.push(i * 10);
+        i = i + 1;
+    }
+    if (vec.get_length() == 50) {
+        println("✅ Filled 50 elements (length={vec.get_length()})");
+    }
+    
+    println("\n=== Test 8: Access elements in large vector ===");
+    int first = vec.get(0);
+    int middle = vec.get(25);
+    int last = vec.get(49);
+    if (first == 0 && middle == 250 && last == 490) {
+        println("✅ Large vector access works (first={first}, middle={middle}, last={last})");
+    }
+}
+
+void main() {
+    println("╔════════════════════════════════════════════════════════════╗");
+    println("║  Vector Generic Types - Comprehensive Test Suite          ║");
+    println("╚════════════════════════════════════════════════════════════╝");
+    
+    test_vector_int_comprehensive();
+    test_vector_double_comprehensive();
+    test_vector_int_edge_cases();
+    
+    println("\n╔════════════════════════════════════════════════════════════╗");
+    println("║  All Comprehensive Tests Completed Successfully!          ║");
+    println("╚════════════════════════════════════════════════════════════╝");
+}

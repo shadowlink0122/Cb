@@ -1,0 +1,93 @@
+// ジェネリクス構造体をジェネリクス関数の引数として使用するテスト
+// Generic functions that take generic struct parameters
+
+struct Box<T> {
+    T value;
+};
+
+struct Pair<T1, T2> {
+    T1 first;
+    T2 second;
+};
+
+// ジェネリクス構造体を受け取るジェネリクス関数
+T extract<T>(Box<T> box) {
+    return box.value;
+}
+
+// ジェネリクス構造体を受け取り、別のジェネリクス構造体を返す
+Box<T> wrap_twice<T>(Box<T> box) {
+    Box<T> result;
+    result.value = box.value;
+    return result;
+}
+
+// 複数の型パラメータを持つ関数
+T1 get_first<T1, T2>(Pair<T1, T2> pair) {
+    return pair.first;
+}
+
+T2 get_second<T1, T2>(Pair<T1, T2> pair) {
+    return pair.second;
+}
+
+// ジェネリクス構造体を引数と戻り値で使用
+Pair<T2, T1> swap_pair<T1, T2>(Pair<T1, T2> pair) {
+    Pair<T2, T1> result;
+    result.first = pair.second;
+    result.second = pair.first;
+    return result;
+}
+
+// void関数でジェネリクス構造体を受け取る
+void print_box<T>(Box<T> box) {
+    println("Box contains:", box.value);
+}
+
+void print_pair<T1, T2>(Pair<T1, T2> pair) {
+    println("Pair: (", pair.first, ",", pair.second, ")");
+}
+
+int main() {
+    println("=== Generic Struct as Function Parameter Test ===");
+    
+    // Test 1: extract関数
+    Box<int> int_box;
+    int_box.value = 42;
+    int extracted = extract<int>(int_box);
+    println("Extracted from Box<int>:", extracted);
+    
+    // Test 2: wrap_twice関数
+    Box<long> long_box;
+    long_box.value = 999;
+    Box<long> wrapped = wrap_twice<long>(long_box);
+    println("Wrapped Box<long> value:", wrapped.value);
+    
+    // Test 3: get_first/get_second関数
+    Pair<int, long> pair1;
+    pair1.first = 10;
+    pair1.second = 20;
+    int first = get_first<int, long>(pair1);
+    long second = get_second<int, long>(pair1);
+    println("get_first<int, long>:", first);
+    println("get_second<int, long>:", second);
+    
+    // Test 4: swap_pair関数
+    Pair<long, int> swapped = swap_pair<int, long>(pair1);
+    println("Swapped pair: (", swapped.first, ",", swapped.second, ")");
+    
+    // Test 5: void関数でジェネリクス構造体
+    print_box<int>(int_box);
+    print_pair<int, long>(pair1);
+    
+    // Test 6: ネストした呼び出し
+    Box<int> box2;
+    box2.value = 123;
+    Box<int> result = wrap_twice<int>(box2);
+    int final_value = extract<int>(result);
+    println("Nested call result:", final_value);
+    
+    println("=== All Tests Passed ===");
+    
+    return 0;
+}

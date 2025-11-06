@@ -1,0 +1,62 @@
+// Test pointer array access for all primitive types
+
+void test_int() {
+    println("=== Int Pointer Test ===");
+    int[3] arr;
+    arr[0] = 10;
+    arr[1] = 20;
+    arr[2] = 30;
+    
+    int* ptr = &arr[0];
+    
+    println("ptr[0] = %d", ptr[0]);
+    println("ptr[1] = %d", ptr[1]);
+    println("ptr[2] = %d", ptr[2]);
+    
+    ptr[0] = 100;
+    println("After write: ptr[0] = %d", ptr[0]);
+    println("Original: arr[0] = %d", arr[0]);
+}
+
+void test_float() {
+    println("\n=== Float Pointer Test ===");
+    float[3] arr;
+    arr[0] = 1.5;
+    arr[1] = 2.5;
+    arr[2] = 3.5;
+    
+    float* ptr = &arr[0];
+    
+    println("ptr[0] = %f", ptr[0]);
+    println("ptr[1] = %f", ptr[1]);
+    println("ptr[2] = %f", ptr[2]);
+    
+    ptr[0] = 10.5;
+    println("After write: ptr[0] = %f", ptr[0]);
+    println("Original: arr[0] = %f", arr[0]);
+}
+
+void test_double() {
+    println("\n=== Double Pointer Test ===");
+    double[3] arr;
+    arr[0] = 1.5;
+    arr[1] = 2.5;
+    arr[2] = 3.5;
+    
+    double* ptr = &arr[0];
+    
+    println("ptr[0] = %f", ptr[0]);
+    println("ptr[1] = %f", ptr[1]);
+    println("ptr[2] = %f", ptr[2]);
+    
+    ptr[0] = 10.5;
+    println("After write: ptr[0] = %f", ptr[0]);
+    println("Original: arr[0] = %f", arr[0]);
+}
+
+void main() {
+    test_int();
+    test_float();
+    test_double();
+    println("\n✅ All primitive pointer array tests passed!");
+}

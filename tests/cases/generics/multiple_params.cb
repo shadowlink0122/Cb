@@ -1,0 +1,17 @@
+// v0.11.0 Phase 0 - Multiple Type Parameters Test
+// Test: Parse generic struct with multiple type parameters
+
+struct ResultType<T, E> {
+    bool is_ok;
+    T ok_value;
+    E err_value;
+};
+
+struct Pair<A, B> {
+    A first;
+    B second;
+};
+
+void main() {
+    println("Multiple type parameters parsed successfully");
+}

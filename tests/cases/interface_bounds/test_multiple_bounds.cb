@@ -1,0 +1,22 @@
+// Test: Multiple interface bounds
+// Expected: Parse successfully
+
+interface Allocator {
+    void* allocate(int size);
+    void deallocate(void* ptr);
+}
+
+interface Iterator {
+    bool has_next();
+    int next();
+}
+
+// Multiple bounds: A: Allocator, I: Iterator
+struct Container<T, A: Allocator, I: Iterator> {
+    int* data;
+    int size;
+};
+
+void main() {
+    println("Multiple interface bounds: OK");
+}

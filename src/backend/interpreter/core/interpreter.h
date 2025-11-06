@@ -3,6 +3,7 @@
 #include "../../../common/debug.h"
 #include "type_inference.h"
 #include <cstdio>
+#include <deque>
 #include <iostream>
 #include <map>
 #include <set>
@@ -44,39 +45,52 @@ class RecursiveParser;            // enum定義同期用
 
 // 変数・関数の格納構造
 struct Variable {
-    TypeInfo type;
+    TypeInfo type = TYPE_INT; // デフォルト型
     bool is_const = false;
     bool is_array = false;
     bool is_assigned = false;
-    bool is_multidimensional = false;   // 多次元配列フラグ
-    bool is_struct = false;             // struct型かどうか
-    bool is_pointer = false;            // ポインタ型かどうか
-    int pointer_depth = 0;              // ポインタの深さ
-    std::string pointer_base_type_name; // ポインタ基底型名
-    TypeInfo pointer_base_type;         // ポインタ基底型
-    bool is_pointer_const = false;      // ポインタ自体がconst (T* const)
-    bool is_pointee_const = false;      // ポイント先がconst (const T*)
-    bool is_reference = false;          // 参照型かどうか (T&)
+    bool is_multidimensional = false;          // 多次元配列フラグ
+    bool is_struct = false;                    // struct型かどうか
+    bool is_pointer = false;                   // ポインタ型かどうか
+    int pointer_depth = 0;                     // ポインタの深さ
+    std::string pointer_base_type_name;        // ポインタ基底型名
+    TypeInfo pointer_base_type = TYPE_UNKNOWN; // ポインタ基底型
+    bool is_pointer_const = false;    // ポインタ自体がconst (T* const)
+    bool is_pointee_const = false;    // ポイント先がconst (const T*)
+    bool is_reference = false;        // 参照型かどうか (T&)
     bool is_rvalue_reference = false; // 右辺値参照かどうか (T&&) v0.10.0
     std::string reference_target;     // 参照している変数名 v0.10.0
     bool is_unsigned = false;         // unsigned修飾子かどうか
     std::string struct_type_name;     // struct型名
     bool is_private_member = false;   // struct privateメンバーフラグ
+    bool destructor_called =
+        false; // デストラクタが既に呼ばれたかどうか (double free防止)
+    bool points_to_heap_memory =
+        false; // new演算子で割り当てた生メモリを指すポインタかどうか
+
+    // enum型用（v0.11.0 generics）
+    bool is_enum = false;       // enum型かどうか
+    std::string enum_type_name; // enum型名（"Option_int"など）
+    std::string enum_variant;   // バリアント名（"Some", "None"など）
+    // 関連値（簡易版：int64_tとstringのみサポート）
+    bool has_associated_value = false;
+    int64_t associated_int_value = 0;
+    std::string associated_str_value;
 
     // union型用
-    std::string type_name; // union型名（union型の場合）
-    TypeInfo current_type; // union変数の現在の型
+    std::string type_name;                // union型名（union型の場合）
+    TypeInfo current_type = TYPE_UNKNOWN; // union変数の現在の型
 
     // 値
-    int64_t value;
+    int64_t value = 0;
     std::string str_value;
-    float float_value;
-    double double_value;
-    long double quad_value;
-    __int128_t big_value;
+    float float_value = 0.0f;
+    double double_value = 0.0;
+    long double quad_value = 0.0L;
+    __int128_t big_value = 0;
 
     // 配列用
-    int array_size;
+    int array_size = 0;
     std::vector<int64_t> array_values;
     std::vector<float> array_float_values;
     std::vector<double> array_double_values;
@@ -86,12 +100,16 @@ struct Variable {
     // struct用メンバ変数
     std::map<std::string, Variable> struct_members;
 
+    // v0.13.1: デストラクタスコープでの参照用
+    // nullptrでない場合、struct_membersの代わりにこちらを参照する
+    std::map<std::string, Variable> *struct_members_ref = nullptr;
+
     // interface用
     std::string interface_name;      // interface型の場合のinterface名
     std::string implementing_struct; // interfaceを実装しているstruct名
 
     // 関数ポインタ用
-    bool is_function_pointer;          // 関数ポインタかどうか
+    bool is_function_pointer = false;  // 関数ポインタかどうか
     std::string function_pointer_name; // 指している関数名
 
     // 多次元配列用
@@ -112,20 +130,146 @@ struct Variable {
     // - 境界チェック: 配列アクセス時の自動境界検証
     // - 型安全性: 異なるサイズの静的配列間での代入エラー検出
 
-    Variable()
-        : type(TYPE_INT), is_const(false), is_array(false), is_assigned(false),
-          is_multidimensional(false), is_struct(false), is_pointer(false),
-          pointer_depth(0), pointer_base_type_name(""),
-          pointer_base_type(TYPE_UNKNOWN), is_reference(false),
-          is_unsigned(false), struct_type_name(""), is_private_member(false),
-          type_name(""), current_type(TYPE_UNKNOWN), value(0), str_value(""),
-          float_value(0.0f), double_value(0.0), quad_value(0.0L), big_value(0),
-          array_size(0), is_function_pointer(false), function_pointer_name("") {
-        // デバッグ出力を削除（無限再帰を防ぐため）
-        // extern bool debug_mode;
-        // if (debug_mode) {
-        //     debug_msg(DebugMsgId::VAR_CREATE_NEW);
-        // }
+    Variable() = default; // コンパイラ生成のデフォルトコンストラクタを使用
+
+    // ムーブコンストラクタとムーブ代入演算子をデフォルトに
+    Variable(Variable &&) = default;
+    Variable &operator=(Variable &&) = default;
+
+    // コピーコンストラクタをデバッグ出力付きで定義
+    __attribute__((noinline)) Variable(const Variable &other) {
+        // すべてのメンバをコピー
+        type = other.type;
+        is_const = other.is_const;
+        is_array = other.is_array;
+        is_assigned = other.is_assigned;
+        is_multidimensional = other.is_multidimensional;
+        is_struct = other.is_struct;
+        is_pointer = other.is_pointer;
+        pointer_depth = other.pointer_depth;
+        pointer_base_type_name = other.pointer_base_type_name;
+        pointer_base_type = other.pointer_base_type;
+        is_pointer_const = other.is_pointer_const;
+        is_pointee_const = other.is_pointee_const;
+        is_reference = other.is_reference;
+        is_rvalue_reference = other.is_rvalue_reference;
+        reference_target = other.reference_target;
+        is_unsigned = other.is_unsigned;
+        struct_type_name = other.struct_type_name;
+        is_private_member = other.is_private_member;
+
+        // enum関連フィールド
+        is_enum = other.is_enum;
+        enum_type_name = other.enum_type_name;
+        enum_variant = other.enum_variant;
+        has_associated_value = other.has_associated_value;
+        associated_int_value = other.associated_int_value;
+        associated_str_value = other.associated_str_value;
+
+        debug_print("[VAR_COPY_CTOR] Copying Variable: is_enum %d -> %d\n",
+                    other.is_enum, is_enum);
+
+        // 残りのメンバをコピー
+        type_name = other.type_name;
+        current_type = other.current_type;
+        value = other.value;
+        str_value = other.str_value;
+        float_value = other.float_value;
+        double_value = other.double_value;
+        quad_value = other.quad_value;
+        big_value = other.big_value;
+        array_size = other.array_size;
+        array_values = other.array_values;
+        array_float_values = other.array_float_values;
+        array_double_values = other.array_double_values;
+        array_quad_values = other.array_quad_values;
+        array_strings = other.array_strings;
+        struct_members = other.struct_members;
+        interface_name = other.interface_name;
+        implementing_struct = other.implementing_struct;
+        is_function_pointer = other.is_function_pointer;
+        function_pointer_name = other.function_pointer_name;
+        array_type_info = other.array_type_info;
+        array_dimensions = other.array_dimensions;
+        multidim_array_values = other.multidim_array_values;
+        multidim_array_float_values = other.multidim_array_float_values;
+        multidim_array_double_values = other.multidim_array_double_values;
+        multidim_array_quad_values = other.multidim_array_quad_values;
+        multidim_array_strings = other.multidim_array_strings;
+
+        // v0.13.1: 参照もコピーする（デストラクタでselfが使用）
+        struct_members_ref = other.struct_members_ref;
+    }
+
+    // 代入演算子をデバッグ出力付きで定義
+    Variable &operator=(const Variable &other) {
+        if (this != &other) {
+            debug_print(
+                "[VAR_ASSIGN_OP] Before: this.is_enum=%d, other.is_enum=%d\n",
+                is_enum, other.is_enum);
+
+            // すべてのメンバをコピー
+            type = other.type;
+            is_const = other.is_const;
+            is_array = other.is_array;
+            is_assigned = other.is_assigned;
+            is_multidimensional = other.is_multidimensional;
+            is_struct = other.is_struct;
+            is_pointer = other.is_pointer;
+            pointer_depth = other.pointer_depth;
+            pointer_base_type_name = other.pointer_base_type_name;
+            pointer_base_type = other.pointer_base_type;
+            is_pointer_const = other.is_pointer_const;
+            is_pointee_const = other.is_pointee_const;
+            is_reference = other.is_reference;
+            is_rvalue_reference = other.is_rvalue_reference;
+            reference_target = other.reference_target;
+            is_unsigned = other.is_unsigned;
+            struct_type_name = other.struct_type_name;
+            is_private_member = other.is_private_member;
+
+            // enum関連フィールド
+            is_enum = other.is_enum;
+            enum_type_name = other.enum_type_name;
+            enum_variant = other.enum_variant;
+            has_associated_value = other.has_associated_value;
+            associated_int_value = other.associated_int_value;
+            associated_str_value = other.associated_str_value;
+
+            debug_print("[VAR_ASSIGN_OP] After: this.is_enum=%d\n", is_enum);
+
+            // 残りのメンバをコピー
+            type_name = other.type_name;
+            current_type = other.current_type;
+            value = other.value;
+            str_value = other.str_value;
+            float_value = other.float_value;
+            double_value = other.double_value;
+            quad_value = other.quad_value;
+            big_value = other.big_value;
+            array_size = other.array_size;
+            array_values = other.array_values;
+            array_float_values = other.array_float_values;
+            array_double_values = other.array_double_values;
+            array_quad_values = other.array_quad_values;
+            array_strings = other.array_strings;
+            struct_members = other.struct_members;
+            interface_name = other.interface_name;
+            implementing_struct = other.implementing_struct;
+            is_function_pointer = other.is_function_pointer;
+            function_pointer_name = other.function_pointer_name;
+            array_type_info = other.array_type_info;
+            array_dimensions = other.array_dimensions;
+            multidim_array_values = other.multidim_array_values;
+            multidim_array_float_values = other.multidim_array_float_values;
+            multidim_array_double_values = other.multidim_array_double_values;
+            multidim_array_quad_values = other.multidim_array_quad_values;
+            multidim_array_strings = other.multidim_array_strings;
+
+            // v0.13.1: 参照もコピーする（デストラクタでselfが使用）
+            struct_members_ref = other.struct_members_ref;
+        }
+        return *this;
     }
 
     // 多次元配列用コンストラクタ
@@ -133,21 +277,38 @@ struct Variable {
         : type(TYPE_INT), is_const(false), is_array(true), is_assigned(false),
           is_multidimensional(true), is_struct(false), is_pointer(false),
           pointer_depth(0), pointer_base_type_name(""),
-          pointer_base_type(TYPE_UNKNOWN), is_reference(false),
-          is_unsigned(false), struct_type_name(""), is_private_member(false),
-          type_name(""), current_type(TYPE_UNKNOWN), value(0), str_value(""),
+          pointer_base_type(TYPE_UNKNOWN), is_pointer_const(false),
+          is_pointee_const(false), is_reference(false),
+          is_rvalue_reference(false), reference_target(""), is_unsigned(false),
+          struct_type_name(""), is_private_member(false), is_enum(false),
+          enum_type_name(""), enum_variant(""), has_associated_value(false),
+          associated_int_value(0), associated_str_value(""), type_name(""),
+          current_type(TYPE_UNKNOWN), value(0), str_value(""),
           float_value(0.0f), double_value(0.0), quad_value(0.0L), big_value(0),
           array_size(0), is_function_pointer(false), function_pointer_name(""),
           array_type_info(array_info) {}
+
+    // v0.13.1: struct_membersへのアクセス（参照があればそれを使う）
+    std::map<std::string, Variable> &get_struct_members() {
+        return struct_members_ref ? *struct_members_ref : struct_members;
+    }
+
+    const std::map<std::string, Variable> &get_struct_members() const {
+        return struct_members_ref ? *struct_members_ref : struct_members;
+    }
 
     // struct用コンストラクタ
     Variable(const std::string &struct_name)
         : type(TYPE_STRUCT), is_const(false), is_array(false),
           is_assigned(false), is_multidimensional(false), is_struct(true),
           is_pointer(false), pointer_depth(0), pointer_base_type_name(""),
-          pointer_base_type(TYPE_UNKNOWN), is_reference(false),
-          is_unsigned(false), struct_type_name(struct_name),
-          is_private_member(false), type_name(""), current_type(TYPE_UNKNOWN),
+          pointer_base_type(TYPE_UNKNOWN), is_pointer_const(false),
+          is_pointee_const(false), is_reference(false),
+          is_rvalue_reference(false), reference_target(""), is_unsigned(false),
+          struct_type_name(struct_name), is_private_member(false),
+          is_enum(false), enum_type_name(""), enum_variant(""),
+          has_associated_value(false), associated_int_value(0),
+          associated_str_value(""), type_name(""), current_type(TYPE_UNKNOWN),
           value(0), str_value(""), float_value(0.0f), double_value(0.0),
           quad_value(0.0L), big_value(0), array_size(0),
           is_function_pointer(false), function_pointer_name("") {
@@ -164,9 +325,13 @@ struct Variable {
         : type(TYPE_INTERFACE), is_const(false), is_array(false),
           is_assigned(false), is_multidimensional(false), is_struct(false),
           is_pointer(false), pointer_depth(0), pointer_base_type_name(""),
-          pointer_base_type(TYPE_UNKNOWN), is_reference(false),
-          is_unsigned(false), struct_type_name(""), is_private_member(false),
-          type_name(""), current_type(TYPE_UNKNOWN), value(0), str_value(""),
+          pointer_base_type(TYPE_UNKNOWN), is_pointer_const(false),
+          is_pointee_const(false), is_reference(false),
+          is_rvalue_reference(false), reference_target(""), is_unsigned(false),
+          struct_type_name(""), is_private_member(false), is_enum(false),
+          enum_type_name(""), enum_variant(""), has_associated_value(false),
+          associated_int_value(0), associated_str_value(""), type_name(""),
+          current_type(TYPE_UNKNOWN), value(0), str_value(""),
           float_value(0.0f), double_value(0.0), quad_value(0.0L), big_value(0),
           array_size(0), interface_name(interface_name),
           is_function_pointer(false), function_pointer_name("") {
@@ -241,11 +406,13 @@ struct Scope {
     std::map<std::string, const ASTNode *> functions;
     std::map<std::string, FunctionPointer>
         function_pointers; // 関数ポインタ変数
+    std::string scope_id; // スコープの一意識別子（implメソッド用）
 
     void clear() {
         variables.clear();
         functions.clear();
         function_pointers.clear();
+        scope_id.clear();
     }
 };
 class ReturnException {
@@ -457,6 +624,16 @@ class Interpreter : public EvaluatorInterface {
     // v0.10.0: モジュール管理（インポート済みモジュールの追跡）
     std::set<std::string> loaded_modules;
 
+    // v0.11.0: 実行時型解決システム
+    // メソッド呼び出し時の型コンテキストスタック（ネストした呼び出しに対応）
+    std::vector<TypeContext> type_context_stack_;
+
+    // v0.11.0: implノードの所有権管理（Parser破棄後もノードを保持）
+    std::vector<std::unique_ptr<ASTNode>> impl_nodes_;
+
+    // ポインタ要素型マップ（deep copyされた配列の型情報保持）
+    std::map<uintptr_t, std::string> pointer_element_types_;
+
     // Manager instances
     std::unique_ptr<VariableManager> variable_manager_;
     std::unique_ptr<ArrayManager> array_manager_;
@@ -538,12 +715,17 @@ class Interpreter : public EvaluatorInterface {
 
     // スコープ管理
     void push_scope();
+    void push_scope(const std::string &scope_id); // スコープID付きpush
     void pop_scope();
     void push_interpreter_scope() { push_scope(); }
     void pop_interpreter_scope() { pop_scope(); }
     Scope &current_scope();
     Scope &get_current_scope() { return current_scope(); }
     Scope &get_global_scope() { return global_scope; }
+
+    // デストラクタスコープ管理（変数スコープは作成しない）
+    void push_destructor_scope();
+    void pop_destructor_scope();
 
     // Defer管理
     void push_defer_scope();
@@ -571,6 +753,12 @@ class Interpreter : public EvaluatorInterface {
     // AST処理
     void register_global_declarations(const ASTNode *node);
     void initialize_global_variables(const ASTNode *node);
+
+    // 組み込み型の初期化
+    void initialize_builtin_types();
+    void register_builtin_enum_option();
+    void register_builtin_enum_result();
+
     void execute_statement(const ASTNode *node);
     void exec_statement(const ASTNode *node) { execute_statement(node); }
     int64_t eval_expression(const ASTNode *node) { return evaluate(node); }
@@ -595,6 +783,11 @@ class Interpreter : public EvaluatorInterface {
     void assign_function_parameter(const std::string &name,
                                    const TypedValue &value, TypeInfo type,
                                    bool is_unsigned);
+    // v0.11.0 Phase 1a: 型名を受け取るオーバーロード
+    void assign_function_parameter(const std::string &name,
+                                   const TypedValue &value, TypeInfo type,
+                                   const std::string &type_name,
+                                   bool is_unsigned);
     void assign_array_parameter(const std::string &name,
                                 const Variable &source_array, TypeInfo type);
     void assign_interface_view(const std::string &dest_name,
@@ -607,6 +800,11 @@ class Interpreter : public EvaluatorInterface {
                                     double value);
     void assign_string_element(const std::string &name, int64_t index,
                                const std::string &value);
+
+    // v0.11.0 Week 3 Day 1: 構造体配列要素への代入
+    void assign_struct_to_array_element(const std::string &array_name,
+                                        int64_t index,
+                                        const Variable &struct_value);
 
     // 配列リテラル割り当て
     void assign_array_literal(const std::string &name,
@@ -702,6 +900,12 @@ class Interpreter : public EvaluatorInterface {
     void register_destructor_call(const std::string &var_name,
                                   const std::string &struct_type_name);
 
+    // v0.13.0: コンストラクタ/デストラクタの登録
+    void register_constructor(const std::string &struct_name,
+                              const ASTNode *ctor_node);
+    void register_destructor(const std::string &struct_name,
+                             const ASTNode *dtor_node);
+
     // impl static変数処理 (StaticVariableManagerへ委譲)
     Variable *find_impl_static_variable(const std::string &name);
     void create_impl_static_variable(const std::string &name,
@@ -717,6 +921,9 @@ class Interpreter : public EvaluatorInterface {
     const InterfaceDefinition *
     find_interface_definition(const std::string &interface_name);
 
+    // v0.11.0 Phase 1a: インターフェース境界の型チェック
+    void validate_all_interface_bounds();
+
     // impl管理 (InterfaceOperationsへ委譲)
     void register_impl_definition(const ImplDefinition &impl_def);
     const ImplDefinition *
@@ -729,7 +936,7 @@ class Interpreter : public EvaluatorInterface {
     Variable *get_interface_variable(const std::string &var_name);
 
     // impl定義へのアクセサ (InterfaceOperationsへ委譲)
-    const std::vector<ImplDefinition> &get_impl_definitions() const;
+    const std::deque<ImplDefinition> &get_impl_definitions() const;
 
     // 関数コンテキスト
     std::string current_function_name; // 現在実行中の関数名
@@ -762,6 +969,9 @@ class Interpreter : public EvaluatorInterface {
         return current_function_name;
     }
 
+    // v0.13.1: デストラクタ実行中かチェック
+    bool is_calling_destructor() const { return is_calling_destructor_; }
+
     // エラー表示ヘルパー関数
     void throw_runtime_error_with_location(const std::string &message,
                                            const ASTNode *node = nullptr);
@@ -775,6 +985,9 @@ class Interpreter : public EvaluatorInterface {
     // モジュール機能
     bool is_module_imported(const std::string &module_name) const {
         return loaded_modules.find(module_name) != loaded_modules.end();
+    }
+    void mark_module_loaded(const std::string &module_path) {
+        loaded_modules.insert(module_path);
     }
 
     // 共通操作へのアクセス
@@ -821,6 +1034,37 @@ class Interpreter : public EvaluatorInterface {
 
     // Parserからのstruct定義同期
     void sync_struct_definitions_from_parser(RecursiveParser *parser);
+
+    // v0.11.0: Parserからのinterface/impl定義同期
+    void sync_interface_definitions_from_parser(RecursiveParser *parser);
+    void sync_impl_definitions_from_parser(RecursiveParser *parser);
+
+    // struct定義へのアクセス（sizeof演算子などから使用）
+    const std::map<std::string, StructDefinition> &
+    get_struct_definitions() const {
+        return struct_definitions_;
+    }
+
+    bool has_struct_definition(const std::string &struct_name) const {
+        return struct_definitions_.find(struct_name) !=
+               struct_definitions_.end();
+    }
+
+    const StructDefinition *
+    get_struct_definition(const std::string &struct_name) const {
+        auto it = struct_definitions_.find(struct_name);
+        return (it != struct_definitions_.end()) ? &it->second : nullptr;
+    }
+
+    // typedef定義へのアクセス（sizeof演算子などから使用）
+    const std::map<std::string, std::string> &get_typedef_map() const {
+        return typedef_map;
+    }
+
+    std::string resolve_typedef(const std::string &type_name) const {
+        auto it = typedef_map.find(type_name);
+        return (it != typedef_map.end()) ? it->second : type_name;
+    }
 
     // N次元配列アクセス用のヘルパー関数
     std::string extract_array_name(const ASTNode *node);
@@ -871,4 +1115,47 @@ class Interpreter : public EvaluatorInterface {
     // self処理用ヘルパー関数 (InterfaceOperationsへ委譲)
     std::string get_self_receiver_path();
     void sync_self_to_receiver(const std::string &receiver_path);
+
+    // v0.11.0: 実行時型解決システム - TypeContext管理
+    void push_type_context(const TypeContext &ctx) {
+        type_context_stack_.push_back(ctx);
+    }
+    void pop_type_context() {
+        if (!type_context_stack_.empty()) {
+            type_context_stack_.pop_back();
+        }
+    }
+
+    // ポインタ要素型の登録と取得
+    void register_pointer_element_type(void *ptr,
+                                       const std::string &element_type) {
+        if (debug_mode) {
+            std::cerr << "[REGISTER_PTR] Registering 0x" << std::hex << ptr
+                      << std::dec << " -> " << element_type << "\n";
+        }
+        pointer_element_types_[reinterpret_cast<uintptr_t>(ptr)] = element_type;
+        if (debug_mode) {
+            std::cerr << "[REGISTER_PTR] Registration successful, map size="
+                      << pointer_element_types_.size() << "\n";
+        }
+    }
+
+    std::string get_pointer_element_type(void *ptr) const {
+        auto it = pointer_element_types_.find(reinterpret_cast<uintptr_t>(ptr));
+        return (it != pointer_element_types_.end()) ? it->second : "";
+    }
+    const TypeContext *get_current_type_context() const {
+        return type_context_stack_.empty() ? nullptr
+                                           : &type_context_stack_.back();
+    }
+    // 型名を現在のコンテキストで解決
+    std::string resolve_type_in_context(const std::string &type_name) const {
+        auto ctx = get_current_type_context();
+        return ctx ? ctx->resolve_complex_type(type_name) : type_name;
+    }
+
+    // v0.11.0 Phase 1a: メモリ管理演算子
+    int64_t evaluate_new_expression(const ASTNode *node);
+    int64_t evaluate_delete_expression(const ASTNode *node);
+    int64_t evaluate_sizeof_expression(const ASTNode *node);
 };

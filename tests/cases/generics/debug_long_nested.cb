@@ -1,0 +1,25 @@
+// Debug long type issue
+
+struct Box<T> {
+    T value;
+};
+
+struct Wrapper<T> {
+    T data;
+};
+
+T extract_value<T>(Wrapper<Box<T>> nested) {
+    println("  Inside function, nested.data.value =", nested.data.value);
+    return nested.data.value;
+}
+
+void main() {
+    println("=== Long Type Debug ===");
+    
+    Wrapper<Box<long> > my_nested;
+    my_nested.data.value = 999;
+    println("Before call:", my_nested.data.value);
+    
+    long result = extract_value<long>(my_nested);
+    println("After call:", result);
+}

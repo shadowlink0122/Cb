@@ -1,5 +1,336 @@
 # Cb (シーフラット) プログラミング言語
 
+**最新バージョン**: v0.11.0 - Generics, String Interpolation & Destructors  
+**リリース日**: 2025年10月29日（更新）  
+**前バージョン**: v0.10.0
+
+### 📊 品質指標（v0.11.0）
+
+- **統合テスト**: **3,463個**（100%成功） 🎉
+- **Genericテスト**: **53個** (Structs/Enums/Functions含む) 🎉
+- **Enumテスト**: **3個**（包括的テストスイート含む） 🎉
+- **Builtin Typesテスト**: **20個**（Option/Result組み込み型） 🆕
+- **Discard変数テスト**: **10個**（成功3+エラー7） 🆕
+- **Deferテスト**: **131個**（return/break/continue前cleanup含む） 🎉
+- **Destructorテスト**: **4個**（スコープクリーンアップ含む） 🎉
+- **String Interpolationテスト**: **150個以上** 🎉
+- **ユニットテスト**: **30個**（100%成功） 🎉
+- **総テスト数**: **3,463個**（100%成功） 🎉
+- **テストカバレッジ**: 全機能を網羅的にテスト
+- **完全なRAII**: デストラクタとdeferの自動実行
+
+### 🆕 v0.11.0の最新機能
+
+**1. � 動的メモリ管理によるコレクション実装** 🆕
+- **stdlib/collections/vector.cb**: new/delete による動的メモリ管理
+- **stdlib/collections/queue.cb**: 循環バッファ + 動的メモリ管理
+- **自動デストラクタ**: スコープを抜ける際にメモリ自動解放
+- **手動リサイズ**: capacity管理とresize()メソッド
+- **メモリリークなし**: 全テスト成功
+
+```cb
+void main() {
+    // ✅ Vector動的メモリ管理
+    Vector<int, SystemAllocator> vec;
+    vec.init(5);       // capacity=5の動的配列を確保
+    vec.push(10);
+    vec.push(20);
+    vec.push(30);
+    
+    // リサイズ（新しいメモリ確保→データコピー→旧メモリ解放）
+    vec.resize(10);    // capacity=10に拡張
+    vec.push(40);
+    
+    // スコープを抜ける時に自動的にメモリ解放（デストラクタ）
+}
+
+void main() {
+    // ✅ Queue動的メモリ管理（循環バッファ）
+    Queue q;
+    q.init(5);         // capacity=5のキューを確保
+    q.enqueue(100);
+    q.enqueue(200);
+    int val = q.dequeue();  // 100
+    
+    // リサイズ（循環バッファの再配置）
+    q.resize(10);      // capacity=10に拡張
+    
+    // 自動デストラクタでメモリ解放
+}
+```
+
+**2. �🔧 Option<T>とResult<T, E>の組み込み型実装**
+- **自動利用可能**: import不要、enum定義不要
+- **パーサー・インタプリタ自動登録**: 起動時に自動的に定義
+- **重複定義エラー検出**: Option/Resultの再定義を防止
+- **完全なジェネリクス対応**: `Option<int>`, `Result<string, int>` など
+
+```cb
+// import不要！enum定義不要！自動的に利用可能
+void main() {
+    // Option<T>の使用
+    Option<int> some_value = Option<int>::Some(42);
+    Option<int> none_value = Option<int>::None;
+    
+    match (some_value) {
+        Some(value) => println("Value: ", value),
+        None => println("No value")
+    }
+    
+    // Result<T, E>の使用
+    Result<int, string> ok_result = Result<int, string>::Ok(100);
+    Result<int, string> err_result = Result<int, string>::Err("Error");
+    
+    match (ok_result) {
+        Ok(value) => println("Success: ", value),
+        Err(error) => println("Error: ", error)
+    }
+}
+```
+
+**3. 🔧 Enum型のinterface経由返り値修正**
+- **問題**: Interface経由でEnum値を返すと常に0が返される
+- **修正**: `TYPE_ENUM`として正しく型情報を伝播
+- **影響**: Interface/Implシステムのenum型が完全に動作
+
+```cb
+interface ColorProvider {
+    Color get_color();
+}
+
+struct ColorImpl {
+    Color color;
+}
+
+impl ColorProvider for ColorImpl {
+    Color get_color() {
+        return self.color;  // ✅ 正しくEnum値を返す
+    }
+}
+
+void main() {
+    ColorImpl impl;
+    impl.color = Red;  // Red = 1
+    
+    ColorProvider* provider = &impl;
+    Color c = provider->get_color();  // ✅ 1が返される
+    println("Color: ", c);  // Color: 1
+}
+```
+
+**4. 🚫 Discard変数（`_`）の完全実装**
+- **宣言・代入**: 不要な値を破棄するために`_`変数を使用可能
+- **読み込み禁止**: discard変数の読み込みは実行時エラー
+- **包括的なテスト**: 10テストケース（成功3+エラー7）
+
+```cb
+void main() {
+    // ✅ 基本的な使用
+    int _ = get_value();  // 戻り値を破棄
+    _ = 200;              // 再代入も可能
+    
+    // ✅ 複数のdiscard変数
+    int _ = 100;
+    int _ = 200;  // 別のdiscard変数として扱われる
+    
+    // ❌ 読み込みは禁止
+    int a = _;    // エラー: "Cannot read from discard variable '_'"
+    println(_);   // エラー: 読み込みは禁止
+}
+```
+
+**5. 🧹 デストラクタ機能**
+- **スコープベースのRAII**: スコープ終了時に自動的にデストラクタが呼ばれる
+- **LIFO順序**: 複数の変数がある場合、宣言の逆順で破棄
+- **Generic対応**: `impl Vector<T, A: Allocator> { fn deinit() { ... } }`
+- **break/continue統合**: ループ脱出時も正しくクリーンアップ
+
+```cb
+struct Vector<T, A: Allocator> {
+    T* data;
+    int size;
+};
+
+impl Vector<T, A: Allocator> {
+    fn deinit() {
+        println("Cleaning up {size} elements");
+        if (data != NULL) {
+            allocator.free(data);
+        }
+    }
+};
+
+int main() {
+    {
+        Vector<int, SystemAllocator> vec;
+        vec.size = 10;
+        // スコープ終了時に自動的に vec.deinit() が呼ばれる
+    }
+    println("Vector cleaned up");
+}
+```
+
+**2. 📝 文字列補間**
+- **式の埋め込み**: `"Hello, {name}! Answer is {x + y}"`
+- **フォーマット指定子**: `{value:05d}`, `{pi:.2f}`, `{num:x}`
+- **複数の補間**: 一つの文字列に複数の`{}`を使用可能
+
+```cb
+int x = 42;
+string name = "Alice";
+double pi = 3.14159;
+
+println("Hello, {name}!");              // "Hello, Alice!"
+println("Answer: {x}");                 // "Answer: 42"
+println("Pi: {pi:.2f}");               // "Pi: 3.14"
+println("{x:05d}");                     // "00042"
+println("Sum: {10 + 20}");             // "Sum: 30"
+```
+
+**3. 🔧 ジェネリック型パラメータ**
+- **Generic Structs**: `struct Vec<T> { ... }` による型パラメータ化
+- **Nested Generics**: `Vec<Vec<int>>` のようなネストされたジェネリクス対応
+- **Generic Instantiation**: `Vec<int> v;` による具体的な型の生成
+
+```cb
+struct Vec<T> {
+    T data[10];
+    int size;
+}
+
+int main() {
+    Vec<int> numbers;
+    Vec<Vec<int>> matrix;  // ネストされたジェネリクス
+}
+```
+
+**2. 📦 Enum with Associated Values**
+- **Generic Enums**: `enum Option<T> { Some(T), None }` による型パラメータ化
+- **Associated Values**: バリアントに値を関連付け
+- **Member Access**: `.variant` と `.value` でアクセス
+
+```cb
+enum Option<T> {
+    Some(T),
+    None
+};
+
+int main() {
+    Option<int> some_val = Option<int>::Some(42);
+    println(some_val.variant);  // "Some"
+    println(some_val.value);    // 42
+    
+    Option<int> none_val = Option<int>::None;
+    println(none_val.variant);  // "None"
+}
+```
+
+**3. 🎯 パターンマッチング (match文)**
+- **Enum専用マッチング**: Result<T, E>やOption<T>の効率的な処理
+- **関連値の抽出**: destructuringによる値の取り出し
+- **ワイルドカード**: `_`による柔軟なパターン指定
+- **関数返り値のマッチング**: 直接match式で関数呼び出し可能
+
+```cb
+enum Result<T, E> {
+    Ok(T),
+    Err(E)
+};
+
+Result<int, string> divide(int a, int b) {
+    if (b == 0) {
+        return Result<int, string>::Err("Division by zero");
+    }
+    return Result<int, string>::Ok(a / b);
+}
+
+int main() {
+    // 関数返り値を直接マッチング
+    match (divide(10, 2)) {
+        Ok(value) => println("Result: ", value),
+        Err(error) => println("Error: ", error),
+    }
+    
+    // ワイルドカードパターン
+    enum Status { Ready(int), Running(int), Done };
+    Status s = Status::Running(50);
+    
+    match (s) {
+        Ready(value) => println("Ready: ", value),
+        Running(_) => println("Running"),  // 値を無視
+        _ => println("Other status"),      // その他すべて
+    }
+    
+    return 0;
+}
+```
+
+**4. ⚡ ジェネリック関数**
+- **型パラメータ**: `func<T>(...)` による型の抽象化
+- **複数型パラメータ**: `func<T1, T2>(...)` 対応
+- **ランタイムインスタンス化**: 呼び出し時に型を特定して関数を生成
+- **型パラメータの使用**: 関数本体内で型パラメータを変数の型として使用可能
+- **ジェネリック構造体型の戻り値**: `Box<T> make_box<T>(...)` のような複雑な型も対応 🆕
+- **インスタンス化キャッシュ**: 同じ型引数での複数回呼び出しを高速化 🆕
+
+```cb
+// 基本的なジェネリック関数
+T identity<T>(T value) {
+    return value;
+}
+
+// 複数の型パラメータ
+T max<T>(T a, T b) {
+    return a > b ? a : b;
+}
+
+// 型パラメータを関数本体で使用
+T duplicate<T>(T value) {
+    T copy = value;  // 型パラメータを変数宣言で使用
+    return copy;
+}
+
+// ジェネリック構造体型を戻り値に使用（v0.11.0 新機能）
+struct Box<T> {
+    T value;
+};
+
+Box<T> make_box<T>(T val) {
+    Box<T> box;
+    box.value = val;
+    return box;
+}
+
+int main() {
+    int x = identity<int>(42);      // T=int でインスタンス化
+    long y = identity<long>(100);   // T=long でインスタンス化
+    
+    int m = max<int>(10, 20);       // 20
+    
+    // ジェネリック構造体型の戻り値
+    Box<int> box = make_box<int>(42);
+    println("box.value =", box.value);  // 42
+    
+    println("x =", x);  // 42
+    println("y =", y);  // 100
+    println("max =", m);  // 20
+}
+```
+
+**実装の詳細**:
+- ASTノードのディープクローン
+- 型パラメータの再帰的な置換
+- 呼び出しサイトでの透過的なインスタンス化
+- インスタンス化キャッシュによるパフォーマンス最適化
+- 先読みによる型パラメータスタック管理（パーサーリファクタリング）
+- テスト済み: `identity<T>`, `max<T>`, `Box<T> make_box<T>(...)`
+
+---
+
+## v0.10.0の機能
+
+**1. 🚀 C++互換ムーブセマンティクス**ミング言語
+
 **最新バージョン**: v0.10.0 - Move Semantics & Complete Cleanup  
 **リリース日**: 2025年10月12日  
 **ベース**: v0.9.2
@@ -89,7 +420,7 @@ export impl Point {
 }
 
 // main.cb
-import "module_a.cb";
+import module_a;
 
 int main() {
     Point p(10, 20);  // ✅ エクスポートされたコンストラクタを使用
@@ -714,6 +1045,34 @@ make unit-test          # 単体テスト（50個）
 
 ## 🔧 開発状況
 
+### v0.11.0 - Generics, String Interpolation & Destructors（2025年10月29日更新）
+
+#### ✅ 主要新機能
+- **ジェネリクス**: 構造体、Enum、関数の型パラメータ化
+- **文字列補間**: `"Hello, {name}!"` 形式の式埋め込み
+- **デストラクタ**: スコープベースの自動リソース管理（RAII）
+- **break/continue cleanup**: ループ脱出時のデストラクタ実行
+
+#### 🐛 Week 4 Day 1 バグ修正（2025年10月29日）
+- **Enum型のinterface経由返り値修正**: `TYPE_ENUM`として正しく型情報を伝播
+- **Discard変数の完全実装**: `_`変数の宣言・代入・読み込み禁止をサポート
+
+#### 📈 テスト統計
+- 統合テスト: 2924個 → **3341個**（+417個）
+- Genericテスト: **53個**
+- String Interpolationテスト: **150個以上**
+- Destructorテスト: **4個**
+- Discard変数テスト: **10個**（成功3+エラー7） 🆕
+- 成功率: **100%**
+
+#### 📚 ドキュメント
+- [`release_notes/v0.11.0.md`](release_notes/v0.11.0.md) - リリースノート
+- [`docs/spec.md`](docs/spec.md) - 言語仕様書（v0.11.0対応）
+- [`docs/BNF.md`](docs/BNF.md) - BNF文法定義（v0.11.0対応）
+- [`docs/features/string_interpolation.md`](docs/features/string_interpolation.md) - 文字列補間の詳細
+- [`tests/cases/destructor/README.md`](tests/cases/destructor/README.md) - デストラクタテスト
+- [`tests/cases/discard_variable/README.md`](tests/cases/discard_variable/README.md) - Discard変数テスト 🆕
+
 ### v0.10.0 - Move Semantics & Complete Cleanup（2025年10月12日）
 
 #### ✅ 主要新機能
@@ -728,6 +1087,7 @@ make unit-test          # 単体テスト（50個）
 - 成功率: **100%**
 
 #### 📚 ドキュメント
+- [`docs/CODING_GUIDELINES.md`](docs/CODING_GUIDELINES.md) - **コーディング規約**（テスト作成手順含む）
 - [`release_notes/v0.10.0.md`](release_notes/v0.10.0.md) - リリースノート
 - [`docs/spec.md`](docs/spec.md) - 言語仕様書（v0.10.0対応）
 - [`docs/todo/v0.11.0_implementation_plan.md`](docs/todo/v0.11.0_implementation_plan.md) - 次期バージョン計画
@@ -867,12 +1227,24 @@ impl Counter for Point {
 
 このプロジェクトは現在個人開発ですが、フィードバックや提案を歓迎します。
 
-### コーディング規約
+### 開発に参加する
+
+新機能を実装する場合は、必ず[コーディング規約](docs/CODING_GUIDELINES.md)に従ってください。
+
+**重要**: 新機能には必ずテストを作成してください：
+1. `tests/cases/<feature>/` にCbテストケースを作成
+2. `tests/integration/<feature>/` にIntegration testを作成  
+3. `tests/integration/main.cpp` にテストを登録
+
+詳細は [docs/CODING_GUIDELINES.md](docs/CODING_GUIDELINES.md) を参照してください。
+
+### コーディング規約（概要）
 
 - **変数・関数**: `snake_case`
 - **型・構造体**: `PascalCase`
 - **定数**: `UPPER_CASE`
 - **インデント**: スペース4つ
+- **テスト**: 必須（cases + integration）
 
 ---
 

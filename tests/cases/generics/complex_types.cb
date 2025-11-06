@@ -1,0 +1,30 @@
+// v0.11.0 Phase 0 - Generic Struct with Pointers and Arrays
+// Test: Complex type combinations
+// Status: FUTURE - Pointer and array type parameters not yet fully supported
+// TODO: Implement full support for Container<int*> and Container<int[3]>
+
+struct Container<T> {
+    T data;
+    int count;
+};
+
+void main() {
+    // 現在はシンプルな型のみサポート
+    Container<int> simple_container;
+    simple_container.data = 999;
+    simple_container.count = 1;
+    
+    println("Simple container:");
+    println("  count = ");
+    println(simple_container.count);
+    println("  data = ");
+    println(simple_container.data);
+    
+    println("Basic type test passed!");
+    println("NOTE: Pointer and array types in generics will be supported in future phases.");
+    
+    // TODO: 将来的にサポート予定
+    // Container<int*> ptr_container;
+    // Container<int[3]> array_container;
+}
+

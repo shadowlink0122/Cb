@@ -65,14 +65,22 @@ void StructAssignmentManager::assign_struct_member(
     // value_varの型に応じて値を代入
     if (value_var.type == TYPE_STRING || !value_var.str_value.empty()) {
         // 文字列型の場合
-        member_var->str_value = value_var.str_value;
+        // str_valueが空でvalueにポインタ値がある場合（mallocで確保したstring）
+        if (value_var.str_value.empty() && value_var.value != 0) {
+            // ポインタ値をそのままvalueフィールドにコピー
+            member_var->value = value_var.value;
+            member_var->str_value = ""; // str_valueは空のまま
+        } else {
+            // 通常のstring値
+            member_var->str_value = value_var.str_value;
+            member_var->value = 0;
+        }
         if (!is_union_member) {
             member_var->type = TYPE_STRING;
         } else {
             member_var->current_type = TYPE_STRING;
         }
-        // 数値フィールドをクリア
-        member_var->value = 0;
+        // その他の数値フィールドをクリア
         member_var->float_value = 0.0f;
         member_var->double_value = 0.0;
         member_var->quad_value = 0.0L;
@@ -853,6 +861,24 @@ void StructAssignmentManager::assign_struct_member_array_literal(
                         }
                     }
                 }
+
+                // Also update the direct variable (e.g., "matrix.data") so sync
+                // can access the full array
+                std::string direct_var_name = var_name + "." + member_name;
+                Variable *direct_var =
+                    interpreter_->find_variable(direct_var_name);
+                if (direct_var) {
+                    direct_var->multidim_array_values =
+                        member_var->multidim_array_values;
+                    direct_var->array_values = member_var->array_values;
+                    direct_var->is_assigned = true;
+                    if (interpreter_->debug_mode) {
+                        debug_print("Updated direct variable %s with %zu "
+                                    "multidim_array_values\n",
+                                    direct_var_name.c_str(),
+                                    direct_var->multidim_array_values.size());
+                    }
+                }
             } else {
                 // 1次元配列の場合（既存の処理）
                 for (size_t i = 0; i < result.size && i < assigned_count; i++) {
@@ -929,7 +955,9 @@ Variable *StructAssignmentManager::prepare_struct_literal_assignment(
     Variable *var = interpreter_->find_variable(var_name);
 
     // 変数が見つからない、または構造体でない場合、親構造体のstruct_membersと構造体定義から確認
-    if (var && !var->is_struct && var_name.find('.') != std::string::npos) {
+    // v0.11.0: enum型もチェック
+    if (var && !var->is_struct && !var->is_enum &&
+        var_name.find('.') != std::string::npos) {
         // "o.inner" -> "o" and "inner"
         size_t dot_pos = var_name.rfind('.');
         std::string parent_name = var_name.substr(0, dot_pos);
@@ -1062,8 +1090,17 @@ Variable *StructAssignmentManager::prepare_struct_literal_assignment(
     if (!var) {
         throw std::runtime_error("Variable not found: " + var_name);
     }
-    if (!var->is_struct) {
-        throw std::runtime_error("Variable is not a struct: " + var_name);
+    // v0.11.0: enum型もメンバーアクセスをサポート
+    if (!var->is_struct && !var->is_enum) {
+        throw std::runtime_error("Variable is not a struct or enum: " +
+                                 var_name);
+    }
+
+    // enum型の場合は、evaluator側で処理されるのでここには来ないはず
+    if (var->is_enum) {
+        throw std::runtime_error(
+            "Enum member assignment should be handled in evaluator: " +
+            var_name);
     }
 
     if (var->is_const && var->is_assigned) {
@@ -1289,9 +1326,13 @@ void StructAssignmentManager::process_named_initialization(
             // 構造体メンバに別の構造体変数を代入
             Variable *source_var =
                 interpreter_->find_variable(member_init->right->name);
-            if (!source_var || source_var->type != TYPE_STRUCT) {
-                throw std::runtime_error("Source variable is not a struct: " +
-                                         member_init->right->name);
+            // v0.11.0: enum型もチェック（将来的にenum to
+            // struct代入もサポート可能）
+            if (!source_var ||
+                (source_var->type != TYPE_STRUCT && !source_var->is_enum)) {
+                throw std::runtime_error(
+                    "Source variable is not a struct or enum: " +
+                    member_init->right->name);
             }
 
             struct_member_var = *source_var;

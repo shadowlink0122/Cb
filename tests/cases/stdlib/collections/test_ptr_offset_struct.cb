@@ -1,0 +1,66 @@
+// 構造体ポインタ演算のシンプルなテスト
+
+struct Point {
+    int x;
+    int y;
+};
+
+void* ptr_offset(void* ptr, int offset) {
+    long base_long = ptr;
+    long target_long = base_long + offset;
+    void* result = target_long;
+    return result;
+}
+
+int main() {
+    println("=== Struct Pointer Arithmetic Test ===");
+    
+    int N = 3;
+    int point_size = sizeof(Point);
+    println("sizeof(Point) = {point_size}");
+    
+    // Point配列を確保
+    Point* points = malloc(point_size * N);
+    println("Allocated {N} Points at {hex(points)}");
+    
+    // 最初の要素に直接アクセス
+    println("\n--- Direct access to first element ---");
+    points->x = 10;
+    points->y = 20;
+    println("points->x = {points->x}, points->y = {points->y}");
+    
+    // ptr_offsetで2番目の要素にアクセス
+    println("\n--- Using ptr_offset for second element ---");
+    int offset1 = 1 * point_size;
+    println("offset for index 1 = {offset1}");
+    
+    Point* p1 = ptr_offset(points, offset1);
+    println("p1 address = {hex(p1)}");
+    
+    p1->x = 100;
+    p1->y = 200;
+    println("Set p1->x = {p1->x}, p1->y = {p1->y}");
+    
+    // 3番目の要素
+    println("\n--- Using ptr_offset for third element ---");
+    int offset2 = 2 * point_size;
+    Point* p2 = ptr_offset(points, offset2);
+    p2->x = 1000;
+    p2->y = 2000;
+    println("Set p2->x = {p2->x}, p2->y = {p2->y}");
+    
+    // 全要素を再度読み出し
+    println("\n--- Reading all elements back ---");
+    Point* p0 = points;
+    println("points[0]: ({p0->x}, {p0->y})");
+    
+    p1 = ptr_offset(points, 1 * point_size);
+    println("points[1]: ({p1->x}, {p1->y})");
+    
+    p2 = ptr_offset(points, 2 * point_size);
+    println("points[2]: ({p2->x}, {p2->y})");
+    
+    free(points);
+    println("\n✅ Test completed successfully!");
+    return 0;
+}

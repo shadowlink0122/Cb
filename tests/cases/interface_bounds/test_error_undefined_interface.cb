@@ -1,0 +1,15 @@
+// Test 12: Error - Undefined interface
+// Expected: Parse error or type check error for undefined interface
+
+struct SystemAllocator {};
+
+// Allocatorインターフェースが未定義!
+
+struct Vector<T, A: Allocator> {
+    int capacity;
+};
+
+void main() {
+    Vector<int, SystemAllocator> vec;
+    println("This should not execute");
+}

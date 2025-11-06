@@ -1,0 +1,6 @@
+// エラー: discard変数を読み込もうとする
+void main() {
+    int _ = 42;
+    int x = _; // エラー: Cannot reference discard variable '_'
+    println(x);
+}

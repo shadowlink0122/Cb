@@ -1,5 +1,6 @@
 #include "recursive_parser.h"
 #include "../../backend/interpreter/core/error_handler.h"
+#include "../../backend/interpreter/evaluator/functions/generic_instantiation.h"
 #include "../../common/debug.h"
 #include "../../common/debug_messages.h"
 #include "parsers/declaration_parser.h"
@@ -14,7 +15,9 @@
 
 #include <algorithm>
 #include <cctype>
+#include <fstream>
 #include <iostream>
+#include <set>
 #include <sstream>
 #include <unordered_set>
 
@@ -26,13 +29,18 @@ using namespace RecursiveParserNS;
 RecursiveParser::RecursiveParser(const std::string &source,
                                  const std::string &filename)
     : lexer_(source), current_token_(TokenType::TOK_EOF, "", 0, 0),
-      filename_(filename), source_(source), debug_mode_(false) {
+      filename_(filename), source_(source), debug_mode_(false),
+      has_split_gt_token_(false),
+      split_gt_token_(TokenType::TOK_EOF, "", 0, 0) {
     // ソースコードを行ごとに分割
     std::istringstream iss(source);
     std::string line;
     while (std::getline(iss, line)) {
         source_lines_.push_back(line);
     }
+
+    // impl定義用のメモリを事前確保（リサイズによるポインタ無効化を防ぐ）
+    impl_definitions_.reserve(100);
 
     // 分離されたパーサーのインスタンスを初期化
     // Phase 2: 全パーサーの有効化（委譲パターン）
@@ -45,6 +53,9 @@ RecursiveParser::RecursiveParser(const std::string &source,
     interface_parser_ = std::make_unique<InterfaceParser>(this);
     union_parser_ = std::make_unique<UnionParser>(this);
     type_utility_parser_ = std::make_unique<TypeUtilityParser>(this);
+
+    // v0.11.0: 組み込み型（Option<T>, Result<T, E>）の定義を登録
+    initialize_builtin_types();
 
     advance();
 }
@@ -68,7 +79,30 @@ bool RecursiveParser::check(TokenType type) {
 
 Token RecursiveParser::advance() {
     Token previous = current_token_;
+
+    // v0.11.0: >> トークン分割処理（ネストしたジェネリクス対応）
+    // 分割された > トークンがある場合、それを返す
+    if (has_split_gt_token_) {
+        current_token_ = split_gt_token_;
+        has_split_gt_token_ = false;
+        return previous;
+    }
+
     current_token_ = lexer_.nextToken();
+
+    // >> トークンをジェネリクスのコンテキストで2つの > に分割
+    // type_parameter_stack_ が空でない = ジェネリクス型のパース中
+    if (current_token_.type == TokenType::TOK_RIGHT_SHIFT &&
+        !type_parameter_stack_.empty()) {
+        // >> を最初の > として扱い、2番目の > を保存
+        Token first_gt(TokenType::TOK_GT, ">", current_token_.line,
+                       current_token_.column);
+        split_gt_token_ = Token(TokenType::TOK_GT, ">", current_token_.line,
+                                current_token_.column + 1);
+        has_split_gt_token_ = true;
+        current_token_ = first_gt;
+    }
+
     return previous;
 }
 
@@ -475,6 +509,7 @@ std::string RecursiveParser::extractBaseType(const std::string &type_name) {
 // DELETED: 10 lines moved to type_utility_parser.cpp
 
 // struct宣言の解析: struct name { members };
+// v0.11.0: ジェネリクス対応 struct Box<T> { T value; };
 ASTNode *RecursiveParser::parseStructDeclaration() {
     consume(TokenType::TOK_STRUCT, "Expected 'struct'");
 
@@ -486,7 +521,72 @@ ASTNode *RecursiveParser::parseStructDeclaration() {
     std::string struct_name = current_token_.value;
     advance(); // struct名をスキップ
 
+    // v0.11.0: 型パラメータリストのチェック <T> または <T, E>
+    // v0.11.0 Phase 1a: 複数インターフェース境界のサポート <T, A: Allocator +
+    // Clone>
+    std::vector<std::string> type_parameters;
+    std::unordered_map<std::string, std::vector<std::string>> interface_bounds;
+    bool is_generic = false;
+
+    if (check(TokenType::TOK_LT)) {
+        is_generic = true;
+        advance(); // '<' を消費
+
+        // 型パラメータのリストを解析
+        do {
+            if (!check(TokenType::TOK_IDENTIFIER)) {
+                error("Expected type parameter name after '<'");
+                return nullptr;
+            }
+
+            std::string param_name = current_token_.value;
+            type_parameters.push_back(param_name);
+            advance();
+
+            // インターフェース境界のチェック: A: Allocator または A: Allocator
+            // + Clone + Debug
+            if (check(TokenType::TOK_COLON)) {
+                advance(); // ':' を消費
+
+                std::vector<std::string> bounds;
+                do {
+                    if (!check(TokenType::TOK_IDENTIFIER)) {
+                        error("Expected interface name after ':' or '+' in "
+                              "type parameter "
+                              "bound");
+                        return nullptr;
+                    }
+
+                    bounds.push_back(current_token_.value);
+                    advance();
+
+                    // '+' があれば次のインターフェース境界を読む
+                    if (check(TokenType::TOK_PLUS)) {
+                        advance(); // '+' を消費
+                    } else {
+                        break;
+                    }
+                } while (true);
+
+                interface_bounds[param_name] = bounds;
+            }
+
+            if (check(TokenType::TOK_COMMA)) {
+                advance(); // ',' を消費
+            } else {
+                break;
+            }
+        } while (true);
+
+        if (!check(TokenType::TOK_GT)) {
+            error("Expected '>' after type parameters");
+            return nullptr;
+        }
+        advance(); // '>' を消費
+    }
+
     // 前方宣言のチェック: struct Name; の形式
+    // ジェネリクス構造体の前方宣言もサポート: struct Box<T>;
     if (check(TokenType::TOK_SEMICOLON)) {
         advance(); // セミコロンを消費
 
@@ -495,6 +595,8 @@ ASTNode *RecursiveParser::parseStructDeclaration() {
             struct_definitions_.end()) {
             StructDefinition forward_decl(struct_name);
             forward_decl.is_forward_declaration = true;
+            forward_decl.is_generic = is_generic;
+            forward_decl.type_parameters = type_parameters;
             struct_definitions_[struct_name] = forward_decl;
 
             debug_msg(DebugMsgId::PARSE_STRUCT_DEF,
@@ -502,8 +604,13 @@ ASTNode *RecursiveParser::parseStructDeclaration() {
         }
 
         // 前方宣言用のASTノードを作成
-        ASTNode *node = new ASTNode(ASTNodeType::AST_STRUCT_DECL);
+        ASTNode *node =
+            new ASTNode(is_generic ? ASTNodeType::AST_GENERIC_STRUCT_DECL
+                                   : ASTNodeType::AST_STRUCT_DECL);
         node->name = struct_name;
+        node->is_generic = is_generic;
+        node->type_parameters = type_parameters;
+        node->interface_bounds = interface_bounds;
         setLocation(node, current_token_);
         return node;
     }
@@ -511,6 +618,15 @@ ASTNode *RecursiveParser::parseStructDeclaration() {
     consume(TokenType::TOK_LBRACE, "Expected '{' after struct name");
 
     StructDefinition struct_def(struct_name);
+    struct_def.is_generic = is_generic;
+    struct_def.type_parameters = type_parameters;
+    struct_def.interface_bounds = interface_bounds;
+
+    // v0.11.0: ジェネリック構造体の場合、型パラメータをスタックにプッシュ
+    // メンバーの型解析時に型パラメータを認識できるようにする
+    if (is_generic) {
+        type_parameter_stack_.push_back(type_parameters);
+    }
 
     // 自己参照を許可するため、構造体名を前方宣言として登録
     // これにより、メンバーのパース中に "Node*" などの型を認識できる
@@ -620,6 +736,11 @@ ASTNode *RecursiveParser::parseStructDeclaration() {
     consume(TokenType::TOK_RBRACE, "Expected '}' after struct members");
     consume(TokenType::TOK_SEMICOLON, "Expected ';' after struct definition");
 
+    // v0.11.0: ジェネリック構造体の型パラメータをスタックからポップ
+    if (is_generic) {
+        type_parameter_stack_.pop_back();
+    }
+
     // デフォルトメンバーの検証: 複数のdefaultメンバーがないか確認
     int default_count = 0;
     std::string default_member;
@@ -676,8 +797,13 @@ ASTNode *RecursiveParser::parseStructDeclaration() {
     debug_msg(DebugMsgId::PARSE_STRUCT_DEF, struct_name.c_str());
 
     // ASTノードを作成してstruct定義情報を保存
-    ASTNode *node = new ASTNode(ASTNodeType::AST_STRUCT_DECL);
+    ASTNode *node =
+        new ASTNode(is_generic ? ASTNodeType::AST_GENERIC_STRUCT_DECL
+                               : ASTNodeType::AST_STRUCT_DECL);
     node->name = struct_name;
+    node->is_generic = is_generic;
+    node->type_parameters = type_parameters;
+    node->interface_bounds = interface_bounds;
     setLocation(node, current_token_);
 
     // struct定義情報をASTノードに保存
@@ -1362,7 +1488,8 @@ implemented"); return nullptr;
     }
 
     // impl定義を保存（ポインタ参照のみ保持）
-    impl_definitions_.push_back(impl_def);
+    // v0.13.0: unique_ptrを含むため move
+    impl_definitions_.push_back(std::move(impl_def));
 
     // ASTノードを作成
     ASTNode* node = new ASTNode(ASTNodeType::AST_IMPL_DECL);
@@ -1425,4 +1552,703 @@ bool RecursiveParser::isFunctionPointerTypedef() {
 // 関数ポインタtypedef宣言の解析
 ASTNode *RecursiveParser::parseFunctionPointerTypedefDeclaration() {
     return declaration_parser_->parseFunctionPointerTypedefDeclaration();
+}
+
+// v0.11.0: ジェネリック構造体のインスタンス化
+// 例: Box<int> をインスタンス化 -> Box_int という具体的な構造体を生成
+// v0.11.0: ジェネリック型のインスタンス化
+
+// 型名を正規化してインスタンス名に使用可能な形式に変換
+// 例: "int*" -> "int_ptr", "int[3]" -> "int_array_3"
+// NOTE: Currently unused, but kept for potential future use
+[[maybe_unused]] static std::string
+normalizeTypeNameForInstantiation(const std::string &type_name) {
+    std::string normalized = type_name;
+
+    // ポインタの '*' を '_ptr' に置換
+    size_t star_pos = normalized.find('*');
+    while (star_pos != std::string::npos) {
+        normalized.replace(star_pos, 1, "_ptr");
+        star_pos = normalized.find('*', star_pos + 4);
+    }
+
+    // 配列の '[N]' を '_array_N' に置換
+    size_t bracket_pos = normalized.find('[');
+    if (bracket_pos != std::string::npos) {
+        size_t end_bracket = normalized.find(']', bracket_pos);
+        if (end_bracket != std::string::npos) {
+            std::string size = normalized.substr(bracket_pos + 1,
+                                                 end_bracket - bracket_pos - 1);
+            std::string replacement = "_array";
+            if (!size.empty()) {
+                replacement += "_" + size;
+            }
+            normalized.replace(bracket_pos, end_bracket - bracket_pos + 1,
+                               replacement);
+        }
+    }
+
+    // 参照の '&' を '_ref' に置換
+    size_t amp_pos = normalized.find('&');
+    while (amp_pos != std::string::npos) {
+        normalized.replace(amp_pos, 1, "_ref");
+        amp_pos = normalized.find('&', amp_pos + 4);
+    }
+
+    return normalized;
+}
+
+void RecursiveParser::instantiateGenericStruct(
+    const std::string &base_name,
+    const std::vector<std::string> &type_arguments) {
+
+    // v0.11.0: インスタンス化された型名を生成: Queue<int> 形式のまま
+    // マングリングしない（シンプルで、typeofの実装が容易）
+    std::string instantiated_name = base_name + "<";
+    for (size_t i = 0; i < type_arguments.size(); ++i) {
+        if (i > 0)
+            instantiated_name += ", ";
+        instantiated_name += type_arguments[i];
+    }
+    instantiated_name += ">";
+
+    // 既にインスタンス化済みかチェック
+    if (struct_definitions_.find(instantiated_name) !=
+        struct_definitions_.end()) {
+        return; // 既に存在する
+    }
+
+    // ジェネリック基底の定義を取得
+    auto it = struct_definitions_.find(base_name);
+    if (it == struct_definitions_.end()) {
+        error("Generic struct '" + base_name + "' not found");
+        return;
+    }
+
+    const StructDefinition &generic_base = it->second;
+    if (!generic_base.is_generic) {
+        error("Struct '" + base_name + "' is not a generic type");
+        return;
+    }
+
+    // 型パラメータと型引数のマッピングを作成
+    std::unordered_map<std::string, std::string> type_map;
+    for (size_t i = 0; i < generic_base.type_parameters.size(); ++i) {
+        type_map[generic_base.type_parameters[i]] = type_arguments[i];
+    }
+
+    // インスタンス化された構造体定義を作成
+    StructDefinition instantiated_struct(instantiated_name);
+    instantiated_struct.is_generic = false; // インスタンス化後は通常の構造体
+    instantiated_struct.is_forward_declaration = false;
+
+    // v0.11.0 Phase 1a: インターフェース境界情報を保持
+    // 実際の型チェックはインタープリター側で行う
+    instantiated_struct.interface_bounds = generic_base.interface_bounds;
+    instantiated_struct.type_parameters = generic_base.type_parameters;
+    instantiated_struct.type_parameter_bindings =
+        type_map; // 型引数のバインディングを保存
+
+    // メンバーを型置換してコピー
+    for (const auto &member : generic_base.members) {
+        std::string member_type_alias = member.type_alias;
+        TypeInfo member_type_info = member.type;
+
+        // 型パラメータを具体的な型に置換
+        if (type_map.find(member_type_alias) != type_map.end()) {
+            member_type_alias = type_map[member_type_alias];
+            // 具体的な型のTypeInfoを取得
+            member_type_info =
+                type_utility_parser_->getTypeInfoFromString(member_type_alias);
+        }
+
+        instantiated_struct.add_member(
+            member.name, member_type_info, member_type_alias, member.is_pointer,
+            member.pointer_depth, member.pointer_base_type_name,
+            member.pointer_base_type, member.is_private, member.is_reference,
+            member.is_unsigned, member.is_const);
+
+        // 配列情報もコピー
+        if (member.array_info.is_array()) {
+            instantiated_struct.members.back().array_info = member.array_info;
+        }
+    }
+
+    // インスタンス化された構造体を登録
+    struct_definitions_[instantiated_name] = instantiated_struct;
+
+    if (debug_mode_) {
+        std::cerr << "[GENERICS] Instantiated " << base_name << "<";
+        for (size_t i = 0; i < type_arguments.size(); ++i) {
+            if (i > 0)
+                std::cerr << ", ";
+            std::cerr << type_arguments[i];
+        }
+        std::cerr << "> as " << instantiated_name << std::endl;
+    }
+}
+
+// v0.11.0: ジェネリックenumのインスタンス化
+void RecursiveParser::instantiateGenericEnum(
+    const std::string &base_name,
+    const std::vector<std::string> &type_arguments) {
+
+    // v0.11.0: インスタンス化された型名を生成: Option<int> 形式のまま
+    // マングリングしない（シンプルで、typeofの実装が容易）
+    std::string instantiated_name = base_name + "<";
+    for (size_t i = 0; i < type_arguments.size(); ++i) {
+        if (i > 0)
+            instantiated_name += ", ";
+        instantiated_name += type_arguments[i];
+    }
+    instantiated_name += ">";
+
+    // 既にインスタンス化済みかチェック
+    if (enum_definitions_.find(instantiated_name) != enum_definitions_.end()) {
+        return; // 既に存在する
+    }
+
+    // ジェネリック基底の定義を取得
+    auto it = enum_definitions_.find(base_name);
+    if (it == enum_definitions_.end()) {
+        error("Generic enum '" + base_name + "' not found");
+        return;
+    }
+
+    const EnumDefinition &generic_base = it->second;
+    if (!generic_base.is_generic) {
+        error("Enum '" + base_name + "' is not a generic type");
+        return;
+    }
+
+    // 型パラメータの数をチェック
+    if (type_arguments.size() != generic_base.type_parameters.size()) {
+        error("Generic enum '" + base_name + "' expects " +
+              std::to_string(generic_base.type_parameters.size()) +
+              " type argument(s), but got " +
+              std::to_string(type_arguments.size()));
+        return;
+    }
+
+    // 型パラメータと型引数のマッピングを作成
+    std::unordered_map<std::string, std::string> type_map;
+    for (size_t i = 0; i < generic_base.type_parameters.size(); ++i) {
+        type_map[generic_base.type_parameters[i]] = type_arguments[i];
+    }
+
+    // インスタンス化されたenum定義を作成
+    EnumDefinition instantiated_enum(instantiated_name);
+    instantiated_enum.is_generic = false; // インスタンス化後は通常のenum
+    instantiated_enum.has_associated_values =
+        generic_base.has_associated_values;
+
+    // メンバーを型置換してコピー
+    for (const auto &member : generic_base.members) {
+        EnumMember new_member = member;
+
+        if (member.has_associated_value) {
+            // 型パラメータを具体的な型に置換
+            if (type_map.find(member.associated_type_name) != type_map.end()) {
+                std::string concrete_type =
+                    type_map[member.associated_type_name];
+                new_member.associated_type_name = concrete_type;
+                // 具体的な型のTypeInfoを取得
+                new_member.associated_type =
+                    type_utility_parser_->getTypeInfoFromString(concrete_type);
+            }
+        }
+
+        instantiated_enum.members.push_back(new_member);
+    }
+
+    // インスタンス化されたenumを登録
+    enum_definitions_[instantiated_name] = instantiated_enum;
+
+    if (debug_mode_) {
+        std::cerr << "[GENERICS] Instantiated enum " << base_name << "<";
+        for (size_t i = 0; i < type_arguments.size(); ++i) {
+            if (i > 0)
+                std::cerr << ", ";
+            std::cerr << type_arguments[i];
+        }
+        std::cerr << "> as " << instantiated_name << std::endl;
+    }
+}
+
+// ========================================================================
+// v0.11.0: 組み込み型の初期化
+// Option<T>, Result<T, E> を自動的にenum定義として登録
+// ========================================================================
+void RecursiveParser::initialize_builtin_types() {
+    // Option<T> enum定義
+    EnumDefinition option_def;
+    option_def.name = "Option";
+    option_def.is_generic = true;
+    option_def.has_associated_values = true;
+    option_def.type_parameters.push_back("T");
+
+    // Some(T) variant
+    EnumMember some_member;
+    some_member.name = "Some";
+    some_member.value = 0;
+    some_member.explicit_value = true;
+    some_member.has_associated_value = true;
+    some_member.associated_type_name = "T";
+    option_def.members.push_back(some_member);
+
+    // None variant
+    EnumMember none_member;
+    none_member.name = "None";
+    none_member.value = 1;
+    none_member.explicit_value = true;
+    none_member.has_associated_value = false;
+    option_def.members.push_back(none_member);
+
+    enum_definitions_["Option"] = option_def;
+
+    // Result<T, E> enum定義
+    EnumDefinition result_def;
+    result_def.name = "Result";
+    result_def.is_generic = true;
+    result_def.has_associated_values = true;
+    result_def.type_parameters.push_back("T");
+    result_def.type_parameters.push_back("E");
+
+    // Ok(T) variant
+    EnumMember ok_member;
+    ok_member.name = "Ok";
+    ok_member.value = 0;
+    ok_member.explicit_value = true;
+    ok_member.has_associated_value = true;
+    ok_member.associated_type_name = "T";
+    result_def.members.push_back(ok_member);
+
+    // Err(E) variant
+    EnumMember err_member;
+    err_member.name = "Err";
+    err_member.value = 1;
+    err_member.explicit_value = true;
+    err_member.has_associated_value = true;
+    err_member.associated_type_name = "E";
+    result_def.members.push_back(err_member);
+
+    enum_definitions_["Result"] = result_def;
+
+    if (debug_mode_) {
+        std::cerr << "[BUILTIN_TYPES] Registered Option<T> and Result<T, E> as "
+                     "builtin enum types"
+                  << std::endl;
+    }
+}
+
+/**
+ * @brief ソースファイルのディレクトリを取得
+ */
+std::string RecursiveParser::getSourceDirectory() const {
+    size_t last_slash = filename_.find_last_of("/\\");
+    if (last_slash != std::string::npos) {
+        return filename_.substr(0, last_slash + 1);
+    }
+    return "./";
+}
+
+/**
+ * @brief モジュールパスを実際のファイルパスに解決
+ *
+ * ドット記法（stdlib.collections.vector）をスラッシュ区切り（stdlib/collections/vector.cb）に変換
+ * また、検索パス（stdlib/, modules/など）を試行して実際のファイルを探す
+ * 例:
+ *   stdlib.collections.vector -> stdlib/collections/vector.cb
+ *   module_name -> module_name.cb
+ */
+std::string RecursiveParser::resolveModulePath(const std::string &module_path) {
+    std::string file_path = module_path;
+
+    // ドット記法の場合、パスに変換して .cb 拡張子を追加
+    if (module_path.find('.') != std::string::npos &&
+        module_path.find('/') == std::string::npos &&
+        module_path.find("..") == std::string::npos) {
+        // ドット区切りをスラッシュに変換
+        // stdlib.collections.vector -> stdlib/collections/vector.cb
+        std::replace(file_path.begin(), file_path.end(), '.', '/');
+        file_path += ".cb";
+    } else {
+        // ドットがない場合（相対パスimport: module_name）は.cbを追加
+        file_path += ".cb";
+    }
+
+    // 検索パスの優先順位
+    std::vector<std::string> search_paths;
+    std::string source_dir = getSourceDirectory();
+
+    // 相対パス（../ や ./）の場合、そのまま試す
+    if (file_path.find("../") == 0 || file_path.find("./") == 0) {
+        search_paths.push_back(file_path);
+    } else {
+        // 通常のモジュール検索パス
+        search_paths = {
+            source_dir +
+                file_path, // ソースファイルと同じディレクトリ（最優先）
+            file_path,                    // カレントディレクトリ
+            "stdlib/" + file_path,        // stdlibディレクトリ
+            "modules/" + file_path,       // modulesディレクトリ
+            "../modules/" + file_path,    // 1つ上のmodulesディレクトリ
+            "../../modules/" + file_path, // 2つ上のmodulesディレクトリ
+            "../" + file_path,            // 1つ上のディレクトリ
+            "../../" + file_path,         // 2つ上のディレクトリ
+        };
+    }
+
+    // ファイルが存在するパスを探す
+    for (const auto &path : search_paths) {
+        std::ifstream file(path);
+        if (file.is_open()) {
+            file.close();
+            if (debug_mode_) {
+                std::cerr << "[IMPORT] Found module at: " << path << std::endl;
+            }
+            return path;
+        }
+    }
+
+    // 見つからない場合は元のパスを返す（エラーは後で処理）
+    return file_path;
+}
+
+/**
+ * @brief import文をパース時に処理し、モジュールの定義を取り込む
+ *
+ * これにより、import後に型を使用する際にParser側で型が認識される
+ */
+void RecursiveParser::processImport(
+    const std::string &module_path,
+    const std::vector<std::string> &import_items) {
+    // パス解決
+    std::string resolved_path = resolveModulePath(module_path);
+
+    if (debug_mode_) {
+        std::cerr << "[IMPORT] Processing import: " << module_path << " -> "
+                  << resolved_path << std::endl;
+        if (!import_items.empty()) {
+            std::cerr << "[IMPORT] Selective import: {";
+            for (size_t i = 0; i < import_items.size(); ++i) {
+                if (i > 0)
+                    std::cerr << ", ";
+                std::cerr << import_items[i];
+            }
+            std::cerr << "}" << std::endl;
+        }
+    }
+
+    // ファイルを開く
+    std::ifstream file(resolved_path);
+    if (!file.is_open()) {
+        // ファイルが見つからない場合は警告のみ
+        // 実行時にInterpreter側でロードされる可能性があるため
+        if (debug_mode_) {
+            std::cerr << "[IMPORT] Warning: Module file not found: "
+                      << module_path << " (tried: " << resolved_path << ")"
+                      << " (will try runtime import)" << std::endl;
+        }
+        return;
+    }
+
+    // ファイル内容を読み込む
+    std::string source_code((std::istreambuf_iterator<char>(file)),
+                            std::istreambuf_iterator<char>());
+    file.close();
+
+    // 新しいParserインスタンスでモジュールをパース
+    RecursiveParser module_parser(source_code, resolved_path);
+    module_parser.setDebugMode(debug_mode_);
+
+    ASTNode *module_ast = nullptr;
+    try {
+        module_ast = module_parser.parseProgram();
+    } catch (const std::exception &e) {
+        error("Failed to parse module '" + module_path + "': " + e.what());
+        return;
+    }
+
+    if (!module_ast) {
+        error("Failed to parse module: " + module_path);
+        return;
+    }
+
+    // 選択的importの場合は、指定された項目のみをチェック
+    // 空の場合は全てimport（デフォルトimport）
+    bool is_selective = !import_items.empty();
+
+    // 選択的importで必要な依存関係を自動的に追加するための一時リスト
+    std::set<std::string> items_to_import;
+    if (is_selective) {
+        items_to_import.insert(import_items.begin(), import_items.end());
+    }
+
+    auto should_import_item = [&](const std::string &name) -> bool {
+        if (!is_selective) {
+            return true; // デフォルトimport: 全てimport
+        }
+        // 選択的import: 指定された項目または依存関係に含まれるもの
+        return items_to_import.find(name) != items_to_import.end();
+    };
+
+    // 選択的importの場合、依存関係を解決
+    // 例: SystemAllocatorをimportする場合、Allocatorインターフェースも必要
+    if (is_selective) {
+        // struct定義をチェックして、依存するinterfaceを追加
+        for (const auto &item_name : import_items) {
+            auto it = module_parser.struct_definitions_.find(item_name);
+            if (it != module_parser.struct_definitions_.end()) {
+                const StructDefinition &def = it->second;
+
+                // 型パラメータの境界インターフェースをチェック
+                // 例: A: Allocator の場合、Allocatorを自動的にimport
+                for (const auto &bound_pair : def.interface_bounds) {
+                    for (const auto &bound : bound_pair.second) {
+                        items_to_import.insert(bound);
+                        if (debug_mode_) {
+                            std::cerr << "[IMPORT] Auto-importing dependency: "
+                                      << bound << " (required by " << item_name
+                                      << ")" << std::endl;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // モジュールからexportされた定義を取り込む
+    // 1. interface定義（structより先に処理して依存関係を解決）
+    for (const auto &pair : module_parser.interface_definitions_) {
+        const std::string &name = pair.first;
+        const InterfaceDefinition &def = pair.second;
+
+        // 選択的importの場合、指定された項目かチェック
+        if (!should_import_item(name)) {
+            continue;
+        }
+
+        bool is_exported = false;
+        if (module_ast && !module_ast->statements.empty()) {
+            for (const auto &stmt : module_ast->statements) {
+                if (stmt && stmt->name == name && stmt->is_exported) {
+                    is_exported = true;
+                    break;
+                }
+            }
+        }
+
+        if (is_exported) {
+            interface_definitions_[name] = def;
+            if (debug_mode_) {
+                std::cerr << "[IMPORT] Imported interface: " << name
+                          << std::endl;
+            }
+        }
+    }
+
+    // 2. struct定義
+    for (const auto &pair : module_parser.struct_definitions_) {
+        const std::string &name = pair.first;
+        const StructDefinition &def = pair.second;
+
+        // 選択的importの場合、指定された項目かチェック
+        if (!should_import_item(name)) {
+            continue;
+        }
+
+        // 元のASTでis_exportedフラグをチェック
+        bool is_exported = false;
+        if (module_ast && !module_ast->statements.empty()) {
+            for (const auto &stmt : module_ast->statements) {
+                if (stmt && stmt->name == name && stmt->is_exported) {
+                    is_exported = true;
+                    break;
+                }
+            }
+        }
+
+        if (is_exported) {
+            struct_definitions_[name] = def;
+            if (debug_mode_) {
+                std::cerr << "[IMPORT] Imported struct: " << name;
+                if (def.is_generic) {
+                    std::cerr << " (generic, type_params: "
+                              << def.type_parameters.size() << ")";
+                }
+                std::cerr << std::endl;
+            }
+        }
+    }
+
+    // 3. enum定義
+    for (const auto &pair : module_parser.enum_definitions_) {
+        const std::string &name = pair.first;
+        const EnumDefinition &def = pair.second;
+
+        // 選択的importの場合、指定された項目かチェック
+        if (!should_import_item(name)) {
+            continue;
+        }
+
+        bool is_exported = false;
+        if (module_ast && !module_ast->statements.empty()) {
+            for (const auto &stmt : module_ast->statements) {
+                if (stmt && stmt->name == name && stmt->is_exported) {
+                    is_exported = true;
+                    break;
+                }
+            }
+        }
+
+        if (is_exported) {
+            enum_definitions_[name] = def;
+            if (debug_mode_) {
+                std::cerr << "[IMPORT] Imported enum: " << name << std::endl;
+            }
+        }
+    }
+
+    // 4. impl定義も取り込む（struct/interfaceと関連）
+    // implブロックはexportできず、自動的に実装される
+    // exportされたstruct/interfaceに関連するimplは全て取り込む
+    for (const auto &impl : module_parser.impl_definitions_) {
+        // exportされたstructまたはinterfaceに関連するimplのみを取り込む
+        bool should_import = false;
+
+        if (debug_mode_) {
+            std::cerr << "[IMPORT] Checking impl: struct_name='"
+                      << impl.struct_name << "' interface_name='"
+                      << impl.interface_name << "'" << std::endl;
+        }
+
+        // struct_nameがexportされているかチェック
+        // ジェネリック型の場合、"Vector<int,
+        // SystemAllocator>"や"Vector_int_SystemAllocator"から"Vector"を抽出
+        std::string base_struct_name = impl.struct_name;
+
+        // パターン1: "Vector<int, SystemAllocator>" -> "Vector"
+        size_t bracket_pos = impl.struct_name.find('<');
+        if (bracket_pos != std::string::npos) {
+            base_struct_name = impl.struct_name.substr(0, bracket_pos);
+        } else {
+            // パターン2: "Vector_int_SystemAllocator" -> "Vector"
+            size_t underscore_pos = impl.struct_name.find('_');
+            if (underscore_pos != std::string::npos) {
+                base_struct_name = impl.struct_name.substr(0, underscore_pos);
+            }
+        }
+
+        if (struct_definitions_.find(impl.struct_name) !=
+            struct_definitions_.end()) {
+            should_import = true;
+            if (debug_mode_) {
+                std::cerr << "[IMPORT]   -> Matched by full name" << std::endl;
+            }
+        } else if (base_struct_name != impl.struct_name &&
+                   struct_definitions_.find(base_struct_name) !=
+                       struct_definitions_.end()) {
+            // ジェネリック型の場合、ベース名でもチェック
+            should_import = true;
+            if (debug_mode_) {
+                std::cerr << "[IMPORT]   -> Matched by base name '"
+                          << base_struct_name << "'" << std::endl;
+            }
+        }
+
+        // interface_nameがexportされているかチェック
+        if (!should_import &&
+            interface_definitions_.find(impl.interface_name) !=
+                interface_definitions_.end()) {
+            should_import = true;
+            if (debug_mode_) {
+                std::cerr << "[IMPORT]   -> Matched by interface name"
+                          << std::endl;
+            }
+        }
+
+        if (should_import) {
+            // v0.11.0:
+            // impl定義はimpl_nodes転送後に追加する（ポインタ更新のため）
+            // imported_implは後で処理
+        } else if (debug_mode_) {
+            std::cerr << "[IMPORT]   -> NOT imported (no match)" << std::endl;
+        }
+    }
+
+    // v0.11.0: implノードの所有権を転送（use-after-free対策）
+    // module_parserのimpl_nodes_をこのparserに移動
+    auto &module_impl_nodes = module_parser.get_impl_nodes_for_transfer();
+    // size_t transferred_node_count = module_impl_nodes.size(); (unused)
+    size_t impl_node_start_idx = impl_nodes_.size();
+
+    if (!module_impl_nodes.empty()) {
+        if (debug_mode_) {
+            std::cerr << "[IMPORT] Transferring " << module_impl_nodes.size()
+                      << " impl nodes from module parser" << std::endl;
+        }
+
+        for (auto &node : module_impl_nodes) {
+            impl_nodes_.push_back(std::move(node));
+        }
+        module_impl_nodes.clear();
+    }
+
+    // v0.11.0: impl定義を追加し、impl_nodeポインタを更新済みノードに設定
+    // すべてのimpl定義を追加（元のループですでにフィルタリング済み）
+    const auto &module_impl_defs = module_parser.get_impl_definitions();
+    size_t node_idx = impl_node_start_idx;
+    for (size_t impl_idx = 0;
+         impl_idx < module_impl_defs.size() && node_idx < impl_nodes_.size();
+         ++impl_idx) {
+        const auto &impl = module_impl_defs[impl_idx];
+
+        // v0.11.0: 常にインポート（元のループで既にフィルタリング済み）
+        if (true) {
+            ImplDefinition imported_impl = impl; // コピー
+
+            // impl_nodeポインタを転送済みノードに更新
+            imported_impl.impl_node = impl_nodes_[node_idx].get();
+
+            // methods/constructors/destructorも更新済みノードから取得
+            imported_impl.methods.clear();
+            imported_impl.constructors.clear();
+            imported_impl.destructor = nullptr;
+            for (const auto &arg : imported_impl.impl_node->arguments) {
+                if (arg->node_type == ASTNodeType::AST_FUNC_DECL) {
+                    imported_impl.methods.push_back(arg.get());
+                } else if (arg->node_type ==
+                           ASTNodeType::AST_CONSTRUCTOR_DECL) {
+                    imported_impl.constructors.push_back(arg.get());
+                } else if (arg->node_type == ASTNodeType::AST_DESTRUCTOR_DECL) {
+                    imported_impl.destructor = arg.get();
+                }
+            }
+
+            if (debug_mode_) {
+                std::cerr << "[IMPORT] Imported impl: "
+                          << imported_impl.struct_name << " for "
+                          << imported_impl.interface_name << std::endl;
+            }
+
+            impl_definitions_.push_back(imported_impl);
+            node_idx++;
+        }
+    }
+
+    // v0.11.0:
+    // module_parserのimpl_definitions_をクリア（破棄時のuse-after-free対策）
+    auto &module_impl_defs_clear =
+        module_parser.get_impl_definitions_for_clear();
+    module_impl_defs_clear.clear();
+
+    // NOTE: ASTノードの所有権はimpl_nodes_に移動済み
+    // impl定義内のimpl_nodeポインタはこのimpl_nodes_内のノードを参照
+    // 最終的にInterpreter::sync_impl_definitions_from_parser()で
+    // Interpreterに転送され、プログラム終了まで保持される
+    if (debug_mode_ && module_ast) {
+        std::cerr << "[IMPORT] impl nodes transferred to parser: "
+                  << module_path << std::endl;
+    }
 }

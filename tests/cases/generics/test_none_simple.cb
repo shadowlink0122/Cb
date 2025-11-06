@@ -1,0 +1,10 @@
+enum MaybeValue<T> {
+    Some(T),
+    None
+};
+
+int main() {
+    MaybeValue<int> x = MaybeValue<int>::None;
+    println("Created None variant");
+    return 0;
+}

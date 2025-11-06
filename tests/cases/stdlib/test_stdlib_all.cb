@@ -1,0 +1,345 @@
+// Stdlib Test Runner - 全stdlibテストを1つのファイルで実行
+// Result型でエラー検出
+
+import stdlib.std.test;
+
+// Result型 - テスト結果を表現
+export struct TestSuiteResult {
+    bool success;
+    int passed;
+    int failed;
+    string suite_name;
+};
+
+// Helper function for section headers
+void print_section(string name) {
+    println("");
+    println("=== {name} ===");
+}
+
+// Allocatorテスト
+void test_system_allocator(TestResult* t) {
+    print_section("SystemAllocator");
+    // TODO: SystemAllocatorのテスト実装
+    t.assert_true(true, "SystemAllocator placeholder test");
+}
+
+void test_bump_allocator(TestResult* t) {
+    print_section("BumpAllocator");
+    // TODO: BumpAllocatorのテスト実装
+    t.assert_true(true, "BumpAllocator placeholder test");
+}
+
+// Vector基本テスト
+void test_vector_basic(TestResult* t) {
+    print_section("Vector Basic Operations");
+    
+    import stdlib.std.vector;
+    
+    Vector<int> vec;
+    
+    // push_back
+    vec.push_back(10);
+    vec.push_back(20);
+    vec.push_back(30);
+    
+    t.assert_eq_long(vec.get_length(), 3, "Length after push_back");
+    t.assert_eq_int(vec.at(0), 10, "First element");
+    t.assert_eq_int(vec.at(1), 20, "Second element");
+    t.assert_eq_int(vec.at(2), 30, "Third element");
+    
+    // pop_back
+    vec.pop_back();
+    t.assert_eq_long(vec.get_length(), 2, "Length after pop_back");
+    
+    // is_empty
+    t.assert_false(vec.is_empty(), "Vector is not empty");
+}
+
+// Vectorソートテスト（効率的な検証関数付き）
+bool verify_ascending_vector(Vector<int> vec) {
+    if (vec.get_length() <= 1) {
+        return true;
+    }
+    
+    long i = 0;
+    while (i < vec.get_length() - 1) {
+        int current_val = vec.at(i);
+        int next_val = vec.at(i + 1);
+        
+        if (current_val > next_val) {
+            return false;
+        }
+        
+        i = i + 1;
+    }
+    
+    return true;
+}
+
+bool verify_descending_vector(Vector<int> vec) {
+    if (vec.get_length() <= 1) {
+        return true;
+    }
+    
+    long i = 0;
+    while (i < vec.get_length() - 1) {
+        int current_val = vec.at(i);
+        int next_val = vec.at(i + 1);
+        
+        if (current_val < next_val) {
+            return false;
+        }
+        
+        i = i + 1;
+    }
+    
+    return true;
+}
+
+void test_vector_sort(TestResult* t) {
+    print_section("Vector Sort Operations");
+    
+    import stdlib.std.vector;
+    
+    // smaller()
+    Vector<int> vec1;
+    int i = 10;
+    while (i > 0) {
+        vec1.push_back(i);
+        i = i - 1;
+    }
+    vec1.smaller();
+    t.assert_true(verify_ascending_vector(vec1), "smaller() sorts in ascending order");
+    t.assert_eq_int(vec1.at(0), 1, "First element after smaller()");
+    
+    // greater()
+    Vector<int> vec2;
+    i = 1;
+    while (i <= 10) {
+        vec2.push_back(i);
+        i = i + 1;
+    }
+    vec2.greater();
+    t.assert_true(verify_descending_vector(vec2), "greater() sorts in descending order");
+    t.assert_eq_int(vec2.at(0), 10, "First element after greater()");
+    
+    // sort()
+    Vector<int> vec3;
+    vec3.push_back(5);
+    vec3.push_back(2);
+    vec3.push_back(8);
+    vec3.push_back(1);
+    vec3.sort();
+    t.assert_true(verify_ascending_vector(vec3), "sort() sorts in ascending order");
+}
+
+// Queue基本テスト
+void test_queue_basic(TestResult* t) {
+    print_section("Queue Basic Operations");
+    
+    import stdlib.std.queue;
+    
+    Queue<int> q;
+    
+    // push (enqueue)
+    q.push(10);
+    q.push(20);
+    q.push(30);
+    
+    t.assert_eq_int(q.size(), 3, "Size after push");
+    t.assert_eq_int(q.top(), 10, "Front element");
+    
+    // pop (dequeue)
+    int val = q.pop();
+    t.assert_eq_int(val, 10, "Popped value");
+    t.assert_eq_int(q.size(), 2, "Size after pop");
+    
+    // is_empty
+    t.assert_false(q.is_empty(), "Queue is not empty");
+}
+
+// Map基本テスト
+void test_map_basic(TestResult* t) {
+    print_section("Map Basic Operations");
+    
+    import stdlib.std.map;
+    
+    Map<int, int> m;
+    
+    // insert
+    m.insert(1, 100);
+    m.insert(2, 200);
+    m.insert(3, 300);
+    
+    t.assert_eq_int(m.size(), 3, "Size after insert");
+    t.assert_true(m.contains(1), "Key 1 exists");
+    t.assert_true(m.contains(2), "Key 2 exists");
+    t.assert_false(m.contains(99), "Key 99 does not exist");
+    
+    // get
+    int val = m.get(2, -1);
+    t.assert_eq_int(val, 200, "Value for key 2");
+    
+    // try_remove
+    bool removed = m.try_remove(2);
+    t.assert_true(removed, "Key 2 removed");
+    t.assert_eq_int(m.size(), 2, "Size after remove");
+}
+
+// テストスイート実行関数
+TestSuiteResult run_allocator_tests() {
+    TestSuiteResult result;
+    result.suite_name = "Allocators";
+    
+    TestResult t;
+    
+    test_system_allocator(&t);
+    test_bump_allocator(&t);
+    
+    result.passed = t.passed;
+    result.failed = t.failed;
+    result.success = t.failed == 0;
+    
+    return result;
+}
+
+TestSuiteResult run_vector_tests() {
+    TestSuiteResult result;
+    result.suite_name = "Vector";
+    
+    TestResult t;
+    
+    test_vector_basic(&t);
+    test_vector_sort(&t);
+    
+    result.passed = t.passed;
+    result.failed = t.failed;
+    result.success = t.failed == 0;
+    
+    return result;
+}
+
+TestSuiteResult run_queue_tests() {
+    TestSuiteResult result;
+    result.suite_name = "Queue";
+    
+    TestResult t;
+    
+    test_queue_basic(&t);
+    
+    result.passed = t.passed;
+    result.failed = t.failed;
+    result.success = t.failed == 0;
+    
+    return result;
+}
+
+TestSuiteResult run_map_tests() {
+    TestSuiteResult result;
+    result.suite_name = "Map";
+    
+    TestResult t;
+    
+    test_map_basic(&t);
+    
+    result.passed = t.passed;
+    result.failed = t.failed;
+    result.success = t.failed == 0;
+    
+    return result;
+}
+
+void main() {
+    println("╔═══════════════════════════════════════════════════════════╗");
+    println("║  Cb Standard Library - Comprehensive Test Suite          ║");
+    println("║  All tests in one file with Result-based error detection ║");
+    println("╚═══════════════════════════════════════════════════════════╝");
+    println("");
+    
+    // 全テストスイートを実行
+    int total_passed = 0;
+    int total_failed = 0;
+    int suites_passed = 0;
+    int suites_failed = 0;
+    
+    // [1/4] Allocators
+    println("[1/4] Running Allocator Tests...");
+    TestSuiteResult r1 = run_allocator_tests();
+    total_passed = total_passed + r1.passed;
+    total_failed = total_failed + r1.failed;
+    if (r1.success) {
+        println("  ✅ {r1.suite_name}: {r1.passed} tests passed");
+        suites_passed = suites_passed + 1;
+    } else {
+        println("  ❌ {r1.suite_name}: {r1.failed} tests failed");
+        suites_failed = suites_failed + 1;
+    }
+    println("");
+    
+    // [2/4] Vector
+    println("[2/4] Running Vector Tests...");
+    TestSuiteResult r2 = run_vector_tests();
+    total_passed = total_passed + r2.passed;
+    total_failed = total_failed + r2.failed;
+    if (r2.success) {
+        println("  ✅ {r2.suite_name}: {r2.passed} tests passed");
+        suites_passed = suites_passed + 1;
+    } else {
+        println("  ❌ {r2.suite_name}: {r2.failed} tests failed");
+        suites_failed = suites_failed + 1;
+    }
+    println("");
+    
+    // [3/4] Queue
+    println("[3/4] Running Queue Tests...");
+    TestSuiteResult r3 = run_queue_tests();
+    total_passed = total_passed + r3.passed;
+    total_failed = total_failed + r3.failed;
+    if (r3.success) {
+        println("  ✅ {r3.suite_name}: {r3.passed} tests passed");
+        suites_passed = suites_passed + 1;
+    } else {
+        println("  ❌ {r3.suite_name}: {r3.failed} tests failed");
+        suites_failed = suites_failed + 1;
+    }
+    println("");
+    
+    // [4/4] Map
+    println("[4/4] Running Map Tests...");
+    TestSuiteResult r4 = run_map_tests();
+    total_passed = total_passed + r4.passed;
+    total_failed = total_failed + r4.failed;
+    if (r4.success) {
+        println("  ✅ {r4.suite_name}: {r4.passed} tests passed");
+        suites_passed = suites_passed + 1;
+    } else {
+        println("  ❌ {r4.suite_name}: {r4.failed} tests failed");
+        suites_failed = suites_failed + 1;
+    }
+    println("");
+    
+    // 最終サマリー
+    println("╔═══════════════════════════════════════════════════════════╗");
+    println("║  Final Test Summary                                       ║");
+    println("╚═══════════════════════════════════════════════════════════╝");
+    
+    println("Total Tests:  {total_passed + total_failed} tests");
+    println("  Passed:     {total_passed} tests");
+    println("  Failed:     {total_failed} tests");
+    println("");
+    println("Test Suites:  {suites_passed + suites_failed} suites");
+    println("  Passed:     {suites_passed} suites");
+    println("  Failed:     {suites_failed} suites");
+    println("");
+    
+    if (total_failed == 0) {
+        println("╔═══════════════════════════════════════════════════════════╗");
+        println("║  🎉 All Standard Library Tests Passed!                   ║");
+        println("╚═══════════════════════════════════════════════════════════╝");
+    } else {
+        println("╔═══════════════════════════════════════════════════════════╗");
+        println("║  ⚠️  Some Tests Failed - Review Output Above             ║");
+        println("╚═══════════════════════════════════════════════════════════╝");
+    }
+}

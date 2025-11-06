@@ -1,0 +1,46 @@
+// Test basic struct array assignment
+
+struct Task {
+    int task_id;
+    int priority;
+    int callback_type;
+    void* data;
+};
+
+void main() {
+    println("Testing struct array assignment...\n");
+    
+    // Create array
+    Task[10] tasks;
+    
+    // Create a task
+    Task t1;
+    t1.task_id = 42;
+    t1.priority = 5;
+    t1.callback_type = 1;
+    t1.data = nullptr;
+    
+    println("Created task - id: ", t1.task_id, " priority: ", t1.priority);
+    
+    // Try to assign to array - field by field
+    Task temp = tasks[0];
+    temp.task_id = t1.task_id;
+    temp.priority = t1.priority;
+    temp.callback_type = t1.callback_type;
+    temp.data = t1.data;
+    tasks[0] = temp;
+    
+    println("After assignment to tasks[0]...");
+    
+    // Read back from array
+    Task retrieved = tasks[0];
+    println("Retrieved - id: ", retrieved.task_id, " priority: ", retrieved.priority);
+    
+    if (retrieved.task_id == 42 && retrieved.priority == 5) {
+        println("\n✅ Struct array assignment works!");
+    } else {
+        println("\n❌ Struct array assignment failed!");
+        println("Expected: id=42, pr=5");
+        println("Got: id=", retrieved.task_id, ", pr=", retrieved.priority);
+    }
+}

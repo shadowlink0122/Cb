@@ -1,0 +1,10 @@
+// v0.11.0 Phase 0 - Basic Generic Struct Test
+// Test: Parse generic struct declaration with type parameter
+
+struct Box<T> {
+    T value;
+};
+
+void main() {
+    println("Generic struct parsed successfully");
+}

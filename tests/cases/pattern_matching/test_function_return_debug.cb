@@ -1,0 +1,29 @@
+// 関数返り値のデバッグテスト
+
+Result<int, int> test_func() {
+    println("In test_func");
+    Result<int, int> r = Result<int, int>::Ok(42);
+    println("Created result in test_func");
+    return r;
+}
+
+int main() {
+    println("=== Function Return Debug ===");
+    
+    Result<int, int> result = test_func();
+    println("Got result from function");
+    
+    // 直接matchを試す
+    match (result) {
+        Ok(v) => {
+            println("Ok:");
+            println(v);
+        }
+        Err(e) => {
+            println("Err:");
+            println(e);
+        }
+    }
+    
+    return 0;
+}

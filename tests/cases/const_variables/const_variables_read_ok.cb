@@ -14,20 +14,21 @@ int main() {
     const string name = "World";
     
     // 読み取りは正常に動作するはず
-    println("Int value: " + num);
-    println("Tiny value: " + small);
-    println("Short value: " + medium);
-    println("Long value: " + bigValue);
-    println("String1: " + greeting);
-    println("String2: " + name);
+    println("Int value: ", num);
+    println("Tiny value: ", small);
+    println("Short value: ", medium);
+    println("Long value: ", bigValue);
+    println("String1: ", greeting);
+    println("String2: ", name);
     
     // 式で使用
     int sum = num + small;
-    println("Sum: " + sum);
+    println("Sum: ", sum);
     
-    // 文字列結合
-    string combined = greeting + " " + name;
-    println("Combined: " + combined);
+    // 文字列結合（個別に表示）
+    print(greeting);
+    print(" ");
+    println(name);
     
     println("All const variable reads completed successfully");
     return 0;

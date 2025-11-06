@@ -1,0 +1,40 @@
+// Test 1: Option型の基本的なパターンマッチング
+// Pattern matching basic test with Option enum
+// v0.11.0: Option<T> is now a builtin type
+
+int main() {
+    println("=== Test 1: Option<int> basic pattern matching ===");
+    
+    // Some値のテスト
+    Option<int> opt_some = Option<int>::Some(42);
+    
+    match (opt_some) {
+        Some(value) => {
+            println("Matched Some with value:");
+            println(value);
+        }
+        None => {
+            println("Matched None");
+        }
+    }
+    
+    println("");
+    
+    // None値のテスト
+    Option<int> opt_none = Option<int>::None;
+    
+    match (opt_none) {
+        Some(value) => {
+            println("Matched Some with value:");
+            println(value);
+        }
+        None => {
+            println("Matched None");
+        }
+    }
+    
+    println("");
+    println("Test 1: PASSED");
+    
+    return 0;
+}

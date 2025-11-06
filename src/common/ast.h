@@ -1,6 +1,7 @@
 #pragma once
 #include <cstdint>
 #include <iostream>
+#include <map>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -28,6 +29,7 @@ enum TypeInfo {
     TYPE_POINTER = 16,          // ポインタ型
     TYPE_NULLPTR = 17,          // nullptr型
     TYPE_FUNCTION_POINTER = 18, // 関数ポインタ型
+    TYPE_GENERIC = 19, // ジェネリック型（型パラメータ）v0.11.0
     TYPE_ARRAY_BASE = 100 // 配列型は基底型 + 100（下位互換のため保持）
 };
 
@@ -76,6 +78,11 @@ struct EnumMember {
     int64_t value;       // enum メンバーの値
     bool explicit_value; // 明示的に値が指定されたかどうか
 
+    // v0.11.0: 関連値のサポート（Rust風enum）
+    bool has_associated_value = false;       // 関連値を持つか
+    TypeInfo associated_type = TYPE_UNKNOWN; // 関連値の型
+    std::string associated_type_name; // 関連値の型名（"T"など）
+
     EnumMember() : value(0), explicit_value(false) {}
     EnumMember(const std::string &n, int64_t v, bool explicit_val = true)
         : name(n), value(v), explicit_value(explicit_val) {}
@@ -84,6 +91,16 @@ struct EnumMember {
 struct EnumDefinition {
     std::string name;                // enum名
     std::vector<EnumMember> members; // enumメンバーのリスト
+
+    // v0.11.0: ジェネリクス対応
+    bool is_generic = false; // ジェネリックenumか
+    std::vector<std::string>
+        type_parameters; // 型パラメータリスト（例: ["T", "E"]）
+    bool has_associated_values = false; // 関連値を持つか（Rust風enum）
+
+    // v0.11.0 Phase 1a: インターフェース境界（複数対応）
+    std::unordered_map<std::string, std::vector<std::string>>
+        interface_bounds; // 型パラメータの複数インターフェース境界
 
     EnumDefinition() {}
     EnumDefinition(const std::string &n) : name(n) {}
@@ -562,6 +579,17 @@ struct StructDefinition {
     bool has_default_member = false; // デフォルトメンバーを持つか
     std::string default_member_name; // デフォルトメンバーの名前
 
+    // ジェネリクス関連（v0.11.0）
+    bool is_generic = false; // ジェネリック構造体かどうか
+    std::vector<std::string> type_parameters; // 型パラメータリスト ["T", "E"]
+    std::unordered_map<std::string, std::string>
+        type_parameter_bindings; // 型パラメータの束縛 {"T" -> "int"}
+
+    // v0.11.0 Phase 1a: インターフェース境界（複数対応）
+    std::unordered_map<std::string, std::vector<std::string>>
+        interface_bounds; // 型パラメータの複数インターフェース境界
+                          // {"A" -> ["Allocator", "Clone"]}
+
     StructDefinition() {}
     StructDefinition(const std::string &n) : name(n) {}
 
@@ -631,6 +659,12 @@ struct InterfaceDefinition {
     std::string name;                     // interface名
     std::vector<InterfaceMember> methods; // メソッドのリスト
 
+    // v0.11.0+: ジェネリクスサポート
+    bool is_generic = false; // ジェネリックinterfaceか？
+    std::vector<std::string> type_parameters; // 型パラメータ: <T>, <T, U>
+    std::unordered_map<std::string, std::vector<std::string>> interface_bounds;
+    // T: Comparable, A: Allocator + Clone
+
     InterfaceDefinition() {}
     InterfaceDefinition(const std::string &n) : name(n) {}
 
@@ -650,6 +684,96 @@ struct InterfaceDefinition {
     }
 };
 
+// v0.11.0: 実行時型解決システム
+// ジェネリック型のメソッド呼び出し時に型パラメータを動的に解決するための情報
+struct TypeContext {
+    std::map<std::string, std::string> type_map; // T -> int 等のマッピング
+    const struct ImplDefinition *impl_source = nullptr; // 元のimpl定義
+
+    TypeContext() = default;
+    TypeContext(const std::map<std::string, std::string> &map)
+        : type_map(map) {}
+
+    // 型名を解決（ジェネリック型パラメータを実際の型に変換）
+    std::string resolve_type(const std::string &type_name) const {
+        auto it = type_map.find(type_name);
+        return (it != type_map.end()) ? it->second : type_name;
+    }
+
+    // 複雑な型（ポインタ、配列等）を解決
+    std::string resolve_complex_type(const std::string &type_name) const {
+        // MapNode<K, V> -> MapNode<int, int> のような変換
+        size_t angle_open = type_name.find('<');
+        if (angle_open != std::string::npos) {
+            size_t angle_close = type_name.rfind('>');
+            if (angle_close != std::string::npos) {
+                std::string base = type_name.substr(0, angle_open);
+                std::string params = type_name.substr(
+                    angle_open + 1, angle_close - angle_open - 1);
+                std::string suffix = (angle_close + 1 < type_name.size())
+                                         ? type_name.substr(angle_close + 1)
+                                         : "";
+
+                // パラメータをカンマで分割して個別に解決
+                std::string resolved_params;
+                size_t start = 0;
+                while (start < params.size()) {
+                    // 先頭の空白をスキップ
+                    while (start < params.size() && params[start] == ' ')
+                        start++;
+                    if (start >= params.size())
+                        break;
+
+                    // 次のカンマまたは末尾を探す
+                    size_t comma = params.find(',', start);
+                    size_t end =
+                        (comma == std::string::npos) ? params.size() : comma;
+
+                    // パラメータを抽出して末尾の空白を削除
+                    std::string param = params.substr(start, end - start);
+                    while (!param.empty() && param.back() == ' ')
+                        param.pop_back();
+
+                    // パラメータを解決
+                    std::string resolved_param = resolve_type(param);
+
+                    if (!resolved_params.empty())
+                        resolved_params += ", ";
+                    resolved_params += resolved_param;
+
+                    start = (comma == std::string::npos) ? params.size()
+                                                         : comma + 1;
+                }
+
+                return base + "<" + resolved_params + ">" + suffix;
+            }
+        }
+
+        // T* -> int* のような変換
+        size_t star_pos = type_name.find('*');
+        if (star_pos != std::string::npos) {
+            std::string base = type_name.substr(0, star_pos);
+            std::string suffix = type_name.substr(star_pos);
+            return resolve_type(base) + suffix;
+        }
+
+        // T[] -> int[] のような変換
+        size_t bracket_pos = type_name.find('[');
+        if (bracket_pos != std::string::npos) {
+            std::string base = type_name.substr(0, bracket_pos);
+            std::string suffix = type_name.substr(bracket_pos);
+            return resolve_type(base) + suffix;
+        }
+
+        return resolve_type(type_name);
+    }
+
+    bool empty() const { return type_map.empty(); }
+    bool has_mapping_for(const std::string &type_param) const {
+        return type_map.find(type_param) != type_map.end();
+    }
+};
+
 // Impl定義情報を格納する構造体
 struct ImplDefinition {
     std::string interface_name; // 実装するinterface名
@@ -662,11 +786,24 @@ struct ImplDefinition {
         constructors; // コンストラクタのリスト（オーバーロード対応）
     const ASTNode *destructor = nullptr; // デストラクタ（1つのみ）
 
+    // v0.12.0: ジェネリックimplのインスタンス化サポート
+    // v0.13.1 DESIGN FIX: 生ポインタに戻す（所有権はパーサーが持つ）
+    // unique_ptrでの所有はclone_ast_nodeの不完全性により問題が発生したため
+    const ASTNode *impl_node =
+        nullptr; // implブロック全体のASTノード（ジェネリックimpl用、非所有）
+
+    // v0.13.1: 実行時型解決のための情報
+    // ジェネリックimplがインスタンス化された場合の型マッピング
+    // 例: T -> int, U -> string
+    std::map<std::string, std::string> type_parameter_map;
+    bool is_generic_instance =
+        false; // このimplがジェネリックからインスタンス化されたものか
+
     ImplDefinition() {}
     ImplDefinition(const std::string &iface, const std::string &struct_name)
         : interface_name(iface), struct_name(struct_name) {}
 
-    // デフォルトコピー/ムーブで十分（vector<const ASTNode*> はコピー可能）
+    // v0.13.1: 生ポインタに戻したため、デフォルトのコピー/ムーブで十分
     ImplDefinition(const ImplDefinition &) = default;
     ImplDefinition &operator=(const ImplDefinition &) = default;
     ImplDefinition(ImplDefinition &&) noexcept = default;
@@ -683,6 +820,43 @@ struct ImplDefinition {
     void set_destructor(const ASTNode *destructor_ast) {
         destructor = destructor_ast;
     }
+
+    // v0.11.0: TypeContextを取得
+    TypeContext get_type_context() const {
+        TypeContext ctx(type_parameter_map);
+        ctx.impl_source = this;
+        return ctx;
+    }
+};
+
+// v0.11.0: パターンマッチング用の型定義
+
+// パターンの種類
+enum class PatternType {
+    PATTERN_ENUM_VARIANT, // Enum variant: Some(value), Ok(value)
+    PATTERN_WILDCARD,     // ワイルドカード: _ （将来の拡張）
+    PATTERN_LITERAL,      // リテラル: 42, "string" （将来の拡張）
+};
+
+// Match Arm（match文の各分岐）
+struct MatchArm {
+    PatternType pattern_type = PatternType::PATTERN_ENUM_VARIANT;
+    std::string variant_name;          // "Some", "Ok", "Err", "None"
+    std::vector<std::string> bindings; // 束縛する変数名 ["value", "error"]
+    std::unique_ptr<ASTNode> body;     // armの本体（statement or block）
+
+    // v0.11.0: Enum型の完全名（型チェック用）
+    std::string enum_type_name; // "Option<int>", "Result<int, string>"
+
+    MatchArm() = default;
+
+    // コピー禁止（unique_ptrを持つため）
+    MatchArm(const MatchArm &) = delete;
+    MatchArm &operator=(const MatchArm &) = delete;
+
+    // ムーブは許可
+    MatchArm(MatchArm &&) noexcept = default;
+    MatchArm &operator=(MatchArm &&) noexcept = default;
 };
 
 // 型名を文字列に変換する関数
@@ -705,8 +879,14 @@ enum class ASTNodeType {
     AST_BINARY_OP,
     AST_UNARY_OP,
     AST_TERNARY_OP, // 三項演算子 condition ? value1 : value2
+    AST_CAST_EXPR,  // 型キャスト (type)expr
     AST_ASSIGN,
     AST_ARRAY_ASSIGN, // 配列代入 (arr1 = arr2)
+
+    // メモリ管理
+    AST_NEW_EXPR,    // new演算子 (new T または new T[size])
+    AST_DELETE_EXPR, // delete演算子 (delete ptr または delete[] ptr)
+    AST_SIZEOF_EXPR, // sizeof演算子 (sizeof(T))
 
     // 制御構造
     AST_IF_STMT,
@@ -718,6 +898,8 @@ enum class ASTNodeType {
     AST_DEFER_STMT,  // defer文
     AST_SWITCH_STMT, // switch文
     AST_CASE_CLAUSE, // case節
+    AST_MATCH_STMT,  // v0.11.0: match文（パターンマッチング）
+    AST_MATCH_ARM,   // v0.11.0: match文のアーム（1つの分岐）
     AST_RANGE_EXPR,  // 範囲式 (start...end)
 
     // 宣言
@@ -736,8 +918,9 @@ enum class ASTNodeType {
     AST_INTERFACE_DECL,           // interface宣言
     AST_IMPL_DECL,                // impl宣言
     AST_ENUM_ACCESS,              // enum値アクセス (EnumName::member)
-    AST_CONSTRUCTOR_DECL,         // コンストラクタ宣言 (self)
-    AST_DESTRUCTOR_DECL,          // デストラクタ宣言 (~self)
+    AST_ENUM_CONSTRUCT,   // v0.11.0: enum値構築 (EnumName::member(value))
+    AST_CONSTRUCTOR_DECL, // コンストラクタ宣言 (self)
+    AST_DESTRUCTOR_DECL,  // デストラクタ宣言 (~self)
 
     // 式
     AST_FUNC_CALL,
@@ -783,7 +966,18 @@ enum class ASTNodeType {
 
     // v0.10.0 新機能
     AST_DISCARD_VARIABLE, // 無名変数 (_)
-    AST_LAMBDA_EXPR       // 無名関数式
+    AST_LAMBDA_EXPR,      // 無名関数式
+
+    // v0.11.0 新機能（ジェネリクス）
+    AST_GENERIC_TYPE,        // ジェネリック型 (Box<T>)
+    AST_TYPE_PARAMETER,      // 型パラメータ (T, E)
+    AST_TYPE_PARAMETER_LIST, // 型パラメータリスト (<T, E>)
+    AST_TYPE_ARGUMENT_LIST,  // 型引数リスト (<int, string>)
+    AST_GENERIC_STRUCT_DECL, // ジェネリック構造体宣言
+
+    // v0.11.0 文字列補間
+    AST_INTERPOLATED_STRING, // 補間文字列全体
+    AST_STRING_INTERPOLATION_SEGMENT // 補間セグメント（文字列部分または式）
 };
 
 // 位置情報構造体
@@ -878,6 +1072,9 @@ struct ASTNode {
     std::vector<std::unique_ptr<ASTNode>>
         array_indices; // 多次元配列インデックス [i][j][k]
 
+    // v0.11.0 Week 2 Day 3: ポインタ配列アクセス ptr[index]
+    bool is_pointer_array_access = false; // ポインタ経由の配列アクセスか
+
     // モジュール関連
     std::string module_name;               // モジュール名 (std.io等)
     std::vector<std::string> import_items; // インポートする項目リスト
@@ -941,6 +1138,10 @@ struct ASTNode {
     std::vector<std::unique_ptr<ASTNode>> case_values; // case条件（OR結合用）
     std::unique_ptr<ASTNode> case_body;                // caseの本体
 
+    // v0.11.0: match文関連（パターンマッチング）
+    std::unique_ptr<ASTNode> match_expr; // match対象の式
+    std::vector<MatchArm> match_arms;    // match文の各分岐（arm）
+
     // 範囲式関連
     std::unique_ptr<ASTNode> range_start; // 範囲の開始値
     std::unique_ptr<ASTNode> range_end;   // 範囲の終了値
@@ -970,6 +1171,47 @@ struct ASTNode {
     TypeInfo lambda_return_type = TYPE_UNKNOWN; // 無名関数の戻り値型
     std::string lambda_return_type_name; // 無名関数の戻り値型名
 
+    // ジェネリクス関連（v0.11.0新機能）
+    bool is_generic = false; // ジェネリック型かどうか
+    std::vector<std::string> type_parameters; // 型パラメータリスト ["T", "E"]
+    std::vector<std::string> type_arguments; // 型引数リスト ["int", "string"]
+    std::string generic_base_name; // ジェネリック型の基底名 (Box, Result等)
+    bool is_type_parameter = false; // 型パラメータそのものかどうか
+    std::string type_parameter_name; // 型パラメータ名 ("T", "E"等)
+
+    // インターフェース境界（v0.11.0 Phase 1新機能、複数境界対応）
+    std::unordered_map<std::string, std::vector<std::string>> interface_bounds;
+    // 型パラメータ名 -> インターフェース名リストのマッピング
+    // 例: {"A" => ["Allocator", "Clone"], "B" => ["Iterator"]}
+
+    // 型パラメータメソッドアクセス（v0.11.0 Phase 1a - Day 4）
+    bool is_type_parameter_access = false; // A.allocate() 形式か
+    std::string type_parameter_context; // どの構造体/関数のコンテキストか
+
+    // 文字列補間関連（v0.11.0新機能）
+    std::vector<std::unique_ptr<ASTNode>>
+        interpolation_segments; // 補間文字列のセグメントリスト
+    bool is_interpolation_text = false; // セグメントがテキスト部分か
+    bool is_interpolation_expr = false; // セグメントが式部分か
+    std::string interpolation_format; // フォーマット指定子 (":x", ":.2"等)
+
+    // 型キャスト関連（v0.11.0 Week 2新機能）
+    std::string cast_target_type; // キャスト先の型名 ("int*", "char*"等)
+    TypeInfo cast_type_info = TYPE_UNKNOWN; // パース済みの型情報
+    std::unique_ptr<ASTNode> cast_expr;     // キャストする式
+
+    // メモリ管理関連（v0.11.0 Phase 1a新機能）
+    // new/delete演算子用
+    std::string new_type_name;               // new T の型名
+    TypeInfo new_type_info = TYPE_UNKNOWN;   // new T の型情報
+    std::unique_ptr<ASTNode> new_array_size; // new T[size] のサイズ式
+    bool is_array_new = false;               // new T[size] かどうか
+    std::unique_ptr<ASTNode> delete_expr;    // delete する式
+    // sizeof演算子用
+    std::string sizeof_type_name;             // sizeof(T) の型名
+    TypeInfo sizeof_type_info = TYPE_UNKNOWN; // sizeof(T) の型情報
+    std::unique_ptr<ASTNode> sizeof_expr;     // sizeof(expr) の式
+
     // コンストラクタ - 全フィールドの明示的初期化
     ASTNode(ASTNodeType type)
         : node_type(type), type_info(TYPE_INT), is_const(false),
@@ -979,7 +1221,8 @@ struct ASTNode {
           is_exported(false), is_qualified_call(false),
           is_function_pointer(false), is_pointer_const_qualifier(false),
           is_pointee_const_qualifier(false), is_constructor(false),
-          is_destructor(false) {}
+          is_destructor(false), is_generic(false), is_type_parameter(false),
+          is_interpolation_text(false), is_interpolation_expr(false) {}
 
     // デストラクタは自動管理（unique_ptr使用）
     virtual ~ASTNode() = default;

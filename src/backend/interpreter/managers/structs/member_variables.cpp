@@ -3,6 +3,7 @@
 #include "../../../../common/debug.h"
 #include "../../../../common/type_helpers.h"
 #include "../../core/interpreter.h"
+#include "../../evaluator/functions/generic_instantiation.h"
 #include "managers/structs/operations.h"
 #include "managers/types/manager.h"
 #include "managers/variables/manager.h"
@@ -128,6 +129,86 @@ void StructVariableManager::create_struct_variable(
     // 構造体配列メンバーの要素を再度追加（変数登録後に行う）
     post_process_array_elements(var_name, struct_def);
 
+    // v0.13.0: ジェネリック構造体のimplブロックをインスタンス化
+    // 例: Box<int>の場合、impl Box<T>のTをintに置換してインスタンス化
+    debug_print(
+        "[GENERIC_CTOR_DEBUG] resolved_type_name=%s, checking for '_'\n",
+        resolved_type_name.c_str());
+
+    if (resolved_type_name.find('_') != std::string::npos) {
+        debug_print("[GENERIC_CTOR_DEBUG] Found underscore, processing...\n");
+
+        // 正規化された型名（Box_int）からジェネリックimplをインスタンス化
+        // 型引数を抽出: Box_int -> ["int"]
+        std::vector<std::string> type_arguments;
+        std::string base_name;
+
+        size_t underscore_pos = resolved_type_name.find('_');
+        if (underscore_pos != std::string::npos) {
+            base_name = resolved_type_name.substr(0, underscore_pos);
+            std::string type_args_str =
+                resolved_type_name.substr(underscore_pos + 1);
+
+            // 単一型引数のみサポート（Box_int）
+            type_arguments.push_back(type_args_str);
+
+            if (interpreter_->is_debug_mode()) {
+                debug_print("[GENERIC_CTOR] Instantiating impl for %s (base: "
+                            "%s, type_arg: %s)\n",
+                            resolved_type_name.c_str(), base_name.c_str(),
+                            type_args_str.c_str());
+            }
+
+            // ジェネリックimplを探してインスタンス化
+            // find_impl_for_struct は interface_name="" でimpl構造体を探す
+            const ImplDefinition *impl_def =
+                interpreter_->find_impl_for_struct(base_name + "<T>", "");
+
+            if (impl_def && impl_def->impl_node) {
+                if (interpreter_->is_debug_mode()) {
+                    debug_print("[GENERIC_CTOR] Found generic impl, "
+                                "instantiating...\n");
+                }
+
+                // インスタンス化してコンストラクタ/デストラクタを登録
+                try {
+                    auto result =
+                        GenericInstantiation::instantiate_generic_impl(
+                            impl_def->impl_node, type_arguments, "",
+                            base_name + "<T>");
+
+                    // auto &inst_struct = std::get<1>(result);
+                    auto &inst_node = std::get<2>(result);
+
+                    // 意図的リーク（ダングリングポインタ防止）
+                    ASTNode *inst_node_ptr = inst_node.release();
+
+                    // コンストラクタ/デストラクタを登録
+                    for (const auto &method_node : inst_node_ptr->arguments) {
+                        if (!method_node)
+                            continue;
+
+                        if (method_node->node_type ==
+                            ASTNodeType::AST_CONSTRUCTOR_DECL) {
+                            interpreter_->register_constructor(
+                                resolved_type_name, method_node.get());
+                        } else if (method_node->node_type ==
+                                   ASTNodeType::AST_DESTRUCTOR_DECL) {
+                            interpreter_->register_destructor(
+                                resolved_type_name, method_node.get());
+                        }
+                    }
+                } catch (const std::exception &e) {
+                    if (interpreter_->is_debug_mode()) {
+                        debug_print(
+                            "[GENERIC_CTOR] Failed to instantiate: %s\n",
+                            e.what());
+                    }
+                }
+            }
+        }
+    }
+
     // v0.10.0: デフォルトコンストラクタを自動呼び出し
     interpreter_->call_default_constructor(var_name, resolved_type_name);
 }
@@ -154,6 +235,15 @@ void StructVariableManager::create_struct_member_variables_recursively(
         member_var.is_unsigned = member_def.is_unsigned;
         member_var.is_assigned = false;
         member_var.is_const = parent_var.is_const || member_def.is_const;
+
+        // ポインタ情報をコピー
+        member_var.is_pointer = member_def.is_pointer;
+        member_var.pointer_depth = member_def.pointer_depth;
+        member_var.pointer_base_type_name = member_def.pointer_base_type_name;
+        member_var.pointer_base_type = member_def.pointer_base_type;
+
+        // プライベートメンバー情報をコピー
+        member_var.is_private_member = member_def.is_private;
 
         // 配列メンバーの場合
         if (member_def.array_info.is_array()) {

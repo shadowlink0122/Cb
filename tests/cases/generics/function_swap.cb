@@ -1,0 +1,28 @@
+// ジェネリック関数 - swap（簡易版）
+// Phase 1: 実用的なジェネリック関数
+
+// 注: 参照型のサポートが完全でないため、ポインタ版で実装
+void swap<T>(T* a, T* b) {
+    T temp = *a;
+    *a = *b;
+    *b = temp;
+}
+
+int main() {
+    // int型のswap
+    int x = 10;
+    int y = 20;
+    println("Before swap: x=", x, ", y=", y);
+    swap<int>(&x, &y);
+    println("After swap: x=", x, ", y=", y);
+    
+    // long型のswap  
+    long a = 100;
+    long b = 200;
+    println("Before swap: a=", a, ", b=", b);
+    swap<long>(&a, &b);
+    println("After swap: a=", a, ", b=", b);
+    
+    println("Swap tests passed!");
+    return 0;
+}

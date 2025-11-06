@@ -480,7 +480,9 @@ void OutputManager::print_value(const ASTNode *expr) {
         return;
     }
 
-    if (expr->node_type == ASTNodeType::AST_VARIABLE) {
+    // AST_IDENTIFIERはAST_VARIABLEと同じように扱う
+    if (expr->node_type == ASTNodeType::AST_VARIABLE ||
+        expr->node_type == ASTNodeType::AST_IDENTIFIER) {
         Variable *var = find_variable(expr->name);
 
         // 参照型変数の場合、参照先変数を取得
@@ -493,7 +495,13 @@ void OutputManager::print_value(const ASTNode *expr) {
         }
 
         if (var && var->type == TYPE_STRING) {
-            io_interface_->write_string(var->str_value.c_str());
+            // mallocで確保したstring型ポインタの場合
+            if (var->str_value.empty() && var->value != 0) {
+                const char *ptr = reinterpret_cast<const char *>(var->value);
+                io_interface_->write_string(ptr);
+            } else {
+                io_interface_->write_string(var->str_value.c_str());
+            }
             return;
         }
 
@@ -557,8 +565,9 @@ void OutputManager::print_value(const ASTNode *expr) {
                 }
                 return;
             } catch (const std::exception &e) {
-                io_interface_->write_string("(nested member access error)");
-                return;
+                std::cerr << "Error: Nested member access failed: " << e.what()
+                          << std::endl;
+                std::exit(1);
             }
         }
 
@@ -622,8 +631,9 @@ void OutputManager::print_value(const ASTNode *expr) {
                                         ret.double_value, ret.quad_value);
                     return;
                 } catch (const std::exception &e) {
-                    io_interface_->write_string("(member access error)");
-                    return;
+                    std::cerr << "Error: Member access failed: " << e.what()
+                              << std::endl;
+                    std::exit(1);
                 }
             }
 
@@ -652,12 +662,14 @@ void OutputManager::print_value(const ASTNode *expr) {
                     }
                     return;
                 } else {
-                    io_interface_->write_string("(member not found)");
-                    return;
+                    std::cerr << "Error: Member '" << member_name
+                              << "' not found in struct" << std::endl;
+                    std::exit(1);
                 }
-            } catch (const std::exception &) {
-                io_interface_->write_string("(deref member access error)");
-                return;
+            } catch (const std::exception &e) {
+                std::cerr << "Error: Pointer dereference member access failed: "
+                          << e.what() << std::endl;
+                std::exit(1);
             }
         } else {
             io_interface_->write_string("(invalid member access)");
@@ -668,12 +680,34 @@ void OutputManager::print_value(const ASTNode *expr) {
             Variable *member_var =
                 interpreter_->get_struct_member(struct_name, member_name);
             if (member_var->type == TYPE_STRING) {
-                io_interface_->write_string(member_var->str_value.c_str());
+                // mallocで確保したstring型ポインタの場合
+                if (member_var->str_value.empty() && member_var->value != 0) {
+                    const char *ptr =
+                        reinterpret_cast<const char *>(member_var->value);
+                    if (interpreter_->is_debug_mode()) {
+                        std::cerr
+                            << "[OUTPUT_DEBUG] String member from pointer: ptr="
+                            << reinterpret_cast<void *>(member_var->value)
+                            << ", value=" << ptr << std::endl;
+                    }
+                    io_interface_->write_string(ptr);
+                } else {
+                    if (interpreter_->is_debug_mode()) {
+                        std::cerr
+                            << "[OUTPUT_DEBUG] String member from str_value: "
+                            << "value=" << member_var->str_value
+                            << ", ptr_value=" << member_var->value << std::endl;
+                    }
+                    io_interface_->write_string(member_var->str_value.c_str());
+                }
             } else {
                 io_interface_->write_number(member_var->value);
             }
-        } catch (const std::exception &) {
-            io_interface_->write_string("(member access error)");
+        } catch (const std::exception &e) {
+            std::cerr << "Error: Cannot access member '" << member_name
+                      << "' of struct '" << struct_name << "': " << e.what()
+                      << std::endl;
+            std::exit(1);
         }
         return;
     }

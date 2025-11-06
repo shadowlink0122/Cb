@@ -1,0 +1,40 @@
+// Test: Multiple interface bounds on generic enums
+// Expected: Parse successfully
+
+interface Clone {
+    void clone();
+}
+
+interface Debug {
+    void debug();
+}
+
+interface Allocator {
+    void* allocate(int size);
+    void deallocate(void* ptr);
+}
+
+// Enum with multiple bounds
+enum Response<T: Clone + Debug, E> {
+    Success(T),
+    Failure(E)
+};
+
+// Enum with three bounds on one parameter
+enum Container<T: Allocator + Clone + Debug> {
+    Some(T),
+    None
+};
+
+int main() {
+    println("=== Generic Enum Multiple Bounds Test ===");
+    
+    // Test 1: Enum with single type parameter and multiple bounds
+    println("Test 1: Response<T: Clone + Debug, E> - PASSED");
+    
+    // Test 2: Enum with type parameter having three bounds
+    println("Test 2: Container<T: Allocator + Clone + Debug> - PASSED");
+    
+    println("=== All Tests Passed ===");
+    return 0;
+}

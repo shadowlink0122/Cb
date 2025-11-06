@@ -37,6 +37,7 @@
 *.out
 *.app
 main
+main-asan
 cgen_main
 
 # Test executables

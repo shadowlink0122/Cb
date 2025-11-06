@@ -92,6 +92,19 @@ int64_t ExpressionDispatcher::dispatch_expression(const ASTNode *node) {
         return ArrayAccessHelpers::evaluate_array_literal(node, interpreter_);
 
     case ASTNodeType::AST_BINARY_OP: {
+        // 比較演算子の場合、文字列比較をサポートするためtyped評価を使用
+        if (node->op == "<" || node->op == ">" || node->op == "<=" ||
+            node->op == ">=" || node->op == "==" || node->op == "!=") {
+            auto evaluate_typed_lambda = [&](const ASTNode *n) {
+                return expression_evaluator_.evaluate_typed_expression(n);
+            };
+            TypedValue typed_result =
+                BinaryUnaryTypedHelpers::evaluate_binary_op_typed(
+                    node, interpreter_, InferredType(), evaluate_typed_lambda);
+            return typed_result.as_numeric();
+        }
+
+        // その他の演算子は従来通り
         int64_t left = dispatch_expression(node->left.get());
         int64_t right = dispatch_expression(node->right.get());
 
@@ -99,10 +112,6 @@ int64_t ExpressionDispatcher::dispatch_expression(const ASTNode *node) {
         if (node->op == "+" || node->op == "-" || node->op == "*" ||
             node->op == "/" || node->op == "%") {
             result = ExpressionHelpers::evaluate_arithmetic_binary(node->op,
-                                                                   left, right);
-        } else if (node->op == "<" || node->op == ">" || node->op == "<=" ||
-                   node->op == ">=" || node->op == "==" || node->op == "!=") {
-            result = ExpressionHelpers::evaluate_comparison_binary(node->op,
                                                                    left, right);
         } else if (node->op == "&&" || node->op == "||") {
             result = ExpressionHelpers::evaluate_logical_binary(node->op, left,
@@ -244,6 +253,90 @@ int64_t ExpressionDispatcher::dispatch_expression(const ASTNode *node) {
 
     case ASTNodeType::AST_ENUM_ACCESS:
         return SpecialAccessHelpers::evaluate_enum_access(node, interpreter_);
+
+    // v0.11.0: enum値の構築 (EnumName::member(value))
+    case ASTNodeType::AST_ENUM_CONSTRUCT:
+        return SpecialAccessHelpers::evaluate_enum_construct(node,
+                                                             interpreter_);
+
+    // v0.11.0 Week 2: 型キャスト (type)expr
+    case ASTNodeType::AST_CAST_EXPR: {
+        // キャスト対象の式を評価
+        int64_t value =
+            expression_evaluator_.evaluate_expression(node->cast_expr.get());
+
+        // string型へのキャストの場合、メタデータを作成
+        if (node->cast_type_info == TYPE_STRING) {
+            // ポインタ値をchar*として扱うためのメタデータを作成
+            char *ptr = reinterpret_cast<char *>(value);
+
+            if (interpreter_.is_debug_mode()) {
+                std::cerr << "[CAST_DEBUG] Cast to string: ptr="
+                          << reinterpret_cast<void *>(ptr) << std::endl;
+            }
+
+            // メモリアドレスをそのまま返す（stringとして扱われる）
+            return value;
+        }
+
+        // 構造体ポインタへのキャストの場合、メタデータを更新
+        // (Point*)ptr のようなキャストを検出
+        if (node->cast_type_info == TYPE_POINTER &&
+            node->cast_target_type.find('*') != std::string::npos) {
+            // 型名から構造体名を抽出（"Point*" -> "Point"）
+            std::string struct_type_name = node->cast_target_type;
+            size_t star_pos = struct_type_name.find('*');
+            if (star_pos != std::string::npos) {
+                struct_type_name = struct_type_name.substr(0, star_pos);
+            }
+
+            // 構造体定義が存在するか確認
+            const StructDefinition *struct_def =
+                interpreter_.find_struct_definition(struct_type_name);
+
+            if (struct_def) {
+                // 構造体ポインタへのキャスト
+                // メタデータポインタかどうかをチェック（最上位ビットが1）
+                bool has_metadata = (value & (1LL << 63)) != 0;
+
+                if (has_metadata) {
+                    // メタデータポインタの場合、最上位ビットをクリアして実際のポインタを取得
+                    int64_t meta_ptr = value & ~(1LL << 63);
+                    PointerSystem::PointerMetadata *metadata =
+                        reinterpret_cast<PointerSystem::PointerMetadata *>(
+                            meta_ptr);
+
+                    if (metadata) {
+                        metadata->struct_type_name = struct_type_name;
+                        metadata->pointed_type = TYPE_STRUCT;
+
+                        if (interpreter_.is_debug_mode()) {
+                            std::cerr
+                                << "[CAST_DEBUG] Updated pointer "
+                                   "metadata: "
+                                << "ptr=" << reinterpret_cast<void *>(value)
+                                << " struct_type=" << struct_type_name
+                                << std::endl;
+                        }
+                    }
+                }
+            }
+        }
+
+        // キャストノードには元の値をそのまま返す
+        // （型情報は既にcast_type_infoに格納されている）
+        return value;
+    }
+
+    // v0.11.0 Phase 1a: メモリ管理演算子
+    case ASTNodeType::AST_NEW_EXPR:
+        return interpreter_.evaluate_new_expression(node);
+
+    case ASTNodeType::AST_DELETE_EXPR:
+        return interpreter_.evaluate_delete_expression(node);
+
+    case ASTNodeType::AST_SIZEOF_EXPR:
+        return interpreter_.evaluate_sizeof_expression(node);
 
     // v0.10.0: 無名変数（Discard Variable）
     case ASTNodeType::AST_DISCARD_VARIABLE:

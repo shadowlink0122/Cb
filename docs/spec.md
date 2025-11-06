@@ -1,7 +1,7 @@
-# Cb言語 完全仕様書 v0.10.0
+# Cb言語 完全仕様書 v0.11.0
 
-**最終更新**: 2025年10月12日  
-**バージョン**: v0.10.0 - Move Semantics & Complete Cleanup
+**最終更新**: 2025年11月5日  
+**バージョン**: v0.11.0 - Generics, String Interpolation, Destructors & Collections
 
 ## 目次
 
@@ -11,15 +11,18 @@
 4. [演算子](#演算子)
 5. [制御構造](#制御構造)
 6. [関数](#関数)
-7. [配列](#配列)
-8. [構造体](#構造体)
-9. [Union型](#union型)
-10. [Interface/Implシステム](#interfaceimplシステム)
-11. [ポインタと参照](#ポインタと参照)
-12. [モジュールシステム](#モジュールシステム)
-13. [入出力](#入出力)
-14. [エラーハンドリング](#エラーハンドリング)
-15. [メモリ管理](#メモリ管理)
+7. [ジェネリクス](#ジェネリクス)
+8. [配列](#配列)
+9. [構造体](#構造体)
+10. [Union型](#union型)
+11. [Interface/Implシステム](#interfaceimplシステム)
+12. [デストラクタとRAII](#デストラクタとraii)
+13. [文字列補間](#文字列補間)
+14. [ポインタと参照](#ポインタと参照)
+15. [モジュールシステム](#モジュールシステム)
+16. [入出力](#入出力)
+17. [エラーハンドリング](#エラーハンドリング)
+18. [メモリ管理](#メモリ管理)
 
 ---
 
@@ -224,6 +227,60 @@ string name, title, message;    // 文字列の複数宣言
 int[5] arr1, arr2;                      // 同じサイズの配列
 string[3] names = ["Alice", "Bob"];     // 初期化付き
 ```
+
+### 配列操作組み込み関数
+
+#### array_get() - 配列要素の安全な取得
+
+実行時に配列境界チェックを行い、範囲外アクセスを防ぎます。
+
+**構文**:
+```cb
+T array_get<T>(T[] array, int index, int array_size)
+```
+
+**使用例**:
+```cb
+int[5] arr = [10, 20, 30, 40, 50];
+
+// 安全な配列アクセス
+int value = array_get(arr, 2, 5);  // 30
+println(value);
+
+// 範囲外アクセス（実行時エラー）
+// int bad = array_get(arr, 10, 5);  // Error: Array index out of bounds
+```
+
+**特徴**:
+- コンパイル時ではなく実行時にチェック
+- 範囲外アクセスでプログラムを停止
+- デバッグモードで詳細なエラーメッセージを表示
+
+#### array_set() - 配列要素の安全な設定
+
+実行時に配列境界チェックを行い、安全に値を設定します。
+
+**構文**:
+```cb
+void array_set<T>(T[] array, int index, T value, int array_size)
+```
+
+**使用例**:
+```cb
+int[5] arr = [1, 2, 3, 4, 5];
+
+// 安全な配列への代入
+array_set(arr, 2, 100, 5);  // arr[2] = 100
+println(arr[2]);  // 100
+
+// 範囲外への代入（実行時エラー）
+// array_set(arr, 10, 999, 5);  // Error: Array index out of bounds
+```
+
+**用途**:
+- 動的に計算されるインデックスでの安全なアクセス
+- デバッグモードでの境界チェック
+- 複雑な配列操作での安全性確保
 
 ### スコープ
 
@@ -481,6 +538,99 @@ for (int i = 0; i < 10; i++) {
 }
 ```
 
+### match文（パターンマッチング）
+
+v0.11.0でEnum専用のパターンマッチングが実装されました。
+
+**基本構文:**
+
+```cb
+match (expression) {
+    Pattern1 => statement,
+    Pattern2 => { block },
+    Pattern3 => statement,
+}
+```
+
+**Option<T>のマッチング:**
+
+```cb
+enum Option<T> {
+    Some(T),
+    None
+};
+
+int main() {
+    Option<int> opt = Option<int>::Some(42);
+    
+    match (opt) {
+        Some(value) => {
+            println("Value: ", value);
+        },
+        None => {
+            println("No value");
+        }
+    }
+    
+    return 0;
+}
+```
+
+**Result<T, E>のマッチング:**
+
+```cb
+enum Result<T, E> {
+    Ok(T),
+    Err(E)
+};
+
+Result<int, string> divide(int a, int b) {
+    if (b == 0) {
+        return Result<int, string>::Err("Division by zero");
+    }
+    return Result<int, string>::Ok(a / b);
+}
+
+int main() {
+    match (divide(10, 2)) {
+        Ok(value) => println("Result: ", value),
+        Err(error) => println("Error: ", error),
+    }
+    
+    return 0;
+}
+```
+
+**ワイルドカードパターン:**
+
+```cb
+enum Status {
+    Ready(int),
+    Running(int),
+    Stopped(int),
+    Done,
+    Failed
+};
+
+int main() {
+    Status s = Status::Running(50);
+    
+    match (s) {
+        Ready(value) => println("Ready: ", value),
+        Running(_) => println("Running (value discarded)"),
+        _ => println("Other status"),
+    }
+    
+    return 0;
+}
+```
+
+**機能:**
+- Enum variantのマッチング
+- 関連値の抽出（destructuring）
+- ワイルドカード（`_`）バインディング
+- 変数、関数呼び出し、Enum構築式のサポート
+
 ---
 
 ## 関数
@@ -569,6 +719,314 @@ Matrix2x2 create_identity() {
     m[0][0] = 1; m[0][1] = 0;
     m[1][0] = 0; m[1][1] = 1;
     return m;
+}
+```
+
+---
+
+## ジェネリクス
+
+### ジェネリック構造体
+
+#### 基本的な定義
+
+```cb
+struct Box<T> {
+    T value;
+};
+
+struct Pair<K, V> {
+    K key;
+    V value;
+};
+```
+
+### 組み込みジェネリック型
+
+#### Option<T> 型
+
+`Option<T>`は値が存在するか存在しないかを表現する型です。Rustの`Option`型に相当します。
+
+**定義**:
+```cb
+enum Option<T> {
+    Some(T),
+    None
+};
+```
+
+**使用例**:
+```cb
+Option<int> find_value(int[10] arr, int target) {
+    for (int i = 0; i < 10; i++) {
+        if (arr[i] == target) {
+            return Option<int>::Some(i);
+        }
+    }
+    return Option<int>::None;
+}
+
+int main() {
+    int[10] numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+    Option<int> result = find_value(numbers, 5);
+    
+    // variantフィールドで判定
+    if (result.variant == "Some") {
+        println("Found at index: {result.value}");
+    } else {
+        println("Not found");
+    }
+    
+    return 0;
+}
+```
+
+**match文での使用**:
+```cb
+match (result) {
+    Some(index) => println("Found at: {index}"),
+    None => println("Not found")
+}
+```
+
+#### Result<T, E> 型
+
+`Result<T, E>`は成功値または失敗値を表現する型です。エラーハンドリングに使用します。
+
+**定義**:
+```cb
+enum Result<T, E> {
+    Ok(T),
+    Err(E)
+};
+```
+
+**使用例**:
+```cb
+Result<int, string> divide(int a, int b) {
+    if (b == 0) {
+        return Result<int, string>::Err("Division by zero");
+    }
+    return Result<int, string>::Ok(a / b);
+}
+
+int main() {
+    Result<int, string> result = divide(10, 2);
+    
+    match (result) {
+        Ok(value) => println("Result: {value}"),
+        Err(error) => println("Error: {error}")
+    }
+    
+    return 0;
+}
+```
+
+**内部フィールド**:
+- `variant`: 文字列型。"Some"/"None"または"Ok"/"Err"
+- `value`: T型。Someまたはokの場合の値
+- `error`: E型。Errの場合のエラー値（Result専用）
+
+#### 使用例
+
+```cb
+int main() {
+    // 型パラメータを指定してインスタンス化
+    Box<int> int_box;
+    int_box.value = 42;
+    
+    Box<string> str_box;
+    str_box.value = "Hello";
+    
+    Pair<string, int> age_pair;
+    age_pair.key = "Alice";
+    age_pair.value = 30;
+    
+    return 0;
+}
+```
+
+#### ネストされたジェネリクス
+
+```cb
+struct Vec<T> {
+    T data[10];
+    int size;
+};
+
+int main() {
+    Vec<int> numbers;
+    Vec<Vec<int>> matrix;  // Vec<Vec<int>> のネスト
+    
+    return 0;
+}
+```
+
+### ジェネリック関数
+
+#### 基本的な定義
+
+```cb
+T identity<T>(T value) {
+    return value;
+}
+
+T max<T>(T a, T b) {
+    return a > b ? a : b;
+}
+```
+
+#### 使用例
+
+```cb
+int main() {
+    int x = identity<int>(42);
+    long y = identity<long>(100);
+    
+    int m = max<int>(10, 20);        // 20
+    double d = max<double>(3.14, 2.71);  // 3.14
+    
+    return 0;
+}
+```
+
+#### 型パラメータを関数本体で使用
+
+```cb
+T duplicate<T>(T value) {
+    T copy = value;  // 型パラメータを変数の型として使用
+    return copy;
+}
+
+void swap<T>(T* a, T* b) {
+    T temp = *a;
+    *a = *b;
+    *b = temp;
+}
+```
+
+#### ジェネリック構造体を返す関数
+
+```cb
+struct Box<T> {
+    T value;
+};
+
+Box<T> make_box<T>(T val) {
+    Box<T> box;
+    box.value = val;
+    return box;
+}
+
+int main() {
+    Box<int> int_box = make_box<int>(42);
+    Box<string> str_box = make_box<string>("Hello");
+    
+    return 0;
+}
+```
+
+### ジェネリック Enum
+
+#### 基本的な定義
+
+```cb
+enum Option<T> {
+    Some(T),
+    None
+};
+
+enum Result<T, E> {
+    Ok(T),
+    Err(E)
+};
+```
+
+#### 使用例
+
+```cb
+int main() {
+    Option<int> some_val = Option<int>::Some(42);
+    println(some_val.variant);  // "Some"
+    println(some_val.value);    // 42
+    
+    Option<int> none_val = Option<int>::None;
+    println(none_val.variant);  // "None"
+    
+    Result<int, string> ok = Result<int, string>::Ok(100);
+    Result<int, string> err = Result<int, string>::Err("Error occurred");
+    
+    return 0;
+}
+```
+
+### インターフェース境界（v0.11.0で実装済み）
+
+ジェネリック型パラメータにインターフェース制約を指定できます：
+
+```cb
+// Allocatorインターフェースを実装する型のみ受け入れる
+struct Vector<T, A: Allocator> {
+    T* data;
+    int size;
+    A allocator;
+}
+
+impl Vector<T, A: Allocator> {
+    void init() {
+        self.data = self.allocator.allocate(sizeof(T) * 10);
+        self.size = 0;
+    }
+    
+    ~self() {
+        if (self.data != nullptr) {
+            self.allocator.deallocate(self.data);
+        }
+    }
+}
+
+// 使用例
+int main() {
+    Vector<int, SystemAllocator> vec;
+    SystemAllocator alloc;
+    vec.allocator = alloc;
+    vec.init();
+    
+    return 0;
+}
+```
+
+#### 複数のインターフェース境界
+
+```cb
+// 複数のインターフェースを要求（+で結合）
+struct Container<T, A: Allocator + Clone> {
+    T* data;
+    A allocator;
+}
+
+// 複数の型パラメータにそれぞれ境界を指定
+struct MultiContainer<K: Clone + Debug, V, A: Allocator + Clone> {
+    K* keys;
+    V* values;
+    A allocator;
+}
+```
+
+#### 型チェック
+
+インターフェース境界に違反する型を使用するとコンパイルエラーになります：
+
+```cb
+struct NotAnAllocator {
+    int x;
+}
+
+int main() {
+    // エラー: NotAnAllocatorはAllocatorインターフェースを実装していない
+    Vector<int, NotAnAllocator> vec;  // コンパイルエラー
+    
+    return 0;
 }
 ```
 
@@ -1730,6 +2188,284 @@ impl Debugger for Tracer {
 
 ---
 
+## デストラクタとRAII
+
+### デストラクタの基本
+
+デストラクタは、構造体がスコープを抜けるときに自動的に呼び出される特別なメソッドです。リソースの自動解放を実現します。
+
+#### 基本構文
+
+```cb
+struct Resource {
+    int id;
+}
+
+impl Resource {
+    ~self() {
+        println("Resource {id} destroyed");
+    }
+}
+```
+
+#### 実行タイミング
+
+```cb
+int main() {
+    {
+        Resource r;
+        r.id = 1;
+        println("Resource created");
+        // スコープ終了時に自動的にデストラクタが呼ばれる
+    }
+    println("After scope");
+    
+    return 0;
+}
+
+// 出力:
+// Resource created
+// Resource 1 destroyed
+// After scope
+```
+
+### LIFO順序
+
+複数の変数がある場合、デストラクタは宣言の逆順（LIFO: Last In, First Out）で実行されます。
+
+```cb
+struct Item {
+    int id;
+}
+
+impl Item {
+    ~self() {
+        println("Item {id} destroyed");
+    }
+}
+
+int main() {
+    Item a;
+    a.id = 1;
+    Item b;
+    b.id = 2;
+    Item c;
+    c.id = 3;
+    
+    return 0;
+}
+
+// 出力:
+// Item 3 destroyed
+// Item 2 destroyed
+// Item 1 destroyed
+```
+
+### ジェネリック構造体のデストラクタ
+
+ジェネリック構造体でもデストラクタを定義できます。
+
+```cb
+struct Vector<T, A: Allocator> {
+    T* data;
+    int size;
+    int capacity;
+    A allocator;
+}
+
+impl Vector<T, A: Allocator> {
+    ~self() {
+        println("Vector deinit - cleaning up {size} elements");
+        if (data != NULL) {
+            allocator.free(data);
+        }
+    }
+}
+
+int main() {
+    Vector<int, SystemAllocator> vec;
+    vec.size = 10;
+    // スコープ終了時にデストラクタが自動実行される
+    return 0;
+}
+```
+
+### deferとの組み合わせ
+
+デストラクタとdefer文は組み合わせて使用できます。実行順序はLIFO（後入れ先出し）です。
+
+```cb
+struct Resource {
+    int id;
+};
+
+impl Resource {
+    fn deinit() {
+        println("Resource {id} destroyed");
+    }
+};
+
+int main() {
+    Resource r;
+    r.id = 1;
+    
+    defer println("Defer 1");
+    defer println("Defer 2");
+    
+    return 0;
+}
+
+// 出力:
+// Defer 2
+// Defer 1
+// Resource 1 destroyed
+```
+
+### break/continueとの統合
+
+break文やcontinue文でループから抜ける場合でも、デストラクタは正しく実行されます。
+
+```cb
+struct Item {
+    int id;
+};
+
+impl Item {
+    fn deinit() {
+        println("Item {id} destroyed");
+    }
+};
+
+int main() {
+    for (int i = 0; i < 5; i++) {
+        Item item;
+        item.id = i;
+        
+        if (i == 2) {
+            break;  // break前に item.deinit() が実行される
+        }
+    }
+    
+    return 0;
+}
+
+// 出力:
+// Item 0 destroyed
+// Item 1 destroyed
+// Item 2 destroyed
+```
+
+### 制限事項
+
+1. **スコープベースの呼び出しのみ**: デストラクタはスコープ終了時にのみ自動呼び出しされます
+2. **ヒープオブジェクトは手動管理**: ポインタで管理されるヒープ上のオブジェクトは手動で解放が必要
+3. **明示的呼び出し不可**: デストラクタを直接呼び出すことはできません
+
+---
+
+## 文字列補間
+
+### 基本的な使い方
+
+文字列リテラル内で`{}`を使用して式を埋め込むことができます。
+
+```cb
+int x = 42;
+string name = "Alice";
+string message = "Hello, {name}! The answer is {x}";
+// "Hello, Alice! The answer is 42"
+```
+
+### 式の埋め込み
+
+任意の式を埋め込むことができます。
+
+```cb
+int a = 10;
+int b = 20;
+println("Sum: {a + b}");        // "Sum: 30"
+println("Product: {a * b}");    // "Product: 200"
+println("Comparison: {a < b}"); // "Comparison: true"
+```
+
+### フォーマット指定子
+
+#### 整数フォーマット
+
+```cb
+int num = 255;
+
+println("{num:d}");   // "255" (10進数)
+println("{num:x}");   // "ff" (16進数小文字)
+println("{num:X}");   // "FF" (16進数大文字)
+println("{num:o}");   // "377" (8進数)
+println("{num:b}");   // "11111111" (2進数)
+```
+
+#### 幅指定
+
+```cb
+int value = 42;
+
+println("{value:5d}");   // "   42" (右詰め、幅5)
+println("{value:05d}");  // "00042" (ゼロ埋め、幅5)
+```
+
+#### 浮動小数点フォーマット
+
+```cb
+double pi = 3.14159265;
+
+println("{pi:f}");       // "3.141593" (デフォルト精度)
+println("{pi:.2f}");     // "3.14" (小数点以下2桁)
+println("{pi:8.3f}");    // "   3.142" (幅8、精度3)
+println("{pi:e}");       // "3.141593e+00" (指数表記)
+```
+
+### 複数の補間
+
+```cb
+string first = "John";
+string last = "Doe";
+int age = 30;
+
+string profile = "{first} {last} is {age} years old";
+// "John Doe is 30 years old"
+```
+
+### 構造体メンバーアクセス
+
+```cb
+struct Point {
+    int x;
+    int y;
+};
+
+Point p;
+p.x = 10;
+p.y = 20;
+
+println("Point at ({p.x}, {p.y})");
+// "Point at (10, 20)"
+```
+
+### エスケープ
+
+`{}`を文字として出力する場合は、`{{`と`}}`を使用します。
+
+```cb
+println("Use {{}} for interpolation");
+// "Use {} for interpolation"
+```
+
+### 制限事項
+
+1. **フォーマット指定子は数値型のみ**: 文字列型には適用できません
+2. **ネストした補間は未対応**: `"{"{x}"}"` のような記述はできません
+3. **実行時評価**: 式は実行時に評価されるため、静的な文字列結合よりオーバーヘッドがあります
+
+---
+
 ## ポインタと参照
 
 ### ポインタの基本
@@ -2199,14 +2935,41 @@ Cb言語は現在インタープリタとして実装されており、型チェ
 
 ### モジュールのインポート
 
-```c++
-import "math.cb";
-import "utils.cb";
+**v0.11.0以降の新構文**:
+
+```cb
+import math;
+import utils;
 
 int main() {
     int result = math_add(5, 3);
     return 0;
 }
+```
+
+**ネストしたモジュール**:
+
+```cb
+import collections.vector;
+import std.allocators.system;
+
+int main() {
+    Vector<int> vec;
+    return 0;
+}
+```
+
+**注意**: v0.11.0より、文字列リテラルimport構文（`import "path/to/file.cb";`）は**廃止**されました。
+モジュール識別子構文（`import module.path.name;`）を使用してください。
+
+**エラー例**:
+```cb
+import "math.cb";  // ❌ エラー: String literal import syntax is deprecated
+```
+
+**正しい書き方**:
+```cb
+import math;       // ✅ 正しい
 ```
 
 ### モジュール内の関数定義
@@ -2296,6 +3059,142 @@ void main() {
 1. **export impl**: 構造体自体が`export`されていなければならない
 2. **インターフェース実装**: インターフェースも`export`が必要
 3. **スコープルール**: implブロックは通常のスコープルールに従う
+
+---
+
+## 標準ライブラリ
+
+**v0.11.0**: 標準ライブラリを`stdlib.std`に統合し、明確な構造に再編成。
+
+### stdlib構造
+
+```
+stdlib/std/
+├── test.cb          # テストフレームワーク
+├── string.cb        # 文字列ライブラリ
+├── vector.cb        # Vector<T> 双方向リンクリスト
+├── queue.cb         # Queue<T> 循環バッファ
+└── map.cb           # Map<K, V> AVL自己平衡木
+```
+
+### import構文
+
+```cb
+// ライブラリをインポート
+import stdlib.std.vector;
+import stdlib.std.queue;
+import stdlib.std.map;
+import stdlib.std.string;
+import stdlib.std.test;
+```
+
+### コレクションの使用例
+
+#### Vector<T> - 双方向リンクリスト
+
+```cb
+import stdlib.std.vector;
+
+void main() {
+    Vector<int> vec;
+    vec.push_back(10);
+    vec.push_front(5);
+    vec.push_back(20);
+    
+    int val = vec.at(1);  // 10
+    vec.sort();           // 昇順ソート
+    println("Size: {vec.size()}");
+}
+```
+
+#### Queue<T> - 循環バッファ
+
+```cb
+import stdlib.std.queue;
+
+void main() {
+    Queue<int> q;
+    q.init(10);
+    q.enqueue(100);
+    q.enqueue(200);
+    
+    int val = q.dequeue();  // 100 (FIFO)
+    println("Remaining: {q.size()}");
+}
+```
+
+#### Map<K, V> - AVL自己平衡木
+
+```cb
+import stdlib.std.map;
+
+void main() {
+    Map<int, int> m;
+    m.init();
+    m.insert(1, 100);
+    m.insert(2, 200);
+    
+    int val = m.get(1, -1);  // 100
+    println("Size: {m.size()}");
+}
+```
+
+#### String - 文字列ライブラリ
+
+```cb
+import stdlib.std.string;
+
+void main() {
+    String s;
+    s.data = "Hello";
+    s.length = 5;
+    
+    int len = s.size();
+    bool empty = s.is_empty();
+    int pos = s.index_of("ll");  // 2
+}
+```
+
+#### TestFramework - テストフレームワーク
+
+```cb
+import stdlib.std.test;
+
+void main() {
+    TestResult t;
+    t.passed = 0;
+    t.failed = 0;
+    t.total = 0;
+    
+    t.assert_eq_int(1 + 1, 2, "addition works");
+    t.assert_true(true, "boolean test");
+    t.print_summary();
+}
+```
+
+### 詳細ドキュメント
+
+各ライブラリの完全なAPI文書:
+- [docs/stdlib/std/README.md](./stdlib/std/README.md) - 標準ライブラリ概要
+- [docs/stdlib/std/vector.md](./stdlib/std/vector.md) - Vector<T> API
+- [docs/stdlib/std/queue.md](./stdlib/std/queue.md) - Queue<T> API
+- [docs/stdlib/std/map.md](./stdlib/std/map.md) - Map<K, V> API
+- [docs/stdlib/std/string.md](./stdlib/std/string.md) - String API
+- [docs/stdlib/std/test.md](./stdlib/std/test.md) - TestFramework API
+
+### 組み込み型（import不要）
+
+以下の型は言語組み込みで、import不要です：
+
+```cb
+// Option<T> - 値の有無を表現
+Option<int> some_value = Option<int>::Some(42);
+Option<int> none_value = Option<int>::None;
+
+// Result<T, E> - 成功/失敗を表現
+Result<int, string> success = Result<int, string>::Ok(100);
+Result<int, string> failure = Result<int, string>::Err("Error");
+```
 
 ---
 
@@ -2419,12 +3318,514 @@ void process_data() {
 }
 ```
 
-### 将来実装: スマートポインタ
+### 動的メモリ管理
 
-```c++
+#### malloc() - メモリの動的確保
+
+指定されたサイズのメモリブロックを確保します。C言語の`malloc()`に相当します。
+
+**構文**:
+```cb
+void* malloc(int size)
+```
+
+**使用例**:
+```cb
+// 整数10個分のメモリを確保
+int* ptr = malloc(40);  // sizeof(int) * 10 = 40 bytes
+
+if (ptr != NULL) {
+    // メモリを使用
+    ptr[0] = 10;
+    ptr[1] = 20;
+    
+    // 使用後は必ず解放
+    free(ptr);
+}
+```
+
+**注意事項**:
+- 確保に失敗するとNULLを返す
+- 確保したメモリは必ず`free()`で解放する必要がある
+- 型安全性がないため、キャスト時に注意が必要
+
+#### free() - メモリの解放
+
+`malloc()`で確保したメモリを解放します。
+
+**構文**:
+```cb
+void free(void* ptr)
+```
+
+**使用例**:
+```cb
+void* data = malloc(100);
+// データを使用...
+free(data);  // 必ず解放
+data = NULL;  // ダングリングポインタを防ぐ
+```
+
+**注意事項**:
+- 同じポインタを二重に`free()`しない（二重解放）
+- 解放後はポインタを使用しない（use-after-free）
+- NULLポインタを`free()`しても安全（何もしない）
+
+#### new 演算子 - 型安全な動的確保（v0.11.0 Phase 1aで実装済み）
+
+**実装状態**: ✅ v0.11.0 Phase 1aで実装済み
+
+**構文**:
+```cb
+T* new T;           // 単一オブジェクト確保
+T* new T[size];     // 配列確保
+```
+
+**使用例**:
+```cb
+struct Point {
+    int x;
+    int y;
+}
+
+int main() {
+    // 単一オブジェクト確保
+    Point* p = new Point;
+    p->x = 10;
+    p->y = 20;
+    
+    println("Point: ({p->x}, {p->y})");
+    
+    // 使用後はdeleteで解放
+    delete p;
+    
+    // 配列確保
+    int* arr = new int[10];
+    arr[0] = 100;
+    delete arr;
+    
+    return 0;
+}
+```
+
+**特徴**:
+- 型安全: 型から自動的にサイズを計算
+- 構造体の自動初期化: メンバーがゼロクリアされる
+- ゼロクリア: 確保したメモリは自動的に0で初期化される
+
+**注意**: コンストラクタ引数付きの構文(`new T(args)`)は将来実装予定です。
+
+#### delete 演算子 - 型安全な解放（v0.11.0 Phase 1aで実装済み）
+
+**実装状態**: ✅ v0.11.0 Phase 1aで実装済み
+
+**構文**:
+```cb
+delete ptr;  // 単一オブジェクトも配列も統一構文
+```
+
+**使用例**:
+```cb
+struct Resource {
+    int id;
+}
+
+impl Resource {
+    self() {
+        self.id = 0;
+    }
+}
+
+int main() {
+    // newで確保
+    Resource* r = new Resource;
+    r->id = 1;
+    
+    println("Resource ID: {r->id}");
+    
+    // deleteで解放
+    delete r;
+    
+    // 配列の解放も同じ構文
+    int* arr = new int[10];
+    delete arr;
+    
+    return 0;
+}
+```
+
+**特徴**:
+- nullptr セーフ: nullptrの解放は何もしない
+- 自動判別: 構造体ポインタと生ポインタを自動で識別
+- 統一構文: 配列もオブジェクトも同じ`delete ptr`構文
+
+**注意**: デストラクタの自動呼び出しは将来実装予定です。現在は手動で後処理を行う必要があります。
+
+**malloc/free vs new/delete**:
+
+| 機能 | malloc/free | new/delete |
+|------|-------------|------------|
+| 型安全性 | ❌ なし（キャスト必要） | ✅ あり（型から自動計算） |
+| 初期化 | ❌ なし（ゴミデータ） | ✅ ゼロクリア |
+| コンストラクタ | ❌ 呼ばれない | ⚠️ 将来実装予定 |
+| デストラクタ | ❌ 呼ばれない | ⚠️ 将来実装予定 |
+| サイズ指定 | 手動（バイト数） | 自動（型から計算） |
+| 実装状態 | ✅ v0.11.0で実装済み | ✅ v0.11.0 Phase 1aで実装済み |
+
+**注意**: コンストラクタ/デストラクタの自動呼び出しは将来のバージョンで実装予定です。現在は手動で初期化・後処理を行う必要があります。
+
+### 将来実装: スマートポインタ（v0.13.0以降で実装予定）
+
+```cb
 // 将来実装予定
-unique_ptr<Data> data = make_unique<Data>();
-shared_ptr<Resource> resource = make_shared<Resource>();
+let data: unique_ptr<Data> = make_unique<Data>();
+let resource: shared_ptr<Resource> = make_shared<Resource>();
+```
+
+---
+
+## 標準ライブラリ
+
+### collections.map - Map<K, V>
+
+**v0.11.0で追加**: AVL自己平衡二分探索木による連想配列
+
+#### 基本的な使い方
+
+```cb
+import stdlib.std.map;
+
+void main() {
+    Map<int, int> m;
+    m.init();
+    
+    // キー・バリューの挿入
+    m.insert(1, 100);
+    m.insert(2, 200);
+    m.insert(3, 300);
+    
+    // 値の取得
+    int val = m.get(2, -1);  // 200
+    int missing = m.get(99, -1);  // -1 (デフォルト値)
+    
+    // キーの存在確認
+    if (m.contains(1)) {
+        println("Key 1 exists");
+    }
+    
+    // 削除
+    bool removed = m.try_remove(2);  // true
+    
+    // サイズ
+    println("Size: {m.size()}");  // 2
+}
+```
+
+#### データ構造
+
+**AVL自己平衡二分探索木**:
+```
+        [4:400]  height=3
+       /        \
+    [2:200]    [6:600]  height=2
+    /    \      /    \
+ [1:100][3:300][5:500][7:700]  height=1
+```
+
+**MapNode構造**:
+```cb
+struct MapNode<K, V> {
+    K key;
+    V value;
+    MapNode<K, V>* left;
+    MapNode<K, V>* right;
+    int height;
+};
+```
+
+#### 主要メソッド
+
+| メソッド | 時間計算量 | 説明 |
+|---------|-----------|------|
+| `init()` | O(1) | マップ初期化 |
+| `insert(K key, V value)` | O(log n) | キー・バリュー挿入/更新 |
+| `get(K key, V default)` | O(log n) | 値取得（存在しない場合はデフォルト） |
+| `contains(K key)` | O(log n) | キー存在確認 |
+| `try_remove(K key)` | O(log n) | 削除（成功/失敗を返す） |
+| `clear()` | O(n) | 全要素削除 |
+| `size()` | O(1) | 要素数取得 |
+| `get_tree_height()` | O(1) | ツリー高さ取得（デバッグ用） |
+
+#### AVLバランシング
+
+**4つの回転ケース**:
+- **Left-Left (LL)**: 右回転
+- **Left-Right (LR)**: 左回転 → 右回転
+- **Right-Right (RR)**: 左回転
+- **Right-Left (RL)**: 右回転 → 左回転
+
+**バランス因子**:
+```
+balance = height(left) - height(right)
+-1 ≤ balance ≤ 1  （バランスが取れている）
+balance > 1 または balance < -1  （回転が必要）
+```
+
+#### パフォーマンス検証
+
+1000要素挿入時:
+- 実測高さ: 10
+- 理論最適値: log₂(1000) ≈ 9.97
+- 結論: **完璧なAVLバランス** ✅
+
+#### 対応型
+
+**キー型 (K)**:
+- プリミティブ型: int, long, double
+- String型
+
+**バリュー型 (V)**:
+- プリミティブ型: int, long, double
+- String型
+- 任意の構造体型
+
+**型組み合わせ例**:
+```cb
+Map<int, int> m1;           // 整数→整数
+Map<int, String> m2;        // 整数→文字列
+Map<String, int> m3;        // 文字列→整数
+Map<String, String> m4;     // 文字列→文字列
+```
+
+#### メモリ管理
+
+```cb
+impl Map<K, V> {
+    self() {
+        self.root = nullptr;
+        self.count = 0;
+    }
+    
+    ~self() {
+        self.clear();  // 全ノード自動削除
+    }
+}
+```
+
+---
+
+### collections.queue - Queue<T>
+
+**v0.11.0で実装**: 循環バッファによる効率的なFIFOキュー
+
+#### 基本的な使い方
+
+```cb
+import stdlib.std.queue;
+
+void main() {
+    Queue<int> q;
+    q.init(5);  // 初期容量5
+    
+    // 要素の追加
+    q.enqueue(10);
+    q.enqueue(20);
+    q.enqueue(30);
+    
+    // 先頭要素の参照
+    int front = q.peek();  // 10
+    
+    // 要素の取り出し（FIFO）
+    int val = q.dequeue();  // 10
+    
+    // サイズ
+    println("Size: {q.size()}");  // 2
+}
+```
+
+#### データ構造
+
+**循環バッファ**:
+```
+[0][1][2][3][4]  capacity=5
+    ^front  ^rear
+    
+enqueue(40):
+[0][1][2][40][4]
+    ^front     ^rear
+
+dequeue():
+[0][1][2][40][4]
+       ^front  ^rear
+```
+
+#### 主要メソッド
+
+| メソッド | 時間計算量 | 説明 |
+|---------|-----------|------|
+| `init(int capacity)` | O(1) | キュー初期化 |
+| `enqueue(T value)` | O(1) | 末尾に要素追加 |
+| `dequeue()` | O(1) | 先頭要素を取り出し |
+| `peek()` | O(1) | 先頭要素を参照（削除しない） |
+| `resize(int new_capacity)` | O(n) | 容量変更 |
+| `is_empty()` | O(1) | 空判定 |
+| `size()` | O(1) | 要素数取得 |
+
+#### メモリ管理
+
+```cb
+impl Queue<T> {
+    ~self() {
+        if (self.data != nullptr) {
+            free(self.data);  // 自動メモリ解放
+        }
+    }
+}
+```
+
+---
+
+### collections.vector - Vector<T>
+
+v0.11.0で双方向リンクリストに完全リファクタリング。
+
+#### 基本的な使い方
+
+```cb
+// collections.vectorモジュールのインポート
+import collections.vector;
+
+int main() {
+    Vector<int> vec = Vector::new();
+    
+    // 要素の追加
+    vec.push_back(10);
+    vec.push_back(20);
+    vec.push_back(30);
+    
+    // 要素数の取得
+    int len = vec.get_length();  // 3
+    
+    // 要素の取得
+    int first = vec.get(0);   // 10
+    int last = vec.get(2);    // 30
+    
+    return 0;
+}
+```
+
+#### データ構造
+
+**ノードベース双方向リンクリスト**:
+```
+[Node]       [Node]       [Node]
+┌──────┐    ┌──────┐    ┌──────┐
+│ prev │◄───│ prev │◄───│ prev │
+├──────┤    ├──────┤    ├──────┤
+│ next │───►│ next │───►│ next │
+├──────┤    ├──────┤    ├──────┤
+│ data │    │ data │    │ data │
+└──────┘    └──────┘    └──────┘
+   ^                        ^
+   │                        │
+  head                    tail
+```
+
+**ノードメモリレイアウト**:
+```
+[prev (8 bytes)][next (8 bytes)][data (sizeof(T) bytes)]
+```
+
+#### 主要メソッド
+
+| メソッド | 時間計算量 | 説明 |
+|---------|-----------|------|
+| `push_back(T value)` | O(1) | 末尾に要素追加 |
+| `push_front(T value)` | O(1) | 先頭に要素追加 ✨新規 |
+| `pop_back()` | O(1) | 末尾要素を削除 |
+| `pop_front()` | O(1) | 先頭要素を削除 ✨新規 |
+| `get(int index)` | O(n) | 要素取得（インデックス指定） |
+| `set(int index, T value)` | O(n) | 要素更新 |
+| `delete_at(int index)` | O(n) | 任意位置の要素削除 ✨新規 |
+| `find(T value)` | O(n) | 要素検索 ✨新規 |
+| `sort()` | O(n²) | ソート（バブルソート） ✨新規 |
+| `get_length()` | O(1) | 要素数取得 |
+| `clear()` | O(n) | 全要素削除 |
+
+#### API変更（v0.11.0）
+
+**削除されたメソッド**:
+- `init()` - コンストラクタで代替
+- `reserve()` - リンクリストでは不要
+- `get_capacity()` - リンクリストでは不要
+
+**新規追加メソッド**:
+- `push_front()` - O(1)での先頭追加
+- `pop_front()` - O(1)での先頭削除
+- `delete_at()` - 任意位置の削除
+- `find()` - 線形探索
+- `sort()` - バブルソート実装
+
+#### 使用例
+
+**先頭への追加**:
+```cb
+Vector<int> vec;
+vec.push_front(10);  // [10]
+vec.push_front(20);  // [20, 10]
+vec.push_front(30);  // [30, 20, 10]
+```
+
+**要素の検索**:
+```cb
+Vector<int> vec;
+vec.push_back(10);
+vec.push_back(20);
+vec.push_back(30);
+
+int index = vec.find(20);  // 1
+```
+
+**要素の削除**:
+```cb
+Vector<int> vec;
+vec.push_back(10);
+vec.push_back(20);
+vec.push_back(30);
+
+vec.delete_at(1);  // [10, 30]
+```
+
+**ソート**:
+```cb
+Vector<int> vec;
+vec.push_back(30);
+vec.push_back(10);
+vec.push_back(20);
+
+vec.sort();  // [10, 20, 30]
+```
+
+#### パフォーマンス特性
+
+**v0.10.0（配列ベース） vs v0.11.0（リンクリスト）**:
+
+| 操作 | v0.10.0 | v0.11.0 |
+|-----|---------|---------|
+| 先頭追加 | O(n) | O(1) ✨ |
+| 末尾追加 | O(1) | O(1) |
+| 先頭削除 | O(n) | O(1) ✨ |
+| 末尾削除 | O(1) | O(1) |
+| ランダムアクセス | O(1) | O(n) |
+| メモリ | 連続 | 非連続 |
+
+#### アロケータ対応
+
+```cb
+import std.allocators.system;
+
+Vector<int> vec;
+vec.allocator = SystemAllocator::new();
 ```
 
 ---
@@ -2446,9 +3847,13 @@ make unit-test
 
 ### テスト統計
 
-- **統合テスト**: 2349個（100%成功）
-- **単体テストト**: 30個（100%成功）
-- **総カバレッジ**: 全機能をカバー
+| バージョン | 統合テスト | 単体テスト | 合計 | 成功率 |
+|-----------|-----------|-----------|------|--------|
+| v0.9.0 | 2,349 | 30 | 2,379 | 100% |
+| v0.9.1 | 2,447 | 30 | 2,477 | 100% |
+| v0.9.2 | 2,798 | 30 | 2,828 | 100% |
+| v0.10.0 | 2,924 | 30 | 2,954 | 100% |
+| **v0.11.0** | **3,341** | **30** | **3,371** | **100%** |
 
 ### テストケースの構造
 
@@ -2584,6 +3989,83 @@ const int maxSize = 100; // 定数はUPPER_CASE
 
 ---
 
-**ドキュメントバージョン**: v0.9.0  
-**最終更新日**: 2025年10月5日  
-**言語バージョン**: Cb v0.9.0 - ポインタシステム完全実装版
+## 変更履歴
+
+### v0.11.0 Part 1a（2025年11月3日）
+
+**主要な変更**:
+
+1. **Vector<T>の双方向リンクリスト実装**
+   - 配列ベースからノードベース双方向リンクリストに完全リファクタリング
+   - O(1)での先頭・末尾操作を実現
+   - 新規API追加: `push_front()`, `pop_front()`, `delete_at()`, `find()`, `sort()`
+   - 削除API: `init()`, `reserve()`, `get_capacity()`
+
+2. **import文の文字列リテラル構文廃止**
+   - 文字列リテラル構文（`import "path/to/file.cb";`）を廃止
+   - モジュールパス構文（`import module.path.name;`）に統一
+   - 41ファイルを更新
+
+3. **テスト拡充**
+   - 統合テスト: 2,924個 → 3,341個（+417個）
+   - すべてのテストが100%合格
+
+### v0.11.0（2025年10月28日）
+
+**主要な機能追加**:
+
+1. **ジェネリクスシステム**
+   - 構造体、関数、enumでのジェネリクス対応
+   - 型パラメータ、インスタンス化、型名マングリング
+
+2. **文字列補間**
+   - `{}` 内での式埋め込み
+   - フォーマット指定子（`:d`, `:x`, `:.2f` など）
+
+3. **デストラクタとRAII**
+   - `fn deinit()` 構文
+   - LIFO順序での自動呼び出し
+   - defer文との統合
+
+4. **パターンマッチング**
+   - `match` 文の実装
+   - Option<T>とResult<T, E>のマッチング
+   - ワイルドカードパターン
+
+### v0.10.0（2025年10月20日）
+
+**主要な機能追加**:
+
+1. **右辺値参照とムーブセマンティクス**
+   - `&&` 構文
+   - ムーブコンストラクタ
+   - `move()` 関数
+
+2. **デフォルト引数**
+   - 関数パラメータのデフォルト値
+   - コンストラクタでのデフォルト引数
+
+### v0.9.2（2025年10月15日）
+
+**機能追加**:
+- 配列の参照渡し（自動）
+- 配列を返す関数のサポート強化
+
+### v0.9.1（2025年10月10日）
+
+**機能追加**:
+- Const Pointer Safety
+- impl内static変数
+
+### v0.9.0（2025年10月5日）
+
+**主要な機能追加**:
+- ポインタシステム完全実装
+- 浮動小数点数型（float, double）
+- ネストした構造体（多階層対応）
+
+---
+
+**ドキュメントバージョン**: v0.11.0 Part 1a  
+**最終更新日**: 2025年11月3日  
+**言語バージョン**: Cb v0.11.0 - Generics, String Interpolation, Destructors & Vector Refactoring

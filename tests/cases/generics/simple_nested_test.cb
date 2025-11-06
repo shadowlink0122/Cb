@@ -1,0 +1,25 @@
+// Simple nested generic struct test
+
+struct Box<T> {
+    T value;
+};
+
+struct Wrapper<T> {
+    T data;
+};
+
+void main() {
+    println("=== Simple Nested Test ===");
+    
+    // Step 1: Box<int> を作成
+    Box<int> my_box;
+    my_box.value = 42;
+    println("Box<int>.value:", my_box.value);
+    
+    // Step 2: Wrapper<Box<int>> を作成して直接アクセス
+    Wrapper<Box<int> > nested;
+    nested.data.value = 100;
+    println("Wrapper<Box<int>>.data.value:", nested.data.value);
+    
+    println("=== Test Passed ===");
+}

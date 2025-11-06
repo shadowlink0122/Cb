@@ -1,0 +1,23 @@
+// v0.11.0 Phase 0 - Generic Struct Execution Test
+// Test: Actually use generic struct with concrete types
+
+struct Box<T> {
+    T value;
+};
+
+void main() {
+    // インスタンス化してみる
+    Box<int> int_box;
+    int_box.value = 42;
+    
+    println("int_box.value = ");
+    println(int_box.value);
+    
+    Box<string> str_box;
+    str_box.value = "Hello, Generics!";
+    
+    println("str_box.value = ");
+    println(str_box.value);
+    
+    println("Generic struct execution successful!");
+}

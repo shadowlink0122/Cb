@@ -1,0 +1,90 @@
+// Comprehensive test: All assignment patterns
+// このテストは、全ての代入パターンを網羅的に検証します
+
+struct Task {
+    int task_id;
+    int priority;
+};
+
+Task create_task(int id, int prio) {
+    Task t = {id, prio};
+    return t;
+}
+
+int main() {
+    println("=== Comprehensive Struct Array Assignment Test ===");
+    
+    Task[10] tasks;
+    int test_count = 0;
+    int passed_count = 0;
+    
+    // Test 1: リテラル代入
+    test_count++;
+    tasks[0] = {100, 10};
+    if (tasks[0].task_id == 100 && tasks[0].priority == 10) {
+        println("✓ Test 1: Literal assignment - PASSED");
+        passed_count++;
+    } else {
+        println("✗ Test 1: FAILED");
+    }
+    
+    // Test 2: 変数代入
+    test_count++;
+    Task t = {200, 20};
+    tasks[1] = t;
+    if (tasks[1].task_id == 200 && tasks[1].priority == 20) {
+        println("✓ Test 2: Variable assignment - PASSED");
+        passed_count++;
+    } else {
+        println("✗ Test 2: FAILED");
+    }
+    
+    // Test 3: 関数戻り値代入
+    test_count++;
+    tasks[2] = create_task(300, 30);
+    if (tasks[2].task_id == 300 && tasks[2].priority == 30) {
+        println("✓ Test 3: Function return assignment - PASSED");
+        passed_count++;
+    } else {
+        println("✗ Test 3: FAILED");
+    }
+    
+    // Test 4: 配列要素コピー
+    test_count++;
+    tasks[3] = tasks[0];
+    if (tasks[3].task_id == 100 && tasks[3].priority == 10) {
+        println("✓ Test 4: Element copy assignment - PASSED");
+        passed_count++;
+    } else {
+        println("✗ Test 4: FAILED");
+    }
+    
+    // Test 5: ループ内代入
+    test_count++;
+    bool loop_passed = true;
+    for (int i = 4; i < 10; i++) {
+        Task temp = {i * 100, i * 10};
+        tasks[i] = temp;
+        if (tasks[i].task_id != i * 100 || tasks[i].priority != i * 10) {
+            loop_passed = false;
+        }
+    }
+    if (loop_passed) {
+        println("✓ Test 5: Loop assignment - PASSED");
+        passed_count++;
+    } else {
+        println("✗ Test 5: FAILED");
+    }
+    
+    // 最終結果
+    println("========================================");
+    println("Result: ", passed_count, "/", test_count, " tests passed");
+    
+    if (passed_count == test_count) {
+        println("Comprehensive test - ALL PASSED");
+        return 0;
+    } else {
+        println("Comprehensive test - SOME FAILED");
+        return 1;
+    }
+}

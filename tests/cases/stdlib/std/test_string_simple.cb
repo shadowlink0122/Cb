@@ -1,0 +1,159 @@
+// String Library Test - Simplified Version
+// stdlib/std/str.cb の簡易テスト
+
+import stdlib.std.string;
+import stdlib.std.test;
+
+void test_string_basics(TestResult* t) {
+    print_section("String Basics");
+    
+    // string_from()で初期化
+    String s1 = string_from("hello");
+    t.assert_eq_int(s1.size(), 5, "string_from('hello') has length 5");
+    t.assert_true(!s1.is_empty(), "String is not empty");
+    
+    String empty = string_empty();
+    t.assert_true(empty.is_empty(), "string_empty() creates empty string");
+    t.assert_eq_int(empty.size(), 0, "Empty string has length 0");
+    
+    // char_at
+    t.assert_eq_int(s1.char_at(0), 104, "char_at(0) is 'h' (104)");
+    t.assert_eq_int(s1.char_at(4), 111, "char_at(4) is 'o' (111)");
+}
+
+void test_string_search(TestResult* t) {
+    print_section("String Search");
+    
+    String s = string_from("hello world");
+    
+    // index_of
+    t.assert_eq_int(s.index_of("world"), 6, "index_of('world') = 6");
+    t.assert_eq_int(s.index_of("hello"), 0, "index_of('hello') = 0");
+    t.assert_eq_int(s.index_of("xyz"), -1, "index_of('xyz') = -1");
+    
+    // last_index_of
+    t.assert_eq_int(s.last_index_of("o"), 7, "last_index_of('o') = 7");
+    t.assert_eq_int(s.last_index_of("l"), 9, "last_index_of('l') = 9");
+    
+    // contains
+    t.assert_true(s.contains("world"), "contains('world') = true");
+    t.assert_false(s.contains("xyz"), "contains('xyz') = false");
+    
+    // starts_with / ends_with
+    t.assert_true(s.starts_with("hello"), "starts_with('hello') = true");
+    t.assert_false(s.starts_with("world"), "starts_with('world') = false");
+    t.assert_true(s.ends_with("world"), "ends_with('world') = true");
+    t.assert_false(s.ends_with("hello"), "ends_with('hello') = false");
+}
+
+void test_string_transformation(TestResult* t) {
+    print_section("String Transformation");
+    
+    String s = string_from("Hello");
+    
+    // to_upper
+    String upper = s.to_upper();
+    string upper_str = upper.get();
+    t.assert_eq_str(upper_str, "HELLO", "to_upper() converts to HELLO");
+    t.assert_eq_int(upper.size(), 5, "to_upper() preserves length");
+    
+    // to_lower
+    String lower = s.to_lower();
+    string lower_str = lower.get();
+    t.assert_eq_str(lower_str, "hello", "to_lower() converts to hello");
+    t.assert_eq_int(lower.size(), 5, "to_lower() preserves length");
+    
+    // trim
+    String whitespace = string_from("  hello  ");
+    String trimmed = whitespace.trim();
+    string trimmed_str = trimmed.get();
+    t.assert_eq_str(trimmed_str, "hello", "trim() removes whitespace");
+    
+    // substring
+    String text = string_from("hello world");
+    String sub1 = text.substring(0, 5);
+    string sub1_str = sub1.get();
+    t.assert_eq_str(sub1_str, "hello", "substring(0, 5) = 'hello'");
+    
+    String sub2 = text.substring(6, 11);
+    string sub2_str = sub2.get();
+    t.assert_eq_str(sub2_str, "world", "substring(6, 11) = 'world'");
+}
+
+void test_string_concat(TestResult* t) {
+    print_section("String Concatenation");
+    
+    String s1 = string_from("hello");
+    String s2 = string_from(" world");
+    
+    // concat
+    String result = s1.concat(s2);
+    string result_str = result.get();
+    t.assert_eq_str(result_str, "hello world", "concat() joins strings");
+    t.assert_eq_int(result.size(), 11, "concat() length = 11");
+    
+    // concat_str
+    String result2 = s1.concat_str(" there");
+    string result2_str = result2.get();
+    t.assert_eq_str(result2_str, "hello there", "concat_str() works");
+    t.assert_eq_int(result2.size(), 11, "concat_str() length = 11");
+}
+
+void test_string_split(TestResult* t) {
+    print_section("String Split");
+    
+    String s = string_from("hello,world,test");
+    Vector<String> parts = s.split(",");
+    
+    t.assert_eq_int(parts.size(), 3, "split(',') creates 3 parts");
+    
+    String part0 = parts.at(0);
+    string part0_str = part0.get();
+    t.assert_eq_str(part0_str, "hello", "First part = 'hello'");
+    
+    String part1 = parts.at(1);
+    string part1_str = part1.get();
+    t.assert_eq_str(part1_str, "world", "Second part = 'world'");
+    
+    String part2 = parts.at(2);
+    string part2_str = part2.get();
+    t.assert_eq_str(part2_str, "test", "Third part = 'test'");
+}
+
+void test_string_comparison(TestResult* t) {
+    print_section("String Comparison");
+    
+    String s1 = string_from("apple");
+    String s2 = string_from("banana");
+    String s3 = string_from("apple");
+    
+    // compare
+    t.assert_true(s1.compare(s2) < 0, "'apple' < 'banana'");
+    t.assert_true(s2.compare(s1) > 0, "'banana' > 'apple'");
+    t.assert_eq_int(s1.compare(s3), 0, "'apple' == 'apple'");
+    
+    // equals
+    t.assert_true(s1.equals(s3), "equals() returns true for same strings");
+    t.assert_false(s1.equals(s2), "equals() returns false for different strings");
+    
+    // equals_str
+    t.assert_true(s1.equals_str("apple"), "equals_str() works");
+    t.assert_false(s1.equals_str("banana"), "equals_str() detects difference");
+}
+
+void main() {
+    print_test_header("String Library - Comprehensive Test");
+    println("Testing stdlib/std/str.cb\n");
+    
+    TestResult t;
+    
+    test_string_basics(&t);
+    test_string_search(&t);
+    test_string_transformation(&t);
+    test_string_concat(&t);
+    test_string_split(&t);
+    test_string_comparison(&t);
+    
+    println("");
+    t.print_summary();
+}

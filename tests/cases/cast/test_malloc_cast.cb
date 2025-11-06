@@ -1,0 +1,59 @@
+// mallocへのキャストのテスト
+
+struct Point {
+    int x;
+    int y;
+};
+
+int main() {
+    println("=== Testing malloc with cast ===\n");
+    
+    // テスト1: (Point*)malloc(sizeof(Point))
+    println("--- Test 1: Cast to Point* ---");
+    int point_size = sizeof(Point);
+    println("sizeof(Point) = {point_size}");
+    
+    Point* p1 = (Point*)malloc(point_size);
+    
+    if (p1 == nullptr) {
+        println("❌ malloc failed");
+        return 1;
+    }
+    
+    println("✅ malloc with cast succeeded: {hex(p1)}");
+    
+    // メンバーアクセスを試す
+    println("\nTrying to access p1->x...");
+    p1->x = 42;
+    println("✅ Set p1->x = {p1->x}");
+    
+    p1->y = 99;
+    println("✅ Set p1->y = {p1->y}");
+    
+    free(p1);
+    println("✅ Freed p1");
+    
+    // テスト2: 配列のキャスト
+    println("\n--- Test 2: Cast to Point[N] ---");
+    int N = 3;
+    Point* points = (Point*)malloc(point_size * N);
+    
+    if (points == nullptr) {
+        println("❌ malloc failed for array");
+        return 1;
+    }
+    
+    println("✅ malloc array with cast succeeded: {hex(points)}");
+    
+    // 最初の要素にアクセス
+    println("\nAccessing first element...");
+    points->x = 10;
+    points->y = 20;
+    println("✅ points[0] = ({points->x}, {points->y})");
+    
+    free(points);
+    println("✅ Freed points array");
+    
+    println("\n🎉 All cast tests passed!");
+    return 0;
+}

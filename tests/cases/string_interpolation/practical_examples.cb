@@ -1,0 +1,98 @@
+// 実用例テスト
+// ログ出力、テーブル表示、デバッグ出力
+
+fn main() {
+    println("=== Logging Example ===");
+    
+    string level = "ERROR";
+    string file = "main.cb";
+    int line = 42;
+    
+    println("[{level}] {file}:{line} - Memory allocation failed");
+    // 期待: [ERROR] main.cb:42 - Memory allocation failed
+    
+    println("");
+    println("=== Table Display Example ===");
+    
+    string name1 = "Alice";
+    string name2 = "Bob";
+    string name3 = "Charlie";
+    int age1 = 25;
+    int age2 = 30;
+    int age3 = 28;
+    double score1 = 95.5;
+    double score2 = 87.3;
+    double score3 = 91.8;
+    
+    // ヘッダー
+    println("| {"Name":^10} | {"Age":^10} | {"Score":^10} |");
+    println("|{"":-^12}|{"":-^12}|{"":-^12}|");
+    
+    // データ行
+    println("| {name1:<10} | {age1:>10} | {score1:>10.2} |");
+    println("| {name2:<10} | {age2:>10} | {score2:>10.2} |");
+    println("| {name3:<10} | {age3:>10} | {score3:>10.2} |");
+    
+    // 期待:
+    // |    Name    |    Age     |   Score    |
+    // |------------|------------|------------|
+    // | Alice      |         25 |      95.50 |
+    // | Bob        |         30 |      87.30 |
+    // | Charlie    |         28 |      91.80 |
+    
+    println("");
+    println("=== Progress Bar Example ===");
+    
+    int progress = 65;
+    int total = 100;
+    double percent = (progress as double) / (total as double) * 100.0;
+    
+    println("Progress: [{progress}/{total}] {percent:.1}%");
+    // 期待: Progress: [65/100] 65.0%
+    
+    println("");
+    println("=== Hex Dump Example ===");
+    
+    int[] bytes = [0x48, 0x65, 0x6c, 0x6c, 0x6f];
+    int offset = 0;
+    println("Offset: {offset:#06x}");
+    
+    int i = 0;
+    while i < 5 {
+        println("  {bytes[i]:02x}");
+        i = i + 1;
+    }
+    
+    // 期待:
+    // Offset: 0x0000
+    //   48
+    //   65
+    //   6c
+    //   6c
+    //   6f
+    
+    println("");
+    println("=== Coordinate Display Example ===");
+    
+    double x = 12.3456;
+    double y = 78.9012;
+    
+    println("Position: ({x:.2}, {y:.2})");
+    // 期待: Position: (12.35, 78.90)
+    
+    println("Position (padded): ({x:8.2}, {y:8.2})");
+    // 期待: Position (padded): (   12.35,    78.90)
+    
+    println("");
+    println("=== Debug Output Example ===");
+    
+    int debug_x = 42;
+    double debug_y = 3.14;
+    string debug_z = "test";
+    
+    println("Debug: x={debug_x:?}, y={debug_y:?}, z={debug_z:?}");
+    // 期待: Debug: x=42, y=3.14, z="test"
+    
+    println("");
+    println("=== All Practical Examples Passed ===");
+}

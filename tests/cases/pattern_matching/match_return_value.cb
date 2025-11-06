@@ -1,0 +1,80 @@
+// Test 7: 関数からの返り値に対するパターンマッチング
+// Pattern matching on function return values
+
+Result<int, int> safe_divide(int a, int b) {
+    if (b == 0) {
+        return Result<int, int>::Err(1);
+    }
+    return Result<int, int>::Ok(a / b);
+}
+
+Result<int, int> safe_multiply(int a, int b) {
+    if (a > 1000 || b > 1000) {
+        return Result<int, int>::Err(2);  // オーバーフロー防止
+    }
+    return Result<int, int>::Ok(a * b);
+}
+
+// 前置返り値型を使用（->構文は不要）
+int process_calculation(int a, int b, int operation) {
+    if (operation == 1) {
+        // 除算
+        match (safe_divide(a, b)) {
+            Ok(result) => {
+                return result;
+            }
+            Err(code) => {
+                println("Division error:");
+                println(code);
+                return -1;
+            }
+        }
+    } else {
+        // 乗算
+        match (safe_multiply(a, b)) {
+            Ok(result) => {
+                return result;
+            }
+            Err(code) => {
+                println("Multiplication error:");
+                println(code);
+                return -1;
+            }
+        }
+    }
+}
+
+int main() {
+    println("=== Test 7: Match on function return values ===");
+    
+    // Test 1: 成功する除算
+    int result1 = process_calculation(10, 2, 1);
+    println("Result 1:");
+    println(result1);
+    
+    println("");
+    
+    // Test 2: ゼロ除算エラー
+    int result2 = process_calculation(10, 0, 1);
+    println("Result 2:");
+    println(result2);
+    
+    println("");
+    
+    // Test 3: 成功する乗算
+    int result3 = process_calculation(5, 6, 2);
+    println("Result 3:");
+    println(result3);
+    
+    println("");
+    
+    // Test 4: オーバーフローエラー
+    int result4 = process_calculation(2000, 3, 2);
+    println("Result 4:");
+    println(result4);
+    
+    println("");
+    println("Test 7: PASSED");
+    
+    return 0;
+}

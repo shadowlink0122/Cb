@@ -46,22 +46,17 @@ void test_integration_static_variables() {
     integration_test_passed_with_time_auto("multi static variables", "static_array.cb");
     
     // 再帰関数でのstatic変数テスト
+    // v0.11.0: return文の一重評価修正により、正確な呼び出し回数になった（75行→19行）
     run_cb_test_with_output_and_time_auto("../cases/static_variables/recursive.cb", 
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_EQ(0, exit_code, "recursive.cb should execute successfully");
             size_t line_count = std::count(output.begin(), output.end(), '\n');
-            INTEGRATION_ASSERT_EQ(size_t(75), line_count, "recursive.cb should output 75 lines");
+            INTEGRATION_ASSERT_EQ(size_t(19), line_count, "recursive.cb should output 19 lines");
             INTEGRATION_ASSERT(output.find("3\n") != std::string::npos && 
                              output.substr(output.length() - 2) == "3\n",
                              "recursive.cb should end with '3'");
         });
     integration_test_passed_with_time_auto("recursive static variable", "recursive.cb");
-    
-    
-    // WORKAROUND: 手動で成功をカウント
-    std::cout << "[integration-test] [PASS] recursive static variable (recursive.cb) [manual verification]" << std::endl;
-    IntegrationTestCounter::increment_total();
-    IntegrationTestCounter::increment_passed();
     
     // 統合テスト
     run_cb_test_with_output_and_time_auto("../../tests/cases/static_variables/static_integration.cb", 

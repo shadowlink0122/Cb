@@ -1,0 +1,10 @@
+// エラー: discard変数をreturnで返す
+int get_value() {
+    int _ = 123;
+    return _; // エラー: Cannot reference discard variable '_'
+}
+
+void main() {
+    int result = get_value();
+    println(result);
+}

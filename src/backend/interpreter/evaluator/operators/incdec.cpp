@@ -230,7 +230,8 @@ int64_t evaluate_incdec(
                 if (meta &&
                     meta->target_type == PointerTargetType::ARRAY_ELEMENT) {
                     // 新しいインデックスを計算
-                    size_t new_index = meta->element_index;
+                    size_t old_index = meta->element_index;
+                    size_t new_index = old_index;
 
                     if (node->op == "++") {
                         new_index += 1;
@@ -243,8 +244,14 @@ int64_t evaluate_incdec(
                     }
 
                     // 範囲チェック
-                    if (new_index >=
-                        static_cast<size_t>(meta->array_var->array_size)) {
+                    if (!meta->array_var ||
+                        new_index >=
+                            static_cast<size_t>(meta->array_var->array_size)) {
+                        debug_print(
+                            "[INCDEC] Range check failed: old_index=%zu, "
+                            "new_index=%zu, array_size=%d\n",
+                            old_index, new_index,
+                            meta->array_var ? meta->array_var->array_size : -1);
                         throw std::runtime_error(
                             "Pointer increment/decrement out of array bounds");
                     }
@@ -252,8 +259,13 @@ int64_t evaluate_incdec(
                     // 新しいメタデータを作成
                     PointerMetadata temp_meta =
                         PointerMetadata::create_array_element_pointer(
-                            meta->array_var, new_index, meta->element_type);
+                            meta->array_var, new_index, meta->element_type,
+                            meta->array_name);
                     PointerMetadata *new_meta = new PointerMetadata(temp_meta);
+
+                    // グローバルプールに追加（自動管理）
+                    using namespace PointerSystem;
+                    global_metadata_pool.push_back(new_meta);
 
                     // タグ付きポインタ
                     int64_t new_ptr_value = reinterpret_cast<int64_t>(new_meta);

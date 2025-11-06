@@ -1,0 +1,243 @@
+// Test: Vector Destructor with Memory Management
+// Vector構造体でのメモリ管理を伴うデストラクタの実例
+
+export interface Allocator {
+    void* allocate(int size);
+    void deallocate(void* ptr);
+}
+
+export struct SystemAllocator {
+    int allocation_count;
+};
+
+impl Allocator for SystemAllocator {
+    void* allocate(int size) {
+        println("[SystemAllocator] Allocate {size} bytes");
+        return nullptr;
+    }
+    
+    void deallocate(void* ptr) {
+        println("[SystemAllocator] Deallocate");
+    }
+}
+
+export struct Vector<T, A: Allocator> {
+    int capacity;
+    int length;
+    void* data;
+};
+
+// Destructor for Vector<int, SystemAllocator>
+impl Vector<int, SystemAllocator> {
+    ~self() {
+        if (self.data != nullptr) {
+            println("[Vector] Destructor: Freeing memory at {hex(self.data)} (capacity={self.capacity}, length={self.length})");
+            delete self.data;
+        } else {
+            println("[Vector] Destructor: No memory to free (data is nullptr)");
+        }
+    }
+}
+
+void test_basic_vector_destructor() {
+    println("=== Test 1: Basic Vector Destructor ===");
+    {
+        Vector<int, SystemAllocator> vec;
+        vec.capacity = 5;
+        vec.length = 0;
+        vec.data = new int[5];
+        
+        println("Vector created:");
+        println("  Capacity: {vec.capacity}");
+        println("  Length: {vec.length}");
+        println("  Data at: {hex(vec.data)}");
+        println("Exiting scope...");
+    }
+    println("✓ Vector memory freed automatically\n");
+}
+
+void test_vector_with_different_sizes() {
+    println("=== Test 2: Vectors with Different Sizes ===");
+    {
+        Vector<int, SystemAllocator> small;
+        small.capacity = 3;
+        small.length = 0;
+        small.data = new int[3];
+        println("Created small vector (capacity={small.capacity}) at {hex(small.data)}");
+        
+        Vector<int, SystemAllocator> medium;
+        medium.capacity = 10;
+        medium.length = 0;
+        medium.data = new int[10];
+        println("Created medium vector (capacity={medium.capacity}) at {hex(medium.data)}");
+        
+        Vector<int, SystemAllocator> large;
+        large.capacity = 100;
+        large.length = 0;
+        large.data = new int[100];
+        println("Created large vector (capacity={large.capacity}) at {hex(large.data)}");
+        
+        println("Exiting scope... (expect: large → medium → small)");
+    }
+    println("✓ All vector memory freed in LIFO order\n");
+}
+
+void test_vector_nullptr() {
+    println("=== Test 3: Vector with nullptr ===");
+    {
+        Vector<int, SystemAllocator> empty;
+        empty.capacity = 0;
+        empty.length = 0;
+        empty.data = nullptr;
+        println("Created empty vector (data is nullptr)");
+        println("Exiting scope...");
+    }
+    println("✓ nullptr handled correctly\n");
+}
+
+void test_nested_vector_scopes() {
+    println("=== Test 4: Nested Scopes with Vectors ===");
+    {
+        Vector<int, SystemAllocator> outer_vec;
+        outer_vec.capacity = 5;
+        outer_vec.length = 0;
+        outer_vec.data = new int[5];
+        println("Outer: Vector created at {hex(outer_vec.data)}");
+        
+        {
+            Vector<int, SystemAllocator> inner_vec;
+            inner_vec.capacity = 3;
+            inner_vec.length = 0;
+            inner_vec.data = new int[3];
+            println("  Inner: Vector created at {hex(inner_vec.data)}");
+            println("  Inner: Exiting...");
+        }
+        
+        println("Outer: Back from inner scope");
+        println("Outer: Exiting...");
+    }
+    println("✓ Nested scope memory freed correctly\n");
+}
+
+void test_vector_with_data() {
+    println("=== Test 5: Vector with Actual Data ===");
+    {
+        Vector<int, SystemAllocator> vec;
+        vec.capacity = 5;
+        vec.length = 3;
+        vec.data = new int[5];
+        
+        // データを書き込み
+        array_set_int(vec.data, 0, 10);
+        array_set_int(vec.data, 1, 20);
+        array_set_int(vec.data, 2, 30);
+        
+        println("Vector with data:");
+        println("  [0] = {array_get_int(vec.data, 0)}");
+        println("  [1] = {array_get_int(vec.data, 1)}");
+        println("  [2] = {array_get_int(vec.data, 2)}");
+        println("Exiting scope...");
+    }
+    println("✓ Vector with data freed successfully\n");
+}
+
+void test_vector_with_different_sizes() {
+    println("=== Test 2: Vectors with Different Sizes ===");
+    if (true) {
+        Vector<int, SystemAllocator> small;
+        small.capacity = 3;
+        small.length = 0;
+        small.data = new int[3];
+        println("Created small vector (capacity={small.capacity}) at {hex(small.data)}");
+        
+        Vector<int, SystemAllocator> medium;
+        medium.capacity = 10;
+        medium.length = 0;
+        medium.data = new int[10];
+        println("Created medium vector (capacity={medium.capacity}) at {hex(medium.data)}");
+        
+        Vector<int, SystemAllocator> large;
+        large.capacity = 100;
+        large.length = 0;
+        large.data = new int[100];
+        println("Created large vector (capacity={large.capacity}) at {hex(large.data)}");
+        
+        println("Exiting scope... (expect: large → medium → small)");
+    }
+    println("✓ All vector memory freed in LIFO order\n");
+}
+
+void test_vector_nullptr() {
+    println("=== Test 3: Vector with nullptr ===");
+    if (true) {
+        Vector<int, SystemAllocator> empty;
+        empty.capacity = 0;
+        empty.length = 0;
+        empty.data = nullptr;
+        println("Created empty vector (data is nullptr)");
+        println("Exiting scope...");
+    }
+    println("✓ nullptr handled correctly\n");
+}
+
+void test_nested_vector_scopes() {
+    println("=== Test 4: Nested Scopes with Vectors ===");
+    if (true) {
+        Vector<int, SystemAllocator> outer_vec;
+        outer_vec.capacity = 5;
+        outer_vec.length = 0;
+        outer_vec.data = new int[5];
+        println("Outer: Vector created at {hex(outer_vec.data)}");
+        
+        if (true) {
+            Vector<int, SystemAllocator> inner_vec;
+            inner_vec.capacity = 3;
+            inner_vec.length = 0;
+            inner_vec.data = new int[3];
+            println("  Inner: Vector created at {hex(inner_vec.data)}");
+            println("  Inner: Exiting...");
+        }
+        
+        println("Outer: Back from inner scope");
+        println("Outer: Exiting...");
+    }
+    println("✓ Nested scope memory freed correctly\n");
+}
+
+void test_vector_with_data() {
+    println("=== Test 5: Vector with Actual Data ===");
+    if (true) {
+        Vector<int, SystemAllocator> vec;
+        vec.capacity = 5;
+        vec.length = 3;
+        vec.data = new int[5];
+        
+        // データを書き込み
+        array_set_int(vec.data, 0, 10);
+        array_set_int(vec.data, 1, 20);
+        array_set_int(vec.data, 2, 30);
+        
+        println("Vector with data:");
+        println("  [0] = {array_get_int(vec.data, 0)}");
+        println("  [1] = {array_get_int(vec.data, 1)}");
+        println("  [2] = {array_get_int(vec.data, 2)}");
+        println("Exiting scope...");
+    }
+    println("✓ Vector with data freed successfully\n");
+}
+
+void main() {
+    println("╔══════════════════════════════════════════════════╗");
+    println("║  Vector Destructor with Memory Management       ║");
+    println("╚══════════════════════════════════════════════════╝\n");
+    
+    test_basic_vector_destructor();
+    test_vector_with_different_sizes();
+    test_vector_nullptr();
+    test_nested_vector_scopes();
+    test_vector_with_data();
+    
+    println("╔══════════════════════════════════════════════════╗");
+    println("║  All Vector Destructor Tests Passed!            ║");
+    println("╚══════════════════════════════════════════════════╝");
+}
