@@ -593,7 +593,107 @@ sed -i 's/\//./g' *.cb  # パス区切りを . に変換
 
 ---
 
+## 🗂️ 標準ライブラリ構造（v0.11.0）
+
+### stdlib再編成
+
+**v0.11.0の変更点**:
+- `stdlib.collections.*` → `stdlib.std.*` に統合
+- 組み込み型（Result, Option, memory, io）を削除
+- `str.cb` → `string.cb` に名前変更
+
+### 最終ディレクトリ構造
+
+```
+stdlib/
+├── std/                    # 標準ライブラリ統合フォルダ
+│   ├── test.cb            # TestFramework, assert_*
+│   ├── string.cb          # String, StringOps (19メソッド)
+│   ├── vector.cb          # Vector<T> 双方向リンクリスト
+│   ├── queue.cb           # Queue<T> 循環バッファ
+│   └── map.cb             # Map<K, V> AVL自己平衡木
+├── async/                  # 非同期処理（v0.12.0予定）
+│   └── task_queue.cb      # TaskQueue（async/await用）
+└── allocators/             # メモリアロケータ
+    └── system.cb          # SystemAllocator
+```
+
+### import構文マッピング
+
+```cb
+// ❌ 旧（廃止）
+import stdlib.collections.vector;
+import stdlib.collections.queue;
+import stdlib.collections.map;
+import stdlib.std.str;
+import stdlib.std.result;
+import stdlib.std.option;
+
+// ✅ 新
+import stdlib.std.vector;
+import stdlib.std.queue;
+import stdlib.std.map;
+import stdlib.std.string;
+// Result<T, E> と Option<T> は組み込み型（import不要）
+```
+
+### ファイルパス解決
+
+```
+import stdlib.std.vector;
+  ↓
+stdlib/std/vector.cb
+
+import stdlib.std.queue;
+  ↓
+stdlib/std/queue.cb
+```
+
+### テスト構造
+
+```
+tests/cases/stdlib/
+├── collections/           # コレクションテスト
+│   ├── README.md
+│   ├── map/              # Mapテスト
+│   │   ├── README.md
+│   │   ├── test_basic.cb
+│   │   └── test_stress.cb
+│   ├── vector/           # Vectorテスト（10ファイル）
+│   │   ├── README.md
+│   │   └── test_vector_*.cb
+│   └── queue/            # Queueテスト（4ファイル）
+│       ├── README.md
+│       └── test_queue_*.cb
+└── string/               # 文字列ライブラリテスト
+    └── test_*.cb
+```
+
+### 完全なドキュメント
+
+```
+docs/stdlib/std/
+├── README.md             # 標準ライブラリ概要
+├── vector.md             # Vector<T> API文書
+├── queue.md              # Queue<T> API文書
+├── map.md                # Map<K, V> API文書
+├── string.md             # String API文書
+└── test.md               # TestFramework API文書
+```
+
+### API概要
+
+| ライブラリ | 主な型 | 主な機能 | パフォーマンス |
+|-----------|--------|---------|---------------|
+| **test.cb** | TestResult, TestFramework | assert_*, print_summary | - |
+| **string.cb** | String, StringOps | 19メソッド（比較、検索、変換） | O(n) |
+| **vector.cb** | Vector&lt;T&gt; | 双方向リンクリスト、ソート | O(1) 先頭/末尾、O(n) アクセス |
+| **queue.cb** | Queue&lt;T&gt; | 循環バッファ、FIFO | O(1) enqueue/dequeue |
+| **map.cb** | Map&lt;K, V&gt; | AVL自己平衡木、挿入/検索/削除 | O(log n) すべて |
+
+---
+
 **作成日**: 2025年1月  
-**最終更新**: 2025年11月5日  
+**最終更新**: 2025年11月7日  
 **バージョン**: v0.11.0 Part 1a  
-**ステータス**: コレクションライブラリ完成、テスト構造再編成完了
+**ステータス**: コレクションライブラリ完成、stdlib再編成完了、ドキュメント整備完了

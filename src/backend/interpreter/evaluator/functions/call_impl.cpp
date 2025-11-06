@@ -21,6 +21,7 @@
 #include "evaluator/core/helpers.h"
 #include "generic_instantiation.h"
 #include <cstdlib>
+#include <cstring> // for strdup
 #include <cstring> // for std::memcpy
 #include <iomanip>
 #include <sstream>

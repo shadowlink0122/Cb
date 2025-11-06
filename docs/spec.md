@@ -3062,6 +3062,142 @@ void main() {
 
 ---
 
+## 標準ライブラリ
+
+**v0.11.0**: 標準ライブラリを`stdlib.std`に統合し、明確な構造に再編成。
+
+### stdlib構造
+
+```
+stdlib/std/
+├── test.cb          # テストフレームワーク
+├── string.cb        # 文字列ライブラリ
+├── vector.cb        # Vector<T> 双方向リンクリスト
+├── queue.cb         # Queue<T> 循環バッファ
+└── map.cb           # Map<K, V> AVL自己平衡木
+```
+
+### import構文
+
+```cb
+// ライブラリをインポート
+import stdlib.std.vector;
+import stdlib.std.queue;
+import stdlib.std.map;
+import stdlib.std.string;
+import stdlib.std.test;
+```
+
+### コレクションの使用例
+
+#### Vector<T> - 双方向リンクリスト
+
+```cb
+import stdlib.std.vector;
+
+void main() {
+    Vector<int> vec;
+    vec.push_back(10);
+    vec.push_front(5);
+    vec.push_back(20);
+    
+    int val = vec.at(1);  // 10
+    vec.sort();           // 昇順ソート
+    println("Size: {vec.size()}");
+}
+```
+
+#### Queue<T> - 循環バッファ
+
+```cb
+import stdlib.std.queue;
+
+void main() {
+    Queue<int> q;
+    q.init(10);
+    q.enqueue(100);
+    q.enqueue(200);
+    
+    int val = q.dequeue();  // 100 (FIFO)
+    println("Remaining: {q.size()}");
+}
+```
+
+#### Map<K, V> - AVL自己平衡木
+
+```cb
+import stdlib.std.map;
+
+void main() {
+    Map<int, int> m;
+    m.init();
+    m.insert(1, 100);
+    m.insert(2, 200);
+    
+    int val = m.get(1, -1);  // 100
+    println("Size: {m.size()}");
+}
+```
+
+#### String - 文字列ライブラリ
+
+```cb
+import stdlib.std.string;
+
+void main() {
+    String s;
+    s.data = "Hello";
+    s.length = 5;
+    
+    int len = s.size();
+    bool empty = s.is_empty();
+    int pos = s.index_of("ll");  // 2
+}
+```
+
+#### TestFramework - テストフレームワーク
+
+```cb
+import stdlib.std.test;
+
+void main() {
+    TestResult t;
+    t.passed = 0;
+    t.failed = 0;
+    t.total = 0;
+    
+    t.assert_eq_int(1 + 1, 2, "addition works");
+    t.assert_true(true, "boolean test");
+    t.print_summary();
+}
+```
+
+### 詳細ドキュメント
+
+各ライブラリの完全なAPI文書:
+- [docs/stdlib/std/README.md](./stdlib/std/README.md) - 標準ライブラリ概要
+- [docs/stdlib/std/vector.md](./stdlib/std/vector.md) - Vector<T> API
+- [docs/stdlib/std/queue.md](./stdlib/std/queue.md) - Queue<T> API
+- [docs/stdlib/std/map.md](./stdlib/std/map.md) - Map<K, V> API
+- [docs/stdlib/std/string.md](./stdlib/std/string.md) - String API
+- [docs/stdlib/std/test.md](./stdlib/std/test.md) - TestFramework API
+
+### 組み込み型（import不要）
+
+以下の型は言語組み込みで、import不要です：
+
+```cb
+// Option<T> - 値の有無を表現
+Option<int> some_value = Option<int>::Some(42);
+Option<int> none_value = Option<int>::None;
+
+// Result<T, E> - 成功/失敗を表現
+Result<int, string> success = Result<int, string>::Ok(100);
+Result<int, string> failure = Result<int, string>::Err("Error");
+```
+
+---
+
 ## 入出力
 
 ### println関数

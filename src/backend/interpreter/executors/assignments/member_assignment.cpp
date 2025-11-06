@@ -7,6 +7,7 @@
 #include "core/pointer_metadata.h"
 #include "managers/variables/manager.h"
 #include "recursive_member_resolver.h"
+#include <cstring> // for strdup
 
 namespace AssignmentHandlers {
 

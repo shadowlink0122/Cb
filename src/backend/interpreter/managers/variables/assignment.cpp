@@ -12,6 +12,7 @@
 #include "managers/variables/manager.h"
 #include <algorithm>
 #include <cstdio>
+#include <cstring> // for strdup
 #include <numeric>
 #include <utility>
 

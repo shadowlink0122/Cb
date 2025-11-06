@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdio>
+#include <cstring> // for strdup
 #include <functional>
 #include <numeric>
 #include <utility>

@@ -589,8 +589,9 @@ import "path/to/module.cb";  // ❌ 廃止
 **新構文**:
 ```cb
 import module.path.name;  // ✅ v0.11.0以降
-import collections.vector;
-import std.allocators.system;
+import stdlib.std.vector;
+import stdlib.std.queue;
+import stdlib.std.map;
 ```
 
 ---
