@@ -1412,8 +1412,8 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                             member_var.value = static_cast<int64_t>(d_val);
                             offset += sizeof(double);
                         } else if (member_def.type == TYPE_CHAR) {
-                            member_var.value = *reinterpret_cast<char *>(
-                                element_ptr + offset);
+                            member_var.value =
+                                *reinterpret_cast<char *>(element_ptr + offset);
                             offset += sizeof(char);
                         } else {
                             member_var.value = *reinterpret_cast<int64_t *>(
@@ -1966,26 +1966,33 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                     } catch (const ReturnException &ret) {
                         if (ret.is_struct) {
                             // 構造体の実際のサイズを計算
-                            // NOTE: sizeof(T)を使うのが正確だが、Cbインタプリタ内では
+                            // NOTE:
+                            // sizeof(T)を使うのが正確だが、Cbインタプリタ内では
                             //       Cbコードで計算されたsizeof(T)を使う必要がある
                             //       ここではメンバーの実際の型サイズを使用
                             size_t total_size = 0;
                             for (const auto &member_def : struct_def->members) {
-                                size_t member_size = sizeof(long); // デフォルト8バイト
-                                
+                                size_t member_size =
+                                    sizeof(long); // デフォルト8バイト
+
                                 // メンバーの型に応じてサイズを調整
-                                if (member_def.type == TYPE_INT || member_def.type == TYPE_FLOAT) {
+                                if (member_def.type == TYPE_INT ||
+                                    member_def.type == TYPE_FLOAT) {
                                     member_size = sizeof(int); // 4バイト
                                 } else if (member_def.type == TYPE_SHORT) {
                                     member_size = sizeof(short); // 2バイト
-                                } else if (member_def.type == TYPE_CHAR || member_def.type == TYPE_TINY) {
+                                } else if (member_def.type == TYPE_CHAR ||
+                                           member_def.type == TYPE_TINY) {
                                     member_size = sizeof(char); // 1バイト
-                                } else if (member_def.type == TYPE_LONG || member_def.type == TYPE_DOUBLE ||
-                                           member_def.type == TYPE_POINTER || member_def.type == TYPE_STRING) {
+                                } else if (member_def.type == TYPE_LONG ||
+                                           member_def.type == TYPE_DOUBLE ||
+                                           member_def.type == TYPE_POINTER ||
+                                           member_def.type == TYPE_STRING) {
                                     member_size = sizeof(long); // 8バイト
                                 }
-                                // TODO: 構造体メンバーや配列の場合は再帰的にサイズ計算が必要
-                                
+                                // TODO:
+                                // 構造体メンバーや配列の場合は再帰的にサイズ計算が必要
+
                                 total_size += member_size;
                             }
 
@@ -2084,44 +2091,61 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                                     }
 
                                     // メンバーサイズに応じて書き込み
-                                    size_t member_size = sizeof(long); // デフォルト8バイト
-                                    
-                                    if (member_def.type == TYPE_INT || member_def.type == TYPE_FLOAT) {
+                                    size_t member_size =
+                                        sizeof(long); // デフォルト8バイト
+
+                                    if (member_def.type == TYPE_INT ||
+                                        member_def.type == TYPE_FLOAT) {
                                         member_size = sizeof(int); // 4バイト
-                                        *reinterpret_cast<int32_t *>(element_ptr + offset) =
-                                            static_cast<int32_t>(value_to_write);
+                                        *reinterpret_cast<int32_t *>(
+                                            element_ptr + offset) =
+                                            static_cast<int32_t>(
+                                                value_to_write);
                                     } else if (member_def.type == TYPE_SHORT) {
                                         member_size = sizeof(short); // 2バイト
-                                        *reinterpret_cast<int16_t *>(element_ptr + offset) =
-                                            static_cast<int16_t>(value_to_write);
-                                    } else if (member_def.type == TYPE_CHAR || member_def.type == TYPE_TINY) {
+                                        *reinterpret_cast<int16_t *>(
+                                            element_ptr + offset) =
+                                            static_cast<int16_t>(
+                                                value_to_write);
+                                    } else if (member_def.type == TYPE_CHAR ||
+                                               member_def.type == TYPE_TINY) {
                                         member_size = sizeof(char); // 1バイト
-                                        *reinterpret_cast<int8_t *>(element_ptr + offset) =
+                                        *reinterpret_cast<int8_t *>(
+                                            element_ptr + offset) =
                                             static_cast<int8_t>(value_to_write);
                                     } else {
                                         member_size = sizeof(long); // 8バイト
-                                        *reinterpret_cast<int64_t *>(element_ptr + offset) = value_to_write;
+                                        *reinterpret_cast<int64_t *>(
+                                            element_ptr + offset) =
+                                            value_to_write;
                                     }
-                                    
+
                                     offset += member_size;
                                 } else {
                                     // デフォルト値を書き込み
-                                    size_t member_size = sizeof(long); // デフォルト8バイト
-                                    
-                                    if (member_def.type == TYPE_INT || member_def.type == TYPE_FLOAT) {
+                                    size_t member_size =
+                                        sizeof(long); // デフォルト8バイト
+
+                                    if (member_def.type == TYPE_INT ||
+                                        member_def.type == TYPE_FLOAT) {
                                         member_size = sizeof(int); // 4バイト
-                                        *reinterpret_cast<int32_t *>(element_ptr + offset) = 0;
+                                        *reinterpret_cast<int32_t *>(
+                                            element_ptr + offset) = 0;
                                     } else if (member_def.type == TYPE_SHORT) {
                                         member_size = sizeof(short); // 2バイト
-                                        *reinterpret_cast<int16_t *>(element_ptr + offset) = 0;
-                                    } else if (member_def.type == TYPE_CHAR || member_def.type == TYPE_TINY) {
+                                        *reinterpret_cast<int16_t *>(
+                                            element_ptr + offset) = 0;
+                                    } else if (member_def.type == TYPE_CHAR ||
+                                               member_def.type == TYPE_TINY) {
                                         member_size = sizeof(char); // 1バイト
-                                        *reinterpret_cast<int8_t *>(element_ptr + offset) = 0;
+                                        *reinterpret_cast<int8_t *>(
+                                            element_ptr + offset) = 0;
                                     } else {
                                         member_size = sizeof(long); // 8バイト
-                                        *reinterpret_cast<int64_t *>(element_ptr + offset) = 0;
+                                        *reinterpret_cast<int64_t *>(
+                                            element_ptr + offset) = 0;
                                     }
-                                    
+
                                     offset += member_size;
                                 }
                             }
@@ -2136,14 +2160,16 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                                 for (const auto &member_def :
                                      struct_def->members) {
                                     size_t member_size = sizeof(long);
-                                    if (member_def.type == TYPE_INT || member_def.type == TYPE_FLOAT) {
+                                    if (member_def.type == TYPE_INT ||
+                                        member_def.type == TYPE_FLOAT) {
                                         member_size = sizeof(int);
                                     } else if (member_def.type == TYPE_SHORT) {
                                         member_size = sizeof(short);
-                                    } else if (member_def.type == TYPE_CHAR || member_def.type == TYPE_TINY) {
+                                    } else if (member_def.type == TYPE_CHAR ||
+                                               member_def.type == TYPE_TINY) {
                                         member_size = sizeof(char);
                                     }
-                                    
+
                                     auto it =
                                         ret.struct_value.struct_members.find(
                                             member_def.name);
@@ -2173,20 +2199,25 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                             // 構造体の実際のサイズを計算
                             size_t total_size = 0;
                             for (const auto &member_def : struct_def->members) {
-                                size_t member_size = sizeof(long); // デフォルト8バイト
-                                
+                                size_t member_size =
+                                    sizeof(long); // デフォルト8バイト
+
                                 // メンバーの型に応じてサイズを調整
-                                if (member_def.type == TYPE_INT || member_def.type == TYPE_FLOAT) {
+                                if (member_def.type == TYPE_INT ||
+                                    member_def.type == TYPE_FLOAT) {
                                     member_size = sizeof(int); // 4バイト
                                 } else if (member_def.type == TYPE_SHORT) {
                                     member_size = sizeof(short); // 2バイト
-                                } else if (member_def.type == TYPE_CHAR || member_def.type == TYPE_TINY) {
+                                } else if (member_def.type == TYPE_CHAR ||
+                                           member_def.type == TYPE_TINY) {
                                     member_size = sizeof(char); // 1バイト
-                                } else if (member_def.type == TYPE_LONG || member_def.type == TYPE_DOUBLE ||
-                                           member_def.type == TYPE_POINTER || member_def.type == TYPE_STRING) {
+                                } else if (member_def.type == TYPE_LONG ||
+                                           member_def.type == TYPE_DOUBLE ||
+                                           member_def.type == TYPE_POINTER ||
+                                           member_def.type == TYPE_STRING) {
                                     member_size = sizeof(long); // 8バイト
                                 }
-                                
+
                                 total_size += member_size;
                             }
 
@@ -2197,37 +2228,47 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                             // 構造体メンバーをメモリに書き込み
                             size_t offset = 0;
                             for (const auto &member_def : struct_def->members) {
-                                size_t member_size = sizeof(long); // デフォルト8バイト
-                                
+                                size_t member_size =
+                                    sizeof(long); // デフォルト8バイト
+
                                 // メンバーの型に応じてサイズを調整
-                                if (member_def.type == TYPE_INT || member_def.type == TYPE_FLOAT) {
+                                if (member_def.type == TYPE_INT ||
+                                    member_def.type == TYPE_FLOAT) {
                                     member_size = sizeof(int); // 4バイト
                                 } else if (member_def.type == TYPE_SHORT) {
                                     member_size = sizeof(short); // 2バイト
-                                } else if (member_def.type == TYPE_CHAR || member_def.type == TYPE_TINY) {
+                                } else if (member_def.type == TYPE_CHAR ||
+                                           member_def.type == TYPE_TINY) {
                                     member_size = sizeof(char); // 1バイト
-                                } else if (member_def.type == TYPE_LONG || member_def.type == TYPE_DOUBLE ||
-                                           member_def.type == TYPE_POINTER || member_def.type == TYPE_STRING) {
+                                } else if (member_def.type == TYPE_LONG ||
+                                           member_def.type == TYPE_DOUBLE ||
+                                           member_def.type == TYPE_POINTER ||
+                                           member_def.type == TYPE_STRING) {
                                     member_size = sizeof(long); // 8バイト
                                 }
-                                
+
                                 auto it = struct_var->struct_members.find(
                                     member_def.name);
                                 if (it != struct_var->struct_members.end()) {
                                     // メンバーサイズに応じて書き込み
                                     if (member_size == 4) {
-                                        *reinterpret_cast<int32_t *>(element_ptr + offset) =
-                                            static_cast<int32_t>(it->second.value);
+                                        *reinterpret_cast<int32_t *>(
+                                            element_ptr + offset) =
+                                            static_cast<int32_t>(
+                                                it->second.value);
                                     } else {
-                                        *reinterpret_cast<int64_t *>(element_ptr + offset) =
+                                        *reinterpret_cast<int64_t *>(
+                                            element_ptr + offset) =
                                             it->second.value;
                                     }
                                 } else {
                                     // デフォルト値を書き込み
                                     if (member_size == 4) {
-                                        *reinterpret_cast<int32_t *>(element_ptr + offset) = 0;
+                                        *reinterpret_cast<int32_t *>(
+                                            element_ptr + offset) = 0;
                                     } else {
-                                        *reinterpret_cast<int64_t *>(element_ptr + offset) = 0;
+                                        *reinterpret_cast<int64_t *>(
+                                            element_ptr + offset) = 0;
                                     }
                                 }
                                 offset += member_size;
