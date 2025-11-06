@@ -4,8 +4,8 @@
 // - Deep copy動作の確認
 // - メモリ安全性の検証
 
-import stdlib.collections.vector;
-import stdlib.collections.queue;
+import stdlib.std.vector;
+import stdlib.std.queue;
 
 // テスト用の構造体
 struct Point {

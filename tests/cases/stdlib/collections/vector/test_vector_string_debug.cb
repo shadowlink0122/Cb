@@ -1,5 +1,5 @@
 // Vector<string>の詳細デバッグテスト
-import stdlib.collections.vector;
+import stdlib.std.vector;
 
 int main() {
     println("=== Vector<string> Debug Test ===");

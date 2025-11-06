@@ -24,7 +24,7 @@ import "../utils/helper.cb";
 ### 新しい構文
 ```cb
 // ✅ モジュールパス形式
-import stdlib.collections.vector;
+import stdlib.std.vector;
 import module_a;
 import utils.helper;
 ```
@@ -151,8 +151,8 @@ import "stdlib/collections/vector.cb";
 import "stdlib/collections/queue.cb";
 
 // 新
-import stdlib.collections.vector;
-import stdlib.collections.queue;
+import stdlib.std.vector;
+import stdlib.std.queue;
 ```
 
 ### 相対パスimport
@@ -191,7 +191,7 @@ import "stdlib/collections/vector.cb";
 
 ### 正しい構文
 ```cb
-import stdlib.collections.vector;
+import stdlib.std.vector;
 ```
 
 ## テスト結果
@@ -205,7 +205,7 @@ $ ./main /tmp/test_string_import.cb
 /tmp/test_string_import.cb:1:10: error: Expected module path after 'import'
 
 # モジュールパス形式で成功
-$ echo 'import stdlib.collections.vector;
+$ echo 'import stdlib.std.vector;
 void main() {
     Vector<int> vec;
     vec.push_back(42);
@@ -230,7 +230,7 @@ Vector length:  1
 ### 2. クリーンなコード
 ```cb
 // 簡潔
-import stdlib.collections.vector;
+import stdlib.std.vector;
 
 // 冗長（廃止）
 import "stdlib/collections/vector.cb";
@@ -248,7 +248,7 @@ import { Vector } from 'collections/vector';
 use collections::vector::Vector;
 
 # Cb
-import stdlib.collections.vector;
+import stdlib.std.vector;
 ```
 
 ### 4. エディタサポート

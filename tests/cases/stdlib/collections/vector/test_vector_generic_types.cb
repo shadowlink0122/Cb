@@ -1,4 +1,4 @@
-import stdlib.collections.vector;
+import stdlib.std.vector;
 
 // テスト用構造体
 struct Point {

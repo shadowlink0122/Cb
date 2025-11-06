@@ -1,7 +1,7 @@
 // String Library Test
 // stdlib/std/str.cb の包括的テスト
 
-import stdlib.std.str;
+import stdlib.std.string;
 import stdlib.std.test;
 
 void test_string_constructor(TestResult* t) {

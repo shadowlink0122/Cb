@@ -2,7 +2,7 @@
 // Map<K, V> Comprehensive Test Suite
 // Tests for the new method-based API with error handling
 
-import stdlib.collections.map;
+import stdlib.std.map;
 
 void test_basic_operations() {
     println("=== Test 1: Basic Operations ===");

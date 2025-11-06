@@ -1,6 +1,6 @@
 // 真のジェネリックVector<T>のテスト
 
-import stdlib.collections.vector;
+import stdlib.std.vector;
 
 int main() {
     println("=== Generic Vector<T> Test ===\n");

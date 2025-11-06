@@ -4,8 +4,8 @@
 // Tests deep copy functionality for nested generic containers.
 // Both Vector<Queue<T>> and Queue<Vector<T>> are fully supported.
 
-import stdlib.collections.vector;
-import stdlib.collections.queue;
+import stdlib.std.vector;
+import stdlib.std.queue;
 
 int test_count = 0;
 int pass_count = 0;

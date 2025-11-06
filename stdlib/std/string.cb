@@ -1,7 +1,7 @@
 // String - 拡張文字列ライブラリ
 // Cbのプリミティブstring型をラップし、便利なメソッドを提供
 
-import stdlib.collections.vector;
+import stdlib.std.vector;
 
 export struct String {
     default string data;

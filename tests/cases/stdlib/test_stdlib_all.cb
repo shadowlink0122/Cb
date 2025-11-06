@@ -28,7 +28,7 @@ void test_bump_allocator(TestResult* t) {
 void test_vector_basic(TestResult* t) {
     print_section("Vector Basic Operations");
     
-    import stdlib.collections.vector;
+    import stdlib.std.vector;
     
     Vector<int> vec;
     
@@ -114,7 +114,7 @@ bool verify_descending_vector(Vector<int> vec) {
 void test_vector_sort(TestResult* t) {
     print_section("Vector Sort Operations");
     
-    import stdlib.collections.vector;
+    import stdlib.std.vector;
     
     // smaller()
     Vector<int> vec1;
@@ -152,7 +152,7 @@ void test_vector_sort(TestResult* t) {
 void test_queue_basic(TestResult* t) {
     print_section("Queue Basic Operations");
     
-    import stdlib.collections.queue;
+    import stdlib.std.queue;
     
     Queue<int> q;
     
@@ -177,7 +177,7 @@ void test_queue_basic(TestResult* t) {
 void test_map_basic(TestResult* t) {
     print_section("Map Basic Operations");
     
-    import stdlib.collections.map;
+    import stdlib.std.map;
     
     Map<int, int> m;
     

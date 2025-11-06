@@ -1,4 +1,4 @@
-import stdlib.collections.vector;
+import stdlib.std.vector;
 
 void test_vector_int_all_methods() {
     println("\n╔════════════════════════════════════════════════════════════╗");

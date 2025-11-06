@@ -2,10 +2,10 @@
 // テスト: 選択的import機能
 
 // パターン1: ドット記法でデフォルトimport（全てimport）
-import stdlib.collections.vector;
+import stdlib.std.vector;
 
 // パターン2: 選択的import（Queueのみ）
-import stdlib.collections.queue { Queue };
+import stdlib.std.queue { Queue };
 
 void test_default_import() {
     println("=== Test: Default Import (all exports) ===");

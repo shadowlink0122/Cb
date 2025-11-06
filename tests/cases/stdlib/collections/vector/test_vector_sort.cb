@@ -3,7 +3,7 @@
 // - 効率的なO(n)検証関数（ポインタ直接アクセス）
 // - Cbテストフレームワークを使用
 
-import stdlib.collections.vector;
+import stdlib.std.vector;
 import stdlib.std.test;
 
 // 効率的な検証関数: ポインタで直接走査 O(n)

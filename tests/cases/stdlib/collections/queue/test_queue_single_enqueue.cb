@@ -1,5 +1,5 @@
 // Minimal test: single push
-import stdlib.collections.queue;
+import stdlib.std.queue;
 
 int main() {
     println("Testing single push//.");

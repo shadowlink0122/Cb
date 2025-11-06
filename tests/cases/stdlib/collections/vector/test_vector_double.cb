@@ -1,5 +1,5 @@
 // Vector<double>のテスト
-import stdlib.collections.vector;
+import stdlib.std.vector;
 
 int main() {
     println("=== Vector<double> Tests ===");

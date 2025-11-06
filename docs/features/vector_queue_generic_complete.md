@@ -128,7 +128,7 @@ interface QueueOps<T> {
 
 ### Vector<int>
 ```cb
-import stdlib.collections.vector;
+import stdlib.std.vector;
 
 Vector<int> vec;
 vec.init(10);
@@ -139,7 +139,7 @@ int val = vec.get(0);  // 100
 
 ### Queue<long>
 ```cb
-import stdlib.collections.queue;
+import stdlib.std.queue;
 
 Queue<long> queue;
 queue.init(10);

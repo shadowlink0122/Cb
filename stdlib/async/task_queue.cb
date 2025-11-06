@@ -8,7 +8,7 @@
 // 注意: Queue<struct>のdequeueに問題があるため、Vector<Task>を使用
 
 import stdlib.async.task;
-import stdlib.collections.vector;
+import stdlib.std.vector;
 
 export struct TaskQueue {
     Vector<Task> tasks;   // ジェネリックVectorを使用

@@ -1,7 +1,7 @@
 # String Library Implementation Status
 
 ## Overview
-Cb言語用のString library (`stdlib/std/str.cb`) を実装しました。
+Cb言語用のString library (`stdlib/std/string.cb`) を実装しました。
 
 ## ✅ 実装済み・動作確認済み (19テスト)
 
@@ -158,7 +158,7 @@ while (i < length) {
 ## 使用例
 
 ```cb
-import stdlib.std.str;
+import stdlib.std.string;
 
 void main() {
     // 文字列の作成

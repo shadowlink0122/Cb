@@ -1,5 +1,5 @@
 // Vector<構造体>のテスト
-import stdlib.collections.vector;
+import stdlib.std.vector;
 
 struct Point {
     int x;

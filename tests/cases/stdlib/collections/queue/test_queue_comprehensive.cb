@@ -1,5 +1,5 @@
 // Queue<T> comprehensive test (separate from Vector to avoid interpreter crash)
-import stdlib.collections.queue;
+import stdlib.std.queue;
 
 void test_queue_int() {
     println("═══ Test 1: Queue<int> ═══");

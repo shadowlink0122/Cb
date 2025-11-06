@@ -233,7 +233,7 @@ int ptr_size = sizeof(void*);
 ## 使用例
 
 ```cb
-import stdlib.collections.vector;
+import stdlib.std.vector;
 
 void main() {
     Vector<int> vec;

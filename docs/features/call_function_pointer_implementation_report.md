@@ -274,7 +274,7 @@ After sort(): 1 2 5 8
 ### 基本的な使用方法
 
 ```cb
-import stdlib.collections.vector;
+import stdlib.std.vector;
 
 // カスタム比較関数
 int compare_ascending(int a, int b) {

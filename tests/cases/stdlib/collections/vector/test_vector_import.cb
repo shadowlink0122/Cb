@@ -1,7 +1,7 @@
 // Test for Vector library import and usage
 // This test verifies that Vector can be imported and used as a library
 
-import stdlib.collections.vector;
+import stdlib.std.vector;
 
 void test_vector_import() {
     println("=== Test: Vector Import ===");

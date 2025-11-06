@@ -3357,7 +3357,7 @@ let resource: shared_ptr<Resource> = make_shared<Resource>();
 #### 基本的な使い方
 
 ```cb
-import stdlib.collections.map;
+import stdlib.std.map;
 
 void main() {
     Map<int, int> m;
@@ -3485,7 +3485,7 @@ impl Map<K, V> {
 #### 基本的な使い方
 
 ```cb
-import stdlib.collections.queue;
+import stdlib.std.queue;
 
 void main() {
     Queue<int> q;

@@ -2,10 +2,10 @@
 // 選択的import機能の詳細テスト
 
 // テスト1: 複数項目の選択的import
-import stdlib.collections.vector { Vector, SystemAllocator };
+import stdlib.std.vector { Vector, SystemAllocator };
 
 // テスト2: 単一項目の選択的import
-import stdlib.collections.queue { Queue };
+import stdlib.std.queue { Queue };
 
 void test_multiple_selective() {
     println("=== Test: Multiple Selective Import ===");

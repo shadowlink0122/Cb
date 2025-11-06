@@ -1,7 +1,7 @@
 // Map<K, V> Stress Test
 // 1000要素の追加、検索パフォーマンステスト、削除テスト、String型のキー
 
-import stdlib.collections.map;
+import stdlib.std.map;
 
 Map<int, int> global_map;
 
