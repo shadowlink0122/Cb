@@ -11,6 +11,12 @@ export struct TestSuiteResult {
     string suite_name;
 };
 
+// Helper function for section headers
+void print_section(string name) {
+    println("");
+    println("=== {name} ===");
+}
+
 // Allocatorテスト
 void test_system_allocator(TestResult* t) {
     print_section("SystemAllocator");
@@ -56,26 +62,16 @@ bool verify_ascending_vector(Vector<int> vec) {
         return true;
     }
     
-    int ptr_size = sizeof(void*);
-    int data_offset = ptr_size + ptr_size;
-    
-    void* current = vec.front;
-    while (current != nullptr) {
-        void** next_ptr_field = current + ptr_size;
-        void* next_node = *next_ptr_field;
+    long i = 0;
+    while (i < vec.get_length() - 1) {
+        int current_val = vec.at(i);
+        int next_val = vec.at(i + 1);
         
-        if (next_node != nullptr) {
-            void** current_data_ptr = current + data_offset;
-            int current_data = *current_data_ptr;
-            void** next_data_ptr = next_node + data_offset;
-            int next_data = *next_data_ptr;
-            
-            if (current_data > next_data) {
-                return false;
-            }
+        if (current_val > next_val) {
+            return false;
         }
         
-        current = next_node;
+        i = i + 1;
     }
     
     return true;
@@ -86,26 +82,16 @@ bool verify_descending_vector(Vector<int> vec) {
         return true;
     }
     
-    int ptr_size = sizeof(void*);
-    int data_offset = ptr_size + ptr_size;
-    
-    void* current = vec.front;
-    while (current != nullptr) {
-        void** next_ptr_field = current + ptr_size;
-        void* next_node = *next_ptr_field;
+    long i = 0;
+    while (i < vec.get_length() - 1) {
+        int current_val = vec.at(i);
+        int next_val = vec.at(i + 1);
         
-        if (next_node != nullptr) {
-            void** current_data_ptr = current + data_offset;
-            int current_data = *current_data_ptr;
-            void** next_data_ptr = next_node + data_offset;
-            int next_data = *next_data_ptr;
-            
-            if (current_data < next_data) {
-                return false;
-            }
+        if (current_val < next_val) {
+            return false;
         }
         
-        current = next_node;
+        i = i + 1;
     }
     
     return true;
