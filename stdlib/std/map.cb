@@ -1,0 +1,540 @@
+// AVL Tree implementation of Map<K, V>
+// 
+// 特徴:
+// - ジェネリック型パラメータK（キー）とV（値）
+// - AVL木による自動バランシング（高さバランス保証）
+//   - left, right で左右の子ノードを指す
+//   - 再帰的な挿入・削除と回転により木の高さを O(log n) に保つ
+// 
+// 計算量 (AVLバランシングあり):
+//   - insert: O(log n) - 保証（回転によるバランシング）
+//   - get: O(log n) - 保証
+//   - contains: O(log n) - 保証
+//   - remove: O(log n) - 完全削除+再バランシング（v0.11.0+）
+//   - get_tree_height: O(1) - ルートの高さフィールドを返す
+// 
+// v0.11.0 改善点:
+//   - 完全な削除実装（free()でメモリ解放）
+//   - remove時のAVLバランシング実装
+//   - return文の二重評価バグ修正により、回転関数を活用した簡潔な実装
+// 
+
+// ノード構造体の定義
+export struct MapNode<K, V> {
+    K key;
+    V value;
+    bool has_value;
+    int height;
+    MapNode<K, V>* left;   // 左の子ノード
+    MapNode<K, V>* right;  // 右の子ノード
+};
+
+export interface MapOps<K, V> {
+    // Public API
+    void insert(K key, V value);
+    V get(K key, V default_val);            // 見つからない場合は指定したデフォルト値を返す
+    bool contains(K key);                   // キーの存在確認(エラーハンドリング用)
+    void remove(K key);
+    int size();
+    bool is_empty();
+    void clear();
+    
+    // Enhanced API (v0.11.0+)
+    bool try_remove(K key);             // 削除成功でtrue
+    int get_tree_height();              // AVL木の高さを取得（バランシング確認用）
+    
+    // Internal helper methods (private in impl)
+    int get_height(MapNode<K, V>* node);
+    void update_height(MapNode<K, V>* node);
+    int get_balance(MapNode<K, V>* node);
+    MapNode<K, V>* create_node(K key, V value);
+    MapNode<K, V>* insert_to_node(MapNode<K, V>* node, K key, V value);
+    V get_from_node(MapNode<K, V>* node, K key);
+    bool contains_in_node(MapNode<K, V>* node, K key);
+    MapNode<K, V>* find_min_node(MapNode<K, V>* node);
+    MapNode<K, V>* remove_from_node(MapNode<K, V>* node, K key);
+    MapNode<K, V>* rotate_left(MapNode<K, V>* node);
+    MapNode<K, V>* rotate_right(MapNode<K, V>* node);
+    void free_all_nodes(MapNode<K, V>* node);
+}
+
+export struct Map<K, V> {
+    MapNode<K, V>* root;  // ルートノード
+    int count;            // 要素数
+};
+
+impl MapOps<K, V> for Map<K, V> {
+    // Private: ノードの高さを取得
+    private int get_height(MapNode<K, V>* node) {
+        if (node == nullptr) {
+            return 0;
+        }
+        return node->height;
+    }
+    
+    // Private: ノードの高さを更新
+    private void update_height(MapNode<K, V>* node) {
+        if (node == nullptr) {
+            return;
+        }
+        
+        int left_h = self.get_height(node->left);
+        int right_h = self.get_height(node->right);
+        int max_h = left_h;
+        if (right_h > left_h) {
+            max_h = right_h;
+        }
+        
+        node->height = max_h + 1;
+    }
+    
+    // Private: バランス因子を計算
+    private int get_balance(MapNode<K, V>* node) {
+        if (node == nullptr) {
+            return 0;
+        }
+        
+        return self.get_height(node->left) - self.get_height(node->right);
+    }
+    
+    // Private: 右回転 (AVL用)
+    private MapNode<K, V>* rotate_right(MapNode<K, V>* y) {
+        if (y == nullptr) {
+            return nullptr;
+        }
+        
+        MapNode<K, V>* x = y->left;
+        if (x == nullptr) {
+            return y;
+        }
+        
+        MapNode<K, V>* T2 = x->right;
+        
+        // 回転実行
+        x->right = y;
+        y->left = T2;
+        
+        // 高さ更新
+        self.update_height(y);
+        self.update_height(x);
+        
+        return x;
+    }
+    
+    // Private: 左回転 (AVL用)
+    private MapNode<K, V>* rotate_left(MapNode<K, V>* x) {
+        if (x == nullptr) {
+            return nullptr;
+        }
+        
+        MapNode<K, V>* y = x->right;
+        if (y == nullptr) {
+            return x;
+        }
+        
+        MapNode<K, V>* T2 = y->left;
+        
+        // 回転実行
+        y->left = x;
+        x->right = T2;
+        
+        // 高さ更新
+        self.update_height(x);
+        self.update_height(y);
+        
+        return y;
+    }
+    
+    // Private: ノード作成
+    private MapNode<K, V>* create_node(K key, V value) {
+        int node_size = sizeof(MapNode<K, V>);
+        void* mem = malloc(node_size);
+        MapNode<K, V>* new_node = (MapNode<K, V>*)mem;
+        
+        new_node->key = key;
+        new_node->value = value;
+        new_node->has_value = true;
+        new_node->height = 1;
+        new_node->left = nullptr;
+        new_node->right = nullptr;
+        
+        return new_node;
+    }
+    
+    // Private: AVLバランシング付き再帰的挿入（v0.11.0 最適化版）
+    // 回転関数を使用した簡潔な実装（118行→52行）
+    private MapNode<K, V>* insert_to_node(MapNode<K, V>* node, K key, V value) {
+        // ベースケース: ノードが空なら新しいノードを作成
+        if (node == nullptr) {
+            int node_size = sizeof(MapNode<K, V>);
+            void* mem = malloc(node_size);
+            MapNode<K, V>* new_node = (MapNode<K, V>*)mem;
+            new_node->key = key;
+            new_node->value = value;
+            new_node->has_value = true;
+            new_node->height = 1;
+            new_node->left = nullptr;
+            new_node->right = nullptr;
+            return new_node;
+        }
+        
+        K node_key = node->key;
+        
+        // キーが等しい場合は値を更新
+        if (key == node_key) {
+            node->value = value;
+            node->has_value = true;
+            return node;
+        }
+        
+        // 再帰的に挿入
+        if (key < node_key) {
+            MapNode<K, V>* left_child = node->left;
+            node->left = self.insert_to_node(left_child, key, value);
+        } else {
+            MapNode<K, V>* right_child = node->right;
+            node->right = self.insert_to_node(right_child, key, value);
+        }
+        
+        // 高さを更新
+        self.update_height(node);
+        
+        // バランス因子を取得
+        int balance = self.get_balance(node);
+        
+        // 左部分木が高すぎる場合
+        if (balance > 1) {
+            MapNode<K, V>* left_child = node->left;
+            if (left_child != nullptr) {
+                int left_balance = self.get_balance(left_child);
+                if (left_balance < 0) {
+                    // 左右ケース - 左回転してから右回転
+                    node->left = self.rotate_left(left_child);
+                }
+                // 左左ケースまたは左右ケース処理後 - 右回転
+                return self.rotate_right(node);
+            }
+        }
+        
+        // 右部分木が高すぎる場合
+        if (balance < -1) {
+            MapNode<K, V>* right_child = node->right;
+            if (right_child != nullptr) {
+                int right_balance = self.get_balance(right_child);
+                if (right_balance > 0) {
+                    // 右左ケース - 右回転してから左回転
+                    node->right = self.rotate_right(right_child);
+                }
+                // 右右ケースまたは右左ケース処理後 - 左回転
+                return self.rotate_left(node);
+            }
+        }
+        
+        return node;
+    }
+    
+    // Private: ノードからの取得
+    private V get_from_node(MapNode<K, V>* node, K key) {
+        if (node == nullptr) {
+            V default_value;
+            return default_value;
+        }
+        
+        K node_key = node->key;
+        if (key == node_key) {
+            V node_value = node->value;
+            return node_value;
+        }
+        
+        if (key < node_key) {
+            MapNode<K, V>* left_child = node->left;
+            return self.get_from_node(left_child, key);
+        } else {
+            MapNode<K, V>* right_child = node->right;
+            return self.get_from_node(right_child, key);
+        }
+    }
+    
+    // Private: ノードに含まれるかチェック
+    private bool contains_in_node(MapNode<K, V>* node, K key) {
+        if (node == nullptr) {
+            return false;
+        }
+        
+        K node_key = node->key;
+        
+        if (key == node_key) {
+            bool has_val = node->has_value;
+            return has_val;
+        }
+        
+        if (key < node_key) {
+            MapNode<K, V>* left_child = node->left;
+            return self.contains_in_node(left_child, key);
+        } else {
+            MapNode<K, V>* right_child = node->right;
+            return self.contains_in_node(right_child, key);
+        }
+    }
+    
+    // Private: 最小ノード検索（削除の後継者ノード検索用）
+    private MapNode<K, V>* find_min_node(MapNode<K, V>* node) {
+        if (node == nullptr) {
+            return nullptr;
+        }
+        
+        // 左端のノードが最小値
+        MapNode<K, V>* current = node;
+        while (current->left != nullptr) {
+            current = current->left;
+        }
+        return current;
+    }
+    
+    // Private: AVLバランシング付き再帰的削除（v0.11.0+）
+    // ノードを完全に削除し、メモリを解放する
+    private MapNode<K, V>* remove_from_node(MapNode<K, V>* node, K key) {
+        // ベースケース: ノードが空
+        if (node == nullptr) {
+            return nullptr;
+        }
+        
+        K node_key = node->key;
+        
+        // 削除するノードを探す
+        if (key < node_key) {
+            node->left = self.remove_from_node(node->left, key);
+        } else if (key > node_key) {
+            node->right = self.remove_from_node(node->right, key);
+        } else {
+            // ノードを見つけた - 削除処理
+            
+            // ケース1: 子が0個または1個
+            if (node->left == nullptr) {
+                MapNode<K, V>* temp = node->right;
+                free(node);
+                return temp;
+            } else if (node->right == nullptr) {
+                MapNode<K, V>* temp = node->left;
+                free(node);
+                return temp;
+            }
+            
+            // ケース2: 子が2個
+            // 右部分木の最小ノードを見つけて、このノードと置き換える
+            //  find_min_nodeをインライン化（self.***呼び出しの問題を回避）
+            MapNode<K, V>* current = node->right;
+            while (current->left != nullptr) {
+                current = current->left;
+            }
+            MapNode<K, V>* successor = current;
+            
+            // 後継ノードのデータを先にコピー
+            K succ_key = successor->key;
+            V succ_value = successor->value;
+            bool succ_has_value = successor->has_value;
+            
+            // 後継ノードを右部分木から削除
+            node->right = self.remove_from_node(node->right, succ_key);
+            
+            // このノードに後継ノードのデータをコピー
+            node->key = succ_key;
+            node->value = succ_value;
+            node->has_value = succ_has_value;
+        }
+        
+        // 高さを更新
+        self.update_height(node);
+        
+        // バランス因子を取得
+        int balance = self.get_balance(node);
+        
+        // 左部分木が高すぎる場合
+        if (balance > 1) {
+            MapNode<K, V>* left_child = node->left;
+            if (left_child != nullptr) {
+                int left_balance = self.get_balance(left_child);
+                // 左左ケースまたは左右ケース
+                if (left_balance < 0) {
+                    // 左右ケース - 左回転してから右回転
+                    node->left = self.rotate_left(left_child);
+                }
+                // 右回転
+                return self.rotate_right(node);
+            }
+        }
+        
+        // 右部分木が高すぎる場合
+        if (balance < -1) {
+            MapNode<K, V>* right_child = node->right;
+            if (right_child != nullptr) {
+                int right_balance = self.get_balance(right_child);
+                // 右右ケースまたは右左ケース
+                if (right_balance > 0) {
+                    // 右左ケース - 右回転してから左回転
+                    node->right = self.rotate_right(right_child);
+                }
+                // 左回転
+                return self.rotate_left(node);
+            }
+        }
+        
+        return node;
+    }
+    
+    // Private: 全ノードを再帰的に解放（v0.11.0+）
+    // デストラクタとclear()で使用
+    private void free_all_nodes(MapNode<K, V>* node) {
+        if (node == nullptr) {
+            return;
+        }
+        
+        // 後順巡回（post-order traversal）で削除
+        // 子ノードを先に削除してから、親ノードを削除
+        self.free_all_nodes(node->left);
+        self.free_all_nodes(node->right);
+        free(node);
+    }
+    
+    // Public: 挿入
+    void insert(K key, V value) {
+        // Check if key already exists BEFORE insertion
+        bool key_exists = self.contains(key);
+        
+        // Insert node (will create new or update existing)
+        self.root = self.insert_to_node(self.root, key, value);
+        
+        // Increment count only if this was a NEW insertion
+        if (!key_exists) {
+            self.count = self.count + 1;
+        }
+    }
+    
+    // Public: 取得(デフォルト値指定版)
+    V get(K key, V default_value) {
+        MapNode<K, V>* node = self.root;
+        
+        while (node != nullptr) {
+            K node_key = node->key;
+            
+            if (key == node_key) {
+                bool has_val = node->has_value;
+                if (has_val) {
+                    V the_value = node->value;
+                    return the_value;
+                }
+                return default_value;
+            }
+            
+            if (key < node_key) {
+                node = node->left;
+            } else {
+                node = node->right;
+            }
+        }
+        
+        return default_value;
+    }
+    
+    // Public: 含まれるかチェック
+    bool contains(K key) {
+        // Inline implementation to avoid private method call
+        MapNode<K, V>* node = self.root;
+        
+        // Iterative search instead of recursive
+        while (node != nullptr) {
+            K node_key = node->key;
+            
+            if (key == node_key) {
+                // Check if the value is marked as present (not deleted)
+                bool has_val = node->has_value;
+                return has_val;
+            }
+            
+            if (key < node_key) {
+                node = node->left;
+            } else {
+                node = node->right;
+            }
+        }
+        
+        return false;
+    }
+    
+    // Public: 削除（v0.11.0+: 完全削除+AVL再バランシング）
+    void remove(K key) {
+        // キーが存在するかチェック
+        bool key_exists = self.contains(key);
+        
+        if (key_exists) {
+            // 完全削除を実行
+            self.root = self.remove_from_node(self.root, key);
+            
+            // カウントを減らす
+            if (self.count > 0) {
+                self.count = self.count - 1;
+            }
+        }
+    }
+    
+    // Public: サイズ取得
+    int size() {
+        return self.count;
+    }
+    
+    // Public: 空かチェック
+    bool is_empty() {
+        return self.count == 0;
+    }
+    
+    // Public: クリア（v0.11.0+: 完全なメモリ解放）
+    void clear() {
+        // 全ノードを再帰的に解放
+        self.free_all_nodes(self.root);
+        self.root = nullptr;
+        self.count = 0;
+    }
+    
+    // Public: 木の高さを取得（AVLバランシング確認用）
+    int get_tree_height() {
+        return self.get_height(self.root);
+    }
+    
+    // ===== Enhanced API (v0.11.0+) =====
+    
+    // try_remove: キーを削除し、成功したらtrueを返す（v0.11.0+: 完全削除）
+    bool try_remove(K key) {
+        // キーが存在するかチェック
+        bool key_exists = self.contains(key);
+        
+        if (key_exists) {
+            // 完全削除を実行
+            self.root = self.remove_from_node(self.root, key);
+            
+            // カウントを減らす
+            if (self.count > 0) {
+                self.count = self.count - 1;
+            }
+            return true;
+        }
+        
+        return false;
+    }
+}
+
+// ジェネリックコンストラクタとデストラクタ
+impl Map<K, V> {
+    // デフォルトコンストラクタ
+    self() {
+        self.root = nullptr;
+        self.count = 0;
+    }
+    
+    // デストラクタ（v0.11.0+: 完全なメモリ解放）
+    ~self() {
+        // 全ノードを再帰的に解放
+        self.free_all_nodes(self.root);
+        self.root = nullptr;
+        self.count = 0;
+    }
+}

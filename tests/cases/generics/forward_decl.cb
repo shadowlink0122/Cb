@@ -1,0 +1,25 @@
+// v0.11.0 Phase 0 - Generic Struct Forward Declaration Test
+// Test: Parse generic struct forward declarations
+
+struct Box<T>;
+struct ResultType<T, E>;
+struct Node<T>;
+
+struct Box<T> {
+    T value;
+};
+
+struct ResultType<T, E> {
+    bool is_ok;
+    T ok_value;
+    E err_value;
+};
+
+struct Node<T> {
+    T data;
+    Node* next;  // 自己参照はポインタのみ（型引数なし）
+};
+
+void main() {
+    println("Generic forward declarations parsed successfully");
+}

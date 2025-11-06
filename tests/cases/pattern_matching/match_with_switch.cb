@@ -1,0 +1,73 @@
+// Test 8: switch文とmatch文の併用テスト
+// Combined switch and match test
+
+Result<int, int> process_by_code(int code) {
+    // switch文で前処理
+    switch (code) {
+        case (1 || 2 || 3) {
+            println("Processing code 1-3");
+            return Result<int, int>::Ok(code * 10);
+        } case (10...20) {
+            println("Processing code 10-20");
+            return Result<int, int>::Ok(code * 5);
+        } else {
+            println("Invalid code");
+            return Result<int, int>::Err(999);
+        }
+    }
+}
+
+int main() {
+    println("=== Test 8: Switch and Match combined ===");
+    
+    // Test 1: code = 2 (switch: 1||2||3)
+    Result<int, int> result1 = process_by_code(2);
+    
+    match (result1) {
+        Ok(value) => {
+            println("Success with value:");
+            println(value);
+        }
+        Err(code) => {
+            println("Error with code:");
+            println(code);
+        }
+    }
+    
+    println("");
+    
+    // Test 2: code = 15 (switch: 10...20)
+    Result<int, int> result2 = process_by_code(15);
+    
+    match (result2) {
+        Ok(value) => {
+            println("Success with value:");
+            println(value);
+        }
+        Err(code) => {
+            println("Error with code:");
+            println(code);
+        }
+    }
+    
+    println("");
+    
+    // Test 3: code = 99 (switch: else)
+    Result<int, int> result3 = process_by_code(99);
+    
+    match (result3) {
+        Ok(value) => {
+            println("Success with value:");
+            println(value);
+        }
+        Err(code) => {
+            println("Error with code:");
+            println(code);
+        }
+    }
+    
+    println("");
+    println("Test 8: PASSED");
+    
+    return 0;
+}

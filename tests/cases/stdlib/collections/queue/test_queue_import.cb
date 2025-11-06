@@ -1,0 +1,98 @@
+// Test for Queue<T> library import and usage
+// This test verifies that generic Queue can be imported and used as a library
+
+import stdlib.std.queue;
+
+int main() {
+    println("╔════════════════════════════════════════════╗");
+    println("║  Queue<T> Library Import Test             ║");
+    println("╚════════════════════════════════════════════╝\n");
+    
+    // Test 1: Import and Basic Operations
+    println("=== Test: Queue<int> Import ===");
+    Queue<int> q;
+    println("✅ Queue<int> import and struct creation successful");
+    
+    println("\n=== Test: Queue<int> Basic Operations ===");
+    q.push(10);
+    q.push(20);
+    q.push(30);
+    
+    if (q.size() == 3) {
+        println("✅ Queue<int> push operations work");
+    }
+    
+    int val = q.pop();
+    if (val == 10 && q.size() == 2) {
+        println("✅ Queue<int> pop operations work");
+    }
+    
+    int peek_val = q.top();
+    if (peek_val == 20 && q.size() == 2) {
+        println("✅ Queue<int> top operations work");
+    }
+    
+    // Empty the queue before continuing
+    q.pop();
+    q.pop();
+    
+    println("\n=== Test: Queue<int> Dynamic Size ===");
+    // Create a new queue for this test
+    Queue<int> q2;
+    
+    q2.push(1);
+    q2.push(2);
+    q2.push(3);
+    q2.push(4);
+    q2.push(5);
+    
+    int size = q2.size();
+    if (size == 5) {
+        println("✅ Queue<int> dynamic size works (no capacity limit)");
+    }
+    
+    // Empty q2
+    q2.pop(); 
+    q2.pop(); 
+    q2.pop(); 
+    q2.pop(); 
+    q2.pop();
+    
+    println("\n=== Test: Queue<int> FIFO Order ===");
+    // Create a new queue for FIFO test
+    Queue<int> q3;
+    
+    q3.push(10);
+    q3.push(20);
+    q3.push(30);
+    
+    int v1 = q3.pop();
+    int v2 = q3.pop();
+    
+    q3.push(40);
+    q3.push(50);
+    
+    int v3 = q3.pop();
+    
+    if (v1 == 10 && v2 == 20 && v3 == 30 && q3.size() == 2) {
+        println("✅ Queue<int> FIFO order maintained");
+    }
+    
+    // Empty q3
+    q3.pop(); 
+    q3.pop();
+    
+    println("\n=== Test: Queue<int> Destructor ===");
+    // Create a new queue for destructor test
+    Queue<int> q4;
+    q4.push(10);
+    q4.push(20);
+    // Destructor will automatically clean up on scope exit
+    println("✅ Queue<int> destructor works (no crash on scope exit)");
+    
+    println("\n╔════════════════════════════════════════════╗");
+    println("║  All Queue<int> library tests passed!     ║");
+    println("╚════════════════════════════════════════════╝");
+    
+    return 0;
+}

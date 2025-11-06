@@ -1,0 +1,33 @@
+// memory_leak_detection.cb
+// メモリリークの検出テスト（警告が期待される）
+
+struct Data {
+    int value;
+    int count;
+};
+
+void leak_memory() {
+    // メモリリーク: deleteなし
+    int* leaked = new int;
+    leaked = 0;  // ポインタを上書き、メモリリーク
+    
+    Data* leaked_struct = new Data;
+    leaked_struct = 0;  // 構造体もリーク
+}
+
+int main() {
+    println("=== Memory Leak Detection Test ===");
+    
+    leak_memory();
+    println("Function returned (memory leaked)");
+    
+    // より明確なリーク
+    int* ptr1 = new int;
+    int* ptr2 = new int;
+    ptr1 = ptr2;  // ptr1が指していたメモリがリーク
+    
+    delete ptr2;
+    println("Test complete (some memory leaked)");
+    
+    return 0;
+}

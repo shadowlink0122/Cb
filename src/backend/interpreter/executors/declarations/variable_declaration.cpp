@@ -293,6 +293,16 @@ void execute_variable_declaration(StatementExecutor *executor,
         }
     }
 
+    // デバッグ: 型情報を出力
+    if (debug_mode) {
+        debug_log_line(
+            "[DEBUG_STMT] Variable declaration: name=" + node->name +
+            ", type_info=" + std::to_string(static_cast<int>(node->type_info)) +
+            ", type_name=" + node->type_name +
+            ", TYPE_STRUCT=" + std::to_string(static_cast<int>(TYPE_STRUCT)) +
+            ", TYPE_ENUM=" + std::to_string(static_cast<int>(TYPE_ENUM)));
+    }
+
     // struct型の特別処理
     if (node->type_info == TYPE_STRUCT && !node->type_name.empty()) {
         // struct変数を作成
@@ -303,7 +313,230 @@ void execute_variable_declaration(StatementExecutor *executor,
 
         interpreter.create_struct_variable(node->name, node->type_name);
 
+        // 初期化式がある場合は評価して代入
+        if (init_node) {
+            if (init_node->node_type == ASTNodeType::AST_FUNC_CALL) {
+                try {
+                    TypedValue typed_value =
+                        interpreter.evaluate_typed(init_node);
+                    if (typed_value.is_struct() && typed_value.struct_data) {
+                        // 構造体の値を代入
+                        Variable &target_var =
+                            interpreter.current_scope().variables[node->name];
+                        target_var = *typed_value.struct_data;
+                        target_var.is_assigned = true;
+
+                        // ネストされたメンバー変数を同期
+                        interpreter.sync_direct_access_from_struct_value(
+                            node->name, target_var);
+                    }
+                    interpreter.current_scope()
+                        .variables[node->name]
+                        .is_assigned = true;
+                } catch (const ReturnException &ret) {
+                    if (ret.is_struct) {
+                        Variable &target_var =
+                            interpreter.current_scope().variables[node->name];
+                        target_var = ret.struct_value;
+                        target_var.is_assigned = true;
+
+                        // ネストされたメンバー変数を同期
+                        interpreter.sync_direct_access_from_struct_value(
+                            node->name, target_var);
+                    }
+                }
+            }
+        }
+
         return; // struct変数は専用処理で完了
+    }
+
+    // enum型の特別処理（v0.11.0 generics）
+    debug_print("[ENUM_CHECK] About to check enum condition: type_info=%d "
+                "(TYPE_ENUM=%d), type_name='%s', empty=%d\n",
+                node->type_info, TYPE_ENUM, node->type_name.c_str(),
+                node->type_name.empty());
+    if (node->type_info == TYPE_ENUM && !node->type_name.empty()) {
+        debug_print("[ENUM_VAR_DECL] Entering enum variable creation: "
+                    "name='%s', type_name='%s'\n",
+                    node->name.c_str(), node->type_name.c_str());
+
+        if (debug_mode) {
+            debug_log_line("[DEBUG_STMT] Creating enum variable: " +
+                           node->name + " of type: " + node->type_name);
+        }
+
+        // enum型変数を作成
+        var.type = TYPE_ENUM;
+        var.is_enum = true;
+        var.enum_type_name = node->type_name; // 例: "Option_int"
+        var.is_assigned = false;              // 初期化前はfalse
+
+        debug_print("[ENUM_VAR_DECL] Set is_enum=true for variable '%s'\n",
+                    node->name.c_str());
+
+        // 初期化式がある場合は処理
+        if (init_node) {
+            if (debug_mode) {
+                debug_log_line(
+                    "[DEBUG_STMT] Enum variable has initializer, node_type=" +
+                    std::to_string(static_cast<int>(init_node->node_type)));
+            }
+
+            // AST_ENUM_CONSTRUCTの場合は特別処理
+            if (init_node->node_type == ASTNodeType::AST_ENUM_CONSTRUCT) {
+                // ASTノードから直接情報を取得
+                var.enum_variant = init_node->enum_member;
+
+                // 関連値を評価（型に応じて適切なフィールドに格納）
+                if (!init_node->arguments.empty()) {
+                    TypedValue typed_result = interpreter.evaluate_typed(
+                        init_node->arguments[0].get());
+                    var.has_associated_value = true;
+
+                    // 文字列型の場合
+                    if (typed_result.type.type_info == TYPE_STRING) {
+                        var.associated_str_value = typed_result.string_value;
+                        if (debug_mode) {
+                            debug_log_line(
+                                "[DEBUG_STMT] Enum initialized with variant: " +
+                                var.enum_variant +
+                                ", string_value=" + var.associated_str_value);
+                        }
+                    }
+                    // 数値型の場合
+                    else {
+                        var.associated_int_value = typed_result.as_numeric();
+                        if (debug_mode) {
+                            debug_log_line(
+                                "[DEBUG_STMT] Enum initialized with variant: " +
+                                var.enum_variant + ", int_value=" +
+                                std::to_string(var.associated_int_value));
+                        }
+                    }
+                } else if (debug_mode) {
+                    debug_log_line(
+                        "[DEBUG_STMT] Enum initialized with variant: " +
+                        var.enum_variant + ", value=none");
+                }
+
+                var.is_assigned = true;
+            }
+            // AST_ENUM_ACCESSの場合（古いスタイルのenum - Status::ERROR等）
+            else if (init_node->node_type == ASTNodeType::AST_ENUM_ACCESS) {
+                var.enum_variant = init_node->enum_member;
+                var.has_associated_value = false;
+
+                // 古いスタイルのenum値を評価
+                int64_t enum_val = interpreter.eval_expression(init_node);
+                var.value = enum_val;
+                var.is_assigned = true;
+
+                if (debug_mode) {
+                    debug_log_line(
+                        "[DEBUG_STMT] Enum initialized with variant: " +
+                        var.enum_variant +
+                        ", value=" + std::to_string(enum_val));
+                }
+            } else {
+                // その他の初期化式（例: 変数、関数呼び出しなど）
+                if (debug_mode) {
+                    debug_log_line(
+                        "[DEBUG_STMT] Evaluating enum init expression "
+                        "(node_type=" +
+                        std::to_string(static_cast<int>(init_node->node_type)) +
+                        ")");
+                }
+
+                // 関数呼び出しの場合、ReturnExceptionをキャッチしてEnum情報を取得
+                if (init_node->node_type == ASTNodeType::AST_FUNC_CALL) {
+                    try {
+                        interpreter.eval_expression(init_node);
+                        // 通常ここには到達しない（Returnが投げられる）
+                    } catch (const ReturnException &ret) {
+                        // ReturnExceptionからEnum変数を復元
+                        if (ret.is_struct && ret.struct_value.is_enum) {
+                            var.enum_variant = ret.struct_value.enum_variant;
+                            var.has_associated_value =
+                                ret.struct_value.has_associated_value;
+                            var.associated_int_value =
+                                ret.struct_value.associated_int_value;
+                            var.associated_str_value =
+                                ret.struct_value.associated_str_value;
+                            var.is_assigned = true;
+
+                            if (debug_mode) {
+                                std::string value_str = "none";
+                                if (var.has_associated_value) {
+                                    if (!var.associated_str_value.empty()) {
+                                        value_str = "'" +
+                                                    var.associated_str_value +
+                                                    "'";
+                                    } else {
+                                        value_str = std::to_string(
+                                            var.associated_int_value);
+                                    }
+                                }
+                                debug_log_line(
+                                    "[DEBUG_STMT] Enum initialized from "
+                                    "function return: variant=" +
+                                    var.enum_variant + ", value=" + value_str);
+                            }
+                        } else {
+                            // 古いスタイルのenum（整数値）として扱う
+                            var.value = ret.value;
+                            var.is_assigned = true;
+
+                            if (debug_mode) {
+                                debug_log_line(
+                                    "[DEBUG_STMT] Enum initialized from "
+                                    "function (old-style): value=" +
+                                    std::to_string(ret.value));
+                            }
+                        }
+                    }
+                } else if (init_node->node_type == ASTNodeType::AST_VARIABLE) {
+                    // 変数からの初期化
+                    Variable *source_var =
+                        interpreter.find_variable(init_node->name);
+                    if (source_var && source_var->is_enum) {
+                        var.enum_variant = source_var->enum_variant;
+                        var.has_associated_value =
+                            source_var->has_associated_value;
+                        var.associated_int_value =
+                            source_var->associated_int_value;
+                        var.is_assigned = true;
+
+                        if (debug_mode) {
+                            debug_log_line("[DEBUG_STMT] Enum initialized from "
+                                           "variable: variant=" +
+                                           var.enum_variant);
+                        }
+                    } else {
+                        // 古いスタイルのenum（整数値）として扱う
+                        int64_t result_value =
+                            interpreter.eval_expression(init_node);
+                        var.value = result_value;
+                        var.is_assigned = true;
+                    }
+                } else {
+                    // その他の式（古いスタイルのenum）
+                    int64_t result_value =
+                        interpreter.eval_expression(init_node);
+                    var.value = result_value;
+                    var.is_assigned = true;
+
+                    if (debug_mode) {
+                        debug_log_line("[DEBUG_STMT] Enum initialized from "
+                                       "expression result: " +
+                                       std::to_string(result_value));
+                    }
+                }
+            }
+        }
+
+        interpreter.current_scope().variables[node->name] = var;
+        return; // enum変数は専用処理で完了
     }
 
     // union型の特別処理
@@ -330,6 +563,9 @@ void execute_variable_declaration(StatementExecutor *executor,
     interpreter.current_scope().variables[node->name] = var;
 
     if (init_node) {
+        debug_msg(DebugMsgId::VAR_DECL_INIT_TYPE,
+                  static_cast<int>(init_node->node_type), node->name.c_str());
+
         // ポインタ型の初期化を最優先で処理 (type_infoまたはis_pointerで判定)
         if (node->type_info == TYPE_POINTER || node->is_pointer) {
             // const安全性チェック:
@@ -645,8 +881,16 @@ void execute_variable_declaration(StatementExecutor *executor,
                     // 非配列戻り値の場合
                     if (ret.is_struct) {
                         // 構造体戻り値の場合
-                        // printf("STRUCT_VAR_DECL_DEBUG: Assigning struct
-                        // return to variable %s\n", node->name.c_str());
+                        debug_msg(DebugMsgId::PARSE_VAR_DECL,
+                                  node->name.c_str(),
+                                  "Assigning struct return to variable");
+                        debug_msg(DebugMsgId::PARSE_VAR_DECL,
+                                  node->name.c_str(),
+                                  ("ret.struct_value has " +
+                                   std::to_string(
+                                       ret.struct_value.struct_members.size()) +
+                                   " members")
+                                      .c_str());
 
                         // 変数を構造体型に設定
                         Variable &target_var =
@@ -659,8 +903,33 @@ void execute_variable_declaration(StatementExecutor *executor,
                              ret.struct_value.struct_members) {
                             std::string member_path =
                                 node->name + "." + member.first;
+                            debug_msg(DebugMsgId::PARSE_VAR_DECL,
+                                      member_path.c_str(),
+                                      ("Creating member, is_struct=" +
+                                       std::to_string(member.second.is_struct))
+                                          .c_str());
                             interpreter.current_scope().variables[member_path] =
                                 member.second;
+
+                            // ネストされた構造体メンバーの場合、その子メンバーも再帰的に作成
+                            if (member.second.is_struct &&
+                                !member.second.struct_members.empty()) {
+                                debug_msg(
+                                    DebugMsgId::PARSE_VAR_DECL,
+                                    member_path.c_str(),
+                                    "Recursively creating nested members");
+                                for (const auto &nested_member :
+                                     member.second.struct_members) {
+                                    std::string nested_path =
+                                        member_path + "." + nested_member.first;
+                                    debug_msg(DebugMsgId::PARSE_VAR_DECL,
+                                              nested_path.c_str(),
+                                              "Creating nested member");
+                                    interpreter.current_scope()
+                                        .variables[nested_path] =
+                                        nested_member.second;
+                                }
+                            }
                         }
                     } else if (TypeHelpers::isString(ret.type)) {
                         interpreter.current_scope()
@@ -696,9 +965,13 @@ void execute_variable_declaration(StatementExecutor *executor,
         } else {
             // 通常の初期化 - TypedValue を使用して float/double を保持
             if (init_node->node_type == ASTNodeType::AST_FUNC_CALL) {
+                std::cerr << "DEBUG: init_node is AST_FUNC_CALL for "
+                          << node->name << std::endl;
                 try {
                     TypedValue typed_value =
                         interpreter.evaluate_typed(init_node);
+                    debug_msg(DebugMsgId::VAR_DECL_TYPED_VALUE,
+                              node->name.c_str());
                     if (TypeHelpers::isString(var.type) &&
                         !typed_value.is_string()) {
                         // 文字列型なのに数値が返された場合
@@ -715,9 +988,21 @@ void execute_variable_declaration(StatementExecutor *executor,
                 } catch (const ReturnException &ret) {
                     if (ret.is_struct) {
                         // 構造体戻り値の場合
-                        printf("STRUCT_INIT_DEBUG: Assigning struct return to "
-                               "variable %s\n",
-                               node->name.c_str());
+                        debug_msg(DebugMsgId::PARSE_VAR_DECL,
+                                  node->name.c_str(),
+                                  "Assigning struct return to variable (init)");
+                        debug_msg(DebugMsgId::PARSE_VAR_DECL,
+                                  node->name.c_str(),
+                                  ("ret.struct_value has " +
+                                   std::to_string(
+                                       ret.struct_value.struct_members.size()) +
+                                   " members")
+                                      .c_str());
+
+                        debug_msg(DebugMsgId::VAR_DECL_STRUCT_MEMBERS,
+                                  node->name.c_str(),
+                                  ret.struct_value.struct_type_name.c_str(),
+                                  ret.struct_value.struct_members.size());
 
                         Variable &target_var =
                             interpreter.current_scope().variables[node->name];
@@ -729,8 +1014,33 @@ void execute_variable_declaration(StatementExecutor *executor,
                              ret.struct_value.struct_members) {
                             std::string member_path =
                                 node->name + "." + member.first;
+                            debug_msg(DebugMsgId::PARSE_VAR_DECL,
+                                      member_path.c_str(),
+                                      ("Creating member (init), is_struct=" +
+                                       std::to_string(member.second.is_struct))
+                                          .c_str());
                             interpreter.current_scope().variables[member_path] =
                                 member.second;
+
+                            // ネストされた構造体メンバーの場合、その子メンバーも再帰的に作成
+                            if (member.second.is_struct &&
+                                !member.second.struct_members.empty()) {
+                                debug_msg(DebugMsgId::PARSE_VAR_DECL,
+                                          member_path.c_str(),
+                                          "Recursively creating nested members "
+                                          "(init)");
+                                for (const auto &nested_member :
+                                     member.second.struct_members) {
+                                    std::string nested_path =
+                                        member_path + "." + nested_member.first;
+                                    debug_msg(DebugMsgId::PARSE_VAR_DECL,
+                                              nested_path.c_str(),
+                                              "Creating nested member (init)");
+                                    interpreter.current_scope()
+                                        .variables[nested_path] =
+                                        nested_member.second;
+                                }
+                            }
                         }
                     } else if (TypeHelpers::isString(ret.type)) {
                         interpreter.current_scope()
@@ -768,10 +1078,20 @@ void execute_variable_declaration(StatementExecutor *executor,
                 // float/double リテラルを含む全ての初期化式で TypedValue を使用
                 TypedValue typed_value = interpreter.evaluate_typed(init_node);
 
+                std::cerr << "DEBUG var_decl: " << node->name
+                          << " var.type=" << static_cast<int>(var.type)
+                          << " (TYPE_STRING=" << static_cast<int>(TYPE_STRING)
+                          << ")"
+                          << " typed_value.value=" << (void *)typed_value.value
+                          << " str='" << typed_value.string_value << "'"
+                          << std::endl;
+
                 if (TypeHelpers::isString(var.type)) {
-                    interpreter.current_scope()
-                        .variables[node->name]
-                        .str_value = init_node->str_value;
+                    // assign_variableに任せる（ポインタ値の処理を含む）
+                    debug_msg(DebugMsgId::VAR_DECL_ASSIGN_STRING,
+                              node->name.c_str());
+                    interpreter.assign_variable(node->name, typed_value,
+                                                node->type_info, false);
                 } else {
                     // const安全性チェック:
                     // const変数のアドレスを非constポインタで初期化しようとしていないか確認

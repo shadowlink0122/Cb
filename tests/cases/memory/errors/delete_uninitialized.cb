@@ -1,0 +1,12 @@
+// delete_uninitialized.cb
+// 未初期化ポインタの削除エラーのテスト（エラーが期待される）
+
+int main() {
+    int* ptr;  // 未初期化
+    
+    // 未初期化ポインタのdelete（エラーが期待される）
+    delete ptr;
+    println("Deleted uninitialized pointer (ERROR: should not reach here)");
+    
+    return 0;
+}

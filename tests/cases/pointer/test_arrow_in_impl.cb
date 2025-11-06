@@ -14,14 +14,13 @@ interface Processor {
 impl Processor for Node {
     int process() {
         // selfのポインタメンバにアクセス
-        // self.value_ptr と self->value_ptr は使えない（selfは変数名）
-        // ただし (*self).value_ptr は使える
-        return *(*self).value_ptr + self.data;
+        // self.value_ptr で直接アクセス可能
+        return *self.value_ptr + self.data;
     }
     
     void update(int val) {
-        *(*self).value_ptr = val;
-        (*self).data = val * 2;
+        *self.value_ptr = val;
+        self.data = val * 2;
     }
 };
 
@@ -38,14 +37,13 @@ interface Manager {
 
 impl Manager for Container {
     int get_total() {
-        // self->node_ptr でポインタメンバにアクセス（selfは値）
-        // これは (*self).node_ptr と同じ
+        // self.node_ptr でポインタメンバにアクセス
         // ネストしたアロー演算子は未対応のため、(*ptr).member形式を使用
-        return (*(*self).node_ptr).data + self.count;
+        return (*self.node_ptr).data + self.count;
     }
     
     void increment() {
-        (*(*self).node_ptr).data += 1;
+        (*self.node_ptr).data += 1;
         self.count += 1;
     }
 };

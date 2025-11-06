@@ -1,0 +1,9 @@
+// Minimal test without interface bound
+
+struct Simple<T> {
+    int value;
+};
+
+void main() {
+    println("OK");
+}

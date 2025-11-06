@@ -1,0 +1,140 @@
+// Vector<string>のテスト
+import stdlib.std.vector;
+
+int main() {
+    println("=== Vector<string> Tests ===");
+    
+    // 1. 基本的な初期化とpush
+    Vector<string> vec;
+    vec.init(4);
+    println("✅ Vector<string> initialized");
+    
+    // 2. push操作
+    vec.push("Hello");
+    vec.push("World");
+    vec.push("Cb");
+    println("✅ Pushed 3 strings: 'Hello', 'World', 'Cb'");
+    
+    // 3. get操作
+    string s0 = vec.get(0);
+    string s1 = vec.get(1);
+    string s2 = vec.get(2);
+    
+    println("Retrieved strings from vector:");
+    println("  s0 = '{s0}'");
+    println("  s1 = '{s1}'");
+    println("  s2 = '{s2}'");
+    
+    // 値の検証
+    if (s0 == "Hello") {
+        println("✅ s0 is correct ('Hello')");
+    } else {
+        println("❌ s0 is incorrect");
+        return 1;
+    }
+    
+    if (s1 == "World") {
+        println("✅ s1 is correct ('World')");
+    } else {
+        println("❌ s1 is incorrect");
+        return 1;
+    }
+    
+    if (s2 == "Cb") {
+        println("✅ s2 is correct ('Cb')");
+    } else {
+        println("❌ s2 is incorrect");
+        return 1;
+    }
+    
+    // 4. size確認
+    int size = vec.get_length();
+    println("Checking vector size");
+    if (size == 3) {
+        println("✅ Size is correct (3)");
+    } else {
+        println("❌ Size is incorrect: {size}");
+        return 1;
+    }
+    
+    // 5. pop操作
+    string popped = vec.pop();
+    println("Popped value from vector");
+    if (popped == "Cb") {
+        println("✅ Popped correct value ('Cb')");
+    } else {
+        println("❌ Popped incorrect value: '{popped}'");
+        return 1;
+    }
+    
+    int new_size = vec.get_length();
+    if (new_size == 2) {
+        println("✅ Size after pop is correct (2)");
+    } else {
+        println("❌ Size after pop is incorrect: {new_size}");
+        return 1;
+    }
+    
+    // 6. 空文字列のテスト
+    vec.push("");
+    string empty = vec.get(2);
+    if (empty == "") {
+        println("✅ Empty string handling works");
+    } else {
+        println("❌ Empty string handling failed");
+        return 1;
+    }
+    
+    // 7. 長い文字列のテスト
+    vec.push("This is a longer string with spaces and symbols!@#$%");
+    string long_str = vec.get(3);
+    if (long_str == "This is a longer string with spaces and symbols!@#$%") {
+        println("✅ Long string handling works");
+    } else {
+        println("❌ Long string handling failed");
+        return 1;
+    }
+    
+    // 8. 複数push後のget
+    int final_size = vec.get_length();
+    println("Final vector size: {final_size}");
+    if (final_size == 4) {
+        println("✅ Final size is correct (4)");
+    } else {
+        println("❌ Final size is incorrect");
+        return 1;
+    }
+    
+    // 9. 全要素の確認
+    string check0 = vec.get(0);
+    string check1 = vec.get(1);
+    string check2 = vec.get(2);
+    string check3 = vec.get(3);
+    
+    bool all_correct = true;
+    if (check0 != "Hello") {
+        println("❌ Index 0 corrupted: '{check0}'");
+        all_correct = false;
+    }
+    if (check1 != "World") {
+        println("❌ Index 1 corrupted: '{check1}'");
+        all_correct = false;
+    }
+    if (check2 != "") {
+        println("❌ Index 2 corrupted: '{check2}'");
+        all_correct = false;
+    }
+    if (check3 != "This is a longer string with spaces and symbols!@#$%") {
+        println("❌ Index 3 corrupted: '{check3}'");
+        all_correct = false;
+    }
+    
+    if (all_correct) {
+        println("✅ All elements remain intact after multiple operations");
+    } else {
+        return 1;
+    }
+    
+    println("\n🎉 All Vector<string> Tests Passed!");
+    return 0;
+}

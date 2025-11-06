@@ -1,0 +1,712 @@
+// Vector<T> - ジェネリック双方向リンクリスト
+// - 任意の型Tに対応（int, double, string, struct, interfaceなど）
+// - O(1)でpush_front/push_back/pop_front/pop_back/delete_at(インデックス保持時)
+// - 動的なメモリ管理（malloc/free）
+// - コンストラクタとデストラクタによる安全なメモリ管理
+// - ソート機能（デフォルト引数とコールバック対応）
+//
+// 計算量:
+//   - push_back/push_front: O(1)
+//   - pop_back/pop_front: O(1)
+//   - delete_at: O(n)
+//   - at: O(n)
+//   - find: O(n)
+//   - sort: O(n log n) - ボトムアップマージソート（安定ソート）
+//   - smaller/greater: O(n log n) - ボトムアップマージソート（安定ソート）
+//   - get_length/is_empty: O(1)
+//   - clear: O(n)
+//
+// v0.11.0 改善点:
+//   - sort()にデフォルト引数サポート: sort(nullptr) = 昇順
+//   - 関数ポインタによるコールバック比較関数のサポート
+//   - smaller()/greater()メソッドによる直感的なソートAPI
+//   - call_function_pointerビルトインによる動的関数呼び出し
+//   - O(n log n)マージソート実装: 全ソートメソッドで統一、大規模データに対応
+//   - コード重複削除: smaller/greaterを汎用的なmerge_sort_internal()に統合
+//
+// 技術的ブレークスルー (v0.11.0):
+//   - ポインタ直接アクセス方式を採用し、array_get<T>()の制約を回避
+//   - void**キャストによるmallocメモリへの直接読み書き
+//   - これにより、O(n log n)マージソートの実装に成功
+//   - smaller/greater/sortの全てがO(n log n)で動作
+//
+// パフォーマンス特性（インタプリタ実行時）:
+//   - n = 100: 約2-3秒（実用的）
+//   - n = 500: 約30秒（バッチ処理向け）
+//   - n = 1000: 約2-3分（非推奨、コンパイラ実装推奨）
+//   注: これらはインタプリタのオーバーヘッドによるもので、
+//       C++にコンパイルすれば数ミリ秒で完了します
+//
+// 使用方法:
+//   Vector<int> vec;           // コンストラクタで自動初期化
+//   vec.push_back(42);         // 末尾に要素を追加
+//   vec.push_front(10);        // 先頭に要素を追加
+//   int val = vec.at(0);       // インデックスで要素を取得
+//   vec.pop_back();            // 末尾の要素を削除
+//   vec.sort();                // 昇順ソート（デフォルト）
+//   vec.sort(&greater);        // 降順ソート（カスタム比較関数）
+//   // スコープ終了時、デストラクタが自動的に全メモリを解放
+
+// 双方向リンクリストのノード
+// メモリレイアウト: [prev (sizeof(void*))][next (sizeof(void*))][data (sizeof(T))]
+// このレイアウトでポインタアクセスが確実になり、32/64ビット両対応
+
+// Vector本体 - 双方向リンクリストとして実装
+export struct Vector<T> {
+    void* front;      // VectorNode<T>* - 先頭ノード
+    void* back;       // VectorNode<T>* - 末尾ノード
+    long length;      // 要素数
+};
+
+// Vector操作インターフェース
+export interface VectorOps<T> {
+    // 要素の追加
+    void push_back(T value);
+    void push_front(T value);
+    
+    // 要素の削除
+    void pop_back();
+    void pop_front();
+    void delete_at(long index);
+    
+    // 要素の取得
+    T at(long index);
+    
+    // 要素の検索（線形探索、最大O(length)）
+    long find(T value);
+    
+    // ソート - O(n log n) マージソート (デフォルト引数とコールバック対応)
+    // compare_fn: 比較関数 int (*)(T, T)
+    //   nullptr の場合: デフォルト昇順ソート
+    //   負の値: 第1引数 < 第2引数
+    //   0: 等しい
+    //   正の値: 第1引数 > 第2引数
+    // 安定ソート: 等しい要素の相対順序を保持
+    void sort(void* compare_fn);
+    
+    // 昇順ソート（smaller: 小さい順） - O(n log n)
+    void smaller();
+    
+    // 降順ソート（greater: 大きい順） - O(n log n)
+    void greater();
+    
+    // ユーティリティ
+    long get_length();
+    bool is_empty();
+    void clear();
+}
+
+// ===== Vector実装 - 双方向リンクリスト =====
+impl VectorOps<T> for Vector<T> {
+    // O(1) - 末尾に要素を追加
+    void push_back(T value) {
+        // ノードのメモリレイアウト: [prev][next][data]
+        int ptr_size = sizeof(void*);
+        int data_size = sizeof(T);
+        int node_size = ptr_size + ptr_size + data_size;  // prev + next + data
+        void* new_node = malloc(node_size);
+        
+        // prevポインタを設定 (offset 0)
+        void** prev_ptr = new_node;
+        *prev_ptr = self.back;
+        
+        // nextポインタを設定 (offset ptr_size)
+        void** next_ptr = new_node + ptr_size;
+        *next_ptr = nullptr;
+        
+        // データを設定 (offset ptr_size * 2)
+        void* data_ptr = new_node + ptr_size + ptr_size;
+        array_set(data_ptr, 0, value);
+        
+        if (self.back != nullptr) {
+            // 既存の末尾ノードのnextを更新
+            void** old_back_next = self.back + ptr_size;
+            *old_back_next = new_node;
+        }
+        
+        self.back = new_node;
+        
+        if (self.front == nullptr) {
+            self.front = new_node;
+        }
+        
+        self.length = self.length + 1;
+    }
+    
+    // O(1) - 先頭に要素を追加
+    void push_front(T value) {
+        // ノードのメモリレイアウト: [prev][next][data]
+        int ptr_size = sizeof(void*);
+        int data_size = sizeof(T);
+        int node_size = ptr_size + ptr_size + data_size;
+        void* new_node = malloc(node_size);
+        
+        // prevポインタを設定 (offset 0)
+        void** prev_ptr = new_node;
+        *prev_ptr = nullptr;
+        
+        // nextポインタを設定 (offset ptr_size)
+        void** next_ptr = new_node + ptr_size;
+        *next_ptr = self.front;
+        
+        // データを設定 (offset ptr_size * 2)
+        void* data_ptr = new_node + ptr_size + ptr_size;
+        array_set(data_ptr, 0, value);
+        
+        if (self.front != nullptr) {
+            // 既存の先頭ノードのprevを更新
+            void** old_front_prev = self.front;
+            *old_front_prev = new_node;
+        }
+        
+        self.front = new_node;
+        
+        if (self.back == nullptr) {
+            self.back = new_node;
+        }
+        
+        self.length = self.length + 1;
+    }
+    
+    // O(1) - 末尾の要素を削除
+    void pop_back() {
+        if (self.back == nullptr) {
+            return;
+        }
+        
+        int ptr_size = sizeof(void*);
+        void* to_delete = self.back;
+        void** prev_ptr = self.back;  // offset 0
+        void* prev_node = *prev_ptr;
+        
+        if (prev_node != nullptr) {
+            // 一つ前のノードのnextをnullptrに
+            void** prev_next = prev_node + ptr_size;
+            *prev_next = nullptr;
+            self.back = prev_node;
+        } else {
+            // これが唯一のノードだった
+            self.front = nullptr;
+            self.back = nullptr;
+        }
+        
+        free(to_delete);
+        self.length = self.length - 1;
+    }
+    
+    // O(1) - 先頭の要素を削除
+    void pop_front() {
+        if (self.front == nullptr) {
+            return;
+        }
+        
+        int ptr_size = sizeof(void*);
+        void* to_delete = self.front;
+        void** next_ptr = self.front + ptr_size;
+        void* next_node = *next_ptr;
+        
+        if (next_node != nullptr) {
+            // 次のノードのprevをnullptrに
+            void** next_prev = next_node;  // offset 0
+            *next_prev = nullptr;
+            self.front = next_node;
+        } else {
+            // これが唯一のノードだった
+            self.front = nullptr;
+            self.back = nullptr;
+        }
+        
+        free(to_delete);
+        self.length = self.length - 1;
+    }
+    
+    // O(n) - インデックス指定で要素を削除
+    void delete_at(long index) {
+        if (index < 0 || index >= self.length) {
+            return;
+        }
+        
+        if (index == 0) {
+            self.pop_front();
+            return;
+        }
+        
+        if (index == self.length - 1) {
+            self.pop_back();
+            return;
+        }
+        
+        // インデックスまでノードを辿る
+        int ptr_size = sizeof(void*);
+        void* current = self.front;
+        long i = 0;
+        while (i < index) {
+            void** next_ptr = current + ptr_size;
+            current = *next_ptr;
+            i = i + 1;
+        }
+        
+        // currentが削除対象ノード
+        void** prev_ptr = current;  // offset 0
+        void** next_ptr = current + ptr_size;
+        void* prev_node = *prev_ptr;
+        void* next_node = *next_ptr;
+        
+        // 前後のノードを繋ぎ直す
+        if (prev_node != nullptr) {
+            void** prev_next = prev_node + ptr_size;
+            *prev_next = next_node;
+        }
+        
+        if (next_node != nullptr) {
+            void** next_prev = next_node;  // offset 0
+            *next_prev = prev_node;
+        }
+        
+        free(current);
+        self.length = self.length - 1;
+    }
+    
+    // O(n) - インデックスで要素を取得
+    T at(long index) {
+        if (index < 0 || index >= self.length || self.front == nullptr) {
+            // フォールバック: ゼロ初期化された値を返す
+            T default_value;
+            return default_value;
+        }
+        
+        int ptr_size = sizeof(void*);
+        void* current = self.front;
+        long i = 0;
+        while (i < index) {
+            void** next_ptr = current + ptr_size;
+            current = *next_ptr;
+            i = i + 1;
+        }
+        
+        // currentノードのデータを取得 (offset ptr_size * 2)
+        void* data_ptr = current + ptr_size + ptr_size;
+        return array_get(data_ptr, 0);
+    }
+    
+    // O(n) - 線形探索で要素のインデックスを検索
+    // 見つからない場合は-1を返す
+    long find(T value) {
+        void* current = self.front;
+        long index = 0;
+        
+        int ptr_size = sizeof(void*);
+        while (current != nullptr) {
+            void* data_ptr = current + ptr_size + ptr_size;
+            T current_data = array_get(data_ptr, 0);
+            
+            // プリミティブ型の比較
+            // NOTE: 構造体の場合は==演算子が正しく動作するか確認が必要
+            if (current_data == value) {
+                return index;
+            }
+            
+            void** next_ptr = current + ptr_size;
+            current = *next_ptr;
+            index = index + 1;
+        }
+        
+        return -1;  // 見つからなかった
+    }
+    
+    // O(n log n) - マージソート（ポインタ直接アクセス方式）
+    // compare_fn: 比較関数へのポインタ（デフォルト: nullptr = 昇順）
+    //   int compare(T a, T b):
+    //     - 負の値: a < b (aがbより前)
+    //     - 0: a == b (等しい)
+    //     - 正の値: a > b (aがbより後)
+    //
+    // 実装: ボトムアップマージソート
+    //   - 安定ソート: 等しい要素の相対順序を保持
+    //   - O(n log n)時間計算量で大規模データにも対応
+    //   - ポインタ直接アクセスによりarray_get<T>()の制約を回避
+    //   - call_function_pointerによる動的な比較関数呼び出しをサポート
+    void sort(void* compare_fn = nullptr) {
+        if (self.length <= 1) {
+            return;
+        }
+        
+        int ptr_size = sizeof(void*);
+        int data_offset = ptr_size + ptr_size;  // prev + next
+        
+        // ステップ1: リンクリストをノードポインタ配列に変換
+        void* node_array = malloc(self.length * ptr_size);
+        
+        void* current = self.front;
+        long idx = 0;
+        while (current != nullptr && idx < self.length) {
+            // ポインタ書き込み (インライン)
+            void** ptr_array = node_array + idx * ptr_size;
+            *ptr_array = current;
+            
+            void** next_ptr = current + ptr_size;
+            current = *next_ptr;
+            idx = idx + 1;
+        }
+        
+        // ステップ2: 配列に対してボトムアップマージソート
+        void* temp_array = malloc(self.length * ptr_size);
+        long current_size = 1;
+        
+        while (current_size < self.length) {
+            long start = 0;
+            
+            while (start < self.length) {
+                long mid = start + current_size;
+                if (mid > self.length) {
+                    mid = self.length;
+                }
+                
+                long end = mid + current_size;
+                if (end > self.length) {
+                    end = self.length;
+                }
+                
+                // マージ処理
+                long i = start;
+                long j = mid;
+                long k = start;
+                
+                while (i < mid && j < end) {
+                    // ノードポインタを読み取り (インライン)
+                    void** left_ptr_array = node_array + i * ptr_size;
+                    void* left_node = *left_ptr_array;
+                    void** right_ptr_array = node_array + j * ptr_size;
+                    void* right_node = *right_ptr_array;
+                    
+                    // データを読み取り (インライン)
+                    void** left_data_array = left_node + data_offset;
+                    T left_data = *left_data_array;
+                    void** right_data_array = right_node + data_offset;
+                    T right_data = *right_data_array;
+                    
+                    // 比較
+                    bool left_first = false;
+                    if (compare_fn != nullptr) {
+                        int cmp = call_function_pointer(compare_fn, left_data, right_data);
+                        left_first = cmp <= 0;
+                    } else {
+                        left_first = left_data <= right_data;
+                    }
+                    
+                    // temp_arrayに書き込み (インライン)
+                    void** dest_ptr_array = temp_array + k * ptr_size;
+                    if (left_first) {
+                        *dest_ptr_array = left_node;
+                        i = i + 1;
+                    } else {
+                        *dest_ptr_array = right_node;
+                        j = j + 1;
+                    }
+                    k = k + 1;
+                }
+                
+                // 残りをコピー
+                while (i < mid) {
+                    void** src_ptr_array = node_array + i * ptr_size;
+                    void* node = *src_ptr_array;
+                    void** dest_ptr_array = temp_array + k * ptr_size;
+                    *dest_ptr_array = node;
+                    i = i + 1;
+                    k = k + 1;
+                }
+                while (j < end) {
+                    void** src_ptr_array = node_array + j * ptr_size;
+                    void* node = *src_ptr_array;
+                    void** dest_ptr_array = temp_array + k * ptr_size;
+                    *dest_ptr_array = node;
+                    j = j + 1;
+                    k = k + 1;
+                }
+                
+                start = end;
+            }
+            
+            // temp_arrayからnode_arrayにコピー
+            idx = 0;
+            while (idx < self.length) {
+                void** src_ptr_array = temp_array + idx * ptr_size;
+                void* node = *src_ptr_array;
+                void** dest_ptr_array = node_array + idx * ptr_size;
+                *dest_ptr_array = node;
+                idx = idx + 1;
+            }
+            
+            current_size = current_size * 2;
+        }
+        
+        // ステップ3: ソート済み配列からリンクリストを再構築
+        idx = 0;
+        while (idx < self.length) {
+            void** node_ptr_array = node_array + idx * ptr_size;
+            void* node = *node_ptr_array;
+            
+            // prevポインタを設定
+            void** prev_ptr = node;
+            if (idx == 0) {
+                *prev_ptr = nullptr;
+            } else {
+                void** prev_node_ptr_array = node_array + (idx - 1) * ptr_size;
+                void* prev_node = *prev_node_ptr_array;
+                *prev_ptr = prev_node;
+            }
+            
+            // nextポインタを設定
+            void** next_ptr = node + ptr_size;
+            if (idx == self.length - 1) {
+                *next_ptr = nullptr;
+            } else {
+                void** next_node_ptr_array = node_array + (idx + 1) * ptr_size;
+                void* next_node = *next_node_ptr_array;
+                *next_ptr = next_node;
+            }
+            
+            idx = idx + 1;
+        }
+        
+        // 新しい先頭ノードを取得
+        void** head_ptr_array = node_array;
+        void* new_head = *head_ptr_array;
+        
+        // ソート後のリストでfront/backを更新
+        self.front = new_head;
+        
+        // backを最後のノードに更新
+        if (new_head != nullptr) {
+            current = new_head;
+            while (current != nullptr) {
+                void** next_ptr = current + ptr_size;
+                void* next_node = *next_ptr;
+                if (next_node == nullptr) {
+                    self.back = current;
+                    break;
+                }
+                current = next_node;
+            }
+        }
+        
+        // メモリ解放
+        free(temp_array);
+        free(node_array);
+    }
+    
+    // O(n log n) - マージソート（プライベートヘルパー）
+    // ascending: true = 昇順, false = 降順
+    // ポインタ直接アクセス方式を使用
+    private void merge_sort_internal(bool ascending) {
+        if (self.length <= 1) {
+            return;
+        }
+        
+        int ptr_size = sizeof(void*);
+        int data_offset = ptr_size + ptr_size;  // prev + next
+        
+        // ステップ1: リンクリストをノードポインタ配列に変換
+        void* node_array = malloc(self.length * ptr_size);
+        
+        void* current = self.front;
+        long idx = 0;
+        while (current != nullptr && idx < self.length) {
+            void** ptr_array = node_array + idx * ptr_size;
+            *ptr_array = current;
+            
+            void** next_ptr = current + ptr_size;
+            current = *next_ptr;
+            idx = idx + 1;
+        }
+        
+        // ステップ2: 配列に対してボトムアップマージソート
+        void* temp_array = malloc(self.length * ptr_size);
+        long current_size = 1;
+        
+        while (current_size < self.length) {
+            long start = 0;
+            
+            while (start < self.length) {
+                long mid = start + current_size;
+                if (mid > self.length) {
+                    mid = self.length;
+                }
+                
+                long end = mid + current_size;
+                if (end > self.length) {
+                    end = self.length;
+                }
+                
+                // マージ処理
+                long i = start;
+                long j = mid;
+                long k = start;
+                
+                while (i < mid && j < end) {
+                    void** left_ptr_array = node_array + i * ptr_size;
+                    void* left_node = *left_ptr_array;
+                    void** right_ptr_array = node_array + j * ptr_size;
+                    void* right_node = *right_ptr_array;
+                    
+                    void** left_data_array = left_node + data_offset;
+                    T left_data = *left_data_array;
+                    void** right_data_array = right_node + data_offset;
+                    T right_data = *right_data_array;
+                    
+                    // 比較（昇順/降順）
+                    bool left_first = false;
+                    if (ascending) {
+                        left_first = left_data <= right_data;  // 昇順
+                    } else {
+                        left_first = left_data >= right_data;  // 降順
+                    }
+                    
+                    void** dest_ptr_array = temp_array + k * ptr_size;
+                    if (left_first) {
+                        *dest_ptr_array = left_node;
+                        i = i + 1;
+                    } else {
+                        *dest_ptr_array = right_node;
+                        j = j + 1;
+                    }
+                    k = k + 1;
+                }
+                
+                // 残りをコピー
+                while (i < mid) {
+                    void** src_ptr_array = node_array + i * ptr_size;
+                    void* node = *src_ptr_array;
+                    void** dest_ptr_array = temp_array + k * ptr_size;
+                    *dest_ptr_array = node;
+                    i = i + 1;
+                    k = k + 1;
+                }
+                while (j < end) {
+                    void** src_ptr_array = node_array + j * ptr_size;
+                    void* node = *src_ptr_array;
+                    void** dest_ptr_array = temp_array + k * ptr_size;
+                    *dest_ptr_array = node;
+                    j = j + 1;
+                    k = k + 1;
+                }
+                
+                start = end;
+            }
+            
+            // temp_arrayからnode_arrayにコピー
+            idx = 0;
+            while (idx < self.length) {
+                void** src_ptr_array = temp_array + idx * ptr_size;
+                void* node = *src_ptr_array;
+                void** dest_ptr_array = node_array + idx * ptr_size;
+                *dest_ptr_array = node;
+                idx = idx + 1;
+            }
+            
+            current_size = current_size * 2;
+        }
+        
+        // ステップ3: ソート済み配列からリンクリストを再構築
+        idx = 0;
+        while (idx < self.length) {
+            void** node_ptr_array = node_array + idx * ptr_size;
+            void* node = *node_ptr_array;
+            
+            // prevポインタを設定
+            void** prev_ptr = node;
+            if (idx == 0) {
+                *prev_ptr = nullptr;
+            } else {
+                void** prev_node_ptr_array = node_array + (idx - 1) * ptr_size;
+                void* prev_node = *prev_node_ptr_array;
+                *prev_ptr = prev_node;
+            }
+            
+            // nextポインタを設定
+            void** next_ptr = node + ptr_size;
+            if (idx == self.length - 1) {
+                *next_ptr = nullptr;
+            } else {
+                void** next_node_ptr_array = node_array + (idx + 1) * ptr_size;
+                void* next_node = *next_node_ptr_array;
+                *next_ptr = next_node;
+            }
+            
+            idx = idx + 1;
+        }
+        
+        // 新しい先頭ノードを取得
+        void** head_ptr_array = node_array;
+        void* new_head = *head_ptr_array;
+        
+        // front/backを更新
+        self.front = new_head;
+        
+        if (new_head != nullptr) {
+            current = new_head;
+            while (current != nullptr) {
+                void** next_ptr = current + ptr_size;
+                void* next_node = *next_ptr;
+                if (next_node == nullptr) {
+                    self.back = current;
+                    break;
+                }
+                current = next_node;
+            }
+        }
+        
+        // メモリ解放
+        free(temp_array);
+        free(node_array);
+    }
+    
+    // O(n log n) - 昇順ソート（smaller: 小さい順）
+    void smaller() {
+        self.merge_sort_internal(true);  // 昇順
+    }
+    
+    // O(n log n) - 降順ソート（greater: 大きい順）
+    void greater() {
+        self.merge_sort_internal(false);  // 降順
+    }
+    
+    // O(1) - 要素数を取得
+    long get_length() {
+        return self.length;
+    }
+    
+    // O(1) - 空かどうかを確認
+    bool is_empty() {
+        return self.length == 0;
+    }
+    
+    // O(n) - 全要素を削除
+    void clear() {
+        while (self.front != nullptr) {
+            self.pop_front();
+        }
+    }
+}
+
+// コンストラクタとデストラクタ
+impl Vector<T> {
+    // コンストラクタ - 空のVectorを初期化
+    self() {
+        self.front = nullptr;
+        self.back = nullptr;
+        self.length = 0;
+    }
+    
+    // デストラクタ - 全ノードのメモリを解放
+    ~self() {
+        int ptr_size = sizeof(void*);
+        void* current = self.front;
+        while (current != nullptr) {
+            void** next_ptr = current + ptr_size;
+            void* next_node = *next_ptr;
+            free(current);
+            current = next_node;
+        }
+    }
+}

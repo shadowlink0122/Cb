@@ -1,0 +1,6 @@
+// エラー: discard変数を配列の要素として使用
+void main() {
+    int _ = 5;
+    int arr[3] = {1, _, 3}; // エラー: Cannot reference discard variable '_'
+    println(arr[1]);
+}

@@ -1,0 +1,18 @@
+// Test: Basic interface bounds parsing
+// Expected: Parse successfully without errors
+
+interface Allocator {
+    void* allocate(int size);
+    void deallocate(void* ptr);
+}
+
+// Basic: Single type parameter with bound
+struct Vector<T, A: Allocator> {
+    int* data;
+    int length;
+    int capacity;
+};
+
+void main() {
+    println("Interface bounds test: Basic parsing OK");
+}

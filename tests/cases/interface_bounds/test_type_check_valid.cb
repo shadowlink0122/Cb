@@ -1,0 +1,31 @@
+// Test: Valid interface implementation
+// Expected: Pass type checking
+
+interface Allocator {
+    void* allocate(int size);
+    void deallocate(void* ptr);
+}
+
+struct SystemAllocator {};
+
+impl Allocator for SystemAllocator {
+    void* allocate(int size) {
+        println("SystemAllocator.allocate(%d)", size);
+        return nullptr;
+    }
+    
+    void deallocate(void* ptr) {
+        println("SystemAllocator.deallocate()");
+    }
+}
+
+struct Vector<T, A: Allocator> {
+    int capacity;
+};
+
+void main() {
+    // This should pass: SystemAllocator implements Allocator
+    Vector<int, SystemAllocator> vec;
+    vec.capacity = 10;
+    println("Valid interface bound: OK (capacity=%d)", vec.capacity);
+}

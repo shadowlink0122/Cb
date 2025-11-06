@@ -1,0 +1,21 @@
+// Test: Mixed type parameters (some with bounds, some without)
+// Expected: Parse successfully
+
+interface Allocator {
+    void* allocate(int size);
+    void deallocate(void* ptr);
+}
+
+// Mixed: T has no bound, A has Allocator bound
+struct Vector<T, A: Allocator> {
+    int capacity;
+};
+
+// Mixed: First and third have bounds
+struct MultiMap<K: Allocator, V, C: Allocator> {
+    int size;
+};
+
+void main() {
+    println("Mixed type parameters: OK");
+}

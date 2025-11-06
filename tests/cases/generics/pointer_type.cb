@@ -1,0 +1,18 @@
+// Test: Generic struct with pointer types
+struct Box<T> {
+    T data;
+};
+
+void main() {
+    // ポインタ型のジェネリクス
+    Box<int*> box;
+    
+    int value = 42;
+    box.data = &value;
+    
+    println("Pointer value: ");
+    println(*box.data);
+    
+    assert(*box.data == 42);
+    println("Pointer generic test passed!");
+}

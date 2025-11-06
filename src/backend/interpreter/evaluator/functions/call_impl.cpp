@@ -19,7 +19,10 @@
 #include "evaluator/access/receiver_resolution.h"
 #include "evaluator/core/evaluator.h"
 #include "evaluator/core/helpers.h"
+#include "generic_instantiation.h"
 #include <cstdlib>
+#include <cstring> // for strdup
+#include <cstring> // for std::memcpy
 #include <iomanip>
 #include <sstream>
 
@@ -215,14 +218,21 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                         std::string param_name = param->name;
                         TypeInfo param_type = param->type_info;
                         bool is_unsigned = param->is_unsigned;
+                        std::string param_type_name =
+                            param->type_name; // v0.11.0
 
                         if (param_type == TYPE_STRING) {
                             interpreter_.assign_variable(
                                 param_name, arg_strings[param_idx]);
                         } else {
+                            // v0.11.0: 型名も渡す
+                            TypedValue typed_val(
+                                arg_values[param_idx],
+                                InferredType(param_type,
+                                             type_info_to_string(param_type)));
                             interpreter_.assign_function_parameter(
-                                param_name, arg_values[param_idx], param_type,
-                                is_unsigned);
+                                param_name, typed_val, param_type,
+                                param_type_name, is_unsigned);
                         }
 
                         param_idx++;
@@ -295,13 +305,20 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                 std::string param_name = param->name;
                 TypeInfo param_type = param->type_info;
                 bool is_unsigned = param->is_unsigned;
+                std::string param_type_name =
+                    param->type_name; // v0.11.0: 型名を取得
 
                 if (param_type == TYPE_STRING) {
                     interpreter_.assign_variable(param_name,
                                                  arg_strings[param_idx]);
                 } else {
+                    // v0.11.0: 型名も渡す（ジェネリックポインタ対応）
+                    TypedValue typed_val(
+                        arg_values[param_idx],
+                        InferredType(param_type,
+                                     type_info_to_string(param_type)));
                     interpreter_.assign_function_parameter(
-                        param_name, arg_values[param_idx], param_type,
+                        param_name, typed_val, param_type, param_type_name,
                         is_unsigned);
                 }
 
@@ -366,6 +383,8 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
          !is_qualified_call); // レシーバーがある場合はメソッド呼び出し
     bool has_receiver = is_method_call;
     std::string receiver_name;
+    std::string
+        type_name; // メソッド呼び出しの構造体型名（ジェネリックキャッシュに使用）
     MethodReceiverResolution receiver_resolution;
     bool impl_context_active = false; // implコンテキストが有効かどうか
     struct MethodCallContext {
@@ -474,13 +493,18 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                     std::string param_name = param->name;
                     TypeInfo param_type = param->type_info;
                     bool is_unsigned = param->is_unsigned;
+                    std::string param_type_name = param->type_name;
 
                     if (param_type == TYPE_STRING) {
                         interpreter_.assign_variable(param_name,
                                                      arg_strings[param_idx]);
                     } else {
+                        TypedValue typed_val(
+                            arg_values[param_idx],
+                            InferredType(param_type,
+                                         type_info_to_string(param_type)));
                         interpreter_.assign_function_parameter(
-                            param_name, arg_values[param_idx], param_type,
+                            param_name, typed_val, param_type, param_type_name,
                             is_unsigned);
                     }
 
@@ -590,8 +614,6 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
         debug_print("RECEIVER_DEBUG: Looking for receiver '%s'\n",
                     receiver_name.c_str());
 
-        std::string type_name;
-
         auto resolve_struct_like_type =
             [&](const Variable &var) -> std::string {
             if (!var.struct_type_name.empty()) {
@@ -695,18 +717,168 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
         std::string method_key = type_name + "::" + node->name;
         auto &global_scope = interpreter_.get_global_scope();
         auto it = global_scope.functions.find(method_key);
+
+        if (interpreter_.is_debug_mode()) {
+            std::cerr << "[METHOD_SEARCH] Searching for: " << method_key
+                      << " ... "
+                      << (it != global_scope.functions.end() ? "FOUND"
+                                                             : "NOT FOUND")
+                      << std::endl;
+            std::cerr << "[METHOD_SEARCH] Global functions count: "
+                      << global_scope.functions.size() << std::endl;
+
+            // Vectorに関連する関数をリスト
+            for (const auto &[key, val] : global_scope.functions) {
+                if (key.find("Vector") != std::string::npos &&
+                    key.find("init") != std::string::npos) {
+                    std::cerr << "[METHOD_SEARCH]   - " << key << std::endl;
+                }
+            }
+        }
+
         if (it != global_scope.functions.end()) {
             func = it->second;
         } else {
-            for (const auto &impl_def : interpreter_.get_impl_definitions()) {
-                if (impl_def.struct_name == type_name) {
-                    std::string method_full_name = impl_def.interface_name +
-                                                   "_" + impl_def.struct_name +
-                                                   "_" + node->name;
-                    auto it2 = global_scope.functions.find(method_full_name);
-                    if (it2 != global_scope.functions.end()) {
-                        func = it2->second;
+            // v0.12.0: ジェネリックimplのインスタンス化を試みる
+            // まず、マングル名を元の形式に変換: Vector_int -> Vector<int>
+            std::string unmangled_type_name = type_name;
+            size_t first_underscore = type_name.find('_');
+            if (first_underscore != std::string::npos) {
+                std::string base_name = type_name.substr(0, first_underscore);
+                std::string params_part =
+                    type_name.substr(first_underscore + 1);
+
+                // パラメータを'_'で分割
+                std::vector<std::string> params;
+                size_t pos = 0;
+                while (pos < params_part.length()) {
+                    size_t next_underscore = params_part.find('_', pos);
+                    if (next_underscore == std::string::npos) {
+                        params.push_back(params_part.substr(pos));
                         break;
+                    }
+                    params.push_back(
+                        params_part.substr(pos, next_underscore - pos));
+                    pos = next_underscore + 1;
+                }
+
+                if (!params.empty()) {
+                    unmangled_type_name = base_name + "<";
+                    for (size_t i = 0; i < params.size(); ++i) {
+                        if (i > 0)
+                            unmangled_type_name += ", ";
+                        unmangled_type_name += params[i];
+                    }
+                    unmangled_type_name += ">";
+                }
+            }
+
+            // v0.12.0: ジェネリックimplのインスタンス化を試みる
+            // find_impl_for_structは自動的にジェネリックimplをインスタンス化する
+            if (interpreter_.is_debug_mode()) {
+                debug_print("[CALL_IMPL] Before find_impl_for_struct: "
+                            "unmangled_type_name='%s'\n",
+                            unmangled_type_name.c_str());
+            }
+            const ImplDefinition *impl =
+                interpreter_.find_impl_for_struct(unmangled_type_name, "");
+
+            if (interpreter_.is_debug_mode()) {
+                debug_print("[CALL_IMPL] After find_impl_for_struct: impl=%p\n",
+                            (void *)impl);
+            }
+
+            if (impl) {
+                // インスタンス化されたimplのメソッドを再検索
+                method_key = type_name + "::" + node->name;
+                if (interpreter_.is_debug_mode()) {
+                    debug_print(
+                        "[CALL_IMPL] Retrying method search: method_key='%s'\n",
+                        method_key.c_str());
+                }
+                it = global_scope.functions.find(method_key);
+                if (it != global_scope.functions.end()) {
+                    func = it->second;
+                    if (interpreter_.is_debug_mode()) {
+                        debug_print(
+                            "[CALL_IMPL] Retry succeeded! Found func=%p\n",
+                            (void *)func);
+                    }
+                } else {
+                    if (interpreter_.is_debug_mode()) {
+                        debug_print("[CALL_IMPL] Retry failed: method still "
+                                    "not found\n");
+                    }
+                }
+            }
+
+            // それでも見つからない場合、従来の検索を試みる
+            if (!func) {
+                // マングル名から元の型名への変換を試みる
+                // 例: Vector_int_SystemAllocator -> Vector<int,
+                // SystemAllocator>
+                auto unmangle_type_name =
+                    [](const std::string &mangled) -> std::string {
+                    // '_'を検索して型パラメータの開始位置を特定
+                    size_t first_underscore = mangled.find('_');
+                    if (first_underscore == std::string::npos) {
+                        return mangled; // マングルされていない
+                    }
+
+                    // 基本型名を取得（最初の'_'まで）
+                    std::string base_name = mangled.substr(0, first_underscore);
+
+                    // 残りの部分を型パラメータとして処理
+                    std::string params_part =
+                        mangled.substr(first_underscore + 1);
+
+                    // '_'で分割して型パラメータを抽出
+                    std::vector<std::string> params;
+                    size_t pos = 0;
+                    while (pos < params_part.length()) {
+                        size_t next_underscore = params_part.find('_', pos);
+                        if (next_underscore == std::string::npos) {
+                            params.push_back(params_part.substr(pos));
+                            break;
+                        }
+                        params.push_back(
+                            params_part.substr(pos, next_underscore - pos));
+                        pos = next_underscore + 1;
+                    }
+
+                    if (params.empty()) {
+                        return mangled; // パラメータなし
+                    }
+
+                    // 元の形式に再構築: Base<Param1, Param2, ...>
+                    std::string result = base_name + "<";
+                    for (size_t i = 0; i < params.size(); ++i) {
+                        if (i > 0)
+                            result += ", ";
+                        result += params[i];
+                    }
+                    result += ">";
+
+                    return result;
+                };
+
+                std::string unmangled_type_name2 =
+                    unmangle_type_name(type_name);
+
+                for (const auto &impl_def :
+                     interpreter_.get_impl_definitions()) {
+                    // 元の型名とマングル名の両方でチェック
+                    if (impl_def.struct_name == type_name ||
+                        impl_def.struct_name == unmangled_type_name2) {
+                        std::string method_full_name =
+                            impl_def.interface_name + "_" +
+                            impl_def.struct_name + "_" + node->name;
+                        auto it2 =
+                            global_scope.functions.find(method_full_name);
+                        if (it2 != global_scope.functions.end()) {
+                            func = it2->second;
+                            break;
+                        }
                     }
                 }
             }
@@ -731,9 +903,121 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
             }
         } else {
             // 通常の関数呼び出し
-            auto it = global_scope.functions.find(node->name);
-            if (it != global_scope.functions.end()) {
-                func = it->second;
+            // v0.11.1: find_function()を使用（コンストラクタもチェックする）
+            func = interpreter_.find_function(node->name);
+        }
+    }
+
+    // v0.11.0: ジェネリック関数のインスタンス化（キャッシュ付き）
+    std::unique_ptr<ASTNode> instantiated_func;
+    const ASTNode *cached_func = nullptr;
+
+    // デバッグ: 条件を表示
+    if (interpreter_.is_debug_mode()) {
+        std::cerr << "[GENERIC_DEBUG] func=" << (func ? "yes" : "no")
+                  << " func->is_generic="
+                  << (func && func->is_generic ? "yes" : "no")
+                  << " node->is_generic=" << (node->is_generic ? "yes" : "no")
+                  << " type_arguments.size()=" << node->type_arguments.size()
+                  << std::endl;
+        if (func) {
+            std::cerr << "[GENERIC_DEBUG] Original func has "
+                      << func->statements.size() << " statements" << std::endl;
+        }
+    }
+
+    if (func && func->is_generic && node->is_generic &&
+        !node->type_arguments.empty()) {
+        // キャッシュキーを生成
+        // FIX:
+        // メソッド呼び出しの場合、type_name（正規化された構造体名）を含める
+        // これにより Queue_int::push と Queue_long::push
+        // が別々にキャッシュされる また、Vector<long>::push と
+        // Queue<long>::push も別々にキャッシュされる
+        std::string function_name = node->name;
+        if (is_method_call) {
+            if (!type_name.empty()) {
+                // メソッド呼び出しの場合：type_name::method_name形式
+                function_name = type_name + "::" + node->name;
+            } else if (func->name.find("::") != std::string::npos) {
+                // type_nameが空でもfunc->nameに::が含まれる場合は使用
+                function_name = func->name;
+            } else {
+                // フォールバック：関数定義時の名前を使用
+                // この場合でも一意性を保つために警告を出す
+                if (interpreter_.is_debug_mode()) {
+                    std::cerr << "[GENERIC_CACHE_KEY_WARNING] type_name is "
+                                 "empty for method call: "
+                              << node->name << std::endl;
+                }
+                // 少なくとも関数ポインタアドレスを含めて一意性を確保
+                function_name =
+                    std::to_string(reinterpret_cast<uintptr_t>(func)) + "_" +
+                    node->name;
+            }
+        }
+        std::string cache_key = GenericInstantiation::generate_cache_key(
+            function_name, node->type_arguments);
+
+        if (interpreter_.is_debug_mode()) {
+            std::cerr << "[GENERIC_CACHE_KEY] is_method_call=" << is_method_call
+                      << ", type_name='" << type_name << "', node->name='"
+                      << node->name << "', function_name='" << function_name
+                      << "', cache_key='" << cache_key << "'" << std::endl;
+        }
+
+        // キャッシュをチェック
+        // FIX v0.11.0: キャッシュを無効化
+        // 理由:
+        // キャッシュからクローンしても、複数回呼び出しでローカル変数スコープが壊れる
+        // TODO: 根本原因を調査して、キャッシュを再有効化する
+        cached_func =
+            nullptr; // GenericInstantiation::get_cached_instance(cache_key);
+
+        if (cached_func) {
+            // キャッシュヒット（現在無効化）
+            instantiated_func =
+                GenericInstantiation::clone_ast_node(cached_func);
+            func = instantiated_func.get();
+            if (interpreter_.is_debug_mode()) {
+                std::cerr << "[GENERIC_CACHE] Cache hit for " << cache_key
+                          << " (cloned)" << std::endl;
+            }
+        } else {
+            // キャッシュミス：新しくインスタンス化
+            try {
+                instantiated_func =
+                    GenericInstantiation::instantiate_generic_function(
+                        func, node->type_arguments);
+                func = instantiated_func.get();
+
+                // FIX v0.11.0: キャッシュへの保存を無効化
+                // 理由: キャッシュからの取得を無効化しているため、保存も不要
+                // TODO: 根本原因を調査して、キャッシュを再有効化する
+                // GenericInstantiation::cache_instance(
+                //     cache_key, std::move(instantiated_func));
+                // funcポインタはinstantiated_funcから取得しているので、
+                // instantiated_funcをmoveしない限り有効
+
+                if (interpreter_.is_debug_mode()) {
+                    std::cerr
+                        << "[GENERIC_INST] Instantiated generic function: "
+                        << func->name << " with type arguments: ";
+                    for (const auto &type_arg : node->type_arguments) {
+                        std::cerr << type_arg << " ";
+                    }
+                    std::cerr << std::endl;
+                    std::cerr << "[GENERIC_INST] Cached as " << cache_key
+                              << std::endl;
+                    std::cerr << "[GENERIC_INST] Instantiated func has "
+                              << func->statements.size() << " statements, "
+                              << func->parameters.size() << " parameters"
+                              << std::endl;
+                }
+            } catch (const std::exception &e) {
+                throw std::runtime_error(
+                    "Failed to instantiate generic function " + node->name +
+                    ": " + e.what());
             }
         }
     }
@@ -764,30 +1048,2078 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
             throw ReturnException(hex_str);
         }
 
-        if (is_method_call) {
-            std::string debug_type_name;
-            if (is_method_call) {
-                if (!receiver_name.empty()) {
-                    Variable *debug_receiver =
-                        interpreter_.find_variable(receiver_name);
-                    if (!debug_receiver && receiver_resolution.variable_ptr) {
-                        debug_receiver = receiver_resolution.variable_ptr;
+        // memcpy(dest, src, size) - メモリコピー組み込み関数
+        if (node->name == "memcpy" && !is_method_call) {
+            if (node->arguments.size() != 3) {
+                throw std::runtime_error("memcpy() requires exactly 3 "
+                                         "arguments: memcpy(dest, src, size)");
+            }
+
+            // 引数を評価
+            int64_t dest_value =
+                interpreter_.eval_expression(node->arguments[0].get());
+            int64_t src_value =
+                interpreter_.eval_expression(node->arguments[1].get());
+            int64_t size =
+                interpreter_.eval_expression(node->arguments[2].get());
+
+            // デバッグ出力（コメントアウト）
+            // std::cerr << "[memcpy ENTRY] dest=" << std::hex << dest_value
+            //           << ", src=" << src_value << ", size=" << std::dec <<
+            //           size << std::endl;
+
+            // null チェック
+            if (dest_value == 0) {
+                std::cerr << "[memcpy] Error: destination pointer is null"
+                          << std::endl;
+                return 0;
+            }
+            if (src_value == 0) {
+                std::cerr << "[memcpy] Error: source pointer is null"
+                          << std::endl;
+                return 0;
+            }
+
+            // サイズチェック
+            if (size <= 0) {
+                return dest_value;
+            }
+
+            // Variable*として有効かどうかをチェック
+            Variable *dest_var = reinterpret_cast<Variable *>(dest_value);
+            Variable *src_var = reinterpret_cast<Variable *>(src_value);
+
+            bool dest_is_var = false;
+            bool src_is_var = false;
+            void *actual_dest = reinterpret_cast<void *>(dest_value);
+            void *actual_src = reinterpret_cast<void *>(src_value);
+
+            // destがVariable*かチェック（安全に）
+            try {
+                // TypeInfoが有効範囲か簡易チェック（is_assignedは不要、未初期化変数もサポート）
+                // FIX: TYPE_TINYとTYPE_SHORTも含める
+                // FIX v0.11.0:
+                // 型の範囲チェックを厳格化（生のメモリアドレスを誤認識しないため）
+                // FIX v0.11.0: TYPE_POINTER, TYPE_STRUCTも含める
+                if ((dest_var->type >= TYPE_TINY &&
+                     dest_var->type <= TYPE_BIG) ||
+                    dest_var->type == TYPE_POINTER ||
+                    dest_var->type == TYPE_STRUCT) {
+                    dest_is_var = true;
+
+                    // std::cerr << "[memcpy DEBUG dest] Variable*=" << dest_var
+                    //           << ", type=" <<
+                    //           static_cast<int>(dest_var->type)
+                    //           << ", is_struct=" << dest_var->is_struct
+                    //           << ", is_array=" << dest_var->is_array
+                    //           << ", value=" << dest_var->value << std::endl;
+
+                    // プリミティブ型なら&(var->value)を使う
+                    if (!dest_var->is_struct && !dest_var->is_array &&
+                        dest_var->type != TYPE_POINTER &&
+                        dest_var->type != TYPE_STRUCT) {
+                        actual_dest = &(dest_var->value);
+                    } else if (dest_var->is_array &&
+                               !dest_var->array_values.empty()) {
+                        actual_dest = dest_var->array_values.data();
+                    } else if (dest_var->is_struct ||
+                               dest_var->type == TYPE_POINTER ||
+                               dest_var->type == TYPE_STRUCT) {
+                        // 構造体ポインタの場合、valueに実際のアドレスが格納されている
+                        actual_dest = reinterpret_cast<void *>(dest_var->value);
+                        // std::cerr << "[memcpy DEBUG dest] Struct/Pointer:
+                        // actual_dest=" << actual_dest << std::endl;
                     }
-                    if (debug_receiver) {
-                        if (!debug_receiver->struct_type_name.empty()) {
-                            debug_type_name = debug_receiver->struct_type_name;
+                }
+            } catch (...) {
+                dest_is_var = false;
+            }
+
+            // srcがVariable*かチェック（安全に）
+            try {
+                // FIX: TYPE_TINYとTYPE_SHORTも含める
+                // FIX v0.11.0:
+                // 型の範囲チェックを厳格化（生のメモリアドレスを誤認識しないため）
+                // FIX v0.11.0: TYPE_POINTER, TYPE_STRUCTも含める
+                if ((src_var->type >= TYPE_TINY && src_var->type <= TYPE_BIG) ||
+                    src_var->type == TYPE_POINTER ||
+                    src_var->type == TYPE_STRUCT) {
+                    src_is_var = true;
+
+                    // std::cerr << "[memcpy DEBUG src] Variable*=" << src_var
+                    //           << ", type=" << static_cast<int>(src_var->type)
+                    //           << ", is_struct=" << src_var->is_struct
+                    //           << ", is_array=" << src_var->is_array
+                    //           << ", value=" << src_var->value << std::endl;
+
+                    // プリミティブ型なら&(var->value)を使う
+                    if (!src_var->is_struct && !src_var->is_array &&
+                        src_var->type != TYPE_POINTER &&
+                        src_var->type != TYPE_STRUCT) {
+                        actual_src = &(src_var->value);
+                    } else if (src_var->is_array &&
+                               !src_var->array_values.empty()) {
+                        actual_src = src_var->array_values.data();
+                    } else if (src_var->is_struct ||
+                               src_var->type == TYPE_POINTER ||
+                               src_var->type == TYPE_STRUCT) {
+                        // 構造体ポインタの場合、valueに実際のアドレスが格納されている
+                        actual_src = reinterpret_cast<void *>(src_var->value);
+                        // std::cerr << "[memcpy DEBUG src] Struct/Pointer:
+                        // actual_src=" << actual_src << std::endl;
+                    }
+                }
+            } catch (...) {
+                src_is_var = false;
+            }
+
+            // 構造体コピーの特別処理
+            if (dest_is_var && src_is_var && dest_var->is_struct &&
+                src_var->is_struct) {
+                // v0.13.1: Variable構造体のstruct_membersをコピー（参照も考慮）
+                auto &src_members = src_var->get_struct_members();
+                auto &dest_members = dest_var->get_struct_members();
+                for (const auto &member_pair : src_members) {
+                    dest_members[member_pair.first] = member_pair.second;
+                }
+
+                if (interpreter_.is_debug_mode()) {
+                    std::cerr << "[memcpy] Copied struct members from "
+                              << src_var << " to " << dest_var << std::endl;
+                }
+            } else {
+                // 通常のmemcpy: actual_destとactual_srcを使用
+                std::memcpy(actual_dest, actual_src, static_cast<size_t>(size));
+
+                if (interpreter_.is_debug_mode()) {
+                    std::cerr << "[memcpy] Copied " << size << " bytes from "
+                              << actual_src << " to " << actual_dest
+                              << " (dest_is_var=" << dest_is_var
+                              << ", src_is_var=" << src_is_var << ")"
+                              << std::endl;
+
+                    // 書き込み確認: actual_destから読み戻してみる
+                    if (size == 8 && !dest_is_var && src_is_var) {
+                        int64_t written_value =
+                            *reinterpret_cast<int64_t *>(actual_dest);
+                        int64_t source_value =
+                            *reinterpret_cast<int64_t *>(actual_src);
+                        std::cerr
+                            << "[memcpy] Verification: wrote " << source_value
+                            << ", read back " << written_value
+                            << " (match=" << (written_value == source_value)
+                            << ")" << std::endl;
+                    }
+                }
+            }
+
+            // destポインタを返す
+            return dest_value;
+        }
+
+        // sizeof_type("T") - 型コンテキストからTの実際の型のサイズを返す
+        // 使用例: int size = sizeof_type("T"); //
+        // Queue<Vector<int>>の場合、"T"=Vector<int>で24を返す
+        if (node->name == "sizeof_type" && !is_method_call) {
+            if (node->arguments.size() != 1) {
+                throw std::runtime_error(
+                    "sizeof_type() requires 1 argument: sizeof_type(\"T\")");
+            }
+
+            // 型コンテキストから型パラメータを解決
+            const TypeContext *type_ctx =
+                interpreter_.get_current_type_context();
+            std::string type_name;
+
+            if (interpreter_.is_debug_mode()) {
+                std::cerr << "[sizeof_type] type_ctx="
+                          << (type_ctx ? "YES" : "NO");
+                if (type_ctx) {
+                    std::cerr
+                        << ", has_T="
+                        << (type_ctx->has_mapping_for("T") ? "YES" : "NO");
+                }
+                std::cerr << "\n";
+            }
+
+            if (type_ctx && type_ctx->has_mapping_for("T")) {
+                type_name = type_ctx->resolve_type("T");
+            } else {
+                // フォールバック: デフォルトサイズ（プリミティブ型と仮定）
+                if (interpreter_.is_debug_mode()) {
+                    std::cerr << "[sizeof_type] No type context, returning "
+                                 "default 8 bytes\n";
+                }
+                return 8;
+            }
+
+            // プリミティブ型のサイズ
+            if (type_name == "int" || type_name == "long" ||
+                type_name == "bool") {
+                return 8; // 8バイトアライメント
+            }
+            if (type_name == "void*" ||
+                type_name.find("*") != std::string::npos) {
+                return 8; // ポインタは8バイト
+            }
+
+            // 構造体のサイズを計算
+            auto struct_def = interpreter_.find_struct_definition(type_name);
+            if (struct_def != nullptr) {
+                size_t total_size = 0;
+                for (const auto &member : struct_def->members) {
+                    if (member.is_pointer) {
+                        total_size += sizeof(void *); // 8 bytes
+                    } else if (member.type == TYPE_LONG) {
+                        total_size += sizeof(long); // 8 bytes
+                    } else if (member.type == TYPE_INT) {
+                        total_size += sizeof(long); // 8 bytes (アライメント)
+                    } else {
+                        total_size += sizeof(long); // 8 bytes デフォルト
+                    }
+                }
+
+                if (interpreter_.is_debug_mode()) {
+                    std::cerr << "[sizeof_type] T=" << type_name << " => "
+                              << total_size << " bytes ("
+                              << struct_def->members.size() << " members)\n";
+                }
+
+                return static_cast<int64_t>(total_size);
+            }
+
+            // 未知の型の場合はデフォルト8バイト
+            if (interpreter_.is_debug_mode()) {
+                std::cerr << "[sizeof_type] T=" << type_name
+                          << " => 8 bytes (default)\n";
+            }
+            return 8;
+        }
+
+        // array_get(ptr, index) - 汎用配列要素取得（型推論版）
+        // ジェネリクス対応: 型パラメータTから適切なarray_get_Tを呼び出す
+        if (node->name == "array_get" && !is_method_call) {
+            if (node->arguments.size() != 2) {
+                throw std::runtime_error(
+                    "array_get() requires 2 arguments: array_get(ptr, index)");
+            }
+
+            int64_t ptr_value =
+                interpreter_.eval_expression(node->arguments[0].get());
+            int64_t index =
+                interpreter_.eval_expression(node->arguments[1].get());
+
+            if (interpreter_.is_debug_mode()) {
+                std::cerr << "[array_get] Called with ptr=0x" << std::hex
+                          << ptr_value << std::dec << ", index=" << index
+                          << "\n";
+            }
+
+            if (ptr_value == 0 || index < 0)
+                return 0;
+
+            // v0.13.1: 型コンテキストからTの実際の型を取得
+            const TypeContext *type_ctx =
+                interpreter_.get_current_type_context();
+            if (type_ctx && type_ctx->has_mapping_for("T")) {
+                std::string actual_type = type_ctx->resolve_type("T");
+
+                if (interpreter_.is_debug_mode()) {
+                    std::cerr << "[array_get] Resolved T to: " << actual_type
+                              << "\n";
+                }
+
+                // 構造体型の場合、構造体定義を基にメモリから再構築
+                // ネストしたジェネリック構造体（Vector<Queue<T>>など）のサポート
+                auto struct_def =
+                    interpreter_.find_struct_definition(actual_type);
+
+                if (interpreter_.is_debug_mode()) {
+                    std::cerr << "[array_get] struct_def for " << actual_type
+                              << ": " << (struct_def ? "found" : "NOT FOUND")
+                              << "\n";
+                }
+                if (struct_def != nullptr) {
+                    // 構造体の実際のメモリサイズを取得
+                    // 各メンバーの実際のサイズの合計を計算
+                    size_t total_size = 0;
+                    for (const auto &member : struct_def->members) {
+                        if (member.is_pointer) {
+                            total_size += sizeof(void *); // 8 bytes
+                        } else if (member.type == TYPE_LONG) {
+                            total_size += sizeof(long); // 8 bytes
+                        } else if (member.type == TYPE_INT) {
+                            total_size += sizeof(int); // 4 bytes
+                        } else if (member.type == TYPE_FLOAT) {
+                            total_size += sizeof(float); // 4 bytes
+                        } else if (member.type == TYPE_DOUBLE) {
+                            total_size += sizeof(double); // 8 bytes
+                        } else if (member.type == TYPE_CHAR) {
+                            total_size += sizeof(char); // 1 byte
                         } else {
-                            debug_type_name = std::string(
-                                ::type_info_to_string(debug_receiver->type));
+                            total_size += sizeof(long); // 8 bytes デフォルト
+                        }
+                    }
+
+                    // 配列内の要素へのポインタを計算
+                    char *arr = reinterpret_cast<char *>(ptr_value);
+                    char *element_ptr = arr + (index * total_size);
+
+                    // メモリから構造体を再構築
+                    Variable result;
+                    result.is_struct = true;
+                    result.struct_type_name = actual_type;
+                    result.type_name = actual_type;
+                    result.is_assigned = true;
+
+                    // メンバーを再構築（8バイトアライメントで読み取り）
+                    size_t offset = 0;
+                    if (interpreter_.is_debug_mode()) {
+                        std::cerr << "[array_get] Reconstructing struct "
+                                  << actual_type << " from memory at "
+                                  << (void *)element_ptr << ", "
+                                  << struct_def->members.size() << " members\n";
+                    }
+
+                    for (const auto &member_def : struct_def->members) {
+                        Variable member_var;
+                        member_var.type = member_def.type;
+                        member_var.is_pointer = member_def.is_pointer;
+
+                        // 型に応じた実際のサイズで読み取り
+                        if (member_def.is_pointer) {
+                            member_var.value = *reinterpret_cast<int64_t *>(
+                                element_ptr + offset);
+                            offset += sizeof(void *);
+                        } else if (member_def.type == TYPE_LONG) {
+                            member_var.value = *reinterpret_cast<int64_t *>(
+                                element_ptr + offset);
+                            offset += sizeof(long);
+                        } else if (member_def.type == TYPE_INT) {
+                            member_var.value = *reinterpret_cast<int32_t *>(
+                                element_ptr + offset);
+                            offset += sizeof(int);
+                        } else if (member_def.type == TYPE_FLOAT) {
+                            float f_val = *reinterpret_cast<float *>(
+                                element_ptr + offset);
+                            member_var.float_value = f_val;
+                            member_var.value = static_cast<int64_t>(f_val);
+                            offset += sizeof(float);
+                        } else if (member_def.type == TYPE_DOUBLE) {
+                            double d_val = *reinterpret_cast<double *>(
+                                element_ptr + offset);
+                            member_var.double_value = d_val;
+                            member_var.value = static_cast<int64_t>(d_val);
+                            offset += sizeof(double);
+                        } else if (member_def.type == TYPE_CHAR) {
+                            member_var.value =
+                                *reinterpret_cast<char *>(element_ptr + offset);
+                            offset += sizeof(char);
+                        } else {
+                            member_var.value = *reinterpret_cast<int64_t *>(
+                                element_ptr + offset);
+                            offset += sizeof(long);
+                        }
+
+                        member_var.is_assigned = true;
+                        result.struct_members[member_def.name] = member_var;
+
+                        if (interpreter_.is_debug_mode()) {
+                            size_t member_size = 0;
+                            if (member_def.is_pointer) {
+                                member_size = sizeof(void *);
+                            } else if (member_def.type == TYPE_LONG) {
+                                member_size = sizeof(long);
+                            } else if (member_def.type == TYPE_INT) {
+                                member_size = sizeof(int);
+                            } else if (member_def.type == TYPE_FLOAT) {
+                                member_size = sizeof(float);
+                            } else if (member_def.type == TYPE_DOUBLE) {
+                                member_size = sizeof(double);
+                            } else if (member_def.type == TYPE_CHAR) {
+                                member_size = sizeof(char);
+                            } else {
+                                member_size = sizeof(long);
+                            }
+                            std::cerr
+                                << "[array_get]   Member " << member_def.name
+                                << " at offset " << (offset - member_size)
+                                << ": type="
+                                << static_cast<int>(member_def.type)
+                                << ", is_pointer=" << member_def.is_pointer
+                                << ", value=" << member_var.value << " (0x"
+                                << std::hex << member_var.value << std::dec
+                                << ")\n";
+                        }
+                    }
+
+                    // Deep copy for nested generic structs
+                    // Vector<T>とQueue<T>のポインタメンバーをdeep copy
+                    if (actual_type.find("Vector<") == 0) {
+                        // Vector<T>のdeep copy: data配列をコピー
+                        auto data_it = result.struct_members.find("data");
+                        auto length_it = result.struct_members.find("length");
+                        auto capacity_it =
+                            result.struct_members.find("capacity");
+
+                        if (data_it != result.struct_members.end() &&
+                            length_it != result.struct_members.end() &&
+                            capacity_it != result.struct_members.end()) {
+
+                            void *original_data =
+                                reinterpret_cast<void *>(data_it->second.value);
+                            int length =
+                                static_cast<int>(length_it->second.value);
+                            int capacity =
+                                static_cast<int>(capacity_it->second.value);
+
+                            if (interpreter_.is_debug_mode()) {
+                                std::cerr
+                                    << "[array_get] Vector deep copy check: "
+                                    << "data=" << original_data
+                                    << ", length=" << length
+                                    << ", capacity=" << capacity << "\n";
+                            }
+
+                            if (original_data != nullptr && capacity > 0) {
+                                // 要素の型を取得（Vector<T>のT）
+                                size_t start = actual_type.find('<') + 1;
+                                size_t end = actual_type.find_last_of('>');
+                                std::string element_type =
+                                    actual_type.substr(start, end - start);
+
+                                // 要素のサイズを計算
+                                size_t element_size = 0;
+                                auto element_struct_def =
+                                    interpreter_.find_struct_definition(
+                                        element_type);
+                                if (element_struct_def != nullptr) {
+                                    // 構造体の場合、8バイトアライメントで計算
+                                    for (size_t i = 0;
+                                         i < element_struct_def->members.size();
+                                         ++i) {
+                                        element_size += sizeof(long);
+                                    }
+                                } else {
+                                    // プリミティブ型の場合
+                                    element_size = sizeof(long);
+                                }
+
+                                // 新しいdata配列を割り当て
+                                size_t total_bytes = capacity * element_size;
+
+                                if (interpreter_.is_debug_mode()) {
+                                    std::cerr
+                                        << "[array_get] About to malloc: "
+                                           "capacity="
+                                        << capacity
+                                        << ", element_size=" << element_size
+                                        << ", total_bytes=" << total_bytes
+                                        << "\n";
+                                }
+
+                                void *new_data = malloc(total_bytes);
+
+                                if (interpreter_.is_debug_mode()) {
+                                    std::cerr
+                                        << "[array_get] malloc returned: 0x"
+                                        << std::hex << new_data << std::dec
+                                        << "\n";
+                                }
+
+                                if (new_data == nullptr) {
+                                    throw std::runtime_error(
+                                        "malloc failed in deep copy");
+                                }
+
+                                if (interpreter_.is_debug_mode()) {
+                                    std::cerr
+                                        << "[array_get] About to memcpy: src=0x"
+                                        << std::hex << original_data
+                                        << ", dst=0x" << new_data << std::dec
+                                        << ", bytes=" << total_bytes << "\n";
+                                }
+
+                                memcpy(new_data, original_data, total_bytes);
+
+                                if (interpreter_.is_debug_mode()) {
+                                    std::cerr << "[array_get] memcpy completed "
+                                                 "successfully\n";
+                                }
+
+                                // dataポインタを更新 + 要素型名を保存
+                                data_it->second.value =
+                                    reinterpret_cast<int64_t>(new_data);
+                                data_it->second.type_name =
+                                    element_type; // 要素型名を保存
+                                data_it->second.pointer_base_type_name =
+                                    element_type; // 念のため両方設定
+                                result.struct_members["data"] = data_it->second;
+
+                                // ポインタ要素型をグローバルマップに登録
+                                if (interpreter_.is_debug_mode()) {
+                                    std::cerr
+                                        << "[array_get] Registering pointer 0x"
+                                        << std::hex << new_data << std::dec
+                                        << " with element type: "
+                                        << element_type << "\n";
+                                }
+                                interpreter_.register_pointer_element_type(
+                                    new_data, element_type);
+                                if (interpreter_.is_debug_mode()) {
+                                    std::cerr << "[array_get] Registration "
+                                                 "completed\n";
+                                }
+
+                                if (interpreter_.is_debug_mode()) {
+                                    std::cerr << "[array_get] Updated "
+                                                 "result.struct_members["
+                                                 "\"data\"] to 0x"
+                                              << std::hex << new_data
+                                              << std::dec << " (was 0x"
+                                              << std::hex << original_data
+                                              << std::dec << ")\n";
+                                }
+
+                                if (interpreter_.is_debug_mode()) {
+                                    std::cerr << "[array_get] Deep copied "
+                                                 "Vector data: "
+                                              << total_bytes << " bytes from 0x"
+                                              << std::hex << original_data
+                                              << " to 0x" << new_data
+                                              << std::dec << "\n";
+
+                                    // メモリの内容を確認
+                                    if (element_type == "long" &&
+                                        capacity >= 3) {
+                                        long *src = reinterpret_cast<long *>(
+                                            original_data);
+                                        long *dst =
+                                            reinterpret_cast<long *>(new_data);
+                                        std::cerr
+                                            << "[array_get]   Original data[0]="
+                                            << src[0] << ", [1]=" << src[1]
+                                            << ", [2]=" << src[2] << "\n";
+                                        std::cerr
+                                            << "[array_get]   Copied data[0]="
+                                            << dst[0] << ", [1]=" << dst[1]
+                                            << ", [2]=" << dst[2] << "\n";
+                                    }
+                                }
+                            }
+                        }
+                    } else if (actual_type.find("Queue<") == 0) {
+                        // Queue<T>のdeep copy: リンクリストをコピー
+                        if (interpreter_.is_debug_mode()) {
+                            std::cerr << "[array_get] Starting Queue<T> deep "
+                                         "copy for type: "
+                                      << actual_type << "\n";
+                        }
+                        auto front_it = result.struct_members.find("front");
+                        auto rear_it = result.struct_members.find("rear");
+                        auto length_it = result.struct_members.find("length");
+
+                        if (front_it != result.struct_members.end() &&
+                            rear_it != result.struct_members.end() &&
+                            length_it != result.struct_members.end()) {
+
+                            void *original_front = reinterpret_cast<void *>(
+                                front_it->second.value);
+                            int length =
+                                static_cast<int>(length_it->second.value);
+
+                            if (original_front != nullptr && length > 0) {
+                                // 要素の型を取得（Queue<T>のT）
+                                size_t start = actual_type.find('<') + 1;
+                                size_t end = actual_type.find_last_of('>');
+                                std::string element_type =
+                                    actual_type.substr(start, end - start);
+
+                                // ノードのサイズを計算（T data + void* next）
+                                // 注意:
+                                // Cbインタープリタは全ての型を8バイトアライメントで扱うため、
+                                // primitive型でも8バイトとして計算する
+                                size_t data_size = 0;
+                                auto element_struct_def =
+                                    interpreter_.find_struct_definition(
+                                        element_type);
+                                if (element_struct_def != nullptr) {
+                                    for (size_t i = 0;
+                                         i < element_struct_def->members.size();
+                                         ++i) {
+                                        data_size += 8; // 常に8バイト
+                                    }
+                                } else {
+                                    data_size = 8; // primitive型も8バイト
+                                }
+                                size_t node_size =
+                                    data_size +
+                                    8; // data + next (両方8バイトアライメント)
+
+                                if (interpreter_.is_debug_mode()) {
+                                    std::cerr << "[array_get] Queue node "
+                                                 "calculation: element_type="
+                                              << element_type
+                                              << ", data_size=" << data_size
+                                              << ", node_size=" << node_size
+                                              << ", length=" << length << "\n";
+                                    std::cerr << "[array_get] original_front=0x"
+                                              << std::hex << original_front
+                                              << std::dec << "\n";
+                                }
+
+                                // リンクリストをコピー
+                                void *new_front = nullptr;
+                                void *new_rear = nullptr;
+                                void *current_old = original_front;
+
+                                while (current_old != nullptr) {
+                                    if (interpreter_.is_debug_mode()) {
+                                        std::cerr << "[array_get] Processing "
+                                                     "node at 0x"
+                                                  << std::hex << current_old
+                                                  << std::dec << "\n";
+                                        // ノードの内容をダンプ
+                                        int64_t *node_data =
+                                            reinterpret_cast<int64_t *>(
+                                                current_old);
+                                        std::cerr
+                                            << "[array_get]   Node data[0]="
+                                            << node_data[0] << ", data[1]=0x"
+                                            << std::hex << node_data[1]
+                                            << std::dec << "\n";
+                                    }
+
+                                    // 新しいノードを割り当て
+                                    void *new_node = malloc(node_size);
+
+                                    if (interpreter_.is_debug_mode()) {
+                                        std::cerr << "[array_get] Allocated "
+                                                     "new_node at 0x"
+                                                  << std::hex << new_node
+                                                  << std::dec << "\n";
+                                    }
+
+                                    // Vectorの場合は構造体全体（24バイト）をコピー、それ以外は8バイト
+                                    size_t copy_size = data_size;
+                                    if (element_type.find("Vector<") == 0) {
+                                        copy_size =
+                                            24; // Vector struct: data(8) +
+                                                // length(8) + capacity(8)
+                                    }
+                                    memcpy(new_node, current_old, copy_size);
+
+                                    if (interpreter_.is_debug_mode()) {
+                                        std::cerr << "[array_get] Copied data ("
+                                                  << copy_size << " bytes)\n";
+                                    }
+
+                                    // nextポインタを初期化（nullに設定）
+                                    char *next_field_addr =
+                                        reinterpret_cast<char *>(new_node) +
+                                        data_size;
+                                    *reinterpret_cast<void **>(
+                                        next_field_addr) = nullptr;
+
+                                    // ノード内の要素がVectorの場合、deep copy
+                                    if (element_type.find("Vector<") == 0) {
+                                        char *new_node_data =
+                                            reinterpret_cast<char *>(new_node);
+
+                                        // Vectorのメンバーを読み取り
+                                        void *vec_data =
+                                            *reinterpret_cast<void **>(
+                                                new_node_data + 0); // data
+                                        int vec_length =
+                                            *reinterpret_cast<int *>(
+                                                new_node_data + 8); // length
+                                        int vec_capacity =
+                                            *reinterpret_cast<int *>(
+                                                new_node_data + 16); // capacity
+
+                                        if (interpreter_.is_debug_mode()) {
+                                            std::cerr
+                                                << "[array_get] Vector in "
+                                                   "Queue node: "
+                                                << "data=0x" << std::hex
+                                                << vec_data << std::dec
+                                                << ", length=" << vec_length
+                                                << ", capacity=" << vec_capacity
+                                                << "\n";
+                                        }
+
+                                        if (vec_data != nullptr &&
+                                            vec_capacity > 0) {
+                                            // Vector内の要素型を取得
+                                            size_t vec_start =
+                                                element_type.find('<') + 1;
+                                            size_t vec_end =
+                                                element_type.find_last_of('>');
+                                            std::string vec_element_type =
+                                                element_type.substr(
+                                                    vec_start,
+                                                    vec_end - vec_start);
+
+                                            // 要素サイズを計算
+                                            size_t vec_element_size = 0;
+                                            auto vec_element_struct_def =
+                                                interpreter_
+                                                    .find_struct_definition(
+                                                        vec_element_type);
+                                            if (vec_element_struct_def !=
+                                                nullptr) {
+                                                for (size_t i = 0;
+                                                     i < vec_element_struct_def
+                                                             ->members.size();
+                                                     ++i) {
+                                                    vec_element_size +=
+                                                        sizeof(long);
+                                                }
+                                            } else {
+                                                vec_element_size = sizeof(long);
+                                            }
+
+                                            // Vector data配列をコピー
+                                            size_t vec_total_bytes =
+                                                vec_capacity * vec_element_size;
+                                            void *new_vec_data =
+                                                malloc(vec_total_bytes);
+                                            memcpy(new_vec_data, vec_data,
+                                                   vec_total_bytes);
+
+                                            // 新しいdataポインタを設定
+                                            *reinterpret_cast<void **>(
+                                                new_node_data + 0) =
+                                                new_vec_data;
+
+                                            if (interpreter_.is_debug_mode()) {
+                                                std::cerr
+                                                    << "[array_get] Deep "
+                                                       "copied "
+                                                       "Vector in Queue node: "
+                                                    << vec_total_bytes
+                                                    << " bytes\n";
+                                            }
+                                        }
+                                    }
+
+                                    // リンクリストを構築
+                                    if (new_front == nullptr) {
+                                        new_front = new_node;
+                                    }
+                                    if (new_rear != nullptr) {
+                                        // 前のノードのnextを更新
+                                        char *prev_next_field =
+                                            reinterpret_cast<char *>(new_rear) +
+                                            data_size;
+                                        *reinterpret_cast<void **>(
+                                            prev_next_field) = new_node;
+                                    }
+                                    new_rear = new_node;
+
+                                    // 次のノードへ
+                                    char *old_next_field =
+                                        reinterpret_cast<char *>(current_old) +
+                                        data_size;
+                                    current_old = *reinterpret_cast<void **>(
+                                        old_next_field);
+                                }
+
+                                // frontとrearポインタを更新
+                                front_it->second.value =
+                                    reinterpret_cast<int64_t>(new_front);
+                                rear_it->second.value =
+                                    reinterpret_cast<int64_t>(new_rear);
+                                result.struct_members["front"] =
+                                    front_it->second;
+                                result.struct_members["rear"] = rear_it->second;
+
+                                if (interpreter_.is_debug_mode()) {
+                                    std::cerr
+                                        << "[array_get] Deep copied Queue: "
+                                        << length << " nodes from 0x"
+                                        << std::hex << original_front
+                                        << " to 0x" << new_front << std::dec
+                                        << "\n";
+                                }
+                            }
+                        }
+                    }
+
+                    // ReturnExceptionで構造体を返す
+                    throw ReturnException(result);
+                }
+
+                // 型に応じて適切にメモリから読み取る
+                if (actual_type == "short") {
+                    short *arr = reinterpret_cast<short *>(ptr_value);
+                    return static_cast<int64_t>(arr[index]);
+                } else if (actual_type == "long") {
+                    long *arr = reinterpret_cast<long *>(ptr_value);
+                    if (interpreter_.is_debug_mode()) {
+                        std::cerr << "[array_get] Reading long at ptr=0x"
+                                  << std::hex << ptr_value << std::dec
+                                  << ", index=" << index
+                                  << ", offset=" << (index * sizeof(long))
+                                  << ", value=" << arr[index] << "\n";
+                        // メモリ内容も確認
+                        std::cerr << "[array_get]   Memory: arr[0]=" << arr[0]
+                                  << ", arr[1]=" << arr[1]
+                                  << ", arr[2]=" << arr[2] << "\n";
+                    }
+                    return static_cast<int64_t>(arr[index]);
+                } else if (actual_type == "char") {
+                    char *arr = reinterpret_cast<char *>(ptr_value);
+                    return static_cast<int64_t>(arr[index]);
+                }
+                // int, その他はデフォルトのint扱い
+            } else {
+                // 型コンテキストがない場合：ポインタ要素型マップから型名を取得
+                std::string element_type_name =
+                    interpreter_.get_pointer_element_type(
+                        reinterpret_cast<void *>(ptr_value));
+
+                if (interpreter_.is_debug_mode()) {
+                    if (!element_type_name.empty()) {
+                        std::cerr
+                            << "[array_get] Got element type from pointer map: "
+                            << element_type_name << " for ptr=0x" << std::hex
+                            << ptr_value << std::dec << "\n";
+                    } else {
+                        std::cerr
+                            << "[array_get] No element type in map for ptr=0x"
+                            << std::hex << ptr_value << std::dec << "\n";
+                    }
+                }
+
+                // 型名が取得できた場合、その型で読み取り
+                if (!element_type_name.empty()) {
+                    if (element_type_name == "long") {
+                        long *arr = reinterpret_cast<long *>(ptr_value);
+                        if (interpreter_.is_debug_mode()) {
+                            std::cerr << "[array_get] Reading long (from "
+                                         "pointer map) at ptr=0x"
+                                      << std::hex << ptr_value << std::dec
+                                      << ", index=" << index
+                                      << ", value=" << arr[index] << "\n";
+                        }
+                        return static_cast<int64_t>(arr[index]);
+                    } else if (element_type_name == "int") {
+                        int *arr = reinterpret_cast<int *>(ptr_value);
+                        return static_cast<int64_t>(arr[index]);
+                    } else if (element_type_name == "short") {
+                        short *arr = reinterpret_cast<short *>(ptr_value);
+                        return static_cast<int64_t>(arr[index]);
+                    } else if (element_type_name == "char") {
+                        char *arr = reinterpret_cast<char *>(ptr_value);
+                        return static_cast<int64_t>(arr[index]);
+                    }
+                }
+            }
+
+            // デフォルトはintとして扱う
+            if (interpreter_.is_debug_mode()) {
+                std::cerr
+                    << "[array_get] WARNING: Fallback to int type for ptr=0x"
+                    << std::hex << ptr_value << std::dec << ", index=" << index
+                    << "\n";
+            }
+            int *arr = reinterpret_cast<int *>(ptr_value);
+            return static_cast<int64_t>(arr[index]);
+        }
+
+        // array_set(ptr, index, value) - 汎用配列要素設定（型推論版）
+        // ジェネリクス対応: 型パラメータTから適切なarray_set_Tを呼び出す
+        if (node->name == "array_set" && !is_method_call) {
+            if (node->arguments.size() != 3) {
+                throw std::runtime_error("array_set() requires 3 arguments: "
+                                         "array_set(ptr, index, value)");
+            }
+
+            int64_t ptr_value =
+                interpreter_.eval_expression(node->arguments[0].get());
+            int64_t index =
+                interpreter_.eval_expression(node->arguments[1].get());
+
+            if (ptr_value == 0 || index < 0)
+                return 0;
+
+            // v0.13.1: 型コンテキストからTの実際の型を取得
+            const TypeContext *type_ctx =
+                interpreter_.get_current_type_context();
+            if (type_ctx && type_ctx->has_mapping_for("T")) {
+                std::string actual_type = type_ctx->resolve_type("T");
+
+                // 構造体型の場合、構造体全体をメモリにコピー
+                auto struct_def =
+                    interpreter_.find_struct_definition(actual_type);
+                if (struct_def != nullptr) {
+                    // 第3引数は構造体変数
+                    const ASTNode *value_node = node->arguments[2].get();
+
+                    // 構造体変数を評価して取得
+                    try {
+                        (void)interpreter_.eval_expression(value_node);
+                        // 通常は数値が返るがエラー
+                        throw std::runtime_error(
+                            "array_set: expected struct but got numeric value");
+                    } catch (const ReturnException &ret) {
+                        if (ret.is_struct) {
+                            // 構造体の実際のサイズを計算
+                            // NOTE:
+                            // sizeof(T)を使うのが正確だが、Cbインタプリタ内では
+                            //       Cbコードで計算されたsizeof(T)を使う必要がある
+                            //       ここではメンバーの実際の型サイズを使用
+                            size_t total_size = 0;
+                            for (const auto &member_def : struct_def->members) {
+                                size_t member_size =
+                                    sizeof(long); // デフォルト8バイト
+
+                                // メンバーの型に応じてサイズを調整
+                                if (member_def.type == TYPE_INT ||
+                                    member_def.type == TYPE_FLOAT) {
+                                    member_size = sizeof(int); // 4バイト
+                                } else if (member_def.type == TYPE_SHORT) {
+                                    member_size = sizeof(short); // 2バイト
+                                } else if (member_def.type == TYPE_CHAR ||
+                                           member_def.type == TYPE_TINY) {
+                                    member_size = sizeof(char); // 1バイト
+                                } else if (member_def.type == TYPE_LONG ||
+                                           member_def.type == TYPE_DOUBLE ||
+                                           member_def.type == TYPE_POINTER ||
+                                           member_def.type == TYPE_STRING) {
+                                    member_size = sizeof(long); // 8バイト
+                                }
+                                // TODO:
+                                // 構造体メンバーや配列の場合は再帰的にサイズ計算が必要
+
+                                total_size += member_size;
+                            }
+
+                            // 配列内の書き込み位置を計算
+                            char *arr = reinterpret_cast<char *>(ptr_value);
+                            char *element_ptr = arr + (index * total_size);
+
+                            // 構造体メンバーをメモリに書き込み
+                            // Vector<T>の場合はdataポインタをdeep copyする
+                            bool is_vector = (actual_type.find("Vector<") == 0);
+                            void *original_data_ptr = nullptr;
+                            size_t vec_capacity = 0;
+                            std::string vec_element_type;
+
+                            if (is_vector) {
+                                // Vector<T>の要素型を取得
+                                size_t start = actual_type.find('<') + 1;
+                                size_t end = actual_type.find_last_of('>');
+                                vec_element_type =
+                                    actual_type.substr(start, end - start);
+
+                                // dataとcapacityを取得
+                                auto data_it =
+                                    ret.struct_value.struct_members.find(
+                                        "data");
+                                auto capacity_it =
+                                    ret.struct_value.struct_members.find(
+                                        "capacity");
+                                if (data_it !=
+                                        ret.struct_value.struct_members.end() &&
+                                    capacity_it !=
+                                        ret.struct_value.struct_members.end()) {
+                                    original_data_ptr =
+                                        reinterpret_cast<void *>(
+                                            data_it->second.value);
+                                    vec_capacity = static_cast<size_t>(
+                                        capacity_it->second.value);
+                                }
+                            }
+
+                            size_t offset = 0;
+                            for (const auto &member_def : struct_def->members) {
+                                auto it = ret.struct_value.struct_members.find(
+                                    member_def.name);
+                                if (it !=
+                                    ret.struct_value.struct_members.end()) {
+                                    int64_t value_to_write = it->second.value;
+
+                                    // Vector<T>のdataメンバーの場合、deep
+                                    // copyを行う
+                                    if (is_vector &&
+                                        member_def.name == "data" &&
+                                        original_data_ptr != nullptr &&
+                                        vec_capacity > 0) {
+                                        // 要素サイズを計算
+                                        size_t element_size = 0;
+                                        auto element_struct_def =
+                                            interpreter_.find_struct_definition(
+                                                vec_element_type);
+                                        if (element_struct_def != nullptr) {
+                                            for (size_t i = 0;
+                                                 i < element_struct_def->members
+                                                         .size();
+                                                 ++i) {
+                                                element_size += sizeof(long);
+                                            }
+                                        } else {
+                                            element_size = sizeof(long);
+                                        }
+
+                                        // 新しいdata配列を確保してコピー
+                                        size_t total_bytes =
+                                            vec_capacity * element_size;
+                                        void *new_data = malloc(total_bytes);
+                                        memcpy(new_data, original_data_ptr,
+                                               total_bytes);
+
+                                        // 新しいポインタを書き込む
+                                        value_to_write =
+                                            reinterpret_cast<int64_t>(new_data);
+
+                                        // ポインタ要素型を登録
+                                        interpreter_
+                                            .register_pointer_element_type(
+                                                new_data, vec_element_type);
+
+                                        if (interpreter_.is_debug_mode()) {
+                                            std::cerr
+                                                << "[array_set] Deep copied "
+                                                   "Vector data: "
+                                                << total_bytes
+                                                << " bytes from 0x" << std::hex
+                                                << original_data_ptr << " to 0x"
+                                                << new_data << std::dec << "\n";
+                                        }
+                                    }
+
+                                    // メンバーサイズに応じて書き込み
+                                    size_t member_size =
+                                        sizeof(long); // デフォルト8バイト
+
+                                    if (member_def.type == TYPE_INT ||
+                                        member_def.type == TYPE_FLOAT) {
+                                        member_size = sizeof(int); // 4バイト
+                                        *reinterpret_cast<int32_t *>(
+                                            element_ptr + offset) =
+                                            static_cast<int32_t>(
+                                                value_to_write);
+                                    } else if (member_def.type == TYPE_SHORT) {
+                                        member_size = sizeof(short); // 2バイト
+                                        *reinterpret_cast<int16_t *>(
+                                            element_ptr + offset) =
+                                            static_cast<int16_t>(
+                                                value_to_write);
+                                    } else if (member_def.type == TYPE_CHAR ||
+                                               member_def.type == TYPE_TINY) {
+                                        member_size = sizeof(char); // 1バイト
+                                        *reinterpret_cast<int8_t *>(
+                                            element_ptr + offset) =
+                                            static_cast<int8_t>(value_to_write);
+                                    } else {
+                                        member_size = sizeof(long); // 8バイト
+                                        *reinterpret_cast<int64_t *>(
+                                            element_ptr + offset) =
+                                            value_to_write;
+                                    }
+
+                                    offset += member_size;
+                                } else {
+                                    // デフォルト値を書き込み
+                                    size_t member_size =
+                                        sizeof(long); // デフォルト8バイト
+
+                                    if (member_def.type == TYPE_INT ||
+                                        member_def.type == TYPE_FLOAT) {
+                                        member_size = sizeof(int); // 4バイト
+                                        *reinterpret_cast<int32_t *>(
+                                            element_ptr + offset) = 0;
+                                    } else if (member_def.type == TYPE_SHORT) {
+                                        member_size = sizeof(short); // 2バイト
+                                        *reinterpret_cast<int16_t *>(
+                                            element_ptr + offset) = 0;
+                                    } else if (member_def.type == TYPE_CHAR ||
+                                               member_def.type == TYPE_TINY) {
+                                        member_size = sizeof(char); // 1バイト
+                                        *reinterpret_cast<int8_t *>(
+                                            element_ptr + offset) = 0;
+                                    } else {
+                                        member_size = sizeof(long); // 8バイト
+                                        *reinterpret_cast<int64_t *>(
+                                            element_ptr + offset) = 0;
+                                    }
+
+                                    offset += member_size;
+                                }
+                            }
+
+                            if (interpreter_.is_debug_mode()) {
+                                std::cerr << "[array_set] Wrote struct "
+                                          << actual_type
+                                          << " to array at index " << index
+                                          << ", total_size=" << total_size
+                                          << "\n";
+                                size_t debug_offset = 0;
+                                for (const auto &member_def :
+                                     struct_def->members) {
+                                    size_t member_size = sizeof(long);
+                                    if (member_def.type == TYPE_INT ||
+                                        member_def.type == TYPE_FLOAT) {
+                                        member_size = sizeof(int);
+                                    } else if (member_def.type == TYPE_SHORT) {
+                                        member_size = sizeof(short);
+                                    } else if (member_def.type == TYPE_CHAR ||
+                                               member_def.type == TYPE_TINY) {
+                                        member_size = sizeof(char);
+                                    }
+
+                                    auto it =
+                                        ret.struct_value.struct_members.find(
+                                            member_def.name);
+                                    if (it !=
+                                        ret.struct_value.struct_members.end()) {
+                                        std::cerr << "[array_set]   Member "
+                                                  << member_def.name
+                                                  << " at offset "
+                                                  << debug_offset << ": "
+                                                  << it->second.value << "\n";
+                                    }
+                                    debug_offset += member_size;
+                                }
+                            }
+
+                            return 0;
+                        }
+                    }
+
+                    // 構造体でなければ変数参照として処理
+                    std::string var_name;
+                    if (value_node->node_type == ASTNodeType::AST_VARIABLE) {
+                        var_name = value_node->name;
+                        Variable *struct_var =
+                            interpreter_.find_variable(var_name);
+                        if (struct_var && struct_var->is_struct) {
+                            // 構造体の実際のサイズを計算
+                            size_t total_size = 0;
+                            for (const auto &member_def : struct_def->members) {
+                                size_t member_size =
+                                    sizeof(long); // デフォルト8バイト
+
+                                // メンバーの型に応じてサイズを調整
+                                if (member_def.type == TYPE_INT ||
+                                    member_def.type == TYPE_FLOAT) {
+                                    member_size = sizeof(int); // 4バイト
+                                } else if (member_def.type == TYPE_SHORT) {
+                                    member_size = sizeof(short); // 2バイト
+                                } else if (member_def.type == TYPE_CHAR ||
+                                           member_def.type == TYPE_TINY) {
+                                    member_size = sizeof(char); // 1バイト
+                                } else if (member_def.type == TYPE_LONG ||
+                                           member_def.type == TYPE_DOUBLE ||
+                                           member_def.type == TYPE_POINTER ||
+                                           member_def.type == TYPE_STRING) {
+                                    member_size = sizeof(long); // 8バイト
+                                }
+
+                                total_size += member_size;
+                            }
+
+                            // 配列内の書き込み位置を計算
+                            char *arr = reinterpret_cast<char *>(ptr_value);
+                            char *element_ptr = arr + (index * total_size);
+
+                            // 構造体メンバーをメモリに書き込み
+                            size_t offset = 0;
+                            for (const auto &member_def : struct_def->members) {
+                                size_t member_size =
+                                    sizeof(long); // デフォルト8バイト
+
+                                // メンバーの型に応じてサイズを調整
+                                if (member_def.type == TYPE_INT ||
+                                    member_def.type == TYPE_FLOAT) {
+                                    member_size = sizeof(int); // 4バイト
+                                } else if (member_def.type == TYPE_SHORT) {
+                                    member_size = sizeof(short); // 2バイト
+                                } else if (member_def.type == TYPE_CHAR ||
+                                           member_def.type == TYPE_TINY) {
+                                    member_size = sizeof(char); // 1バイト
+                                } else if (member_def.type == TYPE_LONG ||
+                                           member_def.type == TYPE_DOUBLE ||
+                                           member_def.type == TYPE_POINTER ||
+                                           member_def.type == TYPE_STRING) {
+                                    member_size = sizeof(long); // 8バイト
+                                }
+
+                                auto it = struct_var->struct_members.find(
+                                    member_def.name);
+                                if (it != struct_var->struct_members.end()) {
+                                    // メンバーサイズに応じて書き込み
+                                    if (member_size == 4) {
+                                        *reinterpret_cast<int32_t *>(
+                                            element_ptr + offset) =
+                                            static_cast<int32_t>(
+                                                it->second.value);
+                                    } else {
+                                        *reinterpret_cast<int64_t *>(
+                                            element_ptr + offset) =
+                                            it->second.value;
+                                    }
+                                } else {
+                                    // デフォルト値を書き込み
+                                    if (member_size == 4) {
+                                        *reinterpret_cast<int32_t *>(
+                                            element_ptr + offset) = 0;
+                                    } else {
+                                        *reinterpret_cast<int64_t *>(
+                                            element_ptr + offset) = 0;
+                                    }
+                                }
+                                offset += member_size;
+                            }
+
+                            if (interpreter_.is_debug_mode()) {
+                                std::cerr << "[array_set] Wrote struct "
+                                          << actual_type << " (" << var_name
+                                          << ") to array at index " << index
+                                          << ", total_size=" << total_size
+                                          << "\n";
+                                for (const auto &m :
+                                     struct_var->struct_members) {
+                                    std::cerr << "[array_set]   " << m.first
+                                              << " = " << m.second.value
+                                              << "\n";
+                                }
+                            }
+
+                            return 0;
+                        }
+                    }
+                }
+
+                // プリミティブ型の処理
+                int64_t value =
+                    interpreter_.eval_expression(node->arguments[2].get());
+
+                // 型に応じて適切にメモリに書き込む
+                if (actual_type == "short") {
+                    short *arr = reinterpret_cast<short *>(ptr_value);
+                    arr[index] = static_cast<short>(value);
+                    return 0;
+                } else if (actual_type == "long") {
+                    long *arr = reinterpret_cast<long *>(ptr_value);
+                    arr[index] = static_cast<long>(value);
+                    return 0;
+                } else if (actual_type == "char") {
+                    char *arr = reinterpret_cast<char *>(ptr_value);
+                    arr[index] = static_cast<char>(value);
+                    return 0;
+                }
+                // int, その他はデフォルトのint扱い
+            }
+
+            // デフォルトはintとして扱う
+            int64_t value =
+                interpreter_.eval_expression(node->arguments[2].get());
+            int *arr = reinterpret_cast<int *>(ptr_value);
+            arr[index] = static_cast<int>(value);
+            return 0;
+        }
+
+        // default(T) - 型Tのデフォルト値を返す
+        // ジェネリクス対応: 型パラメータTに応じたデフォルト値
+        if (node->name == "default" && !is_method_call) {
+            if (node->arguments.size() != 1) {
+                throw std::runtime_error(
+                    "default() requires 1 argument: default(T)");
+            }
+
+            // 型名を取得
+            const ASTNode *arg = node->arguments[0].get();
+            if (arg->node_type == ASTNodeType::AST_VARIABLE) {
+                std::string type_name = arg->name;
+
+                // 型に応じたデフォルト値を返す
+                if (type_name == "int" || type_name == "long" ||
+                    type_name == "short" || type_name == "char") {
+                    return 0;
+                }
+                if (type_name == "bool") {
+                    return 0; // false
+                }
+                if (type_name == "double" || type_name == "float") {
+                    // 0.0をint64_tビット表現で返す
+                    union {
+                        double d;
+                        int64_t i;
+                    } converter;
+                    converter.d = 0.0;
+                    return converter.i;
+                }
+                if (type_name == "string") {
+                    return 0; // 空文字列（nullポインタ）
+                }
+
+                // その他の型はnullptrまたは0を返す
+                return 0;
+            }
+
+            return 0;
+        }
+
+        // call_function_pointer(func_ptr, arg1, arg2, ...) -
+        // 関数ポインタを呼び出す ジェネリック対応:
+        // 任意の数の引数で関数ポインタを呼び出す
+        if (node->name == "call_function_pointer" && !is_method_call) {
+            if (node->arguments.size() < 1) {
+                throw std::runtime_error(
+                    "call_function_pointer() requires at least 1 argument: "
+                    "call_function_pointer(func_ptr, arg1, arg2, ...)");
+            }
+
+            // 第1引数: 関数ポインタ（ASTNodeのアドレス）
+            int64_t func_ptr_value =
+                interpreter_.eval_expression(node->arguments[0].get());
+
+            if (func_ptr_value == 0) {
+                throw std::runtime_error(
+                    "call_function_pointer: function pointer is null");
+            }
+
+            // 関数ポインタの値はASTNode*のアドレス
+            // まずVariable*として試してみて、is_function_pointerかチェック
+            // そうでなければASTNode*として扱う
+            const ASTNode *func_def = nullptr;
+            std::string func_name;
+
+            // Variable*として解釈を試みる
+            Variable *func_ptr_var =
+                reinterpret_cast<Variable *>(func_ptr_value);
+            if (func_ptr_var->is_function_pointer) {
+                // Variable経由の関数ポインタ（パラメータとして渡された場合など）
+                func_name = func_ptr_var->function_pointer_name;
+                func_def = interpreter_.find_function(func_name);
+            } else {
+                // 直接ASTNode*として渡された場合（&func形式）
+                func_def = reinterpret_cast<const ASTNode *>(func_ptr_value);
+                func_name = func_def->name;
+            }
+
+            if (!func_def) {
+                throw std::runtime_error("call_function_pointer: function '" +
+                                         func_name + "' not found");
+            }
+
+            // 残りの引数を評価
+            std::vector<int64_t> arg_values;
+            for (size_t i = 1; i < node->arguments.size(); ++i) {
+                arg_values.push_back(
+                    interpreter_.eval_expression(node->arguments[i].get()));
+            }
+
+            // 引数の数をチェック
+            if (arg_values.size() != func_def->parameters.size()) {
+                throw std::runtime_error(
+                    "call_function_pointer: argument count mismatch for '" +
+                    func_name + "': expected " +
+                    std::to_string(func_def->parameters.size()) + ", got " +
+                    std::to_string(arg_values.size()));
+            }
+
+            // 新しいスコープを作成
+            interpreter_.push_scope();
+
+            try {
+                // パラメータをバインド
+                for (size_t i = 0; i < func_def->parameters.size(); ++i) {
+                    const ASTNode *param = func_def->parameters[i].get();
+                    Variable var;
+                    var.value = arg_values[i];
+                    var.is_assigned = true;
+                    var.type = param->type_info; // パラメータの型情報を使用
+                    interpreter_.current_scope().variables[param->name] = var;
+                }
+
+                // 関数本体を実行
+                try {
+                    interpreter_.execute_statement(func_def->body.get());
+                } catch (const ReturnException &re) {
+                    // 戻り値を取得
+                    interpreter_.pop_scope();
+                    return re.value;
+                }
+
+                // 戻り値なし（voidまたは明示的なreturn文なし）
+                interpreter_.pop_scope();
+                return 0;
+
+            } catch (...) {
+                interpreter_.pop_scope();
+                throw;
+            }
+        }
+
+        // array_get_int(ptr, index) - 配列要素を取得
+        if (node->name == "array_get_int" && !is_method_call) {
+            if (node->arguments.size() != 2) {
+                throw std::runtime_error(
+                    "array_get_int() requires 2 arguments: array_get_int(ptr, "
+                    "index)");
+            }
+
+            int64_t ptr_value =
+                interpreter_.eval_expression(node->arguments[0].get());
+            int64_t index =
+                interpreter_.eval_expression(node->arguments[1].get());
+
+            if (ptr_value == 0) {
+                std::cerr << "[array_get_int] Error: null pointer" << std::endl;
+                return 0;
+            }
+
+            if (index < 0) {
+                std::cerr << "[array_get_int] Error: negative index " << index
+                          << std::endl;
+                return 0;
+            }
+
+            int *arr = reinterpret_cast<int *>(ptr_value);
+            return static_cast<int64_t>(arr[index]);
+        }
+
+        // array_set_int(ptr, index, value) - 配列要素を設定
+        if (node->name == "array_set_int" && !is_method_call) {
+            if (node->arguments.size() != 3) {
+                throw std::runtime_error(
+                    "array_set_int() requires 3 arguments: array_set_int(ptr, "
+                    "index, value)");
+            }
+
+            int64_t ptr_value =
+                interpreter_.eval_expression(node->arguments[0].get());
+            int64_t index =
+                interpreter_.eval_expression(node->arguments[1].get());
+            int64_t value =
+                interpreter_.eval_expression(node->arguments[2].get());
+
+            if (ptr_value == 0) {
+                std::cerr << "[array_set_int] Error: null pointer" << std::endl;
+                return 0;
+            }
+
+            if (index < 0) {
+                std::cerr << "[array_set_int] Error: negative index " << index
+                          << std::endl;
+                return 0;
+            }
+
+            int *arr = reinterpret_cast<int *>(ptr_value);
+            arr[index] = static_cast<int>(value);
+            return 0;
+        }
+
+        // array_get_long(ptr, index) - long配列要素を取得
+        if (node->name == "array_get_long" && !is_method_call) {
+            if (node->arguments.size() != 2) {
+                throw std::runtime_error("array_get_long() requires 2 "
+                                         "arguments: array_get_long(ptr, "
+                                         "index)");
+            }
+
+            int64_t ptr_value =
+                interpreter_.eval_expression(node->arguments[0].get());
+            int64_t index =
+                interpreter_.eval_expression(node->arguments[1].get());
+
+            if (ptr_value == 0) {
+                std::cerr << "[array_get_long] Error: null pointer"
+                          << std::endl;
+                return 0;
+            }
+
+            if (index < 0) {
+                std::cerr << "[array_get_long] Error: negative index " << index
+                          << std::endl;
+                return 0;
+            }
+
+            long *arr = reinterpret_cast<long *>(ptr_value);
+            return static_cast<int64_t>(arr[index]);
+        }
+
+        // array_set_long(ptr, index, value) - long配列要素を設定
+        if (node->name == "array_set_long" && !is_method_call) {
+            if (node->arguments.size() != 3) {
+                throw std::runtime_error("array_set_long() requires 3 "
+                                         "arguments: array_set_long(ptr, "
+                                         "index, value)");
+            }
+
+            int64_t ptr_value =
+                interpreter_.eval_expression(node->arguments[0].get());
+            int64_t index =
+                interpreter_.eval_expression(node->arguments[1].get());
+            int64_t value =
+                interpreter_.eval_expression(node->arguments[2].get());
+
+            if (ptr_value == 0) {
+                std::cerr << "[array_set_long] Error: null pointer"
+                          << std::endl;
+                return 0;
+            }
+
+            if (index < 0) {
+                std::cerr << "[array_set_long] Error: negative index " << index
+                          << std::endl;
+                return 0;
+            }
+
+            long *arr = reinterpret_cast<long *>(ptr_value);
+            arr[index] = static_cast<long>(value);
+            return 0;
+        }
+
+        // array_get_char(ptr, index) - char配列要素を取得
+        if (node->name == "array_get_char" && !is_method_call) {
+            if (node->arguments.size() != 2) {
+                throw std::runtime_error("array_get_char() requires 2 "
+                                         "arguments: array_get_char(ptr, "
+                                         "index)");
+            }
+
+            int64_t ptr_value =
+                interpreter_.eval_expression(node->arguments[0].get());
+            int64_t index =
+                interpreter_.eval_expression(node->arguments[1].get());
+
+            if (ptr_value == 0) {
+                std::cerr << "[array_get_char] Error: null pointer"
+                          << std::endl;
+                return 0;
+            }
+
+            if (index < 0) {
+                std::cerr << "[array_get_char] Error: negative index " << index
+                          << std::endl;
+                return 0;
+            }
+
+            char *arr = reinterpret_cast<char *>(ptr_value);
+            return static_cast<int64_t>(arr[index]);
+        }
+
+        // array_set_char(ptr, index, value) - char配列要素を設定
+        if (node->name == "array_set_char" && !is_method_call) {
+            if (node->arguments.size() != 3) {
+                throw std::runtime_error("array_set_char() requires 3 "
+                                         "arguments: array_set_char(ptr, "
+                                         "index, value)");
+            }
+
+            int64_t ptr_value =
+                interpreter_.eval_expression(node->arguments[0].get());
+            int64_t index =
+                interpreter_.eval_expression(node->arguments[1].get());
+            int64_t value =
+                interpreter_.eval_expression(node->arguments[2].get());
+
+            if (ptr_value == 0) {
+                std::cerr << "[array_set_char] Error: null pointer"
+                          << std::endl;
+                return 0;
+            }
+
+            if (index < 0) {
+                std::cerr << "[array_set_char] Error: negative index " << index
+                          << std::endl;
+                return 0;
+            }
+
+            char *arr = reinterpret_cast<char *>(ptr_value);
+            arr[index] = static_cast<char>(value);
+            return 0;
+        }
+
+        // array_get_bool(ptr, index) - bool配列要素を取得
+        if (node->name == "array_get_bool" && !is_method_call) {
+            if (node->arguments.size() != 2) {
+                throw std::runtime_error("array_get_bool() requires 2 "
+                                         "arguments: array_get_bool(ptr, "
+                                         "index)");
+            }
+
+            int64_t ptr_value =
+                interpreter_.eval_expression(node->arguments[0].get());
+            int64_t index =
+                interpreter_.eval_expression(node->arguments[1].get());
+
+            if (ptr_value == 0) {
+                std::cerr << "[array_get_bool] Error: null pointer"
+                          << std::endl;
+                return 0;
+            }
+
+            if (index < 0) {
+                std::cerr << "[array_get_bool] Error: negative index " << index
+                          << std::endl;
+                return 0;
+            }
+
+            bool *arr = reinterpret_cast<bool *>(ptr_value);
+            return static_cast<int64_t>(arr[index] ? 1 : 0);
+        }
+
+        // array_set_bool(ptr, index, value) - bool配列要素を設定
+        if (node->name == "array_set_bool" && !is_method_call) {
+            if (node->arguments.size() != 3) {
+                throw std::runtime_error("array_set_bool() requires 3 "
+                                         "arguments: array_set_bool(ptr, "
+                                         "index, value)");
+            }
+
+            int64_t ptr_value =
+                interpreter_.eval_expression(node->arguments[0].get());
+            int64_t index =
+                interpreter_.eval_expression(node->arguments[1].get());
+            int64_t value =
+                interpreter_.eval_expression(node->arguments[2].get());
+
+            if (ptr_value == 0) {
+                std::cerr << "[array_set_bool] Error: null pointer"
+                          << std::endl;
+                return 0;
+            }
+
+            if (index < 0) {
+                std::cerr << "[array_set_bool] Error: negative index " << index
+                          << std::endl;
+                return 0;
+            }
+
+            bool *arr = reinterpret_cast<bool *>(ptr_value);
+            arr[index] = (value != 0);
+            return 0;
+        }
+
+        // malloc(size) - メモリ確保
+        // sizeof(type) - 型のサイズを取得
+        // 注: sizeof演算子として実装すべきだが、簡易版として組み込み関数で実装
+        if (node->name == "sizeof" && !is_method_call) {
+            if (node->arguments.size() != 1) {
+                throw std::runtime_error(
+                    "sizeof() requires 1 argument: sizeof(type_expression)");
+            }
+
+            // 引数の型を推論
+            const ASTNode *arg = node->arguments[0].get();
+
+            // 型名が直接渡された場合（AST_VARIABLEで型名として解釈）
+            if (arg->node_type == ASTNodeType::AST_VARIABLE) {
+                std::string name = arg->name;
+
+                // まず変数として検索
+                Variable *var = interpreter_.find_variable(name);
+                if (var) {
+                    // 変数が見つかった場合、その型のサイズを返す
+                    switch (var->type) {
+                    case TYPE_INT:
+                        return sizeof(int);
+                    case TYPE_LONG:
+                        return sizeof(long);
+                    case TYPE_SHORT:
+                        return sizeof(short);
+                    case TYPE_CHAR:
+                        return sizeof(char);
+                    case TYPE_BOOL:
+                        return sizeof(bool);
+                    case TYPE_FLOAT:
+                        return sizeof(float);
+                    case TYPE_DOUBLE:
+                        return sizeof(double);
+                    case TYPE_QUAD:
+                        return sizeof(long double);
+                    case TYPE_POINTER:
+                        return sizeof(void *);
+                    case TYPE_STRING:
+                        return sizeof(void *);
+                    default:
+                        if (var->is_struct)
+                            return sizeof(void *);
+                        throw std::runtime_error(
+                            "Cannot determine size of variable type");
+                    }
+                }
+
+                // 変数でない場合は型名として解釈
+                std::string type_name = name;
+
+                // プリミティブ型のサイズを返す
+                if (type_name == "int")
+                    return sizeof(int);
+                if (type_name == "long")
+                    return sizeof(long);
+                if (type_name == "short")
+                    return sizeof(short);
+                if (type_name == "char")
+                    return sizeof(char);
+                if (type_name == "bool")
+                    return sizeof(bool);
+                if (type_name == "float")
+                    return sizeof(float);
+                if (type_name == "double")
+                    return sizeof(double);
+                if (type_name == "quad")
+                    return sizeof(long double);
+                if (type_name == "void*")
+                    return sizeof(void *);
+
+                // 構造体のサイズを取得
+                Variable *struct_def = interpreter_.find_variable(type_name);
+                if (struct_def && struct_def->is_struct) {
+                    // 構造体のサイズは、全メンバーのサイズの合計
+                    // 簡易実装: ポインタサイズを返す（構造体は参照渡しのため）
+                    return sizeof(void *);
+                }
+
+                throw std::runtime_error("Unknown type for sizeof: " +
+                                         type_name);
+            }
+
+            // 式の型を推論
+            TypedValue typed_val = interpreter_.evaluate_typed(arg);
+
+            switch (typed_val.type.type_info) {
+            case TYPE_INT:
+                return sizeof(int);
+            case TYPE_LONG:
+                return sizeof(long);
+            case TYPE_SHORT:
+                return sizeof(short);
+            case TYPE_CHAR:
+                return sizeof(char);
+            case TYPE_BOOL:
+                return sizeof(bool);
+            case TYPE_FLOAT:
+                return sizeof(float);
+            case TYPE_DOUBLE:
+                return sizeof(double);
+            case TYPE_QUAD:
+                return sizeof(long double);
+            case TYPE_POINTER:
+                return sizeof(void *);
+            case TYPE_STRING:
+                return sizeof(void *); // 文字列ポインタ
+            default:
+                throw std::runtime_error("Cannot determine size of type");
+            }
+        }
+
+        if (node->name == "malloc" && !is_method_call) {
+            if (node->arguments.size() != 1) {
+                throw std::runtime_error(
+                    "malloc() requires 1 argument: malloc(size)");
+            }
+
+            int64_t size =
+                interpreter_.eval_expression(node->arguments[0].get());
+
+            if (size <= 0) {
+                std::cerr << "[malloc] Error: invalid size " << size
+                          << std::endl;
+                return 0;
+            }
+
+            void *ptr = std::malloc(static_cast<size_t>(size));
+            if (ptr == nullptr) {
+                std::cerr << "[malloc] Error: allocation failed for size "
+                          << size << std::endl;
+                return 0;
+            }
+
+            return reinterpret_cast<int64_t>(ptr);
+        }
+
+        // free(ptr) - メモリ解放
+        if (node->name == "free" && !is_method_call) {
+            if (node->arguments.size() != 1) {
+                throw std::runtime_error(
+                    "free() requires 1 argument: free(ptr)");
+            }
+
+            int64_t ptr_value =
+                interpreter_.eval_expression(node->arguments[0].get());
+
+            if (ptr_value == 0) {
+                // nullptr の解放は何もしない
+                return 0;
+            }
+
+            std::free(reinterpret_cast<void *>(ptr_value));
+            return 0;
+        }
+
+        // array_get_double(ptr, index) - double配列要素を取得
+        if (node->name == "array_get_double" && !is_method_call) {
+            if (node->arguments.size() != 2) {
+                throw std::runtime_error("array_get_double() requires 2 "
+                                         "arguments: array_get_double(ptr, "
+                                         "index)");
+            }
+
+            int64_t ptr_value =
+                interpreter_.eval_expression(node->arguments[0].get());
+            int64_t index =
+                interpreter_.eval_expression(node->arguments[1].get());
+
+            if (ptr_value == 0) {
+                std::cerr << "[array_get_double] Error: null pointer"
+                          << std::endl;
+                return 0;
+            }
+
+            if (index < 0) {
+                std::cerr << "[array_get_double] Error: negative index "
+                          << index << std::endl;
+                return 0;
+            }
+
+            double *arr = reinterpret_cast<double *>(ptr_value);
+            double value = arr[index];
+
+            // doubleをint64_tのビット表現として返す
+            union {
+                double d;
+                int64_t i;
+            } converter;
+            converter.d = value;
+
+            return converter.i;
+        }
+
+        // array_set_double(ptr, index, value) - double配列要素を設定
+        if (node->name == "array_set_double" && !is_method_call) {
+            if (node->arguments.size() != 3) {
+                throw std::runtime_error("array_set_double() requires 3 "
+                                         "arguments: array_set_double(ptr, "
+                                         "index, value)");
+            }
+
+            int64_t ptr_value =
+                interpreter_.eval_expression(node->arguments[0].get());
+            int64_t index =
+                interpreter_.eval_expression(node->arguments[1].get());
+
+            // doubleの値を取得するにはevaluate_typedを使用
+            TypedValue typed_val =
+                interpreter_.evaluate_typed(node->arguments[2].get());
+            double value = typed_val.as_double();
+
+            if (ptr_value == 0) {
+                std::cerr << "[array_set_double] Error: null pointer"
+                          << std::endl;
+                return 0;
+            }
+
+            if (index < 0) {
+                std::cerr << "[array_set_double] Error: negative index "
+                          << index << std::endl;
+                return 0;
+            }
+
+            double *arr = reinterpret_cast<double *>(ptr_value);
+            arr[index] = value;
+            return 0;
+        }
+
+        // array_get_string(ptr, index) - string配列要素を取得
+        if (node->name == "array_get_string" && !is_method_call) {
+            if (node->arguments.size() != 2) {
+                throw std::runtime_error("array_get_string() requires 2 "
+                                         "arguments: array_get_string(ptr, "
+                                         "index)");
+            }
+
+            int64_t ptr_value =
+                interpreter_.eval_expression(node->arguments[0].get());
+            int64_t index =
+                interpreter_.eval_expression(node->arguments[1].get());
+
+            if (ptr_value == 0) {
+                std::cerr << "[array_get_string] Error: null pointer"
+                          << std::endl;
+                return 0; // 空文字列として0を返す
+            }
+
+            if (index < 0) {
+                std::cerr << "[array_get_string] Error: negative index "
+                          << index << std::endl;
+                return 0; // 空文字列として0を返す
+            }
+
+            std::string **arr = reinterpret_cast<std::string **>(ptr_value);
+            return reinterpret_cast<int64_t>(arr[index]);
+        }
+
+        // array_set_string(ptr, index, value) - string配列要素を設定
+        if (node->name == "array_set_string" && !is_method_call) {
+            if (node->arguments.size() != 3) {
+                throw std::runtime_error("array_set_string() requires 3 "
+                                         "arguments: array_set_string(ptr, "
+                                         "index, value)");
+            }
+
+            int64_t ptr_value =
+                interpreter_.eval_expression(node->arguments[0].get());
+            int64_t index =
+                interpreter_.eval_expression(node->arguments[1].get());
+            int64_t str_ptr =
+                interpreter_.eval_expression(node->arguments[2].get());
+
+            if (ptr_value == 0) {
+                std::cerr << "[array_set_string] Error: null pointer"
+                          << std::endl;
+                return 0;
+            }
+
+            if (index < 0) {
+                std::cerr << "[array_set_string] Error: negative index "
+                          << index << std::endl;
+                return 0;
+            }
+
+            std::string **arr = reinterpret_cast<std::string **>(ptr_value);
+            arr[index] = reinterpret_cast<std::string *>(str_ptr);
+            return 0;
+        }
+
+        // array_get_struct(ptr, index) -
+        // 構造体配列要素を取得（memcpyで値をコピー）
+        if (node->name == "array_get_struct" && !is_method_call) {
+            if (node->arguments.size() != 2) {
+                throw std::runtime_error(
+                    "array_get_struct() requires 2 arguments: "
+                    "array_get_struct(ptr, index)");
+            }
+
+            int64_t ptr_value =
+                interpreter_.eval_expression(node->arguments[0].get());
+            int64_t index =
+                interpreter_.eval_expression(node->arguments[1].get());
+
+            if (ptr_value == 0) {
+                std::cerr << "[array_get_struct] Error: null pointer"
+                          << std::endl;
+                return 0;
+            }
+
+            if (index < 0) {
+                std::cerr << "[array_get_struct] Error: negative index "
+                          << index << std::endl;
+                return 0;
+            }
+
+            // 構造体配列は連続したメモリとして扱う
+            // 戻り値は構造体のコピーのアドレス（インタプリタが管理）
+            return ptr_value +
+                   index; // ポインタ演算は呼び出し側で型サイズを考慮する
+        }
+
+        // array_set_struct(ptr, index, value) -
+        // 構造体配列要素を設定（memcpyで値をコピー）
+        if (node->name == "array_set_struct" && !is_method_call) {
+            if (node->arguments.size() != 3) {
+                throw std::runtime_error(
+                    "array_set_struct() requires 3 arguments: "
+                    "array_set_struct(ptr, index, value)");
+            }
+
+            int64_t ptr_value =
+                interpreter_.eval_expression(node->arguments[0].get());
+            int64_t index =
+                interpreter_.eval_expression(node->arguments[1].get());
+            // struct_ptrは呼び出し側で処理されるため、ここでは評価のみ
+            (void)interpreter_.eval_expression(node->arguments[2].get());
+
+            if (ptr_value == 0) {
+                std::cerr << "[array_set_struct] Error: null pointer"
+                          << std::endl;
+                return 0;
+            }
+
+            if (index < 0) {
+                std::cerr << "[array_set_struct] Error: negative index "
+                          << index << std::endl;
+                return 0;
+            }
+
+            // 構造体のコピーは呼び出し側が適切に処理する
+            // ここでは単にポインタ演算の結果を返す
+            return ptr_value + index;
+        }
+
+        // v0.14.0: 組み込み関数のチェック前にエラーを投げないようにする
+        // malloc, free, sizeof などの組み込み関数は functions
+        // マップに登録されていないため、
+        // ここでエラーにせず、後続の組み込み関数チェックに進む
+        static const std::vector<std::string> builtin_function_names = {
+            "malloc",
+            "free",
+            "sizeof",
+            "array_get",
+            "array_set",
+            "array_get_double",
+            "array_set_double",
+            "array_get_bool",
+            "array_set_bool",
+            "array_get_string",
+            "array_set_string",
+            "array_get_struct",
+            "array_set_struct",
+            "println",
+            "print",
+            "printf",
+            "sprintf",
+            "strlen",
+            "strcpy",
+            "strcmp",
+            "strcat",
+            "memcpy",
+            "memset",
+            "memcmp"};
+
+        bool is_builtin = false;
+        for (const auto &builtin_name : builtin_function_names) {
+            if (node->name == builtin_name) {
+                is_builtin = true;
+                break;
+            }
+        }
+
+        if (!is_builtin) {
+            if (is_method_call) {
+                std::string debug_type_name;
+                if (is_method_call) {
+                    if (!receiver_name.empty()) {
+                        Variable *debug_receiver =
+                            interpreter_.find_variable(receiver_name);
+                        if (!debug_receiver &&
+                            receiver_resolution.variable_ptr) {
+                            debug_receiver = receiver_resolution.variable_ptr;
+                        }
+                        if (debug_receiver) {
+                            if (!debug_receiver->struct_type_name.empty()) {
+                                debug_type_name =
+                                    debug_receiver->struct_type_name;
+                            } else {
+                                debug_type_name =
+                                    std::string(::type_info_to_string(
+                                        debug_receiver->type));
+                            }
                         }
                     }
                 }
             }
-            std::cerr << "[METHOD_LOOKUP_FAIL] receiver='" << receiver_name
-                      << "' type='" << debug_type_name << "' method='"
-                      << node->name << "'" << std::endl;
+            throw std::runtime_error("Undefined function: " + node->name);
         }
-        throw std::runtime_error("Undefined function: " + node->name);
+
+        // 組み込み関数の場合は、後続の処理（malloc, free などのチェック）に進む
+        // funcはnullptrのままだが、組み込み関数チェックで処理される
     }
 
     if (is_method_call && !receiver_name.empty()) {
@@ -815,10 +3147,12 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                         for (const auto &method : impl_def.methods) {
                             if (method->name == node->name &&
                                 method->is_private_method) {
-                                throw std::runtime_error(
-                                    "Cannot access private method '" +
-                                    node->name +
-                                    "' from outside the impl block");
+                                std::cerr
+                                    << "Error: Cannot access private method '"
+                                    << node->name
+                                    << "' from outside its impl block"
+                                    << std::endl;
+                                std::exit(1);
                             }
                         }
                         break;
@@ -826,6 +3160,96 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                 }
             }
         }
+    }
+
+    // v0.14.0: 組み込み関数の処理（funcがnullptrの場合）
+    // malloc, free, sizeof などの組み込み関数を早期に処理
+    if (interpreter_.is_debug_mode()) {
+        debug_print(
+            "[BUILTIN_CHECK] func=%p, is_method_call=%d, node->name=%s\n",
+            (void *)func, is_method_call, node->name.c_str());
+    }
+
+    if (!func && !is_method_call) {
+        if (interpreter_.is_debug_mode()) {
+            debug_print("[BUILTIN_EARLY] Processing builtin function: %s\n",
+                        node->name.c_str());
+        }
+
+        // malloc(size) - メモリ確保
+        if (node->name == "malloc") {
+            if (node->arguments.size() != 1) {
+                throw std::runtime_error(
+                    "malloc() requires 1 argument: malloc(size)");
+            }
+
+            int64_t size =
+                interpreter_.eval_expression(node->arguments[0].get());
+
+            if (size <= 0) {
+                std::cerr << "[malloc] Error: invalid size " << size
+                          << std::endl;
+                return 0;
+            }
+
+            void *ptr = std::malloc(static_cast<size_t>(size));
+            if (ptr == nullptr) {
+                std::cerr << "[malloc] Error: allocation failed for size "
+                          << size << std::endl;
+                return 0;
+            }
+
+            if (interpreter_.is_debug_mode()) {
+                debug_print("[malloc] Allocated %lld bytes at %p\n", size, ptr);
+            }
+
+            return reinterpret_cast<int64_t>(ptr);
+        }
+
+        // free(ptr) - メモリ解放
+        if (node->name == "free") {
+            if (node->arguments.size() != 1) {
+                throw std::runtime_error(
+                    "free() requires 1 argument: free(ptr)");
+            }
+
+            int64_t ptr_value =
+                interpreter_.eval_expression(node->arguments[0].get());
+
+            if (ptr_value == 0) {
+                // nullptr の解放は何もしない
+                return 0;
+            }
+
+            std::free(reinterpret_cast<void *>(ptr_value));
+            return 0;
+        }
+
+        // その他の組み込み関数は後続の処理で対応
+        // funcがnullptrのままの場合、この時点では処理できない組み込み関数
+        // エラーにするか、後続の処理に任せる
+    }
+
+    // v0.14.0: funcがnullptrの場合、通常の関数処理をスキップ
+    // 組み込み関数は上記で処理済み、または後続の組み込み関数チェックで処理
+    if (!func) {
+        // funcがnullptrなのに、ここまで到達した場合
+        // 未実装の組み込み関数か、エラー
+        // 後続の組み込み関数チェック（sizeof等）に進むため、ここでは何もしない
+        // ただし、通常の関数処理（スコープ作成等）はスキップ
+        if (interpreter_.is_debug_mode()) {
+            debug_print("[BUILTIN_FALLTHROUGH] Function %s not handled in "
+                        "early builtin check, "
+                        "proceeding to legacy builtin checks\n",
+                        node->name.c_str());
+        }
+        // 後続の組み込み関数チェックセクションまでジャンプする必要があるが、
+        // C++ではgotoを使わずに、処理を別関数に分離するのが良い
+        // 今回は時間の制約上、既存のmallocチェックを早期リターンで処理した
+        // その他の組み込み関数も同様に早期リターンで処理すべき
+        throw std::runtime_error(
+            "Builtin function not fully implemented in早期 check: " +
+            node->name);
     }
 
     // 新しいスコープを作成
@@ -1010,7 +3434,9 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
 
         if (receiver_var->type == TYPE_STRUCT ||
             receiver_var->type == TYPE_INTERFACE || receiver_var->is_struct) {
-            for (const auto &member_pair : receiver_var->struct_members) {
+            // v0.13.1: struct_members_refを考慮
+            auto &receiver_members = receiver_var->get_struct_members();
+            for (const auto &member_pair : receiver_members) {
                 const std::string &member_name = member_pair.first;
                 std::string self_member_path = "self." + member_name;
                 Variable member_value = member_pair.second;
@@ -1275,8 +3701,76 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                 std::to_string(num_args) + ")");
         }
 
+        // ジェネリックメソッドの場合、パラメータの型を解決
+        std::map<std::string, std::string> type_context;
+        if (is_method_call && !receiver_name.empty()) {
+            Variable *receiver_var = interpreter_.find_variable(receiver_name);
+            if (!receiver_var && receiver_resolution.variable_ptr) {
+                receiver_var = receiver_resolution.variable_ptr;
+            }
+
+            if (receiver_var) {
+                std::string type_name = receiver_var->struct_type_name;
+
+                // impl_defを探す
+                for (const auto &impl : interpreter_.get_impl_definitions()) {
+                    if (impl.struct_name == type_name &&
+                        !impl.type_parameter_map.empty()) {
+                        type_context = impl.type_parameter_map;
+
+                        if (debug_mode) {
+                            std::cerr
+                                << "[GENERIC_PARAM] Found type context for "
+                                << type_name << ":" << std::endl;
+                            for (const auto &pair : type_context) {
+                                std::cerr << "  " << pair.first << " -> "
+                                          << pair.second << std::endl;
+                            }
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+
         for (size_t i = 0; i < num_params; i++) {
-            const auto &param = func->parameters[i];
+            const auto &param_orig = func->parameters[i];
+
+            // ジェネリック型パラメータを解決
+            TypeInfo resolved_type_info = param_orig->type_info;
+            if (!type_context.empty() && !param_orig->type_name.empty()) {
+                auto it = type_context.find(param_orig->type_name);
+                if (it != type_context.end()) {
+                    const std::string &resolved_type = it->second;
+
+                    // 型情報を更新
+                    if (resolved_type == "string") {
+                        resolved_type_info = TYPE_STRING;
+                    } else if (resolved_type == "int") {
+                        resolved_type_info = TYPE_INT;
+                    } else if (resolved_type == "float") {
+                        resolved_type_info = TYPE_FLOAT;
+                    } else if (resolved_type == "double") {
+                        resolved_type_info = TYPE_DOUBLE;
+                    } else if (resolved_type == "bool") {
+                        resolved_type_info = TYPE_BOOL;
+                    } else if (resolved_type == "char") {
+                        resolved_type_info = TYPE_CHAR;
+                    }
+
+                    if (debug_mode) {
+                        std::cerr << "[GENERIC_PARAM] Resolved param '"
+                                  << param_orig->name
+                                  << "' type: " << param_orig->type_name
+                                  << " -> " << resolved_type << " (type_info="
+                                  << static_cast<int>(resolved_type_info) << ")"
+                                  << std::endl;
+                    }
+                }
+            }
+
+            // resolved_type_infoを使ってパラメータを処理
+            const auto &param = param_orig;
 
             // 引数が提供されている場合
             if (i < num_args) {
@@ -1303,8 +3797,13 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                         // 変数としても登録（値は関数ノードの実際のメモリアドレス）
                         int64_t func_address =
                             reinterpret_cast<int64_t>(target_func);
+                        TypedValue func_ptr_val(
+                            func_address,
+                            InferredType(TYPE_POINTER,
+                                         type_info_to_string(TYPE_POINTER)));
                         interpreter_.assign_function_parameter(
-                            param->name, func_address, TYPE_POINTER, false);
+                            param->name, func_ptr_val, TYPE_POINTER,
+                            param->type_name, false);
 
                         // 変数に関数ポインタフラグを設定
                         Variable *param_var =
@@ -1532,22 +4031,26 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                     }
                 } else {
                     // 通常の値パラメータの型チェック
-                    // 引数の型を事前にチェック
+                    // 引数の型を事前にチェック（resolved_type_infoを使用）
                     if (arg->node_type == ASTNodeType::AST_STRING_LITERAL &&
-                        param->type_info != TYPE_STRING) {
+                        resolved_type_info != TYPE_STRING) {
                         throw std::runtime_error(
                             "Type mismatch: cannot pass string literal to "
                             "non-string parameter '" +
                             param->name + "'");
                     }
 
-                    // 文字列パラメータの場合
-                    if (param->type_info == TYPE_STRING) {
+                    // 文字列パラメータの場合（resolved_type_infoを使用）
+                    if (resolved_type_info == TYPE_STRING) {
                         if (arg->node_type == ASTNodeType::AST_STRING_LITERAL) {
                             // 文字列リテラルを直接代入
                             Variable param_var;
                             param_var.type = TYPE_STRING;
                             param_var.str_value = arg->str_value;
+                            // value
+                            // フィールドにもポインタを保存（generic型で使用される）
+                            param_var.value = reinterpret_cast<int64_t>(
+                                strdup(param_var.str_value.c_str()));
                             param_var.is_assigned = true;
                             param_var.is_const =
                                 param->is_const; // パラメータのconst修飾を保持
@@ -1569,6 +4072,8 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                             Variable param_var;
                             param_var.type = TYPE_STRING;
                             param_var.str_value = source_var->str_value;
+                            // value フィールドもコピー（generic型で使用される）
+                            param_var.value = source_var->value;
                             param_var.is_assigned = true;
                             param_var.is_const =
                                 param->is_const; // パラメータのconst修飾を保持
@@ -1651,6 +4156,10 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                                 Variable temp;
                                 temp.type = TYPE_STRING;
                                 temp.str_value = arg->str_value;
+                                // value
+                                // フィールドにもポインタを保存（generic型で使用される）
+                                temp.value = reinterpret_cast<int64_t>(
+                                    strdup(temp.str_value.c_str()));
                                 temp.is_assigned = true;
                                 temp.struct_type_name = "string";
                                 assign_interface_argument(temp, "");
@@ -1815,9 +4324,12 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                                         source_var_name);
                                 }
 
+                                // v0.13.1:
                                 // 文字列配列メンバの場合、追加で確実にarray_stringsを同期
+                                auto &sync_source_members =
+                                    sync_source_var->get_struct_members();
                                 for (auto &source_member_pair :
-                                     sync_source_var->struct_members) {
+                                     sync_source_members) {
                                     if (source_member_pair.second.is_array &&
                                         source_member_pair.second.type ==
                                             TYPE_STRING) {
@@ -1909,13 +4421,16 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                                 interpreter_.current_scope()
                                     .variables[param->name] = param_var;
 
+                                // v0.13.1:
                                 // 個別メンバー変数も作成（値を正しく設定）
                                 // 元の構造体定義から type_name 情報を取得
                                 const StructDefinition *struct_def =
                                     interpreter_.find_struct_definition(
                                         resolved_struct_type);
+                                auto &sync_source_members_2 =
+                                    sync_source_var->get_struct_members();
                                 for (const auto &member_pair :
-                                     sync_source_var->struct_members) {
+                                     sync_source_members_2) {
                                     // 配列要素のキー (例: "dimensions[0]")
                                     // をスキップ
                                     if (member_pair.first.find('[') !=
@@ -2096,7 +4611,7 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                                 evaluate_typed_expression(arg.get());
                             interpreter_.assign_function_parameter(
                                 param->name, arg_value, param->type_info,
-                                param->is_unsigned);
+                                param->type_name, param->is_unsigned);
 
                             // const修飾を設定
                             if (param->is_const) {
@@ -2182,9 +4697,9 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                     evaluate_typed_expression(param->default_value.get());
 
                 // パラメータに設定
-                interpreter_.assign_function_parameter(param->name, default_val,
-                                                       param->type_info,
-                                                       param->is_unsigned);
+                interpreter_.assign_function_parameter(
+                    param->name, default_val, param->type_info,
+                    param->type_name, param->is_unsigned);
 
                 // const修飾を設定
                 if (param->is_const) {
@@ -2231,10 +4746,65 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
             }
         }
 
+        // v0.11.0: ジェネリックメソッド呼び出しの型コンテキスト管理
+        bool type_context_pushed = false;
+        std::string receiver_type_name;
+
+        if (is_method_call && !receiver_name.empty()) {
+            Variable *receiver_var = nullptr;
+            if (used_resolution_ptr && dereferenced_struct_ptr) {
+                receiver_var = dereferenced_struct_ptr;
+            } else {
+                receiver_var = interpreter_.find_variable(receiver_name);
+            }
+
+            if (receiver_var && receiver_var->type == TYPE_STRUCT) {
+                receiver_type_name = receiver_var->struct_type_name;
+
+                // Queue<int>のようなジェネリック型のメソッド呼び出し
+                if (receiver_type_name.find('<') != std::string::npos) {
+                    const ImplDefinition *impl_def =
+                        interpreter_.find_impl_for_struct(receiver_type_name,
+                                                          "");
+
+                    if (impl_def && impl_def->is_generic_instance) {
+                        interpreter_.push_type_context(
+                            impl_def->get_type_context());
+                        type_context_pushed = true;
+
+                        if (interpreter_.is_debug_mode()) {
+                            debug_print("[TYPE_CONTEXT] Pushed for %s::%s\n",
+                                        receiver_type_name.c_str(),
+                                        node->name.c_str());
+                        }
+                    }
+                }
+            }
+        }
+
         // 関数本体を実行
         try {
+            if (interpreter_.is_debug_mode()) {
+                debug_print(
+                    "[METHOD_EXEC] func->name='%s', body=%p, statements=%zu\n",
+                    func->name.c_str(), (void *)func->body.get(),
+                    func->body ? func->body->statements.size() : 0);
+            }
             if (func->body) {
                 interpreter_.execute_statement(func->body.get());
+            } else {
+                if (interpreter_.is_debug_mode()) {
+                    debug_print("[METHOD_EXEC] Warning: func->body is null!\n");
+                }
+            }
+
+            // v0.11.0: 型コンテキストをクリア
+            if (type_context_pushed) {
+                interpreter_.pop_type_context();
+                if (interpreter_.is_debug_mode()) {
+                    debug_print("[TYPE_CONTEXT] Popped after %s::%s\n",
+                                receiver_type_name.c_str(), node->name.c_str());
+                }
             }
 
             // implコンテキストをクリア
@@ -2265,8 +4835,66 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
 
                 if (receiver_var && (receiver_var->type == TYPE_STRUCT ||
                                      receiver_var->type == TYPE_INTERFACE)) {
-                    // すべての self.* 変数を検索して書き戻し
+                    // v0.13.0:
+                    // まず、全てのself.member変数をself.struct_membersにマージ
                     auto &current_scope = interpreter_.get_current_scope();
+                    if (current_scope.variables.find("self") !=
+                        current_scope.variables.end()) {
+                        Variable &self_var = current_scope.variables["self"];
+
+                        // Step 1:
+                        // self.で始まる全ての変数をselfのstruct_membersに書き戻す
+                        for (const auto &var_pair : current_scope.variables) {
+                            const std::string &var_name = var_pair.first;
+                            if (var_name.find("self.") == 0 &&
+                                var_name.find('.', 5) == std::string::npos) {
+                                // self.memberの形式（ネストしていない）
+                                std::string member_name = var_name.substr(5);
+                                const Variable &member_var = var_pair.second;
+
+                                // selfのstruct_membersに反映
+                                if (self_var.struct_members.find(member_name) !=
+                                    self_var.struct_members.end()) {
+                                    self_var.struct_members[member_name] =
+                                        member_var;
+                                    if (debug_mode) {
+                                        debug_print("SELF_MERGE: %s -> "
+                                                    "self.struct_members[%s] "
+                                                    "(value=%lld)\n",
+                                                    var_name.c_str(),
+                                                    member_name.c_str(),
+                                                    member_var.value);
+                                    }
+                                }
+                            }
+                        }
+
+                        // Step 2: selfの全フィールドをreceiver_varにコピー
+                        receiver_var->struct_members = self_var.struct_members;
+                        receiver_var->value = self_var.value;
+                        receiver_var->str_value = self_var.str_value;
+                        receiver_var->float_value = self_var.float_value;
+                        receiver_var->double_value = self_var.double_value;
+                        receiver_var->quad_value = self_var.quad_value;
+                        receiver_var->big_value = self_var.big_value;
+                        receiver_var->array_values = self_var.array_values;
+                        receiver_var->array_float_values =
+                            self_var.array_float_values;
+                        receiver_var->array_double_values =
+                            self_var.array_double_values;
+                        receiver_var->array_quad_values =
+                            self_var.array_quad_values;
+                        receiver_var->array_strings = self_var.array_strings;
+                        receiver_var->is_assigned = self_var.is_assigned;
+
+                        if (debug_mode) {
+                            debug_print("SELF_WRITEBACK_FULL: Copied all "
+                                        "fields from self to %s\n",
+                                        receiver_name.c_str());
+                        }
+                    }
+
+                    // すべての self.* 変数を検索して書き戻し
                     for (const auto &var_pair : current_scope.variables) {
                         const std::string &var_name = var_pair.first;
 
@@ -2354,6 +4982,65 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                                                 var_name.c_str(),
                                                 receiver_path.c_str(),
                                                 self_member_var.value);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // v0.13.1: メソッド内でメソッドを呼んだ場合、parent
+            // scopeのselfも更新する
+            // これにより、vec.push()内でself.reserve()を呼んだ後、push()内のselfが更新される
+            if (has_receiver && !receiver_name.empty()) {
+                auto &scope_stack = interpreter_.get_scope_stack();
+                // 現在のスコープ(呼ばれたメソッドのスコープ)の1つ上を確認
+                if (scope_stack.size() >= 2) {
+                    auto &parent_scope = scope_stack[scope_stack.size() - 2];
+                    // parent
+                    // scopeにselfが存在し、同じreceiverを参照している場合
+                    if (parent_scope.variables.find("self") !=
+                        parent_scope.variables.end()) {
+                        Variable &parent_self = parent_scope.variables["self"];
+                        // receiverと同じstruct_type_nameを持つ場合、更新する
+                        Variable *receiver_var_for_parent = nullptr;
+                        if (used_resolution_ptr && dereferenced_struct_ptr) {
+                            receiver_var_for_parent = dereferenced_struct_ptr;
+                        } else {
+                            receiver_var_for_parent =
+                                interpreter_.find_variable(receiver_name);
+                        }
+
+                        if (receiver_var_for_parent &&
+                            parent_self.struct_type_name ==
+                                receiver_var_for_parent->struct_type_name) {
+                            // parent scopeのselfを更新
+                            parent_self.struct_members =
+                                receiver_var_for_parent->struct_members;
+                            parent_self.value = receiver_var_for_parent->value;
+                            parent_self.str_value =
+                                receiver_var_for_parent->str_value;
+                            parent_self.float_value =
+                                receiver_var_for_parent->float_value;
+                            parent_self.double_value =
+                                receiver_var_for_parent->double_value;
+                            parent_self.quad_value =
+                                receiver_var_for_parent->quad_value;
+                            parent_self.big_value =
+                                receiver_var_for_parent->big_value;
+
+                            // parent scopeのself.member変数も更新
+                            for (const auto &member_pair :
+                                 parent_self.struct_members) {
+                                const std::string &member_name =
+                                    member_pair.first;
+                                const Variable &member_var = member_pair.second;
+                                std::string var_name = "self." + member_name;
+
+                                if (parent_scope.variables.find(var_name) !=
+                                    parent_scope.variables.end()) {
+                                    parent_scope.variables[var_name] =
+                                        member_var;
                                 }
                             }
                         }
@@ -2518,6 +5205,16 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
             interpreter_.current_function_name = prev_function_name;
             return 0;
         } catch (const ReturnException &ret) {
+            // v0.11.0: 型コンテキストをクリア（例外時）
+            if (type_context_pushed) {
+                interpreter_.pop_type_context();
+                if (interpreter_.is_debug_mode()) {
+                    debug_print(
+                        "[TYPE_CONTEXT] Popped (exception) after %s::%s\n",
+                        receiver_type_name.c_str(), node->name.c_str());
+                }
+            }
+
             // implコンテキストをクリア
             if (impl_context_active) {
                 interpreter_.exit_impl_context();
@@ -2546,8 +5243,66 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
 
                 if (receiver_var && (receiver_var->type == TYPE_STRUCT ||
                                      receiver_var->type == TYPE_INTERFACE)) {
-                    // すべての self.* 変数を検索して書き戻し
+                    // v0.13.0:
+                    // まず、全てのself.member変数をself.struct_membersにマージ
                     auto &current_scope = interpreter_.get_current_scope();
+                    if (current_scope.variables.find("self") !=
+                        current_scope.variables.end()) {
+                        Variable &self_var = current_scope.variables["self"];
+
+                        // Step 1:
+                        // self.で始まる全ての変数をselfのstruct_membersに書き戻す
+                        for (const auto &var_pair : current_scope.variables) {
+                            const std::string &var_name = var_pair.first;
+                            if (var_name.find("self.") == 0 &&
+                                var_name.find('.', 5) == std::string::npos) {
+                                // self.memberの形式（ネストしていない）
+                                std::string member_name = var_name.substr(5);
+                                const Variable &member_var = var_pair.second;
+
+                                // selfのstruct_membersに反映
+                                if (self_var.struct_members.find(member_name) !=
+                                    self_var.struct_members.end()) {
+                                    self_var.struct_members[member_name] =
+                                        member_var;
+                                    if (debug_mode) {
+                                        debug_print("SELF_MERGE: %s -> "
+                                                    "self.struct_members[%s] "
+                                                    "(value=%lld)\n",
+                                                    var_name.c_str(),
+                                                    member_name.c_str(),
+                                                    member_var.value);
+                                    }
+                                }
+                            }
+                        }
+
+                        // Step 2: selfの全フィールドをreceiver_varにコピー
+                        receiver_var->struct_members = self_var.struct_members;
+                        receiver_var->value = self_var.value;
+                        receiver_var->str_value = self_var.str_value;
+                        receiver_var->float_value = self_var.float_value;
+                        receiver_var->double_value = self_var.double_value;
+                        receiver_var->quad_value = self_var.quad_value;
+                        receiver_var->big_value = self_var.big_value;
+                        receiver_var->array_values = self_var.array_values;
+                        receiver_var->array_float_values =
+                            self_var.array_float_values;
+                        receiver_var->array_double_values =
+                            self_var.array_double_values;
+                        receiver_var->array_quad_values =
+                            self_var.array_quad_values;
+                        receiver_var->array_strings = self_var.array_strings;
+                        receiver_var->is_assigned = self_var.is_assigned;
+
+                        if (debug_mode) {
+                            debug_print("SELF_WRITEBACK_FULL: Copied all "
+                                        "fields from self to %s\n",
+                                        receiver_name.c_str());
+                        }
+                    }
+
+                    // すべての self.* 変数を検索して書き戻し
                     for (const auto &var_pair : current_scope.variables) {
                         const std::string &var_name = var_pair.first;
 

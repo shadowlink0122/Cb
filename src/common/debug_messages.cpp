@@ -296,6 +296,52 @@ static std::vector<DebugMessageTemplate> init_debug_messages() {
         "[PARSE_NODE] Creating type spec node",
         "[PARSE_NODE] 型指定ノード作成"};
 
+    // メンバーアクセス再帰処理関連
+    messages[static_cast<int>(DebugMsgId::MEMBER_ACCESS_RECURSIVE_START)] = {
+        "[MEMBER_ACCESS] Starting recursive access with %zu levels",
+        "[MEMBER_ACCESS] %zu段階の再帰的アクセス開始"};
+    messages[static_cast<int>(DebugMsgId::MEMBER_ACCESS_LEVEL)] = {
+        "[MEMBER_ACCESS] Accessing member[%zu] = %s",
+        "[MEMBER_ACCESS] メンバー[%zu]にアクセス = %s"};
+    messages[static_cast<int>(DebugMsgId::MEMBER_ACCESS_SUCCESS)] = {
+        "[MEMBER_ACCESS] Successfully accessed member, type = %d",
+        "[MEMBER_ACCESS] メンバーアクセス成功, 型 = %d"};
+    messages[static_cast<int>(DebugMsgId::MEMBER_ACCESS_FAILED)] = {
+        "[MEMBER_ACCESS] Failed to access member: %s",
+        "[MEMBER_ACCESS] メンバーアクセス失敗: %s"};
+    messages[static_cast<int>(DebugMsgId::MEMBER_ACCESS_FINAL_TYPE)] = {
+        "[MEMBER_ACCESS] Final result type = %d",
+        "[MEMBER_ACCESS] 最終結果の型 = %d"};
+
+    // 変数宣言関連
+    messages[static_cast<int>(DebugMsgId::VAR_DECL_INIT_TYPE)] = {
+        "[VAR_DECL] Init node type: %d for variable %s",
+        "[VAR_DECL] 初期化ノード型: %d, 変数 %s"};
+    messages[static_cast<int>(DebugMsgId::VAR_DECL_TYPED_VALUE)] = {
+        "[VAR_DECL] TypedValue evaluated for %s",
+        "[VAR_DECL] TypedValue評価完了: %s"};
+    messages[static_cast<int>(DebugMsgId::VAR_DECL_STRUCT_MEMBERS)] = {
+        "[VAR_DECL] Creating member variables for %s (type: %s), "
+        "members.size=%zu",
+        "[VAR_DECL] メンバー変数作成: %s (型: %s), メンバー数=%zu"};
+    messages[static_cast<int>(DebugMsgId::VAR_DECL_ASSIGN_STRING)] = {
+        "[VAR_DECL] Calling assign_variable for string: %s",
+        "[VAR_DECL] 文字列変数代入: %s"};
+    messages[static_cast<int>(DebugMsgId::VAR_DECL_POINTER_INIT)] = {
+        "[VAR_DECL] Pointer init: name=%s, has_init_expr=%d, has_right=%d",
+        "[VAR_DECL] ポインタ初期化: 名前=%s, 初期化式=%d, right=%d"};
+    messages[static_cast<int>(DebugMsgId::VAR_DECL_POINTER_VALUE)] = {
+        "[VAR_DECL] Setting pointer value for %s (type=%d)",
+        "[VAR_DECL] ポインタ値設定: %s (型=%d)"};
+    messages[static_cast<int>(DebugMsgId::VAR_DECL_STRING_PTR_INIT)] = {
+        "[VAR_DECL] String pointer initialized: value=%p",
+        "[VAR_DECL] 文字列ポインタ初期化: 値=%p"};
+
+    // メンバー代入関連
+    messages[static_cast<int>(DebugMsgId::MEMBER_ASSIGN_STRUCT)] = {
+        "[MEMBER_ASSIGN] Assigning struct to member: %s.%s (type: %s)",
+        "[MEMBER_ASSIGN] 構造体メンバー代入: %s.%s (型: %s)"};
+
     messages[static_cast<int>(DebugMsgId::GENERIC_DEBUG)] = {"%s", "%s"};
 
     // 関数関連のメッセージ

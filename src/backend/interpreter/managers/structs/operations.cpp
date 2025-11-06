@@ -9,6 +9,7 @@
 #include "../../../../common/type_helpers.h"
 #include "../../../../frontend/recursive_parser/recursive_parser.h"
 #include "../../core/interpreter.h"
+#include "../types/interfaces.h"
 #include "../types/manager.h"
 #include "../variables/static.h"
 #include <algorithm>
@@ -95,6 +96,9 @@ void StructOperations::register_struct_definition(
                   << ", default_member_name=" << definition.default_member_name
                   << std::endl;
     }
+
+    // v0.11.0 Phase 1a: インターフェース境界の検証は遅延
+    // すべてのグローバル宣言後にInterpreter::validate_all_interface_bounds()で実行
 
     interpreter_->struct_definitions_[struct_name] = definition;
     validate_struct_recursion_rules();
@@ -283,6 +287,10 @@ void StructOperations::sync_struct_definitions_from_parser(
         const std::string &struct_name = pair.first;
         const StructDefinition &struct_def = pair.second;
 
+        // v0.11.0 Phase 1a: インターフェース境界の検証は遅延
+        // すべてのグローバル宣言(interface/impl)が登録された後に
+        // Interpreter::validate_all_interface_bounds()で一括チェック
+
         // Interpreterのstruct_definitions_に登録
         interpreter_->struct_definitions_[struct_name] = struct_def;
 
@@ -438,8 +446,10 @@ void StructOperations::ensure_struct_member_access_allowed(
     }
 
     if (!is_current_impl_context_for(struct_type)) {
-        throw std::runtime_error("Cannot access private struct member: " +
-                                 accessor_name + "." + member_name);
+        std::cerr << "Error: Cannot access private member '" << accessor_name
+                  << "." << member_name << "' from outside its impl block"
+                  << std::endl;
+        std::exit(1);
     }
 }
 
@@ -454,7 +464,19 @@ Variable *StructOperations::get_struct_member(const std::string &var_name,
               member_name.c_str());
 
     Variable *var = interpreter_->find_variable(var_name);
-    if (!var || !var->is_struct) {
+
+    // v0.11.0: enum型の場合は、この関数を使わずにevaluatorで処理すべき
+    // しかし、ここに到達した場合でもエラーにしないで、ダミーを返す
+    if (var && var->is_enum) {
+        // enum型のメンバーアクセスはevaluatorで処理される
+        // ここに到達するのは想定外だが、エラーを避けるためダミーを返す
+        static Variable dummy;
+        dummy = *var; // 元の変数をコピー
+        return &dummy;
+    }
+
+    // v0.11.0: enum型もチェックを緩和
+    if (!var || (!var->is_struct && !var->is_enum)) {
         // 配列要素の場合、自動的に作成を試みる (例: people[0])
         size_t bracket_pos = var_name.find('[');
         if (bracket_pos != std::string::npos) {
@@ -472,10 +494,22 @@ Variable *StructOperations::get_struct_member(const std::string &var_name,
             }
         }
 
-        if (!var || !var->is_struct) {
+        // v0.11.0: enum型もメンバーアクセスをサポート
+        if (!var || (!var->is_struct && !var->is_enum)) {
             debug_msg(DebugMsgId::INTERPRETER_VAR_NOT_STRUCT, var_name.c_str());
-            throw std::runtime_error("Variable is not a struct: " + var_name);
+            debug_print("[DEBUG] get_struct_member: var=%p, var_name='%s', "
+                        "is_struct=%d, is_enum=%d\n",
+                        (void *)var, var_name.c_str(),
+                        var ? var->is_struct : -1, var ? var->is_enum : -1);
+            throw std::runtime_error("Variable is not a struct or enum: " +
+                                     var_name);
         }
+    }
+
+    // enum型の場合は、evaluator側で処理されるのでここには来ないはず
+    if (var && var->is_enum) {
+        throw std::runtime_error(
+            "Enum member access should be handled in evaluator: " + var_name);
     }
 
     // 参照型の場合、参照先の変数を取得
@@ -592,9 +626,54 @@ void StructOperations::sync_individual_member_from_struct(
         individual_var->value = member_value.value;
         individual_var->type = member_value.type;
         individual_var->str_value = member_value.str_value;
+        individual_var->float_value = member_value.float_value;
+        individual_var->double_value = member_value.double_value;
+        individual_var->quad_value = member_value.quad_value;
         individual_var->is_assigned = member_value.is_assigned;
         individual_var->is_const = member_value.is_const;
         individual_var->is_unsigned = member_value.is_unsigned;
+
+        // 構造体メンバーの場合、struct_membersもコピー
+        if (member_value.type == TYPE_STRUCT &&
+            !member_value.struct_members.empty()) {
+            individual_var->is_struct = true;
+            individual_var->struct_type_name = member_value.struct_type_name;
+            individual_var->struct_members = member_value.struct_members;
+
+            if (interpreter_->debug_mode) {
+                std::cerr
+                    << "[SYNC_INDIVIDUAL_STRUCT] Copied struct_members for "
+                    << full_member_path
+                    << ", members count: " << member_value.struct_members.size()
+                    << std::endl;
+            }
+
+            // ネストされた構造体のメンバーも再帰的に同期
+            for (const auto &nested_member : member_value.struct_members) {
+                std::string nested_member_path =
+                    full_member_path + "." + nested_member.first;
+                Variable *nested_var =
+                    interpreter_->find_variable(nested_member_path);
+                if (nested_var) {
+                    const Variable &nested_value = nested_member.second;
+                    nested_var->value = nested_value.value;
+                    nested_var->type = nested_value.type;
+                    nested_var->str_value = nested_value.str_value;
+                    nested_var->float_value = nested_value.float_value;
+                    nested_var->double_value = nested_value.double_value;
+                    nested_var->quad_value = nested_value.quad_value;
+                    nested_var->is_assigned = nested_value.is_assigned;
+                    nested_var->is_const = nested_value.is_const;
+                    nested_var->is_unsigned = nested_value.is_unsigned;
+
+                    if (interpreter_->debug_mode) {
+                        std::cerr << "[SYNC_NESTED_MEMBER] Updated "
+                                  << nested_member_path << " = "
+                                  << nested_value.value << std::endl;
+                    }
+                }
+            }
+        }
 
         if (interpreter_->debug_mode) {
             debug_print(
@@ -677,11 +756,16 @@ int64_t StructOperations::get_struct_member_multidim_array_element(
         }
 
         if (interpreter_->debug_mode) {
-            debug_print("Calculated flat_index: %zu\n", flat_index);
+            debug_print("Calculated flat_index: %zu, "
+                        "multidim_array_values.size(): %zu\n",
+                        flat_index, member_var->multidim_array_values.size());
         }
 
         if (flat_index >= member_var->multidim_array_values.size()) {
-            throw std::runtime_error("Calculated flat index out of bounds");
+            throw std::runtime_error(
+                "Calculated flat index out of bounds: " +
+                std::to_string(flat_index) + " >= " +
+                std::to_string(member_var->multidim_array_values.size()));
         }
 
         if (interpreter_->debug_mode) {

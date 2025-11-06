@@ -1,0 +1,28 @@
+// Test 2: Struct literal assignment to array element
+// このテストは、構造体リテラルを直接配列要素に代入するパターンを検証します
+
+struct Task {
+    int task_id;
+    int priority;
+};
+
+int main() {
+    println("=== Test 1: Direct literal assignment ===");
+    
+    Task[10] tasks;
+    
+    // パターン1: 構造体リテラルを直接代入
+    tasks[0] = {100, 10};
+    
+    // 検証
+    println("task_id = ", tasks[0].task_id);
+    println("priority = ", tasks[0].priority);
+    
+    if (tasks[0].task_id == 100 && tasks[0].priority == 10) {
+        println("Test 1: Direct literal assignment - PASSED");
+        return 0;
+    } else {
+        println("Test 1: FAILED");
+        return 1;
+    }
+}

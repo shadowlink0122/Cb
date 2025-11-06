@@ -1,0 +1,132 @@
+// Queue<string>のテスト
+import stdlib.std.queue;
+
+int main() {
+    println("=== Queue<string> Tests ===\n");
+    
+    // 1. 作成
+    Queue<string> queue;
+    println("✅ Queue<string> created");
+    
+    // 2. push操作
+    queue.push("First");
+    queue.push("Second");
+    queue.push("Third");
+    println("✅ Pushed 3 strings");
+    
+    // 3. top操作
+    string peeked = queue.top();
+    if (peeked == "First") {
+        println("✅ Top works: '{peeked}'");
+    } else {
+        println("❌ Top failed");
+        return 1;
+    }
+    
+    // 4. pop操作
+    string first = queue.pop();
+    if (first == "First") {
+        println("✅ Popped correct value: '{first}'");
+    } else {
+        println("❌ Pop failed");
+        return 1;
+    }
+    
+    // 5. サイズ確認
+    int size = queue.size();
+    if (size == 2) {
+        println("✅ Size after pop is correct: {size}");
+    } else {
+        println("❌ Size is incorrect: {size}");
+        return 1;
+    }
+    
+    // 6. FIFO順序のテスト
+    queue.push("Fourth");
+    queue.push("Fifth");
+    println("✅ Pushed 2 more strings");
+    
+    string second = queue.pop();
+    string third = queue.pop();
+    
+    if (second == "Second" && third == "Third") {
+        println("✅ FIFO order works correctly");
+    } else {
+        println("❌ FIFO order failed");
+        return 1;
+    }
+    
+    // 7. 残りの要素確認
+    string fourth = queue.pop();
+    string fifth = queue.pop();
+    
+    if (fourth == "Fourth" && fifth == "Fifth") {
+        println("✅ All elements popped correctly");
+    } else {
+        println("❌ Element order corrupted");
+        return 1;
+    }
+    
+    // 8. 空チェック
+    bool empty = queue.empty();
+    if (empty) {
+        println("✅ Queue is empty after all pops");
+    } else {
+        println("❌ Queue should be empty");
+        return 1;
+    }
+    
+    // 9. 長い文字列のテスト
+    queue.push("This is a very long string with many characters!");
+    string long_str = queue.pop();
+    if (long_str == "This is a very long string with many characters!") {
+        println("✅ Long string handling works");
+    } else {
+        println("❌ Long string handling failed");
+        return 1;
+    }
+    
+    // 10. 空文字列のテスト
+    queue.push("");
+    string empty_str = queue.pop();
+    if (empty_str == "") {
+        println("✅ Empty string handling works");
+    } else {
+        println("❌ Empty string handling failed");
+        return 1;
+    }
+    
+    // 11. 複数要素のテスト
+    println("\n--- Multiple Elements Test ---");
+    queue.push("A");
+    queue.push("B");
+    queue.push("C");
+    queue.push("D");
+    queue.push("E");
+    
+    int final_size = queue.size();
+    if (final_size == 5) {
+        println("✅ Size is correct: {final_size}");
+    } else {
+        println("❌ Size is incorrect: {final_size}");
+        return 1;
+    }
+    
+    // 全要素を取り出して確認
+    string a = queue.pop();
+    string b = queue.pop();
+    string c = queue.pop();
+    string d = queue.pop();
+    string e = queue.pop();
+    
+    bool order_ok = a == "A" && b == "B" && c == "C" && d == "D" && e == "E";
+    if (order_ok) {
+        println("✅ Element order preserved");
+    } else {
+        println("❌ Element order corrupted");
+        return 1;
+    }
+    
+    println("\n🎉 All Queue<string> Tests Passed!");
+    return 0;
+}

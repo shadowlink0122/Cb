@@ -1,0 +1,25 @@
+// 最小限の関数返り値テスト
+
+Result<int, int> test() {
+    return Result<int, int>::Ok(42);
+}
+
+int main() {
+    println("Before call");
+    Result<int, int> r = test();
+    println("After call");
+    
+    match (r) {
+        Ok(v) => {
+            println("Ok:");
+            println(v);
+        }
+        Err(e) => {
+            println("Err:");
+            println(e);
+        }
+    }
+    
+    println("Done");
+    return 0;
+}

@@ -90,7 +90,8 @@ ASTNode *VariableDeclarationParser::parseVariableDeclaration() {
     };
 
     do {
-        if (!parser_->check(TokenType::TOK_IDENTIFIER)) {
+        if (!parser_->check(TokenType::TOK_IDENTIFIER) &&
+            !parser_->check(TokenType::TOK_UNDERSCORE)) {
             parser_->error("Expected variable name");
         }
 

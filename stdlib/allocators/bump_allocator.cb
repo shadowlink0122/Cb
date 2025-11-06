@@ -1,0 +1,77 @@
+// BumpAllocator - Simple linear allocator for Cb
+// Part of Week 2: Allocator Implementation
+// 
+// A bump allocator (also called arena allocator) is the simplest allocator:
+// - Allocates by incrementing a pointer
+// - Very fast allocation (just pointer increment)
+// - No individual deallocation (free all at once)
+// - Perfect for temporary allocations
+
+export interface Allocator {
+    void* allocate(int size);
+    void deallocate(void* ptr);
+}
+
+export struct BumpAllocator {
+    int buffer_size;
+    int current_offset;
+    int allocation_count;
+};
+
+impl Allocator for BumpAllocator {
+    void* allocate(int size) {
+        println("[BumpAllocator] Allocating %d bytes (offset=%d)", size, 0);
+        
+        // Simulate bump allocation
+        // In real implementation: buffer + current_offset
+        // current_offset += size;
+        
+        return nullptr;  // Placeholder
+    }
+    
+    void deallocate(void* ptr) {
+        // Bump allocator doesn't support individual deallocation
+        println("[BumpAllocator] Deallocation ignored (bump allocators don't free individually)");
+    }
+}
+
+export void bump_allocator_init(BumpAllocator& alloc, int size) {
+    alloc.buffer_size = size;
+    alloc.current_offset = 0;
+    alloc.allocation_count = 0;
+    println("[BumpAllocator] Initialized with %d bytes", size);
+}
+
+export void bump_allocator_reset(BumpAllocator& alloc) {
+    alloc.current_offset = 0;
+    alloc.allocation_count = 0;
+    println("[BumpAllocator] Reset (all memory reclaimed)");
+}
+
+void test_bump_allocator() {
+    println("=== Testing BumpAllocator ===");
+    
+    BumpAllocator alloc;
+    bump_allocator_init(alloc, 1024);
+    
+    println("\nTest 1: Allocate 100 bytes");
+    void* ptr1 = alloc.allocate(100);
+    
+    println("\nTest 2: Allocate 200 bytes");
+    void* ptr2 = alloc.allocate(200);
+    
+    println("\nTest 3: Try to deallocate (should be ignored)");
+    alloc.deallocate(ptr1);
+    
+    println("\nTest 4: Reset allocator");
+    bump_allocator_reset(alloc);
+    
+    println("\nTest 5: Allocate after reset");
+    void* ptr3 = alloc.allocate(50);
+    
+    println("\nBumpAllocator test complete");
+}
+
+void main() {
+    test_bump_allocator();
+}

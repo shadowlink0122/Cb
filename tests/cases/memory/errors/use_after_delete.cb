@@ -1,0 +1,22 @@
+// use_after_delete.cb
+// delete後のポインタ使用エラーのテスト（エラーが期待される）
+
+struct Node {
+    int value;
+    Node* next;
+};
+
+int main() {
+    Node* node = new Node;
+    node->value = 42;
+    println("Node value before delete: {node->value}");
+    
+    delete node;
+    println("Node deleted");
+    
+    // delete後のアクセス（エラーが期待される）
+    int val = node->value;
+    println("Node value after delete: {val} (ERROR: should not reach here)");
+    
+    return 0;
+}

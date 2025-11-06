@@ -1,0 +1,41 @@
+// Selective Import Test
+// テスト: 選択的import機能
+
+// パターン1: ドット記法でデフォルトimport（全てimport）
+import stdlib.std.vector;
+
+// パターン2: 選択的import（Queueのみ）
+import stdlib.std.queue { Queue };
+
+void test_default_import() {
+    println("=== Test: Default Import (all exports) ===");
+    
+    // Vectorの全ての型が利用可能
+    Vector<int> vec;
+    vec.push_back(10);
+    
+    println("✅ Default import works");
+}
+
+void test_selective_import() {
+    println("\n=== Test: Selective Import (Queue only) ===");
+    
+    // Queueのみimportしたので、Queue<int>は使える
+    Queue<int> q;
+    q.push(100);
+    
+    println("✅ Selective import works (Queue<int>)");
+}
+
+void main() {
+    println("╔════════════════════════════════════════════╗");
+    println("║  Selective Import Test                    ║");
+    println("╚════════════════════════════════════════════╝\n");
+    
+    test_default_import();
+    test_selective_import();
+    
+    println("\n╔════════════════════════════════════════════╗");
+    println("║  All selective import tests passed!       ║");
+    println("╚════════════════════════════════════════════╝");
+}

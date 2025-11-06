@@ -1,0 +1,35 @@
+// String Interpolation - Escape Test
+// Tests escape sequences in string interpolation
+
+void main() {
+    println("=== String Interpolation Escape Test ===");
+    
+    // Test 1: Escaped braces (literal {})
+    string escaped = "Set: {{1, 2, 3}}";
+    assert(escaped == "Set: {1, 2, 3}");
+    println("Test 1: Escaped braces - PASSED");
+    
+    // Test 2: Mixed escaped and interpolated
+    int value = 42;
+    string mixed = "Value: {{literal}}, Actual: {value}";
+    assert(mixed == "Value: {literal}, Actual: 42");
+    println("Test 2: Mixed escaped and interpolated - PASSED");
+    
+    // Test 3: Multiple escapes
+    string multi_escape = "{{A}} {{B}} {{C}}";
+    assert(multi_escape == "{A} {B} {C}");
+    println("Test 3: Multiple escapes - PASSED");
+    
+    // Test 4: Only opening brace escaped
+    int x = 10;
+    string partial = "Value: {{{x}}}";
+    assert(partial == "Value: {10}");
+    println("Test 4: Partial escape - PASSED");
+    
+    // Test 5: Empty braces
+    string empty = "Empty: {{}}";
+    assert(empty == "Empty: {}");
+    println("Test 5: Empty braces - PASSED");
+    
+    println("=== All Escape Tests Passed ===");
+}

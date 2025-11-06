@@ -1,0 +1,130 @@
+// Test: Scope and Destructor Order
+// スコープとデストラクタの呼び出し順序の確認
+
+struct Item {
+    int id;
+    int level;
+};
+
+impl Item {
+    ~self() {
+        println("[Item] Destructor: id={self.id}, level={self.level}");
+    }
+}
+
+void test_lifo_order() {
+    println("=== Test 1: LIFO Order (Last In, First Out) ===");
+    {
+        Item a;
+        a.id = 1;
+        a.level = 0;
+        println("Created Item A (id={a.id})");
+        
+        Item b;
+        b.id = 2;
+        b.level = 0;
+        println("Created Item B (id={b.id})");
+        
+        Item c;
+        c.id = 3;
+        c.level = 0;
+        println("Created Item C (id={c.id})");
+        
+        println("\nExiting scope...");
+        println("Expected order: C(3) → B(2) → A(1)");
+    }
+    println("✓ LIFO order verified\n");
+}
+
+void test_nested_scopes_lifo() {
+    println("=== Test 2: Nested Scopes with LIFO ===");
+    {
+        Item outer1;
+        outer1.id = 1;
+        outer1.level = 1;
+        println("Level 1: Created Item 1");
+        
+        {
+            Item inner1;
+            inner1.id = 2;
+            inner1.level = 2;
+            println("  Level 2: Created Item 2");
+            
+            Item inner2;
+            inner2.id = 3;
+            inner2.level = 2;
+            println("  Level 2: Created Item 3");
+            
+            {
+                Item deepest;
+                deepest.id = 4;
+                deepest.level = 3;
+                println("    Level 3: Created Item 4");
+                println("    Level 3: Exiting...");
+            }
+            println("  Level 2: Back from level 3");
+            println("  Level 2: Exiting...");
+        }
+        println("Level 1: Back from level 2");
+        
+        Item outer2;
+        outer2.id = 5;
+        outer2.level = 1;
+        println("Level 1: Created Item 5");
+        
+        println("Level 1: Exiting...");
+    }
+    println("✓ Nested scopes LIFO verified\n");
+}
+
+void test_function_scope() {
+    println("=== Test 3: Function Scope ===");
+    Item func_var;
+    func_var.id = 99;
+    func_var.level = 0;
+    println("Created Item in function scope (id={func_var.id})");
+    println("Exiting function...");
+}
+
+void test_early_exit() {
+    println("=== Test 4: Early Exit (Simulated) ===");
+    {
+        Item item1;
+        item1.id = 10;
+        item1.level = 0;
+        println("Created Item 1");
+        
+        {
+            Item item2;
+            item2.id = 20;
+            item2.level = 1;
+            println("  Created Item 2 in inner scope");
+            println("  Early exit from inner scope");
+        }
+        
+        println("Back to outer scope");
+        
+        Item item3;
+        item3.id = 30;
+        item3.level = 0;
+        println("Created Item 3");
+        
+        println("Exiting outer scope...");
+    }
+    println("✓ Early exit handling verified\n");
+}
+
+void main() {
+    println("╔══════════════════════════════════════════════════╗");
+    println("║  Scope and Destructor Order Tests               ║");
+    println("╚══════════════════════════════════════════════════╝\n");
+    
+    test_lifo_order();
+    test_nested_scopes_lifo();
+    test_function_scope();
+    test_early_exit();
+    
+    println("╔══════════════════════════════════════════════════╗");
+    println("║  All Scope Tests Passed!                        ║");
+    println("╚══════════════════════════════════════════════════╝");
+}

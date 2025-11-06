@@ -1,0 +1,35 @@
+// Test: Interface method call through type parameter (Phase 1)
+// Phase 1: Test basic structure without method calls
+// Phase 2: Will implement A.allocate() syntax
+
+interface Allocator {
+    void* allocate(int size);
+    void deallocate(void* ptr);
+}
+
+struct SystemAllocator {
+    int allocation_count;
+};
+
+impl Allocator for SystemAllocator {
+    void* allocate(int size) {
+        println("SystemAllocator.allocate(size=%d)", size);
+        return nullptr;
+    }
+    
+    void deallocate(void* ptr) {
+        println("SystemAllocator.deallocate()");
+    }
+}
+
+struct Vector<T, A: Allocator> {
+    int capacity;
+};
+
+void main() {
+    Vector<int, SystemAllocator> vec;
+    vec.capacity = 10;
+    
+    println("Day 4 Phase 1: Structure validated");
+    println("Next: Implement type parameter method resolution");
+}

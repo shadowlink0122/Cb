@@ -1,6 +1,6 @@
 // basic import/export テスト
-import "math_module.cb";
-import "string_module.cb";
+import math_module;
+import string_module;
 
 int main() {
     println("=== Import/Export Test ===");

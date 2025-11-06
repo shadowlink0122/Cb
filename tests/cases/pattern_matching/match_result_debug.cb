@@ -1,0 +1,42 @@
+// Result型のデバッグテスト
+
+int main() {
+    println("=== Result Debug Test ===");
+    
+    // 直接作成（これは動作する）
+    Result<int, int> r1 = Result<int, int>::Ok(42);
+    println("Created r1");
+    
+    match (r1) {
+        Ok(val) => {
+            println("Ok:");
+            println(val);
+        }
+        Err(e) => {
+            println("Err:");
+            println(e);
+        }
+    }
+    
+    println("");
+    
+    // エラーケース
+    Result<int, int> r2 = Result<int, int>::Err(99);
+    println("Created r2");
+    
+    match (r2) {
+        Ok(val) => {
+            println("Ok:");
+            println(val);
+        }
+        Err(e) => {
+            println("Err:");
+            println(e);
+        }
+    }
+    
+    println("");
+    println("Debug Test: PASSED");
+    
+    return 0;
+}

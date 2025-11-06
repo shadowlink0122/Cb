@@ -1,0 +1,101 @@
+// フォーマット指定子テスト
+// {式:format}構文のテスト
+
+fn main() {
+    println("=== Integer Format Tests ===");
+    
+    int num = 255;
+    
+    // 10進数（デフォルト）
+    println("Decimal: {num}");
+    // 期待: Decimal: 255
+    
+    // 16進数（小文字）
+    println("Hex (lower): {num:x}");
+    // 期待: Hex (lower): ff
+    
+    // 16進数（大文字）
+    println("Hex (upper): {num:X}");
+    // 期待: Hex (upper): FF
+    
+    // 8進数
+    println("Octal: {num:o}");
+    // 期待: Octal: 377
+    
+    // 2進数
+    println("Binary: {num:b}");
+    // 期待: Binary: 11111111
+    
+    // ゼロパディング
+    println("Zero padded: {num:05}");
+    // 期待: Zero padded: 00255
+    
+    // 幅指定（右寄せ）
+    println("Right aligned: {num:>10}");
+    // 期待: Right aligned:        255
+    
+    // 左寄せ
+    println("Left aligned: {num:<10}|");
+    // 期待: Left aligned: 255       |
+    
+    // 中央寄せ
+    println("Center aligned: {num:^10}|");
+    // 期待: Center aligned:    255    |
+    
+    println("");
+    println("=== Float Format Tests ===");
+    
+    double pi = 3.14159265358979;
+    
+    // デフォルト
+    println("Default: {pi}");
+    // 期待: Default: 3.141593
+    
+    // 小数点以下2桁
+    println("Two decimals: {pi:.2}");
+    // 期待: Two decimals: 3.14
+    
+    // 小数点以下5桁
+    println("Five decimals: {pi:.5}");
+    // 期待: Five decimals: 3.14159
+    
+    // 幅と精度
+    println("Width and precision: {pi:10.2}");
+    // 期待: Width and precision:       3.14
+    
+    // 科学的記法
+    println("Scientific: {pi:e}");
+    // 期待: Scientific: 3.141593e+00
+    
+    // 科学的記法（精度指定）
+    println("Scientific (2 decimals): {pi:.2e}");
+    // 期待: Scientific (2 decimals): 3.14e+00
+    
+    println("");
+    println("=== String Format Tests ===");
+    
+    string name = "Alice";
+    
+    // デフォルト
+    println("Default: {name}");
+    // 期待: Default: Alice
+    
+    // 幅指定（右寄せ）
+    println("Right aligned: {name:>10}|");
+    // 期待: Right aligned:      Alice|
+    
+    // 左寄せ
+    println("Left aligned: {name:<10}|");
+    // 期待: Left aligned: Alice     |
+    
+    // 中央寄せ
+    println("Center aligned: {name:^10}|");
+    // 期待: Center aligned:   Alice   |
+    
+    // 切り詰め
+    println("Truncated: {name:.3}");
+    // 期待: Truncated: Ali
+    
+    println("");
+    println("=== All Format Tests Passed ===");
+}

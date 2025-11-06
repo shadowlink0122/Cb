@@ -1,0 +1,68 @@
+// Test 6: 変数束縛なしのパターンマッチング
+// Pattern matching without variable binding
+
+enum State {
+    Idle(int),
+    Running(int),
+    Stopped(int)
+};
+
+int main() {
+    println("=== Test 6: Pattern matching without binding ===");
+    
+    // Test 1: 値を取り出さずにマッチング
+    State state1 = State::Idle(0);
+    
+    match (state1) {
+        Idle(_) => {
+            println("State is Idle (value not extracted)");
+        }
+        Running(_) => {
+            println("State is Running (value not extracted)");
+        }
+        Stopped(_) => {
+            println("State is Stopped (value not extracted)");
+        }
+    }
+    
+    println("");
+    
+    // Test 2: Running状態
+    State state2 = State::Running(100);
+    
+    match (state2) {
+        Idle(_) => {
+            println("State is Idle");
+        }
+        Running(_) => {
+            println("State is Running (value not extracted)");
+        }
+        Stopped(_) => {
+            println("State is Stopped");
+        }
+    }
+    
+    println("");
+    
+    // Test 3: 混在パターン（一部は束縛、一部は束縛なし）
+    State state3 = State::Stopped(200);
+    
+    match (state3) {
+        Idle(_) => {
+            println("State is Idle");
+        }
+        Running(val) => {
+            println("State is Running with value:");
+            println(val);
+        }
+        Stopped(val) => {
+            println("State is Stopped with value:");
+            println(val);
+        }
+    }
+    
+    println("");
+    println("Test 6: PASSED");
+    
+    return 0;
+}

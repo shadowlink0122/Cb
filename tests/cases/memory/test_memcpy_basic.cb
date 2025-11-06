@@ -1,0 +1,125 @@
+// test_memcpy_basic.cb
+// memcpy組み込み関数の基本機能テスト
+
+struct Point {
+    int x;
+    int y;
+};
+
+int main() {
+    println("╔════════════════════════════════════╗");
+    println("║  memcpy Basic Function Tests     ║");
+    println("╚════════════════════════════════════╝");
+    println("");
+    
+    // Test 1: 基本的な構造体のコピー
+    println("=== Test 1: Basic struct copy ===");
+    Point* src1 = new Point;
+    src1->x = 100;
+    src1->y = 200;
+    
+    Point* dest1 = new Point;
+    memcpy(dest1, src1, sizeof(Point));
+    
+    assert(dest1->x == 100);
+    assert(dest1->y == 200);
+    println("Source: x={src1->x}, y={src1->y}");
+    println("Dest:   x={dest1->x}, y={dest1->y}");
+    println("✅ Test 1: Basic struct copy - PASSED");
+    println("");
+    
+    delete src1;
+    delete dest1;
+    
+    // Test 2: コピー後のデータ独立性
+    println("=== Test 2: Data independence after copy ===");
+    Point* src2 = new Point;
+    src2->x = 10;
+    src2->y = 20;
+    
+    Point* dest2 = new Point;
+    memcpy(dest2, src2, sizeof(Point));
+    
+    // srcを変更してもdestは影響を受けない
+    src2->x = 999;
+    src2->y = 888;
+    
+    assert(dest2->x == 10);
+    assert(dest2->y == 20);
+    println("After modifying source:");
+    println("Source: x={src2->x}, y={src2->y}");
+    println("Dest:   x={dest2->x}, y={dest2->y}");
+    println("✅ Test 2: Data independence - PASSED");
+    println("");
+    
+    delete src2;
+    delete dest2;
+    
+    // Test 3: 複数の構造体のコピー
+    println("=== Test 3: Multiple struct copies ===");
+    Point* arr_src1 = new Point;
+    arr_src1->x = 1;
+    arr_src1->y = 2;
+    
+    Point* arr_src2 = new Point;
+    arr_src2->x = 3;
+    arr_src2->y = 4;
+    
+    Point* arr_src3 = new Point;
+    arr_src3->x = 5;
+    arr_src3->y = 6;
+    
+    Point* arr_dest1 = new Point;
+    Point* arr_dest2 = new Point;
+    Point* arr_dest3 = new Point;
+    
+    memcpy(arr_dest1, arr_src1, sizeof(Point));
+    memcpy(arr_dest2, arr_src2, sizeof(Point));
+    memcpy(arr_dest3, arr_src3, sizeof(Point));
+    
+    assert(arr_dest1->x == 1 && arr_dest1->y == 2);
+    assert(arr_dest2->x == 3 && arr_dest2->y == 4);
+    assert(arr_dest3->x == 5 && arr_dest3->y == 6);
+    
+    println("Dest1: ({arr_dest1->x}, {arr_dest1->y})");
+    println("Dest2: ({arr_dest2->x}, {arr_dest2->y})");
+    println("Dest3: ({arr_dest3->x}, {arr_dest3->y})");
+    println("✅ Test 3: Multiple struct copies - PASSED");
+    println("");
+    
+    delete arr_src1;
+    delete arr_src2;
+    delete arr_src3;
+    delete arr_dest1;
+    delete arr_dest2;
+    delete arr_dest3;
+    
+    // Test 4: サイズ0のコピー（何もしない）
+    println("=== Test 4: Zero-size copy ===");
+    Point* src4 = new Point;
+    src4->x = 42;
+    src4->y = 84;
+    
+    Point* dest4 = new Point;
+    dest4->x = 0;
+    dest4->y = 0;
+    
+    void* result = memcpy(dest4, src4, 0);
+    
+    // サイズ0なのでコピーされない
+    assert(dest4->x == 0);
+    assert(dest4->y == 0);
+    println("Zero-size memcpy: dest unchanged");
+    println("✅ Test 4: Zero-size copy - PASSED");
+    println("");
+    
+    delete src4;
+    delete dest4;
+    
+    // 完了メッセージ
+    println("╔════════════════════════════════════╗");
+    println("║  All memcpy tests passed!         ║");
+    println("╚════════════════════════════════════╝");
+    
+    return 0;
+}

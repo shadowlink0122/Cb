@@ -1,0 +1,23 @@
+// Test nested generics without space
+struct Box<T> {
+    T value;
+};
+
+struct Container<T> {
+    T data;
+    int count;
+};
+
+void main() {
+    // ネストしたジェネリクス（スペースなし）
+    Container<Box<int>> container;
+    container.data.value = 999;
+    container.count = 1;
+    
+    println("container.data.value = ");
+    println(container.data.value);
+    println("container.count = ");
+    println(container.count);
+    
+    println("Nested generics without space: SUCCESS!");
+}

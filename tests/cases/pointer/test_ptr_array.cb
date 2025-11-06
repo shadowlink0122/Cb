@@ -1,0 +1,39 @@
+// ポインタの配列アクセステスト
+
+void test_ptr_array_access() {
+    println("=== Pointer Array Access Test ===");
+    
+    // 配列を作成
+    int[5] arr = [10, 20, 30, 40, 50];
+    
+    // ポインタで受け取る
+    int* ptr = &arr[0];
+    
+    // 読み取りテスト
+    println("\n--- Read Test ---");
+    println("ptr[0] = %d", ptr[0]);
+    println("ptr[1] = %d", ptr[1]);
+    println("ptr[2] = %d", ptr[2]);
+    
+    // 書き込みテスト
+    println("\n--- Write Test ---");
+    ptr[0] = 100;
+    ptr[1] = 200;
+    ptr[2] = 300;
+    
+    println("After write:");
+    println("ptr[0] = %d", ptr[0]);
+    println("ptr[1] = %d", ptr[1]);
+    println("ptr[2] = %d", ptr[2]);
+    
+    // 元の配列も変わっているか確認
+    println("\nOriginal array:");
+    println("arr[0] = %d", arr[0]);
+    println("arr[1] = %d", arr[1]);
+    println("arr[2] = %d", arr[2]);
+}
+
+void main() {
+    test_ptr_array_access();
+    println("\n✅ All tests passed!");
+}

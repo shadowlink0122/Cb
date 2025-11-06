@@ -1,0 +1,66 @@
+// Vector<string>の詳細デバッグテスト
+import stdlib.std.vector;
+
+int main() {
+    println("=== Vector<string> Debug Test ===");
+    
+    Vector<string> vec;
+    vec.init(4);
+    
+    // 1. 単純なpushとget
+    println("\n--- Test 1: Simple push and get ---");
+    vec.push("Hello");
+    
+    string retrieved = vec.get(0);
+    println("Retrieved string type check:");
+    println("  Length of retrieved: (checking if accessible)");
+    
+    // 直接比較
+    if (retrieved == "Hello") {
+        println("✅ Direct comparison works: retrieved == 'Hello'");
+    } else {
+        println("❌ Direct comparison failed");
+    }
+    
+    // 2. 複数の文字列
+    println("\n--- Test 2: Multiple strings ---");
+    vec.push("World");
+    vec.push("Test");
+    
+    string s0 = vec.get(0);
+    string s1 = vec.get(1);
+    string s2 = vec.get(2);
+    
+    println("Comparison results:");
+    bool test0 = s0 == "Hello";
+    bool test1 = s1 == "World";
+    bool test2 = s2 == "Test";
+    println("  s0 == Hello: {test0}");
+    println("  s1 == World: {test1}");
+    println("  s2 == Test: {test2}");
+    
+    // 3. array_get_string.array_set_stringの直接テスト
+    println("\n--- Test 3: Direct array_get_string.array_set_string ---");
+    void* test_array = malloc(8 * 3);
+    
+    array_set_string(test_array, 0, "Direct1");
+    array_set_string(test_array, 1, "Direct2");
+    array_set_string(test_array, 2, "Direct3");
+    
+    string d0 = array_get_string(test_array, 0);
+    string d1 = array_get_string(test_array, 1);
+    string d2 = array_get_string(test_array, 2);
+    
+    println("Direct test results:");
+    bool dt0 = d0 == "Direct1";
+    bool dt1 = d1 == "Direct2";
+    bool dt2 = d2 == "Direct3";
+    println("  d0 == Direct1: {dt0}");
+    println("  d1 == Direct2: {dt1}");
+    println("  d2 == Direct3: {dt2}");
+    
+    free(test_array);
+    
+    println("\n✅ Debug test completed");
+    return 0;
+}

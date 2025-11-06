@@ -34,6 +34,11 @@ class ExpressionEvaluator {
     // 型推論対応の三項演算子評価
     TypedValue evaluate_ternary_typed(const ASTNode *node);
 
+    // v0.11.0 文字列補間評価
+    TypedValue evaluate_interpolated_string(const ASTNode *node);
+    std::string format_interpolated_value(const TypedValue &value,
+                                          const std::string &format_spec);
+
     // 修飾された関数呼び出し評価
     int64_t evaluate_qualified_function_call(const ASTNode *node);
 

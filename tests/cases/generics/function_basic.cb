@@ -1,0 +1,41 @@
+// ジェネリック関数の基本テスト
+// Phase 1: 単一型パラメータ
+
+// 基本的なジェネリック関数
+T identity<T>(T value) {
+    return value;
+}
+
+// 2つの引数を持つジェネリック関数
+T max<T>(T a, T b) {
+    if (a > b) {
+        return a;
+    }
+    return b;
+}
+
+void print_value<T>(T value) {
+    println("Value:", value);
+}
+
+int main() {
+    // int型でのテスト
+    int x = identity<int>(42);
+    println("identity<int>(42) =", x);
+    
+    int m = max<int>(10, 20);
+    println("max<int>(10, 20) =", m);
+    
+    // long型でのテスト
+    long y = identity<long>(100);
+    println("identity<long>(100) =", y);
+    
+    long n = max<long>(50, 75);
+    println("max<long>(50, 75) =", n);
+    
+    // void戻り値のテスト
+    print_value<int>(999);
+    
+    println("All generic function tests passed!");
+    return 0;
+}

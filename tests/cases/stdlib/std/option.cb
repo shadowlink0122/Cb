@@ -1,0 +1,70 @@
+// Cb Standard Library Test - Option Type
+// Tests for stdlib.std.option.cb
+// v0.11.0: Option<T> is now a builtin type - no enum definition needed
+
+// Option<T> is automatically available - no import or definition required!
+
+void main() {
+    println("=== Option<T> stdlib test ===");
+    
+    // Test 1: Option<int> - Some variant
+    Option<int> some_int = Option<int>::Some(42);
+    assert(some_int.variant == "Some");
+    assert(some_int.value == 42);
+    println("Test 1: Option<int>::Some(42) - PASSED");
+    
+    // Test 2: Option<int> - None variant
+    Option<int> none_int = Option<int>::None;
+    assert(none_int.variant == "None");
+    println("Test 2: Option<int>::None - PASSED");
+    
+    // Test 3: Option<long> - Some with long value
+    Option<long> some_long = Option<long>::Some(999999);
+    assert(some_long.variant == "Some");
+    assert(some_long.value == 999999);
+    println("Test 3: Option<long>::Some(999999) - PASSED");
+    
+    // Test 4: Option<long> - None
+    Option<long> none_long = Option<long>::None;
+    assert(none_long.variant == "None");
+    println("Test 4: Option<long>::None - PASSED");
+    
+    // Test 5: Pattern matching with Option - Some case
+    Option<int> opt_some = Option<int>::Some(100);
+    match (opt_some) {
+        Some(value) => {
+            assert(value == 100);
+            println("Test 5a: match Some variant - PASSED");
+        }
+        None => {
+            println("ERROR: Should not reach None branch");
+            assert(false);
+        }
+    }
+    
+    // Test 6: Pattern matching with Option - None case
+    Option<int> opt_none = Option<int>::None;
+    match (opt_none) {
+        Some(value) => {
+            println("ERROR: Should not reach Some branch");
+            assert(false);
+        }
+        None => {
+            println("Test 5b: match None variant - PASSED");
+        }
+    }
+    
+    // Test 7: Wildcard pattern with Option
+    Option<int> opt_wildcard = Option<int>::Some(50);
+    match (opt_wildcard) {
+        Some(_) => {
+            println("Test 6: wildcard pattern with Some - PASSED");
+        }
+        None => {
+            println("ERROR: Should not reach None branch");
+            assert(false);
+        }
+    }
+    
+    println("=== All Option tests passed ===");
+}

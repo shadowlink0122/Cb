@@ -1,0 +1,27 @@
+void main() {
+    println("=== malloc.free test ===");
+    
+    // 40バイト確保 (int 10個分)
+    void* ptr = malloc(40);
+    println("Allocated {ptr}");
+    
+    if (ptr != nullptr) {
+        println("✅ malloc succeeded");
+        
+        // 使用してみる
+        array_set_int(ptr, 0, 123);
+        array_set_int(ptr, 1, 456);
+        
+        int v0 = array_get_int(ptr, 0);
+        int v1 = array_get_int(ptr, 1);
+        
+        println("v0={v0}, v1={v1}");
+        
+        if (v0 == 123 && v1 == 456) {
+            println("✅ malloc'ed memory works!");
+        }
+        
+        free(ptr);
+        println("✅ free succeeded");
+    }
+}

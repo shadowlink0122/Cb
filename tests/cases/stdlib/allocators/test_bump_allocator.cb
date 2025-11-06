@@ -1,0 +1,45 @@
+// Test for stdlib.allocators.bump_allocator.cb
+// Using import to test stdlib exports
+
+import stdlib.allocators.bump_allocator;
+
+void test_bump_allocator_init() {
+    println("=== Test: BumpAllocator Init ===");
+    
+    BumpAllocator alloc;
+    bump_allocator_init(alloc, 1024);
+    
+    // Verify initialization
+    assert(alloc.buffer_size == 1024);
+    assert(alloc.current_offset == 0);
+    assert(alloc.allocation_count == 0);
+    
+    println("✅ BumpAllocator init test passed");
+}
+
+void test_bump_allocator_reset() {
+    println("\n=== Test: BumpAllocator Reset ===");
+    
+    BumpAllocator alloc;
+    bump_allocator_init(alloc, 512);
+    
+    // Reset
+    bump_allocator_reset(alloc);
+    
+    // Verify reset
+    assert(alloc.current_offset == 0);
+    assert(alloc.allocation_count == 0);
+    
+    println("✅ BumpAllocator reset test passed");
+}
+
+void main() {
+    println("╔════════════════════════════════════════════╗");
+    println("║  BumpAllocator stdlib Test                ║");
+    println("╚════════════════════════════════════════════╝\n");
+    
+    test_bump_allocator_init();
+    test_bump_allocator_reset();
+    
+    println("\n✅ All BumpAllocator tests passed!");
+}

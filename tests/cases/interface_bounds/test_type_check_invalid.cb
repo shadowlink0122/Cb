@@ -1,0 +1,22 @@
+// Test: Invalid interface implementation
+// Expected: Error - NoAllocator does not implement Allocator
+
+interface Allocator {
+    void* allocate(int size);
+    void deallocate(void* ptr);
+}
+
+struct NoAllocator {};
+
+// No impl for NoAllocator!
+
+struct Vector<T, A: Allocator> {
+    int capacity;
+};
+
+void main() {
+    // This should fail: NoAllocator does not implement Allocator
+    Vector<int, NoAllocator> vec;
+    vec.capacity = 10;
+    println("Should not reach here");
+}

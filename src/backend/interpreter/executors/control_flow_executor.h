@@ -22,6 +22,9 @@ class ControlFlowExecutor {
     // SWITCH文の実行
     void execute_switch_statement(const ASTNode *node);
 
+    // MATCH文の実行（v0.11.0 パターンマッチング）
+    void execute_match_statement(const ASTNode *node);
+
   private:
     Interpreter *interpreter_;
 

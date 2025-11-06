@@ -1,0 +1,93 @@
+// sizeof組み込み関数のテスト
+
+int main() {
+    println("=== sizeof() Tests ===");
+    
+    // 1. プリミティブ型のサイズ
+    int size_int = sizeof(int);
+    int size_long = sizeof(long);
+    int size_short = sizeof(short);
+    int size_char = sizeof(char);
+    int size_bool = sizeof(bool);
+    int size_float = sizeof(float);
+    int size_double = sizeof(double);
+    int size_ptr = sizeof(void*);
+    
+    println("Primitive type sizes:");
+    println("  sizeof(int) = {size_int}");
+    println("  sizeof(long) = {size_long}");
+    println("  sizeof(short) = {size_short}");
+    println("  sizeof(char) = {size_char}");
+    println("  sizeof(bool) = {size_bool}");
+    println("  sizeof(float) = {size_float}");
+    println("  sizeof(double) = {size_double}");
+    println("  sizeof(void*) = {size_ptr}");
+    
+    // 2. 検証
+    if (size_int == 4) {
+        println("✅ sizeof(int) is correct (4 bytes)");
+    } else {
+        println("❌ sizeof(int) is incorrect");
+        return 1;
+    }
+    
+    if (size_double == 8) {
+        println("✅ sizeof(double) is correct (8 bytes)");
+    } else {
+        println("❌ sizeof(double) is incorrect");
+        return 1;
+    }
+    
+    if (size_char == 1) {
+        println("✅ sizeof(char) is correct (1 byte)");
+    } else {
+        println("❌ sizeof(char) is incorrect");
+        return 1;
+    }
+    
+    if (size_ptr == 8) {
+        println("✅ sizeof(void*) is correct (8 bytes on 64-bit)");
+    } else {
+        println("❌ sizeof(void*) is incorrect");
+        return 1;
+    }
+    
+    // 3. sizeof を使った動的配列の確保
+    println("\n=== Using sizeof with malloc ===");
+    
+    int capacity = 10;
+    int double_array_size = capacity * sizeof(double);
+    println("Allocating {capacity} doubles: {double_array_size} bytes");
+    
+    void* double_arr = malloc(double_array_size);
+    if (double_arr != nullptr) {
+        println("✅ Successfully allocated array of {capacity} doubles");
+        free(double_arr);
+        println("✅ Successfully freed memory");
+    } else {
+        println("❌ malloc failed");
+        return 1;
+    }
+    
+    // 4. sizeof を使った構造体サイズの計算
+    println("\n=== sizeof with expressions ===");
+    
+    int x = 42;
+    double y = 3.14;
+    
+    int size_of_x = sizeof(x);
+    int size_of_y = sizeof(y);
+    
+    println("sizeof(x) where x is int: {size_of_x}");
+    println("sizeof(y) where y is double: {size_of_y}");
+    
+    if (size_of_x == 4 && size_of_y == 8) {
+        println("✅ sizeof with expressions works correctly");
+    } else {
+        println("❌ sizeof with expressions failed");
+        return 1;
+    }
+    
+    println("\n🎉 All sizeof() Tests Passed!");
+    return 0;
+}

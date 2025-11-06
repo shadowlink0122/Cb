@@ -1,0 +1,14 @@
+int main() {
+    int[3] arr = [10, 20, 30];
+    int* p = &arr[0];
+    
+    println("Test 1: p++");
+    p++;
+    println("*p = ", *p);
+    
+    println("Test 2: p--");
+    p--;
+    println("*p = ", *p);
+    
+    return 0;
+}

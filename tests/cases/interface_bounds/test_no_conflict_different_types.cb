@@ -1,0 +1,44 @@
+// Test: Same method name but for different types - should be OK
+// Expected: No error, since they are for different struct types
+
+interface Resettable {
+    void reset();
+}
+
+struct TypeA {
+    int value;
+};
+
+struct TypeB {
+    int data;
+};
+
+// 同じインターフェースだが異なる型なので問題なし
+impl Resettable for TypeA {
+    void reset() {
+        println("TypeA reset");
+    }
+}
+
+impl Resettable for TypeB {
+    void reset() {
+        println("TypeB reset");
+    }
+}
+
+int main() {
+    println("=== No Conflict for Different Types Test ===");
+    
+    // Test 1: TypeA implementation
+    TypeA a;
+    println("Test 1: impl Resettable for TypeA - PASSED");
+    
+    // Test 2: TypeB implementation
+    TypeB b;
+    println("Test 2: impl Resettable for TypeB - PASSED");
+    
+    println("Test 3: No conflict detected (different types) - PASSED");
+    
+    println("=== All Tests Passed ===");
+    return 0;
+}

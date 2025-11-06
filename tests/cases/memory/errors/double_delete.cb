@@ -1,0 +1,16 @@
+// double_delete.cb
+// 二重削除エラーのテスト（エラーが期待される）
+
+int main() {
+    int* ptr = new int;
+    println("Allocated int* at {hex(ptr)}");
+    
+    delete ptr;
+    println("First delete successful");
+    
+    // 二重削除（エラーが期待される）
+    delete ptr;
+    println("Second delete (ERROR: should not reach here)");
+    
+    return 0;
+}
