@@ -58,6 +58,36 @@ export void sleep_minutes(int minutes) {
 }
 
 // ========================================
+// 現在時刻取得（組み込み）
+// ========================================
+
+// now - 現在時刻をエポックからのミリ秒で取得
+// 
+// 戻り値: long - UNIXエポック(1970/1/1 00:00:00 UTC)からのミリ秒数
+//
+// 使用例:
+//   import stdlib.std.time;
+//   
+//   long start_ms = now();
+//   // 何か処理...
+//   long end_ms = now();
+//   long elapsed = end_ms - start_ms;
+//   println("処理時間: %ld ms", elapsed);
+//
+//   // Time構造体と組み合わせて使用
+//   Time current_time = create_time(now());
+//   current_time.format();
+//
+// 注意:
+//   - システム時刻に依存します
+//   - タイムゾーンはUTC
+//   - ミリ秒精度（プラットフォームによる）
+//
+// 実装: 組み込み関数（C++実装）
+//   - Windows: GetSystemTimeAsFileTime()
+//   - POSIX: gettimeofday()
+
+// ========================================
 // 時間計算ユーティリティ
 // ========================================
 
@@ -165,12 +195,23 @@ export interface TimeOps {
     void format();
 };
 
-// get_current_time - 現在時刻を取得 (ビルトイン関数として実装予定)
-// 現在は手動でタイムスタンプを作成する必要があります
+// create_time - タイムスタンプからTime構造体を作成
+// 引数: timestamp_ms (long) - エポックからのミリ秒
+// 戻り値: Time構造体
 export Time create_time(long timestamp_ms) {
     Time t;
     t.timestamp_ms = timestamp_ms;
     return t;
+}
+
+// get_current_time - 現在時刻をTime構造体として取得
+// 戻り値: 現在時刻を表すTime構造体
+//
+// 使用例:
+//   Time now_time = get_current_time();
+//   now_time.format();
+export Time get_current_time() {
+    return create_time(now());
 }
 
 // Time構造体用のimpl - TimeOpsインターフェースを実装

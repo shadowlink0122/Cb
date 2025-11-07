@@ -26,11 +26,12 @@
 #include <iomanip>
 #include <sstream>
 
-// プラットフォーム固有のヘッダー (sleep関数用)
+// プラットフォーム固有のヘッダー (sleep, now関数用)
 #ifdef _WIN32
-    #include <windows.h>  // Sleep()
+    #include <windows.h>  // Sleep(), GetSystemTimeAsFileTime()
 #else
     #include <unistd.h>   // usleep()
+    #include <sys/time.h> // gettimeofday()
 #endif
 
 int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
@@ -3069,6 +3070,7 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
             "free",
             "sizeof",
             "sleep",
+            "now",
             "array_get",
             "array_set",
             "array_get_double",
@@ -3258,6 +3260,45 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
             #endif
 
             return 0;
+        }
+
+        // now() - 現在時刻をエポックからのミリ秒で取得
+        if (node->name == "now") {
+            if (node->arguments.size() != 0) {
+                throw std::runtime_error(
+                    "now() takes no arguments");
+            }
+
+            // プラットフォーム依存の時刻取得
+            #ifdef _WIN32
+                // Windows: GetSystemTimeAsFileTime()を使用
+                FILETIME ft;
+                GetSystemTimeAsFileTime(&ft);
+                
+                // FILETIMEは100ナノ秒単位、1601/1/1からの経過時間
+                ULARGE_INTEGER ull;
+                ull.LowPart = ft.dwLowDateTime;
+                ull.HighPart = ft.dwHighDateTime;
+                
+                // UNIXエポック(1970/1/1)との差分: 116444736000000000 * 100ns
+                const uint64_t EPOCH_DIFF = 116444736000000000ULL;
+                uint64_t timestamp_100ns = ull.QuadPart - EPOCH_DIFF;
+                
+                // 100ナノ秒 → ミリ秒に変換
+                int64_t timestamp_ms = static_cast<int64_t>(timestamp_100ns / 10000);
+                
+                return timestamp_ms;
+            #else
+                // POSIX (Linux, macOS): gettimeofday()を使用
+                struct timeval tv;
+                gettimeofday(&tv, nullptr);
+                
+                // 秒をミリ秒に変換 + マイクロ秒をミリ秒に変換
+                int64_t timestamp_ms = static_cast<int64_t>(tv.tv_sec) * 1000 + 
+                                      static_cast<int64_t>(tv.tv_usec) / 1000;
+                
+                return timestamp_ms;
+            #endif
         }
 
         // その他の組み込み関数は後続の処理で対応
