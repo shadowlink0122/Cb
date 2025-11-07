@@ -212,43 +212,59 @@ void TypeManager::register_union_typedef(const std::string &name,
                                          const UnionDefinition &union_def) {
     extern bool debug_mode;
     if (debug_mode) {
-        debug_print("REGISTER_UNION_DEBUG: Registering union typedef '%s'\n",
-                    name.c_str());
-        debug_print(
-            "REGISTER_UNION_DEBUG: has_literal_values=%d, has_type_values=%d, "
-            "has_custom_types=%d, has_array_types=%d\n",
-            union_def.has_literal_values, union_def.has_type_values,
-            union_def.has_custom_types, union_def.has_array_types);
-        debug_print(
-            "REGISTER_UNION_DEBUG: allowed_values.size()=%zu, "
-            "allowed_types.size()=%zu, allowed_custom_types.size()=%zu, "
-            "allowed_array_types.size()=%zu\n",
-            union_def.allowed_values.size(), union_def.allowed_types.size(),
-            union_def.allowed_custom_types.size(),
-            union_def.allowed_array_types.size());
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "REGISTER_UNION_DEBUG: Registering union typedef '%s'",
+                     name.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
+        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                  "REGISTER_UNION_DEBUG: has_literal_values=%d, "
+                  "has_type_values=%d, ");
+        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                  "REGISTER_UNION_DEBUG: allowed_values.size()=%zu, ");
 
         if (union_def.has_type_values) {
-            debug_print("REGISTER_UNION_DEBUG: Allowed types: ");
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "REGISTER_UNION_DEBUG: Allowed types: ");
             for (const auto &type : union_def.allowed_types) {
-                debug_print("%d ", static_cast<int>(type));
+                {
+                    char dbg_buf[512];
+                    snprintf(dbg_buf, sizeof(dbg_buf), "%d ",
+                             static_cast<int>(type));
+                    debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                }
             }
-            debug_print("\n");
+            debug_msg(DebugMsgId::GENERIC_DEBUG, "");
         }
 
         if (union_def.has_custom_types) {
-            debug_print("REGISTER_UNION_DEBUG: Allowed custom types: ");
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "REGISTER_UNION_DEBUG: Allowed custom types: ");
             for (const auto &custom_type : union_def.allowed_custom_types) {
-                debug_print("%s ", custom_type.c_str());
+                {
+                    char dbg_buf[512];
+                    snprintf(dbg_buf, sizeof(dbg_buf), "%s ",
+                             custom_type.c_str());
+                    debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                }
             }
-            debug_print("\n");
+            debug_msg(DebugMsgId::GENERIC_DEBUG, "");
         }
 
         if (union_def.has_array_types) {
-            debug_print("REGISTER_UNION_DEBUG: Allowed array types: ");
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "REGISTER_UNION_DEBUG: Allowed array types: ");
             for (const auto &array_type : union_def.allowed_array_types) {
-                debug_print("%s ", array_type.c_str());
+                {
+                    char dbg_buf[512];
+                    snprintf(dbg_buf, sizeof(dbg_buf), "%s ",
+                             array_type.c_str());
+                    debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                }
             }
-            debug_print("\n");
+            debug_msg(DebugMsgId::GENERIC_DEBUG, "");
         }
     }
 
@@ -337,23 +353,37 @@ bool TypeManager::is_value_allowed_for_union(const std::string &type_name,
 
     extern bool debug_mode;
     if (debug_mode) {
-        debug_print(
-            "UNION_TYPE_DEBUG: Checking int value %lld for union type %s\n",
-            int_value, type_name.c_str());
-        debug_print(
-            "UNION_TYPE_DEBUG: has_literal_values=%d, has_type_values=%d\n",
-            union_def.has_literal_values, union_def.has_type_values);
-        debug_print("UNION_TYPE_DEBUG: allowed_values.size()=%zu, "
-                    "allowed_types.size()=%zu\n",
-                    union_def.allowed_values.size(),
-                    union_def.allowed_types.size());
+        {
+            char dbg_buf[512];
+            snprintf(
+                dbg_buf, sizeof(dbg_buf),
+                "UNION_TYPE_DEBUG: Checking int value %lld for union type %s",
+                int_value, type_name.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
+        {
+            char dbg_buf[512];
+            snprintf(
+                dbg_buf, sizeof(dbg_buf),
+                "UNION_TYPE_DEBUG: has_literal_values=%d, has_type_values=%d",
+                union_def.has_literal_values, union_def.has_type_values);
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
+        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                  "UNION_TYPE_DEBUG: allowed_values.size()=%zu, ");
 
         if (union_def.has_type_values) {
-            debug_print("UNION_TYPE_DEBUG: Allowed types: ");
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "UNION_TYPE_DEBUG: Allowed types: ");
             for (const auto &type : union_def.allowed_types) {
-                debug_print("%d ", static_cast<int>(type));
+                {
+                    char dbg_buf[512];
+                    snprintf(dbg_buf, sizeof(dbg_buf), "%d ",
+                             static_cast<int>(type));
+                    debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                }
             }
-            debug_print("\n");
+            debug_msg(DebugMsgId::GENERIC_DEBUG, "");
         }
     }
 
@@ -362,10 +392,8 @@ bool TypeManager::is_value_allowed_for_union(const std::string &type_name,
         // bool literal_found = false;  // 将来の拡張のため残すがコメントアウト
         for (const auto &allowed : union_def.allowed_values) {
             if (debug_mode) {
-                debug_print("UNION_TYPE_DEBUG: Comparing with allowed value: "
-                            "type=%d, int_value=%lld, bool_value=%d\n",
-                            static_cast<int>(allowed.value_type),
-                            allowed.int_value, allowed.bool_value);
+                debug_msg(DebugMsgId::GENERIC_DEBUG,
+                          "UNION_TYPE_DEBUG: Comparing with allowed value: ");
             }
             if ((allowed.value_type == TYPE_INT ||
                  allowed.value_type == TYPE_LONG ||
@@ -385,9 +413,8 @@ bool TypeManager::is_value_allowed_for_union(const std::string &type_name,
         // リテラル値が定義されているがマッチしなかった場合
         // 混合ユニオンでも、明示されたリテラル値でない限りfalse
         if (debug_mode) {
-            debug_print("UNION_TYPE_DEBUG: Literal value %lld not found in "
-                        "allowed values\n",
-                        int_value);
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "UNION_TYPE_DEBUG: Literal value %lld not found in ");
         }
 
         // 値が数値で、かつint系型が許可されている場合のみ型チェックに進む
@@ -399,14 +426,14 @@ bool TypeManager::is_value_allowed_for_union(const std::string &type_name,
 
         if (has_int_types) {
             if (debug_mode) {
-                debug_print("UNION_TYPE_DEBUG: Mixed union has int types, "
-                            "checking if value fits\n");
+                debug_msg(DebugMsgId::GENERIC_DEBUG,
+                          "UNION_TYPE_DEBUG: Mixed union has int types, ");
             }
         } else {
             // int系の型が許可されておらず、リテラル値も一致しない場合はfalse
             if (debug_mode) {
-                debug_print("UNION_TYPE_DEBUG: No int types allowed and "
-                            "literal value not found, returning false\n");
+                debug_msg(DebugMsgId::GENERIC_DEBUG,
+                          "UNION_TYPE_DEBUG: No int types allowed and ");
             }
             return false;
         }
@@ -426,8 +453,13 @@ bool TypeManager::is_value_allowed_for_union(const std::string &type_name,
     }
 
     if (debug_mode) {
-        debug_print("UNION_TYPE_DEBUG: Basic type check result = %d\n",
-                    basic_type_result);
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "UNION_TYPE_DEBUG: Basic type check result = %d",
+                     basic_type_result);
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
     }
 
     // 混合ユニオンの場合の処理
@@ -435,17 +467,15 @@ bool TypeManager::is_value_allowed_for_union(const std::string &type_name,
         // 基本型が明示的に許可されている場合は、基本型の値も許可
         if (basic_type_result) {
             if (debug_mode) {
-                debug_print("UNION_TYPE_DEBUG: Mixed union with literals and "
-                            "explicit int type - allowing int value %lld\n",
-                            int_value);
+                debug_msg(DebugMsgId::GENERIC_DEBUG,
+                          "UNION_TYPE_DEBUG: Mixed union with literals and ");
             }
             return true;
         } else {
             // 基本型が明示的に許可されていない場合は、リテラル値のみ
             if (debug_mode) {
-                debug_print("UNION_TYPE_DEBUG: Mixed union with literals but "
-                            "no explicit int type - rejecting int value %lld\n",
-                            int_value);
+                debug_msg(DebugMsgId::GENERIC_DEBUG,
+                          "UNION_TYPE_DEBUG: Mixed union with literals but ");
             }
             return false;
         }
@@ -454,40 +484,46 @@ bool TypeManager::is_value_allowed_for_union(const std::string &type_name,
     // カスタム型チェック（int値の場合）
     if (!basic_type_result && union_def.has_custom_types) {
         if (debug_mode) {
-            debug_print("UNION_CUSTOM_TYPE_DEBUG: Checking custom types for "
-                        "int value %lld\n",
-                        int_value);
-            debug_print(
-                "UNION_CUSTOM_TYPE_DEBUG: Number of custom types: %zu\n",
-                union_def.allowed_custom_types.size());
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "UNION_CUSTOM_TYPE_DEBUG: Checking custom types for ");
+            {
+                char dbg_buf[512];
+                snprintf(dbg_buf, sizeof(dbg_buf),
+                         "UNION_CUSTOM_TYPE_DEBUG: Number of custom types: %zu",
+                         union_def.allowed_custom_types.size());
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
         }
         for (const auto &custom_type : union_def.allowed_custom_types) {
             if (debug_mode) {
-                debug_print(
-                    "UNION_CUSTOM_TYPE_DEBUG: Examining custom type '%s'\n",
-                    custom_type.c_str());
+                {
+                    char dbg_buf[512];
+                    snprintf(
+                        dbg_buf, sizeof(dbg_buf),
+                        "UNION_CUSTOM_TYPE_DEBUG: Examining custom type '%s'",
+                        custom_type.c_str());
+                    debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                }
             }
             // カスタム型がint系の基本型へのtypedefかどうかをチェック
             std::string resolved_type = resolve_typedef(custom_type);
             if (debug_mode) {
-                debug_print("UNION_CUSTOM_TYPE_DEBUG: Custom type '%s' "
-                            "resolves to '%s'\n",
-                            custom_type.c_str(), resolved_type.c_str());
+                debug_msg(DebugMsgId::GENERIC_DEBUG,
+                          "UNION_CUSTOM_TYPE_DEBUG: Custom type '%s' ");
             }
             if (resolved_type == "int" || resolved_type == "long" ||
                 resolved_type == "short" || resolved_type == "tiny" ||
                 resolved_type == "char") {
                 if (debug_mode) {
-                    debug_print("UNION_CUSTOM_TYPE_DEBUG: Custom type '%s' is "
-                                "int-compatible, returning true\n",
-                                custom_type.c_str());
+                    debug_msg(DebugMsgId::GENERIC_DEBUG,
+                              "UNION_CUSTOM_TYPE_DEBUG: Custom type '%s' is ");
                 }
                 return true;
             }
         }
         if (debug_mode) {
-            debug_print("UNION_CUSTOM_TYPE_DEBUG: No int-compatible custom "
-                        "types found\n");
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "UNION_CUSTOM_TYPE_DEBUG: No int-compatible custom ");
         }
     }
 
@@ -543,26 +579,28 @@ bool TypeManager::is_custom_type_allowed_for_union(
 
     extern bool debug_mode;
     if (debug_mode) {
-        debug_print("UNION_CUSTOM_TYPE_DEBUG: Checking custom type '%s' for "
-                    "union type %s\n",
-                    custom_type_name.c_str(), union_type_name.c_str());
-        debug_print("UNION_CUSTOM_TYPE_DEBUG: has_custom_types=%d, "
-                    "allowed_custom_types.size()=%zu\n",
-                    union_def.has_custom_types,
-                    union_def.allowed_custom_types.size());
+        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                  "UNION_CUSTOM_TYPE_DEBUG: Checking custom type '%s' for ");
+        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                  "UNION_CUSTOM_TYPE_DEBUG: has_custom_types=%d, ");
     }
 
     bool result = union_def.is_custom_type_allowed(custom_type_name);
     if (debug_mode) {
-        debug_print("UNION_CUSTOM_TYPE_DEBUG: is_custom_type_allowed('%s') "
-                    "returned %d\n",
-                    custom_type_name.c_str(), result);
+        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                  "UNION_CUSTOM_TYPE_DEBUG: is_custom_type_allowed('%s') ");
         if (union_def.has_custom_types) {
-            debug_print("UNION_CUSTOM_TYPE_DEBUG: Allowed custom types are: ");
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "UNION_CUSTOM_TYPE_DEBUG: Allowed custom types are: ");
             for (const auto &allowed : union_def.allowed_custom_types) {
-                debug_print("'%s' ", allowed.c_str());
+                {
+                    char dbg_buf[512];
+                    snprintf(dbg_buf, sizeof(dbg_buf), "'%s' ",
+                             allowed.c_str());
+                    debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                }
             }
-            debug_print("\n");
+            debug_msg(DebugMsgId::GENERIC_DEBUG, "");
         }
     }
     return result;
@@ -579,13 +617,10 @@ bool TypeManager::is_array_type_allowed_for_union(
 
     extern bool debug_mode;
     if (debug_mode) {
-        debug_print("UNION_ARRAY_TYPE_DEBUG: Checking array type '%s' for "
-                    "union type %s\n",
-                    array_type.c_str(), union_type_name.c_str());
-        debug_print("UNION_ARRAY_TYPE_DEBUG: has_array_types=%d, "
-                    "allowed_array_types.size()=%zu\n",
-                    union_def.has_array_types,
-                    union_def.allowed_array_types.size());
+        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                  "UNION_ARRAY_TYPE_DEBUG: Checking array type '%s' for ");
+        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                  "UNION_ARRAY_TYPE_DEBUG: has_array_types=%d, ");
     }
 
     return union_def.is_array_type_allowed(array_type);

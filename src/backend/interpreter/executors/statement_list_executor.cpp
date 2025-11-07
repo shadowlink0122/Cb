@@ -3,6 +3,7 @@
 #include "../../../common/debug.h"
 #include "../../../common/debug_messages.h"
 #include "core/interpreter.h"
+#include "event_loop/simple_event_loop.h"
 #include <iostream>
 
 StatementListExecutor::StatementListExecutor(Interpreter *interpreter)
@@ -31,6 +32,20 @@ void StatementListExecutor::execute_statement_list(const ASTNode *node) {
             }
 
             interpreter_->execute_statement(node->statements[i].get());
+
+            // v0.12.0 / v0.13.0 Phase 2.0:
+            // ステートメント実行後、イベントループを1サイクル実行してバックグラウンドタスクを進める
+            // スコープ深度に関係なく、バックグラウンドタスクがあれば進行させる
+            // これにより、再帰関数内でもバックグラウンドタスクが進行する
+            if (interpreter_->get_simple_event_loop().has_tasks()) {
+                if (interpreter_->debug_mode) {
+                    std::cerr
+                        << "[STMT_LIST_DEBUG] Running event loop cycle after "
+                           "statement "
+                        << (i + 1) << std::endl;
+                }
+                interpreter_->get_simple_event_loop().run_one_cycle();
+            }
 
             if (interpreter_->debug_mode) {
                 std::cerr << "[STMT_LIST_DEBUG] Completed statement " << (i + 1)

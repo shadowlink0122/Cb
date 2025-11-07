@@ -1,0 +1,33 @@
+// Phase 2.0 Test: Unawaited async call and immediate program exit
+// If an async function is invoked but not awaited, the program should not
+// block waiting for it; the program may exit while the async task is not
+// completed.
+
+async Future<void> background_task() {
+    // 複数の独立したステートメント（auto-yieldで各ステートメント後にyield）
+    println("Background: Step 1");
+    println("Background: Step 2");
+    println("Background: Step 3");
+    println("Background: Step 4");
+    println("Background: Step 5");
+    println("Background: Step 6");
+    println("Background: Step 7");
+    println("Background: Step 8");
+    println("Background: Step 9");
+    println("Background: Step 10");
+    return;
+}
+
+void main() {
+    println("=== Unawaited Exit Test ===");
+
+    // invoke async function but DO NOT await
+    Future<void> f = background_task();
+    
+    // Add some statements to give the background task a chance to run
+    // (if auto-yield and event loop are working)
+    
+    // Immediately exit main — we expect the program to finish here and
+    // not necessarily wait for background_task to run to completion.
+    println("Main: Exiting without awaiting");
+}

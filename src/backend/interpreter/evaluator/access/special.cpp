@@ -124,9 +124,8 @@ int64_t evaluate_arrow_access(
             }
 
             if (ptr_value == 0) {
-                debug_print("[ARROW_OP] Null pointer access: var='%s', "
-                            "member='%s', returning default value\n",
-                            node->left->name.c_str(), member_name.c_str());
+                debug_msg(DebugMsgId::GENERIC_DEBUG,
+                          "[ARROW_OP] Null pointer access: var='%s', ");
                 // nullポインタの場合、デフォルト値を返す
                 // メンバーの型を調べて、適切なデフォルト値を設定
 
@@ -136,9 +135,8 @@ int64_t evaluate_arrow_access(
                         if (member.name == member_name) {
                             // ポインタメンバーの場合は単純に0を返す
                             if (member.is_pointer) {
-                                debug_print("[ARROW_OP] Member '%s' is "
-                                            "pointer, returning 0\n",
-                                            member_name.c_str());
+                                debug_msg(DebugMsgId::GENERIC_DEBUG,
+                                          "[ARROW_OP] Member '%s' is ");
                                 // TypedValue
                                 // をクリアして、ポインタ値として0を設定
                                 TypedValue typed_result(
@@ -160,9 +158,8 @@ int64_t evaluate_arrow_access(
                             }
 
                             if (actual_type == TYPE_STRING) {
-                                debug_print("[ARROW_OP] Member '%s' is string, "
-                                            "returning empty string\n",
-                                            member_name.c_str());
+                                debug_msg(DebugMsgId::GENERIC_DEBUG,
+                                          "[ARROW_OP] Member '%s' is string, ");
                                 TypedValue typed_result(
                                     "", InferredType(TYPE_STRING, "string"));
                                 evaluator.set_last_typed_result(typed_result);
@@ -172,9 +169,8 @@ int64_t evaluate_arrow_access(
                         }
                     }
                 }
-                debug_print("[ARROW_OP] Member '%s' type unknown or numeric, "
-                            "returning 0\n",
-                            member_name.c_str());
+                debug_msg(DebugMsgId::GENERIC_DEBUG,
+                          "[ARROW_OP] Member '%s' type unknown or numeric, ");
                 return 0; // 数値型のデフォルト
             }
 
@@ -282,16 +278,19 @@ int64_t evaluate_arrow_access(
             char *base_addr = reinterpret_cast<char *>(ptr_value);
             char *member_addr = base_addr + offset;
 
-            debug_print("[ARROW_OP] Reading from memory: addr=0x%llx, "
-                        "offset=%zu, type=%d\n",
-                        (unsigned long long)base_addr, offset,
-                        (int)member_type);
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "[ARROW_OP] Reading from memory: addr=0x%llx, ");
 
             // 型に応じて読み取り
             if (member_is_pointer || member_type == TYPE_POINTER) {
                 int64_t ptr_val = *reinterpret_cast<int64_t *>(member_addr);
-                debug_print("[ARROW_OP] Read pointer value: 0x%llx\n",
-                            (unsigned long long)ptr_val);
+                {
+                    char dbg_buf[512];
+                    snprintf(dbg_buf, sizeof(dbg_buf),
+                             "[ARROW_OP] Read pointer value: 0x%llx",
+                             (unsigned long long)ptr_val);
+                    debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                }
                 // TypedValueを設定してポインタ型を明示
                 TypedValue typed_result(ptr_val,
                                         InferredType(TYPE_POINTER, "pointer"));
@@ -363,8 +362,13 @@ int64_t evaluate_arrow_access(
                 const char *str_ptr =
                     *reinterpret_cast<const char **>(member_addr);
                 std::string str_val = (str_ptr != nullptr) ? str_ptr : "";
-                debug_print("[ARROW_OP] Read string value: ptr=%p, str='%s'\n",
-                            (void *)str_ptr, str_val.c_str());
+                {
+                    char dbg_buf[512];
+                    snprintf(dbg_buf, sizeof(dbg_buf),
+                             "[ARROW_OP] Read string value: ptr=%p, str='%s'",
+                             (void *)str_ptr, str_val.c_str());
+                    debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                }
                 TypedValue typed_result(str_val,
                                         InferredType(TYPE_STRING, "string"));
                 // value
@@ -386,8 +390,13 @@ int64_t evaluate_arrow_access(
     } catch (const ReturnException &ret) {
         // 構造体が返された場合（ptr[index]からの構造体）
         if (ret.is_struct) {
-            debug_print("[ARROW_OP] Caught struct from ptr[index], type='%s'\n",
-                        ret.struct_value.struct_type_name.c_str());
+            {
+                char dbg_buf[512];
+                snprintf(dbg_buf, sizeof(dbg_buf),
+                         "[ARROW_OP] Caught struct from ptr[index], type='%s'",
+                         ret.struct_value.struct_type_name.c_str());
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
 
             // 構造体からメンバーを取得
             Variable member_var =
@@ -415,13 +424,18 @@ int64_t evaluate_arrow_access(
         }
     }
 
-    debug_print("[ARROW_OP] ptr_value=0x%llx has_meta=%s\n",
-                static_cast<unsigned long long>(ptr_value),
-                (ptr_value & (1LL << 63)) ? "yes" : "no");
+    {
+        char dbg_buf[512];
+        snprintf(dbg_buf, sizeof(dbg_buf),
+                 "[ARROW_OP] ptr_value=0x%llx has_meta=%s",
+                 static_cast<unsigned long long>(ptr_value),
+                 (ptr_value & (1LL << 63)) ? "yes" : "no");
+        debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+    }
 
     if (ptr_value == 0) {
-        debug_print("[ARROW_OP] Null pointer access in ReturnException path, "
-                    "returning default\n");
+        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                  "[ARROW_OP] Null pointer access in ReturnException path, ");
         return 0; // nullポインタの場合、デフォルト値を返す
     }
 
@@ -583,10 +597,8 @@ int64_t evaluate_arrow_access(
             void *base_ptr = reinterpret_cast<void *>(metadata->address);
             void *member_ptr = static_cast<char *>(base_ptr) + offset;
 
-            debug_print("[ARROW_OP] Raw memory access: base_ptr=%p offset=%zu "
-                        "member_ptr=%p struct_type='%s'\n",
-                        base_ptr, offset, member_ptr,
-                        metadata->struct_type_name.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "[ARROW_OP] Raw memory access: base_ptr=%p offset=%zu ");
 
             if (member_type == TYPE_INT) {
                 int *int_ptr = static_cast<int *>(member_ptr);
@@ -626,11 +638,9 @@ int64_t evaluate_arrow_access(
                     struct_type_name = struct_type_name.substr(0, star_pos);
                 }
 
-                debug_print(
-                    "[ARROW_OP] Cast expression: cast_target_type='%s', "
-                    "struct_type_name='%s'\n",
-                    node->left->cast_target_type.c_str(),
-                    struct_type_name.c_str());
+                debug_msg(
+                    DebugMsgId::GENERIC_DEBUG,
+                    "[ARROW_OP] Cast expression: cast_target_type='%s', ");
             }
         }
         // 左側が変数参照なら、その変数の型情報をチェック
@@ -639,13 +649,9 @@ int64_t evaluate_arrow_access(
             Variable *ptr_var = interpreter.find_variable(node->left->name);
 
             if (interpreter.is_debug_mode()) {
-                debug_print(
-                    "[ARROW_OP] Variable '%s' found=%d, type_name='%s', "
-                    "is_pointer=%d, pointer_base_type_name='%s'\n",
-                    node->left->name.c_str(), ptr_var != nullptr ? 1 : 0,
-                    (ptr_var ? ptr_var->type_name.c_str() : ""),
-                    (ptr_var ? ptr_var->is_pointer : 0),
-                    (ptr_var ? ptr_var->pointer_base_type_name.c_str() : ""));
+                debug_msg(
+                    DebugMsgId::GENERIC_DEBUG,
+                    "[ARROW_OP] Variable '%s' found=%d, type_name='%s', ");
             }
 
             // v0.11.0 Phase 1a: pointer_base_type_name
@@ -659,10 +665,8 @@ int64_t evaluate_arrow_access(
                     interpreter.resolve_type_in_context(struct_type_name);
 
                 if (interpreter.is_debug_mode()) {
-                    debug_print("[ARROW_OP] Using pointer_base_type_name: '%s' "
-                                "(resolved: '%s')\n",
-                                ptr_var->pointer_base_type_name.c_str(),
-                                struct_type_name.c_str());
+                    debug_msg(DebugMsgId::GENERIC_DEBUG,
+                              "[ARROW_OP] Using pointer_base_type_name: '%s' ");
                 }
             } else if (ptr_var && !ptr_var->type_name.empty() &&
                        ptr_var->type_name.find('*') != std::string::npos) {
@@ -700,9 +704,14 @@ int64_t evaluate_arrow_access(
                         struct_var->struct_type_name == struct_type_name &&
                         !struct_var->struct_members.empty()) {
                         is_variable_ptr = true;
-                        debug_print(
-                            "[ARROW_OP] Treating as Variable* to struct '%s'\n",
-                            struct_type_name.c_str());
+                        {
+                            char dbg_buf[512];
+                            snprintf(dbg_buf, sizeof(dbg_buf),
+                                     "[ARROW_OP] Treating as Variable* to "
+                                     "struct '%s'",
+                                     struct_type_name.c_str());
+                            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                        }
                     }
                 } catch (...) {
                     // ポインタが不正な場合、例外を無視して生メモリアクセスにフォールバック
@@ -714,10 +723,8 @@ int64_t evaluate_arrow_access(
                     goto variable_access;
                 }
 
-                debug_print("[ARROW_OP] Raw pointer access to struct '%s', "
-                            "ptr=0x%llx\n",
-                            struct_type_name.c_str(),
-                            static_cast<unsigned long long>(ptr_value));
+                debug_msg(DebugMsgId::GENERIC_DEBUG,
+                          "[ARROW_OP] Raw pointer access to struct '%s', ");
                 // 生メモリから直接メンバーにアクセス
                 void *base_ptr = reinterpret_cast<void *>(ptr_value);
 
@@ -847,11 +854,8 @@ int64_t evaluate_arrow_access(
                                 member_type = TYPE_POINTER;
 
                             if (interpreter.is_debug_mode()) {
-                                debug_print("[ARROW_OP] Resolved generic "
-                                            "member type: '%s' -> '%s' -> %d\n",
-                                            member.type_alias.c_str(),
-                                            resolved_member_type.c_str(),
-                                            (int)member_type);
+                                debug_msg(DebugMsgId::GENERIC_DEBUG,
+                                          "[ARROW_OP] Resolved generic ");
                             }
                         }
 
@@ -866,11 +870,9 @@ int64_t evaluate_arrow_access(
                                              member_name);
                 }
 
-                debug_print(
-                    "[ARROW_OP] Member '%s' found at offset %zu, type=%d, "
-                    "base_ptr=0x%lx\n",
-                    member_name.c_str(), offset, static_cast<int>(member_type),
-                    reinterpret_cast<uintptr_t>(base_ptr));
+                debug_msg(
+                    DebugMsgId::GENERIC_DEBUG,
+                    "[ARROW_OP] Member '%s' found at offset %zu, type=%d, ");
 
                 // 生メモリから値を読み取り
                 void *member_ptr = static_cast<char *>(base_ptr) + offset;
@@ -878,24 +880,39 @@ int64_t evaluate_arrow_access(
                 if (member_is_pointer || member_type == TYPE_POINTER) {
                     void **ptr_ptr = static_cast<void **>(member_ptr);
                     int64_t ptr_val = reinterpret_cast<int64_t>(*ptr_ptr);
-                    debug_print(
-                        "[ARROW_OP] Read pointer value: 0x%llx from 0x%lx\n",
-                        (unsigned long long)ptr_val,
-                        reinterpret_cast<uintptr_t>(member_ptr));
+                    {
+                        char dbg_buf[512];
+                        snprintf(
+                            dbg_buf, sizeof(dbg_buf),
+                            "[ARROW_OP] Read pointer value: 0x%llx from 0x%lx",
+                            (unsigned long long)ptr_val,
+                            reinterpret_cast<uintptr_t>(member_ptr));
+                        debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                    }
                     return ptr_val;
                 } else if (member_type == TYPE_INT) {
                     int32_t *int_ptr = static_cast<int32_t *>(member_ptr);
                     int64_t value = static_cast<int64_t>(*int_ptr);
-                    debug_print(
-                        "[ARROW_OP] Read int32_t value: %lld from 0x%lx\n",
-                        value, reinterpret_cast<uintptr_t>(member_ptr));
+                    {
+                        char dbg_buf[512];
+                        snprintf(
+                            dbg_buf, sizeof(dbg_buf),
+                            "[ARROW_OP] Read int32_t value: %lld from 0x%lx",
+                            value, reinterpret_cast<uintptr_t>(member_ptr));
+                        debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                    }
                     return value;
                 } else if (member_type == TYPE_LONG) {
                     int64_t *int_ptr = static_cast<int64_t *>(member_ptr);
                     int64_t value = *int_ptr;
-                    debug_print(
-                        "[ARROW_OP] Read int64_t value: %lld from 0x%lx\n",
-                        value, reinterpret_cast<uintptr_t>(member_ptr));
+                    {
+                        char dbg_buf[512];
+                        snprintf(
+                            dbg_buf, sizeof(dbg_buf),
+                            "[ARROW_OP] Read int64_t value: %lld from 0x%lx",
+                            value, reinterpret_cast<uintptr_t>(member_ptr));
+                        debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                    }
                     return value;
                 } else if (member_type == TYPE_FLOAT) {
                     float *float_ptr = static_cast<float *>(member_ptr);
@@ -905,9 +922,14 @@ int64_t evaluate_arrow_access(
                     typed_result.is_numeric_result = true;
                     typed_result.is_float_result = true;
                     evaluator.set_last_typed_result(typed_result);
-                    debug_print("[ARROW_OP] Read float value: %f from 0x%lx\n",
-                                float_value,
-                                reinterpret_cast<uintptr_t>(member_ptr));
+                    {
+                        char dbg_buf[512];
+                        snprintf(dbg_buf, sizeof(dbg_buf),
+                                 "[ARROW_OP] Read float value: %f from 0x%lx",
+                                 float_value,
+                                 reinterpret_cast<uintptr_t>(member_ptr));
+                        debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                    }
                     return 0; // dummy value
                 } else if (member_type == TYPE_DOUBLE) {
                     double *double_ptr = static_cast<double *>(member_ptr);
@@ -918,9 +940,14 @@ int64_t evaluate_arrow_access(
                     typed_result.double_value = double_value;
                     typed_result.is_numeric_result = true;
                     evaluator.set_last_typed_result(typed_result);
-                    debug_print("[ARROW_OP] Read double value: %f from 0x%lx\n",
-                                double_value,
-                                reinterpret_cast<uintptr_t>(member_ptr));
+                    {
+                        char dbg_buf[512];
+                        snprintf(dbg_buf, sizeof(dbg_buf),
+                                 "[ARROW_OP] Read double value: %f from 0x%lx",
+                                 double_value,
+                                 reinterpret_cast<uintptr_t>(member_ptr));
+                        debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                    }
                     return 0; // dummy value
                 } else if (member_type == TYPE_STRING) {
                     const char **str_ptr =
@@ -929,10 +956,15 @@ int64_t evaluate_arrow_access(
                     TypedValue typed_result(
                         str_val, InferredType(TYPE_STRING, "string"));
                     evaluator.set_last_typed_result(typed_result);
-                    debug_print(
-                        "[ARROW_OP] Read string value: '%s' from 0x%lx\n",
-                        str_val.c_str(),
-                        reinterpret_cast<uintptr_t>(member_ptr));
+                    {
+                        char dbg_buf[512];
+                        snprintf(
+                            dbg_buf, sizeof(dbg_buf),
+                            "[ARROW_OP] Read string value: '%s' from 0x%lx",
+                            str_val.c_str(),
+                            reinterpret_cast<uintptr_t>(member_ptr));
+                        debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                    }
                     return 0; // dummy value
                 } else {
                     throw std::runtime_error(
@@ -952,13 +984,24 @@ variable_access:
 
     auto member_it = struct_var->struct_members.find(member_name);
     if (member_it != struct_var->struct_members.end()) {
-        debug_print(
-            "[ARROW_OP] struct_var=%p member='%s' value=%lld is_assigned=%d\n",
-            static_cast<void *>(struct_var), member_name.c_str(),
-            member_it->second.value, member_it->second.is_assigned ? 1 : 0);
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "[ARROW_OP] struct_var=%p member='%s' value=%lld "
+                     "is_assigned=%d",
+                     static_cast<void *>(struct_var), member_name.c_str(),
+                     member_it->second.value,
+                     member_it->second.is_assigned ? 1 : 0);
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
     } else {
-        debug_print("[ARROW_OP] struct_var=%p member='%s' not found\n",
-                    static_cast<void *>(struct_var), member_name.c_str());
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "[ARROW_OP] struct_var=%p member='%s' not found",
+                     static_cast<void *>(struct_var), member_name.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
     }
 
     // 構造体型またはInterface型をチェック
@@ -970,14 +1013,17 @@ variable_access:
     // メンバーを取得
     Variable member_var = get_struct_member_func(*struct_var, member_name);
 
-    debug_print("[ARROW_OP] member_var retrieved: type=%d, value=%lld, "
-                "double_value=%f\n",
-                static_cast<int>(member_var.type), member_var.value,
-                member_var.double_value);
+    debug_msg(DebugMsgId::GENERIC_DEBUG,
+              "[ARROW_OP] member_var retrieved: type=%d, value=%lld, ");
 
     if (member_var.type == TYPE_STRING) {
-        debug_print("[ARROW_OP] STRING member found: str_value='%s'\n",
-                    member_var.str_value.c_str());
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "[ARROW_OP] STRING member found: str_value='%s'",
+                     member_var.str_value.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
 
         TypedValue typed_result(static_cast<int64_t>(0),
                                 InferredType(TYPE_STRING, "string"));
@@ -986,9 +1032,14 @@ variable_access:
         // last_typed_result_に設定
         evaluator.set_last_typed_result(typed_result);
 
-        debug_print(
-            "[ARROW_OP] set_last_typed_result called with string: '%s'\n",
-            typed_result.string_value.c_str());
+        {
+            char dbg_buf[512];
+            snprintf(
+                dbg_buf, sizeof(dbg_buf),
+                "[ARROW_OP] set_last_typed_result called with string: '%s'",
+                typed_result.string_value.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
         return 0;
     } else if (member_var.type == TYPE_POINTER) {
         // ポインタメンバの場合はそのまま値を返す
@@ -1014,9 +1065,14 @@ variable_access:
         return 0; // dummy value
     } else if (member_var.type == TYPE_DOUBLE) {
         // double の場合
-        debug_print(
-            "[ARROW_OP] Reading double member: member_var.double_value=%f\n",
-            member_var.double_value);
+        {
+            char dbg_buf[512];
+            snprintf(
+                dbg_buf, sizeof(dbg_buf),
+                "[ARROW_OP] Reading double member: member_var.double_value=%f",
+                member_var.double_value);
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
         // double コンストラクタを使用（is_float_result が自動的に true になる）
         TypedValue typed_result(member_var.double_value,
                                 InferredType(TYPE_DOUBLE, "double"));

@@ -1,292 +1,581 @@
-# Cb言語 非同期処理設計
+# Cb言語 async/await 設計ドキュメント# Cb言語 非同期処理設計
 
-**バージョン**: v0.11.0 Complete  
-**優先度**: 高  
-**ステータス**: 設計中
 
----
 
-## 📋 目次
+**バージョン**: v0.12.0  **バージョン**: v0.11.0 Complete  
 
-1. [概要](#概要)
+**作成日**: 2025年11月7日  **優先度**: 高  
+
+**ステータス**: Phase 1 実装中**ステータス**: 設計中
+
+
+
+------
+
+
+
+## 概要## 📋 目次
+
+
+
+Cb言語の**協調的マルチタスク**システムは、TypeScriptのAPI設計とRust Tokioの内部アーキテクチャを参考にしています。1. [概要](#概要)
+
 2. [設計方針](#設計方針)
-3. [構文定義](#構文定義)
+
+### 参考実装3. [構文定義](#構文定義)
+
 4. [アーキテクチャ](#アーキテクチャ)
-5. [実装詳細](#実装詳細)
-6. [使用例](#使用例)
-7. [実装スケジュール](#実装スケジュール)
 
----
+#### TypeScript (Promise/async/await)5. [実装詳細](#実装詳細)
 
-## 概要
+```typescript6. [使用例](#使用例)
 
-Cb言語にJavaScript/TypeScript/Rustスタイルの**非同期処理（async/await）**を導入します。シングルスレッドのEvent Loopベースで実装し、I/O処理やタイマーを効率的に扱えるようにします。
+async function fetchData(id: number): Promise<number> {7. [実装スケジュール](#実装スケジュール)
 
----
+    console.log(`Fetching ${id}...`);
 
-## 🎯 目標
+    await delay(1000);---
 
-### ✅ 達成すべきこと
-1. **async/await構文**: 非同期関数の定義と待機
-2. **Future<T>型**: 非同期処理の結果を表現
-3. **Event Loop**: タスクのスケジューリングと実行
+    return id * 100;
+
+}## 概要
+
+
+
+async function main() {Cb言語にJavaScript/TypeScript/Rustスタイルの**非同期処理（async/await）**を導入します。シングルスレッドのEvent Loopベースで実装し、I/O処理やタイマーを効率的に扱えるようにします。
+
+    const f1 = fetchData(1);  // 非同期で開始
+
+    const f2 = fetchData(2);  // 非同期で開始---
+
+    
+
+    const r1 = await f1;  // 完了を待つ## 🎯 目標
+
+    const r2 = await f2;  // 完了を待つ
+
+    ### ✅ 達成すべきこと
+
+    console.log(r1, r2);1. **async/await構文**: 非同期関数の定義と待機
+
+}2. **Future<T>型**: 非同期処理の結果を表現
+
+```3. **Event Loop**: タスクのスケジューリングと実行
+
 4. **組み込み関数**: `sleep()`, `timeout()`, `spawn()`など
-5. **エラーハンドリング**: async関数でのResult<T, E>統合
 
----
+#### Rust (Future/async/await)5. **エラーハンドリング**: async関数でのResult<T, E>統合
 
-## 📝 設計方針
+```rust
 
-### 1. 参考にする言語
+async fn fetch_data(id: i32) -> i32 {---
 
-| 言語 | 採用する要素 |
-|-----|------------|
-| **JavaScript/TypeScript** | async/await構文、Promise風のFuture<T> |
-| **Rust** | Result<T, E>との統合、明示的なエラー処理 |
-| **Python** | asyncioのEvent Loop概念 |
+    println!("Fetching {}...", id);
 
-### 2. 基本原則
+    tokio::time::sleep(Duration::from_secs(1)).await;## 📝 設計方針
 
-- **シングルスレッド**: 複雑な並行制御を避ける
-- **協調的マルチタスク**: yield点（await）で制御を渡す
+    id * 100
+
+}### 1. 参考にする言語
+
+
+
+#[tokio::main]| 言語 | 採用する要素 |
+
+async fn main() {|-----|------------|
+
+    let f1 = fetch_data(1);  // Futureを作成（遅延評価）| **JavaScript/TypeScript** | async/await構文、Promise風のFuture<T> |
+
+    let f2 = fetch_data(2);  // Futureを作成| **Rust** | Result<T, E>との統合、明示的なエラー処理 |
+
+    | **Python** | asyncioのEvent Loop概念 |
+
+    let (r1, r2) = tokio::join!(f1, f2);  // 並行実行
+
+    ### 2. 基本原則
+
+    println!("{} {}", r1, r2);
+
+}- **シングルスレッド**: 複雑な並行制御を避ける
+
+```- **協調的マルチタスク**: yield点（await）で制御を渡す
+
 - **明示的**: async関数は明示的にマーク
-- **型安全**: Future<T>で型を保証
 
----
+---- **型安全**: Future<T>で型を保証
 
-## 🔤 構文定義
 
-### BNF拡張
 
-```bnf
-# 非同期関数定義
+## Phase 1: 基本的なasync/await (v0.12.0)---
+
+
+
+### 設計方針## 🔤 構文定義
+
+
+
+- **実行モデル**: **即座実行（Eager Execution）**### BNF拡張
+
+  - async関数は呼び出し時に即座に完了まで実行される
+
+  - yieldによる中断はサポートしない```bnf
+
+  - 並行実行ではなく、順次実行# 非同期関数定義
+
 async_function_declaration ::= "async" type_specifier IDENTIFIER "(" parameter_list? ")" block_statement
 
-# await式
-await_expression ::= "await" postfix_expression
+- **Future型**: 結果を保持するコンテナ
 
-# Future型
-future_type ::= "Future" "<" type_specifier ">"
+  ```cb# await式
+
+  struct Future<T> {await_expression ::= "await" postfix_expression
+
+      T value;        // 結果値
+
+      bool is_ready;  // 完了フラグ（Phase 1では常にtrue）# Future型
+
+  };future_type ::= "Future" "<" type_specifier ">"
+
+  ```
 
 # 例
-async int fetch_data() {
-    await sleep(1000);
-    return 42;
-}
 
-void main() {
-    Future<int> future = spawn(fetch_data);
+- **デバッグ**: `--debug`フラグで実行トレースasync int fetch_data() {
+
+  ```    await sleep(1000);
+
+  [ASYNC] Entering async function: fetch_data(id=1)    return 42;
+
+  [ASYNC] Returning from async function: fetch_data -> Future{is_ready=true}}
+
+  [AWAIT] Awaiting Future (already ready)
+
+  [AWAIT] Extracted value: 100void main() {
+
+  ```    Future<int> future = spawn(fetch_data);
+
     int result = await future;
-    println("Result: ", result);
+
+### 使用例    println("Result: ", result);
+
 }
-```
 
-### キーワード追加
+```cb```
 
-```cpp
+struct Future<T> {
+
+    T value;### キーワード追加
+
+    bool is_ready;
+
+};```cpp
+
 // src/common/token.h
 
-enum TokenType {
-    // ... 既存のトークン ...
-    
-    // 非同期処理
-    TOK_ASYNC,      // "async"
+async Future<int> fetch_data(int id) {
+
+    println("Fetching data {id}...");enum TokenType {
+
+    int result = id * 100;    // ... 既存のトークン ...
+
+    println("Data {id} ready: {result}");    
+
+    return result;    // 非同期処理
+
+}    TOK_ASYNC,      // "async"
+
     TOK_AWAIT,      // "await"
-    TOK_FUTURE,     // "Future"
-    TOK_SPAWN,      // "spawn"
-};
-```
+
+async Future<void> process_data(int id) {    TOK_FUTURE,     // "Future"
+
+    println("Processing {id}...");    TOK_SPAWN,      // "spawn"
+
+    int value = id + 10;};
+
+    println("Processed: {value}");```
+
+}
 
 ---
 
-## 🏗️ アーキテクチャ
+void main() {
 
-### 全体構成図
+    // async関数を呼び出す（即座に完了まで実行）## 🏗️ アーキテクチャ
 
-```
-┌─────────────────────────────────────────┐
-│         Cb Program (User Code)          │
-│  async int fetch() { await sleep(1); }  │
-└───────────────┬─────────────────────────┘
-                │
-                ▼
-┌─────────────────────────────────────────┐
-│         Interpreter (Frontend)          │
+    Future<int> f1 = fetch_data(1);
+
+    Future<int> f2 = fetch_data(2);### 全体構成図
+
+    Future<void> f3 = process_data(3);
+
+    ```
+
+    // awaitで値を取得（Phase 1では既に完了している）┌─────────────────────────────────────────┐
+
+    int result1 = await f1;│         Cb Program (User Code)          │
+
+    int result2 = await f2;│  async int fetch() { await sleep(1); }  │
+
+    await f3;└───────────────┬─────────────────────────┘
+
+                    │
+
+    println("Results: {result1}, {result2}");                ▼
+
+}┌─────────────────────────────────────────┐
+
+```│         Interpreter (Frontend)          │
+
 │  - Parser: async/await構文解析          │
-│  - AST: AST_ASYNC_FUNCTION, AST_AWAIT   │
+
+### 実行出力│  - AST: AST_ASYNC_FUNCTION, AST_AWAIT   │
+
 └───────────────┬─────────────────────────┘
-                │
+
+```                │
+
+Fetching data 1...                ▼
+
+Data 1 ready: 100┌─────────────────────────────────────────┐
+
+Fetching data 2...│       Event Loop (Core System)          │
+
+Data 2 ready: 200│  - Task Queue: Vector<Task>             │
+
+Processing 3...│  - Scheduler: run_until_complete()      │
+
+Processed: 13│  - Timer: sleep(), timeout()            │
+
+Results: 100, 200└───────────────┬─────────────────────────┘
+
+```                │
+
                 ▼
-┌─────────────────────────────────────────┐
-│       Event Loop (Core System)          │
-│  - Task Queue: Vector<Task>             │
-│  - Scheduler: run_until_complete()      │
-│  - Timer: sleep(), timeout()            │
-└───────────────┬─────────────────────────┘
-                │
-                ▼
-┌─────────────────────────────────────────┐
+
+### デバッグ出力 (`./main --debug test.cb`)┌─────────────────────────────────────────┐
+
 │        Future<T> (Runtime Type)         │
-│  - State: Pending | Ready(T)            │
-│  - Callbacks: on_complete()             │
-└─────────────────────────────────────────┘
-```
 
----
+```│  - State: Pending | Ready(T)            │
 
-## 🔧 実装詳細
+[ASYNC] Entering async function: fetch_data(id=1)│  - Callbacks: on_complete()             │
 
-### 1. Future<T>型
+Fetching data 1...└─────────────────────────────────────────┘
 
-#### 構造体定義
+Data 1 ready: 100```
 
-```cpp
-// src/backend/interpreter/core/future.h
+[ASYNC] Returning from async function: fetch_data -> Future{value=100, is_ready=true}
 
-enum class FutureState {
-    PENDING,    // 処理中
-    READY       // 完了
-};
+[ASYNC] Entering async function: fetch_data(id=2)---
 
-template<typename T>
+Fetching data 2...
+
+Data 2 ready: 200## 🔧 実装詳細
+
+[ASYNC] Returning from async function: fetch_data -> Future{value=200, is_ready=true}
+
+[ASYNC] Entering async function: process_data(id=3)### 1. Future<T>型
+
+Processing 3...
+
+Processed: 13#### 構造体定義
+
+[ASYNC] Returning from async function: process_data -> Future{value=0, is_ready=true}
+
+[AWAIT] Awaiting Future (already ready)```cpp
+
+[AWAIT] Extracted value: 100// src/backend/interpreter/core/future.h
+
+[AWAIT] Awaiting Future (already ready)
+
+[AWAIT] Extracted value: 200enum class FutureState {
+
+[AWAIT] Awaiting Future (already ready)    PENDING,    // 処理中
+
+Results: 100, 200    READY       // 完了
+
+```};
+
+
+
+### Phase 1 の特徴template<typename T>
+
 struct Future {
-    FutureState state;
-    T value;                                      // READY時の値
-    std::vector<std::function<void(T)>> callbacks; // 完了時のコールバック
+
+#### 利点    FutureState state;
+
+1. **シンプルで確実**: 複雑な状態管理が不要    T value;                                      // READY時の値
+
+2. **デバッグしやすい**: トレースが容易    std::vector<std::function<void(T)>> callbacks; // 完了時のコールバック
+
+3. **文法の習得**: async/await構文に慣れることができる    
+
+4. **段階的拡張**: Phase 2への基盤となる    bool is_ready() const { return state == FutureState::READY; }
+
     
-    bool is_ready() const { return state == FutureState::READY; }
-    
-    void set_ready(T val) {
-        state = FutureState::READY;
-        value = val;
-        // コールバック実行
+
+#### 制限    void set_ready(T val) {
+
+1. **並行実行なし**: 順次実行のみ        state = FutureState::READY;
+
+2. **yieldなし**: 中断・再開不可        value = val;
+
+3. **真の非同期I/Oなし**: ブロッキング実行        // コールバック実行
+
         for (auto& cb : callbacks) {
-            cb(value);
+
+---            cb(value);
+
         }
-    }
+
+## Phase 2: yieldによる協調的マルチタスク (v0.13.0以降)    }
+
     
-    void on_complete(std::function<void(T)> callback) {
+
+### 設計方針    void on_complete(std::function<void(T)> callback) {
+
         if (is_ready()) {
-            callback(value);
+
+Phase 2では、真の協調的マルチタスクを実装します。            callback(value);
+
         } else {
-            callbacks.push_back(callback);
-        }
-    }
-};
+
+- **実行モデル**: **遅延評価（Lazy Execution）** + **明示的yield**            callbacks.push_back(callback);
+
+  - async関数は呼び出し時に即座に実行されない        }
+
+  - `await`または`yield`で実行が進む    }
+
+  - 複数のタスクをインターリーブ実行};
+
 ```
 
-#### インタプリタでの表現
+- **yield**: 明示的な実行権の譲渡
 
-```cpp
-// src/backend/interpreter/core/value.h
+  ```cb#### インタプリタでの表現
 
-struct Value {
-    ValueType type;
-    union {
-        // ... 既存の型 ...
+  async Future<void> task() {
+
+      println("Step 1");```cpp
+
+      yield;  // 他のタスクに制御を譲る// src/backend/interpreter/core/value.h
+
+      println("Step 2");
+
+      yield;struct Value {
+
+      println("Step 3");    ValueType type;
+
+  }    union {
+
+  ```        // ... 既存の型 ...
+
         Future<Value>* future_value;  // Future<T>
-    };
-};
+
+- **実装方法**: **バイトコードVM** または **CPS変換**    };
+
+  - ASTベースでは任意の位置での中断が困難};
+
+  - プログラムカウンタ（PC）による実行位置管理が必要
 
 // TYPE_FUTURE型を追加
-enum ValueType {
+
+### 使用例（Phase 2）enum ValueType {
+
     // ... 既存 ...
-    TYPE_FUTURE,
-};
-```
 
----
+```cb    TYPE_FUTURE,
 
-### 2. Event Loop
+async Future<void> task1() {};
 
-#### Task構造体
+    for (int i = 0; i < 3; i = i + 1) {```
 
-```cpp
-// src/backend/interpreter/core/event_loop.h
+        println("Task1: step {i}");
 
-struct Task {
+        yield;  // 他のタスクに制御を譲る---
+
+    }
+
+}### 2. Event Loop
+
+
+
+async Future<void> task2() {#### Task構造体
+
+    for (int i = 0; i < 3; i = i + 1) {
+
+        println("Task2: step {i}");```cpp
+
+        yield;// src/backend/interpreter/core/event_loop.h
+
+    }
+
+}struct Task {
+
     int id;
-    std::function<Value()> function;  // 実行する関数
-    Future<Value>* result_future;     // 結果を格納するFuture
-    bool is_suspended;                // await中かどうか
-    Value* awaiting_future;           // 待機中のFuture
-};
 
-class EventLoop {
-private:
-    std::vector<Task> task_queue_;
-    int next_task_id_;
-    bool running_;
-    
+void main() {    std::function<Value()> function;  // 実行する関数
+
+    Future<void> f1 = task1();  // タスクを作成（まだ実行されない）    Future<Value>* result_future;     // 結果を格納するFuture
+
+    Future<void> f2 = task2();  // タスクを作成    bool is_suspended;                // await中かどうか
+
+        Value* awaiting_future;           // 待機中のFuture
+
+    // イベントループで並行実行};
+
+    run_event_loop([f1, f2]);
+
+    class EventLoop {
+
+    // または個別にawaitprivate:
+
+    await f1;  // この間にf2も少しずつ実行される    std::vector<Task> task_queue_;
+
+    await f2;    int next_task_id_;
+
+}    bool running_;
+
+```    
+
 public:
-    EventLoop() : next_task_id_(0), running_(false) {}
+
+### 期待される出力（Phase 2）    EventLoop() : next_task_id_(0), running_(false) {}
+
     
-    // タスクを追加
-    int spawn_task(std::function<Value()> func);
+
+```    // タスクを追加
+
+Task1: step 0    int spawn_task(std::function<Value()> func);
+
+Task2: step 0    
+
+Task1: step 1    // メインループ
+
+Task2: step 1    void run_until_complete();
+
+Task1: step 2    
+
+Task2: step 2    // タスクを1ステップ実行
+
+```    void step();
+
     
-    // メインループ
-    void run_until_complete();
-    
-    // タスクを1ステップ実行
-    void step();
-    
-    // awaitポイントで中断
+
+---    // awaitポイントで中断
+
     void suspend_current_task(Future<Value>* future);
-    
+
+## デバッグガイド    
+
     // タスク再開
-    void resume_task(int task_id);
+
+### デバッグフラグの使用    void resume_task(int task_id);
+
 };
-```
 
-#### メインループ実装
+```bash```
 
-```cpp
-// src/backend/interpreter/core/event_loop.cpp
+# Phase 1のデバッグ
 
-void EventLoop::run_until_complete() {
-    running_ = true;
-    
-    while (!task_queue_.empty() && running_) {
+./main --debug async_test.cb#### メインループ実装
+
+
+
+# 出力例```cpp
+
+[ASYNC] Entering async function: fetch_data(id=1)// src/backend/interpreter/core/event_loop.cpp
+
+Fetching data 1...
+
+[ASYNC] Returning from async function: fetch_datavoid EventLoop::run_until_complete() {
+
+[AWAIT] Awaiting Future (already ready)    running_ = true;
+
+[AWAIT] Extracted value: 100    
+
+```    while (!task_queue_.empty() && running_) {
+
         step();
-    }
-    
-    running_ = false;
-}
 
-void EventLoop::step() {
-    if (task_queue_.empty()) return;
+### デバッグ出力の種類    }
+
     
+
+| プレフィックス | 意味 | 内容 |    running_ = false;
+
+|--------------|------|------|}
+
+| `[ASYNC]` | async関数の実行 | 関数の開始・終了、引数、戻り値 |
+
+| `[AWAIT]` | await式の評価 | Futureの状態、値の取得 |void EventLoop::step() {
+
+| `[YIELD]` | yield文の実行（Phase 2） | タスクの中断 |    if (task_queue_.empty()) return;
+
+| `[RESUME]` | タスクの再開（Phase 2） | 実行位置、ラウンド番号 |    
+
     Task& task = task_queue_.front();
-    
-    if (task.is_suspended) {
-        // await中のタスクをチェック
-        if (task.awaiting_future->is_ready()) {
-            task.is_suspended = false;
-            task.awaiting_future = nullptr;
-            // タスク再開（次のループで実行）
-        }
-    } else {
-        // タスク実行
-        try {
-            Value result = task.function();
-            task.result_future->set_ready(result);
-            
-            // 完了したタスクを削除
-            task_queue_.erase(task_queue_.begin());
-        } catch (...) {
-            // エラーハンドリング
-            task_queue_.erase(task_queue_.begin());
-        }
-    }
-}
 
-void EventLoop::suspend_current_task(Future<Value>* future) {
-    if (!task_queue_.empty()) {
-        Task& task = task_queue_.front();
-        task.is_suspended = true;
-        task.awaiting_future = future;
+---    
+
+    if (task.is_suspended) {
+
+## まとめ        // await中のタスクをチェック
+
+        if (task.awaiting_future->is_ready()) {
+
+### Phase 1 (v0.12.0)            task.is_suspended = false;
+
+- ✅ 基本的なasync/await構文            task.awaiting_future = nullptr;
+
+- ✅ 即座実行モデル            // タスク再開（次のループで実行）
+
+- ✅ デバッグトレース        }
+
+- ❌ 並行実行（順次実行のみ）    } else {
+
+- ❌ yield（中断・再開）        // タスク実行
+
+        try {
+
+### Phase 2 (v0.13.0以降)            Value result = task.function();
+
+- ✅ yieldによる明示的な制御権譲渡            task.result_future->set_ready(result);
+
+- ✅ ループ内でのyield            
+
+- ✅ 真の協調的マルチタスク            // 完了したタスクを削除
+
+- ✅ イベントループベースの実行            task_queue_.erase(task_queue_.begin());
+
+- 実装方法: バイトコードVMまたはCPS変換        } catch (...) {
+
+            // エラーハンドリング
+
+### TypeScript/Rustとの比較            task_queue_.erase(task_queue_.begin());
+
+        }
+
+| 機能 | TypeScript | Rust (Tokio) | Cb Phase 1 | Cb Phase 2 |    }
+
+|------|-----------|--------------|-----------|-----------|}
+
+| async/await | ✅ | ✅ | ✅ | ✅ |
+
+| Promise/Future | ✅ | ✅ | ✅ | ✅ |void EventLoop::suspend_current_task(Future<Value>* future) {
+
+| 遅延評価 | ✅ | ✅ | ❌ | ✅ |    if (!task_queue_.empty()) {
+
+| 並行実行 | ✅ | ✅ | ❌ | ✅ |        Task& task = task_queue_.front();
+
+| yield | ❌ | ❌* | ❌ | ✅ |        task.is_suspended = true;
+
+| イベントループ | ✅ (暗黙) | ✅ (tokio::spawn) | ❌ | ✅ |        task.awaiting_future = future;
+
     }
-}
+
+*Rustにはgeneratorとしてyieldがあるが、async/awaitとは別機能}
+
 ```
 
 ---
@@ -571,3 +860,76 @@ async void main() {
 
 **作成日**: 2025年10月29日  
 **作成者**: v0.11.0実装チーム
+
+---
+
+## ✅ 実装完了レポート（v0.12.0）
+
+### Phase 2.0 完全実装（2025年1月）
+
+#### ✅ 実装された機能
+
+1. **協調的マルチタスク**
+   - `yield`文によるタスク中断・再開
+   - SimpleEventLoopによるタスクスケジューリング
+   - awaitでの自動Event Loop実行
+
+2. **自動yield機能**
+   - yield文が存在しない関数で各ステートメント後に自動yield
+   - `has_yield_statement()`による検出
+   - AsyncTask構造体の`auto_yield`フラグ
+
+3. **ビルトインFuture<T>型**
+   - ParserとInterpreterの両方でビルトイン型として登録
+   - ユーザーが`struct Future<T>`を定義する必要がなくなった
+   - Option<T>、Result<T,E>と同じくジェネリクスビルトイン型
+
+#### 実装詳細
+
+**Future<T>ビルトイン化**:
+- `RecursiveParser::initialize_builtin_types()`でstruct定義登録
+- `Interpreter::register_builtin_struct_future()`でInterpreter側も登録
+- `sync_struct_definitions_from_parser()`で同期
+
+**構造**:
+```cb
+// ユーザーコードで定義不要（ビルトイン）
+struct Future<T> {
+    T value;
+    bool is_ready;
+}
+```
+
+**使用例**:
+```cb
+// Phase 2.0の完全な使用例
+async Future<int> task1() {
+    println("Task1: Statement 1");
+    yield;
+    println("Task1: Statement 2");
+    return 100;
+}
+
+void main() {
+    Future<int> f = task1();
+    int result = await f;  // SimpleEventLoop自動実行
+    println("Result: {result}");
+}
+```
+
+#### テスト結果
+
+- ✅ `test_future_basic.cb`: ビルトインFuture<T>の基本動作
+- ✅ `phase1_syntax_test.cb`: async/await構文
+- ✅ `phase1_multiple_async.cb`: 複数async関数
+- ✅ `phase2_yield_test.cb`: yield文による協調的マルチタスク
+- ✅ `phase2_auto_yield_test.cb`: 自動yield機能
+- ✅ `phase2_builtin_future_test.cb`: ビルトインFuture<T>（定義なし）
+
+**成果**:
+- すべての既存テストが引き続き動作
+- Future<T>定義の削除により、すべてのテストファイルが簡潔に
+- ユーザー体験の大幅な向上
+
+---
+

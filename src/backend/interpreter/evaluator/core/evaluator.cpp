@@ -99,11 +99,8 @@ TypedValue ExpressionEvaluator::evaluate_typed_expression(const ASTNode *node) {
         return evaluate_typed_expression_internal(node);
     } catch (const ReturnException &ret_ex) {
         if (debug_mode) {
-            debug_print("TYPED_EVAL_RETURN: is_struct=%d type=%d is_array=%d "
-                        "is_function_pointer=%d\n",
-                        ret_ex.is_struct ? 1 : 0, static_cast<int>(ret_ex.type),
-                        ret_ex.is_array ? 1 : 0,
-                        ret_ex.is_function_pointer ? 1 : 0);
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "TYPED_EVAL_RETURN: is_struct=%d type=%d is_array=%d ");
         }
         if (ret_ex.is_function_pointer) {
             // 関数ポインタの場合、ReturnExceptionを再スロー
@@ -697,8 +694,13 @@ ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode *node) {
             node->left->left &&
             node->left->left->node_type == ASTNodeType::AST_FUNC_CALL) {
 
-            debug_print("Processing func()[index].member pattern: %s[].%s\n",
-                        node->left->left->name.c_str(), node->name.c_str());
+            {
+                char dbg_buf[512];
+                snprintf(dbg_buf, sizeof(dbg_buf),
+                         "Processing func()[index].member pattern: %s[].%s",
+                         node->left->left->name.c_str(), node->name.c_str());
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
 
             try {
                 (void)evaluate_typed_expression(node->left.get());
@@ -725,31 +727,53 @@ ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode *node) {
             node->left->left->node_type == ASTNodeType::AST_VARIABLE) {
             Variable *var = interpreter_.find_variable(node->left->left->name);
             if (var && var->is_pointer) {
-                debug_print("Processing ptr[index].member pattern: %s[].%s\n",
-                            node->left->left->name.c_str(), node->name.c_str());
+                {
+                    char dbg_buf[512];
+                    snprintf(dbg_buf, sizeof(dbg_buf),
+                             "Processing ptr[index].member pattern: %s[].%s",
+                             node->left->left->name.c_str(),
+                             node->name.c_str());
+                    debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                }
 
                 try {
                     // evaluate_expressionを使用してReturnExceptionを取得
                     (void)evaluate_expression(node->left.get());
-                    debug_print("ERROR: No ReturnException was thrown!\n");
+                    debug_msg(DebugMsgId::GENERIC_DEBUG,
+                              "ERROR: No ReturnException was thrown!");
                     throw std::runtime_error(
                         "Expected struct return exception");
 
                 } catch (const ReturnException &struct_ret) {
-                    debug_print("Caught ReturnException, is_struct=%d\n",
-                                struct_ret.is_struct);
+                    {
+                        char dbg_buf[512];
+                        snprintf(dbg_buf, sizeof(dbg_buf),
+                                 "Caught ReturnException, is_struct=%d",
+                                 struct_ret.is_struct);
+                        debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                    }
                     if (struct_ret.is_struct) {
                         TypedValue member_value(static_cast<int64_t>(0),
                                                 InferredType());
                         if (resolve_from_struct(struct_ret.struct_value,
                                                 member_value)) {
-                            debug_print("Successfully resolved member: %s\n",
-                                        node->name.c_str());
+                            {
+                                char dbg_buf[512];
+                                snprintf(dbg_buf, sizeof(dbg_buf),
+                                         "Successfully resolved member: %s",
+                                         node->name.c_str());
+                                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                            }
                             last_typed_result_ = member_value;
                             return member_value;
                         }
-                        debug_print("Failed to resolve member: %s\n",
-                                    node->name.c_str());
+                        {
+                            char dbg_buf[512];
+                            snprintf(dbg_buf, sizeof(dbg_buf),
+                                     "Failed to resolve member: %s",
+                                     node->name.c_str());
+                            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                        }
                     }
                     throw std::runtime_error(
                         "Expected struct element from pointer array access");
@@ -761,8 +785,13 @@ ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode *node) {
         bool resolved = false;
 
         std::string base_name = build_base_name(node->left.get());
-        debug_print("[EVAL_TYPED] base_name='%s', member='%s'\n",
-                    base_name.c_str(), node->name.c_str());
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "[EVAL_TYPED] base_name='%s', member='%s'",
+                     base_name.c_str(), node->name.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
         debug_msg(DebugMsgId::NESTED_MEMBER_BASE_PATH, base_name.c_str(),
                   node->name.c_str());
 
@@ -770,12 +799,8 @@ ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode *node) {
             // まず個別変数を検索（優先）
             debug_msg(DebugMsgId::NESTED_MEMBER_RESOLVE_FROM_BASE);
             resolved = resolve_from_base_name(base_name, resolved_value);
-            debug_print("[EVAL_TYPED] resolve_from_base_name returned: %d, "
-                        "value=%lld\n",
-                        resolved,
-                        resolved_value.is_numeric()
-                            ? resolved_value.as_numeric()
-                            : 0LL);
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "[EVAL_TYPED] resolve_from_base_name returned: %d, ");
             if (resolved) {
                 debug_msg(DebugMsgId::NESTED_MEMBER_RESOLVE_SUCCESS,
                           resolved_value.is_numeric()
@@ -830,8 +855,13 @@ ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode *node) {
     case ASTNodeType::AST_ARRAY_REF: {
         // 関数呼び出しの戻り値に対する配列アクセス: func()[index]
         if (node->left && node->left->node_type == ASTNodeType::AST_FUNC_CALL) {
-            debug_print("Processing typed function call array access: %s\n",
-                        node->left->name.c_str());
+            {
+                char dbg_buf[512];
+                snprintf(dbg_buf, sizeof(dbg_buf),
+                         "Processing typed function call array access: %s",
+                         node->left->name.c_str());
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
 
             // インデックスを評価
             int64_t index = evaluate_expression(node->array_index.get());
@@ -1188,9 +1218,14 @@ ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode *node) {
                                                        inferred_type);
                 } catch (const std::exception &e) {
                     if (debug_mode) {
-                        debug_print(
-                            "Failed to get struct member array element: %s\n",
-                            e.what());
+                        {
+                            char dbg_buf[512];
+                            snprintf(
+                                dbg_buf, sizeof(dbg_buf),
+                                "Failed to get struct member array element: %s",
+                                e.what());
+                            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                        }
                     }
                     // フォールバックに進む
                 }

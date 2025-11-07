@@ -449,9 +449,8 @@ void execute_assignment(StatementExecutor *executor, Interpreter &interpreter,
                               "%s[%lld]",
                               array_name.c_str(), idx);
 
-                    debug_print("ReturnException struct_value: "
-                                "struct_members.size() = %zu\n",
-                                ret.struct_value.struct_members.size());
+                    debug_msg(DebugMsgId::GENERIC_DEBUG,
+                              "ReturnException struct_value: ");
 
                     // 新しい関数を使用して配列要素に直接代入
                     interpreter.assign_struct_to_array_element(
@@ -644,11 +643,17 @@ void execute_assignment(StatementExecutor *executor, Interpreter &interpreter,
                 obj_name = node->left->left->left->name;
             } else {
                 if (node->left->left->left) {
-                    debug_print(
-                        "ERROR: Invalid node type for object: %d\n",
-                        static_cast<int>(node->left->left->left->node_type));
+                    {
+                        char dbg_buf[512];
+                        snprintf(dbg_buf, sizeof(dbg_buf),
+                                 "ERROR: Invalid node type for object: %d",
+                                 static_cast<int>(
+                                     node->left->left->left->node_type));
+                        debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                    }
                 } else {
-                    debug_print("ERROR: node->left->left->left is null\n");
+                    debug_msg(DebugMsgId::GENERIC_DEBUG,
+                              "ERROR: node->left->left->left is null");
                 }
                 throw std::runtime_error(
                     "Invalid object reference in member array access");
@@ -855,7 +860,8 @@ void execute_assignment(StatementExecutor *executor, Interpreter &interpreter,
     } else if (node->left &&
                node->left->node_type == ASTNodeType::AST_MEMBER_ARRAY_ACCESS) {
         // メンバの配列アクセスへの代入 (obj.member[index] = value)
-        debug_print("DEBUG: Detected AST_MEMBER_ARRAY_ACCESS assignment\n");
+        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                  "DEBUG: Detected AST_MEMBER_ARRAY_ACCESS assignment");
         executor->execute_member_array_assignment(node);
     } else if (node->left &&
                node->left->node_type == ASTNodeType::AST_MEMBER_ACCESS) {

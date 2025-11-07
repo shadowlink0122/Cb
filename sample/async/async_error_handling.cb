@@ -1,0 +1,395 @@
+// Cb言語 非同期エラーハンドリングとパターン
+// Result型風のエラーハンドリングをFutureで実現
+
+import stdlib.std.future;
+
+// ============================================
+// エラーコードの定義
+// ============================================
+
+const int ERROR_NONE = 0;
+const int ERROR_NOT_FOUND = 1;
+const int ERROR_INVALID_INPUT = 2;
+const int ERROR_TIMEOUT = 3;
+const int ERROR_NETWORK = 4;
+
+// ============================================
+// 結果とエラーを含む構造体
+// ============================================
+
+struct AsyncResult {
+    bool success;
+    int error_code;
+    string error_message;
+    int value;
+};
+
+struct AsyncStringResult {
+    bool success;
+    int error_code;
+    string error_message;
+    string value;
+};
+
+// ============================================
+// エラーハンドリング付き非同期関数
+// ============================================
+
+Future<AsyncResult> divide_async(int a, int b) {
+    Future<AsyncResult> result;
+    AsyncResult res;
+    
+    if (b == 0) {
+        res.success = false;
+        res.error_code = ERROR_INVALID_INPUT;
+        res.error_message = "Division by zero";
+        res.value = 0;
+    } else {
+        res.success = true;
+        res.error_code = ERROR_NONE;
+        res.error_message = "";
+        res.value = a / b;
+    }
+    
+    result.value = res;
+    result.is_ready = true;
+    return result;
+}
+
+Future<AsyncStringResult> fetch_user_name(int user_id) {
+    Future<AsyncStringResult> result;
+    AsyncStringResult res;
+    
+    if (user_id < 1 || user_id > 3) {
+        res.success = false;
+        res.error_code = ERROR_NOT_FOUND;
+        res.error_message = "User not found";
+        res.value = "";
+    } else if (user_id == 1) {
+        res.success = true;
+        res.error_code = ERROR_NONE;
+        res.error_message = "";
+        res.value = "Alice";
+    } else if (user_id == 2) {
+        res.success = true;
+        res.error_code = ERROR_NONE;
+        res.error_message = "";
+        res.value = "Bob";
+    } else {
+        res.success = true;
+        res.error_code = ERROR_NONE;
+        res.error_message = "";
+        res.value = "Charlie";
+    }
+    
+    result.value = res;
+    result.is_ready = true;
+    return result;
+}
+
+// ============================================
+// タイムアウトシミュレーション
+// ============================================
+
+Future<AsyncResult> fetch_with_timeout(int delay_ms) {
+    Future<AsyncResult> result;
+    AsyncResult res;
+    
+    if (delay_ms > 1000) {
+        res.success = false;
+        res.error_code = ERROR_TIMEOUT;
+        res.error_message = "Operation timed out";
+        res.value = 0;
+    } else {
+        res.success = true;
+        res.error_code = ERROR_NONE;
+        res.error_message = "";
+        res.value = 42;
+    }
+    
+    result.value = res;
+    result.is_ready = true;
+    return result;
+}
+
+// ============================================
+// ネットワークリクエストシミュレーション
+// ============================================
+
+Future<AsyncStringResult> fetch_api_data(string endpoint) {
+    Future<AsyncStringResult> result;
+    AsyncStringResult res;
+    
+    // エンドポイントに応じてシミュレート
+    if (endpoint == "/api/status") {
+        res.success = true;
+        res.error_code = ERROR_NONE;
+        res.error_message = "";
+        res.value = "OK";
+    } else if (endpoint == "/api/version") {
+        res.success = true;
+        res.error_code = ERROR_NONE;
+        res.error_message = "";
+        res.value = "v1.0.0";
+    } else if (endpoint == "/api/fail") {
+        res.success = false;
+        res.error_code = ERROR_NETWORK;
+        res.error_message = "Network error";
+        res.value = "";
+    } else {
+        res.success = false;
+        res.error_code = ERROR_NOT_FOUND;
+        res.error_message = "Endpoint not found";
+        res.value = "";
+    }
+    
+    result.value = res;
+    result.is_ready = true;
+    return result;
+}
+
+// ============================================
+// エラーハンドリングのパターン
+// ============================================
+
+// パターン1: 成功/失敗をチェックして処理
+void pattern1_check_success() {
+    print("=== Pattern 1: Success Check ===\n");
+    
+    AsyncResult res1 = await divide_async(10, 2);
+    if (res1.success) {
+        print("Success: 10 / 2 = ");
+        print(res1.value);
+        print("\n");
+    } else {
+        print("Error: ");
+        print(res1.error_message);
+        print("\n");
+    }
+    
+    AsyncResult res2 = await divide_async(10, 0);
+    if (res2.success) {
+        print("Success: 10 / 0 = ");
+        print(res2.value);
+        print("\n");
+    } else {
+        print("Error: ");
+        print(res2.error_message);
+        print(" (code: ");
+        print(res2.error_code);
+        print(")\n");
+    }
+    
+    print("\n");
+}
+
+// パターン2: 複数の非同期処理でエラーチェック
+void pattern2_multiple_checks() {
+    print("=== Pattern 2: Multiple Async with Error Checks ===\n");
+    int[4] user_ids;
+    user_ids[0] = 1;
+    user_ids[1] = 2;
+    user_ids[2] = 3;
+    user_ids[3] = 99;  // エラーになるID
+    
+    for (int i = 0; i < 4; i = i + 1) {
+        AsyncStringResult res = await fetch_user_name(user_ids[i]);
+        
+        print("User ID ");
+        print(user_ids[i]);
+        print(": ");
+        
+        if (res.success) {
+            print(res.value);
+            print("\n");
+        } else {
+            print("ERROR - ");
+            print(res.error_message);
+            print("\n");
+        }
+    }
+    
+    print("\n");
+}
+
+// パターン3: タイムアウトハンドリング
+void pattern3_timeout_handling() {
+    print("=== Pattern 3: Timeout Handling ===\n");
+    
+    int[3] delays;
+    delays[0] = 100;
+    delays[1] = 500;
+    delays[2] = 2000;
+    
+    for (int i = 0; i < 3; i = i + 1) {
+        print("Request with ");
+        print(delays[i]);
+        print("ms delay: ");
+        
+        AsyncResult res = await fetch_with_timeout(delays[i]);
+        
+        if (res.success) {
+            print("Success (value: ");
+            print(res.value);
+            print(")\n");
+        } else {
+            print("Failed - ");
+            print(res.error_message);
+            print("\n");
+        }
+    }
+    
+    print("\n");
+}
+
+// パターン4: APIリクエストのエラーハンドリング
+void pattern4_api_requests() {
+    print("=== Pattern 4: API Request Error Handling ===\n");
+    
+    // 成功するリクエスト
+    print("GET /api/status: ");
+    AsyncStringResult res1 = await fetch_api_data("/api/status");
+    if (res1.success) {
+        print(res1.value);
+        print("\n");
+    } else {
+        print("ERROR\n");
+    }
+    
+    // 成功するリクエスト2
+    print("GET /api/version: ");
+    AsyncStringResult res2 = await fetch_api_data("/api/version");
+    if (res2.success) {
+        print(res2.value);
+        print("\n");
+    } else {
+        print("ERROR\n");
+    }
+    
+    // 失敗するリクエスト（ネットワークエラー）
+    print("GET /api/fail: ");
+    AsyncStringResult res3 = await fetch_api_data("/api/fail");
+    if (res3.success) {
+        print(res3.value);
+        print("\n");
+    } else {
+        print(res3.error_message);
+        print(" (code: ");
+        print(res3.error_code);
+        print(")\n");
+    }
+    
+    // 失敗するリクエスト（404）
+    print("GET /api/unknown: ");
+    AsyncStringResult res4 = await fetch_api_data("/api/unknown");
+    if (res4.success) {
+        print(res4.value);
+        print("\n");
+    } else {
+        print(res4.error_message);
+        print(" (code: ");
+        print(res4.error_code);
+        print(")\n");
+    }
+    
+    print("\n");
+}
+
+// パターン5: エラーからのリカバリー
+void pattern5_error_recovery() {
+    print("=== Pattern 5: Error Recovery with Fallback ===\n");
+    
+    // 最初の試行
+    print("Attempting primary data source...\n");
+    AsyncStringResult res1 = await fetch_api_data("/api/primary");
+    
+    string final_data;
+    
+    if (res1.success) {
+        final_data = res1.value;
+        print("Success: ");
+        print(final_data);
+        print("\n");
+    } else {
+        print("Primary failed: ");
+        print(res1.error_message);
+        print("\n");
+        
+        // フォールバック
+        print("Attempting fallback source...\n");
+        AsyncStringResult res2 = await fetch_api_data("/api/status");
+        
+        if (res2.success) {
+            final_data = res2.value;
+            print("Fallback success: ");
+            print(final_data);
+            print("\n");
+        } else {
+            final_data = "DEFAULT";
+            print("Using default value: ");
+            print(final_data);
+            print("\n");
+        }
+    }
+    
+    print("\n");
+}
+
+// パターン6: チェーン処理でのエラーハンドリング
+void pattern6_chain_error_handling() {
+    print("=== Pattern 6: Error Handling in Chains ===\n");
+    
+    // ステップ1: ユーザーを取得
+    AsyncStringResult user_res = await fetch_user_name(2);
+    
+    if (!user_res.success) {
+        print("Failed to fetch user: ");
+        print(user_res.error_message);
+        print("\n\n");
+        return;
+    }
+    
+    print("User: ");
+    print(user_res.value);
+    print("\n");
+    
+    // ステップ2: ユーザーIDでデータを取得
+    AsyncResult data_res = await fetch_with_timeout(500);
+    
+    if (!data_res.success) {
+        print("Failed to fetch data: ");
+        print(data_res.error_message);
+        print("\n\n");
+        return;
+    }
+    
+    print("Data: ");
+    print(data_res.value);
+    print("\n");
+    
+    print("Chain completed successfully!\n\n");
+}
+
+// ============================================
+// メイン関数
+// ============================================
+
+int main() {
+    print("==========================================\n");
+    print("  Cb Async Error Handling Patterns\n");
+    print("==========================================\n\n");
+    
+    // すべてのパターンを実行
+    pattern1_check_success();
+    pattern2_multiple_checks();
+    pattern3_timeout_handling();
+    pattern4_api_requests();
+    pattern5_error_recovery();
+    pattern6_chain_error_handling();
+    
+    print("==========================================\n");
+    print("  All Patterns Completed!\n");
+    print("==========================================\n");
+    
+    return 0;
+}

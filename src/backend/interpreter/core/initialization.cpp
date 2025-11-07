@@ -3,6 +3,8 @@
 #include "../../../common/debug.h"
 #include "../../../frontend/recursive_parser/recursive_parser.h"
 #include "evaluator/core/evaluator.h"
+#include "event_loop/event_loop.h"
+#include "event_loop/simple_event_loop.h" // v0.13.0 Phase 2.0
 #include "executors/control_flow_executor.h"
 #include "executors/statement_executor.h"
 #include "executors/statement_list_executor.h"
@@ -29,6 +31,7 @@
 #include "managers/variables/static.h"
 #include "output/output_manager.h"
 #include "services/array_processing_service.h"
+#include "services/debug_service.h"
 #include "services/expression_service.h"
 #include "services/variable_access_service.h"
 
@@ -123,6 +126,12 @@ Interpreter::Interpreter(bool debug)
     expression_statement_handler_ =
         std::make_unique<ExpressionStatementHandler>(this);
 
+    // v0.12.0: Event Loop を初期化
+    event_loop_ = std::make_unique<cb::EventLoop>();
+
+    // v0.13.0 Phase 2.0: SimpleEventLoop を初期化
+    simple_event_loop_ = std::make_unique<cb::SimpleEventLoop>(*this);
+
     // グローバルスコープを初期化
     // ネストされた関数呼び出しに備えて容量を予約（再割り当てを防ぐ）
     scope_stack.reserve(64);
@@ -192,24 +201,39 @@ void Interpreter::sync_impl_definitions_from_parser(RecursiveParser *parser) {
 
         // 所有権を移動
         for (auto &node : parser_impl_nodes) {
-            debug_print(
-                "[SYNC_IMPL] Transferring impl_node=%p, arguments.size()=%zu\n",
-                (void *)node.get(), node->arguments.size());
+            {
+                char dbg_buf[512];
+                snprintf(dbg_buf, sizeof(dbg_buf),
+                         "[SYNC_IMPL] Transferring impl_node=%p, "
+                         "arguments.size()=%zu",
+                         (void *)node.get(), node->arguments.size());
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
             impl_nodes_.push_back(std::move(node));
         }
         parser_impl_nodes.clear();
 
-        debug_print(
-            "[SYNC_IMPL] After transfer, interpreter has %zu impl_nodes\n",
-            impl_nodes_.size());
+        {
+            char dbg_buf[512];
+            snprintf(
+                dbg_buf, sizeof(dbg_buf),
+                "[SYNC_IMPL] After transfer, interpreter has %zu impl_nodes",
+                impl_nodes_.size());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
     }
 
     // v0.11.0:
     // Parserのimpl_definitions_をクリア（Parser破棄時のuse-after-free対策）
     // これらはInterpreterに転送されるので、Parser側では不要
     auto &parser_impl_defs = parser->get_impl_definitions_for_clear();
-    debug_print("[SYNC_IMPL] Clearing %zu impl_definitions from parser\n",
-                parser_impl_defs.size());
+    {
+        char dbg_buf[512];
+        snprintf(dbg_buf, sizeof(dbg_buf),
+                 "[SYNC_IMPL] Clearing %zu impl_definitions from parser",
+                 parser_impl_defs.size());
+        debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+    }
     parser_impl_defs.clear();
 
     // v0.11.0: impl_defのimpl_nodeポインタを転送されたノードに更新

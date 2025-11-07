@@ -632,14 +632,36 @@ struct InterfaceMember {
     std::string name;                // 関数名
     TypeInfo return_type;            // 戻り値の型
     bool return_is_unsigned = false; // 戻り値がunsignedかどうか
+    bool is_async = false;           // v0.13.0 Phase 2.0: asyncメソッドか
     std::vector<std::pair<std::string, TypeInfo>>
         parameters; // パラメータのリスト (名前, 型)
     std::vector<bool> parameter_is_unsigned; // 各パラメータがunsignedかどうか
 
-    InterfaceMember() : return_type(TYPE_UNKNOWN) {}
+    InterfaceMember() : return_type(TYPE_UNKNOWN), is_async(false) {}
     InterfaceMember(const std::string &n, TypeInfo ret_type,
                     bool ret_unsigned = false)
-        : name(n), return_type(ret_type), return_is_unsigned(ret_unsigned) {}
+        : name(n), return_type(ret_type), return_is_unsigned(ret_unsigned),
+          is_async(false) {}
+
+    // v0.13.0 Phase 2.0: 明示的コピーコンストラクタ（is_asyncをコピー）
+    InterfaceMember(const InterfaceMember &other)
+        : name(other.name), return_type(other.return_type),
+          return_is_unsigned(other.return_is_unsigned),
+          is_async(other.is_async), parameters(other.parameters),
+          parameter_is_unsigned(other.parameter_is_unsigned) {}
+
+    // v0.13.0 Phase 2.0: 明示的コピー代入演算子（is_asyncをコピー）
+    InterfaceMember &operator=(const InterfaceMember &other) {
+        if (this != &other) {
+            name = other.name;
+            return_type = other.return_type;
+            return_is_unsigned = other.return_is_unsigned;
+            is_async = other.is_async;
+            parameters = other.parameters;
+            parameter_is_unsigned = other.parameter_is_unsigned;
+        }
+        return *this;
+    }
 
     void add_parameter(const std::string &param_name, TypeInfo param_type,
                        bool is_unsigned = false) {
@@ -667,6 +689,26 @@ struct InterfaceDefinition {
 
     InterfaceDefinition() {}
     InterfaceDefinition(const std::string &n) : name(n) {}
+
+    // v0.13.0 Phase 2.0:
+    // 明示的コピーコンストラクタ（is_asyncを含むメソッドをコピー）
+    InterfaceDefinition(const InterfaceDefinition &other)
+        : name(other.name), methods(other.methods),
+          is_generic(other.is_generic), type_parameters(other.type_parameters),
+          interface_bounds(other.interface_bounds) {}
+
+    // v0.13.0 Phase 2.0:
+    // 明示的コピー代入演算子（is_asyncを含むメソッドをコピー）
+    InterfaceDefinition &operator=(const InterfaceDefinition &other) {
+        if (this != &other) {
+            name = other.name;
+            methods = other.methods;
+            is_generic = other.is_generic;
+            type_parameters = other.type_parameters;
+            interface_bounds = other.interface_bounds;
+        }
+        return *this;
+    }
 
     // メソッドを追加
     void add_method(const std::string &method_name, TypeInfo return_type) {
@@ -896,6 +938,7 @@ enum class ASTNodeType {
     AST_CONTINUE_STMT,
     AST_RETURN_STMT,
     AST_DEFER_STMT,  // defer文
+    AST_YIELD_STMT,  // v0.12.0: yield文（コルーチン制御）
     AST_SWITCH_STMT, // switch文
     AST_CASE_CLAUSE, // case節
     AST_MATCH_STMT,  // v0.11.0: match文（パターンマッチング）
@@ -1014,10 +1057,11 @@ struct ASTNode {
     // ストレージ属性
     bool is_const = false;
     bool is_static = false;
-    bool is_impl_static = false;        // impl内でのstatic変数フラグ
-    bool is_array = false;              // 配列パラメータフラグ
-    bool is_array_return = false;       // 配列戻り値フラグ
-    bool is_private_method = false;     // privateメソッドフラグ
+    bool is_impl_static = false;    // impl内でのstatic変数フラグ
+    bool is_array = false;          // 配列パラメータフラグ
+    bool is_array_return = false;   // 配列戻り値フラグ
+    bool is_private_method = false; // privateメソッドフラグ
+    bool is_async = false; // v0.13.0 Phase 2.0: asyncメソッド/関数フラグ
     bool is_private_member = false;     // struct privateメンバフラグ
     bool is_default_member = false;     // struct defaultメンバフラグ
     bool is_pointer = false;            // ポインタ型フラグ
@@ -1156,6 +1200,10 @@ struct ASTNode {
     bool is_constructor = false; // コンストラクタかどうか
     bool is_destructor = false;  // デストラクタかどうか
     std::string constructor_struct_name; // コンストラクタが属する構造体名
+
+    // async/await関連（v0.12.0新機能）
+    bool is_async_function = false;   // async関数かどうか
+    bool is_await_expression = false; // await式かどうか
 
     // 無名変数関連（v0.10.0新機能）
     bool is_discard = false;    // 無名変数かどうか

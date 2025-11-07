@@ -111,6 +111,7 @@ enum class TokenType {
     TOK_UNSIGNED,
     TOK_ASSERT,
     TOK_DEFER,
+    TOK_YIELD, // v0.12.0: yield (coroutine control)
     TOK_DEFAULT,
     TOK_SWITCH,
     TOK_CASE,
@@ -121,6 +122,8 @@ enum class TokenType {
     TOK_FUNC,       // func (for lambda expressions)
     TOK_IMPORT,     // import
     TOK_EXPORT,     // export
+    TOK_ASYNC,      // async (v0.12.0: async functions)
+    TOK_AWAIT,      // await (v0.12.0: await expressions)
 
     // Special
     TOK_EOF,

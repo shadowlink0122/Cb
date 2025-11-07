@@ -342,6 +342,169 @@ static std::vector<DebugMessageTemplate> init_debug_messages() {
         "[MEMBER_ASSIGN] Assigning struct to member: %s.%s (type: %s)",
         "[MEMBER_ASSIGN] 構造体メンバー代入: %s.%s (型: %s)"};
 
+    // 低レベルデバッグメッセージ (GENERIC_DEBUG置き換え用)
+    // Method call / Self関連
+    messages[static_cast<int>(DebugMsgId::METHOD_SELF_SETUP_START)] = {
+        "[METHOD] Self setup start: %s", "[METHOD] selfセットアップ開始: %s"};
+    messages[static_cast<int>(DebugMsgId::METHOD_SELF_SETUP_COMPLETE)] = {
+        "[METHOD] Self setup complete: %s",
+        "[METHOD] selfセットアップ完了: %s"};
+    messages[static_cast<int>(DebugMsgId::METHOD_SELF_WRITEBACK_START)] = {
+        "[METHOD] Self writeback start: %s", "[METHOD] self書き戻し開始: %s"};
+    messages[static_cast<int>(DebugMsgId::METHOD_SELF_WRITEBACK_COMPLETE)] = {
+        "[METHOD] Self writeback complete: %s",
+        "[METHOD] self書き戻し完了: %s"};
+    messages[static_cast<int>(DebugMsgId::METHOD_SELF_MERGE)] = {
+        "[METHOD] Self merge: %s", "[METHOD] selfマージ: %s"};
+    messages[static_cast<int>(DebugMsgId::METHOD_POINTER_DEREF)] = {
+        "[METHOD] Pointer dereference: %s",
+        "[METHOD] ポインタデリファレンス: %s"};
+    messages[static_cast<int>(DebugMsgId::METHOD_CONSTRUCTOR_SELF)] = {
+        "[METHOD] Constructor self created: %s",
+        "[METHOD] コンストラクタself作成: %s"};
+    messages[static_cast<int>(DebugMsgId::METHOD_CALL_DEBUG)] = {
+        "[METHOD] Call debug: %s", "[METHOD] 呼び出しデバッグ: %s"};
+    messages[static_cast<int>(DebugMsgId::METHOD_EXEC_DEBUG)] = {
+        "[METHOD] Exec debug: %s", "[METHOD] 実行デバッグ: %s"};
+
+    // Arrow operator関連
+    messages[static_cast<int>(DebugMsgId::ARROW_OP_MEMBER_ACCESS)] = {
+        "[ARROW_OP] Member access: %s", "[ARROW_OP] メンバーアクセス: %s"};
+    messages[static_cast<int>(DebugMsgId::ARROW_OP_NULL_CHECK)] = {
+        "[ARROW_OP] Null check: %s", "[ARROW_OP] NULLチェック: %s"};
+    messages[static_cast<int>(DebugMsgId::ARROW_OP_MEMORY_READ)] = {
+        "[ARROW_OP] Memory read: %s", "[ARROW_OP] メモリ読み込み: %s"};
+    messages[static_cast<int>(DebugMsgId::ARROW_OP_TYPE_CAST)] = {
+        "[ARROW_OP] Type cast: %s", "[ARROW_OP] 型キャスト: %s"};
+    messages[static_cast<int>(DebugMsgId::ARROW_OP_GENERIC_RESOLVE)] = {
+        "[ARROW_OP] Generic resolve: %s", "[ARROW_OP] ジェネリック解決: %s"};
+    messages[static_cast<int>(DebugMsgId::ARROW_ASSIGN_START)] = {
+        "[ARROW_ASSIGN] Start: %s", "[ARROW_ASSIGN] 開始: %s"};
+    messages[static_cast<int>(DebugMsgId::ARROW_ASSIGN_COMPLETE)] = {
+        "[ARROW_ASSIGN] Complete: %s", "[ARROW_ASSIGN] 完了: %s"};
+    messages[static_cast<int>(DebugMsgId::ARROW_ASSIGN_MEMBER_UPDATE)] = {
+        "[ARROW_ASSIGN] Member update: %s", "[ARROW_ASSIGN] メンバー更新: %s"};
+    messages[static_cast<int>(DebugMsgId::ARROW_ASSIGN_METADATA)] = {
+        "[ARROW_ASSIGN] Metadata: %s", "[ARROW_ASSIGN] メタデータ: %s"};
+
+    // Member access関連
+    messages[static_cast<int>(DebugMsgId::MEMBER_ACCESS_DEBUG)] = {
+        "[MEMBER] Access debug: %s", "[MEMBER] アクセスデバッグ: %s"};
+    messages[static_cast<int>(DebugMsgId::MEMBER_ACCESS_REFERENCE)] = {
+        "[MEMBER] Reference resolve: %s", "[MEMBER] 参照解決: %s"};
+    messages[static_cast<int>(DebugMsgId::MEMBER_ACCESS_FOUND)] = {
+        "[MEMBER] Member found: %s", "[MEMBER] メンバー発見: %s"};
+    messages[static_cast<int>(DebugMsgId::MEMBER_ASSIGN_START)] = {
+        "[MEMBER] Assignment start: %s", "[MEMBER] 代入開始: %s"};
+    messages[static_cast<int>(DebugMsgId::MEMBER_ASSIGN_COMPLETE)] = {
+        "[MEMBER] Assignment complete: %s", "[MEMBER] 代入完了: %s"};
+    messages[static_cast<int>(DebugMsgId::MEMBER_ASSIGN_NESTED)] = {
+        "[MEMBER] Nested assignment: %s", "[MEMBER] ネスト代入: %s"};
+    messages[static_cast<int>(DebugMsgId::MEMBER_ARRAY_ACCESS)] = {
+        "[MEMBER] Array access: %s", "[MEMBER] 配列アクセス: %s"};
+    messages[static_cast<int>(DebugMsgId::MEMBER_EVAL_RESULT)] = {
+        "[MEMBER] Eval result: %s", "[MEMBER] 評価結果: %s"};
+
+    // Impl/Interface関連（既存のIMPL_METHOD_REGISTERなどを活用）
+    messages[static_cast<int>(DebugMsgId::IMPL_REGISTER_DEBUG)] = {
+        "[IMPL] Register debug: %s", "[IMPL] 登録デバッグ: %s"};
+    messages[static_cast<int>(DebugMsgId::IMPL_FIND_EXACT)] = {
+        "[IMPL] Find exact match: %s", "[IMPL] 完全一致検索: %s"};
+    messages[static_cast<int>(DebugMsgId::IMPL_FIND_GENERIC)] = {
+        "[IMPL] Find generic: %s", "[IMPL] ジェネリック検索: %s"};
+    messages[static_cast<int>(DebugMsgId::IMPL_GENERIC_INSTANTIATE)] = {
+        "[IMPL] Generic instantiate: %s",
+        "[IMPL] ジェネリックインスタンス化: %s"};
+    messages[static_cast<int>(DebugMsgId::IMPL_GENERIC_CACHE_HIT)] = {
+        "[IMPL] Generic cache hit: %s",
+        "[IMPL] ジェネリックキャッシュヒット: %s"};
+    messages[static_cast<int>(DebugMsgId::IMPL_GENERIC_CACHE_MISS)] = {
+        "[IMPL] Generic cache miss: %s",
+        "[IMPL] ジェネリックキャッシュミス: %s"};
+    messages[static_cast<int>(DebugMsgId::IMPL_GENERIC_TYPE_MAP)] = {
+        "[IMPL] Generic type map: %s", "[IMPL] ジェネリック型マップ: %s"};
+    messages[static_cast<int>(DebugMsgId::IMPL_HANDLE_DEBUG)] = {
+        "[IMPL] Handle debug: %s", "[IMPL] 処理デバッグ: %s"};
+    messages[static_cast<int>(DebugMsgId::IMPL_CONSTRUCTOR_DEBUG)] = {
+        "[IMPL] Constructor debug: %s", "[IMPL] コンストラクタデバッグ: %s"};
+
+    // Statement executor関連
+    messages[static_cast<int>(DebugMsgId::STMT_EXEC_DEBUG)] = {
+        "[STMT] Exec debug: %s", "[STMT] 実行デバッグ: %s"};
+    messages[static_cast<int>(DebugMsgId::STMT_MEMBER_ARRAY_ASSIGN)] = {
+        "[STMT] Member array assign: %s", "[STMT] メンバー配列代入: %s"};
+    messages[static_cast<int>(DebugMsgId::STMT_NESTED_STRUCT_ARRAY)] = {
+        "[STMT] Nested struct array: %s", "[STMT] ネスト構造体配列: %s"};
+    messages[static_cast<int>(DebugMsgId::STMT_SELF_ASSIGN)] = {
+        "[STMT] Self assign: %s", "[STMT] self代入: %s"};
+
+    // Struct operations関連
+    messages[static_cast<int>(DebugMsgId::STRUCT_OP_GET_MEMBER)] = {
+        "[STRUCT_OP] Get member: %s", "[STRUCT_OP] メンバー取得: %s"};
+    messages[static_cast<int>(DebugMsgId::STRUCT_OP_SYNC_MEMBER)] = {
+        "[STRUCT_OP] Sync member: %s", "[STRUCT_OP] メンバー同期: %s"};
+    messages[static_cast<int>(DebugMsgId::STRUCT_OP_MULTIDIM_ACCESS)] = {
+        "[STRUCT_OP] Multidim access: %s", "[STRUCT_OP] 多次元アクセス: %s"};
+    messages[static_cast<int>(DebugMsgId::STRUCT_OP_FLAT_INDEX)] = {
+        "[STRUCT_OP] Flat index: %s", "[STRUCT_OP] フラットインデックス: %s"};
+
+    // Return handler関連
+    messages[static_cast<int>(DebugMsgId::RETURN_EXPR_DEBUG)] = {
+        "[RETURN] Expr debug: %s", "[RETURN] 式デバッグ: %s"};
+    messages[static_cast<int>(DebugMsgId::RETURN_POINTER_DEBUG)] = {
+        "[RETURN] Pointer debug: %s", "[RETURN] ポインタデバッグ: %s"};
+    messages[static_cast<int>(DebugMsgId::RETURN_TYPED_VALUE)] = {
+        "[RETURN] Typed value: %s", "[RETURN] 型付き値: %s"};
+
+    // Call implementation関連
+    messages[static_cast<int>(DebugMsgId::CALL_IMPL_DEBUG)] = {
+        "[CALL_IMPL] Debug: %s", "[CALL_IMPL] デバッグ: %s"};
+    messages[static_cast<int>(DebugMsgId::CALL_IMPL_BUILTIN)] = {
+        "[CALL_IMPL] Builtin: %s", "[CALL_IMPL] 組み込み: %s"};
+    messages[static_cast<int>(DebugMsgId::CALL_IMPL_MALLOC)] = {
+        "[CALL_IMPL] Malloc: %s", "[CALL_IMPL] Malloc: %s"};
+    messages[static_cast<int>(DebugMsgId::CALL_IMPL_SLEEP)] = {
+        "[CALL_IMPL] Sleep: %s", "[CALL_IMPL] Sleep: %s"};
+    messages[static_cast<int>(DebugMsgId::CALL_IMPL_RECEIVER)] = {
+        "[CALL_IMPL] Receiver: %s", "[CALL_IMPL] レシーバー: %s"};
+
+    // Parser関連
+    messages[static_cast<int>(DebugMsgId::PARSER_TOKEN_DEBUG)] = {
+        "[PARSER] Token debug: %s", "[PARSER] トークンデバッグ: %s"};
+
+    // Expression service関連
+    messages[static_cast<int>(DebugMsgId::EXPR_SERVICE_ERROR)] = {
+        "[EXPR_SERVICE] Error: %s", "[EXPR_SERVICE] エラー: %s"};
+
+    // 詳細デバッグカテゴリ（頻出パターン用）
+    messages[static_cast<int>(DebugMsgId::DEBUG_GENERIC)] = {"DEBUG: %s",
+                                                             "DEBUG: %s"};
+    messages[static_cast<int>(DebugMsgId::ENUM_VAR_DECL_DEBUG)] = {
+        "[ENUM_VAR_DECL_MANAGER] %s", "[ENUM_VAR_DECL_MANAGER] %s"};
+    messages[static_cast<int>(DebugMsgId::EVAL_RESOLVER_DEBUG)] = {
+        "[EVAL_RESOLVER] %s", "[EVAL_RESOLVER] %s"};
+    messages[static_cast<int>(DebugMsgId::STRUCT_LITERAL_DEBUG)] = {
+        "STRUCT_LITERAL_DEBUG: %s", "STRUCT_LITERAL_DEBUG: %s"};
+    messages[static_cast<int>(DebugMsgId::SYNC_STRUCT_DEBUG)] = {
+        "SYNC_STRUCT: %s", "SYNC_STRUCT: %s"};
+    messages[static_cast<int>(DebugMsgId::GENERIC_CTOR_DEBUG)] = {
+        "[GENERIC_CTOR] %s", "[GENERIC_CTOR] %s"};
+    messages[static_cast<int>(DebugMsgId::UNION_TYPE_DEBUG)] = {
+        "UNION_*_DEBUG: %s", "UNION_*_DEBUG: %s"};
+    messages[static_cast<int>(DebugMsgId::TYPEDEF_DEBUG)] = {
+        "TYPEDEF_DEBUG: %s", "TYPEDEF_DEBUG: %s"};
+    messages[static_cast<int>(DebugMsgId::BUILTIN_TYPES_DEBUG)] = {
+        "[BUILTIN_TYPES] %s", "[BUILTIN_TYPES] %s"};
+    messages[static_cast<int>(DebugMsgId::ASSIGN_IFACE_DEBUG)] = {
+        "ASSIGN_IFACE: %s", "ASSIGN_IFACE: %s"};
+    messages[static_cast<int>(DebugMsgId::REGISTER_UNION_DEBUG)] = {
+        "REGISTER_UNION_DEBUG: %s", "REGISTER_UNION_DEBUG: %s"};
+    messages[static_cast<int>(DebugMsgId::VAR_DEBUG)] = {"VAR_DEBUG: %s",
+                                                         "VAR_DEBUG: %s"};
+    messages[static_cast<int>(DebugMsgId::GET_TYPE_SIZE_DEBUG)] = {
+        "[get_type_size] %s", "[get_type_size] %s"};
+
+    // 汎用デバッグ（最後の手段として残す）
     messages[static_cast<int>(DebugMsgId::GENERIC_DEBUG)] = {"%s", "%s"};
 
     // 関数関連のメッセージ
@@ -1196,6 +1359,51 @@ static std::vector<DebugMessageTemplate> init_debug_messages() {
     messages[static_cast<int>(DebugMsgId::TYPED_MEMBER_ACCESS_CASE)] = {
         "[TYPED_MEMBER_ACCESS] Processing member='%s', chain_size=%zu",
         "[TYPED_MEMBER_ACCESS] メンバー処理='%s', チェーンサイズ=%zu"};
+
+    // v0.12.0: async/await関連メッセージ (Phase 1)
+    messages[static_cast<int>(DebugMsgId::ASYNC_FUNCTION_CALL)] = {
+        "[ASYNC] Calling async function: %s", "[ASYNC] async関数呼び出し: %s"};
+    messages[static_cast<int>(DebugMsgId::ASYNC_FUNCTION_RETURNED)] = {
+        "[ASYNC] Function returned value: %lld (type=%d)",
+        "[ASYNC] 関数が値を返却: %lld (型=%d)"};
+    messages[static_cast<int>(DebugMsgId::ASYNC_WRAPPING_FUTURE)] = {
+        "[ASYNC] Wrapping return value in Future (is_ready=true)",
+        "[ASYNC] 戻り値をFutureでラップ (is_ready=true)"};
+    messages[static_cast<int>(DebugMsgId::AWAIT_EXPRESSION_START)] = {
+        "[AWAIT] Awaiting Future from variable: %s",
+        "[AWAIT] 変数からFutureを待機: %s"};
+    messages[static_cast<int>(DebugMsgId::AWAIT_FUTURE_READY_CHECK)] = {
+        "[AWAIT] Future is_ready=%s", "[AWAIT] Future is_ready=%s"};
+    messages[static_cast<int>(DebugMsgId::AWAIT_VALUE_EXTRACTED)] = {
+        "[AWAIT] Extracted value: %lld (type=%d)",
+        "[AWAIT] 抽出された値: %lld (型=%d)"};
+
+    // v0.13.0: async/await Phase 2 - Event Loop & yield
+    messages[static_cast<int>(DebugMsgId::ASYNC_TASK_REGISTER)] = {
+        "[ASYNC] Registering async task: %s (task_id=%d)",
+        "[ASYNC] asyncタスク登録: %s (task_id=%d)"};
+    messages[static_cast<int>(DebugMsgId::ASYNC_TASK_REGISTER_DEFERRED)] = {
+        "[ASYNC] Registering deferred task (not executing immediately)",
+        "[ASYNC] 遅延タスクを登録（即座実行なし）"};
+    messages[static_cast<int>(DebugMsgId::ASYNC_YIELD_CONTROL)] = {
+        "[ASYNC] Task yielded control to event loop",
+        "[ASYNC] タスクがイベントループに制御を渡しました"};
+    messages[static_cast<int>(DebugMsgId::EVENT_LOOP_START)] = {
+        "[EVENT_LOOP] Starting event loop with %d task(s)",
+        "[EVENT_LOOP] イベントループ開始 (%d個のタスク)"};
+    messages[static_cast<int>(DebugMsgId::EVENT_LOOP_EXECUTE)] = {
+        "[EVENT_LOOP] Executing task %d, statement %zu",
+        "[EVENT_LOOP] タスク %d を実行中, ステートメント %zu"};
+    messages[static_cast<int>(DebugMsgId::EVENT_LOOP_TASK_YIELD)] = {
+        "[EVENT_LOOP] Task %d yielded", "[EVENT_LOOP] タスク %d がyield"};
+    messages[static_cast<int>(DebugMsgId::EVENT_LOOP_TASK_COMPLETE)] = {
+        "[EVENT_LOOP] Task %d completed", "[EVENT_LOOP] タスク %d が完了"};
+    messages[static_cast<int>(DebugMsgId::EVENT_LOOP_COMPLETE)] = {
+        "[EVENT_LOOP] Event loop finished (all tasks completed)",
+        "[EVENT_LOOP] イベントループ終了（全タスク完了）"};
+    messages[static_cast<int>(DebugMsgId::EVENT_LOOP_EMPTY_QUEUE)] = {
+        "[EVENT_LOOP] Task queue is empty",
+        "[EVENT_LOOP] タスクキューが空です"};
 
     // 他の未設定のメッセージにはデフォルト値を設定
     for (size_t i = 0; i < messages.size(); ++i) {

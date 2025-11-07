@@ -53,8 +53,13 @@ void GlobalInitializationManager::initialize_global_variables(
 
     case ASTNodeType::AST_VAR_DECL:
         if (interpreter_->debug_mode) {
-            debug_print("Initializing global variable: %s\n",
-                        node->name.c_str());
+            {
+                char dbg_buf[512];
+                snprintf(dbg_buf, sizeof(dbg_buf),
+                         "Initializing global variable: %s",
+                         node->name.c_str());
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
         }
 
         // グローバル変数を作成・初期化
@@ -64,14 +69,16 @@ void GlobalInitializationManager::initialize_global_variables(
         if (interpreter_->debug_mode) {
             Variable *created_var = interpreter_->find_variable(node->name);
             if (created_var) {
-                debug_print("Global variable %s created successfully: "
-                            "value=%ld, is_const=%d, is_assigned=%d\n",
-                            node->name.c_str(), created_var->value,
-                            created_var->is_const ? 1 : 0,
-                            created_var->is_assigned ? 1 : 0);
+                debug_msg(DebugMsgId::GENERIC_DEBUG,
+                          "Global variable %s created successfully: ");
             } else {
-                debug_print("ERROR: Global variable %s creation failed\n",
-                            node->name.c_str());
+                {
+                    char dbg_buf[512];
+                    snprintf(dbg_buf, sizeof(dbg_buf),
+                             "ERROR: Global variable %s creation failed",
+                             node->name.c_str());
+                    debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                }
             }
         }
         break;
@@ -95,8 +102,13 @@ void GlobalInitializationManager::sync_enum_definitions_from_parser(
         interpreter_->enum_manager_->register_enum(enum_name, enum_def);
 
         if (interpreter_->debug_mode) {
-            debug_print("Synced enum definition: %s with %zu members\\n",
-                        enum_name.c_str(), enum_def.members.size());
+            {
+                char dbg_buf[512];
+                snprintf(dbg_buf, sizeof(dbg_buf),
+                         "Synced enum definition: %s with %zu members",
+                         enum_name.c_str(), enum_def.members.size());
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
         }
     }
 }

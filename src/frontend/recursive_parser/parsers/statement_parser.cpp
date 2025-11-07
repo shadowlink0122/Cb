@@ -44,6 +44,12 @@ ASTNode *StatementParser::parseStatement() {
     }
 
     // 修飾子のチェック
+    bool isAsync = false;
+    if (parser_->check(TokenType::TOK_ASYNC)) {
+        isAsync = true;
+        parser_->advance();
+    }
+
     bool isStatic = false;
     if (parser_->check(TokenType::TOK_STATIC)) {
         debug_msg(DebugMsgId::PARSE_STATIC_MODIFIER,
@@ -102,7 +108,8 @@ ASTNode *StatementParser::parseStatement() {
     }
 
     // 基本型の変数宣言/関数定義
-    ASTNode *basicType = parseBasicTypeStatement(isStatic, isConst, isUnsigned);
+    ASTNode *basicType =
+        parseBasicTypeStatement(isStatic, isConst, isUnsigned, isAsync);
     if (basicType) {
         // exportフラグが設定されている場合、関数宣言・変数宣言にフラグを設定
         if (isExported && (basicType->node_type == ASTNodeType::AST_FUNC_DECL ||
@@ -227,6 +234,9 @@ ASTNode *StatementParser::parseControlFlowStatement() {
     }
     if (parser_->check(TokenType::TOK_DEFER)) {
         return parseDeferStatement();
+    }
+    if (parser_->check(TokenType::TOK_YIELD)) {
+        return parseYieldStatement();
     }
     if (parser_->check(TokenType::TOK_SWITCH)) {
         return parseSwitchStatement();
@@ -974,7 +984,8 @@ StatementParser::parseTypedefTypeStatement(const std::string &type_name,
 
 // 基本型の変数宣言/関数定義
 ASTNode *StatementParser::parseBasicTypeStatement(bool isStatic, bool isConst,
-                                                  bool isUnsigned) {
+                                                  bool isUnsigned,
+                                                  bool isAsync) {
     // 基本型のチェック
     if (!parser_->check(TokenType::TOK_INT) &&
         !parser_->check(TokenType::TOK_LONG) &&
@@ -1182,6 +1193,12 @@ ASTNode *StatementParser::parseBasicTypeStatement(bool isStatic, bool isConst,
             if (func_node && isConst && pointer_depth > 0) {
                 func_node->is_pointee_const_qualifier = true;
             }
+
+            // v0.12.0: async関数フラグを設定
+            if (func_node && isAsync) {
+                func_node->is_async_function = true;
+            }
+
             return func_node;
         } else {
             // 変数宣言: type identifier [, identifier2, ...] [= expr];
@@ -1789,6 +1806,25 @@ ASTNode *StatementParser::parseDeferStatement() {
     defer_node->body = std::unique_ptr<ASTNode>(parser_->parseStatement());
 
     return defer_node;
+}
+
+/**
+ * @brief yield文を解析（v0.12.0）
+ * @return 解析されたASTyield文ノード
+ *
+ * 構文: yield;
+ * コルーチン内で制御を他のタスクに譲渡
+ */
+ASTNode *StatementParser::parseYieldStatement() {
+    Token yield_token = parser_->advance(); // consume 'yield'
+
+    parser_->consume(TokenType::TOK_SEMICOLON,
+                     "Expected ';' after yield statement");
+
+    ASTNode *yield_node = new ASTNode(ASTNodeType::AST_YIELD_STMT);
+    yield_node->location.line = yield_token.line;
+
+    return yield_node;
 }
 
 // ========================================

@@ -356,7 +356,8 @@ void VariableManager::assign_interface_view(
     const Variable &source_var, const std::string &source_var_name) {
     std::string source_type_name = resolve_interface_source_type(source_var);
 
-    debug_print("ASSIGN_IFACE: About to call interface_impl_exists\n");
+    debug_msg(DebugMsgId::GENERIC_DEBUG,
+              "ASSIGN_IFACE: About to call interface_impl_exists");
 
     if (!interface_impl_exists(interface_var.interface_name,
                                source_type_name)) {
@@ -365,18 +366,19 @@ void VariableManager::assign_interface_view(
                                  "' with type '" + source_type_name + "'");
     }
 
-    debug_print(
-        "ASSIGN_IFACE: interface_impl_exists returned true, continuing\n");
+    debug_msg(DebugMsgId::GENERIC_DEBUG,
+              "ASSIGN_IFACE: interface_impl_exists returned true, continuing");
 
     if (!source_var_name.empty()) {
-        debug_print("ASSIGN_IFACE: About to call "
-                    "sync_struct_members_from_direct_access\n");
+        debug_msg(DebugMsgId::GENERIC_DEBUG, "ASSIGN_IFACE: About to call ");
         interpreter_->sync_struct_members_from_direct_access(source_var_name);
-        debug_print(
-            "ASSIGN_IFACE: sync_struct_members_from_direct_access returned\n");
+        debug_msg(
+            DebugMsgId::GENERIC_DEBUG,
+            "ASSIGN_IFACE: sync_struct_members_from_direct_access returned");
     }
 
-    debug_print("ASSIGN_IFACE: Proceeding with variable assignment\n");
+    debug_msg(DebugMsgId::GENERIC_DEBUG,
+              "ASSIGN_IFACE: Proceeding with variable assignment");
 
     Variable assigned_var = std::move(interface_var);
     assigned_var.struct_type_name = source_type_name;
@@ -522,28 +524,35 @@ bool VariableManager::interface_impl_exists(
     const std::string &interface_name,
     const std::string &struct_type_name) const {
     if (interpreter_->debug_mode) {
-        debug_print("IMPL_SEARCH_BEFORE: About to call get_impl_definitions(), "
-                    "interpreter=%p\n",
-                    (void *)interpreter_);
+        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                  "IMPL_SEARCH_BEFORE: About to call get_impl_definitions(), ");
     }
 
     const auto &impls = interpreter_->get_impl_definitions();
 
     if (interpreter_->debug_mode) {
-        debug_print("IMPL_SEARCH: Looking for interface='%s', struct_type='%s' "
-                    "(total impls=%zu, addr=%p, interpreter=%p)\n",
-                    interface_name.c_str(), struct_type_name.c_str(),
-                    impls.size(), (void *)&impls, (void *)interpreter_);
-        debug_print("IMPL_SEARCH: About to iterate over %zu impls\n",
-                    impls.size());
+        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                  "IMPL_SEARCH: Looking for interface='%s', struct_type='%s' ");
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "IMPL_SEARCH: About to iterate over %zu impls",
+                     impls.size());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
     }
 
     size_t idx = 0;
     for (const auto &impl_def : impls) {
         if (interpreter_->debug_mode) {
-            debug_print(
-                "IMPL_SEARCH: Iteration %zu, about to access impl_def fields\n",
-                idx);
+            {
+                char dbg_buf[512];
+                snprintf(dbg_buf, sizeof(dbg_buf),
+                         "IMPL_SEARCH: Iteration %zu, about to access impl_def "
+                         "fields",
+                         idx);
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
         }
 
         try {
@@ -551,26 +560,40 @@ bool VariableManager::interface_impl_exists(
             std::string sname = impl_def.struct_name;
 
             if (interpreter_->debug_mode) {
-                debug_print("IMPL_SEARCH: [%zu] interface='%s', struct='%s'\n",
-                            idx, iface.c_str(), sname.c_str());
+                {
+                    char dbg_buf[512];
+                    snprintf(dbg_buf, sizeof(dbg_buf),
+                             "IMPL_SEARCH: [%zu] interface='%s', struct='%s'",
+                             idx, iface.c_str(), sname.c_str());
+                    debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                }
             }
 
             if (iface == interface_name && sname == struct_type_name) {
                 if (interpreter_->debug_mode) {
-                    debug_print("IMPL_SEARCH: MATCH FOUND at index %zu!\n",
-                                idx);
+                    {
+                        char dbg_buf[512];
+                        snprintf(dbg_buf, sizeof(dbg_buf),
+                                 "IMPL_SEARCH: MATCH FOUND at index %zu!", idx);
+                        debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                    }
                 }
                 return true;
             }
         } catch (...) {
-            debug_print("IMPL_SEARCH: EXCEPTION at index %zu!\n", idx);
+            {
+                char dbg_buf[512];
+                snprintf(dbg_buf, sizeof(dbg_buf),
+                         "IMPL_SEARCH: EXCEPTION at index %zu!", idx);
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
             throw;
         }
         idx++;
     }
 
     if (interpreter_->debug_mode) {
-        debug_print("IMPL_SEARCH: NO MATCH FOUND\n");
+        debug_msg(DebugMsgId::GENERIC_DEBUG, "IMPL_SEARCH: NO MATCH FOUND");
     }
     return false;
 }
@@ -1371,13 +1394,9 @@ void VariableManager::assign_variable(const std::string &name,
             }
             clamp_unsigned(numeric_value);
             if (interpreter_->is_debug_mode()) {
-                debug_print(
-                    "ASSIGN_DEBUG: name=%s target_type=%d resolved_type=%d "
-                    "numeric_value=%lld allow_override=%d\n",
-                    name.c_str(), static_cast<int>(target.type),
-                    static_cast<int>(resolved_type),
-                    static_cast<long long>(numeric_value),
-                    allow_type_override ? 1 : 0);
+                debug_msg(
+                    DebugMsgId::GENERIC_DEBUG,
+                    "ASSIGN_DEBUG: name=%s target_type=%d resolved_type=%d ");
             }
             TypeInfo range_check_type = resolved_type;
             if (target.type != TYPE_UNKNOWN && target.type != TYPE_UNION &&
@@ -1712,23 +1731,48 @@ void VariableManager::process_var_decl_or_assign(const ASTNode *node) {
     // debug_msg(DebugMsgId::VAR_MANAGER_PROCESS, (int)node->node_type,
     // node->name.c_str());
     if (interpreter_->debug_mode) {
-        debug_print("VAR_DEBUG: process_var_decl_or_assign called for %s, "
-                    "node_type=%d\n",
-                    node->name.c_str(), static_cast<int>(node->node_type));
-        debug_print("VAR_DEBUG: type_info=%d, type_name='%s'\n",
-                    static_cast<int>(node->type_info), node->type_name.c_str());
-        debug_print("VAR_DEBUG: node->is_unsigned=%d\n",
-                    node->is_unsigned ? 1 : 0);
-        debug_print("VAR_DEBUG: node->is_reference=%d\n",
-                    node->is_reference ? 1 : 0);
+        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                  "VAR_DEBUG: process_var_decl_or_assign called for %s, ");
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "VAR_DEBUG: type_info=%d, type_name='%s'",
+                     static_cast<int>(node->type_info),
+                     node->type_name.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "VAR_DEBUG: node->is_unsigned=%d",
+                     node->is_unsigned ? 1 : 0);
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "VAR_DEBUG: node->is_reference=%d",
+                     node->is_reference ? 1 : 0);
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
 
         std::string resolved =
             interpreter_->type_manager_->resolve_typedef(node->type_name);
-        debug_print("VAR_DEBUG: resolve_typedef('%s') = '%s'\n",
-                    node->type_name.c_str(), resolved.c_str());
-        debug_print(
-            "VAR_DEBUG: condition check: !empty=%d, resolved!=original=%d\n",
-            !node->type_name.empty(), resolved != node->type_name);
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "VAR_DEBUG: resolve_typedef('%s') = '%s'",
+                     node->type_name.c_str(), resolved.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
+        {
+            char dbg_buf[512];
+            snprintf(
+                dbg_buf, sizeof(dbg_buf),
+                "VAR_DEBUG: condition check: !empty=%d, resolved!=original=%d",
+                !node->type_name.empty(), resolved != node->type_name);
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
     }
 
     // 関数ポインタの早期チェック（evaluate前に処理）

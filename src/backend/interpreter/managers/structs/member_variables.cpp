@@ -17,9 +17,14 @@ StructVariableManager::StructVariableManager(Interpreter *interpreter)
 void StructVariableManager::create_struct_variable(
     const std::string &var_name, const std::string &struct_type_name) {
     if (interpreter_->is_debug_mode()) {
-        debug_print(
-            "create_struct_variable called: var_name=%s, struct_type=%s\n",
-            var_name.c_str(), struct_type_name.c_str());
+        {
+            char dbg_buf[512];
+            snprintf(
+                dbg_buf, sizeof(dbg_buf),
+                "create_struct_variable called: var_name=%s, struct_type=%s",
+                var_name.c_str(), struct_type_name.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
     }
 
     auto trim = [](std::string &text) {
@@ -69,15 +74,25 @@ void StructVariableManager::create_struct_variable(
     // メンバ変数を初期化
     for (const auto &member : struct_def->members) {
         if (interpreter_->is_debug_mode()) {
-            debug_print("Processing member: %s, is_array: %d\n",
-                        member.name.c_str(), member.array_info.is_array());
+            {
+                char dbg_buf[512];
+                snprintf(dbg_buf, sizeof(dbg_buf),
+                         "Processing member: %s, is_array: %d",
+                         member.name.c_str(), member.array_info.is_array());
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
         }
 
         if (member.array_info.is_array()) {
             if (interpreter_->is_debug_mode()) {
-                debug_print("Member %s is an array with %zu dimensions\n",
-                            member.name.c_str(),
-                            member.array_info.dimensions.size());
+                {
+                    char dbg_buf[512];
+                    snprintf(dbg_buf, sizeof(dbg_buf),
+                             "Member %s is an array with %zu dimensions",
+                             member.name.c_str(),
+                             member.array_info.dimensions.size());
+                    debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                }
             }
 
             // 多次元配列の処理
@@ -131,12 +146,17 @@ void StructVariableManager::create_struct_variable(
 
     // v0.13.0: ジェネリック構造体のimplブロックをインスタンス化
     // 例: Box<int>の場合、impl Box<T>のTをintに置換してインスタンス化
-    debug_print(
-        "[GENERIC_CTOR_DEBUG] resolved_type_name=%s, checking for '_'\n",
-        resolved_type_name.c_str());
+    {
+        char dbg_buf[512];
+        snprintf(dbg_buf, sizeof(dbg_buf),
+                 "[GENERIC_CTOR_DEBUG] resolved_type_name=%s, checking for '_'",
+                 resolved_type_name.c_str());
+        debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+    }
 
     if (resolved_type_name.find('_') != std::string::npos) {
-        debug_print("[GENERIC_CTOR_DEBUG] Found underscore, processing...\n");
+        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                  "[GENERIC_CTOR_DEBUG] Found underscore, processing...");
 
         // 正規化された型名（Box_int）からジェネリックimplをインスタンス化
         // 型引数を抽出: Box_int -> ["int"]
@@ -153,10 +173,8 @@ void StructVariableManager::create_struct_variable(
             type_arguments.push_back(type_args_str);
 
             if (interpreter_->is_debug_mode()) {
-                debug_print("[GENERIC_CTOR] Instantiating impl for %s (base: "
-                            "%s, type_arg: %s)\n",
-                            resolved_type_name.c_str(), base_name.c_str(),
-                            type_args_str.c_str());
+                debug_msg(DebugMsgId::GENERIC_DEBUG,
+                          "[GENERIC_CTOR] Instantiating impl for %s (base: ");
             }
 
             // ジェネリックimplを探してインスタンス化
@@ -166,8 +184,8 @@ void StructVariableManager::create_struct_variable(
 
             if (impl_def && impl_def->impl_node) {
                 if (interpreter_->is_debug_mode()) {
-                    debug_print("[GENERIC_CTOR] Found generic impl, "
-                                "instantiating...\n");
+                    debug_msg(DebugMsgId::GENERIC_DEBUG,
+                              "[GENERIC_CTOR] Found generic impl, ");
                 }
 
                 // インスタンス化してコンストラクタ/デストラクタを登録
@@ -200,9 +218,13 @@ void StructVariableManager::create_struct_variable(
                     }
                 } catch (const std::exception &e) {
                     if (interpreter_->is_debug_mode()) {
-                        debug_print(
-                            "[GENERIC_CTOR] Failed to instantiate: %s\n",
-                            e.what());
+                        {
+                            char dbg_buf[512];
+                            snprintf(dbg_buf, sizeof(dbg_buf),
+                                     "[GENERIC_CTOR] Failed to instantiate: %s",
+                                     e.what());
+                            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                        }
                     }
                 }
             }
@@ -256,13 +278,8 @@ void StructVariableManager::create_struct_member_variables_recursively(
 
         // 配列が構造体配列の場合、struct_membersにも構造体情報を設定
         if (interpreter_->is_debug_mode()) {
-            debug_print("Check struct array: name=%s, is_array=%d, "
-                        "base_type=%d, TYPE_STRUCT=%d, type_alias='%s'\n",
-                        member_def.name.c_str(),
-                        member_def.array_info.is_array() ? 1 : 0,
-                        static_cast<int>(member_def.array_info.base_type),
-                        static_cast<int>(TYPE_STRUCT),
-                        member_def.type_alias.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "Check struct array: name=%s, is_array=%d, ");
         }
         if (member_def.array_info.is_array() &&
             member_def.array_info.base_type == TYPE_STRUCT &&
@@ -277,10 +294,8 @@ void StructVariableManager::create_struct_member_variables_recursively(
                 element_type_name;
 
             if (interpreter_->is_debug_mode()) {
-                debug_print("Set struct array info: %s.%s -> is_struct=true, "
-                            "struct_type=%s\n",
-                            base_path.c_str(), member_def.name.c_str(),
-                            element_type_name.c_str());
+                debug_msg(DebugMsgId::GENERIC_DEBUG,
+                          "Set struct array info: %s.%s -> is_struct=true, ");
             }
         }
 
@@ -326,8 +341,13 @@ void StructVariableManager::process_multidimensional_array_member(
     multidim_array_member.is_const = member.is_const;
 
     if (interpreter_->is_debug_mode()) {
-        debug_print("Set is_multidimensional = true for %s\n",
-                    member.name.c_str());
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "Set is_multidimensional = true for %s",
+                     member.name.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
     }
 
     // 次元情報をコピー
@@ -367,9 +387,8 @@ void StructVariableManager::process_multidimensional_array_member(
     struct_var.struct_members[member.name] = multidim_array_member;
 
     if (interpreter_->is_debug_mode()) {
-        debug_print("Multidimensional array member created: %s, "
-                    "total_size=%d\n",
-                    member.name.c_str(), total_size);
+        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                  "Multidimensional array member created: %s, ");
     }
 }
 
@@ -595,8 +614,13 @@ void StructVariableManager::post_process_array_elements(
 
 int StructVariableManager::resolve_array_size(const ArrayDimension &dim_info) {
     if (interpreter_->is_debug_mode()) {
-        debug_print("Attempting to resolve constant: %s\n",
-                    dim_info.size_expr.c_str());
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "Attempting to resolve constant: %s",
+                     dim_info.size_expr.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
     }
 
     Variable *const_var = interpreter_->find_variable(dim_info.size_expr);

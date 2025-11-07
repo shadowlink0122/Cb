@@ -584,8 +584,13 @@ instantiate_generic_impl(const ASTNode *impl_node,
     std::map<std::string, std::string> type_map;
     for (size_t i = 0; i < type_parameters.size(); ++i) {
         type_map[type_parameters[i]] = type_arguments[i];
-        debug_print("[INSTANTIATE_IMPL] Type mapping: %s -> %s\n",
-                    type_parameters[i].c_str(), type_arguments[i].c_str());
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "[INSTANTIATE_IMPL] Type mapping: %s -> %s",
+                     type_parameters[i].c_str(), type_arguments[i].c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
     }
 
     // interface_nameとstruct_nameを型置換
@@ -594,8 +599,13 @@ instantiate_generic_impl(const ASTNode *impl_node,
     std::string instantiated_struct =
         substitute_generic_type_name(struct_name, type_map);
 
-    debug_print("[INSTANTIATE_IMPL] Instantiated: %s for %s (no clone)\n",
-                instantiated_interface.c_str(), instantiated_struct.c_str());
+    {
+        char dbg_buf[512];
+        snprintf(dbg_buf, sizeof(dbg_buf),
+                 "[INSTANTIATE_IMPL] Instantiated: %s for %s (no clone)",
+                 instantiated_interface.c_str(), instantiated_struct.c_str());
+        debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+    }
 
     // v0.13.1: ダミーのunique_ptrを返す（元のnodeをそのまま使うため）
     // 呼び出し側で type_map を ImplDefinition に格納する

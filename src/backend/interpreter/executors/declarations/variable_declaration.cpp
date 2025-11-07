@@ -80,20 +80,56 @@ void execute_variable_declaration(StatementExecutor *executor,
             debug_log_line(
                 "[DEBUG_EXEC] Creating reference variable: " + node->name +
                 ", target_value: " + std::to_string(target_var->value));
-            debug_print("[REF_DEBUG] Reference created:\n");
-            debug_print("  ref_name=%s\n", node->name.c_str());
-            debug_print("  target_name=%s\n", target_var_name.c_str());
-            debug_print("  target_var ptr=%p\n", (void *)target_var);
-            debug_print("  target_var->is_struct=%d\n", target_var->is_struct);
-            debug_print("  target_var->struct_type_name=%s\n",
-                        target_var->struct_type_name.c_str());
-            debug_print("  target_var->struct_members.size()=%zu\n",
-                        target_var->struct_members.size());
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "[REF_DEBUG] Reference created:");
+            {
+                char dbg_buf[512];
+                snprintf(dbg_buf, sizeof(dbg_buf), "  ref_name=%s",
+                         node->name.c_str());
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
+            {
+                char dbg_buf[512];
+                snprintf(dbg_buf, sizeof(dbg_buf), "  target_name=%s",
+                         target_var_name.c_str());
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
+            {
+                char dbg_buf[512];
+                snprintf(dbg_buf, sizeof(dbg_buf), "  target_var ptr=%p",
+                         (void *)target_var);
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
+            {
+                char dbg_buf[512];
+                snprintf(dbg_buf, sizeof(dbg_buf), "  target_var->is_struct=%d",
+                         target_var->is_struct);
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
+            {
+                char dbg_buf[512];
+                snprintf(dbg_buf, sizeof(dbg_buf),
+                         "  target_var->struct_type_name=%s",
+                         target_var->struct_type_name.c_str());
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
+            {
+                char dbg_buf[512];
+                snprintf(dbg_buf, sizeof(dbg_buf),
+                         "  target_var->struct_members.size()=%zu",
+                         target_var->struct_members.size());
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
             if (target_var->is_struct && !target_var->struct_members.empty()) {
-                debug_print("  First member: name=%s, value=%lld\n",
-                            target_var->struct_members.begin()->first.c_str(),
-                            (long long)target_var->struct_members.begin()
-                                ->second.value);
+                {
+                    char dbg_buf[512];
+                    snprintf(dbg_buf, sizeof(dbg_buf),
+                             "  First member: name=%s, value=%lld",
+                             target_var->struct_members.begin()->first.c_str(),
+                             (long long)target_var->struct_members.begin()
+                                 ->second.value);
+                    debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                }
             }
         }
 
@@ -352,14 +388,11 @@ void execute_variable_declaration(StatementExecutor *executor,
     }
 
     // enum型の特別処理（v0.11.0 generics）
-    debug_print("[ENUM_CHECK] About to check enum condition: type_info=%d "
-                "(TYPE_ENUM=%d), type_name='%s', empty=%d\n",
-                node->type_info, TYPE_ENUM, node->type_name.c_str(),
-                node->type_name.empty());
+    debug_msg(DebugMsgId::GENERIC_DEBUG,
+              "[ENUM_CHECK] About to check enum condition: type_info=%d ");
     if (node->type_info == TYPE_ENUM && !node->type_name.empty()) {
-        debug_print("[ENUM_VAR_DECL] Entering enum variable creation: "
-                    "name='%s', type_name='%s'\n",
-                    node->name.c_str(), node->type_name.c_str());
+        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                  "[ENUM_VAR_DECL] Entering enum variable creation: ");
 
         if (debug_mode) {
             debug_log_line("[DEBUG_STMT] Creating enum variable: " +
@@ -372,8 +405,13 @@ void execute_variable_declaration(StatementExecutor *executor,
         var.enum_type_name = node->type_name; // 例: "Option_int"
         var.is_assigned = false;              // 初期化前はfalse
 
-        debug_print("[ENUM_VAR_DECL] Set is_enum=true for variable '%s'\n",
-                    node->name.c_str());
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "[ENUM_VAR_DECL] Set is_enum=true for variable '%s'",
+                     node->name.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
 
         // 初期化式がある場合は処理
         if (init_node) {

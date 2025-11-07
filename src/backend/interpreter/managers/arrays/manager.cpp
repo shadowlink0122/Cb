@@ -313,9 +313,14 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
         // array_dimensionsが利用可能な場合はそちらを優先（VLA対応）
         if (node->array_dimensions.size() == 1 &&
             node->array_dimensions[0].get() != nullptr) {
-            debug_print(
-                "ARRAY_DEBUG: Using array_dimensions path, ptr=%p\n",
-                static_cast<const void *>(node->array_dimensions[0].get()));
+            {
+                char dbg_buf[512];
+                snprintf(
+                    dbg_buf, sizeof(dbg_buf),
+                    "ARRAY_DEBUG: Using array_dimensions path, ptr=%p",
+                    static_cast<const void *>(node->array_dimensions[0].get()));
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
             // サイズ計算はExpressionEvaluatorを使用
             debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
                       "Evaluating array size expression from array_dimensions");
@@ -435,7 +440,8 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
             }
         } else if (node->array_dimensions.size() == 1 &&
                    node->array_dimensions[0].get() == nullptr) {
-            debug_print("ARRAY_DEBUG: array_dimensions[0] is nullptr\n");
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "ARRAY_DEBUG: array_dimensions[0] is nullptr");
             // 動的配列（サイズ指定なし）は初期化がない場合のみ禁止
             if (!node->init_expr) {
                 error_msg(DebugMsgId::DYNAMIC_ARRAY_NOT_SUPPORTED,

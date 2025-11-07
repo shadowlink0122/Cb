@@ -1,0 +1,20 @@
+// stdlib/std/async.cb
+// Cb言語 非同期処理ライブラリ
+// v0.12.0
+
+// Future型の定義（ジェネリック構造体）
+export struct Future<T> {
+    T value;           // 結果の値
+    bool is_ready;     // 完了フラグ
+};
+
+// TODO v0.12.0: async関数宣言はawait実装後に有効化
+// タイマー関数（組み込み関数として実装）
+// ミリ秒単位でスリープ（非同期）
+// 実装はC++側で行う
+// export async void sleep_ms(int milliseconds);
+
+// 秒単位でスリープ（非同期）
+// export async void sleep(int seconds) {
+//     await sleep_ms(seconds * 1000);
+// }

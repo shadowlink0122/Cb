@@ -23,21 +23,46 @@ int64_t evaluate_array_ref(
     debug_msg(DebugMsgId::EXPR_EVAL_ARRAY_REF, node->name.c_str());
 
     if (debug_mode) {
-        debug_print("AST_ARRAY_REF: Processing array access\n");
-        debug_print("  node->left exists: %s\n", node->left ? "true" : "false");
+        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                  "AST_ARRAY_REF: Processing array access");
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf), "  node->left exists: %s",
+                     node->left ? "true" : "false");
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
         if (node->left) {
-            debug_print("  node->left->node_type: %d\n",
-                        static_cast<int>(node->left->node_type));
-            debug_print("  node->left has name: %s\n",
-                        !node->left->name.empty() ? node->left->name.c_str()
-                                                  : "empty");
+            {
+                char dbg_buf[512];
+                snprintf(dbg_buf, sizeof(dbg_buf),
+                         "  node->left->node_type: %d",
+                         static_cast<int>(node->left->node_type));
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
+            {
+                char dbg_buf[512];
+                snprintf(dbg_buf, sizeof(dbg_buf), "  node->left has name: %s",
+                         !node->left->name.empty() ? node->left->name.c_str()
+                                                   : "empty");
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
             if (node->left->left) {
-                debug_print("  node->left->left->node_type: %d\n",
-                            static_cast<int>(node->left->left->node_type));
-                debug_print("  node->left->left has name: %s\n",
-                            !node->left->left->name.empty()
-                                ? node->left->left->name.c_str()
-                                : "empty");
+                {
+                    char dbg_buf[512];
+                    snprintf(dbg_buf, sizeof(dbg_buf),
+                             "  node->left->left->node_type: %d",
+                             static_cast<int>(node->left->left->node_type));
+                    debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                }
+                {
+                    char dbg_buf[512];
+                    snprintf(dbg_buf, sizeof(dbg_buf),
+                             "  node->left->left has name: %s",
+                             !node->left->left->name.empty()
+                                 ? node->left->left->name.c_str()
+                                 : "empty");
+                    debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                }
             }
         }
     }
@@ -70,10 +95,20 @@ int64_t evaluate_array_ref(
         }
 
         if (debug_mode) {
-            debug_print("Collected %zu indices for multidimensional access\n",
-                        indices.size());
+            {
+                char dbg_buf[512];
+                snprintf(dbg_buf, sizeof(dbg_buf),
+                         "Collected %zu indices for multidimensional access",
+                         indices.size());
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
             for (size_t i = 0; i < indices.size(); i++) {
-                debug_print("  index[%zu] = %lld\n", i, indices[i]);
+                {
+                    char dbg_buf[512];
+                    snprintf(dbg_buf, sizeof(dbg_buf), "  index[%zu] = %lld", i,
+                             indices[i]);
+                    debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                }
             }
         }
 
@@ -85,13 +120,32 @@ int64_t evaluate_array_ref(
         }
 
         if (debug_mode) {
-            debug_print("Member variable found: %s.%s\n", obj_name.c_str(),
-                        member_name.c_str());
-            debug_print("  is_multidimensional: %s\n",
-                        member_var->is_multidimensional ? "true" : "false");
-            debug_print("  array_dimensions.size(): %zu\n",
-                        member_var->array_dimensions.size());
-            debug_print("  indices.size(): %zu\n", indices.size());
+            {
+                char dbg_buf[512];
+                snprintf(dbg_buf, sizeof(dbg_buf),
+                         "Member variable found: %s.%s", obj_name.c_str(),
+                         member_name.c_str());
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
+            {
+                char dbg_buf[512];
+                snprintf(dbg_buf, sizeof(dbg_buf), "  is_multidimensional: %s",
+                         member_var->is_multidimensional ? "true" : "false");
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
+            {
+                char dbg_buf[512];
+                snprintf(dbg_buf, sizeof(dbg_buf),
+                         "  array_dimensions.size(): %zu",
+                         member_var->array_dimensions.size());
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
+            {
+                char dbg_buf[512];
+                snprintf(dbg_buf, sizeof(dbg_buf), "  indices.size(): %zu",
+                         indices.size());
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
         }
 
         debug_msg(DebugMsgId::EXPR_EVAL_STRUCT_MEMBER, member_name.c_str());
@@ -102,15 +156,16 @@ int64_t evaluate_array_ref(
         // N次元配列の場合
         if (member_var->is_multidimensional && indices.size() >= 1) {
             if (debug_mode) {
-                debug_print(
-                    "Calling get_struct_member_multidim_array_element\n");
+                debug_msg(DebugMsgId::GENERIC_DEBUG,
+                          "Calling get_struct_member_multidim_array_element");
             }
             return interpreter.get_struct_member_multidim_array_element(
                 obj_name, member_name, indices);
         }
 
         if (debug_mode) {
-            debug_print("Condition failed, throwing error\n");
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "Condition failed, throwing error");
         }
 
         throw std::runtime_error(
@@ -180,8 +235,13 @@ int64_t evaluate_array_ref(
 
     // 関数呼び出しの戻り値に対する配列アクセス: func()[index]
     if (node->left && node->left->node_type == ASTNodeType::AST_FUNC_CALL) {
-        debug_print("Processing function call array access: %s\n",
-                    node->left->name.c_str());
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "Processing function call array access: %s",
+                     node->left->name.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
 
         // インデックスを評価
         int64_t index = evaluate_expression_func(node->array_index.get());
@@ -257,10 +317,8 @@ int64_t evaluate_array_ref(
 
     // デバッグ情報を追加
     if (debug_mode) {
-        debug_print("Array access check for '%s': is_pointer=%d, is_array=%d, "
-                    "type=%d (TYPE_STRING=%d)\n",
-                    array_name.c_str(), var->is_pointer, var->is_array,
-                    static_cast<int>(var->type), static_cast<int>(TYPE_STRING));
+        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                  "Array access check for '%s': is_pointer=%d, is_array=%d, ");
     }
 
     if (var->is_pointer && !var->is_array && indices.size() == 1) {
@@ -269,8 +327,13 @@ int64_t evaluate_array_ref(
         int64_t ptr_value = var->value;
 
         if (debug_mode) {
-            debug_print("Pointer array access: ptr=%lld, index=%lld\n",
-                        ptr_value, index);
+            {
+                char dbg_buf[512];
+                snprintf(dbg_buf, sizeof(dbg_buf),
+                         "Pointer array access: ptr=%lld, index=%lld",
+                         ptr_value, index);
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
         }
 
         // ポインタがメタデータを指しているかチェック（最上位ビット）
@@ -414,8 +477,13 @@ int64_t evaluate_array_ref(
             if (!looks_like_valid_variable) {
                 // 無効なポインタの場合、エラーをスローする
                 if (debug_mode) {
-                    debug_print("Invalid Variable pointer: type=%d\n",
-                                static_cast<int>(target_array->type));
+                    {
+                        char dbg_buf[512];
+                        snprintf(dbg_buf, sizeof(dbg_buf),
+                                 "Invalid Variable pointer: type=%d",
+                                 static_cast<int>(target_array->type));
+                        debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                    }
                 }
                 throw std::runtime_error(
                     "Invalid pointer in array access (corrupted memory)");
@@ -425,11 +493,8 @@ int64_t evaluate_array_ref(
             // 構造体配列要素へのポインタの場合、is_arrayはfalseだがis_structはtrueの可能性がある
             // また、string型（TYPE_STRING）はchar*として配列アクセス可能
             if (debug_mode) {
-                debug_print("Array access check: is_array=%d, is_struct=%d, "
-                            "type=%d (TYPE_STRING=%d)\n",
-                            target_array->is_array, target_array->is_struct,
-                            static_cast<int>(target_array->type),
-                            static_cast<int>(TYPE_STRING));
+                debug_msg(DebugMsgId::GENERIC_DEBUG,
+                          "Array access check: is_array=%d, is_struct=%d, ");
             }
 
             if (!target_array->is_array && !target_array->is_struct &&
@@ -622,9 +687,14 @@ int64_t evaluate_array_ref(
         int64_t result =
             interpreter.getMultidimensionalArrayElement(*var, indices);
         if (interpreter.is_debug_mode()) {
-            debug_print("[DBG multidim] %s dims=%zu value=%lld\n",
-                        array_name.c_str(), indices.size(),
-                        static_cast<long long>(result));
+            {
+                char dbg_buf[512];
+                snprintf(dbg_buf, sizeof(dbg_buf),
+                         "[DBG multidim] %s dims=%zu value=%lld",
+                         array_name.c_str(), indices.size(),
+                         static_cast<long long>(result));
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
         }
         return result;
     }

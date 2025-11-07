@@ -105,12 +105,9 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
     }
 
     if (interpreter_->debug_mode) {
-        debug_print(
-            "[VAR_DECL_DEBUG] Checking struct condition for '%s': type_info=%d "
-            "(TYPE_STRUCT=%d), type_name='%s', is_generic_struct=%d, "
-            "is_pointer_to_generic=%d\n",
-            node->name.c_str(), static_cast<int>(node->type_info), TYPE_STRUCT,
-            node->type_name.c_str(), is_generic_struct, is_pointer_to_generic);
+        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                  "[VAR_DECL_DEBUG] Checking struct condition for '%s': "
+                  "type_info=%d ");
     }
 
     if ((node->type_info == TYPE_STRUCT || is_generic_struct) &&
@@ -119,9 +116,8 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
         var.is_struct = true;
         var.struct_type_name = node->type_name;
         if (interpreter_->debug_mode) {
-            debug_print("[VAR_DECL_DEBUG] Set is_struct=true for '%s', "
-                        "struct_type_name='%s'\n",
-                        node->name.c_str(), node->type_name.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "[VAR_DECL_DEBUG] Set is_struct=true for '%s', ");
         }
     } else if (is_pointer_to_generic) {
         // ジェネリック構造体へのポインタ（例: MapNode<K,V>*）
@@ -146,52 +142,57 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
         var.pointer_depth = 1;
 
         if (interpreter_->debug_mode) {
-            debug_print("[VAR_DECL_DEBUG] Set is_pointer=true for '%s', "
-                        "pointer_base_type_name='%s' (resolved from '%s')\n",
-                        node->name.c_str(), resolved_base_type.c_str(),
-                        base_type.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "[VAR_DECL_DEBUG] Set is_pointer=true for '%s', ");
         }
     }
 
     // enum変数の場合の追加設定 (v0.11.0 generics)
     if (node->type_info == TYPE_ENUM && !node->type_name.empty()) {
-        debug_print("[ENUM_VAR_DECL_MANAGER] Creating enum variable: "
-                    "name='%s', type_name='%s'\n",
-                    node->name.c_str(), node->type_name.c_str());
+        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                  "[ENUM_VAR_DECL_MANAGER] Creating enum variable: ");
 
         var.is_enum = true;
         var.enum_type_name = node->type_name; // 例: "Option_int"
         var.type = TYPE_ENUM;
 
-        debug_print(
-            "[ENUM_VAR_DECL_MANAGER] Set is_enum=true for variable '%s'\n",
-            node->name.c_str());
+        {
+            char dbg_buf[512];
+            snprintf(
+                dbg_buf, sizeof(dbg_buf),
+                "[ENUM_VAR_DECL_MANAGER] Set is_enum=true for variable '%s'",
+                node->name.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
 
         // 初期化式がある場合は処理
         if (node->right || node->init_expr) {
             ASTNode *init_node =
                 node->init_expr ? node->init_expr.get() : node->right.get();
 
-            debug_print("[ENUM_VAR_DECL_MANAGER] Processing enum initializer, "
-                        "node_type=%d\n",
-                        static_cast<int>(init_node->node_type));
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "[ENUM_VAR_DECL_MANAGER] Processing enum initializer, ");
 
             // AST_ENUM_CONSTRUCTの場合（関連値あり）
             if (init_node->node_type == ASTNodeType::AST_ENUM_CONSTRUCT) {
-                debug_print("[ENUM_VAR_DECL_MANAGER] AST_ENUM_CONSTRUCT "
-                            "detected, enum_member='%s'\n",
-                            init_node->enum_member.c_str());
+                debug_msg(DebugMsgId::GENERIC_DEBUG,
+                          "[ENUM_VAR_DECL_MANAGER] AST_ENUM_CONSTRUCT ");
 
                 var.enum_variant = init_node->enum_member;
 
                 // 関連値を評価
-                debug_print(
-                    "[ENUM_VAR_DECL_MANAGER] Checking arguments, size=%zu\n",
-                    init_node->arguments.size());
+                {
+                    char dbg_buf[512];
+                    snprintf(
+                        dbg_buf, sizeof(dbg_buf),
+                        "[ENUM_VAR_DECL_MANAGER] Checking arguments, size=%zu",
+                        init_node->arguments.size());
+                    debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                }
 
                 if (!init_node->arguments.empty()) {
-                    debug_print("[ENUM_VAR_DECL_MANAGER] About to evaluate "
-                                "argument expression\n");
+                    debug_msg(DebugMsgId::GENERIC_DEBUG,
+                              "[ENUM_VAR_DECL_MANAGER] About to evaluate ");
 
                     // TypedValueで評価して型に応じて適切なフィールドに格納
                     TypedValue typed_result = interpreter_->evaluate_typed(
@@ -202,34 +203,29 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
                     // 文字列型の場合
                     if (typed_result.type.type_info == TYPE_STRING) {
                         var.associated_str_value = typed_result.string_value;
-                        debug_print(
-                            "[ENUM_VAR_DECL_MANAGER] Enum initialized with "
-                            "variant='%s', string_value='%s'\n",
-                            var.enum_variant.c_str(),
-                            var.associated_str_value.c_str());
+                        debug_msg(
+                            DebugMsgId::GENERIC_DEBUG,
+                            "[ENUM_VAR_DECL_MANAGER] Enum initialized with ");
                     }
                     // 数値型の場合
                     else {
                         int64_t assoc_value = typed_result.as_numeric();
                         var.associated_int_value = assoc_value;
-                        debug_print(
-                            "[ENUM_VAR_DECL_MANAGER] Enum initialized with "
-                            "variant='%s', int_value=%lld\n",
-                            var.enum_variant.c_str(), assoc_value);
+                        debug_msg(
+                            DebugMsgId::GENERIC_DEBUG,
+                            "[ENUM_VAR_DECL_MANAGER] Enum initialized with ");
                     }
                 } else {
-                    debug_print("[ENUM_VAR_DECL_MANAGER] Enum initialized with "
-                                "variant='%s' (no associated value)\n",
-                                var.enum_variant.c_str());
+                    debug_msg(DebugMsgId::GENERIC_DEBUG,
+                              "[ENUM_VAR_DECL_MANAGER] Enum initialized with ");
                 }
 
                 var.is_assigned = true;
             }
             // AST_ENUM_ACCESSの場合（関連値なし - Noneなど）
             else if (init_node->node_type == ASTNodeType::AST_ENUM_ACCESS) {
-                debug_print("[ENUM_VAR_DECL_MANAGER] AST_ENUM_ACCESS "
-                            "detected, enum_member='%s'\n",
-                            init_node->enum_member.c_str());
+                debug_msg(DebugMsgId::GENERIC_DEBUG,
+                          "[ENUM_VAR_DECL_MANAGER] AST_ENUM_ACCESS ");
 
                 var.enum_variant = init_node->enum_member;
                 var.has_associated_value = false;
@@ -240,36 +236,30 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
 
                 var.is_assigned = true;
 
-                debug_print("[ENUM_VAR_DECL_MANAGER] Enum initialized with "
-                            "variant='%s', value=%lld (no associated value)\n",
-                            var.enum_variant.c_str(), enum_val);
+                debug_msg(DebugMsgId::GENERIC_DEBUG,
+                          "[ENUM_VAR_DECL_MANAGER] Enum initialized with ");
             }
             // その他の式（関数呼び出しなど）の場合：評価してから値を取得
             else {
-                debug_print("[ENUM_VAR_DECL_MANAGER] Evaluating init "
-                            "expression (node_type=%d)\n",
-                            static_cast<int>(init_node->node_type));
+                debug_msg(DebugMsgId::GENERIC_DEBUG,
+                          "[ENUM_VAR_DECL_MANAGER] Evaluating init ");
 
                 // AST_FUNC_CALLの場合、ReturnExceptionをキャッチ
                 if (init_node->node_type == ASTNodeType::AST_FUNC_CALL) {
-                    debug_print(
-                        "[ENUM_VAR_DECL_MANAGER] Function call detected, "
-                        "catching ReturnException\n");
+                    debug_msg(
+                        DebugMsgId::GENERIC_DEBUG,
+                        "[ENUM_VAR_DECL_MANAGER] Function call detected, ");
                     try {
                         int64_t result =
                             interpreter_->eval_expression(init_node);
                         // eval_expressionは例外を投げずに値を返す
                         var.value = result;
                         var.is_assigned = true;
-                        debug_print("[ENUM_VAR_DECL_MANAGER] Function returned "
-                                    "value: %lld\n",
-                                    (long long)result);
+                        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                                  "[ENUM_VAR_DECL_MANAGER] Function returned ");
                     } catch (const ReturnException &ret) {
-                        debug_print(
-                            "[ENUM_VAR_DECL_MANAGER] Caught "
-                            "ReturnException, is_struct=%d, ret.value=%lld, "
-                            "ret.type=%d\n",
-                            ret.is_struct, (long long)ret.value, ret.type);
+                        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                                  "[ENUM_VAR_DECL_MANAGER] Caught ");
 
                         if (ret.is_struct && ret.struct_value.is_enum) {
                             // Enum返り値を正しく処理（新スタイル: 関連値あり）
@@ -280,37 +270,29 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
                                 ret.struct_value.associated_int_value;
                             var.is_assigned = true;
 
-                            debug_print(
-                                "[ENUM_VAR_DECL_MANAGER] Enum initialized from "
-                                "function return (new-style): variant='%s', "
-                                "value=%lld\n",
-                                var.enum_variant.c_str(),
-                                var.associated_int_value);
+                            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                                      "[ENUM_VAR_DECL_MANAGER] Enum "
+                                      "initialized from ");
                         } else if (ret.type == TYPE_ENUM) {
                             // 古いスタイルのenum（TYPE_ENUMとして返される）
                             var.value = ret.value;
                             var.is_assigned = true;
 
-                            debug_print(
-                                "[ENUM_VAR_DECL_MANAGER] Enum initialized as "
-                                "old-style enum with TYPE_ENUM: value=%lld\n",
-                                (long long)ret.value);
+                            debug_msg(
+                                DebugMsgId::GENERIC_DEBUG,
+                                "[ENUM_VAR_DECL_MANAGER] Enum initialized as ");
                         } else {
                             // その他（整数値として返される - 後方互換性）
                             var.value = ret.value;
                             var.is_assigned = true;
 
-                            debug_print(
-                                "[ENUM_VAR_DECL_MANAGER] Enum initialized as "
-                                "old-style enum (legacy): value=%lld\n",
-                                (long long)ret.value);
+                            debug_msg(
+                                DebugMsgId::GENERIC_DEBUG,
+                                "[ENUM_VAR_DECL_MANAGER] Enum initialized as ");
                         }
 
-                        debug_print("[ENUM_VAR_DECL_MANAGER] After assignment: "
-                                    "is_assigned=%d, "
-                                    "value=%lld, is_enum=%d\n",
-                                    var.is_assigned, (long long)var.value,
-                                    var.is_enum);
+                        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                                  "[ENUM_VAR_DECL_MANAGER] After assignment: ");
                     }
                 } else {
                     // その他の式（整数値として評価）
@@ -319,19 +301,16 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
                     var.value = result_value;
                     var.is_assigned = true;
 
-                    debug_print("[ENUM_VAR_DECL_MANAGER] Enum initialized from "
-                                "expression result: %lld\n",
-                                result_value);
+                    debug_msg(DebugMsgId::GENERIC_DEBUG,
+                              "[ENUM_VAR_DECL_MANAGER] Enum initialized from ");
                 }
             }
         }
 
         // 変数をスコープに追加して早期リターン
-        debug_print(
-            "[ENUM_VAR_DECL_MANAGER] About to add variable '%s' to scope, "
-            "is_enum=%d, value=%lld, has_associated_value=%d\n",
-            node->name.c_str(), var.is_enum, (long long)var.value,
-            var.has_associated_value);
+        debug_msg(
+            DebugMsgId::GENERIC_DEBUG,
+            "[ENUM_VAR_DECL_MANAGER] About to add variable '%s' to scope, ");
 
         // emplaceを使って明示的に配置
         auto &scope_map = interpreter_->current_scope().variables;
@@ -348,35 +327,39 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
         iter->second.associated_str_value = var.associated_str_value;
         iter->second.value = var.value; // 古いスタイルenum用のvalueも保持
 
-        debug_print(
-            "[ENUM_VAR_DECL_MANAGER] After manual fix: is_enum=%d, "
-            "value=%lld, has_associated_value=%d, associated_int_value=%lld\n",
-            iter->second.is_enum, (long long)iter->second.value,
-            iter->second.has_associated_value,
-            (long long)iter->second.associated_int_value);
+        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                  "[ENUM_VAR_DECL_MANAGER] After manual fix: is_enum=%d, ");
 
-        debug_print(
-            "[ENUM_VAR_DECL_MANAGER] Enum variable '%s' added to scope\n",
-            node->name.c_str());
+        {
+            char dbg_buf[512];
+            snprintf(
+                dbg_buf, sizeof(dbg_buf),
+                "[ENUM_VAR_DECL_MANAGER] Enum variable '%s' added to scope",
+                node->name.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
 
         // 確認：スコープから直接アクセス
         auto &scope_variables = interpreter_->current_scope().variables;
         if (scope_variables.find(node->name) != scope_variables.end()) {
-            debug_print(
-                "[ENUM_VAR_DECL_MANAGER] Direct map access: is_enum=%d\n",
-                scope_variables[node->name].is_enum);
+            {
+                char dbg_buf[512];
+                snprintf(
+                    dbg_buf, sizeof(dbg_buf),
+                    "[ENUM_VAR_DECL_MANAGER] Direct map access: is_enum=%d",
+                    scope_variables[node->name].is_enum);
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
         }
 
         // 確認：find_variableで取得
         Variable *stored_var = interpreter_->find_variable(node->name);
         if (stored_var) {
-            debug_print("[ENUM_VAR_DECL_MANAGER] Verification: stored variable "
-                        "'%s' has is_enum=%d\n",
-                        node->name.c_str(), stored_var->is_enum);
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "[ENUM_VAR_DECL_MANAGER] Verification: stored variable ");
         } else {
-            debug_print("[ENUM_VAR_DECL_MANAGER] ERROR: Variable '%s' not "
-                        "found after insertion!\n",
-                        node->name.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "[ENUM_VAR_DECL_MANAGER] ERROR: Variable '%s' not ");
         }
 
         return;
@@ -474,12 +457,9 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
                         // の場合、IDとUserIDは互換性がある
                         // この場合は型チェックを通す（TypeScriptの型エイリアス的動作）
                         if (interpreter_->is_debug_mode()) {
-                            debug_print(
-                                "RECURSIVE_TYPEDEF_DEBUG: %s and %s both "
-                                "resolve to %s - allowing assignment\n",
-                                source_var->type_name.c_str(),
-                                node->type_name.c_str(),
-                                source_resolved.c_str());
+                            debug_msg(
+                                DebugMsgId::GENERIC_DEBUG,
+                                "RECURSIVE_TYPEDEF_DEBUG: %s and %s both ");
                         }
                         // 互換性があるものとして処理を続行
                     }
@@ -691,13 +671,9 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
                         var.is_assigned = true;
 
                         if (interpreter_->debug_mode) {
-                            debug_print(
-                                "[VAR_DECL_MEMBER_CREATE] Creating member "
-                                "variables for %s "
-                                "(type: %s), members.size=%zu\n",
-                                node->name.c_str(),
-                                ret.struct_value.struct_type_name.c_str(),
-                                ret.struct_value.struct_members.size());
+                            debug_msg(
+                                DebugMsgId::GENERIC_DEBUG,
+                                "[VAR_DECL_MEMBER_CREATE] Creating member ");
                         }
 
                         // 個別メンバー変数を作成（デストラクタのために必要）
@@ -829,9 +805,8 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
                 var.is_struct = true;
                 var.struct_type_name = base;
                 if (interpreter_->is_debug_mode()) {
-                    debug_print("[DEBUG_ARRAY_INIT] Set is_struct=true for "
-                                "array '%s', base='%s'\n",
-                                node->name.c_str(), base.c_str());
+                    debug_msg(DebugMsgId::GENERIC_DEBUG,
+                              "[DEBUG_ARRAY_INIT] Set is_struct=true for ");
                 }
             }
         }
@@ -999,27 +974,18 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
                     var.is_assigned = true;
 
                     if (interpreter_->debug_mode && node->name == "student1") {
-                        debug_print("FUNC_RETURN_RECEIVED: "
-                                    "ret.struct_value has %zu members\n",
-                                    ret.struct_value.struct_members.size());
+                        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                                  "FUNC_RETURN_RECEIVED: ");
                         auto scores_it =
                             ret.struct_value.struct_members.find("scores");
                         if (scores_it !=
                                 ret.struct_value.struct_members.end() &&
                             scores_it->second.is_array) {
-                            debug_print("FUNC_RETURN_RECEIVED: "
-                                        "scores.array_size=%d, "
-                                        "array_values.size()=%zu\n",
-                                        scores_it->second.array_size,
-                                        scores_it->second.array_values.size());
+                            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                                      "FUNC_RETURN_RECEIVED: ");
                             if (scores_it->second.array_values.size() >= 3) {
-                                debug_print(
-                                    "FUNC_RETURN_RECEIVED: "
-                                    "scores.array_values = [%lld, %lld, "
-                                    "%lld]\n",
-                                    scores_it->second.array_values[0],
-                                    scores_it->second.array_values[1],
-                                    scores_it->second.array_values[2]);
+                                debug_msg(DebugMsgId::GENERIC_DEBUG,
+                                          "FUNC_RETURN_RECEIVED: ");
                             }
                         }
                     }
@@ -1136,27 +1102,34 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
                             node->name == "student1" &&
                             var_pair.first.find("scores[") !=
                                 std::string::npos) {
-                            debug_print("FUNC_RETURN: Registered %s = %lld\n",
-                                        var_pair.first.c_str(),
-                                        (long long)var_pair.second.value);
+                            {
+                                char dbg_buf[512];
+                                snprintf(dbg_buf, sizeof(dbg_buf),
+                                         "FUNC_RETURN: Registered %s = %lld",
+                                         var_pair.first.c_str(),
+                                         (long long)var_pair.second.value);
+                                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                            }
                         }
                     }
 
                     if (interpreter_->debug_mode && node->name == "student1") {
-                        debug_print(
-                            "FUNC_RETURN: Batch registered %zu variables\n",
-                            vars_batch.size());
+                        {
+                            char dbg_buf[512];
+                            snprintf(
+                                dbg_buf, sizeof(dbg_buf),
+                                "FUNC_RETURN: Batch registered %zu variables",
+                                vars_batch.size());
+                            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                        }
                         Variable *final_check =
                             find_variable("student1.scores[0]");
                         if (final_check) {
-                            debug_print("FUNC_RETURN: Final check - "
-                                        "student1.scores[0] = %lld, "
-                                        "is_assigned=%d\n",
-                                        (long long)final_check->value,
-                                        final_check->is_assigned);
+                            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                                      "FUNC_RETURN: Final check - ");
                         } else {
-                            debug_print("FUNC_RETURN: Final check - "
-                                        "student1.scores[0] NOT FOUND\n");
+                            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                                      "FUNC_RETURN: Final check - ");
                         }
                     }
 
@@ -1403,9 +1376,8 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
                     var.is_assigned = true;
                 } else if (ret.is_struct) {
                     // struct戻り値の場合
-                    debug_print("STRUCT_RETURN_DEBUG: Processing struct "
-                                "return value for %s\n",
-                                node->name.c_str());
+                    debug_msg(DebugMsgId::GENERIC_DEBUG,
+                              "STRUCT_RETURN_DEBUG: Processing struct ");
                     var = ret.struct_value;
                     var.is_assigned = true;
 
@@ -1466,21 +1438,13 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
                                         if (interpreter_->debug_mode) {
                                             if (element_var.type ==
                                                 TYPE_STRING) {
-                                                debug_print(
-                                                    "STRUCT_RETURN: "
-                                                    "Created array element "
-                                                    "%s = '%s'\n",
-                                                    element_name.c_str(),
-                                                    element_var.str_value
-                                                        .c_str());
+                                                debug_msg(
+                                                    DebugMsgId::GENERIC_DEBUG,
+                                                    "STRUCT_RETURN: ");
                                             } else {
-                                                debug_print(
-                                                    "STRUCT_RETURN: "
-                                                    "Created array element "
-                                                    "%s = %lld\n",
-                                                    element_name.c_str(),
-                                                    (long long)
-                                                        element_var.value);
+                                                debug_msg(
+                                                    DebugMsgId::GENERIC_DEBUG,
+                                                    "STRUCT_RETURN: ");
                                             }
                                         }
                                     }
@@ -1622,9 +1586,8 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
                     var.is_assigned = true;
                 } catch (const ReturnException &ret) {
                     if (ret.is_struct) {
-                        debug_print("STRUCT_RETURN_DEBUG_2: Processing "
-                                    "struct return value for %s\n",
-                                    node->name.c_str());
+                        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                                  "STRUCT_RETURN_DEBUG_2: Processing ");
                         var = ret.struct_value;
                         var.is_assigned = true;
 
@@ -1694,23 +1657,15 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
                                             if (interpreter_->debug_mode) {
                                                 if (element_var.type ==
                                                     TYPE_STRING) {
-                                                    debug_print(
-                                                        "STRUCT_RETURN_2: "
-                                                        "Created array "
-                                                        "element %s = "
-                                                        "'%s'\n",
-                                                        element_name.c_str(),
-                                                        element_var.str_value
-                                                            .c_str());
+                                                    debug_msg(
+                                                        DebugMsgId::
+                                                            GENERIC_DEBUG,
+                                                        "STRUCT_RETURN_2: ");
                                                 } else {
-                                                    debug_print(
-                                                        "STRUCT_RETURN_2: "
-                                                        "Created array "
-                                                        "element %s = "
-                                                        "%lld\n",
-                                                        element_name.c_str(),
-                                                        (long long)
-                                                            element_var.value);
+                                                    debug_msg(
+                                                        DebugMsgId::
+                                                            GENERIC_DEBUG,
+                                                        "STRUCT_RETURN_2: ");
                                                 }
                                             }
                                         }
@@ -1854,10 +1809,8 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
                 var.type = TYPE_STRUCT; // これが重要！
                 var.struct_type_name = resolved_type_name;
                 if (interpreter_->debug_mode) {
-                    debug_print("[VAR_DECL_TYPE_PARAM] Type parameter '%s' "
-                                "resolved to generic struct '%s'\n",
-                                node->type_name.c_str(),
-                                resolved_type_name.c_str());
+                    debug_msg(DebugMsgId::GENERIC_DEBUG,
+                              "[VAR_DECL_TYPE_PARAM] Type parameter '%s' ");
                 }
             }
         }
@@ -2161,10 +2114,8 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
 
     // v0.10.0: 構造体変数のコンストラクタを自動呼び出し
     if (interpreter_->debug_mode) {
-        debug_print("CONSTRUCTOR_CHECK_PRE: var=%s, is_struct=%d, "
-                    "struct_type_name='%s'\n",
-                    node->name.c_str(), var_is_struct,
-                    var_struct_type_name.c_str());
+        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                  "CONSTRUCTOR_CHECK_PRE: var=%s, is_struct=%d, ");
     }
 
     if (var_is_struct && !var_struct_type_name.empty()) {
@@ -2179,17 +2130,25 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
         }
 
         if (interpreter_->debug_mode) {
-            debug_print("CONSTRUCTOR_CHECK: var=%s, has_arguments=%d, "
-                        "has_init_expr=%d\n",
-                        node->name.c_str(), !node->arguments.empty(),
-                        node->init_expr != nullptr);
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "CONSTRUCTOR_CHECK: var=%s, has_arguments=%d, ");
             if (node->init_expr) {
-                debug_print("  init_expr->node_type=%d, AST_VARIABLE=%d\n",
-                            static_cast<int>(node->init_expr->node_type),
-                            static_cast<int>(ASTNodeType::AST_VARIABLE));
+                {
+                    char dbg_buf[512];
+                    snprintf(dbg_buf, sizeof(dbg_buf),
+                             "  init_expr->node_type=%d, AST_VARIABLE=%d",
+                             static_cast<int>(node->init_expr->node_type),
+                             static_cast<int>(ASTNodeType::AST_VARIABLE));
+                    debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                }
                 if (node->init_expr->node_type == ASTNodeType::AST_VARIABLE) {
-                    debug_print("  init_expr->name=%s\n",
-                                node->init_expr->name.c_str());
+                    {
+                        char dbg_buf[512];
+                        snprintf(dbg_buf, sizeof(dbg_buf),
+                                 "  init_expr->name=%s",
+                                 node->init_expr->name.c_str());
+                        debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                    }
                 }
             }
         }
@@ -2217,10 +2176,8 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
                 // 実装:
                 // 参照型フラグと参照元を記録し、元の変数の完全なコピーを作成
                 if (interpreter_->debug_mode) {
-                    debug_print("Creating reference variable: %s -> %s "
-                                "(is_rvalue_ref=%d)\n",
-                                node->name.c_str(), source_var_name.c_str(),
-                                var_is_rvalue_reference);
+                    debug_msg(DebugMsgId::GENERIC_DEBUG,
+                              "Creating reference variable: %s -> %s ");
                 }
                 // 参照変数は元の変数への完全なエイリアスとして動作
                 // source_varの全ての内容をref_varにコピー
@@ -2243,8 +2200,13 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
                        source_var->struct_type_name == var_struct_type_name) {
                 // 同じ構造体型からのコピー初期化
                 if (interpreter_->debug_mode) {
-                    debug_print("Detected copy initialization: %s = %s\n",
-                                node->name.c_str(), source_var_name.c_str());
+                    {
+                        char dbg_buf[512];
+                        snprintf(dbg_buf, sizeof(dbg_buf),
+                                 "Detected copy initialization: %s = %s",
+                                 node->name.c_str(), source_var_name.c_str());
+                        debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                    }
                 }
 
                 // コピーコンストラクタを呼び出し

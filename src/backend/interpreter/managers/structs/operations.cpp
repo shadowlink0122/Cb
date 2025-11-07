@@ -486,8 +486,13 @@ Variable *StructOperations::get_struct_member(const std::string &var_name,
             if (array_var && array_var->is_array && array_var->is_struct &&
                 !array_var->struct_type_name.empty()) {
                 // 親配列が存在する場合、要素変数を作成
-                debug_print("[DEBUG] Auto-creating struct array element: %s\n",
-                            var_name.c_str());
+                {
+                    char dbg_buf[512];
+                    snprintf(dbg_buf, sizeof(dbg_buf),
+                             "[DEBUG] Auto-creating struct array element: %s",
+                             var_name.c_str());
+                    debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                }
                 interpreter_->create_struct_variable(
                     var_name, array_var->struct_type_name);
                 var = interpreter_->find_variable(var_name);
@@ -497,10 +502,8 @@ Variable *StructOperations::get_struct_member(const std::string &var_name,
         // v0.11.0: enum型もメンバーアクセスをサポート
         if (!var || (!var->is_struct && !var->is_enum)) {
             debug_msg(DebugMsgId::INTERPRETER_VAR_NOT_STRUCT, var_name.c_str());
-            debug_print("[DEBUG] get_struct_member: var=%p, var_name='%s', "
-                        "is_struct=%d, is_enum=%d\n",
-                        (void *)var, var_name.c_str(),
-                        var ? var->is_struct : -1, var ? var->is_enum : -1);
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "[DEBUG] get_struct_member: var=%p, var_name='%s', ");
             throw std::runtime_error("Variable is not a struct or enum: " +
                                      var_name);
         }
@@ -520,9 +523,8 @@ Variable *StructOperations::get_struct_member(const std::string &var_name,
             throw std::runtime_error(
                 "Invalid reference in struct member access: " + var_name);
         }
-        debug_print("[DEBUG] get_struct_member: resolving reference %s to "
-                    "target (type=%d)\n",
-                    var_name.c_str(), actual_var->type);
+        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                  "[DEBUG] get_struct_member: resolving reference %s to ");
     }
 
     // 構造体メンバーアクセス前に最新状態を同期
@@ -610,8 +612,8 @@ void StructOperations::sync_individual_member_from_struct(
         // 変数名が見つからなかった（一時変数やポインタで参照されている構造体）
         // この場合は個別変数システムとは同期しない
         if (interpreter_->debug_mode) {
-            debug_print("DEBUG: sync_individual_member_from_struct - "
-                        "struct_var has no name\n");
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "DEBUG: sync_individual_member_from_struct - ");
         }
         return;
     }
@@ -676,9 +678,14 @@ void StructOperations::sync_individual_member_from_struct(
         }
 
         if (interpreter_->debug_mode) {
-            debug_print(
-                "DEBUG: sync_individual_member_from_struct - updated %s\n",
-                full_member_path.c_str());
+            {
+                char dbg_buf[512];
+                snprintf(
+                    dbg_buf, sizeof(dbg_buf),
+                    "DEBUG: sync_individual_member_from_struct - updated %s",
+                    full_member_path.c_str());
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
         }
     }
 }
@@ -712,19 +719,33 @@ int64_t StructOperations::get_struct_member_multidim_array_element(
     }
 
     if (interpreter_->debug_mode) {
-        debug_print(
-            "get_struct_member_multidim_array_element: var=%s, member=%s\n",
-            var_name.c_str(), member_name.c_str());
-        debug_print("Indices: ");
+        {
+            char dbg_buf[512];
+            snprintf(
+                dbg_buf, sizeof(dbg_buf),
+                "get_struct_member_multidim_array_element: var=%s, member=%s",
+                var_name.c_str(), member_name.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
+        debug_msg(DebugMsgId::GENERIC_DEBUG, "Indices: ");
         for (size_t i = 0; i < indices.size(); i++) {
-            debug_print("[%lld]", indices[i]);
+            {
+                char dbg_buf[512];
+                snprintf(dbg_buf, sizeof(dbg_buf), "[%lld]", indices[i]);
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
         }
-        debug_print("\n");
-        debug_print("Array dimensions: ");
+        debug_msg(DebugMsgId::GENERIC_DEBUG, "");
+        debug_msg(DebugMsgId::GENERIC_DEBUG, "Array dimensions: ");
         for (size_t i = 0; i < member_var->array_dimensions.size(); i++) {
-            debug_print("[%zu]", member_var->array_dimensions[i]);
+            {
+                char dbg_buf[512];
+                snprintf(dbg_buf, sizeof(dbg_buf), "[%d]",
+                         member_var->array_dimensions[i]);
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
         }
-        debug_print("\n");
+        debug_msg(DebugMsgId::GENERIC_DEBUG, "");
     }
 
     // 多次元配列の場合、インデックスをフラットインデックスに変換
@@ -756,9 +777,8 @@ int64_t StructOperations::get_struct_member_multidim_array_element(
         }
 
         if (interpreter_->debug_mode) {
-            debug_print("Calculated flat_index: %zu, "
-                        "multidim_array_values.size(): %zu\n",
-                        flat_index, member_var->multidim_array_values.size());
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "Calculated flat_index: %zu, ");
         }
 
         if (flat_index >= member_var->multidim_array_values.size()) {
@@ -769,9 +789,14 @@ int64_t StructOperations::get_struct_member_multidim_array_element(
         }
 
         if (interpreter_->debug_mode) {
-            debug_print("Reading from multidim_array_values[%zu] = %lld\n",
-                        flat_index,
-                        member_var->multidim_array_values[flat_index]);
+            {
+                char dbg_buf[512];
+                snprintf(dbg_buf, sizeof(dbg_buf),
+                         "Reading from multidim_array_values[%zu] = %lld",
+                         flat_index,
+                         member_var->multidim_array_values[flat_index]);
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
         }
 
         return member_var->multidim_array_values[flat_index];
@@ -789,9 +814,8 @@ int64_t StructOperations::get_struct_member_multidim_array_element(
 std::string StructOperations::get_struct_member_array_string_element(
     const std::string &var_name, const std::string &member_name, int index) {
     if (interpreter_->debug_mode) {
-        debug_print("get_struct_member_array_string_element: var=%s, "
-                    "member=%s, index=%d\n",
-                    var_name.c_str(), member_name.c_str(), index);
+        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                  "get_struct_member_array_string_element: var=%s, ");
     }
 
     Variable *member_var = get_struct_member(var_name, member_name);
@@ -830,8 +854,13 @@ std::string StructOperations::get_struct_member_array_string_element(
     }
 
     if (interpreter_->debug_mode) {
-        debug_print("Returning string: array_strings[%d]=%s\n", index,
-                    member_var->array_strings[index].c_str());
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "Returning string: array_strings[%d]=%s", index,
+                     member_var->array_strings[index].c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
     }
 
     return member_var->array_strings[index];

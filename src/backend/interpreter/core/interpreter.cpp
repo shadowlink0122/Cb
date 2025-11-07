@@ -44,6 +44,10 @@
 #include "initialization.h"
 #include "utility.h"
 
+// v0.12.0: Event Loop
+#include "event_loop/event_loop.h"
+#include "event_loop/simple_event_loop.h" // v0.13.0 Phase 2.0
+
 #include <algorithm>
 #include <cctype>
 #include <cstdlib>
@@ -379,8 +383,13 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
             enum_manager_->register_enum(node->name, enum_def);
 
             if (debug_mode) {
-                debug_print("Successfully registered enum: %s\n",
-                            node->name.c_str());
+                {
+                    char dbg_buf[512];
+                    snprintf(dbg_buf, sizeof(dbg_buf),
+                             "Successfully registered enum: %s",
+                             node->name.c_str());
+                    debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                }
             }
         }
         break;
@@ -408,9 +417,8 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
             enum_manager_->register_enum(node->name, enum_def);
 
             if (debug_mode) {
-                debug_print("Successfully registered typedef enum: %s with %zu "
-                            "members\n",
-                            node->name.c_str(), enum_def.members.size());
+                debug_msg(DebugMsgId::GENERIC_DEBUG,
+                          "Successfully registered typedef enum: %s with %zu ");
             }
         }
         break;
@@ -553,53 +561,87 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
         {
             std::string struct_name = node->struct_name;
             if (debug_mode) {
-                debug_print("Processing impl for struct: %s\n",
-                            struct_name.c_str());
-                debug_print("Number of arguments: %zu\n",
-                            node->arguments.size());
+                {
+                    char dbg_buf[512];
+                    snprintf(dbg_buf, sizeof(dbg_buf),
+                             "Processing impl for struct: %s",
+                             struct_name.c_str());
+                    debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                }
+                {
+                    char dbg_buf[512];
+                    snprintf(dbg_buf, sizeof(dbg_buf),
+                             "Number of arguments: %zu",
+                             node->arguments.size());
+                    debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                }
             }
 
             for (size_t i = 0; i < node->arguments.size(); ++i) {
                 const auto &arg = node->arguments[i];
                 if (!arg) {
                     if (debug_mode) {
-                        debug_print(
-                            "Warning: null argument %zu in impl block\n", i);
+                        {
+                            char dbg_buf[512];
+                            snprintf(dbg_buf, sizeof(dbg_buf),
+                                     "Warning: null argument %zu in impl block",
+                                     i);
+                            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                        }
                     }
                     continue;
                 }
 
                 if (debug_mode) {
-                    debug_print("Processing argument %zu, node_type: %d\n", i,
-                                static_cast<int>(arg->node_type));
+                    {
+                        char dbg_buf[512];
+                        snprintf(dbg_buf, sizeof(dbg_buf),
+                                 "Processing argument %zu, node_type: %d", i,
+                                 static_cast<int>(arg->node_type));
+                        debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                    }
                 }
 
                 if (arg->node_type == ASTNodeType::AST_CONSTRUCTOR_DECL) {
                     struct_constructors_[struct_name].push_back(arg.get());
                     if (debug_mode) {
                         size_t param_count = arg->parameters.size();
-                        debug_print(
-                            "Registered constructor for %s (params: %zu)\n",
-                            struct_name.c_str(), param_count);
+                        {
+                            char dbg_buf[512];
+                            snprintf(
+                                dbg_buf, sizeof(dbg_buf),
+                                "Registered constructor for %s (params: %zu)",
+                                struct_name.c_str(), param_count);
+                            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                        }
                     }
                 } else if (arg->node_type == ASTNodeType::AST_DESTRUCTOR_DECL) {
                     struct_destructors_[struct_name] = arg.get();
                     if (debug_mode) {
-                        debug_print("Registered destructor for %s\n",
-                                    struct_name.c_str());
+                        {
+                            char dbg_buf[512];
+                            snprintf(dbg_buf, sizeof(dbg_buf),
+                                     "Registered destructor for %s",
+                                     struct_name.c_str());
+                            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                        }
                     }
                 } else {
                     if (debug_mode) {
-                        debug_print("Skipping non-constructor/destructor "
-                                    "argument (type: %d)\n",
-                                    static_cast<int>(arg->node_type));
+                        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                                  "Skipping non-constructor/destructor ");
                     }
                 }
             }
 
             if (debug_mode) {
-                debug_print("Finished processing impl for %s\n",
-                            struct_name.c_str());
+                {
+                    char dbg_buf[512];
+                    snprintf(dbg_buf, sizeof(dbg_buf),
+                             "Finished processing impl for %s",
+                             struct_name.c_str());
+                    debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                }
             }
         }
         break;
@@ -1027,6 +1069,16 @@ void Interpreter::execute_statement(const ASTNode *node) {
         break;
 
     // ========================================================================
+    // v0.13.0 Phase 2: yield文（YIELD_STMT）
+    // async関数内で制御をイベントループに戻す
+    // トップレベルのyieldのみサポート（Phase 2.0）
+    // ========================================================================
+    case ASTNodeType::AST_YIELD_STMT:
+        debug_msg(DebugMsgId::ASYNC_YIELD_CONTROL);
+        throw YieldException();
+        break;
+
+    // ========================================================================
     // 関数宣言（FUNC_DECL）
     // 関数定義をグローバルスコープに登録
     // ========================================================================
@@ -1115,9 +1167,14 @@ void Interpreter::assign_union_variable(const std::string &name,
         throw std::runtime_error("Variable is not a union type: " + name);
     }
     if (debug_mode) {
-        debug_print(
-            "UNION_ASSIGN_INTERPRETER_DEBUG: Variable '%s' type_name='%s'\n",
-            name.c_str(), var->type_name.c_str());
+        {
+            char dbg_buf[512];
+            snprintf(
+                dbg_buf, sizeof(dbg_buf),
+                "UNION_ASSIGN_INTERPRETER_DEBUG: Variable '%s' type_name='%s'",
+                name.c_str(), var->type_name.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
     }
 
     variable_manager_->assign_union_value(*var, var->type_name, value_node);
@@ -2218,8 +2275,13 @@ void Interpreter::setMultidimensionalStringArrayElement(
 void Interpreter::assign_array_literal(const std::string &name,
                                        const ASTNode *literal_node) {
     if (debug_mode) {
-        debug_print("assign_array_literal called for variable: %s\n",
-                    name.c_str());
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "assign_array_literal called for variable: %s",
+                     name.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
     }
 
     // 変数のコンテキストを判定
@@ -2236,17 +2298,21 @@ void Interpreter::assign_array_literal(const std::string &name,
 
     if (!result.success) {
         if (debug_mode) {
-            debug_print("ArrayProcessingService failed for '%s': %s\n",
-                        name.c_str(), result.error_message.c_str());
+            {
+                char dbg_buf[512];
+                snprintf(dbg_buf, sizeof(dbg_buf),
+                         "ArrayProcessingService failed for '%s': %s",
+                         name.c_str(), result.error_message.c_str());
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
         }
         throw std::runtime_error("Array assignment failed: " +
                                  result.error_message);
     }
 
     if (debug_mode) {
-        debug_print("Successfully assigned array literal to '%s' using "
-                    "ArrayProcessingService\n",
-                    name.c_str());
+        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                  "Successfully assigned array literal to '%s' using ");
     }
 }
 
@@ -2737,8 +2803,13 @@ void Interpreter::call_default_constructor(
         // Queue<int> 形式で判定（マングリングしない）
         if (struct_type_name.find('<') != std::string::npos) {
             if (debug_mode) {
-                debug_print("[GENERIC_CTOR] Looking for impl for %s\n",
-                            struct_type_name.c_str());
+                {
+                    char dbg_buf[512];
+                    snprintf(dbg_buf, sizeof(dbg_buf),
+                             "[GENERIC_CTOR] Looking for impl for %s",
+                             struct_type_name.c_str());
+                    debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                }
             }
 
             // find_impl_for_structは自動的にインスタンス化を試みる
@@ -2748,9 +2819,8 @@ void Interpreter::call_default_constructor(
 
             if (impl_def && impl_def->is_generic_instance) {
                 if (debug_mode) {
-                    debug_print("[GENERIC_CTOR] Found generic instance impl "
-                                "with %zu constructors\n",
-                                impl_def->constructors.size());
+                    debug_msg(DebugMsgId::GENERIC_DEBUG,
+                              "[GENERIC_CTOR] Found generic instance impl ");
                 }
 
                 // TypeContextをpush（実行時型解決用）
@@ -2770,50 +2840,69 @@ void Interpreter::call_default_constructor(
                 it = struct_constructors_.find(struct_type_name);
                 if (it != struct_constructors_.end() && !it->second.empty()) {
                     if (debug_mode) {
-                        debug_print("[GENERIC_CTOR] Constructor registered "
-                                    "successfully\n");
+                        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                                  "[GENERIC_CTOR] Constructor registered ");
                     }
                 } else {
                     if (debug_mode) {
-                        debug_print("[GENERIC_CTOR] No constructor found after "
-                                    "registration\n");
+                        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                                  "[GENERIC_CTOR] No constructor found after ");
                     }
                     pop_type_context(); // cleanup
                     return;
                 }
             } else {
                 if (debug_mode) {
-                    debug_print("[GENERIC_CTOR] No impl found for %s\n",
-                                struct_type_name.c_str());
+                    {
+                        char dbg_buf[512];
+                        snprintf(dbg_buf, sizeof(dbg_buf),
+                                 "[GENERIC_CTOR] No impl found for %s",
+                                 struct_type_name.c_str());
+                        debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                    }
                 }
                 // v0.11.1: implが見つからない場合でも、構造体のメンバーを初期化
                 // struct定義からメンバー変数を作成
                 Variable *struct_var = find_variable(var_name);
                 if (debug_mode) {
-                    debug_print(
-                        "[GENERIC_CTOR] find_variable(%s) returned: %p\n",
-                        var_name.c_str(), (void *)struct_var);
+                    {
+                        char dbg_buf[512];
+                        snprintf(
+                            dbg_buf, sizeof(dbg_buf),
+                            "[GENERIC_CTOR] find_variable(%s) returned: %p",
+                            var_name.c_str(), (void *)struct_var);
+                        debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                    }
                 }
                 if (struct_var) {
                     // メンバー変数を再帰的に作成
                     create_struct_member_variables_recursively(
                         var_name, struct_type_name, *struct_var);
                     if (debug_mode) {
-                        debug_print("[GENERIC_CTOR] Created struct member "
-                                    "variables for %s\n",
-                                    var_name.c_str());
+                        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                                  "[GENERIC_CTOR] Created struct member ");
                     }
                 } else if (debug_mode) {
-                    debug_print("[GENERIC_CTOR] ERROR: Variable %s not found\n",
-                                var_name.c_str());
+                    {
+                        char dbg_buf[512];
+                        snprintf(dbg_buf, sizeof(dbg_buf),
+                                 "[GENERIC_CTOR] ERROR: Variable %s not found",
+                                 var_name.c_str());
+                        debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                    }
                 }
                 return;
             }
         } else {
             // コンストラクタが定義されていない場合、構造体のメンバーを初期化
             if (debug_mode) {
-                debug_print("No constructor defined for struct: %s\n",
-                            struct_type_name.c_str());
+                {
+                    char dbg_buf[512];
+                    snprintf(dbg_buf, sizeof(dbg_buf),
+                             "No constructor defined for struct: %s",
+                             struct_type_name.c_str());
+                    debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                }
             }
             // v0.11.1: struct定義からメンバー変数を作成
             Variable *struct_var = find_variable(var_name);
@@ -2821,8 +2910,13 @@ void Interpreter::call_default_constructor(
                 create_struct_member_variables_recursively(
                     var_name, struct_type_name, *struct_var);
                 if (debug_mode) {
-                    debug_print("Created struct member variables for %s\n",
-                                var_name.c_str());
+                    {
+                        char dbg_buf[512];
+                        snprintf(dbg_buf, sizeof(dbg_buf),
+                                 "Created struct member variables for %s",
+                                 var_name.c_str());
+                        debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                    }
                 }
             }
             return;
@@ -2841,23 +2935,38 @@ void Interpreter::call_default_constructor(
     if (!default_ctor) {
         // デフォルトコンストラクタが見つからない場合は何もしない
         if (debug_mode) {
-            debug_print("No default constructor (0 params) for struct: %s\n",
-                        struct_type_name.c_str());
+            {
+                char dbg_buf[512];
+                snprintf(dbg_buf, sizeof(dbg_buf),
+                         "No default constructor (0 params) for struct: %s",
+                         struct_type_name.c_str());
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
         }
         return;
     }
 
     if (debug_mode) {
-        debug_print("Calling default constructor for %s.%s\n",
-                    struct_type_name.c_str(), var_name.c_str());
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "Calling default constructor for %s.%s",
+                     struct_type_name.c_str(), var_name.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
     }
 
     // まず、スコープをプッシュする前に構造体変数を取得
     Variable *struct_var = find_variable(var_name);
 
     if (debug_mode) {
-        debug_print("DEBUG: find_variable(%s) returned: %p\n", var_name.c_str(),
-                    (void *)struct_var);
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "DEBUG: find_variable(%s) returned: %p", var_name.c_str(),
+                     (void *)struct_var);
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
     }
 
     // コンストラクタ本体を実行
@@ -2870,11 +2979,20 @@ void Interpreter::call_default_constructor(
         current_scope().variables["self"] = self_var;
 
         if (debug_mode) {
-            debug_print("Created self variable with %zu struct_members\n",
-                        self_var.struct_members.size());
+            {
+                char dbg_buf[512];
+                snprintf(dbg_buf, sizeof(dbg_buf),
+                         "Created self variable with %zu struct_members",
+                         self_var.struct_members.size());
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
             for (const auto &[name, member] : self_var.struct_members) {
-                debug_print("  self.%s (type: %d)\n", name.c_str(),
-                            static_cast<int>(member.type));
+                {
+                    char dbg_buf[512];
+                    snprintf(dbg_buf, sizeof(dbg_buf), "  self.%s (type: %d)",
+                             name.c_str(), static_cast<int>(member.type));
+                    debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                }
             }
         }
     }
@@ -2989,10 +3107,8 @@ void Interpreter::call_constructor(const std::string &var_name,
                     type_arguments.push_back(type_args_str);
 
                     if (debug_mode) {
-                        debug_print("[GENERIC_CTOR] Instantiating impl for %s "
-                                    "(base: %s, type_arg: %s)\n",
-                                    struct_type_name.c_str(), base_name.c_str(),
-                                    type_args_str.c_str());
+                        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                                  "[GENERIC_CTOR] Instantiating impl for %s ");
                     }
 
                     // ジェネリックimplを探してインスタンス化
@@ -3002,8 +3118,8 @@ void Interpreter::call_constructor(const std::string &var_name,
 
                     if (impl_def && impl_def->impl_node) {
                         if (debug_mode) {
-                            debug_print("[GENERIC_CTOR] Found generic impl, "
-                                        "instantiating...\n");
+                            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                                      "[GENERIC_CTOR] Found generic impl, ");
                         }
 
                         try {
@@ -3042,9 +3158,8 @@ void Interpreter::call_constructor(const std::string &var_name,
                             }
                         } catch (const std::exception &e) {
                             if (debug_mode) {
-                                debug_print("[GENERIC_CTOR] Failed to "
-                                            "instantiate: %s\n",
-                                            e.what());
+                                debug_msg(DebugMsgId::GENERIC_DEBUG,
+                                          "[GENERIC_CTOR] Failed to ");
                             }
                             throw std::runtime_error(
                                 "No constructor defined for struct: " +
@@ -3084,8 +3199,13 @@ void Interpreter::call_constructor(const std::string &var_name,
     }
 
     if (debug_mode) {
-        debug_print("Calling constructor for %s.%s with %zu arguments\n",
-                    struct_type_name.c_str(), var_name.c_str(), args.size());
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "Calling constructor for %s.%s with %zu arguments",
+                     struct_type_name.c_str(), var_name.c_str(), args.size());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
     }
 
     // 構造体変数を取得
@@ -3135,11 +3255,26 @@ void Interpreter::call_constructor(const std::string &var_name,
         current_scope().variables[param->name] = param_var;
 
         if (debug_mode) {
-            debug_print("  Parameter %s = ", param->name.c_str());
+            {
+                char dbg_buf[512];
+                snprintf(dbg_buf, sizeof(dbg_buf),
+                         "  Parameter %s = ", param->name.c_str());
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
             if (arg.type.type_info == TYPE_STRING) {
-                debug_print("\"%s\"\n", arg.string_value.c_str());
+                {
+                    char dbg_buf[512];
+                    snprintf(dbg_buf, sizeof(dbg_buf), "\"%s\"",
+                             arg.string_value.c_str());
+                    debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                }
             } else {
-                debug_print("%lld\n", (long long)arg.value);
+                {
+                    char dbg_buf[512];
+                    snprintf(dbg_buf, sizeof(dbg_buf), "%lld",
+                             (long long)arg.value);
+                    debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                }
             }
         }
     }
@@ -3186,9 +3321,8 @@ void Interpreter::call_copy_constructor(const std::string &var_name,
     auto it = struct_constructors_.find(struct_type_name);
     if (it == struct_constructors_.end() || it->second.empty()) {
         if (debug_mode) {
-            debug_print("No constructor defined for struct: %s, using "
-                        "memberwise copy\n",
-                        struct_type_name.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "No constructor defined for struct: %s, using ");
         }
         // コピーコンストラクタがない場合は、メンバーワイズコピーを実行
         Variable *dest_var = find_variable(var_name);
@@ -3246,9 +3380,8 @@ void Interpreter::call_copy_constructor(const std::string &var_name,
     if (!copy_ctor) {
         // コピーコンストラクタが見つからない場合は、メンバーワイズコピー
         if (debug_mode) {
-            debug_print("No copy constructor found for struct: %s, using "
-                        "memberwise copy\n",
-                        struct_type_name.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "No copy constructor found for struct: %s, using ");
         }
         Variable *dest_var = find_variable(var_name);
         Variable *source_var = find_variable(source_var_name);
@@ -3271,8 +3404,13 @@ void Interpreter::call_copy_constructor(const std::string &var_name,
     }
 
     if (debug_mode) {
-        debug_print("Calling copy constructor for %s from %s\n",
-                    var_name.c_str(), source_var_name.c_str());
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "Calling copy constructor for %s from %s",
+                     var_name.c_str(), source_var_name.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
     }
 
     // 構造体変数を取得
@@ -3294,8 +3432,13 @@ void Interpreter::call_copy_constructor(const std::string &var_name,
     current_scope().variables[param->name] = *source_var;
 
     if (debug_mode) {
-        debug_print("  Copy parameter %s set to source variable\n",
-                    param->name.c_str());
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "  Copy parameter %s set to source variable",
+                     param->name.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
     }
 
     // コピーコンストラクタ本体を実行
@@ -3328,8 +3471,13 @@ void Interpreter::call_destructor(const std::string &var_name,
     Variable *var = find_variable(var_name);
     if (var && var->destructor_called) {
         if (debug_mode) {
-            debug_print("Destructor already called for %s, skipping\n",
-                        var_name.c_str());
+            {
+                char dbg_buf[512];
+                snprintf(dbg_buf, sizeof(dbg_buf),
+                         "Destructor already called for %s, skipping",
+                         var_name.c_str());
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
         }
         return;
     }
@@ -3387,8 +3535,14 @@ void Interpreter::call_destructor(const std::string &var_name,
                 std::string generic_name = base_name + "<T>";
 
                 if (debug_mode) {
-                    debug_print("Looking for generic destructor: %s -> %s\n",
-                                struct_type_name.c_str(), generic_name.c_str());
+                    {
+                        char dbg_buf[512];
+                        snprintf(dbg_buf, sizeof(dbg_buf),
+                                 "Looking for generic destructor: %s -> %s",
+                                 struct_type_name.c_str(),
+                                 generic_name.c_str());
+                        debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                    }
                 }
 
                 auto generic_it = struct_destructors_.find(generic_name);
@@ -3399,9 +3553,14 @@ void Interpreter::call_destructor(const std::string &var_name,
                     it = struct_destructors_.find(struct_type_name);
 
                     if (debug_mode) {
-                        debug_print("Registered generic destructor %s for %s\n",
-                                    generic_name.c_str(),
-                                    struct_type_name.c_str());
+                        {
+                            char dbg_buf[512];
+                            snprintf(dbg_buf, sizeof(dbg_buf),
+                                     "Registered generic destructor %s for %s",
+                                     generic_name.c_str(),
+                                     struct_type_name.c_str());
+                            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                        }
                     }
                 }
             }
@@ -3409,10 +3568,8 @@ void Interpreter::call_destructor(const std::string &var_name,
             if (it == struct_destructors_.end() || !it->second) {
                 // デストラクタが定義されていない場合は何もしない
                 if (debug_mode) {
-                    debug_print("No destructor defined for struct: %s "
-                                "(unmangled: %s)\n",
-                                struct_type_name.c_str(),
-                                unmangled_type_name.c_str());
+                    debug_msg(DebugMsgId::GENERIC_DEBUG,
+                              "No destructor defined for struct: %s ");
                 }
                 return;
             }
@@ -3422,9 +3579,14 @@ void Interpreter::call_destructor(const std::string &var_name,
     const ASTNode *destructor = it->second;
 
     if (debug_mode) {
-        debug_print("Calling destructor for %s (type: %s, unmangled: %s)\n",
-                    var_name.c_str(), struct_type_name.c_str(),
-                    unmangled_type_name.c_str());
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "Calling destructor for %s (type: %s, unmangled: %s)",
+                     var_name.c_str(), struct_type_name.c_str(),
+                     unmangled_type_name.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
     }
 
     // v0.10.0: デストラクタ呼び出し中フラグを設定（無限再帰防止）
@@ -3457,12 +3619,8 @@ void Interpreter::call_destructor(const std::string &var_name,
             inserted_self->struct_type_name = struct_var->struct_type_name;
 
             if (debug_mode) {
-                debug_print("[DESTRUCTOR] Set self: type=%d, is_struct=%d, "
-                            "struct_type_name=%s, members=%zu, ref=%p\n",
-                            inserted_self->type, inserted_self->is_struct,
-                            inserted_self->struct_type_name.c_str(),
-                            inserted_self->struct_members.size(),
-                            inserted_self->struct_members_ref);
+                debug_msg(DebugMsgId::GENERIC_DEBUG,
+                          "[DESTRUCTOR] Set self: type=%d, is_struct=%d, ");
             }
         }
     }
@@ -3470,8 +3628,13 @@ void Interpreter::call_destructor(const std::string &var_name,
     // デストラクタ本体を実行
     if (destructor->body) {
         if (debug_mode) {
-            debug_print("[DESTRUCTOR] Executing destructor body for %s\n",
-                        var_name.c_str());
+            {
+                char dbg_buf[512];
+                snprintf(dbg_buf, sizeof(dbg_buf),
+                         "[DESTRUCTOR] Executing destructor body for %s",
+                         var_name.c_str());
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
         }
 
         // v0.13.1 FIX: ジェネリック型パラメータ解決のためTypeContextを設定
@@ -3515,8 +3678,13 @@ void Interpreter::call_destructor(const std::string &var_name,
                     type_ctx.type_map[param_names[i]] = params[i];
 
                     if (debug_mode) {
-                        debug_print("[DESTRUCTOR] TypeContext: %s = %s\n",
-                                    param_names[i], params[i].c_str());
+                        {
+                            char dbg_buf[512];
+                            snprintf(dbg_buf, sizeof(dbg_buf),
+                                     "[DESTRUCTOR] TypeContext: %s = %s",
+                                     param_names[i], params[i].c_str());
+                            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                        }
                     }
                 }
 
@@ -3536,9 +3704,14 @@ void Interpreter::call_destructor(const std::string &var_name,
         }
 
         if (debug_mode) {
-            debug_print(
-                "[DESTRUCTOR] Destructor body execution completed for %s\n",
-                var_name.c_str());
+            {
+                char dbg_buf[512];
+                snprintf(
+                    dbg_buf, sizeof(dbg_buf),
+                    "[DESTRUCTOR] Destructor body execution completed for %s",
+                    var_name.c_str());
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
         }
     }
 
@@ -3556,8 +3729,13 @@ void Interpreter::call_destructor(const std::string &var_name,
             // 参照が使われていない場合のみwriteback
             struct_var->struct_members = self_after->struct_members;
             if (debug_mode) {
-                debug_print("Wrote back self changes to %s after destructor\n",
-                            var_name.c_str());
+                {
+                    char dbg_buf[512];
+                    snprintf(dbg_buf, sizeof(dbg_buf),
+                             "Wrote back self changes to %s after destructor",
+                             var_name.c_str());
+                    debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                }
             }
         }
     }
@@ -3565,8 +3743,13 @@ void Interpreter::call_destructor(const std::string &var_name,
     pop_scope(); // デストラクタスコープを終了
 
     if (debug_mode) {
-        debug_print("[DESTRUCTOR] pop_scope completed for %s\n",
-                    var_name.c_str());
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "[DESTRUCTOR] pop_scope completed for %s",
+                     var_name.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
     }
 
     // v0.11.0: デストラクタ呼び出し完了フラグを設定（double free防止）
@@ -3575,13 +3758,23 @@ void Interpreter::call_destructor(const std::string &var_name,
     if (var_after) {
         var_after->destructor_called = true;
         if (debug_mode) {
-            debug_print("Marked destructor_called for %s\n", var_name.c_str());
+            {
+                char dbg_buf[512];
+                snprintf(dbg_buf, sizeof(dbg_buf),
+                         "Marked destructor_called for %s", var_name.c_str());
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
         }
     }
 
     if (debug_mode) {
-        debug_print("[DESTRUCTOR] Completed call_destructor for %s\n",
-                    var_name.c_str());
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "[DESTRUCTOR] Completed call_destructor for %s",
+                     var_name.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
     }
 
     // フラグを元に戻す
@@ -3594,16 +3787,16 @@ void Interpreter::register_destructor_call(
     // selfのデストラクタは登録しない（デストラクタ実行中のコピーであるため）
     if (var_name == "self") {
         if (debug_mode) {
-            debug_print("Skipping destructor registration for 'self'\n");
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "Skipping destructor registration for 'self'");
         }
         return;
     }
 
     if (destructor_stacks_.empty()) {
         if (debug_mode) {
-            debug_print("WARNING: destructor_stacks_ is empty when registering "
-                        "%s, ignoring\n",
-                        var_name.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "WARNING: destructor_stacks_ is empty when registering ");
         }
         // スタックが空の場合は登録しない（グローバル変数など）
         return;
@@ -3640,10 +3833,8 @@ void Interpreter::register_destructor_call(
                     register_destructor_call(member_var_name, member_type);
 
                     if (debug_mode) {
-                        debug_print("  Registered nested value member for "
-                                    "destruction: %s (type: %s)\n",
-                                    member_var_name.c_str(),
-                                    member_type.c_str());
+                        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                                  "  Registered nested value member for ");
                     }
                 }
             }
@@ -3655,10 +3846,15 @@ void Interpreter::register_destructor_call(
         std::make_pair(var_name, struct_type_name));
 
     if (debug_mode) {
-        debug_print(
-            "Registered for destruction: %s (type: %s), stack depth: %zu\n",
-            var_name.c_str(), struct_type_name.c_str(),
-            destructor_stacks_.size());
+        {
+            char dbg_buf[512];
+            snprintf(
+                dbg_buf, sizeof(dbg_buf),
+                "Registered for destruction: %s (type: %s), stack depth: %zu",
+                var_name.c_str(), struct_type_name.c_str(),
+                destructor_stacks_.size());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
     }
 }
 
@@ -3792,9 +3988,14 @@ void Interpreter::register_constructor(const std::string &struct_name,
     struct_constructors_[struct_name].push_back(ctor_node);
 
     if (debug_mode) {
-        debug_print(
-            "[REGISTER_CTOR] Registered constructor for %s (params: %zu)\n",
-            struct_name.c_str(), ctor_node->parameters.size());
+        {
+            char dbg_buf[512];
+            snprintf(
+                dbg_buf, sizeof(dbg_buf),
+                "[REGISTER_CTOR] Registered constructor for %s (params: %zu)",
+                struct_name.c_str(), ctor_node->parameters.size());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
     }
 }
 
@@ -3807,7 +4008,35 @@ void Interpreter::register_destructor(const std::string &struct_name,
     struct_destructors_[struct_name] = dtor_node;
 
     if (debug_mode) {
-        debug_print("[REGISTER_DTOR] Registered destructor for %s\n",
-                    struct_name.c_str());
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "[REGISTER_DTOR] Registered destructor for %s",
+                     struct_name.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
+    }
+}
+
+// v0.12.0: Event Loopアクセス
+cb::EventLoop &Interpreter::get_event_loop() { return *event_loop_; }
+
+// v0.13.0 Phase 2.0: SimpleEventLoopアクセス
+cb::SimpleEventLoop &Interpreter::get_simple_event_loop() {
+    return *simple_event_loop_;
+}
+
+// v0.13.0 Phase 2.0: バックグラウンドタスクを1サイクル実行
+// 非async関数のループからバックグラウンドタスクを進めるために使用
+// すべてのバックグラウンドタスクが最低1回実行されるまで継続
+void Interpreter::run_background_tasks_one_cycle() {
+    if (!simple_event_loop_ || simple_event_loop_->is_empty()) {
+        return;
+    }
+
+    // すべてのタスクが1ステップ実行されるまで継続
+    size_t task_count = simple_event_loop_->task_count();
+    for (size_t i = 0; i < task_count && !simple_event_loop_->is_empty(); i++) {
+        simple_event_loop_->run_one_cycle();
     }
 }

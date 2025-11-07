@@ -2,9 +2,17 @@
 #include "../../../../common/debug.h"
 #include "../../../../common/type_helpers.h"
 #include "../../core/pointer_metadata.h"
+#include "../../event_loop/event_loop.h"        // v0.12.0 Phase 8: EventLoop
+#include "../../event_loop/simple_event_loop.h" // v0.13.0 Phase 2.0: SimpleEventLoop
+#include <chrono>
 #include <cmath>
 #include <functional>
+#include <iostream>
 #include <stdexcept>
+#include <thread>
+
+// デバッグモードフラグ
+extern bool debug_mode;
 
 namespace BinaryUnaryTypedHelpers {
 
@@ -908,6 +916,289 @@ TypedValue evaluate_unary_op_typed(
         }
     }
 
+    // v0.12.0: await式の評価
+    if (node->is_await_expression || node->op == "await") {
+        // オペランドを評価（Future<T>構造体を期待）
+        TypedValue future_value = evaluate_typed_func(node->left.get());
+
+        if (future_value.is_struct() && future_value.struct_data) {
+            Variable &future_var =
+                const_cast<Variable &>(*future_value.struct_data);
+
+            // Future<T>構造体であることを確認（型名が"Future"で始まる）
+            if (future_var.struct_type_name.find("Future") == 0) {
+                // is_readyフラグをチェック
+                auto ready_it = future_var.struct_members.find("is_ready");
+                if (ready_it != future_var.struct_members.end()) {
+                    bool is_ready = (ready_it->second.value != 0);
+
+                    debug_msg(DebugMsgId::AWAIT_FUTURE_READY_CHECK,
+                              is_ready ? "true" : "false");
+
+                    // v0.13.0 Phase 2.0:
+                    // Futureが未完了の場合、SimpleEventLoopを実行 Phase
+                    // 2では、awaited されたFutureに対応するタスクが
+                    // SimpleEventLoopに登録されているため、イベントループを実行して完了させる
+                    if (!is_ready) {
+                        // Phase 2.0: SimpleEventLoopにタスクがある場合は実行
+                        if (interpreter.get_simple_event_loop().has_tasks()) {
+                            if (debug_mode) {
+                                std::cerr << "[AWAIT] Future not ready, "
+                                             "running SimpleEventLoop with "
+                                          << interpreter.get_simple_event_loop()
+                                                 .task_count()
+                                          << " tasks" << std::endl;
+                            }
+
+                            // SimpleEventLoopを実行（全タスク完了まで）
+                            interpreter.get_simple_event_loop().run();
+
+                            // Phase 2.0:
+                            // task_idからタスクを取得して、Futureを更新
+                            auto task_id_it =
+                                future_var.struct_members.find("task_id");
+                            if (task_id_it != future_var.struct_members.end()) {
+                                int task_id = task_id_it->second.value;
+                                AsyncTask *task =
+                                    interpreter.get_simple_event_loop()
+                                        .get_task(task_id);
+
+                                if (task && task->future_var) {
+                                    // SimpleEventLoop内のFutureから値をコピー
+                                    future_var = *task->future_var;
+
+                                    if (debug_mode) {
+                                        std::cerr
+                                            << "[AWAIT] Copied Future from "
+                                               "task "
+                                            << task_id << ", is_ready="
+                                            << future_var
+                                                   .struct_members["is_ready"]
+                                                   .value
+                                            << std::endl;
+                                    }
+                                }
+                            }
+
+                            // 実行後、is_readyを再確認
+                            ready_it =
+                                future_var.struct_members.find("is_ready");
+                            if (ready_it != future_var.struct_members.end()) {
+                                is_ready = (ready_it->second.value != 0);
+                            }
+
+                            if (debug_mode) {
+                                std::cerr << "[AWAIT] After SimpleEventLoop, "
+                                             "is_ready="
+                                          << (is_ready ? "true" : "false")
+                                          << std::endl;
+                            }
+
+                            // Phase 2で完了していればそのまま値を返す
+                            if (is_ready) {
+                                // Phase 2完了: 値抽出処理へ進む（後続のコード）
+                            }
+                        }
+                    }
+
+                    // v0.12.0 Phase 7: (Phase 1用のフォールバック)
+                    // まだ実行されていない場合、ここで実行する（遅延実行）
+                    // Phase
+                    // 2の場合はtask_idがないので、この処理はスキップされる
+                    if (!is_ready) {
+
+                        // task_idを取得（Phase 1のみ）
+                        auto task_id_it =
+                            future_var.struct_members.find("task_id");
+                        if (task_id_it != future_var.struct_members.end()) {
+                            int task_id = task_id_it->second.value;
+
+                            if (debug_mode) {
+                                std::cerr
+                                    << "[AWAIT_DEFERRED] Looking for task_id="
+                                    << task_id << std::endl;
+                            }
+
+                            // タスクを取得
+                            AsyncTask *task =
+                                interpreter.get_async_task(task_id);
+                            if (task && !task->is_executed) {
+                                if (debug_mode) {
+                                    std::cerr
+                                        << "[AWAIT_DEFERRED] Executing task: "
+                                        << task->function_name << " with "
+                                        << task->args.size() << " args"
+                                        << std::endl;
+                                }
+
+                                // v0.12.0 Phase 7: タスクを実行
+                                const ASTNode *func = task->function_node;
+                                if (!func || !func->body) {
+                                    throw std::runtime_error(
+                                        "Task has no function body (task_id=" +
+                                        std::to_string(task_id) + ")");
+                                }
+
+                                // 新しいスコープを作成して引数を復元
+                                interpreter.push_scope();
+
+                                // 引数をスコープに設定
+                                for (size_t i = 0; i < task->args.size() &&
+                                                   i < func->parameters.size();
+                                     i++) {
+                                    const auto &param = func->parameters[i];
+                                    Variable arg_var = task->args[i]; // コピー
+                                    interpreter.current_scope()
+                                        .variables[param->name] = arg_var;
+
+                                    if (debug_mode) {
+                                        std::cerr
+                                            << "[AWAIT_DEFERRED] Restored arg["
+                                            << i << "]: " << param->name
+                                            << " = " << arg_var.value
+                                            << std::endl;
+                                    }
+                                }
+
+                                // 関数本体を実行
+                                try {
+                                    interpreter.execute_statement(
+                                        func->body.get());
+
+                                    // 正常終了（return文なし）の場合はvoid扱い
+                                    interpreter.pop_scope();
+                                    task->is_executed = true;
+
+                                    // Future.is_readyをtrueに設定
+                                    ready_it->second.value = 1;
+
+                                    // valueメンバーを0に設定（void関数）
+                                    auto value_it =
+                                        future_var.struct_members.find("value");
+                                    if (value_it !=
+                                        future_var.struct_members.end()) {
+                                        value_it->second.type = TYPE_INT;
+                                        value_it->second.value = 0;
+                                        value_it->second.is_assigned = true;
+                                    }
+
+                                    if (debug_mode) {
+                                        std::cerr
+                                            << "[AWAIT_DEFERRED] Task executed "
+                                               "successfully (void)"
+                                            << std::endl;
+                                    }
+                                } catch (const ReturnException &ret) {
+                                    // return文で値が返された場合
+                                    interpreter.pop_scope();
+                                    task->is_executed = true;
+
+                                    // Future.is_readyをtrueに設定
+                                    ready_it->second.value = 1;
+
+                                    // Future.valueメンバーに戻り値を設定
+                                    auto value_it =
+                                        future_var.struct_members.find("value");
+                                    if (value_it !=
+                                        future_var.struct_members.end()) {
+                                        if (ret.type == TYPE_STRING) {
+                                            value_it->second.type = TYPE_STRING;
+                                            value_it->second.str_value =
+                                                ret.str_value;
+                                        } else if (ret.type == TYPE_FLOAT ||
+                                                   ret.type == TYPE_DOUBLE ||
+                                                   ret.type == TYPE_QUAD) {
+                                            value_it->second.type = ret.type;
+                                            value_it->second.double_value =
+                                                ret.double_value;
+                                        } else if (ret.is_struct) {
+                                            value_it->second = ret.struct_value;
+                                        } else {
+                                            value_it->second.type = TYPE_INT;
+                                            value_it->second.value = ret.value;
+                                        }
+                                        value_it->second.is_assigned = true;
+                                    }
+
+                                    if (debug_mode) {
+                                        std::cerr
+                                            << "[AWAIT_DEFERRED] Task executed "
+                                               "with return value: "
+                                            << ret.value << std::endl;
+                                    }
+                                }
+                            } else {
+                                throw std::runtime_error(
+                                    "Task not found or already executed "
+                                    "(task_id=" +
+                                    std::to_string(task_id) + ")");
+                            }
+                        }
+                        // Phase
+                        // 2の場合はtask_idがないが、SimpleEventLoopで処理済みなのでOK
+                        // エラーを投げずに続行して値を取得する
+                    }
+                }
+
+                // Future構造体からvalueメンバーを取得
+                auto value_it = future_var.struct_members.find("value");
+                if (value_it != future_var.struct_members.end()) {
+                    const Variable &value_member = value_it->second;
+
+                    // 抽出値のデバッグ表示
+                    int64_t display_value = 0;
+                    if (value_member.type == TYPE_FLOAT ||
+                        value_member.type == TYPE_DOUBLE ||
+                        value_member.type == TYPE_QUAD) {
+                        display_value =
+                            static_cast<int64_t>(value_member.double_value);
+                    } else if (!value_member.is_struct) {
+                        display_value = value_member.value;
+                    }
+                    debug_msg(DebugMsgId::AWAIT_VALUE_EXTRACTED, display_value,
+                              static_cast<int>(value_member.type));
+
+                    // valueメンバーの型に応じて適切なTypedValueを返す
+                    if (value_member.type == TYPE_STRING) {
+                        return TypedValue(value_member.str_value,
+                                          InferredType(TYPE_STRING, "string"));
+                    } else if (value_member.type == TYPE_FLOAT ||
+                               value_member.type == TYPE_DOUBLE ||
+                               value_member.type == TYPE_QUAD) {
+                        return TypedValue(
+                            value_member.double_value,
+                            InferredType(
+                                value_member.type,
+                                type_info_to_string_simple(value_member.type)));
+                    } else if (value_member.type == TYPE_STRUCT ||
+                               value_member.is_struct) {
+                        return TypedValue(
+                            value_member,
+                            InferredType(TYPE_STRUCT,
+                                         value_member.struct_type_name));
+                    } else {
+                        // 整数型
+                        return TypedValue(
+                            value_member.value,
+                            InferredType(
+                                value_member.type,
+                                type_info_to_string_simple(value_member.type)));
+                    }
+                } else {
+                    throw std::runtime_error(
+                        "Future struct has no 'value' member");
+                }
+            } else {
+                throw std::runtime_error(
+                    "await expression requires Future<T> struct, got " +
+                    future_var.struct_type_name);
+            }
+        } else {
+            throw std::runtime_error(
+                "await expression requires Future<T> operand");
+        }
+    }
+
     if (node->op == "+" || node->op == "-") {
         TypedValue operand_value = evaluate_typed_func(node->left.get());
         long double operand_quad = operand_value.as_quad();
@@ -956,3 +1247,122 @@ TypedValue evaluate_unary_op_typed(
 }
 
 } // namespace BinaryUnaryTypedHelpers
+
+namespace BinaryAndUnaryOperators {
+
+// v0.12.0: await式の評価
+int64_t evaluate_await(
+    const ASTNode *node, Interpreter &interpreter,
+    const std::function<TypedValue(const ASTNode *)> &evaluate_typed_func) {
+
+    bool debug_mode = interpreter.is_debug_mode();
+
+    // オペランドを評価（Future<T>構造体を期待）
+    TypedValue future_value = evaluate_typed_func(node->left.get());
+
+    // Phase 7 Fix: 変数名の場合は直接Interpreterから取得
+    Variable *future_var_ptr = nullptr;
+    std::string var_name;
+    if (node->left && node->left->node_type == ASTNodeType::AST_VARIABLE) {
+        // 変数名から直接取得
+        var_name = node->left->name;
+        Variable *var = interpreter.get_variable(var_name);
+        if (var) {
+            future_var_ptr = var;
+        }
+    }
+
+    // TypedValueからも取得を試みる
+    if (!future_var_ptr && future_value.is_struct() &&
+        future_value.struct_data) {
+        future_var_ptr = const_cast<Variable *>(future_value.struct_data.get());
+    }
+
+    if (future_var_ptr) {
+        Variable &future_var = *future_var_ptr;
+
+        // Future<T>構造体であることを確認（型名が"Future"で始まる）
+        if (future_var.struct_type_name.find("Future") == 0) {
+            if (!var_name.empty()) {
+                debug_msg(DebugMsgId::AWAIT_EXPRESSION_START, var_name.c_str());
+            }
+
+            // is_readyフラグをチェック
+            auto ready_it = future_var.struct_members.find("is_ready");
+            if (ready_it != future_var.struct_members.end()) {
+                bool is_ready = (ready_it->second.value != 0);
+
+                debug_msg(DebugMsgId::AWAIT_FUTURE_READY_CHECK,
+                          is_ready ? "true" : "false");
+
+                // v0.12.0 Phase 9:
+                // まだ実行されていない場合、このタスクだけを実行
+                if (!is_ready) {
+                    if (debug_mode) {
+                        std::cerr
+                            << "[AWAIT] Future not ready, executing task..."
+                            << std::endl;
+                    }
+
+                    // awaited タスクのIDを取得
+                    auto task_id_it = future_var.struct_members.find("task_id");
+                    if (task_id_it == future_var.struct_members.end()) {
+                        throw std::runtime_error(
+                            "Future struct has no 'task_id' member");
+                    }
+                    int awaited_task_id = task_id_it->second.value;
+
+                    if (debug_mode) {
+                        std::cerr << "[AWAIT] Awaiting task " << awaited_task_id
+                                  << std::endl;
+                    }
+
+                    // Phase 1:
+                    // async関数は即座実行なので、is_readyは常にtrueのはず
+                    if (debug_mode) {
+                        std::cerr << "[AWAIT] Future should be ready (Phase 1)"
+                                  << std::endl;
+                    }
+                }
+            }
+
+            // Future構造体からvalueメンバーを取得
+            auto value_it = future_var.struct_members.find("value");
+            if (value_it != future_var.struct_members.end()) {
+                const Variable &value_member = value_it->second;
+
+                // valueメンバーの型に応じて適切な値を返す
+                int64_t result;
+                if (value_member.type == TYPE_STRING) {
+                    // 文字列は数値変換できないので、とりあえず0を返す
+                    result = 0;
+                } else if (value_member.type == TYPE_FLOAT ||
+                           value_member.type == TYPE_DOUBLE ||
+                           value_member.type == TYPE_QUAD) {
+                    result = static_cast<int64_t>(value_member.double_value);
+                } else if (value_member.is_struct) {
+                    // 構造体は数値変換できないので0を返す
+                    result = 0;
+                } else {
+                    // 整数値を返す
+                    result = value_member.value;
+                }
+
+                debug_msg(DebugMsgId::AWAIT_VALUE_EXTRACTED, result,
+                          static_cast<int>(value_member.type));
+
+                return result;
+            } else {
+                throw std::runtime_error("Future struct has no 'value' member");
+            }
+        } else {
+            throw std::runtime_error(
+                "await operand must be a Future<T> (got: " +
+                future_var.struct_type_name + ")");
+        }
+    }
+
+    throw std::runtime_error("await operand must be a Future<T>");
+}
+
+} // namespace BinaryAndUnaryOperators

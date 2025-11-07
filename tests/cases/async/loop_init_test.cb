@@ -1,0 +1,18 @@
+// Test: forループのinit式が再実行された時の挙動を確認
+
+async Future<int> test_task() {
+    println("Task: Start");
+    for (int i = 0; i < 3; i++) {
+        println("Task: i={i}");
+    }
+    println("Task: Done");
+    return 42;
+}
+
+void main() {
+    println("Main: Start");
+    Future<int> f = test_task();
+    println("Main: Awaiting");
+    int result = await f;
+    println("Main: Result={result}");
+}

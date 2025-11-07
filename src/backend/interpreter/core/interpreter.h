@@ -10,6 +10,12 @@
 #include <string>
 #include <vector>
 
+// v0.12.0: Event Loop の前方宣言
+namespace cb {
+class EventLoop;
+class SimpleEventLoop; // v0.13.0 Phase 2.0
+} // namespace cb
+
 // 前方宣言
 class OutputManager;
 class StatementExecutor;
@@ -166,8 +172,13 @@ struct Variable {
         associated_int_value = other.associated_int_value;
         associated_str_value = other.associated_str_value;
 
-        debug_print("[VAR_COPY_CTOR] Copying Variable: is_enum %d -> %d\n",
-                    other.is_enum, is_enum);
+        {
+            char dbg_buf[128];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "[VAR_COPY_CTOR] Copying Variable: is_enum %d -> %d",
+                     other.is_enum, is_enum);
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
 
         // 残りのメンバをコピー
         type_name = other.type_name;
@@ -204,9 +215,14 @@ struct Variable {
     // 代入演算子をデバッグ出力付きで定義
     Variable &operator=(const Variable &other) {
         if (this != &other) {
-            debug_print(
-                "[VAR_ASSIGN_OP] Before: this.is_enum=%d, other.is_enum=%d\n",
-                is_enum, other.is_enum);
+            {
+                char dbg_buf[128];
+                snprintf(
+                    dbg_buf, sizeof(dbg_buf),
+                    "[VAR_ASSIGN_OP] Before: this.is_enum=%d, other.is_enum=%d",
+                    is_enum, other.is_enum);
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
 
             // すべてのメンバをコピー
             type = other.type;
@@ -236,7 +252,12 @@ struct Variable {
             associated_int_value = other.associated_int_value;
             associated_str_value = other.associated_str_value;
 
-            debug_print("[VAR_ASSIGN_OP] After: this.is_enum=%d\n", is_enum);
+            {
+                char dbg_buf[128];
+                snprintf(dbg_buf, sizeof(dbg_buf),
+                         "[VAR_ASSIGN_OP] After: this.is_enum=%d", is_enum);
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
 
             // 残りのメンバをコピー
             type_name = other.type_name;
@@ -385,6 +406,43 @@ struct Variable {
     }
 };
 
+// 前方宣言
+struct Scope;
+
+// v0.12.0: 非同期タスク情報（Future実行に使用）
+// Phase 1: 即座実行のみ
+// v0.13.0 Phase 2.0: トップレベルyieldサポート追加
+struct AsyncTask {
+    int task_id;                  // 一意なタスクID
+    const ASTNode *function_node; // 実行する関数のASTノード
+    std::string function_name;    // 関数名
+    std::vector<Variable> args; // 引数リスト（完全なVariable情報を保存）
+    Variable *future_var;     // 紐づくFuture変数へのポインタ
+    bool is_executed = false; // 実行済みフラグ
+
+    // v0.13.0 Phase 2.0: トップレベルyield実行制御
+    bool is_started = false;            // 開始済みフラグ
+    size_t current_statement_index = 0; // トップレベルのステートメント番号
+    std::shared_ptr<Scope> task_scope; // タスク専用スコープ
+    bool auto_yield =
+        false; // 自動yield（yield文がない場合に各ステートメント後にyield）
+    bool is_statement_first_time =
+        true; // 現在のステートメントが初回実行かどうか
+
+    AsyncTask()
+        : task_id(0), function_node(nullptr), function_name(""),
+          future_var(nullptr), is_executed(false), is_started(false),
+          current_statement_index(0), task_scope(nullptr), auto_yield(false),
+          is_statement_first_time(true) {}
+
+    AsyncTask(int id, const ASTNode *node, const std::string &name,
+              std::vector<Variable> arguments, Variable *future)
+        : task_id(id), function_node(node), function_name(name),
+          args(std::move(arguments)), future_var(future), is_executed(false),
+          is_started(false), current_statement_index(0), task_scope(nullptr),
+          auto_yield(false), is_statement_first_time(true) {}
+};
+
 // 関数ポインタ情報
 struct FunctionPointer {
     const ASTNode *function_node; // 関数定義のASTノード
@@ -415,6 +473,15 @@ struct Scope {
         scope_id.clear();
     }
 };
+
+// v0.13.0 Phase 2: YieldException - async関数内でyieldした際の例外
+class YieldException {
+  public:
+    bool is_from_loop; // ループ内の自動yieldかどうか
+
+    YieldException(bool from_loop = false) : is_from_loop(from_loop) {}
+};
+
 class ReturnException {
   public:
     int64_t value;
@@ -634,6 +701,29 @@ class Interpreter : public EvaluatorInterface {
     // ポインタ要素型マップ（deep copyされた配列の型情報保持）
     std::map<uintptr_t, std::string> pointer_element_types_;
 
+    // v0.12.0: Event Loop（非同期処理基盤）
+    std::unique_ptr<class cb::EventLoop> event_loop_;
+
+    // v0.13.0 Phase 2.0: Simple Event Loop（協調的マルチタスキング）
+    std::unique_ptr<class cb::SimpleEventLoop> simple_event_loop_;
+
+    // v0.12.0: async関数のタスクカウンター（一意なFuture識別用）
+    int async_task_counter_ = 0;
+
+    // v0.12.0: 非同期タスク管理（task_id -> AsyncTask）
+    std::map<int, AsyncTask> async_tasks_;
+
+    // v0.12.0: Future変数名からタスクIDへのマッピング
+    std::map<std::string, int> future_to_task_;
+
+    // v0.12.0 Phase 8: ヒープに確保されたFuture変数の管理（task_id -> Future）
+    // イベントループからアクセス可能にするため
+    std::map<int, std::shared_ptr<Variable>> future_variables_;
+
+    // v0.12.0: auto_yieldタスク実行中フラグ
+    // forループやwhileループの各イテレーション後に自動yieldするために使用
+    bool is_in_auto_yield_task_ = false;
+
     // Manager instances
     std::unique_ptr<VariableManager> variable_manager_;
     std::unique_ptr<ArrayManager> array_manager_;
@@ -739,6 +829,33 @@ class Interpreter : public EvaluatorInterface {
     Variable *get_variable(const std::string &name) {
         return find_variable(name);
     }
+
+    // v0.13.0: 変数の存在チェック（forループのinit式スキップ用）
+    bool variable_exists(const std::string &name) {
+        return find_variable(name) != nullptr;
+    }
+
+    // v0.13.0 Phase 2.0 FIX: 現在のスコープのみでの変数存在チェック
+    // 複数のforループで同じ変数名を使っても干渉しないようにする
+    bool variable_exists_in_current_scope(const std::string &name) {
+        if (scope_stack.empty()) {
+            return false;
+        }
+        const auto &current_scope = scope_stack.back();
+        return current_scope.variables.find(name) !=
+               current_scope.variables.end();
+    }
+
+    // v0.13.0 Phase 2.0 FIX: 現在のスコープから変数を削除
+    // forループのinit式で宣言された変数をループ終了時に削除する
+    void remove_variable_from_current_scope(const std::string &name) {
+        if (scope_stack.empty()) {
+            return;
+        }
+        auto &current_scope = scope_stack.back();
+        current_scope.variables.erase(name);
+    }
+
     std::string find_variable_name_by_address(const Variable *target_var);
 
     // 一時変数管理（メソッドチェーン用） (InterfaceOperationsへ委譲)
@@ -756,6 +873,7 @@ class Interpreter : public EvaluatorInterface {
 
     // 組み込み型の初期化
     void initialize_builtin_types();
+    void register_builtin_struct_future(); // v0.13.0: Future<T>
     void register_builtin_enum_option();
     void register_builtin_enum_result();
 
@@ -978,6 +1096,53 @@ class Interpreter : public EvaluatorInterface {
     void print_error_at_node(const std::string &message,
                              const ASTNode *node = nullptr);
 
+    // v0.12.0: async/await support
+    int get_async_task_counter() const { return async_task_counter_; }
+    void increment_async_task_counter() { async_task_counter_++; }
+
+    // v0.13.0 Phase 2.0: SimpleEventLoop access
+    class cb::SimpleEventLoop &get_simple_event_loop();
+    bool has_simple_event_loop() const { return simple_event_loop_ != nullptr; }
+
+    // v0.13.0 Phase 2.0: バックグラウンドタスクを1サイクル実行
+    // 非async関数のループからバックグラウンドタスクを進めるために使用
+    void run_background_tasks_one_cycle();
+
+    // v0.12.0: auto_yieldタスク実行制御
+    void set_auto_yield_mode(bool enabled) { is_in_auto_yield_task_ = enabled; }
+    bool is_in_auto_yield_mode() const { return is_in_auto_yield_task_; }
+
+    // v0.12.0: 非同期タスク管理
+    void register_async_task(int task_id, const AsyncTask &task) {
+        async_tasks_[task_id] = task;
+    }
+
+    AsyncTask *get_async_task(int task_id) {
+        auto it = async_tasks_.find(task_id);
+        return (it != async_tasks_.end()) ? &it->second : nullptr;
+    }
+
+    void associate_future_with_task(const std::string &future_var_name,
+                                    int task_id) {
+        future_to_task_[future_var_name] = task_id;
+    }
+
+    int get_task_id_for_future(const std::string &future_var_name) {
+        auto it = future_to_task_.find(future_var_name);
+        return (it != future_to_task_.end()) ? it->second : -1;
+    }
+
+    // v0.12.0 Phase 8: Future変数のヒープ管理
+    void register_future_variable(int task_id,
+                                  std::shared_ptr<Variable> future_var) {
+        future_variables_[task_id] = future_var;
+    }
+
+    std::shared_ptr<Variable> get_future_variable(int task_id) {
+        auto it = future_variables_.find(task_id);
+        return (it != future_variables_.end()) ? it->second : nullptr;
+    }
+
     // デバッグ機能
     void set_debug_mode(bool debug) { debug_mode = debug; }
     bool is_debug_mode() const { return debug_mode; }
@@ -1158,4 +1323,7 @@ class Interpreter : public EvaluatorInterface {
     int64_t evaluate_new_expression(const ASTNode *node);
     int64_t evaluate_delete_expression(const ASTNode *node);
     int64_t evaluate_sizeof_expression(const ASTNode *node);
+
+    // v0.12.0: Event Loop アクセス
+    cb::EventLoop &get_event_loop();
 };

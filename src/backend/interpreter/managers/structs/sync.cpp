@@ -52,8 +52,13 @@ void StructSyncManager::sync_direct_access_from_struct_value(
     root_var.is_struct = true;
 
     if (interpreter_->debug_mode) {
-        debug_print("DIRECT_SYNC: updating %s with %zu members\n",
-                    var_name.c_str(), struct_value.struct_members.size());
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "DIRECT_SYNC: updating %s with %zu members",
+                     var_name.c_str(), struct_value.struct_members.size());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
     }
 
     std::function<void(std::map<std::string, Variable> &, const std::string &,
@@ -71,13 +76,8 @@ void StructSyncManager::sync_direct_access_from_struct_value(
             dest_member.is_assigned = true;
 
             if (interpreter_->debug_mode) {
-                debug_print("DIRECT_SYNC_MEMBER: %s value=%lld str='%s' "
-                            "type=%d current_type=%d\n",
-                            qualified_name.c_str(),
-                            static_cast<long long>(member_value.value),
-                            member_value.str_value.c_str(),
-                            static_cast<int>(member_value.type),
-                            static_cast<int>(member_value.current_type));
+                debug_msg(DebugMsgId::GENERIC_DEBUG,
+                          "DIRECT_SYNC_MEMBER: %s value=%lld str='%s' ");
             }
 
             if (member_value.is_array || member_value.type >= TYPE_ARRAY_BASE ||
@@ -173,14 +173,24 @@ void StructSyncManager::sync_direct_access_from_struct_value(
                     vars[element_name] = element_var;
                     if (interpreter_->debug_mode) {
                         if (TypeHelpers::isString(element_var.type)) {
-                            debug_print("DIRECT_SYNC_ARRAY_ELEM: %s str='%s'\n",
-                                        element_name.c_str(),
-                                        element_var.str_value.c_str());
+                            {
+                                char dbg_buf[512];
+                                snprintf(dbg_buf, sizeof(dbg_buf),
+                                         "DIRECT_SYNC_ARRAY_ELEM: %s str='%s'",
+                                         element_name.c_str(),
+                                         element_var.str_value.c_str());
+                                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                            }
                         } else {
-                            debug_print(
-                                "DIRECT_SYNC_ARRAY_ELEM: %s value=%lld\n",
-                                element_name.c_str(),
-                                static_cast<long long>(element_var.value));
+                            {
+                                char dbg_buf[512];
+                                snprintf(
+                                    dbg_buf, sizeof(dbg_buf),
+                                    "DIRECT_SYNC_ARRAY_ELEM: %s value=%lld",
+                                    element_name.c_str(),
+                                    static_cast<long long>(element_var.value));
+                                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                            }
                         }
                     }
                 }
@@ -216,9 +226,8 @@ void StructSyncManager::sync_struct_members_from_direct_access(
     if (interpreter_->debug_mode && var_name == "student1") {
         Variable *test_var = interpreter_->find_variable("student1.scores[0]");
         if (test_var) {
-            debug_print("SYNC_DEBUG: Before sync, student1.scores[0] = %lld, "
-                        "is_assigned=%d\n",
-                        (long long)test_var->value, test_var->is_assigned);
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "SYNC_DEBUG: Before sync, student1.scores[0] = %lld, ");
         }
     }
 
@@ -305,8 +314,13 @@ void StructSyncManager::sync_struct_members_from_direct_access(
                 }
 
                 if (interpreter_->debug_mode) {
-                    debug_print("[SYNC_DEBUG] member=%s, final array_size=%d\n",
-                                member.name.c_str(), array_size);
+                    {
+                        char dbg_buf[512];
+                        snprintf(dbg_buf, sizeof(dbg_buf),
+                                 "[SYNC_DEBUG] member=%s, final array_size=%d",
+                                 member.name.c_str(), array_size);
+                        debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                    }
                 }
 
                 debug_msg(DebugMsgId::INTERPRETER_STRUCT_ARRAY_MEMBER_ADDED,
@@ -327,10 +341,8 @@ void StructSyncManager::sync_struct_members_from_direct_access(
                     var->struct_members[member.name].is_multidimensional = true;
                     var->struct_members[member.name].array_dimensions =
                         direct_var->array_dimensions;
-                    debug_print("SYNC_STRUCT: Preserved multidimensional info "
-                                "for %s.%s (dimensions: %zu)\n",
-                                var_name.c_str(), member.name.c_str(),
-                                direct_var->array_dimensions.size());
+                    debug_msg(DebugMsgId::GENERIC_DEBUG,
+                              "SYNC_STRUCT: Preserved multidimensional info ");
                 }
 
                 // 配列要素を個別にチェックして同期
@@ -372,11 +384,9 @@ void StructSyncManager::sync_struct_members_from_direct_access(
                             .multidim_array_values[i] = backup_values[i];
                     }
 
-                    debug_print(
-                        "SYNC_STRUCT: Initialized multidim_array_values for "
-                        "%s.%s (total_size: %zu, copied: %zu values)\n",
-                        var_name.c_str(), member.name.c_str(), total_size,
-                        copy_size);
+                    debug_msg(
+                        DebugMsgId::GENERIC_DEBUG,
+                        "SYNC_STRUCT: Initialized multidim_array_values for ");
                 }
 
                 // 個別要素変数からデータをコピー
@@ -395,13 +405,9 @@ void StructSyncManager::sync_struct_members_from_direct_access(
 
                     if (element_var) {
                         if (interpreter_->debug_mode) {
-                            debug_print(
-                                "SYNC_STRUCT: Found element_var for %s: "
-                                "value=%lld, str_value='%s', is_assigned=%d\n",
-                                element_name.c_str(),
-                                (long long)element_var->value,
-                                element_var->str_value.c_str(),
-                                element_var->is_assigned ? 1 : 0);
+                            debug_msg(
+                                DebugMsgId::GENERIC_DEBUG,
+                                "SYNC_STRUCT: Found element_var for %s: ");
                         }
                         // 構造体配列の場合、配列要素も構造体として同期する
                         if (element_var->is_struct &&
@@ -414,11 +420,9 @@ void StructSyncManager::sync_struct_members_from_direct_access(
                             var->struct_members[element_key] = *element_var;
 
                             if (interpreter_->debug_mode) {
-                                debug_print(
-                                    "SYNC_STRUCT: Synced struct array element "
-                                    "%s (key: %s) with %zu members\n",
-                                    element_name.c_str(), element_key.c_str(),
-                                    element_var->struct_members.size());
+                                debug_msg(DebugMsgId::GENERIC_DEBUG,
+                                          "SYNC_STRUCT: Synced struct array "
+                                          "element ");
                             }
                         } else {
                             // プリミティブ型配列の場合
@@ -430,21 +434,16 @@ void StructSyncManager::sync_struct_members_from_direct_access(
                                 var->struct_members[member.name]
                                     .array_strings[i] = element_var->str_value;
                                 if (interpreter_->debug_mode) {
-                                    debug_print(
-                                        "SYNC_STRUCT: Copied string "
-                                        "element[%d] = \"%s\" for %s.%s\n",
-                                        i, element_var->str_value.c_str(),
-                                        var_name.c_str(), member.name.c_str());
+                                    debug_msg(DebugMsgId::GENERIC_DEBUG,
+                                              "SYNC_STRUCT: Copied string ");
                                 }
                             } else {
                                 var->struct_members[member.name]
                                     .array_values[i] = element_var->value;
                                 if (interpreter_->debug_mode) {
-                                    debug_print(
-                                        "SYNC_STRUCT: Copied element[%d] = "
-                                        "%lld for %s.%s (element_var found)\n",
-                                        i, element_var->value, var_name.c_str(),
-                                        member.name.c_str());
+                                    debug_msg(
+                                        DebugMsgId::GENERIC_DEBUG,
+                                        "SYNC_STRUCT: Copied element[%d] = ");
                                 }
                                 // 多次元配列の場合は multidim_array_values
                                 // にも設定
@@ -454,13 +453,9 @@ void StructSyncManager::sync_struct_members_from_direct_access(
                                         .multidim_array_values[i] =
                                         element_var->value;
                                     if (interpreter_->debug_mode) {
-                                        debug_print(
-                                            "SYNC_STRUCT: Copied element[%d] = "
-                                            "%lld to multidim_array_values for "
-                                            "%s.%s\n",
-                                            i, element_var->value,
-                                            var_name.c_str(),
-                                            member.name.c_str());
+                                        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                                                  "SYNC_STRUCT: Copied "
+                                                  "element[%d] = ");
                                     }
                                 }
                             }
@@ -470,9 +465,8 @@ void StructSyncManager::sync_struct_members_from_direct_access(
                         // 個別変数がないが、struct_membersに構造体配列要素がある場合
                         // (これは既に同期済みの可能性がある)
                         if (interpreter_->debug_mode) {
-                            debug_print("SYNC_STRUCT: Struct array element %s "
-                                        "already in struct_members\n",
-                                        element_key.c_str());
+                            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                                      "SYNC_STRUCT: Struct array element %s ");
                         }
                     } else {
                         // 要素変数が見つからない場合、direct_var自体の配列データを使用
@@ -576,11 +570,9 @@ void StructSyncManager::sync_struct_members_from_direct_access(
                         member_value.struct_members =
                             updated_direct_var->struct_members;
                         if (interpreter_->debug_mode) {
-                            debug_print(
-                                "SYNC_STRUCT: Recursively synced nested struct "
-                                "%s with %zu members\n",
-                                direct_var_name.c_str(),
-                                updated_direct_var->struct_members.size());
+                            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                                      "SYNC_STRUCT: Recursively synced nested "
+                                      "struct ");
                         }
                     }
                 }
@@ -622,11 +614,9 @@ void StructSyncManager::sync_struct_members_from_direct_access(
                         var->struct_members[member.name]
                             .array_dimensions.push_back(dim.size);
                     }
-                    debug_print(
-                        "SYNC_STRUCT: Set multidimensional info for %s.%s from "
-                        "struct definition (dimensions: %zu)\n",
-                        var_name.c_str(), member.name.c_str(),
-                        member.array_info.dimensions.size());
+                    debug_msg(DebugMsgId::GENERIC_DEBUG,
+                              "SYNC_STRUCT: Set multidimensional info for "
+                              "%s.%s from ");
                 }
 
                 // 配列要素を個別にチェックして同期
@@ -644,10 +634,9 @@ void StructSyncManager::sync_struct_members_from_direct_access(
                         static_cast<size_t>(array_size)) {
                         var->struct_members[member.name]
                             .multidim_array_values.resize(array_size);
-                        debug_print(
-                            "SYNC_STRUCT: Resized multidim_array_values for "
-                            "%s.%s from definition (size: %d)\n",
-                            var_name.c_str(), member.name.c_str(), array_size);
+                        debug_msg(
+                            DebugMsgId::GENERIC_DEBUG,
+                            "SYNC_STRUCT: Resized multidim_array_values for ");
                     }
                 }
 
@@ -674,12 +663,9 @@ void StructSyncManager::sync_struct_members_from_direct_access(
                                     .multidim_array_values[i] =
                                     element_var->value;
                                 if (interpreter_->debug_mode) {
-                                    debug_print(
-                                        "SYNC_STRUCT: Copied element[%d] = "
-                                        "%lld to multidim_array_values for "
-                                        "%s.%s (from definition)\n",
-                                        i, element_var->value, var_name.c_str(),
-                                        member.name.c_str());
+                                    debug_msg(
+                                        DebugMsgId::GENERIC_DEBUG,
+                                        "SYNC_STRUCT: Copied element[%d] = ");
                                 }
                             }
                         }

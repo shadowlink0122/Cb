@@ -12,6 +12,7 @@
 #include "array_return/test_array_return.hpp"
 #include "assert/assert_tests.hpp"
 #include "assign/test_assign.hpp"
+#include "async/test_async.hpp"
 #include "basic/test_basic.hpp"
 #include "bitwise/test_bitwise.hpp"
 #include "bool_expr/test_bool_expr.hpp"
@@ -290,6 +291,14 @@ int main() {
     run_test_with_continue(test_integration_interface_bounds,
                            "Interface Bounds Tests", failed_tests);
     CategoryTimingStats::print_category_summary("Type System");
+
+    // v0.12.0 非同期処理テスト群
+    std::cout << "\n[integration-test] === v0.12.0 Async/Await Features ==="
+              << std::endl;
+    CategoryTimingStats::set_current_category("v0.12.0 Async");
+    run_test_with_continue(test_integration_async, "Async/Await Tests",
+                           failed_tests);
+    CategoryTimingStats::print_category_summary("v0.12.0 Async");
 
     // v0.10.0 新機能テスト群
     std::cout << "\n[integration-test] === v0.10.0 New Features ==="

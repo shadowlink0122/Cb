@@ -436,6 +436,115 @@ enum class DebugMsgId {
     // メンバー代入関連
     MEMBER_ASSIGN_STRUCT, // 構造体メンバー代入
 
+    // v0.12.0: async/await関連 (Phase 1)
+    ASYNC_FUNCTION_CALL,      // async関数呼び出し
+    ASYNC_FUNCTION_RETURNED,  // async関数からの戻り値
+    ASYNC_WRAPPING_FUTURE,    // Futureでラップ
+    AWAIT_EXPRESSION_START,   // await式評価開始
+    AWAIT_FUTURE_READY_CHECK, // Futureのis_readyチェック
+    AWAIT_VALUE_EXTRACTED,    // Futureから値を抽出
+
+    // v0.13.0: async/await Phase 2 - Event Loop & yield
+    ASYNC_TASK_REGISTER,          // タスクをイベントループに登録
+    ASYNC_TASK_REGISTER_DEFERRED, // タスクを遅延実行として登録
+    ASYNC_YIELD_CONTROL,          // yieldで制御を渡す
+    EVENT_LOOP_START,             // イベントループ開始
+    EVENT_LOOP_EXECUTE,       // タスク実行（task_id, statement_index）
+    EVENT_LOOP_TASK_YIELD,    // タスクがyield
+    EVENT_LOOP_TASK_COMPLETE, // タスク完了
+    EVENT_LOOP_COMPLETE,      // イベントループ終了
+    EVENT_LOOP_EMPTY_QUEUE,   // キューが空
+
+    // 低レベルデバッグメッセージ (GENERIC_DEBUG置き換え用)
+    // Method call / Self関連
+    METHOD_SELF_SETUP_START,        // selfセットアップ開始
+    METHOD_SELF_SETUP_COMPLETE,     // selfセットアップ完了
+    METHOD_SELF_WRITEBACK_START,    // self書き戻し開始
+    METHOD_SELF_WRITEBACK_COMPLETE, // self書き戻し完了
+    METHOD_SELF_MERGE,              // selfマージ
+    METHOD_POINTER_DEREF,           // ポインタデリファレンス
+    METHOD_CONSTRUCTOR_SELF,        // コンストラクタself作成
+    METHOD_CALL_DEBUG,              // メソッド呼び出しデバッグ
+    METHOD_EXEC_DEBUG,              // メソッド実行デバッグ
+
+    // Arrow operator関連
+    ARROW_OP_MEMBER_ACCESS,     // アロー演算子メンバーアクセス
+    ARROW_OP_NULL_CHECK,        // アロー演算子NULLチェック
+    ARROW_OP_MEMORY_READ,       // アロー演算子メモリ読み込み
+    ARROW_OP_TYPE_CAST,         // アロー演算子型キャスト
+    ARROW_OP_GENERIC_RESOLVE,   // アロー演算子ジェネリック解決
+    ARROW_ASSIGN_START,         // アロー代入開始
+    ARROW_ASSIGN_COMPLETE,      // アロー代入完了
+    ARROW_ASSIGN_MEMBER_UPDATE, // アロー代入メンバー更新
+    ARROW_ASSIGN_METADATA,      // アロー代入メタデータ
+
+    // Member access関連
+    MEMBER_ACCESS_DEBUG,     // メンバーアクセスデバッグ
+    MEMBER_ACCESS_REFERENCE, // メンバーアクセス参照解決
+    MEMBER_ACCESS_FOUND,     // メンバー発見
+    MEMBER_ASSIGN_START,     // メンバー代入開始
+    MEMBER_ASSIGN_COMPLETE,  // メンバー代入完了
+    MEMBER_ASSIGN_NESTED,    // ネストメンバー代入
+    MEMBER_ARRAY_ACCESS,     // メンバー配列アクセス
+    MEMBER_EVAL_RESULT,      // メンバー評価結果
+
+    // Impl/Interface関連（既存のIMPL_METHOD_REGISTERなどを活用）
+    IMPL_REGISTER_DEBUG,      // impl登録デバッグ
+    IMPL_FIND_EXACT,          // impl検索（完全一致）
+    IMPL_FIND_GENERIC,        // impl検索（ジェネリック）
+    IMPL_GENERIC_INSTANTIATE, // ジェネリックimplインスタンス化
+    IMPL_GENERIC_CACHE_HIT,   // ジェネリックimplキャッシュヒット
+    IMPL_GENERIC_CACHE_MISS,  // ジェネリックimplキャッシュミス
+    IMPL_GENERIC_TYPE_MAP,    // ジェネリックimpl型マップ
+    IMPL_HANDLE_DEBUG,        // impl処理デバッグ
+    IMPL_CONSTRUCTOR_DEBUG,   // implコンストラクタデバッグ
+
+    // Statement executor関連
+    STMT_EXEC_DEBUG,          // 文実行デバッグ
+    STMT_MEMBER_ARRAY_ASSIGN, // メンバー配列代入
+    STMT_NESTED_STRUCT_ARRAY, // ネスト構造体配列
+    STMT_SELF_ASSIGN,         // self代入
+
+    // Struct operations関連
+    STRUCT_OP_GET_MEMBER,      // 構造体メンバー取得
+    STRUCT_OP_SYNC_MEMBER,     // 構造体メンバー同期
+    STRUCT_OP_MULTIDIM_ACCESS, // 構造体多次元配列アクセス
+    STRUCT_OP_FLAT_INDEX,      // 構造体フラットインデックス
+
+    // Return handler関連
+    RETURN_EXPR_DEBUG,    // return式デバッグ
+    RETURN_POINTER_DEBUG, // returnポインタデバッグ
+    RETURN_TYPED_VALUE,   // return型付き値
+
+    // Call implementation関連
+    CALL_IMPL_DEBUG,    // 関数呼び出し実装デバッグ
+    CALL_IMPL_BUILTIN,  // 組み込み関数呼び出し
+    CALL_IMPL_MALLOC,   // malloc呼び出し
+    CALL_IMPL_SLEEP,    // sleep呼び出し
+    CALL_IMPL_RECEIVER, // レシーバー処理
+
+    // Parser関連
+    PARSER_TOKEN_DEBUG, // パーサートークンデバッグ
+
+    // Expression service関連
+    EXPR_SERVICE_ERROR, // 式サービスエラー
+
+    // 詳細デバッグカテゴリ（頻出パターン用）
+    DEBUG_GENERIC,        // DEBUG: プレフィックス
+    ENUM_VAR_DECL_DEBUG,  // [ENUM_VAR_DECL_MANAGER]
+    EVAL_RESOLVER_DEBUG,  // [EVAL_RESOLVER]
+    STRUCT_LITERAL_DEBUG, // STRUCT_LITERAL_DEBUG:
+    SYNC_STRUCT_DEBUG,    // SYNC_STRUCT:
+    GENERIC_CTOR_DEBUG,   // [GENERIC_CTOR]
+    UNION_TYPE_DEBUG,     // UNION_*_DEBUG:
+    TYPEDEF_DEBUG,        // TYPEDEF_DEBUG:
+    BUILTIN_TYPES_DEBUG,  // [BUILTIN_TYPES]
+    ASSIGN_IFACE_DEBUG,   // ASSIGN_IFACE:
+    REGISTER_UNION_DEBUG, // REGISTER_UNION_DEBUG:
+    VAR_DEBUG,            // VAR_DEBUG:
+    GET_TYPE_SIZE_DEBUG,  // [get_type_size]
+
+    // 汎用デバッグ（最後の手段として残す）
     GENERIC_DEBUG, // 汎用デバッグライン出力
 
     MAX_DEBUG_MSG_ID // 最大値マーカー
@@ -445,13 +554,10 @@ enum class DebugMsgId {
 extern bool debug_mode;
 extern DebugLanguage debug_language;
 
-// デバッグ出力関数（既存）
-void debug_print(const char *fmt, ...);
-
-// 多言語対応デバッグ出力関数（新規）
+// 多言語対応デバッグ出力関数
 void debug_msg(DebugMsgId msg_id, ...);
 
-// 多言語対応エラー出力関数（新規）
+// 多言語対応エラー出力関数
 void error_msg(DebugMsgId msg_id, ...);
 
 inline void debug_log_line(const std::string &message) {

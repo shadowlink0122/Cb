@@ -23,12 +23,18 @@ inline Variable *resolve_nested_member_for_evaluation(
     // 最終メンバー名を取得
     std::string final_member = member_access_node->name;
 
-    debug_print(
-        "[EVAL_RESOLVER] Resolving member: %s, node_type=%d, left_type=%d\n",
-        final_member.c_str(), static_cast<int>(member_access_node->node_type),
-        member_access_node->left
-            ? static_cast<int>(member_access_node->left->node_type)
-            : -1);
+    {
+        char dbg_buf[512];
+        snprintf(
+            dbg_buf, sizeof(dbg_buf),
+            "[EVAL_RESOLVER] Resolving member: %s, node_type=%d, left_type=%d",
+            final_member.c_str(),
+            static_cast<int>(member_access_node->node_type),
+            member_access_node->left
+                ? static_cast<int>(member_access_node->left->node_type)
+                : -1);
+        debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+    }
 
     if (!member_access_node->left) {
         throw std::runtime_error("Member access node has no left child");
@@ -42,8 +48,13 @@ inline Variable *resolve_nested_member_for_evaluation(
     // ケース1: 単純な変数アクセス (obj.member)
     if (member_access_node->left->node_type == ASTNodeType::AST_VARIABLE ||
         member_access_node->left->node_type == ASTNodeType::AST_IDENTIFIER) {
-        debug_print("[EVAL_RESOLVER] Case 1: Simple variable access for '%s'\n",
-                    final_member.c_str());
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "[EVAL_RESOLVER] Case 1: Simple variable access for '%s'",
+                     final_member.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
 
         std::string var_name = member_access_node->left->name;
         Variable *var = interpreter.find_variable(var_name);
@@ -62,69 +73,88 @@ inline Variable *resolve_nested_member_for_evaluation(
         }
 
         // メンバーを取得
-        debug_print("[EVAL_RESOLVER] Looking for member '%s' in var '%s' "
-                    "(struct_members.size=%zu)\n",
-                    final_member.c_str(), var_name.c_str(),
-                    var->struct_members.size());
+        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                  "[EVAL_RESOLVER] Looking for member '%s' in var '%s' ");
 
         auto it = var->struct_members.find(final_member);
         if (it == var->struct_members.end()) {
-            debug_print(
-                "[EVAL_RESOLVER] Member '%s' not found in struct_members\n",
-                final_member.c_str());
+            {
+                char dbg_buf[512];
+                snprintf(
+                    dbg_buf, sizeof(dbg_buf),
+                    "[EVAL_RESOLVER] Member '%s' not found in struct_members",
+                    final_member.c_str());
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
             throw std::runtime_error("Member not found: " + final_member +
                                      " in " + var_name);
         }
 
-        debug_print("[EVAL_RESOLVER] Found member '%s'\n",
-                    final_member.c_str());
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "[EVAL_RESOLVER] Found member '%s'", final_member.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
         return &it->second;
     }
 
     // ケース2: ネストされたメンバーアクセス (obj.mid.member)
     if (member_access_node->left->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
-        debug_print("[EVAL_RESOLVER] Case 2: Nested member access for '%s'\n",
-                    final_member.c_str());
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "[EVAL_RESOLVER] Case 2: Nested member access for '%s'",
+                     final_member.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
 
         // 再帰的に親を解決
         Variable *parent_var = resolve_nested_member_for_evaluation(
             interpreter, member_access_node->left.get(), evaluate_index);
 
         if (!parent_var || !parent_var->is_struct) {
-            debug_print("[EVAL_RESOLVER] Parent is not a struct!\n");
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "[EVAL_RESOLVER] Parent is not a struct!");
             throw std::runtime_error("Parent is not a struct");
         }
 
-        debug_print("[EVAL_RESOLVER] Parent resolved, searching for member "
-                    "'%s' (struct_members.size=%zu)\n",
-                    final_member.c_str(), parent_var->struct_members.size());
+        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                  "[EVAL_RESOLVER] Parent resolved, searching for member ");
 
         // 親のstruct_membersから最終メンバーを取得
         auto it = parent_var->struct_members.find(final_member);
         if (it == parent_var->struct_members.end()) {
-            debug_print("[EVAL_RESOLVER] Member '%s' not found in parent "
-                        "struct_members "
-                        "(size=%zu, type_name='%s')\n",
-                        final_member.c_str(), parent_var->struct_members.size(),
-                        parent_var->type_name.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "[EVAL_RESOLVER] Member '%s' not found in parent ");
 
             // struct_membersが空の場合、これは構造体リテラル初期化による
             // 問題の可能性がある
             // parent_var 自体を返してフォールバック
-            debug_print("[EVAL_RESOLVER] Returning parent_var as fallback\n");
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "[EVAL_RESOLVER] Returning parent_var as fallback");
             return parent_var;
         }
 
-        debug_print("[EVAL_RESOLVER] Found member '%s'\n",
-                    final_member.c_str());
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "[EVAL_RESOLVER] Found member '%s'", final_member.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
         return &it->second;
     }
 
     // ケース3: デリファレンス演算子を含むネスト ((*ptr).val.member)
     if (member_access_node->left->node_type == ASTNodeType::AST_UNARY_OP &&
         member_access_node->left->op == "DEREFERENCE") {
-        debug_print("[EVAL_RESOLVER] Case 3: Dereference access for '%s'\n",
-                    final_member.c_str());
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "[EVAL_RESOLVER] Case 3: Dereference access for '%s'",
+                     final_member.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
 
         const ASTNode *deref_node = member_access_node->left.get();
 
@@ -152,19 +182,22 @@ inline Variable *resolve_nested_member_for_evaluation(
         } else if (deref_node->left->node_type ==
                    ASTNodeType::AST_ARROW_ACCESS) {
             // Arrow演算子の後にデリファレンス: (*p->ptr).member
-            debug_print("[EVAL_RESOLVER] Dereference after arrow access\n");
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "[EVAL_RESOLVER] Dereference after arrow access");
             ptr_var = resolve_nested_member_for_evaluation(
                 interpreter, deref_node->left.get(), evaluate_index);
             if (!ptr_var || ptr_var->type != TYPE_POINTER) {
                 throw std::runtime_error(
                     "Not a pointer in arrow-then-dereference");
             }
-            debug_print("[EVAL_RESOLVER] Arrow-then-deref resolved\n");
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "[EVAL_RESOLVER] Arrow-then-deref resolved");
         } else if (deref_node->left->node_type == ASTNodeType::AST_UNARY_OP &&
                    deref_node->left->op == "DEREFERENCE") {
             // 二重デリファレンス: **ptr または (**ptr)
             // 内側のデリファレンスを再帰的に処理
-            debug_print("[EVAL_RESOLVER] Processing double dereference\n");
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "[EVAL_RESOLVER] Processing double dereference");
 
             // 内側のデリファレンスノードを作成して再帰的に処理
             // deref_node->left は内側の UNARY_OP (DEREFERENCE)
@@ -205,7 +238,8 @@ inline Variable *resolve_nested_member_for_evaluation(
                            ASTNodeType::AST_UNARY_OP &&
                        inner_deref->left->op == "DEREFERENCE") {
                 // 三重以上のデリファレンス: ***ptr
-                debug_print("[EVAL_RESOLVER] Processing triple+ dereference\n");
+                debug_msg(DebugMsgId::GENERIC_DEBUG,
+                          "[EVAL_RESOLVER] Processing triple+ dereference");
 
                 // 三重デリファレンスを段階的に処理
                 // inner_deref->left は ***ptr の場合の **ptr部分
@@ -255,8 +289,9 @@ inline Variable *resolve_nested_member_for_evaluation(
                         "Triple dereference requires valid pointer chain");
                 }
 
-                debug_print(
-                    "[EVAL_RESOLVER] Triple dereference resolved to pointer\n");
+                debug_msg(
+                    DebugMsgId::GENERIC_DEBUG,
+                    "[EVAL_RESOLVER] Triple dereference resolved to pointer");
             } else {
                 throw std::runtime_error(
                     "Unsupported double dereference pattern");
@@ -302,16 +337,19 @@ inline Variable *resolve_nested_member_for_evaluation(
         // 構造体から最終メンバーを取得
         auto final_it = struct_var->struct_members.find(final_member);
         if (final_it != struct_var->struct_members.end()) {
-            debug_print(
-                "[EVAL_RESOLVER] Found final member '%s' via dereference\n",
-                final_member.c_str());
+            {
+                char dbg_buf[512];
+                snprintf(
+                    dbg_buf, sizeof(dbg_buf),
+                    "[EVAL_RESOLVER] Found final member '%s' via dereference",
+                    final_member.c_str());
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
             return &final_it->second;
         }
 
-        debug_print(
-            "[EVAL_RESOLVER] Member '%s' not found via dereference, "
-            "struct_members.size=%zu, returning struct_var as fallback\n",
-            final_member.c_str(), struct_var->struct_members.size());
+        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                  "[EVAL_RESOLVER] Member '%s' not found via dereference, ");
         return struct_var;
     }
 
@@ -320,8 +358,13 @@ inline Variable *resolve_nested_member_for_evaluation(
 case_4_arrow_access:
     if (member_access_node->node_type == ASTNodeType::AST_ARROW_ACCESS ||
         member_access_node->left->node_type == ASTNodeType::AST_ARROW_ACCESS) {
-        debug_print("[EVAL_RESOLVER] Case 4: Arrow access for '%s'\n",
-                    final_member.c_str());
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "[EVAL_RESOLVER] Case 4: Arrow access for '%s'",
+                     final_member.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
 
         const ASTNode *arrow_node =
             (member_access_node->node_type == ASTNodeType::AST_ARROW_ACCESS)
@@ -406,8 +449,8 @@ case_4_arrow_access:
                        ASTNodeType::AST_ARROW_ACCESS) {
                 // さらに深いネスト: ptr1->ptr2->ptr3->val.member
                 // nested_arrowのleftを再帰的に解決
-                debug_print("[EVAL_RESOLVER] Recursive arrow: "
-                            "nested_arrow->left is also ARROW_ACCESS\n");
+                debug_msg(DebugMsgId::GENERIC_DEBUG,
+                          "[EVAL_RESOLVER] Recursive arrow: ");
                 Variable *base_member = resolve_nested_member_for_evaluation(
                     interpreter, nested_arrow->left.get(), evaluate_index);
                 if (!base_member || base_member->type != TYPE_POINTER) {
@@ -421,8 +464,8 @@ case_4_arrow_access:
                 }
                 nested_struct =
                     reinterpret_cast<Variable *>(base_member->value);
-                debug_print("[EVAL_RESOLVER] Recursive arrow resolved, got "
-                            "nested_struct\n");
+                debug_msg(DebugMsgId::GENERIC_DEBUG,
+                          "[EVAL_RESOLVER] Recursive arrow resolved, got ");
             } else {
                 throw std::runtime_error(
                     "Complex nested arrow pattern not supported");
@@ -466,26 +509,33 @@ case_4_arrow_access:
         // arrow_nodeのメンバー名を取得
         std::string arrow_member = arrow_node->name;
 
-        debug_print("[EVAL_RESOLVER] Arrow: getting member '%s' from struct\n",
-                    arrow_member.c_str());
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "[EVAL_RESOLVER] Arrow: getting member '%s' from struct",
+                     arrow_member.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
 
         // arrow_memberとfinal_memberが同じ場合、これはp->ptrのような単純なアローアクセス
         if (arrow_member == final_member) {
-            debug_print(
-                "[EVAL_RESOLVER] Arrow: simple arrow access (p->member)\n");
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "[EVAL_RESOLVER] Arrow: simple arrow access (p->member)");
             // 構造体から最終メンバーを直接取得
             auto member_it = struct_var->struct_members.find(arrow_member);
             if (member_it == struct_var->struct_members.end()) {
-                debug_print(
-                    "[EVAL_RESOLVER] Member '%s' not found in struct_members "
-                    "(size=%zu, type_name='%s'), returning struct_var as "
-                    "fallback\n",
-                    arrow_member.c_str(), struct_var->struct_members.size(),
-                    struct_var->type_name.c_str());
+                debug_msg(
+                    DebugMsgId::GENERIC_DEBUG,
+                    "[EVAL_RESOLVER] Member '%s' not found in struct_members ");
                 return struct_var;
             }
-            debug_print("[EVAL_RESOLVER] Found member '%s' via simple arrow\n",
-                        arrow_member.c_str());
+            {
+                char dbg_buf[512];
+                snprintf(dbg_buf, sizeof(dbg_buf),
+                         "[EVAL_RESOLVER] Found member '%s' via simple arrow",
+                         arrow_member.c_str());
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
             return &member_it->second;
         }
 
@@ -495,25 +545,18 @@ case_4_arrow_access:
         // 構造体から中間メンバーを取得
         auto arrow_it = struct_var->struct_members.find(arrow_member);
         if (arrow_it == struct_var->struct_members.end()) {
-            debug_print(
-                "[EVAL_RESOLVER] arrow_member '%s' not found in struct_members "
-                "(size=%zu, type_name='%s'), returning struct_var as "
-                "fallback\n",
-                arrow_member.c_str(), struct_var->struct_members.size(),
-                struct_var->type_name.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "[EVAL_RESOLVER] arrow_member '%s' not found in "
+                      "struct_members ");
             // 構造体リテラル初期化の問題：struct_membersが空の場合のフォールバック
             return struct_var;
         }
 
         Variable *intermediate_var = &arrow_it->second;
 
-        debug_print(
-            "[EVAL_RESOLVER] Arrow: arrow_member='%s', final_member='%s', "
-            "intermediate_var->type=%d, intermediate_var->is_struct=%d, "
-            "struct_members.size=%zu\n",
-            arrow_member.c_str(), final_member.c_str(), intermediate_var->type,
-            intermediate_var->is_struct,
-            intermediate_var->struct_members.size());
+        debug_msg(
+            DebugMsgId::GENERIC_DEBUG,
+            "[EVAL_RESOLVER] Arrow: arrow_member='%s', final_member='%s', ");
 
         // 中間メンバーが構造体の場合、最終メンバーを取得
         if (intermediate_var->type == TYPE_STRUCT ||
@@ -521,18 +564,19 @@ case_4_arrow_access:
             // まずstruct_membersから探す
             auto final_it = intermediate_var->struct_members.find(final_member);
             if (final_it != intermediate_var->struct_members.end()) {
-                debug_print(
-                    "[EVAL_RESOLVER] Found final member '%s' via arrow\n",
-                    final_member.c_str());
+                {
+                    char dbg_buf[512];
+                    snprintf(
+                        dbg_buf, sizeof(dbg_buf),
+                        "[EVAL_RESOLVER] Found final member '%s' via arrow",
+                        final_member.c_str());
+                    debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                }
                 return &final_it->second;
             }
 
-            debug_print("[EVAL_RESOLVER] final_member '%s' not found in "
-                        "struct_members, "
-                        "struct_members.size=%zu, type_name='%s'\n",
-                        final_member.c_str(),
-                        intermediate_var->struct_members.size(),
-                        intermediate_var->type_name.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "[EVAL_RESOLVER] final_member '%s' not found in ");
 
             // struct_membersが空の場合、これは構造体リテラル初期化の問題
             // 個別変数として管理されている可能性がある
@@ -558,8 +602,8 @@ case_4_arrow_access:
             // これにより、少なくともクラッシュは避けられる
             // 呼び出し元が適切に処理することを期待
 
-            debug_print(
-                "[EVAL_RESOLVER] Returning intermediate_var as fallback\n");
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "[EVAL_RESOLVER] Returning intermediate_var as fallback");
             return intermediate_var;
         } else {
             // 中間メンバーが構造体でない場合はエラー
@@ -573,22 +617,33 @@ case_4_arrow_access:
     // ケース5: 配列アクセスを含むネスト (obj.arr[0].member または
     // container.shapes[0].edges[0].start)
     if (member_access_node->left->node_type == ASTNodeType::AST_ARRAY_REF) {
-        debug_print(
-            "[EVAL_RESOLVER] Case 5: Array access for final_member '%s'\n",
-            final_member.c_str());
+        {
+            char dbg_buf[512];
+            snprintf(
+                dbg_buf, sizeof(dbg_buf),
+                "[EVAL_RESOLVER] Case 5: Array access for final_member '%s'",
+                final_member.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
 
         const ASTNode *array_ref = member_access_node->left.get();
 
         // インデックスを評価
         int64_t index = evaluate_index(array_ref->array_index.get());
-        debug_print("[EVAL_RESOLVER] Array index: %lld\n", index);
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "[EVAL_RESOLVER] Array index: %lld", index);
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
 
         Variable *array_parent = nullptr;
         std::string array_member_name;
 
         // 配列の親を解決
         if (array_ref->left->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
-            debug_print("[EVAL_RESOLVER] Array parent is MEMBER_ACCESS\n");
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "[EVAL_RESOLVER] Array parent is MEMBER_ACCESS");
             // struct.array[index].member の場合
             // 再帰的に配列メンバー自体を取得
             std::string member = array_ref->left->name;
@@ -603,10 +658,8 @@ case_4_arrow_access:
                                          member);
             }
 
-            debug_print("[EVAL_RESOLVER] Resolved array parent '%s' "
-                        "(is_array=%d, struct_type='%s')\n",
-                        member.c_str(), array_parent->is_array,
-                        array_parent->struct_type_name.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "[EVAL_RESOLVER] Resolved array parent '%s' ");
 
             array_member_name = member;
 

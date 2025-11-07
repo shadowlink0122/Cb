@@ -247,11 +247,9 @@ int64_t evaluate_incdec(
                     if (!meta->array_var ||
                         new_index >=
                             static_cast<size_t>(meta->array_var->array_size)) {
-                        debug_print(
-                            "[INCDEC] Range check failed: old_index=%zu, "
-                            "new_index=%zu, array_size=%d\n",
-                            old_index, new_index,
-                            meta->array_var ? meta->array_var->array_size : -1);
+                        debug_msg(
+                            DebugMsgId::GENERIC_DEBUG,
+                            "[INCDEC] Range check failed: old_index=%zu, ");
                         throw std::runtime_error(
                             "Pointer increment/decrement out of array bounds");
                     }

@@ -1,0 +1,203 @@
+// async interface/impl デモ
+// データ処理パイプラインの例
+
+import stdlib.std.future;
+
+// ========================================
+// データ処理インターフェース
+// ========================================
+
+interface DataProcessor {
+    // 非同期でデータを処理
+    async Future<int> process(int data);
+    
+    // 非同期でデータを検証
+    async Future<bool> validate(int data);
+}
+
+// ========================================
+// 実装1: シンプルなプロセッサ
+// ========================================
+
+struct SimpleProcessor {
+    string name;
+    int multiplier;
+};
+
+impl DataProcessor for SimpleProcessor {
+    async Future<int> process(int data) {
+        println("[SimpleProc] データ処理開始: %d", data);
+        
+        // データに3を掛ける
+        int result = data * 3;
+        
+        println("[SimpleProc] 処理結果: %d -> %d", data, result);
+        
+        Future<int> fut;
+        fut.value = result;
+        fut.is_ready = true;
+        return fut;
+    }
+    
+    async Future<bool> validate(int data) {
+        println("[SimpleProc] 検証中: %d", data);
+        
+        // 正の数のみ有効
+        bool is_valid = data > 0;
+        
+        if (is_valid) {
+            println("[SimpleProc] 検証OK: %d", data);
+        } else {
+            println("[SimpleProc] 検証NG: %d", data);
+        }
+        
+        Future<bool> fut;
+        fut.value = is_valid;
+        fut.is_ready = true;
+        return fut;
+    }
+}
+
+// ========================================
+// 実装2: 高度なプロセッサ
+// ========================================
+
+struct AdvancedProcessor {
+    string name;
+    int threshold;
+};
+
+impl DataProcessor for AdvancedProcessor {
+    async Future<int> process(int data) {
+        println("[AdvancedProc] 高度な処理開始: %d", data);
+        
+        int result = data;
+        
+        // 閾値50を超える場合は特殊処理
+        if (data > 50) {
+            println("[AdvancedProc] 閾値超過 -> 特殊処理適用");
+            result = data + 50;
+        } else {
+            println("[AdvancedProc] 通常処理");
+            result = data * 2;
+        }
+        
+        println("[AdvancedProc] 処理完了: %d -> %d", data, result);
+        
+        Future<int> fut;
+        fut.value = result;
+        fut.is_ready = true;
+        return fut;
+    }
+    
+    async Future<bool> validate(int data) {
+        println("[AdvancedProc] 高度な検証中: %d", data);
+        
+        // より厳しい検証: 10以上でないと無効
+        bool is_valid = data >= 10;
+        
+        if (is_valid) {
+            println("[AdvancedProc] 高度な検証OK: %d", data);
+        } else {
+            println("[AdvancedProc] 高度な検証NG: %d (最低10必要)", data);
+        }
+        
+        Future<bool> fut;
+        fut.value = is_valid;
+        fut.is_ready = true;
+        return fut;
+    }
+}
+
+// ========================================
+// メイン実行
+// ========================================
+
+int main() {
+    println("\n========================================");
+    println("  async interface/impl デモ");
+    println("========================================\n");
+    
+    println("=== テスト1: SimpleProcessor (検証) ===\n");
+    
+    SimpleProcessor s1;
+    s1.name = "SimpleProc";
+    s1.multiplier = 3;
+    
+    bool v1 = await s1.validate(15);
+    println("検証結果: %s\n", v1 ? "OK" : "NG");
+    
+    println("=== テスト2: SimpleProcessor (処理) ===\n");
+    
+    SimpleProcessor s2;
+    s2.name = "SimpleProc";
+    s2.multiplier = 3;
+    
+    int r1 = await s2.process(15);
+    println("処理結果: %d\n", r1);
+    
+    println("========================================\n");
+    
+    println("=== テスト3: SimpleProcessor (無効データ) ===\n");
+    
+    SimpleProcessor s3;
+    s3.name = "SimpleProc";
+    s3.multiplier = 3;
+    
+    bool v2 = await s3.validate(-5);
+    println("検証結果: %s (処理スキップ)\n", v2 ? "OK" : "NG");
+    
+    println("========================================\n");
+    
+    println("=== テスト4: AdvancedProcessor (検証) ===\n");
+    
+    AdvancedProcessor a1;
+    a1.name = "AdvancedProc";
+    a1.threshold = 50;
+    
+    bool v3 = await a1.validate(20);
+    println("検証結果: %s\n", v3 ? "OK" : "NG");
+    
+    println("=== テスト5: AdvancedProcessor (通常処理) ===\n");
+    
+    AdvancedProcessor a2;
+    a2.name = "AdvancedProc";
+    a2.threshold = 50;
+    
+    int r2 = await a2.process(20);
+    println("処理結果: %d\n", r2);
+    
+    println("========================================\n");
+    
+    println("=== テスト6: AdvancedProcessor (閾値超過処理) ===\n");
+    
+    AdvancedProcessor a3;
+    a3.name = "AdvancedProc";
+    a3.threshold = 50;
+    
+    int r3 = await a3.process(100);
+    println("処理結果: %d\n", r3);
+    
+    println("========================================\n");
+    
+    println("=== テスト7: AdvancedProcessor (無効データ) ===\n");
+    
+    AdvancedProcessor a4;
+    a4.name = "AdvancedProc";
+    a4.threshold = 50;
+    
+    bool v4 = await a4.validate(5);
+    println("検証結果: %s (処理スキップ)\n", v4 ? "OK" : "NG");
+    
+    println("========================================\n");
+    
+    println("まとめ:");
+    println("  - async interface で共通のAPIを定義");
+    println("  - 2つの異なる実装 (SimpleProcessor/AdvancedProcessor)");
+    println("  - 各実装でasyncメソッドをオーバーライド");
+    println("  - await式で直接結果を取得可能");
+    println("  - インターフェースによる型安全な抽象化");
+    println("\n");
+    
+    return 0;
+}

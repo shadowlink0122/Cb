@@ -1,0 +1,57 @@
+// v0.13.0 Phase 2.0: interface/implメソッドでのasync/await
+// interfaceとimplの両方でasyncキーワードをサポート
+
+interface Worker {
+    async Future<int> process_async(int value);
+    int process_sync(int value);
+}
+
+struct AsyncProcessor {
+    int multiplier;
+};
+
+impl Worker for AsyncProcessor {
+    async Future<int> process_async(int value) {
+        println("[Impl] Processing async: %d", value);
+        yield;
+        println("[Impl] After yield");
+        int result = value * 10;
+        println("[Impl] Returning: %d", result);
+        return result;
+    }
+    
+    int process_sync(int value) {
+        println("[Impl] Processing sync: %d", value);
+        return value + self.multiplier;
+    }
+}
+
+async Future<void> background_task() {
+    for (int i = 0; i < 5; i = i + 1) {
+        println("[BG] Step %d", i);
+    }
+    return;
+}
+
+void main() {
+    println("=== Async Interface/Impl Test ===\n");
+    
+    Future<void> bg = background_task();
+    
+    AsyncProcessor proc;
+    proc.multiplier = 10;
+    
+    println("[Main] Calling sync method");
+    int sync_result = proc.process_sync(3);
+    println("[Main] Sync result: %d", sync_result);
+    
+    println("[Main] Calling async method");
+    Future<int> f = proc.process_async(5);
+    
+    println("[Main] Awaiting async result");
+    int async_result = await f;
+    println("[Main] Async result: %d\n", async_result);
+    
+    await bg;
+    println("[Main] Done");
+}

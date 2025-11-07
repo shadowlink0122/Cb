@@ -1,0 +1,33 @@
+// v0.13.0 Phase 2.0: 再帰関数での協調マルチタスク
+// 再帰呼び出しの各レベルでバックグラウンドタスクと交互実行される
+
+async Future<void> background_task() {
+    for (int i = 0; i < 6; i = i + 1) {
+        println("[BG] Step %d", i);
+    }
+    return;
+}
+
+int recursive_countdown(int n) {
+    if (n <= 0) {
+        println("[Recursion] Base case reached");
+        return 0;
+    }
+    println("[Recursion] Level %d", n);
+    int result = recursive_countdown(n - 1);
+    println("[Recursion] Returning from level %d", n);
+    return result + n;
+}
+
+void main() {
+    println("=== Recursive Function Cooperative Multitasking Test ===\n");
+    
+    Future<void> f = background_task();
+    
+    println("[Main] Starting recursive function");
+    int sum = recursive_countdown(5);
+    println("[Main] Recursive function done, sum: %d\n", sum);
+    
+    await f;
+    println("[Main] Done");
+}

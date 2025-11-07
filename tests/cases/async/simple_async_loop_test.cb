@@ -1,0 +1,20 @@
+// Simple test: async function with for loop
+
+async Future<int> simple_task() {
+    println("[Task] Start");
+    
+    for (int i = 0; i < 3; i++) {
+        println("[Task] Loop i={i}");
+    }
+    
+    println("[Task] Done");
+    return 42;
+}
+
+void main() {
+    println("[Main] Calling async function");
+    Future<int> f = simple_task();
+    println("[Main] Awaiting");
+    int r = await f;
+    println("[Main] Result={r}");
+}
