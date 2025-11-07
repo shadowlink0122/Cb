@@ -6,10 +6,10 @@
 // ========================================
 
 // ミリ秒単位の時間定数 - import時に利用可能
-export int MILLISECOND = 1;
-export int SECOND = 1000;
-export int MINUTE = 60000;
-export int HOUR = 3600000;
+export const int MILLISECOND = 1;
+export const int SECOND = 1000;
+export const int MINUTE = 60000;
+export const int HOUR = 3600000;
 
 // ========================================
 // sleep関数（組み込み）
