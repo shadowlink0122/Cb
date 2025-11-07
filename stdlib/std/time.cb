@@ -305,6 +305,203 @@ export Duration elapsed_time(Time start_time, Time end_time) {
 }
 
 // ========================================
+// Stopwatch - 経過時間の測定
+// ========================================
+
+export struct Stopwatch {
+    long start_time_ms;
+    long stop_time_ms;
+    bool is_running;
+};
+
+// StopwatchOps - Stopwatch用のインターフェース
+export interface StopwatchOps {
+    void start();
+    void stop();
+    void reset();
+    void restart();
+    long elapsed_ms();
+    Duration elapsed();
+    void print_elapsed();
+};
+
+// create_stopwatch - 新しいStopwatchを作成
+export Stopwatch create_stopwatch() {
+    Stopwatch sw;
+    sw.start_time_ms = 0;
+    sw.stop_time_ms = 0;
+    sw.is_running = false;
+    return sw;
+}
+
+// Stopwatch用のimpl
+impl StopwatchOps for Stopwatch {
+    // start - 計測を開始
+    void start() {
+        if (!self.is_running) {
+            self.start_time_ms = now();
+            self.is_running = true;
+        }
+    }
+    
+    // stop - 計測を停止
+    void stop() {
+        if (self.is_running) {
+            self.stop_time_ms = now();
+            self.is_running = false;
+        }
+    }
+    
+    // reset - リセット（停止状態に戻す）
+    void reset() {
+        self.start_time_ms = 0;
+        self.stop_time_ms = 0;
+        self.is_running = false;
+    }
+    
+    // restart - リセットして再スタート
+    void restart() {
+        self.reset();
+        self.start();
+    }
+    
+    // elapsed_ms - 経過時間をミリ秒で取得
+    long elapsed_ms() {
+        if (self.is_running) {
+            return now() - self.start_time_ms;
+        } else {
+            return self.stop_time_ms - self.start_time_ms;
+        }
+    }
+    
+    // elapsed - 経過時間をDurationで取得
+    Duration elapsed() {
+        return create_duration(self.elapsed_ms());
+    }
+    
+    // print_elapsed - 経過時間を表示
+    void print_elapsed() {
+        Duration d = self.elapsed();
+        print("Elapsed: ");
+        format_duration(d);
+    }
+};
+
+// ========================================
+// Timer - タイムアウト判定
+// ========================================
+
+export struct Timer {
+    long start_time_ms;
+    long timeout_ms;
+    bool is_active;
+};
+
+// TimerOps - Timer用のインターフェース
+export interface TimerOps {
+    void set_timeout(long timeout_ms);
+    void start();
+    void stop();
+    bool is_timeout();
+    long remaining_ms();
+    Duration remaining();
+    void print_remaining();
+};
+
+// create_timer - 新しいTimerを作成
+// 引数: timeout_ms - タイムアウト時間（ミリ秒）
+export Timer create_timer(long timeout_ms) {
+    Timer t;
+    t.start_time_ms = 0;
+    t.timeout_ms = timeout_ms;
+    t.is_active = false;
+    return t;
+}
+
+// Timer用のimpl
+impl TimerOps for Timer {
+    // set_timeout - タイムアウト時間を設定
+    void set_timeout(long timeout_ms) {
+        self.timeout_ms = timeout_ms;
+    }
+    
+    // start - タイマーを開始
+    void start() {
+        self.start_time_ms = now();
+        self.is_active = true;
+    }
+    
+    // stop - タイマーを停止
+    void stop() {
+        self.is_active = false;
+    }
+    
+    // is_timeout - タイムアウトしたかチェック
+    bool is_timeout() {
+        if (!self.is_active) {
+            return false;
+        }
+        long elapsed = now() - self.start_time_ms;
+        return elapsed >= self.timeout_ms;
+    }
+    
+    // remaining_ms - 残り時間をミリ秒で取得
+    long remaining_ms() {
+        if (!self.is_active) {
+            return self.timeout_ms;
+        }
+        long elapsed = now() - self.start_time_ms;
+        long remaining = self.timeout_ms - elapsed;
+        if (remaining < 0) {
+            return 0;
+        }
+        return remaining;
+    }
+    
+    // remaining - 残り時間をDurationで取得
+    Duration remaining() {
+        return create_duration(self.remaining_ms());
+    }
+    
+    // print_remaining - 残り時間を表示
+    void print_remaining() {
+        Duration d = self.remaining();
+        print("Remaining: ");
+        format_duration(d);
+    }
+};
+
+// ========================================
+// ユーティリティ関数
+// ========================================
+
+// is_timeout_from - 指定時刻からのタイムアウト判定
+// 引数: start_time - 開始時刻, timeout_ms - タイムアウト時間
+export bool is_timeout_from(Time start_time, long timeout_ms) {
+    Time current = get_current_time();
+    long elapsed = current.diff(start_time);
+    return elapsed >= timeout_ms;
+}
+
+// wait_until - 指定時刻まで待機
+// 引数: target_time - 目標時刻
+export void wait_until(Time target_time) {
+    while (true) {
+        Time current = get_current_time();
+        if (current.is_after(target_time) || current.equals(target_time)) {
+            break;
+        }
+        sleep(10);  // 10msごとにチェック
+    }
+}
+
+// wait_for - 指定時間だけ待機（sleepのラッパー）
+// 引数: duration_ms - 待機時間（ミリ秒）
+export void wait_for(long duration_ms) {
+    sleep(duration_ms);
+}
+
+// ========================================
 // 使用例
 // ========================================
 
@@ -318,43 +515,45 @@ export Duration elapsed_time(Time start_time, Time end_time) {
 //     sleep(SECOND);  // 1秒待機
 //     println("1秒後");
 //     
-//     // 2. ヘルパー関数を使用
-//     sleep_seconds(3);  // 3秒待機
-//     println("さらに3秒後");
+//     // 2. Stopwatchで処理時間を測定
+//     Stopwatch sw = create_stopwatch();
+//     sw.start();
 //     
-//     // 3. Duration構造体を使用
-//     Duration d = create_duration(65432);  // 65.432秒
-//     format_duration(d);  // "1m 5s 432ms"
+//     // 何か処理...
+//     sleep_seconds(2);
 //     
-//     // 4. 時間計算
-//     int five_minutes = minutes_to_milliseconds(5);
-//     println("5分 = %d ミリ秒", five_minutes);
+//     sw.stop();
+//     sw.print_elapsed();  // "Elapsed: 2s 0ms"
 //     
-//     // 5. Time構造体で時刻を扱う
-//     Time start = create_time(1000);  // 1秒
-//     Time end = create_time(5000);    // 5秒
+//     long elapsed_ms = sw.elapsed_ms();
+//     println("処理時間: %ld ms", elapsed_ms);
+//     
+//     // 3. Timerでタイムアウト判定
+//     Timer timer = create_timer(5000);  // 5秒タイマー
+//     timer.start();
+//     
+//     while (!timer.is_timeout()) {
+//         println("処理中...");
+//         sleep(500);
+//     }
+//     println("タイムアウト!");
+//     
+//     // 4. Time構造体で時刻を扱う
+//     Time start = get_current_time();
+//     sleep_seconds(1);
+//     Time end = get_current_time();
 //     
 //     if (start.is_before(end)) {
 //         println("startはendより前です");
 //     }
 //     
-//     long diff = end.diff(start);  // 4000ms
-//     println("差分: %ld ms", diff);
+//     Duration d = end.diff_duration(start);
+//     format_duration(d);  // "1s 0ms"
 //     
-//     Duration elapsed = end.diff_duration(start);
-//     print("経過時間: ");
-//     format_duration(elapsed);  // "4s 0ms"
-//     
-//     // 6. 時刻の加算
-//     Time future = start.add_seconds(10);  // start + 10秒
-//     future.format();
-//     
-//     // 7. カウントダウン
-//     int countdown = 5;
-//     while (countdown > 0) {
-//         println("%d...", countdown);
-//         sleep_seconds(1);
-//         countdown = countdown - 1;
-//     }
-//     println("発射!");
+//     // 5. ベンチマーク
+//     long start_ms = now();
+//     // 処理...
+//     long elapsed = now() - start_ms;
+//     println("処理時間: %ld ms", elapsed);
 // }
+
