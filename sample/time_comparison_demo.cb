@@ -1,0 +1,125 @@
+// Time構造体の比較とメソッドのデモ
+
+import stdlib.std.time;
+
+int main() {
+    println("========================================");
+    println("  Time構造体 比較デモ");
+    println("========================================");
+    
+    // 1. Time構造体の作成
+    println("\n=== 1. Time構造体の作成 ===");
+    Time t1 = create_time(1000);   // 1秒
+    Time t2 = create_time(5000);   // 5秒
+    Time t3 = create_time(1000);   // 1秒 (t1と同じ)
+    
+    println("t1: 1000ms");
+    println("t2: 5000ms");
+    println("t3: 1000ms");
+    
+    // 2. 時刻の比較
+    println("\n=== 2. 時刻の比較 ===");
+    
+    if (t1.is_before(t2)) {
+        println("✓ t1はt2より前です");
+    } else {
+        println("✗ t1はt2より前ではありません");
+    }
+    
+    if (t2.is_after(t1)) {
+        println("✓ t2はt1より後です");
+    } else {
+        println("✗ t2はt1より後ではありません");
+    }
+    
+    if (t1.equals(t3)) {
+        println("✓ t1とt3は等しいです");
+    } else {
+        println("✗ t1とt3は等しくありません");
+    }
+    
+    if (t1.equals(t2)) {
+        println("✗ t1とt2は等しいです（これはエラー）");
+    } else {
+        println("✓ t1とt2は等しくありません");
+    }
+    
+    // 3. 時刻の差分
+    println("\n=== 3. 時刻の差分 ===");
+    
+    long diff1 = t2.diff(t1);
+    println("t2 - t1 = %ld ms", diff1);
+    
+    long diff2 = t1.diff(t2);
+    println("t1 - t2 = %ld ms", diff2);
+    
+    // 4. Duration形式での差分
+    println("\n=== 4. Duration形式での差分 ===");
+    
+    Duration elapsed = t2.diff_duration(t1);
+    print("t2とt1の経過時間: ");
+    format_duration(elapsed);
+    
+    // 5. 時刻の加算
+    println("\n=== 5. 時刻の加算 ===");
+    
+    Time t4 = t1.add_milliseconds(500);
+    println("t1 + 500ms = %ld ms", t4.timestamp_ms);
+    
+    Time t5 = t1.add_seconds(10);
+    println("t1 + 10秒 = %ld ms", t5.timestamp_ms);
+    
+    Time t6 = t1.add_minutes(2);
+    println("t1 + 2分 = %ld ms", t6.timestamp_ms);
+    
+    Time t7 = t1.add_hours(1);
+    println("t1 + 1時間 = %ld ms", t7.timestamp_ms);
+    
+    // 6. compare_times関数
+    println("\n=== 6. compare_times関数 ===");
+    
+    int cmp1 = compare_times(t1, t2);
+    println("compare_times(t1, t2) = %d (t1 < t2なので-1)", cmp1);
+    
+    int cmp2 = compare_times(t2, t1);
+    println("compare_times(t2, t1) = %d (t2 > t1なので1)", cmp2);
+    
+    int cmp3 = compare_times(t1, t3);
+    println("compare_times(t1, t3) = %d (t1 == t3なので0)", cmp3);
+    
+    // 7. elapsed_time関数
+    println("\n=== 7. elapsed_time関数 ===");
+    
+    Duration elapsed2 = elapsed_time(t1, t2);
+    print("t1からt2までの経過時間: ");
+    format_duration(elapsed2);
+    
+    // 8. 実用例: ストップウォッチ風
+    println("\n=== 8. ストップウォッチ風デモ ===");
+    
+    // 手動でタイムスタンプを作成（実際の時刻ではなくシミュレーション）
+    Time start = create_time(0);
+    println("スタート!");
+    
+    sleep_seconds(2);
+    Time checkpoint1 = create_time(2000);
+    Duration lap1 = elapsed_time(start, checkpoint1);
+    print("チェックポイント1: ");
+    format_duration(lap1);
+    
+    sleep_seconds(1);
+    Time checkpoint2 = create_time(3000);
+    Duration lap2 = elapsed_time(checkpoint1, checkpoint2);
+    print("チェックポイント2 (ラップタイム): ");
+    format_duration(lap2);
+    
+    Duration total = elapsed_time(start, checkpoint2);
+    print("合計時間: ");
+    format_duration(total);
+    
+    println("\n========================================");
+    println("  デモ完了!");
+    println("========================================");
+    
+    return 0;
+}

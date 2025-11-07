@@ -6,10 +6,10 @@
 // ========================================
 
 // ミリ秒単位の時間定数 - import時に利用可能
-export const int MILLISECOND = 1;
-export const int SECOND = 1000;
-export const int MINUTE = 60000;
-export const int HOUR = 3600000;
+export int MILLISECOND = 1;
+export int SECOND = 1000;
+export int MINUTE = 60000;
+export int HOUR = 3600000;
 
 // ========================================
 // sleep関数（組み込み）
@@ -144,6 +144,126 @@ export void format_duration(Duration d) {
 }
 
 // ========================================
+// Time構造体 - エポックからのミリ秒で時刻を表現
+// ========================================
+
+export struct Time {
+    long timestamp_ms;  // エポック(1970/1/1 00:00:00 UTC)からのミリ秒
+};
+
+// TimeOps - Time構造体用のインターフェース
+export interface TimeOps {
+    bool is_before(Time other);
+    bool is_after(Time other);
+    bool equals(Time other);
+    long diff(Time other);
+    Duration diff_duration(Time other);
+    Time add_milliseconds(long ms);
+    Time add_seconds(int seconds);
+    Time add_minutes(int minutes);
+    Time add_hours(int hours);
+    void format();
+};
+
+// get_current_time - 現在時刻を取得 (ビルトイン関数として実装予定)
+// 現在は手動でタイムスタンプを作成する必要があります
+export Time create_time(long timestamp_ms) {
+    Time t;
+    t.timestamp_ms = timestamp_ms;
+    return t;
+}
+
+// Time構造体用のimpl - TimeOpsインターフェースを実装
+impl TimeOps for Time {
+    // is_before - この時刻が他の時刻より前かチェック
+    // 戻り値: self < other なら true
+    bool is_before(Time other) {
+        return self.timestamp_ms < other.timestamp_ms;
+    }
+    
+    // is_after - この時刻が他の時刻より後かチェック
+    // 戻り値: self > other なら true
+    bool is_after(Time other) {
+        return self.timestamp_ms > other.timestamp_ms;
+    }
+    
+    // equals - この時刻が他の時刻と等しいかチェック
+    // 戻り値: self == other なら true
+    bool equals(Time other) {
+        return self.timestamp_ms == other.timestamp_ms;
+    }
+    
+    // diff - この時刻と他の時刻の差分をミリ秒で取得
+    // 戻り値: self - other のミリ秒数（負の値もあり得る）
+    long diff(Time other) {
+        return self.timestamp_ms - other.timestamp_ms;
+    }
+    
+    // diff_duration - この時刻と他の時刻の差分をDurationで取得
+    // 戻り値: Duration構造体（絶対値）
+    Duration diff_duration(Time other) {
+        long diff_ms = self.timestamp_ms - other.timestamp_ms;
+        
+        // 絶対値を取る
+        if (diff_ms < 0) {
+            diff_ms = 0 - diff_ms;
+        }
+        
+        return create_duration(diff_ms);
+    }
+    
+    // add_milliseconds - ミリ秒を加算した新しいTimeを返す
+    Time add_milliseconds(long ms) {
+        Time result;
+        result.timestamp_ms = self.timestamp_ms + ms;
+        return result;
+    }
+    
+    // add_seconds - 秒を加算した新しいTimeを返す
+    Time add_seconds(int seconds) {
+        return self.add_milliseconds(seconds * SECOND);
+    }
+    
+    // add_minutes - 分を加算した新しいTimeを返す
+    Time add_minutes(int minutes) {
+        return self.add_milliseconds(minutes * MINUTE);
+    }
+    
+    // add_hours - 時を加算した新しいTimeを返す
+    Time add_hours(int hours) {
+        return self.add_milliseconds(hours * HOUR);
+    }
+    
+    // format - 時刻をミリ秒として表示
+    void format() {
+        println("Time: %ld ms", self.timestamp_ms);
+    }
+};
+
+// ========================================
+// Timeユーティリティ関数
+// ========================================
+
+// compare_times - 2つの時刻を比較
+// 戻り値: t1 < t2 なら -1, t1 == t2 なら 0, t1 > t2 なら 1
+export int compare_times(Time t1, Time t2) {
+    if (t1.timestamp_ms < t2.timestamp_ms) {
+        return -1;
+    } else if (t1.timestamp_ms > t2.timestamp_ms) {
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
+// elapsed_time - 2つの時刻の経過時間を取得（Duration形式）
+// 引数: start_time, end_time
+// 戻り値: end_time - start_time のDuration
+export Duration elapsed_time(Time start_time, Time end_time) {
+    return end_time.diff_duration(start_time);
+}
+
+// ========================================
 // 使用例
 // ========================================
 
@@ -169,7 +289,26 @@ export void format_duration(Duration d) {
 //     int five_minutes = minutes_to_milliseconds(5);
 //     println("5分 = %d ミリ秒", five_minutes);
 //     
-//     // 5. カウントダウン
+//     // 5. Time構造体で時刻を扱う
+//     Time start = create_time(1000);  // 1秒
+//     Time end = create_time(5000);    // 5秒
+//     
+//     if (start.is_before(end)) {
+//         println("startはendより前です");
+//     }
+//     
+//     long diff = end.diff(start);  // 4000ms
+//     println("差分: %ld ms", diff);
+//     
+//     Duration elapsed = end.diff_duration(start);
+//     print("経過時間: ");
+//     format_duration(elapsed);  // "4s 0ms"
+//     
+//     // 6. 時刻の加算
+//     Time future = start.add_seconds(10);  // start + 10秒
+//     future.format();
+//     
+//     // 7. カウントダウン
 //     int countdown = 5;
 //     while (countdown > 0) {
 //         println("%d...", countdown);

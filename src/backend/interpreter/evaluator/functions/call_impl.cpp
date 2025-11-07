@@ -26,6 +26,13 @@
 #include <iomanip>
 #include <sstream>
 
+// プラットフォーム固有のヘッダー (sleep関数用)
+#ifdef _WIN32
+    #include <windows.h>  // Sleep()
+#else
+    #include <unistd.h>   // usleep()
+#endif
+
 int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
     if (interpreter_.is_debug_mode()) {
         std::cerr << "[DEBUG_IMPL] evaluate_function_call_impl called for: "
@@ -3061,6 +3068,7 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
             "malloc",
             "free",
             "sizeof",
+            "sleep",
             "array_get",
             "array_set",
             "array_get_double",
@@ -3222,6 +3230,33 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
             }
 
             std::free(reinterpret_cast<void *>(ptr_value));
+            return 0;
+        }
+
+        // sleep(milliseconds) - ミリ秒単位でスリープ
+        if (node->name == "sleep") {
+            if (node->arguments.size() != 1) {
+                throw std::runtime_error(
+                    "sleep() requires 1 argument: sleep(milliseconds)");
+            }
+
+            int64_t milliseconds =
+                interpreter_.eval_expression(node->arguments[0].get());
+
+            if (milliseconds < 0) {
+                throw std::runtime_error(
+                    "sleep(): milliseconds must be non-negative");
+            }
+
+            // プラットフォーム依存のスリープ実装
+            #ifdef _WIN32
+                // Windows
+                Sleep(static_cast<DWORD>(milliseconds));
+            #else
+                // POSIX (Linux, macOS)
+                usleep(static_cast<useconds_t>(milliseconds * 1000));
+            #endif
+
             return 0;
         }
 
