@@ -468,7 +468,9 @@ TokenType RecursiveLexer::getKeywordType(const std::string &text) {
         {"match", TokenType::TOK_MATCH}, // v0.11.0: match keyword
         {"func", TokenType::TOK_FUNC},
         {"import", TokenType::TOK_IMPORT},
-        {"export", TokenType::TOK_EXPORT}};
+        {"export", TokenType::TOK_EXPORT},
+        {"async", TokenType::TOK_ASYNC},  // v0.12.0: async keyword
+        {"await", TokenType::TOK_AWAIT}}; // v0.12.0: await keyword
 
     auto it = keywords.find(text);
     if (it != keywords.end()) {

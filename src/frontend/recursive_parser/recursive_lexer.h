@@ -121,6 +121,8 @@ enum class TokenType {
     TOK_FUNC,       // func (for lambda expressions)
     TOK_IMPORT,     // import
     TOK_EXPORT,     // export
+    TOK_ASYNC,      // async (v0.12.0)
+    TOK_AWAIT,      // await (v0.12.0)
 
     // Special
     TOK_EOF,
