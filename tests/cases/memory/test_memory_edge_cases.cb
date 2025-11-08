@@ -132,13 +132,13 @@ void test_multiple_allocations() {
 void test_nested_struct_array() {
     println("=== Test new[] (nested struct array) ===");
     
-    Rectangle* rects = new Rectangle[3];
-    println("Allocated Rectangle[3] at {hex(rects)}");
+    Node* nodes = new Node[3];
+    println("Allocated Node[3] at {hex(nodes)}");
     
     // 現時点ではポインタ演算が制限されているため、
     // 単に割り当てと解放のテストのみ
     
-    delete rects;
+    delete nodes;
     println("Freed nested struct array");
     
     println("nested struct array test complete\n");

@@ -125,7 +125,7 @@ inline void test_integration_memory() {
             INTEGRATION_ASSERT_CONTAINS(output, "Freed all 3 pointers", "Multiple deallocations");
             
             // ネストされた構造体配列
-            INTEGRATION_ASSERT_CONTAINS(output, "Allocated Rectangle[3]", "Nested struct array");
+            INTEGRATION_ASSERT_CONTAINS(output, "Allocated Node[3]", "Nested struct array");
             INTEGRATION_ASSERT_CONTAINS(output, "Freed nested struct array", "Nested struct deallocation");
             
             // 完了メッセージ
