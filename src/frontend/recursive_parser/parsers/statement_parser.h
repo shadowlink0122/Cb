@@ -30,6 +30,9 @@ class StatementParser {
     ASTNode *parseBreakStatement();
     ASTNode *parseContinueStatement();
 
+    // v0.12.0: async/await
+    ASTNode *parseAwaitStatement();
+
     // リソース管理
     ASTNode *parseDeferStatement();
 
@@ -52,11 +55,12 @@ class StatementParser {
     RecursiveParser *parser_;
 
     // parseStatementのヘルパーメソッド
-    ASTNode *parseDeclarationStatement(bool isStatic, bool isConst,
-                                       bool isExported = false);
+    ASTNode *parseDeclarationStatement(bool isAsync, bool isStatic,
+                                       bool isConst, bool isExported = false);
     ASTNode *parseTypedefTypeStatement(const std::string &type_name,
-                                       bool isStatic, bool isConst);
-    ASTNode *parseBasicTypeStatement(bool isStatic, bool isConst,
+                                       bool isAsync, bool isStatic,
+                                       bool isConst);
+    ASTNode *parseBasicTypeStatement(bool isAsync, bool isStatic, bool isConst,
                                      bool isUnsigned);
     ASTNode *parseControlFlowStatement();
     ASTNode *parseExpressionOrAssignmentStatement();
@@ -65,8 +69,8 @@ class StatementParser {
     ASTNode *parseArrayDeclaration(const std::string &base_type_name,
                                    const std::string &type_name,
                                    TypeInfo base_type_info,
-                                   TypeInfo declared_type_info, bool isStatic,
-                                   bool isConst, bool isUnsigned,
+                                   TypeInfo declared_type_info, bool isAsync,
+                                   bool isStatic, bool isConst, bool isUnsigned,
                                    bool is_reference, int pointer_depth);
 
     ASTNode *parseVariableDeclarationList(

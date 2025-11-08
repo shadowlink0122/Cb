@@ -43,6 +43,10 @@ class ImplDeclarationHandler;     // impl宣言処理サービス
 class ExpressionStatementHandler; // 式文処理サービス
 class RecursiveParser;            // enum定義同期用
 
+namespace cb {
+class SimpleEventLoop; // v0.12.0: イベントループ
+}
+
 // 変数・関数の格納構造
 struct Variable {
     TypeInfo type = TYPE_INT; // デフォルト型
@@ -679,6 +683,12 @@ class Interpreter : public EvaluatorInterface {
     std::unique_ptr<ExpressionStatementHandler>
         expression_statement_handler_; // 式文処理
 
+    // v0.12.0: Event Loop for async/await
+    std::unique_ptr<cb::SimpleEventLoop> event_loop_;
+    int event_loop_depth_ = 0; // EventLoop実行中の深度（再入防止用）
+    int current_task_id_ = -1; // 現在実行中のタスクID（EventLoop内で設定）
+    int last_registered_task_id_ = -1; // 最後に登録されたタスクのID（await用）
+
     // Grant access to managers
     friend class VariableManager;
     friend class ArrayManager;
@@ -712,6 +722,24 @@ class Interpreter : public EvaluatorInterface {
 
     // 出力管理
     OutputManager &get_output_manager() { return *output_manager_; }
+
+    // v0.12.0: EventLoopアクセス
+    cb::SimpleEventLoop &get_event_loop() { return *event_loop_; }
+
+    // v0.12.0: EventLoop実行深度管理（再入防止）
+    void enter_event_loop() { event_loop_depth_++; }
+    void exit_event_loop() { event_loop_depth_--; }
+    bool is_in_event_loop() const { return event_loop_depth_ > 0; }
+
+    // v0.12.0: 現在実行中のタスクID管理
+    void set_current_task_id(int task_id) { current_task_id_ = task_id; }
+    int get_current_task_id() const { return current_task_id_; }
+
+    // v0.12.0: タスクID追跡（await用）
+    void set_last_registered_task_id(int task_id) {
+        last_registered_task_id_ = task_id;
+    }
+    int get_last_registered_task_id() const { return last_registered_task_id_; }
 
     // スコープ管理
     void push_scope();

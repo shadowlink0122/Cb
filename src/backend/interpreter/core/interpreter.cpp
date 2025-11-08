@@ -39,6 +39,9 @@
 #include "services/expression_service.h" // DRY効率化: 統一式評価サービス
 #include "services/variable_access_service.h" // DRY効率化: 統一変数アクセスサービス
 
+// v0.12.0: Event Loop for async/await
+#include "../event_loop/simple_event_loop.h"
+
 // 分割されたファイル
 #include "cleanup.h"
 #include "initialization.h"
@@ -1002,6 +1005,29 @@ void Interpreter::execute_statement(const ASTNode *node) {
     // ========================================================================
     case ASTNodeType::AST_RETURN_STMT:
         return_handler_->execute_return_statement(node);
+        break;
+
+    // ========================================================================
+    // await文（AWAIT_STMT）v0.12.0
+    // async関数の完了を待機する
+    // ========================================================================
+    case ASTNodeType::AST_AWAIT_STMT:
+        if (node->left) {
+            // 式を評価（async関数呼び出し）
+            expression_evaluator_->evaluate_expression(node->left.get());
+
+            // 最後に登録されたタスクIDを取得
+            int task_id = get_last_registered_task_id();
+
+            if (task_id >= 0) {
+                // タスクが完了するまでEventLoopを実行
+                event_loop_->run_until_complete(task_id);
+
+                if (is_debug_mode()) {
+                    debug_print("[AWAIT] Task %d completed\n", task_id);
+                }
+            }
+        }
         break;
 
     // ========================================================================

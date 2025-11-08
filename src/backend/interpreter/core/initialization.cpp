@@ -2,6 +2,7 @@
 #include "../../../common/ast.h"
 #include "../../../common/debug.h"
 #include "../../../frontend/recursive_parser/recursive_parser.h"
+#include "../event_loop/simple_event_loop.h"
 #include "evaluator/core/evaluator.h"
 #include "executors/control_flow_executor.h"
 #include "executors/statement_executor.h"
@@ -122,6 +123,9 @@ Interpreter::Interpreter(bool debug)
     // 式文処理サービスを初期化
     expression_statement_handler_ =
         std::make_unique<ExpressionStatementHandler>(this);
+
+    // v0.12.0: EventLoopを初期化
+    event_loop_ = std::make_unique<cb::SimpleEventLoop>(*this);
 
     // グローバルスコープを初期化
     // ネストされた関数呼び出しに備えて容量を予約（再割り当てを防ぐ）

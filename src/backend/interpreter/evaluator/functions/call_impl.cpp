@@ -15,6 +15,8 @@
 #include "../../../../common/type_helpers.h"
 #include "../../core/error_handler.h"
 #include "../../core/interpreter.h"
+#include "../../event_loop/async_task.h"        // v0.12.0: async/await
+#include "../../event_loop/simple_event_loop.h" // v0.12.0: async/await
 #include "../../managers/types/manager.h"
 #include "evaluator/access/receiver_resolution.h"
 #include "evaluator/core/evaluator.h"
@@ -28,10 +30,10 @@
 
 // プラットフォーム固有のヘッダー (sleep, now関数用)
 #ifdef _WIN32
-    #include <windows.h>  // Sleep(), GetSystemTimeAsFileTime()
+#include <windows.h> // Sleep(), GetSystemTimeAsFileTime()
 #else
-    #include <unistd.h>   // usleep()
-    #include <sys/time.h> // gettimeofday()
+#include <sys/time.h> // gettimeofday()
+#include <unistd.h>   // usleep()
 #endif
 
 int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
@@ -3236,6 +3238,7 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
         }
 
         // sleep(milliseconds) - ミリ秒単位でスリープ
+        // v0.12.0: スリープ中にバックグラウンドタスクを実行
         if (node->name == "sleep") {
             if (node->arguments.size() != 1) {
                 throw std::runtime_error(
@@ -3250,14 +3253,61 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                     "sleep(): milliseconds must be non-negative");
             }
 
-            // プラットフォーム依存のスリープ実装
-            #ifdef _WIN32
-                // Windows
-                Sleep(static_cast<DWORD>(milliseconds));
-            #else
-                // POSIX (Linux, macOS)
-                usleep(static_cast<useconds_t>(milliseconds * 1000));
-            #endif
+            // v0.12.0: スリープ中にEventLoopのタスクを実行
+            // EventLoop実行中（async関数内）の場合:
+            //   → 非同期sleep: タスクをsleep状態にして即座にリターン
+            // メインコンテキストの場合:
+            //   → sleepタスクを作成してタスクIDを保存（await対応）
+            //   → awaitされない場合は、10msごとにrun_one_cycle()を呼び出し
+
+            if (interpreter_.is_in_event_loop()) {
+                // async関数内のsleep: 非同期sleep
+                int current_task_id = interpreter_.get_current_task_id();
+                if (current_task_id >= 0) {
+                    // タスクをsleep状態にする
+                    interpreter_.get_event_loop().sleep_task(current_task_id,
+                                                             milliseconds);
+                    // 即座にリターン（タスクはsleep中としてマークされる）
+                    return 0;
+                } else {
+// タスクIDが不正な場合は通常のsleep
+#ifdef _WIN32
+                    Sleep(static_cast<DWORD>(milliseconds));
+#else
+                    usleep(static_cast<useconds_t>(milliseconds * 1000));
+#endif
+                }
+            } else {
+                // メインコンテキストのsleep: awaitサポート付き
+                // sleepタスクを作成してEventLoopに登録（await対応）
+                AsyncTask task;
+                task.is_sleeping = true;
+
+// 現在時刻を取得
+#ifdef _WIN32
+                FILETIME ft;
+                GetSystemTimeAsFileTime(&ft);
+                ULARGE_INTEGER ull;
+                ull.LowPart = ft.dwLowDateTime;
+                ull.HighPart = ft.dwHighDateTime;
+                int64_t current_time = static_cast<int64_t>(
+                    (ull.QuadPart - 116444736000000000ULL) / 10000);
+#else
+                struct timeval tv;
+                gettimeofday(&tv, nullptr);
+                int64_t current_time =
+                    static_cast<int64_t>(tv.tv_sec) * 1000 + tv.tv_usec / 1000;
+#endif
+
+                task.wake_up_time_ms = current_time + milliseconds;
+                task.is_executed = false; // まだ完了していない
+
+                int task_id = interpreter_.get_event_loop().register_task(task);
+                interpreter_.set_last_registered_task_id(task_id);
+
+                // awaitされない場合は即座にリターン（他のasync関数と同じ動作）
+                // awaitされた場合は、run_until_complete()で待機される
+            }
 
             return 0;
         }
@@ -3265,40 +3315,40 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
         // now() - 現在時刻をエポックからのミリ秒で取得
         if (node->name == "now") {
             if (node->arguments.size() != 0) {
-                throw std::runtime_error(
-                    "now() takes no arguments");
+                throw std::runtime_error("now() takes no arguments");
             }
 
-            // プラットフォーム依存の時刻取得
-            #ifdef _WIN32
-                // Windows: GetSystemTimeAsFileTime()を使用
-                FILETIME ft;
-                GetSystemTimeAsFileTime(&ft);
-                
-                // FILETIMEは100ナノ秒単位、1601/1/1からの経過時間
-                ULARGE_INTEGER ull;
-                ull.LowPart = ft.dwLowDateTime;
-                ull.HighPart = ft.dwHighDateTime;
-                
-                // UNIXエポック(1970/1/1)との差分: 116444736000000000 * 100ns
-                const uint64_t EPOCH_DIFF = 116444736000000000ULL;
-                uint64_t timestamp_100ns = ull.QuadPart - EPOCH_DIFF;
-                
-                // 100ナノ秒 → ミリ秒に変換
-                int64_t timestamp_ms = static_cast<int64_t>(timestamp_100ns / 10000);
-                
-                return timestamp_ms;
-            #else
-                // POSIX (Linux, macOS): gettimeofday()を使用
-                struct timeval tv;
-                gettimeofday(&tv, nullptr);
-                
-                // 秒をミリ秒に変換 + マイクロ秒をミリ秒に変換
-                int64_t timestamp_ms = static_cast<int64_t>(tv.tv_sec) * 1000 + 
-                                      static_cast<int64_t>(tv.tv_usec) / 1000;
-                
-                return timestamp_ms;
-            #endif
+// プラットフォーム依存の時刻取得
+#ifdef _WIN32
+            // Windows: GetSystemTimeAsFileTime()を使用
+            FILETIME ft;
+            GetSystemTimeAsFileTime(&ft);
+
+            // FILETIMEは100ナノ秒単位、1601/1/1からの経過時間
+            ULARGE_INTEGER ull;
+            ull.LowPart = ft.dwLowDateTime;
+            ull.HighPart = ft.dwHighDateTime;
+
+            // UNIXエポック(1970/1/1)との差分: 116444736000000000 * 100ns
+            const uint64_t EPOCH_DIFF = 116444736000000000ULL;
+            uint64_t timestamp_100ns = ull.QuadPart - EPOCH_DIFF;
+
+            // 100ナノ秒 → ミリ秒に変換
+            int64_t timestamp_ms =
+                static_cast<int64_t>(timestamp_100ns / 10000);
+
+            return timestamp_ms;
+#else
+            // POSIX (Linux, macOS): gettimeofday()を使用
+            struct timeval tv;
+            gettimeofday(&tv, nullptr);
+
+            // 秒をミリ秒に変換 + マイクロ秒をミリ秒に変換
+            int64_t timestamp_ms = static_cast<int64_t>(tv.tv_sec) * 1000 +
+                                   static_cast<int64_t>(tv.tv_usec) / 1000;
+
+            return timestamp_ms;
+#endif
         }
 
         // その他の組み込み関数は後続の処理で対応
@@ -4856,6 +4906,57 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                     }
                 }
             }
+        }
+
+        // v0.12.0: async関数の処理
+        // async関数はEventLoopにタスクとして登録し、即座にリターン
+        // バックグラウンドで実行され、mainが終了したら途中でも終了する
+        if (func->is_async) {
+            if (interpreter_.is_debug_mode()) {
+                debug_print("[ASYNC] Registering async function '%s' as "
+                            "background task\n",
+                            func->name.c_str());
+            }
+
+            // AsyncTaskを作成
+            AsyncTask task;
+            task.function_name = func->name;
+            task.function_node = func;
+
+            // 引数をコピー（現在のスコープから取得）
+            Scope &current = interpreter_.current_scope();
+            for (const auto &param : func->parameters) {
+                if (current.variables.find(param->name) !=
+                    current.variables.end()) {
+                    task.args.push_back(current.variables[param->name]);
+                }
+            }
+
+            // EventLoopに登録
+            int task_id = interpreter_.get_event_loop().register_task(task);
+
+            // await用にタスクIDを保存
+            interpreter_.set_last_registered_task_id(task_id);
+
+            if (interpreter_.is_debug_mode()) {
+                debug_print("[ASYNC] Task registered with ID: %d\n", task_id);
+            }
+
+            // v0.11.0: 型コンテキストをクリア
+            if (type_context_pushed) {
+                interpreter_.pop_type_context();
+            }
+
+            // implコンテキストをクリア
+            if (impl_context_active) {
+                interpreter_.exit_impl_context();
+                impl_context_active = false;
+            }
+
+            // async関数は即座に0を返す（バックグラウンドで実行される）
+            // スコープをpopして終了
+            interpreter_.pop_scope();
+            return 0;
         }
 
         // 関数本体を実行

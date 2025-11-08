@@ -328,12 +328,11 @@ std::string TypeUtilityParser::parseType() {
             set_base_type(identifier);
         } else {
             // 未定義型 - 前方参照の可能性として許容
-            // (ポインタまたは配列の場合に限る -
-            // 後でポインタ/配列チェックで判定)
+            // ただし、値として使われる場合は後でエラーになる
             parser_->advance();
             original_type = identifier;
             set_base_type(identifier);
-            // NOTE: 値メンバーとして使用された場合のエラーは後で検出される
+            // NOTE: この識別子が本当に型かどうかは後で判定される
         }
     } else {
         parser_->error("Expected type specifier");

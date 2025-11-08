@@ -895,6 +895,7 @@ enum class ASTNodeType {
     AST_BREAK_STMT,
     AST_CONTINUE_STMT,
     AST_RETURN_STMT,
+    AST_AWAIT_STMT,  // v0.12.0: await文
     AST_DEFER_STMT,  // defer文
     AST_SWITCH_STMT, // switch文
     AST_CASE_CLAUSE, // case節
@@ -1170,6 +1171,9 @@ struct ASTNode {
     std::vector<std::unique_ptr<ASTNode>> lambda_params; // 無名関数のパラメータ
     TypeInfo lambda_return_type = TYPE_UNKNOWN; // 無名関数の戻り値型
     std::string lambda_return_type_name; // 無名関数の戻り値型名
+
+    // 非同期関数関連（v0.12.0新機能）
+    bool is_async = false; // async関数かどうか
 
     // ジェネリクス関連（v0.11.0新機能）
     bool is_generic = false; // ジェネリック型かどうか
