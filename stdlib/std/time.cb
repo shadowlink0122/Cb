@@ -495,10 +495,373 @@ export void wait_until(Time target_time) {
     }
 }
 
-// wait_for - 指定時間だけ待機（sleepのラッパー）
+// wait_for - 指定時間待機
 // 引数: duration_ms - 待機時間（ミリ秒）
 export void wait_for(long duration_ms) {
     sleep(duration_ms);
+}
+
+// ========================================
+// 日時変換機能
+// ========================================
+
+// DateTime - 人間が読める形式の日時
+export struct DateTime {
+    int year;    // 西暦年
+    int month;   // 月 (1-12)
+    int day;     // 日 (1-31)
+    int hour;    // 時 (0-23)
+    int minute;  // 分 (0-59)
+    int second;  // 秒 (0-59)
+};
+
+// is_leap_year - 閏年判定
+// 引数: year (int) - 西暦年
+// 戻り値: 閏年ならtrue
+export bool is_leap_year(int year) {
+    if (year % 400 == 0) {
+        return true;
+    }
+    if (year % 100 == 0) {
+        return false;
+    }
+    if (year % 4 == 0) {
+        return true;
+    }
+    return false;
+}
+
+// days_in_month - 指定月の日数を取得
+// 引数: year (int) - 西暦年, month (int) - 月 (1-12)
+// 戻り値: その月の日数
+export int days_in_month(int year, int month) {
+    if (month == 1 || month == 3 || month == 5 || month == 7 || 
+        month == 8 || month == 10 || month == 12) {
+        return 31;
+    }
+    if (month == 4 || month == 6 || month == 9 || month == 11) {
+        return 30;
+    }
+    if (month == 2) {
+        if (is_leap_year(year)) {
+            return 29;
+        }
+        return 28;
+    }
+    return 0;
+}
+
+// timestamp_to_datetime - タイムスタンプをDateTimeに変換
+// 引数: timestamp_ms (long) - エポックからのミリ秒
+//       utc_offset_hours (int) - UTCからのオフセット時間（例: 日本は+9）
+// 戻り値: DateTime構造体
+export DateTime timestamp_to_datetime(long timestamp_ms, int utc_offset_hours) {
+    DateTime dt;
+    
+    // オフセットを適用（ミリ秒に変換）
+    long offset_ms = utc_offset_hours * HOUR;
+    long adjusted_ms = timestamp_ms + offset_ms;
+    
+    // 秒数に変換
+    long total_seconds = adjusted_ms / 1000;
+    
+    // 日数と時刻に分解
+    long days_since_epoch = total_seconds / 86400;
+    long seconds_today = total_seconds % 86400;
+    
+    // 時刻を計算
+    dt.hour = seconds_today / 3600;
+    dt.minute = (seconds_today % 3600) / 60;
+    dt.second = seconds_today % 60;
+    
+    // 日付を計算（1970年1月1日から）
+    dt.year = 1970;
+    dt.month = 1;
+    dt.day = 1;
+    
+    long remaining_days = days_since_epoch;
+    
+    // 年を進める
+    while (remaining_days > 0) {
+        int days_in_year = 365;
+        if (is_leap_year(dt.year)) {
+            days_in_year = 366;
+        }
+        
+        if (remaining_days >= days_in_year) {
+            remaining_days = remaining_days - days_in_year;
+            dt.year = dt.year + 1;
+        } else {
+            break;
+        }
+    }
+    
+    // 月を進める
+    while (remaining_days > 0) {
+        int days = days_in_month(dt.year, dt.month);
+        
+        if (remaining_days >= days) {
+            remaining_days = remaining_days - days;
+            dt.month = dt.month + 1;
+        } else {
+            break;
+        }
+    }
+    
+    // 残りの日数を追加
+    dt.day = dt.day + remaining_days;
+    
+    return dt;
+}
+
+// format_datetime - DateTimeを "西暦/月/日 時:分:秒" 形式で表示
+// 引数: dt (DateTime) - 日時構造体
+export void format_datetime(DateTime dt) {
+    println("{dt.year}/{dt.month}/{dt.day} {dt.hour}:{dt.minute}:{dt.second}");
+}
+
+// format_datetime_padded - DateTimeを "西暦/月/日 時:分:秒" 形式で表示（ゼロ埋め）
+// 引数: dt (DateTime) - 日時構造体
+export void format_datetime_padded(DateTime dt) {
+    // 2桁にゼロ埋めして表示
+    print("{dt.year}/");
+    
+    if (dt.month < 10) {
+        print("0");
+    }
+    print("{dt.month}/");
+    
+    if (dt.day < 10) {
+        print("0");
+    }
+    print("{dt.day} ");
+    
+    if (dt.hour < 10) {
+        print("0");
+    }
+    print("{dt.hour}:");
+    
+    if (dt.minute < 10) {
+        print("0");
+    }
+    print("{dt.minute}:");
+    
+    if (dt.second < 10) {
+        print("0");
+    }
+    println("{dt.second}");
+}
+
+// convert - 現在時刻をUTCオフセット付きで変換して表示
+// 引数: utc_offset_hours (int) - UTCからのオフセット時間（例: 日本は+9）
+//       timestamp_ms (long) - エポックからのミリ秒（0の場合は現在時刻を使用）
+export void convert(int utc_offset_hours, long timestamp_ms) {
+    long time_ms = timestamp_ms;
+    if (time_ms == 0) {
+        time_ms = now();
+    }
+    
+    DateTime dt = timestamp_to_datetime(time_ms, utc_offset_hours);
+    format_datetime_padded(dt);
+}
+
+// convert_time - Timeオブジェクトを日時文字列に変換
+// 引数: t (Time) - Time構造体
+//       utc_offset_hours (int) - UTCからのオフセット時間
+export void convert_time(Time t, int utc_offset_hours) {
+    DateTime dt = timestamp_to_datetime(t.timestamp_ms, utc_offset_hours);
+    format_datetime_padded(dt);
+}
+
+// ========================================
+// Time差分表示機能
+// ========================================
+
+// TimeDiff - 2つの時刻の差分を表現
+export struct TimeDiff {
+    int days;           // 日数
+    int hours;          // 時間
+    int minutes;        // 分
+    int seconds;        // 秒
+    int milliseconds;   // ミリ秒
+    bool is_negative;   // 負の差分かどうか
+};
+
+// calculate_time_diff - 2つの時刻の差分を計算
+// 引数: time1 (Time) - 時刻1
+//       time2 (Time) - 時刻2
+// 戻り値: TimeDiff構造体（time1 - time2）
+export TimeDiff calculate_time_diff(Time time1, Time time2) {
+    TimeDiff diff;
+    
+    long diff_ms = time1.timestamp_ms - time2.timestamp_ms;
+    
+    // 負の差分をチェック
+    if (diff_ms < 0) {
+        diff.is_negative = true;
+        diff_ms = 0 - diff_ms;  // 絶対値
+    } else {
+        diff.is_negative = false;
+    }
+    
+    // ミリ秒を各単位に分解
+    long remaining = diff_ms;
+    
+    // 日数
+    diff.days = remaining / (24 * HOUR);
+    remaining = remaining % (24 * HOUR);
+    
+    // 時間
+    diff.hours = remaining / HOUR;
+    remaining = remaining % HOUR;
+    
+    // 分
+    diff.minutes = remaining / MINUTE;
+    remaining = remaining % MINUTE;
+    
+    // 秒
+    diff.seconds = remaining / SECOND;
+    remaining = remaining % SECOND;
+    
+    // ミリ秒
+    diff.milliseconds = remaining;
+    
+    return diff;
+}
+
+// format_time_diff - TimeDiffを人間が読みやすい形式で表示
+// 引数: diff (TimeDiff) - 時刻差分
+export void format_time_diff(TimeDiff diff) {
+    if (diff.is_negative) {
+        print("-");
+    }
+    
+    bool has_output = false;
+    
+    if (diff.days > 0) {
+        print("{diff.days}日 ");
+        has_output = true;
+    }
+    
+    if (diff.hours > 0 || has_output) {
+        print("{diff.hours}時間 ");
+        has_output = true;
+    }
+    
+    if (diff.minutes > 0 || has_output) {
+        print("{diff.minutes}分 ");
+        has_output = true;
+    }
+    
+    if (diff.seconds > 0 || has_output) {
+        print("{diff.seconds}秒 ");
+        has_output = true;
+    }
+    
+    if (diff.milliseconds > 0 || !has_output) {
+        print("{diff.milliseconds}ミリ秒");
+    }
+    
+    println("");
+}
+
+// format_time_diff_compact - TimeDiffをコンパクトな形式で表示
+// 引数: diff (TimeDiff) - 時刻差分
+// 形式: "±DD日 HH:MM:SS.mmm"
+export void format_time_diff_compact(TimeDiff diff) {
+    if (diff.is_negative) {
+        print("-");
+    } else {
+        print("+");
+    }
+    
+    if (diff.days > 0) {
+        print("{diff.days}日 ");
+    }
+    
+    // 時間（ゼロ埋め）
+    if (diff.hours < 10) {
+        print("0");
+    }
+    print("{diff.hours}:");
+    
+    // 分（ゼロ埋め）
+    if (diff.minutes < 10) {
+        print("0");
+    }
+    print("{diff.minutes}:");
+    
+    // 秒（ゼロ埋め）
+    if (diff.seconds < 10) {
+        print("0");
+    }
+    print("{diff.seconds}");
+    
+    // ミリ秒（3桁ゼロ埋め）
+    if (diff.milliseconds > 0) {
+        print(".");
+        if (diff.milliseconds < 100) {
+            print("0");
+        }
+        if (diff.milliseconds < 10) {
+            print("0");
+        }
+        print("{diff.milliseconds}");
+    }
+    
+    println("");
+}
+
+// print_time_diff - 2つの時刻の差分を表示
+// 引数: time1 (Time) - 時刻1
+//       time2 (Time) - 時刻2
+export void print_time_diff(Time time1, Time time2) {
+    TimeDiff diff = calculate_time_diff(time1, time2);
+    format_time_diff(diff);
+}
+
+// print_time_diff_compact - 2つの時刻の差分をコンパクト形式で表示
+// 引数: time1 (Time) - 時刻1
+//       time2 (Time) - 時刻2
+export void print_time_diff_compact(Time time1, Time time2) {
+    TimeDiff diff = calculate_time_diff(time1, time2);
+    format_time_diff_compact(diff);
+}
+
+// get_time_diff_string - 2つの時刻の差分を文字列形式で取得（詳細版）
+// 引数: time1 (Time) - 時刻1
+//       time2 (Time) - 時刻2
+// 戻り値なし（直接表示）
+export void get_time_diff_string(Time time1, Time time2) {
+    TimeDiff diff = calculate_time_diff(time1, time2);
+    
+    if (diff.is_negative) {
+        print("time1はtime2より ");
+    } else {
+        print("time1はtime2より ");
+    }
+    
+    if (diff.days > 0) {
+        print("{diff.days}日");
+    }
+    if (diff.hours > 0) {
+        print("{diff.hours}時間");
+    }
+    if (diff.minutes > 0) {
+        print("{diff.minutes}分");
+    }
+    if (diff.seconds > 0) {
+        print("{diff.seconds}秒");
+    }
+    if (diff.milliseconds > 0) {
+        print("{diff.milliseconds}ミリ秒");
+    }
+    
+    if (diff.is_negative) {
+        println(" 前です");
+    } else {
+        println(" 後です");
+    }
 }
 
 // ========================================
@@ -555,5 +918,45 @@ export void wait_for(long duration_ms) {
 //     // 処理...
 //     long elapsed = now() - start_ms;
 //     println("処理時間: %ld ms", elapsed);
+//     
+//     // 6. 日時変換（UTCオフセット付き）
+//     println("現在時刻:");
+//     
+//     // 日本標準時 (JST = UTC+9)
+//     print("JST: ");
+//     convert(9, now());
+//     
+//     // 協定世界時 (UTC)
+//     print("UTC: ");
+//     convert(0, now());
+//     
+//     // 米国東部標準時 (EST = UTC-5)
+//     print("EST: ");
+//     convert(-5, now());
+//     
+//     // DateTimeを個別に扱う
+//     long current = now();
+//     DateTime dt_jst = timestamp_to_datetime(current, 9);
+//     println("年: {dt_jst.year}");
+//     println("月: {dt_jst.month}");
+//     println("日: {dt_jst.day}");
+//     println("時: {dt_jst.hour}");
+//     println("分: {dt_jst.minute}");
+//     println("秒: {dt_jst.second}");
+//     
+//     // 7. Time同士の時刻差分
+//     Time time1 = get_current_time();
+//     sleep_seconds(3);
+//     Time time2 = get_current_time();
+//     
+//     println("時刻差分:");
+//     print("  詳細: ");
+//     print_time_diff(time2, time1);  // "3秒 0ミリ秒"
+//     
+//     print("  コンパクト: ");
+//     print_time_diff_compact(time2, time1);  // "+00:00:03"
+//     
+//     print("  文章形式: ");
+//     get_time_diff_string(time2, time1);  // "time1はtime2より3秒後です"
 // }
 
