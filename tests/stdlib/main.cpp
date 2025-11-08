@@ -7,6 +7,7 @@
 #include "framework/stdlib_test_framework.hpp"
 #include "std/option_test.hpp"
 #include "std/result_test.hpp"
+#include "std/time_test.hpp"
 
 #include <cstdlib>
 #include <iostream>
@@ -23,6 +24,9 @@ int main() {
     // register_nested_generics_tests(runner);  // TODO: Fix segfault
     register_result_tests(runner);
     register_option_tests(runner);
+
+    // v0.12.0: Time module tests (async/await/sleep/now)
+    stdlib_tests::register_time_tests(runner);
 
     // Run all tests
     runner.run_all();
