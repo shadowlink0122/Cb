@@ -452,6 +452,41 @@ ASTNode *InterfaceParser::parseImplDeclaration() {
         method_nodes; // 所有権は一時的に保持し、最終的にASTへ移動
     std::vector<std::unique_ptr<ASTNode>> static_var_nodes; // impl static変数
 
+    // v0.11.0: ジェネリックimplの場合、型パラメータをスタックにプッシュ
+    // これにより、メソッド内で型パラメータ（例: T）を使用できるようになる
+    bool is_generic_impl = (interface_name.find('<') != std::string::npos) ||
+                           (struct_name.find('<') != std::string::npos);
+    std::vector<std::string> type_params_for_stack;
+
+    if (is_generic_impl) {
+        // 型パラメータを抽出
+        std::string target = struct_name.empty() ? interface_name : struct_name;
+        size_t lt = target.find('<');
+        size_t gt = target.rfind('>');
+        if (lt != std::string::npos && gt != std::string::npos && gt > lt) {
+            std::string params_str = target.substr(lt + 1, gt - lt - 1);
+            std::stringstream ss(params_str);
+            std::string param;
+            while (std::getline(ss, param, ',')) {
+                size_t start = param.find_first_not_of(" \t");
+                size_t end = param.find_last_not_of(" \t");
+                if (start != std::string::npos) {
+                    param = param.substr(start, end - start + 1);
+                    // : Allocator のような境界は削除
+                    size_t colon = param.find(':');
+                    if (colon != std::string::npos) {
+                        param = param.substr(0, colon);
+                        end = param.find_last_not_of(" \t");
+                        param = param.substr(0, end + 1);
+                    }
+                    type_params_for_stack.push_back(param);
+                }
+            }
+        }
+        // 型パラメータをスタックにプッシュ
+        parser_->type_parameter_stack_.push_back(type_params_for_stack);
+    }
+
     // メソッド実装の解析
     while (!parser_->check(TokenType::TOK_RBRACE) && !parser_->isAtEnd()) {
         // デストラクタのチェック (~self)
@@ -904,6 +939,11 @@ ASTNode *InterfaceParser::parseImplDeclaration() {
                 }
             }
         }
+    }
+
+    // v0.11.0: ジェネリックimplの場合、型パラメータをスタックからポップ
+    if (is_generic_impl) {
+        parser_->type_parameter_stack_.pop_back();
     }
 
     // ASTNode を作成

@@ -43,6 +43,13 @@ ASTNode *StatementParser::parseStatement() {
         }
     }
 
+    // async修飾子のチェック（v0.12.0）
+    bool isAsync = false;
+    if (parser_->check(TokenType::TOK_ASYNC)) {
+        isAsync = true;
+        parser_->advance();
+    }
+
     // 修飾子のチェック
     bool isStatic = false;
     if (parser_->check(TokenType::TOK_STATIC)) {
@@ -67,7 +74,8 @@ ASTNode *StatementParser::parseStatement() {
               parser_->current_token_.value.c_str(), token_type_str.c_str());
 
     // 宣言文の処理（typedef, struct, enum, interface, impl, main, import）
-    ASTNode *decl = parseDeclarationStatement(isStatic, isConst, isExported);
+    ASTNode *decl =
+        parseDeclarationStatement(isAsync, isStatic, isConst, isExported);
     if (decl) {
         if (isDefaultExport) {
             decl->is_default_export = true;
@@ -79,7 +87,7 @@ ASTNode *StatementParser::parseStatement() {
     if (parser_->check(TokenType::TOK_IDENTIFIER)) {
         std::string type_name = parser_->current_token_.value;
         ASTNode *result =
-            parseTypedefTypeStatement(type_name, isStatic, isConst);
+            parseTypedefTypeStatement(type_name, isAsync, isStatic, isConst);
         if (result) {
             // exportフラグが設定されている場合、関数宣言・変数宣言にフラグを設定
             if (isExported &&
@@ -102,7 +110,8 @@ ASTNode *StatementParser::parseStatement() {
     }
 
     // 基本型の変数宣言/関数定義
-    ASTNode *basicType = parseBasicTypeStatement(isStatic, isConst, isUnsigned);
+    ASTNode *basicType =
+        parseBasicTypeStatement(isAsync, isStatic, isConst, isUnsigned);
     if (basicType) {
         // exportフラグが設定されている場合、関数宣言・変数宣言にフラグを設定
         if (isExported && (basicType->node_type == ASTNodeType::AST_FUNC_DECL ||
@@ -125,10 +134,35 @@ ASTNode *StatementParser::parseStatement() {
 }
 
 // 宣言文の処理
-ASTNode *StatementParser::parseDeclarationStatement(bool isStatic, bool isConst,
+ASTNode *StatementParser::parseDeclarationStatement(bool isAsync, bool isStatic,
+                                                    bool isConst,
                                                     bool isExported) {
+    // async修飾子は関数のみに適用可能
+    if (isAsync && !parser_->check(TokenType::TOK_VOID) &&
+        !parser_->check(TokenType::TOK_INT) &&
+        !parser_->check(TokenType::TOK_LONG) &&
+        !parser_->check(TokenType::TOK_SHORT) &&
+        !parser_->check(TokenType::TOK_TINY) &&
+        !parser_->check(TokenType::TOK_BOOL) &&
+        !parser_->check(TokenType::TOK_STRING_TYPE) &&
+        !parser_->check(TokenType::TOK_CHAR_TYPE) &&
+        !parser_->check(TokenType::TOK_FLOAT) &&
+        !parser_->check(TokenType::TOK_DOUBLE) &&
+        !parser_->check(TokenType::TOK_BIG) &&
+        !parser_->check(TokenType::TOK_QUAD) &&
+        !parser_->check(TokenType::TOK_IDENTIFIER) &&
+        !parser_->check(TokenType::TOK_MAIN)) {
+        parser_->error("'async' modifier can only be applied to functions");
+        return nullptr;
+    }
+
     // import文
     if (parser_->check(TokenType::TOK_IMPORT)) {
+        if (isAsync) {
+            parser_->error(
+                "'async' modifier cannot be applied to import statements");
+            return nullptr;
+        }
         return parseImportStatement();
     }
 
@@ -143,8 +177,13 @@ ASTNode *StatementParser::parseDeclarationStatement(bool isStatic, bool isConst,
         if (parser_->check(TokenType::TOK_LPAREN)) {
             ASTNode *func = parser_->parseFunctionDeclarationAfterName(
                 "int", main_token.value);
-            if (func && isExported) {
-                func->is_exported = true;
+            if (func) {
+                if (isAsync) {
+                    func->is_async = true; // v0.12.0: async main()のサポート
+                }
+                if (isExported) {
+                    func->is_exported = true;
+                }
             }
             return func;
         } else {
@@ -155,6 +194,11 @@ ASTNode *StatementParser::parseDeclarationStatement(bool isStatic, bool isConst,
 
     // typedef宣言
     if (parser_->check(TokenType::TOK_TYPEDEF)) {
+        if (isAsync) {
+            parser_->error(
+                "'async' modifier cannot be applied to typedef declarations");
+            return nullptr;
+        }
         debug_msg(DebugMsgId::PARSE_TYPEDEF_START,
                   parser_->current_token_.line);
         ASTNode *typedef_node = parser_->parseTypedefDeclaration();
@@ -166,6 +210,11 @@ ASTNode *StatementParser::parseDeclarationStatement(bool isStatic, bool isConst,
 
     // struct宣言
     if (parser_->check(TokenType::TOK_STRUCT)) {
+        if (isAsync) {
+            parser_->error(
+                "'async' modifier cannot be applied to struct declarations");
+            return nullptr;
+        }
         debug_msg(DebugMsgId::PARSE_STRUCT_DECL_START,
                   parser_->current_token_.line);
         ASTNode *struct_node = parser_->parseStructDeclaration();
@@ -177,6 +226,11 @@ ASTNode *StatementParser::parseDeclarationStatement(bool isStatic, bool isConst,
 
     // enum宣言
     if (parser_->check(TokenType::TOK_ENUM)) {
+        if (isAsync) {
+            parser_->error(
+                "'async' modifier cannot be applied to enum declarations");
+            return nullptr;
+        }
         debug_msg(DebugMsgId::PARSE_ENUM_DECL_START,
                   parser_->current_token_.line);
         ASTNode *enum_node = parser_->parseEnumDeclaration();
@@ -188,6 +242,11 @@ ASTNode *StatementParser::parseDeclarationStatement(bool isStatic, bool isConst,
 
     // interface宣言
     if (parser_->check(TokenType::TOK_INTERFACE)) {
+        if (isAsync) {
+            parser_->error(
+                "'async' modifier cannot be applied to interface declarations");
+            return nullptr;
+        }
         debug_msg(DebugMsgId::PARSE_ENUM_DECL_START,
                   parser_->current_token_.line);
         ASTNode *interface_node = parser_->parseInterfaceDeclaration();
@@ -199,6 +258,11 @@ ASTNode *StatementParser::parseDeclarationStatement(bool isStatic, bool isConst,
 
     // impl宣言
     if (parser_->check(TokenType::TOK_IMPL)) {
+        if (isAsync) {
+            parser_->error(
+                "'async' modifier cannot be applied to impl declarations");
+            return nullptr;
+        }
         debug_msg(DebugMsgId::PARSE_ENUM_DECL_START,
                   parser_->current_token_.line);
         ASTNode *impl_node = parser_->parseImplDeclaration();
@@ -215,6 +279,9 @@ ASTNode *StatementParser::parseDeclarationStatement(bool isStatic, bool isConst,
 ASTNode *StatementParser::parseControlFlowStatement() {
     if (parser_->check(TokenType::TOK_RETURN)) {
         return parser_->parseReturnStatement();
+    }
+    if (parser_->check(TokenType::TOK_AWAIT)) {
+        return parseAwaitStatement();
     }
     if (parser_->check(TokenType::TOK_ASSERT)) {
         return parser_->parseAssertStatement();
@@ -268,9 +335,8 @@ ASTNode *StatementParser::parseExpressionOrAssignmentStatement() {
 }
 
 // typedef型・構造体型・インターフェース型の変数宣言/関数定義
-ASTNode *
-StatementParser::parseTypedefTypeStatement(const std::string &type_name,
-                                           bool isStatic, bool isConst) {
+ASTNode *StatementParser::parseTypedefTypeStatement(
+    const std::string &type_name, bool isAsync, bool isStatic, bool isConst) {
     // typedef型か構造体型かをチェック
     bool is_typedef =
         parser_->typedef_map_.find(type_name) != parser_->typedef_map_.end();
@@ -302,7 +368,6 @@ StatementParser::parseTypedefTypeStatement(const std::string &type_name,
     // 既知の型でない場合、先読みして型宣言のパターンかチェック
     // パターン: TypeName identifier; または TypeName identifier = ...;
     // v0.11.0: TypeName identifier<T>(...) もチェック（ジェネリック関数）
-    bool looks_like_type_declaration = false;
     if (!is_typedef && !is_struct_type && !is_interface_type &&
         !is_union_type && !is_enum_type) {
         // 先読みで次のトークンが識別子かチェック
@@ -338,9 +403,10 @@ StatementParser::parseTypedefTypeStatement(const std::string &type_name,
             if (parser_->check(TokenType::TOK_SEMICOLON) ||
                 parser_->check(TokenType::TOK_ASSIGN) ||
                 parser_->check(TokenType::TOK_LPAREN)) {
-                looks_like_type_declaration = true;
                 // 実行時に型が解決される可能性があるため、型として扱う
-                is_struct_type = true; // 構造体型として仮定
+                // ただし、未定義の型は受け入れない
+                // is_struct_type = true; // 構造体型として仮定 <- 削除:
+                // 任意の識別子を型として受け入れない
             }
         }
 
@@ -349,9 +415,99 @@ StatementParser::parseTypedefTypeStatement(const std::string &type_name,
         parser_->current_token_ = temp_current;
     }
 
+    // 型パラメータかどうかをチェック (v0.11.0)
+    bool is_type_parameter = false;
+    if (!parser_->type_parameter_stack_.empty()) {
+        const auto &current_type_params = parser_->type_parameter_stack_.back();
+        is_type_parameter =
+            std::find(current_type_params.begin(), current_type_params.end(),
+                      type_name) != current_type_params.end();
+    }
+
+    // ジェネリック関数の戻り値型の可能性をチェック
+    // パターン: T funcName<T>(...) の T
+    if (!is_type_parameter) {
+        RecursiveLexer lookahead_lexer = parser_->lexer_;
+        Token lookahead_token = parser_->current_token_;
+
+        // 型名をスキップ
+        parser_->advance();
+
+        // 次が識別子（関数名）かチェック
+        if (parser_->check(TokenType::TOK_IDENTIFIER)) {
+            parser_->advance(); // 関数名をスキップ
+
+            // 次が '<' ならジェネリック関数
+            if (parser_->check(TokenType::TOK_LT)) {
+                parser_->advance(); // '<' をスキップ
+
+                // 型パラメータを抽出（簡易版：カンマで区切られた識別子）
+                std::vector<std::string> func_type_params;
+                while (!parser_->check(TokenType::TOK_GT) &&
+                       !parser_->isAtEnd()) {
+                    if (parser_->check(TokenType::TOK_IDENTIFIER)) {
+                        func_type_params.push_back(
+                            parser_->current_token_.value);
+                        parser_->advance();
+                    } else if (parser_->check(TokenType::TOK_COMMA)) {
+                        parser_->advance();
+                    } else {
+                        break;
+                    }
+                }
+
+                // 戻り値型が型パラメータリストに含まれているかチェック
+                is_type_parameter =
+                    std::find(func_type_params.begin(), func_type_params.end(),
+                              type_name) != func_type_params.end();
+            }
+        }
+
+        // 元に戻す
+        parser_->lexer_ = lookahead_lexer;
+        parser_->current_token_ = lookahead_token;
+    }
+
+    // 既知の型（typedef, struct, interface, union, enum,
+    // 型パラメータ）のみ受け入れる
     if (!is_typedef && !is_struct_type && !is_interface_type &&
-        !is_union_type && !is_enum_type && !looks_like_type_declaration) {
-        return nullptr; // この識別子は型ではない
+        !is_union_type && !is_enum_type && !is_type_parameter) {
+        // 未知の識別子が型として使用されようとしている場合、エラーを出す
+        // ただし、単なる変数アクセスや関数呼び出し、式の一部の可能性もあるので、
+        // 先読みで型宣言のパターンかチェック
+        RecursiveLexer check_lexer = parser_->lexer_;
+        Token check_current = parser_->current_token_;
+        parser_->advance(); // 識別子をスキップ
+
+        // ポインタ修飾子をスキップ
+        while (parser_->check(TokenType::TOK_MUL) ||
+               parser_->check(TokenType::TOK_BIT_AND)) {
+            parser_->advance();
+        }
+
+        // 次が識別子で、その後に ; または = または (
+        // があれば型宣言の可能性が高い (Type varName; または Type varName = ...
+        // または Type func(...) パターン)
+        bool is_type_declaration_pattern = false;
+        if (parser_->check(TokenType::TOK_IDENTIFIER)) {
+            parser_->advance(); // 識別子をスキップ
+            if (parser_->check(TokenType::TOK_SEMICOLON) ||
+                parser_->check(TokenType::TOK_ASSIGN) ||
+                parser_->check(TokenType::TOK_LPAREN)) {
+                is_type_declaration_pattern = true;
+            }
+        }
+
+        // 元に戻す
+        parser_->lexer_ = check_lexer;
+        parser_->current_token_ = check_current;
+
+        if (is_type_declaration_pattern) {
+            parser_->error("Unknown type: '" + type_name + "'");
+            return nullptr;
+        }
+
+        return nullptr; // この識別子は型ではない（変数や関数呼び出しの可能性）
     }
 
     // v0.11.0: 先読みして関数定義かチェック（ジェネリック対応版）
@@ -608,6 +764,11 @@ StatementParser::parseTypedefTypeStatement(const std::string &type_name,
             func_node->is_generic = true;
             func_node->type_parameters = type_parameters;
             func_node->interface_bounds = interface_bounds;
+        }
+
+        // async修飾子を設定 (v0.12.0)
+        if (func_node && isAsync) {
+            func_node->is_async = true;
         }
 
         // 戻り値のconst情報を設定
@@ -973,7 +1134,8 @@ StatementParser::parseTypedefTypeStatement(const std::string &type_name,
 }
 
 // 基本型の変数宣言/関数定義
-ASTNode *StatementParser::parseBasicTypeStatement(bool isStatic, bool isConst,
+ASTNode *StatementParser::parseBasicTypeStatement(bool isAsync, bool isStatic,
+                                                  bool isConst,
                                                   bool isUnsigned) {
     // 基本型のチェック
     if (!parser_->check(TokenType::TOK_INT) &&
@@ -1081,8 +1243,9 @@ ASTNode *StatementParser::parseBasicTypeStatement(bool isStatic, bool isConst,
     // 配列型の場合: int[size][size2]... identifier
     if (parser_->check(TokenType::TOK_LBRACKET)) {
         return parseArrayDeclaration(base_type_name, type_name, base_type_info,
-                                     declared_type_info, isStatic, isConst,
-                                     isUnsigned, is_reference, pointer_depth);
+                                     declared_type_info, isAsync, isStatic,
+                                     isConst, isUnsigned, is_reference,
+                                     pointer_depth);
     }
 
     // ポインタ型の後のconst修飾子をチェック (T* const の場合)
@@ -1159,6 +1322,9 @@ ASTNode *StatementParser::parseBasicTypeStatement(bool isStatic, bool isConst,
                 return nullptr;
             }
             parser_->advance(); // '>' を消費
+
+            // 型パラメータをスタックにプッシュ
+            parser_->type_parameter_stack_.push_back(type_parameters);
         }
 
         if (parser_->check(TokenType::TOK_LPAREN)) {
@@ -1171,11 +1337,21 @@ ASTNode *StatementParser::parseBasicTypeStatement(bool isStatic, bool isConst,
             ASTNode *func_node = parser_->parseFunctionDeclarationAfterName(
                 full_return_type, name_token.value);
 
+            // 型パラメータスタックをポップ
+            if (is_generic) {
+                parser_->type_parameter_stack_.pop_back();
+            }
+
             // 型パラメータ情報を設定
             if (func_node && is_generic) {
                 func_node->is_generic = true;
                 func_node->type_parameters = type_parameters;
                 func_node->interface_bounds = interface_bounds;
+            }
+
+            // async修飾子を設定 (v0.12.0)
+            if (func_node && isAsync) {
+                func_node->is_async = true;
             }
 
             // 戻り値のconst情報を設定
@@ -1199,8 +1375,9 @@ ASTNode *StatementParser::parseBasicTypeStatement(bool isStatic, bool isConst,
 // 配列宣言の処理（多次元対応）
 ASTNode *StatementParser::parseArrayDeclaration(
     const std::string &base_type_name, const std::string &type_name,
-    TypeInfo base_type_info, TypeInfo declared_type_info, bool isStatic,
-    bool isConst, bool isUnsigned, bool is_reference, int pointer_depth) {
+    TypeInfo base_type_info, TypeInfo declared_type_info, bool isAsync,
+    bool isStatic, bool isConst, bool isUnsigned, bool is_reference,
+    int pointer_depth) {
     // 全ての配列次元を解析
     std::vector<std::string> array_sizes;
 
@@ -1244,8 +1421,13 @@ ASTNode *StatementParser::parseArrayDeclaration(
         for (const auto &size : array_sizes) {
             return_type += "[" + size + "]";
         }
-        return parser_->parseFunctionDeclarationAfterName(return_type,
-                                                          var_name);
+        ASTNode *func_node =
+            parser_->parseFunctionDeclarationAfterName(return_type, var_name);
+        // async修飾子を設定 (v0.12.0)
+        if (func_node && isAsync) {
+            func_node->is_async = true;
+        }
+        return func_node;
     }
 
     ASTNode *node = new ASTNode(ASTNodeType::AST_ARRAY_DECL);
@@ -1789,6 +1971,26 @@ ASTNode *StatementParser::parseDeferStatement() {
     defer_node->body = std::unique_ptr<ASTNode>(parser_->parseStatement());
 
     return defer_node;
+}
+
+/**
+ * @brief await文を解析 (v0.12.0)
+ * @return 解析されたASTawait文ノード
+ *
+ * 構文: await expression;
+ * async関数の完了を待機する
+ */
+ASTNode *StatementParser::parseAwaitStatement() {
+    parser_->advance(); // consume 'await'
+    ASTNode *await_node = new ASTNode(ASTNodeType::AST_AWAIT_STMT);
+
+    // await対象の式を解析（async関数呼び出しなど）
+    await_node->left = std::unique_ptr<ASTNode>(parser_->parseExpression());
+
+    parser_->consume(TokenType::TOK_SEMICOLON,
+                     "Expected ';' after await expression");
+
+    return await_node;
 }
 
 // ========================================
