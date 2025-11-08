@@ -1,0 +1,24 @@
+interface IFizzbuzz {
+    void fizzbuzz();
+};
+
+impl IFizzbuzz for int {
+    void fizzbuzz() {
+        if (self % 15 == 0) {
+            println("FizzBuzz");
+        } else if (self % 3 == 0) {
+            println("Fizz");
+        } else if (self % 5 == 0) {
+            println("Buzz");
+        } else {
+            println(self);
+        }
+    }
+};
+
+int main(){
+    for(int i = 1; i <= 100; i++){
+        i.fizzbuzz();
+    }
+    return 0;
+}
