@@ -130,6 +130,10 @@ INTERPRETER_SERVICES_OBJS = \
 INTERPRETER_OUTPUT_OBJS = \
 	$(INTERPRETER_OUTPUT)/output_manager.o
 
+# Event Loop objects (v0.12.0)
+INTERPRETER_EVENT_LOOP_OBJS = \
+	$(INTERPRETER_DIR)/event_loop/simple_event_loop.o
+
 # Backendオブジェクト（全て統合）
 BACKEND_OBJS = \
 	$(INTERPRETER_CORE_OBJS) \
@@ -138,7 +142,8 @@ BACKEND_OBJS = \
 	$(INTERPRETER_HANDLERS_OBJS) \
 	$(INTERPRETER_MANAGERS_OBJS) \
 	$(INTERPRETER_SERVICES_OBJS) \
-	$(INTERPRETER_OUTPUT_OBJS)
+	$(INTERPRETER_OUTPUT_OBJS) \
+	$(INTERPRETER_EVENT_LOOP_OBJS)
 PLATFORM_OBJS=$(NATIVE_DIR)/native_stdio_output.o $(BAREMETAL_DIR)/baremetal_uart_output.o
 COMMON_OBJS=$(COMMON_DIR)/type_utils.o $(COMMON_DIR)/type_alias.o $(COMMON_DIR)/array_type_info.o $(COMMON_DIR)/utf8_utils.o $(COMMON_DIR)/io_interface.o $(COMMON_DIR)/debug_impl.o $(COMMON_DIR)/debug_messages.o $(COMMON_DIR)/ast.o $(PLATFORM_OBJS)
 
