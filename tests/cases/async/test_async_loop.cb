@@ -1,0 +1,75 @@
+// Test: Yield in loops
+// ループ内でyieldを使った協調処理のテスト
+
+import stdlib.std.time;
+
+async void loop_task(string name, int iterations) {
+    println("{name}: Starting {iterations} iterations");
+    
+    for (int i = 0; i < iterations; i++) {
+        println("{name}: Iteration {i}");
+        yield;  // 各イテレーションで他のタスクに譲る
+    }
+    
+    println("{name}: Loop completed");
+}
+
+async void nested_loop_task(string name) {
+    println("{name}: Starting nested loops");
+    
+    for (int i = 0; i < 2; i++) {
+        for (int j = 0; j < 2; j++) {
+            println("{name}: [{i}][{j}]");
+            yield;
+        }
+    }
+    
+    println("{name}: Nested loops completed");
+}
+
+async void while_loop_task(string name, int max) {
+    println("{name}: Starting while loop");
+    int count = 0;
+    
+    while (count < max) {
+        println("{name}: count={count}");
+        count++;
+        yield;
+    }
+    
+    println("{name}: While loop completed");
+}
+
+void main() {
+    println("=== Test: Yield in Loops ===\n");
+    
+    // テスト1: 単純なforループ
+    println("[Test 1] Simple for loops:");
+    loop_task("TaskA", 3);
+    loop_task("TaskB", 3);
+    await sleep(100);
+    println("");
+    
+    // テスト2: ネストしたループ
+    println("[Test 2] Nested loops:");
+    nested_loop_task("Nested1");
+    nested_loop_task("Nested2");
+    await sleep(150);
+    println("");
+    
+    // テスト3: whileループ
+    println("[Test 3] While loops:");
+    while_loop_task("While1", 3);
+    while_loop_task("While2", 4);
+    await sleep(150);
+    println("");
+    
+    // テスト4: 混在パターン
+    println("[Test 4] Mixed loop types:");
+    loop_task("For", 2);
+    while_loop_task("While", 2);
+    nested_loop_task("Nested");
+    await sleep(200);
+    
+    println("\n=== All loop tests completed ===");
+}

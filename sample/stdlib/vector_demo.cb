@@ -15,7 +15,7 @@ struct SystemAllocator {
 
 impl Allocator for SystemAllocator {
     void* allocate(int size) {
-        println("[SystemAllocator] Allocate %d bytes", size);
+        println("[SystemAllocator] Allocate {size} bytes");
         return nullptr;
     }
     

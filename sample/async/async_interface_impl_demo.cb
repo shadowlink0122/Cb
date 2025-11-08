@@ -26,12 +26,12 @@ struct SimpleProcessor {
 
 impl DataProcessor for SimpleProcessor {
     async Future<int> process(int data) {
-        println("[SimpleProc] データ処理開始: %d", data);
+        println("[SimpleProc] データ処理開始: {data}");
         
         // データに3を掛ける
         int result = data * 3;
         
-        println("[SimpleProc] 処理結果: %d -> %d", data, result);
+        println("[SimpleProc] 処理結果: {data} -> {result}");
         
         Future<int> fut;
         fut.value = result;
@@ -40,15 +40,15 @@ impl DataProcessor for SimpleProcessor {
     }
     
     async Future<bool> validate(int data) {
-        println("[SimpleProc] 検証中: %d", data);
+        println("[SimpleProc] 検証中: {data}");
         
         // 正の数のみ有効
         bool is_valid = data > 0;
         
         if (is_valid) {
-            println("[SimpleProc] 検証OK: %d", data);
+            println("[SimpleProc] 検証OK: {data}");
         } else {
-            println("[SimpleProc] 検証NG: %d", data);
+            println("[SimpleProc] 検証NG: {data}");
         }
         
         Future<bool> fut;
@@ -69,7 +69,7 @@ struct AdvancedProcessor {
 
 impl DataProcessor for AdvancedProcessor {
     async Future<int> process(int data) {
-        println("[AdvancedProc] 高度な処理開始: %d", data);
+        println("[AdvancedProc] 高度な処理開始: {data}");
         
         int result = data;
         
@@ -82,7 +82,7 @@ impl DataProcessor for AdvancedProcessor {
             result = data * 2;
         }
         
-        println("[AdvancedProc] 処理完了: %d -> %d", data, result);
+        println("[AdvancedProc] 処理完了: {data} -> {result}");
         
         Future<int> fut;
         fut.value = result;
@@ -91,15 +91,15 @@ impl DataProcessor for AdvancedProcessor {
     }
     
     async Future<bool> validate(int data) {
-        println("[AdvancedProc] 高度な検証中: %d", data);
+        println("[AdvancedProc] 高度な検証中: {data}");
         
         // より厳しい検証: 10以上でないと無効
         bool is_valid = data >= 10;
         
         if (is_valid) {
-            println("[AdvancedProc] 高度な検証OK: %d", data);
+            println("[AdvancedProc] 高度な検証OK: {data}");
         } else {
-            println("[AdvancedProc] 高度な検証NG: %d (最低10必要)", data);
+            println("[AdvancedProc] 高度な検証NG: {data} (最低10必要)");
         }
         
         Future<bool> fut;
@@ -125,7 +125,7 @@ int main() {
     s1.multiplier = 3;
     
     bool v1 = await s1.validate(15);
-    println("検証結果: %s\n", v1 ? "OK" : "NG");
+    println("検証結果: {v1 ? \"OK\" : \"NG\"}\n");
     
     println("=== テスト2: SimpleProcessor (処理) ===\n");
     
@@ -134,7 +134,7 @@ int main() {
     s2.multiplier = 3;
     
     int r1 = await s2.process(15);
-    println("処理結果: %d\n", r1);
+    println("処理結果: {r1}\n");
     
     println("========================================\n");
     
@@ -145,7 +145,7 @@ int main() {
     s3.multiplier = 3;
     
     bool v2 = await s3.validate(-5);
-    println("検証結果: %s (処理スキップ)\n", v2 ? "OK" : "NG");
+    println("検証結果: {v2 ? \"OK\" : \"NG\"} (処理スキップ)\n");
     
     println("========================================\n");
     
@@ -156,7 +156,7 @@ int main() {
     a1.threshold = 50;
     
     bool v3 = await a1.validate(20);
-    println("検証結果: %s\n", v3 ? "OK" : "NG");
+    println("検証結果: {v3 ? \"OK\" : \"NG\"}\n");
     
     println("=== テスト5: AdvancedProcessor (通常処理) ===\n");
     
@@ -165,7 +165,7 @@ int main() {
     a2.threshold = 50;
     
     int r2 = await a2.process(20);
-    println("処理結果: %d\n", r2);
+    println("処理結果: {r2}\n");
     
     println("========================================\n");
     
@@ -176,7 +176,7 @@ int main() {
     a3.threshold = 50;
     
     int r3 = await a3.process(100);
-    println("処理結果: %d\n", r3);
+    println("処理結果: {r3}\n");
     
     println("========================================\n");
     
@@ -187,7 +187,7 @@ int main() {
     a4.threshold = 50;
     
     bool v4 = await a4.validate(5);
-    println("検証結果: %s (処理スキップ)\n", v4 ? "OK" : "NG");
+    println("検証結果: {v4 ? \"OK\" : \"NG\"} (処理スキップ)\n");
     
     println("========================================\n");
     

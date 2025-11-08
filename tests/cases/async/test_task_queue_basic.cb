@@ -1,0 +1,312 @@
+// Test: TaskQueue - Basic Operations
+// Part of v0.11.0 Week 3 Day 1
+//
+// Tests basic TaskQueue functionality with modern C++/Rust-style API
+
+// Task definition
+struct Task {
+    int task_id;
+    int priority;      // 0 = highest priority
+    int callback_type;
+    void* data;
+};
+
+// TaskQueue with fixed-size array (simplified version)
+struct TaskQueue {
+    Task[100] tasks;
+    int length;
+    int capacity;
+    int next_id;
+};
+
+// Modern API: init, push, pop, top, is_empty, size
+
+void init(TaskQueue& queue) {
+    queue.length = 0;
+    queue.capacity = 100;
+    queue.next_id = 1;
+}
+
+void push(TaskQueue& queue, Task& task) {
+    if (queue.length >= queue.capacity) {
+        return;
+    }
+    
+    // Add to end - copy fields directly to array
+    int idx = queue.length;
+    
+    // Create temp task and copy fields
+    Task temp_task;
+    temp_task.task_id = task.task_id;
+    temp_task.priority = task.priority;
+    temp_task.callback_type = task.callback_type;
+    temp_task.data = task.data;
+    
+    // Store in array
+    queue.tasks[idx] = temp_task;
+    queue.length = queue.length + 1;
+    
+    // Sort by priority (insertion sort)
+    int i = queue.length - 1;
+    while (i > 0) {
+        // Get current and previous tasks
+        Task curr_task = queue.tasks[i];
+        Task prev_task = queue.tasks[i - 1];
+        
+        int curr_pr = curr_task.priority;
+        int prev_pr = prev_task.priority;
+        
+        if (curr_pr < prev_pr) {
+            // Swap using full struct assignment
+            Task swap_temp = queue.tasks[i];
+            queue.tasks[i] = queue.tasks[i - 1];
+            queue.tasks[i - 1] = swap_temp;
+            i = i - 1;
+        } else {
+            i = 0;  // Break loop
+        }
+    }
+}
+
+Task pop(TaskQueue& queue) {
+    Task result;
+    
+    if (queue.length <= 0) {
+        result.task_id = -1;
+        result.priority = 999;
+        result.callback_type = -1;
+        result.data = nullptr;
+        return result;
+    }
+    
+    // Get first element - copy field by field
+    Task first = queue.tasks[0];
+    result.task_id = first.task_id;
+    result.priority = first.priority;
+    result.callback_type = first.callback_type;
+    result.data = first.data;
+    
+    // Shift array forward
+    int i = 0;
+    while (i < queue.length - 1) {
+        queue.tasks[i] = queue.tasks[i + 1];
+        i = i + 1;
+    }
+    
+    queue.length = queue.length - 1;
+    return result;
+}
+
+bool is_empty(TaskQueue& queue) {
+    return queue.length <= 0;
+}
+
+int size(TaskQueue& queue) {
+    return queue.length;
+}
+
+Task create_task(int id, int priority, int callback_type) {
+    Task t;
+    t.task_id = id;
+    t.priority = priority;
+    t.callback_type = callback_type;
+    t.data = nullptr;
+    return t;
+}
+
+// =============================================================================
+// Test Cases
+// =============================================================================
+
+void test_init() {
+    println("TEST: TaskQueue initialization");
+    
+    TaskQueue queue;
+    init(queue);
+    
+    assert(is_empty(queue));
+    assert(size(queue) == 0);
+    
+    println("  ✅ Initialization test passed");
+}
+
+void test_push_single() {
+    println("\nTEST: Push single task");
+    
+    TaskQueue queue;
+    init(queue);
+    
+    Task t = create_task(1, 5, 0);
+    push(queue, t);
+    
+    assert(!is_empty(queue));
+    assert(size(queue) == 1);
+    
+    println("  ✅ Push single task test passed");
+}
+
+void test_pop_single() {
+    println("\nTEST: Pop single task");
+    
+    TaskQueue queue;
+    init(queue);
+    
+    Task t1 = create_task(1, 5, 0);
+    push(queue, t1);
+    
+    println("  Queue size after push: ", size(queue));
+    
+    // Check what's in the queue
+    Task check = queue.tasks[0];
+    int check_id = check.task_id;
+    int check_pr = check.priority;
+    println("  Task in queue[0] - id: ", check_id, " priority: ", check_pr);
+    
+    Task popped = pop(queue);
+    int id = popped.task_id;
+    int pr = popped.priority;
+    
+    println("  Popped task_id: ", id);
+    println("  Popped priority: ", pr);
+    
+    assert(id == 1);
+    assert(pr == 5);
+    assert(is_empty(queue));
+    
+    println("  ✅ Pop single task test passed");
+}
+
+void test_priority_order() {
+    println("\nTEST: Priority ordering");
+    
+    TaskQueue queue;
+    init(queue);
+    
+    // Push tasks in non-priority order
+    Task t1 = create_task(1, 10, 0);  // Low priority
+    Task t2 = create_task(2, 0, 0);   // High priority
+    Task t3 = create_task(3, 5, 0);   // Medium priority
+    
+    push(queue, t1);
+    push(queue, t2);
+    push(queue, t3);
+    
+    assert(size(queue) == 3);
+    
+    // Pop should return in priority order (0, 5, 10)
+    Task p1 = pop(queue);
+    Task p2 = pop(queue);
+    Task p3 = pop(queue);
+    
+    int pr1 = p1.priority;
+    int pr2 = p2.priority;
+    int pr3 = p3.priority;
+    
+    assert(pr1 == 0);
+    assert(pr2 == 5);
+    assert(pr3 == 10);
+    
+    println("  ✅ Priority ordering test passed");
+}
+
+void test_multiple_tasks() {
+    println("\nTEST: Multiple tasks with various priorities");
+    
+    TaskQueue queue;
+    init(queue);
+    
+    // Push many tasks
+    Task t1 = create_task(1, 10, 0);
+    Task t2 = create_task(2, 3, 0);
+    Task t3 = create_task(3, 7, 0);
+    Task t4 = create_task(4, 1, 0);
+    Task t5 = create_task(5, 5, 0);
+    
+    push(queue, t1);
+    push(queue, t2);
+    push(queue, t3);
+    push(queue, t4);
+    push(queue, t5);
+    
+    assert(size(queue) == 5);
+    
+    // Verify priority order
+    int prev_priority = -1;
+    while (!is_empty(queue)) {
+        Task t = pop(queue);
+        int curr_pr = t.priority;
+        
+        if (prev_priority >= 0) {
+            assert(curr_pr >= prev_priority);
+        }
+        
+        prev_priority = curr_pr;
+    }
+    
+    println("  ✅ Multiple tasks test passed");
+}
+
+void test_pop_empty() {
+    println("\nTEST: Pop from empty queue");
+    
+    TaskQueue queue;
+    init(queue);
+    
+    Task empty = pop(queue);
+    int id = empty.task_id;
+    int pr = empty.priority;
+    
+    assert(id == -1);
+    assert(pr == 999);
+    
+    println("  ✅ Pop empty queue test passed");
+}
+
+void test_same_priority() {
+    println("\nTEST: Tasks with same priority");
+    
+    TaskQueue queue;
+    init(queue);
+    
+    // Push tasks with same priority
+    Task t1 = create_task(10, 5, 0);
+    Task t2 = create_task(11, 5, 0);
+    Task t3 = create_task(12, 5, 0);
+    
+    push(queue, t1);
+    push(queue, t2);
+    push(queue, t3);
+    
+    Task p1 = pop(queue);
+    Task p2 = pop(queue);
+    Task p3 = pop(queue);
+    
+    int id1 = p1.task_id;
+    int id2 = p2.task_id;
+    int id3 = p3.task_id;
+    
+    // Should maintain insertion order for same priority
+    assert(id1 == 10);
+    assert(id2 == 11);
+    assert(id3 == 12);
+    
+    println("  ✅ Same priority test passed");
+}
+
+void main() {
+    println("╔════════════════════════════════════════════════════════════╗");
+    println("║  TaskQueue Test Suite                                     ║");
+    println("╚════════════════════════════════════════════════════════════╝\n");
+    
+    test_init();
+    test_push_single();
+    test_pop_single();
+    test_priority_order();
+    test_multiple_tasks();
+    test_pop_empty();
+    test_same_priority();
+    
+    println("\n╔════════════════════════════════════════════════════════════╗");
+    println("║  All TaskQueue tests passed! ✅                           ║");
+    println("╚════════════════════════════════════════════════════════════╝");
+}

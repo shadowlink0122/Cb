@@ -35,13 +35,13 @@ void stack_print(Stack& s) {
     }
     
     // 最初の数個を表示
-    println("  Stack (size=%d, showing top 5):", s.size);
+    println("  Stack (size={s.size}, showing top 5):");
     StackNode* current = s.top;
     int count = 0;
     
     while (current != nullptr && count < 5) {
         int node_value = (*current).value;
-        println("    [%d] %d", count, node_value);
+        println("    [{count}] {node_value}");
         current = (*current).next;
         count = count + 1;
     }
@@ -83,8 +83,8 @@ void main() {
     
     println("=== 1. Basic Stack Operations ===");
     println("Initial state:");
-    println("  Size: %d", stack_size(myStack));
-    println("  Empty: %d", stack_is_empty(myStack));
+    println("  Size: {stack_size(myStack)}");
+    println("  Empty: {stack_is_empty(myStack)}");
     
     // Push操作（手動実装）
     println("\nPushing values: 10, 20, 30, 40, 50");
@@ -125,7 +125,7 @@ void main() {
     // Peek操作
     if (myStack.top != nullptr) {
         int peek_value = (*myStack.top).value;
-        println("\nPeek (top value): %d", peek_value);
+        println("\nPeek (top value): {peek_value}");
     }
     
     // Pop操作
@@ -137,13 +137,13 @@ void main() {
             myStack.top = next_node;
             myStack.size = myStack.size - 1;
             
-            println("Popped: %d", value);
+            println("Popped: {value}");
         }
     }
     
     println("\nStack after popping:");
     stack_print(myStack);
-    println("  Size: %d", stack_size(myStack));
+    println("  Size: {stack_size(myStack)}");
     
     // 追加のPush操作
     println("\n=== 3. Additional Pushes ===");
@@ -179,13 +179,13 @@ void main() {
         myStack.top = next_node;
         myStack.size = myStack.size - 1;
         
-        println("  Pop %d: %d", pop_count, value);
+        println("  Pop {pop_count}: {value}");
         pop_count = pop_count + 1;
     }
     
     println("\nFinal state:");
-    println("  Size: %d", stack_size(myStack));
-    println("  Empty: %d", stack_is_empty(myStack));
+    println("  Size: {stack_size(myStack)}");
+    println("  Empty: {stack_is_empty(myStack)}");
     
     // 実用例: 括弧のバランスチェック
     println("\n=== 5. Practical Example: Balanced Parentheses ===");

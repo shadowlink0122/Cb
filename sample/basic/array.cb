@@ -61,10 +61,10 @@ int find_max(int* arr, int size) {
 }
 
 // 関数ポインタを使って配列の各要素を変換
-void transform_array(int* arr, int size, TransformFunc func) {
+void transform_array(int* arr, int size, TransformFunc transform_fn) {
     for (int i = 0; i < size; i++) {
         int* ptr = arr + i;
-        *ptr = func(*ptr);
+        *ptr = transform_fn(*ptr);
     }
 }
 
@@ -99,7 +99,7 @@ void bubble_sort(int* arr, int size) {
 // ===== 学生データ処理関数 =====
 
 void print_student(Student& s) {
-    println("  ID: %d, Name: %s, Score: %d", s.id, s.name, s.score);
+    println("  ID: {s.id}, Name: {s.name}, Score: {s.score}");
 }
 
 // 最高得点の学生のインデックスを返す（ポインタ使用版）
@@ -147,8 +147,8 @@ void main() {
     int sum = sum_array(&numbers[0], 6);
     int max_val = find_max(&numbers[0], 6);
     
-    println("Sum: %d", sum);
-    println("Max: %d", max_val);
+    println("Sum: {sum}");
+    println("Max: {max_val}");
     
     // 2. 関数ポインタによる配列変換
     println("\n=== 2. Function Pointers for Array Transformation ===");
@@ -191,17 +191,17 @@ void main() {
     println("Array 1:");
     print("  Data: ");
     print_array(&data1[0], 5);
-    println("  Sum: %d", sum_array(&data1[0], 5));
+    println("  Sum: {sum_array(&data1[0], 5)}");
     
     println("Array 2:");
     print("  Data: ");
     print_array(&data2[0], 5);
-    println("  Sum: %d", sum_array(&data2[0], 5));
+    println("  Sum: {sum_array(&data2[0], 5)}");
     
     println("Array 3:");
     print("  Data: ");
     print_array(&data3[0], 5);
-    println("  Sum: %d", sum_array(&data3[0], 5));
+    println("  Sum: {sum_array(&data3[0], 5)}");
     
     // 4. 構造体配列とポインタ操作
     println("\n=== 4. Struct Arrays with Pointer Operations ===");
@@ -230,7 +230,7 @@ void main() {
     
     println("Student List:");
     for (int i = 0; i < 5; i++) {
-        println("  ID: %d, Name: %s, Score: %d", students[i].id, students[i].name, students[i].score);
+        println("  ID: {students[i].id}, Name: {students[i].name}, Score: {students[i].score}");
     }
     
     // 得点配列を抽出してポインタで処理
@@ -241,12 +241,12 @@ void main() {
     
     int top_index = find_top_student_with_ptr(&scores[0], 5);
     println("\nTop Student (found using pointer):");
-    println("  ID: %d, Name: %s, Score: %d", students[top_index].id, students[top_index].name, students[top_index].score);
+    println("  ID: {students[top_index].id}, Name: {students[top_index].name}, Score: {students[top_index].score}");
     
     int avg = calculate_average_with_ptr(&scores[0], 5);
-    println("\nAverage Score: %d", avg);
+    println("\nAverage Score: {avg}");
     
-    // 5. コールバック関数による配列処理
+    // 5. 多次元配列
     println("\n=== 5. Callback Functions for Array Processing ===");
     
     int[8] values = [64, 23, 89, 12, 45, 78, 34, 91];
@@ -281,7 +281,7 @@ void main() {
         for (int j = 0; j < 4; j++) {
             row_sum = row_sum + matrix[i][j];
         }
-        println("  Row %d sum: %d", i, row_sum);
+        println("  Row {i} sum: {row_sum}");
     }
     
     // 統計情報

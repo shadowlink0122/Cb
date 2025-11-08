@@ -1,0 +1,50 @@
+// Test: Cooperative multitasking
+// 複数のタスクが協調的に実行されることを確認
+
+import stdlib.std.time;
+
+async void worker(int id, int steps) {
+    for (int i = 0; i < steps; i++) {
+        println("Worker {id}: Step {i + 1}/{steps}");
+        yield;  // 他のタスクに処理を譲る
+    }
+    println("Worker {id}: Completed");
+}
+
+async void counter(string name, int max) {
+    int count = 0;
+    while (count < max) {
+        println("{name}: count = {count}");
+        count++;
+        yield;
+    }
+    println("{name}: Done");
+}
+
+void main() {
+    println("=== Test: Cooperative Multitasking ===\n");
+    
+    // テスト1: 複数のworkerが協調動作
+    println("[Test 1] Multiple workers:");
+    worker(1, 3);
+    worker(2, 3);
+    worker(3, 3);
+    await sleep(100);
+    println("");
+    
+    // テスト2: 異なるタスクタイプの混在
+    println("[Test 2] Mixed task types:");
+    worker(10, 4);
+    counter("Counter", 4);
+    await sleep(100);
+    println("");
+    
+    // テスト3: 不均等なワークロード
+    println("[Test 3] Unbalanced workload:");
+    worker(20, 2);
+    worker(21, 5);
+    worker(22, 3);
+    await sleep(150);
+    
+    println("\n=== All cooperative tests completed ===");
+}

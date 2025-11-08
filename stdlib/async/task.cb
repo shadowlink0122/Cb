@@ -1,0 +1,64 @@
+// Task - 非同期タスクの基本単位
+// Part of v0.11.0 Week 3 Day 1: Event Loop Implementation
+//
+// タスクは Event Loop で実行される作業の単位を表します。
+// 優先度、ID、コールバック情報を持ちます。
+
+export struct Task {
+    int task_id;        // タスクの一意なID
+    int priority;       // 優先度（0 = 最高優先度、値が小さいほど優先）
+    int callback_type;  // コールバックの種類（0=TaskA, 1=TaskB, etc.）
+    void* data;         // タスクデータ（将来的に使用）
+};
+
+// タスク作成ヘルパー関数（リテラル初期化を使用）
+export Task task_create(int id, int priority, int callback_type) {
+    Task t = {id, priority, callback_type, nullptr};
+    return t;
+}
+
+// タスク情報を表示
+export void task_print(Task& t) {
+    println("[Task] id=%d, priority=%d, callback_type=%d", 
+            t.task_id, t.priority, t.callback_type);
+}
+
+// タスクの優先度比較（小さい値が高優先度）
+export bool task_has_higher_priority(Task& a, Task& b) {
+    return a.priority < b.priority;
+}
+
+void test_task_basic() {
+    println("=== Task Basic Test ===");
+    
+    // Test 1: タスク作成
+    println("\n--- Test 1: Create tasks ---");
+    Task task1 = task_create(1, 0, 0);  // Highest priority
+    Task task2 = task_create(2, 5, 1);  // Medium priority
+    Task task3 = task_create(3, 10, 0); // Low priority
+    
+    task_print(task1);
+    task_print(task2);
+    task_print(task3);
+    
+    // Test 2: 優先度比較
+    println("\n--- Test 2: Priority comparison ---");
+    
+    if (task_has_higher_priority(task1, task2)) {
+        println("✅ task1 has higher priority than task2");
+    }
+    
+    if (task_has_higher_priority(task2, task3)) {
+        println("✅ task2 has higher priority than task3");
+    }
+    
+    if (!task_has_higher_priority(task3, task1)) {
+        println("✅ task3 does not have higher priority than task1");
+    }
+    
+    println("\nTask basic test complete");
+}
+
+void main() {
+    test_task_basic();
+}

@@ -24,9 +24,9 @@ struct Contact {
 };
 
 void print_person(Person& p) {
-    println("Person ID: %d", p.id);
-    println("  Zip Code: %d", p.address.zip_code);
-    println("  Building: %d", p.address.building_number);
+    println("Person ID: {p.id}");
+    println("  Zip Code: {p.address.zip_code}");
+    println("  Building: {p.address.building_number}");
 }
 
 void main() {
@@ -68,11 +68,11 @@ void main() {
     
     if (person1.contacts != nullptr) {
         Contact* c = person1.contacts;
-        println("  Contact Type: %d", (*c).type);
+        println("  Contact Type: {(*c).type}");
         
         if ((*c).related_person != nullptr) {
             Person* related = (*c).related_person;
-            println("  Related Person ID: %d", (*related).id);
+            println("  Related Person ID: {(*related).id}");
         }
     }
     
@@ -81,11 +81,11 @@ void main() {
     
     if (person2.contacts != nullptr) {
         Contact* c = person2.contacts;
-        println("  Contact Type: %d", (*c).type);
+        println("  Contact Type: {(*c).type}");
         
         if ((*c).related_person != nullptr) {
             Person* related = (*c).related_person;
-            println("  Related Person ID: %d", (*related).id);
+            println("  Related Person ID: {(*related).id}");
         }
     }
     

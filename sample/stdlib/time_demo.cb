@@ -1,0 +1,139 @@
+// time_demo.cb - Time module の使用例
+// 時刻の取得と計測機能を示すサンプル
+// 
+// Time module の関数は標準で利用可能:
+// - now(): 現在時刻を取得 (ミリ秒)
+// - sleep(ms): 指定ミリ秒待機
+
+void demonstrate_now() {
+    println("=== now() 関数のデモ ===");
+    println("現在時刻の取得:");
+    
+    unsigned long current = now();
+    println("  now() = {current} ms");
+    println("");
+}
+
+void demonstrate_sleep() {
+    println("=== sleep() 関数のデモ ===");
+    println("sleep()を使った待機:");
+    
+    println("  100ms待機開始...");
+    unsigned long start = now();
+    sleep(100);
+    unsigned long elapsed = now() - start;
+    println("  経過時間: {elapsed} ms");
+    println("");
+}
+
+void demonstrate_timing() {
+    println("=== 処理時間の計測 ===");
+    
+    // 軽い処理の計測
+    println("1. 簡単な計算の時間:");
+    unsigned long start1 = now();
+    int sum = 0;
+    for (int i = 0; i < 1000; i = i + 1) {
+        sum = sum + i;
+    }
+    unsigned long elapsed1 = now() - start1;
+    println("  1000回のループ: {elapsed1} ms");
+    println("  結果: {sum}");
+    println("");
+    
+    // sleep を使った明示的な待機
+    println("2. sleep() を使った待機:");
+    unsigned long start2 = now();
+    sleep(50);
+    unsigned long elapsed2 = now() - start2;
+    println("  50ms sleep: {elapsed2} ms");
+    println("");
+}
+
+void demonstrate_benchmarking() {
+    println("=== ベンチマーク例 ===");
+    println("配列操作の時間計測:");
+    
+    int[100] arr;
+    int size = 100;
+    
+    // 配列初期化の時間
+    unsigned long start = now();
+    for (int i = 0; i < size; i = i + 1) {
+        arr[i] = i * 2;
+    }
+    unsigned long init_time = now() - start;
+    println("  初期化時間: {init_time} ms");
+    
+    // 配列検索の時間
+    start = now();
+    int found = 0;
+    for (int i = 0; i < size; i = i + 1) {
+        if (arr[i] == 150) {
+            found = i;
+        }
+    }
+    unsigned long search_time = now() - start;
+    println("  検索時間: {search_time} ms");
+    println("  見つかった位置: {found}");
+    println("");
+}
+
+void demonstrate_multiple_measurements() {
+    println("=== 複数回計測の平均 ===");
+    println("sleep(10) を 5回実行:");
+    
+    unsigned long total = 0;
+    for (int i = 0; i < 5; i = i + 1) {
+        unsigned long start = now();
+        sleep(10);
+        unsigned long elapsed = now() - start;
+        println("  試行{i + 1}: {elapsed} ms");
+        total = total + elapsed;
+    }
+    
+    unsigned long average = total / 5;
+    println("  平均: {average} ms");
+    println("");
+}
+
+int main() {
+    println("====================================");
+    println("  Time Module デモンストレーション");
+    println("====================================");
+    println("");
+    
+    // 1. 現在時刻の取得
+    demonstrate_now();
+    
+    // 2. sleep() の使用
+    demonstrate_sleep();
+    
+    // 3. 処理時間の計測
+    demonstrate_timing();
+    
+    // 4. ベンチマーク例
+    demonstrate_benchmarking();
+    
+    // 5. 複数回計測
+    demonstrate_multiple_measurements();
+    
+    println("====================================");
+    println("デモ完了！");
+    println("");
+    
+    // 実用的な使い方のまとめ
+    println("【実用的な使い方】");
+    println("1. パフォーマンス計測:");
+    println("   let start = now();");
+    println("   // 処理実行");
+    println("   let elapsed = now() - start;");
+    println("");
+    println("2. 定期的な処理:");
+    println("   while で条件判定しながら sleep() で待機");
+    println("");
+    println("3. タイムアウト実装:");
+    println("   let start = now();");
+    println("   開始時刻からの経過時間で判定");
+    println("====================================");
+}

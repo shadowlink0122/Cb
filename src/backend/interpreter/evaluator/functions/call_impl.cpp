@@ -34,6 +34,7 @@
 #include <windows.h>
 #else
 #include <unistd.h>
+#include <sys/time.h>  // for gettimeofday()
 #endif
 
 int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
@@ -3105,7 +3106,8 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
             "memcmp",
             "run_event_loop",    // v0.13.0 Phase 2.0: SimpleEventLoop execution
             "concurrent_await",  // v0.12.0 Phase 8: concurrent execution
-            "sleep"};            // v0.12.0: Sleep function (milliseconds)
+            "sleep",             // v0.12.0: Sleep function (milliseconds)
+            "now"};              // v0.12.0: Get current time in milliseconds
 
         bool is_builtin = false;
         for (const auto &builtin_name : builtin_function_names) {
@@ -3288,6 +3290,44 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
             throw std::runtime_error(
                 "concurrent_await() is not implemented in Phase 1. "
                 "Phase 1 only supports sequential async/await execution.");
+        }
+
+        // now() - 現在時刻をエポックからのミリ秒で取得 (v0.12.0)
+        if (node->name == "now") {
+            if (node->arguments.size() != 0) {
+                throw std::runtime_error("now() takes no arguments");
+            }
+
+#ifdef _WIN32
+            // Windows: GetSystemTimeAsFileTime()を使用
+            FILETIME ft;
+            GetSystemTimeAsFileTime(&ft);
+
+            // FILETIMEは100ナノ秒単位、1601/1/1からの経過時間
+            ULARGE_INTEGER ull;
+            ull.LowPart = ft.dwLowDateTime;
+            ull.HighPart = ft.dwHighDateTime;
+
+            // UNIXエポック(1970/1/1)との差分: 116444736000000000 * 100ns
+            const uint64_t EPOCH_DIFF = 116444736000000000ULL;
+            uint64_t timestamp_100ns = ull.QuadPart - EPOCH_DIFF;
+
+            // 100ナノ秒 → ミリ秒に変換
+            int64_t timestamp_ms =
+                static_cast<int64_t>(timestamp_100ns / 10000);
+
+            return timestamp_ms;
+#else
+            // POSIX (Linux, macOS): gettimeofday()を使用
+            struct timeval tv;
+            gettimeofday(&tv, nullptr);
+
+            // 秒をミリ秒に変換 + マイクロ秒をミリ秒に変換
+            int64_t timestamp_ms = static_cast<int64_t>(tv.tv_sec) * 1000 +
+                                   static_cast<int64_t>(tv.tv_usec) / 1000;
+
+            return timestamp_ms;
+#endif
         }
 
         // sleep(milliseconds) - スリープ関数 (v0.12.0)

@@ -69,8 +69,7 @@ void init_knapsack(int item_count, int capacity) {
 
 // アイテム情報の表示
 void print_item(int idx) {
-    println("  Item %d: weight=%d, value=%d, selected=%d", 
-            items[idx].id, items[idx].weight, items[idx].value, items[idx].selected);
+    println("  Item {items[idx].id}: weight={items[idx].weight}, value={items[idx].value}, selected={items[idx].selected}");
 }
 
 // アイテム一覧の表示
@@ -90,7 +89,7 @@ void main() {
     int capacity = 15;   // ナップサック容量
     
     println("Initializing knapsack problem...");
-    println("Items: %d, Capacity: %d\n", n, capacity);
+    println("Items: {n}, Capacity: {capacity}\n");
     init_knapsack(n, capacity);
     
     // アイテムの設定（構造体配列を使用）
@@ -152,7 +151,7 @@ void main() {
     // 最大価値の取得
     knapsack.max_value = dp[n][capacity];
     println("\n=== Results ===");
-    println("Maximum value with capacity %d: %d", capacity, knapsack.max_value);
+    println("Maximum value with capacity {capacity}: {knapsack.max_value}");
     
     // 選択されたアイテムの追跡
     println("\n=== Backtracking Selected Items ===");
@@ -170,23 +169,20 @@ void main() {
         }
     }
     
-    println("Selected %d items (total weight: %d / %d):", 
-            selected_count, total_weight, capacity);
+    println("Selected {selected_count} items (total weight: {total_weight} / {capacity}):");
     
     for (int i = 0; i < n; i++) {
         if (items[i].selected) {
-            println("  ✓ Item %d: weight=%d, value=%d", 
-                    items[i].id, items[i].weight, items[i].value);
+            println("  ✓ Item {items[i].id}: weight={items[i].weight}, value={items[i].value}");
         }
     }
     
     // 統計情報
     println("\n=== Statistics ===");
-    println("Total items available: %d", n);
-    println("Items selected: %d", selected_count);
-    println("Capacity utilization: %d / %d (%.1f%%)", 
-            total_weight, capacity, (total_weight * 100) / capacity);
-    println("Maximum value achieved: %d", knapsack.max_value);
+    println("Total items available: {n}");
+    println("Items selected: {selected_count}");
+    println("Capacity utilization: {total_weight} / {capacity} ({(total_weight * 100) / capacity}%)");
+    println("Maximum value achieved: {knapsack.max_value}");
     
     // 効率性の分析
     println("\n=== Efficiency Analysis ===");
@@ -194,8 +190,7 @@ void main() {
     for (int i = 0; i < n; i++) {
         if (items[i].selected) {
             int ratio = (items[i].value * 10) / items[i].weight;
-            println("  Item %d: %d.%d value/weight", 
-                    items[i].id, ratio / 10, ratio % 10);
+            println("  Item {items[i].id}: {ratio / 10}.{ratio % 10} value/weight");
         }
     }
     
@@ -205,6 +200,6 @@ void main() {
     println("  - Knapsack struct: manages problem configuration");
     println("  - 2D DP array: stores optimal solutions for subproblems");
     println("Algorithm: Dynamic Programming (bottom-up approach)");
-    println("Time Complexity: O(n * W) where n=%d, W=%d", n, capacity);
+    println("Time Complexity: O(n * W) where n={n}, W={capacity}");
     println("Space Complexity: O(n * W) for DP table");
 }

@@ -36,17 +36,17 @@ void inorder_traversal(TreeNode* node) {
 
 // グラフノードの情報を表示
 void print_graph_node(GraphNode& gnode) {
-    println("GraphNode[id=%d]:", gnode.id);
+    println("GraphNode[id={gnode.id}]:");
     
     if (gnode.tree_ref != nullptr) {
         TreeNode* tnode = gnode.tree_ref;
         int tree_val = (*tnode).value;
-        println("  -> TreeNode[value=%d]", tree_val);
+        println("  -> TreeNode[value={tree_val}]");
         
         if ((*tnode).graph_ref != nullptr) {
             GraphNode* back_ref = (*tnode).graph_ref;
             int back_id = (*back_ref).id;
-            println("  -> (back to GraphNode[id=%d])", back_id);
+            println("  -> (back to GraphNode[id={back_id}])");
         }
     }
 }
@@ -105,17 +105,17 @@ void main() {
     
     // 相互参照のテスト
     println("\n=== Cross-Reference Test ===");
-    println("Starting from GraphNode g1 (id=%d):", g1.id);
+    println("Starting from GraphNode g1 (id={g1.id}):");
     
     if (g1.tree_ref != nullptr) {
         TreeNode* t = g1.tree_ref;
         int tval = (*t).value;
-        println("  -> TreeNode (value=%d)", tval);
+        println("  -> TreeNode (value={tval})");
         
         if ((*t).graph_ref != nullptr) {
             GraphNode* g = (*t).graph_ref;
             int gid = (*g).id;
-            println("  -> GraphNode (id=%d)", gid);
+            println("  -> GraphNode (id={gid})");
             
             if (gid == g1.id) {
                 println("  -> Successfully returned to g1!");

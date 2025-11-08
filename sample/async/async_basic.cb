@@ -1,0 +1,51 @@
+// Async/Await Basic Example
+// 非同期処理の基本的な使い方を示すサンプル
+
+import stdlib.std.time;
+
+// 非同期タスク: データのダウンロードをシミュレート
+async void download_file(string filename, int duration_ms) {
+    println("Downloading {filename}...");
+    sleep(duration_ms);
+    println("{filename} downloaded!");
+}
+
+// 非同期タスク: データ処理をシミュレート
+async void process_data(string data, int duration_ms) {
+    println("Processing {data}...");
+    sleep(duration_ms);
+    println("{data} processed!");
+}
+
+void main() {
+    println("=== Async/Await Basic Example ===\n");
+    
+    // 例1: 順次実行（await使用）
+    println("[Example 1] Sequential execution with await:");
+    long start1 = now();
+    await download_file("file1.txt", 400);
+    await download_file("file2.txt", 100);
+    long end1 = now();
+    println("Time: {end1 - start1}ms (expected: ~500ms)\n");
+    
+    // 例2: 並行実行（awaitなし + 最後にawait sleep）
+    println("[Example 2] Concurrent execution without await:");
+    long start2 = now();
+    download_file("file3.txt", 400);  // バックグラウンドで実行
+    download_file("file4.txt", 100);  // バックグラウンドで実行
+    await sleep(200);  // タスクの完了を待つ
+    long end2 = now();
+    println("Time: {end2 - start2}ms (expected: ~ 200ms)\n");
+    
+    // 例3: 混合パターン
+    println("[Example 3] Mixed pattern:");
+    long start3 = now();
+    await download_file("file5.txt", 80);     // 順次実行
+    process_data("data1", 80);                // バックグラウンド実行
+    await process_data("data2", 80);          // 順次実行
+    await sleep(90);                          // data1の完了を待つ
+    long end3 = now();
+    println("Time: {end3 - start3}ms (expected: ~250ms)\n");
+    
+    println("=== All Examples Completed ===");
+}

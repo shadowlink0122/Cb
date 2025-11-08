@@ -235,9 +235,7 @@ void update_node_distance(int node_id, int new_dist, int prev) {
 
 // ノードの情報を表示
 void print_node_info(int node_id) {
-    println("  Node %d: distance=%d, visited=%d, prev=%d", 
-            node_id, nodes[node_id].distance, 
-            nodes[node_id].visited, nodes[node_id].prev_node);
+    println("  Node {node_id}: distance={nodes[node_id].distance}, visited={nodes[node_id].visited}, prev={nodes[node_id].prev_node}");
 }
 
 // ダイクストラ法の実行（Interface/Implを使った優先度キュー版）
@@ -249,7 +247,7 @@ void dijkstra(int start, PriorityQueue& pq) {
     update_node_distance(start, 0, -1);
     
     println("\n=== Executing Dijkstra's Algorithm ===");
-    println("Starting from node %d", start);
+    println("Starting from node {start}");
     println("Using Interface-based Priority Queue (Min-Heap)\n");
     
     // 優先度キューに開始ノードを追加
@@ -270,8 +268,7 @@ void dijkstra(int start, PriorityQueue& pq) {
         nodes[current].visited = true;
         iteration++;
         
-        println("Iteration %d: Processing node %d (distance: %d, queue_size: %d)", 
-                iteration, current, nodes[current].distance, pq.size());
+        println("Iteration {iteration}: Processing node {current} (distance: {nodes[current].distance}, queue_size: {pq.size()})");
         
         // 隣接ノードの距離を更新
         int updates = 0;
@@ -284,8 +281,7 @@ void dijkstra(int start, PriorityQueue& pq) {
                 if (new_distance < nodes[neighbor].distance) {
                     update_node_distance(neighbor, new_distance, current);
                     pq.push(neighbor, new_distance);
-                    println("  -> Updated node %d: distance = %d (via node %d)", 
-                            neighbor, new_distance, current);
+                    println("  -> Updated node {neighbor}: distance = {new_distance} (via node {current})");
                     updates++;
                 }
             }
@@ -296,17 +292,17 @@ void dijkstra(int start, PriorityQueue& pq) {
         }
     }
     
-    println("\nAlgorithm completed in %d iterations", iteration);
+    println("\nAlgorithm completed in {iteration} iterations");
 }
 
 // 経路の復元と表示
 void print_path(int start, int end) {
     if (nodes[end].distance == INF) {
-        println("No path exists from %d to %d", start, end);
+        println("No path exists from {start} to {end}");
         return;
     }
     
-    println("Path from %d to %d (distance: %d):", start, end, nodes[end].distance);
+    println("Path from {start} to {end} (distance: {nodes[end].distance}):");
     
     // 経路を配列に格納（逆順）
     int[8] path;
@@ -331,21 +327,14 @@ void print_path(int start, int end) {
 // 結果の表示
 void print_results(int start) {
     println("\n=== Dijkstra's Algorithm Results ===");
-    println("Starting from node: %d", start);
+    println("Starting from node: {start}");
     println("\nShortest distances:");
     
     for (int i = 0; i < graph.node_count; i++) {
         if (nodes[i].distance == INF) {
-            println("Node %d: UNREACHABLE", i);
+            println("Node {i}: UNREACHABLE");
         } else {
-            println("Node %d: distance = %d", i, nodes[i].distance);
-        }
-    }
-    
-    println("\nShortest paths:");
-    for (int i = 0; i < graph.node_count; i++) {
-        if (i != start && nodes[i].distance != INF) {
-            print_path(start, i);
+            println("Node {i}: distance = {nodes[i].distance}");
         }
     }
 }
@@ -353,12 +342,11 @@ void print_results(int start) {
 // グラフの構造を表示
 void print_graph() {
     println("=== Graph Structure ===");
-    println("Nodes: %d, Edges: %d", graph.node_count, graph.edge_count);
+    println("Nodes: {graph.node_count}, Edges: {graph.edge_count}");
     println("\nEdge list:");
     
     for (int i = 0; i < graph.edge_count; i++) {
-        println("  Edge %d: %d -> %d (weight: %d)", 
-                i, edges[i].from, edges[i].to, edges[i].weight);
+        println("  Edge {i}: {edges[i].from} -> {edges[i].to} (weight: {edges[i].weight})");
     }
     
     println("\nAdjacency information:");
@@ -412,7 +400,7 @@ void main() {
     add_edge(5, 4, 4);   // 5 -> 4: cost 4
     add_edge(6, 5, 1);   // 6 -> 5: cost 1
     
-    println("Graph created with %d nodes and %d edges\n", graph.node_count, graph.edge_count);
+    println("Graph created with {graph.node_count} nodes and {graph.edge_count} edges\n");
     
     // グラフ構造の表示
     print_graph();
@@ -436,8 +424,8 @@ void main() {
     for (int i = 0; i < graph.node_count; i++) {
         if (nodes[i].distance != INF) reachable++;
     }
-    println("Reachable nodes: %d / %d", reachable, graph.node_count);
-    println("Total edges: %d", graph.edge_count);
+    println("Reachable nodes: {reachable} / {graph.node_count}");
+    println("Total edges: {graph.edge_count}");
     
     // 最短経路と最長経路
     int shortest_dist = INF;
@@ -459,8 +447,8 @@ void main() {
     }
     
     if (shortest_node != -1) {
-        println("Shortest path: to node %d (distance: %d)", shortest_node, shortest_dist);
-        println("Longest path: to node %d (distance: %d)", longest_node, longest_dist);
+        println("Shortest path: to node {shortest_node} (distance: {shortest_dist})");
+        println("Longest path: to node {longest_node} (distance: {longest_dist})");
     }
     
     // パフォーマンス情報
